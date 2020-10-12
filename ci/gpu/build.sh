@@ -56,7 +56,9 @@ conda install -c conda-forge -c rapidsai -c rapidsai-nightly -c nvidia \
       "rapids-doc-env=$MINOR_VERSION.*"
 
 # https://docs.rapids.ai/maintainers/depmgmt/
-# conda remove -f rapids-build-env rapids-notebook-env
+conda remove -f rapids-build-env rapids-notebook-env
+conda remove --force-remove libfaiss
+conda install -c conda-forge libfaiss
 # conda install "your-pkg=1.0.0"
 
 
@@ -110,7 +112,7 @@ if [[ -z "$PROJECT_FLASH" || "$PROJECT_FLASH" == "0" ]]; then
     set +e -Eo pipefail
     EXITCODE=0
     trap "EXITCODE=1" ERR
-    
+
     if hasArg --skip-tests; then
         logger "Skipping Tests..."
         exit 0
@@ -123,7 +125,7 @@ if [[ -z "$PROJECT_FLASH" || "$PROJECT_FLASH" == "0" ]]; then
     cd $WORKSPACE/cpp/build
     GTEST_OUTPUT="xml:${WORKSPACE}/test-results/libcuml_cpp/" ./test/ml
 
-    
+
     logger "Python pytest for cuml..."
     cd $WORKSPACE/python
 
@@ -160,7 +162,7 @@ else
     #Project Flash
     export LIBCUML_BUILD_DIR="$WORKSPACE/ci/artifacts/cuml/cpu/conda_work/cpp/build"
     export LD_LIBRARY_PATH="$LIBCUML_BUILD_DIR:$LD_LIBRARY_PATH"
-    
+
     if hasArg --skip-tests; then
         logger "Skipping Tests..."
         exit 0
@@ -183,7 +185,7 @@ else
 
     logger "Installing libcuml..."
     conda install -c $WORKSPACE/ci/artifacts/cuml/cpu/conda-bld/ libcuml
-        
+
     logger "Building cuml"
     "$WORKSPACE/build.sh" -v cuml
 
