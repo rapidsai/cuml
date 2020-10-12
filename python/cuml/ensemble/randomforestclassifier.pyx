@@ -53,7 +53,6 @@ cimport cuml.common.cuda
 cimport cython
 
 
-
 cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
 
     cdef void fit(handle_t& handle,
