@@ -490,6 +490,8 @@ void DecisionTreeRegressor<T>::grow_deep_tree(
   const int n_sampled_rows, const int ncols, const float colper,
   const int nrows, std::vector<SparseTreeNode<T, T>> &sparsetree,
   const int treeid, std::shared_ptr<TemporaryMemory<T, T>> tempmem) {
+
+  ML::PUSH_RANGE("DecisionTreeRegressor::grow_deep_tree @decisiontree_impl.cuh");
   int leaf_cnt = 0;
   int depth_cnt = 0;
   grow_deep_tree_regression(data, labels, rowids, ncols, colper, n_sampled_rows,
@@ -497,6 +499,7 @@ void DecisionTreeRegressor<T>::grow_deep_tree(
                             sparsetree, treeid, tempmem);
   this->depth_counter = depth_cnt;
   this->leaf_counter = leaf_cnt;
+  ML::POP_RANGE();
 }
 
 //Class specializations

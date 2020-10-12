@@ -442,6 +442,8 @@ template <typename T>
 void rfRegressor<T>::fit(const raft::handle_t& user_handle, const T* input,
                          int n_rows, int n_cols, T* labels,
                          RandomForestMetaData<T, T>*& forest) {
+  ML::PUSH_RANGE("rfRegressor::fit @randomforest_impl.cuh");
+ #pragma region
   this->error_checking(input, labels, n_rows, n_cols, false);
 
   const raft::handle_t& handle = user_handle;
@@ -528,6 +530,9 @@ void rfRegressor<T>::fit(const raft::handle_t& user_handle, const T* input,
   }
 
   CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
+
+ #pragma endregion
+  ML::POP_RANGE();
 }
 
 /**

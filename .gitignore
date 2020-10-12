@@ -54,3 +54,6 @@ docs/source/*.model
 
 ## doxygen build check inside ci/checks/style.sh
 doxygen_check/
+
+## ctag file
+.tags
