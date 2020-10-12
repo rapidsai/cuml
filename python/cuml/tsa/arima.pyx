@@ -170,15 +170,11 @@ class ARIMA(Base):
 
     Attributes
     ----------
-    order : Tuple[int, int, int]
-        The ARIMA order (p, d, q) of the model
-    seasonal_order: Tuple[int, int, int, int]
-        The seasonal ARIMA order (P, D, Q, s) of the model
-    intercept : bool or int
-        Whether the model includes a constant trend mu
+    order : ARIMAOrder
+        The ARIMA order of the model (p, d, q, P, D, Q, s, k)
     d_y: device array
         Time series data on device
-    num_samples: int
+    n_obs: int
         Number of observations
     batch_size: int
         Number of time series in the batch
