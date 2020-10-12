@@ -124,8 +124,9 @@ class LogisticRegression(Base, ClassifierMixin):
     linesearch_max_iter: int (default = 50)
         Max number of linesearch iterations per outer iteration used in the
         lbfgs and owl QN solvers.
-    verbose : int or boolean (default = False)
-        Controls verbose level of logging.
+    verbose : int or boolean, default=False
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        See :ref:`verbosity-levels` for more info.
     l1_ratio: float or None, optional (default=None)
         The Elastic-Net mixing parameter, with `0 <= l1_ratio <= 1`
     solver: 'qn', 'lbfgs', 'owl' (default='qn').
@@ -134,6 +135,18 @@ class LogisticRegression(Base, ClassifierMixin):
         depending on the conditions of the l1 regularization described
         above. Options 'lbfgs' and 'owl' are just convenience values that
         end up using the same solver following the same rules.
+    handle : cuml.Handle
+        Specifies the cuml.handle that holds internal CUDA state for
+        computations in this model. Most importantly, this specifies the CUDA
+        stream that will be used for the model's computations, so users can
+        run different models concurrently in different streams by creating
+        handles in several streams.
+        If it is None, a new one is created.
+    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
+        Variable to control output type of the results and attributes of
+        the estimator. If None, it'll inherit the output type set at the
+        module level, `cuml.global_output_type`.
+        See :ref:`output-data-type-configuration` for more info.
 
     Attributes
     -----------
@@ -388,11 +401,12 @@ class LogisticRegression(Base, ClassifierMixin):
         return proba.to_output(out_type)
 
     def get_param_names(self):
-        return [
-            "C",
+        return super().get_param_names() + [
             "penalty",
             "tol",
+            "C",
             "fit_intercept",
+            "class_weight",
             "max_iter",
             "linesearch_max_iter",
             "l1_ratio",
