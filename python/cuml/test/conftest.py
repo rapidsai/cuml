@@ -1,18 +1,35 @@
 import os
-
+import sys
 import cupy as cp
 import cupyx
 import pytest
 from pytest import Item
 from sklearn.datasets import fetch_20newsgroups
 from sklearn.feature_extraction.text import CountVectorizer
-from cuml.dask.preprocessing.LabelEncoder import LabelEncoder as dask_label
-from cuml.preprocessing.LabelEncoder import LabelEncoder
 import numbers
+
 
 # Stores incorrect uses of CumlArray on cuml.common.base.Base to print at the
 # end
 bad_cuml_array_loc = set()
+
+
+def checked_isinstance(obj, class_path_list):
+    """
+    Small helper function to check instance of object that doesn't import
+    class_path at import time, only at check time. Returns False if
+    class_path cannot be imported.
+    """
+    ret = False
+    for class_path in class_path_list:
+        module_name, class_name = class_path.rsplit(".", 1)
+        module = sys.modules[module_name]
+        module_class = getattr(module, class_name, None)
+
+        if module_class is not None:
+            ret = isinstance(obj, module_class) or ret
+
+    return ret
 
 
 def pytest_configure(config):
@@ -110,9 +127,10 @@ def fail_on_bad_cuml_array_name(monkeypatch, request):
 
     def patched__setattr__(self, name, value):
 
-        if name == 'classes_' and isinstance(self,
-                                             (LabelEncoder,
-                                              dask_label)):
+        if name == 'classes_' and \
+                checked_isinstance(self,
+                                   ['cuml.dask.preprocessing.LabelEncoder',
+                                    'cuml.preprocessing.LabelEncoder']):
             # For label encoder, classes_ stores the set of unique classes
             # which is strings, and can't be saved as cuml array
             # even called `get_supported_input_type` causes a failure.
