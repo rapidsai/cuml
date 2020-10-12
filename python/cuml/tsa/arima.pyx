@@ -378,8 +378,8 @@ class ARIMA(Base):
 
     @property
     def params(self):
-        """Fit parameters of the model
-        
+        """The fit parameters
+
         A dictionary of parameter names and associated arrays
         The key names are in {"mu", "ar", "ma", "sar", "sma", "sigma2"}
         The shape of the arrays are (batch_size,) for mu and sigma2 and
