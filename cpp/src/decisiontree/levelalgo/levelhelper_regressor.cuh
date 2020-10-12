@@ -25,8 +25,8 @@ void initial_metric_regression(const T *labels, unsigned int *sample_cnt,
                                const int nrows, T &mean, unsigned int &count,
                                T &initial_metric,
                                std::shared_ptr<TemporaryMemory<T, T>> tempmem) {
-
-  ML::PUSH_RANGE("DecisionTree::initial_metric_classification @levelhelper_regressor.cuh");
+  ML::PUSH_RANGE(
+    "DecisionTree::initial_metric_classification @levelhelper_regressor.cuh");
   CUDA_CHECK(
     cudaMemsetAsync(tempmem->d_mseout->data(), 0, sizeof(T), tempmem->stream));
   CUDA_CHECK(
@@ -66,8 +66,8 @@ void get_mse_regression_fused(const T *data, const T *labels,
                               std::shared_ptr<TemporaryMemory<T, T>> tempmem,
                               T *d_mseout, T *d_predout,
                               unsigned int *d_count) {
-
-  ML::PUSH_RANGE("DecisionTree::get_mse_regression_fused @levelhelper_regressor.cuh");
+  ML::PUSH_RANGE(
+    "DecisionTree::get_mse_regression_fused @levelhelper_regressor.cuh");
   size_t predcount = ncols_sampled * nbins * n_nodes;
   CUDA_CHECK(
     cudaMemsetAsync(d_mseout, 0, 2 * predcount * sizeof(T), tempmem->stream));
@@ -129,7 +129,6 @@ void get_mse_regression(const T *data, const T *labels, unsigned int *flags,
                         const int split_algo,
                         std::shared_ptr<TemporaryMemory<T, T>> tempmem,
                         T *d_mseout, T *d_predout, unsigned int *d_count) {
-
   ML::PUSH_RANGE("DecisionTree::get_mse_regression @levelhelper_regressor.cuh");
   size_t predcount = ncols_sampled * nbins * n_nodes;
   CUDA_CHECK(

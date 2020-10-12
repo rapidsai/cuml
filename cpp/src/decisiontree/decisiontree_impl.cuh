@@ -258,9 +258,8 @@ void DecisionTreeBase<T, L>::plant(
   std::vector<SparseTreeNode<T, L>> &sparsetree, const T *data, const int ncols,
   const int nrows, const L *labels, unsigned int *rowids,
   const int n_sampled_rows, int unique_labels, const int treeid) {
-
   ML::PUSH_RANGE("DecisionTreeBase::plant @decisiontree_impl.cuh");
- #pragma region
+#pragma region
   dinfo.NLocalrows = nrows;
   dinfo.NGlobalrows = nrows;
   dinfo.Ncols = ncols;
@@ -351,7 +350,7 @@ void DecisionTreeBase<T, L>::plant(
                    treeid, tempmem);
   }
   train_time = timer.getElapsedSeconds();
- #pragma endregion
+#pragma endregion
   ML::POP_RANGE();
 }
 
@@ -533,7 +532,8 @@ void DecisionTreeClassifier<T>::grow_deep_tree(
   const int n_sampled_rows, const int ncols, const float colper,
   const int nrows, std::vector<SparseTreeNode<T, int>> &sparsetree,
   const int treeid, std::shared_ptr<TemporaryMemory<T, int>> tempmem) {
-  ML::PUSH_RANGE("DecisionTreeClassifier::grow_deep_tree @decisiontree_impl.cuh");
+  ML::PUSH_RANGE(
+    "DecisionTreeClassifier::grow_deep_tree @decisiontree_impl.cuh");
   int leaf_cnt = 0;
   int depth_cnt = 0;
   grow_deep_tree_classification(data, labels, rowids, ncols, colper,
@@ -551,8 +551,8 @@ void DecisionTreeRegressor<T>::grow_deep_tree(
   const int n_sampled_rows, const int ncols, const float colper,
   const int nrows, std::vector<SparseTreeNode<T, T>> &sparsetree,
   const int treeid, std::shared_ptr<TemporaryMemory<T, T>> tempmem) {
-
-  ML::PUSH_RANGE("DecisionTreeRegressor::grow_deep_tree @decisiontree_impl.cuh");
+  ML::PUSH_RANGE(
+    "DecisionTreeRegressor::grow_deep_tree @decisiontree_impl.cuh");
   int leaf_cnt = 0;
   int depth_cnt = 0;
   grow_deep_tree_regression(data, labels, rowids, ncols, colper, n_sampled_rows,

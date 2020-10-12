@@ -17,7 +17,7 @@
 #include <common/cudart_utils.h>
 #include "levelkernel_classifier.cuh"
 
-#include<common/nvtx.hpp>
+#include <common/nvtx.hpp>
 
 namespace ML {
 namespace DecisionTree {
@@ -27,7 +27,8 @@ void initial_metric_classification(
   const int *labels, unsigned int *sample_cnt, const int nrows,
   const int n_unique_labels, std::vector<unsigned int> &histvec,
   T &initial_metric, std::shared_ptr<TemporaryMemory<T, int>> tempmem) {
-  ML::PUSH_RANGE("DecisionTree::initial_metric_classification @levelhelper_classifier.cuh");
+  ML::PUSH_RANGE(
+    "DecisionTree::initial_metric_classification @levelhelper_classifier.cuh");
   CUDA_CHECK(cudaMemsetAsync(tempmem->d_parent_hist->data(), 0,
                              n_unique_labels * sizeof(unsigned int),
                              tempmem->stream));
@@ -54,7 +55,8 @@ void get_histogram_classification(
   const int ncols_sampled, const int n_unique_labels, const int nbins,
   const int n_nodes, const int split_algo,
   std::shared_ptr<TemporaryMemory<T, int>> tempmem, unsigned int *histout) {
-  ML::PUSH_RANGE("DecisionTree::get_histogram_classification @levelhelper_classifier.cuh");
+  ML::PUSH_RANGE(
+    "DecisionTree::get_histogram_classification @levelhelper_classifier.cuh");
 
   size_t histcount = ncols_sampled * nbins * n_unique_labels * n_nodes;
   CUDA_CHECK(cudaMemsetAsync(histout, 0, histcount * sizeof(unsigned int),

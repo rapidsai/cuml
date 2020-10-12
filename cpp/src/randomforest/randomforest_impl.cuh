@@ -159,7 +159,7 @@ void rfClassifier<T>::fit(const raft::handle_t& user_handle, const T* input,
                           int n_unique_labels,
                           RandomForestMetaData<T, int>*& forest) {
   ML::PUSH_RANGE("rfClassifer::fit @randomforest_impl.cuh");
- #pragma region
+#pragma region
   this->error_checking(input, labels, n_rows, n_cols, false);
 
   const raft::handle_t& handle = user_handle;
@@ -214,7 +214,7 @@ void rfClassifier<T>::fit(const raft::handle_t& user_handle, const T* input,
     }
   }
 
- #pragma omp parallel for num_threads(n_streams)
+#pragma omp parallel for num_threads(n_streams)
   for (int i = 0; i < this->rf_params.n_trees; i++) {
     int stream_id = omp_get_thread_num();
     unsigned int* rowids;
@@ -250,7 +250,7 @@ void rfClassifier<T>::fit(const raft::handle_t& user_handle, const T* input,
 
   CUDA_CHECK(cudaStreamSynchronize(user_handle.get_stream()));
 
- #pragma endregion
+#pragma endregion
   ML::POP_RANGE();
 }
 
@@ -443,7 +443,7 @@ void rfRegressor<T>::fit(const raft::handle_t& user_handle, const T* input,
                          int n_rows, int n_cols, T* labels,
                          RandomForestMetaData<T, T>*& forest) {
   ML::PUSH_RANGE("rfRegressor::fit @randomforest_impl.cuh");
- #pragma region
+#pragma region
   this->error_checking(input, labels, n_rows, n_cols, false);
 
   const raft::handle_t& handle = user_handle;
@@ -531,7 +531,7 @@ void rfRegressor<T>::fit(const raft::handle_t& user_handle, const T* input,
 
   CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 
- #pragma endregion
+#pragma endregion
   ML::POP_RANGE();
 }
 

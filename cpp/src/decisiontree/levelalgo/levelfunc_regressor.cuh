@@ -43,8 +43,8 @@ void grow_deep_tree_regression(
   const ML::DecisionTree::DecisionTreeParams& tree_params, int& depth_cnt,
   int& leaf_cnt, std::vector<SparseTreeNode<T, T>>& sparsetree,
   const int treeid, std::shared_ptr<TemporaryMemory<T, T>> tempmem) {
-
-  ML::PUSH_RANGE("DecisionTree::grow_deep_tree_classification @levelfunc_regressor.cuh");
+  ML::PUSH_RANGE(
+    "DecisionTree::grow_deep_tree_classification @levelfunc_regressor.cuh");
   const int ncols_sampled = (int)(colper * Ncols);
   unsigned int* flagsptr = tempmem->d_flags->data();
   unsigned int* sample_cnt = tempmem->d_sample_cnt->data();
@@ -184,9 +184,10 @@ void grow_deep_tree_regression(
   int lastsize = sparsetree.size() - sparsesize_nextitr;
   n_nodes = n_nodes_nextitr;
   if (n_nodes == 0) {
-    ML::POP_RANGE(); // gather pahse ended
-    ML::POP_RANGE(); // grow_deep_tree_classification end
-    return;}
+    ML::POP_RANGE();  // gather pahse ended
+    ML::POP_RANGE();  // grow_deep_tree_classification end
+    return;
+  }
   unsigned int *d_nodecount, *d_samplelist, *d_nodestart;
   SparseTreeNode<T, T>* d_sparsenodes;
   SparseTreeNode<T, T>* h_sparsenodes;
@@ -252,9 +253,9 @@ void grow_deep_tree_regression(
                       h_sparsenodes + lastsize);
   }
 
-  ML::POP_RANGE(); // gather phase @levelfunc_regressor.cuh
+  ML::POP_RANGE();  // gather phase @levelfunc_regressor.cuh
 
-  ML::POP_RANGE(); // grow_deep_tree_classification
+  ML::POP_RANGE();  // grow_deep_tree_classification
 }
 
 }  // namespace DecisionTree

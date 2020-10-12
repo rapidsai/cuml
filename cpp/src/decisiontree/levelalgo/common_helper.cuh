@@ -23,7 +23,7 @@
 #include <stats/minmax.cuh>
 #include "common_kernel.cuh"
 
-#include<common/nvtx.hpp>
+#include <common/nvtx.hpp>
 
 namespace ML {
 namespace DecisionTree {
@@ -40,7 +40,8 @@ void update_feature_sampling(unsigned int *h_colids, unsigned int *d_colids,
                              std::vector<unsigned int> &feature_selector,
                              std::shared_ptr<TemporaryMemory<T, L>> tempmem,
                              raft::random::Rng &d_rng) {
-  ML::PUSH_RANGE("update_feature_sampling @common_helper.cuh (does feature subsampling)");
+  ML::PUSH_RANGE(
+    "update_feature_sampling @common_helper.cuh (does feature subsampling)");
   if (h_colstart != nullptr) {
     if (Ncols != ncols_sampled) {
       std::shuffle(h_colids, h_colids + Ncols, rng);
@@ -119,7 +120,7 @@ void setup_sampling(unsigned int *flagsptr, unsigned int *sample_cnt,
   setup_flags_kernel<<<blocks, threads, 0, stream>>>(sample_cnt, flagsptr,
                                                      nrows);
   CUDA_CHECK(cudaGetLastError());
-  ML::POP_RANGE();//setup_sampling @common_helper.cuh
+  ML::POP_RANGE();  //setup_sampling @common_helper.cuh
 }
 
 //This function call the split kernel
