@@ -25,7 +25,7 @@ from cuml.dask.common.dask_arr_utils import to_dask_cudf
 
 @pytest.mark.mg
 @pytest.mark.parametrize("data_info", [unit_param([1000, 20, 30]),
-                         stress_param([9e6, 5000, 30])])
+                         stress_param([int(9e6), 5000, 30])])
 @pytest.mark.parametrize("input_type", ["dataframe", "array"])
 def test_pca_fit(data_info, input_type, client):
 
@@ -35,10 +35,10 @@ def test_pca_fit(data_info, input_type, client):
 
     from cuml.dask.datasets import make_blobs
 
-    X, _ = make_blobs(n_samples=int(nrows),
-                      n_features=int(ncols),
+    X, _ = make_blobs(n_samples=nrows,
+                      n_features=ncols,
                       centers=1,
-                      n_parts=int(n_parts),
+                      n_parts=n_parts,
                       cluster_std=0.5,
                       random_state=10, dtype=np.float32)
 
@@ -72,17 +72,17 @@ def test_pca_fit(data_info, input_type, client):
 
 @pytest.mark.mg
 @pytest.mark.parametrize("data_info", [unit_param([1000, 20, 46]),
-                         stress_param([9e6, 5000, 46])])
+                         stress_param([int(9e6), 5000, 46])])
 def test_pca_fit_transform_fp32(data_info, client):
 
     nrows, ncols, n_parts = data_info
     from cuml.dask.decomposition import TruncatedSVD as daskTPCA
     from cuml.dask.datasets import make_blobs
 
-    X_cudf, _ = make_blobs(n_samples=int(nrows),
-                           n_features=int(ncols),
+    X_cudf, _ = make_blobs(n_samples=nrows,
+                           n_features=ncols,
                            centers=1,
-                           n_parts=int(n_parts),
+                           n_parts=n_parts,
                            cluster_std=1.5,
                            random_state=10, dtype=np.float32)
 
@@ -92,7 +92,7 @@ def test_pca_fit_transform_fp32(data_info, client):
 
 @pytest.mark.mg
 @pytest.mark.parametrize("data_info", [unit_param([1000, 20, 33]),
-                         stress_param([9e6, 5000, 33])])
+                         stress_param([int(9e6), 5000, 33])])
 def test_pca_fit_transform_fp64(data_info, client):
 
     nrows, ncols, n_parts = data_info
@@ -100,10 +100,10 @@ def test_pca_fit_transform_fp64(data_info, client):
     from cuml.dask.decomposition import TruncatedSVD as daskTPCA
     from cuml.dask.datasets import make_blobs
 
-    X_cudf, _ = make_blobs(n_samples=int(nrows),
-                           n_features=int(ncols),
+    X_cudf, _ = make_blobs(n_samples=nrows,
+                           n_features=ncols,
                            centers=1,
-                           n_parts=int(n_parts),
+                           n_parts=n_parts,
                            cluster_std=1.5,
                            random_state=10, dtype=np.float64)
 
