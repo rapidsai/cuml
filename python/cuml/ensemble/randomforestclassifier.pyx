@@ -46,12 +46,12 @@ from libc.stdlib cimport calloc, malloc, free
 
 from numba import cuda
 
+from cuml.common.cuda import nvtx_range_wrap, nvtx_range_push, nvtx_range_pop
 from cuml.raft.common.handle cimport handle_t
 cimport cuml.common.cuda
 
 cimport cython
 
-from cuml.common.cuda import nvtx_range_wrap, nvtx_range_push, nvtx_range_pop
 
 
 cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
