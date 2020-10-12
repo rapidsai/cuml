@@ -18,7 +18,6 @@ import numpy as np
 import pickle
 import pytest
 
-from cuml.test import test_arima
 from cuml.tsa.arima import ARIMA
 from cuml.test.utils import array_equal, unit_param, stress_param, \
     ClassEnumerator, get_classes_from_package
@@ -27,6 +26,7 @@ from sklearn.base import clone
 from sklearn.datasets import load_iris, make_classification, make_regression
 from sklearn.manifold.t_sne import trustworthiness
 from sklearn.model_selection import train_test_split
+
 
 regression_config = ClassEnumerator(module=cuml.linear_model)
 regression_models = regression_config.get_models()
@@ -65,11 +65,22 @@ k_neighbors_config = ClassEnumerator(module=cuml.neighbors, exclude_classes=[
     cuml.neighbors.NearestNeighbors])
 k_neighbors_models = k_neighbors_config.get_models()
 
-unfit_pickle_xfail = ['ARIMA', 'KalmanFilter', 'ForestInference']
-unfit_clone_xfail = ['ARIMA', 'ExponentialSmoothing', 'KalmanFilter',
-                     'MBSGDClassifier', 'MBSGDRegressor']
+unfit_pickle_xfail = [
+    'ARIMA',
+    'AutoARIMA',
+    'KalmanFilter',
+    'BaseRandomForestModel',
+    'ForestInference'
+]
+unfit_clone_xfail = [
+    'AutoARIMA',
+    "ARIMA",
+    "BaseRandomForestModel",
+    "GaussianRandomProjection",
+    "SparseRandomProjection",
+]
 
-all_models = get_classes_from_package(cuml)
+all_models = get_classes_from_package(cuml, import_sub_packages=True)
 all_models.update({
     **regression_models,
     **solver_models,
@@ -81,14 +92,9 @@ all_models.update({
     **umap_model,
     **rf_models,
     **k_neighbors_models,
-    'ARIMA': lambda: ARIMA((1, 1, 1),
-                           np.array([-217.72, -206.77]),
-                           [np.array([0.03]), np.array([-0.03])],
-                           [np.array([-0.99]), np.array([-0.99])],
-                           test_arima.get_data()[1]),
+    'ARIMA': lambda: ARIMA(np.random.normal(0.0, 1.0, (10,))),
     'ExponentialSmoothing':
         lambda: cuml.ExponentialSmoothing(np.array([-217.72, -206.77])),
-    'KalmanFilter': lambda: cuml.KalmanFilter(1, 1),
 })
 
 

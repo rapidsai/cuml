@@ -156,15 +156,30 @@ class ExponentialSmoothing(Base):
     eps : np.number > 0 (default=2.24e-3)
         The accuracy to which gradient descent should achieve.
         Note that changing this value may affect the forecasted results.
-    handle : cuml.Handle (default=None)
-        If it is None, a new one is created just for this class.
+    handle : cuml.Handle
+        Specifies the cuml.handle that holds internal CUDA state for
+        computations in this model. Most importantly, this specifies the CUDA
+        stream that will be used for the model's computations, so users can
+        run different models concurrently in different streams by creating
+        handles in several streams.
+        If it is None, a new one is created.
+    verbose : int or boolean, default=False
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        See :ref:`verbosity-levels` for more info.
+    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
+        Variable to control output type of the results and attributes of
+        the estimator. If None, it'll inherit the output type set at the
+        module level, `cuml.global_output_type`.
+        See :ref:`output-data-type-configuration` for more info.
 
     """
     def __init__(self, endog, seasonal="additive",
                  seasonal_periods=2, start_periods=2,
-                 ts_num=1, eps=2.24e-3, handle=None):
+                 ts_num=1, eps=2.24e-3, handle=None,
+                 verbose=False, output_type=None):
 
-        super(ExponentialSmoothing, self).__init__(handle)
+        super(ExponentialSmoothing, self).__init__(
+            handle=handle, verbose=verbose, output_type=output_type)
 
         # Total number of Time Series for forecasting
         if type(ts_num) != int:
@@ -551,3 +566,13 @@ class ExponentialSmoothing(Base):
                     return cudf.Series(cp.asarray(self.season[index]))
         else:
             raise ValueError("Fit() the model to get season values")
+
+    def get_param_names(self):
+        return super().get_param_names() + [
+            "endog",
+            "seasonal",
+            "seasonal_periods",
+            "start_periods",
+            "ts_num",
+            "eps",
+        ]
