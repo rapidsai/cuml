@@ -253,7 +253,7 @@ def make_classification(n_samples=100, n_features=20, n_informative=2,
                for idx, f in enumerate(parts)]
 
     X_dela = _create_delayed(X_parts, dtype, worker_rows, n_features)
-    y_dela = _create_delayed(y_parts, dtype, worker_rows)
+    y_dela = _create_delayed(y_parts, np.int64, worker_rows)
 
     X = da.concatenate(X_dela)
     y = da.concatenate(y_dela)

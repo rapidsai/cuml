@@ -504,6 +504,7 @@ install(TARGETS ${CUML_CPP_TARGET}
         DESTINATION lib)
 
 install(DIRECTORY ${CUML_INCLUDE_DIR}/cuml DESTINATION include)
+install(DIRECTORY ${RAFT_DIR}/cpp/include/ DESTINATION include/cuml)
 
 ##############################################################################
 # - build benchmark executable -----------------------------------------------
