@@ -5,11 +5,15 @@ cuML API Reference
 Module Configuration
 ====================
 
+.. _output-data-type-configuration:
+
 Output Data Type Configuration
 ------------------------------
 
  .. automethod:: cuml.common.memory_utils.set_global_output_type
  .. automethod:: cuml.common.memory_utils.using_output_type
+
+.. _verbosity-levels:
 
 Verbosity Levels
 ----------------

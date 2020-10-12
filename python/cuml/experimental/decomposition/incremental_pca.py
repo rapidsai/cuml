@@ -14,15 +14,15 @@
 # limitations under the License.
 #
 
+import numbers
+
 import cupy as cp
 import cupyx
 import scipy
-import numbers
-
-from cuml.common import with_cupy_rmm
+from cuml import Base
 from cuml.common import input_to_cuml_array
+from cuml.common import with_cupy_rmm
 from cuml.common.array import CumlArray
-
 from cuml.decomposition import PCA
 
 
@@ -50,8 +50,14 @@ class IncrementalPCA(PCA):
 
     Parameters
     ----------
+
     handle : cuml.Handle
-        If it is None, a new one is created just for this class
+        Specifies the cuml.handle that holds internal CUDA state for
+        computations in this model. Most importantly, this specifies the CUDA
+        stream that will be used for the model's computations, so users can
+        run different models concurrently in different streams by creating
+        handles in several streams.
+        If it is None, a new one is created.
     n_components : int or None, (default=None)
         Number of components to keep. If ``n_components`` is ``None``,
         then ``n_components`` is set to ``min(n_samples, n_features)``.
@@ -69,10 +75,18 @@ class IncrementalPCA(PCA):
         ``fit``. If ``batch_size`` is ``None``, then ``batch_size``
         is inferred from the data and set to ``5 * n_features``, to provide a
         balance between approximation accuracy and memory consumption.
-    verbose : int or boolean (default = False)
-        Logging level
+    verbose : int or boolean, default=False
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        See :ref:`verbosity-levels` for more info.
+    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
+        Variable to control output type of the results and attributes of
+        the estimator. If None, it'll inherit the output type set at the
+        module level, `cuml.global_output_type`.
+        See :ref:`output-data-type-configuration` for more info.
+
     Attributes
     ----------
+
     components_ : array, shape (n_components, n_features)
         Components with maximum variance.
     explained_variance_ : array, shape (n_components,)
@@ -175,7 +189,7 @@ class IncrementalPCA(PCA):
 
     """
     def __init__(self, handle=None, n_components=None, *, whiten=False,
-                 copy=True, batch_size=None, verbose=None,
+                 copy=True, batch_size=None, verbose=False,
                  output_type=None):
 
         super(IncrementalPCA, self).__init__(handle=handle,
@@ -412,7 +426,8 @@ class IncrementalPCA(PCA):
             return super().transform(X)
 
     def get_param_names(self):
-        return self._hyperparams
+        # Skip super() since we dont pass any extra parameters in __init__
+        return Base.get_param_names(self) + self._hyperparams
 
     def _cupy_to_cumlarray_attrs(self):
         self._components_ = CumlArray(self._components_.copy())

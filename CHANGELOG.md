@@ -1,6 +1,7 @@
 # cuML 0.16.0 (Date TBD)
 
 ## New Features
+- PR #2922: Install RAFT headers with cuML
 - PR #2909: Update allgatherv for compatibility with latest RAFT
 - PR #2677: Ability to export RF trees as JSON
 - PR #2698: Distributed TF-IDF transformer
@@ -49,6 +50,7 @@
 - PR #2910: Adding Support for CuPy 8.x
 - PR #2914: Add tests for XGBoost multi-class models in FIL
 - PR #2930: Pin libfaiss to <=1.6.3
+- PR #2928: Updating Estimators Derived from Base for Consistency
 - PR #2942: Adding `cuml.experimental` to the Docs
 
 ## Bug Fixes
@@ -81,7 +83,8 @@
 - PR #2932: Marking KBinsDiscretizer pytests as xfail
 - PR #2925: Fixing Owner Bug When Slicing CumlArray Objects
 - PR #2931: Fix notebook error handling in gpuCI
-
+- PR #2943: Remove unused shuffle_features parameter
+- PR #2940: Correcting labels meta dtype for `cuml.dask.make_classification`
 
 # cuML 0.15.0 (Date TBD)
 
