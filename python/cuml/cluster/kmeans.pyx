@@ -177,15 +177,21 @@ class KMeans(Base):
     Parameters
     ----------
     handle : cuml.Handle
-        If it is None, a new one is created just for this class.
+        Specifies the cuml.handle that holds internal CUDA state for
+        computations in this model. Most importantly, this specifies the CUDA
+        stream that will be used for the model's computations, so users can
+        run different models concurrently in different streams by creating
+        handles in several streams.
+        If it is None, a new one is created.
     n_clusters : int (default = 8)
         The number of centroids or clusters you want.
     max_iter : int (default = 300)
         The more iterations of EM, the more accurate, but slower.
     tol : float64 (default = 1e-4)
         Stopping criterion when centroid means do not change much.
-    verbose : int or boolean (default = False)
-        Logging level.
+    verbose : int or boolean, default=False
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        See :ref:`verbosity-levels` for more info.
     random_state : int (default = 1)
         If you want results to be the same when you restart Python, select a
         state.
@@ -218,6 +224,11 @@ class KMeans(Base):
         pairwise distance computation is max_samples_per_batch * n_clusters.
         It might become necessary to lower this number when n_clusters
         becomes prohibitively large.
+    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
+        Variable to control output type of the results and attributes of
+        the estimator. If None, it'll inherit the output type set at the
+        module level, `cuml.global_output_type`.
+        See :ref:`output-data-type-configuration` for more info.
 
     Attributes
     ----------
@@ -607,6 +618,7 @@ class KMeans(Base):
         return self.fit(X).transform(X, convert_dtype=convert_dtype)
 
     def get_param_names(self):
-        return ['n_init', 'oversampling_factor', 'max_samples_per_batch',
+        return super().get_param_names() + \
+            ['n_init', 'oversampling_factor', 'max_samples_per_batch',
                 'init', 'max_iter', 'n_clusters', 'random_state',
                 'tol']
