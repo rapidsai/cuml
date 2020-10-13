@@ -55,8 +55,8 @@ def make_regression_dataset(datatype, nrows, ncols, n_info):
 
 
 @pytest.mark.mg
-@pytest.mark.parametrize("nrows", [1e4])
-@pytest.mark.parametrize("ncols", [10])
+@pytest.mark.parametrize("nrows", [1e5])
+@pytest.mark.parametrize("ncols", [20])
 @pytest.mark.parametrize("n_parts", [2, 23])
 @pytest.mark.parametrize("fit_intercept", [False, True])
 @pytest.mark.parametrize("normalize", [False])

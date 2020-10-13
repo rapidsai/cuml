@@ -139,7 +139,7 @@ def get_handle(use_handle, n_streams=0):
 
 
 def small_regression_dataset(datatype):
-    X, y = make_regression(n_samples=500, n_features=20,
+    X, y = make_regression(n_samples=1000, n_features=20,
                            n_informative=10, random_state=10)
     X = X.astype(datatype)
     y = y.astype(datatype)
