@@ -457,11 +457,15 @@ def _validate_sparse_input(X):
 
     Parameters
     ----------
+
     X : scipy.sparse or cupyx.scipy.sparse object
         A sparse input
+
     Returns
     -------
+
     X : The input converted to a cupyx.scipy.sparse.csr_matrix object
+
     """
 
     acceptable_dtypes = ('float32', 'float64')
@@ -494,14 +498,18 @@ def _gen_batches(n, batch_size, min_batch_size=0):
 
     Parameters
     ----------
+
     n : int
     batch_size : int
         Number of element in each batch
     min_batch_size : int, default=0
         Minimum batch size to produce.
+
     Yields
     ------
+
     slice of batch_size elements
+
     """
 
     if not isinstance(batch_size, numbers.Integral):
@@ -526,8 +534,10 @@ def _safe_accumulator_op(op, x, *args, **kwargs):
     This function provides numpy accumulator functions with a float64 dtype
     when used on a floating point input. This prevents accumulator overflow on
     smaller floating point dtypes.
+
     Parameters
     ----------
+
     op : function
         A cupy accumulator function such as cp.mean or cp.sum
     x : cupy array
@@ -537,9 +547,12 @@ def _safe_accumulator_op(op, x, *args, **kwargs):
         input x
     **kwargs : keyword arguments
         Keyword arguments passed to the accumulator function
+
     Returns
     -------
+
     result : The output of the accumulator function passed to this function
+
     """
 
     if cp.issubdtype(x.dtype, cp.floating) and x.dtype.itemsize < 8:
@@ -550,7 +563,8 @@ def _safe_accumulator_op(op, x, *args, **kwargs):
 
 
 def _incremental_mean_and_var(X, last_mean, last_variance, last_sample_count):
-    """Calculate mean update and a Youngs and Cramer variance update.
+    """
+    Calculate mean update and a Youngs and Cramer variance update.
     last_mean and last_variance are statistics computed at the last step by the
     function. Both must be initialized to 0.0. In case no scaling is required
     last_variance can be None. The mean is always required and returned because
@@ -558,27 +572,34 @@ def _incremental_mean_and_var(X, last_mean, last_variance, last_sample_count):
     number of samples encountered until now.
     From the paper "Algorithms for computing the sample variance: analysis and
     recommendations", by Chan, Golub, and LeVeque.
+
     Parameters
     ----------
+
     X : array-like, shape (n_samples, n_features)
         Data to use for variance update
     last_mean : array-like, shape: (n_features,)
     last_variance : array-like, shape: (n_features,)
     last_sample_count : array-like, shape (n_features,)
+
     Returns
     -------
+
     updated_mean : array, shape (n_features,)
     updated_variance : array, shape (n_features,)
         If None, only mean is computed
     updated_sample_count : array, shape (n_features,)
+
     Notes
     -----
     NaNs are ignored during the algorithm.
+
     References
     ----------
     T. Chan, G. Golub, R. LeVeque. Algorithms for computing the sample
         variance: recommendations, The American Statistician, Vol. 37, No. 3,
         pp. 242-247
+
     """
 
     # old = stats until now
@@ -616,11 +637,14 @@ def _incremental_mean_and_var(X, last_mean, last_variance, last_sample_count):
 
 
 def _svd_flip(u, v, u_based_decision=True):
-    """Sign correction to ensure deterministic output from SVD.
+    """
+    Sign correction to ensure deterministic output from SVD.
     Adjusts the columns of u and the rows of v such that the loadings in the
     columns in u that are largest in absolute value are always positive.
+
     Parameters
     ----------
+
     u : cupy.ndarray
         u and v are the output of `cupy.linalg.svd`
     v : cupy.ndarray
@@ -629,9 +653,11 @@ def _svd_flip(u, v, u_based_decision=True):
         If True, use the columns of u as the basis for sign flipping.
         Otherwise, use the rows of v. The choice of which variable to base the
         decision on is generally algorithm dependent.
+
     Returns
     -------
     u_adjusted, v_adjusted : arrays with the same dimensions as the input.
+
     """
     if u_based_decision:
         # columns of u, rows of v
