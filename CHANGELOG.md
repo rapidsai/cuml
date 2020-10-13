@@ -12,6 +12,7 @@
 ## Bug Fixes
 - PR #2983: Fix seeding of KISS99 RNG
 - PR #3012: Increasing learning rate for SGD log loss and invscaling pytests
+- PR #2950: Fix includes in UMAP
 
 # cuML 0.16.0 (Date TBD)
 
@@ -116,7 +117,6 @@
 - PR #2984: Fix GPU test scripts gcov error
 - PR #2990: Reduce MNMG kneighbors regressor test threshold
 - PR #2997: Changing ARIMA `get/set_params` to `get/set_fit_params`
-
 # cuML 0.15.0 (Date TBD)
 
 ## New Features

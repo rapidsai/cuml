@@ -59,7 +59,7 @@ cdef extern from "cuml/manifold/umapparams.h" namespace "ML::UMAPParams":
         EUCLIDEAN = 0,
         CATEGORICAL = 1
 
-cdef extern from "internals/internals.h" namespace "ML::Internals":
+cdef extern from "cuml/common/callback.hpp" namespace "ML::Internals":
 
     cdef cppclass GraphBasedDimRedCallback
 
