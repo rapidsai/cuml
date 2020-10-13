@@ -1,6 +1,14 @@
-# Authors: Nicolas Tresegnie <nicolas.tresegnie@gmail.com>
+# Original authors from Sckit-Learn:
+#          Nicolas Tresegnie <nicolas.tresegnie@gmail.com>
 #          Sergey Feldman <sergeyfeldman@gmail.com>
 # License: BSD 3 clause
+
+
+# This code originates from the Scikit-Learn library,
+# it was since modified to allow GPU acceleration.
+# This code is under BSD 3 clause license.
+# Authors mentioned above do not endorse or promote this production.
+
 
 import numbers
 import warnings
@@ -136,7 +144,6 @@ class _BaseImputer(TransformerMixin, BaseEstimator):
         return {'allow_nan': is_scalar_nan(self.missing_values)}
 
 
-@check_cupy8()
 class SimpleImputer(_BaseImputer):
     """Imputation transformer for completing missing values.
 
@@ -160,8 +167,7 @@ class SimpleImputer(_BaseImputer):
         - If "constant", then replace missing values with fill_value. Can be
           used with strings or numeric data.
 
-        .. versionadded:: 0.20
-           strategy="constant" for fixed value imputation.
+        strategy="constant" for fixed value imputation.
 
     fill_value : string or numerical value, default=None
         When strategy == "constant", fill_value is used to replace all
@@ -220,6 +226,7 @@ class SimpleImputer(_BaseImputer):
     upon :meth:`transform` if strategy is not "constant".
 
     """
+    @check_cupy8()
     @_deprecate_positional_args
     def __init__(self, *, missing_values=np.nan, strategy="mean",
                  fill_value=None, verbose=0, copy=True, add_indicator=False):

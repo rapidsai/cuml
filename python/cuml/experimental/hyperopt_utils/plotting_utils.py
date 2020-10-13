@@ -22,8 +22,8 @@ import seaborn as sns
 
 def plot_heatmap(df, col1, col2):
     """
-    Generates a heatmap to highlight interactions
-    of two parameters specified in col1 and col2.
+    Generates a heatmap to highlight interactions of two parameters specified
+    in col1 and col2.
 
     Parameters
     ----------
@@ -32,9 +32,6 @@ def plot_heatmap(df, col1, col2):
     col1 : string; Name of the first parameter
     col2: string; Name of the second parameter
 
-    Output
-    ----------
-    A heatmap using seaborn
     """
     max_scores = df.groupby([col1, col2]).max()
     max_scores = max_scores.unstack()[['mean_test_score']]
@@ -43,8 +40,8 @@ def plot_heatmap(df, col1, col2):
 
 def plot_search_results(res):
     """
-    Plots by fixing all paramters except one parameter to
-    its best value using matplotlib.
+    Plots by fixing all paramters except one parameter to its best value using
+    matplotlib.
 
     Accepts results from grid or random search from dask-ml.
 
@@ -52,9 +49,6 @@ def plot_search_results(res):
     ----------
     res : results from Grid or Random Search
 
-    Output
-    ----------
-    As many plots as the parameters that were tuned
     """
     # Results from grid search
     results = res.cv_results_
