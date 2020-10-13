@@ -53,6 +53,8 @@ conda config --set ssl_verify False
 # BUILD - Conda package builds (conda deps: libcuml <- cuml)
 ################################################################################
 
+conda install -y ucx-py=0.16
+
 logger "Build conda pkg for libcuml..."
 source ci/cpu/libcuml/build_libcuml.sh
 
