@@ -62,7 +62,12 @@ class RandomForestRegressor(BaseRandomForestModel, DelayedPredictionMixin,
     n_estimators : int (default = 10)
         total number of trees in the forest (not per-worker)
     handle : cuml.Handle
-        If it is None, a new one is created just for this class.
+        Specifies the cuml.handle that holds internal CUDA state for
+        computations in this model. Most importantly, this specifies the CUDA
+        stream that will be used for the model's computations, so users can
+        run different models concurrently in different streams by creating
+        handles in several streams.
+        If it is None, a new one is created.
     split_algo : int (default = 1)
         0 for HIST, 1 for GLOBAL_QUANTILE
         The type of algorithm to be used to create the trees.

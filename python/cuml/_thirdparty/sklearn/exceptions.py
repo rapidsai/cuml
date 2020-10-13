@@ -1,3 +1,8 @@
+# This code originates from the Scikit-Learn library,
+# it was since modified to allow GPU acceleration.
+# This code is under BSD 3 clause license.
+
+
 """
 The :mod:`sklearn.exceptions` module includes all custom warnings and error
 classes used across scikit-learn.

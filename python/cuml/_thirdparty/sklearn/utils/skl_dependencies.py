@@ -3,8 +3,16 @@ This file gathers Scikit-Learn code that would otherwise
 require a version-dependent import from the sklearn library
 """
 
-# Author: Gael Varoquaux <gael.varoquaux@normalesup.org>
+# Original authors from Sckit-Learn:
+#         Gael Varoquaux <gael.varoquaux@normalesup.org>
 # License: BSD 3 clause
+
+
+# This code originates from the Scikit-Learn library,
+# it was since modified to allow GPU acceleration.
+# This code is under BSD 3 clause license.
+# Authors mentioned above do not endorse or promote this production.
+
 
 import warnings
 from collections import defaultdict

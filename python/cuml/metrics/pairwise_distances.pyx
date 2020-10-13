@@ -142,11 +142,11 @@ def pairwise_distances(X, Y=None, metric="euclidean", handle=None,
         Y to be the same data type as X if they differ. This
         will increase memory used for the method.
 
-    output_type : {'input', 'cudf', 'cupy', 'numpy'}, optional
-        Variable to control output type of the results of the function. If
-        None, it'll inherit the output type set at the module level,
-        `cuml.output_type`. If set, the function will temporarily override
-        the global option.
+    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
+        Variable to control output type of the results and attributes of
+        the estimator. If None, it'll inherit the output type set at the
+        module level, `cuml.global_output_type`.
+        See :ref:`output-data-type-configuration` for more info.
 
     Returns
     -------

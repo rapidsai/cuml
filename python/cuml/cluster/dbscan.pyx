@@ -125,12 +125,18 @@ class DBSCAN(Base):
         The maximum distance between 2 points such they reside in the same
         neighborhood.
     handle : cuml.Handle
-        If it is None, a new one is created just for this class
+        Specifies the cuml.handle that holds internal CUDA state for
+        computations in this model. Most importantly, this specifies the CUDA
+        stream that will be used for the model's computations, so users can
+        run different models concurrently in different streams by creating
+        handles in several streams.
+        If it is None, a new one is created.
     min_samples : int (default = 5)
         The number of samples in a neighborhood such that this group can be
         considered as an important core point (including the point itself).
-    verbose : int or boolean (default = False)
-        Logging level
+    verbose : int or boolean, default=False
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        See :ref:`verbosity-levels` for more info.
     max_mbytes_per_batch : (optional) int64
         Calculate batch size using no more than this number of megabytes for
         the pairwise distance computation. This enables the trade-off between
@@ -141,13 +147,11 @@ class DBSCAN(Base):
         Note: this option does not set the maximum total memory used in the
         DBSCAN computation and so this value will not be able to be set to
         the total memory available on the device.
-    output_type : (optional) {'input', 'cudf', 'cupy', 'numpy'} default = None
-        Use it to control output type of the results and attributes.
-        If None it'll inherit the output type set at the
-        module level, cuml.output_type. If that has not been changed, by
-        default the estimator will mirror the type of the data used for each
-        fit or predict call.
-        If set, the estimator will override the global option for its behavior.
+    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
+        Variable to control output type of the results and attributes of
+        the estimator. If None, it'll inherit the output type set at the
+        module level, `cuml.global_output_type`.
+        See :ref:`output-data-type-configuration` for more info.
     calc_core_sample_indices : (optional) boolean (default = True)
         Indicates whether the indices of the core samples should be calculated.
         The the attribute `core_sample_indices_` will not be used, setting this
@@ -336,4 +340,9 @@ class DBSCAN(Base):
         return self.labels_
 
     def get_param_names(self):
-        return ["eps", "min_samples"]
+        return super().get_param_names() + [
+            "eps",
+            "min_samples",
+            "max_mbytes_per_batch",
+            "calc_core_sample_indices",
+        ]
