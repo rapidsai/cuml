@@ -264,7 +264,7 @@ def test_normalize_sparse(sparse_clf_dataset, norm):  # noqa: F811
 @check_cupy8('pytest')
 @pytest.mark.parametrize("strategy", ["mean", "median", "most_frequent",
                                       "constant"])
-@pytest.mark.parametrize("missing_values", [0., 1.])
+@pytest.mark.parametrize("missing_values", [0., 1., np.nan])
 def test_imputer(int_dataset, strategy, missing_values):  # noqa: F811
     X_np, X = int_dataset
     fill_value = np.random.randint(10, size=1)[0]
