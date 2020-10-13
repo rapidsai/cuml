@@ -87,7 +87,7 @@ class TargetEncoder:
             raise ValueError('smooth {} is not in range [0,1]'.format(smooth))
         if n_folds < 0 or not isinstance(n_folds, int):
             raise ValueError(
-                'n_folds {} is not a postive integer'.format(n_folds))
+                'n_folds {} is not a positive integer'.format(n_folds))
         if output_type not in {'cupy', 'numpy', 'auto'}:
             msg = ("output_type should be either 'cupy'"
                    " or 'numpy' or 'auto', "

@@ -135,7 +135,7 @@ class DecisionTreeClassifier : public DecisionTreeBase<T, int> {
            TreeMetaDataNode<T, int> *&tree, DecisionTreeParams tree_parameters,
            std::shared_ptr<TemporaryMemory<T, int>> in_tempmem = nullptr);
 
-  //This fit fucntion does not take handle , used by RF
+  //This fit function does not take handle , used by RF
   void fit(const std::shared_ptr<MLCommon::deviceAllocator> device_allocator_in,
            const std::shared_ptr<MLCommon::hostAllocator> host_allocator_in,
            const cudaStream_t stream_in, const T *data, const int ncols,

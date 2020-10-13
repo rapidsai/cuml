@@ -75,7 +75,7 @@ __global__ void add_dev_scalar_kernel(math_t *outDev, const math_t *inDev,
   }
 }
 
-/** Substract single value pointed by singleScalarDev parameter in device memory from inDev[i] and write result to outDev[i]
+/** Subtract single value pointed by singleScalarDev parameter in device memory from inDev[i] and write result to outDev[i]
  * @tparam math_t data-type upon which the math operation will be performed
  * @tparam IdxType Integer type used to for addressing
  * @param outDev the output buffer

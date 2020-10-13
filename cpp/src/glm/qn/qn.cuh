@@ -39,7 +39,7 @@ int qn_fit(const raft::handle_t &handle, LossFunction &loss, T *Xptr, T *yptr,
   opt_param.max_linesearch = linesearch_max_iter;
   SimpleVec<T> w(w0, loss.n_param);
 
-  // Scale the regularization strenght with the number of samples.
+  // Scale the regularization strength with the number of samples.
   l1 /= N;
   l2 /= N;
 

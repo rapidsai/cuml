@@ -133,7 +133,7 @@ class RfTreeliteTestCommon : public ::testing::TestWithParam<RfInputs<T>> {
     int batch_sparse = 0;
     bool pred_margin = false;
     // Allocate larger array for treelite predicted label with using multi-class classification to avoid seg faults.
-    // Altough later we only use first params.n_inference_rows elements.
+    // Although later we only use first params.n_inference_rows elements.
     size_t treelite_predicted_labels_size;
 
     TREELITE_CHECK(TreelitePredictorPredictBatch(

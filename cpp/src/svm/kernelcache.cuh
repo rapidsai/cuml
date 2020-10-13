@@ -184,7 +184,7 @@ class KernelCache {
       int n_cached;
       cache.GetCacheIdxPartitioned(unique_idx.data(), n_unique,
                                    ws_cache_idx.data(), &n_cached, stream);
-      // collect allready cached values
+      // collect already cached values
       cache.GetVecs(ws_cache_idx.data(), n_cached, tile.data(), stream);
       int non_cached = n_unique - n_cached;
       if (non_cached > 0) {

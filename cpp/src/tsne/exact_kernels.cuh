@@ -85,7 +85,7 @@ __global__ void sigmas_kernel(const float *restrict distances,
 }
 
 /****************************************/
-/* Finds the best Gaussian bandwith for
+/* Finds the best Gaussian bandwidth for
     each row in the dataset             */
 __global__ void sigmas_kernel_2d(const float *restrict distances,
                                  float *restrict P, const float perplexity,

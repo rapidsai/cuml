@@ -53,7 +53,7 @@ class Ridge(BaseEstimator,
         Other solvers will be supported in the future.
     fit_intercept : boolean (default = True)
         If True, Ridge adds an additional term c to correct for the global
-        mean of y, modeling the reponse as "x * beta + c".
+        mean of y, modeling the response as "x * beta + c".
         If False, the model expects that you have centered the data.
     normalize : boolean (default = False)
         If True, the predictors in X will be normalized by dividing by it's L2

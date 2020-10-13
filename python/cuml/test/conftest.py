@@ -82,11 +82,11 @@ def pytest_unconfigure(config):
 
             combined_path = os.path.abspath(location)
 
-            # Try appending prefix if that file doesnt exist
+            # Try appending prefix if that file does not exist
             if (not split_exists(combined_path)):
                 combined_path = os.path.abspath(os.path.join(prefix, location))
 
-                # If that still doesnt exist, just use the original
+                # If that still does not exist, just use the original
                 if (not split_exists(combined_path)):
                     combined_path = location
 

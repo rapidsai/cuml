@@ -225,7 +225,7 @@ void sortColumnsPerRow(const InType *in, OutType *out, int n_rows,
     // will give better perf than below deviceWide Sort for even larger dims
     int numSegments = n_rows + 1;
 
-    // need auxillary storage: cub sorting + keys (if user not passing) +
+    // need auxiliary storage: cub sorting + keys (if user not passing) +
     // staging for values out + segment partition
     if (workspaceSize == 0 || !workspacePtr) {
       OutType *tmpValIn = nullptr;

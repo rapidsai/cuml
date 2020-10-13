@@ -209,7 +209,7 @@ struct EntropyDevFunctor {
     __syncthreads();
   }
 };
-//This is device equialent of best split finding reduction.
+//This is device equivalent of best split finding reduction.
 //Only kicks in when number of node is more than 512. otherwise we use CPU.
 template <typename T, typename F>
 __global__ void get_best_split_classification_kernel(

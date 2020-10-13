@@ -82,7 +82,7 @@ class TruncatedSVD(BaseDecomposition,
                   1  14.487295
                   2  14.431235
 
-    .. note:: Everytime this code is run, the output will be different because
+    .. note:: Every time this code is run, the output will be different because
         "make_blobs" function generates random matrices.
 
     Parameters
