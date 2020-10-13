@@ -85,6 +85,7 @@
 - PR #2931: Fix notebook error handling in gpuCI
 - PR #2943: Remove unused shuffle_features parameter
 - PR #2940: Correcting labels meta dtype for `cuml.dask.make_classification`
+- PR #2965: Notebooks update
 
 # cuML 0.15.0 (Date TBD)
 
