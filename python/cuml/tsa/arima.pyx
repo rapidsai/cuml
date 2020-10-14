@@ -58,6 +58,12 @@ cdef extern from "cuml/tsa/batched_arima.hpp" namespace "ML":
         double* d_vs, bool trans, bool host_loglike, LoglikeMethod method,
         int truncate)
 
+    void batched_loglike(
+        handle_t& handle, const double* y, int batch_size, int n_obs,
+        const ARIMAOrder& order, const ARIMAParams[double]& params,
+        double* loglike, double* d_vs, bool trans, bool host_loglike,
+        LoglikeMethod method, int truncate)
+
     void batched_loglike_grad(
         handle_t& handle, const double* d_y, int batch_size, int nobs,
         const ARIMAOrder& order, const double* d_x, double* d_grad, double h,
@@ -316,22 +322,16 @@ class ARIMA(Base):
         cdef uintptr_t d_sma_ptr = <uintptr_t> NULL
         cdef uintptr_t d_sigma2_ptr = <uintptr_t> NULL
         if order_kf.k:
-            d_mu, *_ = input_to_cuml_array(self.mu, check_dtype=np.float64)
-            d_mu_ptr = d_mu.ptr
+            d_mu_ptr = self._mu_.ptr
         if order_kf.p:
-            d_ar, *_ = input_to_cuml_array(self.ar, check_dtype=np.float64)
-            d_ar_ptr = d_ar.ptr
+            d_ar_ptr = self._ar_.ptr
         if order_kf.q:
-            d_ma, *_ = input_to_cuml_array(self.ma, check_dtype=np.float64)
-            d_ma_ptr = d_ma.ptr
+            d_ma_ptr = self._ma_.ptr
         if order_kf.P:
-            d_sar, *_ = input_to_cuml_array(self.sar, check_dtype=np.float64)
-            d_sar_ptr = d_sar.ptr
+            d_sar_ptr = self._sar_.ptr
         if order_kf.Q:
-            d_sma, *_ = input_to_cuml_array(self.sma, check_dtype=np.float64)
-            d_sma_ptr = d_sma.ptr
-        d_sigma2, *_ = input_to_cuml_array(self.sigma2, check_dtype=np.float64)
-        d_sigma2_ptr = d_sigma2.ptr
+            d_sma_ptr = self._sma_.ptr
+        d_sigma2_ptr = self._sigma2_.ptr
 
         cdef ARIMAParams[double] cpp_params
         cpp_params.mu = <double*> d_mu_ptr
@@ -384,15 +384,17 @@ class ARIMA(Base):
         cdef ARIMAOrder order = self.order
         return order.p + order.P + order.q + order.Q + order.k + 1
 
-    @property
-    def params(self):
-        """The fit parameters
+    def get_fit_params(self) -> Dict[str, np.ndarray]:
+        """Get all the fit parameters. Not to be confused with get_params
+        Note: pack() can be used to get a compact vector of the parameters
 
-        A dictionary of parameter names and associated arrays
-        The key names are in {"mu", "ar", "ma", "sar", "sma", "sigma2"}
-        The shape of the arrays are (batch_size,) for mu and sigma2 and
-        (n, batch_size) for any other type, where n is the corresponding
-        number of parameters of this type.
+        Returns
+        -------
+            A dictionary of parameter names and associated arrays
+            The key names are in {"mu", "ar", "ma", "sar", "sma", "sigma2"}
+            The shape of the arrays are (batch_size,) for mu and sigma2 and
+            (n, batch_size) for any other type, where n is the corresponding
+            number of parameters of this type.
         """
         cdef ARIMAOrder order = self.order
         params = dict()
@@ -400,15 +402,33 @@ class ARIMA(Base):
         criteria = [order.k, order.p, order.q, order.P, order.Q, True]
         for i in range(len(names)):
             if criteria[i] > 0:
-                params[names[i]] = getattr(self, names[i])
+                params[names[i]] = getattr(self, "{}_".format(names[i]))
         return params
 
-    @params.setter
-    def params(self, params: Mapping[str, object]):
+    def set_fit_params(self, params: Mapping[str, object]):
+        """Set all the fit parameters. Not to be confused with set_params
+        Note: unpack() can be used to load a compact vector of the parameters
+
+        Parameters
+        ----------
+        params:
+            A dictionary of parameter names and associated arrays
+            The key names are in {"mu", "ar", "ma", "sar", "sma", "sigma2"}
+            The shape of the arrays are (batch_size,) for mu and sigma2 and
+            (n, batch_size) for any other type, where n is the corresponding
+            number of parameters of this type.
+        """
         for param_name in ["mu", "ar", "ma", "sar", "sma", "sigma2"]:
             if param_name in params:
-                array, _, _, _, _ = input_to_host_array(params[param_name])
-                setattr(self, param_name, array)
+                array, *_ = input_to_cuml_array(params[param_name],
+                                                check_dtype=np.float64)
+                setattr(self, "_{}_".format(param_name), array)
+
+    def get_params():
+        raise NotImplementedError
+
+    def set_params():
+        raise NotImplementedError
 
     @nvtx_range_wrap
     def predict(self, start=0, end=None, level=None):
@@ -480,22 +500,16 @@ class ARIMA(Base):
         cdef uintptr_t d_sma_ptr = <uintptr_t> NULL
         cdef uintptr_t d_sigma2_ptr = <uintptr_t> NULL
         if order.k:
-            d_mu, *_ = input_to_cuml_array(self.mu, check_dtype=np.float64)
-            d_mu_ptr = d_mu.ptr
+            d_mu_ptr = self._mu_.ptr
         if order.p:
-            d_ar, *_ = input_to_cuml_array(self.ar, check_dtype=np.float64)
-            d_ar_ptr = d_ar.ptr
+            d_ar_ptr = self._ar_.ptr
         if order.q:
-            d_ma, *_ = input_to_cuml_array(self.ma, check_dtype=np.float64)
-            d_ma_ptr = d_ma.ptr
+            d_ma_ptr = self._ma_.ptr
         if order.P:
-            d_sar, *_ = input_to_cuml_array(self.sar, check_dtype=np.float64)
-            d_sar_ptr = d_sar.ptr
+            d_sar_ptr = self._sar_.ptr
         if order.Q:
-            d_sma, *_ = input_to_cuml_array(self.sma, check_dtype=np.float64)
-            d_sma_ptr = d_sma.ptr
-        d_sigma2, *_ = input_to_cuml_array(self.sigma2, check_dtype=np.float64)
-        d_sigma2_ptr = d_sigma2.ptr
+            d_sma_ptr = self._sma_.ptr
+        d_sigma2_ptr = self._sigma2_.ptr
 
         cdef ARIMAParams[double] cpp_params
         cpp_params.mu = <double*> d_mu_ptr
@@ -591,26 +605,26 @@ class ARIMA(Base):
         cdef uintptr_t d_sma_ptr = <uintptr_t> NULL
         cdef uintptr_t d_sigma2_ptr = <uintptr_t> NULL
         if order.k:
-            d_mu = cumlArray.zeros(self.batch_size, dtype=np.float64)
-            d_mu_ptr = d_mu.ptr
+            self._mu_ = cumlArray.zeros(self.batch_size, dtype=np.float64)
+            d_mu_ptr = self._mu_.ptr
         if order.p:
-            d_ar = cumlArray.zeros((order.p, self.batch_size),
-                                   dtype=np.float64, order='F')
-            d_ar_ptr = d_ar.ptr
+            self._ar_ = cumlArray.zeros((order.p, self.batch_size),
+                                        dtype=np.float64, order='F')
+            d_ar_ptr = self._ar_.ptr
         if order.q:
-            d_ma = cumlArray.zeros((order.q, self.batch_size),
-                                   dtype=np.float64, order='F')
-            d_ma_ptr = d_ma.ptr
+            self._ma_ = cumlArray.zeros((order.q, self.batch_size),
+                                        dtype=np.float64, order='F')
+            d_ma_ptr = self._ma_.ptr
         if order.P:
-            d_sar = cumlArray.zeros((order.P, self.batch_size),
-                                    dtype=np.float64, order='F')
-            d_sar_ptr = d_sar.ptr
+            self._sar_ = cumlArray.zeros((order.P, self.batch_size),
+                                         dtype=np.float64, order='F')
+            d_sar_ptr = self._sar_.ptr
         if order.Q:
-            d_sma = cumlArray.zeros((order.Q, self.batch_size),
-                                    dtype=np.float64, order='F')
-            d_sma_ptr = d_sma.ptr
-        d_sigma2 = cumlArray.zeros(self.batch_size, dtype=np.float64)
-        d_sigma2_ptr = d_sigma2.ptr
+            self._sma_ = cumlArray.zeros((order.Q, self.batch_size),
+                                         dtype=np.float64, order='F')
+            d_sma_ptr = self._sma_.ptr
+        self._sigma2_ = cumlArray.zeros(self.batch_size, dtype=np.float64)
+        d_sigma2_ptr = self._sigma2_.ptr
 
         cdef ARIMAParams[double] cpp_params
         cpp_params.mu = <double*> d_mu_ptr
@@ -624,20 +638,6 @@ class ARIMA(Base):
         estimate_x0(handle_[0], cpp_params, <double*> d_y_ptr,
                     <int> self.batch_size, <int> self.n_obs, order)
 
-        params = dict()
-        if order.k:
-            params["mu"] = d_mu.to_output('numpy')
-        if order.p:
-            params["ar"] = d_ar.to_output('numpy')
-        if order.q:
-            params["ma"] = d_ma.to_output('numpy')
-        if order.P:
-            params["sar"] = d_sar.to_output('numpy')
-        if order.Q:
-            params["sma"] = d_sma.to_output('numpy')
-        params["sigma2"] = d_sigma2.to_output('numpy')
-        self.params = params
-
     @nvtx_range_wrap
     def fit(self,
             start_params: Optional[Mapping[str, object]] = None,
@@ -650,12 +650,12 @@ class ARIMA(Base):
 
         Parameters
         ----------
-        start_params : Mapping[str, object] (optional)
+        start_params : Mapping[str, array-like] (optional)
             A mapping (e.g dictionary) of parameter names and associated arrays
             The key names are in {"mu", "ar", "ma", "sar", "sma", "sigma2"}
-            The shape of the arrays are (batch_size,) for mu parameters and
-            (n, batch_size) for any other type, where n is the corresponding
-            number of parameters of this type.
+            The shape of the arrays are (batch_size,) for mu and sigma2
+            parameters and (n, batch_size) for any other type, where n is the
+            corresponding number of parameters of this type.
             Pass None for automatic estimation (recommended)
 
         opt_disp : int
@@ -717,7 +717,7 @@ class ARIMA(Base):
         if start_params is None:
             self._estimate_x0()
         else:
-            self.params = start_params
+            self.set_fit_params(start_params)
 
         x0 = self._batched_transform(self.pack(), True)
 
@@ -847,7 +847,65 @@ class ARIMA(Base):
     def llf(self):
         """Log-likelihood of a fit model. Shape: (batch_size,)
         """
-        return self._loglike(self.pack(), trans=False)
+        # Implementation note: this is slightly different from batched_loglike
+        # as it uses the device parameter arrays and not a host vector.
+        # Also, it always uses the MLE method, trans=False and truncate=0
+
+        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+
+        cdef vector[double] vec_loglike
+        vec_loglike.resize(self.batch_size)
+
+        cdef ARIMAOrder order_kf = \
+            self.order_diff if self.simple_differencing else self.order
+
+        # Convert host parameters to device parameters
+        cdef uintptr_t d_mu_ptr = <uintptr_t> NULL
+        cdef uintptr_t d_ar_ptr = <uintptr_t> NULL
+        cdef uintptr_t d_ma_ptr = <uintptr_t> NULL
+        cdef uintptr_t d_sar_ptr = <uintptr_t> NULL
+        cdef uintptr_t d_sma_ptr = <uintptr_t> NULL
+        cdef uintptr_t d_sigma2_ptr = <uintptr_t> NULL
+        if order_kf.k:
+            d_mu_ptr = self._mu_.ptr
+        if order_kf.p:
+            d_ar_ptr = self._ar_.ptr
+        if order_kf.q:
+            d_ma_ptr = self._ma_.ptr
+        if order_kf.P:
+            d_sar_ptr = self._sar_.ptr
+        if order_kf.Q:
+            d_sma_ptr = self._sma_.ptr
+        d_sigma2_ptr = self._sigma2_.ptr
+
+        cdef ARIMAParams[double] cpp_params
+        cpp_params.mu = <double*> d_mu_ptr
+        cpp_params.ar = <double*> d_ar_ptr
+        cpp_params.ma = <double*> d_ma_ptr
+        cpp_params.sar = <double*> d_sar_ptr
+        cpp_params.sma = <double*> d_sma_ptr
+        cpp_params.sigma2 = <double*> d_sigma2_ptr
+
+        cdef uintptr_t d_y_kf_ptr = \
+            self._d_y_diff.ptr if self.simple_differencing else self._d_y.ptr
+
+        n_obs_kf = (self.n_obs_diff if self.simple_differencing
+                    else self.n_obs)
+
+        cdef LoglikeMethod ll_method = MLE
+        diff = self.simple_differencing
+
+        d_vs = cumlArray.empty((n_obs_kf, self.batch_size), dtype=np.float64,
+                               order="F")
+        cdef uintptr_t d_vs_ptr = d_vs.ptr
+
+        batched_loglike(handle_[0], <double*> d_y_kf_ptr,
+                        <int> self.batch_size, <int> n_obs_kf, order_kf,
+                        cpp_params, <double*> vec_loglike.data(),
+                        <double*> d_vs_ptr, <bool> False, <bool> True,
+                        ll_method, <int> 0)
+
+        return np.array(vec_loglike, dtype=np.float64)
 
     @nvtx_range_wrap
     def unpack(self, x: Union[list, np.ndarray]):
@@ -864,27 +922,28 @@ class ARIMA(Base):
         p, q, P, Q, k = (order.p, order.q, order.P, order.Q, order.k)
         N = self.complexity
 
-        if type(x) is list or x.shape != (N, self.batch_size):
-            x_mat = np.reshape(x, (N, self.batch_size), order='F')
-        else:
-            x_mat = x
+        x_mat = (np.reshape(x, (N, self.batch_size), order='F')
+                 .astype(np.float64))
 
-        params = dict()
         # Note: going through np.array to avoid getting incorrect strides when
-        # batch_size is 1
+        # one dimension is 1
         if k > 0:
-            params["mu"] = np.array(x_mat[0], order='F')
+            mu_temp = np.array(x_mat[0], order='F')
+            self._mu_, *_ = input_to_cuml_array(mu_temp)
         if p > 0:
-            params["ar"] = np.array(x_mat[k:k+p], order='F')
+            ar_temp = np.array(x_mat[k:k+p], order='F')
+            self._ar_, *_ = input_to_cuml_array(ar_temp)
         if q > 0:
-            params["ma"] = np.array(x_mat[k+p:k+p+q], order='F')
+            ma_temp = np.array(x_mat[k+p:k+p+q], order='F')
+            self._ma_, *_ = input_to_cuml_array(ma_temp)
         if P > 0:
-            params["sar"] = np.array(x_mat[k+p+q:k+p+q+P], order='F')
+            sar_temp = np.array(x_mat[k+p+q:k+p+q+P], order='F')
+            self._sar_, *_ = input_to_cuml_array(sar_temp)
         if Q > 0:
-            params["sma"] = np.array(x_mat[k+p+q+P:k+p+q+P+Q], order='F')
-        params["sigma2"] = np.array(x_mat[k+p+q+P+Q], order='F')
-
-        self.params = params
+            sma_temp = np.array(x_mat[k+p+q+P:k+p+q+P+Q], order='F')
+            self._sma_, *_ = input_to_cuml_array(sma_temp)
+        sigma2_temp = np.array(x_mat[k+p+q+P+Q], order='F')
+        self._sigma2_, *_ = input_to_cuml_array(sigma2_temp)
 
     @nvtx_range_wrap
     def pack(self) -> np.ndarray:
@@ -892,7 +951,7 @@ class ARIMA(Base):
 
         Returns
         -------
-        x : array-like
+        x : numpy ndarray
             Packed parameter array, grouped by series.
             Shape: (n_params * batch_size,)
         """
@@ -900,22 +959,20 @@ class ARIMA(Base):
         p, q, P, Q, k = (order.p, order.q, order.P, order.Q, order.k)
         N = self.complexity
 
-        params = self.params
-
         # 2D array for convenience
         x = np.zeros((N, self.batch_size), order='F')
 
         if k > 0:
-            x[0] = params["mu"]
+            x[0] = self._mu_.to_output("numpy")
         if p > 0:
-            x[k:k+p] = params["ar"]
+            x[k:k+p] = self._ar_.to_output("numpy")
         if q > 0:
-            x[k+p:k+p+q] = params["ma"]
+            x[k+p:k+p+q] = self._ma_.to_output("numpy")
         if P > 0:
-            x[k+p+q:k+p+q+P] = params["sar"]
+            x[k+p+q:k+p+q+P] = self._sar_.to_output("numpy")
         if Q > 0:
-            x[k+p+q+P:k+p+q+P+Q] = params["sma"]
-        x[k+p+q+P+Q] = params["sigma2"]
+            x[k+p+q+P:k+p+q+P+Q] = self._sma_.to_output("numpy")
+        x[k+p+q+P+Q] = self._sigma2_.to_output("numpy")
 
         return x.reshape(N * self.batch_size, order='F')  # return 1D shape
 
