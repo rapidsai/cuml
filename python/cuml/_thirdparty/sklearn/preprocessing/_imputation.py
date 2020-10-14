@@ -390,15 +390,22 @@ class SimpleImputer(_BaseImputer):
                 return np.full(X.shape[1], np.nan)
             X_sorted = X.copy()
             if not np.isnan(missing_values):
+                # If nan is not the missing value, any column with nans should
+                # have a median of nan
                 nan_cols = np.any(np.isnan(X), axis=0)
                 X_sorted[mask] = np.nan
             else:
                 nan_cols = np.full(X.shape[1], False)
+            # nans are always sorted to end of array
             X_sorted = np.sort(X_sorted, axis=0)
 
             count_missing_values = mask.sum(axis=0)
+            # Ignore missing values in determining "halfway" index of sorted
+            # array
             n_elems = X.shape[0] - count_missing_values
 
+            # If no elements remain after removing missing value, median for
+            # that colum is nan
             nan_cols = np.logical_or(nan_cols, n_elems <= 0)
 
             col_index = np.arange(X_sorted.shape[1])
