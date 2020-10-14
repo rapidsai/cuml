@@ -14,12 +14,11 @@ import numbers
 import warnings
 
 import cupy as np
-import numpy as cpu_np
 from cupy import sparse
 
 from ....thirdparty_adapters import (get_input_type, to_output_type, _get_mask,
-                                     _masked_column_median, _masked_column_mean,
-                                     _masked_column_mode)
+                                     _masked_column_median,
+                                     _masked_column_mean, _masked_column_mode)
 from ..utils.skl_dependencies import BaseEstimator, TransformerMixin
 from ..utils.validation import check_is_fitted
 from ..utils.validation import FLOAT_DTYPES
