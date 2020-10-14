@@ -31,6 +31,7 @@
 - PR #2675: Update conda recipes to support CUDA 11
 
 ## Improvements
+- PR #2350: Update cuml README.md links
 - PR #2336: Eliminate `rmm.device_array` usage
 - PR #2262: Using fully shared PartDescriptor in MNMG decomposiition, linear models, and solvers
 - PR #2310: Pinning ucx-py to 0.14 to make 0.15 CI pass
