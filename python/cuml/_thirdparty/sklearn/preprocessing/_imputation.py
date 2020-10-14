@@ -379,27 +379,33 @@ class SimpleImputer(_BaseImputer):
             count_missing_values = mask.sum(axis=0)
             n_elems = X.shape[0] - count_missing_values
             mean = np.nansum(X, axis=0)
-            mean -= (count_missing_values * missing_values)
+            if not np.isnan(missing_values):
+                mean -= (count_missing_values * missing_values)
             mean /= n_elems
             return mean
 
         # Median
         elif strategy == "median":
+            if X.size == 0:
+                return np.full(X.shape[1], np.nan)
+            X_sorted = X.copy()
+            if not np.isnan(missing_values):
+                nan_cols = np.any(np.isnan(X), axis=0)
+                X_sorted[mask] = np.nan
+            else:
+                nan_cols = np.full(X.shape[1], False)
+            X_sorted = np.sort(X_sorted, axis=0)
+
             count_missing_values = mask.sum(axis=0)
             n_elems = X.shape[0] - count_missing_values
-            middle, is_odd = np.divmod(n_elems, 2)
-            is_odd = is_odd.astype(np.bool)
-            middle += count_missing_values
-            X_sorted = X.copy()
-            X_sorted[mask] = np.nan
-            X_sorted = np.sort(X, axis=0)
-            median = np.empty(X.shape[1], dtype=X.dtype)
-            wis_odd = np.argwhere(is_odd).squeeze()
-            wnot_odd = np.argwhere(~is_odd).squeeze()
-            median[wis_odd] = X_sorted[middle[wis_odd], wis_odd]
-            elm1 = X_sorted[middle[wnot_odd]-1, wnot_odd]
-            elm2 = X_sorted[middle[wnot_odd], wnot_odd]
-            median[wnot_odd] = (elm1 + elm2) / 2.
+
+            nan_cols = np.logical_or(nan_cols, n_elems <= 0)
+
+            col_index = np.arange(X_sorted.shape[1])
+            median = (X_sorted[np.floor_divide(n_elems - 1, 2), col_index] +
+                      X_sorted[np.floor_divide(n_elems, 2), col_index]) / 2
+
+            median[nan_cols] = np.nan
             return median
 
         # Most frequent
