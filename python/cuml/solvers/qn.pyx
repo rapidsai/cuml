@@ -209,8 +209,21 @@ class QN(Base):
     lbfgs_memory: int (default = 5)
         Rank of the lbfgs inverse-Hessian approximation. Method will use
         O(lbfgs_memory * D) memory.
-    verbose : int or boolean (default = False)
-        Controls verbose level of logging.
+    handle : cuml.Handle
+        Specifies the cuml.handle that holds internal CUDA state for
+        computations in this model. Most importantly, this specifies the CUDA
+        stream that will be used for the model's computations, so users can
+        run different models concurrently in different streams by creating
+        handles in several streams.
+        If it is None, a new one is created.
+    verbose : int or boolean, default=False
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        See :ref:`verbosity-levels` for more info.
+    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
+        Variable to control output type of the results and attributes of
+        the estimator. If None, it'll inherit the output type set at the
+        module level, `cuml.global_output_type`.
+        See :ref:`output-data-type-configuration` for more info.
 
     Attributes
     -----------
@@ -507,5 +520,6 @@ class QN(Base):
             return super().__getattr__(attr)
 
     def get_param_names(self):
-        return ['loss', 'fit_intercept', 'l1_strength', 'l2_strength',
+        return super().get_param_names() + \
+            ['loss', 'fit_intercept', 'l1_strength', 'l2_strength',
                 'max_iter', 'tol', 'linesearch_max_iter', 'lbfgs_memory']

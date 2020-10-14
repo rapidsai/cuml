@@ -108,19 +108,18 @@ class Base:
         stream that will be used for the model's computations, so users can
         run different models concurrently in different streams by creating
         handles in several streams.
-        If it is None, a new one is created just for this class.
-    verbose : int or boolean (default = False)
+        If it is None, a new one is created.
+    verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
-    output_type : {'input', 'cudf', 'cupy', 'numpy'}, optional
+        See :ref:`verbosity-levels` for more info.
+    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
         Variable to control output type of the results and attributes of
-        the estimators. If None, it'll inherit the output type set at the
-        module level, cuml.output_type. If set, the estimator will override
-        the global option for its behavior.
+        the estimator. If None, it'll inherit the output type set at the
+        module level, `cuml.global_output_type`.
+        See :ref:`output-data-type-configuration` for more info.
 
     Examples
     --------
-
-
 
     .. code-block:: python
 
@@ -181,8 +180,8 @@ class Base:
         else:
             self.verbose = verbose
 
-        self.output_type = cuml.global_output_type if output_type is None \
-            else _check_output_type_str(output_type)
+        self.output_type = _check_output_type_str(
+            cuml.global_output_type if output_type is None else output_type)
 
         self._mirror_input = True if self.output_type == 'input' else False
 
@@ -217,7 +216,7 @@ class Base:
         extra set of parameters that it in-turn owns. This is to simplify the
         implementation of `get_params` and `set_params` methods.
         """
-        return []
+        return ["handle", "verbose", "output_type"]
 
     def get_params(self, deep=True):
         """
@@ -442,11 +441,17 @@ def _input_to_type(input):
 def _check_output_type_str(output_str):
     if isinstance(output_str, str):
         output_type = output_str.lower()
-        if output_type in ['numpy', 'cupy', 'cudf', 'numba']:
+        if output_type in ['numpy', 'cupy', 'cudf', 'numba', 'input']:
             return output_str
         else:
-            raise ValueError("output_type must be one of " +
-                             "'numpy', 'cupy', 'cudf' or 'numba'")
+            raise ValueError(("output_type must be one of "
+                              "'numpy', 'cupy', 'cudf', 'numba', or 'input'."
+                              " Got: '{}'"
+                              ).format(output_str))
+    else:
+        raise ValueError(("output_type must be a string"
+                          " Got: '{}'"
+                          ).format(type(output_str)))
 
 
 def _input_target_to_dtype(target):

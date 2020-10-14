@@ -117,6 +117,8 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
                                     int,
                                     CRITERION,
                                     bool,
+                                    int,
+                                    bool,
                                     int) except +
 
     cdef vector[unsigned char] save_model(ModelHandle)

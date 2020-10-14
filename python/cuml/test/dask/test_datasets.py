@@ -180,9 +180,11 @@ def test_make_regression(n_samples, n_features, n_informative,
 @pytest.mark.parametrize('random_state', [None, 1234])
 @pytest.mark.parametrize('n_parts', [2, 23])
 @pytest.mark.parametrize('order', ['C', 'F'])
+@pytest.mark.parametrize('dtype', ['float32', 'float64'])
 def test_make_classification(n_samples, n_features, hypercube, n_classes,
                              n_clusters_per_class, n_informative,
-                             random_state, n_parts, order, client):
+                             random_state, n_parts, order, dtype,
+                             client):
     from cuml.dask.datasets.classification import make_classification
 
     X, y = make_classification(n_samples=n_samples, n_features=n_features,
@@ -190,12 +192,15 @@ def test_make_classification(n_samples, n_features, hypercube, n_classes,
                                n_clusters_per_class=n_clusters_per_class,
                                n_informative=n_informative,
                                random_state=random_state, n_parts=n_parts,
-                               order=order)
+                               order=order, dtype=dtype)
     assert(len(X.chunks[0])) == n_parts
     assert(len(X.chunks[1])) == 1
 
     assert X.shape == (n_samples, n_features)
     assert y.shape == (n_samples, )
+
+    assert X.dtype == dtype
+    assert y.dtype == np.int64
 
     assert len(X.chunks[0]) == n_parts
     assert len(y.chunks[0]) == n_parts

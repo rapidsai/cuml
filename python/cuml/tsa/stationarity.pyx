@@ -69,8 +69,13 @@ def kpss_test(y, d=0, D=0, s=0, pval_threshold=0.05, output_type="input",
         Seasonal period if D > 0
     pval_threshold : float
         The p-value threshold above which a series is considered stationary.
-    handle : cuml.Handle (default=None)
-        If it is None, a new one is created just for this function call.
+    handle : cuml.Handle
+        Specifies the cuml.handle that holds internal CUDA state for
+        computations in this model. Most importantly, this specifies the CUDA
+        stream that will be used for the model's computations, so users can
+        run different models concurrently in different streams by creating
+        handles in several streams.
+        If it is None, a new one is created.
 
     Returns
     -------
