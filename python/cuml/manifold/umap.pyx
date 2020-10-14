@@ -207,6 +207,13 @@ class UMAP(Base):
         More specific parameters controlling the embedding. If None these
         values are set automatically as determined by ``min_dist`` and
         ``spread``.
+    handle : cuml.Handle
+        Specifies the cuml.handle that holds internal CUDA state for
+        computations in this model. Most importantly, this specifies the CUDA
+        stream that will be used for the model's computations, so users can
+        run different models concurrently in different streams by creating
+        handles in several streams.
+        If it is None, a new one is created.
     hash_input: bool, optional (default = False)
         UMAP can hash the training input so that exact embeddings
         are returned when transform is called on the same data upon
@@ -252,8 +259,14 @@ class UMAP(Base):
                 def on_train_end(self, embeddings):
                     print(embeddings.copy_to_host())
 
-    verbose : int or boolean (default = False)
-        Controls verbosity of logging.
+    verbose : int or boolean, default=False
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        See :ref:`verbosity-levels` for more info.
+    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
+        Variable to control output type of the results and attributes of
+        the estimator. If None, it'll inherit the output type set at the
+        module level, `cuml.global_output_type`.
+        See :ref:`output-data-type-configuration` for more info.
 
     Notes
     -----
@@ -341,14 +354,23 @@ class UMAP(Base):
         self.target_weights = target_weights
 
         self.multicore_implem = random_state is None
-        if isinstance(random_state, np.random.RandomState):
-            rs = random_state
+
+        # Check to see if we are already a random_state (type==np.uint64).
+        # Reuse this if already passed (can happen from get_params() of another
+        # instance)
+        if isinstance(random_state, np.uint64):
+            self.random_state = random_state
         else:
-            rs = np.random.RandomState(random_state)
-        self.random_state = <uint64_t> rs.randint(low=0,
-                                                  high=np.iinfo(
-                                                      np.uint64).max,
-                                                  dtype=np.uint64)
+            # Otherwise create a RandomState instance to generate a new
+            # np.uint64
+            if isinstance(random_state, np.random.RandomState):
+                rs = random_state
+            else:
+                rs = np.random.RandomState(random_state)
+
+            self.random_state = rs.randint(low=0,
+                                           high=np.iinfo(np.uint64).max,
+                                           dtype=np.uint64)
 
         if target_metric == "euclidean" or target_metric == "categorical":
             self.target_metric = target_metric
@@ -748,3 +770,28 @@ class UMAP(Base):
         ret = embedding.to_output(out_type)
         del X_m
         return ret
+
+    def get_param_names(self):
+        return super().get_param_names() + [
+            "n_neighbors",
+            "n_components",
+            "n_epochs",
+            "learning_rate",
+            "min_dist",
+            "spread",
+            "set_op_mix_ratio",
+            "local_connectivity",
+            "repulsion_strength",
+            "negative_sample_rate",
+            "transform_queue_size",
+            "init",
+            "a",
+            "b",
+            "target_n_neighbors",
+            "target_weights",
+            "target_metric",
+            "hash_input",
+            "random_state",
+            "optim_batch_size",
+            "callback",
+        ]

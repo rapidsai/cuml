@@ -50,6 +50,8 @@
 - PR #2910: Adding Support for CuPy 8.x
 - PR #2914: Add tests for XGBoost multi-class models in FIL
 - PR #2930: Pin libfaiss to <=1.6.3
+- PR #2928: Updating Estimators Derived from Base for Consistency
+- PR #2942: Adding `cuml.experimental` to the Docs
 - PR #2956: Consistency of get_params and set_params in ARIMA
 
 ## Bug Fixes
@@ -84,6 +86,8 @@
 - PR #2931: Fix notebook error handling in gpuCI
 - PR #2943: Remove unused shuffle_features parameter
 - PR #2940: Correcting labels meta dtype for `cuml.dask.make_classification`
+- PR #2968: Remove shuffle_features from RF param names
+- PR #2957: Fix ols test size for stability
 
 # cuML 0.15.0 (Date TBD)
 

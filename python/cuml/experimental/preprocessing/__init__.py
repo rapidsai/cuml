@@ -19,3 +19,23 @@ from cuml._thirdparty.sklearn.preprocessing import StandardScaler, \
     SimpleImputer, RobustScaler, KBinsDiscretizer
 from cuml._thirdparty.sklearn.preprocessing import scale, minmax_scale, \
     normalize, add_dummy_feature, binarize, robust_scale
+
+__all__ = [
+    # Classes
+    'Binarizer',
+    'KBinsDiscretizer',
+    'MaxAbsScaler',
+    'MinMaxScaler',
+    'Normalizer',
+    'PolynomialFeatures',
+    'RobustScaler',
+    'SimpleImputer',
+    'StandardScaler',
+    # Functions
+    'add_dummy_feature',
+    'binarize',
+    'minmax_scale',
+    'normalize',
+    'robust_scale',
+    'scale',
+]

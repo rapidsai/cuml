@@ -169,21 +169,36 @@ class CD(Base):
        than looping over features sequentially by default.
        This (setting to ‘True’) often leads to significantly faster convergence
        especially when tol is higher than 1e-4.
+    handle : cuml.Handle
+        Specifies the cuml.handle that holds internal CUDA state for
+        computations in this model. Most importantly, this specifies the CUDA
+        stream that will be used for the model's computations, so users can
+        run different models concurrently in different streams by creating
+        handles in several streams.
+        If it is None, a new one is created.
+    verbose : int or boolean, default=False
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        See :ref:`verbosity-levels` for more info.
+    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
+        Variable to control output type of the results and attributes of
+        the estimator. If None, it'll inherit the output type set at the
+        module level, `cuml.global_output_type`.
+        See :ref:`output-data-type-configuration` for more info.
 
     """
 
     def __init__(self, loss='squared_loss', alpha=0.0001, l1_ratio=0.15,
                  fit_intercept=True, normalize=False, max_iter=1000, tol=1e-3,
-                 shuffle=True, handle=None, output_type=None):
+                 shuffle=True, handle=None, output_type=None, verbose=False):
 
-        if loss in ['squared_loss']:
-            self.loss = self._get_loss_int(loss)
-        else:
+        if loss not in ['squared_loss']:
             msg = "loss {!r} is not supported"
             raise NotImplementedError(msg.format(loss))
 
-        super(CD, self).__init__(handle=handle, verbose=False,
+        super(CD, self).__init__(handle=handle, verbose=verbose,
                                  output_type=output_type)
+
+        self.loss = loss
         self.alpha = alpha
         self.l1_ratio = l1_ratio
         self.fit_intercept = fit_intercept
@@ -201,10 +216,10 @@ class CD(Base):
                 msg = "alpha values have to be positive"
                 raise TypeError(msg.format(alpha))
 
-    def _get_loss_int(self, loss):
+    def _get_loss_int(self):
         return {
             'squared_loss': 0,
-        }[loss]
+        }[self.loss]
 
     @generate_docstring()
     def fit(self, X, y, convert_dtype=False):
@@ -247,7 +262,7 @@ class CD(Base):
                   <bool>self.fit_intercept,
                   <bool>self.normalize,
                   <int>self.max_iter,
-                  <int>self.loss,
+                  <int>self._get_loss_int(),
                   <float>self.alpha,
                   <float>self.l1_ratio,
                   <bool>self.shuffle,
@@ -265,7 +280,7 @@ class CD(Base):
                   <bool>self.fit_intercept,
                   <bool>self.normalize,
                   <int>self.max_iter,
-                  <int>self.loss,
+                  <int>self._get_loss_int(),
                   <double>self.alpha,
                   <double>self.l1_ratio,
                   <bool>self.shuffle,
@@ -310,7 +325,7 @@ class CD(Base):
                       <float*>coef_ptr,
                       <float>self.intercept_,
                       <float*>preds_ptr,
-                      <int>self.loss)
+                      <int>self._get_loss_int())
         else:
             cdPredict(handle_[0],
                       <double*>X_ptr,
@@ -319,10 +334,22 @@ class CD(Base):
                       <double*>coef_ptr,
                       <double>self.intercept_,
                       <double*>preds_ptr,
-                      <int>self.loss)
+                      <int>self._get_loss_int())
 
         self.handle.sync()
 
         del(X_m)
 
         return preds.to_output(out_type)
+
+    def get_param_names(self):
+        return super().get_param_names() + [
+            "loss",
+            "alpha",
+            "l1_ratio",
+            "fit_intercept",
+            "normalize",
+            "max_iter",
+            "tol",
+            "shuffle",
+        ]

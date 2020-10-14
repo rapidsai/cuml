@@ -87,7 +87,8 @@ cdef extern from "cuml/tsa/batched_kalman.hpp" namespace "ML":
 
 
 class ARIMA(Base):
-    r"""Implements a batched ARIMA model for in- and out-of-sample
+    r"""
+    Implements a batched ARIMA model for in- and out-of-sample
     time-series prediction, with support for seasonality (SARIMA)
 
     ARIMA stands for Auto-Regressive Integrated Moving Average.
@@ -97,46 +98,6 @@ class ARIMA(Base):
     batch of time series of the same length with no missing values.
     The implementation is designed to give the best performance when using
     large batches of time series.
-
-    Examples
-    --------
-    .. code-block:: python
-
-        import numpy as np
-        from cuml.tsa.arima import ARIMA
-
-        # Create seasonal data with a trend, a seasonal pattern and noise
-        n_obs = 100
-        np.random.seed(12)
-        x = np.linspace(0, 1, n_obs)
-        pattern = np.array([[0.05, 0.0], [0.07, 0.03],
-                            [-0.03, 0.05], [0.02, 0.025]])
-        noise = np.random.normal(scale=0.01, size=(n_obs, 2))
-        y = (np.column_stack((0.5*x, -0.25*x)) + noise
-             + np.tile(pattern, (25, 1)))
-
-        # Fit a seasonal ARIMA model
-        model = ARIMA(y, (0,1,1), (0,1,1,4), fit_intercept=False)
-        model.fit()
-
-        # Forecast
-        fc = model.forecast(10)
-        print(fc)
-
-    Output:
-
-    .. code-block:: python
-
-        [[ 0.55204599 -0.25681163]
-         [ 0.57430705 -0.2262438 ]
-         [ 0.48120315 -0.20583011]
-         [ 0.535594   -0.24060046]
-         [ 0.57207541 -0.26695497]
-         [ 0.59433647 -0.23638713]
-         [ 0.50123257 -0.21597344]
-         [ 0.55562342 -0.25074379]
-         [ 0.59210483 -0.27709831]
-         [ 0.61436589 -0.24653047]]
 
     Parameters
     ----------
@@ -160,13 +121,20 @@ class ARIMA(Base):
         statsmodels computes forecasts for the differenced series when
         simple_differencing is True.
     handle : cuml.Handle
-        If it is None, a new one is created just for this instance
-    verbose : int or boolean (default = False)
-        Controls verbose level of logging.
-    output_type : {'input', 'cudf', 'cupy', 'numpy'}, optional
-        Variable to control output type of the results and attributes.
-        If None, it'll inherit the output type set at the module level,
-        cuml.output_type. If set, it will override the global option.
+        Specifies the cuml.handle that holds internal CUDA state for
+        computations in this model. Most importantly, this specifies the CUDA
+        stream that will be used for the model's computations, so users can
+        run different models concurrently in different streams by creating
+        handles in several streams.
+        If it is None, a new one is created.
+    verbose : int or boolean, default=False
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        See :ref:`verbosity-levels` for more info.
+    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
+        Variable to control output type of the results and attributes of
+        the estimator. If None, it'll inherit the output type set at the
+        module level, `cuml.global_output_type`.
+        See :ref:`output-data-type-configuration` for more info.
 
     Attributes
     ----------
@@ -204,6 +172,46 @@ class ARIMA(Base):
     Additionally the following book is a useful reference:
     "Time Series Analysis by State Space Methods",
     J. Durbin, S.J. Koopman, 2nd Edition (2012).
+
+    Examples
+    --------
+    .. code-block:: python
+
+            import numpy as np
+            from cuml.tsa.arima import ARIMA
+
+            # Create seasonal data with a trend, a seasonal pattern and noise
+            n_obs = 100
+            np.random.seed(12)
+            x = np.linspace(0, 1, n_obs)
+            pattern = np.array([[0.05, 0.0], [0.07, 0.03],
+                                [-0.03, 0.05], [0.02, 0.025]])
+            noise = np.random.normal(scale=0.01, size=(n_obs, 2))
+            y = (np.column_stack((0.5*x, -0.25*x)) + noise
+                + np.tile(pattern, (25, 1)))
+
+            # Fit a seasonal ARIMA model
+            model = ARIMA(y, (0,1,1), (0,1,1,4), fit_intercept=False)
+            model.fit()
+
+            # Forecast
+            fc = model.forecast(10)
+            print(fc)
+
+    Output:
+
+    .. code-block:: python
+
+            [[ 0.55204599 -0.25681163]
+            [ 0.57430705 -0.2262438 ]
+            [ 0.48120315 -0.20583011]
+            [ 0.535594   -0.24060046]
+            [ 0.57207541 -0.26695497]
+            [ 0.59433647 -0.23638713]
+            [ 0.50123257 -0.21597344]
+            [ 0.55562342 -0.25074379]
+            [ 0.59210483 -0.27709831]
+            [ 0.61436589 -0.24653047]]
 
     """
 
