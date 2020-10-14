@@ -91,6 +91,72 @@ def _most_frequent(array, extra_value, n_repeat):
     return value
 
 
+def _masked_median(arr, masked_value):
+    """Compute the median of each column in the 2D array arr, ignoring any
+    instances of masked_value"""
+    mask = _get_mask(arr, masked_value)
+    if arr.size == 0:
+        return np.full(arr.shape[1], np.nan)
+    arr_sorted = arr.copy()
+    if not np.isnan(masked_value):
+        # If nan is not the missing value, any column with nans should
+        # have a median of nan
+        nan_cols = np.any(np.isnan(arr), axis=0)
+        arr_sorted[mask] = np.nan
+    else:
+        nan_cols = np.full(arr.shape[1], False)
+    # nans are always sorted to end of array
+    arr_sorted = np.sort(arr_sorted, axis=0)
+
+    count_missing_values = mask.sum(axis=0)
+    # Ignore missing values in determining "halfway" index of sorted
+    # array
+    n_elems = arr.shape[0] - count_missing_values
+
+    # If no elements remain after removing missing value, median for
+    # that colum is nan
+    nan_cols = np.logical_or(nan_cols, n_elems <= 0)
+
+    col_index = np.arange(arr_sorted.shape[1])
+    median = (arr_sorted[np.floor_divide(n_elems - 1, 2), col_index] +
+              arr_sorted[np.floor_divide(n_elems, 2), col_index]) / 2
+
+    median[nan_cols] = np.nan
+    return median
+
+
+def _masked_mean(arr, masked_value):
+    """Compute the mean of each column in the 2D array arr, ignoring any
+    instances of masked_value"""
+    mask = _get_mask(arr, masked_value)
+    count_missing_values = mask.sum(axis=0)
+    n_elems = arr.shape[0] - count_missing_values
+    mean = np.nansum(arr, axis=0)
+    if not np.isnan(masked_value):
+        mean -= (count_missing_values * masked_value)
+    mean /= n_elems
+    return mean
+
+
+def _masked_mode(arr, masked_value):
+    """Determine the most frequently appearing element in each column in the 2D
+    array arr, ignoring any instances of masked_value"""
+    mask = _get_mask(arr, masked_value)
+    n_features = arr.shape[1]
+    most_frequent = cpu_np.empty(n_features, dtype=arr.dtype)
+    for i in range(n_features):
+        feature_mask_idxs = np.where(~mask[:, i])[0]
+        values, counts = np.unique(arr[feature_mask_idxs, i],
+                                   return_counts=True)
+        count_max = counts.max()
+        if count_max > 0:
+            value = values[counts == count_max].min()
+        else:
+            value = np.nan
+        most_frequent[i] = value
+    return np.array(most_frequent)
+
+
 class _BaseImputer(TransformerMixin, BaseEstimator):
     """Base class for all imputers.
 
@@ -372,64 +438,17 @@ class SimpleImputer(_BaseImputer):
 
     def _dense_fit(self, X, strategy, missing_values, fill_value):
         """Fit the transformer on dense data."""
-        mask = _get_mask(X, missing_values)
-
         # Mean
         if strategy == "mean":
-            count_missing_values = mask.sum(axis=0)
-            n_elems = X.shape[0] - count_missing_values
-            mean = np.nansum(X, axis=0)
-            if not np.isnan(missing_values):
-                mean -= (count_missing_values * missing_values)
-            mean /= n_elems
-            return mean
+            return _masked_mean(X, missing_values)
 
         # Median
         elif strategy == "median":
-            if X.size == 0:
-                return np.full(X.shape[1], np.nan)
-            X_sorted = X.copy()
-            if not np.isnan(missing_values):
-                # If nan is not the missing value, any column with nans should
-                # have a median of nan
-                nan_cols = np.any(np.isnan(X), axis=0)
-                X_sorted[mask] = np.nan
-            else:
-                nan_cols = np.full(X.shape[1], False)
-            # nans are always sorted to end of array
-            X_sorted = np.sort(X_sorted, axis=0)
-
-            count_missing_values = mask.sum(axis=0)
-            # Ignore missing values in determining "halfway" index of sorted
-            # array
-            n_elems = X.shape[0] - count_missing_values
-
-            # If no elements remain after removing missing value, median for
-            # that colum is nan
-            nan_cols = np.logical_or(nan_cols, n_elems <= 0)
-
-            col_index = np.arange(X_sorted.shape[1])
-            median = (X_sorted[np.floor_divide(n_elems - 1, 2), col_index] +
-                      X_sorted[np.floor_divide(n_elems, 2), col_index]) / 2
-
-            median[nan_cols] = np.nan
-            return median
+            return _masked_median(X, missing_values)
 
         # Most frequent
         elif strategy == "most_frequent":
-            n_features = X.shape[1]
-            most_frequent = cpu_np.empty(n_features, dtype=X.dtype)
-            for i in range(n_features):
-                feature_mask_idxs = np.where(~mask[:, i])[0]
-                values, counts = np.unique(X[feature_mask_idxs, i],
-                                           return_counts=True)
-                count_max = counts.max()
-                if count_max > 0:
-                    value = values[counts == count_max].min()
-                else:
-                    value = np.nan
-                most_frequent[i] = value
-            return np.array(most_frequent)
+            return _masked_mode(X, missing_values)
 
         # Constant
         elif strategy == "constant":
