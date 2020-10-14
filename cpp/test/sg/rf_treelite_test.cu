@@ -308,13 +308,13 @@ class RfConcatTestClf : public RfTreeliteTestCommon<T, L> {
     // Generate noise.
     r.uniform(temp_label_d, this->params.n_rows, T(0.0), T(10.0), this->stream);
 
-    LinAlg::transpose<float>(this->data_d, temp_data_d, this->params.n_rows,
-                             this->params.n_cols,
-                             this->handle->get_cublas_handle(), this->stream);
+    raft::linalg::transpose<float>(*(this->handle), this->data_d, temp_data_d,
+                                   this->params.n_rows, this->params.n_cols,
+                                   this->stream);
 
-    LinAlg::gemv<float>(temp_data_d, this->params.n_cols, this->params.n_rows,
-                        weight, temp_label_d, true, 1.f, 1.f,
-                        this->handle->get_cublas_handle(), this->stream);
+    raft::linalg::gemv<float>(*(this->handle), temp_data_d, this->params.n_cols,
+                              this->params.n_rows, weight, temp_label_d, true,
+                              1.f, 1.f, this->stream);
 
     temp_label_h.resize(this->params.n_rows);
     raft::update_host(temp_label_h.data(), temp_label_d, this->params.n_rows,
@@ -394,13 +394,13 @@ class RfConcatTestReg : public RfTreeliteTestCommon<T, L> {
     r.uniform(this->labels_d, this->params.n_rows, T(0.0), T(10.0),
               this->stream);
 
-    LinAlg::transpose<float>(this->data_d, temp_data_d, this->params.n_rows,
-                             this->params.n_cols,
-                             this->handle->get_cublas_handle(), this->stream);
+    raft::linalg::transpose<float>(*(this->handle), this->data_d, temp_data_d,
+                                   this->params.n_rows, this->params.n_cols,
+                                   this->stream);
 
-    LinAlg::gemv<float>(temp_data_d, this->params.n_cols, this->params.n_rows,
-                        weight, this->labels_d, true, 1.f, 1.f,
-                        this->handle->get_cublas_handle(), this->stream);
+    raft::linalg::gemv<float>(*(this->handle), temp_data_d, this->params.n_cols,
+                              this->params.n_rows, weight, this->labels_d, true,
+                              1.f, 1.f, this->stream);
 
     this->labels_h.resize(this->params.n_rows);
     raft::update_host(this->labels_h.data(), this->labels_d,
