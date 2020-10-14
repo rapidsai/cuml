@@ -17,7 +17,9 @@ import cupy as np
 import numpy as cpu_np
 from cupy import sparse
 
-from ....thirdparty_adapters import get_input_type, to_output_type
+from ....thirdparty_adapters import (get_input_type, to_output_type, _get_mask,
+                                     _masked_column_median, _masked_column_mean,
+                                     _masked_column_mode)
 from ..utils.skl_dependencies import BaseEstimator, TransformerMixin
 from ..utils.validation import check_is_fitted
 from ..utils.validation import FLOAT_DTYPES
@@ -27,14 +29,6 @@ from ....common.import_utils import check_cupy8
 
 def is_scalar_nan(x):
     return bool(isinstance(x, numbers.Real) and np.isnan(x))
-
-
-def _get_mask(X, value_to_mask):
-    """Compute the boolean mask X == missing_values."""
-    if value_to_mask == "NaN" or np.isnan(value_to_mask):
-        return np.isnan(X)
-    else:
-        return X == value_to_mask
 
 
 def _check_inputs_dtype(X, missing_values):
@@ -89,72 +83,6 @@ def _most_frequent(array, extra_value, n_repeat):
     else:
         value = min(extra_value, values[counts == most_frequent_count].min())
     return value
-
-
-def _masked_median(arr, masked_value):
-    """Compute the median of each column in the 2D array arr, ignoring any
-    instances of masked_value"""
-    mask = _get_mask(arr, masked_value)
-    if arr.size == 0:
-        return np.full(arr.shape[1], np.nan)
-    arr_sorted = arr.copy()
-    if not np.isnan(masked_value):
-        # If nan is not the missing value, any column with nans should
-        # have a median of nan
-        nan_cols = np.any(np.isnan(arr), axis=0)
-        arr_sorted[mask] = np.nan
-    else:
-        nan_cols = np.full(arr.shape[1], False)
-    # nans are always sorted to end of array
-    arr_sorted = np.sort(arr_sorted, axis=0)
-
-    count_missing_values = mask.sum(axis=0)
-    # Ignore missing values in determining "halfway" index of sorted
-    # array
-    n_elems = arr.shape[0] - count_missing_values
-
-    # If no elements remain after removing missing value, median for
-    # that colum is nan
-    nan_cols = np.logical_or(nan_cols, n_elems <= 0)
-
-    col_index = np.arange(arr_sorted.shape[1])
-    median = (arr_sorted[np.floor_divide(n_elems - 1, 2), col_index] +
-              arr_sorted[np.floor_divide(n_elems, 2), col_index]) / 2
-
-    median[nan_cols] = np.nan
-    return median
-
-
-def _masked_mean(arr, masked_value):
-    """Compute the mean of each column in the 2D array arr, ignoring any
-    instances of masked_value"""
-    mask = _get_mask(arr, masked_value)
-    count_missing_values = mask.sum(axis=0)
-    n_elems = arr.shape[0] - count_missing_values
-    mean = np.nansum(arr, axis=0)
-    if not np.isnan(masked_value):
-        mean -= (count_missing_values * masked_value)
-    mean /= n_elems
-    return mean
-
-
-def _masked_mode(arr, masked_value):
-    """Determine the most frequently appearing element in each column in the 2D
-    array arr, ignoring any instances of masked_value"""
-    mask = _get_mask(arr, masked_value)
-    n_features = arr.shape[1]
-    most_frequent = cpu_np.empty(n_features, dtype=arr.dtype)
-    for i in range(n_features):
-        feature_mask_idxs = np.where(~mask[:, i])[0]
-        values, counts = np.unique(arr[feature_mask_idxs, i],
-                                   return_counts=True)
-        count_max = counts.max()
-        if count_max > 0:
-            value = values[counts == count_max].min()
-        else:
-            value = np.nan
-        most_frequent[i] = value
-    return np.array(most_frequent)
 
 
 class _BaseImputer(TransformerMixin, BaseEstimator):
@@ -440,15 +368,15 @@ class SimpleImputer(_BaseImputer):
         """Fit the transformer on dense data."""
         # Mean
         if strategy == "mean":
-            return _masked_mean(X, missing_values)
+            return _masked_column_mean(X, missing_values)
 
         # Median
         elif strategy == "median":
-            return _masked_median(X, missing_values)
+            return _masked_column_median(X, missing_values)
 
         # Most frequent
         elif strategy == "most_frequent":
-            return _masked_mode(X, missing_values)
+            return _masked_column_mode(X, missing_values)
 
         # Constant
         elif strategy == "constant":
