@@ -19,6 +19,7 @@ import pytest
 import cudf
 import cupy as cp
 import numpy as np
+from pandas import DataFrame as pdDF
 
 from cuml.common import input_to_cuml_array, CumlArray
 from cuml.common import input_to_dev_array
@@ -131,8 +132,10 @@ def test_convert_matrix_order_cuml_array(dtype, input_type, from_order,
                                                 order=to_order)
 
     if to_order == 'K':
-        if input_type in ['cudf', 'pandas']:
+        if input_type in ['cudf']:
             assert conv_data.order == 'F'
+        elif input_type in ['pandas']:
+            assert conv_data.order == 'C'
         else:
             assert conv_data.order == from_order
     else:
@@ -190,7 +193,7 @@ def test_dtype_check(dtype, check_dtype, input_type, order):
 
     if (dtype == np.float16 or check_dtype == np.float16)\
             and input_type != 'numpy':
-        pytest.xfail("float16 not yet supported by numba/cuDF.from_gpu_matrix")
+        pytest.xfail("float16 not yet supported by numba/cuDF")
 
     if dtype in [np.uint8, np.uint16, np.uint32, np.uint64]:
         if input_type in ['cudf', 'pandas']:
@@ -223,7 +226,7 @@ def test_convert_input_dtype(from_dtype, to_dtype, input_type, num_rows,
                              num_cols, order):
 
     if from_dtype == np.float16 and input_type != 'numpy':
-        pytest.xfail("float16 not yet supported by numba/cuDF.from_gpu_matrix")
+        pytest.xfail("float16 not yet supported by numba/cuDF")
 
     if from_dtype in [np.uint8, np.uint16, np.uint32, np.uint64]:
         if input_type == 'cudf':
@@ -309,8 +312,8 @@ def check_ptr(a, b, input_type):
                 return x.__array_interface__['data'][0]
 
         if input_type == 'pandas':
-            a = a.as_matrix()
-            b = b.as_matrix()
+            a = a.values
+            b = b.values
 
         assert get_ptr(a) == get_ptr(b)
 
@@ -329,16 +332,13 @@ def get_input(type, nrows, ncols, dtype, order='C', out_dtype=False):
         result = nbcuda.as_cuda_array(rand_mat)
 
     if type == 'cudf':
-        result = cudf.DataFrame()
-        result = result.from_gpu_matrix(nbcuda.as_cuda_array(rand_mat))
+        result = cudf.DataFrame(rand_mat)
 
     if type == 'pandas':
-        result = cudf.DataFrame()
-        result = result.from_gpu_matrix(nbcuda.as_cuda_array(rand_mat))
-        result = result.to_pandas()
+        result = pdDF(cp.asnumpy(rand_mat))
 
     if type == 'cuml':
-        result = CumlArray(data=rand_mat, dtype=dtype, shape=rand_mat.shape,
+        result = CumlArray(data=rand_mat,
                            order=order if order != 'K' else None)
 
     if out_dtype:

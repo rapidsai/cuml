@@ -97,18 +97,7 @@ class DistributedDataHandler:
 
         client = cls.get_client(client)
 
-        multiple = isinstance(data, Sequence)
-
-        if isinstance(first(data) if multiple else data,
-                      (dcDataFrame, daskSeries)):
-            datatype = 'cudf'
-        else:
-            datatype = 'cupy'
-            if multiple:
-                for d in data:
-                    validate_dask_array(d)
-            else:
-                validate_dask_array(data)
+        datatype, multiple = _get_datatype_from_inputs(data)
 
         gpu_futures = client.sync(_extract_partitions, data, client)
 
@@ -153,6 +142,39 @@ class DistributedDataHandler:
                 sizes
 
             self.total_rows += total
+
+
+def _get_datatype_from_inputs(data):
+
+    """
+    Gets the datatype from a distributed data input.
+
+    Parameters
+    ----------
+
+    data : dask.DataFrame, dask.Series, dask.Array, or
+           Iterable containing either.
+
+    Returns
+    -------
+
+    datatype : str {'cupy', 'cudf}
+    """
+
+    multiple = isinstance(data, Sequence)
+
+    if isinstance(first(data) if multiple else data,
+                  (dcDataFrame, daskSeries)):
+        datatype = 'cudf'
+    else:
+        datatype = 'cupy'
+        if multiple:
+            for d in data:
+                validate_dask_array(d)
+        else:
+            validate_dask_array(data)
+
+    return datatype, multiple
 
 
 @with_cupy_rmm
@@ -224,7 +246,7 @@ def _workers_to_parts(futures):
 
 def _get_ary_meta(ary):
 
-    if isinstance(ary, cp.ndarray):
+    if isinstance(ary, (np.ndarray, cp.ndarray)):
         return ary.shape, ary.dtype
     elif isinstance(ary, cudf.DataFrame):
         return ary.shape, first(set(ary.dtypes))

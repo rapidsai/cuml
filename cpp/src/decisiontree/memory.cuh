@@ -75,7 +75,7 @@ void TemporaryMemory<T, L>::LevelMemAllocator(
   int nrows, int ncols, int n_unique,
   const ML::DecisionTree::DecisionTreeParams& tree_params) {
   int nbins = tree_params.n_bins;
-  int depth = tree_params.max_depth;
+  int depth = (tree_params.max_depth < 0) ? -1 : (tree_params.max_depth + 1);
   if (depth > swap_depth || (depth == -1)) {
     max_nodes_per_level = pow(2, swap_depth);
   } else {

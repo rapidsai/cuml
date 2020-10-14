@@ -18,7 +18,6 @@ from __future__ import print_function
 import sys
 import re
 import os
-import subprocess
 import argparse
 import io
 from functools import reduce

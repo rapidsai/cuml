@@ -197,9 +197,11 @@ class UMAPParametrizableTest : public ::testing::Test {
     ASSERT_TRUE(!has_nan(embedding_ptr, n_samples * umap_params.n_components,
                          alloc, stream));
 
-    double trustworthiness = trustworthiness_score<float, EucUnexpandedL2Sqrt>(
-      handle, X, embedding_ptr, n_samples, n_features, umap_params.n_components,
-      umap_params.n_neighbors);
+    double trustworthiness =
+      trustworthiness_score<float,
+                            ML::Distance::DistanceType::EucUnexpandedL2Sqrt>(
+        handle, X, embedding_ptr, n_samples, n_features,
+        umap_params.n_components, umap_params.n_neighbors);
 
     std::cout << "min. expected trustworthiness: "
               << test_params.min_trustworthiness << std::endl;
@@ -231,7 +233,7 @@ class UMAPParametrizableTest : public ::testing::Test {
     device_buffer<int> y_d(alloc, stream, n_samples);
 
     ML::Datasets::make_blobs(handle, X_d.data(), y_d.data(), n_samples,
-                             n_features, test_params.n_clusters, nullptr,
+                             n_features, test_params.n_clusters, true, nullptr,
                              nullptr, 1.f, true, -10.f, 10.f, 1234ULL);
 
     CUDA_CHECK(cudaStreamSynchronize(stream));

@@ -41,8 +41,6 @@ cimport cuml.common.cuda
 cdef extern from "treelite/c_api.h":
     ctypedef void* ModelHandle
     ctypedef void* ModelBuilderHandle
-    cdef int TreeliteExportProtobufModel(const char* filename,
-                                         ModelHandle model)
     cdef const char* TreeliteGetLastError()
 
 cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
@@ -99,10 +97,7 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
     cdef void build_treelite_forest[T, L](ModelHandle*,
                                           RandomForestMetaData[T, L]*,
                                           int,
-                                          int,
-                                          vector[unsigned char] &) except +
-
-    cdef vector[unsigned char] save_model_protobuf(ModelHandle) except +
+                                          int) except +
 
     cdef void delete_rf_metadata[T, L](RandomForestMetaData[T, L]*) except +
     cdef void print_rf_summary[T, L](RandomForestMetaData[T, L]*) except +

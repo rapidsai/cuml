@@ -48,8 +48,8 @@ class EpsNeighTest : public ::testing::TestWithParam<EpsInputs<T, IdxT>> {
     allocate(vd, batchSize + 1, true);
     allocator.reset(new defaultDeviceAllocator);
     Random::make_blobs<T, IdxT>(data, labels, param.n_row, param.n_col,
-                                param.n_centers, allocator, stream, nullptr,
-                                nullptr, T(0.01), false);
+                                param.n_centers, allocator, stream, true,
+                                nullptr, nullptr, T(0.01), false);
   }
 
   void TearDown() override {

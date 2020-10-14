@@ -131,7 +131,7 @@ def listFilesToCheck(filesDirs, filter=None):
                 allFiles.append(f)
         elif os.path.isdir(f):
             files = listAllFilesInDir(f)
-            for f in files:
-                if filter is None or filter(f):
-                    allFiles.append(f)
+            for f_ in files:
+                if filter is None or filter(f_):
+                    allFiles.append(f_)
     return allFiles

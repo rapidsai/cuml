@@ -28,7 +28,6 @@
 #endif  //HAVE_CUB
 
 #ifdef HAVE_RMM
-#include <rmm/rmm.h>
 #include <cuml/common/rmmAllocatorAdapter.hpp>
 #endif  // HAVE_RMM
 

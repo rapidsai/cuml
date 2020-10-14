@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include <ml_utils.h>
+#include <cuml/decomposition/params.hpp>
 
 namespace ML {
 

@@ -43,30 +43,21 @@ nvidia-smi
 logger "Activate conda env..."
 source activate gdf
 conda install -c conda-forge -c rapidsai -c rapidsai-nightly -c nvidia \
-      "cupy>=7,<8.0.0a0" \
       "cudatoolkit=${CUDA_REL}" \
       "cudf=${MINOR_VERSION}" \
       "rmm=${MINOR_VERSION}" \
-      "nvstrings=${MINOR_VERSION}" \
       "libcumlprims=${MINOR_VERSION}" \
-      "lapack" \
-      "cmake==3.14.3" \
-      "umap-learn" \
-      "protobuf>=3.4.1,<4.0.0" \
-      "nccl>=2.5" \
-      "dask>=2.12.0" \
-      "distributed>=2.12.0" \
       "dask-cudf=${MINOR_VERSION}" \
       "dask-cuda=${MINOR_VERSION}" \
-      "ucx-py=0.14*" \
-      "statsmodels" \
-      "xgboost==1.0.2dev.rapidsai0.13" \
-      "psutil" \
-      "lightgbm" \
-      "matplotlib" \
-      "ipython=7.3*" \
-      "jupyterlab"
-      
+      "ucx-py=${MINOR_VERSION}" \
+      "xgboost=1.2.0dev.rapidsai0.15" \
+      "rapids-build-env=$MINOR_VERSION.*" \
+      "rapids-notebook-env=$MINOR_VERSION.*" \
+      "rapids-doc-env=$MINOR_VERSION.*"
+
+# https://docs.rapids.ai/maintainers/depmgmt/
+# conda remove -f rapids-build-env rapids-notebook-env
+# conda install "your-pkg=1.0.0"
 
 
 # Install contextvars on Python 3.6
@@ -97,6 +88,9 @@ logger "Adding ${CONDA_PREFIX}/lib to LD_LIBRARY_PATH"
 export LD_LIBRARY_PATH_CACHED=$LD_LIBRARY_PATH
 export LD_LIBRARY_PATH=$CONDA_PREFIX/lib:$LD_LIBRARY_PATH
 
+logger "Building doxygen C++ docs"
+$WORKSPACE/build.sh cppdocs -v
+
 logger "Build libcuml, cuml, prims and bench targets..."
 $WORKSPACE/build.sh clean libcuml cuml prims bench -v
 
@@ -104,18 +98,6 @@ logger "Resetting LD_LIBRARY_PATH..."
 
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH_CACHED
 export LD_LIBRARY_PATH_CACHED=""
-
-logger "Build treelite for GPU testing..."
-# Buildint treelite Python for testing is temporary while there is a pip/conda
-# treelite package
-
-cd $WORKSPACE/cpp/build/treelite/src/treelite
-mkdir build
-cd build
-cmake ..
-make -j${PARALLEL_LEVEL}
-cd ../python
-python setup.py install
 
 cd $WORKSPACE
 
@@ -138,9 +120,9 @@ GTEST_OUTPUT="xml:${WORKSPACE}/test-results/libcuml_cpp/" ./test/ml
 logger "Python pytest for cuml..."
 cd $WORKSPACE/python
 
-pytest --cache-clear --junitxml=${WORKSPACE}/junit-cuml.xml -v -s -m "not memleak" --durations=50 --timeout=300 --ignore=cuml/test/dask
+pytest --cache-clear --basetemp=${WORKSPACE}/cuml-cuda-tmp --junitxml=${WORKSPACE}/junit-cuml.xml -v -s -m "not memleak" --durations=50 --timeout=300 --ignore=cuml/test/dask --ignore=cuml/raft
 
-timeout 7200 sh -c "pytest cuml/test/dask --cache-clear --junitxml=${WORKSPACE}/junit-cuml-mg.xml -v -s -m 'not memleak' --durations=50 --timeout=300"
+timeout 7200 sh -c "pytest cuml/test/dask --cache-clear --basetemp=${WORKSPACE}/cuml-mg-cuda-tmp --junitxml=${WORKSPACE}/junit-cuml-mg.xml -v -s -m 'not memleak' --durations=50 --timeout=300"
 
 
 ################################################################################

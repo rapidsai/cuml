@@ -23,46 +23,47 @@ namespace Datasets {
 
 void make_blobs(const cumlHandle& handle, float* out, int64_t* labels,
                 int64_t n_rows, int64_t n_cols, int64_t n_clusters,
-                const float* centers, const float* cluster_std,
+                bool row_major, const float* centers, const float* cluster_std,
                 const float cluster_std_scalar, bool shuffle,
                 float center_box_min, float center_box_max, uint64_t seed) {
-  MLCommon::Random::make_blobs(out, labels, n_rows, n_cols, n_clusters,
-                               handle.getDeviceAllocator(), handle.getStream(),
-                               centers, cluster_std, cluster_std_scalar,
-                               shuffle, center_box_min, center_box_max, seed);
+  MLCommon::Random::make_blobs(
+    out, labels, n_rows, n_cols, n_clusters, handle.getDeviceAllocator(),
+    handle.getStream(), row_major, centers, cluster_std, cluster_std_scalar,
+    shuffle, center_box_min, center_box_max, seed);
 }
 
 void make_blobs(const cumlHandle& handle, double* out, int64_t* labels,
                 int64_t n_rows, int64_t n_cols, int64_t n_clusters,
-                const double* centers, const double* cluster_std,
-                const double cluster_std_scalar, bool shuffle,
-                double center_box_min, double center_box_max, uint64_t seed) {
-  MLCommon::Random::make_blobs(out, labels, n_rows, n_cols, n_clusters,
-                               handle.getDeviceAllocator(), handle.getStream(),
-                               centers, cluster_std, cluster_std_scalar,
-                               shuffle, center_box_min, center_box_max, seed);
-}
-
-void make_blobs(const cumlHandle& handle, float* out, int* labels, int n_rows,
-                int n_cols, int n_clusters, const float* centers,
-                const float* cluster_std, const float cluster_std_scalar,
-                bool shuffle, float center_box_min, float center_box_max,
-                uint64_t seed) {
-  MLCommon::Random::make_blobs(out, labels, n_rows, n_cols, n_clusters,
-                               handle.getDeviceAllocator(), handle.getStream(),
-                               centers, cluster_std, cluster_std_scalar,
-                               shuffle, center_box_min, center_box_max, seed);
-}
-
-void make_blobs(const cumlHandle& handle, double* out, int* labels, int n_rows,
-                int n_cols, int n_clusters, const double* centers,
+                bool row_major, const double* centers,
                 const double* cluster_std, const double cluster_std_scalar,
                 bool shuffle, double center_box_min, double center_box_max,
                 uint64_t seed) {
-  MLCommon::Random::make_blobs(out, labels, n_rows, n_cols, n_clusters,
-                               handle.getDeviceAllocator(), handle.getStream(),
-                               centers, cluster_std, cluster_std_scalar,
-                               shuffle, center_box_min, center_box_max, seed);
+  MLCommon::Random::make_blobs(
+    out, labels, n_rows, n_cols, n_clusters, handle.getDeviceAllocator(),
+    handle.getStream(), row_major, centers, cluster_std, cluster_std_scalar,
+    shuffle, center_box_min, center_box_max, seed);
+}
+
+void make_blobs(const cumlHandle& handle, float* out, int* labels, int n_rows,
+                int n_cols, int n_clusters, bool row_major,
+                const float* centers, const float* cluster_std,
+                const float cluster_std_scalar, bool shuffle,
+                float center_box_min, float center_box_max, uint64_t seed) {
+  MLCommon::Random::make_blobs(
+    out, labels, n_rows, n_cols, n_clusters, handle.getDeviceAllocator(),
+    handle.getStream(), row_major, centers, cluster_std, cluster_std_scalar,
+    shuffle, center_box_min, center_box_max, seed);
+}
+
+void make_blobs(const cumlHandle& handle, double* out, int* labels, int n_rows,
+                int n_cols, int n_clusters, bool row_major,
+                const double* centers, const double* cluster_std,
+                const double cluster_std_scalar, bool shuffle,
+                double center_box_min, double center_box_max, uint64_t seed) {
+  MLCommon::Random::make_blobs(
+    out, labels, n_rows, n_cols, n_clusters, handle.getDeviceAllocator(),
+    handle.getStream(), row_major, centers, cluster_std, cluster_std_scalar,
+    shuffle, center_box_min, center_box_max, seed);
 }
 }  // namespace Datasets
 }  // namespace ML

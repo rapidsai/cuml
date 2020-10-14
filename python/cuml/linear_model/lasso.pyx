@@ -20,8 +20,8 @@
 # cython: language_level = 3
 
 from cuml.solvers import CD
-from cuml.metrics.base import RegressorMixin
-from cuml.common.base import Base
+from cuml.common.base import Base, RegressorMixin
+from cuml.common.doc_utils import generate_docstring
 
 
 class Lasso(Base, RegressorMixin):
@@ -38,7 +38,7 @@ class Lasso(Base, RegressorMixin):
     a linear model.
 
     Examples
-    ---------
+    --------
 
     .. code-block:: python
 
@@ -119,7 +119,7 @@ class Lasso(Base, RegressorMixin):
     coef_ : array, shape (n_features)
         The estimated coefficients for the linear regression model.
     intercept_ : array
-        The independent term. If fit_intercept_ is False, will be 0.
+        The independent term. If `fit_intercept` is False, will be 0.
 
     Notes
     -----
@@ -137,13 +137,11 @@ class Lasso(Base, RegressorMixin):
 
         self._check_alpha(alpha)
         self.alpha = alpha
-        self.coef_ = None
-        self.intercept_ = None
         self.fit_intercept = fit_intercept
         self.normalize = normalize
         self.max_iter = max_iter
         self.tol = tol
-        self.culasso = None
+        self.solver_model = None
         if selection in ['cyclic', 'random']:
             self.selection = selection
         else:
@@ -156,65 +154,39 @@ class Lasso(Base, RegressorMixin):
         if self.selection == 'random':
             shuffle = True
 
-        self.culasso = CD(fit_intercept=self.fit_intercept,
-                          normalize=self.normalize, alpha=self.alpha,
-                          l1_ratio=1.0, shuffle=shuffle,
-                          max_iter=self.max_iter, handle=self.handle)
+        self.solver_model = CD(fit_intercept=self.fit_intercept,
+                               normalize=self.normalize, alpha=self.alpha,
+                               l1_ratio=1.0, shuffle=shuffle,
+                               max_iter=self.max_iter, handle=self.handle)
 
     def _check_alpha(self, alpha):
         if alpha <= 0.0:
             msg = "alpha value has to be positive"
             raise ValueError(msg.format(alpha))
 
-    def fit(self, X, y, convert_dtype=False):
+    @generate_docstring()
+    def fit(self, X, y, convert_dtype=True):
         """
         Fit the model with X and y.
 
-        Parameters
-        ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-            Dense matrix (floats or doubles) of shape (n_samples, n_features).
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-
-        y : array-like (device or host) shape = (n_samples, 1)
-            Dense vector (floats or doubles) of shape (n_samples, 1).
-            Acceptable formats: cuDF Series, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-
-        convert_dtype : bool, optional (default = False)
-            When set to True, the transform method will, when necessary,
-            convert y to be the same data type as X if they differ. This
-            will increase memory used for the method.
-
         """
-
-        self.culasso.fit(X, y, convert_dtype=convert_dtype)
-
-        self.coef_ = self.culasso.coef_
-        self.intercept_ = self.culasso.intercept_
+        self._set_n_features_in(X)
+        self._set_output_type(X)
+        self.solver_model.fit(X, y, convert_dtype=convert_dtype)
 
         return self
 
+    @generate_docstring(return_values={'name': 'preds',
+                                       'type': 'dense',
+                                       'description': 'Predicted values',
+                                       'shape': '(n_samples, 1)'})
     def predict(self, X, convert_dtype=False):
         """
         Predicts the y for X.
 
-        Parameters
-        ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-            Dense matrix (floats or doubles) of shape (n_samples, n_features).
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-
-        Returns
-        ----------
-        y: cuDF DataFrame
-           Dense vector (floats or doubles) of shape (n_samples, 1)
-
         """
 
-        return self.culasso.predict(X, convert_dtype=convert_dtype)
+        return self.solver_model.predict(X, convert_dtype=convert_dtype)
 
     def get_params(self, deep=True):
         """

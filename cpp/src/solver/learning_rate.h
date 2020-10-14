@@ -17,7 +17,7 @@
 #pragma once
 
 #include <math.h>
-#include <ml_utils.h>
+#include <cuml/solvers/params.hpp>
 
 namespace ML {
 namespace Solver {

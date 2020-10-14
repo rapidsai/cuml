@@ -134,7 +134,7 @@ def get_small_dataset(output_type):
         return cp.asnumpy(ary)
 
     elif output_type == 'pandas':
-        return cudf.DataFrame.from_gpu_matrix(as_cuda_array(ary)).to_pandas()
+        return cudf.DataFrame(ary).to_pandas()
 
     else:
-        return cudf.DataFrame.from_gpu_matrix(as_cuda_array(ary))
+        return cudf.DataFrame(ary)

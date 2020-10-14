@@ -16,9 +16,6 @@
 
 import pytest
 
-import rmm
-
-
 import cudf
 
 from cuml.neighbors import KNeighborsClassifier as cuKNN
@@ -44,20 +41,16 @@ def _build_train_test_data(X, y, datatype, train_ratio=0.9):
     y_test = y[~train_selection]
 
     if datatype == "dataframe":
-        X_train = cudf.DataFrame.from_gpu_matrix(
-            rmm.to_device(X_train))
-        y_train = cudf.DataFrame.from_gpu_matrix(
-            rmm.to_device(y_train.reshape(y_train.shape[0], 1)))
-        X_test = cudf.DataFrame.from_gpu_matrix(
-            rmm.to_device(X_test))
-        y_test = cudf.DataFrame.from_gpu_matrix(
-            rmm.to_device(y_test.reshape(y_test.shape[0], 1)))
+        X_train = cudf.DataFrame(X_train)
+        y_train = cudf.DataFrame(y_train.reshape(y_train.shape[0], 1))
+        X_test = cudf.DataFrame(X_test)
+        y_test = cudf.DataFrame(y_test.reshape(y_test.shape[0], 1))
 
     return X_train, X_test, y_train, y_test
 
 
 @pytest.mark.parametrize("datatype", ["dataframe", "numpy"])
-@pytest.mark.parametrize("nrows", [1000, 10000])
+@pytest.mark.parametrize("nrows", [1000, 20000])
 @pytest.mark.parametrize("ncols", [50, 100])
 @pytest.mark.parametrize("n_neighbors", [2, 5, 10])
 @pytest.mark.parametrize("n_clusters", [2, 5, 10])
@@ -91,7 +84,7 @@ def test_neighborhood_predictions(nrows, ncols, n_neighbors,
 
 
 @pytest.mark.parametrize("datatype", ["dataframe", "numpy"])
-@pytest.mark.parametrize("nrows", [1000, 10000])
+@pytest.mark.parametrize("nrows", [1000, 20000])
 @pytest.mark.parametrize("ncols", [50, 100])
 @pytest.mark.parametrize("n_neighbors", [2, 5, 10])
 @pytest.mark.parametrize("n_clusters", [2, 5, 10])
@@ -111,7 +104,7 @@ def test_score(nrows, ncols, n_neighbors, n_clusters, datatype):
 
 
 @pytest.mark.parametrize("datatype", ["dataframe", "numpy"])
-@pytest.mark.parametrize("nrows", [1000, 10000])
+@pytest.mark.parametrize("nrows", [1000, 20000])
 @pytest.mark.parametrize("ncols", [50, 100])
 @pytest.mark.parametrize("n_neighbors", [2, 5, 10])
 @pytest.mark.parametrize("n_clusters", [2, 5, 10])
@@ -225,8 +218,8 @@ def test_predict_multioutput(input_type, output_type):
     y = np.array([[15, 2], [5, 4]]).astype(np.int32)
 
     if input_type == "cudf":
-        X = cudf.DataFrame.from_gpu_matrix(rmm.to_device(X))
-        y = cudf.DataFrame.from_gpu_matrix(rmm.to_device(y))
+        X = cudf.DataFrame(X)
+        y = cudf.DataFrame(y)
     elif input_type == "cupy":
         X = cp.asarray(X)
         y = cp.asarray(y)
@@ -254,8 +247,8 @@ def test_predict_proba_multioutput(input_type, output_type):
     y = np.array([[15, 2], [5, 4]]).astype(np.int32)
 
     if input_type == "cudf":
-        X = cudf.DataFrame.from_gpu_matrix(rmm.to_device(X))
-        y = cudf.DataFrame.from_gpu_matrix(rmm.to_device(y))
+        X = cudf.DataFrame(X)
+        y = cudf.DataFrame(y)
     elif input_type == "cupy":
         X = cp.asarray(X)
         y = cp.asarray(y)

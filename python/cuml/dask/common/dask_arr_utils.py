@@ -135,7 +135,7 @@ def to_sparse_dask_array(cudf_or_array, client=None):
             cupy_ary = rmm_cupy_ary(cp.asarray,
                                     x,
                                     dtype=x.dtype)
-            return cudf.DataFrame.from_gpu_matrix(cupy_ary)
+            return cudf.DataFrame(cupy_ary)
 
         parts = client.sync(_extract_partitions, ret)
         futures = [client.submit(_conv_np_to_df, part, workers=[w], pure=False)
@@ -174,7 +174,7 @@ def _get_meta(df):
 @dask.delayed
 def _to_cudf(arr):
     if arr.ndim == 2:
-        return cudf.DataFrame.from_gpu_matrix(arr)
+        return cudf.DataFrame(arr)
     elif arr.ndim == 1:
         return cudf.Series(arr)
 

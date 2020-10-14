@@ -16,7 +16,6 @@
 
 #pragma once
 
-#include <ml_utils.h>
 #include <common/device_buffer.hpp>
 #include <cub/cub.cuh>
 #include <cuda_utils.cuh>

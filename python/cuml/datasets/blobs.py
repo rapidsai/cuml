@@ -177,7 +177,6 @@ def make_blobs(n_samples=100, n_features=2, centers=None, cluster_std=1.0,
 
             y[center_indices[0]] = i
 
-            X_k = X[center_indices[0], :]  # slice a view
             X_k = generator.normal(scale=std,
                                    size=(len(center_indices[0]), n_features),
                                    dtype=dtype)
@@ -195,7 +194,6 @@ def make_blobs(n_samples=100, n_features=2, centers=None, cluster_std=1.0,
 
             y[start:stop] = i
 
-            X_k = X[start:stop, :]
             X_k = generator.normal(scale=std,
                                    size=(n, n_features),
                                    dtype=dtype)

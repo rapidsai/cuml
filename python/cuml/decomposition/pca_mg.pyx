@@ -22,6 +22,7 @@
 import ctypes
 import cudf
 import numpy as np
+from enum import IntEnum
 
 import rmm
 
@@ -36,14 +37,36 @@ import cuml.common.opg_data_utils_mg as opg
 
 from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
-from cuml.decomposition.utils cimport *
+from cuml.decomposition.utils cimport paramsSolver
 from cuml.common import input_to_dev_array, zeros
 from cuml.common.opg_data_utils_mg cimport *
 
 from cuml.decomposition import PCA
 from cuml.decomposition.base_mg import BaseDecompositionMG
 
-cdef extern from "cumlprims/opg/pca.hpp" namespace "ML::PCA::opg":
+
+ctypedef int underlying_type_t_solver
+
+
+cdef extern from "cuml/decomposition/pca_mg.hpp" namespace "ML":
+
+    ctypedef enum mg_solver "ML::mg_solver":
+        COV_EIG_DQ "ML::mg_solver::COV_EIG_DQ"
+        COV_EIG_JACOBI "ML::mg_solver::COV_EIG_JACOBI"
+        QR "ML::mg_solver::QR"
+
+    cdef cppclass paramsTSVDMG(paramsSolver):
+        int n_components
+        int max_sweeps
+        mg_solver algorithm  # = solver::COV_EIG_DQ
+        bool trans_input
+
+    cdef cppclass paramsPCAMG(paramsTSVDMG):
+        bool copy
+        bool whiten
+
+
+cdef extern from "cuml/decomposition/pca_mg.hpp" namespace "ML::PCA::opg":
 
     cdef void fit(cumlHandle& handle,
                   vector[floatData_t *] input_data,
@@ -54,7 +77,7 @@ cdef extern from "cumlprims/opg/pca.hpp" namespace "ML::PCA::opg":
                   float *singular_vals,
                   float *mu,
                   float *noise_vars,
-                  paramsPCA &prms,
+                  paramsPCAMG &prms,
                   bool verbose) except +
 
     cdef void fit(cumlHandle& handle,
@@ -66,14 +89,46 @@ cdef extern from "cumlprims/opg/pca.hpp" namespace "ML::PCA::opg":
                   double *singular_vals,
                   double *mu,
                   double *noise_vars,
-                  paramsPCA &prms,
+                  paramsPCAMG &prms,
                   bool verbose) except +
+
+
+class MGSolver(IntEnum):
+    COV_EIG_DQ = <underlying_type_t_solver> mg_solver.COV_EIG_DQ
+    COV_EIG_JACOBI = <underlying_type_t_solver> mg_solver.COV_EIG_JACOBI
+    QR = <underlying_type_t_solver> mg_solver.QR
 
 
 class PCAMG(BaseDecompositionMG, PCA):
 
     def __init__(self, **kwargs):
         super(PCAMG, self).__init__(**kwargs)
+
+    def _get_algorithm_c_name(self, algorithm):
+        algo_map = {
+            'full': MGSolver.COV_EIG_DQ,
+            'auto': MGSolver.COV_EIG_JACOBI,
+            # 'arpack': NOT_SUPPORTED,
+            # 'randomized': NOT_SUPPORTED,
+        }
+        if algorithm not in algo_map:
+            msg = "algorithm {!r} is not supported"
+            raise TypeError(msg.format(algorithm))
+
+        return algo_map[algorithm]
+
+    def _build_params(self, n_rows, n_cols):
+        cpdef paramsPCAMG *params = new paramsPCAMG()
+        params.n_components = self.n_components
+        params.n_rows = n_rows
+        params.n_cols = n_cols
+        params.whiten = self.whiten
+        params.n_iterations = self.iterated_power
+        params.tol = self.tol
+        params.algorithm = <mg_solver> (<underlying_type_t_solver> (
+            self.c_algorithm))
+
+        return <size_t>params
 
     def _call_fit(self, X, rank, part_desc, arg_params):
 
@@ -86,7 +141,7 @@ class PCAMG(BaseDecompositionMG, PCA):
         cdef uintptr_t noise_vars_ptr = self._noise_variance_.ptr
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
-        cdef paramsPCA *params = <paramsPCA*><size_t>arg_params
+        cdef paramsPCAMG *params = <paramsPCAMG*><size_t>arg_params
 
         if self.dtype == np.float32:
 

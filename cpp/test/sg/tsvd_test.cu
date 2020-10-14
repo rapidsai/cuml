@@ -16,8 +16,8 @@
 
 #include <common/cudart_utils.h>
 #include <gtest/gtest.h>
-#include <ml_utils.h>
 #include <test_utils.h>
+#include <cuml/decomposition/params.hpp>
 #include <random/rng.cuh>
 #include <tsvd/tsvd.cuh>
 #include <vector>

@@ -187,7 +187,7 @@ DataT silhouetteScore(DataT *X_in, int nRows, int nCols, LabelT *labels,
 
   Distance::pairwiseDistance(
     X_in, X_in, distanceMatrix.data(), nRows, nRows, nCols, workspace,
-    static_cast<Distance::DistanceType>(metric), stream);
+    static_cast<ML::Distance::DistanceType>(metric), stream);
 
   //deciding on the array of silhouette scores for each dataPoint
   MLCommon::device_buffer<DataT> silhouetteScoreSamples(allocator, stream, 0);

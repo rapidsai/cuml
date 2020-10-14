@@ -18,7 +18,6 @@ from itertools import chain, permutations
 import numpy as np
 import cupy as cp
 import pytest
-from dask.distributed import Client
 from sklearn.metrics import confusion_matrix as sk_confusion_matrix
 from cuml.test.utils import stress_param, generate_random_labels
 from cuml.dask.metrics import confusion_matrix
@@ -27,8 +26,7 @@ import dask.array as da
 
 @pytest.mark.mg
 @pytest.mark.parametrize('chunks', ['auto', 2, 1])
-def test_confusion_matrix(cluster, chunks):
-    client = Client(cluster)
+def test_confusion_matrix(client, chunks):
     y_true = da.from_array(cp.array([2, 0, 2, 2, 0, 1]), chunks=chunks)
     y_pred = da.from_array(cp.array([0, 0, 2, 2, 0, 2]), chunks=chunks)
     cm = confusion_matrix(y_true, y_pred)
@@ -37,27 +35,22 @@ def test_confusion_matrix(cluster, chunks):
                     [1, 0, 2]])
     cp.testing.assert_array_equal(cm, ref)
 
-    client.close()
-
 
 @pytest.mark.mg
 @pytest.mark.parametrize('chunks', ['auto', 2, 1])
-def test_confusion_matrix_binary(cluster, chunks):
-    client = Client(cluster)
+def test_confusion_matrix_binary(client, chunks):
     y_true = da.from_array(cp.array([0, 1, 0, 1]), chunks=chunks)
     y_pred = da.from_array(cp.array([1, 1, 1, 0]), chunks=chunks)
     tn, fp, fn, tp = confusion_matrix(y_true, y_pred).ravel()
     ref = cp.array([0, 2, 1, 1])
     cp.testing.assert_array_equal(ref, cp.array([tn, fp, fn, tp]))
-    client.close()
 
 
 @pytest.mark.mg
 @pytest.mark.parametrize('n_samples', [50, 3000, stress_param(500000)])
 @pytest.mark.parametrize('dtype', [np.int32, np.int64])
 @pytest.mark.parametrize('problem_type', ['binary', 'multiclass'])
-def test_confusion_matrix_random(n_samples, dtype, problem_type, cluster):
-    client = Client(cluster)
+def test_confusion_matrix_random(n_samples, dtype, problem_type, client):
     upper_range = 2 if problem_type == 'binary' else 1000
 
     y_true, y_pred, np_y_true, np_y_pred = generate_random_labels(
@@ -69,7 +62,6 @@ def test_confusion_matrix_random(n_samples, dtype, problem_type, cluster):
     cm = confusion_matrix(y_true, y_pred)
     ref = sk_confusion_matrix(np_y_true, np_y_pred)
     cp.testing.assert_array_almost_equal(ref, cm, decimal=4)
-    client.close()
 
 
 @pytest.mark.mg
@@ -80,13 +72,11 @@ def test_confusion_matrix_random(n_samples, dtype, problem_type, cluster):
      ('all', 0.1111111111),
      (None, 2)]
 )
-def test_confusion_matrix_normalize(normalize, expected_results, cluster):
-    client = Client(cluster)
+def test_confusion_matrix_normalize(normalize, expected_results, client):
     y_test = da.from_array(cp.array([0, 1, 2] * 6))
     y_pred = da.from_array(cp.array(list(chain(*permutations([0, 1, 2])))))
     cm = confusion_matrix(y_test, y_pred, normalize=normalize)
     cp.testing.assert_allclose(cm, cp.array(expected_results))
-    client.close()
 
 
 @pytest.mark.mg
@@ -94,9 +84,7 @@ def test_confusion_matrix_normalize(normalize, expected_results, cluster):
                                     (2, 1),
                                     (2, 1, 4, 7),
                                     (2, 20)])
-def test_confusion_matrix_multiclass_subset_labels(labels, cluster):
-    client = Client(cluster)
-
+def test_confusion_matrix_multiclass_subset_labels(labels, client):
     y_true, y_pred, np_y_true, np_y_pred = generate_random_labels(
         lambda rng: rng.randint(0, 3, 10).astype(np.int32), as_cupy=True)
     y_true, y_pred = da.from_array(y_true), da.from_array(y_pred)
@@ -105,7 +93,6 @@ def test_confusion_matrix_multiclass_subset_labels(labels, cluster):
     labels = cp.array(labels, dtype=np.int32)
     cm = confusion_matrix(y_true, y_pred, labels=labels)
     cp.testing.assert_array_almost_equal(ref, cm, decimal=4)
-    client.close()
 
 
 @pytest.mark.mg
@@ -113,9 +100,7 @@ def test_confusion_matrix_multiclass_subset_labels(labels, cluster):
 @pytest.mark.parametrize('dtype', [np.int32, np.int64])
 @pytest.mark.parametrize('weights_dtype', ['int', 'float'])
 def test_confusion_matrix_random_weights(n_samples, dtype, weights_dtype,
-                                         cluster):
-    client = Client(cluster)
-
+                                         client):
     y_true, y_pred, np_y_true, np_y_pred = generate_random_labels(
         lambda rng: rng.randint(0, 10, n_samples).astype(dtype), as_cupy=True)
     y_true, y_pred = da.from_array(y_true), da.from_array(y_pred)
@@ -133,4 +118,3 @@ def test_confusion_matrix_random_weights(n_samples, dtype, weights_dtype,
 
     cm = confusion_matrix(y_true, y_pred, sample_weight=sample_weight)
     cp.testing.assert_array_almost_equal(ref, cm, decimal=4)
-    client.close()

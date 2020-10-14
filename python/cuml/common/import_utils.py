@@ -54,14 +54,6 @@ def has_umap():
         return False
 
 
-def has_treelite():
-    try:
-        import treelite  # NOQA
-        return True
-    except ImportError:
-        return False
-
-
 def has_lightgbm():
     try:
         import lightgbm  # NOQA
@@ -83,14 +75,6 @@ def has_pytest_benchmark():
         import pytest_benchmark  # NOQA
         return True
     except ImportError:
-        return False
-
-
-def check_min_treelite_version():
-    if has_treelite():
-        import treelite
-        return LooseVersion(str(treelite.__version__)) >= LooseVersion("0.90")
-    else:
         return False
 
 

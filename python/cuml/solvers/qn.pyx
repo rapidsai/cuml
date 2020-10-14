@@ -25,7 +25,9 @@ import numpy as np
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t
 
-from cuml.common.base import Base, CumlArray
+from cuml.common.array import CumlArray
+from cuml.common.base import Base
+from cuml.common.doc_utils import generate_docstring
 from cuml.common.handle cimport cumlHandle
 from cuml.common import input_to_cuml_array
 from cuml.common import with_cupy_rmm
@@ -137,7 +139,7 @@ class QN(Base):
     NumPy arrays or in device (as Numba or __cuda_array_interface__ compliant).
 
     Examples
-    ---------
+    --------
     .. code-block:: python
 
         import cudf
@@ -158,9 +160,9 @@ class QN(Base):
         # Note: for now, the coefficients also include the intercept in the
         # last position if fit_intercept=True
         print("Coefficients:")
-        print(solver.coef_.copy_to_host())
+        print(solver.coef_)
         print("Intercept:")
-        print(solver.intercept_.copy_to_host())
+        print(solver.intercept_)
 
         X_new = cudf.DataFrame()
         X_new['col1'] = np.array([1,5], dtype = np.float32)
@@ -219,7 +221,7 @@ class QN(Base):
         The estimated coefficients for the linear regression model.
         Note: shape is (n_classes, n_features + 1) if fit_intercept = True.
     intercept_ : array (n_classes, 1)
-        The independent term. If fit_intercept_ is False, will be 0.
+        The independent term. If `fit_intercept` is False, will be 0.
 
     Notes
     ------
@@ -236,9 +238,10 @@ class QN(Base):
     def __init__(self, loss='sigmoid', fit_intercept=True,
                  l1_strength=0.0, l2_strength=0.0, max_iter=1000, tol=1e-3,
                  linesearch_max_iter=50, lbfgs_memory=5,
-                 verbose=False, handle=None):
+                 verbose=False, handle=None, output_type=None):
 
-        super(QN, self).__init__(handle=handle, verbose=verbose)
+        super(QN, self).__init__(handle=handle, verbose=verbose,
+                                 output_type=output_type)
 
         self.fit_intercept = fit_intercept
         self.l1_strength = l1_strength
@@ -248,7 +251,7 @@ class QN(Base):
         self.linesearch_max_iter = linesearch_max_iter
         self.lbfgs_memory = lbfgs_memory
         self.num_iter = 0
-        self.coef_ = None
+        self._coef_ = None  # accessed via coef_
 
         if loss not in ['sigmoid', 'softmax', 'normal']:
             raise ValueError("loss " + str(loss) + " not supported.")
@@ -262,29 +265,15 @@ class QN(Base):
             'normal': 1
         }[loss]
 
+    @generate_docstring()
     @with_cupy_rmm
     def fit(self, X, y, convert_dtype=False):
         """
         Fit the model with X and y.
 
-        Parameters
-        ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-            Dense matrix (floats or doubles) of shape (n_samples, n_features).
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-
-        y : array-like (device or host) shape = (n_samples, 1)
-            Dense vector (floats or doubles) of shape (n_samples, 1).
-            Acceptable formats: cuDF Series, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-
-        convert_dtype : bool, optional (default = False)
-            When set to True, the fit method will, when necessary, convert
-            y to be the same data type as X if they differ. This
-            will increase memory used for the method.
         """
         self._set_output_type(X)
+
         X_m, n_rows, self.n_cols, self.dtype = input_to_cuml_array(
             X, order='F', check_dtype=[np.float32, np.float64]
         )
@@ -318,8 +307,8 @@ class QN(Base):
         else:
             coef_size = (self.n_cols, self._num_classes_dim)
 
-        self.coef_ = CumlArray.ones(coef_size, dtype=self.dtype, order='C')
-        cdef uintptr_t coef_ptr = self.coef_.ptr
+        self._coef_ = CumlArray.ones(coef_size, dtype=self.dtype, order='C')
+        cdef uintptr_t coef_ptr = self._coef_.ptr
 
         cdef float objective32
         cdef double objective64
@@ -413,7 +402,7 @@ class QN(Base):
         scores = CumlArray.zeros(shape=(self._num_classes_dim, n_rows),
                                  dtype=self.dtype, order='F')
 
-        cdef uintptr_t coef_ptr = self.coef_.ptr
+        cdef uintptr_t coef_ptr = self._coef_.ptr
         cdef uintptr_t scores_ptr = scores.ptr
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
@@ -448,28 +437,18 @@ class QN(Base):
 
         return scores
 
+    @generate_docstring(return_values={'name': 'preds',
+                                       'type': 'dense',
+                                       'description': 'Predicted values',
+                                       'shape': '(n_samples, 1)'})
     def predict(self, X, convert_dtype=False):
         """
         Predicts the y for X.
 
-        Parameters
-        ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-            Dense matrix (floats or doubles) of shape (n_samples, n_features).
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-
-        convert_dtype : bool, optional (default = False)
-            When set to True, the predict method will, when necessary, convert
-            the input to the data type which was used to train the model. This
-            will increase memory used for the method.
-
-        Returns
-        ----------
-        y: cuDF DataFrame
-           Dense vector (floats or doubles) of shape (n_samples, 1)
         """
         out_type = self._get_output_type(X)
+        out_dtype = self._get_target_dtype()
+
         X_m, n_rows, n_cols, self.dtype = input_to_cuml_array(
             X, check_dtype=self.dtype,
             convert_to_dtype=(self.dtype if convert_dtype else None),
@@ -478,7 +457,7 @@ class QN(Base):
         cdef uintptr_t X_ptr = X_m.ptr
 
         preds = CumlArray.zeros(shape=n_rows, dtype=self.dtype)
-        cdef uintptr_t coef_ptr = self.coef_.ptr
+        cdef uintptr_t coef_ptr = self._coef_.ptr
         cdef uintptr_t pred_ptr = preds.ptr
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
@@ -511,7 +490,7 @@ class QN(Base):
 
         del X_m
 
-        return preds.to_output(out_type)
+        return preds.to_output(output_type=out_type, output_dtype=out_dtype)
 
     def score(self, X, y):
         return accuracy_score(y, self.predict(X))
@@ -519,11 +498,16 @@ class QN(Base):
     def __getattr__(self, attr):
         if attr == 'intercept_':
             if self.fit_intercept:
-                return self.coef_[-1]
+                return self._coef_[-1].to_output(self.output_type)
             else:
                 return CumlArray.zeros(shape=1)
+        elif attr == 'coef_':
+            if self.fit_intercept:
+                return self._coef_[0:-1].to_output(self.output_type)
+            else:
+                return self._coef_.to_output(self.output_type)
         else:
-            raise AttributeError(attr)
+            return super().__getattr__(attr)
 
     def get_param_names(self):
         return ['loss', 'fit_intercept', 'l1_strength', 'l2_strength',

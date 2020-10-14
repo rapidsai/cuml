@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include <ml_utils.h>
+#include <cuml/solvers/params.hpp>
 #include <cuml/solvers/solver.hpp>
 #include "cd.cuh"
 #include "sgd.cuh"

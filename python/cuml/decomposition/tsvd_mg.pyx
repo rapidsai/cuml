@@ -39,7 +39,7 @@ from cuml.common.opg_data_utils_mg cimport *
 from cuml.decomposition import TruncatedSVD
 from cuml.decomposition.base_mg import BaseDecompositionMG
 
-cdef extern from "cumlprims/opg/tsvd.hpp" namespace "ML::TSVD::opg":
+cdef extern from "cuml/decomposition/tsvd_mg.hpp" namespace "ML::TSVD::opg":
 
     cdef void fit_transform(cumlHandle& handle,
                             vector[floatData_t *] input_data,

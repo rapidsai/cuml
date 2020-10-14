@@ -17,7 +17,7 @@ import cudf
 import numpy as np
 
 import pytest
-from sklearn.exceptions import NotFittedError
+from cuml.common.exceptions import NotFittedError
 
 
 def _df_to_similarity_mat(df):
@@ -79,6 +79,7 @@ def test_labelencoder_unfitted():
         le.transform(df)
 
 
+@pytest.mark.parametrize("use_fit_transform", [False, True])
 @pytest.mark.parametrize(
         "orig_label, ord_label, expected_reverted, bad_ord_label",
         [(cudf.Series(['a', 'b', 'c']),
@@ -98,10 +99,14 @@ def test_labelencoder_unfitted():
           cudf.Series(['.09', '0.09', '09', '1.09']),
           cudf.Series([0, 1, 2, 3, 4]))])
 def test_inverse_transform(orig_label, ord_label,
-                           expected_reverted, bad_ord_label):
+                           expected_reverted, bad_ord_label,
+                           use_fit_transform):
     # prepare LabelEncoder
     le = LabelEncoder()
-    le.fit(orig_label)
+    if use_fit_transform:
+        le.fit_transform(orig_label)
+    else:
+        le.fit(orig_label)
     assert(le._fitted is True)
 
     # test if inverse_transform is correct

@@ -29,6 +29,11 @@ cdef extern from "cuml/common/rmmAllocatorAdapter.hpp" namespace "ML" nogil:
     cdef cppclass rmmAllocatorAdapter(deviceAllocator):
         pass
 
+cdef extern from "cuml/common/rmmPoolAllocatorAdapter.hpp" namespace "ML" \
+        nogil:
+    cdef cppclass rmmPoolAllocatorAdapter(rmmAllocatorAdapter):
+        pass
+
 cdef class Handle:
     """
     Handle is a lightweight python wrapper around the corresponding C++ class
@@ -44,7 +49,6 @@ cdef class Handle:
         stream = cuml.cuda.Stream()
         handle = cuml.Handle()
         handle.setStream(stream)
-        handle.enableRMM()   # Enable RMM as the device-side allocator
 
         # call ML algos here
 
@@ -75,6 +79,12 @@ cdef class Handle:
     def __dealloc__(self):
         h_ = <cumlHandle*>self.h
         del h_
+
+    def enable_rmm_pool(self):
+        cdef shared_ptr[deviceAllocator] rmmPoolAlloc = (
+            shared_ptr[deviceAllocator](new rmmPoolAllocatorAdapter()))
+        cdef cumlHandle* h_ = <cumlHandle*>self.h
+        h_.setDeviceAllocator(rmmPoolAlloc)
 
     def setStream(self, stream):
         cdef size_t s = <size_t>stream.getStream()

@@ -59,7 +59,7 @@ Model Selection and Data Splitting
 Feature and Label Encoding (Single-GPU)
 ---------------------------------------
 
- .. autoclass:: cuml.preprocessing.LabelEncoder
+ .. autoclass:: cuml.preprocessing.LabelEncoder.LabelEncoder
     :members:
 
  .. autoclass:: cuml.preprocessing.LabelBinarizer
@@ -68,6 +68,9 @@ Feature and Label Encoding (Single-GPU)
  .. automethod:: cuml.preprocessing.label_binarize
 
  .. autoclass:: cuml.preprocessing.OneHotEncoder
+    :members:
+
+ .. autoclass:: cuml.preprocessing.TargetEncoder
     :members:
 
 Feature and Label Encoding (Dask-based Multi-GPU)
@@ -79,9 +82,24 @@ Feature and Label Encoding (Dask-based Multi-GPU)
  .. autoclass:: cuml.dask.preprocessing.OneHotEncoder
     :members:
 
-Dataset Generation (Single-GPU)
+Feature Extraction (Single-GPU)
 -------------------------------
 
+  .. autoclass:: cuml.feature_extraction.text.CountVectorizer
+    :members:
+
+  .. autoclass:: cuml.feature_extraction.text.HashingVectorizer
+    :members:
+
+  .. autoclass:: cuml.feature_extraction.text.TfidfVectorizer
+    :members:
+
+Dataset Generation (Single-GPU)
+-------------------------------
+  .. glossary::
+    random_state
+        Determines random number generation for dataset creation. Pass an int
+        for reproducible output across multiple function calls.
   .. automethod:: cuml.datasets.make_blobs
   .. automethod:: cuml.datasets.make_classification
   .. automethod:: cuml.datasets.make_regression
@@ -99,9 +117,14 @@ Dataset Generation (Dask-based Multi-GPU)
   .. automodule:: cuml.dask.datasets.regression
      :members:
 
+Array Wrappers (Internal API)
+-----------------------------
 
-Metrics
----------
+.. autoclass:: cuml.common.CumlArray
+    :members:
+
+Metrics (regression, classification, and distance)
+---------------------------------------------------
 
   .. automodule:: cuml.metrics.regression
     :members:
@@ -109,6 +132,17 @@ Metrics
   .. automodule:: cuml.metrics.accuracy
     :members:
 
+  .. automethod:: cuml.metrics.confusion_matrix
+
+  .. automethod:: cuml.metrics.roc_auc_score
+
+  .. automethod:: cuml.metrics.precision_recall_curve
+
+  .. automodule:: cuml.metrics.pairwise_distances
+    :members:
+
+Metrics (clustering and trustworthiness)
+----------------------------------------
   .. automodule:: cuml.metrics.trustworthiness
     :members:
 
@@ -118,6 +152,14 @@ Metrics
   .. automodule:: cuml.metrics.cluster.entropy
     :members:
 
+  .. automodule:: cuml.metrics.cluster.homogeneity_score
+    :members:
+
+  .. automodule:: cuml.metrics.cluster.completeness_score
+    :members:
+
+  .. automodule:: cuml.metrics.cluster.mutual_info_score
+    :members:
 
 Benchmarking
 -------------
@@ -177,6 +219,12 @@ Mini Batch SGD Regressor
 .. autoclass:: cuml.MBSGDRegressor
     :members:
 
+Mutinomial Naive Bayes
+----------------------
+
+.. autoclass:: cuml.MultinomialNB
+    :members:
+
 Stochastic Gradient Descent
 ---------------------------
 
@@ -224,12 +272,14 @@ Nearest Neighbors Classification
 
 .. autoclass:: cuml.neighbors.KNeighborsClassifier
     :members:
+    :noindex:
 
 Nearest Neighbors Regression
 ----------------------------
 
 .. autoclass:: cuml.neighbors.KNeighborsRegressor
     :members:
+    :noindex:
 
 Clustering
 ==========
@@ -321,6 +371,9 @@ ARIMA
 .. autoclass:: cuml.tsa.ARIMA
     :members:
 
+.. autoclass:: cuml.tsa.auto_arima.AutoARIMA
+    :members:
+
 Multi-Node, Multi-GPU Algorithms
 ================================
 
@@ -335,6 +388,13 @@ Nearest Neighbors
 
 .. autoclass:: cuml.dask.neighbors.NearestNeighbors
     :members:
+
+.. autoclass:: cuml.dask.neighbors.KNeighborsRegressor
+    :members:
+
+.. autoclass:: cuml.dask.neighbors.KNeighborsClassifier
+    :members:
+
 
 Principal Component Analysis
 -----------------------------
@@ -375,6 +435,12 @@ Linear Models
     :members:
 
 .. autoclass:: cuml.dask.linear_model.ElasticNet
+    :members:
+
+Naive Bayes
+-----------
+
+.. autoclass:: cuml.dask.naive_bayes.MultinomialNB
     :members:
 
 Solvers

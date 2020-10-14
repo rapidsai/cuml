@@ -30,10 +30,12 @@ from libc.stdint cimport uintptr_t
 
 from cuml.common.array import CumlArray
 from cuml.common.base import Base
+from cuml.common.base import RegressorMixin
+from cuml.common.doc_utils import generate_docstring
 from cuml.metrics import r2_score
 from cuml.common.handle cimport cumlHandle
 from cuml.common import input_to_cuml_array
-from libcpp cimport bool
+from libcpp cimport bool, nullptr
 from cuml.svm.svm_base import SVMBase
 
 cdef extern from "cuml/matrix/kernelparams.h" namespace "MLCommon::Matrix":
@@ -79,7 +81,8 @@ cdef extern from "cuml/svm/svc.hpp" namespace "ML::SVM":
                              int n_rows, int n_cols, math_t *labels,
                              const svmParameter &param,
                              KernelParams &kernel_params,
-                             svmModel[math_t] &model) except+
+                             svmModel[math_t] &model,
+                             const math_t *sample_weight) except+
 
     cdef void svcPredict[math_t](
         const cumlHandle &handle, math_t *input, int n_rows, int n_cols,
@@ -95,32 +98,15 @@ cdef extern from "cuml/svm/svr.hpp" namespace "ML::SVM":
                              int n_rows, int n_cols, math_t *y,
                              const svmParameter &param,
                              KernelParams &kernel_params,
-                             svmModel[math_t] &model) except+
+                             svmModel[math_t] &model,
+                             const math_t *sample_weight) except+
 
 
-class SVR(SVMBase):
+class SVR(SVMBase, RegressorMixin):
     """
     SVR (Epsilon Support Vector Regression)
 
     Construct an SVC classifier for training and predictions.
-
-    Examples
-    ---------
-    .. code-block:: python
-
-            import numpy as np
-            from cuml.svm import SVR
-            X = np.array([[1], [2], [3], [4], [5]], dtype=np.float32)
-            y = np.array([1.1, 4, 5, 3.9, 1.], dtype = np.float32)
-            reg = SVR(kernel='rbf', gamma='scale', C=10, epsilon=0.1)
-            reg.fit(X, y)
-            print("Predicted values:", reg.predict(X))
-
-    Output:
-
-    .. code-block:: none
-
-            Predicted values: [1.200474 3.8999617 5.100488 3.7995374 1.0995375]
 
     Parameters
     ----------
@@ -136,8 +122,10 @@ class SVR(SVMBase):
     gamma : float or string (default = 'scale')
         Coefficient for rbf, poly, and sigmoid kernels. You can specify the
         numeric value, or use one of the following options:
-        - 'auto': gamma will be set to 1 / n_features
-        - 'scale': gamma will be se to 1 / (n_features * X.var())
+
+        - 'auto': gamma will be set to ``1 / n_features``
+        - 'scale': gamma will be se to ``1 / (n_features * X.var())``
+
     coef0 : float (default = 0.0)
         Independent term in kernel function, only signifficant for poly and
         sigmoid
@@ -184,25 +172,48 @@ class SVR(SVMBase):
     coef_ : float, shape [1, n_cols]
         Only available for linear kernels. It is the normal of the
         hyperplane.
-        coef_ = sum_k=1..n_support dual_coef_[k] * support_vectors[k,:]
-
+        ``coef_ = sum_k=1..n_support dual_coef_[k] * support_vectors[k,:]``
 
     Notes
     -----
+
     For additional docs, see `Scikit-learn's SVR
     <https://scikit-learn.org/stable/modules/generated/sklearn.svm.SVR.html>`_.
 
     The solver uses the SMO method to fit the regressor. We use the Optimized
-    Hierarchical Decomposition [1] variant of the SMO algorithm, similar to [2]
+    Hierarchical Decomposition [1]_ variant of the SMO algorithm, similar to
+    [2]_
 
     References
     ----------
-    [1] J. Vanek et al. A GPU-Architecture Optimized Hierarchical Decomposition
-         Algorithm for Support VectorMachine Training, IEEE Transactions on
-         Parallel and Distributed Systems, vol 28, no 12, 3330, (2017)
-    [2] Z. Wen et al. ThunderSVM: A Fast SVM Library on GPUs and CPUs, Journal
-    *      of Machine Learning Research, 19, 1-5 (2018)
-        https://github.com/Xtra-Computing/thundersvm
+
+    .. [1] J. Vanek et al. A GPU-Architecture Optimized Hierarchical
+           Decomposition Algorithm for Support VectorMachine Training, IEEE
+           Transactions on Parallel and Distributed Systems, vol 28, no 12,
+           3330, (2017)
+
+    .. [2] `Z. Wen et al. ThunderSVM: A Fast SVM Library on GPUs and CPUs,
+           Journal of Machine Learning Research, 19, 1-5 (2018)
+           <https://github.com/Xtra-Computing/thundersvm>`_
+
+    Examples
+    --------
+
+    .. code-block:: python
+
+        import numpy as np
+        from cuml.svm import SVR
+        X = np.array([[1], [2], [3], [4], [5]], dtype=np.float32)
+        y = np.array([1.1, 4, 5, 3.9, 1.], dtype = np.float32)
+        reg = SVR(kernel='rbf', gamma='scale', C=10, epsilon=0.1)
+        reg.fit(X, y)
+        print("Predicted values:", reg.predict(X))
+
+    Output:
+
+    .. code-block:: python
+
+        Predicted values: [1.200474 3.8999617 5.100488 3.7995374 1.0995375]
 
     """
     def __init__(self, handle=None, C=1, kernel='rbf', degree=3,
@@ -214,24 +225,13 @@ class SVR(SVMBase):
                                   verbose, epsilon)
         self.svmType = EPSILON_SVR
 
-    def fit(self, X, y):
+    @generate_docstring()
+    def fit(self, X, y, sample_weight=None, convert_dtype=True):
         """
         Fit the model with X and y.
 
-        Parameters
-        ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-            Dense matrix (floats or doubles) of shape (n_samples, n_features).
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-
-        y : array-like (device or host) shape = (n_samples, 1)
-            Dense vector (floats or doubles) of shape (n_samples, 1).
-            Acceptable formats: cuDF Series, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-
         """
-
+        self._set_n_features_in(X)
         self._set_output_type(X)
         cdef uintptr_t X_ptr, y_ptr
 
@@ -239,8 +239,21 @@ class SVR(SVMBase):
             input_to_cuml_array(X, order='F')
         X_ptr = X_m.ptr
 
-        y_m, _, _, _ = input_to_cuml_array(y, convert_to_dtype=self.dtype)
+        convert_to_dtype = self.dtype if convert_dtype else None
+        y_m, _, _, _ = \
+            input_to_cuml_array(y, check_dtype=self.dtype,
+                                convert_to_dtype=convert_to_dtype,
+                                check_rows=self.n_rows, check_cols=1)
+
         y_ptr = y_m.ptr
+
+        cdef uintptr_t sample_weight_ptr = <uintptr_t> nullptr
+        if sample_weight is not None:
+            sample_weight_m, _, _, _ = \
+                input_to_cuml_array(sample_weight, check_dtype=self.dtype,
+                                    convert_to_dtype=convert_to_dtype,
+                                    check_rows=self.n_rows, check_cols=1)
+            sample_weight_ptr = sample_weight_m.ptr
 
         self._dealloc()  # delete any previously fitted model
         self._coef_ = None
@@ -255,13 +268,13 @@ class SVR(SVMBase):
             model_f = new svmModel[float]()
             svrFit(handle_[0], <float*>X_ptr, <int>self.n_rows,
                    <int>self.n_cols, <float*>y_ptr, param, _kernel_params,
-                   model_f[0])
+                   model_f[0], <float*>sample_weight_ptr)
             self._model = <uintptr_t>model_f
         elif self.dtype == np.float64:
             model_d = new svmModel[double]()
             svrFit(handle_[0], <double*>X_ptr, <int>self.n_rows,
                    <int>self.n_cols, <double*>y_ptr, param, _kernel_params,
-                   model_d[0])
+                   model_d[0], <double*>sample_weight_ptr)
             self._model = <uintptr_t>model_d
         else:
             raise TypeError('Input data type should be float32 or float64')
@@ -275,45 +288,14 @@ class SVR(SVMBase):
 
         return self
 
+    @generate_docstring(return_values={'name': 'preds',
+                                       'type': 'dense',
+                                       'description': 'Predicted values',
+                                       'shape': '(n_samples, 1)'})
     def predict(self, X):
         """
         Predicts the values for X.
 
-        Parameters
-        ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-            Dense matrix (floats or doubles) of shape (n_samples, n_features).
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-
-        Returns
-        -------
-        y : cuDF Series
-           Dense vector (floats or doubles) of shape (n_samples, 1)
         """
 
         return super(SVR, self).predict(X, False)
-
-    def score(self, X, y):
-        """
-        Return R^2 score of the prediction.
-
-        Parameters
-        ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-            Dense matrix (floats or doubles) of shape (n_samples, n_features).
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-
-        y : array-like (device or host) shape = (n_samples, 1)
-            Dense vector (floats or doubles) of target values.
-            Acceptable formats: cuDF Series, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-
-        Returns
-        -------
-        score: float R^2 score
-        """
-
-        y_hat = self.predict(X)
-        return r2_score(y, y_hat)

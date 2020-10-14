@@ -5,7 +5,7 @@ channels:
 - rapidsai-nightly
 - conda-forge
 dependencies:
-- cudatoolkit=10.0
+- cudatoolkit=11.0
 - clang=8.0.1
 - clang-tools=8.0.1
 - cmake=3.14.5
@@ -14,6 +14,7 @@ dependencies:
 - cudf=0.15*
 - rmm=0.15*
 - cython>=0.29,<0.30
+- gtest=1.10.0
 - pytest>=4.6
 - pytest-timeout
 - scikit-learn>=0.21
@@ -23,17 +24,22 @@ dependencies:
 - distributed>=2.12.0
 - dask-cuda=0.15*
 - dask-cudf=0.15*
+- dask-ml
 - ucx-py=0.15*
+- ucx-proc=*=gpu
 - nccl>=2.5
-- libcumlprims=0.15*
+- libcumlprims=0.15.0a200812
 - statsmodels
-- protobuf >=3.4.1,<4.0.0
+- treelite=0.92
 - doxygen
 - sphinx
 - sphinx_rtd_theme
 - numpydoc
 - nbsphinx
 - recommonmark
+- faiss-proc=*=cuda
+- libfaiss
+- ipython
 - pip
 - pip:
     - sphinx_markdown_tables

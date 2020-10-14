@@ -158,7 +158,7 @@ __global__ void _undiff_kernel(DataT* d_fc, const DataT* d_in, int num_steps,
 }
 
 /**
- * @brief Finalizes a forecast by adding the trend and/or undifferencing
+ * @brief Finalizes a forecast by undifferencing
  *
  * @note: It is assumed that d + D <= 2. This is enforced on the Python side
  *

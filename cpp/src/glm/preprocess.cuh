@@ -17,7 +17,6 @@
 #pragma once
 
 #include <common/cudart_utils.h>
-#include <ml_utils.h>
 #include <common/cumlHandle.hpp>
 #include <linalg/gemm.cuh>
 #include <linalg/norm.cuh>

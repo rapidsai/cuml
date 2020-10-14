@@ -834,9 +834,8 @@ __global__ static void symmetric_find_size(const math_t *restrict data,
                                            const int n, const int k,
                                            int *restrict row_sizes,
                                            int *restrict row_sizes2) {
-  const int j =
-    (blockIdx.x * blockDim.x) + threadIdx.x;  // for every item in row
-  const int row = (blockIdx.y * blockDim.y) + threadIdx.y;  // for every row
+  const int row = blockIdx.x * blockDim.x + threadIdx.x;  // for every row
+  const int j = blockIdx.y * blockDim.y + threadIdx.y;  // for every item in row
   if (row >= n || j >= k) return;
 
   const int col = indices[row * k + j];
@@ -884,9 +883,8 @@ __global__ static void symmetric_sum(int *restrict edges,
                                      math_t *restrict VAL, int *restrict COL,
                                      int *restrict ROW, const int n,
                                      const int k) {
-  const int j =
-    (blockIdx.x * blockDim.x) + threadIdx.x;  // for every item in row
-  const int row = (blockIdx.y * blockDim.y) + threadIdx.y;  // for every row
+  const int row = blockIdx.x * blockDim.x + threadIdx.x;  // for every row
+  const int j = blockIdx.y * blockDim.y + threadIdx.y;  // for every item in row
   if (row >= n || j >= k) return;
 
   const int col = indices[row * k + j];
@@ -929,8 +927,7 @@ void from_knn_symmetrize_matrix(const long *restrict knn_indices,
   // (1) Find how much space needed in each row
   // We look through all datapoints and increment the count for each row.
   const dim3 threadsPerBlock(TPB_X, TPB_Y);
-  const dim3 numBlocks(MLCommon::ceildiv(k, TPB_X),
-                       MLCommon::ceildiv(n, TPB_Y));
+  const dim3 numBlocks(ceildiv(n, TPB_X), ceildiv(k, TPB_Y));
 
   // Notice n+1 since we can reuse these arrays for transpose_edges, original_edges in step (4)
   device_buffer<int> row_sizes(d_alloc, stream, n);
@@ -943,7 +940,7 @@ void from_knn_symmetrize_matrix(const long *restrict knn_indices,
     knn_dists, knn_indices, n, k, row_sizes.data(), row_sizes2.data());
   CUDA_CHECK(cudaPeekAtLastError());
 
-  reduce_find_size<<<MLCommon::ceildiv(n, 1024), 1024, 0, stream>>>(
+  reduce_find_size<<<ceildiv(n, 1024), 1024, 0, stream>>>(
     n, k, row_sizes.data(), row_sizes2.data());
   CUDA_CHECK(cudaPeekAtLastError());
 

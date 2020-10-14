@@ -56,7 +56,7 @@ class KNNClassifyTest : public ::testing::TestWithParam<KNNClassifyInputs> {
 
     MLCommon::Random::make_blobs<float, int>(
       train_samples, train_labels, params.rows, params.cols, params.n_labels,
-      alloc, stream, nullptr, nullptr, params.cluster_std);
+      alloc, stream, true, nullptr, nullptr, params.cluster_std);
 
     int n_classes;
     MLCommon::Label::getUniqueLabels(train_labels, params.rows, &unique_labels,

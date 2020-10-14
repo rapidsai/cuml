@@ -19,7 +19,6 @@
 #pragma once
 
 #include <cuml/svm/svm_parameter.h>
-#include <ml_utils.h>
 #include <stdlib.h>
 #include <cuda_utils.cuh>
 #include <selection/kselection.cuh>
@@ -133,7 +132,8 @@ namespace SVM {
  * @param [in] kernel kernel function calculated between the working set and all
  *   other training vectors, size [n_rows * n_ws]
  * @param [in] ws_idx indices of traning vectors in the working set, size [n_ws]
- * @param [in] C penalty parameter
+ * @param [in] C_vec penalty parameter vector including class and sample weights
+ *   size [n_train]
  * @param [in] eps tolerance, iterations will stop if the duality gap is smaller
  *  than this value (or if the gap is smaller than 0.1 times the initial gap)
  * @param [out] return_buff, two valies are returned: duality gap and the number
@@ -145,7 +145,7 @@ namespace SVM {
 template <typename math_t, int WSIZE>
 __global__ __launch_bounds__(WSIZE) void SmoBlockSolve(
   math_t *y_array, int n_train, math_t *alpha, int n_ws, math_t *delta_alpha,
-  math_t *f_array, const math_t *kernel, const int *ws_idx, math_t C,
+  math_t *f_array, const math_t *kernel, const int *ws_idx, const math_t *C_vec,
   math_t eps, math_t *return_buff, int max_iter = 10000,
   SvmType svmType = C_SVC, const int *kColIdx = nullptr) {
   typedef MLCommon::Selection::KVPair<math_t, int> Pair;
@@ -191,6 +191,8 @@ __global__ __launch_bounds__(WSIZE) void SmoBlockSolve(
   math_t f = f_array[idx];
   math_t a = alpha[idx];
   math_t a_save = a;
+  math_t C = C_vec[idx];
+
   __shared__ math_t diff_end;
   __shared__ math_t diff;
 

@@ -49,6 +49,7 @@ def test_lasso(datatype, X_type, alpha, algorithm,
                        selection=algorithm, tol=1e-10)
 
     cu_lasso.fit(X_train, y_train)
+    assert cu_lasso.coef_ is not None
     cu_predict = cu_lasso.predict(X_test)
 
     cu_r2 = r2_score(y_test, cu_predict)
@@ -82,6 +83,7 @@ def test_lasso_default(datatype, nrows, column_info):
     cu_lasso = cuLasso()
 
     cu_lasso.fit(X_train, y_train)
+    assert cu_lasso.coef_ is not None
     cu_predict = cu_lasso.predict(X_test)
     cu_r2 = r2_score(y_test, cu_predict)
 

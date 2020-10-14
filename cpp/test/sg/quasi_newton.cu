@@ -148,7 +148,7 @@ TEST_F(QuasiNewtonTest, binary_logistic_vs_sklearn) {
   updateDevice(ydev->data, &y[0], ydev->len, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
-  double alpha = 0.01;
+  double alpha = 0.01 * N;
 
   LogisticLoss<double> loss_b(handle, D, true);
   LogisticLoss<double> loss_no_b(handle, D, false);
@@ -230,7 +230,7 @@ TEST_F(QuasiNewtonTest, multiclass_logistic_vs_sklearn) {
   double fx, l1, l2;
   int C = 4;
 
-  double alpha = 0.016;
+  double alpha = 0.016 * N;
 
   SimpleMatOwning<double> z(allocator, C, N, stream);
   SimpleVecOwning<double> w0(allocator, C * (D + 1), stream);
@@ -294,7 +294,7 @@ TEST_F(QuasiNewtonTest, linear_regression_vs_sklearn) {
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
   double fx, l1, l2;
-  double alpha = 0.01;
+  double alpha = 0.01 * N;
 
   SimpleVecOwning<double> w0(allocator, D + 1, stream);
   SimpleVecOwning<double> z(allocator, N, stream);

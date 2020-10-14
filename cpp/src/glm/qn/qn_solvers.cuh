@@ -104,8 +104,7 @@ inline OPT_RETCODE min_lbfgs(const LBFGSParam<T> &param,
   std::vector<T> fx_hist(param.past > 0 ? param.past : 0);
 
   *k = 0;
-  ML::Logger::get().setLevel(verbosity > 0 ? CUML_LEVEL_INFO : CUML_LEVEL_WARN);
-
+  ML::Logger::get().setLevel(verbosity);
   CUML_LOG_DEBUG("Running L-BFGS");
 
   // Evaluate function and compute gradient
@@ -130,6 +129,7 @@ inline OPT_RETCODE min_lbfgs(const LBFGSParam<T> &param,
 
   *k = 1;
   int end = 0;
+  int n_vec = 0;  // number of vector updates made in lbfgs_search_dir
   for (; *k <= param.max_iterations; (*k)++) {
     // Save the curent x and gradient
     xp.copy_async(x, stream);
@@ -141,16 +141,23 @@ inline OPT_RETCODE min_lbfgs(const LBFGSParam<T> &param,
       ls_backtrack(param, f, fx, x, grad, step, drt, xp, dev_scalar, stream);
 
     bool isLsSuccess = lsret == LS_SUCCESS;
+    CUML_LOG_TRACE("Iteration %d, fx=%f", *k, fx);
+
     if (!isLsSuccess || isnan(fx) || isinf(fx)) {
       fx = fxp;
       x.copy_async(xp, stream);
       grad.copy_async(gradp, stream);
-      if (!isLsSuccess) return OPT_LS_FAILED;
+      if (!isLsSuccess) {
+        CUML_LOG_ERROR("L-BFGS line search failed");
+        return OPT_LS_FAILED;
+      }
+      CUML_LOG_ERROR("L-BFGS error fx=%f at iteration %d", fx, *k);
       return OPT_NUMERIC_ERROR;
     }
 
     if (check_convergence(param, *k, fx, x, grad, fx_hist, dev_scalar,
                           stream)) {
+      CUML_LOG_DEBUG("L-BFGS converged");
       return OPT_SUCCESS;
     }
 
@@ -162,12 +169,13 @@ inline OPT_RETCODE min_lbfgs(const LBFGSParam<T> &param,
     svec.axpy(-1.0, xp, x, stream);
     yvec.axpy(-1.0, gradp, grad, stream);
     // drt <- -H * g
-    end = lbfgs_search_dir(param, *k, end, S, Y, grad, svec, yvec, drt, ys,
+    end = lbfgs_search_dir(param, &n_vec, end, S, Y, grad, svec, yvec, drt, ys,
                            alpha, dev_scalar, stream);
 
     // step = 1.0 as initial guess
     step = T(1.0);
   }
+  CUML_LOG_WARN("L-BFGS: max iterations reached");
   return OPT_MAX_ITERS_REACHED;
 }
 
@@ -217,7 +225,7 @@ inline OPT_RETCODE min_owlqn(const LBFGSParam<T> &param, Function &f,
   p_ws += vec_size;
   T *dev_scalar = p_ws;
 
-  ML::Logger::get().setLevel(verbosity > 0 ? CUML_LEVEL_INFO : CUML_LEVEL_WARN);
+  ML::Logger::get().setLevel(verbosity);
 
   SimpleVec<T> svec, yvec;  // mask vectors
 
@@ -269,6 +277,7 @@ inline OPT_RETCODE min_owlqn(const LBFGSParam<T> &param, Function &f,
   T fxp = fx;
 
   int end = 0;
+  int n_vec = 0;  // number of vector updates made in lbfgs_search_dir
   for ((*k) = 1; (*k) <= param.max_iterations; (*k)++) {
     // Save the curent x and gradient
     xp.copy_async(x, stream);
@@ -285,7 +294,11 @@ inline OPT_RETCODE min_owlqn(const LBFGSParam<T> &param, Function &f,
       fx = fxp;
       x.copy_async(xp, stream);
       grad.copy_async(gradp, stream);
-      if (!isLsSuccess) return OPT_LS_FAILED;
+      if (!isLsSuccess) {
+        CUML_LOG_ERROR("QWL-QN line search failed");
+        return OPT_LS_FAILED;
+      }
+      CUML_LOG_ERROR("OWL-QN error fx=%f at iteration %d", fx, *k);
       return OPT_NUMERIC_ERROR;
     }
     // recompute pseudo
@@ -294,17 +307,19 @@ inline OPT_RETCODE min_owlqn(const LBFGSParam<T> &param, Function &f,
 
     if (check_convergence(param, *k, fx, x, pseudo, fx_hist, dev_scalar,
                           stream)) {
+      CUML_LOG_DEBUG("OWL-QN converged");
       return OPT_SUCCESS;
     }
 
-    // Update s and y
+    // Update s and y - We should only do this if there is no skipping condition
+
     col_ref(S, svec, end);
     col_ref(Y, yvec, end);
     svec.axpy(-1.0, xp, x, stream);
     yvec.axpy(-1.0, gradp, grad, stream);
     // drt <- -H * -> pseudo grad <-
-    end = lbfgs_search_dir(param, *k, end, S, Y, pseudo, svec, yvec, drt, ys,
-                           alpha, dev_scalar, stream);
+    end = lbfgs_search_dir(param, &n_vec, end, S, Y, pseudo, svec, yvec, drt,
+                           ys, alpha, dev_scalar, stream);
 
     // Project drt onto orthant of -pseudog
     drt.assign_binary(drt, pseudo, project_neg, stream);
@@ -312,6 +327,7 @@ inline OPT_RETCODE min_owlqn(const LBFGSParam<T> &param, Function &f,
     // step = 1.0 as initial guess
     step = T(1.0);
   }
+  CUML_LOG_WARN("QWL-QN: max iterations reached");
   return OPT_MAX_ITERS_REACHED;
 }
 /*

@@ -21,31 +21,56 @@
 
 namespace ML {
 
+enum LoglikeMethod { CSS, MLE };
+
+/**
+ * Compute the differenced series (seasonal and/or non-seasonal differences)
+ * 
+ * @param[in]  handle     cuML handle
+ * @param[out] d_y_diff   Differenced series
+ * @param[in]  d_y        Original series
+ * @param[in]  batch_size Batch size
+ * @param[in]  n_obs      Number of observations
+ * @param[in]  order      ARIMA order
+ */
+void batched_diff(cumlHandle& handle, double* d_y_diff, const double* d_y,
+                  int batch_size, int n_obs, const ARIMAOrder& order);
+
 /**
  * Compute the loglikelihood of the given parameter on the given time series
  * in a batched context.
  *
  * @param[in]  handle       cuML handle
- * @param[in]  d_y          Series to fit: shape = (nobs, batch_size) and
+ * @param[in]  d_y          Series to fit: shape = (n_obs, batch_size) and
  *                          expects column major data layout. (device)
  * @param[in]  batch_size   Number of time series
- * @param[in]  nobs         Number of observations in a time series
+ * @param[in]  n_obs        Number of observations in a time series
  * @param[in]  order        ARIMA hyper-parameters
  * @param[in]  d_params     Parameters to evaluate grouped by series:
  *                          [mu0, ar.., ma.., mu1, ..] (device)
- * @param[out] loglike      Log-Likelihood of the model per series (host)
+ * @param[out] loglike      Log-Likelihood of the model per series
  * @param[out] d_vs         The residual between model and original signal.
- *                          shape = (nobs-d-s*D, batch_size) (device)
+ *                          shape = (n_obs-d-s*D, batch_size) (device)
+ *                          Note: no output when using CSS estimation
  * @param[in]  trans        Run `jones_transform` on params.
  * @param[in]  host_loglike Whether loglike is a host pointer
+ * @param[in]  method       Whether to use sum-of-squares or Kalman filter
+ * @param[in]  truncate     For CSS, start the sum-of-squares after a given
+ *                          number of observations
  * @param[in]  fc_steps     Number of steps to forecast
  * @param[in]  d_fc         Array to store the forecast
+ * @param[in]  level        Confidence level for prediction intervals. 0 to
+ *                          skip the computation. Else 0 < level < 1
+ * @param[out] d_lower      Lower limit of the prediction interval
+ * @param[out] d_upper      Upper limit of the prediction interval
  */
 void batched_loglike(cumlHandle& handle, const double* d_y, int batch_size,
-                     int nobs, const ARIMAOrder& order, const double* d_params,
+                     int n_obs, const ARIMAOrder& order, const double* d_params,
                      double* loglike, double* d_vs, bool trans = true,
-                     bool host_loglike = true, int fc_steps = 0,
-                     double* d_fc = nullptr);
+                     bool host_loglike = true, LoglikeMethod method = MLE,
+                     int truncate = 0, int fc_steps = 0, double* d_fc = nullptr,
+                     double level = 0, double* d_lower = nullptr,
+                     double* d_upper = nullptr);
 
 /**
  * Compute the loglikelihood of the given parameter on the given time series
@@ -55,25 +80,57 @@ void batched_loglike(cumlHandle& handle, const double* d_y, int batch_size,
  *        to avoid useless packing / unpacking
  *
  * @param[in]  handle       cuML handle
- * @param[in]  d_y          Series to fit: shape = (nobs, batch_size) and
+ * @param[in]  d_y          Series to fit: shape = (n_obs, batch_size) and
  *                          expects column major data layout. (device)
  * @param[in]  batch_size   Number of time series
- * @param[in]  nobs         Number of observations in a time series
+ * @param[in]  n_obs        Number of observations in a time series
  * @param[in]  order        ARIMA hyper-parameters
  * @param[in]  params       ARIMA parameters (device)
- * @param[out] loglike      Log-Likelihood of the model per series (host)
+ * @param[out] loglike      Log-Likelihood of the model per series
  * @param[out] d_vs         The residual between model and original signal.
- *                          shape = (nobs-d-s*D, batch_size) (device)
+ *                          shape = (n_obs-d-s*D, batch_size) (device)
+ *                          Note: no output when using CSS estimation
  * @param[in]  trans        Run `jones_transform` on params.
  * @param[in]  host_loglike Whether loglike is a host pointer
+ * @param[in]  method       Whether to use sum-of-squares or Kalman filter
+ * @param[in]  truncate     For CSS, start the sum-of-squares after a given
+ *                          number of observations
  * @param[in]  fc_steps     Number of steps to forecast
  * @param[in]  d_fc         Array to store the forecast
+ * @param[in]  level        Confidence level for prediction intervals. 0 to
+ *                          skip the computation. Else 0 < level < 1
+ * @param[out] d_lower      Lower limit of the prediction interval
+ * @param[out] d_upper      Upper limit of the prediction interval
  */
 void batched_loglike(cumlHandle& handle, const double* d_y, int batch_size,
-                     int nobs, const ARIMAOrder& order,
+                     int n_obs, const ARIMAOrder& order,
                      const ARIMAParams<double>& params, double* loglike,
                      double* d_vs, bool trans = true, bool host_loglike = true,
-                     int fc_steps = 0, double* d_fc = nullptr);
+                     LoglikeMethod method = MLE, int truncate = 0,
+                     int fc_steps = 0, double* d_fc = nullptr, double level = 0,
+                     double* d_lower = nullptr, double* d_upper = nullptr);
+
+/**
+ * Compute the gradient of the log-likelihood
+ * 
+ * @param[in]  handle       cuML handle
+ * @param[in]  d_y          Series to fit: shape = (n_obs, batch_size) and
+ *                          expects column major data layout. (device)
+ * @param[in]  batch_size   Number of time series
+ * @param[in]  n_obs        Number of observations in a time series
+ * @param[in]  order        ARIMA hyper-parameters
+ * @param[in]  d_x          Parameters grouped by series
+ * @param[out] d_grad       Gradient to compute
+ * @param[in]  h            Finite-differencing step size
+ * @param[in]  trans        Run `jones_transform` on params
+ * @param[in]  method       Whether to use sum-of-squares or Kalman filter
+ * @param[in]  truncate     For CSS, start the sum-of-squares after a given
+ *                          number of observations
+ */
+void batched_loglike_grad(cumlHandle& handle, const double* d_y, int batch_size,
+                          int n_obs, const ARIMAOrder& order, const double* d_x,
+                          double* d_grad, double h, bool trans = true,
+                          LoglikeMethod method = MLE, int truncate = 0);
 
 /**
  * Batched in-sample and out-of-sample prediction of a time-series given all
@@ -83,37 +140,43 @@ void batched_loglike(cumlHandle& handle, const double* d_y, int batch_size,
  * @param[in]  d_y         Batched Time series to predict.
  *                         Shape: (num_samples, batch size) (device)
  * @param[in]  batch_size  Total number of batched time series
- * @param[in]  nobs        Number of samples per time series
+ * @param[in]  n_obs       Number of samples per time series
  *                         (all series must be identical)
  * @param[in]  start       Index to start the prediction
  * @param[in]  end         Index to end the prediction (excluded)
  * @param[in]  order       ARIMA hyper-parameters
  * @param[in]  params      ARIMA parameters (device)
- * @param[out] d_vs        Residual output (device)
  * @param[out] d_y_p       Prediction output (device)
+ * @param[in]  pre_diff    Whether to use pre-differencing
+ * @param[in]  level       Confidence level for prediction intervals. 0 to
+ *                         skip the computation. Else 0 < level < 1
+ * @param[out] d_lower     Lower limit of the prediction interval
+ * @param[out] d_upper     Upper limit of the prediction interval
  */
-void predict(cumlHandle& handle, const double* d_y, int batch_size, int nobs,
+void predict(cumlHandle& handle, const double* d_y, int batch_size, int n_obs,
              int start, int end, const ARIMAOrder& order,
-             const ARIMAParams<double>& params, double* d_vs, double* d_y_p);
+             const ARIMAParams<double>& params, double* d_y_p,
+             bool pre_diff = true, double level = 0, double* d_lower = nullptr,
+             double* d_upper = nullptr);
 
 /**
  * Compute an information criterion (AIC, AICc, BIC)
  *
  * @param[in]  handle      cuML handle
- * @param[in]  d_y         Series to fit: shape = (nobs, batch_size) and
+ * @param[in]  d_y         Series to fit: shape = (n_obs, batch_size) and
  *                         expects column major data layout. (device)
  * @param[in]  batch_size  Total number of batched time series
- * @param[in]  nobs        Number of samples per time series
+ * @param[in]  n_obs       Number of samples per time series
  *                         (all series must be identical)
  * @param[in]  order       ARIMA hyper-parameters
  * @param[in]  params      ARIMA parameters (device)
  * @param[out] ic          Array where to write the information criteria
- *                         Shape: (batch_size) (host)
+ *                         Shape: (batch_size) (device)
  * @param[in]  ic_type     Type of information criterion wanted.
  *                         0: AIC, 1: AICc, 2: BIC
  */
 void information_criterion(cumlHandle& handle, const double* d_y,
-                           int batch_size, int nobs, const ARIMAOrder& order,
+                           int batch_size, int n_obs, const ARIMAOrder& order,
                            const ARIMAParams<double>& params, double* ic,
                            int ic_type);
 
@@ -122,15 +185,15 @@ void information_criterion(cumlHandle& handle, const double* d_y,
  *
  * @param[in]  handle      cuML handle
  * @param[in]  params      ARIMA parameters (device)
- * @param[in]  d_y         Series to fit: shape = (nobs, batch_size) and
+ * @param[in]  d_y         Series to fit: shape = (n_obs, batch_size) and
  *                         expects column major data layout. (device)
  * @param[in]  batch_size  Total number of batched time series
- * @param[in]  nobs        Number of samples per time series
+ * @param[in]  n_obs       Number of samples per time series
  *                         (all series must be identical)
  * @param[in]  order       ARIMA hyper-parameters
  */
 void estimate_x0(cumlHandle& handle, ARIMAParams<double>& params,
-                 const double* d_y, int batch_size, int nobs,
+                 const double* d_y, int batch_size, int n_obs,
                  const ARIMAOrder& order);
 
 }  // namespace ML

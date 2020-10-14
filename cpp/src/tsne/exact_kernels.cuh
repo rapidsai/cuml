@@ -26,7 +26,7 @@ namespace ML {
 namespace TSNE {
 
 /****************************************/
-/* Finds the best guassian bandwith for
+/* Finds the best Gaussian bandwidth for
     each row in the dataset             */
 __global__ void sigmas_kernel(const float *restrict distances,
                               float *restrict P, const float perplexity,
@@ -45,7 +45,7 @@ __global__ void sigmas_kernel(const float *restrict distances,
   for (int step = 0; step < epochs; step++) {
     float sum_Pi = FLT_EPSILON;
 
-    // Exponentiate to get guassian
+    // Exponentiate to get Gaussian
     for (int j = 0; j < k; j++) {
       P[ik + j] = __expf(-distances[ik + j] * beta);
       sum_Pi += P[ik + j];
@@ -84,7 +84,7 @@ __global__ void sigmas_kernel(const float *restrict distances,
 }
 
 /****************************************/
-/* Finds the best guassian bandwith for
+/* Finds the best Gaussian bandwith for
     each row in the dataset             */
 __global__ void sigmas_kernel_2d(const float *restrict distances,
                                  float *restrict P, const float perplexity,
@@ -101,7 +101,7 @@ __global__ void sigmas_kernel_2d(const float *restrict distances,
   register const int ik = i * 2;
 
   for (int step = 0; step < epochs; step++) {
-    // Exponentiate to get guassian
+    // Exponentiate to get Gaussian
     P[ik] = __expf(-distances[ik] * beta);
     P[ik + 1] = __expf(-distances[ik + 1] * beta);
     const float sum_Pi = FLT_EPSILON + P[ik] + P[ik + 1];

@@ -27,8 +27,12 @@ from libcpp cimport bool
 
 from cuml.common.array import CumlArray
 from cuml.common.base import Base
-from cuml.common.handle cimport cumlHandle
+from cuml.common.handle cimport *
 from cuml.common import input_to_cuml_array
+
+cdef extern from * nogil:
+    ctypedef void* _Stream "cudaStream_t"
+    ctypedef void* _DevAlloc "std::shared_ptr<MLCommon::deviceAllocator>"
 
 cdef extern from "cuml/random_projection/rproj_c.h" namespace "ML":
 
@@ -45,7 +49,7 @@ cdef extern from "cuml/random_projection/rproj_c.h" namespace "ML":
 
     # Structure describing random matrix
     cdef cppclass rand_mat[T]:
-        rand_mat() except +     # random matrix structure constructor (set all to nullptr) # noqa E501
+        rand_mat(_DevAlloc, _Stream stream) except +     # random matrix structure constructor (set all to nullptr) # noqa E501
         T *dense_data           # dense random matrix data
         int *indices            # sparse CSC random matrix indices
         int *indptr             # sparse CSC random matrix indptr
@@ -151,16 +155,19 @@ cdef class BaseRandomProjection():
     cdef rand_mat[float]* rand_matS
     cdef rand_mat[double]* rand_matD
 
-    def __cinit__(self):
-        self.rand_matS = new rand_mat[float]()
-        self.rand_matD = new rand_mat[double]()
-
     def __dealloc__(self):
         del self.rand_matS
         del self.rand_matD
 
     def __init__(self, n_components='auto', eps=0.1,
                  dense_output=True, random_state=None):
+
+        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
+        cdef _DevAlloc alloc = <_DevAlloc>handle_.getDeviceAllocator()
+        cdef _Stream stream = handle_.getStream()
+        self.rand_matS = new rand_mat[float](alloc, stream)
+        self.rand_matD = new rand_mat[double](alloc, stream)
+
         self.params.n_components = n_components if n_components != 'auto'\
             else -1
         self.params.eps = eps
@@ -188,7 +195,7 @@ cdef class BaseRandomProjection():
             generated random matrix as attributes
 
         """
-
+        self._set_n_features_in(X)
         self._set_output_type(X)
 
         _, n_samples, n_features, self.dtype = \
@@ -207,7 +214,7 @@ cdef class BaseRandomProjection():
 
         return self
 
-    def transform(self, X, convert_dtype=False):
+    def transform(self, X, convert_dtype=True):
         """
         Apply transformation on provided data. This function outputs
         a multiplication between the input matrix and the generated random
@@ -220,6 +227,10 @@ cdef class BaseRandomProjection():
                 n_features).
                 Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
                 ndarray, cuda array interface compliant array like CuPy
+            convert_dtype : bool, optional (default = True)
+                When set to True, the fit method will, when necessary, convert
+                y to be the same data type as X if they differ. This will
+                increase memory used for the method.
 
         Returns
         -------
@@ -265,7 +276,7 @@ cdef class BaseRandomProjection():
 
         return X_new.to_output(out_type)
 
-    def fit_transform(self, X, convert_dtype=False):
+    def fit_transform(self, X, convert_dtype=True):
         return self.fit(X).transform(X, convert_dtype)
 
 
@@ -282,10 +293,11 @@ class GaussianRandomProjection(Base, BaseRandomProjection):
 
     The components of the random matrix are drawn from N(0, 1 / n_components).
 
-    Example
-    ---------
+    Examples
+    --------
 
     .. code-block:: python
+
         from cuml.random_projection import GaussianRandomProjection
         from sklearn.datasets.samples_generator import make_blobs
         from sklearn.svm import SVC
@@ -313,6 +325,7 @@ class GaussianRandomProjection(Base, BaseRandomProjection):
     Output:
 
     .. code-block:: python
+
         Score: 1.0
 
     Parameters
@@ -378,16 +391,18 @@ class SparseRandomProjection(Base, BaseRandomProjection):
     (e.g. Gaussian) that guarantees similar embedding quality while being much
     more memory efficient and allowing faster computation of the projected data
     (with sparse enough matrices).
-    If we note 's = 1 / density' the components of the random matrix are
+    If we note ``s = 1 / density`` the components of the random matrix are
     drawn from:
-      - -sqrt(s) / sqrt(n_components)   with probability 1 / 2s
-      -  0                              with probability 1 - 1 / s
-      - +sqrt(s) / sqrt(n_components)   with probability 1 / 2s
 
-    Example
-    ---------
+    - ``-sqrt(s) / sqrt(n_components)`` - with probability ``1 / 2s``
+    - ``0`` - with probability ``1 - 1 / s``
+    - ``+sqrt(s) / sqrt(n_components)`` - with probability ``1 / 2s``
+
+    Examples
+    --------
 
     .. code-block:: python
+
         from cuml.random_projection import SparseRandomProjection
         from sklearn.datasets.samples_generator import make_blobs
         from sklearn.svm import SVC
@@ -415,11 +430,11 @@ class SparseRandomProjection(Base, BaseRandomProjection):
     Output:
 
     .. code-block:: python
+
         Score: 1.0
 
     Parameters
     ----------
-
     handle : cuml.Handle
         If it is None, a new one is created just for this class
 
@@ -428,13 +443,11 @@ class SparseRandomProjection(Base, BaseRandomProjection):
         the parameter is deducted thanks to Johnson–Lindenstrauss lemma.
         The automatic deduction make use of the number of samples and
         the eps parameter.
-
         The Johnson–Lindenstrauss lemma can produce very conservative
         n_components parameter as it makes no assumption on dataset structure.
 
     density : float in range (0, 1] (default = 'auto')
         Ratio of non-zero component in the random projection matrix.
-
         If density = 'auto', the value is set to the minimum density
         as recommended by Ping Li et al.: 1 / sqrt(n_features).
 
@@ -450,14 +463,14 @@ class SparseRandomProjection(Base, BaseRandomProjection):
 
     Attributes
     ----------
-        gaussian_method : boolean
-            To be passed to base class in order to determine
-            random matrix generation method
+    gaussian_method : boolean
+        To be passed to base class in order to determine
+        random matrix generation method
 
     Notes
-    ------
-        Inspired by Scikit-learn's implementation :
-        https://scikit-learn.org/stable/modules/random_projection.html
+    -----
+    Inspired by Scikit-learn's `implementation
+    <https://scikit-learn.org/stable/modules/random_projection.html>`_.
 
     """
 

@@ -178,7 +178,7 @@ def test_accuracy_runner():
 def test_real_algos_runner(algo_name):
     pair = algorithms.algorithm_by_name(algo_name)
 
-    if (algo_name == 'UMAP' and not has_umap()) or \
+    if (algo_name == 'UMAP-Supervised' and not has_umap()) or \
        (algo_name == 'FIL' and not has_xgboost()):
         pytest.xfail()
 
@@ -187,6 +187,22 @@ def test_real_algos_runner(algo_name):
     )
     results = runner.run(pair)[0]
     print(results)
+    assert results["cuml_acc"] is not None
+
+
+# Test FIL with several input types
+@pytest.mark.parametrize('input_type', ['numpy', 'cudf', 'gpuarray',
+                                        'gpuarray-c'])
+def test_fil_input_types(input_type):
+    pair = algorithms.algorithm_by_name('FIL')
+
+    if not has_xgboost():
+        pytest.xfail()
+
+    runner = AccuracyComparisonRunner(
+        [20], [5], dataset_name='classification', test_fraction=0.5,
+        input_type=input_type)
+    results = runner.run(pair, run_cpu=False)[0]
     assert results["cuml_acc"] is not None
 
 

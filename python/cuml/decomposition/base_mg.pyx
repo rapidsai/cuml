@@ -59,6 +59,7 @@ class BaseDecompositionMG(object):
         :return: self
         """
         self._set_output_type(X[0])
+        self._set_n_features_in(n_cols)
 
         X_arys = []
         for i in range(len(X)):
@@ -80,7 +81,7 @@ class BaseDecompositionMG(object):
                                                                 rank)
 
         cdef uintptr_t part_desc = opg.build_part_descriptor(total_rows,
-                                                             n_cols,
+                                                             self.n_cols,
                                                              rank_to_sizes,
                                                              rank)
 

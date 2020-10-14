@@ -124,9 +124,9 @@ class cumlStdCommunicator_impl : public MLCommon::cumlCommunicator_iface {
 
   void initialize();
   void get_request_id(request_t* req) const;
+  bool p2p_enabled = false;
 
 #ifdef WITH_UCX
-  bool p2p_enabled = false;
   comms_ucp_handler _ucp_handler;
   ucp_worker_h _ucp_worker;
   std::shared_ptr<ucp_ep_h*> _ucp_eps;

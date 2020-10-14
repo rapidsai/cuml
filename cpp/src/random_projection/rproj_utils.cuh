@@ -140,18 +140,4 @@ inline void build_parameters(paramsRPROJ& params) {
     params.density = check_density(params.density, params.n_features);
   }
 }
-
-template <typename math_t>
-void rand_mat<math_t>::reset() {
-  if (this->dense_data) CUDA_CHECK(cudaFree(this->dense_data));
-  if (this->indices) CUDA_CHECK(cudaFree(this->indices));
-  if (this->indptr) CUDA_CHECK(cudaFree(this->indptr));
-  if (this->sparse_data) CUDA_CHECK(cudaFree(this->sparse_data));
-
-  this->dense_data = nullptr;
-  this->indices = nullptr;
-  this->indptr = nullptr;
-  this->sparse_data = nullptr;
-  this->sparse_data_size = 0;
-}
 }  // namespace ML

@@ -63,7 +63,8 @@ def test_kmeans(benchmark, n_rows, n_features):
 
 @pytest.mark.skipif(not has_pytest_benchmark(),
                     reason='pytest-benchmark missing')
-@pytest.mark.parametrize('algo_name', ['DBSCAN', 'UMAP', 'NearestNeighbors'])
+@pytest.mark.parametrize('algo_name', ['DBSCAN', 'UMAP-Supervised',
+                                       'NearestNeighbors'])
 def test_with_blobs(benchmark, algo_name):
     # Lump together a bunch of simple blobs-based tests
     _benchmark_algo(benchmark, algo_name, 'blobs', 10000, 100)

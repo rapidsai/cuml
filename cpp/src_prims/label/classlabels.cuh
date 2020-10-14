@@ -19,7 +19,6 @@
 #include <cub/cub.cuh>
 
 #include <common/cudart_utils.h>
-#include <ml_utils.h>
 #include <common/cumlHandle.hpp>
 #include <common/device_buffer.hpp>
 #include <cuda_utils.cuh>

@@ -18,9 +18,9 @@
 
 #include <common/cudart_utils.h>
 #include <linalg/cublas_wrappers.h>
-#include <ml_utils.h>
 #include <common/cumlHandle.hpp>
 #include <cuda_utils.cuh>
+#include <cuml/solvers/params.hpp>
 #include <functions/linearReg.cuh>
 #include <functions/penalty.cuh>
 #include <functions/softThres.cuh>

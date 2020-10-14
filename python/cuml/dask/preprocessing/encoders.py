@@ -105,8 +105,7 @@ class OneHotEncoder(BaseEstimator, DelayedTransformMixin,
         self.datatype = ('cudf' if isinstance(el, (dcDataFrame, daskSeries))
                          else 'cupy')
 
-        self.local_model = OneHotEncoderMG(**self.kwargs).fit(X)
-        self.categories_ = self.local_model.categories_
+        self._set_internal_model(OneHotEncoderMG(**self.kwargs).fit(X))
 
         return self
 
@@ -147,7 +146,7 @@ class OneHotEncoder(BaseEstimator, DelayedTransformMixin,
             Distributed object containing the transformed input.
         """
         return self._transform(X, n_dims=2, delayed=delayed,
-                               output_dtype=self.local_model.dtype,
+                               output_dtype=self._get_internal_model().dtype,
                                output_collection_type='cupy')
 
     @with_cupy_rmm
@@ -169,6 +168,7 @@ class OneHotEncoder(BaseEstimator, DelayedTransformMixin,
         X_tr : Dask cuDF DataFrame or CuPy backed Dask Array
             Distributed object containing the inverse transformed array.
         """
+        dtype = self._get_internal_model().dtype
         return self._inverse_transform(X, n_dims=2, delayed=delayed,
-                                       output_dtype=self.local_model.dtype,
+                                       output_dtype=dtype,
                                        output_collection_type=self.datatype)
