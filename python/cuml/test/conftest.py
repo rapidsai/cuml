@@ -30,14 +30,23 @@ import numbers
 bad_cuml_array_loc = set()
 
 
-def checked_isinstance(obj, class_path_list):
+def checked_isinstance(obj, class_name_dot_separated):
     """
     Small helper function to check instance of object that doesn't import
     class_path at import time, only at check time. Returns False if
     class_path cannot be imported.
+
+    Parameters:
+    -----------
+    obj: Python object
+        object to check if it is instance of a class
+    class_name_dot_separated: list of str
+        List of classes to check whether object is an instance of, each item
+        can be a full dot  separated class like
+        'cuml.dask.preprocessing.LabelEncoder'
     """
     ret = False
-    for class_path in class_path_list:
+    for class_path in class_name_dot_separated:
         module_name, class_name = class_path.rsplit(".", 1)
         module = sys.modules[module_name]
         module_class = getattr(module, class_name, None)
