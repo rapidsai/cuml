@@ -112,67 +112,54 @@ class KMeans(Base):
     Examples
     --------
 
-    .. code-block:: python
-
-        # Both import methods supported
-        from cuml import KMeans
-        from cuml.cluster import KMeans
-
-        import cudf
-        import numpy as np
-        import pandas as pd
-
-        def np2cudf(df):
-            # convert numpy array to cuDF dataframe
-            df = pd.DataFrame({'fea%d'%i:df[:,i] for i in range(df.shape[1])})
-            pdf = cudf.DataFrame()
-            for c,column in enumerate(df):
-              pdf[str(c)] = df[column]
-            return pdf
-
-
-        a = np.asarray([[1.0, 1.0], [1.0, 2.0], [3.0, 2.0], [4.0, 3.0]],
-                       dtype=np.float32)
-        b = np2cudf(a)
-        print("input:")
-        print(b)
-
-        print("Calling fit")
-        kmeans_float = KMeans(n_clusters=2)
-        kmeans_float.fit(b)
-
-        print("labels:")
-        print(kmeans_float.labels_)
-        print("cluster_centers:")
-        print(kmeans_float.cluster_centers_)
-
-
-    Output:
-
-    .. code-block:: python
-
-          input:
-
-               0    1
-           0  1.0  1.0
-           1  1.0  2.0
-           2  3.0  2.0
-           3  4.0  3.0
-
-          Calling fit
-
-          labels:
-
-             0    0
-             1    0
-             2    1
-             3    1
-
-          cluster_centers:
-
-             0    1
-          0  1.0  1.5
-          1  3.5  2.5
+    >>> from cuml import KMeans
+    >>> from cuml.cluster import KMeans
+    >>> 
+    >>> import cudf
+    >>> import numpy as np
+    >>> import pandas as pd
+    >>> 
+    >>> def np2cudf(df):
+    ...     # convert numpy array to cuDF dataframe
+    ...     df = pd.DataFrame({'fea%d'%i:df[:,i] for i in range(df.shape[1])})
+    ...     pdf = cudf.DataFrame()
+    ...     for c,column in enumerate(df):
+    ...       pdf[str(c)] = df[column]
+    ...     return pdf
+    ... 
+    >>> 
+    >>> a = np.asarray([[1.0, 1.0], [1.0, 2.0], [3.0, 2.0], [4.0, 3.0]],
+    ...                dtype=np.float32)
+    >>> b = np2cudf(a)
+    >>> print("input:")
+    input:
+    >>> print(b)
+        0    1
+    0  1.0  1.0
+    1  1.0  2.0
+    2  3.0  2.0
+    3  4.0  3.0
+    >>> 
+    >>> print("Calling fit")
+    Calling fit
+    >>> kmeans_float = KMeans(n_clusters=2)
+    >>> kmeans_float.fit(b)
+    KMeans(handle=<cuml.common.handle.Handle object at 0x7fa892bc7eb0>, n_clusters=2, max_iter=300, tol=0.0001, verbose=4, random_state=1, init='scalable-k-means++', n_init=1, oversampling_factor=2.0, max_samples_per_batch=32768, output_type='cudf')
+    >>> 
+    >>> print("labels:")
+    labels:
+    >>> print(kmeans_float.labels_)
+    0    0
+    1    0
+    2    1
+    3    1
+    dtype: int32
+    >>> print("cluster_centers:")
+    cluster_centers:
+    >>> print(kmeans_float.cluster_centers_)
+        0    1
+    0  1.0  1.5
+    1  3.5  2.5
 
     Parameters
     ----------

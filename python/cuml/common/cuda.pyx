@@ -65,12 +65,10 @@ cdef class Stream:
     Examples
     --------
 
-    .. code-block:: python
-
-        import cuml
-        stream = cuml.cuda.Stream()
-        stream.sync()
-        del stream  # optional!
+    >>> import cuml
+    >>> stream = cuml.cuda.Stream()
+    >>> stream.sync()
+    >>> del stream  # optional!
     """
 
     # NOTE:

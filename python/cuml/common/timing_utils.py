@@ -26,16 +26,10 @@ def timed(name):
     Examples
     --------
 
-    .. code-block:: python
-    with timed("Print Call"):
-        print("Hello, World")
-
-    Output:
-
-    .. code-block:: python
-
-        Hello, World
-        ..Print Call              :    0.0005
+    >>> with timed("Print Call"):
+    >>>     print("Hello, World")
+    Hello, World
+    ..Print Call              :    0.0005
 
     """
     t0 = time.time()
