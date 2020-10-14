@@ -74,12 +74,12 @@ def select_device(dev, close=True):
     :param close: bool close the cuda context and create new one?
     """
     if numba.cuda.get_current_device().id != dev:
-        logging.warn("Selecting device " + str(dev))
+        logging.warning("Selecting device " + str(dev))
         if close:
             numba.cuda.close()
         numba.cuda.select_device(dev)
         if dev != numba.cuda.get_current_device().id:
-            logging.warn("Current device " +
+            logging.warning("Current device " +
                          str(numba.cuda.get_current_device()) +
                          " does not match expected " + str(dev))
 
