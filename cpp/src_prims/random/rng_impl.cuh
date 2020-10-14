@@ -127,7 +127,7 @@ struct TapsGenerator {
 };
 
 /** Kiss99-based random number generator */
-// Courtesy: Vinay Deshpande
+
 struct Kiss99Generator {
   /**
    * @brief ctor. Initializes the state for RNG
@@ -136,7 +136,7 @@ struct Kiss99Generator {
    * @param offset unused
    */
   DI Kiss99Generator(uint64_t seed, uint64_t subsequence, uint64_t offset) {
-    initKiss99((uint32_t)seed);
+    initKiss99(seed);
   }
 
   /**
@@ -191,36 +191,78 @@ struct Kiss99Generator {
   /** one of the kiss99 states */
   uint32_t jcong;
 
-  static const uint32_t fnvBasis = 2166136261U;
-  static const uint32_t fnvPrime = 16777619U;
+  // This function multiplies 128-bit hash by 128-bit FNV prime and returns lower
+  // 128 bits. It uses 32-bit wide multiply only.
+  DI void mulByFnv1a128Prime(uint32_t* h) {
+    typedef union {
+      uint32_t u32[2];
+      uint64_t u64[1];
+    } words64;
 
-  DI void fnv1a32(uint32_t& hash, uint32_t txt) {
-    hash ^= (txt >> 0) & 0xFF;
-    hash *= fnvPrime;
-    hash ^= (txt >> 8) & 0xFF;
-    hash *= fnvPrime;
-    hash ^= (txt >> 16) & 0xFF;
-    hash *= fnvPrime;
-    hash ^= (txt >> 24) & 0xFF;
-    hash *= fnvPrime;
+    // 128-bit FNV prime = p3 * 2^96 + p2 * 2^64 + p1 * 2^32 + p0
+    // Here p0 = 315, p2 = 16777216, p1 = p3 = 0
+    const uint32_t p0 = uint32_t(315), p2 = uint32_t(16777216);
+    // Partial products
+    words64 h0p0, h1p0, h2p0, h0p2, h3p0, h1p2;
+
+    h0p0.u64[0] = uint64_t(h[0]) * p0;
+    h1p0.u64[0] = uint64_t(h[1]) * p0;
+    h2p0.u64[0] = uint64_t(h[2]) * p0;
+    h0p2.u64[0] = uint64_t(h[0]) * p2;
+    h3p0.u64[0] = uint64_t(h[3]) * p0;
+    h1p2.u64[0] = uint64_t(h[1]) * p2;
+
+    // h_n[0] = LO(h[0]*p[0]);
+    // h_n[1] = HI(h[0]*p[0]) + LO(h[1]*p[0]);
+    // h_n[2] = HI(h[1]*p[0]) + LO(h[2]*p[0]) + LO(h[0]*p[2]);
+    // h_n[3] = HI(h[2]*p[0]) + HI(h[0]*p[2]) + LO(h[3]*p[0]) + LO(h[1]*p[2]);
+    uint32_t carry = 0;
+    h[0] = h0p0.u32[0];
+
+    h[1] = h0p0.u32[1] + h1p0.u32[0];
+    carry = h[1] < h0p0.u32[1] ? 1 : 0;
+
+    h[2] = h1p0.u32[1] + carry;
+    carry = h[2] < h1p0.u32[1] ? 1 : 0;
+    h[2] += h2p0.u32[0];
+    carry = h[2] < h2p0.u32[0] ? carry + 1 : carry;
+    h[2] += h0p2.u32[0];
+    carry = h[2] < h0p2.u32[0] ? carry + 1 : carry;
+
+    h[3] = h2p0.u32[1] + h0p2.u32[1] + h3p0.u32[0] + h1p2.u32[0] + carry;
+    return;
   }
 
-  DI void initKiss99(uint32_t seed) {
-    uint32_t hash = fnvBasis;
-    fnv1a32(hash, uint32_t(threadIdx.x));
-    fnv1a32(hash, uint32_t(threadIdx.y));
-    fnv1a32(hash, uint32_t(threadIdx.z));
-    fnv1a32(hash, uint32_t(blockIdx.x));
-    fnv1a32(hash, uint32_t(blockIdx.y));
-    fnv1a32(hash, uint32_t(blockIdx.z));
-    fnv1a32(hash, seed);
-    z = hash;
-    fnv1a32(hash, 0x01);
-    w = hash;
-    fnv1a32(hash, 0x01);
-    jsr = hash;
-    fnv1a32(hash, 0x01);
-    jcong = hash;
+  DI void fnv1a128(uint32_t* hash, uint32_t txt) {
+    hash[0] ^= (txt >> 0) & 0xFF;
+    mulByFnv1a128Prime(hash);
+    hash[0] ^= (txt >> 8) & 0xFF;
+    mulByFnv1a128Prime(hash);
+    hash[0] ^= (txt >> 16) & 0xFF;
+    mulByFnv1a128Prime(hash);
+    hash[0] ^= (txt >> 24) & 0xFF;
+    mulByFnv1a128Prime(hash);
+  }
+
+  DI void initKiss99(uint64_t seed) {
+    // Initialize hash to 128-bit FNV1a basis
+    uint32_t hash[4] = {1653982605UL, 1656234357UL, 129696066UL, 1818371886UL};
+
+    // Digest threadIdx, blockIdx and seed
+    fnv1a128(hash, threadIdx.x);
+    fnv1a128(hash, threadIdx.y);
+    fnv1a128(hash, threadIdx.z);
+    fnv1a128(hash, blockIdx.x);
+    fnv1a128(hash, blockIdx.y);
+    fnv1a128(hash, blockIdx.z);
+    fnv1a128(hash, uint32_t(seed));
+    fnv1a128(hash, uint32_t(seed >> 32));
+
+    // Initialize KISS99 state with hash
+    z = hash[0];
+    w = hash[1];
+    jsr = hash[2];
+    jcong = hash[3];
   }
 };
 
