@@ -208,9 +208,9 @@ void transform_impl(raft::handle_t &handle,
   for (int i = 0; i < input.size(); i++) {
     int si = i % n_streams;
 
-    MLCommon::Stats::meanCenter(input[i]->ptr, input[i]->ptr, mu,
-                                size_t(prms.n_cols), local_blocks[i]->size,
-                                false, true, streams[si]);
+    raft::stats::meanCenter(input[i]->ptr, input[i]->ptr, mu,
+                            size_t(prms.n_cols), local_blocks[i]->size, false,
+                            true, streams[si]);
 
     T alpha = T(1);
     T beta = T(0);
@@ -219,9 +219,8 @@ void transform_impl(raft::handle_t &handle,
                        local_blocks[i]->size, int(prms.n_components),
                        CUBLAS_OP_N, CUBLAS_OP_T, alpha, beta, streams[si]);
 
-    MLCommon::Stats::meanAdd(input[i]->ptr, input[i]->ptr, mu,
-                             size_t(prms.n_cols), local_blocks[i]->size, false,
-                             true, streams[si]);
+    raft::stats::meanAdd(input[i]->ptr, input[i]->ptr, mu, size_t(prms.n_cols),
+                         local_blocks[i]->size, false, true, streams[si]);
   }
 
   if (prms.whiten) {
@@ -317,9 +316,8 @@ void inverse_transform_impl(
                        local_blocks[i]->size, prms.n_cols, CUBLAS_OP_N,
                        CUBLAS_OP_N, alpha, beta, streams[si]);
 
-    MLCommon::Stats::meanAdd(input[i]->ptr, input[i]->ptr, mu,
-                             size_t(prms.n_cols), local_blocks[i]->size, false,
-                             true, streams[si]);
+    raft::stats::meanAdd(input[i]->ptr, input[i]->ptr, mu, size_t(prms.n_cols),
+                         local_blocks[i]->size, false, true, streams[si]);
   }
 
   if (prms.whiten) {
