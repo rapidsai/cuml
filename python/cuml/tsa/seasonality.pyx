@@ -60,8 +60,13 @@ def seas_test(y, s, output_type="input", handle=None):
         Numba device ndarray, cuda array interface compliant array like CuPy.
     s: integer
         Seasonal period (s > 1)
-    handle : cuml.Handle (default=None)
-        If it is None, a new one is created just for this function call.
+    handle : cuml.Handle
+        Specifies the cuml.handle that holds internal CUDA state for
+        computations in this model. Most importantly, this specifies the CUDA
+        stream that will be used for the model's computations, so users can
+        run different models concurrently in different streams by creating
+        handles in several streams.
+        If it is None, a new one is created.
 
     Returns
     -------

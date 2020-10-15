@@ -71,7 +71,7 @@ master_doc = 'index'
 
 # General information about the project.
 project = 'cuml'
-copyright = '2019, nvidia'
+copyright = '2020, nvidia'
 author = 'nvidia'
 
 # The version info for the project you're documenting, acts as replacement for

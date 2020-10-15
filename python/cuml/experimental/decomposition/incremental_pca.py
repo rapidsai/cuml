@@ -14,15 +14,15 @@
 # limitations under the License.
 #
 
+import numbers
+
 import cupy as cp
 import cupyx
 import scipy
-import numbers
-
-from cuml.common import with_cupy_rmm
+from cuml import Base
 from cuml.common import input_to_cuml_array
+from cuml.common import with_cupy_rmm
 from cuml.common.array import CumlArray
-
 from cuml.decomposition import PCA
 
 
@@ -48,55 +48,18 @@ class IncrementalPCA(PCA):
     SVD computations to get the principal components, versus 1 large SVD
     of complexity ``O(n_samples * n_features ** 2)`` for PCA.
 
-
-    Examples
-    ---------
-
-    .. code-block:: python
-        from cuml.decomposition import IncrementalPCA
-        import cupy as cp
-        import cupyx
-
-        X = cupyx.scipy.sparse.random(1000, 5, format='csr', density=0.07)
-        ipca = IncrementalPCA(n_components=2, batch_size=200)
-        ipca.fit(X)
-
-        print("Components: \n", ipca.components_)
-
-        print("Singular Values: ", ipca.singular_values_)
-
-        print("Explained Variance: ", ipca.explained_variance_)
-
-        print("Explained Variance Ratio: ",
-            ipca.explained_variance_ratio_)
-
-        print("Mean: ", ipca.mean_)
-
-        print("Noise Variance: ", ipca.noise_variance_)
-
-    Output:
-
-    .. code-block:: python
-        Components:
-        [[ 0.40465797  0.70924681 -0.46980153 -0.32028596 -0.09962083]
-        [ 0.3072285  -0.31337166 -0.21010504 -0.25727659  0.83490926]]
-
-        Singular Values: [4.67710479 4.0249979 ]
-
-        Explained Variance: [0.02189721 0.01621682]
-
-        Explained Variance Ratio: [0.2084041  0.15434174]
-
-        Mean: [0.03341744 0.03796517 0.03316038 0.03825872 0.0253353 ]
-
-        Noise Variance: 0.0049539530909571425
-
     Parameters
     ----------
+
     handle : cuml.Handle
-        If it is None, a new one is created just for this class
+        Specifies the cuml.handle that holds internal CUDA state for
+        computations in this model. Most importantly, this specifies the CUDA
+        stream that will be used for the model's computations, so users can
+        run different models concurrently in different streams by creating
+        handles in several streams.
+        If it is None, a new one is created.
     n_components : int or None, (default=None)
-        Number of components to keep. If ``n_components `` is ``None``,
+        Number of components to keep. If ``n_components`` is ``None``,
         then ``n_components`` is set to ``min(n_samples, n_features)``.
     whiten : bool, optional
         If True, de-correlates the components. This is done by dividing them by
@@ -112,10 +75,18 @@ class IncrementalPCA(PCA):
         ``fit``. If ``batch_size`` is ``None``, then ``batch_size``
         is inferred from the data and set to ``5 * n_features``, to provide a
         balance between approximation accuracy and memory consumption.
-    verbose : int or boolean (default = False)
-        Logging level
+    verbose : int or boolean, default=False
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        See :ref:`verbosity-levels` for more info.
+    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
+        Variable to control output type of the results and attributes of
+        the estimator. If None, it'll inherit the output type set at the
+        module level, `cuml.global_output_type`.
+        See :ref:`output-data-type-configuration` for more info.
+
     Attributes
     ----------
+
     components_ : array, shape (n_components, n_features)
         Components with maximum variance.
     explained_variance_ : array, shape (n_components,)
@@ -135,9 +106,7 @@ class IncrementalPCA(PCA):
         ``partial_fit``.
     noise_variance_ : float
         The estimated noise covariance following the Probabilistic PCA model
-        from Tipping and Bishop 1999. See "Pattern Recognition and
-        Machine Learning" by C. Bishop, 12.2.1 p. 574 or
-        http://www.miketipping.com/papers/met-mppca.pdf.
+        from [4]_.
     n_components_ : int
         The estimated number of components. Relevant when
         ``n_components=None``.
@@ -146,37 +115,81 @@ class IncrementalPCA(PCA):
         new calls to fit, but increments across ``partial_fit`` calls.
     batch_size_ : int
         Inferred batch size from ``batch_size``.
+
     Notes
     -----
-    Implements the incremental PCA model from:
-    *D. Ross, J. Lim, R. Lin, M. Yang, Incremental Learning for Robust Visual
-    Tracking, International Journal of Computer Vision, Volume 77, Issue 1-3,
-    pp. 125-141, May 2008.*
-    See https://www.cs.toronto.edu/~dross/ivt/RossLimLinYang_ijcv.pdf
-    This model is an extension of the Sequential Karhunen-Loeve Transform from:
-    *A. Levy and M. Lindenbaum, Sequential Karhunen-Loeve Basis Extraction and
-    its Application to Images, IEEE Transactions on Image Processing, Volume 9,
-    Number 8, pp. 1371-1374, August 2000.*
-    See https://www.cs.technion.ac.il/~mic/doc/skl-ip.pdf
-    We have specifically abstained from an optimization used by authors of both
-    papers, a QR decomposition used in specific situations to reduce the
-    algorithmic complexity of the SVD. The source for this technique is
-    *Matrix Computations, Third Edition, G. Holub and C. Van Loan, Chapter 5,
-    section 5.4.4, pp 252-253.*. This technique has been omitted because it is
-    advantageous only when decomposing a matrix with ``n_samples`` (rows)
-    >= 5/3 * ``n_features`` (columns), and hurts the readability of the
-    implemented algorithm. This would be a good opportunity for future
-    optimization, if it is deemed necessary.
+
+    Implements the incremental PCA model from [1]_. This model is an extension
+    of the Sequential Karhunen-Loeve Transform from [2]_. We have specifically
+    abstained from an optimization used by authors of both papers, a QR
+    decomposition used in specific situations to reduce the algorithmic
+    complexity of the SVD. The source for this technique is [3]_. This
+    technique has been omitted because it is advantageous only when decomposing
+    a matrix with ``n_samples >= 5/3 * n_features`` where ``n_samples`` and
+    ``n_features`` are the matrix rows and columns, respectively. In addition,
+    it hurts the readability of the implemented algorithm. This would be a good
+    opportunity for future optimization, if it is deemed necessary.
+
     References
     ----------
-    D. Ross, J. Lim, R. Lin, M. Yang. Incremental Learning for Robust Visual
-    Tracking, International Journal of Computer Vision, Volume 77,
-    Issue 1-3, pp. 125-141, May 2008.
-    G. Golub and C. Van Loan. Matrix Computations, Third Edition, Chapter 5,
-    Section 5.4.4, pp. 252-253.
+    .. [1] `D. Ross, J. Lim, R. Lin, M. Yang. Incremental Learning for Robust
+        Visual Tracking, International Journal of Computer Vision, Volume 77,
+        Issue 1-3, pp. 125-141, May 2008.
+        <https://www.cs.toronto.edu/~dross/ivt/RossLimLinYang_ijcv.pdf>`_
+
+    .. [2] `A. Levy and M. Lindenbaum, Sequential Karhunen-Loeve Basis
+        Extraction and its Application to Images, IEEE Transactions on Image
+        Processing, Volume 9, Number 8, pp. 1371-1374, August 2000.
+        <https://www.cs.technion.ac.il/~mic/doc/skl-ip.pdf>`_
+
+    .. [3] G. Golub and C. Van Loan. Matrix Computations, Third Edition,
+        Chapter 5, Section 5.4.4, pp. 252-253.
+
+    .. [4] `C. Bishop, 1999. "Pattern Recognition and Machine Learning",
+        Section 12.2.1, pp. 574
+        <http://www.miketipping.com/papers/met-mppca.pdf>`_
+
+    Examples
+    ---------
+
+    .. code-block:: python
+
+        >>> from cuml.experimental.decomposition import IncrementalPCA
+        >>> import cupy as cp
+        >>> import cupyx
+        >>>
+        >>> X = cupyx.scipy.sparse.random(1000, 4, format='csr', density=0.07)
+        >>> ipca = IncrementalPCA(n_components=2, batch_size=200)
+        >>> ipca.fit(X)
+        >>>
+        >>> # Components:
+        >>> ipca.components_
+        array([[-0.02362926,  0.87328851, -0.15971988,  0.45967206],
+            [-0.14643883,  0.11414225,  0.97589354,  0.11471273]])
+        >>>
+        >>> # Singular Values:
+        >>> ipca.singular_values_
+        array([4.90298662, 4.54498226])
+        >>>
+        >>> # Explained Variance:
+        >>> ipca.explained_variance_
+        array([0.02406334, 0.02067754])
+        >>>
+        >>> # Explained Variance Ratio:
+        >>> ipca.explained_variance_ratio_
+        array([0.28018011, 0.24075775])
+        >>>
+        >>> # Mean:
+        >>> ipca.mean_
+        array([0.03249896, 0.03629852, 0.03268694, 0.03216601])
+        >>>
+        >>> # Noise Variance:
+        >>> ipca.noise_variance_.item()
+        0.003474966583315544
+
     """
     def __init__(self, handle=None, n_components=None, *, whiten=False,
-                 copy=True, batch_size=None, verbose=None,
+                 copy=True, batch_size=None, verbose=False,
                  output_type=None):
 
         super(IncrementalPCA, self).__init__(handle=handle,
@@ -191,17 +204,22 @@ class IncrementalPCA(PCA):
 
     @with_cupy_rmm
     def fit(self, X, y=None):
-        """Fit the model with X, using minibatches of size batch_size.
+        """
+        Fit the model with X, using minibatches of size batch_size.
+
         Parameters
         ----------
         X : array-like or sparse matrix, shape (n_samples, n_features)
             Training data, where n_samples is the number of samples and
             n_features is the number of features.
         y : Ignored
+
         Returns
         -------
+
         self : object
             Returns the instance itself.
+
         """
 
         self._set_base_attributes(output_type=X)
@@ -243,19 +261,25 @@ class IncrementalPCA(PCA):
 
     @with_cupy_rmm
     def partial_fit(self, X, y=None, check_input=True):
-        """Incremental fit with X. All of X is processed as a single batch.
+        """
+        Incremental fit with X. All of X is processed as a single batch.
+
         Parameters
         ----------
+
         X : array-like or sparse matrix, shape (n_samples, n_features)
             Training data, where n_samples is the number of samples and
             n_features is the number of features.
         check_input : bool
             Run check_array on X.
         y : Ignored
+
         Returns
         -------
+
         self : object
             Returns the instance itself.
+
         """
         if check_input:
             if scipy.sparse.issparse(X) or cupyx.scipy.sparse.issparse(X):
@@ -358,12 +382,16 @@ class IncrementalPCA(PCA):
 
     @with_cupy_rmm
     def transform(self, X, convert_dtype=False):
-        """Apply dimensionality reduction to X.
+        """
+        Apply dimensionality reduction to X.
+
         X is projected on the first principal components previously extracted
         from a training set, using minibatches of size batch_size if X is
         sparse.
+
         Parameters
         ----------
+
         X : array-like or sparse matrix, shape (n_samples, n_features)
             New data, where n_samples is the number of samples
             and n_features is the number of features.
@@ -375,7 +403,9 @@ class IncrementalPCA(PCA):
 
         Returns
         -------
+
         X_new : array-like, shape (n_samples, n_components)
+
         """
 
         if scipy.sparse.issparse(X) or cupyx.scipy.sparse.issparse(X):
@@ -396,7 +426,8 @@ class IncrementalPCA(PCA):
             return super().transform(X)
 
     def get_param_names(self):
-        return self._hyperparams
+        # Skip super() since we dont pass any extra parameters in __init__
+        return Base.get_param_names(self) + self._hyperparams
 
     def _cupy_to_cumlarray_attrs(self):
         self._components_ = CumlArray(self._components_.copy())
@@ -426,11 +457,15 @@ def _validate_sparse_input(X):
 
     Parameters
     ----------
+
     X : scipy.sparse or cupyx.scipy.sparse object
         A sparse input
+
     Returns
     -------
+
     X : The input converted to a cupyx.scipy.sparse.csr_matrix object
+
     """
 
     acceptable_dtypes = ('float32', 'float64')
@@ -463,14 +498,18 @@ def _gen_batches(n, batch_size, min_batch_size=0):
 
     Parameters
     ----------
+
     n : int
     batch_size : int
         Number of element in each batch
     min_batch_size : int, default=0
         Minimum batch size to produce.
+
     Yields
     ------
+
     slice of batch_size elements
+
     """
 
     if not isinstance(batch_size, numbers.Integral):
@@ -495,8 +534,10 @@ def _safe_accumulator_op(op, x, *args, **kwargs):
     This function provides numpy accumulator functions with a float64 dtype
     when used on a floating point input. This prevents accumulator overflow on
     smaller floating point dtypes.
+
     Parameters
     ----------
+
     op : function
         A cupy accumulator function such as cp.mean or cp.sum
     x : cupy array
@@ -506,9 +547,12 @@ def _safe_accumulator_op(op, x, *args, **kwargs):
         input x
     **kwargs : keyword arguments
         Keyword arguments passed to the accumulator function
+
     Returns
     -------
+
     result : The output of the accumulator function passed to this function
+
     """
 
     if cp.issubdtype(x.dtype, cp.floating) and x.dtype.itemsize < 8:
@@ -519,7 +563,8 @@ def _safe_accumulator_op(op, x, *args, **kwargs):
 
 
 def _incremental_mean_and_var(X, last_mean, last_variance, last_sample_count):
-    """Calculate mean update and a Youngs and Cramer variance update.
+    """
+    Calculate mean update and a Youngs and Cramer variance update.
     last_mean and last_variance are statistics computed at the last step by the
     function. Both must be initialized to 0.0. In case no scaling is required
     last_variance can be None. The mean is always required and returned because
@@ -527,27 +572,34 @@ def _incremental_mean_and_var(X, last_mean, last_variance, last_sample_count):
     number of samples encountered until now.
     From the paper "Algorithms for computing the sample variance: analysis and
     recommendations", by Chan, Golub, and LeVeque.
+
     Parameters
     ----------
+
     X : array-like, shape (n_samples, n_features)
         Data to use for variance update
     last_mean : array-like, shape: (n_features,)
     last_variance : array-like, shape: (n_features,)
     last_sample_count : array-like, shape (n_features,)
+
     Returns
     -------
+
     updated_mean : array, shape (n_features,)
     updated_variance : array, shape (n_features,)
         If None, only mean is computed
     updated_sample_count : array, shape (n_features,)
+
     Notes
     -----
     NaNs are ignored during the algorithm.
+
     References
     ----------
     T. Chan, G. Golub, R. LeVeque. Algorithms for computing the sample
         variance: recommendations, The American Statistician, Vol. 37, No. 3,
         pp. 242-247
+
     """
 
     # old = stats until now
@@ -585,11 +637,14 @@ def _incremental_mean_and_var(X, last_mean, last_variance, last_sample_count):
 
 
 def _svd_flip(u, v, u_based_decision=True):
-    """Sign correction to ensure deterministic output from SVD.
+    """
+    Sign correction to ensure deterministic output from SVD.
     Adjusts the columns of u and the rows of v such that the loadings in the
     columns in u that are largest in absolute value are always positive.
+
     Parameters
     ----------
+
     u : cupy.ndarray
         u and v are the output of `cupy.linalg.svd`
     v : cupy.ndarray
@@ -598,9 +653,11 @@ def _svd_flip(u, v, u_based_decision=True):
         If True, use the columns of u as the basis for sign flipping.
         Otherwise, use the rows of v. The choice of which variable to base the
         decision on is generally algorithm dependent.
+
     Returns
     -------
     u_adjusted, v_adjusted : arrays with the same dimensions as the input.
+
     """
     if u_based_decision:
         # columns of u, rows of v

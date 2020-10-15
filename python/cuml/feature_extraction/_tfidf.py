@@ -43,7 +43,8 @@ def _get_dtype(X):
 
 
 class TfidfTransformer(Base):
-    """Transform a count matrix to a normalized tf or tf-idf representation
+    """
+    Transform a count matrix to a normalized tf or tf-idf representation
     Tf means term-frequency while tf-idf means term-frequency times inverse
     document-frequency. This is a common term weighting scheme in information
     retrieval, that has also found good use in document classification.
@@ -79,12 +80,13 @@ class TfidfTransformer(Base):
 
     Parameters
     ----------
+
     norm : {'l1', 'l2'}, default='l2'
         Each output row will have unit norm, either:
-        * 'l2': Sum of squares of vector elements is 1. The cosine
-        similarity between two vectors is their dot product when l2 norm has
-        been applied.
-        * 'l1': Sum of absolute values of vector elements is 1.
+         * 'l2': Sum of squares of vector elements is 1. The cosine similarity
+           between two vectors is their dot product when l2 norm has been
+           applied.
+         * 'l1': Sum of absolute values of vector elements is 1.
     use_idf : bool, default=True
         Enable inverse-document-frequency reweighting.
     smooth_idf : bool, default=True
@@ -93,18 +95,38 @@ class TfidfTransformer(Base):
         exactly once. Prevents zero divisions.
     sublinear_tf : bool, default=False
         Apply sublinear tf scaling, i.e. replace tf with 1 + log(tf).
+    handle : cuml.Handle
+        Specifies the cuml.handle that holds internal CUDA state for
+        computations in this model. Most importantly, this specifies the CUDA
+        stream that will be used for the model's computations, so users can
+        run different models concurrently in different streams by creating
+        handles in several streams.
+        If it is None, a new one is created.
+    verbose : int or boolean, default=False
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        See :ref:`verbosity-levels` for more info.
+    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
+        Variable to control output type of the results and attributes of
+        the estimator. If None, it'll inherit the output type set at the
+        module level, `cuml.global_output_type`.
+        See :ref:`output-data-type-configuration` for more info.
 
     Attributes
     ----------
     idf_ : array of shape (n_features)
         The inverse document frequency (IDF) vector; only defined
-        if  ``use_idf`` is True.
+        if ``use_idf`` is True.
+
     """
 
     def __init__(self, *, norm='l2', use_idf=True, smooth_idf=True,
-                 sublinear_tf=False):
+                 sublinear_tf=False, handle=None, verbose=False,
+                 output_type=None):
 
-        super(TfidfTransformer, self).__init__(...)
+        super(TfidfTransformer, self).__init__(
+            handle=handle,
+            verbose=verbose,
+            output_type=output_type)
         self.norm = norm
         self.use_idf = use_idf
         self.smooth_idf = smooth_idf
@@ -266,3 +288,7 @@ class TfidfTransformer(Base):
             shape=(n_features, n_features),
             dtype=cp.float32
         )
+
+    def get_param_names(self):
+        return super().get_param_names() + \
+            ["norm", "use_idf", "smooth_idf", "sublinear_tf"]
