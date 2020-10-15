@@ -98,6 +98,7 @@
 - PR #2981: Prevent unguarded import of sklearn in SVC
 - PR #2984: Fix GPU test scripts gcov error
 - PR #2990: Reduce MNMG kneighbors regressor test threshold
+- PR #2997: Changing ARIMA `get/set_params` to `get/set_fit_params`
 
 # cuML 0.15.0 (Date TBD)
 
