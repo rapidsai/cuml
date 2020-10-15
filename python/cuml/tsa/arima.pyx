@@ -424,10 +424,7 @@ class ARIMA(Base):
                                                 check_dtype=np.float64)
                 setattr(self, "_{}_".format(param_name), array)
 
-    def get_params():
-        raise NotImplementedError
-
-    def set_params():
+    def get_param_names(self):
         raise NotImplementedError
 
     @nvtx_range_wrap
