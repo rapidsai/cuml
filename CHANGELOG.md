@@ -8,6 +8,7 @@
 - PR #2905: `stats` prims `mean_center`, `sum` to RAFT namespaces
 
 ## Bug Fixes
+- PR #2983: Fix seeding of KISS99 RNG
 
 # cuML 0.16.0 (Date TBD)
 
