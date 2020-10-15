@@ -54,6 +54,7 @@
 - PR #2942: Adding `cuml.experimental` to the Docs
 
 ## Bug Fixes
+- PR #2982: Adjust kneighbors classifier test threshold to avoid intermittent failure
 - PR #2885: Changing test target for NVTX wrapper test
 - PR #2882: Allow import on machines without GPUs
 - PR #2875: Bug fix to enable colorful NVTX markers
@@ -89,6 +90,7 @@
 - PR #2957: Fix ols test size for stability
 - PR #2972: Upgrade Treelite to 0.93
 - PR #2981: Prevent unguarded import of sklearn in SVC
+- PR #2984: Fix GPU test scripts gcov error
 
 # cuML 0.15.0 (Date TBD)
 
