@@ -37,8 +37,7 @@ namespace LinAlg {
 template <typename math_t>
 void lstsqSVD(const raft::handle_t &handle, math_t *A, int n_rows, int n_cols,
               math_t *b, math_t *w, cudaStream_t stream) {
-  std::shared_ptr<raft::mr::device::allocator> allocator =
-    handle.get_device_allocator();
+  auto allocator = handle.get_device_allocator();
   cusolverDnHandle_t cusolverH = handle.get_cusolver_dn_handle();
   cublasHandle_t cublasH = handle.get_cublas_handle();
 
@@ -67,8 +66,7 @@ void lstsqSVD(const raft::handle_t &handle, math_t *A, int n_rows, int n_cols,
 template <typename math_t>
 void lstsqEig(const raft::handle_t &handle, math_t *A, int n_rows, int n_cols,
               math_t *b, math_t *w, cudaStream_t stream) {
-  std::shared_ptr<raft::mr::device::allocator> allocator =
-    handle.get_device_allocator();
+  auto allocator = handle.get_device_allocator();
   cusolverDnHandle_t cusolverH = handle.get_cusolver_dn_handle();
   cublasHandle_t cublasH = handle.get_cublas_handle();
 

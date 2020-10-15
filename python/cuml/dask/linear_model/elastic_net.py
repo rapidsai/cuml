@@ -63,14 +63,17 @@ class ElasticNet(BaseEstimator):
         This (setting to ‘random’) often leads to significantly faster
         convergence especially when tol is higher than 1e-4.
     handle : cuml.Handle
-        If it is None, a new one is created just for this class.
-    output_type : (optional) {'input', 'cudf', 'cupy', 'numpy'} default = None
-        Use it to control output type of the results and attributes.
-        If None it'll inherit the output type set at the
-        module level, cuml.output_type. If that has not been changed, by
-        default the estimator will mirror the type of the data used for each
-        fit or predict call.
-        If set, the estimator will override the global option for its behavior.
+        Specifies the cuml.handle that holds internal CUDA state for
+        computations in this model. Most importantly, this specifies the CUDA
+        stream that will be used for the model's computations, so users can
+        run different models concurrently in different streams by creating
+        handles in several streams.
+        If it is None, a new one is created.
+    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
+        Variable to control output type of the results and attributes of
+        the estimator. If None, it'll inherit the output type set at the
+        module level, `cuml.global_output_type`.
+        See :ref:`output-data-type-configuration` for more info.
 
     Attributes
     -----------

@@ -191,7 +191,8 @@ RF_params set_rf_class_obj(int max_depth, int max_leaves, float max_features,
                            float min_impurity_decrease, bool bootstrap_features,
                            bool bootstrap, int n_trees, float rows_sample,
                            int seed, CRITERION split_criterion,
-                           bool quantile_per_tree, int cfg_n_streams);
+                           bool quantile_per_tree, int cfg_n_streams,
+                           bool use_experimental_backend, int max_batch_size);
 
 // ----------------------------- Regression ----------------------------------- //
 

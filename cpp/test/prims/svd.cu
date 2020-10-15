@@ -87,7 +87,6 @@ class SvdTest : public ::testing::TestWithParam<SvdInputs<T>> {
     svdQR(handle, data, params.n_row, params.n_col, sing_vals_qr,
           left_eig_vectors_qr, right_eig_vectors_trans_qr, true, true, true,
           stream);
-    CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
   void TearDown() override {

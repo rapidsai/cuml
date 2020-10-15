@@ -72,7 +72,7 @@ void hingeH(const raft::handle_t &handle, const math_t *input, idx_type n_rows,
                      CUBLAS_OP_N, CUBLAS_OP_N, stream);
 
   if (intercept != math_t(0))
-    LinAlg::addScalar(pred, pred, intercept, n_rows, stream);
+    raft::linalg::addScalar(pred, pred, intercept, n_rows, stream);
 
   sign(pred, pred, math_t(1.0), n_rows, stream);
 }
@@ -108,7 +108,7 @@ void hingeLossGrads(const raft::handle_t &handle, math_t *input, int n_rows,
   }
 
   if (pen != penalty::NONE) {
-    LinAlg::add(grads, grads, pen_grads.data(), n_cols, stream);
+    raft::linalg::add(grads, grads, pen_grads.data(), n_cols, stream);
   }
 }
 
@@ -146,7 +146,7 @@ void hingeLoss(const raft::handle_t &handle, math_t *input, int n_rows,
   }
 
   if (pen != penalty::NONE) {
-    LinAlg::add(loss, loss, pen_val.data(), 1, stream);
+    raft::linalg::add(loss, loss, pen_val.data(), 1, stream);
   }
 }
 

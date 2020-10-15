@@ -115,6 +115,10 @@ def blobs_dataset(request):
                 params=["numpy", "dataframe", "cupy", "cudf", "numba"])
 def int_dataset(request):
     randint = create_rand_integers()
+    random_loc = cp.random.choice(randint.size,
+                                  int(randint.size * 0.3),
+                                  replace=False)
+    randint.ravel()[random_loc] = cp.nan
     return convert(randint, request.param)
 
 

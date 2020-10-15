@@ -59,8 +59,7 @@ void rsvdFixedRank(const raft::handle_t &handle, math_t *M, int n_rows,
                    int p, bool use_bbt, bool gen_left_vec, bool gen_right_vec,
                    bool use_jacobi, math_t tol, int max_sweeps,
                    cudaStream_t stream) {
-  std::shared_ptr<raft::mr::device::allocator> allocator =
-    handle.get_device_allocator();
+  auto allocator = handle.get_device_allocator();
   cusolverDnHandle_t cusolverH = handle.get_cusolver_dn_handle();
   cublasHandle_t cublasH = handle.get_cublas_handle();
 
@@ -102,7 +101,7 @@ void rsvdFixedRank(const raft::handle_t &handle, math_t *M, int n_rows,
   // power sampling scheme
   for (int j = 1; j < q; j++) {
     if ((2 * j - 2) % s == 0) {
-      qrGetQ(Y.data(), Yorth.data(), m, l, cusolverH, stream, allocator);
+      raft::linalg::qrGetQ(handle, Y.data(), Yorth.data(), m, l, stream);
       raft::linalg::gemm(handle, M, m, n, Yorth.data(), Z.data(), n, l,
                          CUBLAS_OP_T, CUBLAS_OP_N, alpha, beta, stream);
     } else {
@@ -111,7 +110,7 @@ void rsvdFixedRank(const raft::handle_t &handle, math_t *M, int n_rows,
     }
 
     if ((2 * j - 1) % s == 0) {
-      qrGetQ(Z.data(), Zorth.data(), n, l, cusolverH, stream, allocator);
+      raft::linalg::qrGetQ(handle, Z.data(), Zorth.data(), n, l, stream);
       raft::linalg::gemm(handle, M, m, n, Zorth.data(), Y.data(), m, l,
                          CUBLAS_OP_N, CUBLAS_OP_N, alpha, beta, stream);
     } else {
@@ -123,7 +122,7 @@ void rsvdFixedRank(const raft::handle_t &handle, math_t *M, int n_rows,
   // orthogonalize on exit from loop to get Q
   raft::mr::device::buffer<math_t> Q(allocator, stream, m * l);
   CUDA_CHECK(cudaMemsetAsync(Q.data(), 0, sizeof(math_t) * m * l, stream));
-  qrGetQ(Y.data(), Q.data(), m, l, cusolverH, stream, allocator);
+  raft::linalg::qrGetQ(handle, Y.data(), Q.data(), m, l, stream);
 
   // either QR of B^T method, or eigendecompose BB^T method
   if (!use_bbt) {
@@ -139,8 +138,8 @@ void rsvdFixedRank(const raft::handle_t &handle, math_t *M, int n_rows,
     CUDA_CHECK(cudaMemsetAsync(Qhat.data(), 0, sizeof(math_t) * n * l, stream));
     raft::mr::device::buffer<math_t> Rhat(allocator, stream, l * l);
     CUDA_CHECK(cudaMemsetAsync(Rhat.data(), 0, sizeof(math_t) * l * l, stream));
-    qrGetQR(Bt.data(), Qhat.data(), Rhat.data(), n, l, cusolverH, stream,
-            allocator);
+    raft::linalg::qrGetQR(handle, Bt.data(), Qhat.data(), Rhat.data(), n, l,
+                          stream);
 
     // compute SVD of Rhat (lxl)
     raft::mr::device::buffer<math_t> Uhat(allocator, stream, l * l);
@@ -154,8 +153,8 @@ void rsvdFixedRank(const raft::handle_t &handle, math_t *M, int n_rows,
     else
       raft::linalg::svdQR(handle, Rhat.data(), l, l, S_vec_tmp.data(),
                           Uhat.data(), Vhat.data(), true, true, true, stream);
-    Matrix::sliceMatrix(S_vec_tmp.data(), 1, l, S_vec, 0, 0, 1, k,
-                        stream);  // First k elements of S_vec
+    raft::matrix::sliceMatrix(S_vec_tmp.data(), 1, l, S_vec, 0, 0, 1, k,
+                              stream);  // First k elements of S_vec
 
     // Merge step 14 & 15 by calculating U = Q*Vhat[:,1:k] mxl * lxk = mxk
     if (gen_left_vec) {
@@ -187,7 +186,8 @@ void rsvdFixedRank(const raft::handle_t &handle, math_t *M, int n_rows,
     raft::mr::device::buffer<math_t> Uhat_dup(allocator, stream, l * l);
     CUDA_CHECK(
       cudaMemsetAsync(Uhat_dup.data(), 0, sizeof(math_t) * l * l, stream));
-    Matrix::copyUpperTriangular(BBt.data(), Uhat_dup.data(), l, l, stream);
+    raft::matrix::copyUpperTriangular(BBt.data(), Uhat_dup.data(), l, l,
+                                      stream);
     if (use_jacobi)
       raft::linalg::eigJacobi(handle, Uhat_dup.data(), l, l, Uhat.data(),
                               S_vec_tmp.data(), stream, tol, max_sweeps);
@@ -195,15 +195,15 @@ void rsvdFixedRank(const raft::handle_t &handle, math_t *M, int n_rows,
       raft::linalg::eigDC(handle, Uhat_dup.data(), l, l, Uhat.data(),
                           S_vec_tmp.data(), stream);
     raft::matrix::seqRoot(S_vec_tmp.data(), l, stream);
-    Matrix::sliceMatrix(S_vec_tmp.data(), 1, l, S_vec, 0, p, 1, l,
-                        stream);  // Last k elements of S_vec
-    Matrix::colReverse(S_vec, 1, k, stream);
+    raft::matrix::sliceMatrix(S_vec_tmp.data(), 1, l, S_vec, 0, p, 1, l,
+                              stream);  // Last k elements of S_vec
+    raft::matrix::colReverse(S_vec, 1, k, stream);
 
     // Merge step 14 & 15 by calculating U = Q*Uhat[:,(p+1):l] mxl * lxk = mxk
     if (gen_left_vec) {
       raft::linalg::gemm(handle, Q.data(), m, l, Uhat.data() + p * l, U, m, k,
                          CUBLAS_OP_N, CUBLAS_OP_N, alpha, beta, stream);
-      Matrix::colReverse(U, m, k, stream);
+      raft::matrix::colReverse(U, m, k, stream);
     }
 
     // Merge step 14 & 15 by calculating V = B^T Uhat[:,(p+1):l] *
@@ -216,15 +216,15 @@ void rsvdFixedRank(const raft::handle_t &handle, math_t *M, int n_rows,
       CUDA_CHECK(
         cudaMemsetAsync(UhatSinv.data(), 0, sizeof(math_t) * l * k, stream));
       raft::matrix::reciprocal(S_vec_tmp.data(), l, stream);
-      Matrix::initializeDiagonalMatrix(S_vec_tmp.data() + p, Sinv.data(), k, k,
-                                       stream);
+      raft::matrix::initializeDiagonalMatrix(S_vec_tmp.data() + p, Sinv.data(),
+                                             k, k, stream);
 
       raft::linalg::gemm(handle, Uhat.data() + p * l, l, k, Sinv.data(),
                          UhatSinv.data(), l, k, CUBLAS_OP_N, CUBLAS_OP_N, alpha,
                          beta, stream);
       raft::linalg::gemm(handle, B.data(), l, n, UhatSinv.data(), V, n, k,
                          CUBLAS_OP_T, CUBLAS_OP_N, alpha, beta, stream);
-      Matrix::colReverse(V, n, k, stream);
+      raft::matrix::colReverse(V, n, k, stream);
     }
   }
 }

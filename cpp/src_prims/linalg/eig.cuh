@@ -46,8 +46,7 @@ template <typename math_t>
 void eigDC(const raft::handle_t &handle, const math_t *in, int n_rows,
            int n_cols, math_t *eig_vectors, math_t *eig_vals,
            cudaStream_t stream) {
-  std::shared_ptr<raft::mr::device::allocator> allocator =
-    handle.get_device_allocator();
+  auto allocator = handle.get_device_allocator();
   cusolverDnHandle_t cusolverH = handle.get_cusolver_dn_handle();
 
   int lwork;
@@ -58,7 +57,7 @@ void eigDC(const raft::handle_t &handle, const math_t *in, int n_rows,
   raft::mr::device::buffer<math_t> d_work(allocator, stream, lwork);
   raft::mr::device::buffer<int> d_dev_info(allocator, stream, 1);
 
-  MLCommon::Matrix::copy(in, eig_vectors, n_rows, n_cols, stream);
+  raft::matrix::copy(in, eig_vectors, n_rows, n_cols, stream);
 
   CUSOLVER_CHECK(cusolverDnsyevd(cusolverH, CUSOLVER_EIG_MODE_VECTOR,
                                  CUBLAS_FILL_MODE_UPPER, n_rows, eig_vectors,
@@ -96,8 +95,7 @@ template <typename math_t>
 void eigSelDC(const raft::handle_t &handle, math_t *in, int n_rows, int n_cols,
               int n_eig_vals, math_t *eig_vectors, math_t *eig_vals,
               EigVecMemUsage memUsage, cudaStream_t stream) {
-  std::shared_ptr<raft::mr::device::allocator> allocator =
-    handle.get_device_allocator();
+  auto allocator = handle.get_device_allocator();
   cusolverDnHandle_t cusolverH = handle.get_cusolver_dn_handle();
 
   int lwork;
@@ -120,7 +118,7 @@ void eigSelDC(const raft::handle_t &handle, math_t *in, int n_rows, int n_cols,
       d_dev_info.data(), stream));
   } else if (memUsage == COPY_INPUT) {
     d_eig_vectors.resize(n_rows * n_cols, stream);
-    MLCommon::Matrix::copy(in, d_eig_vectors.data(), n_rows, n_cols, stream);
+    raft::matrix::copy(in, d_eig_vectors.data(), n_rows, n_cols, stream);
 
     CUSOLVER_CHECK(cusolverDnsyevdx(
       cusolverH, CUSOLVER_EIG_MODE_VECTOR, CUSOLVER_EIG_RANGE_I,
@@ -139,11 +137,11 @@ void eigSelDC(const raft::handle_t &handle, math_t *in, int n_rows, int n_cols,
          "This usually occurs when some of the features do not vary enough.");
 
   if (memUsage == OVERWRITE_INPUT) {
-    MLCommon::Matrix::truncZeroOrigin(in, n_rows, eig_vectors, n_rows,
-                                      n_eig_vals, stream);
+    raft::matrix::truncZeroOrigin(in, n_rows, eig_vectors, n_rows, n_eig_vals,
+                                  stream);
   } else if (memUsage == COPY_INPUT) {
-    MLCommon::Matrix::truncZeroOrigin(d_eig_vectors.data(), n_rows, eig_vectors,
-                                      n_rows, n_eig_vals, stream);
+    raft::matrix::truncZeroOrigin(d_eig_vectors.data(), n_rows, eig_vectors,
+                                  n_rows, n_eig_vals, stream);
   }
 }
 
@@ -167,8 +165,7 @@ template <typename math_t>
 void eigJacobi(const raft::handle_t &handle, const math_t *in, int n_rows,
                int n_cols, math_t *eig_vectors, math_t *eig_vals,
                cudaStream_t stream, math_t tol = 1.e-7, int sweeps = 15) {
-  std::shared_ptr<raft::mr::device::allocator> allocator =
-    handle.get_device_allocator();
+  auto allocator = handle.get_device_allocator();
   cusolverDnHandle_t cusolverH = handle.get_cusolver_dn_handle();
 
   syevjInfo_t syevj_params = nullptr;
@@ -184,7 +181,7 @@ void eigJacobi(const raft::handle_t &handle, const math_t *in, int n_rows,
   raft::mr::device::buffer<math_t> d_work(allocator, stream, lwork);
   raft::mr::device::buffer<int> dev_info(allocator, stream, 1);
 
-  MLCommon::Matrix::copy(in, eig_vectors, n_rows, n_cols, stream);
+  raft::matrix::copy(in, eig_vectors, n_rows, n_cols, stream);
 
   CUSOLVER_CHECK(cusolverDnsyevj(cusolverH, CUSOLVER_EIG_MODE_VECTOR,
                                  CUBLAS_FILL_MODE_UPPER, n_rows, eig_vectors,

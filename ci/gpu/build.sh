@@ -41,7 +41,7 @@ logger "Check GPU usage..."
 nvidia-smi
 
 logger "Activate conda env..."
-source activate gdf
+source activate rapids
 conda install -c conda-forge -c rapidsai -c rapidsai-nightly -c nvidia \
       "cudatoolkit=${CUDA_REL}" \
       "cudf=${MINOR_VERSION}" \
@@ -107,7 +107,10 @@ if [[ -z "$PROJECT_FLASH" || "$PROJECT_FLASH" == "0" ]]; then
     ################################################################################
     # TEST - Run GoogleTest and py.tests for libcuml and cuML
     ################################################################################
-
+    set +e -Eo pipefail
+    EXITCODE=0
+    trap "EXITCODE=1" ERR
+    
     if hasArg --skip-tests; then
         logger "Skipping Tests..."
         exit 0
@@ -124,7 +127,7 @@ if [[ -z "$PROJECT_FLASH" || "$PROJECT_FLASH" == "0" ]]; then
     logger "Python pytest for cuml..."
     cd $WORKSPACE/python
 
-    pytest --cache-clear --basetemp=${WORKSPACE}/cuml-cuda-tmp --junitxml=${WORKSPACE}/junit-cuml.xml -v -s -m "not memleak" --durations=50 --timeout=300 --ignore=cuml/test/dask --ignore=cuml/raft
+    pytest --cache-clear --basetemp=${WORKSPACE}/cuml-cuda-tmp --junitxml=${WORKSPACE}/junit-cuml.xml -v -s -m "not memleak" --durations=50 --timeout=300 --ignore=cuml/test/dask --ignore=cuml/raft --cov-config=.coveragerc --cov=cuml --cov-report=xml:${WORKSPACE}/python/cuml/cuml-coverage.xml --cov-report term
 
     timeout 7200 sh -c "pytest cuml/test/dask --cache-clear --basetemp=${WORKSPACE}/cuml-mg-cuda-tmp --junitxml=${WORKSPACE}/junit-cuml-mg.xml -v -s -m 'not memleak' --durations=50 --timeout=300"
 
@@ -187,13 +190,16 @@ else
     logger "Python pytest for cuml..."
     cd $WORKSPACE/python
 
-    pytest --cache-clear --basetemp=${WORKSPACE}/cuml-cuda-tmp --junitxml=${WORKSPACE}/junit-cuml.xml -v -s -m "not memleak" --durations=50 --timeout=300 --ignore=cuml/test/dask --ignore=cuml/raft
+    pytest --cache-clear --basetemp=${WORKSPACE}/cuml-cuda-tmp --junitxml=${WORKSPACE}/junit-cuml.xml -v -s -m "not memleak" --durations=50 --timeout=300 --ignore=cuml/test/dask --ignore=cuml/raft --cov-config=.coveragerc --cov=cuml --cov-report=xml:${WORKSPACE}/python/cuml/cuml-coverage.xml --cov-report term
 
     timeout 7200 sh -c "pytest cuml/test/dask --cache-clear --basetemp=${WORKSPACE}/cuml-mg-cuda-tmp --junitxml=${WORKSPACE}/junit-cuml-mg.xml -v -s -m 'not memleak' --durations=50 --timeout=300"
 
     ################################################################################
     # TEST - Run notebook tests
     ################################################################################
+    set +e -Eo pipefail
+    EXITCODE=0
+    trap "EXITCODE=1" ERR
 
     ${WORKSPACE}/ci/gpu/test-notebooks.sh 2>&1 | tee nbtest.log
     python ${WORKSPACE}/ci/utils/nbtestlog2junitxml.py nbtest.log
@@ -224,3 +230,5 @@ else
     $WORKSPACE/build.sh cppdocs -v
 
 fi
+
+return ${EXITCODE}

@@ -44,8 +44,7 @@ namespace linalg {
 template <typename math_t>
 void qrGetQ(const raft::handle_t &handle, const math_t *M, math_t *Q,
             int n_rows, int n_cols, cudaStream_t stream) {
-  std::shared_ptr<raft::mr::device::allocator> allocator =
-    handle.get_device_allocator();
+  auto allocator = handle.get_device_allocator();
   cusolverDnHandle_t cusolverH = handle.get_cusolver_dn_handle();
 
   int m = n_rows, n = n_cols;
@@ -91,8 +90,7 @@ void qrGetQ(const raft::handle_t &handle, const math_t *M, math_t *Q,
 template <typename math_t>
 void qrGetQR(const raft::handle_t &handle, math_t *M, math_t *Q, math_t *R,
              int n_rows, int n_cols, cudaStream_t stream) {
-  std::shared_ptr<raft::mr::device::allocator> allocator =
-    handle.get_device_allocator();
+  auto allocator = handle.get_device_allocator();
   cusolverDnHandle_t cusolverH = handle.get_cusolver_dn_handle();
 
   int m = n_rows, n = n_cols;
@@ -119,7 +117,7 @@ void qrGetQR(const raft::handle_t &handle, math_t *M, math_t *Q, math_t *R,
   CUDA_CHECK(cudaDeviceSynchronize());
 #endif
 
-  MLCommon::Matrix::copyUpperTriangular(R_full.data(), R, m, n, stream);
+  raft::matrix::copyUpperTriangular(R_full.data(), R, m, n, stream);
 
   CUDA_CHECK(cudaMemcpyAsync(Q, R_full.data(), sizeof(math_t) * m * n,
                              cudaMemcpyDeviceToDevice, stream));

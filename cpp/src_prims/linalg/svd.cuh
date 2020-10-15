@@ -24,6 +24,7 @@
 #include <cuml/common/cuml_allocator.hpp>
 #include <matrix/math.cuh>
 #include <matrix/matrix.cuh>
+#include <raft/handle.hpp>
 #include <raft/mr/device/buffer.hpp>
 #include "eig.cuh"
 #include "gemm.cuh"
@@ -98,7 +99,7 @@ void svdQR(const raft::handle_t &handle, T *in, int n_rows, int n_cols,
     right_sing_vecs, n, d_work.data(), lwork, d_rwork, devInfo.data(), stream));
 
   // Transpose the right singular vector back
-  if (trans_right) transpose(right_sing_vecs, n_cols, stream);
+  if (trans_right) raft::linalg::transpose(right_sing_vecs, n_cols, stream);
 
   CUDA_CHECK(cudaGetLastError());
 
@@ -113,8 +114,7 @@ void svdQR(const raft::handle_t &handle, T *in, int n_rows, int n_cols,
 template <typename T>
 void svdEig(const raft::handle_t &handle, T *in, int n_rows, int n_cols, T *S,
             T *U, T *V, bool gen_left_vec, cudaStream_t stream) {
-  std::shared_ptr<raft::mr::device::allocator> allocator =
-    handle.get_device_allocator();
+  auto allocator = handle.get_device_allocator();
   cusolverDnHandle_t cusolverH = handle.get_cusolver_dn_handle();
   cublasHandle_t cublasH = handle.get_cublas_handle();
 
@@ -129,8 +129,8 @@ void svdEig(const raft::handle_t &handle, T *in, int n_rows, int n_cols, T *S,
 
   eigDC(handle, in_cross_mult.data(), n_cols, n_cols, V, S, stream);
 
-  MLCommon::Matrix::colReverse(V, n_cols, n_cols, stream);
-  MLCommon::Matrix::rowReverse(S, n_cols, 1, stream);
+  raft::matrix::colReverse(V, n_cols, n_cols, stream);
+  raft::matrix::rowReverse(S, n_cols, 1, stream);
 
   raft::matrix::seqRoot(S, S, alpha, n_cols, stream, true);
 
@@ -164,8 +164,7 @@ void svdJacobi(const raft::handle_t &handle, math_t *in, int n_rows, int n_cols,
                math_t *sing_vals, math_t *left_sing_vecs,
                math_t *right_sing_vecs, bool gen_left_vec, bool gen_right_vec,
                math_t tol, int max_sweeps, cudaStream_t stream) {
-  std::shared_ptr<raft::mr::device::allocator> allocator =
-    handle.get_device_allocator();
+  auto allocator = handle.get_device_allocator();
   cusolverDnHandle_t cusolverH = handle.get_cusolver_dn_handle();
 
   gesvdjInfo_t gesvdj_params = NULL;
@@ -213,8 +212,7 @@ template <typename math_t>
 void svdReconstruction(const raft::handle_t &handle, math_t *U, math_t *S,
                        math_t *V, math_t *out, int n_rows, int n_cols, int k,
                        cudaStream_t stream) {
-  std::shared_ptr<raft::mr::device::allocator> allocator =
-    handle.get_device_allocator();
+  auto allocator = handle.get_device_allocator();
 
   const math_t alpha = 1.0, beta = 0.0;
   raft::mr::device::buffer<math_t> SVT(allocator, stream, k * n_cols);
@@ -243,8 +241,7 @@ template <typename math_t>
 bool evaluateSVDByL2Norm(const raft::handle_t &handle, math_t *A_d, math_t *U,
                          math_t *S_vec, math_t *V, int n_rows, int n_cols,
                          int k, math_t tol, cudaStream_t stream) {
-  std::shared_ptr<raft::mr::device::allocator> allocator =
-    handle.get_device_allocator();
+  auto allocator = handle.get_device_allocator();
   cublasHandle_t cublasH = handle.get_cublas_handle();
 
   int m = n_rows, n = n_cols;
@@ -255,17 +252,15 @@ bool evaluateSVDByL2Norm(const raft::handle_t &handle, math_t *A_d, math_t *U,
   CUDA_CHECK(cudaMemsetAsync(P_d.data(), 0, sizeof(math_t) * m * n, stream));
   CUDA_CHECK(cudaMemsetAsync(S_mat.data(), 0, sizeof(math_t) * k * k, stream));
 
-  MLCommon::Matrix::initializeDiagonalMatrix(S_vec, S_mat.data(), k, k, stream);
+  raft::matrix::initializeDiagonalMatrix(S_vec, S_mat.data(), k, k, stream);
   svdReconstruction(handle, U, S_mat.data(), V, P_d.data(), m, n, k, stream);
 
   // get norms of each
-  math_t normA = MLCommon::Matrix::getL2Norm(A_d, m * n, cublasH, stream);
-  math_t normU = MLCommon::Matrix::getL2Norm(U, m * k, cublasH, stream);
-  math_t normS =
-    MLCommon::Matrix::getL2Norm(S_mat.data(), k * k, cublasH, stream);
-  math_t normV = MLCommon::Matrix::getL2Norm(V, n * k, cublasH, stream);
-  math_t normP =
-    MLCommon::Matrix::getL2Norm(P_d.data(), m * n, cublasH, stream);
+  math_t normA = raft::matrix::getL2Norm(handle, A_d, m * n, stream);
+  math_t normU = raft::matrix::getL2Norm(handle, U, m * k, stream);
+  math_t normS = raft::matrix::getL2Norm(handle, S_mat.data(), k * k, stream);
+  math_t normV = raft::matrix::getL2Norm(handle, V, n * k, stream);
+  math_t normP = raft::matrix::getL2Norm(handle, P_d.data(), m * n, stream);
 
   // calculate percent error
   const math_t alpha = 1.0, beta = -1.0;
@@ -278,7 +273,7 @@ bool evaluateSVDByL2Norm(const raft::handle_t &handle, math_t *A_d, math_t *U,
                                         A_minus_P.data(), m, stream));
 
   math_t norm_A_minus_P =
-    MLCommon::Matrix::getL2Norm(A_minus_P.data(), m * n, cublasH, stream);
+    raft::matrix::getL2Norm(handle, A_minus_P.data(), m * n, stream);
   math_t percent_error = 100.0 * norm_A_minus_P / normA;
   return (percent_error / 100.0 < tol);
 }

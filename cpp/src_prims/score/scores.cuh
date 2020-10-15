@@ -235,7 +235,7 @@ math_t r2_score(math_t *y, math_t *y_hat, int n, cudaStream_t stream) {
   math_t *ssto_arr;
   raft::allocate(ssto_arr, n);
 
-  MLCommon::LinAlg::subtractDevScalar(ssto_arr, y, y_bar, n, stream);
+  raft::linalg::subtractDevScalar(ssto_arr, y, y_bar, n, stream);
   MLCommon::LinAlg::powerScalar(ssto_arr, ssto_arr, math_t(2.0), n, stream);
   CUDA_CHECK(cudaPeekAtLastError());
 
