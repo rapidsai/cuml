@@ -1,6 +1,7 @@
 # cuML 0.17.0 (Date TBD)
 
 ## New Features
+- PR #2894: predict_proba in FIL C++ for XGBoost-style multi-class models
 
 ## Improvements
 - PR #2902: `matrix/matrix.cuh` in RAFT namespacing
