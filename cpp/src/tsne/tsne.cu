@@ -92,11 +92,10 @@ void TSNE_fit(const raft::handle_t &handle, const float *X, float *Y,
   // Optimal perplexity
   CUML_LOG_DEBUG("Searching for optimal perplexity via bisection search.");
   MLCommon::device_buffer<float> P(d_alloc, stream, n * n_neighbors);
-  const float P_sum = TSNE::perplexity_search(
-    distances.data(), P.data(), perplexity, perplexity_max_iter, perplexity_tol,
-    n, n_neighbors, handle);
+  TSNE::perplexity_search(distances.data(), P.data(), perplexity,
+                          perplexity_max_iter, perplexity_tol, n, n_neighbors,
+                          handle);
   distances.release(stream);
-  CUML_LOG_DEBUG("Perplexity sum = %f", P_sum);
   //---------------------------------------------------
   END_TIMER(PerplexityTime);
 
@@ -104,7 +103,7 @@ void TSNE_fit(const raft::handle_t &handle, const float *X, float *Y,
   //---------------------------------------------------
   // Convert data to COO layout
   MLCommon::Sparse::COO<float> COO_Matrix(d_alloc, stream);
-  TSNE::symmetrize_perplexity(P.data(), indices.data(), n, n_neighbors, P_sum,
+  TSNE::symmetrize_perplexity(P.data(), indices.data(), n, n_neighbors,
                               early_exaggeration, &COO_Matrix, stream, handle);
   P.release(stream);
   indices.release(stream);
