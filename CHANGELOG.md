@@ -88,6 +88,7 @@
 - PR #2968: Remove shuffle_features from RF param names
 - PR #2957: Fix ols test size for stability
 - PR #2972: Upgrade Treelite to 0.93
+- PR #2984: Fix GPU test scripts gcov error
 
 # cuML 0.15.0 (Date TBD)
 
