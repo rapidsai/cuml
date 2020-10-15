@@ -74,12 +74,12 @@ def _build_fil_classifier(m, data, args, tmpdir):
     dtrain = xgb.DMatrix(train_data, label=train_label)
 
     params = {
-        "silent": 1, "eval_metric": "error",
-        "objective": "binary:logistic", "tree_method": "gpu_hist",
+        "eval_metric": "error", 'num_class': 3,
+        "objective": "multi:softmax", "tree_method": "gpu_hist",
     }
     params.update(args)
-    max_depth = args["max_depth"]
-    num_rounds = args["num_rounds"]
+    max_depth = 3
+    num_rounds = 1000
     n_feature = data[0].shape[1]
     train_size = data[0].shape[0]
     model_name = f"xgb_{max_depth}_{num_rounds}_{n_feature}_{train_size}.model"

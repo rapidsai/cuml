@@ -248,20 +248,21 @@ struct tree_aggregator_t<NITEMS, GROVE_PER_CLASS_FEW_CLASSES> : finalize_block {
     __syncthreads();  // free up input row
     // load margin into shared memory
     auto per_thread = (vec<NITEMS, float>*)tmp_storage;
-    if (threadIdx.x >= num_classes) per_thread[threadIdx.x] = acc;
+    per_thread[threadIdx.x] = acc;
 
     __syncthreads();
     // reduce per-thread margin summand into per-class complete margin
     // (for each of the NITEMS rows)
-    // TODO(levsnv): use CUB/tree reduction when num_classes is small
-    if (threadIdx.x < num_classes) {
-      for (int c = threadIdx.x + num_classes; c < blockDim.x; c += num_classes)
-        acc += per_thread[c];
+    int t = threadIdx.x;
+    for (int sets = blockDim.x / num_classes; sets > 1;
+         sets = sets / 2 + sets % 2) {
+      if (t < sets / 2 * num_classes) {
+        per_thread[t] = acc =
+          per_thread[t] + per_thread[t + (sets / 2 + sets % 2) * num_classes];
+      }
+      __syncthreads();
     }
-    __syncthreads();  // free up per_thread[] margin
-
-    write_best_class_in_block(to_vec(threadIdx.x, acc), num_classes, out,
-                              num_rows);
+    write_best_class_in_block(to_vec(t, acc), num_classes, out, num_rows);
   }
 };
 
