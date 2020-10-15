@@ -210,6 +210,9 @@ struct predict_params {
 
   // Other parameters.
   int max_shm;
+  // to signal infer kernel to apply softmax and also average prior to that
+  // for GROVE_PER_CLASS for predict_proba
+  output_t transform;
 };
 
 // infer() calls the inference kernel with the parameters on the stream

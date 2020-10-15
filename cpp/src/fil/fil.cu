@@ -161,6 +161,8 @@ struct forest {
     params.max_shm = max_shm_;
     params.num_classes = num_classes_;
     params.leaf_algo = leaf_algo_;
+    // ignored unless predict_proba is true and algo is GROVE_PER_CLASS
+    params.transform = output_;
 
     /**
     The binary classification / regression (FLOAT_UNARY_BINARY) predict_proba() works as follows
@@ -169,6 +171,7 @@ struct forest {
     AVG is set: divide by the number of trees (averaging)
     SIGMOID is set: apply sigmoid
     CLASS is set: ignored
+    SOFTMAX is set: error
     write the output of the previous stages and its complement
 
     The binary classification / regression (FLOAT_UNARY_BINARY) predict() works as follows
@@ -177,6 +180,7 @@ struct forest {
     AVG is set: divide by the number of trees (averaging)
     SIGMOID is set: apply sigmoid
     CLASS is set: apply threshold (equivalent to choosing best class)
+    SOFTMAX is set: error
     
     The multi-class classification / regression (CATEGORICAL_LEAF) predict_proba() works as follows
       (always num_classes outputs):
@@ -184,19 +188,27 @@ struct forest {
     AVG is set: divide by the number of trees (averaging, output class probability)
     SIGMOID is set: apply sigmoid
     CLASS is set: ignored
+    SOFTMAX is set: error
     
     The multi-class classification / regression (CATEGORICAL_LEAF) predict() works as follows
       (always 1 output):
     RAW (no values set): output the label of the class with highest probability, else output label 0.
+    SOFTMAX is set: error
     All other flags (AVG, SIGMOID, CLASS) are ignored
     
-    The multi-class classification / regression (GROVE_PER_CLASS) predict_proba() is not implemented
-    
+    The multi-class classification / regression (GROVE_PER_CLASS) predict_proba() works as follows
+      (always num_classes outputs):
+    RAW (no values set): output class votes
+    AVG is set: divide by the number of trees (averaging, output class probability)
+    SIGMOID is set: apply sigmoid; if SOFTMAX is also set: error
+    CLASS is set: ignored
+    SOFTMAX is set: softmax is applied after averaging and global_bias
+
     The multi-class classification / regression (GROVE_PER_CLASS) predict() works as follows
       (always 1 output):
     RAW (no values set): output the label of the class with highest margin,
       equal margins resolved in favor of smaller label integer
-    All other flags (AVG, SIGMOID, CLASS) are ignored
+    All other flags (AVG, SIGMOID, CLASS, SOFTMAX) are ignored
     */
     output_t ot = output_;
     bool complement_proba = false, do_transform;
@@ -212,11 +224,15 @@ struct forest {
           do_transform = true;
           break;
         case leaf_algo_t::GROVE_PER_CLASS:
-          // TODO(levsnv): add softmax to implement predict_proba
-          ASSERT(
-            false,
-            "predict_proba not supported for multi-class gradient boosted "
-            "decision trees (encountered in xgboost, scikit-learn, lightgbm)");
+          // for GROVE_PER_CLASS, averaging happens in infer_k
+          ot = output_t(ot & ~output_t::AVG);
+          // treelite applies bias before softmax, but we do after.
+          // simulating treelite order, which cancels out bias
+          if ((ot & output_t::SOFTMAX) != 0) global_bias_ = 0.0f;
+          params.num_outputs = num_classes_;
+          do_transform = (ot != output_t::RAW && ot != output_t::SOFTMAX) ||
+                         global_bias_ != 0.0f;
+          break;
         case leaf_algo_t::CATEGORICAL_LEAF:
           params.num_outputs = num_classes_;
           do_transform = ot != output_t::RAW || global_bias_ != 0.0f;
@@ -419,6 +435,8 @@ void check_params(const forest_params_t* params, bool dense) {
                "num_classes must be 1 for "
                "regression");
       }
+      ASSERT((params->output & output_t::SOFTMAX) == 0,
+             "softmax does not make sense for leaf_algo == FLOAT_UNARY_BINARY");
       break;
     case leaf_algo_t::GROVE_PER_CLASS:
       ASSERT(params->num_classes > 2,
@@ -430,6 +448,8 @@ void check_params(const forest_params_t* params, bool dense) {
       ASSERT(params->num_classes >= 2,
              "num_classes >= 2 is required for "
              "leaf_algo == CATEGORICAL_LEAF");
+      ASSERT((params->output & output_t::SOFTMAX) == 0,
+             "not implemented softmax for leaf_algo == CATEGORICAL_LEAF");
       break;
     default:
       ASSERT(false,
@@ -437,12 +457,15 @@ void check_params(const forest_params_t* params, bool dense) {
              " or GROVE_PER_CLASS");
   }
   // output_t::RAW == 0, and doesn't have a separate flag
-  output_t all_set =
-    output_t(output_t::AVG | output_t::SIGMOID | output_t::CLASS);
+  output_t all_set = output_t(output_t::AVG | output_t::SIGMOID |
+                              output_t::CLASS | output_t::SOFTMAX);
   if ((params->output & ~all_set) != 0) {
     ASSERT(false,
            "output should be a combination of RAW, AVG, SIGMOID and CLASS");
   }
+  ASSERT((params->output & (output_t::SOFTMAX | output_t::SIGMOID)) !=
+           (output_t::SOFTMAX | output_t::SIGMOID),
+         "not supporting softmax and sigmoid transformations together");
 }
 
 int tree_root(const tl::Tree& tree) {
@@ -688,7 +711,8 @@ void tl2fil_common(forest_params_t* params, const tl::Model& model,
       params->num_classes = model.num_output_group;
       ASSERT(tl_params->output_class,
              "output_class==true is required for multi-class models");
-      ASSERT(pred_transform == "sigmoid" || pred_transform == "identity" ||
+      ASSERT(pred_transform == "sigmoid" ||
+               pred_transform == "identity_multiclass" ||
                pred_transform == "max_index" || pred_transform == "softmax" ||
                pred_transform == "multiclass_ova",
              "only sigmoid, identity, max_index, multiclass_ova and softmax "
@@ -726,6 +750,8 @@ void tl2fil_common(forest_params_t* params, const tl::Model& model,
   if (std::string(param.pred_transform) == "sigmoid") {
     params->output = output_t(params->output | output_t::SIGMOID);
   }
+  if (pred_transform == "softmax")
+    params->output = output_t(params->output | output_t::SOFTMAX);
   params->num_trees = model.trees.size();
 }
 

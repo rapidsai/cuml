@@ -81,6 +81,7 @@ std::string output2str(fil::output_t output) {
   if (output & fil::AVG) s += "| AVG";
   if (output & fil::CLASS) s += "| CLASS";
   if (output & fil::SIGMOID) s += "| SIGMOID";
+  if (output & fil::SOFTMAX) s += "| SOFTMAX";
   return s;
 }
 
@@ -242,6 +243,16 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
     CUDA_CHECK(cudaFree(mask_d));
   }
 
+  void apply_softmax(float* class_scores) {
+    float max = *std::max_element(class_scores, &class_scores[ps.num_classes]);
+    for (float* f = class_scores; f < &class_scores[ps.num_classes]; ++f)
+      *f = expf(*f - max);
+    float sum =
+      std::accumulate(class_scores, &class_scores[ps.num_classes], 0.0f);
+    for (float* f = class_scores; f < &class_scores[ps.num_classes]; ++f)
+      *f /= sum;
+  }
+
   void transform(float f, float& proba, float& output) {
     if ((ps.output & fil::output_t::AVG) != 0) {
       f *= (1.0f / ps.num_trees);
@@ -286,10 +297,16 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
                              &data_h[row * ps.num_cols])
                 .f;
           }
-          // not supporting predict_proba() with GROVE_PER_CLASS (xgboost-style models)
           want_preds_h[row] =
             std::max_element(class_scores.begin(), class_scores.end()) -
             class_scores.begin();
+          for (int c = 0; c < ps.num_classes; ++c) {
+            float thresholded_proba;  // not used;
+            transform(class_scores[c], want_proba_h[row * ps.num_classes + c],
+                      thresholded_proba);
+          }
+          if ((ps.output & fil::output_t::SOFTMAX) != 0)
+            apply_softmax(&want_proba_h[row * ps.num_classes]);
         }
         break;
       case fil::leaf_algo_t::CATEGORICAL_LEAF:
@@ -334,9 +351,7 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
     raft::allocate(preds_d, ps.num_preds_outputs());
     raft::allocate(proba_d, ps.num_proba_outputs());
     fil::predict(handle, forest, preds_d, data_d, ps.num_rows);
-    // not supporting predict_proba() with GROVE_PER_CLASS (xgboost-style models)
-    if (ps.leaf_algo != fil::leaf_algo_t::GROVE_PER_CLASS)
-      fil::predict(handle, forest, proba_d, data_d, ps.num_rows, true);
+    fil::predict(handle, forest, proba_d, data_d, ps.num_rows, true);
     CUDA_CHECK(cudaStreamSynchronize(stream));
 
     // cleanup
@@ -344,12 +359,9 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
   }
 
   void compare() {
-    // not supporting predict_proba() with GROVE_PER_CLASS (xgboost-style models)
-    if (ps.leaf_algo != fil::leaf_algo_t::GROVE_PER_CLASS) {
-      ASSERT_TRUE(
-        raft::devArrMatch(want_proba_d, proba_d, ps.num_proba_outputs(),
-                          raft::CompareApprox<float>(ps.tolerance), stream));
-    }
+    ASSERT_TRUE(raft::devArrMatch(want_proba_d, proba_d, ps.num_proba_outputs(),
+                                  raft::CompareApprox<float>(ps.tolerance),
+                                  stream));
     float tolerance = ps.leaf_algo == fil::leaf_algo_t::FLOAT_UNARY_BINARY
                         ? ps.tolerance
                         : std::numeric_limits<float>::epsilon();
@@ -728,6 +740,13 @@ std::vector<FilTestParams> predict_dense_inputs = {
   {20000, 50, 0.05, 8, 49, 0.05, fil::output_t::SIGMOID, 0, 0,
    fil::algo_t::NAIVE, 42, 2e-3f, tl::Operator(0),
    fil::leaf_algo_t::GROVE_PER_CLASS, 7},
+  {20000, 50, 0.05, 8, 52, 0.05, fil::output_t::SOFTMAX, 0, 0.5,
+   fil::algo_t::TREE_REORG, 42, 2e-3f, tl::Operator(0),
+   fil::leaf_algo_t::GROVE_PER_CLASS, 4},
+  {20000, 50, 0.05, 8, 52, 0.05,
+   fil::output_t(fil::output_t::AVG | fil::output_t::SOFTMAX), 0, 0.5,
+   fil::algo_t::NAIVE, 42, 2e-3f, tl::Operator(0),
+   fil::leaf_algo_t::GROVE_PER_CLASS, 4},
   {20000, 50, 0.05, 8, 52, 0.05, fil::output_t::RAW, 0, 0.5,
    fil::algo_t::TREE_REORG, 42, 2e-3f, tl::Operator(0),
    fil::leaf_algo_t::GROVE_PER_CLASS, 4},
@@ -784,8 +803,9 @@ std::vector<FilTestParams> predict_sparse_inputs = {
   {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::RAW, 0, 0, fil::algo_t::NAIVE,
    42, 2e-3f, tl::Operator(0), fil::leaf_algo_t::CATEGORICAL_LEAF, 3},
   {20000, 50, 0.05, 2, 5000, 0.05,
-   fil::output_t(fil::output_t::AVG | fil::output_t::CLASS), 1.0, 0.5,
-   fil::algo_t::NAIVE, 42, 2e-3f, tl::Operator(0),
+   fil::output_t(fil::output_t::AVG | fil::output_t::CLASS |
+                 fil::output_t::SOFTMAX),
+   1.0, 0.5, fil::algo_t::NAIVE, 42, 2e-3f, tl::Operator(0),
    fil::leaf_algo_t::GROVE_PER_CLASS, 5000},
   {20000, 50, 0.05, 8, 60, 0.05, fil::output_t::RAW, 0, 0.5, fil::algo_t::NAIVE,
    42, 2e-3f, tl::Operator(0), fil::leaf_algo_t::GROVE_PER_CLASS, 6},

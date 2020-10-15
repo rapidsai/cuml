@@ -71,6 +71,10 @@ enum output_t {
   /** output class label: either apply threshold to the output of the previous stage (for binary classification),
       or select the class with the most votes to get the class label (for multi-class classification).  */
   CLASS = 0x100,
+  /** softmax: apply softmax to class margins when predicting probability 
+      in multiclass classification. Softmax is made robust by subtracting max
+      from margins before applying. */
+  SOFTMAX = 0x1000,
 };
 
 /** storage_type_t defines whether to import the forests as dense or sparse */
