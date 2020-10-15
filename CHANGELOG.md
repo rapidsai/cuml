@@ -106,6 +106,7 @@
 - PR #2957: Fix ols test size for stability
 - PR #2972: Upgrade Treelite to 0.93
 - PR #2984: Fix GPU test scripts gcov error
+- PR #2990: Reduce MNMG kneighbors regressor test threshold
 
 # cuML 0.15.0 (Date TBD)
 
