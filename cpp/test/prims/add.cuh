@@ -19,8 +19,8 @@
 #include <cuda_utils.cuh>
 #include <linalg/add.cuh>
 
-namespace MLCommon {
-namespace LinAlg {
+namespace raft {
+namespace linalg {
 
 template <typename InT, typename OutT = InT>
 __global__ void naiveAddElemKernel(OutT *out, const InT *in1, const InT *in2,
@@ -52,5 +52,5 @@ template <typename InT, typename OutT = InT>
   return os;
 }
 
-};  // end namespace LinAlg
-};  // end namespace MLCommon
+};  // end namespace linalg
+};  // end namespace raft

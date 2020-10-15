@@ -246,7 +246,7 @@ void make_regression(
 
   if (bias != 0.0) {
     // Add bias
-    LinAlg::addScalar(_values, _values, bias, n_rows * n_targets, stream);
+    raft::linalg::addScalar(_values, _values, bias, n_rows * n_targets, stream);
   }
 
   device_buffer<DataT> white_noise(allocator, stream);
@@ -254,8 +254,8 @@ void make_regression(
     // Add white noise
     white_noise.resize(n_rows * n_targets, stream);
     r.normal(white_noise.data(), n_rows * n_targets, (DataT)0.0, noise, stream);
-    LinAlg::add(_values, _values, white_noise.data(), n_rows * n_targets,
-                stream);
+    raft::linalg::add(_values, _values, white_noise.data(), n_rows * n_targets,
+                      stream);
   }
 
   if (shuffle) {

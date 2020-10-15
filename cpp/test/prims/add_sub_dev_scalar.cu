@@ -22,8 +22,8 @@
 #include <random/rng.cuh>
 #include "test_utils.h"
 
-namespace MLCommon {
-namespace LinAlg {
+namespace raft {
+namespace linalg {
 
 template <typename T, typename IdxType = int>
 struct DevScalarInputs {
@@ -129,5 +129,5 @@ TEST_P(DevScalarTestD_i64, Result) {
 INSTANTIATE_TEST_CASE_P(DevScalarTests, DevScalarTestD_i64,
                         ::testing::ValuesIn(inputsd_i64));
 
-}  // end namespace LinAlg
-}  // end namespace MLCommon
+}  // end namespace linalg
+}  // end namespace raft
