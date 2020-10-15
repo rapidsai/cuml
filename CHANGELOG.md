@@ -50,6 +50,7 @@
 - PR #2892: Update ci/local/README.md
 - PR #2910: Adding Support for CuPy 8.x
 - PR #2914: Add tests for XGBoost multi-class models in FIL
+- PR #2622: Simplify tSNE perplexity search
 - PR #2930: Pin libfaiss to <=1.6.3
 - PR #2928: Updating Estimators Derived from Base for Consistency
 - PR #2942: Adding `cuml.experimental` to the Docs
