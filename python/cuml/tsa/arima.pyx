@@ -138,15 +138,15 @@ class ARIMA(Base):
 
     Attributes
     ----------
-    order : Tuple[int, int, int]
-        The ARIMA order (p, d, q) of the model
+    order : ARIMAOrder
+        The ARIMA order of the model (p, d, q, P, D, Q, s, k)
     seasonal_order: Tuple[int, int, int, int]
         The seasonal ARIMA order (P, D, Q, s) of the model
     intercept : bool or int
         Whether the model includes a constant trend mu
     d_y: device array
         Time series data on device
-    num_samples: int
+    n_obs: int
         Number of observations
     batch_size: int
         Number of time series in the batch
@@ -388,15 +388,16 @@ class ARIMA(Base):
         cdef ARIMAOrder order = self.order
         return order.p + order.P + order.q + order.Q + order.k + 1
 
-    def get_params(self) -> Dict[str, np.ndarray]:
-        """Get the parameters of the model
+    def get_fit_params(self) -> Dict[str, np.ndarray]:
+        """Get all the fit parameters. Not to be confused with get_params
+        Note: pack() can be used to get a compact vector of the parameters
 
         Returns
-        --------
+        -------
         params: Dict[str, np.ndarray]
             A dictionary of parameter names and associated arrays
             The key names are in {"mu", "ar", "ma", "sar", "sma", "sigma2"}
-            The shape of the arrays are (batch_size,) for mu parameters and
+            The shape of the arrays are (batch_size,) for mu and sigma2 and
             (n, batch_size) for any other type, where n is the corresponding
             number of parameters of this type.
         """
@@ -409,15 +410,17 @@ class ARIMA(Base):
                 params[names[i]] = getattr(self, names[i])
         return params
 
-    def set_params(self, params: Mapping[str, object]):
-        """Set the parameters of the model
+    def set_fit_params(self, params: Mapping[str, object]):
+        """Set all the fit parameters. Not to be confused with ``set_params``
+        Note: `unpack()` can be used to load a compact vector of the
+        parameters
 
         Parameters
         ----------
-        params: Mapping[str, np.ndarray]
-            A mapping (e.g dictionary) of parameter names and associated arrays
+        params:
+            A dictionary of parameter names and associated arrays
             The key names are in {"mu", "ar", "ma", "sar", "sma", "sigma2"}
-            The shape of the arrays are (batch_size,) for mu parameters and
+            The shape of the arrays are (batch_size,) for mu and sigma2 and
             (n, batch_size) for any other type, where n is the corresponding
             number of parameters of this type.
         """
@@ -425,6 +428,33 @@ class ARIMA(Base):
             if param_name in params:
                 array, _, _, _, _ = input_to_host_array(params[param_name])
                 setattr(self, param_name, array)
+
+    def get_param_names(self):
+        """
+        .. warning:: ARIMA is unable to be cloned at this time. The methods:
+            `get_param_names()`, `get_params` and `set_params` will raise
+            ``NotImplementedError``
+        """
+        raise NotImplementedError("ARIMA is unable to be cloned via "
+                                  "`get_params` and `set_params`.")
+
+    def get_params(self, deep=True):
+        """
+        .. warning:: ARIMA is unable to be cloned at this time. The methods:
+            `get_param_names()`, `get_params` and `set_params` will raise
+            ``NotImplementedError``
+        """
+        raise NotImplementedError("ARIMA is unable to be cloned via "
+                                  "`get_params` and `set_params`.")
+
+    def set_params(self, **params):
+        """
+        .. warning:: ARIMA is unable to be cloned at this time. The methods:
+            `get_param_names()`, `get_params` and `set_params` will raise
+            ``NotImplementedError``
+        """
+        raise NotImplementedError("ARIMA is unable to be cloned via "
+                                  "`get_params` and `set_params`.")
 
     @nvtx_range_wrap
     def predict(self, start=0, end=None, level=None):
@@ -652,7 +682,7 @@ class ARIMA(Base):
         if order.Q:
             params["sma"] = d_sma.to_output('numpy')
         params["sigma2"] = d_sigma2.to_output('numpy')
-        self.set_params(params)
+        self.set_fit_params(params)
 
     @nvtx_range_wrap
     def fit(self,
@@ -666,12 +696,12 @@ class ARIMA(Base):
 
         Parameters
         ----------
-        start_params : Mapping[str, object] (optional)
+        start_params : Mapping[str, array-like] (optional)
             A mapping (e.g dictionary) of parameter names and associated arrays
             The key names are in {"mu", "ar", "ma", "sar", "sma", "sigma2"}
-            The shape of the arrays are (batch_size,) for mu parameters and
-            (n, batch_size) for any other type, where n is the corresponding
-            number of parameters of this type.
+            The shape of the arrays are (batch_size,) for mu and sigma2
+            parameters and (n, batch_size) for any other type, where n is the
+            corresponding number of parameters of this type.
             Pass None for automatic estimation (recommended)
 
         opt_disp : int
@@ -733,7 +763,7 @@ class ARIMA(Base):
         if start_params is None:
             self._estimate_x0()
         else:
-            self.set_params(start_params)
+            self.set_fit_params(start_params)
 
         x0 = self._batched_transform(self.pack(), True)
 
@@ -900,7 +930,7 @@ class ARIMA(Base):
             params["sma"] = np.array(x_mat[k+p+q+P:k+p+q+P+Q], order='F')
         params["sigma2"] = np.array(x_mat[k+p+q+P+Q], order='F')
 
-        self.set_params(params)
+        self.set_fit_params(params)
 
     @nvtx_range_wrap
     def pack(self) -> np.ndarray:
@@ -908,7 +938,7 @@ class ARIMA(Base):
 
         Returns
         -------
-        x : array-like
+        x : numpy ndarray
             Packed parameter array, grouped by series.
             Shape: (n_params * batch_size,)
         """
@@ -916,7 +946,7 @@ class ARIMA(Base):
         p, q, P, Q, k = (order.p, order.q, order.P, order.Q, order.k)
         N = self.complexity
 
-        params = self.get_params()
+        params = self.get_fit_params()
 
         # 2D array for convenience
         x = np.zeros((N, self.batch_size), order='F')
