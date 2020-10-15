@@ -101,8 +101,10 @@
 - PR #2932: Marking KBinsDiscretizer pytests as xfail
 - PR #2925: Fixing Owner Bug When Slicing CumlArray Objects
 - PR #2931: Fix notebook error handling in gpuCI
+- PR #2941: Fixing dask tsvd stress test failure
 - PR #2943: Remove unused shuffle_features parameter
 - PR #2940: Correcting labels meta dtype for `cuml.dask.make_classification`
+- PR #2965: Notebooks update
 - PR #2955: Fix for conftest for singlegpu build
 - PR #2968: Remove shuffle_features from RF param names
 - PR #2957: Fix ols test size for stability
