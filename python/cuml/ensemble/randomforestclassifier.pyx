@@ -171,8 +171,6 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
     -----------
     n_estimators : int (default = 100)
         Number of trees in the forest. (Default changed to 100 in cuML 0.11)
-    handle : cuml.Handle
-        If it is None, a new one is created just for this class.
     split_criterion : The criterion used to split nodes.
         0 for GINI, 1 for ENTROPY
         2 and 3 not valid for classification
@@ -219,9 +217,6 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
     quantile_per_tree : boolean (default = False)
         Whether quantile is computed for individal trees in RF.
         Only relevant for GLOBAL_QUANTILE split_algo.
-    shuffle_features : boolean (default = False)
-        Whether to fully reshuffle the features for subsampling at each tree
-        node (instead of only shuffling once globally)
     use_experimental_backend : boolean (default = False)
         If set to true and  following conditions are also met, experimental
          decision tree training implementation would be used:
@@ -237,16 +232,34 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
     seed : int (default = None)
         Deprecated in favor of `random_state`.
         Seed for the random number generator. Unseeded by default.
+    handle : cuml.Handle
+        Specifies the cuml.handle that holds internal CUDA state for
+        computations in this model. Most importantly, this specifies the CUDA
+        stream that will be used for the model's computations, so users can
+        run different models concurrently in different streams by creating
+        handles in several streams.
+        If it is None, a new one is created.
+    verbose : int or boolean, default=False
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        See :ref:`verbosity-levels` for more info.
+    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
+        Variable to control output type of the results and attributes of
+        the estimator. If None, it'll inherit the output type set at the
+        module level, `cuml.global_output_type`.
+        See :ref:`output-data-type-configuration` for more info.
 
     """
 
-    def __init__(self, split_criterion=0,
-                 **kwargs):
+    def __init__(self, split_criterion=0, handle=None, verbose=False,
+                 output_type=None, **kwargs):
 
         self.RF_type = CLASSIFICATION
         self.num_classes = 2
         super(RandomForestClassifier, self).__init__(
             split_criterion=split_criterion,
+            handle=handle,
+            verbose=verbose,
+            output_type=output_type,
             **kwargs)
 
     """
@@ -450,7 +463,6 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
                                      <CRITERION> self.split_criterion,
                                      <bool> self.quantile_per_tree,
                                      <int> self.n_streams,
-                                     <bool> self.shuffle_features,
                                      <bool> self.use_experimental_backend,
                                      <int> self.max_batch_size)
 
@@ -879,27 +891,6 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
         del(y_m)
         del(preds_m)
         return self.stats['accuracy']
-
-    def get_params(self, deep=True):
-        """
-        Returns the value of all parameters
-        required to configure this estimator as a dictionary.
-        Parameters
-        -----------
-        deep : boolean (default = True)
-        """
-        return self._get_params(deep=deep)
-
-    def set_params(self, **params):
-        """
-        Sets the value of parameters required to
-        configure this estimator, it functions similar to
-        the sklearn set_params.
-        Parameters
-        -----------
-        params : dict of new params
-        """
-        return self._set_params(**params)
 
     def print_summary(self):
         """

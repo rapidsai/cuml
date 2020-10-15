@@ -1,15 +1,24 @@
-# Authors: Nicolas Tresegnie <nicolas.tresegnie@gmail.com>
+# Original authors from Sckit-Learn:
+#          Nicolas Tresegnie <nicolas.tresegnie@gmail.com>
 #          Sergey Feldman <sergeyfeldman@gmail.com>
 # License: BSD 3 clause
+
+
+# This code originates from the Scikit-Learn library,
+# it was since modified to allow GPU acceleration.
+# This code is under BSD 3 clause license.
+# Authors mentioned above do not endorse or promote this production.
+
 
 import numbers
 import warnings
 
 import cupy as np
-import numpy as cpu_np
 from cupy import sparse
 
-from ....thirdparty_adapters import get_input_type, to_output_type
+from ....thirdparty_adapters import (get_input_type, to_output_type, _get_mask,
+                                     _masked_column_median,
+                                     _masked_column_mean, _masked_column_mode)
 from ..utils.skl_dependencies import BaseEstimator, TransformerMixin
 from ..utils.validation import check_is_fitted
 from ..utils.validation import FLOAT_DTYPES
@@ -19,14 +28,6 @@ from ....common.import_utils import check_cupy8
 
 def is_scalar_nan(x):
     return bool(isinstance(x, numbers.Real) and np.isnan(x))
-
-
-def _get_mask(X, value_to_mask):
-    """Compute the boolean mask X == missing_values."""
-    if value_to_mask == "NaN" or np.isnan(value_to_mask):
-        return np.isnan(X)
-    else:
-        return X == value_to_mask
 
 
 def _check_inputs_dtype(X, missing_values):
@@ -136,7 +137,6 @@ class _BaseImputer(TransformerMixin, BaseEstimator):
         return {'allow_nan': is_scalar_nan(self.missing_values)}
 
 
-@check_cupy8()
 class SimpleImputer(_BaseImputer):
     """Imputation transformer for completing missing values.
 
@@ -160,8 +160,7 @@ class SimpleImputer(_BaseImputer):
         - If "constant", then replace missing values with fill_value. Can be
           used with strings or numeric data.
 
-        .. versionadded:: 0.20
-           strategy="constant" for fixed value imputation.
+        strategy="constant" for fixed value imputation.
 
     fill_value : string or numerical value, default=None
         When strategy == "constant", fill_value is used to replace all
@@ -220,6 +219,7 @@ class SimpleImputer(_BaseImputer):
     upon :meth:`transform` if strategy is not "constant".
 
     """
+    @check_cupy8()
     @_deprecate_positional_args
     def __init__(self, *, missing_values=np.nan, strategy="mean",
                  fill_value=None, verbose=0, copy=True, add_indicator=False):
@@ -365,51 +365,17 @@ class SimpleImputer(_BaseImputer):
 
     def _dense_fit(self, X, strategy, missing_values, fill_value):
         """Fit the transformer on dense data."""
-        mask = _get_mask(X, missing_values)
-
         # Mean
         if strategy == "mean":
-            count_missing_values = mask.sum(axis=0)
-            n_elems = X.shape[0] - count_missing_values
-            mean = np.nansum(X, axis=0)
-            mean -= (count_missing_values * missing_values)
-            mean /= n_elems
-            return mean
+            return _masked_column_mean(X, missing_values)
 
         # Median
         elif strategy == "median":
-            count_missing_values = mask.sum(axis=0)
-            n_elems = X.shape[0] - count_missing_values
-            middle, is_odd = np.divmod(n_elems, 2)
-            is_odd = is_odd.astype(np.bool)
-            middle += count_missing_values
-            X_sorted = X.copy()
-            X_sorted[mask] = np.nan
-            X_sorted = np.sort(X, axis=0)
-            median = np.empty(X.shape[1], dtype=X.dtype)
-            wis_odd = np.argwhere(is_odd).squeeze()
-            wnot_odd = np.argwhere(~is_odd).squeeze()
-            median[wis_odd] = X_sorted[middle[wis_odd], wis_odd]
-            elm1 = X_sorted[middle[wnot_odd]-1, wnot_odd]
-            elm2 = X_sorted[middle[wnot_odd], wnot_odd]
-            median[wnot_odd] = (elm1 + elm2) / 2.
-            return median
+            return _masked_column_median(X, missing_values)
 
         # Most frequent
         elif strategy == "most_frequent":
-            n_features = X.shape[1]
-            most_frequent = cpu_np.empty(n_features, dtype=X.dtype)
-            for i in range(n_features):
-                feature_mask_idxs = np.where(~mask[:, i])[0]
-                values, counts = np.unique(X[feature_mask_idxs, i],
-                                           return_counts=True)
-                count_max = counts.max()
-                if count_max > 0:
-                    value = values[counts == count_max].min()
-                else:
-                    value = np.nan
-                most_frequent[i] = value
-            return np.array(most_frequent)
+            return _masked_column_mode(X, missing_values)
 
         # Constant
         elif strategy == "constant":
