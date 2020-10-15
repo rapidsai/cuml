@@ -394,6 +394,7 @@ class ARIMA(Base):
 
         Returns
         -------
+        params: Dict[str, np.ndarray]
             A dictionary of parameter names and associated arrays
             The key names are in {"mu", "ar", "ma", "sar", "sma", "sigma2"}
             The shape of the arrays are (batch_size,) for mu and sigma2 and
