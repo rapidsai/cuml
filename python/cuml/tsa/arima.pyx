@@ -945,7 +945,7 @@ class ARIMA(Base):
         p, q, P, Q, k = (order.p, order.q, order.P, order.Q, order.k)
         N = self.complexity
 
-        params = self.get_params()
+        params = self.get_fit_params()
 
         # 2D array for convenience
         x = np.zeros((N, self.batch_size), order='F')
