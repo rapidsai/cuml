@@ -148,9 +148,11 @@ def test_predict_and_score(dataset, datatype, n_neighbors,
     exact_match(local_out, distributed_out)
 
     if datatype == 'dask_array':
-        assert distributed_score == handmade_local_score
+        assert distributed_score == pytest.approx(handmade_local_score,
+                                                  abs=1e-2)
     else:
         y_pred = distributed_out[0]
         handmade_distributed_score = float(r2_score(np_y_test, y_pred))
         handmade_distributed_score = round(handmade_distributed_score, 3)
-        assert handmade_distributed_score == handmade_local_score
+        assert handmade_distributed_score == pytest.approx(
+            handmade_local_score, abs=1e-2)
