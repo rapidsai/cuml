@@ -106,8 +106,8 @@ void pcaFit(const raft::handle_t &handle, math_t *input, math_t *components,
   raft::matrix::seqRoot(explained_var, singular_vals, scalar, n_components,
                         stream, true);
 
-  MLCommon::Stats::meanAdd(input, input, mu, prms.n_cols, prms.n_rows, false,
-                           true, stream);
+  raft::stats::meanAdd(input, input, mu, prms.n_cols, prms.n_rows, false, true,
+                       stream);
 }
 
 /**
@@ -185,8 +185,8 @@ void pcaInverseTransform(const raft::handle_t &handle, math_t *trans_input,
   }
 
   tsvdInverseTransform(handle, trans_input, components, input, prms, stream);
-  MLCommon::Stats::meanAdd(input, input, mu, prms.n_cols, prms.n_rows, false,
-                           true, stream);
+  raft::stats::meanAdd(input, input, mu, prms.n_cols, prms.n_rows, false, true,
+                       stream);
 
   if (prms.whiten) {
     raft::matrix::matrixVectorBinaryDivSkipZero(components, singular_vals,
@@ -244,11 +244,11 @@ void pcaTransform(const raft::handle_t &handle, math_t *input,
                                                 true, true, stream);
   }
 
-  MLCommon::Stats::meanCenter(input, input, mu, prms.n_cols, prms.n_rows, false,
-                              true, stream);
+  raft::stats::meanCenter(input, input, mu, prms.n_cols, prms.n_rows, false,
+                          true, stream);
   tsvdTransform(handle, input, components, trans_input, prms, stream);
-  MLCommon::Stats::meanAdd(input, input, mu, prms.n_cols, prms.n_rows, false,
-                           true, stream);
+  raft::stats::meanAdd(input, input, mu, prms.n_cols, prms.n_rows, false, true,
+                       stream);
 
   if (prms.whiten) {
     raft::matrix::matrixVectorBinaryMultSkipZero(components, singular_vals,
