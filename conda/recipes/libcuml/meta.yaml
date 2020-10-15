@@ -37,19 +37,19 @@ requirements:
     - ucx-py {{ minor_version }}
     - libcumlprims {{ minor_version }}
     - lapack
-    - treelite=0.92
+    - treelite=0.93
     - faiss-proc=*=cuda
     - gtest=1.10.0
-    - libfaiss
+    - libfaiss=1.6.3
   run:
     - libcumlprims {{ minor_version }}
     - cudf {{ minor_version }}
     - nccl>=2.5
     - ucx-py {{ minor_version }}
     - {{ pin_compatible('cudatoolkit', max_pin='x.x') }}
-    - treelite=0.92
+    - treelite=0.93
     - faiss-proc=*=cuda
-    - libfaiss
+    - libfaiss=1.6.3
 
 about:
   home: http://rapids.ai/

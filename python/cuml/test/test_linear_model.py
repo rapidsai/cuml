@@ -71,7 +71,7 @@ def make_classification_dataset(datatype, nrows, ncols, n_info, num_classes):
 @pytest.mark.parametrize("datatype", [np.float32, np.float64])
 @pytest.mark.parametrize("algorithm", ["eig", "svd"])
 @pytest.mark.parametrize(
-    "nrows", [unit_param(500), quality_param(5000), stress_param(500000)]
+    "nrows", [unit_param(1000), quality_param(5000), stress_param(500000)]
 )
 @pytest.mark.parametrize(
     "column_info",

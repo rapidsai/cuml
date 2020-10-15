@@ -1,4 +1,5 @@
-# Authors: Alexandre Gramfort <alexandre.gramfort@inria.fr>
+# Original authors from Sckit-Learn:
+#          Alexandre Gramfort <alexandre.gramfort@inria.fr>
 #          Mathieu Blondel <mathieu@mblondel.org>
 #          Olivier Grisel <olivier.grisel@ensta.org>
 #          Andreas Mueller <amueller@ais.uni-bonn.de>
@@ -6,6 +7,12 @@
 #          Giorgio Patrini <giorgio.patrini@anu.edu.au>
 #          Eric Chang <ericchang2017@u.northwestern.edu>
 # License: BSD 3 clause
+
+
+# This code originates from the Scikit-Learn library,
+# it was since modified to allow GPU acceleration.
+# This code is under BSD 3 clause license.
+# Authors mentioned above do not endorse or promote this production.
 
 
 from itertools import chain, combinations
@@ -103,22 +110,21 @@ def scale(X, *, axis=0, with_mean=True, with_std=True, copy=True):
         unit standard deviation).
 
     copy : boolean, optional, default True
-        set to False to perform inplace row normalization and avoid a
-        copy (if the input is already a numpy array or a scipy.sparse
-        CSC matrix and if axis is 1).
+        Whether a forced copy will be triggered. If copy=False, a copy might
+        be triggered by a conversion.
 
     Notes
     -----
-    This implementation will refuse to center scipy.sparse matrices
+    This implementation will refuse to center sparse matrices
     since it would make them non-sparse and would potentially crash the
     program with memory exhaustion problems.
 
     Instead the caller is expected to either set explicitly
     `with_mean=False` (in that case, only variance scaling will be
-    performed on the features of the CSC matrix) or to call `X.toarray()`
+    performed on the features of the sparse matrix) or to densify the matrix
     if he/she expects the materialized dense array to fit in memory.
 
-    To avoid memory copy the caller should pass a CSC matrix.
+    For optimal processing the caller should pass a CSC matrix.
 
     NaNs are treated as missing values: disregarded to compute the statistics,
     and maintained during the data transformation.
@@ -218,8 +224,8 @@ class MinMaxScaler(TransformerMixin, BaseEstimator):
         Desired range of transformed data.
 
     copy : bool, default=True
-        Set to False to perform inplace row normalization and avoid a
-        copy (if the input is already a numpy array).
+        Whether a forced copy will be triggered. If copy=False, a copy might
+        be triggered by a conversion.
 
     Attributes
     ----------
@@ -455,8 +461,8 @@ def minmax_scale(X, feature_range=(0, 1), *, axis=0, copy=True):
         otherwise (if 1) scale each sample.
 
     copy : bool, default=True
-        Set to False to perform inplace scaling and avoid a copy (if the input
-        is already a numpy array).
+        Whether a forced copy will be triggered. If copy=False, a copy might
+        be triggered by a conversion.
 
     See also
     --------
@@ -521,10 +527,8 @@ class StandardScaler(TransformerMixin, BaseEstimator):
     Parameters
     ----------
     copy : boolean, optional, default True
-        If False, try to avoid a copy and do inplace scaling instead.
-        This is not guaranteed to always work inplace; e.g. if the data is
-        not a NumPy array or scipy.sparse CSR matrix, a copy may still be
-        returned.
+        Whether a forced copy will be triggered. If copy=False, a copy might
+        be triggered by a conversion.
 
     with_mean : boolean, True by default
         If True, center the data before scaling.
@@ -541,7 +545,7 @@ class StandardScaler(TransformerMixin, BaseEstimator):
     ----------
     scale_ : ndarray or None, shape (n_features,)
         Per feature relative scaling of the data. This is calculated using
-        `np.sqrt(var_)`. Equal to ``None`` when ``with_std=False``.
+        `sqrt(var_)`. Equal to ``None`` when ``with_std=False``.
 
     mean_ : ndarray or None, shape (n_features,)
         The mean value for each feature in the training set.
@@ -754,10 +758,11 @@ class StandardScaler(TransformerMixin, BaseEstimator):
 
         Parameters
         ----------
-        X : array-like, shape [n_samples, n_features]
+        X : {array-like, sparse matrix}, shape [n_samples, n_features]
             The data used to scale along the features axis.
         copy : bool, optional (default: None)
-            Copy the input X or not.
+            Whether a forced copy will be triggered. If copy=False,
+            a copy might be triggered by a conversion.
         """
         check_is_fitted(self)
 
@@ -790,14 +795,15 @@ class StandardScaler(TransformerMixin, BaseEstimator):
 
         Parameters
         ----------
-        X : array-like, shape [n_samples, n_features]
+        X : {array-like, sparse matrix}, shape [n_samples, n_features]
             The data used to scale along the features axis.
         copy : bool, optional (default: None)
-            Copy the input X or not.
+            Whether a forced copy will be triggered. If copy=False,
+            a copy might be triggered by a conversion.
 
         Returns
         -------
-        X_tr : array-like, shape [n_samples, n_features]
+        X_tr : {array-like, sparse matrix}, shape [n_samples, n_features]
             Transformed array.
         """
         check_is_fitted(self)
@@ -837,7 +843,6 @@ class StandardScaler(TransformerMixin, BaseEstimator):
         return {'allow_nan': True}
 
 
-@check_cupy8()
 class MaxAbsScaler(TransformerMixin, BaseEstimator):
     """Scale each feature by its maximum absolute value.
 
@@ -851,8 +856,8 @@ class MaxAbsScaler(TransformerMixin, BaseEstimator):
     Parameters
     ----------
     copy : boolean, optional, default is True
-        Set to False to perform inplace scaling and avoid a copy (if the input
-        is already a numpy array).
+        Whether a forced copy will be triggered. If copy=False, a copy might
+        be triggered by a conversion.
 
     Attributes
     ----------
@@ -890,6 +895,7 @@ class MaxAbsScaler(TransformerMixin, BaseEstimator):
     transform.
     """
 
+    @check_cupy8()
     @_deprecate_positional_args
     def __init__(self, *, copy=True):
         self.copy = copy
@@ -1028,7 +1034,7 @@ def maxabs_scale(X, *, axis=0, copy=True):
 
     Parameters
     ----------
-    X : array-like, shape (n_samples, n_features)
+    X : {array-like, sparse matrix}, shape (n_samples, n_features)
         The data.
 
     axis : int (0 by default)
@@ -1036,8 +1042,8 @@ def maxabs_scale(X, *, axis=0, copy=True):
         otherwise (if 1) scale each sample.
 
     copy : boolean, optional, default is True
-        Set to False to perform inplace scaling and avoid a copy (if the input
-        is already a numpy array).
+        Whether a forced copy will be triggered. If copy=False, a copy might
+        be triggered by a conversion.
 
     See also
     --------
@@ -1074,43 +1080,42 @@ def maxabs_scale(X, *, axis=0, copy=True):
 class RobustScaler(TransformerMixin, BaseEstimator):
     """Scale features using statistics that are robust to outliers.
 
-    This Scaler removes the median and scales the data according to
-    the quantile range (defaults to IQR: Interquartile Range).
-    The IQR is the range between the 1st quartile (25th quantile)
-    and the 3rd quartile (75th quantile).
+    This Scaler removes the median and scales the data according to the
+    quantile range (defaults to IQR: Interquartile Range). The IQR is the range
+    between the 1st quartile (25th quantile) and the 3rd quartile (75th
+    quantile).
 
-    Centering and scaling happen independently on each feature by
-    computing the relevant statistics on the samples in the training
-    set. Median and interquartile range are then stored to be used on
-    later data using the ``transform`` method.
+    Centering and scaling happen independently on each feature by computing the
+    relevant statistics on the samples in the training set. Median and
+    interquartile range are then stored to be used on later data using the
+    ``transform`` method.
 
-    Standardization of a dataset is a common requirement for many
-    machine learning estimators. Typically this is done by removing the mean
-    and scaling to unit variance. However, outliers can often influence the
-    sample mean / variance in a negative way. In such cases, the median and
-    the interquartile range often give better results.
+    Standardization of a dataset is a common requirement for many machine
+    learning estimators. Typically this is done by removing the mean and
+    scaling to unit variance. However, outliers can often influence the sample
+    mean / variance in a negative way. In such cases, the median and the
+    interquartile range often give better results.
 
     Parameters
     ----------
-    with_centering : boolean, True by default
+
+    with_centering : boolean, default=True
         If True, center the data before scaling.
         This will cause ``transform`` to raise an exception when attempted on
         sparse matrices, because centering them entails building a dense
         matrix which in common use cases is likely to be too large to fit in
         memory.
 
-    with_scaling : boolean, True by default
+    with_scaling : boolean, default=True
         If True, scale the data to interquartile range.
 
     quantile_range : tuple (q_min, q_max), 0.0 < q_min < q_max < 100.0
         Default: (25.0, 75.0) = (1st quantile, 3rd quantile) = IQR
         Quantile range used to calculate ``scale_``.
 
-    copy : boolean, optional, default is True
-        If False, try to avoid a copy and do inplace scaling instead.
-        This is not guaranteed to always work inplace; e.g. if the data is
-        not a NumPy array or scipy.sparse CSR matrix, a copy may still be
-        returned.
+    copy : boolean, optional, default=True
+        Whether a forced copy will be triggered. If copy=False, a copy might
+        be triggered by a conversion.
 
     Attributes
     ----------
@@ -1119,9 +1124,6 @@ class RobustScaler(TransformerMixin, BaseEstimator):
 
     scale_ : array of floats
         The (scaled) interquartile range for each feature in the training set.
-
-        .. versionadded:: 0.17
-           *scale_* attribute.
 
     Examples
     --------
@@ -1139,14 +1141,12 @@ class RobustScaler(TransformerMixin, BaseEstimator):
 
     See also
     --------
+
     robust_scale: Equivalent function without the estimator API.
 
-    :class:`cuml.decomposition.PCA`
-        Further removes the linear correlation across features with
-        'whiten=True'.
+    cuml.decomposition.PCA: Further removes the linear correlation across
+        features with ``whiten=True``.
 
-    https://en.wikipedia.org/wiki/Median
-    https://en.wikipedia.org/wiki/Interquartile_range
     """
     @_deprecate_positional_args
     def __init__(self, *, with_centering=True, with_scaling=True,
@@ -1161,7 +1161,7 @@ class RobustScaler(TransformerMixin, BaseEstimator):
 
         Parameters
         ----------
-        X : array-like, shape [n_samples, n_features]
+        X : {array-like, CSC matrix}, shape [n_samples, n_features]
             The data used to compute the median and quantiles
             used for later scaling along the features axis.
         """
@@ -1247,7 +1247,7 @@ class RobustScaler(TransformerMixin, BaseEstimator):
 
         Parameters
         ----------
-        X : array-like
+        X : {array-like, sparse matrix}
             The data used to scale along the specified axis.
         """
         check_is_fitted(self)
@@ -1274,16 +1274,15 @@ class RobustScaler(TransformerMixin, BaseEstimator):
 @_deprecate_positional_args
 def robust_scale(X, *, axis=0, with_centering=True, with_scaling=True,
                  quantile_range=(25.0, 75.0), copy=True):
-    """Standardize a dataset along any axis
+    """
+    Standardize a dataset along any axis
 
     Center to the median and component wise scale
     according to the interquartile range.
 
-    Read more in the :ref:`User Guide <preprocessing_scaler>`.
-
     Parameters
     ----------
-    X : array-like
+    X : {array-like, sparse matrix}
         The data to center and scale.
 
     axis : int (0 by default)
@@ -1302,22 +1301,19 @@ def robust_scale(X, *, axis=0, with_centering=True, with_scaling=True,
         Default: (25.0, 75.0) = (1st quantile, 3rd quantile) = IQR
         Quantile range used to calculate ``scale_``.
 
-        .. versionadded:: 0.18
-
     copy : boolean, optional, default is True
-        set to False to perform inplace row normalization and avoid a
-        copy (if the input is already a numpy array or a scipy.sparse
-        CSR matrix and if axis is 1).
+        Whether a forced copy will be triggered. If copy=False, a copy might
+        be triggered by a conversion.
 
     Notes
     -----
-    This implementation will refuse to center scipy.sparse matrices
+    This implementation will refuse to center sparse matrices
     since it would make them non-sparse and would potentially crash the
     program with memory exhaustion problems.
 
     Instead the caller is expected to either set explicitly
     `with_centering=False` (in that case, only variance scaling will be
-    performed on the features of the CSR matrix) or to call `X.toarray()`
+    performed on the features of the CSR matrix) or to densify the matrix
     if he/she expects the materialized dense array to fit in memory.
 
     To avoid memory copy the caller should pass a CSR matrix.
@@ -1325,6 +1321,7 @@ def robust_scale(X, *, axis=0, with_centering=True, with_scaling=True,
     See also
     --------
     RobustScaler: Performs centering and scaling using the ``Transformer`` API
+
     """
     output_type = get_input_type(X)
     X = check_array(X, accept_sparse=('csr', 'csc'), copy=False,
@@ -1348,7 +1345,6 @@ def robust_scale(X, *, axis=0, with_centering=True, with_scaling=True,
     return to_output_type(X, output_type)
 
 
-@check_cupy8()
 class PolynomialFeatures(TransformerMixin, BaseEstimator):
     """Generate polynomial and interaction features.
 
@@ -1415,6 +1411,7 @@ class PolynomialFeatures(TransformerMixin, BaseEstimator):
     polynomially in the number of features of the input array, and
     exponentially in the degree. High degrees can cause overfitting.
     """
+    @check_cupy8()
     @_deprecate_positional_args
     def __init__(self, degree=2, *, interaction_only=False, include_bias=True,
                  order='C'):
@@ -1424,6 +1421,7 @@ class PolynomialFeatures(TransformerMixin, BaseEstimator):
         self.order = order
 
     @staticmethod
+    @check_cupy8()
     def _combinations(n_features, degree, interaction_only, include_bias):
         comb = (combinations if interaction_only else combinations_w_r)
         start = int(not include_bias)
@@ -1498,7 +1496,7 @@ class PolynomialFeatures(TransformerMixin, BaseEstimator):
 
         Parameters
         ----------
-        X : array-like or CSR/CSC sparse matrix, shape [n_samples, n_features]
+        X : {array-like, sparse matrix}, shape [n_samples, n_features]
             The data to transform, row by row.
 
             Prefer CSR over CSC for sparse input (for speed), but CSC is
@@ -1516,7 +1514,7 @@ class PolynomialFeatures(TransformerMixin, BaseEstimator):
 
         Returns
         -------
-        XP : np.ndarray or CSR/CSC sparse matrix, shape [n_samples, NP]
+        XP : {array-like, sparse matrix}, shape [n_samples, NP]
             The matrix of features, where NP is the number of polynomial
             features generated from the combination of inputs.
         """
@@ -1633,8 +1631,8 @@ def normalize(X, norm='l2', *, axis=1, copy=True, return_norm=False):
     ----------
     X : {array-like, sparse matrix}, shape [n_samples, n_features]
         The data to normalize, element by element.
-        scipy.sparse matrices should be in CSR format to avoid an
-        un-necessary copy.
+        Please provide CSC matrix to normalize on axis 0,
+        conversely provide CSR matrix to normalize on axis 1
 
     norm : 'l1', 'l2', or 'max', optional ('l2' by default)
         The norm to use to normalize each non zero sample (or each non-zero
@@ -1645,9 +1643,8 @@ def normalize(X, norm='l2', *, axis=1, copy=True, return_norm=False):
         each sample, otherwise (if 0) normalize each feature.
 
     copy : boolean, optional, default True
-        set to False to perform inplace row normalization and avoid a
-        copy (if the input is already a numpy array or a scipy.sparse
-        CSR matrix and if axis is 1).
+        Whether a forced copy will be triggered. If copy=False, a copy might
+        be triggered by a conversion.
 
     return_norm : boolean, default False
         whether to return the computed norms
@@ -1719,7 +1716,6 @@ def normalize(X, norm='l2', *, axis=1, copy=True, return_norm=False):
         return X
 
 
-@check_cupy8()
 class Normalizer(TransformerMixin, BaseEstimator):
     """Normalize samples individually to unit norm.
 
@@ -1728,8 +1724,7 @@ class Normalizer(TransformerMixin, BaseEstimator):
     that its norm (l1, l2 or inf) equals one.
 
     This transformer is able to work both with dense numpy arrays and
-    scipy.sparse matrix (use CSR format if you want to avoid the burden of
-    a copy / conversion).
+    sparse matrix
 
     Scaling inputs to unit norms is a common operation for text
     classification or clustering for instance. For instance the dot
@@ -1745,9 +1740,8 @@ class Normalizer(TransformerMixin, BaseEstimator):
         values.
 
     copy : boolean, optional, default True
-        set to False to perform inplace row normalization and avoid a
-        copy (if the input is already a numpy array or a scipy.sparse
-        CSR matrix).
+        Whether a forced copy will be triggered. If copy=False, a copy might
+        be triggered by a conversion.
 
     Examples
     --------
@@ -1774,6 +1768,7 @@ class Normalizer(TransformerMixin, BaseEstimator):
     normalize: Equivalent function without the estimator API.
     """
 
+    @check_cupy8()
     @_deprecate_positional_args
     def __init__(self, norm='l2', *, copy=True):
         self.norm = norm
@@ -1787,7 +1782,7 @@ class Normalizer(TransformerMixin, BaseEstimator):
 
         Parameters
         ----------
-        X : array-like
+        X : {array-like, CSR matrix}
         """
         self._validate_data(X, accept_sparse='csr')
         return self
@@ -1797,11 +1792,11 @@ class Normalizer(TransformerMixin, BaseEstimator):
 
         Parameters
         ----------
-        X : {array-like, sparse matrix}, shape [n_samples, n_features]
-            The data to normalize, row by row. scipy.sparse matrices should be
-            in CSR format to avoid an un-necessary copy.
+        X : {array-like, CSR matrix}, shape [n_samples, n_features]
+            The data to normalize, row by row.
         copy : bool, optional (default: None)
-            Copy the input X or not.
+            Whether a forced copy will be triggered. If copy=False,
+            a copy might be triggered by a conversion.
         """
         output_type = get_input_type(X)
         copy = copy if copy is not None else self.copy
@@ -1815,23 +1810,20 @@ class Normalizer(TransformerMixin, BaseEstimator):
 
 @_deprecate_positional_args
 def binarize(X, *, threshold=0.0, copy=True):
-    """Boolean thresholding of array-like or scipy.sparse matrix
+    """Boolean thresholding of array-like or sparse matrix
 
     Parameters
     ----------
     X : {array-like, sparse matrix}, shape [n_samples, n_features]
         The data to binarize, element by element.
-        scipy.sparse matrices should be in CSR or CSC format to avoid an
-        un-necessary copy.
 
     threshold : float, optional (0.0 by default)
         Feature values below or equal to this are replaced by 0, above it by 1.
         Threshold may not be less than 0 for operations on sparse matrices.
 
     copy : boolean, optional, default True
-        set to False to perform inplace binarization and avoid a copy
-        (if the input is already a numpy array or a scipy.sparse CSR / CSC
-        matrix and if axis is 1).
+        Whether a forced copy will be triggered. If copy=False, a copy might
+        be triggered by a conversion.
 
     See also
     --------
@@ -1878,8 +1870,8 @@ class Binarizer(TransformerMixin, BaseEstimator):
         Threshold may not be less than 0 for operations on sparse matrices.
 
     copy : boolean, optional, default True
-        set to False to perform inplace binarization and avoid a copy (if
-        the input is already a numpy array or a scipy.sparse CSR matrix).
+        Whether a forced copy will be triggered. If copy=False, a copy might
+        be triggered by a conversion.
 
     Examples
     --------
@@ -1921,7 +1913,7 @@ class Binarizer(TransformerMixin, BaseEstimator):
 
         Parameters
         ----------
-        X : array-like
+        X : {array-like, sparse matrix}
         """
         self._validate_data(X, accept_sparse=['csr', 'csc'])
         return self
@@ -1933,11 +1925,10 @@ class Binarizer(TransformerMixin, BaseEstimator):
         ----------
         X : {array-like, sparse matrix}, shape [n_samples, n_features]
             The data to binarize, element by element.
-            scipy.sparse matrices should be in CSR format to avoid an
-            un-necessary copy.
 
         copy : bool
-            Copy the input X or not.
+            Whether a forced copy will be triggered. If copy=False,
+            a copy might be triggered by a conversion.
         """
         copy = copy if copy is not None else self.copy
         return binarize(X, threshold=self.threshold, copy=copy)
@@ -2024,7 +2015,8 @@ class KernelCenterer(TransformerMixin, BaseEstimator):
             Kernel matrix.
 
         copy : boolean, optional, default True
-            Set to False to perform inplace computation.
+            Whether a forced copy will be triggered. If copy=False,
+            a copy might be triggered by a conversion.
 
         Returns
         -------
@@ -2748,6 +2740,7 @@ class PowerTransformer(TransformerMixin, BaseEstimator):
 
     .. [2] G.E.P. Box and D.R. Cox, "An Analysis of Transformations", Journal
            of the Royal Statistical Society B, 26, 211-252 (1964).
+
     """
     @_deprecate_positional_args
     def __init__(self, method='yeo-johnson', *, standardize=True, copy=True):

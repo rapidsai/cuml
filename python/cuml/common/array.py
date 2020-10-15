@@ -113,6 +113,12 @@ class CumlArray(Buffer):
         elif dtype is not None and shape is not None and order is not None:
             detailed_construction = True
         else:
+            # Catch a likely developer error if CumlArray is created
+            # incorrectly
+            assert dtype is None and shape is None and order is None, \
+                ("Creating array from array-like object. The arguments "
+                 "`dtype`, `shape` and `order` should be `None`.")
+
             detailed_construction = False
 
         ary_interface = False
@@ -121,17 +127,21 @@ class CumlArray(Buffer):
         size, shape = _get_size_from_shape(shape, dtype)
 
         if not memview_construction and not detailed_construction:
-            flattened_data = cp.asarray(data).ravel(order='A').view('u1')
+            # Convert to cupy array and manually specify the ptr, size and
+            # owner. This is to avoid the restriction on Buffer that requires
+            # all data be u8
+            cupy_data = cp.asarray(data)
+            flattened_data = cupy_data.data.ptr
+
+            # Size for Buffer is not the same as for cupy. Use nbytes
+            size = cupy_data.nbytes
+            owner = cupy_data if cupy_data.flags.owndata else data
         else:
             flattened_data = data
 
         super(CumlArray, self).__init__(data=flattened_data,
                                         owner=owner,
                                         size=size)
-
-        if owner is None and not isinstance(data, np.ndarray):
-            # need to reference original owner instead of flattened_data
-            self._owner = data
 
         # Post processing of meta data
         if detailed_construction:

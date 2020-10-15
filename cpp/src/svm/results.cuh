@@ -131,8 +131,8 @@ class Results {
     math_t *x_support = (math_t *)allocator->allocate(
       n_support * n_cols * sizeof(math_t), stream);
     // Collect support vectors into a contiguous block
-    MLCommon::Matrix::copyRows(x, n_rows, n_cols, x_support, idx, n_support,
-                               stream);
+    raft::matrix::copyRows(x, n_rows, n_cols, x_support, idx, n_support,
+                           stream);
     CUDA_CHECK(cudaPeekAtLastError());
     return x_support;
   }

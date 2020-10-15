@@ -59,11 +59,11 @@ void ridgeSolve(const raft::handle_t &handle, math_t *S, math_t *V, math_t *U,
 
   raft::matrix::matrixVectorBinaryMult(V, S, n_cols, n_cols, false, true,
                                        stream);
-  LinAlg::gemm(U, n_rows, n_cols, b, S_nnz, n_cols, 1, CUBLAS_OP_T, CUBLAS_OP_N,
-               alp, beta, cublasH, stream);
+  raft::linalg::gemm(handle, U, n_rows, n_cols, b, S_nnz, n_cols, 1,
+                     CUBLAS_OP_T, CUBLAS_OP_N, alp, beta, stream);
 
-  LinAlg::gemm(V, n_cols, n_cols, S_nnz, w, n_cols, 1, CUBLAS_OP_N, CUBLAS_OP_N,
-               alp, beta, cublasH, stream);
+  raft::linalg::gemm(handle, V, n_cols, n_cols, S_nnz, w, n_cols, 1,
+                     CUBLAS_OP_N, CUBLAS_OP_N, alp, beta, stream);
 
   CUDA_CHECK(cudaFree(S_nnz));
 }
@@ -117,8 +117,8 @@ void ridgeEig(const raft::handle_t &handle, math_t *A, int n_rows, int n_cols,
   raft::allocate(V, V_len);
   raft::allocate(S, n_cols);
 
-  LinAlg::svdEig(A, n_rows, n_cols, S, U, V, true, cublasH, cusolverH, stream,
-                 allocator);
+  LinAlg::svdEig(handle, A, n_rows, n_cols, S, U, V, true, stream);
+
   ridgeSolve(handle, S, V, U, n_rows, n_cols, b, alpha, n_alpha, w, stream);
 
   CUDA_CHECK(cudaFree(U));
@@ -209,8 +209,6 @@ template <typename math_t>
 void ridgePredict(const raft::handle_t &handle, const math_t *input, int n_rows,
                   int n_cols, const math_t *coef, math_t intercept,
                   math_t *preds, cudaStream_t stream) {
-  auto cublas_handle = handle.get_cublas_handle();
-
   ASSERT(n_cols > 0,
          "Parameter n_cols: number of columns cannot be less than one");
   ASSERT(n_rows > 1,
@@ -218,8 +216,8 @@ void ridgePredict(const raft::handle_t &handle, const math_t *input, int n_rows,
 
   math_t alpha = math_t(1);
   math_t beta = math_t(0);
-  LinAlg::gemm(input, n_rows, n_cols, coef, preds, n_rows, 1, CUBLAS_OP_N,
-               CUBLAS_OP_N, alpha, beta, cublas_handle, stream);
+  raft::linalg::gemm(handle, input, n_rows, n_cols, coef, preds, n_rows, 1,
+                     CUBLAS_OP_N, CUBLAS_OP_N, alpha, beta, stream);
 
   raft::linalg::addScalar(preds, preds, intercept, n_rows, stream);
 }

@@ -101,7 +101,7 @@ class KNeighborsRegressorMG(KNeighborsMG):
                                      query, query_parts_to_ranks, query_nrows,
                                      ncols, rank, convert_dtype)
 
-        output = self.gen_local_output(data, convert_dtype, dtype='int32')
+        output = self.gen_local_output(data, convert_dtype, dtype='float32')
 
         query_cais = input['cais']['query']
         local_query_rows = list(map(lambda x: x.shape[0], query_cais))

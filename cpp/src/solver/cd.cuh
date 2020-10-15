@@ -153,8 +153,8 @@ void cdFit(const raft::handle_t &handle, math_t *input, int n_rows, int n_cols,
                                    n_rows, stream);
       raft::linalg::add(residual.data(), residual.data(), pred.data(), n_rows,
                         stream);
-      LinAlg::gemm(input_col_loc, n_rows, 1, residual.data(), coef_loc, 1, 1,
-                   CUBLAS_OP_T, CUBLAS_OP_N, cublas_handle, stream);
+      raft::linalg::gemm(handle, input_col_loc, n_rows, 1, residual.data(),
+                         coef_loc, 1, 1, CUBLAS_OP_T, CUBLAS_OP_N, stream);
 
       if (l1_ratio > math_t(0.0))
         Functions::softThres(coef_loc, coef_loc, alpha, 1, stream);
@@ -234,9 +234,8 @@ void cdPredict(const raft::handle_t &handle, const math_t *input, int n_rows,
   ASSERT(loss == ML::loss_funct::SQRD_LOSS,
          "Parameter loss: Only SQRT_LOSS function is supported for now");
 
-  cublasHandle_t cublas_handle = handle.get_cublas_handle();
-  Functions::linearRegH(input, n_rows, n_cols, coef, preds, intercept,
-                        cublas_handle, stream);
+  Functions::linearRegH(handle, input, n_rows, n_cols, coef, preds, intercept,
+                        stream);
 }
 
 };  // namespace Solver

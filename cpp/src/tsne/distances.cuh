@@ -85,20 +85,18 @@ void normalize_distances(const int n, float *distances, const int n_neighbors,
  * @param[in] P: The perplexity matrix (n, k)
  * @param[in] indices: The input sorted indices from KNN.
  * @param[in] n: The number of rows in the data X.
- * @param[in] k: The number of nearest neighbors you want.
- * @param[in] P_sum: The sum of P.
+ * @param[in] k: The number of nearest neighbors.
  * @param[in] exaggeration: How much early pressure you want the clusters in TSNE to spread out more.
  * @param[out] COO_Matrix: The final P + P.T output COO matrix.
  * @param[in] stream: The GPU stream.
  * @param[in] handle: The GPU handle.
  */
-template <int TPB_X = 32>
 void symmetrize_perplexity(float *P, long *indices, const int n, const int k,
-                           const float P_sum, const float exaggeration,
+                           const float exaggeration,
                            MLCommon::Sparse::COO<float> *COO_Matrix,
                            cudaStream_t stream, const raft::handle_t &handle) {
   // Perform (P + P.T) / P_sum * early_exaggeration
-  const float div = exaggeration / (2.0f * P_sum);
+  const float div = exaggeration / (2.0f * n);
   raft::linalg::scalarMultiply(P, P, div, n * k, stream);
 
   // Symmetrize to form P + P.T

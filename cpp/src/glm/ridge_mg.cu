@@ -74,8 +74,8 @@ void ridgeSolve(const raft::handle_t &handle, T *S, T *V,
   LinAlg::opg::mv_aTb(S_nnz_data, U, UDesc, b, comm, allocator, streams,
                       n_streams, cublasH);
 
-  LinAlg::gemm(V, UDesc.N, UDesc.N, S_nnz, w, UDesc.N, 1, CUBLAS_OP_N,
-               CUBLAS_OP_N, alp, beta, cublasH, streams[0]);
+  raft::linalg::gemm(handle, V, UDesc.N, UDesc.N, S_nnz, w, UDesc.N, 1,
+                     CUBLAS_OP_N, CUBLAS_OP_N, alp, beta, streams[0]);
 
   CUDA_CHECK(cudaFree(S_nnz));
 }
@@ -233,10 +233,10 @@ void predict_impl(raft::handle_t &handle,
 
   for (int i = 0; i < input_data.size(); i++) {
     int si = i % n_streams;
-    LinAlg::gemm(input_data[i]->ptr, local_blocks[i]->size, input_desc.N, coef,
-                 preds[i]->ptr, local_blocks[i]->size, size_t(1), CUBLAS_OP_N,
-                 CUBLAS_OP_N, alpha, beta, handle.get_cublas_handle(),
-                 streams[si]);
+    raft::linalg::gemm(handle, input_data[i]->ptr, local_blocks[i]->size,
+                       input_desc.N, coef, preds[i]->ptr, local_blocks[i]->size,
+                       size_t(1), CUBLAS_OP_N, CUBLAS_OP_N, alpha, beta,
+                       streams[si]);
 
     raft::linalg::addScalar(preds[i]->ptr, preds[i]->ptr, intercept,
                             local_blocks[i]->size, streams[si]);
