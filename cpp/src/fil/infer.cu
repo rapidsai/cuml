@@ -254,14 +254,26 @@ struct tree_aggregator_t<NITEMS, GROVE_PER_CLASS_FEW_CLASSES> : finalize_block {
     // reduce per-thread margin summand into per-class complete margin
     // (for each of the NITEMS rows)
     int t = threadIdx.x;
-    for (int sets = blockDim.x / num_classes; sets > 1;
-         sets = sets / 2 + sets % 2) {
-      if (t < sets / 2 * num_classes) {
+    int sets = blockDim.x / num_classes;
+    for (; sets > 3; sets = sets / 4 + sets % 4) {
+      if (t < sets / 4 * num_classes) {
+        int add_start = t + sets % 4 * num_classes;
         per_thread[t] = acc =
-          per_thread[t] + per_thread[t + (sets / 2 + sets % 2) * num_classes];
+          per_thread[t] + per_thread[add_start + sets / 4 * num_classes] +
+          per_thread[add_start + sets / 4 * 2 * num_classes] +
+          per_thread[add_start + sets / 4 * 3 * num_classes];
       }
       __syncthreads();
     }
+    switch (sets) {
+      case 3:
+        if (t < num_classes) acc += per_thread[t + 2 * num_classes];
+      case 2:
+        if (t < num_classes) acc += per_thread[t + num_classes];
+      default:
+        break;
+    }
+    if (sets > 1) __syncthreads();  // free up per_thread[]
     write_best_class_in_block(to_vec(t, acc), num_classes, out, num_rows);
   }
 };
