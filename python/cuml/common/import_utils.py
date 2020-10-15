@@ -15,6 +15,7 @@
 #
 
 
+import inspect
 import numba
 
 from distutils.version import LooseVersion
@@ -127,6 +128,11 @@ def check_cupy8(conf=None):
 
     """
     def check_cupy8_dec(func):
+
+        assert not inspect.isclass(func), \
+            ("Do not use this decorator on classes. Instead decorate "
+             "__init__  and any static or class methods.")
+
         @wraps(func)
         def inner(*args, **kwargs):
             import cupy as cp

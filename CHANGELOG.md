@@ -1,3 +1,14 @@
+# cuML 0.17.0 (Date TBD)
+
+## New Features
+
+## Improvements
+- PR #2902: `matrix/matrix.cuh` in RAFT namespacing
+- PR #2903: Moving linalg's gemm, gemv, transpose to RAFT namespaces
+- PR #2905: `stats` prims `mean_center`, `sum` to RAFT namespaces
+
+## Bug Fixes
+
 # cuML 0.16.0 (Date TBD)
 
 ## New Features
@@ -50,6 +61,8 @@
 - PR #2910: Adding Support for CuPy 8.x
 - PR #2914: Add tests for XGBoost multi-class models in FIL
 - PR #2930: Pin libfaiss to <=1.6.3
+- PR #2928: Updating Estimators Derived from Base for Consistency
+- PR #2942: Adding `cuml.experimental` to the Docs
 
 ## Bug Fixes
 - PR #2885: Changing test target for NVTX wrapper test
@@ -83,6 +96,9 @@
 - PR #2931: Fix notebook error handling in gpuCI
 - PR #2943: Remove unused shuffle_features parameter
 - PR #2940: Correcting labels meta dtype for `cuml.dask.make_classification`
+- PR #2968: Remove shuffle_features from RF param names
+- PR #2957: Fix ols test size for stability
+- PR #2972: Upgrade Treelite to 0.93
 
 # cuML 0.15.0 (Date TBD)
 
