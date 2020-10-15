@@ -20,8 +20,8 @@
 #include <random/rng.cuh>
 #include "test_utils.h"
 
-namespace MLCommon {
-namespace LinAlg {
+namespace raft {
+namespace linalg {
 
 template <typename Type>
 __global__ void naiveSubtractElemKernel(Type *out, const Type *in1,
@@ -140,5 +140,5 @@ INSTANTIATE_TEST_CASE_P(SubtractTests, SubtractTestF,
 INSTANTIATE_TEST_CASE_P(SubtractTests, SubtractTestD,
                         ::testing::ValuesIn(inputsd2));
 
-}  // end namespace LinAlg
-}  // end namespace MLCommon
+}  // end namespace linalg
+}  // end namespace raft

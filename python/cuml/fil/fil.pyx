@@ -134,8 +134,8 @@ cdef class TreeliteModel():
                 raise RuntimeError("Failed to load %s (%s)" % (filename, err))
         elif model_type == "lightgbm":
             logger.warn("Treelite currently does not support float64 model"
-                        " parameters. Accuracy may degrade relative to"
-                        " native LightGBM invocation.")
+                        " parameters. Accuracy may degrade slightly relative"
+                        " to native LightGBM invocation.")
             res = TreeliteLoadLightGBMModel(filename_bytes, &handle)
             if res < 0:
                 err = TreeliteGetLastError()
@@ -410,11 +410,29 @@ class ForestInference(Base):
      * Inference uses a dense matrix format, which is efficient for many
        problems but can be suboptimal for sparse datasets.
      * Only binary classification and regression are supported.
+     * Many other random forest implementations including LightGBM, and SKLearn
+       GBDTs make use of 64-bit floating point parameters, but the underlying
+       library for ForestInference uses only 32-bit parameters. Because of the
+       truncation that will occur when loading such models into
+       ForestInference, you may observe a slight degradation in accuracy.
 
     Parameters
     ----------
     handle : cuml.Handle
-       If it is None, a new one is created just for this class.
+        Specifies the cuml.handle that holds internal CUDA state for
+        computations in this model. Most importantly, this specifies the CUDA
+        stream that will be used for the model's computations, so users can
+        run different models concurrently in different streams by creating
+        handles in several streams.
+        If it is None, a new one is created.
+    verbose : int or boolean, default=False
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        See :ref:`verbosity-levels` for more info.
+    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
+        Variable to control output type of the results and attributes of
+        the estimator. If None, it'll inherit the output type set at the
+        module level, `cuml.global_output_type`.
+        See :ref:`output-data-type-configuration` for more info.
 
     Examples
     --------
@@ -448,9 +466,12 @@ class ForestInference(Base):
     """
 
     def __init__(self,
-                 handle=None, output_type=None):
-        super(ForestInference, self).__init__(handle,
-                                              output_type=output_type)
+                 handle=None,
+                 output_type=None,
+                 verbose=False):
+        super(ForestInference, self).__init__(handle=handle,
+                                              output_type=output_type,
+                                              verbose=verbose)
         self._impl = ForestInference_impl(self.handle)
 
     def predict(self, X, preds=None):
@@ -612,6 +633,9 @@ class ForestInference(Base):
 
         """
         cuml_fm = ForestInference(handle=handle)
+        logger.warn("Treelite currently does not support float64 model"
+                    " parameters. Accuracy may degrade slightly relative to"
+                    " native sklearn invocation.")
         tl_model = tl_skl.import_model(skl_model)
         cuml_fm.load_from_treelite_model(
             tl_model, algo=algo, output_class=output_class,

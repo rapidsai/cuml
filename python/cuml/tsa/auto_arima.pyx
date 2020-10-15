@@ -101,65 +101,84 @@ tests_map = {
 
 
 class AutoARIMA(Base):
-    """Implements a batched auto-ARIMA model for in- and out-of-sample
+    """
+    Implements a batched auto-ARIMA model for in- and out-of-sample
     times-series prediction.
 
     This interface offers a highly customizable search, with functionality
-    similar to the `forecast` and `fable` packages in R.
-    It provides an abstraction around the underlying ARIMA models to predict
-    and forecast as if using a single model.
-
-    Examples
-    --------
-    .. code-block:: python
-
-        from cuml.tsa.auto_arima import AutoARIMA
-
-        model = AutoARIMA(y)
-        model.search(s=12, d=(0, 1), D=(0, 1), p=(0, 2, 4), q=(0, 2, 4),
-                     P=range(2), Q=range(2), method="css", truncate=100)
-        model.fit(method="css-ml")
-        fc = model.forecast(20)
-
+    similar to the `forecast` and `fable` packages in R. It provides an
+    abstraction around the underlying ARIMA models to predict and forecast as
+    if using a single model.
 
     Parameters
     ----------
+
     endog : dataframe or array-like (device or host)
         The time series data, assumed to have each time series in columns.
         Acceptable formats: cuDF DataFrame, cuDF Series, NumPy ndarray,
         Numba device ndarray, cuda array interface compliant array like CuPy.
     handle : cuml.Handle
-        If it is None, a new one is created just for this instance
-    simple_differencing: bool or int (default = True)
+        Specifies the cuml.handle that holds internal CUDA state for
+        computations in this model. Most importantly, this specifies the CUDA
+        stream that will be used for the model's computations, so users can
+        run different models concurrently in different streams by creating
+        handles in several streams.
+        If it is None, a new one is created.
+    simple_differencing: bool or int, default=True
         If True, the data is differenced before being passed to the Kalman
         filter. If False, differencing is part of the state-space model.
         See additional notes in the ARIMA docs
-    verbose : int
-        Logging level. It must be one of `cuml.common.logger.level_*`
-    output_type : {'input', 'cudf', 'cupy', 'numpy'}, optional
-        Variable to control output type of the results and attributes.
-        If None, it'll inherit the output type set at the module level,
-        cuml.output_type. If set, it will override the global option.
+    verbose : int or boolean, default=False
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        See :ref:`verbosity-levels` for more info.
+    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
+        Variable to control output type of the results and attributes of
+        the estimator. If None, it'll inherit the output type set at the
+        module level, `cuml.global_output_type`.
+        See :ref:`output-data-type-configuration` for more info.
 
-    References
-    ----------
+    Notes
+    -----
+
     The interface was influenced by the R `fable` package:
     See https://fable.tidyverts.org/reference/ARIMA.html
 
+    References
+    ----------
+
     A useful (though outdated) reference is the paper:
-    "Automatic Time Series Forecasting: The `forecast` Package for R",
-    Rob J. Hyndman & Yeasmin Khandakar (2008),
-    Journal of Statistical Software 27, https://doi.org/10.18637/jss.v027.i03
+
+    .. [1] Rob J. Hyndman, Yeasmin Khandakar, 2008. "Automatic Time Series
+        Forecasting: The 'forecast' Package for R", Journal of Statistical
+        Software 27
+
+    Examples
+    --------
+
+    .. code-block:: python
+
+            from cuml.tsa.auto_arima import AutoARIMA
+
+            model = AutoARIMA(y)
+            model.search(s=12, d=(0, 1), D=(0, 1), p=(0, 2, 4), q=(0, 2, 4),
+                         P=range(2), Q=range(2), method="css", truncate=100)
+            model.fit(method="css-ml")
+            fc = model.forecast(20)
+
+
     """
 
     def __init__(self,
                  endog,
                  handle=None,
                  simple_differencing=True,
-                 verbose=logger.level_info,
+                 verbose=False,
                  output_type=None):
         # Initialize base class
-        super().__init__(handle, output_type=output_type, verbose=verbose)
+        super().__init__(
+            handle=handle,
+            output_type=output_type,
+            verbose=verbose)
         self._set_base_attributes(output_type=endog)
 
         # Get device array. Float64 only for now.
@@ -521,7 +540,12 @@ def _divide_by_mask(original, mask, batch_id, handle=None):
     batch_id : cumlArray (int)
         Integer array to track the id of each member in the initial batch
     handle : cuml.Handle
-        If it is None, a new one is created just for this call
+        Specifies the cuml.handle that holds internal CUDA state for
+        computations in this model. Most importantly, this specifies the CUDA
+        stream that will be used for the model's computations, so users can
+        run different models concurrently in different streams by creating
+        handles in several streams.
+        If it is None, a new one is created.
 
     Returns
     -------
@@ -640,7 +664,12 @@ def _divide_by_min(original, metrics, batch_id, handle=None):
     batch_id : cumlArray (int)
         Integer array to track the id of each member in the initial batch
     handle : cuml.Handle
-        If it is None, a new one is created just for this call
+        Specifies the cuml.handle that holds internal CUDA state for
+        computations in this model. Most importantly, this specifies the CUDA
+        stream that will be used for the model's computations, so users can
+        run different models concurrently in different streams by creating
+        handles in several streams.
+        If it is None, a new one is created.
 
     Returns
     -------

@@ -37,8 +37,7 @@ class RPROJTest : public ::testing::Test {
     cublasHandle_t cublas_handle = h.get_cublas_handle();
     T* result;
     raft::allocate(result, n_rows * n_cols);
-    MLCommon::LinAlg::transpose(in, result, n_rows, n_cols, cublas_handle,
-                                stream);
+    raft::linalg::transpose(h, in, result, n_rows, n_cols, stream);
     CUDA_CHECK(cudaPeekAtLastError());
     CUDA_CHECK(cudaFree(in));
     return result;

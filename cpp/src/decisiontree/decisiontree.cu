@@ -21,12 +21,31 @@
 namespace ML {
 namespace DecisionTree {
 
+/**
+ * @brief Set all DecisionTreeParams members.
+ * @param[in,out] params: update with tree parameters
+ * @param[in] cfg_max_depth: maximum tree depth; default -1
+ * @param[in] cfg_max_leaves: maximum leaves; default -1
+ * @param[in] cfg_max_features: maximum number of features; default 1.0f
+ * @param[in] cfg_n_bins: number of bins; default 8
+ * @param[in] cfg_split_algo: split algorithm; default SPLIT_ALGO::HIST
+ * @param[in] cfg_min_rows_per_node: min. rows per node; default 2
+ * @param[in] cfg_bootstrap_features: bootstrapping for features; default false
+ * @param[in] cfg_split_criterion: split criterion; default CRITERION_END,
+ *            i.e., GINI for classification or MSE for regression
+ * @param[in] cfg_quantile_per_tree: compute quantile per tree; default false
+ * @param[in] cfg_use_experimental_backend: Switch to using experimental
+              backend; default false
+ * @param[in] cfg_max_batch_size: batch size for experimental backend
+ */
 void set_tree_params(DecisionTreeParams &params, int cfg_max_depth,
                      int cfg_max_leaves, float cfg_max_features, int cfg_n_bins,
                      int cfg_split_algo, int cfg_min_rows_per_node,
                      float cfg_min_impurity_decrease,
                      bool cfg_bootstrap_features, CRITERION cfg_split_criterion,
-                     bool cfg_quantile_per_tree, bool cfg_shuffle_features) {
+                     bool cfg_quantile_per_tree,
+                     bool cfg_use_experimental_backend,
+                     int cfg_max_batch_size) {
   params.max_depth = cfg_max_depth;
   params.max_leaves = cfg_max_leaves;
   params.max_features = cfg_max_features;
@@ -36,8 +55,9 @@ void set_tree_params(DecisionTreeParams &params, int cfg_max_depth,
   params.bootstrap_features = cfg_bootstrap_features;
   params.split_criterion = cfg_split_criterion;
   params.quantile_per_tree = cfg_quantile_per_tree;
-  params.shuffle_features = cfg_shuffle_features;
+  params.use_experimental_backend = cfg_use_experimental_backend;
   params.min_impurity_decrease = cfg_min_impurity_decrease;
+  params.max_batch_size = cfg_max_batch_size;
 }
 
 void validity_check(const DecisionTreeParams params) {
@@ -67,7 +87,10 @@ void print(const DecisionTreeParams params) {
   CUML_LOG_DEBUG("bootstrap_features: %d", params.bootstrap_features);
   CUML_LOG_DEBUG("split_criterion: %d", params.split_criterion);
   CUML_LOG_DEBUG("quantile_per_tree: %d", params.quantile_per_tree);
-  CUML_LOG_DEBUG("shuffle_features: %d", params.shuffle_features);
+  CUML_LOG_DEBUG("min_impurity_decrease: %f", params.min_impurity_decrease);
+  CUML_LOG_DEBUG("use_experimental_backend: %s",
+                 params.use_experimental_backend ? "True" : "False");
+  CUML_LOG_DEBUG("max_batch_size: %d", params.max_batch_size);
 }
 
 template <class T, class L>

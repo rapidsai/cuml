@@ -149,6 +149,21 @@ class LinearRegression(Base, RegressorMixin):
         If True, the predictors in X will be normalized by dividing by it's
         L2 norm.
         If False, no scaling will be done.
+    handle : cuml.Handle
+        Specifies the cuml.handle that holds internal CUDA state for
+        computations in this model. Most importantly, this specifies the CUDA
+        stream that will be used for the model's computations, so users can
+        run different models concurrently in different streams by creating
+        handles in several streams.
+        If it is None, a new one is created.
+    verbose : int or boolean, default=False
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        See :ref:`verbosity-levels` for more info.
+    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
+        Variable to control output type of the results and attributes of
+        the estimator. If None, it'll inherit the output type set at the
+        module level, `cuml.global_output_type`.
+        See :ref:`output-data-type-configuration` for more info.
 
     Attributes
     -----------
@@ -336,4 +351,5 @@ class LinearRegression(Base, RegressorMixin):
         return preds.to_output(out_type)
 
     def get_param_names(self):
-        return ['algorithm', 'fit_intercept', 'normalize']
+        return super().get_param_names() + \
+            ['algorithm', 'fit_intercept', 'normalize']

@@ -1006,13 +1006,13 @@ void make_blobs(const raft::handle_t &handle, math_t *x, math_t *y, int n_rows,
                        -2.0f, 2.0f, 0);
   int TPB = 256;
   if (std::is_same<float, math_t>::value) {
-    LinAlg::transpose(x_float.data(), (float *)x, n_cols, n_rows, cublas_h,
-                      stream);
+    raft::linalg::transpose(handle, x_float.data(), (float *)x, n_cols, n_rows,
+                            stream);
   } else {
     device_buffer<math_t> x2(allocator, stream, n_rows * n_cols);
     cast<<<raft::ceildiv(n_rows * n_cols, TPB), TPB, 0, stream>>>(
       x2.data(), n_rows * n_cols, x_float.data());
-    LinAlg::transpose(x2.data(), x, n_cols, n_rows, cublas_h, stream);
+    raft::linalg::transpose(handle, x2.data(), x, n_cols, n_rows, stream);
     CUDA_CHECK(cudaPeekAtLastError());
   }
   cast<<<raft::ceildiv(n_rows, TPB), TPB, 0, stream>>>(y, n_rows, y_int.data());

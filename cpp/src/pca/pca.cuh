@@ -50,14 +50,15 @@ void truncCompExpVars(const raft::handle_t &handle, math_t *in,
 
   calEig<math_t, enum_solver>(handle, in, components_all.data(),
                               explained_var_all.data(), prms, stream);
-  Matrix::truncZeroOrigin(components_all.data(), prms.n_cols, components,
-                          prms.n_components, prms.n_cols, stream);
+  raft::matrix::truncZeroOrigin(components_all.data(), prms.n_cols, components,
+                                prms.n_components, prms.n_cols, stream);
   raft::matrix::ratio(handle, explained_var_all.data(),
                       explained_var_ratio_all.data(), prms.n_cols, stream);
-  Matrix::truncZeroOrigin(explained_var_all.data(), prms.n_cols, explained_var,
-                          prms.n_components, 1, stream);
-  Matrix::truncZeroOrigin(explained_var_ratio_all.data(), prms.n_cols,
-                          explained_var_ratio, prms.n_components, 1, stream);
+  raft::matrix::truncZeroOrigin(explained_var_all.data(), prms.n_cols,
+                                explained_var, prms.n_components, 1, stream);
+  raft::matrix::truncZeroOrigin(explained_var_ratio_all.data(), prms.n_cols,
+                                explained_var_ratio, prms.n_components, 1,
+                                stream);
 }
 
 /**
@@ -96,8 +97,8 @@ void pcaFit(const raft::handle_t &handle, math_t *input, math_t *components,
   int len = prms.n_cols * prms.n_cols;
   device_buffer<math_t> cov(handle.get_device_allocator(), stream, len);
 
-  Stats::cov(cov.data(), input, mu, prms.n_cols, prms.n_rows, true, false, true,
-             cublas_handle, stream);
+  Stats::cov(handle, cov.data(), input, mu, prms.n_cols, prms.n_rows, true,
+             false, true, stream);
   truncCompExpVars(handle, cov.data(), components, explained_var,
                    explained_var_ratio, prms, stream);
 
@@ -105,8 +106,8 @@ void pcaFit(const raft::handle_t &handle, math_t *input, math_t *components,
   raft::matrix::seqRoot(explained_var, singular_vals, scalar, n_components,
                         stream, true);
 
-  MLCommon::Stats::meanAdd(input, input, mu, prms.n_cols, prms.n_rows, false,
-                           true, stream);
+  raft::stats::meanAdd(input, input, mu, prms.n_cols, prms.n_rows, false, true,
+                       stream);
 }
 
 /**
@@ -184,8 +185,8 @@ void pcaInverseTransform(const raft::handle_t &handle, math_t *trans_input,
   }
 
   tsvdInverseTransform(handle, trans_input, components, input, prms, stream);
-  MLCommon::Stats::meanAdd(input, input, mu, prms.n_cols, prms.n_rows, false,
-                           true, stream);
+  raft::stats::meanAdd(input, input, mu, prms.n_cols, prms.n_rows, false, true,
+                       stream);
 
   if (prms.whiten) {
     raft::matrix::matrixVectorBinaryDivSkipZero(components, singular_vals,
@@ -243,11 +244,11 @@ void pcaTransform(const raft::handle_t &handle, math_t *input,
                                                 true, true, stream);
   }
 
-  MLCommon::Stats::meanCenter(input, input, mu, prms.n_cols, prms.n_rows, false,
-                              true, stream);
+  raft::stats::meanCenter(input, input, mu, prms.n_cols, prms.n_rows, false,
+                          true, stream);
   tsvdTransform(handle, input, components, trans_input, prms, stream);
-  MLCommon::Stats::meanAdd(input, input, mu, prms.n_cols, prms.n_rows, false,
-                           true, stream);
+  raft::stats::meanAdd(input, input, mu, prms.n_cols, prms.n_rows, false, true,
+                       stream);
 
   if (prms.whiten) {
     raft::matrix::matrixVectorBinaryMultSkipZero(components, singular_vals,

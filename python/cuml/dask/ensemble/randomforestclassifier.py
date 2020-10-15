@@ -67,7 +67,12 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
     n_estimators : int (default = 10)
                    total number of trees in the forest (not per-worker)
     handle : cuml.Handle
-        If it is None, a new one is created just for this class.
+        Specifies the cuml.handle that holds internal CUDA state for
+        computations in this model. Most importantly, this specifies the CUDA
+        stream that will be used for the model's computations, so users can
+        run different models concurrently in different streams by creating
+        handles in several streams.
+        If it is None, a new one is created.
     split_criterion : The criterion used to split nodes.
         0 for GINI, 1 for ENTROPY, 4 for CRITERION_END.
         2 and 3 not valid for classification

@@ -49,10 +49,8 @@ class MakeRegressionTest
     // Noise must be zero to compare the actual and expected values
     T noise = (T)0.0, tail_strength = (T)0.5;
 
-    allocator.reset(new raft::mr::device::default_allocator);
-    CUBLAS_CHECK(cublasCreate(&cublas_handle));
-    CUSOLVER_CHECK(cusolverDnCreate(&cusolver_handle));
-    CUDA_CHECK(cudaStreamCreate(&stream));
+    raft::handle_t handle;
+    stream = handle.get_stream();
 
     raft::allocate(data, params.n_samples * params.n_features);
     raft::allocate(values_ret, params.n_samples * params.n_targets);
@@ -61,26 +59,26 @@ class MakeRegressionTest
     raft::allocate(coef, params.n_features * params.n_targets);
 
     // Create the regression problem
-    make_regression(data, values_ret, params.n_samples, params.n_features,
-                    params.n_informative, cublas_handle, cusolver_handle,
-                    allocator, stream, coef, params.n_targets, params.bias,
-                    params.effective_rank, tail_strength, noise, params.shuffle,
-                    params.seed, params.gtype);
+    make_regression(handle, data, values_ret, params.n_samples,
+                    params.n_features, params.n_informative, stream, coef,
+                    params.n_targets, params.bias, params.effective_rank,
+                    tail_strength, noise, params.shuffle, params.seed,
+                    params.gtype);
 
     // Calculate the values from the data and coefficients (column-major)
     T alpha = (T)1.0, beta = (T)0.0;
     CUBLAS_CHECK(raft::linalg::cublasgemm(
-      cublas_handle, CUBLAS_OP_T, CUBLAS_OP_T, params.n_samples,
+      handle.get_cublas_handle(), CUBLAS_OP_T, CUBLAS_OP_T, params.n_samples,
       params.n_targets, params.n_features, &alpha, data, params.n_features,
       coef, params.n_targets, &beta, values_cm, params.n_samples, stream));
 
     // Transpose the values to row-major
-    LinAlg::transpose(values_cm, values_prod, params.n_samples,
-                      params.n_targets, cublas_handle, stream);
+    raft::linalg::transpose(handle, values_cm, values_prod, params.n_samples,
+                            params.n_targets, stream);
 
     // Add the bias
-    LinAlg::addScalar(values_prod, values_prod, params.bias,
-                      params.n_samples * params.n_targets, stream);
+    raft::linalg::addScalar(values_prod, values_prod, params.bias,
+                            params.n_samples * params.n_targets, stream);
 
     // Count the number of zeroes in the coefficients
     thrust::device_ptr<T> __coef = thrust::device_pointer_cast(coef);
@@ -93,19 +91,13 @@ class MakeRegressionTest
     CUDA_CHECK(cudaFree(values_ret));
     CUDA_CHECK(cudaFree(values_prod));
     CUDA_CHECK(cudaFree(values_cm));
-    CUBLAS_CHECK(cublasDestroy(cublas_handle));
-    CUSOLVER_CHECK(cusolverDnDestroy(cusolver_handle));
-    CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
  protected:
   MakeRegressionInputs<T> params;
   T *data, *values_ret, *values_prod, *values_cm, *coef;
   int zero_count;
-  std::shared_ptr<deviceAllocator> allocator;
   cudaStream_t stream;
-  cublasHandle_t cublas_handle;
-  cusolverDnHandle_t cusolver_handle;
 };
 
 typedef MakeRegressionTest<float> MakeRegressionTestF;
