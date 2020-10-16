@@ -95,9 +95,6 @@ void linearRegLoss(const raft::handle_t &handle, math_t *input, int n_rows,
   linearRegH(handle, input, n_rows, n_cols, coef, labels_pred.data(), math_t(0),
              stream);
 
-  linearRegH(handle, input, n_rows, n_cols, coef, labels_pred.data(), math_t(0),
-             stream);
-
   raft::linalg::subtract(labels_pred.data(), labels, labels_pred.data(), n_rows,
                          stream);
   raft::matrix::power(labels_pred.data(), n_rows, stream);

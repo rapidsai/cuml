@@ -83,9 +83,7 @@ void qrGetQ(const raft::handle_t &handle, const math_t *M, math_t *Q,
  * @param R: R matrix to be returned (on GPU)
  * @param n_rows: number rows of input matrix
  * @param n_cols: number columns of input matrix
- * @param cusolverH cusolver handle
  * @param stream cuda stream
- * @param allocator device allocator for temporary buffers during computation
  */
 template <typename math_t>
 void qrGetQR(const raft::handle_t &handle, math_t *M, math_t *Q, math_t *R,
