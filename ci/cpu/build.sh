@@ -58,22 +58,22 @@ conda config --set ssl_verify False
 if [[ -z "$PROJECT_FLASH" || "$PROJECT_FLASH" == "0" ]]; then
   if [ "$BUILD_LIBCUML" == '1' -o "$BUILD_CUML" == '1' ]; then
     gpuci_logger "Build conda pkg for libcuml"
-    conda build conda/recipes/libcuml
+    gpuci_conda_retry build conda/recipes/libcuml
   fi
 else
   if [ "$BUILD_LIBCUML" == '1' ]; then
     gpuci_logger "PROJECT FLASH: Build conda pkg for libcuml"
-    conda build conda/recipes/libcuml --dirty --no-remove-work-dir
+    gpuci_conda_retry build conda/recipes/libcuml --dirty --no-remove-work-dir
   fi
 fi
 
 if [ "$BUILD_CUML" == '1' ]; then
   if [[ -z "$PROJECT_FLASH" || "$PROJECT_FLASH" == "0" ]]; then
     gpuci_logger "Build conda pkg for cuml"
-    conda build conda/recipes/cuml --python=${PYTHON}
+    gpuci_conda_retry build conda/recipes/cuml --python=${PYTHON}
   else
     gpuci_logger "PROJECT FLASH: Build conda pkg for cuml"
-    conda build -c ci/artifacts/cuml/cpu/conda-bld/ --dirty --no-remove-work-dir conda/recipes/cuml --python=${PYTHON}
+    gpuci_conda_retry build -c ci/artifacts/cuml/cpu/conda-bld/ --dirty --no-remove-work-dir conda/recipes/cuml --python=${PYTHON}
   fi
 fi
 
