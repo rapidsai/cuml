@@ -67,6 +67,5 @@ algo2.fit(X2, y2)
 To know more underlying details about stream ordering refer to the corresponding section of [C++ DEVELOPER_GUIDE.md](../../cpp/DEVELOPER_GUIDE.md#asynchronous-operations-and-stream-ordering)
 
 ## Multi GPU
-We currently have **S**ingle **P**rocess **M**ultiple **G**PU (SPMG) versions of KNN, OLS and tSVD. Our upcoming versions will concentrate on **O**ne **P**rocess per **G**PU (OPG) paradigm.
 
 TODO: Add more details.
