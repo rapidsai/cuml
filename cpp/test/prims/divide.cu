@@ -21,8 +21,8 @@
 #include "test_utils.h"
 #include "unary_op.cuh"
 
-namespace MLCommon {
-namespace LinAlg {
+namespace raft {
+namespace linalg {
 
 template <typename Type>
 __global__ void naiveDivideKernel(Type *out, const Type *in, Type scalar,
@@ -70,11 +70,11 @@ class DivideTest
   }
 
  protected:
-  raft::linalg::UnaryOpInputs<T> params;
+  UnaryOpInputs<T> params;
   T *in, *out_ref, *out;
 };
 
-const std::vector<raft::linalg::UnaryOpInputs<float>> inputsf = {
+const std::vector<UnaryOpInputs<float>> inputsf = {
   {0.000001f, 1024 * 1024, 2.f, 1234ULL}};
 typedef DivideTest<float> DivideTestF;
 TEST_P(DivideTestF, Result) {
@@ -84,7 +84,7 @@ TEST_P(DivideTestF, Result) {
 INSTANTIATE_TEST_CASE_P(DivideTests, DivideTestF, ::testing::ValuesIn(inputsf));
 
 typedef DivideTest<double> DivideTestD;
-const std::vector<raft::linalg::UnaryOpInputs<double>> inputsd = {
+const std::vector<UnaryOpInputs<double>> inputsd = {
   {0.000001f, 1024 * 1024, 2.f, 1234ULL}};
 TEST_P(DivideTestD, Result) {
   ASSERT_TRUE(devArrMatch(out_ref, out, params.len,
@@ -92,5 +92,5 @@ TEST_P(DivideTestD, Result) {
 }
 INSTANTIATE_TEST_CASE_P(DivideTests, DivideTestD, ::testing::ValuesIn(inputsd));
 
-}  // end namespace LinAlg
-}  // end namespace MLCommon
+}  // end namespace linalg
+}  // end namespace raft

@@ -35,7 +35,10 @@ from cuml.preprocessing import LabelEncoder
 from cuml.common.memory_utils import using_output_type
 from libcpp cimport bool, nullptr
 from cuml.svm.svm_base import SVMBase
-from sklearn.calibration import CalibratedClassifierCV
+from cuml.common.import_utils import has_sklearn
+
+if has_sklearn():
+    from sklearn.calibration import CalibratedClassifierCV
 
 cdef extern from "cuml/matrix/kernelparams.h" namespace "MLCommon::Matrix":
     enum KernelType:
@@ -344,6 +347,10 @@ class SVC(SVMBase, ClassifierMixin):
             X, _, _, _, _ = input_to_host_array(X)
             y, _, _, _, _ = input_to_host_array(y)
             with using_output_type('numpy'):
+                if not has_sklearn():
+                    raise RuntimeError(
+                        "Scikit-learn is needed to use SVM probabilities")
+
                 self.prob_svc = CalibratedClassifierCV(SVC(**params), cv=5,
                                                        method='sigmoid')
                 self.prob_svc.fit(X, y)

@@ -53,7 +53,7 @@ void eigDC(const math_t *in, int n_rows, int n_cols, math_t *eig_vectors,
   device_buffer<math_t> d_work(allocator, stream, lwork);
   device_buffer<int> d_dev_info(allocator, stream, 1);
 
-  MLCommon::Matrix::copy(in, eig_vectors, n_rows, n_cols, stream);
+  raft::matrix::copy(in, eig_vectors, n_rows, n_cols, stream);
 
   CUSOLVER_CHECK(raft::linalg::cusolverDnsyevd(
     cusolverH, CUSOLVER_EIG_MODE_VECTOR, CUBLAS_FILL_MODE_UPPER, n_rows,
@@ -113,7 +113,7 @@ void eigSelDC(math_t *in, int n_rows, int n_cols, int n_eig_vals,
       d_dev_info.data(), stream));
   } else if (memUsage == COPY_INPUT) {
     d_eig_vectors.resize(n_rows * n_cols, stream);
-    MLCommon::Matrix::copy(in, d_eig_vectors.data(), n_rows, n_cols, stream);
+    raft::matrix::copy(in, d_eig_vectors.data(), n_rows, n_cols, stream);
 
     CUSOLVER_CHECK(raft::linalg::cusolverDnsyevdx(
       cusolverH, CUSOLVER_EIG_MODE_VECTOR, CUSOLVER_EIG_RANGE_I,
@@ -132,11 +132,11 @@ void eigSelDC(math_t *in, int n_rows, int n_cols, int n_eig_vals,
          "This usually occurs when some of the features do not vary enough.");
 
   if (memUsage == OVERWRITE_INPUT) {
-    Matrix::truncZeroOrigin(in, n_rows, eig_vectors, n_rows, n_eig_vals,
-                            stream);
+    raft::matrix::truncZeroOrigin(in, n_rows, eig_vectors, n_rows, n_eig_vals,
+                                  stream);
   } else if (memUsage == COPY_INPUT) {
-    Matrix::truncZeroOrigin(d_eig_vectors.data(), n_rows, eig_vectors, n_rows,
-                            n_eig_vals, stream);
+    raft::matrix::truncZeroOrigin(d_eig_vectors.data(), n_rows, eig_vectors,
+                                  n_rows, n_eig_vals, stream);
   }
 }
 
@@ -175,7 +175,7 @@ void eigJacobi(const math_t *in, int n_rows, int n_cols, math_t *eig_vectors,
   device_buffer<math_t> d_work(allocator, stream, lwork);
   device_buffer<int> dev_info(allocator, stream, 1);
 
-  MLCommon::Matrix::copy(in, eig_vectors, n_rows, n_cols, stream);
+  raft::matrix::copy(in, eig_vectors, n_rows, n_cols, stream);
 
   CUSOLVER_CHECK(raft::linalg::cusolverDnsyevj(
     cusolverH, CUSOLVER_EIG_MODE_VECTOR, CUBLAS_FILL_MODE_UPPER, n_rows,

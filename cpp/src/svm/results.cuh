@@ -131,8 +131,8 @@ class Results {
     math_t *x_support = (math_t *)allocator->allocate(
       n_support * n_cols * sizeof(math_t), stream);
     // Collect support vectors into a contiguous block
-    MLCommon::Matrix::copyRows(x, n_rows, n_cols, x_support, idx, n_support,
-                               stream);
+    raft::matrix::copyRows(x, n_rows, n_cols, x_support, idx, n_support,
+                           stream);
     CUDA_CHECK(cudaPeekAtLastError());
     return x_support;
   }
@@ -163,7 +163,7 @@ class Results {
     if (svmType == EPSILON_SVR) {
       // for regression the final coefficients are
       // coef[0..n-rows-1] = alpha[0..nrows-1] - alpha[nrows..2*n_rows-1]
-      MLCommon::LinAlg::add(coef, coef, coef + n_rows, n_rows, stream);
+      raft::linalg::add(coef, coef, coef + n_rows, n_rows, stream);
     }
   }
 

@@ -20,8 +20,8 @@
 #include "binary_op.cuh"
 #include "unary_op.cuh"
 
-namespace MLCommon {
-namespace LinAlg {
+namespace raft {
+namespace linalg {
 
 /**
  * @brief Elementwise scalar subtraction operation on the input buffer
@@ -41,8 +41,7 @@ template <typename InT, typename OutT = InT, typename IdxType = int>
 void subtractScalar(OutT *out, const InT *in, InT scalar, IdxType len,
                     cudaStream_t stream) {
   auto op = [scalar] __device__(InT in) { return OutT(in - scalar); };
-  raft::linalg::unaryOp<InT, decltype(op), IdxType, OutT>(out, in, len, op,
-                                                          stream);
+  unaryOp<InT, decltype(op), IdxType, OutT>(out, in, len, op, stream);
 }
 
 /**
@@ -62,8 +61,7 @@ template <typename InT, typename OutT = InT, typename IdxType = int>
 void subtract(OutT *out, const InT *in1, const InT *in2, IdxType len,
               cudaStream_t stream) {
   auto op = [] __device__(InT a, InT b) { return OutT(a - b); };
-  raft::linalg::binaryOp<InT, decltype(op), OutT, IdxType>(out, in1, in2, len,
-                                                           op, stream);
+  binaryOp<InT, decltype(op), OutT, IdxType>(out, in1, in2, len, op, stream);
 }
 
 template <class math_t, typename IdxType>
@@ -99,5 +97,5 @@ void subtractDevScalar(math_t *outDev, const math_t *inDev,
   CUDA_CHECK(cudaPeekAtLastError());
 }
 
-};  // end namespace LinAlg
-};  // end namespace MLCommon
+};  // end namespace linalg
+};  // end namespace raft

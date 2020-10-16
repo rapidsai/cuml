@@ -57,9 +57,8 @@ void launcher(const raft::handle_t &handle, const T *X, int n, int d,
                           coo->nnz, n, params->n_components,
                           tmp_storage.data());
 
-  MLCommon::LinAlg::transpose(tmp_storage.data(), embedding, n,
-                              params->n_components, handle.get_cublas_handle(),
-                              stream);
+  raft::linalg::transpose(handle, tmp_storage.data(), embedding, n,
+                          params->n_components, stream);
 
   raft::linalg::unaryOp<T>(
     tmp_storage.data(), tmp_storage.data(), n * params->n_components,
@@ -79,8 +78,8 @@ void launcher(const raft::handle_t &handle, const T *X, int n, int d,
     embedding, embedding, n * params->n_components,
     [=] __device__(T input) { return (10.0f / max) * input; }, stream);
 
-  MLCommon::LinAlg::add(embedding, embedding, tmp_storage.data(),
-                        n * params->n_components, stream);
+  raft::linalg::add(embedding, embedding, tmp_storage.data(),
+                    n * params->n_components, stream);
 
   CUDA_CHECK(cudaPeekAtLastError());
 }

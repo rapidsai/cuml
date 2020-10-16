@@ -21,8 +21,8 @@
 #include <random/rng.cuh>
 #include "test_utils.h"
 
-namespace MLCommon {
-namespace LinAlg {
+namespace raft {
+namespace linalg {
 
 template <typename T>
 struct TranposeInputs {
@@ -42,9 +42,9 @@ template <typename T>
 class TransposeTest : public ::testing::TestWithParam<TranposeInputs<T>> {
  protected:
   void SetUp() override {
-    CUBLAS_CHECK(cublasCreate(&handle));
-    CUDA_CHECK(cudaStreamCreate(&stream));
     params = ::testing::TestWithParam<TranposeInputs<T>>::GetParam();
+
+    stream = handle.get_stream();
 
     int len = params.len;
 
@@ -59,7 +59,7 @@ class TransposeTest : public ::testing::TestWithParam<TranposeInputs<T>> {
 
     raft::allocate(data_trans, len);
 
-    transpose(data, data_trans, params.n_row, params.n_col, handle, stream);
+    transpose(handle, data, data_trans, params.n_row, params.n_col, stream);
     transpose(data, params.n_row, stream);
   }
 
@@ -67,14 +67,12 @@ class TransposeTest : public ::testing::TestWithParam<TranposeInputs<T>> {
     CUDA_CHECK(cudaFree(data));
     CUDA_CHECK(cudaFree(data_trans));
     CUDA_CHECK(cudaFree(data_trans_ref));
-    CUBLAS_CHECK(cublasDestroy(handle));
-    CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
  protected:
   TranposeInputs<T> params;
   T *data, *data_trans, *data_trans_ref;
-  cublasHandle_t handle;
+  raft::handle_t handle;
   cudaStream_t stream;
 };
 
@@ -112,5 +110,5 @@ INSTANTIATE_TEST_CASE_P(TransposeTests, TransposeTestValF,
 INSTANTIATE_TEST_CASE_P(TransposeTests, TransposeTestValD,
                         ::testing::ValuesIn(inputsd2));
 
-}  // end namespace LinAlg
-}  // end namespace MLCommon
+}  // end namespace linalg
+}  // end namespace raft
