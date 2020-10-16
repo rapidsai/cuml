@@ -9,6 +9,7 @@
 
 ## Bug Fixes
 - PR #2983: Fix seeding of KISS99 RNG
+- PR #3008: Check number of columns in check_array validator
 
 # cuML 0.16.0 (Date TBD)
 
