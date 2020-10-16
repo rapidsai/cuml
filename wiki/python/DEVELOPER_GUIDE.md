@@ -36,6 +36,20 @@ except CudaRuntimeError as cre:
     print("Cuda Error! '%s'" % str(cre))
 ```
 
+## Dependencies
+The cuML python package has the following dependencies:
+<list of dependencies or instructions how to list them>
+
+Any additional dependency should be guarded. For example
+```
+from cuml.common.import_utils import has_sklearn
+
+if has_sklearn():
+    from sklearn.calibration import CalibratedClassifierCV
+```
+
+Policy for adding unguarded dependencies...
+
 ## Logging
 TBD
 
