@@ -18,14 +18,14 @@ export LIBCUDF_KERNEL_CACHE_PATH="$HOME/.jitify-cache"
 export NIGHTLY_VERSION=$(echo $BRANCH_VERSION | awk -F. '{print $2}')
 export PROJECTS=(cuml libcuml)
 
-gpuci_logger "Check environment..."
+gpuci_logger "Check environment"
 env
 
-gpuci_logger "Check GPU usage..."
+gpuci_logger "Check GPU usage"
 nvidia-smi
 
 
-gpuci_logger "Activate conda env..."
+gpuci_logger "Activate conda env"
 . /opt/conda/etc/profile.d/conda.sh
 conda activate rapids
 
@@ -34,23 +34,23 @@ conda install -c anaconda beautifulsoup4 jq
 pip install sphinx-markdown-tables
 
 
-gpuci_logger "Check versions..."
+gpuci_logger "Check versions"
 python --version
 $CC --version
 $CXX --version
 
-gpuci_logger "Show conda info..."
+gpuci_logger "Show conda info"
 conda info
 conda config --show-sources
 conda list --show-channel-urls
 
 # Build Doxygen docs
-gpuci_logger "Build Doxygen docs..."
+gpuci_logger "Build Doxygen docs"
 cd $PROJECT_WORKSPACE/cpp/build
 make doc
 	
 # Build Python docs
-gpuci_logger "Build Sphinx docs..."
+gpuci_logger "Build Sphinx docs"
 cd $PROJECT_WORKSPACE/docs
 make html
 
