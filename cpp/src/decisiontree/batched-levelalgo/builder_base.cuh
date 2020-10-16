@@ -161,8 +161,8 @@ struct Builder {
       // Start with allocation for a dense tree for depth < 13
       maxNodes = pow(2, (params.max_depth + 1)) - 1;
     } else {
-       // Start with fixed size allocation for depth >= 13
-       maxNodes = 8191;
+      // Start with fixed size allocation for depth >= 13
+      maxNodes = 8191;
     }
 
     if (isRegression() && params.split_criterion == CRITERION::MAE) {
@@ -254,7 +254,8 @@ struct Builder {
    * @param[out] depth      max depth of the built tree
    * @param[in]  s          cuda steam
    */
-  void train(std::vector<Node<DataT, LabelT, IdxT>>& h_nodes, IdxT& num_leaves, IdxT& depth, cudaStream_t s) {
+  void train(std::vector<Node<DataT, LabelT, IdxT>>& h_nodes, IdxT& num_leaves,
+             IdxT& depth, cudaStream_t s) {
     init(h_nodes, s);
     while (true) {
       IdxT new_nodes = doSplit(h_nodes, s);
@@ -316,7 +317,8 @@ struct Builder {
    * @param[in]  s cuda stream
    * @return the number of newly created nodes
    */
-  IdxT doSplit(std::vector<Node<DataT, LabelT, IdxT>>& h_nodes, cudaStream_t s) {
+  IdxT doSplit(std::vector<Node<DataT, LabelT, IdxT>>& h_nodes,
+               cudaStream_t s) {
     auto batchSize = node_end - node_start;
     // start fresh on the number of *new* nodes created in this batch
     CUDA_CHECK(cudaMemsetAsync(n_nodes, 0, sizeof(IdxT), s));
@@ -344,7 +346,8 @@ struct Builder {
     CUDA_CHECK(cudaStreamSynchronize(s));
     h_nodes.resize(h_nodes.size() + batchSize + *h_n_nodes);
     raft::update_host(h_nodes.data() + node_start, curr_nodes, batchSize, s);
-    raft::update_host(h_nodes.data() + h_total_nodes, next_nodes, *h_n_nodes, s);
+    raft::update_host(h_nodes.data() + h_total_nodes, next_nodes, *h_n_nodes,
+                      s);
     return *h_n_nodes;
   }
 };  // end Builder
