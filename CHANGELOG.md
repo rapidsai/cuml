@@ -7,6 +7,7 @@
 - PR #2903: Moving linalg's gemm, gemv, transpose to RAFT namespaces
 - PR #2905: `stats` prims `mean_center`, `sum` to RAFT namespaces
 - PR #2904: Moving `linalg` basic math ops to RAFT namespaces
+- PR #3002: Update flake8 Config To With Per File Settings
 
 ## Bug Fixes
 - PR #2983: Fix seeding of KISS99 RNG
