@@ -65,11 +65,8 @@ def test_sgd(dtype, lrate, penalty, loss, datatype):
         assert isinstance(cu_pred, np.ndarray)
 
     if loss == "log":
-        print(cu_pred)
         cu_pred[cu_pred < 0.5] = 0
         cu_pred[cu_pred >= 0.5] = 1
-        print(cu_pred)
-        print(y_test)
     elif loss == "squared_loss":
         cu_pred[cu_pred < 0] = -1
         cu_pred[cu_pred >= 0] = 1
