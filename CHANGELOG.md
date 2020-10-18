@@ -54,6 +54,7 @@
 - PR #2930: Pin libfaiss to <=1.6.3
 - PR #2928: Updating Estimators Derived from Base for Consistency
 - PR #2942: Adding `cuml.experimental` to the Docs
+- PR #3010: Improve gpuCI Scripts
 
 ## Bug Fixes
 - PR #2973: Allow data imputation for nan values
