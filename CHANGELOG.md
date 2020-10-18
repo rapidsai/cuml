@@ -10,6 +10,7 @@
 
 ## Bug Fixes
 - PR #2983: Fix seeding of KISS99 RNG
+- PR #3012: Increasing learning rate for SGD log loss and invscaling pytests
 
 # cuML 0.16.0 (Date TBD)
 
