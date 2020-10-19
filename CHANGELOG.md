@@ -11,6 +11,7 @@
 ## Bug Fixes
 - PR #2983: Fix seeding of KISS99 RNG
 - PR #3011: Fix unused initialize_embeddings parameter in Barnes-Hut t-SNE
+- PR #3012: Increasing learning rate for SGD log loss and invscaling pytests
 
 # cuML 0.16.0 (Date TBD)
 
@@ -69,6 +70,7 @@
 - PR #2930: Pin libfaiss to <=1.6.3
 - PR #2928: Updating Estimators Derived from Base for Consistency
 - PR #2942: Adding `cuml.experimental` to the Docs
+- PR #3010: Improve gpuCI Scripts
 
 ## Bug Fixes
 - PR #2973: Allow data imputation for nan values
