@@ -76,10 +76,8 @@ static void _make_low_rank_matrix(const raft::handle_t& handle, DataT* out,
   raft::mr::device::buffer<DataT> q1(allocator, stream);
   q0.resize(n_rows * n, stream);
   q1.resize(n_cols * n, stream);
-  LinAlg::qrGetQ(rd_mat_0.data(), q0.data(), n_rows, n, cusolver_handle, stream,
-                 allocator);
-  LinAlg::qrGetQ(rd_mat_1.data(), q1.data(), n_cols, n, cusolver_handle, stream,
-                 allocator);
+  raft::linalg::qrGetQ(handle, rd_mat_0.data(), q0.data(), n_rows, n, stream);
+  raft::linalg::qrGetQ(handle, rd_mat_1.data(), q1.data(), n_cols, n, stream);
 
   // Build the singular profile by assembling signal and noise components
   raft::mr::device::buffer<DataT> singular_vec(allocator, stream);
