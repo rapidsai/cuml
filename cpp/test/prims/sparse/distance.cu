@@ -70,7 +70,7 @@ class SparseDistanceTest
     allocate(out_dists_ref, (indptr_h.size() - 1) * (indptr_h.size() - 1));
 
     update_device(out_dists_ref, out_dists_ref_h.data(), out_dists_ref_h.size(),
-                 stream);
+                  stream);
   }
 
   void SetUp() override {

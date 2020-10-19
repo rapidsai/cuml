@@ -68,9 +68,9 @@ class SparseSelectionTest
     allocate(out_dists_ref, out_dists_ref_h.size());
 
     update_device(out_indices_ref, out_indices_ref_h.data(),
-                 out_indices_ref_h.size(), stream);
+                  out_indices_ref_h.size(), stream);
     update_device(out_dists_ref, out_dists_ref_h.data(), out_dists_ref_h.size(),
-                 stream);
+                  stream);
 
     allocate(out_dists, n_rows * k);
     allocate(out_indices, n_rows * k);
