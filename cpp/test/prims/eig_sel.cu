@@ -23,8 +23,8 @@
 #include <random/rng.cuh>
 #include "test_utils.h"
 
-namespace MLCommon {
-namespace LinAlg {
+namespace raft {
+namespace linalg {
 
 template <typename T>
 struct EigSelInputs {
@@ -45,10 +45,9 @@ template <typename T>
 class EigSelTest : public ::testing::TestWithParam<EigSelInputs<T>> {
  protected:
   void SetUp() override {
-    CUSOLVER_CHECK(cusolverDnCreate(&cusolverH));
-    CUDA_CHECK(cudaStreamCreate(&stream));
-    std::shared_ptr<deviceAllocator> allocator(
-      new raft::mr::device::default_allocator);
+    raft::handle_t handle;
+    stream = handle.get_stream();
+
     params = ::testing::TestWithParam<EigSelInputs<T>>::GetParam();
     int len = params.len;
 
@@ -71,8 +70,8 @@ class EigSelTest : public ::testing::TestWithParam<EigSelInputs<T>> {
     raft::update_device(eig_vectors_ref, eig_vectors_ref_h, 12, stream);
     raft::update_device(eig_vals_ref, eig_vals_ref_h, 4, stream);
 
-    eigSelDC(cov_matrix, params.n_row, params.n_col, 3, eig_vectors, eig_vals,
-             EigVecMemUsage::OVERWRITE_INPUT, cusolverH, stream, allocator);
+    eigSelDC(handle, cov_matrix, params.n_row, params.n_col, 3, eig_vectors,
+             eig_vals, EigVecMemUsage::OVERWRITE_INPUT, stream);
   }
 
   void TearDown() override {
@@ -81,15 +80,12 @@ class EigSelTest : public ::testing::TestWithParam<EigSelInputs<T>> {
     CUDA_CHECK(cudaFree(eig_vals));
     CUDA_CHECK(cudaFree(eig_vectors_ref));
     CUDA_CHECK(cudaFree(eig_vals_ref));
-    CUSOLVER_CHECK(cusolverDnDestroy(cusolverH));
-    CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
  protected:
   EigSelInputs<T> params;
   T *cov_matrix, *eig_vectors, *eig_vectors_ref, *eig_vals, *eig_vals_ref;
 
-  cusolverDnHandle_t cusolverH = NULL;
   cudaStream_t stream;
 };
 
@@ -139,7 +135,7 @@ INSTANTIATE_TEST_CASE_P(EigSelTest, EigSelTestVecF,
 INSTANTIATE_TEST_CASE_P(EigSelTest, EigSelTestVecD,
                         ::testing::ValuesIn(inputsd2));
 
-}  // end namespace LinAlg
-}  // end namespace MLCommon
+}  // end namespace linalg
+}  // end namespace raft
 
 #endif
