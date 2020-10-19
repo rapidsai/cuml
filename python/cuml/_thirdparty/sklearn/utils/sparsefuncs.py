@@ -1,8 +1,17 @@
-# Authors: Manoj Kumar
+# Original authors from Sckit-Learn:
+#          Manoj Kumar
 #          Thomas Unterthiner
 #          Giorgio Patrini
 #
 # License: BSD 3 clause
+
+
+# This code originates from the Scikit-Learn library,
+# it was since modified to allow GPU acceleration.
+# This code is under BSD 3 clause license.
+# Authors mentioned above do not endorse or promote this production.
+
+
 from scipy import sparse as cpu_sp
 from cupy import sparse as gpu_sp
 import cupy as np
