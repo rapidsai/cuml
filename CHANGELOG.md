@@ -8,9 +8,11 @@
 - PR #2905: `stats` prims `mean_center`, `sum` to RAFT namespaces
 - PR #2904: Moving `linalg` basic math ops to RAFT namespaces
 - PR #2906: Moving `linalg` decomp to RAFT namespaces
+- PR #2996: Removing the max_depth restriction for switching to the batched backend
 
 ## Bug Fixes
 - PR #2983: Fix seeding of KISS99 RNG
+- PR #3012: Increasing learning rate for SGD log loss and invscaling pytests
 
 # cuML 0.16.0 (Date TBD)
 
@@ -68,6 +70,7 @@
 - PR #2930: Pin libfaiss to <=1.6.3
 - PR #2928: Updating Estimators Derived from Base for Consistency
 - PR #2942: Adding `cuml.experimental` to the Docs
+- PR #3010: Improve gpuCI Scripts
 
 ## Bug Fixes
 - PR #2973: Allow data imputation for nan values
@@ -109,8 +112,10 @@
 - PR #2968: Remove shuffle_features from RF param names
 - PR #2957: Fix ols test size for stability
 - PR #2972: Upgrade Treelite to 0.93
+- PR #2981: Prevent unguarded import of sklearn in SVC
 - PR #2984: Fix GPU test scripts gcov error
 - PR #2990: Reduce MNMG kneighbors regressor test threshold
+- PR #2997: Changing ARIMA `get/set_params` to `get/set_fit_params`
 
 # cuML 0.15.0 (Date TBD)
 
