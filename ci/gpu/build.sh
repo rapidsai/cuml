@@ -113,7 +113,7 @@ if [[ -z "$PROJECT_FLASH" || "$PROJECT_FLASH" == "0" ]]; then
     set +e -Eo pipefail
     EXITCODE=0
     trap "EXITCODE=1" ERR
-    
+
     if hasArg --skip-tests; then
         gpuci_logger "Skipping Tests"
         exit 0
@@ -127,13 +127,13 @@ if [[ -z "$PROJECT_FLASH" || "$PROJECT_FLASH" == "0" ]]; then
     cd $WORKSPACE/cpp/build
     GTEST_OUTPUT="xml:${WORKSPACE}/test-results/libcuml_cpp/" ./test/ml
 
-    
+
     gpuci_logger "Python pytest for cuml"
     cd $WORKSPACE/python
 
-    pytest --cache-clear --basetemp=${WORKSPACE}/cuml-cuda-tmp --junitxml=${WORKSPACE}/junit-cuml.xml -v -s -m "not memleak" --durations=50 --timeout=300 --ignore=cuml/test/dask --ignore=cuml/raft --cov-config=.coveragerc --cov=cuml --cov-report=xml:${WORKSPACE}/python/cuml/cuml-coverage.xml --cov-report term
+    pytest --cache-clear --basetemp=${WORKSPACE}/cuml-cuda-tmp --junitxml=${WORKSPACE}/junit-cuml.xml -v -s -m "not memleak" --durations=0 --timeout=300 --ignore=cuml/test/dask --ignore=cuml/raft --cov-config=.coveragerc --cov=cuml --cov-report=xml:${WORKSPACE}/python/cuml/cuml-coverage.xml --cov-report term
 
-    timeout 7200 sh -c "pytest cuml/test/dask --cache-clear --basetemp=${WORKSPACE}/cuml-mg-cuda-tmp --junitxml=${WORKSPACE}/junit-cuml-mg.xml -v -s -m 'not memleak' --durations=50 --timeout=300"
+    timeout 7200 sh -c "pytest cuml/test/dask --cache-clear --basetemp=${WORKSPACE}/cuml-mg-cuda-tmp --junitxml=${WORKSPACE}/junit-cuml-mg.xml -v -s -m 'not memleak' --durations=0 --timeout=300"
 
 
     ################################################################################
@@ -165,7 +165,7 @@ else
     #Project Flash
     export LIBCUML_BUILD_DIR="$WORKSPACE/ci/artifacts/cuml/cpu/conda_work/cpp/build"
     export LD_LIBRARY_PATH="$LIBCUML_BUILD_DIR:$LD_LIBRARY_PATH"
-    
+
     if hasArg --skip-tests; then
         gpuci_logger "Skipping Tests"
         exit 0
@@ -188,7 +188,7 @@ else
 
     gpuci_logger "Installing libcuml"
     conda install -c $WORKSPACE/ci/artifacts/cuml/cpu/conda-bld/ libcuml
-        
+
     gpuci_logger "Building cuml"
     "$WORKSPACE/build.sh" -v cuml
 
@@ -202,7 +202,7 @@ else
     ################################################################################
     # TEST - Run notebook tests
     ################################################################################
-    
+
     gpuci_logger "Notebook tests"
     set +e -Eo pipefail
     EXITCODE=0
