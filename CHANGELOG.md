@@ -8,6 +8,7 @@
 - PR #2905: `stats` prims `mean_center`, `sum` to RAFT namespaces
 - PR #2904: Moving `linalg` basic math ops to RAFT namespaces
 - PR #2996: Removing the max_depth restriction for switching to the batched backend
+- PR #3018: Center components on the mean in Barnes-Hut t-SNE
 
 ## Bug Fixes
 - PR #2983: Fix seeding of KISS99 RNG

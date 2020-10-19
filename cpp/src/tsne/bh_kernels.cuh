@@ -670,7 +670,7 @@ __global__ __launch_bounds__(THREADS6, FACTOR6) void IntegrationKernel(
   const float *restrict attract2, const float *restrict repel1,
   const float *restrict repel2, float *restrict gains1, float *restrict gains2,
   float *restrict old_forces1, float *restrict old_forces2,
-  const float *restrict Z, const int N) {
+  const float *restrict Z, const int N, float *restrict sums) {
   float ux, uy, gx, gy;
 
   // iterate over all bodies assigned to thread
@@ -701,7 +701,29 @@ __global__ __launch_bounds__(THREADS6, FACTOR6) void IntegrationKernel(
 
     Y1[i] += ux;
     Y2[i] += uy;
+
+    // Sum Ys for centering on the mean later.
+    atomicAdd(&sums[0], Y1[i]);
+    atomicAdd(&sums[1], Y2[i]);
   }
+}
+
+__global__ void mean_center(float *restrict Y1, float *restrict Y2,
+                            const float *restrict means, const int N) {
+  const int i = blockIdx.x * blockDim.x + threadIdx.x;
+  if (i >= N) return;
+
+  float y1 = Y1[i] - means[0];
+  float y2 = Y2[i] - means[1];
+
+  // 1023 = blockDim.x - 1
+  if (threadIdx.x == 1023) {
+    y1 += 0.00001f;
+    y2 -= 0.00001f;
+  }
+
+  Y1[i] = y1;
+  Y2[i] = y2;
 }
 
 }  // namespace TSNE

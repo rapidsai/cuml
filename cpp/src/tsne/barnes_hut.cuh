@@ -18,6 +18,7 @@
 #include <common/cudart_utils.h>
 #include <common/device_buffer.hpp>
 #include <cuml/common/logger.hpp>
+#include <linalg/eltwise.cuh>
 #include "bh_kernels.cuh"
 #include "utils.cuh"
 
@@ -87,6 +88,7 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
   const int FOUR_N = 4 * n;
   const float theta_squared = theta * theta;
   const int NNODES = nnodes;
+  const float divN = 1.0f / n;
 
   // Actual allocations
   MLCommon::device_buffer<int> startl(d_alloc, stream, nnodes + 1);
@@ -117,6 +119,8 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
   MLCommon::device_buffer<float> Z_norm(d_alloc, stream, 1);
 
   MLCommon::device_buffer<float> radiusd_squared(d_alloc, stream, 1);
+
+  MLCommon::device_buffer<float> sums(d_alloc, stream, 2);
 
   // Apply
   MLCommon::device_buffer<float> gains_bh(d_alloc, stream, n * 2);
@@ -252,16 +256,24 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
     CUDA_CHECK(cudaPeekAtLastError());
     END_TIMER(attractive_time);
 
+    CUDA_CHECK(cudaMemsetAsync(sums.data(), 0, sizeof(float) * 2, stream));
+
     START_TIMER;
     TSNE::IntegrationKernel<<<blocks * FACTOR6, THREADS6, 0, stream>>>(
       learning_rate, momentum, early_exaggeration, YY.data(),
       YY.data() + nnodes + 1, attr_forces.data(), attr_forces.data() + n,
       rep_forces.data(), rep_forces.data() + nnodes + 1, gains_bh.data(),
       gains_bh.data() + n, old_forces.data(), old_forces.data() + n,
-      Z_norm.data(), n);
+      Z_norm.data(), n, sums.data());
     CUDA_CHECK(cudaPeekAtLastError());
 
     END_TIMER(IntegrationKernel_time);
+
+    // Center components at the mean
+    raft::linalg::scalarMultiply(sums.data(), sums.data(), divN, 2, stream);
+    TSNE::mean_center<<<raft::ceildiv(n, 1024), 1024, 0, stream>>>(
+      YY.data(), YY.data() + NNODES + 1, sums.data(), n);
+    CUDA_CHECK(cudaPeekAtLastError());
   }
   PRINT_TIMES;
 
