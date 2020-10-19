@@ -898,7 +898,7 @@ void distance_block_reduce(value_t *out_dists,
 //      config_.a_nnz, config_.b_indptr, config_.b_indices, config_.b_data,
 //      config_.b_nnz, config_.a_nrows, config_.b_nrows, reduce_func, accum_func);
 
-  int n_warps_per_row = ceildiv(config_.b_nrows, 128);
+  int n_warps_per_row = raft::ceildiv(config_.b_nrows, 128);
   semiring_kernel_thread_per_col<value_idx, value_t, threads_per_block, max_buffer_size, 256, 128>
     <<<config_.a_nrows * (config_.b_nrows/128), threads_per_block, 0,
        config_.stream>>>(
