@@ -25,6 +25,8 @@ namespace MLCommon {
 namespace Sparse {
 namespace Selection {
 
+using namespace raft;
+
 template <typename value_idx, typename value_t>
 struct SparseSelectionInputs {
   value_idx n_rows;
@@ -54,7 +56,7 @@ class SparseSelectionTest
     std::vector<value_t> dists_h = params.dists_h;
 
     allocate(dists, n_rows * n_cols);
-    updateDevice(dists, dists_h.data(), dists_h.size(), stream);
+    update_device(dists, dists_h.data(), dists_h.size(), stream);
 
     allocate(inds, n_rows * n_cols);
     iota_fill(inds, n_rows, n_cols, stream);
@@ -65,9 +67,9 @@ class SparseSelectionTest
     allocate(out_indices_ref, out_indices_ref_h.size());
     allocate(out_dists_ref, out_dists_ref_h.size());
 
-    updateDevice(out_indices_ref, out_indices_ref_h.data(),
+    update_device(out_indices_ref, out_indices_ref_h.data(),
                  out_indices_ref_h.size(), stream);
-    updateDevice(out_dists_ref, out_dists_ref_h.data(), out_dists_ref_h.size(),
+    update_device(out_dists_ref, out_dists_ref_h.data(), out_dists_ref_h.size(),
                  stream);
 
     allocate(out_dists, n_rows * k);

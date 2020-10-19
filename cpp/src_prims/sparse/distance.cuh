@@ -276,9 +276,9 @@ void compute_l2(value_t *out, const value_idx *Q_coo_rows,
   CUDA_CHECK(
     cudaMemsetAsync(R_sq_norms.data(), 0, R_sq_norms.size() * sizeof(value_t)));
 
-  compute_sq_norm_kernel<<<ceildiv(Q_nnz, tpb), tpb, 0, stream>>>(
+  compute_sq_norm_kernel<<<raft::ceildiv(Q_nnz, tpb), tpb, 0, stream>>>(
     Q_sq_norms.data(), Q_coo_rows, Q_data, Q_nnz);
-  compute_sq_norm_kernel<<<ceildiv(R_nnz, tpb), tpb, 0, stream>>>(
+  compute_sq_norm_kernel<<<raft::ceildiv(R_nnz, tpb), tpb, 0, stream>>>(
     R_sq_norms.data(), R_coo_rows, R_data, R_nnz);
 
   compute_euclidean(out, Q_sq_norms.data(), R_sq_norms.data(), m, n, stream);

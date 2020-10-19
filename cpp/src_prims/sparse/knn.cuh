@@ -158,7 +158,7 @@ class sparse_knn_t {
     using namespace raft::sparse;
 
     CUML_LOG_DEBUG("n_query_rows=%d, n_idx_rows=%d", n_query_rows, n_idx_rows);
-    int n_batches_query = ceildiv((size_t)n_query_rows, batch_size_query);
+    int n_batches_query = raft::ceildiv((size_t)n_query_rows, batch_size_query);
     csr_batcher_t<value_idx, value_t> query_batcher(
       batch_size_query, n_query_rows, queryIndptr, queryIndices, queryData);
 
@@ -199,7 +199,7 @@ class sparse_knn_t {
       value_t *dists_merge_buffer_ptr;
       value_idx *indices_merge_buffer_ptr;
 
-      int n_batches_idx = ceildiv((size_t)n_idx_rows, batch_size_index);
+      int n_batches_idx = raft::ceildiv((size_t)n_idx_rows, batch_size_index);
       csr_batcher_t<value_idx, value_t> idx_batcher(
         batch_size_index, n_idx_rows, idxIndptr, idxIndices, idxData);
 
@@ -291,20 +291,20 @@ class sparse_knn_t {
         CUML_LOG_DEBUG("Performing copy async");
 
         // copy merged output back into merge buffer partition for next iteration
-        copyAsync<value_idx>(merge_buffer_indices.data(),
+        raft::copy_async<value_idx>(merge_buffer_indices.data(),
                              indices_merge_buffer_tmp_ptr, batch_rows * k,
                              stream);
-        copyAsync<value_t>(merge_buffer_dists.data(),
+        raft::copy_async<value_t>(merge_buffer_dists.data(),
                            dists_merge_buffer_tmp_ptr, batch_rows * k, stream);
 
         CUML_LOG_DEBUG("Done.");
       }
 
       // Copy final merged batch to output array
-      copyAsync<value_idx>(output_indices + (rows_processed * k),
+      raft::copy_async<value_idx>(output_indices + (rows_processed * k),
                            merge_buffer_indices.data(),
                            query_batcher.batch_rows() * k, stream);
-      copyAsync<value_t>(output_dists + (rows_processed * k),
+      raft::copy_async<value_t>(output_dists + (rows_processed * k),
                          merge_buffer_dists.data(),
                          query_batcher.batch_rows() * k, stream);
 
@@ -322,7 +322,7 @@ class sparse_knn_t {
         */
       value_t p = 0.5;  // standard l2
       if (metric == ML::MetricType::METRIC_Lp) p = 1.0 / metricArg;
-      MLCommon::LinAlg::unaryOp<value_t>(
+      raft::linalg::unaryOp<value_t>(
         dists, dists, batch_rows * k,
         [p] __device__(value_t input) {
           int neg = input < 0 ? -1 : 1;
@@ -344,7 +344,7 @@ class sparse_knn_t {
     id_ranges.push_back(idx_batcher.batch_start());
 
     device_buffer<value_idx> trans(allocator, stream, id_ranges.size());
-    updateDevice(trans.data(), id_ranges.data(), id_ranges.size(), stream);
+    raft::update_device(trans.data(), id_ranges.data(), id_ranges.size(), stream);
 
     CUML_LOG_DEBUG("Running merge parts");
 

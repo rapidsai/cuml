@@ -26,6 +26,8 @@
 namespace MLCommon {
 namespace Sparse {
 
+using namespace raft;
+
 template <typename value_idx, typename value_t>
 struct CSRToDenseInputs {
   value_idx nrows;
@@ -57,15 +59,15 @@ class CSRToDenseTest
     allocate(indices, indices_h.size());
     allocate(data, data_h.size());
 
-    updateDevice(indptr, indptr_h.data(), indptr_h.size(), stream);
-    updateDevice(indices, indices_h.data(), indices_h.size(), stream);
-    updateDevice(data, data_h.data(), data_h.size(), stream);
+    update_device(indptr, indptr_h.data(), indptr_h.size(), stream);
+    update_device(indices, indices_h.data(), indices_h.size(), stream);
+    update_device(data, data_h.data(), data_h.size(), stream);
 
     std::vector<value_t> out_ref_h = params.out_ref_h;
 
     allocate(out_ref, out_ref_h.size());
 
-    updateDevice(out_ref, out_ref_h.data(), out_ref_h.size(), stream);
+    update_device(out_ref, out_ref_h.data(), out_ref_h.size(), stream);
 
     allocate(out, out_ref_h.size());
   }

@@ -26,6 +26,8 @@
 namespace MLCommon {
 namespace Sparse {
 
+using namespace raft;
+
 template <typename value_idx, typename value_t>
 struct CSRRowSliceInputs {
   value_idx start_row;
@@ -59,9 +61,9 @@ class CSRRowSliceTest
     allocate(indices, indices_h.size());
     allocate(data, data_h.size());
 
-    updateDevice(indptr, indptr_h.data(), indptr_h.size(), stream);
-    updateDevice(indices, indices_h.data(), indices_h.size(), stream);
-    updateDevice(data, data_h.data(), data_h.size(), stream);
+    update_device(indptr, indptr_h.data(), indptr_h.size(), stream);
+    update_device(indices, indices_h.data(), indices_h.size(), stream);
+    update_device(data, data_h.data(), data_h.size(), stream);
 
     std::vector<value_idx> out_indptr_ref_h = params.out_indptr_ref_h;
     std::vector<value_idx> out_indices_ref_h = params.out_indices_ref_h;
@@ -71,11 +73,11 @@ class CSRRowSliceTest
     allocate(out_indices_ref, out_indices_ref_h.size());
     allocate(out_data_ref, out_data_ref_h.size());
 
-    updateDevice(out_indptr_ref, out_indptr_ref_h.data(),
+    update_device(out_indptr_ref, out_indptr_ref_h.data(),
                  out_indptr_ref_h.size(), stream);
-    updateDevice(out_indices_ref, out_indices_ref_h.data(),
+    update_device(out_indices_ref, out_indices_ref_h.data(),
                  out_indices_ref_h.size(), stream);
-    updateDevice(out_data_ref, out_data_ref_h.data(), out_data_ref_h.size(),
+    update_device(out_data_ref, out_data_ref_h.data(), out_data_ref_h.size(),
                  stream);
 
     allocate(out_indptr, out_indptr_ref_h.size());
