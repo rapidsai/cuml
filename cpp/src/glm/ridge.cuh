@@ -53,7 +53,7 @@ void ridgeSolve(const raft::handle_t &handle, math_t *S, math_t *V, math_t *U,
   raft::allocate(S_nnz, n_cols, true);
   raft::copy(S_nnz, S, n_cols, stream);
   raft::matrix::power(S_nnz, n_cols, stream);
-  LinAlg::addScalar(S_nnz, S_nnz, alpha[0], n_cols, stream);
+  raft::linalg::addScalar(S_nnz, S_nnz, alpha[0], n_cols, stream);
   raft::matrix::matrixVectorBinaryDivSkipZero(S, S_nnz, 1, n_cols, false, true,
                                               stream, true);
 
@@ -219,7 +219,7 @@ void ridgePredict(const raft::handle_t &handle, const math_t *input, int n_rows,
   raft::linalg::gemm(handle, input, n_rows, n_cols, coef, preds, n_rows, 1,
                      CUBLAS_OP_N, CUBLAS_OP_N, alpha, beta, stream);
 
-  LinAlg::addScalar(preds, preds, intercept, n_rows, stream);
+  raft::linalg::addScalar(preds, preds, intercept, n_rows, stream);
 }
 
 };  // namespace GLM

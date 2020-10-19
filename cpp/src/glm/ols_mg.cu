@@ -140,8 +140,8 @@ void predict_impl(raft::handle_t &handle,
                        size_t(1), CUBLAS_OP_N, CUBLAS_OP_N, alpha, beta,
                        streams[si]);
 
-    LinAlg::addScalar(preds[i]->ptr, preds[i]->ptr, intercept,
-                      local_blocks[i]->size, streams[si]);
+    raft::linalg::addScalar(preds[i]->ptr, preds[i]->ptr, intercept,
+                            local_blocks[i]->size, streams[si]);
   }
 }
 

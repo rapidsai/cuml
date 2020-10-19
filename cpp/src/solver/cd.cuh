@@ -128,7 +128,8 @@ void cdFit(const raft::handle_t &handle, math_t *input, int n_rows, int n_cols,
   } else {
     LinAlg::colNorm(squared.data(), input, n_cols, n_rows, LinAlg::L2Norm,
                     false, stream);
-    LinAlg::addScalar(squared.data(), squared.data(), l2_alpha, n_cols, stream);
+    raft::linalg::addScalar(squared.data(), squared.data(), l2_alpha, n_cols,
+                            stream);
   }
 
   raft::copy(residual.data(), labels, n_rows, stream);
@@ -148,10 +149,10 @@ void cdFit(const raft::handle_t &handle, math_t *input, int n_rows, int n_cols,
       math_t *squared_loc = squared.data() + ci;
       math_t *input_col_loc = input + (ci * n_rows);
 
-      LinAlg::multiplyScalar(pred.data(), input_col_loc, h_coef[ci], n_rows,
-                             stream);
-      LinAlg::add(residual.data(), residual.data(), pred.data(), n_rows,
-                  stream);
+      raft::linalg::multiplyScalar(pred.data(), input_col_loc, h_coef[ci],
+                                   n_rows, stream);
+      raft::linalg::add(residual.data(), residual.data(), pred.data(), n_rows,
+                        stream);
       raft::linalg::gemm(handle, input_col_loc, n_rows, 1, residual.data(),
                          coef_loc, 1, 1, CUBLAS_OP_T, CUBLAS_OP_N, stream);
 
@@ -171,10 +172,10 @@ void cdFit(const raft::handle_t &handle, math_t *input, int n_rows, int n_cols,
 
       if (abs(h_coef[ci]) > coef_max) coef_max = abs(h_coef[ci]);
 
-      LinAlg::multiplyScalar(pred.data(), input_col_loc, h_coef[ci], n_rows,
-                             stream);
-      LinAlg::subtract(residual.data(), residual.data(), pred.data(), n_rows,
-                       stream);
+      raft::linalg::multiplyScalar(pred.data(), input_col_loc, h_coef[ci],
+                                   n_rows, stream);
+      raft::linalg::subtract(residual.data(), residual.data(), pred.data(),
+                             n_rows, stream);
     }
 
     bool flag_continue = true;
