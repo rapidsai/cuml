@@ -15,6 +15,7 @@
 - PR #2916: Add SKLearn multi-class GBDT model support in FIL
 
 ## Improvements
+- PR #3014: NVTX Markers for RF and RF-backend
 - PR #2947: Add more warnings for accuracy degradation with 64-bit models
 - PR #2873: Remove empty marker kernel code for NVTX markers
 - PR #2796: Remove tokens of length 1 by default for text vectorizers
