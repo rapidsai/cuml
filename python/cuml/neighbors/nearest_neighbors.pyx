@@ -31,6 +31,8 @@ from cuml.common.doc_utils import generate_docstring
 from cuml.common.doc_utils import insert_into_docstring
 from cuml.common.import_utils import has_scipy
 from cuml.common import input_to_cuml_array
+from cuml.common.sparse_utils import is_sparse
+from cuml.common.sparse_utils import is_dense
 
 from cython.operator cimport dereference as deref
 
@@ -108,7 +110,7 @@ cdef extern from "cuml/neighbors/knn_sparse.hpp" namespace "ML::Sparse":
                          size_t batch_size_query,
                          MetricType metric,
                          float metricArg,
-                         bool expanded_form)
+                         bool expanded_form) except +
 
 
 class NearestNeighbors(Base):
@@ -121,10 +123,16 @@ class NearestNeighbors(Base):
     ----------
     n_neighbors : int (default=5)
         Default number of neighbors to query
-    verbose : int or boolean (default = False)
-        Logging level
-    handle : handle_t
-        The handle_t resources to use
+    verbose : int or boolean, default=False
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        See :ref:`verbosity-levels` for more info.
+    handle : cuml.Handle
+        Specifies the cuml.handle that holds internal CUDA state for
+        computations in this model. Most importantly, this specifies the CUDA
+        stream that will be used for the model's computations, so users can
+        run different models concurrently in different streams by creating
+        handles in several streams.
+        If it is None, a new one is created.
     algorithm : string (default='brute')
         The query algorithm to use. Currently, only 'brute' is supported.
     metric : string (default='euclidean').
@@ -134,10 +142,24 @@ class NearestNeighbors(Base):
     p : float (default=2) Parameter for the Minkowski metric. When p = 1, this
         is equivalent to manhattan distance (l1), and euclidean distance (l2)
         for p = 2. For arbitrary p, minkowski distance (lp) is used.
+    algo_params : dict, optional (default=None)
+        Named arguments for controlling the behavior of different nearest
+        neighbors algorithms.
+
+        When algorithm='brute' and inputs are sparse:
+            - batch_size_index : (int) number of rows in each batch of
+                                 index array
+            - batch_size_query : (int) number of rows in each batch of
+                                 query array
     metric_expanded : bool
         Can increase performance in Minkowski-based (Lp) metrics (for p > 1)
         by using the expanded form and not computing the n-th roots.
     metric_params : dict, optional (default = None) This is currently ignored.
+    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
+        Variable to control output type of the results and attributes of
+        the estimator. If None, it'll inherit the output type set at the
+        module level, `cuml.global_output_type`.
+        See :ref:`output-data-type-configuration` for more info.
 
     Examples
     --------
@@ -250,9 +272,7 @@ class NearestNeighbors(Base):
 
         self.n_dims = X.shape[1]
 
-        is_scipy_sparse = (has_scipy() and scipy.sparse.isspmatrix(X))
-        if cupyx.scipy.sparse.isspmatrix(X) or is_scipy_sparse:
-
+        if is_sparse(X):
             self._X_m = SparseCumlArray(X, convert_to_dtype=cp.float32,
                                         convert_format=False)
             self.n_rows = self._X_m.shape[0]
@@ -269,7 +289,8 @@ class NearestNeighbors(Base):
         return self
 
     def get_param_names(self):
-        return ["n_neighbors", "algorithm", "metric",
+        return super().get_param_names() + \
+            ["n_neighbors", "algorithm", "metric",
                 "p", "metric_params"]
 
     @staticmethod
@@ -410,30 +431,28 @@ class NearestNeighbors(Base):
 
         self.handle.sync()
 
-        if _output_cumlarray:
-            return (D_ndarr, I_ndarr) if return_distance else I_ndarr
+        if not _output_cumlarray:
+            out_type = self._get_output_type(X)
+            I_ndarr = I_ndarr.to_output(out_type)
+            D_ndarr = D_ndarr.to_output(out_type)
 
-        out_type = self._get_output_type(X)
-        I_output = I_ndarr.to_output(out_type)
-        if return_distance:
-            D_output = D_ndarr.to_output(out_type)
+            # drop first column if using training data as X
+            # this will need to be moved to the C++ layer (cuml issue #2562)
+            if use_training_data:
+                if out_type in {'cupy', 'numpy', 'numba'}:
+                    I_ndarr = I_ndarr[:, 1:]
+                    D_ndarr = D_ndarr[:, 1:]
+                else:
+                    I_ndarr.drop(I_ndarr.columns[0], axis=1)
+                    D_ndarr.drop(D_ndarr.columns[0], axis=1)
 
-        # drop first column if using training data as X
-        # this will need to be moved to the C++ layer (cuml issue #2562)
-        if use_training_data:
-            if out_type in {'cupy', 'numpy', 'numba'}:
-                return (D_output[:, 1:], I_output[:, 1:]) \
-                    if return_distance else I_output[:, 1:]
-            else:
-                I_output.drop(I_output.columns[0], axis=1)
-                if return_distance:
-                    D_output.drop(D_output.columns[0], axis=1)
-
-        return (D_output, I_output) if return_distance else I_output
+        return (D_ndarr, I_ndarr) if return_distance else I_ndarr
 
     def _kneighbors_dense(self, X, n_neighbors, convert_dtype=None):
 
-        # TODO: Verify both X and self._X_m are dense
+        if isinstance(self._X_m, CumlArray) and not is_dense(X):
+            raise ValueError("A NearestNeighbors model trained on dense "
+                             "data requires dense input to kneighbors()")
 
         metric, expanded = self._build_metric_type(self.metric)
 
@@ -484,7 +503,9 @@ class NearestNeighbors(Base):
 
     def _kneighbors_sparse(self, X, n_neighbors, convert_dtype=None):
 
-        # TODO: Verify both X and self._X_m are sparse
+        if isinstance(self._X_m, SparseCumlArray) and not is_sparse(X):
+            raise ValueError("A NearestNeighbors model trained on sparse "
+                             "data requires sparse input to kneighbors()")
 
         batch_size_index = 10000
         if self.algo_params is not None and \
@@ -639,11 +660,17 @@ def kneighbors_graph(X=None, n_neighbors=5, mode='connectivity', verbose=False,
         connectivity matrix with ones and zeros, 'distance' returns the
         edges as the distances between points with the requested metric.
 
-    verbose : int or boolean (default = False)
-        Logging level
+    verbose : int or boolean, default=False
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        See :ref:`verbosity-levels` for more info.
 
-    handle : handle_t
-        The handle_t resources to use
+    handle : cuml.Handle
+        Specifies the cuml.handle that holds internal CUDA state for
+        computations in this model. Most importantly, this specifies the CUDA
+        stream that will be used for the model's computations, so users can
+        run different models concurrently in different streams by creating
+        handles in several streams.
+        If it is None, a new one is created.
 
     algorithm : string (default='brute')
         The query algorithm to use. Currently, only 'brute' is supported.
@@ -664,11 +691,11 @@ def kneighbors_graph(X=None, n_neighbors=5, mode='connectivity', verbose=False,
 
     metric_params : dict, optional (default = None) This is currently ignored.
 
-    output_type : {'input', 'cupy', 'numpy'}, optional (default=None)
+    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
         Variable to control output type of the results and attributes of
-        the estimators. If None, it'll inherit the output type set at the
-        module level, cuml.output_type. If set, the estimator will override
-        the global option for its behavior.
+        the estimator. If None, it'll inherit the output type set at the
+        module level, `cuml.global_output_type`.
+        See :ref:`output-data-type-configuration` for more info.
 
     Returns
     -------

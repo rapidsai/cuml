@@ -32,7 +32,7 @@ void launcher(int n, int d, const value_idx *knn_indices, const T *knn_dists,
               UMAPParams *params, T *embedding, cudaStream_t stream) {
   uint64_t seed = params->random_state;
 
-  MLCommon::Random::Rng r(seed);
+  raft::random::Rng r(seed);
   r.uniform<T>(embedding, n * params->n_components, -10, 10, stream);
 }
 }  // namespace RandomInit

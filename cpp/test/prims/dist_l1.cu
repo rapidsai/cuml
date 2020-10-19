@@ -15,6 +15,7 @@
  */
 
 #include "distance_base.cuh"
+#include "test_utils.h"
 
 namespace MLCommon {
 namespace Distance {
@@ -38,8 +39,8 @@ typedef DistanceUnexpL1<float> DistanceUnexpL1F;
 TEST_P(DistanceUnexpL1F, Result) {
   int m = params.isRowMajor ? params.m : params.n;
   int n = params.isRowMajor ? params.n : params.m;
-  ASSERT_TRUE(
-    devArrMatch(dist_ref, dist, m, n, CompareApprox<float>(params.tolerance)));
+  ASSERT_TRUE(raft::devArrMatch(dist_ref, dist, m, n,
+                                raft::CompareApprox<float>(params.tolerance)));
 }
 INSTANTIATE_TEST_CASE_P(DistanceTests, DistanceUnexpL1F,
                         ::testing::ValuesIn(inputsf));
@@ -58,8 +59,8 @@ typedef DistanceUnexpL1<double> DistanceUnexpL1D;
 TEST_P(DistanceUnexpL1D, Result) {
   int m = params.isRowMajor ? params.m : params.n;
   int n = params.isRowMajor ? params.n : params.m;
-  ASSERT_TRUE(
-    devArrMatch(dist_ref, dist, m, n, CompareApprox<double>(params.tolerance)));
+  ASSERT_TRUE(raft::devArrMatch(dist_ref, dist, m, n,
+                                raft::CompareApprox<double>(params.tolerance)));
 }
 INSTANTIATE_TEST_CASE_P(DistanceTests, DistanceUnexpL1D,
                         ::testing::ValuesIn(inputsd));

@@ -24,6 +24,7 @@
 #include <cuml/tsa/batched_arima.hpp>
 #include <random/rng.cuh>
 
+#include <common/cudart_utils.h>
 #include "benchmark.cuh"
 
 namespace ML {
@@ -51,8 +52,7 @@ class ArimaLoglikelihood : public TsFixtureRandom<DataT> {
 
     // Generate random parameters
     int N = order.complexity();
-    MLCommon::Random::Rng gpu_gen(this->params.seed,
-                                  MLCommon::Random::GenPhilox);
+    raft::random::Rng gpu_gen(this->params.seed, raft::random::GenPhilox);
     gpu_gen.uniform(param, N * this->params.batch_size, -1.0, 1.0, stream);
     // Set sigma2 parameters to 1.0
     DataT* x = param;  // copy the object attribute for thrust

@@ -28,6 +28,8 @@ namespace MLCommon {
 namespace Sparse {
 namespace Selection {
 
+using namespace raft;
+
 template <typename value_idx, typename value_t>
 struct SparseKNNInputs {
   value_idx n_cols;
@@ -66,9 +68,9 @@ class SparseKNNTest
     allocate(indices, indices_h.size());
     allocate(data, data_h.size());
 
-    updateDevice(indptr, indptr_h.data(), indptr_h.size(), stream);
-    updateDevice(indices, indices_h.data(), indices_h.size(), stream);
-    updateDevice(data, data_h.data(), data_h.size(), stream);
+    update_device(indptr, indptr_h.data(), indptr_h.size(), stream);
+    update_device(indices, indices_h.data(), indices_h.size(), stream);
+    update_device(data, data_h.data(), data_h.size(), stream);
 
     std::vector<value_t> out_dists_ref_h = params.out_dists_ref_h;
     std::vector<value_idx> out_indices_ref_h = params.out_indices_ref_h;
@@ -76,9 +78,9 @@ class SparseKNNTest
     allocate(out_indices_ref, out_indices_ref_h.size());
     allocate(out_dists_ref, out_dists_ref_h.size());
 
-    updateDevice(out_indices_ref, out_indices_ref_h.data(),
+    update_device(out_indices_ref, out_indices_ref_h.data(),
                  out_indices_ref_h.size(), stream);
-    updateDevice(out_dists_ref, out_dists_ref_h.data(), out_dists_ref_h.size(),
+    update_device(out_dists_ref, out_dists_ref_h.data(), out_dists_ref_h.size(),
                  stream);
 
     allocate(out_dists, n_rows * k);
@@ -94,7 +96,7 @@ class SparseKNNTest
 
     CUSPARSE_CHECK(cusparseCreate(&cusparseHandle));
 
-    ML::Logger::get().setLevel(CUML_LEVEL_DEBUG);
+    ML::Logger::get().setLevel(CUML_LEVEL_INFO);
 
     n_rows = params.indptr_h.size() - 1;
     nnz = params.indices_h.size();
@@ -107,11 +109,6 @@ class SparseKNNTest
       nnz, n_rows, params.n_cols, out_indices, out_dists, k, cusparseHandle,
       alloc, stream, params.batch_size_index, params.batch_size_query,
       params.metric);
-
-    std::cout << arr2Str(out_dists, n_rows * k, "out_dists", stream)
-              << std::endl;
-    std::cout << arr2Str(out_indices, n_rows * k, "out_indices", stream)
-              << std::endl;
 
     CUDA_CHECK(cudaStreamSynchronize(stream));
   }

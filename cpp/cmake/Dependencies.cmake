@@ -39,7 +39,7 @@ else(DEFINED ENV{RAFT_PATH})
 
   ExternalProject_Add(raft
     GIT_REPOSITORY    https://github.com/rapidsai/raft.git
-    GIT_TAG           516106e3b515b25c863776fcc51fb12df6c0a186
+    GIT_TAG           3f8a4bf6f81289f1fdaae9a5bd4a10de8674aa5c
     PREFIX            ${RAFT_DIR}
     CONFIGURE_COMMAND ""
     BUILD_COMMAND     ""
@@ -185,7 +185,7 @@ endif(BUILD_STATIC_FAISS)
 ##############################################################################
 # - treelite build -----------------------------------------------------------
 
-find_package(Treelite 0.92 REQUIRED)
+find_package(Treelite 0.93 REQUIRED)
 
 ##############################################################################
 # - googletest build -----------------------------------------------------------

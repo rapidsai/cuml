@@ -117,17 +117,17 @@ double entropy(const T *clusterArray, const int size, const T lowerLabelRange,
               workspace, allocator, stream);
 
   //scalar dividing by size
-  MLCommon::LinAlg::divideScalar<double>(prob.data(), prob.data(), (double)size,
-                                         numUniqueClasses, stream);
+  raft::linalg::divideScalar<double>(prob.data(), prob.data(), (double)size,
+                                     numUniqueClasses, stream);
 
   //calculating the aggregate entropy
-  MLCommon::LinAlg::mapThenSumReduce<double, entropyOp>(
+  raft::linalg::mapThenSumReduce<double, entropyOp>(
     d_entropy.data(), numUniqueClasses, entropyOp(), stream, prob.data(),
     prob.data());
 
   //updating in the host memory
   double h_entropy;
-  MLCommon::updateHost(&h_entropy, d_entropy.data(), 1, stream);
+  raft::update_host(&h_entropy, d_entropy.data(), 1, stream);
 
   CUDA_CHECK(cudaStreamSynchronize(stream));
 

@@ -73,7 +73,7 @@ void information_criterion(ScalarT* d_ic, const ScalarT* d_loglikelihood,
       break;
   }
   /* Compute information criterion from log-likelihood and base term */
-  LinAlg::unaryOp(
+  raft::linalg::unaryOp(
     d_ic, d_loglikelihood, batch_size,
     [=] __device__(ScalarT loglike) {
       return ic_base - (ScalarT)2.0 * loglike;

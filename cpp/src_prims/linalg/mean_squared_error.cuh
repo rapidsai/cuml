@@ -18,8 +18,8 @@
 
 #include "map_then_reduce.cuh"
 
-namespace MLCommon {
-namespace LinAlg {
+namespace raft {
+namespace linalg {
 
 /**
  * @brief CUDA version mean squared error function mean((A-B)**2)
@@ -43,5 +43,5 @@ void meanSquaredError(math_t* out, const math_t* A, const math_t* B, size_t len,
                                                    B);
 }
 
-};  // end namespace LinAlg
-};  // end namespace MLCommon
+};  // end namespace linalg
+};  // end namespace raft

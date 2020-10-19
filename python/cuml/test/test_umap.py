@@ -21,6 +21,7 @@ import numpy as np
 import pytest
 import umap
 
+import cupyx
 import scipy.sparse
 
 from cuml.manifold.umap import UMAP as cuUMAP
@@ -142,18 +143,57 @@ def test_umap_transform_on_iris(target_metric):
     assert trust >= 0.85
 
 
-@pytest.mark.parametrize('sparse', [True, False])
+@pytest.mark.parametrize('input_type', ['cupy', 'scipy'])
+@pytest.mark.parametrize('xform_method', ['fit', 'fit_transform'])
 @pytest.mark.parametrize('target_metric', ["categorical", "euclidean"])
-def test_umap_transform_on_digits(target_metric, sparse):
+def test_umap_transform_on_digits_sparse(target_metric, input_type,
+                                         xform_method):
+
+    digits = datasets.load_digits()
+
+    digits_selection = np.random.RandomState(42).choice(
+        [True, False], 1797, replace=True, p=[0.75, 0.25])
+
+    if input_type == 'cupy':
+        sp_prefix = cupyx.scipy.sparse
+    else:
+        sp_prefix = scipy.sparse
+
+    data = sp_prefix.csr_matrix(
+        scipy.sparse.csr_matrix(digits.data[digits_selection]))
+
+    fitter = cuUMAP(n_neighbors=15,
+                    verbose=logger.level_info,
+                    init="random",
+                    n_epochs=0,
+                    min_dist=0.01,
+                    random_state=42,
+                    target_metric=target_metric)
+
+    new_data = sp_prefix.csr_matrix(
+        scipy.sparse.csr_matrix(digits.data[~digits_selection]))
+
+    if xform_method == 'fit':
+        fitter.fit(data, convert_dtype=True)
+        embedding = fitter.transform(new_data, convert_dtype=True)
+    else:
+        embedding = fitter.fit_transform(new_data, convert_dtype=True)
+
+    if input_type == 'cupy':
+        embedding = embedding.get()
+
+    trust = trustworthiness(digits.data[~digits_selection], embedding, 15)
+    assert trust >= 0.96
+
+
+@pytest.mark.parametrize('target_metric', ["categorical", "euclidean"])
+def test_umap_transform_on_digits(target_metric):
 
     digits = datasets.load_digits()
 
     digits_selection = np.random.RandomState(42).choice(
         [True, False], 1797, replace=True, p=[0.75, 0.25])
     data = digits.data[digits_selection]
-
-    if sparse:
-        data = scipy.sparse.csr_matrix(data)
 
     fitter = cuUMAP(n_neighbors=15,
                     verbose=logger.level_debug,
@@ -166,16 +206,7 @@ def test_umap_transform_on_digits(target_metric, sparse):
 
     new_data = digits.data[~digits_selection]
 
-    if sparse:
-        new_data = scipy.sparse.csr_matrix(new_data)
-
     embedding = fitter.transform(new_data, convert_dtype=True)
-
-    print("Embedding: %s" % type(embedding))
-
-    if sparse:
-        embedding = embedding.get()
-
     trust = trustworthiness(digits.data[~digits_selection], embedding, 15)
     assert trust >= 0.96
 
