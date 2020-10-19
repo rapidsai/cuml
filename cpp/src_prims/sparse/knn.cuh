@@ -292,21 +292,22 @@ class sparse_knn_t {
 
         // copy merged output back into merge buffer partition for next iteration
         raft::copy_async<value_idx>(merge_buffer_indices.data(),
-                             indices_merge_buffer_tmp_ptr, batch_rows * k,
-                             stream);
+                                    indices_merge_buffer_tmp_ptr,
+                                    batch_rows * k, stream);
         raft::copy_async<value_t>(merge_buffer_dists.data(),
-                           dists_merge_buffer_tmp_ptr, batch_rows * k, stream);
+                                  dists_merge_buffer_tmp_ptr, batch_rows * k,
+                                  stream);
 
         CUML_LOG_DEBUG("Done.");
       }
 
       // Copy final merged batch to output array
       raft::copy_async<value_idx>(output_indices + (rows_processed * k),
-                           merge_buffer_indices.data(),
-                           query_batcher.batch_rows() * k, stream);
+                                  merge_buffer_indices.data(),
+                                  query_batcher.batch_rows() * k, stream);
       raft::copy_async<value_t>(output_dists + (rows_processed * k),
-                         merge_buffer_dists.data(),
-                         query_batcher.batch_rows() * k, stream);
+                                merge_buffer_dists.data(),
+                                query_batcher.batch_rows() * k, stream);
 
       rows_processed += query_batcher.batch_rows();
     }
@@ -344,7 +345,8 @@ class sparse_knn_t {
     id_ranges.push_back(idx_batcher.batch_start());
 
     device_buffer<value_idx> trans(allocator, stream, id_ranges.size());
-    raft::update_device(trans.data(), id_ranges.data(), id_ranges.size(), stream);
+    raft::update_device(trans.data(), id_ranges.data(), id_ranges.size(),
+                        stream);
 
     CUML_LOG_DEBUG("Running merge parts");
 
