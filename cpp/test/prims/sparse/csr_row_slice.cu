@@ -74,11 +74,11 @@ class CSRRowSliceTest
     allocate(out_data_ref, out_data_ref_h.size());
 
     update_device(out_indptr_ref, out_indptr_ref_h.data(),
-                 out_indptr_ref_h.size(), stream);
+                  out_indptr_ref_h.size(), stream);
     update_device(out_indices_ref, out_indices_ref_h.data(),
-                 out_indices_ref_h.size(), stream);
+                  out_indices_ref_h.size(), stream);
     update_device(out_data_ref, out_data_ref_h.data(), out_data_ref_h.size(),
-                 stream);
+                  stream);
 
     allocate(out_indptr, out_indptr_ref_h.size());
     allocate(out_indices, out_indices_ref_h.size());
