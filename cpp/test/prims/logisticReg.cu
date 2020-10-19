@@ -42,10 +42,9 @@ class LogRegLossTest : public ::testing::TestWithParam<LogRegLossInputs<T>> {
 
     T *labels, *coef;
 
-    cublasHandle_t cublas_handle;
-    CUBLAS_CHECK(cublasCreate(&cublas_handle));
-    cudaStream_t stream;
-    CUDA_CHECK(cudaStreamCreate(&stream));
+    raft::handle_t handle;
+
+    cudaStream_t stream = handle.get_stream();
 
     allocator.reset(new raft::mr::device::default_allocator);
 
@@ -109,52 +108,44 @@ class LogRegLossTest : public ::testing::TestWithParam<LogRegLossInputs<T>> {
     T alpha = 0.6;
     T l1_ratio = 0.5;
 
-    logisticRegLoss(in, params.n_rows, params.n_cols, labels, coef, out,
-                    penalty::NONE, alpha, l1_ratio, cublas_handle, allocator,
-                    stream);
+    logisticRegLoss(handle, in, params.n_rows, params.n_cols, labels, coef, out,
+                    penalty::NONE, alpha, l1_ratio, stream);
 
     raft::update_device(in, h_in, len, stream);
 
-    logisticRegLossGrads(in, params.n_rows, params.n_cols, labels, coef,
-                         out_grad, penalty::NONE, alpha, l1_ratio,
-                         cublas_handle, allocator, stream);
+    logisticRegLossGrads(handle, in, params.n_rows, params.n_cols, labels, coef,
+                         out_grad, penalty::NONE, alpha, l1_ratio, stream);
 
     raft::update_device(in, h_in, len, stream);
 
-    logisticRegLoss(in, params.n_rows, params.n_cols, labels, coef, out_lasso,
-                    penalty::L1, alpha, l1_ratio, cublas_handle, allocator,
-                    stream);
+    logisticRegLoss(handle, in, params.n_rows, params.n_cols, labels, coef,
+                    out_lasso, penalty::L1, alpha, l1_ratio, stream);
 
     raft::update_device(in, h_in, len, stream);
 
-    logisticRegLossGrads(in, params.n_rows, params.n_cols, labels, coef,
-                         out_lasso_grad, penalty::L1, alpha, l1_ratio,
-                         cublas_handle, allocator, stream);
+    logisticRegLossGrads(handle, in, params.n_rows, params.n_cols, labels, coef,
+                         out_lasso_grad, penalty::L1, alpha, l1_ratio, stream);
 
     raft::update_device(in, h_in, len, stream);
 
-    logisticRegLoss(in, params.n_rows, params.n_cols, labels, coef, out_ridge,
-                    penalty::L2, alpha, l1_ratio, cublas_handle, allocator,
-                    stream);
+    logisticRegLoss(handle, in, params.n_rows, params.n_cols, labels, coef,
+                    out_ridge, penalty::L2, alpha, l1_ratio, stream);
 
-    logisticRegLossGrads(in, params.n_rows, params.n_cols, labels, coef,
-                         out_ridge_grad, penalty::L2, alpha, l1_ratio,
-                         cublas_handle, allocator, stream);
+    logisticRegLossGrads(handle, in, params.n_rows, params.n_cols, labels, coef,
+                         out_ridge_grad, penalty::L2, alpha, l1_ratio, stream);
 
     raft::update_device(in, h_in, len, stream);
 
-    logisticRegLoss(in, params.n_rows, params.n_cols, labels, coef,
+    logisticRegLoss(handle, in, params.n_rows, params.n_cols, labels, coef,
                     out_elasticnet, penalty::ELASTICNET, alpha, l1_ratio,
-                    cublas_handle, allocator, stream);
+                    stream);
 
-    logisticRegLossGrads(in, params.n_rows, params.n_cols, labels, coef,
+    logisticRegLossGrads(handle, in, params.n_rows, params.n_cols, labels, coef,
                          out_elasticnet_grad, penalty::ELASTICNET, alpha,
-                         l1_ratio, cublas_handle, allocator, stream);
+                         l1_ratio, stream);
 
     raft::update_device(in, h_in, len, stream);
 
-    CUBLAS_CHECK(cublasDestroy(cublas_handle));
-    CUDA_CHECK(cudaStreamDestroy(stream));
     CUDA_CHECK(cudaFree(labels));
     CUDA_CHECK(cudaFree(coef));
   }

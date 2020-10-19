@@ -42,13 +42,8 @@ class HingeLossTest : public ::testing::TestWithParam<HingeLossInputs<T>> {
 
     T *labels, *coef;
 
-    cublasHandle_t cublas_handle;
-    CUBLAS_CHECK(cublasCreate(&cublas_handle));
-
-    cudaStream_t stream;
-    CUDA_CHECK(cudaStreamCreate(&stream));
-
-    allocator.reset(new raft::mr::device::default_allocator);
+    raft::handle_t handle;
+    cudaStream_t stream = handle.get_stream();
 
     raft::allocate(in, len);
     raft::allocate(out, 1);
@@ -110,49 +105,43 @@ class HingeLossTest : public ::testing::TestWithParam<HingeLossInputs<T>> {
     T alpha = 0.6;
     T l1_ratio = 0.5;
 
-    hingeLoss(in, params.n_rows, params.n_cols, labels, coef, out,
-              penalty::NONE, alpha, l1_ratio, cublas_handle, allocator, stream);
+    hingeLoss(handle, in, params.n_rows, params.n_cols, labels, coef, out,
+              penalty::NONE, alpha, l1_ratio, stream);
 
     raft::update_device(in, h_in, len, stream);
 
-    hingeLossGrads(in, params.n_rows, params.n_cols, labels, coef, out_grad,
-                   penalty::NONE, alpha, l1_ratio, cublas_handle, allocator,
+    hingeLossGrads(handle, in, params.n_rows, params.n_cols, labels, coef,
+                   out_grad, penalty::NONE, alpha, l1_ratio, stream);
+
+    raft::update_device(in, h_in, len, stream);
+
+    hingeLoss(handle, in, params.n_rows, params.n_cols, labels, coef, out_lasso,
+              penalty::L1, alpha, l1_ratio, stream);
+
+    raft::update_device(in, h_in, len, stream);
+
+    hingeLossGrads(handle, in, params.n_rows, params.n_cols, labels, coef,
+                   out_lasso_grad, penalty::L1, alpha, l1_ratio, stream);
+
+    raft::update_device(in, h_in, len, stream);
+
+    hingeLoss(handle, in, params.n_rows, params.n_cols, labels, coef, out_ridge,
+              penalty::L2, alpha, l1_ratio, stream);
+
+    hingeLossGrads(handle, in, params.n_rows, params.n_cols, labels, coef,
+                   out_ridge_grad, penalty::L2, alpha, l1_ratio, stream);
+
+    raft::update_device(in, h_in, len, stream);
+
+    hingeLoss(handle, in, params.n_rows, params.n_cols, labels, coef,
+              out_elasticnet, penalty::ELASTICNET, alpha, l1_ratio, stream);
+
+    hingeLossGrads(handle, in, params.n_rows, params.n_cols, labels, coef,
+                   out_elasticnet_grad, penalty::ELASTICNET, alpha, l1_ratio,
                    stream);
 
     raft::update_device(in, h_in, len, stream);
 
-    hingeLoss(in, params.n_rows, params.n_cols, labels, coef, out_lasso,
-              penalty::L1, alpha, l1_ratio, cublas_handle, allocator, stream);
-
-    raft::update_device(in, h_in, len, stream);
-
-    hingeLossGrads(in, params.n_rows, params.n_cols, labels, coef,
-                   out_lasso_grad, penalty::L1, alpha, l1_ratio, cublas_handle,
-                   allocator, stream);
-
-    raft::update_device(in, h_in, len, stream);
-
-    hingeLoss(in, params.n_rows, params.n_cols, labels, coef, out_ridge,
-              penalty::L2, alpha, l1_ratio, cublas_handle, allocator, stream);
-
-    hingeLossGrads(in, params.n_rows, params.n_cols, labels, coef,
-                   out_ridge_grad, penalty::L2, alpha, l1_ratio, cublas_handle,
-                   allocator, stream);
-
-    raft::update_device(in, h_in, len, stream);
-
-    hingeLoss(in, params.n_rows, params.n_cols, labels, coef, out_elasticnet,
-              penalty::ELASTICNET, alpha, l1_ratio, cublas_handle, allocator,
-              stream);
-
-    hingeLossGrads(in, params.n_rows, params.n_cols, labels, coef,
-                   out_elasticnet_grad, penalty::ELASTICNET, alpha, l1_ratio,
-                   cublas_handle, allocator, stream);
-
-    raft::update_device(in, h_in, len, stream);
-
-    CUBLAS_CHECK(cublasDestroy(cublas_handle));
-    CUDA_CHECK(cudaStreamDestroy(stream));
     CUDA_CHECK(cudaFree(labels));
     CUDA_CHECK(cudaFree(coef));
   }

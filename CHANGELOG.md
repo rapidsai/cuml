@@ -1,3 +1,17 @@
+# cuML 0.17.0 (Date TBD)
+
+## New Features
+
+## Improvements
+- PR #2902: `matrix/matrix.cuh` in RAFT namespacing
+- PR #2903: Moving linalg's gemm, gemv, transpose to RAFT namespaces
+- PR #2905: `stats` prims `mean_center`, `sum` to RAFT namespaces
+- PR #2904: Moving `linalg` basic math ops to RAFT namespaces
+
+## Bug Fixes
+- PR #2983: Fix seeding of KISS99 RNG
+- PR #3012: Increasing learning rate for SGD log loss and invscaling pytests
+
 # cuML 0.16.0 (Date TBD)
 
 ## New Features
@@ -46,6 +60,7 @@
 - PR #2850: Clean up unused params in paramsPCA
 - PR #2871: Add timing function to utils
 - PR #2863: in FIL, rename leaf_value_t enums to more descriptive
+- PR #2892 Update ci/local/README.md
 - PR #2867: improve stability of FIL benchmark measurements
 - PR #2798: Add python tests for FIL multiclass classification of lightgbm models
 - PR #2892: Update ci/local/README.md
