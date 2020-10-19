@@ -1,3 +1,18 @@
+# cuML 0.17.0 (Date TBD)
+
+## New Features
+
+## Improvements
+- PR #2902: `matrix/matrix.cuh` in RAFT namespacing
+- PR #2903: Moving linalg's gemm, gemv, transpose to RAFT namespaces
+- PR #2905: `stats` prims `mean_center`, `sum` to RAFT namespaces
+- PR #2904: Moving `linalg` basic math ops to RAFT namespaces
+- PR #2956: Follow cuML array conventions in ARIMA
+
+## Bug Fixes
+- PR #2983: Fix seeding of KISS99 RNG
+- PR #3012: Increasing learning rate for SGD log loss and invscaling pytests
+
 # cuML 0.16.0 (Date TBD)
 
 ## New Features
@@ -15,6 +30,7 @@
 - PR #2916: Add SKLearn multi-class GBDT model support in FIL
 
 ## Improvements
+- PR #2947: Add more warnings for accuracy degradation with 64-bit models
 - PR #2873: Remove empty marker kernel code for NVTX markers
 - PR #2796: Remove tokens of length 1 by default for text vectorizers
 - PR #2741: Use rapids build packages in conda environments
@@ -44,17 +60,21 @@
 - PR #2850: Clean up unused params in paramsPCA
 - PR #2871: Add timing function to utils
 - PR #2863: in FIL, rename leaf_value_t enums to more descriptive
+- PR #2892 Update ci/local/README.md
 - PR #2867: improve stability of FIL benchmark measurements
 - PR #2798: Add python tests for FIL multiclass classification of lightgbm models
 - PR #2892: Update ci/local/README.md
 - PR #2910: Adding Support for CuPy 8.x
 - PR #2914: Add tests for XGBoost multi-class models in FIL
+- PR #2622: Simplify tSNE perplexity search
 - PR #2930: Pin libfaiss to <=1.6.3
 - PR #2928: Updating Estimators Derived from Base for Consistency
 - PR #2942: Adding `cuml.experimental` to the Docs
-- PR #2956: Consistency of get_params and set_params in ARIMA
+- PR #3010: Improve gpuCI Scripts
 
 ## Bug Fixes
+- PR #2973: Allow data imputation for nan values
+- PR #2982: Adjust kneighbors classifier test threshold to avoid intermittent failure
 - PR #2885: Changing test target for NVTX wrapper test
 - PR #2882: Allow import on machines without GPUs
 - PR #2875: Bug fix to enable colorful NVTX markers
@@ -84,10 +104,18 @@
 - PR #2932: Marking KBinsDiscretizer pytests as xfail
 - PR #2925: Fixing Owner Bug When Slicing CumlArray Objects
 - PR #2931: Fix notebook error handling in gpuCI
+- PR #2941: Fixing dask tsvd stress test failure
 - PR #2943: Remove unused shuffle_features parameter
 - PR #2940: Correcting labels meta dtype for `cuml.dask.make_classification`
+- PR #2965: Notebooks update
+- PR #2955: Fix for conftest for singlegpu build
 - PR #2968: Remove shuffle_features from RF param names
 - PR #2957: Fix ols test size for stability
+- PR #2972: Upgrade Treelite to 0.93
+- PR #2981: Prevent unguarded import of sklearn in SVC
+- PR #2984: Fix GPU test scripts gcov error
+- PR #2990: Reduce MNMG kneighbors regressor test threshold
+- PR #2997: Changing ARIMA `get/set_params` to `get/set_fit_params`
 
 # cuML 0.15.0 (Date TBD)
 

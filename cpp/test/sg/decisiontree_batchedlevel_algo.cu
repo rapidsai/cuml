@@ -152,10 +152,10 @@ class DtRegressorTest : public DtBaseTest<T, T> {
     auto cublas = this->handle->get_cublas_handle();
     auto cusolver = this->handle->get_cusolver_dn_handle();
     auto inparams = this->inparams;
-    MLCommon::Random::make_regression<T>(
-      tmp, this->labels, inparams.M, inparams.N, inparams.N, cublas, cusolver,
-      allocator, this->stream, nullptr, 1, T(1.0), -1, T(0.5), T(0.0), false,
-      inparams.seed);
+    MLCommon::Random::make_regression<T>(*(this->handle), tmp, this->labels,
+                                         inparams.M, inparams.N, inparams.N,
+                                         this->stream, nullptr, 1, T(1.0), -1,
+                                         T(0.5), T(0.0), false, inparams.seed);
   }
 };  // class DtRegressorTest
 typedef DtRegressorTest<float> DtRegTestF;

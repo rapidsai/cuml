@@ -384,12 +384,13 @@ class ARIMA(Base):
         cdef ARIMAOrder order = self.order
         return order.p + order.P + order.q + order.Q + order.k + 1
 
-    def get_fit_params(self) -> Dict[str, np.ndarray]:
+    def get_fit_params(self) -> Dict[str, object]:
         """Get all the fit parameters. Not to be confused with get_params
         Note: pack() can be used to get a compact vector of the parameters
 
         Returns
         -------
+        params: Dict[str, object]
             A dictionary of parameter names and associated arrays
             The key names are in {"mu", "ar", "ma", "sar", "sma", "sigma2"}
             The shape of the arrays are (batch_size,) for mu and sigma2 and
@@ -406,12 +407,13 @@ class ARIMA(Base):
         return params
 
     def set_fit_params(self, params: Mapping[str, object]):
-        """Set all the fit parameters. Not to be confused with set_params
-        Note: unpack() can be used to load a compact vector of the parameters
+        """Set all the fit parameters. Not to be confused with ``set_params``
+        Note: `unpack()` can be used to load a compact vector of the
+        parameters
 
         Parameters
         ----------
-        params:
+        params: Dict[str, array-like]
             A dictionary of parameter names and associated arrays
             The key names are in {"mu", "ar", "ma", "sar", "sma", "sigma2"}
             The shape of the arrays are (batch_size,) for mu and sigma2 and
@@ -426,6 +428,33 @@ class ARIMA(Base):
 
     def get_param_names(self):
         raise NotImplementedError
+
+    def get_param_names(self):
+        """
+        .. warning:: ARIMA is unable to be cloned at this time. The methods:
+            `get_param_names()`, `get_params` and `set_params` will raise
+            ``NotImplementedError``
+        """
+        raise NotImplementedError("ARIMA is unable to be cloned via "
+                                  "`get_params` and `set_params`.")
+
+    def get_params(self, deep=True):
+        """
+        .. warning:: ARIMA is unable to be cloned at this time. The methods:
+            `get_param_names()`, `get_params` and `set_params` will raise
+            ``NotImplementedError``
+        """
+        raise NotImplementedError("ARIMA is unable to be cloned via "
+                                  "`get_params` and `set_params`.")
+
+    def set_params(self, **params):
+        """
+        .. warning:: ARIMA is unable to be cloned at this time. The methods:
+            `get_param_names()`, `get_params` and `set_params` will raise
+            ``NotImplementedError``
+        """
+        raise NotImplementedError("ARIMA is unable to be cloned via "
+                                  "`get_params` and `set_params`.")
 
     @nvtx_range_wrap
     def predict(self, start=0, end=None, level=None):

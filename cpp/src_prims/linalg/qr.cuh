@@ -113,7 +113,7 @@ void qrGetQR(math_t *M, math_t *Q, math_t *R, int n_rows, int n_cols,
   CUDA_CHECK(cudaDeviceSynchronize());
 #endif
 
-  Matrix::copyUpperTriangular(R_full.data(), R, m, n, stream);
+  raft::matrix::copyUpperTriangular(R_full.data(), R, m, n, stream);
 
   CUDA_CHECK(cudaMemcpyAsync(Q, R_full.data(), sizeof(math_t) * m * n,
                              cudaMemcpyDeviceToDevice, stream));

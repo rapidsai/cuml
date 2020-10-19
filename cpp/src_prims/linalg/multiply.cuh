@@ -18,8 +18,8 @@
 
 #include "unary_op.cuh"
 
-namespace MLCommon {
-namespace LinAlg {
+namespace raft {
+namespace linalg {
 
 /**
  * @defgroup ScalarOps Scalar operations on the input buffer
@@ -35,11 +35,11 @@ namespace LinAlg {
 template <typename math_t, typename IdxType = int>
 void multiplyScalar(math_t *out, const math_t *in, math_t scalar, IdxType len,
                     cudaStream_t stream) {
-  raft::linalg::unaryOp(
+  unaryOp(
     out, in, len, [scalar] __device__(math_t in) { return in * scalar; },
     stream);
 }
 /** @} */
 
-};  // end namespace LinAlg
-};  // end namespace MLCommon
+};  // end namespace linalg
+};  // end namespace raft
