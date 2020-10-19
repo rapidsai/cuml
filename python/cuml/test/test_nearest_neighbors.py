@@ -319,12 +319,12 @@ def test_knn_graph(input_type, nrows, n_feats, p, k, metric, mode,
         assert isspmatrix_csr(sparse_cu)
 
 
-@pytest.mark.parametrize('nrows', [10])
-@pytest.mark.parametrize('ncols', [10])
-@pytest.mark.parametrize('density', [0.4, 0.8])
-@pytest.mark.parametrize('n_neighbors', [2, 4])
-@pytest.mark.parametrize('batch_size_index', [20000])
-@pytest.mark.parametrize('batch_size_query', [20000])
+@pytest.mark.parametrize('nrows', [500000])
+@pytest.mark.parametrize('ncols', [1000])
+@pytest.mark.parametrize('density', [0.07])
+@pytest.mark.parametrize('n_neighbors', [3])
+@pytest.mark.parametrize('batch_size_index', [10000])
+@pytest.mark.parametrize('batch_size_query', [10000])
 def test_sparse_nearest_neighbors_euclidean(nrows, ncols,
                                             density,
                                             n_neighbors,
@@ -334,6 +334,8 @@ def test_sparse_nearest_neighbors_euclidean(nrows, ncols,
     a = cp.sparse.random(nrows, ncols, format='csr', density=density,
                          random_state=32)
 
+    print("Data created")
+
     logger.set_level(logger.level_info)
     nn = cuKNN(metric='l1', n_neighbors=n_neighbors,
                verbose=logger.level_debug,
@@ -341,14 +343,21 @@ def test_sparse_nearest_neighbors_euclidean(nrows, ncols,
                             "batch_size_query": batch_size_query})
     nn.fit(a)
 
+    import time
+
+    print("Calling kneighbors")
+    start = time.time()
     cuD, cuI = nn.kneighbors(a)
+    print("cuML took %s" % (time.time() - start))
 
     sknn = skKNN(metric='l1', n_neighbors=n_neighbors,
                  algorithm="brute", n_jobs=-1)
     sk_X = a.get()
     sknn.fit(sk_X)
 
+    start = time.time()
     skD, skI = sknn.kneighbors(sk_X)
-
-    cp.testing.assert_allclose(cuD, skD, atol=1e-3, rtol=1e-3)
-    cp.testing.assert_allclose(cuI, skI, atol=1e-4, rtol=1e-4)
+    print("sk took %s" % (time.time() - start))
+    #
+    # cp.testing.assert_allclose(cuD, skD, atol=1e-3, rtol=1e-3)
+    # cp.testing.assert_allclose(cuI, skI, atol=1e-4, rtol=1e-4)

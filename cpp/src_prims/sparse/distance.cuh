@@ -23,6 +23,8 @@
 #include <cuml/common/cuml_allocator.hpp>
 #include <sparse/csr.cuh>
 
+#include <limits.h>
+
 #include <cuml/distance/distance_type.h>
 #include <cuml/neighbors/knn.hpp>
 
@@ -30,6 +32,10 @@
 
 #include <cusparse_v2.h>
 #include <raft/sparse/cusparse_wrappers.h>
+
+#include <cub/block/block_load.cuh>
+#include <cub/block/block_store.cuh>
+#include <cub/block/block_radix_sort.cuh>
 
 namespace MLCommon {
 namespace Sparse {
@@ -397,8 +403,7 @@ __device__ void bitonic_sort_by_key_3(value_t *keys, value_idx *vals,
                                       int n_elements, int tid, int row, int col, bool verbose) {
   for(int split = 2; split < n_elements; split <<=1) {
     for(int away = split; away >= 1; away >>= 1) {
-      if(tid < n_elements) {
-
+      for(int thread_id = tid; thread_id < n_elements; thread_id += blockDim.x) {
         int i_mask = ((1<<30) - 1) - away;
         int j_mask = away;
         int is_inc_mask = split << 1;
@@ -417,26 +422,27 @@ __device__ void bitonic_sort_by_key_3(value_t *keys, value_idx *vals,
 
 
 //          if(verbose)
-            printf("row=%d, col=%d, tid=%d, split=%d, away=%d, i=%d, j=%d, vals[i]=%d, vals[j]=%d\n", row, col, tid, split, away, i, j, vals[i], vals[j]);
+//            printf("row=%d, col=%d, tid=%d, split=%d, away=%d, i=%d, j=%d, vals[i]=%d, vals[j]=%d\n", row, col, tid, split, away, i, j, vals[i], vals[j]);
 
           swap(vals, i, j);
           swap(keys, i, j);
         }
       }
-
-      __syncthreads();
     }
+
+    __syncthreads();
   }
 }
 
 template<typename value_idx, typename value_t>
 __device__ void even_odd_merge_sort(value_t *keys, value_idx *vals,
-                                      int n_elements, int tid, int row, int col, bool verbose) {
+                                      int n_elements, int tid, int row,
+                                    int col, bool verbose) {
   for(int i = 0; i < n_elements; i++) {
 
     bool is_even = i % 2 == 0; // TODO: use fastmath here
-    if(tid < n_elements >> 1) {
-      int idx = is_even ? tid << 1 : (tid<<1)+1;
+    for(int j = tid; j < n_elements >> 1; j += blockDim.x) {
+      int idx = is_even ? j << 1 : (j<<1)+1;
       if(vals[idx+1] < vals[idx] && idx+1 < n_elements) {
         swap(keys, idx, idx+1);
         swap(vals, idx, idx+1);
@@ -446,6 +452,237 @@ __device__ void even_odd_merge_sort(value_t *keys, value_idx *vals,
     __syncthreads();
   }
 }
+
+template<typename value_idx, typename value_t, int tpb, int items_per_thread>
+__device__ void cub_block_radix_sort(
+  value_idx (&cols)[items_per_thread], value_t (&vals)[items_per_thread],
+                                      value_idx *cols_inA, value_idx *cols_inB,
+                                     value_t *vals_inA, value_t *vals_inB,
+                                     int start_offsetA, int start_offsetB,
+                                     int stop_offsetA, int stop_offsetB,
+                                     int nnz_a, int nnz_b,
+                                     value_idx *cols_shared, value_t *vals_shared) {
+
+  typedef cub::BlockRadixSort<value_idx, tpb, items_per_thread, value_t> BlockRadixSort;
+  __shared__ typename BlockRadixSort::TempStorage temp_storage;
+
+  BlockRadixSort(temp_storage).Sort(cols, vals);
+
+  __syncthreads();
+//
+//  cub::BlockStore<value_idx, tpb, items_per_thread>().Store(cols_shared, cols);
+//  cub::BlockStore<value_t, tpb, items_per_thread>().Store(vals_shared, vals);
+}
+
+
+const int MAX_INT = std::numeric_limits<int>::max();
+const float MAX_FLOAT = std::numeric_limits<float>::max();
+
+
+template<typename value_idx, typename value_t>
+__device__ void thread_step(int idx, int tid, int local_idx, int shared_idx,
+                            value_idx *local_cols,
+                            value_idx *shared_cols, value_t *local_vals,
+                            value_t *shared_vals, int shared_size,
+                                 value_t sum,
+                            int chunk_size,
+                            value_idx *offsets,
+                            value_t *out) {
+
+  value_idx l = local_idx < chunk_size ? 1 : 0;//local_cols[local_idx] : 0;
+  value_idx r = shared_idx < shared_size ? 1 : 0;//shared_cols[shared_idx] : 0;
+
+  value_t lv = local_idx < chunk_size ? 1 : 0;//local_vals[local_idx] : 0;
+  value_t rv = shared_idx < shared_size ? 1 : 0;//shared_vals[shared_idx] : 0;
+
+  value_t left_side = 0;
+  value_t right_side = 0;
+
+  if(l < r) {
+    local_idx++;
+    left_side = lv;
+  }
+
+  if(r > l) {
+    shared_idx++;
+    right_side = rv;
+  }
+
+//  int col_offset_idx = tid * chunk_size + local_idx;
+//  int col_offset_idx_lookup = 0;
+//
+//  // should be 0 if we've hit the end of the offset
+//  bool new_row = col_offset_idx - offsets[col_offset_idx_lookup+1] == 0;
+//
+//  value_t val = fabsf(l - r);
+//
+//  if(new_row)
+//    atomicAdd(out, sum + val);
+//
+//  sum *= new_row;
+//  sum += val;
+}
+template <typename value_idx, typename value_t, int tpb, int buffer_size,
+  int max_chunk_size, int rows_per_warp>
+struct Semiring {
+
+  __device__ inline Semiring(int tid_, value_idx m_, value_idx n_
+  ): tid(tid_), m(m_), n(n_){}
+
+  __device__ inline void load_a(value_idx row, value_idx *indptrA, value_idx *indicesA, value_t *dataA) {
+    start_offset_a = indptrA[row];
+    stop_offset_a = indptrA[row + 1];
+
+    for(int i = tid; i < stop_offset_a - start_offset_a; i += blockDim.x) {
+      shared_cols[i] = indicesA[start_offset_a+i];
+      shared_vals[i] = dataA[start_offset_a+i];
+    }
+  }
+
+  __device__ inline void load_b(value_idx start_row, value_idx *indptrB, value_idx *indicesB, value_t *dataB) {
+    start_row_b = start_row * rows_per_warp;
+    stop_row_b = min(start_row_b + rows_per_warp,
+                               start_row_b + (n-start_row_b)-1);
+
+    for(int i = tid; i < (stop_row_b - start_row_b)+1; i+= blockDim.x) {
+      offsets[i] = indptrB[start_row_b + i];
+    }
+    __syncthreads();
+
+    start_offset_b = offsets[0];
+    stop_offset_b = offsets[stop_row_b-start_row_b];
+
+    for(int i = tid; i < stop_offset_b - start_offset_b; i += blockDim.x) {
+      chunk_cols[i] = indicesB[start_offset_b+i];
+      chunk_vals[i] = dataB[start_offset_b+i];
+    }
+  }
+
+  __device__ inline bool step() {
+
+    value_idx working_chunk_size = (stop_offset_b - start_offset_b) / blockDim.x;
+
+    value_idx local_idx = 0;
+    value_idx shared_idx = 0;
+    int idx = working_chunk_size * tid;
+
+    value_t sum = 0;
+
+    int shared_size = stop_offset_a - start_offset_a;
+
+    for(int i = 0; i < max(working_chunk_size, shared_size); i++) {
+      value_idx l = local_idx < working_chunk_size ? chunk_cols[local_idx] : 0;
+      value_idx r = shared_idx < shared_size ? shared_cols[shared_idx] : 0;
+
+      value_t lv = local_idx < working_chunk_size ? chunk_vals[local_idx] : 0;
+      value_t rv = shared_idx < shared_size ? shared_vals[shared_idx] : 0;
+
+      value_t left_side = 0;
+      value_t right_side = 0;
+
+      if(l < r) {
+        local_idx++;
+        left_side = lv;
+      }
+
+      if(r > l) {
+        shared_idx++;
+        right_side = rv;
+      }
+
+
+
+      __syncthreads();
+    }
+
+  }
+
+  __device__ inline void write(value_t *out) {}
+
+ private:
+
+  int tid;
+
+  value_idx m;
+  value_idx n;
+  value_idx start_offset_a;
+  value_idx stop_offset_a;
+
+  value_idx start_offset_b;
+  value_idx stop_offset_b;
+
+  value_idx start_row_b;
+  value_idx stop_row_b;
+
+};
+
+
+
+template <typename value_idx, typename value_t, int tpb, int buffer_size,
+          int max_chunk_size, int rows_per_warp>
+__global__ void semiring_kernel_thread_per_col(
+  value_idx *indptrA, value_idx *indicesA, value_t *dataA,
+  value_idx *indptrB, value_idx *indicesB, value_t *dataB,
+  value_idx m, value_idx n, value_t *out,
+  int n_warps_per_row
+
+) {
+  value_idx out_row = blockIdx.x / n_warps_per_row;
+  value_idx out_col = blockIdx.x % n_warps_per_row;
+  value_idx tid = threadIdx.x;
+
+//
+//  if(tid == 0 && out_row < 5) {
+//    printf("out_row=%d, out_col=%d, tid=%d\n", out_row, out_col, tid);
+//  }
+//
+  if(out_row > m || out_col > n_warps_per_row) return;
+  // num_warps = n_rows_a * (n_rows_b / rows_per_warp)
+
+  __shared__ value_idx offsets[rows_per_warp+1];
+  __shared__ value_idx shared_cols[buffer_size];
+  __shared__ value_t shared_vals[buffer_size];
+  __shared__ value_idx chunk_cols[buffer_size];
+  __shared__ value_t chunk_vals[buffer_size];
+
+
+  Semiring<value_idx, value_t, tpb, buffer_size, max_chunk_size, rows_per_warp> semiring(tid, m, n, offsets, shared_cols, shared_vals, chunk_cols, chunk_vals);
+
+  semiring.load_a(out_row, indptrA, indicesA, dataA);
+  semiring.load_b(out_col, indptrB, indicesB, dataB);
+
+  semiring.step();
+
+
+
+//  if(stop_row_b - start_row_b > rows_per_warp || stop_row_b >= n) {
+//    printf("WE HAVE A PROBLEM!: %d", stop_row_b - start_row_b);
+//  }
+
+  //
+//  if(tid == 0 && out_row == 0) {
+//    printf("start_row_a=%d, start_row_b=%d, stop_row_b=%d\n", out_row, start_row_b, stop_row_b);
+//  }
+
+//
+
+//    if(tid == 0 && out_row == 0) {
+//    printf("start_offset_b=%d, stop_offset_b=%d\n", start_offset_b, stop_offset_b);
+//  }
+
+//
+////
+  __syncthreads();
+//
+}
+
+
+
+/*
+ * Algorithm #2:
+ *   each thread maintains a queue buffer for some row/col pair which they load
+ *
+ */
 
 /**
  * Assuming the nnz cols of A and B (About 5k each) can both fit into shared memory for now
@@ -457,13 +694,17 @@ __device__ void even_odd_merge_sort(value_t *keys, value_idx *vals,
  * - This enables several minkowski-class metrics, as well as a matrix multiply from this
  * - The k-select could be done right in this kernel so that intermediate results never need to be written to global memory.
  */
-template <typename value_idx, typename value_t, int buffer_size,
+template <typename value_idx, typename value_t, int tpb, int buffer_size,
           typename accumulator_f, typename reduction_f>
-__global__ void row_distance_block_reduce_kernel(
+__global__ void semiring_kernel(
   value_t *out, value_idx *indptrA, value_idx *indicesA, value_t *dataA,
   size_t nnzA, value_idx *indptrB, value_idx *indicesB, value_t *dataB,
   size_t nnzB, size_t m, size_t n, reduction_f func_reducer,
   accumulator_f func_accumulator) {
+
+
+  constexpr int items_per_thread = buffer_size / tpb;
+
   value_idx out_row = blockIdx.x / n;
   value_idx out_col = blockIdx.x % n;
   value_idx tid = threadIdx.x;
@@ -472,6 +713,9 @@ __global__ void row_distance_block_reduce_kernel(
 
   __shared__ value_idx cols_buffer[buffer_size];
   __shared__ value_t vals_buffer[buffer_size];
+
+  value_idx cols[items_per_thread];
+  value_t vals[items_per_thread];
 
   value_idx start_offset_a;
   value_idx stop_offset_a;
@@ -492,41 +736,80 @@ __global__ void row_distance_block_reduce_kernel(
   col_nnz_a = stop_offset_a - start_offset_a;
   col_nnz_b = stop_offset_b - start_offset_b;
 
-  // Load A into buffer
-  for (int i = tid; i < col_nnz_a; i += blockDim.x) {
-    cols_buffer[i] = indicesA[start_offset_a + i];
-    vals_buffer[i] = dataA[start_offset_a + i];
+#pragma unroll
+for(int i = 0; i < items_per_thread; i++) {
+  cols[i] = 50000;
+}
+
+//  // Load A into buffer
+#pragma unroll
+  for(int i = 0; i < items_per_thread; i++) {
+    int index = (tid + (i * tpb));
+    if(index < col_nnz_a) {
+      cols[i] = indicesA[start_offset_a + index];
+      vals[i] = dataA[start_offset_a + index];
+    }
   }
 
   // Load B into buffer
-  for (int i = tid; i < col_nnz_b; i += blockDim.x) {
-    cols_buffer[i + col_nnz_a] = indicesB[start_offset_b + i];
-    vals_buffer[i + col_nnz_a] = dataB[start_offset_b + i];
-  }
-
-  __syncthreads();
-
-  if (tid == 0 && out_row == 0 && out_col == 1) {
-    printf("unsorted: row=%d, col=%d, [\n", out_row, out_col);
-    for (int i = 0; i < col_nnz_b + col_nnz_a; i++) {
-      printf("%d, ", cols_buffer[i]);
+#pragma unroll
+  for(int i = 0; i < items_per_thread; i++) {
+    int index = (tid + (i * tpb));
+    if(index < col_nnz_b) {
+      cols[i+col_nnz_a] = indicesB[start_offset_b + index];
+      vals[i+col_nnz_a] = dataB[start_offset_b + index];
     }
-    printf("]\n");
   }
+//
+//  __syncthreads();
+//
+//  if (tid==1 && out_row == 0 && out_col == 1) {
+//    printf("unsorted: tid=%d, row=%d, col=%d, [\n", tid, out_row, out_col);
+//    for (int i = 0; i < items_per_thread; i++) {
+//      printf("%d, ", cols[i]);
+//    }
+//    printf("]\n");
+//  }
+
+
+  cub_block_radix_sort<value_idx, value_t, tpb, items_per_thread>(
+    cols, vals, indicesA, indicesB, dataA, dataB, start_offset_a, start_offset_b,
+    stop_offset_a, stop_offset_b, col_nnz_a, col_nnz_b, cols_buffer, vals_buffer
+  );
+
   __syncthreads();
+
+//  if (tid==1 && out_row == 0 && out_col == 1) {
+//    printf("unsorted: tid=%d, row=%d, col=%d, [\n", tid, out_row, out_col);
+//    for (int i = 0; i < items_per_thread; i++) {
+//      printf("%d, ", cols[i]);
+//    }
+//    printf("]\n");
+//  }
+//
+//
+//  if (tid == 0 && out_row == 0 && out_col == 1) {
+//    printf("sorted: row=%d, col=%d, [\n", out_row, out_col);
+//    for (int i = 0; i < col_nnz_b + col_nnz_a; i++) {
+//      printf("%d, ", cols_buffer[i]);
+//    }
+//    printf("]\n");
+//  }
+//  __syncthreads();
 
   // Sort
-  even_odd_merge_sort(vals_buffer, cols_buffer, col_nnz_a + col_nnz_b, tid, out_row, out_col, out_row == 0 && out_col == 1 && tid == 0);
-
-  __syncthreads();
-
-  if (tid == 0 && out_row == 0 && out_col == 1) {
-    printf("sorted bufsize=%d [", col_nnz_a + col_nnz_b);
-    for (int i = 0; i < col_nnz_b + col_nnz_a; i++) {
-      printf("%d, ", cols_buffer[i]);
-    }
-    printf("]\n");
-  }
+//  bitonic_sort_by_key_3(vals_buffer, cols_buffer, col_nnz_a + col_nnz_b, tid,
+//                      out_row, out_col, out_row == 0 && out_col == 1 && tid == 0);
+//
+//  __syncthreads();
+//
+//  if (tid == 0 && out_row == 0 && out_col == 1) {
+//    printf("sorted bufsize=%d [", col_nnz_a + col_nnz_b);
+//    for (int i = 0; i < col_nnz_b + col_nnz_a; i++) {
+//      printf("%d, ", cols_buffer[i]);
+//    }
+//    printf("]\n");
+//  }
 
   // Reduce duplicates
   for (int i = tid; i < (col_nnz_a + col_nnz_b) - 2; i += blockDim.x) {
@@ -536,80 +819,92 @@ __global__ void row_distance_block_reduce_kernel(
     value_idx three = cols_buffer[i+2];
 
     if (two == three) {
-      vals_buffer[i+1] = func_reducer(vals_buffer[i+1], vals_buffer[i+2]);
-      vals_buffer[i + 2] = 0;
+      vals_buffer[i+1] = fabsf(vals_buffer[i+1] - vals_buffer[i+2]);
+      vals_buffer[i+2] = 0.0;
     } else if(one != two && two != three) {
-      vals_buffer[i+1] = func_reducer(vals_buffer[i+1], 0);
+      vals_buffer[i+1] = fabsf(vals_buffer[i+1] - 0.0);
     }
   }
   __syncthreads();
 
   if(tid == 0) {
     if(cols_buffer[0] == cols_buffer[1]) {
-      vals_buffer[0] = func_reducer(vals_buffer[0], vals_buffer[1]);
-      vals_buffer[1] = 0;
+      vals_buffer[0] = fabsf(vals_buffer[0] - vals_buffer[1]);
+      vals_buffer[1] = 0.0;
     } else if(cols_buffer[0] != cols_buffer[1]) {
-      vals_buffer[0] = func_reducer(vals_buffer[0], 0);
+      vals_buffer[0] = fabsf(vals_buffer[0] - 0.0);
     }
   }
 
   __syncthreads();
 
-  if (tid == 0 && out_row == 0 && out_col == 1) {
-    printf("vals_buffer after reduce dupes[");
-    for (int i = 0; i < col_nnz_b + col_nnz_a; i++) {
-      printf("%f, ", vals_buffer[i]);
-    }
-    printf("]\n");
-  }
+//  if (tid == 0 && out_row == 0 && out_col == 1) {
+//    printf("vals_buffer after reduce dupes[");
+//    for (int i = 0; i < col_nnz_b + col_nnz_a; i++) {
+//      printf("%f, ", vals_buffer[i]);
+//    }
+//    printf("]\n");
+//  }
+//
+//  if (tid == 0 && out_row == 0 && out_col == 1) {
+//    printf("cols_buffer after reduce dupes [");
+//    for (int i = 0; i < col_nnz_b + col_nnz_a; i++) {
+//      printf("%d, ", cols_buffer[i]);
+//    }
+//    printf("]\n");
+//  }
 
-  if (tid == 0 && out_row == 0 && out_col == 1) {
-    printf("cols_buffer after reduce dupes [");
-    for (int i = 0; i < col_nnz_b + col_nnz_a; i++) {
-      printf("%d, ", cols_buffer[i]);
-    }
-    printf("]\n");
-  }
 
 
-  // Tree-reduce
-  for (unsigned int i = (col_nnz_b + col_nnz_a) >> 1; i > 0; i >>= 1) {
-    if (tid < i) {
-      vals_buffer[tid] = func_accumulator(vals_buffer[tid], vals_buffer[tid + i]);
-    }
-    __syncthreads();
-  }
-////
-  if (tid == 0 && out_row == 0 && out_col == 1) {
-    printf("tree reduction row=%d, col=%d[", out_row, out_col);
-    for (int i = 0; i < col_nnz_b + col_nnz_a; i++) {
-      printf("%f, ", vals_buffer[i]);
-    }
-    printf("]\n");
-  }
+//  // Tree-reduce
+//  for (unsigned int i = blockDim.x >> 1; i > 0; i >>= 1) {
+//      vals_buffer[tid] = func_accumulator(vals_buffer[tid], vals_buffer[tid + i]);
+//    }
+//    __syncthreads();
+//  }
+//////
+//  if (tid == 0 && out_row == 0 && out_col == 1) {
+//    printf("tree reduction row=%d, col=%d[", out_row, out_col);
+//    for (int i = 0; i < col_nnz_b + col_nnz_a; i++) {
+//      printf("%f, ", vals_buffer[i]);
+//    }
+//    printf("]\n");
+//  }
 
-  if (tid == 0) out[out_row * n + out_col] = vals_buffer[0];
+  if (tid == 0) {
+    value_t sum = 0.0;
+//    for(int i = 0; i < (col_nnz_b + col_nnz_a); i++) {
+//      sum += vals_buffer[i];
+//    }
+    out[out_row * n + out_col] = sum;
+  }
 
 //  if(tid < (col_nnz_a + col_nnz_b))
 //    atomicAdd(out + (our_row * n + out_col), vals_buffer[tid]);
 }
 
 template <typename value_idx = int, typename value_t = float,
-          int max_buffer_size = 512, int threads_per_block = 32,   // TODO: These should be conditional based on the data
+          int max_buffer_size = 10000, int threads_per_block = 32,   // TODO: These should be conditional based on the data
           typename reduce_f = auto(value_t, value_t)->value_t,
           typename accum_f = auto(value_t, value_t)->value_t>
 void distance_block_reduce(value_t *out_dists,
                            distances_config_t<value_idx, value_t> config_,
                            reduce_f reduce_func, accum_f accum_func) {
 
-  constexpr int buffer_size = max_buffer_size * 2 * sizeof(value_t);
+//  semiring_kernel<value_idx, value_t, threads_per_block, buffer_size>
+//    <<<config_.a_nrows * config_.b_nrows, threads_per_block, 0,
+//       config_.stream>>>(
+//      out_dists, config_.a_indptr, config_.a_indices, config_.a_data,
+//      config_.a_nnz, config_.b_indptr, config_.b_indices, config_.b_data,
+//      config_.b_nnz, config_.a_nrows, config_.b_nrows, reduce_func, accum_func);
 
-  row_distance_block_reduce_kernel<value_idx, value_t, buffer_size>
-    <<<config_.a_nrows * config_.b_nrows, threads_per_block, 0,
+  int n_warps_per_row = ceildiv(config_.b_nrows, 128);
+  semiring_kernel_thread_per_col<value_idx, value_t, threads_per_block, max_buffer_size, 256, 128>
+    <<<config_.a_nrows * (config_.b_nrows/128), threads_per_block, 0,
        config_.stream>>>(
-      out_dists, config_.a_indptr, config_.a_indices, config_.a_data,
-      config_.a_nnz, config_.b_indptr, config_.b_indices, config_.b_data,
-      config_.b_nnz, config_.a_nrows, config_.b_nrows, reduce_func, accum_func);
+      config_.a_indptr, config_.a_indices, config_.a_data,
+      config_.b_indptr, config_.b_indices, config_.b_data,
+      config_.a_nrows, config_.b_nrows, out_dists, n_warps_per_row);
 };
 
 template <typename value_idx = int, typename value_t = float>
