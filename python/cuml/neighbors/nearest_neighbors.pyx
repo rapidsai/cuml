@@ -492,7 +492,7 @@ class NearestNeighbors(Base):
         elif mode == 'distance':
             dist_mlarr, ind_mlarr = self._kneighbors(X, n_neighbors)
             distances = dist_mlarr[:, 1:] if X is None else dist_mlarr
-            distances = cp.ravel(distances)
+            distances = cp.ravel(cp.asarray(distances))
 
         else:
             raise ValueError('Unsupported mode, must be one of "connectivity"'
