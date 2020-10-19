@@ -37,13 +37,16 @@ from cuml.common import input_to_cuml_array
 from cuml.common.array_descriptor import CumlArrayDescriptor
 
 class BaseRandomForestModel(Base):
-    variables = ['n_estimators', 'max_depth', 'handle',
-                 'max_features', 'n_bins',
-                 'split_algo', 'split_criterion', 'min_rows_per_node',
-                 'min_impurity_decrease',
-                 'bootstrap', 'bootstrap_features',
-                 'verbose', 'rows_sample',
-                 'max_leaves', 'quantile_per_tree', 'accuracy_metric']
+    _param_names = ['n_estimators', 'max_depth', 'handle',
+                    'max_features', 'n_bins',
+                    'split_algo', 'split_criterion', 'min_rows_per_node',
+                    'min_impurity_decrease',
+                    'bootstrap', 'bootstrap_features',
+                    'verbose', 'rows_sample',
+                    'max_leaves', 'quantile_per_tree',
+                    'accuracy_metric', 'use_experimental_backend',
+                    'max_batch_size']
+
     criterion_dict = {'0': GINI, '1': ENTROPY, '2': MSE,
                       '3': MAE, '4': CRITERION_END}
 
@@ -62,10 +65,8 @@ class BaseRandomForestModel(Base):
                  max_leaf_nodes=None, min_impurity_decrease=0.0,
                  min_impurity_split=None, oob_score=None,
                  random_state=None, warm_start=None, class_weight=None,
-                 quantile_per_tree=False, criterion=None):
-
-        # if accuracy_metric:
-        #     BaseRandomForestModel.variables.append('accuracy_metric')
+                 quantile_per_tree=False, criterion=None,
+                 use_experimental_backend=False, max_batch_size=128):
 
         sklearn_params = {"criterion": criterion,
                           "min_samples_leaf": min_samples_leaf,
@@ -142,6 +143,8 @@ class BaseRandomForestModel(Base):
         self.dtype = dtype
         self.accuracy_metric = accuracy_metric
         self.quantile_per_tree = quantile_per_tree
+        self.use_experimental_backend = use_experimental_backend
+        self.max_batch_size = max_batch_size
         self.n_streams = handle.getNumInternalStreams()
         self.random_state = random_state
         self.rf_forest = 0
@@ -346,21 +349,7 @@ class BaseRandomForestModel(Base):
         return preds
 
     def get_param_names(self):
-        combined = super().get_param_names() + BaseRandomForestModel.variables
-
-        if ("handle" in combined):
-            combined.remove("handle")
-
-        return combined
-
-    # def _get_params(self, deep):
-    #     params = dict()
-    #     for key in BaseRandomForestModel.variables:
-    #         if key in ['handle']:
-    #             continue
-    #         var_value = getattr(self, key, None)
-    #         params[key] = var_value
-    #     return params
+        return super().get_param_names() + BaseRandomForestModel._param_names
 
     def set_params(self, **params):
         self.treelite_serialized_model = None

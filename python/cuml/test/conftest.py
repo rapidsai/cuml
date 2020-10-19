@@ -1,6 +1,21 @@
-import numbers
-import os
+#
+# Copyright (c) 2018-2020, NVIDIA CORPORATION.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
 
+import os
+import sys
 import _pytest.config
 import _pytest.terminal
 import cupy as cp
@@ -15,9 +30,37 @@ from sklearn.feature_extraction.text import CountVectorizer
 
 # rmm.reinitialize(logging=True, log_file_name="test_log.txt")
 
+
 # Stores incorrect uses of CumlArray on cuml.common.base.Base to print at the
 # end
 bad_cuml_array_loc = set()
+
+
+def checked_isinstance(obj, class_name_dot_separated):
+    """
+    Small helper function to check instance of object that doesn't import
+    class_path at import time, only at check time. Returns False if
+    class_path cannot be imported.
+
+    Parameters:
+    -----------
+    obj: Python object
+        object to check if it is instance of a class
+    class_name_dot_separated: list of str
+        List of classes to check whether object is an instance of, each item
+        can be a full dot  separated class like
+        'cuml.dask.preprocessing.LabelEncoder'
+    """
+    ret = False
+    for class_path in class_name_dot_separated:
+        module_name, class_name = class_path.rsplit(".", 1)
+        module = sys.modules[module_name]
+        module_class = getattr(module, class_name, None)
+
+        if module_class is not None:
+            ret = isinstance(obj, module_class) or ret
+
+    return ret
 
 
 # Set a bad cupy allocator that will fail if rmm.rmm_cupy_allocator is not used
@@ -197,9 +240,10 @@ def fail_on_bad_cuml_array_name(monkeypatch, request):
 
     def patched__setattr__(self, name, value):
 
-        if name == 'classes_' and isinstance(self,
-                                             (LabelEncoder,
-                                              dask_label)):
+        if name == 'classes_' and \
+                checked_isinstance(self,
+                                   ['cuml.dask.preprocessing.LabelEncoder',
+                                    'cuml.preprocessing.LabelEncoder']):
             # For label encoder, classes_ stores the set of unique classes
             # which is strings, and can't be saved as cuml array
             # even called `get_supported_input_type` causes a failure.

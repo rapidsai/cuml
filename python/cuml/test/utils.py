@@ -139,7 +139,7 @@ def get_handle(use_handle, n_streams=0):
 
 
 def small_regression_dataset(datatype):
-    X, y = make_regression(n_samples=500, n_features=20,
+    X, y = make_regression(n_samples=1000, n_features=20,
                            n_informative=10, random_state=10)
     X = X.astype(datatype)
     y = y.astype(datatype)
@@ -186,8 +186,15 @@ class ClassEnumerator:
     custom_constructors: dictionary of {class_name: lambda}
         Custom constructors to use instead of the default one.
         ex: {'LogisticRegression': lambda: cuml.LogisticRegression(handle=1)}
+    recursive: bool, default=False
+        Instructs the class to recursively search submodules when True,
+        otherwise only classes in the specified model will be enumerated
     """
-    def __init__(self, module, exclude_classes=None, custom_constructors=None, recursive=False):
+    def __init__(self,
+                 module,
+                 exclude_classes=None,
+                 custom_constructors=None,
+                 recursive=False):
         self.module = module
         self.exclude_classes = exclude_classes or []
         self.custom_constructors = custom_constructors or []
@@ -198,14 +205,17 @@ class ClassEnumerator:
             classes = {}
 
             modules = []
-            
+
             if (self.recursive):
                 modules = inspect.getmembers(module, inspect.ismodule)
 
+            # Enumerate child modules only if they are a submodule of the
+            # current one. i.e. `{parent_module}.{submodule}`
             for _, m in modules:
                 if (module.__name__ + "." in m.__name__):
                     classes.update(recurse_module(m))
 
+            # Ensure we only get classes that are part of this module
             classes.update({
                 (".".join((klass.__module__, klass.__qualname__))): klass
                 for name,
@@ -216,7 +226,8 @@ class ClassEnumerator:
 
             return classes
 
-        return [(val.__name__, val) for key, val in recurse_module(self.module).items()]
+        return [(val.__name__, val) for key,
+                val in recurse_module(self.module).items()]
 
     def get_models(self):
         """Picks up every models classes from self.module.
@@ -240,10 +251,42 @@ class ClassEnumerator:
         return models
 
 
-def get_classes_from_package(package):
-    # modules = [m for name, m in inspect.getmembers(package, inspect.ismodule)]
-    # classes = [ClassEnumerator(module).get_models() for module in modules]
-    # return {k: v for dictionary in classes for k, v in dictionary.items()}
+def get_classes_from_package(package, import_sub_packages=False):
+    """
+    Gets all modules imported in the specified package and returns a dictionary
+    of any classes that derive from `cuml.Base`
+
+    Parameters
+    ----------
+    package : python module The python module to search import_sub_packages :
+        bool, default=False When set to True, will try to import sub packages
+        by searching the directory tree for __init__.py files and importing
+        them accordingly. By default this is set to False
+
+    Returns
+    -------
+    ClassEnumerator Class enumerator for the specified package
+    """
+
+    if (import_sub_packages):
+        import os
+        import importlib
+
+        # First, find all __init__.py files in subdirectories of this package
+        root_dir = os.path.dirname(package.__file__)
+
+        root_relative = os.path.dirname(root_dir)
+
+        # Now loop
+        for root, _, files in os.walk(root_dir):
+
+            if "__init__.py" in files:
+
+                module_name = os.path.relpath(root, root_relative).replace(
+                    os.sep, ".")
+
+                importlib.import_module(module_name)
+
     return ClassEnumerator(module=package, recursive=True).get_models()
 
 

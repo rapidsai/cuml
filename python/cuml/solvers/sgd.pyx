@@ -203,13 +203,21 @@ class SGD(Base):
         The old learning rate is generally divide by 5
     n_iter_no_change : int (default = 5)
         the number of epochs to train without any imporvement in the model
-    output_type : {'input', 'cudf', 'cupy', 'numpy'}, optional
+    handle : cuml.Handle
+        Specifies the cuml.handle that holds internal CUDA state for
+        computations in this model. Most importantly, this specifies the CUDA
+        stream that will be used for the model's computations, so users can
+        run different models concurrently in different streams by creating
+        handles in several streams.
+        If it is None, a new one is created.
+    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
         Variable to control output type of the results and attributes of
-        the estimators. If None, it'll inherit the output type set at the
-        module level, cuml.output_type. If set, the estimator will override
-        the global option for its behavior.
-    verbose : int or boolean (default = False)
+        the estimator. If None, it'll inherit the output type set at the
+        module level, `cuml.global_output_type`.
+        See :ref:`output-data-type-configuration` for more info.
+    verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        See :ref:`verbosity-levels` for more info.
 
     """
 
@@ -491,19 +499,18 @@ class SGD(Base):
         return preds
 
     def get_param_names(self):
-        return super().get_param_names() + \
-            [
-                "loss",
-                "penalty",
-                "alpha",
-                "l1_ratio",
-                "fit_intercept",
-                "epochs",
-                "tol",
-                "shuffle",
-                "learning_rate",
-                "eta0",
-                "power_t",
-                "batch_size",
-                "n_iter_no_change",
-            ]
+        return super().get_param_names() + [
+            "loss",
+            "penalty",
+            "alpha",
+            "l1_ratio",
+            "fit_intercept",
+            "epochs",
+            "tol",
+            "shuffle",
+            "learning_rate",
+            "eta0",
+            "power_t",
+            "batch_size",
+            "n_iter_no_change",
+        ]

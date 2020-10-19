@@ -1,6 +1,7 @@
 """Utilities for input validation"""
 
-# Authors: Olivier Grisel
+# Original authors from Sckit-Learn:
+#          Olivier Grisel
 #          Gael Varoquaux
 #          Andreas Mueller
 #          Lars Buitinck
@@ -8,6 +9,13 @@
 #          Nicolas Tresegnie
 #          Sylvain Marie
 # License: BSD 3 clause
+
+
+# This code originates from the Scikit-Learn library,
+# it was since modified to allow GPU acceleration.
+# This code is under BSD 3 clause license.
+# Authors mentioned above do not endorse or promote this production.
+
 
 from functools import wraps
 import warnings

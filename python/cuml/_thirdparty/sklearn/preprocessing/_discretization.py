@@ -1,9 +1,16 @@
 # -*- coding: utf-8 -*-
 
-# Author: Henry Lin <hlin117@gmail.com>
+# Original authors from Sckit-Learn:
+#         Henry Lin <hlin117@gmail.com>
 #         Tom Dupré la Tour
 
 # License: BSD
+
+
+# This code originates from the Scikit-Learn library,
+# it was since modified to allow GPU acceleration.
+# This code is under BSD 3 clause license.
+# Authors mentioned above do not endorse or promote this production.
 
 
 import numbers
@@ -37,14 +44,9 @@ def digitize(x, bins):
     return out
 
 
-@check_cupy8()
 class KBinsDiscretizer(TransformerMixin, BaseEstimator):
     """
     Bin continuous data into intervals.
-
-    Read more in the :ref:`User Guide <preprocessing_discretization>`.
-
-    .. versionadded:: 0.20
 
     Parameters
     ----------
@@ -88,7 +90,7 @@ class KBinsDiscretizer(TransformerMixin, BaseEstimator):
 
     See Also
     --------
-     sklearn.preprocessing.Binarizer : Class used to bin values as ``0`` or
+     cuml.preprocessing.Binarizer : Class used to bin values as ``0`` or
         ``1`` based on a parameter ``threshold``.
 
     Notes
@@ -138,6 +140,7 @@ class KBinsDiscretizer(TransformerMixin, BaseEstimator):
 
     """
 
+    @check_cupy8()
     @_deprecate_positional_args
     def __init__(self, n_bins=5, *, encode='onehot', strategy='quantile'):
         self.n_bins = n_bins

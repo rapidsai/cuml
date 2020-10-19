@@ -100,19 +100,18 @@ class Base(metaclass=cuml.internals.BaseMetaClass):
         stream that will be used for the model's computations, so users can
         run different models concurrently in different streams by creating
         handles in several streams.
-        If it is None, a new one is created just for this class.
-    verbose : int or boolean (default = False)
+        If it is None, a new one is created.
+    verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
-    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, optional
+        See :ref:`verbosity-levels` for more info.
+    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
         Variable to control output type of the results and attributes of
-        the estimators. If None, it'll inherit the output type set at the
-        module level, cuml.output_type. If set, the estimator will override
-        the global option for its behavior.
+        the estimator. If None, it'll inherit the output type set at the
+        module level, `cuml.global_output_type`.
+        See :ref:`output-data-type-configuration` for more info.
 
     Examples
     --------
-
-
 
     .. code-block:: python
 

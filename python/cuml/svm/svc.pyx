@@ -39,7 +39,10 @@ from cuml.preprocessing import LabelEncoder
 from cuml.common.memory_utils import using_output_type
 from libcpp cimport bool, nullptr
 from cuml.svm.svm_base import SVMBase
-from sklearn.calibration import CalibratedClassifierCV
+from cuml.common.import_utils import has_sklearn
+
+if has_sklearn():
+    from sklearn.calibration import CalibratedClassifierCV
 
 cdef extern from "cuml/matrix/kernelparams.h" namespace "MLCommon::Matrix":
     enum KernelType:
@@ -135,7 +138,12 @@ class SVC(SVMBase, ClassifierMixin):
     Parameters
     ----------
     handle : cuml.Handle
-        If it is None, a new one is created for this class
+        Specifies the cuml.handle that holds internal CUDA state for
+        computations in this model. Most importantly, this specifies the CUDA
+        stream that will be used for the model's computations, so users can
+        run different models concurrently in different streams by creating
+        handles in several streams.
+        If it is None, a new one is created.
     C : float (default = 1.0)
         Penalty parameter C
     kernel : string (default='rbf')
@@ -172,19 +180,20 @@ class SVC(SVMBase, ClassifierMixin):
         We monitor how much our stopping criteria changes during outer
         iterations. If it does not change (changes less then 1e-3*tol)
         for nochange_steps consecutive steps, then we stop training.
-    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, optional
+    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
         Variable to control output type of the results and attributes of
-        the estimators. If None, it'll inherit the output type set at the
-        module level, cuml.output_type. If set, the estimator will override
-        the global option for its behavior.
+        the estimator. If None, it'll inherit the output type set at the
+        module level, `cuml.global_output_type`.
+        See :ref:`output-data-type-configuration` for more info.
     probability: bool (default = False)
         Enable or disable probability estimates.
     random_state: int (default = None)
         Seed for random number generator (used only when probability = True).
         Currently this argument is not used and a waring will be printed if the
         user provides it.
-    verbose : int or boolean (default = False)
-        verbosity level
+    verbose : int or boolean, default=False
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        See :ref:`verbosity-levels` for more info.
 
     Attributes
     ----------
@@ -328,6 +337,10 @@ class SVC(SVMBase, ClassifierMixin):
             # https://github.com/rapidsai/cuml/issues/2608
             X, _, _, _, _ = input_to_host_array(X)
             y, _, _, _, _ = input_to_host_array(y)
+
+                if not has_sklearn():
+                    raise RuntimeError(
+                        "Scikit-learn is needed to use SVM probabilities")
 
             self.prob_svc = CalibratedClassifierCV(SVC(**params), cv=5,
                                                     method='sigmoid')
@@ -496,5 +509,11 @@ class SVC(SVMBase, ClassifierMixin):
             return super().predict(X, False)
 
     def get_param_names(self):
-        return super().get_param_names() + \
+        params = super().get_param_names() + \
             ["probability", "random_state", "class_weight"]
+
+        # Ignore "epsilon" since its not used in the constructor
+        if ("epsilon" in params):
+            params.remove("epsilon")
+
+        return params

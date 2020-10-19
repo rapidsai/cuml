@@ -15,7 +15,6 @@
  */
 
 #include <gtest/gtest.h>
-#include <common/nvtx.cu>
 /**
  * tests for the functionality of generating next color based on string
  * entered in the NVTX Range marker wrappers
@@ -23,18 +22,20 @@
 
 namespace ML {
 
+uint32_t generateNextColor(const std::string &tag);
+
 class nvtxNextColorTest : public ::testing::Test {
  protected:
   void SetUp() override {
-    std::string temp1 = "foo";
-    std::string temp2 = "bar";
+    const std::string temp1 = "foo";
+    const std::string temp2 = "bar";
 
-    if (generateNextColor(temp1) != generateNextColor(temp2))
+    if (ML::generateNextColor(temp1) != ML::generateNextColor(temp2))
       diff_string_diff_color = true;
-    if (generateNextColor(temp1) == generateNextColor(temp1))
+    if (ML::generateNextColor(temp1) == ML::generateNextColor(temp1))
       same_string_same_color = true;
   }
-
+  void TearDown() {}
   bool diff_string_diff_color = false;
   bool same_string_same_color = false;
 };

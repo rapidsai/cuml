@@ -118,10 +118,38 @@ class MultinomialNB(Base):
     The multinomial distribution normally requires integer feature counts.
     However, in practice, fractional counts such as tf-idf may also work.
 
-    NOTE: While cuML only provides the multinomial version currently, the
-    other variants are planned to be included soon. Refer to the
-    corresponding Github issue for updates:
-    https://github.com/rapidsai/cuml/issues/1666
+    Notes
+    -----
+    While cuML only provides the multinomial version currently, the other
+    variants are planned to be included soon. Refer to the corresponding Github
+    `issue <https://github.com/rapidsai/cuml/issues/1666>`_ for updates.
+
+    Parameters
+    ----------
+
+    alpha : float
+        Additive (Laplace/Lidstone) smoothing parameter (0 for no smoothing).
+    fit_prior : boolean
+        Whether to learn class prior probabilities or no. If false, a uniform
+        prior will be used.
+    class_prior : array-like, size (n_classes)
+        Prior probabilities of the classes. If specified, the priors are not
+        adjusted according to the data.
+    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
+        Variable to control output type of the results and attributes of
+        the estimator. If None, it'll inherit the output type set at the
+        module level, `cuml.global_output_type`.
+        See :ref:`output-data-type-configuration` for more info.
+    handle : cuml.Handle
+        Specifies the cuml.handle that holds internal CUDA state for
+        computations in this model. Most importantly, this specifies the CUDA
+        stream that will be used for the model's computations, so users can
+        run different models concurrently in different streams by creating
+        handles in several streams.
+        If it is None, a new one is created.
+    verbose : int or boolean, default=False
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        See :ref:`verbosity-levels` for more info.
 
     Examples
     --------
@@ -131,43 +159,43 @@ class MultinomialNB(Base):
 
     .. code-block:: python
 
-    import cupy as cp
-    import cupyx
+        import cupy as cp
+        import cupyx
 
-    from sklearn.datasets import fetch_20newsgroups
-    from sklearn.feature_extraction.text import CountVectorizer
+        from sklearn.datasets import fetch_20newsgroups
+        from sklearn.feature_extraction.text import CountVectorizer
 
-    from cuml.naive_bayes import MultinomialNB
+        from cuml.naive_bayes import MultinomialNB
 
-    # Load corpus
+        # Load corpus
 
-    twenty_train = fetch_20newsgroups(subset='train',
-                              shuffle=True, random_state=42)
+        twenty_train = fetch_20newsgroups(subset='train',
+                                shuffle=True, random_state=42)
 
-    # Turn documents into term frequency vectors
+        # Turn documents into term frequency vectors
 
-    count_vect = CountVectorizer()
-    features = count_vect.fit_transform(twenty_train.data)
+        count_vect = CountVectorizer()
+        features = count_vect.fit_transform(twenty_train.data)
 
-    # Put feature vectors and labels on the GPU
+        # Put feature vectors and labels on the GPU
 
-    X = cupyx.scipy.sparse.csr_matrix(features.tocsr(), dtype=cp.float32)
-    y = cp.asarray(twenty_train.target, dtype=cp.int32)
+        X = cupyx.scipy.sparse.csr_matrix(features.tocsr(), dtype=cp.float32)
+        y = cp.asarray(twenty_train.target, dtype=cp.int32)
 
-    # Train model
+        # Train model
 
-    model = MultinomialNB()
-    model.fit(X, y)
+        model = MultinomialNB()
+        model.fit(X, y)
 
-    # Compute accuracy on training set
+        # Compute accuracy on training set
 
-    model.score(X, y)
+        model.score(X, y)
 
     Output:
 
     .. code-block:: python
 
-    0.9244298934936523
+        0.9244298934936523
 
     """
 
@@ -184,35 +212,6 @@ class MultinomialNB(Base):
                  output_type=None,
                  handle=None,
                  verbose=False):
-        """
-        Create new multinomial Naive Bayes instance
-
-        Parameters
-        ----------
-
-        alpha : float Additive (Laplace/Lidstone) smoothing parameter (0 for
-                no smoothing).
-        fit_prior : boolean Whether to learn class prior probabilities or no.
-                    If false, a uniform prior will be used.
-        class_prior : array-like, size (n_classes) Prior probabilities of the
-                      classes. If specified, the priors are not adjusted
-                      according to the data.
-        output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, optional
-            Variable to control output type of the results and attributes of
-            the estimators. If None, it'll inherit the output type set at the
-            module level, cuml.output_type. If set, the estimator will override
-            the global option for its behavior.
-        handle : cuml.Handle 
-            Specifies the cuml.handle that holds internal CUDA state for
-            computations in this model. Most importantly, this specifies
-            the CUDA stream that will be used for the model's computations,
-            so users can run different models concurrently in different
-            streams by creating handles in several streams. If it is None,
-            a new one is created just for this class.
-        verbose : int or boolean (default = False)
-            Sets logging level. It must be one of `cuml.common.logger.level_*`.
-
-        """
         super(MultinomialNB, self).__init__(handle=handle,
                                             output_type=output_type,
                                             verbose=verbose)

@@ -138,14 +138,15 @@ class MBSGDClassifier(Base, ClassifierMixin):
         stream that will be used for the model's computations, so users can
         run different models concurrently in different streams by creating
         handles in several streams.
-        If it is None, a new one is created just for this class.
-    verbose : int or boolean (default = False)
+        If it is None, a new one is created.
+    verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
-    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, optional
+        See :ref:`verbosity-levels` for more info.
+    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
         Variable to control output type of the results and attributes of
-        the estimators. If None, it'll inherit the output type set at the
-        module level, cuml.output_type. If set, the estimator will override
-        the global option for its behavior.
+        the estimator. If None, it'll inherit the output type set at the
+        module level, `cuml.global_output_type`.
+        See :ref:`output-data-type-configuration` for more info.
 
     Notes
     ------
@@ -204,60 +205,19 @@ class MBSGDClassifier(Base, ClassifierMixin):
 
         return preds
 
-    # def get_params(self, deep=True):
-    #     """
-    #     Scikit-learn style function that returns the estimator parameters.
-
-    #     Parameters
-    #     -----------
-    #     deep : boolean (default = True)
-    #     """
-
-    #     params = dict()
-    #     variables = ['loss', 'penalty', 'alpha', 'l1_ratio', 'fit_intercept',
-    #                  'epochs', 'tol', 'shuffle', 'learning_rate', 'eta0',
-    #                  'power_t', 'batch_size', 'n_iter_no_change', 'handle']
-    #     for key in variables:
-    #         var_value = getattr(self, key, None)
-    #         params[key] = var_value
-    #     return params
-
-    # def set_params(self, **params):
-    #     """
-    #     Sklearn style set parameter state to dictionary of params.
-
-    #     Parameters
-    #     -----------
-    #     params : dict of new params
-    #     """
-
-    #     if not params:
-    #         return self
-    #     variables = ['loss', 'penalty', 'alpha', 'l1_ratio', 'fit_intercept',
-    #                  'epochs', 'tol', 'shuffle', 'learning_rate', 'eta0',
-    #                  'power_t', 'batch_size', 'n_iter_no_change', 'handle']
-    #     for key, value in params.items():
-    #         if key not in variables:
-    #             raise ValueError('Invalid parameter for estimator')
-    #         else:
-    #             setattr(self, key, value)
-
-    #     return self
-
     def get_param_names(self):
-        return super().get_param_names() + \
-            [
-                "loss",
-                "penalty",
-                "alpha",
-                "l1_ratio",
-                "fit_intercept",
-                "epochs",
-                "tol",
-                "shuffle",
-                "learning_rate",
-                "eta0",
-                "power_t",
-                "batch_size",
-                "n_iter_no_change",
-            ]
+        return super().get_param_names() + [
+            "loss",
+            "penalty",
+            "alpha",
+            "l1_ratio",
+            "fit_intercept",
+            "epochs",
+            "tol",
+            "shuffle",
+            "learning_rate",
+            "eta0",
+            "power_t",
+            "batch_size",
+            "n_iter_no_change",
+        ]
