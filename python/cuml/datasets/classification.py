@@ -247,7 +247,7 @@ def make_classification(n_samples=100, n_features=20, n_informative=2,
     # Initialize X and y
     X = generator.randn(n_samples * n_features, dtype=dtype)
     X = X.reshape((n_samples, n_features), order=order)
-    y = cp.zeros(n_samples, dtype=np.int)
+    y = cp.zeros(n_samples, dtype=np.int64)
 
     # Build the polytope whose vertices become cluster centroids
     if _centroids is None:

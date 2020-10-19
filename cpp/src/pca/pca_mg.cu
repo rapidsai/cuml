@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <common/cudart_utils.h>
 #include <linalg/transpose.h>
 #include <common/cumlHandle.hpp>
 #include <common/device_buffer.hpp>
@@ -65,8 +66,8 @@ void fit_impl(raft::handle_t &handle,
                                      explained_var_ratio, prms, streams[0]);
 
   T scalar = (prms.n_rows - 1);
-  Matrix::seqRoot(explained_var, singular_vals, scalar, prms.n_components,
-                  streams[0], true);
+  raft::matrix::seqRoot(explained_var, singular_vals, scalar, prms.n_components,
+                        streams[0], true);
 
   Stats::opg::mean_add(input_data, input_desc, mu_data, comm, streams,
                        n_streams);
@@ -150,22 +151,23 @@ void fit_impl(raft::handle_t &handle,
     device_buffer<T> explained_var_ratio_all(allocator, stream, prms.n_cols);
 
     T scalar = 1.0 / (prms.n_rows - 1);
-    Matrix::power(sVector.data(), explained_var_all.data(), scalar, prms.n_cols,
-                  stream);
-    Matrix::ratio(explained_var_all.data(), explained_var_ratio_all.data(),
-                  prms.n_cols, allocator, stream);
+    raft::matrix::power(sVector.data(), explained_var_all.data(), scalar,
+                        prms.n_cols, stream);
+    raft::matrix::ratio(handle, explained_var_all.data(),
+                        explained_var_ratio_all.data(), prms.n_cols, stream);
 
-    Matrix::truncZeroOrigin(sVector.data(), prms.n_cols, singular_vals,
-                            prms.n_components, 1, stream);
+    raft::matrix::truncZeroOrigin(sVector.data(), prms.n_cols, singular_vals,
+                                  prms.n_components, 1, stream);
 
-    Matrix::truncZeroOrigin(explained_var_all.data(), prms.n_cols,
-                            explained_var, prms.n_components, 1, stream);
-    Matrix::truncZeroOrigin(explained_var_ratio_all.data(), prms.n_cols,
-                            explained_var_ratio, prms.n_components, 1, stream);
+    raft::matrix::truncZeroOrigin(explained_var_all.data(), prms.n_cols,
+                                  explained_var, prms.n_components, 1, stream);
+    raft::matrix::truncZeroOrigin(explained_var_ratio_all.data(), prms.n_cols,
+                                  explained_var_ratio, prms.n_components, 1,
+                                  stream);
 
-    MLCommon::LinAlg::transpose(vMatrix.data(), prms.n_cols, stream);
-    Matrix::truncZeroOrigin(vMatrix.data(), prms.n_cols, components,
-                            prms.n_components, prms.n_cols, stream);
+    raft::linalg::transpose(vMatrix.data(), prms.n_cols, stream);
+    raft::matrix::truncZeroOrigin(vMatrix.data(), prms.n_cols, components,
+                                  prms.n_components, prms.n_cols, stream);
 
     Matrix::opg::deallocate(h, uMatrixParts, input_desc, rank, stream);
 
@@ -196,37 +198,38 @@ void transform_impl(raft::handle_t &handle,
 
   if (prms.whiten) {
     T scalar = T(sqrt(prms.n_rows - 1));
-    LinAlg::scalarMultiply(components, components, scalar,
-                           prms.n_cols * prms.n_components, streams[0]);
-    Matrix::matrixVectorBinaryDivSkipZero(components, singular_vals,
-                                          prms.n_cols, prms.n_components, true,
-                                          true, streams[0]);
+    raft::linalg::scalarMultiply(components, components, scalar,
+                                 prms.n_cols * prms.n_components, streams[0]);
+    raft::matrix::matrixVectorBinaryDivSkipZero(components, singular_vals,
+                                                prms.n_cols, prms.n_components,
+                                                true, true, streams[0]);
   }
 
   for (int i = 0; i < input.size(); i++) {
     int si = i % n_streams;
 
-    Stats::meanCenter(input[i]->ptr, input[i]->ptr, mu, size_t(prms.n_cols),
-                      local_blocks[i]->size, false, true, streams[si]);
+    raft::stats::meanCenter(input[i]->ptr, input[i]->ptr, mu,
+                            size_t(prms.n_cols), local_blocks[i]->size, false,
+                            true, streams[si]);
 
     T alpha = T(1);
     T beta = T(0);
-    LinAlg::gemm(input[i]->ptr, local_blocks[i]->size, size_t(prms.n_cols),
-                 components, trans_input[i]->ptr, local_blocks[i]->size,
-                 int(prms.n_components), CUBLAS_OP_N, CUBLAS_OP_T, alpha, beta,
-                 cublas_h, streams[si]);
+    raft::linalg::gemm(handle, input[i]->ptr, local_blocks[i]->size,
+                       size_t(prms.n_cols), components, trans_input[i]->ptr,
+                       local_blocks[i]->size, int(prms.n_components),
+                       CUBLAS_OP_N, CUBLAS_OP_T, alpha, beta, streams[si]);
 
-    Stats::meanAdd(input[i]->ptr, input[i]->ptr, mu, size_t(prms.n_cols),
-                   local_blocks[i]->size, false, true, streams[si]);
+    raft::stats::meanAdd(input[i]->ptr, input[i]->ptr, mu, size_t(prms.n_cols),
+                         local_blocks[i]->size, false, true, streams[si]);
   }
 
   if (prms.whiten) {
-    Matrix::matrixVectorBinaryMultSkipZero(components, singular_vals,
-                                           prms.n_cols, prms.n_components, true,
-                                           true, streams[0]);
+    raft::matrix::matrixVectorBinaryMultSkipZero(components, singular_vals,
+                                                 prms.n_cols, prms.n_components,
+                                                 true, true, streams[0]);
     T scalar = T(1 / sqrt(prms.n_rows - 1));
-    LinAlg::scalarMultiply(components, components, scalar,
-                           prms.n_cols * prms.n_components, streams[0]);
+    raft::linalg::scalarMultiply(components, components, scalar,
+                                 prms.n_cols * prms.n_components, streams[0]);
   }
 
   for (int i = 0; i < n_streams; i++) {
@@ -296,11 +299,11 @@ void inverse_transform_impl(
 
   if (prms.whiten) {
     T scalar = T(1 / sqrt(prms.n_rows - 1));
-    LinAlg::scalarMultiply(components, components, scalar,
-                           prms.n_rows * prms.n_components, streams[0]);
-    Matrix::matrixVectorBinaryMultSkipZero(components, singular_vals,
-                                           prms.n_rows, prms.n_components, true,
-                                           true, streams[0]);
+    raft::linalg::scalarMultiply(components, components, scalar,
+                                 prms.n_rows * prms.n_components, streams[0]);
+    raft::matrix::matrixVectorBinaryMultSkipZero(components, singular_vals,
+                                                 prms.n_rows, prms.n_components,
+                                                 true, true, streams[0]);
   }
 
   for (int i = 0; i < local_blocks.size(); i++) {
@@ -308,22 +311,22 @@ void inverse_transform_impl(
     T alpha = T(1);
     T beta = T(0);
 
-    LinAlg::gemm(trans_input[i]->ptr, local_blocks[i]->size,
-                 size_t(prms.n_components), components, input[i]->ptr,
-                 local_blocks[i]->size, prms.n_cols, CUBLAS_OP_N, CUBLAS_OP_N,
-                 alpha, beta, cublas_h, streams[si]);
+    raft::linalg::gemm(handle, trans_input[i]->ptr, local_blocks[i]->size,
+                       size_t(prms.n_components), components, input[i]->ptr,
+                       local_blocks[i]->size, prms.n_cols, CUBLAS_OP_N,
+                       CUBLAS_OP_N, alpha, beta, streams[si]);
 
-    Stats::meanAdd(input[i]->ptr, input[i]->ptr, mu, size_t(prms.n_cols),
-                   local_blocks[i]->size, false, true, streams[si]);
+    raft::stats::meanAdd(input[i]->ptr, input[i]->ptr, mu, size_t(prms.n_cols),
+                         local_blocks[i]->size, false, true, streams[si]);
   }
 
   if (prms.whiten) {
-    Matrix::matrixVectorBinaryDivSkipZero(components, singular_vals,
-                                          prms.n_rows, prms.n_components, true,
-                                          true, streams[0]);
+    raft::matrix::matrixVectorBinaryDivSkipZero(components, singular_vals,
+                                                prms.n_rows, prms.n_components,
+                                                true, true, streams[0]);
     T scalar = T(sqrt(prms.n_rows - 1));
-    LinAlg::scalarMultiply(components, components, scalar,
-                           prms.n_rows * prms.n_components, streams[0]);
+    raft::linalg::scalarMultiply(components, components, scalar,
+                                 prms.n_rows * prms.n_components, streams[0]);
   }
 
   for (int i = 0; i < n_streams; i++) {

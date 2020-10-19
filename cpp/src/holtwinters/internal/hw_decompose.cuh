@@ -148,7 +148,7 @@ void batched_ls(const raft::handle_t &handle, const Dtype *data, int trend_len,
     A_h[i] = (Dtype)1.;
     A_h[trend_len + i] = (Dtype)(i + 1);
   }
-  MLCommon::updateDevice(A_d.data(), A_h.data(), 2 * trend_len, stream);
+  raft::update_device(A_d.data(), A_h.data(), 2 * trend_len, stream);
 
   CUSOLVER_CHECK(raft::linalg::cusolverDngeqrf_bufferSize<Dtype>(
     cusolver_h, trend_len, 2, A_d.data(), 2, &geqrf_buffer));
@@ -202,7 +202,7 @@ void stl_decomposition_gpu(const raft::handle_t &handle, const Dtype *ts, int n,
   }
 
   MLCommon::device_buffer<Dtype> filter_d(dev_allocator, stream, filter_size);
-  MLCommon::updateDevice(filter_d.data(), filter_h.data(), filter_size, stream);
+  raft::update_device(filter_d.data(), filter_h.data(), filter_size, stream);
 
   // Set Trend
   MLCommon::device_buffer<Dtype> trend_d(dev_allocator, stream,
@@ -224,11 +224,11 @@ void stl_decomposition_gpu(const raft::handle_t &handle, const Dtype *ts, int n,
   } else {
     MLCommon::device_buffer<Dtype> aligned_ts(dev_allocator, stream,
                                               batch_size * trend_len);
-    MLCommon::copy(aligned_ts.data(), ts + ts_offset, batch_size * trend_len,
-                   stream);
-    MLCommon::LinAlg::eltwiseDivide<Dtype>(season_d.data(), aligned_ts.data(),
-                                           trend_d.data(),
-                                           trend_len * batch_size, stream);
+    raft::copy(aligned_ts.data(), ts + ts_offset, batch_size * trend_len,
+               stream);
+    raft::linalg::eltwiseDivide<Dtype>(season_d.data(), aligned_ts.data(),
+                                       trend_d.data(), trend_len * batch_size,
+                                       stream);
   }
 
   season_mean(handle, season_d.data(), trend_len, batch_size, start_season,

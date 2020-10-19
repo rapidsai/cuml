@@ -86,3 +86,36 @@ Current external submodules are:
 2. [CUB](https://github.com/NVlabs/cub)
 3. [Faiss](https://github.com/facebookresearch/faiss)
 4. [Google Test](https://github.com/google/googletest)
+
+## Using cuML libraries
+
+After building cuML, you can use its functionality in other C/C++ applications
+by linking against the generated libraries. The following trivial example shows
+how to make external use of cuML's logger:
+
+```cpp
+// main.cpp
+#include <cuml/common/logger.hpp>
+
+int main(int argc, char *argv[]) {
+  CUML_LOG_WARN("This is a warning from the cuML logger!");
+  return 0;
+}
+```
+
+To compile this example, we must point the compiler to where cuML was
+installed. Assuming you did not provide a custom `$CMAKE_INSTALL_PREFIX`, this
+will default to the `$CONDA_PREFIX` environment variable.
+
+```bash
+$ export LD_LIBRARY_PATH="${CONDA_PREFIX}/lib"
+$ nvcc \
+       main.cpp \
+       -o cuml_logger_example \
+       "-L${CONDA_PREFIX}/lib" \
+       "-I${CONDA_PREFIX}/include" \
+       "-I${CONDA_PREFIX}/include/cuml/raft" \
+       -lcuml++
+$ ./cuml_logger_example
+[W] [13:26:43.503068] This is a warning from the cuML logger!
+```

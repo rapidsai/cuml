@@ -124,7 +124,7 @@ struct Dataset {
                              b.shuffle, D(b.center_box_min),
                              D(b.center_box_max), b.seed);
     if (!std::is_same<L, IdxT>::value) {
-      MLCommon::LinAlg::unaryOp(
+      raft::linalg::unaryOp(
         y, tmpY, p.nrows, [] __device__(IdxT z) { return (L)z; }, stream);
       allocator->deallocate(tmpY, p.nrows * sizeof(IdxT), stream);
     }
@@ -150,12 +150,11 @@ struct Dataset {
       tmpX = (D*)allocator->allocate(p.nrows * p.ncols * sizeof(D), stream);
     }
     MLCommon::Random::make_regression(
-      tmpX, y, p.nrows, p.ncols, r.n_informative, cublas_handle,
-      cusolver_handle, allocator, stream, (D*)nullptr, 1, D(r.bias),
-      r.effective_rank, D(r.tail_strength), D(r.noise), r.shuffle, r.seed);
+      handle, tmpX, y, p.nrows, p.ncols, r.n_informative, stream, (D*)nullptr,
+      1, D(r.bias), r.effective_rank, D(r.tail_strength), D(r.noise), r.shuffle,
+      r.seed);
     if (!p.rowMajor) {
-      MLCommon::LinAlg::transpose(tmpX, X, p.nrows, p.ncols, cublas_handle,
-                                  stream);
+      raft::linalg::transpose(handle, tmpX, X, p.nrows, p.ncols, stream);
       allocator->deallocate(tmpX, p.nrows * p.ncols * sizeof(D), stream);
     }
   }
@@ -193,8 +192,8 @@ struct Dataset {
     }
     myfile.close();
     auto stream = handle.get_stream();
-    MLCommon::copy(X, &(_X[0]), p.nrows * p.ncols, stream);
-    MLCommon::copy(y, &(_y[0]), p.nrows, stream);
+    raft::copy(X, &(_X[0]), p.nrows * p.ncols, stream);
+    raft::copy(y, &(_y[0]), p.nrows, stream);
   }
 
  private:

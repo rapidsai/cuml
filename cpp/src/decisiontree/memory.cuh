@@ -15,7 +15,7 @@
  */
 
 #pragma once
-#include <common/cudart_utils.h>
+#include <cuml/tree/algo_helper.h>
 #include <thrust/extrema.h>
 #include <algorithm>
 #include <cub/cub.cuh>
@@ -29,8 +29,8 @@ TemporaryMemory<T, L>::TemporaryMemory(
   const cudaStream_t stream_in, int N, int Ncols, int n_unique,
   const ML::DecisionTree::DecisionTreeParams& tree_params) {
   stream = stream_in;
-  max_shared_mem = MLCommon::getSharedMemPerBlock();
-  num_sms = MLCommon::getMultiProcessorCount();
+  max_shared_mem = raft::getSharedMemPerBlock();
+  num_sms = raft::getMultiProcessorCount();
   device_allocator = device_allocator_in;
   host_allocator = host_allocator_in;
   LevelMemAllocator(N, Ncols, n_unique, tree_params);
@@ -41,8 +41,8 @@ TemporaryMemory<T, L>::TemporaryMemory(
   const raft::handle_t& handle, cudaStream_t stream_in, int N, int Ncols,
   int n_unique, const ML::DecisionTree::DecisionTreeParams& tree_params) {
   stream = stream_in;
-  max_shared_mem = MLCommon::getSharedMemPerBlock();
-  num_sms = MLCommon::getMultiProcessorCount();
+  max_shared_mem = raft::getSharedMemPerBlock();
+  num_sms = raft::getMultiProcessorCount();
   device_allocator = handle.get_device_allocator();
   host_allocator = handle.get_host_allocator();
   LevelMemAllocator(N, Ncols, n_unique, tree_params);
@@ -141,25 +141,16 @@ void TemporaryMemory<T, L>::LevelMemAllocator(
   }
   d_sample_cnt =
     new MLCommon::device_buffer<unsigned int>(device_allocator, stream, nrows);
-  if (tree_params.shuffle_features == true) {
-    d_colids = new MLCommon::device_buffer<unsigned int>(
-      device_allocator, stream, ncols_sampled * gather_max_nodes);
-    h_colids = new MLCommon::host_buffer<unsigned int>(
-      host_allocator, stream, ncols_sampled * gather_max_nodes);
-    totalmem += ncols_sampled * maxnodes * sizeof(int);
-
-  } else {
-    //This buffers are also reused by gather algorithm
-    d_colids = new MLCommon::device_buffer<unsigned int>(device_allocator,
-                                                         stream, ncols);
-    d_colstart = new MLCommon::device_buffer<unsigned int>(device_allocator,
-                                                           stream, parentsz);
-    h_colids =
-      new MLCommon::host_buffer<unsigned int>(host_allocator, stream, ncols);
-    h_colstart =
-      new MLCommon::host_buffer<unsigned int>(host_allocator, stream, parentsz);
-    totalmem += ncols * sizeof(int) + parentsz * sizeof(int);
-  }
+  //This buffers are also reused by gather algorithm
+  d_colids =
+    new MLCommon::device_buffer<unsigned int>(device_allocator, stream, ncols);
+  d_colstart = new MLCommon::device_buffer<unsigned int>(device_allocator,
+                                                         stream, parentsz);
+  h_colids =
+    new MLCommon::host_buffer<unsigned int>(host_allocator, stream, ncols);
+  h_colstart =
+    new MLCommon::host_buffer<unsigned int>(host_allocator, stream, parentsz);
+  totalmem += ncols * sizeof(int) + parentsz * sizeof(int);
   //CUB memory for gather algorithms
   size_t temp_storage_bytes = 0;
   void* cub_buffer = NULL;

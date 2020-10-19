@@ -45,7 +45,7 @@ struct AddBench : public Fixture {
 
   void runBenchmark(::benchmark::State& state) override {
     loopOnState(state, [this]() {
-      MLCommon::LinAlg::add(ptr0, ptr0, ptr1, params.len, stream);
+      raft::linalg::add(ptr0, ptr0, ptr1, params.len, stream);
     });
   }
 

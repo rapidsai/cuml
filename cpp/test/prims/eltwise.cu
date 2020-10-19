@@ -20,8 +20,8 @@
 #include <random/rng.cuh>
 #include "test_utils.h"
 
-namespace MLCommon {
-namespace LinAlg {
+namespace raft {
+namespace linalg {
 
 //// Testing unary ops
 
@@ -38,7 +38,7 @@ template <typename Type>
 void naiveScale(Type *out, const Type *in, Type scalar, int len,
                 cudaStream_t stream) {
   static const int TPB = 64;
-  int nblks = ceildiv(len, TPB);
+  int nblks = raft::ceildiv(len, TPB);
   naiveScaleKernel<Type><<<nblks, TPB, 0, stream>>>(out, in, scalar, len);
   CUDA_CHECK(cudaPeekAtLastError());
 }
@@ -63,9 +63,10 @@ class ScalarMultiplyTest
  protected:
   void SetUp() override {
     params = ::testing::TestWithParam<ScalarMultiplyInputs<T>>::GetParam();
-    Random::Rng r(params.seed);
+    raft::random::Rng r(params.seed);
     int len = params.len;
     T scalar = params.scalar;
+
     cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
     allocate(in, len);
@@ -127,7 +128,7 @@ template <typename Type>
 void naiveAdd(Type *out, const Type *in1, const Type *in2, int len,
               cudaStream_t stream) {
   static const int TPB = 64;
-  int nblks = ceildiv(len, TPB);
+  int nblks = raft::ceildiv(len, TPB);
   naiveAddKernel<Type><<<nblks, TPB, 0, stream>>>(out, in1, in2, len);
   CUDA_CHECK(cudaPeekAtLastError());
 }
@@ -150,7 +151,8 @@ class EltwiseAddTest : public ::testing::TestWithParam<EltwiseAddInputs<T>> {
  protected:
   void SetUp() override {
     params = ::testing::TestWithParam<EltwiseAddInputs<T>>::GetParam();
-    Random::Rng r(params.seed);
+    raft::random::Rng r(params.seed);
+
     cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
     int len = params.len;
@@ -201,5 +203,5 @@ INSTANTIATE_TEST_CASE_P(EltwiseAddTests, EltwiseAddTestF,
 INSTANTIATE_TEST_CASE_P(EltwiseAddTests, EltwiseAddTestD,
                         ::testing::ValuesIn(inputsd2));
 
-}  // end namespace LinAlg
-}  // end namespace MLCommon
+}  // end namespace linalg
+}  // end namespace raft

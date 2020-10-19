@@ -24,6 +24,8 @@
 #include <cuml/common/cuml_allocator.hpp>
 #include <matrix/math.cuh>
 #include <matrix/matrix.cuh>
+#include <raft/handle.hpp>
+#include <raft/mr/device/buffer.hpp>
 #include "eig.cuh"
 #include "gemm.cuh"
 #include "transpose.h"
@@ -95,12 +97,12 @@ void svdQR(T *in, int n_rows, int n_cols, T *sing_vals, T *left_sing_vecs,
     right_sing_vecs, n, d_work.data(), lwork, d_rwork, devInfo.data(), stream));
 
   // Transpose the right singular vector back
-  if (trans_right) transpose(right_sing_vecs, n_cols, stream);
+  if (trans_right) raft::linalg::transpose(right_sing_vecs, n_cols, stream);
 
   CUDA_CHECK(cudaGetLastError());
 
   int dev_info;
-  updateHost(&dev_info, devInfo.data(), 1, stream);
+  raft::update_host(&dev_info, devInfo.data(), 1, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
   ASSERT(dev_info == 0,
          "svd.cuh: svd couldn't converge to a solution. "
@@ -108,30 +110,35 @@ void svdQR(T *in, int n_rows, int n_cols, T *sing_vals, T *left_sing_vecs,
 }
 
 template <typename T>
-void svdEig(T *in, int n_rows, int n_cols, T *S, T *U, T *V, bool gen_left_vec,
-            cublasHandle_t cublasH, cusolverDnHandle_t cusolverH,
-            cudaStream_t stream, std::shared_ptr<deviceAllocator> allocator) {
+void svdEig(const raft::handle_t &handle, T *in, int n_rows, int n_cols, T *S,
+            T *U, T *V, bool gen_left_vec, cudaStream_t stream) {
+  std::shared_ptr<raft::mr::device::allocator> allocator =
+    handle.get_device_allocator();
+  cusolverDnHandle_t cusolverH = handle.get_cusolver_dn_handle();
+  cublasHandle_t cublasH = handle.get_cublas_handle();
+
   int len = n_cols * n_cols;
-  device_buffer<T> in_cross_mult(allocator, stream, len);
+  raft::mr::device::buffer<T> in_cross_mult(allocator, stream, len);
 
   T alpha = T(1);
   T beta = T(0);
-  gemm(in, n_rows, n_cols, in, in_cross_mult.data(), n_cols, n_cols,
-       CUBLAS_OP_T, CUBLAS_OP_N, alpha, beta, cublasH, stream);
+  raft::linalg::gemm(handle, in, n_rows, n_cols, in, in_cross_mult.data(),
+                     n_cols, n_cols, CUBLAS_OP_T, CUBLAS_OP_N, alpha, beta,
+                     stream);
 
   eigDC(in_cross_mult.data(), n_cols, n_cols, V, S, cusolverH, stream,
         allocator);
 
-  Matrix::colReverse(V, n_cols, n_cols, stream);
-  Matrix::rowReverse(S, n_cols, 1, stream);
+  raft::matrix::colReverse(V, n_cols, n_cols, stream);
+  raft::matrix::rowReverse(S, n_cols, 1, stream);
 
-  Matrix::seqRoot(S, S, alpha, n_cols, stream, true);
+  raft::matrix::seqRoot(S, S, alpha, n_cols, stream, true);
 
   if (gen_left_vec) {
-    gemm(in, n_rows, n_cols, V, U, n_rows, n_cols, CUBLAS_OP_N, CUBLAS_OP_N,
-         alpha, beta, cublasH, stream);
-    Matrix::matrixVectorBinaryDivSkipZero(U, S, n_rows, n_cols, false, true,
-                                          stream);
+    raft::linalg::gemm(handle, in, n_rows, n_cols, V, U, n_rows, n_cols,
+                       CUBLAS_OP_N, CUBLAS_OP_N, alpha, beta, stream);
+    raft::matrix::matrixVectorBinaryDivSkipZero(U, S, n_rows, n_cols, false,
+                                                true, stream);
   }
 }
 
@@ -191,6 +198,7 @@ void svdJacobi(math_t *in, int n_rows, int n_cols, math_t *sing_vals,
 /**
  * @brief reconstruct a matrix use left and right singular vectors and
  * singular values
+ * @param handle: raft handle
  * @param U: left singular vectors of size n_rows x k
  * @param S: square matrix with singular values on its diagonal, k x k
  * @param V: right singular vectors of size n_cols x k
@@ -198,27 +206,28 @@ void svdJacobi(math_t *in, int n_rows, int n_cols, math_t *sing_vals,
  * @param n_rows: number rows of output matrix
  * @param n_cols: number columns of output matrix
  * @param k: number of singular values
- * @param cublasH cublas handle
  * @param stream cuda stream
- * @param allocator device allocator for temporary buffers during computation
  */
 template <typename math_t>
-void svdReconstruction(math_t *U, math_t *S, math_t *V, math_t *out, int n_rows,
-                       int n_cols, int k, cublasHandle_t cublasH,
-                       cudaStream_t stream,
-                       std::shared_ptr<deviceAllocator> allocator) {
-  const math_t alpha = 1.0, beta = 0.0;
-  device_buffer<math_t> SVT(allocator, stream, k * n_cols);
+void svdReconstruction(const raft::handle_t &handle, math_t *U, math_t *S,
+                       math_t *V, math_t *out, int n_rows, int n_cols, int k,
+                       cudaStream_t stream) {
+  std::shared_ptr<raft::mr::device::allocator> allocator =
+    handle.get_device_allocator();
 
-  gemm(S, k, k, V, SVT.data(), k, n_cols, CUBLAS_OP_N, CUBLAS_OP_T, alpha, beta,
-       cublasH, stream);
-  gemm(U, n_rows, k, SVT.data(), out, n_rows, n_cols, CUBLAS_OP_N, CUBLAS_OP_N,
-       alpha, beta, cublasH, stream);
+  const math_t alpha = 1.0, beta = 0.0;
+  raft::mr::device::buffer<math_t> SVT(allocator, stream, k * n_cols);
+
+  raft::linalg::gemm(handle, S, k, k, V, SVT.data(), k, n_cols, CUBLAS_OP_N,
+                     CUBLAS_OP_T, alpha, beta, stream);
+  raft::linalg::gemm(handle, U, n_rows, k, SVT.data(), out, n_rows, n_cols,
+                     CUBLAS_OP_N, CUBLAS_OP_N, alpha, beta, stream);
 }
 
 /**
  * @brief reconstruct a matrix use left and right singular vectors and
  * singular values
+ * @param handle: raft handle
  * @param A_d: input matrix
  * @param U: left singular vectors of size n_rows x k
  * @param S_vec: singular values as a vector
@@ -227,37 +236,37 @@ void svdReconstruction(math_t *U, math_t *S, math_t *V, math_t *out, int n_rows,
  * @param n_cols: number columns of output matrix
  * @param k: number of singular values to be computed, 1.0 for normal SVD
  * @param tol: tolerance for the evaluation
- * @param cublasH cublas handle
  * @param stream cuda stream
- * @param allocator device allocator for temporary buffers during computation
  */
 template <typename math_t>
-bool evaluateSVDByL2Norm(math_t *A_d, math_t *U, math_t *S_vec, math_t *V,
-                         int n_rows, int n_cols, int k, math_t tol,
-                         cublasHandle_t cublasH, cudaStream_t stream,
-                         std::shared_ptr<deviceAllocator> allocator) {
+bool evaluateSVDByL2Norm(const raft::handle_t &handle, math_t *A_d, math_t *U,
+                         math_t *S_vec, math_t *V, int n_rows, int n_cols,
+                         int k, math_t tol, cudaStream_t stream) {
+  std::shared_ptr<raft::mr::device::allocator> allocator =
+    handle.get_device_allocator();
+  cublasHandle_t cublasH = handle.get_cublas_handle();
+
   int m = n_rows, n = n_cols;
 
   // form product matrix
-  device_buffer<math_t> P_d(allocator, stream, m * n);
-  device_buffer<math_t> S_mat(allocator, stream, k * k);
+  raft::mr::device::buffer<math_t> P_d(allocator, stream, m * n);
+  raft::mr::device::buffer<math_t> S_mat(allocator, stream, k * k);
   CUDA_CHECK(cudaMemsetAsync(P_d.data(), 0, sizeof(math_t) * m * n, stream));
   CUDA_CHECK(cudaMemsetAsync(S_mat.data(), 0, sizeof(math_t) * k * k, stream));
 
-  Matrix::initializeDiagonalMatrix(S_vec, S_mat.data(), k, k, stream);
-  svdReconstruction(U, S_mat.data(), V, P_d.data(), m, n, k, cublasH, stream,
-                    allocator);
+  raft::matrix::initializeDiagonalMatrix(S_vec, S_mat.data(), k, k, stream);
+  svdReconstruction(handle, U, S_mat.data(), V, P_d.data(), m, n, k, stream);
 
   // get norms of each
-  math_t normA = Matrix::getL2Norm(A_d, m * n, cublasH, stream);
-  math_t normU = Matrix::getL2Norm(U, m * k, cublasH, stream);
-  math_t normS = Matrix::getL2Norm(S_mat.data(), k * k, cublasH, stream);
-  math_t normV = Matrix::getL2Norm(V, n * k, cublasH, stream);
-  math_t normP = Matrix::getL2Norm(P_d.data(), m * n, cublasH, stream);
+  math_t normA = raft::matrix::getL2Norm(handle, A_d, m * n, stream);
+  math_t normU = raft::matrix::getL2Norm(handle, U, m * k, stream);
+  math_t normS = raft::matrix::getL2Norm(handle, S_mat.data(), k * k, stream);
+  math_t normV = raft::matrix::getL2Norm(handle, V, n * k, stream);
+  math_t normP = raft::matrix::getL2Norm(handle, P_d.data(), m * n, stream);
 
   // calculate percent error
   const math_t alpha = 1.0, beta = -1.0;
-  device_buffer<math_t> A_minus_P(allocator, stream, m * n);
+  raft::mr::device::buffer<math_t> A_minus_P(allocator, stream, m * n);
   CUDA_CHECK(
     cudaMemsetAsync(A_minus_P.data(), 0, sizeof(math_t) * m * n, stream));
 
@@ -266,7 +275,7 @@ bool evaluateSVDByL2Norm(math_t *A_d, math_t *U, math_t *S_vec, math_t *V,
                                         A_minus_P.data(), m, stream));
 
   math_t norm_A_minus_P =
-    Matrix::getL2Norm(A_minus_P.data(), m * n, cublasH, stream);
+    raft::matrix::getL2Norm(handle, A_minus_P.data(), m * n, stream);
   math_t percent_error = 100.0 * norm_A_minus_P / normA;
   return (percent_error / 100.0 < tol);
 }

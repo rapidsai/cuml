@@ -138,8 +138,8 @@ void svcPredict(const raft::handle_t &handle, math_t *input, int n_rows,
       thrust::counting_iterator<int> last = first + n_batch;
       thrust::device_ptr<int> idx_ptr(idx.data());
       thrust::copy(thrust::cuda::par.on(stream), first, last, idx_ptr);
-      MLCommon::Matrix::copyRows(input, n_rows, n_cols, x_rbf.data(),
-                                 idx.data(), n_batch, stream, false);
+      raft::matrix::copyRows(input, n_rows, n_cols, x_rbf.data(), idx.data(),
+                             n_batch, stream, false);
       x_ptr = x_rbf.data();
       ld1 = n_batch;
     } else {
@@ -159,7 +159,7 @@ void svcPredict(const raft::handle_t &handle, math_t *input, int n_rows,
   if (predict_class) {
     // Look up the label based on the value of the decision function:
     // f(x) = sign(y(x) + b)
-    MLCommon::LinAlg::unaryOp(
+    raft::linalg::unaryOp(
       preds, y.data(), n_rows,
       [labels, b] __device__(math_t y) {
         return y + b < 0 ? labels[0] : labels[1];
@@ -167,7 +167,7 @@ void svcPredict(const raft::handle_t &handle, math_t *input, int n_rows,
       stream);
   } else {
     // Calculate the value of the decision function: f(x) = y(x) + b
-    MLCommon::LinAlg::unaryOp(
+    raft::linalg::unaryOp(
       preds, y.data(), n_rows, [b] __device__(math_t y) { return y + b; },
       stream);
   }

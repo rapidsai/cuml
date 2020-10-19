@@ -57,9 +57,14 @@ struct RF_params {
    */
   int n_trees;
   /**
-   * Control bootstrapping. If set, each tree in the forest is built on a
-   * bootstrapped sample with replacement.
-   * If false, sampling without replacement is done.
+   * Control bootstrapping.
+   * If bootstrapping is set to true, bootstrapped samples are used for building
+   * each tree. Bootstrapped sampling is done by randomly drawing
+   * round(rows_sample * n_samples) number of samples with replacement. More on
+   * bootstrapping:
+   *     https://en.wikipedia.org/wiki/Bootstrap_aggregating
+   * If boostrapping is set to false, whole dataset is used to build each
+   * tree.
    */
   bool bootstrap;
   /**
@@ -186,7 +191,8 @@ RF_params set_rf_class_obj(int max_depth, int max_leaves, float max_features,
                            float min_impurity_decrease, bool bootstrap_features,
                            bool bootstrap, int n_trees, float rows_sample,
                            int seed, CRITERION split_criterion,
-                           bool quantile_per_tree, int cfg_n_streams);
+                           bool quantile_per_tree, int cfg_n_streams,
+                           bool use_experimental_backend, int max_batch_size);
 
 // ----------------------------- Regression ----------------------------------- //
 

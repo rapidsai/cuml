@@ -45,13 +45,13 @@ class stridedReductionTest
   void SetUp() override {
     CUDA_CHECK(cudaStreamCreate(&stream));
     params = ::testing::TestWithParam<stridedReductionInputs<T>>::GetParam();
-    Random::Rng r(params.seed);
+    raft::random::Rng r(params.seed);
     int rows = params.rows, cols = params.cols;
     int len = rows * cols;
 
-    allocate(data, len);
-    allocate(dots_exp, cols);  //expected dot products (from test)
-    allocate(dots_act, cols);  //actual dot products (from prim)
+    raft::allocate(data, len);
+    raft::allocate(dots_exp, cols);  //expected dot products (from test)
+    raft::allocate(dots_act, cols);  //actual dot products (from prim)
     r.uniform(data, len, T(-1.0), T(1.0),
               stream);  //initialize matrix to random
 
@@ -87,13 +87,13 @@ const std::vector<stridedReductionInputs<double>> inputsd = {
 typedef stridedReductionTest<float> stridedReductionTestF;
 TEST_P(stridedReductionTestF, Result) {
   ASSERT_TRUE(devArrMatch(dots_exp, dots_act, params.cols,
-                          CompareApprox<float>(params.tolerance)));
+                          raft::CompareApprox<float>(params.tolerance)));
 }
 
 typedef stridedReductionTest<double> stridedReductionTestD;
 TEST_P(stridedReductionTestD, Result) {
   ASSERT_TRUE(devArrMatch(dots_exp, dots_act, params.cols,
-                          CompareApprox<double>(params.tolerance)));
+                          raft::CompareApprox<double>(params.tolerance)));
 }
 
 INSTANTIATE_TEST_CASE_P(stridedReductionTests, stridedReductionTestF,

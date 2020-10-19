@@ -18,8 +18,8 @@
 
 #include "unary_op.cuh"
 
-namespace MLCommon {
-namespace LinAlg {
+namespace raft {
+namespace linalg {
 
 /**
  * @defgroup ScalarOps Scalar operations on the input buffer
@@ -41,5 +41,5 @@ void divideScalar(math_t *out, const math_t *in, math_t scalar, IdxType len,
 }
 /** @} */
 
-};  // end namespace LinAlg
-};  // end namespace MLCommon
+};  // end namespace linalg
+};  // end namespace raft

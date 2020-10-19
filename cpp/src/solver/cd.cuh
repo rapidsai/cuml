@@ -19,6 +19,7 @@
 #include <common/cudart_utils.h>
 #include <raft/linalg/cublas_wrappers.h>
 #include <common/cumlHandle.hpp>
+#include <common/device_buffer.hpp>
 #include <cuda_utils.cuh>
 #include <cuml/solvers/params.hpp>
 #include <functions/linearReg.cuh>
@@ -122,14 +123,16 @@ void cdFit(const raft::handle_t &handle, math_t *input, int n_rows, int n_cols,
 
   if (normalize) {
     math_t scalar = math_t(1.0) + l2_alpha;
-    Matrix::setValue(squared.data(), squared.data(), scalar, n_cols, stream);
+    raft::matrix::setValue(squared.data(), squared.data(), scalar, n_cols,
+                           stream);
   } else {
     LinAlg::colNorm(squared.data(), input, n_cols, n_rows, LinAlg::L2Norm,
                     false, stream);
-    LinAlg::addScalar(squared.data(), squared.data(), l2_alpha, n_cols, stream);
+    raft::linalg::addScalar(squared.data(), squared.data(), l2_alpha, n_cols,
+                            stream);
   }
 
-  copy(residual.data(), labels, n_rows, stream);
+  raft::copy(residual.data(), labels, n_rows, stream);
 
   for (int i = 0; i < epochs; i++) {
     if (i > 0 && shuffle) {
@@ -146,21 +149,21 @@ void cdFit(const raft::handle_t &handle, math_t *input, int n_rows, int n_cols,
       math_t *squared_loc = squared.data() + ci;
       math_t *input_col_loc = input + (ci * n_rows);
 
-      LinAlg::multiplyScalar(pred.data(), input_col_loc, h_coef[ci], n_rows,
-                             stream);
-      LinAlg::add(residual.data(), residual.data(), pred.data(), n_rows,
-                  stream);
-      LinAlg::gemm(input_col_loc, n_rows, 1, residual.data(), coef_loc, 1, 1,
-                   CUBLAS_OP_T, CUBLAS_OP_N, cublas_handle, stream);
+      raft::linalg::multiplyScalar(pred.data(), input_col_loc, h_coef[ci],
+                                   n_rows, stream);
+      raft::linalg::add(residual.data(), residual.data(), pred.data(), n_rows,
+                        stream);
+      raft::linalg::gemm(handle, input_col_loc, n_rows, 1, residual.data(),
+                         coef_loc, 1, 1, CUBLAS_OP_T, CUBLAS_OP_N, stream);
 
       if (l1_ratio > math_t(0.0))
         Functions::softThres(coef_loc, coef_loc, alpha, 1, stream);
 
-      LinAlg::eltwiseDivideCheckZero(coef_loc, coef_loc, squared_loc, 1,
-                                     stream);
+      raft::linalg::eltwiseDivideCheckZero(coef_loc, coef_loc, squared_loc, 1,
+                                           stream);
 
       coef_prev = h_coef[ci];
-      updateHost(&(h_coef[ci]), coef_loc, 1, stream);
+      raft::update_host(&(h_coef[ci]), coef_loc, 1, stream);
       CUDA_CHECK(cudaStreamSynchronize(stream));
 
       math_t diff = abs(coef_prev - h_coef[ci]);
@@ -169,10 +172,10 @@ void cdFit(const raft::handle_t &handle, math_t *input, int n_rows, int n_cols,
 
       if (abs(h_coef[ci]) > coef_max) coef_max = abs(h_coef[ci]);
 
-      LinAlg::multiplyScalar(pred.data(), input_col_loc, h_coef[ci], n_rows,
-                             stream);
-      LinAlg::subtract(residual.data(), residual.data(), pred.data(), n_rows,
-                       stream);
+      raft::linalg::multiplyScalar(pred.data(), input_col_loc, h_coef[ci],
+                                   n_rows, stream);
+      raft::linalg::subtract(residual.data(), residual.data(), pred.data(),
+                             n_rows, stream);
     }
 
     bool flag_continue = true;
@@ -231,9 +234,8 @@ void cdPredict(const raft::handle_t &handle, const math_t *input, int n_rows,
   ASSERT(loss == ML::loss_funct::SQRD_LOSS,
          "Parameter loss: Only SQRT_LOSS function is supported for now");
 
-  cublasHandle_t cublas_handle = handle.get_cublas_handle();
-  Functions::linearRegH(input, n_rows, n_cols, coef, preds, intercept,
-                        cublas_handle, stream);
+  Functions::linearRegH(handle, input, n_rows, n_cols, coef, preds, intercept,
+                        stream);
 }
 
 };  // namespace Solver

@@ -25,9 +25,10 @@
 #include <algorithm>
 #include <cstddef>
 #include <cuda_utils.cuh>
+#include <raft/handle.hpp>
 
-namespace MLCommon {
-namespace Matrix {
+namespace raft {
+namespace matrix {
 
 using namespace std;
 
@@ -78,7 +79,7 @@ void copyRows(const m_t *in, int n_rows, int n_cols, m_t *out,
 template <typename m_t>
 void copy(const m_t *in, m_t *out, int n_rows, int n_cols,
           cudaStream_t stream) {
-  copyAsync(out, in, n_rows * n_cols, stream);
+  raft::copy_async(out, in, n_rows * n_cols, stream);
 }
 
 /**
@@ -362,12 +363,14 @@ void getDiagonalInverseMatrix(m_t *in, int len, cudaStream_t stream) {
  * @param stream: cuda stream
  */
 template <typename m_t>
-m_t getL2Norm(m_t *in, int size, cublasHandle_t cublasH, cudaStream_t stream) {
+m_t getL2Norm(const raft::handle_t &handle, m_t *in, int size,
+              cudaStream_t stream) {
+  cublasHandle_t cublasH = handle.get_cublas_handle();
   m_t normval = 0;
   CUBLAS_CHECK(
     raft::linalg::cublasnrm2(cublasH, size, in, 1, &normval, stream));
   return normval;
 }
 
-};  // end namespace Matrix
-};  // end namespace MLCommon
+};  // end namespace matrix
+};  // end namespace raft

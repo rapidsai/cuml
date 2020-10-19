@@ -20,8 +20,8 @@
 #include <linalg/matrix_vector_op.cuh>
 #include <vectorized.cuh>
 
-namespace MLCommon {
-namespace Stats {
+namespace raft {
+namespace stats {
 
 /**
  * @brief Center the input matrix wrt its mean
@@ -41,7 +41,7 @@ template <typename Type, typename IdxType = int, int TPB = 256>
 void meanCenter(Type *out, const Type *data, const Type *mu, IdxType D,
                 IdxType N, bool rowMajor, bool bcastAlongRows,
                 cudaStream_t stream) {
-  LinAlg::matrixVectorOp(
+  raft::linalg::matrixVectorOp(
     out, data, mu, D, N, rowMajor, bcastAlongRows,
     [] __device__(Type a, Type b) { return a - b; }, stream);
 }
@@ -63,10 +63,10 @@ void meanCenter(Type *out, const Type *data, const Type *mu, IdxType D,
 template <typename Type, typename IdxType = int, int TPB = 256>
 void meanAdd(Type *out, const Type *data, const Type *mu, IdxType D, IdxType N,
              bool rowMajor, bool bcastAlongRows, cudaStream_t stream) {
-  LinAlg::matrixVectorOp(
+  raft::linalg::matrixVectorOp(
     out, data, mu, D, N, rowMajor, bcastAlongRows,
     [] __device__(Type a, Type b) { return a + b; }, stream);
 }
 
-};  // end namespace Stats
-};  // end namespace MLCommon
+};  // end namespace stats
+};  // end namespace raft

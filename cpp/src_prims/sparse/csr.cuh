@@ -262,7 +262,7 @@ void csr_row_normalize_l1(const int *ia,  // csr row ex_scan (sorted by row)
                           T *result,
                           cudaStream_t stream) {  // output array
 
-  dim3 grid(MLCommon::ceildiv(m, TPB_X), 1, 1);
+  dim3 grid(raft::ceildiv(m, TPB_X), 1, 1);
   dim3 blk(TPB_X, 1, 1);
 
   csr_row_normalize_l1_kernel<TPB_X, T>
@@ -326,7 +326,7 @@ void csr_row_normalize_max(const int *ia,  // csr row ind array (sorted by row)
                            int nnz,  // array of values and number of non-zeros
                            int m,    // num total rows in csr
                            T *result, cudaStream_t stream) {
-  dim3 grid(MLCommon::ceildiv(m, TPB_X), 1, 1);
+  dim3 grid(raft::ceildiv(m, TPB_X), 1, 1);
   dim3 blk(TPB_X, 1, 1);
 
   csr_row_normalize_max_kernel<TPB_X, T>
@@ -369,7 +369,7 @@ template <typename value_idx = int, int TPB_X = 32>
 void csr_to_coo(const value_idx *row_ind, value_idx m, value_idx *coo_rows,
                 value_idx nnz, cudaStream_t stream) {
   // @TODO: Use cusparse for this.
-  dim3 grid(MLCommon::ceildiv(m, (value_idx)TPB_X), 1, 1);
+  dim3 grid(raft::ceildiv(m, (value_idx)TPB_X), 1, 1);
   dim3 blk(TPB_X, 1, 1);
 
   csr_to_coo_kernel<value_idx, TPB_X>
@@ -426,7 +426,7 @@ __global__ void csr_add_calc_row_counts_kernel(
     }
 
     out_rowcounts[row] = final_size;
-    atomicAdd(out_rowcounts + m, final_size);
+    raft::myAtomicAdd(out_rowcounts + m, final_size);
 
     delete arr;
   }
@@ -502,7 +502,7 @@ size_t csr_add_calc_inds(const int *a_ind, const int *a_indptr, const T *a_val,
                          const T *b_val, int nnz2, int m, int *out_ind,
                          std::shared_ptr<deviceAllocator> d_alloc,
                          cudaStream_t stream) {
-  dim3 grid(ceildiv(m, TPB_X), 1, 1);
+  dim3 grid(raft::ceildiv(m, TPB_X), 1, 1);
   dim3 blk(TPB_X, 1, 1);
 
   device_buffer<int> row_counts(d_alloc, stream, m + 1);
@@ -514,7 +514,7 @@ size_t csr_add_calc_inds(const int *a_ind, const int *a_indptr, const T *a_val,
                                b_val, nnz2, m, row_counts.data());
 
   int cnnz = 0;
-  MLCommon::updateHost(&cnnz, row_counts.data() + m, 1, stream);
+  raft::update_host(&cnnz, row_counts.data() + m, 1, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
   // create csr compressed row index from row counts
@@ -549,7 +549,7 @@ void csr_add_finalize(const int *a_ind, const int *a_indptr, const T *a_val,
                       int nnz1, const int *b_ind, const int *b_indptr,
                       const T *b_val, int nnz2, int m, int *c_ind,
                       int *c_indptr, T *c_val, cudaStream_t stream) {
-  dim3 grid(MLCommon::ceildiv(m, TPB_X), 1, 1);
+  dim3 grid(raft::ceildiv(m, TPB_X), 1, 1);
   dim3 blk(TPB_X, 1, 1);
 
   csr_add_kernel<T, TPB_X>
@@ -584,7 +584,7 @@ template <typename Index_, int TPB_X = 32,
           typename Lambda = auto(Index_, Index_, Index_)->void>
 void csr_row_op(const Index_ *row_ind, Index_ n_rows, Index_ nnz, Lambda op,
                 cudaStream_t stream) {
-  dim3 grid(MLCommon::ceildiv(n_rows, Index_(TPB_X)), 1, 1);
+  dim3 grid(raft::ceildiv(n_rows, Index_(TPB_X)), 1, 1);
   dim3 blk(TPB_X, 1, 1);
   csr_row_op_kernel<Index_, TPB_X>
     <<<grid, blk, 0, stream>>>(row_ind, n_rows, nnz, op);
@@ -763,7 +763,7 @@ void weak_cc_label_batched(Index_ *labels, const Index_ *row_ind,
   bool *host_fa = (bool *)malloc(sizeof(bool) * N);
   bool *host_xa = (bool *)malloc(sizeof(bool) * N);
 
-  dim3 blocks(ceildiv(batchSize, Index_(TPB_X)));
+  dim3 blocks(raft::ceildiv(batchSize, Index_(TPB_X)));
   dim3 threads(TPB_X);
   Index_ MAX_LABEL = std::numeric_limits<Index_>::max();
 
@@ -782,13 +782,13 @@ void weak_cc_label_batched(Index_ *labels, const Index_ *row_ind,
     CUDA_CHECK(cudaStreamSynchronize(stream));
 
     //** swapping F1 and F2
-    MLCommon::updateHost(host_fa, state->fa, N, stream);
-    MLCommon::updateHost(host_xa, state->xa, N, stream);
-    MLCommon::updateDevice(state->fa, host_xa, N, stream);
-    MLCommon::updateDevice(state->xa, host_fa, N, stream);
+    raft::update_host(host_fa, state->fa, N, stream);
+    raft::update_host(host_xa, state->xa, N, stream);
+    raft::update_device(state->fa, host_xa, N, stream);
+    raft::update_device(state->xa, host_fa, N, stream);
 
     //** Updating m *
-    MLCommon::updateHost(&host_m, state->m, 1, stream);
+    raft::update_host(&host_m, state->m, 1, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
 
     n_iters++;
@@ -829,7 +829,7 @@ void weak_cc_batched(Index_ *labels, const Index_ *row_ind,
                      const Index_ *row_ind_ptr, Index_ nnz, Index_ N,
                      Index_ startVertexId, Index_ batchSize, WeakCCState *state,
                      cudaStream_t stream, Lambda filter_op) {
-  dim3 blocks(ceildiv(N, Index_(TPB_X)));
+  dim3 blocks(raft::ceildiv(N, Index_(TPB_X)));
   dim3 threads(TPB_X);
 
   Index_ MAX_LABEL = std::numeric_limits<Index_>::max();
