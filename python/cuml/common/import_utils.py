@@ -14,18 +14,17 @@
 # limitations under the License.
 #
 
-
-import numba
-
 from distutils.version import LooseVersion
 from functools import wraps
+
+import numba
 
 
 def has_dask():
     try:
-        import dask   # NOQA
-        import dask.distributed   # NOQA
-        import dask.dataframe   # NOQA
+        import dask  # NOQA
+        import dask.dataframe  # NOQA
+        import dask.distributed  # NOQA
         return True
     except ImportError:
         return False
@@ -33,7 +32,7 @@ def has_dask():
 
 def has_cupy():
     try:
-        import cupy   # NOQA
+        import cupy  # NOQA
         return True
     except ImportError:
         return False
@@ -93,7 +92,7 @@ def check_min_cupy_version(version):
 
 def has_scipy(raise_if_unavailable=False):
     try:
-        import scipy   # NOQA
+        import scipy  # NOQA
         return True
     except ImportError:
         if not raise_if_unavailable:
@@ -104,7 +103,7 @@ def has_scipy(raise_if_unavailable=False):
 
 def has_sklearn():
     try:
-        import sklearn   # NOQA
+        import sklearn  # NOQA
         return True
     except ImportError:
         return False

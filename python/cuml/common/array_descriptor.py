@@ -1,15 +1,8 @@
 # Internal, non class owned helper functions
 from dataclasses import dataclass, field
-from cudf.core import Series as cuSeries
-from cudf.core import DataFrame as cuDataFrame
 from cuml.common.array import CumlArray
-from cupy import ndarray as cupyArray
-from numba.cuda import devicearray as numbaArray
-from numpy import ndarray as numpyArray
-from pandas import DataFrame as pdDataFrame
-from pandas import Series as pdSeries
 import cuml
-import cuml.common.input_utils
+from cuml.common.input_utils import input_to_cuml_array, determine_array_type
 
 
 @dataclass
@@ -83,8 +76,8 @@ class CumlArrayDescriptor():
 
         # If the input type was anything but CumlArray, need to create one now
         if ("cuml" not in existing.values):
-            existing.values["cuml"] = CumlArray(
-                existing.get_input_value())
+            existing.values["cuml"] = input_to_cuml_array(
+                existing.get_input_value(), order="K").array
 
         cuml_arr: CumlArray = existing.values["cuml"]
 
@@ -115,9 +108,13 @@ class CumlArrayDescriptor():
 
         else:
             # We are external, determine the target output type
-            if (output_type is None or output_type == "input"):
-                # Default to the owning base object
+            if (output_type is None):
+                # Default to the owning base object output_type
                 output_type = instance.output_type
+
+            if (output_type == "input"):
+                # Default to the owning base object, _input_type
+                output_type = instance._input_type
 
             return self._to_output(instance, output_type)
 
@@ -126,7 +123,7 @@ class CumlArrayDescriptor():
         existing = self._get_value(instance)
 
         # Determine the type
-        existing.input_type = cuml.common.input_utils.determine_array_type(value)
+        existing.input_type = determine_array_type(value)
 
         # Clear any existing values
         existing.values.clear()

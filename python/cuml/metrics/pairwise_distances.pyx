@@ -101,7 +101,7 @@ def _determine_metric(metric_str):
         raise ValueError("Unknown metric: {}".format(metric_str))
 
 
-@with_cupy_rmm
+@cuml.internals.api_return_array(skip_get_output_type=False)
 def pairwise_distances(X, Y=None, metric="euclidean", handle=None,
                        convert_dtype=True, output_type=None, **kwds):
     """
@@ -188,7 +188,9 @@ def pairwise_distances(X, Y=None, metric="euclidean", handle=None,
     cdef handle_t *handle_ = <handle_t*> <size_t> handle.getHandle()
 
     # Determine the input type to convert to when returning
-    output_type = _determine_stateless_output_type(output_type, X)
+    # output_type = _determine_stateless_output_type(output_type, X)
+    if (output_type is not None):
+        cuml.internals.set_api_output_type(output_type)
 
     # Get the input arrays, preserve order and type where possible
     X_m, n_samples_x, n_features_x, dtype_x = \
@@ -274,4 +276,4 @@ def pairwise_distances(X, Y=None, metric="euclidean", handle=None,
     del X_m
     del Y_m
 
-    return dest_m.to_output(output_type)
+    return dest_m

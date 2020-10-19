@@ -22,7 +22,9 @@ def test_base_class_usage():
     base = cuml.Base()
     base.handle.sync()
     base_params = base.get_param_names()
-    assert base_params == []
+    assert "handle" in base_params
+    assert "verbose" in base_params
+    assert "output_type" in base_params
     del base
 
 

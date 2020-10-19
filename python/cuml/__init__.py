@@ -14,8 +14,6 @@
 # limitations under the License.
 #
 
-from __future__ import annotations
-
 from cuml.common.base import Base
 from cuml.common.handle import Handle
 import cuml.common.cuda as cuda
@@ -84,7 +82,7 @@ from cuml.raft import raft_include_test
 
 # Output type configuration
 
-global_output_type = 'input'
+global_output_type = None
 
 from cuml.common.memory_utils import set_global_output_type, using_output_type
 

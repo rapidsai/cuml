@@ -48,6 +48,9 @@ def label_binarize(y, classes, neg_label=0, pos_label=1,
                            dtype=y.dtype)
     col_ind, _ = make_monotonic(labels, classes, copy=True)
 
+    # Convert from CumlArray to cupy
+    col_ind = cp.asarray(col_ind)
+
     val = cp.full(row_ind.shape[0], pos_label, dtype=y.dtype)
 
     sp = cupyx.scipy.sparse.coo_matrix((val, (row_ind, col_ind)),

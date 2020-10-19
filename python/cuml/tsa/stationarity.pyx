@@ -22,7 +22,6 @@ from libcpp cimport bool
 
 import cuml
 from cuml.common.array import CumlArray
-from cuml.common.base import _input_to_type
 from cuml.raft.common.handle cimport handle_t
 from cuml.raft.common.handle import Handle
 

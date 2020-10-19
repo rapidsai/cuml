@@ -487,25 +487,25 @@ def using_output_type(output_type):
         <class 'cupy.core.core.ndarray'>
 
     """
-    if isinstance(output_type, str):
+    # if not(isinstance(output_type, str) or output_type is None):
+    #     raise ValueError('Parameter output_type must be one of "series" ' +
+    #                      '"dataframe", cupy", "numpy", "numba" or "input')
+    
+    if (isinstance(output_type, str)):
         output_type = output_type.lower()
-        if output_type in [
-                'numpy', 'cupy', 'cudf', 'numba', 'input', "mirror"
-        ]:
-            prev_output_type = cuml.global_output_type
-            try:
-                cuml.global_output_type = output_type
-                # print("Set cuml.global_output_type: {}. Prev: {}".format(cuml.global_output_type, prev_output_type))
-                yield prev_output_type
-            finally:
-                cuml.global_output_type = prev_output_type
-                # print("Restored cuml.global_output_type: {}. Prev: {}".format(cuml.global_output_type, output_type))
-        else:
-            raise ValueError('Parameter output_type must be one of "series" ' +
-                             '"dataframe", cupy", "numpy", "numba" or "input')
-    else:
+
+    if output_type not in ['numpy', 'cupy', 'cudf', 'numba', "input", None]:
         raise ValueError('Parameter output_type must be one of "series" ' +
-                         '"dataframe", cupy", "numpy", "numba" or "input')
+                                '"dataframe", cupy", "numpy", "numba" or "input')
+
+    prev_output_type = cuml.global_output_type
+    try:
+        cuml.global_output_type = output_type
+        # print("Set cuml.global_output_type: {}. Prev: {}".format(cuml.global_output_type, prev_output_type))
+        yield prev_output_type
+    finally:
+        cuml.global_output_type = prev_output_type
+        # print("Restored cuml.global_output_type: {}. Prev: {}".format(cuml.global_output_type, output_type))
 
 
 @with_cupy_rmm

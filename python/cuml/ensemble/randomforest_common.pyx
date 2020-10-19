@@ -333,7 +333,8 @@ class BaseRandomForestModel(Base):
             _check_fil_parameter_validity(depth=self.max_depth,
                                           fil_sparse_format=fil_sparse_format,
                                           algo=algo)
-        fil_model = ForestInference()
+        fil_model = ForestInference(handle=self.handle, verbose=self.verbose,
+                                    output_type=self.output_type)
         tl_to_fil_model = \
             fil_model.load_using_treelite_handle(treelite_handle,
                                                  output_class=output_class,

@@ -41,7 +41,8 @@ def test_fit_function(dataset, model_name):
         "TSNE",
         "TruncatedSVD",
         "AutoARIMA",
-        "MultinomialNB"
+        "MultinomialNB",
+        "LabelEncoder",
     ]:
         pytest.xfail("These models are not tested yet")
 

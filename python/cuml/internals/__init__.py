@@ -31,6 +31,7 @@ from cuml.internals.func_wrappers import (
     api_return_generic,
     api_return_sparse_array,
     exit_internal_api,
+    in_internal_api,
     set_api_output_dtype,
     set_api_output_type,
 )

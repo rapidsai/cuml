@@ -77,6 +77,8 @@ class BaseMetaClass(type):
                         return _process_generic(ret_type)
                     elif (issubclass(ret_type, cuml.common.CumlArray)):
                         return "array"
+                    elif (issubclass(ret_type, cuml.common.SparseCumlArray)):
+                        return "sparsearray"
                     elif (issubclass(ret_type, cuml.Base)):
                         return "base"
                     else:
@@ -104,6 +106,9 @@ class BaseMetaClass(type):
                             attribute)
                     elif (return_type == "array"):
                         attribute = cuml.internals.api_base_return_array()(
+                            attribute)
+                    elif (return_type == "sparsearray"):
+                        attribute = cuml.internals.api_base_return_sparse_array()(
                             attribute)
                     elif (return_type == "base"):
                         attribute = cuml.internals.api_base_return_any()(

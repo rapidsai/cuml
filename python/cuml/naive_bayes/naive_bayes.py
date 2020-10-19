@@ -516,6 +516,9 @@ class MultinomialNB(Base):
             warnings.warn("Y dtype does not match classes_ dtype. Y will be "
                           "converted, which will increase memory consumption")
 
+        # Make sure Y is a cupy array, not CumlArray
+        Y = cp.asarray(Y)
+
         counts = cp.zeros((self._n_classes_, self._n_features_),
                           order="F",
                           dtype=X.dtype)

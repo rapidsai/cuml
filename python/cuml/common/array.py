@@ -14,17 +14,22 @@
 # limitations under the License.
 #
 
+import multiprocessing
 import operator
 
-from cuml.common import ArrayOutputable
 import cupy as cp
 import numpy as np
-from cudf.core import Buffer, DataFrame, Series
-from cuml.common.memory_utils import (_get_size_from_shape, _order_to_strides,
-                                      _strides_to_order, with_cupy_rmm, class_with_cupy_rmm)
+from cudf.core import Buffer
+from cudf.core import DataFrame
+from cudf.core import Series
+from cuml.common.array_outputable import ArrayOutputable
+from cuml.common.memory_utils import _get_size_from_shape
+from cuml.common.memory_utils import _order_to_strides
+from cuml.common.memory_utils import _strides_to_order
+from cuml.common.memory_utils import class_with_cupy_rmm
+from cuml.common.memory_utils import with_cupy_rmm
 from numba import cuda
 from rmm import DeviceBuffer
-import multiprocessing
 
 _array_manager = multiprocessing.Manager()
 

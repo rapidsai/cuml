@@ -29,6 +29,7 @@ from numpy.core.multiarray import inner
 import cuml
 import cuml.common
 import cuml.common.array
+import cuml.common.array_sparse
 from cuml.common.array_outputable import ArrayOutputable
 import cuml.common.base
 import cuml.common.input_utils
@@ -45,15 +46,20 @@ except ImportError:
         pass
 
 
-@dataclass
-class TempOutputState:
-    output_type: str = None
-    target_dtype: str = None
-
+@contextlib.contextmanager
+def _using_mirror_output_type():
+    prev_output_type = cuml.global_output_type
+    try:
+        cuml.global_output_type = "mirror"
+        yield prev_output_type
+    finally:
+        cuml.global_output_type = prev_output_type
 
 global_output_type_data = threading.local()
 global_output_type_data.root_cm = None
 
+def in_internal_api():
+    return global_output_type_data.root_cm is not None
 
 def set_api_output_type(output_type: str):
     assert (global_output_type_data.root_cm is not None)
@@ -97,11 +103,12 @@ class InternalAPIContext(contextlib.ExitStack):
 
         self.enter_context(cupy_using_allocator(rmm.rmm_cupy_allocator))
         self.prev_output_type = self.enter_context(
-            cuml.using_output_type("mirror"))
+            _using_mirror_output_type())
 
         self._output_type = None
         self.output_dtype = None
 
+        # Set the output type to the prev_output_type. If "input", set to None to allow inner functions to specify the input
         self.output_type = None if self.prev_output_type == "input" else self.prev_output_type
 
         self._count = 0
@@ -287,7 +294,7 @@ class ProcessEnterBaseReturnArray(ProcessEnterReturnArray,
     def __init__(self, context: "InternalAPIContextBase"):
         super().__init__(context)
 
-        if (self._context.root_cm.prev_output_type == "input"):
+        if (self._context.root_cm.output_type is None):
             self._process_enter_cbs.append(self.base_output_type_callback)
 
     def base_output_type_callback(self):
@@ -298,9 +305,16 @@ class ProcessEnterBaseReturnArray(ProcessEnterReturnArray,
             output_type = (root_cm.output_type if root_cm.output_type
                            is not None else root_cm.prev_output_type)
 
-            if (output_type == "input"):
+            assert output_type == root_cm.output_type, "MD: Check to see if we can revert to root_cm.output_type by default"
+
+            # Check if output_type, can happen if no output type has been set by estimator
+            if (output_type is None):
                 output_type = self.base_obj.output_type
 
+            if (output_type == "input"):
+                output_type = self.base_obj._input_type
+
+            if (output_type != root_cm.output_type):
                 set_api_output_type(output_type)
 
             assert (output_type != "mirror")
@@ -347,6 +361,44 @@ class ProcessReturnArray(ProcessReturn):
 
         return ret_val.to_output(
             output_type=self._context.root_cm.output_type,
+            output_dtype=self._context.root_cm.output_dtype)
+
+class ProcessReturnSparseArray(ProcessReturn):
+
+    def __init__(self, context: "InternalAPIContextBase"):
+        super().__init__(context)
+
+        self._process_return_cbs.append(self.convert_to_cumlarray)
+
+        if (self._context.is_root):
+            self._process_return_cbs.append(self.convert_to_outputtype)
+
+    def convert_to_cumlarray(self, ret_val):
+
+        # Get the output type
+        ret_val_type_str = determine_array_type(ret_val)
+
+        # If we are a supported array and not already cuml, convert to cuml
+        if (ret_val_type_str is not None and ret_val_type_str != "cuml"):
+            ret_val = cuml.common.array_sparse.SparseCumlArray(ret_val, convert_index=False)
+
+        return ret_val
+
+    def convert_to_outputtype(self, ret_val):
+
+        # TODO: Simple workaround for sparse arrays. Should not be released
+        if (not isinstance(ret_val, ArrayOutputable)):
+            return ret_val
+
+        assert self._context.root_cm.output_type is not None and self._context.root_cm.output_type != "mirror" and self._context.root_cm.output_type != "input"
+
+        output_type = self._context.root_cm.output_type
+
+        if (output_type == "numpy"):
+            output_type = "scipy"
+
+        return ret_val.to_output(
+            output_type=output_type,
             output_dtype=self._context.root_cm.output_dtype)
 
 
@@ -449,6 +501,10 @@ class ReturnArrayCM(InternalAPIContextBase[ProcessEnterReturnArray,
                                            ProcessReturnArray]):
     pass
 
+class ReturnSparseArrayCM(InternalAPIContextBase[ProcessEnterReturnArray,
+                                           ProcessReturnSparseArray]):
+    pass
+
 
 class ReturnGenericCM(InternalAPIContextBase[ProcessEnterReturnArray,
                                              ProcessReturnGeneric]):
@@ -462,6 +518,10 @@ class BaseReturnAnyCM(InternalAPIContextBase[ProcessEnterReturnAny,
 
 class BaseReturnArrayCM(InternalAPIContextBase[ProcessEnterBaseReturnArray,
                                                ProcessReturnArray]):
+    pass
+
+class BaseReturnSparseArrayCM(InternalAPIContextBase[ProcessEnterBaseReturnArray,
+                                               ProcessReturnSparseArray]):
     pass
 
 
@@ -696,8 +756,9 @@ class HasGettersDecoratorMixin(object):
 
     def do_getters_with_self(self, *, self_val, input_val):
         if (not self.skip_get_output_type):
-            assert input_val is not None, "`skip_get_output_type` is False but no input_arg detected"
-            set_api_output_type(self_val._get_output_type(input_val))
+            out_type = self_val._get_output_type(input_val)
+            assert out_type is not None, "`skip_get_output_type` is False but output_type could not be determined from input_arg"
+            set_api_output_type(out_type)
 
         if (not self.skip_get_output_dtype):
             set_api_output_dtype(self_val._get_target_dtype())
@@ -705,12 +766,13 @@ class HasGettersDecoratorMixin(object):
     def do_getters_no_self(self, *, input_val, target_val):
         if (not self.skip_get_output_type):
             assert input_val is not None, "`skip_get_output_type` is False but no input_arg detected"
-            set_api_output_type(cuml.common.base._input_to_type(input_val))
+            set_api_output_type(
+                cuml.common.input_utils.determine_array_type(input_val))
 
         if (not self.skip_get_output_dtype):
             assert target_val is not None, "`skip_get_output_dtype` is False but no target_arg detected"
             set_api_output_dtype(
-                cuml.common.base._input_target_to_dtype(target_val))
+                cuml.common.input_utils.determine_array_dtype(target_val))
 
     def has_getters_input(self):
         return not self.skip_get_output_type
@@ -860,6 +922,11 @@ class ReturnArrayDecorator(ReturnDecorator,
 
         return ReturnArrayCM(func, args)
 
+class ReturnSparseArrayDecorator(ReturnArrayDecorator):
+    def _recreate_cm(self, func, args):
+
+        return ReturnSparseArrayCM(func, args)
+
 
 class BaseReturnArrayDecorator(ReturnDecorator,
                                HasSettersDecoratorMixin,
@@ -978,6 +1045,11 @@ class BaseReturnArrayDecorator(ReturnDecorator,
         # TODO: Should we return just ReturnArrayCM if `do_autowrap` == False?
         return BaseReturnArrayCM(func, args)
 
+class BaseReturnSparseArrayDecorator(BaseReturnArrayDecorator):
+    def _recreate_cm(self, func, args):
+
+        return BaseReturnSparseArrayCM(func, args)
+
 
 # TODO: Static check the typings for valid values
 class ReturnGenericDecorator(ReturnArrayDecorator):
@@ -1025,8 +1097,8 @@ api_return_generic = ReturnGenericDecorator
 api_base_return_generic = BaseReturnGenericDecorator
 api_base_fit_transform = BaseReturnArrayFitTransformDecorator
 
-api_return_sparse_array = api_return_any
-api_base_return_sparse_array = api_base_return_any
+api_return_sparse_array = ReturnSparseArrayDecorator
+api_base_return_sparse_array = BaseReturnSparseArrayDecorator
 
 api_return_array_skipall = ReturnArrayDecorator(skip_get_output_dtype=True,
                                                 skip_get_output_type=True)

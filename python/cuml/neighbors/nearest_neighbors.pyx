@@ -29,6 +29,7 @@ import warnings
 from cuml.common.base import Base
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.array import CumlArray
+from cuml.common.array_sparse import SparseCumlArray
 from cuml.common.doc_utils import generate_docstring
 from cuml.common.doc_utils import insert_into_docstring
 from cuml.common import input_to_cuml_array
@@ -282,9 +283,8 @@ class NearestNeighbors(Base):
                            return_values=[('dense', '(n_samples, n_features)'),
                                           ('dense',
                                            '(n_samples, n_features)')])
-    @cuml.internals.api_base_return_generic_skipall
     def kneighbors(self, X=None, n_neighbors=None, return_distance=True,
-                   convert_dtype=True) -> typing.Union[CumlArray, typing.Tuple]:
+                   convert_dtype=True) -> typing.Union[CumlArray, typing.Tuple[CumlArray, CumlArray]]:
         """
         Query the GPU index for the k nearest neighbors of column vectors in X.
 
@@ -316,7 +316,7 @@ class NearestNeighbors(Base):
         return self._kneighbors(X, n_neighbors, return_distance, convert_dtype)
 
     def _kneighbors(self, X=None, n_neighbors=None, return_distance=True,
-                    convert_dtype=True) -> typing.Union[CumlArray, typing.Tuple[CumlArray, CumlArray]]:
+                    convert_dtype=True):
         """
         Query the GPU index for the k nearest neighbors of column vectors in X.
 
@@ -344,11 +344,11 @@ class NearestNeighbors(Base):
 
         Returns
         -------
-        distances: cuDF DataFrame, pandas DataFrame, numpy or cupy ndarray
+        distances: cupy ndarray
             The distances of the k-nearest neighbors for each column vector
             in X
 
-        indices: cuDF DataFrame, pandas DataFrame, numpy or cupy ndarray
+        indices: cupy ndarray
             The indices of the k-nearest neighbors for each column vector in X
         """
         n_neighbors = self.n_neighbors if n_neighbors is None else n_neighbors
@@ -447,8 +447,7 @@ class NearestNeighbors(Base):
         return (D_ndarr, I_ndarr) if return_distance else I_ndarr
 
     @insert_into_docstring(parameters=[('dense', '(n_samples, n_features)')])
-    @cuml.internals.api_base_return_array()
-    def kneighbors_graph(self, X=None, n_neighbors=None, mode='connectivity'):
+    def kneighbors_graph(self, X=None, n_neighbors=None, mode='connectivity') -> SparseCumlArray:
         """
         Find the k nearest neighbors of column vectors in X and return as
         a sparse matrix in CSR format.
@@ -518,7 +517,7 @@ class NearestNeighbors(Base):
         # else:
         #     return sparse_csr
 
-
+@cuml.internals.api_return_sparse_array()
 def kneighbors_graph(X=None, n_neighbors=5, mode='connectivity', verbose=False,
                      handle=None, algorithm="brute", metric="euclidean", p=2,
                      include_self=False, metric_params=None, output_type=None):
