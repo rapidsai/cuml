@@ -186,9 +186,6 @@ class AutoARIMA(Base):
             verbose=verbose)
         self._set_base_attributes(output_type=endog)
 
-        # Disable _mirror_input since functions dont take an array input
-        self._mirror_input = False
-
         # Get device array. Float64 only for now.
         self.d_y, self.n_obs, self.batch_size, self.dtype \
             = input_to_cuml_array(endog, check_dtype=np.float64)

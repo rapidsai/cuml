@@ -295,8 +295,6 @@ class QN(Base):
         Fit the model with X and y.
 
         """
-        # self._set_base_attributes(output_type=X)
-
         X_m, n_rows, self.n_cols, self.dtype = input_to_cuml_array(
             X, order='F', check_dtype=[np.float32, np.float64]
         )
@@ -476,9 +474,6 @@ class QN(Base):
         Predicts the y for X.
 
         """
-        # out_type = self._get_output_type(X)
-        # out_dtype = self._get_target_dtype()
-
         X_m, n_rows, n_cols, self.dtype = input_to_cuml_array(
             X, check_dtype=self.dtype,
             convert_to_dtype=(self.dtype if convert_dtype else None),
@@ -538,20 +533,6 @@ class QN(Base):
             self.intercept_ = self._coef_[-1]
         else:
             self.intercept_ = CumlArray.zeros(shape=1)
-
-    # def __getattr__(self, attr):
-    #     if attr == 'intercept_':
-    #         if self.fit_intercept:
-    #             return self.coef_[-1].to_output(self.output_type)
-    #         else:
-    #             return CumlArray.zeros(shape=1)
-    #     elif attr == 'coef_':
-    #         if self.fit_intercept:
-    #             return self.coef_[0:-1].to_output(self.output_type)
-    #         else:
-    #             return self.coef_.to_output(self.output_type)
-    #     else:
-    #         return super().__getattr__(attr)
 
     def get_param_names(self):
         return super().get_param_names() + \

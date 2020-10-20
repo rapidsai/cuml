@@ -78,9 +78,6 @@ def seas_test(y, s, handle=None) -> CumlArray:
             "ERROR: Invalid period for the seasonal differencing test: {}"
             .format(s))
 
-    # if output_type == "input":
-    #     output_type = _input_to_type(y)
-
     # At the moment we use a host array
     h_y, _, n_obs, batch_size, dtype = \
         input_to_host_array(y, check_dtype=[np.float32, np.float64])

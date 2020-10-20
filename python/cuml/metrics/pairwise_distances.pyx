@@ -188,7 +188,6 @@ def pairwise_distances(X, Y=None, metric="euclidean", handle=None,
     cdef handle_t *handle_ = <handle_t*> <size_t> handle.getHandle()
 
     # Determine the input type to convert to when returning
-    # output_type = _determine_stateless_output_type(output_type, X)
     if (output_type is not None):
         cuml.internals.set_api_output_type(output_type)
 

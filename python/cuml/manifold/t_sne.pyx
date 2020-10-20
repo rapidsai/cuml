@@ -332,8 +332,6 @@ class TSNE(Base):
         Fit X into an embedded space.
 
         """
-        # self._set_base_attributes(n_features=X)
-
         cdef int n, p
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
         if handle_ == NULL:

@@ -338,9 +338,9 @@ class SVC(SVMBase, ClassifierMixin):
             X, _, _, _, _ = input_to_host_array(X)
             y, _, _, _, _ = input_to_host_array(y)
 
-                if not has_sklearn():
-                    raise RuntimeError(
-                        "Scikit-learn is needed to use SVM probabilities")
+            if not has_sklearn():
+                raise RuntimeError(
+                    "Scikit-learn is needed to use SVM probabilities")
 
             self.prob_svc = CalibratedClassifierCV(SVC(**params), cv=5,
                                                     method='sigmoid')
@@ -416,7 +416,7 @@ class SVC(SVMBase, ClassifierMixin):
 
         if self.probability:
             self._check_is_fitted('prob_svc')
-            # out_type = self._get_output_type(X)
+
             X, _, _, _, _ = input_to_host_array(X)
 
             with cuml.internals.exit_internal_api():
@@ -447,7 +447,7 @@ class SVC(SVMBase, ClassifierMixin):
 
         if self.probability:
             self._check_is_fitted('prob_svc')
-            # out_type = self._get_output_type(X)
+
             X, _, _, _, _ = input_to_host_array(X)
 
             # Exit the internal API when calling sklearn code (forces numpy
@@ -490,7 +490,6 @@ class SVC(SVMBase, ClassifierMixin):
         """
         if self.probability:
             self._check_is_fitted('prob_svc')
-            # out_type = self._get_output_type(X)
             # Probabilistic SVC is an ensemble of simple SVC classifiers
             # fitted to different subset of the training data. As such, it
             # does not have a single decision function. (During prediction

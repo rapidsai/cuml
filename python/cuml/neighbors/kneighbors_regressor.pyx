@@ -186,10 +186,6 @@ class KNeighborsRegressor(NearestNeighbors, RegressorMixin):
         predict the labels for X
 
         """
-
-        # out_type = self._get_output_type(X)
-        # out_dtype = self._get_target_dtype() if convert_dtype else None
-
         if (convert_dtype):
             cuml.internals.set_api_output_dtype(self._get_target_dtype())
 

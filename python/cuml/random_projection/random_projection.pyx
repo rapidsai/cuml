@@ -242,8 +242,6 @@ cdef class BaseRandomProjection():
             generated random matrix as attributes
 
         """
-        # self._set_base_attributes(output_type=X, n_features=X)
-
         _, n_samples, n_features, self.dtype = \
             input_to_cuml_array(X, check_dtype=[np.float32, np.float64])
 
@@ -285,9 +283,6 @@ cdef class BaseRandomProjection():
             Result of multiplication between input matrix and random matrix
 
         """
-
-        # out_type = self._get_output_type(X)
-
         X_m, n_samples, n_features, dtype = \
             input_to_cuml_array(X, check_dtype=self.dtype,
                                 convert_to_dtype=(self.dtype if convert_dtype

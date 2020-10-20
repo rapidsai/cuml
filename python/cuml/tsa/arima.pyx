@@ -238,9 +238,6 @@ class ARIMA(Base):
         # Initialize base class
         super().__init__(handle, verbose, output_type)
         self._set_base_attributes(output_type=endog)
-        
-        # Disable _mirror_input since functions dont take an array input
-        self._mirror_input = False
 
         # Set the ARIMA order
         cdef ARIMAOrder cpp_order

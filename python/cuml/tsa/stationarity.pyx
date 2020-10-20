@@ -47,7 +47,6 @@ cdef extern from "cuml/tsa/stationarity.h" namespace "ML":
         int d, int D, int s,
         double pval_threshold)
 
-# TODO: Update api_return_array to take input_arg if desired
 @cuml.internals.api_return_array(input_arg="y", skip_get_output_type=False)
 def kpss_test(y, d=0, D=0, s=0, pval_threshold=0.05,
               handle=None) -> CumlArray:
@@ -85,9 +84,6 @@ def kpss_test(y, d=0, D=0, s=0, pval_threshold=0.05,
     d_y, n_obs, batch_size, dtype = \
         input_to_cuml_array(y, check_dtype=[np.float32, np.float64])
     cdef uintptr_t d_y_ptr = d_y.ptr
-
-    # if output_type == "input":
-    #     output_type = _input_to_type(y)
 
     if handle is None:
         handle = Handle()

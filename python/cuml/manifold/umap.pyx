@@ -566,8 +566,6 @@ class UMAP(Base):
             raise ValueError("There needs to be more than 1 sample to "
                              "build nearest the neighbors graph")
 
-        # self._set_base_attributes(output_type=X, n_features=X)
-
         (knn_indices_m, knn_indices_ctype), (knn_dists_m, knn_dists_ctype) =\
             self._extract_knn_graph(knn_graph, convert_dtype)
 
@@ -735,8 +733,6 @@ class UMAP(Base):
             raise ValueError("n_features of X must match n_features of "
                              "training data")
 
-        # out_type = self._get_output_type(X)
-
         if self.hash_input and joblib.hash(X_m.to_output('numpy')) == \
                 self.input_hash:
 
@@ -764,17 +760,17 @@ class UMAP(Base):
             <UMAPParams*> <size_t> UMAP._build_umap_params(self)
 
         transform(handle_[0],
-                <float*>x_ptr,
-                <int> X_m.shape[0],
-                <int> X_m.shape[1],
-                <int64_t*> knn_indices_raw,
-                <float*> knn_dists_raw,
-                <float*>orig_x_raw,
-                <int> self.n_rows,
-                <float*> embed_ptr,
-                <int> self.n_rows,
-                <UMAPParams*> umap_params,
-                <float*> xformed_ptr)
+                  <float*>x_ptr,
+                  <int> X_m.shape[0],
+                  <int> X_m.shape[1],
+                  <int64_t*> knn_indices_raw,
+                  <float*> knn_dists_raw,
+                  <float*>orig_x_raw,
+                  <int> self.n_rows,
+                  <float*> embed_ptr,
+                  <int> self.n_rows,
+                  <UMAPParams*> umap_params,
+                  <float*> xformed_ptr)
         self.handle.sync()
 
         UMAP._destroy_umap_params(<size_t>umap_params)

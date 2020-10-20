@@ -312,19 +312,13 @@ class PCA(Base):
         self.c_algorithm = self._get_algorithm_c_name(self.svd_solver)
 
         # internal array attributes
-        # self._components_ = None  # accessed via estimator.components_
-        # self._trans_input_ = None  # accessed via estimator.trans_input_
-        # self._explained_variance_ = None
-        # accessed via estimator.explained_variance_
-
-        # self._explained_variance_ratio_ = None
-        # accessed via estimator.explained_variance_ratio_
-
-        # self._singular_values_ = None
-        # accessed via estimator.singular_values_
-
-        # self._mean_ = None  # accessed via estimator.mean_
-        # self._noise_variance_ = None  # accessed via estimator.noise_variance_
+        self.components_ = None
+        self.trans_input_ = None
+        self.explained_variance_ = None
+        self.explained_variance_ratio_ = None
+        self.singular_values_ = None
+        self.mean_ = None
+        self.noise_variance_ = None
 
         # This variable controls whether a sparse model was fit
         # This can be removed once there is more inter-operability
@@ -428,19 +422,6 @@ class PCA(Base):
         self.singular_values_ = \
             cp.sqrt(self.singular_values_ * (self.n_rows - 1))
 
-        # Since temp_components_ can have a negative stride, copy it to get a
-        # new contiguous array
-        # temp_components_ = temp_components_.copy()
-
-        # Finally, store everything as CumlArray to support `to_output`
-        # self._mean_ = CumlArray(temp_mean_)
-        # self.explained_variance_ = CumlArray(temp_explained_variance_)
-        # self._components_ = CumlArray(temp_components_)
-        # self._noise_variance_ = CumlArray(temp_noise_variance_)
-        # self._explained_variance_ratio_ = \
-            # CumlArray(temp_explained_variance_ratio_)
-        # self.singular_values_ = CumlArray(temp_singular_values_)
-
         return self
 
     @generate_docstring(X='dense_sparse')
@@ -449,8 +430,6 @@ class PCA(Base):
         Fit the model with X. y is currently ignored.
 
         """
-        # self._set_base_attributes(output_type=X, n_features=X)
-
         if cupyx.scipy.sparse.issparse(X):
             return self._sparse_fit(X)
         elif scipy.sparse.issparse(X):
@@ -537,26 +516,17 @@ class PCA(Base):
         # NOTE: All intermediate calculations are done using cupy.ndarray and
         # then converted to CumlArray at the end to minimize conversions
         # between types
-        # with using_output_type("cupy"):
-        #     self.components_ = self.components_
-        #     self.mean_ = self.mean_
 
         if self.whiten:
-            # self.components_ *= (1 / cp.sqrt(self.n_rows - 1))
             cp.multiply(self.components_, (1 / cp.sqrt(self.n_rows - 1)), out=self.components_)
-            # self.components_ *= self.singular_values_
             cp.multiply(self.components_, self.singular_values_, out=self.components_)
 
-        # X_inv = X.dot(self.components_)
         X_inv = cp.dot(X, self.components_)
-        # X_inv += self.mean_
         cp.add(X_inv, self.mean_, out=X_inv)
 
         if self.whiten:
             self.components_ /= self.singular_values_
             self.components_ *= cp.sqrt(self.n_rows - 1)
-
-        # self.components_ = CumlArray(self.components_)
 
         if return_sparse:
             X_inv = cp.where(X_inv < sparse_tol, 0, X_inv)
@@ -566,12 +536,6 @@ class PCA(Base):
             return X_inv
 
         return X_inv
-
-        # if out_type == 'cupy':
-        #     return X_inv
-        # else:
-        #     X_inv, _, _, _ = input_to_cuml_array(X_inv, order='K')
-        #     return X_inv.to_output(out_type)
 
     @generate_docstring(X='dense_sparse',
                         return_values={'name': 'X_inv',
@@ -586,8 +550,6 @@ class PCA(Base):
         In other words, return an input X_original whose transform would be X.
 
         """
-
-        # out_type = self._get_output_type(X)
 
         if cupyx.scipy.sparse.issparse(X):
             return self._sparse_inverse_transform(X,
@@ -665,27 +627,16 @@ class PCA(Base):
 
             if self.whiten:
                 self.components_ *= cp.sqrt(self.n_rows - 1)
-                # cp.multiply(self.components_, cp.sqrt(self.n_rows - 1), out=self.components_)
                 self.components_ /= self.singular_values_
 
             X = X - self.mean_
             X_transformed = X.dot(self.components_.T)
-            # X_transformed = X.dot(cp.transpose(self.components_))
 
             if self.whiten:
                 self.components_ *= self.singular_values_
                 self.components_ *= (1 / cp.sqrt(self.n_rows - 1))
 
-            # self.components_ = CumlArray(self.components_)
-
         return X_transformed
-
-        # if self._get_output_type(X) == 'cupy':
-        #     return X_transformed
-        # else:
-        #     X_transformed, _, _, _ = \
-        #         input_to_cuml_array(X_transformed, order='K')
-        #     return X_transformed.to_output(out_type)
 
     @generate_docstring(X='dense_sparse',
                         return_values={'name': 'trans',
@@ -700,8 +651,6 @@ class PCA(Base):
         from a training set.
 
         """
-
-        # out_type = self._get_output_type(X)
 
         if cupyx.scipy.sparse.issparse(X):
             return self._sparse_transform(X)

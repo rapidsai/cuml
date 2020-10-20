@@ -199,7 +199,6 @@ class IncrementalPCA(PCA):
                                              output_type=output_type)
         self.batch_size = batch_size
         self._hyperparams = ["n_components", "whiten", "copy", "batch_size"]
-        # self._cupy_attributes = True
         self._sparse_model = True
 
     def fit(self, X, y=None) -> "IncrementalPCA":
@@ -220,9 +219,6 @@ class IncrementalPCA(PCA):
             Returns the instance itself.
 
         """
-
-        # self._set_base_attributes(output_type=X)
-
         self.n_samples_seen_ = 0
         self.mean_ = .0
         self.var_ = .0
@@ -321,11 +317,6 @@ class IncrementalPCA(PCA):
                              "to %i between calls to partial_fit! Try "
                              "setting n_components to a fixed value." %
                              (self.components_.shape[0], self.n_components_))
-
-        # if not self._cupy_attributes:
-        #     self._cumlarray_to_cupy_attrs()
-        #     self._cupy_attributes = True
-
         # This is the first partial_fit
         if not hasattr(self, 'n_samples_seen_'):
             self.n_samples_seen_ = 0
@@ -373,10 +364,6 @@ class IncrementalPCA(PCA):
         else:
             self.noise_variance_ = 0.
 
-        # if self._cupy_attributes:
-        #     self._cupy_to_cumlarray_attrs()
-        #     self._cupy_attributes = False
-
         return self
 
     def transform(self, X, convert_dtype=False) -> CumlArray:
@@ -407,7 +394,6 @@ class IncrementalPCA(PCA):
         """
 
         if scipy.sparse.issparse(X) or cupyx.scipy.sparse.issparse(X):
-            # out_type = self._get_output_type(X)
 
             X = _validate_sparse_input(X)
 
@@ -426,24 +412,6 @@ class IncrementalPCA(PCA):
     def get_param_names(self):
         # Skip super() since we dont pass any extra parameters in __init__
         return Base.get_param_names(self) + self._hyperparams
-
-    # def _cupy_to_cumlarray_attrs(self):
-    #     self.components_ = CumlArray(self.components_.copy())
-    #     self.mean_ = CumlArray(self.mean_)
-    #     self.noise_variance_ = CumlArray(self.noise_variance_)
-    #     self.singular_values_ = CumlArray(self.singular_values_)
-    #     self.explained_variance_ = CumlArray(self.explained_variance_.copy())
-    #     self.explained_variance_ratio_ = \
-    #         CumlArray(self.explained_variance_ratio_)
-
-    # def _cumlarray_to_cupy_attrs(self):
-    #     self.components_ = self.components_.to_output("cupy")
-    #     self.mean_ = self.mean_.to_output("cupy")
-    #     self.noise_variance_ = self.noise_variance_.to_output("cupy")
-    #     self.singular_values_ = self.singular_values_.to_output("cupy")
-    #     self.explained_variance_ = self.explained_variance_.to_output("cupy")
-    #     self.explained_variance_ratio_ = \
-    #         self.explained_variance_ratio_.to_output("cupy")
 
 
 def _validate_sparse_input(X):

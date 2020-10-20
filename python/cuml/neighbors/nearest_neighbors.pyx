@@ -230,8 +230,6 @@ class NearestNeighbors(Base):
         Fit GPU index for performing nearest neighbor queries.
 
         """
-        # self._set_base_attributes(output_type=X, n_features=X)
-
         if len(X.shape) != 2:
             raise ValueError("data should be two dimensional")
 
@@ -428,27 +426,11 @@ class NearestNeighbors(Base):
 
         self.handle.sync()
 
-        # if _output_cumlarray:
-        #     return (D_ndarr, I_ndarr) if return_distance else I_ndarr
-
-        # out_type = self._get_output_type(X)
-        # I_output = I_ndarr.to_output(out_type)
-        # if return_distance:
-        #     D_output = D_ndarr.to_output(out_type)
-
         # drop first column if using training data as X
         # this will need to be moved to the C++ layer (cuml issue #2562)
         if use_training_data:
             D_ndarr = D_ndarr[:, 1:]
             I_ndarr = I_ndarr[:, 1:]
-
-            # if out_type in {'cupy', 'numpy', 'numba'}:
-            #     return (D_output[:, 1:], I_output[:, 1:]) \
-            #         if return_distance else I_output[:, 1:]
-            # else:
-            #     I_output.drop(I_output.columns[0], axis=1)
-            #     if return_distance:
-            #         D_output.drop(D_output.columns[0], axis=1)
 
         return (D_ndarr, I_ndarr) if return_distance else I_ndarr
 
@@ -517,11 +499,6 @@ class NearestNeighbors(Base):
                                                    n_samples_fit))
 
         return sparse_csr
-
-        # if self._get_output_type(X) is 'numpy':
-        #     return sparse_csr.get()
-        # else:
-        #     return sparse_csr
 
 @cuml.internals.api_return_sparse_array()
 def kneighbors_graph(X=None, n_neighbors=5, mode='connectivity', verbose=False,

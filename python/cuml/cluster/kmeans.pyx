@@ -280,8 +280,8 @@ class KMeans(Base):
         self.max_samples_per_batch=int(max_samples_per_batch)
 
         # internal array attributes
-        self.labels_ = None  # accessed via estimator.labels_
-        self.cluster_centers_ = None  # accessed via estimator.cluster_centers_  # noqa
+        self.labels_ = None
+        self.cluster_centers_ = None
 
         cdef KMeansParams params
         params.n_clusters = <int>self.n_clusters
@@ -326,8 +326,6 @@ class KMeans(Base):
         Compute k-means clustering with X.
 
         """
-        # self._set_base_attributes(output_type=X, n_features=X)
-
         if self.init == 'preset':
             check_cols = self.n_cols
             check_dtype = self.dtype
@@ -452,8 +450,6 @@ class KMeans(Base):
         Sum of squared distances of samples to their closest cluster center.
         """
 
-        # out_type = self._get_output_type(X)
-
         X_m, n_rows, n_cols, dtype = \
             input_to_cuml_array(X, order='C', check_dtype=self.dtype,
                                 convert_to_dtype=(self.dtype if convert_dtype
@@ -543,8 +539,6 @@ class KMeans(Base):
         Transform X to a cluster-distance space.
 
         """
-
-        # out_type = self._get_output_type(X)
 
         X_m, n_rows, n_cols, dtype = \
             input_to_cuml_array(X, order='C', check_dtype=self.dtype,

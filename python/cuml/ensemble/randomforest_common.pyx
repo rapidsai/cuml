@@ -234,8 +234,6 @@ class BaseRandomForestModel(Base):
 
     @cuml.internals.api_base_return_generic(skip_set_output_type=False, skip_set_n_features_in=False, skip_get_output_type=True)
     def _dataset_setup_for_fit(self, X, y, convert_dtype) -> typing.Tuple[CumlArray, CumlArray, float]:
-        # self._set_output_type(X)
-        # self._set_n_features_in(X)
         # Reset the old tree data for new fit call
         self._reset_forest_data()
 
@@ -316,7 +314,6 @@ class BaseRandomForestModel(Base):
     def _predict_model_on_gpu(self, X, algo, convert_dtype,
                               fil_sparse_format, threshold=0.5,
                               output_class=False, predict_proba=False) -> CumlArray:
-        # out_type = self._get_output_type(X)
         _, n_rows, n_cols, dtype = \
             input_to_cuml_array(X, order='F',
                                 check_cols=self.n_cols)

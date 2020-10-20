@@ -94,9 +94,6 @@ def precision_recall_curve(y_true, probs_pred):
                             np.float32, np.float64],
                             check_rows=n_rows, check_cols=n_cols)
 
-    # y_true = y_true.to_output('cupy')
-    # y_score = y_score.to_output('cupy')
-
     if cp.any(y_true) == 0:
         raise ValueError("precision_recall_curve cannot be used when "
                          "y_true is all zero.")
@@ -191,8 +188,6 @@ def _binary_clf_curve(y_true, y_score):
 
 def _binary_roc_auc_score(y_true, y_score):
     """Compute binary roc_auc_score using cupy"""
-    # y_true = y_true.to_output('cupy')
-    # y_score = y_score.to_output('cupy')
 
     if cp.unique(y_true).shape[0] == 1:
         raise ValueError("roc_auc_score cannot be used when "

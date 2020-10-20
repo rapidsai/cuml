@@ -365,7 +365,7 @@ def test_unfit_clone(model_name):
     # Cloning runs into many of the same problems as pickling
     mod = all_models[model_name]()
 
-    modified_clone(mod)
+    clone(mod)
     # TODO: check parameters exactly?
 
 

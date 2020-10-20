@@ -237,7 +237,6 @@ class MultinomialNB(Base):
         Fit Naive Bayes classifier according to X, y
 
         """
-        # self._set_base_attributes(output_type=X)
         return self.partial_fit(X, y, sample_weight)
 
     @cp.prof.TimeRangeDecorator(message="fit()", color_id=0)
@@ -246,7 +245,6 @@ class MultinomialNB(Base):
                      y,
                      sample_weight=None,
                      _classes=None) -> "MultinomialNB":
-        # self._set_output_type(X)
 
         if has_scipy():
             from scipy.sparse import isspmatrix as scipy_sparse_isspmatrix
@@ -361,8 +359,6 @@ class MultinomialNB(Base):
         Perform classification on an array of test vectors X.
 
         """
-        # out_type = self._get_output_type(X)
-
         if has_scipy():
             from scipy.sparse import isspmatrix as scipy_sparse_isspmatrix
         else:
@@ -386,7 +382,6 @@ class MultinomialNB(Base):
 
         y_hat = invert_labels(indices, classes=self.classes_)
         return y_hat
-        # return CumlArray(data=y_hat).to_output(out_type)
 
     @generate_docstring(
         X='dense_sparse',
@@ -404,8 +399,6 @@ class MultinomialNB(Base):
         Return log-probability estimates for the test vector X.
 
         """
-        # out_type = self._get_output_type(X)
-
         if has_scipy():
             from scipy.sparse import isspmatrix as scipy_sparse_isspmatrix
         else:
@@ -461,7 +454,6 @@ class MultinomialNB(Base):
         Return probability estimates for the test vector X.
 
         """
-        # out_type = self._get_output_type(X)
         result = cp.exp(self.predict_log_proba(X))
         return result
 

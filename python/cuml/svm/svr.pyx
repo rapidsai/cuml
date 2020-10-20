@@ -239,7 +239,6 @@ class SVR(SVMBase, RegressorMixin):
         Fit the model with X and y.
 
         """
-        # self._set_base_attributes(output_type=X, n_features=X)
         cdef uintptr_t X_ptr, y_ptr
 
         X_m, self.n_rows, self.n_cols, self.dtype = \

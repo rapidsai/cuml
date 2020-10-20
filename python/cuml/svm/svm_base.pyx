@@ -423,7 +423,6 @@ class SVMBase(Base):
                 self._fit_status_ = 1  # incorrect fit
                 return
             self.intercept_ = CumlArray.full(1, model_f.b, np.float32)
-            # self.intercept_ = model_f.b
             self.n_support_ = model_f.n_support
 
             self.dual_coef_ = CumlArray(
@@ -458,7 +457,6 @@ class SVMBase(Base):
                 self._fit_status_ = 1  # incorrect fit
                 return
             self.intercept_ = CumlArray.full(1, model_d.b, np.float64)
-            # self.intercept_ = model_d.b
             self.n_support_ = model_d.n_support
 
             self.dual_coef_ = CumlArray(
@@ -509,7 +507,6 @@ class SVMBase(Base):
         y : cuDF Series
            Dense vector (floats or doubles) of shape (n_samples, 1)
         """
-        # out_type = self._get_output_type(X)
         if predict_class:
             out_dtype = self._get_target_dtype()
         else:

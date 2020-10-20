@@ -170,8 +170,6 @@ class KNeighborsClassifier(NearestNeighbors, ClassifierMixin):
         Fit a GPU index for k-nearest neighbors classifier model.
 
         """
-        # self._set_base_attributes(output_type=X, target_dtype=y)
-
         super(KNeighborsClassifier, self).fit(X, convert_dtype)
         self.y, _, _, _ = \
             input_to_cuml_array(y, order='F', check_dtype=np.int32,
@@ -193,10 +191,6 @@ class KNeighborsClassifier(NearestNeighbors, ClassifierMixin):
         predict the labels for X
 
         """
-
-        # out_type = self._get_output_type(X)
-        # out_dtype = self._get_target_dtype()
-
         knn_indices = self.kneighbors(X, return_distance=False,
                                       convert_dtype=convert_dtype)
 
@@ -253,9 +247,6 @@ class KNeighborsClassifier(NearestNeighbors, ClassifierMixin):
         predict the label probabilities for X
 
         """
-
-        # out_type = self._get_output_type(X)
-
         knn_indices = self.kneighbors(X, return_distance=False,
                                       convert_dtype=convert_dtype)
 

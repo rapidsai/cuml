@@ -179,7 +179,6 @@ class MBSGDRegressor(Base, RegressorMixin):
         Fit the model with X and y.
 
         """
-        # self._set_base_attributes(n_features=X)
         self.solver_model.fit(X, y, convert_dtype=convert_dtype)
         return self
 

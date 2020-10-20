@@ -268,9 +268,6 @@ class LogisticRegression(Base, ClassifierMixin):
         Fit the model with X and y.
 
         """
-        # self.solver_model._set_base_attributes(target_dtype=y)
-        # self._set_base_attributes(output_type=X, n_features=X)
-
         # Converting y to device array here to use `unique` function
         # since calling input_to_dev_array again in QN has no cost
         # Not needed to check dtype since qn class checks it already
@@ -372,8 +369,6 @@ class LogisticRegression(Base, ClassifierMixin):
         )
 
     def _predict_proba_impl(self, X, convert_dtype=False, log_proba=False) -> CumlArray:
-        # out_type = self._get_output_type(X)
-
         # TODO:
         # We currently need to grab the dtype and ncols attributes via the
         # qn solver due to https://github.com/rapidsai/cuml/issues/2404
@@ -403,7 +398,6 @@ class LogisticRegression(Base, ClassifierMixin):
         if log_proba:
             proba = cp.log(proba)
 
-        # proba = CumlArray(proba)
         return proba
 
     def get_param_names(self):

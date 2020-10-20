@@ -137,12 +137,7 @@ def make_monotonic(labels, classes=None, copy=False) -> typing.Tuple[CumlArray, 
     mapped_labels : array-like of size (n,)
     classes : array-like of size (n_classes,)
     """
-
-    # labels = cp.asarray(labels, dtype=labels.dtype)
     labels = input_to_cupy_array(labels, deepcopy=copy).array
-
-    # if copy:
-    #     labels = labels.copy()
 
     if labels.ndim != 1:
         raise ValueError("Labels array must be 1D")
@@ -183,10 +178,6 @@ def check_labels(labels, classes) -> bool:
     result : boolean
     """
 
-
-
-    # labels = cp.asarray(labels, dtype=labels.dtype)
-    # classes = cp.asarray(classes, dtype=classes.dtype)
     labels = input_to_cupy_array(labels).array
     classes = input_to_cupy_array(classes).array
 
@@ -232,19 +223,12 @@ def invert_labels(labels, classes, copy=False) -> CumlArray:
     inverted labels : array-like of size (n,)
 
     """
-
-    # labels = cp.asarray(labels, dtype=labels.dtype)
-    # classes = cp.asarray(classes, dtype=classes.dtype)
     labels = input_to_cupy_array(labels, deepcopy=copy).array
     classes = input_to_cupy_array(classes).array
 
     if labels.dtype != classes.dtype:
         raise ValueError("Labels and classes must have same dtype (%s != %s" %
                          (labels.dtype, classes.dtype))
-
-    # if copy:
-    #     labels = labels.copy()
-
     smem = labels.dtype.itemsize * len(classes)
     inverse_map = _inverse_map_kernel(labels.dtype)
     inverse_map((math.ceil(len(labels) / 32),), (32,),

@@ -316,8 +316,6 @@ class SGD(Base):
         Fit the model with X and y.
 
         """
-        # self._set_base_attributes(output_type=X, target_dtype=y)
-
         X_m, n_rows, self.n_cols, self.dtype = \
             input_to_cuml_array(X, check_dtype=[np.float32, np.float64])
 
@@ -407,8 +405,6 @@ class SGD(Base):
         Predicts the y for X.
 
         """
-        # output_type = self._get_output_type(X)
-
         X_m, n_rows, n_cols, self.dtype = \
             input_to_cuml_array(X, check_dtype=self.dtype,
                                 convert_to_dtype=(self.dtype if convert_dtype
@@ -458,9 +454,6 @@ class SGD(Base):
         Predicts the y for X.
 
         """
-        # output_type = self._get_output_type(X)
-        # out_dtype = self._get_target_dtype()
-
         X_m, n_rows, n_cols, dtype = \
             input_to_cuml_array(X, check_dtype=self.dtype,
                                 convert_to_dtype=(self.dtype if convert_dtype

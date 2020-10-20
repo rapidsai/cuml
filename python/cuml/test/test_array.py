@@ -154,7 +154,6 @@ def test_array_init(input_type, dtype, shape, order):
 
         assert cp.all(cp.asarray(ary._owner) == cp.asarray(inp_copy))
 
-        
     return True
 
 

@@ -425,8 +425,6 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
             y to be of dtype int32. This will increase memory used for
             the method.
         """
-        # self._set_base_attributes(target_dtype=y)
-
         X_m, y_m, max_feature_val = self._dataset_setup_for_fit(X, y,
                                                                 convert_dtype)
         cdef uintptr_t X_ptr, y_ptr
@@ -503,9 +501,6 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
 
     @cuml.internals.api_base_return_array(skip_get_output_dtype=False)
     def _predict_model_on_cpu(self, X, convert_dtype) -> CumlArray:
-        # out_type = self._get_output_type(X)
-        # out_dtype = self._get_target_dtype()
-
         cdef uintptr_t X_ptr
         X_m, n_rows, n_cols, dtype = \
             input_to_cuml_array(X, order='C',
@@ -658,7 +653,6 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
         y : NumPy
            Dense vector (int) of shape (n_samples, 1)
         """
-        # out_type = self._get_output_type(X)
         cdef uintptr_t X_ptr, preds_ptr
         X_m, n_rows, n_cols, dtype = \
             input_to_cuml_array(X, order='C',

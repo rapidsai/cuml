@@ -47,10 +47,7 @@ class CumlArrayDescriptor():
     def __set_name__(self, owner, name):
         self.name = name
 
-    # def __init__(self, value=None):
-    #     self.value = float(value)
-
-    def _get_value(self, instance, throw_on_missing = False) -> CumlArrayDescriptorMeta:
+    def _get_meta(self, instance, throw_on_missing = False) -> CumlArrayDescriptorMeta:
 
         if (throw_on_missing):
             if (self.name not in instance.__dict__):
@@ -62,10 +59,9 @@ class CumlArrayDescriptor():
 
     def _to_output(self, instance, to_output_type, to_output_dtype=None):
 
-        existing = self._get_value(instance, throw_on_missing=True)
+        existing = self._get_meta(instance, throw_on_missing=True)
 
-        # Handle setting npone
-
+        # Handle setting none
         if (existing.input_type is None):
             # Dont save in the cache. Just return the value
             return existing.values[existing.input_type]
@@ -94,7 +90,7 @@ class CumlArrayDescriptor():
         if (instance is None):
             return self
 
-        existing = self._get_value(instance, throw_on_missing=True)
+        existing = self._get_meta(instance, throw_on_missing=True)
 
         assert len(existing.values) > 0
 
@@ -120,7 +116,7 @@ class CumlArrayDescriptor():
 
     def __set__(self, instance, value):
 
-        existing = self._get_value(instance)
+        existing = self._get_meta(instance)
 
         # Determine the type
         existing.input_type = determine_array_type(value)

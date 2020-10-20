@@ -232,8 +232,6 @@ class CD(Base):
 
         """
 
-        # self._set_base_attributes(output_type=X)
-
         X_m, n_rows, self.n_cols, self.dtype = \
             input_to_cuml_array(X, check_dtype=[np.float32, np.float64])
 
@@ -305,8 +303,6 @@ class CD(Base):
         Predicts the y for X.
 
         """
-        # out_type = self._get_output_type(X)
-
         X_m, n_rows, n_cols, dtype = \
             input_to_cuml_array(X, check_dtype=self.dtype,
                                 convert_to_dtype=(self.dtype if convert_dtype

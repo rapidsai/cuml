@@ -323,8 +323,6 @@ class TruncatedSVD(Base):
         y is currently ignored.
 
         """
-        # self._set_base_attributes(output_type=X, n_features=X)
-
         X_m, self.n_rows, self.n_cols, self.dtype = \
             input_to_cuml_array(X, check_dtype=[np.float32, np.float64])
         cdef uintptr_t input_ptr = X_m.ptr
@@ -376,7 +374,6 @@ class TruncatedSVD(Base):
         # following transfers start
         self.handle.sync()
 
-        # out_type = self._get_output_type(X)
         return _trans_input_
 
     @generate_docstring(return_values={'name': 'X_original',
@@ -426,7 +423,6 @@ class TruncatedSVD(Base):
         # following transfers start
         self.handle.sync()
 
-        # out_type = self._get_output_type(X)
         return input_data
 
     @generate_docstring(return_values={'name': 'X_new',
@@ -476,7 +472,6 @@ class TruncatedSVD(Base):
         # following transfers start
         self.handle.sync()
 
-        # out_type = self._get_output_type(X)
         return t_input_data
 
     def get_param_names(self):

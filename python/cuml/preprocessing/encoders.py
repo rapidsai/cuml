@@ -462,4 +462,3 @@ class OneHotEncoder(Base):
                 "dtype",
                 "handle_unknown",
             ]
-

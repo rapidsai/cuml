@@ -201,7 +201,7 @@ class DBSCAN(Base):
         self.calc_core_sample_indices = calc_core_sample_indices
 
         # internal array attributes
-        self.labels_ = None  # accessed via estimator.labels_
+        self.labels_ = None
 
         # accessed via estimator._core_sample_indices_ when
         # `self.calc_core_sample_indices == True`
@@ -223,10 +223,6 @@ class DBSCAN(Base):
             "int64", np.int64}.
 
         """
-        # self._set_base_attributes(output_type=X, n_features=X)
-
-        # del self.labels_
-
         if out_dtype not in ["int32", np.int32, "int64", np.int64]:
             raise ValueError("Invalid value for out_dtype. "
                              "Valid values are {'int32', 'int64', "
@@ -308,15 +304,15 @@ class DBSCAN(Base):
         if self.calc_core_sample_indices:
 
             # Temp convert to cupy array only once
-            with cuml.using_output_type("cupy"):
-                core_samples_cupy = self.core_sample_indices_
+            # with cuml.using_output_type("cupy"):
+            #     core_samples_cupy = self.core_sample_indices_
 
             # First get the min index. These have to monotonically increasing,
             # so the min index should be the first returned -1
-            min_index = cp.argmin(core_samples_cupy).item()
+            min_index = cp.argmin(self.core_sample_indices_).item()
 
             # Check for the case where there are no -1's
-            if (min_index == 0 and core_samples_cupy[min_index].item() != -1):
+            if (min_index == 0 and self.core_sample_indices_[min_index].item() != -1):
                 # Nothing to delete. The array has no -1's
                 pass
             else:

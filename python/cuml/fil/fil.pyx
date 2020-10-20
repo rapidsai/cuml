@@ -500,7 +500,6 @@ class ForestInference(Base):
         GPU array of length n_samples with inference results
         (or 'preds' filled with inference results if preds was specified)
         """
-        # out_type = self._get_output_type(X)
         return self._impl.predict(X, predict_proba=False, preds=None)
 
     def predict_proba(self, X, preds=None) -> CumlArray:
@@ -525,8 +524,6 @@ class ForestInference(Base):
         GPU array of shape (n_samples,2) with inference results
         (or 'preds' filled with inference results if preds was specified)
         """
-        # out_type = self._get_output_type(X)
-
         return self._impl.predict(X, predict_proba=True, preds=None)
 
     def load_from_treelite_model(self, model, output_class=False,

@@ -474,7 +474,6 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
         return self
 
     def _predict_model_on_cpu(self, X, convert_dtype) -> CumlArray:
-        # out_type = self._get_output_type(X)
         cdef uintptr_t X_ptr
         X_m, n_rows, n_cols, dtype = \
             input_to_cuml_array(X, order='C',
