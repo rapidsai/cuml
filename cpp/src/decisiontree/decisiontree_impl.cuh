@@ -301,13 +301,6 @@ void DecisionTreeBase<T, L>::plant(
       use_experimental_backend = false;
     }
 
-    if (tree_params.max_depth <= 0 || tree_params.max_depth >= 14) {
-      CUML_LOG_WARN(
-        "Experimental backend does not yet support arbitrary depth trees");
-      CUML_LOG_WARN("To use experimental backend set 0 < max_depth < 14");
-      use_experimental_backend = false;
-    }
-
     if (tree_params.max_features != 1.0) {
       CUML_LOG_WARN(
         "Experimental backend does not yet support feature sub-sampling");
