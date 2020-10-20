@@ -37,8 +37,7 @@ namespace LinAlg {
 template <typename math_t>
 void lstsqSVD(const raft::handle_t &handle, math_t *A, int n_rows, int n_cols,
               math_t *b, math_t *w, cudaStream_t stream) {
-  std::shared_ptr<raft::mr::device::allocator> allocator =
-    handle.get_device_allocator();
+  auto allocator = handle.get_device_allocator();
   cusolverDnHandle_t cusolverH = handle.get_cusolver_dn_handle();
   cublasHandle_t cublasH = handle.get_cublas_handle();
 
@@ -53,8 +52,8 @@ void lstsqSVD(const raft::handle_t &handle, math_t *A, int n_rows, int n_cols,
   raft::mr::device::buffer<math_t> U(allocator, stream, U_len);
   raft::mr::device::buffer<math_t> UT_b(allocator, stream, n_rows);
 
-  svdQR(A, n_rows, n_cols, S.data(), U.data(), V.data(), true, true, true,
-        cusolverH, cublasH, allocator, stream);
+  raft::linalg::svdQR(handle, A, n_rows, n_cols, S.data(), U.data(), V.data(),
+                      true, true, true, stream);
 
   raft::linalg::gemv(handle, U.data(), n_rows, n_cols, b, w, true, stream);
 
@@ -67,8 +66,7 @@ void lstsqSVD(const raft::handle_t &handle, math_t *A, int n_rows, int n_cols,
 template <typename math_t>
 void lstsqEig(const raft::handle_t &handle, math_t *A, int n_rows, int n_cols,
               math_t *b, math_t *w, cudaStream_t stream) {
-  std::shared_ptr<raft::mr::device::allocator> allocator =
-    handle.get_device_allocator();
+  auto allocator = handle.get_device_allocator();
   cusolverDnHandle_t cusolverH = handle.get_cusolver_dn_handle();
   cublasHandle_t cublasH = handle.get_cublas_handle();
 
@@ -82,7 +80,8 @@ void lstsqEig(const raft::handle_t &handle, math_t *A, int n_rows, int n_cols,
   raft::mr::device::buffer<math_t> V(allocator, stream, V_len);
   raft::mr::device::buffer<math_t> U(allocator, stream, U_len);
 
-  svdEig(handle, A, n_rows, n_cols, S.data(), U.data(), V.data(), true, stream);
+  raft::linalg::svdEig(handle, A, n_rows, n_cols, S.data(), U.data(), V.data(),
+                       true, stream);
 
   raft::linalg::gemv(handle, U.data(), n_rows, n_cols, b, w, true, stream);
 
