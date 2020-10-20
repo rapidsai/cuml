@@ -211,6 +211,11 @@ struct forest {
     All other flags (AVG, SIGMOID, CLASS, SOFTMAX) are ignored
     */
     output_t ot = output_;
+    // Treelite applies bias before softmax, but we do after.
+    // Simulating treelite order, which cancels out bias.
+    // If non-proba prediction used, it still will not matter
+    // for the same reason softmax will not.
+    float global_bias = ((ot & output_t::SOFTMAX) != 0) ? 0.0f : global_bias_;
     bool complement_proba = false, do_transform;
 
     if (predict_proba) {
@@ -226,23 +231,20 @@ struct forest {
         case leaf_algo_t::GROVE_PER_CLASS:
           // for GROVE_PER_CLASS, averaging happens in infer_k
           ot = output_t(ot & ~output_t::AVG);
-          // treelite applies bias before softmax, but we do after.
-          // simulating treelite order, which cancels out bias
-          if ((ot & output_t::SOFTMAX) != 0) global_bias_ = 0.0f;
           params.num_outputs = num_classes_;
           do_transform = (ot != output_t::RAW && ot != output_t::SOFTMAX) ||
-                         global_bias_ != 0.0f;
+                         global_bias != 0.0f;
           break;
         case leaf_algo_t::CATEGORICAL_LEAF:
           params.num_outputs = num_classes_;
-          do_transform = ot != output_t::RAW || global_bias_ != 0.0f;
+          do_transform = ot != output_t::RAW || global_bias != 0.0f;
           break;
         default:
           ASSERT(false, "internal error: invalid leaf_algo_");
       }
     } else {
       if (leaf_algo_ == leaf_algo_t::FLOAT_UNARY_BINARY) {
-        do_transform = ot != output_t::RAW || global_bias_ != 0.0f;
+        do_transform = ot != output_t::RAW || global_bias != 0.0f;
       } else {
         // GROVE_PER_CLASS, CATEGORICAL_LEAF: moot since choosing best class and
         // all transforms are monotonic. also, would break current code
@@ -261,7 +263,7 @@ struct forest {
       transform_k<<<raft::ceildiv(num_values_to_transform, (size_t)FIL_TPB),
                     FIL_TPB, 0, stream>>>(
         preds, num_values_to_transform, ot,
-        num_trees_ > 0 ? (1.0f / num_trees_) : 1.0f, threshold_, global_bias_,
+        num_trees_ > 0 ? (1.0f / num_trees_) : 1.0f, threshold_, global_bias,
         complement_proba);
       CUDA_CHECK(cudaPeekAtLastError());
     }
@@ -463,8 +465,8 @@ void check_params(const forest_params_t* params, bool dense) {
     ASSERT(false,
            "output should be a combination of RAW, AVG, SIGMOID and CLASS");
   }
-  ASSERT((params->output & (output_t::SOFTMAX | output_t::SIGMOID)) !=
-           (output_t::SOFTMAX | output_t::SIGMOID),
+  int softmax_with_sigmoid = output_t::SOFTMAX | output_t::SIGMOID;
+  ASSERT((params->output & softmax_with_sigmoid) != softmax_with_sigmoid,
          "not supporting softmax and sigmoid transformations together");
 }
 
