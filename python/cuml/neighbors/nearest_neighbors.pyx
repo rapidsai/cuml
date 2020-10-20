@@ -291,7 +291,7 @@ class NearestNeighbors(Base):
     def get_param_names(self):
         return super().get_param_names() + \
             ["n_neighbors", "algorithm", "metric",
-                "p", "metric_params"]
+                "p", "metric_params", "algo_params"]
 
     @staticmethod
     def _build_metric_type(metric):
