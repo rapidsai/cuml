@@ -64,5 +64,5 @@ TEST(Gemm, Gemm_128x128x8) {
   CUDA_CHECK(cudaFree(D));
 }
 
-}  // end namespace LinAlg
-}  // end namespace MLCommon
+}  // namespace LinAlg
+}  // namespace MLCommon

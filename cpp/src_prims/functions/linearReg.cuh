@@ -26,6 +26,7 @@
 #include <linalg/subtract.cuh>
 #include <matrix/math.cuh>
 #include <matrix/matrix.cuh>
+#include <raft/mr/device/buffer.hpp>
 #include <stats/mean.cuh>
 #include <stats/sum.cuh>
 #include "penalty.cuh"
@@ -34,36 +35,37 @@ namespace MLCommon {
 namespace Functions {
 
 template <typename math_t>
-void linearRegH(const math_t *input, int n_rows, int n_cols, const math_t *coef,
-                math_t *pred, math_t intercept, cublasHandle_t cublas_handle,
+void linearRegH(const raft::handle_t &handle, const math_t *input, int n_rows,
+                int n_cols, const math_t *coef, math_t *pred, math_t intercept,
                 cudaStream_t stream) {
-  LinAlg::gemm(input, n_rows, n_cols, coef, pred, n_rows, 1, CUBLAS_OP_N,
-               CUBLAS_OP_N, cublas_handle, stream);
+  raft::linalg::gemm(handle, input, n_rows, n_cols, coef, pred, n_rows, 1,
+                     CUBLAS_OP_N, CUBLAS_OP_N, stream);
 
   if (intercept != math_t(0))
-    LinAlg::addScalar(pred, pred, intercept, n_rows, stream);
+    raft::linalg::addScalar(pred, pred, intercept, n_rows, stream);
 }
 
 template <typename math_t>
-void linearRegLossGrads(math_t *input, int n_rows, int n_cols,
-                        const math_t *labels, const math_t *coef, math_t *grads,
-                        penalty pen, math_t alpha, math_t l1_ratio,
-                        cublasHandle_t cublas_handle,
-                        std::shared_ptr<deviceAllocator> allocator,
-                        cudaStream_t stream) {
-  device_buffer<math_t> labels_pred(allocator, stream, n_rows);
+void linearRegLossGrads(const raft::handle_t &handle, math_t *input, int n_rows,
+                        int n_cols, const math_t *labels, const math_t *coef,
+                        math_t *grads, penalty pen, math_t alpha,
+                        math_t l1_ratio, cudaStream_t stream) {
+  auto allocator = handle.get_device_allocator();
+  auto cublas_handle = handle.get_cublas_handle();
 
-  linearRegH(input, n_rows, n_cols, coef, labels_pred.data(), math_t(0),
-             cublas_handle, stream);
-  LinAlg::subtract(labels_pred.data(), labels_pred.data(), labels, n_rows,
-                   stream);
+  raft::mr::device::buffer<math_t> labels_pred(allocator, stream, n_rows);
+
+  linearRegH(handle, input, n_rows, n_cols, coef, labels_pred.data(), math_t(0),
+             stream);
+  raft::linalg::subtract(labels_pred.data(), labels_pred.data(), labels, n_rows,
+                         stream);
   raft::matrix::matrixVectorBinaryMult(input, labels_pred.data(), n_rows,
                                        n_cols, false, false, stream);
 
   raft::stats::mean(grads, input, n_cols, n_rows, false, false, stream);
   raft::linalg::scalarMultiply(grads, grads, math_t(2), n_cols, stream);
 
-  device_buffer<math_t> pen_grads(allocator, stream, 0);
+  raft::mr::device::buffer<math_t> pen_grads(allocator, stream, 0);
 
   if (pen != penalty::NONE) pen_grads.resize(n_cols, stream);
 
@@ -76,27 +78,29 @@ void linearRegLossGrads(math_t *input, int n_rows, int n_cols,
   }
 
   if (pen != penalty::NONE) {
-    LinAlg::add(grads, grads, pen_grads.data(), n_cols, stream);
+    raft::linalg::add(grads, grads, pen_grads.data(), n_cols, stream);
   }
 }
 
 template <typename math_t>
-void linearRegLoss(math_t *input, int n_rows, int n_cols, const math_t *labels,
-                   const math_t *coef, math_t *loss, penalty pen, math_t alpha,
-                   math_t l1_ratio, cublasHandle_t cublas_handle,
-                   std::shared_ptr<deviceAllocator> allocator,
+void linearRegLoss(const raft::handle_t &handle, math_t *input, int n_rows,
+                   int n_cols, const math_t *labels, const math_t *coef,
+                   math_t *loss, penalty pen, math_t alpha, math_t l1_ratio,
                    cudaStream_t stream) {
-  device_buffer<math_t> labels_pred(allocator, stream, n_rows);
+  std::shared_ptr<raft::mr::device::allocator> allocator =
+    handle.get_device_allocator();
 
-  linearRegH(input, n_rows, n_cols, coef, labels_pred.data(), math_t(0),
-             cublas_handle, stream);
+  raft::mr::device::buffer<math_t> labels_pred(allocator, stream, n_rows);
 
-  LinAlg::subtract(labels_pred.data(), labels, labels_pred.data(), n_rows,
-                   stream);
+  linearRegH(handle, input, n_rows, n_cols, coef, labels_pred.data(), math_t(0),
+             stream);
+
+  raft::linalg::subtract(labels_pred.data(), labels, labels_pred.data(), n_rows,
+                         stream);
   raft::matrix::power(labels_pred.data(), n_rows, stream);
   raft::stats::mean(loss, labels_pred.data(), 1, n_rows, false, false, stream);
 
-  device_buffer<math_t> pen_val(allocator, stream, 0);
+  raft::mr::device::buffer<math_t> pen_val(allocator, stream, 0);
 
   if (pen != penalty::NONE) pen_val.resize(1, stream);
 
@@ -109,7 +113,7 @@ void linearRegLoss(math_t *input, int n_rows, int n_cols, const math_t *labels,
   }
 
   if (pen != penalty::NONE) {
-    LinAlg::add(loss, loss, pen_val.data(), 1, stream);
+    raft::linalg::add(loss, loss, pen_val.data(), 1, stream);
   }
 }
 

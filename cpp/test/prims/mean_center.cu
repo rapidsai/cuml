@@ -22,8 +22,8 @@
 #include "matrix_vector_op.cuh"
 #include "test_utils.h"
 
-namespace MLCommon {
-namespace Stats {
+namespace raft {
+namespace stats {
 
 template <typename T, typename IdxType>
 struct MeanCenterInputs {
@@ -212,5 +212,5 @@ TEST_P(MeanCenterTestD_i64, Result) {
 INSTANTIATE_TEST_CASE_P(MeanCenterTests, MeanCenterTestD_i64,
                         ::testing::ValuesIn(inputsd_i64));
 
-}  // end namespace Stats
-}  // end namespace MLCommon
+}  // end namespace stats
+}  // end namespace raft

@@ -101,11 +101,12 @@ void postProcessData_impl(raft::handle_t &handle,
                                                 streams[0], true);
   }
 
-  LinAlg::gemm(mu_input, 1, input_desc.N, coef, d_intercept.data(), 1, 1,
-               CUBLAS_OP_N, CUBLAS_OP_N, cublas_handle, streams[0]);
+  raft::linalg::gemm(handle, mu_input, 1, input_desc.N, coef,
+                     d_intercept.data(), 1, 1, CUBLAS_OP_N, CUBLAS_OP_N,
+                     streams[0]);
 
-  LinAlg::subtract(d_intercept.data(), mu_labels, d_intercept.data(), 1,
-                   streams[0]);
+  raft::linalg::subtract(d_intercept.data(), mu_labels, d_intercept.data(), 1,
+                         streams[0]);
   raft::update_host(intercept, d_intercept.data(), 1, streams[0]);
 
   Matrix::Data<T> mu_input_data{mu_input, size_t(input_desc.N)};

@@ -77,11 +77,9 @@ void olsFit(const raft::handle_t &handle, math_t *input, int n_rows, int n_cols,
   }
 
   if (algo == 0 || n_cols == 1) {
-    LinAlg::lstsqSVD(input, n_rows, n_cols, labels, coef, cusolver_handle,
-                     cublas_handle, allocator, stream);
+    LinAlg::lstsqSVD(handle, input, n_rows, n_cols, labels, coef, stream);
   } else if (algo == 1) {
-    LinAlg::lstsqEig(input, n_rows, n_cols, labels, coef, cusolver_handle,
-                     cublas_handle, allocator, stream);
+    LinAlg::lstsqEig(handle, input, n_rows, n_cols, labels, coef, stream);
   } else if (algo == 2) {
     LinAlg::lstsqQR(input, n_rows, n_cols, labels, coef, cusolver_handle,
                     cublas_handle, allocator, stream);
@@ -115,17 +113,15 @@ template <typename math_t>
 void olsPredict(const raft::handle_t &handle, const math_t *input, int n_rows,
                 int n_cols, const math_t *coef, math_t intercept, math_t *preds,
                 cudaStream_t stream) {
-  auto cublas_handle = handle.get_cublas_handle();
-
   ASSERT(n_cols > 0, "olsPredict: number of columns cannot be less than one");
   ASSERT(n_rows > 0, "olsPredict: number of rows cannot be less than one");
 
   math_t alpha = math_t(1);
   math_t beta = math_t(0);
-  LinAlg::gemm(input, n_rows, n_cols, coef, preds, n_rows, 1, CUBLAS_OP_N,
-               CUBLAS_OP_N, alpha, beta, cublas_handle, stream);
+  raft::linalg::gemm(handle, input, n_rows, n_cols, coef, preds, n_rows, 1,
+                     CUBLAS_OP_N, CUBLAS_OP_N, alpha, beta, stream);
 
-  LinAlg::addScalar(preds, preds, intercept, n_rows, stream);
+  raft::linalg::addScalar(preds, preds, intercept, n_rows, stream);
 }
 
 };  // namespace GLM
