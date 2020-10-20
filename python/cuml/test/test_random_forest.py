@@ -146,7 +146,8 @@ def special_reg(request):
 @pytest.mark.parametrize('max_features', [1.0, 'auto', 'log2', 'sqrt'])
 @pytest.mark.parametrize('use_experimental_backend', [True, False])
 def test_rf_classification(small_clf, datatype, split_algo,
-                           rows_sample, max_features, use_experimental_backend):
+                           rows_sample, max_features,
+                           use_experimental_backend):
     use_handle = True
 
     X, y = small_clf
