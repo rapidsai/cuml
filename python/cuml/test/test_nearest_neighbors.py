@@ -340,7 +340,7 @@ def test_nearest_neighbors_sparse(nrows, ncols,
     print("Data created")
 
     logger.set_level(logger.level_info)
-    nn = cuKNN(metric=metric, n_neighbors=n_neighbors, algorithm="brute",
+    nn = cuKNN(metric="l1", n_neighbors=n_neighbors, algorithm="brute",
                verbose=logger.level_debug,
                algo_params={"batch_size_index": batch_size_index,
                             "batch_size_query": batch_size_query})
@@ -353,7 +353,7 @@ def test_nearest_neighbors_sparse(nrows, ncols,
     cuD, cuI = nn.kneighbors(a)
     print("cuML took %s" % (time.time() - start))
 
-    sknn = skKNN(metric=metric, n_neighbors=n_neighbors,
+    sknn = skKNN(metric="l1", n_neighbors=n_neighbors,
                  algorithm="brute", n_jobs=-1)
     sk_X = a.get()
     sknn.fit(sk_X)

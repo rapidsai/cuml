@@ -526,8 +526,20 @@ template <typename value_idx, typename value_t, int tpb, int buffer_size,
   int max_chunk_size, int rows_per_warp>
 struct Semiring {
 
-  __device__ inline Semiring(int tid_, value_idx m_, value_idx n_
-  ): tid(tid_), m(m_), n(n_){}
+  __device__ inline Semiring(int tid_,
+                             value_idx m_,
+                             value_idx n_,
+                             value_idx *start_rows_,
+                             value_idx *offsets_,
+                             value_idx *shared_cols_,
+                             value_t *shared_vals_,
+                             value_idx *chunk_cols_,
+                             value_t *chunk_vals_,
+                             value_t *sums_): tid(tid_), m(m_), n(n_), start_rows(start_rows_),
+                                               offsets(offsets_), shared_cols(shared_cols_),
+                                               shared_vals(shared_vals_), chunk_cols(chunk_cols_),
+                                               chunk_vals(chunk_vals_), sums(sums_), done(false),
+                                               shared_idx(0), cur_sum(0){}
 
   __device__ inline void load_a(value_idx row, value_idx *indptrA, value_idx *indicesA, value_t *dataA) {
     start_offset_a = indptrA[row];
@@ -537,6 +549,10 @@ struct Semiring {
       shared_cols[i] = indicesA[start_offset_a+i];
       shared_vals[i] = dataA[start_offset_a+i];
     }
+
+    shared_size = stop_offset_a - start_offset_a;
+
+    row_a = row;
   }
 
   __device__ inline void load_b(value_idx start_row, value_idx *indptrB, value_idx *indicesB, value_t *dataB) {
@@ -544,69 +560,115 @@ struct Semiring {
     stop_row_b = min(start_row_b + rows_per_warp,
                                start_row_b + (n-start_row_b)-1);
 
+    // load start & end offsets to compute chunk size
+    start_offset_b = indptrB[start_row_b];
+    stop_offset_b = indptrB[stop_row_b];
+
+    // divide the work evenly across threads in the warp
+    working_chunk_size = (stop_offset_b - start_offset_b) / blockDim.x;
+
+    // TODO: Need to initialize start_rows to -1
+
+    // get starting offsets of each row being processed by the current block
+    for(int i = tid; i < (stop_row_b - start_row_b)+1; i+= blockDim.x) {
+      value_idx offset = indptrB[start_row_b + i];
+      offsets[i] = offset;
+
+      value_idx adj_offset = offset - start_offset_b;
+      start_rows[adj_offset / working_chunk_size] = min(i, adj_offset / working_chunk_size);
+    }
+
+    // TODO: Need to iterate start_rows and repeat missing values
+
+    __syncthreads();
+
+    // get starting offsets of each row being processed by the current block
     for(int i = tid; i < (stop_row_b - start_row_b)+1; i+= blockDim.x) {
       offsets[i] = indptrB[start_row_b + i];
     }
-    __syncthreads();
 
-    start_offset_b = offsets[0];
-    stop_offset_b = offsets[stop_row_b-start_row_b];
-
+    // load rows into shared memory
     for(int i = tid; i < stop_offset_b - start_offset_b; i += blockDim.x) {
       chunk_cols[i] = indicesB[start_offset_b+i];
       chunk_vals[i] = dataB[start_offset_b+i];
     }
+
+    __syncthreads();
+
+    // set starting and ending idx of local thread
+    local_idx = threadIdx.x * working_chunk_size;
+    local_idx_stop = threadIdx.x * working_chunk_size + working_chunk_size;
   }
 
-  __device__ inline bool step() {
+  __device__ inline void step() {
 
-    value_idx working_chunk_size = (stop_offset_b - start_offset_b) / blockDim.x;
+    value_idx l = local_idx < local_idx_stop ? chunk_cols[local_idx] : -1;
+    value_idx r = shared_idx < shared_size ? shared_cols[shared_idx] : -1;
 
-    value_idx local_idx = 0;
-    value_idx shared_idx = 0;
-    int idx = working_chunk_size * tid;
+    value_t lv = local_idx < local_idx_stop ? chunk_vals[local_idx] : 0;
+    value_t rv = shared_idx < shared_size ? shared_vals[shared_idx] : 0;
 
-    value_t sum = 0;
+    value_t left_side = 0;
+    value_t right_side = 0;
 
-    int shared_size = stop_offset_a - start_offset_a;
-
-    for(int i = 0; i < max(working_chunk_size, shared_size); i++) {
-      value_idx l = local_idx < working_chunk_size ? chunk_cols[local_idx] : 0;
-      value_idx r = shared_idx < shared_size ? shared_cols[shared_idx] : 0;
-
-      value_t lv = local_idx < working_chunk_size ? chunk_vals[local_idx] : 0;
-      value_t rv = shared_idx < shared_size ? shared_vals[shared_idx] : 0;
-
-      value_t left_side = 0;
-      value_t right_side = 0;
-
-      if(l < r) {
-        local_idx++;
-        left_side = lv;
-      }
-
-      if(r > l) {
-        shared_idx++;
-        right_side = rv;
-      }
-
-
-
-      __syncthreads();
+    if(l < r && l != -1) {
+      local_idx++;
+      left_side = lv;
     }
 
+    if(r > l && r != -1) {
+      shared_idx++;
+      right_side = rv;
+    }
+
+    cur_sum += left_side * right_side;
+
+    // TODO: Determine when row_b changed based on local_idx
+    // if(row_b changed) {
+    sums[row_b] += cur_sum;
+    // }
+
+    // finished when all items in chunk have been
+    // processed
+    done = l == -1 && r == -1;
+
+    __syncthreads();
   }
 
-  __device__ inline void write(value_t *out) {}
+  __device__ inline bool isdone() {
+    return done;
+  }
+
+  __device__ inline void write(value_t *out) {
+    for(int i = tid; i < rows_per_warp; i+= blockDim.x) {
+      out[row_a * n + i] = cur_sum;
+    }
+  }
 
  private:
 
   int tid;
 
+  bool done;
+
+  value_idx working_chunk_size;
+
+  int shared_size;
+
+  value_idx local_idx;
+  value_idx local_idx_stop;
+  value_idx shared_idx;
+
+  value_t cur_sum;
+
   value_idx m;
   value_idx n;
   value_idx start_offset_a;
   value_idx stop_offset_a;
+
+  value_idx row_a;
+
+  value_idx row_b;
 
   value_idx start_offset_b;
   value_idx stop_offset_b;
@@ -614,9 +676,16 @@ struct Semiring {
   value_idx start_row_b;
   value_idx stop_row_b;
 
+  // shared memory
+  value_idx *offsets;
+  value_idx *start_rows;
+  value_idx *shared_cols;
+  value_t *shared_vals;
+  value_idx *chunk_cols;
+  value_t *chunk_vals;
+
+  value_t *sums;
 };
-
-
 
 template <typename value_idx, typename value_t, int tpb, int buffer_size,
           int max_chunk_size, int rows_per_warp>
@@ -624,9 +693,8 @@ __global__ void semiring_kernel_thread_per_col(
   value_idx *indptrA, value_idx *indicesA, value_t *dataA,
   value_idx *indptrB, value_idx *indicesB, value_t *dataB,
   value_idx m, value_idx n, value_t *out,
-  int n_warps_per_row
+  int n_warps_per_row) {
 
-) {
   value_idx out_row = blockIdx.x / n_warps_per_row;
   value_idx out_col = blockIdx.x % n_warps_per_row;
   value_idx tid = threadIdx.x;
@@ -640,18 +708,25 @@ __global__ void semiring_kernel_thread_per_col(
   // num_warps = n_rows_a * (n_rows_b / rows_per_warp)
 
   __shared__ value_idx offsets[rows_per_warp+1];
-  __shared__ value_idx shared_cols[buffer_size];
-  __shared__ value_t shared_vals[buffer_size];
-  __shared__ value_idx chunk_cols[buffer_size];
-  __shared__ value_t chunk_vals[buffer_size];
+  __shared__ value_idx start_rows[tpb];
+  __shared__ value_idx shared_cols[buffer_size/4];
+  __shared__ value_t shared_vals[buffer_size/4];
+  __shared__ value_idx chunk_cols[buffer_size/4];
+  __shared__ value_t chunk_vals[buffer_size/4];
+
+  __shared__ value_t sums[rows_per_warp+1];
 
 
-  Semiring<value_idx, value_t, tpb, buffer_size, max_chunk_size, rows_per_warp> semiring(tid, m, n, offsets, shared_cols, shared_vals, chunk_cols, chunk_vals);
+  Semiring<value_idx, value_t, tpb, buffer_size, max_chunk_size, rows_per_warp> semiring(
+    tid, m, n, offsets, start_rows, shared_cols, shared_vals, chunk_cols, chunk_vals, sums);
 
   semiring.load_a(out_row, indptrA, indicesA, dataA);
   semiring.load_b(out_col, indptrB, indicesB, dataB);
 
-  semiring.step();
+  while(!semiring.isdone())
+    semiring.step();
+
+  semiring.write(out);
 
 
 
