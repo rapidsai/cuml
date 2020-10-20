@@ -9,7 +9,6 @@
 - PR #2904: Moving `linalg` basic math ops to RAFT namespaces
 - PR #2906: Moving `linalg` decomp to RAFT namespaces
 - PR #2996: Removing the max_depth restriction for switching to the batched backend
-
 - PR #3004: Remove Single Process Multi GPU (SPMG) code
 
 ## Bug Fixes
