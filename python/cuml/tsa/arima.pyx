@@ -598,7 +598,7 @@ class ARIMA(Base):
         """
 
         return self.predict(self.n_obs, self.n_obs + nsteps, level)
-    
+
     def _create_arrays(self):
         """Create the parameter arrays if non-existing"""
         cdef ARIMAOrder order = self.order
@@ -925,7 +925,7 @@ class ARIMA(Base):
 
         cpp_pack(handle_[0], cpp_params, order, <int> self.batch_size,
                  <double*>d_x_ptr)
-        
+
         return d_x_array.to_output("numpy")
 
     @nvtx_range_wrap
