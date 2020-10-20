@@ -4,6 +4,8 @@
 
 ## Improvements
 
+- PR #3004: Remove Single Process Multi GPU (SPMG) code
+
 ## Bug Fixes
 
 # cuML 0.16.0 (Date TBD)
@@ -62,7 +64,6 @@
 - PR #2930: Pin libfaiss to <=1.6.3
 - PR #2928: Updating Estimators Derived from Base for Consistency
 - PR #2942: Adding `cuml.experimental` to the Docs
-- PR #3004: Remove Single Process Multi GPU (SPMG) code
 
 ## Bug Fixes
 - PR #2973: Allow data imputation for nan values
