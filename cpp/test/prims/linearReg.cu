@@ -42,13 +42,9 @@ class LinRegLossTest : public ::testing::TestWithParam<LinRegLossInputs<T>> {
 
     T *labels, *coef;
 
-    cublasHandle_t cublas_handle;
-    CUBLAS_CHECK(cublasCreate(&cublas_handle));
+    raft::handle_t handle;
 
-    cudaStream_t stream;
-    CUDA_CHECK(cudaStreamCreate(&stream));
-
-    allocator.reset(new raft::mr::device::default_allocator);
+    cudaStream_t stream = handle.get_stream();
 
     raft::allocate(in, len);
     raft::allocate(out, 1);
@@ -110,52 +106,43 @@ class LinRegLossTest : public ::testing::TestWithParam<LinRegLossInputs<T>> {
     T alpha = 0.6;
     T l1_ratio = 0.5;
 
-    linearRegLoss(in, params.n_rows, params.n_cols, labels, coef, out,
-                  penalty::NONE, alpha, l1_ratio, cublas_handle, allocator,
-                  stream);
+    linearRegLoss(handle, in, params.n_rows, params.n_cols, labels, coef, out,
+                  penalty::NONE, alpha, l1_ratio, stream);
 
     raft::update_device(in, h_in, len, stream);
 
-    linearRegLossGrads(in, params.n_rows, params.n_cols, labels, coef, out_grad,
-                       penalty::NONE, alpha, l1_ratio, cublas_handle, allocator,
-                       stream);
+    linearRegLossGrads(handle, in, params.n_rows, params.n_cols, labels, coef,
+                       out_grad, penalty::NONE, alpha, l1_ratio, stream);
 
     raft::update_device(in, h_in, len, stream);
 
-    linearRegLoss(in, params.n_rows, params.n_cols, labels, coef, out_lasso,
-                  penalty::L1, alpha, l1_ratio, cublas_handle, allocator,
-                  stream);
+    linearRegLoss(handle, in, params.n_rows, params.n_cols, labels, coef,
+                  out_lasso, penalty::L1, alpha, l1_ratio, stream);
 
     raft::update_device(in, h_in, len, stream);
 
-    linearRegLossGrads(in, params.n_rows, params.n_cols, labels, coef,
-                       out_lasso_grad, penalty::L1, alpha, l1_ratio,
-                       cublas_handle, allocator, stream);
+    linearRegLossGrads(handle, in, params.n_rows, params.n_cols, labels, coef,
+                       out_lasso_grad, penalty::L1, alpha, l1_ratio, stream);
 
     raft::update_device(in, h_in, len, stream);
 
-    linearRegLoss(in, params.n_rows, params.n_cols, labels, coef, out_ridge,
-                  penalty::L2, alpha, l1_ratio, cublas_handle, allocator,
-                  stream);
+    linearRegLoss(handle, in, params.n_rows, params.n_cols, labels, coef,
+                  out_ridge, penalty::L2, alpha, l1_ratio, stream);
 
-    linearRegLossGrads(in, params.n_rows, params.n_cols, labels, coef,
-                       out_ridge_grad, penalty::L2, alpha, l1_ratio,
-                       cublas_handle, allocator, stream);
+    linearRegLossGrads(handle, in, params.n_rows, params.n_cols, labels, coef,
+                       out_ridge_grad, penalty::L2, alpha, l1_ratio, stream);
 
     raft::update_device(in, h_in, len, stream);
 
-    linearRegLoss(in, params.n_rows, params.n_cols, labels, coef,
-                  out_elasticnet, penalty::ELASTICNET, alpha, l1_ratio,
-                  cublas_handle, allocator, stream);
+    linearRegLoss(handle, in, params.n_rows, params.n_cols, labels, coef,
+                  out_elasticnet, penalty::ELASTICNET, alpha, l1_ratio, stream);
 
-    linearRegLossGrads(in, params.n_rows, params.n_cols, labels, coef,
+    linearRegLossGrads(handle, in, params.n_rows, params.n_cols, labels, coef,
                        out_elasticnet_grad, penalty::ELASTICNET, alpha,
-                       l1_ratio, cublas_handle, allocator, stream);
+                       l1_ratio, stream);
 
     raft::update_device(in, h_in, len, stream);
 
-    CUBLAS_CHECK(cublasDestroy(cublas_handle));
-    CUDA_CHECK(cudaStreamDestroy(stream));
     CUDA_CHECK(cudaFree(labels));
     CUDA_CHECK(cudaFree(coef));
   }

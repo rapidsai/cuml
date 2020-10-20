@@ -20,8 +20,8 @@
 #include <random/rng.cuh>
 #include "test_utils.h"
 
-namespace MLCommon {
-namespace Matrix {
+namespace raft {
+namespace matrix {
 
 template <typename T>
 struct MatrixInputs {
@@ -94,5 +94,5 @@ INSTANTIATE_TEST_CASE_P(MatrixTests, MatrixTestF,
 INSTANTIATE_TEST_CASE_P(MatrixTests, MatrixTestD,
                         ::testing::ValuesIn(inputsd2));
 
-}  // end namespace Matrix
-}  // end namespace MLCommon
+}  // namespace matrix
+}  // namespace raft

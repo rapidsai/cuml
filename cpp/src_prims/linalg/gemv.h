@@ -20,13 +20,17 @@
 #include <raft/linalg/cublas_wrappers.h>
 #include <cuda_utils.cuh>
 
-namespace MLCommon {
-namespace LinAlg {
+#include <raft/handle.hpp>
+
+namespace raft {
+namespace linalg {
 
 template <typename math_t>
-void gemv(const math_t* a, int n_rows, int n_cols, const math_t* x, int incx,
-          math_t* y, int incy, bool trans_a, math_t alpha, math_t beta,
-          cublasHandle_t cublas_h, cudaStream_t stream) {
+void gemv(const raft::handle_t& handle, const math_t* a, int n_rows, int n_cols,
+          const math_t* x, int incx, math_t* y, int incy, bool trans_a,
+          math_t alpha, math_t beta, cudaStream_t stream) {
+  cublasHandle_t cublas_h = handle.get_cublas_handle();
+
   cublasOperation_t op_a = trans_a ? CUBLAS_OP_T : CUBLAS_OP_N;
 
   // Unfortunately there is a clash of terminology
@@ -46,30 +50,26 @@ void gemv(const math_t* a, int n_rows, int n_cols, const math_t* x, int incx,
   int n = n_cols;
   int lda = trans_a ? m : n;
 
-  CUBLAS_CHECK(raft::linalg::cublasgemv(cublas_h, op_a, m, n, &alpha, a, lda, x,
-                                        incx, &beta, y, incy, stream));
+  CUBLAS_CHECK(cublasgemv(cublas_h, op_a, m, n, &alpha, a, lda, x, incx, &beta,
+                          y, incy, stream));
 }
 
 template <typename math_t>
-void gemv(const math_t* a, int n_rows_a, int n_cols_a, const math_t* x,
-          math_t* y, bool trans_a, math_t alpha, math_t beta,
-          cublasHandle_t cublas_h, cudaStream_t stream) {
-  gemv(a, n_rows_a, n_cols_a, x, 1, y, 1, trans_a, alpha, beta, cublas_h,
-       stream);
+void gemv(const raft::handle_t& handle, const math_t* a, int n_rows_a,
+          int n_cols_a, const math_t* x, math_t* y, bool trans_a, math_t alpha,
+          math_t beta, cudaStream_t stream) {
+  gemv(handle, a, n_rows_a, n_cols_a, x, 1, y, 1, trans_a, alpha, beta, stream);
 }
 
 template <typename math_t>
-void gemv(const math_t* a, int n_rows_a, int n_cols_a, const math_t* x,
-          math_t* y, bool trans_a, cublasHandle_t cublas_h,
+void gemv(const raft::handle_t& handle, const math_t* a, int n_rows_a,
+          int n_cols_a, const math_t* x, math_t* y, bool trans_a,
           cudaStream_t stream) {
   math_t alpha = math_t(1);
   math_t beta = math_t(0);
 
-  gemv(a, n_rows_a, n_cols_a, x, 1, y, 1, trans_a, alpha, beta, cublas_h,
-       stream);
+  gemv(handle, a, n_rows_a, n_cols_a, x, 1, y, 1, trans_a, alpha, beta, stream);
 }
 
-};  // namespace LinAlg
-// end namespace LinAlg
-};  // namespace MLCommon
-// end namespace MLCommon
+};  // namespace linalg
+};  // namespace raft

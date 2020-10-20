@@ -135,13 +135,13 @@ void predict_impl(raft::handle_t &handle,
 
   for (int i = 0; i < input_data.size(); i++) {
     int si = i % n_streams;
-    LinAlg::gemm(input_data[i]->ptr, local_blocks[i]->size, input_desc.N, coef,
-                 preds[i]->ptr, local_blocks[i]->size, size_t(1), CUBLAS_OP_N,
-                 CUBLAS_OP_N, alpha, beta, handle.get_cublas_handle(),
-                 streams[si]);
+    raft::linalg::gemm(handle, input_data[i]->ptr, local_blocks[i]->size,
+                       input_desc.N, coef, preds[i]->ptr, local_blocks[i]->size,
+                       size_t(1), CUBLAS_OP_N, CUBLAS_OP_N, alpha, beta,
+                       streams[si]);
 
-    LinAlg::addScalar(preds[i]->ptr, preds[i]->ptr, intercept,
-                      local_blocks[i]->size, streams[si]);
+    raft::linalg::addScalar(preds[i]->ptr, preds[i]->ptr, intercept,
+                            local_blocks[i]->size, streams[si]);
   }
 }
 

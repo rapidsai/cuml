@@ -41,8 +41,9 @@ template <typename T>
 class CovTest : public ::testing::TestWithParam<CovInputs<T>> {
  protected:
   void SetUp() override {
-    CUBLAS_CHECK(cublasCreate(&handle));
-    CUDA_CHECK(cudaStreamCreate(&stream));
+    raft::handle_t handle;
+    cudaStream_t stream = handle.get_stream();
+
     params = ::testing::TestWithParam<CovInputs<T>>::GetParam();
     params.tolerance *= 2;
     raft::random::Rng r(params.seed);
@@ -55,8 +56,8 @@ class CovTest : public ::testing::TestWithParam<CovInputs<T>> {
     r.normal(data, len, params.mean, var, stream);
     raft::stats::mean(mean_act, data, cols, rows, params.sample,
                       params.rowMajor, stream);
-    cov(cov_act, data, mean_act, cols, rows, params.sample, params.rowMajor,
-        params.stable, handle, stream);
+    cov(handle, cov_act, data, mean_act, cols, rows, params.sample,
+        params.rowMajor, params.stable, stream);
 
     T data_h[6] = {1.0, 2.0, 5.0, 4.0, 2.0, 1.0};
     T cov_cm_ref_h[4] = {4.3333, -2.8333, -2.8333, 2.333};
@@ -70,7 +71,7 @@ class CovTest : public ::testing::TestWithParam<CovInputs<T>> {
     raft::update_device(cov_cm_ref, cov_cm_ref_h, 4, stream);
 
     raft::stats::mean(mean_cm, data_cm, 2, 3, true, false, stream);
-    cov(cov_cm, data_cm, mean_cm, 2, 3, true, false, true, handle, stream);
+    cov(handle, cov_cm, data_cm, mean_cm, 2, 3, true, false, true, stream);
   }
 
   void TearDown() override {
@@ -81,8 +82,6 @@ class CovTest : public ::testing::TestWithParam<CovInputs<T>> {
     CUDA_CHECK(cudaFree(cov_cm));
     CUDA_CHECK(cudaFree(cov_cm_ref));
     CUDA_CHECK(cudaFree(mean_cm));
-    CUBLAS_CHECK(cublasDestroy(handle));
-    CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
  protected:
