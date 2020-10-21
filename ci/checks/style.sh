@@ -13,7 +13,7 @@ source activate gdf
 cd $WORKSPACE
 export GIT_DESCRIBE_TAG=`git describe --tags`
 export MINOR_VERSION=`echo $GIT_DESCRIBE_TAG | grep -o -E '([0-9]+\.[0-9]+)'`
-conda install "ucx-py=${MINOR_VERSION}"
+conda install "ucx-py=${MINOR_VERSION}" "ucx-proc=*=gpu"
 
 # Run flake8 and get results/return code
 FLAKE=`flake8 --exclude=cpp,thirdparty,__init__.py,versioneer.py && flake8 --config=python/.flake8.cython`
