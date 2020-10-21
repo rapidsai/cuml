@@ -7,12 +7,17 @@
 - PR #2903: Moving linalg's gemm, gemv, transpose to RAFT namespaces
 - PR #2905: `stats` prims `mean_center`, `sum` to RAFT namespaces
 - PR #2904: Moving `linalg` basic math ops to RAFT namespaces
+- PR #3000: Pin cmake policies to cmake 3.17 version, bump project version to 0.17
 - PR #2906: Moving `linalg` decomp to RAFT namespaces
 - PR #2996: Removing the max_depth restriction for switching to the batched backend
+- PR #3004: Remove Single Process Multi GPU (SPMG) code
 
 ## Bug Fixes
 - PR #2983: Fix seeding of KISS99 RNG
+- PR #3011: Fix unused initialize_embeddings parameter in Barnes-Hut t-SNE
+- PR #3008: Check number of columns in check_array validator
 - PR #3012: Increasing learning rate for SGD log loss and invscaling pytests
+- PR #3021: Fix a hang in cuML RF experimental backend
 
 # cuML 0.16.0 (Date TBD)
 

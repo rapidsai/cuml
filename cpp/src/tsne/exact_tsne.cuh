@@ -44,7 +44,7 @@ namespace TSNE {
  * @param[in] pre_momentum: The momentum used during the exaggeration phase.
  * @param[in] post_momentum: The momentum used after the exaggeration phase.
  * @param[in] random_state: Set this to -1 for pure random intializations or >= 0 for reproducible outputs.
- * @param[in] intialize_embeddings: Whether to overwrite the current Y vector with random noise.
+ * @param[in] initialize_embeddings: Whether to overwrite the current Y vector with random noise.
  */
 void Exact_TSNE(float *VAL, const int *COL, const int *ROW, const int NNZ,
                 const raft::handle_t &handle, float *Y, const int n,
@@ -55,11 +55,11 @@ void Exact_TSNE(float *VAL, const int *COL, const int *ROW, const int NNZ,
                 const int max_iter = 1000, const float min_grad_norm = 1e-7,
                 const float pre_momentum = 0.5, const float post_momentum = 0.8,
                 const long long random_state = -1,
-                const bool intialize_embeddings = true) {
+                const bool initialize_embeddings = true) {
   auto d_alloc = handle.get_device_allocator();
   cudaStream_t stream = handle.get_stream();
 
-  if (intialize_embeddings)
+  if (initialize_embeddings)
     random_vector(Y, -0.0001f, 0.0001f, n * dim, stream, random_state);
 
   // Allocate space

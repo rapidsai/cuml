@@ -16,9 +16,9 @@
 
 set (CMAKE_FIND_NO_INSTALL_PREFIX TRUE FORCE)
 
-cmake_minimum_required(VERSION 3.14 FATAL_ERROR)
+cmake_minimum_required(VERSION 3.14...3.17 FATAL_ERROR)
 
-project(CUML VERSION 0.15.0 LANGUAGES C CXX CUDA)
+project(CUML VERSION 0.17.0 LANGUAGES C CXX CUDA)
 
 ##############################################################################
 # - build type ---------------------------------------------------------------
