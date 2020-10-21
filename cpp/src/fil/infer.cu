@@ -310,6 +310,7 @@ struct tree_aggregator_t<NITEMS, GROVE_PER_CLASS_MANY_CLASSES>
 
     __syncthreads();  // free up per_class_margin[]
     write_best_class_in_block(best, blockDim.x, out, num_rows);
+    __syncthreads();  // free per_class_margin[] for next row set
   }
 };
 
@@ -384,43 +385,47 @@ struct tree_aggregator_t<NITEMS, CATEGORICAL_LEAF> {
     } else {
       finalize_class_label(out, num_rows);
     }
+    __syncthreads();  // free votes[] for next row set
   }
 };
 
 template <int NITEMS, leaf_algo_t leaf_algo, class storage_type>
 __global__ void infer_k(storage_type forest, predict_params params) {
-  // cache the row for all threads to reuse
-  extern __shared__ char smem[];
-  float* sdata = (float*)smem;
-  size_t rid = blockIdx.x * NITEMS;
-  for (int j = 0; j < NITEMS; ++j) {
-    for (int i = threadIdx.x; i < params.num_cols; i += blockDim.x) {
-      size_t row = rid + j;
-      sdata[j * params.num_cols + i] =
-        row < params.num_rows ? params.data[row * params.num_cols + i] : 0.0f;
+  for (int grid_row0 = 0; grid_row0 < params.num_rows;
+       grid_row0 += NITEMS * params.num_blocks) {
+    // cache the row for all threads to reuse
+    extern __shared__ char smem[];
+    float* sdata = (float*)smem;
+    size_t block_row0 = grid_row0 + blockIdx.x * NITEMS;
+    for (int j = 0; j < NITEMS; ++j) {
+      size_t row = block_row0 + j;
+      for (int i = threadIdx.x; i < params.num_cols; i += blockDim.x) {
+        sdata[j * params.num_cols + i] =
+          row < params.num_rows ? params.data[row * params.num_cols + i] : 0.0f;
+      }
     }
-  }
 
-  tree_aggregator_t<NITEMS, leaf_algo> acc(
-    params.num_classes, sdata, params.num_cols * NITEMS * sizeof(float));
+    tree_aggregator_t<NITEMS, leaf_algo> acc(
+      params.num_classes, sdata, params.num_cols * NITEMS * sizeof(float));
 
-  __syncthreads();  // for both row cache init and acc init
+    __syncthreads();  // for both row cache init and acc init
 
-  // one block works on NITEMS rows and the whole forest
-  for (int j = threadIdx.x; j - threadIdx.x < forest.num_trees();
-       j += blockDim.x) {
-    /* j - threadIdx.x < forest.num_trees() is a necessary but block-uniform
-       condition for "j < forest.num_trees()". It lets use __syncthreads()
-       and is made exact below.
-    */
-    if (j < forest.num_trees()) {
-      acc.accumulate(infer_one_tree<NITEMS, leaf_output_t<leaf_algo>::T>(
-                       forest[j], sdata, params.num_cols),
-                     j);
+    // one block works on NITEMS rows and the whole forest
+    for (int j = threadIdx.x; j - threadIdx.x < forest.num_trees();
+         j += blockDim.x) {
+      /* j - threadIdx.x < forest.num_trees() is a necessary but block-uniform
+         condition for "j < forest.num_trees()". It lets use __syncthreads()
+         and is made exact below.
+      */
+      if (j < forest.num_trees()) {
+        acc.accumulate(infer_one_tree<NITEMS, leaf_output_t<leaf_algo>::T>(
+                         forest[j], sdata, params.num_cols),
+                       j);
+      }
+      if (leaf_algo == GROVE_PER_CLASS_MANY_CLASSES) __syncthreads();
     }
-    if (leaf_algo == GROVE_PER_CLASS_MANY_CLASSES) __syncthreads();
+    acc.finalize(params.preds, params.num_rows, params.num_outputs);
   }
-  acc.finalize(params.preds, params.num_rows, params.num_outputs);
 }
 
 template <int NITEMS, leaf_algo_t leaf_algo>
@@ -485,23 +490,30 @@ void infer_k_launcher(storage_type forest, predict_params params,
     ASSERT(false, "p.num_cols == %d: too many features, only %d allowed",
            given_num_cols, params.num_cols);
   }
-  int num_blocks = raft::ceildiv(int(params.num_rows), num_items);
+  int device;
+  CUDA_CHECK(cudaGetDevice(&device));
+  int sm_count;
+  CUDA_CHECK(
+    cudaDeviceGetAttribute(&sm_count, cudaDevAttrMultiProcessorCount, device));
+  params.num_blocks = blocks_per_sm
+                        ? blocks_per_sm * sm_count
+                        : raft::ceildiv(int(params.num_rows), num_items);
   switch (num_items) {
     case 1:
       infer_k<1, leaf_algo>
-        <<<num_blocks, blockdim_x, shm_sz, stream>>>(forest, params);
+        <<<params.num_blocks, blockdim_x, shm_sz, stream>>>(forest, params);
       break;
     case 2:
       infer_k<2, leaf_algo>
-        <<<num_blocks, blockdim_x, shm_sz, stream>>>(forest, params);
+        <<<params.num_blocks, blockdim_x, shm_sz, stream>>>(forest, params);
       break;
     case 3:
       infer_k<3, leaf_algo>
-        <<<num_blocks, blockdim_x, shm_sz, stream>>>(forest, params);
+        <<<params.num_blocks, blockdim_x, shm_sz, stream>>>(forest, params);
       break;
     case 4:
       infer_k<4, leaf_algo>
-        <<<num_blocks, blockdim_x, shm_sz, stream>>>(forest, params);
+        <<<params.num_blocks, blockdim_x, shm_sz, stream>>>(forest, params);
       break;
     default:
       ASSERT(false, "internal error: nitems > 4");

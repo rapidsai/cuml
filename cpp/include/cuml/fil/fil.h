@@ -304,5 +304,6 @@ void free(const raft::handle_t& h, forest_t f);
 void predict(const raft::handle_t& h, forest_t f, float* preds,
              const float* data, size_t num_rows, bool predict_proba = false);
 
+static int blocks_per_sm = 0;
 }  // namespace fil
 }  // namespace ML

@@ -210,6 +210,7 @@ struct predict_params {
 
   // Other parameters.
   int max_shm;
+  int num_blocks;
 };
 
 // infer() calls the inference kernel with the parameters on the stream
