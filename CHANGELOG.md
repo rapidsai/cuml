@@ -13,6 +13,7 @@
 - PR #3004: Remove Single Process Multi GPU (SPMG) code
 
 ## Bug Fixes
+- PR #3037: Avoid logging deadlock in multi-threaded C code
 - PR #2983: Fix seeding of KISS99 RNG
 - PR #3011: Fix unused initialize_embeddings parameter in Barnes-Hut t-SNE
 - PR #3008: Check number of columns in check_array validator
