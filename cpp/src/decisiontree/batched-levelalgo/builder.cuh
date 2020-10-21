@@ -55,15 +55,15 @@ void grow_tree(std::shared_ptr<MLCommon::deviceAllocator> d_allocator,
                         rowids, colids, unique_labels, quantiles);
   MLCommon::device_buffer<char> d_buff(d_allocator, stream, d_wsize);
   MLCommon::host_buffer<char> h_buff(h_allocator, stream, h_wsize);
-  MLCommon::host_buffer<Node<DataT, LabelT, IdxT>> h_nodes(h_allocator, stream,
-                                                           builder.maxNodes);
+
+  std::vector<Node<DataT, LabelT, IdxT>> h_nodes;
+  h_nodes.reserve(builder.maxNodes);
   builder.assignWorkspace(d_buff.data(), h_buff.data());
-  builder.train(h_nodes.data(), num_leaves, depth, stream);
+  builder.train(h_nodes, num_leaves, depth, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
   d_buff.release(stream);
   h_buff.release(stream);
   convertToSparse<Traits>(builder, h_nodes.data(), sparsetree);
-  h_nodes.release(stream);
 }
 
 /**

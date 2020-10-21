@@ -36,7 +36,8 @@ void TSNE_fit(const raft::handle_t &handle, const float *X, float *Y,
               const float post_learning_rate, const int max_iter,
               const float min_grad_norm, const float pre_momentum,
               const float post_momentum, const long long random_state,
-              int verbosity, const bool intialize_embeddings, bool barnes_hut) {
+              int verbosity, const bool initialize_embeddings,
+              bool barnes_hut) {
   ASSERT(n > 0 && p > 0 && dim > 0 && n_neighbors > 0 && X != NULL && Y != NULL,
          "Wrong input args");
   ML::Logger::get().setLevel(verbosity);
@@ -118,12 +119,13 @@ void TSNE_fit(const raft::handle_t &handle, const float *X, float *Y,
     TSNE::Barnes_Hut(VAL, COL, ROW, NNZ, handle, Y, n, theta, epssq,
                      early_exaggeration, exaggeration_iter, min_gain,
                      pre_learning_rate, post_learning_rate, max_iter,
-                     min_grad_norm, pre_momentum, post_momentum, random_state);
+                     min_grad_norm, pre_momentum, post_momentum, random_state,
+                     initialize_embeddings);
   } else {
     TSNE::Exact_TSNE(VAL, COL, ROW, NNZ, handle, Y, n, dim, early_exaggeration,
                      exaggeration_iter, min_gain, pre_learning_rate,
                      post_learning_rate, max_iter, min_grad_norm, pre_momentum,
-                     post_momentum, random_state, intialize_embeddings);
+                     post_momentum, random_state, initialize_embeddings);
   }
 }
 

@@ -18,6 +18,8 @@ import numpy as np
 import pytest
 import random
 import json
+import io
+from contextlib import redirect_stdout
 
 from numba import cuda
 
@@ -142,8 +144,10 @@ def special_reg(request):
 @pytest.mark.parametrize('datatype', [np.float32])
 @pytest.mark.parametrize('split_algo', [0, 1])
 @pytest.mark.parametrize('max_features', [1.0, 'auto', 'log2', 'sqrt'])
+@pytest.mark.parametrize('use_experimental_backend', [True, False])
 def test_rf_classification(small_clf, datatype, split_algo,
-                           rows_sample, max_features):
+                           rows_sample, max_features,
+                           use_experimental_backend):
     use_handle = True
 
     X, y = small_clf
@@ -160,8 +164,30 @@ def test_rf_classification(small_clf, datatype, split_algo,
                        n_bins=16, split_algo=split_algo, split_criterion=0,
                        min_rows_per_node=2, random_state=123, n_streams=1,
                        n_estimators=40, handle=handle, max_leaves=-1,
-                       max_depth=16)
-    cuml_model.fit(X_train, y_train)
+                       max_depth=16,
+                       use_experimental_backend=use_experimental_backend)
+    f = io.StringIO()
+    with redirect_stdout(f):
+        cuml_model.fit(X_train, y_train)
+    captured_stdout = f.getvalue()
+    if use_experimental_backend:
+        is_fallback_used = False
+        if max_features != 1.0:
+            assert ('Experimental backend does not yet support feature ' +
+                    'sub-sampling' in captured_stdout)
+            is_fallback_used = True
+        if split_algo != 1:
+            assert ('Experimental backend does not yet support histogram ' +
+                    'split algorithm' in captured_stdout)
+            is_fallback_used = True
+        if is_fallback_used:
+            assert ('Not using the experimental backend due to above ' +
+                    'mentioned reason(s)' in captured_stdout)
+        else:
+            assert ('Using experimental backend for growing trees'
+                    in captured_stdout)
+    else:
+        assert captured_stdout == ''
     fil_preds = cuml_model.predict(X_test,
                                    predict_model="GPU",
                                    output_class=True,

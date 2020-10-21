@@ -30,12 +30,13 @@
 #include "gemm.cuh"
 #include "transpose.h"
 
-namespace MLCommon {
-namespace LinAlg {
+namespace raft {
+namespace linalg {
 
 /**
  * @brief singular value decomposition (SVD) on the column major float type
  * input matrix using QR method
+ * @param handle: raft handle
  * @param in: input matrix
  * @param n_rows: number rows of input matrix
  * @param n_cols: number columns of input matrix
@@ -45,20 +46,21 @@ namespace LinAlg {
  * @param trans_right: transpose right vectors or not
  * @param gen_left_vec: generate left eig vector. Not activated.
  * @param gen_right_vec: generate right eig vector. Not activated.
- * @param cusolverH cusolver handle
- * @param cublasH cublas handle
- * @param allocator device allocator for temporary buffers during computation
  * @param stream cuda stream
  */
 // TODO: activate gen_left_vec and gen_right_vec options
 // TODO: couldn't template this function due to cusolverDnSgesvd and
 // cusolverSnSgesvd. Check if there is any other way.
 template <typename T>
-void svdQR(T *in, int n_rows, int n_cols, T *sing_vals, T *left_sing_vecs,
-           T *right_sing_vecs, bool trans_right, bool gen_left_vec,
-           bool gen_right_vec, cusolverDnHandle_t cusolverH,
-           cublasHandle_t cublasH, std::shared_ptr<deviceAllocator> allocator,
+void svdQR(const raft::handle_t &handle, T *in, int n_rows, int n_cols,
+           T *sing_vals, T *left_sing_vecs, T *right_sing_vecs,
+           bool trans_right, bool gen_left_vec, bool gen_right_vec,
            cudaStream_t stream) {
+  std::shared_ptr<raft::mr::device::allocator> allocator =
+    handle.get_device_allocator();
+  cusolverDnHandle_t cusolverH = handle.get_cusolver_dn_handle();
+  cublasHandle_t cublasH = handle.get_cublas_handle();
+
 #if CUDART_VERSION >= 10010
   // 46340: sqrt of max int value
   ASSERT(n_rows <= 46340,
@@ -71,13 +73,13 @@ void svdQR(T *in, int n_rows, int n_cols, T *sing_vals, T *left_sing_vecs,
   const int m = n_rows;
   const int n = n_cols;
 
-  device_buffer<int> devInfo(allocator, stream, 1);
+  raft::mr::device::buffer<int> devInfo(allocator, stream, 1);
   T *d_rwork = nullptr;
 
   int lwork = 0;
-  CUSOLVER_CHECK(raft::linalg::cusolverDngesvd_bufferSize<T>(cusolverH, n_rows,
-                                                             n_cols, &lwork));
-  device_buffer<T> d_work(allocator, stream, lwork);
+  CUSOLVER_CHECK(
+    cusolverDngesvd_bufferSize<T>(cusolverH, n_rows, n_cols, &lwork));
+  raft::mr::device::buffer<T> d_work(allocator, stream, lwork);
 
   char jobu = 'S';
   char jobvt = 'A';
@@ -92,7 +94,7 @@ void svdQR(T *in, int n_rows, int n_cols, T *sing_vals, T *left_sing_vecs,
     strcpy(&jobvt, &new_vt);
   }
 
-  CUSOLVER_CHECK(raft::linalg::cusolverDngesvd(
+  CUSOLVER_CHECK(cusolverDngesvd(
     cusolverH, jobu, jobvt, m, n, in, m, sing_vals, left_sing_vecs, m,
     right_sing_vecs, n, d_work.data(), lwork, d_rwork, devInfo.data(), stream));
 
@@ -112,8 +114,7 @@ void svdQR(T *in, int n_rows, int n_cols, T *sing_vals, T *left_sing_vecs,
 template <typename T>
 void svdEig(const raft::handle_t &handle, T *in, int n_rows, int n_cols, T *S,
             T *U, T *V, bool gen_left_vec, cudaStream_t stream) {
-  std::shared_ptr<raft::mr::device::allocator> allocator =
-    handle.get_device_allocator();
+  auto allocator = handle.get_device_allocator();
   cusolverDnHandle_t cusolverH = handle.get_cusolver_dn_handle();
   cublasHandle_t cublasH = handle.get_cublas_handle();
 
@@ -126,8 +127,7 @@ void svdEig(const raft::handle_t &handle, T *in, int n_rows, int n_cols, T *S,
                      n_cols, n_cols, CUBLAS_OP_T, CUBLAS_OP_N, alpha, beta,
                      stream);
 
-  eigDC(in_cross_mult.data(), n_cols, n_cols, V, S, cusolverH, stream,
-        allocator);
+  eigDC(handle, in_cross_mult.data(), n_cols, n_cols, V, S, stream);
 
   raft::matrix::colReverse(V, n_cols, n_cols, stream);
   raft::matrix::rowReverse(S, n_cols, 1, stream);
@@ -144,6 +144,7 @@ void svdEig(const raft::handle_t &handle, T *in, int n_rows, int n_cols, T *S,
 
 /**
  * @brief on the column major input matrix using Jacobi method
+ * @param handle: raft handle
  * @param in: input matrix
  * @param n_rows: number rows of input matrix
  * @param n_cols: number columns of input matrix
@@ -156,17 +157,16 @@ void svdEig(const raft::handle_t &handle, T *in, int n_rows, int n_cols, T *S,
  * error is below tol
  * @param max_sweeps: number of sweeps in the Jacobi algorithm. The more the better
  * accuracy.
- * @param cusolverH cusolver handle
  * @param stream cuda stream
- * @param allocator device allocator for temporary buffers during computation
  */
 template <typename math_t>
-void svdJacobi(math_t *in, int n_rows, int n_cols, math_t *sing_vals,
-               math_t *left_sing_vecs, math_t *right_sing_vecs,
-               bool gen_left_vec, bool gen_right_vec, math_t tol,
-               int max_sweeps, cusolverDnHandle_t cusolverH,
-               cudaStream_t stream,
-               std::shared_ptr<deviceAllocator> allocator) {
+void svdJacobi(const raft::handle_t &handle, math_t *in, int n_rows, int n_cols,
+               math_t *sing_vals, math_t *left_sing_vecs,
+               math_t *right_sing_vecs, bool gen_left_vec, bool gen_right_vec,
+               math_t tol, int max_sweeps, cudaStream_t stream) {
+  auto allocator = handle.get_device_allocator();
+  cusolverDnHandle_t cusolverH = handle.get_cusolver_dn_handle();
+
   gesvdjInfo_t gesvdj_params = NULL;
 
   CUSOLVER_CHECK(cusolverDnCreateGesvdjInfo(&gesvdj_params));
@@ -176,7 +176,7 @@ void svdJacobi(math_t *in, int n_rows, int n_cols, math_t *sing_vals,
   int m = n_rows;
   int n = n_cols;
 
-  device_buffer<int> devInfo(allocator, stream, 1);
+  raft::mr::device::buffer<int> devInfo(allocator, stream, 1);
 
   int lwork = 0;
   int econ = 1;
@@ -185,7 +185,7 @@ void svdJacobi(math_t *in, int n_rows, int n_cols, math_t *sing_vals,
     cusolverH, CUSOLVER_EIG_MODE_VECTOR, econ, m, n, in, m, sing_vals,
     left_sing_vecs, m, right_sing_vecs, n, &lwork, gesvdj_params));
 
-  device_buffer<math_t> d_work(allocator, stream, lwork);
+  raft::mr::device::buffer<math_t> d_work(allocator, stream, lwork);
 
   CUSOLVER_CHECK(raft::linalg::cusolverDngesvdj(
     cusolverH, CUSOLVER_EIG_MODE_VECTOR, econ, m, n, in, m, sing_vals,
@@ -212,8 +212,7 @@ template <typename math_t>
 void svdReconstruction(const raft::handle_t &handle, math_t *U, math_t *S,
                        math_t *V, math_t *out, int n_rows, int n_cols, int k,
                        cudaStream_t stream) {
-  std::shared_ptr<raft::mr::device::allocator> allocator =
-    handle.get_device_allocator();
+  auto allocator = handle.get_device_allocator();
 
   const math_t alpha = 1.0, beta = 0.0;
   raft::mr::device::buffer<math_t> SVT(allocator, stream, k * n_cols);
@@ -242,8 +241,7 @@ template <typename math_t>
 bool evaluateSVDByL2Norm(const raft::handle_t &handle, math_t *A_d, math_t *U,
                          math_t *S_vec, math_t *V, int n_rows, int n_cols,
                          int k, math_t tol, cudaStream_t stream) {
-  std::shared_ptr<raft::mr::device::allocator> allocator =
-    handle.get_device_allocator();
+  auto allocator = handle.get_device_allocator();
   cublasHandle_t cublasH = handle.get_cublas_handle();
 
   int m = n_rows, n = n_cols;
@@ -280,5 +278,5 @@ bool evaluateSVDByL2Norm(const raft::handle_t &handle, math_t *A_d, math_t *U,
   return (percent_error / 100.0 < tol);
 }
 
-};  // end namespace LinAlg
-};  // end namespace MLCommon
+};  // end namespace linalg
+};  // end namespace raft
