@@ -59,7 +59,7 @@ namespace ML {
  *                                 or >= 0 for reproducible outputs.
  * @param[in] verbosity            verbosity level for logging messages during
  *                                 execution
- * @param[in] intialize_embeddings Whether to overwrite the current Y vector
+ * @param[in] initialize_embeddings Whether to overwrite the current Y vector
  *                                 with random noise.
  * @param[in] barnes_hut           Whether to use the fast Barnes Hut or use the
  *                                 slower exact version.
@@ -85,6 +85,6 @@ void TSNE_fit(const raft::handle_t &handle, const float *X, float *Y,
               const float pre_momentum = 0.5, const float post_momentum = 0.8,
               const long long random_state = -1,
               int verbosity = CUML_LEVEL_INFO,
-              const bool intialize_embeddings = true, bool barnes_hut = true);
+              const bool initialize_embeddings = true, bool barnes_hut = true);
 
 }  // namespace ML
