@@ -65,7 +65,7 @@ struct vec {
   }
   template <typename Vec>
   friend __host__ __device__ void operator/=(vec<N, T>& a, const Vec& b) {
-    a = Vectorized<std::divides<T>>()(a, vec<N, T>(b));
+    a = Vectorized<thrust::divides<T>>()(a, vec<N, T>(b));
   }
 };
 
