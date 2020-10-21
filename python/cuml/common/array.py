@@ -303,6 +303,8 @@ class CumlArray(Buffer, ArrayOutputable):
                 else:
                     raise ValueError('cuDF unsupported Array dtype')
 
+        return self
+
     def serialize(self):
         header, frames = super(CumlArray, self).serialize()
         header["constructor-kwargs"] = {

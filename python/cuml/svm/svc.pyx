@@ -287,7 +287,9 @@ class SVC(SVMBase, ClassifierMixin):
         if self.class_weight is None:
             return sample_weight
 
-        le = LabelEncoder()
+        le = LabelEncoder(handle=self.handle,
+                          verbose=self.verbose,
+                          output_type=self.output_type)
         labels = y_m.to_output(output_type='series')
         encoded_labels = cp.asarray(le.fit_transform(labels))
 

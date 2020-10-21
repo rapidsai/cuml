@@ -426,7 +426,9 @@ def _obtain_fil_model(treelite_handle, depth,
                                       fil_sparse_format=fil_sparse_format,
                                       algo=algo)
 
-    fil_model = ForestInference()
+    # Use output_type="input" to prevent an error
+    fil_model = ForestInference(output_type="input")
+    
     tl_to_fil_model = \
         fil_model.load_using_treelite_handle(treelite_handle,
                                              output_class=output_class,

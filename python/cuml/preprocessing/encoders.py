@@ -246,8 +246,11 @@ class OneHotEncoder(Base):
         if type(self.categories) is str and self.categories == 'auto':
             self._features = X.columns
             self._encoders = {
-                feature: LabelEncoder(handle_unknown=self.handle_unknown).fit(
-                    self._unique(X[feature]))
+                feature: LabelEncoder(handle=self.handle,
+                                      verbose=self.verbose,
+                                      output_type=self.output_type,
+                                      handle_unknown=self.handle_unknown).fit(
+                                          self._unique(X[feature]))
                 for feature in self._features
             }
         else:
@@ -258,8 +261,14 @@ class OneHotEncoder(Base):
                                  " it has to be of shape (n_features, _).")
             self._encoders = dict()
             for feature in self._features:
-                le = LabelEncoder(handle_unknown=self.handle_unknown)
+
+                le = LabelEncoder(handle=self.handle,
+                                  verbose=self.verbose,
+                                  output_type=self.output_type,
+                                  handle_unknown=self.handle_unknown)
+
                 self._encoders[feature] = le.fit(self.categories[feature])
+
                 if self.handle_unknown == 'error':
                     if self._has_unknown(X[feature],
                                          self._encoders[feature].classes_):
@@ -329,7 +338,7 @@ class OneHotEncoder(Base):
                 if (max_value > np.iinfo(col_idx.dtype).max):
                     col_idx = col_idx.astype(np.min_scalar_type(max_value))
                     logger.debug("Upconverting column: '{}', to dtype: '{}', \
-                            to support up to {} classes"                                                                                                                .format(
+                            to support up to {} classes"                                                                                                                                                                                                                                                                                        .format(
                         feature, np.min_scalar_type(max_value), max_value))
 
                 # increase indices to take previous features into account

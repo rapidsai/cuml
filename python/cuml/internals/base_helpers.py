@@ -22,42 +22,47 @@ import cuml.internals
 import cuml.common
 
 
-@dataclass
-class BaseFunctionMetadata:
-    ignore: bool = False
-    returns_self: bool = False
-    returns_cumlarray: bool = False
-
-    func_dict_str: typing.ClassVar[str] = "__cuml_base_wrapper"
-
-
-# def _process_function(func: typing.Callable, args, kwargs, func_meta: BaseFunctionMetadata):
-
-#     typing.cast(dict, func.__dict__).
-
-#     if (BaseFunctionMetadata.func_dict_str in func.__dict__):
-
-#     else:
-#         pass
-
-#     return func
-
 
 def _process_generic(gen_type):
 
-    if (gen_type.__origin__ is tuple):
+    # Check if the type is not a generic. If not, must return "generic" if
+    # subtype is CumlArray otherwise None
+    if (not isinstance(gen_type, typing._GenericAlias)):
+        if (issubclass(gen_type, cuml.common.CumlArray)):
+            return "generic"
+
+        # We dont handle SparseCumlArray at this time
+        if (issubclass(gen_type, cuml.common.SparseCumlArray)):
+            raise NotImplementedError(
+                "Generic return types with SparseCumlArray are not supported "
+                "at this time")
+
+        # Otherwise None (keep processing)
+        return None
+
+    # Its a generic type by this point. Support Union, Tuple, Dict and List
+    supported_gen_types = [
+        tuple,
+        dict,
+        list,
+        typing.Union,
+    ]
+
+    if (gen_type.__origin__ in supported_gen_types):
         # Check for a CumlArray type in the args
         for arg in gen_type.__args__:
-            if (issubclass(arg, cuml.common.CumlArray)):
-                return "generic"
+            inner_type = _process_generic(arg)
+
+            if (inner_type is not None):
+                return inner_type
+    else:
+        raise NotImplementedError("Unknow generic type: {}".format(gen_type))
 
     return None
 
+
 class BaseMetaClass(type):
     def __new__(meta, classname, bases, classDict):
-
-        newClassDict = {}
-
         def get_base_return_type(attr):
 
             if (not hasattr(attr, "__annotations__")
@@ -84,43 +89,44 @@ class BaseMetaClass(type):
                     else:
                         return None
             except NameError:
+                # A NameError is raised if the return type is the same as the
+                # type being defined (which is incomplete). Check that here and
+                # return base if the name matches
                 if (attr.__annotations__["return"] == classname):
                     return "base"
-            except Exception as ex:
+            except Exception:
+                assert False, "Shouldnt get here"
                 return None
 
             return None
 
         for attributeName, attribute in classDict.items():
-            if callable(attribute):
+            # Must be a function
+            if not callable(attribute):
+                continue
 
-                # Skip items marked with autowrap_ignore
-                if ("__cuml_is_wrapped" in attribute.__dict__
-                        and attribute.__dict__["__cuml_is_wrapped"]):
-                    pass
-                else:
-                    return_type = get_base_return_type(attribute)
+            # Skip items marked with autowrap_ignore
+            if ("__cuml_is_wrapped" in attribute.__dict__
+                    and attribute.__dict__["__cuml_is_wrapped"]):
+                continue
+            else:
+                return_type = get_base_return_type(attribute)
 
-                    if (return_type == "generic"):
-                        attribute = cuml.internals.api_base_return_generic()(
-                            attribute)
-                    elif (return_type == "array"):
-                        attribute = cuml.internals.api_base_return_array()(
-                            attribute)
-                    elif (return_type == "sparsearray"):
-                        attribute = cuml.internals.api_base_return_sparse_array()(
-                            attribute)
-                    elif (return_type == "base"):
-                        attribute = cuml.internals.api_base_return_any()(
-                            attribute)
-                    elif (not attributeName.startswith("_")):
-                        # Only replace public functions with return any
-                        attribute = cuml.internals.api_return_any()(
-                            attribute)
+                if (return_type == "generic"):
+                    attribute = cuml.internals.api_base_return_generic()(
+                        attribute)
+                elif (return_type == "array"):
+                    attribute = cuml.internals.api_base_return_array()(
+                        attribute)
+                elif (return_type == "sparsearray"):
+                    attribute = cuml.internals.api_base_return_sparse_array()(
+                        attribute)
+                elif (return_type == "base"):
+                    attribute = cuml.internals.api_base_return_any()(attribute)
+                elif (not attributeName.startswith("_")):
+                    # Only replace public functions with return any
+                    attribute = cuml.internals.api_return_any()(attribute)
 
-                # # Check if we have an __cuml_internals object
-                # if (BaseFunctionMetadata.func_dict_str in attribute.__dict__):
+                classDict[attributeName] = attribute
 
-            newClassDict[attributeName] = attribute
-
-        return type.__new__(meta, classname, bases, newClassDict)
+        return type.__new__(meta, classname, bases, classDict)

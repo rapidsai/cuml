@@ -308,8 +308,7 @@ class SVMBase(Base):
         else:
             return self.gamma
 
-    @cuml.internals.api_base_return_array_skipall
-    def _calc_coef(self) -> CumlArray:
+    def _calc_coef(self):
         with cuml.using_output_type("cupy"):
             return cupy.dot(self.dual_coef_, self.support_vectors_)
 

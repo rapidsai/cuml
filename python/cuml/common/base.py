@@ -152,9 +152,7 @@ class Base(metaclass=cuml.internals.BaseMetaClass):
         base.handle.sync()
         del base  # optional!
     """
-
-    def __init__(self, handle=None, verbose=False,
-                 output_type=None):
+    def __init__(self, handle=None, verbose=False, output_type=None):
         """
         Constructor. All children must call init method of this base class.
 
@@ -367,10 +365,13 @@ class RegressorMixin:
 
     _estimator_type = "regressor"
 
-    @generate_docstring(return_values={'name': 'score',
-                                       'type': 'float',
-                                       'description': 'R^2 of self.predict(X) '
-                                                      'wrt. y.'})
+    @generate_docstring(
+        return_values={
+            'name': 'score',
+            'type': 'float',
+            'description': 'R^2 of self.predict(X) '
+                           'wrt. y.'
+        })
     def score(self, X, y, **kwargs):
         """
         Scoring function for regression estimators
@@ -394,15 +395,15 @@ class ClassifierMixin:
 
     _estimator_type = "classifier"
 
-    @generate_docstring(return_values={'name': 'score',
-                                       'type': 'float',
-                                       'description': 'Accuracy of \
-                                                      self.predict(X) wrt. y \
-                                                      (fraction where y == \
-                                                      pred_y)'
-
-
-                                                              })
+    @generate_docstring(
+        return_values={
+            'name':
+                'score',
+            'type':
+                'float',
+            'description': ('Accuracy of self.predict(X) wrt. y '
+                            '(fraction where y == pred_y)')
+        })
     @cuml.internals.api_base_return_any()
     def score(self, X, y, **kwargs):
         """
@@ -429,13 +430,11 @@ def _check_output_type_str(output_str):
     if (output_str is None):
         return "input"
 
-    assert output_str != "mirror", "MD: Should not happen"
-
-    # if (output_str == "mirror" and cuml.global_output_type == "mirror"):
-    #     # Special handling to deal with internally created instances
-    #     root_cm = cuml.internals.func_wrappers.global_output_type_data.root_cm
-
-    #     output_str = root_cm.prev_output_type
+    assert output_str != "mirror", (
+        "Cannot pass output_type='mirror' in Base.__init__(). Did you forget "
+        "to pass `output_type=self.output_type` to a child estimator? "
+        "Currently `cuml.global_output_type==`{}`"
+        ).format(cuml.global_output_type)
 
     if isinstance(output_str, str):
         output_type = output_str.lower()

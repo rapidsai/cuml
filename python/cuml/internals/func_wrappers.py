@@ -14,28 +14,23 @@
 # limitations under the License.
 #
 
-from abc import ABC, abstractmethod
 import contextlib
 import inspect
-from inspect import FullArgSpec
 import threading
 import typing
-from dataclasses import dataclass
-from functools import wraps
 from collections import deque
-
-from numpy.core.multiarray import inner
+from functools import wraps
 
 import cuml
 import cuml.common
 import cuml.common.array
 import cuml.common.array_sparse
-from cuml.common.array_outputable import ArrayOutputable
 import cuml.common.base
 import cuml.common.input_utils
-from cuml.internals.base_helpers import BaseFunctionMetadata
-from cuml.common.input_utils import determine_array_type, is_array_like
 import rmm
+from cuml.common.array_outputable import ArrayOutputable
+from cuml.common.input_utils import determine_array_type
+from cuml.common.input_utils import is_array_like
 
 try:
     from cupy.cuda import using_allocator as cupy_using_allocator
@@ -55,11 +50,14 @@ def _using_mirror_output_type():
     finally:
         cuml.global_output_type = prev_output_type
 
+
 global_output_type_data = threading.local()
 global_output_type_data.root_cm = None
 
+
 def in_internal_api():
     return global_output_type_data.root_cm is not None
+
 
 def set_api_output_type(output_type: str):
     assert (global_output_type_data.root_cm is not None)
@@ -102,14 +100,15 @@ class InternalAPIContext(contextlib.ExitStack):
         self.callback(cleanup)
 
         self.enter_context(cupy_using_allocator(rmm.rmm_cupy_allocator))
-        self.prev_output_type = self.enter_context(
-            _using_mirror_output_type())
+        self.prev_output_type = self.enter_context(_using_mirror_output_type())
 
         self._output_type = None
         self.output_dtype = None
 
-        # Set the output type to the prev_output_type. If "input", set to None to allow inner functions to specify the input
-        self.output_type = None if self.prev_output_type == "input" else self.prev_output_type
+        # Set the output type to the prev_output_type. If "input", set to None
+        # to allow inner functions to specify the input
+        self.output_type = (None if self.prev_output_type == "input" else
+                            self.prev_output_type)
 
         self._count = 0
 
@@ -224,6 +223,8 @@ class InternalAPIContextBase(contextlib.ExitStack,
 
         self.root_cm = get_internal_context()
 
+        self.is_root = False
+
         self._enter_obj: ProcessEnter = self.ProcessEnter_Type(self)
         self._process_obj: ProcessReturn = None
 
@@ -241,8 +242,7 @@ class InternalAPIContextBase(contextlib.ExitStack,
         self._enter_obj.process_enter()
 
         # Now create the process functions since we know if we are root or not
-        self._process_obj = typing.cast(typing.Callable,
-                                        self.ProcessReturn_Type)(self)
+        self._process_obj = self.ProcessReturn_Type(self)
 
         return super().__enter__()
 
@@ -294,6 +294,10 @@ class ProcessEnterBaseReturnArray(ProcessEnterReturnArray,
     def __init__(self, context: "InternalAPIContextBase"):
         super().__init__(context)
 
+        # IMPORTANT: Only perform output type processing if
+        # `root_cm.output_type` is None. Since we default to using the incoming
+        # value if its set, there is no need to do any processing if the user
+        # has specified the output type
         if (self._context.root_cm.output_type is None):
             self._process_enter_cbs.append(self.base_output_type_callback)
 
@@ -305,9 +309,10 @@ class ProcessEnterBaseReturnArray(ProcessEnterReturnArray,
             output_type = (root_cm.output_type if root_cm.output_type
                            is not None else root_cm.prev_output_type)
 
-            assert output_type == root_cm.output_type, "MD: Check to see if we can revert to root_cm.output_type by default"
+            # assert output_type == root_cm.output_type, "MD: Check to see if we can revert to root_cm.output_type always" # noqa
 
-            # Check if output_type, can happen if no output type has been set by estimator
+            # Check if output_type is None, can happen if no output type has
+            # been set by estimator
             if (output_type is None):
                 output_type = self.base_obj.output_type
 
@@ -347,7 +352,8 @@ class ProcessReturnArray(ProcessReturn):
 
         # If we are a supported array and not already cuml, convert to cuml
         if (ret_val_type_str is not None and ret_val_type_str != "cuml"):
-            ret_val, _, _, _ = cuml.common.input_to_cuml_array(ret_val, order="K")
+            ret_val, _, _, _ = cuml.common.input_to_cuml_array(ret_val,
+                                                               order="K")
 
         return ret_val
 
@@ -357,14 +363,16 @@ class ProcessReturnArray(ProcessReturn):
         if (not isinstance(ret_val, ArrayOutputable)):
             return ret_val
 
-        assert self._context.root_cm.output_type is not None and self._context.root_cm.output_type != "mirror" and self._context.root_cm.output_type != "input"
+        assert (self._context.root_cm.output_type is not None
+                and self._context.root_cm.output_type != "mirror"
+                and self._context.root_cm.output_type != "input")
 
         return ret_val.to_output(
             output_type=self._context.root_cm.output_type,
             output_dtype=self._context.root_cm.output_dtype)
 
-class ProcessReturnSparseArray(ProcessReturn):
 
+class ProcessReturnSparseArray(ProcessReturn):
     def __init__(self, context: "InternalAPIContextBase"):
         super().__init__(context)
 
@@ -380,7 +388,8 @@ class ProcessReturnSparseArray(ProcessReturn):
 
         # If we are a supported array and not already cuml, convert to cuml
         if (ret_val_type_str is not None and ret_val_type_str != "cuml"):
-            ret_val = cuml.common.array_sparse.SparseCumlArray(ret_val, convert_index=False)
+            ret_val = cuml.common.array_sparse.SparseCumlArray(
+                ret_val, convert_index=False)
 
         return ret_val
 
@@ -390,7 +399,9 @@ class ProcessReturnSparseArray(ProcessReturn):
         if (not isinstance(ret_val, ArrayOutputable)):
             return ret_val
 
-        assert self._context.root_cm.output_type is not None and self._context.root_cm.output_type != "mirror" and self._context.root_cm.output_type != "input"
+        assert (self._context.root_cm.output_type is not None
+                and self._context.root_cm.output_type != "mirror"
+                and self._context.root_cm.output_type != "input")
 
         output_type = self._context.root_cm.output_type
 
@@ -422,7 +433,8 @@ class ProcessReturnGeneric(ProcessReturnArray):
 
             found_gen_type = None
 
-            # If we are a Union, the supported types must only be either CumlArray, Tuple, Dict, or List
+            # If we are a Union, the supported types must only be either
+            # CumlArray, Tuple, Dict, or List
             for gen_arg in gen_type.__args__:
 
                 if (isinstance(gen_arg, typing._GenericAlias)):
@@ -501,8 +513,9 @@ class ReturnArrayCM(InternalAPIContextBase[ProcessEnterReturnArray,
                                            ProcessReturnArray]):
     pass
 
+
 class ReturnSparseArrayCM(InternalAPIContextBase[ProcessEnterReturnArray,
-                                           ProcessReturnSparseArray]):
+                                                 ProcessReturnSparseArray]):
     pass
 
 
@@ -520,8 +533,10 @@ class BaseReturnArrayCM(InternalAPIContextBase[ProcessEnterBaseReturnArray,
                                                ProcessReturnArray]):
     pass
 
-class BaseReturnSparseArrayCM(InternalAPIContextBase[ProcessEnterBaseReturnArray,
-                                               ProcessReturnSparseArray]):
+
+class BaseReturnSparseArrayCM(
+        InternalAPIContextBase[ProcessEnterBaseReturnArray,
+                               ProcessReturnSparseArray]):
     pass
 
 
@@ -618,7 +633,8 @@ class WithArgsDecoratorMixin(object):
                 input_arg_to_use_name = input_arg_to_use
                 input_arg_to_use = sig_args.index(input_arg_to_use)
 
-            assert input_arg_to_use != -1 and input_arg_to_use is not None, "Could not determine input_arg"
+            assert input_arg_to_use != -1 and input_arg_to_use is not None, \
+                "Could not determine input_arg"
 
             self.input_arg_to_use = input_arg_to_use
             self.input_arg_to_use_name = input_arg_to_use_name
@@ -645,7 +661,8 @@ class WithArgsDecoratorMixin(object):
                 target_arg_to_use_name = target_arg_to_use
                 target_arg_to_use = sig_args.index(target_arg_to_use)
 
-            assert target_arg_to_use != -1 and target_arg_to_use is not None, "Could not determine target_arg"
+            assert target_arg_to_use != -1 and target_arg_to_use is not None, \
+                "Could not determine target_arg"
 
             self.target_arg_to_use = target_arg_to_use
             self.target_arg_to_use_name = target_arg_to_use_name
@@ -673,9 +690,10 @@ class WithArgsDecoratorMixin(object):
                     input_val = kwargs[self.input_arg_to_use_name]
                 else:
                     raise IndexError(
-                        "Specified input_arg idx: {}, and argument name: {}, were not found in args or kwargs"
-                        .format(self.input_arg_to_use,
-                                self.input_arg_to_use_name))
+                        ("Specified input_arg idx: {}, and argument name: {}, "
+                         "were not found in args or kwargs").format(
+                             self.input_arg_to_use,
+                             self.input_arg_to_use_name))
             else:
                 # Otherwise return the index
                 input_val = args[self.input_arg_to_use]
@@ -691,10 +709,11 @@ class WithArgsDecoratorMixin(object):
                 if (self.target_arg_to_use_name in kwargs):
                     target_val = kwargs[self.target_arg_to_use_name]
                 else:
-                    raise IndexError(
-                        "Specified target_arg idx: {}, and argument name: {}, were not found in args or kwargs"
-                        .format(self.target_arg_to_use,
-                                self.target_arg_to_use_name))
+                    raise IndexError((
+                        "Specified target_arg idx: {}, and argument name: {}, "
+                        "were not found in args or kwargs").format(
+                            self.target_arg_to_use,
+                            self.target_arg_to_use_name))
             else:
                 # Otherwise return the index
                 target_val = args[self.target_arg_to_use]
@@ -721,15 +740,18 @@ class HasSettersDecoratorMixin(object):
 
     def do_setters(self, *, self_val, input_val, target_val):
         if (not self.skip_set_output_type):
-            assert input_val is not None, "`skip_set_output_type` is False but no input_arg detected"
+            assert input_val is not None, \
+                "`skip_set_output_type` is False but no input_arg detected"
             self_val._set_output_type(input_val)
 
         if (not self.skip_set_output_dtype):
-            assert target_val is not None, "`skip_set_output_dtype` is True but no target_arg detected"
+            assert target_val is not None, \
+                "`skip_set_output_dtype` is True but no target_arg detected"
             self_val._set_target_dtype(target_val)
 
         if (not self.skip_set_n_features_in):
-            assert input_val is not None, "`skip_set_n_features_in` is False but no input_arg detected"
+            assert input_val is not None, \
+                "`skip_set_n_features_in` is False but no input_arg detected"
             if (len(input_val.shape) >= 2):
                 self_val._set_n_features_in(input_val)
 
@@ -757,7 +779,9 @@ class HasGettersDecoratorMixin(object):
     def do_getters_with_self(self, *, self_val, input_val):
         if (not self.skip_get_output_type):
             out_type = self_val._get_output_type(input_val)
-            assert out_type is not None, "`skip_get_output_type` is False but output_type could not be determined from input_arg"
+            assert out_type is not None, \
+                ("`skip_get_output_type` is False but output_type could not "
+                 "be determined from input_arg")
             set_api_output_type(out_type)
 
         if (not self.skip_get_output_dtype):
@@ -765,12 +789,14 @@ class HasGettersDecoratorMixin(object):
 
     def do_getters_no_self(self, *, input_val, target_val):
         if (not self.skip_get_output_type):
-            assert input_val is not None, "`skip_get_output_type` is False but no input_arg detected"
+            assert input_val is not None, \
+                "`skip_get_output_type` is False but no input_arg detected"
             set_api_output_type(
                 cuml.common.input_utils.determine_array_type(input_val))
 
         if (not self.skip_get_output_dtype):
-            assert target_val is not None, "`skip_get_output_dtype` is False but no target_arg detected"
+            assert target_val is not None, \
+                "`skip_get_output_dtype` is False but no target_arg detected"
             set_api_output_dtype(
                 cuml.common.input_utils.determine_array_dtype(target_val))
 
@@ -842,7 +868,8 @@ class BaseReturnAnyDecorator(ReturnDecorator,
 
             with self._recreate_cm(func, args):
 
-                self_val, input_val, target_val = self.get_arg_values(*args, **kwargs)
+                self_val, input_val, target_val = \
+                    self.get_arg_values(*args, **kwargs)
 
                 self.do_setters(self_val=self_val,
                                 input_val=input_val,
@@ -856,7 +883,8 @@ class BaseReturnAnyDecorator(ReturnDecorator,
             with self._recreate_cm(func, args):
                 return func(*args, **kwargs)
 
-        # Return the function depending on whether or not we do any automatic wrapping
+        # Return the function depending on whether or not we do any automatic
+        # wrapping
         return inner_with_setters if self.has_setters else inner
 
     def _recreate_cm(self, func, args):
@@ -922,6 +950,7 @@ class ReturnArrayDecorator(ReturnDecorator,
 
         return ReturnArrayCM(func, args)
 
+
 class ReturnSparseArrayDecorator(ReturnArrayDecorator):
     def _recreate_cm(self, func, args):
 
@@ -972,7 +1001,8 @@ class BaseReturnArrayDecorator(ReturnDecorator,
             with self._recreate_cm(func, args) as cm:
 
                 # Get input/target values
-                self_val, input_val, target_val = self.get_arg_values(*args, **kwargs)
+                self_val, input_val, target_val = \
+                    self.get_arg_values(*args, **kwargs)
 
                 # Must do the setters first
                 self.do_setters(self_val=self_val,
@@ -993,7 +1023,8 @@ class BaseReturnArrayDecorator(ReturnDecorator,
             with self._recreate_cm(func, args) as cm:
 
                 # Get input/target values
-                self_val, input_val, target_val = self.get_arg_values(*args, **kwargs)
+                self_val, input_val, target_val = \
+                    self.get_arg_values(*args, **kwargs)
 
                 # Must do the setters first
                 self.do_setters(self_val=self_val,
@@ -1010,7 +1041,7 @@ class BaseReturnArrayDecorator(ReturnDecorator,
             with self._recreate_cm(func, args) as cm:
 
                 # Get input/target values
-                self_val, input_val, target_val = self.get_arg_values(*args, **kwargs)
+                self_val, input_val, _ = self.get_arg_values(*args, **kwargs)
 
                 # Do the getters
                 self.do_getters_with_self(self_val=self_val,
@@ -1030,7 +1061,8 @@ class BaseReturnArrayDecorator(ReturnDecorator,
 
             return cm.process_return(ret_val)
 
-        # Return the function depending on whether or not we do any automatic wrapping
+        # Return the function depending on whether or not we do any automatic
+        # wrapping
         if (self.has_getters and self.has_setters):
             return inner_set_get
         elif (self.has_getters):
@@ -1044,6 +1076,7 @@ class BaseReturnArrayDecorator(ReturnDecorator,
 
         # TODO: Should we return just ReturnArrayCM if `do_autowrap` == False?
         return BaseReturnArrayCM(func, args)
+
 
 class BaseReturnSparseArrayDecorator(BaseReturnArrayDecorator):
     def _recreate_cm(self, func, args):
