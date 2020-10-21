@@ -56,14 +56,14 @@ class klDivergenceTest : public ::testing::TestWithParam<klDivergenceParam> {
 
     //allocating and initializing memory to the GPU
     CUDA_CHECK(cudaStreamCreate(&stream));
-    MLCommon::allocate(d_modelPDF, nElements, true);
-    MLCommon::allocate(d_candidatePDF, nElements, true);
+    raft::allocate(d_modelPDF, nElements, true);
+    raft::allocate(d_candidatePDF, nElements, true);
 
-    MLCommon::updateDevice(d_modelPDF, &h_modelPDF[0], (int)nElements, stream);
-    MLCommon::updateDevice(d_candidatePDF, &h_candidatePDF[0], (int)nElements,
-                           stream);
+    raft::update_device(d_modelPDF, &h_modelPDF[0], (int)nElements, stream);
+    raft::update_device(d_candidatePDF, &h_candidatePDF[0], (int)nElements,
+                        stream);
     std::shared_ptr<MLCommon::deviceAllocator> allocator(
-      new defaultDeviceAllocator);
+      new raft::mr::device::default_allocator);
 
     //generating the golden output
     for (int i = 0; i < nElements; ++i) {

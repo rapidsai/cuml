@@ -28,7 +28,7 @@ import cuml.common.logger as logger
 
 
 def _preprocess(doc, lower=False, remove_non_alphanumeric=False, delimiter=" ",
-                keep_underscore_char=True):
+                keep_underscore_char=True, remove_single_token_len=True):
     """
     Chain together an optional series of text preprocessing steps to
     apply to a document.
@@ -63,6 +63,12 @@ def _preprocess(doc, lower=False, remove_non_alphanumeric=False, delimiter=" ",
             doc = doc.str.replace(temp_string, '_', regex=False)
         else:
             doc = doc.str.filter_alphanum(' ', keep=True)
+
+        # sklearn by default removes tokens of
+        # length 1, if its remove alphanumerics
+        if remove_single_token_len:
+            doc = doc.str.filter_tokens(2)
+
     return doc
 
 
@@ -646,10 +652,10 @@ class HashingVectorizer(_VectorizerMixin):
     """
     Convert a collection of text documents to a matrix of token occurrences
 
-    It turns a collection of text documents into a cupy.sparse matrix holding
-    token occurrence counts (or binary occurrence information), possibly
-    normalized as token frequencies if norm='l1' or projected on the euclidean
-    unit sphere if norm='l2'.
+    It turns a collection of text documents into a cupyx.scipy.sparse matrix
+    holding token occurrence counts (or binary occurrence information),
+    possibly normalized as token frequencies if norm='l1' or projected on the
+    euclidean unit sphere if norm='l2'.
 
     This text vectorizer implementation uses the hashing trick to find the
     token string name to feature integer index mapping.

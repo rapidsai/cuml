@@ -14,10 +14,7 @@
 # limitations under the License.
 #
 
-# cython: profile=False
 # distutils: language = c++
-# cython: embedsignature = True
-# cython: language_level = 3
 
 import cupy as cp
 import pprint
@@ -127,8 +124,9 @@ class LogisticRegression(Base, ClassifierMixin):
     linesearch_max_iter: int (default = 50)
         Max number of linesearch iterations per outer iteration used in the
         lbfgs and owl QN solvers.
-    verbose : int or boolean (default = False)
-        Controls verbose level of logging.
+    verbose : int or boolean, default=False
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        See :ref:`verbosity-levels` for more info.
     l1_ratio: float or None, optional (default=None)
         The Elastic-Net mixing parameter, with `0 <= l1_ratio <= 1`
     solver: 'qn', 'lbfgs', 'owl' (default='qn').
@@ -137,6 +135,18 @@ class LogisticRegression(Base, ClassifierMixin):
         depending on the conditions of the l1 regularization described
         above. Options 'lbfgs' and 'owl' are just convenience values that
         end up using the same solver following the same rules.
+    handle : cuml.Handle
+        Specifies the cuml.handle that holds internal CUDA state for
+        computations in this model. Most importantly, this specifies the CUDA
+        stream that will be used for the model's computations, so users can
+        run different models concurrently in different streams by creating
+        handles in several streams.
+        If it is None, a new one is created.
+    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
+        Variable to control output type of the results and attributes of
+        the estimator. If None, it'll inherit the output type set at the
+        module level, `cuml.global_output_type`.
+        See :ref:`output-data-type-configuration` for more info.
 
     Attributes
     -----------
@@ -253,9 +263,8 @@ class LogisticRegression(Base, ClassifierMixin):
         Fit the model with X and y.
 
         """
-        self.solver_model._set_target_dtype(y)
-        self._set_output_type(X)
-        self._set_n_features_in(X)
+        self.solver_model._set_base_attributes(target_dtype=y)
+        self._set_base_attributes(output_type=X, n_features=X)
 
         # Converting y to device array here to use `unique` function
         # since calling input_to_dev_array again in QN has no cost
@@ -316,7 +325,7 @@ class LogisticRegression(Base, ClassifierMixin):
                                        'type': 'dense',
                                        'description': 'Predicted values',
                                        'shape': '(n_samples, 1)'})
-    def predict(self, X, convert_dtype=False):
+    def predict(self, X, convert_dtype=True):
         """
         Predicts the y for X.
 
@@ -329,7 +338,7 @@ class LogisticRegression(Base, ClassifierMixin):
                                                        probabilities',
                                        'shape': '(n_samples, n_classes)'})
     @with_cupy_rmm
-    def predict_proba(self, X, convert_dtype=False):
+    def predict_proba(self, X, convert_dtype=True):
         """
         Predicts the class probabilities for each class in X
 
@@ -345,7 +354,7 @@ class LogisticRegression(Base, ClassifierMixin):
                                        'description': 'Logaright of predicted \
                                                        class probabilities',
                                        'shape': '(n_samples, n_classes)'})
-    def predict_log_proba(self, X, convert_dtype=False):
+    def predict_log_proba(self, X, convert_dtype=True):
         """
         Predicts the log class probabilities for each class in X
 
@@ -392,11 +401,12 @@ class LogisticRegression(Base, ClassifierMixin):
         return proba.to_output(out_type)
 
     def get_param_names(self):
-        return [
-            "C",
+        return super().get_param_names() + [
             "penalty",
             "tol",
+            "C",
             "fit_intercept",
+            "class_weight",
             "max_iter",
             "linesearch_max_iter",
             "l1_ratio",

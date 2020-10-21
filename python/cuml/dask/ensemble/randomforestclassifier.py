@@ -14,6 +14,8 @@
 # limitations under the License.
 #
 
+import warnings
+
 import numpy as np
 
 from cuml.dask.common.base import BaseEstimator
@@ -65,7 +67,12 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
     n_estimators : int (default = 10)
                    total number of trees in the forest (not per-worker)
     handle : cuml.Handle
-        If it is None, a new one is created just for this class.
+        Specifies the cuml.handle that holds internal CUDA state for
+        computations in this model. Most importantly, this specifies the CUDA
+        stream that will be used for the model's computations, so users can
+        run different models concurrently in different streams by creating
+        handles in several streams.
+        If it is None, a new one is created.
     split_criterion : The criterion used to split nodes.
         0 for GINI, 1 for ENTROPY, 4 for CRITERION_END.
         2 and 3 not valid for classification
@@ -105,7 +112,10 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
     workers : optional, list of strings
         Dask addresses of workers to use for computation.
         If None, all available Dask workers will be used.
+    random_state : int (default = None)
+        Seed for the random number generator. Unseeded by default.
     seed : int (default = None)
+        Deprecated in favor of `random_state`.
         Base seed for the random number generator. Unseeded by default. Does
         not currently fully guarantee the exact same results.
     ignore_empty_partitions: Boolean (default = False)
@@ -128,6 +138,7 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
         client=None,
         verbose=False,
         n_estimators=10,
+        random_state=None,
         seed=None,
         ignore_empty_partitions=False,
         **kwargs
@@ -136,25 +147,38 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
         super(RandomForestClassifier, self).__init__(client=client,
                                                      verbose=verbose,
                                                      **kwargs)
+        if seed is not None:
+            if random_state is None:
+                warnings.warn("Parameter 'seed' is deprecated and will be"
+                              " removed in 0.17. Please use 'random_state'"
+                              " instead. Setting 'random_state' as the"
+                              " curent 'seed' value",
+                              DeprecationWarning)
+                random_state = seed
+            else:
+                warnings.warn("Both 'seed' and 'random_state' parameters were"
+                              " set. Using 'random_state' since 'seed' is"
+                              " deprecated and will be removed in 0.17.",
+                              DeprecationWarning)
 
         self._create_model(
             model_func=RandomForestClassifier._construct_rf,
             client=client,
             workers=workers,
             n_estimators=n_estimators,
-            base_seed=seed,
+            base_seed=random_state,
             ignore_empty_partitions=ignore_empty_partitions,
             **kwargs)
 
     @staticmethod
     def _construct_rf(
         n_estimators,
-        seed,
+        random_state,
         **kwargs
     ):
         return cuRFC(
             n_estimators=n_estimators,
-            seed=seed,
+            random_state=random_state,
             **kwargs
         )
 

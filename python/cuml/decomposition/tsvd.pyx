@@ -14,10 +14,7 @@
 # limitations under the License.
 #
 
-# cython: profile=False
 # distutils: language = c++
-# cython: embedsignature = True
-# cython: language_level = 3
 
 import ctypes
 import cudf
@@ -34,7 +31,7 @@ import cuml
 from cuml.common.array import CumlArray
 from cuml.common.base import Base
 from cuml.common.doc_utils import generate_docstring
-from cuml.common.handle cimport cumlHandle
+from cuml.raft.common.handle cimport handle_t
 from cuml.decomposition.utils cimport *
 from cuml.common import input_to_cuml_array
 
@@ -43,19 +40,19 @@ from cython.operator cimport dereference as deref
 
 cdef extern from "cuml/decomposition/tsvd.hpp" namespace "ML":
 
-    cdef void tsvdFit(cumlHandle& handle,
+    cdef void tsvdFit(handle_t& handle,
                       float *input,
                       float *components,
                       float *singular_vals,
                       const paramsTSVD &prms) except +
 
-    cdef void tsvdFit(cumlHandle& handle,
+    cdef void tsvdFit(handle_t& handle,
                       double *input,
                       double *components,
                       double *singular_vals,
                       const paramsTSVD &prms) except +
 
-    cdef void tsvdFitTransform(cumlHandle& handle,
+    cdef void tsvdFitTransform(handle_t& handle,
                                float *input,
                                float *trans_input,
                                float *components,
@@ -64,7 +61,7 @@ cdef extern from "cuml/decomposition/tsvd.hpp" namespace "ML":
                                float *singular_vals,
                                const paramsTSVD &prms) except +
 
-    cdef void tsvdFitTransform(cumlHandle& handle,
+    cdef void tsvdFitTransform(handle_t& handle,
                                double *input,
                                double *trans_input,
                                double *components,
@@ -73,25 +70,25 @@ cdef extern from "cuml/decomposition/tsvd.hpp" namespace "ML":
                                double *singular_vals,
                                const paramsTSVD &prms) except +
 
-    cdef void tsvdInverseTransform(cumlHandle& handle,
+    cdef void tsvdInverseTransform(handle_t& handle,
                                    float *trans_input,
                                    float *components,
                                    float *input,
                                    const paramsTSVD &prms) except +
 
-    cdef void tsvdInverseTransform(cumlHandle& handle,
+    cdef void tsvdInverseTransform(handle_t& handle,
                                    double *trans_input,
                                    double *components,
                                    double *input,
                                    const paramsTSVD &prms) except +
 
-    cdef void tsvdTransform(cumlHandle& handle,
+    cdef void tsvdTransform(handle_t& handle,
                             float *input,
                             float *components,
                             float *trans_input,
                             const paramsTSVD &prms) except +
 
-    cdef void tsvdTransform(cumlHandle& handle,
+    cdef void tsvdTransform(handle_t& handle,
                             double *input,
                             double *components,
                             double *trans_input,
@@ -185,7 +182,12 @@ class TruncatedSVD(Base):
         components.
         Jacobi is much faster as it iteratively corrects, but is less accurate.
     handle : cuml.Handle
-        If it is None, a new one is created just for this class
+        Specifies the cuml.handle that holds internal CUDA state for
+        computations in this model. Most importantly, this specifies the CUDA
+        stream that will be used for the model's computations, so users can
+        run different models concurrently in different streams by creating
+        handles in several streams.
+        If it is None, a new one is created.
     n_components : int (default = 1)
         The number of top K singular vectors / values you want.
         Must be <= number(columns).
@@ -198,8 +200,14 @@ class TruncatedSVD(Base):
     tol : float (default = 1e-7)
         Used if algorithm = "jacobi". Smaller tolerance can increase accuracy,
         but but will slow down the algorithm's convergence.
-    verbose : int or boolean (default = False)
-        Logging level
+    verbose : int or boolean, default=False
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        See :ref:`verbosity-levels` for more info.
+    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
+        Variable to control output type of the results and attributes of
+        the estimator. If None, it'll inherit the output type set at the
+        module level, `cuml.global_output_type`.
+        See :ref:`output-data-type-configuration` for more info.
 
     Attributes
     -----------
@@ -314,8 +322,7 @@ class TruncatedSVD(Base):
         y is currently ignored.
 
         """
-        self._set_output_type(X)
-        self._set_n_features_in(X)
+        self._set_base_attributes(output_type=X, n_features=X)
 
         X_m, self.n_rows, self.n_cols, self.dtype = \
             input_to_cuml_array(X, check_dtype=[np.float32, np.float64])
@@ -344,7 +351,7 @@ class TruncatedSVD(Base):
         if self.n_components> self.n_cols:
             raise ValueError(' n_components must be < n_features')
 
-        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
+        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
         if self.dtype == np.float32:
             tsvdFitTransform(handle_[0],
                              <float*> input_ptr,
@@ -399,7 +406,7 @@ class TruncatedSVD(Base):
         cdef uintptr_t input_ptr = input_data.ptr
         cdef uintptr_t components_ptr = self._components_.ptr
 
-        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
+        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
         if dtype.type == np.float32:
             tsvdInverseTransform(handle_[0],
@@ -449,7 +456,7 @@ class TruncatedSVD(Base):
         cdef uintptr_t trans_input_ptr = t_input_data.ptr
         cdef uintptr_t components_ptr = self._components_.ptr
 
-        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
+        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
         if dtype.type == np.float32:
             tsvdTransform(handle_[0],
@@ -472,4 +479,5 @@ class TruncatedSVD(Base):
         return t_input_data.to_output(out_type)
 
     def get_param_names(self):
-        return ["algorithm", "n_components", "n_iter", "random_state", "tol"]
+        return super().get_param_names() + \
+            ["algorithm", "n_components", "n_iter", "random_state", "tol"]

@@ -66,7 +66,7 @@ _parameters_docstrings = {
     'sparse':
     '{name} : sparse array-like (device) shape = {shape}\n'
     '    Dense matrix containing floats or doubles.\n'
-    '    Acceptable formats: cupy.sparse',
+    '    Acceptable formats: cupyx.scipy.sparse',
 
     'dense_sparse':
     '{name} : array-like (device or host) shape = {shape}\n'
@@ -103,7 +103,7 @@ _parameters_docstrings = {
     'return_sparse : bool, optional (default = {default})\n'
     '    Ignored when the model is not fit on a sparse matrix\n'
     '    If True, the method will convert the result to a\n'
-    '    cupy.sparse.csr_matrix object.\n'
+    '    cupyx.scipy.sparse.csr_matrix object.\n'
     '    NOTE: Currently, there is a loss of information when converting\n'
     '    to csr matrix (cusolver bug). Default will be switched to True\n'
     '    once this is solved.',
@@ -129,7 +129,7 @@ _return_values_docstrings = {
     '    refer to: `Output Data Type Configuration`_.',  # noqa
 
     'dense_sparse':
-    '{name} : cuDF, CuPy or NumPy object depending on cuML\'s output type configuration, cupy.sparse for sparse output, shape = {shape}\n'  # noqa
+    '{name} : cuDF, CuPy or NumPy object depending on cuML\'s output type configuration, cupyx.scipy.sparse for sparse output, shape = {shape}\n'  # noqa
     '    {description}\n\n    For more information on how to configure cuML\'s dense output type,\n'  # noqa
     '    refer to: `Output Data Type Configuration`_.',  # noqa
 
@@ -268,10 +268,14 @@ def generate_docstring(X='dense',
                 pass
 
             # X and y are the most common
-            elif par in ['X', 'y'] and par not in skip_parameters:
+            elif par == 'X' and par not in skip_parameters:
                 func.__doc__ += \
                     _parameters_docstrings[X].format(name=par,
                                                      shape=X_shape)
+            elif par == 'y' and par not in skip_parameters:
+                func.__doc__ += \
+                    _parameters_docstrings[y].format(name=par,
+                                                     shape=y_shape)
 
             # convert_dtype requires some magic to distinguish
             # whether we use the fit version or the version

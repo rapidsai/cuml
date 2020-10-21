@@ -16,8 +16,8 @@
 
 #pragma once
 
-#include <linalg/cublas_wrappers.h>
 #include <linalg/transpose.h>
+#include <raft/linalg/cublas_wrappers.h>
 #include <common/cumlHandle.hpp>
 #include <common/device_buffer.hpp>
 #include <cuda_utils.cuh>
@@ -37,13 +37,13 @@ namespace ML {
 using namespace MLCommon;
 
 template <typename math_t, typename enum_solver = solver>
-void truncCompExpVars(const cumlHandle_impl &handle, math_t *in,
+void truncCompExpVars(const raft::handle_t &handle, math_t *in,
                       math_t *components, math_t *explained_var,
                       math_t *explained_var_ratio,
                       const paramsTSVDTemplate<enum_solver> prms,
                       cudaStream_t stream) {
   int len = prms.n_cols * prms.n_cols;
-  auto allocator = handle.getDeviceAllocator();
+  auto allocator = handle.get_device_allocator();
   device_buffer<math_t> components_all(allocator, stream, len);
   device_buffer<math_t> explained_var_all(allocator, stream, prms.n_cols);
   device_buffer<math_t> explained_var_ratio_all(allocator, stream, prms.n_cols);
@@ -52,8 +52,8 @@ void truncCompExpVars(const cumlHandle_impl &handle, math_t *in,
                               explained_var_all.data(), prms, stream);
   Matrix::truncZeroOrigin(components_all.data(), prms.n_cols, components,
                           prms.n_components, prms.n_cols, stream);
-  Matrix::ratio(explained_var_all.data(), explained_var_ratio_all.data(),
-                prms.n_cols, allocator, stream);
+  raft::matrix::ratio(handle, explained_var_all.data(),
+                      explained_var_ratio_all.data(), prms.n_cols, stream);
   Matrix::truncZeroOrigin(explained_var_all.data(), prms.n_cols, explained_var,
                           prms.n_components, 1, stream);
   Matrix::truncZeroOrigin(explained_var_ratio_all.data(), prms.n_cols,
@@ -74,11 +74,11 @@ void truncCompExpVars(const cumlHandle_impl &handle, math_t *in,
  * @param[in] stream cuda stream
  */
 template <typename math_t>
-void pcaFit(const cumlHandle_impl &handle, math_t *input, math_t *components,
+void pcaFit(const raft::handle_t &handle, math_t *input, math_t *components,
             math_t *explained_var, math_t *explained_var_ratio,
             math_t *singular_vals, math_t *mu, math_t *noise_vars,
             const paramsPCA &prms, cudaStream_t stream) {
-  auto cublas_handle = handle.getCublasHandle();
+  auto cublas_handle = handle.get_cublas_handle();
 
   ASSERT(prms.n_cols > 1,
          "Parameter n_cols: number of columns cannot be less than two");
@@ -91,10 +91,10 @@ void pcaFit(const cumlHandle_impl &handle, math_t *input, math_t *components,
   int n_components = prms.n_components;
   if (n_components > prms.n_cols) n_components = prms.n_cols;
 
-  Stats::mean(mu, input, prms.n_cols, prms.n_rows, true, false, stream);
+  raft::stats::mean(mu, input, prms.n_cols, prms.n_rows, true, false, stream);
 
   int len = prms.n_cols * prms.n_cols;
-  device_buffer<math_t> cov(handle.getDeviceAllocator(), stream, len);
+  device_buffer<math_t> cov(handle.get_device_allocator(), stream, len);
 
   Stats::cov(cov.data(), input, mu, prms.n_cols, prms.n_rows, true, false, true,
              cublas_handle, stream);
@@ -102,11 +102,11 @@ void pcaFit(const cumlHandle_impl &handle, math_t *input, math_t *components,
                    explained_var_ratio, prms, stream);
 
   math_t scalar = (prms.n_rows - 1);
-  Matrix::seqRoot(explained_var, singular_vals, scalar, n_components, stream,
-                  true);
+  raft::matrix::seqRoot(explained_var, singular_vals, scalar, n_components,
+                        stream, true);
 
-  Stats::meanAdd(input, input, mu, prms.n_cols, prms.n_rows, false, true,
-                 stream);
+  MLCommon::Stats::meanAdd(input, input, mu, prms.n_cols, prms.n_rows, false,
+                           true, stream);
 }
 
 /**
@@ -124,7 +124,7 @@ void pcaFit(const cumlHandle_impl &handle, math_t *input, math_t *components,
  * @param[in] stream cuda stream
  */
 template <typename math_t>
-void pcaFitTransform(const cumlHandle_impl &handle, math_t *input,
+void pcaFitTransform(const raft::handle_t &handle, math_t *input,
                      math_t *trans_input, math_t *components,
                      math_t *explained_var, math_t *explained_var_ratio,
                      math_t *singular_vals, math_t *mu, math_t *noise_vars,
@@ -134,7 +134,7 @@ void pcaFitTransform(const cumlHandle_impl &handle, math_t *input,
   pcaTransform(handle, input, components, trans_input, singular_vals, mu, prms,
                stream);
   signFlip(trans_input, prms.n_rows, prms.n_components, components, prms.n_cols,
-           handle.getDeviceAllocator(), stream);
+           handle.get_device_allocator(), stream);
 }
 
 // TODO: implement pcaGetCovariance function
@@ -161,38 +161,40 @@ void pcaGetPrecision() {
  * @param[in] stream cuda stream
  */
 template <typename math_t>
-void pcaInverseTransform(const cumlHandle_impl &handle, math_t *trans_input,
+void pcaInverseTransform(const raft::handle_t &handle, math_t *trans_input,
                          math_t *components, math_t *singular_vals, math_t *mu,
                          math_t *input, const paramsPCA &prms,
                          cudaStream_t stream) {
   ASSERT(prms.n_cols > 1,
          "Parameter n_cols: number of columns cannot be less than two");
-  ASSERT(prms.n_rows > 1,
-         "Parameter n_rows: number of rows cannot be less than two");
+  ASSERT(prms.n_rows > 0,
+         "Parameter n_rows: number of rows cannot be less than one");
   ASSERT(
     prms.n_components > 0,
     "Parameter n_components: number of components cannot be less than one");
 
   if (prms.whiten) {
-    math_t scalar = math_t(1 / sqrt(prms.n_rows - 1));
-    LinAlg::scalarMultiply(components, components, scalar,
-                           prms.n_rows * prms.n_components, stream);
-    Matrix::matrixVectorBinaryMultSkipZero(components, singular_vals,
-                                           prms.n_rows, prms.n_components, true,
-                                           true, stream);
+    math_t sqrt_n_samples = sqrt(prms.n_rows - 1);
+    math_t scalar = prms.n_rows - 1 > 0 ? math_t(1 / sqrt_n_samples) : 0;
+    raft::linalg::scalarMultiply(components, components, scalar,
+                                 prms.n_rows * prms.n_components, stream);
+    raft::matrix::matrixVectorBinaryMultSkipZero(components, singular_vals,
+                                                 prms.n_rows, prms.n_components,
+                                                 true, true, stream);
   }
 
   tsvdInverseTransform(handle, trans_input, components, input, prms, stream);
-  Stats::meanAdd(input, input, mu, prms.n_cols, prms.n_rows, false, true,
-                 stream);
+  MLCommon::Stats::meanAdd(input, input, mu, prms.n_cols, prms.n_rows, false,
+                           true, stream);
 
   if (prms.whiten) {
-    Matrix::matrixVectorBinaryDivSkipZero(components, singular_vals,
-                                          prms.n_rows, prms.n_components, true,
-                                          true, stream);
-    math_t scalar = math_t(sqrt(prms.n_rows - 1));
-    LinAlg::scalarMultiply(components, components, scalar,
-                           prms.n_rows * prms.n_components, stream);
+    raft::matrix::matrixVectorBinaryDivSkipZero(components, singular_vals,
+                                                prms.n_rows, prms.n_components,
+                                                true, true, stream);
+    math_t sqrt_n_samples = sqrt(prms.n_rows - 1);
+    math_t scalar = prms.n_rows - 1 > 0 ? math_t(1 / sqrt_n_samples) : 0;
+    raft::linalg::scalarMultiply(components, components, scalar,
+                                 prms.n_rows * prms.n_components, stream);
   }
 }
 
@@ -220,40 +222,41 @@ void pcaScoreSamples() {
  * @param[in] stream cuda stream
  */
 template <typename math_t>
-void pcaTransform(const cumlHandle_impl &handle, math_t *input,
+void pcaTransform(const raft::handle_t &handle, math_t *input,
                   math_t *components, math_t *trans_input,
                   math_t *singular_vals, math_t *mu, const paramsPCA &prms,
                   cudaStream_t stream) {
   ASSERT(prms.n_cols > 1,
          "Parameter n_cols: number of columns cannot be less than two");
-  ASSERT(prms.n_rows > 1,
-         "Parameter n_rows: number of rows cannot be less than two");
+  ASSERT(prms.n_rows > 0,
+         "Parameter n_rows: number of rows cannot be less than one");
   ASSERT(
     prms.n_components > 0,
     "Parameter n_components: number of components cannot be less than one");
 
   if (prms.whiten) {
     math_t scalar = math_t(sqrt(prms.n_rows - 1));
-    LinAlg::scalarMultiply(components, components, scalar,
-                           prms.n_rows * prms.n_components, stream);
-    Matrix::matrixVectorBinaryDivSkipZero(components, singular_vals,
-                                          prms.n_rows, prms.n_components, true,
-                                          true, stream);
+    raft::linalg::scalarMultiply(components, components, scalar,
+                                 prms.n_rows * prms.n_components, stream);
+    raft::matrix::matrixVectorBinaryDivSkipZero(components, singular_vals,
+                                                prms.n_rows, prms.n_components,
+                                                true, true, stream);
   }
 
-  Stats::meanCenter(input, input, mu, prms.n_cols, prms.n_rows, false, true,
-                    stream);
+  MLCommon::Stats::meanCenter(input, input, mu, prms.n_cols, prms.n_rows, false,
+                              true, stream);
   tsvdTransform(handle, input, components, trans_input, prms, stream);
-  Stats::meanAdd(input, input, mu, prms.n_cols, prms.n_rows, false, true,
-                 stream);
+  MLCommon::Stats::meanAdd(input, input, mu, prms.n_cols, prms.n_rows, false,
+                           true, stream);
 
   if (prms.whiten) {
-    Matrix::matrixVectorBinaryMultSkipZero(components, singular_vals,
-                                           prms.n_rows, prms.n_components, true,
-                                           true, stream);
-    math_t scalar = math_t(1 / sqrt(prms.n_rows - 1));
-    LinAlg::scalarMultiply(components, components, scalar,
-                           prms.n_rows * prms.n_components, stream);
+    raft::matrix::matrixVectorBinaryMultSkipZero(components, singular_vals,
+                                                 prms.n_rows, prms.n_components,
+                                                 true, true, stream);
+    math_t sqrt_n_samples = sqrt(prms.n_rows - 1);
+    math_t scalar = prms.n_rows - 1 > 0 ? math_t(1 / sqrt_n_samples) : 0;
+    raft::linalg::scalarMultiply(components, components, scalar,
+                                 prms.n_rows * prms.n_components, stream);
   }
 }
 

@@ -28,23 +28,23 @@ namespace AdjGraph {
 namespace Naive {
 
 template <typename Index_ = int>
-void launcher(const ML::cumlHandle_impl& handle, Pack<Index_> data,
-              Index_ batchSize, cudaStream_t stream) {
+void launcher(const raft::handle_t& handle, Pack<Index_> data, Index_ batchSize,
+              cudaStream_t stream) {
   Index_ k = 0;
   Index_ N = data.N;
-  MLCommon::host_buffer<Index_> host_vd(handle.getHostAllocator(), stream,
+  MLCommon::host_buffer<Index_> host_vd(handle.get_host_allocator(), stream,
                                         batchSize + 1);
-  MLCommon::host_buffer<bool> host_core_pts(handle.getHostAllocator(), stream,
+  MLCommon::host_buffer<bool> host_core_pts(handle.get_host_allocator(), stream,
                                             batchSize);
-  MLCommon::host_buffer<bool> host_adj(handle.getHostAllocator(), stream,
+  MLCommon::host_buffer<bool> host_adj(handle.get_host_allocator(), stream,
                                        batchSize * N);
-  MLCommon::host_buffer<Index_> host_ex_scan(handle.getHostAllocator(), stream,
-                                             batchSize);
-  MLCommon::updateHost(host_adj.data(), data.adj, batchSize * N, stream);
-  MLCommon::updateHost(host_vd.data(), data.vd, batchSize + 1, stream);
+  MLCommon::host_buffer<Index_> host_ex_scan(handle.get_host_allocator(),
+                                             stream, batchSize);
+  raft::update_host(host_adj.data(), data.adj, batchSize * N, stream);
+  raft::update_host(host_vd.data(), data.vd, batchSize + 1, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
   size_t adjgraph_size = size_t(host_vd[batchSize]);
-  MLCommon::host_buffer<Index_> host_adj_graph(handle.getHostAllocator(),
+  MLCommon::host_buffer<Index_> host_adj_graph(handle.get_host_allocator(),
                                                stream, adjgraph_size);
   for (Index_ i = 0; i < batchSize; i++) {
     for (Index_ j = 0; j < N; j++) {
@@ -59,11 +59,10 @@ void launcher(const ML::cumlHandle_impl& handle, Pack<Index_> data,
   host_ex_scan[0] = Index_(0);
   for (Index_ i = 1; i < batchSize; i++)
     host_ex_scan[i] = host_ex_scan[i - 1] + host_vd[i - 1];
-  MLCommon::updateDevice(data.adj_graph, host_adj_graph.data(), adjgraph_size,
-                         stream);
-  MLCommon::updateDevice(data.core_pts, host_core_pts.data(), batchSize,
-                         stream);
-  MLCommon::updateDevice(data.ex_scan, host_ex_scan.data(), batchSize, stream);
+  raft::update_device(data.adj_graph, host_adj_graph.data(), adjgraph_size,
+                      stream);
+  raft::update_device(data.core_pts, host_core_pts.data(), batchSize, stream);
+  raft::update_device(data.ex_scan, host_ex_scan.data(), batchSize, stream);
 }
 }  // namespace Naive
 }  // namespace AdjGraph

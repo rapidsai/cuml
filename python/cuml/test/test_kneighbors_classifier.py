@@ -138,6 +138,65 @@ def test_predict_proba(nrows, ncols, n_neighbors, n_clusters, datatype):
     assert array_equal(predictions.sum(axis=1), np.ones(y_test.shape[0]))
 
 
+@pytest.mark.parametrize("datatype", ["dataframe", "numpy"])
+def test_predict_proba_large_n_classes(datatype):
+
+    nrows = 10000
+    ncols = 100
+    n_neighbors = 10
+    n_clusters = 10000
+
+    X, y = make_blobs(n_samples=nrows,
+                      centers=n_clusters,
+                      n_features=ncols,
+                      cluster_std=0.01,
+                      random_state=0)
+
+    X = X.astype(np.float32)
+
+    X_train, X_test, y_train, y_test = _build_train_test_data(X, y, datatype)
+
+    knn_cu = cuKNN(n_neighbors=n_neighbors)
+    knn_cu.fit(X_train, y_train)
+
+    predictions = knn_cu.predict_proba(X_test)
+
+    if datatype == "dataframe":
+        predictions = predictions.as_gpu_matrix().copy_to_host()
+
+    assert np.rint(np.sum(predictions)) == len(y_test)
+
+
+@pytest.mark.parametrize("datatype", ["dataframe", "numpy"])
+def test_predict_large_n_classes(datatype):
+
+    nrows = 10000
+    ncols = 100
+    n_neighbors = 2
+    n_clusters = 1000
+
+    X, y = make_blobs(n_samples=nrows,
+                      centers=n_clusters,
+                      n_features=ncols,
+                      cluster_std=0.01,
+                      random_state=0)
+
+    X = X.astype(np.float32)
+
+    X_train, X_test, y_train, y_test = _build_train_test_data(X, y, datatype)
+
+    knn_cu = cuKNN(n_neighbors=n_neighbors)
+    knn_cu.fit(X_train, y_train)
+
+    y_hat = knn_cu.predict(X_test)
+
+    if datatype == "dataframe":
+        y_hat = y_hat.to_gpu_array().copy_to_host()
+        y_test = y_test.as_gpu_matrix().copy_to_host().ravel()
+
+    assert array_equal(y_hat.astype(np.int32), y_test.astype(np.int32))
+
+
 @pytest.mark.parametrize("n_samples", [100])
 @pytest.mark.parametrize("n_features", [40])
 @pytest.mark.parametrize("n_neighbors", [4])
@@ -203,9 +262,6 @@ def test_nonmonotonic_labels(n_classes, n_rows, n_cols,
         assert isinstance(p, cudf.Series)
         p = p.to_frame().as_gpu_matrix().copy_to_host().reshape(p.shape[0])
         y_test = y_test.as_gpu_matrix().copy_to_host().reshape(y_test.shape[0])
-
-    print(str(p))
-    print(str(y_test))
 
     assert array_equal(p.astype(np.int32), y_test.astype(np.int32))
 

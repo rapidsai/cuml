@@ -14,28 +14,30 @@
  * limitations under the License.
  */
 
+#include <common/cudart_utils.h>
 #include "common.cuh"
 #include "sg_impl.cuh"
 
 namespace ML {
 namespace kmeans {
 namespace opg {
+namespace impl {
 
 #define KMEANS_COMM_ROOT 0
 
 // Selects 'n_clusters' samples randomly from X
 template <typename DataT, typename IndexT>
-void initRandom(const ML::cumlHandle_impl &handle, const KMeansParams &params,
+void initRandom(const raft::handle_t &handle, const KMeansParams &params,
                 Tensor<DataT, 2, IndexT> &X,
                 MLCommon::device_buffer<DataT> &centroidsRawData) {
-  const MLCommon::cumlCommunicator &comm = handle.getCommunicator();
-  cudaStream_t stream = handle.getStream();
+  const auto &comm = handle.get_comms();
+  cudaStream_t stream = handle.get_stream();
   auto n_local_samples = X.getSize(0);
   auto n_features = X.getSize(1);
   auto n_clusters = params.n_clusters;
 
-  const int my_rank = comm.getRank();
-  const int n_ranks = comm.getSize();
+  const int my_rank = comm.get_rank();
+  const int n_ranks = comm.get_size();
 
   // allocate centroids buffer
   centroidsRawData.resize(n_clusters * n_features, stream);
@@ -43,7 +45,7 @@ void initRandom(const ML::cumlHandle_impl &handle, const KMeansParams &params,
     centroidsRawData.data(), {n_clusters, n_features}));
 
   std::vector<int> nCentroidsSampledByRank(n_ranks, 0);
-  std::vector<int> nCentroidsElementsToReceiveFromRank(n_ranks, 0);
+  std::vector<size_t> nCentroidsElementsToReceiveFromRank(n_ranks, 0);
 
   const int nranks_reqd = std::min(n_ranks, n_clusters);
   ASSERT(KMEANS_COMM_ROOT < nranks_reqd,
@@ -67,13 +69,14 @@ void initRandom(const ML::cumlHandle_impl &handle, const KMeansParams &params,
          my_rank, nCentroidsSampledInRank, n_local_samples);
 
   Tensor<DataT, 2, IndexT> centroidsSampledInRank(
-    {nCentroidsSampledInRank, n_features}, handle.getDeviceAllocator(), stream);
+    {nCentroidsSampledInRank, n_features}, handle.get_device_allocator(),
+    stream);
 
   kmeans::detail::shuffleAndGather(handle, X, centroidsSampledInRank,
                                    nCentroidsSampledInRank, params.seed,
                                    stream);
 
-  std::vector<int> displs(n_ranks);
+  std::vector<size_t> displs(n_ranks);
   thrust::exclusive_scan(
     thrust::host, nCentroidsElementsToReceiveFromRank.begin(),
     nCentroidsElementsToReceiveFromRank.end(), displs.begin());
@@ -101,14 +104,14 @@ void initRandom(const ML::cumlHandle_impl &handle, const KMeansParams &params,
 * 8: Recluster the weighted points in C into k clusters
 */
 template <typename DataT, typename IndexT>
-void initKMeansPlusPlus(const ML::cumlHandle_impl &handle,
+void initKMeansPlusPlus(const raft::handle_t &handle,
                         const KMeansParams &params, Tensor<DataT, 2, IndexT> &X,
                         MLCommon::device_buffer<DataT> &centroidsRawData,
                         MLCommon::device_buffer<char> &workspace) {
-  const MLCommon::cumlCommunicator &comm = handle.getCommunicator();
-  cudaStream_t stream = handle.getStream();
-  const int my_rank = comm.getRank();
-  const int n_rank = comm.getSize();
+  const auto &comm = handle.get_comms();
+  cudaStream_t stream = handle.get_stream();
+  const int my_rank = comm.get_rank();
+  const int n_rank = comm.get_size();
 
   auto n_samples = X.getSize(0);
   auto n_features = X.getSize(1);
@@ -116,8 +119,7 @@ void initKMeansPlusPlus(const ML::cumlHandle_impl &handle,
   ML::Distance::DistanceType metric =
     static_cast<ML::Distance::DistanceType>(params.metric);
 
-  MLCommon::Random::Rng rng(params.seed,
-                            MLCommon::Random::GeneratorType::GenPhilox);
+  raft::random::Rng rng(params.seed, raft::random::GeneratorType::GenPhilox);
 
   // <<<< Step-1 >>> : C <- sample a point uniformly at random from X
   //    1.1 - Select a rank r' at random from the available n_rank ranks with a
@@ -132,15 +134,15 @@ void initKMeansPlusPlus(const ML::cumlHandle_impl &handle,
   int rp = dis(gen);
 
   // buffer to flag the sample that is chosen as initial centroids
-  MLCommon::host_buffer<int> h_isSampleCentroid(handle.getHostAllocator(),
+  MLCommon::host_buffer<int> h_isSampleCentroid(handle.get_host_allocator(),
                                                 stream, n_samples);
   std::fill(h_isSampleCentroid.begin(), h_isSampleCentroid.end(), 0);
 
-  MLCommon::host_buffer<int> nPtsSampledByRank(handle.getHostAllocator(),
+  MLCommon::host_buffer<int> nPtsSampledByRank(handle.get_host_allocator(),
                                                stream, n_rank);
 
-  Tensor<DataT, 2, IndexT> initialCentroid({1, n_features},
-                                           handle.getDeviceAllocator(), stream);
+  Tensor<DataT, 2, IndexT> initialCentroid(
+    {1, n_features}, handle.get_device_allocator(), stream);
   LOG(handle, "@Rank-%d : KMeans|| : initial centroid is sampled at rank-%d\n",
       my_rank, rp);
 
@@ -153,8 +155,8 @@ void initKMeansPlusPlus(const ML::cumlHandle_impl &handle,
     int cIdx = dis(gen);
     auto centroidsView = X.template view<2>({1, n_features}, {cIdx, 0});
 
-    MLCommon::copy(initialCentroid.data(), centroidsView.data(),
-                   centroidsView.numElements(), stream);
+    raft::copy(initialCentroid.data(), centroidsView.data(),
+               centroidsView.numElements(), stream);
 
     h_isSampleCentroid[cIdx] = 1;
   }
@@ -164,20 +166,20 @@ void initKMeansPlusPlus(const ML::cumlHandle_impl &handle,
                     stream);
 
   // device buffer to flag the sample that is chosen as initial centroid
-  Tensor<int, 1> isSampleCentroid({n_samples}, handle.getDeviceAllocator(),
+  Tensor<int, 1> isSampleCentroid({n_samples}, handle.get_device_allocator(),
                                   stream);
 
-  MLCommon::copy(isSampleCentroid.data(), h_isSampleCentroid.data(),
-                 isSampleCentroid.numElements(), stream);
+  raft::copy(isSampleCentroid.data(), h_isSampleCentroid.data(),
+             isSampleCentroid.numElements(), stream);
 
-  MLCommon::device_buffer<DataT> centroidsBuf(handle.getDeviceAllocator(),
+  MLCommon::device_buffer<DataT> centroidsBuf(handle.get_device_allocator(),
                                               stream);
 
   // reset buffer to store the chosen centroid
   centroidsBuf.reserve(n_clusters * n_features, stream);
   centroidsBuf.resize(initialCentroid.numElements(), stream);
-  MLCommon::copy(centroidsBuf.begin(), initialCentroid.data(),
-                 initialCentroid.numElements(), stream);
+  raft::copy(centroidsBuf.begin(), initialCentroid.data(),
+             initialCentroid.numElements(), stream);
 
   auto potentialCentroids = std::move(Tensor<DataT, 2, IndexT>(
     centroidsBuf.data(),
@@ -185,10 +187,10 @@ void initKMeansPlusPlus(const ML::cumlHandle_impl &handle,
   // <<< End of Step-1 >>>
 
   MLCommon::device_buffer<DataT> L2NormBuf_OR_DistBuf(
-    handle.getDeviceAllocator(), stream);
+    handle.get_device_allocator(), stream);
 
   // L2 norm of X: ||x||^2
-  Tensor<DataT, 1> L2NormX({n_samples}, handle.getDeviceAllocator(), stream);
+  Tensor<DataT, 1> L2NormX({n_samples}, handle.get_device_allocator(), stream);
   if (metric == ML::Distance::DistanceType::EucExpandedL2 ||
       metric == ML::Distance::DistanceType::EucExpandedL2Sqrt) {
     MLCommon::LinAlg::rowNorm(L2NormX.data(), X.data(), X.getSize(1),
@@ -197,12 +199,12 @@ void initKMeansPlusPlus(const ML::cumlHandle_impl &handle,
   }
 
   Tensor<DataT, 1, IndexT> minClusterDistance(
-    {n_samples}, handle.getDeviceAllocator(), stream);
+    {n_samples}, handle.get_device_allocator(), stream);
   Tensor<DataT, 1, IndexT> uniformRands({n_samples},
-                                        handle.getDeviceAllocator(), stream);
+                                        handle.get_device_allocator(), stream);
 
   // <<< Step-2 >>>: psi <- phi_X (C)
-  MLCommon::device_buffer<DataT> clusterCost(handle.getDeviceAllocator(),
+  MLCommon::device_buffer<DataT> clusterCost(handle.get_device_allocator(),
                                              stream, 1);
 
   kmeans::detail::minClusterDistance(
@@ -217,15 +219,14 @@ void initKMeansPlusPlus(const ML::cumlHandle_impl &handle,
   // compute total cluster cost by accumulating the partial cost from all the
   // ranks
   comm.allreduce(clusterCost.data(), clusterCost.data(), clusterCost.size(),
-                 MLCommon::cumlCommunicator::SUM, stream);
+                 raft::comms::op_t::SUM, stream);
 
   DataT psi = 0;
-  MLCommon::copy(&psi, clusterCost.data(), clusterCost.size(), stream);
+  raft::copy(&psi, clusterCost.data(), clusterCost.size(), stream);
 
   // <<< End of Step-2 >>>
 
-  ASSERT(comm.syncStream(stream) ==
-           MLCommon::cumlCommunicator::status_t::commStatusSuccess,
+  ASSERT(comm.sync_stream(stream) == raft::comms::status_t::SUCCESS,
          "An error occurred in the distributed operation. This can result from "
          "a failed rank");
 
@@ -251,10 +252,9 @@ void initKMeansPlusPlus(const ML::cumlHandle_impl &handle,
       handle, minClusterDistance, workspace, clusterCost.data(),
       [] __device__(const DataT &a, const DataT &b) { return a + b; }, stream);
     comm.allreduce(clusterCost.data(), clusterCost.data(), clusterCost.size(),
-                   MLCommon::cumlCommunicator::SUM, stream);
-    MLCommon::copy(&psi, clusterCost.data(), clusterCost.size(), stream);
-    ASSERT(comm.syncStream(stream) ==
-             MLCommon::cumlCommunicator::status_t::commStatusSuccess,
+                   raft::comms::op_t::SUM, stream);
+    raft::copy(&psi, clusterCost.data(), clusterCost.size(), stream);
+    ASSERT(comm.sync_stream(stream) == raft::comms::status_t::SUCCESS,
            "An error occurred in the distributed operation. This can result "
            "from a failed rank");
 
@@ -279,8 +279,7 @@ void initKMeansPlusPlus(const ML::cumlHandle_impl &handle,
     comm.allgather(&nPtsSampledByRank[my_rank], nPtsSampledByRank.data(), 1,
                    stream);
 
-    ASSERT(comm.syncStream(stream) ==
-             MLCommon::cumlCommunicator::status_t::commStatusSuccess,
+    ASSERT(comm.sync_stream(stream) == raft::comms::status_t::SUCCESS,
            "An error occurred in the distributed operation. This can result "
            "from a failed rank");
 
@@ -288,12 +287,12 @@ void initKMeansPlusPlus(const ML::cumlHandle_impl &handle,
                                      nPtsSampledByRank.end(), 0);
 
     // gather centroids from all ranks
-    std::vector<int> sizes(n_rank);
+    std::vector<size_t> sizes(n_rank);
     thrust::transform(thrust::host, nPtsSampledByRank.begin(),
                       nPtsSampledByRank.end(), sizes.begin(),
                       [&](int val) { return val * n_features; });
 
-    std::vector<int> displs(n_rank);
+    std::vector<size_t> displs(n_rank);
     thrust::exclusive_scan(thrust::host, sizes.begin(), sizes.end(),
                            displs.begin());
 
@@ -317,7 +316,7 @@ void initKMeansPlusPlus(const ML::cumlHandle_impl &handle,
     // releases the resource
 
     Tensor<DataT, 1, IndexT> weight({potentialCentroids.getSize(0)},
-                                    handle.getDeviceAllocator(), stream);
+                                    handle.get_device_allocator(), stream);
 
     kmeans::detail::countSamplesInCluster(handle, params, X, L2NormX,
                                           potentialCentroids, workspace, metric,
@@ -327,7 +326,7 @@ void initKMeansPlusPlus(const ML::cumlHandle_impl &handle,
     comm.allreduce<DataT>(weight.data(),         // sendbuff
                           weight.data(),         // recvbuff
                           weight.numElements(),  // count
-                          MLCommon::cumlCommunicator::SUM, stream);
+                          raft::comms::op_t::SUM, stream);
 
     // <<< end of Step-7 >>>
 
@@ -343,8 +342,8 @@ void initKMeansPlusPlus(const ML::cumlHandle_impl &handle,
     KMeansParams default_params;
     default_params.n_clusters = params.n_clusters;
 
-    ML::kmeans::fit(handle, default_params, potentialCentroids, weight,
-                    centroidsRawData, inertia, n_iter, workspace);
+    ML::kmeans::impl::fit(handle, default_params, potentialCentroids, weight,
+                          centroidsRawData, inertia, n_iter, workspace);
 
   } else if (potentialCentroids.getSize(0) < n_clusters) {
     // supplement with random
@@ -362,28 +361,28 @@ void initKMeansPlusPlus(const ML::cumlHandle_impl &handle,
     KMeansParams rand_params;
     rand_params.init = KMeansParams::InitMethod::Random;
     rand_params.n_clusters = n_random_clusters;
-    ML::kmeans::opg::initRandom(handle, rand_params, X, centroidsRawData);
+    initRandom(handle, rand_params, X, centroidsRawData);
 
     // copy centroids generated during kmeans|| iteration to the buffer
-    MLCommon::copy(centroidsRawData.data() + n_random_clusters * n_features,
-                   potentialCentroids.data(), potentialCentroids.numElements(),
-                   stream);
+    raft::copy(centroidsRawData.data() + n_random_clusters * n_features,
+               potentialCentroids.data(), potentialCentroids.numElements(),
+               stream);
 
   } else {
     // found the required n_clusters
     centroidsRawData.resize(n_clusters * n_features, stream);
-    MLCommon::copy(centroidsRawData.data(), potentialCentroids.data(),
-                   potentialCentroids.numElements(), stream);
+    raft::copy(centroidsRawData.data(), potentialCentroids.data(),
+               potentialCentroids.numElements(), stream);
   }
 }
 
 template <typename DataT, typename IndexT>
-void fit(const ML::cumlHandle_impl &handle, const KMeansParams &params,
+void fit(const raft::handle_t &handle, const KMeansParams &params,
          Tensor<DataT, 2, IndexT> &X,
          MLCommon::device_buffer<DataT> &centroidsRawData, DataT &inertia,
          int &n_iter, MLCommon::device_buffer<char> &workspace) {
-  const MLCommon::cumlCommunicator &comm = handle.getCommunicator();
-  cudaStream_t stream = handle.getStream();
+  const auto &comm = handle.get_comms();
+  cudaStream_t stream = handle.get_stream();
   auto n_samples = X.getSize(0);
   auto n_features = X.getSize(1);
   auto n_clusters = params.n_clusters;
@@ -395,25 +394,25 @@ void fit(const ML::cumlHandle_impl &handle, const KMeansParams &params,
   //   - key is the index of nearest cluster
   //   - value is the distance to the nearest cluster
   Tensor<cub::KeyValuePair<IndexT, DataT>, 1, IndexT> minClusterAndDistance(
-    {n_samples}, handle.getDeviceAllocator(), stream);
+    {n_samples}, handle.get_device_allocator(), stream);
 
   // temporary buffer to store L2 norm of centroids or distance matrix,
   // destructor releases the resource
   MLCommon::device_buffer<DataT> L2NormBuf_OR_DistBuf(
-    handle.getDeviceAllocator(), stream);
+    handle.get_device_allocator(), stream);
 
   // temporary buffer to store intermediate centroids, destructor releases the
   // resource
   Tensor<DataT, 2, IndexT> newCentroids({n_clusters, n_features},
-                                        handle.getDeviceAllocator(), stream);
+                                        handle.get_device_allocator(), stream);
 
   // temporary buffer to store the sample count per cluster, destructor releases
   // the resource
   Tensor<int, 1, IndexT> sampleCountInCluster(
-    {n_clusters}, handle.getDeviceAllocator(), stream);
+    {n_clusters}, handle.get_device_allocator(), stream);
 
   // L2 norm of X: ||x||^2
-  Tensor<DataT, 1> L2NormX({n_samples}, handle.getDeviceAllocator(), stream);
+  Tensor<DataT, 1> L2NormX({n_samples}, handle.get_device_allocator(), stream);
   if (metric == ML::Distance::DistanceType::EucExpandedL2 ||
       metric == ML::Distance::DistanceType::EucExpandedL2Sqrt) {
     MLCommon::LinAlg::rowNorm(L2NormX.data(), X.data(), X.getSize(1),
@@ -465,13 +464,13 @@ void fit(const ML::cumlHandle_impl &handle, const KMeansParams &params,
     comm.allreduce<int>(sampleCountInCluster.data(),         // sendbuff
                         sampleCountInCluster.data(),         // recvbuff
                         sampleCountInCluster.numElements(),  // count
-                        MLCommon::cumlCommunicator::SUM, stream);
+                        raft::comms::op_t::SUM, stream);
 
     // reduces newCentroids from all ranks
     comm.allreduce<DataT>(newCentroids.data(),         // sendbuff
                           newCentroids.data(),         // recvbuff
                           newCentroids.numElements(),  // count
-                          MLCommon::cumlCommunicator::SUM, stream);
+                          raft::comms::op_t::SUM, stream);
 
     // Computes newCentroids[i] = newCentroids[i]/sampleCountInCluster[i] where
     //   newCentroids[n_samples x n_features] - 2D array, newCentroids[i] has
@@ -488,7 +487,7 @@ void fit(const ML::cumlHandle_impl &handle, const KMeansParams &params,
     auto sampleCountInClusterInverse = std::move(
       Tensor<DataT, 1, IndexT>((DataT *)workspace.data(), {n_clusters}));
 
-    ML::thrustAllocatorAdapter alloc(handle.getDeviceAllocator(), stream);
+    ML::thrustAllocatorAdapter alloc(handle.get_device_allocator(), stream);
     auto execution_policy = thrust::cuda::par(alloc).on(stream);
     thrust::transform(
       execution_policy, sampleCountInCluster.begin(),
@@ -500,7 +499,7 @@ void fit(const ML::cumlHandle_impl &handle, const KMeansParams &params,
           return static_cast<DataT>(1.0) / static_cast<DataT>(count);
       });
 
-    MLCommon::LinAlg::matrixVectorOp(
+    raft::linalg::matrixVectorOp(
       newCentroids.data(), newCentroids.data(),
       sampleCountInClusterInverse.data(), newCentroids.getSize(1),
       newCentroids.getSize(0), true, false,
@@ -526,8 +525,8 @@ void fit(const ML::cumlHandle_impl &handle, const KMeansParams &params,
 
     // compute the squared norm between the newCentroids and the original
     // centroids, destructor releases the resource
-    Tensor<DataT, 1> sqrdNorm({1}, handle.getDeviceAllocator(), stream);
-    MLCommon::LinAlg::mapThenSumReduce(
+    Tensor<DataT, 1> sqrdNorm({1}, handle.get_device_allocator(), stream);
+    raft::linalg::mapThenSumReduce(
       sqrdNorm.data(), newCentroids.numElements(),
       [=] __device__(const DataT a, const DataT b) {
         DataT diff = a - b;
@@ -536,16 +535,15 @@ void fit(const ML::cumlHandle_impl &handle, const KMeansParams &params,
       stream, centroids.data(), newCentroids.data());
 
     DataT sqrdNormError = 0;
-    MLCommon::copy(&sqrdNormError, sqrdNorm.data(), sqrdNorm.numElements(),
-                   stream);
+    raft::copy(&sqrdNormError, sqrdNorm.data(), sqrdNorm.numElements(), stream);
 
-    MLCommon::copy(centroidsRawData.data(), newCentroids.data(),
-                   newCentroids.numElements(), stream);
+    raft::copy(centroidsRawData.data(), newCentroids.data(),
+               newCentroids.numElements(), stream);
 
     bool done = false;
     if (params.inertia_check) {
       cub::KeyValuePair<IndexT, DataT> *clusterCostD =
-        (cub::KeyValuePair<IndexT, DataT> *)handle.getDeviceAllocator()
+        (cub::KeyValuePair<IndexT, DataT> *)handle.get_device_allocator()
           ->allocate(sizeof(cub::KeyValuePair<IndexT, DataT>), stream);
 
       // calculate cluster cost phi_x(C)
@@ -562,13 +560,12 @@ void fit(const ML::cumlHandle_impl &handle, const KMeansParams &params,
 
       // Cluster cost phi_x(C) from all ranks
       comm.allreduce(&clusterCostD->value, &clusterCostD->value, 1,
-                     MLCommon::cumlCommunicator::SUM, stream);
+                     raft::comms::op_t::SUM, stream);
 
       DataT curClusteringCost = 0;
-      MLCommon::copy(&curClusteringCost, &clusterCostD->value, 1, stream);
+      raft::copy(&curClusteringCost, &clusterCostD->value, 1, stream);
 
-      ASSERT(comm.syncStream(stream) ==
-               MLCommon::cumlCommunicator::status_t::commStatusSuccess,
+      ASSERT(comm.sync_stream(stream) == raft::comms::status_t::SUCCESS,
              "An error occurred in the distributed operation. This can result "
              "from a failed rank");
       ASSERT(curClusteringCost != (DataT)0.0,
@@ -581,7 +578,7 @@ void fit(const ML::cumlHandle_impl &handle, const KMeansParams &params,
       }
       priorClusteringCost = curClusteringCost;
 
-      handle.getDeviceAllocator()->deallocate(
+      handle.get_device_allocator()->deallocate(
         clusterCostD, sizeof(cub::KeyValuePair<IndexT, DataT>), stream);
     }
 
@@ -598,10 +595,10 @@ void fit(const ML::cumlHandle_impl &handle, const KMeansParams &params,
 }
 
 template <typename DataT, typename IndexT = int>
-void fit(const ML::cumlHandle_impl &handle, const KMeansParams &params,
+void fit(const raft::handle_t &handle, const KMeansParams &params,
          const DataT *X, const int n_local_samples, const int n_features,
          DataT *centroids, DataT &inertia, int &n_iter) {
-  cudaStream_t stream = handle.getStream();
+  cudaStream_t stream = handle.get_stream();
 
   ASSERT(n_local_samples > 0, "# of samples must be > 0");
 
@@ -614,24 +611,24 @@ void fit(const ML::cumlHandle_impl &handle, const KMeansParams &params,
   Tensor<DataT, 2, IndexT> data((DataT *)X, {n_local_samples, n_features});
 
   // underlying expandable storage that holds centroids data
-  MLCommon::device_buffer<DataT> centroidsRawData(handle.getDeviceAllocator(),
+  MLCommon::device_buffer<DataT> centroidsRawData(handle.get_device_allocator(),
                                                   stream);
 
   // Device-accessible allocation of expandable storage used as temorary buffers
-  MLCommon::device_buffer<char> workspace(handle.getDeviceAllocator(), stream);
+  MLCommon::device_buffer<char> workspace(handle.get_device_allocator(),
+                                          stream);
 
   if (params.init == KMeansParams::InitMethod::Random) {
     // initializing with random samples from input dataset
     LOG(handle,
         "KMeans.fit: initialize cluster centers by randomly choosing from the "
         "input data.\n");
-    ML::kmeans::opg::initRandom(handle, params, data, centroidsRawData);
+    initRandom(handle, params, data, centroidsRawData);
   } else if (params.init == KMeansParams::InitMethod::KMeansPlusPlus) {
     // default method to initialize is kmeans++
     LOG(handle,
         "KMeans.fit: initialize cluster centers using k-means++ algorithm.\n");
-    ML::kmeans::opg::initKMeansPlusPlus(handle, params, data, centroidsRawData,
-                                        workspace);
+    initKMeansPlusPlus(handle, params, data, centroidsRawData, workspace);
   } else if (params.init == KMeansParams::InitMethod::Array) {
     LOG(handle,
         "KMeans.fit: initialize cluster centers from the ndarray array input "
@@ -642,24 +639,24 @@ void fit(const ML::cumlHandle_impl &handle, const KMeansParams &params,
            "the requested initialization method)");
 
     centroidsRawData.resize(params.n_clusters * n_features, stream);
-    MLCommon::copy(centroidsRawData.begin(), centroids,
-                   params.n_clusters * n_features, stream);
+    raft::copy(centroidsRawData.begin(), centroids,
+               params.n_clusters * n_features, stream);
 
   } else {
     THROW("unknown initialization method to select initial centers");
   }
 
-  ML::kmeans::opg::fit(handle, params, data, centroidsRawData, inertia, n_iter,
-                       workspace);
+  fit(handle, params, data, centroidsRawData, inertia, n_iter, workspace);
 
-  MLCommon::copy(centroids, centroidsRawData.data(),
-                 params.n_clusters * n_features, stream);
+  raft::copy(centroids, centroidsRawData.data(), params.n_clusters * n_features,
+             stream);
 
   LOG(handle,
       "KMeans.fit: async call returned (fit could still be running on the "
       "device)\n");
 }
 
+};  // end namespace impl
 };  // end namespace opg
 };  // end namespace kmeans
 };  // end namespace ML

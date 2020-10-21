@@ -1,15 +1,60 @@
-import os
+#
+# Copyright (c) 2018-2020, NVIDIA CORPORATION.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
 
+import os
+import sys
 import cupy as cp
+import cupyx
 import pytest
 from pytest import Item
 from sklearn.datasets import fetch_20newsgroups
 from sklearn.feature_extraction.text import CountVectorizer
 import numbers
 
+
 # Stores incorrect uses of CumlArray on cuml.common.base.Base to print at the
 # end
 bad_cuml_array_loc = set()
+
+
+def checked_isinstance(obj, class_name_dot_separated):
+    """
+    Small helper function to check instance of object that doesn't import
+    class_path at import time, only at check time. Returns False if
+    class_path cannot be imported.
+
+    Parameters:
+    -----------
+    obj: Python object
+        object to check if it is instance of a class
+    class_name_dot_separated: list of str
+        List of classes to check whether object is an instance of, each item
+        can be a full dot  separated class like
+        'cuml.dask.preprocessing.LabelEncoder'
+    """
+    ret = False
+    for class_path in class_name_dot_separated:
+        module_name, class_name = class_path.rsplit(".", 1)
+        module = sys.modules[module_name]
+        module_class = getattr(module, class_name, None)
+
+        if module_class is not None:
+            ret = isinstance(obj, module_class) or ret
+
+    return ret
 
 
 def pytest_configure(config):
@@ -107,30 +152,46 @@ def fail_on_bad_cuml_array_name(monkeypatch, request):
 
     def patched__setattr__(self, name, value):
 
-        supported_type = get_supported_input_type(value)
-
-        if (supported_type == CumlArray):
-            assert name.startswith("_"), "Invalid CumlArray Use! CumlArray \
-                attributes need a leading underscore. Attribute: '{}' In: {}" \
-                    .format(name, self.__repr__())
-        elif (supported_type == cp.ndarray and cp.sparse.issparse(value)):
-            # Leave sparse matrices alone for now.
+        if name == 'classes_' and \
+                checked_isinstance(self,
+                                   ['cuml.dask.preprocessing.LabelEncoder',
+                                    'cuml.preprocessing.LabelEncoder']):
+            # For label encoder, classes_ stores the set of unique classes
+            # which is strings, and can't be saved as cuml array
+            # even called `get_supported_input_type` causes a failure.
             pass
-        elif (supported_type is not None):
-            if not isinstance(value, numbers.Number):
-                # Is this an estimated property?
-                # If so, should always be CumlArray
-                assert not name.endswith("_"), "Invalid Estimated Array-Like \
-                    Attribute! Estimated attributes should always be \
-                    CumlArray. \
-                    Attribute: '{}' In: {}".format(name, self.__repr__())
-                assert not name.startswith("_"), "Invalid Public Array-Like \
-                    Attribute! Public array-like attributes should always be \
-                    CumlArray. Attribute: '{}' In: {}".format(
-                    name, self.__repr__())
-            else:
-                # Estimated properties can be numbers
+        else:
+            supported_type = get_supported_input_type(value)
+
+            if name == 'idf_':
+                # We skip this test because idf_' for tfidf setter returns
+                # a sparse diagonal matrix and getter gets a cupy array
+                # see discussion at:
+                # https://github.com/rapidsai/cuml/pull/2698/files#r471865982
                 pass
+            elif (supported_type == CumlArray):
+                assert name.startswith("_"), "Invalid CumlArray Use! CumlArray \
+                    attributes need a leading underscore. Attribute: '{}' In: {}" \
+                        .format(name, self.__repr__())
+            elif (supported_type == cp.ndarray and
+                  cupyx.scipy.sparse.issparse(value)):
+                # Leave sparse matrices alone for now.
+                pass
+            elif (supported_type is not None):
+                if not isinstance(value, numbers.Number):
+                    # Is this an estimated property?
+                    # If so, should always be CumlArray
+                    assert not name.endswith("_"), "Invalid Estimated Array-Like \
+                        Attribute! Estimated attributes should always be \
+                        CumlArray. \
+                        Attribute: '{}' In: {}".format(name, self.__repr__())
+                    assert not name.startswith("_"), "Invalid Public Array-Like \
+                        Attribute! Public array-like attributes should always \
+                        be CumlArray. Attribute: '{}' In: {}".format(
+                        name, self.__repr__())
+                else:
+                    # Estimated properties can be numbers
+                    pass
 
         return super(Base, self).__setattr__(name, value)
 

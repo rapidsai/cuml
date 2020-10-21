@@ -15,10 +15,7 @@
 # limitations under the License.
 #
 
-# cython: profile=False
 # distutils: language = c++
-# cython: embedsignature = True
-# cython: language_level = 3
 
 import numpy as np
 import rmm
@@ -31,7 +28,7 @@ from cuml.common.array import CumlArray
 from cuml.common.base import ClassifierMixin
 from cuml.common.doc_utils import generate_docstring
 from cuml.common.doc_utils import insert_into_docstring
-from cuml.common.handle import Handle
+from cuml.raft.common.handle import Handle
 from cuml.common import input_to_cuml_array, rmm_cupy_ary
 
 from cuml.ensemble.randomforest_common import BaseRandomForestModel
@@ -49,8 +46,7 @@ from libc.stdlib cimport calloc, malloc, free
 
 from numba import cuda
 
-from cuml.common.handle cimport cumlHandle
-cimport cuml.common.handle
+from cuml.raft.common.handle cimport handle_t
 cimport cuml.common.cuda
 
 cimport cython
@@ -58,7 +54,7 @@ cimport cython
 
 cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
 
-    cdef void fit(cumlHandle& handle,
+    cdef void fit(handle_t& handle,
                   RandomForestMetaData[float, int]*,
                   float*,
                   int,
@@ -68,7 +64,7 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
                   RF_params,
                   int) except +
 
-    cdef void fit(cumlHandle& handle,
+    cdef void fit(handle_t& handle,
                   RandomForestMetaData[double, int]*,
                   double*,
                   int,
@@ -78,7 +74,7 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
                   RF_params,
                   int) except +
 
-    cdef void predict(cumlHandle& handle,
+    cdef void predict(handle_t& handle,
                       RandomForestMetaData[float, int] *,
                       float*,
                       int,
@@ -86,7 +82,7 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
                       int*,
                       bool) except +
 
-    cdef void predict(cumlHandle& handle,
+    cdef void predict(handle_t& handle,
                       RandomForestMetaData[double, int]*,
                       double*,
                       int,
@@ -94,7 +90,7 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
                       int*,
                       bool) except +
 
-    cdef void predictGetAll(cumlHandle& handle,
+    cdef void predictGetAll(handle_t& handle,
                             RandomForestMetaData[float, int] *,
                             float*,
                             int,
@@ -102,7 +98,7 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
                             int*,
                             bool) except +
 
-    cdef void predictGetAll(cumlHandle& handle,
+    cdef void predictGetAll(handle_t& handle,
                             RandomForestMetaData[double, int]*,
                             double*,
                             int,
@@ -110,14 +106,14 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
                             int*,
                             bool) except +
 
-    cdef RF_metrics score(cumlHandle& handle,
+    cdef RF_metrics score(handle_t& handle,
                           RandomForestMetaData[float, int]*,
                           int*,
                           int,
                           int*,
                           bool) except +
 
-    cdef RF_metrics score(cumlHandle& handle,
+    cdef RF_metrics score(handle_t& handle,
                           RandomForestMetaData[double, int]*,
                           int*,
                           int,
@@ -175,8 +171,6 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
     -----------
     n_estimators : int (default = 100)
         Number of trees in the forest. (Default changed to 100 in cuML 0.11)
-    handle : cuml.Handle
-        If it is None, a new one is created just for this class.
     split_criterion : The criterion used to split nodes.
         0 for GINI, 1 for ENTROPY
         2 and 3 not valid for classification
@@ -223,18 +217,49 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
     quantile_per_tree : boolean (default = False)
         Whether quantile is computed for individal trees in RF.
         Only relevant for GLOBAL_QUANTILE split_algo.
-    seed : int (default = None)
+    use_experimental_backend : boolean (default = False)
+        If set to true and  following conditions are also met, experimental
+         decision tree training implementation would be used:
+            split_algo = 1 (GLOBAL_QUANTILE)
+            0 < max_depth < 14
+            max_features = 1.0 (Feature sub-sampling disabled)
+            quantile_per_tree = false (No per tree quantile computation)
+    max_batch_size: int (default = 128)
+        Maximum number of nodes that can be processed in a given batch. This is
+        used only when 'use_experimental_backend' is true.
+    random_state : int (default = None)
         Seed for the random number generator. Unseeded by default.
+    seed : int (default = None)
+        Deprecated in favor of `random_state`.
+        Seed for the random number generator. Unseeded by default.
+    handle : cuml.Handle
+        Specifies the cuml.handle that holds internal CUDA state for
+        computations in this model. Most importantly, this specifies the CUDA
+        stream that will be used for the model's computations, so users can
+        run different models concurrently in different streams by creating
+        handles in several streams.
+        If it is None, a new one is created.
+    verbose : int or boolean, default=False
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        See :ref:`verbosity-levels` for more info.
+    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
+        Variable to control output type of the results and attributes of
+        the estimator. If None, it'll inherit the output type set at the
+        module level, `cuml.global_output_type`.
+        See :ref:`output-data-type-configuration` for more info.
 
     """
 
-    def __init__(self, split_criterion=0,
-                 **kwargs):
+    def __init__(self, split_criterion=0, handle=None, verbose=False,
+                 output_type=None, **kwargs):
 
         self.RF_type = CLASSIFICATION
         self.num_classes = 2
         super(RandomForestClassifier, self).__init__(
             split_criterion=split_criterion,
+            handle=handle,
+            verbose=verbose,
+            output_type=output_type,
             **kwargs)
 
     """
@@ -399,7 +424,7 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
             y to be of dtype int32. This will increase memory used for
             the method.
         """
-        self._set_target_dtype(y)
+        self._set_base_attributes(target_dtype=y)
 
         X_m, y_m, max_feature_val = self._dataset_setup_for_fit(X, y,
                                                                 convert_dtype)
@@ -408,8 +433,8 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
         X_ptr = X_m.ptr
         y_ptr = y_m.ptr
 
-        cdef cumlHandle* handle_ =\
-            <cumlHandle*><uintptr_t>self.handle.getHandle()
+        cdef handle_t* handle_ =\
+            <handle_t*><uintptr_t>self.handle.getHandle()
 
         cdef RandomForestMetaData[float, int] *rf_forest = \
             new RandomForestMetaData[float, int]()
@@ -418,10 +443,10 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
             new RandomForestMetaData[double, int]()
         self.rf_forest64 = <uintptr_t> rf_forest64
 
-        if self.seed is None:
+        if self.random_state is None:
             seed_val = <uintptr_t>NULL
         else:
-            seed_val = <uintptr_t>self.seed
+            seed_val = <uintptr_t>self.random_state
 
         rf_params = set_rf_class_obj(<int> self.max_depth,
                                      <int> self.max_leaves,
@@ -437,7 +462,9 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
                                      <int> seed_val,
                                      <CRITERION> self.split_criterion,
                                      <bool> self.quantile_per_tree,
-                                     <int> self.n_streams)
+                                     <int> self.n_streams,
+                                     <bool> self.use_experimental_backend,
+                                     <int> self.max_batch_size)
 
         if self.dtype == np.float32:
             fit(handle_[0],
@@ -487,8 +514,8 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
         preds = CumlArray.zeros(n_rows, dtype=np.int32)
         cdef uintptr_t preds_ptr = preds.ptr
 
-        cdef cumlHandle* handle_ =\
-            <cumlHandle*><uintptr_t>self.handle.getHandle()
+        cdef handle_t* handle_ =\
+            <handle_t*><uintptr_t>self.handle.getHandle()
 
         cdef RandomForestMetaData[float, int] *rf_forest = \
             <RandomForestMetaData[float, int]*><uintptr_t> self.rf_forest
@@ -640,8 +667,8 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
         preds = CumlArray.zeros(n_rows * self.n_estimators, dtype=np.int32)
         preds_ptr = preds.ptr
 
-        cdef cumlHandle* handle_ =\
-            <cumlHandle*><uintptr_t>self.handle.getHandle()
+        cdef handle_t* handle_ =\
+            <handle_t*><uintptr_t>self.handle.getHandle()
         cdef RandomForestMetaData[float, int] *rf_forest = \
             <RandomForestMetaData[float, int]*><uintptr_t> self.rf_forest
 
@@ -832,8 +859,8 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
             input_to_cuml_array(preds, convert_to_dtype=np.int32)
         preds_ptr = preds_m.ptr
 
-        cdef cumlHandle* handle_ =\
-            <cumlHandle*><uintptr_t>self.handle.getHandle()
+        cdef handle_t* handle_ =\
+            <handle_t*><uintptr_t>self.handle.getHandle()
 
         cdef RandomForestMetaData[float, int] *rf_forest = \
             <RandomForestMetaData[float, int]*><uintptr_t> self.rf_forest
@@ -865,27 +892,6 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
         del(preds_m)
         return self.stats['accuracy']
 
-    def get_params(self, deep=True):
-        """
-        Returns the value of all parameters
-        required to configure this estimator as a dictionary.
-        Parameters
-        -----------
-        deep : boolean (default = True)
-        """
-        return self._get_params(deep=deep)
-
-    def set_params(self, **params):
-        """
-        Sets the value of parameters required to
-        configure this estimator, it functions similar to
-        the sklearn set_params.
-        Parameters
-        -----------
-        params : dict of new params
-        """
-        return self._set_params(**params)
-
     def print_summary(self):
         """
         Prints the summary of the forest used to train and test the model
@@ -916,3 +922,17 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
             print_rf_detailed(rf_forest64)
         else:
             print_rf_detailed(rf_forest)
+
+    def dump_as_json(self):
+        """
+        Dump (export) the Random Forest model as a JSON string
+        """
+        cdef RandomForestMetaData[float, int] *rf_forest = \
+            <RandomForestMetaData[float, int]*><uintptr_t> self.rf_forest
+
+        cdef RandomForestMetaData[double, int] *rf_forest64 = \
+            <RandomForestMetaData[double, int]*><uintptr_t> self.rf_forest64
+
+        if self.dtype == np.float64:
+            return dump_rf_as_json(rf_forest64)
+        return dump_rf_as_json(rf_forest)

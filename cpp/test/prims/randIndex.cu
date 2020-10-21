@@ -77,13 +77,13 @@ class randIndexTest : public ::testing::TestWithParam<randIndexParam> {
 
     //allocating and initializing memory to the GPU
     CUDA_CHECK(cudaStreamCreate(&stream));
-    MLCommon::allocate(firstClusterArray, size, true);
-    MLCommon::allocate(secondClusterArray, size, true);
+    raft::allocate(firstClusterArray, size, true);
+    raft::allocate(secondClusterArray, size, true);
 
-    MLCommon::updateDevice(firstClusterArray, &arr1[0], (int)size, stream);
-    MLCommon::updateDevice(secondClusterArray, &arr2[0], (int)size, stream);
+    raft::update_device(firstClusterArray, &arr1[0], (int)size, stream);
+    raft::update_device(secondClusterArray, &arr2[0], (int)size, stream);
     std::shared_ptr<MLCommon::deviceAllocator> allocator(
-      new defaultDeviceAllocator);
+      new raft::mr::device::default_allocator);
 
     //calling the randIndex CUDA implementation
     computedRandIndex = MLCommon::Metrics::computeRandIndex(

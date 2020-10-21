@@ -23,13 +23,15 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cuda_utils.cuh>
-#include <cuml/common/cuml_allocator.hpp>
+#include <raft/handle.hpp>
+#include <raft/mr/device/allocator.hpp>
+#include <raft/mr/device/buffer.hpp>
 #include <random>
 #include <type_traits>
 #include "rng_impl.cuh"
 
-namespace MLCommon {
-namespace Random {
+namespace raft {
+namespace random {
 
 /** all different generator types used */
 enum GeneratorType {
@@ -101,10 +103,10 @@ DI void box_muller_transform(Type &val1, Type &val2, Type sigma1, Type mu1,
                              Type sigma2, Type mu2) {
   constexpr Type twoPi = Type(2.0) * Type(3.141592654);
   constexpr Type minus2 = -Type(2.0);
-  Type R = mySqrt(minus2 * myLog(val1));
+  Type R = raft::mySqrt(minus2 * raft::myLog(val1));
   Type theta = twoPi * val2;
   Type s, c;
-  mySinCos(theta, s, c);
+  raft::mySinCos(theta, s, c);
   val1 = R * c * sigma1 + mu1;
   val2 = R * s * sigma2 + mu2;
 }
@@ -352,7 +354,7 @@ class Rng {
     custom_distribution(
       ptr, len,
       [=] __device__(Type val, LenType idx) {
-        return mu - beta * myLog(-myLog(val));
+        return mu - beta * raft::myLog(-raft::myLog(val));
       },
       stream);
   }
@@ -374,8 +376,8 @@ class Rng {
       offset, ptr, len,
       [=] __device__(Type & val1, Type & val2, LenType idx1, LenType idx2) {
         box_muller_transform<Type>(val1, val2, sigma, mu);
-        val1 = myExp(val1);
-        val2 = myExp(val2);
+        val1 = raft::myExp(val1);
+        val2 = raft::myExp(val2);
       },
       NumThreads, nBlocks, type, stream);
   }
@@ -397,7 +399,7 @@ class Rng {
       ptr, len,
       [=] __device__(Type val, LenType idx) {
         constexpr Type one = (Type)1.0;
-        return mu - scale * myLog(one / val - one);
+        return mu - scale * raft::myLog(one / val - one);
       },
       stream);
   }
@@ -417,7 +419,7 @@ class Rng {
       ptr, len,
       [=] __device__(Type val, LenType idx) {
         constexpr Type one = (Type)1.0;
-        return -myLog(one - val) / lambda;
+        return -raft::myLog(one - val) / lambda;
       },
       stream);
   }
@@ -438,7 +440,7 @@ class Rng {
       [=] __device__(Type val, LenType idx) {
         constexpr Type one = (Type)1.0;
         constexpr Type two = (Type)2.0;
-        return mySqrt(-two * myLog(one - val)) * sigma;
+        return raft::mySqrt(-two * raft::myLog(one - val)) * sigma;
       },
       stream);
   }
@@ -464,9 +466,9 @@ class Rng {
         constexpr Type oneHalf = (Type)0.5;
         Type out;
         if (val <= oneHalf) {
-          out = mu + scale * myLog(two * val);
+          out = mu + scale * raft::myLog(two * val);
         } else {
-          out = mu - scale * myLog(two * (one - val));
+          out = mu - scale * raft::myLog(two * (one - val));
         }
         return out;
       },
@@ -500,16 +502,20 @@ class Rng {
    * @param stream cuda stream
    */
   template <typename DataT, typename WeightsT, typename IdxT = int>
-  void sampleWithoutReplacement(DataT *out, IdxT *outIdx, const DataT *in,
+  void sampleWithoutReplacement(const raft::handle_t &handle, DataT *out,
+                                IdxT *outIdx, const DataT *in,
                                 const WeightsT *wts, IdxT sampledLen, IdxT len,
-                                std::shared_ptr<deviceAllocator> allocator,
                                 cudaStream_t stream) {
     ASSERT(sampledLen <= len,
            "sampleWithoutReplacement: 'sampledLen' cant be more than 'len'.");
-    device_buffer<WeightsT> expWts(allocator, stream, len);
-    device_buffer<WeightsT> sortedWts(allocator, stream, len);
-    device_buffer<IdxT> inIdx(allocator, stream, len);
-    device_buffer<IdxT> outIdxBuff(allocator, stream, len);
+
+    std::shared_ptr<raft::mr::device::allocator> allocator =
+      handle.get_device_allocator();
+
+    raft::mr::device::buffer<WeightsT> expWts(allocator, stream, len);
+    raft::mr::device::buffer<WeightsT> sortedWts(allocator, stream, len);
+    raft::mr::device::buffer<IdxT> inIdx(allocator, stream, len);
+    raft::mr::device::buffer<IdxT> outIdxBuff(allocator, stream, len);
     auto *inIdxPtr = inIdx.data();
     // generate modified weights
     custom_distribution(
@@ -517,7 +523,7 @@ class Rng {
       [wts, inIdxPtr] __device__(WeightsT val, IdxT idx) {
         inIdxPtr[idx] = idx;
         constexpr WeightsT one = (WeightsT)1.0;
-        auto exp = -myLog(one - val);
+        auto exp = -raft::myLog(one - val);
         if (wts != nullptr) {
           return exp / wts[idx];
         }
@@ -527,7 +533,7 @@ class Rng {
     ///@todo: use a more efficient partitioning scheme instead of full sort
     // sort the array and pick the top sampledLen items
     IdxT *outIdxPtr = outIdxBuff.data();
-    device_buffer<char> workspace(allocator, stream);
+    raft::mr::device::buffer<char> workspace(allocator, stream);
     sortPairs(workspace, expWts.data(), sortedWts.data(), inIdxPtr, outIdxPtr,
               (int)len, stream);
     if (outIdx != nullptr) {
@@ -587,7 +593,7 @@ class Rng {
   template <bool IsNormal, typename Type, typename LenType>
   uint64_t _setupSeeds(uint64_t &seed, uint64_t &offset, LenType len,
                        int nThreads, int nBlocks) {
-    LenType itemsPerThread = ceildiv(len, LenType(nBlocks * nThreads));
+    LenType itemsPerThread = raft::ceildiv(len, LenType(nBlocks * nThreads));
     if (IsNormal && itemsPerThread % 2 == 1) {
       ++itemsPerThread;
     }
@@ -666,5 +672,5 @@ class Rng {
   }
 };
 
-};  // end namespace Random
-};  // end namespace MLCommon
+};  // end namespace random
+};  // end namespace raft

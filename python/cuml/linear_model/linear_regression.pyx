@@ -14,10 +14,7 @@
 # limitations under the License.
 #
 
-# cython: profile=False
 # distutils: language = c++
-# cython: embedsignature = True
-# cython: language_level = 3
 
 import ctypes
 import cudf
@@ -34,12 +31,12 @@ from libc.stdlib cimport calloc, malloc, free
 from cuml.common.array import CumlArray
 from cuml.common.base import Base, RegressorMixin
 from cuml.common.doc_utils import generate_docstring
-from cuml.common.handle cimport cumlHandle
+from cuml.raft.common.handle cimport handle_t
 from cuml.common import input_to_cuml_array
 
 cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM":
 
-    cdef void olsFit(cumlHandle& handle,
+    cdef void olsFit(handle_t& handle,
                      float *input,
                      int n_rows,
                      int n_cols,
@@ -49,7 +46,7 @@ cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM":
                      bool fit_intercept,
                      bool normalize, int algo) except +
 
-    cdef void olsFit(cumlHandle& handle,
+    cdef void olsFit(handle_t& handle,
                      double *input,
                      int n_rows,
                      int n_cols,
@@ -59,7 +56,7 @@ cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM":
                      bool fit_intercept,
                      bool normalize, int algo) except +
 
-    cdef void olsPredict(cumlHandle& handle,
+    cdef void olsPredict(handle_t& handle,
                          const float *input,
                          int n_rows,
                          int n_cols,
@@ -67,7 +64,7 @@ cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM":
                          float intercept,
                          float *preds) except +
 
-    cdef void olsPredict(cumlHandle& handle,
+    cdef void olsPredict(handle_t& handle,
                          const double *input,
                          int n_rows,
                          int n_cols,
@@ -152,6 +149,21 @@ class LinearRegression(Base, RegressorMixin):
         If True, the predictors in X will be normalized by dividing by it's
         L2 norm.
         If False, no scaling will be done.
+    handle : cuml.Handle
+        Specifies the cuml.handle that holds internal CUDA state for
+        computations in this model. Most importantly, this specifies the CUDA
+        stream that will be used for the model's computations, so users can
+        run different models concurrently in different streams by creating
+        handles in several streams.
+        If it is None, a new one is created.
+    verbose : int or boolean, default=False
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        See :ref:`verbosity-levels` for more info.
+    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
+        Variable to control output type of the results and attributes of
+        the estimator. If None, it'll inherit the output type set at the
+        module level, `cuml.global_output_type`.
+        See :ref:`output-data-type-configuration` for more info.
 
     Attributes
     -----------
@@ -218,8 +230,7 @@ class LinearRegression(Base, RegressorMixin):
         Fit the model with X and y.
 
         """
-        self._set_n_features_in(X)
-        self._set_output_type(X)
+        self._set_base_attributes(output_type=X, n_features=X)
 
         cdef uintptr_t X_ptr, y_ptr
         X_m, n_rows, self.n_cols, self.dtype = \
@@ -252,7 +263,7 @@ class LinearRegression(Base, RegressorMixin):
 
         cdef float c_intercept1
         cdef double c_intercept2
-        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
+        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
         if self.dtype == np.float32:
 
@@ -293,7 +304,7 @@ class LinearRegression(Base, RegressorMixin):
                                        'type': 'dense',
                                        'description': 'Predicted values',
                                        'shape': '(n_samples, 1)'})
-    def predict(self, X, convert_dtype=False):
+    def predict(self, X, convert_dtype=True):
         """
         Predicts `y` values for `X`.
 
@@ -314,7 +325,7 @@ class LinearRegression(Base, RegressorMixin):
         preds = CumlArray.zeros(n_rows, dtype=dtype)
         cdef uintptr_t preds_ptr = preds.ptr
 
-        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
+        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
         if dtype.type == np.float32:
             olsPredict(handle_[0],
@@ -340,4 +351,5 @@ class LinearRegression(Base, RegressorMixin):
         return preds.to_output(out_type)
 
     def get_param_names(self):
-        return ['algorithm', 'fit_intercept', 'normalize']
+        return super().get_param_names() + \
+            ['algorithm', 'fit_intercept', 'normalize']

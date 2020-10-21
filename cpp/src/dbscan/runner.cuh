@@ -57,11 +57,12 @@ __global__ void relabelForSkl(Index_* labels, Index_ N, Index_ MAX_LABEL) {
  * an array of labels drawn from a monotonically increasing set.
  */
 template <typename Index_ = int>
-void final_relabel(Index_* db_cluster, Index_ N, cudaStream_t stream) {
+void final_relabel(Index_* db_cluster, Index_ N, cudaStream_t stream,
+                   std::shared_ptr<deviceAllocator> allocator) {
   Index_ MAX_LABEL = std::numeric_limits<Index_>::max();
   MLCommon::Label::make_monotonic(
     db_cluster, db_cluster, N, stream,
-    [MAX_LABEL] __device__(Index_ val) { return val == MAX_LABEL; });
+    [MAX_LABEL] __device__(Index_ val) { return val == MAX_LABEL; }, allocator);
 }
 
 /* @param N number of points
@@ -77,12 +78,12 @@ void final_relabel(Index_* db_cluster, Index_ N, cudaStream_t stream) {
  * @return in case the temp buffer is null, this returns the size needed.
  */
 template <typename Type_f, typename Index_ = int>
-size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Index_ N, Index_ D,
+size_t run(const raft::handle_t& handle, Type_f* x, Index_ N, Index_ D,
            Type_f eps, Index_ minPts, Index_* labels,
            Index_* core_sample_indices, int algoVd, int algoAdj, int algoCcl,
            void* workspace, Index_ nBatches, cudaStream_t stream) {
   const size_t align = 256;
-  size_t batchSize = ceildiv<size_t>(N, nBatches);
+  size_t batchSize = raft::ceildiv<size_t>(N, nBatches);
 
   /**
    * Note on coupling between data types:
@@ -95,12 +96,13 @@ size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Index_ N, Index_ D,
    * elements in their neighborhood, so any IdxType can be safely used, so long as N doesn't
    * overflow.
    */
-  size_t adjSize = alignTo<size_t>(sizeof(bool) * N * batchSize, align);
-  size_t corePtsSize = alignTo<size_t>(sizeof(bool) * N, align);
-  size_t xaSize = alignTo<size_t>(sizeof(bool) * N, align);
-  size_t mSize = alignTo<size_t>(sizeof(bool), align);
-  size_t vdSize = alignTo<size_t>(sizeof(Index_) * (batchSize + 1), align);
-  size_t exScanSize = alignTo<size_t>(sizeof(Index_) * batchSize, align);
+  size_t adjSize = raft::alignTo<size_t>(sizeof(bool) * N * batchSize, align);
+  size_t corePtsSize = raft::alignTo<size_t>(sizeof(bool) * N, align);
+  size_t xaSize = raft::alignTo<size_t>(sizeof(bool) * N, align);
+  size_t mSize = raft::alignTo<size_t>(sizeof(bool), align);
+  size_t vdSize =
+    raft::alignTo<size_t>(sizeof(Index_) * (batchSize + 1), align);
+  size_t exScanSize = raft::alignTo<size_t>(sizeof(Index_) * batchSize, align);
 
   Index_ MAX_LABEL = std::numeric_limits<Index_>::max();
 
@@ -139,7 +141,7 @@ size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Index_ N, Index_ D,
 
   // Running VertexDeg
   MLCommon::Sparse::WeakCCState state(xa, fa, m);
-  MLCommon::device_buffer<Index_> adj_graph(handle.getDeviceAllocator(),
+  MLCommon::device_buffer<Index_> adj_graph(handle.get_device_allocator(),
                                             stream);
 
   for (int i = 0; i < nBatches; i++) {
@@ -152,21 +154,21 @@ size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Index_ N, Index_ D,
     CUML_LOG_DEBUG("- Iteration %d / %ld. Batch size is %ld samples", i + 1,
                    (unsigned long)nBatches, (unsigned long)nPoints);
 
-    int64_t start_time = curTimeMillis();
+    int64_t start_time = raft::curTimeMillis();
 
     CUML_LOG_DEBUG("--> Computing vertex degrees");
     VertexDeg::run<Type_f, Index_>(handle, adj, vd, x, eps, N, D, algoVd,
                                    startVertexId, nPoints, stream);
-    MLCommon::updateHost(&curradjlen, vd + nPoints, 1, stream);
+    raft::update_host(&curradjlen, vd + nPoints, 1, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
     ML::POP_RANGE();
 
-    int64_t cur_time = curTimeMillis();
+    int64_t cur_time = raft::curTimeMillis();
     CUML_LOG_DEBUG("    |-> Took %ld ms", (cur_time - start_time));
 
     CUML_LOG_DEBUG("--> Computing adjacency graph of size %ld samples.",
                    (unsigned long)curradjlen);
-    start_time = curTimeMillis();
+    start_time = raft::curTimeMillis();
     // Running AdjGraph
     ML::PUSH_RANGE("Trace::Dbscan::AdjGraph");
     if (curradjlen > maxadjlen || adj_graph.data() == NULL) {
@@ -182,12 +184,12 @@ size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Index_ N, Index_ D,
 
     ML::PUSH_RANGE("Trace::Dbscan::WeakCC");
 
-    cur_time = curTimeMillis();
+    cur_time = raft::curTimeMillis();
     CUML_LOG_DEBUG("    |-> Took %ld ms.", (cur_time - start_time));
 
     CUML_LOG_DEBUG("--> Computing connected components");
 
-    start_time = curTimeMillis();
+    start_time = raft::curTimeMillis();
     MLCommon::Sparse::weak_cc_batched<Index_, 1024>(
       labels, ex_scan, adj_graph.data(), curradjlen, N, startVertexId, nPoints,
       &state, stream,
@@ -197,13 +199,14 @@ size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Index_ N, Index_ D,
       });
     ML::POP_RANGE();
 
-    cur_time = curTimeMillis();
+    cur_time = raft::curTimeMillis();
     CUML_LOG_DEBUG("    |-> Took %ld ms.", (cur_time - start_time));
   }
 
   ML::PUSH_RANGE("Trace::Dbscan::FinalRelabel");
-  if (algoCcl == 2) final_relabel(labels, N, stream);
-  size_t nblks = ceildiv<size_t>(N, TPB);
+  if (algoCcl == 2)
+    final_relabel(labels, N, stream, handle.get_device_allocator());
+  size_t nblks = raft::ceildiv<size_t>(N, TPB);
   relabelForSkl<Index_><<<nblks, TPB, 0, stream>>>(labels, N, MAX_LABEL);
   CUDA_CHECK(cudaPeekAtLastError());
   ML::POP_RANGE();
@@ -213,7 +216,7 @@ size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Index_ N, Index_ D,
     ML::PUSH_RANGE("Trace::Dbscan::CoreSampleIndices");
 
     // Create the execution policy
-    ML::thrustAllocatorAdapter alloc(handle.getDeviceAllocator(), stream);
+    ML::thrustAllocatorAdapter alloc(handle.get_device_allocator(), stream);
     auto thrust_exec_policy = thrust::cuda::par(alloc).on(stream);
 
     // Get wrappers for the device ptrs

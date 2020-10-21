@@ -14,15 +14,13 @@
 # limitations under the License.
 #
 
-# cython: profile=False
 # distutils: language = c++
-# cython: embedsignature = True
-# cython: language_level = 3
 
 import ctypes
 import cudf
 import numpy as np
 import cupy as cp
+import cupyx
 import scipy
 
 from enum import IntEnum
@@ -40,7 +38,9 @@ from cuml.common.array import CumlArray
 from cuml.common.base import Base
 from cuml.common.base import _input_to_type
 from cuml.common.doc_utils import generate_docstring
-from cuml.common.handle cimport cumlHandle
+from cuml.raft.common.handle cimport handle_t
+from cuml.raft.common.handle import Handle
+import cuml.common.logger as logger
 from cuml.decomposition.utils cimport *
 from cuml.common import input_to_cuml_array
 from cuml.common import with_cupy_rmm
@@ -50,7 +50,7 @@ from cuml.common.input_utils import sparse_scipy_to_cp
 
 cdef extern from "cuml/decomposition/pca.hpp" namespace "ML":
 
-    cdef void pcaFit(cumlHandle& handle,
+    cdef void pcaFit(handle_t& handle,
                      float *input,
                      float *components,
                      float *explained_var,
@@ -60,7 +60,7 @@ cdef extern from "cuml/decomposition/pca.hpp" namespace "ML":
                      float *noise_vars,
                      const paramsPCA &prms) except +
 
-    cdef void pcaFit(cumlHandle& handle,
+    cdef void pcaFit(handle_t& handle,
                      double *input,
                      double *components,
                      double *explained_var,
@@ -70,7 +70,7 @@ cdef extern from "cuml/decomposition/pca.hpp" namespace "ML":
                      double *noise_vars,
                      const paramsPCA &prms) except +
 
-    cdef void pcaInverseTransform(cumlHandle& handle,
+    cdef void pcaInverseTransform(handle_t& handle,
                                   float *trans_input,
                                   float *components,
                                   float *singular_vals,
@@ -78,7 +78,7 @@ cdef extern from "cuml/decomposition/pca.hpp" namespace "ML":
                                   float *input,
                                   const paramsPCA &prms) except +
 
-    cdef void pcaInverseTransform(cumlHandle& handle,
+    cdef void pcaInverseTransform(handle_t& handle,
                                   double *trans_input,
                                   double *components,
                                   double *singular_vals,
@@ -86,7 +86,7 @@ cdef extern from "cuml/decomposition/pca.hpp" namespace "ML":
                                   double *input,
                                   const paramsPCA &prms) except +
 
-    cdef void pcaTransform(cumlHandle& handle,
+    cdef void pcaTransform(handle_t& handle,
                            float *input,
                            float *components,
                            float *trans_input,
@@ -94,7 +94,7 @@ cdef extern from "cuml/decomposition/pca.hpp" namespace "ML":
                            float *mu,
                            const paramsPCA &prms) except +
 
-    cdef void pcaTransform(cumlHandle& handle,
+    cdef void pcaTransform(handle_t& handle,
                            double *input,
                            double *components,
                            double *trans_input,
@@ -209,13 +209,22 @@ class PCA(Base):
         If True, then copies data then removes mean from data. False might
         cause data to be overwritten with its mean centered version.
     handle : cuml.Handle
-        If it is None, a new one is created just for this class
+        Specifies the cuml.handle that holds internal CUDA state for
+        computations in this model. Most importantly, this specifies the CUDA
+        stream that will be used for the model's computations, so users can
+        run different models concurrently in different streams by creating
+        handles in several streams.
+        If it is None, a new one is created.
     iterated_power : int (default = 15)
         Used in Jacobi solver. The more iterations, the more accurate, but
         slower.
-    n_components : int (default = 1)
+    n_components : int (default = None)
         The number of top K singular vectors / values you want.
-        Must be <= number(columns).
+        Must be <= number(columns). If n_components is not set, then all
+        components are kept:
+
+            n_components = min(n_samples, n_features)
+
     random_state : int / None (default = None)
         If you want results to be the same when you restart Python, select a
         state.
@@ -226,15 +235,20 @@ class PCA(Base):
     tol : float (default = 1e-7)
         Used if algorithm = "jacobi". Smaller tolerance can increase accuracy,
         but but will slow down the algorithm's convergence.
-    verbose : int or boolean (default = False)
-        Logging level
+    verbose : int or boolean, default=False
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        See :ref:`verbosity-levels` for more info.
     whiten : boolean (default = False)
         If True, de-correlates the components. This is done by dividing them by
         the corresponding singular values then multiplying by sqrt(n_samples).
         Whitening allows each component to have unit variance and removes
         multi-collinearity. It might be beneficial for downstream
         tasks like LinearRegression where correlated features cause problems.
-
+    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
+        Variable to control output type of the results and attributes of
+        the estimator. If None, it'll inherit the output type set at the
+        module level, `cuml.global_output_type`.
+        See :ref:`output-data-type-configuration` for more info.
 
     Attributes
     ----------
@@ -273,7 +287,7 @@ class PCA(Base):
     """
 
     def __init__(self, copy=True, handle=None, iterated_power=15,
-                 n_components=1, random_state=None, svd_solver='auto',
+                 n_components=None, random_state=None, svd_solver='auto',
                  tol=1e-7, verbose=False, whiten=False,
                  output_type=None):
         # parameters
@@ -324,7 +338,15 @@ class PCA(Base):
 
     def _build_params(self, n_rows, n_cols):
         cpdef paramsPCA *params = new paramsPCA()
-        params.n_components = self.n_components
+        if self.n_components is None:
+            logger.warn(
+                'Warning(`_build_params`): As of v0.16, PCA invoked without an'
+                ' n_components argument defauts to using'
+                ' min(n_samples, n_features) rather than 1'
+            )
+            params.n_components = min(n_rows, n_cols)
+        else:
+            params.n_components = self.n_components
         params.n_rows = n_rows
         params.n_cols = n_cols
         params.whiten = self.whiten
@@ -419,10 +441,9 @@ class PCA(Base):
         Fit the model with X. y is currently ignored.
 
         """
-        self._set_n_features_in(X)
-        self._set_output_type(X)
+        self._set_base_attributes(output_type=X, n_features=X)
 
-        if cp.sparse.issparse(X):
+        if cupyx.scipy.sparse.issparse(X):
             return self._sparse_fit(X)
         elif scipy.sparse.issparse(X):
             X = sparse_scipy_to_cp(X)
@@ -435,7 +456,7 @@ class PCA(Base):
         cdef paramsPCA *params = <paramsPCA*><size_t> \
             self._build_params(self.n_rows, self.n_cols)
 
-        if self.n_components > self.n_cols:
+        if params.n_components > self.n_cols:
             raise ValueError('Number of components should not be greater than'
                              'the number of columns in the data')
 
@@ -458,7 +479,7 @@ class PCA(Base):
         cdef uintptr_t noise_vars_ptr = \
             self._noise_variance_.ptr
 
-        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
+        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
         if self.dtype == np.float32:
             pcaFit(handle_[0],
                    <float*> input_ptr,
@@ -525,7 +546,7 @@ class PCA(Base):
         if return_sparse:
             X_inv = cp.where(X_inv < sparse_tol, 0, X_inv)
 
-            X_inv = cp.sparse.csr_matrix(X_inv)
+            X_inv = cupyx.scipy.sparse.csr_matrix(X_inv)
 
             return X_inv
 
@@ -552,7 +573,7 @@ class PCA(Base):
 
         out_type = self._get_output_type(X)
 
-        if cp.sparse.issparse(X):
+        if cupyx.scipy.sparse.issparse(X):
             return self._sparse_inverse_transform(X,
                                                   return_sparse=return_sparse,
                                                   sparse_tol=sparse_tol,
@@ -596,7 +617,7 @@ class PCA(Base):
         cdef uintptr_t singular_vals_ptr = self._singular_values_.ptr
         cdef uintptr_t _mean_ptr = self._mean_.ptr
 
-        cdef cumlHandle* h_ = <cumlHandle*><size_t>self.handle.getHandle()
+        cdef handle_t* h_ = <handle_t*><size_t>self.handle.getHandle()
         if dtype.type == np.float32:
             pcaInverseTransform(h_[0],
                                 <float*> _trans_input_ptr,
@@ -666,7 +687,7 @@ class PCA(Base):
 
         out_type = self._get_output_type(X)
 
-        if cp.sparse.issparse(X):
+        if cupyx.scipy.sparse.issparse(X):
             return self._sparse_transform(X, out_type=out_type)
         elif scipy.sparse.issparse(X):
             X = sparse_scipy_to_cp(X)
@@ -703,7 +724,7 @@ class PCA(Base):
             self._singular_values_.ptr
         cdef uintptr_t _mean_ptr = self._mean_.ptr
 
-        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
+        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
         if dtype.type == np.float32:
             pcaTransform(handle_[0],
                          <float*> input_ptr,
@@ -728,8 +749,9 @@ class PCA(Base):
         return t_input_data.to_output(out_type)
 
     def get_param_names(self):
-        return ["copy", "iterated_power", "n_components", "svd_solver", "tol",
-                "whiten"]
+        return super().get_param_names() + \
+            ["copy", "iterated_power", "n_components", "svd_solver", "tol",
+                "whiten", "random_state"]
 
     def __getstate__(self):
         state = self.__dict__.copy()
@@ -741,4 +763,4 @@ class PCA(Base):
 
     def __setstate__(self, state):
         self.__dict__.update(state)
-        self.handle = cuml.common.handle.Handle()
+        self.handle = Handle()

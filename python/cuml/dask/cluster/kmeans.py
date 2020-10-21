@@ -23,8 +23,8 @@ from cuml.dask.common.base import mnmg_import
 from cuml.dask.common.input_utils import concatenate
 from cuml.dask.common.input_utils import DistributedDataHandler
 
-from cuml.dask.common.comms import CommsContext
-from cuml.dask.common.comms import worker_state
+from cuml.raft.dask.common.comms import Comms
+from cuml.raft.dask.common.comms import worker_state
 
 from cuml.dask.common.utils import wait_and_raise_from_futures
 
@@ -48,15 +48,21 @@ class KMeans(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
     ----------
 
     handle : cuml.Handle
-        If it is None, a new one is created just for this class.
+        Specifies the cuml.handle that holds internal CUDA state for
+        computations in this model. Most importantly, this specifies the CUDA
+        stream that will be used for the model's computations, so users can
+        run different models concurrently in different streams by creating
+        handles in several streams.
+        If it is None, a new one is created.
     n_clusters : int (default = 8)
         The number of centroids or clusters you want.
     max_iter : int (default = 300)
         The more iterations of EM, the more accurate, but slower.
     tol : float (default = 1e-4)
         Stopping criterion when centroid means do not change much.
-    verbose : int or boolean (default = False)
-        Logging level for printing diagnostic information
+    verbose : int or boolean, default=False
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        See :ref:`verbosity-levels` for more info.
     random_state : int (default = 1)
         If you want results to be the same when you restart Python,
         select a state.
@@ -126,7 +132,7 @@ class KMeans(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
         data = DistributedDataHandler.create(X, client=self.client)
         self.datatype = data.datatype
 
-        comms = CommsContext(comms_p2p=False)
+        comms = Comms(comms_p2p=False)
         comms.init(workers=data.workers)
 
         kmeans_fit = [self.client.submit(KMeans._func_fit,

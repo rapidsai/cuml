@@ -23,7 +23,7 @@ from cuml.common.exceptions import NotFittedError
 
 class TargetEncoder:
     """
-    A cudf based implementation of target encoding [1], which converts
+    A cudf based implementation of target encoding [1]_, which converts
     one or mulitple categorical variables, 'Xs', with the average of
     corresponding values of the target variable, 'Y'. The input data is
     grouped by the columns `Xs` and the aggregated mean value of `Y` of
@@ -84,11 +84,10 @@ class TargetEncoder:
     def __init__(self, n_folds=4, smooth=0, seed=42,
                  split_method='interleaved', output_type='auto'):
         if smooth < 0 or smooth > 1:
-            raise ValueError(
-                        'smooth {} is not in range [0,1]'.format(smooth))
+            raise ValueError('smooth {} is not in range [0,1]'.format(smooth))
         if n_folds < 0 or not isinstance(n_folds, int):
             raise ValueError(
-                        'n_folds {} is not a postive integer'.format(n_folds))
+                'n_folds {} is not a postive integer'.format(n_folds))
         if output_type not in {'cupy', 'numpy', 'auto'}:
             msg = ("output_type should be either 'cupy'"
                    " or 'numpy' or 'auto', "
@@ -96,8 +95,7 @@ class TargetEncoder:
             raise ValueError(msg)
 
         if not isinstance(seed, int):
-            raise ValueError(
-                        'seed {} is not an integer'.format(seed))
+            raise ValueError('seed {} is not an integer'.format(seed))
 
         if split_method not in {'random', 'continuous', 'interleaved'}:
             msg = ("split_method should be either 'random'"

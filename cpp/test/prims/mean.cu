@@ -23,8 +23,8 @@
 #include <stats/mean.cuh>
 #include "test_utils.h"
 
-namespace MLCommon {
-namespace Stats {
+namespace raft {
+namespace stats {
 
 template <typename T>
 struct MeanInputs {
@@ -44,7 +44,7 @@ class MeanTest : public ::testing::TestWithParam<MeanInputs<T>> {
  protected:
   void SetUp() override {
     params = ::testing::TestWithParam<MeanInputs<T>>::GetParam();
-    Random::Rng r(params.seed);
+    raft::random::Rng r(params.seed);
 
     int rows = params.rows, cols = params.cols;
     int len = rows * cols;
@@ -130,5 +130,5 @@ INSTANTIATE_TEST_CASE_P(MeanTests, MeanTestF, ::testing::ValuesIn(inputsf));
 
 INSTANTIATE_TEST_CASE_P(MeanTests, MeanTestD, ::testing::ValuesIn(inputsd));
 
-}  // end namespace Stats
-}  // end namespace MLCommon
+}  // end namespace stats
+}  // end namespace raft

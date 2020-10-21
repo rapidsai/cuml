@@ -32,7 +32,9 @@ if(BUILD_CUML_BENCH)
     # sg/rf_regressor.cu
     sg/svc.cu
     sg/svr.cu
-    sg/umap.cu)
+    sg/umap.cu
+    sg/fil.cu
+    )
 
   target_link_libraries(sg_benchmark
     ${CUML_CPP_TARGET}

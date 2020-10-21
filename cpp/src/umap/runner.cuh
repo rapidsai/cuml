@@ -80,15 +80,15 @@ void find_ab(UMAPParams *params, std::shared_ptr<deviceAllocator> d_alloc,
 }
 
 template <typename T, int TPB_X>
-void _fit(const cumlHandle &handle,
+void _fit(const raft::handle_t &handle,
           T *X,   // input matrix
           int n,  // rows
           int d,  // cols
           int64_t *knn_indices, T *knn_dists, UMAPParams *params,
           T *embeddings) {
   ML::PUSH_RANGE("umap::unsupervised::fit");
-  cudaStream_t stream = handle.getStream();
-  auto d_alloc = handle.getDeviceAllocator();
+  cudaStream_t stream = handle.get_stream();
+  auto d_alloc = handle.get_device_allocator();
 
   int k = params->n_neighbors;
 
@@ -160,14 +160,14 @@ void _fit(const cumlHandle &handle,
 }
 
 template <typename T, int TPB_X>
-void _fit(const cumlHandle &handle,
+void _fit(const raft::handle_t &handle,
           T *X,  // input matrix
           T *y,  // labels
           int n, int d, int64_t *knn_indices, T *knn_dists, UMAPParams *params,
           T *embeddings) {
   ML::PUSH_RANGE("umap::supervised::fit");
-  std::shared_ptr<deviceAllocator> d_alloc = handle.getDeviceAllocator();
-  cudaStream_t stream = handle.getStream();
+  auto d_alloc = handle.get_device_allocator();
+  cudaStream_t stream = handle.get_stream();
 
   int k = params->n_neighbors;
 
@@ -280,13 +280,13 @@ void _fit(const cumlHandle &handle,
 	 *
 	 */
 template <typename T, int TPB_X>
-void _transform(const cumlHandle &handle, T *X, int n, int d,
+void _transform(const raft::handle_t &handle, T *X, int n, int d,
                 int64_t *knn_indices, float *knn_dists, T *orig_X, int orig_n,
                 T *embedding, int embedding_n, UMAPParams *params,
                 T *transformed) {
   ML::PUSH_RANGE("umap::transform");
-  std::shared_ptr<deviceAllocator> d_alloc = handle.getDeviceAllocator();
-  cudaStream_t stream = handle.getStream();
+  auto d_alloc = handle.get_device_allocator();
+  cudaStream_t stream = handle.get_stream();
 
   ML::Logger::get().setLevel(params->verbosity);
 
@@ -335,7 +335,7 @@ void _transform(const cumlHandle &handle, T *X, int n, int d,
   CUDA_CHECK(cudaMemsetAsync(sigmas.data(), 0, n * sizeof(T), stream));
   CUDA_CHECK(cudaMemsetAsync(rhos.data(), 0, n * sizeof(T), stream));
 
-  dim3 grid_n(MLCommon::ceildiv(n, TPB_X), 1, 1);
+  dim3 grid_n(raft::ceildiv(n, TPB_X), 1, 1);
   dim3 blk(TPB_X, 1, 1);
 
   FuzzySimplSetImpl::smooth_knn_dist<TPB_X, T>(
@@ -349,7 +349,7 @@ void _transform(const cumlHandle &handle, T *X, int n, int d,
 
   int nnz = n * params->n_neighbors;
 
-  dim3 grid_nnz(MLCommon::ceildiv(nnz, TPB_X), 1, 1);
+  dim3 grid_nnz(raft::ceildiv(nnz, TPB_X), 1, 1);
 
   CUML_LOG_DEBUG("Executing fuzzy simplicial set");
 
@@ -415,7 +415,7 @@ void _transform(const cumlHandle &handle, T *X, int n, int d,
 
   CUML_LOG_DEBUG("n_epochs=%d", n_epochs);
 
-  MLCommon::LinAlg::unaryOp<T>(
+  raft::linalg::unaryOp<T>(
     graph_coo.vals(), graph_coo.vals(), graph_coo.nnz,
     [=] __device__(T input) {
       if (input < (max / float(n_epochs)))

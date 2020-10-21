@@ -14,15 +14,12 @@
 # limitations under the License.
 #
 
-# cython: profile=False
 # distutils: language = c++
-# cython: embedsignature = True
-# cython: language_level = 3
 
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t
-from cuml.common.handle cimport cumlHandle
-import cuml.common.handle
+from cuml.raft.common.handle cimport handle_t
+from cuml.raft.common.handle import Handle
 import cupy as cp
 import numpy as np
 from cuml.common.base import _determine_stateless_output_type
@@ -41,10 +38,10 @@ cdef extern from "cuml/distance/distance_type.h" namespace "ML::Distance":
         EucUnexpandedL2Sqrt "ML::Distance::DistanceType::EucUnexpandedL2Sqrt"
 
 cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics":
-    void pairwiseDistance(const cumlHandle &handle, const double *x,
+    void pairwiseDistance(const handle_t &handle, const double *x,
                           const double *y, double *dist, int m, int n, int k,
                           DistanceType metric, bool isRowMajor) except +
-    void pairwiseDistance(const cumlHandle &handle, const float *x,
+    void pairwiseDistance(const handle_t &handle, const float *x,
                           const float *y, float *dist, int m, int n, int k,
                           DistanceType metric, bool isRowMajor) except +
 
@@ -145,11 +142,11 @@ def pairwise_distances(X, Y=None, metric="euclidean", handle=None,
         Y to be the same data type as X if they differ. This
         will increase memory used for the method.
 
-    output_type : {'input', 'cudf', 'cupy', 'numpy'}, optional
-        Variable to control output type of the results of the function. If
-        None, it'll inherit the output type set at the module level,
-        `cuml.output_type`. If set, the function will temporarily override
-        the global option.
+    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
+        Variable to control output type of the results and attributes of
+        the estimator. If None, it'll inherit the output type set at the
+        module level, `cuml.global_output_type`.
+        See :ref:`output-data-type-configuration` for more info.
 
     Returns
     -------
@@ -186,8 +183,8 @@ def pairwise_distances(X, Y=None, metric="euclidean", handle=None,
             [12., 10.]])
     """
 
-    handle = cuml.common.handle.Handle() if handle is None else handle
-    cdef cumlHandle *handle_ = <cumlHandle*> <size_t> handle.getHandle()
+    handle = Handle() if handle is None else handle
+    cdef handle_t *handle_ = <handle_t*> <size_t> handle.getHandle()
 
     # Determine the input type to convert to when returning
     output_type = _determine_stateless_output_type(output_type, X)

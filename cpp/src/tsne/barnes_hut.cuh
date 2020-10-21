@@ -48,7 +48,7 @@ namespace TSNE {
  * @param[in] random_state: Set this to -1 for pure random intializations or >= 0 for reproducible outputs.
  */
 void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
-                const cumlHandle &handle, float *Y, const int n,
+                const raft::handle_t &handle, float *Y, const int n,
                 const float theta = 0.5f, const float epssq = 0.0025,
                 const float early_exaggeration = 12.0f,
                 const int exaggeration_iter = 250, const float min_gain = 0.01f,
@@ -57,12 +57,12 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
                 const int max_iter = 1000, const float min_grad_norm = 1e-7,
                 const float pre_momentum = 0.5, const float post_momentum = 0.8,
                 const long long random_state = -1) {
-  auto d_alloc = handle.getDeviceAllocator();
-  cudaStream_t stream = handle.getStream();
+  auto d_alloc = handle.get_device_allocator();
+  cudaStream_t stream = handle.get_stream();
 
   // Get device properites
   //---------------------------------------------------
-  const int blocks = MLCommon::getMultiProcessorCount();
+  const int blocks = raft::getMultiProcessorCount();
 
   int nnodes = n * 2;
   if (nnodes < 1024 * blocks) nnodes = 1024 * blocks;
@@ -137,15 +137,21 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
 
   // Set cache levels for faster algorithm execution
   //---------------------------------------------------
-  cudaFuncSetCacheConfig(TSNE::BoundingBoxKernel, cudaFuncCachePreferShared);
-  cudaFuncSetCacheConfig(TSNE::TreeBuildingKernel, cudaFuncCachePreferL1);
-  cudaFuncSetCacheConfig(TSNE::ClearKernel1, cudaFuncCachePreferL1);
-  cudaFuncSetCacheConfig(TSNE::ClearKernel2, cudaFuncCachePreferL1);
-  cudaFuncSetCacheConfig(TSNE::SummarizationKernel, cudaFuncCachePreferShared);
-  cudaFuncSetCacheConfig(TSNE::SortKernel, cudaFuncCachePreferL1);
-  cudaFuncSetCacheConfig(TSNE::RepulsionKernel, cudaFuncCachePreferL1);
-  cudaFuncSetCacheConfig(TSNE::attractive_kernel_bh, cudaFuncCachePreferL1);
-  cudaFuncSetCacheConfig(TSNE::IntegrationKernel, cudaFuncCachePreferL1);
+  CUDA_CHECK(
+    cudaFuncSetCacheConfig(TSNE::BoundingBoxKernel, cudaFuncCachePreferShared));
+  CUDA_CHECK(
+    cudaFuncSetCacheConfig(TSNE::TreeBuildingKernel, cudaFuncCachePreferL1));
+  CUDA_CHECK(cudaFuncSetCacheConfig(TSNE::ClearKernel1, cudaFuncCachePreferL1));
+  CUDA_CHECK(cudaFuncSetCacheConfig(TSNE::ClearKernel2, cudaFuncCachePreferL1));
+  CUDA_CHECK(
+    cudaFuncSetCacheConfig(TSNE::SummarizationKernel, cudaFuncCachePreferL1));
+  CUDA_CHECK(cudaFuncSetCacheConfig(TSNE::SortKernel, cudaFuncCachePreferL1));
+  CUDA_CHECK(
+    cudaFuncSetCacheConfig(TSNE::RepulsionKernel, cudaFuncCachePreferL1));
+  CUDA_CHECK(
+    cudaFuncSetCacheConfig(TSNE::attractive_kernel_bh, cudaFuncCachePreferL1));
+  CUDA_CHECK(
+    cudaFuncSetCacheConfig(TSNE::IntegrationKernel, cudaFuncCachePreferL1));
   // Do gradient updates
   //---------------------------------------------------
   CUML_LOG_DEBUG("Start gradient updates!");
@@ -170,7 +176,7 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
       momentum = post_momentum;
       // Divide perplexities
       const float div = 1.0f / early_exaggeration;
-      MLCommon::LinAlg::scalarMultiply(VAL, VAL, div, NNZ, stream);
+      raft::linalg::scalarMultiply(VAL, VAL, div, NNZ, stream);
       learning_rate = post_learning_rate;
     }
 
@@ -240,10 +246,9 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
     START_TIMER;
     // TODO: Calculate Kullback-Leibler divergence
     // For general embedding dimensions
-    TSNE::
-      attractive_kernel_bh<<<MLCommon::ceildiv(NNZ, 1024), 1024, 0, stream>>>(
-        VAL, COL, ROW, YY.data(), YY.data() + nnodes + 1, attr_forces.data(),
-        attr_forces.data() + n, NNZ);
+    TSNE::attractive_kernel_bh<<<raft::ceildiv(NNZ, 1024), 1024, 0, stream>>>(
+      VAL, COL, ROW, YY.data(), YY.data() + nnodes + 1, attr_forces.data(),
+      attr_forces.data() + n, NNZ);
     CUDA_CHECK(cudaPeekAtLastError());
     END_TIMER(attractive_time);
 
@@ -261,8 +266,8 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
   PRINT_TIMES;
 
   // Copy final YY into true output Y
-  MLCommon::copy(Y, YY.data(), n, stream);
-  MLCommon::copy(Y + n, YY.data() + nnodes + 1, n, stream);
+  raft::copy(Y, YY.data(), n, stream);
+  raft::copy(Y + n, YY.data() + nnodes + 1, n, stream);
 }
 
 }  // namespace TSNE

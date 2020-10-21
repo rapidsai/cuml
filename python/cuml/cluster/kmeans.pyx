@@ -14,10 +14,7 @@
 # limitations under the License.
 #
 
-# cython: profile=False
 # distutils: language = c++
-# cython: embedsignature = True
-# cython: language_level = 3
 
 import ctypes
 import cudf
@@ -32,13 +29,13 @@ from libc.stdlib cimport calloc, malloc, free
 from cuml.common.array import CumlArray
 from cuml.common.base import Base
 from cuml.common.doc_utils import generate_docstring
-from cuml.common.handle cimport cumlHandle
+from cuml.raft.common.handle cimport handle_t
 from cuml.common import input_to_cuml_array
 from cuml.cluster.kmeans_utils cimport *
 
 cdef extern from "cuml/cluster/kmeans.hpp" namespace "ML::kmeans":
 
-    cdef void fit_predict(cumlHandle& handle,
+    cdef void fit_predict(handle_t& handle,
                           KMeansParams& params,
                           const float *X,
                           int n_samples,
@@ -49,7 +46,7 @@ cdef extern from "cuml/cluster/kmeans.hpp" namespace "ML::kmeans":
                           float &inertia,
                           int &n_iter) except +
 
-    cdef void fit_predict(cumlHandle& handle,
+    cdef void fit_predict(handle_t& handle,
                           KMeansParams& params,
                           const double *X,
                           int n_samples,
@@ -60,7 +57,7 @@ cdef extern from "cuml/cluster/kmeans.hpp" namespace "ML::kmeans":
                           double &inertia,
                           int &n_iter) except +
 
-    cdef void predict(cumlHandle& handle,
+    cdef void predict(handle_t& handle,
                       KMeansParams& params,
                       const float *centroids,
                       const float *X,
@@ -70,7 +67,7 @@ cdef extern from "cuml/cluster/kmeans.hpp" namespace "ML::kmeans":
                       int *labels,
                       float &inertia) except +
 
-    cdef void predict(cumlHandle& handle,
+    cdef void predict(handle_t& handle,
                       KMeansParams& params,
                       double *centroids,
                       const double *X,
@@ -80,7 +77,7 @@ cdef extern from "cuml/cluster/kmeans.hpp" namespace "ML::kmeans":
                       int *labels,
                       double &inertia) except +
 
-    cdef void transform(cumlHandle& handle,
+    cdef void transform(handle_t& handle,
                         KMeansParams& params,
                         const float *centroids,
                         const float *X,
@@ -89,7 +86,7 @@ cdef extern from "cuml/cluster/kmeans.hpp" namespace "ML::kmeans":
                         int metric,
                         float *X_new) except +
 
-    cdef void transform(cumlHandle& handle,
+    cdef void transform(handle_t& handle,
                         KMeansParams& params,
                         const double *centroids,
                         const double *X,
@@ -180,15 +177,21 @@ class KMeans(Base):
     Parameters
     ----------
     handle : cuml.Handle
-        If it is None, a new one is created just for this class.
+        Specifies the cuml.handle that holds internal CUDA state for
+        computations in this model. Most importantly, this specifies the CUDA
+        stream that will be used for the model's computations, so users can
+        run different models concurrently in different streams by creating
+        handles in several streams.
+        If it is None, a new one is created.
     n_clusters : int (default = 8)
         The number of centroids or clusters you want.
     max_iter : int (default = 300)
         The more iterations of EM, the more accurate, but slower.
     tol : float64 (default = 1e-4)
         Stopping criterion when centroid means do not change much.
-    verbose : int or boolean (default = False)
-        Logging level.
+    verbose : int or boolean, default=False
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        See :ref:`verbosity-levels` for more info.
     random_state : int (default = 1)
         If you want results to be the same when you restart Python, select a
         state.
@@ -221,6 +224,11 @@ class KMeans(Base):
         pairwise distance computation is max_samples_per_batch * n_clusters.
         It might become necessary to lower this number when n_clusters
         becomes prohibitively large.
+    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
+        Variable to control output type of the results and attributes of
+        the estimator. If None, it'll inherit the output type set at the
+        module level, `cuml.global_output_type`.
+        See :ref:`output-data-type-configuration` for more info.
 
     Attributes
     ----------
@@ -313,8 +321,7 @@ class KMeans(Base):
         Compute k-means clustering with X.
 
         """
-        self._set_n_features_in(X)
-        self._set_output_type(X)
+        self._set_base_attributes(output_type=X, n_features=X)
 
         if self.init == 'preset':
             check_cols = self.n_cols
@@ -330,7 +337,7 @@ class KMeans(Base):
 
         cdef uintptr_t input_ptr = X_m.ptr
 
-        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
+        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
         if sample_weight is None:
             sample_weight_m = CumlArray.ones(shape=n_rows, dtype=self.dtype)
@@ -459,7 +466,7 @@ class KMeans(Base):
 
         cdef uintptr_t sample_weight_ptr = sample_weight_m.ptr
 
-        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
+        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
         cdef uintptr_t cluster_centers_ptr = self._cluster_centers_.ptr
 
@@ -541,7 +548,7 @@ class KMeans(Base):
 
         cdef uintptr_t input_ptr = X_m.ptr
 
-        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
+        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
         cdef uintptr_t cluster_centers_ptr = self._cluster_centers_.ptr
 
@@ -611,6 +618,7 @@ class KMeans(Base):
         return self.fit(X).transform(X, convert_dtype=convert_dtype)
 
     def get_param_names(self):
-        return ['n_init', 'oversampling_factor', 'max_samples_per_batch',
+        return super().get_param_names() + \
+            ['n_init', 'oversampling_factor', 'max_samples_per_batch',
                 'init', 'max_iter', 'n_clusters', 'random_state',
                 'tol']

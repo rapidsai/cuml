@@ -14,10 +14,7 @@
 # limitations under the License.
 #
 
-# cython: profile=False
 # distutils: language = c++
-# cython: embedsignature = True
-# cython: language_level = 3
 
 import ctypes
 import cudf
@@ -32,7 +29,7 @@ from libc.stdlib cimport calloc, malloc, free
 
 from cuml.common.array import CumlArray
 from cuml.common.base import Base
-from cuml.common.handle cimport cumlHandle
+from cuml.raft.common.handle cimport handle_t
 from cuml.common import input_to_cuml_array
 
 from cuml.cluster import KMeans
@@ -42,7 +39,7 @@ from cuml.cluster.kmeans_utils cimport *
 cdef extern from "cuml/cluster/kmeans_mg.hpp" \
         namespace "ML::kmeans::opg" nogil:
 
-    cdef void fit(cumlHandle& handle,
+    cdef void fit(handle_t& handle,
                   KMeansParams& params,
                   const float *X,
                   int n_samples,
@@ -51,7 +48,7 @@ cdef extern from "cuml/cluster/kmeans_mg.hpp" \
                   float &inertia,
                   int &n_iter) except +
 
-    cdef void fit(cumlHandle& handle,
+    cdef void fit(handle_t& handle,
                   KMeansParams& params,
                   const double *X,
                   int n_samples,
@@ -87,14 +84,14 @@ class KMeansMG(KMeans):
             ndarray, cuda array interface compliant array like CuPy
 
         """
-        self._set_n_features_in(X)
+        self._set_base_attributes(n_features=X)
 
         X_m, self.n_rows, self.n_cols, self.dtype = \
             input_to_cuml_array(X, order='C')
 
         cdef uintptr_t input_ptr = X_m.ptr
 
-        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
+        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
         if (self.init in ['scalable-k-means++', 'k-means||', 'random']):
             self._cluster_centers_ = CumlArray.zeros(shape=(self.n_clusters,

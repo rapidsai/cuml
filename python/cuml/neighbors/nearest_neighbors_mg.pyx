@@ -14,10 +14,7 @@
 # limitations under the License.
 #
 
-# cython: profile=False
 # distutils: language = c++
-# cython: embedsignature = True
-# cython: language_level = 3
 
 from cuml.neighbors import NearestNeighbors
 
@@ -34,7 +31,7 @@ from cuml.common import input_to_cuml_array
 
 from cython.operator cimport dereference as deref
 
-from cuml.common.handle cimport cumlHandle
+from cuml.raft.common.handle cimport handle_t
 from cuml.common.opg_data_utils_mg import _build_part_inputs
 import cuml.common.logger as logger
 
@@ -50,8 +47,6 @@ from libc.stdlib cimport calloc, malloc, free
 
 import rmm
 
-
-cimport cuml.common.handle
 cimport cuml.common.cuda
 
 
@@ -86,7 +81,7 @@ cdef extern from "cuml/neighbors/knn_mg.hpp" namespace \
         "ML::KNN::opg":
 
     cdef void brute_force_knn(
-        cumlHandle &handle,
+        handle_t &handle,
         vector[int64Data_t*] &out_I,
         vector[floatData_t*] &out_D,
         vector[floatData_t*] &idx_data,
@@ -182,14 +177,14 @@ class NearestNeighborsMG(NearestNeighbors):
         -------
         output indices, output distances
         """
-        self._set_output_type(indices[0])
+        self._set_base_attributes(output_type=indices[0])
         out_type = self._get_output_type(queries[0])
 
         n_neighbors = self.n_neighbors if n_neighbors is None else n_neighbors
 
         self.n_dims = n
 
-        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
+        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
         idx_cai, idx_local_parts, idx_desc = \
             _build_part_inputs(indices, index_parts_to_ranks,

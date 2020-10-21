@@ -18,7 +18,6 @@ import numpy as np
 import pickle
 import pytest
 
-from cuml.test import test_arima
 from cuml.tsa.arima import ARIMA
 from cuml.test.utils import array_equal, unit_param, stress_param, \
     ClassEnumerator, get_classes_from_package
@@ -27,6 +26,7 @@ from sklearn.base import clone
 from sklearn.datasets import load_iris, make_classification, make_regression
 from sklearn.manifold.t_sne import trustworthiness
 from sklearn.model_selection import train_test_split
+
 
 regression_config = ClassEnumerator(module=cuml.linear_model)
 regression_models = regression_config.get_models()
@@ -65,11 +65,22 @@ k_neighbors_config = ClassEnumerator(module=cuml.neighbors, exclude_classes=[
     cuml.neighbors.NearestNeighbors])
 k_neighbors_models = k_neighbors_config.get_models()
 
-unfit_pickle_xfail = ['ARIMA', 'KalmanFilter', 'ForestInference']
-unfit_clone_xfail = ['ARIMA', 'ExponentialSmoothing', 'KalmanFilter',
-                     'MBSGDClassifier', 'MBSGDRegressor']
+unfit_pickle_xfail = [
+    'ARIMA',
+    'AutoARIMA',
+    'KalmanFilter',
+    'BaseRandomForestModel',
+    'ForestInference'
+]
+unfit_clone_xfail = [
+    'AutoARIMA',
+    "ARIMA",
+    "BaseRandomForestModel",
+    "GaussianRandomProjection",
+    "SparseRandomProjection",
+]
 
-all_models = get_classes_from_package(cuml)
+all_models = get_classes_from_package(cuml, import_sub_packages=True)
 all_models.update({
     **regression_models,
     **solver_models,
@@ -81,14 +92,9 @@ all_models.update({
     **umap_model,
     **rf_models,
     **k_neighbors_models,
-    'ARIMA': lambda: ARIMA((1, 1, 1),
-                           np.array([-217.72, -206.77]),
-                           [np.array([0.03]), np.array([-0.03])],
-                           [np.array([-0.99]), np.array([-0.99])],
-                           test_arima.get_data()[1]),
+    'ARIMA': lambda: ARIMA(np.random.normal(0.0, 1.0, (10,))),
     'ExponentialSmoothing':
         lambda: cuml.ExponentialSmoothing(np.array([-217.72, -206.77])),
-    'KalmanFilter': lambda: cuml.KalmanFilter(1, 1),
 })
 
 
@@ -188,9 +194,16 @@ def test_regressor_pickle(tmpdir, datatype, keys, data_size, fit_intercept):
 
     def create_mod():
         nrows, ncols, n_info = data_size
+        if "LogisticRegression" in keys and nrows == 500000:
+            nrows, ncols, n_info = (nrows // 20, ncols // 20, n_info // 20)
+
         X_train, y_train, X_test = make_dataset(datatype, nrows,
                                                 ncols, n_info)
-        model = regression_models[keys](fit_intercept=fit_intercept)
+        if "MBSGD" in keys:
+            model = regression_models[keys](fit_intercept=fit_intercept,
+                                            batch_size=nrows/100)
+        else:
+            model = regression_models[keys](fit_intercept=fit_intercept)
         model.fit(X_train, y_train)
         result["regressor"] = model.predict(X_test)
         return model, X_test
@@ -210,6 +223,9 @@ def test_solver_pickle(tmpdir, datatype, keys, data_size):
 
     def create_mod():
         nrows, ncols, n_info = data_size
+        if "QN" in keys and nrows == 500000:
+            nrows, ncols, n_info = (nrows // 20, ncols // 20, n_info // 20)
+
         X_train, y_train, X_test = make_dataset(datatype, nrows,
                                                 ncols, n_info)
         model = solver_models[keys]()
@@ -632,7 +648,7 @@ def test_small_rf(tmpdir, key, datatype, nrows, ncols, n_info):
                                                                n_info,
                                                                n_classes=2)
         model = rf_models[key](n_estimators=1, max_depth=1,
-                               max_features=1.0, seed=10)
+                               max_features=1.0, random_state=10)
         model.fit(X_train, y_train)
         result['rf_res'] = model.predict(X_test)
         return model, X_test

@@ -55,7 +55,7 @@ namespace opg {
 
 using namespace knn_common;
 
-void knn_regress(ML::cumlHandle &handle,
+void knn_regress(raft::handle_t &handle,
                  std::vector<Matrix::Data<float> *> *out,
                  std::vector<Matrix::Data<int64_t> *> *out_I,
                  std::vector<Matrix::floatData_t *> *out_D,

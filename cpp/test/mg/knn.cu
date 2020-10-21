@@ -21,12 +21,9 @@
 #include "../prims/test_utils.h"
 #include "test_opg_utils.h"
 
-#include <common/cuml_comms_int.hpp>
 #include <common/device_buffer.hpp>
 #include <cuml/common/cuml_allocator.hpp>
-
-#include <common/cuml_comms_iface.hpp>
-#include <common/cuml_comms_int.hpp>
+#include <raft/comms/mpi_comms.hpp>
 
 #include <common/cumlHandle.hpp>
 
@@ -61,19 +58,17 @@ class BruteForceKNNTest : public ::testing::TestWithParam<KNNParams> {
   }
 
   bool runTest(const KNNParams &params) {
-    ML::cumlHandle *handle = new ML::cumlHandle();
-    ML::initialize_mpi_comms(*handle, MPI_COMM_WORLD);
-    const ML::cumlHandle_impl &h = handle->getImpl();
-    const cumlCommunicator &comm = h.getCommunicator();
-    const std::shared_ptr<deviceAllocator> allocator = h.getDeviceAllocator();
+    raft::comms::initialize_mpi_comms(&handle, MPI_COMM_WORLD);
+    const auto &comm = handle.get_comms();
+    const auto allocator = handle.get_device_allocator();
 
-    cudaStream_t stream = h.getStream();
+    cudaStream_t stream = handle.get_stream();
 
-    int my_rank = comm.getRank();
-    int size = comm.getSize();
+    int my_rank = comm.get_rank();
+    int size = comm.get_size();
 
-    int index_parts_per_rank = MLCommon::ceildiv(params.n_index_parts, size);
-    int query_parts_per_rank = MLCommon::ceildiv(params.n_query_parts, size);
+    int index_parts_per_rank = raft::ceildiv(params.n_index_parts, size);
+    int query_parts_per_rank = raft::ceildiv(params.n_query_parts, size);
     std::vector<Matrix::RankSizePair *> idxPartsToRanks;
     std::vector<Matrix::RankSizePair *> queryPartsToRanks;
     for (int cur_rank = 0; cur_rank < size; cur_rank++) {
@@ -161,31 +156,25 @@ class BruteForceKNNTest : public ::testing::TestWithParam<KNNParams> {
 
     Matrix::PartDescriptor idx_desc(params.min_rows * params.n_index_parts,
                                     params.n_cols, idxPartsToRanks,
-                                    comm.getRank());
+                                    comm.get_rank());
 
     Matrix::PartDescriptor query_desc(params.min_rows * params.n_query_parts,
                                       params.n_cols, queryPartsToRanks,
-                                      comm.getRank());
+                                      comm.get_rank());
 
     CUDA_CHECK(cudaStreamSynchronize(stream));
-
-    std::cout << "Ready to call KNN" << std::endl;
 
     /**
          * Execute brute_force_knn()
          */
-    brute_force_knn(*handle, out_i_parts, out_d_parts, index_parts, idx_desc,
+    brute_force_knn(handle, out_i_parts, out_d_parts, index_parts, idx_desc,
                     query_parts, query_desc, params.k, params.batch_size, true);
 
     CUDA_CHECK(cudaStreamSynchronize(stream));
 
-    std::cout << "Finished!" << std::endl;
-
-    std::cout << MLCommon::arr2Str(out_i_parts[0]->ptr, 10, "final_out_I",
-                                   stream)
+    std::cout << raft::arr2Str(out_i_parts[0]->ptr, 10, "final_out_I", stream)
               << std::endl;
-    std::cout << MLCommon::arr2Str(out_d_parts[0]->ptr, 10, "final_out_D",
-                                   stream)
+    std::cout << raft::arr2Str(out_d_parts[0]->ptr, 10, "final_out_D", stream)
               << std::endl;
 
     /**
@@ -224,12 +213,13 @@ class BruteForceKNNTest : public ::testing::TestWithParam<KNNParams> {
       delete rsp;
     }
 
-    delete handle;
-
     int actual = 1;
     int expected = 1;
-    return CompareApprox<int>(1)(actual, expected);
+    return raft::CompareApprox<int>(1)(actual, expected);
   }
+
+ private:
+  raft::handle_t handle;
 };
 
 const std::vector<KNNParams> inputs = {

@@ -44,7 +44,6 @@ Current cmake offers the following configuration options:
 | BUILD_CUML_EXAMPLES | [ON, OFF]  | ON  | Enable/disable building cuML C++ API usage examples.  |
 | BUILD_CUML_BENCH | [ON, OFF] | ON | Enable/disable building oc cuML C++ benchark.  |
 | BUILD_STATIC_FAISS | [ON, OFF] | OFF | Enable/disable building and static linking of FAISS into cuML. When this option is disabled, build will search for an installed version of FAISS. |
-| CMAKE_CXX11_ABI | [ON, OFF]  | ON  | Enable/disable the GLIBCXX11 ABI  |
 | DISABLE_OPENMP | [ON, OFF]  | OFF  | Set to `ON` to disable OpenMP  |
 | GPU_ARCHS |  List of GPU architectures, semicolon-separated | Empty  | List of GPU architectures that all artifacts are compiled for. Passing ALL means compiling for all currently supported GPU architectures: 60;70;75. If you don't pass this flag, then the build system will try to look for the GPU card installed on the system and compile only for that.  |
 
@@ -87,3 +86,36 @@ Current external submodules are:
 2. [CUB](https://github.com/NVlabs/cub)
 3. [Faiss](https://github.com/facebookresearch/faiss)
 4. [Google Test](https://github.com/google/googletest)
+
+## Using cuML libraries
+
+After building cuML, you can use its functionality in other C/C++ applications
+by linking against the generated libraries. The following trivial example shows
+how to make external use of cuML's logger:
+
+```cpp
+// main.cpp
+#include <cuml/common/logger.hpp>
+
+int main(int argc, char *argv[]) {
+  CUML_LOG_WARN("This is a warning from the cuML logger!");
+  return 0;
+}
+```
+
+To compile this example, we must point the compiler to where cuML was
+installed. Assuming you did not provide a custom `$CMAKE_INSTALL_PREFIX`, this
+will default to the `$CONDA_PREFIX` environment variable.
+
+```bash
+$ export LD_LIBRARY_PATH="${CONDA_PREFIX}/lib"
+$ nvcc \
+       main.cpp \
+       -o cuml_logger_example \
+       "-L${CONDA_PREFIX}/lib" \
+       "-I${CONDA_PREFIX}/include" \
+       "-I${CONDA_PREFIX}/include/cuml/raft" \
+       -lcuml++
+$ ./cuml_logger_example
+[W] [13:26:43.503068] This is a warning from the cuML logger!
+```

@@ -14,10 +14,7 @@
 # limitations under the License.
 #
 
-# cython: profile=False
 # distutils: language = c++
-# cython: embedsignature = True
-# cython: language_level = 3
 
 from cuml.neighbors.nearest_neighbors import NearestNeighbors
 
@@ -33,7 +30,7 @@ import cudf
 
 from cython.operator cimport dereference as deref
 
-from cuml.common.handle cimport cumlHandle
+from cuml.raft.common.handle cimport handle_t
 from libcpp.vector cimport vector
 
 from cuml.common import with_cupy_rmm
@@ -50,14 +47,13 @@ from libc.stdlib cimport calloc, malloc, free
 from numba import cuda
 import rmm
 
-cimport cuml.common.handle
 cimport cuml.common.cuda
 
 
 cdef extern from "cuml/neighbors/knn.hpp" namespace "ML":
 
     void knn_classify(
-        cumlHandle &handle,
+        handle_t &handle,
         int* out,
         int64_t *knn_indices,
         vector[int*] &y,
@@ -67,7 +63,7 @@ cdef extern from "cuml/neighbors/knn.hpp" namespace "ML":
     ) except +
 
     void knn_class_proba(
-        cumlHandle &handle,
+        handle_t &handle,
         vector[float*] &out,
         int64_t *knn_indices,
         vector[int*] &y,
@@ -87,10 +83,6 @@ class KNeighborsClassifier(NearestNeighbors, ClassifierMixin):
     ----------
     n_neighbors : int (default=5)
         Default number of neighbors to query
-    verbose : int or boolean (default = False)
-        Logging level
-    handle : cumlHandle
-        The cumlHandle resources to use
     algorithm : string (default='brute')
         The query algorithm to use. Currently, only 'brute' is supported.
     metric : string (default='euclidean').
@@ -98,6 +90,21 @@ class KNeighborsClassifier(NearestNeighbors, ClassifierMixin):
     weights : string (default='uniform')
         Sample weights to use. Currently, only the uniform strategy is
         supported.
+    handle : cuml.Handle
+        Specifies the cuml.handle that holds internal CUDA state for
+        computations in this model. Most importantly, this specifies the CUDA
+        stream that will be used for the model's computations, so users can
+        run different models concurrently in different streams by creating
+        handles in several streams.
+        If it is None, a new one is created.
+    verbose : int or boolean, default=False
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        See :ref:`verbosity-levels` for more info.
+    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
+        Variable to control output type of the results and attributes of
+        the estimator. If None, it'll inherit the output type set at the
+        module level, `cuml.global_output_type`.
+        See :ref:`output-data-type-configuration` for more info.
 
     Examples
     --------
@@ -135,8 +142,13 @@ class KNeighborsClassifier(NearestNeighbors, ClassifierMixin):
     <https://scikit-learn.org/stable/modules/generated/sklearn.neighbors.KNeighborsClassifier.html>`_.
     """
 
-    def __init__(self, weights="uniform", **kwargs):
-        super(KNeighborsClassifier, self).__init__(**kwargs)
+    def __init__(self, weights="uniform", *, handle=None, verbose=False,
+                 output_type=None, **kwargs):
+        super(KNeighborsClassifier, self).__init__(
+            handle=handle,
+            verbose=verbose,
+            output_type=output_type,
+            **kwargs)
 
         self._y = None
         self._classes_ = None
@@ -153,7 +165,7 @@ class KNeighborsClassifier(NearestNeighbors, ClassifierMixin):
         Fit a GPU index for k-nearest neighbors classifier model.
 
         """
-        self._set_target_dtype(y)
+        self._set_base_attributes(output_type=X, target_dtype=y)
 
         super(KNeighborsClassifier, self).fit(X, convert_dtype)
         self._y, _, _, _ = \
@@ -207,7 +219,7 @@ class KNeighborsClassifier(NearestNeighbors, ClassifierMixin):
 
         cdef uintptr_t classes_ptr = classes.ptr
 
-        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
+        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
         knn_classify(
             handle_[0],
@@ -270,7 +282,7 @@ class KNeighborsClassifier(NearestNeighbors, ClassifierMixin):
             y_ptr = col.ptr
             y_vec.push_back(<int*>y_ptr)
 
-        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
+        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
         knn_class_proba(
             handle_[0],
@@ -292,5 +304,4 @@ class KNeighborsClassifier(NearestNeighbors, ClassifierMixin):
             if len(final_classes) == 1 else tuple(final_classes)
 
     def get_param_names(self):
-        return super(KNeighborsClassifier, self).get_param_names()\
-            + ["weights"]
+        return super().get_param_names() + ["weights"]

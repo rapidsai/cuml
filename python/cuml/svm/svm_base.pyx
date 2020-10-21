@@ -13,10 +13,7 @@
 # limitations under the License.
 #
 
-# cython: profile=False
 # distutils: language = c++
-# cython: embedsignature = True
-# cython: language_level = 3
 
 import ctypes
 import cudf
@@ -31,7 +28,7 @@ from libc.stdint cimport uintptr_t
 from cuml.common.array import CumlArray
 from cuml.common.base import Base
 from cuml.common.exceptions import NotFittedError
-from cuml.common.handle cimport cumlHandle
+from cuml.raft.common.handle cimport handle_t
 from cuml.common import input_to_cuml_array
 from libcpp cimport bool
 
@@ -80,7 +77,7 @@ cdef extern from "cuml/svm/svm_model.h" namespace "ML::SVM":
 
 cdef extern from "cuml/svm/svc.hpp" namespace "ML::SVM":
 
-    cdef void svcFit[math_t](const cumlHandle &handle, math_t *input,
+    cdef void svcFit[math_t](const handle_t &handle, math_t *input,
                              int n_rows, int n_cols, math_t *labels,
                              const svmParameter &param,
                              KernelParams &kernel_params,
@@ -88,11 +85,11 @@ cdef extern from "cuml/svm/svc.hpp" namespace "ML::SVM":
                              const math_t *sample_weight) except+
 
     cdef void svcPredict[math_t](
-        const cumlHandle &handle, math_t *input, int n_rows, int n_cols,
+        const handle_t &handle, math_t *input, int n_rows, int n_cols,
         KernelParams &kernel_params, const svmModel[math_t] &model,
         math_t *preds, math_t buffer_size, bool predict_class) except +
 
-    cdef void svmFreeBuffers[math_t](const cumlHandle &handle,
+    cdef void svmFreeBuffers[math_t](const handle_t &handle,
                                      svmModel[math_t] &m) except +
 
 
@@ -103,88 +100,106 @@ class SVMBase(Base):
     Currently only binary classification is supported.
 
     The solver uses the SMO method to fit the classifier. We use the Optimized
-    Hierarchical Decomposition [1] variant of the SMO algorithm, similar to [2]
+    Hierarchical Decomposition [1]_ variant of the SMO algorithm, similar to
+    [2]_
+
+    Parameters
+    ----------
+    handle : cuml.Handle
+        Specifies the cuml.handle that holds internal CUDA state for
+        computations in this model. Most importantly, this specifies the CUDA
+        stream that will be used for the model's computations, so users can
+        run different models concurrently in different streams by creating
+        handles in several streams.
+        If it is None, a new one is created.
+    C : float (default = 1.0)
+        Penalty parameter C
+    kernel : string (default='rbf')
+        Specifies the kernel function. Possible options: 'linear', 'poly',
+        'rbf', 'sigmoid'. Currently precomputed kernels are not supported.
+    degree : int (default=3)
+        Degree of polynomial kernel function.
+    gamma : float or string (default = 'scale')
+        Coefficient for rbf, poly, and sigmoid kernels. You can specify the
+        numeric value, or use one of the following options:
+
+        - 'auto': gamma will be set to ``1 / n_features``
+        - 'scale': gamma will be se to ``1 / (n_features * X.var())``
+
+    coef0 : float (default = 0.0)
+        Independent term in kernel function, only signifficant for poly and
+        sigmoid
+    tol : float (default = 1e-3)
+        Tolerance for stopping criterion.
+    cache_size : float (default = 200.0)
+        Size of the kernel cache during training in MiB. The default is a
+        conservative value, increase it to improve the training time, at
+        the cost of higher memory footprint. After training the kernel
+        cache is deallocated.
+        During prediction, we also need a temporary space to store kernel
+        matrix elements (this can be signifficant if n_support is large).
+        The cache_size variable sets an upper limit to the prediction
+        buffer as well.
+    max_iter : int (default = 100*n_samples)
+        Limit the number of outer iterations in the solver
+    nochange_steps : int (default = 1000)
+        We monitor how much our stopping criteria changes during outer
+        iterations. If it does not change (changes less then 1e-3*tol)
+        for nochange_steps consecutive steps, then we stop training.
+    verbose : int or boolean, default=False
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        See :ref:`verbosity-levels` for more info.
+    epsilon: float (default = 0.1)
+        epsilon parameter of the epsiron-SVR model. There is no penalty
+        associated to points that are predicted within the epsilon-tube
+        around the target values.
+    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
+        Variable to control output type of the results and attributes of
+        the estimator. If None, it'll inherit the output type set at the
+        module level, `cuml.global_output_type`.
+        See :ref:`output-data-type-configuration` for more info.
+
+    Attributes
+    ----------
+    n_support_ : int
+        The total number of support vectors. Note: this will change in the
+        future to represent number support vectors for each class (like
+        in Sklearn, see Issue #956)
+    support_ : int, shape = [n_support]
+        Device array of suppurt vector indices
+    support_vectors_ : float, shape [n_support, n_cols]
+        Device array of support vectors
+    dual_coef_ : float, shape = [1, n_support]
+        Device array of coefficients for support vectors
+    intercept_ : int
+        The constant in the decision function
+    fit_status_ : int
+        0 if SVM is correctly fitted
+    coef_ : float, shape [1, n_cols]
+        Only available for linear kernels. It is the normal of the
+        hyperplane.
+        ``coef_ = sum_k=1..n_support dual_coef_[k] * support_vectors[k,:]``
+
+    Notes
+    -----
+    For additional docs, see `scikitlearn's SVC
+    <https://scikit-learn.org/stable/modules/generated/sklearn.svm.SVC.html>`_.
 
     References
     ----------
-    [1] J. Vanek et al. A GPU-Architecture Optimized Hierarchical Decomposition
-         Algorithm for Support VectorMachine Training, IEEE Transactions on
-         Parallel and Distributed Systems, vol 28, no 12, 3330, (2017)
-    [2] Z. Wen et al. ThunderSVM: A Fast SVM Library on GPUs and CPUs, Journal
-    *      of Machine Learning Research, 19, 1-5 (2018)
-        https://github.com/Xtra-Computing/thundersvm
+    .. [1] J. Vanek et al. A GPU-Architecture Optimized Hierarchical
+        Decomposition Algorithm for Support VectorMachine Training, IEEE
+        Transactions on Parallel and Distributed Systems, vol 28, no 12, 3330,
+        (2017)
+    .. [2] `Z. Wen et al. ThunderSVM: A Fast SVM Library on GPUs and CPUs,
+        Journal of Machine Learning Research, 19, 1-5 (2018)
+        <https://github.com/Xtra-Computing/thundersvm>`_
 
     """
     def __init__(self, handle=None, C=1, kernel='rbf', degree=3,
                  gamma='auto', coef0=0.0, tol=1e-3, cache_size=200.0,
                  max_iter=-1, nochange_steps=1000, verbose=False,
                  epsilon=0.1, output_type=None):
-        """
-        Construct an SVC classifier for training and predictions.
-
-        Parameters
-        ----------
-        handle : cuml.Handle
-            If it is None, a new one is created for this class
-        C : float (default = 1.0)
-            Penalty parameter C
-        kernel : string (default='rbf')
-            Specifies the kernel function. Possible options: 'linear', 'poly',
-            'rbf', 'sigmoid'. Currently precomputed kernels are not supported.
-        degree : int (default=3)
-            Degree of polynomial kernel function.
-        gamma : float or string (default = 'auto')
-            Coefficient for rbf, poly, and sigmoid kernels. You can specify the
-            numeric value, or use one of the following options:
-            - 'auto': gamma will be set to 1 / n_features
-            - 'scale': gamma will be se to 1 / (n_features * X.var())
-        coef0 : float (default = 0.0)
-            Independent term in kernel function, only signifficant for poly and
-            sigmoid
-        tol : float (default = 1e-3)
-            Tolerance for stopping criterion.
-        cache_size : float (default = 200 MiB)
-            Size of the kernel cache during training in MiB. The default is a
-            conservative value, increase it to improve the training time, at
-            the cost of higher memory footprint. After training the kernel
-            cache is deallocated.
-            During prediction, we also need a temporary space to store kernel
-            matrix elements (this can be signifficant if n_support is large).
-            The cache_size variable sets an upper limit to the prediction
-            buffer as well.
-        max_iter : int (default = 100*n_samples)
-            Limit the number of outer iterations in the solver
-        nochange_steps : int (default = 1000)
-            We monitor how much our stopping criteria changes during outer
-            iterations. If it does not change (changes less then 1e-3*tol)
-            for nochange_steps consecutive steps, then we stop training.
-        verbose : int or boolean (default = False)
-            verbosity level
-
-        Attributes
-        ----------
-        n_support_ : int
-            The total number of support vectors. Note: this will change in the
-            future to represent number support vectors for each class (like
-            in Sklearn, see Issue #956)
-        support_ : int, shape = [n_support]
-            Device array of suppurt vector indices
-        support_vectors_ : float, shape [n_support, n_cols]
-            Device array of support vectors
-        dual_coef_ : float, shape = [1, n_support]
-            Device array of coefficients for support vectors
-        intercept_ : int
-            The constant in the decision function
-        fit_status_ : int
-            0 if SVM is correctly fitted
-        coef_ : float, shape [1, n_cols]
-            Only available for linear kernels. It is the normal of the
-            hyperplane.
-            coef_ = sum_k=1..n_support dual_coef_[k] * support_vectors[k,:]
-
-        For additional docs, see `scikitlearn's SVC
-        <https://scikit-learn.org/stable/modules/generated/sklearn.svm.SVC.html>`_.
-        """
         super(SVMBase, self).__init__(handle=handle, verbose=verbose,
                                       output_type=output_type)
         # Input parameters for training
@@ -225,7 +240,7 @@ class SVMBase(Base):
         # deallocate model parameters
         cdef svmModel[float] *model_f
         cdef svmModel[double] *model_d
-        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
+        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
         if self._model is not None:
             if self.dtype == np.float32:
                 model_f = <svmModel[float]*><uintptr_t> self._model
@@ -453,7 +468,7 @@ class SVMBase(Base):
             else:
                 self._unique_labels = None
 
-    def predict(self, X, predict_class):
+    def predict(self, X, predict_class, convert_dtype=True):
         """
         Predicts the y for X, where y is either the decision function value
         (if predict_class == False), or the label associated with X.
@@ -483,12 +498,16 @@ class SVMBase(Base):
         self._check_is_fitted('_model')
 
         X_m, n_rows, n_cols, pred_dtype = \
-            input_to_cuml_array(X, check_dtype=self.dtype)
+            input_to_cuml_array(
+                X,
+                check_dtype=self.dtype,
+                convert_to_dtype=(self.dtype if convert_dtype else None))
+
         cdef uintptr_t X_ptr = X_m.ptr
 
         preds = CumlArray.zeros(n_rows, dtype=self.dtype)
         cdef uintptr_t preds_ptr = preds.ptr
-        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
+        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
         cdef svmModel[float]* model_f
         cdef svmModel[double]* model_d
 
@@ -512,8 +531,18 @@ class SVMBase(Base):
         return preds.to_output(output_type=out_type, output_dtype=out_dtype)
 
     def get_param_names(self):
-        return ["C", "kernel", "degree", "gamma", "coef0", "cache_size",
-                "max_iter", "nochange_steps", "tol"]
+        return super().get_param_names() + [
+            "C",
+            "kernel",
+            "degree",
+            "gamma",
+            "coef0",
+            "tol",
+            "cache_size",
+            "max_iter",
+            "nochange_steps",
+            "epsilon",
+        ]
 
     def __getstate__(self):
         state = self.__dict__.copy()
