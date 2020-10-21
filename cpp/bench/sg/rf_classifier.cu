@@ -91,8 +91,8 @@ std::vector<Params> getInputs() {
   p.rf.tree_params.quantile_per_tree = false;
   p.rf.tree_params.split_algo = 1;
   p.rf.tree_params.split_criterion = (ML::CRITERION)0;
-  p.rf.n_trees = 1;
-  p.rf.n_streams = 1;
+  p.rf.n_trees = 500;
+  p.rf.n_streams = 8;
   std::vector<Triplets> rowcols = {
     {160000, 64, 2},
     {640000, 64, 8},

@@ -78,7 +78,7 @@ option(KERNEL_INFO "Enable kernel resource usage info" OFF)
 
 option(LINE_INFO "Enable lineinfo in nvcc" OFF)
 
-option(NVTX "Enable nvtx markers" OFF)
+option(NVTX "Enable nvtx markers" ON)
 
 option(SINGLEGPU "Disable all mnmg components and comms libraries" OFF)
 
