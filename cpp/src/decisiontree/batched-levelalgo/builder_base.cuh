@@ -140,7 +140,8 @@ struct Builder {
                      const LabelT* labels, IdxT totalRows, IdxT totalCols,
                      IdxT sampledRows, IdxT sampledCols, IdxT* rowids,
                      IdxT* colids, IdxT nclasses, const DataT* quantiles) {
-    ML::PUSH_RANGE("Builder::workspaceSize @builder_base.cuh [batched-levelalgo]");
+    ML::PUSH_RANGE(
+      "Builder::workspaceSize @builder_base.cuh [batched-levelalgo]");
     ASSERT(quantiles != nullptr,
            "Currently quantiles need to be computed before this call!");
     params = p;
@@ -212,7 +213,8 @@ struct Builder {
    * @param[in] h_wspace pinned host buffer needed to store the learned nodes
    */
   void assignWorkspace(char* d_wspace, char* h_wspace) {
-    ML::PUSH_RANGE("Builder::assignWorkspace @builder_base.cuh [batched-levelalgo]");
+    ML::PUSH_RANGE(
+      "Builder::assignWorkspace @builder_base.cuh [batched-levelalgo]");
     auto max_batch = params.max_batch_size;
     auto n_col_blks = n_blks_for_cols;
     // device
@@ -399,7 +401,8 @@ struct ClsTraits {
   static void computeSplit(Builder<ClsTraits<DataT, LabelT, IdxT>>& b, IdxT col,
                            IdxT batchSize, CRITERION splitType,
                            cudaStream_t s) {
-    ML::PUSH_RANGE("Builder::computeSplit @builder_base.cuh [batched-levelalgo]");
+    ML::PUSH_RANGE(
+      "Builder::computeSplit @builder_base.cuh [batched-levelalgo]");
     auto nbins = b.params.n_bins;
     auto nclasses = b.input.nclasses;
     auto binSize = nbins * 2 * nclasses;
@@ -408,15 +411,15 @@ struct ClsTraits {
     size_t smemSize = sizeof(int) * binSize + sizeof(DataT) * nbins;
     smemSize += sizeof(int);
     CUDA_CHECK(cudaMemsetAsync(b.hist, 0, sizeof(int) * b.nHistBins, s));
-    ML::PUSH_RANGE("computeSplitClassificationKernel @builder_base.cuh [batched-levelalgo]");
+    ML::PUSH_RANGE(
+      "computeSplitClassificationKernel @builder_base.cuh [batched-levelalgo]");
     computeSplitClassificationKernel<DataT, LabelT, IdxT, TPB_DEFAULT>
       <<<grid, TPB_DEFAULT, smemSize, s>>>(
         b.hist, b.params.n_bins, b.params.max_depth, b.params.min_rows_per_node,
         b.params.max_leaves, b.input, b.curr_nodes, col, b.done_count, b.mutex,
         b.n_leaves, b.splits, splitType);
-    ML::POP_RANGE();//computeSplitClassificationKernel
-    ML::POP_RANGE();//Builder::computeSplit
-
+    ML::POP_RANGE();  //computeSplitClassificationKernel
+    ML::POP_RANGE();  //Builder::computeSplit
   }
 
   /**
@@ -468,8 +471,8 @@ struct RegTraits {
   static void computeSplit(Builder<RegTraits<DataT, IdxT>>& b, IdxT col,
                            IdxT batchSize, CRITERION splitType,
                            cudaStream_t s) {
-
-    ML::PUSH_RANGE("Builder::computeSplit @builder_base.cuh [batched-levelalgo]");
+    ML::PUSH_RANGE(
+      "Builder::computeSplit @builder_base.cuh [batched-levelalgo]");
     auto n_col_blks = b.n_blks_for_cols;
     dim3 grid(b.n_blks_for_rows, n_col_blks, batchSize);
     auto nbins = b.params.n_bins;
@@ -486,7 +489,8 @@ struct RegTraits {
     CUDA_CHECK(
       cudaMemsetAsync(b.pred_count, 0, sizeof(IdxT) * b.nPredCounts, s));
 
-    ML::PUSH_RANGE("computeSplitRegressionKernel @builder_base.cuh [batched-levelalgo]");
+    ML::PUSH_RANGE(
+      "computeSplitRegressionKernel @builder_base.cuh [batched-levelalgo]");
     computeSplitRegressionKernel<DataT, DataT, IdxT, TPB_DEFAULT>
       <<<grid, TPB_DEFAULT, smemSize, s>>>(
         b.pred, b.pred2, b.pred2P, b.pred_count, b.params.n_bins,
@@ -494,8 +498,8 @@ struct RegTraits {
         b.input, b.curr_nodes, col, b.done_count, b.mutex, b.n_leaves, b.splits,
         b.block_sync, splitType);
 
-    ML::POP_RANGE();//computeSplitRegressionKernel
-    ML::POP_RANGE();//Builder::computeSplit
+    ML::POP_RANGE();  //computeSplitRegressionKernel
+    ML::POP_RANGE();  //Builder::computeSplit
   }
 
   /**
