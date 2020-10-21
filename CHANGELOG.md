@@ -1,4 +1,4 @@
-# cuML 0.16.0 (Date TBD)
+# cuML 0.16.0 (21 Oct 2020)
 
 ## New Features
 - PR #2922: Install RAFT headers with cuML
