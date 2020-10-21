@@ -17,6 +17,7 @@
 - PR #3011: Fix unused initialize_embeddings parameter in Barnes-Hut t-SNE
 - PR #3008: Check number of columns in check_array validator
 - PR #3012: Increasing learning rate for SGD log loss and invscaling pytests
+- PR #3021: Fix a hang in cuML RF experimental backend
 
 # cuML 0.16.0 (Date TBD)
 
