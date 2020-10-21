@@ -35,6 +35,7 @@ requirements:
     - cudf {{ minor_version }}
     - cudatoolkit {{ cuda_version }}.*
     - ucx-py {{ minor_version }}
+    - ucx-proc=*=gpu
     - libcumlprims {{ minor_version }}
     - lapack
     - treelite=0.93
@@ -46,6 +47,7 @@ requirements:
     - cudf {{ minor_version }}
     - nccl>=2.5
     - ucx-py {{ minor_version }}
+    - ucx-proc=*=gpu
     - {{ pin_compatible('cudatoolkit', max_pin='x.x') }}
     - treelite=0.93
     - faiss-proc=*=cuda

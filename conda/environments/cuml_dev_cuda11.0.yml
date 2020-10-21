@@ -15,6 +15,7 @@ dependencies:
 - dask-cudf=0.16.*
 - dask-cuda=0.16.*
 - ucx-py=0.16.*
+- ucx-proc=*=gpu
 - dask-ml
 - doxygen>=1.8.20
 - libfaiss>=1.6.3
