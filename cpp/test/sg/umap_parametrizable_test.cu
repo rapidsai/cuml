@@ -18,6 +18,7 @@
 #include <iostream>
 #include <vector>
 
+#include <common/cudart_utils.h>
 #include <cuml/manifold/umapparams.h>
 #include <datasets/digits.h>
 #include <common/device_buffer.hpp>
@@ -54,12 +55,12 @@ template <typename T>
 bool has_nan(T* data, size_t len, std::shared_ptr<deviceAllocator> alloc,
              cudaStream_t stream) {
   dim3 blk(256);
-  dim3 grid(MLCommon::ceildiv(len, (size_t)blk.x));
+  dim3 grid(raft::ceildiv(len, (size_t)blk.x));
   bool h_answer = false;
   device_buffer<bool> d_answer(alloc, stream, 1);
-  updateDevice(d_answer.data(), &h_answer, 1, stream);
+  raft::update_device(d_answer.data(), &h_answer, 1, stream);
   has_nan_kernel<<<grid, blk, 0, stream>>>(data, len, d_answer.data());
-  updateHost(&h_answer, d_answer.data(), 1, stream);
+  raft::update_host(&h_answer, d_answer.data(), 1, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
   return h_answer;
 }
@@ -78,13 +79,13 @@ template <typename T>
 bool are_equal(T* embedding1, T* embedding2, size_t len,
                std::shared_ptr<deviceAllocator> alloc, cudaStream_t stream) {
   dim3 blk(32);
-  dim3 grid(MLCommon::ceildiv(len, (size_t)blk.x));
+  dim3 grid(raft::ceildiv(len, (size_t)blk.x));
   double h_answer = 0.;
   device_buffer<double> d_answer(alloc, stream, 1);
-  updateDevice(d_answer.data(), &h_answer, 1, stream);
+  raft::update_device(d_answer.data(), &h_answer, 1, stream);
   are_equal_kernel<<<grid, blk, 0, stream>>>(embedding1, embedding2, len,
                                              d_answer.data());
-  updateHost(&h_answer, d_answer.data(), 1, stream);
+  raft::update_host(&h_answer, d_answer.data(), 1, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
   double tolerance = 1.0;
@@ -107,11 +108,11 @@ class UMAPParametrizableTest : public ::testing::Test {
     double min_trustworthiness;
   };
 
-  void get_embedding(cumlHandle& handle, float* X, float* y,
+  void get_embedding(raft::handle_t& handle, float* X, float* y,
                      float* embedding_ptr, TestParams& test_params,
                      UMAPParams& umap_params) {
-    cudaStream_t stream = handle.getStream();
-    auto alloc = handle.getDeviceAllocator();
+    cudaStream_t stream = handle.get_stream();
+    auto alloc = handle.get_device_allocator();
     int& n_samples = test_params.n_samples;
     int& n_features = test_params.n_features;
 
@@ -187,10 +188,10 @@ class UMAPParametrizableTest : public ::testing::Test {
     }
   }
 
-  void assertions(cumlHandle& handle, float* X, float* embedding_ptr,
+  void assertions(raft::handle_t& handle, float* X, float* embedding_ptr,
                   TestParams& test_params, UMAPParams& umap_params) {
-    cudaStream_t stream = handle.getStream();
-    auto alloc = handle.getDeviceAllocator();
+    cudaStream_t stream = handle.get_stream();
+    auto alloc = handle.get_device_allocator();
     int& n_samples = test_params.n_samples;
     int& n_features = test_params.n_features;
 
@@ -221,9 +222,9 @@ class UMAPParametrizableTest : public ::testing::Test {
               << "-" << test_params.n_features << "-" << test_params.n_clusters
               << "-" << test_params.min_trustworthiness << "]" << std::endl;
 
-    cumlHandle handle;
-    cudaStream_t stream = handle.getStream();
-    auto alloc = handle.getDeviceAllocator();
+    raft::handle_t handle;
+    cudaStream_t stream = handle.get_stream();
+    auto alloc = handle.get_device_allocator();
     int& n_samples = test_params.n_samples;
     int& n_features = test_params.n_features;
 

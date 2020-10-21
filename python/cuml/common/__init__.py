@@ -15,6 +15,7 @@
 #
 
 from cuml.common.array import CumlArray
+from cuml.common.array_sparse import SparseCumlArray
 
 ## utils
 
@@ -41,3 +42,4 @@ from cuml.common.input_utils import get_cudf_column_ptr
 from cuml.common.input_utils import get_dev_array_ptr
 from cuml.common.input_utils import input_to_dev_array
 from cuml.common.input_utils import sparse_scipy_to_cp
+from cuml.common.timing_utils import timed

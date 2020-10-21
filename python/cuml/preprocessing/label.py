@@ -14,6 +14,7 @@
 #
 
 import cupy as cp
+import cupyx
 
 from cuml.prims.label import make_monotonic, check_labels, \
     invert_labels
@@ -50,10 +51,10 @@ def label_binarize(y, classes, neg_label=0, pos_label=1,
 
     val = rmm_cupy_ary(cp.full, row_ind.shape[0], pos_label, dtype=y.dtype)
 
-    sp = cp.sparse.coo_matrix((val, (row_ind, col_ind)),
-                              shape=(col_ind.shape[0],
-                                     classes.shape[0]),
-                              dtype=cp.float32)
+    sp = cupyx.scipy.sparse.coo_matrix((val, (row_ind, col_ind)),
+                                       shape=(col_ind.shape[0],
+                                              classes.shape[0]),
+                                       dtype=cp.float32)
 
     cp.cuda.Stream.null.synchronize()
 
@@ -73,6 +74,31 @@ class LabelBinarizer(Base):
     """
     A multi-class dummy encoder for labels.
 
+    Parameters
+    ----------
+
+    neg_label : integer
+        label to be used as the negative binary label
+    pos_label : integer
+        label to be used as the positive binary label
+    sparse_output : bool
+        whether to return sparse arrays for transformed output
+    handle : cuml.Handle
+        Specifies the cuml.handle that holds internal CUDA state for
+        computations in this model. Most importantly, this specifies the CUDA
+        stream that will be used for the model's computations, so users can
+        run different models concurrently in different streams by creating
+        handles in several streams.
+        If it is None, a new one is created.
+    verbose : int or boolean, default=False
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        See :ref:`verbosity-levels` for more info.
+    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
+        Variable to control output type of the results and attributes of
+        the estimator. If None, it'll inherit the output type set at the
+        module level, `cuml.global_output_type`.
+        See :ref:`output-data-type-configuration` for more info.
+
     Examples
     --------
 
@@ -81,6 +107,7 @@ class LabelBinarizer(Base):
     .. code-block:: python
 
         import cupy as cp
+        import cupyx
         from cuml.preprocessing import LabelBinarizer
 
         labels = cp.asarray([0, 5, 10, 7, 2, 4, 1, 0, 0, 4, 3, 2, 1],
@@ -118,19 +145,17 @@ class LabelBinarizer(Base):
          [ 0  5 10  7  2  4  1  0  0  4  3  2  1]
     """
 
-    def __init__(self, neg_label=0, pos_label=1, sparse_output=False):
-        """
-        Creates a LabelBinarizer instance
-
-        Parameters
-        ----------
-
-        neg_label : integer label to be used as the negative binary label
-        pos_label : integer label to be used as the positive binary label
-        sparse_output : bool whether to return sparse arrays for transformed
-                        output
-        """
-        super().__init__()
+    def __init__(self,
+                 neg_label=0,
+                 pos_label=1,
+                 sparse_output=False,
+                 *,
+                 handle=None,
+                 verbose=False,
+                 output_type=None):
+        super().__init__(handle=handle,
+                         verbose=verbose,
+                         output_type=output_type)
 
         if neg_label >= pos_label:
             raise ValueError("neg_label=%s must be less "
@@ -241,7 +266,7 @@ class LabelBinarizer(Base):
                     as scipy_sparse_isspmatrix
 
         # If we are already given multi-class, just return it.
-        if cp.sparse.isspmatrix(y):
+        if cupyx.scipy.sparse.isspmatrix(y):
             y_mapped = y.tocsr().indices.astype(self._classes_.dtype)
         elif scipy_sparse_isspmatrix(y):
             y = y.tocsr()
@@ -254,3 +279,10 @@ class LabelBinarizer(Base):
                                     axis=1).astype(y.dtype)
 
         return invert_labels(y_mapped, self._classes_)
+
+    def get_param_names(self):
+        return super().get_param_names() + [
+            "neg_label",
+            "pos_label",
+            "sparse_output",
+        ]

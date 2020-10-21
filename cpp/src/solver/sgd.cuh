@@ -17,8 +17,8 @@
 #pragma once
 
 #include <common/cudart_utils.h>
-#include <linalg/cublas_wrappers.h>
 #include <linalg/gemv.h>
+#include <raft/linalg/cublas_wrappers.h>
 #include <common/cumlHandle.hpp>
 #include <cuda_utils.cuh>
 #include <cuml/solvers/params.hpp>
@@ -46,7 +46,7 @@ using namespace MLCommon;
 /**
  * Fits a linear, lasso, and elastic-net regression model using Coordinate Descent solver
  * @param handle
- *        Reference of cumlHandle
+ *        Reference of raft::handle_t
  * @param input
  *        pointer to an array in column-major format (size of n_rows, n_cols)
  * @param n_rows
@@ -91,21 +91,20 @@ using namespace MLCommon;
  *        cuda stream
  */
 template <typename math_t>
-void sgdFit(const cumlHandle_impl &handle, math_t *input, int n_rows,
-            int n_cols, math_t *labels, math_t *coef, math_t *intercept,
-            bool fit_intercept, int batch_size, int epochs, ML::lr_type lr_type,
-            math_t eta0, math_t power_t, ML::loss_funct loss,
-            Functions::penalty penalty, math_t alpha, math_t l1_ratio,
-            bool shuffle, math_t tol, int n_iter_no_change,
-            cudaStream_t stream) {
+void sgdFit(const raft::handle_t &handle, math_t *input, int n_rows, int n_cols,
+            math_t *labels, math_t *coef, math_t *intercept, bool fit_intercept,
+            int batch_size, int epochs, ML::lr_type lr_type, math_t eta0,
+            math_t power_t, ML::loss_funct loss, Functions::penalty penalty,
+            math_t alpha, math_t l1_ratio, bool shuffle, math_t tol,
+            int n_iter_no_change, cudaStream_t stream) {
   ASSERT(n_cols > 0,
          "Parameter n_cols: number of columns cannot be less than one");
   ASSERT(n_rows > 1,
          "Parameter n_rows: number of rows cannot be less than two");
 
-  cublasHandle_t cublas_handle = handle.getCublasHandle();
+  cublasHandle_t cublas_handle = handle.get_cublas_handle();
 
-  auto allocator = handle.getDeviceAllocator();
+  auto allocator = handle.get_device_allocator();
   device_buffer<math_t> mu_input(allocator, stream, 0);
   device_buffer<math_t> mu_labels(allocator, stream, 0);
   device_buffer<math_t> norm2_input(allocator, stream, 0);
@@ -159,7 +158,7 @@ void sgdFit(const cumlHandle_impl &handle, math_t *input, int n_rows,
 
       if (cbs == 0) break;
 
-      updateDevice(indices.data(), &rand_indices[j], cbs, stream);
+      raft::update_device(indices.data(), &rand_indices[j], cbs, stream);
       Matrix::copyRows(input, n_rows, n_cols, input_batch.data(),
                        indices.data(), cbs, stream);
       Matrix::copyRows(labels, n_rows, 1, labels_batch.data(), indices.data(),
@@ -188,8 +187,8 @@ void sgdFit(const cumlHandle_impl &handle, math_t *input, int n_rows,
       if (lr_type != ML::lr_type::ADAPTIVE)
         learning_rate = calLearningRate(lr_type, eta0, power_t, alpha, t);
 
-      LinAlg::scalarMultiply(grads.data(), grads.data(), learning_rate, n_cols,
-                             stream);
+      raft::linalg::scalarMultiply(grads.data(), grads.data(), learning_rate,
+                                   n_cols, stream);
       LinAlg::subtract(coef, coef, grads.data(), n_cols, stream);
 
       j = j + cbs;
@@ -211,7 +210,7 @@ void sgdFit(const cumlHandle_impl &handle, math_t *input, int n_rows,
                              cublas_handle, allocator, stream);
       }
 
-      updateHost(&curr_loss_value, loss_value.data(), 1, stream);
+      raft::update_host(&curr_loss_value, loss_value.data(), 1, stream);
       CUDA_CHECK(cudaStreamSynchronize(stream));
 
       if (i > 0) {
@@ -247,7 +246,7 @@ void sgdFit(const cumlHandle_impl &handle, math_t *input, int n_rows,
 /**
  * Make predictions
  * @param handle
- *        Reference of cumlHandle
+ *        Reference of raft::handle_t
  * @param input
  *        pointer to an array in column-major format (size of n_rows, n_cols)
  * @param n_rows
@@ -266,7 +265,7 @@ void sgdFit(const cumlHandle_impl &handle, math_t *input, int n_rows,
  *        cuda stream
  */
 template <typename math_t>
-void sgdPredict(const cumlHandle_impl &handle, const math_t *input, int n_rows,
+void sgdPredict(const raft::handle_t &handle, const math_t *input, int n_rows,
                 int n_cols, const math_t *coef, math_t intercept, math_t *preds,
                 ML::loss_funct loss, cudaStream_t stream) {
   ASSERT(n_cols > 0,
@@ -274,7 +273,7 @@ void sgdPredict(const cumlHandle_impl &handle, const math_t *input, int n_rows,
   ASSERT(n_rows > 1,
          "Parameter n_rows: number of rows cannot be less than two");
 
-  cublasHandle_t cublas_handle = handle.getCublasHandle();
+  cublasHandle_t cublas_handle = handle.get_cublas_handle();
 
   if (loss == ML::loss_funct::SQRD_LOSS) {
     Functions::linearRegH(input, n_rows, n_cols, coef, preds, intercept,
@@ -291,7 +290,7 @@ void sgdPredict(const cumlHandle_impl &handle, const math_t *input, int n_rows,
 /**
  * Make binary classifications
  * @param handle
- *        Reference of cumlHandle
+ *        Reference of raft::handle_t
  * @param input
  *        pointer to an array in column-major format (size of n_rows, n_cols)
  * @param n_rows
@@ -310,7 +309,7 @@ void sgdPredict(const cumlHandle_impl &handle, const math_t *input, int n_rows,
  *        cuda stream
  */
 template <typename math_t>
-void sgdPredictBinaryClass(const cumlHandle_impl &handle, const math_t *input,
+void sgdPredictBinaryClass(const raft::handle_t &handle, const math_t *input,
                            int n_rows, int n_cols, const math_t *coef,
                            math_t intercept, math_t *preds, ML::loss_funct loss,
                            cudaStream_t stream) {
@@ -319,7 +318,7 @@ void sgdPredictBinaryClass(const cumlHandle_impl &handle, const math_t *input,
 
   math_t scalar = math_t(1);
   if (loss == ML::loss_funct::SQRD_LOSS || loss == ML::loss_funct::LOG) {
-    LinAlg::unaryOp(
+    raft::linalg::unaryOp(
       preds, preds, n_rows,
       [scalar] __device__(math_t in) {
         if (in >= math_t(0.5))
@@ -329,7 +328,7 @@ void sgdPredictBinaryClass(const cumlHandle_impl &handle, const math_t *input,
       },
       stream);
   } else if (loss == ML::loss_funct::HINGE) {
-    LinAlg::unaryOp(
+    raft::linalg::unaryOp(
       preds, preds, n_rows,
       [scalar] __device__(math_t in) {
         if (in >= math_t(0.0))

@@ -71,7 +71,7 @@ def make_classification_dataset(datatype, nrows, ncols, n_info, num_classes):
 @pytest.mark.parametrize("datatype", [np.float32, np.float64])
 @pytest.mark.parametrize("algorithm", ["eig", "svd"])
 @pytest.mark.parametrize(
-    "nrows", [unit_param(500), quality_param(5000), stress_param(500000)]
+    "nrows", [unit_param(1000), quality_param(5000), stress_param(500000)]
 )
 @pytest.mark.parametrize(
     "column_info",
@@ -82,6 +82,11 @@ def make_classification_dataset(datatype, nrows, ncols, n_info, num_classes):
     ],
 )
 def test_linear_regression_model(datatype, algorithm, nrows, column_info):
+
+    if algorithm == "svd" and nrows > 46340:
+        pytest.skip("svd solver is not supported for the data that has more"
+                    "than 46340 rows or columns if you are using CUDA version"
+                    "10.x")
 
     ncols, n_info = column_info
     X_train, X_test, y_train, y_test = make_regression_dataset(
@@ -161,6 +166,11 @@ def test_ridge_regression_model_default(datatype):
     ],
 )
 def test_ridge_regression_model(datatype, algorithm, nrows, column_info):
+
+    if algorithm == "svd" and nrows > 46340:
+        pytest.skip("svd solver is not supported for the data that has more"
+                    "than 46340 rows or columns if you are using CUDA version"
+                    "10.x")
 
     ncols, n_info = column_info
     X_train, X_test, y_train, y_test = make_regression_dataset(
@@ -400,3 +410,46 @@ def test_logistic_regression_input_type_consistency(constructor, dtype):
 
     assert isinstance(clf.predict_proba(X), original_type)
     assert isinstance(clf.predict(X), original_type)
+
+
+@pytest.mark.parametrize('train_dtype', [np.float32, np.float64])
+@pytest.mark.parametrize('test_dtype', [np.float64, np.float32])
+def test_linreg_predict_convert_dtype(train_dtype, test_dtype):
+    X, y = make_regression(n_samples=50, n_features=10,
+                           n_informative=5, random_state=0)
+    X = X.astype(train_dtype)
+    y = y.astype(train_dtype)
+    X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.8,
+                                                        random_state=0)
+
+    clf = cuLinearRegression()
+    clf.fit(X_train, y_train)
+    clf.predict(X_test.astype(test_dtype))
+
+
+@pytest.mark.parametrize('train_dtype', [np.float32, np.float64])
+@pytest.mark.parametrize('test_dtype', [np.float64, np.float32])
+def test_ridge_predict_convert_dtype(train_dtype, test_dtype):
+    X, y = make_regression(n_samples=50, n_features=10,
+                           n_informative=5, random_state=0)
+    X = X.astype(train_dtype)
+    y = y.astype(train_dtype)
+    X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.8,
+                                                        random_state=0)
+
+    clf = cuRidge()
+    clf.fit(X_train, y_train)
+    clf.predict(X_test.astype(test_dtype))
+
+
+@pytest.mark.parametrize('train_dtype', [np.float32, np.float64])
+@pytest.mark.parametrize('test_dtype', [np.float64, np.float32])
+def test_logistic_predict_convert_dtype(train_dtype, test_dtype):
+    X, y = make_classification(n_samples=50, n_features=10, random_state=0)
+    X = X.astype(train_dtype)
+    X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.8,
+                                                        random_state=0)
+
+    clf = cuLog()
+    clf.fit(X_train, y_train)
+    clf.predict(X_test.astype(test_dtype))

@@ -27,9 +27,9 @@
 
 namespace ML {
 
-void TSNE_fit(const cumlHandle &handle, const float *X, float *Y, const int n,
-              const int p, const int dim, int n_neighbors, const float theta,
-              const float epssq, float perplexity,
+void TSNE_fit(const raft::handle_t &handle, const float *X, float *Y,
+              const int n, const int p, const int dim, int n_neighbors,
+              const float theta, const float epssq, float perplexity,
               const int perplexity_max_iter, const float perplexity_tol,
               const float early_exaggeration, const int exaggeration_iter,
               const float min_gain, const float pre_learning_rate,
@@ -65,8 +65,8 @@ void TSNE_fit(const cumlHandle &handle, const float *X, float *Y, const int n,
       "# of Nearest Neighbors should be at least 3 * perplexity. Your results"
       " might be a bit strange...");
 
-  auto d_alloc = handle.getDeviceAllocator();
-  cudaStream_t stream = handle.getStream();
+  auto d_alloc = handle.get_device_allocator();
+  cudaStream_t stream = handle.get_stream();
 
   START_TIMER;
   //---------------------------------------------------
@@ -92,11 +92,10 @@ void TSNE_fit(const cumlHandle &handle, const float *X, float *Y, const int n,
   // Optimal perplexity
   CUML_LOG_DEBUG("Searching for optimal perplexity via bisection search.");
   MLCommon::device_buffer<float> P(d_alloc, stream, n * n_neighbors);
-  const float P_sum = TSNE::perplexity_search(
-    distances.data(), P.data(), perplexity, perplexity_max_iter, perplexity_tol,
-    n, n_neighbors, handle);
+  TSNE::perplexity_search(distances.data(), P.data(), perplexity,
+                          perplexity_max_iter, perplexity_tol, n, n_neighbors,
+                          handle);
   distances.release(stream);
-  CUML_LOG_DEBUG("Perplexity sum = %f", P_sum);
   //---------------------------------------------------
   END_TIMER(PerplexityTime);
 
@@ -104,7 +103,7 @@ void TSNE_fit(const cumlHandle &handle, const float *X, float *Y, const int n,
   //---------------------------------------------------
   // Convert data to COO layout
   MLCommon::Sparse::COO<float> COO_Matrix(d_alloc, stream);
-  TSNE::symmetrize_perplexity(P.data(), indices.data(), n, n_neighbors, P_sum,
+  TSNE::symmetrize_perplexity(P.data(), indices.data(), n, n_neighbors,
                               early_exaggeration, &COO_Matrix, stream, handle);
   P.release(stream);
   indices.release(stream);

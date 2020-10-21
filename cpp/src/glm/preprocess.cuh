@@ -18,6 +18,7 @@
 
 #include <common/cudart_utils.h>
 #include <common/cumlHandle.hpp>
+#include <common/device_buffer.hpp>
 #include <linalg/gemm.cuh>
 #include <linalg/norm.cuh>
 #include <matrix/math.cuh>
@@ -32,7 +33,7 @@ namespace GLM {
 using namespace MLCommon;
 
 template <typename math_t>
-void preProcessData(const cumlHandle_impl &handle, math_t *input, int n_rows,
+void preProcessData(const raft::handle_t &handle, math_t *input, int n_rows,
                     int n_cols, math_t *labels, math_t *intercept,
                     math_t *mu_input, math_t *mu_labels, math_t *norm2_input,
                     bool fit_intercept, bool normalize, cudaStream_t stream) {
@@ -42,26 +43,26 @@ void preProcessData(const cumlHandle_impl &handle, math_t *input, int n_rows,
          "Parameter n_rows: number of rows cannot be less than two");
 
   if (fit_intercept) {
-    Stats::mean(mu_input, input, n_cols, n_rows, false, false, stream);
-    Stats::meanCenter(input, input, mu_input, n_cols, n_rows, false, true,
-                      stream);
+    raft::stats::mean(mu_input, input, n_cols, n_rows, false, false, stream);
+    MLCommon::Stats::meanCenter(input, input, mu_input, n_cols, n_rows, false,
+                                true, stream);
 
-    Stats::mean(mu_labels, labels, 1, n_rows, false, false, stream);
-    Stats::meanCenter(labels, labels, mu_labels, 1, n_rows, false, true,
-                      stream);
+    raft::stats::mean(mu_labels, labels, 1, n_rows, false, false, stream);
+    MLCommon::Stats::meanCenter(labels, labels, mu_labels, 1, n_rows, false,
+                                true, stream);
 
     if (normalize) {
       LinAlg::colNorm(norm2_input, input, n_cols, n_rows, LinAlg::L2Norm, false,
                       stream,
-                      [] __device__(math_t v) { return MLCommon::mySqrt(v); });
-      Matrix::matrixVectorBinaryDivSkipZero(input, norm2_input, n_rows, n_cols,
-                                            false, true, stream, true);
+                      [] __device__(math_t v) { return raft::mySqrt(v); });
+      raft::matrix::matrixVectorBinaryDivSkipZero(
+        input, norm2_input, n_rows, n_cols, false, true, stream, true);
     }
   }
 }
 
 template <typename math_t>
-void postProcessData(const cumlHandle_impl &handle, math_t *input, int n_rows,
+void postProcessData(const raft::handle_t &handle, math_t *input, int n_rows,
                      int n_cols, math_t *labels, math_t *coef,
                      math_t *intercept, math_t *mu_input, math_t *mu_labels,
                      math_t *norm2_input, bool fit_intercept, bool normalize,
@@ -71,15 +72,15 @@ void postProcessData(const cumlHandle_impl &handle, math_t *input, int n_rows,
   ASSERT(n_rows > 1,
          "Parameter n_rows: number of rows cannot be less than two");
 
-  cublasHandle_t cublas_handle = handle.getCublasHandle();
-  auto allocator = handle.getDeviceAllocator();
+  cublasHandle_t cublas_handle = handle.get_cublas_handle();
+  auto allocator = handle.get_device_allocator();
   device_buffer<math_t> d_intercept(allocator, stream, 1);
 
   if (normalize) {
-    Matrix::matrixVectorBinaryMult(input, norm2_input, n_rows, n_cols, false,
-                                   true, stream);
-    Matrix::matrixVectorBinaryDivSkipZero(coef, norm2_input, 1, n_cols, false,
-                                          true, stream, true);
+    raft::matrix::matrixVectorBinaryMult(input, norm2_input, n_rows, n_cols,
+                                         false, true, stream);
+    raft::matrix::matrixVectorBinaryDivSkipZero(coef, norm2_input, 1, n_cols,
+                                                false, true, stream, true);
   }
 
   LinAlg::gemm(mu_input, 1, n_cols, coef, d_intercept.data(), 1, 1, CUBLAS_OP_N,
@@ -87,12 +88,14 @@ void postProcessData(const cumlHandle_impl &handle, math_t *input, int n_rows,
 
   LinAlg::subtract(d_intercept.data(), mu_labels, d_intercept.data(), 1,
                    stream);
-  updateHost(intercept, d_intercept.data(), 1, stream);
+  raft::update_host(intercept, d_intercept.data(), 1, stream);
 
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
-  Stats::meanAdd(input, input, mu_input, n_cols, n_rows, false, true, stream);
-  Stats::meanAdd(labels, labels, mu_labels, 1, n_rows, false, true, stream);
+  MLCommon::Stats::meanAdd(input, input, mu_input, n_cols, n_rows, false, true,
+                           stream);
+  MLCommon::Stats::meanAdd(labels, labels, mu_labels, 1, n_rows, false, true,
+                           stream);
 }
 
 };  // namespace GLM

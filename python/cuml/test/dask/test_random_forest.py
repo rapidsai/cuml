@@ -91,7 +91,7 @@ def test_rf_classification_multi_class(partitions_per_worker, cluster):
             'n_estimators': 25,
             'max_depth': 16,
             'n_bins': 256,
-            'seed': 10,
+            'random_state': 10,
         }
 
         X_train_df, y_train_df = _prep_training_data(c, X_train, y_train,
@@ -107,8 +107,10 @@ def test_rf_classification_multi_class(partitions_per_worker, cluster):
         # the sklearn model when ran with the same parameters gives an
         # accuracy of 0.69. There is a difference of 0.0632 (6.32%) between
         # the two when the code runs on a single GPU (seen in the CI)
+        # Refer to issue : https://github.com/rapidsai/cuml/issues/2806 for
+        # more information on the threshold value.
 
-        assert acc_score_gpu >= 0.61
+        assert acc_score_gpu >= 0.60
 
     finally:
         c.close()

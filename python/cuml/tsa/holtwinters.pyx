@@ -13,10 +13,7 @@
 # limitations under the License.
 #
 
-# cython: profile=False
 # distutils: language = c++
-# cython: embedsignature = True
-# cython: language_level = 3
 
 import cudf
 import cupy as cp
@@ -27,7 +24,7 @@ from cuml.common import input_to_dev_array
 from cuml.common import get_dev_array_ptr
 from cuml.common import numba_utils
 from cuml.common.base import Base
-from cuml.common.handle cimport cumlHandle
+from cuml.raft.common.handle cimport handle_t
 
 cdef extern from "cuml/tsa/holtwinters_params.h" namespace "ML":
     enum SeasonalType:
@@ -42,24 +39,24 @@ cdef extern from "cuml/tsa/holtwinters.h" namespace "ML::HoltWinters":
         int *leveltrend_coef_shift, int *season_coef_shift) except +
 
     cdef void fit(
-        cumlHandle &handle, int n, int batch_size,
+        handle_t &handle, int n, int batch_size,
         int frequency, int start_periods, SeasonalType seasonal,
         float epsilon,
         float *data, float *level_ptr, float *trend_ptr,
         float *season_ptr, float *SSE_error_ptr) except +
     cdef void fit(
-        cumlHandle &handle, int n, int batch_size,
+        handle_t &handle, int n, int batch_size,
         int frequency, int start_periods, SeasonalType seasonal,
         double epsilon,
         double *data, double *level_ptr, double *trend_ptr,
         double *season_ptr, double *SSE_error_ptr) except +
 
     cdef void forecast(
-        cumlHandle &handle, int n, int batch_size, int frequency,
+        handle_t &handle, int n, int batch_size, int frequency,
         int h, SeasonalType seasonal, float *level_ptr,
         float *trend_ptr, float *season_ptr, float *forecast_ptr) except +
     cdef void forecast(
-        cumlHandle &handle, int n, int batch_size, int frequency,
+        handle_t &handle, int n, int batch_size, int frequency,
         int h, SeasonalType seasonal, double *level_ptr,
         double *trend_ptr, double *season_ptr, double *forecast_ptr) except +
 
@@ -159,15 +156,30 @@ class ExponentialSmoothing(Base):
     eps : np.number > 0 (default=2.24e-3)
         The accuracy to which gradient descent should achieve.
         Note that changing this value may affect the forecasted results.
-    handle : cuml.Handle (default=None)
-        If it is None, a new one is created just for this class.
+    handle : cuml.Handle
+        Specifies the cuml.handle that holds internal CUDA state for
+        computations in this model. Most importantly, this specifies the CUDA
+        stream that will be used for the model's computations, so users can
+        run different models concurrently in different streams by creating
+        handles in several streams.
+        If it is None, a new one is created.
+    verbose : int or boolean, default=False
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        See :ref:`verbosity-levels` for more info.
+    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
+        Variable to control output type of the results and attributes of
+        the estimator. If None, it'll inherit the output type set at the
+        module level, `cuml.global_output_type`.
+        See :ref:`output-data-type-configuration` for more info.
 
     """
     def __init__(self, endog, seasonal="additive",
                  seasonal_periods=2, start_periods=2,
-                 ts_num=1, eps=2.24e-3, handle=None):
+                 ts_num=1, eps=2.24e-3, handle=None,
+                 verbose=False, output_type=None):
 
-        super(ExponentialSmoothing, self).__init__(handle)
+        super(ExponentialSmoothing, self).__init__(
+            handle=handle, verbose=verbose, output_type=output_type)
 
         # Total number of Time Series for forecasting
         if type(ts_num) != int:
@@ -302,7 +314,7 @@ class ExponentialSmoothing(Base):
                     <int*> &season_coef_offset,
                     <int*> &error_len)
 
-        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
+        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
         cdef uintptr_t level_ptr, trend_ptr, season_ptr, SSE_ptr
 
         self.level = numba_utils.zeros(components_len, dtype=self.dtype)
@@ -370,7 +382,7 @@ class ExponentialSmoothing(Base):
 
         """
         cdef uintptr_t forecast_ptr, level_ptr, trend_ptr, season_ptr
-        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
+        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
         if type(h) != int or (type(index) != int and index is not None):
             raise TypeError("Input arguments must be of type int."
@@ -554,3 +566,13 @@ class ExponentialSmoothing(Base):
                     return cudf.Series(cp.asarray(self.season[index]))
         else:
             raise ValueError("Fit() the model to get season values")
+
+    def get_param_names(self):
+        return super().get_param_names() + [
+            "endog",
+            "seasonal",
+            "seasonal_periods",
+            "start_periods",
+            "ts_num",
+            "eps",
+        ]

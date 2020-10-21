@@ -48,16 +48,20 @@ if(BUILD_CUML_TESTS)
   add_executable(ml
     sg/cd_test.cu
     sg/dbscan_test.cu
+    sg/decisiontree_batchedlevel_algo.cu
     sg/fil_test.cu
     sg/handle_test.cu
     sg/holtwinters_test.cu
     sg/kmeans_test.cu
     sg/knn_test.cu
     sg/logger.cpp
+    sg/nvtx_test.cpp
     sg/ols.cu
     sg/pca_test.cu
     sg/quasi_newton.cu
     sg/rf_accuracy_test.cu
+    sg/rf_batched_classification_test.cu
+    sg/rf_batched_regression_test.cu
     sg/rf_depth_test.cu
     sg/rf_test.cu
     sg/rf_treelite_test.cu
@@ -70,16 +74,18 @@ if(BUILD_CUML_TESTS)
     sg/tsvd_test.cu
     sg/umap_parametrizable_test.cu)
 
+  add_dependencies(ml cutlass)
+
   target_include_directories(ml PRIVATE ${CUML_TEST_INCLUDE_DIRS})
 
   target_link_libraries(ml ${CUML_TEST_LINK_LIBRARIES})
+
 endif(BUILD_CUML_TESTS)
 
 ##############################################################################
 # - build test_ml_mg executable ----------------------------------------------
 
 if(BUILD_CUML_MG_TESTS)
-  find_package(MPI)
 
   if(MPI_CXX_FOUND)
     # (please keep the filenames in alphabetical order)
@@ -88,23 +94,21 @@ if(BUILD_CUML_MG_TESTS)
       mg/knn_classify.cu
       mg/knn_regress.cu
       mg/main.cu
-      mg/pca.cu
-      mg/test_ml_mg_utils.cu)
-
-    add_dependencies(ml_mg cumlcommsmpi)
+      mg/pca.cu)
 
     set(CUML_TEST_INCLUDE_DIRS
         ${CUML_TEST_INCLUDE_DIRS}
+        NCCL::NCCL
         ${MPI_CXX_INCLUDE_PATH}
-        ${CMAKE_CURRENT_SOURCE_DIR}/../comms/mpi/include)
+        ${cumlprims_mg_INCLUDE_DIRS})
 
     target_include_directories(ml_mg PUBLIC ${CUML_TEST_INCLUDE_DIRS})
 
-    set(CUML_TEST_LINK_LIBRARIES 
-    	${CUML_TEST_LINK_LIBRARIES} 
+    set(CUML_TEST_LINK_LIBRARIES
+    	${CUML_TEST_LINK_LIBRARIES}
+    	NCCL::NCCL
     	${MPI_CXX_LIBRARIES}
-    	cumlcommsmpi
-    	cumlprims)
+    	cumlprims_mg::cumlprims_mg)
 
     target_link_libraries(ml_mg ${CUML_TEST_LINK_LIBRARIES})
 

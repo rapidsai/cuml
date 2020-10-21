@@ -40,7 +40,8 @@ template <typename InT, typename OutT = InT, typename IdxType = int>
 void addScalar(OutT *out, const InT *in, InT scalar, IdxType len,
                cudaStream_t stream) {
   auto op = [scalar] __device__(InT in) { return OutT(in + scalar); };
-  unaryOp<InT, decltype(op), IdxType, OutT>(out, in, len, op, stream);
+  raft::linalg::unaryOp<InT, decltype(op), IdxType, OutT>(out, in, len, op,
+                                                          stream);
 }
 
 /**
@@ -60,7 +61,8 @@ template <typename InT, typename OutT = InT, typename IdxType = int>
 void add(OutT *out, const InT *in1, const InT *in2, IdxType len,
          cudaStream_t stream) {
   auto op = [] __device__(InT a, InT b) { return OutT(a + b); };
-  binaryOp<InT, decltype(op), OutT, IdxType>(out, in1, in2, len, op, stream);
+  raft::linalg::binaryOp<InT, decltype(op), OutT, IdxType>(out, in1, in2, len,
+                                                           op, stream);
 }
 
 template <class math_t, typename IdxType>
@@ -88,7 +90,7 @@ void addDevScalar(math_t *outDev, const math_t *inDev,
                   cudaStream_t stream) {
   // TODO: block dimension has not been tuned
   dim3 block(256);
-  dim3 grid(ceildiv(len, (IdxType)block.x));
+  dim3 grid(raft::ceildiv(len, (IdxType)block.x));
   add_dev_scalar_kernel<math_t>
     <<<grid, block, 0, stream>>>(outDev, inDev, singleScalarDev, len);
   CUDA_CHECK(cudaPeekAtLastError());

@@ -13,10 +13,7 @@
 # limitations under the License.
 #
 
-# cython: profile=False
 # distutils: language = c++
-# cython: embedsignature = True
-# cython: language_level = 3
 
 import ctypes
 import cudf
@@ -31,7 +28,7 @@ from libc.stdlib cimport calloc, malloc, free
 from cuml.common.array import CumlArray
 from cuml.common.base import Base
 from cuml.common.doc_utils import generate_docstring
-from cuml.common.handle cimport cumlHandle
+from cuml.raft.common.handle cimport handle_t
 from cuml.common import get_cudf_column_ptr
 from cuml.common import get_dev_array_ptr
 from cuml.common import input_to_dev_array
@@ -41,7 +38,7 @@ from cuml.common.input_utils import input_to_cuml_array
 
 cdef extern from "cuml/solvers/solver.hpp" namespace "ML::Solver":
 
-    cdef void cdFit(cumlHandle& handle,
+    cdef void cdFit(handle_t& handle,
                     float *input,
                     int n_rows,
                     int n_cols,
@@ -57,7 +54,7 @@ cdef extern from "cuml/solvers/solver.hpp" namespace "ML::Solver":
                     bool shuffle,
                     float tol) except +
 
-    cdef void cdFit(cumlHandle& handle,
+    cdef void cdFit(handle_t& handle,
                     double *input,
                     int n_rows,
                     int n_cols,
@@ -73,7 +70,7 @@ cdef extern from "cuml/solvers/solver.hpp" namespace "ML::Solver":
                     bool shuffle,
                     double tol) except +
 
-    cdef void cdPredict(cumlHandle& handle,
+    cdef void cdPredict(handle_t& handle,
                         const float *input,
                         int n_rows,
                         int n_cols,
@@ -82,7 +79,7 @@ cdef extern from "cuml/solvers/solver.hpp" namespace "ML::Solver":
                         float *preds,
                         int loss) except +
 
-    cdef void cdPredict(cumlHandle& handle,
+    cdef void cdPredict(handle_t& handle,
                         const double *input,
                         int n_rows,
                         int n_cols,
@@ -172,21 +169,36 @@ class CD(Base):
        than looping over features sequentially by default.
        This (setting to ‘True’) often leads to significantly faster convergence
        especially when tol is higher than 1e-4.
+    handle : cuml.Handle
+        Specifies the cuml.handle that holds internal CUDA state for
+        computations in this model. Most importantly, this specifies the CUDA
+        stream that will be used for the model's computations, so users can
+        run different models concurrently in different streams by creating
+        handles in several streams.
+        If it is None, a new one is created.
+    verbose : int or boolean, default=False
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        See :ref:`verbosity-levels` for more info.
+    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
+        Variable to control output type of the results and attributes of
+        the estimator. If None, it'll inherit the output type set at the
+        module level, `cuml.global_output_type`.
+        See :ref:`output-data-type-configuration` for more info.
 
     """
 
     def __init__(self, loss='squared_loss', alpha=0.0001, l1_ratio=0.15,
                  fit_intercept=True, normalize=False, max_iter=1000, tol=1e-3,
-                 shuffle=True, handle=None, output_type=None):
+                 shuffle=True, handle=None, output_type=None, verbose=False):
 
-        if loss in ['squared_loss']:
-            self.loss = self._get_loss_int(loss)
-        else:
+        if loss not in ['squared_loss']:
             msg = "loss {!r} is not supported"
             raise NotImplementedError(msg.format(loss))
 
-        super(CD, self).__init__(handle=handle, verbose=False,
+        super(CD, self).__init__(handle=handle, verbose=verbose,
                                  output_type=output_type)
+
+        self.loss = loss
         self.alpha = alpha
         self.l1_ratio = l1_ratio
         self.fit_intercept = fit_intercept
@@ -204,10 +216,10 @@ class CD(Base):
                 msg = "alpha values have to be positive"
                 raise TypeError(msg.format(alpha))
 
-    def _get_loss_int(self, loss):
+    def _get_loss_int(self):
         return {
             'squared_loss': 0,
-        }[loss]
+        }[self.loss]
 
     @generate_docstring()
     def fit(self, X, y, convert_dtype=False):
@@ -216,7 +228,7 @@ class CD(Base):
 
         """
 
-        self._set_output_type(X)
+        self._set_base_attributes(output_type=X)
 
         X_m, n_rows, self.n_cols, self.dtype = \
             input_to_cuml_array(X, check_dtype=[np.float32, np.float64])
@@ -237,7 +249,7 @@ class CD(Base):
 
         cdef float c_intercept1
         cdef double c_intercept2
-        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
+        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
         if self.dtype == np.float32:
             cdFit(handle_[0],
@@ -250,7 +262,7 @@ class CD(Base):
                   <bool>self.fit_intercept,
                   <bool>self.normalize,
                   <int>self.max_iter,
-                  <int>self.loss,
+                  <int>self._get_loss_int(),
                   <float>self.alpha,
                   <float>self.l1_ratio,
                   <bool>self.shuffle,
@@ -268,7 +280,7 @@ class CD(Base):
                   <bool>self.fit_intercept,
                   <bool>self.normalize,
                   <int>self.max_iter,
-                  <int>self.loss,
+                  <int>self._get_loss_int(),
                   <double>self.alpha,
                   <double>self.l1_ratio,
                   <bool>self.shuffle,
@@ -303,7 +315,7 @@ class CD(Base):
         preds = CumlArray.zeros(n_rows, dtype=self.dtype)
         cdef uintptr_t preds_ptr = preds.ptr
 
-        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
+        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
         if self.dtype == np.float32:
             cdPredict(handle_[0],
@@ -313,7 +325,7 @@ class CD(Base):
                       <float*>coef_ptr,
                       <float>self.intercept_,
                       <float*>preds_ptr,
-                      <int>self.loss)
+                      <int>self._get_loss_int())
         else:
             cdPredict(handle_[0],
                       <double*>X_ptr,
@@ -322,10 +334,22 @@ class CD(Base):
                       <double*>coef_ptr,
                       <double>self.intercept_,
                       <double*>preds_ptr,
-                      <int>self.loss)
+                      <int>self._get_loss_int())
 
         self.handle.sync()
 
         del(X_m)
 
         return preds.to_output(out_type)
+
+    def get_param_names(self):
+        return super().get_param_names() + [
+            "loss",
+            "alpha",
+            "l1_ratio",
+            "fit_intercept",
+            "normalize",
+            "max_iter",
+            "tol",
+            "shuffle",
+        ]

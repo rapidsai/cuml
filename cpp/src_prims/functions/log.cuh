@@ -23,9 +23,9 @@ namespace Functions {
 
 template <typename T, typename IdxType = int>
 void f_log(T *out, T *in, T scalar, IdxType len, cudaStream_t stream) {
-  LinAlg::unaryOp(
-    out, in, len, [scalar] __device__(T in) { return myLog(in) * scalar; },
-    stream);
+  raft::linalg::unaryOp(
+    out, in, len,
+    [scalar] __device__(T in) { return raft::myLog(in) * scalar; }, stream);
 }
 
 };  // end namespace Functions

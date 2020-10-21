@@ -14,10 +14,7 @@
 # limitations under the License.
 #
 
-# cython: profile=False
 # distutils: language = c++
-# cython: embedsignature = True
-# cython: language_level = 3
 
 import ctypes
 import cudf
@@ -33,12 +30,12 @@ from libc.stdlib cimport calloc, malloc, free
 from cuml.common.base import Base, RegressorMixin
 from cuml.common.array import CumlArray
 from cuml.common.doc_utils import generate_docstring
-from cuml.common.handle cimport cumlHandle
+from cuml.raft.common.handle cimport handle_t
 from cuml.common import input_to_cuml_array
 
 cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM":
 
-    cdef void ridgeFit(cumlHandle& handle,
+    cdef void ridgeFit(handle_t& handle,
                        float *input,
                        int n_rows,
                        int n_cols,
@@ -51,7 +48,7 @@ cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM":
                        bool normalize,
                        int algo) except +
 
-    cdef void ridgeFit(cumlHandle& handle,
+    cdef void ridgeFit(handle_t& handle,
                        double *input,
                        int n_rows,
                        int n_cols,
@@ -64,7 +61,7 @@ cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM":
                        bool normalize,
                        int algo) except +
 
-    cdef void ridgePredict(cumlHandle& handle,
+    cdef void ridgePredict(handle_t& handle,
                            const float *input,
                            int n_rows,
                            int n_cols,
@@ -72,7 +69,7 @@ cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM":
                            float intercept,
                            float *preds) except +
 
-    cdef void ridgePredict(cumlHandle& handle,
+    cdef void ridgePredict(handle_t& handle,
                            const double *input,
                            int n_rows,
                            int n_cols,
@@ -169,6 +166,21 @@ class Ridge(Base, RegressorMixin):
         If True, the predictors in X will be normalized by dividing by it's L2
         norm.
         If False, no scaling will be done.
+    handle : cuml.Handle
+        Specifies the cuml.handle that holds internal CUDA state for
+        computations in this model. Most importantly, this specifies the CUDA
+        stream that will be used for the model's computations, so users can
+        run different models concurrently in different streams by creating
+        handles in several streams.
+        If it is None, a new one is created.
+    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
+        Variable to control output type of the results and attributes of
+        the estimator. If None, it'll inherit the output type set at the
+        module level, `cuml.global_output_type`.
+        See :ref:`output-data-type-configuration` for more info.
+    verbose : int or boolean, default=False
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        See :ref:`verbosity-levels` for more info.
 
     Attributes
     -----------
@@ -196,7 +208,8 @@ class Ridge(Base, RegressorMixin):
     """
 
     def __init__(self, alpha=1.0, solver='eig', fit_intercept=True,
-                 normalize=False, handle=None, output_type=None):
+                 normalize=False, handle=None, output_type=None,
+                 verbose=False):
 
         """
         Initializes the linear ridge regression class.
@@ -212,7 +225,7 @@ class Ridge(Base, RegressorMixin):
 
         """
         self._check_alpha(alpha)
-        super(Ridge, self).__init__(handle=handle, verbose=False,
+        super(Ridge, self).__init__(handle=handle, verbose=verbose,
                                     output_type=output_type)
 
         # internal array attributes
@@ -249,9 +262,7 @@ class Ridge(Base, RegressorMixin):
         Fit the model with X and y.
 
         """
-        self._set_output_type(X)
-        self._set_n_features_in(X)
-
+        self._set_base_attributes(output_type=X, n_features=X)
         cdef uintptr_t X_ptr, y_ptr
         X_m, n_rows, self.n_cols, self.dtype = \
             input_to_cuml_array(X, check_dtype=[np.float32, np.float64])
@@ -287,7 +298,7 @@ class Ridge(Base, RegressorMixin):
         cdef double c_intercept2
         cdef float c_alpha1
         cdef double c_alpha2
-        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
+        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
         if self.dtype == np.float32:
             c_alpha1 = self.alpha
@@ -334,7 +345,7 @@ class Ridge(Base, RegressorMixin):
                                        'type': 'dense',
                                        'description': 'Predicted values',
                                        'shape': '(n_samples, 1)'})
-    def predict(self, X, convert_dtype=False):
+    def predict(self, X, convert_dtype=True):
         """
         Predicts the y for X.
 
@@ -354,7 +365,7 @@ class Ridge(Base, RegressorMixin):
         preds = CumlArray.zeros(n_rows, dtype=dtype)
         cdef uintptr_t preds_ptr = preds.ptr
 
-        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
+        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
         if dtype.type == np.float32:
             ridgePredict(handle_[0],
@@ -380,4 +391,5 @@ class Ridge(Base, RegressorMixin):
         return preds.to_output(out_type)
 
     def get_param_names(self):
-        return ['solver', 'fit_intercept', 'normalize', 'alpha']
+        return super().get_param_names() + \
+            ['solver', 'fit_intercept', 'normalize', 'alpha']

@@ -259,6 +259,23 @@ void _print_rf(const RandomForestMetaData<T, L>* forest, bool summary) {
   }
 }
 
+template <class T, class L>
+std::string _dump_rf_as_json(const RandomForestMetaData<T, L>* forest) {
+  if (!forest || !forest->trees) {
+    return "[]";
+  }
+  std::ostringstream oss;
+  oss << "[\n";
+  for (int i = 0; i < forest->rf_params.n_trees; i++) {
+    oss << DecisionTree::dump_tree_as_json<T, L>(&(forest->trees[i]));
+    if (i < forest->rf_params.n_trees - 1) {
+      oss << ",\n";
+    }
+  }
+  oss << "\n]";
+  return oss.str();
+}
+
 /**
  * @brief Print summary for all trees in the random forest.
  * @tparam T: data type for input data (float or double).
@@ -279,6 +296,11 @@ void print_rf_summary(const RandomForestMetaData<T, L>* forest) {
 template <class T, class L>
 void print_rf_detailed(const RandomForestMetaData<T, L>* forest) {
   _print_rf(forest, false);
+}
+
+template <class T, class L>
+std::string dump_rf_as_json(const RandomForestMetaData<T, L>* forest) {
+  return _dump_rf_as_json(forest);
 }
 
 template <class T, class L>
@@ -442,7 +464,7 @@ ModelHandle concatenate_trees(std::vector<ModelHandle> treelite_handles) {
 /**
  * @defgroup Random Forest Classification - Fit function
  * @brief Build (i.e., fit, train) random forest classifier for input data.
- * @param[in] user_handle: cumlHandle
+ * @param[in] user_handle: raft::handle_t
  * @param[in,out] forest: CPU pointer to RandomForestMetaData object. User allocated.
  * @param[in] input: train data (n_rows samples, n_cols features) in column major format,
  *   excluding labels. Device pointer.
@@ -457,7 +479,7 @@ ModelHandle concatenate_trees(std::vector<ModelHandle> treelite_handles) {
  * @param[in] verbosity: verbosity level for logging messages during execution
  * @{
  */
-void fit(const cumlHandle& user_handle, RandomForestClassifierF*& forest,
+void fit(const raft::handle_t& user_handle, RandomForestClassifierF*& forest,
          float* input, int n_rows, int n_cols, int* labels, int n_unique_labels,
          RF_params rf_params, int verbosity) {
   ML::Logger::get().setLevel(verbosity);
@@ -472,7 +494,7 @@ void fit(const cumlHandle& user_handle, RandomForestClassifierF*& forest,
                      n_unique_labels, forest);
 }
 
-void fit(const cumlHandle& user_handle, RandomForestClassifierD*& forest,
+void fit(const raft::handle_t& user_handle, RandomForestClassifierD*& forest,
          double* input, int n_rows, int n_cols, int* labels,
          int n_unique_labels, RF_params rf_params, int verbosity) {
   ML::Logger::get().setLevel(verbosity);
@@ -492,7 +514,7 @@ void fit(const cumlHandle& user_handle, RandomForestClassifierD*& forest,
  * @defgroup Random Forest Classification - Predict function
  * @brief Predict target feature for input data; n-ary classification for
      single feature supported.
- * @param[in] user_handle: cumlHandle.
+ * @param[in] user_handle: raft::handle_t.
  * @param[in] forest: CPU pointer to RandomForestMetaData object.
  *   The user should have previously called fit to build the random forest.
  * @param[in] input: test data (n_rows samples, n_cols features) in row major format. GPU pointer.
@@ -502,7 +524,7 @@ void fit(const cumlHandle& user_handle, RandomForestClassifierD*& forest,
  * @param[in] verbosity: verbosity level for logging messages during execution
  * @{
  */
-void predict(const cumlHandle& user_handle,
+void predict(const raft::handle_t& user_handle,
              const RandomForestClassifierF* forest, const float* input,
              int n_rows, int n_cols, int* predictions, int verbosity) {
   ASSERT(forest->trees, "Cannot predict! No trees in the forest.");
@@ -512,7 +534,7 @@ void predict(const cumlHandle& user_handle,
                          forest, verbosity);
 }
 
-void predict(const cumlHandle& user_handle,
+void predict(const raft::handle_t& user_handle,
              const RandomForestClassifierD* forest, const double* input,
              int n_rows, int n_cols, int* predictions, int verbosity) {
   ASSERT(forest->trees, "Cannot predict! No trees in the forest.");
@@ -527,7 +549,7 @@ void predict(const cumlHandle& user_handle,
  * @defgroup Random Forest Classification - Predict function
  * @brief Predict target feature for input data; n-ary classification for
      single feature supported.
- * @param[in] user_handle: cumlHandle.
+ * @param[in] user_handle: raft::handle_t.
  * @param[in] forest: CPU pointer to RandomForestMetaData object.
  *   The user should have previously called fit to build the random forest.
  * @param[in] input: test data (n_rows samples, n_cols features) in row major format. GPU pointer.
@@ -537,7 +559,7 @@ void predict(const cumlHandle& user_handle,
  * @param[in] verbosity: verbosity level for logging messages during execution
  * @{
  */
-void predictGetAll(const cumlHandle& user_handle,
+void predictGetAll(const raft::handle_t& user_handle,
                    const RandomForestClassifierF* forest, const float* input,
                    int n_rows, int n_cols, int* predictions, int verbosity) {
   ASSERT(forest->trees, "Cannot predict! No trees in the forest.");
@@ -547,7 +569,7 @@ void predictGetAll(const cumlHandle& user_handle,
                                forest, verbosity);
 }
 
-void predictGetAll(const cumlHandle& user_handle,
+void predictGetAll(const raft::handle_t& user_handle,
                    const RandomForestClassifierD* forest, const double* input,
                    int n_rows, int n_cols, int* predictions, int verbosity) {
   ASSERT(forest->trees, "Cannot predict! No trees in the forest.");
@@ -561,7 +583,7 @@ void predictGetAll(const cumlHandle& user_handle,
 /**
  * @defgroup Random Forest Classification - Score function
  * @brief Compare predicted features validate against ref_labels.
- * @param[in] user_handle: cumlHandle.
+ * @param[in] user_handle: raft::handle_t.
  * @param[in] forest: CPU pointer to RandomForestMetaData object.
  *   The user should have previously called fit to build the random forest.
  * @param[in] input: test data (n_rows samples, n_cols features) in row major format. GPU pointer.
@@ -573,7 +595,7 @@ void predictGetAll(const cumlHandle& user_handle,
  * @return RF_metrics struct with classification score (i.e., accuracy)
  * @{
  */
-RF_metrics score(const cumlHandle& user_handle,
+RF_metrics score(const raft::handle_t& user_handle,
                  const RandomForestClassifierF* forest, const int* ref_labels,
                  int n_rows, const int* predictions, int verbosity) {
   RF_metrics classification_score = rfClassifier<float>::score(
@@ -581,7 +603,7 @@ RF_metrics score(const cumlHandle& user_handle,
   return classification_score;
 }
 
-RF_metrics score(const cumlHandle& user_handle,
+RF_metrics score(const raft::handle_t& user_handle,
                  const RandomForestClassifierD* forest, const int* ref_labels,
                  int n_rows, const int* predictions, int verbosity) {
   RF_metrics classification_score = rfClassifier<double>::score(
@@ -594,12 +616,14 @@ RF_params set_rf_class_obj(int max_depth, int max_leaves, float max_features,
                            float min_impurity_decrease, bool bootstrap_features,
                            bool bootstrap, int n_trees, float rows_sample,
                            int seed, CRITERION split_criterion,
-                           bool quantile_per_tree, int cfg_n_streams) {
+                           bool quantile_per_tree, int cfg_n_streams,
+                           bool use_experimental_backend, int max_batch_size) {
   DecisionTree::DecisionTreeParams tree_params;
   DecisionTree::set_tree_params(
     tree_params, max_depth, max_leaves, max_features, n_bins, split_algo,
     min_rows_per_node, min_impurity_decrease, bootstrap_features,
-    split_criterion, quantile_per_tree);
+    split_criterion, quantile_per_tree, use_experimental_backend,
+    max_batch_size);
   RF_params rf_params;
   set_all_rf_params(rf_params, n_trees, bootstrap, rows_sample, seed,
                     cfg_n_streams, tree_params);
@@ -611,7 +635,7 @@ RF_params set_rf_class_obj(int max_depth, int max_leaves, float max_features,
 /**
  * @defgroup Random Forest Regression - Fit function
  * @brief Build (i.e., fit, train) random forest regressor for input data.
- * @param[in] user_handle: cumlHandle
+ * @param[in] user_handle: raft::handle_t
  * @param[in,out] forest: CPU pointer to RandomForestMetaData object. User allocated.
  * @param[in] input: train data (n_rows samples, n_cols features) in column major format,
  *   excluding labels. Device pointer.
@@ -623,7 +647,7 @@ RF_params set_rf_class_obj(int max_depth, int max_leaves, float max_features,
  * @param[in] verbosity: verbosity level for logging messages during execution
  * @{
  */
-void fit(const cumlHandle& user_handle, RandomForestRegressorF*& forest,
+void fit(const raft::handle_t& user_handle, RandomForestRegressorF*& forest,
          float* input, int n_rows, int n_cols, float* labels,
          RF_params rf_params, int verbosity) {
   ML::Logger::get().setLevel(verbosity);
@@ -637,7 +661,7 @@ void fit(const cumlHandle& user_handle, RandomForestRegressorF*& forest,
   rf_regressor->fit(user_handle, input, n_rows, n_cols, labels, forest);
 }
 
-void fit(const cumlHandle& user_handle, RandomForestRegressorD*& forest,
+void fit(const raft::handle_t& user_handle, RandomForestRegressorD*& forest,
          double* input, int n_rows, int n_cols, double* labels,
          RF_params rf_params, int verbosity) {
   ML::Logger::get().setLevel(verbosity);
@@ -655,7 +679,7 @@ void fit(const cumlHandle& user_handle, RandomForestRegressorD*& forest,
 /**
  * @defgroup Random Forest Regression - Predict function
  * @brief Predict target feature for input data; regression for single feature supported.
- * @param[in] user_handle: cumlHandle.
+ * @param[in] user_handle: raft::handle_t.
  * @param[in] forest: CPU pointer to RandomForestMetaData object.
  *   The user should have previously called fit to build the random forest.
  * @param[in] input: test data (n_rows samples, n_cols features) in row major format. GPU pointer.
@@ -665,7 +689,7 @@ void fit(const cumlHandle& user_handle, RandomForestRegressorD*& forest,
  * @param[in] verbosity: verbosity level for logging messages during execution
  * @{
  */
-void predict(const cumlHandle& user_handle,
+void predict(const raft::handle_t& user_handle,
              const RandomForestRegressorF* forest, const float* input,
              int n_rows, int n_cols, float* predictions, int verbosity) {
   ASSERT(forest->trees, "Cannot predict! No trees in the forest.");
@@ -675,7 +699,7 @@ void predict(const cumlHandle& user_handle,
                         verbosity);
 }
 
-void predict(const cumlHandle& user_handle,
+void predict(const raft::handle_t& user_handle,
              const RandomForestRegressorD* forest, const double* input,
              int n_rows, int n_cols, double* predictions, int verbosity) {
   ASSERT(forest->trees, "Cannot predict! No trees in the forest.");
@@ -689,7 +713,7 @@ void predict(const cumlHandle& user_handle,
 /**
  * @defgroup Random Forest Regression - Score function
  * @brief Predict target feature for input data and validate against ref_labels.
- * @param[in] user_handle: cumlHandle.
+ * @param[in] user_handle: raft::handle_t.
  * @param[in] forest: CPU pointer to RandomForestMetaData object.
  *   The user should have previously called fit to build the random forest.
  * @param[in] input: test data (n_rows samples, n_cols features) in row major format. GPU pointer.
@@ -702,7 +726,7 @@ void predict(const cumlHandle& user_handle,
  *   mean squared error, median absolute error)
  * @{
  */
-RF_metrics score(const cumlHandle& user_handle,
+RF_metrics score(const raft::handle_t& user_handle,
                  const RandomForestRegressorF* forest, const float* ref_labels,
                  int n_rows, const float* predictions, int verbosity) {
   RF_metrics regression_score = rfRegressor<float>::score(
@@ -711,7 +735,7 @@ RF_metrics score(const cumlHandle& user_handle,
   return regression_score;
 }
 
-RF_metrics score(const cumlHandle& user_handle,
+RF_metrics score(const raft::handle_t& user_handle,
                  const RandomForestRegressorD* forest, const double* ref_labels,
                  int n_rows, const double* predictions, int verbosity) {
   RF_metrics regression_score = rfRegressor<double>::score(
@@ -737,6 +761,15 @@ template void print_rf_detailed<double, int>(
 template void print_rf_detailed<float, float>(
   const RandomForestRegressorF* forest);
 template void print_rf_detailed<double, double>(
+  const RandomForestRegressorD* forest);
+
+template std::string dump_rf_as_json<float, int>(
+  const RandomForestClassifierF* forest);
+template std::string dump_rf_as_json<double, int>(
+  const RandomForestClassifierD* forest);
+template std::string dump_rf_as_json<float, float>(
+  const RandomForestRegressorF* forest);
+template std::string dump_rf_as_json<double, double>(
   const RandomForestRegressorD* forest);
 
 template void null_trees_ptr<float, int>(RandomForestClassifierF*& forest);

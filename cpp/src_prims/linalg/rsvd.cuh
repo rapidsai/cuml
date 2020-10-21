@@ -16,12 +16,12 @@
 
 #pragma once
 
+#include <raft/linalg/cublas_wrappers.h>
+#include <raft/linalg/cusolver_wrappers.h>
 #include <cuda_utils.cuh>
 #include <matrix/math.cuh>
 #include <matrix/matrix.cuh>
 #include <random/rng.cuh>
-#include "cublas_wrappers.h"
-#include "cusolver_wrappers.h"
 #include "eig.cuh"
 #include "gemm.cuh"
 #include "qr.cuh"
@@ -80,7 +80,7 @@ void rsvdFixedRank(math_t *M, int n_rows, int n_cols, math_t *&S_vec,
 
   // build random matrix
   device_buffer<math_t> RN(allocator, stream, n * l);
-  Random::Rng rng(484);
+  raft::random::Rng rng(484);
   rng.normal(RN.data(), n * l, math_t(0.0), alpha, stream);
 
   // multiply to get matrix of random samples Y
@@ -190,7 +190,7 @@ void rsvdFixedRank(math_t *M, int n_rows, int n_cols, math_t *&S_vec,
     else
       eigDC(Uhat_dup.data(), l, l, Uhat.data(), S_vec_tmp.data(), cusolverH,
             stream, allocator);
-    Matrix::seqRoot(S_vec_tmp.data(), l, stream);
+    raft::matrix::seqRoot(S_vec_tmp.data(), l, stream);
     Matrix::sliceMatrix(S_vec_tmp.data(), 1, l, S_vec, 0, p, 1, l,
                         stream);  // Last k elements of S_vec
     Matrix::colReverse(S_vec, 1, k, stream);
@@ -211,7 +211,7 @@ void rsvdFixedRank(math_t *M, int n_rows, int n_cols, math_t *&S_vec,
       device_buffer<math_t> UhatSinv(allocator, stream, l * k);
       CUDA_CHECK(
         cudaMemsetAsync(UhatSinv.data(), 0, sizeof(math_t) * l * k, stream));
-      Matrix::reciprocal(S_vec_tmp.data(), l, stream);
+      raft::matrix::reciprocal(S_vec_tmp.data(), l, stream);
       Matrix::initializeDiagonalMatrix(S_vec_tmp.data() + p, Sinv.data(), k, k,
                                        stream);
 

@@ -13,10 +13,7 @@
 # limitations under the License.
 #
 
-# cython: profile=False
 # distutils: language = c++
-# cython: embedsignature = True
-# cython: language_level = 3
 
 import ctypes
 import numpy as np
@@ -26,7 +23,7 @@ from libcpp cimport bool
 import cuml
 from cuml.common.array import CumlArray as cumlArray
 from cuml.common.base import _input_to_type
-from cuml.common.handle cimport cumlHandle
+from cuml.raft.common.handle cimport handle_t
 from cuml.common.input_utils import input_to_host_array, input_to_cuml_array
 
 # TODO: #2234 and #2235
@@ -63,8 +60,13 @@ def seas_test(y, s, output_type="input", handle=None):
         Numba device ndarray, cuda array interface compliant array like CuPy.
     s: integer
         Seasonal period (s > 1)
-    handle : cuml.Handle (default=None)
-        If it is None, a new one is created just for this function call.
+    handle : cuml.Handle
+        Specifies the cuml.handle that holds internal CUDA state for
+        computations in this model. Most importantly, this specifies the CUDA
+        stream that will be used for the model's computations, so users can
+        run different models concurrently in different streams by creating
+        handles in several streams.
+        If it is None, a new one is created.
 
     Returns
     -------

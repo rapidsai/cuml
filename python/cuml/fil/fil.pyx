@@ -14,10 +14,7 @@
 # limitations under the License.
 #
 
-# cython: profile=False
 # distutils: language = c++
-# cython: embedsignature = True
-# cython: language_level = 3
 
 import copy
 import cudf
@@ -35,13 +32,12 @@ from libc.stdlib cimport calloc, malloc, free
 
 from cuml.common.array import CumlArray
 from cuml.common.base import Base
-from cuml.common.handle cimport cumlHandle
+from cuml.raft.common.handle cimport handle_t
 from cuml.common import input_to_cuml_array, logger
 
 import treelite
 import treelite.sklearn as tl_skl
 
-cimport cuml.common.handle
 cimport cuml.common.cuda
 
 cdef extern from "treelite/c_api.h":
@@ -137,6 +133,9 @@ cdef class TreeliteModel():
                 err = TreeliteGetLastError()
                 raise RuntimeError("Failed to load %s (%s)" % (filename, err))
         elif model_type == "lightgbm":
+            logger.warn("Treelite currently does not support float64 model"
+                        " parameters. Accuracy may degrade slightly relative"
+                        " to native LightGBM invocation.")
             res = TreeliteLoadLightGBMModel(filename_bytes, &handle)
             if res < 0:
                 err = TreeliteGetLastError()
@@ -179,17 +178,17 @@ cdef extern from "cuml/fil/fil.h" namespace "ML::fil":
         float threshold
         storage_type_t storage_type
 
-    cdef void free(cumlHandle& handle,
+    cdef void free(handle_t& handle,
                    forest_t)
 
-    cdef void predict(cumlHandle& handle,
+    cdef void predict(handle_t& handle,
                       forest_t,
                       float*,
                       float*,
                       size_t,
                       bool)
 
-    cdef forest_t from_treelite(cumlHandle& handle,
+    cdef forest_t from_treelite(handle_t& handle,
                                 forest_t*,
                                 ModelHandle,
                                 treelite_params_t*)
@@ -275,8 +274,8 @@ cdef class ForestInference_impl():
                                 check_dtype=np.float32)
         X_ptr = X_m.ptr
 
-        cdef cumlHandle* handle_ =\
-            <cumlHandle*><size_t>self.handle.getHandle()
+        cdef handle_t* handle_ =\
+            <handle_t*><size_t>self.handle.getHandle()
 
         if preds is None:
             shape = (n_rows, )
@@ -326,8 +325,8 @@ cdef class ForestInference_impl():
         treelite_params.storage_type = self.get_storage_type(storage_type)
 
         self.forest_data = NULL
-        cdef cumlHandle* handle_ =\
-            <cumlHandle*><size_t>self.handle.getHandle()
+        cdef handle_t* handle_ =\
+            <handle_t*><size_t>self.handle.getHandle()
         cdef uintptr_t model_ptr = <uintptr_t>model_handle
 
         from_treelite(handle_[0],
@@ -364,8 +363,8 @@ cdef class ForestInference_impl():
         treelite_params.threshold = threshold
         treelite_params.algo = self.get_algo(algo)
         treelite_params.storage_type = self.get_storage_type(storage_type)
-        cdef cumlHandle* handle_ =\
-            <cumlHandle*><size_t>self.handle.getHandle()
+        cdef handle_t* handle_ =\
+            <handle_t*><size_t>self.handle.getHandle()
         cdef uintptr_t model_ptr = <uintptr_t>model_handle
 
         from_treelite(handle_[0],
@@ -377,8 +376,8 @@ cdef class ForestInference_impl():
         return self
 
     def __dealloc__(self):
-        cdef cumlHandle* handle_ =\
-            <cumlHandle*><size_t>self.handle.getHandle()
+        cdef handle_t* handle_ =\
+            <handle_t*><size_t>self.handle.getHandle()
         if self.forest_data !=NULL:
             free(handle_[0],
                  self.forest_data)
@@ -411,11 +410,29 @@ class ForestInference(Base):
      * Inference uses a dense matrix format, which is efficient for many
        problems but can be suboptimal for sparse datasets.
      * Only binary classification and regression are supported.
+     * Many other random forest implementations including LightGBM, and SKLearn
+       GBDTs make use of 64-bit floating point parameters, but the underlying
+       library for ForestInference uses only 32-bit parameters. Because of the
+       truncation that will occur when loading such models into
+       ForestInference, you may observe a slight degradation in accuracy.
 
     Parameters
     ----------
     handle : cuml.Handle
-       If it is None, a new one is created just for this class.
+        Specifies the cuml.handle that holds internal CUDA state for
+        computations in this model. Most importantly, this specifies the CUDA
+        stream that will be used for the model's computations, so users can
+        run different models concurrently in different streams by creating
+        handles in several streams.
+        If it is None, a new one is created.
+    verbose : int or boolean, default=False
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        See :ref:`verbosity-levels` for more info.
+    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
+        Variable to control output type of the results and attributes of
+        the estimator. If None, it'll inherit the output type set at the
+        module level, `cuml.global_output_type`.
+        See :ref:`output-data-type-configuration` for more info.
 
     Examples
     --------
@@ -449,9 +466,12 @@ class ForestInference(Base):
     """
 
     def __init__(self,
-                 handle=None, output_type=None):
-        super(ForestInference, self).__init__(handle,
-                                              output_type=output_type)
+                 handle=None,
+                 output_type=None,
+                 verbose=False):
+        super(ForestInference, self).__init__(handle=handle,
+                                              output_type=output_type,
+                                              verbose=verbose)
         self._impl = ForestInference_impl(self.handle)
 
     def predict(self, X, preds=None):
@@ -613,6 +633,9 @@ class ForestInference(Base):
 
         """
         cuml_fm = ForestInference(handle=handle)
+        logger.warn("Treelite currently does not support float64 model"
+                    " parameters. Accuracy may degrade slightly relative to"
+                    " native sklearn invocation.")
         tl_model = tl_skl.import_model(skl_model)
         cuml_fm.load_from_treelite_model(
             tl_model, algo=algo, output_class=output_class,

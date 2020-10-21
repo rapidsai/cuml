@@ -57,9 +57,14 @@ struct RF_params {
    */
   int n_trees;
   /**
-   * Control bootstrapping. If set, each tree in the forest is built on a
-   * bootstrapped sample with replacement.
-   * If false, sampling without replacement is done.
+   * Control bootstrapping.
+   * If bootstrapping is set to true, bootstrapped samples are used for building
+   * each tree. Bootstrapped sampling is done by randomly drawing
+   * round(rows_sample * n_samples) number of samples with replacement. More on
+   * bootstrapping:
+   *     https://en.wikipedia.org/wiki/Bootstrap_aggregating
+   * If boostrapping is set to false, whole dataset is used to build each
+   * tree.
    */
   bool bootstrap;
   /**
@@ -130,6 +135,9 @@ template <class T, class L>
 void print_rf_detailed(const RandomForestMetaData<T, L>* forest);
 
 template <class T, class L>
+std::string dump_rf_as_json(const RandomForestMetaData<T, L>* forest);
+
+template <class T, class L>
 void build_treelite_forest(ModelHandle* model,
                            const RandomForestMetaData<T, L>* forest,
                            int num_features, int task_category);
@@ -143,37 +151,37 @@ void compare_concat_forest_to_subforests(
 typedef RandomForestMetaData<float, int> RandomForestClassifierF;
 typedef RandomForestMetaData<double, int> RandomForestClassifierD;
 
-void fit(const cumlHandle& user_handle, RandomForestClassifierF*& forest,
+void fit(const raft::handle_t& user_handle, RandomForestClassifierF*& forest,
          float* input, int n_rows, int n_cols, int* labels, int n_unique_labels,
          RF_params rf_params, int verbosity = CUML_LEVEL_INFO);
-void fit(const cumlHandle& user_handle, RandomForestClassifierD*& forest,
+void fit(const raft::handle_t& user_handle, RandomForestClassifierD*& forest,
          double* input, int n_rows, int n_cols, int* labels,
          int n_unique_labels, RF_params rf_params,
          int verbosity = CUML_LEVEL_INFO);
 
-void predict(const cumlHandle& user_handle,
+void predict(const raft::handle_t& user_handle,
              const RandomForestClassifierF* forest, const float* input,
              int n_rows, int n_cols, int* predictions,
              int verbosity = CUML_LEVEL_INFO);
-void predict(const cumlHandle& user_handle,
+void predict(const raft::handle_t& user_handle,
              const RandomForestClassifierD* forest, const double* input,
              int n_rows, int n_cols, int* predictions,
              int verbosity = CUML_LEVEL_INFO);
 
-void predictGetAll(const cumlHandle& user_handle,
+void predictGetAll(const raft::handle_t& user_handle,
                    const RandomForestClassifierF* forest, const float* input,
                    int n_rows, int n_cols, int* predictions,
                    int verbosity = CUML_LEVEL_INFO);
-void predictGetAll(const cumlHandle& user_handle,
+void predictGetAll(const raft::handle_t& user_handle,
                    const RandomForestClassifierD* forest, const double* input,
                    int n_rows, int n_cols, int* predictions,
                    int verbosity = CUML_LEVEL_INFO);
 
-RF_metrics score(const cumlHandle& user_handle,
+RF_metrics score(const raft::handle_t& user_handle,
                  const RandomForestClassifierF* forest, const int* ref_labels,
                  int n_rows, const int* predictions,
                  int verbosity = CUML_LEVEL_INFO);
-RF_metrics score(const cumlHandle& user_handle,
+RF_metrics score(const raft::handle_t& user_handle,
                  const RandomForestClassifierD* forest, const int* ref_labels,
                  int n_rows, const int* predictions,
                  int verbosity = CUML_LEVEL_INFO);
@@ -183,34 +191,35 @@ RF_params set_rf_class_obj(int max_depth, int max_leaves, float max_features,
                            float min_impurity_decrease, bool bootstrap_features,
                            bool bootstrap, int n_trees, float rows_sample,
                            int seed, CRITERION split_criterion,
-                           bool quantile_per_tree, int cfg_n_streams);
+                           bool quantile_per_tree, int cfg_n_streams,
+                           bool use_experimental_backend, int max_batch_size);
 
 // ----------------------------- Regression ----------------------------------- //
 
 typedef RandomForestMetaData<float, float> RandomForestRegressorF;
 typedef RandomForestMetaData<double, double> RandomForestRegressorD;
 
-void fit(const cumlHandle& user_handle, RandomForestRegressorF*& forest,
+void fit(const raft::handle_t& user_handle, RandomForestRegressorF*& forest,
          float* input, int n_rows, int n_cols, float* labels,
          RF_params rf_params, int verbosity = CUML_LEVEL_INFO);
-void fit(const cumlHandle& user_handle, RandomForestRegressorD*& forest,
+void fit(const raft::handle_t& user_handle, RandomForestRegressorD*& forest,
          double* input, int n_rows, int n_cols, double* labels,
          RF_params rf_params, int verbosity = CUML_LEVEL_INFO);
 
-void predict(const cumlHandle& user_handle,
+void predict(const raft::handle_t& user_handle,
              const RandomForestRegressorF* forest, const float* input,
              int n_rows, int n_cols, float* predictions,
              int verbosity = CUML_LEVEL_INFO);
-void predict(const cumlHandle& user_handle,
+void predict(const raft::handle_t& user_handle,
              const RandomForestRegressorD* forest, const double* input,
              int n_rows, int n_cols, double* predictions,
              int verbosity = CUML_LEVEL_INFO);
 
-RF_metrics score(const cumlHandle& user_handle,
+RF_metrics score(const raft::handle_t& user_handle,
                  const RandomForestRegressorF* forest, const float* ref_labels,
                  int n_rows, const float* predictions,
                  int verbosity = CUML_LEVEL_INFO);
-RF_metrics score(const cumlHandle& user_handle,
+RF_metrics score(const raft::handle_t& user_handle,
                  const RandomForestRegressorD* forest, const double* ref_labels,
                  int n_rows, const double* predictions,
                  int verbosity = CUML_LEVEL_INFO);

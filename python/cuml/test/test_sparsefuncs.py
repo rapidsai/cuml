@@ -21,6 +21,7 @@ import pytest
 import numpy as np
 import scipy.sparse as sp
 import cupy as cp
+import cupyx
 
 
 @pytest.mark.parametrize('norm, ref_norm', [
@@ -33,7 +34,7 @@ import cupy as cp
 def test_csr_norms(norm, ref_norm, dtype, seed, shape):
     X = np.random.RandomState(seed).randn(*shape).astype(dtype)
     X_csr = sp.csr_matrix(X)
-    X_csr_gpu = cp.sparse.csr_matrix(X_csr)
+    X_csr_gpu = cupyx.scipy.sparse.csr_matrix(X_csr)
 
     norm(X_csr_gpu)
     ref_norm(X_csr)

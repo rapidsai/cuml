@@ -15,6 +15,7 @@
 
 import pytest
 import cupy as cp
+import cupyx
 
 from cuml.prims.stats import cov
 from cuml.test.utils import array_equal
@@ -26,8 +27,8 @@ from cuml.test.utils import array_equal
 @pytest.mark.parametrize("dtype", [cp.float32, cp.float64])
 def test_cov(nrows, ncols, sparse, dtype):
     if sparse:
-        x = cp.sparse.random(nrows, ncols, density=0.07,
-                             format='csr', dtype=dtype)
+        x = cupyx.scipy.sparse.random(nrows, ncols, density=0.07,
+                                      format='csr', dtype=dtype)
     else:
         x = cp.random.random((nrows, ncols), dtype=dtype)
 

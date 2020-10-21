@@ -83,7 +83,7 @@ class KernelCache {
   /**
    * Construct an object to manage kernel cache
    *
-   * @param handle reference to cumlHandle implementation
+   * @param handle reference to raft::handle_t implementation
    * @param x device array of training vectors in column major format,
    *   size [n_rows x n_cols]
    * @param n_rows number of training vectors
@@ -93,11 +93,11 @@ class KernelCache {
    * @param cache_size (default 200 MiB)
    * @param svmType is this SVR or SVC
    */
-  KernelCache(const cumlHandle_impl &handle, const math_t *x, int n_rows,
+  KernelCache(const raft::handle_t &handle, const math_t *x, int n_rows,
               int n_cols, int n_ws,
               MLCommon::Matrix::GramMatrixBase<math_t> *kernel,
               float cache_size = 200, SvmType svmType = C_SVC)
-    : cache(handle.getDeviceAllocator(), handle.getStream(), n_rows,
+    : cache(handle.get_device_allocator(), handle.get_stream(), n_rows,
             cache_size),
       kernel(kernel),
       x(x),
@@ -105,16 +105,16 @@ class KernelCache {
       n_cols(n_cols),
       n_ws(n_ws),
       svmType(svmType),
-      cublas_handle(handle.getCublasHandle()),
-      d_num_selected_out(handle.getDeviceAllocator(), handle.getStream(), 1),
-      d_temp_storage(handle.getDeviceAllocator(), handle.getStream()),
-      x_ws(handle.getDeviceAllocator(), handle.getStream(), n_ws * n_cols),
-      tile(handle.getDeviceAllocator(), handle.getStream(), n_ws * n_rows),
-      unique_idx(handle.getDeviceAllocator(), handle.getStream(), n_ws),
-      k_col_idx(handle.getDeviceAllocator(), handle.getStream(), n_ws),
-      ws_cache_idx(handle.getDeviceAllocator(), handle.getStream(), n_ws) {
+      cublas_handle(handle.get_cublas_handle()),
+      d_num_selected_out(handle.get_device_allocator(), handle.get_stream(), 1),
+      d_temp_storage(handle.get_device_allocator(), handle.get_stream()),
+      x_ws(handle.get_device_allocator(), handle.get_stream(), n_ws * n_cols),
+      tile(handle.get_device_allocator(), handle.get_stream(), n_ws * n_rows),
+      unique_idx(handle.get_device_allocator(), handle.get_stream(), n_ws),
+      k_col_idx(handle.get_device_allocator(), handle.get_stream(), n_ws),
+      ws_cache_idx(handle.get_device_allocator(), handle.get_stream(), n_ws) {
     ASSERT(kernel != nullptr, "Kernel pointer required for KernelCache!");
-    stream = handle.getStream();
+    stream = handle.get_stream();
 
     // Default kernel_column_idx map for SVC
     MLCommon::LinAlg::range(k_col_idx.data(), n_ws, stream);
@@ -241,7 +241,7 @@ class KernelCache {
   */
   int *GetColIdxMap() {
     if (svmType == EPSILON_SVR) {
-      mapColumnIndices<<<MLCommon::ceildiv(n_ws, TPB), TPB, 0, stream>>>(
+      mapColumnIndices<<<raft::ceildiv(n_ws, TPB), TPB, 0, stream>>>(
         ws_idx, n_ws, n_rows, unique_idx.data(), n_unique, k_col_idx.data());
       CUDA_CHECK(cudaPeekAtLastError());
     }
@@ -281,7 +281,7 @@ class KernelCache {
    */
   void GetVecIndices(const int *ws_idx, int n_ws, int *vec_idx) {
     int n = n_rows;
-    MLCommon::LinAlg::unaryOp(
+    raft::linalg::unaryOp(
       vec_idx, ws_idx, n_ws,
       [n] __device__(math_t y) { return y < n ? y : y - n; }, stream);
   }
@@ -306,7 +306,7 @@ class KernelCache {
 
   MLCommon::Matrix::GramMatrixBase<math_t> *kernel;
 
-  const cumlHandle_impl handle;
+  const raft::handle_t handle;
 
   const int TPB = 256;  //!< threads per block for kernels launched
 
@@ -336,7 +336,7 @@ class KernelCache {
                         int *n_unique) {
     if (svmType == C_SVC) {
       *n_unique = n_ws;
-      MLCommon::copy(unique_idx, ws_idx, n_ws, stream);
+      raft::copy(unique_idx, ws_idx, n_ws, stream);
       return;
     }
     // for EPSILON_SVR
@@ -347,7 +347,7 @@ class KernelCache {
     cub::DeviceSelect::Unique(d_temp_storage.data(), d_temp_storage_size,
                               ws_cache_idx.data(), unique_idx,
                               d_num_selected_out.data(), n_ws, stream);
-    MLCommon::updateHost(n_unique, d_num_selected_out.data(), 1, stream);
+    raft::update_host(n_unique, d_num_selected_out.data(), 1, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
   }
 };

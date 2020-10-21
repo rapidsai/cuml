@@ -14,10 +14,7 @@
 # limitations under the License.
 #
 
-# cython: profile=False
 # distutils: language = c++
-# cython: embedsignature = True
-# cython: language_level = 3
 
 import cudf
 import cuml
@@ -32,11 +29,11 @@ import cupy
 
 import numba.cuda as cuda
 
-from cupy.sparse import csr_matrix as cp_csr_matrix,\
+from cupyx.scipy.sparse import csr_matrix as cp_csr_matrix,\
     coo_matrix as cp_coo_matrix, csc_matrix as cp_csc_matrix
 
 from cuml.common.base import Base
-from cuml.common.handle cimport cumlHandle
+from cuml.raft.common.handle cimport handle_t
 from cuml.common.doc_utils import generate_docstring
 from cuml.common.input_utils import input_to_cuml_array
 from cuml.common.memory_utils import with_cupy_rmm
@@ -53,7 +50,6 @@ from libc.stdlib cimport calloc, malloc, free
 
 from libcpp.memory cimport shared_ptr
 
-cimport cuml.common.handle
 cimport cuml.common.cuda
 
 
@@ -96,7 +92,7 @@ cdef extern from "cuml/manifold/umapparams.h" namespace "ML":
 
 
 cdef extern from "cuml/manifold/umap.hpp" namespace "ML":
-    void fit(cumlHandle & handle,
+    void fit(handle_t & handle,
              float * X,
              int n,
              int d,
@@ -105,7 +101,7 @@ cdef extern from "cuml/manifold/umap.hpp" namespace "ML":
              UMAPParams * params,
              float * embeddings) except +
 
-    void fit(cumlHandle & handle,
+    void fit(handle_t & handle,
              float * X,
              float * y,
              int n,
@@ -115,7 +111,7 @@ cdef extern from "cuml/manifold/umap.hpp" namespace "ML":
              UMAPParams * params,
              float * embeddings) except +
 
-    void transform(cumlHandle & handle,
+    void transform(handle_t & handle,
                    float * X,
                    int n,
                    int d,
@@ -211,6 +207,13 @@ class UMAP(Base):
         More specific parameters controlling the embedding. If None these
         values are set automatically as determined by ``min_dist`` and
         ``spread``.
+    handle : cuml.Handle
+        Specifies the cuml.handle that holds internal CUDA state for
+        computations in this model. Most importantly, this specifies the CUDA
+        stream that will be used for the model's computations, so users can
+        run different models concurrently in different streams by creating
+        handles in several streams.
+        If it is None, a new one is created.
     hash_input: bool, optional (default = False)
         UMAP can hash the training input so that exact embeddings
         are returned when transform is called on the same data upon
@@ -256,8 +259,14 @@ class UMAP(Base):
                 def on_train_end(self, embeddings):
                     print(embeddings.copy_to_host())
 
-    verbose : int or boolean (default = False)
-        Controls verbosity of logging.
+    verbose : int or boolean, default=False
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        See :ref:`verbosity-levels` for more info.
+    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
+        Variable to control output type of the results and attributes of
+        the estimator. If None, it'll inherit the output type set at the
+        module level, `cuml.global_output_type`.
+        See :ref:`output-data-type-configuration` for more info.
 
     Notes
     -----
@@ -345,14 +354,23 @@ class UMAP(Base):
         self.target_weights = target_weights
 
         self.multicore_implem = random_state is None
-        if isinstance(random_state, np.random.RandomState):
-            rs = random_state
+
+        # Check to see if we are already a random_state (type==np.uint64).
+        # Reuse this if already passed (can happen from get_params() of another
+        # instance)
+        if isinstance(random_state, np.uint64):
+            self.random_state = random_state
         else:
-            rs = np.random.RandomState(random_state)
-        self.random_state = <uint64_t> rs.randint(low=0,
-                                                  high=np.iinfo(
-                                                      np.uint64).max,
-                                                  dtype=np.uint64)
+            # Otherwise create a RandomState instance to generate a new
+            # np.uint64
+            if isinstance(random_state, np.random.RandomState):
+                rs = random_state
+            else:
+                rs = np.random.RandomState(random_state)
+
+            self.random_state = rs.randint(low=0,
+                                           high=np.iinfo(np.uint64).max,
+                                           dtype=np.uint64)
 
         if target_metric == "euclidean" or target_metric == "categorical":
             self.target_metric = target_metric
@@ -450,7 +468,7 @@ class UMAP(Base):
             csc_matrix = DummyClass
 
         if isinstance(knn_graph, (csc_matrix, cp_csc_matrix)):
-            knn_graph = cupy.sparse.csr_matrix(knn_graph)
+            knn_graph = cp_csr_matrix(knn_graph)
             n_samples = knn_graph.shape[0]
             reordering = knn_graph.data.reshape((n_samples, -1))
             reordering = reordering.argsort()
@@ -518,8 +536,6 @@ class UMAP(Base):
             Acceptable formats: sparse SciPy ndarray, CuPy device ndarray,
             CSR/COO preferred other formats will go through conversion to CSR
         """
-        self._set_n_features_in(X)
-
         if len(X.shape) != 2:
             raise ValueError("data should be two dimensional")
 
@@ -538,7 +554,7 @@ class UMAP(Base):
             raise ValueError("There needs to be more than 1 sample to "
                              "build nearest the neighbors graph")
 
-        self._set_output_type(X)
+        self._set_base_attributes(output_type=X, n_features=X)
 
         (knn_indices_m, knn_indices_ctype), (knn_dists_m, knn_dists_ctype) =\
             self._extract_knn_graph(knn_graph, convert_dtype)
@@ -555,8 +571,8 @@ class UMAP(Base):
         if self.hash_input:
             self.input_hash = joblib.hash(self._X_m.to_output('numpy'))
 
-        cdef cumlHandle * handle_ = \
-            <cumlHandle*> <size_t> self.handle.getHandle()
+        cdef handle_t * handle_ = \
+            <handle_t*> <size_t> self.handle.getHandle()
 
         cdef uintptr_t x_raw = self._X_m.ptr
         cdef uintptr_t embed_raw = self._embedding_.ptr
@@ -616,8 +632,7 @@ class UMAP(Base):
         and calling fit().transform(). Calling fit_transform(X) will
         train the embeddings on X and return the embeddings. Calling
         fit(X).transform(X) will train the embeddings on X and then
-        run a second optimization
-        return the embedding after it is trained while calling
+        run a second optimization.
 
         Parameters
         ----------
@@ -727,8 +742,8 @@ class UMAP(Base):
         cdef uintptr_t knn_indices_raw = knn_indices_ctype or 0
         cdef uintptr_t knn_dists_raw = knn_dists_ctype or 0
 
-        cdef cumlHandle * handle_ = \
-            <cumlHandle*> <size_t> self.handle.getHandle()
+        cdef handle_t * handle_ = \
+            <handle_t*> <size_t> self.handle.getHandle()
 
         cdef uintptr_t orig_x_raw = self._X_m.ptr
         cdef uintptr_t embed_ptr = self._embedding_.ptr
@@ -755,3 +770,28 @@ class UMAP(Base):
         ret = embedding.to_output(out_type)
         del X_m
         return ret
+
+    def get_param_names(self):
+        return super().get_param_names() + [
+            "n_neighbors",
+            "n_components",
+            "n_epochs",
+            "learning_rate",
+            "min_dist",
+            "spread",
+            "set_op_mix_ratio",
+            "local_connectivity",
+            "repulsion_strength",
+            "negative_sample_rate",
+            "transform_queue_size",
+            "init",
+            "a",
+            "b",
+            "target_n_neighbors",
+            "target_weights",
+            "target_metric",
+            "hash_input",
+            "random_state",
+            "optim_batch_size",
+            "callback",
+        ]

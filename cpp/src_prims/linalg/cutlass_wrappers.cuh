@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <common/cudart_utils.h>
 #include <cublas_v2.h>
 #include <cutlass/coord.h>
 #include <cutlass/fragment_multiply_add.h>
@@ -26,8 +27,8 @@
 #include <cutlass/gemm/linear_scaling.h>
 #include <cutlass/gemm/thread_multiply_add.h>
 #include <cutlass/util/platform.h>
+#include <raft/linalg/cublas_wrappers.h>
 #include <cuda_utils.cuh>
-#include "cublas_wrappers.h"
 
 namespace MLCommon {
 namespace LinAlg {
@@ -347,8 +348,8 @@ struct CustomGemm : public BaseClass {
                      cudaStream_t stream) {
     // Setup the grid.
     dim3 grid;
-    grid.x = ceildiv<int>(params.m, Traits::OutputTile::kW);
-    grid.y = ceildiv<int>(params.n, Traits::OutputTile::kH);
+    grid.x = raft::ceildiv<int>(params.m, Traits::OutputTile::kW);
+    grid.y = raft::ceildiv<int>(params.n, Traits::OutputTile::kH);
     // The number of threads.
     dim3 block;
     block.x = BaseClass::kThreads;

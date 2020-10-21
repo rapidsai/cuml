@@ -75,8 +75,8 @@ class RfClassifierDepthTest : public ::testing::TestWithParam<int> {
                       params.rows_sample, -1, params.n_streams, tree_params);
 
     int data_len = params.n_rows * params.n_cols;
-    allocate(data, data_len);
-    allocate(labels, params.n_rows);
+    raft::allocate(data, data_len);
+    raft::allocate(labels, params.n_rows);
 
     cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
@@ -90,7 +90,7 @@ class RfClassifierDepthTest : public ::testing::TestWithParam<int> {
         data_h[row + col * params.n_rows] = d(gen);
       }
     }
-    updateDevice(data, data_h.data(), data_len, stream);
+    raft::update_device(data, data_h.data(), data_len, stream);
 
     // Populate labels
     labels_h.resize(params.n_rows);
@@ -100,13 +100,13 @@ class RfClassifierDepthTest : public ::testing::TestWithParam<int> {
          0.5);
     }
     preprocess_labels(params.n_rows, labels_h, labels_map);
-    updateDevice(labels, labels_h.data(), params.n_rows, stream);
+    raft::update_device(labels, labels_h.data(), params.n_rows, stream);
 
     forest = new typename ML::RandomForestMetaData<T, int>;
     null_trees_ptr(forest);
 
-    cumlHandle handle(rf_params.n_streams);
-    handle.setStream(stream);
+    raft::handle_t handle(rf_params.n_streams);
+    handle.set_stream(stream);
 
     fit(handle, forest, data, params.n_rows, params.n_cols, labels,
         labels_map.size(), rf_params);
@@ -167,8 +167,8 @@ class RfRegressorDepthTest : public ::testing::TestWithParam<int> {
                       params.rows_sample, -1, params.n_streams, tree_params);
 
     int data_len = params.n_rows * params.n_cols;
-    allocate(data, data_len);
-    allocate(labels, params.n_rows);
+    raft::allocate(data, data_len);
+    raft::allocate(labels, params.n_rows);
 
     cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
@@ -182,7 +182,7 @@ class RfRegressorDepthTest : public ::testing::TestWithParam<int> {
         data_h[row + col * params.n_rows] = d(gen);
       }
     }
-    updateDevice(data, data_h.data(), data_len, stream);
+    raft::update_device(data, data_h.data(), data_len, stream);
 
     // Populate labels
     labels_h.resize(params.n_rows);
@@ -190,13 +190,13 @@ class RfRegressorDepthTest : public ::testing::TestWithParam<int> {
       labels_h[row] =
         (data_h[row + 2 * params.n_rows] * data_h[row + 3 * params.n_rows]);
     }
-    updateDevice(labels, labels_h.data(), params.n_rows, stream);
+    raft::update_device(labels, labels_h.data(), params.n_rows, stream);
 
     forest = new typename ML::RandomForestMetaData<T, T>;
     null_trees_ptr(forest);
 
-    cumlHandle handle(rf_params.n_streams);
-    handle.setStream(stream);
+    raft::handle_t handle(rf_params.n_streams);
+    handle.set_stream(stream);
 
     fit(handle, forest, data, params.n_rows, params.n_cols, labels, rf_params);
 

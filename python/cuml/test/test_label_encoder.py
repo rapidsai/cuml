@@ -147,3 +147,23 @@ def test_empty_input(empty, ord_label):
     transformed = le.fit_transform(empty)
     assert(le._fitted is True)
     assert(len(transformed) == 0)
+
+
+def test_masked_encode():
+    int_values = [3, 1, 1, 2, 1, 1, 1, 1, 6, 5]
+    cat_values = ['a', 'd', 'b', 'c', 'd', 'd', 'd', 'c', 'b', 'c']
+    df = cudf.DataFrame({"filter_col": int_values,
+                         "cat_col": cat_values})
+
+    df_filter = df[df["filter_col"] == 1]
+    df_filter["cat_col"] = LabelEncoder().fit_transform(df_filter["cat_col"])
+
+    filtered_int_values = [int_values[i] for i in range(len(int_values))
+                           if int_values[i] == 1]
+    filtered_cat_values = [cat_values[i] for i in range(len(int_values))
+                           if int_values[i] == 1]
+    df_test = cudf.DataFrame({"filter_col": filtered_int_values,
+                              "cat_col": filtered_cat_values})
+    df_test["cat_col"] = LabelEncoder().fit_transform(df_test["cat_col"])
+
+    assert(df_filter["cat_col"].values == df_test["cat_col"].values).all()

@@ -63,14 +63,14 @@ class silhouetteScoreTest
 
     //allocating and initializing memory to the GPU
     CUDA_CHECK(cudaStreamCreate(&stream));
-    MLCommon::allocate(d_X, nElements, true);
-    MLCommon::allocate(d_labels, nElements, true);
-    MLCommon::allocate(sampleSilScore, nElements);
+    raft::allocate(d_X, nElements, true);
+    raft::allocate(d_labels, nElements, true);
+    raft::allocate(sampleSilScore, nElements);
 
-    MLCommon::updateDevice(d_X, &h_X[0], (int)nElements, stream);
-    MLCommon::updateDevice(d_labels, &h_labels[0], (int)nElements, stream);
+    raft::update_device(d_X, &h_X[0], (int)nElements, stream);
+    raft::update_device(d_labels, &h_labels[0], (int)nElements, stream);
     std::shared_ptr<MLCommon::deviceAllocator> allocator(
-      new defaultDeviceAllocator);
+      new raft::mr::device::default_allocator);
 
     //finding the distance matrix
 
@@ -85,8 +85,8 @@ class silhouetteScoreTest
 
     CUDA_CHECK(cudaStreamSynchronize(stream));
 
-    MLCommon::updateHost(h_distanceMatrix, d_distanceMatrix.data(),
-                         nRows * nRows, stream);
+    raft::update_host(h_distanceMatrix, d_distanceMatrix.data(), nRows * nRows,
+                      stream);
 
     //finding the bincount array
 

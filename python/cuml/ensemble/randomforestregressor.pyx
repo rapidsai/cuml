@@ -14,10 +14,7 @@
 # limitations under the License.
 #
 
-# cython: profile=False
 # distutils: language = c++
-# cython: embedsignature = True
-# cython: language_level = 3
 
 import numpy as np
 import rmm
@@ -31,7 +28,7 @@ from cuml.common.array import CumlArray
 from cuml.common.base import RegressorMixin
 from cuml.common.doc_utils import generate_docstring
 from cuml.common.doc_utils import insert_into_docstring
-from cuml.common.handle import Handle
+from cuml.raft.common.handle import Handle
 from cuml.common import input_to_cuml_array, rmm_cupy_ary
 
 from cuml.ensemble.randomforest_common import BaseRandomForestModel
@@ -49,8 +46,7 @@ from libc.stdlib cimport calloc, malloc, free
 
 from numba import cuda
 
-from cuml.common.handle cimport cumlHandle
-cimport cuml.common.handle
+from cuml.raft.common.handle cimport handle_t
 cimport cuml.common.cuda
 
 cimport cython
@@ -58,7 +54,7 @@ cimport cython
 
 cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
 
-    cdef void fit(cumlHandle& handle,
+    cdef void fit(handle_t& handle,
                   RandomForestMetaData[float, float]*,
                   float*,
                   int,
@@ -67,7 +63,7 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
                   RF_params,
                   int) except +
 
-    cdef void fit(cumlHandle& handle,
+    cdef void fit(handle_t& handle,
                   RandomForestMetaData[double, double]*,
                   double*,
                   int,
@@ -76,7 +72,7 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
                   RF_params,
                   int) except +
 
-    cdef void predict(cumlHandle& handle,
+    cdef void predict(handle_t& handle,
                       RandomForestMetaData[float, float] *,
                       float*,
                       int,
@@ -84,7 +80,7 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
                       float*,
                       int) except +
 
-    cdef void predict(cumlHandle& handle,
+    cdef void predict(handle_t& handle,
                       RandomForestMetaData[double, double]*,
                       double*,
                       int,
@@ -92,14 +88,14 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
                       double*,
                       int) except +
 
-    cdef RF_metrics score(cumlHandle& handle,
+    cdef RF_metrics score(handle_t& handle,
                           RandomForestMetaData[float, float]*,
                           float*,
                           int,
                           float*,
                           int) except +
 
-    cdef RF_metrics score(cumlHandle& handle,
+    cdef RF_metrics score(handle_t& handle,
                           RandomForestMetaData[double, double]*,
                           double*,
                           int,
@@ -142,7 +138,7 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
         y = np.asarray([0.0,1.0,2.0,3.0], dtype=np.float32)
         cuml_model = curfc(max_features=1.0, n_bins=8,
                             split_algo=0, min_rows_per_node=2,
-                            n_estimators=40, accuracy_metric='mse')
+                            n_estimators=40, accuracy_metric='r2')
         cuml_model.fit(X,y)
         cuml_score = cuml_model.score(X,y)
         print("MSE score of cuml : ", cuml_score)
@@ -157,8 +153,6 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
     -----------
     n_estimators : int (default = 100)
         Number of trees in the forest. (Default changed to 100 in cuML 0.11)
-    handle : cuml.Handle
-        If it is None, a new one is created just for this class.
     split_algo : int (default = 1)
         The algorithm to determine how nodes are split in the tree.
         0 for HIST and 1 for GLOBAL_QUANTILE. HIST curently uses a slower
@@ -203,27 +197,65 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
         If float the min_rows_per_sample*n_rows
     min_impurity_decrease : float (default = 0.0)
         The minimum decrease in impurity required for node to be split
-    accuracy_metric : string (default = 'mse')
+    accuracy_metric : string (default = 'r2')
         Decides the metric used to evaluate the performance of the model.
+        In the 0.16 release, the default scoring metric was changed
+        from mean squared error to r-squared.
+        for r-squared : 'r2'
         for median of abs error : 'median_ae'
         for mean of abs error : 'mean_ae'
         for mean square error' : 'mse'
     quantile_per_tree : boolean (default = False)
         Whether quantile is computed for individal trees in RF.
         Only relevant for GLOBAL_QUANTILE split_algo.
-    seed : int (default = None)
+    use_experimental_backend : boolean (default = False)
+        If set to true and  following conditions are also met, experimental
+         decision tree training implementation would be used:
+            split_algo = 1 (GLOBAL_QUANTILE)
+            0 < max_depth < 14
+            max_features = 1.0 (Feature sub-sampling disabled)
+            quantile_per_tree = false (No per tree quantile computation)
+    max_batch_size: int (default = 128)
+        Maximum number of nodes that can be processed in a given batch. This is
+        used only when 'use_experimental_backend' is true.
+    random_state : int (default = None)
         Seed for the random number generator. Unseeded by default. Does not
         currently fully guarantee the exact same results.
+    seed : int (default = None)
+        Deprecated in favor of `random_state`.
+        Seed for the random number generator. Unseeded by default. Does not
+        currently fully guarantee the exact same results.
+    handle : cuml.Handle
+        Specifies the cuml.handle that holds internal CUDA state for
+        computations in this model. Most importantly, this specifies the CUDA
+        stream that will be used for the model's computations, so users can
+        run different models concurrently in different streams by creating
+        handles in several streams.
+        If it is None, a new one is created.
+    verbose : int or boolean, default=False
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        See :ref:`verbosity-levels` for more info.
+    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
+        Variable to control output type of the results and attributes of
+        the estimator. If None, it'll inherit the output type set at the
+        module level, `cuml.global_output_type`.
+        See :ref:`output-data-type-configuration` for more info.
 
     """
 
     def __init__(self, split_criterion=2,
-                 accuracy_metric='mse',
+                 accuracy_metric='r2',
+                 handle=None,
+                 verbose=False,
+                 output_type=None,
                  **kwargs):
         self.RF_type = REGRESSION
         super(RandomForestRegressor, self).__init__(
             split_criterion=split_criterion,
             accuracy_metric=accuracy_metric,
+            handle=handle,
+            verbose=verbose,
+            output_type=output_type,
             **kwargs)
     """
     TODO:
@@ -381,8 +413,8 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
         X_ptr = X_m.ptr
         y_ptr = y_m.ptr
 
-        cdef cumlHandle* handle_ =\
-            <cumlHandle*><uintptr_t>self.handle.getHandle()
+        cdef handle_t* handle_ =\
+            <handle_t*><uintptr_t>self.handle.getHandle()
 
         cdef RandomForestMetaData[float, float] *rf_forest = \
             new RandomForestMetaData[float, float]()
@@ -390,10 +422,10 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
         cdef RandomForestMetaData[double, double] *rf_forest64 = \
             new RandomForestMetaData[double, double]()
         self.rf_forest64 = <uintptr_t> rf_forest64
-        if self.seed is None:
+        if self.random_state is None:
             seed_val = <uintptr_t>NULL
         else:
-            seed_val = <uintptr_t>self.seed
+            seed_val = <uintptr_t>self.random_state
 
         rf_params = set_rf_class_obj(<int> self.max_depth,
                                      <int> self.max_leaves,
@@ -409,7 +441,9 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
                                      <int> seed_val,
                                      <CRITERION> self.split_criterion,
                                      <bool> self.quantile_per_tree,
-                                     <int> self.n_streams)
+                                     <int> self.n_streams,
+                                     <bool> self.use_experimental_backend,
+                                     <int> self.max_batch_size)
 
         if self.dtype == np.float32:
             fit(handle_[0],
@@ -451,8 +485,8 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
         preds = CumlArray.zeros(n_rows, dtype=dtype)
         cdef uintptr_t preds_ptr = preds.ptr
 
-        cdef cumlHandle* handle_ =\
-            <cumlHandle*><uintptr_t>self.handle.getHandle()
+        cdef handle_t* handle_ =\
+            <handle_t*><uintptr_t>self.handle.getHandle()
 
         cdef RandomForestMetaData[float, float] *rf_forest = \
             <RandomForestMetaData[float, float]*><uintptr_t> self.rf_forest
@@ -557,6 +591,8 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
               fil_sparse_format='auto', predict_model="GPU"):
         """
         Calculates the accuracy metric score of the model for X.
+        In the 0.16 release, the default scoring metric was changed
+        from mean squared error to r-squared.
 
         Parameters
         ----------
@@ -595,6 +631,8 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
         median_abs_error : float or
         mean_abs_error : float
         """
+        from cuml.metrics.regression import r2_score
+
         cdef uintptr_t y_ptr
         _, n_rows, _, dtype = \
             input_to_cuml_array(X,
@@ -615,8 +653,16 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
             input_to_cuml_array(preds, convert_to_dtype=dtype)
         preds_ptr = preds_m.ptr
 
-        cdef cumlHandle* handle_ =\
-            <cumlHandle*><uintptr_t>self.handle.getHandle()
+        # shortcut for default accuracy metric of r^2
+        if self.accuracy_metric == "r2":
+            stats = r2_score(y_m, preds, handle=self.handle)
+            self.handle.sync()
+            del(y_m)
+            del(preds_m)
+            return stats
+
+        cdef handle_t* handle_ =\
+            <handle_t*><uintptr_t>self.handle.getHandle()
 
         cdef RandomForestMetaData[float, float] *rf_forest = \
             <RandomForestMetaData[float, float]*><uintptr_t> self.rf_forest
@@ -652,27 +698,6 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
         del(preds_m)
         return stats
 
-    def get_params(self, deep=True):
-        """
-        Returns the value of all parameters
-        required to configure this estimator as a dictionary.
-        Parameters
-        -----------
-        deep : boolean (default = True)
-        """
-        return self._get_params(deep=deep)
-
-    def set_params(self, **params):
-        """
-        Sets the value of parameters required to
-        configure this estimator, it functions similar to
-        the sklearn set_params.
-        Parameters
-        -----------
-        params : dict of new params
-        """
-        return self._set_params(**params)
-
     def print_summary(self):
         """
         Prints the summary of the forest used to train and test the model
@@ -703,3 +728,17 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
             print_rf_detailed(rf_forest64)
         else:
             print_rf_detailed(rf_forest)
+
+    def dump_as_json(self):
+        """
+        Dump (export) the Random Forest model as a JSON string
+        """
+        cdef RandomForestMetaData[float, float] *rf_forest = \
+            <RandomForestMetaData[float, float]*><uintptr_t> self.rf_forest
+
+        cdef RandomForestMetaData[double, double] *rf_forest64 = \
+            <RandomForestMetaData[double, double]*><uintptr_t> self.rf_forest64
+
+        if self.dtype == np.float64:
+            return dump_rf_as_json(rf_forest64)
+        return dump_rf_as_json(rf_forest)

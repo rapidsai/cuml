@@ -65,7 +65,7 @@ struct L2FusedDistance {
                                      ColElement_ const &col_elem,
                                      RowElement_ const &row_elem) {
     accum = col_elem + row_elem - 2 * accum;
-    accum = enable_sqrt_ ? mySqrt(accum) : accum;
+    accum = enable_sqrt_ ? raft::mySqrt(accum) : accum;
   }
 };
 
@@ -103,7 +103,7 @@ struct UnexpandedDistanceFragmentMultiplyAdd {
         d[j] += b[j * kReduction + k];
       }
       if (index[j] != -1) {
-        d[j] = enable_sqrt_ ? mySqrt(d[j]) : d[j];
+        d[j] = enable_sqrt_ ? raft::mySqrt(d[j]) : d[j];
         d[j] = fin_op(d[j], index[j]);
       }
     }
