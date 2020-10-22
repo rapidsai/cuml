@@ -22,7 +22,7 @@ import numpy as np
 from cudf.core import Buffer
 from cudf.core import DataFrame
 from cudf.core import Series
-from cuml.common.array_outputable import ArrayOutputable
+# from cuml.common.array_outputable import ArrayOutputable
 from cuml.common.memory_utils import _get_size_from_shape
 from cuml.common.memory_utils import _order_to_strides
 from cuml.common.memory_utils import _strides_to_order
@@ -55,7 +55,7 @@ def _increment_malloc(nbytes: int):
 
 
 @class_with_cupy_rmm(ignore_pattern=["serialize"])
-class CumlArray(Buffer, ArrayOutputable):
+class CumlArray(Buffer):
 
     """
     Array represents an abstracted array allocation. It can be instantiated by

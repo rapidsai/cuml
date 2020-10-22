@@ -28,7 +28,7 @@ import cuml.common.array_sparse
 import cuml.common.base
 import cuml.common.input_utils
 import rmm
-from cuml.common.array_outputable import ArrayOutputable
+# from cuml.common.array_outputable import ArrayOutputable
 from cuml.common.input_utils import determine_array_type
 from cuml.common.input_utils import is_array_like
 
@@ -139,7 +139,7 @@ class InternalAPIContext(contextlib.ExitStack):
 
     def __exit__(self, *exc_details):
 
-        del self.call_stack[self._count]
+        # del self.call_stack[self._count]
 
         self._count -= 1
 
@@ -233,7 +233,7 @@ class InternalAPIContextBase(contextlib.ExitStack,
         # Enter the root context to know if we are the root cm
         self.is_root = self.enter_context(self.root_cm) == 1
 
-        self.root_cm.push_func(self._func)
+        # self.root_cm.push_func(self._func)
 
         # If we are the first, push any callbacks from the root into this CM
         # If we are not the first, this will have no effect
@@ -363,11 +363,11 @@ class ProcessReturnArray(ProcessReturn):
 
     def convert_to_outputtype(self, ret_val):
 
-        # TODO: Simple workaround for sparse arrays. Should not be released
-        if (not isinstance(ret_val, ArrayOutputable)):
-            assert False, \
-                "Must be array by this point. Obj: {}".format(ret_val)
-            return ret_val
+        # # TODO: Simple workaround for sparse arrays. Should not be released
+        # if (not isinstance(ret_val, ArrayOutputable)):
+        #     assert False, \
+        #         "Must be array by this point. Obj: {}".format(ret_val)
+        #     return ret_val
 
         assert (self._context.root_cm.output_type is not None
                 and self._context.root_cm.output_type != "mirror"
@@ -403,9 +403,9 @@ class ProcessReturnSparseArray(ProcessReturn):
 
     def convert_to_outputtype(self, ret_val):
 
-        # TODO: Simple workaround for sparse arrays. Should not be released
-        if (not isinstance(ret_val, ArrayOutputable)):
-            return ret_val
+        # # TODO: Simple workaround for sparse arrays. Should not be released
+        # if (not isinstance(ret_val, ArrayOutputable)):
+        #     return ret_val
 
         assert (self._context.root_cm.output_type is not None
                 and self._context.root_cm.output_type != "mirror"
@@ -558,13 +558,6 @@ def get_internal_context() -> InternalAPIContext:
         return InternalAPIContext()
 
     return global_output_type_data.root_cm
-
-
-def api_ignore(func: typing.Callable):
-
-    func.__dict__["__cuml_is_wrapped"] = True
-
-    return func
 
 
 class DecoratorMetaClass(type):
@@ -1150,6 +1143,13 @@ api_base_return_array_skipall = BaseReturnArrayDecorator(
     skip_get_output_type=True)
 api_base_return_generic_skipall = BaseReturnGenericDecorator(
     skip_get_output_type=True)
+
+
+def api_ignore(func: typing.Callable):
+
+    func.__dict__["__cuml_is_wrapped"] = True
+
+    return func
 
 
 @contextlib.contextmanager

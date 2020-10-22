@@ -15,7 +15,7 @@
 #
 import cupyx as cpx
 import numpy as np
-from cuml.common.array_outputable import ArrayOutputable
+# from cuml.common.array_outputable import ArrayOutputable
 from cuml.common.import_utils import has_scipy
 from cuml.common.memory_utils import class_with_cupy_rmm
 from cuml.common.logger import debug
@@ -27,7 +27,7 @@ if has_scipy():
 
 
 @class_with_cupy_rmm()
-class SparseCumlArray(ArrayOutputable):
+class SparseCumlArray():
     """
     SparseCumlArray abstracts sparse array allocations. This will
     accept either a Scipy or Cupy sparse array and construct CumlArrays

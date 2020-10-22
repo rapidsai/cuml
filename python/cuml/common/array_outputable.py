@@ -14,14 +14,15 @@
 # limitations under the License.
 #
 
-import typing
+# import typing
 
-
-@typing.runtime_checkable
-class ArrayOutputable(typing.Protocol):
-    """
-    Protocol class used to determine if a class can be converted to device
-    array-like objects
-    """
-    def to_output(self, output_type='cupy', output_dtype=None):
-        ...
+# TODO: (MDD) typing.runtime_checkable is only in python 3.8. Need to determine
+# if this is needed. For now, will work around it for 3.7
+# @typing.runtime_checkable
+# class ArrayOutputable(typing.Protocol):
+#     """
+#     Protocol class used to determine if a class can be converted to device
+#     array-like objects
+#     """
+#     def to_output(self, output_type='cupy', output_dtype=None):
+#         ...
