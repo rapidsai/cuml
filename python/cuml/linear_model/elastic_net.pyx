@@ -22,6 +22,7 @@ from cuml.common.doc_utils import generate_docstring
 from cuml.common.array import CumlArray
 from cuml.common.array_descriptor import CumlArrayDescriptor
 
+
 class ElasticNet(Base, RegressorMixin):
 
     """

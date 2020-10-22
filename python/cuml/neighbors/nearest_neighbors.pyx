@@ -287,8 +287,11 @@ class NearestNeighbors(Base):
                            return_values=[('dense', '(n_samples, n_features)'),
                                           ('dense',
                                            '(n_samples, n_features)')])
-    def kneighbors(self, X=None, n_neighbors=None, return_distance=True,
-                   convert_dtype=True) -> typing.Union[CumlArray, typing.Tuple[CumlArray, CumlArray]]:
+    def kneighbors(self,
+                   X=None,
+                   n_neighbors=None,
+                   return_distance=True,
+                   convert_dtype=True) -> typing.Union[CumlArray, typing.Tuple[CumlArray, CumlArray]]: # noqa
         """
         Query the GPU index for the k nearest neighbors of column vectors in X.
 
@@ -435,7 +438,10 @@ class NearestNeighbors(Base):
         return (D_ndarr, I_ndarr) if return_distance else I_ndarr
 
     @insert_into_docstring(parameters=[('dense', '(n_samples, n_features)')])
-    def kneighbors_graph(self, X=None, n_neighbors=None, mode='connectivity') -> SparseCumlArray:
+    def kneighbors_graph(self,
+                         X=None,
+                         n_neighbors=None,
+                         mode='connectivity') -> SparseCumlArray:
         """
         Find the k nearest neighbors of column vectors in X and return as
         a sparse matrix in CSR format.
@@ -493,12 +499,14 @@ class NearestNeighbors(Base):
         rowptr = cp.arange(0, n_nonzero + 1, n_neighbors)
 
         sparse_csr = cupyx.scipy.sparse.csr_matrix((distances,
-                                                   cp.ravel(
-                                                       cp.asarray(indices)),
-                                                   rowptr), shape=(n_samples,
-                                                   n_samples_fit))
+                                                    cp.ravel(
+                                                        cp.asarray(indices)),
+                                                    rowptr),
+                                                   shape=(n_samples,
+                                                          n_samples_fit))
 
         return sparse_csr
+
 
 @cuml.internals.api_return_sparse_array()
 def kneighbors_graph(X=None, n_neighbors=5, mode='connectivity', verbose=False,

@@ -37,6 +37,7 @@ cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics":
                    const int lower_class_range,
                    const int upper_class_range) except +
 
+
 @cuml.internals.api_return_generic()
 def _prepare_cluster_input(cluster) -> typing.Tuple[CumlArray, int, int, int]:
     """Helper function to avoid code duplication for clustering metrics."""
@@ -50,6 +51,7 @@ def _prepare_cluster_input(cluster) -> typing.Tuple[CumlArray, int, int, int]:
     upper_class_range = cp.max(cluster_m).item()
 
     return cluster_m, n_rows, lower_class_range, upper_class_range
+
 
 @cuml.internals.api_return_any()
 def cython_entropy(clustering, base=None, handle=None):

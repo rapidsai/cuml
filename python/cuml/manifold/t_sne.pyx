@@ -440,7 +440,6 @@ class TSNE(Base):
         Fit X into an embedded space and return that transformed output.
         """
         return self.fit(X, convert_dtype=convert_dtype)._transform(X)
-        
 
     def _transform(self, X) -> CumlArray:
         """
@@ -455,7 +454,6 @@ class TSNE(Base):
         del self.embedding_
 
         return data
-
 
     def __getstate__(self):
         state = self.__dict__.copy()

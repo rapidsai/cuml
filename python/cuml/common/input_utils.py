@@ -16,7 +16,6 @@
 
 import copy
 from collections import namedtuple
-from functools import wraps
 
 import cudf
 import cupy as cp
@@ -32,7 +31,6 @@ from cuml.common.logger import debug
 from cuml.common.memory_utils import ArrayInfo
 from cuml.common.memory_utils import _check_array_contiguity
 from cuml.common.memory_utils import with_cupy_rmm
-from pandas.core.algorithms import isin
 
 if has_scipy():
     import scipy.sparse
@@ -192,14 +190,14 @@ def is_array_like(X):
 
 @with_cupy_rmm
 def input_to_cuml_array(X,
-                                 order='F',
-                                 deepcopy=False,
-                                 check_dtype=False,
-                                 convert_to_dtype=False,
-                                 check_cols=False,
-                                 check_rows=False,
-                                 fail_on_order=False,
-                                 force_contiguous=True):
+                        order='F',
+                        deepcopy=False,
+                        check_dtype=False,
+                        convert_to_dtype=False,
+                        check_cols=False,
+                        check_rows=False,
+                        fail_on_order=False,
+                        force_contiguous=True):
     """
     Convert input X to CumlArray.
 
@@ -290,8 +288,8 @@ def input_to_cuml_array(X,
 
     if (isinstance(X, cudf.Series)):
         if X.null_count != 0:
-            raise ValueError("Error: cuDF Series has missing/null values, \
-                             which are not supported by cuML.")
+            raise ValueError("Error: cuDF Series has missing/null values, "
+                             "which are not supported by cuML.")
 
     # converting pandas to numpy before sending it to CumlArray
     if isinstance(X, pd.DataFrame) or isinstance(X, pd.Series):
@@ -323,8 +321,8 @@ def input_to_cuml_array(X,
 
         if force_contiguous or hasattr(X, "__array_interface__"):
             if not _check_array_contiguity(X):
-                debug("Non contiguous array or view detected, a \
-                      contiguous copy of the data will be done. ")
+                debug("Non contiguous array or view detected, a "
+                      "contiguous copy of the data will be done.")
                 # X = cp.array(X, order=order, copy=True)
                 make_copy = True
 
@@ -373,14 +371,6 @@ def input_to_cuml_array(X,
             raise ValueError("Expected " + str(check_rows) + " rows but got " +
                              str(n_rows) + " rows.")
 
-    # if order != 'K' and X_m.order != order:
-    #     if fail_on_order:
-    #         raise ValueError("Expected " + order_to_str(order) +
-    #                          " major order, but got the opposite.")
-    #     else:
-    #         debug("Expected " + order_to_str(order) + " major order, "
-    #               "but got the opposite. Converting data, this will "
-    #               "result in additional memory utilization.")
     if (check_order(X_m.order)):
         X_m = cp.array(X_m, copy=False, order=order)
         X_m = CumlArray(data=X_m)
@@ -388,6 +378,7 @@ def input_to_cuml_array(X,
     cuml.common.array._increment_from_array(determine_array_type(X))
 
     return cuml_array(array=X_m, n_rows=n_rows, n_cols=n_cols, dtype=X_m.dtype)
+
 
 def input_to_cupy_array(X,
                         order='F',
@@ -399,7 +390,8 @@ def input_to_cupy_array(X,
                         fail_on_order=False,
                         force_contiguous=True) -> cuml_array:
     """
-    Identical to input_to_cuml_array but it returns a cupy array instead of CumlArray
+    Identical to input_to_cuml_array but it returns a cupy array instead of
+    CumlArray
     """
     out_data = input_to_cuml_array(X,
                                    order=order,

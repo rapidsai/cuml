@@ -463,7 +463,6 @@ class QN(Base):
 
         return scores
 
-
     @generate_docstring(return_values={'name': 'preds',
                                        'type': 'dense',
                                        'description': 'Predicted values',

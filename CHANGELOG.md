@@ -11,6 +11,7 @@
 - PR #2906: Moving `linalg` decomp to RAFT namespaces
 - PR #2996: Removing the max_depth restriction for switching to the batched backend
 - PR #3004: Remove Single Process Multi GPU (SPMG) code
+- PR #3040: Improved Array Conversion with CumlArrayDescriptor and Decorators
 
 ## Bug Fixes
 - PR #2983: Fix seeding of KISS99 RNG

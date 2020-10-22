@@ -337,9 +337,11 @@ class OneHotEncoder(Base):
                 # If we exceed the max value, upconvert
                 if (max_value > np.iinfo(col_idx.dtype).max):
                     col_idx = col_idx.astype(np.min_scalar_type(max_value))
-                    logger.debug("Upconverting column: '{}', to dtype: '{}', \
-                            to support up to {} classes"                                                                                                                                                                                                                                                                                        .format(
-                        feature, np.min_scalar_type(max_value), max_value))
+                    logger.debug("Upconverting column: '{}', to dtype: '{}', "
+                                 "to support up to {} classes".format(
+                                     feature,
+                                     np.min_scalar_type(max_value),
+                                     max_value))
 
                 # increase indices to take previous features into account
                 col_idx += j
@@ -463,11 +465,10 @@ class OneHotEncoder(Base):
         return result
 
     def get_param_names(self):
-        return super().get_param_names() + \
-            [
-                "categories",
-                "drop",
-                "sparse",
-                "dtype",
-                "handle_unknown",
-            ]
+        return super().get_param_names() + [
+            "categories",
+            "drop",
+            "sparse",
+            "dtype",
+            "handle_unknown",
+        ]

@@ -311,8 +311,8 @@ class DBSCAN(Base):
                 min_index = cp.argmin(self.core_sample_indices_).item()
 
                 # Check for the case where there are no -1's
-                if (min_index == 0 and 
-                    self.core_sample_indices_[min_index].item() != -1):
+                if ((min_index == 0 and
+                     self.core_sample_indices_[min_index].item() != -1)):
                     # Nothing to delete. The array has no -1's
                     pass
                 else:

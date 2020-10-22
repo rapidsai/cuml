@@ -36,6 +36,7 @@ from cuml.ensemble.randomforest_shared cimport *
 from cuml.common import input_to_cuml_array
 from cuml.common.array_descriptor import CumlArrayDescriptor
 
+
 class BaseRandomForestModel(Base):
     _param_names = ['n_estimators', 'max_depth', 'handle',
                     'max_features', 'n_bins',
@@ -232,8 +233,10 @@ class BaseRandomForestModel(Base):
         self.treelite_handle = <uintptr_t> tl_handle
         return self.treelite_handle
 
-    @cuml.internals.api_base_return_generic(skip_set_output_type=False, skip_set_n_features_in=False, skip_get_output_type=True)
-    def _dataset_setup_for_fit(self, X, y, convert_dtype) -> typing.Tuple[CumlArray, CumlArray, float]:
+    @cuml.internals.api_base_return_generic(skip_set_output_type=False,
+                                            skip_set_n_features_in=False,
+                                            skip_get_output_type=True)
+    def _dataset_setup_for_fit(self, X, y, convert_dtype) -> typing.Tuple[CumlArray, CumlArray, float]: # noqa
         # Reset the old tree data for new fit call
         self._reset_forest_data()
 
@@ -313,7 +316,8 @@ class BaseRandomForestModel(Base):
 
     def _predict_model_on_gpu(self, X, algo, convert_dtype,
                               fil_sparse_format, threshold=0.5,
-                              output_class=False, predict_proba=False) -> CumlArray:
+                              output_class=False,
+                              predict_proba=False) -> CumlArray:
         _, n_rows, n_cols, dtype = \
             input_to_cuml_array(X, order='F',
                                 check_cols=self.n_cols)
@@ -428,7 +432,7 @@ def _obtain_fil_model(treelite_handle, depth,
 
     # Use output_type="input" to prevent an error
     fil_model = ForestInference(output_type="input")
-    
+
     tl_to_fil_model = \
         fil_model.load_using_treelite_handle(treelite_handle,
                                              output_class=output_class,

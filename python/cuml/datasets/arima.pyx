@@ -64,6 +64,7 @@ inp_to_dtype = {
     np.float64: np.float64
 }
 
+
 @cuml.internals.api_return_array()
 def make_arima(batch_size=1000, n_obs=100, order=(1, 1, 1),
                seasonal_order=(0, 0, 0, 0), intercept=False,

@@ -11,10 +11,6 @@ class CumlArrayDescriptorMeta:
     # The type for the input value. One of: _input_type_to_str
     input_type: str
 
-    # # Specifies the `output_dtype` argument when calling to_output. Use `None`
-    # # to use the same dtype as the input
-    # output_dtype: str = None
-
     # Dict containing values in different formats. One entry per type. Both the
     # input type and any cached converted types will be stored. Erased on set
     values: dict = field(default_factory=dict)
@@ -30,7 +26,7 @@ class CumlArrayDescriptorMeta:
         return self.values[self.input_type]
 
     def __getstate__(self):
-        # Need to only return the input_value from 
+        # Need to only return the input_value from
         return {
             "input_type": self.input_type,
             "input_value": self.get_input_value()
@@ -38,24 +34,24 @@ class CumlArrayDescriptorMeta:
 
     def __setstate__(self, d):
         self.input_type = d["input_type"]
-        self.values = {
-            self.input_type: d["input_value"]
-        }
+        self.values = {self.input_type: d["input_value"]}
+
 
 class CumlArrayDescriptor():
     '''Descriptor for a meter.'''
     def __set_name__(self, owner, name):
         self.name = name
 
-    def _get_meta(self, instance, throw_on_missing = False) -> CumlArrayDescriptorMeta:
+    def _get_meta(self,
+                  instance,
+                  throw_on_missing=False) -> CumlArrayDescriptorMeta:
 
         if (throw_on_missing):
             if (self.name not in instance.__dict__):
                 raise AttributeError()
 
         return instance.__dict__.setdefault(
-            self.name,
-            CumlArrayDescriptorMeta(input_type=None, values={}))
+            self.name, CumlArrayDescriptorMeta(input_type=None, values={}))
 
     def _to_output(self, instance, to_output_type, to_output_dtype=None):
 
@@ -78,7 +74,8 @@ class CumlArrayDescriptor():
         cuml_arr: CumlArray = existing.values["cuml"]
 
         # Do the conversion
-        output = cuml_arr.to_output(output_type=to_output_type, output_dtype=to_output_dtype)
+        output = cuml_arr.to_output(output_type=to_output_type,
+                                    output_dtype=to_output_dtype)
 
         # Cache the value
         existing.values[to_output_type] = output

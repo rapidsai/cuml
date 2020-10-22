@@ -38,15 +38,21 @@ _from_array_counts = _array_manager.dict()
 _malloc_nbytes = _array_manager.Value(int, 0)
 _malloc_count = _array_manager.Value(int, 0)
 
+
 def _increment_to_output(output_type: str):
-    _to_output_counts[output_type] = _to_output_counts.setdefault(output_type, 0) + 1
+    _to_output_counts[output_type] = _to_output_counts.setdefault(
+        output_type, 0) + 1
+
 
 def _increment_from_array(output_type: str):
-    _from_array_counts[output_type] = _from_array_counts.setdefault(output_type, 0) + 1
+    _from_array_counts[output_type] = _from_array_counts.setdefault(
+        output_type, 0) + 1
+
 
 def _increment_malloc(nbytes: int):
     _malloc_nbytes.set(_malloc_nbytes.get() + nbytes)
     _malloc_count.set(_malloc_count.get() + 1)
+
 
 @class_with_cupy_rmm(ignore_pattern=["serialize"])
 class CumlArray(Buffer, ArrayOutputable):
@@ -294,8 +300,8 @@ class CumlArray(Buffer, ArrayOutputable):
                 else:
                     raise ValueError('cuDF unsupported Array dtype')
             elif self.shape[1] > 1:
-                raise ValueError('Only single dimensional arrays can be \
-                                 transformed to cuDF Series. ')
+                raise ValueError('Only single dimensional arrays can be '
+                                 'transformed to cuDF Series. ')
             else:
                 if self.dtype not in [np.uint8, np.uint16, np.uint32,
                                       np.uint64, np.float16]:

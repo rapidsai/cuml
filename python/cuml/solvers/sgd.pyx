@@ -335,7 +335,7 @@ class SGD(Base):
         self.n_alpha = 1
 
         self.coef_ = CumlArray.zeros(self.n_cols,
-                                      dtype=self.dtype)
+                                     dtype=self.dtype)
         cdef uintptr_t coef_ptr = self.coef_.ptr
 
         cdef float c_intercept1

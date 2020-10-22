@@ -420,7 +420,7 @@ class KMeans(Base):
         return self.fit(X, sample_weight=sample_weight).labels_
 
     def _predict_labels_inertia(self, X, convert_dtype=False,
-                                sample_weight=None) -> typing.Tuple[CumlArray, 
+                                sample_weight=None) -> typing.Tuple[CumlArray,
                                                                     float]:
         """
         Predict the closest cluster each sample in X belongs to.

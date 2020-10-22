@@ -413,7 +413,9 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
     @generate_docstring(skip_parameters_heading=True,
                         y='dense_intdtype',
                         convert_dtype_cast='np.float32')
-    @cuml.internals.api_base_return_any(skip_set_output_type=True, skip_set_output_dtype=False, skip_set_n_features_in=True)
+    @cuml.internals.api_base_return_any(skip_set_output_type=True,
+                                        skip_set_output_dtype=False,
+                                        skip_set_n_features_in=True)
     def fit(self, X, y, convert_dtype=True):
         """
         Perform Random Forest Classification on the input data

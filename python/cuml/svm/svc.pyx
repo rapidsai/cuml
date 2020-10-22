@@ -344,9 +344,10 @@ class SVC(SVMBase, ClassifierMixin):
                 raise RuntimeError(
                     "Scikit-learn is needed to use SVM probabilities")
 
-            self.prob_svc = CalibratedClassifierCV(SVC(**params), cv=5,
-                                                    method='sigmoid')
-                
+            self.prob_svc = CalibratedClassifierCV(SVC(**params),
+                                                   cv=5,
+                                                   method='sigmoid')
+
             with cuml.internals.exit_internal_api():
                 self.prob_svc.fit(X, y)
             self._fit_status_ = 0

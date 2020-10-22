@@ -199,14 +199,14 @@ class SVMBase(Base):
         <https://github.com/Xtra-Computing/thundersvm>`_
 
     """
-    
+
     dual_coef_ = CumlArrayDescriptor()
     support_ = CumlArrayDescriptor()
     support_vectors_ = CumlArrayDescriptor()
     intercept_ = CumlArrayDescriptor()
     _internal_coef_ = CumlArrayDescriptor()
     _unique_labels_ = CumlArrayDescriptor()
-    
+
     def __init__(self, handle=None, C=1, kernel='rbf', degree=3,
                  gamma='auto', coef0=0.0, tol=1e-3, cache_size=200.0,
                  max_iter=-1, nochange_steps=1000, verbose=False,

@@ -300,7 +300,7 @@ class LogisticRegression(Base, ClassifierMixin):
         if logger.should_log_for(logger.level_trace):
             with cuml.using_output_type("cupy"):
                 logger.trace(self.verb_prefix + "Coefficients: " +
-                            str(self.solver_model.coef_))
+                             str(self.solver_model.coef_))
                 if self.fit_intercept:
                     logger.trace(
                         self.verb_prefix
@@ -368,7 +368,10 @@ class LogisticRegression(Base, ClassifierMixin):
             log_proba=True
         )
 
-    def _predict_proba_impl(self, X, convert_dtype=False, log_proba=False) -> CumlArray:
+    def _predict_proba_impl(self,
+                            X,
+                            convert_dtype=False,
+                            log_proba=False) -> CumlArray:
         # TODO:
         # We currently need to grab the dtype and ncols attributes via the
         # qn solver due to https://github.com/rapidsai/cuml/issues/2404

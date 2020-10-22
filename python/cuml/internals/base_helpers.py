@@ -15,12 +15,10 @@
 #
 
 import typing
-from dataclasses import dataclass
 
 import cuml
 import cuml.internals
 import cuml.common
-
 
 
 def _process_generic(gen_type):

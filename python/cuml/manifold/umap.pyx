@@ -466,12 +466,7 @@ class UMAP(Base):
     @cuml.internals.api_base_return_generic_skipall
     def _extract_knn_graph(self,
                            knn_graph,
-                           convert_dtype=True) -> typing.Tuple[
-                                                      typing.Tuple[CumlArray,
-                                                                   typing.Any],
-                                                      typing.Tuple[CumlArray,
-                                                                   typing.Any]
-                                                  ]:
+                           convert_dtype=True) -> typing.Tuple[typing.Tuple[CumlArray, typing.Any], typing.Tuple[CumlArray, typing.Any]]: # noqa
         if has_scipy():
             from scipy.sparse import csr_matrix, coo_matrix, csc_matrix
         else:
@@ -576,7 +571,7 @@ class UMAP(Base):
 
         self.embedding_ = CumlArray.zeros((self.n_rows,
                                            self.n_components),
-                                           order="C", dtype=np.float32)
+                                          order="C", dtype=np.float32)
 
         if self.hash_input:
             with cuml.using_output_type("numpy"):
@@ -671,7 +666,6 @@ class UMAP(Base):
         self.fit(X, y, convert_dtype=convert_dtype, knn_graph=knn_graph)
 
         return self.embedding_
-            
 
     @generate_docstring(convert_dtype_cast='np.float32',
                         skip_parameters_heading=True,

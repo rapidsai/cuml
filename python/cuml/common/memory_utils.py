@@ -36,6 +36,7 @@ except ImportError:
     except ImportError:
         pass
 
+
 @dataclass(frozen=True)
 class ArrayInfo:
     shape: tuple
@@ -57,7 +58,10 @@ class ArrayInfo:
             out_strides = interface['strides']
             out_order = _strides_to_order(out_strides, out_type)
 
-        return ArrayInfo(shape=out_shape, order=out_order, dtype=out_type, strides=out_strides)
+        return ArrayInfo(shape=out_shape,
+                         order=out_order,
+                         dtype=out_type,
+                         strides=out_strides)
 
 
 def with_cupy_rmm(func):
@@ -90,8 +94,10 @@ def with_cupy_rmm(func):
     return cupy_rmm_wrapper
 
 
-
-def class_with_cupy_rmm(skip_init=False, skip_private=True, skip_dunder=True, ignore_pattern: list=[]):
+def class_with_cupy_rmm(skip_init=False,
+                        skip_private=True,
+                        skip_dunder=True,
+                        ignore_pattern: list = []):
 
     regex_list = ignore_pattern
 
@@ -121,19 +127,25 @@ def class_with_cupy_rmm(skip_init=False, skip_private=True, skip_dunder=True, ig
 
             if callable(attribute):
 
-                # Passed the ignore patters. Wrap the function (will do nothing if already wrapped)
+                # Passed the ignore patters. Wrap the function (will do nothing
+                # if already wrapped)
                 setattr(klass, attributeName, with_cupy_rmm(attribute))
 
-            # Class/Static methods work differently since they are descriptors (and not callable). Instead unwrap the function, and rewrap it
+            # Class/Static methods work differently since they are descriptors
+            # (and not callable). Instead unwrap the function, and rewrap it
             elif (isinstance(attribute, classmethod)):
                 unwrapped = attribute.__func__
-                
-                setattr(klass, attributeName, classmethod(with_cupy_rmm(unwrapped)))
-            
+
+                setattr(klass,
+                        attributeName,
+                        classmethod(with_cupy_rmm(unwrapped)))
+
             elif (isinstance(attribute, staticmethod)):
                 unwrapped = attribute.__func__
-                
-                setattr(klass, attributeName, staticmethod(with_cupy_rmm(unwrapped)))
+
+                setattr(klass,
+                        attributeName,
+                        staticmethod(with_cupy_rmm(unwrapped)))
 
         return klass
 
@@ -222,13 +234,13 @@ def _strides_to_order(strides, dtype):
 def _order_to_strides(order, shape, dtype):
     itemsize = cp.dtype(dtype).itemsize
     if isinstance(shape, int):
-        return (itemsize,)
+        return (itemsize, )
 
     elif len(shape) == 0:
         return None
 
     elif len(shape) == 1:
-        return (itemsize,)
+        return (itemsize, )
 
     elif order == 'C':
         dim_minor = shape[1] * itemsize
@@ -254,7 +266,7 @@ def _get_size_from_shape(shape, dtype):
     itemsize = cp.dtype(dtype).itemsize
     if isinstance(shape, int):
         size = itemsize * shape
-        shape = (shape,)
+        shape = (shape, )
     elif isinstance(shape, tuple):
         size = functools.reduce(operator.mul, shape)
         size = size * itemsize
@@ -397,8 +409,8 @@ def set_global_output_type(output_type):
 
     if output_type not in ['numpy', 'cupy', 'cudf', 'numba', "input", None]:
         raise ValueError('Parameter output_type must be one of "series" ' +
-                                '"dataframe", cupy", "numpy", "numba" or "input')
-    
+                         '"dataframe", cupy", "numpy", "numba" or "input')
+
     cuml.global_output_type = output_type
 
 
@@ -484,25 +496,12 @@ def using_output_type(output_type):
         <class 'cupy.core.core.ndarray'>
 
     """
-    # if not(isinstance(output_type, str) or output_type is None):
-    #     raise ValueError('Parameter output_type must be one of "series" ' +
-    #                      '"dataframe", cupy", "numpy", "numba" or "input')
-    
-    # if (isinstance(output_type, str)):
-    #     output_type = output_type.lower()
-
-    # if output_type not in ['numpy', 'cupy', 'cudf', 'numba', "input", None]:
-    #     raise ValueError('Parameter output_type must be one of "series" ' +
-    #                             '"dataframe", cupy", "numpy", "numba" or "input')
-
     prev_output_type = cuml.global_output_type
     try:
         set_global_output_type(output_type)
-        # print("Set cuml.global_output_type: {}. Prev: {}".format(cuml.global_output_type, prev_output_type))
         yield prev_output_type
     finally:
         cuml.global_output_type = prev_output_type
-        # print("Restored cuml.global_output_type: {}. Prev: {}".format(cuml.global_output_type, output_type))
 
 
 @with_cupy_rmm

@@ -1,18 +1,15 @@
-import contextlib
-import typing
-from collections import deque
-
-import numpy as np
-import cupy as cp
-
-import cuml
 import cudf
-from cuml.common.input_utils import input_to_cuml_array, determine_array_type, determine_array_dtype, unsupported_cudf_dtypes
+import cuml
 import cuml.internals
+import cupy as cp
+import numpy as np
 import pytest
 from cuml.common.array import CumlArray
 from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.test.utils import array_equal
+from cuml.common.input_utils import determine_array_dtype
+from cuml.common.input_utils import determine_array_type
+from cuml.common.input_utils import input_to_cuml_array
+from cuml.common.input_utils import unsupported_cudf_dtypes
 
 test_input_types = ['numpy', 'numba', 'cupy', 'cudf']
 
@@ -285,7 +282,8 @@ def test_auto_fit(input_type, input_dtype, input_shape):
     def calc_n_features(shape):
         if (isinstance(shape, tuple) and len(shape) >= 1):
 
-            # When cudf and shape[1] is used, a series is created which will remove the last shape
+            # When cudf and shape[1] is used, a series is created which will
+            # remove the last shape
             if (input_type == "cudf" and shape[1] == 1):
                 return None
 
@@ -321,7 +319,8 @@ def test_auto_predict(input_type, base_output_type, global_output_type):
     # Test with output_type=base_output_type
     est = TestEstimator(output_type=base_output_type)
 
-    # With cuml.global_output_type == None, this should return the base_output_type
+    # With cuml.global_output_type == None, this should return the
+    # base_output_type
     X_out = est.predict(X_in)
 
     assert determine_array_type(X_out) == base_output_type

@@ -363,15 +363,15 @@ class PCA(Base):
     def _initialize_arrays(self, n_components, n_rows, n_cols):
 
         self.components_ = CumlArray.zeros((n_components, n_cols),
-                                            dtype=self.dtype)
+                                           dtype=self.dtype)
         self.explained_variance_ = CumlArray.zeros(n_components,
-                                                    dtype=self.dtype)
+                                                   dtype=self.dtype)
         self.explained_variance_ratio_ = CumlArray.zeros(n_components,
-                                                          dtype=self.dtype)
+                                                         dtype=self.dtype)
         self.mean_ = CumlArray.zeros(n_cols, dtype=self.dtype)
 
         self.singular_values_ = CumlArray.zeros(n_components,
-                                                 dtype=self.dtype)
+                                                dtype=self.dtype)
         self.noise_variance_ = CumlArray.zeros(1, dtype=self.dtype)
 
     def _sparse_fit(self, X):
@@ -518,8 +518,10 @@ class PCA(Base):
         # between types
 
         if self.whiten:
-            cp.multiply(self.components_, (1 / cp.sqrt(self.n_rows - 1)), out=self.components_)
-            cp.multiply(self.components_, self.singular_values_, out=self.components_)
+            cp.multiply(self.components_,
+                        (1 / cp.sqrt(self.n_rows - 1)), out=self.components_)
+            cp.multiply(self.components_,
+                        self.singular_values_, out=self.components_)
 
         X_inv = cp.dot(X, self.components_)
         cp.add(X_inv, self.mean_, out=X_inv)
@@ -616,14 +618,13 @@ class PCA(Base):
 
         return input_data
 
-    
     @cuml.internals.api_base_return_array_skipall
     def _sparse_transform(self, X) -> CumlArray:
 
         # NOTE: All intermediate calculations are done using cupy.ndarray and
         # then converted to CumlArray at the end to minimize conversions
         # between types
-        with cuml.using_output_type("cupy"): 
+        with cuml.using_output_type("cupy"):
 
             if self.whiten:
                 self.components_ *= cp.sqrt(self.n_rows - 1)

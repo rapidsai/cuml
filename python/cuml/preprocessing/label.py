@@ -16,7 +16,6 @@
 import cupy as cp
 import cupyx
 
-import cuml.internals
 from cuml import Base
 from cuml.common import CumlArray, has_scipy
 from cuml.common.array_descriptor import CumlArrayDescriptor
@@ -45,7 +44,7 @@ def label_binarize(y, classes, neg_label=0, pos_label=1,
         raise ValueError("Unseen classes encountered in input")
 
     row_ind = cp.arange(0, labels.shape[0], 1,
-                           dtype=y.dtype)
+                        dtype=y.dtype)
     col_ind, _ = make_monotonic(labels, classes, copy=True)
 
     # Convert from CumlArray to cupy
@@ -224,7 +223,6 @@ class LabelBinarizer(Base):
         arr : array with encoded labels
         """
         return self.fit(y).transform(y)
-
 
     def transform(self, y) -> CumlArray:
         """

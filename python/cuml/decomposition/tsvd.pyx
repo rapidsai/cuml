@@ -294,13 +294,13 @@ class TruncatedSVD(Base):
     def _initialize_arrays(self, n_components, n_rows, n_cols):
 
         self.components_ = CumlArray.zeros((n_components, n_cols),
-                                            dtype=self.dtype)
+                                           dtype=self.dtype)
         self.explained_variance_ = CumlArray.zeros(n_components,
-                                                    dtype=self.dtype)
+                                                   dtype=self.dtype)
         self.explained_variance_ratio_ = CumlArray.zeros(n_components,
-                                                          dtype=self.dtype)
+                                                         dtype=self.dtype)
         self.singular_values_ = CumlArray.zeros(n_components,
-                                                 dtype=self.dtype)
+                                                dtype=self.dtype)
 
     @generate_docstring()
     def fit(self, X, y=None) -> "TruncatedSVD":

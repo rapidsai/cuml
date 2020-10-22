@@ -365,13 +365,15 @@ class ProcessReturnArray(ProcessReturn):
 
         # TODO: Simple workaround for sparse arrays. Should not be released
         if (not isinstance(ret_val, ArrayOutputable)):
-            assert False, "Must be array by this point. Obj: {}".format(ret_val)
+            assert False, \
+                "Must be array by this point. Obj: {}".format(ret_val)
             return ret_val
 
         assert (self._context.root_cm.output_type is not None
                 and self._context.root_cm.output_type != "mirror"
                 and self._context.root_cm.output_type != "input"), \
-                "Invalid root_cm.output_type: '{}'.".format(self._context.root_cm.output_type)
+            ("Invalid root_cm.output_type: "
+             "'{}'.").format(self._context.root_cm.output_type)
 
         return ret_val.to_output(
             output_type=self._context.root_cm.output_type,

@@ -378,7 +378,7 @@ cdef class ForestInference_impl():
 
     def __dealloc__(self):
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
-        
+
         if self.forest_data !=NULL:
             free(handle_[0], self.forest_data)
 
@@ -525,14 +525,16 @@ class ForestInference(Base):
         return self._impl.predict(X, predict_proba=True, preds=None)
 
     def _predict_impl(self, X, output_type='numpy',
-                output_dtype=None, predict_proba=False, preds=None):
+                      output_dtype=None, predict_proba=False, preds=None):
         """
         Internal function to match signature of `ForestInference_impl.predict`
         """
 
-        return self._impl.predict(X, output_type=output_type,
-            output_dtype=output_dtype, predict_proba=predict_proba,
-            preds=preds)
+        return self._impl.predict(X,
+                                  output_type=output_type,
+                                  output_dtype=output_dtype,
+                                  predict_proba=predict_proba,
+                                  preds=preds)
 
     def load_from_treelite_model(self, model, output_class=False,
                                  algo='auto',

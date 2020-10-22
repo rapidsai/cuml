@@ -33,7 +33,6 @@ from scipy.sparse import isspmatrix_csr
 import sklearn
 import cuml
 from cuml.common import has_scipy
-from cuml.common.array import CumlArray
 
 
 def predict(neigh_ind, _y, n_neighbors):
@@ -150,7 +149,7 @@ def test_knn_separate_index_search(input_type, nrows, n_feats, k, metric):
     with cuml.using_output_type("numpy"):
         # Assert the cuml model was properly reverted
         np.testing.assert_allclose(knn_cu.X_m, X_orig,
-                                atol=1e-3, rtol=1e-3)
+                                   atol=1e-3, rtol=1e-3)
 
     if metric == 'braycurtis':
         diff = D_cuml_arr - D_sk
