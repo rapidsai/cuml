@@ -62,7 +62,6 @@ def checked_isinstance(obj, class_name_dot_separated):
 
     return ret
 
-
 # Set a bad cupy allocator that will fail if rmm.rmm_cupy_allocator is not used
 def bad_allocator(nbytes):
 
@@ -94,11 +93,24 @@ rmm.rmm_cupy_allocator = counting_rmm_allocator
 def pytest_configure(config):
     cp.cuda.set_allocator(counting_rmm_allocator)
 
-@pytest.fixture(scope="function")
-def cupy_allocator_fixture():
+@pytest.fixture(scope="function", autouse=True)
+def cupy_allocator_fixture(request):
 
     # Disable creating cupy arrays
-    cp.cuda.set_allocator(bad_allocator)
+    # cp.cuda.set_allocator(bad_allocator)
+    cp.cuda.set_allocator(counting_rmm_allocator)
+
+    yield
+
+    # Reset creating cupy arrays
+    cp.cuda.set_allocator(None)
+
+@pytest.fixture(scope="module", autouse=True)
+def cuml_memory_per_module_fixture(request):
+
+    # Disable creating cupy arrays
+    # cp.cuda.set_allocator(bad_allocator)
+    cp.cuda.set_allocator(counting_rmm_allocator)
 
     yield
 
@@ -198,32 +210,6 @@ def pytest_unconfigure(config):
         print(
             "See https://github.com/rapidsai/cuml/issues/2456#issuecomment-666106406"  # noqa
             " for more information on naming conventions")
-
-
-# This fixture will monkeypatch cuml.common.base.Base to check for incorrect
-# uses of CumlArray.
-@pytest.fixture(autouse=True)
-def fail_on_old_cuml_array_conversion(monkeypatch):
-
-    from cuml.common import CumlArray
-    from cuml.common.base import Base
-
-    saved_get_attr = Base.__getattr__
-
-    def patched__getattr__(self, name):
-
-        real_name = '_' + name
-
-        if real_name in self.__dict__.keys():
-
-            assert not isinstance(self.__dict__[real_name], CumlArray), \
-                "Old-style CumlArray conversion. Use CumlArrayDescriptor"
-
-        return saved_get_attr(self, name)
-
-    # Monkeypatch CumlArray.__setattr__ to test for incorrect uses of
-    # array-like objects
-    monkeypatch.setattr(Base, "__getattr__", patched__getattr__)
 
 
 # This fixture will monkeypatch cuml.common.base.Base to check for incorrect

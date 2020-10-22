@@ -298,7 +298,8 @@ class ProcessEnterBaseReturnArray(ProcessEnterReturnArray,
         # `root_cm.output_type` is None. Since we default to using the incoming
         # value if its set, there is no need to do any processing if the user
         # has specified the output type
-        if (self._context.root_cm.output_type is None):
+        if (self._context.root_cm.prev_output_type is None
+                or self._context.root_cm.prev_output_type == "input"):
             self._process_enter_cbs.append(self.base_output_type_callback)
 
     def base_output_type_callback(self):
@@ -309,7 +310,10 @@ class ProcessEnterBaseReturnArray(ProcessEnterReturnArray,
             output_type = (root_cm.output_type if root_cm.output_type
                            is not None else root_cm.prev_output_type)
 
-            # assert output_type == root_cm.output_type, "MD: Check to see if we can revert to root_cm.output_type always" # noqa
+            # TODO: (MDD) Determine why this fails only when all tests are run
+            # and not when just a single test is run
+            assert output_type == root_cm.output_type, \
+                "MDD: Unclear why this is necessary. Calculated output_type: {}, root_cm.output_type: {}, root_cm.prev_output_type: {}".format(output_type, root_cm.output_type, root_cm.prev_output_type) # noqa
 
             # Check if output_type is None, can happen if no output type has
             # been set by estimator
@@ -361,11 +365,13 @@ class ProcessReturnArray(ProcessReturn):
 
         # TODO: Simple workaround for sparse arrays. Should not be released
         if (not isinstance(ret_val, ArrayOutputable)):
+            assert False, "Must be array by this point. Obj: {}".format(ret_val)
             return ret_val
 
         assert (self._context.root_cm.output_type is not None
                 and self._context.root_cm.output_type != "mirror"
-                and self._context.root_cm.output_type != "input")
+                and self._context.root_cm.output_type != "input"), \
+                "Invalid root_cm.output_type: '{}'.".format(self._context.root_cm.output_type)
 
         return ret_val.to_output(
             output_type=self._context.root_cm.output_type,

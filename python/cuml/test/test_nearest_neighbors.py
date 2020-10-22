@@ -190,8 +190,6 @@ def test_knn_x_none(input_type, nrows, n_feats, k, metric):
     knn_cu.fit(X)
     D_cuml, I_cuml = knn_cu.kneighbors(X=None, n_neighbors=k)
 
-    # D_cuml = CumlArray(D_cuml)[:, 1:]
-
     # Assert the cuml model was properly reverted
     cp.testing.assert_allclose(knn_cu.X_m, X_orig,
                                atol=1e-5, rtol=1e-4)

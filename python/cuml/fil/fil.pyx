@@ -196,7 +196,7 @@ cdef extern from "cuml/fil/fil.h" namespace "ML::fil":
 
 cdef class ForestInference_impl():
 
-    cpdef object handle
+    cdef object handle
     cdef forest_t forest_data
     cdef size_t num_output_groups
     cdef bool output_class
@@ -238,9 +238,8 @@ cdef class ForestInference_impl():
             logger.info('storage_type=="sparse8" is an experimental feature')
         return storage_type_dict[storage_type_str]
 
-    @cuml.internals.api_return_array()
     def predict(self, X, output_type='numpy',
-                output_dtype=None, predict_proba=False, preds=None) -> CumlArray:
+                output_dtype=None, predict_proba=False, preds=None):
         """
         Returns the results of forest inference on the examples in X
 
@@ -525,6 +524,16 @@ class ForestInference(Base):
         """
         return self._impl.predict(X, predict_proba=True, preds=None)
 
+    def _predict_impl(self, X, output_type='numpy',
+                output_dtype=None, predict_proba=False, preds=None):
+        """
+        Internal function to match signature of `ForestInference_impl.predict`
+        """
+
+        return self._impl.predict(X, output_type=output_type,
+            output_dtype=output_dtype, predict_proba=predict_proba,
+            preds=preds)
+
     def load_from_treelite_model(self, model, output_class=False,
                                  algo='auto',
                                  threshold=0.5,
@@ -724,7 +733,10 @@ class ForestInference(Base):
             A Forest Inference model which can be used to perform
             inferencing on the random forest model.
         """
-        return self._impl.load_using_treelite_handle(model_handle,
-                                                     output_class,
-                                                     algo, threshold,
-                                                     str(storage_type))
+        self._impl.load_using_treelite_handle(model_handle,
+                                              output_class,
+                                              algo, threshold,
+                                              str(storage_type))
+
+        # DO NOT RETURN self._impl here!!
+        return self

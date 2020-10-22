@@ -342,7 +342,7 @@ class BaseRandomForestModel(Base):
                                                  algo=algo,
                                                  storage_type=storage_type)
 
-        preds = tl_to_fil_model.predict(X, predict_proba=predict_proba)
+        preds = tl_to_fil_model._predict_impl(X, predict_proba=predict_proba)
         return preds
 
     def get_param_names(self):

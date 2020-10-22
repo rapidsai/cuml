@@ -14,7 +14,7 @@
 # limitations under the License.
 #
 
-from cuml.internals.base_helpers import BaseFunctionMetadata, BaseMetaClass
+from cuml.internals.base_helpers import BaseMetaClass
 from cuml.internals.func_wrappers import (
     api_base_fit_transform,
     api_base_return_any_skipall,
