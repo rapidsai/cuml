@@ -17,6 +17,7 @@ import math
 import warnings
 
 import cupy as cp
+import cupy.prof
 import cupyx
 from cuml.common import CumlArray
 from cuml.common.array_descriptor import CumlArrayDescriptor
