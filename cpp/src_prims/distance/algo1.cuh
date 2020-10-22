@@ -82,13 +82,13 @@ void distanceAlgo1(Index_ m, Index_ n, Index_ k, const InType *pA,
   InType *row_vec = workspace;
   if (pA != pB) {
     row_vec += m;
-    raft::linalg::rowNorm(col_vec, pA, k, m, raft::linalg::L2Norm, isRowMajor, stream,
-                    norm_op);
-    raft::linalg::rowNorm(row_vec, pB, k, n, raft::linalg::L2Norm, isRowMajor, stream,
-                    norm_op);
+    raft::linalg::rowNorm(col_vec, pA, k, m, raft::linalg::L2Norm, isRowMajor,
+                          stream, norm_op);
+    raft::linalg::rowNorm(row_vec, pB, k, n, raft::linalg::L2Norm, isRowMajor,
+                          stream, norm_op);
   } else {
-    raft::linalg::rowNorm(col_vec, pA, k, m, raft::linalg::L2Norm, isRowMajor, stream,
-                    norm_op);
+    raft::linalg::rowNorm(col_vec, pA, k, m, raft::linalg::L2Norm, isRowMajor,
+                          stream, norm_op);
   }
 
   typedef typename cutlass::Shape<8, 8, 8> AccumulatorsPerThread_;

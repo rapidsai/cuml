@@ -137,13 +137,13 @@ double mutualInfoScore(const T *firstClusterArray, const T *secondClusterArray,
 
   //calculating the row-wise sums
   raft::linalg::reduce<int, int, int>(a.data(), dContingencyMatrix.data(),
-                                          numUniqueClasses, numUniqueClasses, 0,
-                                          true, true, stream);
+                                      numUniqueClasses, numUniqueClasses, 0,
+                                      true, true, stream);
 
   //calculating the column-wise sums
   raft::linalg::reduce<int, int, int>(b.data(), dContingencyMatrix.data(),
-                                          numUniqueClasses, numUniqueClasses, 0,
-                                          true, false, stream);
+                                      numUniqueClasses, numUniqueClasses, 0,
+                                      true, false, stream);
 
   //kernel configuration
   static const int BLOCK_DIM_Y = 16, BLOCK_DIM_X = 16;

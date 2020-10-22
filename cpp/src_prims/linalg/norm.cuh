@@ -52,11 +52,11 @@ void rowNorm(Type *dots, const Type *data, IdxType D, IdxType N, NormType type,
   switch (type) {
     case L1Norm:
       reduce(dots, data, D, N, (Type)0, rowMajor, true, stream, false,
-                     raft::L1Op<Type, IdxType>(), raft::Sum<Type>(), fin_op);
+             raft::L1Op<Type, IdxType>(), raft::Sum<Type>(), fin_op);
       break;
     case L2Norm:
       reduce(dots, data, D, N, (Type)0, rowMajor, true, stream, false,
-                     raft::L2Op<Type>(), raft::Sum<Type>(), fin_op);
+             raft::L2Op<Type>(), raft::Sum<Type>(), fin_op);
       break;
     default:
       ASSERT(false, "Invalid norm type passed! [%d]", type);
@@ -85,11 +85,11 @@ void colNorm(Type *dots, const Type *data, IdxType D, IdxType N, NormType type,
   switch (type) {
     case L1Norm:
       reduce(dots, data, D, N, (Type)0, rowMajor, false, stream, false,
-                     raft::L1Op<Type, IdxType>(), raft::Sum<Type>(), fin_op);
+             raft::L1Op<Type, IdxType>(), raft::Sum<Type>(), fin_op);
       break;
     case L2Norm:
       reduce(dots, data, D, N, (Type)0, rowMajor, false, stream, false,
-                     raft::L2Op<Type, IdxType>(), raft::Sum<Type>(), fin_op);
+             raft::L2Op<Type, IdxType>(), raft::Sum<Type>(), fin_op);
       break;
     default:
       ASSERT(false, "Invalid norm type passed! [%d]", type);

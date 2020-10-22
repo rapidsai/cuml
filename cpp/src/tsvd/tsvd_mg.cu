@@ -338,7 +338,7 @@ void fit_transform_impl(raft::handle_t &handle,
 
   device_buffer<T> total_vars(handle.get_device_allocator(), streams[0], 1);
   raft::stats::sum(total_vars.data(), var_input_data.ptr, 1, prms.n_cols, false,
-             streams[0]);
+                   streams[0]);
 
   T total_vars_h;
   raft::update_host(&total_vars_h, total_vars.data(), 1, streams[0]);
