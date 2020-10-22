@@ -46,7 +46,7 @@ struct Reduce : public Fixture {
 
   void runBenchmark(::benchmark::State& state) override {
     loopOnState(state, [this]() {
-      MLCommon::LinAlg::reduce(dots, data, params.cols, params.rows, T(0.f),
+      raft::linalg::reduce(dots, data, params.cols, params.rows, T(0.f),
                                true, params.alongRows, stream);
     });
   }

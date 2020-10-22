@@ -82,12 +82,12 @@ void distanceAlgo1(Index_ m, Index_ n, Index_ k, const InType *pA,
   InType *row_vec = workspace;
   if (pA != pB) {
     row_vec += m;
-    LinAlg::rowNorm(col_vec, pA, k, m, LinAlg::L2Norm, isRowMajor, stream,
+    raft::linalg::rowNorm(col_vec, pA, k, m, raft::linalg::L2Norm, isRowMajor, stream,
                     norm_op);
-    LinAlg::rowNorm(row_vec, pB, k, n, LinAlg::L2Norm, isRowMajor, stream,
+    raft::linalg::rowNorm(row_vec, pB, k, n, raft::linalg::L2Norm, isRowMajor, stream,
                     norm_op);
   } else {
-    LinAlg::rowNorm(col_vec, pA, k, m, LinAlg::L2Norm, isRowMajor, stream,
+    raft::linalg::rowNorm(col_vec, pA, k, m, raft::linalg::L2Norm, isRowMajor, stream,
                     norm_op);
   }
 

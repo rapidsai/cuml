@@ -103,8 +103,8 @@ class FusedL2NNTest : public ::testing::TestWithParam<Inputs<DataT>> {
     r.uniform(x, m * k, DataT(-1.0), DataT(1.0), stream);
     r.uniform(y, n * k, DataT(-1.0), DataT(1.0), stream);
     generateGoldenResult();
-    LinAlg::rowNorm(xn, x, k, m, LinAlg::L2Norm, true, stream);
-    LinAlg::rowNorm(yn, y, k, n, LinAlg::L2Norm, true, stream);
+    raft::linalg::rowNorm(xn, x, k, m, raft::linalg::L2Norm, true, stream);
+    raft::linalg::rowNorm(yn, y, k, n, raft::linalg::L2Norm, true, stream);
   }
 
   void TearDown() override {
