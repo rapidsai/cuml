@@ -1,7 +1,8 @@
 """
 Extended math utilities.
 """
-# Authors: Gael Varoquaux
+# Original authors from Sckit-Learn:
+#          Gael Varoquaux
 #          Alexandre Gramfort
 #          Alexandre T. Passos
 #          Olivier Grisel
@@ -10,6 +11,12 @@ Extended math utilities.
 #          Kyle Kastner
 #          Giorgio Patrini
 # License: BSD 3 clause
+
+
+# This code originates from the Scikit-Learn library,
+# it was since modified to allow GPU acceleration.
+# This code is under BSD 3 clause license.
+# Authors mentioned above do not endorse or promote this production.
 
 
 import cupy as np

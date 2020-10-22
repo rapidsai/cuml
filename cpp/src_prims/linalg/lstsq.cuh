@@ -22,6 +22,7 @@
 #include <cuda_utils.cuh>
 #include <matrix/math.cuh>
 #include <matrix/matrix.cuh>
+#include <raft/mr/device/buffer.hpp>
 #include <random/rng.cuh>
 #include "eig.cuh"
 #include "gemm.cuh"
@@ -34,54 +35,60 @@ namespace MLCommon {
 namespace LinAlg {
 
 template <typename math_t>
-void lstsqSVD(math_t *A, int n_rows, int n_cols, math_t *b, math_t *w,
-              cusolverDnHandle_t cusolverH, cublasHandle_t cublasH,
-              std::shared_ptr<deviceAllocator> allocator, cudaStream_t stream) {
+void lstsqSVD(const raft::handle_t &handle, math_t *A, int n_rows, int n_cols,
+              math_t *b, math_t *w, cudaStream_t stream) {
+  auto allocator = handle.get_device_allocator();
+  cusolverDnHandle_t cusolverH = handle.get_cusolver_dn_handle();
+  cublasHandle_t cublasH = handle.get_cublas_handle();
+
   ASSERT(n_cols > 0, "lstsq: number of columns cannot be less than one");
   ASSERT(n_rows > 1, "lstsq: number of rows cannot be less than two");
 
   int U_len = n_rows * n_cols;
   int V_len = n_cols * n_cols;
 
-  device_buffer<math_t> S(allocator, stream, n_cols);
-  device_buffer<math_t> V(allocator, stream, V_len);
-  device_buffer<math_t> U(allocator, stream, U_len);
-  device_buffer<math_t> UT_b(allocator, stream, n_rows);
+  raft::mr::device::buffer<math_t> S(allocator, stream, n_cols);
+  raft::mr::device::buffer<math_t> V(allocator, stream, V_len);
+  raft::mr::device::buffer<math_t> U(allocator, stream, U_len);
+  raft::mr::device::buffer<math_t> UT_b(allocator, stream, n_rows);
 
-  svdQR(A, n_rows, n_cols, S.data(), U.data(), V.data(), true, true, true,
-        cusolverH, cublasH, allocator, stream);
+  raft::linalg::svdQR(handle, A, n_rows, n_cols, S.data(), U.data(), V.data(),
+                      true, true, true, stream);
 
-  gemv(U.data(), n_rows, n_cols, b, w, true, cublasH, stream);
+  raft::linalg::gemv(handle, U.data(), n_rows, n_cols, b, w, true, stream);
 
   raft::matrix::matrixVectorBinaryDivSkipZero(w, S.data(), 1, n_cols, false,
                                               true, stream);
 
-  gemv(V.data(), n_cols, n_cols, w, w, false, cublasH, stream);
+  raft::linalg::gemv(handle, V.data(), n_cols, n_cols, w, w, false, stream);
 }
 
 template <typename math_t>
-void lstsqEig(math_t *A, int n_rows, int n_cols, math_t *b, math_t *w,
-              cusolverDnHandle_t cusolverH, cublasHandle_t cublasH,
-              std::shared_ptr<deviceAllocator> allocator, cudaStream_t stream) {
+void lstsqEig(const raft::handle_t &handle, math_t *A, int n_rows, int n_cols,
+              math_t *b, math_t *w, cudaStream_t stream) {
+  auto allocator = handle.get_device_allocator();
+  cusolverDnHandle_t cusolverH = handle.get_cusolver_dn_handle();
+  cublasHandle_t cublasH = handle.get_cublas_handle();
+
   ASSERT(n_cols > 1, "lstsq: number of columns cannot be less than two");
   ASSERT(n_rows > 1, "lstsq: number of rows cannot be less than two");
 
   int U_len = n_rows * n_cols;
   int V_len = n_cols * n_cols;
 
-  device_buffer<math_t> S(allocator, stream, n_cols);
-  device_buffer<math_t> V(allocator, stream, V_len);
-  device_buffer<math_t> U(allocator, stream, U_len);
+  raft::mr::device::buffer<math_t> S(allocator, stream, n_cols);
+  raft::mr::device::buffer<math_t> V(allocator, stream, V_len);
+  raft::mr::device::buffer<math_t> U(allocator, stream, U_len);
 
-  svdEig(A, n_rows, n_cols, S.data(), U.data(), V.data(), true, cublasH,
-         cusolverH, stream, allocator);
+  raft::linalg::svdEig(handle, A, n_rows, n_cols, S.data(), U.data(), V.data(),
+                       true, stream);
 
-  gemv(U.data(), n_rows, n_cols, b, w, true, cublasH, stream);
+  raft::linalg::gemv(handle, U.data(), n_rows, n_cols, b, w, true, stream);
 
   raft::matrix::matrixVectorBinaryDivSkipZero(w, S.data(), 1, n_cols, false,
                                               true, stream);
 
-  gemv(V.data(), n_cols, n_cols, w, w, false, cublasH, stream);
+  raft::linalg::gemv(handle, V.data(), n_cols, n_cols, w, w, false, stream);
 }
 
 template <typename math_t>

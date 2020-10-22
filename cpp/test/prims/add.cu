@@ -21,8 +21,8 @@
 #include "add.cuh"
 #include "test_utils.h"
 
-namespace MLCommon {
-namespace LinAlg {
+namespace raft {
+namespace linalg {
 
 template <typename InT, typename OutT = InT>
 class AddTest : public ::testing::TestWithParam<AddInputs<InT, OutT>> {
@@ -90,5 +90,5 @@ typedef AddTest<float, double> AddTestFD;
 TEST_P(AddTestFD, Result) { compare(); }
 INSTANTIATE_TEST_CASE_P(AddTests, AddTestFD, ::testing::ValuesIn(inputsfd));
 
-}  // end namespace LinAlg
-}  // end namespace MLCommon
+}  // end namespace linalg
+}  // end namespace raft

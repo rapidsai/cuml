@@ -93,8 +93,7 @@ class RFClassifierAccuracyTest : public ::testing::TestWithParam<RFInputs> {
                     0.f,            /* min_impurity_decrease */
                     false,          /* bootstrap_features */
                     sc,             /* split_criterion */
-                    false,          /* quantile_per_tree */
-                    false           /* shuffle_features */
+                    false           /* quantile_per_tree */
     );
     set_all_rf_params(rfp, 1, /* n_trees */
                       true,   /* bootstrap */

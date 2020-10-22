@@ -155,8 +155,8 @@ void optimize_params(T *input, int n_rows, const T *labels, T *coef,
     abLossGrads<T, TPB_X>(input, n_rows, labels, coef, grads.data(), params,
                           d_alloc, stream);
 
-    MLCommon::LinAlg::multiplyScalar(grads.data(), grads.data(), learning_rate,
-                                     2, stream);
+    raft::linalg::multiplyScalar(grads.data(), grads.data(), learning_rate, 2,
+                                 stream);
     raft::linalg::eltwiseSub(coef, coef, grads.data(), 2, stream);
 
     T *grads_h = (T *)malloc(2 * sizeof(T));

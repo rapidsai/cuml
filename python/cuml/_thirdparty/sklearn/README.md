@@ -1,6 +1,6 @@
 # GPU accelerated Scikit-Learn preprocessing
 
-This directory contains code originating from the Scikit-Learn library. The Scikit-Learn license applies accordingly (see `/thirdparty/LICENSES/LICENSE.scikit_learn`).
+This directory contains code originating from the Scikit-Learn library. The Scikit-Learn license applies accordingly (see `/thirdparty/LICENSES/LICENSE.scikit_learn`). Original authors mentioned in the code do not endorse or promote this production.
 
 This work is dedicated to providing GPU accelerated tools for preprocessing. The Scikit-Learn code is slightly modified to make it possible to take common inputs used throughout cuML such as Numpy and Cupy arrays, Pandas and cuDF dataframes and compute the results on GPU.
 

@@ -31,8 +31,7 @@ namespace TSNE {
     each row in the dataset             */
 __global__ void sigmas_kernel(const float *restrict distances,
                               float *restrict P, const float perplexity,
-                              const float desired_entropy,
-                              float *restrict P_sum, const int epochs,
+                              const float desired_entropy, const int epochs,
                               const float tol, const int n, const int k) {
   // For every item in row
   const int i = (blockIdx.x * blockDim.x) + threadIdx.x;
@@ -40,7 +39,6 @@ __global__ void sigmas_kernel(const float *restrict distances,
 
   float beta_min = -INFINITY, beta_max = INFINITY;
   float beta = 1;
-  float sum_P_row = 0;
   register const int ik = i * k;
 
   for (int step = 0; step < epochs; step++) {
@@ -54,12 +52,10 @@ __global__ void sigmas_kernel(const float *restrict distances,
 
     // Normalize
     float sum_disti_Pi = 0;
-    sum_P_row = 0;
     const float div = __fdividef(1.0f, sum_Pi);
     for (int j = 0; j < k; j++) {
       P[ik + j] *= div;
       sum_disti_Pi += distances[ik + j] * P[ik + j];
-      sum_P_row += P[ik + j];
     }
 
     const float entropy = __logf(sum_Pi) + beta * sum_disti_Pi;
@@ -81,7 +77,6 @@ __global__ void sigmas_kernel(const float *restrict distances,
         beta = (beta + beta_min) * 0.5f;
     }
   }
-  raft::myAtomicAdd(P_sum, sum_P_row);
 }
 
 /****************************************/
@@ -89,8 +84,7 @@ __global__ void sigmas_kernel(const float *restrict distances,
     each row in the dataset             */
 __global__ void sigmas_kernel_2d(const float *restrict distances,
                                  float *restrict P, const float perplexity,
-                                 const float desired_entropy,
-                                 float *restrict P_sum, const int epochs,
+                                 const float desired_entropy, const int epochs,
                                  const float tol, const int n) {
   // For every item in row
   const int i = (blockIdx.x * blockDim.x) + threadIdx.x;
@@ -98,7 +92,6 @@ __global__ void sigmas_kernel_2d(const float *restrict distances,
 
   float beta_min = -INFINITY, beta_max = INFINITY;
   float beta = 1;
-  float sum_P_row = 0;
   register const int ik = i * 2;
 
   for (int step = 0; step < epochs; step++) {
@@ -113,7 +106,6 @@ __global__ void sigmas_kernel_2d(const float *restrict distances,
     P[ik + 1] *= div;
     const float sum_disti_Pi =
       distances[ik] * P[ik] + distances[ik + 1] * P[ik + 1];
-    sum_P_row = P[ik] + P[ik + 1];
 
     const float entropy = __logf(sum_Pi) + beta * sum_disti_Pi;
     const float entropy_diff = entropy - desired_entropy;
@@ -134,35 +126,25 @@ __global__ void sigmas_kernel_2d(const float *restrict distances,
         beta = (beta + beta_min) * 0.5f;
     }
   }
-  raft::myAtomicAdd(P_sum, sum_P_row);
 }
 
 /****************************************/
-float perplexity_search(const float *restrict distances, float *restrict P,
-                        const float perplexity, const int epochs,
-                        const float tol, const int n, const int dim,
-                        const raft::handle_t &handle) {
+void perplexity_search(const float *restrict distances, float *restrict P,
+                       const float perplexity, const int epochs,
+                       const float tol, const int n, const int dim,
+                       const raft::handle_t &handle) {
   const float desired_entropy = logf(perplexity);
   auto d_alloc = handle.get_device_allocator();
   cudaStream_t stream = handle.get_stream();
 
-  float *P_sum = (float *)d_alloc->allocate(sizeof(float), stream);
-  CUDA_CHECK(cudaMemsetAsync(P_sum, 0, sizeof(float), stream));
-
   if (dim == 2)
     sigmas_kernel_2d<<<raft::ceildiv(n, 1024), 1024, 0, stream>>>(
-      distances, P, perplexity, desired_entropy, P_sum, epochs, tol, n);
+      distances, P, perplexity, desired_entropy, epochs, tol, n);
   else
     sigmas_kernel<<<raft::ceildiv(n, 1024), 1024, 0, stream>>>(
-      distances, P, perplexity, desired_entropy, P_sum, epochs, tol, n, dim);
+      distances, P, perplexity, desired_entropy, epochs, tol, n, dim);
   CUDA_CHECK(cudaPeekAtLastError());
-
   cudaStreamSynchronize(stream);
-  float sum;
-  raft::update_host(&sum, P_sum, 1, stream);
-  d_alloc->deallocate(P_sum, sizeof(float), stream);
-
-  return sum;
 }
 
 /****************************************/

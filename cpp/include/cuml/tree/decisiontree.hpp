@@ -15,7 +15,8 @@
  */
 
 #pragma once
-#include <common/cumlHandle.hpp>
+#include <cuml/cuml.hpp>
+#include <vector>
 #include "algo_helper.h"
 #include "flatnode.h"
 
@@ -62,13 +63,23 @@ struct DecisionTreeParams {
    */
   CRITERION split_criterion;
   /**
-   * Weahther to fully reshuffle the features for subsampling at each tree node. Default is one shuffle per depth with random start point in the shuffled feature list per node
-   */
-  bool shuffle_features;
-  /**
    * Minimum impurity decrease required for spliting a node. If the impurity decrease is below this value, node is leafed out. Default is 0.0
    */
   float min_impurity_decrease = 0.0f;
+
+  /**
+   * Maximum number of nodes that can be processed in a given batch. This is 
+   * used only for batched-level algo
+   */
+  int max_batch_size;
+  /**
+  * If set to true and following conditions are also met, experimental decision
+  *  tree training implementation would be used:
+  *     split_algo = 1 (GLOBAL_QUANTILE)
+  *     max_features = 1.0 (Feature sub-sampling disabled)
+  *     quantile_per_tree = false (No per tree quantile computation)
+  */
+  bool use_experimental_backend;
 };
 
 /**
@@ -86,7 +97,12 @@ struct DecisionTreeParams {
  * @param[in] cfg_split_criterion: split criterion; default CRITERION_END,
  *            i.e., GINI for classification or MSE for regression
  * @param[in] cfg_quantile_per_tree: compute quantile per tree; default false
- * @param[in] cfg_shuffle_features: whether to shuffle features or not
+ * @param[in] cfg_use_experimental_backend: If set to true, experimental batched
+ *            backend is used (provided other conditions are met). Default is 
+              false.
+ * @param[in] cfg_max_batch_size: Maximum number of nodes that can be processed
+              in a batch. This is used only for batched-level algo. Default 
+              value 128.
  */
 void set_tree_params(DecisionTreeParams &params, int cfg_max_depth = -1,
                      int cfg_max_leaves = -1, float cfg_max_features = 1.0f,
@@ -96,7 +112,8 @@ void set_tree_params(DecisionTreeParams &params, int cfg_max_depth = -1,
                      bool cfg_bootstrap_features = false,
                      CRITERION cfg_split_criterion = CRITERION_END,
                      bool cfg_quantile_per_tree = false,
-                     bool cfg_shuffle_features = false);
+                     bool cfg_use_experimental_backend = false,
+                     int cfg_max_batch_size = 128);
 
 /**
  * @brief Check validity of all decision tree hyper-parameters.
