@@ -77,11 +77,11 @@ std::vector<Params> getInputs() {
   std::vector<Params> out;
   Params p;
   p.data.rowMajor = false;
-  p.blobs = {.cluster_std = 10.0,
-             .shuffle = false,
-             .center_box_min = -10.0,
-             .center_box_max = 10.0,
-             .seed = 2152953ULL};
+  p.blobs = {10.0,         // cluster_std
+             false,        // shuffle
+             -10.0,        // center_box_min
+             10.0,         // center_box_max
+             2152953ULL};  //seed
 
   set_rf_params(p.rf,  // Output RF parameters
                 500,   // n_trees
