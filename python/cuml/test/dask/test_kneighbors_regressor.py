@@ -70,17 +70,18 @@ def dataset(request):
         if len(new_x) >= request.param['n_samples']:
             break
     X = X[new_x]
-    noise = np.random.normal(0, 1.2, X.shape)
+    noise = np.random.normal(0, 5., X.shape)
     X += noise
     y = np.array(new_y, dtype=np.float32)
 
-    return train_test_split(X, y, test_size=0.1)
+    return train_test_split(X, y, test_size=0.3)
 
 
 def exact_match(output1, output2):
     l1, i1, d1 = output1
     l2, i2, d2 = output2
-    l2 = l2.squeeze()
+    i1, i2 = i1.squeeze(), i2.squeeze()
+    d1, d2 = d1.squeeze(), d2.squeeze()
 
     # Check shapes
     assert l1.shape == l2.shape
@@ -88,17 +89,13 @@ def exact_match(output1, output2):
     assert d1.shape == d2.shape
 
     # Distances should match
-    d1 = np.round(d1, 4)
-    d2 = np.round(d2, 4)
-    assert np.mean(d1 == d2) > 0.98
+    assert np.array_equal(d1, d2)
 
     # Indices should match
-    correct_queries = (i1 == i2).all(axis=1)
-    assert np.mean(correct_queries) > 0.95
+    assert np.array_equal(i1, i2)
 
     # Labels should match
-    correct_queries = (l1 == l2).all(axis=1)
-    assert np.mean(correct_queries) > 0.95
+    assert np.array_equal(l1, l2)
 
 
 @pytest.mark.parametrize("datatype", ['dask_array', 'dask_cudf'])
@@ -108,7 +105,6 @@ def exact_match(output1, output2):
 def test_predict_and_score(dataset, datatype, n_neighbors,
                            n_parts, batch_size, client):
     X_train, X_test, y_train, y_test = dataset
-    np_y_test = y_test
 
     l_model = lKNNReg(n_neighbors=n_neighbors)
     l_model.fit(X_train, y_train)
@@ -135,24 +131,15 @@ def test_predict_and_score(dataset, datatype, n_neighbors,
     d_outputs, d_indices, d_distances = \
         d_model.predict(X_test, convert_dtype=True)
     distributed_out = da.compute(d_outputs, d_indices, d_distances)
-    if datatype == 'dask_array':
-        distributed_score = d_model.score(X_test, y_test)
-        distributed_score = round(float(distributed_score), 3)
 
     if datatype == 'dask_cudf':
         distributed_out = list(map(lambda o: o.as_matrix()
                                    if isinstance(o, DataFrame)
-                                   else o.to_array()[..., np.newaxis],
+                                   else o.to_array(),
                                    distributed_out))
 
     exact_match(local_out, distributed_out)
 
-    if datatype == 'dask_array':
-        assert distributed_score == pytest.approx(handmade_local_score,
-                                                  abs=1e-2)
-    else:
-        y_pred = distributed_out[0]
-        handmade_distributed_score = float(r2_score(np_y_test, y_pred))
-        handmade_distributed_score = round(handmade_distributed_score, 3)
-        assert handmade_distributed_score == pytest.approx(
-            handmade_local_score, abs=1e-2)
+    distributed_score = d_model.score(X_test, y_test)
+    distributed_score = round(float(distributed_score), 3)
+    assert distributed_score == pytest.approx(handmade_local_score, abs=1e-2)

@@ -198,7 +198,7 @@ class KNeighborsRegressor(NearestNeighbors):
 
         comms.destroy()
 
-        out = to_output(out_futures, self.datatype)
+        out = to_output(out_futures, self.datatype).squeeze()
         out_i = to_output(out_i_futures, self.datatype)
         out_d = to_output(out_d_futures, self.datatype)
         return out, out_i, out_d
@@ -221,12 +221,14 @@ class KNeighborsRegressor(NearestNeighbors):
         -------
         score
         """
-        if self.data_handler.datatype == 'cupy':
-            preds, _, _ = self.predict(X, convert_dtype=True)
-            y_mean = y.mean(axis=0)
-            residual_sss = ((y - preds) ** 2).sum(axis=0)
-            total_sss = ((y - y_mean) ** 2).sum(axis=0)
-            r2_score = da.mean(1 - (residual_sss / total_sss))
-            return r2_score.compute()
-        else:
-            raise ValueError("Only Dask arrays are supported")
+        y_pred, _, _ = self.predict(X, convert_dtype=True)
+        if not isinstance(y_pred, da.Array):
+            y_pred = y_pred.to_dask_array(lengths=True)
+        if not isinstance(y, da.Array):
+            y = y.to_dask_array(lengths=True)
+        y_true = y.squeeze()
+        y_mean = y_true.mean(axis=0)
+        residual_sss = ((y_true - y_pred) ** 2).sum(axis=0, dtype='float64')
+        total_sss = ((y_true - y_mean) ** 2).sum(axis=0, dtype='float64')
+        r2_score = da.mean(1 - (residual_sss / total_sss))
+        return r2_score.compute()
