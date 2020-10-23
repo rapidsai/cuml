@@ -100,7 +100,6 @@ def _get_base_return_type(class_name, attr):
 def _wrap_attribute(class_name: str,
                     attribute_name: str,
                     attribute,
-                    /,
                     **kwargs):
 
     # Skip items marked with autowrap_ignore
