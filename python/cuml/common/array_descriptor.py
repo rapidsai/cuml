@@ -57,7 +57,7 @@ class CumlArrayDescriptor():
 
         existing = self._get_meta(instance, throw_on_missing=True)
 
-        # Handle setting none
+        # Handle input_type==None which means we have a non-array object stored
         if (existing.input_type is None):
             # Dont save in the cache. Just return the value
             return existing.values[existing.input_type]

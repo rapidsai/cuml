@@ -40,6 +40,18 @@
 
 namespace ML {
 
+void pack(raft::handle_t& handle, const ARIMAParams<double>& params,
+          const ARIMAOrder& order, int batch_size, double* param_vec) {
+  const auto stream = handle.get_stream();
+  params.pack(order, batch_size, param_vec, stream);
+}
+
+void unpack(raft::handle_t& handle, ARIMAParams<double>& params,
+            const ARIMAOrder& order, int batch_size, const double* param_vec) {
+  const auto stream = handle.get_stream();
+  params.unpack(order, batch_size, param_vec, stream);
+}
+
 void batched_diff(raft::handle_t& handle, double* d_y_diff, const double* d_y,
                   int batch_size, int n_obs, const ARIMAOrder& order) {
   const auto stream = handle.get_stream();

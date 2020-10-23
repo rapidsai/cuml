@@ -15,6 +15,7 @@
 #
 
 import contextlib
+import functools
 import inspect
 import threading
 import typing
@@ -31,6 +32,7 @@ import rmm
 # from cuml.common.array_outputable import ArrayOutputable
 from cuml.common.input_utils import determine_array_type
 from cuml.common.input_utils import is_array_like
+from cuml.internals.base_helpers import _get_base_return_type
 
 try:
     from cupy.cuda import using_allocator as cupy_using_allocator
@@ -39,6 +41,10 @@ except ImportError:
         from cupy.cuda.memory import using_allocator as cupy_using_allocator
     except ImportError:
         pass
+
+# Use _F as a type variable for decorators. See:
+# https://github.com/python/mypy/pull/8336/files#diff-eb668b35b7c0c4f88822160f3ca4c111f444c88a38a3b9df9bb8427131538f9cR260
+_F = typing.TypeVar("_F", bound=typing.Callable[..., typing.Any])
 
 
 @contextlib.contextmanager
@@ -485,6 +491,10 @@ class ProcessReturnGeneric(ProcessReturnArray):
 
     def process_dict(self, ret_val):
 
+        for name, item in ret_val.items():
+
+            ret_val[name] = self.process_generic(item)
+
         return ret_val
 
     def process_list(self, ret_val):
@@ -561,7 +571,7 @@ def get_internal_context() -> InternalAPIContext:
 
 
 class DecoratorMetaClass(type):
-    def __new__(meta, classname, bases, classDict):
+    def __new__(cls, classname, bases, classDict):
 
         if ("__call__" in classDict):
 
@@ -577,21 +587,25 @@ class DecoratorMetaClass(type):
 
             classDict["__call__"] = wrap_call
 
-        return type.__new__(meta, classname, bases, classDict)
+        return type.__new__(cls, classname, bases, classDict)
 
 
 class WithArgsDecoratorMixin(object):
     def __init__(self,
                  *,
-                 input_arg: str = None,
-                 target_arg: str = None,
+                 input_arg: str = ...,
+                 target_arg: str = ...,
                  needs_self=True,
                  needs_input=False,
                  needs_target=False):
         super().__init__()
 
+        # For input_arg and target_arg, use Ellipsis to auto detect, None to
+        # skip (this has different functionality on Base where it can determine
+        # the output type like CumlArrayDescriptor)
         self.input_arg = input_arg
         self.target_arg = target_arg
+
         self.needs_self = needs_self
         self.needs_input = needs_input
         self.needs_target = needs_target
@@ -618,7 +632,7 @@ class WithArgsDecoratorMixin(object):
             input_arg_to_use_name = None
 
             # if input_arg is None, then set to first non self argument
-            if (input_arg_to_use is None):
+            if (input_arg_to_use is ...):
 
                 # Check for "X" in input args
                 if ("X" in sig_args):
@@ -646,7 +660,7 @@ class WithArgsDecoratorMixin(object):
             target_arg_to_use_name = None
 
             # if input_arg is None, then set to first non self argument
-            if (target_arg_to_use is None):
+            if (target_arg_to_use is ...):
 
                 # Check for "y" in args
                 if ("y" in sig_args):
@@ -777,6 +791,18 @@ class HasGettersDecoratorMixin(object):
         self.has_getters = not (self.skip_get_output_type
                                 and self.skip_get_output_dtype)
 
+    def do_getters_with_self_no_input(self, *, self_val):
+        if (not self.skip_get_output_type):
+            out_type = self_val.output_type
+
+            if (out_type == "input"):
+                out_type = self_val._input_type
+
+            set_api_output_type(out_type)
+
+        if (not self.skip_get_output_dtype):
+            set_api_output_dtype(self_val._get_target_dtype())
+
     def do_getters_with_self(self, *, self_val, input_val):
         if (not self.skip_get_output_type):
             out_type = self_val._get_output_type(input_val)
@@ -814,7 +840,7 @@ class ReturnDecorator(metaclass=DecoratorMetaClass):
 
         self.do_autowrap = False
 
-    def __call__(self, func) -> typing.Callable:
+    def __call__(self, func: _F) -> _F:
         raise NotImplementedError()
 
     def _recreate_cm(self, func, args) -> InternalAPIContextBase:
@@ -822,7 +848,7 @@ class ReturnDecorator(metaclass=DecoratorMetaClass):
 
 
 class ReturnAnyDecorator(ReturnDecorator):
-    def __call__(self, func):
+    def __call__(self, func: _F) -> _F:
         @wraps(func)
         def inner(*args, **kwargs):
             with self._recreate_cm(func, args):
@@ -839,8 +865,8 @@ class BaseReturnAnyDecorator(ReturnDecorator,
                              WithArgsDecoratorMixin):
     def __init__(self,
                  *,
-                 input_arg: str = None,
-                 target_arg: str = None,
+                 input_arg: str = ...,
+                 target_arg: str = ...,
                  skip_set_output_type=False,
                  skip_set_output_dtype=True,
                  skip_set_n_features_in=False) -> None:
@@ -860,7 +886,7 @@ class BaseReturnAnyDecorator(ReturnDecorator,
 
         self.do_autowrap = self.has_setters
 
-    def __call__(self, func):
+    def __call__(self, func: _F) -> _F:
 
         self.prep_arg_to_use(func)
 
@@ -897,8 +923,8 @@ class ReturnArrayDecorator(ReturnDecorator,
                            WithArgsDecoratorMixin):
     def __init__(self,
                  *,
-                 input_arg: str = None,
-                 target_arg: str = None,
+                 input_arg: str = ...,
+                 target_arg: str = ...,
                  skip_get_output_type=True,
                  skip_get_output_dtype=True) -> None:
 
@@ -917,7 +943,7 @@ class ReturnArrayDecorator(ReturnDecorator,
 
         self.do_autowrap = self.has_getters
 
-    def __call__(self, func):
+    def __call__(self, func: _F) -> _F:
 
         self.prep_arg_to_use(func)
 
@@ -964,8 +990,8 @@ class BaseReturnArrayDecorator(ReturnDecorator,
                                WithArgsDecoratorMixin):
     def __init__(self,
                  *,
-                 input_arg: str = None,
-                 target_arg: str = None,
+                 input_arg: str = ...,
+                 target_arg: str = ...,
                  skip_get_output_type=False,
                  skip_get_output_dtype=True,
                  skip_set_output_type=True,
@@ -982,18 +1008,19 @@ class BaseReturnArrayDecorator(ReturnDecorator,
             self,
             skip_get_output_type=skip_get_output_type,
             skip_get_output_dtype=skip_get_output_dtype)
-        WithArgsDecoratorMixin.__init__(self,
-                                        input_arg=input_arg,
-                                        target_arg=target_arg,
-                                        needs_self=True,
-                                        needs_input=self.has_setters_input()
-                                        or self.has_getters_input(),
-                                        needs_target=self.has_setters_target()
-                                        or self.has_getters_target(True))
+        WithArgsDecoratorMixin.__init__(
+            self,
+            input_arg=input_arg,
+            target_arg=target_arg,
+            needs_self=True,
+            needs_input=(self.has_setters_input() or self.has_getters_input())
+            and input_arg is not None,
+            needs_target=self.has_setters_target()
+            or self.has_getters_target(True))
 
         self.do_autowrap = self.has_setters or self.has_getters
 
-    def __call__(self, func):
+    def __call__(self, func: _F) -> _F:
 
         self.prep_arg_to_use(func)
 
@@ -1011,8 +1038,11 @@ class BaseReturnArrayDecorator(ReturnDecorator,
                                 target_val=target_val)
 
                 # Now execute the getters
-                self.do_getters_with_self(self_val=self_val,
-                                          input_val=input_val)
+                if (self.needs_input):
+                    self.do_getters_with_self(self_val=self_val,
+                                              input_val=input_val)
+                else:
+                    self.do_getters_with_self_no_input(self_val=self_val)
 
                 # Call the function
                 ret_val = func(*args, **kwargs)
@@ -1045,8 +1075,11 @@ class BaseReturnArrayDecorator(ReturnDecorator,
                 self_val, input_val, _ = self.get_arg_values(*args, **kwargs)
 
                 # Do the getters
-                self.do_getters_with_self(self_val=self_val,
-                                          input_val=input_val)
+                if (self.needs_input):
+                    self.do_getters_with_self(self_val=self_val,
+                                              input_val=input_val)
+                else:
+                    self.do_getters_with_self_no_input(self_val=self_val)
 
                 # Call the function
                 ret_val = func(*args, **kwargs)
@@ -1106,8 +1139,8 @@ class BaseReturnArrayFitTransformDecorator(BaseReturnArrayDecorator):
     """
     def __init__(self,
                  *,
-                 input_arg: str = None,
-                 target_arg: str = None,
+                 input_arg: str = ...,
+                 target_arg: str = ...,
                  skip_get_output_type=False,
                  skip_get_output_dtype=True,
                  skip_set_output_type=False,
@@ -1145,7 +1178,7 @@ api_base_return_generic_skipall = BaseReturnGenericDecorator(
     skip_get_output_type=True)
 
 
-def api_ignore(func: typing.Callable):
+def api_ignore(func: _F) -> _F:
 
     func.__dict__["__cuml_is_wrapped"] = True
 
@@ -1169,3 +1202,29 @@ def exit_internal_api(*args, **kwds):
 
     finally:
         global_output_type_data.root_cm = old_root_cm
+
+def mirror_args(
+        wrapped: _F,
+        assigned=('__doc__', '__annotations__'),
+        updated=functools.WRAPPER_UPDATES) -> typing.Callable[[_F], _F]:
+    return wraps(wrapped=wrapped, assigned=assigned, updated=updated)
+
+
+@mirror_args(BaseReturnArrayDecorator)
+def api_base_return_autoarray(*args, **kwargs):
+    def inner(func: _F) -> _F:
+        # Determine the array return type and choose
+        return_type = _get_base_return_type(None, func)
+
+        if (return_type == "generic"):
+            func = api_base_return_generic(*args, **kwargs)(func)
+        elif (return_type == "array"):
+            func = api_base_return_array(*args, **kwargs)(func)
+        elif (return_type == "sparsearray"):
+            func = api_base_return_sparse_array(*args, **kwargs)(func)
+        elif (return_type == "base"):
+            assert False, "Must use api_base_return_autoarray decorator on function that returns some array"
+
+        return func
+
+    return inner
