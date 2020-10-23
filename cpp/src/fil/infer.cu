@@ -490,13 +490,8 @@ void infer_k_launcher(storage_type forest, predict_params params,
     ASSERT(false, "p.num_cols == %d: too many features, only %d allowed",
            given_num_cols, params.num_cols);
   }
-  int device;
-  CUDA_CHECK(cudaGetDevice(&device));
-  int sm_count;
-  CUDA_CHECK(
-    cudaDeviceGetAttribute(&sm_count, cudaDevAttrMultiProcessorCount, device));
-  params.num_blocks = blocks_per_sm
-                        ? blocks_per_sm * sm_count
+  params.num_blocks = (params.num_blocks != 0)
+                        ? params.num_blocks
                         : raft::ceildiv(int(params.num_rows), num_items);
   switch (num_items) {
     case 1:

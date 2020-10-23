@@ -224,6 +224,9 @@ struct forest_params_t {
   // labels in leaves instead of the whole vector, this keeps track
   // of the number of classes
   int num_classes;
+  // blocks_per_sm, if set, works as a limit to improve cache hit rate for larger forests
+  // suggested values (if nonzero) are from 2 to 7
+  int blocks_per_sm = 0;
 };
 
 /** treelite_params_t are parameters for importing treelite models */
@@ -240,6 +243,9 @@ struct treelite_params_t {
   float threshold;
   // storage_type indicates whether the forest should be imported as dense or sparse
   storage_type_t storage_type;
+  // blocks_per_sm, if set, works as a limit to improve cache hit rate for larger forests
+  // suggested values (if nonzero) are from 2 to 7
+  int blocks_per_sm = 0;
 };
 
 /** init_dense uses params and nodes to initialize the dense forest stored in pf
@@ -304,6 +310,5 @@ void free(const raft::handle_t& h, forest_t f);
 void predict(const raft::handle_t& h, forest_t f, float* preds,
              const float* data, size_t num_rows, bool predict_proba = false);
 
-static int blocks_per_sm = 0;
 }  // namespace fil
 }  // namespace ML
