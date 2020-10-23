@@ -58,11 +58,17 @@ _input_type_to_str = {
     cupyx.scipy.sparse.spmatrix: "cupy",
 }
 
+_sparse_types = [
+    SparseCumlArray,
+    cupyx.scipy.sparse.spmatrix,
+]
 
 if has_scipy():
     _input_type_to_str.update({
         scipy.sparse.spmatrix: "numpy",
     })
+
+    _sparse_types.append(scipy.sparse.spmatrix)
 
 
 def get_dev_array_ptr(ary):
@@ -182,6 +188,32 @@ def determine_array_dtype(X):
         dtype = None
 
     return dtype
+
+
+def determine_array_type_full(X):
+    """
+    Returns a tuple of the array type, and a boolean if it is sparse
+
+    Parameters
+    ----------
+    X : array-like
+        Input array to test
+
+    Returns
+    -------
+    (string, bool) Returns a tuple of the array type string and a boolean if it
+        is a sparse array.
+    """
+    if (X is None):
+        return None, None
+
+    # Get the generic type
+    gen_type = get_supported_input_type(X)
+
+    if (gen_type is None):
+        return None, None
+
+    return _input_type_to_str[gen_type], gen_type in _sparse_types
 
 
 def is_array_like(X):

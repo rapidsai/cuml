@@ -31,6 +31,8 @@ import cuml.common.input_utils
 import rmm
 # from cuml.common.array_outputable import ArrayOutputable
 from cuml.common.input_utils import determine_array_type
+from cuml.common.input_utils import determine_array_type_full
+from cuml.common.input_utils import input_to_cuml_array
 from cuml.common.input_utils import is_array_like
 from cuml.internals.base_helpers import _get_base_return_type
 
@@ -362,8 +364,7 @@ class ProcessReturnArray(ProcessReturn):
 
         # If we are a supported array and not already cuml, convert to cuml
         if (ret_val_type_str is not None and ret_val_type_str != "cuml"):
-            ret_val, _, _, _ = cuml.common.input_to_cuml_array(ret_val,
-                                                               order="K")
+            ret_val = input_to_cuml_array(ret_val, order="K").array
 
         return ret_val
 
@@ -398,12 +399,15 @@ class ProcessReturnSparseArray(ProcessReturn):
     def convert_to_cumlarray(self, ret_val):
 
         # Get the output type
-        ret_val_type_str = determine_array_type(ret_val)
+        ret_val_type_str, is_sparse = determine_array_type_full(ret_val)
 
         # If we are a supported array and not already cuml, convert to cuml
         if (ret_val_type_str is not None and ret_val_type_str != "cuml"):
-            ret_val = cuml.common.array_sparse.SparseCumlArray(
-                ret_val, convert_index=False)
+            if is_sparse:
+                ret_val = cuml.common.array_sparse.SparseCumlArray(
+                    ret_val, convert_index=False)
+            else:
+                ret_val = input_to_cuml_array(ret_val, order="K").array
 
         return ret_val
 
@@ -417,13 +421,8 @@ class ProcessReturnSparseArray(ProcessReturn):
                 and self._context.root_cm.output_type != "mirror"
                 and self._context.root_cm.output_type != "input")
 
-        output_type = self._context.root_cm.output_type
-
-        if (output_type == "numpy"):
-            output_type = "scipy"
-
         return ret_val.to_output(
-            output_type=output_type,
+            output_type=self._context.root_cm.output_type,
             output_dtype=self._context.root_cm.output_dtype)
 
 
@@ -1186,7 +1185,7 @@ def api_ignore(func: _F) -> _F:
 
 
 @contextlib.contextmanager
-def exit_internal_api(*args, **kwds):
+def exit_internal_api():
 
     assert (global_output_type_data.root_cm is not None)
 
@@ -1202,6 +1201,7 @@ def exit_internal_api(*args, **kwds):
 
     finally:
         global_output_type_data.root_cm = old_root_cm
+
 
 def mirror_args(
         wrapped: _F,
@@ -1223,7 +1223,9 @@ def api_base_return_autoarray(*args, **kwargs):
         elif (return_type == "sparsearray"):
             func = api_base_return_sparse_array(*args, **kwargs)(func)
         elif (return_type == "base"):
-            assert False, "Must use api_base_return_autoarray decorator on function that returns some array"
+            assert False, \
+                ("Must use api_base_return_autoarray decorator on function "
+                 "that returns some array")
 
         return func
 

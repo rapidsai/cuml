@@ -19,6 +19,7 @@ import cupyx
 from cuml import Base
 from cuml.common import CumlArray, has_scipy
 from cuml.common.array_descriptor import CumlArrayDescriptor
+from cuml.common.array_sparse import SparseCumlArray
 from cuml.prims.label import check_labels, invert_labels, make_monotonic
 
 
@@ -200,15 +201,15 @@ class LabelBinarizer(Base):
             if unique_classes != [0, 1]:
                 raise ValueError("2-d array can must be binary")
 
-            self.classes_ = CumlArray(cp.arange(0, y.shape[1]))
+            self.classes_ = cp.arange(0, y.shape[1])
         else:
-            self.classes_ = CumlArray(cp.unique(y).astype(y.dtype))
+            self.classes_ = cp.unique(y).astype(y.dtype)
 
         cp.cuda.Stream.null.synchronize()
 
         return self
 
-    def fit_transform(self, y):
+    def fit_transform(self, y) -> SparseCumlArray:
         """
         Fit label binarizer and transform multi-class labels to their
         dummy-encoded representation.
@@ -224,7 +225,7 @@ class LabelBinarizer(Base):
         """
         return self.fit(y).transform(y)
 
-    def transform(self, y) -> CumlArray:
+    def transform(self, y) -> SparseCumlArray:
         """
         Transform multi-class labels to their dummy-encoded representation
         labels.

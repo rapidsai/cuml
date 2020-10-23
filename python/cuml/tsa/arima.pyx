@@ -631,16 +631,16 @@ class ARIMA(Base):
             self.mu_ = CumlArray.empty(self.batch_size, np.float64)
         if order.p and not hasattr(self, "ar_"):
             self.ar_ = CumlArray.empty((order.p, self.batch_size),
-                                        np.float64)
+                                       np.float64)
         if order.q and not hasattr(self, "ma_"):
             self.ma_ = CumlArray.empty((order.q, self.batch_size),
-                                        np.float64)
+                                       np.float64)
         if order.P and not hasattr(self, "sar_"):
             self.sar_ = CumlArray.empty((order.P, self.batch_size),
-                                         np.float64)
+                                        np.float64)
         if order.Q and not hasattr(self, "sma_"):
             self.sma_ = CumlArray.empty((order.Q, self.batch_size),
-                                         np.float64)
+                                        np.float64)
         if not hasattr(self, "sigma2_"):
             self.sigma2_ = CumlArray.empty(self.batch_size, np.float64)
 

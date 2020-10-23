@@ -141,6 +141,10 @@ class SparseCumlArray():
             Optionally cast the array to a specified dtype, creating
             a copy if necessary.
         """
+        # Treat numpy and scipy as the same
+        if (output_type == "numpy"):
+            output_type = "scipy"
+
         output_dtype = self.data.dtype \
             if output_dtype is None else output_dtype
 

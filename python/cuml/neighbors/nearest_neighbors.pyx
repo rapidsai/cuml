@@ -485,14 +485,14 @@ class NearestNeighbors(Base):
 
         elif mode == 'distance':
             dist_mlarr, ind_mlarr = self._kneighbors(X, n_neighbors)
-            distances = dist_mlarr[:, 1:] if X is None else dist_mlarr
+            distances = dist_mlarr
             distances = cp.ravel(cp.asarray(distances))
 
         else:
             raise ValueError('Unsupported mode, must be one of "connectivity"'
                              ' or "distance" but got "%s" instead' % mode)
 
-        indices = ind_mlarr[:, 1:] if X is None else ind_mlarr
+        indices = ind_mlarr
         n_samples = indices.shape[0]
         n_samples_fit = self.X_m.shape[0]
         n_nonzero = n_samples * n_neighbors
@@ -585,9 +585,10 @@ def kneighbors_graph(X=None, n_neighbors=5, mode='connectivity', verbose=False,
     if include_self == 'auto':
         include_self = mode == 'connectivity'
 
-    if not include_self:
-        query = None
-    else:
-        query = X.X_m
+    with cuml.internals.exit_internal_api():
+        if not include_self:
+            query = None
+        else:
+            query = X.X_m
 
     return X.kneighbors_graph(X=query, n_neighbors=n_neighbors, mode=mode)

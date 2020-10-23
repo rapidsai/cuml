@@ -110,6 +110,7 @@ def _wrap_attribute(class_name: str,
 
     return_type = _get_base_return_type(class_name, attribute)
 
+    # TODO: (MDD) Do we convert this to use api_base_return_autoarray?
     if (return_type == "generic"):
         attribute = cuml.internals.api_base_return_generic(**kwargs)(attribute)
     elif (return_type == "array"):
