@@ -89,8 +89,7 @@ __device__ __forceinline__ vec<NITEMS, output_type> infer_one_tree(
 #pragma unroll
   for (int j = 0; j < NITEMS; ++j) {
     /** dependent names are not considered templates by default,
-        unless it's a member of a current [template] instantiation.
-        alternatively, could have used .base_node::output<... */
+        unless it's a member of a current [template] instantiation.**/
     out[j] = tree[curr[j]].template output<output_type>();
   }
   return out;
@@ -109,7 +108,9 @@ __device__ __forceinline__ vec<1, output_type> infer_one_tree(tree_type tree,
     curr = n.left(curr) + cond;
   }
   vec<1, output_type> out;
-  out[0] = tree[curr].base_node::output<output_type>();
+  /** dependent names are not considered templates by default,
+      unless it's a member of a current [template] instantiation.**/
+  out[0] = tree[curr[j]].template output<output_type>();
   return out;
 }
 
