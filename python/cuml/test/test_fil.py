@@ -425,29 +425,27 @@ def test_lightgbm(tmp_path, num_classes):
                  'metric': 'multi_logloss',
                  'num_class': num_classes}
     num_round = 5
+    model_path = str(os.path.join(tmp_path, 'lgb.model'))
+
     bst = lgb.train(param, train_data, num_round)
-    gbm_preds = bst.predict(X)
-    if num_classes > 2:
-        gbm_preds = gbm_preds.argmax(axis=1)
-    model_path = str(os.path.join(tmp_path,
-                                  'lgb.model'))
     bst.save_model(model_path)
-    fm = ForestInference.load(model_path,
-                              algo='TREE_REORG',
-                              output_class=True,
-                              model_type="lightgbm")
-    fil_preds = fm.predict(X)
-    assert array_equal(np.round(gbm_preds), fil_preds)
-
     if num_classes == 2:
-        lcls = lgb.LGBMClassifier().set_params(**param)
-        lcls.fit(X, y)
-        gbm_proba = lcls.predict_proba(X)
-
-        lcls.booster_.save_model(model_path)
+        # binary classification
+        gbm_proba = bst.predict(X)
         fm = ForestInference.load(model_path,
                                   algo='TREE_REORG',
                                   output_class=True,
                                   model_type="lightgbm")
         fil_proba = fm.predict_proba(X)
-        assert np.allclose(gbm_proba, fil_proba, 1e-2)
+        assert np.allclose(gbm_proba, fil_proba[:, 1], 1e-2)
+    else:
+        # multi-class classification
+        # FIL doesn't yet support predict_proba() for multi-class
+        gbm_preds = bst.predict(X)
+        gbm_preds = gbm_preds.argmax(axis=1)
+        fm = ForestInference.load(model_path,
+                                  algo='TREE_REORG',
+                                  output_class=True,
+                                  model_type="lightgbm")
+        fil_preds = fm.predict(X)
+        assert array_equal(np.round(gbm_preds), fil_preds)
