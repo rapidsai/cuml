@@ -366,6 +366,7 @@ class ARIMA(Base):
                 order.p, order.d, order.q, intercept_str, self.batch_size)
 
     @nvtx_range_wrap
+    @cuml.internals.api_base_return_any_skipall
     def _ic(self, ic_type: str):
         """Wrapper around C++ information_criterion
         """
@@ -623,6 +624,7 @@ class ARIMA(Base):
 
         return self.predict(self.n_obs, self.n_obs + nsteps, level)
 
+    @cuml.internals.api_base_return_any_skipall
     def _create_arrays(self):
         """Create the parameter arrays if non-existing"""
         cdef ARIMAOrder order = self.order
@@ -645,6 +647,7 @@ class ARIMA(Base):
             self.sigma2_ = CumlArray.empty(self.batch_size, np.float64)
 
     @nvtx_range_wrap
+    @cuml.internals.api_base_return_any_skipall
     def _estimate_x0(self):
         """Internal method. Estimate initial parameters of the model.
         """
@@ -757,6 +760,7 @@ class ARIMA(Base):
         return self
 
     @nvtx_range_wrap
+    @cuml.internals.api_base_return_any_skipall
     def _loglike(self, x, trans=True, method="ml", truncate=0):
         """Compute the batched log-likelihood for the given parameters.
 
@@ -810,6 +814,7 @@ class ARIMA(Base):
         return np.array(vec_loglike, dtype=np.float64)
 
     @nvtx_range_wrap
+    @cuml.internals.api_base_return_any_skipall
     def _loglike_grad(self, x, h=1e-8, trans=True, method="ml", truncate=0):
         """Compute the gradient (via finite differencing) of the batched
         log-likelihood.
@@ -954,6 +959,7 @@ class ARIMA(Base):
         return d_x_array.to_output("numpy")
 
     @nvtx_range_wrap
+    @cuml.internals.api_base_return_any_skipall
     def _batched_transform(self, x, isInv=False):
         """Applies Jones transform or inverse transform to a parameter vector
 
