@@ -471,7 +471,8 @@ void class_probs(std::vector<float *> &out, const int64_t *knn_indices,
      * Build array of class probability arrays from
      * knn_indices and labels
      */
-    device_buffer<int> y_normalized(allocator, stream, n_index_rows);
+    device_buffer<int> y_normalized(allocator, stream,
+                                    n_index_rows + n_unique_labels);
 
     /*
      * Appending the array of unique labels to the original labels array
