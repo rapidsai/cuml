@@ -430,7 +430,7 @@ def test_cpp_exception(tmp_path):
                               model_type='lightgbm')
 
     with pytest.raises(RuntimeError) as excinfo:
-        fil_proba = fm.predict_proba(X)
+        _ = fm.predict_proba(X)
 
     assert ('predict_proba not supported for multi-class gradient boosted ' +
             'decision trees' in str(excinfo.value))
