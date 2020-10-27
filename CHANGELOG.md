@@ -12,6 +12,7 @@
 - PR #2996: Removing the max_depth restriction for switching to the batched backend
 - PR #3004: Remove Single Process Multi GPU (SPMG) code
 - PR #3044: Move leftover `linalg` and `stats` to RAFT namespaces
+- PR #3067: Deleting prims moved to RAFT and updating header paths
 
 ## Bug Fixes
 - PR #3037: Avoid logging deadlock in multi-threaded C code
