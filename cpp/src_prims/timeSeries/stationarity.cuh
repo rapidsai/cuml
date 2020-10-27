@@ -216,9 +216,9 @@ static void _kpss_test(const DataT* d_y, bool* results, IdxT batch_size,
 
   // This calculates the first sum in eq. 10 (first part of s^2)
   device_buffer<DataT> s2A(allocator, stream, batch_size);
-  LinAlg::reduce(s2A.data(), y_cent.data(), batch_size, n_obs,
-                 static_cast<DataT>(0.0), false, false, stream, false,
-                 raft::L2Op<DataT>(), raft::Sum<DataT>());
+  raft::linalg::reduce(s2A.data(), y_cent.data(), batch_size, n_obs,
+                       static_cast<DataT>(0.0), false, false, stream, false,
+                       raft::L2Op<DataT>(), raft::Sum<DataT>());
 
   // From Kwiatkowski et al. referencing Schwert (1989)
   DataT lags_f = ceil(12.0 * pow(n_obs_f / 100.0, 0.25));
@@ -235,8 +235,8 @@ static void _kpss_test(const DataT* d_y, bool* results, IdxT batch_size,
     -coeff_base / (lags_f + static_cast<DataT>(1.0)), coeff_base);
   CUDA_CHECK(cudaPeekAtLastError());
   device_buffer<DataT> s2B(allocator, stream, batch_size);
-  LinAlg::reduce(s2B.data(), accumulator.data(), batch_size, n_obs,
-                 static_cast<DataT>(0.0), false, false, stream, false);
+  raft::linalg::reduce(s2B.data(), accumulator.data(), batch_size, n_obs,
+                       static_cast<DataT>(0.0), false, false, stream, false);
 
   // Cumulative sum (inclusive scan with + operator)
   thrust::counting_iterator<IdxT> c_first(0);
@@ -248,9 +248,9 @@ static void _kpss_test(const DataT* d_y, bool* results, IdxT batch_size,
 
   // Eq. 11 (eta)
   device_buffer<DataT> eta(allocator, stream, batch_size);
-  LinAlg::reduce(eta.data(), accumulator.data(), batch_size, n_obs,
-                 static_cast<DataT>(0.0), false, false, stream, false,
-                 raft::L2Op<DataT>(), raft::Sum<DataT>());
+  raft::linalg::reduce(eta.data(), accumulator.data(), batch_size, n_obs,
+                       static_cast<DataT>(0.0), false, false, stream, false,
+                       raft::L2Op<DataT>(), raft::Sum<DataT>());
 
   /* The following kernel will decide whether each series is stationary based on
    * s^2 and eta */
