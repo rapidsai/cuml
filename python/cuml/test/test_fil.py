@@ -444,6 +444,7 @@ def test_lightgbm(tmp_path, num_classes):
     else:
         # multi-class classification
         # FIL doesn't yet support predict_proba() for multi-class
+        # TODO: Add a test for predict_proba() when it's supported
         gbm_preds = bst.predict(X)
         gbm_preds = gbm_preds.argmax(axis=1)
         fm = ForestInference.load(model_path,
