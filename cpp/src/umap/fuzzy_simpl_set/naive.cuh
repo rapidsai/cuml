@@ -23,8 +23,8 @@
 #include <raft/cudart_utils.h>
 #include <raft/cuda_utils.cuh>
 
-#include <sparse/coo.cuh>
 #include <raft/stats/mean.cuh>
+#include <sparse/coo.cuh>
 
 #include <cuda_runtime.h>
 

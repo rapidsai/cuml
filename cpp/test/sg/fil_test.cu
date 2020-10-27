@@ -14,18 +14,18 @@
  * limitations under the License.
  */
 
-#include <raft/cudart_utils.h>
 #include <cuml/fil/fil.h>
 #include <gtest/gtest.h>
+#include <raft/cudart_utils.h>
 #include <test_utils.h>
 #include <treelite/c_api.h>
 #include <treelite/frontend.h>
 #include <treelite/tree.h>
 #include <cmath>
 #include <cstdio>
-#include <raft/cuda_utils.cuh>
 #include <limits>
 #include <memory>
+#include <raft/cuda_utils.cuh>
 #include <raft/random/rng.cuh>
 #include <utility>
 

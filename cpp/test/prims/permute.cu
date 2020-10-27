@@ -17,8 +17,8 @@
 #include <raft/cudart_utils.h>
 #include <algorithm>
 #include <raft/cuda_utils.cuh>
-#include <random/permute.cuh>
 #include <raft/random/rng.cuh>
+#include <random/permute.cuh>
 #include <vector>
 #include "test_utils.h"
 

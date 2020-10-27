@@ -14,13 +14,13 @@
  * limitations under the License.
  */
 
-#include <raft/cudart_utils.h>
 #include <gtest/gtest.h>
+#include <raft/cudart_utils.h>
 #include <raft/linalg/cublas_wrappers.h>
 #include <test_utils.h>
-#include <raft/cuda_utils.cuh>
 #include <cuml/decomposition/params.hpp>
 #include <pca/pca.cuh>
+#include <raft/cuda_utils.cuh>
 #include <raft/random/rng.cuh>
 #include <vector>
 

@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
-#include <raft/cudart_utils.h>
 #include <cuml/svm/svm_model.h>
 #include <cuml/svm/svm_parameter.h>
 #include <gtest/gtest.h>
+#include <raft/cudart_utils.h>
 #include <raft/linalg/transpose.h>
 #include <test_utils.h>
 #include <thrust/device_ptr.h>
@@ -27,18 +27,18 @@
 #include <common/cumlHandle.hpp>
 #include <common/device_buffer.hpp>
 #include <cub/cub.cuh>
-#include <raft/cuda_utils.cuh>
 #include <cuml/common/logger.hpp>
 #include <cuml/datasets/make_blobs.hpp>
 #include <cuml/svm/svc.hpp>
 #include <cuml/svm/svr.hpp>
 #include <iostream>
-#include <raft/linalg/binary_op.cuh>
-#include <raft/linalg/map_then_reduce.cuh>
 #include <matrix/grammatrix.cuh>
 #include <matrix/kernelmatrices.cuh>
-#include <random/make_blobs.cuh>
+#include <raft/cuda_utils.cuh>
+#include <raft/linalg/binary_op.cuh>
+#include <raft/linalg/map_then_reduce.cuh>
 #include <raft/random/rng.cuh>
+#include <random/make_blobs.cuh>
 #include <string>
 #include <svm/smoblocksolve.cuh>
 #include <svm/smosolver.cuh>

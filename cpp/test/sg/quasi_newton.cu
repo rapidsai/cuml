@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#include <raft/cudart_utils.h>
 #include <gtest/gtest.h>
+#include <raft/cudart_utils.h>
 #include <raft/linalg/transpose.h>
 #include <test_utils.h>
 #include <cuml/linear_model/glm.hpp>

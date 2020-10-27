@@ -20,8 +20,8 @@
 #include <common/cumlHandle.hpp>
 #include <common/device_buffer.hpp>
 #include <common/nvtx.hpp>
-#include <raft/cuda_utils.cuh>
 #include <label/classlabels.cuh>
+#include <raft/cuda_utils.cuh>
 #include <sparse/csr.cuh>
 #include "adjgraph/runner.cuh"
 #include "vertexdeg/runner.cuh"

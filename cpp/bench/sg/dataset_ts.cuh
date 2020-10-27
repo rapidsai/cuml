@@ -17,8 +17,8 @@
 #pragma once
 
 #include <common/cumlHandle.hpp>
-#include <raft/cuda_utils.cuh>
 #include <cuml/cuml.hpp>
+#include <raft/cuda_utils.cuh>
 
 #include <raft/cudart_utils.h>
 #include <raft/random/rng.cuh>

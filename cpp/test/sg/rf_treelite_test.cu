@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-#include <raft/cudart_utils.h>
 #include <decisiontree/decisiontree_impl.h>
 #include <gtest/gtest.h>
+#include <raft/cudart_utils.h>
 #include <raft/linalg/gemv.h>
 #include <raft/linalg/transpose.h>
 #include <sys/stat.h>
@@ -24,11 +24,11 @@
 #include <treelite/c_api.h>
 #include <treelite/c_api_runtime.h>
 #include <cstdlib>
-#include <raft/cuda_utils.cuh>
 #include <cuml/ensemble/randomforest.hpp>
 #include <fstream>
 #include <iostream>
 #include <limits>
+#include <raft/cuda_utils.cuh>
 #include <raft/random/rng.cuh>
 #include <string>
 

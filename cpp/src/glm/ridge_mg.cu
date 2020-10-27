@@ -17,18 +17,18 @@
 #include <raft/cudart_utils.h>
 #include <common/cumlHandle.hpp>
 #include <common/device_buffer.hpp>
-#include <raft/cuda_utils.cuh>
 #include <cuml/common/cuml_allocator.hpp>
 #include <cuml/linear_model/preprocess_mg.hpp>
 #include <cuml/linear_model/ridge_mg.hpp>
-#include <raft/linalg/add.cuh>
-#include <raft/linalg/gemm.cuh>
-#include <raft/matrix/math.cuh>
-#include <raft/matrix/matrix.cuh>
 #include <opg/linalg/mv_aTb.hpp>
 #include <opg/linalg/svd.hpp>
 #include <opg/stats/mean.hpp>
 #include <raft/comms/comms.hpp>
+#include <raft/cuda_utils.cuh>
+#include <raft/linalg/add.cuh>
+#include <raft/linalg/gemm.cuh>
+#include <raft/matrix/math.cuh>
+#include <raft/matrix/matrix.cuh>
 
 using namespace MLCommon;
 
@@ -71,8 +71,7 @@ void ridgeSolve(const raft::handle_t &handle, T *S, T *V,
   Matrix::Data<T> S_nnz_data;
   S_nnz_data.totalSize = UDesc.N;
   S_nnz_data.ptr = S_nnz;
-  LinAlg::opg::mv_aTb(handle, S_nnz_data, U, UDesc, b, streams,
-                      n_streams);
+  LinAlg::opg::mv_aTb(handle, S_nnz_data, U, UDesc, b, streams, n_streams);
 
   raft::linalg::gemm(handle, V, UDesc.N, UDesc.N, S_nnz, w, UDesc.N, 1,
                      CUBLAS_OP_N, CUBLAS_OP_N, alp, beta, streams[0]);

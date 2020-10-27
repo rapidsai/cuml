@@ -16,17 +16,17 @@
 
 #pragma once
 
-#include <raft/cudart_utils.h>
 #include <cuml/svm/svm_parameter.h>
 #include <linalg/init.h>
+#include <raft/cudart_utils.h>
 #include <cache/cache.cuh>
 #include <cache/cache_util.cuh>
 #include <common/cumlHandle.hpp>
 #include <common/host_buffer.hpp>
 #include <cub/cub.cuh>
+#include <matrix/grammatrix.cuh>
 #include <raft/cuda_utils.cuh>
 #include <raft/linalg/gemm.cuh>
-#include <matrix/grammatrix.cuh>
 #include <raft/matrix/matrix.cuh>
 
 namespace ML {

@@ -17,13 +17,13 @@
 #pragma once
 
 #include <math.h>
-#include <raft/cuda_utils.cuh>
 #include <iostream>
 #include <limits>
 #include <memory>
+#include <raft/cuda_utils.cuh>
 
-#include <raft/cudart_utils.h>
 #include <linalg/init.h>
+#include <raft/cudart_utils.h>
 #include <common/cumlHandle.hpp>
 #include <common/device_buffer.hpp>
 #include <common/host_buffer.hpp>

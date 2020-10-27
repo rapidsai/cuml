@@ -21,11 +21,11 @@
 
 #pragma once
 
-#include <raft/cudart_utils.h>
 #include <math.h>
+#include <raft/cudart_utils.h>
 #include <common/device_buffer.hpp>
-#include <raft/cuda_utils.cuh>
 #include <cuml/common/cuml_allocator.hpp>
+#include <raft/cuda_utils.cuh>
 #include <raft/linalg/map_then_reduce.cuh>
 
 namespace MLCommon {

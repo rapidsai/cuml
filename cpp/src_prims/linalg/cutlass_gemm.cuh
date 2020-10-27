@@ -14,16 +14,16 @@
  * limitations under the License.
  */
 
- #pragma once
+#pragma once
 
- #include "cutlass_wrappers.cuh"
- 
- // cutlass based gemm is being kept in this namespace so that RAFT does not
- // have to take cutlass-dependency when cublas based gemm is moved to RAFT
- namespace MLCommon {
- namespace LinAlg {
- 
- /**
+#include "cutlass_wrappers.cuh"
+
+// cutlass based gemm is being kept in this namespace so that RAFT does not
+// have to take cutlass-dependency when cublas based gemm is moved to RAFT
+namespace MLCommon {
+namespace LinAlg {
+
+/**
   * @brief the gemm function for the cases with detailed epilogue customization
   *  It computes the following equation: D = alpha . opA(A) * opB(B) + beta . C
   * @tparam IType input data-type (for A and B matrices)
@@ -60,32 +60,32 @@
   * of creating another Functor!
   * @param stream cuda stream where to launch work
   */
- template <
-   typename IType, typename AccType, typename OType, typename OutputTile_,
-   typename AccumulatorsPerThread_ = cutlass::Shape<8, 8, 8>,
-   typename MainLoopFunctor_ = cutlass::gemm::ThreadMultiplyAdd<
-     AccumulatorsPerThread_, cutlass::Shape<1, 4, 8>, IType, IType, AccType>,
-   typename Index_ = int,
-   typename GemmConfig_ =
-     CustomGemmConfig<IType, AccType, OType, OutputTile_, AccumulatorsPerThread_,
-                      MainLoopFunctor_>,
-   typename EpilogueFunctor_ = LinearScaling<OType>,
-   typename GemmEpilogueTraits_ = cutlass::gemm::SimplifiedGemmEpilogueTraits<
-     GemmConfig_, EpilogueFunctor_, Index_>,
-   typename GemmEpilogue_ = CustomGemmEpilogue<GemmEpilogueTraits_>,
-   typename Lambda, typename FinalLambda>
- void gemm(cublasOperation_t transA, cublasOperation_t transB, Index_ m,
-           Index_ n, Index_ k, OType alpha, IType const *A, Index_ lda,
-           IType const *B, Index_ ldb, OType beta, OType const *C, Index_ ldc,
-           OType *D, Lambda op, FinalLambda fin_op, cudaStream_t stream) {
-   baseGemm<IType, AccType, OType, OutputTile_, AccumulatorsPerThread_,
-            MainLoopFunctor_, Index_, GemmConfig_, EpilogueFunctor_,
-            GemmEpilogueTraits_, GemmEpilogue_>(transA, transB, m, n, k, alpha,
-                                                A, lda, B, ldb, beta, C, ldc, D,
-                                                op, fin_op, stream);
- }
- 
- /**
+template <
+  typename IType, typename AccType, typename OType, typename OutputTile_,
+  typename AccumulatorsPerThread_ = cutlass::Shape<8, 8, 8>,
+  typename MainLoopFunctor_ = cutlass::gemm::ThreadMultiplyAdd<
+    AccumulatorsPerThread_, cutlass::Shape<1, 4, 8>, IType, IType, AccType>,
+  typename Index_ = int,
+  typename GemmConfig_ =
+    CustomGemmConfig<IType, AccType, OType, OutputTile_, AccumulatorsPerThread_,
+                     MainLoopFunctor_>,
+  typename EpilogueFunctor_ = LinearScaling<OType>,
+  typename GemmEpilogueTraits_ = cutlass::gemm::SimplifiedGemmEpilogueTraits<
+    GemmConfig_, EpilogueFunctor_, Index_>,
+  typename GemmEpilogue_ = CustomGemmEpilogue<GemmEpilogueTraits_>,
+  typename Lambda, typename FinalLambda>
+void gemm(cublasOperation_t transA, cublasOperation_t transB, Index_ m,
+          Index_ n, Index_ k, OType alpha, IType const *A, Index_ lda,
+          IType const *B, Index_ ldb, OType beta, OType const *C, Index_ ldc,
+          OType *D, Lambda op, FinalLambda fin_op, cudaStream_t stream) {
+  baseGemm<IType, AccType, OType, OutputTile_, AccumulatorsPerThread_,
+           MainLoopFunctor_, Index_, GemmConfig_, EpilogueFunctor_,
+           GemmEpilogueTraits_, GemmEpilogue_>(transA, transB, m, n, k, alpha,
+                                               A, lda, B, ldb, beta, C, ldc, D,
+                                               op, fin_op, stream);
+}
+
+/**
   * @brief the gemm function for the case where no or simple customization is
   * needed
   *  It computes the following equation: D = alpha . opA(A) * opB(B) + beta . C
@@ -113,28 +113,27 @@
   * @param stream cuda stream where to launch work
   * @{
   */
- template <
-   typename IType, typename AccType, typename OType, typename OutputTile_,
-   typename AccumulatorsPerThread_ = cutlass::Shape<8, 8, 8>,
-   typename MainLoopFunctor_ = cutlass::gemm::ThreadMultiplyAdd<
-     AccumulatorsPerThread_, cutlass::Shape<1, 4, 8>, IType, IType, AccType>,
-   typename Index_ = int,
-   typename EpilogueFunctor_ = cutlass::gemm::LinearScaling<OType>>
- void gemm(cublasOperation_t transA, cublasOperation_t transB, Index_ m,
-           Index_ n, Index_ k, OType alpha, IType const *A, Index_ lda,
-           IType const *B, Index_ ldb, OType beta, OType const *C, Index_ ldc,
-           OType *D, cudaStream_t stream) {
-   typedef CustomGemmConfig<IType, AccType, OType, OutputTile_,
-                            AccumulatorsPerThread_, MainLoopFunctor_>
-     GemmConfig_;
-   gemm<IType, AccType, OType, OutputTile_, AccumulatorsPerThread_,
-        MainLoopFunctor_, Index_, GemmConfig_, EpilogueFunctor_>(
-     transA, transB, m, n, k, alpha, A, lda, B, ldb, beta, C, ldc, D,
-     [](typename EpilogueFunctor_::Params &p) { return 0; },
-     0,  // missing final lambda here
-     stream);
- }
- 
- }  // namespace LinAlg
- }  // namespace MLCommon
- 
+template <
+  typename IType, typename AccType, typename OType, typename OutputTile_,
+  typename AccumulatorsPerThread_ = cutlass::Shape<8, 8, 8>,
+  typename MainLoopFunctor_ = cutlass::gemm::ThreadMultiplyAdd<
+    AccumulatorsPerThread_, cutlass::Shape<1, 4, 8>, IType, IType, AccType>,
+  typename Index_ = int,
+  typename EpilogueFunctor_ = cutlass::gemm::LinearScaling<OType>>
+void gemm(cublasOperation_t transA, cublasOperation_t transB, Index_ m,
+          Index_ n, Index_ k, OType alpha, IType const *A, Index_ lda,
+          IType const *B, Index_ ldb, OType beta, OType const *C, Index_ ldc,
+          OType *D, cudaStream_t stream) {
+  typedef CustomGemmConfig<IType, AccType, OType, OutputTile_,
+                           AccumulatorsPerThread_, MainLoopFunctor_>
+    GemmConfig_;
+  gemm<IType, AccType, OType, OutputTile_, AccumulatorsPerThread_,
+       MainLoopFunctor_, Index_, GemmConfig_, EpilogueFunctor_>(
+    transA, transB, m, n, k, alpha, A, lda, B, ldb, beta, C, ldc, D,
+    [](typename EpilogueFunctor_::Params &p) { return 0; },
+    0,  // missing final lambda here
+    stream);
+}
+
+}  // namespace LinAlg
+}  // namespace MLCommon

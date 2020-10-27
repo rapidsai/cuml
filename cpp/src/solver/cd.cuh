@@ -20,12 +20,12 @@
 #include <raft/linalg/cublas_wrappers.h>
 #include <common/cumlHandle.hpp>
 #include <common/device_buffer.hpp>
-#include <raft/cuda_utils.cuh>
 #include <cuml/solvers/params.hpp>
 #include <functions/linearReg.cuh>
 #include <functions/penalty.cuh>
 #include <functions/softThres.cuh>
 #include <glm/preprocess.cuh>
+#include <raft/cuda_utils.cuh>
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/eltwise.cuh>
 #include <raft/linalg/gemm.cuh>

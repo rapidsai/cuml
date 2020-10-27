@@ -18,12 +18,12 @@
 
 #include <raft/cudart_utils.h>
 #include <common/device_buffer.hpp>
-#include <raft/cuda_utils.cuh>
 #include <cuml/common/cuml_allocator.hpp>
+#include <raft/cuda_utils.cuh>
 #include <raft/linalg/unary_op.cuh>
+#include <raft/random/rng.cuh>
 #include <vector>
 #include "permute.cuh"
-#include <raft/random/rng.cuh>
 
 namespace MLCommon {
 namespace Random {

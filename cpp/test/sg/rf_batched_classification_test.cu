@@ -14,13 +14,13 @@
  * limitations under the License.
  */
 
-#include <raft/cudart_utils.h>
 #include <gtest/gtest.h>
+#include <raft/cudart_utils.h>
 #include <raft/linalg/transpose.h>
 #include <test_utils.h>
-#include <raft/cuda_utils.cuh>
 #include <cuml/datasets/make_blobs.hpp>
 #include <cuml/ensemble/randomforest.hpp>
+#include <raft/cuda_utils.cuh>
 
 namespace ML {
 

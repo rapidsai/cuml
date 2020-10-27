@@ -16,8 +16,8 @@
 
 #pragma once
 
-#include <raft/cudart_utils.h>
 #include <cuml/tsa/holtwinters_params.h>
+#include <raft/cudart_utils.h>
 #include <raft/linalg/transpose.h>
 #include "internal/hw_decompose.cuh"
 #include "internal/hw_eval.cuh"

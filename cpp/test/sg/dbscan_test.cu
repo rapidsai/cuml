@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#include <raft/cudart_utils.h>
 #include <gtest/gtest.h>
+#include <raft/cudart_utils.h>
 #include <raft/cuda_utils.cuh>
 #include <vector>
 
@@ -25,8 +25,8 @@
 #include <cuml/datasets/make_blobs.hpp>
 #include <cuml/metrics/metrics.hpp>
 
-#include <raft/linalg/transpose.h>
 #include <raft/linalg/cublas_wrappers.h>
+#include <raft/linalg/transpose.h>
 
 #include <test_utils.h>
 

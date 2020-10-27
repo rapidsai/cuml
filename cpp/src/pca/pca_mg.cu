@@ -18,18 +18,18 @@
 #include <raft/linalg/transpose.h>
 #include <common/cumlHandle.hpp>
 #include <common/device_buffer.hpp>
-#include <raft/cuda_utils.cuh>
 #include <cuml/common/cuml_allocator.hpp>
 #include <cuml/decomposition/pca.hpp>
 #include <cuml/decomposition/pca_mg.hpp>
 #include <cuml/decomposition/sign_flip_mg.hpp>
-#include <raft/matrix/math.cuh>
 #include <opg/linalg/qr_based_svd.hpp>
 #include <opg/matrix/matrix_utils.hpp>
 #include <opg/stats/cov.hpp>
 #include <opg/stats/mean.hpp>
 #include <opg/stats/mean_center.hpp>
 #include <raft/comms/comms.hpp>
+#include <raft/cuda_utils.cuh>
+#include <raft/matrix/math.cuh>
 #include <raft/stats/mean_center.cuh>
 #include "pca.cuh"
 
@@ -52,15 +52,14 @@ void fit_impl(raft::handle_t &handle,
 
   Matrix::Data<T> mu_data{mu, size_t(prms.n_cols)};
 
-  Stats::opg::mean(handle, mu_data, input_data, input_desc, streams,
-                   n_streams);
+  Stats::opg::mean(handle, mu_data, input_data, input_desc, streams, n_streams);
 
   device_buffer<T> cov_data(allocator, streams[0], prms.n_cols * prms.n_cols);
   size_t cov_data_size = cov_data.size();
   Matrix::Data<T> cov{cov_data.data(), cov_data_size};
 
-  Stats::opg::cov(handle, cov, input_data, input_desc, mu_data, true,
-                  streams, n_streams);
+  Stats::opg::cov(handle, cov, input_data, input_desc, mu_data, true, streams,
+                  n_streams);
 
   ML::truncCompExpVars<T, mg_solver>(handle, cov.ptr, components, explained_var,
                                      explained_var_ratio, prms, streams[0]);

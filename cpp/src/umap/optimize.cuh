@@ -22,11 +22,11 @@
 #include <common/device_buffer.hpp>
 
 #include <raft/cudart_utils.h>
+#include <linalg/power.cuh>
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/binary_op.cuh>
 #include <raft/linalg/eltwise.cuh>
 #include <raft/linalg/multiply.cuh>
-#include <linalg/power.cuh>
 #include <raft/linalg/unary_op.cuh>
 #include <raft/matrix/math.cuh>
 #include <raft/stats/mean.cuh>

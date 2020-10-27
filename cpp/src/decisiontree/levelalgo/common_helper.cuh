@@ -16,8 +16,8 @@
 
 #pragma once
 
-#include <raft/cudart_utils.h>
 #include <cuml/tree/flatnode.h>
+#include <raft/cudart_utils.h>
 #include <cuml/common/logger.hpp>
 #include <raft/random/rng.cuh>
 #include <stats/minmax.cuh>

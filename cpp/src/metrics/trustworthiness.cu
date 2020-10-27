@@ -15,8 +15,8 @@
  */
 
 #include <common/cumlHandle.hpp>
-#include <raft/cuda_utils.cuh>
 #include <distance/distance.cuh>
+#include <raft/cuda_utils.cuh>
 #include <score/scores.cuh>
 
 namespace ML {

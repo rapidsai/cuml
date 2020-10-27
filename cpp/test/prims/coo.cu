@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#include <raft/cudart_utils.h>
 #include <gtest/gtest.h>
+#include <raft/cudart_utils.h>
 #include <raft/random/rng.cuh>
 #include <sparse/coo.cuh>
 #include "coo.h"

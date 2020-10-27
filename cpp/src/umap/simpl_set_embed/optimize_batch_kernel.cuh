@@ -16,8 +16,8 @@
 
 #pragma once
 
-#include <raft/cudart_utils.h>
 #include <cuml/manifold/umapparams.h>
+#include <raft/cudart_utils.h>
 #include <common/fast_int_div.cuh>
 #include <raft/cuda_utils.cuh>
 

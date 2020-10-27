@@ -20,8 +20,8 @@
 #include <unordered_set>
 #include <vector>
 
-#include <raft/cudart_utils.h>
 #include <cuml/random_projection/rproj_c.h>
+#include <raft/cudart_utils.h>
 #include <raft/linalg/cublas_wrappers.h>
 #include <raft/sparse/cusparse_wrappers.h>
 #include <common/cumlHandle.hpp>

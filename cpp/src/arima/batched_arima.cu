@@ -32,10 +32,10 @@
 #include <common/cumlHandle.hpp>
 #include <common/device_buffer.hpp>
 #include <common/nvtx.hpp>
-#include <raft/cuda_utils.cuh>
 #include <linalg/batched/matrix.cuh>
-#include <raft/linalg/matrix_vector_op.cuh>
 #include <metrics/batched/information_criterion.cuh>
+#include <raft/cuda_utils.cuh>
+#include <raft/linalg/matrix_vector_op.cuh>
 #include <timeSeries/arima_helpers.cuh>
 
 namespace ML {

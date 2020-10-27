@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
-#include <raft/cudart_utils.h>
 #include <gtest/gtest.h>
-#include <raft/cuda_utils.cuh>
+#include <raft/cudart_utils.h>
 #include <distance/distance.cuh>
+#include <raft/cuda_utils.cuh>
 #include <raft/random/rng.cuh>
 #include "test_utils.h"
 

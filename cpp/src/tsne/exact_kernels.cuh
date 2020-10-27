@@ -16,9 +16,9 @@
 
 #pragma once
 
-#include <raft/cudart_utils.h>
 #include <float.h>
 #include <math.h>
+#include <raft/cudart_utils.h>
 #include <raft/linalg/eltwise.cuh>
 
 #define restrict __restrict__

@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#include <raft/cudart_utils.h>
 #include <gtest/gtest.h>
+#include <raft/cudart_utils.h>
 #include <linalg/ternary_op.cuh>
 #include <raft/random/rng.cuh>
 #include "test_utils.h"
@@ -32,17 +32,15 @@ struct BinaryOpInputs {
 
 template <typename InType, typename IdxType = int, typename OutType = InType>
 ::std::ostream &operator<<(::std::ostream &os,
-                            const BinaryOpInputs<InType, IdxType, OutType> &d) {
+                           const BinaryOpInputs<InType, IdxType, OutType> &d) {
   return os;
 }
 
 template <typename T>
-class ternaryOpTest
-  : public ::testing::TestWithParam<BinaryOpInputs<T>> {
+class ternaryOpTest : public ::testing::TestWithParam<BinaryOpInputs<T>> {
  public:
   void SetUp() override {
-    params =
-      ::testing::TestWithParam<BinaryOpInputs<T>>::GetParam();
+    params = ::testing::TestWithParam<BinaryOpInputs<T>>::GetParam();
     raft::random::Rng rng(params.seed);
 
     int len = params.len;

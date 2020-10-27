@@ -15,8 +15,8 @@
  */
 
 #include <raft/cudart_utils.h>
-#include <random/permute.cuh>
 #include <raft/random/rng.cuh>
+#include <random/permute.cuh>
 #include "../common/ml_benchmark.hpp"
 
 namespace MLCommon {

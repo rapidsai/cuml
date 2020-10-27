@@ -16,10 +16,10 @@
 
 #pragma once
 
-#include <raft/cudart_utils.h>
 #include <cooperative_groups.h>
-#include <raft/cuda_utils.cuh>
+#include <raft/cudart_utils.h>
 #include <memory>
+#include <raft/cuda_utils.cuh>
 #include <raft/vectorized.cuh>
 
 namespace MLCommon {

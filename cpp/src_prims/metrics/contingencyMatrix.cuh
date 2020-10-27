@@ -16,8 +16,8 @@
 
 #pragma once
 
-#include <raft/cudart_utils.h>
 #include <math.h>
+#include <raft/cudart_utils.h>
 #include <thrust/device_ptr.h>
 #include <thrust/reduce.h>
 #include <cub/cub.cuh>

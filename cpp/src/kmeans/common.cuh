@@ -17,15 +17,15 @@
 
 #include <distance/distance.cuh>
 #include <distance/fused_l2_nn.cuh>
+#include <linalg/reduce_cols_by_key.cuh>
+#include <linalg/reduce_rows_by_key.cuh>
+#include <matrix/gather.cuh>
 #include <raft/linalg/binary_op.cuh>
 #include <raft/linalg/matrix_vector_op.cuh>
 #include <raft/linalg/mean_squared_error.cuh>
 #include <raft/linalg/reduce.cuh>
-#include <linalg/reduce_cols_by_key.cuh>
-#include <linalg/reduce_rows_by_key.cuh>
-#include <matrix/gather.cuh>
-#include <random/permute.cuh>
 #include <raft/random/rng.cuh>
+#include <random/permute.cuh>
 #include <random>
 
 #include <thrust/equal.h>

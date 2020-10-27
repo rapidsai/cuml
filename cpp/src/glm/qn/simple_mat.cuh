@@ -22,11 +22,11 @@
 #include <raft/linalg/cublas_wrappers.h>
 #include <common/cumlHandle.hpp>
 #include <common/device_buffer.hpp>
+#include <linalg/ternary_op.cuh>
 #include <raft/cuda_utils.cuh>
 #include <raft/linalg/binary_op.cuh>
 #include <raft/linalg/map_then_reduce.cuh>
 #include <raft/linalg/norm.cuh>
-#include <linalg/ternary_op.cuh>
 #include <raft/linalg/unary_op.cuh>
 
 namespace ML {

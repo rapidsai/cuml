@@ -16,10 +16,10 @@
 
 #pragma once
 
-#include <raft/cudart_utils.h>
 #include <cuml/svm/svm_parameter.h>
 #include <limits.h>
 #include <linalg/init.h>
+#include <raft/cudart_utils.h>
 #include <thrust/device_ptr.h>
 #include <thrust/iterator/permutation_iterator.h>
 #include <common/cumlHandle.hpp>

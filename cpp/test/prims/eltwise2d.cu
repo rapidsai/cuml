@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#include <raft/cudart_utils.h>
 #include <gtest/gtest.h>
+#include <raft/cudart_utils.h>
 #include <linalg/eltwise2d.cuh>
 #include <raft/random/rng.cuh>
 #include "test_utils.h"

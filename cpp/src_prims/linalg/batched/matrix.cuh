@@ -31,9 +31,9 @@
 #include <raft/cudart_utils.h>
 #include <common/device_buffer.hpp>
 #include <common/fast_int_div.cuh>
-#include <raft/cuda_utils.cuh>
 #include <cuml/common/utils.hpp>
 #include <cuml/cuml.hpp>
+#include <raft/cuda_utils.cuh>
 
 #include <raft/linalg/cublas_wrappers.h>
 #include <raft/linalg/binary_op.cuh>

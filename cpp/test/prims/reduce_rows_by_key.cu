@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#include <raft/cudart_utils.h>
 #include <gtest/gtest.h>
+#include <raft/cudart_utils.h>
 #include <iostream>
 #include <linalg/reduce_rows_by_key.cuh>
 #include <raft/random/rng.cuh>

@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#include <raft/cudart_utils.h>
 #include <gtest/gtest.h>
+#include <raft/cudart_utils.h>
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/subtract.cuh>
 #include <raft/linalg/unary_op.cuh>

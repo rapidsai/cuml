@@ -19,12 +19,12 @@
 #include <common/allocatorAdapter.hpp>
 #include <common/cumlHandle.hpp>
 #include <common/device_buffer.hpp>
-#include <raft/cuda_utils.cuh>
 #include <cuml/common/cuml_allocator.hpp>
 #include <cuml/decomposition/sign_flip_mg.hpp>
+#include <raft/comms/comms.hpp>
+#include <raft/cuda_utils.cuh>
 #include <raft/matrix/math.cuh>
 #include <raft/matrix/matrix.cuh>
-#include <raft/comms/comms.hpp>
 
 using namespace MLCommon;
 

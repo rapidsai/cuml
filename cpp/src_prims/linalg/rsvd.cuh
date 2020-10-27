@@ -20,16 +20,16 @@
 
 #include <raft/linalg/cublas_wrappers.h>
 #include <raft/linalg/cusolver_wrappers.h>
+#include <raft/linalg/transpose.h>
 #include <raft/cuda_utils.cuh>
-#include <raft/matrix/math.cuh>
-#include <raft/matrix/matrix.cuh>
-#include <raft/mr/device/buffer.hpp>
-#include <raft/random/rng.cuh>
 #include <raft/linalg/eig.cuh>
 #include <raft/linalg/gemm.cuh>
 #include <raft/linalg/qr.cuh>
 #include <raft/linalg/svd.cuh>
-#include <raft/linalg/transpose.h>
+#include <raft/matrix/math.cuh>
+#include <raft/matrix/matrix.cuh>
+#include <raft/mr/device/buffer.hpp>
+#include <raft/random/rng.cuh>
 
 namespace MLCommon {
 namespace LinAlg {

@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#include <raft/cudart_utils.h>
 #include <gtest/gtest.h>
+#include <raft/cudart_utils.h>
 #include <test_utils.h>
 #include <linalg/batched/make_symm.cuh>
 #include <raft/random/rng.cuh>

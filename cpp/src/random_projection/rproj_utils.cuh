@@ -16,8 +16,8 @@
 
 #pragma once
 
-#include <raft/cudart_utils.h>
 #include <cuml/random_projection/rproj_c.h>
+#include <raft/cudart_utils.h>
 #include <sys/time.h>
 #include <common/cumlHandle.hpp>
 #include <raft/cuda_utils.cuh>

@@ -17,12 +17,12 @@
 #ifndef _OPENMP
 #define omp_get_thread_num() 0
 #endif
-#include <raft/cudart_utils.h>
 #include <decisiontree/memory.h>
 #include <decisiontree/quantile/quantile.h>
+#include <raft/cudart_utils.h>
 #include <cuml/common/logger.hpp>
-#include <random/permute.cuh>
 #include <raft/random/rng.cuh>
+#include <random/permute.cuh>
 #include <score/scores.cuh>
 #include "randomforest_impl.h"
 

@@ -19,8 +19,8 @@
 #include <raft/linalg/gemv.h>
 #include <common/cumlHandle.hpp>
 #include <common/device_buffer.hpp>
-#include <raft/linalg/add.cuh>
 #include <linalg/lstsq.cuh>
+#include <raft/linalg/add.cuh>
 #include <raft/linalg/norm.cuh>
 #include <raft/linalg/subtract.cuh>
 #include <raft/matrix/math.cuh>

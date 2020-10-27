@@ -16,11 +16,11 @@
 
 #pragma once
 
-#include <raft/cudart_utils.h>
 #include <cuml/manifold/umapparams.h>
 #include <curand.h>
 #include <internals/internals.h>
 #include <math.h>
+#include <raft/cudart_utils.h>
 #include <thrust/device_ptr.h>
 #include <thrust/extrema.h>
 #include <thrust/system/cuda/execution_policy.h>

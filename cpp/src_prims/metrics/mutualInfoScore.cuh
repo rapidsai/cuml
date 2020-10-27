@@ -24,12 +24,12 @@
 *   on the same dataset when the real ground truth is not known.
 */
 
-#include <raft/cudart_utils.h>
 #include <math.h>
+#include <raft/cudart_utils.h>
 #include <common/device_buffer.hpp>
 #include <cub/cub.cuh>
-#include <raft/cuda_utils.cuh>
 #include <cuml/common/cuml_allocator.hpp>
+#include <raft/cuda_utils.cuh>
 #include <raft/linalg/reduce.cuh>
 #include "contingencyMatrix.cuh"
 

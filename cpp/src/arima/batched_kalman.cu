@@ -29,8 +29,8 @@
 #include <common/cumlHandle.hpp>
 #include <common/device_buffer.hpp>
 #include <common/nvtx.hpp>
-#include <raft/cuda_utils.cuh>
 #include <linalg/batched/matrix.cuh>
+#include <raft/cuda_utils.cuh>
 #include <raft/linalg/binary_op.cuh>
 #include <sparse/batched/csr.cuh>
 #include <timeSeries/arima_helpers.cuh>

@@ -16,7 +16,6 @@
 
 #pragma once
 
-#include <raft/cudart_utils.h>
 #include <cublas_v2.h>
 #include <cutlass/coord.h>
 #include <cutlass/fragment_multiply_add.h>
@@ -27,6 +26,7 @@
 #include <cutlass/gemm/linear_scaling.h>
 #include <cutlass/gemm/thread_multiply_add.h>
 #include <cutlass/util/platform.h>
+#include <raft/cudart_utils.h>
 #include <raft/linalg/cublas_wrappers.h>
 #include <raft/cuda_utils.cuh>
 
