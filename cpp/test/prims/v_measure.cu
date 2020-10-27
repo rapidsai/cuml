@@ -18,7 +18,7 @@
 #include <algorithm>
 #include <cuml/common/cuml_allocator.hpp>
 #include <iostream>
-#include <metrics/vMeasure.cuh>
+#include <metrics/v_measure.cuh>
 #include <random>
 #include "test_utils.h"
 
@@ -91,8 +91,8 @@ class vMeasureTest : public ::testing::TestWithParam<vMeasureParam> {
     else
       truthVMeasure = ((1 + params.beta) * truthHomogeity * truthCompleteness /
                        (params.beta * truthHomogeity + truthCompleteness));
-    //calling the vMeasure CUDA implementation
-    computedVMeasure = MLCommon::Metrics::vMeasure(
+    //calling the v_measure CUDA implementation
+    computedVMeasure = MLCommon::Metrics::v_measure(
       truthClusterArray, predClusterArray, nElements, lowerLabelRange,
       upperLabelRange, allocator, stream, params.beta);
   }

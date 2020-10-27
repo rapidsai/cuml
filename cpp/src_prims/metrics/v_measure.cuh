@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 /**
-* @file vMeasure.cuh
+* @file v_measure.cuh
 */
 
 #include "homogeneity_score.cuh"
@@ -33,10 +33,10 @@ namespace Metrics {
 * @param upperLabelRange: the upper bound of the range of labels
 * @param allocator: object that takes care of temporary device memory allocation of type std::shared_ptr<MLCommon::deviceAllocator>
 * @param stream: the cudaStream object
-* @param beta: vmeasure parameter
+* @param beta: v_measure parameter
 */
 template <typename T>
-double vMeasure(const T *truthClusterArray, const T *predClusterArray, int size,
+double v_measure(const T *truthClusterArray, const T *predClusterArray, int size,
                 T lowerLabelRange, T upperLabelRange,
                 std::shared_ptr<MLCommon::deviceAllocator> allocator,
                 cudaStream_t stream, double beta = 1.0) {
