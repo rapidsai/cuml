@@ -20,8 +20,8 @@
 #include "coalesced_reduction.cuh"
 #include "strided_reduction.cuh"
 
-namespace MLCommon {
-namespace LinAlg {
+namespace raft {
+namespace linalg {
 
 /**
  * @brief Compute reduction of the input matrix along the requested dimension
@@ -77,5 +77,5 @@ void reduce(OutType *dots, const InType *data, int D, int N, OutType init,
   }
 }
 
-};  // end namespace LinAlg
-};  // end namespace MLCommon
+};  // end namespace linalg
+};  // end namespace raft

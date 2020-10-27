@@ -281,9 +281,9 @@ void minClusterAndDistance(
   if (metric == ML::Distance::DistanceType::EucExpandedL2 ||
       metric == ML::Distance::DistanceType::EucExpandedL2Sqrt) {
     L2NormBuf_OR_DistBuf.resize(n_clusters, stream);
-    MLCommon::LinAlg::rowNorm(L2NormBuf_OR_DistBuf.data(), centroids.data(),
-                              centroids.getSize(1), centroids.getSize(0),
-                              MLCommon::LinAlg::L2Norm, true, stream);
+    raft::linalg::rowNorm(L2NormBuf_OR_DistBuf.data(), centroids.data(),
+                          centroids.getSize(1), centroids.getSize(0),
+                          raft::linalg::L2Norm, true, stream);
   } else {
     L2NormBuf_OR_DistBuf.resize(dataBatchSize * centroidsBatchSize, stream);
   }
@@ -357,7 +357,7 @@ void minClusterAndDistance(
         // argmin reduction returning <index, value> pair
         // calculates the closest centroid and the distance to the closest
         // centroid
-        MLCommon::LinAlg::coalescedReduction(
+        raft::linalg::coalescedReduction(
           minClusterAndDistanceView.data(), pairwiseDistanceView.data(),
           pairwiseDistanceView.getSize(1), pairwiseDistanceView.getSize(0),
           initial_value, stream, true,
@@ -400,9 +400,9 @@ void minClusterDistance(const raft::handle_t &handle,
   if (metric == ML::Distance::DistanceType::EucExpandedL2 ||
       metric == ML::Distance::DistanceType::EucExpandedL2Sqrt) {
     L2NormBuf_OR_DistBuf.resize(n_clusters, stream);
-    MLCommon::LinAlg::rowNorm(L2NormBuf_OR_DistBuf.data(), centroids.data(),
-                              centroids.getSize(1), centroids.getSize(0),
-                              MLCommon::LinAlg::L2Norm, true, stream);
+    raft::linalg::rowNorm(L2NormBuf_OR_DistBuf.data(), centroids.data(),
+                          centroids.getSize(1), centroids.getSize(0),
+                          raft::linalg::L2Norm, true, stream);
   } else {
     L2NormBuf_OR_DistBuf.resize(dataBatchSize * centroidsBatchSize, stream);
   }
@@ -469,7 +469,7 @@ void minClusterDistance(const raft::handle_t &handle,
                                          pairwiseDistanceView, workspace,
                                          metric, stream);
 
-        MLCommon::LinAlg::coalescedReduction(
+        raft::linalg::coalescedReduction(
           minClusterDistanceView.data(), pairwiseDistanceView.data(),
           pairwiseDistanceView.getSize(1), pairwiseDistanceView.getSize(0),
           std::numeric_limits<DataT>::max(), stream, true,
@@ -633,9 +633,8 @@ void kmeansPlusPlus(const raft::handle_t &handle, const KMeansParams &params,
 
   if (metric == ML::Distance::DistanceType::EucExpandedL2 ||
       metric == ML::Distance::DistanceType::EucExpandedL2Sqrt) {
-    MLCommon::LinAlg::rowNorm(L2NormX.data(), X.data(), X.getSize(1),
-                              X.getSize(0), MLCommon::LinAlg::L2Norm, true,
-                              stream);
+    raft::linalg::rowNorm(L2NormX.data(), X.data(), X.getSize(1), X.getSize(0),
+                          raft::linalg::L2Norm, true, stream);
   }
 
   std::mt19937 gen(params.seed);
@@ -704,9 +703,9 @@ void kmeansPlusPlus(const raft::handle_t &handle, const KMeansParams &params,
       stream);
 
     // Calculate costPerCandidate[n_trials] where costPerCandidate[i] is the cluster cost when using centroid candidate-i
-    MLCommon::LinAlg::reduce(costPerCandidate.data(), minDistBuf.data(),
-                             minDistBuf.getSize(1), minDistBuf.getSize(0),
-                             static_cast<DataT>(0), true, true, stream);
+    raft::linalg::reduce(costPerCandidate.data(), minDistBuf.data(),
+                         minDistBuf.getSize(1), minDistBuf.getSize(0),
+                         static_cast<DataT>(0), true, true, stream);
 
     // Greedy Choice - Choose the candidate that has minimum cluster cost
     // ArgMin operation below identifies the index of minimum cost in costPerCandidate

@@ -107,8 +107,8 @@ void Exact_TSNE(float *VAL, const int *COL, const int *ROW, const int NNZ,
     }
 
     // Get row norm of Y
-    MLCommon::LinAlg::rowNorm(norm.data(), Y, dim, n, MLCommon::LinAlg::L2Norm,
-                              false, stream);
+    raft::linalg::rowNorm(norm.data(), Y, dim, n, raft::linalg::L2Norm, false,
+                          stream);
 
     // Compute attractive forces
     TSNE::attractive_forces(VAL, COL, ROW, Y, norm.data(), attract.data(), NNZ,

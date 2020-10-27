@@ -85,9 +85,8 @@ void fit(const raft::handle_t &handle, const KMeansParams &params,
   Tensor<DataT, 1> L2NormX({n_samples}, handle.get_device_allocator(), stream);
   if (metric == ML::Distance::DistanceType::EucExpandedL2 ||
       metric == ML::Distance::DistanceType::EucExpandedL2Sqrt) {
-    MLCommon::LinAlg::rowNorm(L2NormX.data(), X.data(), X.getSize(1),
-                              X.getSize(0), MLCommon::LinAlg::L2Norm, true,
-                              stream);
+    raft::linalg::rowNorm(L2NormX.data(), X.data(), X.getSize(1), X.getSize(0),
+                          raft::linalg::L2Norm, true, stream);
   }
 
   ML::thrustAllocatorAdapter alloc(handle.get_device_allocator(), stream);
@@ -358,9 +357,8 @@ void initScalableKMeansPlusPlus(
   Tensor<DataT, 1> L2NormX({n_samples}, handle.get_device_allocator(), stream);
   if (metric == ML::Distance::DistanceType::EucExpandedL2 ||
       metric == ML::Distance::DistanceType::EucExpandedL2Sqrt) {
-    MLCommon::LinAlg::rowNorm(L2NormX.data(), X.data(), X.getSize(1),
-                              X.getSize(0), MLCommon::LinAlg::L2Norm, true,
-                              stream);
+    raft::linalg::rowNorm(L2NormX.data(), X.data(), X.getSize(1), X.getSize(0),
+                          raft::linalg::L2Norm, true, stream);
   }
 
   Tensor<DataT, 1, IndexT> minClusterDistance(
@@ -669,9 +667,8 @@ void predict(const raft::handle_t &handle, const KMeansParams &params,
   Tensor<DataT, 1> L2NormX({n_samples}, handle.get_device_allocator(), stream);
   if (metric == ML::Distance::DistanceType::EucExpandedL2 ||
       metric == ML::Distance::DistanceType::EucExpandedL2Sqrt) {
-    MLCommon::LinAlg::rowNorm(L2NormX.data(), X.data(), X.getSize(1),
-                              X.getSize(0), MLCommon::LinAlg::L2Norm, true,
-                              stream);
+    raft::linalg::rowNorm(L2NormX.data(), X.data(), X.getSize(1), X.getSize(0),
+                          raft::linalg::L2Norm, true, stream);
   }
 
   // computes minClusterAndDistance[0:n_samples) where  minClusterAndDistance[i]

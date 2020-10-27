@@ -11,6 +11,7 @@
 - PR #2906: Moving `linalg` decomp to RAFT namespaces
 - PR #2996: Removing the max_depth restriction for switching to the batched backend
 - PR #3004: Remove Single Process Multi GPU (SPMG) code
+- PR #3044: Move leftover `linalg` and `stats` to RAFT namespaces
 
 ## Bug Fixes
 - PR #3033: Splitting ml metrics to individual files
