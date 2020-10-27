@@ -15,11 +15,11 @@
  */
 
 /**
- * @file randIndex.cuh
+ * @file rand_index.cuh
  * @todo TODO(Ganesh Venkataramana):
  * <pre>
- * The below randIndex calculation implementation is a Brute force one that uses (nElements*nElements) threads (2 dimensional grids and blocks)
- * For small datasets, this will suffice; but for larger ones, work done by the threads increase dramatically. 
+ * The below rand_index calculation implementation is a Brute force one that uses (nElements*nElements) threads (2 dimensional grids and blocks)
+ * For small datasets, this will suffice; but for larger ones, work done by the threads increase dramatically.
  * A more mathematically intensive implementation that uses half the above threads can be done, which will prove to be more efficient for larger datasets
  * the idea is as follows:
   * instead of 2D block and grid configuration with a total of (nElements*nElements) threads (where each (i,j) through these threads represent an ordered pair selection of 2 data points),
@@ -53,8 +53,8 @@ namespace MLCommon {
 namespace Metrics {
 
 /**
- * @brief kernel to calculate the values of a and b 
- * @param firstClusterArray: the array of classes of type T 
+ * @brief kernel to calculate the values of a and b
+ * @param firstClusterArray: the array of classes of type T
  * @param secondClusterArray: the array of classes of type T
  * @param size: the size of the data points
  * @param a: number of pairs of points that both the clusters have classified the same
@@ -108,7 +108,7 @@ __global__ void computeTheNumerator(const T* firstClusterArray,
 
 /**
 * @brief Function to calculate RandIndex
-* <a href="https://en.wikipedia.org/wiki/Rand_index">more info on rand index</a> 
+* <a href="https://en.wikipedia.org/wiki/Rand_index">more info on rand index</a>
 * @param firstClusterArray: the array of classes of type T
 * @param secondClusterArray: the array of classes of type T
 * @param size: the size of the data points of type uint64_t
@@ -150,7 +150,7 @@ double computeRandIndex(T* firstClusterArray, T* secondClusterArray,
   //denominator
   uint64_t nChooseTwo = size * (size - 1) / 2;
 
-  //calculating the randIndex
+  //calculating the rand_index
   return (double)(((double)(ab_host[0] + ab_host[1])) / (double)nChooseTwo);
 }
 

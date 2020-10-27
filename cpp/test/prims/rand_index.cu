@@ -19,7 +19,7 @@
 #include <algorithm>
 #include <cuml/common/cuml_allocator.hpp>
 #include <iostream>
-#include <metrics/randIndex.cuh>
+#include <metrics/rand_index.cuh>
 #include <random>
 #include "test_utils.h"
 
@@ -27,7 +27,7 @@ namespace MLCommon {
 namespace Metrics {
 
 //parameter structure definition
-struct randIndexParam {
+struct rand_indexParam {
   uint64_t nElements;
   int lowerLabelRange;
   int upperLabelRange;
@@ -36,12 +36,12 @@ struct randIndexParam {
 
 //test fixture class
 template <typename T>
-class randIndexTest : public ::testing::TestWithParam<randIndexParam> {
+class rand_indexTest : public ::testing::TestWithParam<rand_indexParam> {
  protected:
   //the constructor
   void SetUp() override {
     //getting the parameters
-    params = ::testing::TestWithParam<randIndexParam>::GetParam();
+    params = ::testing::TestWithParam<rand_indexParam>::GetParam();
 
     size = params.nElements;
     lowerLabelRange = params.lowerLabelRange;
@@ -85,7 +85,7 @@ class randIndexTest : public ::testing::TestWithParam<randIndexParam> {
     std::shared_ptr<MLCommon::deviceAllocator> allocator(
       new raft::mr::device::default_allocator);
 
-    //calling the randIndex CUDA implementation
+    //calling the rand_index CUDA implementation
     computedRandIndex = MLCommon::Metrics::computeRandIndex(
       firstClusterArray, secondClusterArray, size, allocator, stream);
   }
@@ -98,7 +98,7 @@ class randIndexTest : public ::testing::TestWithParam<randIndexParam> {
   }
 
   //declaring the data values
-  randIndexParam params;
+  rand_indexParam params;
   int lowerLabelRange = 0, upperLabelRange = 2;
   T* firstClusterArray = nullptr;
   T* secondClusterArray = nullptr;
@@ -109,17 +109,17 @@ class randIndexTest : public ::testing::TestWithParam<randIndexParam> {
 };
 
 //setting test parameter values
-const std::vector<randIndexParam> inputs = {
+const std::vector<rand_indexParam> inputs = {
   {199, 1, 10, 0.000001},    {200, 1, 100, 0.000001}, {10, 1, 1200, 0.000001},
   {100, 1, 10000, 0.000001}, {198, 1, 100, 0.000001}, {300, 3, 99, 0.000001},
   {2, 0, 0, 0.00001}};
 
 //writing the test suite
-typedef randIndexTest<int> randIndexTestClass;
-TEST_P(randIndexTestClass, Result) {
+typedef rand_indexTest<int> rand_indexTestClass;
+TEST_P(rand_indexTestClass, Result) {
   ASSERT_NEAR(computedRandIndex, truthRandIndex, params.tolerance);
 }
-INSTANTIATE_TEST_CASE_P(randIndex, randIndexTestClass,
+INSTANTIATE_TEST_CASE_P(rand_index, rand_indexTestClass,
                         ::testing::ValuesIn(inputs));
 
 }  //end namespace Metrics

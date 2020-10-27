@@ -72,7 +72,7 @@ double r2_score_py(const raft::handle_t &handle, double *y, double *y_hat,
 * @return: The rand index value
 */
 
-double randIndex(const raft::handle_t &handle, double *y, double *y_hat, int n);
+double rand_index(const raft::handle_t &handle, double *y, double *y_hat, int n);
 
 /**
 * Calculates the "Silhouette Score"
@@ -253,7 +253,7 @@ float accuracy_score_py(const raft::handle_t &handle, const int *predictions,
 /**
  * @brief Calculates the ij pairwise distances between two input arrays of
  *        double type
- * 
+ *
  * @param handle raft::handle_t
  * @param x pointer to the input data samples array (mRows x kCols)
  * @param y pointer to the second input data samples array. Can use the same
@@ -273,7 +273,7 @@ void pairwiseDistance(const raft::handle_t &handle, const double *x,
 
 /**
  * @brief Calculates the ij pairwise distances between two input arrays of float type
- * 
+ *
  * @param handle raft::handle_t
  * @param x pointer to the input data samples array (mRows x kCols)
  * @param y pointer to the second input data samples array. Can use the same
