@@ -16,12 +16,12 @@
 
 #pragma once
 
-#include <common/cudart_utils.h>
+#include <raft/cudart_utils.h>
 #include <math.h>
 #include <thrust/device_ptr.h>
 #include <thrust/reduce.h>
 #include <cub/cub.cuh>
-#include <cuda_utils.cuh>
+#include <raft/cuda_utils.cuh>
 
 namespace MLCommon {
 namespace Metrics {

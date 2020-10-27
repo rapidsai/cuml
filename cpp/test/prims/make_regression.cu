@@ -18,11 +18,11 @@
 #include <thrust/count.h>
 #include <thrust/device_vector.h>
 
-#include <common/cudart_utils.h>
-#include <linalg/transpose.h>
+#include <raft/cudart_utils.h>
+#include <raft/linalg/transpose.h>
 #include <raft/linalg/cublas_wrappers.h>
-#include <cuda_utils.cuh>
-#include <linalg/subtract.cuh>
+#include <raft/cuda_utils.cuh>
+#include <raft/linalg/subtract.cuh>
 #include <random/make_regression.cuh>
 #include "test_utils.h"
 

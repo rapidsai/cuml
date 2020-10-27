@@ -18,12 +18,12 @@
 
 #include <cuda_runtime.h>
 
-#include <common/cudart_utils.h>
+#include <raft/cudart_utils.h>
 #include <cuml/tsa/arima_common.h>
-#include <cuda_utils.cuh>
+#include <raft/cuda_utils.cuh>
 #include <linalg/batched/matrix.cuh>
-#include <linalg/matrix_vector_op.cuh>
-#include <linalg/unary_op.cuh>
+#include <raft/linalg/matrix_vector_op.cuh>
+#include <raft/linalg/unary_op.cuh>
 #include "jones_transform.cuh"
 
 namespace MLCommon {

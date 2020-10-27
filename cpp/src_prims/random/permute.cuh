@@ -16,11 +16,11 @@
 
 #pragma once
 
-#include <common/cudart_utils.h>
+#include <raft/cudart_utils.h>
 #include <cooperative_groups.h>
-#include <cuda_utils.cuh>
+#include <raft/cuda_utils.cuh>
 #include <memory>
-#include <vectorized.cuh>
+#include <raft/vectorized.cuh>
 
 namespace MLCommon {
 namespace Random {

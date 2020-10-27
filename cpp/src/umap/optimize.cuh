@@ -21,15 +21,15 @@
 
 #include <common/device_buffer.hpp>
 
-#include <common/cudart_utils.h>
-#include <linalg/add.cuh>
-#include <linalg/binary_op.cuh>
-#include <linalg/eltwise.cuh>
-#include <linalg/multiply.cuh>
+#include <raft/cudart_utils.h>
+#include <raft/linalg/add.cuh>
+#include <raft/linalg/binary_op.cuh>
+#include <raft/linalg/eltwise.cuh>
+#include <raft/linalg/multiply.cuh>
 #include <linalg/power.cuh>
-#include <linalg/unary_op.cuh>
-#include <matrix/math.cuh>
-#include <stats/mean.cuh>
+#include <raft/linalg/unary_op.cuh>
+#include <raft/matrix/math.cuh>
+#include <raft/stats/mean.cuh>
 
 #include <cuda_runtime.h>
 

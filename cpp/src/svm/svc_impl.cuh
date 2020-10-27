@@ -33,9 +33,9 @@
 #include <common/cumlHandle.hpp>
 #include <common/device_buffer.hpp>
 #include <label/classlabels.cuh>
-#include <linalg/unary_op.cuh>
+#include <raft/linalg/unary_op.cuh>
 #include <matrix/kernelfactory.cuh>
-#include <matrix/matrix.cuh>
+#include <raft/matrix/matrix.cuh>
 #include "kernelcache.cuh"
 #include "smosolver.cuh"
 

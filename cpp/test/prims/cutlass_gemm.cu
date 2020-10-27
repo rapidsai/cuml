@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-#include <common/cudart_utils.h>
+#include <raft/cudart_utils.h>
 #include <gtest/gtest.h>
-#include <linalg/gemm.cuh>
+#include <linalg/cutlass_gemm.cuh>
 
 namespace MLCommon {
 namespace LinAlg {

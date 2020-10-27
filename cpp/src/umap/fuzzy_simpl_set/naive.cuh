@@ -20,11 +20,11 @@
 #include <cuml/common/logger.hpp>
 #include <cuml/neighbors/knn.hpp>
 
-#include <common/cudart_utils.h>
-#include <cuda_utils.cuh>
+#include <raft/cudart_utils.h>
+#include <raft/cuda_utils.cuh>
 
 #include <sparse/coo.cuh>
-#include <stats/mean.cuh>
+#include <raft/stats/mean.cuh>
 
 #include <cuda_runtime.h>
 

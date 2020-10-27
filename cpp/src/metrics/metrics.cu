@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include <cuda_utils.cuh>
+#include <raft/cuda_utils.cuh>
 #include <cuml/metrics/metrics.hpp>
 #include <metrics/adjustedRandIndex.cuh>
 #include <metrics/klDivergence.cuh>

@@ -16,18 +16,20 @@
 
 #pragma once
 
+#include <common/device_buffer.hpp>
+
 #include <raft/linalg/cublas_wrappers.h>
 #include <raft/linalg/cusolver_wrappers.h>
-#include <cuda_utils.cuh>
-#include <matrix/math.cuh>
-#include <matrix/matrix.cuh>
+#include <raft/cuda_utils.cuh>
+#include <raft/matrix/math.cuh>
+#include <raft/matrix/matrix.cuh>
 #include <raft/mr/device/buffer.hpp>
-#include <random/rng.cuh>
-#include "eig.cuh"
-#include "gemm.cuh"
-#include "qr.cuh"
-#include "svd.cuh"
-#include "transpose.h"
+#include <raft/random/rng.cuh>
+#include <raft/linalg/eig.cuh>
+#include <raft/linalg/gemm.cuh>
+#include <raft/linalg/qr.cuh>
+#include <raft/linalg/svd.cuh>
+#include <raft/linalg/transpose.h>
 
 namespace MLCommon {
 namespace LinAlg {

@@ -15,7 +15,7 @@
  */
 
 #include <common/cumlHandle.hpp>
-#include <cuda_utils.cuh>
+#include <raft/cuda_utils.cuh>
 #include <distance/distance.cuh>
 #include <score/scores.cuh>
 

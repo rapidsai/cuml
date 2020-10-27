@@ -16,26 +16,26 @@
 
 #pragma once
 
-#include <common/cudart_utils.h>
-#include <linalg/transpose.h>
+#include <raft/cudart_utils.h>
+#include <raft/linalg/transpose.h>
 #include <raft/linalg/cublas_wrappers.h>
 #include <thrust/device_vector.h>
 #include <thrust/execution_policy.h>
 #include <common/allocatorAdapter.hpp>
 #include <common/cumlHandle.hpp>
 #include <common/device_buffer.hpp>
-#include <cuda_utils.cuh>
+#include <raft/cuda_utils.cuh>
 #include <cuml/decomposition/params.hpp>
-#include <linalg/binary_op.cuh>
-#include <linalg/eig.cuh>
-#include <linalg/eltwise.cuh>
-#include <linalg/gemm.cuh>
+#include <raft/linalg/binary_op.cuh>
+#include <raft/linalg/eig.cuh>
+#include <raft/linalg/eltwise.cuh>
+#include <raft/linalg/gemm.cuh>
 #include <linalg/rsvd.cuh>
-#include <matrix/math.cuh>
-#include <matrix/matrix.cuh>
-#include <stats/mean.cuh>
-#include <stats/stddev.cuh>
-#include <stats/sum.cuh>
+#include <raft/matrix/math.cuh>
+#include <raft/matrix/matrix.cuh>
+#include <raft/stats/mean.cuh>
+#include <raft/stats/stddev.cuh>
+#include <raft/stats/sum.cuh>
 
 namespace ML {
 
@@ -245,7 +245,8 @@ void tsvdFitTransform(const raft::handle_t &handle, math_t *input,
                     true, false, stream);
 
   device_buffer<math_t> total_vars(allocator, stream, 1);
-  Stats::sum(total_vars.data(), vars.data(), 1, prms.n_cols, false, stream);
+  raft::stats::sum(total_vars.data(), vars.data(), 1, prms.n_cols, false,
+                   stream);
 
   math_t total_vars_h;
   raft::update_host(&total_vars_h, total_vars.data(), 1, stream);

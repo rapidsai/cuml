@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include <common/cudart_utils.h>
+#include <raft/cudart_utils.h>
 #include <cuml/fil/fil.h>
 #include <gtest/gtest.h>
 #include <test_utils.h>
@@ -23,10 +23,10 @@
 #include <treelite/tree.h>
 #include <cmath>
 #include <cstdio>
-#include <cuda_utils.cuh>
+#include <raft/cuda_utils.cuh>
 #include <limits>
 #include <memory>
-#include <random/rng.cuh>
+#include <raft/random/rng.cuh>
 #include <utility>
 
 #define TL_CPP_CHECK(call) ASSERT(int(call) >= 0, "treelite call error")

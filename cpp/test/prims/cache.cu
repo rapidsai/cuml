@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
-#include <common/cudart_utils.h>
+#include <raft/cudart_utils.h>
 #include <gtest/gtest.h>
 #include <cache/cache.cuh>
-#include <cuda_utils.cuh>
+#include <raft/cuda_utils.cuh>
 #include <cuml/common/cuml_allocator.hpp>
 #include <iostream>
 #include "test_utils.h"

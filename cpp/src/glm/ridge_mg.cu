@@ -14,17 +14,17 @@
  * limitations under the License.
  */
 
-#include <common/cudart_utils.h>
+#include <raft/cudart_utils.h>
 #include <common/cumlHandle.hpp>
 #include <common/device_buffer.hpp>
-#include <cuda_utils.cuh>
+#include <raft/cuda_utils.cuh>
 #include <cuml/common/cuml_allocator.hpp>
 #include <cuml/linear_model/preprocess_mg.hpp>
 #include <cuml/linear_model/ridge_mg.hpp>
-#include <linalg/add.cuh>
-#include <linalg/gemm.cuh>
-#include <matrix/math.cuh>
-#include <matrix/matrix.cuh>
+#include <raft/linalg/add.cuh>
+#include <raft/linalg/gemm.cuh>
+#include <raft/matrix/math.cuh>
+#include <raft/matrix/matrix.cuh>
 #include <opg/linalg/mv_aTb.hpp>
 #include <opg/linalg/svd.hpp>
 #include <opg/stats/mean.hpp>
@@ -71,8 +71,8 @@ void ridgeSolve(const raft::handle_t &handle, T *S, T *V,
   Matrix::Data<T> S_nnz_data;
   S_nnz_data.totalSize = UDesc.N;
   S_nnz_data.ptr = S_nnz;
-  LinAlg::opg::mv_aTb(S_nnz_data, U, UDesc, b, comm, allocator, streams,
-                      n_streams, cublasH);
+  LinAlg::opg::mv_aTb(handle, S_nnz_data, U, UDesc, b, streams,
+                      n_streams);
 
   raft::linalg::gemm(handle, V, UDesc.N, UDesc.N, S_nnz, w, UDesc.N, 1,
                      CUBLAS_OP_N, CUBLAS_OP_N, alp, beta, streams[0]);
@@ -121,8 +121,8 @@ void ridgeEig(raft::handle_t &handle, const std::vector<Matrix::Data<T> *> &A,
     U.push_back(&(U_temp[i]));
   }
 
-  LinAlg::opg::svdEig(A, ADesc, U, S.data(), V.data(), comm, allocator, streams,
-                      n_streams, cublas_handle, cusolver_handle);
+  LinAlg::opg::svdEig(handle, A, ADesc, U, S.data(), V.data(), streams,
+                      n_streams);
 
   ridgeSolve(handle, S.data(), V.data(), U, ADesc, b, alpha, n_alpha, coef,
              streams, n_streams, verbose);

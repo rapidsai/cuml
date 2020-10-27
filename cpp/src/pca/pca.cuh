@@ -16,20 +16,20 @@
 
 #pragma once
 
-#include <linalg/transpose.h>
+#include <raft/linalg/transpose.h>
 #include <raft/linalg/cublas_wrappers.h>
 #include <common/cumlHandle.hpp>
 #include <common/device_buffer.hpp>
-#include <cuda_utils.cuh>
+#include <raft/cuda_utils.cuh>
 #include <cuml/cuml.hpp>
 #include <cuml/decomposition/params.hpp>
-#include <linalg/eig.cuh>
-#include <linalg/eltwise.cuh>
-#include <matrix/math.cuh>
-#include <matrix/matrix.cuh>
+#include <raft/linalg/eig.cuh>
+#include <raft/linalg/eltwise.cuh>
+#include <raft/matrix/math.cuh>
+#include <raft/matrix/matrix.cuh>
 #include <stats/cov.cuh>
-#include <stats/mean.cuh>
-#include <stats/mean_center.cuh>
+#include <raft/stats/mean.cuh>
+#include <raft/stats/mean_center.cuh>
 #include <tsvd/tsvd.cuh>
 
 namespace ML {

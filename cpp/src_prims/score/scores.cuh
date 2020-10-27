@@ -16,11 +16,11 @@
 
 #pragma once
 
-#include <common/cudart_utils.h>
-#include <linalg/eltwise.cuh>
+#include <raft/cudart_utils.h>
+#include <raft/linalg/eltwise.cuh>
 #include <linalg/power.cuh>
-#include <linalg/subtract.cuh>
-#include <stats/mean.cuh>
+#include <raft/linalg/subtract.cuh>
+#include <raft/stats/mean.cuh>
 
 #include <memory>
 

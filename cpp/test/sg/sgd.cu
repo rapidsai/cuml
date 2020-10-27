@@ -14,18 +14,17 @@
  * limitations under the License.
  */
 
-#include <common/cudart_utils.h>
+#include <raft/cudart_utils.h>
 #include <gtest/gtest.h>
 #include <raft/linalg/cusolver_wrappers.h>
 #include <test_utils.h>
-#include <matrix/matrix.cuh>
+#include <raft/matrix/matrix.cuh>
 #include <solver/sgd.cuh>
 
 namespace ML {
 namespace Solver {
 
 using namespace MLCommon;
-using namespace MLCommon::LinAlg;
 
 template <typename T>
 struct SgdInputs {

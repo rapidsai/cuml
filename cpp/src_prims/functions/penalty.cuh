@@ -16,13 +16,13 @@
 
 #pragma once
 
-#include <common/cudart_utils.h>
-#include <cuda_utils.cuh>
-#include <linalg/add.cuh>
-#include <linalg/eltwise.cuh>
-#include <linalg/norm.cuh>
-#include <matrix/math.cuh>
-#include <matrix/matrix.cuh>
+#include <raft/cudart_utils.h>
+#include <raft/cuda_utils.cuh>
+#include <raft/linalg/add.cuh>
+#include <raft/linalg/eltwise.cuh>
+#include <raft/linalg/norm.cuh>
+#include <raft/matrix/math.cuh>
+#include <raft/matrix/matrix.cuh>
 #include "sign.cuh"
 
 namespace MLCommon {
@@ -38,7 +38,8 @@ enum penalty {
 template <typename math_t>
 void lasso(math_t *out, const math_t *coef, const int len, const math_t alpha,
            cudaStream_t stream) {
-  LinAlg::rowNorm(out, coef, len, 1, LinAlg::NormType::L1Norm, true, stream);
+  raft::linalg::rowNorm(out, coef, len, 1, raft::linalg::NormType::L1Norm, true,
+                        stream);
   raft::linalg::scalarMultiply(out, out, alpha, 1, stream);
 }
 
@@ -51,7 +52,8 @@ void lassoGrad(math_t *grad, const math_t *coef, const int len,
 template <typename math_t>
 void ridge(math_t *out, const math_t *coef, const int len, const math_t alpha,
            cudaStream_t stream) {
-  LinAlg::rowNorm(out, coef, len, 1, LinAlg::NormType::L2Norm, true, stream);
+  raft::linalg::rowNorm(out, coef, len, 1, raft::linalg::NormType::L2Norm, true,
+                        stream);
   raft::linalg::scalarMultiply(out, out, alpha, 1, stream);
 }
 

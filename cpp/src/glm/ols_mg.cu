@@ -16,14 +16,14 @@
 
 #include <common/cumlHandle.hpp>
 #include <common/device_buffer.hpp>
-#include <cuda_utils.cuh>
+#include <raft/cuda_utils.cuh>
 #include <cuml/common/cuml_allocator.hpp>
 #include <cuml/linear_model/ols_mg.hpp>
 #include <cuml/linear_model/preprocess_mg.hpp>
-#include <linalg/add.cuh>
-#include <linalg/gemm.cuh>
-#include <matrix/math.cuh>
-#include <matrix/matrix.cuh>
+#include <raft/linalg/add.cuh>
+#include <raft/linalg/gemm.cuh>
+#include <raft/matrix/math.cuh>
+#include <raft/matrix/matrix.cuh>
 #include <opg/linalg/lstsq.hpp>
 #include <opg/stats/mean.hpp>
 #include <raft/comms/comms.hpp>
@@ -66,8 +66,8 @@ void fit_impl(raft::handle_t &handle,
   if (algo == 0 || input_desc.N == 1) {
     ASSERT(false, "olsFit: no algorithm with this id has been implemented");
   } else if (algo == 1) {
-    LinAlg::opg::lstsqEig(input_data, input_desc, labels, coef, comm, allocator,
-                          streams, n_streams, cublas_handle, cusolver_handle);
+    LinAlg::opg::lstsqEig(handle, input_data, input_desc, labels, coef, 
+                          streams, n_streams);
   } else {
     ASSERT(false, "olsFit: no algorithm with this id has been implemented");
   }

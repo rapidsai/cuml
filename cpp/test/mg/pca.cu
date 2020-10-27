@@ -14,16 +14,17 @@
  * limitations under the License.
  */
 
-#include <common/cudart_utils.h>
+#include <raft/cudart_utils.h>
 #include <gtest/gtest.h>
 #include <raft/linalg/cublas_wrappers.h>
 #include <test_utils.h>
-#include <cuda_utils.cuh>
+#include <raft/cuda_utils.cuh>
 #include <cuml/common/logger.hpp>
 #include <cuml/decomposition/pca_mg.hpp>
-#include <matrix/matrix.cuh>
+#include <raft/matrix/matrix.cuh>
 #include <opg/linalg/gemm.hpp>
 #include <opg/matrix/matrix_utils.hpp>
+#include <common/device_buffer.hpp>
 #include "test_opg_utils.h"
 
 #include <common/cumlHandle.hpp>

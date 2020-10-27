@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include <common/cudart_utils.h>
+#include <raft/cudart_utils.h>
 #include <cuml/manifold/umapparams.h>
 #include <curand.h>
 #include <internals/internals.h>
@@ -27,7 +27,7 @@
 #include <common/fast_int_div.cuh>
 #include <cstdlib>
 #include <cuml/common/logger.hpp>
-#include <random/rng_impl.cuh>
+#include <raft/random/rng_impl.cuh>
 #include <sparse/coo.cuh>
 #include <string>
 #include "optimize_batch_kernel.cuh"

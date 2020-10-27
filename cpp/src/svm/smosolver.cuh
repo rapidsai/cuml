@@ -16,22 +16,22 @@
 
 #pragma once
 
-#include <common/cudart_utils.h>
+#include <raft/cudart_utils.h>
 #include <math.h>
 #include <thrust/device_ptr.h>
 #include <thrust/fill.h>
-#include <cuda_utils.cuh>
+#include <raft/cuda_utils.cuh>
 #include <iostream>
 #include <limits>
 #include <string>
 #include <type_traits>
 
 #include <cuml/matrix/kernelparams.h>
-#include <linalg/gemv.h>
+#include <raft/linalg/gemv.h>
 #include <raft/linalg/cublas_wrappers.h>
 #include <common/cumlHandle.hpp>
 #include <cuml/common/logger.hpp>
-#include <linalg/unary_op.cuh>
+#include <raft/linalg/unary_op.cuh>
 #include <matrix/grammatrix.cuh>
 #include <matrix/kernelfactory.cuh>
 #include "kernelcache.cuh"

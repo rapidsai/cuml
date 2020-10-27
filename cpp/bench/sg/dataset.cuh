@@ -16,15 +16,15 @@
 
 #pragma once
 
-#include <common/cudart_utils.h>
-#include <linalg/transpose.h>
+#include <raft/cudart_utils.h>
+#include <raft/linalg/transpose.h>
 #include <common/cumlHandle.hpp>
-#include <cuda_utils.cuh>
+#include <raft/cuda_utils.cuh>
 #include <cuml/cuml.hpp>
 #include <cuml/datasets/make_blobs.hpp>
 #include <fstream>
 #include <iostream>
-#include <linalg/unary_op.cuh>
+#include <raft/linalg/unary_op.cuh>
 #include <random/make_regression.cuh>
 #include <sstream>
 #include <string>

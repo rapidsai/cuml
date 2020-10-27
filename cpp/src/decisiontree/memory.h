@@ -15,7 +15,7 @@
  */
 
 #pragma once
-#include <common/cudart_utils.h>
+#include <raft/cudart_utils.h>
 #include <cuml/tree/flatnode.h>
 #include <common/cumlHandle.hpp>
 #include <common/device_buffer.hpp>

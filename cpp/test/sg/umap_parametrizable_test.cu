@@ -18,11 +18,11 @@
 #include <iostream>
 #include <vector>
 
-#include <common/cudart_utils.h>
+#include <raft/cudart_utils.h>
 #include <cuml/manifold/umapparams.h>
 #include <datasets/digits.h>
 #include <common/device_buffer.hpp>
-#include <cuda_utils.cuh>
+#include <raft/cuda_utils.cuh>
 #include <cuml/common/cuml_allocator.hpp>
 #include <cuml/cuml.hpp>
 #include <cuml/datasets/make_blobs.hpp>

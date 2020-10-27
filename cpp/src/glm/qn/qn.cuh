@@ -16,7 +16,7 @@
 
 #pragma once
 #include <common/device_buffer.hpp>
-#include <matrix/math.cuh>
+#include <raft/matrix/math.cuh>
 #include "glm_base.cuh"
 #include "glm_linear.cuh"
 #include "glm_logistic.cuh"

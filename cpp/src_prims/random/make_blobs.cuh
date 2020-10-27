@@ -16,14 +16,14 @@
 
 #pragma once
 
-#include <common/cudart_utils.h>
+#include <raft/cudart_utils.h>
 #include <common/device_buffer.hpp>
-#include <cuda_utils.cuh>
+#include <raft/cuda_utils.cuh>
 #include <cuml/common/cuml_allocator.hpp>
-#include <linalg/unary_op.cuh>
+#include <raft/linalg/unary_op.cuh>
 #include <vector>
 #include "permute.cuh"
-#include "rng.cuh"
+#include <raft/random/rng.cuh>
 
 namespace MLCommon {
 namespace Random {

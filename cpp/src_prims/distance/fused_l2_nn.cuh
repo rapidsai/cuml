@@ -18,7 +18,7 @@
 
 #include <stdint.h>
 #include <cub/cub.cuh>
-#include <cuda_utils.cuh>
+#include <raft/cuda_utils.cuh>
 #include <limits>
 #include <linalg/contractions.cuh>
 

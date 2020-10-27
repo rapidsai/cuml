@@ -14,13 +14,13 @@
  * limitations under the License.
  */
 
-#include <common/cudart_utils.h>
+#include <raft/cudart_utils.h>
 #include <gtest/gtest.h>
 #include <test_utils.h>
-#include <cuda_utils.cuh>
+#include <raft/cuda_utils.cuh>
 #include <cuml/neighbors/knn.hpp>
 #include <iostream>
-#include <random/rng.cuh>
+#include <raft/random/rng.cuh>
 #include <vector>
 
 #include <cuml/neighbors/knn.hpp>

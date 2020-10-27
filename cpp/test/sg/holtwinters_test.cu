@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
-#include <common/cudart_utils.h>
+#include <raft/cudart_utils.h>
 #include <cuml/tsa/holtwinters.h>
 #include <gtest/gtest.h>
 #include <test_utils.h>
 #include <algorithm>
-#include <cuda_utils.cuh>
+#include <raft/cuda_utils.cuh>
 #include <cuml/common/logger.hpp>
 #include "time_series_datasets.h"
 

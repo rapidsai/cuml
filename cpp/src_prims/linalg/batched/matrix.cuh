@@ -28,16 +28,16 @@
 #include <thrust/for_each.h>
 #include <thrust/iterator/counting_iterator.h>
 
-#include <common/cudart_utils.h>
+#include <raft/cudart_utils.h>
 #include <common/device_buffer.hpp>
 #include <common/fast_int_div.cuh>
-#include <cuda_utils.cuh>
+#include <raft/cuda_utils.cuh>
 #include <cuml/common/utils.hpp>
 #include <cuml/cuml.hpp>
 
 #include <raft/linalg/cublas_wrappers.h>
-#include "../binary_op.cuh"
-#include "../unary_op.cuh"
+#include <raft/linalg/binary_op.cuh>
+#include <raft/linalg/unary_op.cuh>
 
 namespace MLCommon {
 namespace LinAlg {

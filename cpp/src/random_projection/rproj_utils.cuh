@@ -16,12 +16,12 @@
 
 #pragma once
 
-#include <common/cudart_utils.h>
+#include <raft/cudart_utils.h>
 #include <cuml/random_projection/rproj_c.h>
 #include <sys/time.h>
 #include <common/cumlHandle.hpp>
-#include <cuda_utils.cuh>
-#include <random/rng.cuh>
+#include <raft/cuda_utils.cuh>
+#include <raft/random/rng.cuh>
 
 const int TPB_X = 256;
 

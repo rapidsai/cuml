@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include <common/cudart_utils.h>
+#include <raft/cudart_utils.h>
 #include <cuml/manifold/tsne.h>
 #include <common/device_buffer.hpp>
 #include <cuml/common/logger.hpp>

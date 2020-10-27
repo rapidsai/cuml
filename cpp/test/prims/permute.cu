@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 
-#include <common/cudart_utils.h>
+#include <raft/cudart_utils.h>
 #include <algorithm>
-#include <cuda_utils.cuh>
+#include <raft/cuda_utils.cuh>
 #include <random/permute.cuh>
-#include <random/rng.cuh>
+#include <raft/random/rng.cuh>
 #include <vector>
 #include "test_utils.h"
 

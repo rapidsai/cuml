@@ -15,7 +15,7 @@
  */
 
 #pragma once
-#include <common/cudart_utils.h>
+#include <raft/cudart_utils.h>
 #include <cuda_runtime.h>
 #include <cuml/tsa/holtwinters_params.h>
 #include <raft/linalg/cublas_wrappers.h>
@@ -24,7 +24,7 @@
 #include <common/device_buffer.hpp>
 #include <cuml/common/cuml_allocator.hpp>
 #include <iostream>
-#include <linalg/eltwise.cuh>
+#include <raft/linalg/eltwise.cuh>
 #include <vector>
 
 #define IDX(n, m, N) (n + (m) * (N))

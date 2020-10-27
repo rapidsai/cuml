@@ -16,19 +16,19 @@
 
 #pragma once
 
-#include <linalg/transpose.h>
+#include <raft/linalg/transpose.h>
 #include <raft/linalg/cublas_wrappers.h>
 #include <common/device_buffer.hpp>
-#include <cuda_utils.cuh>
-#include <linalg/add.cuh>
-#include <linalg/eltwise.cuh>
-#include <linalg/gemm.cuh>
-#include <linalg/subtract.cuh>
-#include <matrix/math.cuh>
-#include <matrix/matrix.cuh>
+#include <raft/cuda_utils.cuh>
+#include <raft/linalg/add.cuh>
+#include <raft/linalg/eltwise.cuh>
+#include <raft/linalg/gemm.cuh>
+#include <raft/linalg/subtract.cuh>
+#include <raft/matrix/math.cuh>
+#include <raft/matrix/matrix.cuh>
 #include <raft/mr/device/buffer.hpp>
-#include <stats/mean.cuh>
-#include <stats/sum.cuh>
+#include <raft/stats/mean.cuh>
+#include <raft/stats/sum.cuh>
 #include "penalty.cuh"
 
 namespace MLCommon {

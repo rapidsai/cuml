@@ -16,10 +16,10 @@
 
 #pragma once
 
-#include <common/cudart_utils.h>
+#include <raft/cudart_utils.h>
 #include <cuml/tree/flatnode.h>
 #include <cuml/common/logger.hpp>
-#include <random/rng.cuh>
+#include <raft/random/rng.cuh>
 #include <stats/minmax.cuh>
 #include "common_kernel.cuh"
 

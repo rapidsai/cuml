@@ -16,21 +16,21 @@
 
 #pragma once
 
-#include <linalg/transpose.h>
+#include <raft/linalg/transpose.h>
 #include <raft/linalg/cublas_wrappers.h>
 #include <common/device_buffer.hpp>
-#include <cuda_utils.cuh>
-#include <linalg/add.cuh>
-#include <linalg/eltwise.cuh>
-#include <linalg/gemm.cuh>
-#include <linalg/matrix_vector_op.cuh>
-#include <linalg/subtract.cuh>
-#include <linalg/unary_op.cuh>
-#include <matrix/math.cuh>
-#include <matrix/matrix.cuh>
+#include <raft/cuda_utils.cuh>
+#include <raft/linalg/add.cuh>
+#include <raft/linalg/eltwise.cuh>
+#include <raft/linalg/gemm.cuh>
+#include <raft/linalg/matrix_vector_op.cuh>
+#include <raft/linalg/subtract.cuh>
+#include <raft/linalg/unary_op.cuh>
+#include <raft/matrix/math.cuh>
+#include <raft/matrix/matrix.cuh>
 #include <raft/mr/device/buffer.hpp>
-#include <stats/mean.cuh>
-#include <stats/sum.cuh>
+#include <raft/stats/mean.cuh>
+#include <raft/stats/sum.cuh>
 #include "penalty.cuh"
 
 namespace MLCommon {
@@ -131,7 +131,7 @@ void hingeLoss(const raft::handle_t &handle, math_t *input, int n_rows,
   hingeLossSubtract(labels_pred.data(), labels_pred.data(), math_t(1), n_rows,
                     stream);
 
-  Stats::sum(loss, labels_pred.data(), 1, n_rows, false, stream);
+  raft::stats::sum(loss, labels_pred.data(), 1, n_rows, false, stream);
 
   raft::mr::device::buffer<math_t> pen_val(allocator, stream, 0);
 

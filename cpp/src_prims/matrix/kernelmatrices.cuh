@@ -16,9 +16,9 @@
 
 #pragma once
 
-#include <cuda_utils.cuh>
+#include <raft/cuda_utils.cuh>
 #include <distance/distance.cuh>
-#include <linalg/gemm.cuh>
+#include <raft/linalg/gemm.cuh>
 #include "grammatrix.cuh"
 
 namespace MLCommon {

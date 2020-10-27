@@ -14,22 +14,22 @@
  * limitations under the License.
  */
 
-#include <common/cudart_utils.h>
+#include <raft/cudart_utils.h>
 #include <decisiontree/decisiontree_impl.h>
 #include <gtest/gtest.h>
-#include <linalg/gemv.h>
-#include <linalg/transpose.h>
+#include <raft/linalg/gemv.h>
+#include <raft/linalg/transpose.h>
 #include <sys/stat.h>
 #include <test_utils.h>
 #include <treelite/c_api.h>
 #include <treelite/c_api_runtime.h>
 #include <cstdlib>
-#include <cuda_utils.cuh>
+#include <raft/cuda_utils.cuh>
 #include <cuml/ensemble/randomforest.hpp>
 #include <fstream>
 #include <iostream>
 #include <limits>
-#include <random/rng.cuh>
+#include <raft/random/rng.cuh>
 #include <string>
 
 namespace ML {

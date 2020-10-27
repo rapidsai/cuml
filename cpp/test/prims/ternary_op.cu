@@ -14,23 +14,35 @@
  * limitations under the License.
  */
 
-#include <common/cudart_utils.h>
+#include <raft/cudart_utils.h>
 #include <gtest/gtest.h>
 #include <linalg/ternary_op.cuh>
-#include <random/rng.cuh>
-#include "binary_op.cuh"
+#include <raft/random/rng.cuh>
 #include "test_utils.h"
 
 namespace MLCommon {
 namespace LinAlg {
 
+template <typename InType, typename IdxType = int, typename OutType = InType>
+struct BinaryOpInputs {
+  InType tolerance;
+  IdxType len;
+  unsigned long long int seed;
+};
+
+template <typename InType, typename IdxType = int, typename OutType = InType>
+::std::ostream &operator<<(::std::ostream &os,
+                            const BinaryOpInputs<InType, IdxType, OutType> &d) {
+  return os;
+}
+
 template <typename T>
 class ternaryOpTest
-  : public ::testing::TestWithParam<raft::linalg::BinaryOpInputs<T>> {
+  : public ::testing::TestWithParam<BinaryOpInputs<T>> {
  public:
   void SetUp() override {
     params =
-      ::testing::TestWithParam<raft::linalg::BinaryOpInputs<T>>::GetParam();
+      ::testing::TestWithParam<BinaryOpInputs<T>>::GetParam();
     raft::random::Rng rng(params.seed);
 
     int len = params.len;
@@ -68,11 +80,11 @@ class ternaryOpTest
   }
 
  protected:
-  raft::linalg::BinaryOpInputs<T> params;
+  BinaryOpInputs<T> params;
   T *in1, *in2, *in3, *out_add_ref, *out_mul_ref, *out_add, *out_mul;
 };
 
-const std::vector<raft::linalg::BinaryOpInputs<float>> inputsf = {
+const std::vector<BinaryOpInputs<float>> inputsf = {
   {0.000001f, 1024 * 1024, 1234ULL},
   {0.000001f, 1024 * 1024 + 2, 1234ULL},
   {0.000001f, 1024 * 1024 + 1, 1234ULL}};
@@ -86,7 +98,7 @@ TEST_P(ternaryOpTestF, Result) {
 INSTANTIATE_TEST_CASE_P(ternaryOpTests, ternaryOpTestF,
                         ::testing::ValuesIn(inputsf));
 
-const std::vector<raft::linalg::BinaryOpInputs<double>> inputsd = {
+const std::vector<BinaryOpInputs<double>> inputsd = {
   {0.00000001, 1024 * 1024, 1234ULL},
   {0.00000001, 1024 * 1024 + 2, 1234ULL},
   {0.00000001, 1024 * 1024 + 1, 1234ULL}};

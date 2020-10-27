@@ -14,21 +14,21 @@
  * limitations under the License.
  */
 
-#include <common/cudart_utils.h>
+#include <raft/cudart_utils.h>
 #include <common/cumlHandle.hpp>
 #include <common/device_buffer.hpp>
-#include <cuda_utils.cuh>
+#include <raft/cuda_utils.cuh>
 #include <cuml/common/cuml_allocator.hpp>
 #include <cuml/linear_model/preprocess_mg.hpp>
 #include <cuml/solvers/cd_mg.hpp>
 #include <functions/softThres.cuh>
-#include <linalg/add.cuh>
-#include <linalg/eltwise.cuh>
-#include <linalg/gemm.cuh>
-#include <linalg/multiply.cuh>
-#include <linalg/subtract.cuh>
-#include <matrix/math.cuh>
-#include <matrix/matrix.cuh>
+#include <raft/linalg/add.cuh>
+#include <raft/linalg/eltwise.cuh>
+#include <raft/linalg/gemm.cuh>
+#include <raft/linalg/multiply.cuh>
+#include <raft/linalg/subtract.cuh>
+#include <raft/matrix/math.cuh>
+#include <raft/matrix/matrix.cuh>
 #include <opg/linalg/mv_aTb.hpp>
 #include <opg/linalg/norm.hpp>
 #include <raft/comms/comms.hpp>
@@ -108,8 +108,7 @@ void fit_impl(raft::handle_t &handle,
                            streams[0]);
   } else {
     Matrix::Data<T> squared_data{squared.data(), size_t(input_desc.N)};
-    LinAlg::opg::colNorm2NoSeq(squared_data, input_data, input_desc, comm,
-                               allocator, streams, n_streams, cublas_handle);
+    LinAlg::opg::colNorm2NoSeq(handle, squared_data, input_data, input_desc, streams, n_streams);
     raft::linalg::addScalar(squared.data(), squared.data(), l2_alpha,
                             input_desc.N, streams[0]);
   }
@@ -184,9 +183,8 @@ void fit_impl(raft::handle_t &handle,
 
       coef_loc_data.ptr = coef_loc;
       coef_loc_data.totalSize = size_t(1);
-      LinAlg::opg::mv_aTb(coef_loc_data, input_data_temp, input_desc_temp,
-                          residual_temp, comm, allocator, streams, n_streams,
-                          cublas_handle);
+      LinAlg::opg::mv_aTb(handle, coef_loc_data, input_data_temp, input_desc_temp,
+                          residual_temp, streams, n_streams);
 
       if (l1_ratio > T(0.0))
         Functions::softThres(coef_loc, coef_loc, alpha, 1, streams[0]);

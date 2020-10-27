@@ -20,7 +20,7 @@
 #include <common/device_buffer.hpp>
 #include <cuml/svm/svc.hpp>
 #include <label/classlabels.cuh>
-#include <linalg/unary_op.cuh>
+#include <raft/linalg/unary_op.cuh>
 #include <matrix/kernelfactory.cuh>
 #include "kernelcache.cuh"
 #include "smosolver.cuh"

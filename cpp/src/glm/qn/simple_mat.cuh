@@ -18,16 +18,16 @@
 #include <iostream>
 #include <vector>
 
-#include <common/cudart_utils.h>
+#include <raft/cudart_utils.h>
 #include <raft/linalg/cublas_wrappers.h>
 #include <common/cumlHandle.hpp>
 #include <common/device_buffer.hpp>
-#include <cuda_utils.cuh>
-#include <linalg/binary_op.cuh>
-#include <linalg/map_then_reduce.cuh>
-#include <linalg/norm.cuh>
+#include <raft/cuda_utils.cuh>
+#include <raft/linalg/binary_op.cuh>
+#include <raft/linalg/map_then_reduce.cuh>
+#include <raft/linalg/norm.cuh>
 #include <linalg/ternary_op.cuh>
-#include <linalg/unary_op.cuh>
+#include <raft/linalg/unary_op.cuh>
 
 namespace ML {
 
@@ -245,8 +245,8 @@ inline T nrm2(const SimpleVec<T> &u, T *tmp_dev, cudaStream_t stream) {
 
 template <typename T>
 inline T nrm1(const SimpleVec<T> &u, T *tmp_dev, cudaStream_t stream) {
-  MLCommon::LinAlg::rowNorm(tmp_dev, u.data, u.len, 1, MLCommon::LinAlg::L1Norm,
-                            true, stream, raft::Nop<T>());
+  raft::linalg::rowNorm(tmp_dev, u.data, u.len, 1, raft::linalg::L1Norm, true,
+                        stream, raft::Nop<T>());
   T tmp_host;
   raft::update_host(&tmp_host, tmp_dev, 1, stream);
   cudaStreamSynchronize(stream);

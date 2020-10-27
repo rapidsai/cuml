@@ -16,11 +16,11 @@
 
 #pragma once
 
-#include <common/cudart_utils.h>
-#include <cuda_utils.cuh>
-#include <linalg/binary_op.cuh>
-#include <linalg/map_then_reduce.cuh>
-#include <stats/mean.cuh>
+#include <raft/cudart_utils.h>
+#include <raft/cuda_utils.cuh>
+#include <raft/linalg/binary_op.cuh>
+#include <raft/linalg/map_then_reduce.cuh>
+#include <raft/stats/mean.cuh>
 #include "simple_mat.cuh"
 
 namespace ML {

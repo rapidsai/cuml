@@ -15,7 +15,7 @@
  */
 #pragma once
 
-#include <common/cudart_utils.h>
+#include <raft/cudart_utils.h>
 #include <cuml/tree/flatnode.h>
 #include <cuml/common/logger.hpp>
 #include <cuml/tree/decisiontree.hpp>

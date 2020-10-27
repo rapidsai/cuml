@@ -16,25 +16,25 @@
 
 #pragma once
 
-#include <common/cudart_utils.h>
-#include <linalg/gemv.h>
+#include <raft/cudart_utils.h>
+#include <raft/linalg/gemv.h>
 #include <raft/linalg/cublas_wrappers.h>
 #include <common/cumlHandle.hpp>
-#include <cuda_utils.cuh>
+#include <raft/cuda_utils.cuh>
 #include <cuml/solvers/params.hpp>
 #include <functions/hinge.cuh>
 #include <functions/linearReg.cuh>
 #include <functions/logisticReg.cuh>
 #include <glm/preprocess.cuh>
-#include <linalg/add.cuh>
-#include <linalg/eltwise.cuh>
-#include <linalg/norm.cuh>
-#include <linalg/subtract.cuh>
-#include <linalg/unary_op.cuh>
-#include <matrix/math.cuh>
-#include <matrix/matrix.cuh>
-#include <stats/mean.cuh>
-#include <stats/mean_center.cuh>
+#include <raft/linalg/add.cuh>
+#include <raft/linalg/eltwise.cuh>
+#include <raft/linalg/norm.cuh>
+#include <raft/linalg/subtract.cuh>
+#include <raft/linalg/unary_op.cuh>
+#include <raft/matrix/math.cuh>
+#include <raft/matrix/matrix.cuh>
+#include <raft/stats/mean.cuh>
+#include <raft/stats/mean_center.cuh>
 #include "learning_rate.h"
 #include "shuffle.h"
 

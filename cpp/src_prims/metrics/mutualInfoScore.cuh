@@ -24,13 +24,13 @@
 *   on the same dataset when the real ground truth is not known.
 */
 
-#include <common/cudart_utils.h>
+#include <raft/cudart_utils.h>
 #include <math.h>
 #include <common/device_buffer.hpp>
 #include <cub/cub.cuh>
-#include <cuda_utils.cuh>
+#include <raft/cuda_utils.cuh>
 #include <cuml/common/cuml_allocator.hpp>
-#include <linalg/reduce.cuh>
+#include <raft/linalg/reduce.cuh>
 #include "contingencyMatrix.cuh"
 
 namespace MLCommon {
@@ -136,14 +136,14 @@ double mutualInfoScore(const T *firstClusterArray, const T *secondClusterArray,
   CUDA_CHECK(cudaMemsetAsync(d_MI.data(), 0, sizeof(double), stream));
 
   //calculating the row-wise sums
-  MLCommon::LinAlg::reduce<int, int, int>(a.data(), dContingencyMatrix.data(),
-                                          numUniqueClasses, numUniqueClasses, 0,
-                                          true, true, stream);
+  raft::linalg::reduce<int, int, int>(a.data(), dContingencyMatrix.data(),
+                                      numUniqueClasses, numUniqueClasses, 0,
+                                      true, true, stream);
 
   //calculating the column-wise sums
-  MLCommon::LinAlg::reduce<int, int, int>(b.data(), dContingencyMatrix.data(),
-                                          numUniqueClasses, numUniqueClasses, 0,
-                                          true, false, stream);
+  raft::linalg::reduce<int, int, int>(b.data(), dContingencyMatrix.data(),
+                                      numUniqueClasses, numUniqueClasses, 0,
+                                      true, false, stream);
 
   //kernel configuration
   static const int BLOCK_DIM_Y = 16, BLOCK_DIM_X = 16;

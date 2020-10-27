@@ -14,15 +14,15 @@
  * limitations under the License.
  */
 
-#include <common/cudart_utils.h>
+#include <raft/cudart_utils.h>
 #include <common/cumlHandle.hpp>
 #include <common/device_buffer.hpp>
-#include <cuda_utils.cuh>
+#include <raft/cuda_utils.cuh>
 #include <cuml/common/cuml_allocator.hpp>
 #include <cuml/linear_model/preprocess_mg.hpp>
-#include <linalg/gemm.cuh>
-#include <linalg/subtract.cuh>
-#include <matrix/math.cuh>
+#include <raft/linalg/gemm.cuh>
+#include <raft/linalg/subtract.cuh>
+#include <raft/matrix/math.cuh>
 #include <opg/linalg/norm.hpp>
 #include <opg/matrix/math.hpp>
 #include <opg/stats/mean.hpp>
@@ -50,8 +50,8 @@ void preProcessData_impl(raft::handle_t &handle,
 
   if (fit_intercept) {
     Matrix::Data<T> mu_input_data{mu_input, size_t(input_desc.N)};
-    Stats::opg::mean(mu_input_data, input_data, input_desc, comm, allocator,
-                     streams, n_streams, cublas_handle);
+    Stats::opg::mean(handle, mu_input_data, input_data, input_desc,
+                     streams, n_streams);
     Stats::opg::mean_center(input_data, input_desc, mu_input_data, comm,
                             streams, n_streams);
 
@@ -59,15 +59,14 @@ void preProcessData_impl(raft::handle_t &handle,
     labels_desc.N = size_t(1);
 
     Matrix::Data<T> mu_labels_data{mu_labels, size_t(1)};
-    Stats::opg::mean(mu_labels_data, labels, labels_desc, comm, allocator,
-                     streams, n_streams, cublas_handle);
+    Stats::opg::mean(handle, mu_labels_data, labels, labels_desc,
+                     streams, n_streams);
     Stats::opg::mean_center(labels, labels_desc, mu_labels_data, comm, streams,
                             n_streams);
 
     if (normalize) {
       Matrix::Data<T> norm2_input_data{norm2_input, size_t(input_desc.N)};
-      LinAlg::opg::colNorm2(norm2_input_data, input_data, input_desc, comm,
-                            allocator, streams, n_streams, cublas_handle);
+      LinAlg::opg::colNorm2(handle, norm2_input_data, input_data, input_desc, streams, n_streams);
 
       Matrix::opg::matrixVectorBinaryDivSkipZero(
         input_data, input_desc, norm2_input_data, false, true, true, comm,

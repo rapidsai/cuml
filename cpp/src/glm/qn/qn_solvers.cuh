@@ -40,7 +40,7 @@
  *
  */
 
-#include <cuda_utils.cuh>
+#include <raft/cuda_utils.cuh>
 #include <cuml/common/logger.hpp>
 #include "qn_linesearch.cuh"
 #include "qn_util.cuh"
