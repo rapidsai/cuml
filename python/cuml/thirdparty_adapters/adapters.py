@@ -287,8 +287,8 @@ def check_array(array, accept_sparse=False, accept_large_sparse=True,
 _input_type_to_str = {
     numpyArray: 'numpy',
     cupyArray: 'cupy',
-    cuSeries: 'cudf',
-    cuDataFrame: 'cudf',
+    cuSeries: 'series',
+    cuDataFrame: 'dataframe',
     pdSeries: 'numpy',
     pdDataFrame: 'numpy'
 }
