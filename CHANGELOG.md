@@ -14,6 +14,7 @@
 - PR #3044: Move leftover `linalg` and `stats` to RAFT namespaces
 
 ## Bug Fixes
+- PR #3065: Refactoring prims metrics function names from camelcase to underscore format
 - PR #3033: Splitting ml metrics to individual files
 - PR #3037: Avoid logging deadlock in multi-threaded C code
 - PR #2983: Fix seeding of KISS99 RNG
