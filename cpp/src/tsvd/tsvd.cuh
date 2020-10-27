@@ -245,7 +245,8 @@ void tsvdFitTransform(const raft::handle_t &handle, math_t *input,
                     true, false, stream);
 
   device_buffer<math_t> total_vars(allocator, stream, 1);
-  Stats::sum(total_vars.data(), vars.data(), 1, prms.n_cols, false, stream);
+  raft::stats::sum(total_vars.data(), vars.data(), 1, prms.n_cols, false,
+                   stream);
 
   math_t total_vars_h;
   raft::update_host(&total_vars_h, total_vars.data(), 1, stream);

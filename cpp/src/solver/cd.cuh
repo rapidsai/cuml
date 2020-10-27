@@ -126,8 +126,8 @@ void cdFit(const raft::handle_t &handle, math_t *input, int n_rows, int n_cols,
     raft::matrix::setValue(squared.data(), squared.data(), scalar, n_cols,
                            stream);
   } else {
-    LinAlg::colNorm(squared.data(), input, n_cols, n_rows, LinAlg::L2Norm,
-                    false, stream);
+    raft::linalg::colNorm(squared.data(), input, n_cols, n_rows,
+                          raft::linalg::L2Norm, false, stream);
     raft::linalg::addScalar(squared.data(), squared.data(), l2_alpha, n_cols,
                             stream);
   }
