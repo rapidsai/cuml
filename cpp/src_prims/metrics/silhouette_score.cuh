@@ -185,7 +185,7 @@ DataT silhouette_score(DataT *X_in, int nRows, int nCols, LabelT *labels,
                                                 nRows * nRows);
   MLCommon::device_buffer<char> workspace(allocator, stream, 1);
 
-  Distance::pairwiseDistance(
+  Distance::pairwise_distance(
     X_in, X_in, distanceMatrix.data(), nRows, nRows, nCols, workspace,
     static_cast<ML::Distance::DistanceType>(metric), stream);
 

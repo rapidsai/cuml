@@ -79,7 +79,7 @@ class silhouette_scoreTest
     double *h_distanceMatrix =
       (double *)malloc(nRows * nRows * sizeof(double *));
 
-    MLCommon::Distance::pairwiseDistance(
+    MLCommon::Distance::pairwise_distance(
       d_X, d_X, d_distanceMatrix.data(), nRows, nRows, nCols, workspace,
       static_cast<ML::Distance::DistanceType>(params.metric), stream);
 

@@ -774,7 +774,7 @@ void transform(const raft::handle_t &handle, const KMeansParams &params,
 
     // calculate pairwise distance between cluster centroids and current batch
     // of input dataset
-    kmeans::detail::pairwiseDistance(handle, datasetView, centroids,
+    kmeans::detail::pairwise_distance(handle, datasetView, centroids,
                                      pairwiseDistanceView, workspace, metric,
                                      stream);
   }

@@ -266,7 +266,7 @@ float accuracy_score_py(const raft::handle_t &handle, const int *predictions,
  * @param isRowMajor specifies whether the x and y data pointers are row (C
  *                   type array) or col (F type array) major
  */
-void pairwiseDistance(const raft::handle_t &handle, const double *x,
+void pairwise_distance(const raft::handle_t &handle, const double *x,
                       const double *y, double *dist, int m, int n, int k,
                       ML::Distance::DistanceType metric,
                       bool isRowMajor = true);
@@ -286,7 +286,7 @@ void pairwiseDistance(const raft::handle_t &handle, const double *x,
  * @param isRowMajor specifies whether the x and y data pointers are row (C
  *                   type array) or col (F type array) major
  */
-void pairwiseDistance(const raft::handle_t &handle, const float *x,
+void pairwise_distance(const raft::handle_t &handle, const float *x,
                       const float *y, float *dist, int m, int n, int k,
                       ML::Distance::DistanceType metric,
                       bool isRowMajor = true);
