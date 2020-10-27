@@ -22,19 +22,19 @@ namespace ML {
 
 namespace Metrics {
 void pairwise_distance(const raft::handle_t &handle, const double *x,
-                      const double *y, double *dist, int m, int n, int k,
-                      ML::Distance::DistanceType metric, bool isRowMajor) {
+                       const double *y, double *dist, int m, int n, int k,
+                       ML::Distance::DistanceType metric, bool isRowMajor) {
   MLCommon::Metrics::pairwise_distance(x, y, dist, m, n, k, metric,
-                                      handle.get_device_allocator(),
-                                      handle.get_stream(), isRowMajor);
+                                       handle.get_device_allocator(),
+                                       handle.get_stream(), isRowMajor);
 }
 
 void pairwise_distance(const raft::handle_t &handle, const float *x,
-                      const float *y, float *dist, int m, int n, int k,
-                      ML::Distance::DistanceType metric, bool isRowMajor) {
+                       const float *y, float *dist, int m, int n, int k,
+                       ML::Distance::DistanceType metric, bool isRowMajor) {
   MLCommon::Metrics::pairwise_distance(x, y, dist, m, n, k, metric,
-                                      handle.get_device_allocator(),
-                                      handle.get_stream(), isRowMajor);
+                                       handle.get_device_allocator(),
+                                       handle.get_stream(), isRowMajor);
 }
 
 }  // namespace Metrics

@@ -63,8 +63,8 @@ namespace Metrics {
 */
 template <typename DataT>
 DataT kl_divergence(const DataT* modelPDF, const DataT* candidatePDF, int size,
-                   std::shared_ptr<MLCommon::deviceAllocator> allocator,
-                   cudaStream_t stream) {
+                    std::shared_ptr<MLCommon::deviceAllocator> allocator,
+                    cudaStream_t stream) {
   MLCommon::device_buffer<DataT> d_KLDVal(allocator, stream, 1);
   CUDA_CHECK(cudaMemsetAsync(d_KLDVal.data(), 0, sizeof(DataT), stream));
 

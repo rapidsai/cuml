@@ -174,9 +174,9 @@ struct MinOp {
 */
 template <typename DataT, typename LabelT>
 DataT silhouette_score(DataT *X_in, int nRows, int nCols, LabelT *labels,
-                      int nLabels, DataT *silhouette_scorePerSample,
-                      std::shared_ptr<MLCommon::deviceAllocator> allocator,
-                      cudaStream_t stream, int metric = 4) {
+                       int nLabels, DataT *silhouette_scorePerSample,
+                       std::shared_ptr<MLCommon::deviceAllocator> allocator,
+                       cudaStream_t stream, int metric = 4) {
   ASSERT(nLabels >= 2 && nLabels <= (nRows - 1),
          "silhouette Score not defined for the given number of labels!");
 

@@ -243,11 +243,12 @@ void computeClusterCost(const raft::handle_t &handle,
 // calculate pairwise distance between 'dataset[n x d]' and 'centroids[k x d]',
 // result will be stored in 'pairwiseDistance[n x k]'
 template <typename DataT, typename IndexT>
-void pairwise_distance(const raft::handle_t &handle, Tensor<DataT, 2, IndexT> &X,
-                      Tensor<DataT, 2, IndexT> &centroids,
-                      Tensor<DataT, 2, IndexT> &pairwiseDistance,
-                      MLCommon::device_buffer<char> &workspace,
-                      ML::Distance::DistanceType metric, cudaStream_t stream) {
+void pairwise_distance(const raft::handle_t &handle,
+                       Tensor<DataT, 2, IndexT> &X,
+                       Tensor<DataT, 2, IndexT> &centroids,
+                       Tensor<DataT, 2, IndexT> &pairwiseDistance,
+                       MLCommon::device_buffer<char> &workspace,
+                       ML::Distance::DistanceType metric, cudaStream_t stream) {
   auto n_samples = X.getSize(0);
   auto n_features = X.getSize(1);
   auto n_clusters = centroids.getSize(0);
@@ -351,8 +352,8 @@ void minClusterAndDistance(
         // calculate pairwise distance between current tile of cluster centroids
         // and input dataset
         kmeans::detail::pairwise_distance(handle, datasetView, centroidsView,
-                                         pairwiseDistanceView, workspace,
-                                         metric, stream);
+                                          pairwiseDistanceView, workspace,
+                                          metric, stream);
 
         // argmin reduction returning <index, value> pair
         // calculates the closest centroid and the distance to the closest
@@ -466,8 +467,8 @@ void minClusterDistance(const raft::handle_t &handle,
         // calculate pairwise distance between current tile of cluster centroids
         // and input dataset
         kmeans::detail::pairwise_distance(handle, datasetView, centroidsView,
-                                         pairwiseDistanceView, workspace,
-                                         metric, stream);
+                                          pairwiseDistanceView, workspace,
+                                          metric, stream);
 
         raft::linalg::coalescedReduction(
           minClusterDistanceView.data(), pairwiseDistanceView.data(),
@@ -689,7 +690,7 @@ void kmeansPlusPlus(const raft::handle_t &handle, const KMeansParams &params,
     auto pwd = std::move(
       Tensor<DataT, 2, IndexT>(distBuffer.data(), {n_trials, n_samples}));
     kmeans::detail::pairwise_distance(handle, centroidCandidates, X, pwd,
-                                     workspace, metric, stream);
+                                      workspace, metric, stream);
 
     // Update nearest cluster distance for each centroid candidate
     // Note pwd and minDistBuf points to same buffer which currently holds pairwise distance values.

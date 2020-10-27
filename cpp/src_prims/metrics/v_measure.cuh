@@ -36,10 +36,10 @@ namespace Metrics {
 * @param beta: v_measure parameter
 */
 template <typename T>
-double v_measure(const T *truthClusterArray, const T *predClusterArray, int size,
-                T lowerLabelRange, T upperLabelRange,
-                std::shared_ptr<MLCommon::deviceAllocator> allocator,
-                cudaStream_t stream, double beta = 1.0) {
+double v_measure(const T *truthClusterArray, const T *predClusterArray,
+                 int size, T lowerLabelRange, T upperLabelRange,
+                 std::shared_ptr<MLCommon::deviceAllocator> allocator,
+                 cudaStream_t stream, double beta = 1.0) {
   double computedHomogeity, computedCompleteness, computedVMeasure;
 
   computedHomogeity = MLCommon::Metrics::homogeneity_score(

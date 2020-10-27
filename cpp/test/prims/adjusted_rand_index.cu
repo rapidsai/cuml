@@ -176,14 +176,16 @@ TEST_P(ARI_ii, Result) {
   ASSERT_NEAR(computed_adjusted_rand_index, truth_adjusted_rand_index,
               params.tolerance);
 }
-INSTANTIATE_TEST_CASE_P(adjusted_rand_index, ARI_ii, ::testing::ValuesIn(inputs));
+INSTANTIATE_TEST_CASE_P(adjusted_rand_index, ARI_ii,
+                        ::testing::ValuesIn(inputs));
 
 typedef adjustedRandIndexTest<int, unsigned long long> ARI_il;
 TEST_P(ARI_il, Result) {
   ASSERT_NEAR(computed_adjusted_rand_index, truth_adjusted_rand_index,
               params.tolerance);
 }
-INSTANTIATE_TEST_CASE_P(adjusted_rand_index, ARI_il, ::testing::ValuesIn(inputs));
+INSTANTIATE_TEST_CASE_P(adjusted_rand_index, ARI_il,
+                        ::testing::ValuesIn(inputs));
 INSTANTIATE_TEST_CASE_P(adjusted_rand_index_large, ARI_il,
                         ::testing::ValuesIn(large_inputs));
 

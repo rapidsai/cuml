@@ -45,15 +45,15 @@ namespace Metrics {
  */
 template <typename DataT, typename IndexT>
 void pairwise_distance(const DataT *x, const DataT *y, DataT *dist, IndexT m,
-                      IndexT n, IndexT k, ML::Distance::DistanceType metric,
-                      std::shared_ptr<MLCommon::deviceAllocator> allocator,
-                      cudaStream_t stream, bool isRowMajor = true) {
+                       IndexT n, IndexT k, ML::Distance::DistanceType metric,
+                       std::shared_ptr<MLCommon::deviceAllocator> allocator,
+                       cudaStream_t stream, bool isRowMajor = true) {
   //Allocate workspace
   MLCommon::device_buffer<char> workspace(allocator, stream, 1);
 
   //Call the distance function
   Distance::pairwise_distance(x, y, dist, m, n, k, workspace, metric, stream,
-                             isRowMajor);
+                              isRowMajor);
 }
 
 };  // namespace Metrics

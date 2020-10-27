@@ -48,8 +48,8 @@ namespace Metrics {
  */
 template <typename T, int BLOCK_DIM_X, int BLOCK_DIM_Y>
 __global__ void mutual_info_kernel(const int *dContingencyMatrix, const int *a,
-                                 const int *b, int numUniqueClasses, int size,
-                                 double *d_MI) {
+                                   const int *b, int numUniqueClasses, int size,
+                                   double *d_MI) {
   //calculating the indices of pairs of datapoints compared by the current thread
   int j = threadIdx.x + blockIdx.x * blockDim.x;
   int i = threadIdx.y + blockIdx.y * blockDim.y;
@@ -95,10 +95,11 @@ __global__ void mutual_info_kernel(const int *dContingencyMatrix, const int *a,
 * @param stream: the cudaStream object
 */
 template <typename T>
-double mutual_info_score(const T *firstClusterArray, const T *secondClusterArray,
-                       int size, T lowerLabelRange, T upperLabelRange,
-                       std::shared_ptr<MLCommon::deviceAllocator> allocator,
-                       cudaStream_t stream) {
+double mutual_info_score(const T *firstClusterArray,
+                         const T *secondClusterArray, int size,
+                         T lowerLabelRange, T upperLabelRange,
+                         std::shared_ptr<MLCommon::deviceAllocator> allocator,
+                         cudaStream_t stream) {
   int numUniqueClasses = upperLabelRange - lowerLabelRange + 1;
 
   //declaring, allocating and initializing memory for the contingency marix

@@ -115,9 +115,9 @@ int countUnique(const T* arr, int size, T& minLabel, T& maxLabel,
 */
 template <typename T, typename MathT = int>
 double compute_adjusted_rand_index(const T* firstClusterArray,
-                                const T* secondClusterArray, int size,
-                                std::shared_ptr<deviceAllocator> allocator,
-                                cudaStream_t stream) {
+                                   const T* secondClusterArray, int size,
+                                   std::shared_ptr<deviceAllocator> allocator,
+                                   cudaStream_t stream) {
   ASSERT(size >= 2, "Rand Index for size less than 2 not defined!");
   T minFirst, maxFirst, minSecond, maxSecond;
   auto nUniqFirst =

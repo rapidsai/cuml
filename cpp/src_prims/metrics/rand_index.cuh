@@ -117,9 +117,9 @@ __global__ void computeTheNumerator(const T* firstClusterArray,
 */
 template <typename T>
 double compute_rand_index(T* firstClusterArray, T* secondClusterArray,
-                        uint64_t size,
-                        std::shared_ptr<MLCommon::deviceAllocator> allocator,
-                        cudaStream_t stream) {
+                          uint64_t size,
+                          std::shared_ptr<MLCommon::deviceAllocator> allocator,
+                          cudaStream_t stream) {
   //rand index for size less than 2 is not defined
   ASSERT(size >= 2, "Rand Index for size less than 2 not defined!");
 
