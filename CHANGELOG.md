@@ -11,7 +11,7 @@
 - PR #2906: Moving `linalg` decomp to RAFT namespaces
 - PR #2996: Removing the max_depth restriction for switching to the batched backend
 - PR #3004: Remove Single Process Multi GPU (SPMG) code
-- PR #3032: FIL: Add optimization parameter `blocks_per_sm` for all but tiny models
+- PR #3032: FIL: Add optimization parameter `blocks_per_sm` that will help all but tiniest models
 
 ## Bug Fixes
 - PR #2983: Fix seeding of KISS99 RNG
