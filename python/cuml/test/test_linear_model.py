@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+from functools import lru_cache
 import cupy as cp
 import numpy as np
 import pytest
@@ -38,17 +39,23 @@ from sklearn.linear_model import LogisticRegression as skLog
 from sklearn.model_selection import train_test_split
 
 
-def make_regression_dataset(datatype, nrows, ncols, n_info):
+def _make_regression_dataset_uncached(nrows, ncols, n_info):
     X, y = make_regression(
         n_samples=nrows, n_features=ncols, n_informative=n_info, random_state=0
     )
-    X = X.astype(datatype)
-    y = y.astype(datatype)
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, train_size=0.8, random_state=10
-    )
+    return train_test_split(X, y, train_size=0.8, random_state=10)
 
-    return X_train, X_test, y_train, y_test
+@lru_cache(4)
+def _make_regression_dataset_from_cache(nrows, ncols, n_info):
+    return _make_regression_dataset_uncached(nrows, ncols, n_info)
+
+def make_regression_dataset(datatype, nrows, ncols, n_info):
+    if nrows * ncols < 1e8:  # Keep cache under 4 GB
+        dataset = _make_regression_dataset_from_cache(nrows, ncols, n_info)
+    else:
+        dataset = _make_regression_dataset_uncached(nrows, ncols, n_info)
+
+    return map(lambda arr: arr.astype(datatype), dataset)
 
 
 def make_classification_dataset(datatype, nrows, ncols, n_info, num_classes):
