@@ -194,7 +194,7 @@ def test_fil_regression(n_rows, n_columns, num_rounds, tmp_path, max_depth):
 @pytest.mark.parametrize('n_columns', [30])
 @pytest.mark.parametrize('n_estimators', [1, 10])
 @pytest.mark.parametrize('max_depth', [2, 10, 20])
-@pytest.mark.parametrize('n_classes', [2, 5, 10])
+@pytest.mark.parametrize('n_classes', [2, 5, 25])
 @pytest.mark.parametrize('storage_type', [False, True])
 @pytest.mark.parametrize('model_class',
                          [GradientBoostingClassifier, RandomForestClassifier])
@@ -208,6 +208,11 @@ def test_fil_skl_classification(n_rows, n_columns, n_estimators, max_depth,
     if n_classes > 2 and model_class == RandomForestClassifier:
         pytest.skip('FIL does not support multi-class sklearn ' +
                     'RandomForestClassifier')
+
+    # When n_classes=25, fit a single estimator only
+    if n_classes == 25 and n_estimators > 1:
+        pytest.skip('Skipping n_classes=25, n_estimators>1, to reduce ' +
+                    'test time')
 
     # settings
     classification = True  # change this to false to use regression
