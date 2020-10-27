@@ -391,14 +391,13 @@ struct tree_aggregator_t<NITEMS, CATEGORICAL_LEAF> {
 
 template <int NITEMS, leaf_algo_t leaf_algo, class storage_type>
 __global__ void infer_k(storage_type forest, predict_params params) {
-  for (int grid_row0 = 0; grid_row0 < params.num_rows;
-       grid_row0 += NITEMS * params.num_blocks) {
+  extern __shared__ char smem[];
+  float* sdata = (float*)smem;
+  for (size_t grid_row0 = 0; grid_row0 + blockIdx.x * NITEMS < params.num_rows;
+       grid_row0 += NITEMS * gridDim.x) {
     // cache the row for all threads to reuse
-    extern __shared__ char smem[];
-    float* sdata = (float*)smem;
-    size_t block_row0 = grid_row0 + blockIdx.x * NITEMS;
     for (int j = 0; j < NITEMS; ++j) {
-      size_t row = block_row0 + j;
+      size_t row = grid_row0 + blockIdx.x * NITEMS + j;
       for (int i = threadIdx.x; i < params.num_cols; i += blockDim.x) {
         sdata[j * params.num_cols + i] =
           row < params.num_rows ? params.data[row * params.num_cols + i] : 0.0f;
@@ -424,7 +423,8 @@ __global__ void infer_k(storage_type forest, predict_params params) {
       }
       if (leaf_algo == GROVE_PER_CLASS_MANY_CLASSES) __syncthreads();
     }
-    acc.finalize(params.preds, params.num_rows, params.num_outputs);
+    acc.finalize(params.preds + params.num_outputs * grid_row0, params.num_rows,
+                 params.num_outputs);
   }
 }
 
@@ -490,7 +490,7 @@ void infer_k_launcher(storage_type forest, predict_params params,
     ASSERT(false, "p.num_cols == %d: too many features, only %d allowed",
            given_num_cols, params.num_cols);
   }
-  params.num_blocks = (params.num_blocks != 0)
+  params.num_blocks = params.num_blocks != 0
                         ? params.num_blocks
                         : raft::ceildiv(int(params.num_rows), num_items);
   switch (num_items) {
