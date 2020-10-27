@@ -169,7 +169,7 @@ if(BUILD_PRIMS_TESTS)
     prims/homogeneityScore.cu
     prims/host_buffer.cu
     prims/jones_transform.cu
-    prims/klDivergence.cu
+    prims/kl_divergence.cu
     prims/knn_classify.cu
     prims/knn_regression.cu
     prims/knn.cu

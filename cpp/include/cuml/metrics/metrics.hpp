@@ -126,7 +126,7 @@ double adjusted_rand_index(const raft::handle_t &handle, const int *y,
 * @param n: Number of elements in y and y_hat
 * @return: The KL Divergence value
 */
-double klDivergence(const raft::handle_t &handle, const double *y,
+double kl_divergence(const raft::handle_t &handle, const double *y,
                     const double *y_hat, int n);
 
 /**
@@ -142,7 +142,7 @@ double klDivergence(const raft::handle_t &handle, const double *y,
 * @param n: Number of elements in y and y_hat
 * @return: The KL Divergence value
 */
-float klDivergence(const raft::handle_t &handle, const float *y,
+float kl_divergence(const raft::handle_t &handle, const float *y,
                    const float *y_hat, int n);
 
 /**

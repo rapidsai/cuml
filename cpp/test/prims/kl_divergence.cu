@@ -18,7 +18,7 @@
 #include <algorithm>
 #include <cuml/common/cuml_allocator.hpp>
 #include <iostream>
-#include <metrics/klDivergence.cuh>
+#include <metrics/kl_divergence.cuh>
 #include <random>
 #include "test_utils.h"
 
@@ -75,8 +75,8 @@ class klDivergenceTest : public ::testing::TestWithParam<klDivergenceParam> {
           h_modelPDF[i] * log(h_modelPDF[i] / h_candidatePDF[i]);
     }
 
-    //calling the klDivergence CUDA implementation
-    computedklDivergence = MLCommon::Metrics::klDivergence(
+    //calling the kl_divergence CUDA implementation
+    computedklDivergence = MLCommon::Metrics::kl_divergence(
       d_modelPDF, d_candidatePDF, nElements, allocator, stream);
   }
 
