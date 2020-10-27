@@ -17,7 +17,7 @@
 * @file vMeasure.cuh
 */
 
-#include "homogeneityScore.cuh"
+#include "homogeneity_score.cuh"
 
 namespace MLCommon {
 
@@ -25,7 +25,7 @@ namespace Metrics {
 
 /**
 * @brief Function to calculate the v-measure between two clusters
-* 
+*
 * @param truthClusterArray: the array of truth classes of type T
 * @param predClusterArray: the array of predicted classes of type T
 * @param size: the size of the data points of type int
@@ -42,10 +42,10 @@ double vMeasure(const T *truthClusterArray, const T *predClusterArray, int size,
                 cudaStream_t stream, double beta = 1.0) {
   double computedHomogeity, computedCompleteness, computedVMeasure;
 
-  computedHomogeity = MLCommon::Metrics::homogeneityScore(
+  computedHomogeity = MLCommon::Metrics::homogeneity_score(
     truthClusterArray, predClusterArray, size, lowerLabelRange, upperLabelRange,
     allocator, stream);
-  computedCompleteness = MLCommon::Metrics::homogeneityScore(
+  computedCompleteness = MLCommon::Metrics::homogeneity_score(
     predClusterArray, truthClusterArray, size, lowerLabelRange, upperLabelRange,
     allocator, stream);
 

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 /**
-* @file homogeneityScore.cuh
+* @file homogeneity_score.cuh
 *
 * @brief A clustering result satisfies homogeneity if all of its clusters
 * contain only data points which are members of a single class.
@@ -39,7 +39,7 @@ namespace Metrics {
 * @param stream: the cudaStream object
 */
 template <typename T>
-double homogeneityScore(const T *truthClusterArray, const T *predClusterArray,
+double homogeneity_score(const T *truthClusterArray, const T *predClusterArray,
                         int size, T lowerLabelRange, T upperLabelRange,
                         std::shared_ptr<MLCommon::deviceAllocator> allocator,
                         cudaStream_t stream) {

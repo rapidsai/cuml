@@ -79,10 +79,10 @@ class vMeasureTest : public ::testing::TestWithParam<vMeasureParam> {
     //calculating the golden output
     double truthHomogeity, truthCompleteness;
 
-    truthHomogeity = MLCommon::Metrics::homogeneityScore(
+    truthHomogeity = MLCommon::Metrics::homogeneity_score(
       truthClusterArray, predClusterArray, nElements, lowerLabelRange,
       upperLabelRange, allocator, stream);
-    truthCompleteness = MLCommon::Metrics::homogeneityScore(
+    truthCompleteness = MLCommon::Metrics::homogeneity_score(
       predClusterArray, truthClusterArray, nElements, lowerLabelRange,
       upperLabelRange, allocator, stream);
 

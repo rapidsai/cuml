@@ -166,7 +166,7 @@ if(BUILD_PRIMS_TESTS)
     prims/grid_sync.cu
     prims/hinge.cu
     prims/histogram.cu
-    prims/homogeneityScore.cu
+    prims/homogeneity_score.cu
     prims/host_buffer.cu
     prims/jones_transform.cu
     prims/kl_divergence.cu

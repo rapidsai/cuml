@@ -18,7 +18,7 @@
 #include <algorithm>
 #include <cuml/common/cuml_allocator.hpp>
 #include <iostream>
-#include <metrics/homogeneityScore.cuh>
+#include <metrics/homogeneity_score.cuh>
 #include <random>
 #include "test_utils.h"
 
@@ -93,7 +93,7 @@ class homogeneityTest : public ::testing::TestWithParam<homogeneityParam> {
     if (nElements == 0) truthHomogeneity = 1.0;
 
     //calling the homogeneity CUDA implementation
-    computedHomogeneity = MLCommon::Metrics::homogeneityScore(
+    computedHomogeneity = MLCommon::Metrics::homogeneity_score(
       truthClusterArray, predClusterArray, nElements, lowerLabelRange,
       upperLabelRange, allocator, stream);
   }
