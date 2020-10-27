@@ -20,8 +20,8 @@
 #include <cuda_utils.cuh>
 #include <linalg/unary_op.cuh>
 
-namespace MLCommon {
-namespace LinAlg {
+namespace raft {
+namespace linalg {
 
 template <typename Type>
 __global__ void naiveCoalescedReductionKernel(Type *dots, const Type *data,
@@ -81,5 +81,5 @@ void naiveReduction(Type *dots, const Type *data, int D, int N, bool rowMajor,
   CUDA_CHECK(cudaDeviceSynchronize());
 }
 
-}  // end namespace LinAlg
-}  // end namespace MLCommon
+}  // end namespace linalg
+}  // end namespace raft

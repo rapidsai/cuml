@@ -77,22 +77,34 @@ std::vector<Params> getInputs() {
   std::vector<Params> out;
   Params p;
   p.data.rowMajor = false;
-  p.blobs.cluster_std = 10.0;
-  p.blobs.shuffle = false;
-  p.blobs.center_box_min = -10.0;
-  p.blobs.center_box_max = 10.0;
-  p.blobs.seed = 12345ULL;
-  p.rf.bootstrap = true;
-  p.rf.rows_sample = 1.f;
-  p.rf.tree_params.max_leaves = 1 << 20;
-  p.rf.tree_params.min_rows_per_node = 3;
-  p.rf.tree_params.n_bins = 32;
-  p.rf.tree_params.bootstrap_features = true;
-  p.rf.tree_params.quantile_per_tree = false;
-  p.rf.tree_params.split_algo = 1;
-  p.rf.tree_params.split_criterion = (ML::CRITERION)0;
-  p.rf.n_trees = 500;
-  p.rf.n_streams = 8;
+  p.blobs = {10.0,         // cluster_std
+             false,        // shuffle
+             -10.0,        // center_box_min
+             10.0,         // center_box_max
+             2152953ULL};  //seed
+
+  set_rf_params(p.rf,  // Output RF parameters
+                500,   // n_trees
+                true,  // bootstrap
+                1.f,   // rows_sample
+                1234,  // seed
+                8);    // n_streams
+
+  set_tree_params(p.rf.tree_params,  // Output tree parameters
+                  10,                // max_depth, this is anyway changed below
+                  (1 << 20),         // max_leaves
+                  0.3,               // max_features, just a placeholder value,
+                                     //   anyway changed below
+                  32,                // n_bins
+                  1,                 // split_algo
+                  3,                 // min_rows_per_node
+                  0.0f,              // min_impurity_decrease
+                  true,              // bootstrap_features
+                  ML::CRITERION::GINI,  // split_criterion
+                  false,                // quantile_per_tree
+                  false,                // use_experimental_backend
+                  128);                 // max_batch_size
+
   std::vector<Triplets> rowcols = {
     {160000, 64, 2},
     {640000, 64, 8},
