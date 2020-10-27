@@ -16,8 +16,11 @@
 
 #include <common/cudart_utils.h>
 #include <cuml/fil/fil.h>
+#include <cuml/fil/multireduction.h>
 #include <gtest/gtest.h>
 #include <test_utils.h>
+#include <thrust/device_vector.h>
+#include <thrust/host_vector.h>
 #include <treelite/c_api.h>
 #include <treelite/frontend.h>
 #include <treelite/tree.h>
@@ -1068,5 +1071,100 @@ TEST_P(TreeliteThrowSparse8FilTest, Import) { check(); }
 
 INSTANTIATE_TEST_CASE_P(FilTests, TreeliteThrowSparse8FilTest,
                         testing::ValuesIn(import_throw_sparse8_inputs));
+
+template <typename T>
+__device__ void serial_multireduction(const T* in, T* out, int set_size,
+                                      int n_sets) {
+  __syncthreads();
+  if (threadIdx.x < set_size) {
+    int reduction_id = threadIdx.x;
+    T sum{};
+    for (int set = 0; set < n_sets; ++set)
+      sum += in[reduction_id + set * set_size];
+    out[reduction_id] = sum;
+  }
+  __syncthreads();
+}
+
+// the most threads a block can have
+const int max_threads = 1024;
+
+template <int R, typename T>
+__device__ void test_single_radix(const T value, const int valid_threads) {
+  __shared__ T work[max_threads], correct_result[max_threads];
+  for (int set_size = 1; set_size < valid_threads; ++set_size) {
+    int n_sets = valid_threads / set_size;
+    work[threadIdx.x] = value;
+    serial_multireduction(work, correct_result, set_size, n_sets);
+    T sum = multireduction<R>(work, set_size, n_sets);
+    if (threadIdx.x < set_size && sum != correct_result[threadIdx.x]) {
+      printf("multireduction<%d>(on %d sets sized %d)[%d] gave wrong result\n",
+             R, n_sets, set_size, threadIdx.x);
+      asm("trap;");
+    }
+  }
+}
+
+template <typename T>
+// TODO(levsnv): eventually replace args with std::spans
+__global__ void test_multireduction_k(T* data, int data_size, int* n_values,
+                                      int n_n_values) {
+  if (blockIdx.x >= n_n_values) return;
+  int my_size = n_values[blockIdx.x];
+  T value = threadIdx.x > my_size ? data[threadIdx.x] : T();
+  test_single_radix<2>(value, my_size);
+  test_single_radix<3>(value, my_size);
+  test_single_radix<4>(value, my_size);
+  test_single_radix<5>(value, my_size);
+  test_single_radix<6>(value, my_size);
+}
+
+class MultireductionTest : public testing::TestWithParam<int> {
+ protected:
+  void SetUp() override {
+    thrust::host_vector<int> sizes_h;
+    auto append_range = [&](int min, int max) {
+      for (int i = min; i < max; ++i) sizes_h.push_back(i);
+    };
+    append_range(0, 50);
+    append_range(max_threads - 50, max_threads);
+
+    sizes_d = sizes_h;
+    // TODO(this PR): pass RMM allocator
+  }
+
+  template <typename T>
+  void test_a_seed_and_type(int seed,
+                            void (raft::random::Rng::*uniform)(T*, int, T, T,
+                                                               cudaStream_t),
+                            T max, thrust::device_vector<int>& sizes_d) {
+    raft::random::Rng r(seed);
+    thrust::device_vector<T> data_d(max_threads);
+    (r.*uniform)(thrust::raw_pointer_cast(data_d.data()), max_threads, -max,
+                 max, cudaStreamDefault);
+    test_multireduction_k<<<sizes_d.size(), max_threads>>>(
+      thrust::raw_pointer_cast(data_d.data()), data_d.size(),
+      thrust::raw_pointer_cast(sizes_d.data()), sizes_d.size());
+    CUDA_CHECK(cudaPeekAtLastError());
+    CUDA_CHECK(cudaDeviceSynchronize());
+  }
+
+  void TearDown() override {}
+
+  void check() {
+    test_a_seed_and_type(4321, &raft::random::Rng::uniform, 1.0f, sizes_d);
+    test_a_seed_and_type(4321, &raft::random::Rng::uniformInt, 123'456,
+                         sizes_d);
+  }
+
+  // parameters
+  //raft::handle_t handle;
+  thrust::device_vector<int> sizes_d;
+  int ps;  // ignored
+};
+
+TEST_P(MultireductionTest, Import) { check(); }
+
+INSTANTIATE_TEST_CASE_P(FilTests, MultireductionTest, testing::ValuesIn({-1}));
 
 }  // namespace ML

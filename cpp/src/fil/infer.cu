@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <cuml/fil/multireduction.h>
 #include <algorithm>
 #include "common.cuh"
 
@@ -220,37 +221,6 @@ struct finalize_block {
   }
 };
 
-// data [T]ype, reduction [R]adix
-template <int R, typename T>
-__device__ T multireduction(T* per_thread, int set_size) {
-  // reduce per-thread margin summand into per-class complete margin
-  // (for each of the NITEMS rows)
-  T acc = per_thread[threadIdx.x];  // accumulator
-  int sets = blockDim.x / set_size;
-  while (sets >= R) {
-    if (threadIdx.x < sets / R * set_size) {
-      // the following gets forwarded to the next iteration:
-      // skip the (this time) unreduceable modulus [sets % R * set_size]
-      // skip the [sets / R * set_size] sum destination values - set_id
-      // starts with 1 to include this
-#pragma unroll(R)
-      for (int set_grp = 1; set_grp < R; ++set_grp)
-        acc +=
-          per_thread[(sets % R + sets / R * set_grp) * set_size + threadIdx.x];
-      per_thread[threadIdx.x] = acc;
-    }
-    __syncthreads();
-    sets = sets / R + sets % R;
-  }  // now sets is [1..R-1]
-  if (threadIdx.x < set_size) {
-#pragma unroll(R - 2)
-    for (int set_id = sets - 1; set_id; --set_id)
-      acc += per_thread[threadIdx.x + set_id * set_size];
-  }
-  if (sets > 1) __syncthreads();  // free up per_thread[]
-  return acc;
-}
-
 template <int NITEMS>
 struct tree_aggregator_t<NITEMS, GROVE_PER_CLASS_FEW_CLASSES> : finalize_block {
   vec<NITEMS, float> acc;
@@ -281,7 +251,7 @@ struct tree_aggregator_t<NITEMS, GROVE_PER_CLASS_FEW_CLASSES> : finalize_block {
     auto per_thread = (vec<NITEMS, float>*)tmp_storage;
     per_thread[threadIdx.x] = acc;
     __syncthreads();
-    acc = multireduction<4>(per_thread, num_classes);
+    acc = multireduction<4>(per_thread, num_classes, blockDim.x / num_classes);
     write_best_class_in_block(to_vec(threadIdx.x, acc), num_classes, out,
                               num_rows);
   }
