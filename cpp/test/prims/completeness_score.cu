@@ -18,7 +18,7 @@
 #include <algorithm>
 #include <cuml/common/cuml_allocator.hpp>
 #include <iostream>
-#include <metrics/completenessScore.cuh>
+#include <metrics/completeness_score.cuh>
 #include <random>
 #include "test_utils.h"
 
@@ -93,7 +93,7 @@ class completenessTest : public ::testing::TestWithParam<completenessParam> {
     if (nElements == 0) truthCompleteness = 1.0;
 
     //calling the completeness CUDA implementation
-    computedCompleteness = MLCommon::Metrics::completenessScore(
+    computedCompleteness = MLCommon::Metrics::completeness_score(
       truthClusterArray, predClusterArray, nElements, lowerLabelRange,
       upperLabelRange, allocator, stream);
   }

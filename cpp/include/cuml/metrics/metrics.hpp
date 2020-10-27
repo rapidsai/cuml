@@ -212,7 +212,7 @@ double homogeneity_score(const raft::handle_t &handle, const int *y,
 * @param upper_class_range: the highest value in the range of classes
 * @return: The completeness score
 */
-double completenessScore(const raft::handle_t &handle, const int *y,
+double completeness_score(const raft::handle_t &handle, const int *y,
                          const int *y_hat, const int n,
                          const int lower_class_range,
                          const int upper_class_range);

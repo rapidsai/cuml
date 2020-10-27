@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 /**
-* @file completenessScore.cuh
+* @file completeness_score.cuh
 *
 * @brief A clustering result satisfies completeness if all the data points
 * that are members of a given class are elements of the same cluster.
@@ -42,7 +42,7 @@ namespace Metrics {
 * @param stream: the cudaStream object
 */
 template <typename T>
-double completenessScore(const T *truthClusterArray, const T *predClusterArray,
+double completeness_score(const T *truthClusterArray, const T *predClusterArray,
                          int size, T lowerLabelRange, T upperLabelRange,
                          std::shared_ptr<MLCommon::deviceAllocator> allocator,
                          cudaStream_t stream) {

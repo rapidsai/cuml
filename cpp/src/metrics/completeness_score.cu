@@ -22,7 +22,7 @@ namespace ML {
 
 namespace Metrics {
 
-double completenessScore(const raft::handle_t &handle, const int *y,
+double completeness_score(const raft::handle_t &handle, const int *y,
                          const int *y_hat, const int n,
                          const int lower_class_range,
                          const int upper_class_range) {

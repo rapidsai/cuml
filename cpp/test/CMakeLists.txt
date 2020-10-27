@@ -137,7 +137,7 @@ if(BUILD_PRIMS_TESTS)
     prims/coalesced_reduction.cu
     prims/cuda_utils.cu
     prims/columnSort.cu
-    prims/completenessScore.cu
+    prims/completeness_score.cu
     prims/contingencyMatrix.cu
     prims/coo.cu
     prims/cov.cu
