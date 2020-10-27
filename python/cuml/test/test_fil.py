@@ -438,6 +438,9 @@ def test_lightgbm(tmp_path, num_classes):
                                   model_type="lightgbm")
         fil_proba = fm.predict_proba(X)
         assert np.allclose(gbm_proba, fil_proba[:, 1], 1e-2)
+        gbm_preds = (gbm_proba > 0.5)
+        fil_preds = fm.predict(X)
+        assert array_equal(gbm_preds, fil_preds)
     else:
         # multi-class classification
         # FIL doesn't yet support predict_proba() for multi-class
