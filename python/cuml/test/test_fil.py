@@ -202,11 +202,12 @@ def test_fil_skl_classification(n_rows, n_columns, n_estimators, max_depth,
                                 n_classes, storage_type, model_class):
     # skip depth 20 for dense tests
     if max_depth == 20 and not storage_type:
-        return
+        pytest.skip('Skipping depth 20 for dense tests')
 
     # FIL not supporting multi-class sklearn RandomForestClassifiers
     if n_classes > 2 and model_class == RandomForestClassifier:
-        return
+        pytest.skip('FIL does not support multi-class sklearn ' +
+                    'RandomForestClassifier')
 
     # settings
     classification = True  # change this to false to use regression
