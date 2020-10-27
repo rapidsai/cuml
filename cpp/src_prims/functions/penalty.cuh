@@ -71,7 +71,7 @@ void elasticnet(math_t *out, const math_t *coef, const int len,
   ridge(out, coef, len, alpha * (math_t(1) - l1_ratio), stream);
   lasso(out_lasso, coef, len, alpha * l1_ratio, stream);
 
-  LinAlg::add(out, out, out_lasso, 1, stream);
+  raft::linalg::add(out, out, out_lasso, 1, stream);
 
   if (out_lasso != NULL) {
     CUDA_CHECK(cudaFree(out_lasso));
@@ -88,7 +88,7 @@ void elasticnetGrad(math_t *grad, const math_t *coef, const int len,
   ridgeGrad(grad, coef, len, alpha * (math_t(1) - l1_ratio), stream);
   lassoGrad(grad_lasso, coef, len, alpha * l1_ratio, stream);
 
-  LinAlg::add(grad, grad, grad_lasso, len, stream);
+  raft::linalg::add(grad, grad, grad_lasso, len, stream);
 
   if (grad_lasso != NULL) {
     CUDA_CHECK(cudaFree(grad_lasso));

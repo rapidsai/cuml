@@ -24,8 +24,7 @@ class CD(BaseEstimator,
          SyncFitMixinLinearModel,
          DelayedPredictionMixin):
     """
-    Model-Parallel Multi-GPU Linear Regression Model. Single Process Multi GPU
-    supported currently
+    Model-Parallel Multi-GPU Linear Regression Model.
     """
 
     def __init__(self, client=None, **kwargs):

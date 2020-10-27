@@ -105,8 +105,8 @@ void postProcessData_impl(raft::handle_t &handle,
                      d_intercept.data(), 1, 1, CUBLAS_OP_N, CUBLAS_OP_N,
                      streams[0]);
 
-  LinAlg::subtract(d_intercept.data(), mu_labels, d_intercept.data(), 1,
-                   streams[0]);
+  raft::linalg::subtract(d_intercept.data(), mu_labels, d_intercept.data(), 1,
+                         streams[0]);
   raft::update_host(intercept, d_intercept.data(), 1, streams[0]);
 
   Matrix::Data<T> mu_input_data{mu_input, size_t(input_desc.N)};

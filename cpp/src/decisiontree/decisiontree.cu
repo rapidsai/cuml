@@ -46,6 +46,35 @@ void set_tree_params(DecisionTreeParams &params, int cfg_max_depth,
                      bool cfg_quantile_per_tree,
                      bool cfg_use_experimental_backend,
                      int cfg_max_batch_size) {
+  if (cfg_use_experimental_backend) {
+    if (cfg_split_algo != SPLIT_ALGO::GLOBAL_QUANTILE) {
+      CUML_LOG_WARN(
+        "Experimental backend does not yet support histogram split algorithm");
+      CUML_LOG_WARN(
+        "To use experimental backend set split_algo = 1 (GLOBAL_QUANTILE)");
+      cfg_use_experimental_backend = false;
+    }
+    if (cfg_max_features != 1.0) {
+      CUML_LOG_WARN(
+        "Experimental backend does not yet support feature sub-sampling");
+      CUML_LOG_WARN("To use experimental backend set max_features = 1.0");
+      cfg_use_experimental_backend = false;
+    }
+    if (cfg_quantile_per_tree) {
+      CUML_LOG_WARN(
+        "Experimental backend does not yet support per tree quantile "
+        "computation");
+      CUML_LOG_WARN(
+        "To use experimental backend set quantile_per_tree = false");
+      cfg_use_experimental_backend = false;
+    }
+    if (!cfg_use_experimental_backend) {
+      CUML_LOG_WARN(
+        "Not using the experimental backend due to above mentioned reason(s)");
+      CUML_LOG_WARN("Switching back to default backend");
+    }
+  }
+
   params.max_depth = cfg_max_depth;
   params.max_leaves = cfg_max_leaves;
   params.max_features = cfg_max_features;

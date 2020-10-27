@@ -18,8 +18,8 @@
 
 #include "map_then_reduce.cuh"
 
-namespace MLCommon {
-namespace LinAlg {
+namespace raft {
+namespace linalg {
 
 /**
  * @brief CUDA version mean squared error function mean((A-B)**2)
@@ -39,9 +39,9 @@ void meanSquaredError(math_t* out, const math_t* A, const math_t* B, size_t len,
     math_t diff = a - b;
     return diff * diff * weight / len;
   };
-  raft::linalg::mapThenSumReduce<math_t, decltype(sq_diff), TPB>(
-    out, len, sq_diff, stream, A, B);
+  mapThenSumReduce<math_t, decltype(sq_diff), TPB>(out, len, sq_diff, stream, A,
+                                                   B);
 }
 
-};  // end namespace LinAlg
-};  // end namespace MLCommon
+};  // end namespace linalg
+};  // end namespace raft
