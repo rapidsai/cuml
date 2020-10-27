@@ -78,7 +78,7 @@ class completenessTest : public ::testing::TestWithParam<completenessParam> {
     //calculating the golden output
     double truthMI, truthEntropy;
 
-    truthMI = MLCommon::Metrics::mutualInfoScore(
+    truthMI = MLCommon::Metrics::mutual_info_score(
       truthClusterArray, predClusterArray, nElements, lowerLabelRange,
       upperLabelRange, allocator, stream);
     truthEntropy =

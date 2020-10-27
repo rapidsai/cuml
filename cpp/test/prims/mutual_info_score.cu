@@ -19,7 +19,7 @@
 #include <cuml/common/cuml_allocator.hpp>
 #include <iostream>
 #include <metrics/contingencyMatrix.cuh>
-#include <metrics/mutualInfoScore.cuh>
+#include <metrics/mutual_info_score.cuh>
 #include <random>
 #include "test_utils.h"
 
@@ -118,7 +118,7 @@ class mutualInfoTest : public ::testing::TestWithParam<mutualInfoParam> {
       new raft::mr::device::default_allocator);
 
     //calling the mutualInfo CUDA implementation
-    computedmutualInfo = MLCommon::Metrics::mutualInfoScore(
+    computedmutualInfo = MLCommon::Metrics::mutual_info_score(
       firstClusterArray, secondClusterArray, nElements, lowerLabelRange,
       upperLabelRange, allocator, stream);
   }

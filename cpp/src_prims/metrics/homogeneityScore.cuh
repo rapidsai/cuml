@@ -21,7 +21,7 @@
 */
 
 #include "entropy.cuh"
-#include "mutualInfoScore.cuh"
+#include "mutual_info_score.cuh"
 
 namespace MLCommon {
 
@@ -29,7 +29,7 @@ namespace Metrics {
 
 /**
 * @brief Function to calculate the homogeneity score between two clusters
-* <a href="https://en.wikipedia.org/wiki/Homogeneity_(statistics)">more info on mutual information</a> 
+* <a href="https://en.wikipedia.org/wiki/Homogeneity_(statistics)">more info on mutual information</a>
 * @param truthClusterArray: the array of truth classes of type T
 * @param predClusterArray: the array of predicted classes of type T
 * @param size: the size of the data points of type int
@@ -47,7 +47,7 @@ double homogeneityScore(const T *truthClusterArray, const T *predClusterArray,
 
   double computedMI, computedEntropy;
 
-  computedMI = MLCommon::Metrics::mutualInfoScore(
+  computedMI = MLCommon::Metrics::mutual_info_score(
     truthClusterArray, predClusterArray, size, lowerLabelRange, upperLabelRange,
     allocator, stream);
   computedEntropy =

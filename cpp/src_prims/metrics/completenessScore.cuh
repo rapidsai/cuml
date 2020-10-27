@@ -25,7 +25,7 @@
 #include <common/device_buffer.hpp>
 #include <cuml/common/cuml_allocator.hpp>
 #include "entropy.cuh"
-#include "mutualInfoScore.cuh"
+#include "mutual_info_score.cuh"
 
 namespace MLCommon {
 namespace Metrics {
@@ -50,7 +50,7 @@ double completenessScore(const T *truthClusterArray, const T *predClusterArray,
 
   double computedMI, computedEntropy;
 
-  computedMI = MLCommon::Metrics::mutualInfoScore(
+  computedMI = MLCommon::Metrics::mutual_info_score(
     truthClusterArray, predClusterArray, size, lowerLabelRange, upperLabelRange,
     allocator, stream);
   computedEntropy =
