@@ -18,7 +18,7 @@
 #include <algorithm>
 #include <cuml/common/cuml_allocator.hpp>
 #include <iostream>
-#include <metrics/silhouetteScore.cuh>
+#include <metrics/silhouette_score.cuh>
 #include <random>
 #include "test_utils.h"
 
@@ -26,7 +26,7 @@ namespace MLCommon {
 namespace Metrics {
 
 //parameter structure definition
-struct silhouetteScoreParam {
+struct silhouette_scoreParam {
   int nRows;
   int nCols;
   int nLabels;
@@ -36,13 +36,13 @@ struct silhouetteScoreParam {
 
 //test fixture class
 template <typename LabelT, typename DataT>
-class silhouetteScoreTest
-  : public ::testing::TestWithParam<silhouetteScoreParam> {
+class silhouette_scoreTest
+  : public ::testing::TestWithParam<silhouette_scoreParam> {
  protected:
   //the constructor
   void SetUp() override {
     //getting the parameters
-    params = ::testing::TestWithParam<silhouetteScoreParam>::GetParam();
+    params = ::testing::TestWithParam<silhouette_scoreParam>::GetParam();
 
     nRows = params.nRows;
     nCols = params.nCols;
@@ -161,8 +161,8 @@ class silhouetteScoreTest
 
     truthSilhouetteScore /= nRows;
 
-    //calling the silhouetteScore CUDA implementation
-    computedSilhouetteScore = MLCommon::Metrics::silhouetteScore(
+    //calling the silhouette_score CUDA implementation
+    computedSilhouetteScore = MLCommon::Metrics::silhouette_score(
       d_X, nRows, nCols, d_labels, nLabels, sampleSilScore, allocator, stream,
       params.metric);
   }
@@ -175,7 +175,7 @@ class silhouetteScoreTest
   }
 
   //declaring the data values
-  silhouetteScoreParam params;
+  silhouette_scoreParam params;
   int nLabels;
   DataT *d_X = nullptr;
   DataT *sampleSilScore = nullptr;
@@ -188,17 +188,17 @@ class silhouetteScoreTest
 };
 
 //setting test parameter values
-const std::vector<silhouetteScoreParam> inputs = {
+const std::vector<silhouette_scoreParam> inputs = {
   {4, 2, 3, 0, 0.00001},  {4, 2, 2, 5, 0.00001},  {8, 8, 3, 4, 0.00001},
   {11, 2, 5, 0, 0.00001}, {40, 2, 8, 0, 0.00001}, {12, 7, 3, 2, 0.00001},
   {7, 5, 5, 3, 0.00001}};
 
 //writing the test suite
-typedef silhouetteScoreTest<int, double> silhouetteScoreTestClass;
-TEST_P(silhouetteScoreTestClass, Result) {
+typedef silhouette_scoreTest<int, double> silhouette_scoreTestClass;
+TEST_P(silhouette_scoreTestClass, Result) {
   ASSERT_NEAR(computedSilhouetteScore, truthSilhouetteScore, params.tolerance);
 }
-INSTANTIATE_TEST_CASE_P(silhouetteScore, silhouetteScoreTestClass,
+INSTANTIATE_TEST_CASE_P(silhouette_score, silhouette_scoreTestClass,
                         ::testing::ValuesIn(inputs));
 
 }  //end namespace Metrics

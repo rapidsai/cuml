@@ -92,7 +92,7 @@ double rand_index(const raft::handle_t &handle, double *y, double *y_hat, int n)
 * @param metric: the numerical value that maps to the type of distance metric to be used in the calculations
 * @param silScores: Array that is optionally taken in as input if required to be populated with the silhouette score for every sample (1 x nRows), else nullptr is passed
 */
-double silhouetteScore(const raft::handle_t &handle, double *y, int nRows,
+double silhouette_score(const raft::handle_t &handle, double *y, int nRows,
                        int nCols, int *labels, int nLabels, double *silScores,
                        int metric);
 /**

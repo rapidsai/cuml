@@ -208,7 +208,7 @@ if(BUILD_PRIMS_TESTS)
     prims/score.cu
     prims/seive.cu
     prims/sigmoid.cu
-    prims/silhouetteScore.cu
+    prims/silhouette_score.cu
     prims/sqrt.cu
     prims/stddev.cu
     prims/strided_reduction.cu
