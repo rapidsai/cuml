@@ -12,13 +12,13 @@ export GPUCI_RETRY_SLEEP=30
 export LABEL_OPTION=${LABEL_OPTION:-"--label main"}
 
 # Skip uploads unless BUILD_MODE == "branch"
-if [ ${BUILD_MODE} != "branch" ]; then
+if [[ ${BUILD_MODE} != "branch" ]]; then
   echo "Skipping upload"
   return 0
 fi
 
 # Skip uploads if there is no upload key
-if [ -z "$MY_UPLOAD_KEY" ]; then
+if [[ -z "$MY_UPLOAD_KEY" ]]; then
   echo "No upload key"
   return 0
 fi
@@ -38,14 +38,14 @@ export CUML_FILE=`conda build conda/recipes/cuml --python=$PYTHON --output`
 
 gpuci_logger "Starting conda uploads"
 
-if [ "$BUILD_LIBCUML" == "1" && "$UPLOAD_LIBCUML" == "1" ]; then
+if [[ "$BUILD_LIBCUML" == "1" && "$UPLOAD_LIBCUML" == "1" ]]; then
   test -e ${LIBCUML_FILE}
   echo "Upload libcuml"
   echo ${LIBCUML_FILE}
   gpuci_retry anaconda -t ${MY_UPLOAD_KEY} upload -u ${CONDA_USERNAME:-rapidsai} ${LABEL_OPTION} --skip-existing ${LIBCUML_FILE}
 fi
 
-if [ "$BUILD_CUML" == "1" && "$UPLOAD_CUML" == "1" ]; then
+if [[ "$BUILD_CUML" == "1" && "$UPLOAD_CUML" == "1" ]]; then
   test -e ${CUML_FILE}
   echo "Upload cuml"
   echo ${CUML_FILE}

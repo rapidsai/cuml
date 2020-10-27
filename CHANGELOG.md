@@ -14,11 +14,13 @@
 
 ## Bug Fixes
 - PR #3033: Splitting ml metrics to individual files
+- PR #3037: Avoid logging deadlock in multi-threaded C code
 - PR #2983: Fix seeding of KISS99 RNG
 - PR #3011: Fix unused initialize_embeddings parameter in Barnes-Hut t-SNE
 - PR #3008: Check number of columns in check_array validator
 - PR #3012: Increasing learning rate for SGD log loss and invscaling pytests
 - PR #3021: Fix a hang in cuML RF experimental backend
+- PR #3039: Update RF and decision tree parameter initializations in benchmark codes
 
 # cuML 0.16.0 (Date TBD)
 
