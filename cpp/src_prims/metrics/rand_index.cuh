@@ -116,7 +116,7 @@ __global__ void computeTheNumerator(const T* firstClusterArray,
 * @param stream: the cudaStream object
 */
 template <typename T>
-double computeRandIndex(T* firstClusterArray, T* secondClusterArray,
+double compute_rand_index(T* firstClusterArray, T* secondClusterArray,
                         uint64_t size,
                         std::shared_ptr<MLCommon::deviceAllocator> allocator,
                         cudaStream_t stream) {

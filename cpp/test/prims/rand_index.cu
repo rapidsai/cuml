@@ -86,7 +86,7 @@ class randIndexTest : public ::testing::TestWithParam<randIndexParam> {
       new raft::mr::device::default_allocator);
 
     //calling the rand_index CUDA implementation
-    computedRandIndex = MLCommon::Metrics::computerand_index(
+    computedRandIndex = MLCommon::Metrics::compute_rand_index(
       firstClusterArray, secondClusterArray, size, allocator, stream);
   }
 
