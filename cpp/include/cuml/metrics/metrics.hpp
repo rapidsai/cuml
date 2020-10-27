@@ -107,9 +107,9 @@ double silhouette_score(const raft::handle_t &handle, double *y, int nRows,
 * @return: The adjusted rand index value
 * @{
 */
-double adjustedRandIndex(const raft::handle_t &handle, const int64_t *y,
+double adjusted_rand_index(const raft::handle_t &handle, const int64_t *y,
                          const int64_t *y_hat, const int64_t n);
-double adjustedRandIndex(const raft::handle_t &handle, const int *y,
+double adjusted_rand_index(const raft::handle_t &handle, const int *y,
                          const int *y_hat, const int n);
 /** @} */
 

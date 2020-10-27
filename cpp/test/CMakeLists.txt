@@ -125,7 +125,7 @@ if(BUILD_PRIMS_TESTS)
   add_executable(prims
     prims/add.cu
     prims/add_sub_dev_scalar.cu
-    prims/adjustedRandIndex.cu
+    prims/adjusted_rand_index.cu
     prims/batched/csr.cu
     prims/batched/gemv.cu
     prims/batched/information_criterion.cu

@@ -14,7 +14,7 @@
 # limitations under the License.
 #
 
-from cuml.metrics.cluster.adjustedrandindex import adjusted_rand_score
+from cuml.metrics.cluster.adjusted_rand_index import adjusted_rand_score
 from cuml.metrics.cluster.homogeneity_score import homogeneity_score
 from cuml.metrics.cluster.completeness_score import completeness_score
 from cuml.metrics.cluster.mutual_info_score import mutual_info_score
