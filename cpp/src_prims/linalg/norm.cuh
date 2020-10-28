@@ -18,8 +18,8 @@
 
 #include "reduce.cuh"
 
-namespace MLCommon {
-namespace LinAlg {
+namespace raft {
+namespace linalg {
 
 /** different types of norms supported on the input buffers */
 enum NormType { L1Norm = 0, L2Norm };
@@ -51,12 +51,12 @@ void rowNorm(Type *dots, const Type *data, IdxType D, IdxType N, NormType type,
              Lambda fin_op = raft::Nop<Type, IdxType>()) {
   switch (type) {
     case L1Norm:
-      LinAlg::reduce(dots, data, D, N, (Type)0, rowMajor, true, stream, false,
-                     raft::L1Op<Type, IdxType>(), raft::Sum<Type>(), fin_op);
+      reduce(dots, data, D, N, (Type)0, rowMajor, true, stream, false,
+             raft::L1Op<Type, IdxType>(), raft::Sum<Type>(), fin_op);
       break;
     case L2Norm:
-      LinAlg::reduce(dots, data, D, N, (Type)0, rowMajor, true, stream, false,
-                     raft::L2Op<Type>(), raft::Sum<Type>(), fin_op);
+      reduce(dots, data, D, N, (Type)0, rowMajor, true, stream, false,
+             raft::L2Op<Type>(), raft::Sum<Type>(), fin_op);
       break;
     default:
       ASSERT(false, "Invalid norm type passed! [%d]", type);
@@ -84,17 +84,17 @@ void colNorm(Type *dots, const Type *data, IdxType D, IdxType N, NormType type,
              Lambda fin_op = raft::Nop<Type, IdxType>()) {
   switch (type) {
     case L1Norm:
-      LinAlg::reduce(dots, data, D, N, (Type)0, rowMajor, false, stream, false,
-                     raft::L1Op<Type, IdxType>(), raft::Sum<Type>(), fin_op);
+      reduce(dots, data, D, N, (Type)0, rowMajor, false, stream, false,
+             raft::L1Op<Type, IdxType>(), raft::Sum<Type>(), fin_op);
       break;
     case L2Norm:
-      LinAlg::reduce(dots, data, D, N, (Type)0, rowMajor, false, stream, false,
-                     raft::L2Op<Type, IdxType>(), raft::Sum<Type>(), fin_op);
+      reduce(dots, data, D, N, (Type)0, rowMajor, false, stream, false,
+             raft::L2Op<Type, IdxType>(), raft::Sum<Type>(), fin_op);
       break;
     default:
       ASSERT(false, "Invalid norm type passed! [%d]", type);
   };
 }
 
-};  // end namespace LinAlg
-};  // end namespace MLCommon
+};  // end namespace linalg
+};  // end namespace raft

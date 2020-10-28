@@ -20,8 +20,8 @@
 #include <cuda_utils.cuh>
 #include <linalg/eltwise.cuh>
 
-namespace MLCommon {
-namespace Stats {
+namespace raft {
+namespace stats {
 
 ///@todo: ColsPerBlk has been tested only for 32!
 template <typename Type, typename IdxType, int TPB, int ColsPerBlk = 32>
@@ -95,5 +95,5 @@ void sum(Type *output, const Type *input, IdxType D, IdxType N, bool rowMajor,
   CUDA_CHECK(cudaPeekAtLastError());
 }
 
-};  // end namespace Stats
-};  // end namespace MLCommon
+};  // end namespace stats
+};  // end namespace raft
