@@ -22,7 +22,7 @@
 #include <metrics/randIndex.cuh>
 #include <metrics/silhouetteScore.cuh>
 #include <metrics/vMeasure.cuh>
-#include <score/scores.cuh>
+#include <metrics/scores.cuh>
 
 namespace ML {
 

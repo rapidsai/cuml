@@ -18,7 +18,7 @@
 #include <gtest/gtest.h>
 #include <iostream>
 #include <random/rng.cuh>
-#include <score/scores.cuh>
+#include <metrics/scores.cuh>
 #include <vector>
 #include "test_utils.h"
 

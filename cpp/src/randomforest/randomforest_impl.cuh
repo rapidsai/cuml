@@ -23,7 +23,7 @@
 #include <cuml/common/logger.hpp>
 #include <random/permute.cuh>
 #include <random/rng.cuh>
-#include <score/scores.cuh>
+#include <metrics/scores.cuh>
 #include "randomforest_impl.h"
 
 namespace ML {
