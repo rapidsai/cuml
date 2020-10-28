@@ -356,6 +356,9 @@ def to_output_type(array, output_type, order='F'):
             array = array.todense()
 
     cuml_array = input_to_cuml_array(array, order=order)[0]
+    if output_type == 'series' and len(array.shape) > 1:
+        output_type = 'cudf'
+
     return cuml_array.to_output(output_type)
 
 
