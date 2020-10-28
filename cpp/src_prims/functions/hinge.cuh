@@ -131,7 +131,7 @@ void hingeLoss(const raft::handle_t &handle, math_t *input, int n_rows,
   hingeLossSubtract(labels_pred.data(), labels_pred.data(), math_t(1), n_rows,
                     stream);
 
-  Stats::sum(loss, labels_pred.data(), 1, n_rows, false, stream);
+  raft::stats::sum(loss, labels_pred.data(), 1, n_rows, false, stream);
 
   raft::mr::device::buffer<math_t> pen_val(allocator, stream, 0);
 

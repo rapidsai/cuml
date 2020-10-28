@@ -20,8 +20,8 @@
 #include <random/rng.cuh>
 #include "test_utils.h"
 
-namespace MLCommon {
-namespace LinAlg {
+namespace raft {
+namespace linalg {
 
 template <typename T>
 struct NormInputs {
@@ -286,5 +286,5 @@ INSTANTIATE_TEST_CASE_P(ColNormTests, ColNormTestF,
 INSTANTIATE_TEST_CASE_P(ColNormTests, ColNormTestD,
                         ::testing::ValuesIn(inputscd));
 
-}  // end namespace LinAlg
-}  // end namespace MLCommon
+}  // end namespace linalg
+}  // end namespace raft

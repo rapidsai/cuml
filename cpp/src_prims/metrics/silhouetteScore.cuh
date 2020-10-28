@@ -213,9 +213,9 @@ DataT silhouetteScore(DataT *X_in, int nRows, int nCols, LabelT *labels,
                                                      nRows * nLabels);
   CUDA_CHECK(cudaMemsetAsync(sampleToClusterSumOfDistances.data(), 0,
                              nRows * nLabels * sizeof(DataT), stream));
-  LinAlg::reduce_cols_by_key(distanceMatrix.data(), labels,
-                             sampleToClusterSumOfDistances.data(), nRows, nRows,
-                             nLabels, stream);
+  MLCommon::LinAlg::reduce_cols_by_key(distanceMatrix.data(), labels,
+                                       sampleToClusterSumOfDistances.data(),
+                                       nRows, nRows, nLabels, stream);
 
   //creating the a array and b array
   device_buffer<DataT> d_aArray(allocator, stream, nRows);
@@ -247,7 +247,7 @@ DataT silhouetteScore(DataT *X_in, int nRows, int nCols, LabelT *labels,
     binCountArray.data(), nLabels, nRows, true, true, DivOp<DataT>(), stream);
 
   //calculating row-wise minimum
-  LinAlg::reduce<DataT, DataT, int, raft::Nop<DataT>, MinOp<DataT>>(
+  raft::linalg::reduce<DataT, DataT, int, raft::Nop<DataT>, MinOp<DataT>>(
     d_bArray.data(), averageDistanceBetweenSampleAndCluster.data(), nLabels,
     nRows, std::numeric_limits<DataT>::max(), true, true, stream, false,
     raft::Nop<DataT>(), MinOp<DataT>());

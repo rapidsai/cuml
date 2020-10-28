@@ -22,8 +22,8 @@
 #include "reduce.cuh"
 #include "test_utils.h"
 
-namespace MLCommon {
-namespace LinAlg {
+namespace raft {
+namespace linalg {
 
 template <typename T>
 struct ReduceInputs {
@@ -142,5 +142,5 @@ INSTANTIATE_TEST_CASE_P(ReduceTests, ReduceTestF, ::testing::ValuesIn(inputsf));
 
 INSTANTIATE_TEST_CASE_P(ReduceTests, ReduceTestD, ::testing::ValuesIn(inputsd));
 
-}  // end namespace LinAlg
-}  // end namespace MLCommon
+}  // end namespace linalg
+}  // end namespace raft

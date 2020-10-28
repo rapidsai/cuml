@@ -12,14 +12,17 @@
 - PR #2906: Moving `linalg` decomp to RAFT namespaces
 - PR #2996: Removing the max_depth restriction for switching to the batched backend
 - PR #3004: Remove Single Process Multi GPU (SPMG) code
+- PR #3044: Move leftover `linalg` and `stats` to RAFT namespaces
 
 ## Bug Fixes
+- PR #3037: Avoid logging deadlock in multi-threaded C code
 - PR #2983: Fix seeding of KISS99 RNG
 - PR #3011: Fix unused initialize_embeddings parameter in Barnes-Hut t-SNE
 - PR #3008: Check number of columns in check_array validator
 - PR #3012: Increasing learning rate for SGD log loss and invscaling pytests
 - PR #3021: Fix a hang in cuML RF experimental backend
 - PR #3039: Update RF and decision tree parameter initializations in benchmark codes
+- PR #3062: Bumping xgboost version to match cuml version
 
 # cuML 0.16.0 (Date TBD)
 
