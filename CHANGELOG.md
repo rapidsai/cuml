@@ -3,6 +3,7 @@
 ## New Features
 
 ## Improvements
+- PR #3075: Speed up test_linear_model tests
 - PR #2902: `matrix/matrix.cuh` in RAFT namespacing
 - PR #2903: Moving linalg's gemm, gemv, transpose to RAFT namespaces
 - PR #2905: `stats` prims `mean_center`, `sum` to RAFT namespaces
