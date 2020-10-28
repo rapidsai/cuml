@@ -74,9 +74,9 @@ class CosineMetricProcessor : public MetricProcessor<math_t> {
       k_(k) {}
 
   void preprocess(math_t *data) {
-    LinAlg::rowNorm(colsums_.data(), data, n_cols_, n_rows_,
-                    LinAlg::NormType::L2Norm, row_major_, stream_,
-                    [] __device__(math_t in) { return sqrtf(in); });
+    raft::linalg::rowNorm(colsums_.data(), data, n_cols_, n_rows_,
+                          raft::linalg::NormType::L2Norm, row_major_, stream_,
+                          [] __device__(math_t in) { return sqrtf(in); });
 
     raft::linalg::matrixVectorOp(
       data, data, colsums_.data(), n_cols_, n_rows_, row_major_, false,
@@ -115,8 +115,9 @@ class CorrelationMetricProcessor : public CosineMetricProcessor<math_t> {
   void preprocess(math_t *data) {
     math_t normalizer_const = 1.0 / (math_t)cosine::n_cols_;
 
-    LinAlg::reduce(means_.data(), data, cosine::n_cols_, cosine::n_rows_,
-                   (math_t)0.0, cosine::row_major_, true, cosine::stream_);
+    raft::linalg::reduce(means_.data(), data, cosine::n_cols_, cosine::n_rows_,
+                         (math_t)0.0, cosine::row_major_, true,
+                         cosine::stream_);
 
     raft::linalg::unaryOp(
       means_.data(), means_.data(), cosine::n_rows_,
