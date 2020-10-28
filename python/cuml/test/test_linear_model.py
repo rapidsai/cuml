@@ -204,15 +204,24 @@ def test_ridge_regression_model(datatype, algorithm, nrows, column_info):
                            with_sign=True)
 
 
-@pytest.mark.parametrize("num_classes", [2, 10])
-@pytest.mark.parametrize("dtype", [np.float32, np.float64])
-@pytest.mark.parametrize("penalty", ["none", "l1", "l2", "elasticnet"])
-@pytest.mark.parametrize("l1_ratio", [1.0])
-@pytest.mark.parametrize("fit_intercept", [True, False])
+@pytest.mark.parametrize(
+    "num_classes, dtype, penalty, l1_ratio, fit_intercept, C, tol", [
+        # L-BFGS Solver
+        (2, np.float32, "none", 1.0, True, 1.0, 1e-3),
+        (2, np.float64, "l2", 1.0, True, 1.0, 1e-8),
+        (10, np.float32, "elasticnet", 0.0, True, 1.0, 1e-3),
+        (10, np.float32, "none", 1.0, False, 1.0, 1e-8),
+        (10, np.float32, "none", 1.0, False, 2.0, 1e-3),
+        # OWL-QN Solver
+        (2, np.float32, "l1", 1.0, True, 1.0, 1e-3),
+        (2, np.float64, "elasticnet", 1.0, True, 1.0, 1e-8),
+        (10, np.float32, "l1", 1.0, True, 1.0, 1e-3),
+        (10, np.float32, "l1", 1.0, False, 1.0, 1e-8),
+        (10, np.float32, "l1", 1.0, False, 0.5, 1e-3),
+    ]
+)
 @pytest.mark.parametrize("nrows", [unit_param(1000)])
 @pytest.mark.parametrize("column_info", [unit_param([20, 10])])
-@pytest.mark.parametrize("C", [2.0, 1.0, 0.5])
-@pytest.mark.parametrize("tol", [1e-3, 1e-8])
 def test_logistic_regression(
     num_classes, dtype, penalty, l1_ratio,
     fit_intercept, nrows, column_info, C, tol
