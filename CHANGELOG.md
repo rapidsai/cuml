@@ -14,6 +14,7 @@
 - PR #3044: Move leftover `linalg` and `stats` to RAFT namespaces
 
 ## Bug Fixes
+- PR #3072: Fusing metrics and score directories in src_prims
 - PR #3037: Avoid logging deadlock in multi-threaded C code
 - PR #2983: Fix seeding of KISS99 RNG
 - PR #3011: Fix unused initialize_embeddings parameter in Barnes-Hut t-SNE
