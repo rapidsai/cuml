@@ -39,11 +39,11 @@ cdef extern from "cuml/distance/distance_type.h" namespace "ML::Distance":
 
 cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics":
     void pairwise_distance(const handle_t &handle, const double *x,
-                          const double *y, double *dist, int m, int n, int k,
-                          DistanceType metric, bool isRowMajor) except +
+                           const double *y, double *dist, int m, int n, int k,
+                           DistanceType metric, bool isRowMajor) except +
     void pairwise_distance(const handle_t &handle, const float *x,
-                          const float *y, float *dist, int m, int n, int k,
-                          DistanceType metric, bool isRowMajor) except +
+                           const float *y, float *dist, int m, int n, int k,
+                           DistanceType metric, bool isRowMajor) except +
 
 
 """
@@ -246,24 +246,24 @@ def pairwise_distances(X, Y=None, metric="euclidean", handle=None,
     # Now execute the functions
     if (dtype_x == np.float32):
         pairwise_distance(handle_[0],
-                         <float*> d_X_ptr,
-                         <float*> d_Y_ptr,
-                         <float*> d_dest_ptr,
-                         <int> n_samples_x,
-                         <int> n_samples_y,
-                         <int> n_features_x,
-                         <DistanceType> metric_val,
-                         <bool> is_row_major)
+                          <float*> d_X_ptr,
+                          <float*> d_Y_ptr,
+                          <float*> d_dest_ptr,
+                          <int> n_samples_x,
+                          <int> n_samples_y,
+                          <int> n_features_x,
+                          <DistanceType> metric_val,
+                          <bool> is_row_major)
     elif (dtype_x == np.float64):
         pairwise_distance(handle_[0],
-                         <double*> d_X_ptr,
-                         <double*> d_Y_ptr,
-                         <double*> d_dest_ptr,
-                         <int> n_samples_x,
-                         <int> n_samples_y,
-                         <int> n_features_x,
-                         <DistanceType> metric_val,
-                         <bool> is_row_major)
+                          <double*> d_X_ptr,
+                          <double*> d_Y_ptr,
+                          <double*> d_dest_ptr,
+                          <int> n_samples_x,
+                          <int> n_samples_y,
+                          <int> n_features_x,
+                          <DistanceType> metric_val,
+                          <bool> is_row_major)
     else:
         raise NotImplementedError("Unsupported dtype: {}".format(dtype_x))
 
