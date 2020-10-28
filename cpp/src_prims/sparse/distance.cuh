@@ -694,11 +694,11 @@ struct BlockSemiring {
                                   value_t *shared_vals_,
                                   value_idx *chunk_cols_,
                                   value_t *chunk_vals_,
-                                  value_t *sums_): tid(tid_), m(m_), n(n_), start_rows(start_rows_),
+                                  value_t *sums_, bool verbose_): tid(tid_), m(m_), n(n_), start_rows(start_rows_),
                                                    offsets(offsets_), shared_cols(shared_cols_),
                                                    shared_vals(shared_vals_), chunk_cols(chunk_cols_),
                                                    chunk_vals(chunk_vals_), sums(sums_), done(false),
-                                                   shared_idx(0), cur_sum(0){}
+                                                   shared_idx(0), cur_sum(0), verbose(verbose_){}
 
   __device__ inline void load_a(value_idx row, value_idx *indptrA,
                                 value_idx *indicesA, value_t *dataA) {
@@ -720,13 +720,22 @@ struct BlockSemiring {
   __device__ inline void load_b(value_idx start_row, value_idx *indptrB,
                                 value_idx *indicesB, value_t *dataB) {
 
+    if(verbose)
+      printf("tid=%d, start_col=%d, load_b called\n", tid, start_row);
+
     start_row_b = start_row * rows_per_block;
     stop_row_b = min(start_row_b + rows_per_block,
                      start_row_b + (n-start_row_b)-1);
 
+    if(verbose)
+      printf("tid=%d, start_col=%d, start_row_b=%d, stop_row_b=%d\n", tid, start_row, start_row_b, stop_row_b);
+
     // load start & end offsets to compute chunk size
     start_offset_b = indptrB[start_row_b];
     stop_offset_b = indptrB[stop_row_b];
+
+    if(verbose)
+      printf("tid=%d, start_offset_b=%d, stop_offset_b=%d\n", tid, start_offset_b, stop_offset_b);
 
     // divide the work evenly across threads in the warp
     working_chunk_size = (stop_offset_b - start_offset_b) / blockDim.x;
@@ -764,11 +773,6 @@ struct BlockSemiring {
 
     row_b = start_rows[tid];
 
-    // get starting offsets of each row being processed by the current block
-    for(int i = tid; i < (stop_row_b - start_row_b)+1; i+= blockDim.x) {
-      offsets[i] = indptrB[start_row_b + i];
-    }
-
     // coalesce reads of B rows into shared memory
     for(int i = tid; i < stop_offset_b - start_offset_b; i += blockDim.x) {
       chunk_cols[i] = indicesB[start_offset_b+i];
@@ -779,8 +783,8 @@ struct BlockSemiring {
 
     // set starting and ending idx of local thread
     local_idx = threadIdx.x * working_chunk_size;
-    local_idx_stop = threadIdx.x * working_chunk_size + working_chunk_size;
-
+    local_idx_stop = min(local_idx + working_chunk_size,
+                         stop_offset_b - start_offset_b);
 
     /**
      * Need to account for rows of b that are either being continued from tid-1 or
@@ -795,15 +799,21 @@ struct BlockSemiring {
     case1 = (tid > 0 && row_b == start_rows[tid-1])
             ? shared_cols[local_idx-1] : -1;
     case2 = (tid < blockDim.x && row_b == start_rows[tid+1])
-            ? shared_cols[local_idx_stop+1] : MAX_INT;
+            ? shared_cols[local_idx_stop] : MAX_INT;
   }
 
   __device__ inline void step() {
 
     bool local_idx_in_bounds = local_idx < local_idx_stop;
 
+    if(verbose)
+      printf("About to load chunk_cols/chunk_vals\n");
+
     value_idx l = local_idx_in_bounds ? chunk_cols[local_idx] : -1;
     value_t lv = local_idx_in_bounds ? chunk_vals[local_idx] : 0;
+
+    if(verbose)
+      printf("Loaded chunk_cols/chunk_vals\n");
 
     bool shared_idx_in_bounds = shared_idx < shared_size;
 
@@ -851,6 +861,12 @@ struct BlockSemiring {
     }
   }
 
+  __device__ inline void print() {
+
+    printf("BlockSemiring<local_idx=%d, local_idx_stop=%d, row_b=%d, cur_sum=%f, working_chunk_size=%d\n",
+           local_idx, local_idx_stop, row_b, cur_sum, working_chunk_size);
+  }
+
  private:
 
   int tid;
@@ -894,55 +910,58 @@ struct BlockSemiring {
   value_t *chunk_vals;
 
   value_t *sums;
+
+  bool verbose;
 };
 
 template <typename value_idx, typename value_t, int tpb, int buffer_size,
-  int max_chunk_size, int rows_per_warp>
+  int max_chunk_size, int rows_per_block>
 __global__ void semiring_kernel_load_balanced_matvec_layout(
   value_idx *indptrA, value_idx *indicesA, value_t *dataA,
   value_idx *indptrB, value_idx *indicesB, value_t *dataB,
   value_idx m, value_idx n, value_t *out,
-  int n_warps_per_row) {
+  int n_blocks_per_row) {
 
-  value_idx out_row = blockIdx.x / n_warps_per_row;
-  value_idx out_col = blockIdx.x % n_warps_per_row;
+  value_idx out_row = blockIdx.x / n_blocks_per_row;
+  value_idx out_col_start = blockIdx.x % n_blocks_per_row;
   value_idx tid = threadIdx.x;
 
-//
-//  if(tid == 0 && out_row < 5) {
-//    printf("out_row=%d, out_col=%d, tid=%d\n", out_row, out_col, tid);
-//  }
-//
-  if(out_row > m || out_col > n_warps_per_row) return;
+  if(out_row > m || out_col_start > n_blocks_per_row) return;
   // num_warps = n_rows_a * (n_rows_b / rows_per_warp)
 
-  __shared__ value_idx offsets[rows_per_warp+1];
+  __shared__ value_idx offsets[rows_per_block +1];
   __shared__ value_idx start_rows[tpb];
-  __shared__ value_idx shared_cols[buffer_size/4];
-  __shared__ value_t shared_vals[buffer_size/4];
-  __shared__ value_idx chunk_cols[buffer_size/4];
-  __shared__ value_t chunk_vals[buffer_size/4];
+  __shared__ value_idx shared_cols[buffer_size];
+  __shared__ value_t shared_vals[buffer_size];
+  __shared__ value_idx chunk_cols[buffer_size];
+  __shared__ value_t chunk_vals[buffer_size];
 
-  __shared__ value_t sums[rows_per_warp+1];
+  __shared__ value_t sums[rows_per_block+1];
 
 
   // TODO: Can chunk extremely large rows further by executing the semiring multiple times
 
-  BlockSemiring<value_idx, value_t, tpb, buffer_size, rows_per_warp> semiring(
-    tid, m, n, offsets, start_rows, shared_cols, shared_vals, chunk_cols, chunk_vals, sums);
+  bool verbose = tid < 2 && out_row < 2;
+
+  BlockSemiring<value_idx, value_t, tpb, buffer_size, rows_per_block> semiring(
+    tid, m, n, offsets, start_rows, shared_cols, shared_vals, chunk_cols, chunk_vals, sums, verbose);
 
   semiring.load_a(out_row, indptrA, indicesA, dataA);
-  semiring.load_b(out_col, indptrB, indicesB, dataB);
+  semiring.load_b(out_col_start, indptrB, indicesB, dataB);
 
-  while(!semiring.isdone())
+  int iter = 0;
+  while(!semiring.isdone()) {
     semiring.step();
 
-  semiring.write(out);
+    ++iter;
+  }
+//
+//  semiring.write(out);
 }
 
 
 template <typename value_idx = int, typename value_t = float,
-          int max_buffer_size = 10000, int threads_per_block = 32,   // TODO: These should be conditional based on the data
+          int max_buffer_size = 1000, int threads_per_block = 32,   // TODO: These should be conditional based on the data
           typename reduce_f = auto(value_t, value_t)->value_t,
           typename accum_f = auto(value_t, value_t)->value_t>
 void distance_block_reduce(value_t *out_dists,
@@ -956,10 +975,14 @@ void distance_block_reduce(value_t *out_dists,
 //      config_.a_nnz, config_.b_indptr, config_.b_indices, config_.b_data,
 //      config_.b_nnz, config_.a_nrows, config_.b_nrows, reduce_func, accum_func);
 
-  int n_warps_per_row = raft::ceildiv(config_.b_nrows, 128);
+  // number of rows processed within each warp/block. This is split across the threads of the block
+
+  // TODO: Might be able to load balance even further if one side is a COO
+  constexpr int rows_per_block = 64;
+  int n_warps_per_row = raft::ceildiv(config_.b_nrows, rows_per_block);
   semiring_kernel_load_balanced_matvec_layout<
-    value_idx, value_t, threads_per_block, max_buffer_size, 256, 128>
-    <<<config_.a_nrows *(config_.b_nrows / 128), threads_per_block, 0,
+    value_idx, value_t, threads_per_block, max_buffer_size, 256, rows_per_block>
+    <<<config_.a_nrows * (config_.b_nrows / rows_per_block), threads_per_block, 0,
        config_.stream>>>(config_.a_indptr, config_.a_indices, config_.a_data,
                          config_.b_indptr, config_.b_indices, config_.b_data,
                          config_.a_nrows, config_.b_nrows, out_dists,
