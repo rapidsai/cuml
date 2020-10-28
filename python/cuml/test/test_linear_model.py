@@ -45,9 +45,11 @@ def _make_regression_dataset_uncached(nrows, ncols, n_info):
     )
     return train_test_split(X, y, train_size=0.8, random_state=10)
 
+
 @lru_cache(4)
 def _make_regression_dataset_from_cache(nrows, ncols, n_info):
     return _make_regression_dataset_uncached(nrows, ncols, n_info)
+
 
 def make_regression_dataset(datatype, nrows, ncols, n_info):
     if nrows * ncols < 1e8:  # Keep cache under 4 GB
