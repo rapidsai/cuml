@@ -252,15 +252,17 @@ def test_kmeans_sklearn_comparison_default(name, nrows, random_state):
     assert sk_score - 1e-2 <= cu_score <= sk_score + 1e-2
 
 
+@pytest.mark.parametrize(
+    'max_iter, oversampling_factor, max_samples_per_batch, init', [
+        (100, 0.5, 1 << 10, 'preset'),
+        (1000, 1.0, 1 << 15, 'preset'),
+        (500, 1.5, 1 << 5, 'k-means||'),
+        (1000, 1.0, 1 << 10, 'random'),
+    ]
+)
 @pytest.mark.parametrize('n_clusters', [unit_param(10),
                                         unit_param(100),
                                         stress_param(1000)])
-@pytest.mark.parametrize('max_iter', [100, 500, 1000])
-@pytest.mark.parametrize('oversampling_factor', [0.5, 1.0, 1.5])
-@pytest.mark.parametrize('max_samples_per_batch', [1 << 15, 1 << 10, 1 << 5])
-@pytest.mark.parametrize('init', ['k-means||',
-                                  'random',
-                                  'preset'])
 def test_all_kmeans_params(n_clusters, max_iter, init,
                            oversampling_factor, max_samples_per_batch,
                            random_state):
