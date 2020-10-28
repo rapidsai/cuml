@@ -20,7 +20,11 @@ import pytest
 
 from cupyx.scipy.sparse import coo_matrix
 
-from cuml.thirdparty_adapters.adapters import check_array, get_input_type
+from cuml.thirdparty_adapters.adapters import (
+    check_array,
+    get_input_type,
+    to_output_type
+)
 
 
 def test_check_array():
@@ -76,3 +80,14 @@ def test_get_input_type():
 
     assert get_input_type(frame) == 'dataframe'
     assert get_input_type(series) == 'series'
+
+
+def test_to_output_type():
+    arr = cp.array([0, 1, 2, 3])
+    assert type(to_output_type(arr, 'series')) == cudf.Series
+
+    arr = cp.array([[0, 1, 2, 3]])
+    assert type(to_output_type(arr, 'series')) == cudf.DataFrame
+
+    arr = cp.array([[0, 1, 2, 3], [4, 5, 6, 7]])
+    assert type(to_output_type(arr, 'series')) == cudf.DataFrame
