@@ -29,12 +29,13 @@ from cuml.test.utils import array_equal
 @pytest.mark.parametrize(
     'nrows, ncols, n_components, sparse_input, density, sparse_format,'
     ' batch_size_divider', [
-    (500, 15, 2, True, 0.4, 'csr', 5),
-    (5000, 25, 12, False, 0.07, 'csc', 10),
-    (5000, 15, None, True, 0.4, 'csc', 5),
-    (500, 25, 2, False, 0.07, 'csr', 10),
-    (5000, 25, 12, False, 0.07, 'csr', 10)
-])
+        (500, 15, 2, True, 0.4, 'csr', 5),
+        (5000, 25, 12, False, 0.07, 'csc', 10),
+        (5000, 15, None, True, 0.4, 'csc', 5),
+        (500, 25, 2, False, 0.07, 'csr', 10),
+        (5000, 25, 12, False, 0.07, 'csr', 10)
+    ]
+)
 @pytest.mark.no_bad_cuml_array_check
 def test_fit(nrows, ncols, n_components, sparse_input, density,
              sparse_format, batch_size_divider):
@@ -71,11 +72,12 @@ def test_fit(nrows, ncols, n_components, sparse_input, density,
 
 @pytest.mark.parametrize(
     'nrows, ncols, n_components, density, batch_size_divider', [
-    (500, 15, 2, 0.07, 5),
-    (5000, 25, 12, 0.07, 10),
-    (5000, 15, 2, 0.4, 5),
-    (500, 25, 12, 0.4, 10),
-])
+        (500, 15, 2, 0.07, 5),
+        (5000, 25, 12, 0.07, 10),
+        (5000, 15, 2, 0.4, 5),
+        (500, 25, 12, 0.4, 10),
+    ]
+)
 @pytest.mark.no_bad_cuml_array_check
 def test_partial_fit(nrows, ncols, n_components, density,
                      batch_size_divider):
