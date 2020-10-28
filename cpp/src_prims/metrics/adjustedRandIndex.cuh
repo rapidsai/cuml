@@ -162,13 +162,13 @@ double computeAdjustedRandIndex(const T* firstClusterArray,
     d_nChooseTwoSum.data(), nUniqClasses * nUniqClasses, nCTwo<MathT>(), stream,
     dContingencyMatrix.data(), dContingencyMatrix.data());
   //calculating the row-wise sums
-  LinAlg::reduce<MathT, MathT>(a.data(), dContingencyMatrix.data(),
-                               nUniqClasses, nUniqClasses, 0, true, true,
-                               stream);
+  raft::linalg::reduce<MathT, MathT>(a.data(), dContingencyMatrix.data(),
+                                     nUniqClasses, nUniqClasses, 0, true, true,
+                                     stream);
   //calculating the column-wise sums
-  LinAlg::reduce<MathT, MathT>(b.data(), dContingencyMatrix.data(),
-                               nUniqClasses, nUniqClasses, 0, true, false,
-                               stream);
+  raft::linalg::reduce<MathT, MathT>(b.data(), dContingencyMatrix.data(),
+                                     nUniqClasses, nUniqClasses, 0, true, false,
+                                     stream);
   //calculating the sum of number of unordered pairs for every element in a
   raft::linalg::mapThenSumReduce<MathT, nCTwo<MathT>>(
     d_aCTwoSum.data(), nUniqClasses, nCTwo<MathT>(), stream, a.data(),

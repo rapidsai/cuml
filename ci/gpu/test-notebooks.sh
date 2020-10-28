@@ -10,7 +10,9 @@ TOPLEVEL_NB_FOLDERS=$(find . -name *.ipynb |cut -d'/' -f2|sort -u)
 # Add notebooks that should be skipped here
 # (space-separated list of filenames without paths)
 
-SKIPNBS="cuml_benchmarks.ipynb"
+# TODO: (MDD) Temporarily adding forest_inference_demo.ipynb since xgboost is broken in 0.17
+#       Remove once xgboost is working again.
+SKIPNBS="cuml_benchmarks.ipynb forest_inference_demo.ipynb"
 
 ## Check env
 env
