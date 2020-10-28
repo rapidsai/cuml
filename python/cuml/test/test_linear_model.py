@@ -332,11 +332,12 @@ def test_logistic_regression_model_default(dtype):
     assert culog.score(X_test, y_test) >= sklog.score(X_test, y_test) - 0.022
 
 
-@pytest.mark.parametrize("dtype", [np.float32, np.float64])
-@pytest.mark.parametrize("nrows", [10, 100])
+@pytest.mark.parametrize("dtype, nrows, num_classes, fit_intercept", [
+    (np.float32, 10, 2, True),
+    (np.float64, 100, 10, False),
+    (np.float64, 100, 2, True)
+])
 @pytest.mark.parametrize("column_info", [(20, 10)])
-@pytest.mark.parametrize("num_classes", [2, 10])
-@pytest.mark.parametrize("fit_intercept", [True, False])
 def test_logistic_regression_decision_function(
     dtype, nrows, column_info, num_classes, fit_intercept
 ):
