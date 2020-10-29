@@ -19,15 +19,16 @@ import os
 import sys
 import _pytest.config
 import _pytest.terminal
+import _pytest.python
 import cupy as cp
 import cupyx
 import pytest
 import rmm
+import rmm._lib
 from pytest import Item
 from sklearn.datasets import fetch_20newsgroups
 from sklearn.feature_extraction.text import CountVectorizer
 
-# rmm.reinitialize(logging=True, log_file_name="test_log.txt")
 
 # Stores incorrect uses of CumlArray on cuml.common.base.Base to print at the
 # end
@@ -70,51 +71,6 @@ def bad_allocator(nbytes):
     return None
 
 
-saved_allocator = rmm.rmm_cupy_allocator
-
-
-def counting_rmm_allocator(nbytes):
-
-    import cuml.common.array
-
-    cuml.common.array._increment_malloc(nbytes)
-
-    return saved_allocator(nbytes)
-
-
-rmm.rmm_cupy_allocator = counting_rmm_allocator
-
-
-def pytest_configure(config):
-    cp.cuda.set_allocator(counting_rmm_allocator)
-
-
-@pytest.fixture(scope="function", autouse=True)
-def cupy_allocator_fixture(request):
-
-    # Disable creating cupy arrays
-    # cp.cuda.set_allocator(bad_allocator)
-    cp.cuda.set_allocator(counting_rmm_allocator)
-
-    yield
-
-    # Reset creating cupy arrays
-    cp.cuda.set_allocator(None)
-
-
-@pytest.fixture(scope="module", autouse=True)
-def cuml_memory_per_module_fixture(request):
-
-    # Disable creating cupy arrays
-    # cp.cuda.set_allocator(bad_allocator)
-    cp.cuda.set_allocator(counting_rmm_allocator)
-
-    yield
-
-    # Reset creating cupy arrays
-    cp.cuda.set_allocator(None)
-
-
 # Use the runtest_makereport hook to get the result of the test. This is
 # necessary because pytest has some magic to extract the Cython source file
 # from the traceback
@@ -153,26 +109,6 @@ def pytest_runtest_makereport(item: Item, call):
                         (true_path, entry.reprfileloc.message))
 
                     break
-
-
-def pytest_terminal_summary(
-        terminalreporter: _pytest.terminal.TerminalReporter,
-        exitstatus: pytest.ExitCode,
-        config: _pytest.config.Config):
-
-    terminalreporter.write_sep("=", "CumlArray Summary")
-
-    import cuml.common.array
-
-    terminalreporter.write_line("To Output Counts:", yellow=True)
-    terminalreporter.write_line(str(cuml.common.array._to_output_counts))
-
-    terminalreporter.write_line("From Array Counts:", yellow=True)
-    terminalreporter.write_line(str(cuml.common.array._from_array_counts))
-
-    terminalreporter.write_line("RMM Malloc: Count={}, Size={}".format(
-        cuml.common.array._malloc_count.get(),
-        cuml.common.array._malloc_nbytes.get()))
 
 
 # Closing hook to display the file/line numbers at the end of the test
@@ -290,68 +226,3 @@ def nlp_20news():
     Y = cp.array(twenty_train.target)
 
     return X, Y
-
-
-def pytest_addoption(parser):
-    parser.addoption("--run_stress",
-                     action="store_true",
-                     default=False,
-                     help="run stress tests")
-
-    parser.addoption("--run_quality",
-                     action="store_true",
-                     default=False,
-                     help="run quality tests")
-
-    parser.addoption("--run_unit",
-                     action="store_true",
-                     default=False,
-                     help="run unit tests")
-
-
-def pytest_collection_modifyitems(config, items):
-    if config.getoption("--run_quality"):
-        # --run_quality given in cli: do not skip quality tests
-        skip_stress = pytest.mark.skip(
-            reason="Stress tests run with --run_stress flag.")
-        for item in items:
-            if "stress" in item.keywords:
-                item.add_marker(skip_stress)
-        skip_unit = pytest.mark.skip(
-            reason="Stress tests run with --run_unit flag.")
-        for item in items:
-            if "unit" in item.keywords:
-                item.add_marker(skip_unit)
-
-        return
-
-    else:
-        skip_quality = pytest.mark.skip(
-            reason="Quality tests run with --run_quality flag.")
-        for item in items:
-            if "quality" in item.keywords:
-                item.add_marker(skip_quality)
-
-    if config.getoption("--run_stress"):
-        # --run_stress given in cli: do not skip stress tests
-
-        skip_unit = pytest.mark.skip(
-            reason="Stress tests run with --run_unit flag.")
-        for item in items:
-            if "unit" in item.keywords:
-                item.add_marker(skip_unit)
-
-        skip_quality = pytest.mark.skip(
-            reason="Quality tests run with --run_quality flag.")
-        for item in items:
-            if "quality" in item.keywords:
-                item.add_marker(skip_quality)
-
-        return
-
-    else:
-        skip_stress = pytest.mark.skip(
-            reason="Stress tests run with --run_stress flag.")
-        for item in items:
-            if "stress" in item.keywords:
-                item.add_marker(skip_stress)
