@@ -21,6 +21,7 @@
 - PR #3012: Increasing learning rate for SGD log loss and invscaling pytests
 - PR #3021: Fix a hang in cuML RF experimental backend
 - PR #3039: Update RF and decision tree parameter initializations in benchmark codes
+- PR #3073: Update mathjax CDN URL for documentation
 - PR #3062: Bumping xgboost version to match cuml version
 
 # cuML 0.16.0 (Date TBD)
