@@ -3,6 +3,7 @@
 ## New Features
 
 ## Improvements
+- PR #3070: Speed up dask/test_datasets tests
 - PR #3078: Speed up test_incremental_pca tests
 - PR #2902: `matrix/matrix.cuh` in RAFT namespacing
 - PR #2903: Moving linalg's gemm, gemv, transpose to RAFT namespaces
