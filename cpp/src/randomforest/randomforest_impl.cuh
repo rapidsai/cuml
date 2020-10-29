@@ -21,9 +21,9 @@
 #include <decisiontree/memory.h>
 #include <decisiontree/quantile/quantile.h>
 #include <cuml/common/logger.hpp>
+#include <metrics/scores.cuh>
 #include <random/permute.cuh>
 #include <random/rng.cuh>
-#include <score/scores.cuh>
 #include "randomforest_impl.h"
 
 namespace ML {
