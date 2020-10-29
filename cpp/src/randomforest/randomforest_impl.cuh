@@ -22,8 +22,8 @@
 #include <raft/cudart_utils.h>
 #include <cuml/common/logger.hpp>
 #include <metrics/scores.cuh>
-#include <random/permute.cuh>
 #include <raft/random/rng.cuh>
+#include <random/permute.cuh>
 #include "randomforest_impl.h"
 
 namespace ML {
