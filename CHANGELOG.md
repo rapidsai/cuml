@@ -25,6 +25,7 @@
 - PR #3039: Update RF and decision tree parameter initializations in benchmark codes
 - PR #3073: Update mathjax CDN URL for documentation
 - PR #3062: Bumping xgboost version to match cuml version
+- PR #3086: Reverting FIL Notebook Testing
 
 # cuML 0.16.0 (Date TBD)
 
