@@ -219,7 +219,7 @@ def test_ridge_regression_model(datatype, algorithm, nrows, column_info):
         (2, np.float64, "elasticnet", 1.0, True, 1.0, 1e-8),
         (10, np.float32, "l1", 1.0, True, 1.0, 1e-3),
         (10, np.float32, "l1", 1.0, False, 1.0, 1e-8),
-        (10, np.float32, "l1", 1.0, False, 0.5, 1e-3),
+        (10, np.float32, "elasticnet", 1.0, False, 0.5, 1e-3),
     ]
 )
 @pytest.mark.parametrize("nrows", [unit_param(1000)])
