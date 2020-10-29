@@ -25,7 +25,7 @@
 #include <cuml/common/cuml_allocator.hpp>
 #include <cuml/common/logger.hpp>
 #include <iostream>
-#include <score/scores.cuh>
+#include <metrics/scores.cuh>
 #include <vector>
 
 using namespace MLCommon;

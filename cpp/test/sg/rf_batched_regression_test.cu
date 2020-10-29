@@ -23,7 +23,7 @@
 #include <cuml/datasets/make_blobs.hpp>
 #include <cuml/datasets/make_regression.hpp>
 #include <cuml/ensemble/randomforest.hpp>
-#include <score/scores.cuh>
+#include <metrics/scores.cuh>
 
 namespace ML {
 
