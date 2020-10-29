@@ -19,10 +19,9 @@
 #include <metrics/klDivergence.cuh>
 #include <metrics/pairwiseDistance.cuh>
 #include <metrics/randIndex.cuh>
+#include <metrics/scores.cuh>
 #include <metrics/silhouetteScore.cuh>
 #include <metrics/vMeasure.cuh>
-#include <raft/cuda_utils.cuh>
-#include <score/scores.cuh>
 
 namespace ML {
 

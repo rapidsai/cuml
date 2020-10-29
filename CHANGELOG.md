@@ -3,6 +3,7 @@
 ## New Features
 
 ## Improvements
+- PR #3078: Speed up test_incremental_pca tests
 - PR #2902: `matrix/matrix.cuh` in RAFT namespacing
 - PR #2903: Moving linalg's gemm, gemv, transpose to RAFT namespaces
 - PR #2905: `stats` prims `mean_center`, `sum` to RAFT namespaces
@@ -15,6 +16,7 @@
 - PR #3067: Deleting prims moved to RAFT and updating header paths
 
 ## Bug Fixes
+- PR #3072: Fusing metrics and score directories in src_prims
 - PR #3037: Avoid logging deadlock in multi-threaded C code
 - PR #2983: Fix seeding of KISS99 RNG
 - PR #3011: Fix unused initialize_embeddings parameter in Barnes-Hut t-SNE
@@ -22,6 +24,8 @@
 - PR #3012: Increasing learning rate for SGD log loss and invscaling pytests
 - PR #3021: Fix a hang in cuML RF experimental backend
 - PR #3039: Update RF and decision tree parameter initializations in benchmark codes
+- PR #3073: Update mathjax CDN URL for documentation
+- PR #3062: Bumping xgboost version to match cuml version
 
 # cuML 0.16.0 (Date TBD)
 

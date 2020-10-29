@@ -21,9 +21,9 @@
 #include <decisiontree/quantile/quantile.h>
 #include <raft/cudart_utils.h>
 #include <cuml/common/logger.hpp>
-#include <raft/random/rng.cuh>
+#include <metrics/scores.cuh>
 #include <random/permute.cuh>
-#include <score/scores.cuh>
+#include <raft/random/rng.cuh>
 #include "randomforest_impl.h"
 
 namespace ML {

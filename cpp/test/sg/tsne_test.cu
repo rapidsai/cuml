@@ -24,8 +24,7 @@
 #include <cuml/common/cuml_allocator.hpp>
 #include <cuml/common/logger.hpp>
 #include <iostream>
-#include <raft/cuda_utils.cuh>
-#include <score/scores.cuh>
+#include <metrics/scores.cuh>
 #include <vector>
 
 using namespace MLCommon;

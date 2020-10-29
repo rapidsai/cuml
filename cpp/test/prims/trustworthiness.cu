@@ -18,8 +18,7 @@
 #include <raft/cudart_utils.h>
 #include <distance/distance.cuh>
 #include <iostream>
-#include <raft/cuda_utils.cuh>
-#include <score/scores.cuh>
+#include <metrics/scores.cuh>
 #include <vector>
 #include "test_utils.h"
 

@@ -14,10 +14,9 @@
  * limitations under the License.
  */
 
-#include <common/cumlHandle.hpp>
+#include <raft/handle.hpp>
 #include <distance/distance.cuh>
-#include <raft/cuda_utils.cuh>
-#include <score/scores.cuh>
+#include <metrics/scores.cuh>
 
 namespace ML {
 namespace Metrics {
