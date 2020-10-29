@@ -449,7 +449,7 @@ __global__ __launch_bounds__(THREADS3, FACTOR3) void SummarizationKernel(
     }
 
   SKIP_LOOP:
-    __syncthreads();
+    __threadfence();
     if (flag != 0) {
       massd[k] = cm;
       k += inc;
