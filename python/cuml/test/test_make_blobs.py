@@ -17,8 +17,6 @@ import cuml
 import pytest
 import cupy as cp
 
-from sklearn.metrics import adjusted_rand_score
-
 
 # Testing parameters for scalar parameter tests
 
