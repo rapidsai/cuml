@@ -258,6 +258,8 @@ def test_kmeans_sklearn_comparison_default(name, nrows, random_state):
         (1000, 1.0, 1 << 15, 'preset'),
         (500, 1.5, 1 << 5, 'k-means||'),
         (1000, 1.0, 1 << 10, 'random'),
+        # Redundant case to better exercise 'k-means||'
+        (1000, 1.0, 1 << 15, 'k-means||')
     ]
 )
 @pytest.mark.parametrize('n_clusters', [unit_param(10),
