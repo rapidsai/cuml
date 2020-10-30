@@ -245,8 +245,8 @@ inline T nrm2(const SimpleVec<T> &u, T *tmp_dev, cudaStream_t stream) {
 
 template <typename T>
 inline T nrm1(const SimpleVec<T> &u, T *tmp_dev, cudaStream_t stream) {
-  MLCommon::LinAlg::rowNorm(tmp_dev, u.data, u.len, 1, MLCommon::LinAlg::L1Norm,
-                            true, stream, raft::Nop<T>());
+  raft::linalg::rowNorm(tmp_dev, u.data, u.len, 1, raft::linalg::L1Norm, true,
+                        stream, raft::Nop<T>());
   T tmp_host;
   raft::update_host(&tmp_host, tmp_dev, 1, stream);
   cudaStreamSynchronize(stream);

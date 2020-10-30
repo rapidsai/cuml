@@ -283,44 +283,7 @@ void DecisionTreeBase<T, L>::plant(
 
   total_temp_mem = tempmem->totalmem;
   MLCommon::TimerCPU timer;
-  bool use_experimental_backend = false;
-
-  if (tree_params.use_experimental_backend == true) {
-    use_experimental_backend = true;
-
-    if (tree_params.split_algo != SPLIT_ALGO::GLOBAL_QUANTILE) {
-      CUML_LOG_WARN(
-        "Experimental backend does not yet support histogram split algorithm");
-      CUML_LOG_WARN(
-        "To use experimental backend set split_algo = 1 (GLOBAL_QUANTILE)");
-      use_experimental_backend = false;
-    }
-
-    if (tree_params.max_features != 1.0) {
-      CUML_LOG_WARN(
-        "Experimental backend does not yet support feature sub-sampling");
-      CUML_LOG_WARN("To use experimental backend set max_features = 1.0");
-      use_experimental_backend = false;
-    }
-
-    if (tree_params.quantile_per_tree != false) {
-      CUML_LOG_WARN(
-        "Experimental backend does not yet support per tree quantile "
-        "computation");
-      CUML_LOG_WARN(
-        "To use experimental backend set quantile_per_tree = false");
-      use_experimental_backend = false;
-    }
-  }
-
-  if (tree_params.use_experimental_backend &&
-      use_experimental_backend == false) {
-    CUML_LOG_WARN(
-      "Not using the experimental backend due to above mentioned reason(s)");
-    CUML_LOG_WARN("Switching back to default backend");
-  }
-
-  if (use_experimental_backend) {
+  if (tree_params.use_experimental_backend) {
     if (treeid == 0) {
       CUML_LOG_WARN("Using experimental backend for growing trees\n");
     }

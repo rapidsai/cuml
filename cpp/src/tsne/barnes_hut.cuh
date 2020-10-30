@@ -46,6 +46,7 @@ namespace TSNE {
  * @param[in] pre_momentum: The momentum used during the exaggeration phase.
  * @param[in] post_momentum: The momentum used after the exaggeration phase.
  * @param[in] random_state: Set this to -1 for pure random intializations or >= 0 for reproducible outputs.
+ * @param[in] initialize_embeddings: Whether to overwrite the current Y vector with random noise.
  */
 void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
                 const raft::handle_t &handle, float *Y, const int n,
@@ -56,7 +57,8 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
                 const float post_learning_rate = 500.0f,
                 const int max_iter = 1000, const float min_grad_norm = 1e-7,
                 const float pre_momentum = 0.5, const float post_momentum = 0.8,
-                const long long random_state = -1) {
+                const long long random_state = -1,
+                const bool initialize_embeddings = true) {
   auto d_alloc = handle.get_device_allocator();
   cudaStream_t stream = handle.get_stream();
 
@@ -131,9 +133,13 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
     cudaMemsetAsync(old_forces.data(), 0, sizeof(float) * n * 2, stream));
 
   MLCommon::device_buffer<float> YY(d_alloc, stream, (nnodes + 1) * 2);
-  // TODO bug #2549: this should be conditional on bool initialize_embeddings.
-  random_vector(YY.data(), -0.0001f, 0.0001f, (nnodes + 1) * 2, stream,
-                random_state);
+  if (initialize_embeddings) {
+    random_vector(YY.data(), -0.0001f, 0.0001f, (nnodes + 1) * 2, stream,
+                  random_state);
+  } else {
+    raft::copy(YY.data(), Y, n, stream);
+    raft::copy(YY.data() + nnodes + 1, Y + n, n, stream);
+  }
 
   // Set cache levels for faster algorithm execution
   //---------------------------------------------------
