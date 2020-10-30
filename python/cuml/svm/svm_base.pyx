@@ -174,7 +174,7 @@ class SVMBase(Base):
         Device array of support vectors
     dual_coef_ : float, shape = [1, n_support]
         Device array of coefficients for support vectors
-    intercept_ : int
+    intercept_ : float
         The constant in the decision function
     fit_status_ : int
         0 if SVM is correctly fitted

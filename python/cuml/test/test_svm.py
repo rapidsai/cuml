@@ -131,10 +131,12 @@ def compare_svm(svm1, svm2, X, y, b_tol=None, coef_tol=None,
     # Compare model parameter b (intercept). In practice some models can have
     # same differences in the model parameters while still being within
     # the accuracy tolerance.
-    if abs(svm2.intercept_) > 1e-6:
-        assert abs((svm1.intercept_-svm2.intercept_)/svm2.intercept_) <= b_tol
-    else:
-        assert abs((svm1.intercept_-svm2.intercept_)) <= b_tol
+    if not hasattr(svm2.intercept_, '__len__'):  # skip this for multiclass
+        if abs(svm2.intercept_) > 1e-6:
+            assert abs((svm1.intercept_-svm2.intercept_)/svm2.intercept_) \
+                <= b_tol
+        else:
+            assert abs((svm1.intercept_-svm2.intercept_)) <= b_tol
 
     # For linear kernels we can compare the normal vector of the separating
     # hyperplane w, which is stored in the coef_ attribute.
@@ -159,7 +161,7 @@ def compare_svm(svm1, svm2, X, y, b_tol=None, coef_tol=None,
                   accuracy2)
 
 
-def make_dataset(dataset, n_rows, n_cols, n_classes=2):
+def make_dataset(dataset, n_rows, n_cols, n_classes=2, n_informative=2):
     np.random.seed(137)
     if n_rows*0.25 < 4000:
         # Use at least 4000 test samples
@@ -173,11 +175,11 @@ def make_dataset(dataset, n_rows, n_cols, n_classes=2):
         n_test = n_rows * 0.25
     if dataset == 'classification1':
         X, y = make_classification(
-            n_rows, n_cols, n_informative=2, n_redundant=0,
+            n_rows, n_cols, n_informative=n_informative, n_redundant=0,
             n_classes=n_classes, n_clusters_per_class=1)
     elif dataset == 'classification2':
         X, y = make_classification(
-            n_rows, n_cols, n_informative=2, n_redundant=0,
+            n_rows, n_cols, n_informative=n_informative, n_redundant=0,
             n_classes=n_classes, n_clusters_per_class=2)
     elif dataset == 'gaussian':
         X, y = make_gaussian_quantiles(n_samples=n_rows, n_features=n_cols,
@@ -249,6 +251,26 @@ def test_svm_skl_cmp_datasets(params, dataset, n_rows, n_cols):
         # linear kernel will not fit the gaussian dataset, but takes very long
         return
     X_train, X_test, y_train, y_test = make_dataset(dataset, n_rows, n_cols)
+
+    # Default to numpy for testing
+    with cuml.using_output_type("numpy"):
+
+        cuSVC = cu_svm.SVC(**params)
+        cuSVC.fit(X_train, y_train)
+
+        sklSVC = svm.SVC(**params)
+        sklSVC.fit(X_train, y_train)
+
+        compare_svm(cuSVC, sklSVC, X_test, y_test, coef_tol=1e-5,
+                    report_summary=True)
+
+
+@pytest.mark.parametrize('params', [{'kernel': 'rbf', 'C': 1, 'gamma': 1}])
+def test_svm_skl_cmp_multiclass(params, dataset='classification2', n_rows=100,
+                                n_cols=6):
+    X_train, X_test, y_train, y_test = make_dataset(dataset, n_rows, n_cols,
+                                                    n_classes=3,
+                                                    n_informative=6)
 
     # Default to numpy for testing
     with cuml.using_output_type("numpy"):

@@ -61,3 +61,9 @@ class OneVsRestClassifier(sklearn.multiclass.OneVsRestClassifier):
         X, _, _, _, _ = input_to_host_array(X)
         preds = super(OneVsRestClassifier, self).predict(X)
         return _to_output(preds, out_type)
+
+    def decision_function(self, X):
+        out_type = self.estimator._get_output_type(X)
+        X, _, _, _, _ = input_to_host_array(X)
+        df = super(OneVsRestClassifier, self).decision_function(X)
+        return _to_output(df, out_type)

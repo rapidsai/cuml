@@ -43,6 +43,7 @@ from cuml.svm.svm_base import SVMBase
 from cuml.common.import_utils import has_sklearn
 
 if has_sklearn():
+    from cuml.multiclass import OneVsRestClassifier, OneVsOneClassifier
     from sklearn.calibration import CalibratedClassifierCV
 
 cdef extern from "cuml/matrix/kernelparams.h" namespace "MLCommon::Matrix":
@@ -112,11 +113,6 @@ class SVC(SVMBase, ClassifierMixin):
 
     Construct an SVC classifier for training and predictions.
 
-    .. note::
-        This implementation has the following known limitations:
-
-        - Currently only binary classification is supported.
-
     Examples
     --------
     .. code-block:: python
@@ -177,6 +173,10 @@ class SVC(SVMBase, ClassifierMixin):
         n_samples / (n_classes * n_samples_of_class[i])
     max_iter : int (default = 100*n_samples)
         Limit the number of outer iterations in the solver
+    multiclass_strategy : str ('ovo' or 'ovr', default 'ovo')
+        Multiclass classification strategy. 'ovo' uses
+        `OneVsOneClassifier <https://scikit-learn.org/stable/modules/generated/sklearn.multiclass.OneVsOneClassifier.html>`_ # noqa: E501
+        while 'ovr' selects `OneVsRestClassifier <https://scikit-learn.org/stable/modules/generated/sklearn.multiclass.OneVsRestClassifier.html>`_ # noqa: E501
     nochange_steps : int (default = 1000)
         We monitor how much our stopping criteria changes during outer
         iterations. If it does not change (changes less then 1e-3*tol)
@@ -208,7 +208,7 @@ class SVC(SVMBase, ClassifierMixin):
         Device array of support vectors
     dual_coef_ : float, shape = (1, n_support)
         Device array of coefficients for support vectors
-    intercept_ : int
+    intercept_ : float
         The constant in the decision function
     fit_status_ : int
         0 if SVM is correctly fitted
@@ -245,7 +245,7 @@ class SVC(SVMBase, ClassifierMixin):
                  gamma='scale', coef0=0.0, tol=1e-3, cache_size=200.0,
                  max_iter=-1, nochange_steps=1000, verbose=False,
                  output_type=None, probability=False, random_state=None,
-                 class_weight=None):
+                 class_weight=None, multiclass_strategy='ovo'):
         super(SVC, self).__init__(handle, C, kernel, degree, gamma, coef0, tol,
                                   cache_size, max_iter, nochange_steps,
                                   verbose, output_type=output_type)
@@ -255,14 +255,30 @@ class SVC(SVMBase, ClassifierMixin):
             warn("Random state is currently ignored by probabilistic SVC")
         self.class_weight = class_weight
         self.svmType = C_SVC
+        self.multiclass_strategy = multiclass_strategy
 
     @property
     @cuml.internals.api_base_return_array_skipall
     def classes_(self):
         if self.probability:
             return self.prob_svc.classes_
+        elif self.n_classes_ > 2:
+            # TODO:
+            # n_classes_ is not defined before fit this way we throw an
+            # attribute error that is different than sklears attribute error
+            return self.classes_
         else:
             return self._unique_labels_
+
+    # TODO: make sure we can retrieve this as intercept_ instead of intercept_b
+    @property
+    def intercept_b(self):
+        if self.n_classes_ > 2:
+            print('Here we are')
+            return [cls.intercept_ for cls in
+                    self.multiclass_svc.estimators_]
+        else:
+            return super(SVC, self).intercept_
 
     @cuml.internals.api_base_return_array_skipall
     def _apply_class_weight(self, sample_weight, y_m) -> CumlArray:
@@ -320,6 +336,31 @@ class SVC(SVMBase, ClassifierMixin):
 
         return sample_weight
 
+    def _find_classes(self, y):
+        """
+        Determine the unique classes in y.
+        """
+        y_m, _, _, _ = input_to_cuml_array(y, check_cols=1)
+        y_cp = y_m.to_output(output_type='cupy')
+        classes = cp.unique(y_cp)
+        self.n_classes_ = len(classes)
+        self._classes = input_to_cuml_array(classes)
+
+    def _fit_multiclass(self, X, y, sample_weight):
+        if sample_weight is not None:
+            warn("Sample weights are currently ignored for multi class "
+                 "classification")
+        if not has_sklearn():
+            raise RuntimeError("Scikit-learn is needed to fit multiclass SVM")
+        params = self.get_params()
+        if params.pop('multiclass_strategy', 'ovo') == 'ovo':
+            self.multiclass_svc = OneVsOneClassifier(SVC(**params))
+        else:
+            self.multiclass_svc = OneVsRestClassifier(SVC(**params))
+        self.multiclass_svc.fit(X, y)
+        self._fit_status_ = 0
+        return self
+
     @generate_docstring(y='dense_anydtype')
     @cuml.internals.api_base_return_any(set_output_dtype=True)
     def fit(self, X, y, sample_weight=None, convert_dtype=True) -> "SVC":
@@ -352,6 +393,11 @@ class SVC(SVMBase, ClassifierMixin):
                 self.prob_svc.fit(X, y)
             self._fit_status_ = 0
             return self
+
+        # count number of classes
+        self._find_classes(y)
+        if self.n_classes_ > 2:
+            return self._fit_multiclass(X, y, sample_weight)
 
         X_m, self.n_rows, self.n_cols, self.dtype = \
             input_to_cuml_array(X, order='F')
@@ -426,6 +472,13 @@ class SVC(SVMBase, ClassifierMixin):
                 preds = self.prob_svc.predict(X)
                 # prob_svc has numpy output type, change it if it is necessary:
                 return preds
+        # elif self.n_classes_ > 2:
+        #     self._check_is_fitted('multiclass_svc')
+        #     out_type = self._get_output_type(X)
+        #     X, _, _, _, _ = input_to_host_array(X)
+        #     preds = self.multiclass_svc.predict(X)
+        #     # prob_svc has numpy output type, change it if it is necessary:
+        #     return _to_output(preds, out_type)
         else:
             return super(SVC, self).predict(X, True, convert_dtype)
 
@@ -506,13 +559,18 @@ class SVC(SVMBase, ClassifierMixin):
                 for clf in self.prob_svc.calibrated_classifiers_:
                     df = df + clf.base_estimator.decision_function(X)
             df = df / len(self.prob_svc.calibrated_classifiers_)
-            return df
+            return df # instead of to_output_df
+        # elif self.n_classes_ > 2:
+        #     out_type = self._get_output_type(X)
+        #     df = self.multiclass_svc.decision_function(X)
+        #     return _to_output(df, out_type)
         else:
             return super().predict(X, False)
 
     def get_param_names(self):
         params = super().get_param_names() + \
-            ["probability", "random_state", "class_weight"]
+            ["probability", "random_state", "class_weight",
+             "multiclass_strategy"]
 
         # Ignore "epsilon" since its not used in the constructor
         if ("epsilon" in params):
