@@ -822,7 +822,7 @@ void weak_cc_label_batched(Index_ *labels, const Index_ *row_ind,
     CUDA_CHECK(cudaStreamSynchronize(stream));
 
     //** swapping F1 and F2
-    bool* temp_fa = state->fa;
+    bool *temp_fa = state->fa;
     state->fa = state->xa;
     state->xa = temp_fa;
 

@@ -16,6 +16,7 @@
 - PR #3004: Remove Single Process Multi GPU (SPMG) code
 - PR #3044: Move leftover `linalg` and `stats` to RAFT namespaces
 - PR #3074: Reducing dask coordinate descent test runtime
+- PR #3096: Avoid memory transfers in CSR WeakCC for DBSCAN
 
 ## Bug Fixes
 - PR #3072: Fusing metrics and score directories in src_prims
