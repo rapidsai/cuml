@@ -21,8 +21,8 @@
 #include <type_traits>
 #include "unary_op.cuh"
 
-namespace MLCommon {
-namespace LinAlg {
+namespace raft {
+namespace linalg {
 
 // Kernel to perform reductions along the strided dimension
 // of the matrix, i.e. reduce along columns for row major or reduce along rows
@@ -163,5 +163,5 @@ void stridedReduction(OutType *dots, const InType *data, IdxType D, IdxType N,
     raft::linalg::unaryOp(dots, dots, D, final_op, stream);
 }
 
-};  // end namespace LinAlg
-};  // end namespace MLCommon
+};  // end namespace linalg
+};  // end namespace raft
