@@ -16,7 +16,7 @@
  */
 
 #include <cuml/metrics/metrics.hpp>
-#include <score/scores.cuh>
+#include <metrics/scores.cuh>
 
 namespace ML {
 
