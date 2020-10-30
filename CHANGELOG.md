@@ -3,6 +3,7 @@
 ## New Features
 - PR #3164: Expose silhouette score in Python
 - PR #2659: Add initial max inner product sparse knn
+- PR #3092: Multiclass SVC
 - PR #2836: Refactor UMAP to accept sparse inputs
 
 ## Improvements
