@@ -26,13 +26,16 @@ from cuml.experimental.decomposition import IncrementalPCA as cuIPCA
 from cuml.test.utils import array_equal
 
 
-@pytest.mark.parametrize('nrows', [500, 5000])
-@pytest.mark.parametrize('ncols', [15, 25])
-@pytest.mark.parametrize('n_components', [2, 12])
-@pytest.mark.parametrize('sparse_input', [True, False])
-@pytest.mark.parametrize('density', [0.07, 0.4])
-@pytest.mark.parametrize('sparse_format', ['csr', 'csc'])
-@pytest.mark.parametrize('batch_size_divider', [5, 10])
+@pytest.mark.parametrize(
+    'nrows, ncols, n_components, sparse_input, density, sparse_format,'
+    ' batch_size_divider', [
+        (500, 15, 2, True, 0.4, 'csr', 5),
+        (5000, 25, 12, False, 0.07, 'csc', 10),
+        (5000, 15, None, True, 0.4, 'csc', 5),
+        (500, 25, 2, False, 0.07, 'csr', 10),
+        (5000, 25, 12, False, 0.07, 'csr', 10)
+    ]
+)
 @pytest.mark.no_bad_cuml_array_check
 def test_fit(nrows, ncols, n_components, sparse_input, density,
              sparse_format, batch_size_divider):
@@ -67,11 +70,14 @@ def test_fit(nrows, ncols, n_components, sparse_input, density,
                        5e-5, with_sign=True)
 
 
-@pytest.mark.parametrize('nrows', [500, 5000])
-@pytest.mark.parametrize('ncols', [15, 25])
-@pytest.mark.parametrize('n_components', [2, 12])
-@pytest.mark.parametrize('density', [0.07, 0.4])
-@pytest.mark.parametrize('batch_size_divider', [5, 10])
+@pytest.mark.parametrize(
+    'nrows, ncols, n_components, density, batch_size_divider', [
+        (500, 15, 2, 0.07, 5),
+        (5000, 25, 12, 0.07, 10),
+        (5000, 15, 2, 0.4, 5),
+        (500, 25, 12, 0.4, 10),
+    ]
+)
 @pytest.mark.no_bad_cuml_array_check
 def test_partial_fit(nrows, ncols, n_components, density,
                      batch_size_divider):
