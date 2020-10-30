@@ -198,25 +198,27 @@ static void _kpss_test(const DataT* d_y, bool* results, IdxT batch_size,
                        cudaStream_t stream, DataT pval_threshold) {
   constexpr int TPB = 256;
   dim3 block = choose_block_dims<TPB>(batch_size);
-  dim3 grid(ceildiv<IdxT>(n_obs, block.x), ceildiv<IdxT>(batch_size, block.y));
+  dim3 grid(raft::ceildiv<IdxT>(n_obs, block.x),
+            raft::ceildiv<IdxT>(batch_size, block.y));
 
   DataT n_obs_f = static_cast<DataT>(n_obs);
 
   // Compute mean
   device_buffer<DataT> y_means(allocator, stream, batch_size);
-  Stats::mean(y_means.data(), d_y, batch_size, n_obs, false, false, stream);
+  raft::stats::mean(y_means.data(), d_y, batch_size, n_obs, false, false,
+                    stream);
 
   // Center the data around its mean
   device_buffer<DataT> y_cent(allocator, stream, batch_size * n_obs);
-  LinAlg::matrixVectorOp(
+  raft::linalg::matrixVectorOp(
     y_cent.data(), d_y, y_means.data(), batch_size, n_obs, false, true,
     [] __device__(DataT a, DataT b) { return a - b; }, stream);
 
   // This calculates the first sum in eq. 10 (first part of s^2)
   device_buffer<DataT> s2A(allocator, stream, batch_size);
-  LinAlg::reduce(s2A.data(), y_cent.data(), batch_size, n_obs,
-                 static_cast<DataT>(0.0), false, false, stream, false,
-                 L2Op<DataT>(), Sum<DataT>());
+  raft::linalg::reduce(s2A.data(), y_cent.data(), batch_size, n_obs,
+                       static_cast<DataT>(0.0), false, false, stream, false,
+                       raft::L2Op<DataT>(), raft::Sum<DataT>());
 
   // From Kwiatkowski et al. referencing Schwert (1989)
   DataT lags_f = ceil(12.0 * pow(n_obs_f / 100.0, 0.25));
@@ -233,8 +235,8 @@ static void _kpss_test(const DataT* d_y, bool* results, IdxT batch_size,
     -coeff_base / (lags_f + static_cast<DataT>(1.0)), coeff_base);
   CUDA_CHECK(cudaPeekAtLastError());
   device_buffer<DataT> s2B(allocator, stream, batch_size);
-  LinAlg::reduce(s2B.data(), accumulator.data(), batch_size, n_obs,
-                 static_cast<DataT>(0.0), false, false, stream, false);
+  raft::linalg::reduce(s2B.data(), accumulator.data(), batch_size, n_obs,
+                       static_cast<DataT>(0.0), false, false, stream, false);
 
   // Cumulative sum (inclusive scan with + operator)
   thrust::counting_iterator<IdxT> c_first(0);
@@ -246,13 +248,13 @@ static void _kpss_test(const DataT* d_y, bool* results, IdxT batch_size,
 
   // Eq. 11 (eta)
   device_buffer<DataT> eta(allocator, stream, batch_size);
-  LinAlg::reduce(eta.data(), accumulator.data(), batch_size, n_obs,
-                 static_cast<DataT>(0.0), false, false, stream, false,
-                 L2Op<DataT>(), Sum<DataT>());
+  raft::linalg::reduce(eta.data(), accumulator.data(), batch_size, n_obs,
+                       static_cast<DataT>(0.0), false, false, stream, false,
+                       raft::L2Op<DataT>(), raft::Sum<DataT>());
 
   /* The following kernel will decide whether each series is stationary based on
    * s^2 and eta */
-  kpss_stationarity_check_kernel<<<ceildiv<int>(batch_size, TPB), TPB, 0,
+  kpss_stationarity_check_kernel<<<raft::ceildiv<int>(batch_size, TPB), TPB, 0,
                                    stream>>>(results, s2A.data(), s2B.data(),
                                              eta.data(), batch_size, n_obs_f,
                                              pval_threshold);

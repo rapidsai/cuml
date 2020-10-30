@@ -20,8 +20,8 @@
 #include "coalesced_reduction.cuh"
 #include "strided_reduction.cuh"
 
-namespace MLCommon {
-namespace LinAlg {
+namespace raft {
+namespace linalg {
 
 /**
  * @brief Compute reduction of the input matrix along the requested dimension
@@ -53,14 +53,15 @@ namespace LinAlg {
  * @param final_op elementwise operation to apply before storing results
  */
 template <typename InType, typename OutType = InType, typename IdxType = int,
-          typename MainLambda = Nop<InType, IdxType>,
-          typename ReduceLambda = Sum<OutType>,
-          typename FinalLambda = Nop<OutType>>
+          typename MainLambda = raft::Nop<InType, IdxType>,
+          typename ReduceLambda = raft::Sum<OutType>,
+          typename FinalLambda = raft::Nop<OutType>>
 void reduce(OutType *dots, const InType *data, int D, int N, OutType init,
             bool rowMajor, bool alongRows, cudaStream_t stream,
-            bool inplace = false, MainLambda main_op = Nop<InType, IdxType>(),
-            ReduceLambda reduce_op = Sum<OutType>(),
-            FinalLambda final_op = Nop<OutType>()) {
+            bool inplace = false,
+            MainLambda main_op = raft::Nop<InType, IdxType>(),
+            ReduceLambda reduce_op = raft::Sum<OutType>(),
+            FinalLambda final_op = raft::Nop<OutType>()) {
   if (rowMajor && alongRows) {
     coalescedReduction(dots, data, D, N, init, stream, inplace, main_op,
                        reduce_op, final_op);
@@ -76,5 +77,5 @@ void reduce(OutType *dots, const InType *data, int D, int N, OutType init,
   }
 }
 
-};  // end namespace LinAlg
-};  // end namespace MLCommon
+};  // end namespace linalg
+};  // end namespace raft

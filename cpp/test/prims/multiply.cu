@@ -21,22 +21,22 @@
 #include "test_utils.h"
 #include "unary_op.cuh"
 
-namespace MLCommon {
-namespace LinAlg {
+namespace raft {
+namespace linalg {
 
 template <typename T>
 class MultiplyTest : public ::testing::TestWithParam<UnaryOpInputs<T>> {
  protected:
   void SetUp() override {
     params = ::testing::TestWithParam<UnaryOpInputs<T>>::GetParam();
-    Random::Rng r(params.seed);
+    raft::random::Rng r(params.seed);
     int len = params.len;
     cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
 
-    allocate(in, len);
-    allocate(out_ref, len);
-    allocate(out, len);
+    raft::allocate(in, len);
+    raft::allocate(out_ref, len);
+    raft::allocate(out, len);
     r.uniform(in, len, T(-1.0), T(1.0), stream);
     naiveScale(out_ref, in, params.scalar, len, stream);
     multiplyScalar(out, in, params.scalar, len, stream);
@@ -59,7 +59,7 @@ const std::vector<UnaryOpInputs<float>> inputsf = {
 typedef MultiplyTest<float> MultiplyTestF;
 TEST_P(MultiplyTestF, Result) {
   ASSERT_TRUE(devArrMatch(out_ref, out, params.len,
-                          CompareApprox<float>(params.tolerance)));
+                          raft::CompareApprox<float>(params.tolerance)));
 }
 INSTANTIATE_TEST_CASE_P(MultiplyTests, MultiplyTestF,
                         ::testing::ValuesIn(inputsf));
@@ -69,10 +69,10 @@ const std::vector<UnaryOpInputs<double>> inputsd = {
   {0.000001f, 1024 * 1024, 2.f, 1234ULL}};
 TEST_P(MultiplyTestD, Result) {
   ASSERT_TRUE(devArrMatch(out_ref, out, params.len,
-                          CompareApprox<double>(params.tolerance)));
+                          raft::CompareApprox<double>(params.tolerance)));
 }
 INSTANTIATE_TEST_CASE_P(MultiplyTests, MultiplyTestD,
                         ::testing::ValuesIn(inputsd));
 
-}  // end namespace LinAlg
-}  // end namespace MLCommon
+}  // end namespace linalg
+}  // end namespace raft

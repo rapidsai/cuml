@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <common/cudart_utils.h>
 #include <common/cumlHandle.hpp>
 #include <common/device_buffer.hpp>
 #include <cuda_utils.cuh>
@@ -64,12 +65,12 @@ void fit_impl(raft::handle_t &handle,
   ML::calEig(handle, cov.ptr, components_all.data(), explained_var_all.data(),
              prms, streams[0]);
 
-  Matrix::truncZeroOrigin(components_all.data(), prms.n_cols, components,
-                          prms.n_components, prms.n_cols, streams[0]);
+  raft::matrix::truncZeroOrigin(components_all.data(), prms.n_cols, components,
+                                prms.n_components, prms.n_cols, streams[0]);
 
   T scalar = T(1);
-  Matrix::seqRoot(explained_var_all.data(), singular_vals, scalar,
-                  prms.n_components, streams[0]);
+  raft::matrix::seqRoot(explained_var_all.data(), singular_vals, scalar,
+                        prms.n_components, streams[0]);
 }
 
 /**
@@ -135,10 +136,10 @@ void transform_impl(raft::handle_t &handle,
 
     T alpha = T(1);
     T beta = T(0);
-    LinAlg::gemm(input[i]->ptr, local_blocks[i]->size, size_t(prms.n_cols),
-                 components, trans_input[i]->ptr, local_blocks[i]->size,
-                 int(prms.n_components), CUBLAS_OP_N, CUBLAS_OP_T, alpha, beta,
-                 cublas_h, streams[si]);
+    raft::linalg::gemm(handle, input[i]->ptr, local_blocks[i]->size,
+                       size_t(prms.n_cols), components, trans_input[i]->ptr,
+                       local_blocks[i]->size, int(prms.n_components),
+                       CUBLAS_OP_N, CUBLAS_OP_T, alpha, beta, streams[si]);
   }
 
   for (int i = 0; i < n_streams; i++) {
@@ -208,10 +209,10 @@ void inverse_transform_impl(raft::handle_t &handle,
     T alpha = T(1);
     T beta = T(0);
 
-    LinAlg::gemm(trans_input[i]->ptr, local_blocks[i]->size,
-                 size_t(prms.n_components), components, input[i]->ptr,
-                 local_blocks[i]->size, prms.n_cols, CUBLAS_OP_N, CUBLAS_OP_N,
-                 alpha, beta, cublas_h, streams[si]);
+    raft::linalg::gemm(handle, trans_input[i]->ptr, local_blocks[i]->size,
+                       size_t(prms.n_components), components, input[i]->ptr,
+                       local_blocks[i]->size, prms.n_cols, CUBLAS_OP_N,
+                       CUBLAS_OP_N, alpha, beta, streams[si]);
   }
 
   for (int i = 0; i < n_streams; i++) {
@@ -336,16 +337,16 @@ void fit_transform_impl(raft::handle_t &handle,
                   n_streams, handle.get_cublas_handle());
 
   device_buffer<T> total_vars(handle.get_device_allocator(), streams[0], 1);
-  Stats::sum(total_vars.data(), var_input_data.ptr, 1, prms.n_cols, false,
-             streams[0]);
+  raft::stats::sum(total_vars.data(), var_input_data.ptr, 1, prms.n_cols, false,
+                   streams[0]);
 
   T total_vars_h;
-  updateHost(&total_vars_h, total_vars.data(), 1, streams[0]);
+  raft::update_host(&total_vars_h, total_vars.data(), 1, streams[0]);
   CUDA_CHECK(cudaStreamSynchronize(streams[0]));
   T scalar = T(1) / total_vars_h;
 
-  LinAlg::scalarMultiply(explained_var_ratio, explained_var, scalar,
-                         prms.n_components, streams[0]);
+  raft::linalg::scalarMultiply(explained_var_ratio, explained_var, scalar,
+                               prms.n_components, streams[0]);
 
   for (int i = 0; i < n_streams; i++) {
     CUDA_CHECK(cudaStreamSynchronize(streams[i]));

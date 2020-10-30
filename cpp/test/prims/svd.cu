@@ -22,8 +22,8 @@
 #include <random/rng.cuh>
 #include "test_utils.h"
 
-namespace MLCommon {
-namespace LinAlg {
+namespace raft {
+namespace linalg {
 
 template <typename T>
 struct SvdInputs {
@@ -43,28 +43,25 @@ template <typename T>
 class SvdTest : public ::testing::TestWithParam<SvdInputs<T>> {
  protected:
   void SetUp() override {
-    CUSOLVER_CHECK(cusolverDnCreate(&cusolverH));
-    CUBLAS_CHECK(cublasCreate(&cublasH));
-    allocator.reset(new raft::mr::device::default_allocator);
+    raft::handle_t handle;
 
     params = ::testing::TestWithParam<SvdInputs<T>>::GetParam();
-    Random::Rng r(params.seed);
+    raft::random::Rng r(params.seed);
     int len = params.len;
-    cudaStream_t stream;
-    CUDA_CHECK(cudaStreamCreate(&stream));
-    allocate(data, len);
+    cudaStream_t stream = handle.get_stream();
+    raft::allocate(data, len);
 
     ASSERT(params.n_row == 3, "This test only supports nrows=3!");
     ASSERT(params.len == 6, "This test only supports len=6!");
     T data_h[] = {1.0, 4.0, 2.0, 2.0, 5.0, 1.0};
-    updateDevice(data, data_h, len, stream);
+    raft::update_device(data, data_h, len, stream);
 
     int left_evl = params.n_row * params.n_col;
     int right_evl = params.n_col * params.n_col;
 
-    allocate(left_eig_vectors_qr, left_evl);
-    allocate(right_eig_vectors_trans_qr, right_evl);
-    allocate(sing_vals_qr, params.n_col);
+    raft::allocate(left_eig_vectors_qr, left_evl);
+    raft::allocate(right_eig_vectors_trans_qr, right_evl);
+    raft::allocate(sing_vals_qr, params.n_col);
 
     // allocate(left_eig_vectors_jacobi, left_evl);
     // allocate(right_eig_vectors_trans_jacobi, right_evl);
@@ -77,20 +74,19 @@ class SvdTest : public ::testing::TestWithParam<SvdInputs<T>> {
 
     T sing_vals_ref_h[] = {7.065283, 1.040081};
 
-    allocate(left_eig_vectors_ref, left_evl);
-    allocate(right_eig_vectors_ref, right_evl);
-    allocate(sing_vals_ref, params.n_col);
+    raft::allocate(left_eig_vectors_ref, left_evl);
+    raft::allocate(right_eig_vectors_ref, right_evl);
+    raft::allocate(sing_vals_ref, params.n_col);
 
-    updateDevice(left_eig_vectors_ref, left_eig_vectors_ref_h, left_evl,
-                 stream);
-    updateDevice(right_eig_vectors_ref, right_eig_vectors_ref_h, right_evl,
-                 stream);
-    updateDevice(sing_vals_ref, sing_vals_ref_h, params.n_col, stream);
+    raft::update_device(left_eig_vectors_ref, left_eig_vectors_ref_h, left_evl,
+                        stream);
+    raft::update_device(right_eig_vectors_ref, right_eig_vectors_ref_h,
+                        right_evl, stream);
+    raft::update_device(sing_vals_ref, sing_vals_ref_h, params.n_col, stream);
 
-    svdQR(data, params.n_row, params.n_col, sing_vals_qr, left_eig_vectors_qr,
-          right_eig_vectors_trans_qr, true, true, true, cusolverH, cublasH,
-          allocator, stream);
-    CUDA_CHECK(cudaStreamDestroy(stream));
+    svdQR(handle, data, params.n_row, params.n_col, sing_vals_qr,
+          left_eig_vectors_qr, right_eig_vectors_trans_qr, true, true, true,
+          stream);
   }
 
   void TearDown() override {
@@ -101,17 +97,12 @@ class SvdTest : public ::testing::TestWithParam<SvdInputs<T>> {
     CUDA_CHECK(cudaFree(left_eig_vectors_ref));
     CUDA_CHECK(cudaFree(right_eig_vectors_ref));
     CUDA_CHECK(cudaFree(sing_vals_ref));
-    CUSOLVER_CHECK(cusolverDnDestroy(cusolverH));
-    CUBLAS_CHECK(cublasDestroy(cublasH));
   }
 
  protected:
   SvdInputs<T> params;
   T *data, *left_eig_vectors_qr, *right_eig_vectors_trans_qr, *sing_vals_qr,
     *left_eig_vectors_ref, *right_eig_vectors_ref, *sing_vals_ref;
-  cusolverDnHandle_t cusolverH = NULL;
-  cublasHandle_t cublasH;
-  std::shared_ptr<deviceAllocator> allocator;
 };
 
 const std::vector<SvdInputs<float>> inputsf2 = {
@@ -122,42 +113,46 @@ const std::vector<SvdInputs<double>> inputsd2 = {
 
 typedef SvdTest<float> SvdTestValF;
 TEST_P(SvdTestValF, Result) {
-  ASSERT_TRUE(devArrMatch(sing_vals_ref, sing_vals_qr, params.n_col,
-                          CompareApproxAbs<float>(params.tolerance)));
+  ASSERT_TRUE(
+    raft::devArrMatch(sing_vals_ref, sing_vals_qr, params.n_col,
+                      raft::CompareApproxAbs<float>(params.tolerance)));
 }
 
 typedef SvdTest<double> SvdTestValD;
 TEST_P(SvdTestValD, Result) {
-  ASSERT_TRUE(devArrMatch(sing_vals_ref, sing_vals_qr, params.n_col,
-                          CompareApproxAbs<double>(params.tolerance)));
+  ASSERT_TRUE(
+    raft::devArrMatch(sing_vals_ref, sing_vals_qr, params.n_col,
+                      raft::CompareApproxAbs<double>(params.tolerance)));
 }
 
 typedef SvdTest<float> SvdTestLeftVecF;
 TEST_P(SvdTestLeftVecF, Result) {
-  ASSERT_TRUE(devArrMatch(left_eig_vectors_ref, left_eig_vectors_qr,
-                          params.n_row * params.n_col,
-                          CompareApproxAbs<float>(params.tolerance)));
+  ASSERT_TRUE(raft::devArrMatch(
+    left_eig_vectors_ref, left_eig_vectors_qr, params.n_row * params.n_col,
+    raft::CompareApproxAbs<float>(params.tolerance)));
 }
 
 typedef SvdTest<double> SvdTestLeftVecD;
 TEST_P(SvdTestLeftVecD, Result) {
-  ASSERT_TRUE(devArrMatch(left_eig_vectors_ref, left_eig_vectors_qr,
-                          params.n_row * params.n_col,
-                          CompareApproxAbs<double>(params.tolerance)));
+  ASSERT_TRUE(raft::devArrMatch(
+    left_eig_vectors_ref, left_eig_vectors_qr, params.n_row * params.n_col,
+    raft::CompareApproxAbs<double>(params.tolerance)));
 }
 
 typedef SvdTest<float> SvdTestRightVecF;
 TEST_P(SvdTestRightVecF, Result) {
-  ASSERT_TRUE(devArrMatch(right_eig_vectors_ref, right_eig_vectors_trans_qr,
-                          params.n_col * params.n_col,
-                          CompareApproxAbs<float>(params.tolerance)));
+  ASSERT_TRUE(
+    raft::devArrMatch(right_eig_vectors_ref, right_eig_vectors_trans_qr,
+                      params.n_col * params.n_col,
+                      raft::CompareApproxAbs<float>(params.tolerance)));
 }
 
 typedef SvdTest<double> SvdTestRightVecD;
 TEST_P(SvdTestRightVecD, Result) {
-  ASSERT_TRUE(devArrMatch(right_eig_vectors_ref, right_eig_vectors_trans_qr,
-                          params.n_col * params.n_col,
-                          CompareApproxAbs<double>(params.tolerance)));
+  ASSERT_TRUE(
+    raft::devArrMatch(right_eig_vectors_ref, right_eig_vectors_trans_qr,
+                      params.n_col * params.n_col,
+                      raft::CompareApproxAbs<double>(params.tolerance)));
 }
 
 INSTANTIATE_TEST_CASE_P(SvdTests, SvdTestValF, ::testing::ValuesIn(inputsf2));
@@ -176,5 +171,5 @@ INSTANTIATE_TEST_CASE_P(SvdTests, SvdTestLeftVecD,
 // INSTANTIATE_TEST_CASE_P(SvdTests, SvdTestRightVecD,
 //::testing::ValuesIn(inputsd2));
 
-}  // end namespace LinAlg
-}  // end namespace MLCommon
+}  // end namespace linalg
+}  // end namespace raft

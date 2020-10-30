@@ -153,8 +153,6 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
     -----------
     n_estimators : int (default = 100)
         Number of trees in the forest. (Default changed to 100 in cuML 0.11)
-    handle : cuml.Handle
-        If it is None, a new one is created just for this class.
     split_algo : int (default = 1)
         The algorithm to determine how nodes are split in the tree.
         0 for HIST and 1 for GLOBAL_QUANTILE. HIST curently uses a slower
@@ -210,6 +208,15 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
     quantile_per_tree : boolean (default = False)
         Whether quantile is computed for individal trees in RF.
         Only relevant for GLOBAL_QUANTILE split_algo.
+    use_experimental_backend : boolean (default = False)
+        If set to true and  following conditions are also met, experimental
+         decision tree training implementation would be used:
+            split_algo = 1 (GLOBAL_QUANTILE)
+            max_features = 1.0 (Feature sub-sampling disabled)
+            quantile_per_tree = false (No per tree quantile computation)
+    max_batch_size: int (default = 128)
+        Maximum number of nodes that can be processed in a given batch. This is
+        used only when 'use_experimental_backend' is true.
     random_state : int (default = None)
         Seed for the random number generator. Unseeded by default. Does not
         currently fully guarantee the exact same results.
@@ -217,16 +224,37 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
         Deprecated in favor of `random_state`.
         Seed for the random number generator. Unseeded by default. Does not
         currently fully guarantee the exact same results.
+    handle : cuml.Handle
+        Specifies the cuml.handle that holds internal CUDA state for
+        computations in this model. Most importantly, this specifies the CUDA
+        stream that will be used for the model's computations, so users can
+        run different models concurrently in different streams by creating
+        handles in several streams.
+        If it is None, a new one is created.
+    verbose : int or boolean, default=False
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        See :ref:`verbosity-levels` for more info.
+    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
+        Variable to control output type of the results and attributes of
+        the estimator. If None, it'll inherit the output type set at the
+        module level, `cuml.global_output_type`.
+        See :ref:`output-data-type-configuration` for more info.
 
     """
 
     def __init__(self, split_criterion=2,
                  accuracy_metric='r2',
+                 handle=None,
+                 verbose=False,
+                 output_type=None,
                  **kwargs):
         self.RF_type = REGRESSION
         super(RandomForestRegressor, self).__init__(
             split_criterion=split_criterion,
             accuracy_metric=accuracy_metric,
+            handle=handle,
+            verbose=verbose,
+            output_type=output_type,
             **kwargs)
     """
     TODO:
@@ -412,7 +440,9 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
                                      <int> seed_val,
                                      <CRITERION> self.split_criterion,
                                      <bool> self.quantile_per_tree,
-                                     <int> self.n_streams)
+                                     <int> self.n_streams,
+                                     <bool> self.use_experimental_backend,
+                                     <int> self.max_batch_size)
 
         if self.dtype == np.float32:
             fit(handle_[0],
@@ -666,27 +696,6 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
         del(y_m)
         del(preds_m)
         return stats
-
-    def get_params(self, deep=True):
-        """
-        Returns the value of all parameters
-        required to configure this estimator as a dictionary.
-        Parameters
-        -----------
-        deep : boolean (default = True)
-        """
-        return self._get_params(deep=deep)
-
-    def set_params(self, **params):
-        """
-        Sets the value of parameters required to
-        configure this estimator, it functions similar to
-        the sklearn set_params.
-        Parameters
-        -----------
-        params : dict of new params
-        """
-        return self._set_params(**params)
 
     def print_summary(self):
         """

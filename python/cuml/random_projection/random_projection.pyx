@@ -156,8 +156,9 @@ cdef class BaseRandomProjection():
         del self.rand_matS
         del self.rand_matD
 
-    def __init__(self, n_components='auto', eps=0.1,
-                 dense_output=True, random_state=None):
+    def __init__(self, *, bool gaussian_method, double density,
+                 n_components='auto', eps=0.1, dense_output=True,
+                 random_state=None):
 
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
         cdef _DevAlloc alloc = <_DevAlloc>handle_.get_device_allocator()
@@ -172,8 +173,56 @@ cdef class BaseRandomProjection():
         if random_state is not None:
             self.params.random_state = random_state
 
-        self.params.gaussian_method = self.gaussian_method
-        self.params.density = self.density
+        self.params.gaussian_method = gaussian_method
+        self.params.density = density
+
+    @property
+    def n_components(self):
+        return self.params.n_components
+
+    @n_components.setter
+    def n_components(self, value):
+        self.params.n_components = value
+
+    @property
+    def eps(self):
+        return self.params.eps
+
+    @eps.setter
+    def eps(self, value):
+        self.params.eps = value
+
+    @property
+    def dense_output(self):
+        return self.params.dense_output
+
+    @dense_output.setter
+    def dense_output(self, value):
+        self.params.dense_output = value
+
+    @property
+    def random_state(self):
+        return self.params.random_state
+
+    @random_state.setter
+    def random_state(self, value):
+        self.params.random_state = value
+
+    @property
+    def gaussian_method(self):
+        return self.params.gaussian_method
+
+    @gaussian_method.setter
+    def gaussian_method(self, value):
+        self.params.gaussian_method = value
+
+    @property
+    def density(self):
+        return self.params.density
+
+    @density.setter
+    def density(self, value):
+        self.params.density = value
 
     def fit(self, X, y=None):
         """
@@ -328,7 +377,12 @@ class GaussianRandomProjection(Base, BaseRandomProjection):
     ----------
 
     handle : cuml.Handle
-        If it is None, a new one is created just for this class
+        Specifies the cuml.handle that holds internal CUDA state for
+        computations in this model. Most importantly, this specifies the CUDA
+        stream that will be used for the model's computations, so users can
+        run different models concurrently in different streams by creating
+        handles in several streams.
+        If it is None, a new one is created.
 
     n_components : int (default = 'auto')
         Dimensionality of the target projection space. If set to 'auto',
@@ -345,6 +399,14 @@ class GaussianRandomProjection(Base, BaseRandomProjection):
 
     random_state : int (default = None)
         Seed used to initilize random generator
+    verbose : int or boolean, default=False
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        See :ref:`verbosity-levels` for more info.
+    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
+        Variable to control output type of the results and attributes of
+        the estimator. If None, it'll inherit the output type set at the
+        module level, `cuml.global_output_type`.
+        See :ref:`output-data-type-configuration` for more info.
 
     Attributes
     ----------
@@ -354,23 +416,37 @@ class GaussianRandomProjection(Base, BaseRandomProjection):
 
     Notes
     ------
-        Inspired by Scikit-learn's implementation :
-        https://scikit-learn.org/stable/modules/random_projection.html
+    This class is unable to be used with ``sklearn.base.clone()`` and will
+    raise an exception when called.
+
+    Inspired by Scikit-learn's implementation :
+    https://scikit-learn.org/stable/modules/random_projection.html
 
     """
 
     def __init__(self, handle=None, n_components='auto', eps=0.1,
-                 random_state=None, verbose=False):
-        Base.__init__(self, handle, verbose)
-        self.gaussian_method = True
-        self.density = -1.0  # not used
+                 random_state=None, verbose=False, output_type=None):
+
+        Base.__init__(self,
+                      handle=handle,
+                      verbose=verbose,
+                      output_type=output_type)
 
         BaseRandomProjection.__init__(
             self,
+            gaussian_method=True,
+            density=-1.0,
             n_components=n_components,
             eps=eps,
             dense_output=True,
             random_state=random_state)
+
+    def get_param_names(self):
+        return Base.get_param_names(self) + [
+            "n_components",
+            "eps",
+            "random_state"
+        ]
 
 
 class SparseRandomProjection(Base, BaseRandomProjection):
@@ -432,7 +508,12 @@ class SparseRandomProjection(Base, BaseRandomProjection):
     Parameters
     ----------
     handle : cuml.Handle
-        If it is None, a new one is created just for this class
+        Specifies the cuml.handle that holds internal CUDA state for
+        computations in this model. Most importantly, this specifies the CUDA
+        stream that will be used for the model's computations, so users can
+        run different models concurrently in different streams by creating
+        handles in several streams.
+        If it is None, a new one is created.
 
     n_components : int (default = 'auto')
         Dimensionality of the target projection space. If set to 'auto',
@@ -457,6 +538,16 @@ class SparseRandomProjection(Base, BaseRandomProjection):
     random_state : int (default = None)
         Seed used to initilize random generator
 
+    verbose : int or boolean, default=False
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        See :ref:`verbosity-levels` for more info.
+
+    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
+        Variable to control output type of the results and attributes of
+        the estimator. If None, it'll inherit the output type set at the
+        module level, `cuml.global_output_type`.
+        See :ref:`output-data-type-configuration` for more info.
+
     Attributes
     ----------
     gaussian_method : boolean
@@ -465,6 +556,9 @@ class SparseRandomProjection(Base, BaseRandomProjection):
 
     Notes
     -----
+    This class is unable to be used with ``sklearn.base.clone()`` and will
+    raise an exception when called.
+
     Inspired by Scikit-learn's `implementation
     <https://scikit-learn.org/stable/modules/random_projection.html>`_.
 
@@ -472,14 +566,27 @@ class SparseRandomProjection(Base, BaseRandomProjection):
 
     def __init__(self, handle=None, n_components='auto', density='auto',
                  eps=0.1, dense_output=True, random_state=None,
-                 verbose=False):
-        Base.__init__(self, handle, verbose)
-        self.gaussian_method = False
-        self.density = density if density != 'auto' else -1.0
+                 verbose=False, output_type=None):
+
+        Base.__init__(self,
+                      handle=handle,
+                      verbose=verbose,
+                      output_type=output_type)
 
         BaseRandomProjection.__init__(
             self,
+            gaussian_method=False,
+            density=(density if density != 'auto' else -1.0),
             n_components=n_components,
             eps=eps,
             dense_output=dense_output,
             random_state=random_state)
+
+    def get_param_names(self):
+        return Base.get_param_names(self) + [
+            "n_components",
+            "density",
+            "eps",
+            "dense_output",
+            "random_state"
+        ]

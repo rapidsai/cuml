@@ -20,8 +20,8 @@
 #include <random/rng.cuh>
 #include "test_utils.h"
 
-namespace MLCommon {
-namespace LinAlg {
+namespace raft {
+namespace linalg {
 
 template <typename T>
 struct GemmLayoutInputs {
@@ -61,11 +61,11 @@ class GemmLayoutTest : public ::testing::TestWithParam<GemmLayoutInputs<T>> {
  protected:
   void SetUp() override {
     params = ::testing::TestWithParam<GemmLayoutInputs<T>>::GetParam();
-    cudaStream_t stream;
-    cublasHandle_t handle;
-    CUBLAS_CHECK(cublasCreate(&handle));
-    CUDA_CHECK(cudaStreamCreate(&stream));
-    Random::Rng r(params.seed);
+
+    raft::handle_t handle;
+    cudaStream_t stream = handle.get_stream();
+
+    raft::random::Rng r(params.seed);
 
     // We compute Z = X * Y and compare against reference result
     // Dimensions of X : M x K
@@ -87,7 +87,8 @@ class GemmLayoutTest : public ::testing::TestWithParam<GemmLayoutInputs<T>> {
     r.uniform(X, xElems, T(-10.0), T(10.0), stream);
     r.uniform(Y, yElems, T(-10.0), T(10.0), stream);
 
-    dim3 blocks(ceildiv<int>(params.M, 128), ceildiv<int>(params.N, 4), 1);
+    dim3 blocks(raft::ceildiv<int>(params.M, 128),
+                raft::ceildiv<int>(params.N, 4), 1);
     dim3 threads(128, 4, 1);
 
     naiveGemm<<<blocks, threads>>>(refZ, X, Y, params.M, params.N, params.K,
@@ -96,11 +97,6 @@ class GemmLayoutTest : public ::testing::TestWithParam<GemmLayoutInputs<T>> {
 
     gemm(handle, Z, X, Y, params.M, params.N, params.K, params.zLayout,
          params.xLayout, params.yLayout, stream);
-
-    CUDA_CHECK(cudaFree(X));
-    CUDA_CHECK(cudaFree(Y));
-    CUDA_CHECK(cudaStreamDestroy(stream));
-    CUBLAS_CHECK(cublasDestroy(handle));
   }
 
   void TearDown() override {
@@ -136,14 +132,14 @@ const std::vector<GemmLayoutInputs<double>> inputsd = {
 
 typedef GemmLayoutTest<float> GemmLayoutTestF;
 TEST_P(GemmLayoutTestF, Result) {
-  ASSERT_TRUE(
-    devArrMatch(refZ, Z, params.M * params.N, CompareApprox<float>(1e-4)));
+  ASSERT_TRUE(raft::devArrMatch(refZ, Z, params.M * params.N,
+                                raft::CompareApprox<float>(1e-4)));
 }
 
 typedef GemmLayoutTest<double> GemmLayoutTestD;
 TEST_P(GemmLayoutTestD, Result) {
-  ASSERT_TRUE(
-    devArrMatch(refZ, Z, params.M * params.N, CompareApprox<float>(1e-6)));
+  ASSERT_TRUE(raft::devArrMatch(refZ, Z, params.M * params.N,
+                                raft::CompareApprox<float>(1e-6)));
 }
 
 INSTANTIATE_TEST_CASE_P(GemmLayoutTests, GemmLayoutTestF,
@@ -152,5 +148,5 @@ INSTANTIATE_TEST_CASE_P(GemmLayoutTests, GemmLayoutTestF,
 INSTANTIATE_TEST_CASE_P(GemmLayoutTests, GemmLayoutTestD,
                         ::testing::ValuesIn(inputsd));
 
-}  // end namespace LinAlg
-}  // end namespace MLCommon
+}  // end namespace linalg
+}  // end namespace raft

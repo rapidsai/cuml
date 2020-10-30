@@ -19,7 +19,7 @@
 #include <cuda_utils.cuh>
 #include <distance/distance.cuh>
 #include <iostream>
-#include <score/scores.cuh>
+#include <metrics/scores.cuh>
 #include <vector>
 #include "test_utils.h"
 
@@ -422,8 +422,9 @@ class TrustworthinessScoreTest : public ::testing::Test {
     float* d_X_embedded =
       (float*)allocator->allocate(X_embedded.size() * sizeof(float), stream);
 
-    updateDevice(d_X, X.data(), X.size(), stream);
-    updateDevice(d_X_embedded, X_embedded.data(), X_embedded.size(), stream);
+    raft::update_device(d_X, X.data(), X.size(), stream);
+    raft::update_device(d_X_embedded, X_embedded.data(), X_embedded.size(),
+                        stream);
 
     // euclidean test
     score =

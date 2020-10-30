@@ -48,6 +48,7 @@
 
 #include <cuml/cluster/kmeans_mg.hpp>
 
+#include <common/cudart_utils.h>
 #include <fstream>
 
 namespace ML {
@@ -193,8 +194,8 @@ Tensor<DataT, 2, IndexT> sampleCentroids(
                                    stream));
 
   int nPtsSampledInRank = 0;
-  MLCommon::copy(&nPtsSampledInRank, nSelected.data(), nSelected.numElements(),
-                 stream);
+  raft::copy(&nPtsSampledInRank, nSelected.data(), nSelected.numElements(),
+             stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
   int *rawPtr_isSampleCentroid = isSampleCentroid.data();
@@ -280,9 +281,9 @@ void minClusterAndDistance(
   if (metric == ML::Distance::DistanceType::EucExpandedL2 ||
       metric == ML::Distance::DistanceType::EucExpandedL2Sqrt) {
     L2NormBuf_OR_DistBuf.resize(n_clusters, stream);
-    MLCommon::LinAlg::rowNorm(L2NormBuf_OR_DistBuf.data(), centroids.data(),
-                              centroids.getSize(1), centroids.getSize(0),
-                              MLCommon::LinAlg::L2Norm, true, stream);
+    raft::linalg::rowNorm(L2NormBuf_OR_DistBuf.data(), centroids.data(),
+                          centroids.getSize(1), centroids.getSize(0),
+                          raft::linalg::L2Norm, true, stream);
   } else {
     L2NormBuf_OR_DistBuf.resize(dataBatchSize * centroidsBatchSize, stream);
   }
@@ -356,7 +357,7 @@ void minClusterAndDistance(
         // argmin reduction returning <index, value> pair
         // calculates the closest centroid and the distance to the closest
         // centroid
-        MLCommon::LinAlg::coalescedReduction(
+        raft::linalg::coalescedReduction(
           minClusterAndDistanceView.data(), pairwiseDistanceView.data(),
           pairwiseDistanceView.getSize(1), pairwiseDistanceView.getSize(0),
           initial_value, stream, true,
@@ -399,9 +400,9 @@ void minClusterDistance(const raft::handle_t &handle,
   if (metric == ML::Distance::DistanceType::EucExpandedL2 ||
       metric == ML::Distance::DistanceType::EucExpandedL2Sqrt) {
     L2NormBuf_OR_DistBuf.resize(n_clusters, stream);
-    MLCommon::LinAlg::rowNorm(L2NormBuf_OR_DistBuf.data(), centroids.data(),
-                              centroids.getSize(1), centroids.getSize(0),
-                              MLCommon::LinAlg::L2Norm, true, stream);
+    raft::linalg::rowNorm(L2NormBuf_OR_DistBuf.data(), centroids.data(),
+                          centroids.getSize(1), centroids.getSize(0),
+                          raft::linalg::L2Norm, true, stream);
   } else {
     L2NormBuf_OR_DistBuf.resize(dataBatchSize * centroidsBatchSize, stream);
   }
@@ -468,7 +469,7 @@ void minClusterDistance(const raft::handle_t &handle,
                                          pairwiseDistanceView, workspace,
                                          metric, stream);
 
-        MLCommon::LinAlg::coalescedReduction(
+        raft::linalg::coalescedReduction(
           minClusterDistanceView.data(), pairwiseDistanceView.data(),
           pairwiseDistanceView.getSize(1), pairwiseDistanceView.getSize(0),
           std::numeric_limits<DataT>::max(), stream, true,
@@ -514,8 +515,8 @@ void shuffleAndGather(const raft::handle_t &handle,
     std::mt19937 gen(seed);
     std::shuffle(ht_indices.begin(), ht_indices.end(), gen);
 
-    MLCommon::copy(indices.data(), ht_indices.data(), indices.numElements(),
-                   stream);
+    raft::copy(indices.data(), ht_indices.data(), indices.numElements(),
+               stream);
   }
 
   MLCommon::Matrix::gather(in.data(), in.getSize(1), in.getSize(0),
@@ -632,9 +633,8 @@ void kmeansPlusPlus(const raft::handle_t &handle, const KMeansParams &params,
 
   if (metric == ML::Distance::DistanceType::EucExpandedL2 ||
       metric == ML::Distance::DistanceType::EucExpandedL2Sqrt) {
-    MLCommon::LinAlg::rowNorm(L2NormX.data(), X.data(), X.getSize(1),
-                              X.getSize(0), MLCommon::LinAlg::L2Norm, true,
-                              stream);
+    raft::linalg::rowNorm(L2NormX.data(), X.data(), X.getSize(1), X.getSize(0),
+                          raft::linalg::L2Norm, true, stream);
   }
 
   std::mt19937 gen(params.seed);
@@ -650,8 +650,8 @@ void kmeansPlusPlus(const raft::handle_t &handle, const KMeansParams &params,
   // reset buffer to store the chosen centroid
   centroidsRawData.reserve(n_clusters * n_features, stream);
   centroidsRawData.resize(initialCentroid.numElements(), stream);
-  MLCommon::copy(centroidsRawData.begin(), initialCentroid.data(),
-                 initialCentroid.numElements(), stream);
+  raft::copy(centroidsRawData.begin(), initialCentroid.data(),
+             initialCentroid.numElements(), stream);
 
   //  C = initial set of centroids
   auto centroids = std::move(Tensor<DataT, 2, IndexT>(
@@ -671,8 +671,8 @@ void kmeansPlusPlus(const raft::handle_t &handle, const KMeansParams &params,
   while (n_clusters_picked < n_clusters) {
     // <<< Step-3 >>> : Sample x in X with probability p_x = d^2(x, C) / phi_X (C)
     // Choose 'n_trials' centroid candidates from X with probability proportional to the squared distance to the nearest existing cluster
-    MLCommon::copy(h_wt.data(), minClusterDistance.data(),
-                   minClusterDistance.numElements(), stream);
+    raft::copy(h_wt.data(), minClusterDistance.data(),
+               minClusterDistance.numElements(), stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
 
     // Note - n_trials is relative small here, we don't need MLCommon::gather call
@@ -680,8 +680,8 @@ void kmeansPlusPlus(const raft::handle_t &handle, const KMeansParams &params,
     for (int cIdx = 0; cIdx < n_trials; ++cIdx) {
       auto rand_idx = d(gen);
       auto randCentroid = X.template view<2>({1, n_features}, {rand_idx, 0});
-      MLCommon::copy(centroidCandidates.data() + cIdx * n_features,
-                     randCentroid.data(), randCentroid.numElements(), stream);
+      raft::copy(centroidCandidates.data() + cIdx * n_features,
+                 randCentroid.data(), randCentroid.numElements(), stream);
     }
 
     // Calculate pairwise distance between X and the centroid candidates
@@ -696,16 +696,16 @@ void kmeansPlusPlus(const raft::handle_t &handle, const KMeansParams &params,
     // Outputs minDistanceBuf[m_trails x n_samples] where minDistance[i, :] contains updated minClusterDistance that includes candidate-i
     auto minDistBuf = std::move(
       Tensor<DataT, 2, IndexT>(distBuffer.data(), {n_trials, n_samples}));
-    MLCommon::LinAlg::matrixVectorOp(
+    raft::linalg::matrixVectorOp(
       minDistBuf.data(), pwd.data(), minClusterDistance.data(), pwd.getSize(1),
       pwd.getSize(0), true, true,
       [=] __device__(DataT mat, DataT vec) { return vec <= mat ? vec : mat; },
       stream);
 
     // Calculate costPerCandidate[n_trials] where costPerCandidate[i] is the cluster cost when using centroid candidate-i
-    MLCommon::LinAlg::reduce(costPerCandidate.data(), minDistBuf.data(),
-                             minDistBuf.getSize(1), minDistBuf.getSize(0),
-                             static_cast<DataT>(0), true, true, stream);
+    raft::linalg::reduce(costPerCandidate.data(), minDistBuf.data(),
+                         minDistBuf.getSize(1), minDistBuf.getSize(0),
+                         static_cast<DataT>(0), true, true, stream);
 
     // Greedy Choice - Choose the candidate that has minimum cluster cost
     // ArgMin operation below identifies the index of minimum cost in costPerCandidate
@@ -725,19 +725,19 @@ void kmeansPlusPlus(const raft::handle_t &handle, const KMeansParams &params,
         minClusterIndexAndDistance.data(), costPerCandidate.getSize(0));
 
       int bestCandidateIdx = -1;
-      MLCommon::copy(&bestCandidateIdx, &minClusterIndexAndDistance.data()->key,
-                     1, stream);
+      raft::copy(&bestCandidateIdx, &minClusterIndexAndDistance.data()->key, 1,
+                 stream);
       /// <<< End of Step-3 >>>
 
       /// <<< Step-4 >>>: C = C U {x}
       // Update minimum cluster distance corresponding to the chosen centroid candidate
-      MLCommon::copy(minClusterDistance.data(),
-                     minDistBuf.data() + bestCandidateIdx * n_samples,
-                     n_samples, stream);
+      raft::copy(minClusterDistance.data(),
+                 minDistBuf.data() + bestCandidateIdx * n_samples, n_samples,
+                 stream);
 
-      MLCommon::copy(centroidsRawData.data() + n_clusters_picked * n_features,
-                     centroidCandidates.data() + bestCandidateIdx * n_features,
-                     n_features, stream);
+      raft::copy(centroidsRawData.data() + n_clusters_picked * n_features,
+                 centroidCandidates.data() + bestCandidateIdx * n_features,
+                 n_features, stream);
 
       ++n_clusters_picked;
       /// <<< End of Step-4 >>>
@@ -767,7 +767,7 @@ void checkWeights(const raft::handle_t &handle,
                                     stream));
 
   DataT wt_sum = 0;
-  MLCommon::copy(&wt_sum, wt_aggr.data(), 1, stream);
+  raft::copy(&wt_sum, wt_aggr.data(), 1, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
   if (wt_sum != n_samples) {
@@ -777,7 +777,7 @@ void checkWeights(const raft::handle_t &handle,
         n_samples);
 
     DataT scale = n_samples / wt_sum;
-    MLCommon::LinAlg::unaryOp(
+    raft::linalg::unaryOp(
       weight.data(), weight.data(), weight.numElements(),
       [=] __device__(const DataT &wt) { return wt * scale; }, stream);
   }

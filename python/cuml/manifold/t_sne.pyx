@@ -67,7 +67,7 @@ cdef extern from "cuml/manifold/tsne.h" namespace "ML" nogil:
         const float post_momentum,
         const long long random_state,
         int verbosity,
-        const bool intialize_embeddings,
+        const bool initialize_embeddings,
         bool barnes_hut) except +
 
 
@@ -88,8 +88,9 @@ class TSNE(Base):
     Parameters
     -----------
     n_components : int (default 2)
-        The output dimensionality size. Currently only size=2 is tested, but
-        the 'exact' algorithm will support greater dimensionality in future.
+        The output dimensionality size. Currently only size=2 is tested and
+        supported, but the 'exact' algorithm will support greater
+        dimensionality in future.
     perplexity : float (default 30.0)
         Larger datasets require a larger value. Consider choosing different
         perplexity values from 5 to 50 and see the output differences.
@@ -110,9 +111,9 @@ class TSNE(Base):
         a future release.
     init : str 'random' (default 'random')
         Currently supports random intialization.
-    verbose : int or boolean (default = False) (default logger.level_info)
-        Level of verbosity.
-        Most messages will be printed inside the Python Console.
+    verbose : int or boolean, default=False
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        See :ref:`verbosity-levels` for more info.
     random_state : int (default None)
         Setting this can allow future runs of TSNE to look mostly the same.
         It is known that TSNE tends to have vastly different outputs on
@@ -143,9 +144,18 @@ class TSNE(Base):
         During the exaggeration iteration, more forcefully apply gradients.
     post_momentum : float (default 0.8)
         During the late phases, less forcefully apply gradients.
-    handle : (cuML Handle, default None)
-        You can pass in a past handle that was initialized, or we will create
-        one for you anew!
+    handle : cuml.Handle
+        Specifies the cuml.handle that holds internal CUDA state for
+        computations in this model. Most importantly, this specifies the CUDA
+        stream that will be used for the model's computations, so users can
+        run different models concurrently in different streams by creating
+        handles in several streams.
+        If it is None, a new one is created.
+    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
+        Variable to control output type of the results and attributes of
+        the estimator. If None, it'll inherit the output type set at the
+        module level, `cuml.global_output_type`.
+        See :ref:`output-data-type-configuration` for more info.
 
     References
     -----------
@@ -183,28 +193,31 @@ class TSNE(Base):
 
     """
     def __init__(self,
-                 int n_components=2,
-                 float perplexity=30.0,
-                 float early_exaggeration=12.0,
-                 float learning_rate=200.0,
-                 int n_iter=1000,
-                 int n_iter_without_progress=300,
-                 float min_grad_norm=1e-07,
-                 str metric='euclidean',
-                 str init='random',
-                 int verbose=False,
+                 n_components=2,
+                 perplexity=30.0,
+                 early_exaggeration=12.0,
+                 learning_rate=200.0,
+                 n_iter=1000,
+                 n_iter_without_progress=300,
+                 min_grad_norm=1e-07,
+                 metric='euclidean',
+                 init='random',
+                 verbose=False,
                  random_state=None,
-                 str method='barnes_hut',
-                 float angle=0.5,
+                 method='barnes_hut',
+                 angle=0.5,
                  learning_rate_method='adaptive',
-                 int n_neighbors=90,
-                 int perplexity_max_iter=100,
-                 int exaggeration_iter=250,
-                 float pre_momentum=0.5,
-                 float post_momentum=0.8,
-                 handle=None):
+                 n_neighbors=90,
+                 perplexity_max_iter=100,
+                 exaggeration_iter=250,
+                 pre_momentum=0.5,
+                 post_momentum=0.8,
+                 handle=None,
+                 output_type=None):
 
-        super(TSNE, self).__init__(handle=handle, verbose=verbose)
+        super(TSNE, self).__init__(handle=handle,
+                                   verbose=verbose,
+                                   output_type=output_type)
 
         if n_components < 0:
             raise ValueError("n_components = {} should be more "
@@ -213,7 +226,10 @@ class TSNE(Base):
             warnings.warn("Barnes Hut only works when n_components == 2. "
                           "Switching to exact.")
             method = 'exact'
-        if n_components != 2:
+        if n_components > 2:
+            raise ValueError("Currently TSNE supports n_components = 2; "
+                             "but got n_components = {}".format(n_components))
+        if n_components < 2:
             warnings.warn("Currently TSNE supports n_components = 2.")
             n_components = 2
         if perplexity < 0:
@@ -290,7 +306,15 @@ class TSNE(Base):
         if learning_rate_method is None:
             self.learning_rate_method = 'none'
         else:
-            self.learning_rate_method = learning_rate_method.lower()
+            # To support `sklearn.base.clone()`, we must minimize altering
+            # argument references unless absolutely necessary. Check to see if
+            # lowering the string results in the same value, and if so, keep
+            # the same reference that was passed in. This may seem redundant,
+            # but it allows `clone()` to function without raising an error
+            if (learning_rate_method.lower() != learning_rate_method):
+                learning_rate_method = learning_rate_method.lower()
+
+            self.learning_rate_method = learning_rate_method
         self.epssq = 0.0025
         self.perplexity_tol = 1e-5
         self.min_gain = 0.01
@@ -431,3 +455,25 @@ class TSNE(Base):
                                    verbose=state['verbose'])
         self.__dict__.update(state)
         return state
+
+    def get_param_names(self):
+        return super().get_param_names() + [
+            "n_components",
+            "perplexity",
+            "early_exaggeration",
+            "learning_rate",
+            "n_iter",
+            "n_iter_without_progress",
+            "min_grad_norm",
+            "metric",
+            "init",
+            "random_state",
+            "method",
+            "angle",
+            "learning_rate_method",
+            "n_neighbors",
+            "perplexity_max_iter",
+            "exaggeration_iter",
+            "pre_momentum",
+            "post_momentum",
+        ]

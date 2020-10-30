@@ -57,11 +57,10 @@ void launcher(const raft::handle_t &handle, const T *X, int n, int d,
                           coo->nnz, n, params->n_components,
                           tmp_storage.data());
 
-  MLCommon::LinAlg::transpose(tmp_storage.data(), embedding, n,
-                              params->n_components, handle.get_cublas_handle(),
-                              stream);
+  raft::linalg::transpose(handle, tmp_storage.data(), embedding, n,
+                          params->n_components, stream);
 
-  MLCommon::LinAlg::unaryOp<T>(
+  raft::linalg::unaryOp<T>(
     tmp_storage.data(), tmp_storage.data(), n * params->n_components,
     [=] __device__(T input) { return fabsf(input); }, stream);
 
@@ -72,15 +71,15 @@ void launcher(const raft::handle_t &handle, const T *X, int n, int d,
   uint64_t seed = params->random_state;
 
   // Reuse tmp_storage to add random noise
-  MLCommon::Random::Rng r(seed);
+  raft::random::Rng r(seed);
   r.normal(tmp_storage.data(), n * params->n_components, 0.0f, 0.0001f, stream);
 
-  MLCommon::LinAlg::unaryOp<T>(
+  raft::linalg::unaryOp<T>(
     embedding, embedding, n * params->n_components,
     [=] __device__(T input) { return (10.0f / max) * input; }, stream);
 
-  MLCommon::LinAlg::add(embedding, embedding, tmp_storage.data(),
-                        n * params->n_components, stream);
+  raft::linalg::add(embedding, embedding, tmp_storage.data(),
+                    n * params->n_components, stream);
 
   CUDA_CHECK(cudaPeekAtLastError());
 }

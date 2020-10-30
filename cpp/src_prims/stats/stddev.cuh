@@ -19,9 +19,10 @@
 #include <cub/cub.cuh>
 #include <cuda_utils.cuh>
 #include <linalg/binary_op.cuh>
+#include <raft/handle.hpp>
 
-namespace MLCommon {
-namespace Stats {
+namespace raft {
+namespace stats {
 
 ///@todo: ColPerBlk has been tested only for 32!
 template <typename Type, typename IdxType, int TPB, int ColsPerBlk = 32>
@@ -41,9 +42,9 @@ __global__ void stddevKernelRowMajor(Type *std, const Type *data, IdxType D,
   __shared__ Type sstd[ColsPerBlk];
   if (threadIdx.x < ColsPerBlk) sstd[threadIdx.x] = Type(0);
   __syncthreads();
-  myAtomicAdd(sstd + thisColId, thread_data);
+  raft::myAtomicAdd(sstd + thisColId, thread_data);
   __syncthreads();
-  if (threadIdx.x < ColsPerBlk) myAtomicAdd(std + colId, sstd[thisColId]);
+  if (threadIdx.x < ColsPerBlk) raft::myAtomicAdd(std + colId, sstd[thisColId]);
 }
 
 template <typename Type, typename IdxType, int TPB>
@@ -61,7 +62,7 @@ __global__ void stddevKernelColMajor(Type *std, const Type *data,
   }
   Type acc = BlockReduce(temp_storage).Sum(thread_data);
   if (threadIdx.x == 0) {
-    std[blockIdx.x] = mySqrt(acc / N);
+    std[blockIdx.x] = raft::mySqrt(acc / N);
   }
 }
 
@@ -110,14 +111,17 @@ void stddev(Type *std, const Type *data, const Type *mu, IdxType D, IdxType N,
     static const int RowsPerThread = 4;
     static const int ColsPerBlk = 32;
     static const int RowsPerBlk = (TPB / ColsPerBlk) * RowsPerThread;
-    dim3 grid(ceildiv(N, (IdxType)RowsPerBlk), ceildiv(D, (IdxType)ColsPerBlk));
+    dim3 grid(raft::ceildiv(N, (IdxType)RowsPerBlk),
+              raft::ceildiv(D, (IdxType)ColsPerBlk));
     CUDA_CHECK(cudaMemset(std, 0, sizeof(Type) * D));
     stddevKernelRowMajor<Type, IdxType, TPB, ColsPerBlk>
       <<<grid, TPB, 0, stream>>>(std, data, D, N);
     Type ratio = Type(1) / (sample ? Type(N - 1) : Type(N));
-    LinAlg::binaryOp(
+    raft::linalg::binaryOp(
       std, std, mu, D,
-      [ratio] __device__(Type a, Type b) { return mySqrt(a * ratio - b * b); },
+      [ratio] __device__(Type a, Type b) {
+        return raft::mySqrt(a * ratio - b * b);
+      },
       stream);
   } else {
     stddevKernelColMajor<Type, IdxType, TPB>
@@ -152,12 +156,13 @@ void vars(Type *var, const Type *data, const Type *mu, IdxType D, IdxType N,
     static const int RowsPerThread = 4;
     static const int ColsPerBlk = 32;
     static const int RowsPerBlk = (TPB / ColsPerBlk) * RowsPerThread;
-    dim3 grid(ceildiv(N, (IdxType)RowsPerBlk), ceildiv(D, (IdxType)ColsPerBlk));
+    dim3 grid(raft::ceildiv(N, (IdxType)RowsPerBlk),
+              raft::ceildiv(D, (IdxType)ColsPerBlk));
     CUDA_CHECK(cudaMemset(var, 0, sizeof(Type) * D));
     stddevKernelRowMajor<Type, IdxType, TPB, ColsPerBlk>
       <<<grid, TPB, 0, stream>>>(var, data, D, N);
     Type ratio = Type(1) / (sample ? Type(N - 1) : Type(N));
-    LinAlg::binaryOp(
+    raft::linalg::binaryOp(
       var, var, mu, D,
       [ratio] __device__(Type a, Type b) { return a * ratio - b * b; }, stream);
   } else {
@@ -167,5 +172,5 @@ void vars(Type *var, const Type *data, const Type *mu, IdxType D, IdxType N,
   CUDA_CHECK(cudaPeekAtLastError());
 }
 
-};  // end namespace Stats
-};  // end namespace MLCommon
+};  // namespace stats
+};  // namespace raft

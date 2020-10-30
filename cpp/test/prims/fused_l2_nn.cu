@@ -39,17 +39,17 @@ __global__ void naiveKernel(cub::KeyValuePair<int, DataT> *min, DataT *x,
     acc += diff * diff;
   }
   if (Sqrt) {
-    acc = mySqrt(acc);
+    acc = raft::mySqrt(acc);
   }
   ReduceOpT redOp;
   typedef cub::WarpReduce<cub::KeyValuePair<int, DataT>> WarpReduce;
   __shared__ typename WarpReduce::TempStorage temp[NWARPS];
-  int warpId = threadIdx.x / WarpSize;
+  int warpId = threadIdx.x / raft::WarpSize;
   cub::KeyValuePair<int, DataT> tmp;
   tmp.key = nidx;
   tmp.value = midx >= m || nidx >= n ? maxVal : acc;
   tmp = WarpReduce(temp[warpId]).Reduce(tmp, KVPMinReduce<int, DataT>());
-  if (threadIdx.x % WarpSize == 0 && midx < m) {
+  if (threadIdx.x % raft::WarpSize == 0 && midx < m) {
     while (atomicCAS(workspace + midx, 0, 1) == 1)
       ;
     __threadfence();
@@ -63,9 +63,9 @@ template <typename DataT, bool Sqrt>
 void naive(cub::KeyValuePair<int, DataT> *min, DataT *x, DataT *y, int m, int n,
            int k, int *workspace, cudaStream_t stream) {
   static const dim3 TPB(32, 16, 1);
-  dim3 nblks(ceildiv(n, (int)TPB.x), ceildiv(m, (int)TPB.y), 1);
+  dim3 nblks(raft::ceildiv(n, (int)TPB.x), raft::ceildiv(m, (int)TPB.y), 1);
   CUDA_CHECK(cudaMemsetAsync(workspace, 0, sizeof(int) * m, stream));
-  auto blks = ceildiv(m, 256);
+  auto blks = raft::ceildiv(m, 256);
   MinAndDistanceReduceOp<int, DataT> op;
   initKernel<DataT, cub::KeyValuePair<int, DataT>, int>
     <<<blks, 256, 0, stream>>>(min, m, std::numeric_limits<DataT>::max(), op);
@@ -88,23 +88,23 @@ class FusedL2NNTest : public ::testing::TestWithParam<Inputs<DataT>> {
  public:
   void SetUp() override {
     params = ::testing::TestWithParam<Inputs<DataT>>::GetParam();
-    Random::Rng r(params.seed);
+    raft::random::Rng r(params.seed);
     int m = params.m;
     int n = params.n;
     int k = params.k;
     CUDA_CHECK(cudaStreamCreate(&stream));
-    allocate(x, m * k);
-    allocate(y, n * k);
-    allocate(xn, m);
-    allocate(yn, n);
-    allocate(workspace, sizeof(int) * m);
-    allocate(min, m);
-    allocate(min_ref, m);
+    raft::allocate(x, m * k);
+    raft::allocate(y, n * k);
+    raft::allocate(xn, m);
+    raft::allocate(yn, n);
+    raft::allocate(workspace, sizeof(int) * m);
+    raft::allocate(min, m);
+    raft::allocate(min_ref, m);
     r.uniform(x, m * k, DataT(-1.0), DataT(1.0), stream);
     r.uniform(y, n * k, DataT(-1.0), DataT(1.0), stream);
     generateGoldenResult();
-    LinAlg::rowNorm(xn, x, k, m, LinAlg::L2Norm, true, stream);
-    LinAlg::rowNorm(yn, y, k, n, LinAlg::L2Norm, true, stream);
+    raft::linalg::rowNorm(xn, x, k, m, raft::linalg::L2Norm, true, stream);
+    raft::linalg::rowNorm(yn, y, k, n, raft::linalg::L2Norm, true, stream);
   }
 
   void TearDown() override {
@@ -150,8 +150,8 @@ struct CompareApproxAbsKVP {
   CompareApproxAbsKVP(T eps_) : eps(eps_) {}
   bool operator()(const KVP &a, const KVP &b) const {
     if (a.key != b.key) return false;
-    T diff = abs(abs(a.value) - abs(b.value));
-    T m = std::max(abs(a.value), abs(b.value));
+    T diff = raft::abs(raft::abs(a.value) - raft::abs(b.value));
+    T m = std::max(raft::abs(a.value), raft::abs(b.value));
     T ratio = m >= eps ? diff / m : diff;
     return (ratio <= eps);
   }
@@ -178,8 +178,8 @@ template <typename K, typename V, typename L>
   typedef typename cub::KeyValuePair<K, V> KVP;
   std::shared_ptr<KVP> exp_h(new KVP[size]);
   std::shared_ptr<KVP> act_h(new KVP[size]);
-  updateHost<KVP>(exp_h.get(), expected, size, stream);
-  updateHost<KVP>(act_h.get(), actual, size, stream);
+  raft::update_host<KVP>(exp_h.get(), expected, size, stream);
+  raft::update_host<KVP>(act_h.get(), actual, size, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
   for (size_t i(0); i < size; ++i) {
     auto exp = exp_h.get()[i];
@@ -269,7 +269,7 @@ class FusedL2NNDetTest : public FusedL2NNTest<DataT, Sqrt> {
   void SetUp() override {
     FusedL2NNTest<DataT, Sqrt>::SetUp();
     int m = this->params.m;
-    allocate(min1, m);
+    raft::allocate(min1, m);
   }
 
   void TearDown() override {

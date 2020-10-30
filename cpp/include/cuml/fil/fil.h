@@ -126,24 +126,54 @@ struct sparse_node8_t : dense_node_t {
   sparse_node8_t(dense_node_t dn) : dense_node_t(dn) {}
 };
 
-/** leaf_value_t describes what the leaves in a FIL forest store (predict) */
-enum leaf_value_t {
-  /** storing a class probability or regression summand */
-  FLOAT_SCALAR = 0,
-  /** storing a class label */
-  INT_CLASS_LABEL = 1
+/** leaf_algo_t describes what the leaves in a FIL forest store (predict)
+    and how FIL aggregates them into class margins/regression result/best class
+**/
+enum leaf_algo_t {
+  /** storing a class probability or regression summand. We add all margins
+      together and determine regression result or use threshold to determine
+      one of the two classes. **/
+  FLOAT_UNARY_BINARY = 0,
+  /** storing a class label. Trees vote on the resulting class.
+      Probabilities are just normalized votes. */
+  CATEGORICAL_LEAF = 1,
+  /** 1-vs-rest, or tree-per-class, where trees are assigned round-robin to
+      consecutive categories and predict a floating-point margin. Used in
+      Gradient Boosted Decision Trees. We sum margins for each group separately
+      **/
+  GROVE_PER_CLASS = 2,
+  /** 1-vs-rest, or tree-per-class, where trees are assigned round-robin to
+      consecutive categories and predict a floating-point margin. Used in
+      Gradient Boosted Decision Trees. We sum margins for each group separately
+      This is a more specific version of GROVE_PER_CLASS.
+      _FEW_CLASSES means fewer (or as many) classes than threads. **/
+  GROVE_PER_CLASS_FEW_CLASSES = 3,
+  /** 1-vs-rest, or tree-per-class, where trees are assigned round-robin to
+      consecutive categories and predict a floating-point margin. Used in
+      Gradient Boosted Decision Trees. We sum margins for each group separately
+      This is a more specific version of GROVE_PER_CLASS.
+      _MANY_CLASSES means more classes than threads. **/
+  GROVE_PER_CLASS_MANY_CLASSES = 4,
   // to be extended
 };
 
-template <leaf_value_t leaf_payload_type>
+template <leaf_algo_t leaf_algo>
 struct leaf_output_t {};
 template <>
-struct leaf_output_t<leaf_value_t::FLOAT_SCALAR> {
+struct leaf_output_t<leaf_algo_t::FLOAT_UNARY_BINARY> {
   typedef float T;
 };
 template <>
-struct leaf_output_t<leaf_value_t::INT_CLASS_LABEL> {
+struct leaf_output_t<leaf_algo_t::CATEGORICAL_LEAF> {
   typedef int T;
+};
+template <>
+struct leaf_output_t<leaf_algo_t::GROVE_PER_CLASS_FEW_CLASSES> {
+  typedef float T;
+};
+template <>
+struct leaf_output_t<leaf_algo_t::GROVE_PER_CLASS_MANY_CLASSES> {
+  typedef float T;
 };
 
 /** node_init initializes node from paramters */
@@ -177,20 +207,20 @@ struct forest_params_t {
   int num_trees;
   // num_cols is the number of columns in the data
   int num_cols;
-  // leaf_payload_type determines what the leaves store (predict)
-  leaf_value_t leaf_payload_type;
+  // leaf_algo determines what the leaves store (predict)
+  leaf_algo_t leaf_algo;
   // algo is the inference algorithm;
   // sparse forests do not distinguish between NAIVE and TREE_REORG
   algo_t algo;
   // output is the desired output type
   output_t output;
-  // threshold is used to for classification if leaf_payload_type == FLOAT_SCALAR && (output & OUTPUT_CLASS) != 0 && !predict_proba,
+  // threshold is used to for classification if leaf_algo == FLOAT_UNARY_BINARY && (output & OUTPUT_CLASS) != 0 && !predict_proba,
   // and is ignored otherwise
   float threshold;
   // global_bias is added to the sum of tree predictions
   // (after averaging, if it is used, but before any further transformations)
   float global_bias;
-  // only used for INT_CLASS_LABEL inference. since we're storing the
+  // only used for CATEGORICAL_LEAF inference. since we're storing the
   // labels in leaves instead of the whole vector, this keeps track
   // of the number of classes
   int num_classes;

@@ -39,8 +39,9 @@ def precision_recall_curve(y_true, probs_pred):
         respectively and do not have a corresponding threshold. This ensures
         that the graph starts on the y axis.
 
-        Read more in the
-        :ref:`User Guide <precision_recall_f_measure_metrics>`.
+        Read more in the scikit-learn's `User Guide
+        <https://scikit-learn.org/stable/modules/model_evaluation.html#precision-recall-f-measure-metrics>`_.
+
 
     Parameters
     ----------

@@ -16,9 +16,9 @@
 
 set (CMAKE_FIND_NO_INSTALL_PREFIX TRUE FORCE)
 
-cmake_minimum_required(VERSION 3.14 FATAL_ERROR)
+cmake_minimum_required(VERSION 3.14...3.17 FATAL_ERROR)
 
-project(CUML VERSION 0.15.0 LANGUAGES C CXX CUDA)
+project(CUML VERSION 0.17.0 LANGUAGES C CXX CUDA)
 
 ##############################################################################
 # - build type ---------------------------------------------------------------
@@ -73,8 +73,6 @@ option(DETECT_CONDA_ENV "Enable detection of conda environment for dependencies"
 option(DISABLE_OPENMP "Disable OpenMP" OFF)
 
 option(ENABLE_CUMLPRIMS_MG "Enable algorithms that use libcumlprims_mg" ON)
-
-option(EMPTY_MARKER_KERNEL "Enable empty marker kernel after nvtxRangePop" OFF)
 
 option(KERNEL_INFO "Enable kernel resource usage info" OFF)
 
@@ -268,9 +266,7 @@ endif(KERNEL_INFO)
 if(NVTX)
   set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -DNVTX_ENABLED")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DNVTX_ENABLED")
-  if(EMPTY_MARKER_KERNEL)
-  set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -DENABLE_EMPTY_MARKER_KERNEL")
-  endif(EMPTY_MARKER_KERNEL)
+  set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS}")
 endif(NVTX)
 
 if(CMAKE_BUILD_TYPE MATCHES Debug)
@@ -508,6 +504,7 @@ install(TARGETS ${CUML_CPP_TARGET}
         DESTINATION lib)
 
 install(DIRECTORY ${CUML_INCLUDE_DIR}/cuml DESTINATION include)
+install(DIRECTORY ${RAFT_DIR}/cpp/include/ DESTINATION include/cuml)
 
 ##############################################################################
 # - build benchmark executable -----------------------------------------------

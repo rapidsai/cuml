@@ -85,9 +85,8 @@ void fit(const raft::handle_t &handle, const KMeansParams &params,
   Tensor<DataT, 1> L2NormX({n_samples}, handle.get_device_allocator(), stream);
   if (metric == ML::Distance::DistanceType::EucExpandedL2 ||
       metric == ML::Distance::DistanceType::EucExpandedL2Sqrt) {
-    MLCommon::LinAlg::rowNorm(L2NormX.data(), X.data(), X.getSize(1),
-                              X.getSize(0), MLCommon::LinAlg::L2Norm, true,
-                              stream);
+    raft::linalg::rowNorm(L2NormX.data(), X.data(), X.getSize(1), X.getSize(0),
+                          raft::linalg::L2Norm, true, stream);
   }
 
   ML::thrustAllocatorAdapter alloc(handle.get_device_allocator(), stream);
@@ -143,7 +142,7 @@ void fit(const raft::handle_t &handle, const KMeansParams &params,
     //   newCentroids[n_clusters x n_features] - 2D array, newCentroids[i] has sum of all the samples assigned to cluster-i
     //   wtInCluster[n_clusters] - 1D array, wtInCluster[i] contains # of samples in cluster-i.
     // Note - when wtInCluster[i] is 0, newCentroid[i] is reset to 0
-    MLCommon::LinAlg::matrixVectorOp(
+    raft::linalg::matrixVectorOp(
       newCentroids.data(), newCentroids.data(), wtInCluster.data(),
       newCentroids.getSize(1), newCentroids.getSize(0), true, false,
       [=] __device__(DataT mat, DataT vec) {
@@ -174,7 +173,7 @@ void fit(const raft::handle_t &handle, const KMeansParams &params,
     // compute the squared norm between the newCentroids and the original
     // centroids, destructor releases the resource
     Tensor<DataT, 1> sqrdNorm({1}, handle.get_device_allocator(), stream);
-    MLCommon::LinAlg::mapThenSumReduce(
+    raft::linalg::mapThenSumReduce(
       sqrdNorm.data(), newCentroids.numElements(),
       [=] __device__(const DataT a, const DataT b) {
         DataT diff = a - b;
@@ -183,11 +182,10 @@ void fit(const raft::handle_t &handle, const KMeansParams &params,
       stream, centroids.data(), newCentroids.data());
 
     DataT sqrdNormError = 0;
-    MLCommon::copy(&sqrdNormError, sqrdNorm.data(), sqrdNorm.numElements(),
-                   stream);
+    raft::copy(&sqrdNormError, sqrdNorm.data(), sqrdNorm.numElements(), stream);
 
-    MLCommon::copy(centroidsRawData.data(), newCentroids.data(),
-                   newCentroids.numElements(), stream);
+    raft::copy(centroidsRawData.data(), newCentroids.data(),
+               newCentroids.numElements(), stream);
 
     bool done = false;
     if (params.inertia_check) {
@@ -204,7 +202,7 @@ void fit(const raft::handle_t &handle, const KMeansParams &params,
         stream);
 
       DataT curClusteringCost = 0;
-      MLCommon::copy(&curClusteringCost, &clusterCostD->value, 1, stream);
+      raft::copy(&curClusteringCost, &clusterCostD->value, 1, stream);
 
       CUDA_CHECK(cudaStreamSynchronize(stream));
       ASSERT(curClusteringCost != (DataT)0.0,
@@ -256,7 +254,7 @@ void fit(const raft::handle_t &handle, const KMeansParams &params,
     },
     stream);
 
-  MLCommon::copy(&inertia, &clusterCostD->value, 1, stream);
+  raft::copy(&inertia, &clusterCostD->value, 1, stream);
 
   LOG(handle, "KMeans.fit: completed after %d iterations with %f inertia ",
       n_iter > params.max_iter ? n_iter - 1 : n_iter, inertia);
@@ -314,8 +312,7 @@ void initScalableKMeansPlusPlus(
   ML::Distance::DistanceType metric =
     static_cast<ML::Distance::DistanceType>(params.metric);
 
-  MLCommon::Random::Rng rng(params.seed,
-                            MLCommon::Random::GeneratorType::GenPhilox);
+  raft::random::Rng rng(params.seed, raft::random::GeneratorType::GenPhilox);
 
   // <<<< Step-1 >>> : C <- sample a point uniformly at random from X
   std::mt19937 gen(params.seed);
@@ -334,8 +331,8 @@ void initScalableKMeansPlusPlus(
   Tensor<int, 1> isSampleCentroid({n_samples}, handle.get_device_allocator(),
                                   stream);
 
-  MLCommon::copy(isSampleCentroid.data(), h_isSampleCentroid.data(),
-                 isSampleCentroid.numElements(), stream);
+  raft::copy(isSampleCentroid.data(), h_isSampleCentroid.data(),
+             isSampleCentroid.numElements(), stream);
 
   MLCommon::device_buffer<DataT> centroidsBuf(handle.get_device_allocator(),
                                               stream);
@@ -343,8 +340,8 @@ void initScalableKMeansPlusPlus(
   // reset buffer to store the chosen centroid
   centroidsBuf.reserve(n_clusters * n_features, stream);
   centroidsBuf.resize(initialCentroid.numElements(), stream);
-  MLCommon::copy(centroidsBuf.begin(), initialCentroid.data(),
-                 initialCentroid.numElements(), stream);
+  raft::copy(centroidsBuf.begin(), initialCentroid.data(),
+             initialCentroid.numElements(), stream);
 
   auto potentialCentroids = std::move(Tensor<DataT, 2, IndexT>(
     centroidsBuf.data(),
@@ -360,9 +357,8 @@ void initScalableKMeansPlusPlus(
   Tensor<DataT, 1> L2NormX({n_samples}, handle.get_device_allocator(), stream);
   if (metric == ML::Distance::DistanceType::EucExpandedL2 ||
       metric == ML::Distance::DistanceType::EucExpandedL2Sqrt) {
-    MLCommon::LinAlg::rowNorm(L2NormX.data(), X.data(), X.getSize(1),
-                              X.getSize(0), MLCommon::LinAlg::L2Norm, true,
-                              stream);
+    raft::linalg::rowNorm(L2NormX.data(), X.data(), X.getSize(1), X.getSize(0),
+                          raft::linalg::L2Norm, true, stream);
   }
 
   Tensor<DataT, 1, IndexT> minClusterDistance(
@@ -383,7 +379,7 @@ void initScalableKMeansPlusPlus(
     [] __device__(const DataT &a, const DataT &b) { return a + b; }, stream);
 
   DataT psi = 0;
-  MLCommon::copy(&psi, clusterCost.data(), clusterCost.size(), stream);
+  raft::copy(&psi, clusterCost.data(), clusterCost.size(), stream);
 
   // <<< End of Step-2 >>>
 
@@ -406,7 +402,7 @@ void initScalableKMeansPlusPlus(
       handle, minClusterDistance, workspace, clusterCost.data(),
       [] __device__(const DataT &a, const DataT &b) { return a + b; }, stream);
 
-    MLCommon::copy(&psi, clusterCost.data(), clusterCost.size(), stream);
+    raft::copy(&psi, clusterCost.data(), clusterCost.size(), stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
 
     // <<<< Step-4 >>> : Sample each point x in X independently and identify new
@@ -426,8 +422,8 @@ void initScalableKMeansPlusPlus(
     /// <<<< Step-5 >>> : C = C U C'
     // append the data in Cp to the buffer holding the potentialCentroids
     centroidsBuf.resize(centroidsBuf.size() + Cp.numElements(), stream);
-    MLCommon::copy(centroidsBuf.end() - Cp.numElements(), Cp.data(),
-                   Cp.numElements(), stream);
+    raft::copy(centroidsBuf.end() - Cp.numElements(), Cp.data(),
+               Cp.numElements(), stream);
 
     int tot_centroids = potentialCentroids.getSize(0) + Cp.getSize(0);
     potentialCentroids = std::move(Tensor<DataT, 2, IndexT>(
@@ -484,14 +480,14 @@ void initScalableKMeansPlusPlus(
     initRandom(handle, rand_params, X, centroidsRawData);
 
     // copy centroids generated during kmeans|| iteration to the buffer
-    MLCommon::copy(centroidsRawData.data() + n_random_clusters * n_features,
-                   potentialCentroids.data(), potentialCentroids.numElements(),
-                   stream);
+    raft::copy(centroidsRawData.data() + n_random_clusters * n_features,
+               potentialCentroids.data(), potentialCentroids.numElements(),
+               stream);
   } else {
     // found the required n_clusters
     centroidsRawData.resize(n_clusters * n_features, stream);
-    MLCommon::copy(centroidsRawData.data(), potentialCentroids.data(),
-                   potentialCentroids.numElements(), stream);
+    raft::copy(centroidsRawData.data(), potentialCentroids.data(),
+               potentialCentroids.numElements(), stream);
   }
 }
 
@@ -516,7 +512,7 @@ void fit(const raft::handle_t &handle, const KMeansParams &km_params,
   Tensor<DataT, 1, IndexT> weight({n_samples}, handle.get_device_allocator(),
                                   stream);
   if (sample_weight != nullptr) {
-    MLCommon::copy(weight.data(), sample_weight, n_samples, stream);
+    raft::copy(weight.data(), sample_weight, n_samples, stream);
   } else {
     ML::thrustAllocatorAdapter alloc(handle.get_device_allocator(), stream);
     auto thrust_exec_policy = thrust::cuda::par(alloc).on(stream);
@@ -586,8 +582,8 @@ void fit(const raft::handle_t &handle, const KMeansParams &km_params,
              "the requested initialization method)");
 
       centroidsRawData.resize(params.n_clusters * n_features, stream);
-      MLCommon::copy(centroidsRawData.begin(), centroids,
-                     params.n_clusters * n_features, stream);
+      raft::copy(centroidsRawData.begin(), centroids,
+                 params.n_clusters * n_features, stream);
 
     } else {
       THROW("unknown initialization method to select initial centers");
@@ -599,8 +595,8 @@ void fit(const raft::handle_t &handle, const KMeansParams &km_params,
     if (_inertia < inertia) {
       inertia = _inertia;
       n_iter = _n_iter;
-      MLCommon::copy(centroids, centroidsRawData.data(),
-                     params.n_clusters * n_features, stream);
+      raft::copy(centroids, centroidsRawData.data(),
+                 params.n_clusters * n_features, stream);
     }
 
     LOG(handle, "KMeans.fit after iteration-%d/%d: inertia - %f, n_iter - %d",
@@ -641,7 +637,7 @@ void predict(const raft::handle_t &handle, const KMeansParams &params,
   Tensor<DataT, 1, IndexT> weight({n_samples}, handle.get_device_allocator(),
                                   stream);
   if (sample_weight != nullptr) {
-    MLCommon::copy(weight.data(), sample_weight, n_samples, stream);
+    raft::copy(weight.data(), sample_weight, n_samples, stream);
   } else {
     ML::thrustAllocatorAdapter alloc(handle.get_device_allocator(), stream);
     auto thrust_exec_policy = thrust::cuda::par(alloc).on(stream);
@@ -671,9 +667,8 @@ void predict(const raft::handle_t &handle, const KMeansParams &params,
   Tensor<DataT, 1> L2NormX({n_samples}, handle.get_device_allocator(), stream);
   if (metric == ML::Distance::DistanceType::EucExpandedL2 ||
       metric == ML::Distance::DistanceType::EucExpandedL2Sqrt) {
-    MLCommon::LinAlg::rowNorm(L2NormX.data(), X.data(), X.getSize(1),
-                              X.getSize(0), MLCommon::LinAlg::L2Norm, true,
-                              stream);
+    raft::linalg::rowNorm(L2NormX.data(), X.data(), X.getSize(1), X.getSize(0),
+                          raft::linalg::L2Norm, true, stream);
   }
 
   // computes minClusterAndDistance[0:n_samples) where  minClusterAndDistance[i]
@@ -712,7 +707,7 @@ void predict(const raft::handle_t &handle, const KMeansParams &params,
     },
     stream);
 
-  MLCommon::copy(&inertia, &clusterCostD->value, 1, stream);
+  raft::copy(&inertia, &clusterCostD->value, 1, stream);
 
   labelsRawData.resize(n_samples, stream);
 
@@ -725,7 +720,7 @@ void predict(const raft::handle_t &handle, const KMeansParams &params,
   handle.get_device_allocator()->deallocate(
     clusterCostD, sizeof(cub::KeyValuePair<IndexT, DataT>), stream);
 
-  MLCommon::copy(labelsRawPtr, labelsRawData.data(), n_samples, stream);
+  raft::copy(labelsRawPtr, labelsRawData.data(), n_samples, stream);
 }
 
 template <typename DataT, typename IndexT = int>

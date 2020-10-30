@@ -87,7 +87,8 @@ cdef extern from "cuml/tsa/batched_kalman.hpp" namespace "ML":
 
 
 class ARIMA(Base):
-    r"""Implements a batched ARIMA model for in- and out-of-sample
+    r"""
+    Implements a batched ARIMA model for in- and out-of-sample
     time-series prediction, with support for seasonality (SARIMA)
 
     ARIMA stands for Auto-Regressive Integrated Moving Average.
@@ -97,46 +98,6 @@ class ARIMA(Base):
     batch of time series of the same length with no missing values.
     The implementation is designed to give the best performance when using
     large batches of time series.
-
-    Examples
-    --------
-    .. code-block:: python
-
-        import numpy as np
-        from cuml.tsa.arima import ARIMA
-
-        # Create seasonal data with a trend, a seasonal pattern and noise
-        n_obs = 100
-        np.random.seed(12)
-        x = np.linspace(0, 1, n_obs)
-        pattern = np.array([[0.05, 0.0], [0.07, 0.03],
-                            [-0.03, 0.05], [0.02, 0.025]])
-        noise = np.random.normal(scale=0.01, size=(n_obs, 2))
-        y = (np.column_stack((0.5*x, -0.25*x)) + noise
-             + np.tile(pattern, (25, 1)))
-
-        # Fit a seasonal ARIMA model
-        model = ARIMA(y, (0,1,1), (0,1,1,4), fit_intercept=False)
-        model.fit()
-
-        # Forecast
-        fc = model.forecast(10)
-        print(fc)
-
-    Output:
-
-    .. code-block:: python
-
-        [[ 0.55204599 -0.25681163]
-         [ 0.57430705 -0.2262438 ]
-         [ 0.48120315 -0.20583011]
-         [ 0.535594   -0.24060046]
-         [ 0.57207541 -0.26695497]
-         [ 0.59433647 -0.23638713]
-         [ 0.50123257 -0.21597344]
-         [ 0.55562342 -0.25074379]
-         [ 0.59210483 -0.27709831]
-         [ 0.61436589 -0.24653047]]
 
     Parameters
     ----------
@@ -160,25 +121,32 @@ class ARIMA(Base):
         statsmodels computes forecasts for the differenced series when
         simple_differencing is True.
     handle : cuml.Handle
-        If it is None, a new one is created just for this instance
-    verbose : int or boolean (default = False)
-        Controls verbose level of logging.
-    output_type : {'input', 'cudf', 'cupy', 'numpy'}, optional
-        Variable to control output type of the results and attributes.
-        If None, it'll inherit the output type set at the module level,
-        cuml.output_type. If set, it will override the global option.
+        Specifies the cuml.handle that holds internal CUDA state for
+        computations in this model. Most importantly, this specifies the CUDA
+        stream that will be used for the model's computations, so users can
+        run different models concurrently in different streams by creating
+        handles in several streams.
+        If it is None, a new one is created.
+    verbose : int or boolean, default=False
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        See :ref:`verbosity-levels` for more info.
+    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
+        Variable to control output type of the results and attributes of
+        the estimator. If None, it'll inherit the output type set at the
+        module level, `cuml.global_output_type`.
+        See :ref:`output-data-type-configuration` for more info.
 
     Attributes
     ----------
-    order : Tuple[int, int, int]
-        The ARIMA order (p, d, q) of the model
+    order : ARIMAOrder
+        The ARIMA order of the model (p, d, q, P, D, Q, s, k)
     seasonal_order: Tuple[int, int, int, int]
         The seasonal ARIMA order (P, D, Q, s) of the model
     intercept : bool or int
         Whether the model includes a constant trend mu
     d_y: device array
         Time series data on device
-    num_samples: int
+    n_obs: int
         Number of observations
     batch_size: int
         Number of time series in the batch
@@ -208,6 +176,46 @@ class ARIMA(Base):
     Additionally the following book is a useful reference:
     "Time Series Analysis by State Space Methods",
     J. Durbin, S.J. Koopman, 2nd Edition (2012).
+
+    Examples
+    --------
+    .. code-block:: python
+
+            import numpy as np
+            from cuml.tsa.arima import ARIMA
+
+            # Create seasonal data with a trend, a seasonal pattern and noise
+            n_obs = 100
+            np.random.seed(12)
+            x = np.linspace(0, 1, n_obs)
+            pattern = np.array([[0.05, 0.0], [0.07, 0.03],
+                                [-0.03, 0.05], [0.02, 0.025]])
+            noise = np.random.normal(scale=0.01, size=(n_obs, 2))
+            y = (np.column_stack((0.5*x, -0.25*x)) + noise
+                + np.tile(pattern, (25, 1)))
+
+            # Fit a seasonal ARIMA model
+            model = ARIMA(y, (0,1,1), (0,1,1,4), fit_intercept=False)
+            model.fit()
+
+            # Forecast
+            fc = model.forecast(10)
+            print(fc)
+
+    Output:
+
+    .. code-block:: python
+
+            [[ 0.55204599 -0.25681163]
+            [ 0.57430705 -0.2262438 ]
+            [ 0.48120315 -0.20583011]
+            [ 0.535594   -0.24060046]
+            [ 0.57207541 -0.26695497]
+            [ 0.59433647 -0.23638713]
+            [ 0.50123257 -0.21597344]
+            [ 0.55562342 -0.25074379]
+            [ 0.59210483 -0.27709831]
+            [ 0.61436589 -0.24653047]]
 
     """
 
@@ -380,15 +388,16 @@ class ARIMA(Base):
         cdef ARIMAOrder order = self.order
         return order.p + order.P + order.q + order.Q + order.k + 1
 
-    def get_params(self) -> Dict[str, np.ndarray]:
-        """Get the parameters of the model
+    def get_fit_params(self) -> Dict[str, np.ndarray]:
+        """Get all the fit parameters. Not to be confused with get_params
+        Note: pack() can be used to get a compact vector of the parameters
 
         Returns
-        --------
+        -------
         params: Dict[str, np.ndarray]
             A dictionary of parameter names and associated arrays
             The key names are in {"mu", "ar", "ma", "sar", "sma", "sigma2"}
-            The shape of the arrays are (batch_size,) for mu parameters and
+            The shape of the arrays are (batch_size,) for mu and sigma2 and
             (n, batch_size) for any other type, where n is the corresponding
             number of parameters of this type.
         """
@@ -401,15 +410,17 @@ class ARIMA(Base):
                 params[names[i]] = getattr(self, names[i])
         return params
 
-    def set_params(self, params: Mapping[str, object]):
-        """Set the parameters of the model
+    def set_fit_params(self, params: Mapping[str, object]):
+        """Set all the fit parameters. Not to be confused with ``set_params``
+        Note: `unpack()` can be used to load a compact vector of the
+        parameters
 
         Parameters
         ----------
-        params: Mapping[str, np.ndarray]
-            A mapping (e.g dictionary) of parameter names and associated arrays
+        params:
+            A dictionary of parameter names and associated arrays
             The key names are in {"mu", "ar", "ma", "sar", "sma", "sigma2"}
-            The shape of the arrays are (batch_size,) for mu parameters and
+            The shape of the arrays are (batch_size,) for mu and sigma2 and
             (n, batch_size) for any other type, where n is the corresponding
             number of parameters of this type.
         """
@@ -417,6 +428,33 @@ class ARIMA(Base):
             if param_name in params:
                 array, _, _, _, _ = input_to_host_array(params[param_name])
                 setattr(self, param_name, array)
+
+    def get_param_names(self):
+        """
+        .. warning:: ARIMA is unable to be cloned at this time. The methods:
+            `get_param_names()`, `get_params` and `set_params` will raise
+            ``NotImplementedError``
+        """
+        raise NotImplementedError("ARIMA is unable to be cloned via "
+                                  "`get_params` and `set_params`.")
+
+    def get_params(self, deep=True):
+        """
+        .. warning:: ARIMA is unable to be cloned at this time. The methods:
+            `get_param_names()`, `get_params` and `set_params` will raise
+            ``NotImplementedError``
+        """
+        raise NotImplementedError("ARIMA is unable to be cloned via "
+                                  "`get_params` and `set_params`.")
+
+    def set_params(self, **params):
+        """
+        .. warning:: ARIMA is unable to be cloned at this time. The methods:
+            `get_param_names()`, `get_params` and `set_params` will raise
+            ``NotImplementedError``
+        """
+        raise NotImplementedError("ARIMA is unable to be cloned via "
+                                  "`get_params` and `set_params`.")
 
     @nvtx_range_wrap
     def predict(self, start=0, end=None, level=None):
@@ -644,7 +682,7 @@ class ARIMA(Base):
         if order.Q:
             params["sma"] = d_sma.to_output('numpy')
         params["sigma2"] = d_sigma2.to_output('numpy')
-        self.set_params(params)
+        self.set_fit_params(params)
 
     @nvtx_range_wrap
     def fit(self,
@@ -658,12 +696,12 @@ class ARIMA(Base):
 
         Parameters
         ----------
-        start_params : Mapping[str, object] (optional)
+        start_params : Mapping[str, array-like] (optional)
             A mapping (e.g dictionary) of parameter names and associated arrays
             The key names are in {"mu", "ar", "ma", "sar", "sma", "sigma2"}
-            The shape of the arrays are (batch_size,) for mu parameters and
-            (n, batch_size) for any other type, where n is the corresponding
-            number of parameters of this type.
+            The shape of the arrays are (batch_size,) for mu and sigma2
+            parameters and (n, batch_size) for any other type, where n is the
+            corresponding number of parameters of this type.
             Pass None for automatic estimation (recommended)
 
         opt_disp : int
@@ -725,7 +763,7 @@ class ARIMA(Base):
         if start_params is None:
             self._estimate_x0()
         else:
-            self.set_params(start_params)
+            self.set_fit_params(start_params)
 
         x0 = self._batched_transform(self.pack(), True)
 
@@ -892,7 +930,7 @@ class ARIMA(Base):
             params["sma"] = np.array(x_mat[k+p+q+P:k+p+q+P+Q], order='F')
         params["sigma2"] = np.array(x_mat[k+p+q+P+Q], order='F')
 
-        self.set_params(params)
+        self.set_fit_params(params)
 
     @nvtx_range_wrap
     def pack(self) -> np.ndarray:
@@ -900,7 +938,7 @@ class ARIMA(Base):
 
         Returns
         -------
-        x : array-like
+        x : numpy ndarray
             Packed parameter array, grouped by series.
             Shape: (n_params * batch_size,)
         """
@@ -908,7 +946,7 @@ class ARIMA(Base):
         p, q, P, Q, k = (order.p, order.q, order.P, order.Q, order.k)
         N = self.complexity
 
-        params = self.get_params()
+        params = self.get_fit_params()
 
         # 2D array for convenience
         x = np.zeros((N, self.batch_size), order='F')

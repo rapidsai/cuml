@@ -131,8 +131,8 @@ class Results {
     math_t *x_support = (math_t *)allocator->allocate(
       n_support * n_cols * sizeof(math_t), stream);
     // Collect support vectors into a contiguous block
-    MLCommon::Matrix::copyRows(x, n_rows, n_cols, x_support, idx, n_support,
-                               stream);
+    raft::matrix::copyRows(x, n_rows, n_cols, x_support, idx, n_support,
+                           stream);
     CUDA_CHECK(cudaPeekAtLastError());
     return x_support;
   }
@@ -156,14 +156,14 @@ class Results {
   void CombineCoefs(const math_t *alpha, math_t *coef) {
     MLCommon::device_buffer<math_t> math_tmp(allocator, stream, n_train);
     // Calculate dual coefficients = alpha * y
-    MLCommon::LinAlg::binaryOp(
+    raft::linalg::binaryOp(
       coef, alpha, y, n_train,
       [] __device__(math_t a, math_t y) { return a * y; }, stream);
 
     if (svmType == EPSILON_SVR) {
       // for regression the final coefficients are
       // coef[0..n-rows-1] = alpha[0..nrows-1] - alpha[nrows..2*n_rows-1]
-      MLCommon::LinAlg::add(coef, coef, coef + n_rows, n_rows, stream);
+      raft::linalg::add(coef, coef, coef + n_rows, n_rows, stream);
     }
   }
 
@@ -183,7 +183,7 @@ class Results {
       SelectByCoef(val_tmp, n_rows, val_tmp, select_op, val_selected.data());
     *dual_coefs =
       (math_t *)allocator->allocate(*n_support * sizeof(math_t), stream);
-    MLCommon::copy(*dual_coefs, val_selected.data(), *n_support, stream);
+    raft::copy(*dual_coefs, val_selected.data(), *n_support, stream);
   }
 
   /**
@@ -198,7 +198,7 @@ class Results {
     auto select_op = [] __device__(math_t a) -> bool { return 0 != a; };
     SelectByCoef(coef, n_rows, f_idx.data(), select_op, idx_selected.data());
     int *idx = (int *)allocator->allocate(n_support * sizeof(int), stream);
-    MLCommon::copy(idx, idx_selected.data(), n_support, stream);
+    raft::copy(idx, idx_selected.data(), n_support, stream);
     return idx;
   }
 
@@ -225,7 +225,7 @@ class Results {
       cub::DeviceReduce::Sum(cub_storage.data(), cub_bytes, val_selected.data(),
                              d_val_reduced.data(), n_free, stream);
       math_t sum;
-      MLCommon::updateHost(&sum, d_val_reduced.data(), 1, stream);
+      raft::update_host(&sum, d_val_reduced.data(), 1, stream);
       return -sum / n_free;
     } else {
       // All support vectors are bound. Let's define
@@ -254,11 +254,11 @@ class Results {
     auto select = [] __device__(math_t a, math_t C) -> bool {
       return 0 < a && a < C;
     };
-    MLCommon::LinAlg::binaryOp(flag.data(), alpha, C, n, select, stream);
+    raft::linalg::binaryOp(flag.data(), alpha, C, n, select, stream);
     cub::DeviceSelect::Flagged(cub_storage.data(), cub_bytes, val, flag.data(),
                                out, d_num_selected.data(), n, stream);
     int n_selected;
-    MLCommon::updateHost(&n_selected, d_num_selected.data(), 1, stream);
+    raft::update_host(&n_selected, d_num_selected.data(), 1, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
     return n_selected;
   }
@@ -325,13 +325,13 @@ class Results {
   template <typename select_op, typename valType>
   int SelectByCoef(const math_t *coef, int n, const valType *val, select_op op,
                    valType *out) {
-    set_flag<<<MLCommon::ceildiv(n, TPB), TPB, 0, stream>>>(flag.data(), coef,
-                                                            n, op);
+    set_flag<<<raft::ceildiv(n, TPB), TPB, 0, stream>>>(flag.data(), coef, n,
+                                                        op);
     CUDA_CHECK(cudaPeekAtLastError());
     cub::DeviceSelect::Flagged(cub_storage.data(), cub_bytes, val, flag.data(),
                                out, d_num_selected.data(), n, stream);
     int n_selected;
-    MLCommon::updateHost(&n_selected, d_num_selected.data(), 1, stream);
+    raft::update_host(&n_selected, d_num_selected.data(), 1, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
     return n_selected;
   }
@@ -345,14 +345,14 @@ class Results {
   math_t SelectReduce(const math_t *alpha, const math_t *f, bool min,
                       void (*flag_op)(bool *, int, const math_t *,
                                       const math_t *, const math_t *)) {
-    flag_op<<<MLCommon::ceildiv(n_train, TPB), TPB, 0, stream>>>(
+    flag_op<<<raft::ceildiv(n_train, TPB), TPB, 0, stream>>>(
       flag.data(), n_train, alpha, y, C);
     CUDA_CHECK(cudaPeekAtLastError());
     cub::DeviceSelect::Flagged(cub_storage.data(), cub_bytes, f, flag.data(),
                                val_selected.data(), d_num_selected.data(),
                                n_train, stream);
     int n_selected;
-    MLCommon::updateHost(&n_selected, d_num_selected.data(), 1, stream);
+    raft::update_host(&n_selected, d_num_selected.data(), 1, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
     math_t res = 0;
     ASSERT(n_selected > 0,
@@ -365,7 +365,7 @@ class Results {
       cub::DeviceReduce::Max(cub_storage.data(), cub_bytes, val_selected.data(),
                              d_val_reduced.data(), n_selected, stream);
     }
-    MLCommon::updateHost(&res, d_val_reduced.data(), 1, stream);
+    raft::update_host(&res, d_val_reduced.data(), 1, stream);
     return res;
   }
 };  // namespace SVM

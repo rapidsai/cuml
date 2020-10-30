@@ -19,8 +19,8 @@
 #include <cub/cub.cuh>
 #include <cuda_utils.cuh>
 
-namespace MLCommon {
-namespace LinAlg {
+namespace raft {
+namespace linalg {
 
 // Kernel (based on norm.cuh) to perform reductions along the coalesced dimension
 // of the matrix, i.e. reduce along rows for row major or reduce along columns
@@ -80,14 +80,14 @@ __global__ void coalescedReductionKernel(OutType *dots, const InType *data,
  * @param stream cuda stream where to launch work
  */
 template <typename InType, typename OutType = InType, typename IdxType = int,
-          typename MainLambda = Nop<InType, IdxType>,
-          typename ReduceLambda = Sum<OutType>,
-          typename FinalLambda = Nop<OutType>>
+          typename MainLambda = raft::Nop<InType, IdxType>,
+          typename ReduceLambda = raft::Sum<OutType>,
+          typename FinalLambda = raft::Nop<OutType>>
 void coalescedReduction(OutType *dots, const InType *data, int D, int N,
                         OutType init, cudaStream_t stream, bool inplace = false,
-                        MainLambda main_op = Nop<InType, IdxType>(),
-                        ReduceLambda reduce_op = Sum<OutType>(),
-                        FinalLambda final_op = Nop<OutType>()) {
+                        MainLambda main_op = raft::Nop<InType, IdxType>(),
+                        ReduceLambda reduce_op = raft::Sum<OutType>(),
+                        FinalLambda final_op = raft::Nop<OutType>()) {
   // One block per reduction
   // Efficient only for large leading dimensions
   if (D <= 32) {
@@ -110,5 +110,5 @@ void coalescedReduction(OutType *dots, const InType *data, int D, int N,
   CUDA_CHECK(cudaPeekAtLastError());
 }
 
-};  // end namespace LinAlg
-};  // end namespace MLCommon
+};  // end namespace linalg
+};  // end namespace raft

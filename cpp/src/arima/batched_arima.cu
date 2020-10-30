@@ -211,7 +211,7 @@ __global__ void sum_of_squares_kernel(const DataT* d_y, const DataT* d_mu,
       threadIdx.x < n_phi ? phi * b_y[i - threadIdx.x - 1 - start_y] : (DataT)0;
     res -= threadIdx.x < n_theta ? theta * b_vs[i - threadIdx.x - 1 - start_v]
                                  : (DataT)0;
-    res = MLCommon::blockReduce(res, temp_smem);
+    res = raft::blockReduce(res, temp_smem);
     if (threadIdx.x == 0) {
       res += b_y[i - start_y] - mu;
       b_vs[i - start_v] = res;
@@ -223,7 +223,7 @@ __global__ void sum_of_squares_kernel(const DataT* d_y, const DataT* d_mu,
   if (threadIdx.x == 0) {
     d_loglike[blockIdx.x] =
       -0.5 * static_cast<DataT>(n_obs) *
-      MLCommon::myLog(ssq / static_cast<DataT>(n_obs - start_sum));
+      raft::myLog(ssq / static_cast<DataT>(n_obs - start_sum));
   }
 }
 
@@ -255,7 +255,7 @@ void conditional_sum_of_squares(raft::handle_t& handle, const double* d_y,
   int start_v = start_sum - n_theta;
 
   // Compute the sum-of-squares and the log-likelihood
-  int n_warps = std::max(MLCommon::ceildiv<int>(max_lags, 32), 1);
+  int n_warps = std::max(raft::ceildiv<int>(max_lags, 32), 1);
   size_t shared_mem_size =
     (2 * n_obs - start_y - start_v + n_warps) * sizeof(double);
   sum_of_squares_kernel<<<batch_size, 32 * n_warps, shared_mem_size, stream>>>(
@@ -316,7 +316,7 @@ void batched_loglike(raft::handle_t& handle, const double* d_y, int batch_size,
 
   if (host_loglike) {
     /* Tranfer log-likelihood device -> host */
-    MLCommon::updateHost(loglike, d_loglike, batch_size, stream);
+    raft::update_host(loglike, d_loglike, batch_size, stream);
   }
 
   if (trans) {
@@ -362,7 +362,7 @@ void batched_loglike_grad(raft::handle_t& handle, const double* d_y,
   // Initialize the perturbed x vector
   MLCommon::device_buffer<double> x_pert(allocator, stream, N * batch_size);
   double* d_x_pert = x_pert.data();
-  MLCommon::copy(d_x_pert, d_x, N * batch_size, stream);
+  raft::copy(d_x_pert, d_x, N * batch_size, stream);
 
   // Create buffers for the log-likelihood and residuals
   MLCommon::device_buffer<double> ll_base(allocator, stream, batch_size);
@@ -569,8 +569,8 @@ void _arma_least_squares(raft::handle_t& handle, double* d_ar, double* d_ma,
   MLCommon::LinAlg::Batched::Matrix<double> bm_final_residual(
     n_obs - r, 1, batch_size, cublas_handle, allocator, stream, false);
   if (estimate_sigma2) {
-    MLCommon::copy(bm_final_residual.raw_data(), bm_arma_fit.raw_data(),
-                   (n_obs - r) * batch_size, stream);
+    raft::copy(bm_final_residual.raw_data(), bm_arma_fit.raw_data(),
+               (n_obs - r) * batch_size, stream);
   }
 
   // ARMA fit

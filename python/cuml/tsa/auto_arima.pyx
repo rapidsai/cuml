@@ -101,65 +101,84 @@ tests_map = {
 
 
 class AutoARIMA(Base):
-    """Implements a batched auto-ARIMA model for in- and out-of-sample
+    """
+    Implements a batched auto-ARIMA model for in- and out-of-sample
     times-series prediction.
 
     This interface offers a highly customizable search, with functionality
-    similar to the `forecast` and `fable` packages in R.
-    It provides an abstraction around the underlying ARIMA models to predict
-    and forecast as if using a single model.
-
-    Examples
-    --------
-    .. code-block:: python
-
-        from cuml.tsa.auto_arima import AutoARIMA
-
-        model = AutoARIMA(y)
-        model.search(s=12, d=(0, 1), D=(0, 1), p=(0, 2, 4), q=(0, 2, 4),
-                     P=range(2), Q=range(2), method="css", truncate=100)
-        model.fit(method="css-ml")
-        fc = model.forecast(20)
-
+    similar to the `forecast` and `fable` packages in R. It provides an
+    abstraction around the underlying ARIMA models to predict and forecast as
+    if using a single model.
 
     Parameters
     ----------
+
     endog : dataframe or array-like (device or host)
         The time series data, assumed to have each time series in columns.
         Acceptable formats: cuDF DataFrame, cuDF Series, NumPy ndarray,
         Numba device ndarray, cuda array interface compliant array like CuPy.
     handle : cuml.Handle
-        If it is None, a new one is created just for this instance
-    simple_differencing: bool or int (default = True)
+        Specifies the cuml.handle that holds internal CUDA state for
+        computations in this model. Most importantly, this specifies the CUDA
+        stream that will be used for the model's computations, so users can
+        run different models concurrently in different streams by creating
+        handles in several streams.
+        If it is None, a new one is created.
+    simple_differencing: bool or int, default=True
         If True, the data is differenced before being passed to the Kalman
         filter. If False, differencing is part of the state-space model.
         See additional notes in the ARIMA docs
-    verbose : int
-        Logging level. It must be one of `cuml.common.logger.level_*`
-    output_type : {'input', 'cudf', 'cupy', 'numpy'}, optional
-        Variable to control output type of the results and attributes.
-        If None, it'll inherit the output type set at the module level,
-        cuml.output_type. If set, it will override the global option.
+    verbose : int or boolean, default=False
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        See :ref:`verbosity-levels` for more info.
+    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
+        Variable to control output type of the results and attributes of
+        the estimator. If None, it'll inherit the output type set at the
+        module level, `cuml.global_output_type`.
+        See :ref:`output-data-type-configuration` for more info.
 
-    References
-    ----------
+    Notes
+    -----
+
     The interface was influenced by the R `fable` package:
     See https://fable.tidyverts.org/reference/ARIMA.html
 
+    References
+    ----------
+
     A useful (though outdated) reference is the paper:
-    "Automatic Time Series Forecasting: The `forecast` Package for R",
-    Rob J. Hyndman & Yeasmin Khandakar (2008),
-    Journal of Statistical Software 27, https://doi.org/10.18637/jss.v027.i03
+
+    .. [1] Rob J. Hyndman, Yeasmin Khandakar, 2008. "Automatic Time Series
+        Forecasting: The 'forecast' Package for R", Journal of Statistical
+        Software 27
+
+    Examples
+    --------
+
+    .. code-block:: python
+
+            from cuml.tsa.auto_arima import AutoARIMA
+
+            model = AutoARIMA(y)
+            model.search(s=12, d=(0, 1), D=(0, 1), p=(0, 2, 4), q=(0, 2, 4),
+                         P=range(2), Q=range(2), method="css", truncate=100)
+            model.fit(method="css-ml")
+            fc = model.forecast(20)
+
+
     """
 
     def __init__(self,
                  endog,
                  handle=None,
                  simple_differencing=True,
-                 verbose=logger.level_info,
+                 verbose=False,
                  output_type=None):
         # Initialize base class
-        super().__init__(handle, output_type=output_type, verbose=verbose)
+        super().__init__(
+            handle=handle,
+            output_type=output_type,
+            verbose=verbose)
         self._set_base_attributes(output_type=endog)
 
         # Get device array. Float64 only for now.
@@ -242,8 +261,8 @@ class AutoARIMA(Base):
         ic = ic.lower()
         test = test.lower()
         seasonal_test = seasonal_test.lower()
-        if s == 1:  # R users might use s=1 for a non-seasonal dataset
-            s = None
+        if s is None or s == 1:  # R users might use s=1 for non-seasonal data
+            s = 0
         if method == "auto":
             method = "css" if self.n_obs >= 100 and s >= 4 else "ml"
 
@@ -407,8 +426,8 @@ class AutoARIMA(Base):
     def predict(self, start=0, end=None, level=None):
         """Compute in-sample and/or out-of-sample prediction for each series
 
-        Parameters:
-        -----------
+        Parameters
+        ----------
         start: int
             Index where to start the predictions (0 <= start <= num_samples)
         end:
@@ -418,7 +437,7 @@ class AutoARIMA(Base):
             the point forecasts. 0 < level < 1
 
         Returns
-        --------
+        -------
         y_p : array-like (device)
             Predictions. Shape = (end - start, batch_size)
         lower: array-like (device) (optional)
@@ -460,7 +479,7 @@ class AutoARIMA(Base):
     def forecast(self, nsteps: int, level=None):
         """Forecast `nsteps` into the future.
 
-        Parameters:
+        Parameters
         ----------
         nsteps : int
             The number of steps to forecast beyond end of the given series
@@ -469,7 +488,7 @@ class AutoARIMA(Base):
             the point forecasts. 0 < level < 1
 
         Returns
-        --------
+        -------
         y_fc : array-like
                Forecasts. Shape = (nsteps, batch_size)
         lower: array-like (device) (optional)
@@ -512,7 +531,7 @@ def _divide_by_mask(original, mask, batch_id, handle=None):
     .. note:: in case the mask contains only False or only True, one sub-batch
         will be the original batch (not a copy!) and the other None
 
-    Parameters:
+    Parameters
     ----------
     original : cumlArray (float32 or float64)
         Original batch
@@ -521,10 +540,15 @@ def _divide_by_mask(original, mask, batch_id, handle=None):
     batch_id : cumlArray (int)
         Integer array to track the id of each member in the initial batch
     handle : cuml.Handle
-        If it is None, a new one is created just for this call
+        Specifies the cuml.handle that holds internal CUDA state for
+        computations in this model. Most importantly, this specifies the CUDA
+        stream that will be used for the model's computations, so users can
+        run different models concurrently in different streams by creating
+        handles in several streams.
+        If it is None, a new one is created.
 
     Returns
-    --------
+    -------
     out0 : cumlArray (float32 or float64)
         Sub-batch 0, or None if empty
     batch0_id : cumlArray (int)
@@ -631,7 +655,7 @@ def _divide_by_min(original, metrics, batch_id, handle=None):
     """Divide a given batch into multiple sub-batches according to the values
     of the given metrics, by selecting the minimum value for each member
 
-    Parameters:
+    Parameters
     ----------
     original : cumlArray (float32 or float64)
         Original batch
@@ -640,10 +664,15 @@ def _divide_by_min(original, metrics, batch_id, handle=None):
     batch_id : cumlArray (int)
         Integer array to track the id of each member in the initial batch
     handle : cuml.Handle
-        If it is None, a new one is created just for this call
+        Specifies the cuml.handle that holds internal CUDA state for
+        computations in this model. Most importantly, this specifies the CUDA
+        stream that will be used for the model's computations, so users can
+        run different models concurrently in different streams by creating
+        handles in several streams.
+        If it is None, a new one is created.
 
     Returns
-    --------
+    -------
     sub_batches : List[cumlArray] (float32 or float64)
         List of arrays containing each sub-batch, or None if empty
     sub_id : List[cumlArray] (int)
@@ -750,7 +779,7 @@ def _build_division_map(id_tracker, batch_size, handle=None):
     """Build a map to associate each batch member with a model and index in
     the associated sub-batch
 
-    Parameters:
+    Parameters
     ----------
     id_tracker : List[cumlArray] (int)
         List of the index arrays of each sub-batch
@@ -758,7 +787,7 @@ def _build_division_map(id_tracker, batch_size, handle=None):
         Size of the initial batch
 
     Returns
-    --------
+    -------
     id_to_model : cumlArray (int)
         Associates each batch member with a model
     id_to_pos : cumlArray (int)
@@ -802,7 +831,7 @@ def _merge_series(data_in, id_to_sub, id_to_pos, batch_size, handle=None):
     associate each id in the unique batch to a sub-batch and a position in
     this sub-batch.
 
-    Parameters:
+    Parameters
     ----------
     data_in : List[cumlArray] (float32 or float64)
         List of sub-batches to merge
@@ -814,7 +843,7 @@ def _merge_series(data_in, id_to_sub, id_to_pos, batch_size, handle=None):
         Size of the initial batch
 
     Returns
-    --------
+    -------
     data_out : cumlArray (float32 or float64)
         Merged batch
     """

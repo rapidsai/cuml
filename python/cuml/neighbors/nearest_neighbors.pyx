@@ -116,10 +116,16 @@ class NearestNeighbors(Base):
     ----------
     n_neighbors : int (default=5)
         Default number of neighbors to query
-    verbose : int or boolean (default = False)
-        Logging level
-    handle : handle_t
-        The handle_t resources to use
+    verbose : int or boolean, default=False
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        See :ref:`verbosity-levels` for more info.
+    handle : cuml.Handle
+        Specifies the cuml.handle that holds internal CUDA state for
+        computations in this model. Most importantly, this specifies the CUDA
+        stream that will be used for the model's computations, so users can
+        run different models concurrently in different streams by creating
+        handles in several streams.
+        If it is None, a new one is created.
     algorithm : string (default='brute')
         The query algorithm to use. Valid options are :
         - 'brute' for brute-force, slow but produces exact results
@@ -165,6 +171,11 @@ class NearestNeighbors(Base):
                 QT_6bit)
             - encodeResidual : (bool) wether to encode residuals
 
+    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
+        Variable to control output type of the results and attributes of
+        the estimator. If None, it'll inherit the output type set at the
+        module level, `cuml.global_output_type`.
+        See :ref:`output-data-type-configuration` for more info.
 
     Examples
     --------
@@ -308,7 +319,8 @@ class NearestNeighbors(Base):
         return self
 
     def get_param_names(self):
-        return ["n_neighbors", "algorithm", "metric",
+        return super().get_param_names() + \
+            ["n_neighbors", "algorithm", "metric",
                 "p", "metric_params"]
 
     @staticmethod
@@ -617,11 +629,17 @@ def kneighbors_graph(X=None, n_neighbors=5, mode='connectivity', verbose=False,
         connectivity matrix with ones and zeros, 'distance' returns the
         edges as the distances between points with the requested metric.
 
-    verbose : int or boolean (default = False)
-        Logging level
+    verbose : int or boolean, default=False
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        See :ref:`verbosity-levels` for more info.
 
-    handle : handle_t
-        The handle_t resources to use
+    handle : cuml.Handle
+        Specifies the cuml.handle that holds internal CUDA state for
+        computations in this model. Most importantly, this specifies the CUDA
+        stream that will be used for the model's computations, so users can
+        run different models concurrently in different streams by creating
+        handles in several streams.
+        If it is None, a new one is created.
 
     algorithm : string (default='brute')
         The query algorithm to use. Currently, only 'brute' is supported.
@@ -642,11 +660,11 @@ def kneighbors_graph(X=None, n_neighbors=5, mode='connectivity', verbose=False,
 
     metric_params : dict, optional (default = None) This is currently ignored.
 
-    output_type : {'input', 'cupy', 'numpy'}, optional (default=None)
+    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
         Variable to control output type of the results and attributes of
-        the estimators. If None, it'll inherit the output type set at the
-        module level, cuml.output_type. If set, the estimator will override
-        the global option for its behavior.
+        the estimator. If None, it'll inherit the output type set at the
+        module level, `cuml.global_output_type`.
+        See :ref:`output-data-type-configuration` for more info.
 
     Returns
     -------

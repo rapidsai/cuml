@@ -20,8 +20,8 @@
 #include <cuda_utils.cuh>
 #include <linalg/unary_op.cuh>
 
-namespace MLCommon {
-namespace LinAlg {
+namespace raft {
+namespace linalg {
 
 template <typename Type>
 __global__ void naiveCoalescedReductionKernel(Type *dots, const Type *data,
@@ -40,7 +40,7 @@ template <typename Type>
 void naiveCoalescedReduction(Type *dots, const Type *data, int D, int N,
                              cudaStream_t stream) {
   static const int TPB = 64;
-  int nblks = ceildiv(N, TPB);
+  int nblks = raft::ceildiv(N, TPB);
   naiveCoalescedReductionKernel<Type>
     <<<nblks, TPB, 0, stream>>>(dots, data, D, N);
   CUDA_CHECK(cudaPeekAtLastError());
@@ -52,7 +52,7 @@ void unaryAndGemv(Type *dots, const Type *data, int D, int N,
   //computes a MLCommon unary op on data (squares it), then computes Ax
   //(A input matrix and x column vector) to sum columns
   thrust::device_vector<Type> sq(D * N);
-  unaryOp(
+  raft::linalg::unaryOp(
     thrust::raw_pointer_cast(sq.data()), data, D * N,
     [] __device__(Type v) { return v * v; }, stream);
   cublasHandle_t handle;
@@ -81,5 +81,5 @@ void naiveReduction(Type *dots, const Type *data, int D, int N, bool rowMajor,
   CUDA_CHECK(cudaDeviceSynchronize());
 }
 
-}  // end namespace LinAlg
-}  // end namespace MLCommon
+}  // end namespace linalg
+}  // end namespace raft

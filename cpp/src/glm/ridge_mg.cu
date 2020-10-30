@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <common/cudart_utils.h>
 #include <common/cumlHandle.hpp>
 #include <common/device_buffer.hpp>
 #include <cuda_utils.cuh>
@@ -53,19 +54,19 @@ void ridgeSolve(const raft::handle_t &handle, T *S, T *V,
   T beta = T(0);
   T thres = T(1e-10);
 
-  Matrix::setSmallValuesZero(S, UDesc.N, streams[0], thres);
+  raft::matrix::setSmallValuesZero(S, UDesc.N, streams[0], thres);
 
   // TO-DO: Update to use `device_buffer` here
   // Tracking issue: https://github.com/rapidsai/cuml/issues/2524
-  allocate(S_nnz, UDesc.N, true);
-  copy(S_nnz, S, UDesc.N, streams[0]);
-  Matrix::power(S_nnz, UDesc.N, streams[0]);
-  LinAlg::addScalar(S_nnz, S_nnz, alpha[0], UDesc.N, streams[0]);
-  Matrix::matrixVectorBinaryDivSkipZero(S, S_nnz, size_t(1), UDesc.N, false,
-                                        true, streams[0], true);
+  raft::allocate(S_nnz, UDesc.N, true);
+  raft::copy(S_nnz, S, UDesc.N, streams[0]);
+  raft::matrix::power(S_nnz, UDesc.N, streams[0]);
+  raft::linalg::addScalar(S_nnz, S_nnz, alpha[0], UDesc.N, streams[0]);
+  raft::matrix::matrixVectorBinaryDivSkipZero(S, S_nnz, size_t(1), UDesc.N,
+                                              false, true, streams[0], true);
 
-  Matrix::matrixVectorBinaryMult(V, S, UDesc.N, UDesc.N, false, true,
-                                 streams[0]);
+  raft::matrix::matrixVectorBinaryMult(V, S, UDesc.N, UDesc.N, false, true,
+                                       streams[0]);
 
   Matrix::Data<T> S_nnz_data;
   S_nnz_data.totalSize = UDesc.N;
@@ -73,8 +74,8 @@ void ridgeSolve(const raft::handle_t &handle, T *S, T *V,
   LinAlg::opg::mv_aTb(S_nnz_data, U, UDesc, b, comm, allocator, streams,
                       n_streams, cublasH);
 
-  LinAlg::gemm(V, UDesc.N, UDesc.N, S_nnz, w, UDesc.N, 1, CUBLAS_OP_N,
-               CUBLAS_OP_N, alp, beta, cublasH, streams[0]);
+  raft::linalg::gemm(handle, V, UDesc.N, UDesc.N, S_nnz, w, UDesc.N, 1,
+                     CUBLAS_OP_N, CUBLAS_OP_N, alp, beta, streams[0]);
 
   CUDA_CHECK(cudaFree(S_nnz));
 }
@@ -232,13 +233,13 @@ void predict_impl(raft::handle_t &handle,
 
   for (int i = 0; i < input_data.size(); i++) {
     int si = i % n_streams;
-    LinAlg::gemm(input_data[i]->ptr, local_blocks[i]->size, input_desc.N, coef,
-                 preds[i]->ptr, local_blocks[i]->size, size_t(1), CUBLAS_OP_N,
-                 CUBLAS_OP_N, alpha, beta, handle.get_cublas_handle(),
-                 streams[si]);
+    raft::linalg::gemm(handle, input_data[i]->ptr, local_blocks[i]->size,
+                       input_desc.N, coef, preds[i]->ptr, local_blocks[i]->size,
+                       size_t(1), CUBLAS_OP_N, CUBLAS_OP_N, alpha, beta,
+                       streams[si]);
 
-    LinAlg::addScalar(preds[i]->ptr, preds[i]->ptr, intercept,
-                      local_blocks[i]->size, streams[si]);
+    raft::linalg::addScalar(preds[i]->ptr, preds[i]->ptr, intercept,
+                            local_blocks[i]->size, streams[si]);
   }
 }
 
