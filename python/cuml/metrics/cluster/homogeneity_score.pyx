@@ -29,7 +29,7 @@ cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics":
                              const int upper_class_range) except +
 
 
-def homogeneity_score(labels_true, labels_pred, handle=None):
+def cython_homogeneity_score(labels_true, labels_pred, handle=None):
     """
     Computes the homogeneity metric of a cluster labeling given a ground truth.
 

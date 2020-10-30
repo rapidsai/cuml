@@ -32,7 +32,7 @@ cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics":
                              const int upper_class_range) except +
 
 
-def mutual_info_score(labels_true, labels_pred, handle=None):
+def cython_mutual_info_score(labels_true, labels_pred, handle=None):
     """
     Computes the Mutual Information between two clusterings.
 
