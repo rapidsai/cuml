@@ -20,9 +20,9 @@
 #include <metrics/klDivergence.cuh>
 #include <metrics/pairwiseDistance.cuh>
 #include <metrics/randIndex.cuh>
+#include <metrics/scores.cuh>
 #include <metrics/silhouetteScore.cuh>
 #include <metrics/vMeasure.cuh>
-#include <score/scores.cuh>
 
 namespace ML {
 

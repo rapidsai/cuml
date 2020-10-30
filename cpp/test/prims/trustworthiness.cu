@@ -19,7 +19,7 @@
 #include <cuda_utils.cuh>
 #include <distance/distance.cuh>
 #include <iostream>
-#include <score/scores.cuh>
+#include <metrics/scores.cuh>
 #include <vector>
 #include "test_utils.h"
 
