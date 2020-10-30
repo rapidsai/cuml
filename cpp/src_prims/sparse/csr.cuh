@@ -802,8 +802,6 @@ void weak_cc_label_batched(Index_ *labels, const Index_ *row_ind,
          "Index_ should be 4 or 8 bytes");
 
   bool host_m;
-  bool *host_fa = (bool *)malloc(sizeof(bool) * N);
-  bool *host_xa = (bool *)malloc(sizeof(bool) * N);
 
   dim3 blocks(raft::ceildiv(batchSize, Index_(TPB_X)));
   dim3 threads(TPB_X);
@@ -824,10 +822,9 @@ void weak_cc_label_batched(Index_ *labels, const Index_ *row_ind,
     CUDA_CHECK(cudaStreamSynchronize(stream));
 
     //** swapping F1 and F2
-    raft::update_host(host_fa, state->fa, N, stream);
-    raft::update_host(host_xa, state->xa, N, stream);
-    raft::update_device(state->fa, host_xa, N, stream);
-    raft::update_device(state->xa, host_fa, N, stream);
+    bool* temp_fa = state->fa;
+    state->fa = state->xa;
+    state->xa = temp_fa;
 
     //** Updating m *
     raft::update_host(&host_m, state->m, 1, stream);
@@ -835,9 +832,6 @@ void weak_cc_label_batched(Index_ *labels, const Index_ *row_ind,
 
     n_iters++;
   } while (host_m);
-
-  free(host_fa);
-  free(host_xa);
 }
 
 /**
