@@ -72,6 +72,12 @@ enum output_t {
       or select the class with the most votes to get the class label (for multi-class classification).  */
   CLASS = 0x100,
 };
+static const output_t SIGMOID_CLASS =
+  output_t(output_t::SIGMOID | output_t::CLASS);
+static const output_t AVG_CLASS = output_t(output_t::AVG | output_t::CLASS);
+static const output_t AVG_SIGMOID = output_t(output_t::AVG | output_t::SIGMOID);
+static const output_t AVG_SIGMOID_CLASS =
+  output_t(output_t::AVG | output_t::SIGMOID | output_t::CLASS);
 
 /** storage_type_t defines whether to import the forests as dense or sparse */
 enum storage_type_t {

@@ -36,27 +36,37 @@ namespace ML {
 using namespace MLCommon;
 namespace tl = treelite;
 namespace tlf = treelite::frontend;
+using ML::fil::AVG;
+using ML::fil::AVG_CLASS;
+using ML::fil::AVG_SIGMOID;
+using ML::fil::AVG_SIGMOID_CLASS;
+using ML::fil::CLASS;
+using ML::fil::RAW;
+using ML::fil::SIGMOID;
+using ML::fil::SIGMOID_CLASS;
 
 struct FilTestParams {
   // input data parameters
-  int num_rows;
-  int num_cols;
-  float nan_prob;
+  int num_rows = 20'000;
+  int num_cols = 50;
+  float nan_prob = 0.05;
   // forest parameters
-  int depth;
-  int num_trees;
-  float leaf_prob;
+  int depth = 8;
+  int num_trees = 50;
+  float leaf_prob = 0.05;
   // output parameters
-  fil::output_t output;
-  float threshold;
-  float global_bias;
+  fil::output_t output = fil::output_t(-1);
+  // there is no sensible default here and we cannot assume regression
+  // uninitialized `output` should crash instead of assuming
+  float threshold = 0.0f;
+  float global_bias = 0.0f;
   // runtime parameters
-  fil::algo_t algo;
-  int seed;
-  float tolerance;
+  fil::algo_t algo = fil::algo_t::NAIVE;
+  int seed = 42;
+  float tolerance = 2e-3f;
   // treelite parameters, only used for treelite tests
-  tl::Operator op;
-  fil::leaf_algo_t leaf_algo;
+  tl::Operator op = tl::Operator(0);
+  fil::leaf_algo_t leaf_algo = fil::leaf_algo_t::FLOAT_UNARY_BINARY;
   // when FLOAT_UNARY_BINARY == leaf_algo:
   // num_classes = 1 means it's regression
   // num_classes = 2 means it's binary classification
@@ -69,7 +79,9 @@ struct FilTestParams {
   // num_classes must be > 1 and it's multiclass classification.
   // done by storing the class label in each leaf and voting.
   // it's used in treelite ModelBuilder initialization
-  int num_classes;
+  int num_classes = -1;
+  // there is no sensible default here and we cannot assume regression
+  // uninitialized num_classes should crash instead of assuming
 
   size_t num_proba_outputs() { return num_rows * std::max(num_classes, 2); }
   size_t num_preds_outputs() { return num_rows; }
@@ -632,6 +644,11 @@ class TreeliteThrowSparse8FilTest : public TreeliteSparse8FilTest {
   void check() { ASSERT_THROW(setup_helper(), raft::exception); }
 };
 
+FilTestParams ftp(std::function<void(FilTestParams&)> f) {
+  FilTestParams p;
+  f(p);
+  return p;
+}
 // rows, cols, nan_prob, depth, num_trees, leaf_prob, output, threshold,
 // global_bias, algo, seed, tolerance, branch comparison operator, FIL implementation, number of classes
 std::vector<FilTestParams> predict_dense_inputs = {
@@ -739,25 +756,17 @@ TEST_P(PredictDenseFilTest, Predict) { compare(); }
 
 INSTANTIATE_TEST_CASE_P(FilTests, PredictDenseFilTest,
                         testing::ValuesIn(predict_dense_inputs));
-
 // rows, cols, nan_prob, depth, num_trees, leaf_prob, output, threshold,
 // global_bias, algo, seed, tolerance, branch comparison operator, FIL implementation, number of classes
 std::vector<FilTestParams> predict_sparse_inputs = {
-  {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::RAW, 0, 0, fil::algo_t::NAIVE,
-   42, 2e-3f, tl::Operator(0), fil::leaf_algo_t::FLOAT_UNARY_BINARY, 1},
-  {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::SIGMOID, 0, 0,
-   fil::algo_t::NAIVE, 42, 2e-3f, tl::Operator(0),
-   fil::leaf_algo_t::FLOAT_UNARY_BINARY, 1},
-  {20000, 50, 0.05, 8, 50, 0.05,
-   fil::output_t(fil::output_t::SIGMOID | fil::output_t::CLASS), 0, 0,
-   fil::algo_t::NAIVE, 42, 2e-3f, tl::Operator(0),
-   fil::leaf_algo_t::FLOAT_UNARY_BINARY, 2},
-  {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::AVG, 0, 0, fil::algo_t::NAIVE,
-   42, 2e-3f, tl::Operator(0), fil::leaf_algo_t::FLOAT_UNARY_BINARY, 1},
-  {20000, 50, 0.05, 8, 50, 0.05,
-   fil::output_t(fil::output_t::AVG | fil::output_t::CLASS), 0, 0.5,
-   fil::algo_t::NAIVE, 42, 2e-3f, tl::Operator(0),
-   fil::leaf_algo_t::FLOAT_UNARY_BINARY, 2},
+  ftp([](auto& _) { _.output = RAW, _.num_classes = 1; }),
+  ftp([](auto& _) { _.output = RAW, _.num_classes = 1; }),
+  ftp([](auto& _) { _.output = SIGMOID, _.num_classes = 1; }),
+  ftp([](auto& _) { _.output = SIGMOID_CLASS, _.num_classes = 2; }),
+  ftp([](auto& _) { _.output = AVG, _.num_classes = 1; }),
+  ftp([](auto& _) {
+    _.output = AVG_CLASS, _.global_bias = 0.5, _.num_classes = 2;
+  }),
   {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::RAW, 0, 0.5, fil::algo_t::NAIVE,
    42, 2e-3f, tl::Operator(0), fil::leaf_algo_t::FLOAT_UNARY_BINARY, 1},
   {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::SIGMOID, 0, 0.5,
