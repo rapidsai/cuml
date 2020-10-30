@@ -16,6 +16,7 @@
 #define SPDLOG_HEADER_ONLY
 #include <spdlog/sinks/stdout_color_sinks.h>  // NOLINT
 #include <spdlog/spdlog.h>                    // NOLINT
+#include <spdlog/cfg/env.h>                   // NOLINT
 
 #include <algorithm>
 #include <cuml/common/callbackSink.hpp>
@@ -56,6 +57,12 @@ Logger::Logger()
     currPattern() {
   setPattern(DefaultPattern);
   setLevel(CUML_LEVEL_INFO);
+
+  // Init the logger so its in the registry
+  spdlog::initialize_logger(logger);
+
+  // Load environment variables 
+  spdlog::cfg::load_env_levels();
 }
 
 void Logger::setLevel(int level) {
