@@ -21,8 +21,8 @@
 #include <stats/sum.cuh>
 #include "test_utils.h"
 
-namespace MLCommon {
-namespace Stats {
+namespace raft {
+namespace stats {
 
 template <typename T>
 struct SumInputs {
@@ -91,5 +91,5 @@ INSTANTIATE_TEST_CASE_P(SumTests, SumTestF, ::testing::ValuesIn(inputsf));
 
 INSTANTIATE_TEST_CASE_P(SumTests, SumTestD, ::testing::ValuesIn(inputsd));
 
-}  // end namespace Stats
-}  // end namespace MLCommon
+}  // end namespace stats
+}  // end namespace raft
