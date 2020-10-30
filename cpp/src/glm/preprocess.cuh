@@ -52,9 +52,9 @@ void preProcessData(const raft::handle_t &handle, math_t *input, int n_rows,
                             stream);
 
     if (normalize) {
-      LinAlg::colNorm(norm2_input, input, n_cols, n_rows, LinAlg::L2Norm, false,
-                      stream,
-                      [] __device__(math_t v) { return raft::mySqrt(v); });
+      raft::linalg::colNorm(
+        norm2_input, input, n_cols, n_rows, raft::linalg::L2Norm, false, stream,
+        [] __device__(math_t v) { return raft::mySqrt(v); });
       raft::matrix::matrixVectorBinaryDivSkipZero(
         input, norm2_input, n_rows, n_cols, false, true, stream, true);
     }

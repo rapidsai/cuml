@@ -17,8 +17,8 @@
 #include <common/cudart_utils.h>
 #include <gtest/gtest.h>
 #include <iostream>
+#include <metrics/scores.cuh>
 #include <random/rng.cuh>
-#include <score/scores.cuh>
 #include <vector>
 #include "test_utils.h"
 
