@@ -50,7 +50,7 @@ void generate_data(float *out_samples, float *out_labels, int n_rows,
     out_samples, out_samples, n_rows,
     [=] __device__(float input) { return 2 * input - 1; }, stream);
 
-  MLCommon::LinAlg::reduce(
+  raft::linalg::reduce(
     out_labels, out_samples, n_cols, n_rows, 0.0f, true, true, stream, false,
     [=] __device__(float in, int n) { return in * in; }, raft::Sum<float>(),
     [=] __device__(float in) { return sqrt(in); });

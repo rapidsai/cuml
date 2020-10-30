@@ -19,8 +19,8 @@
 #include <cub/cub.cuh>
 #include <cuda_utils.cuh>
 
-namespace MLCommon {
-namespace LinAlg {
+namespace raft {
+namespace linalg {
 
 // Kernel (based on norm.cuh) to perform reductions along the coalesced dimension
 // of the matrix, i.e. reduce along rows for row major or reduce along columns
@@ -110,5 +110,5 @@ void coalescedReduction(OutType *dots, const InType *data, int D, int N,
   CUDA_CHECK(cudaPeekAtLastError());
 }
 
-};  // end namespace LinAlg
-};  // end namespace MLCommon
+};  // end namespace linalg
+};  // end namespace raft
