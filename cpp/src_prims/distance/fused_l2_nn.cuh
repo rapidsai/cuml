@@ -18,9 +18,9 @@
 
 #include <stdint.h>
 #include <cub/cub.cuh>
-#include <cuda_utils.cuh>
 #include <limits>
 #include <linalg/contractions.cuh>
+#include <raft/cuda_utils.cuh>
 
 #if (ENABLE_MEMCPY_ASYNC == 1)
 #include <cuda_pipeline.h>
