@@ -33,13 +33,13 @@
 #include <thrust/scan.h>
 #include <vector>
 
-#include <common/cudart_utils.h>
+#include <raft/cudart_utils.h>
 #include <raft/linalg/cublas_wrappers.h>
 #include <common/device_buffer.hpp>
 #include <cuml/common/cuml_allocator.hpp>
-#include <linalg/matrix_vector_op.cuh>
-#include <linalg/reduce.cuh>
-#include <stats/mean.cuh>
+#include <raft/linalg/matrix_vector_op.cuh>
+#include <raft/linalg/reduce.cuh>
+#include <raft/stats/mean.cuh>
 #include <timeSeries/arima_helpers.cuh>
 
 namespace MLCommon {

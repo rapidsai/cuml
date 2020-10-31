@@ -14,22 +14,22 @@
  * limitations under the License.
  */
 
-#include <common/cudart_utils.h>
 #include <math.h>
+#include <raft/cudart_utils.h>
 #include <algorithm>
 #include <common/device_buffer.hpp>
 #include <cub/cub.cuh>
-#include <cuda_utils.cuh>
 #include <cuml/common/cuml_allocator.hpp>
 #include <distance/distance.cuh>
 #include <iostream>
-#include <linalg/binary_op.cuh>
-#include <linalg/eltwise.cuh>
-#include <linalg/map_then_reduce.cuh>
-#include <linalg/matrix_vector_op.cuh>
-#include <linalg/reduce.cuh>
 #include <linalg/reduce_cols_by_key.cuh>
 #include <numeric>
+#include <raft/cuda_utils.cuh>
+#include <raft/linalg/binary_op.cuh>
+#include <raft/linalg/eltwise.cuh>
+#include <raft/linalg/map_then_reduce.cuh>
+#include <raft/linalg/matrix_vector_op.cuh>
+#include <raft/linalg/reduce.cuh>
 
 namespace MLCommon {
 namespace Metrics {

@@ -20,7 +20,7 @@
 #include <cuml/distance/distance_type.h>
 #include <cutlass/shape.h>
 #include <common/device_buffer.hpp>
-#include <cuda_utils.cuh>
+#include <raft/cuda_utils.cuh>
 #include "cosine.cuh"
 #include "euclidean.cuh"
 #include "l1.cuh"
