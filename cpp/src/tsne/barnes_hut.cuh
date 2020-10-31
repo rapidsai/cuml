@@ -15,7 +15,7 @@
  */
 #pragma once
 
-#include <common/cudart_utils.h>
+#include <raft/cudart_utils.h>
 #include <common/device_buffer.hpp>
 #include <cuml/common/logger.hpp>
 #include "bh_kernels.cuh"

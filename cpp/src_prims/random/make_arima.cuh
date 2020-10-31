@@ -24,8 +24,8 @@
 
 #include <cuml/tsa/arima_common.h>
 #include <cuml/common/cuml_allocator.hpp>
+#include <raft/random/rng.cuh>
 #include <timeSeries/arima_helpers.cuh>
-#include "rng.cuh"
 
 namespace MLCommon {
 namespace Random {
