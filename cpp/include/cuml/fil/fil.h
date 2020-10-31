@@ -29,6 +29,7 @@ namespace fil {
  *  and the threshold/weight type.
  */
 
+namespace enums {
 /** Inference algorithm to use. */
 enum algo_t {
   /** choose the algorithm automatically; currently chooses NAIVE for sparse forests 
@@ -71,13 +72,10 @@ enum output_t {
   /** output class label: either apply threshold to the output of the previous stage (for binary classification),
       or select the class with the most votes to get the class label (for multi-class classification).  */
   CLASS = 0x100,
+  SIGMOID_CLASS = SIGMOID | CLASS,
+  AVG_CLASS = AVG | CLASS,
+  AVG_SIGMOID_CLASS = AVG | SIGMOID | CLASS,
 };
-static const output_t SIGMOID_CLASS =
-  output_t(output_t::SIGMOID | output_t::CLASS);
-static const output_t AVG_CLASS = output_t(output_t::AVG | output_t::CLASS);
-static const output_t AVG_SIGMOID = output_t(output_t::AVG | output_t::SIGMOID);
-static const output_t AVG_SIGMOID_CLASS =
-  output_t(output_t::AVG | output_t::SIGMOID | output_t::CLASS);
 
 /** storage_type_t defines whether to import the forests as dense or sparse */
 enum storage_type_t {
@@ -94,6 +92,8 @@ enum storage_type_t {
       whether a particular forest can be imported as SPARSE8 */
   SPARSE8,
 };
+
+}  // namespace enums
 
 /** val_t is the payload within a FIL leaf */
 union val_t {
@@ -132,6 +132,7 @@ struct sparse_node8_t : dense_node_t {
   sparse_node8_t(dense_node_t dn) : dense_node_t(dn) {}
 };
 
+namespace enums {
 /** leaf_algo_t describes what the leaves in a FIL forest store (predict)
     and how FIL aggregates them into class margins/regression result/best class
 **/
@@ -162,23 +163,24 @@ enum leaf_algo_t {
   GROVE_PER_CLASS_MANY_CLASSES = 4,
   // to be extended
 };
+}  // namespace enums
 
-template <leaf_algo_t leaf_algo>
+template <enums::leaf_algo_t leaf_algo>
 struct leaf_output_t {};
 template <>
-struct leaf_output_t<leaf_algo_t::FLOAT_UNARY_BINARY> {
+struct leaf_output_t<enums::leaf_algo_t::FLOAT_UNARY_BINARY> {
   typedef float T;
 };
 template <>
-struct leaf_output_t<leaf_algo_t::CATEGORICAL_LEAF> {
+struct leaf_output_t<enums::leaf_algo_t::CATEGORICAL_LEAF> {
   typedef int T;
 };
 template <>
-struct leaf_output_t<leaf_algo_t::GROVE_PER_CLASS_FEW_CLASSES> {
+struct leaf_output_t<enums::leaf_algo_t::GROVE_PER_CLASS_FEW_CLASSES> {
   typedef float T;
 };
 template <>
-struct leaf_output_t<leaf_algo_t::GROVE_PER_CLASS_MANY_CLASSES> {
+struct leaf_output_t<enums::leaf_algo_t::GROVE_PER_CLASS_MANY_CLASSES> {
   typedef float T;
 };
 
@@ -214,12 +216,12 @@ struct forest_params_t {
   // num_cols is the number of columns in the data
   int num_cols;
   // leaf_algo determines what the leaves store (predict)
-  leaf_algo_t leaf_algo;
+  enums::leaf_algo_t leaf_algo;
   // algo is the inference algorithm;
   // sparse forests do not distinguish between NAIVE and TREE_REORG
-  algo_t algo;
+  enums::algo_t algo;
   // output is the desired output type
-  output_t output;
+  enums::output_t output;
   // threshold is used to for classification if leaf_algo == FLOAT_UNARY_BINARY && (output & OUTPUT_CLASS) != 0 && !predict_proba,
   // and is ignored otherwise
   float threshold;
@@ -235,7 +237,7 @@ struct forest_params_t {
 /** treelite_params_t are parameters for importing treelite models */
 struct treelite_params_t {
   // algo is the inference algorithm
-  algo_t algo;
+  enums::algo_t algo;
   // output_class indicates whether thresholding will be applied
   // to the model output
   bool output_class;
@@ -245,7 +247,7 @@ struct treelite_params_t {
   // is returned regardless of the absolute vote count
   float threshold;
   // storage_type indicates whether the forest should be imported as dense or sparse
-  storage_type_t storage_type;
+  enums::storage_type_t storage_type;
 };
 
 /** init_dense uses params and nodes to initialize the dense forest stored in pf

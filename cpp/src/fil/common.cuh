@@ -29,6 +29,7 @@
 
 namespace ML {
 namespace fil {
+using namespace enums;
 
 __host__ __device__ __forceinline__ int tree_num_nodes(int depth) {
   return (1 << (depth + 1)) - 1;
