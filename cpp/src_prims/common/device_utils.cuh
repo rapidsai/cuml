@@ -17,8 +17,22 @@
 #pragma once
 
 #include <raft/cuda_utils.cuh>
+#include <utility>  // pair
 
 namespace MLCommon {
+
+// TODO move to raft
+/** helper method to get the compute capability version numbers */
+inline std::pair<int, int> getDeviceCapability() {
+  int devId;
+  CUDA_CHECK(cudaGetDevice(&devId));
+  int major, minor;
+  CUDA_CHECK(
+    cudaDeviceGetAttribute(&major, cudaDevAttrComputeCapabilityMajor, devId));
+  CUDA_CHECK(
+    cudaDeviceGetAttribute(&minor, cudaDevAttrComputeCapabilityMajor, devId));
+  return std::make_pair(major, minor);
+}
 
 /**
  * @brief Batched warp-level sum reduction

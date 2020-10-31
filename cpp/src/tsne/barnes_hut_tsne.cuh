@@ -18,7 +18,7 @@
 #include <raft/cudart_utils.h>
 #include <common/device_buffer.hpp>
 #include <cuml/common/logger.hpp>
-#include "bh_kernels.cuh"
+#include "barnes_hut_kernels.cuh"
 #include "utils.cuh"
 
 namespace ML {
@@ -35,7 +35,8 @@ namespace TSNE {
  * @param[in] n: Number of rows in data X.
  * @param[in] theta: repulsion threshold
  * @param[in] epssq: A tiny jitter to promote numerical stability.
- * @param[in] early_exaggeration: How much early pressure you want the clusters in TSNE to spread out more.
+ * @param[in] early_exaggeration: How much pressure to apply to clusters to spread out during the exaggeration phase.
+ * @param[in] late_exaggeration: How much pressure to apply to clusters to spread out after the exaggeration phase.
  * @param[in] exaggeration_iter: How many iterations you want the early pressure to run for.
  * @param[in] min_gain: Rounds up small gradient updates.
  * @param[in] pre_learning_rate: The learning rate during the exaggeration phase.
@@ -46,12 +47,12 @@ namespace TSNE {
  * @param[in] pre_momentum: The momentum used during the exaggeration phase.
  * @param[in] post_momentum: The momentum used after the exaggeration phase.
  * @param[in] random_state: Set this to -1 for pure random intializations or >= 0 for reproducible outputs.
- * @param[in] initialize_embeddings: Whether to overwrite the current Y vector with random noise.
  */
 void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
                 const raft::handle_t &handle, float *Y, const int n,
                 const float theta = 0.5f, const float epssq = 0.0025,
                 const float early_exaggeration = 12.0f,
+                const float late_exaggeration = 1.0f,
                 const int exaggeration_iter = 250, const float min_gain = 0.01f,
                 const float pre_learning_rate = 200.0f,
                 const float post_learning_rate = 500.0f,
@@ -79,10 +80,10 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
   MLCommon::device_buffer<int> bottomd(d_alloc, stream, 1);
   MLCommon::device_buffer<float> radiusd(d_alloc, stream, 1);
 
-  TSNE::InitializationKernel<<<1, 1, 0, stream>>>(/*errl.data(),*/
-                                                  limiter.data(),
-                                                  maxdepthd.data(),
-                                                  radiusd.data());
+  BH::InitializationKernel<<<1, 1, 0, stream>>>(/*errl.data(),*/
+                                                limiter.data(),
+                                                maxdepthd.data(),
+                                                radiusd.data());
   CUDA_CHECK(cudaPeekAtLastError());
 
   const int FOUR_NNODES = 4 * nnodes;
@@ -144,26 +145,27 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
   // Set cache levels for faster algorithm execution
   //---------------------------------------------------
   CUDA_CHECK(
-    cudaFuncSetCacheConfig(TSNE::BoundingBoxKernel, cudaFuncCachePreferShared));
+    cudaFuncSetCacheConfig(BH::BoundingBoxKernel, cudaFuncCachePreferShared));
   CUDA_CHECK(
-    cudaFuncSetCacheConfig(TSNE::TreeBuildingKernel, cudaFuncCachePreferL1));
-  CUDA_CHECK(cudaFuncSetCacheConfig(TSNE::ClearKernel1, cudaFuncCachePreferL1));
-  CUDA_CHECK(cudaFuncSetCacheConfig(TSNE::ClearKernel2, cudaFuncCachePreferL1));
-  CUDA_CHECK(cudaFuncSetCacheConfig(TSNE::SummarizationKernel,
-                                    cudaFuncCachePreferShared));
-  CUDA_CHECK(cudaFuncSetCacheConfig(TSNE::SortKernel, cudaFuncCachePreferL1));
+    cudaFuncSetCacheConfig(BH::TreeBuildingKernel, cudaFuncCachePreferL1));
+  CUDA_CHECK(cudaFuncSetCacheConfig(BH::ClearKernel1, cudaFuncCachePreferL1));
+  CUDA_CHECK(cudaFuncSetCacheConfig(BH::ClearKernel2, cudaFuncCachePreferL1));
   CUDA_CHECK(
-    cudaFuncSetCacheConfig(TSNE::RepulsionKernel, cudaFuncCachePreferL1));
+    cudaFuncSetCacheConfig(BH::SummarizationKernel, cudaFuncCachePreferShared));
+  CUDA_CHECK(cudaFuncSetCacheConfig(BH::SortKernel, cudaFuncCachePreferL1));
   CUDA_CHECK(
-    cudaFuncSetCacheConfig(TSNE::attractive_kernel_bh, cudaFuncCachePreferL1));
+    cudaFuncSetCacheConfig(BH::RepulsionKernel, cudaFuncCachePreferL1));
   CUDA_CHECK(
-    cudaFuncSetCacheConfig(TSNE::IntegrationKernel, cudaFuncCachePreferL1));
+    cudaFuncSetCacheConfig(BH::attractive_kernel_bh, cudaFuncCachePreferL1));
+  CUDA_CHECK(
+    cudaFuncSetCacheConfig(BH::IntegrationKernel, cudaFuncCachePreferL1));
   // Do gradient updates
   //---------------------------------------------------
   CUML_LOG_DEBUG("Start gradient updates!");
 
   float momentum = pre_momentum;
   float learning_rate = pre_learning_rate;
+  float exaggeration = early_exaggeration;
 
   for (int iter = 0; iter < max_iter; iter++) {
     CUDA_CHECK(cudaMemsetAsync(static_cast<void *>(rep_forces.data()), 0,
@@ -173,7 +175,7 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
                                attr_forces.size() * sizeof(*attr_forces.data()),
                                stream));
 
-    TSNE::Reset_Normalization<<<1, 1, 0, stream>>>(
+    BH::Reset_Normalization<<<1, 1, 0, stream>>>(
       Z_norm.data(), radiusd_squared.data(), bottomd.data(), NNODES,
       radiusd.data());
     CUDA_CHECK(cudaPeekAtLastError());
@@ -184,10 +186,11 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
       const float div = 1.0f / early_exaggeration;
       raft::linalg::scalarMultiply(VAL, VAL, div, NNZ, stream);
       learning_rate = post_learning_rate;
+      exaggeration = late_exaggeration;
     }
 
     START_TIMER;
-    TSNE::BoundingBoxKernel<<<blocks * FACTOR1, THREADS1, 0, stream>>>(
+    BH::BoundingBoxKernel<<<blocks * FACTOR1, THREADS1, 0, stream>>>(
       startl.data(), childl.data(), massl.data(), YY.data(),
       YY.data() + nnodes + 1, maxxl.data(), maxyl.data(), minxl.data(),
       minyl.data(), FOUR_NNODES, NNODES, n, limiter.data(), radiusd.data());
@@ -196,14 +199,14 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
     END_TIMER(BoundingBoxKernel_time);
 
     START_TIMER;
-    TSNE::ClearKernel1<<<blocks, 1024, 0, stream>>>(childl.data(), FOUR_NNODES,
-                                                    FOUR_N);
+    BH::ClearKernel1<<<blocks, 1024, 0, stream>>>(childl.data(), FOUR_NNODES,
+                                                  FOUR_N);
     CUDA_CHECK(cudaPeekAtLastError());
 
     END_TIMER(ClearKernel1_time);
 
     START_TIMER;
-    TSNE::TreeBuildingKernel<<<blocks * FACTOR2, THREADS2, 0, stream>>>(
+    BH::TreeBuildingKernel<<<blocks * FACTOR2, THREADS2, 0, stream>>>(
       /*errl.data(),*/ childl.data(), YY.data(), YY.data() + nnodes + 1, NNODES,
       n, maxdepthd.data(), bottomd.data(), radiusd.data());
     CUDA_CHECK(cudaPeekAtLastError());
@@ -211,14 +214,14 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
     END_TIMER(TreeBuildingKernel_time);
 
     START_TIMER;
-    TSNE::ClearKernel2<<<blocks * 1, 1024, 0, stream>>>(
+    BH::ClearKernel2<<<blocks * 1, 1024, 0, stream>>>(
       startl.data(), massl.data(), NNODES, bottomd.data());
     CUDA_CHECK(cudaPeekAtLastError());
 
     END_TIMER(ClearKernel2_time);
 
     START_TIMER;
-    TSNE::SummarizationKernel<<<blocks * FACTOR3, THREADS3, 0, stream>>>(
+    BH::SummarizationKernel<<<blocks * FACTOR3, THREADS3, 0, stream>>>(
       countl.data(), childl.data(), massl.data(), YY.data(),
       YY.data() + nnodes + 1, NNODES, n, bottomd.data());
     CUDA_CHECK(cudaPeekAtLastError());
@@ -226,7 +229,7 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
     END_TIMER(SummarizationKernel_time);
 
     START_TIMER;
-    TSNE::SortKernel<<<blocks * FACTOR4, THREADS4, 0, stream>>>(
+    BH::SortKernel<<<blocks * FACTOR4, THREADS4, 0, stream>>>(
       sortl.data(), countl.data(), startl.data(), childl.data(), NNODES, n,
       bottomd.data());
     CUDA_CHECK(cudaPeekAtLastError());
@@ -234,7 +237,7 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
     END_TIMER(SortKernel_time);
 
     START_TIMER;
-    TSNE::RepulsionKernel<<<blocks * FACTOR5, THREADS5, 0, stream>>>(
+    BH::RepulsionKernel<<<blocks * FACTOR5, THREADS5, 0, stream>>>(
       /*errl.data(),*/ theta, epssq, sortl.data(), childl.data(), massl.data(),
       YY.data(), YY.data() + nnodes + 1, rep_forces.data(),
       rep_forces.data() + nnodes + 1, Z_norm.data(), theta_squared, NNODES,
@@ -244,7 +247,7 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
     END_TIMER(RepulsionTime);
 
     START_TIMER;
-    TSNE::Find_Normalization<<<1, 1, 0, stream>>>(Z_norm.data(), n);
+    BH::Find_Normalization<<<1, 1, 0, stream>>>(Z_norm.data(), n);
     CUDA_CHECK(cudaPeekAtLastError());
 
     END_TIMER(Reduction_time);
@@ -252,19 +255,18 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
     START_TIMER;
     // TODO: Calculate Kullback-Leibler divergence
     // For general embedding dimensions
-    TSNE::attractive_kernel_bh<<<raft::ceildiv(NNZ, 1024), 1024, 0, stream>>>(
+    BH::attractive_kernel_bh<<<raft::ceildiv(NNZ, 1024), 1024, 0, stream>>>(
       VAL, COL, ROW, YY.data(), YY.data() + nnodes + 1, attr_forces.data(),
       attr_forces.data() + n, NNZ);
     CUDA_CHECK(cudaPeekAtLastError());
     END_TIMER(attractive_time);
 
     START_TIMER;
-    TSNE::IntegrationKernel<<<blocks * FACTOR6, THREADS6, 0, stream>>>(
-      learning_rate, momentum, early_exaggeration, YY.data(),
-      YY.data() + nnodes + 1, attr_forces.data(), attr_forces.data() + n,
-      rep_forces.data(), rep_forces.data() + nnodes + 1, gains_bh.data(),
-      gains_bh.data() + n, old_forces.data(), old_forces.data() + n,
-      Z_norm.data(), n);
+    BH::IntegrationKernel<<<blocks * FACTOR6, THREADS6, 0, stream>>>(
+      learning_rate, momentum, exaggeration, YY.data(), YY.data() + nnodes + 1,
+      attr_forces.data(), attr_forces.data() + n, rep_forces.data(),
+      rep_forces.data() + nnodes + 1, gains_bh.data(), gains_bh.data() + n,
+      old_forces.data(), old_forces.data() + n, Z_norm.data(), n);
     CUDA_CHECK(cudaPeekAtLastError());
 
     END_TIMER(IntegrationKernel_time);

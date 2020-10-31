@@ -22,8 +22,9 @@
 #include "exact_kernels.cuh"
 #include "utils.cuh"
 
-#include "barnes_hut.cuh"
+#include "barnes_hut_tsne.cuh"
 #include "exact_tsne.cuh"
+#include "fft_tsne.cuh"
 
 namespace ML {
 
@@ -31,20 +32,22 @@ void TSNE_fit(const raft::handle_t &handle, const float *X, float *Y,
               const int n, const int p, const int dim, int n_neighbors,
               const float theta, const float epssq, float perplexity,
               const int perplexity_max_iter, const float perplexity_tol,
-              const float early_exaggeration, const int exaggeration_iter,
-              const float min_gain, const float pre_learning_rate,
-              const float post_learning_rate, const int max_iter,
-              const float min_grad_norm, const float pre_momentum,
-              const float post_momentum, const long long random_state,
-              int verbosity, const bool initialize_embeddings,
-              bool barnes_hut) {
+              const float early_exaggeration, const float late_exaggeration,
+              const int exaggeration_iter, const float min_gain,
+              const float pre_learning_rate, const float post_learning_rate,
+              const int max_iter, const float min_grad_norm,
+              const float pre_momentum, const float post_momentum,
+              const long long random_state, int verbosity,
+              const bool initialize_embeddings, TSNE_ALGORITHM algorithm) {
   ASSERT(n > 0 && p > 0 && dim > 0 && n_neighbors > 0 && X != NULL && Y != NULL,
          "Wrong input args");
   ML::Logger::get().setLevel(verbosity);
-  if (dim > 2 and barnes_hut) {
-    barnes_hut = false;
+  if (dim > 2 && (algorithm == TSNE_ALGORITHM::BARNES_HUT ||
+                  algorithm == TSNE_ALGORITHM::FFT)) {
+    algorithm = TSNE_ALGORITHM::EXACT;
     CUML_LOG_WARN(
-      "Barnes Hut only works for dim == 2. Switching to exact solution.");
+      "Barnes Hut and FFT only work for dim == 2. Switching to exact "
+      "solution.");
   }
   if (n_neighbors > n) n_neighbors = n;
   if (n_neighbors > 1023) {
@@ -115,12 +118,17 @@ void TSNE_fit(const raft::handle_t &handle, const float *X, float *Y,
   //---------------------------------------------------
   END_TIMER(SymmetrizeTime);
 
-  if (barnes_hut) {
+  if (algorithm == TSNE_ALGORITHM::BARNES_HUT) {
     TSNE::Barnes_Hut(VAL, COL, ROW, NNZ, handle, Y, n, theta, epssq,
-                     early_exaggeration, exaggeration_iter, min_gain,
-                     pre_learning_rate, post_learning_rate, max_iter,
+                     early_exaggeration, late_exaggeration, exaggeration_iter,
+                     min_gain, pre_learning_rate, post_learning_rate, max_iter,
                      min_grad_norm, pre_momentum, post_momentum, random_state,
                      initialize_embeddings);
+  } else if (algorithm == TSNE_ALGORITHM::FFT) {
+    TSNE::FFT_TSNE(VAL, COL, ROW, NNZ, handle, Y, n, early_exaggeration,
+                   late_exaggeration, exaggeration_iter, pre_learning_rate,
+                   post_learning_rate, max_iter, min_grad_norm, pre_momentum,
+                   post_momentum, random_state, initialize_embeddings);
   } else {
     TSNE::Exact_TSNE(VAL, COL, ROW, NNZ, handle, Y, n, dim, early_exaggeration,
                      exaggeration_iter, min_gain, pre_learning_rate,

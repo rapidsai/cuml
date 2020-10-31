@@ -38,6 +38,7 @@
 
 namespace ML {
 namespace TSNE {
+namespace BH {
 
 /**
  * Intializes the states of objects. This speeds the overall kernel up.
@@ -704,5 +705,6 @@ __global__ __launch_bounds__(THREADS6, FACTOR6) void IntegrationKernel(
   }
 }
 
+}  // namespace BH
 }  // namespace TSNE
 }  // namespace ML
