@@ -40,8 +40,8 @@
  *
  */
 
-#include <cuda_utils.cuh>
 #include <cuml/common/logger.hpp>
+#include <raft/cuda_utils.cuh>
 #include "qn_linesearch.cuh"
 #include "qn_util.cuh"
 #include "simple_mat.cuh"

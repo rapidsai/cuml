@@ -15,14 +15,14 @@
  */
 
 #pragma once
-#include <common/cudart_utils.h>
+#include <raft/cudart_utils.h>
 #include <raft/linalg/cublas_wrappers.h>
 #include <raft/linalg/cusolver_wrappers.h>
 #include <stdio.h>
 #include <cmath>
-#include <cuda_utils.cuh>
-#include <linalg/matrix_vector_op.cuh>
-#include <linalg/unary_op.cuh>
+#include <raft/cuda_utils.cuh>
+#include <raft/linalg/matrix_vector_op.cuh>
+#include <raft/linalg/unary_op.cuh>
 #include "curand_wrappers.h"
 
 // mvg.cuh takes in matrices that are colomn major (as in fortan)
