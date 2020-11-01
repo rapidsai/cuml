@@ -476,3 +476,53 @@ def train_test_split(X,
         return X_train, X_test, y_train, y_test
     else:
         return X_train, X_test
+
+
+class StratifiedKFold_gpu:
+
+    def __init__(self, n_splits=3, shuffle=True, random_state=42):
+        self.n_splits = n_splits
+        self.shuffle = shuffle
+        self.seed = random_state
+        self.tpb = 64
+
+    def get_n_splits(self, X=None, y=None):
+        return self.n_splits
+
+    def split(self, x, y):
+        assert x.shape[0] == y.shape[0]
+        df = cudf.DataFrame()
+        ids = cp.arange(x.shape[0])
+
+        if self.shuffle:
+            cp.random.seed(self.seed)
+            cp.random.shuffle(ids)
+            x = x[ids]
+            y = y[ids]
+
+        df['y'] = y
+        df['ids'] = ids
+        grpby = df.groupby(['y'])
+
+        dg = grpby.agg({'y': 'count'})
+        col = dg.columns[0]
+        msg = f'n_splits={self.n_splits} cannot be greater ' + \
+              'than the number of members in each class.'
+        assert dg[col].min() >= self.n_splits, msg
+
+        def get_order_in_group(y, ids, order):
+            for i in range(cuda.threadIdx.x, len(y), cuda.blockDim.x):
+                order[i] = i
+
+        got = grpby.apply_grouped(get_order_in_group, incols=['y', 'ids'],
+                                  outcols={'order': 'int32'},
+                                  tpb=self.tpb)
+        got = got.sort_values('ids')
+
+        for i in range(self.n_splits):
+            mask = got['order'] % self.n_splits == i
+            train = got.loc[~mask, 'ids'].values
+            test = got.loc[mask, 'ids'].values
+            if len(test) == 0:
+                break
+            yield train, test
