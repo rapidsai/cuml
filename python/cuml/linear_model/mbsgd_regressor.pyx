@@ -14,11 +14,9 @@
 # limitations under the License.
 #
 
-# cython: profile=False
 # distutils: language = c++
-# cython: embedsignature = True
-# cython: language_level = 3
 from cuml.common.base import Base, RegressorMixin
+from cuml.common.doc_utils import generate_docstring
 from cuml.solvers import SGD
 
 
@@ -26,9 +24,19 @@ class MBSGDRegressor(Base, RegressorMixin):
     """
     Linear regression model fitted by minimizing a
     regularized empirical loss with mini-batch SGD.
+    The MBSGD Regressor implementation is experimental and and it uses a
+    different algorithm than sklearn's SGDClassifier. In order to improve
+    the results obtained from cuML's MBSGD Regressor:
+    * Reduce the batch size
+    * Increase the eta0
+    * Increase the number of iterations
+    Since cuML is analyzing the data in batches using a small eta0 might
+    not let the model learn as much as scikit learn does. Furthermore,
+    decreasing the batch size might seen an increase in the time required
+    to fit the model.
 
     Examples
-    ---------
+    --------
     .. code-block:: python
 
         import numpy as np
@@ -82,6 +90,12 @@ class MBSGDRegressor(Base, RegressorMixin):
     fit_intercept : boolean (default = True)
        If True, the model tries to correct for the global mean of y.
        If False, the model expects that you have centered the data.
+    l1_ratio: float (default=0.15)
+        The l1_ratio is used only when `penalty = elasticnet`. The value for
+        l1_ratio should be `0 <= l1_ratio <= 1`. When `l1_ratio = 0` then the
+        `penalty = 'l2'` and if `l1_ratio = 1` then `penalty = 'l1'`
+    batch_size: int (default = 32)
+        It sets the number of samples that will be included in each batch.
     epochs : int (default = 1000)
         The number of times the model should iterate through the entire dataset
         during training (default = 1000)
@@ -106,11 +120,21 @@ class MBSGDRegressor(Base, RegressorMixin):
         The old learning rate is generally divided by 5
     n_iter_no_change : int (default = 5)
         the number of epochs to train without any imporvement in the model
-    output_type : {'input', 'cudf', 'cupy', 'numpy'}, optional
+    handle : cuml.Handle
+        Specifies the cuml.handle that holds internal CUDA state for
+        computations in this model. Most importantly, this specifies the CUDA
+        stream that will be used for the model's computations, so users can
+        run different models concurrently in different streams by creating
+        handles in several streams.
+        If it is None, a new one is created.
+    verbose : int or boolean, default=False
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        See :ref:`verbosity-levels` for more info.
+    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
         Variable to control output type of the results and attributes of
-        the estimators. If None, it'll inherit the output type set at the
-        module level, cuml.output_type. If set, the estimator will override
-        the global option for its behavior.
+        the estimator. If None, it'll inherit the output type set at the
+        module level, `cuml.global_output_type`.
+        See :ref:`output-data-type-configuration` for more info.
 
     Notes
     ------
@@ -144,98 +168,45 @@ class MBSGDRegressor(Base, RegressorMixin):
         self.power_t = power_t
         self.batch_size = batch_size
         self.n_iter_no_change = n_iter_no_change
-        self.cu_mbsgd_classifier = SGD(**self.get_params())
+        self.solver_model = SGD(**self.get_params())
 
+    @generate_docstring()
     def fit(self, X, y, convert_dtype=True):
         """
         Fit the model with X and y.
 
-        Parameters
-        ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-            Dense matrix (floats or doubles) of shape (n_samples, n_features).
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-
-        y : array-like (device or host) shape = (n_samples, 1)
-            Dense vector (floats or doubles) of shape (n_samples, 1).
-            Acceptable formats: cuDF Series, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-
-        convert_dtype : bool, optional (default = True)
-            When set to True, the fit method will, when necessary, convert
-            y to be the same data type as X if they differ. This
-            will increase memory used for the method.
         """
-        self._set_n_features_in(X)
-        self.cu_mbsgd_classifier.fit(X, y, convert_dtype=convert_dtype)
-        self.coef_ = self.cu_mbsgd_classifier.coef_
-        self.intercept_ = self.cu_mbsgd_classifier.intercept_
-
+        self._set_base_attributes(n_features=X)
+        self.solver_model.fit(X, y, convert_dtype=convert_dtype)
         return self
 
+    @generate_docstring(return_values={'name': 'preds',
+                                       'type': 'dense',
+                                       'description': 'Predicted values',
+                                       'shape': '(n_samples, 1)'})
     def predict(self, X, convert_dtype=False):
         """
         Predicts the y for X.
 
-        Parameters
-        ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-            Dense matrix (floats or doubles) of shape (n_samples, n_features).
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-
-        convert_dtype : bool, optional (default = False)
-            When set to True, the predict method will, when necessary, convert
-            the input to the data type which was used to train the model. This
-            will increase memory used for the method.
-
-        Returns
-        ----------
-        y: Type specified by `output_type`
-           Dense vector (floats or doubles) of shape (n_samples, 1)
         """
 
-        preds = self.cu_mbsgd_classifier.predict(X,
-                                                 convert_dtype=convert_dtype)
+        preds = self.solver_model.predict(X,
+                                          convert_dtype=convert_dtype)
         return preds
 
-    def get_params(self, deep=True):
-        """
-        Scikit-learn style function that returns the estimator parameters.
-
-        Parameters
-        -----------
-        deep : boolean (default = True)
-        """
-
-        params = dict()
-        variables = ['loss', 'penalty', 'alpha', 'l1_ratio', 'fit_intercept',
-                     'epochs', 'tol', 'shuffle', 'learning_rate', 'eta0',
-                     'power_t', 'batch_size', 'n_iter_no_change', 'handle']
-        for key in variables:
-            var_value = getattr(self, key, None)
-            params[key] = var_value
-        return params
-
-    def set_params(self, **params):
-        """
-        Sklearn style set parameter state to dictionary of params.
-
-        Parameters
-        -----------
-        params : dict of new params
-        """
-
-        if not params:
-            return self
-        variables = ['loss', 'penalty', 'alpha', 'l1_ratio', 'fit_intercept',
-                     'epochs', 'tol', 'shuffle', 'learning_rate', 'eta0',
-                     'power_t', 'batch_size', 'n_iter_no_change', 'handle']
-        for key, value in params.items():
-            if key not in variables:
-                raise ValueError('Invalid parameter for estimator')
-            else:
-                setattr(self, key, value)
-
-        return self
+    def get_param_names(self):
+        return super().get_param_names() + [
+            "loss",
+            "penalty",
+            "alpha",
+            "l1_ratio",
+            "fit_intercept",
+            "epochs",
+            "tol",
+            "shuffle",
+            "learning_rate",
+            "eta0",
+            "power_t",
+            "batch_size",
+            "n_iter_no_change",
+        ]

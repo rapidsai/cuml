@@ -5,11 +5,15 @@ cuML API Reference
 Module Configuration
 ====================
 
+.. _output-data-type-configuration:
+
 Output Data Type Configuration
 ------------------------------
 
  .. automethod:: cuml.common.memory_utils.set_global_output_type
  .. automethod:: cuml.common.memory_utils.using_output_type
+
+.. _verbosity-levels:
 
 Verbosity Levels
 ----------------
@@ -59,7 +63,7 @@ Model Selection and Data Splitting
 Feature and Label Encoding (Single-GPU)
 ---------------------------------------
 
- .. autoclass:: cuml.preprocessing.LabelEncoder
+ .. autoclass:: cuml.preprocessing.LabelEncoder.LabelEncoder
     :members:
 
  .. autoclass:: cuml.preprocessing.LabelBinarizer
@@ -68,6 +72,15 @@ Feature and Label Encoding (Single-GPU)
  .. automethod:: cuml.preprocessing.label_binarize
 
  .. autoclass:: cuml.preprocessing.OneHotEncoder
+    :members:
+
+ .. autoclass:: cuml.preprocessing.TargetEncoder.TargetEncoder
+    :members:
+
+
+Text Preprocessing (Single-GPU)
+---------------------------------------
+ .. autoclass:: cuml.preprocessing.text.stem.PorterStemmer
     :members:
 
 Feature and Label Encoding (Dask-based Multi-GPU)
@@ -120,8 +133,8 @@ Array Wrappers (Internal API)
 .. autoclass:: cuml.common.CumlArray
     :members:
 
-Metrics
----------
+Metrics (regression, classification, and distance)
+---------------------------------------------------
 
   .. automodule:: cuml.metrics.regression
     :members:
@@ -129,6 +142,17 @@ Metrics
   .. automodule:: cuml.metrics.accuracy
     :members:
 
+  .. automethod:: cuml.metrics.confusion_matrix
+
+  .. automethod:: cuml.metrics.roc_auc_score
+
+  .. automethod:: cuml.metrics.precision_recall_curve
+
+  .. automodule:: cuml.metrics.pairwise_distances
+    :members:
+
+Metrics (clustering and trustworthiness)
+----------------------------------------
   .. automodule:: cuml.metrics.trustworthiness
     :members:
 
@@ -138,7 +162,14 @@ Metrics
   .. automodule:: cuml.metrics.cluster.entropy
     :members:
 
-  .. automethod:: cuml.metrics.roc_auc_score
+  .. automodule:: cuml.metrics.cluster.homogeneity_score
+    :members:
+
+  .. automodule:: cuml.metrics.cluster.completeness_score
+    :members:
+
+  .. automodule:: cuml.metrics.cluster.mutual_info_score
+    :members:
 
 Benchmarking
 -------------
@@ -198,6 +229,12 @@ Mini Batch SGD Regressor
 .. autoclass:: cuml.MBSGDRegressor
     :members:
 
+Mutinomial Naive Bayes
+----------------------
+
+.. autoclass:: cuml.MultinomialNB
+    :members:
+
 Stochastic Gradient Descent
 ---------------------------
 
@@ -245,12 +282,14 @@ Nearest Neighbors Classification
 
 .. autoclass:: cuml.neighbors.KNeighborsClassifier
     :members:
+    :noindex:
 
 Nearest Neighbors Regression
 ----------------------------
 
 .. autoclass:: cuml.neighbors.KNeighborsRegressor
     :members:
+    :noindex:
 
 Clustering
 ==========
@@ -342,6 +381,9 @@ ARIMA
 .. autoclass:: cuml.tsa.ARIMA
     :members:
 
+.. autoclass:: cuml.tsa.auto_arima.AutoARIMA
+    :members:
+
 Multi-Node, Multi-GPU Algorithms
 ================================
 
@@ -356,6 +398,13 @@ Nearest Neighbors
 
 .. autoclass:: cuml.dask.neighbors.NearestNeighbors
     :members:
+
+.. autoclass:: cuml.dask.neighbors.KNeighborsRegressor
+    :members:
+
+.. autoclass:: cuml.dask.neighbors.KNeighborsClassifier
+    :members:
+
 
 Principal Component Analysis
 -----------------------------
@@ -398,6 +447,12 @@ Linear Models
 .. autoclass:: cuml.dask.linear_model.ElasticNet
     :members:
 
+Naive Bayes
+-----------
+
+.. autoclass:: cuml.dask.naive_bayes.MultinomialNB
+    :members:
+
 Solvers
 -------
 
@@ -420,3 +475,27 @@ Dask Base Classes and Mixins
 
 .. autoclass:: cuml.dask.common.base.DelayedInverseTransformMixin
    :members:
+
+Experimental
+============
+
+.. warning:: The `cuml.experimental` module contains features that are still
+    under development. It is not recommended to depend on features in this
+    module as they may change in future releases.
+
+.. note:: Due to the nature of this module, it is not imported by default by
+    the root `cuml` package. Each `experimental` submodule must be imported
+    separately.
+
+Decomposition
+-------------
+.. autoclass:: cuml.experimental.decomposition.IncrementalPCA
+   :members:
+
+Preprocessing
+-------------
+.. automodule:: cuml.experimental.preprocessing
+   :members: Binarizer, KBinsDiscretizer, MaxAbsScaler, MinMaxScaler,
+      Normalizer, RobustScaler, SimpleImputer, StandardScaler,
+      add_dummy_feature, binarize, minmax_scale, normalize,
+      PolynomialFeatures, robust_scale, scale

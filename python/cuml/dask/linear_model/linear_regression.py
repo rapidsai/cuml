@@ -17,7 +17,7 @@ from cuml.dask.common.base import BaseEstimator
 from cuml.dask.common.base import DelayedPredictionMixin
 from cuml.dask.common.base import mnmg_import
 from cuml.dask.common.base import SyncFitMixinLinearModel
-from cuml.dask.common.comms import worker_state
+from cuml.raft.dask.common.comms import worker_state
 
 
 class LinearRegression(BaseEstimator,
@@ -59,7 +59,7 @@ class LinearRegression(BaseEstimator,
     coef_ : cuDF series, shape (n_features)
         The estimated coefficients for the linear regression model.
     intercept_ : array
-        The independent term. If fit_intercept_ is False, will be 0.
+        The independent term. If `fit_intercept` is False, will be 0.
     """
 
     def __init__(self, client=None, verbose=False, **kwargs):

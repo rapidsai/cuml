@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include <cuda_utils.cuh>
+#include <raft/cuda_utils.cuh>
 
 namespace MLCommon {
 
@@ -40,8 +40,8 @@ namespace MLCommon {
 template <typename T, int NThreads>
 DI T batchedWarpReduce(T val) {
 #pragma unroll
-  for (int i = NThreads; i < WarpSize; i <<= 1) {
-    val += shfl(val, laneId() + i);
+  for (int i = NThreads; i < raft::WarpSize; i <<= 1) {
+    val += raft::shfl(val, raft::laneId() + i);
   }
   return val;
 }
@@ -68,10 +68,10 @@ DI T batchedWarpReduce(T val) {
 template <typename T, int NThreads>
 DI T batchedBlockReduce(T val, char *smem) {
   auto *sTemp = reinterpret_cast<T *>(smem);
-  constexpr int nGroupsPerWarp = WarpSize / NThreads;
-  static_assert(isPo2(nGroupsPerWarp), "nGroupsPerWarp must be a PO2!");
+  constexpr int nGroupsPerWarp = raft::WarpSize / NThreads;
+  static_assert(raft::isPo2(nGroupsPerWarp), "nGroupsPerWarp must be a PO2!");
   const int nGroups = (blockDim.x + NThreads - 1) / NThreads;
-  const int lid = laneId();
+  const int lid = raft::laneId();
   const int lgid = lid % NThreads;
   const int gid = threadIdx.x / NThreads;
   const auto wrIdx = (gid / nGroupsPerWarp) * NThreads + lgid;

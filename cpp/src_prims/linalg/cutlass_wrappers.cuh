@@ -26,8 +26,9 @@
 #include <cutlass/gemm/linear_scaling.h>
 #include <cutlass/gemm/thread_multiply_add.h>
 #include <cutlass/util/platform.h>
-#include <cuda_utils.cuh>
-#include "cublas_wrappers.h"
+#include <raft/cudart_utils.h>
+#include <raft/linalg/cublas_wrappers.h>
+#include <raft/cuda_utils.cuh>
 
 namespace MLCommon {
 namespace LinAlg {
@@ -347,8 +348,8 @@ struct CustomGemm : public BaseClass {
                      cudaStream_t stream) {
     // Setup the grid.
     dim3 grid;
-    grid.x = ceildiv<int>(params.m, Traits::OutputTile::kW);
-    grid.y = ceildiv<int>(params.n, Traits::OutputTile::kH);
+    grid.x = raft::ceildiv<int>(params.m, Traits::OutputTile::kW);
+    grid.y = raft::ceildiv<int>(params.n, Traits::OutputTile::kH);
     // The number of threads.
     dim3 block;
     block.x = BaseClass::kThreads;

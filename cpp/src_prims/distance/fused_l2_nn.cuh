@@ -18,9 +18,14 @@
 
 #include <stdint.h>
 #include <cub/cub.cuh>
-#include <cuda_utils.cuh>
 #include <limits>
 #include <linalg/contractions.cuh>
+#include <raft/cuda_utils.cuh>
+
+#if (ENABLE_MEMCPY_ASYNC == 1)
+#include <cuda_pipeline.h>
+using namespace nvcuda::experimental;
+#endif
 
 namespace MLCommon {
 namespace Distance {
@@ -83,7 +88,13 @@ struct FusedL2NN : public BaseClass {
 
   ReduceOpT redOp;
 
+#if (ENABLE_MEMCPY_ASYNC == 1)
+  DataT zeros[P::Veclen];
+  nvcuda::experimental::pipeline pipe;
+#endif
+
   static const DataT Two = (DataT)2.0;
+  static constexpr size_t SizeAndAlign = P::Veclen * sizeof(DataT);
 
  public:
   DI FusedL2NN(OutT* _min, const DataT* _x, const DataT* _y, const DataT* _xn,
@@ -98,7 +109,14 @@ struct FusedL2NN : public BaseClass {
       syNorm(&(sxNorm[P::Mblk])),
       sRed((cub::KeyValuePair<IdxT, DataT>*)_smem),
       maxVal(_mv),
-      redOp(op) {}
+      redOp(op) {
+#if (ENABLE_MEMCPY_ASYNC == 1)
+#pragma unroll
+    for (int i = 0; i < P::Veclen; ++i) {
+      zeros[i] = BaseClass::Zero;
+    }
+#endif
+  }
 
   DI void run() {
     prolog();
@@ -109,8 +127,7 @@ struct FusedL2NN : public BaseClass {
 
  private:
   DI void prolog() {
-    this->ldgsts(0);
-    this->pageWr ^= 1;
+    this->ldgXY(0);
 #pragma unroll
     for (int i = 0; i < P::AccRowsPerTh; ++i) {
 #pragma unroll
@@ -118,13 +135,16 @@ struct FusedL2NN : public BaseClass {
         acc[i][j] = BaseClass::Zero;
       }
     }
+    this->stsXY();
     __syncthreads();
+    this->pageWr ^= 1;
   }
 
   DI void loop() {
     for (int kidx = P::Kblk; kidx < this->k; kidx += P::Kblk) {
-      this->ldgsts(kidx);
+      this->ldgXY(kidx);
       accumulate();  // on the previous k-block
+      this->stsXY();
       __syncthreads();
       this->pageWr ^= 1;
       this->pageRd ^= 1;
@@ -163,14 +183,14 @@ struct FusedL2NN : public BaseClass {
       for (int i = 0; i < P::AccRowsPerTh; ++i) {
 #pragma unroll
         for (int j = 0; j < P::AccColsPerTh; ++j) {
-          acc[i][j] = mySqrt(acc[i][j]);
+          acc[i][j] = raft::mySqrt(acc[i][j]);
         }
       }
     }
     // reduce
     cub::KeyValuePair<IdxT, DataT> val[P::AccRowsPerTh];
     KVPMinReduce<IdxT, DataT> pairRedOp;
-    auto lid = laneId();
+    auto lid = raft::laneId();
 #pragma unroll
     for (int i = 0; i < P::AccRowsPerTh; ++i) {
       val[i] = {-1, maxVal};
@@ -183,8 +203,8 @@ struct FusedL2NN : public BaseClass {
       __syncthreads();
 #pragma unroll
       for (int j = P::AccThCols / 2; j > 0; j >>= 1) {
-        auto tmpkey = shfl(val[i].key, lid + j);
-        auto tmpvalue = shfl(val[i].value, lid + j);
+        auto tmpkey = raft::shfl(val[i].key, lid + j);
+        auto tmpvalue = raft::shfl(val[i].value, lid + j);
         cub::KeyValuePair<IdxT, DataT> tmp = {tmpkey, tmpvalue};
         val[i] = pairRedOp(tmp, val[i]);
       }
@@ -219,11 +239,11 @@ struct FusedL2NN : public BaseClass {
   DI void updateResults() {
     // for now have first lane from each warp update a unique output row. This
     // will resolve hang issues with pre-Volta architectures
-    auto nWarps = blockDim.x / WarpSize;
-    auto lid = laneId();
+    auto nWarps = blockDim.x / raft::WarpSize;
+    auto lid = raft::laneId();
     auto ridx = IdxT(blockIdx.x) * P::Mblk;
     if (lid == 0) {
-      for (int i = threadIdx.x / WarpSize; i < P::Mblk; i += nWarps) {
+      for (int i = threadIdx.x / raft::WarpSize; i < P::Mblk; i += nWarps) {
         auto rid = ridx + i;
         if (rid < this->m) {
           auto val = sRed[i];
@@ -254,7 +274,36 @@ struct FusedL2NN : public BaseClass {
       }
     }
   }
-};  // struct FusedL2NN
+
+#if (ENABLE_MEMCPY_ASYNC == 1)
+  DI void ldgXY(IdxT kidx) {
+    auto koffset = kidx + this->scolid;
+    auto offset =
+      this->pageWr * P::SmemPage + this->srowid * P::SmemStride + this->scolid;
+    auto* saddrx = this->sx + offset;
+    for (int i = 0; i < P::LdgPerThX; ++i) {
+      auto* sax = saddrx + i * P::LdgRowsX * P::SmemStride;
+      auto* gax = this->x + i * P::LdgRowsX * this->k + koffset;
+      auto inside =
+        koffset < this->k && (this->xrowid + i * P::LdgRowsX) < this->m;
+      __pipeline_memcpy_async(sax, inside ? gax : nullptr, SizeAndAlign,
+                              inside ? 0 : SizeAndAlign);
+    }
+    auto* saddry = this->sy + offset;
+    for (int i = 0; i < P::LdgPerThY; ++i) {
+      auto* say = saddry + i * P::LdgRowsY * P::SmemStride;
+      auto* gay = this->y + i * P::LdgRowsY * this->k + koffset;
+      auto inside =
+        koffset < this->k && (this->yrowid + i * P::LdgRowsY) < this->n;
+      __pipeline_memcpy_async(say, inside ? gay : nullptr, SizeAndAlign,
+                              inside ? 0 : SizeAndAlign);
+    }
+    pipe.commit();
+  }
+
+  DI void stsXY() { pipe.wait_prior<0>(); }
+#endif  // ENABLE_MEMCPY_ASYNC
+};      // struct FusedL2NN
 
 template <typename DataT, typename OutT, typename IdxT, bool Sqrt,
           typename Policy, typename ReduceOpT>
@@ -282,9 +331,10 @@ void fusedL2NNImpl(OutT* min, const DataT* x, const DataT* y, const DataT* xn,
                    ReduceOpT redOp, bool sqrt, bool initOutBuffer,
                    cudaStream_t stream) {
   typedef typename LinAlg::Policy4x4<DataT, VecLen>::Policy Policy;
-  dim3 grid(ceildiv<int>(m, Policy::Mblk), ceildiv<int>(n, Policy::Nblk));
+  dim3 grid(raft::ceildiv<int>(m, Policy::Mblk),
+            raft::ceildiv<int>(n, Policy::Nblk));
   dim3 blk(Policy::Nthreads);
-  auto nblks = ceildiv<int>(m, Policy::Nthreads);
+  auto nblks = raft::ceildiv<int>(m, Policy::Nthreads);
   auto maxVal = std::numeric_limits<DataT>::max();
   CUDA_CHECK(cudaMemsetAsync(workspace, 0, sizeof(int) * m, stream));
   if (initOutBuffer) {

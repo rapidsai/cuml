@@ -22,7 +22,7 @@ import warnings
 import numpy as np
 from cuml import ForestInference
 from cuml.fil.fil import TreeliteModel
-from cuml.common.handle import Handle
+from cuml.raft.common.handle import Handle
 from cuml.common.base import Base
 from cuml.common.array import CumlArray
 
@@ -31,21 +31,24 @@ from cython.operator cimport dereference as deref
 from cuml.ensemble.randomforest_shared import treelite_serialize, \
     treelite_deserialize
 from cuml.ensemble.randomforest_shared cimport *
-from cuml.common import input_to_cuml_array, rmm_cupy_ary
+from cuml.common import input_to_cuml_array, with_cupy_rmm
 
 
 class BaseRandomForestModel(Base):
-    variables = ['n_estimators', 'max_depth', 'handle',
-                 'max_features', 'n_bins',
-                 'split_algo', 'split_criterion', 'min_rows_per_node',
-                 'min_impurity_decrease',
-                 'bootstrap', 'bootstrap_features',
-                 'verbose', 'rows_sample',
-                 'max_leaves', 'quantile_per_tree']
+    _param_names = ['n_estimators', 'max_depth', 'handle',
+                    'max_features', 'n_bins',
+                    'split_algo', 'split_criterion', 'min_rows_per_node',
+                    'min_impurity_decrease',
+                    'bootstrap', 'bootstrap_features',
+                    'verbose', 'rows_sample',
+                    'max_leaves', 'quantile_per_tree',
+                    'accuracy_metric', 'use_experimental_backend',
+                    'max_batch_size']
+
     criterion_dict = {'0': GINI, '1': ENTROPY, '2': MSE,
                       '3': MAE, '4': CRITERION_END}
 
-    def __init__(self, split_criterion, seed=None,
+    def __init__(self, *, split_criterion, seed=None,
                  n_streams=8, n_estimators=100,
                  max_depth=16, handle=None, max_features='auto',
                  n_bins=8, split_algo=1, bootstrap=True,
@@ -58,10 +61,8 @@ class BaseRandomForestModel(Base):
                  max_leaf_nodes=None, min_impurity_decrease=0.0,
                  min_impurity_split=None, oob_score=None,
                  random_state=None, warm_start=None, class_weight=None,
-                 quantile_per_tree=False, criterion=None):
-
-        if accuracy_metric:
-            BaseRandomForestModel.variables.append('accuracy_metric')
+                 quantile_per_tree=False, criterion=None,
+                 use_experimental_backend=False, max_batch_size=128):
 
         sklearn_params = {"criterion": criterion,
                           "min_samples_leaf": min_samples_leaf,
@@ -69,7 +70,6 @@ class BaseRandomForestModel(Base):
                           "max_leaf_nodes": max_leaf_nodes,
                           "min_impurity_split": min_impurity_split,
                           "oob_score": oob_score, "n_jobs": n_jobs,
-                          "random_state": random_state,
                           "warm_start": warm_start,
                           "class_weight": class_weight}
 
@@ -82,13 +82,27 @@ class BaseRandomForestModel(Base):
                     "(https://docs.rapids.ai/api/cuml/nightly/"
                     "api.html#random-forest) for more information")
 
-        if ((seed is not None) and (n_streams != 1)):
+        if seed is not None:
+            if random_state is None:
+                warnings.warn("Parameter 'seed' is deprecated and will be"
+                              " removed in 0.17. Please use 'random_state'"
+                              " instead. Setting 'random_state' as the"
+                              " curent 'seed' value",
+                              DeprecationWarning)
+                random_state = seed
+            else:
+                warnings.warn("Both 'seed' and 'random_state' parameters were"
+                              " set. Using 'random_state' since 'seed' is"
+                              " deprecated and will be removed in 0.17.",
+                              DeprecationWarning)
+
+        if ((random_state is not None) and (n_streams != 1)):
             warnings.warn("For reproducible results in Random Forest"
                           " Classifier or for almost reproducible results"
                           " in Random Forest Regressor, n_streams==1 is "
                           "recommended. If n_streams is > 1, results may vary "
                           "due to stream/thread timing differences, even when "
-                          "random_seed is set")
+                          "random_state is set")
         if handle is None:
             handle = Handle(n_streams)
 
@@ -125,8 +139,10 @@ class BaseRandomForestModel(Base):
         self.dtype = dtype
         self.accuracy_metric = accuracy_metric
         self.quantile_per_tree = quantile_per_tree
+        self.use_experimental_backend = use_experimental_backend
+        self.max_batch_size = max_batch_size
         self.n_streams = handle.getNumInternalStreams()
-        self.seed = seed
+        self.random_state = random_state
         self.rf_forest = 0
         self.rf_forest64 = 0
         self.model_pbuf_bytes = bytearray()
@@ -195,12 +211,6 @@ class BaseRandomForestModel(Base):
 
         else:
             if self.RF_type == CLASSIFICATION:
-                if self.num_classes > 2:
-                    raise NotImplementedError(
-                        "Pickling for multi-class classification models"
-                        " is currently not implemented. Please check"
-                        " cuml GitHub issue #1679 for more information.")
-
                 build_treelite_forest(
                     &tl_handle,
                     <RandomForestMetaData[float, int]*>
@@ -218,6 +228,7 @@ class BaseRandomForestModel(Base):
         self.treelite_handle = <uintptr_t> tl_handle
         return self.treelite_handle
 
+    @with_cupy_rmm
     def _dataset_setup_for_fit(self, X, y, convert_dtype):
         self._set_output_type(X)
         self._set_n_features_in(X)
@@ -241,13 +252,16 @@ class BaseRandomForestModel(Base):
             if y_dtype != np.int32:
                 raise TypeError("The labels `y` need to be of dtype"
                                 " `int32`")
-            self.classes_ = rmm_cupy_ary(cp.unique, y_m)
-            self.num_classes = len(self.classes_)
+            temp_classes = cp.unique(y_m)
+            self.num_classes = len(temp_classes)
             for i in range(self.num_classes):
-                if i not in self.classes_:
+                if i not in temp_classes:
                     raise ValueError("The labels need "
                                      "to be consecutive values from "
                                      "0 to the number of unique label values")
+
+            # Save internally as CumlArray
+            self._classes_ = CumlArray(temp_classes)
         else:
             y_m, _, _, y_dtype = \
                 input_to_cuml_array(
@@ -332,26 +346,13 @@ class BaseRandomForestModel(Base):
                                         predict_proba=predict_proba)
         return preds
 
-    def _get_params(self, deep):
-        params = dict()
-        for key in BaseRandomForestModel.variables:
-            if key in ['handle']:
-                continue
-            var_value = getattr(self, key, None)
-            params[key] = var_value
-        return params
+    def get_param_names(self):
+        return super().get_param_names() + BaseRandomForestModel._param_names
 
-    def _set_params(self, **params):
+    def set_params(self, **params):
         self.treelite_serialized_model = None
 
-        if not params:
-            return self
-        for key, value in params.items():
-            if key not in BaseRandomForestModel.variables:
-                raise ValueError('Invalid parameter for estimator')
-            else:
-                setattr(self, key, value)
-        return self
+        super().set_params(**params)
 
 
 def _check_fil_parameter_validity(depth, algo, fil_sparse_format):

@@ -27,7 +27,7 @@
 #include <thrust/transform.h>
 #include <cub/device/device_scan.cuh>
 
-#include <common/cudart_utils.h>
+#include <raft/cudart_utils.h>
 #include <common/device_buffer.hpp>
 #include <common/fast_int_div.cuh>
 #include <cuml/common/cuml_allocator.hpp>
@@ -101,8 +101,7 @@ inline int divide_by_mask_build_index(
 
   // Compute and return the number of true elements in the mask
   int true_elements;
-  MLCommon::updateHost(&true_elements, index1.data() + batch_size - 1, 1,
-                       stream);
+  raft::update_host(&true_elements, index1.data() + batch_size - 1, 1, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
   return true_elements;
 }
@@ -168,7 +167,7 @@ inline void divide_by_mask_execute(const DataT* d_in, const bool* d_mask,
  */
 struct which_col : thrust::unary_function<int, int> {
   MLCommon::FastIntDiv divisor;
-  __host__ __device__ which_col(int col_length) : divisor(col_length) {}
+  __host__ which_col(int col_length) : divisor(col_length) {}
   __host__ __device__ int operator()(int idx) const { return idx / divisor; }
 };
 
@@ -233,7 +232,7 @@ inline void divide_by_min_build_index(
   thrust::for_each(
     thrust::cuda::par.on(stream), counting, counting + n_sub,
     [=] __device__(int j) { d_size[j] = d_cumul[(j + 1) * batch_size - 1]; });
-  MLCommon::updateHost(h_size, d_size, n_sub, stream);
+  raft::update_host(h_size, d_size, n_sub, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
 }
 
@@ -280,7 +279,7 @@ inline void divide_by_min_execute(
   // Create a device array of pointers to each sub-batch
   MLCommon::device_buffer<DataT*> out_buffer(allocator, stream, n_sub);
   DataT** d_out = out_buffer.data();
-  MLCommon::updateDevice(d_out, hd_out, n_sub, stream);
+  raft::update_device(d_out, hd_out, n_sub, stream);
 
   if (n_obs == 1) {
     auto counting = thrust::make_counting_iterator(0);
@@ -342,12 +341,12 @@ inline void build_division_map(
   // Copy the pointers to the id trackers of each sub-batch to the device
   MLCommon::device_buffer<int*> id_ptr_buffer(allocator, stream, n_sub);
   const int** d_id = const_cast<const int**>(id_ptr_buffer.data());
-  MLCommon::updateDevice(d_id, hd_id, n_sub, stream);
+  raft::update_device(d_id, hd_id, n_sub, stream);
 
   // Copy the size of each sub-batch to the device
   MLCommon::device_buffer<int> size_buffer(allocator, stream, n_sub);
   int* d_size = size_buffer.data();
-  MLCommon::updateDevice(d_size, h_size, n_sub, stream);
+  raft::update_device(d_size, h_size, n_sub, stream);
 
   int avg_size = batch_size / n_sub;
   int TPB =
@@ -409,7 +408,7 @@ inline void merge_series(const DataT* const* hd_in, const int* d_id_to_pos,
   // Copy the pointers to each sub-batch to the device
   MLCommon::device_buffer<DataT*> in_buffer(allocator, stream, n_sub);
   const DataT** d_in = const_cast<const DataT**>(in_buffer.data());
-  MLCommon::updateDevice(d_in, hd_in, n_sub, stream);
+  raft::update_device(d_in, hd_in, n_sub, stream);
 
   int TPB = std::min(64, n_obs);
   merge_series_kernel<<<batch_size, TPB, 0, stream>>>(

@@ -33,10 +33,10 @@ namespace GLM {
  * @param algo          specifies which solver to use (0: SVD, 1: Eigendecomposition, 2: QR-decomposition)
  * @{
  */
-void olsFit(const cumlHandle &handle, float *input, int n_rows, int n_cols,
+void olsFit(const raft::handle_t &handle, float *input, int n_rows, int n_cols,
             float *labels, float *coef, float *intercept, bool fit_intercept,
             bool normalize, int algo = 0);
-void olsFit(const cumlHandle &handle, double *input, int n_rows, int n_cols,
+void olsFit(const raft::handle_t &handle, double *input, int n_rows, int n_cols,
             double *labels, double *coef, double *intercept, bool fit_intercept,
             bool normalize, int algo = 0);
 /** @} */
@@ -56,14 +56,14 @@ void olsFit(const cumlHandle &handle, double *input, int n_rows, int n_cols,
  * @param algo          specifies which solver to use (0: SVD, 1: Eigendecomposition)
  * @{
  */
-void ridgeFit(const cumlHandle &handle, float *input, int n_rows, int n_cols,
-              float *labels, float *alpha, int n_alpha, float *coef,
+void ridgeFit(const raft::handle_t &handle, float *input, int n_rows,
+              int n_cols, float *labels, float *alpha, int n_alpha, float *coef,
               float *intercept, bool fit_intercept, bool normalize,
               int algo = 0);
-void ridgeFit(const cumlHandle &handle, double *input, int n_rows, int n_cols,
-              double *labels, double *alpha, int n_alpha, double *coef,
-              double *intercept, bool fit_intercept, bool normalize,
-              int algo = 0);
+void ridgeFit(const raft::handle_t &handle, double *input, int n_rows,
+              int n_cols, double *labels, double *alpha, int n_alpha,
+              double *coef, double *intercept, bool fit_intercept,
+              bool normalize, int algo = 0);
 /** @} */
 
 /**
@@ -76,21 +76,21 @@ void ridgeFit(const cumlHandle &handle, double *input, int n_rows, int n_cols,
  * @param preds         device pointer to store predictions of size n_rows
  * @{
  */
-void olsPredict(const cumlHandle &handle, const float *input, int n_rows,
+void olsPredict(const raft::handle_t &handle, const float *input, int n_rows,
                 int n_cols, const float *coef, float intercept, float *preds);
-void olsPredict(const cumlHandle &handle, const double *input, int n_rows,
+void olsPredict(const raft::handle_t &handle, const double *input, int n_rows,
                 int n_cols, const double *coef, double intercept,
                 double *preds);
-void ridgePredict(const cumlHandle &handle, const float *input, int n_rows,
+void ridgePredict(const raft::handle_t &handle, const float *input, int n_rows,
                   int n_cols, const float *coef, float intercept, float *preds);
-void ridgePredict(const cumlHandle &handle, const double *input, int n_rows,
+void ridgePredict(const raft::handle_t &handle, const double *input, int n_rows,
                   int n_cols, const double *coef, double intercept,
                   double *preds);
 /** @} */
 
 /**
  * @defgroup qnFit to fit a GLM using quasi newton methods.
- * @param cuml_handle           reference to cumlHandle object
+ * @param cuml_handle           reference to raft::handle_t object
  * @param X                     device pointer to feature matrix of dimension
  * NxD (row- or column major: see X_col_major param)
  * @param y                     device pointer to label vector of length N (for
@@ -125,13 +125,13 @@ void ridgePredict(const cumlHandle &handle, const double *input, int n_rows,
  * normal/squared, 2: multinomial/softmax)
  * @{
  */
-void qnFit(const cumlHandle &cuml_handle, float *X, float *y, int N, int D,
+void qnFit(const raft::handle_t &cuml_handle, float *X, float *y, int N, int D,
            int C, bool fit_intercept, float l1, float l2, int max_iter,
            float grad_tol, int linesearch_max_iter, int lbfgs_memory,
            int verbosity, float *w0, float *f, int *num_iters, bool X_col_major,
            int loss_type);
-void qnFit(const cumlHandle &cuml_handle, double *X, double *y, int N, int D,
-           int C, bool fit_intercept, double l1, double l2, int max_iter,
+void qnFit(const raft::handle_t &cuml_handle, double *X, double *y, int N,
+           int D, int C, bool fit_intercept, double l1, double l2, int max_iter,
            double grad_tol, int linesearch_max_iter, int lbfgs_memory,
            int verbosity, double *w0, double *f, int *num_iters,
            bool X_col_major, int loss_type);
@@ -139,7 +139,7 @@ void qnFit(const cumlHandle &cuml_handle, double *X, double *y, int N, int D,
 
 /**
  * @defgroup qnDecisionFunction to obtain the confidence scores of samples
- * @param cuml_handle           reference to cumlHandle object
+ * @param cuml_handle           reference to raft::handle_t object
  * @param X                     device pointer to feature matrix of dimension NxD (row- or column major: see X_col_major param)
  * @param N                     number of examples
  * @param D                     number of features
@@ -151,17 +151,17 @@ void qnFit(const cumlHandle &cuml_handle, double *X, double *y, int N, int D,
  * @param scores                device pointer to confidence scores of length N (for binary logistic: [0,1], for multinomial:  [0,...,C-1])
  * @{
  */
-void qnDecisionFunction(const cumlHandle &cuml_handle, float *X, int N, int D,
-                        int C, bool fit_intercept, float *params,
+void qnDecisionFunction(const raft::handle_t &cuml_handle, float *X, int N,
+                        int D, int C, bool fit_intercept, float *params,
                         bool X_col_major, int loss_type, float *scores);
-void qnDecisionFunction(const cumlHandle &cuml_handle, double *X, int N, int D,
-                        int C, bool fit_intercept, double *params,
+void qnDecisionFunction(const raft::handle_t &cuml_handle, double *X, int N,
+                        int D, int C, bool fit_intercept, double *params,
                         bool X_col_major, int loss_type, double *scores);
 /** @} */
 
 /**
  * @defgroup qnPredict to fit a GLM using quasi newton methods.
- * @param cuml_handle           reference to cumlHandle object
+ * @param cuml_handle           reference to raft::handle_t object
  * @param X                     device pointer to feature matrix of dimension NxD (row- or column major: see X_col_major param)
  * @param N                     number of examples
  * @param D                     number of features
@@ -173,11 +173,11 @@ void qnDecisionFunction(const cumlHandle &cuml_handle, double *X, int N, int D,
  * @param preds                 device pointer to predictions of length N (for binary logistic: [0,1], for multinomial:  [0,...,C-1])
  * @{
  */
-void qnPredict(const cumlHandle &cuml_handle, float *X, int N, int D, int C,
+void qnPredict(const raft::handle_t &cuml_handle, float *X, int N, int D, int C,
                bool fit_intercept, float *params, bool X_col_major,
                int loss_type, float *preds);
-void qnPredict(const cumlHandle &cuml_handle, double *X, int N, int D, int C,
-               bool fit_intercept, double *params, bool X_col_major,
+void qnPredict(const raft::handle_t &cuml_handle, double *X, int N, int D,
+               int C, bool fit_intercept, double *params, bool X_col_major,
                int loss_type, double *preds);
 /** @} */
 

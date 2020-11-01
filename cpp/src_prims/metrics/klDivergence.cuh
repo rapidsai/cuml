@@ -21,12 +21,12 @@
 
 #pragma once
 
-#include <common/cudart_utils.h>
 #include <math.h>
+#include <raft/cudart_utils.h>
 #include <common/device_buffer.hpp>
-#include <cuda_utils.cuh>
 #include <cuml/common/cuml_allocator.hpp>
-#include <linalg/map_then_reduce.cuh>
+#include <raft/cuda_utils.cuh>
+#include <raft/linalg/map_then_reduce.cuh>
 
 namespace MLCommon {
 
@@ -68,13 +68,13 @@ DataT klDivergence(const DataT* modelPDF, const DataT* candidatePDF, int size,
   MLCommon::device_buffer<DataT> d_KLDVal(allocator, stream, 1);
   CUDA_CHECK(cudaMemsetAsync(d_KLDVal.data(), 0, sizeof(DataT), stream));
 
-  MLCommon::LinAlg::mapThenSumReduce<DataT, KLDOp<DataT>, 256, const DataT*>(
+  raft::linalg::mapThenSumReduce<DataT, KLDOp<DataT>, 256, const DataT*>(
     d_KLDVal.data(), (size_t)size, KLDOp<DataT>(), stream, modelPDF,
     candidatePDF);
 
   DataT h_KLDVal;
 
-  MLCommon::updateHost(&h_KLDVal, d_KLDVal.data(), 1, stream);
+  raft::update_host(&h_KLDVal, d_KLDVal.data(), 1, stream);
 
   CUDA_CHECK(cudaStreamSynchronize(stream));
 

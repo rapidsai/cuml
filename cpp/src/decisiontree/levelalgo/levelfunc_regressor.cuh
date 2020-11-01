@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 #pragma once
-#include <common/cudart_utils.h>
 #include <cuml/tree/flatnode.h>
+#include <raft/cudart_utils.h>
 #include <cuml/tree/decisiontree.hpp>
 #include <iostream>
 #include <numeric>
@@ -59,7 +59,7 @@ void grow_deep_tree_regression(
     initial_metric_regression<T, AbsFunctor>(labels, sample_cnt, nrows, mean,
                                              count, initial_metric, tempmem);
   }
-  int reserve_depth = std::min(tempmem->swap_depth, tree_params.max_depth);
+  int reserve_depth = std::min(tempmem->swap_depth, tree_params.max_depth + 1);
   size_t total_nodes = pow(2, (reserve_depth + 1)) - 1;
 
   std::vector<T> sparse_meanstate;
@@ -83,7 +83,7 @@ void grow_deep_tree_regression(
   sparse_nodelist.push_back(0);
   //RNG setup
   std::mt19937 mtg(treeid * 1000);
-  MLCommon::Random::Rng d_rng(treeid * 1000);
+  raft::random::Rng d_rng(treeid * 1000);
   std::uniform_int_distribution<int> dist(0, Ncols - 1);
 
   //Setup pointers
@@ -110,15 +110,16 @@ void grow_deep_tree_regression(
       d_colstart, 0, tempmem->max_nodes_per_level * sizeof(unsigned int),
       tempmem->stream));
     memset(h_colstart, 0, tempmem->max_nodes_per_level * sizeof(unsigned int));
-    MLCommon::updateDevice(d_colids, h_colids, Ncols, tempmem->stream);
+    raft::update_device(d_colids, h_colids, Ncols, tempmem->stream);
   }
   std::vector<unsigned int> feature_selector(h_colids, h_colids + Ncols);
   float* infogain = tempmem->h_outgain->data();
 
-  int scatter_algo_depth = std::min(tempmem->swap_depth, tree_params.max_depth);
+  int scatter_algo_depth =
+    std::min(tempmem->swap_depth, tree_params.max_depth + 1);
   for (int depth = 0; (depth < scatter_algo_depth) && (n_nodes_nextitr != 0);
        depth++) {
-    depth_cnt = depth + 1;
+    depth_cnt = depth;
     n_nodes = n_nodes_nextitr;
     update_feature_sampling(h_colids, d_colids, h_colstart, d_colstart, Ncols,
                             ncols_sampled, n_nodes, mtg, dist, feature_selector,
@@ -166,8 +167,8 @@ void grow_deep_tree_regression(
       tree_params.max_leaves, h_new_node_flags, sparsetree, sparsesize,
       sparse_meanstate, n_nodes_nextitr, sparse_nodelist, leaf_cnt);
 
-    MLCommon::updateDevice(d_new_node_flags, h_new_node_flags, n_nodes,
-                           tempmem->stream);
+    raft::update_device(d_new_node_flags, h_new_node_flags, n_nodes,
+                        tempmem->stream);
     make_level_split(data, nrows, Ncols, ncols_sampled, tree_params.n_bins,
                      n_nodes, tree_params.split_algo, d_split_colidx,
                      d_split_binidx, d_new_node_flags, flagsptr, tempmem);
@@ -197,12 +198,15 @@ void grow_deep_tree_regression(
   int* d_counter = tempmem->d_counter->data();
   memcpy(h_nodelist, sparse_nodelist.data(),
          sizeof(int) * sparse_nodelist.size());
-  MLCommon::updateDevice(d_nodelist, h_nodelist, sparse_nodelist.size(),
-                         tempmem->stream);
+  raft::update_device(d_nodelist, h_nodelist, sparse_nodelist.size(),
+                      tempmem->stream);
   //Resize to remove trailing nodes from previous algorithm
   sparsetree.resize(sparsetree.size() - lastsize);
   convert_scatter_to_gather(flagsptr, sample_cnt, n_nodes, nrows, d_nodecount,
                             d_nodestart, d_samplelist, tempmem);
+  if (tempmem->swap_depth == tree_params.max_depth) {
+    ++depth_cnt;
+  }
   for (int depth = tempmem->swap_depth;
        (depth < tree_params.max_depth) && (n_nodes != 0); depth++) {
     depth_cnt = depth + 1;
@@ -217,8 +221,7 @@ void grow_deep_tree_regression(
       tree_params.split_criterion, sparsetree.size() + lastsize,
       tree_params.min_impurity_decrease, tempmem, d_sparsenodes, d_nodelist);
 
-    MLCommon::updateHost(h_sparsenodes, d_sparsenodes, lastsize,
-                         tempmem->stream);
+    raft::update_host(h_sparsenodes, d_sparsenodes, lastsize, tempmem->stream);
     //Update nodelist and split nodes
 
     make_split_gather(data, d_nodestart, d_samplelist, n_nodes, nrows,
@@ -236,8 +239,7 @@ void grow_deep_tree_regression(
   if (n_nodes != 0) {
     make_leaf_gather_regression(labels, d_nodestart, d_samplelist,
                                 d_sparsenodes, d_nodelist, n_nodes, tempmem);
-    MLCommon::updateHost(h_sparsenodes, d_sparsenodes, lastsize,
-                         tempmem->stream);
+    raft::update_host(h_sparsenodes, d_sparsenodes, lastsize, tempmem->stream);
     CUDA_CHECK(cudaStreamSynchronize(tempmem->stream));
     sparsetree.insert(sparsetree.end(), h_sparsenodes,
                       h_sparsenodes + lastsize);

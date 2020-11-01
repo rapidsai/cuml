@@ -26,20 +26,22 @@ def precision_recall_curve(y_true, probs_pred):
     """
     Compute precision-recall pairs for different probability thresholds
 
-    Note: this implementation is restricted to the binary classification task.
-    The precision is the ratio ``tp / (tp + fp)`` where ``tp`` is the number of
-    true positives and ``fp`` the number of false positives. The precision is
-    intuitively the ability of the classifier not to label as positive a sample
-    that is negative.
+    .. note:: this implementation is restricted to the binary classification
+        task. The precision is the ratio ``tp / (tp + fp)`` where ``tp`` is the
+        number of true positives and ``fp`` the number of false positives. The
+        precision is intuitively the ability of the classifier not to label as
+        positive a sample that is negative.
 
-    The recall is the ratio ``tp / (tp + fn)`` where ``tp`` is the number of
-    true positives and ``fn`` the number of false negatives. The recall is
-    intuitively the ability of the classifier to find all the positive samples.
-    The last precision and recall values are 1. and 0. respectively and do not
-    have a corresponding threshold.  This ensures that the graph starts on the
-    y axis.
+        The recall is the ratio ``tp / (tp + fn)`` where ``tp`` is the number
+        of true positives and ``fn`` the number of false negatives. The recall
+        is intuitively the ability of the classifier to find all the positive
+        samples. The last precision and recall values are 1. and 0.
+        respectively and do not have a corresponding threshold. This ensures
+        that the graph starts on the y axis.
 
-    Read more in the :ref:`User Guide <precision_recall_f_measure_metrics>`.
+        Read more in the scikit-learn's `User Guide
+        <https://scikit-learn.org/stable/modules/model_evaluation.html#precision-recall-f-measure-metrics>`_.
+
 
     Parameters
     ----------
@@ -120,7 +122,7 @@ def roc_auc_score(y_true, y_score):
     Compute Area Under the Receiver Operating Characteristic Curve (ROC AUC)
     from prediction scores.
 
-    Note: this implementation can only be used with binary classification.
+    .. note:: this implementation can only be used with binary classification.
 
     Parameters
     ----------
@@ -140,18 +142,13 @@ def roc_auc_score(y_true, y_score):
 
     Examples
     --------
-    .. code-block:: python
+    >>> import numpy as np
+    >>> from cuml.metrics import roc_auc_score
+    >>> y_true = np.array([0, 0, 1, 1])
+    >>> y_scores = np.array([0.1, 0.4, 0.35, 0.8])
+    >>> print(roc_auc_score(y_true, y_scores))
+    0.75
 
-            import numpy as np
-            from cuml.metrics import roc_auc_score
-            y_true = np.array([0, 0, 1, 1])
-            y_scores = np.array([0.1, 0.4, 0.35, 0.8])
-            print(roc_auc_score(y_true, y_scores))
-
-    Output:
-    .. code-block:: python
-
-            0.75
     """
     y_true, n_rows, n_cols, ytype = \
         input_to_cuml_array(y_true, check_dtype=[np.int32, np.int64,

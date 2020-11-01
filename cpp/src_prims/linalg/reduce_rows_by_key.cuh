@@ -20,8 +20,8 @@
 
 #include <stdlib.h>
 #include <cub/cub.cuh>
-#include <cuda_utils.cuh>
 #include <limits>
+#include <raft/cuda_utils.cuh>
 
 namespace MLCommon {
 namespace LinAlg {
@@ -44,7 +44,7 @@ void convert_array(IteratorT1 dst, IteratorT2 src, int n, cudaStream_t st) {
   dim3 grid, block;
   block.x = 256;
 
-  grid.x = ceildiv(n, (int)block.x);
+  grid.x = raft::ceildiv(n, (int)block.x);
   grid.x = std::min(grid.x, MAX_BLOCKS);
 
   convert_array_kernel<<<grid, block, 0, st>>>(dst, src, n);
@@ -140,13 +140,13 @@ __launch_bounds__(SUM_ROWS_SMALL_K_DIMX, 4) __global__
       thread_sums = cub::ShuffleIndex<32>(thread_sums, 0, 0xffffffff);
       if (threadIdx.x < nkeys) {
         if (threadIdx.x == 0)
-          myAtomicAdd(&d_sums[threadIdx.x * ncols + idim], thread_sums.x);
+          raft::myAtomicAdd(&d_sums[threadIdx.x * ncols + idim], thread_sums.x);
         if (threadIdx.x == 1)
-          myAtomicAdd(&d_sums[threadIdx.x * ncols + idim], thread_sums.y);
+          raft::myAtomicAdd(&d_sums[threadIdx.x * ncols + idim], thread_sums.y);
         if (threadIdx.x == 2)
-          myAtomicAdd(&d_sums[threadIdx.x * ncols + idim], thread_sums.z);
+          raft::myAtomicAdd(&d_sums[threadIdx.x * ncols + idim], thread_sums.z);
         if (threadIdx.x == 3)
-          myAtomicAdd(&d_sums[threadIdx.x * ncols + idim], thread_sums.w);
+          raft::myAtomicAdd(&d_sums[threadIdx.x * ncols + idim], thread_sums.w);
       }
     }
   }
@@ -161,7 +161,7 @@ void sum_rows_by_key_small_nkeys(const DataIteratorT d_A, int lda,
   block.x = SUM_ROWS_SMALL_K_DIMX;
   block.y = 1;  // Necessary
 
-  grid.x = ceildiv(nrows, (int)block.x);
+  grid.x = raft::ceildiv(nrows, (int)block.x);
   grid.x = std::min(grid.x, 32u);
   grid.y = ncols;
   grid.y = std::min(grid.y, MAX_BLOCKS);
@@ -202,7 +202,7 @@ __global__ void sum_rows_by_key_large_nkeys_kernel_colmajor(
       int local_key = d_keys[irow] - key_offset;
 
       // We could load next val here
-      myAtomicAdd(&local_sums[local_key], val);
+      raft::myAtomicAdd(&local_sums[local_key], val);
     }
 
     __syncthreads();  // local_sums
@@ -213,7 +213,7 @@ __global__ void sum_rows_by_key_large_nkeys_kernel_colmajor(
 
       if (local_sum != 0.0) {
         KeyType global_key = key_offset + local_key;
-        myAtomicAdd(&d_sums[global_key * ncols + idim], local_sum);
+        raft::myAtomicAdd(&d_sums[global_key * ncols + idim], local_sum);
         local_sums[local_key] = 0.0;
       }
     }
@@ -230,7 +230,7 @@ void sum_rows_by_key_large_nkeys_colmajor(const DataIteratorT d_A, int lda,
   block.x = SUM_ROWS_SMALL_K_DIMX;
   block.y = 1;  // Necessary
 
-  grid.x = ceildiv(nrows, (int)block.x);
+  grid.x = raft::ceildiv(nrows, (int)block.x);
   grid.x = std::min(grid.x, 32u);
   grid.y = ncols;
   grid.y = std::min(grid.y, MAX_BLOCKS);
@@ -290,7 +290,8 @@ __global__ void sum_rows_by_key_large_nkeys_kernel_rowmajor(
     sum += val;
   }
 
-  if (sum != 0.0) myAtomicAdd(&d_sums[global_key * ncols + this_col], sum);
+  if (sum != 0.0)
+    raft::myAtomicAdd(&d_sums[global_key * ncols + this_col], sum);
 }
 
 template <typename DataIteratorT, typename KeysIteratorT, typename WeightT>
@@ -306,7 +307,7 @@ void sum_rows_by_key_large_nkeys_rowmajor(const DataIteratorT d_A, int lda,
   dim3 grid, block;
   block.x = 256;  //Adjust me!
   block.y = 1;    //Don't adjust me!
-  grid.x = ceildiv(ncols, (int)block.x);
+  grid.x = raft::ceildiv(ncols, (int)block.x);
   grid.y = nkeys;
   grid.z = std::max(40960000 / nkeys / ncols, (int)1);  //Adjust me!
   grid.z = std::min(grid.z, (unsigned int)nrows);

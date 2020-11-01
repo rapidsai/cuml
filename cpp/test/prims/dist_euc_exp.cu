@@ -15,12 +15,14 @@
  */
 
 #include "distance_base.cuh"
+#include "test_utils.h"
 
 namespace MLCommon {
 namespace Distance {
 
 template <typename DataType>
-class DistanceEucExpTest : public DistanceTest<EucExpandedL2, DataType> {};
+class DistanceEucExpTest
+  : public DistanceTest<ML::Distance::DistanceType::EucExpandedL2, DataType> {};
 
 const std::vector<DistanceInputs<float>> inputsf = {
   {0.001f, 1024, 1024, 32, true, 1234ULL},
@@ -36,8 +38,8 @@ typedef DistanceEucExpTest<float> DistanceEucExpTestF;
 TEST_P(DistanceEucExpTestF, Result) {
   int m = params.isRowMajor ? params.m : params.n;
   int n = params.isRowMajor ? params.n : params.m;
-  ASSERT_TRUE(
-    devArrMatch(dist_ref, dist, m, n, CompareApprox<float>(params.tolerance)));
+  ASSERT_TRUE(devArrMatch(dist_ref, dist, m, n,
+                          raft::CompareApprox<float>(params.tolerance)));
 }
 INSTANTIATE_TEST_CASE_P(DistanceTests, DistanceEucExpTestF,
                         ::testing::ValuesIn(inputsf));
@@ -56,8 +58,8 @@ typedef DistanceEucExpTest<double> DistanceEucExpTestD;
 TEST_P(DistanceEucExpTestD, Result) {
   int m = params.isRowMajor ? params.m : params.n;
   int n = params.isRowMajor ? params.n : params.m;
-  ASSERT_TRUE(
-    devArrMatch(dist_ref, dist, m, n, CompareApprox<double>(params.tolerance)));
+  ASSERT_TRUE(devArrMatch(dist_ref, dist, m, n,
+                          raft::CompareApprox<double>(params.tolerance)));
 }
 INSTANTIATE_TEST_CASE_P(DistanceTests, DistanceEucExpTestD,
                         ::testing::ValuesIn(inputsd));

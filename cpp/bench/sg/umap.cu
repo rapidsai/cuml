@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-#include <cuda_utils.cuh>
 #include <cuml/cuml.hpp>
 #include <cuml/manifold/umap.hpp>
+#include <raft/cuda_utils.cuh>
 #include <utility>
 #include "benchmark.cuh"
 
@@ -40,7 +40,7 @@ __global__ void castKernel(OutT* out, const InT* in, IdxT len) {
 template <typename OutT, typename InT, typename IdxT = int>
 void cast(OutT* out, const InT* in, IdxT len, cudaStream_t stream) {
   static const int TPB = 256;
-  auto nblks = MLCommon::ceildiv<IdxT>(len, TPB);
+  auto nblks = raft::ceildiv<IdxT>(len, TPB);
   castKernel<OutT, InT, IdxT><<<nblks, TPB, 0, stream>>>(out, in, len);
   CUDA_CHECK(cudaGetLastError());
 }

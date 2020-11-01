@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include <linalg/matrix_vector_op.cuh>
+#include <raft/linalg/matrix_vector_op.cuh>
 #include "../common/ml_benchmark.hpp"
 
 namespace MLCommon {
@@ -29,8 +29,8 @@ struct Params {
 template <typename T>
 struct MatVecOp : public Fixture {
   MatVecOp(const std::string& name, const Params& p)
-    : Fixture(name,
-              std::shared_ptr<deviceAllocator>(new defaultDeviceAllocator)),
+    : Fixture(name, std::shared_ptr<deviceAllocator>(
+                      new raft::mr::device::default_allocator)),
       params(p) {}
 
  protected:
@@ -50,9 +50,9 @@ struct MatVecOp : public Fixture {
 
   void runBenchmark(::benchmark::State& state) override {
     loopOnState(state, [this]() {
-      MLCommon::LinAlg::matrixVectorOp(out, in, vec, params.cols, params.rows,
-                                       params.rowMajor, params.bcastAlongRows,
-                                       Sum<T>(), stream);
+      raft::linalg::matrixVectorOp(out, in, vec, params.cols, params.rows,
+                                   params.rowMajor, params.bcastAlongRows,
+                                   raft::Sum<T>(), stream);
     });
   }
 

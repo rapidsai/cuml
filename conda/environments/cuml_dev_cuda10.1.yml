@@ -6,38 +6,32 @@ channels:
 - conda-forge
 dependencies:
 - cudatoolkit=10.1
-- clang=8.0.1
-- clang-tools=8.0.1
-- cmake=3.14.5
-- numba>=0.46
-- cupy>=7,<8.0.0a0
-- cudf=0.15*
-- rmm=0.15*
-- cython>=0.29,<0.30
-- pytest>=4.6
-- pytest-timeout
-- scikit-learn>=0.21
-- umap-learn>=0.3.9
-- scikit-learn>=0.21
-- dask>=2.12.0
-- distributed>=2.12.0
-- dask-cuda=0.15*
-- dask-cudf=0.15*
+- rapids-build-env=0.17
+- rapids-notebook-env=0.17
+- rapids-doc-env=0.17
+- cudf=0.17.*
+- rmm=0.17.*
+- libcumlprims=0.17.*
+- dask-cudf=0.17.*
+- dask-cuda=0.17.*
+- ucx-py=0.17.*
 - dask-ml
-- ucx-py=0.15*
-- nccl>=2.5
-- libcumlprims=0.15.0a200720
-- statsmodels
-- treelite=0.92
-- doxygen
-- sphinx
-- sphinx_rtd_theme
-- numpydoc
-- nbsphinx
-- recommonmark
-- ipython
+- doxygen>=1.8.20
+- libfaiss>=1.6.3
+- faiss-proc=*=cuda
+- umap-learn
+- scikit-learn=0.23.1
+- treelite=0.93
 - pip
 - pip:
     - sphinx_markdown_tables
     - git+https://github.com/dask/dask.git
     - git+https://github.com/dask/distributed.git
+
+# rapids-build-env, notebook-env and doc-env meta packages are defined in
+# https://docs.rapids.ai/maintainers/depmgmt/
+
+# To install different versions of packages contained in those meta packages,
+# it is recommended to remove those meta packages (without removing the actual
+# packages contained in the environment) first with:
+# conda remove --force rapids-build-env rapids-notebook-env rapids-doc-env

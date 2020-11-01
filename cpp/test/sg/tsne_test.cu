@@ -14,18 +14,17 @@
  * limitations under the License.
  */
 
-#include <common/cudart_utils.h>
 #include <cuml/manifold/tsne.h>
 #include <datasets/digits.h>
 #include <gtest/gtest.h>
+#include <raft/cudart_utils.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <common/device_buffer.hpp>
-#include <cuda_utils.cuh>
 #include <cuml/common/cuml_allocator.hpp>
 #include <cuml/common/logger.hpp>
 #include <iostream>
-#include <score/scores.cuh>
+#include <metrics/scores.cuh>
 #include <vector>
 
 using namespace MLCommon;
@@ -37,16 +36,15 @@ using namespace ML;
 class TSNETest : public ::testing::Test {
  protected:
   void basicTest() {
-    cumlHandle handle;
+    raft::handle_t handle;
 
     // Allocate memory
-    device_buffer<float> X_d(handle.getDeviceAllocator(), handle.getStream(),
+    device_buffer<float> X_d(handle.get_device_allocator(), handle.get_stream(),
                              n * p);
-    MLCommon::updateDevice(X_d.data(), digits.data(), n * p,
-                           handle.getStream());
-    CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
+    raft::update_device(X_d.data(), digits.data(), n * p, handle.get_stream());
+    CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 
-    device_buffer<float> Y_d(handle.getDeviceAllocator(), handle.getStream(),
+    device_buffer<float> Y_d(handle.get_device_allocator(), handle.get_stream(),
                              n * 2);
 
     // Test Barnes Hut
@@ -58,9 +56,8 @@ class TSNETest : public ::testing::Test {
     float *embeddings_h = (float *)malloc(sizeof(float) * n * 2);
     assert(embeddings_h != NULL);
 
-    MLCommon::updateHost(&embeddings_h[0], Y_d.data(), n * 2,
-                         handle.getStream());
-    CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
+    raft::update_host(&embeddings_h[0], Y_d.data(), n * 2, handle.get_stream());
+    CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 
     // Transpose the data
     int k = 0;
@@ -71,23 +68,24 @@ class TSNETest : public ::testing::Test {
     }
 
     // Move transposed embeddings back to device, as trustworthiness requires C contiguous format
-    MLCommon::updateDevice(Y_d.data(), C_contiguous_embedding, n * 2,
-                           handle.getStream());
-    CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
+    raft::update_device(Y_d.data(), C_contiguous_embedding, n * 2,
+                        handle.get_stream());
+    CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 
     // Test trustworthiness
-    score_bh = trustworthiness_score<float, EucUnexpandedL2Sqrt>(
-      X_d.data(), Y_d.data(), n, p, 2, 5, handle.getDeviceAllocator(),
-      handle.getStream());
+    score_bh =
+      trustworthiness_score<float,
+                            ML::Distance::DistanceType::EucUnexpandedL2Sqrt>(
+        X_d.data(), Y_d.data(), n, p, 2, 5, handle.get_device_allocator(),
+        handle.get_stream());
 
     // Test Exact TSNE
     TSNE_fit(handle, X_d.data(), Y_d.data(), n, p, 2, 90, 0.5, 0.0025, 50, 100,
              1e-5, 12, 250, 0.01, 200, 500, 1000, 1e-7, 0.5, 0.8, -1,
              CUML_LEVEL_INFO, false, false);
 
-    MLCommon::updateHost(&embeddings_h[0], Y_d.data(), n * 2,
-                         handle.getStream());
-    CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
+    raft::update_host(&embeddings_h[0], Y_d.data(), n * 2, handle.get_stream());
+    CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 
     // Move embeddings to host.
     // This can be used for printing if needed.
@@ -98,14 +96,16 @@ class TSNETest : public ::testing::Test {
     }
 
     // Move transposed embeddings back to device, as trustworthiness requires C contiguous format
-    MLCommon::updateDevice(Y_d.data(), C_contiguous_embedding, n * 2,
-                           handle.getStream());
-    CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
+    raft::update_device(Y_d.data(), C_contiguous_embedding, n * 2,
+                        handle.get_stream());
+    CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 
     // Test trustworthiness
-    score_exact = trustworthiness_score<float, EucUnexpandedL2Sqrt>(
-      X_d.data(), Y_d.data(), n, p, 2, 5, handle.getDeviceAllocator(),
-      handle.getStream());
+    score_exact =
+      trustworthiness_score<float,
+                            ML::Distance::DistanceType::EucUnexpandedL2Sqrt>(
+        X_d.data(), Y_d.data(), n, p, 2, 5, handle.get_device_allocator(),
+        handle.get_stream());
 
     // Free space
     free(embeddings_h);

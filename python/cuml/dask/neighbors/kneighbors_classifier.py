@@ -20,7 +20,7 @@ from cuml.dask.common import parts_to_ranks
 from cuml.dask.common import flatten_grouped_results
 from cuml.dask.common.utils import raise_mg_import_exception
 from cuml.dask.common.utils import wait_and_raise_from_futures
-from cuml.dask.common.comms import worker_state
+from cuml.raft.dask.common.comms import worker_state
 from cuml.dask.neighbors import NearestNeighbors
 import dask.array as da
 from uuid import uuid1
@@ -232,7 +232,7 @@ class KNeighborsClassifier(NearestNeighbors):
         out_d = to_output(out_d_futures, self.datatype)
         return out, out_i, out_d
 
-    def score(self, X, y):
+    def score(self, X, y, convert_dtype=True):
         """
         Predict labels for a query from previously stored index
         and index labels.
@@ -252,9 +252,9 @@ class KNeighborsClassifier(NearestNeighbors):
         -------
         score
         """
-        labels, _, _ = self.predict(X, convert_dtype=True)
-        diff = (labels == y)
         if self.data_handler.datatype == 'cupy':
+            preds, _, _ = self.predict(X, convert_dtype=convert_dtype)
+            diff = (preds == y)
             mean = da.mean(diff)
             return mean.compute()
         else:

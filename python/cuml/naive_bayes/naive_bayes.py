@@ -16,6 +16,7 @@
 
 
 import cupy as cp
+import cupyx
 import cupy.prof
 import math
 import warnings
@@ -23,6 +24,7 @@ import warnings
 from cuml.common import with_cupy_rmm
 from cuml.common import CumlArray
 from cuml.common.base import Base
+from cuml.common.doc_utils import generate_docstring
 from cuml.common.input_utils import input_to_cuml_array
 from cuml.common.kernel_utils import cuda_kernel_factory
 from cuml.common.import_utils import has_scipy
@@ -115,9 +117,6 @@ def count_features_dense_kernel(float_dtype, int_dtype):
 
 class MultinomialNB(Base):
 
-    # TODO: Make this extend cuml.Base:
-    # https://github.com/rapidsai/cuml/issues/1834
-
     """
     Naive Bayes classifier for multinomial models
 
@@ -127,10 +126,38 @@ class MultinomialNB(Base):
     The multinomial distribution normally requires integer feature counts.
     However, in practice, fractional counts such as tf-idf may also work.
 
-    NOTE: While cuML only provides the multinomial version currently, the
-    other variants are planned to be included soon. Refer to the
-    corresponding Github issue for updates:
-    https://github.com/rapidsai/cuml/issues/1666
+    Notes
+    -----
+    While cuML only provides the multinomial version currently, the other
+    variants are planned to be included soon. Refer to the corresponding Github
+    `issue <https://github.com/rapidsai/cuml/issues/1666>`_ for updates.
+
+    Parameters
+    ----------
+
+    alpha : float
+        Additive (Laplace/Lidstone) smoothing parameter (0 for no smoothing).
+    fit_prior : boolean
+        Whether to learn class prior probabilities or no. If false, a uniform
+        prior will be used.
+    class_prior : array-like, size (n_classes)
+        Prior probabilities of the classes. If specified, the priors are not
+        adjusted according to the data.
+    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
+        Variable to control output type of the results and attributes of
+        the estimator. If None, it'll inherit the output type set at the
+        module level, `cuml.global_output_type`.
+        See :ref:`output-data-type-configuration` for more info.
+    handle : cuml.Handle
+        Specifies the cuml.handle that holds internal CUDA state for
+        computations in this model. Most importantly, this specifies the CUDA
+        stream that will be used for the model's computations, so users can
+        run different models concurrently in different streams by creating
+        handles in several streams.
+        If it is None, a new one is created.
+    verbose : int or boolean, default=False
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        See :ref:`verbosity-levels` for more info.
 
     Examples
     --------
@@ -140,42 +167,43 @@ class MultinomialNB(Base):
 
     .. code-block:: python
 
-    import cupy as cp
+        import cupy as cp
+        import cupyx
 
-    from sklearn.datasets import fetch_20newsgroups
-    from sklearn.feature_extraction.text import CountVectorizer
+        from sklearn.datasets import fetch_20newsgroups
+        from sklearn.feature_extraction.text import CountVectorizer
 
-    from cuml.naive_bayes import MultinomialNB
+        from cuml.naive_bayes import MultinomialNB
 
-    # Load corpus
+        # Load corpus
 
-    twenty_train = fetch_20newsgroups(subset='train',
-                              shuffle=True, random_state=42)
+        twenty_train = fetch_20newsgroups(subset='train',
+                                shuffle=True, random_state=42)
 
-    # Turn documents into term frequency vectors
+        # Turn documents into term frequency vectors
 
-    count_vect = CountVectorizer()
-    features = count_vect.fit_transform(twenty_train.data)
+        count_vect = CountVectorizer()
+        features = count_vect.fit_transform(twenty_train.data)
 
-    # Put feature vectors and labels on the GPU
+        # Put feature vectors and labels on the GPU
 
-    X = cp.sparse.csr_matrix(features.tocsr(), dtype=cp.float32)
-    y = cp.asarray(twenty_train.target, dtype=cp.int32)
+        X = cupyx.scipy.sparse.csr_matrix(features.tocsr(), dtype=cp.float32)
+        y = cp.asarray(twenty_train.target, dtype=cp.int32)
 
-    # Train model
+        # Train model
 
-    model = MultinomialNB()
-    model.fit(X, y)
+        model = MultinomialNB()
+        model.fit(X, y)
 
-    # Compute accuracy on training set
+        # Compute accuracy on training set
 
-    model.score(X, y)
+        model.score(X, y)
 
     Output:
 
     .. code-block:: python
 
-    0.9244298934936523
+        0.9244298934936523
 
     """
     @with_cupy_rmm
@@ -184,23 +212,11 @@ class MultinomialNB(Base):
                  fit_prior=True,
                  class_prior=None,
                  output_type=None,
-                 handle=None):
-        """
-        Create new multinomial Naive Bayes instance
-
-        Parameters
-        ----------
-
-        alpha : float Additive (Laplace/Lidstone) smoothing parameter (0 for
-                no smoothing).
-        fit_prior : boolean Whether to learn class prior probabilities or no.
-                    If false, a uniform prior will be used.
-        class_prior : array-like, size (n_classes) Prior probabilities of the
-                      classes. If specified, the priors are not adjusted
-                      according to the data.
-        """
+                 handle=None,
+                 verbose=False):
         super(MultinomialNB, self).__init__(handle=handle,
-                                            output_type=output_type)
+                                            output_type=output_type,
+                                            verbose=verbose)
         self.alpha = alpha
         self.fit_prior = fit_prior
 
@@ -216,23 +232,15 @@ class MultinomialNB(Base):
         # Needed until Base no longer assumed cumlHandle
         self.handle = None
 
+    @generate_docstring(X='dense_sparse')
     @cp.prof.TimeRangeDecorator(message="fit()", color_id=0)
     @with_cupy_rmm
     def fit(self, X, y, sample_weight=None):
         """
         Fit Naive Bayes classifier according to X, y
 
-        Parameters
-        ----------
-
-        X : {array-like, cupy sparse matrix} of shape (n_samples, n_features)
-            Training vectors, where n_samples is the number of samples and
-            n_features is the number of features.
-        y : array-like shape (n_samples) Target values.
-        sample_weight : array-like of shape (n_samples)
-            Weights applied to individial samples (1. for unweighted).
         """
-        self._set_n_features_in(X)
+        self._set_base_attributes(output_type=X)
         return self.partial_fit(X, y, sample_weight)
 
     @cp.prof.TimeRangeDecorator(message="fit()", color_id=0)
@@ -248,12 +256,13 @@ class MultinomialNB(Base):
 
         # todo: use a sparse CumlArray style approach when ready
         # https://github.com/rapidsai/cuml/issues/2216
-        if scipy_sparse_isspmatrix(X) or cp.sparse.isspmatrix(X):
+        if scipy_sparse_isspmatrix(X) or cupyx.scipy.sparse.isspmatrix(X):
             X = X.tocoo()
             rows = cp.asarray(X.row, dtype=X.row.dtype)
             cols = cp.asarray(X.col, dtype=X.col.dtype)
             data = cp.asarray(X.data, dtype=X.data.dtype)
-            X = cp.sparse.coo_matrix((data, (rows, cols)), shape=X.shape)
+            X = cupyx.scipy.sparse.coo_matrix((data, (rows, cols)),
+                                              shape=X.shape)
         else:
             X = input_to_cuml_array(X, order='K').array.to_output('cupy')
 
@@ -266,16 +275,16 @@ class MultinomialNB(Base):
             if _classes is not None:
                 _classes, *_ = input_to_cuml_array(_classes, order='K')
                 check_labels(Y, _classes.to_output('cupy'))
-                self.classes_ = _classes
+                self._classes_ = _classes
             else:
-                self.classes_ = CumlArray(data=label_classes)
+                self._classes_ = CumlArray(data=label_classes)
 
             self._n_classes_ = self.classes_.shape[0]
             self._n_features_ = X.shape[1]
             self._init_counters(self._n_classes_, self._n_features_,
                                 X.dtype)
         else:
-            check_labels(Y, self.classes_)
+            check_labels(Y, self._classes_)
 
         self._count(X, Y)
 
@@ -336,21 +345,16 @@ class MultinomialNB(Base):
         return self._partial_fit(X, y, sample_weight=sample_weight,
                                  _classes=classes)
 
+    @generate_docstring(X='dense_sparse',
+                        return_values={'name': 'y_hat',
+                                       'type': 'dense',
+                                       'description': 'Predicted values',
+                                       'shape': '(n_rows, 1)'})
     @cp.prof.TimeRangeDecorator(message="predict()", color_id=1)
     @with_cupy_rmm
     def predict(self, X):
         """
         Perform classification on an array of test vectors X.
-
-        Parameters
-        ----------
-
-        X : array-like of shape (n_samples, n_features)
-
-        Returns
-        -------
-
-        C : cupy.ndarray of shape (n_samples)
 
         """
         out_type = self._get_output_type(X)
@@ -363,12 +367,13 @@ class MultinomialNB(Base):
 
         # todo: use a sparse CumlArray style approach when ready
         # https://github.com/rapidsai/cuml/issues/2216
-        if scipy_sparse_isspmatrix(X) or cp.sparse.isspmatrix(X):
+        if scipy_sparse_isspmatrix(X) or cupyx.scipy.sparse.isspmatrix(X):
             X = X.tocoo()
             rows = cp.asarray(X.row, dtype=X.row.dtype)
             cols = cp.asarray(X.col, dtype=X.col.dtype)
             data = cp.asarray(X.data, dtype=X.data.dtype)
-            X = cp.sparse.coo_matrix((data, (rows, cols)), shape=X.shape)
+            X = cupyx.scipy.sparse.coo_matrix((data, (rows, cols)),
+                                              shape=X.shape)
         else:
             X = input_to_cuml_array(X, order='K').array.to_output('cupy')
 
@@ -378,24 +383,18 @@ class MultinomialNB(Base):
         y_hat = invert_labels(indices, classes=self.classes_)
         return CumlArray(data=y_hat).to_output(out_type)
 
+    @generate_docstring(X='dense_sparse',
+                        return_values={'name': 'C',
+                                       'type': 'dense',
+            'description': 'Returns the log-probability of the samples for each class in the \
+            model. The columns correspond to the classes in sorted order, as \
+            they appear in the attribute `classes_`.',  # noqa
+                                       'shape': '(n_rows, 1)'})
     @with_cupy_rmm
     def predict_log_proba(self, X):
         """
         Return log-probability estimates for the test vector X.
 
-        Parameters
-        ----------
-
-        X : array-like of shape (n_samples, n_features)
-
-
-        Returns
-        -------
-
-        C : array-like of shape (n_samples, n_classes)
-            Returns the log-probability of the samples for each class in the
-            model. The columns correspond to the classes in sorted order, as
-            they appear in the attribute classes_.
         """
         out_type = self._get_output_type(X)
 
@@ -407,12 +406,13 @@ class MultinomialNB(Base):
 
         # todo: use a sparse CumlArray style approach when ready
         # https://github.com/rapidsai/cuml/issues/2216
-        if scipy_sparse_isspmatrix(X) or cp.sparse.isspmatrix(X):
+        if scipy_sparse_isspmatrix(X) or cupyx.scipy.sparse.isspmatrix(X):
             X = X.tocoo()
             rows = cp.asarray(X.row, dtype=X.row.dtype)
             cols = cp.asarray(X.col, dtype=X.col.dtype)
             data = cp.asarray(X.data, dtype=X.data.dtype)
-            X = cp.sparse.coo_matrix((data, (rows, cols)), shape=X.shape)
+            X = cupyx.scipy.sparse.coo_matrix((data, (rows, cols)),
+                                              shape=X.shape)
         else:
             X = input_to_cuml_array(X, order='K').array.to_output('cupy')
 
@@ -437,28 +437,28 @@ class MultinomialNB(Base):
         result = jll - log_prob_x.T
         return CumlArray(result).to_output(out_type)
 
+    @generate_docstring(X='dense_sparse',
+                        return_values={'name': 'C',
+                                       'type': 'dense',
+            'description': 'Returns the probability of the samples for each class in the \
+            model. The columns correspond to the classes in sorted order, as \
+            they appear in the attribute `classes_`.',  # noqa
+                                       'shape': '(n_rows, 1)'})
     @with_cupy_rmm
     def predict_proba(self, X):
         """
         Return probability estimates for the test vector X.
 
-        Parameters
-        ----------
-
-        X : array-like of shape (n_samples, n_features)
-
-        Returns
-        -------
-
-        C : array-like of shape (n_samples, n_classes)
-            Returns the probability of the samples for each class in the model.
-            The columns correspond to the classes in sorted order, as they
-            appear in the attribute classes_.
         """
         out_type = self._get_output_type(X)
         result = cp.exp(self.predict_log_proba(X))
         return CumlArray(result).to_output(out_type)
 
+    @generate_docstring(X='dense_sparse',
+                        return_values={'name': 'score',
+                                       'type': 'float',
+                                       'description': 'Mean accuracy of \
+                                       self.predict(X) with respect to y.'})
     @with_cupy_rmm
     def score(self, X, y, sample_weight=None):
         """
@@ -468,21 +468,8 @@ class MultinomialNB(Base):
         harsh metric since you require for each sample that each label set be
         correctly predicted.
 
-        Parameters
-        ----------
-        X : array-like of shape (n_samples, n_features)
-        Test samples.
+        Currently, sample weight is ignored
 
-        y : array-like of shape (n_samples,) or (n_samples, n_outputs)
-        True labels for X.
-
-        sample_weight : array-like of shape (n_samples,), default=None
-        Sample weights. Currently, sample weight is ignored
-
-        Returns
-        -------
-
-        score : float Mean accuracy of self.predict(X) with respect to y.
         """
         y_hat = self.predict(X)
         return accuracy_score(y_hat, cp.asarray(y, dtype=y.dtype))
@@ -500,7 +487,7 @@ class MultinomialNB(Base):
 
         Parameters
         ----------
-        X : cupy.ndarray or cupy.sparse matrix of size
+        X : cupy.ndarray or cupyx.scipy.sparse matrix of size
                   (n_rows, n_features)
         Y : cupy.array of monotonic class labels
         """
@@ -522,7 +509,7 @@ class MultinomialNB(Base):
 
         labels_dtype = self.classes_.dtype
 
-        if cp.sparse.isspmatrix(X):
+        if cupyx.scipy.sparse.isspmatrix(X):
             X = X.tocoo()
 
             count_features_coo = count_features_coo_kernel(X.dtype,
@@ -558,8 +545,8 @@ class MultinomialNB(Base):
         count_classes((math.ceil(n_rows / 32),), (32,),
                       (class_c, n_rows, Y))
 
-        self._feature_count_ += counts
-        self._class_count_ += class_c
+        self._feature_count_ = CumlArray(self._feature_count_ + counts)
+        self._class_count_ = CumlArray(self._class_count_ + class_c)
 
     def _update_class_log_prior(self, class_prior=None):
 
@@ -573,11 +560,12 @@ class MultinomialNB(Base):
 
         elif self.fit_prior:
             log_class_count = cp.log(self._class_count_)
-            self._class_log_prior_ = log_class_count - \
-                cp.log(self._class_count_.sum())
+            self._class_log_prior_ = \
+                CumlArray(log_class_count - cp.log(
+                    cp.asarray(self._class_count_).sum()))
         else:
-            self._class_log_prior_ = cp.full(self._n_classes_,
-                                             -1*math.log(self._n_classes_))
+            self._class_log_prior_ = CumlArray(cp.full(self._n_classes_,
+                                               -1*math.log(self._n_classes_)))
 
     def _update_feature_log_prob(self, alpha):
         """
@@ -589,10 +577,10 @@ class MultinomialNB(Base):
 
         alpha : float amount of smoothing to apply (0. means no smoothing)
         """
-        smoothed_fc = self._feature_count_ + alpha
+        smoothed_fc = cp.asarray(self._feature_count_) + alpha
         smoothed_cc = smoothed_fc.sum(axis=1).reshape(-1, 1)
-        self._feature_log_prob_ = (cp.log(smoothed_fc) -
-                                   cp.log(smoothed_cc.reshape(-1, 1)))
+        self._feature_log_prob_ = CumlArray(cp.log(smoothed_fc) -
+                                            cp.log(smoothed_cc.reshape(-1, 1)))
 
     def _joint_log_likelihood(self, X):
         """
@@ -604,6 +592,14 @@ class MultinomialNB(Base):
         X : array-like of size (n_samples, n_features)
         """
 
-        ret = X.dot(self._feature_log_prob_.T)
-        ret += self._class_log_prior_
+        ret = X.dot(cp.asarray(self._feature_log_prob_).T)
+        ret += cp.asarray(self._class_log_prior_)
         return ret
+
+    def get_param_names(self):
+        return super().get_param_names() + \
+            [
+                "alpha",
+                "fit_prior",
+                "class_prior",
+            ]

@@ -15,9 +15,11 @@
 #
 
 
+import inspect
 import numba
 
 from distutils.version import LooseVersion
+from functools import wraps
 
 
 def has_dask():
@@ -68,6 +70,13 @@ def has_xgboost():
         return True
     except ImportError:
         return False
+    except Exception as ex:
+        import warnings
+        warnings.warn(
+            ("The XGBoost library was found but raised an exception during "
+             "import. Importing xgboost will be skipped. "
+             "Error message:\n{}").format(str(ex)))
+        return False
 
 
 def has_pytest_benchmark():
@@ -90,12 +99,15 @@ def check_min_cupy_version(version):
         return False
 
 
-def has_scipy():
+def has_scipy(raise_if_unavailable=False):
     try:
         import scipy   # NOQA
         return True
     except ImportError:
-        return False
+        if not raise_if_unavailable:
+            return False
+        else:
+            raise ImportError("Scipy is not available.")
 
 
 def has_sklearn():
@@ -112,3 +124,33 @@ def dummy_function_always_false(*args, **kwargs):
 
 class DummyClass(object):
     pass
+
+
+def check_cupy8(conf=None):
+    """Decorator checking availability of CuPy 8.0+
+
+    Parameters:
+    conf: string (optional, default None): If set to 'pytest' will skip tests.
+    Will otherwise raise an error in case CuPy 8.0+ is unavailable.
+
+    """
+    def check_cupy8_dec(func):
+
+        assert not inspect.isclass(func), \
+            ("Do not use this decorator on classes. Instead decorate "
+             "__init__  and any static or class methods.")
+
+        @wraps(func)
+        def inner(*args, **kwargs):
+            import cupy as cp
+            if LooseVersion(str(cp.__version__)) >= LooseVersion('8.0'):
+                return func(*args, **kwargs)
+            else:
+                err_msg = 'Could not import required module CuPy 8.0+'
+                if conf == 'pytest':
+                    import pytest
+                    pytest.skip(err_msg)
+                else:
+                    raise ImportError(err_msg)
+        return inner
+    return check_cupy8_dec

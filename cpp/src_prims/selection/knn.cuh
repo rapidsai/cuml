@@ -16,8 +16,8 @@
 
 #pragma once
 
-#include <common/cudart_utils.h>
-#include <cuda_utils.cuh>
+#include <raft/cudart_utils.h>
+#include <raft/cuda_utils.cuh>
 
 #include <distance/distance.cuh>
 #include <label/classlabels.cuh>
@@ -188,29 +188,29 @@ inline faiss::MetricType build_faiss_metric(ML::MetricType metric) {
 
 /**
    * Search the kNN for the k-nearest neighbors of a set of query vectors
-   * @param input vector of device device memory array pointers to search
-   * @param sizes vector of memory sizes for each device array pointer in input
-   * @param D number of cols in input and search_items
-   * @param search_items set of vectors to query for neighbors
-   * @param n        number of items in search_items
-   * @param res_I    pointer to device memory for returning k nearest indices
-   * @param res_D    pointer to device memory for returning k nearest distances
-   * @param k        number of neighbors to query
-   * @param allocator the device memory allocator to use for temporary scratch memory
-   * @param userStream the main cuda stream to use
-   * @param internalStreams optional when n_params > 0, the index partitions can be
+   * @param[in] input vector of device device memory array pointers to search
+   * @param[in] sizes vector of memory sizes for each device array pointer in input
+   * @param[in] D number of cols in input and search_items
+   * @param[in] search_items set of vectors to query for neighbors
+   * @param[in] n        number of items in search_items
+   * @param[out] res_I    pointer to device memory for returning k nearest indices
+   * @param[out] res_D    pointer to device memory for returning k nearest distances
+   * @param[in] k        number of neighbors to query
+   * @param[in] allocator the device memory allocator to use for temporary scratch memory
+   * @param[in] userStream the main cuda stream to use
+   * @param[in] internalStreams optional when n_params > 0, the index partitions can be
    *        queried in parallel using these streams. Note that n_int_streams also
    *        has to be > 0 for these to be used and their cardinality does not need
    *        to correspond to n_parts.
-   * @param n_int_streams size of internalStreams. When this is <= 0, only the
+   * @param[in] n_int_streams size of internalStreams. When this is <= 0, only the
    *        user stream will be used.
-   * @param rowMajorIndex are the index arrays in row-major layout?
-   * @param rowMajorQuery are the query array in row-major layout?
-   * @param translations translation ids for indices when index rows represent
+   * @param[in] rowMajorIndex are the index arrays in row-major layout?
+   * @param[in] rowMajorQuery are the query array in row-major layout?
+   * @param[in] translations translation ids for indices when index rows represent
    *        non-contiguous partitions
-   * @param metric corresponds to the FAISS::metricType enum (default is euclidean)
-   * @param metricArg metric argument to use. Corresponds to the p arg for lp norm
-   * @param expanded_form whether or not lp variants should be reduced w/ lp-root
+   * @param[in] metric corresponds to the FAISS::metricType enum (default is euclidean)
+   * @param[in] metricArg metric argument to use. Corresponds to the p arg for lp norm
+   * @param[in] expanded_form whether or not lp variants should be reduced w/ lp-root
    */
 template <typename IntType = int>
 void brute_force_knn(std::vector<float *> &input, std::vector<int> &sizes,
@@ -255,7 +255,7 @@ void brute_force_knn(std::vector<float *> &input, std::vector<int> &sizes,
     input.size());
   for (int i = 0; i < input.size(); i++) {
     metric_processors[i] = create_processor<float>(
-      metric, n, D, k, rowMajorQuery, userStream, allocator);
+      metric, sizes[i], D, k, rowMajorQuery, userStream, allocator);
     metric_processors[i]->preprocess(input[i]);
   }
 
@@ -263,7 +263,8 @@ void brute_force_knn(std::vector<float *> &input, std::vector<int> &sizes,
   CUDA_CHECK(cudaGetDevice(&device));
 
   device_buffer<int64_t> trans(allocator, userStream, id_ranges->size());
-  updateDevice(trans.data(), id_ranges->data(), id_ranges->size(), userStream);
+  raft::update_device(trans.data(), id_ranges->data(), id_ranges->size(),
+                      userStream);
 
   device_buffer<float> all_D(allocator, userStream, 0);
   device_buffer<int64_t> all_I(allocator, userStream, 0);
@@ -286,7 +287,7 @@ void brute_force_knn(std::vector<float *> &input, std::vector<int> &sizes,
     faiss::gpu::StandardGpuResources gpu_res;
 
     cudaStream_t stream =
-      select_stream(userStream, internalStreams, n_int_streams, i);
+      raft::select_stream(userStream, internalStreams, n_int_streams, i);
 
     gpu_res.noTempMemory();
     gpu_res.setCudaMallocWarning(false);
@@ -339,7 +340,7 @@ void brute_force_knn(std::vector<float *> &input, std::vector<int> &sizes,
 	*/
     float p = 0.5;  // standard l2
     if (m == faiss::MetricType::METRIC_Lp) p = 1.0 / metricArg;
-    MLCommon::LinAlg::unaryOp<float>(
+    raft::linalg::unaryOp<float>(
       res_D, res_D, n * k,
       [p] __device__(float input) { return powf(input, p); }, userStream);
   }
@@ -375,16 +376,18 @@ template <typename OutType = int>
 __global__ void class_vote_kernel(OutType *out, const float *class_proba,
                                   int *unique_labels, int n_uniq_labels,
                                   size_t n_samples, int n_outputs,
-                                  int output_offset) {
+                                  int output_offset, bool use_shared_mem) {
   int row = (blockIdx.x * blockDim.x) + threadIdx.x;
   int i = row * n_uniq_labels;
 
   extern __shared__ int label_cache[];
-  for (int j = threadIdx.x; j < n_uniq_labels; j += blockDim.x) {
-    label_cache[j] = unique_labels[j];
-  }
+  if (use_shared_mem) {
+    for (int j = threadIdx.x; j < n_uniq_labels; j += blockDim.x) {
+      label_cache[j] = unique_labels[j];
+    }
 
-  __syncthreads();
+    __syncthreads();
+  }
 
   if (row >= n_samples) return;
   float cur_max = -1.0;
@@ -396,7 +399,10 @@ __global__ void class_vote_kernel(OutType *out, const float *class_proba,
       cur_label = j;
     }
   }
-  out[row * n_outputs + output_offset] = label_cache[cur_label];
+
+  int val = use_shared_mem ? label_cache[cur_label] : unique_labels[cur_label];
+
+  out[row * n_outputs + output_offset] = val;
 }
 
 template <typename LabelType, bool precomp_lbls = false>
@@ -409,7 +415,6 @@ __global__ void regress_avg_kernel(LabelType *out, const int64_t *knn_indices,
 
   if (row >= n_samples) return;
 
-  // should work for moderately small number of classes
   LabelType pred = 0;
   for (int j = 0; j < n_neighbors; j++) {
     pred += get_lbls<precomp_lbls>(labels, knn_indices, i + j);
@@ -422,25 +427,24 @@ __global__ void regress_avg_kernel(LabelType *out, const int64_t *knn_indices,
  * A naive knn classifier to predict probabilities
  * @tparam TPB_X number of threads per block to use. each thread
  *               will process a single row of knn_indices
- *
- * @param out vector of output class probabilities of the same size as y.
- *            each element should be of size size (n_samples * n_classes[i])
  * @tparam precomp_lbls is set to true for the reduction step of MNMG KNN Classifier. In this case,
- * the knn_indices array is not used as the y arrays already store the labels for each row.
- * This makes it possible to compute the reduction step without holding all the data on a single machine.
- * @param knn_indices the index array resulting from a knn search
- * @param y vector of label arrays. for multulabel classification,
+ *         the knn_indices array is not used as the y arrays already store the labels for each row.
+ *         This makes it possible to compute the reduction step without holding all the data on a single machine.
+ * @param[out] out vector of output class probabilities of the same size as y.
+ *            each element should be of size size (n_samples * n_classes[i])
+ * @param[in] knn_indices the index array resulting from a knn search
+ * @param[in] y vector of label arrays. for multulabel classification,
  *          each output in the vector is a different array of labels
  *          corresponding to the i'th output.
- * @param n_query_rows number of rows in knn_indices
- * @param n_index_rows number of vertices in index (eg. size of each y array)
- * @param k number of neighbors in knn_indices
- * @param uniq_labels vector of the sorted unique labels for each array in y
- * @param n_unique vector of sizes for each array in uniq_labels
- * @param allocator device allocator to use for temporary workspace
- * @param user_stream main stream to use for queuing isolated CUDA events
- * @param int_streams internal streams to use for parallelizing independent CUDA events.
- * @param n_int_streams number of elements in int_streams array. If this is less than 1,
+ * @param[in] n_index_rows number of vertices in index (eg. size of each y array)
+ * @param[in] n_query_rows number of rows in knn_indices
+ * @param[in] k number of neighbors in knn_indices
+ * @param[in] uniq_labels vector of the sorted unique labels for each array in y
+ * @param[in] n_unique vector of sizes for each array in uniq_labels
+ * @param[in] allocator device allocator to use for temporary workspace
+ * @param[in] user_stream main stream to use for queuing isolated CUDA events
+ * @param[in] int_streams internal streams to use for parallelizing independent CUDA events.
+ * @param[in] n_int_streams number of elements in int_streams array. If this is less than 1,
  *        the user_stream is used.
  */
 template <int TPB_X = 32, bool precomp_lbls = false>
@@ -453,14 +457,14 @@ void class_probs(std::vector<float *> &out, const int64_t *knn_indices,
                  int n_int_streams = 0) {
   for (int i = 0; i < y.size(); i++) {
     cudaStream_t stream =
-      select_stream(user_stream, int_streams, n_int_streams, i);
+      raft::select_stream(user_stream, int_streams, n_int_streams, i);
 
     int n_unique_labels = n_unique[i];
     int cur_size = n_query_rows * n_unique_labels;
 
     CUDA_CHECK(cudaMemsetAsync(out[i], 0, cur_size * sizeof(float), stream));
 
-    dim3 grid(MLCommon::ceildiv(n_query_rows, (size_t)TPB_X), 1, 1);
+    dim3 grid(raft::ceildiv(n_query_rows, (size_t)TPB_X), 1, 1);
     dim3 blk(TPB_X, 1, 1);
 
     /**
@@ -468,9 +472,20 @@ void class_probs(std::vector<float *> &out, const int64_t *knn_indices,
      * knn_indices and labels
      */
     device_buffer<int> y_normalized(allocator, stream, n_index_rows);
-    MLCommon::Label::make_monotonic(y_normalized.data(), y[i], n_index_rows,
-                                    stream);
-    MLCommon::LinAlg::unaryOp<int>(
+
+    /*
+     * Appending the array of unique labels to the original labels array
+     * to prevent make_monotonic function from producing misleading results
+     * due to the absence of some of the unique labels in the labels array
+     */
+    device_buffer<int> y_tmp(allocator, stream, n_index_rows + n_unique_labels);
+    raft::update_device(y_tmp.data(), y[i], n_index_rows, stream);
+    raft::update_device(y_tmp.data() + n_index_rows, uniq_labels[i],
+                        n_unique_labels, stream);
+
+    MLCommon::Label::make_monotonic(y_normalized.data(), y_tmp.data(),
+                                    y_tmp.size(), stream, allocator);
+    raft::linalg::unaryOp<int>(
       y_normalized.data(), y_normalized.data(), n_index_rows,
       [] __device__(int input) { return input - 1; }, stream);
     class_probs_kernel<float, precomp_lbls>
@@ -489,20 +504,20 @@ void class_probs(std::vector<float *> &out, const int64_t *knn_indices,
  * @tparam precomp_lbls is set to true for the reduction step of MNMG KNN Classifier. In this case,
  * the knn_indices array is not used as the y arrays already store the labels for each row.
  * This makes it possible to compute the reduction step without holding all the data on a single machine.
- * @param out output array of size (n_samples * y.size())
- * @param knn_indices index array from knn search
- * @param y vector of label arrays. for multilabel classification, each
+ * @param[out] out output array of size (n_samples * y.size())
+ * @param[in] knn_indices index array from knn search
+ * @param[in] y vector of label arrays. for multilabel classification, each
  *          element in the vector is a different "output" array of labels corresponding
  *          to the i'th output.
- * @param n_index_rows number of vertices in index (eg. size of each y array)
- * @param n_query_rows number of rows in knn_indices
- * @param k number of neighbors in knn_indices
- * @param uniq_labels vector of the sorted unique labels for each array in y
- * @param n_unique vector of sizes for each array in uniq_labels
- * @param allocator device allocator to use for temporary workspace
- * @param user_stream main stream to use for queuing isolated CUDA events
- * @param int_streams internal streams to use for parallelizing independent CUDA events.
- * @param n_int_streams number of elements in int_streams array. If this is less than 1,
+ * @param[in] n_index_rows number of vertices in index (eg. size of each y array)
+ * @param[in] n_query_rows number of rows in knn_indices
+ * @param[in] k number of neighbors in knn_indices
+ * @param[in] uniq_labels vector of the sorted unique labels for each array in y
+ * @param[in] n_unique vector of sizes for each array in uniq_labels
+ * @param[in] allocator device allocator to use for temporary workspace
+ * @param[in] user_stream main stream to use for queuing isolated CUDA events
+ * @param[in] int_streams internal streams to use for parallelizing independent CUDA events.
+ * @param[in] n_int_streams number of elements in int_streams array. If this is less than 1,
  *        the user_stream is used.
  */
 template <int TPB_X = 32, bool precomp_lbls = false>
@@ -520,7 +535,7 @@ void knn_classify(int *out, const int64_t *knn_indices, std::vector<int *> &y,
     int size = n_unique[i];
 
     cudaStream_t stream =
-      select_stream(user_stream, int_streams, n_int_streams, i);
+      raft::select_stream(user_stream, int_streams, n_int_streams, i);
 
     device_buffer<float> *probs_buff =
       new device_buffer<float>(allocator, stream, n_query_rows * size);
@@ -539,23 +554,25 @@ void knn_classify(int *out, const int64_t *knn_indices, std::vector<int *> &y,
     probs, knn_indices, y, n_index_rows, n_query_rows, k, uniq_labels, n_unique,
     allocator, user_stream, int_streams, n_int_streams);
 
-  dim3 grid(MLCommon::ceildiv(n_query_rows, (size_t)TPB_X), 1, 1);
+  dim3 grid(raft::ceildiv(n_query_rows, (size_t)TPB_X), 1, 1);
   dim3 blk(TPB_X, 1, 1);
 
   for (int i = 0; i < y.size(); i++) {
     cudaStream_t stream =
-      select_stream(user_stream, int_streams, n_int_streams, i);
+      raft::select_stream(user_stream, int_streams, n_int_streams, i);
 
     int n_unique_labels = n_unique[i];
 
     /**
      * Choose max probability
      */
-
+    // Use shared memory for label lookups if the number of classes is small enough
     int smem = sizeof(int) * n_unique_labels;
-    class_vote_kernel<<<grid, blk, smem, stream>>>(
-      out, probs[i], uniq_labels[i], n_unique_labels, n_query_rows, y.size(),
-      i);
+    bool use_shared_mem = smem < raft::getSharedMemPerBlock();
+
+    class_vote_kernel<<<grid, blk, use_shared_mem ? smem : 0, stream>>>(
+      out, probs[i], uniq_labels[i], n_unique_labels, n_query_rows, y.size(), i,
+      use_shared_mem);
     CUDA_CHECK(cudaPeekAtLastError());
 
     delete tmp_probs[i];
@@ -570,17 +587,17 @@ void knn_classify(int *out, const int64_t *knn_indices, std::vector<int *> &y,
  * @tparam precomp_lbls is set to true for the reduction step of MNMG KNN Regressor. In this case,
  * the knn_indices array is not used as the y arrays already store the output for each row.
  * This makes it possible to compute the reduction step without holding all the data on a single machine.
- * @param out output array of size (n_samples * y.size())
- * @param knn_indices index array from knn search
- * @param y vector of label arrays. for multilabel classification, each
+ * @param[out] out output array of size (n_samples * y.size())
+ * @param[in] knn_indices index array from knn search
+ * @param[in] y vector of label arrays. for multilabel classification, each
  *          element in the vector is a different "output" array of labels corresponding
  *          to the i'th output.
- * @param n_index_rows number of vertices in index (eg. size of each y array)
- * @param n_query_rows number of rows in knn_indices
- * @param k number of neighbors in knn_indices
- * @param user_stream main stream to use for queuing isolated CUDA events
- * @param int_streams internal streams to use for parallelizing independent CUDA events.
- * @param n_int_streams number of elements in int_streams array. If this is less than 1,
+ * @param[in] n_index_rows number of vertices in index (eg. size of each y array)
+ * @param[in] n_query_rows number of rows in knn_indices
+ * @param[in] k number of neighbors in knn_indices
+ * @param[in] user_stream main stream to use for queuing isolated CUDA events
+ * @param[in] int_streams internal streams to use for parallelizing independent CUDA events.
+ * @param[in] n_int_streams number of elements in int_streams array. If this is less than 1,
  *        the user_stream is used.
  */
 
@@ -594,10 +611,10 @@ void knn_regress(ValType *out, const int64_t *knn_indices,
    */
   for (int i = 0; i < y.size(); i++) {
     cudaStream_t stream =
-      select_stream(user_stream, int_streams, n_int_streams, i);
+      raft::select_stream(user_stream, int_streams, n_int_streams, i);
 
     regress_avg_kernel<ValType, precomp_lbls>
-      <<<ceildiv(n_query_rows, (size_t)TPB_X), TPB_X, 0, stream>>>(
+      <<<raft::ceildiv(n_query_rows, (size_t)TPB_X), TPB_X, 0, stream>>>(
         out, knn_indices, y[i], n_query_rows, k, y.size(), i);
 
     CUDA_CHECK(cudaStreamSynchronize(stream));

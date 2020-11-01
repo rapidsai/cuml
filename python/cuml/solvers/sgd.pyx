@@ -13,10 +13,7 @@
 # limitations under the License.
 #
 
-# cython: profile=False
 # distutils: language = c++
-# cython: embedsignature = True
-# cython: language_level = 3
 
 import ctypes
 import cudf
@@ -30,13 +27,14 @@ from libc.stdint cimport uintptr_t
 from libc.stdlib cimport calloc, malloc, free
 
 from cuml.common.base import Base
-from cuml.common import CumlArray
-from cuml.common.handle cimport cumlHandle
+from cuml.common.array import CumlArray
+from cuml.common.doc_utils import generate_docstring
+from cuml.raft.common.handle cimport handle_t
 from cuml.common import input_to_cuml_array, with_cupy_rmm
 
 cdef extern from "cuml/solvers/solver.hpp" namespace "ML::Solver":
 
-    cdef void sgdFit(cumlHandle& handle,
+    cdef void sgdFit(handle_t& handle,
                      float *input,
                      int n_rows,
                      int n_cols,
@@ -57,7 +55,7 @@ cdef extern from "cuml/solvers/solver.hpp" namespace "ML::Solver":
                      float tol,
                      int n_iter_no_change) except +
 
-    cdef void sgdFit(cumlHandle& handle,
+    cdef void sgdFit(handle_t& handle,
                      double *input,
                      int n_rows,
                      int n_cols,
@@ -78,7 +76,7 @@ cdef extern from "cuml/solvers/solver.hpp" namespace "ML::Solver":
                      double tol,
                      int n_iter_no_change) except +
 
-    cdef void sgdPredict(cumlHandle& handle,
+    cdef void sgdPredict(handle_t& handle,
                          const float *input,
                          int n_rows,
                          int n_cols,
@@ -87,7 +85,7 @@ cdef extern from "cuml/solvers/solver.hpp" namespace "ML::Solver":
                          float *preds,
                          int loss) except +
 
-    cdef void sgdPredict(cumlHandle& handle,
+    cdef void sgdPredict(handle_t& handle,
                          const double *input,
                          int n_rows,
                          int n_cols,
@@ -96,7 +94,7 @@ cdef extern from "cuml/solvers/solver.hpp" namespace "ML::Solver":
                          double *preds,
                          int loss) except +
 
-    cdef void sgdPredictBinaryClass(cumlHandle& handle,
+    cdef void sgdPredictBinaryClass(handle_t& handle,
                                     const float *input,
                                     int n_rows,
                                     int n_cols,
@@ -105,7 +103,7 @@ cdef extern from "cuml/solvers/solver.hpp" namespace "ML::Solver":
                                     float *preds,
                                     int loss) except +
 
-    cdef void sgdPredictBinaryClass(cumlHandle& handle,
+    cdef void sgdPredictBinaryClass(handle_t& handle,
                                     const double *input,
                                     int n_rows,
                                     int n_cols,
@@ -127,7 +125,7 @@ class SGD(Base):
     ridge regression and SVM models.
 
     Examples
-    ---------
+    --------
 
     .. code-block:: python
 
@@ -164,35 +162,35 @@ class SGD(Base):
     Parameters
     -----------
     loss : 'hinge', 'log', 'squared_loss' (default = 'squared_loss')
-       'hinge' uses linear SVM
-       'log' uses logistic regression
-       'squared_loss' uses linear regression
+        'hinge' uses linear SVM
+        'log' uses logistic regression
+        'squared_loss' uses linear regression
     penalty: 'none', 'l1', 'l2', 'elasticnet' (default = 'none')
-       'none' does not perform any regularization
-       'l1' performs L1 norm (Lasso) which minimizes the sum of the abs value
-       of coefficients
-       'l2' performs L2 norm (Ridge) which minimizes the sum of the square of
-       the coefficients
-       'elasticnet' performs Elastic Net regularization which is a weighted
-       average of L1 and L2 norms
+        'none' does not perform any regularization
+        'l1' performs L1 norm (Lasso) which minimizes the sum of the abs value
+        of coefficients
+        'l2' performs L2 norm (Ridge) which minimizes the sum of the square of
+        the coefficients
+        'elasticnet' performs Elastic Net regularization which is a weighted
+        average of L1 and L2 norms
     alpha: float (default = 0.0001)
         The constant value which decides the degree of regularization
     fit_intercept : boolean (default = True)
-       If True, the model tries to correct for the global mean of y.
-       If False, the model expects that you have centered the data.
+        If True, the model tries to correct for the global mean of y.
+        If False, the model expects that you have centered the data.
     epochs : int (default = 1000)
         The number of times the model should iterate through the entire dataset
         during training (default = 1000)
     tol : float (default = 1e-3)
-       The training process will stop if current_loss > previous_loss - tol
+        The training process will stop if current_loss > previous_loss - tol
     shuffle : boolean (default = True)
-       True, shuffles the training data after each epoch
-       False, does not shuffle the training data after each epoch
+        True, shuffles the training data after each epoch
+        False, does not shuffle the training data after each epoch
     eta0 : float (default = 0.001)
         Initial learning rate
     power_t : float (default = 0.5)
         The exponent used for calculating the invscaling learning rate
-    learning_rate : 'optimal', 'constant', 'invscaling',
+    learning_rate : 'optimal', 'constant', 'invscaling', \
                     'adaptive' (default = 'constant')
         optimal option supported in the next version
         constant keeps the learning rate constant
@@ -201,11 +199,21 @@ class SGD(Base):
         The old learning rate is generally divide by 5
     n_iter_no_change : int (default = 5)
         the number of epochs to train without any imporvement in the model
-    output_type : {'input', 'cudf', 'cupy', 'numpy'}, optional
+    handle : cuml.Handle
+        Specifies the cuml.handle that holds internal CUDA state for
+        computations in this model. Most importantly, this specifies the CUDA
+        stream that will be used for the model's computations, so users can
+        run different models concurrently in different streams by creating
+        handles in several streams.
+        If it is None, a new one is created.
+    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
         Variable to control output type of the results and attributes of
-        the estimators. If None, it'll inherit the output type set at the
-        module level, cuml.output_type. If set, the estimator will override
-        the global option for its behavior.
+        the estimator. If None, it'll inherit the output type set at the
+        module level, `cuml.global_output_type`.
+        See :ref:`output-data-type-configuration` for more info.
+    verbose : int or boolean, default=False
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        See :ref:`verbosity-levels` for more info.
 
     """
 
@@ -213,21 +221,21 @@ class SGD(Base):
                  l1_ratio=0.15, fit_intercept=True, epochs=1000, tol=1e-3,
                  shuffle=True, learning_rate='constant', eta0=0.001,
                  power_t=0.5, batch_size=32, n_iter_no_change=5, handle=None,
-                 output_type=None):
+                 output_type=None, verbose=False):
 
         if loss in ['hinge', 'log', 'squared_loss']:
-            self.loss = self._get_loss_int(loss)
+            self.loss = loss
         else:
             msg = "loss {!r} is not supported"
             raise TypeError(msg.format(loss))
 
         if penalty in ['none', 'l1', 'l2', 'elasticnet']:
-            self.penalty = self._get_penalty_int(penalty)
+            self.penalty = penalty
         else:
             msg = "penalty {!r} is not supported"
             raise TypeError(msg.format(penalty))
 
-        super(SGD, self).__init__(handle=handle, verbose=False,
+        super(SGD, self).__init__(handle=handle, verbose=verbose,
                                   output_type=output_type)
         self.alpha = alpha
         self.l1_ratio = l1_ratio
@@ -270,7 +278,7 @@ class SGD(Base):
         self.batch_size = batch_size
         self.n_iter_no_change = n_iter_no_change
         self.intercept_value = 0.0
-        self.coef_ = None
+        self._coef_ = None  # accessed via coef_
         self.intercept_ = None
 
     def _check_alpha(self, alpha):
@@ -279,45 +287,29 @@ class SGD(Base):
                 msg = "alpha values have to be positive"
                 raise TypeError(msg.format(alpha))
 
-    def _get_loss_int(self, loss):
+    def _get_loss_int(self):
         return {
             'squared_loss': 0,
             'log': 1,
             'hinge': 2,
-        }[loss]
+        }[self.loss]
 
-    def _get_penalty_int(self, penalty):
+    def _get_penalty_int(self):
         return {
             'none': 0,
             'l1': 1,
             'l2': 2,
             'elasticnet': 3
-        }[penalty]
+        }[self.penalty]
 
+    @generate_docstring()
     @with_cupy_rmm
     def fit(self, X, y, convert_dtype=False):
         """
         Fit the model with X and y.
 
-        Parameters
-        ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-            Dense matrix (floats or doubles) of shape (n_samples, n_features).
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-
-        y : array-like (device or host) shape = (n_samples, 1)
-            Dense vector (floats or doubles) of shape (n_samples, 1).
-            Acceptable formats: cuDF Series, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-
-        convert_dtype : bool, optional (default = False)
-            When set to True, the fit method will, when necessary, convert
-            y to be the same data type as X if they differ. This
-            will increase memory used for the method.
         """
-        self._set_output_type(X)
-        self._set_target_dtype(y)
+        self._set_base_attributes(output_type=X, target_dtype=y)
 
         X_m, n_rows, self.n_cols, self.dtype = \
             input_to_cuml_array(X, check_dtype=[np.float32, np.float64])
@@ -330,20 +322,20 @@ class SGD(Base):
 
         _estimator_type = getattr(self, '_estimator_type', None)
         if _estimator_type == "classifier":
-            self.classes_ = cp.unique(y_m)
+            self._classes_ = CumlArray(cp.unique(y_m))
 
         cdef uintptr_t X_ptr = X_m.ptr
         cdef uintptr_t y_ptr = y_m.ptr
 
         self.n_alpha = 1
 
-        self.coef_ = CumlArray.zeros(self.n_cols,
-                                     dtype=self.dtype)
-        cdef uintptr_t coef_ptr = self.coef_.ptr
+        self._coef_ = CumlArray.zeros(self.n_cols,
+                                      dtype=self.dtype)
+        cdef uintptr_t coef_ptr = self._coef_.ptr
 
         cdef float c_intercept1
         cdef double c_intercept2
-        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
+        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
         if self.dtype == np.float32:
             sgdFit(handle_[0],
@@ -359,8 +351,8 @@ class SGD(Base):
                    <int>self.lr_type,
                    <float>self.eta0,
                    <float>self.power_t,
-                   <int>self.loss,
-                   <int>self.penalty,
+                   <int>self._get_loss_int(),
+                   <int>self._get_penalty_int(),
                    <float>self.alpha,
                    <float>self.l1_ratio,
                    <bool>self.shuffle,
@@ -382,8 +374,8 @@ class SGD(Base):
                    <int>self.lr_type,
                    <double>self.eta0,
                    <double>self.power_t,
-                   <int>self.loss,
-                   <int>self.penalty,
+                   <int>self._get_loss_int(),
+                   <int>self._get_penalty_int(),
                    <double>self.alpha,
                    <double>self.l1_ratio,
                    <bool>self.shuffle,
@@ -399,26 +391,14 @@ class SGD(Base):
 
         return self
 
+    @generate_docstring(return_values={'name': 'preds',
+                                       'type': 'dense',
+                                       'description': 'Predicted values',
+                                       'shape': '(n_samples, 1)'})
     def predict(self, X, convert_dtype=False):
         """
         Predicts the y for X.
 
-        Parameters
-        ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-            Dense matrix (floats or doubles) of shape (n_samples, n_features).
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-
-        convert_dtype : bool, optional (default = False)
-            When set to True, the predict method will, when necessary, convert
-            the input to the data type which was used to train the model. This
-            will increase memory used for the method.
-
-        Returns
-        ----------
-        y: Type specified in `output_type`
-           Dense vector (floats or doubles) of shape (n_samples, 1)
         """
         output_type = self._get_output_type(X)
 
@@ -430,11 +410,11 @@ class SGD(Base):
 
         cdef uintptr_t X_ptr = X_m.ptr
 
-        cdef uintptr_t coef_ptr = self.coef_.ptr
+        cdef uintptr_t coef_ptr = self._coef_.ptr
         preds = CumlArray.zeros(n_rows, dtype=self.dtype)
         cdef uintptr_t preds_ptr = preds.ptr
 
-        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
+        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
         if self.dtype == np.float32:
             sgdPredict(handle_[0],
@@ -444,7 +424,7 @@ class SGD(Base):
                        <float*>coef_ptr,
                        <float>self.intercept_,
                        <float*>preds_ptr,
-                       <int>self.loss)
+                       <int>self._get_loss_int())
         else:
             sgdPredict(handle_[0],
                        <double*>X_ptr,
@@ -453,7 +433,7 @@ class SGD(Base):
                        <double*>coef_ptr,
                        <double>self.intercept_,
                        <double*>preds_ptr,
-                       <int>self.loss)
+                       <int>self._get_loss_int())
 
         self.handle.sync()
 
@@ -461,26 +441,14 @@ class SGD(Base):
 
         return preds.to_output(output_type)
 
+    @generate_docstring(return_values={'name': 'preds',
+                                       'type': 'dense',
+                                       'description': 'Predicted values',
+                                       'shape': '(n_samples, 1)'})
     def predictClass(self, X, convert_dtype=False):
         """
         Predicts the y for X.
 
-        Parameters
-        ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-            Dense matrix (floats or doubles) of shape (n_samples, n_features).
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-
-        convert_dtype : bool, optional (default = False)
-            When set to True, the predictClass method will automatically
-            convert the input to the data type which was used to train the
-            model. This will increase memory used for the method.
-
-        Returns
-        ----------
-        y : Type specified in `output_type`
-           Dense vector (floats or doubles) of shape (n_samples, 1)
         """
         output_type = self._get_output_type(X)
         out_dtype = self._get_target_dtype()
@@ -492,10 +460,10 @@ class SGD(Base):
                                 check_cols=self.n_cols)
 
         cdef uintptr_t X_ptr = X_m.ptr
-        cdef uintptr_t coef_ptr = self.coef_.ptr
+        cdef uintptr_t coef_ptr = self._coef_.ptr
         preds = CumlArray.zeros(n_rows, dtype=dtype)
         cdef uintptr_t preds_ptr = preds.ptr
-        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
+        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
         if dtype.type == np.float32:
             sgdPredictBinaryClass(handle_[0],
@@ -505,7 +473,7 @@ class SGD(Base):
                                   <float*>coef_ptr,
                                   <float>self.intercept_,
                                   <float*>preds_ptr,
-                                  <int>self.loss)
+                                  <int>self._get_loss_int())
         else:
             sgdPredictBinaryClass(handle_[0],
                                   <double*>X_ptr,
@@ -514,10 +482,27 @@ class SGD(Base):
                                   <double*>coef_ptr,
                                   <double>self.intercept_,
                                   <double*>preds_ptr,
-                                  <int>self.loss)
+                                  <int>self._get_loss_int())
 
         self.handle.sync()
 
         del(X_m)
 
         return preds.to_output(output_type=output_type, output_dtype=out_dtype)
+
+    def get_param_names(self):
+        return super().get_param_names() + [
+            "loss",
+            "penalty",
+            "alpha",
+            "l1_ratio",
+            "fit_intercept",
+            "epochs",
+            "tol",
+            "shuffle",
+            "learning_rate",
+            "eta0",
+            "power_t",
+            "batch_size",
+            "n_iter_no_change",
+        ]

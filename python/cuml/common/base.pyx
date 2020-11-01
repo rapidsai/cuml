@@ -14,14 +14,11 @@
 # limitations under the License.
 #
 
-# cython: profile=False
 # distutils: language = c++
-# cython: embedsignature = True
-# cython: language_level = 3
 
 import cuml
 import cuml.common.cuda
-import cuml.common.handle
+import cuml.raft.common.handle
 import cuml.common.logger as logger
 from cuml.common import input_to_cuml_array
 import inspect
@@ -29,6 +26,7 @@ import inspect
 from cudf.core import Series as cuSeries
 from cudf.core import DataFrame as cuDataFrame
 from cuml.common.array import CumlArray
+from cuml.common.doc_utils import generate_docstring
 from cupy import ndarray as cupyArray
 from numba.cuda import devicearray as numbaArray
 from numpy import ndarray as numpyArray
@@ -110,19 +108,18 @@ class Base:
         stream that will be used for the model's computations, so users can
         run different models concurrently in different streams by creating
         handles in several streams.
-        If it is None, a new one is created just for this class.
-    verbose : int or boolean (default = False)
+        If it is None, a new one is created.
+    verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
-    output_type : {'input', 'cudf', 'cupy', 'numpy'}, optional
+        See :ref:`verbosity-levels` for more info.
+    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
         Variable to control output type of the results and attributes of
-        the estimators. If None, it'll inherit the output type set at the
-        module level, cuml.output_type. If set, the estimator will override
-        the global option for its behavior.
+        the estimator. If None, it'll inherit the output type set at the
+        module level, `cuml.global_output_type`.
+        See :ref:`output-data-type-configuration` for more info.
 
     Examples
     --------
-
-
 
     .. code-block:: python
 
@@ -170,7 +167,8 @@ class Base:
         Constructor. All children must call init method of this base class.
 
         """
-        self.handle = cuml.common.handle.Handle() if handle is None else handle
+        self.handle = cuml.raft.common.handle.Handle() if handle is None \
+            else handle
 
         # Internally, self.verbose follows the spdlog/c++ standard of
         # 0 is most logging, and logging decreases from there.
@@ -182,8 +180,8 @@ class Base:
         else:
             self.verbose = verbose
 
-        self.output_type = cuml.global_output_type if output_type is None \
-            else _check_output_type_str(output_type)
+        self.output_type = _check_output_type_str(
+            cuml.global_output_type if output_type is None else output_type)
 
         self._mirror_input = True if self.output_type == 'input' else False
 
@@ -192,7 +190,7 @@ class Base:
         Pretty prints the arguments of a class using Scikit-learn standard :)
         """
         cdef list signature = inspect.getfullargspec(self.__init__).args
-        if signature[0] == 'self':
+        if len(signature) > 0 and signature[0] == 'self':
             del signature[0]
         cdef dict state = self.__dict__
         cdef str string = self.__class__.__name__ + '('
@@ -218,7 +216,7 @@ class Base:
         extra set of parameters that it in-turn owns. This is to simplify the
         implementation of `get_params` and `set_params` methods.
         """
-        return []
+        return ["handle", "verbose", "output_type"]
 
     def get_params(self, deep=True):
         """
@@ -274,14 +272,56 @@ class Base:
             else:
                 return self.__dict__[real_name]
         else:
-            raise AttributeError
+            if attr == "solver_model":
+                return self.__dict__['solver_model']
+            if "solver_model" in self.__dict__.keys():
+                return getattr(self.solver_model, attr)
+            else:
+                raise AttributeError
+
+    def _set_base_attributes(self,
+                             output_type=None,
+                             target_dtype=None,
+                             n_features=None):
+        """
+        Method to set the base class attributes - output type,
+        target dtype and n_features. It combines the three different
+        function calls. It's called in fit function from estimators.
+
+        Parameters
+        --------
+        output_type : DataFrame (default = None)
+            Is output_type is passed, aets the output_type on the
+            dataframe passed
+        target_dtype : Target column (default = None)
+            If target_dtype is passed, we call _set_target_dtype
+            on it
+        n_features: int or DataFrame (default=None)
+            If an int is passed, we set it to the number passed
+            If dataframe, we set it based on the passed df.
+
+        Examples
+        --------
+
+        .. code-block:: python
+
+                # To set output_type and n_features based on X
+                self._set_base_attributes(output_type=X, n_features=X)
+
+                # To set output_type on X and n_features to 10
+                self._set_base_attributes(output_type=X, n_features=10)
+
+                # To only set target_dtype
+                self._set_base_attributes(output_type=X, target_dtype=y)
+        """
+        if output_type is not None:
+            self._set_output_type(output_type)
+        if target_dtype is not None:
+            self._set_target_dtype(target_dtype)
+        if n_features is not None:
+            self._set_n_features_in(n_features)
 
     def _set_output_type(self, input):
-        """
-        Method to be called by fit methods of inheriting classes
-        to correctly set the output type depending on the type of inputs,
-        class output type and global output type
-        """
         if self.output_type == 'input' or self._mirror_input:
             self.output_type = _input_to_type(input)
 
@@ -297,11 +337,6 @@ class Base:
             return self.output_type
 
     def _set_target_dtype(self, target):
-        """
-        Method to be called by fit methods of inheriting classifier
-        classes to correctly set the output dtype depending on the dtype of
-        the target.
-        """
         self.target_dtype = _input_target_to_dtype(target)
 
     def _get_target_dtype(self):
@@ -317,9 +352,6 @@ class Base:
         return out_dtype
 
     def _set_n_features_in(self, X):
-        """Method to be called by the fit method of the inheriting class.
-        Sets the n_features_in_ attribute based on the data passed to fit.
-        """
         if isinstance(X, int):
             self.n_features_in_ = X
         else:
@@ -331,26 +363,16 @@ class RegressorMixin:
 
     _estimator_type = "regressor"
 
+    @generate_docstring(return_values={'name': 'score',
+                                       'type': 'float',
+                                       'description': 'R^2 of self.predict(X) '
+                                                      'wrt. y.'})
     def score(self, X, y, **kwargs):
-        """Scoring function for regression estimators
+        """
+        Scoring function for regression estimators
 
         Returns the coefficient of determination R^2 of the prediction.
 
-        Parameters
-        ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-            Test samples on which we predict
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-        y : array-like (device or host) shape = (n_samples, n_features)
-            Ground truth values for predict(X)
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-
-        Returns
-        -------
-        score : float
-            R^2 of self.predict(X) wrt. y.
         """
         from cuml.metrics.regression import r2_score
 
@@ -359,7 +381,7 @@ class RegressorMixin:
         else:
             handle = None
 
-        preds = self.predict(X)
+        preds = self.predict(X, **kwargs)
         return r2_score(y, preds, handle=handle)
 
 
@@ -368,21 +390,16 @@ class ClassifierMixin:
 
     _estimator_type = "classifier"
 
+    @generate_docstring(return_values={'name': 'score',
+                                       'type': 'float',
+                                       'description': 'Accuracy of \
+                                                      self.predict(X) wrt. y \
+                                                      (fraction where y == \
+                                                      pred_y)'})
     def score(self, X, y, **kwargs):
         """
         Scoring function for classifier estimators based on mean accuracy.
 
-        Parameters
-        ----------
-        X : [cudf.DataFrame]
-            Test samples on which we predict
-        y : [cudf.Series, device array, or numpy array]
-            Ground truth values for predict(X)
-
-        Returns
-        -------
-        score : float
-            Accuracy of self.predict(X) wrt. y (fraction where y == pred_y)
         """
         from cuml.metrics.accuracy import accuracy_score
         from cuml.common import input_to_dev_array
@@ -424,11 +441,17 @@ def _input_to_type(input):
 def _check_output_type_str(output_str):
     if isinstance(output_str, str):
         output_type = output_str.lower()
-        if output_type in ['numpy', 'cupy', 'cudf', 'numba']:
+        if output_type in ['numpy', 'cupy', 'cudf', 'numba', 'input']:
             return output_str
         else:
-            raise ValueError("output_type must be one of " +
-                             "'numpy', 'cupy', 'cudf' or 'numba'")
+            raise ValueError(("output_type must be one of "
+                              "'numpy', 'cupy', 'cudf', 'numba', or 'input'."
+                              " Got: '{}'"
+                              ).format(output_str))
+    else:
+        raise ValueError(("output_type must be a string"
+                          " Got: '{}'"
+                          ).format(type(output_str)))
 
 
 def _input_target_to_dtype(target):
@@ -442,3 +465,23 @@ def _input_target_to_dtype(target):
     else:
         dtype = None
     return dtype
+
+
+def _determine_stateless_output_type(output_type, input_obj):
+    """
+    This function determines the output type using the same steps that are
+    performed in `cuml.common.base.Base`. This can be used to mimic the
+    functionality in `Base` for stateless functions or objects that do not
+    derive from `Base`.
+    """
+
+    # Default to the global type if not specified, otherwise, check the
+    # output_type string
+    temp_output = cuml.global_output_type if output_type is None \
+        else _check_output_type_str(output_type)
+
+    # If we are using 'input', determine the the type from the input object
+    if temp_output == 'input':
+        temp_output = _input_to_type(input_obj)
+
+    return temp_output

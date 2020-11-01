@@ -16,18 +16,18 @@
 
 #pragma once
 
-#include <common/cudart_utils.h>
 #include <cuml/manifold/umapparams.h>
 #include <curand.h>
 #include <internals/internals.h>
 #include <math.h>
+#include <raft/cudart_utils.h>
 #include <thrust/device_ptr.h>
 #include <thrust/extrema.h>
 #include <thrust/system/cuda/execution_policy.h>
 #include <common/fast_int_div.cuh>
 #include <cstdlib>
 #include <cuml/common/logger.hpp>
-#include <random/rng_impl.cuh>
+#include <raft/random/rng_impl.cuh>
 #include <sparse/coo.cuh>
 #include <string>
 #include "optimize_batch_kernel.cuh"
@@ -65,7 +65,7 @@ void make_epochs_per_sample(T *weights, int weights_n, int n_epochs, T *result,
   //      float(n_epochs) / n_samples[n_samples > 0]
   //  )
 
-  MLCommon::LinAlg::unaryOp<T>(
+  raft::linalg::unaryOp<T>(
     result, weights, weights_n,
     [=] __device__(T input) {
       T v = n_epochs * (input / weights_max);
@@ -129,14 +129,14 @@ void optimize_layout(T *head_embedding, int head_n, T *tail_embedding,
   MLCommon::device_buffer<T> epoch_of_next_negative_sample(d_alloc, stream,
                                                            nnz);
   T nsr_inv = T(1.0) / params->negative_sample_rate;
-  MLCommon::LinAlg::unaryOp<T>(
+  raft::linalg::unaryOp<T>(
     epoch_of_next_negative_sample.data(), epochs_per_sample, nnz,
     [=] __device__(T input) { return input * nsr_inv; }, stream);
 
   MLCommon::device_buffer<T> epoch_of_next_sample(d_alloc, stream, nnz);
-  MLCommon::copy(epoch_of_next_sample.data(), epochs_per_sample, nnz, stream);
+  raft::copy(epoch_of_next_sample.data(), epochs_per_sample, nnz, stream);
 
-  dim3 grid(MLCommon::ceildiv(nnz, TPB_X), 1, 1);
+  dim3 grid(raft::ceildiv(nnz, TPB_X), 1, 1);
   dim3 blk(TPB_X, 1, 1);
   uint64_t seed = params->random_state;
 
@@ -157,7 +157,7 @@ void optimize_layout(T *head_embedding, int head_n, T *tail_embedding,
     MLCommon::device_buffer<double> embedding_updates_buf(
       d_alloc, stream, n_vertices * params->n_components);
     double *embedding_updates = embedding_updates_buf.data();
-    dim3 grid2(MLCommon::ceildiv(n_vertices * params->n_components, TPB_X));
+    dim3 grid2(raft::ceildiv(n_vertices * params->n_components, TPB_X));
 
     for (int n = 0; n < n_epochs; n++) {
       CUDA_CHECK(cudaMemsetAsync(
@@ -219,7 +219,7 @@ void launcher(int m, int n, MLCommon::Sparse::COO<T> *in, UMAPParams *params,
    * Go through COO values and set everything that's less than
    * vals.max() / params->n_epochs to 0.0
    */
-  MLCommon::LinAlg::unaryOp<T>(
+  raft::linalg::unaryOp<T>(
     in->vals(), in->vals(), nnz,
     [=] __device__(T input) {
       if (input < (max / float(n_epochs)))
@@ -241,8 +241,8 @@ void launcher(int m, int n, MLCommon::Sparse::COO<T> *in, UMAPParams *params,
 
   if (ML::Logger::get().shouldLogFor(CUML_LEVEL_DEBUG)) {
     std::stringstream ss;
-    ss << MLCommon::arr2Str(epochs_per_sample.data(), out.nnz,
-                            "epochs_per_sample", stream);
+    ss << raft::arr2Str(epochs_per_sample.data(), out.nnz, "epochs_per_sample",
+                        stream);
     CUML_LOG_DEBUG(ss.str().c_str());
   }
 

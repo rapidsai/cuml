@@ -48,6 +48,8 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, r2_score, mean_squared_error
 from sklearn.ensemble import RandomForestClassifier as skrfc
 
+from dask.distributed import Client
+
 
 def _prep_training_data(c, X_train, y_train, partitions_per_worker):
     workers = c.has_what().keys()
@@ -68,34 +70,50 @@ def _prep_training_data(c, X_train, y_train, partitions_per_worker):
 
 
 @pytest.mark.parametrize('partitions_per_worker', [3])
-def test_rf_classification_dask_cudf(partitions_per_worker, client):
+def test_rf_classification_multi_class(partitions_per_worker, cluster):
 
     # Use CUDA_VISIBLE_DEVICES to control the number of workers
-    X, y = make_classification(n_samples=10000, n_features=20,
-                               n_clusters_per_class=1, n_informative=10,
-                               random_state=123, n_classes=5)
+    c = Client(cluster)
 
-    X = X.astype(np.float32)
-    y = y.astype(np.int32)
+    try:
 
-    X_train, X_test, y_train, y_test = \
-        train_test_split(X, y, test_size=1000)
+        X, y = make_classification(n_samples=10000, n_features=20,
+                                   n_clusters_per_class=1, n_informative=10,
+                                   random_state=123, n_classes=15)
 
-    cu_rf_params = {
-        'n_estimators': 40,
-        'max_depth': 16,
-        'n_bins': 16,
-    }
+        X = X.astype(np.float32)
+        y = y.astype(np.int32)
 
-    X_train_df, y_train_df = _prep_training_data(client, X_train, y_train,
-                                                 partitions_per_worker)
+        X_train, X_test, y_train, y_test = \
+            train_test_split(X, y, test_size=1000, random_state=123)
 
-    cuml_mod = cuRFC_mg(**cu_rf_params)
-    cuml_mod.fit(X_train_df, y_train_df)
-    cuml_mod_predict = cuml_mod.predict(X_test)
-    acc_score = accuracy_score(cuml_mod_predict, y_test, normalize=True)
+        cu_rf_params = {
+            'n_estimators': 25,
+            'max_depth': 16,
+            'n_bins': 256,
+            'random_state': 10,
+        }
 
-    assert acc_score > 0.8
+        X_train_df, y_train_df = _prep_training_data(c, X_train, y_train,
+                                                     partitions_per_worker)
+
+        cuml_mod = cuRFC_mg(**cu_rf_params)
+        cuml_mod.fit(X_train_df, y_train_df)
+        X_test_dask_array = from_array(X_test)
+        cuml_preds_gpu = cuml_mod.predict(X_test_dask_array,
+                                          predict_model="GPU").compute()
+        acc_score_gpu = accuracy_score(cuml_preds_gpu, y_test)
+
+        # the sklearn model when ran with the same parameters gives an
+        # accuracy of 0.69. There is a difference of 0.0632 (6.32%) between
+        # the two when the code runs on a single GPU (seen in the CI)
+        # Refer to issue : https://github.com/rapidsai/cuml/issues/2806 for
+        # more information on the threshold value.
+
+        assert acc_score_gpu >= 0.60
+
+    finally:
+        c.close()
 
 
 @pytest.mark.parametrize('dtype', [np.float32, np.float64])
@@ -250,7 +268,7 @@ def test_rf_classification_dask_fil_predict_proba(partitions_per_worker,
     cu_rf_mg.fit(X_train_df, y_train_df)
 
     fil_preds_proba = cu_rf_mg.predict_proba(X_test_df).compute()
-    fil_preds_proba = cp.asnumpy(fil_preds_proba.to_gpu_matrix())
+    fil_preds_proba = cp.asnumpy(fil_preds_proba.as_gpu_matrix())
     y_proba = np.zeros(np.shape(fil_preds_proba))
     y_proba[:, 1] = y_test
     y_proba[:, 0] = 1.0 - y_test
@@ -297,3 +315,39 @@ def test_rf_concatenation_dask(client, model_type):
         take_handle_ownership=False)
 
     assert local_tl.num_trees == n_estimators
+
+
+@pytest.mark.parametrize('model_type', ['classification', 'regression'])
+@pytest.mark.parametrize('ignore_empty_partitions', [True, False])
+def test_single_input(client, model_type, ignore_empty_partitions):
+    X, y = make_classification(n_samples=1)
+    X = X.astype(np.float32)
+    if model_type == 'classification':
+        y = y.astype(np.int32)
+    else:
+        y = y.astype(np.float32)
+
+    X, y = _prep_training_data(client, X, y,
+                               partitions_per_worker=2)
+    if model_type == 'classification':
+        cu_rf_mg = cuRFC_mg(n_bins=1,
+                            ignore_empty_partitions=ignore_empty_partitions)
+    else:
+        cu_rf_mg = cuRFR_mg(n_bins=1,
+                            ignore_empty_partitions=ignore_empty_partitions)
+
+    if ignore_empty_partitions or \
+       len(client.scheduler_info()['workers'].keys()) == 1:
+        cu_rf_mg.fit(X, y)
+        cuml_mod_predict = cu_rf_mg.predict(X)
+        cuml_mod_predict = cp.asnumpy(cp.array(cuml_mod_predict.compute()))
+
+        y = cp.asnumpy(cp.array(y.compute()))
+
+        acc_score = accuracy_score(cuml_mod_predict, y)
+
+        assert acc_score == 1.0
+
+    else:
+        with pytest.raises(ValueError):
+            cu_rf_mg.fit(X, y)

@@ -14,10 +14,7 @@
 # limitations under the License.
 #
 
-# cython: profile=False
 # distutils: language = c++
-# cython: embedsignature = True
-# cython: language_level = 3
 
 import cudf
 import numpy as np
@@ -26,19 +23,19 @@ import warnings
 from numba import cuda
 
 from libc.stdint cimport uintptr_t
-import cuml.common.handle
-from cuml.common.handle cimport cumlHandle
+from cuml.raft.common.handle import Handle
+from cuml.raft.common.handle cimport handle_t
 from cuml.common import get_cudf_column_ptr, get_dev_array_ptr, \
     input_to_dev_array
 
-cdef extern from "metrics/trustworthiness_c.h" namespace "MLCommon::Distance":
+cdef extern from "cuml/distance/distance_type.h" namespace "ML::Distance":
 
     ctypedef int DistanceType
-    ctypedef DistanceType euclidean "(MLCommon::Distance::DistanceType)5"
+    ctypedef DistanceType euclidean "(ML::Distance::DistanceType)5"
 
 cdef extern from "metrics/trustworthiness_c.h" namespace "ML::Metrics":
 
-    cdef double trustworthiness_score[T, DistanceType](const cumlHandle& h,
+    cdef double trustworthiness_score[T, DistanceType](const handle_t& h,
                                                        T* X,
                                                        T* X_embedded,
                                                        int n, int m,
@@ -103,8 +100,8 @@ def trustworthiness(X, X_embedded, handle=None, n_neighbors=5,
                            convert_to_dtype=(np.float32 if convert_dtype
                                              else None))
 
-    handle = cuml.common.handle.Handle() if handle is None else handle
-    cdef cumlHandle* handle_ = <cumlHandle*><size_t>handle.getHandle()
+    handle = Handle() if handle is None else handle
+    cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
 
     if metric == 'euclidean':
         res = trustworthiness_score[float, euclidean](handle_[0],

@@ -18,7 +18,7 @@
 
 #include <common/device_buffer.hpp>
 #include <cub/cub.cuh>
-#include <cuda_utils.cuh>
+#include <raft/cuda_utils.cuh>
 #include <selection/kselection.cuh>
 
 namespace MLCommon {
@@ -196,7 +196,7 @@ int DI find_nth_occurrence(const int *array, int n, int val, int k) {
  */
 template <int nthreads, int associativity>
 DI void rank_set_entries(const int *cache_time, int n_cache_sets, int *rank) {
-  const int items_per_thread = ceildiv(associativity, nthreads);
+  const int items_per_thread = raft::ceildiv(associativity, nthreads);
   typedef cub::BlockRadixSort<int, nthreads, items_per_thread, int>
     BlockRadixSort;
   __shared__ typename BlockRadixSort::TempStorage temp_storage;
@@ -256,7 +256,7 @@ __global__ void assign_cache_idx(const int *keys, int n, const int *cache_set,
                                  int *cache_time, int time, int *cache_idx) {
   int block_offset = blockIdx.x * associativity;
 
-  const int items_per_thread = ceildiv(associativity, nthreads);
+  const int items_per_thread = raft::ceildiv(associativity, nthreads);
 
   // the size of rank limits how large associativity can be used in practice
   __shared__ int rank[items_per_thread * nthreads];

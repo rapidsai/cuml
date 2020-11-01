@@ -15,9 +15,9 @@
  */
 
 #pragma once
-#include <cuda_utils.cuh>
 #include <cuml/common/logger.hpp>
 #include <limits>
+#include <raft/cuda_utils.cuh>
 
 namespace ML {
 namespace GLM {
@@ -179,7 +179,7 @@ inline int lbfgs_search_dir(const LBFGSParam<T> &param, int *n_vec,
     // "L-BFGS-B Fortran subroutines for large-scale bound constrained
     // optimization" Ciyou Zhu, Richard H. Byrd, Peihuang Lu and Jorge Nocedal
     // (1994).
-    CUML_LOG_INFO("L-BFGS WARNING: skipping update step ys=%f, yy=%f", ys, yy);
+    CUML_LOG_DEBUG("L-BFGS WARNING: skipping update step ys=%f, yy=%f", ys, yy);
     return end;
   }
   (*n_vec)++;
@@ -214,7 +214,7 @@ inline int lbfgs_search_dir(const LBFGSParam<T> &param, int *n_vec,
 template <typename T>
 HDI T get_pseudo_grad(T x, T dlossx, T C) {
   if (x != 0) {
-    return dlossx + MLCommon::sgn(x) * C;
+    return dlossx + raft::sgn(x) * C;
   }
   T dplus = dlossx + C;
   T dmins = dlossx - C;

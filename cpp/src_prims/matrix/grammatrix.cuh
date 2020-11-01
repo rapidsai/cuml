@@ -16,9 +16,9 @@
 
 #pragma once
 
-#include <linalg/cublas_wrappers.h>
+#include <raft/linalg/cublas_wrappers.h>
 #include <distance/distance.cuh>
-#include <linalg/gemm.cuh>
+#include <raft/linalg/gemm.cuh>
 
 namespace MLCommon {
 namespace Matrix {
@@ -123,9 +123,9 @@ class GramMatrixBase {
               math_t *out, cudaStream_t stream, int ld1, int ld2, int ld_out) {
     math_t alpha = 1.0;
     math_t beta = 0.0;
-    CUBLAS_CHECK(LinAlg::cublasgemm(cublas_handle, CUBLAS_OP_N, CUBLAS_OP_T, n1,
-                                    n2, n_cols, &alpha, x1, ld1, x2, ld2, &beta,
-                                    out, ld_out, stream));
+    CUBLAS_CHECK(raft::linalg::cublasgemm(
+      cublas_handle, CUBLAS_OP_N, CUBLAS_OP_T, n1, n2, n_cols, &alpha, x1, ld1,
+      x2, ld2, &beta, out, ld_out, stream));
   }
 
   /** Calculates the Gram matrix using Euclidean distance.
@@ -151,9 +151,9 @@ class GramMatrixBase {
                         int ld2, int ld_out) {
     typedef cutlass::Shape<8, 128, 128> OutputTile_t;
     auto fin_op = [] __device__(math_t d_val, int idx) { return d_val; };
-    Distance::distance<Distance::EucUnexpandedL2, math_t, math_t, math_t,
-                       OutputTile_t>(x1, x2, out, n1, n2, n_cols, NULL, 0,
-                                     fin_op, stream, false);
+    Distance::distance<ML::Distance::DistanceType::EucUnexpandedL2, math_t,
+                       math_t, math_t, OutputTile_t>(
+      x1, x2, out, n1, n2, n_cols, NULL, 0, fin_op, stream, false);
   }
 };
 };  // end namespace Matrix

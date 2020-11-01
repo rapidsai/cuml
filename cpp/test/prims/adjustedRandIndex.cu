@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#include <common/cudart_utils.h>
 #include <gtest/gtest.h>
+#include <raft/cudart_utils.h>
 #include <algorithm>
 #include <cuml/common/cuml_allocator.hpp>
 #include <iostream>
@@ -45,10 +45,11 @@ class AdjustedRandIndexTest
   void SetUp() override {
     params = ::testing::TestWithParam<AdjustedRandIndexParam>::GetParam();
     nElements = params.nElements;
-    allocate(firstClusterArray, nElements, true);
-    allocate(secondClusterArray, nElements, true);
+    raft::allocate(firstClusterArray, nElements, true);
+    raft::allocate(secondClusterArray, nElements, true);
     CUDA_CHECK(cudaStreamCreate(&stream));
-    std::shared_ptr<deviceAllocator> allocator(new defaultDeviceAllocator);
+    std::shared_ptr<deviceAllocator> allocator(
+      new raft::mr::device::default_allocator);
     if (!params.testZeroArray) {
       SetUpDifferentArrays();
     } else {
@@ -126,8 +127,8 @@ class AdjustedRandIndexTest
         (index - expectedIndex) / (maxIndex - expectedIndex);
     else
       truthAdjustedRandIndex = 0;
-    updateDevice(firstClusterArray, &arr1[0], nElements, stream);
-    updateDevice(secondClusterArray, &arr2[0], nElements, stream);
+    raft::update_device(firstClusterArray, &arr1[0], nElements, stream);
+    raft::update_device(secondClusterArray, &arr2[0], nElements, stream);
   }
 
   void SetupZeroArray() {

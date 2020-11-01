@@ -14,15 +14,12 @@
 # limitations under the License.
 #
 
-# cython: profile=False
 # distutils: language = c++
-# cython: embedsignature = True
-# cython: language_level = 3
 
 import numpy as np
 
 from cuml.common.array import CumlArray
-from cuml.common.handle cimport cumlHandle
+from cuml.raft.common.handle cimport handle_t
 from cuml.common import input_to_cuml_array
 from cuml.common.opg_data_utils_mg cimport *
 from cuml.common.opg_data_utils_mg import _build_part_inputs
@@ -34,7 +31,7 @@ from libc.stdint cimport uintptr_t
 from libcpp cimport bool
 from libcpp.memory cimport shared_ptr
 
-from cuml.neighbors import NearestNeighbors
+from cuml.neighbors.nearest_neighbors_mg import NearestNeighbors
 from cudf.core import DataFrame as cudfDataFrame
 
 
@@ -45,7 +42,7 @@ class KNeighborsMG(NearestNeighbors):
 
     def get_out_type(self, data, query):
         if len(data) > 0:
-            self._set_output_type(data[0])
+            self._set_base_attributes(output_type=data[0])
         out_type = self.output_type
         if len(query) > 0:
             out_type = self._get_output_type(query[0])

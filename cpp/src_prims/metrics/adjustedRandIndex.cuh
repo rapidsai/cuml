@@ -22,14 +22,14 @@
 
 #pragma once
 
-#include <common/cudart_utils.h>
 #include <math.h>
+#include <raft/cudart_utils.h>
 #include <common/device_buffer.hpp>
 #include <cub/cub.cuh>
-#include <cuda_utils.cuh>
 #include <cuml/common/cuml_allocator.hpp>
-#include <linalg/map_then_reduce.cuh>
-#include <linalg/reduce.cuh>
+#include <raft/cuda_utils.cuh>
+#include <raft/linalg/map_then_reduce.cuh>
+#include <raft/linalg/reduce.cuh>
 #include <stats/histogram.cuh>
 #include "contingencyMatrix.cuh"
 
@@ -93,11 +93,11 @@ int countUnique(const T* arr, int size, T& minLabel, T& maxLabel,
                            [minLabel] __device__(T val, int row, int col) {
                              return int(val - minLabel);
                            });
-  LinAlg::mapThenSumReduce<int>(
+  raft::linalg::mapThenSumReduce<int>(
     nUniq.data(), totalLabels, [] __device__(const T& val) { return val != 0; },
     stream, labelCounts.data());
   int numUniques;
-  updateHost(&numUniques, nUniq.data(), 1, stream);
+  raft::update_host(&numUniques, nUniq.data(), 1, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
   return numUniques;
 }
@@ -158,29 +158,29 @@ double computeAdjustedRandIndex(const T* firstClusterArray,
   CUDA_CHECK(cudaMemsetAsync(d_bCTwoSum.data(), 0, sizeof(MathT), stream));
   CUDA_CHECK(cudaMemsetAsync(d_nChooseTwoSum.data(), 0, sizeof(MathT), stream));
   //calculating the sum of NijC2
-  LinAlg::mapThenSumReduce<MathT, nCTwo<MathT>>(
+  raft::linalg::mapThenSumReduce<MathT, nCTwo<MathT>>(
     d_nChooseTwoSum.data(), nUniqClasses * nUniqClasses, nCTwo<MathT>(), stream,
     dContingencyMatrix.data(), dContingencyMatrix.data());
   //calculating the row-wise sums
-  LinAlg::reduce<MathT, MathT>(a.data(), dContingencyMatrix.data(),
-                               nUniqClasses, nUniqClasses, 0, true, true,
-                               stream);
+  raft::linalg::reduce<MathT, MathT>(a.data(), dContingencyMatrix.data(),
+                                     nUniqClasses, nUniqClasses, 0, true, true,
+                                     stream);
   //calculating the column-wise sums
-  LinAlg::reduce<MathT, MathT>(b.data(), dContingencyMatrix.data(),
-                               nUniqClasses, nUniqClasses, 0, true, false,
-                               stream);
+  raft::linalg::reduce<MathT, MathT>(b.data(), dContingencyMatrix.data(),
+                                     nUniqClasses, nUniqClasses, 0, true, false,
+                                     stream);
   //calculating the sum of number of unordered pairs for every element in a
-  LinAlg::mapThenSumReduce<MathT, nCTwo<MathT>>(d_aCTwoSum.data(), nUniqClasses,
-                                                nCTwo<MathT>(), stream,
-                                                a.data(), a.data());
+  raft::linalg::mapThenSumReduce<MathT, nCTwo<MathT>>(
+    d_aCTwoSum.data(), nUniqClasses, nCTwo<MathT>(), stream, a.data(),
+    a.data());
   //calculating the sum of number of unordered pairs for every element of b
-  LinAlg::mapThenSumReduce<MathT, nCTwo<MathT>>(d_bCTwoSum.data(), nUniqClasses,
-                                                nCTwo<MathT>(), stream,
-                                                b.data(), b.data());
+  raft::linalg::mapThenSumReduce<MathT, nCTwo<MathT>>(
+    d_bCTwoSum.data(), nUniqClasses, nCTwo<MathT>(), stream, b.data(),
+    b.data());
   //updating in the host memory
-  updateHost(&h_nChooseTwoSum, d_nChooseTwoSum.data(), 1, stream);
-  updateHost(&h_aCTwoSum, d_aCTwoSum.data(), 1, stream);
-  updateHost(&h_bCTwoSum, d_bCTwoSum.data(), 1, stream);
+  raft::update_host(&h_nChooseTwoSum, d_nChooseTwoSum.data(), 1, stream);
+  raft::update_host(&h_aCTwoSum, d_aCTwoSum.data(), 1, stream);
+  raft::update_host(&h_bCTwoSum, d_bCTwoSum.data(), 1, stream);
   //calculating the ARI
   auto nChooseTwo = double(size) * double(size - 1) / 2.0;
   auto expectedIndex =

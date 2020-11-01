@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#include <common/cudart_utils.h>
-#include <random/rng.cuh>
+#include <raft/cudart_utils.h>
+#include <raft/random/rng.cuh>
 #include "../common/ml_benchmark.hpp"
 
 namespace MLCommon {
@@ -38,15 +38,15 @@ template <typename T>
 struct Params {
   int len;
   RandomType type;
-  MLCommon::Random::GeneratorType gtype;
+  raft::random::GeneratorType gtype;
   T start, end;
 };  // struct Params
 
 template <typename T>
 struct RngBench : public Fixture {
   RngBench(const std::string& name, const Params<T>& p)
-    : Fixture(name,
-              std::shared_ptr<deviceAllocator>(new defaultDeviceAllocator)),
+    : Fixture(name, std::shared_ptr<deviceAllocator>(
+                      new raft::mr::device::default_allocator)),
       params(p) {}
 
  protected:
@@ -59,7 +59,7 @@ struct RngBench : public Fixture {
   }
 
   void runBenchmark(::benchmark::State& state) override {
-    MLCommon::Random::Rng r(123456ULL, params.gtype);
+    raft::random::Rng r(123456ULL, params.gtype);
     loopOnState(state, [this, &r]() {
       switch (params.type) {
         case RNG_Normal:
@@ -100,7 +100,7 @@ struct RngBench : public Fixture {
 
 template <typename T>
 static std::vector<Params<T>> getInputs() {
-  using namespace MLCommon::Random;
+  using namespace raft::random;
   return {
     {1024 * 1024, RNG_Uniform, GenPhilox, T(-1.0), T(1.0)},
     {32 * 1024 * 1024, RNG_Uniform, GenPhilox, T(-1.0), T(1.0)},

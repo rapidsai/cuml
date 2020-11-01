@@ -17,12 +17,13 @@
 import copy
 import cudf
 import cupy as cp
+import cupyx
 import numpy as np
 import pandas as pd
 
 from collections import namedtuple
 from cuml.common import CumlArray
-from cuml.common.logger import warn
+from cuml.common.logger import debug
 from cuml.common.memory_utils import with_cupy_rmm
 from cuml.common.memory_utils import _check_array_contiguity
 from numba import cuda
@@ -53,6 +54,59 @@ def get_cudf_column_ptr(col):
     See Github issue #1716
     """
     return col.__cuda_array_interface__['data'][0]
+
+
+def get_supported_input_type(X):
+    """
+    Determines if the input object is a supported input array-like object or
+    not. If supported, the type is returned. Otherwise, `None` is returned.
+
+    Parameters
+    ----------
+    X : object
+        Input object to test
+
+    Notes
+    -----
+    To closely match the functionality of
+    :func:`~cuml.common.input_utils.input_to_cuml_array`, this method will
+    return ``cupy.ndarray`` for any object supporting
+    `__cuda_array_interface__` and ``numpy.ndarray`` for any object supporting
+    `__array_interface__`.
+
+    Returns
+    -------
+    array-like type or None
+        If the array-like object is supported, the type is returned.
+        Otherwise, `None` is returned.
+    """
+    if (isinstance(X, cudf.Series)):
+        if X.null_count != 0:
+            return None
+        else:
+            return cudf.Series
+
+    # converting pandas to numpy before sending it to CumlArray
+    if isinstance(X, pd.DataFrame):
+        return pd.DataFrame
+
+    if isinstance(X, pd.Series):
+        return pd.Series
+
+    if isinstance(X, cudf.DataFrame):
+        return cudf.DataFrame
+
+    if isinstance(X, CumlArray):
+        return CumlArray
+
+    if hasattr(X, "__cuda_array_interface__"):
+        return cp.ndarray
+
+    if hasattr(X, "__array_interface__"):
+        return np.ndarray
+
+    # Return None if this type isnt supported
+    return None
 
 
 @with_cupy_rmm
@@ -161,8 +215,8 @@ def input_to_cuml_array(X, order='F', deepcopy=False,
 
         if force_contiguous or hasattr(X, "__array_interface__"):
             if not _check_array_contiguity(X):
-                warn("Non contiguous array or view detected, a \
-                     contiguous copy of the data will be done. ")
+                debug("Non contiguous array or view detected, a \
+                      contiguous copy of the data will be done. ")
                 X = cp.array(X, order=order, copy=True)
 
         X_m = CumlArray(data=X)
@@ -215,9 +269,9 @@ def input_to_cuml_array(X, order='F', deepcopy=False,
             raise ValueError("Expected " + order_to_str(order) +
                              " major order, but got the opposite.")
         else:
-            warn("Expected " + order_to_str(order) + " major order, "
-                 "but got the opposite. Converting data, this will "
-                 "result in additional memory utilization.")
+            debug("Expected " + order_to_str(order) + " major order, "
+                  "but got the opposite. Converting data, this will "
+                  "result in additional memory utilization.")
             X_m = cp.array(X_m, copy=False, order=order)
             X_m = CumlArray(data=X_m)
 
@@ -287,6 +341,17 @@ def input_to_host_array(X, order='F', deepcopy=False,
     `inp_array` is a new device array if the input was not a NumPy device
         array. It is a reference to the input X if it was a NumPy host array
     """
+
+    if isinstance(X, np.ndarray):
+        if len(X.shape) > 1:
+            n_cols = X.shape[1]
+        else:
+            n_cols = 1
+        return inp_array(array=X,
+                         pointer=X.__array_interface__['data'][0],
+                         n_rows=X.shape[0],
+                         n_cols=n_cols,
+                         dtype=X.dtype)
 
     ary_tuple = input_to_cuml_array(X,
                                     order=order,
@@ -463,7 +528,7 @@ def order_to_str(order):
 def sparse_scipy_to_cp(sp, dtype):
     """
     Convert object of scipy.sparse to
-    cupy.sparse.coo_matrix
+    cupyx.scipy.sparse.coo_matrix
     """
 
     coo = sp.tocoo()
@@ -473,4 +538,4 @@ def sparse_scipy_to_cp(sp, dtype):
     c = cp.asarray(coo.col)
     v = cp.asarray(values, dtype=dtype)
 
-    return cp.sparse.coo_matrix((v, (r, c)), sp.shape)
+    return cupyx.scipy.sparse.coo_matrix((v, (r, c)), sp.shape)

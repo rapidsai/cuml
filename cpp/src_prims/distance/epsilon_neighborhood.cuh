@@ -54,8 +54,7 @@ struct EpsUnexpL2SqNeighborhood : public BaseClass {
 
  private:
   DI void prolog() {
-    this->ldgsts(0);
-    this->pageWr ^= 1;
+    this->ldgXY(0);
 #pragma unroll
     for (int i = 0; i < P::AccRowsPerTh; ++i) {
 #pragma unroll
@@ -63,13 +62,16 @@ struct EpsUnexpL2SqNeighborhood : public BaseClass {
         acc[i][j] = BaseClass::Zero;
       }
     }
+    this->stsXY();
     __syncthreads();
+    this->pageWr ^= 1;
   }
 
   DI void loop() {
     for (int kidx = P::Kblk; kidx < this->k; kidx += P::Kblk) {
-      this->ldgsts(kidx);
+      this->ldgXY(kidx);
       accumulate();  // on the previous k-block
+      this->stsXY();
       __syncthreads();
       this->pageWr ^= 1;
       this->pageRd ^= 1;
@@ -80,7 +82,7 @@ struct EpsUnexpL2SqNeighborhood : public BaseClass {
   DI void epilog() {
     IdxT startx = blockIdx.x * P::Mblk + this->accrowid;
     IdxT starty = blockIdx.y * P::Nblk + this->acccolid;
-    auto lid = laneId();
+    auto lid = raft::laneId();
     IdxT sums[P::AccColsPerTh];
 #pragma unroll
     for (int j = 0; j < P::AccColsPerTh; ++j) {
@@ -142,7 +144,7 @@ struct EpsUnexpL2SqNeighborhood : public BaseClass {
       __syncthreads();  // for safe smem reuse
     }
     // update the total edge count
-    totalSum = blockReduce<IdxT>(totalSum, smem);
+    totalSum = raft::blockReduce<IdxT>(totalSum, smem);
     if (threadIdx.x == 0) {
       atomicUpdate(this->n, totalSum);
     }
@@ -150,9 +152,10 @@ struct EpsUnexpL2SqNeighborhood : public BaseClass {
 
   DI void atomicUpdate(IdxT addrId, IdxT val) {
     if (sizeof(IdxT) == 4) {
-      myAtomicAdd((unsigned*)(vd + addrId), val);
+      raft::myAtomicAdd<unsigned>((unsigned*)(vd + addrId), val);
     } else if (sizeof(IdxT) == 8) {
-      myAtomicAdd((unsigned long long*)(vd + addrId), val);
+      raft::myAtomicAdd<unsigned long long>((unsigned long long*)(vd + addrId),
+                                            val);
     }
   }
 };  // struct EpsUnexpL2SqNeighborhood
@@ -172,7 +175,8 @@ void epsUnexpL2SqNeighImpl(bool* adj, IdxT* vd, const DataT* x, const DataT* y,
                            IdxT m, IdxT n, IdxT k, DataT eps,
                            cudaStream_t stream) {
   typedef typename LinAlg::Policy4x4<DataT, VecLen>::Policy Policy;
-  dim3 grid(ceildiv<int>(m, Policy::Mblk), ceildiv<int>(n, Policy::Nblk));
+  dim3 grid(raft::ceildiv<int>(m, Policy::Mblk),
+            raft::ceildiv<int>(n, Policy::Nblk));
   dim3 blk(Policy::Nthreads);
   epsUnexpL2SqNeighKernel<DataT, IdxT, Policy>
     <<<grid, blk, Policy::SmemSize, stream>>>(adj, vd, x, y, m, n, k, eps);

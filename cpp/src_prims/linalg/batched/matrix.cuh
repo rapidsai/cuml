@@ -28,17 +28,16 @@
 #include <thrust/for_each.h>
 #include <thrust/iterator/counting_iterator.h>
 
+#include <raft/cudart_utils.h>
+#include <common/device_buffer.hpp>
+#include <common/fast_int_div.cuh>
 #include <cuml/common/utils.hpp>
 #include <cuml/cuml.hpp>
+#include <raft/cuda_utils.cuh>
 
-#include <common/device_buffer.hpp>
-
-#include "../binary_op.cuh"
-#include "../cublas_wrappers.h"
-#include "../unary_op.cuh"
-
-#include <common/cudart_utils.h>
-#include <cuda_utils.cuh>
+#include <raft/linalg/cublas_wrappers.h>
+#include <raft/linalg/binary_op.cuh>
+#include <raft/linalg/unary_op.cuh>
 
 namespace MLCommon {
 namespace LinAlg {
@@ -150,10 +149,10 @@ class Matrix {
 
     // Fill array of pointers to each batch matrix.
     constexpr int TPB = 256;
-    fill_strided_pointers_kernel<<<ceildiv<int>(m_batch_size, TPB), TPB, 0,
-                                   m_stream>>>(m_dense.data(), m_batches.data(),
-                                               m_batch_size, m_shape.first,
-                                               m_shape.second);
+    fill_strided_pointers_kernel<<<raft::ceildiv<int>(m_batch_size, TPB), TPB,
+                                   0, m_stream>>>(
+      m_dense.data(), m_batches.data(), m_batch_size, m_shape.first,
+      m_shape.second);
     CUDA_CHECK(cudaPeekAtLastError());
   }
 
@@ -198,8 +197,8 @@ class Matrix {
     initialize(false);
 
     // Copy the raw data
-    copy(m_dense.data(), other.m_dense.data(),
-         m_batch_size * m_shape.first * m_shape.second, m_stream);
+    raft::copy(m_dense.data(), other.m_dense.data(),
+               m_batch_size * m_shape.first * m_shape.second, m_stream);
   }
 
   //! Copy assignment operator
@@ -212,8 +211,8 @@ class Matrix {
     initialize(false);
 
     // Copy the raw data
-    copy(m_dense.data(), other.m_dense.data(),
-         m_batch_size * m_shape.first * m_shape.second, m_stream);
+    raft::copy(m_dense.data(), other.m_dense.data(),
+               m_batch_size * m_shape.first * m_shape.second, m_stream);
 
     return *this;
   }
@@ -272,7 +271,7 @@ class Matrix {
     int r = m * n;
     Matrix<T> toVec(r, 1, m_batch_size, m_cublasHandle, m_allocator, m_stream,
                     false);
-    copy(toVec[0], m_dense.data(), m_batch_size * r, m_stream);
+    raft::copy(toVec[0], m_dense.data(), m_batch_size * r, m_stream);
     return toVec;
   }
 
@@ -289,7 +288,7 @@ class Matrix {
            "ERROR: Size mismatch - Cannot reshape array into desired size");
     Matrix<T> toMat(m, n, m_batch_size, m_cublasHandle, m_allocator, m_stream,
                     false);
-    copy(toMat[0], m_dense.data(), m_batch_size * r, m_stream);
+    raft::copy(toMat[0], m_dense.data(), m_batch_size * r, m_stream);
 
     return toMat;
   }
@@ -298,7 +297,7 @@ class Matrix {
   void print(std::string name) const {
     size_t len = m_shape.first * m_shape.second * m_batch_size;
     std::vector<T> A(len);
-    updateHost(A.data(), m_dense.data(), len, m_stream);
+    raft::update_host(A.data(), m_dense.data(), len, m_stream);
     std::cout << name << "=\n";
     for (int i = 0; i < m_shape.first; i++) {
       for (int j = 0; j < m_shape.second; j++) {
@@ -357,11 +356,11 @@ class Matrix {
     Matrix<T> Ainv(n, n, m_batch_size, m_cublasHandle, m_allocator, m_stream,
                    false);
 
-    CUBLAS_CHECK(LinAlg::cublasgetrfBatched(m_cublasHandle, n, Acopy.data(), n,
-                                            P, info, m_batch_size, m_stream));
-    CUBLAS_CHECK(LinAlg::cublasgetriBatched(m_cublasHandle, n, Acopy.data(), n,
-                                            P, Ainv.data(), n, info,
-                                            m_batch_size, m_stream));
+    CUBLAS_CHECK(raft::linalg::cublasgetrfBatched(
+      m_cublasHandle, n, Acopy.data(), n, P, info, m_batch_size, m_stream));
+    CUBLAS_CHECK(raft::linalg::cublasgetriBatched(
+      m_cublasHandle, n, Acopy.data(), n, P, Ainv.data(), n, info, m_batch_size,
+      m_stream));
 
     m_allocator->deallocate(P, sizeof(int) * n * m_batch_size, m_stream);
     m_allocator->deallocate(info, sizeof(int) * m_batch_size, m_stream);
@@ -518,7 +517,7 @@ void b_gemm(bool aT, bool bT, int m, int n, int k, T alpha, const Matrix<T>& A,
   cublasOperation_t opB = bT ? CUBLAS_OP_T : CUBLAS_OP_N;
 
   // Call cuBLAS
-  CUBLAS_CHECK(LinAlg::cublasgemmStridedBatched(
+  CUBLAS_CHECK(raft::linalg::cublasgemmStridedBatched(
     A.cublasHandle(), opA, opB, m, n, k, &alpha, A.raw_data(), A.shape().first,
     A.shape().first * A.shape().second, B.raw_data(), B.shape().first,
     B.shape().first * B.shape().second, &beta, C.raw_data(), C.shape().first,
@@ -581,7 +580,7 @@ void b_gels(const Matrix<T>& A, Matrix<T>& C) {
   Matrix<T> Acopy(A);
 
   int info;
-  CUBLAS_CHECK(LinAlg::cublasgelsBatched(
+  CUBLAS_CHECK(raft::linalg::cublasgelsBatched(
     A.cublasHandle(), CUBLAS_OP_N, m, n, nrhs, Acopy.data(), m, C.data(), m,
     &info, nullptr, A.batches(), A.stream()));
 }
@@ -601,8 +600,8 @@ Matrix<T> b_op_A(const Matrix<T>& A, F unary_op) {
 
   Matrix<T> C(m, n, batch_size, A.cublasHandle(), A.allocator(), A.stream());
 
-  LinAlg::unaryOp(C.raw_data(), A.raw_data(), m * n * batch_size, unary_op,
-                  A.stream());
+  raft::linalg::unaryOp(C.raw_data(), A.raw_data(), m * n * batch_size,
+                        unary_op, A.stream());
 
   return C;
 }
@@ -630,8 +629,8 @@ Matrix<T> b_aA_op_B(const Matrix<T>& A, const Matrix<T>& B, F binary_op) {
 
   Matrix<T> C(m, n, batch_size, A.cublasHandle(), A.allocator(), A.stream());
 
-  LinAlg::binaryOp(C.raw_data(), A.raw_data(), B.raw_data(), m * n * batch_size,
-                   binary_op, A.stream());
+  raft::linalg::binaryOp(C.raw_data(), A.raw_data(), B.raw_data(),
+                         m * n * batch_size, binary_op, A.stream());
 
   return C;
 }
@@ -831,28 +830,33 @@ Matrix<T> b_lagged_mat(const Matrix<T>& vec, int lags) {
  * @note The blocks are the batches and the threads are the matrix elements,
  *       column-wise.
  * 
- * @param[in]  in            Input matrix
- * @param[out] out           Output matrix
- * @param[in]  starting_row  First row to copy
- * @param[in]  starting_col  First column to copy
- * @param[in]  in_rows       Number of rows in the input matrix
- * @param[in]  in_cols       Number of columns in the input matrix
- * @param[in]  out_rows      Number of rows to copy
- * @param[in]  out_cols      Number of columns to copy
+ * @param[in]  in                Input matrix
+ * @param[out] out               Output matrix
+ * @param[in]  in_starting_row   First row to copy in the input matrix
+ * @param[in]  in_starting_col   First column to copy in the input matrix
+ * @param[in]  in_rows           Number of rows in the input matrix
+ * @param[in]  in_cols           Number of columns in the input matrix
+ * @param[in]  copy_rows         Number of rows to copy
+ * @param[in]  n_copy            Total number of elements to copy
+ * @param[in]  out_starting_row  First row to copy in the output matrix
+ * @param[in]  out_starting_col  First column to copy in the output matrix
+ * @param[in]  out_rows          Number of rows in the output matrix
+ * @param[in]  out_cols          Number of columns in the output matrix
  */
 template <typename T>
-static __global__ void batched_2dcopy_kernel(const T* in, T* out,
-                                             int starting_row, int starting_col,
-                                             int in_rows, int in_cols,
-                                             int out_rows, int out_cols) {
-  const T* in_ =
-    in + blockIdx.x * in_rows * in_cols + starting_col * in_rows + starting_row;
-  T* out_ = out + blockIdx.x * out_rows * out_cols;
+static __global__ void batched_2dcopy_kernel(
+  const T* in, T* out, int in_starting_row, int in_starting_col, int in_rows,
+  int in_cols, MLCommon::FastIntDiv copy_rows, int n_copy, int out_starting_row,
+  int out_starting_col, int out_rows, int out_cols) {
+  const T* in_ = in + blockIdx.x * in_rows * in_cols +
+                 in_starting_col * in_rows + in_starting_row;
+  T* out_ = out + blockIdx.x * out_rows * out_cols +
+            out_starting_col * out_rows + out_starting_row;
 
-  for (int i = threadIdx.x; i < out_rows * out_cols; i += blockDim.x) {
-    int i_col = i / out_rows;
-    int i_row = i % out_rows;
-    out_[i] = in_[i_row + in_rows * i_col];
+  for (int i = threadIdx.x; i < n_copy; i += blockDim.x) {
+    int i_col = i / copy_rows;
+    int i_row = i % copy_rows;
+    out_[i_row + out_rows * i_col] = in_[i_row + in_rows * i_col];
   }
 }
 
@@ -861,24 +865,35 @@ static __global__ void batched_2dcopy_kernel(const T* in, T* out,
  * 
  * @note This overload takes two matrices as inputs
  * 
- * @param[in]  in            Batched input matrix
- * @param[out] out           Batched output matrix
- * @param[in]  starting_row  First row to copy
- * @param[in]  starting_col  First column to copy
- * @param[in]  rows          Number of rows to copy
- * @param[in]  cols          Number of columns to copy
+ * @param[in]  in                Batched input matrix
+ * @param[out] out               Batched output matrix
+ * @param[in]  in_starting_row   First row to copy in the input matrix
+ * @param[in]  in_starting_col   First column to copy in the input matrix
+ * @param[in]  copy_rows         Number of rows to copy
+ * @param[in]  copy_cols         Number of columns to copy
+ * @param[in]  out_starting_row  First row to copy in the output matrix
+ * @param[in]  out_starting_col  First column to copy in the output matrix
  */
 template <typename T>
-void b_2dcopy(const Matrix<T>& in, Matrix<T>& out, int starting_row,
-              int starting_col, int rows, int cols) {
-  ASSERT(out.shape().first == rows, "Dimension mismatch: rows");
-  ASSERT(out.shape().second == cols, "Dimension mismatch: columns");
+void b_2dcopy(const Matrix<T>& in, Matrix<T>& out, int in_starting_row,
+              int in_starting_col, int copy_rows, int copy_cols,
+              int out_starting_row = 0, int out_starting_col = 0) {
+  ASSERT(in_starting_row + copy_rows <= in.shape().first,
+         "[2D copy] Dimension mismatch: rows for input matrix");
+  ASSERT(in_starting_col + copy_cols <= in.shape().second,
+         "[2D copy] Dimension mismatch: columns for input matrix");
+  ASSERT(out_starting_row + copy_rows <= out.shape().first,
+         "[2D copy] Dimension mismatch: rows for output matrix");
+  ASSERT(out_starting_col + copy_cols <= out.shape().second,
+         "[2D copy] Dimension mismatch: columns for output matrix");
 
   // Execute the kernel
-  const int TPB = rows * cols > 512 ? 256 : 128;  // quick heuristics
+  const int TPB = copy_rows * copy_cols > 512 ? 256 : 128;  // quick heuristics
   batched_2dcopy_kernel<<<in.batches(), TPB, 0, in.stream()>>>(
-    in.raw_data(), out.raw_data(), starting_row, starting_col, in.shape().first,
-    in.shape().second, rows, cols);
+    in.raw_data(), out.raw_data(), in_starting_row, in_starting_col,
+    in.shape().first, in.shape().second, MLCommon::FastIntDiv(copy_rows),
+    copy_rows * copy_cols, out_starting_row, out_starting_col,
+    out.shape().first, out.shape().second);
   CUDA_CHECK(cudaPeekAtLastError());
 }
 
@@ -928,7 +943,7 @@ DI void generate_householder_vector(T* d_uk, const T* d_xk, int m) {
   }
   T x0 = d_xk[0];
   x_norm = sqrt(u_norm + x0 * x0);
-  T u0 = x0 + signPrim(x0) * x_norm;
+  T u0 = x0 + raft::signPrim(x0) * x_norm;
   u_norm = sqrt(u_norm + u0 * u0);
 
   // Compute u
@@ -969,7 +984,7 @@ DI void generate_householder_vector(T* d_uk, const T* d_xk, T* shared_mem,
     // Finalize computation of the norms
     T x0 = d_xk[0];
     x_norm = sqrt(shared_mem[0] + x0 * x0);
-    u0 = x0 + signPrim(x0) * x_norm;
+    u0 = x0 + raft::signPrim(x0) * x_norm;
     u_norm = sqrt(shared_mem[0] + u0 * u0);
   }
 
@@ -1125,7 +1140,7 @@ void b_hessenberg(const Matrix<T>& A, Matrix<T>& U, Matrix<T>& H) {
   auto allocator = A.allocator();
 
   // Copy A in H
-  copy(H.raw_data(), A.raw_data(), n2 * batch_size, stream);
+  raft::copy(H.raw_data(), A.raw_data(), n2 * batch_size, stream);
 
   // Initialize U with the identity
   CUDA_CHECK(
@@ -1156,11 +1171,11 @@ void b_hessenberg(const Matrix<T>& A, Matrix<T>& U, Matrix<T>& H) {
 template <typename T>
 DI void generate_givens(T a, T b, T& c, T& s) {
   if (b == 0) {
-    c = signPrim(a);
+    c = raft::signPrim(a);
     s = 0;
   } else if (a == 0) {
     c = 0;
-    s = signPrim(b);
+    s = raft::signPrim(b);
   } else if (abs(a) > abs(b)) {
     T t = -b / a;
     c = (T)1 / sqrt(1 + t * t);
@@ -1194,7 +1209,7 @@ DI bool ahues_tisseur(const T* d_M, int i, int n) {
   T h11 = d_M[i * n + i];
 
   return (abs(h10) * abs(h01) <
-          maxPrim(eps * abs(h11) * abs(h11 - h00), near_zero));
+          raft::maxPrim(eps * abs(h11) * abs(h11 - h00), near_zero));
 }
 
 /**
@@ -1272,7 +1287,7 @@ __global__ void francis_qr_algorithm_kernel(T* d_U, T* d_H, int n) {
       // Find q
       int q = 0;
       for (int k = p - 2; k > 0; k--) {
-        if (b_H[(k - 1) * n + k] == 0) q = maxPrim(q, k);
+        if (b_H[(k - 1) * n + k] == 0) q = raft::maxPrim(q, k);
       }
 
       // Compute first column of (H-aI)(H-bI), where a and b are the eigenvalues
@@ -1312,7 +1327,7 @@ __global__ void francis_qr_algorithm_kernel(T* d_U, T* d_H, int n) {
 
         // H[k:k+3, r:] = P * H[k:k+3, r:], r = max(q, k - 1) (non-coalesced)
         {
-          int j = maxPrim(q, k - 1) + threadIdx.x;
+          int j = raft::maxPrim(q, k - 1) + threadIdx.x;
           if (j < n) {
             T h0 = b_H[j * n + k];
             T h1 = b_H[j * n + k + 1];

@@ -14,18 +14,17 @@
  * limitations under the License.
  */
 
-#include <common/cudart_utils.h>
 #include <gtest/gtest.h>
-#include <linalg/cusolver_wrappers.h>
+#include <raft/cudart_utils.h>
+#include <raft/linalg/cusolver_wrappers.h>
 #include <test_utils.h>
-#include <matrix/matrix.cuh>
+#include <raft/matrix/matrix.cuh>
 #include <solver/cd.cuh>
 
 namespace ML {
 namespace Solver {
 
 using namespace MLCommon;
-using namespace MLCommon::LinAlg;
 
 template <typename T>
 struct CdInputs {
@@ -41,34 +40,34 @@ class CdTest : public ::testing::TestWithParam<CdInputs<T>> {
     params = ::testing::TestWithParam<CdInputs<T>>::GetParam();
     int len = params.n_row * params.n_col;
 
-    allocate(data, len);
-    allocate(labels, params.n_row);
-    allocate(coef, params.n_col, true);
-    allocate(coef2, params.n_col, true);
-    allocate(coef3, params.n_col, true);
-    allocate(coef4, params.n_col, true);
-    allocate(coef_ref, params.n_col, true);
-    allocate(coef2_ref, params.n_col, true);
-    allocate(coef3_ref, params.n_col, true);
-    allocate(coef4_ref, params.n_col, true);
+    raft::allocate(data, len);
+    raft::allocate(labels, params.n_row);
+    raft::allocate(coef, params.n_col, true);
+    raft::allocate(coef2, params.n_col, true);
+    raft::allocate(coef3, params.n_col, true);
+    raft::allocate(coef4, params.n_col, true);
+    raft::allocate(coef_ref, params.n_col, true);
+    raft::allocate(coef2_ref, params.n_col, true);
+    raft::allocate(coef3_ref, params.n_col, true);
+    raft::allocate(coef4_ref, params.n_col, true);
 
     T data_h[len] = {1.0, 1.2, 2.0, 2.0, 4.5, 2.0, 2.0, 3.0};
-    updateDevice(data, data_h, len, stream);
+    raft::update_device(data, data_h, len, stream);
 
     T labels_h[params.n_row] = {6.0, 8.3, 9.8, 11.2};
-    updateDevice(labels, labels_h, params.n_row, stream);
+    raft::update_device(labels, labels_h, params.n_row, stream);
 
     T coef_ref_h[params.n_col] = {4.90832, 0.35031};
-    updateDevice(coef_ref, coef_ref_h, params.n_col, stream);
+    raft::update_device(coef_ref, coef_ref_h, params.n_col, stream);
 
     T coef2_ref_h[params.n_col] = {2.53530, -0.36832};
-    updateDevice(coef2_ref, coef2_ref_h, params.n_col, stream);
+    raft::update_device(coef2_ref, coef2_ref_h, params.n_col, stream);
 
     T coef3_ref_h[params.n_col] = {2.932841, 1.15248};
-    updateDevice(coef3_ref, coef3_ref_h, params.n_col, stream);
+    raft::update_device(coef3_ref, coef3_ref_h, params.n_col, stream);
 
     T coef4_ref_h[params.n_col] = {0.569439, -0.00542};
-    updateDevice(coef4_ref, coef4_ref_h, params.n_col, stream);
+    raft::update_device(coef4_ref, coef4_ref_h, params.n_col, stream);
 
     bool fit_intercept = false;
     bool normalize = false;
@@ -80,35 +79,35 @@ class CdTest : public ::testing::TestWithParam<CdInputs<T>> {
     ML::loss_funct loss = ML::loss_funct::SQRD_LOSS;
 
     intercept = T(0);
-    cdFit(handle.getImpl(), data, params.n_row, params.n_col, labels, coef,
-          &intercept, fit_intercept, normalize, epochs, loss, alpha, l1_ratio,
-          shuffle, tol, stream);
+    cdFit(handle, data, params.n_row, params.n_col, labels, coef, &intercept,
+          fit_intercept, normalize, epochs, loss, alpha, l1_ratio, shuffle, tol,
+          stream);
 
     fit_intercept = true;
     intercept2 = T(0);
-    cdFit(handle.getImpl(), data, params.n_row, params.n_col, labels, coef2,
-          &intercept2, fit_intercept, normalize, epochs, loss, alpha, l1_ratio,
-          shuffle, tol, stream);
+    cdFit(handle, data, params.n_row, params.n_col, labels, coef2, &intercept2,
+          fit_intercept, normalize, epochs, loss, alpha, l1_ratio, shuffle, tol,
+          stream);
 
     alpha = T(1.0);
     l1_ratio = T(0.5);
     fit_intercept = false;
     intercept = T(0);
-    cdFit(handle.getImpl(), data, params.n_row, params.n_col, labels, coef3,
-          &intercept, fit_intercept, normalize, epochs, loss, alpha, l1_ratio,
-          shuffle, tol, stream);
+    cdFit(handle, data, params.n_row, params.n_col, labels, coef3, &intercept,
+          fit_intercept, normalize, epochs, loss, alpha, l1_ratio, shuffle, tol,
+          stream);
 
     fit_intercept = true;
     normalize = true;
     intercept2 = T(0);
-    cdFit(handle.getImpl(), data, params.n_row, params.n_col, labels, coef4,
-          &intercept2, fit_intercept, normalize, epochs, loss, alpha, l1_ratio,
-          shuffle, tol, stream);
+    cdFit(handle, data, params.n_row, params.n_col, labels, coef4, &intercept2,
+          fit_intercept, normalize, epochs, loss, alpha, l1_ratio, shuffle, tol,
+          stream);
   }
 
   void SetUp() override {
     CUDA_CHECK(cudaStreamCreate(&stream));
-    handle.setStream(stream);
+    handle.set_stream(stream);
     lasso();
   }
 
@@ -134,7 +133,7 @@ class CdTest : public ::testing::TestWithParam<CdInputs<T>> {
   T *coef4, *coef4_ref;
   T intercept, intercept2;
   cudaStream_t stream;
-  cumlHandle handle;
+  raft::handle_t handle;
 };
 
 const std::vector<CdInputs<float>> inputsf2 = {{0.01f, 4, 2}};
@@ -143,32 +142,32 @@ const std::vector<CdInputs<double>> inputsd2 = {{0.01, 4, 2}};
 
 typedef CdTest<float> CdTestF;
 TEST_P(CdTestF, Fit) {
-  ASSERT_TRUE(devArrMatch(coef_ref, coef, params.n_col,
-                          CompareApproxAbs<float>(params.tol)));
+  ASSERT_TRUE(raft::devArrMatch(coef_ref, coef, params.n_col,
+                                raft::CompareApproxAbs<float>(params.tol)));
 
-  ASSERT_TRUE(devArrMatch(coef2_ref, coef2, params.n_col,
-                          CompareApproxAbs<float>(params.tol)));
+  ASSERT_TRUE(raft::devArrMatch(coef2_ref, coef2, params.n_col,
+                                raft::CompareApproxAbs<float>(params.tol)));
 
-  ASSERT_TRUE(devArrMatch(coef3_ref, coef3, params.n_col,
-                          CompareApproxAbs<float>(params.tol)));
+  ASSERT_TRUE(raft::devArrMatch(coef3_ref, coef3, params.n_col,
+                                raft::CompareApproxAbs<float>(params.tol)));
 
-  ASSERT_TRUE(devArrMatch(coef4_ref, coef4, params.n_col,
-                          CompareApproxAbs<float>(params.tol)));
+  ASSERT_TRUE(raft::devArrMatch(coef4_ref, coef4, params.n_col,
+                                raft::CompareApproxAbs<float>(params.tol)));
 }
 
 typedef CdTest<double> CdTestD;
 TEST_P(CdTestD, Fit) {
-  ASSERT_TRUE(devArrMatch(coef_ref, coef, params.n_col,
-                          CompareApproxAbs<double>(params.tol)));
+  ASSERT_TRUE(raft::devArrMatch(coef_ref, coef, params.n_col,
+                                raft::CompareApproxAbs<double>(params.tol)));
 
-  ASSERT_TRUE(devArrMatch(coef2_ref, coef2, params.n_col,
-                          CompareApproxAbs<double>(params.tol)));
+  ASSERT_TRUE(raft::devArrMatch(coef2_ref, coef2, params.n_col,
+                                raft::CompareApproxAbs<double>(params.tol)));
 
-  ASSERT_TRUE(devArrMatch(coef3_ref, coef3, params.n_col,
-                          CompareApproxAbs<double>(params.tol)));
+  ASSERT_TRUE(raft::devArrMatch(coef3_ref, coef3, params.n_col,
+                                raft::CompareApproxAbs<double>(params.tol)));
 
-  ASSERT_TRUE(devArrMatch(coef4_ref, coef4, params.n_col,
-                          CompareApproxAbs<double>(params.tol)));
+  ASSERT_TRUE(raft::devArrMatch(coef4_ref, coef4, params.n_col,
+                                raft::CompareApproxAbs<double>(params.tol)));
 }
 
 INSTANTIATE_TEST_CASE_P(CdTests, CdTestF, ::testing::ValuesIn(inputsf2));

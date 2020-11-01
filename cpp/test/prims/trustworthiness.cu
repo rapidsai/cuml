@@ -15,10 +15,10 @@
  */
 
 #include <gtest/gtest.h>
-#include <cuda_utils.cuh>
+#include <raft/cudart_utils.h>
 #include <distance/distance.cuh>
 #include <iostream>
-#include <score/scores.cuh>
+#include <metrics/scores.cuh>
 #include <vector>
 #include "test_utils.h"
 
@@ -415,18 +415,21 @@ class TrustworthinessScoreTest : public ::testing::Test {
     cudaStream_t stream;
     cudaStreamCreate(&stream);
 
-    allocator.reset(new defaultDeviceAllocator);
+    allocator.reset(new raft::mr::device::default_allocator);
 
     float* d_X = (float*)allocator->allocate(X.size() * sizeof(float), stream);
     float* d_X_embedded =
       (float*)allocator->allocate(X_embedded.size() * sizeof(float), stream);
 
-    updateDevice(d_X, X.data(), X.size(), stream);
-    updateDevice(d_X_embedded, X_embedded.data(), X_embedded.size(), stream);
+    raft::update_device(d_X, X.data(), X.size(), stream);
+    raft::update_device(d_X_embedded, X_embedded.data(), X_embedded.size(),
+                        stream);
 
     // euclidean test
-    score = trustworthiness_score<float, Distance::EucUnexpandedL2Sqrt>(
-      d_X, d_X_embedded, 50, 30, 8, 5, allocator, stream);
+    score =
+      trustworthiness_score<float,
+                            ML::Distance::DistanceType::EucUnexpandedL2Sqrt>(
+        d_X, d_X_embedded, 50, 30, 8, 5, allocator, stream);
 
     allocator->deallocate(d_X, X.size() * sizeof(float), stream);
     allocator->deallocate(d_X_embedded, X_embedded.size() * sizeof(float),

@@ -14,11 +14,10 @@
 # limitations under the License.
 #
 
-# cython: profile=False
 # distutils: language = c++
-# cython: embedsignature = True
-# cython: language_level = 3
 
+
+import sys
 
 from libcpp.string cimport string
 from libcpp cimport bool
@@ -30,9 +29,12 @@ cdef extern from "cuml/common/logger.hpp" namespace "ML" nogil:
         Logger& get()
         void setLevel(int level)
         void setPattern(const string& pattern)
+        void setCallback(void(*callback)(int, char*))
+        void setFlush(void(*flush)())
         bool shouldLogFor(int level) const
         int getLevel() const
         string getPattern() const
+        void flush()
 
 
 cdef extern from "cuml/common/logger.hpp" nogil:
@@ -73,6 +75,47 @@ level_critical = CUML_LEVEL_CRITICAL
 """Disables all log messages"""
 level_off = CUML_LEVEL_OFF
 
+cdef void _log_callback(int lvl, const char * msg) nogil:
+    """
+    Default spdlogs callback function to redirect logs correctly to sys.stdout
+
+    Parameters
+    ----------
+    lvl : int
+        Level of the logging message as defined by spdlogs
+    msg : char *
+        Message to be logged
+    """
+    with gil:
+        print(msg.decode('utf-8'), end='')
+
+
+cdef void _nogil_log_callback(int lvl, const char * msg) nogil:
+    """
+    Wrapper for _log_callback to explicitly disable Cython's automatic GIL
+    acquire
+    """
+    with nogil:
+        _log_callback(lvl, msg)
+
+
+cdef void _log_flush() nogil:
+    """
+    Default spdlogs callback function to flush logs
+    """
+    with gil:
+        if sys.stdout is not None:
+            sys.stdout.flush()
+
+
+cdef void _nogil_log_flush() nogil:
+    """
+    Wrapper for _log_flush to explicitly disable Cython's automatic GIL
+    acquire
+    """
+    with nogil:
+        _log_flush()
+
 
 class LogLevelSetter:
     """Internal "context manager" object for restoring previous log level"""
@@ -96,7 +139,6 @@ def set_level(level):
     --------
 
     .. code-block:: python
-
 
         # regular usage of setting a logging level for all subsequent logs
         # in this case, it will enable all logs upto and including `info()`
@@ -146,7 +188,6 @@ def set_pattern(pattern):
     --------
 
     .. code-block:: python
-
 
         # regular usage of setting a logging pattern for all subsequent logs
         logger.set_pattern("--> [%H-%M-%S] %v")
@@ -315,3 +356,15 @@ def critical(msg):
     """
     cdef string s = msg.encode("UTF-8")
     CUML_LOG_CRITICAL(s.c_str())
+
+
+def flush():
+    """
+    Flush the logs.
+    """
+    Logger.get().flush()
+
+
+# Set callback functions to handle redirected sys.stdout in Python
+Logger.get().setCallback(_nogil_log_callback)
+Logger.get().setFlush(_nogil_log_flush)

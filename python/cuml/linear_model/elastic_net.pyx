@@ -14,13 +14,11 @@
 # limitations under the License.
 #
 
-# cython: profile=False
 # distutils: language = c++
-# cython: embedsignature = True
-# cython: language_level = 3
 
 from cuml.solvers import CD
 from cuml.common.base import Base, RegressorMixin
+from cuml.common.doc_utils import generate_docstring
 
 
 class ElasticNet(Base, RegressorMixin):
@@ -36,7 +34,7 @@ class ElasticNet(Base, RegressorMixin):
     descent to fit a linear model.
 
     Examples
-    ---------
+    --------
 
     .. code-block:: python
 
@@ -115,21 +113,27 @@ class ElasticNet(Base, RegressorMixin):
         This (setting to ‘random’) often leads to significantly faster
         convergence especially when tol is higher than 1e-4.
     handle : cuml.Handle
-        If it is None, a new one is created just for this class.
-    output_type : (optional) {'input', 'cudf', 'cupy', 'numpy'} default = None
-        Use it to control output type of the results and attributes.
-        If None it'll inherit the output type set at the
-        module level, cuml.output_type. If that has not been changed, by
-        default the estimator will mirror the type of the data used for each
-        fit or predict call.
-        If set, the estimator will override the global option for its behavior.
+        Specifies the cuml.handle that holds internal CUDA state for
+        computations in this model. Most importantly, this specifies the CUDA
+        stream that will be used for the model's computations, so users can
+        run different models concurrently in different streams by creating
+        handles in several streams.
+        If it is None, a new one is created.
+    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
+        Variable to control output type of the results and attributes of
+        the estimator. If None, it'll inherit the output type set at the
+        module level, `cuml.global_output_type`.
+        See :ref:`output-data-type-configuration` for more info.
+    verbose : int or boolean, default=False
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        See :ref:`verbosity-levels` for more info.
 
     Attributes
     -----------
     coef_ : array, shape (n_features)
         The estimated coefficients for the linear regression model.
     intercept_ : array
-        The independent term. If fit_intercept_ is False, will be 0.
+        The independent term. If `fit_intercept` is False, will be 0.
 
     Notes
     -----
@@ -139,7 +143,7 @@ class ElasticNet(Base, RegressorMixin):
 
     def __init__(self, alpha=1.0, l1_ratio=0.5, fit_intercept=True,
                  normalize=False, max_iter=1000, tol=1e-3, selection='cyclic',
-                 handle=None, output_type=None):
+                 handle=None, output_type=None, verbose=False):
         """
         Initializes the elastic-net regression class.
 
@@ -159,7 +163,7 @@ class ElasticNet(Base, RegressorMixin):
 
         # Hard-code verbosity as CoordinateDescent does not have verbosity
         super(ElasticNet, self).__init__(handle=handle,
-                                         verbose=False,
+                                         verbose=verbose,
                                          output_type=output_type)
 
         self._check_alpha(alpha)
@@ -167,13 +171,13 @@ class ElasticNet(Base, RegressorMixin):
 
         self.alpha = alpha
         self.l1_ratio = l1_ratio
-        self.coef_ = None
+        self._coef_ = None
         self.intercept_ = None
         self.fit_intercept = fit_intercept
         self.normalize = normalize
         self.max_iter = max_iter
         self.tol = tol
-        self.cuElasticNet = None
+        self.solver_model = None
         if selection in ['cyclic', 'random']:
             self.selection = selection
         else:
@@ -186,7 +190,7 @@ class ElasticNet(Base, RegressorMixin):
         if self.selection == 'random':
             shuffle = True
 
-        self.cuElasticNet = CD(fit_intercept=self.fit_intercept,
+        self.solver_model = CD(fit_intercept=self.fit_intercept,
                                normalize=self.normalize, alpha=self.alpha,
                                l1_ratio=self.l1_ratio, shuffle=shuffle,
                                max_iter=self.max_iter, handle=self.handle)
@@ -201,93 +205,36 @@ class ElasticNet(Base, RegressorMixin):
             msg = "l1_ratio value has to be between 0.0 and 1.0"
             raise ValueError(msg.format(l1_ratio))
 
+    @generate_docstring()
     def fit(self, X, y, convert_dtype=True):
         """
         Fit the model with X and y.
 
-        Parameters
-        ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-            Dense matrix (floats or doubles) of shape (n_samples, n_features).
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-
-        y : array-like (device or host) shape = (n_samples, 1)
-            Dense vector (floats or doubles) of shape (n_samples, 1).
-            Acceptable formats: cuDF Series, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-
-        convert_dtype : bool, optional (default = True)
-            When set to True, the transform method will, when necessary,
-            convert y to be the same data type as X if they differ. This
-            will increase memory used for the method.
         """
-        self._set_n_features_in(X)
-
-        self.cuElasticNet.fit(X, y, convert_dtype=convert_dtype)
-
-        self.coef_ = self.cuElasticNet.coef_
-        self.intercept_ = self.cuElasticNet.intercept_
+        self._set_base_attributes(output_type=X, n_features=X)
+        self.solver_model.fit(X, y, convert_dtype=convert_dtype)
 
         return self
 
-    def predict(self, X, convert_dtype=False):
+    @generate_docstring(return_values={'name': 'preds',
+                                       'type': 'dense',
+                                       'description': 'Predicted values',
+                                       'shape': '(n_samples, 1)'})
+    def predict(self, X, convert_dtype=True):
         """
-        Predicts the y for X.
-
-        Parameters
-        ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-            Dense matrix (floats or doubles) of shape (n_samples, n_features).
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-
-        convert_dtype : bool, optional (default = False)
-            When set to True, the predict method will, when necessary, convert
-            the input to the data type which was used to train the model. This
-            will increase memory used for the method.
-
-        Returns
-        ----------
-        y: cuDF DataFrame
-           Dense vector (floats or doubles) of shape (n_samples, 1)
+        Predicts `y` values for `X`.
 
         """
 
-        return self.cuElasticNet.predict(X)
+        return self.solver_model.predict(X, convert_dtype=convert_dtype)
 
-    def get_params(self, deep=True):
-        """
-        Scikit-learn style function that returns the estimator parameters.
-
-        Parameters
-        -----------
-        deep : boolean (default = True)
-        """
-        params = dict()
-        variables = ['alpha', 'fit_intercept', 'normalize', 'max_iter', 'tol',
-                     'selection']
-        for key in variables:
-            var_value = getattr(self, key, None)
-            params[key] = var_value
-        return params
-
-    def set_params(self, **params):
-        """
-        Sklearn style set parameter state to dictionary of params.
-
-        Parameters
-        -----------
-        params : dict of new params
-        """
-        if not params:
-            return self
-        variables = ['alpha', 'fit_intercept', 'normalize', 'max_iter', 'tol',
-                     'selection']
-        for key, value in params.items():
-            if key not in variables:
-                raise ValueError('Invalid parameter for estimator')
-            else:
-                setattr(self, key, value)
-
-        return self
+    def get_param_names(self):
+        return super().get_param_names() + [
+            "alpha",
+            "l1_ratio",
+            "fit_intercept",
+            "normalize",
+            "max_iter",
+            "tol",
+            "selection",
+        ]

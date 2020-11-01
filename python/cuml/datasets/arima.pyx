@@ -14,16 +14,14 @@
 # limitations under the License.
 #
 
-# cython: profile=False
 # distutils: language = c++
-# cython: embedsignature = True
-# cython: language_level = 3
 
 import cuml
 import numpy as np
 
 from cuml.common.array import CumlArray as cumlArray
-from cuml.common.handle cimport cumlHandle
+from cuml.raft.common.handle cimport handle_t
+from cuml.raft.common.handle import Handle
 from cuml.tsa.arima cimport ARIMAOrder
 
 from libc.stdint cimport uint64_t, uintptr_t
@@ -33,7 +31,7 @@ from random import randint
 
 cdef extern from "cuml/datasets/make_arima.hpp" namespace "ML":
     void cpp_make_arima "ML::Datasets::make_arima" (
-        const cumlHandle& handle,
+        const handle_t& handle,
         float* out,
         int batch_size,
         int n_obs,
@@ -45,7 +43,7 @@ cdef extern from "cuml/datasets/make_arima.hpp" namespace "ML":
     )
 
     void cpp_make_arima "ML::Datasets::make_arima" (
-        const cumlHandle& handle,
+        const handle_t& handle,
         double* out,
         int batch_size,
         int n_obs,
@@ -70,11 +68,11 @@ def make_arima(batch_size=1000, n_obs=100, order=(1, 1, 1),
                seasonal_order=(0, 0, 0, 0), intercept=False,
                random_state=None, dtype='double', output_type='cupy',
                handle=None):
-    r"""Generates a dataset of time series by simulating an ARIMA process
+    """Generates a dataset of time series by simulating an ARIMA process
     of a given order.
 
-    Example
-    -------
+    Examples
+    --------
     .. code-block:: python
 
         from cuml.datasets import make_arima
@@ -102,7 +100,7 @@ def make_arima(batch_size=1000, n_obs=100, order=(1, 1, 1),
     handle: cuml.Handle
         If it is None, a new one is created just for this function call
 
-    Returns:
+    Returns
     --------
     out: array-like, shape (n_obs, batch_size)
         Array of the requested type containing the generated dataset
@@ -123,8 +121,8 @@ def make_arima(batch_size=1000, n_obs=100, order=(1, 1, 1),
     else:
         dtype = inp_to_dtype[dtype]
 
-    handle = cuml.common.handle.Handle() if handle is None else handle
-    cdef cumlHandle* handle_ = <cumlHandle*><size_t>handle.getHandle()
+    handle = Handle() if handle is None else handle
+    cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
 
     out = cumlArray.empty((n_obs, batch_size), dtype=dtype, order='F')
     cdef uintptr_t out_ptr = <uintptr_t> out.ptr

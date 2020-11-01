@@ -21,7 +21,8 @@
 #include <random>
 #include <vector>
 
-#include <common/cudart_utils.h>
+#include <raft/cudart_utils.h>
+#include <test_utils.h>
 #include <metrics/batched/information_criterion.cuh>
 #include "../test_utils.h"
 
@@ -70,7 +71,7 @@ class BatchedICTest : public ::testing::TestWithParam<BatchedICInputs<T>> {
 
     // Create stream and allocator
     CUDA_CHECK(cudaStreamCreate(&stream));
-    allocator = std::make_shared<MLCommon::defaultDeviceAllocator>();
+    allocator = std::make_shared<raft::mr::device::default_allocator>();
 
     // Create arrays
     std::vector<T> loglike_h = std::vector<T>(params.batch_size);
@@ -87,7 +88,7 @@ class BatchedICTest : public ::testing::TestWithParam<BatchedICInputs<T>> {
       loglike_h[i] = std::log(udis(gen));
 
     // Copy the data to the device
-    updateDevice(loglike_d, loglike_h.data(), params.batch_size, stream);
+    raft::update_device(loglike_d, loglike_h.data(), params.batch_size, stream);
 
     // Compute the tested results
     information_criterion(res_d, loglike_d, params.ic_type, params.n_params,
@@ -106,7 +107,7 @@ class BatchedICTest : public ::testing::TestWithParam<BatchedICInputs<T>> {
   }
 
  protected:
-  std::shared_ptr<MLCommon::defaultDeviceAllocator> allocator;
+  std::shared_ptr<raft::mr::device::default_allocator> allocator;
   BatchedICInputs<T> params;
   T *res_d;
   std::vector<T> res_h;
@@ -125,11 +126,13 @@ using BatchedICTestD = BatchedICTest<double>;
 using BatchedICTestF = BatchedICTest<float>;
 TEST_P(BatchedICTestD, Result) {
   ASSERT_TRUE(devArrMatchHost(res_h.data(), res_d, params.batch_size,
-                              CompareApprox<double>(params.tolerance), stream));
+                              raft::CompareApprox<double>(params.tolerance),
+                              stream));
 }
 TEST_P(BatchedICTestF, Result) {
   ASSERT_TRUE(devArrMatchHost(res_h.data(), res_d, params.batch_size,
-                              CompareApprox<float>(params.tolerance), stream));
+                              raft::CompareApprox<float>(params.tolerance),
+                              stream));
 }
 
 INSTANTIATE_TEST_CASE_P(BatchedICTests, BatchedICTestD,

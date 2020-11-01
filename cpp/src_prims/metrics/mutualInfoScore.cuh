@@ -24,13 +24,13 @@
 *   on the same dataset when the real ground truth is not known.
 */
 
-#include <common/cudart_utils.h>
 #include <math.h>
+#include <raft/cudart_utils.h>
 #include <common/device_buffer.hpp>
 #include <cub/cub.cuh>
-#include <cuda_utils.cuh>
 #include <cuml/common/cuml_allocator.hpp>
-#include <linalg/reduce.cuh>
+#include <raft/cuda_utils.cuh>
+#include <raft/linalg/reduce.cuh>
 #include "contingencyMatrix.cuh"
 
 namespace MLCommon {
@@ -79,7 +79,7 @@ __global__ void mutualInfoKernel(const int *dContingencyMatrix, const int *a,
 
   //executed once per block
   if (threadIdx.x == 0 && threadIdx.y == 0) {
-    myAtomicAdd(d_MI, localMI);
+    raft::myAtomicAdd(d_MI, localMI);
   }
 }
 
@@ -136,20 +136,20 @@ double mutualInfoScore(const T *firstClusterArray, const T *secondClusterArray,
   CUDA_CHECK(cudaMemsetAsync(d_MI.data(), 0, sizeof(double), stream));
 
   //calculating the row-wise sums
-  MLCommon::LinAlg::reduce<int, int, int>(a.data(), dContingencyMatrix.data(),
-                                          numUniqueClasses, numUniqueClasses, 0,
-                                          true, true, stream);
+  raft::linalg::reduce<int, int, int>(a.data(), dContingencyMatrix.data(),
+                                      numUniqueClasses, numUniqueClasses, 0,
+                                      true, true, stream);
 
   //calculating the column-wise sums
-  MLCommon::LinAlg::reduce<int, int, int>(b.data(), dContingencyMatrix.data(),
-                                          numUniqueClasses, numUniqueClasses, 0,
-                                          true, false, stream);
+  raft::linalg::reduce<int, int, int>(b.data(), dContingencyMatrix.data(),
+                                      numUniqueClasses, numUniqueClasses, 0,
+                                      true, false, stream);
 
   //kernel configuration
   static const int BLOCK_DIM_Y = 16, BLOCK_DIM_X = 16;
   dim3 numThreadsPerBlock(BLOCK_DIM_X, BLOCK_DIM_Y);
-  dim3 numBlocks(ceildiv<int>(numUniqueClasses, numThreadsPerBlock.x),
-                 ceildiv<int>(numUniqueClasses, numThreadsPerBlock.y));
+  dim3 numBlocks(raft::ceildiv<int>(numUniqueClasses, numThreadsPerBlock.x),
+                 raft::ceildiv<int>(numUniqueClasses, numThreadsPerBlock.y));
 
   //calling the kernel
   mutualInfoKernel<T, BLOCK_DIM_X, BLOCK_DIM_Y>
@@ -158,7 +158,7 @@ double mutualInfoScore(const T *firstClusterArray, const T *secondClusterArray,
       d_MI.data());
 
   //updating in the host memory
-  MLCommon::updateHost(&h_MI, d_MI.data(), 1, stream);
+  raft::update_host(&h_MI, d_MI.data(), 1, stream);
 
   CUDA_CHECK(cudaStreamSynchronize(stream));
 

@@ -16,8 +16,8 @@
 
 #pragma once
 
-#include <common/cudart_utils.h>
 #include <cuml/matrix/kernelparams.h>
+#include <raft/cudart_utils.h>
 #include "grammatrix.cuh"
 #include "kernelmatrices.cuh"
 
@@ -48,7 +48,7 @@ class KernelFactory {
         res = new RBFKernel<math_t>(gamma);
         break;
       default:
-        throw MLCommon::Exception("Kernel not implemented");
+        throw raft::exception("Kernel not implemented");
     }
     return res;
   }

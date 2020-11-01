@@ -24,6 +24,7 @@ from sklearn.neighbors import NearestNeighbors as skKNN
 from sklearn.datasets.samples_generator import make_blobs
 
 import cupy as cp
+import cupyx
 import cudf
 import pandas as pd
 import numpy as np
@@ -113,23 +114,27 @@ def test_return_dists():
 @pytest.mark.parametrize('k', [unit_param(3), quality_param(30),
                          stress_param(50)])
 @pytest.mark.parametrize("metric", valid_metrics())
-def test_knn(input_type, nrows, n_feats, k, metric):
+def test_knn_separate_index_search(input_type, nrows, n_feats, k, metric):
     X, _ = make_blobs(n_samples=nrows,
                       n_features=n_feats, random_state=0)
 
+    X_index = X[:100]
+    X_search = X[101:]
+
     p = 5  # Testing 5-norm of the minkowski metric only
     knn_sk = skKNN(metric=metric, p=p)  # Testing
-    knn_sk.fit(X)
-    D_sk, I_sk = knn_sk.kneighbors(X, k)
+    knn_sk.fit(X_index)
+    D_sk, I_sk = knn_sk.kneighbors(X_search, k)
 
-    X_orig = X
+    X_orig = X_index
 
     if input_type == "dataframe":
-        X = cudf.DataFrame(X)
+        X_index = cudf.DataFrame(X_index)
+        X_search = cudf.DataFrame(X_search)
 
     knn_cu = cuKNN(metric=metric, p=p)
-    knn_cu.fit(X)
-    D_cuml, I_cuml = knn_cu.kneighbors(X, k)
+    knn_cu.fit(X_index)
+    D_cuml, I_cuml = knn_cu.kneighbors(X_search, k)
 
     if input_type == "dataframe":
         assert isinstance(D_cuml, cudf.DataFrame)
@@ -143,12 +148,18 @@ def test_knn(input_type, nrows, n_feats, k, metric):
         I_cuml_arr = I_cuml
 
     # Assert the cuml model was properly reverted
-    np.testing.assert_allclose(knn_cu.X_m.to_output("numpy"), X_orig,
-                               atol=1e-5, rtol=1e-4)
+    np.testing.assert_allclose(knn_cu._X_m.to_output("numpy"), X_orig,
+                               atol=1e-3, rtol=1e-3)
 
-    # Allow a max relative diff of 10% and absolute diff of 1%
-    np.testing.assert_allclose(D_cuml_arr, D_sk, atol=1e-2,
-                               rtol=1e-1)
+    if metric == 'braycurtis':
+        diff = D_cuml_arr - D_sk
+        # Braycurtis has a few differences, but this is computed by FAISS.
+        # So long as the indices all match below, the small discrepancy
+        # should be okay.
+        assert len(diff[diff > 1e-2]) / X_search.shape[0] < 0.06
+    else:
+        np.testing.assert_allclose(D_cuml_arr, D_sk, atol=1e-3,
+                                   rtol=1e-3)
     assert I_cuml_arr.all() == I_sk.all()
 
 
@@ -174,12 +185,12 @@ def test_knn_x_none(input_type, nrows, n_feats, k, metric):
     if input_type == "dataframe":
         X = cudf.DataFrame(X)
 
-    knn_cu = cuKNN(metric=metric, p=p)
+    knn_cu = cuKNN(metric=metric, p=p, output_type="numpy")
     knn_cu.fit(X)
     D_cuml, I_cuml = knn_cu.kneighbors(X=None, n_neighbors=k)
 
     # Assert the cuml model was properly reverted
-    cp.testing.assert_allclose(knn_cu.X_m.to_output("numpy"), X_orig,
+    cp.testing.assert_allclose(knn_cu.X_m, X_orig,
                                atol=1e-5, rtol=1e-4)
 
     # Allow a max relative diff of 10% and absolute diff of 1%
@@ -301,6 +312,6 @@ def test_knn_graph(input_type, nrows, n_feats, p, k, metric, mode,
     assert np.array_equal(sparse_sk.toarray().shape, sparse_cu.toarray().shape)
 
     if output_type == 'cupy':
-        assert cp.sparse.isspmatrix_csr(sparse_cu)
+        assert cupyx.scipy.sparse.isspmatrix_csr(sparse_cu)
     else:
         assert isspmatrix_csr(sparse_cu)

@@ -13,24 +13,38 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from sklearn.utils.validation import FLOAT_DTYPES
 from cuml.common.exceptions import NotFittedError
 import cupy as cp
+import cupyx
 from cuml.common import with_cupy_rmm
 from cuml.common.sparsefuncs import csr_row_normalize_l1, csr_row_normalize_l2
 from cuml.common.sparsefuncs import csr_diag_mul
+from cuml.common.array import CumlArray
+from cuml import Base
 
 
 def _sparse_document_frequency(X):
     """Count the number of non-zero values for each feature in sparse X."""
-    if cp.sparse.isspmatrix_csr(X):
+    if cupyx.scipy.sparse.isspmatrix_csr(X):
         return cp.bincount(X.indices, minlength=X.shape[1])
     else:
         return cp.diff(X.indptr)
 
 
-class TfidfTransformer:
-    """Transform a count matrix to a normalized tf or tf-idf representation
+def _get_dtype(X):
+    """
+        Returns the valid dtype for tf-idf transformer
+    """
+    import numpy as np
+    FLOAT_DTYPES = (np.float64, np.float32, np.float16)
+
+    dtype = X.dtype if X.dtype in FLOAT_DTYPES else cp.float32
+    return dtype
+
+
+class TfidfTransformer(Base):
+    """
+    Transform a count matrix to a normalized tf or tf-idf representation
     Tf means term-frequency while tf-idf means term-frequency times inverse
     document-frequency. This is a common term weighting scheme in information
     retrieval, that has also found good use in document classification.
@@ -66,12 +80,13 @@ class TfidfTransformer:
 
     Parameters
     ----------
+
     norm : {'l1', 'l2'}, default='l2'
         Each output row will have unit norm, either:
-        * 'l2': Sum of squares of vector elements is 1. The cosine
-        similarity between two vectors is their dot product when l2 norm has
-        been applied.
-        * 'l1': Sum of absolute values of vector elements is 1.
+         * 'l2': Sum of squares of vector elements is 1. The cosine similarity
+           between two vectors is their dot product when l2 norm has been
+           applied.
+         * 'l1': Sum of absolute values of vector elements is 1.
     use_idf : bool, default=True
         Enable inverse-document-frequency reweighting.
     smooth_idf : bool, default=True
@@ -80,20 +95,82 @@ class TfidfTransformer:
         exactly once. Prevents zero divisions.
     sublinear_tf : bool, default=False
         Apply sublinear tf scaling, i.e. replace tf with 1 + log(tf).
+    handle : cuml.Handle
+        Specifies the cuml.handle that holds internal CUDA state for
+        computations in this model. Most importantly, this specifies the CUDA
+        stream that will be used for the model's computations, so users can
+        run different models concurrently in different streams by creating
+        handles in several streams.
+        If it is None, a new one is created.
+    verbose : int or boolean, default=False
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        See :ref:`verbosity-levels` for more info.
+    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
+        Variable to control output type of the results and attributes of
+        the estimator. If None, it'll inherit the output type set at the
+        module level, `cuml.global_output_type`.
+        See :ref:`output-data-type-configuration` for more info.
 
     Attributes
     ----------
     idf_ : array of shape (n_features)
         The inverse document frequency (IDF) vector; only defined
-        if  ``use_idf`` is True.
+        if ``use_idf`` is True.
+
     """
 
     def __init__(self, *, norm='l2', use_idf=True, smooth_idf=True,
-                 sublinear_tf=False):
+                 sublinear_tf=False, handle=None, verbose=False,
+                 output_type=None):
+
+        super(TfidfTransformer, self).__init__(
+            handle=handle,
+            verbose=verbose,
+            output_type=output_type)
         self.norm = norm
         self.use_idf = use_idf
         self.smooth_idf = smooth_idf
         self.sublinear_tf = sublinear_tf
+
+    @with_cupy_rmm
+    def _set_doc_stats(self, X):
+        """
+        We set the following document level statistics here:
+        n_samples
+        n_features
+        df(document frequency)
+        """
+        # Should not have a cost if already sparse
+        output_dtype = _get_dtype(X)
+        X = self._convert_to_csr(X, output_dtype)
+        n_samples, n_features = X.shape
+        df = _sparse_document_frequency(X)
+        df = df.astype(output_dtype, copy=False)
+        self.__df = CumlArray(df)
+        self.__n_samples = n_samples
+        self.__n_features = n_features
+
+        return
+
+    @with_cupy_rmm
+    def _set_idf_diag(self):
+        """
+            Sets idf_diagonal sparse array
+        """
+        # perform idf smoothing if required
+        df = self.__df.to_output('cupy') + int(self.smooth_idf)
+        n_samples = self.__n_samples + int(self.smooth_idf)
+
+        # log+1 instead of log makes sure terms with zero idf don't get
+        # suppressed entirely.
+        idf = cp.log(n_samples / df) + 1
+        self._idf_diag = cp.sparse.dia_matrix(
+            (idf, 0),
+            shape=(self.__n_features, self.__n_features),
+            dtype=df.dtype
+        )
+        # Free up memory occupied by below
+        del self.__df
 
     @with_cupy_rmm
     def fit(self, X):
@@ -104,26 +181,11 @@ class TfidfTransformer:
         X : array-like of shape n_samples, n_features
             A matrix of term/token counts.
         """
-        dtype = X.dtype if X.dtype in FLOAT_DTYPES else cp.float32
-        X = self._convert_to_csr(X, dtype)
-
+        output_dtype = _get_dtype(X)
+        X = self._convert_to_csr(X, output_dtype)
         if self.use_idf:
-            n_samples, n_features = X.shape
-            df = _sparse_document_frequency(X)
-            df = df.astype(dtype, copy=False)
-
-            # perform idf smoothing if required
-            df += int(self.smooth_idf)
-            n_samples += int(self.smooth_idf)
-
-            # log+1 instead of log makes sure terms with zero idf don't get
-            # suppressed entirely.
-            idf = cp.log(n_samples / df) + 1
-            self._idf_diag = cp.sparse.dia_matrix(
-                (idf, 0),
-                shape=(n_features, n_features),
-                dtype=dtype
-            )
+            self._set_doc_stats(X)
+            self._set_idf_diag()
 
         return self
 
@@ -146,7 +208,7 @@ class TfidfTransformer:
         if copy:
             X = X.copy()
 
-        dtype = X.dtype if X.dtype in FLOAT_DTYPES else cp.float32
+        dtype = _get_dtype(X)
 
         X = self._convert_to_csr(X, dtype)
         if X.dtype != dtype:
@@ -204,9 +266,9 @@ class TfidfTransformer:
 
     def _convert_to_csr(self, X, dtype):
         """Convert array to CSR format if it not sparse nor CSR."""
-        if not cp.sparse.isspmatrix_csr(X):
-            if not cp.sparse.issparse(X):
-                X = cp.sparse.csr_matrix(X.astype(dtype))
+        if not cupyx.scipy.sparse.isspmatrix_csr(X):
+            if not cupyx.scipy.sparse.issparse(X):
+                X = cupyx.scipy.sparse.csr_matrix(X.astype(dtype))
             else:
                 X = X.tocsr()
         return X
@@ -221,8 +283,12 @@ class TfidfTransformer:
     def idf_(self, value):
         value = cp.asarray(value, dtype=cp.float32)
         n_features = value.shape[0]
-        self._idf_diag = cp.sparse.dia_matrix(
+        self._idf_diag = cupyx.scipy.sparse.dia_matrix(
             (value, 0),
             shape=(n_features, n_features),
             dtype=cp.float32
         )
+
+    def get_param_names(self):
+        return super().get_param_names() + \
+            ["norm", "use_idf", "smooth_idf", "sublinear_tf"]

@@ -16,9 +16,9 @@
 
 set (CMAKE_FIND_NO_INSTALL_PREFIX TRUE FORCE)
 
-cmake_minimum_required(VERSION 3.14 FATAL_ERROR)
+cmake_minimum_required(VERSION 3.14...3.17 FATAL_ERROR)
 
-project(CUML VERSION 0.15.0 LANGUAGES C CXX CUDA)
+project(CUML VERSION 0.17.0 LANGUAGES C CXX CUDA)
 
 ##############################################################################
 # - build type ---------------------------------------------------------------
@@ -64,15 +64,15 @@ option(BUILD_CUML_STD_COMMS "Build the standard NCCL+UCX Communicator" ON)
 
 option(BUILD_CUML_MPI_COMMS "Build the MPI+NCCL Communicator (used for testing)" OFF)
 
-option(CMAKE_CXX11_ABI "Enable the GLIBCXX11 ABI" ON)
+option(BUILD_STATIC_FAISS "Build the FAISS library for nearest neighbors search on GPU" OFF)
+
+option(BUILD_GTEST "Build the GTEST library for running libcuml++ and prims test executables" OFF)
 
 option(DETECT_CONDA_ENV "Enable detection of conda environment for dependencies" ON)
 
 option(DISABLE_OPENMP "Disable OpenMP" OFF)
 
 option(ENABLE_CUMLPRIMS_MG "Enable algorithms that use libcumlprims_mg" ON)
-
-option(EMPTY_MARKER_KERNEL "Enable empty marker kernel after nvtxRangePop" OFF)
 
 option(KERNEL_INFO "Enable kernel resource usage info" OFF)
 
@@ -169,22 +169,34 @@ endif(BUILD_CUML_MG_TESTS AND NOT SINGLEGPU)
 
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/cmake/templates)
 
-GENERATE_FIND_MODULE(NAME cumlprims_mg
-                     HEADER_NAME cumlprims.hpp
-                     LIBRARY_NAME cumlprims
-                     LOCATION cumlprims)
+if(ENABLE_CUMLPRIMS_MG)
+  GENERATE_FIND_MODULE(
+    NAME         cumlprims_mg
+    HEADER_NAME  cumlprims.hpp
+    LIBRARY_NAME cumlprims
+    LOCATION     cumlprims)
+endif(ENABLE_CUMLPRIMS_MG)
 
-GENERATE_FIND_MODULE(NAME NCCL
-                     HEADER_NAME nccl.h
-                     LIBRARY_NAME nccl)
+if(BUILD_CUML_STD_COMMS OR BUILD_CUML_MPI_COMMS)
+GENERATE_FIND_MODULE(
+  NAME         NCCL
+  HEADER_NAME  nccl.h
+  LIBRARY_NAME nccl)
+endif(BUILD_CUML_STD_COMMS OR BUILD_CUML_MPI_COMMS)
 
-GENERATE_FIND_MODULE(NAME RMM
-                     HEADER_NAME rmm/device_buffer.hpp
-                     LIBRARY_NAME rmm)
+if(BUILD_CUML_STD_COMMS)
+  GENERATE_FIND_MODULE(
+    NAME         UCX
+    HEADER_NAME  ucp/api/ucp.h
+    LIBRARY_NAME ucp)
+endif(BUILD_CUML_STD_COMMS)
 
-GENERATE_FIND_MODULE(NAME UCX
-                     HEADER_NAME ucp/api/ucp.h
-                     LIBRARY_NAME ucp)
+if(NOT BUILD_STATIC_FAISS)
+  GENERATE_FIND_MODULE(
+    NAME         FAISS
+    HEADER_NAME  faiss/IndexFlat.h
+    LIBRARY_NAME faiss)
+endif(NOT BUILD_STATIC_FAISS)
 
 set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_BINARY_DIR}/cmake)
 
@@ -254,9 +266,7 @@ endif(KERNEL_INFO)
 if(NVTX)
   set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -DNVTX_ENABLED")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DNVTX_ENABLED")
-  if(EMPTY_MARKER_KERNEL)
-  set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -DENABLE_EMPTY_MARKER_KERNEL")
-  endif(EMPTY_MARKER_KERNEL)
+  set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS}")
 endif(NVTX)
 
 if(CMAKE_BUILD_TYPE MATCHES Debug)
@@ -269,6 +279,14 @@ if("${GPU_ARCHS}" STREQUAL "")
   evaluate_gpu_archs(GPU_ARCHS)
 endif()
 
+
+# CUDA 11 onwards cub ships with CTK
+if((CUDA_VERSION_MAJOR EQUAL 11) OR (CUDA_VERSION_MAJOR GREATER 11))
+  set(CUB_IS_PART_OF_CTK ON)
+else()
+  set(CUB_IS_PART_OF_CTK OFF)
+endif()
+
 if("${GPU_ARCHS}" STREQUAL "ALL")
   set(GPU_ARCHS "60")
   if((CUDA_VERSION_MAJOR EQUAL 9) OR (CUDA_VERSION_MAJOR GREATER 9))
@@ -276,6 +294,9 @@ if("${GPU_ARCHS}" STREQUAL "ALL")
   endif()
   if((CUDA_VERSION_MAJOR EQUAL 10) OR (CUDA_VERSION_MAJOR GREATER 10))
     set(GPU_ARCHS "${GPU_ARCHS};75")
+  endif()
+  if((CUDA_VERSION_MAJOR EQUAL 11) OR (CUDA_VERSION_MAJOR GREATER 11))
+    set(GPU_ARCHS "${GPU_ARCHS};80")
   endif()
 endif()
 
@@ -289,17 +310,6 @@ endforeach()
 list(GET GPU_ARCHS -1 ptx)
 set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -gencode arch=compute_${ptx},code=compute_${ptx}")
 set(FAISS_GPU_ARCHS "${FAISS_GPU_ARCHS} -gencode arch=compute_${ptx},code=compute_${ptx}")
-
-if(CMAKE_COMPILER_IS_GNUCXX)
-  if(NOT CMAKE_CXX11_ABI)
-    message(STATUS "Disabling the GLIBCXX11 ABI")
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -D_GLIBCXX_USE_CXX11_ABI=0")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_GLIBCXX_USE_CXX11_ABI=0")
-    set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -Xcompiler -D_GLIBCXX_USE_CXX11_ABI=0")
-  elseif(CMAKE_CXX11_ABI)
-    message(STATUS "Enabling the GLIBCXX11 ABI")
-  endif(NOT CMAKE_CXX11_ABI)
-endif(CMAKE_COMPILER_IS_GNUCXX)
 
 set(CMAKE_CUDA_FLAGS
   "${CMAKE_CUDA_FLAGS} -Xcudafe --diag_suppress=unrecognized_gcc_pragma")
@@ -317,29 +327,46 @@ set(CUML_INCLUDE_DIRECTORIES
   ${CMAKE_CURRENT_SOURCE_DIR}/src
   ${CMAKE_CURRENT_SOURCE_DIR}/src_prims
   ${CMAKE_CURRENT_SOURCE_DIR}/test/prims
-  ${FAISS_DIR}/src/
   ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}
   ${CUTLASS_DIR}/src/cutlass
-  ${CUB_DIR}/src/cub
   ${SPDLOG_DIR}/src/spdlog/include
+  ${FAISS_INCLUDE_DIRS}
   ${RAFT_DIR}/cpp/include
-  ${RMM_INCLUDE_DIRS}
-  )
+  ${RMM_INCLUDE_DIRS})
+
+if(NOT CUB_IS_PART_OF_CTK)
+  list(APPEND CUML_INCLUDE_DIRECTORIES ${CUB_DIR}/src/cub)
+endif(NOT CUB_IS_PART_OF_CTK)
 
 set(CUML_PUBLIC_LINK_LIBRARIES
   ${CUDA_cublas_LIBRARY}
   ${CUDA_curand_LIBRARY}
   ${CUDA_cusolver_LIBRARY}
   ${CUDA_CUDART_LIBRARY}
-  ${CUDA_cusparse_LIBRARY}
-  )
+  ${CUDA_cusparse_LIBRARY})
+
 
 set(CUML_PRIVATE_LINK_LIBRARIES
-  faisslib
+  FAISS::FAISS
   treelite::treelite
   treelite::treelite_runtime
-  RMM::RMM
   )
+
+if(BUILD_CUML_STD_COMMS OR BUILD_CUML_MPI_COMMS)
+	list(APPEND CUML_INCLUDE_DIRECTORIES
+		${NCCL_INCLUDE_DIRS})
+
+	list(APPEND CUML_PRIVATE_LINK_LIBRARIES
+		NCCL::NCCL)
+endif(BUILD_CUML_STD_COMMS OR BUILD_CUML_MPI_COMMS)
+
+if(BUILD_CUML_MPI_COMMS)
+	list(APPEND CUML_INCLUDE_DIRECTORIES
+        ${MPI_CXX_INCLUDE_PATH})
+
+    list(APPEND CUML_PRIVATE_LINK_LIBRARIES
+         ${MPI_CXX_LIBRARIES})
+endif(BUILD_CUML_MPI_COMMS)
 
 if(ENABLE_CUMLPRIMS_MG)
   list(APPEND CUML_INCLUDE_DIRECTORIES
@@ -347,7 +374,6 @@ if(ENABLE_CUMLPRIMS_MG)
 
   list(APPEND CUML_PRIVATE_LINK_LIBRARIES
        cumlprims_mg::cumlprims_mg)
-
 endif(ENABLE_CUMLPRIMS_MG)
 
 ##############################################################################
@@ -358,14 +384,12 @@ if(BUILD_CUML_CPP_LIBRARY)
 
   # single GPU components
   add_library(${CUML_CPP_TARGET} SHARED
-    src/arima/batched_kalman.cu
     src/arima/batched_arima.cu
+    src/arima/batched_kalman.cu
     src/common/cumlHandle.cpp
     src/common/cuml_api.cpp
-    src/common/cuML_comms_impl.cpp
     src/common/logger.cpp
     src/common/nvtx.cu
-    src/comms/cuML_comms_test.cpp
     src/datasets/make_arima.cu
     src/datasets/make_blobs.cu
     src/datasets/make_regression.cu
@@ -466,17 +490,6 @@ if(BUILD_CUML_TESTS OR BUILD_CUML_MG_TESTS OR BUILD_PRIMS_TESTS)
 endif(BUILD_CUML_TESTS OR BUILD_CUML_MG_TESTS OR BUILD_PRIMS_TESTS)
 
 ##############################################################################
-# - build comms ------------------------------------------------------------------------------
-
-if(BUILD_CUML_STD_COMMS)
-  add_subdirectory(comms/std)
-endif(BUILD_CUML_STD_COMMS)
-
-if(BUILD_CUML_MPI_COMMS)
-  add_subdirectory(comms/mpi)
-endif(BUILD_CUML_MPI_COMMS)
-
-##############################################################################
 # - build examples ------------------------------------------------------------------------------
 
 if(BUILD_CUML_EXAMPLES)
@@ -491,6 +504,7 @@ install(TARGETS ${CUML_CPP_TARGET}
         DESTINATION lib)
 
 install(DIRECTORY ${CUML_INCLUDE_DIR}/cuml DESTINATION include)
+install(DIRECTORY ${RAFT_DIR}/cpp/include/ DESTINATION include/cuml)
 
 ##############################################################################
 # - build benchmark executable -----------------------------------------------

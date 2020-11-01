@@ -16,11 +16,11 @@
 
 #pragma once
 
-#include <common/cudart_utils.h>
 #include <cooperative_groups.h>
-#include <cuda_utils.cuh>
+#include <raft/cudart_utils.h>
 #include <memory>
-#include <vectorized.cuh>
+#include <raft/cuda_utils.cuh>
+#include <raft/vectorized.cuh>
 
 namespace MLCommon {
 namespace Random {
@@ -85,13 +85,13 @@ struct permute_impl_t {
                           IdxType D, int nblks, IdxType a, IdxType b,
                           cudaStream_t stream) {
     //determine vector type and set new pointers
-    typedef typename MLCommon::IOType<Type, VLen>::Type VType;
+    typedef typename raft::IOType<Type, VLen>::Type VType;
     VType* vout = reinterpret_cast<VType*>(out);
     const VType* vin = reinterpret_cast<const VType*>(in);
 
     // check if we can execute at this vector length
-    if (D % VLen == 0 && is_aligned(vout, sizeof(VType)) &&
-        is_aligned(vin, sizeof(VType))) {
+    if (D % VLen == 0 && raft::is_aligned(vout, sizeof(VType)) &&
+        raft::is_aligned(vin, sizeof(VType))) {
       permuteKernel<VType, IntType, IdxType, TPB, rowMajor>
         <<<nblks, TPB, 0, stream>>>(perms, vout, vin, a, b, N, D / VLen);
       CUDA_CHECK(cudaPeekAtLastError());
@@ -143,11 +143,11 @@ template <typename Type, typename IntType = int, typename IdxType = int,
           int TPB = 256>
 void permute(IntType* perms, Type* out, const Type* in, IntType D, IntType N,
              bool rowMajor, cudaStream_t stream) {
-  auto nblks = ceildiv(N, (IntType)TPB);
+  auto nblks = raft::ceildiv(N, (IntType)TPB);
 
   // always keep 'a' to be coprime to N
   IdxType a = rand() % N;
-  while (gcd(a, N) != 1) a = (a + 1) % N;
+  while (raft::gcd(a, N) != 1) a = (a + 1) % N;
   IdxType b = rand() % N;
 
   if (rowMajor) {

@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+from functools import lru_cache
 import cupy as cp
 import numpy as np
 import pytest
@@ -38,17 +39,25 @@ from sklearn.linear_model import LogisticRegression as skLog
 from sklearn.model_selection import train_test_split
 
 
-def make_regression_dataset(datatype, nrows, ncols, n_info):
+def _make_regression_dataset_uncached(nrows, ncols, n_info):
     X, y = make_regression(
         n_samples=nrows, n_features=ncols, n_informative=n_info, random_state=0
     )
-    X = X.astype(datatype)
-    y = y.astype(datatype)
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, train_size=0.8, random_state=10
-    )
+    return train_test_split(X, y, train_size=0.8, random_state=10)
 
-    return X_train, X_test, y_train, y_test
+
+@lru_cache(4)
+def _make_regression_dataset_from_cache(nrows, ncols, n_info):
+    return _make_regression_dataset_uncached(nrows, ncols, n_info)
+
+
+def make_regression_dataset(datatype, nrows, ncols, n_info):
+    if nrows * ncols < 1e8:  # Keep cache under 4 GB
+        dataset = _make_regression_dataset_from_cache(nrows, ncols, n_info)
+    else:
+        dataset = _make_regression_dataset_uncached(nrows, ncols, n_info)
+
+    return map(lambda arr: arr.astype(datatype), dataset)
 
 
 def make_classification_dataset(datatype, nrows, ncols, n_info, num_classes):
@@ -71,7 +80,7 @@ def make_classification_dataset(datatype, nrows, ncols, n_info, num_classes):
 @pytest.mark.parametrize("datatype", [np.float32, np.float64])
 @pytest.mark.parametrize("algorithm", ["eig", "svd"])
 @pytest.mark.parametrize(
-    "nrows", [unit_param(500), quality_param(5000), stress_param(500000)]
+    "nrows", [unit_param(1000), quality_param(5000), stress_param(500000)]
 )
 @pytest.mark.parametrize(
     "column_info",
@@ -82,6 +91,11 @@ def make_classification_dataset(datatype, nrows, ncols, n_info, num_classes):
     ],
 )
 def test_linear_regression_model(datatype, algorithm, nrows, column_info):
+
+    if algorithm == "svd" and nrows > 46340:
+        pytest.skip("svd solver is not supported for the data that has more"
+                    "than 46340 rows or columns if you are using CUDA version"
+                    "10.x")
 
     ncols, n_info = column_info
     X_train, X_test, y_train, y_test = make_regression_dataset(
@@ -162,6 +176,11 @@ def test_ridge_regression_model_default(datatype):
 )
 def test_ridge_regression_model(datatype, algorithm, nrows, column_info):
 
+    if algorithm == "svd" and nrows > 46340:
+        pytest.skip("svd solver is not supported for the data that has more"
+                    "than 46340 rows or columns if you are using CUDA version"
+                    "10.x")
+
     ncols, n_info = column_info
     X_train, X_test, y_train, y_test = make_regression_dataset(
         datatype, nrows, ncols, n_info
@@ -187,15 +206,24 @@ def test_ridge_regression_model(datatype, algorithm, nrows, column_info):
                            with_sign=True)
 
 
-@pytest.mark.parametrize("num_classes", [2, 10])
-@pytest.mark.parametrize("dtype", [np.float32, np.float64])
-@pytest.mark.parametrize("penalty", ["none", "l1", "l2", "elasticnet"])
-@pytest.mark.parametrize("l1_ratio", [1.0])
-@pytest.mark.parametrize("fit_intercept", [True, False])
+@pytest.mark.parametrize(
+    "num_classes, dtype, penalty, l1_ratio, fit_intercept, C, tol", [
+        # L-BFGS Solver
+        (2, np.float32, "none", 1.0, True, 1.0, 1e-3),
+        (2, np.float64, "l2", 1.0, True, 1.0, 1e-8),
+        (10, np.float32, "elasticnet", 0.0, True, 1.0, 1e-3),
+        (10, np.float32, "none", 1.0, False, 1.0, 1e-8),
+        (10, np.float32, "none", 1.0, False, 2.0, 1e-3),
+        # OWL-QN Solver
+        (2, np.float32, "l1", 1.0, True, 1.0, 1e-3),
+        (2, np.float64, "elasticnet", 1.0, True, 1.0, 1e-8),
+        (10, np.float32, "l1", 1.0, True, 1.0, 1e-3),
+        (10, np.float32, "l1", 1.0, False, 1.0, 1e-8),
+        (10, np.float32, "elasticnet", 1.0, False, 0.5, 1e-3),
+    ]
+)
 @pytest.mark.parametrize("nrows", [unit_param(1000)])
 @pytest.mark.parametrize("column_info", [unit_param([20, 10])])
-@pytest.mark.parametrize("C", [2.0, 1.0, 0.5])
-@pytest.mark.parametrize("tol", [1e-3, 1e-8])
 def test_logistic_regression(
     num_classes, dtype, penalty, l1_ratio,
     fit_intercept, nrows, column_info, C, tol
@@ -266,9 +294,13 @@ def test_logistic_regression(
     assert len(np.unique(cu_preds)) == len(np.unique(y_test))
 
 
-@pytest.mark.parametrize("dtype", [np.float32, np.float64])
-@pytest.mark.parametrize("penalty", ["none", "l1", "l2", "elasticnet"])
-def test_logistic_regression_unscaled(dtype, penalty):
+@pytest.mark.parametrize("dtype, penalty, l1_ratio", [
+    (np.float32, "none", 1.0),
+    (np.float64, "l2", 0.0),
+    (np.float32, "elasticnet", 1.0),
+    (np.float64, "l1", None),
+])
+def test_logistic_regression_unscaled(dtype, penalty, l1_ratio):
     # Test logistic regression on the breast cancer dataset. We do not scale
     # the dataset which could lead to numerical problems (fixed in PR #2543).
     X, y = load_breast_cancer(return_X_y=True)
@@ -276,9 +308,7 @@ def test_logistic_regression_unscaled(dtype, penalty):
     y = y.astype(dtype)
     X_train, X_test, y_train, y_test = train_test_split(X, y, random_state=42)
     params = {"penalty": penalty, "C": 1, "tol": 1e-4, "fit_intercept": True,
-              'max_iter': 5000}
-    if penalty == "elasticnet":
-        params["l1_ratio"] = 1.0
+              'max_iter': 5000, "l1_ratio": l1_ratio}
     culog = cuLog(**params)
     culog.fit(X_train, y_train)
 
@@ -304,11 +334,12 @@ def test_logistic_regression_model_default(dtype):
     assert culog.score(X_test, y_test) >= sklog.score(X_test, y_test) - 0.022
 
 
-@pytest.mark.parametrize("dtype", [np.float32, np.float64])
-@pytest.mark.parametrize("nrows", [10, 100])
+@pytest.mark.parametrize("dtype, nrows, num_classes, fit_intercept", [
+    (np.float32, 10, 2, True),
+    (np.float64, 100, 10, False),
+    (np.float64, 100, 2, True)
+])
 @pytest.mark.parametrize("column_info", [(20, 10)])
-@pytest.mark.parametrize("num_classes", [2, 10])
-@pytest.mark.parametrize("fit_intercept", [True, False])
 def test_logistic_regression_decision_function(
     dtype, nrows, column_info, num_classes, fit_intercept
 ):
@@ -321,18 +352,18 @@ def test_logistic_regression_decision_function(
     y_train = y_train.astype(dtype)
     y_test = y_test.astype(dtype)
 
-    culog = cuLog(fit_intercept=fit_intercept)
+    culog = cuLog(fit_intercept=fit_intercept, output_type="numpy")
     culog.fit(X_train, y_train)
 
     sklog = skLog(fit_intercept=fit_intercept)
-    sklog.coef_ = cp.asnumpy(culog.coef_.to_output("cupy").T)
+    sklog.coef_ = culog.coef_.T
     if fit_intercept:
-        sklog.intercept_ = cp.asnumpy(culog.intercept_.to_output("cupy"))
+        sklog.intercept_ = culog.intercept_
     else:
         skLog.intercept_ = 0
     sklog.classes_ = np.arange(num_classes)
 
-    cu_dec_func = culog.decision_function(X_test).to_output("cupy")
+    cu_dec_func = culog.decision_function(X_test)
     if num_classes > 2:
         cu_dec_func = cu_dec_func.T
     sk_dec_func = sklog.decision_function(X_test)
@@ -340,11 +371,12 @@ def test_logistic_regression_decision_function(
     assert array_equal(cu_dec_func, sk_dec_func)
 
 
-@pytest.mark.parametrize("dtype", [np.float32, np.float64])
-@pytest.mark.parametrize("nrows", [10, 100])
+@pytest.mark.parametrize("dtype, nrows, num_classes, fit_intercept", [
+    (np.float32, 10, 2, True),
+    (np.float64, 100, 10, False),
+    (np.float64, 100, 2, True)
+])
 @pytest.mark.parametrize("column_info", [(20, 10)])
-@pytest.mark.parametrize("num_classes", [2, 10])
-@pytest.mark.parametrize("fit_intercept", [True, False])
 def test_logistic_regression_predict_proba(
     dtype, nrows, column_info, num_classes, fit_intercept
 ):
@@ -357,7 +389,7 @@ def test_logistic_regression_predict_proba(
     y_train = y_train.astype(dtype)
     y_test = y_test.astype(dtype)
 
-    culog = cuLog(fit_intercept=fit_intercept)
+    culog = cuLog(fit_intercept=fit_intercept, output_type="numpy")
     culog.fit(X_train, y_train)
 
     if num_classes > 2:
@@ -368,9 +400,9 @@ def test_logistic_regression_predict_proba(
         )
     else:
         sklog = skLog(fit_intercept=fit_intercept)
-    sklog.coef_ = cp.asnumpy(culog.coef_.to_output("cupy")).T
+    sklog.coef_ = culog.coef_.T
     if fit_intercept:
-        sklog.intercept_ = cp.asnumpy(culog.intercept_.to_output("cupy"))
+        sklog.intercept_ = culog.intercept_
     else:
         skLog.intercept_ = 0
     sklog.classes_ = np.arange(num_classes)
@@ -400,3 +432,46 @@ def test_logistic_regression_input_type_consistency(constructor, dtype):
 
     assert isinstance(clf.predict_proba(X), original_type)
     assert isinstance(clf.predict(X), original_type)
+
+
+@pytest.mark.parametrize('train_dtype', [np.float32, np.float64])
+@pytest.mark.parametrize('test_dtype', [np.float64, np.float32])
+def test_linreg_predict_convert_dtype(train_dtype, test_dtype):
+    X, y = make_regression(n_samples=50, n_features=10,
+                           n_informative=5, random_state=0)
+    X = X.astype(train_dtype)
+    y = y.astype(train_dtype)
+    X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.8,
+                                                        random_state=0)
+
+    clf = cuLinearRegression()
+    clf.fit(X_train, y_train)
+    clf.predict(X_test.astype(test_dtype))
+
+
+@pytest.mark.parametrize('train_dtype', [np.float32, np.float64])
+@pytest.mark.parametrize('test_dtype', [np.float64, np.float32])
+def test_ridge_predict_convert_dtype(train_dtype, test_dtype):
+    X, y = make_regression(n_samples=50, n_features=10,
+                           n_informative=5, random_state=0)
+    X = X.astype(train_dtype)
+    y = y.astype(train_dtype)
+    X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.8,
+                                                        random_state=0)
+
+    clf = cuRidge()
+    clf.fit(X_train, y_train)
+    clf.predict(X_test.astype(test_dtype))
+
+
+@pytest.mark.parametrize('train_dtype', [np.float32, np.float64])
+@pytest.mark.parametrize('test_dtype', [np.float64, np.float32])
+def test_logistic_predict_convert_dtype(train_dtype, test_dtype):
+    X, y = make_classification(n_samples=50, n_features=10, random_state=0)
+    X = X.astype(train_dtype)
+    X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.8,
+                                                        random_state=0)
+
+    clf = cuLog()
+    clf.fit(X_train, y_train)
+    clf.predict(X_test.astype(test_dtype))

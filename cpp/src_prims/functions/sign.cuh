@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include <linalg/unary_op.cuh>
+#include <raft/linalg/unary_op.cuh>
 
 namespace MLCommon {
 namespace Functions {
@@ -24,7 +24,7 @@ namespace Functions {
 template <typename math_t, typename idx_type = int>
 void sign(math_t *out, const math_t *in, const math_t scalar,
           const idx_type len, cudaStream_t stream) {
-  LinAlg::unaryOp(
+  raft::linalg::unaryOp(
     out, in, len,
     [scalar] __device__(math_t in) {
       if (in < math_t(0))

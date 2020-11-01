@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#include <common/cudart_utils.h>
 #include <gtest/gtest.h>
+#include <raft/cudart_utils.h>
 #include <common/fast_int_div.cuh>
 #include "test_utils.h"
 
@@ -66,9 +66,9 @@ TEST(FastIntDiv, GpuTest) {
   static const int len = 100000;
   static const int TPB = 128;
   int *computed, *correct, *in;
-  allocate(computed, len * 2);
-  allocate(correct, len * 2);
-  allocate(in, len);
+  raft::allocate(computed, len * 2);
+  raft::allocate(correct, len * 2);
+  raft::allocate(in, len);
   for (int i = 0; i < 100; ++i) {
     // get a positive divisor
     int divisor;
@@ -81,12 +81,12 @@ TEST(FastIntDiv, GpuTest) {
     for (int i = 0; i < len; ++i) {
       h_in[i] = rand();
     }
-    updateDevice(in, h_in, len, 0);
-    int nblks = ceildiv(len, TPB);
+    raft::update_device(in, h_in, len, 0);
+    int nblks = raft::ceildiv(len, TPB);
     fastIntDivTestKernel<<<nblks, TPB, 0, 0>>>(computed, correct, in, fid,
                                                divisor, len);
     CUDA_CHECK(cudaStreamSynchronize(0));
-    ASSERT_TRUE(devArrMatch(correct, computed, len * 2, Compare<int>()))
+    ASSERT_TRUE(devArrMatch(correct, computed, len * 2, raft::Compare<int>()))
       << " divisor=" << divisor;
   }
 }
@@ -97,8 +97,8 @@ FastIntDiv dummyFunc(int num) {
 }
 
 TEST(FastIntDiv, IncorrectUsage) {
-  ASSERT_THROW(dummyFunc(-1), MLCommon::Exception);
-  ASSERT_THROW(dummyFunc(0), MLCommon::Exception);
+  ASSERT_THROW(dummyFunc(-1), raft::exception);
+  ASSERT_THROW(dummyFunc(0), raft::exception);
 }
 
 }  // namespace MLCommon

@@ -13,8 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include <common/cudart_utils.h>
 #include <cuml/cuml_api.h>
+#include <raft/cudart_utils.h>
 #include <common/cumlHandle.hpp>
 #include <cuml/cluster/dbscan.hpp>
 #include "dbscan.cuh"
@@ -24,70 +24,72 @@ namespace ML {
 
 using namespace Dbscan;
 
-void dbscanFit(const cumlHandle &handle, float *input, int n_rows, int n_cols,
-               float eps, int min_pts, int *labels, size_t max_bytes_per_batch,
-               int verbosity) {
-  dbscanFitImpl<float, int>(handle.getImpl(), input, n_rows, n_cols, eps,
-                            min_pts, labels, nullptr, max_bytes_per_batch,
-                            handle.getStream(), verbosity);
-}
-
-void dbscanFit(const cumlHandle &handle, double *input, int n_rows, int n_cols,
-               double eps, int min_pts, int *labels, size_t max_bytes_per_batch,
-               int verbosity) {
-  dbscanFitImpl<double, int>(handle.getImpl(), input, n_rows, n_cols, eps,
-                             min_pts, labels, nullptr, max_bytes_per_batch,
-                             handle.getStream(), verbosity);
-}
-
-void dbscanFit(const cumlHandle &handle, float *input, int n_rows, int n_cols,
-               float eps, int min_pts, int *labels, int *core_sample_indices,
+void dbscanFit(const raft::handle_t &handle, float *input, int n_rows,
+               int n_cols, float eps, int min_pts, int *labels,
                size_t max_bytes_per_batch, int verbosity) {
-  dbscanFitImpl<float, int>(handle.getImpl(), input, n_rows, n_cols, eps,
-                            min_pts, labels, core_sample_indices,
-                            max_bytes_per_batch, handle.getStream(), verbosity);
+  dbscanFitImpl<float, int>(handle, input, n_rows, n_cols, eps, min_pts, labels,
+                            nullptr, max_bytes_per_batch, handle.get_stream(),
+                            verbosity);
 }
 
-void dbscanFit(const cumlHandle &handle, double *input, int n_rows, int n_cols,
-               double eps, int min_pts, int *labels, int *core_sample_indices,
+void dbscanFit(const raft::handle_t &handle, double *input, int n_rows,
+               int n_cols, double eps, int min_pts, int *labels,
                size_t max_bytes_per_batch, int verbosity) {
-  dbscanFitImpl<double, int>(
-    handle.getImpl(), input, n_rows, n_cols, eps, min_pts, labels,
-    core_sample_indices, max_bytes_per_batch, handle.getStream(), verbosity);
+  dbscanFitImpl<double, int>(handle, input, n_rows, n_cols, eps, min_pts,
+                             labels, nullptr, max_bytes_per_batch,
+                             handle.get_stream(), verbosity);
 }
 
-void dbscanFit(const cumlHandle &handle, float *input, int64_t n_rows,
+void dbscanFit(const raft::handle_t &handle, float *input, int n_rows,
+               int n_cols, float eps, int min_pts, int *labels,
+               int *core_sample_indices, size_t max_bytes_per_batch,
+               int verbosity) {
+  dbscanFitImpl<float, int>(handle, input, n_rows, n_cols, eps, min_pts, labels,
+                            core_sample_indices, max_bytes_per_batch,
+                            handle.get_stream(), verbosity);
+}
+
+void dbscanFit(const raft::handle_t &handle, double *input, int n_rows,
+               int n_cols, double eps, int min_pts, int *labels,
+               int *core_sample_indices, size_t max_bytes_per_batch,
+               int verbosity) {
+  dbscanFitImpl<double, int>(handle, input, n_rows, n_cols, eps, min_pts,
+                             labels, core_sample_indices, max_bytes_per_batch,
+                             handle.get_stream(), verbosity);
+}
+
+void dbscanFit(const raft::handle_t &handle, float *input, int64_t n_rows,
                int64_t n_cols, float eps, int min_pts, int64_t *labels,
                size_t max_bytes_per_batch, int verbosity) {
-  dbscanFitImpl<float, int64_t>(handle.getImpl(), input, n_rows, n_cols, eps,
-                                min_pts, labels, nullptr, max_bytes_per_batch,
-                                handle.getStream(), verbosity);
+  dbscanFitImpl<float, int64_t>(handle, input, n_rows, n_cols, eps, min_pts,
+                                labels, nullptr, max_bytes_per_batch,
+                                handle.get_stream(), verbosity);
 }
 
-void dbscanFit(const cumlHandle &handle, double *input, int64_t n_rows,
+void dbscanFit(const raft::handle_t &handle, double *input, int64_t n_rows,
                int64_t n_cols, double eps, int min_pts, int64_t *labels,
                size_t max_bytes_per_batch, int verbosity) {
-  dbscanFitImpl<double, int64_t>(handle.getImpl(), input, n_rows, n_cols, eps,
-                                 min_pts, labels, nullptr, max_bytes_per_batch,
-                                 handle.getStream(), verbosity);
+  dbscanFitImpl<double, int64_t>(handle, input, n_rows, n_cols, eps, min_pts,
+                                 labels, nullptr, max_bytes_per_batch,
+                                 handle.get_stream(), verbosity);
 }
 
-void dbscanFit(const cumlHandle &handle, float *input, int64_t n_rows,
+void dbscanFit(const raft::handle_t &handle, float *input, int64_t n_rows,
                int64_t n_cols, float eps, int min_pts, int64_t *labels,
                int64_t *core_sample_indices, size_t max_bytes_per_batch,
                int verbosity) {
   dbscanFitImpl<float, int64_t>(
-    handle.getImpl(), input, n_rows, n_cols, eps, min_pts, labels,
-    core_sample_indices, max_bytes_per_batch, handle.getStream(), verbosity);
+    handle, input, n_rows, n_cols, eps, min_pts, labels, core_sample_indices,
+    max_bytes_per_batch, handle.get_stream(), verbosity);
 }
 
-void dbscanFit(const cumlHandle &handle, double *input, int64_t n_rows,
+void dbscanFit(const raft::handle_t &handle, double *input, int64_t n_rows,
                int64_t n_cols, double eps, int min_pts, int64_t *labels,
                int64_t *core_sample_indices, size_t max_bytes_per_batch,
                int verbosity) {
   dbscanFitImpl<double, int64_t>(
-    handle.getImpl(), input, n_rows, n_cols, eps, min_pts, labels,
-    core_sample_indices, max_bytes_per_batch, handle.getStream(), verbosity);
+    handle, input, n_rows, n_cols, eps, min_pts, labels, core_sample_indices,
+    max_bytes_per_batch, handle.get_stream(), verbosity);
 }
 
 };  // end namespace ML
