@@ -17,12 +17,12 @@
 
 #include <cuml/neighbors/knn.hpp>
 
-#include <linalg/matrix_vector_op.cuh>
-#include <linalg/norm.cuh>
-#include <linalg/unary_op.cuh>
+#include <raft/linalg/matrix_vector_op.cuh>
+#include <raft/linalg/norm.cuh>
+#include <raft/linalg/unary_op.cuh>
 
-#include <stats/mean.cuh>
-#include <stats/mean_center.cuh>
+#include <raft/stats/mean.cuh>
+#include <raft/stats/mean_center.cuh>
 
 #include <common/device_buffer.hpp>
 

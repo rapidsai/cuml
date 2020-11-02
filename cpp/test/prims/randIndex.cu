@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#include <common/cudart_utils.h>
 #include <gtest/gtest.h>
+#include <raft/cudart_utils.h>
 #include <algorithm>
 #include <cuml/common/cuml_allocator.hpp>
 #include <iostream>
