@@ -1,6 +1,7 @@
 # cuML 0.17.0 (Date TBD)
 
 ## New Features
+- PR #2780: Multiple KNN strategies
 
 ## Improvements
 - PR #3070: Speed up dask/test_datasets tests
@@ -48,7 +49,6 @@
 - PR #2874: Issue warning for degraded accuracy with float64 models in Treelite
 - PR #2881: Introduces experimental batched backend for random forest
 - PR #2916: Add SKLearn multi-class GBDT model support in FIL
-- PR #2780: Multiple KNN strategies
 
 ## Improvements
 - PR #2947: Add more warnings for accuracy degradation with 64-bit models
