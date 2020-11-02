@@ -3,6 +3,7 @@
 ## New Features
 
 ## Improvements
+- PR #3077: Improve runtime for test_kmeans
 - PR #3070: Speed up dask/test_datasets tests
 - PR #3075: Speed up test_linear_model tests
 - PR #3078: Speed up test_incremental_pca tests
