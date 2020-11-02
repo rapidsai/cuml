@@ -20,6 +20,7 @@
 - PR #3074: Reducing dask coordinate descent test runtime
 
 ## Bug Fixes
+- PR #3033: Splitting ml metrics to individual files
 - PR #3072: Fusing metrics and score directories in src_prims
 - PR #3037: Avoid logging deadlock in multi-threaded C code
 - PR #2983: Fix seeding of KISS99 RNG
