@@ -26,8 +26,6 @@ from sklearn.datasets.samples_generator import make_blobs
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import adjusted_rand_score
 
-pytestmark = pytest.mark.usefixtures("cupy_allocator_fixture")
-
 dataset_names = ['noisy_moons', 'varied', 'aniso', 'blobs',
                  'noisy_circles', 'no_structure']
 

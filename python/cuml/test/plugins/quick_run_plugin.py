@@ -1,5 +1,6 @@
 import typing
 
+import pytest
 import _pytest.python
 
 
@@ -11,6 +12,7 @@ def pytest_addoption(parser):
                      help="run unit tests")
 
 
+@pytest.hookimpl(trylast=True)
 def pytest_collection_modifyitems(config, items):
 
     quick_run = config.getoption("--quick_run")
@@ -37,6 +39,7 @@ def pytest_collection_modifyitems(config, items):
 
             return curr_node
 
+        # Loop over all nodes and generate a tree structure from their layout
         for item in items:
             leaf = get_leaf(item.listchain())
 
@@ -67,6 +70,12 @@ def pytest_collection_modifyitems(config, items):
                         seen[key].append(val)
 
             for f in leaf:
+
+                # If this is going to be skipped, add to deselected
+                if (f.get_closest_marker("skip") is not None):
+                    deselected_items.append(f)
+                    continue
+
                 # If no callspec, this is the only function call
                 if (not hasattr(f, "callspec")):
                     selected_items.append(f)
@@ -74,6 +83,7 @@ def pytest_collection_modifyitems(config, items):
 
                 callspec = f.callspec
 
+                # Check if this has been seen
                 if (has_been_seen(callspec)):
                     deselected_items.append(f)
                 else:
@@ -82,8 +92,10 @@ def pytest_collection_modifyitems(config, items):
 
                     update_seen(callspec)
 
+        # Now looping over all leafs, see which ones we can process only once
         for leaf in leafs:
             process_leaf_seeonce(leaf)
 
+        # Deselect the skipped nodes and shorted the items list
         config.hook.pytest_deselected(items=deselected_items)
         items[:] = selected_items
