@@ -57,5 +57,9 @@ TEST(Genetic, node_from_str) {
   ASSERT_THROW(node::from_str("bad_type"), raft::exception);
 }
 
+TEST(Genetic, node_constants) {
+  ASSERT_EQ(node::kInvalidFeatureId, -1);
+}
+
 }  // namespace genetic
 }  // namespace cuml

@@ -16,6 +16,7 @@
 
 #include <gtest/gtest.h>
 #include <cuml/genetic/genetic.h>
+#include "../../prims/test_utils.h"
 
 namespace cuml {
 namespace genetic {
@@ -49,6 +50,13 @@ TEST(Genetic, ParamTest) {
   ASSERT_EQ(p.max_samples, 1.0f);
   ASSERT_EQ(p.feature_names.size(), 0u);
   ASSERT_EQ(p.random_state, 0ull);
+}
+
+TEST(Genetic, p_reproduce) {
+  param p;
+  auto ret = p.p_reproduce();
+  ASSERT_TRUE(
+    raft::match(p.p_reproduce(), 0.07f, raft::CompareApprox<float>(0.0001f)));
 }
 
 }  // namespace genetic

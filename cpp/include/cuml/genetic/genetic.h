@@ -116,6 +116,9 @@ struct param {
   ///@todo: verbose
   /** random seed used for RNG */
   uint64_t random_state = 0ull;
+
+  /** Computes the probability of 'reproduction' */
+  float p_reproduce() const;
 };  // struct param
 
 }  // namespace genetic
