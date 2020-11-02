@@ -27,6 +27,7 @@
 #include <cuda_runtime.h>
 #include <stdio.h>
 
+#include <algorithm>
 #include <iostream>
 
 namespace MLCommon {
@@ -822,9 +823,7 @@ void weak_cc_label_batched(Index_ *labels, const Index_ *row_ind,
     CUDA_CHECK(cudaStreamSynchronize(stream));
 
     //** swapping F1 and F2
-    bool *temp_fa = state->fa;
-    state->fa = state->xa;
-    state->xa = temp_fa;
+    std::swap(state->fa, state->xa);
 
     //** Updating m *
     raft::update_host(&host_m, state->m, 1, stream);
