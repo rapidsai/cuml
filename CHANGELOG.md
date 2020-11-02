@@ -18,6 +18,7 @@
 - PR #3044: Move leftover `linalg` and `stats` to RAFT namespaces
 - PR #3067: Deleting prims moved to RAFT and updating header paths
 - PR #3074: Reducing dask coordinate descent test runtime
+- PR #3052: Speeding up MNMG KNN Cl&Re testing
 
 ## Bug Fixes
 - PR #3033: Splitting ml metrics to individual files
