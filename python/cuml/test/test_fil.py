@@ -405,6 +405,37 @@ def test_output_args(small_classifier_and_preds):
     assert array_equal(fil_preds, xgb_preds, 1e-3)
 
 
+@pytest.mark.skipif(has_lightgbm() is False, reason="need to install lightgbm")
+def test_cpp_exception(tmp_path):
+    import lightgbm as lgb
+    num_class = 3
+    X, y = simulate_data(50,
+                         5 * num_class,
+                         num_class,
+                         random_state=2020,
+                         classification=True)
+    train_data = lgb.Dataset(X, label=y)
+
+    num_round = 1
+    param = {'objective': 'ova',  # 'multiclass', would use softmax
+             'metric': 'multi_logloss',
+             'num_class': num_class}
+    bst = lgb.train(param, train_data, num_round)
+    model_path = str(os.path.join(tmp_path, 'lgb.model'))
+    bst.save_model(model_path)
+
+    fm = ForestInference.load(model_path,
+                              algo='TREE_REORG',
+                              output_class=True,
+                              model_type='lightgbm')
+
+    with pytest.raises(RuntimeError) as excinfo:
+        _ = fm.predict_proba(X)
+
+    assert ('predict_proba not supported for multi-class gradient boosted ' +
+            'decision trees' in str(excinfo.value))
+
+
 @pytest.mark.parametrize('num_classes', [2, 5])
 @pytest.mark.skipif(has_lightgbm() is False, reason="need to install lightgbm")
 def test_lightgbm(tmp_path, num_classes):

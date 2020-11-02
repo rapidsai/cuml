@@ -17,8 +17,8 @@
 #pragma once
 
 #include <stdlib.h>
-#include <cuda_utils.cuh>
 #include <limits>
+#include <raft/cuda_utils.cuh>
 
 namespace MLCommon {
 namespace Selection {

@@ -17,7 +17,7 @@
 #pragma once
 
 #include <common/grid_sync.cuh>
-#include <cuda_utils.cuh>
+#include <raft/cuda_utils.cuh>
 #include "input.cuh"
 #include "metrics.cuh"
 #include "node.cuh"

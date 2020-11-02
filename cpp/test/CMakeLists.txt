@@ -123,7 +123,6 @@ endif(BUILD_CUML_MG_TESTS)
 if(BUILD_PRIMS_TESTS)
   # (please keep the filenames in alphabetical order)
   add_executable(prims
-    prims/add.cu
     prims/add_sub_dev_scalar.cu
     prims/adjustedRandIndex.cu
     prims/batched/csr.cu
@@ -131,17 +130,14 @@ if(BUILD_PRIMS_TESTS)
     prims/batched/information_criterion.cu
     prims/batched/make_symm.cu
     prims/batched/matrix.cu
-    prims/binary_op.cu
-    prims/ternary_op.cu
     prims/cache.cu
-    prims/coalesced_reduction.cu
-    prims/cuda_utils.cu
     prims/columnSort.cu
     prims/completenessScore.cu
     prims/contingencyMatrix.cu
     prims/coo.cu
     prims/cov.cu
     prims/csr.cu
+    prims/cutlass_gemm.cu
     prims/decoupled_lookback.cu
     prims/device_utils.cu
     prims/dispersion.cu
@@ -150,18 +146,12 @@ if(BUILD_PRIMS_TESTS)
     prims/dist_euc_exp.cu
     prims/dist_euc_unexp.cu
     prims/dist_l1.cu
-    prims/divide.cu
-    prims/eig.cu
-    prims/eig_sel.cu
-    prims/eltwise.cu
     prims/eltwise2d.cu
     prims/entropy.cu
     prims/epsilon_neighborhood.cu
     prims/fast_int_div.cu
     prims/fused_l2_nn.cu
     prims/gather.cu
-    prims/gemm.cu
-    prims/gemm_layout.cu
     prims/gram.cu
     prims/grid_sync.cu
     prims/hinge.cu
@@ -181,44 +171,24 @@ if(BUILD_PRIMS_TESTS)
     prims/make_arima.cu
     prims/make_blobs.cu
     prims/make_regression.cu
-    prims/map_then_reduce.cu
-    prims/math.cu
-    prims/matrix.cu
-    prims/matrix_vector_op.cu
-    prims/mean.cu
-    prims/mean_center.cu
     prims/minmax.cu
     prims/mvg.cu
-    prims/multiply.cu
     prims/mutualInfoScore.cu
-    prims/norm.cu
     prims/penalty.cu
     prims/permute.cu
     prims/power.cu
     prims/randIndex.cu
-    prims/reduce.cu
     prims/reduce_cols_by_key.cu
     prims/reduce_rows_by_key.cu
     prims/reverse.cu
-    prims/rng.cu
-    prims/rng_int.cu
     prims/rsvd.cu
-    prims/sample_without_replacement.cu
-    prims/scatter.cu
     prims/score.cu
     prims/seive.cu
     prims/sigmoid.cu
     prims/silhouetteScore.cu
     prims/sqrt.cu
-    prims/stddev.cu
-    prims/strided_reduction.cu
-    prims/subtract.cu
-    prims/sum.cu
-    prims/svd.cu
     prims/ternary_op.cu
-    prims/transpose.cu
     prims/trustworthiness.cu
-    prims/unary_op.cu
     prims/vMeasure.cu
     prims/weighted_mean.cu
     ../src/common/logger.cpp)  # because prims is header only!
