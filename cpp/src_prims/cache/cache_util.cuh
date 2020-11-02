@@ -18,7 +18,7 @@
 
 #include <common/device_buffer.hpp>
 #include <cub/cub.cuh>
-#include <cuda_utils.cuh>
+#include <raft/cuda_utils.cuh>
 #include <selection/kselection.cuh>
 
 namespace MLCommon {

@@ -23,7 +23,7 @@
 
 #include <common/cumlHandle.hpp>
 #include <cuml/common/logger.hpp>
-#include <linalg/norm.cuh>
+#include <raft/linalg/norm.cuh>
 
 #include <cuda_runtime.h>
 #include <cuml/cuml.hpp>
@@ -33,8 +33,8 @@
 #include <thrust/transform.h>
 
 #include <sys/time.h>
-#include <random/rng.cuh>
-#include <stats/sum.cuh>
+#include <raft/random/rng.cuh>
+#include <raft/stats/sum.cuh>
 
 #include <unistd.h>
 #include <chrono>

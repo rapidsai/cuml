@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#include <common/cudart_utils.h>
 #include <decisiontree/quantile/quantile.h>
+#include <raft/cudart_utils.h>
 #include <common/iota.cuh>
 #include <cuml/common/logger.hpp>
 #include <iomanip>

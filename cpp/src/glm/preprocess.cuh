@@ -16,16 +16,16 @@
 
 #pragma once
 
-#include <common/cudart_utils.h>
+#include <raft/cudart_utils.h>
 #include <common/cumlHandle.hpp>
 #include <common/device_buffer.hpp>
-#include <linalg/gemm.cuh>
-#include <linalg/norm.cuh>
-#include <matrix/math.cuh>
-#include <matrix/matrix.cuh>
-#include <stats/mean.cuh>
-#include <stats/mean_center.cuh>
-#include <stats/stddev.cuh>
+#include <raft/linalg/gemm.cuh>
+#include <raft/linalg/norm.cuh>
+#include <raft/matrix/math.cuh>
+#include <raft/matrix/matrix.cuh>
+#include <raft/stats/mean.cuh>
+#include <raft/stats/mean_center.cuh>
+#include <raft/stats/stddev.cuh>
 
 namespace ML {
 namespace GLM {
@@ -52,9 +52,9 @@ void preProcessData(const raft::handle_t &handle, math_t *input, int n_rows,
                             stream);
 
     if (normalize) {
-      LinAlg::colNorm(norm2_input, input, n_cols, n_rows, LinAlg::L2Norm, false,
-                      stream,
-                      [] __device__(math_t v) { return raft::mySqrt(v); });
+      raft::linalg::colNorm(
+        norm2_input, input, n_cols, n_rows, raft::linalg::L2Norm, false, stream,
+        [] __device__(math_t v) { return raft::mySqrt(v); });
       raft::matrix::matrixVectorBinaryDivSkipZero(
         input, norm2_input, n_rows, n_cols, false, true, stream, true);
     }

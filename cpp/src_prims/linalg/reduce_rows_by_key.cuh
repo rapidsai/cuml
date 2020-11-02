@@ -20,8 +20,8 @@
 
 #include <stdlib.h>
 #include <cub/cub.cuh>
-#include <cuda_utils.cuh>
 #include <limits>
+#include <raft/cuda_utils.cuh>
 
 namespace MLCommon {
 namespace LinAlg {

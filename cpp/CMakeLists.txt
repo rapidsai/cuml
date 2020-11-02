@@ -401,8 +401,19 @@ if(BUILD_CUML_CPP_LIBRARY)
     src/holtwinters/holtwinters.cu
     src/kmeans/kmeans.cu
     src/knn/knn.cu
-    src/metrics/metrics.cu
+    src/metrics/accuracy_score.cu
+    src/metrics/adjusted_rand_index.cu
+    src/metrics/completeness_score.cu
+    src/metrics/entropy.cu
+    src/metrics/homogeneity_score.cu
+    src/metrics/kl_divergence.cu
+    src/metrics/mutual_info_score.cu
+    src/metrics/pairwise_distance.cu
+    src/metrics/r2_score.cu
+    src/metrics/rand_index.cu
+    src/metrics/silhouette_score.cu
     src/metrics/trustworthiness.cu
+    src/metrics/v_measure.cu
     src/pca/pca.cu
     src/randomforest/randomforest.cu
     src/random_projection/rproj.cu
