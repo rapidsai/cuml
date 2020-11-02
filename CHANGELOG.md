@@ -33,6 +33,7 @@
 - PR #3061: Handle C++ exception thrown from FIL predict
 - PR #3073: Update mathjax CDN URL for documentation
 - PR #3062: Bumping xgboost version to match cuml version
+- PR #3084: Fix artifacts in t-SNE results
 - PR #3086: Reverting FIL Notebook Testing
 
 # cuML 0.16.0 (Date TBD)
