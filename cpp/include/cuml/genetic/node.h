@@ -20,7 +20,7 @@
 #include <string>
 
 namespace cuml {
-namespace gp {
+namespace genetic {
 
 /**
  * @brief Represents a node in the syntax tree.
@@ -159,5 +159,5 @@ struct node {
   } u;
 };  // struct node
 
-}  // namespace gp
+}  // namespace genetic
 }  // namespace cuml

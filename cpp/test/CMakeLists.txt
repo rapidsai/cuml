@@ -50,8 +50,8 @@ if(BUILD_CUML_TESTS)
     sg/dbscan_test.cu
     sg/decisiontree_batchedlevel_algo.cu
     sg/fil_test.cu
-    sg/gp/node_test.cpp
-    sg/gp/param_test.cpp
+    sg/genetic/node_test.cpp
+    sg/genetic/param_test.cpp
     sg/handle_test.cu
     sg/holtwinters_test.cu
     sg/kmeans_test.cu

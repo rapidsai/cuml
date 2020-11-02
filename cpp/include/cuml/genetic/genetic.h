@@ -22,7 +22,7 @@
 #include <vector>
 
 namespace cuml {
-namespace gp {
+namespace genetic {
 
 /** Type of initialization of the member programs in the population */
 enum class init_method_t : uint32_t {
@@ -118,5 +118,5 @@ struct param {
   uint64_t random_state = 0ull;
 };  // struct param
 
-}  // namespace gp
+}  // namespace genetic
 }  // namespace cuml

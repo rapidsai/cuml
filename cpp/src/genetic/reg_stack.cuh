@@ -16,8 +16,10 @@
 
 #pragma once
 
+#include <raft/cuda_utils.cuh>
+
 namespace cuml {
-namespace gp {
+namespace genetic {
 
 /**
  * @brief A fixed capacity stack on device currently used for AST evaluation
@@ -94,5 +96,5 @@ struct stack {
   DataT regs_[MaxSize];
 };  // struct stack
 
-}  // namespace gp
+}  // namespace genetic
 }  // namespace cuml

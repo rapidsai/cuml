@@ -18,7 +18,7 @@
 #include "node.cuh"
 
 namespace cuml {
-namespace gp {
+namespace genetic {
 
 const int node::kInvalidFeatureId = -1;
 
@@ -100,5 +100,5 @@ node::type node::from_str(const std::string& ntype) {
 }
 #undef CASE
 
-}  // namespace gp
+}  // namespace genetic
 }  // namespace cuml

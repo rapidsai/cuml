@@ -15,12 +15,12 @@
  */
 
 #include <gtest/gtest.h>
-#include <cuml/gp/gp.h>
+#include <cuml/genetic/genetic.h>
 
 namespace cuml {
-namespace gp {
+namespace genetic {
 
-TEST(GP, ParamTest) {
+TEST(Genetic, ParamTest) {
   param p;
   ASSERT_EQ(p.population_size, 1000);
   ASSERT_EQ(p.hall_of_fame, 100);
@@ -51,5 +51,5 @@ TEST(GP, ParamTest) {
   ASSERT_EQ(p.random_state, 0ull);
 }
 
-}  // namespace gp
+}  // namespace genetic
 }  // namespace cuml

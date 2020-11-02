@@ -15,13 +15,13 @@
  */
 
 #include <gtest/gtest.h>
-#include <cuml/gp/node.h>
+#include <cuml/genetic/node.h>
 #include <raft/cudart_utils.h>
 
 namespace cuml {
-namespace gp {
+namespace genetic {
 
-TEST(GP, node_test) {
+TEST(Genetic, node_test) {
   node feature(1);
   ASSERT_EQ(feature.t,  node::type::variable);
   ASSERT_TRUE(feature.is_terminal());
@@ -51,11 +51,11 @@ TEST(GP, node_test) {
   ASSERT_EQ(func2.u.fid, node::kInvalidFeatureId);
 }
 
-TEST(GP, node_from_str) {
+TEST(Genetic, node_from_str) {
   ASSERT_EQ(node::from_str("add"), node::type::add);
   ASSERT_EQ(node::from_str("tanh"), node::type::tanh);
   ASSERT_THROW(node::from_str("bad_type"), raft::exception);
 }
 
-}  // namespace gp
+}  // namespace genetic
 }  // namespace cuml

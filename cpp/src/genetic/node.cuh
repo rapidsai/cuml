@@ -17,10 +17,10 @@
 #pragma once
 
 #include <raft/cuda_utils.cuh>
-#include <cuml/gp/node.h>
+#include <cuml/genetic/node.h>
 
 namespace cuml {
-namespace gp {
+namespace genetic {
 namespace detail {
 
 static constexpr float MIN_VAL = 0.001f;
@@ -45,7 +45,7 @@ HDI int arity(node::type t) {
 
 // `data` assumed to be stored in col-major format
 DI float evaluate_node(const node& n, const float* data, size_t stride,
-                       float inval, float inval1, float inval2) {
+                       float inval, float inval1) {
   if (n.t == node::type::constant) {
     return n.u.val;
   } else if(n.t == node::type::variable) {
@@ -92,12 +92,11 @@ DI float evaluate_node(const node& n, const float* data, size_t stride,
     case node::type::tan:   return tanf(inval);
     case node::type::tanh:  return tanhf(inval);
     // shouldn't reach here!
-    default:
-      return 0.f;
+    default: return 0.f;
     };
   }
 }
 
 }  // namespace detail
-}  // namespace gp
+}  // namespace genetic
 }  // namespace cuml
