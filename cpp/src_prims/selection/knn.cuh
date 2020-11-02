@@ -325,8 +325,8 @@ void approx_knn_build_index(ML::knnIndex *index, ML::knnIndexParam *params,
     ML::IVFFlatParam *IVFFlat_param = dynamic_cast<ML::IVFFlatParam *>(params);
     approx_knn_ivfflat_build_index(index, IVFFlat_param, D, metric, n);
     std::vector<float> h_index_items(n * D);
-    updateHost(h_index_items.data(), index_items, h_index_items.size(),
-               userStream);
+    raft::update_host(h_index_items.data(), index_items, h_index_items.size(),
+                      userStream);
     index->index->train(n, h_index_items.data());
     index->index->add(n, h_index_items.data());
     return;
