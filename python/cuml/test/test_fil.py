@@ -192,28 +192,20 @@ def test_fil_regression(n_rows, n_columns, num_rounds, tmp_path, max_depth):
 
 @pytest.mark.parametrize('n_rows', [1000])
 @pytest.mark.parametrize('n_columns', [30])
-@pytest.mark.parametrize('n_estimators', [1, 10])
-@pytest.mark.parametrize('max_depth', [2, 10, 20])
-@pytest.mark.parametrize('n_classes', [2, 5, 25])
-@pytest.mark.parametrize('storage_type', [False, True])
-@pytest.mark.parametrize('model_class',
-                         [GradientBoostingClassifier, RandomForestClassifier])
+# Skip depth 20 for dense tests
+@pytest.mark.parametrize('max_depth,storage_type',
+        [(2, False), (2, True), (10, False), (10, True), (20, True)])
+# FIL not supporting multi-class sklearn RandomForestClassifiers
+# When n_classes=25, fit a single estimator only to reduce test time
+@pytest.mark.parametrize('n_classes,model_class,n_estimators',
+        [(2, GradientBoostingClassifier, 1),
+         (2, GradientBoostingClassifier, 10),
+         (2, RandomForestClassifier, 1), (2, RandomForestClassifier, 10),
+         (5, GradientBoostingClassifier, 1),
+         (5, GradientBoostingClassifier, 10),
+         (25, GradientBoostingClassifier, 1)])
 def test_fil_skl_classification(n_rows, n_columns, n_estimators, max_depth,
                                 n_classes, storage_type, model_class):
-    # skip depth 20 for dense tests
-    if max_depth == 20 and not storage_type:
-        pytest.skip('Skipping depth 20 for dense tests')
-
-    # FIL not supporting multi-class sklearn RandomForestClassifiers
-    if n_classes > 2 and model_class == RandomForestClassifier:
-        pytest.skip('FIL does not support multi-class sklearn ' +
-                    'RandomForestClassifier')
-
-    # When n_classes=25, fit a single estimator only
-    if n_classes == 25 and n_estimators > 1:
-        pytest.skip('Skipping n_classes=25, n_estimators>1, to reduce ' +
-                    'test time')
-
     # settings
     classification = True  # change this to false to use regression
     random_state = np.random.RandomState(43210)
