@@ -2,3 +2,4 @@
 [run]
 include = cuml/*
 omit = cuml/test/*
+plugins = Cython.Coverage

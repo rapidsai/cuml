@@ -58,7 +58,7 @@ BUILD_TYPE=Release
 INSTALL_TARGET=install
 BUILD_ALL_GPU_ARCH=0
 SINGLEGPU_CPP_FLAG=""
-SINGLEGPU_PYTHON_FLAG=""
+BUILD_PYTHON_ARGS=${BUILD_PYTHON_ARGS:=""}
 NVTX=OFF
 CLEAN=0
 BUILD_DISABLE_DEPRECATION_WARNING=ON
@@ -115,7 +115,7 @@ if hasArg --allgpuarch; then
     BUILD_ALL_GPU_ARCH=1
 fi
 if hasArg --singlegpu; then
-    SINGLEGPU_PYTHON_FLAG="--singlegpu"
+    BUILD_PYTHON_ARGS="${BUILD_PYTHON_ARGS} --singlegpu"
     SINGLEGPU_CPP_FLAG=ON
 fi
 if hasArg cpp-mgtests; then
@@ -224,9 +224,9 @@ fi
 if completeBuild || hasArg cuml || hasArg pydocs; then
     cd ${REPODIR}/python
     if [[ ${INSTALL_TARGET} != "" ]]; then
-        python setup.py build_ext -j${PARALLEL_LEVEL:-1} ${SINGLEGPU_PYTHON_FLAG} --library-dir=${LIBCUML_BUILD_DIR} install --single-version-externally-managed --record=record.txt
+        python setup.py build_ext -j${PARALLEL_LEVEL:-1} ${BUILD_PYTHON_ARGS} --library-dir=${LIBCUML_BUILD_DIR} install --single-version-externally-managed --record=record.txt
     else
-        python setup.py build_ext -j${PARALLEL_LEVEL:-1} --library-dir=${LIBCUML_BUILD_DIR} ${SINGLEGPU_PYTHON_FLAG}
+        python setup.py build_ext -j${PARALLEL_LEVEL:-1} --library-dir=${LIBCUML_BUILD_DIR} ${BUILD_PYTHON_ARGS}
     fi
 
     if hasArg pydocs; then

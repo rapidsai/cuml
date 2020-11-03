@@ -98,7 +98,7 @@ if [[ -z "$PROJECT_FLASH" || "$PROJECT_FLASH" == "0" ]]; then
     ################################################################################
 
     gpuci_logger "Build from source"
-    $WORKSPACE/build.sh clean libcuml cuml prims bench -v
+    BUILD_PYTHON_ARGS="--linetrace=1" $WORKSPACE/build.sh clean libcuml cuml prims bench -v
 
     gpuci_logger "Resetting LD_LIBRARY_PATH"
 
@@ -190,7 +190,7 @@ else
     conda install -c $WORKSPACE/ci/artifacts/cuml/cpu/conda-bld/ libcuml
         
     gpuci_logger "Building cuml"
-    "$WORKSPACE/build.sh" -v cuml
+    BUILD_PYTHON_ARGS="--linetrace=1" "$WORKSPACE/build.sh" -v cuml
 
     gpuci_logger "Python pytest for cuml"
     cd $WORKSPACE/python
