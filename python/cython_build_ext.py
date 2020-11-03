@@ -92,27 +92,35 @@ class cython_build_ext(_build_ext, object):
         Write hooks for Python profilers into the compiled C code.
     """
     user_options = [
-        ("annotate=", None,
+        ("annotate=",
+         None,
          "Passes the `annotate` argument to `cythonize()`. See the Cython "
          "docs for more info."),
-        ("binding", None,
+        ("binding",
+         None,
          "Sets the binding Cython compiler directive. See the Cython docs for "
          "more info."),
-        ("cython-exclude=", None,
+        ("cython-exclude=",
+         None,
          "Sets the exclude argument for `cythonize()`. See the Cython docs for"
          " more info."),
-        ("embedsignature", None,
+        ("embedsignature",
+         None,
          "Sets the `embedsignature` Cython compiler directive. See the Cython "
          "docs for more info."),
-        ("gdb-debug=", None,
+        ("gdb-debug=",
+         None,
          "Passes the `gdb_debug` argument to `cythonize()`. See the Cython "
          "docs for more info."),
-        ('language-level=', None,
+        ('language-level=',
+         None,
          'Sets the python language syntax to use "2", "3", "3str".'),
-        ("linetrace=", None,
+        ("linetrace=",
+         None,
          "Passes the `linetrace` argument to `cythonize()`. See the Cython "
          "docs for more info."),
-        ("profile", None,
+        ("profile",
+         None,
          "Sets the profile Cython compiler directive. See the Cython docs for "
          "more info."),
     ] + _build_ext.user_options
@@ -190,14 +198,14 @@ class cython_build_ext(_build_ext, object):
                 for ext in self.distribution.ext_modules:
                     if (not hasattr(ext, "define_macros")):
                         ext.define_macros = []
-                    
+
                     found_macro = False
 
                     for mac in ext.define_macros:
                         if (mac[0] == "CYTHON_TRACE_NOGIL"):
                             found_macro = True
                             break
-                    
+
                     if not found_macro:
                         ext.define_macros.append(("CYTHON_TRACE_NOGIL", 1))
 
