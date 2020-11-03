@@ -28,14 +28,13 @@
 namespace ML {
 namespace Bench {
 namespace fil {
-using namespace ML::fil::enums;
 
 struct Params {
   DatasetParams data;
   RegressionParams blobs;
   ModelHandle model;
-  storage_type_t storage;
-  algo_t algo;
+  ML::fil::storage_type_t storage;
+  ML::fil::algo_t algo;
   RF_params rf;
   int predict_repetitions;
 };
@@ -127,8 +126,8 @@ struct FilBenchParams {
   int nclasses;
   int max_depth;
   int ntrees;
-  storage_type_t storage;
-  algo_t algo;
+  ML::fil::storage_type_t storage;
+  ML::fil::algo_t algo;
 };
 
 std::vector<Params> getInputs() {
@@ -166,6 +165,8 @@ std::vector<Params> getInputs() {
                   false,               // use_experimental_backend
                   128);                // max_batch_size
 
+  using ML::fil::algo_t;
+  using ML::fil::storage_type_t;
   std::vector<FilBenchParams> var_params = {
     {(int)1e6, 20, 1, 5, 1000, storage_type_t::DENSE, algo_t::BATCH_TREE_REORG},
     {(int)1e6, 20, 2, 5, 1000, storage_type_t::DENSE,
