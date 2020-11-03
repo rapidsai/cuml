@@ -16,7 +16,7 @@
 
 #include <common/cudart_utils.h>
 #include <cuml/fil/fil.h>
-#include <cuml/fil/multireduction.h>
+#include <cuml/fil/multi_reduction.h>
 #include <gtest/gtest.h>
 #include <test_utils.h>
 #include <thrust/device_vector.h>
@@ -1073,7 +1073,7 @@ INSTANTIATE_TEST_CASE_P(FilTests, TreeliteThrowSparse8FilTest,
                         testing::ValuesIn(import_throw_sparse8_inputs));
 
 template <typename T>
-__device__ void serial_multireduction(const T* in, T* out, int set_size,
+__device__ void serial_multi_reduction(const T* in, T* out, int set_size,
                                       int n_sets) {
   __syncthreads();
   if (threadIdx.x < set_size) {
@@ -1091,17 +1091,17 @@ const int max_threads = 1024;
 
 template <int R, typename T>
 __device__ void test_single_radix(const T value, const int valid_threads,
-                                  int* error) {
+                                  int& errors) {
   __shared__ T work[max_threads], correct_result[max_threads];
   for (int set_size = 1; set_size < valid_threads; ++set_size) {
     int n_sets = valid_threads / set_size;
     work[threadIdx.x] = value;
-    serial_multireduction(work, correct_result, set_size, n_sets);
-    T sum = multireduction<R>(work, set_size, n_sets);
+    serial_multi_reduction(work, correct_result, set_size, n_sets);
+    T sum = multi_reduction<R>(work, set_size, n_sets);
     if (threadIdx.x < set_size && sum != correct_result[threadIdx.x]) {
-      printf("multireduction<%d>(on %d sets sized %d)[%d] gave wrong result\n",
+      printf("multi_reduction<%d>(on %d sets sized %d)[%d] gave wrong result\n",
              R, n_sets, set_size, threadIdx.x);
-      atomicAdd(error, 1);
+      atomicAdd(errors, 1);
     }
   }
 }

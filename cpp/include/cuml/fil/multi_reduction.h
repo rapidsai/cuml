@@ -1,7 +1,7 @@
 #pragma once
 // data [T]ype, reduction [R]adix
 template <int R, typename T>
-__device__ T multireduction(T* per_thread, const int set_size, int n_sets) {
+__device__ T multi_reduction(T* per_thread, const int set_size, int n_sets) {
   // reduce per-thread margin summand into per-class complete margin
   // (for each of the NITEMS rows)
   T acc;  // accumulator
