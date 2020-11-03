@@ -154,7 +154,7 @@ cdef class TreeliteModel():
         model.set_handle(handle)
         return model
 
-cdef extern from "cuml/fil/fil.h" namespace "ML::fil":
+cdef extern from "cuml/fil/fil.h" namespace "ML::fil::enums":
     cdef enum algo_t:
         ALGO_AUTO,
         NAIVE,
@@ -167,6 +167,7 @@ cdef extern from "cuml/fil/fil.h" namespace "ML::fil":
         SPARSE,
         SPARSE8
 
+cdef extern from "cuml/fil/fil.h" namespace "ML::fil":
     cdef struct forest:
         pass
 
