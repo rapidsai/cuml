@@ -20,6 +20,7 @@
 #include <cuda_utils.cuh>
 #include "pack.h"
 
+namespace ML {
 namespace Dbscan {
 namespace VertexDeg {
 namespace Naive {
@@ -89,3 +90,4 @@ void launcher(Pack<Type, Index_> data, Index_ startVertexId, Index_ batchSize,
 }  // namespace Naive
 }  // namespace VertexDeg
 }  // namespace Dbscan
+}  // namespace ML

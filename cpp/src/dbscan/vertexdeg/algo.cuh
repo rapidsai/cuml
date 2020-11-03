@@ -24,6 +24,7 @@
 
 #include "pack.h"
 
+namespace ML {
 namespace Dbscan {
 namespace VertexDeg {
 namespace Algo {
@@ -51,4 +52,5 @@ void launcher(const raft::handle_t &handle, Pack<value_t, index_t> data,
 
 }  // namespace Algo
 }  // end namespace VertexDeg
-};  // end namespace Dbscan
+}  // end namespace Dbscan
+}  // namespace ML

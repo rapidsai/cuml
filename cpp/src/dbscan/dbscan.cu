@@ -18,11 +18,8 @@
 #include <common/cumlHandle.hpp>
 #include <cuml/cluster/dbscan.hpp>
 #include "dbscan.cuh"
-#include "runner.cuh"
 
 namespace ML {
-
-using namespace Dbscan;
 
 void dbscanFit(const raft::handle_t &handle, float *input, int n_rows,
                int n_cols, float eps, int min_pts, int *labels,
@@ -92,4 +89,4 @@ void dbscanFit(const raft::handle_t &handle, double *input, int64_t n_rows,
     max_bytes_per_batch, handle.get_stream(), verbosity);
 }
 
-};  // end namespace ML
+}  // end namespace ML

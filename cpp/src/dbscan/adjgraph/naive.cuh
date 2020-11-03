@@ -23,6 +23,7 @@
 #include "../common.cuh"
 #include "pack.h"
 
+namespace ML {
 namespace Dbscan {
 namespace AdjGraph {
 namespace Naive {
@@ -67,3 +68,4 @@ void launcher(const raft::handle_t& handle, Pack<Index_> data, Index_ batchSize,
 }  // namespace Naive
 }  // namespace AdjGraph
 }  // namespace Dbscan
+}  // namespace ML

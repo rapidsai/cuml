@@ -16,6 +16,7 @@
 
 #pragma once
 
+namespace ML {
 namespace Dbscan {
 namespace VertexDeg {
 
@@ -50,3 +51,4 @@ struct Pack {
 
 }  // namespace VertexDeg
 }  // namespace Dbscan
+}  // namespace ML

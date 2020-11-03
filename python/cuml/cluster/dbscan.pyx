@@ -248,7 +248,7 @@ class DBSCAN(Base):
             core_sample_indices_ptr = self._core_sample_indices_.ptr
 
         if self.dtype == np.float32:
-            if out_dtype is "int32" or out_dtype is np.int32:
+            if out_dtype == "int32" or out_dtype is np.int32:
                 dbscanFit(handle_[0],
                           <float*>input_ptr,
                           <int> n_rows,
@@ -272,7 +272,7 @@ class DBSCAN(Base):
                           <int> self.verbose)
 
         else:
-            if out_dtype is "int32" or out_dtype is np.int32:
+            if out_dtype == "int32" or out_dtype is np.int32:
                 dbscanFit(handle_[0],
                           <double*>input_ptr,
                           <int> n_rows,

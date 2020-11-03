@@ -29,6 +29,7 @@
 #include <sys/time.h>
 #include <cuml/common/logger.hpp>
 
+namespace ML {
 namespace Dbscan {
 
 using namespace MLCommon;
@@ -243,3 +244,4 @@ size_t run(const raft::handle_t& handle, Type_f* x, Index_ N, Index_ D,
   return (size_t)0;
 }
 }  // namespace Dbscan
+}  // namespace ML

@@ -16,6 +16,7 @@
 
 #pragma once
 
+namespace ML {
 namespace Dbscan {
 namespace AdjGraph {
 
@@ -46,3 +47,4 @@ struct Pack {
 
 }  // namespace AdjGraph
 }  // namespace Dbscan
+}  // namespace ML

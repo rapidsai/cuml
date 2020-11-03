@@ -422,6 +422,7 @@ if(BUILD_CUML_CPP_LIBRARY)
   if(NOT SINGLEGPU)
     target_sources(${CUML_CPP_TARGET}
       PRIVATE
+        src/dbscan/dbscan_mg.cu
         src/glm/ols_mg.cu
         src/glm/preprocess_mg.cu
         src/glm/ridge_mg.cu

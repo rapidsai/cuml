@@ -21,6 +21,7 @@
 #include "naive.cuh"
 #include "pack.h"
 
+namespace ML {
 namespace Dbscan {
 namespace VertexDeg {
 
@@ -44,3 +45,4 @@ void run(const raft::handle_t& handle, bool* adj, Index_* vd, Type_f* x,
 
 }  // namespace VertexDeg
 }  // namespace Dbscan
+}  // namespace ML

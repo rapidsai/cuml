@@ -28,6 +28,7 @@
 
 using namespace thrust;
 
+namespace ML {
 namespace Dbscan {
 namespace AdjGraph {
 namespace Algo {
@@ -69,3 +70,4 @@ void launcher(const raft::handle_t &handle, Pack<Index_> data, Index_ batchSize,
 }  // namespace Algo
 }  // namespace AdjGraph
 }  // namespace Dbscan
+}  // namespace ML

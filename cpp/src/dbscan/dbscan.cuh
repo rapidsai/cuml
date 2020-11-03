@@ -25,7 +25,6 @@
 
 namespace ML {
 
-using namespace Dbscan;
 // Default max mem set to a reasonable value for a 16gb card.
 static const size_t DEFAULT_MAX_MEM_MBYTES = 13e3;
 
@@ -91,7 +90,19 @@ Index_ computeBatchCount(size_t &estimated_memory, Index_ n_rows,
   return max((Index_)1, nBatches);
 }
 
-template <typename T, typename Index_ = int>
+template <typename Index_>
+__global__ void naiveColorKernel(Index_ *labels, Index_ color, Index_ start_row,
+                                 Index_ n_owned_rows, Index_ n_rows,
+                                 Index_ MAX_VAL) {
+  Index_ idx = blockDim.x * blockIdx.x + threadIdx.x;
+  if (idx < n_rows) {
+    Index_ label =
+      (idx >= start_row && idx - start_row < n_owned_rows) ? color : MAX_VAL;
+    labels[idx] = label;
+  }
+}
+
+template <typename T, typename Index_ = int, bool opg = false>
 void dbscanFitImpl(const raft::handle_t &handle, T *input, Index_ n_rows,
                    Index_ n_cols, T eps, Index_ min_pts, Index_ *labels,
                    Index_ *core_sample_indices, size_t max_mbytes_per_batch,
@@ -102,10 +113,29 @@ void dbscanFitImpl(const raft::handle_t &handle, T *input, Index_ n_rows,
   int algoAdj = 1;
   int algoCcl = 2;
 
+  int my_rank, n_rank;
+  Index_ start_row, n_owned_rows;
+  if (opg) {
+    const auto &comm = handle.get_comms();
+    my_rank = comm.get_rank();
+    n_rank = comm.get_size();
+    Index_ rows_per_rank = raft::ceildiv<Index_>(n_rows, n_rank);
+    start_row = my_rank * rows_per_rank;
+    Index_ end_row = std::min((my_rank + 1) * rows_per_rank, n_rows);
+    n_owned_rows = end_row - start_row;
+  } else {
+    my_rank = 0;
+    n_rank = 1;
+    n_owned_rows = n_rows;
+  }
+
+  CUML_LOG_CRITICAL("#%d owns %ld rows", (int)my_rank,
+                    (unsigned long)n_owned_rows);
+
   ///@todo: Query device for remaining memory
   size_t estimated_memory;
-  Index_ n_batches =
-    computeBatchCount<Index_>(estimated_memory, n_rows, max_mbytes_per_batch);
+  Index_ n_batches = computeBatchCount<Index_>(estimated_memory, n_owned_rows,
+                                               max_mbytes_per_batch);
 
   if (n_batches > 1) {
     CUML_LOG_DEBUG("Running batched training on %ld batches w/ %lf MB",
@@ -113,6 +143,27 @@ void dbscanFitImpl(const raft::handle_t &handle, T *input, Index_ n_rows,
                    (double)estimated_memory * 1e-6 / n_batches);
   }
 
+  // Temporary test: color owned nodes with your color and others with max val,
+  // then use all reduce
+  naiveColorKernel<Index_>
+    <<<raft::ceildiv<Index_>(n_rows, 256), 256, 0, stream>>>(
+      labels, my_rank, start_row, n_owned_rows, n_rows,
+      std::numeric_limits<Index_>::max());
+  CUDA_CHECK(cudaPeekAtLastError());
+
+  if (opg) {
+    const auto &comm = handle.get_comms();
+    comm.allreduce(labels, labels, n_rows, raft::comms::op_t::MIN, stream);
+    ASSERT(
+      comm.sync_stream(stream) == raft::comms::status_t::SUCCESS,
+      "An error occurred in the distributed operation. This can result from "
+      "a failed rank");
+  }
+
+  return;
+
+  /// TODO: runner agnostic of multi-GPU?
+  /// TODO: merge results at the end
   size_t workspaceSize = Dbscan::run(
     handle, input, n_rows, n_cols, eps, min_pts, labels, core_sample_indices,
     algoVd, algoAdj, algoCcl, NULL, n_batches, stream);
@@ -125,4 +176,4 @@ void dbscanFitImpl(const raft::handle_t &handle, T *input, Index_ n_rows,
   ML::POP_RANGE();
 }
 
-};  // namespace ML
+}  // namespace ML
