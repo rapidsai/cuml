@@ -16,16 +16,16 @@
  */
 
 #include <cuml/metrics/metrics.hpp>
-#include <metrics/vMeasure.cuh>
+#include <metrics/v_measure.cuh>
 
 namespace ML {
 
 namespace Metrics {
 
-double vMeasure(const raft::handle_t &handle, const int *y, const int *y_hat,
-                const int n, const int lower_class_range,
-                const int upper_class_range) {
-  return MLCommon::Metrics::vMeasure(
+double v_measure(const raft::handle_t &handle, const int *y, const int *y_hat,
+                 const int n, const int lower_class_range,
+                 const int upper_class_range) {
+  return MLCommon::Metrics::v_measure(
     y, y_hat, n, lower_class_range, upper_class_range,
     handle.get_device_allocator(), handle.get_stream());
 }

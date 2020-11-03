@@ -27,7 +27,7 @@ namespace Metrics {
 /**
  * @brief Function to calculate the distance between each ij pair in the input
           array
- * 
+ *
  * @tparam DataT type of the data samples
  * @tparam IndexT typeof the index
  * @param x pointer to the input data samples array (mRows x kCols)
@@ -44,16 +44,16 @@ namespace Metrics {
  *                   type array) or col (F type array) major
  */
 template <typename DataT, typename IndexT>
-void pairwiseDistance(const DataT *x, const DataT *y, DataT *dist, IndexT m,
-                      IndexT n, IndexT k, ML::Distance::DistanceType metric,
-                      std::shared_ptr<MLCommon::deviceAllocator> allocator,
-                      cudaStream_t stream, bool isRowMajor = true) {
+void pairwise_distance(const DataT *x, const DataT *y, DataT *dist, IndexT m,
+                       IndexT n, IndexT k, ML::Distance::DistanceType metric,
+                       std::shared_ptr<MLCommon::deviceAllocator> allocator,
+                       cudaStream_t stream, bool isRowMajor = true) {
   //Allocate workspace
   MLCommon::device_buffer<char> workspace(allocator, stream, 1);
 
   //Call the distance function
-  Distance::pairwiseDistance(x, y, dist, m, n, k, workspace, metric, stream,
-                             isRowMajor);
+  Distance::pairwise_distance(x, y, dist, m, n, k, workspace, metric, stream,
+                              isRowMajor);
 }
 
 };  // namespace Metrics
