@@ -17,7 +17,7 @@
 #include <decisiontree/quantile/quantile.h>
 #include <gtest/gtest.h>
 #include <raft/linalg/cublas_wrappers.h>
-#include <test_utils.h>
+#include <test_utils.cuh>
 #include <common/iota.cuh>
 #include <cuml/cuml.hpp>
 #include <decisiontree/batched-levelalgo/builder.cuh>

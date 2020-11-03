@@ -16,7 +16,7 @@
 
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
-#include <test_utils.h>
+#include <test_utils.cuh>
 #include <cuml/ensemble/randomforest.hpp>
 #include <raft/cuda_utils.cuh>
 

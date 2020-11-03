@@ -22,7 +22,7 @@
 #include <thrust/for_each.h>
 #include <thrust/iterator/counting_iterator.h>
 
-#include <cuml/tsa/arima_common.h>
+#include <cuml/tsa/arima_common.cuh>
 #include <cuml/common/cuml_allocator.hpp>
 #include <raft/random/rng.cuh>
 #include <timeSeries/arima_helpers.cuh>

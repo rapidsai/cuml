@@ -22,9 +22,9 @@
 #include <vector>
 
 #include <raft/cudart_utils.h>
-#include <test_utils.h>
+#include <test_utils.cuh>
 #include <metrics/batched/information_criterion.cuh>
-#include "../test_utils.h"
+#include "../test_utils.cuh"
 
 namespace MLCommon {
 namespace Metrics {

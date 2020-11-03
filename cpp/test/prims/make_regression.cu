@@ -24,7 +24,7 @@
 #include <raft/cuda_utils.cuh>
 #include <raft/linalg/subtract.cuh>
 #include <random/make_regression.cuh>
-#include "test_utils.h"
+#include "test_utils.cuh"
 
 namespace MLCommon {
 namespace Random {

@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include <cuml/tsa/arima_common.h>
+#include <cuml/tsa/arima_common.cuh>
 #include <cuml/cuml.hpp>
 
 namespace ML {

@@ -16,7 +16,7 @@
 
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
-#include <test_utils.h>
+#include <test_utils.cuh>
 #include <glm/ridge.cuh>
 #include <raft/cuda_utils.cuh>
 

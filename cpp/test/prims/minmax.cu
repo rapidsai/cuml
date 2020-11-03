@@ -22,7 +22,7 @@
 #include <raft/cuda_utils.cuh>
 #include <raft/random/rng.cuh>
 #include <stats/minmax.cuh>
-#include "test_utils.h"
+#include "test_utils.cuh"
 
 namespace MLCommon {
 namespace Stats {

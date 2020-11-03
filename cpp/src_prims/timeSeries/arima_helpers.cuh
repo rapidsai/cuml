@@ -18,7 +18,7 @@
 
 #include <cuda_runtime.h>
 
-#include <cuml/tsa/arima_common.h>
+#include <cuml/tsa/arima_common.cuh>
 #include <raft/cudart_utils.h>
 #include <linalg/batched/matrix.cuh>
 #include <raft/cuda_utils.cuh>

@@ -17,7 +17,7 @@
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
 #include <raft/linalg/cusolver_wrappers.h>
-#include <test_utils.h>
+#include <test_utils.cuh>
 #include <raft/matrix/matrix.cuh>
 #include <solver/sgd.cuh>
 

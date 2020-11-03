@@ -19,7 +19,7 @@
 #include <iostream>
 #include <linalg/reduce_rows_by_key.cuh>
 #include <raft/random/rng.cuh>
-#include "test_utils.h"
+#include "test_utils.cuh"
 
 namespace MLCommon {
 namespace LinAlg {

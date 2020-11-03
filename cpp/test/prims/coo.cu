@@ -19,7 +19,7 @@
 #include <raft/random/rng.cuh>
 #include <sparse/coo.cuh>
 #include "coo.h"
-#include "test_utils.h"
+#include "test_utils.cuh"
 
 #include <iostream>
 

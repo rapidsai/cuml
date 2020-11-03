@@ -19,7 +19,7 @@
 #include <iostream>
 #include <random>
 #include <timeSeries/jones_transform.cuh>
-#include "test_utils.h"
+#include "test_utils.cuh"
 
 namespace MLCommon {
 namespace TimeSeries {

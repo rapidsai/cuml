@@ -21,7 +21,7 @@
 #include <raft/cudart_utils.h>
 #include <raft/cuda_utils.cuh>
 #include <random/make_arima.cuh>
-#include "test_utils.h"
+#include "test_utils.cuh"
 
 namespace MLCommon {
 namespace Random {

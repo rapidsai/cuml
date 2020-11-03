@@ -16,7 +16,7 @@
 
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
-#include <test_utils.h>
+#include <test_utils.cuh>
 #include <cuml/neighbors/knn.hpp>
 #include <iostream>
 #include <raft/cuda_utils.cuh>

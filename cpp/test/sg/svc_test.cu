@@ -19,7 +19,7 @@
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
 #include <raft/linalg/transpose.h>
-#include <test_utils.h>
+#include <test_utils.cuh>
 #include <thrust/device_ptr.h>
 #include <thrust/fill.h>
 #include <thrust/iterator/zip_iterator.h>

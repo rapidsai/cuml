@@ -24,7 +24,7 @@
 #include <raft/random/rng.cuh>
 #include <selection/knn.cuh>
 #include <vector>
-#include "test_utils.h"
+#include "test_utils.cuh"
 
 #include <thrust/device_ptr.h>
 #include <thrust/extrema.h>

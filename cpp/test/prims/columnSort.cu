@@ -19,7 +19,7 @@
 #include <algorithm>
 #include <numeric>
 #include <selection/columnWiseSort.cuh>
-#include "test_utils.h"
+#include "test_utils.cuh"
 
 namespace MLCommon {
 namespace Selection {

@@ -16,10 +16,10 @@
 
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
-#include <test_utils.h>
+#include <test_utils.cuh>
 #include <linalg/batched/make_symm.cuh>
 #include <raft/random/rng.cuh>
-#include "../test_utils.h"
+#include "../test_utils.cuh"
 
 namespace MLCommon {
 namespace LinAlg {

@@ -18,7 +18,7 @@
 
 #include <gtest/gtest.h>
 #include <raft/linalg/transpose.h>
-#include <test_utils.h>
+#include <test_utils.cuh>
 #include <cuml/datasets/make_blobs.hpp>
 #include <cuml/datasets/make_regression.hpp>
 #include <cuml/ensemble/randomforest.hpp>

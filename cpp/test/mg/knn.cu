@@ -18,8 +18,8 @@
 #include <cuml/neighbors/knn_mg.hpp>
 #include <memory>
 #include <random/make_blobs.cuh>
-#include "../prims/test_utils.h"
-#include "test_opg_utils.h"
+#include "../prims/test_utils.cuh"
+#include "test_opg_utils.cuh"
 
 #include <common/device_buffer.hpp>
 #include <cuml/common/cuml_allocator.hpp>

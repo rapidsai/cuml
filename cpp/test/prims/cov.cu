@@ -19,7 +19,7 @@
 #include <raft/random/rng.cuh>
 #include <raft/stats/mean.cuh>
 #include <stats/cov.cuh>
-#include "test_utils.h"
+#include "test_utils.cuh"
 
 namespace MLCommon {
 namespace Stats {

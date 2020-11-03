@@ -22,7 +22,7 @@
 #include <random/make_blobs.cuh>
 #include <selection/knn.cuh>
 #include <vector>
-#include "test_utils.h"
+#include "test_utils.cuh"
 
 namespace MLCommon {
 namespace Selection {

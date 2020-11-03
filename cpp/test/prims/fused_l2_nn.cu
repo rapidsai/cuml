@@ -20,7 +20,7 @@
 #include <raft/cuda_utils.cuh>
 #include <raft/linalg/norm.cuh>
 #include <raft/random/rng.cuh>
-#include "test_utils.h"
+#include "test_utils.cuh"
 
 namespace MLCommon {
 namespace Distance {

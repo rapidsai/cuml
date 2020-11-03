@@ -20,7 +20,7 @@
 #include <iostream>
 #include <random/mvg.cuh>
 #include <random>
-#include "test_utils.h"
+#include "test_utils.cuh"
 
 // mvg.h takes in matrices that are colomn major (as in fortan)
 #define IDX2C(i, j, ld) (j * ld + i)

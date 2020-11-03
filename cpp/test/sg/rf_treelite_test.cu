@@ -20,7 +20,7 @@
 #include <raft/linalg/gemv.h>
 #include <raft/linalg/transpose.h>
 #include <sys/stat.h>
-#include <test_utils.h>
+#include <test_utils.cuh>
 #include <treelite/c_api.h>
 #include <treelite/c_api_runtime.h>
 #include <cstdlib>

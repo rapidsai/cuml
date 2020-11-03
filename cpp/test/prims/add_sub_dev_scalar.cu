@@ -20,7 +20,7 @@
 #include <raft/linalg/subtract.cuh>
 #include <raft/linalg/unary_op.cuh>
 #include <raft/random/rng.cuh>
-#include "test_utils.h"
+#include "test_utils.cuh"
 
 namespace raft {
 namespace linalg {
