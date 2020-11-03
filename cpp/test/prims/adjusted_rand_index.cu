@@ -19,7 +19,7 @@
 #include <algorithm>
 #include <cuml/common/cuml_allocator.hpp>
 #include <iostream>
-#include <metrics/adjustedRandIndex.cuh>
+#include <metrics/adjusted_rand_index.cuh>
 #include <metrics/contingencyMatrix.cuh>
 #include <random>
 #include "test_utils.h"
@@ -27,7 +27,7 @@
 namespace MLCommon {
 namespace Metrics {
 
-struct AdjustedRandIndexParam {
+struct adjustedRandIndexParam {
   int nElements;
   int lowerLabelRange;
   int upperLabelRange;
@@ -39,11 +39,11 @@ struct AdjustedRandIndexParam {
 };
 
 template <typename T, typename MathT = int>
-class AdjustedRandIndexTest
-  : public ::testing::TestWithParam<AdjustedRandIndexParam> {
+class adjustedRandIndexTest
+  : public ::testing::TestWithParam<adjustedRandIndexParam> {
  protected:
   void SetUp() override {
-    params = ::testing::TestWithParam<AdjustedRandIndexParam>::GetParam();
+    params = ::testing::TestWithParam<adjustedRandIndexParam>::GetParam();
     nElements = params.nElements;
     raft::allocate(firstClusterArray, nElements, true);
     raft::allocate(secondClusterArray, nElements, true);
@@ -56,7 +56,7 @@ class AdjustedRandIndexTest
       SetupZeroArray();
     }
     //allocating and initializing memory to the GPU
-    computedAdjustedRandIndex = computeAdjustedRandIndex<T, MathT>(
+    computed_adjusted_rand_index = compute_adjusted_rand_index<T, MathT>(
       firstClusterArray, secondClusterArray, nElements, allocator, stream);
   }
 
@@ -123,10 +123,10 @@ class AdjustedRandIndexTest
     double maxIndex = (double(sumOfAiCTwo) + double(sumOfBiCTwo)) / 2.0;
     double index = (double)sumOfNijCTwo;
     if (maxIndex - expectedIndex)
-      truthAdjustedRandIndex =
+      truth_adjusted_rand_index =
         (index - expectedIndex) / (maxIndex - expectedIndex);
     else
-      truthAdjustedRandIndex = 0;
+      truth_adjusted_rand_index = 0;
     raft::update_device(firstClusterArray, &arr1[0], nElements, stream);
     raft::update_device(secondClusterArray, &arr2[0], nElements, stream);
   }
@@ -134,20 +134,20 @@ class AdjustedRandIndexTest
   void SetupZeroArray() {
     lowerLabelRange = 0;
     upperLabelRange = 0;
-    truthAdjustedRandIndex = 1.0;
+    truth_adjusted_rand_index = 1.0;
   }
 
-  AdjustedRandIndexParam params;
+  adjustedRandIndexParam params;
   T lowerLabelRange, upperLabelRange;
   T *firstClusterArray = nullptr;
   T *secondClusterArray = nullptr;
   int nElements = 0;
-  double truthAdjustedRandIndex = 0;
-  double computedAdjustedRandIndex = 0;
+  double truth_adjusted_rand_index = 0;
+  double computed_adjusted_rand_index = 0;
   cudaStream_t stream;
 };
 
-const std::vector<AdjustedRandIndexParam> inputs = {
+const std::vector<adjustedRandIndexParam> inputs = {
   {199, 1, 10, false, 0.000001, false},  {200, 15, 100, false, 0.000001, false},
   {100, 1, 20, false, 0.000001, false},  {10, 1, 10, false, 0.000001, false},
   {198, 1, 100, false, 0.000001, false}, {300, 3, 99, false, 0.000001, false},
@@ -163,7 +163,7 @@ const std::vector<AdjustedRandIndexParam> inputs = {
   {198, 0, 0, true, 0.000001, true},     {300, 0, 0, true, 0.000001, true},
 };
 
-const std::vector<AdjustedRandIndexParam> large_inputs = {
+const std::vector<adjustedRandIndexParam> large_inputs = {
   {2000000, 1, 1000, false, 0.000001, false},
   {2000000, 1, 1000, true, 0.000001, false},
 
@@ -171,20 +171,22 @@ const std::vector<AdjustedRandIndexParam> large_inputs = {
   {2000000, 0, 0, true, 0.000001, true},
 };
 
-typedef AdjustedRandIndexTest<int, int> ARI_ii;
+typedef adjustedRandIndexTest<int, int> ARI_ii;
 TEST_P(ARI_ii, Result) {
-  ASSERT_NEAR(computedAdjustedRandIndex, truthAdjustedRandIndex,
+  ASSERT_NEAR(computed_adjusted_rand_index, truth_adjusted_rand_index,
               params.tolerance);
 }
-INSTANTIATE_TEST_CASE_P(AdjustedRandIndex, ARI_ii, ::testing::ValuesIn(inputs));
+INSTANTIATE_TEST_CASE_P(adjusted_rand_index, ARI_ii,
+                        ::testing::ValuesIn(inputs));
 
-typedef AdjustedRandIndexTest<int, unsigned long long> ARI_il;
+typedef adjustedRandIndexTest<int, unsigned long long> ARI_il;
 TEST_P(ARI_il, Result) {
-  ASSERT_NEAR(computedAdjustedRandIndex, truthAdjustedRandIndex,
+  ASSERT_NEAR(computed_adjusted_rand_index, truth_adjusted_rand_index,
               params.tolerance);
 }
-INSTANTIATE_TEST_CASE_P(AdjustedRandIndex, ARI_il, ::testing::ValuesIn(inputs));
-INSTANTIATE_TEST_CASE_P(AdjustedRandIndexLarge, ARI_il,
+INSTANTIATE_TEST_CASE_P(adjusted_rand_index, ARI_il,
+                        ::testing::ValuesIn(inputs));
+INSTANTIATE_TEST_CASE_P(adjusted_rand_index_large, ARI_il,
                         ::testing::ValuesIn(large_inputs));
 
 }  //end namespace Metrics

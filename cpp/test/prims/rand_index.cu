@@ -19,7 +19,7 @@
 #include <algorithm>
 #include <cuml/common/cuml_allocator.hpp>
 #include <iostream>
-#include <metrics/randIndex.cuh>
+#include <metrics/rand_index.cuh>
 #include <random>
 #include "test_utils.h"
 
@@ -85,8 +85,8 @@ class randIndexTest : public ::testing::TestWithParam<randIndexParam> {
     std::shared_ptr<MLCommon::deviceAllocator> allocator(
       new raft::mr::device::default_allocator);
 
-    //calling the randIndex CUDA implementation
-    computedRandIndex = MLCommon::Metrics::computeRandIndex(
+    //calling the rand_index CUDA implementation
+    computedRandIndex = MLCommon::Metrics::compute_rand_index(
       firstClusterArray, secondClusterArray, size, allocator, stream);
   }
 

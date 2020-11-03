@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 /**
-* @file klDivergence.cuh
-* @brief The KL divergence tells us how well the probability distribution Q AKA candidatePDF 
+* @file kl_divergence.cuh
+* @brief The KL divergence tells us how well the probability distribution Q AKA candidatePDF
 * approximates the probability distribution P AKA modelPDF.
 */
 
@@ -33,7 +33,7 @@ namespace MLCommon {
 /**
 * @brief the KL Diverence mapping function
 *
-* @tparam Type: Data type of the input 
+* @tparam Type: Data type of the input
 * @param modelPDF: the model probability density function of type DataT
 * @param candidatePDF: the candidate probability density function of type DataT
 */
@@ -52,7 +52,7 @@ namespace Metrics {
 
 /**
 * @brief Function to calculate KL Divergence
-* <a href="https://en.wikipedia.org/wiki/Kullback%E2%80%93Leibler_divergence">more info on KL Divergence</a> 
+* <a href="https://en.wikipedia.org/wiki/Kullback%E2%80%93Leibler_divergence">more info on KL Divergence</a>
 *
 * @tparam DataT: Data type of the input array
 * @param modelPDF: the model array of probability density functions of type DataT
@@ -62,9 +62,9 @@ namespace Metrics {
 * @param stream: the cudaStream object
 */
 template <typename DataT>
-DataT klDivergence(const DataT* modelPDF, const DataT* candidatePDF, int size,
-                   std::shared_ptr<MLCommon::deviceAllocator> allocator,
-                   cudaStream_t stream) {
+DataT kl_divergence(const DataT* modelPDF, const DataT* candidatePDF, int size,
+                    std::shared_ptr<MLCommon::deviceAllocator> allocator,
+                    cudaStream_t stream) {
   MLCommon::device_buffer<DataT> d_KLDVal(allocator, stream, 1);
   CUDA_CHECK(cudaMemsetAsync(d_KLDVal.data(), 0, sizeof(DataT), stream));
 

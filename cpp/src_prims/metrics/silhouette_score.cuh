@@ -167,16 +167,16 @@ struct MinOp {
 * @param nCols: number of features
 * @param labels: the pointer to the array containing labels for every data sample (1 x nRows)
 * @param nLabels: number of Labels
-* @param silhouetteScorePerSample: pointer to the array that is optionally taken in as input and is populated with the silhouette score for every sample (1 x nRows)
+* @param silhouette_scorePerSample: pointer to the array that is optionally taken in as input and is populated with the silhouette score for every sample (1 x nRows)
 * @param allocator: default allocator to allocate device memory
-* @param stream: the cuda stream where to launch this kernel 
+* @param stream: the cuda stream where to launch this kernel
 * @param metric: the numerical value that maps to the type of distance metric to be used in the calculations
 */
 template <typename DataT, typename LabelT>
-DataT silhouetteScore(DataT *X_in, int nRows, int nCols, LabelT *labels,
-                      int nLabels, DataT *silhouetteScorePerSample,
-                      std::shared_ptr<MLCommon::deviceAllocator> allocator,
-                      cudaStream_t stream, int metric = 4) {
+DataT silhouette_score(DataT *X_in, int nRows, int nCols, LabelT *labels,
+                       int nLabels, DataT *silhouette_scorePerSample,
+                       std::shared_ptr<MLCommon::deviceAllocator> allocator,
+                       cudaStream_t stream, int metric = 4) {
   ASSERT(nLabels >= 2 && nLabels <= (nRows - 1),
          "silhouette Score not defined for the given number of labels!");
 
@@ -185,18 +185,18 @@ DataT silhouetteScore(DataT *X_in, int nRows, int nCols, LabelT *labels,
                                                 nRows * nRows);
   MLCommon::device_buffer<char> workspace(allocator, stream, 1);
 
-  Distance::pairwiseDistance(
+  Distance::pairwise_distance(
     X_in, X_in, distanceMatrix.data(), nRows, nRows, nCols, workspace,
     static_cast<ML::Distance::DistanceType>(metric), stream);
 
   //deciding on the array of silhouette scores for each dataPoint
-  MLCommon::device_buffer<DataT> silhouetteScoreSamples(allocator, stream, 0);
+  MLCommon::device_buffer<DataT> silhouette_scoreSamples(allocator, stream, 0);
   DataT *perSampleSilScore = nullptr;
-  if (silhouetteScorePerSample == nullptr) {
-    silhouetteScoreSamples.resize(nRows, stream);
-    perSampleSilScore = silhouetteScoreSamples.data();
+  if (silhouette_scorePerSample == nullptr) {
+    silhouette_scoreSamples.resize(nRows, stream);
+    perSampleSilScore = silhouette_scoreSamples.data();
   } else {
-    perSampleSilScore = silhouetteScorePerSample;
+    perSampleSilScore = silhouette_scorePerSample;
   }
   CUDA_CHECK(
     cudaMemsetAsync(perSampleSilScore, 0, nRows * sizeof(DataT), stream));
