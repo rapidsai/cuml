@@ -225,6 +225,7 @@ cdef class BaseRandomProjection():
     def density(self, value):
         self.params.density = value
 
+    @cuml.internals.api_base_return_any()
     def fit(self, X, y=None):
         """
         Fit the model. This function generates the random matrix on GPU.

@@ -344,8 +344,8 @@ def test_auto_predict(input_type, base_output_type, global_output_type):
         assert array_identical(X_in, X_out)
 
 
-@pytest.mark.parametrize('input_arg', ["X", "y", "bad", None])
-@pytest.mark.parametrize('target_arg', ["X", "y", "bad", None])
+@pytest.mark.parametrize('input_arg', ["X", "y", "bad", ...])
+@pytest.mark.parametrize('target_arg', ["X", "y", "bad", ...])
 @pytest.mark.parametrize('get_output_type', [True, False])
 @pytest.mark.parametrize('get_output_dtype', [True, False])
 def test_return_array(input_arg: str,
@@ -370,10 +370,10 @@ def test_return_array(input_arg: str,
 
     def test_func(X, y):
 
-        if (get_output_type):
+        if (not get_output_type):
             cuml.internals.set_api_output_type(inner_type)
 
-        if (get_output_dtype):
+        if (not get_output_dtype):
             cuml.internals.set_api_output_dtype(inner_dtype)
 
         return X
@@ -392,7 +392,7 @@ def test_return_array(input_arg: str,
     target_type = None
     target_dtype = None
 
-    if (get_output_type):
+    if (not get_output_type):
         target_type = inner_type
     else:
         if (input_arg == "y"):
@@ -400,7 +400,7 @@ def test_return_array(input_arg: str,
         else:
             target_type = input_type_X
 
-    if (get_output_dtype):
+    if (not get_output_dtype):
         target_dtype = inner_dtype
     else:
         if (target_arg == "X"):
