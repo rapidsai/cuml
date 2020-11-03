@@ -76,12 +76,12 @@ struct FilTestParams {
   size_t num_preds_outputs() { return num_rows; }
 };
 
-std::string output2str(output_t output) {
-  if (output == RAW) return "RAW";
+std::string output2str(fil::output_t output) {
+  if (output == fil::RAW) return "RAW";
   std::string s = "";
-  if (output & AVG) s += "| AVG";
-  if (output & CLASS) s += "| CLASS";
-  if (output & SIGMOID) s += "| SIGMOID";
+  if (output & fil::AVG) s += "| AVG";
+  if (output & fil::CLASS) s += "| CLASS";
+  if (output & fil::SIGMOID) s += "| SIGMOID";
   return s;
 }
 
@@ -645,8 +645,7 @@ class TreeliteThrowSparse8FilTest : public TreeliteSparse8FilTest {
     return FilTestParams(inherit_t());        \
   }()
 
-// static const tl::Operator kEQ = tl::Operator::kEQ; // intentionally unused
-// static const tl::Operator kLT = tl::Operator::kLT; // default
+// kEQ is intentionally unused, and kLT is default
 static const tl::Operator kLE = tl::Operator::kLE;
 static const tl::Operator kGT = tl::Operator::kGT;
 static const tl::Operator kGE = tl::Operator::kGE;
