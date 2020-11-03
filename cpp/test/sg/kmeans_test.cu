@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
-#include <common/cudart_utils.h>
 #include <gtest/gtest.h>
+#include <raft/cudart_utils.h>
 #include <test_utils.h>
-#include <cuda_utils.cuh>
+#include <raft/cuda_utils.cuh>
 #include <vector>
 
 #include <thrust/fill.h>
@@ -94,7 +94,7 @@ class KmeansTest : public ::testing::TestWithParam<KmeansInputs<T>> {
 
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 
-    score = adjustedRandIndex(handle, d_labels_ref, d_labels, n_samples);
+    score = adjusted_rand_index(handle, d_labels_ref, d_labels, n_samples);
 
     if (score < 1.0) {
       std::stringstream ss;

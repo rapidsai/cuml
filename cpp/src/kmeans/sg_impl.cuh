@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include <common/cudart_utils.h>
+#include <raft/cudart_utils.h>
 #include "common.cuh"
 
 namespace ML {
@@ -771,9 +771,9 @@ void transform(const raft::handle_t &handle, const KMeansParams &params,
 
     // calculate pairwise distance between cluster centroids and current batch
     // of input dataset
-    kmeans::detail::pairwiseDistance(handle, datasetView, centroids,
-                                     pairwiseDistanceView, workspace, metric,
-                                     stream);
+    kmeans::detail::pairwise_distance(handle, datasetView, centroids,
+                                      pairwiseDistanceView, workspace, metric,
+                                      stream);
   }
 }
 

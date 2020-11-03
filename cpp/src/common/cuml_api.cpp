@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#include <common/cudart_utils.h>
 #include <cuml/cuml_api.h>
+#include <raft/cudart_utils.h>
 #include <cuml/common/utils.hpp>
 #include <functional>
 #include <raft/mr/device/allocator.hpp>
