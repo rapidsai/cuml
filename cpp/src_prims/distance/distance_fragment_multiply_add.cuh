@@ -17,7 +17,7 @@
 #pragma once
 #include <cutlass/fragment.h>
 #include <cutlass/shape.h>
-#include <cuda_utils.cuh>
+#include <raft/cuda_utils.cuh>
 
 namespace MLCommon {
 namespace Distance {

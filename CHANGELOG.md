@@ -3,6 +3,8 @@
 ## New Features
 
 ## Improvements
+- PR #3077: Improve runtime for test_kmeans
+- PR #3070: Speed up dask/test_datasets tests
 - PR #3075: Speed up test_linear_model tests
 - PR #3078: Speed up test_incremental_pca tests
 - PR #2902: `matrix/matrix.cuh` in RAFT namespacing
@@ -15,9 +17,12 @@
 - PR #2996: Removing the max_depth restriction for switching to the batched backend
 - PR #3004: Remove Single Process Multi GPU (SPMG) code
 - PR #3044: Move leftover `linalg` and `stats` to RAFT namespaces
+- PR #3067: Deleting prims moved to RAFT and updating header paths
 - PR #3074: Reducing dask coordinate descent test runtime
+- PR #3052: Speeding up MNMG KNN Cl&Re testing
 
 ## Bug Fixes
+- PR #3033: Splitting ml metrics to individual files
 - PR #3072: Fusing metrics and score directories in src_prims
 - PR #3037: Avoid logging deadlock in multi-threaded C code
 - PR #2983: Fix seeding of KISS99 RNG
@@ -26,9 +31,12 @@
 - PR #3012: Increasing learning rate for SGD log loss and invscaling pytests
 - PR #3021: Fix a hang in cuML RF experimental backend
 - PR #3039: Update RF and decision tree parameter initializations in benchmark codes
+- PR #3060: Speed up test suite `test_fil`
 - PR #3061: Handle C++ exception thrown from FIL predict
 - PR #3073: Update mathjax CDN URL for documentation
 - PR #3062: Bumping xgboost version to match cuml version
+- PR #3084: Fix artifacts in t-SNE results
+- PR #3086: Reverting FIL Notebook Testing
 
 # cuML 0.16.0 (Date TBD)
 
