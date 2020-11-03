@@ -3,6 +3,7 @@
 ## New Features
 
 ## Improvements
+- PR #3077: Improve runtime for test_kmeans
 - PR #3070: Speed up dask/test_datasets tests
 - PR #3075: Speed up test_linear_model tests
 - PR #3078: Speed up test_incremental_pca tests
@@ -18,6 +19,7 @@
 - PR #3044: Move leftover `linalg` and `stats` to RAFT namespaces
 - PR #3067: Deleting prims moved to RAFT and updating header paths
 - PR #3074: Reducing dask coordinate descent test runtime
+- PR #3052: Speeding up MNMG KNN Cl&Re testing
 
 ## Bug Fixes
 - PR #3065: Refactoring prims metrics function names from camelcase to underscore format
@@ -33,6 +35,7 @@
 - PR #3061: Handle C++ exception thrown from FIL predict
 - PR #3073: Update mathjax CDN URL for documentation
 - PR #3062: Bumping xgboost version to match cuml version
+- PR #3084: Fix artifacts in t-SNE results
 - PR #3086: Reverting FIL Notebook Testing
 
 # cuML 0.16.0 (Date TBD)
