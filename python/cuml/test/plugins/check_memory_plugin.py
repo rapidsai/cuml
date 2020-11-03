@@ -177,12 +177,12 @@ def pytest_terminal_summary(
                                  if memory["nbytes"] > 0 else 1.0)
 
         terminalreporter.write_line(
-            "Peak={:>12,}, NBytes={:>12,}, Count={:>6,}, Stream0={:>6.1%}, Test={}"
-            .format(memory["peak"],
-                    memory["nbytes"],
-                    memory["count"],
-                    default_stream_nbytes,
-                    key))
+            ("Peak={:>12,}, NBytes={:>12,}, Count={:>6,}"
+             ", Stream0={:>6.1%}, Test={}").format(memory["peak"],
+                                                   memory["nbytes"],
+                                                   memory["count"],
+                                                   default_stream_nbytes,
+                                                   key))
 
         # if (count > 50):
         #     break

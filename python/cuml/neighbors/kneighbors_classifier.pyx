@@ -164,7 +164,7 @@ class KNeighborsClassifier(NearestNeighbors, ClassifierMixin):
                              "supported currently.")
 
     @generate_docstring(convert_dtype_cast='np.float32')
-    @cuml.internals.api_base_return_any(skip_set_output_dtype=False)
+    @cuml.internals.api_base_return_any(set_output_dtype=True)
     def fit(self, X, y, convert_dtype=True) -> "KNeighborsClassifier":
         """
         Fit a GPU index for k-nearest neighbors classifier model.
@@ -184,7 +184,7 @@ class KNeighborsClassifier(NearestNeighbors, ClassifierMixin):
                                        'type': 'dense',
                                        'description': 'Labels predicted',
                                        'shape': '(n_samples, 1)'})
-    @cuml.internals.api_base_return_array(skip_get_output_dtype=False)
+    @cuml.internals.api_base_return_array(get_output_dtype=True)
     def predict(self, X, convert_dtype=True) -> CumlArray:
         """
         Use the trained k-nearest neighbors classifier to

@@ -346,12 +346,12 @@ def test_auto_predict(input_type, base_output_type, global_output_type):
 
 @pytest.mark.parametrize('input_arg', ["X", "y", "bad", None])
 @pytest.mark.parametrize('target_arg', ["X", "y", "bad", None])
-@pytest.mark.parametrize('skip_get_output_type', [True, False])
-@pytest.mark.parametrize('skip_get_output_dtype', [True, False])
+@pytest.mark.parametrize('get_output_type', [True, False])
+@pytest.mark.parametrize('get_output_dtype', [True, False])
 def test_return_array(input_arg: str,
                       target_arg: str,
-                      skip_get_output_type: bool,
-                      skip_get_output_dtype: bool):
+                      get_output_type: bool,
+                      get_output_dtype: bool):
     """
     Test autowrapping on predict that will set target_type
     """
@@ -370,10 +370,10 @@ def test_return_array(input_arg: str,
 
     def test_func(X, y):
 
-        if (skip_get_output_type):
+        if (get_output_type):
             cuml.internals.set_api_output_type(inner_type)
 
-        if (skip_get_output_dtype):
+        if (get_output_dtype):
             cuml.internals.set_api_output_dtype(inner_dtype)
 
         return X
@@ -384,15 +384,15 @@ def test_return_array(input_arg: str,
     test_func = cuml.internals.api_return_array(
         input_arg=input_arg,
         target_arg=target_arg,
-        skip_get_output_type=skip_get_output_type,
-        skip_get_output_dtype=skip_get_output_dtype)(test_func)
+        get_output_type=get_output_type,
+        get_output_dtype=get_output_dtype)(test_func)
 
     X_out = test_func(X=X_in, y=Y_in)
 
     target_type = None
     target_dtype = None
 
-    if (skip_get_output_type):
+    if (get_output_type):
         target_type = inner_type
     else:
         if (input_arg == "y"):
@@ -400,7 +400,7 @@ def test_return_array(input_arg: str,
         else:
             target_type = input_type_X
 
-    if (skip_get_output_dtype):
+    if (get_output_dtype):
         target_dtype = inner_dtype
     else:
         if (target_arg == "X"):

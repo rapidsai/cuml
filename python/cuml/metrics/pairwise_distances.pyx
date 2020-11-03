@@ -101,7 +101,7 @@ def _determine_metric(metric_str):
         raise ValueError("Unknown metric: {}".format(metric_str))
 
 
-@cuml.internals.api_return_array(skip_get_output_type=False)
+@cuml.internals.api_return_array(get_output_type=True)
 def pairwise_distances(X, Y=None, metric="euclidean", handle=None,
                        convert_dtype=True, output_type=None, **kwds):
     """

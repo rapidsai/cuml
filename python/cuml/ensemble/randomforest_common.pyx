@@ -233,9 +233,9 @@ class BaseRandomForestModel(Base):
         self.treelite_handle = <uintptr_t> tl_handle
         return self.treelite_handle
 
-    @cuml.internals.api_base_return_generic(skip_set_output_type=False,
-                                            skip_set_n_features_in=False,
-                                            skip_get_output_type=True)
+    @cuml.internals.api_base_return_generic(set_output_type=True,
+                                            set_n_features_in=True,
+                                            get_output_type=False)
     def _dataset_setup_for_fit(self, X, y, convert_dtype) -> typing.Tuple[CumlArray, CumlArray, float]: # noqa
         # Reset the old tree data for new fit call
         self._reset_forest_data()

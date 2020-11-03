@@ -413,9 +413,9 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
     @generate_docstring(skip_parameters_heading=True,
                         y='dense_intdtype',
                         convert_dtype_cast='np.float32')
-    @cuml.internals.api_base_return_any(skip_set_output_type=True,
-                                        skip_set_output_dtype=False,
-                                        skip_set_n_features_in=True)
+    @cuml.internals.api_base_return_any(set_output_type=False,
+                                        set_output_dtype=True,
+                                        set_n_features_in=False)
     def fit(self, X, y, convert_dtype=True):
         """
         Perform Random Forest Classification on the input data
@@ -501,7 +501,7 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
         del y_m
         return self
 
-    @cuml.internals.api_base_return_array(skip_get_output_dtype=False)
+    @cuml.internals.api_base_return_array(get_output_dtype=True)
     def _predict_model_on_cpu(self, X, convert_dtype) -> CumlArray:
         cdef uintptr_t X_ptr
         X_m, n_rows, n_cols, dtype = \

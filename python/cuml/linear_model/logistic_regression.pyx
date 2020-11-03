@@ -262,7 +262,7 @@ class LogisticRegression(Base, ClassifierMixin):
             self.verb_prefix = ""
 
     @generate_docstring()
-    @cuml.internals.api_base_return_any(skip_set_output_dtype=False)
+    @cuml.internals.api_base_return_any(set_output_dtype=True)
     def fit(self, X, y, convert_dtype=True) -> "LogisticRegression":
         """
         Fit the model with X and y.
@@ -328,7 +328,7 @@ class LogisticRegression(Base, ClassifierMixin):
                                        'type': 'dense',
                                        'description': 'Predicted values',
                                        'shape': '(n_samples, 1)'})
-    @cuml.internals.api_base_return_array(skip_get_output_dtype=False)
+    @cuml.internals.api_base_return_array(get_output_dtype=True)
     def predict(self, X, convert_dtype=True) -> CumlArray:
         """
         Predicts the y for X.

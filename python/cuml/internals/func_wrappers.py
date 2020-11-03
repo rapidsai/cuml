@@ -738,60 +738,58 @@ class WithArgsDecoratorMixin(object):
 class HasSettersDecoratorMixin(object):
     def __init__(self,
                  *,
-                 skip_set_output_type=False,
-                 skip_set_output_dtype=True,
-                 skip_set_n_features_in=False) -> None:
+                 set_output_type=True,
+                 set_output_dtype=False,
+                 set_n_features_in=True) -> None:
 
         super().__init__()
 
-        self.skip_set_output_type = skip_set_output_type
-        self.skip_set_output_dtype = skip_set_output_dtype
-        self.skip_set_n_features_in = skip_set_n_features_in
+        self.set_output_type = set_output_type
+        self.set_output_dtype = set_output_dtype
+        self.set_n_features_in = set_n_features_in
 
-        self.has_setters = not (self.skip_set_output_type
-                                and self.skip_set_output_dtype
-                                and self.skip_set_n_features_in)
+        self.has_setters = (self.set_output_type or self.set_output_dtype
+                            or self.set_n_features_in)
 
     def do_setters(self, *, self_val, input_val, target_val):
-        if (not self.skip_set_output_type):
+        if (self.set_output_type):
             assert input_val is not None, \
-                "`skip_set_output_type` is False but no input_arg detected"
+                "`set_output_type` is False but no input_arg detected"
             self_val._set_output_type(input_val)
 
-        if (not self.skip_set_output_dtype):
+        if (self.set_output_dtype):
             assert target_val is not None, \
-                "`skip_set_output_dtype` is True but no target_arg detected"
+                "`set_output_dtype` is True but no target_arg detected"
             self_val._set_target_dtype(target_val)
 
-        if (not self.skip_set_n_features_in):
+        if (self.set_n_features_in):
             assert input_val is not None, \
-                "`skip_set_n_features_in` is False but no input_arg detected"
+                "`set_n_features_in` is False but no input_arg detected"
             if (len(input_val.shape) >= 2):
                 self_val._set_n_features_in(input_val)
 
     def has_setters_input(self):
-        return not self.skip_set_output_type or not self.skip_set_n_features_in
+        return self.set_output_type or self.set_n_features_in
 
     def has_setters_target(self):
-        return not self.skip_set_output_dtype
+        return self.set_output_dtype
 
 
 class HasGettersDecoratorMixin(object):
     def __init__(self,
                  *,
-                 skip_get_output_type=True,
-                 skip_get_output_dtype=True) -> None:
+                 get_output_type=False,
+                 get_output_dtype=False) -> None:
 
         super().__init__()
 
-        self.skip_get_output_type = skip_get_output_type
-        self.skip_get_output_dtype = skip_get_output_dtype
+        self.get_output_type = get_output_type
+        self.get_output_dtype = get_output_dtype
 
-        self.has_getters = not (self.skip_get_output_type
-                                and self.skip_get_output_dtype)
+        self.has_getters = (self.get_output_type or self.get_output_dtype)
 
     def do_getters_with_self_no_input(self, *, self_val):
-        if (not self.skip_get_output_type):
+        if (self.get_output_type):
             out_type = self_val.output_type
 
             if (out_type == "input"):
@@ -799,38 +797,38 @@ class HasGettersDecoratorMixin(object):
 
             set_api_output_type(out_type)
 
-        if (not self.skip_get_output_dtype):
+        if (self.get_output_dtype):
             set_api_output_dtype(self_val._get_target_dtype())
 
     def do_getters_with_self(self, *, self_val, input_val):
-        if (not self.skip_get_output_type):
+        if (self.get_output_type):
             out_type = self_val._get_output_type(input_val)
             assert out_type is not None, \
-                ("`skip_get_output_type` is False but output_type could not "
+                ("`get_output_type` is False but output_type could not "
                  "be determined from input_arg")
             set_api_output_type(out_type)
 
-        if (not self.skip_get_output_dtype):
+        if (self.get_output_dtype):
             set_api_output_dtype(self_val._get_target_dtype())
 
     def do_getters_no_self(self, *, input_val, target_val):
-        if (not self.skip_get_output_type):
+        if (self.get_output_type):
             assert input_val is not None, \
-                "`skip_get_output_type` is False but no input_arg detected"
+                "`get_output_type` is False but no input_arg detected"
             set_api_output_type(
                 cuml.common.input_utils.determine_array_type(input_val))
 
-        if (not self.skip_get_output_dtype):
+        if (self.get_output_dtype):
             assert target_val is not None, \
-                "`skip_get_output_dtype` is False but no target_arg detected"
+                "`get_output_dtype` is False but no target_arg detected"
             set_api_output_dtype(
                 cuml.common.input_utils.determine_array_dtype(target_val))
 
     def has_getters_input(self):
-        return not self.skip_get_output_type
+        return self.get_output_type
 
     def has_getters_target(self, needs_self):
-        return False if needs_self else not self.skip_get_output_dtype
+        return False if needs_self else self.get_output_dtype
 
 
 class ReturnDecorator(metaclass=DecoratorMetaClass):
@@ -866,16 +864,15 @@ class BaseReturnAnyDecorator(ReturnDecorator,
                  *,
                  input_arg: str = ...,
                  target_arg: str = ...,
-                 skip_set_output_type=False,
-                 skip_set_output_dtype=True,
-                 skip_set_n_features_in=False) -> None:
+                 set_output_type=True,
+                 set_output_dtype=False,
+                 set_n_features_in=True) -> None:
 
         ReturnDecorator.__init__(self)
-        HasSettersDecoratorMixin.__init__(
-            self,
-            skip_set_output_type=skip_set_output_type,
-            skip_set_output_dtype=skip_set_output_dtype,
-            skip_set_n_features_in=skip_set_n_features_in)
+        HasSettersDecoratorMixin.__init__(self,
+                                          set_output_type=set_output_type,
+                                          set_output_dtype=set_output_dtype,
+                                          set_n_features_in=set_n_features_in)
         WithArgsDecoratorMixin.__init__(self,
                                         input_arg=input_arg,
                                         target_arg=target_arg,
@@ -924,14 +921,13 @@ class ReturnArrayDecorator(ReturnDecorator,
                  *,
                  input_arg: str = ...,
                  target_arg: str = ...,
-                 skip_get_output_type=True,
-                 skip_get_output_dtype=True) -> None:
+                 get_output_type=False,
+                 get_output_dtype=False) -> None:
 
         ReturnDecorator.__init__(self)
-        HasGettersDecoratorMixin.__init__(
-            self,
-            skip_get_output_type=skip_get_output_type,
-            skip_get_output_dtype=skip_get_output_dtype)
+        HasGettersDecoratorMixin.__init__(self,
+                                          get_output_type=get_output_type,
+                                          get_output_dtype=get_output_dtype)
         WithArgsDecoratorMixin.__init__(
             self,
             input_arg=input_arg,
@@ -991,22 +987,20 @@ class BaseReturnArrayDecorator(ReturnDecorator,
                  *,
                  input_arg: str = ...,
                  target_arg: str = ...,
-                 skip_get_output_type=False,
-                 skip_get_output_dtype=True,
-                 skip_set_output_type=True,
-                 skip_set_output_dtype=True,
-                 skip_set_n_features_in=True) -> None:
+                 get_output_type=True,
+                 get_output_dtype=False,
+                 set_output_type=False,
+                 set_output_dtype=False,
+                 set_n_features_in=False) -> None:
 
         ReturnDecorator.__init__(self)
-        HasSettersDecoratorMixin.__init__(
-            self,
-            skip_set_output_type=skip_set_output_type,
-            skip_set_output_dtype=skip_set_output_dtype,
-            skip_set_n_features_in=skip_set_n_features_in)
-        HasGettersDecoratorMixin.__init__(
-            self,
-            skip_get_output_type=skip_get_output_type,
-            skip_get_output_dtype=skip_get_output_dtype)
+        HasSettersDecoratorMixin.__init__(self,
+                                          set_output_type=set_output_type,
+                                          set_output_dtype=set_output_dtype,
+                                          set_n_features_in=set_n_features_in)
+        HasGettersDecoratorMixin.__init__(self,
+                                          get_output_type=get_output_type,
+                                          get_output_dtype=get_output_dtype)
         WithArgsDecoratorMixin.__init__(
             self,
             input_arg=input_arg,
@@ -1140,19 +1134,19 @@ class BaseReturnArrayFitTransformDecorator(BaseReturnArrayDecorator):
                  *,
                  input_arg: str = ...,
                  target_arg: str = ...,
-                 skip_get_output_type=False,
-                 skip_get_output_dtype=True,
-                 skip_set_output_type=False,
-                 skip_set_output_dtype=True,
-                 skip_set_n_features_in=False) -> None:
+                 get_output_type=True,
+                 get_output_dtype=False,
+                 set_output_type=True,
+                 set_output_dtype=False,
+                 set_n_features_in=True) -> None:
 
         super().__init__(input_arg=input_arg,
                          target_arg=target_arg,
-                         skip_get_output_type=skip_get_output_type,
-                         skip_get_output_dtype=skip_get_output_dtype,
-                         skip_set_output_type=skip_set_output_type,
-                         skip_set_output_dtype=skip_set_output_dtype,
-                         skip_set_n_features_in=skip_set_n_features_in)
+                         get_output_type=get_output_type,
+                         get_output_dtype=get_output_dtype,
+                         set_output_type=set_output_type,
+                         set_output_dtype=set_output_dtype,
+                         set_n_features_in=set_n_features_in)
 
 
 api_return_any = ReturnAnyDecorator
@@ -1166,15 +1160,14 @@ api_base_fit_transform = BaseReturnArrayFitTransformDecorator
 api_return_sparse_array = ReturnSparseArrayDecorator
 api_base_return_sparse_array = BaseReturnSparseArrayDecorator
 
-api_return_array_skipall = ReturnArrayDecorator(skip_get_output_dtype=True,
-                                                skip_get_output_type=True)
+api_return_array_skipall = ReturnArrayDecorator(get_output_dtype=False,
+                                                get_output_type=False)
 
-api_base_return_any_skipall = BaseReturnAnyDecorator(
-    skip_set_output_type=True, skip_set_n_features_in=True)
-api_base_return_array_skipall = BaseReturnArrayDecorator(
-    skip_get_output_type=True)
+api_base_return_any_skipall = BaseReturnAnyDecorator(set_output_type=False,
+                                                     set_n_features_in=False)
+api_base_return_array_skipall = BaseReturnArrayDecorator(get_output_type=False)
 api_base_return_generic_skipall = BaseReturnGenericDecorator(
-    skip_get_output_type=True)
+    get_output_type=False)
 
 
 def api_ignore(func: _F) -> _F:

@@ -318,7 +318,7 @@ cdef class BaseRandomProjection():
 
         return X_new
 
-    @cuml.internals.api_base_return_array(skip_get_output_type=True)
+    @cuml.internals.api_base_return_array(get_output_type=False)
     def fit_transform(self, X, convert_dtype=True):
         return self.fit(X).transform(X, convert_dtype)
 

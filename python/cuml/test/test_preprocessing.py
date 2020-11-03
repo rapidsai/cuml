@@ -15,15 +15,16 @@
 
 import pytest
 
-from cuml.experimental.preprocessing import StandardScaler as cuStandardScaler, \
-                            MinMaxScaler as cuMinMaxScaler, \
-                            MaxAbsScaler as cuMaxAbsScaler, \
-                            Normalizer as cuNormalizer, \
-                            Binarizer as cuBinarizer, \
-                            PolynomialFeatures as cuPolynomialFeatures, \
-                            SimpleImputer as cuSimpleImputer, \
-                            RobustScaler as cuRobustScaler, \
-                            KBinsDiscretizer as cuKBinsDiscretizer
+from cuml.experimental.preprocessing import \
+    StandardScaler as cuStandardScaler, \
+    MinMaxScaler as cuMinMaxScaler, \
+    MaxAbsScaler as cuMaxAbsScaler, \
+    Normalizer as cuNormalizer, \
+    Binarizer as cuBinarizer, \
+    PolynomialFeatures as cuPolynomialFeatures, \
+    SimpleImputer as cuSimpleImputer, \
+    RobustScaler as cuRobustScaler, \
+    KBinsDiscretizer as cuKBinsDiscretizer
 from cuml.experimental.preprocessing import scale as cu_scale, \
                             minmax_scale as cu_minmax_scale, \
                             normalize as cu_normalize, \
@@ -46,16 +47,18 @@ from sklearn.preprocessing import scale as sk_scale, \
 from sklearn.impute import SimpleImputer as skSimpleImputer
 from sklearn.preprocessing import KBinsDiscretizer as skKBinsDiscretizer
 
-from cuml.thirdparty_adapters.sparsefuncs_fast import csr_mean_variance_axis0, \
-                                                csc_mean_variance_axis0, \
-                                                _csc_mean_variance_axis0, \
-                                                inplace_csr_row_normalize_l1, \
-                                                inplace_csr_row_normalize_l2
+from cuml.thirdparty_adapters.sparsefuncs_fast import \
+    csr_mean_variance_axis0, \
+    csc_mean_variance_axis0, \
+    _csc_mean_variance_axis0, \
+    inplace_csr_row_normalize_l1, \
+    inplace_csr_row_normalize_l2
 
-from cuml.test.test_preproc_utils import clf_dataset, int_dataset, blobs_dataset, \
-                                sparse_clf_dataset, \
-                                sparse_blobs_dataset, \
-                                sparse_int_dataset  # noqa: F401
+from cuml.test.test_preproc_utils import \
+    clf_dataset, int_dataset, blobs_dataset, \
+    sparse_clf_dataset, \
+    sparse_blobs_dataset, \
+    sparse_int_dataset  # noqa: F401
 from cuml.test.test_preproc_utils import assert_allclose
 from cuml.common.import_utils import check_cupy8
 

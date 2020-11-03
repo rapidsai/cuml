@@ -17,14 +17,9 @@
 import numbers
 import os
 import sys
-import _pytest.config
-import _pytest.terminal
-import _pytest.python
 import cupy as cp
 import cupyx
 import pytest
-import rmm
-import rmm._lib
 from pytest import Item
 from sklearn.datasets import fetch_20newsgroups
 from sklearn.feature_extraction.text import CountVectorizer

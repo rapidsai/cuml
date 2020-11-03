@@ -21,7 +21,8 @@ def pytest_addoption(parser):
         "--check_memory",
         action="store_true",
         default=False,
-        help="Adds a memory checker plugin that reports tests with memory leaks"
+        help=("Adds a memory checker plugin that reports tests with memory "
+              "leaks")
     )
 
 

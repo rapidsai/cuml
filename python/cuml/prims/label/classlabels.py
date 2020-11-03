@@ -114,7 +114,7 @@ def _validate_kernel(dtype):
 
 
 @cuml.internals.api_return_generic(input_arg="labels",
-                                   skip_get_output_type=False)
+                                   get_output_type=True)
 def make_monotonic(labels,
                    classes=None,
                    copy=False) -> typing.Tuple[CumlArray, CumlArray]:
@@ -205,7 +205,7 @@ def check_labels(labels, classes) -> bool:
 
 
 @cuml.internals.api_return_array(input_arg="labels",
-                                 skip_get_output_type=False)
+                                 get_output_type=True)
 def invert_labels(labels, classes, copy=False) -> CumlArray:
     """
     Takes a set of labels that have been mapped to be drawn
