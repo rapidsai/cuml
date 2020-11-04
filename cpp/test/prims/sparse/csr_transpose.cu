@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include <common/cudart_utils.h>
+#include <raft/cudart_utils.h>
 #include <cusparse_v2.h>
 #include <common/device_buffer.hpp>
 

@@ -18,7 +18,7 @@
 
 #include <cuda_runtime.h>
 #include <cstddef>
-#include <cuda_utils.cuh>
+#include <raft/cuda_utils.cuh>
 
 #include <cub/cub.cuh>
 #include <limits>

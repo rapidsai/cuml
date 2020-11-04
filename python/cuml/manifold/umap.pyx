@@ -37,6 +37,7 @@ from cupyx.scipy.sparse import csr_matrix as cp_csr_matrix,\
 from cuml.common.base import Base
 from cuml.raft.common.handle cimport handle_t
 from cuml.common.doc_utils import generate_docstring
+from cuml.common import logger
 from cuml.common.input_utils import input_to_cuml_array
 from cuml.common.memory_utils import with_cupy_rmm
 from cuml.common.import_utils import has_scipy
@@ -749,14 +750,18 @@ class UMAP(Base):
             raise ValueError("X should be two dimensional")
 
         if is_sparse(X) and not self._sparse_fit:
-            raise ValueError("A model trained on dense data currently "
-                             "requires dense input to transform()")
+            logger.warn("Model was trained on dense data but sparse "
+                        "data was provided to transform(). Converting "
+                        "to dense.")
+            X = X.todense()
+
         elif not is_sparse(X) and self._sparse_fit:
-            raise ValueError("A model trained on sparse data currently "
-                             "requires sparse input to transform()")
+            logger.warn("Model was trained on sparse data but dense "
+                        "data was provided to transform(). Converting "
+                        "to sparse.")
+            X = cupyx.scipy.sparse.csr_matrix(X)
 
         if is_sparse(X):
-
             X_m = SparseCumlArray(X, convert_to_dtype=cupy.float32,
                                   convert_format=False)
         else:

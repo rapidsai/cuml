@@ -72,7 +72,8 @@ double r2_score_py(const raft::handle_t &handle, double *y, double *y_hat,
 * @return: The rand index value
 */
 
-double randIndex(const raft::handle_t &handle, double *y, double *y_hat, int n);
+double rand_index(const raft::handle_t &handle, double *y, double *y_hat,
+                  int n);
 
 /**
 * Calculates the "Silhouette Score"
@@ -92,9 +93,9 @@ double randIndex(const raft::handle_t &handle, double *y, double *y_hat, int n);
 * @param metric: the numerical value that maps to the type of distance metric to be used in the calculations
 * @param silScores: Array that is optionally taken in as input if required to be populated with the silhouette score for every sample (1 x nRows), else nullptr is passed
 */
-double silhouetteScore(const raft::handle_t &handle, double *y, int nRows,
-                       int nCols, int *labels, int nLabels, double *silScores,
-                       int metric);
+double silhouette_score(const raft::handle_t &handle, double *y, int nRows,
+                        int nCols, int *labels, int nLabels, double *silScores,
+                        int metric);
 /**
 * Calculates the "adjusted rand index"
 *
@@ -107,10 +108,10 @@ double silhouetteScore(const raft::handle_t &handle, double *y, int nRows,
 * @return: The adjusted rand index value
 * @{
 */
-double adjustedRandIndex(const raft::handle_t &handle, const int64_t *y,
-                         const int64_t *y_hat, const int64_t n);
-double adjustedRandIndex(const raft::handle_t &handle, const int *y,
-                         const int *y_hat, const int n);
+double adjusted_rand_index(const raft::handle_t &handle, const int64_t *y,
+                           const int64_t *y_hat, const int64_t n);
+double adjusted_rand_index(const raft::handle_t &handle, const int *y,
+                           const int *y_hat, const int n);
 /** @} */
 
 /**
@@ -126,8 +127,8 @@ double adjustedRandIndex(const raft::handle_t &handle, const int *y,
 * @param n: Number of elements in y and y_hat
 * @return: The KL Divergence value
 */
-double klDivergence(const raft::handle_t &handle, const double *y,
-                    const double *y_hat, int n);
+double kl_divergence(const raft::handle_t &handle, const double *y,
+                     const double *y_hat, int n);
 
 /**
 * Calculates the "Kullback-Leibler Divergence"
@@ -142,8 +143,8 @@ double klDivergence(const raft::handle_t &handle, const double *y,
 * @param n: Number of elements in y and y_hat
 * @return: The KL Divergence value
 */
-float klDivergence(const raft::handle_t &handle, const float *y,
-                   const float *y_hat, int n);
+float kl_divergence(const raft::handle_t &handle, const float *y,
+                    const float *y_hat, int n);
 
 /**
 * Calculates the "entropy" of a labelling
@@ -174,10 +175,10 @@ double entropy(const raft::handle_t &handle, const int *y, const int n,
 * @param upper_class_range: the highest value in the range of classes
 * @return: The mutual information score
 */
-double mutualInfoScore(const raft::handle_t &handle, const int *y,
-                       const int *y_hat, const int n,
-                       const int lower_class_range,
-                       const int upper_class_range);
+double mutual_info_score(const raft::handle_t &handle, const int *y,
+                         const int *y_hat, const int n,
+                         const int lower_class_range,
+                         const int upper_class_range);
 
 /**
 * Calculates the "homogeneity score" between two clusters
@@ -193,10 +194,10 @@ double mutualInfoScore(const raft::handle_t &handle, const int *y,
 * @param upper_class_range: the highest value in the range of classes
 * @return: The homogeneity score
 */
-double homogeneityScore(const raft::handle_t &handle, const int *y,
-                        const int *y_hat, const int n,
-                        const int lower_class_range,
-                        const int upper_class_range);
+double homogeneity_score(const raft::handle_t &handle, const int *y,
+                         const int *y_hat, const int n,
+                         const int lower_class_range,
+                         const int upper_class_range);
 
 /**
 * Calculates the "completeness score" between two clusters
@@ -212,10 +213,10 @@ double homogeneityScore(const raft::handle_t &handle, const int *y,
 * @param upper_class_range: the highest value in the range of classes
 * @return: The completeness score
 */
-double completenessScore(const raft::handle_t &handle, const int *y,
-                         const int *y_hat, const int n,
-                         const int lower_class_range,
-                         const int upper_class_range);
+double completeness_score(const raft::handle_t &handle, const int *y,
+                          const int *y_hat, const int n,
+                          const int lower_class_range,
+                          const int upper_class_range);
 
 /**
 * Calculates the "v-measure" between two clusters
@@ -231,9 +232,9 @@ double completenessScore(const raft::handle_t &handle, const int *y,
 * @param upper_class_range: the highest value in the range of classes
 * @return: The v-measure
 */
-double vMeasure(const raft::handle_t &handle, const int *y, const int *y_hat,
-                const int n, const int lower_class_range,
-                const int upper_class_range);
+double v_measure(const raft::handle_t &handle, const int *y, const int *y_hat,
+                 const int n, const int lower_class_range,
+                 const int upper_class_range);
 
 /**
 * Calculates the "accuracy" between two input numpy arrays/ cudf series
@@ -253,7 +254,7 @@ float accuracy_score_py(const raft::handle_t &handle, const int *predictions,
 /**
  * @brief Calculates the ij pairwise distances between two input arrays of
  *        double type
- * 
+ *
  * @param handle raft::handle_t
  * @param x pointer to the input data samples array (mRows x kCols)
  * @param y pointer to the second input data samples array. Can use the same
@@ -266,14 +267,14 @@ float accuracy_score_py(const raft::handle_t &handle, const int *predictions,
  * @param isRowMajor specifies whether the x and y data pointers are row (C
  *                   type array) or col (F type array) major
  */
-void pairwiseDistance(const raft::handle_t &handle, const double *x,
-                      const double *y, double *dist, int m, int n, int k,
-                      ML::Distance::DistanceType metric,
-                      bool isRowMajor = true);
+void pairwise_distance(const raft::handle_t &handle, const double *x,
+                       const double *y, double *dist, int m, int n, int k,
+                       ML::Distance::DistanceType metric,
+                       bool isRowMajor = true);
 
 /**
  * @brief Calculates the ij pairwise distances between two input arrays of float type
- * 
+ *
  * @param handle raft::handle_t
  * @param x pointer to the input data samples array (mRows x kCols)
  * @param y pointer to the second input data samples array. Can use the same
@@ -286,10 +287,10 @@ void pairwiseDistance(const raft::handle_t &handle, const double *x,
  * @param isRowMajor specifies whether the x and y data pointers are row (C
  *                   type array) or col (F type array) major
  */
-void pairwiseDistance(const raft::handle_t &handle, const float *x,
-                      const float *y, float *dist, int m, int n, int k,
-                      ML::Distance::DistanceType metric,
-                      bool isRowMajor = true);
+void pairwise_distance(const raft::handle_t &handle, const float *x,
+                       const float *y, float *dist, int m, int n, int k,
+                       ML::Distance::DistanceType metric,
+                       bool isRowMajor = true);
 
 }  // namespace Metrics
 }  // namespace ML

@@ -14,15 +14,14 @@
  * limitations under the License.
  */
 
-#include <cuda_utils.cuh>
 #include <cuml/metrics/metrics.hpp>
 #include <metrics/adjustedRandIndex.cuh>
 #include <metrics/klDivergence.cuh>
 #include <metrics/pairwiseDistance.cuh>
 #include <metrics/randIndex.cuh>
+#include <metrics/scores.cuh>
 #include <metrics/silhouetteScore.cuh>
 #include <metrics/vMeasure.cuh>
-#include <score/scores.cuh>
 
 namespace ML {
 

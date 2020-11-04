@@ -21,10 +21,10 @@
 
 #include <sparse/coo.cuh>
 
-#include <linalg/add.cuh>
+#include <raft/linalg/add.cuh>
 
-#include <linalg/transpose.h>
-#include <random/rng.cuh>
+#include <raft/linalg/transpose.h>
+#include <raft/random/rng.cuh>
 
 #include <cuml/cluster/spectral.hpp>
 #include <iostream>

@@ -19,6 +19,12 @@
 namespace MLCommon {
 namespace Sparse {
 
+/**
+ * Quantizes ncols to a valid blockdim, which is
+ * a multiple of 32.
+ *
+ * @param[in] ncols number of blocks to quantize
+ */
 template <typename value_idx>
 inline int block_dim(value_idx ncols) {
   int blockdim;

@@ -37,7 +37,7 @@
 #include <sparse/coo.cuh>
 #include <sparse/csr.cuh>
 
-#include <cuda_utils.cuh>
+#include <raft/cuda_utils.cuh>
 
 #include <cuda_runtime.h>
 #include <common/nvtx.hpp>
@@ -81,7 +81,7 @@ void find_ab(UMAPParams *params, std::shared_ptr<deviceAllocator> d_alloc,
 }
 
 template <typename value_idx, typename value_t, typename umap_inputs, int TPB_X>
-void _fit(const raft::handle_t &handle, umap_inputs &inputs, UMAPParams *params,
+void _fit(const raft::handle_t &handle, const umap_inputs &inputs, UMAPParams *params,
           value_t *embeddings) {
   ML::PUSH_RANGE("umap::unsupervised::fit");
   cudaStream_t stream = handle.get_stream();
@@ -166,7 +166,7 @@ void _fit(const raft::handle_t &handle, umap_inputs &inputs, UMAPParams *params,
 }
 
 template <typename value_idx, typename value_t, typename umap_inputs, int TPB_X>
-void _fit_supervised(const raft::handle_t &handle, umap_inputs &inputs,
+void _fit_supervised(const raft::handle_t &handle, const umap_inputs &inputs,
                      UMAPParams *params, value_t *embeddings) {
   ML::PUSH_RANGE("umap::supervised::fit");
   auto d_alloc = handle.get_device_allocator();
@@ -288,7 +288,7 @@ void _fit_supervised(const raft::handle_t &handle, umap_inputs &inputs,
 	 *
 	 */
 template <typename value_idx, typename value_t, typename umap_inputs, int TPB_X>
-void _transform(const raft::handle_t &handle, umap_inputs &inputs,
+void _transform(const raft::handle_t &handle, const umap_inputs &inputs,
                 umap_inputs &orig_x_inputs, value_t *embedding, int embedding_n,
                 UMAPParams *params, value_t *transformed) {
   ML::PUSH_RANGE("umap::transform");

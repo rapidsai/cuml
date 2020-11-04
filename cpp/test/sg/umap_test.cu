@@ -18,17 +18,17 @@
 #include <iostream>
 #include <vector>
 
-#include <common/cudart_utils.h>
 #include <cuml/manifold/umapparams.h>
 #include <datasets/digits.h>
+#include <raft/cudart_utils.h>
 #include <common/device_buffer.hpp>
-#include <cuda_utils.cuh>
 #include <cuml/common/cuml_allocator.hpp>
 #include <cuml/common/logger.hpp>
 #include <cuml/cuml.hpp>
 #include <cuml/neighbors/knn.hpp>
 #include <distance/distance.cuh>
 #include <metrics/trustworthiness.cuh>
+#include <raft/cuda_utils.cuh>
 #include <umap/runner.cuh>
 
 using namespace ML;

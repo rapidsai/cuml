@@ -15,7 +15,7 @@
  */
 
 #include <cuml/manifold/umapparams.h>
-#include <random/rng.cuh>
+#include <raft/random/rng.cuh>
 
 #pragma once
 

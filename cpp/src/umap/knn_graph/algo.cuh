@@ -17,11 +17,11 @@
 #include <cuml/manifold/umapparams.h>
 #include <cuml/manifold/common.hpp>
 #include <iostream>
-#include <linalg/unary_op.cuh>
+#include <raft/linalg/unary_op.cuh>
 #include <selection/knn.cuh>
 #include <sparse/knn.cuh>
 
-#include <common/cudart_utils.h>
+#include <raft/cudart_utils.h>
 
 #include <raft/sparse/cusparse_wrappers.h>
 #include <raft/error.hpp>
