@@ -22,6 +22,7 @@
 - PR #3052: Speeding up MNMG KNN Cl&Re testing
 
 ## Bug Fixes
+- PR #3065: Refactoring prims metrics function names from camelcase to underscore format
 - PR #3033: Splitting ml metrics to individual files
 - PR #3072: Fusing metrics and score directories in src_prims
 - PR #3037: Avoid logging deadlock in multi-threaded C code

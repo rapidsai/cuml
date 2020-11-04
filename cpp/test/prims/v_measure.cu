@@ -18,7 +18,7 @@
 #include <algorithm>
 #include <cuml/common/cuml_allocator.hpp>
 #include <iostream>
-#include <metrics/completenessScore.cuh>
+#include <metrics/v_measure.cuh>
 #include <random>
 #include "test_utils.h"
 
@@ -26,22 +26,23 @@ namespace MLCommon {
 namespace Metrics {
 
 //parameter structure definition
-struct completenessParam {
+struct vMeasureParam {
   int nElements;
   int lowerLabelRange;
   int upperLabelRange;
+  double beta;
   bool sameArrays;
   double tolerance;
 };
 
 //test fixture class
 template <typename T>
-class completenessTest : public ::testing::TestWithParam<completenessParam> {
+class vMeasureTest : public ::testing::TestWithParam<vMeasureParam> {
  protected:
   //the constructor
   void SetUp() override {
     //getting the parameters
-    params = ::testing::TestWithParam<completenessParam>::GetParam();
+    params = ::testing::TestWithParam<vMeasureParam>::GetParam();
 
     nElements = params.nElements;
     lowerLabelRange = params.lowerLabelRange;
@@ -76,26 +77,24 @@ class completenessTest : public ::testing::TestWithParam<completenessParam> {
       new raft::mr::device::default_allocator);
 
     //calculating the golden output
-    double truthMI, truthEntropy;
+    double truthHomogeity, truthCompleteness;
 
-    truthMI = MLCommon::Metrics::mutualInfoScore(
+    truthHomogeity = MLCommon::Metrics::homogeneity_score(
       truthClusterArray, predClusterArray, nElements, lowerLabelRange,
       upperLabelRange, allocator, stream);
-    truthEntropy =
-      MLCommon::Metrics::entropy(predClusterArray, nElements, lowerLabelRange,
-                                 upperLabelRange, allocator, stream);
-
-    if (truthEntropy) {
-      truthCompleteness = truthMI / truthEntropy;
-    } else
-      truthCompleteness = 1.0;
-
-    if (nElements == 0) truthCompleteness = 1.0;
-
-    //calling the completeness CUDA implementation
-    computedCompleteness = MLCommon::Metrics::completenessScore(
-      truthClusterArray, predClusterArray, nElements, lowerLabelRange,
+    truthCompleteness = MLCommon::Metrics::homogeneity_score(
+      predClusterArray, truthClusterArray, nElements, lowerLabelRange,
       upperLabelRange, allocator, stream);
+
+    if (truthCompleteness + truthHomogeity == 0.0)
+      truthVMeasure = 0.0;
+    else
+      truthVMeasure = ((1 + params.beta) * truthHomogeity * truthCompleteness /
+                       (params.beta * truthHomogeity + truthCompleteness));
+    //calling the v_measure CUDA implementation
+    computedVMeasure = MLCommon::Metrics::v_measure(
+      truthClusterArray, predClusterArray, nElements, lowerLabelRange,
+      upperLabelRange, allocator, stream, params.beta);
   }
 
   //the destructor
@@ -106,31 +105,31 @@ class completenessTest : public ::testing::TestWithParam<completenessParam> {
   }
 
   //declaring the data values
-  completenessParam params;
+  vMeasureParam params;
   T lowerLabelRange, upperLabelRange;
   T* truthClusterArray = nullptr;
   T* predClusterArray = nullptr;
   int nElements = 0;
-  double truthCompleteness = 0;
-  double computedCompleteness = 0;
+  double truthVMeasure = 0;
+  double computedVMeasure = 0;
   cudaStream_t stream;
 };
 
 //setting test parameter values
-const std::vector<completenessParam> inputs = {
-  {199, 1, 10, false, 0.000001},  {200, 15, 100, false, 0.000001},
-  {100, 1, 20, false, 0.000001},  {10, 1, 10, false, 0.000001},
-  {198, 1, 100, false, 0.000001}, {300, 3, 99, false, 0.000001},
-  {199, 1, 10, true, 0.000001},   {200, 15, 100, true, 0.000001},
-  {100, 1, 20, true, 0.000001},   {10, 1, 10, true, 0.000001},
-  {198, 1, 100, true, 0.000001},  {300, 3, 99, true, 0.000001}};
+const std::vector<vMeasureParam> inputs = {
+  {199, 1, 10, 1.0, false, 0.000001},  {200, 15, 100, 1.0, false, 0.000001},
+  {100, 1, 20, 1.0, false, 0.000001},  {10, 1, 10, 1.0, false, 0.000001},
+  {198, 1, 100, 1.0, false, 0.000001}, {300, 3, 99, 1.0, false, 0.000001},
+  {199, 1, 10, 1.0, true, 0.000001},   {200, 15, 100, 1.0, true, 0.000001},
+  {100, 1, 20, 1.0, true, 0.000001},   {10, 1, 10, 1.0, true, 0.000001},
+  {198, 1, 100, 1.0, true, 0.000001},  {300, 3, 99, 1.0, true, 0.000001}};
 
 //writing the test suite
-typedef completenessTest<int> completenessTestClass;
-TEST_P(completenessTestClass, Result) {
-  ASSERT_NEAR(computedCompleteness, truthCompleteness, params.tolerance);
+typedef vMeasureTest<int> vMeasureTestClass;
+TEST_P(vMeasureTestClass, Result) {
+  ASSERT_NEAR(computedVMeasure, truthVMeasure, params.tolerance);
 }
-INSTANTIATE_TEST_CASE_P(completeness, completenessTestClass,
+INSTANTIATE_TEST_CASE_P(vMeasure, vMeasureTestClass,
                         ::testing::ValuesIn(inputs));
 
 }  //end namespace Metrics
