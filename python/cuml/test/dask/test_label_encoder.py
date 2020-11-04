@@ -59,7 +59,7 @@ def test_labelencoder_transform(length, cardinality, client):
     encoder_arr = cp.asnumpy(encoded.compute().to_array())
     encoded_arr = _arr_to_similarity_mat(encoder_arr)
     assert (
-        (encoded_arr == encoded_arr.T) == (df_arr == df_arr.T)
+        (encoded_arr == encoded_arr.T) = r= (df_arr == df_arr.T)
     ).all()
 
 
