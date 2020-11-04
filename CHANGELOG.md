@@ -21,6 +21,7 @@
 - PR #3074: Reducing dask coordinate descent test runtime
 - PR #3052: Speeding up MNMG KNN Cl&Re testing
 - PR #3115: Speeding up MNMG UMAP testing
+- PR #3112: Speed test_array
 
 ## Bug Fixes
 - PR #3065: Refactoring prims metrics function names from camelcase to underscore format
