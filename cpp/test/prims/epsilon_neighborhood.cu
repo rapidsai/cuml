@@ -19,7 +19,7 @@
 #include <common/device_buffer.hpp>
 #include <distance/epsilon_neighborhood.cuh>
 #include <random/make_blobs.cuh>
-#include "test_utils.h"
+#include "test_utils.cuh"
 
 namespace MLCommon {
 namespace Distance {

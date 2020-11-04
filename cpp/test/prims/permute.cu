@@ -20,7 +20,7 @@
 #include <raft/random/rng.cuh>
 #include <random/permute.cuh>
 #include <vector>
-#include "test_utils.h"
+#include "test_utils.cuh"
 
 namespace MLCommon {
 namespace Random {

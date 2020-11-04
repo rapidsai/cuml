@@ -15,7 +15,7 @@
  */
 
 #include "distance_base.cuh"
-#include "test_utils.h"
+#include "test_utils.cuh"
 
 namespace MLCommon {
 namespace Distance {

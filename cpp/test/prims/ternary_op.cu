@@ -18,7 +18,7 @@
 #include <raft/cudart_utils.h>
 #include <linalg/ternary_op.cuh>
 #include <raft/random/rng.cuh>
-#include "test_utils.h"
+#include "test_utils.cuh"
 
 namespace MLCommon {
 namespace LinAlg {

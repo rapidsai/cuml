@@ -20,7 +20,7 @@
 #include <iostream>
 #include <metrics/scores.cuh>
 #include <vector>
-#include "test_utils.h"
+#include "test_utils.cuh"
 
 namespace MLCommon {
 namespace Score {

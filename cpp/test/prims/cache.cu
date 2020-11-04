@@ -20,7 +20,7 @@
 #include <cuml/common/cuml_allocator.hpp>
 #include <iostream>
 #include <raft/cuda_utils.cuh>
-#include "test_utils.h"
+#include "test_utils.cuh"
 
 namespace MLCommon {
 namespace Cache {

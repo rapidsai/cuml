@@ -21,7 +21,7 @@
 #include <metrics/entropy.cuh>
 #include <raft/cuda_utils.cuh>
 #include <random>
-#include "test_utils.h"
+#include "test_utils.cuh"
 
 namespace MLCommon {
 namespace Metrics {

@@ -21,7 +21,7 @@
 #include <metrics/contingencyMatrix.cuh>
 #include <metrics/mutual_info_score.cuh>
 #include <random>
-#include "test_utils.h"
+#include "test_utils.cuh"
 
 namespace MLCommon {
 namespace Metrics {

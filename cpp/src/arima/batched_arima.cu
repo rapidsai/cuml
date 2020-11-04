@@ -25,8 +25,8 @@
 #include <thrust/iterator/counting_iterator.h>
 
 #include <cuml/cuml.hpp>
-#include <cuml/tsa/batched_arima.hpp>
-#include <cuml/tsa/batched_kalman.hpp>
+#include <cuml/tsa/batched_arima.cuh>
+#include <cuml/tsa/batched_kalman.cuh>
 
 #include <raft/cudart_utils.h>
 #include <common/cumlHandle.hpp>

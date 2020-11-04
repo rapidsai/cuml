@@ -18,7 +18,7 @@
 #include <raft/cudart_utils.h>
 #include <functions/log.cuh>
 #include <raft/cuda_utils.cuh>
-#include "test_utils.h"
+#include "test_utils.cuh"
 
 namespace MLCommon {
 namespace Functions {

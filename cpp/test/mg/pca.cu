@@ -17,7 +17,6 @@
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
 #include <raft/linalg/cublas_wrappers.h>
-#include <test_utils.h>
 #include <common/device_buffer.hpp>
 #include <cuml/common/logger.hpp>
 #include <cuml/decomposition/pca_mg.hpp>
@@ -25,7 +24,8 @@
 #include <opg/matrix/matrix_utils.hpp>
 #include <raft/cuda_utils.cuh>
 #include <raft/matrix/matrix.cuh>
-#include "test_opg_utils.h"
+#include <test_utils.cuh>
+#include "test_opg_utils.cuh"
 
 #include <common/cumlHandle.hpp>
 

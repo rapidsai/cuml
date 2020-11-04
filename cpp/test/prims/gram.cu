@@ -25,7 +25,7 @@
 #include <matrix/kernelfactory.cuh>
 #include <memory>
 #include <raft/cuda_utils.cuh>
-#include "test_utils.h"
+#include "test_utils.cuh"
 
 namespace MLCommon {
 namespace Matrix {

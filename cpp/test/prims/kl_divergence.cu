@@ -20,7 +20,7 @@
 #include <iostream>
 #include <metrics/kl_divergence.cuh>
 #include <random>
-#include "test_utils.h"
+#include "test_utils.cuh"
 
 namespace MLCommon {
 namespace Metrics {

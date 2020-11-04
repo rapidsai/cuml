@@ -16,7 +16,7 @@
 
 #include <gtest/gtest.h>
 
-#include "test_opg_utils.h"
+#include "test_opg_utils.cuh"
 
 int main(int argc, char **argv) {
   ::testing::InitGoogleTest(&argc, argv);

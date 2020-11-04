@@ -28,7 +28,7 @@
 #include <raft/linalg/cublas_wrappers.h>
 #include <raft/linalg/transpose.h>
 
-#include <test_utils.h>
+#include <test_utils.cuh>
 
 #include <common/device_buffer.hpp>
 #include <cuml/common/logger.hpp>

@@ -21,7 +21,7 @@
 #include <iostream>
 #include <metrics/rand_index.cuh>
 #include <random>
-#include "test_utils.h"
+#include "test_utils.cuh"
 
 namespace MLCommon {
 namespace Metrics {
