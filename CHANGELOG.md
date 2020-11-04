@@ -38,6 +38,7 @@
 - PR #3062: Bumping xgboost version to match cuml version
 - PR #3084: Fix artifacts in t-SNE results
 - PR #3086: Reverting FIL Notebook Testing
+- PR #3114: Fixed a typo in SVC's predict_proba AttributeError
 
 # cuML 0.16.0 (Date TBD)
 
