@@ -127,9 +127,6 @@ class DBSCANMG(DBSCAN):
                 CumlArray.empty(n_rows, dtype=out_dtype)
             core_sample_indices_ptr = self._core_sample_indices_.ptr
 
-        if out_dtype not in {"int32", "int64", np.int32, np.int64}:
-            raise TypeError("Unrecognized out dtype: {}".format(type(out_dtype)))
-
         if self.dtype == np.float32:
             if out_dtype == "int32" or out_dtype is np.int32:
                 fit(handle_[0],

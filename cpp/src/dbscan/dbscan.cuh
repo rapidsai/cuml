@@ -30,7 +30,7 @@ static const size_t DEFAULT_MAX_MEM_MBYTES = 13e3;
 
 template <typename Index_ = int>
 Index_ computeBatchCount(size_t &estimated_memory, Index_ n_rows,
-                         size_t max_mbytes_per_batch = 0,
+                         Index_ n_owned_rows, size_t max_mbytes_per_batch = 0,
                          Index_ neigh_per_row = 0) {
   // In real applications, it's unlikely that the sparse adjacency matrix
   // comes even close to the worst-case memory usage, because if epsilon
@@ -42,14 +42,13 @@ Index_ computeBatchCount(size_t &estimated_memory, Index_ n_rows,
 
   // we'll estimate the memory consumption per row.
   // First the dense adjacency matrix
-  estimated_memory = n_rows * sizeof(bool);
+  size_t estimated_memory_per_row = n_rows * sizeof(bool);
   // sparse adjacency matrix
-  estimated_memory += neigh_per_row * sizeof(Index_);
+  estimated_memory_per_row += neigh_per_row * sizeof(Index_);
   // core points and two indicator variables
-  estimated_memory += 3 * sizeof(bool);
+  estimated_memory_per_row += 3 * sizeof(bool);
   // the rest will be so small that it should fit into what we have left over
   // from the over-estimation of the sparse adjacency matrix
-  estimated_memory *= n_rows;
 
   if (max_mbytes_per_batch <= 0) {
     /* using default here as in decision tree, waiting for mem info from device allocator
@@ -60,7 +59,7 @@ Index_ computeBatchCount(size_t &estimated_memory, Index_ n_rows,
   }
 
   Index_ nBatches = (Index_)raft::ceildiv<size_t>(
-    estimated_memory, max_mbytes_per_batch * 1000000);
+    estimated_memory_per_row * n_owned_rows, max_mbytes_per_batch * 1000000);
   Index_ MAX_LABEL = std::numeric_limits<Index_>::max();
   // to avoid overflow, we need: batch_size <= MAX_LABEL / n_rows (floor div)
   // -> num_batches >= raft::ceildiv(n_rows / (MAX_LABEL / n_rows))
@@ -84,22 +83,10 @@ Index_ computeBatchCount(size_t &estimated_memory, Index_ n_rows,
   }
   if (nBatchesPrec > nBatches) {
     nBatches = nBatchesPrec;
-    // we have to re-adjust memory estimation here
-    estimated_memory = nBatches * (estimated_memory / n_rows);
   }
+  Index_ n_rows_per_batch = raft::ceildiv<Index_>(n_owned_rows, nBatches);
+  estimated_memory = n_rows_per_batch * estimated_memory_per_row;
   return max((Index_)1, nBatches);
-}
-
-template <typename Index_>
-__global__ void naiveColorKernel(Index_ *labels, Index_ color, Index_ start_row,
-                                 Index_ n_owned_rows, Index_ n_rows,
-                                 Index_ MAX_VAL) {
-  Index_ idx = blockDim.x * blockIdx.x + threadIdx.x;
-  if (idx < n_rows) {
-    Index_ label =
-      (idx >= start_row && idx - start_row < n_owned_rows) ? color : MAX_VAL;
-    labels[idx] = label;
-  }
 }
 
 template <typename T, typename Index_ = int, bool opg = false>
@@ -121,58 +108,42 @@ void dbscanFitImpl(const raft::handle_t &handle, T *input, Index_ n_rows,
     n_rank = comm.get_size();
     Index_ rows_per_rank = raft::ceildiv<Index_>(n_rows, n_rank);
     start_row = my_rank * rows_per_rank;
-    Index_ end_row = std::min((my_rank + 1) * rows_per_rank, n_rows);
-    n_owned_rows = end_row - start_row;
+    Index_ end_row = min((my_rank + 1) * rows_per_rank, n_rows);
+    n_owned_rows = max(Index_(0), end_row - start_row);
+    // Note: it is possible for a node to have no work in theory. It won't
+    // happen in practice (because n_rows is much greater than n_rank)
   } else {
     my_rank = 0;
     n_rank = 1;
     n_owned_rows = n_rows;
   }
 
-  CUML_LOG_CRITICAL("#%d owns %ld rows", (int)my_rank,
-                    (unsigned long)n_owned_rows);
+  CUML_LOG_DEBUG("#%d owns %ld rows", (int)my_rank,
+                 (unsigned long)n_owned_rows);
 
   ///@todo: Query device for remaining memory
   size_t estimated_memory;
-  Index_ n_batches = computeBatchCount<Index_>(estimated_memory, n_owned_rows,
-                                               max_mbytes_per_batch);
+  Index_ n_batches = computeBatchCount<Index_>(
+    estimated_memory, n_rows, n_owned_rows, max_mbytes_per_batch);
 
   if (n_batches > 1) {
     CUML_LOG_DEBUG("Running batched training on %ld batches w/ %lf MB",
-                   (unsigned long)n_batches,
-                   (double)estimated_memory * 1e-6 / n_batches);
+                   (unsigned long)n_batches, (double)estimated_memory * 1e-6);
   }
 
-  // Temporary test: color owned nodes with your color and others with max val,
-  // then use all reduce
-  naiveColorKernel<Index_>
-    <<<raft::ceildiv<Index_>(n_rows, 256), 256, 0, stream>>>(
-      labels, my_rank, start_row, n_owned_rows, n_rows,
-      std::numeric_limits<Index_>::max());
-  CUDA_CHECK(cudaPeekAtLastError());
+  size_t workspaceSize = Dbscan::run<T, Index_, opg>(
+    handle, input, n_rows, n_cols, start_row, n_owned_rows, eps, min_pts,
+    labels, core_sample_indices, algoVd, algoAdj, algoCcl, NULL, n_batches,
+    stream);
 
-  if (opg) {
-    const auto &comm = handle.get_comms();
-    comm.allreduce(labels, labels, n_rows, raft::comms::op_t::MIN, stream);
-    ASSERT(
-      comm.sync_stream(stream) == raft::comms::status_t::SUCCESS,
-      "An error occurred in the distributed operation. This can result from "
-      "a failed rank");
-  }
-
-  return;
-
-  /// TODO: runner agnostic of multi-GPU?
-  /// TODO: merge results at the end
-  size_t workspaceSize = Dbscan::run(
-    handle, input, n_rows, n_cols, eps, min_pts, labels, core_sample_indices,
-    algoVd, algoAdj, algoCcl, NULL, n_batches, stream);
+  CUML_LOG_DEBUG("Workspace size: %lf MB", (double)workspaceSize * 1e-6);
 
   MLCommon::device_buffer<char> workspace(handle.get_device_allocator(), stream,
                                           workspaceSize);
-  Dbscan::run(handle, input, n_rows, n_cols, eps, min_pts, labels,
-              core_sample_indices, algoVd, algoAdj, algoCcl, workspace.data(),
-              n_batches, stream);
+  Dbscan::run<T, Index_, opg>(handle, input, n_rows, n_cols, start_row,
+                              n_owned_rows, eps, min_pts, labels,
+                              core_sample_indices, algoVd, algoAdj, algoCcl,
+                              workspace.data(), n_batches, stream);
   ML::POP_RANGE();
 }
 

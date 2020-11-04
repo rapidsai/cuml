@@ -66,7 +66,9 @@ void final_relabel(Index_* db_cluster, Index_ N, cudaStream_t stream,
     [MAX_LABEL] __device__(Index_ val) { return val == MAX_LABEL; }, allocator);
 }
 
-/* @param N number of points
+/**
+ * @tparam opg Whether we are running in a multi-node multi-GPU context
+ * @param N number of points
  * @param D dimensionality of the points
  * @param eps epsilon neighborhood criterion
  * @param minPts core points criterion
@@ -78,13 +80,15 @@ void final_relabel(Index_* db_cluster, Index_ N, cudaStream_t stream,
  * @param stream the cudaStream where to launch the kernels
  * @return in case the temp buffer is null, this returns the size needed.
  */
-template <typename Type_f, typename Index_ = int>
+template <typename Type_f, typename Index_ = int, bool opg = false>
 size_t run(const raft::handle_t& handle, Type_f* x, Index_ N, Index_ D,
-           Type_f eps, Index_ minPts, Index_* labels,
-           Index_* core_sample_indices, int algoVd, int algoAdj, int algoCcl,
-           void* workspace, Index_ nBatches, cudaStream_t stream) {
+           Index_ start_row, Index_ n_owned_rows, Type_f eps, Index_ minPts,
+           Index_* labels, Index_* core_sample_indices, int algoVd, int algoAdj,
+           int algoCcl, void* workspace, Index_ nBatches, cudaStream_t stream) {
   const size_t align = 256;
-  size_t batchSize = raft::ceildiv<size_t>(N, nBatches);
+  size_t batchSize = raft::ceildiv<size_t>(n_owned_rows, nBatches);
+
+  /// TODO: unify naming convention? Check if there is a cuML conv for the case
 
   /**
    * Note on coupling between data types:
@@ -140,56 +144,48 @@ size_t run(const raft::handle_t& handle, Type_f* x, Index_ N, Index_ D,
   Index_* ex_scan = (Index_*)temp;
   temp += exScanSize;
 
-  // Running VertexDeg
+  // Compute the labelling for the owned part of the graph
+
   MLCommon::Sparse::WeakCCState state(xa, fa, m);
   MLCommon::device_buffer<Index_> adj_graph(handle.get_device_allocator(),
                                             stream);
 
   for (int i = 0; i < nBatches; i++) {
-    ML::PUSH_RANGE("Trace::Dbscan::VertexDeg");
-
-    Index_ startVertexId = i * batchSize;
-    Index_ nPoints = min(size_t(N - startVertexId), batchSize);
-    if (nPoints <= 0) continue;
+    Index_ startVertexId = start_row + i * batchSize;
+    Index_ nPoints = min(size_t(n_owned_rows - i * batchSize), batchSize);
+    if (nPoints <= 0) break;
 
     CUML_LOG_DEBUG("- Iteration %d / %ld. Batch size is %ld samples", i + 1,
                    (unsigned long)nBatches, (unsigned long)nPoints);
 
-    int64_t start_time = raft::curTimeMillis();
-
     CUML_LOG_DEBUG("--> Computing vertex degrees");
+    ML::PUSH_RANGE("Trace::Dbscan::VertexDeg");
+    int64_t start_time = raft::curTimeMillis();
     VertexDeg::run<Type_f, Index_>(handle, adj, vd, x, eps, N, D, algoVd,
                                    startVertexId, nPoints, stream);
     raft::update_host(&curradjlen, vd + nPoints, 1, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
-    ML::POP_RANGE();
-
     int64_t cur_time = raft::curTimeMillis();
+    ML::POP_RANGE();
     CUML_LOG_DEBUG("    |-> Took %ld ms", (cur_time - start_time));
 
     CUML_LOG_DEBUG("--> Computing adjacency graph of size %ld samples.",
                    (unsigned long)curradjlen);
-    start_time = raft::curTimeMillis();
-    // Running AdjGraph
     ML::PUSH_RANGE("Trace::Dbscan::AdjGraph");
+    start_time = raft::curTimeMillis();
     if (curradjlen > maxadjlen || adj_graph.data() == NULL) {
       maxadjlen = curradjlen;
       adj_graph.resize(maxadjlen, stream);
     }
-
     AdjGraph::run<Index_>(handle, adj, vd, adj_graph.data(), curradjlen,
                           ex_scan, N, minPts, core_pts + startVertexId, algoAdj,
                           nPoints, stream);
-
-    ML::POP_RANGE();
-
-    ML::PUSH_RANGE("Trace::Dbscan::WeakCC");
-
     cur_time = raft::curTimeMillis();
+    ML::POP_RANGE();
     CUML_LOG_DEBUG("    |-> Took %ld ms.", (cur_time - start_time));
 
     CUML_LOG_DEBUG("--> Computing connected components");
-
+    ML::PUSH_RANGE("Trace::Dbscan::WeakCC");
     start_time = raft::curTimeMillis();
     MLCommon::Sparse::weak_cc_batched<Index_, 1024>(
       labels, ex_scan, adj_graph.data(), curradjlen, N, startVertexId, nPoints,
@@ -198,11 +194,24 @@ size_t run(const raft::handle_t& handle, Type_f* x, Index_ N, Index_ D,
         return global_id < startVertexId + nPoints ? core_pts[global_id]
                                                    : false;
       });
-    ML::POP_RANGE();
-
     cur_time = raft::curTimeMillis();
+    ML::POP_RANGE();
     CUML_LOG_DEBUG("    |-> Took %ld ms.", (cur_time - start_time));
   }
+
+  // Combine the results in the multi-node multi-GPU case
+
+  if (opg) {
+    // Temporary: naive merge
+    const auto& comm = handle.get_comms();
+    comm.allreduce(labels, labels, N, raft::comms::op_t::MIN, stream);
+    ASSERT(
+      comm.sync_stream(stream) == raft::comms::status_t::SUCCESS,
+      "An error occurred in the distributed operation. This can result from "
+      "a failed rank");
+  }
+
+  // Final relabel
 
   ML::PUSH_RANGE("Trace::Dbscan::FinalRelabel");
   if (algoCcl == 2)

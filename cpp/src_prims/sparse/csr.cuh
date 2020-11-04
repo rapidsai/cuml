@@ -27,6 +27,7 @@
 #include <cuda_runtime.h>
 #include <stdio.h>
 
+#include <algorithm>
 #include <iostream>
 
 namespace MLCommon {
@@ -709,8 +710,10 @@ struct WeakCCState {
   bool *xa;
   bool *fa;
   bool *m;
+  bool initialized;
 
-  WeakCCState(bool *xa, bool *fa, bool *m) : xa(xa), fa(fa), m(m) {}
+  WeakCCState(bool *xa, bool *fa, bool *m)
+    : xa(xa), fa(fa), m(m), initialized(false) {}
 };
 
 template <typename Index_, int TPB_X = 32, typename Lambda>
@@ -802,8 +805,6 @@ void weak_cc_label_batched(Index_ *labels, const Index_ *row_ind,
          "Index_ should be 4 or 8 bytes");
 
   bool host_m;
-  bool *host_fa = (bool *)malloc(sizeof(bool) * N);
-  bool *host_xa = (bool *)malloc(sizeof(bool) * N);
 
   dim3 blocks(raft::ceildiv(batchSize, Index_(TPB_X)));
   dim3 threads(TPB_X);
@@ -821,13 +822,9 @@ void weak_cc_label_batched(Index_ *labels, const Index_ *row_ind,
       labels, row_ind, row_ind_ptr, nnz, state->fa, state->xa, state->m,
       startVertexId, batchSize, N, filter_op);
     CUDA_CHECK(cudaPeekAtLastError());
-    CUDA_CHECK(cudaStreamSynchronize(stream));
 
     //** swapping F1 and F2
-    raft::update_host(host_fa, state->fa, N, stream);
-    raft::update_host(host_xa, state->xa, N, stream);
-    raft::update_device(state->fa, host_xa, N, stream);
-    raft::update_device(state->xa, host_fa, N, stream);
+    std::swap(state->fa, state->xa);
 
     //** Updating m *
     raft::update_host(&host_m, state->m, 1, stream);
@@ -835,9 +832,6 @@ void weak_cc_label_batched(Index_ *labels, const Index_ *row_ind,
 
     n_iters++;
   } while (host_m);
-
-  free(host_fa);
-  free(host_xa);
 }
 
 /**
@@ -875,10 +869,11 @@ void weak_cc_batched(Index_ *labels, const Index_ *row_ind,
   dim3 threads(TPB_X);
 
   Index_ MAX_LABEL = std::numeric_limits<Index_>::max();
-  if (startVertexId == 0) {
+  if (!state->initialized) {
     weak_cc_init_all_kernel<Index_, TPB_X><<<blocks, threads, 0, stream>>>(
       labels, state->fa, state->xa, N, MAX_LABEL);
     CUDA_CHECK(cudaPeekAtLastError());
+    state->initialized = true;
   }
 
   weak_cc_label_batched<Index_, TPB_X>(labels, row_ind, row_ind_ptr, nnz, N,
