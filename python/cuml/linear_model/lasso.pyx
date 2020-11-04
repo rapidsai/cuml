@@ -130,12 +130,17 @@ class Lasso(Base, RegressorMixin):
         The estimated coefficients for the linear regression model.
     intercept_ : array
         The independent term. If `fit_intercept` is False, will be 0.
+    preferred_order : 'F'
+        Whether the algorithm internally operates in column ('F') or row ('C')
+        major data. Pass data to the algorithm with this order for the best
+        memory and time processing efficiency.
 
     Notes
     -----
     For additional docs, see `scikitlearn's Lasso
     <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.Lasso.html>`_.
     """
+    preferred_order = 'F'
 
     def __init__(self, alpha=1.0, fit_intercept=True, normalize=False,
                  max_iter=1000, tol=1e-3, selection='cyclic', handle=None,

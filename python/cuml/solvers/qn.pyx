@@ -232,6 +232,10 @@ class QN(Base):
         Note: shape is (n_classes, n_features + 1) if fit_intercept = True.
     intercept_ : array (n_classes, 1)
         The independent term. If `fit_intercept` is False, will be 0.
+    preferred_order : 'F'
+        Whether the algorithm internally operates in column ('F') or row ('C')
+        major data. Pass data to the algorithm with this order for the best
+        memory and time processing efficiency.
 
     Notes
     ------
@@ -244,6 +248,7 @@ class QN(Base):
          2007]
          <https://www.microsoft.com/en-us/research/publication/scalable-training-of-l1-regularized-log-linear-models/>
     """
+    preferred_order = 'F'
 
     def __init__(self, loss='sigmoid', fit_intercept=True,
                  l1_strength=0.0, l2_strength=0.0, max_iter=1000, tol=1e-3,

@@ -156,6 +156,10 @@ class LogisticRegression(Base, ClassifierMixin):
         is True
     intercept_: device array (n_classes, 1)
         The independent term. If `fit_intercept` is False, will be 0.
+    preferred_order : 'F'
+        Whether the algorithm internally operates in column ('F') or row ('C')
+        major data. Pass data to the algorithm with this order for the best
+        memory and time processing efficiency.
 
     Notes
     ------
@@ -169,6 +173,7 @@ class LogisticRegression(Base, ClassifierMixin):
     For additional information, see Scikit-learn's LogistRegression
     <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.LogisticRegression.html>`_.
     """
+    preferred_order = 'F'
 
     def __init__(
         self,

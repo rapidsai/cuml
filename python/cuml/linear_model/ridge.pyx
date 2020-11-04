@@ -188,6 +188,10 @@ class Ridge(Base, RegressorMixin):
         The estimated coefficients for the linear regression model.
     intercept_ : array
         The independent term. If `fit_intercept` is False, will be 0.
+    preferred_order : 'F'
+        Whether the algorithm internally operates in column ('F') or row ('C')
+        major data. Pass data to the algorithm with this order for the best
+        memory and time processing efficiency.
 
     Notes
     ------
@@ -206,6 +210,8 @@ class Ridge(Base, RegressorMixin):
     For additional docs, see `Scikit-learn's Ridge Regression
     <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.Ridge.html>`_.
     """
+
+    preferred_order = 'F'
 
     def __init__(self, alpha=1.0, solver='eig', fit_intercept=True,
                  normalize=False, handle=None, output_type=None,

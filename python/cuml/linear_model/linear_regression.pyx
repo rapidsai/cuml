@@ -171,6 +171,10 @@ class LinearRegression(Base, RegressorMixin):
         The estimated coefficients for the linear regression model.
     intercept_ : array
         The independent term. If `fit_intercept` is False, will be 0.
+    preferred_order : 'F'
+        Whether the algorithm internally operates in column ('F') or row ('C')
+        major data. Pass data to the algorithm with this order for the best
+        memory and time processing efficiency.
 
     Notes
     ------
@@ -196,6 +200,7 @@ class LinearRegression(Base, RegressorMixin):
 
 
     """
+    preferred_order = 'F'
 
     def __init__(self, algorithm='eig', fit_intercept=True, normalize=False,
                  handle=None, verbose=False, output_type=None):

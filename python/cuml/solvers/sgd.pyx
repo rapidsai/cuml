@@ -217,6 +217,8 @@ class SGD(Base):
 
     """
 
+    preferred_order = 'F'
+
     def __init__(self, loss='squared_loss', penalty='none', alpha=0.0001,
                  l1_ratio=0.15, fit_intercept=True, epochs=1000, tol=1e-3,
                  shuffle=True, learning_rate='constant', eta0=0.001,
