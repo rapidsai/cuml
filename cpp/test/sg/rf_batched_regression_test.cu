@@ -14,16 +14,15 @@
  * limitations under the License.
  */
 
-#include <common/cudart_utils.h>
+#include <raft/cudart_utils.h>
 
 #include <gtest/gtest.h>
-#include <linalg/transpose.h>
+#include <raft/linalg/transpose.h>
 #include <test_utils.h>
-#include <cuda_utils.cuh>
 #include <cuml/datasets/make_blobs.hpp>
 #include <cuml/datasets/make_regression.hpp>
 #include <cuml/ensemble/randomforest.hpp>
-#include <score/scores.cuh>
+#include <metrics/scores.cuh>
 
 namespace ML {
 

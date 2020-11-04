@@ -15,7 +15,7 @@
  */
 #pragma once
 
-#include <common/cudart_utils.h>
+#include <raft/cudart_utils.h>
 #include <common/device_buffer.hpp>
 #include <cuml/common/logger.hpp>
 #include "bh_kernels.cuh"
@@ -149,8 +149,8 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
     cudaFuncSetCacheConfig(TSNE::TreeBuildingKernel, cudaFuncCachePreferL1));
   CUDA_CHECK(cudaFuncSetCacheConfig(TSNE::ClearKernel1, cudaFuncCachePreferL1));
   CUDA_CHECK(cudaFuncSetCacheConfig(TSNE::ClearKernel2, cudaFuncCachePreferL1));
-  CUDA_CHECK(
-    cudaFuncSetCacheConfig(TSNE::SummarizationKernel, cudaFuncCachePreferL1));
+  CUDA_CHECK(cudaFuncSetCacheConfig(TSNE::SummarizationKernel,
+                                    cudaFuncCachePreferShared));
   CUDA_CHECK(cudaFuncSetCacheConfig(TSNE::SortKernel, cudaFuncCachePreferL1));
   CUDA_CHECK(
     cudaFuncSetCacheConfig(TSNE::RepulsionKernel, cudaFuncCachePreferL1));

@@ -14,14 +14,14 @@
  * limitations under the License.
  */
 
-#include <common/cudart_utils.h>
 #include <gtest/gtest.h>
+#include <raft/cudart_utils.h>
 #include <raft/linalg/cusolver_wrappers.h>
-#include <cuda_utils.cuh>
 #include <iostream>
 #include <label/classlabels.cuh>
-#include <linalg/reduce.cuh>
-#include <random/rng.cuh>
+#include <raft/cuda_utils.cuh>
+#include <raft/linalg/reduce.cuh>
+#include <raft/random/rng.cuh>
 #include <selection/knn.cuh>
 #include <vector>
 #include "test_utils.h"
