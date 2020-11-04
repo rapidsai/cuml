@@ -20,6 +20,7 @@
 - PR #3067: Deleting prims moved to RAFT and updating header paths
 - PR #3074: Reducing dask coordinate descent test runtime
 - PR #3052: Speeding up MNMG KNN Cl&Re testing
+- PR #3115: Speeding up MNMG UMAP testing
 
 ## Bug Fixes
 - PR #3065: Refactoring prims metrics function names from camelcase to underscore format
