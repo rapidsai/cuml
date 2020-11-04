@@ -679,8 +679,8 @@ __global__ __launch_bounds__(THREADS6, FACTOR6) void IntegrationKernel(
   const float Z_norm = Z[0];
 
   for (int i = threadIdx.x + blockIdx.x * blockDim.x; i < N; i += inc) {
-    const float dx = attract1[i] - Z_norm * repel1[i];
-    const float dy = attract2[i] - Z_norm * repel2[i];
+    const float dx = exaggeration * attract1[i] - Z_norm * repel1[i];
+    const float dy = exaggeration * attract2[i] - Z_norm * repel2[i];
 
     if (signbit(dx) != signbit(ux = old_forces1[i]))
       gx = gains1[i] + 0.2f;

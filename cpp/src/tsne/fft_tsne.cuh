@@ -199,10 +199,8 @@ void FFT_TSNE(float *VAL, const int *COL, const int *ROW, const int NNZ,
 
     if (iter == exaggeration_iter) {
       momentum = post_momentum;
-      // learning_rate = post_learning_rate;  // TODO CannyLab doesn't switch (line 309)
+      learning_rate = post_learning_rate;
       exaggeration = late_exaggeration;
-      const float div = 1.0f / early_exaggeration;
-      raft::linalg::scalarMultiply(VAL, VAL, div, NNZ, stream);
     }
 
     {  // Compute charges Q_ij

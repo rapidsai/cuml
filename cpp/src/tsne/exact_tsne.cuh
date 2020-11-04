@@ -35,6 +35,7 @@ namespace TSNE {
  * @param[in] n: Number of rows in data X.
  * @param[in] dim: Number of output columns for the output embedding Y.
  * @param[in] early_exaggeration: How much early pressure you want the clusters in TSNE to spread out more.
+ * @param[in] late_exaggeration: How much pressure to apply to clusters to spread out after the exaggeration phase.
  * @param[in] exaggeration_iter: How many iterations you want the early pressure to run for.
  * @param[in] min_gain: Rounds up small gradient updates.
  * @param[in] pre_learning_rate: The learning rate during the exaggeration phase.
@@ -49,6 +50,7 @@ namespace TSNE {
 void Exact_TSNE(float *VAL, const int *COL, const int *ROW, const int NNZ,
                 const raft::handle_t &handle, float *Y, const int n,
                 const int dim, const float early_exaggeration = 12.0f,
+                const float late_exaggeration = 1.0f,
                 const int exaggeration_iter = 250, const float min_gain = 0.01f,
                 const float pre_learning_rate = 200.0f,
                 const float post_learning_rate = 500.0f,
@@ -93,6 +95,7 @@ void Exact_TSNE(float *VAL, const int *COL, const int *ROW, const int NNZ,
   CUML_LOG_DEBUG("Start gradient updates!");
   float momentum = pre_momentum;
   float learning_rate = pre_learning_rate;
+  float exaggeration = early_exaggeration;
   bool check_convergence = false;
 
   for (int iter = 0; iter < max_iter; iter++) {
@@ -100,10 +103,8 @@ void Exact_TSNE(float *VAL, const int *COL, const int *ROW, const int NNZ,
 
     if (iter == exaggeration_iter) {
       momentum = post_momentum;
-      // Divide perplexities
-      const float div = 1.0f / early_exaggeration;
-      raft::linalg::scalarMultiply(VAL, VAL, div, NNZ, stream);
       learning_rate = post_learning_rate;
+      exaggeration = late_exaggeration;
     }
 
     // Get row norm of Y
@@ -121,8 +122,8 @@ void Exact_TSNE(float *VAL, const int *COL, const int *ROW, const int NNZ,
     // Apply / integrate forces
     const float gradient_norm = TSNE::apply_forces(
       Y, velocity.data(), attract.data(), repel.data(), means.data(),
-      gains.data(), Z, learning_rate, C, momentum, dim, n, min_gain,
-      gradient.data(), check_convergence, stream);
+      gains.data(), Z, learning_rate, C, exaggeration, momentum, dim, n,
+      min_gain, gradient.data(), check_convergence, stream);
 
     if (check_convergence) {
       CUML_LOG_DEBUG("Z at iter = %d = %f and gradient norm = %f", iter, Z,

@@ -108,7 +108,7 @@ void TSNE_fit(const raft::handle_t &handle, const float *X, float *Y,
   // Convert data to COO layout
   MLCommon::Sparse::COO<float> COO_Matrix(d_alloc, stream);
   TSNE::symmetrize_perplexity(P.data(), indices.data(), n, n_neighbors,
-                              early_exaggeration, &COO_Matrix, stream, handle);
+                              &COO_Matrix, stream, handle);
   P.release(stream);
   indices.release(stream);
   const int NNZ = COO_Matrix.nnz;
@@ -131,9 +131,10 @@ void TSNE_fit(const raft::handle_t &handle, const float *X, float *Y,
                    post_momentum, random_state, initialize_embeddings);
   } else {
     TSNE::Exact_TSNE(VAL, COL, ROW, NNZ, handle, Y, n, dim, early_exaggeration,
-                     exaggeration_iter, min_gain, pre_learning_rate,
-                     post_learning_rate, max_iter, min_grad_norm, pre_momentum,
-                     post_momentum, random_state, initialize_embeddings);
+                     late_exaggeration, exaggeration_iter, min_gain,
+                     pre_learning_rate, post_learning_rate, max_iter,
+                     min_grad_norm, pre_momentum, post_momentum, random_state,
+                     initialize_embeddings);
   }
 }
 

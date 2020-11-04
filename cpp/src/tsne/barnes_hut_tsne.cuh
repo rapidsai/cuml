@@ -182,9 +182,6 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
 
     if (iter == exaggeration_iter) {
       momentum = post_momentum;
-      // Divide perplexities
-      const float div = 1.0f / early_exaggeration;
-      raft::linalg::scalarMultiply(VAL, VAL, div, NNZ, stream);
       learning_rate = post_learning_rate;
       exaggeration = late_exaggeration;
     }

@@ -49,7 +49,6 @@ enum TSNE_ALGORITHM { EXACT, BARNES_HUT, FFT };
  *                                 spread out during the exaggeration phase.
  * @param[in]  late_exaggeration   How much pressure to apply to clusters to
  *                                 spread out after the exaggeration phase.
- *                                 (Barnes-Hut and FFT only.)
  * @param[in] exaggeration_iter    How many iterations you want the early
  *                                 pressure to run for.
  * @param[in] min_gain             Rounds up small gradient updates. (Barnes-Hut
