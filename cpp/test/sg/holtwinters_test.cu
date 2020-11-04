@@ -17,10 +17,10 @@
 #include <cuml/tsa/holtwinters.h>
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
-#include <test_utils.cuh>
 #include <algorithm>
 #include <cuml/common/logger.hpp>
 #include <raft/cuda_utils.cuh>
+#include <test_utils.cuh>
 #include "time_series_datasets.h"
 
 namespace ML {

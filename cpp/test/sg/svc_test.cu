@@ -19,7 +19,6 @@
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
 #include <raft/linalg/transpose.h>
-#include <test_utils.cuh>
 #include <thrust/device_ptr.h>
 #include <thrust/fill.h>
 #include <thrust/iterator/zip_iterator.h>
@@ -43,6 +42,7 @@
 #include <svm/smoblocksolve.cuh>
 #include <svm/smosolver.cuh>
 #include <svm/workingset.cuh>
+#include <test_utils.cuh>
 #include <type_traits>
 #include <vector>
 

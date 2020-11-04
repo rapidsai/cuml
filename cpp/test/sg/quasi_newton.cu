@@ -17,12 +17,12 @@
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
 #include <raft/linalg/transpose.h>
-#include <test_utils.cuh>
 #include <cuml/linear_model/glm.hpp>
 #include <glm/qn/glm_linear.cuh>
 #include <glm/qn/glm_logistic.cuh>
 #include <glm/qn/glm_softmax.cuh>
 #include <glm/qn/qn.cuh>
+#include <test_utils.cuh>
 #include <vector>
 
 namespace ML {

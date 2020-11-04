@@ -16,8 +16,8 @@
 
 #pragma once
 
-#include <cuml/tsa/arima_common.cuh>
 #include <cuml/cuml.hpp>
+#include <cuml/tsa/arima_common.cuh>
 
 namespace ML {
 namespace Datasets {

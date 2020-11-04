@@ -16,8 +16,8 @@
 
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
-#include <test_utils.cuh>
 #include <raft/cuda_utils.cuh>
+#include <test_utils.cuh>
 #include <vector>
 
 #include <thrust/fill.h>
