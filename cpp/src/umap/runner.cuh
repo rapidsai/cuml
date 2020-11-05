@@ -81,8 +81,8 @@ void find_ab(UMAPParams *params, std::shared_ptr<deviceAllocator> d_alloc,
 }
 
 template <typename value_idx, typename value_t, typename umap_inputs, int TPB_X>
-void _fit(const raft::handle_t &handle, const umap_inputs &inputs, UMAPParams *params,
-          value_t *embeddings) {
+void _fit(const raft::handle_t &handle, const umap_inputs &inputs,
+          UMAPParams *params, value_t *embeddings) {
   ML::PUSH_RANGE("umap::unsupervised::fit");
   cudaStream_t stream = handle.get_stream();
   auto d_alloc = handle.get_device_allocator();
