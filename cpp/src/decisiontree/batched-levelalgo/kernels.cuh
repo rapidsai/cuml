@@ -354,12 +354,6 @@ __global__ void computeSplitRegressionKernel(
   }
   for (IdxT i = threadIdx.x; i < nbins; i += blockDim.x) {
     scount[i] = 0;
-    if (col < 0) {
-      printf(
-        "indexing q with %d, col: %d, nbins: %d, i: %d, from colStart: %d + "
-        "blockIdx.y: %d\n",
-        col * nbins + i, col, nbins, i, colStart, blockIdx.y);
-    }
     sbins[i] = input.quantiles[col * nbins + i];
   }
   __syncthreads();
