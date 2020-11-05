@@ -38,9 +38,5 @@ from cuml.common.import_utils import check_min_cupy_version, has_scipy
 
 ## legacy to be removed after complete CumlAray migration
 
-from cuml.common.numba_utils import zeros
-from cuml.common.input_utils import get_cudf_column_ptr
-from cuml.common.input_utils import get_dev_array_ptr
-from cuml.common.input_utils import input_to_dev_array
 from cuml.common.input_utils import sparse_scipy_to_cp
 from cuml.common.timing_utils import timed

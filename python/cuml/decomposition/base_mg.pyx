@@ -34,7 +34,6 @@ import cuml.common.opg_data_utils_mg as opg
 from cuml.common.base import Base
 from cuml.raft.common.handle cimport handle_t
 from cuml.decomposition.utils cimport *
-from cuml.common import input_to_dev_array, zeros
 from cuml.common import input_to_cuml_array
 from cuml.common.opg_data_utils_mg cimport *
 

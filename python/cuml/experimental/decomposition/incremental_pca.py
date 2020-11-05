@@ -21,6 +21,7 @@ import cupyx
 import scipy
 from cuml import Base
 from cuml.common import input_to_cuml_array
+from cuml.common.input_utils import input_to_cupy_array
 import cuml.internals
 from cuml.common.array import CumlArray
 from cuml.decomposition import PCA
@@ -226,16 +227,14 @@ class IncrementalPCA(PCA):
         if scipy.sparse.issparse(X) or cupyx.scipy.sparse.issparse(X):
             X = _validate_sparse_input(X)
         else:
-            X, n_samples, n_features, self.dtype = \
-                input_to_cuml_array(X, order='K',
-                                    check_dtype=[cp.float32, cp.float64])
-
             # NOTE: While we cast the input to a cupy array here, we still
             # respect the `output_type` parameter in the constructor. This
             # is done by PCA, which IncrementalPCA inherits from. PCA's
             # transform and inverse transform convert the output to the
             # required type.
-            X = X.to_output(output_type='cupy')
+            X, n_samples, n_features, self.dtype = \
+                input_to_cupy_array(X, order='K',
+                                    check_dtype=[cp.float32, cp.float64])
 
         n_samples, n_features = X.shape
 
@@ -286,9 +285,8 @@ class IncrementalPCA(PCA):
             self._set_output_type(X)
 
             X, n_samples, n_features, self.dtype = \
-                input_to_cuml_array(X, order='K',
+                input_to_cupy_array(X, order='K',
                                     check_dtype=[cp.float32, cp.float64])
-            X = X.to_output(output_type='cupy')
         else:
             n_samples, n_features = X.shape
 

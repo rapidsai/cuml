@@ -23,6 +23,7 @@ import cupyx
 import numba.cuda
 import numpy as np
 import pandas as pd
+import cuml.internals
 import cuml.common.array
 from cuml.common.array import CumlArray
 from cuml.common.array_sparse import SparseCumlArray
@@ -30,7 +31,6 @@ from cuml.common.import_utils import has_scipy
 from cuml.common.logger import debug
 from cuml.common.memory_utils import ArrayInfo
 from cuml.common.memory_utils import _check_array_contiguity
-from cuml.common.memory_utils import with_cupy_rmm
 
 if has_scipy():
     import scipy.sparse
@@ -69,26 +69,6 @@ if has_scipy():
     })
 
     _sparse_types.append(scipy.sparse.spmatrix)
-
-
-def get_dev_array_ptr(ary):
-    """
-    Returns ctype pointer of a numba style device array
-
-    Deprecated: will be removed once all codebase uses cuml Array
-    See Github issue #1716
-    """
-    return ary.device_ctypes_pointer.value
-
-
-def get_cudf_column_ptr(col):
-    """
-    Returns pointer of a cudf Series
-
-    Deprecated: will be removed once all codebase uses cuml Array
-    See Github issue #1716
-    """
-    return col.__cuda_array_interface__['data'][0]
 
 
 def get_supported_input_type(X):
@@ -220,7 +200,7 @@ def is_array_like(X):
     return determine_array_type(X) is not None
 
 
-@with_cupy_rmm
+@cuml.internals.api_return_any()
 def input_to_cuml_array(X,
                         order='F',
                         deepcopy=False,
@@ -535,91 +515,7 @@ def input_to_host_array(X,
                      dtype=ary_tuple.dtype)
 
 
-def input_to_dev_array(X,
-                       order='F',
-                       deepcopy=False,
-                       check_dtype=False,
-                       convert_to_dtype=False,
-                       check_cols=False,
-                       check_rows=False,
-                       fail_on_order=False):
-    """
-    *** Deprecated, used in classes that have not migrated to use cuML Array
-    yet. Please use input_to_cuml_array instead for cuml Array.
-    See Github issue #1716 ***
-
-    Convert input X to device array suitable for C++ methods.
-
-    Acceptable input formats:
-
-    * cuDF Dataframe - returns a deep copy always.
-    * cuDF Series - returns by reference or a deep copy depending on
-        `deepcopy`.
-    * Numpy array - returns a copy in device always
-    * cuda array interface compliant array (like Cupy) - returns a
-        reference unless `deepcopy`=True.
-    * numba device array - returns a reference unless deepcopy=True
-
-    Parameters
-    ----------
-
-    X : cuDF.DataFrame, cuDF.Series, numba array, NumPy array or any
-        cuda_array_interface compliant array like CuPy or pytorch.
-
-    order: string (default: 'F')
-        Whether to return a F-major or C-major array. Used to check the order
-        of the input. If fail_on_order=True method will raise ValueError,
-        otherwise it will convert X to be of order `order`.
-
-    deepcopy: boolean (default: False)
-        Set to True to always return a deep copy of X.
-
-    check_dtype: np.dtype (default: False)
-        Set to a np.dtype to throw an error if X is not of dtype `check_dtype`.
-
-    convert_to_dtype: np.dtype (default: False)
-        Set to a dtype if you want X to be converted to that dtype if it is
-        not that dtype already.
-
-    check_cols: int (default: False)
-        Set to an int `i` to check that input X has `i` columns. Set to False
-        (default) to not check at all.
-
-    check_rows: boolean (default: False)
-        Set to an int `i` to check that input X has `i` columns. Set to False
-        (default) to not check at all.
-
-    fail_on_order: boolean (default: False)
-        Set to True if you want the method to raise a ValueError if X is not
-        of order `order`.
-
-    Returns
-    -------
-    `inp_array`: namedtuple('inp_array', 'array pointer n_rows n_cols dtype')
-
-        A new device array if the input was not a numba device
-        array. It is a reference to the input X if it was a numba device array
-        or cuda array interface compliant (like cupy)
-
-    """
-
-    ary_tuple = input_to_cuml_array(X,
-                                    order=order,
-                                    deepcopy=deepcopy,
-                                    check_dtype=check_dtype,
-                                    convert_to_dtype=convert_to_dtype,
-                                    check_cols=check_cols,
-                                    check_rows=check_rows,
-                                    fail_on_order=fail_on_order)
-
-    return inp_array(array=numba.cuda.as_cuda_array(ary_tuple.array),
-                     pointer=ary_tuple.array.ptr,
-                     n_rows=ary_tuple.n_rows,
-                     n_cols=ary_tuple.n_cols,
-                     dtype=ary_tuple.dtype)
-
-
-@with_cupy_rmm
+@cuml.internals.api_return_any()
 def convert_dtype(X, to_dtype=np.float32, legacy=True):
     """
     Convert X to be of dtype `dtype`, raising a TypeError

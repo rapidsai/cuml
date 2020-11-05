@@ -24,10 +24,12 @@ import cudf
 import ctypes
 import cuml
 import warnings
+import typing
 
 from cuml.common.base import Base
 from cuml.common.array import CumlArray
 from cuml.common import input_to_cuml_array
+import cuml.internals
 
 from cython.operator cimport dereference as deref
 
@@ -153,9 +155,10 @@ class NearestNeighborsMG(NearestNeighbors):
         super(NearestNeighborsMG, self).__init__(**kwargs)
         self.batch_size = batch_size
 
+    @cuml.internals.api_base_return_generic_skipall
     def kneighbors(self, indices, index_m, n, index_parts_to_ranks,
                    queries, query_m, query_parts_to_ranks,
-                   rank, n_neighbors=None, convert_dtype=True):
+                   rank, n_neighbors=None, convert_dtype=True) -> typing.Tuple[typing.List[CumlArray], typing.List[CumlArray]]:
         """
         Query the kneighbors of an index
 
@@ -178,7 +181,9 @@ class NearestNeighborsMG(NearestNeighbors):
         output indices, output distances
         """
         self._set_base_attributes(output_type=indices[0])
-        out_type = self._get_output_type(queries[0])
+
+        # Specify the output return type
+        cuml.internals.set_api_output_type(self._get_output_type(queries[0]))
 
         n_neighbors = self.n_neighbors if n_neighbors is None else n_neighbors
 
@@ -245,11 +250,6 @@ class NearestNeighborsMG(NearestNeighbors):
 
         self.handle.sync()
 
-        output_i = list(map(lambda x: x.to_output(out_type),
-                            output_i_arrs))
-        output_d = list(map(lambda x: x.to_output(out_type),
-                            output_d_arrs))
-
         _free_mem(<size_t>idx_desc,
                   <size_t>q_desc,
                   <size_t>out_i_vec,
@@ -257,4 +257,4 @@ class NearestNeighborsMG(NearestNeighbors):
                   <size_t>idx_local_parts,
                   <size_t>q_local_parts)
 
-        return output_i, output_d
+        return output_i_arrs, output_d_arrs

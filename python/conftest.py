@@ -1,5 +1,8 @@
 import pytest
 
+pytest_plugins = ("cuml.test.plugins.profiling_plugin",
+                  "cuml.test.plugins.quick_run_plugin")
+
 
 def pytest_addoption(parser):
     parser.addoption("--run_stress",
@@ -22,8 +25,7 @@ def pytest_addoption(parser):
         action="store_true",
         default=False,
         help=("Adds a memory checker plugin that reports tests with memory "
-              "leaks")
-    )
+              "leaks"))
 
 
 def pytest_configure(config):

@@ -30,10 +30,6 @@ from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.base import Base
 from cuml.common.doc_utils import generate_docstring
 from cuml.raft.common.handle cimport handle_t
-from cuml.common import get_cudf_column_ptr
-from cuml.common import get_dev_array_ptr
-from cuml.common import input_to_dev_array
-from cuml.common import zeros
 from cuml.common.input_utils import input_to_cuml_array
 from cuml.common.memory_utils import with_cupy_rmm
 

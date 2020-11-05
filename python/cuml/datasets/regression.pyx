@@ -153,6 +153,9 @@ def make_regression(n_samples=100, n_features=2, n_informative=2, n_targets=1,
         coef is True.
     """  # noqa
 
+    # TODO: (MDD) This array has an unknown array output type. Set it to cupy for now
+    cuml.internals.set_api_output_type("cupy")
+
     if dtype not in ['single', 'float', 'double', np.float32, np.float64]:
         raise TypeError("dtype must be either 'float' or 'double'")
     else:

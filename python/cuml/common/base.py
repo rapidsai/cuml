@@ -23,8 +23,7 @@ import cuml.common.logger as logger
 import cuml.internals
 import cuml.raft.common.handle
 from cuml.common.doc_utils import generate_docstring
-from cuml.common.input_utils import determine_array_dtype
-from cuml.common.input_utils import determine_array_type
+import cuml.common.input_utils
 import cuml.internals.func_wrappers
 
 
@@ -316,7 +315,7 @@ class Base(metaclass=cuml.internals.BaseMetaClass):
             self._set_n_features_in(n_features)
 
     def _set_output_type(self, inp):
-        self._input_type = determine_array_type(inp)
+        self._input_type = cuml.common.input_utils.determine_array_type(inp)
 
     def _get_output_type(self, inp):
         """
@@ -334,12 +333,12 @@ class Base(metaclass=cuml.internals.BaseMetaClass):
 
         # If we are input, get the type from the input
         if output_type == 'input':
-            output_type = determine_array_type(inp)
+            output_type = cuml.common.input_utils.determine_array_type(inp)
 
         return output_type
 
     def _set_target_dtype(self, target):
-        self.target_dtype = determine_array_dtype(target)
+        self.target_dtype = cuml.common.input_utils.determine_array_dtype(target)
 
     def _get_target_dtype(self):
         """
@@ -372,6 +371,7 @@ class RegressorMixin:
             'description': 'R^2 of self.predict(X) '
                            'wrt. y.'
         })
+    @cuml.internals.api_base_return_any_skipall
     def score(self, X, y, **kwargs):
         """
         Scoring function for regression estimators
@@ -404,16 +404,13 @@ class ClassifierMixin:
             'description': ('Accuracy of self.predict(X) wrt. y '
                             '(fraction where y == pred_y)')
         })
-    @cuml.internals.api_base_return_any()
+    @cuml.internals.api_base_return_any_skipall
     def score(self, X, y, **kwargs):
         """
         Scoring function for classifier estimators based on mean accuracy.
 
         """
-        from cuml.common import input_to_dev_array
         from cuml.metrics.accuracy import accuracy_score
-
-        y_m = input_to_dev_array(y)[0]
 
         if hasattr(self, 'handle'):
             handle = self.handle
@@ -421,7 +418,7 @@ class ClassifierMixin:
             handle = None
 
         preds = self.predict(X, **kwargs)
-        return accuracy_score(y_m, preds, handle=handle)
+        return accuracy_score(y, preds, handle=handle)
 
 
 # Internal, non class owned helper functions
@@ -466,6 +463,6 @@ def _determine_stateless_output_type(output_type, input_obj):
 
     # If we are using 'input', determine the the type from the input object
     if temp_output == 'input':
-        temp_output = determine_array_type(input_obj)
+        temp_output = cuml.common.input_utils.determine_array_type(input_obj)
 
     return temp_output

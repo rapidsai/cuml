@@ -24,7 +24,7 @@ from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.base import Base
 from cuml.common.doc_utils import generate_docstring
 from cuml.common.import_utils import has_scipy
-from cuml.common.input_utils import input_to_cuml_array
+from cuml.common.input_utils import input_to_cuml_array, input_to_cupy_array
 from cuml.common.kernel_utils import cuda_kernel_factory
 from cuml.metrics import accuracy_score
 from cuml.prims.label import check_labels, invert_labels, make_monotonic
@@ -261,9 +261,9 @@ class MultinomialNB(Base):
             X = cupyx.scipy.sparse.coo_matrix((data, (rows, cols)),
                                               shape=X.shape)
         else:
-            X = input_to_cuml_array(X, order='K').array.to_output('cupy')
+            X = input_to_cupy_array(X, order='K').array
 
-        y = input_to_cuml_array(y).array.to_output('cupy')
+        y = input_to_cupy_array(y).array
 
         Y, label_classes = make_monotonic(y, copy=True)
 
@@ -271,7 +271,7 @@ class MultinomialNB(Base):
             self.fit_called_ = True
             if _classes is not None:
                 _classes, *_ = input_to_cuml_array(_classes, order='K')
-                check_labels(Y, _classes.to_output('cupy'))
+                check_labels(Y, _classes)
                 self.classes_ = _classes
             else:
                 self.classes_ = label_classes
@@ -374,7 +374,7 @@ class MultinomialNB(Base):
             X = cupyx.scipy.sparse.coo_matrix((data, (rows, cols)),
                                               shape=X.shape)
         else:
-            X = input_to_cuml_array(X, order='K').array.to_output('cupy')
+            X = input_to_cupy_array(X, order='K').array
 
         jll = self._joint_log_likelihood(X)
         indices = cp.argmax(jll, axis=1).astype(self.classes_.dtype)
@@ -414,7 +414,7 @@ class MultinomialNB(Base):
             X = cupyx.scipy.sparse.coo_matrix((data, (rows, cols)),
                                               shape=X.shape)
         else:
-            X = input_to_cuml_array(X, order='K').array.to_output('cupy')
+            X = input_to_cupy_array(X, order='K').array
 
         jll = self._joint_log_likelihood(X)
 

@@ -42,7 +42,8 @@ from cuml.raft.common.handle cimport handle_t
 from cuml.raft.common.handle import Handle
 import cuml.common.logger as logger
 from cuml.decomposition.utils cimport *
-from cuml.common import input_to_cuml_array, using_output_type
+from cuml.common.input_utils import input_to_cuml_array
+from cuml.common.input_utils import input_to_cupy_array
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.prims.stats import cov
 from cuml.common.input_utils import sparse_scipy_to_cp
@@ -564,9 +565,8 @@ class PCA(Base):
                                                   sparse_tol=sparse_tol)
         elif self._sparse_model:
             X, _, _, _ = \
-                input_to_cuml_array(X, order='K',
+                input_to_cupy_array(X, order='K',
                                     check_dtype=[cp.float32, cp.float64])
-            X = X.to_output(output_type='cupy')
             return self._sparse_inverse_transform(X,
                                                   return_sparse=return_sparse,
                                                   sparse_tol=sparse_tol)
@@ -660,9 +660,8 @@ class PCA(Base):
             return self._sparse_transform(X)
         elif self._sparse_model:
             X, _, _, _ = \
-                input_to_cuml_array(X, order='K',
+                input_to_cupy_array(X, order='K',
                                     check_dtype=[cp.float32, cp.float64])
-            X = X.to_output(output_type='cupy')
             return self._sparse_transform(X)
 
         X_m, n_rows, n_cols, dtype = \

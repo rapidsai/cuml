@@ -327,7 +327,7 @@ class SVMBase(Base):
             raise RuntimeError("Call fit before prediction")
         if self._internal_coef_ is None:
             self._internal_coef_ = self._calc_coef()
-        # Call the base class to perform the to_output conversion
+        # Call the base class to perform the output conversion
         return self._internal_coef_
 
     @coef_.setter

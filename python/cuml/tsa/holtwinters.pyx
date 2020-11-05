@@ -21,7 +21,7 @@ import numpy as np
 from libc.stdint cimport uintptr_t
 
 import cuml
-from cuml.common import input_to_cuml_array
+from cuml.common.input_utils import input_to_cupy_array
 from cuml.common.base import Base
 from cuml.common.array import CumlArray
 from cuml.common.array_descriptor import CumlArrayDescriptor
@@ -255,7 +255,7 @@ class ExponentialSmoothing(Base):
 
         is_cudf = isinstance(ts_input, cudf.DataFrame)
 
-        mod_ts_input = input_to_cuml_array(ts_input, order="C").array
+        mod_ts_input = input_to_cupy_array(ts_input, order="C").array
         
         if len(mod_ts_input.shape) == 1:
             self.n = mod_ts_input.shape[0]
@@ -265,11 +265,11 @@ class ExponentialSmoothing(Base):
             if(is_cudf):
                 d1 = mod_ts_input.shape[0]
                 d2 = mod_ts_input.shape[1]
-                mod_ts_input = cp.reshape((d1*d2,))
+                mod_ts_input = mod_ts_input.reshape((d1*d2,))
             else:
                 d1 = mod_ts_input.shape[1]
                 d2 = mod_ts_input.shape[0]
-                mod_ts_input = cp.ravel(mod_ts_input)
+                mod_ts_input = mod_ts_input.ravel()
             self.n = d1
             if self.ts_num != d2:
                 raise ValueError(err_mess + str(d2))
@@ -277,6 +277,7 @@ class ExponentialSmoothing(Base):
             raise ValueError("Data input must have 1 or 2 dimensions.")
         return mod_ts_input
 
+    @cuml.internals.api_base_return_any_skipall
     def fit(self) -> "ExponentialSmoothing":
         """
         Perform fitting on the given `endog` dataset.
@@ -350,9 +351,11 @@ class ExponentialSmoothing(Base):
                             " and float64 input, but input type "
                             + str(self.dtype) + " passed.")
         num_rows = int(components_len/self.ts_num)
-        self.level = cp.reshape(self.level, (self.ts_num, num_rows), order='F')
-        self.trend = cp.reshape(self.trend, (self.ts_num, num_rows), order='F')
-        self.season = cp.reshape(self.season, (self.ts_num, num_rows), order='F')
+
+        with cuml.using_output_type("cupy"):
+            self.level = self.level.reshape((self.ts_num, num_rows), order='F')
+            self.trend = self.trend.reshape((self.ts_num, num_rows), order='F')
+            self.season = self.season.reshape((self.ts_num, num_rows), order='F')
 
         self.handle.sync()
         self.fit_executed_flag = True
@@ -420,8 +423,11 @@ class ExponentialSmoothing(Base):
                              <double*> trend_ptr,
                              <double*> season_ptr,
                              <double*> forecast_ptr)
-                self.forecasted_points =\
-                    cp.reshape((self.ts_num, h), order='F')
+
+                with cuml.using_output_type("cupy"):
+                    self.forecasted_points =\
+                        self.forecasted_points.reshape((self.ts_num, h),
+                                                       order='F')
                 self.handle.sync()
 
             if index is None:

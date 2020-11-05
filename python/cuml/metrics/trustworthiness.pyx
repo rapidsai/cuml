@@ -97,7 +97,7 @@ def trustworthiness(X, X_embedded, handle=None, n_neighbors=5,
                                               else None))
     d_X_ptr = X_m.ptr
 
-    X_m2, d_X_embedded_ptr, n_rows, n_components, dtype2 = \
+    X_m2, n_rows, n_components, dtype2 = \
         input_to_cuml_array(X_embedded, order='C',
                             check_dtype=np.float32,
                             convert_to_dtype=(np.float32 if convert_dtype

@@ -299,7 +299,6 @@ class OneHotEncoder(Base):
         X = self._check_input(X)
         return self.fit(X).transform(X)
 
-    @with_cupy_rmm
     def transform(self, X):
         """
         Transform X using one-hot encoding.
@@ -392,7 +391,6 @@ class OneHotEncoder(Base):
                 "Calculated column code dtypes: {}.\n"
                 "Internal Error: {}".format(input_types_str, repr(e)))
 
-    @with_cupy_rmm
     def inverse_transform(self, X):
         """
         Convert the data back to the original representation.

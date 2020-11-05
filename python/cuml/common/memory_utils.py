@@ -407,9 +407,13 @@ def set_global_output_type(output_type):
     if (isinstance(output_type, str)):
         output_type = output_type.lower()
 
-    if output_type not in ['numpy', 'cupy', 'cudf', 'numba', "input", None]:
-        raise ValueError('Parameter output_type must be one of "series" ' +
-                         '"dataframe", cupy", "numpy", "numba" or "input')
+    # Check for allowed types. Allow 'cuml' to support internal estimators
+    if output_type not in [
+            'numpy', 'cupy', 'cudf', 'numba', 'cuml', "input", None
+    ]:
+        # Omit 'cuml' from the error message. Should only be used internally
+        raise ValueError('Parameter output_type must be one of "numpy", '
+                         '"cupy", cudf", "numba", "input" or None')
 
     cuml.global_output_type = output_type
 

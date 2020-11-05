@@ -292,7 +292,10 @@ class AutoARIMA(Base):
             if seasonal_test not in tests_map:
                 raise ValueError("Unknown seasonal diff test: {}"
                                  .format(seasonal_test))
-            mask_cp = tests_map[seasonal_test](self.d_y.to_output("cupy"), s)
+
+            with cuml.using_output_type("cupy"):
+                mask_cp = tests_map[seasonal_test](self.d_y, s)
+
             mask = input_to_cuml_array(mask_cp)[0]
             del mask_cp
             data_D = {}

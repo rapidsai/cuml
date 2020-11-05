@@ -16,8 +16,6 @@
 
 # distutils: language = c++
 
-import typing
-
 import numpy as np
 import cupy as cp
 
@@ -156,11 +154,11 @@ def _mse(y_true, y_pred, sample_weight, multioutput, squared, raw_multioutput):
     return mse if squared else cp.sqrt(mse)
 
 
-@cuml.internals.api_return_generic()
+@cuml.internals.api_return_any()
 def mean_squared_error(y_true, y_pred,
                        sample_weight=None,
                        multioutput='uniform_average',
-                       squared=True) -> typing.Union[float, CumlArray]:
+                       squared=True):
     """Mean squared error regression loss
 
     Be careful when using this metric with float32 inputs as the result can be
@@ -201,10 +199,10 @@ def mean_squared_error(y_true, y_pred,
                 raw_multioutput)
 
 
-@cuml.internals.api_return_generic()
+@cuml.internals.api_return_any()
 def mean_absolute_error(y_true, y_pred,
                         sample_weight=None,
-                        multioutput='uniform_average') -> typing.Union[float, CumlArray]:
+                        multioutput='uniform_average'):
     """Mean absolute error regression loss
 
     Be careful when using this metric with float32 inputs as the result can be
@@ -252,11 +250,11 @@ def mean_absolute_error(y_true, y_pred,
     return cp.average(output_errors, weights=multioutput)
 
 
-@cuml.internals.api_return_generic()
+@cuml.internals.api_return_any()
 def mean_squared_log_error(y_true, y_pred,
                            sample_weight=None,
                            multioutput='uniform_average',
-                           squared=True) -> typing.Union[float, CumlArray]:
+                           squared=True):
     """Mean squared log error regression loss
 
     Be careful when using this metric with float32 inputs as the result can be

@@ -17,14 +17,16 @@ import cupy as cp
 import cupyx
 
 from cuml import Base
+import cuml.internals
 from cuml.common import CumlArray, has_scipy
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.array_sparse import SparseCumlArray
 from cuml.prims.label import check_labels, invert_labels, make_monotonic
 
 
+@cuml.internals.api_return_sparse_array()
 def label_binarize(y, classes, neg_label=0, pos_label=1,
-                   sparse_output=False):
+                   sparse_output=False) -> SparseCumlArray:
     """
     A stateless helper function to dummy encode multi-class labels.
 

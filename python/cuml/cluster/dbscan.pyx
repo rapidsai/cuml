@@ -303,7 +303,7 @@ class DBSCAN(Base):
         # Finally, resize the core_sample_indices array if necessary
         if self.calc_core_sample_indices:
 
-            # Temp convert to cupy array (better than using `cp.asarray`)
+            # Temp convert to cupy array (better than using `cupy.asarray`)
             with cuml.using_output_type("cupy"):
 
                 # First get the min index. These have to monotonically
