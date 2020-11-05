@@ -88,7 +88,6 @@ void preprocess_quantile(const T *data, const unsigned int *rowids,
   */
 
   ML::PUSH_RANGE("preprocessing quantile @quantile.cuh");
-#pragma region
   int batch_cols =
     1;  // Processing one column at a time, for now, until an appropriate getMemInfo function is provided for the deviceAllocator interface.
 
@@ -179,7 +178,6 @@ void preprocess_quantile(const T *data, const unsigned int *rowids,
   delete d_keys_out;
   delete d_offsets;
   delete d_temp_storage;
-#pragma endregion
   ML::POP_RANGE();
 
   return;

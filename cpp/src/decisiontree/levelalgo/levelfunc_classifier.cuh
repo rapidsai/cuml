@@ -49,7 +49,6 @@ void grow_deep_tree_classification(
   const int treeid, std::shared_ptr<TemporaryMemory<T, int>> tempmem) {
   ML::PUSH_RANGE(
     "DecisionTree::grow_deep_tree_classification @levelfunc_classifier.cuh");
-#pragma region
   const int ncols_sampled = (int)(colper * Ncols);
   unsigned int* flagsptr = tempmem->d_flags->data();
   unsigned int* sample_cnt = tempmem->d_sample_cnt->data();
@@ -117,7 +116,6 @@ void grow_deep_tree_classification(
   int scatter_algo_depth =
     std::min(tempmem->swap_depth, tree_params.max_depth + 1);
   ML::PUSH_RANGE("scatter phase @levelfunc_classifier");
-#pragma region
   for (int depth = 0; (depth < scatter_algo_depth) && (n_nodes_nextitr != 0);
        depth++) {
     depth_cnt = depth;
@@ -173,11 +171,9 @@ void grow_deep_tree_classification(
              2 * n_nodes * n_unique_labels * sizeof(unsigned int));
     }
   }
-#pragma endregion
   ML::POP_RANGE();  //scatter phase @levelfunc_classifier.cuh
 
   ML::PUSH_RANGE("gather phase @levelfunc_classifier.cuh");
-#pragma region
   // Start of gather algorithm
   //Convertor
   CUML_LOG_DEBUG("begin gather ");
@@ -267,9 +263,7 @@ void grow_deep_tree_classification(
                       h_sparsenodes + lastsize);
   }
 
-#pragma endregion
   ML::POP_RANGE();  //gather phase @levelfunc_classifier.cuh
-#pragma endregion
   ML::POP_RANGE();  //grow_deep_tree_classification @levelfunc_classifier.cuh
 }
 

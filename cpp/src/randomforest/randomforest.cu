@@ -483,7 +483,6 @@ void fit(const raft::handle_t& user_handle, RandomForestClassifierF*& forest,
          float* input, int n_rows, int n_cols, int* labels, int n_unique_labels,
          RF_params rf_params, int verbosity) {
   ML::PUSH_RANGE("RF::fit @randomforest.cu");
-#pragma region
   ML::Logger::get().setLevel(verbosity);
   ASSERT(!forest->trees, "Cannot fit an existing forest.");
   forest->trees =
@@ -494,7 +493,6 @@ void fit(const raft::handle_t& user_handle, RandomForestClassifierF*& forest,
     std::make_shared<rfClassifier<float>>(rf_params);
   rf_classifier->fit(user_handle, input, n_rows, n_cols, labels,
                      n_unique_labels, forest);
-#pragma endregion
   ML::POP_RANGE();
 }
 

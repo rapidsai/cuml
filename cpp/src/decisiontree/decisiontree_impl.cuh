@@ -259,7 +259,6 @@ void DecisionTreeBase<T, L>::plant(
   const int nrows, const L *labels, unsigned int *rowids,
   const int n_sampled_rows, int unique_labels, const int treeid) {
   ML::PUSH_RANGE("DecisionTreeBase::plant @decisiontree_impl.cuh");
-#pragma region
   dinfo.NLocalrows = nrows;
   dinfo.NGlobalrows = nrows;
   dinfo.Ncols = ncols;
@@ -306,7 +305,6 @@ void DecisionTreeBase<T, L>::plant(
                    treeid, tempmem);
   }
   train_time = timer.getElapsedSeconds();
-#pragma endregion
   ML::POP_RANGE();
 }
 
