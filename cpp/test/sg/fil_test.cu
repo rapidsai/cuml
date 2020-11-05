@@ -1073,7 +1073,7 @@ INSTANTIATE_TEST_CASE_P(FilTests, TreeliteThrowSparse8FilTest,
                         testing::ValuesIn(import_throw_sparse8_inputs));
 
 template <typename T>
-__device__ void serial_multi_reduction(const T* in, T* out, int set_size,
+__device__ void serial_multi_reduction(T* in, T* out, int set_size,
                                       int n_sets) {
   __syncthreads();
   if (threadIdx.x < set_size) {
@@ -1089,90 +1089,104 @@ __device__ void serial_multi_reduction(const T* in, T* out, int set_size,
 // the most threads a block can have
 const int max_threads = 1024;
 
+struct MultiReductionTestParams {
+  int radix, set_size, n_sets;
+};
+
 template <int R, typename T>
-__device__ void test_single_radix(const T value, const int valid_threads,
-                                  int& errors) {
+__device__ void test_single_radix(T value, MultiReductionTestParams p,
+                                  int& error) {
   __shared__ T work[max_threads], correct_result[max_threads];
-  for (int set_size = 1; set_size < valid_threads; ++set_size) {
-    int n_sets = valid_threads / set_size;
-    work[threadIdx.x] = value;
-    serial_multi_reduction(work, correct_result, set_size, n_sets);
-    T sum = multi_reduction<R>(work, set_size, n_sets);
-    if (threadIdx.x < set_size && sum != correct_result[threadIdx.x]) {
-      printf("multi_reduction<%d>(on %d sets sized %d)[%d] gave wrong result\n",
-             R, n_sets, set_size, threadIdx.x);
-      atomicAdd(errors, 1);
-    }
+  work[threadIdx.x] = value;
+  serial_multi_reduction(work, correct_result, p.set_size, p.n_sets);
+  T sum = multi_reduction<R>(work, p.set_size, p.n_sets);
+  if (threadIdx.x < p.set_size && sum != correct_result[threadIdx.x]) {
+    atomicAdd(&error, 1);
   }
 }
 
 template <typename T>
-// TODO(levsnv): eventually replace args with std::spans
-__global__ void test_multireduction_k(T* data, int n_values, int* error) {
-  test_single_radix<2>(data[threadIdx.x], n_values, error);
-  test_single_radix<3>(data[threadIdx.x], n_values, error);
-  test_single_radix<4>(data[threadIdx.x], n_values, error);
-  test_single_radix<5>(data[threadIdx.x], n_values, error);
-  test_single_radix<6>(data[threadIdx.x], n_values, error);
+__global__ void test_multi_reduction_k(T* data, MultiReductionTestParams *p, int* error) {
+  int t = blockIdx.x;
+  switch(p[t].radix) {
+    case 2: test_single_radix<2>(data[threadIdx.x], p[t], error[t]); break;
+    case 3: test_single_radix<3>(data[threadIdx.x], p[t], error[t]); break;
+    case 4: test_single_radix<4>(data[threadIdx.x], p[t], error[t]); break;
+    case 5: test_single_radix<5>(data[threadIdx.x], p[t], error[t]); break;
+    case 6: test_single_radix<6>(data[threadIdx.x], p[t], error[t]); break;
+  }
 }
+
+typedef rmm::mr::thrust_allocator<char> RmmAllocator;
 
 template <typename T, int range,
           void (raft::random::Rng::*uniform)(T*, int, T, T, cudaStream_t)>
 class MultiReductionTest : public testing::TestWithParam<int> {
  protected:
   void SetUp() override {
-    size = GetParam();
+    // GetParam();
     raft::random::Rng r(4321);
-    raft::allocate(data_d, size);
-    (r.*uniform)(data_d, size, (T)(-range), (T)range, cudaStreamDefault);
-    raft::allocate(error_d, 1);
-    CUDA_CHECK(cudaMemset(error_d, 0, sizeof(int)));
+    data_d.resize(max_threads);
+    T* data_p = data_d.data().get();
+    (r.*uniform)(data_p, max_threads, (T)(-range), (T)range, cudaStreamDefault);
+
+    for(int radix = 2; radix <= 6; ++radix) {
+      for(int set_size = 1; set_size < 15; ++set_size) { // >2x the max radix
+        for(int n_sets = 1; n_sets < 50 / set_size; ++n_sets)
+          p.push_back({.radix = radix, .set_size = set_size, .n_sets = n_sets});
+        for(int n_sets = (max_threads - 50) / set_size; n_sets <= max_threads / set_size; ++n_sets)
+          p.push_back({.radix = radix, .set_size = set_size, .n_sets = n_sets});
+      }
+    }
+    p_d = p;
+    error_d.resize(p.size());
+    thrust::fill_n(error_d.begin(), p.size(), 0); // exec_policy(), 
   }
 
   void check() {
-    int error = 0;
-    test_multireduction_k<<<1, size>>>(data_d, size, error_d);
+    T* data_p = data_d.data().get();
+    MultiReductionTestParams* p_p = p_d.data().get();
+    int* error_p = error_d.data().get();
+
+    test_multi_reduction_k
+      <<<p.size(), max_threads>>>
+      (data_p, p_p, error_p);
     CUDA_CHECK(cudaPeekAtLastError());
+    error = error_d;
     //CUDA_CHECK(cudaMemcpyAsync((void*)&error, error_d, sizeof(int),
     //                           cudaMemcpyDeviceToHost));
     CUDA_CHECK(cudaDeviceSynchronize());
-    fflush(stdout);
-    ASSERT(error == 0, "MultireductionTest failed %d tests", error);
+    for(int i = 0; i < p.size(); ++i) {
+      ASSERT(error[i] == 0, "test # %d: multi_reduction<%d>(on %d sets sized"
+             " %d) gave wrong result", i, p[i].radix, p[i].n_sets, p[i].set_size);
+    }
   }
 
-  void TearDown() override {
-    CUDA_CHECK(cudaFree(data_d));
-    CUDA_CHECK(cudaFree(error_d));
+  inline auto exec_policy()
+  {
+     return thrust::cuda::par(RmmAllocator(cudaStreamDefault)).on(cudaStreamDefault);
   }
 
   // parameters
-  //raft::handle_t handle;
-  T* data_d;
-  int* error_d;
-  int size;
+  raft::handle_t handle;
+  thrust::host_vector<MultiReductionTestParams> p;
+  thrust::device_vector<MultiReductionTestParams, RmmAllocator> p_d;
+  thrust::host_vector<int> error;
+  thrust::device_vector<int, RmmAllocator> error_d;
+  thrust::device_vector<T, RmmAllocator> data_d;
 };
-
-std::vector<int> multireduction_test_sizes = []() {
-  std::vector<int> sizes;
-  auto append_range = [&](int min, int max) {
-    for (int i = min; i < max; ++i) sizes.push_back(i);
-  };
-  append_range(1, 50);
-  append_range(max_threads - 50, max_threads);
-  return sizes;
-}();
 
 typedef MultiReductionTest<float, 1, &raft::random::Rng::uniform>
   MultiReductionTestFloat;
 
 TEST_P(MultiReductionTestFloat, Import) { check(); }
 INSTANTIATE_TEST_CASE_P(FilTests, MultiReductionTestFloat,
-                        testing::ValuesIn(multireduction_test_sizes));
+                        testing::ValuesIn({1}));
 
 typedef MultiReductionTest<int, 123'456, &raft::random::Rng::uniformInt>
   MultiReductionTestInt;
 TEST_P(MultiReductionTestInt, Import) { check(); }
 INSTANTIATE_TEST_CASE_P(FilTests, MultiReductionTestInt,
-                        testing::ValuesIn(multireduction_test_sizes));
+                        testing::ValuesIn({1}));
 
 }  // namespace ML

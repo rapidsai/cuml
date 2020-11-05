@@ -2,8 +2,8 @@
 // data [T]ype, reduction [R]adix
 template <int R, typename T>
 __device__ T multi_reduction(T* per_thread, const int set_size, int n_sets) {
-  // reduce per-thread margin summand into per-class complete margin
-  // (for each of the NITEMS rows)
+  // reduce per-thread summand into a single per-block value, valid only for
+  // threads 0..set_size-1
   T acc;  // accumulator
   if (threadIdx.x < set_size * n_sets) acc = per_thread[threadIdx.x];
   while (n_sets >= R) {
