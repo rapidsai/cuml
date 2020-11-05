@@ -16,21 +16,22 @@
  */
 
 #include <cuml/metrics/metrics.hpp>
-#include <metrics/adjustedRandIndex.cuh>
+#include <metrics/adjusted_rand_index.cuh>
 
 namespace ML {
 
 namespace Metrics {
-double adjustedRandIndex(const raft::handle_t &handle, const int64_t *y,
-                         const int64_t *y_hat, const int64_t n) {
-  return MLCommon::Metrics::computeAdjustedRandIndex<int64_t,
-                                                     unsigned long long>(
+double adjusted_rand_index(const raft::handle_t &handle, const int64_t *y,
+                           const int64_t *y_hat, const int64_t n) {
+  return MLCommon::Metrics::compute_adjusted_rand_index<int64_t,
+                                                        unsigned long long>(
     y, y_hat, n, handle.get_device_allocator(), handle.get_stream());
 }
 
-double adjustedRandIndex(const raft::handle_t &handle, const int *y,
-                         const int *y_hat, const int n) {
-  return MLCommon::Metrics::computeAdjustedRandIndex<int, unsigned long long>(
+double adjusted_rand_index(const raft::handle_t &handle, const int *y,
+                           const int *y_hat, const int n) {
+  return MLCommon::Metrics::compute_adjusted_rand_index<int,
+                                                        unsigned long long>(
     y, y_hat, n, handle.get_device_allocator(), handle.get_stream());
 }
 }  // namespace Metrics

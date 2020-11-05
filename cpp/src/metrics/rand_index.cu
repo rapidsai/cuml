@@ -16,15 +16,15 @@
  */
 
 #include <cuml/metrics/metrics.hpp>
-#include <metrics/randIndex.cuh>
+#include <metrics/rand_index.cuh>
 
 namespace ML {
 
 namespace Metrics {
 
-double randIndex(const raft::handle_t &handle, const double *y,
-                 const double *y_hat, int n) {
-  return MLCommon::Metrics::computeRandIndex(
+double rand_index(const raft::handle_t &handle, const double *y,
+                  const double *y_hat, int n) {
+  return MLCommon::Metrics::compute_rand_index(
     y, y_hat, (uint64_t)n, handle.get_device_allocator(), handle.get_stream());
 }
 }  // namespace Metrics

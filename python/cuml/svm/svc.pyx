@@ -463,7 +463,7 @@ class SVC(SVMBase, ClassifierMixin):
                 return preds
         else:
             raise AttributeError("This classifier is not fitted to predict "
-                                 "probabilities. Fit a new classifier with"
+                                 "probabilities. Fit a new classifier with "
                                  "probability=True to enable predict_proba.")
 
     @generate_docstring(return_values={'name': 'preds',

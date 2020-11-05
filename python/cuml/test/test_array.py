@@ -57,9 +57,7 @@ test_output_types = {
 test_dtypes_all = [
     np.float16, np.float32, np.float64,
     np.int8, np.int16, np.int32, np.int64,
-    np.uint8, np.uint16, np.uint32, np.uint64,
-    "float", "float32", "double", "float64",
-    "int8", "short", "int16", "int", "int32", "long", "int64",
+    np.uint8, np.uint16, np.uint32, np.uint64
 ]
 
 test_dtypes_output = [
@@ -86,15 +84,7 @@ def test_array_init(input_type, dtype, shape, order):
                 shape in [(10, 5), (1, 10)]:
             pytest.skip("Unsupported cuDF Series parameter")
 
-    if input_type is not None:
-        inp = create_input(input_type, dtype, shape, order)
-        ary = CumlArray(data=inp)
-        ptr = ary.ptr
-    else:
-        inp = create_input('cupy', dtype, shape, order)
-        ptr = inp.__cuda_array_interface__['data'][0]
-        ary = CumlArray(data=ptr, owner=inp, dtype=inp.dtype, shape=inp.shape,
-                        order=order)
+    inp, ary, ptr = create_ary_init_tests(input_type, dtype, shape, order)
 
     if shape == (10, 5):
         assert ary.order == order
@@ -122,39 +112,69 @@ def test_array_init(input_type, dtype, shape, order):
 
         assert np.array_equal(truth, data)
     else:
-        found_owner = False
+        helper_test_ownership(ary, inp, False)
 
-        def get_owner(curr):
-            if (isinstance(curr, CumlArray)):
-                return curr._owner
-            elif (isinstance(curr, cp.ndarray)):
-                return curr.data.mem._owner
-            else:
-                return None
 
-        # Make sure the input array is in the ownership chain
-        curr_owner = ary
+@pytest.mark.parametrize('input_type', test_input_types)
+def test_ownership_with_gc(input_type):
+    # garbage collection slows down the test suite significantly, we only
+    # need to test for each input type, not for shapes/dtypes/etc.
+    if input_type == 'numpy':
+        pytest.skip("test not valid for numpy input")
 
-        while (curr_owner is not None):
-            if (curr_owner is inp):
-                found_owner = True
-                break
+    inp, ary, ptr = create_ary_init_tests(input_type, np.float32, (10, 10),
+                                          'F')
 
-            curr_owner = get_owner(curr_owner)
+    helper_test_ownership(ary, inp, True)
 
-        assert found_owner, "GPU input arrays must be in the owner chain"
 
-        inp_copy = deepcopy(cp.asarray(inp))
+def create_ary_init_tests(ary_type, dtype, shape, order):
+    if ary_type is not None:
+        inp = create_input(ary_type, dtype, shape, order)
+        ary = CumlArray(data=inp)
+        ptr = ary.ptr
+    else:
+        inp = create_input('cupy', dtype, shape, order)
+        ptr = inp.__cuda_array_interface__['data'][0]
+        ary = CumlArray(data=ptr, owner=inp, dtype=inp.dtype, shape=inp.shape,
+                        order=order)
 
-        # testing owner reference keeps data of ary alive
-        del inp
+    return (inp, ary, ptr)
 
+
+def get_owner(curr):
+    if (isinstance(curr, CumlArray)):
+        return curr._owner
+    elif (isinstance(curr, cp.ndarray)):
+        return curr.data.mem._owner
+    else:
+        return None
+
+
+def helper_test_ownership(ary, inp, garbage_collect):
+    found_owner = False
+    # Make sure the input array is in the ownership chain
+    curr_owner = ary
+
+    while (curr_owner is not None):
+        if (curr_owner is inp):
+            found_owner = True
+            break
+
+        curr_owner = get_owner(curr_owner)
+
+    assert found_owner, "GPU input arrays must be in the owner chain"
+
+    inp_copy = deepcopy(cp.asarray(inp))
+
+    # testing owner reference keeps data of ary alive
+    del inp
+
+    if garbage_collect:
         # Force GC just in case it lingers
         gc.collect()
 
-        assert cp.all(cp.asarray(ary._owner) == cp.asarray(inp_copy))
-
-    return True
+    assert cp.all(cp.asarray(ary._owner) == cp.asarray(inp_copy))
 
 
 @pytest.mark.parametrize('data_type', [bytes, bytearray, memoryview])
@@ -577,13 +597,7 @@ def test_sliced_array_owner(order):
 
 
 def create_input(input_type, dtype, shape, order):
-    float_dtypes = [np.float16, np.float32, np.float64]
-    if dtype in float_dtypes:
-        rand_ary = cp.random.random(shape)
-    else:
-        rand_ary = cp.random.randint(100, size=shape)
-
-    rand_ary = cp.array(rand_ary, dtype=dtype, order=order)
+    rand_ary = cp.ones(shape, dtype=dtype, order=order)
 
     if input_type == 'numpy':
         return np.array(cp.asnumpy(rand_ary), dtype=dtype, order=order)
