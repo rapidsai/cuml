@@ -19,7 +19,7 @@ ARGS=$*
 REPODIR=$(cd $(dirname $0); pwd)
 
 VALIDTARGETS="clean libcuml cuml cpp-mgtests prims bench prims-bench cppdocs pydocs"
-VALIDFLAGS="-v -g -n --allgpuarch --buildfaiss --buildgtest --singlegpu --nvtx --show_depr_warn -h --help "
+VALIDFLAGS="-v -g -n --allgpuarch --buildfaiss --buildgtest --singlegpu --nvtx --show_depr_warn --codecov -h --help "
 VALIDARGS="${VALIDTARGETS} ${VALIDFLAGS}"
 HELP="$0 [<target> ...] [<flag> ...]
  where <target> is:
@@ -43,6 +43,8 @@ HELP="$0 [<target> ...] [<flag> ...]
    --singlegpu      - Build libcuml and cuml without multigpu components
    --nvtx           - Enable nvtx for profiling support
    --show_depr_warn - show cmake deprecation warnings
+   --codecov        - Enable code coverage support by compiling with Cython linetracing
+                      and profiling enabled (WARNING: Impacts performance)
    -h               - print this text
 
  default action (no args) is to build and install 'libcuml', 'cuml', and 'prims' targets only for the detected GPU arch
@@ -132,6 +134,9 @@ if hasArg --nvtx; then
 fi
 if hasArg --show_depr_warn; then
     BUILD_DISABLE_DEPRECATION_WARNING=OFF
+fi
+if hasArg --codecov; then
+    BUILD_PYTHON_ARGS="${BUILD_PYTHON_ARGS} --linetrace=1 --profile"
 fi
 if hasArg clean; then
     CLEAN=1
@@ -226,7 +231,7 @@ if completeBuild || hasArg cuml || hasArg pydocs; then
     if [[ ${INSTALL_TARGET} != "" ]]; then
         python setup.py build_ext -j${PARALLEL_LEVEL:-1} ${BUILD_PYTHON_ARGS} --library-dir=${LIBCUML_BUILD_DIR} install --single-version-externally-managed --record=record.txt
     else
-        python setup.py build_ext -j${PARALLEL_LEVEL:-1} --library-dir=${LIBCUML_BUILD_DIR} ${BUILD_PYTHON_ARGS}
+        python setup.py build_ext -j${PARALLEL_LEVEL:-1} ${BUILD_PYTHON_ARGS} --library-dir=${LIBCUML_BUILD_DIR}
     fi
 
     if hasArg pydocs; then
