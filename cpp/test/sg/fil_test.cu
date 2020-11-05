@@ -1074,7 +1074,7 @@ INSTANTIATE_TEST_CASE_P(FilTests, TreeliteThrowSparse8FilTest,
 
 template <typename T>
 __device__ void serial_multi_reduction(T* in, T* out, int set_size,
-                                      int n_sets) {
+                                       int n_sets) {
   __syncthreads();
   if (threadIdx.x < set_size) {
     int reduction_id = threadIdx.x;
@@ -1106,14 +1106,25 @@ __device__ void test_single_radix(T value, MultiReductionTestParams p,
 }
 
 template <typename T>
-__global__ void test_multi_reduction_k(T* data, MultiReductionTestParams *p, int* error) {
+__global__ void test_multi_reduction_k(T* data, MultiReductionTestParams* p,
+                                       int* error) {
   int t = blockIdx.x;
-  switch(p[t].radix) {
-    case 2: test_single_radix<2>(data[threadIdx.x], p[t], error[t]); break;
-    case 3: test_single_radix<3>(data[threadIdx.x], p[t], error[t]); break;
-    case 4: test_single_radix<4>(data[threadIdx.x], p[t], error[t]); break;
-    case 5: test_single_radix<5>(data[threadIdx.x], p[t], error[t]); break;
-    case 6: test_single_radix<6>(data[threadIdx.x], p[t], error[t]); break;
+  switch (p[t].radix) {
+    case 2:
+      test_single_radix<2>(data[threadIdx.x], p[t], error[t]);
+      break;
+    case 3:
+      test_single_radix<3>(data[threadIdx.x], p[t], error[t]);
+      break;
+    case 4:
+      test_single_radix<4>(data[threadIdx.x], p[t], error[t]);
+      break;
+    case 5:
+      test_single_radix<5>(data[threadIdx.x], p[t], error[t]);
+      break;
+    case 6:
+      test_single_radix<6>(data[threadIdx.x], p[t], error[t]);
+      break;
   }
 }
 
@@ -1128,17 +1139,18 @@ class MultiReductionTest : public testing::TestWithParam<int> {
     T* data_p = data_d.data().get();
     (r.*uniform)(data_p, max_threads, (T)(-range), (T)range, cudaStreamDefault);
 
-    for(int radix = 2; radix <= 6; ++radix) {
-      for(int set_size = 1; set_size < 15; ++set_size) { // >2x the max radix
-        for(int n_sets = 1; n_sets < 50 / set_size; ++n_sets)
+    for (int radix = 2; radix <= 6; ++radix) {
+      for (int set_size = 1; set_size < 15; ++set_size) {  // >2x the max radix
+        for (int n_sets = 1; n_sets < 50 / set_size; ++n_sets)
           p.push_back({.radix = radix, .set_size = set_size, .n_sets = n_sets});
-        for(int n_sets = (max_threads - 50) / set_size; n_sets <= max_threads / set_size; ++n_sets)
+        for (int n_sets = (max_threads - 50) / set_size;
+             n_sets <= max_threads / set_size; ++n_sets)
           p.push_back({.radix = radix, .set_size = set_size, .n_sets = n_sets});
       }
     }
     p_d = p;
     error_d.resize(p.size());
-    thrust::fill_n(error_d.begin(), p.size(), 0); // exec_policy(), 
+    thrust::fill_n(error_d.begin(), p.size(), 0);  // exec_policy(),
   }
 
   void check() {
@@ -1146,17 +1158,17 @@ class MultiReductionTest : public testing::TestWithParam<int> {
     MultiReductionTestParams* p_p = p_d.data().get();
     int* error_p = error_d.data().get();
 
-    test_multi_reduction_k
-      <<<p.size(), max_threads>>>
-      (data_p, p_p, error_p);
+    test_multi_reduction_k<<<p.size(), max_threads>>>(data_p, p_p, error_p);
     CUDA_CHECK(cudaPeekAtLastError());
     error = error_d;
     //CUDA_CHECK(cudaMemcpyAsync((void*)&error, error_d, sizeof(int),
     //                           cudaMemcpyDeviceToHost));
     CUDA_CHECK(cudaDeviceSynchronize());
-    for(int i = 0; i < p.size(); ++i) {
-      ASSERT(error[i] == 0, "test # %d: multi_reduction<%d>(on %d sets sized"
-             " %d) gave wrong result", i, p[i].radix, p[i].n_sets, p[i].set_size);
+    for (int i = 0; i < p.size(); ++i) {
+      ASSERT(error[i] == 0,
+             "test # %d: multi_reduction<%d>(on %d sets sized"
+             " %d) gave wrong result",
+             i, p[i].radix, p[i].n_sets, p[i].set_size);
     }
   }
 
