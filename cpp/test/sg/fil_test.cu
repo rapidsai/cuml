@@ -1117,8 +1117,6 @@ __global__ void test_multi_reduction_k(T* data, MultiReductionTestParams *p, int
   }
 }
 
-typedef rmm::mr::thrust_allocator<char> RmmAllocator;
-
 template <typename T, int range,
           void (raft::random::Rng::*uniform)(T*, int, T, T, cudaStream_t)>
 class MultiReductionTest : public testing::TestWithParam<int> {
@@ -1162,18 +1160,13 @@ class MultiReductionTest : public testing::TestWithParam<int> {
     }
   }
 
-  inline auto exec_policy()
-  {
-     return thrust::cuda::par(RmmAllocator(cudaStreamDefault)).on(cudaStreamDefault);
-  }
-
   // parameters
   raft::handle_t handle;
   thrust::host_vector<MultiReductionTestParams> p;
-  thrust::device_vector<MultiReductionTestParams, RmmAllocator> p_d;
+  thrust::device_vector<MultiReductionTestParams> p_d;
   thrust::host_vector<int> error;
-  thrust::device_vector<int, RmmAllocator> error_d;
-  thrust::device_vector<T, RmmAllocator> data_d;
+  thrust::device_vector<int> error_d;
+  thrust::device_vector<T> data_d;
 };
 
 typedef MultiReductionTest<float, 1, &raft::random::Rng::uniform>
