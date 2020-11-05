@@ -21,7 +21,11 @@ from cuml.common.input_utils import input_to_cupy_array
 
 
 @cuml.internals.api_return_any()
-def log_loss(y_true, y_pred, eps=1e-15, normalize=True, sample_weight=None) -> float:
+def log_loss(y_true,
+             y_pred,
+             eps=1e-15,
+             normalize=True,
+             sample_weight=None) -> float:
     """ Log loss, aka logistic loss or cross-entropy loss.
     This is the loss function used in (multinomial) logistic regression
     and extensions of it such as neural networks, defined as the negative

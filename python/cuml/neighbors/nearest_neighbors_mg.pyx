@@ -158,7 +158,7 @@ class NearestNeighborsMG(NearestNeighbors):
     @cuml.internals.api_base_return_generic_skipall
     def kneighbors(self, indices, index_m, n, index_parts_to_ranks,
                    queries, query_m, query_parts_to_ranks,
-                   rank, n_neighbors=None, convert_dtype=True) -> typing.Tuple[typing.List[CumlArray], typing.List[CumlArray]]:
+                   rank, n_neighbors=None, convert_dtype=True) -> typing.Tuple[typing.List[CumlArray], typing.List[CumlArray]]: # noqa
         """
         Query the kneighbors of an index
 

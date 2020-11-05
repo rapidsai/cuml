@@ -16,7 +16,6 @@
 import cuml.internals
 from cuml.common.import_utils import has_sklearn
 from cuml.datasets.utils import _create_rs_generator
-from cuml.common import with_cupy_rmm
 
 import cupy as cp
 import numpy as np

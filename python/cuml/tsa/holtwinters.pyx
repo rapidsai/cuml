@@ -256,7 +256,7 @@ class ExponentialSmoothing(Base):
         is_cudf = isinstance(ts_input, cudf.DataFrame)
 
         mod_ts_input = input_to_cupy_array(ts_input, order="C").array
-        
+
         if len(mod_ts_input.shape) == 1:
             self.n = mod_ts_input.shape[0]
             if self.ts_num != 1:
@@ -355,7 +355,8 @@ class ExponentialSmoothing(Base):
         with cuml.using_output_type("cupy"):
             self.level = self.level.reshape((self.ts_num, num_rows), order='F')
             self.trend = self.trend.reshape((self.ts_num, num_rows), order='F')
-            self.season = self.season.reshape((self.ts_num, num_rows), order='F')
+            self.season = self.season.reshape((self.ts_num, num_rows),
+                                              order='F')
 
         self.handle.sync()
         self.fit_executed_flag = True

@@ -20,7 +20,6 @@ from collections.abc import Iterable
 import cupy as cp
 import numpy as np
 import cuml.internals
-from cuml.common import with_cupy_rmm
 from cuml.datasets.utils import _create_rs_generator
 
 

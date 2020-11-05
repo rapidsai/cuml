@@ -26,14 +26,8 @@ import cuml
 import cuml.common
 import cuml.common.array
 import cuml.common.array_sparse
-import cuml.common.base
 import cuml.common.input_utils
 import rmm
-# from cuml.common.array_outputable import ArrayOutputable
-from cuml.common.input_utils import determine_array_type
-from cuml.common.input_utils import determine_array_type_full
-from cuml.common.input_utils import input_to_cuml_array
-from cuml.common.input_utils import is_array_like
 from cuml.internals.base_helpers import _get_base_return_type
 
 try:
@@ -282,7 +276,7 @@ class ProcessEnterBaseMixin(ProcessEnter):
         self.base_obj: cuml.Base = self._context._args[0]
 
 
-class ProcessEnterReturnAny(ProcessEnterBaseMixin):
+class ProcessEnterReturnAny(ProcessEnter):
     pass
 
 
@@ -339,11 +333,6 @@ class ProcessEnterBaseReturnArray(ProcessEnterReturnArray,
         self._context.callback(set_output_type)
 
 
-class ProcessEnterBaseSetOutputTypes(ProcessEnterBaseMixin):
-    def set_output_types(self):
-        pass
-
-
 class ProcessReturnAny(ProcessReturn):
     pass
 
@@ -354,52 +343,48 @@ class ProcessReturnArray(ProcessReturn):
 
         self._process_return_cbs.append(self.convert_to_cumlarray)
 
-        if (self._context.is_root):
+        if (self._context.is_root or cuml.global_output_type != "mirror"):
             self._process_return_cbs.append(self.convert_to_outputtype)
 
     def convert_to_cumlarray(self, ret_val):
 
         # Get the output type
-        ret_val_type_str = determine_array_type(ret_val)
+        ret_val_type_str = cuml.common.input_utils.determine_array_type(
+            ret_val)
 
         # If we are a supported array and not already cuml, convert to cuml
         if (ret_val_type_str is not None and ret_val_type_str != "cuml"):
-            ret_val = input_to_cuml_array(ret_val, order="K").array
+            ret_val = cuml.common.input_utils.input_to_cuml_array(
+                ret_val, order="K").array
 
         return ret_val
 
     def convert_to_outputtype(self, ret_val):
 
-        # # TODO: Simple workaround for sparse arrays. Should not be released
-        # if (not isinstance(ret_val, ArrayOutputable)):
-        #     assert False, \
-        #         "Must be array by this point. Obj: {}".format(ret_val)
-        #     return ret_val
+        output_type = cuml.global_output_type
 
-        assert (self._context.root_cm.output_type is not None
-                and self._context.root_cm.output_type != "mirror"
-                and self._context.root_cm.output_type != "input"), \
+        if (output_type is None or output_type == "mirror"
+                or output_type == "input"):
+            output_type = self._context.root_cm.output_type
+
+        assert (output_type is not None
+                and output_type != "mirror"
+                and output_type != "input"), \
             ("Invalid root_cm.output_type: "
-             "'{}'.").format(self._context.root_cm.output_type)
+             "'{}'.").format(output_type)
 
         return ret_val.to_output(
-            output_type=self._context.root_cm.output_type,
+            output_type=output_type,
             output_dtype=self._context.root_cm.output_dtype)
 
 
-class ProcessReturnSparseArray(ProcessReturn):
-    def __init__(self, context: "InternalAPIContextBase"):
-        super().__init__(context)
-
-        self._process_return_cbs.append(self.convert_to_cumlarray)
-
-        if (self._context.is_root):
-            self._process_return_cbs.append(self.convert_to_outputtype)
+class ProcessReturnSparseArray(ProcessReturnArray):
 
     def convert_to_cumlarray(self, ret_val):
 
         # Get the output type
-        ret_val_type_str, is_sparse = determine_array_type_full(ret_val)
+        ret_val_type_str, is_sparse = \
+            cuml.common.input_utils.determine_array_type_full(ret_val)
 
         # If we are a supported array and not already cuml, convert to cuml
         if (ret_val_type_str is not None and ret_val_type_str != "cuml"):
@@ -407,23 +392,10 @@ class ProcessReturnSparseArray(ProcessReturn):
                 ret_val = cuml.common.array_sparse.SparseCumlArray(
                     ret_val, convert_index=False)
             else:
-                ret_val = input_to_cuml_array(ret_val, order="K").array
+                ret_val = cuml.common.input_utils.input_to_cuml_array(
+                    ret_val, order="K").array
 
         return ret_val
-
-    def convert_to_outputtype(self, ret_val):
-
-        # # TODO: Simple workaround for sparse arrays. Should not be released
-        # if (not isinstance(ret_val, ArrayOutputable)):
-        #     return ret_val
-
-        assert (self._context.root_cm.output_type is not None
-                and self._context.root_cm.output_type != "mirror"
-                and self._context.root_cm.output_type != "input")
-
-        return ret_val.to_output(
-            output_type=self._context.root_cm.output_type,
-            output_dtype=self._context.root_cm.output_dtype)
 
 
 class ProcessReturnGeneric(ProcessReturnArray):
@@ -436,40 +408,7 @@ class ProcessReturnGeneric(ProcessReturnArray):
         # Make a new queue
         self._process_return_cbs = deque()
 
-        type_hints = typing.get_type_hints(self._context._func)
-        gen_type = type_hints["return"]
-
-        assert (isinstance(gen_type, typing._GenericAlias))
-
-        # Add the right processing function based on the generic type
-        if (gen_type.__origin__ is typing.Union):
-
-            found_gen_type = None
-
-            # If we are a Union, the supported types must only be either
-            # CumlArray, Tuple, Dict, or List
-            for gen_arg in gen_type.__args__:
-
-                if (isinstance(gen_arg, typing._GenericAlias)):
-                    assert found_gen_type is None or found_gen_type == gen_arg
-
-                    found_gen_type = gen_arg
-                else:
-                    assert issubclass(gen_arg, cuml.common.CumlArray)
-
-            assert found_gen_type is not None
-
-            self._process_return_cbs.append(self.process_generic)
-
-        elif (gen_type.__origin__ is tuple):
-            self._process_return_cbs.append(self.process_tuple)
-        elif (gen_type.__origin__ is dict):
-            self._process_return_cbs.append(self.process_dict)
-        elif (gen_type.__origin__ is list):
-            self._process_return_cbs.append(self.process_list)
-        else:
-            raise NotImplementedError("Unsupported origin type: {}".format(
-                gen_type.__origin__))
+        self._process_return_cbs.append(self.process_generic)
 
     def process_single(self, ret_val):
         for cb in self._single_array_cbs:
@@ -506,7 +445,7 @@ class ProcessReturnGeneric(ProcessReturnArray):
 
     def process_generic(self, ret_val):
 
-        if (is_array_like(ret_val)):
+        if (cuml.common.input_utils.is_array_like(ret_val)):
             return self.process_single(ret_val)
 
         if (isinstance(ret_val, tuple)):

@@ -17,7 +17,6 @@ import math
 import cupy as cp
 import cupyx
 import cuml.internals
-from cuml.common import with_cupy_rmm
 from cuml.common.kernel_utils import cuda_kernel_factory
 
 

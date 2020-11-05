@@ -19,7 +19,6 @@ import cupy as cp
 from cuml import Base
 
 
-from cuml.common.memory_utils import with_cupy_rmm
 from cuml.common.exceptions import NotFittedError
 
 

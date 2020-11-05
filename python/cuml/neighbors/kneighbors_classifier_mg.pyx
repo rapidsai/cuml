@@ -82,7 +82,7 @@ class KNeighborsClassifierMG(KNeighborsMG):
     @cuml.internals.api_base_return_generic_skipall
     def predict(self, data, data_parts_to_ranks, data_nrows,
                 query, query_parts_to_ranks, query_nrows,
-                uniq_labels, n_unique, ncols, rank, convert_dtype) -> typing.Tuple[typing.List[CumlArray], typing.List[CumlArray], typing.List[CumlArray]]:
+                uniq_labels, n_unique, ncols, rank, convert_dtype) -> typing.Tuple[typing.List[CumlArray], typing.List[CumlArray], typing.List[CumlArray]]: # noqa
         """
         Predict labels for a query from previously stored index
         and index labels.
@@ -183,13 +183,14 @@ class KNeighborsClassifierMG(KNeighborsMG):
         free(<void*><uintptr_t>out_result_local_parts)
 
         return output_cais, \
-               result['cais']['indices'], \
-               result['cais']['distances']
+            result['cais']['indices'], \
+            result['cais']['distances']
 
     @cuml.internals.api_base_return_generic_skipall
     def predict_proba(self, data, data_parts_to_ranks, data_nrows,
                       query, query_parts_to_ranks, query_nrows,
-                      uniq_labels, n_unique, ncols, rank, convert_dtype) -> tuple:
+                      uniq_labels, n_unique, ncols, rank,
+                      convert_dtype) -> tuple:
         """
         Predict labels for a query from previously stored index
         and index labels.

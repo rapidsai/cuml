@@ -19,13 +19,13 @@ import cupy as cp
 import numpy as np
 import cuml.internals
 from cuml.common.array import CumlArray
-from cuml.common.memory_utils import with_cupy_rmm
 from cuml.common.input_utils import input_to_cupy_array
 import math
 
 
 @cuml.internals.api_return_generic(get_output_type=True)
-def precision_recall_curve(y_true, probs_pred) -> typing.Tuple[CumlArray, CumlArray, CumlArray]:
+def precision_recall_curve(
+        y_true, probs_pred) -> typing.Tuple[CumlArray, CumlArray, CumlArray]:
     """
     Compute precision-recall pairs for different probability thresholds
 

@@ -23,7 +23,6 @@ from cudf import DataFrame, Series
 from cudf.core import GenericIndex
 import cuml.common.logger as logger
 
-from cuml.common import with_cupy_rmm
 import warnings
 
 

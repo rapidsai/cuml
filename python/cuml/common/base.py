@@ -338,7 +338,8 @@ class Base(metaclass=cuml.internals.BaseMetaClass):
         return output_type
 
     def _set_target_dtype(self, target):
-        self.target_dtype = cuml.common.input_utils.determine_array_dtype(target)
+        self.target_dtype = cuml.common.input_utils.determine_array_dtype(
+            target)
 
     def _get_target_dtype(self):
         """

@@ -74,7 +74,7 @@ class KNeighborsRegressorMG(KNeighborsMG):
     @cuml.internals.api_base_return_generic_skipall
     def predict(self, data, data_parts_to_ranks, data_nrows,
                 query, query_parts_to_ranks, query_nrows,
-                ncols, n_outputs, rank, convert_dtype) -> typing.Tuple[typing.List[CumlArray], typing.List[CumlArray], typing.List[CumlArray]]:
+                ncols, n_outputs, rank, convert_dtype) -> typing.Tuple[typing.List[CumlArray], typing.List[CumlArray], typing.List[CumlArray]]: # noqa
         """
         Predict outputs for a query from previously stored index
         and index labels.
@@ -150,4 +150,6 @@ class KNeighborsRegressorMG(KNeighborsMG):
             free(<void*>out_result_local_parts.at(i))
         free(<void*><uintptr_t>out_result_local_parts)
 
-        return output_cais, result['cais']['indices'], result['cais']['distances']
+        return output_cais, \
+            result['cais']['indices'], \
+            result['cais']['distances']

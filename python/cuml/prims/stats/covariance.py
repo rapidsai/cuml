@@ -19,7 +19,6 @@ import cupyx
 import math
 
 import cuml.internals
-from cuml.common.memory_utils import with_cupy_rmm
 from cuml.common.kernel_utils import cuda_kernel_factory
 
 cov_kernel_str = r'''
