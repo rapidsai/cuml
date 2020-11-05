@@ -14,15 +14,18 @@
 # limitations under the License.
 #
 
+import typing
 import cupy as cp
 import numpy as np
+import cuml.internals
+from cuml.common.array import CumlArray
 from cuml.common.memory_utils import with_cupy_rmm
 from cuml.common.input_utils import input_to_cupy_array
 import math
 
 
-@with_cupy_rmm
-def precision_recall_curve(y_true, probs_pred):
+@cuml.internals.api_return_generic(get_output_type=True)
+def precision_recall_curve(y_true, probs_pred) -> typing.Tuple[CumlArray, CumlArray, CumlArray]:
     """
     Compute precision-recall pairs for different probability thresholds
 
@@ -113,7 +116,7 @@ def precision_recall_curve(y_true, probs_pred):
     return precision, recall, thresholds
 
 
-@with_cupy_rmm
+@cuml.internals.api_return_any()
 def roc_auc_score(y_true, y_score):
     """
     Compute Area Under the Receiver Operating Characteristic Curve (ROC AUC)

@@ -24,8 +24,7 @@ import cupy as cp
 import numpy as np
 import cuml.internals
 from cuml.common.base import _determine_stateless_output_type
-from cuml.common import (get_cudf_column_ptr, get_dev_array_ptr,
-                         input_to_cuml_array, CumlArray, logger, with_cupy_rmm)
+from cuml.common import (input_to_cuml_array, CumlArray, logger)
 from cuml.metrics.cluster.utils import prepare_cluster_metric_inputs
 
 cdef extern from "cuml/distance/distance_type.h" namespace "ML::Distance":
@@ -188,6 +187,7 @@ def pairwise_distances(X, Y=None, metric="euclidean", handle=None,
     cdef handle_t *handle_ = <handle_t*> <size_t> handle.getHandle()
 
     # Determine the input type to convert to when returning
+    # TODO: (MDD) Can we deprecate this property?
     if (output_type is not None):
         cuml.internals.set_api_output_type(output_type)
 

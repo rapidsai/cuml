@@ -182,8 +182,8 @@ def check_labels(labels, classes) -> bool:
     result : boolean
     """
 
-    labels = input_to_cupy_array(labels).array
-    classes = input_to_cupy_array(classes).array
+    labels = input_to_cupy_array(labels, order="K").array
+    classes = input_to_cupy_array(classes, order="K").array
 
     if labels.dtype != classes.dtype:
         raise ValueError("Labels and classes must have same dtype (%s != %s" %

@@ -54,7 +54,7 @@ def _prepare_cluster_input(cluster) -> typing.Tuple[CumlArray, int, int, int]:
 
 
 @cuml.internals.api_return_any()
-def cython_entropy(clustering, base=None, handle=None):
+def cython_entropy(clustering, base=None, handle=None) -> float:
     """
     Computes the entropy of a distribution for given probability values.
 

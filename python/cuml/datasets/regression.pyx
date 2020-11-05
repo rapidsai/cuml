@@ -16,13 +16,15 @@
 
 # distutils: language = c++
 
+import typing
+
 import cuml
 import numpy as np
 
+import cuml.internals
+from cuml.common.array import CumlArray
 from cuml.raft.common.handle cimport handle_t
 from cuml.raft.common.handle import Handle
-
-from cuml.common import get_dev_array_ptr, zeros
 
 from libcpp cimport bool
 from libc.stdint cimport uint64_t, uintptr_t
@@ -71,10 +73,11 @@ inp_to_dtype = {
 }
 
 
+@cuml.internals.api_return_generic()
 def make_regression(n_samples=100, n_features=2, n_informative=2, n_targets=1,
                     bias=0.0, effective_rank=None, tail_strength=0.5,
                     noise=0.0, shuffle=True, coef=False, random_state=None,
-                    dtype='single', handle=None):
+                    dtype='single', handle=None) -> typing.Union[typing.Tuple[CumlArray, CumlArray], typing.Tuple[CumlArray, CumlArray, CumlArray]]:
     """Generate a random regression problem.
 
     See https://scikit-learn.org/stable/modules/generated/sklearn.datasets.make_regression.html
@@ -161,17 +164,17 @@ def make_regression(n_samples=100, n_features=2, n_informative=2, n_targets=1,
     handle = Handle() if handle is None else handle
     cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
 
-    out = zeros((n_samples, n_features), dtype=dtype, order='C')
-    cdef uintptr_t out_ptr = get_dev_array_ptr(out)
+    out = CumlArray.zeros((n_samples, n_features), dtype=dtype, order='C')
+    cdef uintptr_t out_ptr = out.ptr
 
-    values = zeros((n_samples, n_targets), dtype=dtype, order='C')
-    cdef uintptr_t values_ptr = get_dev_array_ptr(values)
+    values = CumlArray.zeros((n_samples, n_targets), dtype=dtype, order='C')
+    cdef uintptr_t values_ptr = values.ptr
 
     cdef uintptr_t coef_ptr
     coef_ptr = <uintptr_t> NULL
     if coef:
-        coefs = zeros((n_features, n_targets), dtype=dtype, order='C')
-        coef_ptr = get_dev_array_ptr(coefs)
+        coefs = CumlArray.zeros((n_features, n_targets), dtype=dtype, order='C')
+        coef_ptr = coefs.ptr
 
     if random_state is None:
         random_state = randint(0, 1e18)
@@ -193,6 +196,8 @@ def make_regression(n_samples=100, n_features=2, n_informative=2, n_targets=1,
                             <double> bias, <long> effective_rank,
                             <double> tail_strength, <double> noise,
                             <bool> shuffle, <uint64_t> random_state)
+
+    handle.sync()
 
     if coef:
         return out, values, coefs
