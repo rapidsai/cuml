@@ -16,8 +16,8 @@
 
 #pragma once
 
-#include <raft/matrix/matrix.cuh>
 #include <matrix/reverse.cuh>
+#include <raft/matrix/matrix.cuh>
 
 #include <selection/knn.cuh>
 #include <sparse/coo.cuh>

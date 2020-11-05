@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#include <raft/matrix/matrix.cuh>
 #include <matrix/reverse.cuh>
+#include <raft/matrix/matrix.cuh>
 
 #include <raft/linalg/unary_op.cuh>
 

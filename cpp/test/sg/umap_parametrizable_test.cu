@@ -30,8 +30,8 @@
 #include <distance/distance.cuh>
 #include <linalg/reduce_rows_by_key.cuh>
 #include <metrics/trustworthiness.cuh>
-#include <selection/knn.cuh>
 #include <raft/cuda_utils.cuh>
+#include <selection/knn.cuh>
 #include <umap/runner.cuh>
 
 using namespace ML;
