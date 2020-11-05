@@ -77,6 +77,7 @@ if(BUILD_CUML_TESTS)
   add_dependencies(ml cutlass)
 
   target_include_directories(ml PRIVATE ${CUML_TEST_INCLUDE_DIRS})
+  target_compile_options(ml PRIVATE $<$<COMPILE_LANGUAGE:CUDA>: --generate-line-info>)
 
   target_link_libraries(ml ${CUML_TEST_LINK_LIBRARIES})
 
