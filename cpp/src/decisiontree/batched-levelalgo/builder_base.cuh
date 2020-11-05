@@ -451,7 +451,8 @@ struct RegTraits {
   static void computeSplit(Builder<RegTraits<DataT, IdxT>>& b, IdxT col,
                            IdxT batchSize, CRITERION splitType,
                            cudaStream_t s) {
-    auto n_col_blks = b.n_blks_for_cols;
+    auto n_col_blks = std::min(b.n_blks_for_cols, b.input.nSampledCols - col);
+
     dim3 grid(b.n_blks_for_rows, n_col_blks, batchSize);
     auto nbins = b.params.n_bins;
     size_t smemSize = 7 * nbins * sizeof(DataT) + nbins * sizeof(int);

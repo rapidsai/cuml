@@ -354,10 +354,17 @@ __global__ void computeSplitRegressionKernel(
   }
   for (IdxT i = threadIdx.x; i < nbins; i += blockDim.x) {
     scount[i] = 0;
+    if (col < 0) {
+      printf(
+        "indexing q with %d, col: %d, nbins: %d, i: %d, from colStart: %d + "
+        "blockIdx.y: %d\n",
+        col * nbins + i, col, nbins, i, colStart, blockIdx.y);
+    }
     sbins[i] = input.quantiles[col * nbins + i];
   }
   __syncthreads();
   auto coloffset = col * input.M;
+
   // compute prediction averages for all bins in shared mem
   for (auto i = range_start + tid; i < end; i += stride) {
     auto row = input.rowids[i];
@@ -440,6 +447,7 @@ __global__ void computeSplitRegressionKernel(
     last = MLCommon::signalDone(done_count + nid * gridDim.y + blockIdx.y,
                                 gridDim.x, blockIdx.x == 0, sDone);
   }
+
   if (!last) return;
   // last block computes the final gain
   Split<DataT, IdxT> sp;

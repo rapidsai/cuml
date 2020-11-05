@@ -120,6 +120,11 @@ class RFBatchedRegTest : public ::testing::TestWithParam<RfInputs> {
 
 //-------------------------------------------------------------------------------------------------------------------------------------
 const std::vector<RfInputs> inputs = {
+  // First two will FAIL (small data, small ensemble) but in old code will crash as well
+  {100, 29, 1, 1.0f, 1.0f, 2, -1, false, false, 16, SPLIT_ALGO::GLOBAL_QUANTILE,
+   2, 0.0, 2, CRITERION::MAE},
+  {100, 57, 1, 1.0f, 1.0f, 2, -1, false, false, 16, SPLIT_ALGO::GLOBAL_QUANTILE,
+   2, 0.0, 2, CRITERION::MAE},
   {1000, 10, 10, 1.0f, 1.0f, 12, -1, true, false, 10,
    SPLIT_ALGO::GLOBAL_QUANTILE, 2, 0.0, 2, CRITERION::MAE},
   {2000, 20, 20, 1.0f, 0.6f, 13, -1, true, false, 10,
