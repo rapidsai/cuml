@@ -27,11 +27,11 @@ namespace Sparse {
 
 constexpr int DEFAULT_BATCH_SIZE = 2 << 16;
 
-void brute_force_knn(raft::handle_t &handle, const int *idxIndptr,
-                     const int *idxIndices, const float *idxData, size_t idxNNZ,
-                     int n_idx_rows, int n_idx_cols, const int *queryIndptr,
-                     const int *queryIndices, const float *queryData,
-                     size_t queryNNZ, int n_query_rows, int n_query_cols,
+void brute_force_knn(raft::handle_t &handle, const int *idx_indptr,
+                     const int *idx_indices, const float *idx_data, size_t idx_nnz,
+                     int n_idx_rows, int n_idx_cols, const int *query_indptr,
+                     const int *query_indices, const float *query_data,
+                     size_t query_nnz, int n_query_rows, int n_query_cols,
                      int *output_indices, float *output_dists, int k,
                      size_t batch_size_index = DEFAULT_BATCH_SIZE,
                      size_t batch_size_query = DEFAULT_BATCH_SIZE,
