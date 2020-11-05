@@ -27,7 +27,6 @@ import joblib
 
 import cupy
 import cupyx
-import scipy.sparse
 
 import numba.cuda as cuda
 
@@ -44,6 +43,9 @@ from cuml.common.import_utils import has_scipy
 from cuml.common.array import CumlArray
 from cuml.common.array_sparse import SparseCumlArray
 from cuml.common.sparse_utils import is_sparse
+
+if has_scipy(True):
+    import scipy.sparse
 
 import rmm
 
