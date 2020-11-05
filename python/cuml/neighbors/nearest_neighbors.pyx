@@ -364,7 +364,7 @@ class NearestNeighbors(Base):
         return self._kneighbors(X, n_neighbors, return_distance, convert_dtype)
 
     def _kneighbors(self, X=None, n_neighbors=None, return_distance=True,
-                    convert_dtype=True, _output_cumlarray=False):
+                    convert_dtype=True, _output_type=None):
         """
         Query the GPU index for the k nearest neighbors of column vectors in X.
 
@@ -431,20 +431,20 @@ class NearestNeighbors(Base):
 
         self.handle.sync()
 
-        if not _output_cumlarray:
-            out_type = self._get_output_type(X)
-            I_ndarr = I_ndarr.to_output(out_type)
-            D_ndarr = D_ndarr.to_output(out_type)
+        out_type = _output_type if _output_type is None else self._get_output_type(X)
 
-            # drop first column if using training data as X
-            # this will need to be moved to the C++ layer (cuml issue #2562)
-            if use_training_data:
-                if out_type in {'cupy', 'numpy', 'numba'}:
-                    I_ndarr = I_ndarr[:, 1:]
-                    D_ndarr = D_ndarr[:, 1:]
-                else:
-                    I_ndarr.drop(I_ndarr.columns[0], axis=1)
-                    D_ndarr.drop(D_ndarr.columns[0], axis=1)
+        I_ndarr = I_ndarr.to_output(out_type)
+        D_ndarr = D_ndarr.to_output(out_type)
+
+        # drop first column if using training data as X
+        # this will need to be moved to the C++ layer (cuml issue #2562)
+        if use_training_data:
+            if out_type in {'cupy', 'numpy', 'numba'}:
+                I_ndarr = I_ndarr[:, 1:]
+                D_ndarr = D_ndarr[:, 1:]
+            else:
+                I_ndarr.drop(I_ndarr.columns[0], axis=1)
+                D_ndarr.drop(D_ndarr.columns[0], axis=1)
 
         return (D_ndarr, I_ndarr) if return_distance else I_ndarr
 
@@ -605,23 +605,23 @@ class NearestNeighbors(Base):
         if mode == 'connectivity':
             ind_mlarr = self._kneighbors(X, n_neighbors,
                                          return_distance=False,
-                                         _output_cumlarray=True)
+                                         _output_type="cupy")
             n_samples = ind_mlarr.shape[0]
             distances = cp.ones(n_samples * n_neighbors, dtype=np.float32)
 
         elif mode == 'distance':
             dist_mlarr, ind_mlarr = self._kneighbors(X, n_neighbors,
-                                                     _output_cumlarray=True)
-            distances = dist_mlarr.to_output('cupy')[:, 1:] if X is None \
-                else dist_mlarr.to_output('cupy')
+                                                     _output_type="cupy")
+            distances = dist_mlarr[:, 1:] if X is None \
+                else dist_mlarr
             distances = cp.ravel(distances)
 
         else:
             raise ValueError('Unsupported mode, must be one of "connectivity"'
                              ' or "distance" but got "%s" instead' % mode)
 
-        indices = ind_mlarr.to_output('cupy')[:, 1:] if X is None \
-            else ind_mlarr.to_output('cupy')
+        indices = ind_mlarr[:, 1:] if X is None \
+            else ind_mlarr
         n_samples = indices.shape[0]
         n_samples_fit = self._X_m.shape[0]
         n_nonzero = n_samples * n_neighbors
