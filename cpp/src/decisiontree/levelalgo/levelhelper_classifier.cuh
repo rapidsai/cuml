@@ -102,7 +102,6 @@ void get_histogram_classification(
     }
   }
   CUDA_CHECK(cudaGetLastError());
-  cudaStreamSynchronize(0);
   ML::POP_RANGE();
 }
 template <typename T, typename F, typename DF>
@@ -295,7 +294,6 @@ void get_best_split_classification(
     raft::update_device(d_split_binidx, split_binidx, n_nodes, tempmem->stream);
     raft::update_device(d_split_colidx, split_colidx, n_nodes, tempmem->stream);
   }
-  cudaStreamSynchronize(0);
   ML::POP_RANGE();
 }
 
