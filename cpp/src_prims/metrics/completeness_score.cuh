@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 /**
-* @file completenessScore.cuh
+* @file completeness_score.cuh
 *
 * @brief A clustering result satisfies completeness if all the data points
 * that are members of a given class are elements of the same cluster.
@@ -25,7 +25,7 @@
 #include <common/device_buffer.hpp>
 #include <cuml/common/cuml_allocator.hpp>
 #include "entropy.cuh"
-#include "mutualInfoScore.cuh"
+#include "mutual_info_score.cuh"
 
 namespace MLCommon {
 namespace Metrics {
@@ -42,15 +42,15 @@ namespace Metrics {
 * @param stream: the cudaStream object
 */
 template <typename T>
-double completenessScore(const T *truthClusterArray, const T *predClusterArray,
-                         int size, T lowerLabelRange, T upperLabelRange,
-                         std::shared_ptr<MLCommon::deviceAllocator> allocator,
-                         cudaStream_t stream) {
+double completeness_score(const T *truthClusterArray, const T *predClusterArray,
+                          int size, T lowerLabelRange, T upperLabelRange,
+                          std::shared_ptr<MLCommon::deviceAllocator> allocator,
+                          cudaStream_t stream) {
   if (size == 0) return 1.0;
 
   double computedMI, computedEntropy;
 
-  computedMI = MLCommon::Metrics::mutualInfoScore(
+  computedMI = MLCommon::Metrics::mutual_info_score(
     truthClusterArray, predClusterArray, size, lowerLabelRange, upperLabelRange,
     allocator, stream);
   computedEntropy =

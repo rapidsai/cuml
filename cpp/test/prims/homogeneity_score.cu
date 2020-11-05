@@ -18,7 +18,7 @@
 #include <algorithm>
 #include <cuml/common/cuml_allocator.hpp>
 #include <iostream>
-#include <metrics/vMeasure.cuh>
+#include <metrics/homogeneity_score.cuh>
 #include <random>
 #include "test_utils.h"
 
@@ -26,23 +26,22 @@ namespace MLCommon {
 namespace Metrics {
 
 //parameter structure definition
-struct vMeasureParam {
+struct homogeneityParam {
   int nElements;
   int lowerLabelRange;
   int upperLabelRange;
-  double beta;
   bool sameArrays;
   double tolerance;
 };
 
 //test fixture class
 template <typename T>
-class vMeasureTest : public ::testing::TestWithParam<vMeasureParam> {
+class homogeneityTest : public ::testing::TestWithParam<homogeneityParam> {
  protected:
   //the constructor
   void SetUp() override {
     //getting the parameters
-    params = ::testing::TestWithParam<vMeasureParam>::GetParam();
+    params = ::testing::TestWithParam<homogeneityParam>::GetParam();
 
     nElements = params.nElements;
     lowerLabelRange = params.lowerLabelRange;
@@ -77,24 +76,26 @@ class vMeasureTest : public ::testing::TestWithParam<vMeasureParam> {
       new raft::mr::device::default_allocator);
 
     //calculating the golden output
-    double truthHomogeity, truthCompleteness;
+    double truthMI, truthEntropy;
 
-    truthHomogeity = MLCommon::Metrics::homogeneityScore(
+    truthMI = MLCommon::Metrics::mutual_info_score(
       truthClusterArray, predClusterArray, nElements, lowerLabelRange,
       upperLabelRange, allocator, stream);
-    truthCompleteness = MLCommon::Metrics::homogeneityScore(
-      predClusterArray, truthClusterArray, nElements, lowerLabelRange,
-      upperLabelRange, allocator, stream);
+    truthEntropy =
+      MLCommon::Metrics::entropy(truthClusterArray, nElements, lowerLabelRange,
+                                 upperLabelRange, allocator, stream);
 
-    if (truthCompleteness + truthHomogeity == 0.0)
-      truthVMeasure = 0.0;
-    else
-      truthVMeasure = ((1 + params.beta) * truthHomogeity * truthCompleteness /
-                       (params.beta * truthHomogeity + truthCompleteness));
-    //calling the vMeasure CUDA implementation
-    computedVMeasure = MLCommon::Metrics::vMeasure(
+    if (truthEntropy) {
+      truthHomogeneity = truthMI / truthEntropy;
+    } else
+      truthHomogeneity = 1.0;
+
+    if (nElements == 0) truthHomogeneity = 1.0;
+
+    //calling the homogeneity CUDA implementation
+    computedHomogeneity = MLCommon::Metrics::homogeneity_score(
       truthClusterArray, predClusterArray, nElements, lowerLabelRange,
-      upperLabelRange, allocator, stream, params.beta);
+      upperLabelRange, allocator, stream);
   }
 
   //the destructor
@@ -105,31 +106,31 @@ class vMeasureTest : public ::testing::TestWithParam<vMeasureParam> {
   }
 
   //declaring the data values
-  vMeasureParam params;
+  homogeneityParam params;
   T lowerLabelRange, upperLabelRange;
   T* truthClusterArray = nullptr;
   T* predClusterArray = nullptr;
   int nElements = 0;
-  double truthVMeasure = 0;
-  double computedVMeasure = 0;
+  double truthHomogeneity = 0;
+  double computedHomogeneity = 0;
   cudaStream_t stream;
 };
 
 //setting test parameter values
-const std::vector<vMeasureParam> inputs = {
-  {199, 1, 10, 1.0, false, 0.000001},  {200, 15, 100, 1.0, false, 0.000001},
-  {100, 1, 20, 1.0, false, 0.000001},  {10, 1, 10, 1.0, false, 0.000001},
-  {198, 1, 100, 1.0, false, 0.000001}, {300, 3, 99, 1.0, false, 0.000001},
-  {199, 1, 10, 1.0, true, 0.000001},   {200, 15, 100, 1.0, true, 0.000001},
-  {100, 1, 20, 1.0, true, 0.000001},   {10, 1, 10, 1.0, true, 0.000001},
-  {198, 1, 100, 1.0, true, 0.000001},  {300, 3, 99, 1.0, true, 0.000001}};
+const std::vector<homogeneityParam> inputs = {
+  {199, 1, 10, false, 0.000001},  {200, 15, 100, false, 0.000001},
+  {100, 1, 20, false, 0.000001},  {10, 1, 10, false, 0.000001},
+  {198, 1, 100, false, 0.000001}, {300, 3, 99, false, 0.000001},
+  {199, 1, 10, true, 0.000001},   {200, 15, 100, true, 0.000001},
+  {100, 1, 20, true, 0.000001},   {10, 1, 10, true, 0.000001},
+  {198, 1, 100, true, 0.000001},  {300, 3, 99, true, 0.000001}};
 
 //writing the test suite
-typedef vMeasureTest<int> vMeasureTestClass;
-TEST_P(vMeasureTestClass, Result) {
-  ASSERT_NEAR(computedVMeasure, truthVMeasure, params.tolerance);
+typedef homogeneityTest<int> homogeneityTestClass;
+TEST_P(homogeneityTestClass, Result) {
+  ASSERT_NEAR(computedHomogeneity, truthHomogeneity, params.tolerance);
 }
-INSTANTIATE_TEST_CASE_P(vMeasure, vMeasureTestClass,
+INSTANTIATE_TEST_CASE_P(homogeneity, homogeneityTestClass,
                         ::testing::ValuesIn(inputs));
 
 }  //end namespace Metrics

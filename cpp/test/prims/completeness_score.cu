@@ -18,7 +18,7 @@
 #include <algorithm>
 #include <cuml/common/cuml_allocator.hpp>
 #include <iostream>
-#include <metrics/homogeneityScore.cuh>
+#include <metrics/completeness_score.cuh>
 #include <random>
 #include "test_utils.h"
 
@@ -26,7 +26,7 @@ namespace MLCommon {
 namespace Metrics {
 
 //parameter structure definition
-struct homogeneityParam {
+struct completenessParam {
   int nElements;
   int lowerLabelRange;
   int upperLabelRange;
@@ -36,12 +36,12 @@ struct homogeneityParam {
 
 //test fixture class
 template <typename T>
-class homogeneityTest : public ::testing::TestWithParam<homogeneityParam> {
+class completenessTest : public ::testing::TestWithParam<completenessParam> {
  protected:
   //the constructor
   void SetUp() override {
     //getting the parameters
-    params = ::testing::TestWithParam<homogeneityParam>::GetParam();
+    params = ::testing::TestWithParam<completenessParam>::GetParam();
 
     nElements = params.nElements;
     lowerLabelRange = params.lowerLabelRange;
@@ -78,22 +78,22 @@ class homogeneityTest : public ::testing::TestWithParam<homogeneityParam> {
     //calculating the golden output
     double truthMI, truthEntropy;
 
-    truthMI = MLCommon::Metrics::mutualInfoScore(
+    truthMI = MLCommon::Metrics::mutual_info_score(
       truthClusterArray, predClusterArray, nElements, lowerLabelRange,
       upperLabelRange, allocator, stream);
     truthEntropy =
-      MLCommon::Metrics::entropy(truthClusterArray, nElements, lowerLabelRange,
+      MLCommon::Metrics::entropy(predClusterArray, nElements, lowerLabelRange,
                                  upperLabelRange, allocator, stream);
 
     if (truthEntropy) {
-      truthHomogeneity = truthMI / truthEntropy;
+      truthCompleteness = truthMI / truthEntropy;
     } else
-      truthHomogeneity = 1.0;
+      truthCompleteness = 1.0;
 
-    if (nElements == 0) truthHomogeneity = 1.0;
+    if (nElements == 0) truthCompleteness = 1.0;
 
-    //calling the homogeneity CUDA implementation
-    computedHomogeneity = MLCommon::Metrics::homogeneityScore(
+    //calling the completeness CUDA implementation
+    computedCompleteness = MLCommon::Metrics::completeness_score(
       truthClusterArray, predClusterArray, nElements, lowerLabelRange,
       upperLabelRange, allocator, stream);
   }
@@ -106,18 +106,18 @@ class homogeneityTest : public ::testing::TestWithParam<homogeneityParam> {
   }
 
   //declaring the data values
-  homogeneityParam params;
+  completenessParam params;
   T lowerLabelRange, upperLabelRange;
   T* truthClusterArray = nullptr;
   T* predClusterArray = nullptr;
   int nElements = 0;
-  double truthHomogeneity = 0;
-  double computedHomogeneity = 0;
+  double truthCompleteness = 0;
+  double computedCompleteness = 0;
   cudaStream_t stream;
 };
 
 //setting test parameter values
-const std::vector<homogeneityParam> inputs = {
+const std::vector<completenessParam> inputs = {
   {199, 1, 10, false, 0.000001},  {200, 15, 100, false, 0.000001},
   {100, 1, 20, false, 0.000001},  {10, 1, 10, false, 0.000001},
   {198, 1, 100, false, 0.000001}, {300, 3, 99, false, 0.000001},
@@ -126,11 +126,11 @@ const std::vector<homogeneityParam> inputs = {
   {198, 1, 100, true, 0.000001},  {300, 3, 99, true, 0.000001}};
 
 //writing the test suite
-typedef homogeneityTest<int> homogeneityTestClass;
-TEST_P(homogeneityTestClass, Result) {
-  ASSERT_NEAR(computedHomogeneity, truthHomogeneity, params.tolerance);
+typedef completenessTest<int> completenessTestClass;
+TEST_P(completenessTestClass, Result) {
+  ASSERT_NEAR(computedCompleteness, truthCompleteness, params.tolerance);
 }
-INSTANTIATE_TEST_CASE_P(homogeneity, homogeneityTestClass,
+INSTANTIATE_TEST_CASE_P(completeness, completenessTestClass,
                         ::testing::ValuesIn(inputs));
 
 }  //end namespace Metrics

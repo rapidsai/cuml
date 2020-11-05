@@ -18,7 +18,7 @@
 #include <algorithm>
 #include <cuml/common/cuml_allocator.hpp>
 #include <iostream>
-#include <metrics/silhouetteScore.cuh>
+#include <metrics/silhouette_score.cuh>
 #include <random>
 #include "test_utils.h"
 
@@ -79,7 +79,7 @@ class silhouetteScoreTest
     double *h_distanceMatrix =
       (double *)malloc(nRows * nRows * sizeof(double *));
 
-    MLCommon::Distance::pairwiseDistance(
+    MLCommon::Distance::pairwise_distance(
       d_X, d_X, d_distanceMatrix.data(), nRows, nRows, nCols, workspace,
       static_cast<ML::Distance::DistanceType>(params.metric), stream);
 
@@ -161,8 +161,8 @@ class silhouetteScoreTest
 
     truthSilhouetteScore /= nRows;
 
-    //calling the silhouetteScore CUDA implementation
-    computedSilhouetteScore = MLCommon::Metrics::silhouetteScore(
+    //calling the silhouette_score CUDA implementation
+    computedSilhouetteScore = MLCommon::Metrics::silhouette_score(
       d_X, nRows, nCols, d_labels, nLabels, sampleSilScore, allocator, stream,
       params.metric);
   }
