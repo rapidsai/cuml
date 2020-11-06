@@ -24,15 +24,15 @@ from cuml.raft.common.handle import Handle
 
 
 cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics":
-    double mutualInfoScore(const handle_t &handle,
-                           const int *y,
-                           const int *y_hat,
-                           const int n,
-                           const int lower_class_range,
-                           const int upper_class_range) except +
+    double mutual_info_score(const handle_t &handle,
+                             const int *y,
+                             const int *y_hat,
+                             const int n,
+                             const int lower_class_range,
+                             const int upper_class_range) except +
 
 
-def mutual_info_score(labels_true, labels_pred, handle=None):
+def cython_mutual_info_score(labels_true, labels_pred, handle=None):
     """
     Computes the Mutual Information between two clusterings.
 
@@ -81,11 +81,11 @@ def mutual_info_score(labels_true, labels_pred, handle=None):
     cdef uintptr_t ground_truth_ptr = y_true.ptr
     cdef uintptr_t preds_ptr = y_pred.ptr
 
-    mi = mutualInfoScore(handle_[0],
-                         <int*> ground_truth_ptr,
-                         <int*> preds_ptr,
-                         <int> n_rows,
-                         <int> lower_class_range,
-                         <int> upper_class_range)
+    mi = mutual_info_score(handle_[0],
+                           <int*> ground_truth_ptr,
+                           <int*> preds_ptr,
+                           <int> n_rows,
+                           <int> lower_class_range,
+                           <int> upper_class_range)
 
     return mi

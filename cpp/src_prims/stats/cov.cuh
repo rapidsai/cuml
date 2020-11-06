@@ -17,8 +17,8 @@
 #pragma once
 
 #include <raft/linalg/cublas_wrappers.h>
-#include <linalg/gemm.cuh>
-#include "mean_center.cuh"
+#include <raft/linalg/gemm.cuh>
+#include <raft/stats/mean_center.cuh>
 
 namespace MLCommon {
 namespace Stats {

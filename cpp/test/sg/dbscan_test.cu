@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-#include <common/cudart_utils.h>
 #include <gtest/gtest.h>
-#include <cuda_utils.cuh>
+#include <raft/cudart_utils.h>
+#include <raft/cuda_utils.cuh>
 #include <vector>
 
 #include <cuml/cluster/dbscan.hpp>
@@ -25,8 +25,8 @@
 #include <cuml/datasets/make_blobs.hpp>
 #include <cuml/metrics/metrics.hpp>
 
-#include <linalg/transpose.h>
 #include <raft/linalg/cublas_wrappers.h>
+#include <raft/linalg/transpose.h>
 
 #include <test_utils.h>
 
@@ -87,7 +87,7 @@ class DbscanTest : public ::testing::TestWithParam<DbscanInputs<T, IdxT>> {
 
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 
-    score = adjustedRandIndex(handle, labels_ref, labels, params.n_row);
+    score = adjusted_rand_index(handle, labels_ref, labels, params.n_row);
 
     if (score < 1.0) {
       auto str = raft::arr2Str(labels_ref, params.n_row, "labels_ref",
@@ -202,7 +202,7 @@ class Dbscan2DSimple : public ::testing::TestWithParam<DBScan2DArrayInputs<T>> {
 
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 
-    score = adjustedRandIndex(handle, labels_ref, labels, (int)params.n_out);
+    score = adjusted_rand_index(handle, labels_ref, labels, (int)params.n_out);
 
     if (score < 1.0) {
       auto str = raft::arr2Str(labels_ref, params.n_out, "labels_ref",

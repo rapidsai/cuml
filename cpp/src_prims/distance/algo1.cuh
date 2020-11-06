@@ -16,8 +16,8 @@
 
 #pragma once
 
-#include <linalg/gemm.cuh>
-#include <linalg/norm.cuh>
+#include <linalg/cutlass_gemm.cuh>
+#include <raft/linalg/norm.cuh>
 #include "distance_epilogue.cuh"
 #include "distance_epilogue_functor.cuh"
 #include "distance_epilogue_traits.h"

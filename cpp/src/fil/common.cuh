@@ -23,7 +23,7 @@
 #include <stdexcept>
 #include <string>
 
-#include <cuda_utils.cuh>
+#include <raft/cuda_utils.cuh>
 
 #include <cuml/fil/fil.h>
 

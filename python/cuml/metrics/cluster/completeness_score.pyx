@@ -23,13 +23,13 @@ from cuml.raft.common.handle import Handle
 
 
 cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics":
-    double completenessScore(const handle_t & handle, const int *y,
-                             const int *y_hat, const int n,
-                             const int lower_class_range,
-                             const int upper_class_range) except +
+    double completeness_score(const handle_t & handle, const int *y,
+                              const int *y_hat, const int n,
+                              const int lower_class_range,
+                              const int upper_class_range) except +
 
 
-def completeness_score(labels_true, labels_pred, handle=None):
+def cython_completeness_score(labels_true, labels_pred, handle=None):
     """
     Completeness metric of a cluster labeling given a ground truth.
 
@@ -83,11 +83,11 @@ def completeness_score(labels_true, labels_pred, handle=None):
     cdef uintptr_t ground_truth_ptr = y_true.ptr
     cdef uintptr_t preds_ptr = y_pred.ptr
 
-    com = completenessScore(handle_[0],
-                            <int*> ground_truth_ptr,
-                            <int*> preds_ptr,
-                            <int> n_rows,
-                            <int> lower_class_range,
-                            <int> upper_class_range)
+    com = completeness_score(handle_[0],
+                             <int*> ground_truth_ptr,
+                             <int*> preds_ptr,
+                             <int> n_rows,
+                             <int> lower_class_range,
+                             <int> upper_class_range)
 
     return com

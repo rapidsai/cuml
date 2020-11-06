@@ -18,8 +18,8 @@
 #include <thrust/count.h>
 #include <thrust/device_vector.h>
 
-#include <common/cudart_utils.h>
-#include <cuda_utils.cuh>
+#include <raft/cudart_utils.h>
+#include <raft/cuda_utils.cuh>
 #include <random/make_arima.cuh>
 #include "test_utils.h"
 
