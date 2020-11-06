@@ -394,6 +394,7 @@ struct ClsTraits {
     dim3 grid(b.n_blks_for_rows, colBlks, batchSize);
     size_t smemSize = sizeof(int) * binSize + sizeof(DataT) * nbins;
     smemSize += sizeof(int);
+    smemSize += 3 * sizeof(DataT*);  // Room for alignment in worst case
     CUDA_CHECK(cudaMemsetAsync(b.hist, 0, sizeof(int) * b.nHistBins, s));
     computeSplitClassificationKernel<DataT, LabelT, IdxT, TPB_DEFAULT>
       <<<grid, TPB_DEFAULT, smemSize, s>>>(
@@ -457,6 +458,7 @@ struct RegTraits {
     auto nbins = b.params.n_bins;
     size_t smemSize = 7 * nbins * sizeof(DataT) + nbins * sizeof(int);
     smemSize += sizeof(int);
+    smemSize += 7 * sizeof(DataT*);  // Room for alignment in worst case
     CUDA_CHECK(
       cudaMemsetAsync(b.pred, 0, sizeof(DataT) * b.nPredCounts * 2, s));
     if (splitType == CRITERION::MAE) {
