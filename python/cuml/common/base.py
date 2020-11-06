@@ -175,7 +175,6 @@ class Base(metaclass=cuml.internals.BaseMetaClass):
         self.target_dtype = None
         self.n_features_in_ = None
 
-        # self._mirror_input = True if self.output_type == 'input' else False
 
     # def __repr__(self):
     #     """
@@ -251,26 +250,14 @@ class Base(metaclass=cuml.internals.BaseMetaClass):
 
     def __getattr__(self, attr):
         """
-        Method gives access to the correct format of cuml Array attribute to
-        the users. Any variable that starts with `_` and is a cuml Array
-        will return as the cuml Array converted to the appropriate format.
+        Redirects to `solver_model` if the attribute exists.
         """
-        real_name = '_' + attr
-        # using __dict__ due to a bug with scikit-learn hyperparam
-        # when doing hasattr. github issue #1736
-        if real_name in self.__dict__.keys():
-            if isinstance(self.__dict__[real_name], cuml.common.CumlArray):
-                assert False
-                return self.__dict__[real_name].to_output(self.output_type)
-            else:
-                return self.__dict__[real_name]
+        if attr == "solver_model":
+            return self.__dict__['solver_model']
+        if "solver_model" in self.__dict__.keys():
+            return getattr(self.solver_model, attr)
         else:
-            if attr == "solver_model":
-                return self.__dict__['solver_model']
-            if "solver_model" in self.__dict__.keys():
-                return getattr(self.solver_model, attr)
-            else:
-                raise AttributeError
+            raise AttributeError
 
     def _set_base_attributes(self,
                              output_type=None,

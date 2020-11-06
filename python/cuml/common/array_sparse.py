@@ -15,7 +15,6 @@
 #
 import cupyx as cpx
 import numpy as np
-# from cuml.common.array_outputable import ArrayOutputable
 from cuml.common.import_utils import has_scipy
 from cuml.common.memory_utils import class_with_cupy_rmm
 from cuml.common.logger import debug
