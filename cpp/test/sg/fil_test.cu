@@ -639,10 +639,10 @@ class TreeliteThrowSparse8FilTest : public TreeliteSparse8FilTest {
 **/
 #define FIL_TEST_PARAMS(...)                  \
   []() {                                      \
-    struct inherit_t : public FilTestParams { \
-      inherit_t() { __VA_ARGS__; }            \
+    struct NonDefaultFilTestParams : public FilTestParams { \
+      NonDefaultFilTestParams() { __VA_ARGS__; }            \
     };                                        \
-    return FilTestParams(inherit_t());        \
+    return FilTestParams(NonDefaultFilTestParams());        \
   }()
 
 // kEQ is intentionally unused, and kLT is default
