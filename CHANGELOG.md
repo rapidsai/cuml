@@ -22,6 +22,7 @@
 - PR #3052: Speeding up MNMG KNN Cl&Re testing
 - PR #3115: Speeding up MNMG UMAP testing
 - PR #3112: Speed test_array
+- PR #3111: Adding Cython to Code Coverage
 - PR #3040: Improved Array Conversion with CumlArrayDescriptor and Decorators
 
 ## Bug Fixes
@@ -42,6 +43,7 @@
 - PR #3084: Fix artifacts in t-SNE results
 - PR #3086: Reverting FIL Notebook Testing
 - PR #3114: Fixed a typo in SVC's predict_proba AttributeError
+- PR #3119: Fix memset args for benchmark 
 
 # cuML 0.16.0 (Date TBD)
 
