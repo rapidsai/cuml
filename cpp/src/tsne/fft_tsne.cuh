@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,6 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+/*
+ * This code is based on https://github.com/CannyLab/tsne-cuda (licensed under
+ * the BSD 3-clause license at cannylabs_tsne_license.txt), which is in turn a
+ * CUDA implementation of Linderman et al.'s FIt-SNE (MIT license)
+ * (https://github.com/KlugerLab/FIt-SNE).
+ */
+
 #pragma once
 
 #include <cufft_utils.h>
@@ -347,7 +355,6 @@ void FFT_TSNE(float *VAL, const int *COL, const int *ROW, const int NNZ,
           Y + n, potentialsQij_device.data(), n, n_terms);
       CUDA_CHECK(cudaPeekAtLastError());
 
-      // TODO is it faster to atomicAdd in compute_repulsive_forces_kernel?
       raft::stats::sum(sum_d.data(), normalization_vec_device.data(), 1, n,
                        true, stream);
       float sumQ;

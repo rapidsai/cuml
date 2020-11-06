@@ -13,6 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+/*
+ * This code is based on https://github.com/CannyLab/tsne-cuda (licensed under
+ * the BSD 3-clause license at cannylabs_tsne_license.txt), which is in turn a
+ * CUDA implementation of Linderman et al.'s FIt-SNE (MIT license)
+ * (https://github.com/KlugerLab/FIt-SNE).
+ */
+
 #pragma once
 
 #include <cuComplex.h>
@@ -71,14 +79,16 @@ __global__ void compute_kernel_tilde(volatile float* __restrict__ kernel_tilde,
 
   float tmp = squared_cauchy_2d(y_min + h / 2, x_min + h / 2,
                                 y_min + h / 2 + i * h, x_min + h / 2 + j * h);
-  kernel_tilde[(n_interpolation_points_1d + i) * n_fft_coeffs +
-               (n_interpolation_points_1d + j)] = tmp;
-  kernel_tilde[(n_interpolation_points_1d - i) * n_fft_coeffs +
-               (n_interpolation_points_1d + j)] = tmp;
-  kernel_tilde[(n_interpolation_points_1d + i) * n_fft_coeffs +
-               (n_interpolation_points_1d - j)] = tmp;
-  kernel_tilde[(n_interpolation_points_1d - i) * n_fft_coeffs +
-               (n_interpolation_points_1d - j)] = tmp;
+  const int n_interpolation_points_1d_p_i = n_interpolation_points_1d + i;
+  const int n_interpolation_points_1d_m_i = n_interpolation_points_1d - i;
+  const int n_interpolation_points_1d_p_j = n_interpolation_points_1d + j;
+  const int n_interpolation_points_1d_m_j = n_interpolation_points_1d - j;
+  const int p_i_n = n_interpolation_points_1d_p_i * n_fft_coeffs;
+  const int m_i_n = n_interpolation_points_1d_m_i * n_fft_coeffs;
+  kernel_tilde[p_i_n + n_interpolation_points_1d_p_j] = tmp;
+  kernel_tilde[m_i_n + n_interpolation_points_1d_p_j] = tmp;
+  kernel_tilde[p_i_n + n_interpolation_points_1d_m_j] = tmp;
+  kernel_tilde[m_i_n + n_interpolation_points_1d_m_j] = tmp;
 }
 
 __global__ void compute_point_box_idx(volatile int* __restrict__ point_box_idx,
@@ -150,11 +160,9 @@ __global__ void compute_interpolated_indices(
   int box_i = box_idx % n_boxes;
   int box_j = box_idx / n_boxes;
 
-  // interpolated_values[TID] = x_interpolated_values[i + interp_i * N] * y_interpolated_values[i + interp_j * N] * chargesQij[i * n_terms + current_term];
   int idx = (box_i * n_interpolation_points + interp_i) *
               (n_boxes * n_interpolation_points) +
             (box_j * n_interpolation_points) + interp_j;
-  // interpolated_indices[TID] = idx * n_terms + current_term;
   atomicAdd(w_coefficients_device + idx * n_terms + current_term,
             x_interpolated_values[i + interp_i * N] *
               y_interpolated_values[i + interp_j * N] *

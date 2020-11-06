@@ -21,7 +21,7 @@
 
 namespace MLCommon {
 
-// TODO move to raft
+// TODO move to raft https://github.com/rapidsai/raft/issues/90
 /** helper method to get the compute capability version numbers */
 inline std::pair<int, int> getDeviceCapability() {
   int devId;
@@ -30,7 +30,7 @@ inline std::pair<int, int> getDeviceCapability() {
   CUDA_CHECK(
     cudaDeviceGetAttribute(&major, cudaDevAttrComputeCapabilityMajor, devId));
   CUDA_CHECK(
-    cudaDeviceGetAttribute(&minor, cudaDevAttrComputeCapabilityMajor, devId));
+    cudaDeviceGetAttribute(&minor, cudaDevAttrComputeCapabilityMinor, devId));
   return std::make_pair(major, minor);
 }
 

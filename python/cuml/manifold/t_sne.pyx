@@ -97,9 +97,7 @@ class TSNE(Base):
     Parameters
     -----------
     n_components : int (default 2)
-        The output dimensionality size. Currently only size=2 is tested and
-        supported, but the 'exact' algorithm will support greater
-        dimensionality in future.
+        The output dimensionality size. Currently only 2 is supported.
     perplexity : float (default 30.0)
         Larger datasets require a larger value. Consider choosing different
         perplexity values from 5 to 50 and see the output differences.
@@ -110,7 +108,7 @@ class TSNE(Base):
         this slightly to improve cluster separation.
     learning_rate : float (default 200.0)
         The learning rate usually between (10, 1000). If this is too high,
-        TSNE could look like a cloud / ball of points.
+        t-SNE could look like a cloud / ball of points.
     n_iter : int (default 1000)
         The more epochs, the more stable/accurate the final embedding.
     n_iter_without_progress : int (default 300)
@@ -118,7 +116,7 @@ class TSNE(Base):
         iterations, terminate t-SNE early.
     min_grad_norm : float (default 1e-07)
         The minimum gradient norm for when t-SNE will terminate early.
-        Supported by 'exact' algorithm only.
+        Used only in 'exact' algorithm.
     metric : str 'euclidean' only (default 'euclidean')
         Currently only supports euclidean distance. Will support cosine in
         a future release.
@@ -130,15 +128,14 @@ class TSNE(Base):
     random_state : int (default None)
         Setting this can make repeated runs look more similar. Note, however,
         that this highly parallelized t-SNE implementation is not completely
-        deterministic between runs, even with the same `random_state`. Try
-        using PCA intialization (upcoming with change #1098) to reduce this
-        variability.
+        deterministic between runs, even with the same `random_state`.
     method : str 'barnes_hut', 'fft' or 'exact' (default 'fft')
         'barnes_hut' and 'fft' are fast approximations. 'exact' is more
         accurate but slower.
     angle : float (default 0.5)
-        Tradeoff between speed (0) and accuracy (1). Generally should be
-        between 0.2 and 0.8. (Barnes-Hut only.)
+        Valid values are between 0.0 and 1.0, which trade off speed and
+        accuracy, respectively. Generally, these values are set between 0.2 and
+        0.8. (Barnes-Hut only.)
     learning_rate_method : str 'adaptive', 'none' or None (default 'adaptive')
         Either adaptive or None. 'adaptive' tunes the learning rate, early
         exaggeration and perplexity automatically based on input size.
@@ -190,9 +187,6 @@ class TSNE(Base):
         Note that using the same random_state across runs does not guarantee
         similar results each time.
 
-        As suggested, PCA initialization (upcoming with change #1098) can help
-        alleviate this issue.
-
     .. note::
         The CUDA implementation is derived from the excellent CannyLabs open
         source implementation here: https://github.com/CannyLab/tsne-cuda/. The
@@ -238,12 +232,9 @@ class TSNE(Base):
             warnings.warn("Barnes Hut and FFT only work when "
                           "n_components == 2. Switching to exact.")
             method = 'exact'
-        if n_components > 2:
+        if n_components != 2:
             raise ValueError("Currently TSNE supports n_components = 2; "
                              "but got n_components = {}".format(n_components))
-        if n_components < 2:
-            warnings.warn("Currently TSNE supports n_components = 2.")
-            n_components = 2
         if perplexity < 0:
             raise ValueError("perplexity = {} should be more than 0.".format(
                              perplexity))
@@ -263,16 +254,17 @@ class TSNE(Base):
             warnings.warn("n_iter = {} might cause TSNE to output wrong "
                           "results. Set it higher.".format(n_iter))
         if metric.lower() != 'euclidean':
+            # TODO https://github.com/rapidsai/cuml/issues/862
             warnings.warn("TSNE does not support {} (only Euclidean).".format(
                           metric))
             metric = 'euclidean'
         if init.lower() != 'random':
+            # TODO https://github.com/rapidsai/cuml/issues/1029
             warnings.warn("TSNE does not support {} but only random "
                           "intialization.".format(init))
             init = 'random'
         if angle < 0 or angle > 1:
-            raise ValueError("angle = {} should be > 0 and less "
-                             "than 1.".format(angle))
+            raise ValueError("angle = {} should be ≥ 0 and ≤ 1".format(angle))
         if n_neighbors < 0:
             raise ValueError("n_neighbors = {} should be more "
                              "than 0.".format(n_neighbors))
