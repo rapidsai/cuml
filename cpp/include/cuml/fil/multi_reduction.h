@@ -1,6 +1,11 @@
 #pragma once
 // data [T]ype, reduction [R]adix
 template <int R, typename T>
+// per_thread holds one value per thread in shared memory
+// set_size is the number of indendent reductions
+// per_thread values are ordered such that the stride is 1 for values belonging to the same set
+// and set_size for values that are to be added together
+// n_sets is the size of each individual reduction, or the number of sets to be reduced to one set
 __device__ T multi_reduction(T* per_thread, const int set_size, int n_sets) {
   // reduce per-thread summand into a single per-block value, valid only for
   // threads 0..set_size-1
