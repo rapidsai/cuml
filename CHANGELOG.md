@@ -23,6 +23,7 @@
 - PR #3115: Speeding up MNMG UMAP testing
 - PR #3112: Speed test_array
 - PR #3111: Adding Cython to Code Coverage
+- PR #3121: clang version updated to 11.0.0
 
 ## Bug Fixes
 - PR #3065: Refactoring prims metrics function names from camelcase to underscore format
