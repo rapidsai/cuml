@@ -212,16 +212,18 @@ def test_rf_classification(small_clf, datatype, split_algo,
 @pytest.mark.parametrize('rows_sample', [unit_param(1.0), quality_param(0.90),
                          stress_param(0.95)])
 @pytest.mark.parametrize('datatype', [np.float32])
-@pytest.mark.parametrize('split_algo,max_features,use_experimental_backend',
-                         [(0,1.0,False),
-                          (1,1.0,False),
-                          (0,'auto',False),
-                          (1,'log2',False),
-                          (1,'sqrt',False),
-                          (1,1.0,True),
-                         ])
+@pytest.mark.parametrize(
+    'split_algo,max_features,use_experimental_backend,n_bins',
+    [(0,1.0,False,16),
+     (1,1.0,False,11),
+     (0,'auto',False,128),
+     (1,'log2',False,100),
+     (1,'sqrt',False,100),
+     (1,1.0,True,17),
+     (1,1.0,True,32),
+     ])
 def test_rf_regression(special_reg, datatype, split_algo, max_features,
-                       rows_sample, use_experimental_backend):
+                       rows_sample, use_experimental_backend, n_bins):
 
     use_handle = True
 
@@ -238,7 +240,7 @@ def test_rf_regression(special_reg, datatype, split_algo, max_features,
     if use_experimental_backend:
         print("EXPERIMENTAL")
     cuml_model = curfr(max_features=max_features, rows_sample=rows_sample,
-                       n_bins=16, split_algo=split_algo, split_criterion=2,
+                       n_bins=n_bins, split_algo=split_algo, split_criterion=2,
                        min_rows_per_node=2, random_state=123, n_streams=1,
                        n_estimators=50, handle=handle, max_leaves=-1,
                        max_depth=16, accuracy_metric='mse',
