@@ -631,18 +631,19 @@ There is no need to convert the array type before returning it. Simply return an
 
 **Do this:**
 ```python
-def predict(self, X, y) -> CumlArray:
-   np_arr = np.ones((10,))
+def predict(self) -> CumlArray:
+   cp_arr = cp.ones((10,))
 
-   return np_arr
+   return cp_arr
 ```
 
 **Not this:**
 ```python
 def predict(self, X, y) -> CumlArray:
-   np_arr = np.ones((10,))
+   cp_arr = cp.ones((10,))
 
-   cuml_arr = input_to_cuml_array(X, order="K").array
+   # Dont be tempted to use `CumlArray(cp_arr)` here either
+   cuml_arr = input_to_cuml_array(cp_arr, order="K").array
 
    return cuml_arr.to_output(self._get_output_type(X))
 ```
