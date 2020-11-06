@@ -237,8 +237,6 @@ def test_rf_regression(special_reg, datatype, split_algo, max_features,
     handle, stream = get_handle(use_handle, n_streams=1)
 
     # Initialize and fit using cuML's random forest regression model
-    if use_experimental_backend:
-        print("EXPERIMENTAL")
     cuml_model = curfr(max_features=max_features, rows_sample=rows_sample,
                        n_bins=n_bins, split_algo=split_algo, split_criterion=2,
                        min_rows_per_node=2, random_state=123, n_streams=1,

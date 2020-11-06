@@ -250,10 +250,11 @@ __global__ void nodeSplitKernel(IdxT max_depth, IdxT min_rows_per_node,
                                              total_nodes, (char*)smem);
 }
 
-/* Returns 'input' rounded up to a correctly-aligned pointer of type OutT */
+/* Returns 'input' rounded up to a correctly-aligned pointer of type OutT* */
 template <typename OutT, typename InT>
-__device__ OutT alignPointer(InT input) {
-  return reinterpret_cast<OutT>(raft::alignTo((size_t)input, sizeof(OutT)));
+__device__ OutT* alignPointer(InT input) {
+  return reinterpret_cast<OutT*>(
+    raft::alignTo(reinterpret_cast<size_t>(input), sizeof(OutT)));
 }
 
 template <typename DataT, typename LabelT, typename IdxT, int TPB>
@@ -275,9 +276,9 @@ __global__ void computeSplitClassificationKernel(
   auto end = range_start + range_len;
   auto nclasses = input.nclasses;
   auto len = nbins * 2 * nclasses;
-  auto* shist = alignPointer<int*>(smem);
-  auto* sbins = alignPointer<DataT*>(shist + len);
-  auto* sDone = alignPointer<int*>(sbins + nbins);
+  auto* shist = alignPointer<int>(smem);
+  auto* sbins = alignPointer<DataT>(shist + len);
+  auto* sDone = alignPointer<int>(sbins + nbins);
   IdxT stride = blockDim.x * gridDim.x;
   IdxT tid = threadIdx.x + blockIdx.x * blockDim.x;
   auto col = input.colids[colStart + blockIdx.y];
@@ -344,15 +345,15 @@ __global__ void computeSplitRegressionKernel(
   }
   auto end = range_start + range_len;
   auto len = nbins * 2;
-  auto* spred = alignPointer<DataT*>(smem);
-  auto* scount = alignPointer<int*>(spred + len);
-  auto* sbins = alignPointer<DataT*>(scount + nbins);
+  auto* spred = alignPointer<DataT>(smem);
+  auto* scount = alignPointer<int>(spred + len);
+  auto* sbins = alignPointer<DataT>(scount + nbins);
 
   // used only for MAE criterion
-  auto* spred2 = alignPointer<DataT*>(sbins + nbins);
-  auto* spred2P = alignPointer<DataT*>(spred2 + len);
-  auto* spredP = alignPointer<DataT*>(spred2P + nbins);
-  auto* sDone = alignPointer<int*>(spredP + nbins);
+  auto* spred2 = alignPointer<DataT>(sbins + nbins);
+  auto* spred2P = alignPointer<DataT>(spred2 + len);
+  auto* spredP = alignPointer<DataT>(spred2P + nbins);
+  auto* sDone = alignPointer<int>(spredP + nbins);
   IdxT stride = blockDim.x * gridDim.x;
   IdxT tid = threadIdx.x + blockIdx.x * blockDim.x;
   auto col = input.colids[colStart + blockIdx.y];
