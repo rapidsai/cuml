@@ -28,7 +28,7 @@
 #include <cuda_runtime.h>
 #include <cmath>
 
-#include <linalg/unary_op.cuh>
+#include <raft/linalg/unary_op.cuh>
 
 namespace MLCommon {
 namespace Metrics {

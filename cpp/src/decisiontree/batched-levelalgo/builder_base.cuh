@@ -21,8 +21,8 @@
 #include <common/device_buffer.hpp>
 #include <common/grid_sync.cuh>
 #include <common/host_buffer.hpp>
-#include <cuda_utils.cuh>
 #include <cuml/tree/decisiontree.hpp>
+#include <raft/cuda_utils.cuh>
 #include "input.cuh"
 #include "kernels.cuh"
 #include "node.cuh"

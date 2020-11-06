@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
-#include <matrix/matrix.cuh>
 #include <matrix/reverse.cuh>
+#include <raft/matrix/matrix.cuh>
 
-#include <linalg/unary_op.cuh>
+#include <raft/linalg/unary_op.cuh>
 
 #include <selection/knn.cuh>
 #include <sparse/coo.cuh>
@@ -25,11 +25,11 @@
 #include <sparse/distance.cuh>
 #include <sparse/selection.cuh>
 
-#include <common/cudart_utils.h>
+#include <raft/cudart_utils.h>
 #include <common/device_buffer.hpp>
 #include <cuml/common/cuml_allocator.hpp>
 
-#include <cuda_utils.cuh>
+#include <raft/cuda_utils.cuh>
 
 #include <raft/sparse/cusparse_wrappers.h>
 

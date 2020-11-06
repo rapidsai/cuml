@@ -16,8 +16,8 @@
 
 #pragma once
 
-#include <matrix/matrix.cuh>
 #include <matrix/reverse.cuh>
+#include <raft/matrix/matrix.cuh>
 
 #include <selection/knn.cuh>
 #include <sparse/coo.cuh>
@@ -32,9 +32,9 @@
 #include <faiss/gpu/utils/Limits.cuh>
 #include <faiss/gpu/utils/Select.cuh>
 
-#include <common/cudart_utils.h>
+#include <raft/cudart_utils.h>
 #include <common/device_buffer.hpp>
-#include <cuda_utils.cuh>
+#include <raft/cuda_utils.cuh>
 
 #include <raft/sparse/cusparse_wrappers.h>
 

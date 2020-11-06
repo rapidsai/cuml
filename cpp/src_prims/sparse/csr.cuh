@@ -18,10 +18,10 @@
 
 #include <cuml/common/logger.hpp>
 
-#include <common/cudart_utils.h>
 #include <cusparse_v2.h>
+#include <raft/cudart_utils.h>
 #include <raft/sparse/cusparse_wrappers.h>
-#include <cuda_utils.cuh>
+#include <raft/cuda_utils.cuh>
 
 #include <label/classlabels.cuh>
 

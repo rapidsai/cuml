@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-#include <cuda_utils.cuh>
 #include <cuml/cuml.hpp>
 #include <cuml/manifold/umap.hpp>
+#include <raft/cuda_utils.cuh>
 #include <utility>
 #include "benchmark.cuh"
 

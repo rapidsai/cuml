@@ -60,7 +60,7 @@ struct manifold_inputs_t {
 
   manifold_inputs_t(T *y_, int n_, int d_) : y(y_), n(n_), d(d_) {}
 
-  virtual bool alloc_knn_graph();
+  virtual bool alloc_knn_graph() const;
 };
 
 /**
@@ -74,7 +74,7 @@ struct manifold_dense_inputs_t : public manifold_inputs_t<T> {
   manifold_dense_inputs_t(T *x_, T *y_, int n_, int d_)
     : manifold_inputs_t<T>(y_, n_, d_), X(x_) {}
 
-  bool alloc_knn_graph() { return true; }
+  bool alloc_knn_graph() const { return true; }
 };
 
 /**
@@ -98,7 +98,7 @@ struct manifold_sparse_inputs_t : public manifold_inputs_t<T> {
       data(data_),
       nnz(nnz_) {}
 
-  bool alloc_knn_graph() { return true; }
+  bool alloc_knn_graph() const { return true; }
 };
 
 /**
@@ -117,7 +117,7 @@ struct manifold_precomputed_knn_inputs_t
 
   knn_graph<value_idx, value_t> knn_graph;
 
-  bool alloc_knn_graph() { return false; }
+  bool alloc_knn_graph() const { return false; }
 };
 
 };  // end namespace ML

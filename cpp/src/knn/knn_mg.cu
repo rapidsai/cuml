@@ -25,8 +25,8 @@
 
 #include <set>
 
-#include <common/cudart_utils.h>
-#include <cuda_utils.cuh>
+#include <raft/cudart_utils.h>
+#include <raft/cuda_utils.cuh>
 
 namespace ML {
 namespace KNN {

@@ -334,6 +334,9 @@ def test_nearest_neighbors_sparse(nrows, ncols,
                                   batch_size_index,
                                   batch_size_query):
 
+    if nrows == 1 and n_neighbors > 1:
+        return
+
     a = cp.sparse.random(nrows, ncols, format='csr', density=density,
                          random_state=32)
 

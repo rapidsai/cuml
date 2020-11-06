@@ -18,8 +18,8 @@
 #include <sparse/csr.cuh>
 #include "csr.h"
 
-#include <common/cudart_utils.h>
-#include <random/rng.cuh>
+#include <raft/cudart_utils.h>
+#include <raft/random/rng.cuh>
 #include "test_utils.h"
 
 #include <iostream>

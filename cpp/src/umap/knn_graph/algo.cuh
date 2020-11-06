@@ -16,12 +16,13 @@
 
 #include <cuml/manifold/umapparams.h>
 #include <cuml/manifold/common.hpp>
+#include <cuml/neighbors/knn_sparse.hpp>
 #include <iostream>
-#include <linalg/unary_op.cuh>
+#include <raft/linalg/unary_op.cuh>
 #include <selection/knn.cuh>
 #include <sparse/knn.cuh>
 
-#include <common/cudart_utils.h>
+#include <raft/cudart_utils.h>
 
 #include <raft/sparse/cusparse_wrappers.h>
 #include <raft/error.hpp>
@@ -88,8 +89,8 @@ void launcher(const ML::manifold_sparse_inputs_t<int, float> &inputsA,
     inputsA.indptr, inputsA.indices, inputsA.data, inputsA.nnz, inputsA.n,
     inputsA.d, inputsB.indptr, inputsB.indices, inputsB.data, inputsB.nnz,
     inputsB.n, inputsB.d, out.knn_indices, out.knn_dists, n_neighbors,
-    cusparseHandle, d_alloc, stream, 2 << 14, 2 << 14,
-    ML::MetricType::METRIC_L2);
+    cusparseHandle, d_alloc, stream, ML::Sparse::DEFAULT_BATCH_SIZE,
+    ML::Sparse::DEFAULT_BATCH_SIZE, ML::MetricType::METRIC_L2);
 
   CUSPARSE_CHECK(cusparseDestroy(cusparseHandle));
 }
