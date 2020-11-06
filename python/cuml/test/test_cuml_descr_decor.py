@@ -1,3 +1,5 @@
+import pickle
+
 import cudf
 import cuml
 import cuml.internals
@@ -78,12 +80,6 @@ test_slices = [0, 5, 'left', 'right', 'both', 'bool_op']
 class TestEstimator(cuml.Base):
 
     input_any_ = CumlArrayDescriptor()
-    input_cuml_ = CumlArrayDescriptor()
-    input_numpy_ = CumlArrayDescriptor()
-    input_numba_ = CumlArrayDescriptor()
-    input_dataframe_ = CumlArrayDescriptor()
-    input_cupy_ = CumlArrayDescriptor()
-    input_series_ = CumlArrayDescriptor()
 
     def _set_input(self, X):
         self.input_any_ = X
@@ -112,64 +108,6 @@ class TestEstimator(cuml.Base):
     def fit_transform(self, X, y=None) -> CumlArray:
 
         return self.fit(X).transform(X)
-
-    # === Auto Wrap By Return Functions ===
-    def autowrap_return_float(self) -> float:
-
-        pass
-
-    def autowrap_return_self(self) -> float:
-
-        pass
-
-    def autowrap_return_cumlarray(self) -> float:
-
-        pass
-
-    def autowrap_return_union_cumlarray(self) -> float:
-
-        pass
-
-    def autowrap_return_tuple_cumlarray(self) -> float:
-
-        pass
-
-    def autowrap_return_list_cumlarray(self) -> float:
-
-        pass
-
-    def autowrap_return_dict_cumlarray(self) -> float:
-
-        pass
-
-    # === Explicit Return Functions ===
-    def explicit_return_float(self):
-
-        pass
-
-    def explicit_return_self(self):
-
-        pass
-
-    def explicit_return_cumlarray(self):
-
-        pass
-
-    def explicit_return_union_cumlarray(self):
-
-        pass
-
-    def explicit_return_tuple_cumlarray(self):
-
-        pass
-
-    def explicit_return_list_cumlarray(self):
-
-        pass
-
-    def explicit_return_dict_cumlarray(self):
-
-        pass
 
 
 def array_identical(a, b):
@@ -211,6 +149,46 @@ def create_output(X_in, output_type):
     cuml_ary_tuple = input_to_cuml_array(X_in, order="K")
 
     return cuml_ary_tuple.array.to_output(output_type)
+
+
+@pytest.mark.parametrize('input_type', test_input_types)
+def test_pickle(input_type):
+
+    if (input_type == "numba"):
+        pytest.skip("numba arrays cant be picked at this time")
+
+    est = TestEstimator()
+
+    X_in = create_input(input_type, np.float32, (10, 5), "C")
+
+    est.store_input(X_in)
+
+    # Loop and verify we have filled the cache
+    for out_type in test_output_types_str:
+        with cuml.using_output_type(out_type):
+            assert array_identical(est.input_any_,
+                                   create_output(X_in, out_type))
+
+    est_pickled_bytes = pickle.dumps(est)
+    est_unpickled: TestEstimator = pickle.loads(est_pickled_bytes)
+
+    # Assert that we only resture the input
+    assert est_unpickled.__dict__["input_any_"].input_type == input_type
+    assert len(est_unpickled.__dict__["input_any_"].values) == 1
+
+    assert array_identical(est.get_input(), est_unpickled.get_input())
+    assert array_identical(est.input_any_, est_unpickled.input_any_)
+
+    # Loop one more time with the picked one to make sure it works right
+    for out_type in test_output_types_str:
+        with cuml.using_output_type(out_type):
+            assert array_identical(est.input_any_,
+                                   create_output(X_in, out_type))
+
+        est_unpickled.output_type = out_type
+
+        assert array_identical(est_unpickled.input_any_,
+                               create_output(X_in, out_type))
 
 
 @pytest.mark.parametrize('input_type', test_input_types)
