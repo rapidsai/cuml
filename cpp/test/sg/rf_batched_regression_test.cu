@@ -126,7 +126,7 @@ const std::vector<RfInputs> inputs = {
    2, 0.0, 2, CRITERION::MAE, -10.0},
   {100, 57, 2, 1.0f, 1.0f, 2, -1, false, false, 16, SPLIT_ALGO::GLOBAL_QUANTILE,
    2, 0.0, 2, CRITERION::MAE, -10.0},
-  {100, 57, 2, 1.0f, 1.0f, 2, -1, false, false, 13, SPLIT_ALGO::GLOBAL_QUANTILE,
+  {101, 57, 2, 1.0f, 1.0f, 2, -1, false, false, 13, SPLIT_ALGO::GLOBAL_QUANTILE,
    2, 0.0, 2, CRITERION::MSE, -10.0},
   {100, 1, 2, 1.0f, 1.0f, 2, -1, false, false, 13, SPLIT_ALGO::GLOBAL_QUANTILE,
    2, 0.0, 2, CRITERION::MAE, -10.0},
