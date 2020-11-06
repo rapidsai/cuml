@@ -27,6 +27,7 @@ from cuml.common.memory_utils import _strides_to_order
 from cuml.common.memory_utils import class_with_cupy_rmm
 from numba import cuda
 
+
 @class_with_cupy_rmm(ignore_pattern=["serialize"])
 class CumlArray(Buffer):
 

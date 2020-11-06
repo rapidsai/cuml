@@ -120,7 +120,6 @@ def test_output_type_context_mgr(global_output_type, context_type):
     assert isinstance(res, test_output_types[test_type])
 
 
-
 ###############################################################################
 #                           Utility Functions                                 #
 ###############################################################################

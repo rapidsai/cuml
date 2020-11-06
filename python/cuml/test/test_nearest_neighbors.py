@@ -199,7 +199,6 @@ def test_knn_x_none(input_type, nrows, n_feats, k, metric):
     assert I_cuml.all() == I_sk.all()
 
 
-
 def test_knn_fit_twice():
     """
     Test that fitting a model twice does not fail.

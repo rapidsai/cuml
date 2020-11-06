@@ -175,7 +175,6 @@ class Base(metaclass=cuml.internals.BaseMetaClass):
         self.target_dtype = None
         self.n_features_in_ = None
 
-
     # def __repr__(self):
     #     """
     #     Pretty prints the arguments of a class using Scikit-learn standard :)
