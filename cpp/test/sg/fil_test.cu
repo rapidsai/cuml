@@ -637,11 +637,11 @@ class TreeliteThrowSparse8FilTest : public TreeliteSparse8FilTest {
     the struct defaults. Using it directly only works if all defaulted
     members come after ones explicitly mentioned.
 **/
-#define FIL_TEST_PARAMS(...)                  \
-  []() {                                      \
+#define FIL_TEST_PARAMS(...)                                \
+  []() {                                                    \
     struct NonDefaultFilTestParams : public FilTestParams { \
       NonDefaultFilTestParams() { __VA_ARGS__; }            \
-    };                                        \
+    };                                                      \
     return FilTestParams(NonDefaultFilTestParams());        \
   }()
 
