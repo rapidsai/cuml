@@ -387,8 +387,6 @@ def input_to_cuml_array(X,
         X_m = cp.array(X_m, copy=False, order=order)
         X_m = CumlArray(data=X_m)
 
-    cuml.common.array._increment_from_array(determine_array_type(X))
-
     return cuml_array(array=X_m, n_rows=n_rows, n_cols=n_cols, dtype=X_m.dtype)
 
 

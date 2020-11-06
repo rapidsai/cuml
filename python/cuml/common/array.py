@@ -14,45 +14,18 @@
 # limitations under the License.
 #
 
-import multiprocessing
-import operator
-
 import cupy as cp
 import numpy as np
-from cudf.core import Buffer
-from cudf.core import DataFrame
-from cudf.core import Series
-# from cuml.common.array_outputable import ArrayOutputable
+import operator
+
+from rmm import DeviceBuffer
+from cudf.core import Buffer, Series, DataFrame
+from cuml.common.memory_utils import with_cupy_rmm
 from cuml.common.memory_utils import _get_size_from_shape
 from cuml.common.memory_utils import _order_to_strides
 from cuml.common.memory_utils import _strides_to_order
 from cuml.common.memory_utils import class_with_cupy_rmm
-from cuml.common.memory_utils import with_cupy_rmm
 from numba import cuda
-from rmm import DeviceBuffer
-
-_array_manager = multiprocessing.Manager()
-
-_to_output_counts = _array_manager.dict()
-_from_array_counts = _array_manager.dict()
-_malloc_nbytes = _array_manager.Value(int, 0)
-_malloc_count = _array_manager.Value(int, 0)
-
-
-def _increment_to_output(output_type: str):
-    _to_output_counts[output_type] = _to_output_counts.setdefault(
-        output_type, 0) + 1
-
-
-def _increment_from_array(output_type: str):
-    _from_array_counts[output_type] = _from_array_counts.setdefault(
-        output_type, 0) + 1
-
-
-def _increment_malloc(nbytes: int):
-    _malloc_nbytes.set(_malloc_nbytes.get() + nbytes)
-    _malloc_count.set(_malloc_count.get() + 1)
-
 
 @class_with_cupy_rmm(ignore_pattern=["serialize"])
 class CumlArray(Buffer):
@@ -267,8 +240,6 @@ class CumlArray(Buffer):
 
         assert output_type != "mirror"
 
-        _increment_to_output(output_type)
-
         if output_type == 'cupy':
             return cp.asarray(self, dtype=output_dtype)
 
@@ -336,9 +307,6 @@ class CumlArray(Buffer):
             Whether to create a F-major or C-major array.
         """
 
-        # size, _ = _get_size_from_shape(shape, dtype)
-        # dbuf = DeviceBuffer(size=size)
-        # return CumlArray(data=dbuf, shape=shape, dtype=dtype, order=order)
         return CumlArray(cp.empty(shape, dtype, order))
 
     @classmethod
@@ -355,11 +323,7 @@ class CumlArray(Buffer):
         order: string, optional
             Whether to create a F-major or C-major array.
         """
-        # size, _ = _get_size_from_shape(shape, dtype)
-        # dbuf = DeviceBuffer(size=size)
-        # cp.asarray(dbuf).view(dtype=dtype).fill(value)
-        # return CumlArray(data=dbuf, shape=shape, dtype=dtype,
-        #                  order=order)
+
         return CumlArray(cp.full(shape, value, dtype, order))
 
     @classmethod
