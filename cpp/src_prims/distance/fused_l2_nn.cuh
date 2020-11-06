@@ -303,7 +303,7 @@ struct FusedL2NN : public BaseClass {
 
   DI void stsXY() { pipe.wait_prior<0>(); }
 #endif  // ENABLE_MEMCPY_ASYNC
-};      // struct FusedL2NN
+};  // struct FusedL2NN
 
 template <typename DataT, typename OutT, typename IdxT, bool Sqrt,
           typename Policy, typename ReduceOpT>

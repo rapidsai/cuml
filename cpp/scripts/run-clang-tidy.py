@@ -22,7 +22,7 @@ import json
 import multiprocessing as mp
 
 
-EXPECTED_VERSION = "8.0.1"
+EXPECTED_VERSION = "11.0.0"
 VERSION_REGEX = re.compile(r"  LLVM version ([0-9.]+)")
 GPU_ARCH_REGEX = re.compile(r"sm_(\d+)")
 SPACES = re.compile(r"\s+")
