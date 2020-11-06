@@ -99,11 +99,11 @@ def exact_match(output1, output2):
 
 
 @pytest.mark.parametrize("datatype", ['dask_array', 'dask_cudf'])
-@pytest.mark.parametrize("n_neighbors", [1, 3, 8])
-@pytest.mark.parametrize("n_parts", [2, 4, 12])
-@pytest.mark.parametrize("batch_size", [128, 1024])
-def test_predict_and_score(dataset, datatype, n_neighbors,
-                           n_parts, batch_size, client):
+@pytest.mark.parametrize("parameters", [(1, 3, 256),
+                                        (8, 8, 256),
+                                        (9, 3, 128)])
+def test_predict_and_score(dataset, datatype, parameters, client):
+    n_neighbors, n_parts, batch_size = parameters
     X_train, X_test, y_train, y_test = dataset
 
     l_model = lKNNReg(n_neighbors=n_neighbors)
