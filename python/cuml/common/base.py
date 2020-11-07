@@ -24,7 +24,6 @@ import cuml.internals
 import cuml.raft.common.handle
 from cuml.common.doc_utils import generate_docstring
 import cuml.common.input_utils
-import cuml.internals.func_wrappers
 
 
 class Base(metaclass=cuml.internals.BaseMetaClass):

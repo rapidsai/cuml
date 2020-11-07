@@ -15,7 +15,7 @@
 #
 
 from cuml.internals.base_helpers import BaseMetaClass
-from cuml.internals.func_wrappers import (
+from cuml.internals.api_decorators import (
     api_base_fit_transform,
     api_base_return_any_skipall,
     api_base_return_any,
@@ -32,6 +32,8 @@ from cuml.internals.func_wrappers import (
     api_return_generic,
     api_return_sparse_array,
     exit_internal_api,
+)
+from cuml.internals.api_context_managers import (
     in_internal_api,
     set_api_output_dtype,
     set_api_output_type,

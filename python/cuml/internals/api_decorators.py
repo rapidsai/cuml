@@ -17,9 +17,7 @@
 import contextlib
 import functools
 import inspect
-import threading
 import typing
-from collections import deque
 from functools import wraps
 
 import cuml
@@ -27,488 +25,30 @@ import cuml.common
 import cuml.common.array
 import cuml.common.array_sparse
 import cuml.common.input_utils
-import rmm
+from cuml.internals.api_context_managers import BaseReturnAnyCM
+from cuml.internals.api_context_managers import BaseReturnArrayCM
+from cuml.internals.api_context_managers import BaseReturnGenericCM
+from cuml.internals.api_context_managers import BaseReturnSparseArrayCM
+from cuml.internals.api_context_managers import InternalAPIContextBase
+from cuml.internals.api_context_managers import ReturnAnyCM
+from cuml.internals.api_context_managers import ReturnArrayCM
+from cuml.internals.api_context_managers import ReturnGenericCM
+from cuml.internals.api_context_managers import ReturnSparseArrayCM
+from cuml.internals.api_context_managers import global_output_type_data
+from cuml.internals.api_context_managers import set_api_output_dtype
+from cuml.internals.api_context_managers import set_api_output_type
 from cuml.internals.base_helpers import _get_base_return_type
-
-try:
-    from cupy.cuda import using_allocator as cupy_using_allocator
-except ImportError:
-    try:
-        from cupy.cuda.memory import using_allocator as cupy_using_allocator
-    except ImportError:
-        pass
 
 # Use _F as a type variable for decorators. See:
 # https://github.com/python/mypy/pull/8336/files#diff-eb668b35b7c0c4f88822160f3ca4c111f444c88a38a3b9df9bb8427131538f9cR260
 _F = typing.TypeVar("_F", bound=typing.Callable[..., typing.Any])
 
 
-@contextlib.contextmanager
-def _using_mirror_output_type():
-    prev_output_type = cuml.global_output_type
-    try:
-        cuml.global_output_type = "mirror"
-        yield prev_output_type
-    finally:
-        cuml.global_output_type = prev_output_type
-
-
-global_output_type_data = threading.local()
-global_output_type_data.root_cm = None
-
-
-def in_internal_api():
-    return global_output_type_data.root_cm is not None
-
-
-def set_api_output_type(output_type: str):
-    assert (global_output_type_data.root_cm is not None)
-
-    # Quick exit
-    if (isinstance(output_type, str)):
-        global_output_type_data.root_cm.output_type = output_type
-        return
-
-    # Try to convert any array objects to their type
-    array_type = cuml.common.input_utils.determine_array_type(output_type)
-
-    # Ensure that this is an array-like object
-    assert output_type is None or array_type is not None
-
-    global_output_type_data.root_cm.output_type = array_type
-
-
-def set_api_output_dtype(output_dtype):
-    assert (global_output_type_data.root_cm is not None)
-
-    # Try to convert any array objects to their type
-    if (output_dtype is not None
-            and cuml.common.input_utils.is_array_like(output_dtype)):
-        output_dtype = cuml.common.input_utils.determine_array_dtype(
-            output_dtype)
-
-        assert (output_dtype is not None)
-
-    global_output_type_data.root_cm.output_dtype = output_dtype
-
-
-class InternalAPIContext(contextlib.ExitStack):
-    def __init__(self):
-        super().__init__()
-
-        def cleanup():
-            global_output_type_data.root_cm = None
-
-        self.callback(cleanup)
-
-        self.enter_context(cupy_using_allocator(rmm.rmm_cupy_allocator))
-        self.prev_output_type = self.enter_context(_using_mirror_output_type())
-
-        self._output_type = None
-        self.output_dtype = None
-
-        # Set the output type to the prev_output_type. If "input", set to None
-        # to allow inner functions to specify the input
-        self.output_type = (None if self.prev_output_type == "input" else
-                            self.prev_output_type)
-
-        self._count = 0
-
-        self.call_stack = {}
-
-        global_output_type_data.root_cm = self
-
-    @property
-    def output_type(self):
-        return self._output_type
-
-    @output_type.setter
-    def output_type(self, value: str):
-        self._output_type = value
-
-    def pop_all(self):
-        """Preserve the context stack by transferring it to a new instance."""
-        new_stack = contextlib.ExitStack()
-        new_stack._exit_callbacks = self._exit_callbacks
-        self._exit_callbacks = deque()
-        return new_stack
-
-    def __enter__(self) -> int:
-
-        self._count += 1
-
-        return self._count
-
-    def __exit__(self, *exc_details):
-
-        # del self.call_stack[self._count]
-
-        self._count -= 1
-
-        return
-
-    def push_func(self, func):
-
-        self.call_stack[self._count] = func
-
-    def get_current_func(self):
-
-        if (self._count in self.call_stack):
-            return self.call_stack[self._count]
-
-        return None
-
-    @contextlib.contextmanager
-    def push_output_types(self):
-        try:
-            old_output_type = self.output_type
-            old_output_dtype = self.output_dtype
-
-            self.output_type = None
-            self.output_dtype = None
-
-            yield
-
-        finally:
-            self.output_type = (old_output_type if old_output_type is not None
-                                else self.output_type)
-            self.output_dtype = (old_output_dtype if old_output_dtype
-                                 is not None else self.output_dtype)
-
-
-class ProcessEnter(object):
-    def __init__(self, context: "InternalAPIContextBase"):
-        super().__init__()
-
-        self._context = context
-
-        self._process_enter_cbs: typing.Deque[typing.Callable] = deque()
-
-    def process_enter(self):
-
-        for cb in self._process_enter_cbs:
-            cb()
-
-
-class ProcessReturn(object):
-    def __init__(self, context: "InternalAPIContextBase"):
-        super().__init__()
-
-        self._context = context
-
-        self._process_return_cbs: typing.Deque[typing.Callable[
-            [typing.Any], typing.Any]] = deque()
-
-    def process_return(self, ret_val):
-
-        for cb in self._process_return_cbs:
-            ret_val = cb(ret_val)
-
-        return ret_val
-
-
-EnterT = typing.TypeVar("EnterT", bound=ProcessEnter)
-ProcessT = typing.TypeVar("ProcessT", bound=ProcessReturn)
-
-
-class InternalAPIContextBase(contextlib.ExitStack,
-                             typing.Generic[EnterT, ProcessT]):
-
-    ProcessEnter_Type: typing.Type[EnterT] = None
-    ProcessReturn_Type: typing.Type[ProcessT] = None
-
-    def __init__(self, func=None, args=None):
-        super().__init__()
-
-        self._func = func
-        self._args = args
-
-        self.root_cm = get_internal_context()
-
-        self.is_root = False
-
-        self._enter_obj: ProcessEnter = self.ProcessEnter_Type(self)
-        self._process_obj: ProcessReturn = None
-
-    def __enter__(self):
-
-        # Enter the root context to know if we are the root cm
-        self.is_root = self.enter_context(self.root_cm) == 1
-
-        # self.root_cm.push_func(self._func)
-
-        # If we are the first, push any callbacks from the root into this CM
-        # If we are not the first, this will have no effect
-        self.push(self.root_cm.pop_all())
-
-        self._enter_obj.process_enter()
-
-        # Now create the process functions since we know if we are root or not
-        self._process_obj = self.ProcessReturn_Type(self)
-
-        return super().__enter__()
-
-    def process_return(self, ret_val):
-
-        return self._process_obj.process_return(ret_val)
-
-    def __class_getitem__(cls: typing.Type["InternalAPIContextBase"], params):
-
-        param_names = [
-            param.__name__ if hasattr(param, '__name__') else str(param)
-            for param in params
-        ]
-
-        type_name = f'{cls.__name__}[{", ".join(param_names)}]'
-
-        ns = {
-            "ProcessEnter_Type": params[0],
-            "ProcessReturn_Type": params[1],
-        }
-
-        return type(type_name, (cls, ), ns)
-
-
-class ProcessEnterBaseMixin(ProcessEnter):
-    def __init__(self, context: "InternalAPIContextBase"):
-        super().__init__(context)
-
-        self.base_obj: cuml.Base = self._context._args[0]
-
-
-class ProcessEnterReturnAny(ProcessEnter):
-    pass
-
-
-class ProcessEnterReturnArray(ProcessEnter):
-    def __init__(self, context: "InternalAPIContextBase"):
-        super().__init__(context)
-
-        self._process_enter_cbs.append(self.push_output_types)
-
-    def push_output_types(self):
-
-        self._context.enter_context(self._context.root_cm.push_output_types())
-
-
-class ProcessEnterBaseReturnArray(ProcessEnterReturnArray,
-                                  ProcessEnterBaseMixin):
-    def __init__(self, context: "InternalAPIContextBase"):
-        super().__init__(context)
-
-        # IMPORTANT: Only perform output type processing if
-        # `root_cm.output_type` is None. Since we default to using the incoming
-        # value if its set, there is no need to do any processing if the user
-        # has specified the output type
-        if (self._context.root_cm.prev_output_type is None
-                or self._context.root_cm.prev_output_type == "input"):
-            self._process_enter_cbs.append(self.base_output_type_callback)
-
-    def base_output_type_callback(self):
-
-        root_cm = self._context.root_cm
-
-        def set_output_type():
-            output_type = (root_cm.output_type if root_cm.output_type
-                           is not None else root_cm.prev_output_type)
-
-            # TODO: (MDD) Determine why this fails only when all tests are run
-            # and not when just a single test is run
-            assert output_type == root_cm.output_type, \
-                "MDD: Unclear why this is necessary. Calculated output_type: {}, root_cm.output_type: {}, root_cm.prev_output_type: {}".format(output_type, root_cm.output_type, root_cm.prev_output_type) # noqa
-
-            # Check if output_type is None, can happen if no output type has
-            # been set by estimator
-            if (output_type is None):
-                output_type = self.base_obj.output_type
-
-            if (output_type == "input"):
-                output_type = self.base_obj._input_type
-
-            if (output_type != root_cm.output_type):
-                set_api_output_type(output_type)
-
-            assert (output_type != "mirror")
-
-        self._context.callback(set_output_type)
-
-
-class ProcessReturnAny(ProcessReturn):
-    pass
-
-
-class ProcessReturnArray(ProcessReturn):
-    def __init__(self, context: "InternalAPIContextBase"):
-        super().__init__(context)
-
-        self._process_return_cbs.append(self.convert_to_cumlarray)
-
-        if (self._context.is_root or cuml.global_output_type != "mirror"):
-            self._process_return_cbs.append(self.convert_to_outputtype)
-
-    def convert_to_cumlarray(self, ret_val):
-
-        # Get the output type
-        ret_val_type_str = cuml.common.input_utils.determine_array_type(
-            ret_val)
-
-        # If we are a supported array and not already cuml, convert to cuml
-        if (ret_val_type_str is not None and ret_val_type_str != "cuml"):
-            ret_val = cuml.common.input_utils.input_to_cuml_array(
-                ret_val, order="K").array
-
-        return ret_val
-
-    def convert_to_outputtype(self, ret_val):
-
-        output_type = cuml.global_output_type
-
-        if (output_type is None or output_type == "mirror"
-                or output_type == "input"):
-            output_type = self._context.root_cm.output_type
-
-        assert (output_type is not None
-                and output_type != "mirror"
-                and output_type != "input"), \
-            ("Invalid root_cm.output_type: "
-             "'{}'.").format(output_type)
-
-        return ret_val.to_output(
-            output_type=output_type,
-            output_dtype=self._context.root_cm.output_dtype)
-
-
-class ProcessReturnSparseArray(ProcessReturnArray):
-
-    def convert_to_cumlarray(self, ret_val):
-
-        # Get the output type
-        ret_val_type_str, is_sparse = \
-            cuml.common.input_utils.determine_array_type_full(ret_val)
-
-        # If we are a supported array and not already cuml, convert to cuml
-        if (ret_val_type_str is not None and ret_val_type_str != "cuml"):
-            if is_sparse:
-                ret_val = cuml.common.array_sparse.SparseCumlArray(
-                    ret_val, convert_index=False)
-            else:
-                ret_val = cuml.common.input_utils.input_to_cuml_array(
-                    ret_val, order="K").array
-
-        return ret_val
-
-
-class ProcessReturnGeneric(ProcessReturnArray):
-    def __init__(self, context: "InternalAPIContextBase"):
-        super().__init__(context)
-
-        # Clear the existing callbacks to allow processing one at a time
-        self._single_array_cbs = self._process_return_cbs
-
-        # Make a new queue
-        self._process_return_cbs = deque()
-
-        self._process_return_cbs.append(self.process_generic)
-
-    def process_single(self, ret_val):
-        for cb in self._single_array_cbs:
-            ret_val = cb(ret_val)
-
-        return ret_val
-
-    def process_tuple(self, ret_val: tuple):
-
-        # Convert to a list
-        out_val = list(ret_val)
-
-        for idx, item in enumerate(out_val):
-
-            out_val[idx] = self.process_generic(item)
-
-        return tuple(out_val)
-
-    def process_dict(self, ret_val):
-
-        for name, item in ret_val.items():
-
-            ret_val[name] = self.process_generic(item)
-
-        return ret_val
-
-    def process_list(self, ret_val):
-
-        for idx, item in enumerate(ret_val):
-
-            ret_val[idx] = self.process_generic(item)
-
-        return ret_val
-
-    def process_generic(self, ret_val):
-
-        if (cuml.common.input_utils.is_array_like(ret_val)):
-            return self.process_single(ret_val)
-
-        if (isinstance(ret_val, tuple)):
-            return self.process_tuple(ret_val)
-
-        if (isinstance(ret_val, dict)):
-            return self.process_dict(ret_val)
-
-        if (isinstance(ret_val, list)):
-            return self.process_list(ret_val)
-
-        return ret_val
-
-
-class ReturnAnyCM(InternalAPIContextBase[ProcessEnterReturnAny,
-                                         ProcessReturnAny]):
-    pass
-
-
-class ReturnArrayCM(InternalAPIContextBase[ProcessEnterReturnArray,
-                                           ProcessReturnArray]):
-    pass
-
-
-class ReturnSparseArrayCM(InternalAPIContextBase[ProcessEnterReturnArray,
-                                                 ProcessReturnSparseArray]):
-    pass
-
-
-class ReturnGenericCM(InternalAPIContextBase[ProcessEnterReturnArray,
-                                             ProcessReturnGeneric]):
-    pass
-
-
-class BaseReturnAnyCM(InternalAPIContextBase[ProcessEnterReturnAny,
-                                             ProcessReturnAny]):
-    pass
-
-
-class BaseReturnArrayCM(InternalAPIContextBase[ProcessEnterBaseReturnArray,
-                                               ProcessReturnArray]):
-    pass
-
-
-class BaseReturnSparseArrayCM(
-        InternalAPIContextBase[ProcessEnterBaseReturnArray,
-                               ProcessReturnSparseArray]):
-    pass
-
-
-class BaseReturnGenericCM(InternalAPIContextBase[ProcessEnterBaseReturnArray,
-                                                 ProcessReturnGeneric]):
-    pass
-
-
-def get_internal_context() -> InternalAPIContext:
-    if (global_output_type_data.root_cm is None):
-        return InternalAPIContext()
-
-    return global_output_type_data.root_cm
-
-
 class DecoratorMetaClass(type):
+    """
+    This metaclass is used to prevent wrapping functions multiple times by
+    adding `__cuml_is_wrapped = True` to the function __dict__
+    """
     def __new__(cls, classname, bases, classDict):
 
         if ("__call__" in classDict):
@@ -529,6 +69,10 @@ class DecoratorMetaClass(type):
 
 
 class WithArgsDecoratorMixin(object):
+    """
+    This decorator mixin handles processing the input arguments for all api
+    decorators. It supplies the input_arg, target_arg properties
+    """
     def __init__(self,
                  *,
                  input_arg: str = ...,
@@ -550,6 +94,8 @@ class WithArgsDecoratorMixin(object):
 
     def prep_arg_to_use(self, func) -> bool:
 
+        # Determine from the signature what processing needs to be done. This
+        # is executed once per function on import
         sig = inspect.signature(func, follow_wrapped=True)
         sig_args = list(sig.parameters.keys())
 
@@ -589,6 +135,7 @@ class WithArgsDecoratorMixin(object):
             assert input_arg_to_use != -1 and input_arg_to_use is not None, \
                 "Could not determine input_arg"
 
+            # Save the name and argument to use later
             self.input_arg_to_use = input_arg_to_use
             self.input_arg_to_use_name = input_arg_to_use_name
 
@@ -617,13 +164,28 @@ class WithArgsDecoratorMixin(object):
             assert target_arg_to_use != -1 and target_arg_to_use is not None, \
                 "Could not determine target_arg"
 
+            # Save the name and argument to use later
             self.target_arg_to_use = target_arg_to_use
             self.target_arg_to_use_name = target_arg_to_use_name
 
         return True
 
     def get_arg_values(self, *args, **kwargs):
+        """
+        This function is called once per function invocation to get the values
+        of self, input and target.
 
+        Returns
+        -------
+        tuple
+            Returns a tuple of self, input, target values
+
+        Raises
+        ------
+        IndexError
+            Raises an exception if the specified input argument is not
+            available or called with the wrong number of arguments
+        """
         self_val = None
         input_val = None
         target_val = None
@@ -675,6 +237,10 @@ class WithArgsDecoratorMixin(object):
 
 
 class HasSettersDecoratorMixin(object):
+    """
+    This mixin is responsible for handling any "set_XXX" methods used by api
+    decorators. Mostly used by `fit()` functions
+    """
     def __init__(self,
                  *,
                  set_output_type=True,
@@ -715,6 +281,10 @@ class HasSettersDecoratorMixin(object):
 
 
 class HasGettersDecoratorMixin(object):
+    """
+    This mixin is responsible for handling any "get_XXX" methods used by api
+    decorators. Used for many functions like `predict()`, `transform()`, etc.
+    """
     def __init__(self,
                  *,
                  get_output_type=False,
