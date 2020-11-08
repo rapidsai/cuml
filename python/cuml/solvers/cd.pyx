@@ -186,7 +186,6 @@ class CD(Base):
         See :ref:`output-data-type-configuration` for more info.
 
     """
-    preferred_order = 'F'
 
     def __init__(self, loss='squared_loss', alpha=0.0001, l1_ratio=0.15,
                  fit_intercept=True, normalize=False, max_iter=1000, tol=1e-3,
@@ -354,3 +353,8 @@ class CD(Base):
             "tol",
             "shuffle",
         ]
+
+    def _more_tags():
+        return {
+            'preferred_input_order': 'F'
+        }
