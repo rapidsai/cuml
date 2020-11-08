@@ -354,7 +354,7 @@ class LinearRegression(Base, RegressorMixin):
         return super().get_param_names() + \
             ['algorithm', 'fit_intercept', 'normalize']
 
-    def _more_tags():
+    def _more_tags(self):
         return {
             'preferred_input_order': 'F'
         }

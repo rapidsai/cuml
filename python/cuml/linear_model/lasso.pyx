@@ -207,7 +207,7 @@ class Lasso(Base, RegressorMixin):
             "selection",
         ]
 
-    def _more_tags():
+    def _more_tags(self):
         return {
             'preferred_input_order': 'F'
         }

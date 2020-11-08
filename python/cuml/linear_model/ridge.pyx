@@ -393,7 +393,7 @@ class Ridge(Base, RegressorMixin):
         return super().get_param_names() + \
             ['solver', 'fit_intercept', 'normalize', 'alpha']
 
-    def _more_tags():
+    def _more_tags(self):
         return {
             'preferred_input_order': 'F'
         }
