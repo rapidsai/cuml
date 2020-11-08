@@ -156,10 +156,6 @@ class LogisticRegression(Base, ClassifierMixin):
         is True
     intercept_: device array (n_classes, 1)
         The independent term. If `fit_intercept` is False, will be 0.
-    preferred_order : 'F'
-        Whether the algorithm internally operates in column ('F') or row ('C')
-        major data. Pass data to the algorithm with this order for the best
-        memory and time processing efficiency.
 
     Notes
     ------
@@ -426,3 +422,8 @@ class LogisticRegression(Base, ClassifierMixin):
         super(LogisticRegression, self).__init__(handle=None,
                                                  verbose=state["verbose"])
         self.__dict__.update(state)
+
+    def _more_tags():
+        return {
+            'preferred_input_order': 'F'
+        }
