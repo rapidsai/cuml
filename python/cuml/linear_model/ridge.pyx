@@ -211,12 +211,9 @@ class Ridge(Base, RegressorMixin):
     <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.Ridge.html>`_.
     """
 
-    preferred_order = 'F'
-
     def __init__(self, alpha=1.0, solver='eig', fit_intercept=True,
                  normalize=False, handle=None, output_type=None,
                  verbose=False):
-
         """
         Initializes the linear ridge regression class.
 
@@ -399,3 +396,8 @@ class Ridge(Base, RegressorMixin):
     def get_param_names(self):
         return super().get_param_names() + \
             ['solver', 'fit_intercept', 'normalize', 'alpha']
+
+    def _more_tags():
+        return {
+            'preferred_input_order': 'F'
+        }

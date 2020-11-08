@@ -144,7 +144,6 @@ class ElasticNet(Base, RegressorMixin):
     For additional docs, see `scikitlearn's ElasticNet
     <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.ElasticNet.html>`_.
     """
-    preferred_order = 'F'
 
     def __init__(self, alpha=1.0, l1_ratio=0.5, fit_intercept=True,
                  normalize=False, max_iter=1000, tol=1e-3, selection='cyclic',
@@ -243,3 +242,8 @@ class ElasticNet(Base, RegressorMixin):
             "tol",
             "selection",
         ]
+
+    def _more_tags():
+        return {
+            'preferred_input_order': 'F'
+        }

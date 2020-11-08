@@ -200,7 +200,6 @@ class LinearRegression(Base, RegressorMixin):
 
 
     """
-    preferred_order = 'F'
 
     def __init__(self, algorithm='eig', fit_intercept=True, normalize=False,
                  handle=None, verbose=False, output_type=None):
@@ -358,3 +357,8 @@ class LinearRegression(Base, RegressorMixin):
     def get_param_names(self):
         return super().get_param_names() + \
             ['algorithm', 'fit_intercept', 'normalize']
+
+    def _more_tags():
+        return {
+            'preferred_input_order': 'F'
+        }

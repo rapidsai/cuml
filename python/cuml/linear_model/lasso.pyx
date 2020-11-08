@@ -140,7 +140,6 @@ class Lasso(Base, RegressorMixin):
     For additional docs, see `scikitlearn's Lasso
     <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.Lasso.html>`_.
     """
-    preferred_order = 'F'
 
     def __init__(self, alpha=1.0, fit_intercept=True, normalize=False,
                  max_iter=1000, tol=1e-3, selection='cyclic', handle=None,
@@ -211,3 +210,8 @@ class Lasso(Base, RegressorMixin):
             "tol",
             "selection",
         ]
+
+    def _more_tags():
+        return {
+            'preferred_input_order': 'F'
+        }

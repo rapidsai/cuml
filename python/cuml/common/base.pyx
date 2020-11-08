@@ -36,6 +36,12 @@ from pandas import Series as pdSeries
 from numba import cuda
 
 
+# tag system based on experimental tag system from Scikit-learn >=0.21
+_default_tags = {
+    'preferred_input_order': None
+}
+
+
 class Base:
     """
     Base class for all the ML algos. It handles some of the common operations
@@ -356,6 +362,19 @@ class Base:
             self.n_features_in_ = X
         else:
             self.n_features_in_ = X.shape[1]
+
+    def _more_tags(self):
+        return _default_tags
+
+    def _get_tags(self):
+        # method and code from scikit-learn 0.21 _get_tags functionality:
+        # https://scikit-learn.org/stable/developers/develop.html#estimator-tags
+        collected_tags = {}
+        for cl in reversed(inspect.getmro(self.__class__)):
+            if hasattr(cl, '_more_tags'):
+                more_tags = cl._more_tags(self)
+                collected_tags.update(more_tags)
+        return collected_tags
 
 
 class RegressorMixin:
