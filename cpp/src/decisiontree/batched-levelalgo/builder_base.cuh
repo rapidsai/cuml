@@ -464,7 +464,7 @@ struct RegTraits {
 
     // Room for alignment in worst case (see alignPointer in
     // computeSplitRegressionKernel)
-    smemSize += 5 * sizeof(DataT*) + 2 * sizeof(int);
+    smemSize += 5 * sizeof(DataT) + 2 * sizeof(int);
 
     CUDA_CHECK(
       cudaMemsetAsync(b.pred, 0, sizeof(DataT) * b.nPredCounts * 2, s));

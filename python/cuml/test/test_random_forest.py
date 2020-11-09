@@ -214,13 +214,13 @@ def test_rf_classification(small_clf, datatype, split_algo,
 @pytest.mark.parametrize('datatype', [np.float32])
 @pytest.mark.parametrize(
     'split_algo,max_features,use_experimental_backend,n_bins',
-    [(0,1.0,False,16),
-     (1,1.0,False,11),
-     (0,'auto',False,128),
-     (1,'log2',False,100),
-     (1,'sqrt',False,100),
-     (1,1.0,True,17),
-     (1,1.0,True,32),
+    [(0, 1.0, False, 16),
+     (1, 1.0, False, 11),
+     (0, 'auto', False, 128),
+     (1, 'log2', False, 100),
+     (1, 'sqrt', False, 100),
+     (1, 1.0, True, 17),
+     (1, 1.0, True, 32),
      ])
 def test_rf_regression(special_reg, datatype, split_algo, max_features,
                        rows_sample, use_experimental_backend, n_bins):
