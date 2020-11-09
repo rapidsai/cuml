@@ -172,12 +172,12 @@ void kernel_dataset_impl(const raft::handle_t& handle,
 
     IdxT nblks;
     IdxT Nthreads;
+    Nthreads = int(32 / nrows_background) * 32
 
     if(M * sizeof(DataT) <= 49152){
       // each block calculates the combinations of an entry in X
       nblks = nrows_X - nsamples;
       // at least nrows_background threads per block, multiple of 32
-      nthreads = int(32 / nrows_background) * 32
       exact_rows_kernel_sm<<< nblks, Nthreads, M*sizeof(DataT), stream >>>(
         X,
         nrows_X,
@@ -206,6 +206,8 @@ void kernel_dataset_impl(const raft::handle_t& handle,
       // each block does a sample
       nblocks = nsamples;
 
+      // shared memory shouldn't be a problem since k will be small
+      // todo: add check
       sampled_rows_kernel<<< blocks, threads, maxsample*sizeof(int), stream >>>(
         int nsamples,
         int* X[(nrows_X - len_samples) * M],
