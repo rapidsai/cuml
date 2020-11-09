@@ -15,7 +15,7 @@
  */
 
 
-#include <cuml/explainer/permutation_shap.hpp>
+#include <cuml/explainer/kernel_shap.hpp>
 
 #include <curand.h>
 #include <curand_kernel.h>

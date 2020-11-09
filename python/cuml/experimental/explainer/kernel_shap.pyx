@@ -31,7 +31,7 @@ from pandas import DataFrame as pd_df
 from itertools import combinations
 
 
-cdef extern from "cuml/explainer/permutation_shap.hpp" namespace "ML":
+cdef extern from "cuml/explainer/kernel_shap.hpp" namespace "ML":
     kernel_dataset "ML::Explainer::kernel_dataset"(
         handle_t& handle,
         int* X,
