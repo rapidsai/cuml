@@ -169,7 +169,6 @@ class LogisticRegression(Base, ClassifierMixin):
     For additional information, see Scikit-learn's LogistRegression
     <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.LogisticRegression.html>`_.
     """
-    preferred_order = 'F'
 
     def __init__(
         self,
