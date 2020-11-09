@@ -321,10 +321,10 @@ def test_knn_graph(input_type, nrows, n_feats, p, k, metric, mode,
 
 
 @pytest.mark.parametrize("metric", ["l1"]) # "#valid_metrics(cuml_algo="sparse"))
-@pytest.mark.parametrize('nrows', [50])
-@pytest.mark.parametrize('ncols', [10])
+@pytest.mark.parametrize('nrows', [3])
+@pytest.mark.parametrize('ncols', [3])
 @pytest.mark.parametrize('density', [0.3])
-@pytest.mark.parametrize('n_neighbors', [4])
+@pytest.mark.parametrize('n_neighbors', [2])
 @pytest.mark.parametrize('batch_size_index', [20000])
 @pytest.mark.parametrize('batch_size_query', [20000])
 def test_nearest_neighbors_sparse(nrows, ncols,
@@ -340,9 +340,9 @@ def test_nearest_neighbors_sparse(nrows, ncols,
     a = cp.sparse.random(nrows, ncols, format='csr', density=density,
                          random_state=32)
 
-    print("Data created")
+    print("Data created: indptr=%s, indices=%s, data=%s" % (a.indptr, a.indices, a.data))
 
-    logger.set_level(logger.level_debug)
+    logger.set_level(logger.level_trace)
     nn = cuKNN(metric="l1", n_neighbors=n_neighbors, algorithm="brute",
                verbose=logger.level_debug,
                algo_params={"batch_size_index": batch_size_index,
