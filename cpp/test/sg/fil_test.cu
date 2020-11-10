@@ -1100,7 +1100,6 @@ template <>
 __device__ bool close_enough<int>(double epsilon, int test, int ground_truth) {
   return test == ground_truth;
 }
-
 // the most threads a block can have
 const int max_threads = 1024;
 
@@ -1116,7 +1115,7 @@ __device__ void test_single_radix(T value, MultiReductionTestParams p,
   serial_multi_reduction(work, correct_result, p.set_size, p.n_sets);
   T sum = multi_reduction<R>(work, p.set_size, p.n_sets);
   if (threadIdx.x < p.set_size &&
-      !close_enough(1e-4, sum, correct_result[threadIdx.x])) {
+      !close_enough(1e-3, sum, correct_result[threadIdx.x])) {
     atomicAdd(&error, 1);
   }
 }
@@ -1158,10 +1157,15 @@ class MultiReductionTest : public testing::TestWithParam<int> {
 
     for (int radix = 2; radix <= 6; ++radix) {
       for (int set_size = 1; set_size < 15; ++set_size) {  // >2x the max radix
-        for (int n_sets = 1; n_sets < 50 / set_size; ++n_sets)
+        // 1..50 (if block_dim_x permits)
+        for (int n_sets = 1;
+             n_sets <= std::min(block_dim_x, 50) / set_size;
+             ++n_sets)
           p.push_back({.radix = radix, .set_size = set_size, .n_sets = n_sets});
-        for (int n_sets = (block_dim_x - 50) / set_size;
-             n_sets > 0 && n_sets <= block_dim_x / set_size; ++n_sets)
+        // block_dim_x - 50 .. block_dim_x (if positive)
+        // up until 50 would be included in previous loop
+        for (int n_sets = std::max(block_dim_x - 50, 51) / set_size;
+             n_sets <= block_dim_x / set_size; ++n_sets)
           p.push_back({.radix = radix, .set_size = set_size, .n_sets = n_sets});
       }
     }
