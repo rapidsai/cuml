@@ -10,14 +10,14 @@ documentation tree.
 ## Additional notebooks
 Notebook Title | Status | Description
 --- | --- | --- 
-[ARIMA Demo](arima_demo.ipynb) | Working | Forecast using ARIMA on time-series data
+[ARIMA Demo](arima_demo.ipynb) | Working | Forecast using ARIMA on time-series data.
 [Forest Inference Demo](forest_inference_demo.ipynb) | Working | Save and load an XGBoost model into FIL and infer on new data.
-[KMeans Demo](kmeans_demo.ipynb) | Working | Predict using K-Means, visualize and compare the results with sklearn's K-Means
-[KMeans Multi-Node Multi-GPU Demo](kmeans_mnmg_demo.ipynb) | Working | Predict with MNMG K-Means using dask input.
-[Linear Regression Demo](linear_regression_demo.ipynb) | Working | Demonstrate the use of Linear Regression for prediction
+[KMeans Demo](kmeans_demo.ipynb) | Working | Predict using k-means, visualize and compare the results with Scikit-learn's k-means.
+[KMeans Multi-Node Multi-GPU Demo](kmeans_mnmg_demo.ipynb) | Working | Predict with MNMG k-means using dask distributed inputs.
+[Linear Regression Demo](linear_regression_demo.ipynb) | Working | Demonstrate the use of OLS Linear Regression for prediction.
 [Nearest Neighbors Demo](nearest_neighbors_demo.ipynb) | Working | Predict using Nearest Neighbors algorithm.
-[Random Forest Demo](random_forest_demo.ipynb) | Working | Using Random Forest for classification, and demonstrate the use of pickling with the cuML model.
-[Random Forest Multi-Node Multi-GPU Demo](random_forest_mnmg_demo.ipynb) | Working | Solve a classification problem using MNMG Random Forest
+[Random Forest Demo](random_forest_demo.ipynb) | Working | Use Random Forest for classification, and demonstrate how to pickle the cuML model.
+[Random Forest Multi-Node Multi-GPU Demo](random_forest_mnmg_demo.ipynb) | Working | Solve a classification problem using MNMG Random Forest.
 [Target Encoder Walkthrough](target_encoder_walkthrough.ipynb) | Working | Understand how to use target encoding and why it is preferred over one-hot and label encoding with the help of criteo dataset for click-through rate modelling.
 
 ## For more details
