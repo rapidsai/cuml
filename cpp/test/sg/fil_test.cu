@@ -1086,20 +1086,6 @@ __device__ void serial_multi_reduction(T* in, T* out, int set_size,
   __syncthreads();
 }
 
-template <typename T>
-__device__ bool close_enough(double epsilon, T test, T ground_truth);
-
-template <>
-__device__ bool close_enough<float>(double epsilon, float test,
-                                    float ground_truth) {
-  if (ground_truth == 0.0f) return epsilon > fabsf(test - ground_truth);
-  return epsilon > fabsf((test - ground_truth) / ground_truth);
-}
-
-template <>
-__device__ bool close_enough<int>(double epsilon, int test, int ground_truth) {
-  return test == ground_truth;
-}
 // the most threads a block can have
 const int max_threads = 1024;
 
@@ -1115,7 +1101,7 @@ __device__ void test_single_radix(T value, MultiReductionTestParams p,
   serial_multi_reduction(work, correct_result, p.set_size, p.n_sets);
   T sum = multi_reduction<R>(work, p.set_size, p.n_sets);
   if (threadIdx.x < p.set_size &&
-      !close_enough(1e-3, sum, correct_result[threadIdx.x])) {
+      1e-4 < fabsf(sum - correct_result[threadIdx.x])) {
     atomicAdd(&error, 1);
   }
 }
