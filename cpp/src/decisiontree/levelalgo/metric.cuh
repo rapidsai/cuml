@@ -15,7 +15,7 @@
  */
 
 #pragma once
-#include <cuda_utils.cuh>
+#include <raft/cuda_utils.cuh>
 #include "metric_def.cuh"
 
 namespace ML {

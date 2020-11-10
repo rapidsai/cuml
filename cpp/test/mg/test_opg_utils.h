@@ -18,7 +18,7 @@
 
 #include <gtest/gtest.h>
 #include <mpi.h>
-#include <cuda_utils.cuh>
+#include <raft/cuda_utils.cuh>
 
 #include <common/cumlHandle.hpp>
 
