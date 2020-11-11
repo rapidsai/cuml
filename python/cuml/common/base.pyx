@@ -38,7 +38,8 @@ from numba import cuda
 
 # tag system based on experimental tag system from Scikit-learn >=0.21
 _default_tags = {
-    'preferred_input_order': None
+    'preferred_input_order': None,
+    'accepts_gpu_data': True
 }
 
 
