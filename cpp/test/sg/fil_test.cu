@@ -1129,7 +1129,7 @@ __global__ void test_multi_reduction_k(T* data, MultiReductionTestParams* p,
   }
 }
 
-template <typename T, void (generate_uniform)(T*, size_t)>
+template <typename T, void(generate_uniform)(T*, size_t)>
 class MultiReductionTest : public testing::TestWithParam<int> {
  protected:
   void SetUp() override {
@@ -1141,8 +1141,7 @@ class MultiReductionTest : public testing::TestWithParam<int> {
     for (int radix = 2; radix <= 6; ++radix) {
       for (int set_size = 1; set_size < 15; ++set_size) {  // >2x the max radix
         // 1..50 (if block_dim_x permits)
-        for (int n_sets = 1;
-             n_sets <= std::min(block_dim_x, 50) / set_size;
+        for (int n_sets = 1; n_sets <= std::min(block_dim_x, 50) / set_size;
              ++n_sets)
           p.push_back({.radix = radix, .set_size = set_size, .n_sets = n_sets});
         // block_dim_x - 50 .. block_dim_x (if positive)
@@ -1191,8 +1190,8 @@ std::vector<int> block_sizes = []() {
 }();
 
 void float_rng(float* data_p, size_t size) {
-    raft::random::Rng r(4321);
-    r.uniform(data_p, size, -1.0f, 1.0f, cudaStreamDefault);
+  raft::random::Rng r(4321);
+  r.uniform(data_p, size, -1.0f, 1.0f, cudaStreamDefault);
 }
 typedef MultiReductionTest<float, float_rng> MultiReductionTestFloat;
 TEST_P(MultiReductionTestFloat, Import) { check(); }
@@ -1200,10 +1199,10 @@ INSTANTIATE_TEST_CASE_P(FilTests, MultiReductionTestFloat,
                         testing::ValuesIn(block_sizes));
 
 void int_rng(int* data_p, size_t size) {
-    raft::random::Rng r(4321);
-    r.uniformInt(data_p, size, -123'456, 123'456, cudaStreamDefault);
+  raft::random::Rng r(4321);
+  r.uniformInt(data_p, size, -123'456, 123'456, cudaStreamDefault);
 }
-typedef MultiReductionTest<int, int_rng>  MultiReductionTestInt;
+typedef MultiReductionTest<int, int_rng> MultiReductionTestInt;
 TEST_P(MultiReductionTestInt, Import) { check(); }
 INSTANTIATE_TEST_CASE_P(FilTests, MultiReductionTestInt,
                         testing::ValuesIn(block_sizes));
