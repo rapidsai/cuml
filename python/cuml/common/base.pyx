@@ -38,8 +38,28 @@ from numba import cuda
 
 # tag system based on experimental tag system from Scikit-learn >=0.21
 _default_tags = {
+    # cuML specific tags
     'preferred_input_order': None,
-    'accepts_gpu_data': True
+    'X_types_gpu': ['2darray', 'dataframe'],
+
+    # Scikit-learn API standard tags
+    'non_deterministic': False,
+    'requires_positive_X': False,
+    'requires_positive_y': False,
+    'X_types': ['2darray'],
+    'poor_score': False,
+    'no_validation': False,
+    'multioutput': False,
+    "allow_nan": False,
+    'stateless': False,
+    'multilabel': False,
+    '_skip_test': False,
+    '_xfail_checks': False,
+    'multioutput_only': False,
+    'binary_only': False,
+    'requires_fit': True,
+    'requires_y': False,
+    'pairwise': False,
 }
 
 
@@ -364,15 +384,12 @@ class Base:
         else:
             self.n_features_in_ = X.shape[1]
 
-    def _more_tags(self):
-        return _default_tags
-
     def _get_tags(self):
-        # method and code from scikit-learn 0.21 _get_tags functionality:
+        # method and code based on scikit-learn 0.21 _get_tags functionality:
         # https://scikit-learn.org/stable/developers/develop.html#estimator-tags
-        collected_tags = {}
+        collected_tags = _default_tags
         for cl in reversed(inspect.getmro(self.__class__)):
-            if hasattr(cl, '_more_tags'):
+            if hasattr(cl, '_more_tags') and cl != Base:
                 more_tags = cl._more_tags(self)
                 collected_tags.update(more_tags)
         return collected_tags
@@ -404,6 +421,11 @@ class RegressorMixin:
         preds = self.predict(X, **kwargs)
         return r2_score(y, preds, handle=handle)
 
+    def _more_tags(self):
+        return {
+            'requires_y': True
+        }
+
 
 class ClassifierMixin:
     """Mixin class for classifier estimators in cuML"""
@@ -433,6 +455,11 @@ class ClassifierMixin:
 
         preds = self.predict(X, **kwargs)
         return accuracy_score(y_m, preds, handle=handle)
+
+    def _more_tags(self):
+        return {
+            'requires_y': True
+        }
 
 
 # Internal, non class owned helper functions
