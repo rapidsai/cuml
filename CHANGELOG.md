@@ -22,6 +22,8 @@
 - PR #3052: Speeding up MNMG KNN Cl&Re testing
 - PR #3115: Speeding up MNMG UMAP testing
 - PR #3112: Speed test_array
+- PR #3111: Adding Cython to Code Coverage
+- PR #3129:  Update notebooks README
 
 ## Bug Fixes
 - PR #3065: Refactoring prims metrics function names from camelcase to underscore format
@@ -41,6 +43,8 @@
 - PR #3084: Fix artifacts in t-SNE results
 - PR #3086: Reverting FIL Notebook Testing
 - PR #3114: Fixed a typo in SVC's predict_proba AttributeError
+- PR #3119: Fix memset args for benchmark 
+- PR #3130: Return Python string from `dump_as_json()` of RF
 
 # cuML 0.16.0 (Date TBD)
 
