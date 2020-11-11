@@ -477,3 +477,8 @@ class TSNE(Base):
             "pre_momentum",
             "post_momentum",
         ]
+
+    def _more_tags(self):
+        return {
+            'preferred_input_order': 'C'
+        }

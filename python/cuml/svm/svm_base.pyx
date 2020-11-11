@@ -556,3 +556,8 @@ class SVMBase(Base):
         self.__dict__.update(state)
         self._model = self._get_svm_model()
         self._freeSvmBuffers = False
+
+    def _more_tags(self):
+        return {
+            'preferred_input_order': 'F'
+        }

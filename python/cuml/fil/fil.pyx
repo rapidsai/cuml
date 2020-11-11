@@ -730,3 +730,8 @@ class ForestInference(Base):
                                                      output_class,
                                                      algo, threshold,
                                                      str(storage_type))
+
+    def _more_tags(self):
+        return {
+            'preferred_input_order': 'C'
+        }

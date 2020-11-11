@@ -935,3 +935,8 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
         if self.dtype == np.float64:
             return dump_rf_as_json(rf_forest64)
         return dump_rf_as_json(rf_forest)
+
+    def _more_tags(self):
+        return {
+            'preferred_input_order': 'F'
+        }

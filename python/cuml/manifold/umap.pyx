@@ -795,3 +795,8 @@ class UMAP(Base):
             "optim_batch_size",
             "callback",
         ]
+
+    def _more_tags(self):
+        return {
+            'preferred_input_order': 'C'
+        }

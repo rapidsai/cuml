@@ -590,3 +590,8 @@ class SparseRandomProjection(Base, BaseRandomProjection):
             "dense_output",
             "random_state"
         ]
+
+    def _more_tags(self):
+        return {
+            'preferred_input_order': 'F'
+        }
