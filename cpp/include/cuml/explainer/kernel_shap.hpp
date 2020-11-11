@@ -31,7 +31,7 @@ namespace Explainer{
  * @param[in]    nrows_X            number of rows in X
  * @param[in]    M                  number of columns in X
  * @param[in]    background         background data [on device]
- * @param[in]    nrows_background   number of rows in backround dataset
+ * @param[in]    nrows_background   number of rows in background dataset
  * @param[out]   combinations       generated data [on device] observation=background
  * @param[in]    observation        row to scatter
  * @param[in]    nsamples           vector with number of entries that are randomly sampled
