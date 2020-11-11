@@ -13,7 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-import cuml
 import cuml.internals
 from cuml.common.exceptions import NotFittedError
 import cupy as cp

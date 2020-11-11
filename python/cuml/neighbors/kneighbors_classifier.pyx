@@ -241,9 +241,10 @@ class KNeighborsClassifier(NearestNeighbors, ClassifierMixin):
                                        'description': 'Labels probabilities',
                                        'shape': '(n_samples, 1)'})
     @cuml.internals.api_base_return_generic()
-    def predict_proba(self,
-                      X,
-                      convert_dtype=True) -> typing.Union[CumlArray, typing.Tuple]: # noqa
+    def predict_proba(
+            self,
+            X,
+            convert_dtype=True) -> typing.Union[CumlArray, typing.Tuple]:
         """
         Use the trained k-nearest neighbors classifier to
         predict the label probabilities for X

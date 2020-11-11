@@ -19,7 +19,6 @@
 import cupy as cp
 import pprint
 
-import cuml
 import cuml.internals
 from cuml.solvers import QN
 from cuml.common.base import Base, ClassifierMixin
@@ -28,6 +27,7 @@ from cuml.common.array import CumlArray
 from cuml.common.doc_utils import generate_docstring
 import cuml.common.logger as logger
 from cuml.common import input_to_cuml_array
+from cuml.common import using_output_type
 
 
 supported_penalties = ["l1", "l2", "none", "elasticnet"]
@@ -298,7 +298,7 @@ class LogisticRegression(Base, ClassifierMixin):
             )
 
         if logger.should_log_for(logger.level_trace):
-            with cuml.using_output_type("cupy"):
+            with using_output_type("cupy"):
                 logger.trace(self.verb_prefix + "Coefficients: " +
                              str(self.solver_model.coef_))
                 if self.fit_intercept:

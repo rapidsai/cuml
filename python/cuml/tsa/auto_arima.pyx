@@ -27,14 +27,15 @@ import numpy as np
 
 import cupy as cp
 
-import cuml
+import cuml.internals
 from cuml.common import logger
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.array import CumlArray
 from cuml.common.base import Base
 from cuml.raft.common.handle cimport handle_t
 from cuml.raft.common.handle import Handle
-from cuml.common.input_utils import input_to_cuml_array
+from cuml.common import input_to_cuml_array
+from cuml.common import using_output_type
 from cuml.tsa.arima import ARIMA
 from cuml.tsa.seasonality import seas_test
 from cuml.tsa.stationarity import kpss_test
@@ -293,7 +294,7 @@ class AutoARIMA(Base):
                 raise ValueError("Unknown seasonal diff test: {}"
                                  .format(seasonal_test))
 
-            with cuml.using_output_type("cupy"):
+            with using_output_type("cupy"):
                 mask_cp = tests_map[seasonal_test](self.d_y, s)
 
             mask = input_to_cuml_array(mask_cp)[0]
@@ -434,7 +435,13 @@ class AutoARIMA(Base):
             model.fit(h=h, maxiter=maxiter, method=method, truncate=truncate)
 
     @cuml.internals.api_base_return_generic_skipall
-    def predict(self, start=0, end=None, level=None) -> typing.Union[CumlArray, typing.Tuple[CumlArray, CumlArray, CumlArray]]: # noqa
+    def predict(
+        self,
+        start=0,
+        end=None,
+        level=None
+    ) -> typing.Union[CumlArray, typing.Tuple[CumlArray, CumlArray,
+                                              CumlArray]]:
         """Compute in-sample and/or out-of-sample prediction for each series
 
         Parameters

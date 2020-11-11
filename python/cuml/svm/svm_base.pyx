@@ -25,7 +25,6 @@ from numba import cuda
 from cython.operator cimport dereference as deref
 from libc.stdint cimport uintptr_t
 
-import cuml
 import cuml.internals
 from cuml.common.array import CumlArray
 from cuml.common.array_descriptor import CumlArrayDescriptor
@@ -33,6 +32,7 @@ from cuml.common.base import Base
 from cuml.common.exceptions import NotFittedError
 from cuml.raft.common.handle cimport handle_t
 from cuml.common import input_to_cuml_array
+from cuml.common import using_output_type
 from libcpp cimport bool
 
 cdef extern from "cuml/matrix/kernelparams.h" namespace "MLCommon::Matrix":
@@ -309,7 +309,7 @@ class SVMBase(Base):
             return self.gamma
 
     def _calc_coef(self):
-        with cuml.using_output_type("cupy"):
+        with using_output_type("cupy"):
             return cupy.dot(self.dual_coef_, self.support_vectors_)
 
     def _check_is_fitted(self, attr):

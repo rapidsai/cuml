@@ -18,7 +18,6 @@
 
 import typing
 import cudf
-import cuml
 import ctypes
 import numpy as np
 import pandas as pd
@@ -34,6 +33,7 @@ from cupyx.scipy.sparse import csr_matrix as cp_csr_matrix,\
     coo_matrix as cp_coo_matrix, csc_matrix as cp_csc_matrix
 
 import cuml.internals
+from cuml.common import using_output_type
 from cuml.common.base import Base
 from cuml.raft.common.handle cimport handle_t
 from cuml.common.doc_utils import generate_docstring
@@ -464,9 +464,12 @@ class UMAP(Base):
         return params[0], params[1]
 
     @cuml.internals.api_base_return_generic_skipall
-    def _extract_knn_graph(self,
-                           knn_graph,
-                           convert_dtype=True) -> typing.Tuple[typing.Tuple[CumlArray, typing.Any], typing.Tuple[CumlArray, typing.Any]]: # noqa
+    def _extract_knn_graph(
+        self,
+        knn_graph,
+        convert_dtype=True
+    ) -> typing.Tuple[typing.Tuple[CumlArray, typing.Any],
+                      typing.Tuple[CumlArray, typing.Any]]:
         if has_scipy():
             from scipy.sparse import csr_matrix, coo_matrix, csc_matrix
         else:
@@ -574,7 +577,7 @@ class UMAP(Base):
                                           order="C", dtype=np.float32)
 
         if self.hash_input:
-            with cuml.using_output_type("numpy"):
+            with using_output_type("numpy"):
                 self.input_hash = joblib.hash(self.X_m)
 
         cdef handle_t * handle_ = \

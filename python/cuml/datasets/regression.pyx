@@ -18,7 +18,6 @@
 
 import typing
 
-import cuml
 import numpy as np
 
 import cuml.internals
@@ -74,10 +73,22 @@ inp_to_dtype = {
 
 
 @cuml.internals.api_return_generic()
-def make_regression(n_samples=100, n_features=2, n_informative=2, n_targets=1,
-                    bias=0.0, effective_rank=None, tail_strength=0.5,
-                    noise=0.0, shuffle=True, coef=False, random_state=None,
-                    dtype='single', handle=None) -> typing.Union[typing.Tuple[CumlArray, CumlArray], typing.Tuple[CumlArray, CumlArray, CumlArray]]: # noqa
+def make_regression(
+    n_samples=100,
+    n_features=2,
+    n_informative=2,
+    n_targets=1,
+    bias=0.0,
+    effective_rank=None,
+    tail_strength=0.5,
+    noise=0.0,
+    shuffle=True,
+    coef=False,
+    random_state=None,
+    dtype='single',
+    handle=None
+) -> typing.Union[typing.Tuple[CumlArray, CumlArray],
+                  typing.Tuple[CumlArray, CumlArray, CumlArray]]:
     """Generate a random regression problem.
 
     See https://scikit-learn.org/stable/modules/generated/sklearn.datasets.make_regression.html
@@ -202,8 +213,6 @@ def make_regression(n_samples=100, n_features=2, n_informative=2, n_targets=1,
                             <double> bias, <long> effective_rank,
                             <double> tail_strength, <double> noise,
                             <bool> shuffle, <uint64_t> random_state)
-
-    handle.sync()
 
     if coef:
         return out, values, coefs

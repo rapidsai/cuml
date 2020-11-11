@@ -610,7 +610,6 @@ class BaseReturnArrayDecorator(ReturnDecorator,
 
     def _recreate_cm(self, func, args):
 
-        # TODO: Should we return just ReturnArrayCM if `do_autowrap` == False?
         return BaseReturnArrayCM(func, args)
 
 
@@ -620,14 +619,12 @@ class BaseReturnSparseArrayDecorator(BaseReturnArrayDecorator):
         return BaseReturnSparseArrayCM(func, args)
 
 
-# TODO: Static check the typings for valid values
 class ReturnGenericDecorator(ReturnArrayDecorator):
     def _recreate_cm(self, func, args):
 
         return ReturnGenericCM(func, args)
 
 
-# TODO: Static check the typings for valid values
 class BaseReturnGenericDecorator(BaseReturnArrayDecorator):
     def _recreate_cm(self, func, args):
 
@@ -696,7 +693,8 @@ def exit_internal_api():
 
         global_output_type_data.root_cm = None
 
-        # TODO: DO we set the global output type here?
+        # Set the global output type to the previous value to pretend we never
+        # entered the API
         with cuml.using_output_type(old_root_cm.prev_output_type):
 
             yield

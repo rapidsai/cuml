@@ -550,12 +550,11 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
 
     @insert_into_docstring(parameters=[('dense', '(n_samples, n_features)')],
                            return_values=[('dense', '(n_samples, 1)')])
-    @cuml.internals.api_base_return_array_skipall
     def predict(self, X, predict_model="GPU",
                 output_class=True, threshold=0.5,
                 algo='auto', num_classes=None,
                 convert_dtype=True,
-                fil_sparse_format='auto'):
+                fil_sparse_format='auto') -> CumlArray:
         """
         Predicts the labels for X.
 
@@ -700,7 +699,6 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
 
     @insert_into_docstring(parameters=[('dense', '(n_samples, n_features)')],
                            return_values=[('dense', '(n_samples, 1)')])
-    @cuml.internals.api_base_return_array_skipall
     def predict_proba(self, X, output_class=True,
                       threshold=0.5, algo='auto',
                       num_classes=None, convert_dtype=True,

@@ -20,11 +20,10 @@ import numpy as np
 from libc.stdint cimport uintptr_t
 from libcpp cimport bool
 
-import cuml
+import cuml.internals
 from cuml.common.array import CumlArray
 from cuml.raft.common.handle cimport handle_t
 from cuml.raft.common.handle import Handle
-
 from cuml.common.input_utils import input_to_cuml_array
 
 

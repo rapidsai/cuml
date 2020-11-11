@@ -340,7 +340,7 @@ def input_to_cuml_array(X,
 
         cp_arr = cp.array(X, copy=make_copy, order=order)
 
-        X_m = CumlArray(cp_arr)
+        X_m = CumlArray(data=cp_arr)
 
         if deepcopy:
             X_m = copy.deepcopy(X_m)

@@ -16,7 +16,8 @@
 
 # distutils: language = c++
 
-import cuml
+import warnings
+
 import numpy as np
 
 from cuml.common.array import CumlArray as cumlArray
@@ -99,6 +100,13 @@ def make_arima(batch_size=1000, n_obs=100, order=(1, 1, 1),
         or 'double'
     output_type: {'cudf', 'cupy', 'numpy'}
         Type of the returned dataset
+
+        .. deprecated:: 0.17
+           `output_type` is deprecated in 0.17 and will be removed in 0.18.
+           Please use the module level output type control,
+           `cuml.global_output_type`.
+           See :ref:`output-data-type-configuration` for more info.
+
     handle: cuml.Handle
         If it is None, a new one is created just for this function call
 
@@ -107,6 +115,15 @@ def make_arima(batch_size=1000, n_obs=100, order=(1, 1, 1),
     out: array-like, shape (n_obs, batch_size)
         Array of the requested type containing the generated dataset
     """
+
+    # Check for deprecated `output_type` and warn. Set manually if specified
+    if (output_type is not None):
+        warnings.warn("Using the `output_type` argument is deprecated and "
+                      "will be removed in 0.18. Please specify the output "
+                      "type using `cuml.using_output_type()` instead",
+                      DeprecationWarning)
+
+        cuml.internals.set_api_output_type(output_type)
 
     cdef ARIMAOrder cpp_order
     cpp_order.p, cpp_order.d, cpp_order.q = order
@@ -143,7 +160,5 @@ def make_arima(batch_size=1000, n_obs=100, order=(1, 1, 1),
                        <int> n_obs, cpp_order, <double> scale,
                        <double> noise_scale, <double> intercept_scale,
                        <uint64_t> random_state)
-
-    cuml.internals.set_api_output_type(output_type)
 
     return out

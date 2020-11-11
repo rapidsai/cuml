@@ -238,7 +238,7 @@ cdef class ForestInference_impl():
             logger.info('storage_type=="sparse8" is an experimental feature')
         return storage_type_dict[storage_type_str]
 
-    def predict(self, X, output_type='numpy',
+    def predict(self, X,
                 output_dtype=None, predict_proba=False, preds=None):
         """
         Returns the results of forest inference on the examples in X
@@ -247,10 +247,6 @@ cdef class ForestInference_impl():
         ----------
         X : float32 array-like (device or host) shape = (n_samples, n_features)
             For optimal performance, pass a device array with C-style layout
-        output_type : string (default = 'numpy')
-            possible options are : {'input', 'cudf', 'cupy', 'numpy'}, optional
-            Variable to control output type of the results and attributes of
-            the estimators.
         preds : float32 device array, shape = n_samples
         predict_proba : bool, whether to output class probabilities(vs classes)
             Supported only for binary classification. output format
@@ -262,6 +258,8 @@ cdef class ForestInference_impl():
         Predicted results of type as defined by the output_type variable
 
         """
+
+        # Set the output_dtype. None is fine here
         cuml.internals.set_api_output_dtype(output_dtype)
 
         if (not self.output_class) and predict_proba:
@@ -523,18 +521,6 @@ class ForestInference(Base):
         (or 'preds' filled with inference results if preds was specified)
         """
         return self._impl.predict(X, predict_proba=True, preds=None)
-
-    def _predict_impl(self, X, output_type='numpy',
-                      output_dtype=None, predict_proba=False, preds=None):
-        """
-        Internal function to match signature of `ForestInference_impl.predict`
-        """
-
-        return self._impl.predict(X,
-                                  output_type=output_type,
-                                  output_dtype=output_dtype,
-                                  predict_proba=predict_proba,
-                                  preds=preds)
 
     def load_from_treelite_model(self, model, output_class=False,
                                  algo='auto',

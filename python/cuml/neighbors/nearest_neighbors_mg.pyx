@@ -22,7 +22,6 @@ import numpy as np
 import pandas as pd
 import cudf
 import ctypes
-import cuml
 import warnings
 import typing
 
@@ -156,9 +155,19 @@ class NearestNeighborsMG(NearestNeighbors):
         self.batch_size = batch_size
 
     @cuml.internals.api_base_return_generic_skipall
-    def kneighbors(self, indices, index_m, n, index_parts_to_ranks,
-                   queries, query_m, query_parts_to_ranks,
-                   rank, n_neighbors=None, convert_dtype=True) -> typing.Tuple[typing.List[CumlArray], typing.List[CumlArray]]: # noqa
+    def kneighbors(
+        self,
+        indices,
+        index_m,
+        n,
+        index_parts_to_ranks,
+        queries,
+        query_m,
+        query_parts_to_ranks,
+        rank,
+        n_neighbors=None,
+        convert_dtype=True
+    ) -> typing.Tuple[typing.List[CumlArray], typing.List[CumlArray]]:
         """
         Query the kneighbors of an index
 

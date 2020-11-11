@@ -27,8 +27,6 @@ from enum import IntEnum
 
 import rmm
 
-import cuml
-
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t
 
@@ -45,6 +43,7 @@ from cuml.decomposition.utils cimport *
 from cuml.common.input_utils import input_to_cuml_array
 from cuml.common.input_utils import input_to_cupy_array
 from cuml.common.array_descriptor import CumlArrayDescriptor
+from cuml.common import using_output_type
 from cuml.prims.stats import cov
 from cuml.common.input_utils import sparse_scipy_to_cp
 
@@ -624,7 +623,7 @@ class PCA(Base):
         # NOTE: All intermediate calculations are done using cupy.ndarray and
         # then converted to CumlArray at the end to minimize conversions
         # between types
-        with cuml.using_output_type("cupy"):
+        with using_output_type("cupy"):
 
             if self.whiten:
                 self.components_ *= cp.sqrt(self.n_rows - 1)

@@ -25,12 +25,12 @@ from libcpp cimport bool
 from libc.stdint cimport uintptr_t, int64_t
 from libc.stdlib cimport calloc, malloc, free
 
-import cuml
 from cuml.common.array import CumlArray
 from cuml.common.base import Base
 from cuml.common.doc_utils import generate_docstring
 from cuml.raft.common.handle cimport handle_t
 from cuml.common import input_to_cuml_array
+from cuml.common import using_output_type
 from cuml.common.array_descriptor import CumlArrayDescriptor
 
 from collections import defaultdict
@@ -304,7 +304,7 @@ class DBSCAN(Base):
         if self.calc_core_sample_indices:
 
             # Temp convert to cupy array (better than using `cupy.asarray`)
-            with cuml.using_output_type("cupy"):
+            with using_output_type("cupy"):
 
                 # First get the min index. These have to monotonically
                 # increasing, so the min index should be the first returned -1

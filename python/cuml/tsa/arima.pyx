@@ -491,7 +491,12 @@ class ARIMA(Base):
 
     @nvtx_range_wrap
     @cuml.internals.api_base_return_autoarray(input_arg=None)
-    def predict(self, start=0, end=None, level=None) -> Union[CumlArray, Tuple[CumlArray, CumlArray, CumlArray]]: # noqa
+    def predict(
+        self,
+        start=0,
+        end=None,
+        level=None
+    ) -> Union[CumlArray, Tuple[CumlArray, CumlArray, CumlArray]]:
         """Compute in-sample and/or out-of-sample prediction for each series
 
         Parameters
@@ -589,7 +594,11 @@ class ARIMA(Base):
 
     @nvtx_range_wrap
     @cuml.internals.api_base_return_generic_skipall
-    def forecast(self, nsteps: int, level=None) -> Union[CumlArray, Tuple[CumlArray, CumlArray, CumlArray]]: # noqa
+    def forecast(
+        self,
+        nsteps: int,
+        level=None
+    ) -> Union[CumlArray, Tuple[CumlArray, CumlArray, CumlArray]]:
         """Forecast the given model `nsteps` into the future.
 
         Parameters

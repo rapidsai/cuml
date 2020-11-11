@@ -147,22 +147,9 @@ class InternalAPIContext(contextlib.ExitStack):
 
     def __exit__(self, *exc_details):
 
-        # del self.call_stack[self._count]
-
         self._count -= 1
 
         return
-
-    def push_func(self, func):
-
-        self.call_stack[self._count] = func
-
-    def get_current_func(self):
-
-        if (self._count in self.call_stack):
-            return self.call_stack[self._count]
-
-        return None
 
     @contextlib.contextmanager
     def push_output_types(self):
@@ -241,8 +228,6 @@ class InternalAPIContextBase(contextlib.ExitStack,
         # Enter the root context to know if we are the root cm
         self.is_root = self.enter_context(self.root_cm) == 1
 
-        # self.root_cm.push_func(self._func)
-
         # If we are the first, push any callbacks from the root into this CM
         # If we are not the first, this will have no effect
         self.push(self.root_cm.pop_all())
@@ -315,13 +300,7 @@ class ProcessEnterBaseReturnArray(ProcessEnterReturnArray,
         root_cm = self._context.root_cm
 
         def set_output_type():
-            output_type = (root_cm.output_type if root_cm.output_type
-                           is not None else root_cm.prev_output_type)
-
-            # TODO: (MDD) Determine why this fails only when all tests are run
-            # and not when just a single test is run
-            assert output_type == root_cm.output_type, \
-                "MDD: Unclear why this is necessary. Calculated output_type: {}, root_cm.output_type: {}, root_cm.prev_output_type: {}".format(output_type, root_cm.output_type, root_cm.prev_output_type) # noqa
+            output_type = root_cm.output_type
 
             # Check if output_type is None, can happen if no output type has
             # been set by estimator

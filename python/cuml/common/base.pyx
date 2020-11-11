@@ -16,7 +16,8 @@
 
 # distutils: language = c++
 
-import cuml
+import inspect
+
 import cuml.common
 import cuml.common.cuda
 import cuml.common.logger as logger
@@ -174,26 +175,26 @@ class Base(metaclass=cuml.internals.BaseMetaClass):
         self.target_dtype = None
         self.n_features_in_ = None
 
-    # def __repr__(self):
-    #     """
-    #     Pretty prints the arguments of a class using Scikit-learn standard :)
-    #     """
-    #     cdef list signature = inspect.getfullargspec(self.__init__).args
-    #     if len(signature) > 0 and signature[0] == 'self':
-    #         del signature[0]
-    #     cdef dict state = self.__dict__
-    #     cdef str string = self.__class__.__name__ + '('
-    #     cdef str key
-    #     for key in signature:
-    #         if key not in state:
-    #             continue
-    #         if type(state[key]) is str:
-    #             string += "{}='{}', ".format(key, state[key])
-    #         else:
-    #             if hasattr(state[key], "__str__"):
-    #                 string += "{}={}, ".format(key, state[key])
-    #     string = string.rstrip(', ')
-    #     return string + ')'
+    def __repr__(self):
+        """
+        Pretty prints the arguments of a class using Scikit-learn standard :)
+        """
+        cdef list signature = inspect.getfullargspec(self.__init__).args
+        if len(signature) > 0 and signature[0] == 'self':
+            del signature[0]
+        cdef dict state = self.__dict__
+        cdef str string = self.__class__.__name__ + '('
+        cdef str key
+        for key in signature:
+            if key not in state:
+                continue
+            if type(state[key]) is str:
+                string += "{}='{}', ".format(key, state[key])
+            else:
+                if hasattr(state[key], "__str__"):
+                    string += "{}={}, ".format(key, state[key])
+        string = string.rstrip(', ')
+        return string + ')'
 
     def enable_rmm_pool(self):
         self.handle.enable_rmm_pool()
@@ -413,11 +414,11 @@ def _check_output_type_str(output_str):
     if (output_str is None):
         return "input"
 
-    assert output_str != "mirror", (
-        "Cannot pass output_type='mirror' in Base.__init__(). Did you forget "
-        "to pass `output_type=self.output_type` to a child estimator? "
-        "Currently `cuml.global_output_type==`{}`"
-        ).format(cuml.global_output_type)
+    assert output_str != "mirror", \
+        ("Cannot pass output_type='mirror' in Base.__init__(). Did you forget "
+         "to pass `output_type=self.output_type` to a child estimator? "
+         "Currently `cuml.global_output_type==`{}`"
+         ).format(cuml.global_output_type)
 
     if isinstance(output_str, str):
         output_type = output_str.lower()

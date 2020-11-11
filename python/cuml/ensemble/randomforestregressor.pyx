@@ -522,7 +522,6 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
 
     @insert_into_docstring(parameters=[('dense', '(n_samples, n_features)')],
                            return_values=[('dense', '(n_samples, 1)')])
-    @cuml.internals.api_base_return_array_skipall
     def predict(self, X, predict_model="GPU",
                 algo='auto', convert_dtype=True,
                 fil_sparse_format='auto') -> CumlArray:

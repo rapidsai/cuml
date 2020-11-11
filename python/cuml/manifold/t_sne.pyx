@@ -20,7 +20,6 @@
 # cython: wraparound = False
 
 import cudf
-import cuml
 import ctypes
 import numpy as np
 import inspect
@@ -446,11 +445,9 @@ class TSNE(Base):
         Internal transform function to allow base wrappers default
         functionality to work
         """
-        # out_type = self._get_output_type(X)
 
         data = self.embedding_
 
-        # TODO: Do we want to delete this here?
         del self.embedding_
 
         return data

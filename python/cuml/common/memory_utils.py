@@ -39,6 +39,10 @@ except ImportError:
 
 @dataclass(frozen=True)
 class ArrayInfo:
+    """
+    Calculate the necessary shape, order, stride and dtype of an array from an
+    ``__array_interface__`` or ``__cuda_array_interface__``
+    """
     shape: tuple
     order: str
     dtype: np.dtype

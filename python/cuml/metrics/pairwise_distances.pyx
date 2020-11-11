@@ -16,6 +16,8 @@
 
 # distutils: language = c++
 
+import warnings
+
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t
 from cuml.raft.common.handle cimport handle_t
@@ -148,6 +150,12 @@ def pairwise_distances(X, Y=None, metric="euclidean", handle=None,
         module level, `cuml.global_output_type`.
         See :ref:`output-data-type-configuration` for more info.
 
+        .. deprecated:: 0.17
+           `output_type` is deprecated in 0.17 and will be removed in 0.18.
+           Please use the module level output type control,
+           `cuml.global_output_type`.
+           See :ref:`output-data-type-configuration` for more info.
+
     Returns
     -------
     D : array [n_samples_x, n_samples_x] or [n_samples_x, n_samples_y]
@@ -183,13 +191,17 @@ def pairwise_distances(X, Y=None, metric="euclidean", handle=None,
             [12., 10.]])
     """
 
+    # Check for deprecated `output_type` and warn. Set manually if specified
+    if (output_type is not None):
+        warnings.warn("Using the `output_type` argument is deprecated and "
+                      "will be removed in 0.18. Please specify the output "
+                      "type using `cuml.using_output_type()` instead",
+                      DeprecationWarning)
+
+        cuml.internals.set_api_output_type(output_type)
+
     handle = Handle() if handle is None else handle
     cdef handle_t *handle_ = <handle_t*> <size_t> handle.getHandle()
-
-    # Determine the input type to convert to when returning
-    # TODO: (MDD) Can we deprecate this property?
-    if (output_type is not None):
-        cuml.internals.set_api_output_type(output_type)
 
     # Get the input arrays, preserve order and type where possible
     X_m, n_samples_x, n_features_x, dtype_x = \

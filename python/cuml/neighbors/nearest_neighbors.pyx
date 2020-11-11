@@ -23,9 +23,9 @@ import cupy as cp
 import cupyx
 import cudf
 import ctypes
-import cuml
 import warnings
 
+import cuml.internals
 from cuml.common.base import Base
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.array import CumlArray
@@ -287,11 +287,13 @@ class NearestNeighbors(Base):
                            return_values=[('dense', '(n_samples, n_features)'),
                                           ('dense',
                                            '(n_samples, n_features)')])
-    def kneighbors(self,
-                   X=None,
-                   n_neighbors=None,
-                   return_distance=True,
-                   convert_dtype=True) -> typing.Union[CumlArray, typing.Tuple[CumlArray, CumlArray]]: # noqa
+    def kneighbors(
+        self,
+        X=None,
+        n_neighbors=None,
+        return_distance=True,
+        convert_dtype=True
+    ) -> typing.Union[CumlArray, typing.Tuple[CumlArray, CumlArray]]:
         """
         Query the GPU index for the k nearest neighbors of column vectors in X.
 
@@ -568,6 +570,12 @@ def kneighbors_graph(X=None, n_neighbors=5, mode='connectivity', verbose=False,
         module level, `cuml.global_output_type`.
         See :ref:`output-data-type-configuration` for more info.
 
+        .. deprecated:: 0.17
+           `output_type` is deprecated in 0.17 and will be removed in 0.18.
+           Please use the module level output type control,
+           `cuml.global_output_type`.
+           See :ref:`output-data-type-configuration` for more info.
+
     Returns
     -------
     A : sparse graph in CSR format, shape = (n_samples, n_samples_fit)
@@ -578,6 +586,14 @@ def kneighbors_graph(X=None, n_neighbors=5, mode='connectivity', verbose=False,
         numpy's CSR sparse graph (host)
 
     """
+
+    # Check for deprecated `output_type` and warn. Set manually if specified
+    if (output_type is not None):
+        warnings.warn("Using the `output_type` argument is deprecated and "
+                      "will be removed in 0.18. Please specify the output "
+                      "type using `cuml.using_output_type()` instead",
+                      DeprecationWarning)
+
     X = NearestNeighbors(n_neighbors, verbose, handle, algorithm, metric, p,
                          metric_params=metric_params,
                          output_type=output_type).fit(X)

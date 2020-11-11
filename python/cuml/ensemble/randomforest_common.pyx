@@ -236,7 +236,9 @@ class BaseRandomForestModel(Base):
     @cuml.internals.api_base_return_generic(set_output_type=True,
                                             set_n_features_in=True,
                                             get_output_type=False)
-    def _dataset_setup_for_fit(self, X, y, convert_dtype) -> typing.Tuple[CumlArray, CumlArray, float]: # noqa
+    def _dataset_setup_for_fit(
+            self, X, y,
+            convert_dtype) -> typing.Tuple[CumlArray, CumlArray, float]:
         # Reset the old tree data for new fit call
         self._reset_forest_data()
 
@@ -346,7 +348,10 @@ class BaseRandomForestModel(Base):
                                                  algo=algo,
                                                  storage_type=storage_type)
 
-        preds = tl_to_fil_model._predict_impl(X, predict_proba=predict_proba)
+        if (predict_proba):
+            preds = tl_to_fil_model.predict_proba(X)
+        else:
+            preds = tl_to_fil_model.predict(X)
         return preds
 
     def get_param_names(self):

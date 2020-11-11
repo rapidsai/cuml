@@ -26,7 +26,6 @@ import rmm
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t
 
-import cuml
 
 from cuml.common.array import CumlArray
 from cuml.common.base import Base

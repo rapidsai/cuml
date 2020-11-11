@@ -20,8 +20,9 @@ import cupy as cp
 import numpy as np
 from libc.stdint cimport uintptr_t
 
-import cuml
+import cuml.internals
 from cuml.common.input_utils import input_to_cupy_array
+from cuml.common import using_output_type
 from cuml.common.base import Base
 from cuml.common.array import CumlArray
 from cuml.common.array_descriptor import CumlArrayDescriptor
@@ -352,7 +353,7 @@ class ExponentialSmoothing(Base):
                             + str(self.dtype) + " passed.")
         num_rows = int(components_len/self.ts_num)
 
-        with cuml.using_output_type("cupy"):
+        with using_output_type("cupy"):
             self.level = self.level.reshape((self.ts_num, num_rows), order='F')
             self.trend = self.trend.reshape((self.ts_num, num_rows), order='F')
             self.season = self.season.reshape((self.ts_num, num_rows),
@@ -399,7 +400,7 @@ class ExponentialSmoothing(Base):
                 self.h = h
                 self.forecasted_points = CumlArray.zeros(self.ts_num*h,
                                                          dtype=self.dtype)
-                with cuml.using_output_type("cuml"):
+                with using_output_type("cuml"):
                     forecast_ptr = self.forecasted_points.ptr
                     level_ptr = self.level.ptr
                     trend_ptr = self.trend.ptr
@@ -425,7 +426,7 @@ class ExponentialSmoothing(Base):
                              <double*> season_ptr,
                              <double*> forecast_ptr)
 
-                with cuml.using_output_type("cupy"):
+                with using_output_type("cupy"):
                     self.forecasted_points =\
                         self.forecasted_points.reshape((self.ts_num, h),
                                                        order='F')

@@ -1,4 +1,19 @@
-# Internal, non class owned helper functions
+#
+# Copyright (c) 2020, NVIDIA CORPORATION.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
 from dataclasses import dataclass, field
 from cuml.common.array import CumlArray
 import cuml
@@ -16,9 +31,6 @@ class CumlArrayDescriptorMeta:
     values: dict = field(default_factory=dict)
 
     def get_input_value(self):
-        # if (self.input_type is None):
-        #     # TODO: Need to determine if this raises an error or not
-        #     return  None
 
         assert self.input_type in self.values, \
             "Missing value for input_type {}".format(self.input_type)
@@ -38,7 +50,10 @@ class CumlArrayDescriptorMeta:
 
 
 class CumlArrayDescriptor():
-    '''Descriptor for a meter.'''
+    """
+    Python descriptor object to control getting/setting `CumlArray` attributes
+    on `Base` objects. See the Estimator Guide for an in depth guide.
+    """
     def __set_name__(self, owner, name):
         self.name = name
 
