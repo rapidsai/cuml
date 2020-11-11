@@ -78,8 +78,8 @@ class KernelSHAP():
     Main differences of the GPU version:
 
     - Data generation and Kernel SHAP calculations are significantly faster,
-    but this has a tradeoff of having more model evaluations if the observation
-    explained has the same entries as background observations.
+    but this has a tradeoff of having more model evaluations if both the
+    observation explained and the background data have many 0-valued columns.
     - There is an initialization cost (similar to training time of regular
     Scikit/cuML models), which was a tradeoff for faster explanations after
     that.
@@ -151,6 +151,8 @@ class KernelSHAP():
         else:
             self.feature_names = [None for _ in range(len(data))]
 
+        # seeing how many exact samples from the powerset we can enumerate
+        # todo: check int optimization for large sizes by generating diagonal
         cur_nsamples = self.M
         r = 1
         while cur_nsamples < nsamples:
@@ -171,13 +173,19 @@ class KernelSHAP():
 
         # see if we need to have randomly sampled entries in our X
         # and combinations matrices
-        self.nsampled = max(nsamples - cur_nsamples, 0)
-        if self.nsampled > 0:
-            self.X.append(cp.zeros((self.n_sampled, self.M)))
+        self.nsamples_random = max(nsamples - cur_nsamples, 0)
+        if self.nsamples_random > 0:
+            self.X.append(cp.zeros((self.nsamples_random, self.M)))
 
         self.weights = cp.empty(nsamples)
+
+        # todo: check in weight generation with
+        # (self.M - 1.0) / (i * (self.M - i)
         self.weights[0:cur_nsamples] = cp.array(weight)
         self._combinations = None
+
+        self.weights[cur_nsamples, nsamples] = \
+            calc_remaining_weights(cur_nsamples, nsamples)
 
         self.expected_value = self.link_fn(cp.sum(model(self.background)))
 
@@ -208,13 +216,17 @@ class KernelSHAP():
                                     l1_reg):
 
         # np choice of weights - for samples if needed
-        if self.nsampled > 0:
-            samples = np.random.choice(len(self.weights),
-                                       4 * self.nsampled, p=self.weights)
+        # choice algorithm can be optimized for large dimensions
+        if self.nsamples_random > 0:
+            samples = np.random.choice(np.arange(self.nsamples_exact + 1,
+                                                 self.nsamples),
+                                       self.nsamples_random,
+                                       p=self.weights[self.nsamples_exact + 1:
+                                                      self.nsamples])
             maxsample = np.max(samples)
             samples = CumlArray(samples)
-            w = np.empty(self.nsampled, dtype=np.float32)
-            for i in range(self.nsamples_exact, self.nsampled):
+            w = np.empty(self.nsamples_random, dtype=np.float32)
+            for i in range(self.nsamples_exact, self.nsamples_random):
                 w[i] = shapley_kernel(samples[i], i)
 
         row = row.reshape(1, self.n_cols)
@@ -247,7 +259,7 @@ class KernelSHAP():
             <float*> cmb_ptr,
             <float*> row_ptr,
             <int*> smp_ptr,
-            <int> self.nsampled,
+            <int> self.nsamples_random,
             <int> maxsample,
             <uint64_t> random_state)
 
@@ -293,11 +305,11 @@ class KernelSHAP():
                 return cp.zeros(self.M), np.ones(self.M)
 
             res = cp.linalg.inv(cp.dot(cp.dot(self.X[nonzero_inds].T,
-                                              np.diag(self.weights)),
+                                              np.diag(self.weights[nonzero_inds])),
                                        self.X[nonzero_inds]))
 
             res = cp.dot(res, cp.dot(cp.dot(self.X[nonzero_inds].T,
-                                            cp.diag(self.weights)),
+                                            cp.diag(self.weights[nonzero_inds])),
                                      self._y))
 
         else:
@@ -360,6 +372,13 @@ def powerset(n, r, nrows):
         w[i] = shapley_kernel(N, i)
 
     return result, w
+
+
+def calc_remaining_weights(cur_nsamples, nsamples):
+    w = np.empty(nsamples - cur_nsamples, dtype=np.float32)
+    for i in range(cur_nsamples + 1, nsamples + 1):
+        w[i] = shapley_kernel(nsamples, i)
+    return cp.array(w)
 
 
 @lru_cache(maxsize=None)

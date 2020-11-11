@@ -177,9 +177,9 @@ void kernel_dataset_impl(const raft::handle_t& handle,
     cudaStream_t stream = handle_impl.get_stream();
 
     IdxT nblks;
-    IdxT Nthreads;
+    IdxT nthreads;
     // todo: check for max of 1024
-    Nthreads = int(32 / nrows_background) * 32;
+    nthreads = int(32 / nrows_background) * 32;
 
     cudaDeviceProp prop;
     cudaGetDeviceProperties(&prop, 0);
@@ -188,7 +188,7 @@ void kernel_dataset_impl(const raft::handle_t& handle,
       // each block calculates the combinations of an entry in X
       nblks = nrows_X - len_samples;
       // at least nrows_background threads per block, multiple of 32
-      exact_rows_kernel_sm<<< nblks, Nthreads, M*sizeof(DataT), stream >>>(
+      exact_rows_kernel_sm<<< nblks, nthreads, M*sizeof(DataT), stream >>>(
         X,
         nrows_X,
         M,
@@ -198,7 +198,7 @@ void kernel_dataset_impl(const raft::handle_t& handle,
         observation
       );
     } else {
-      exact_rows_kernel<<< nblks, Nthreads, 0, stream >>>(
+      exact_rows_kernel<<< nblks, nthreads, 0, stream >>>(
         X,
         nrows_X,
         M,
@@ -217,8 +217,8 @@ void kernel_dataset_impl(const raft::handle_t& handle,
       nblks = len_samples;
 
       // shared memory shouldn't be a problem since k will be small
-      // todo: add check
-      sampled_rows_kernel<<< nblks, Nthreads, maxsample*sizeof(int), stream >>>(
+      // due to distribution of shapley kernel weights
+      sampled_rows_kernel<<< nblks, nthreads, maxsample*sizeof(int), stream >>>(
         nsamples,
         &X[(nrows_X - len_samples) * M],
         len_samples,
