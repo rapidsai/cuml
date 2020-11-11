@@ -7,14 +7,14 @@ This guide is meant to help developers follow the correct patterns when creating
 Start by reading the following:
 
 1. [SkLearn Estimator Docs](https://scikit-learn.org/stable/developers/develop.html)
-   1. cuML Estimator design follows Sklearn very closely. We will only cover portions where our design differs from this document
+   1. cuML Estimator design follows Scikit-learn very closely. We will only cover portions where our design differs from this document
    2. Pay close attention to these sections as these topics have caused pain points in the past:
       1. [Instantiation](https://scikit-learn.org/stable/developers/develop.html#estimated-attributes)
       2. [Estimated Attributes](https://scikit-learn.org/stable/developers/develop.html#estimated-attributes)
       3. [`get_params` and `set_params`](https://scikit-learn.org/stable/developers/develop.html#estimated-attributes)
       4. [cloning](https://scikit-learn.org/stable/developers/develop.html#estimated-attributes)
-2. [SkLearn Docstring Guide](https://scikit-learn.org/stable/developers/contributing.html#guidelines-for-writing-documentation)
-   1. We follow the same guidlines for speficying array-like objects, array shapes, dtypes, and default values
+2. [Scikit-learn's Docstring Guide](https://scikit-learn.org/stable/developers/contributing.html#guidelines-for-writing-documentation)
+   1. We follow the same guidelines for specifying array-like objects, array shapes, dtypes, and default values
 
 ## Quick Start Guide
 
@@ -65,7 +65,7 @@ At a high level, all cuML Estimators must:
       ]
    ```
 
-For the majority of estimators, the above steps will be sufficient to correctly work with the cuML library and ensure a consistent API. However, situations may arrise where an estimator differs from the standard pattern and some of the functionality needs to be customized. The remainder of this guide takes a deep dive into the estimator functionality to assist developers when building estimators.
+For the majority of estimators, the above steps will be sufficient to correctly work with the cuML library and ensure a consistent API. However, situations may arise where an estimator differs from the standard pattern and some of the functionality needs to be customized. The remainder of this guide takes a deep dive into the estimator functionality to assist developers when building estimators.
 
 ## Background
 
@@ -73,7 +73,7 @@ Some background is necessary to understand the design of estimators and how to w
 
 ### Input and Output Types in cuML
 
-In cuML we support both ingesting and generating a variety of different n-dimensional array types. Estimators should be able to accept and return any array type. The types that are supported as of release 0.17:
+In cuML we support both ingesting and generating a variety of different object types. Estimators should be able to accept and return any array type. The types that are supported as of release 0.17:
 
  - cuDF DataFrame or Series
  - Pandas DataFrame or Series
@@ -82,7 +82,7 @@ In cuML we support both ingesting and generating a variety of different n-dimens
  - CuPy arrays
  - CumlArray type (Internal to the `cuml` API only.)
 
-When converting between types, it's important to minimize the CPU<->GPU type conversions as much as possible. Conversions such as NumPy -> CuPy or Numba -> Pandas DataFrame will incur a performance penalty as memory is copied from device to host or viceversa.
+When converting between types, it's important to minimize the CPU<->GPU type conversions as much as possible. Conversions such as NumPy -> CuPy or Numba -> Pandas DataFrame will incur a performance penalty as memory is copied from device to host or vice-versa.
 
 Converting between types of the same device, i.e. CPU<->CPU or GPU<->, do not have as significant of a penalty, though they may still increase memory usage.
 
@@ -90,7 +90,7 @@ Finally, conversions between Numba<->CuPy<->CumlArray incur the least amount of 
 
 Internally, all arrays should be converted to `CumlArray` as much as possible since it is compatible with all output types and can be easily converted.
 
-### Speficying the Array Output Type
+### Specifying the Array Output Type
 
 Users can choose which array type should be returned by cuml by either: 
 1. Individually setting the output_type property on an estimator class (i.e `Base(output_type="numpy")`)
@@ -101,7 +101,7 @@ Users can choose which array type should be returned by cuml by either:
 
 Changing the array output type will alter the return value of estimator functions (i.e. `predict()`, `transform()`), and the return value for array-like estimator attributes (i.e. `my_estimator.classes_` or `my_estimator.coef_`)
 
-All output_types (including `cuml.global_output_type`) are specfied using an all lowercase string. These strings can be passed in an estimators constructor or via `cuml.set_global_output_type` and `cuml.using_output_type`. Accepted values are:
+All output_types (including `cuml.global_output_type`) are specified using an all lowercase string. These strings can be passed in an estimators constructor or via `cuml.set_global_output_type` and `cuml.using_output_type`. Accepted values are:
 
  - `None`: (Default) No global value set. Will use individual values from estimators output_type
  - `"input"`: Similar to `None`. Will mirror the same type as any array passed into the estimator
@@ -114,7 +114,7 @@ All output_types (including `cuml.global_output_type`) are specfied using an all
 
 ### Ingesting Arrays
 
-When the input array type isn't know, the correct and safest way to ingest arrays is using `cuml.common.input_to_cuml_array`. This method can handle all supported types, is capable of checking the array order, can enforce a specific dtype, and can raise errors on incorrect array sizes:
+When the input array type isn't known, the correct and safest way to ingest arrays is using `cuml.common.input_to_cuml_array`. This method can handle all supported types, is capable of checking the array order, can enforce a specific dtype, and can raise errors on incorrect array sizes:
 
 ```python
 def fit(self, X):
@@ -141,7 +141,7 @@ def __init__(self, *, eps=0.5, min_samples=5, max_mbytes_per_batch=None,
              calc_core_sample_indices=True, handle=None, verbose=False, output_type=None):
 ```
 
-Finally, do not alter any input arguments - if you do, it will prevent proper cloning of the estimator. See Sklearn's [section](https://scikit-learn.org/stable/developers/develop.html#estimated-attributes) on instantiation for more info.
+Finally, do not alter any input arguments - if you do, it will prevent proper cloning of the estimator. See Scikit-learn's [section](https://scikit-learn.org/stable/developers/develop.html#instantiation) on instantiation for more info.
 
 For example, the following `__init__` shows what **NOT** to do:
 ```python
@@ -194,14 +194,14 @@ This gives the developer full control over which attributes are arrays and the n
 
 #### Working with `CumlArrayDescriptor`
 
-Once an `CumlArrayDescriptor` attribute has been defined, developers can treat the attribute as they normally would. Consider the following example estimator:
+Once an `CumlArrayDescriptor` attribute has been defined, developers can use the attribute as they normally would. Consider the following example estimator:
 
 ```python
 import cupy as cp
 import cuml
 from cuml.common.array_descriptor import CumlArrayDescriptor
 
-class TestEstimator(cuml.Base):
+class SampleEstimator(cuml.Base):
 
    # Class variables outside of any function
    my_cuml_array_ = CumlArrayDescriptor()
@@ -221,7 +221,7 @@ class TestEstimator(cuml.Base):
       self._set_output_type(X)
 
       # Set my_cuml_array_ with a CumlArray
-      self.my_cuml_array_, _, _, _ = input_to_cuml_array(X, order="K")
+      self.my_cuml_array_, *_ = input_to_cuml_array(X, order="K")
 
       # Access `my_cuml_array_` normally and set to another attribute
       # The internal type of my_other_array_ will be the result of
@@ -250,7 +250,7 @@ This has the same benefits of lazy conversion and caching as when descriptors ar
 Externally, when users read from a `CumlArrayDescriptor` attribute, the array data will be converted to the correct output type _lazily_ when the attribute is read from. For example, building off the above `TestEstimator`:
 
 ```python
-my_est = TestEstimator()
+my_est = SampleEstimator()
 
 # Print the default output_type and value for `my_cuml_array_`
 # By default, `output_type` is set to `cuml.global_output_type`
@@ -275,14 +275,14 @@ print(type(my_est.my_cuml_array_)) # Output: CuPy
 my_est.output_type = "cudf"
 
 # Reading any of the attributes will convert the type lazily
-print(type(my_est.my_cuml_array_)) # Output: cudf
+print(type(my_est.my_cuml_array_)) # Output: cuDF object
 
 # Setting the global_output_type, overrides the estimator output_type attribute
 with cuml.using_output_type("cupy"):
   print(type(my_est.my_cuml_array_)) # Output: cupy
 
 # Once the global_output_type is restored, we return to the estimator output_type
-print(type(my_est.my_cuml_array_)) # Output: Cudf. Using a cached value!
+print(type(my_est.my_cuml_array_)) # Output: cuDF. Using a cached value!
 ```
 
 For more information about `CumlArrayDescriptor` and it's implementation, see the [CumlArrayDescriptor Details]() section of the Appendix.
@@ -302,7 +302,7 @@ The full set of return types rules that will be applied by the `Base` metaclass 
 
 | Return Type | Converts Array Type? | Common Methods | Notes | 
 | :---------: | :-----------: | :----------- | :----------- |
-| `Base` | No | `fit()` | Any type that `isinstance` of `Base` will work |
+| `Base` | No | `fit()` | Any type that inherits or `isinstance` of `Base` will work |
 | `CumlArray` | Yes | `predict()`, `transform()` | Functions can return any array-like object (`np.ndarray`, `cp.ndarray`, etc. all accepted) |
 | `SparseCumlArray` | Yes | `predict()`, `transform()` | Functions can return any sparse array-like object (`scipy`, `cupyx.scipy` sparse arrays accepted) |
 | `dict`, `tuple`, `list` or `typing.Union` | Yes |  | Functions must return a generic object that contains an array-like object. No sparse arrays are supported |
@@ -478,7 +478,7 @@ def predict(self, X) -> CumlArray:
 
 While the automatic converions from type annotations works for many estimator functions, sometimes its necessary to explicitly decorate an estimator method. This allows developers greater flexibility over the input argument, output type and output dtype.
 
-Which decorator to use for an estimator function is determed by 2 factors:
+Which decorator to use for an estimator function is determined by 2 factors:
 
 1. Function return type
 2. Whether the function is on a class deriving from `Base`
@@ -600,12 +600,12 @@ def predict(self, X):
  - The decorator argument `input_arg` can be used to specify which input should be considered the "input".
    - In reality, this isn't necessary for this example. The decorator will look for an argument named `"X"` or default to the first, non `self`, argument.
  - `self._get_output_type()` and `self._get_target_dtype()` no longer needs to be called. Both the output type and dtype are determined automatically
- - Its not necessary to convert to `CumlArray` and casting with `to_output` before returning. This function directly returned a `cp.ndarray` object. Any array-like object can be returned.
+ - It's not necessary to convert to `CumlArray` and casting with `to_output` before returning. This function directly returned a `cp.ndarray` object. Any array-like object can be returned.
  - Specifying `get_output_dtype=True` in the decorator argument instructs the decorator to also calculate the dtype in addition to the output type.
 
 ## Do's And Don'ts
 
-### **Do:** Add Typing Information to Estimator Functions
+### **Do:** Add Return Typing Information to Estimator Functions
 
 Adding the return type to estimator functions will allow the `Base` meta-class to automatically decorate functions based on their return type.
 
@@ -642,13 +642,13 @@ def predict(self) -> CumlArray:
 def predict(self, X, y) -> CumlArray:
    cp_arr = cp.ones((10,))
 
-   # Dont be tempted to use `CumlArray(cp_arr)` here either
+   # Don't be tempted to use `CumlArray(cp_arr)` here either
    cuml_arr = input_to_cuml_array(cp_arr, order="K").array
 
    return cuml_arr.to_output(self._get_output_type(X))
 ```
 
-### **Don't:** Use `CumlArray.to_output()`
+### **Don't:** Use `CumlArray.to_output()` directly
 
 Using `CumlArray.to_output()` is no longer necessary except in very rare circumstances. Converting array types is best handled with `input_to_cuml_array` or `cuml.using_output_type()` when retrieving `CumlArrayDescriptor` values.
 
@@ -734,7 +734,7 @@ This section contains more in-depth information about the decorators and descrip
 
 Adding decorators to every estimator function just to use the decorator default values would be very repetitive and unnecessary. Because most of estimator functions follow a similar pattern, a new meta-class has been created to automatically decorate estimator functions based off their return type. This meta class will decorate functions according to a few rules:
 
-1. If a functions has been manually decorated, it will not be automatically decoated
+1. If a functions has been manually decorated, it will not be automatically decorated
 2. If an estimator function returns an instance of `Base`, then `@api_base_return_any()` will be applied.
 3. If an estimator function returns a `CumlArray`, then `@api_base_return_array()` will be applied.
 3. If an estimator function returns a `SparseCumlArray`, then `@api_base_return_sparse_array()` will be applied.
@@ -790,7 +790,7 @@ All of these decorators perform the same basic steps with a few small difference
 6. Convert the return value
    1. This will ultimately call `CumlArray.to_output(output_type=output_type, output_dtype=output_dtype)
 
-While the above list of steps may seem excessive for every call, most functions follow this general form, but may skip a few steps depending on a couple of factors. For example, Step #3 is necessary on functions that modify the estimator's estimated attributes, such as `fit()`, but is not necessary for functions like `predict()` or `transform()`. And Step #5/6 are only necessary when returning array-like objects and are ommitted when returning any other type.
+While the above list of steps may seem excessive for every call, most functions follow this general form, but may skip a few steps depending on a couple of factors. For example, Step #3 is necessary on functions that modify the estimator's estimated attributes, such as `fit()`, but is not necessary for functions like `predict()` or `transform()`. And Step #5/6 are only necessary when returning array-like objects and are omitted when returning any other type.
 
 Functionally, you can think of these decorators equivalent to the following pseudocode:
 ```python
@@ -813,7 +813,7 @@ def my_func(self, X):
          return ret_val.to_output(output_type)
 ```
 
-Keep the above psuedocode in mind when working with these decorators since their goal is to replace many of these repetitive functions.
+Keep the above pseudocode in mind when working with these decorators since their goal is to replace many of these repetitive functions.
 
 ### Decorator Defaults
 
