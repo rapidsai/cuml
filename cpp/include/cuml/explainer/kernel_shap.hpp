@@ -37,17 +37,20 @@ namespace Explainer{
  * @param[in]    nsamples           vector with number of entries that are randomly sampled
  * @param[in]    len_nsamples       number of entries to be sampled
  * @param[in]    maxsample          size of the biggest sampled observation
+ * @param[in]    seed               Seed for the random number generator
  * @{
  */
 void kernel_dataset(const raft::handle_t& handle, int* X, int nrows_X,
                     int M, float* background, int nrows_background,
                     float* combinations, float* observation,
-                    int* nsamples, int len_nsamples, int maxsample);
+                    int* nsamples, int len_nsamples, int maxsample,
+                    uint64_t seed = 0ULL);
 
 void kernel_dataset(const raft::handle_t& handle, int* X, int nrows_X,
                     int M, double* background, int nrows_background,
                     double* combinations, double* observation,
-                    int* nsamples, int len_nsamples, int maxsample);
+                    int* nsamples, int len_nsamples, int maxsample,
+                    uint64_t seed = 0ULL);
 
 }  // namespace Datasets
 }  // namespace ML
