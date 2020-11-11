@@ -17,8 +17,7 @@
 import cupy as cp
 
 
-def get_model_order_from_tags(model,
-                              default='F'):
+def get_tag_from_model(model, tag, default=None):
     tags_fn = getattr(
         getattr(model.predict, '__self__', None),
         '_get_tags',
@@ -26,8 +25,8 @@ def get_model_order_from_tags(model,
     )
 
     if tags_fn is not None:
-        order = tags_fn.get('preferred_input_order')
-        result = order if order is not None else default
+        tag_value = tags_fn.get(tag)
+        result = tag_value if tag_value is not None else default
 
     return result
 

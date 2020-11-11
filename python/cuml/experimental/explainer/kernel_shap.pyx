@@ -26,7 +26,7 @@ from cuml.common.input_utils import input_to_cuml_array
 from cuml.common.logger import info
 from cuml.common.logger import warn
 from cuml.experimental.explainer.common import get_link_fn_from_str
-from cuml.experimental.explainer.common import get_model_order_from_tags
+from cuml.experimental.explainer.common import get_tag_from_model
 from cuml.experimental.explainer.common import link_dict
 from cuml.linear_model import Lasso
 from functools import lru_cache
@@ -124,12 +124,20 @@ class KernelSHAP():
                  nsamples=None,
                  link='identity',
                  verbosity=False,
-                 random_state=None):
+                 random_state=None,
+                 gpu_model=None):
 
         self.link = link
         self.link_fn = get_link_fn_from_str(link)
         self.model = model
-        self.order = get_model_order_from_tags(model=model, default='C')
+        self.order = get_tag_from_model(model=model, tag='order',
+                                        default='C')
+        if gpu_model is None:
+            self.model_gpu_based = get_tag_from_model(model=model,
+                                                      tag='accepts_gpu_data',
+                                                      default=False)
+        else:
+            self.model_gpu_based = gpu_model
 
         self.background, self.N, self.M, self.dtype = \
             input_to_cuml_array(data, order=self.order)
@@ -265,7 +273,15 @@ class KernelSHAP():
 
         # evaluate model on combinations
 
-        y = self.model(self._combinations)
+        if self.model_gpu_based:
+            y = self.model(self._combinations)
+        else:
+            try:
+                y = cp.array(self.model(self._combinations.to_output('numpy')))
+            except TypeError:
+                raise TypeError('Explainer can only explain models that can '
+                                'take GPU data or NumPy arrays as input.')
+
         y_hat = cp.mean(cp.array(y).reshape((self.nsamples,
                                              self.background.shape[0])))
 
