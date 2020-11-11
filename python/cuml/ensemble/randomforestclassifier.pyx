@@ -221,7 +221,6 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
         If set to true and  following conditions are also met, experimental
          decision tree training implementation would be used:
             split_algo = 1 (GLOBAL_QUANTILE)
-            0 < max_depth < 14
             max_features = 1.0 (Feature sub-sampling disabled)
             quantile_per_tree = false (No per tree quantile computation)
     max_batch_size: int (default = 128)
@@ -934,5 +933,5 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
             <RandomForestMetaData[double, int]*><uintptr_t> self.rf_forest64
 
         if self.dtype == np.float64:
-            return dump_rf_as_json(rf_forest64)
-        return dump_rf_as_json(rf_forest)
+            return dump_rf_as_json(rf_forest64).decode('utf-8')
+        return dump_rf_as_json(rf_forest).decode('utf-8')

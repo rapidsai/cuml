@@ -27,7 +27,7 @@
 #include <thrust/transform.h>
 #include <cub/device/device_scan.cuh>
 
-#include <common/cudart_utils.h>
+#include <raft/cudart_utils.h>
 #include <common/device_buffer.hpp>
 #include <common/fast_int_div.cuh>
 #include <cuml/common/cuml_allocator.hpp>

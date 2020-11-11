@@ -14,18 +14,17 @@
  * limitations under the License.
  */
 
-#include <common/cudart_utils.h>
 #include <cuml/manifold/tsne.h>
 #include <datasets/digits.h>
 #include <gtest/gtest.h>
+#include <raft/cudart_utils.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <common/device_buffer.hpp>
-#include <cuda_utils.cuh>
 #include <cuml/common/cuml_allocator.hpp>
 #include <cuml/common/logger.hpp>
 #include <iostream>
-#include <score/scores.cuh>
+#include <metrics/scores.cuh>
 #include <vector>
 
 using namespace MLCommon;
