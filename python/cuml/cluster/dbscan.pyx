@@ -346,3 +346,8 @@ class DBSCAN(Base):
             "max_mbytes_per_batch",
             "calc_core_sample_indices",
         ]
+
+    def _more_tags(self):
+        return {
+            'preferred_input_order': 'C'
+        }
