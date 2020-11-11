@@ -29,7 +29,7 @@ def _process_generic(gen_type):
         if (issubclass(gen_type, cuml.common.CumlArray)):
             return "generic"
 
-        # We dont handle SparseCumlArray at this time
+        # We don't handle SparseCumlArray at this time
         if (issubclass(gen_type, cuml.common.SparseCumlArray)):
             raise NotImplementedError(
                 "Generic return types with SparseCumlArray are not supported "
