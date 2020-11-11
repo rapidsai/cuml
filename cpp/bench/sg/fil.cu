@@ -134,25 +134,37 @@ std::vector<Params> getInputs() {
   std::vector<Params> out;
   Params p;
   p.data.rowMajor = true;
-  // see src_prims/random/make_regression.h
-  p.blobs = {.n_informative = -1,
-             .effective_rank = -1,
-             .bias = 0.f,
-             .tail_strength = 0.1,
-             .noise = 0.01,
-             .shuffle = false,
-             .seed = 12345ULL};
-  p.rf.bootstrap = true;
-  p.rf.rows_sample = 1.f;
-  p.rf.tree_params.max_leaves = 1 << 20;
-  p.rf.tree_params.min_rows_per_node = 3;
-  p.rf.tree_params.n_bins = 32;
-  p.rf.tree_params.bootstrap_features = true;
-  p.rf.tree_params.quantile_per_tree = false;
-  p.rf.tree_params.split_algo = 1;
-  p.rf.tree_params.split_criterion = ML::CRITERION::MSE;
-  p.rf.n_streams = 8;
-  p.rf.tree_params.max_features = 1.f;
+  p.blobs = {
+    .n_informative = -1,   // Just a placeholder value, anyway changed below
+    .effective_rank = -1,  // Just a placeholder value, anyway changed below
+    .bias = 0.f,
+    .tail_strength = 0.1,
+    .noise = 0.01,
+    .shuffle = false,
+    .seed = 12345ULL};
+
+  set_rf_params(p.rf,  // Output RF parameters
+                1,  // n_trees, just a placeholder value, anyway changed below
+                true,  // bootstrap
+                1.f,   // rows_sample
+                1234,  // seed
+                8);    // n_streams
+
+  set_tree_params(p.rf.tree_params,    // Output tree parameters
+                  10,                  // max_depth, just a placeholder value,
+                                       //   anyway changed below
+                  (1 << 20),           // max_leaves
+                  1,                   // max_features
+                  32,                  // n_bins
+                  1,                   // split_algo
+                  3,                   // min_rows_per_node
+                  0.0f,                // min_impurity_decrease
+                  true,                // bootstrap_features
+                  ML::CRITERION::MSE,  // split_criterion
+                  false,               // quantile_per_tree
+                  false,               // use_experimental_backend
+                  128);                // max_batch_size
+
   using ML::fil::algo_t;
   using ML::fil::storage_type_t;
   std::vector<FilBenchParams> var_params = {

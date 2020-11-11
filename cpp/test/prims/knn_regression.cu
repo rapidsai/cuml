@@ -14,14 +14,14 @@
  * limitations under the License.
  */
 
-#include <common/cudart_utils.h>
 #include <gtest/gtest.h>
+#include <raft/cudart_utils.h>
 #include <raft/linalg/cusolver_wrappers.h>
-#include <cuda_utils.cuh>
 #include <iostream>
 #include <label/classlabels.cuh>
-#include <linalg/reduce.cuh>
-#include <random/rng.cuh>
+#include <raft/cuda_utils.cuh>
+#include <raft/linalg/reduce.cuh>
+#include <raft/random/rng.cuh>
 #include <selection/knn.cuh>
 #include <vector>
 #include "test_utils.h"
@@ -50,7 +50,7 @@ void generate_data(float *out_samples, float *out_labels, int n_rows,
     out_samples, out_samples, n_rows,
     [=] __device__(float input) { return 2 * input - 1; }, stream);
 
-  MLCommon::LinAlg::reduce(
+  raft::linalg::reduce(
     out_labels, out_samples, n_cols, n_rows, 0.0f, true, true, stream, false,
     [=] __device__(float in, int n) { return in * in; }, raft::Sum<float>(),
     [=] __device__(float in) { return sqrt(in); });
