@@ -84,7 +84,7 @@ In cuML we support both ingesting and generating a variety of different object t
 
 When converting between types, it's important to minimize the CPU<->GPU type conversions as much as possible. Conversions such as NumPy -> CuPy or Numba -> Pandas DataFrame will incur a performance penalty as memory is copied from device to host or vice-versa.
 
-Converting between types of the same device, i.e. CPU<->CPU or GPU<->, do not have as significant of a penalty, though they may still increase memory usage.
+Converting between types of the same device, i.e. CPU<->CPU or GPU<->GPU, do not have as significant of a penalty, though they may still increase memory usage.
 
 Finally, conversions between Numba<->CuPy<->CumlArray incur the least amount of overhead since only the device pointer is moved from one class to another.
 
@@ -97,7 +97,7 @@ Users can choose which array type should be returned by cuml by either:
 2. Globally setting the `cuml.global_output_type`
 3. Temporarily setting the `cuml.global_output_type` via the `cuml.using_output_type` context manager
 
-**Note:** Setting the global output type <u>will take precedence over any value in `Base.output_type`</u>
+**Note:** Setting `cuml.global_output_type` (either directly or via `cuml.set_output_type()` or `cuml.using_output_type()`) <u>will take precedence over any value in `Base.output_type`</u>
 
 Changing the array output type will alter the return value of estimator functions (i.e. `predict()`, `transform()`), and the return value for array-like estimator attributes (i.e. `my_estimator.classes_` or `my_estimator.coef_`)
 
@@ -105,12 +105,12 @@ All output_types (including `cuml.global_output_type`) are specified using an al
 
  - `None`: (Default) No global value set. Will use individual values from estimators output_type
  - `"input"`: Similar to `None`. Will mirror the same type as any array passed into the estimator
- - `"mirror"`: Special value for handling internal `cuml` API calls. Will mirror the input value set directly
-   - Note: Cannot be directly set by users
  - `"numba"`: Returns Numba Device Arrays
  - `"numpy"`: Returns Numpy Arrays
  - `"cudf"`: Returns cuDF DataFrame if cols > 1, else cuDF Series
  - `"cupy"`: Returns CuPy Device Arrays
+
+**Note:** There is an additional option `"mirror"` which can only be set by internal API calls and is not user accessible. This value is only used internally by the `CumlArrayDescriptor` to mirror any input value set.
 
 ### Ingesting Arrays
 
@@ -124,7 +124,7 @@ def fit(self, X):
 
 ### Returning Arrays
 
-The `CumlArray` class can convert to any supported array type using the `to_output(output_type: str)` method. However, doing this explicitly is almost never needed in practice and **should be avoided** in favor of automatic conversions described below.
+The `CumlArray` class can convert to any supported array type using the `to_output(output_type: str)` method. However, doing this explicitly is almost never needed in practice and **should be avoided**. Directly converting arrays with `to_output()` will circumvent the automatic conversion system potentially causing extra or incorrect array conversions.
 
 ## Estimator Design
 
@@ -174,6 +174,8 @@ Any array-like attribute stored in an estimator needs to be convertible to the u
 
 The `CumlArrayDescriptor` behaves different when accessed internally (from within one of `cuml`'s functions) vs. externally (for user code outside the cuml module). Internally, it behaves exactly like a normal attribute and will return the previous value set. Externally, the array will get converted to the user's desired output type lazily and repeated conversion will be cached.
 
+Performing the arrray conversion lazily (i.e. converting the input array to the desired output type, only when the attribute it read from for the first time) can greatly help reduce memory consumption, but can have unintended impacts the developers should be aware of. For example, benchmarking should take into account the lazy evaluation and ensure the array conversion is included in any profiling.
+
 #### Defining Array-Like Attributes
 
 To use the `CumlArrayDescriptor` in an estimator, any array-like attributes need to be specified by creating a `CumlArrayDescriptor` as a class variable. 
@@ -190,7 +192,7 @@ class TestEstimator(cuml.Base):
       ...
 ```
 
-This gives the developer full control over which attributes are arrays and the name for the array-like attribute. Array-like attribute **no longer need to follow specific naming conventions** and developers can use any name, assuming it follows the SkLearn attribute naming guidelines and python standards for public/private attributes.
+This gives the developer full control over which attributes are arrays and the name for the array-like attribute (something that was not true before `0.17`).
 
 #### Working with `CumlArrayDescriptor`
 
@@ -307,100 +309,25 @@ The full set of return types rules that will be applied by the `Base` metaclass 
 | `SparseCumlArray` | Yes | `predict()`, `transform()` | Functions can return any sparse array-like object (`scipy`, `cupyx.scipy` sparse arrays accepted) |
 | `dict`, `tuple`, `list` or `typing.Union` | Yes |  | Functions must return a generic object that contains an array-like object. No sparse arrays are supported |
 
-Simply setting the return type of a method is all that is necessary to automatically convert the return type (with the added benefit of adding more information to the code). Below are some before/after examples to show simple methods using automatic array conversion.
+Simply setting the return type of a method is all that is necessary to automatically convert the return type (with the added benefit of adding more information to the code). Below are some examples to show simple methods using automatic array conversion.
 
 ##### `fit()`
 
-<!-- <u>Before:</u>
-
-```python
-@with_cupy_rmm
-def fit(self, X):
-   # Set the base input attributes
-   self._set_base_attributes(output_type=X, n_features=X)
-
-   self.coef_ = input_to_cuml_array(X, order="K").array
-
-   return self
-```
-
-<u>After:</u>
-
 ```python
 def fit(self, X) -> "KMeans:
-   self.coef_ = input_to_cuml_array(X, order="K").array
 
-   return self
-``` -->
-
-<table>
-   <thead>
-      <tr>
-         <th>Before</th>
-         <th>After</th>
-      </tr>
-   </thead>
-<tbody>
-   <tr>
-   <td>
-
-```python
-@with_cupy_rmm
-def fit(self, X):
-   # Set the base input attributes
-   self._set_base_attributes(output_type=X, n_features=X)
-
+   # Convert the input to CumlArray
    self.coef_ = input_to_cuml_array(X, order="K").array
 
    return self
 ```
-
-   </td>
-   <td stype="text-align: top">
-
-```python
- 
-def fit(self, X) -> "KMeans":
-
-
-
-   self.coef_ = input_to_cuml_array(X, order="K").array
-
-   return self
-```
-
-   </td>
-   </tr>
-</tbody>
-</table>
 
 **Notes:**
  - Any type that derives from `Base` can be used as the return type for `fit()`. In python, to indicate returning `self` from a function, class type can be surrounded in quotes to prevent an import error.
- - `@with_cupy_rmm` is no longer needed. This is automatically applied for every public method of estimators
- - `self._set_base_attributes()` no longer needs to be called. 
+
 
 ##### `predict()`
 
-<!-- ```python
-@with_cupy_rmm
-def predict(self, X, y):
-   # Determine the output type and dtype
-   out_type = self._get_output_type(y)
-
-   # Convert to CumlArray
-   X_m = input_to_cuml_array(X, order="K").array
-
-   # Do some calculation with cupy
-   X_m = cp.asarray(X_m) + cp.ones(X_m.shape)
-
-   # Convert back to CumlArray
-   X_m = CumlArray(X_m)
-
-   # Convert the CudaArray to the desired output
-   return X_m.to_output(output_type=out_type)
-```
-
-**After: `predict()`**
 ```python
 def predict(self, X) -> CumlArray:
    # Convert to CumlArray
@@ -411,67 +338,9 @@ def predict(self, X) -> CumlArray:
 
    # Directly return a cupy array
    return X_m
-``` -->
-
-<table>
-   <thead>
-      <tr>
-         <th>Before</th>
-         <th>After</th>
-      </tr>
-   </thead>
-<tbody>
-   <tr>
-   <td>
-
-```python
-@with_cupy_rmm
-def predict(self, X, y):
-   # Determine the output type and dtype
-   out_type = self._get_output_type(y)
-
-   # Convert to CumlArray
-   X_m = input_to_cuml_array(X, order="K").array
-
-   # Do some calculation with cupy
-   X_m = cp.asarray(X_m) + cp.ones(X_m.shape)
-
-   # Convert back to CumlArray
-   X_m = CumlArray(X_m)
-
-   # Convert the CudaArray to the desired output
-   return X_m.to_output(output_type=out_type)
 ```
-   </td>
-   <td stype="text-align: top">
-
-```python
- 
-def predict(self, X) -> CumlArray:
-
-
-
-   # Convert to CumlArray
-   X_m = input_to_cuml_array(X, order="K").array
-
-   # Call a cuda function
-   X_m = cp.asarray(X_m) + cp.ones(X_m.shape)
-
-
-
-
-   # Directly return a cupy array
-   return X_m
-```
-
-   </td>
-   </tr>
-</tbody>
-</table>
 
 **Notes:**
- - `@with_cupy_rmm` is no longer needed. This is automatically applied for every public method of estimators
- - `self._get_output_type()` no longer needs to be called. The output type is determined automatically
  - Its not necessary to convert to `CumlArray` and casting with `to_output` before returning. This function directly returned a `cp.ndarray` object. Any array-like object can be returned. 
 
 #### Option 2: Manual Estimator Method Decoration
@@ -496,30 +365,6 @@ An in-depth discussion of how these decorators work, when each should be used, a
 
 ##### `predict()`
 
-<!-- **Before:**
-
-```python
-@with_cupy_rmm
-def predict(self, X_in):
-   # Determine the output_type
-   out_type = self._get_output_type(X_in)
-   out_dtype = self._get_target_dtype()
-
-   # Convert to CumlArray
-   X_m = input_to_cuml_array(X_in, order="K").array
-
-   # Call a cuda function
-   X_m = cp.asarray(X_m) + cp.ones(X_m.shape)
-
-   # Convert back to CumlArray
-   X_m = CumlArray(X_m)
-
-   # Convert the CudaArray to the desired output and dtype
-   return X_m.to_output(output_type=out_type, output_dtype=out_dtype)
-```
-
-**After:**
-
 ```python
 @cuml.internals.api_base_return_array(input_arg="X_in", get_output_dtype=True)
 def predict(self, X):
@@ -531,75 +376,11 @@ def predict(self, X):
 
    # Return the cupy array directly
    return X_m
-``` -->
-
-
-<table>
-   <thead>
-      <tr>
-         <th>Before</th>
-         <th>After</th>
-      </tr>
-   </thead>
-<tbody>
-   <tr>
-   <td>
-
-```python
- 
-@with_cupy_rmm
-def predict(self, X_in):
-   # Determine the output_type
-   out_type = self._get_output_type(X_in)
-   out_dtype = self._get_target_dtype()
-
-   # Convert to CumlArray
-   X_m = input_to_cuml_array(X_in, order="K").array
-
-   # Call a cuda function
-   X_m = cp.asarray(X_m) + cp.ones(X_m.shape)
-
-   # Convert back to CumlArray
-   X_m = CumlArray(X_m)
-
-   # Convert the CudaArray to the desired output and dtype
-   return X_m.to_output(output_type=out_type, output_dtype=out_dtype)
 ```
-
-   </td>
-   <td stype="text-align: top">
-
-```python
-@api_base_return_array(input_arg="X_in", get_output_dtype=True)
-def predict(self, X):
-
-
-
-
-   # Convert to CumlArray
-   X_m = input_to_cuml_array(X, order="K").array
-
-   # Call a cuda function
-   X_m = cp.asarray(X_m) + cp.ones(X_m.shape)
-
-
-
-
-   # Return the cupy array directly
-   return X_m
- 
-```
-
-   </td>
-   </tr>
-</tbody>
-</table>
 
 **Notes:**
- - `@with_cupy_rmm` is no longer needed. This is automatically applied with every decorator
  - The decorator argument `input_arg` can be used to specify which input should be considered the "input".
    - In reality, this isn't necessary for this example. The decorator will look for an argument named `"X"` or default to the first, non `self`, argument.
- - `self._get_output_type()` and `self._get_target_dtype()` no longer needs to be called. Both the output type and dtype are determined automatically
  - It's not necessary to convert to `CumlArray` and casting with `to_output` before returning. This function directly returned a `cp.ndarray` object. Any array-like object can be returned.
  - Specifying `get_output_dtype=True` in the decorator argument instructs the decorator to also calculate the dtype in addition to the output type.
 
@@ -724,7 +505,7 @@ class TestEstimator(cuml.Base):
       return self
 ```
 
-## Additional Information
+## Appendix
 
 This section contains more in-depth information about the decorators and descriptors to help developers understand whats going on behind the scenes
 
@@ -864,3 +645,189 @@ def predict(self, X):
    # Convert the CudaArray to the desired output
    return X_m
 ```
+
+#### Before `0.17` and After Comparison
+
+For developers used to the `0.16` architecture it can be helpful to see examples of estimator methods from `0.16` compared to `0.17` and after. This section shows a few examples side-by-side to illustrate the changes.
+
+##### `fit()`
+
+<table>
+   <thead>
+      <tr>
+         <th>Before</th>
+         <th>After</th>
+      </tr>
+   </thead>
+<tbody>
+   <tr>
+   <td>
+
+```python
+@with_cupy_rmm
+def fit(self, X):
+   # Set the base input attributes
+   self._set_base_attributes(output_type=X, n_features=X)
+
+   self.coef_ = input_to_cuml_array(X, order="K").array
+
+   return self
+```
+
+   </td>
+   <td stype="text-align: top">
+
+```python
+ 
+def fit(self, X) -> "KMeans":
+
+
+
+   self.coef_ = input_to_cuml_array(X, order="K").array
+
+   return self
+```
+
+   </td>
+   </tr>
+</tbody>
+</table>
+
+**Notes:**
+ - `@with_cupy_rmm` is no longer needed. This is automatically applied for every public method of estimators
+ - `self._set_base_attributes()` no longer needs to be called. 
+
+##### `predict()`
+
+<table>
+   <thead>
+      <tr>
+         <th>Before</th>
+         <th>After</th>
+      </tr>
+   </thead>
+<tbody>
+   <tr>
+   <td>
+
+```python
+@with_cupy_rmm
+def predict(self, X, y):
+   # Determine the output type and dtype
+   out_type = self._get_output_type(y)
+
+   # Convert to CumlArray
+   X_m = input_to_cuml_array(X, order="K").array
+
+   # Do some calculation with cupy
+   X_m = cp.asarray(X_m) + cp.ones(X_m.shape)
+
+   # Convert back to CumlArray
+   X_m = CumlArray(X_m)
+
+   # Convert the CudaArray to the desired output
+   return X_m.to_output(output_type=out_type)
+```
+   </td>
+   <td stype="text-align: top">
+
+```python
+ 
+def predict(self, X) -> CumlArray:
+
+
+
+   # Convert to CumlArray
+   X_m = input_to_cuml_array(X, order="K").array
+
+   # Call a cuda function
+   X_m = cp.asarray(X_m) + cp.ones(X_m.shape)
+
+
+
+
+   # Directly return a cupy array
+   return X_m
+```
+
+   </td>
+   </tr>
+</tbody>
+</table>
+
+**Notes:**
+ - `@with_cupy_rmm` is no longer needed. This is automatically applied for every public method of estimators
+ - `self._get_output_type()` no longer needs to be called. The output type is determined automatically
+ - Its not necessary to convert to `CumlArray` and casting with `to_output` before returning. This function directly returned a `cp.ndarray` object. Any array-like object can be returned.
+
+##### `predict()` with `dtype`
+
+<table>
+   <thead>
+      <tr>
+         <th>Before</th>
+         <th>After</th>
+      </tr>
+   </thead>
+<tbody>
+   <tr>
+   <td>
+
+```python
+ 
+@with_cupy_rmm
+def predict(self, X_in):
+   # Determine the output_type
+   out_type = self._get_output_type(X_in)
+   out_dtype = self._get_target_dtype()
+
+   # Convert to CumlArray
+   X_m = input_to_cuml_array(X_in, order="K").array
+
+   # Call a cuda function
+   X_m = cp.asarray(X_m) + cp.ones(X_m.shape)
+
+   # Convert back to CumlArray
+   X_m = CumlArray(X_m)
+
+   # Convert the CudaArray to the desired output and dtype
+   return X_m.to_output(output_type=out_type, output_dtype=out_dtype)
+```
+
+   </td>
+   <td stype="text-align: top">
+
+```python
+
+@api_base_return_array(input_arg="X_in", get_output_dtype=True)
+def predict(self, X):
+
+
+
+
+   # Convert to CumlArray
+   X_m = input_to_cuml_array(X, order="K").array
+
+   # Call a cuda function
+   X_m = cp.asarray(X_m) + cp.ones(X_m.shape)
+
+
+
+
+   # Return the cupy array directly
+   return X_m
+ 
+```
+
+   </td>
+   </tr>
+</tbody>
+</table>
+
+**Notes:**
+ - `@with_cupy_rmm` is no longer needed. This is automatically applied with every decorator
+ - The decorator argument `input_arg` can be used to specify which input should be considered the "input".
+   - In reality, this isn't necessary for this example. The decorator will look for an argument named `"X"` or default to the first, non `self`, argument.
+ - `self._get_output_type()` and `self._get_target_dtype()` no longer needs to be called. Both the output type and dtype are determined automatically
+ - It's not necessary to convert to `CumlArray` and casting with `to_output` before returning. This function directly returned a `cp.ndarray` object. Any array-like object can be returned.
+ - Specifying `get_output_dtype=True` in the decorator argument instructs the decorator to also calculate the dtype in addition to the output type.
