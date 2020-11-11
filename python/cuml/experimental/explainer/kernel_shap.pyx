@@ -179,7 +179,7 @@ class KernelSHAP():
         self.weights[0:cur_nsamples] = cp.array(weight)
         self._combinations = None
 
-        self.expected_value = self.link(cp.sum(model(self.background)))
+        self.expected_value = self.link_fn(cp.sum(model(self.background)))
 
         self.random_state = random_state
 
