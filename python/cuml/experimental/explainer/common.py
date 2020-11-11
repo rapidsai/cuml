@@ -32,6 +32,25 @@ def get_model_order_from_tags(model,
     return result
 
 
+def get_link_fn_from_str(link):
+    if isinstance(link, str):
+        if link in link_dict:
+            link_fn = link_dict[link]
+        else:
+            return ValueError("'link' string does not identify any known"
+                              " link functions. ")
+    elif callable(link):
+        if callable(getattr(link, "inverse", None)):
+            link_fn = link
+        else:
+            raise TypeError("'link' function {} is not valid.".format(link))
+
+    return link_fn
+
+
+# link functions
+
+
 def identity(x):
     return x
 
