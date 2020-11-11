@@ -417,6 +417,7 @@ if(BUILD_CUML_CPP_LIBRARY)
     src/pca/pca.cu
     src/randomforest/randomforest.cu
     src/random_projection/rproj.cu
+    src/shap/kernel_shap.cu
     src/solver/solver.cu
     src/spectral/spectral.cu
     src/svm/svc.cu
