@@ -156,7 +156,7 @@ Metrics (clustering and trustworthiness)
   .. automodule:: cuml.metrics.trustworthiness
     :members:
 
-  .. automodule:: cuml.metrics.cluster.adjustedrandindex
+  .. automodule:: cuml.metrics.cluster.adjusted_rand_index
     :members:
 
   .. automodule:: cuml.metrics.cluster.entropy

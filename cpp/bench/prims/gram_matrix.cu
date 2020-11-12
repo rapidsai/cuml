@@ -18,7 +18,7 @@
 #include <matrix/grammatrix.cuh>
 #include <matrix/kernelfactory.cuh>
 #include <memory>
-#include <random/rng.cuh>
+#include <raft/random/rng.cuh>
 #include <sstream>
 #include <string>
 #include <vector>

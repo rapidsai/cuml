@@ -16,10 +16,10 @@
 
 #pragma once
 
-#include <common/cudart_utils.h>
+#include <raft/cudart_utils.h>
 #include <common/cumlHandle.hpp>
 #include <common/host_buffer.hpp>
-#include <cuda_utils.cuh>
+#include <raft/cuda_utils.cuh>
 #include "../common.cuh"
 #include "pack.h"
 

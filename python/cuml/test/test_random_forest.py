@@ -212,10 +212,18 @@ def test_rf_classification(small_clf, datatype, split_algo,
 @pytest.mark.parametrize('rows_sample', [unit_param(1.0), quality_param(0.90),
                          stress_param(0.95)])
 @pytest.mark.parametrize('datatype', [np.float32])
-@pytest.mark.parametrize('split_algo', [0, 1])
-@pytest.mark.parametrize('max_features', [1.0, 'auto', 'log2', 'sqrt'])
+@pytest.mark.parametrize(
+    'split_algo,max_features,use_experimental_backend,n_bins',
+    [(0, 1.0, False, 16),
+     (1, 1.0, False, 11),
+     (0, 'auto', False, 128),
+     (1, 'log2', False, 100),
+     (1, 'sqrt', False, 100),
+     (1, 1.0, True, 17),
+     (1, 1.0, True, 32),
+     ])
 def test_rf_regression(special_reg, datatype, split_algo, max_features,
-                       rows_sample):
+                       rows_sample, use_experimental_backend, n_bins):
 
     use_handle = True
 
@@ -230,10 +238,11 @@ def test_rf_regression(special_reg, datatype, split_algo, max_features,
 
     # Initialize and fit using cuML's random forest regression model
     cuml_model = curfr(max_features=max_features, rows_sample=rows_sample,
-                       n_bins=16, split_algo=split_algo, split_criterion=2,
+                       n_bins=n_bins, split_algo=split_algo, split_criterion=2,
                        min_rows_per_node=2, random_state=123, n_streams=1,
                        n_estimators=50, handle=handle, max_leaves=-1,
-                       max_depth=16, accuracy_metric='mse')
+                       max_depth=16, accuracy_metric='mse',
+                       use_experimental_backend=use_experimental_backend)
     cuml_model.fit(X_train, y_train)
     # predict using FIL
     fil_preds = cuml_model.predict(X_test, predict_model="GPU")
