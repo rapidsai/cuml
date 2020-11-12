@@ -1,4 +1,5 @@
 #pragma once
+#include <cuda_utils.cuh>
 // data [T]ype, reduction [R]adix
 template <int R, typename T>
 /**
@@ -21,7 +22,7 @@ __device__ T multi_reduction(T* data, int n_groups, int n_values) {
         int idx = threadIdx.x + i * n_targets * n_groups;
         if (idx < n_values * n_groups) acc += data[idx];
       }
-      data[threadIdx.x] = acc;
+      if (n_targets > 1) data[threadIdx.x] = acc;
     }
     n_values = n_targets;
     if (n_values > 1) __syncthreads();
