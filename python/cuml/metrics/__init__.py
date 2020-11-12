@@ -24,9 +24,12 @@ from cuml.metrics.cluster.adjusted_rand_index import adjusted_rand_score
 from cuml.metrics._ranking import roc_auc_score
 from cuml.metrics._ranking import precision_recall_curve
 from cuml.metrics._classification import log_loss
-from cuml.metrics.cluster.homogeneity_score import cython_homogeneity_score as homogeneity_score
-from cuml.metrics.cluster.completeness_score import cython_completeness_score as completeness_score
-from cuml.metrics.cluster.mutual_info_score import cython_mutual_info_score as mutual_info_score
+from cuml.metrics.cluster.homogeneity_score import \
+    cython_homogeneity_score as homogeneity_score
+from cuml.metrics.cluster.completeness_score import \
+    cython_completeness_score as completeness_score
+from cuml.metrics.cluster.mutual_info_score import \
+    cython_mutual_info_score as mutual_info_score
 from cuml.metrics.confusion_matrix import confusion_matrix
 from cuml.metrics.cluster.entropy import cython_entropy as entropy
 from cuml.metrics.pairwise_distances import pairwise_distances, \
