@@ -182,7 +182,7 @@ struct tree_aggregator_t {
     acc = BlockReduce<NITEMS>(*(TempStorage*)tmp_storage).Sum(acc);
     if (threadIdx.x == 0) {
       for (int i = 0; i < NITEMS; ++i) {
-        int row = blockIdx.x * NITEMS + i;
+        int row = i;
         if (row < num_rows) out[row * output_stride] = acc[i];
       }
     }
@@ -213,7 +213,7 @@ struct finalize_block {
     // write it out to global memory
     if (threadIdx.x == 0) {
       for (int i = 0; i < NITEMS; ++i) {
-        int row = blockIdx.x * NITEMS + i;
+        int row = i;
         if (row < num_rows) out[row] = best[i].key;
       }
     }
@@ -310,7 +310,6 @@ struct tree_aggregator_t<NITEMS, GROVE_PER_CLASS_MANY_CLASSES>
 
     __syncthreads();  // free up per_class_margin[]
     write_best_class_in_block(best, blockDim.x, out, num_rows);
-    __syncthreads();  // free per_class_margin[] for next row set
   }
 };
 
@@ -351,7 +350,7 @@ struct tree_aggregator_t<NITEMS, CATEGORICAL_LEAF> {
                                                             int num_rows) {
     __syncthreads();
     int item = threadIdx.x;
-    int row = blockIdx.x * NITEMS + item;
+    int row = item;
     if (item < NITEMS && row < num_rows) {
 #pragma unroll
       for (int c = 0; c < num_classes; ++c)
@@ -364,7 +363,7 @@ struct tree_aggregator_t<NITEMS, CATEGORICAL_LEAF> {
                                                        int num_rows) {
     __syncthreads();
     int item = threadIdx.x;
-    int row = blockIdx.x * NITEMS + item;
+    int row = item;
     if (item < NITEMS && row < num_rows) {
       int max_votes = 0;
       int best_class = 0;
@@ -385,7 +384,6 @@ struct tree_aggregator_t<NITEMS, CATEGORICAL_LEAF> {
     } else {
       finalize_class_label(out, num_rows);
     }
-    __syncthreads();  // free votes[] for next row set
   }
 };
 
@@ -393,11 +391,11 @@ template <int NITEMS, leaf_algo_t leaf_algo, class storage_type>
 __global__ void infer_k(storage_type forest, predict_params params) {
   extern __shared__ char smem[];
   float* sdata = (float*)smem;
-  for (size_t grid_row0 = 0; grid_row0 + blockIdx.x * NITEMS < params.num_rows;
-       grid_row0 += NITEMS * gridDim.x) {
+  for (size_t block_row0 = blockIdx.x * NITEMS; block_row0 < params.num_rows;
+       block_row0 += NITEMS * gridDim.x) {
     // cache the row for all threads to reuse
     for (int j = 0; j < NITEMS; ++j) {
-      size_t row = grid_row0 + blockIdx.x * NITEMS + j;
+      size_t row = block_row0 + j;
       for (int i = threadIdx.x; i < params.num_cols; i += blockDim.x) {
         sdata[j * params.num_cols + i] =
           row < params.num_rows ? params.data[row * params.num_cols + i] : 0.0f;
@@ -423,8 +421,9 @@ __global__ void infer_k(storage_type forest, predict_params params) {
       }
       if (leaf_algo == GROVE_PER_CLASS_MANY_CLASSES) __syncthreads();
     }
-    acc.finalize(params.preds + params.num_outputs * grid_row0, params.num_rows,
-                 params.num_outputs);
+    acc.finalize(params.preds + params.num_outputs * block_row0,
+                 params.num_rows - block_row0, params.num_outputs);
+    __syncthreads();  // free up acc's shared memory resources for next row set
   }
 }
 

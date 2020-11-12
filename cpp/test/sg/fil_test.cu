@@ -91,7 +91,8 @@ std::ostream& operator<<(std::ostream& os, const FilTestParams& ps) {
      << ", nan_prob = " << ps.nan_prob << ", depth = " << ps.depth
      << ", num_trees = " << ps.num_trees << ", leaf_prob = " << ps.leaf_prob
      << ", output = " << output2str(ps.output)
-     << ", threshold = " << ps.threshold << ", algo = " << ps.algo
+     << ", threshold = " << ps.threshold
+     << ", blocks_per_sm = " << ps.blocks_per_sm << ", algo = " << ps.algo
      << ", seed = " << ps.seed << ", tolerance = " << ps.tolerance
      << ", op = " << tl::OpName(ps.op) << ", global_bias = " << ps.global_bias
      << ", leaf_algo = " << ps.leaf_algo
@@ -698,6 +699,34 @@ std::vector<FilTestParams> predict_dense_inputs = {
                   leaf_algo = GROVE_PER_CLASS, num_classes = 4),
   FIL_TEST_PARAMS(num_trees = 52, output = AVG, global_bias = 0.5,
                   leaf_algo = GROVE_PER_CLASS, num_classes = 4),
+  FIL_TEST_PARAMS(blocks_per_sm = 1),
+  FIL_TEST_PARAMS(blocks_per_sm = 2),
+  FIL_TEST_PARAMS(blocks_per_sm = 3),
+  FIL_TEST_PARAMS(blocks_per_sm = 4),
+  FIL_TEST_PARAMS(num_classes = 3, blocks_per_sm = 1,
+                  leaf_algo = CATEGORICAL_LEAF),
+  FIL_TEST_PARAMS(num_classes = 3, blocks_per_sm = 2,
+                  leaf_algo = CATEGORICAL_LEAF),
+  FIL_TEST_PARAMS(num_classes = 3, blocks_per_sm = 3,
+                  leaf_algo = CATEGORICAL_LEAF),
+  FIL_TEST_PARAMS(num_classes = 3, blocks_per_sm = 4,
+                  leaf_algo = CATEGORICAL_LEAF),
+  FIL_TEST_PARAMS(num_classes = 5, blocks_per_sm = 1,
+                  leaf_algo = GROVE_PER_CLASS),
+  FIL_TEST_PARAMS(num_classes = 5, blocks_per_sm = 2,
+                  leaf_algo = GROVE_PER_CLASS),
+  FIL_TEST_PARAMS(num_classes = 5, blocks_per_sm = 3,
+                  leaf_algo = GROVE_PER_CLASS),
+  FIL_TEST_PARAMS(num_classes = 5, blocks_per_sm = 4,
+                  leaf_algo = GROVE_PER_CLASS),
+  FIL_TEST_PARAMS(leaf_algo = GROVE_PER_CLASS, blocks_per_sm = 1,
+                  num_trees = 512, num_classes = 512),
+  FIL_TEST_PARAMS(leaf_algo = GROVE_PER_CLASS, blocks_per_sm = 2,
+                  num_trees = 512, num_classes = 512),
+  FIL_TEST_PARAMS(leaf_algo = GROVE_PER_CLASS, blocks_per_sm = 3,
+                  num_trees = 512, num_classes = 512),
+  FIL_TEST_PARAMS(leaf_algo = GROVE_PER_CLASS, blocks_per_sm = 4,
+                  num_trees = 512, num_classes = 512),
 };
 
 TEST_P(PredictDenseFilTest, Predict) { compare(); }
