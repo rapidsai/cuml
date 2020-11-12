@@ -304,43 +304,43 @@ void pairwise_distance(const Type *x, const Type *y, Type *dist, Index_ m,
                        Index_ n, Index_ k, device_buffer<char> &workspace,
                        ML::Distance::DistanceType metric, cudaStream_t stream,
                        bool isRowMajor = true) {
-  switch (metric) {
-    case ML::Distance::DistanceType::EucExpandedL2:
-      pairwise_distance_impl<Type, Index_,
-                             ML::Distance::DistanceType::EucExpandedL2>(
-        x, y, dist, m, n, k, workspace, stream, isRowMajor);
-      break;
-    case ML::Distance::DistanceType::EucExpandedL2Sqrt:
-      pairwise_distance_impl<Type, Index_,
-                             ML::Distance::DistanceType::EucExpandedL2Sqrt>(
-        x, y, dist, m, n, k, workspace, stream, isRowMajor);
-      break;
-    case ML::Distance::DistanceType::EucExpandedCosine:
-      pairwise_distance_impl<Type, Index_,
-                             ML::Distance::DistanceType::EucExpandedCosine>(
-        x, y, dist, m, n, k, workspace, stream, isRowMajor);
-      break;
-    case ML::Distance::DistanceType::EucUnexpandedL1:
-      pairwise_distance_impl<Type, Index_,
-                             ML::Distance::DistanceType::EucUnexpandedL1>(
-        x, y, dist, m, n, k, workspace, stream, isRowMajor);
-      break;
-    case ML::Distance::DistanceType::EucUnexpandedL2:
-      pairwise_distance_impl<Type, Index_,
-                             ML::Distance::DistanceType::EucUnexpandedL2>(
-        x, y, dist, m, n, k, workspace, stream, isRowMajor);
-      break;
-    case ML::Distance::DistanceType::EucUnexpandedL2Sqrt:
-      pairwise_distance_impl<Type, Index_,
-                             ML::Distance::DistanceType::EucUnexpandedL2Sqrt>(
+        switch (metric) {
+          case ML::Distance::DistanceType::EucExpandedL2:
+            pairwise_distance_impl<Type, Index_,
+                                   ML::Distance::DistanceType::EucExpandedL2>(
+              x, y, dist, m, n, k, workspace, stream, isRowMajor);
+            break;
+          case ML::Distance::DistanceType::EucExpandedL2Sqrt:
+            pairwise_distance_impl<
+              Type, Index_, ML::Distance::DistanceType::EucExpandedL2Sqrt>(
+              x, y, dist, m, n, k, workspace, stream, isRowMajor);
+            break;
+          case ML::Distance::DistanceType::EucExpandedCosine:
+            pairwise_distance_impl<
+              Type, Index_, ML::Distance::DistanceType::EucExpandedCosine>(
+              x, y, dist, m, n, k, workspace, stream, isRowMajor);
+            break;
+          case ML::Distance::DistanceType::EucUnexpandedL1:
+            pairwise_distance_impl<Type, Index_,
+                                   ML::Distance::DistanceType::EucUnexpandedL1>(
+              x, y, dist, m, n, k, workspace, stream, isRowMajor);
+            break;
+          case ML::Distance::DistanceType::EucUnexpandedL2:
+            pairwise_distance_impl<Type, Index_,
+                                   ML::Distance::DistanceType::EucUnexpandedL2>(
+              x, y, dist, m, n, k, workspace, stream, isRowMajor);
+            break;
+          case ML::Distance::DistanceType::EucUnexpandedL2Sqrt:
+            pairwise_distance_impl<
+              Type, Index_, ML::Distance::DistanceType::EucUnexpandedL2Sqrt>(
 >>>>>>> branch-0.17
-        x, y, dist, m, n, k, workspace, stream, isRowMajor);
-      break;
-    default:
-      THROW("Unknown distance metric '%d'!", (int)metric);
-  };
+              x, y, dist, m, n, k, workspace, stream, isRowMajor);
+            break;
+          default:
+            THROW("Unknown distance metric '%d'!", (int)metric);
+        };
 }
-/** @} */
+      /** @} */
 
-};  // end namespace Distance
-};  // end namespace MLCommon
+  };  // end namespace Distance
+};    // end namespace MLCommon

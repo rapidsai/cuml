@@ -248,7 +248,8 @@ void pairwise_distance(const raft::handle_t &handle,
                        Tensor<DataT, 2, IndexT> &centroids,
                        Tensor<DataT, 2, IndexT> &pairwiseDistance,
                        MLCommon::device_buffer<char> &workspace,
-                       raft::distance::DistanceType metric, cudaStream_t stream) {
+                       raft::distance::DistanceType metric,
+                       cudaStream_t stream) {
   auto n_samples = X.getSize(0);
   auto n_features = X.getSize(1);
   auto n_clusters = centroids.getSize(0);
