@@ -19,6 +19,7 @@
 - PR #3044: Move leftover `linalg` and `stats` to RAFT namespaces
 - PR #3067: Deleting prims moved to RAFT and updating header paths
 - PR #3074: Reducing dask coordinate descent test runtime
+- PR #3088: More readable and robust FIL C++ test management
 - PR #3052: Speeding up MNMG KNN Cl&Re testing
 - PR #3115: Speeding up MNMG UMAP testing
 - PR #3112: Speed test_array
