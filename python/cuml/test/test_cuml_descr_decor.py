@@ -15,7 +15,6 @@
 
 import pickle
 
-import cudf
 import cuml
 import cuml.internals
 import cupy as cp
@@ -40,6 +39,7 @@ test_dtypes_short = [
 ]
 
 test_shapes = [10, (10, 1), (10, 5), (1, 10)]
+
 
 class TestEstimator(cuml.Base):
 
