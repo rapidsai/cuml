@@ -250,6 +250,13 @@ __global__ void nodeSplitKernel(IdxT max_depth, IdxT min_rows_per_node,
                                              total_nodes, (char*)smem);
 }
 
+/* Returns 'input' rounded up to a correctly-aligned pointer of type OutT* */
+template <typename OutT, typename InT>
+__device__ OutT* alignPointer(InT input) {
+  return reinterpret_cast<OutT*>(
+    raft::alignTo(reinterpret_cast<size_t>(input), sizeof(OutT)));
+}
+
 template <typename DataT, typename LabelT, typename IdxT, int TPB>
 __global__ void computeSplitClassificationKernel(
   int* hist, IdxT nbins, IdxT max_depth, IdxT min_rows_per_node,
@@ -269,9 +276,9 @@ __global__ void computeSplitClassificationKernel(
   auto end = range_start + range_len;
   auto nclasses = input.nclasses;
   auto len = nbins * 2 * nclasses;
-  auto* shist = reinterpret_cast<int*>(smem);
-  auto* sbins = reinterpret_cast<DataT*>(shist + len);
-  auto* sDone = reinterpret_cast<int*>(sbins + nbins);
+  auto* shist = alignPointer<int>(smem);
+  auto* sbins = alignPointer<DataT>(shist + len);
+  auto* sDone = alignPointer<int>(sbins + nbins);
   IdxT stride = blockDim.x * gridDim.x;
   IdxT tid = threadIdx.x + blockIdx.x * blockDim.x;
   auto col = input.colids[colStart + blockIdx.y];
@@ -338,14 +345,15 @@ __global__ void computeSplitRegressionKernel(
   }
   auto end = range_start + range_len;
   auto len = nbins * 2;
-  auto* spred = reinterpret_cast<DataT*>(smem);
-  auto* scount = reinterpret_cast<int*>(spred + len);
-  auto* sbins = reinterpret_cast<DataT*>(scount + nbins);
+  auto* spred = alignPointer<DataT>(smem);
+  auto* scount = alignPointer<int>(spred + len);
+  auto* sbins = alignPointer<DataT>(scount + nbins);
+
   // used only for MAE criterion
-  auto* spred2 = reinterpret_cast<DataT*>(sbins + nbins);
-  auto* spred2P = reinterpret_cast<DataT*>(spred2 + len);
-  auto* spredP = reinterpret_cast<DataT*>(spred2P + nbins);
-  auto* sDone = reinterpret_cast<int*>(spredP + nbins);
+  auto* spred2 = alignPointer<DataT>(sbins + nbins);
+  auto* spred2P = alignPointer<DataT>(spred2 + len);
+  auto* spredP = alignPointer<DataT>(spred2P + nbins);
+  auto* sDone = alignPointer<int>(spredP + nbins);
   IdxT stride = blockDim.x * gridDim.x;
   IdxT tid = threadIdx.x + blockIdx.x * blockDim.x;
   auto col = input.colids[colStart + blockIdx.y];
@@ -354,10 +362,13 @@ __global__ void computeSplitRegressionKernel(
   }
   for (IdxT i = threadIdx.x; i < nbins; i += blockDim.x) {
     scount[i] = 0;
+    // printf("indexing from sbins: %p  to %p, sizeof: %d (spred: %p)\n", sbins,
+    //        &sbins[i], (int)sizeof(DataT*), spred);
     sbins[i] = input.quantiles[col * nbins + i];
   }
   __syncthreads();
   auto coloffset = col * input.M;
+
   // compute prediction averages for all bins in shared mem
   for (auto i = range_start + tid; i < end; i += stride) {
     auto row = input.rowids[i];
@@ -440,6 +451,7 @@ __global__ void computeSplitRegressionKernel(
     last = MLCommon::signalDone(done_count + nid * gridDim.y + blockIdx.y,
                                 gridDim.x, blockIdx.x == 0, sDone);
   }
+
   if (!last) return;
   // last block computes the final gain
   Split<DataT, IdxT> sp;
