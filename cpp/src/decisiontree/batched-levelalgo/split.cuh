@@ -16,8 +16,8 @@
 
 #pragma once
 
-#include <cuda_utils.cuh>
-#include <linalg/unary_op.cuh>
+#include <raft/cuda_utils.cuh>
+#include <raft/linalg/unary_op.cuh>
 
 namespace ML {
 namespace DecisionTree {

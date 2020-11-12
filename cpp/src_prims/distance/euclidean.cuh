@@ -16,8 +16,8 @@
 
 #pragma once
 #include <linalg/custom_accum.h>
+#include <linalg/cutlass_gemm.cuh>
 #include <linalg/eltwise2d.cuh>
-#include <linalg/gemm.cuh>
 #include "algo1.cuh"
 #include "distance_fragment_multiply_add.cuh"
 

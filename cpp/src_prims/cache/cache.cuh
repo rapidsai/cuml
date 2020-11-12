@@ -16,11 +16,11 @@
 
 #pragma once
 
-#include <common/cudart_utils.h>
+#include <raft/cudart_utils.h>
 #include <common/device_buffer.hpp>
 #include <cub/cub.cuh>
-#include <cuda_utils.cuh>
 #include <cuml/common/logger.hpp>
+#include <raft/cuda_utils.cuh>
 #include "cache_util.cuh"
 
 namespace MLCommon {
