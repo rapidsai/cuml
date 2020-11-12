@@ -191,6 +191,7 @@ numpydoc_class_members_toctree = False
 
 def setup(app):
     app.add_css_file('copybutton.css')
+    app.add_css_file('infoboxes.css')
     app.add_css_file('params.css')
     app.add_css_file('references.css')
 
