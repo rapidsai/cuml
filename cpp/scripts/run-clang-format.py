@@ -22,7 +22,7 @@ import argparse
 import tempfile
 
 
-EXPECTED_VERSION = "8.0.1"
+EXPECTED_VERSION = "11.0.0"
 VERSION_REGEX = re.compile(r"clang-format version ([0-9.]+)")
 # NOTE: populate this list with more top-level dirs as we add more of them to
 #       to the cuml repo

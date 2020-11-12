@@ -26,7 +26,7 @@ uint32_t generateNextColor(const std::string &tag);
 
 class nvtxNextColorTest : public ::testing::Test {
  protected:
-  void SetUp() override {
+  void SetUp() override {  // NOLINT
     const std::string temp1 = "foo";
     const std::string temp2 = "bar";
 
@@ -35,7 +35,7 @@ class nvtxNextColorTest : public ::testing::Test {
     if (ML::generateNextColor(temp1) == ML::generateNextColor(temp1))
       same_string_same_color = true;
   }
-  void TearDown() {}
+
   bool diff_string_diff_color = false;
   bool same_string_same_color = false;
 };
