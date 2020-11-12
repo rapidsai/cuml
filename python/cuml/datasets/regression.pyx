@@ -162,10 +162,11 @@ def make_regression(
     coef : device array of shape [n_features, n_targets], optional
         The coefficient of the underlying linear model. It is returned only if
         coef is True.
-    """  # noqa
+    """
 
-    # TODO: (MDD) This array has an unknown array output type. Set it to cupy
-    # for now
+    # Set the default output type to "cupy". This will be ignored if the user
+    # has set `cuml.global_output_type`. Only necessary for array generation
+    # methods that do not take an array as input
     cuml.internals.set_api_output_type("cupy")
 
     if dtype not in ['single', 'float', 'double', np.float32, np.float64]:

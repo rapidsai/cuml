@@ -4,11 +4,11 @@ This guide is meant to help developers follow the correct patterns when creating
 
 **Note:** This guide is long, because it includes internal details on how cuML manages input and output types for advanced use cases. But for the vast majority of estimators, the requirements are very simple and can follow the example patterns shown below in the [Quick Start Guide](#quick-start-guide).
 
-Start by reading the following:
+To start, it's recommended to read the following Scikit-learn documentation:
 
-1. [SkLearn Estimator Docs](https://scikit-learn.org/stable/developers/develop.html)
+1. [Scikit-learn's Estimator Docs](https://scikit-learn.org/stable/developers/develop.html)
    1. cuML Estimator design follows Scikit-learn very closely. We will only cover portions where our design differs from this document
-   2. Pay close attention to these sections as these topics have caused pain points in the past:
+   2. If short on time, pay close attention to these sections, as these topics have caused pain points in the past:
       1. [Instantiation](https://scikit-learn.org/stable/developers/develop.html#estimated-attributes)
       2. [Estimated Attributes](https://scikit-learn.org/stable/developers/develop.html#estimated-attributes)
       3. [`get_params` and `set_params`](https://scikit-learn.org/stable/developers/develop.html#estimated-attributes)
