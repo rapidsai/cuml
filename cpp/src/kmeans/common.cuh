@@ -17,15 +17,15 @@
 
 #include <distance/distance.cuh>
 #include <distance/fused_l2_nn.cuh>
-#include <linalg/binary_op.cuh>
-#include <linalg/matrix_vector_op.cuh>
-#include <linalg/mean_squared_error.cuh>
-#include <linalg/reduce.cuh>
 #include <linalg/reduce_cols_by_key.cuh>
 #include <linalg/reduce_rows_by_key.cuh>
 #include <matrix/gather.cuh>
+#include <raft/linalg/binary_op.cuh>
+#include <raft/linalg/matrix_vector_op.cuh>
+#include <raft/linalg/mean_squared_error.cuh>
+#include <raft/linalg/reduce.cuh>
+#include <raft/random/rng.cuh>
 #include <random/permute.cuh>
-#include <random/rng.cuh>
 #include <random>
 
 #include <thrust/equal.h>
@@ -48,7 +48,7 @@
 
 #include <cuml/cluster/kmeans_mg.hpp>
 
-#include <common/cudart_utils.h>
+#include <raft/cudart_utils.h>
 #include <fstream>
 
 namespace ML {
@@ -243,18 +243,19 @@ void computeClusterCost(const raft::handle_t &handle,
 // calculate pairwise distance between 'dataset[n x d]' and 'centroids[k x d]',
 // result will be stored in 'pairwiseDistance[n x k]'
 template <typename DataT, typename IndexT>
-void pairwiseDistance(const raft::handle_t &handle, Tensor<DataT, 2, IndexT> &X,
-                      Tensor<DataT, 2, IndexT> &centroids,
-                      Tensor<DataT, 2, IndexT> &pairwiseDistance,
-                      MLCommon::device_buffer<char> &workspace,
-                      ML::Distance::DistanceType metric, cudaStream_t stream) {
+void pairwise_distance(const raft::handle_t &handle,
+                       Tensor<DataT, 2, IndexT> &X,
+                       Tensor<DataT, 2, IndexT> &centroids,
+                       Tensor<DataT, 2, IndexT> &pairwiseDistance,
+                       MLCommon::device_buffer<char> &workspace,
+                       ML::Distance::DistanceType metric, cudaStream_t stream) {
   auto n_samples = X.getSize(0);
   auto n_features = X.getSize(1);
   auto n_clusters = centroids.getSize(0);
 
   ASSERT(X.getSize(1) == centroids.getSize(1),
          "# features in dataset and centroids are different (must be same)");
-  MLCommon::Distance::pairwiseDistance<DataT, IndexT>(
+  MLCommon::Distance::pairwise_distance<DataT, IndexT>(
     X.data(), centroids.data(), pairwiseDistance.data(), n_samples, n_clusters,
     n_features, workspace, metric, stream);
 }
@@ -281,9 +282,9 @@ void minClusterAndDistance(
   if (metric == ML::Distance::DistanceType::EucExpandedL2 ||
       metric == ML::Distance::DistanceType::EucExpandedL2Sqrt) {
     L2NormBuf_OR_DistBuf.resize(n_clusters, stream);
-    MLCommon::LinAlg::rowNorm(L2NormBuf_OR_DistBuf.data(), centroids.data(),
-                              centroids.getSize(1), centroids.getSize(0),
-                              MLCommon::LinAlg::L2Norm, true, stream);
+    raft::linalg::rowNorm(L2NormBuf_OR_DistBuf.data(), centroids.data(),
+                          centroids.getSize(1), centroids.getSize(0),
+                          raft::linalg::L2Norm, true, stream);
   } else {
     L2NormBuf_OR_DistBuf.resize(dataBatchSize * centroidsBatchSize, stream);
   }
@@ -350,14 +351,14 @@ void minClusterAndDistance(
 
         // calculate pairwise distance between current tile of cluster centroids
         // and input dataset
-        kmeans::detail::pairwiseDistance(handle, datasetView, centroidsView,
-                                         pairwiseDistanceView, workspace,
-                                         metric, stream);
+        kmeans::detail::pairwise_distance(handle, datasetView, centroidsView,
+                                          pairwiseDistanceView, workspace,
+                                          metric, stream);
 
         // argmin reduction returning <index, value> pair
         // calculates the closest centroid and the distance to the closest
         // centroid
-        MLCommon::LinAlg::coalescedReduction(
+        raft::linalg::coalescedReduction(
           minClusterAndDistanceView.data(), pairwiseDistanceView.data(),
           pairwiseDistanceView.getSize(1), pairwiseDistanceView.getSize(0),
           initial_value, stream, true,
@@ -400,9 +401,9 @@ void minClusterDistance(const raft::handle_t &handle,
   if (metric == ML::Distance::DistanceType::EucExpandedL2 ||
       metric == ML::Distance::DistanceType::EucExpandedL2Sqrt) {
     L2NormBuf_OR_DistBuf.resize(n_clusters, stream);
-    MLCommon::LinAlg::rowNorm(L2NormBuf_OR_DistBuf.data(), centroids.data(),
-                              centroids.getSize(1), centroids.getSize(0),
-                              MLCommon::LinAlg::L2Norm, true, stream);
+    raft::linalg::rowNorm(L2NormBuf_OR_DistBuf.data(), centroids.data(),
+                          centroids.getSize(1), centroids.getSize(0),
+                          raft::linalg::L2Norm, true, stream);
   } else {
     L2NormBuf_OR_DistBuf.resize(dataBatchSize * centroidsBatchSize, stream);
   }
@@ -465,11 +466,11 @@ void minClusterDistance(const raft::handle_t &handle,
 
         // calculate pairwise distance between current tile of cluster centroids
         // and input dataset
-        kmeans::detail::pairwiseDistance(handle, datasetView, centroidsView,
-                                         pairwiseDistanceView, workspace,
-                                         metric, stream);
+        kmeans::detail::pairwise_distance(handle, datasetView, centroidsView,
+                                          pairwiseDistanceView, workspace,
+                                          metric, stream);
 
-        MLCommon::LinAlg::coalescedReduction(
+        raft::linalg::coalescedReduction(
           minClusterDistanceView.data(), pairwiseDistanceView.data(),
           pairwiseDistanceView.getSize(1), pairwiseDistanceView.getSize(0),
           std::numeric_limits<DataT>::max(), stream, true,
@@ -578,7 +579,7 @@ void countSamplesInCluster(
  * Scalable kmeans++ pseudocode
  * 1: C = sample a point uniformly at random from X
  * 2: while |C| < k
- * 3:   Sample x in X with probability p_x = d^2(x, C) / phi_X (C) 
+ * 3:   Sample x in X with probability p_x = d^2(x, C) / phi_X (C)
  * 4:   C = C U {x}
  * 5: end for
  */
@@ -633,9 +634,8 @@ void kmeansPlusPlus(const raft::handle_t &handle, const KMeansParams &params,
 
   if (metric == ML::Distance::DistanceType::EucExpandedL2 ||
       metric == ML::Distance::DistanceType::EucExpandedL2Sqrt) {
-    MLCommon::LinAlg::rowNorm(L2NormX.data(), X.data(), X.getSize(1),
-                              X.getSize(0), MLCommon::LinAlg::L2Norm, true,
-                              stream);
+    raft::linalg::rowNorm(L2NormX.data(), X.data(), X.getSize(1), X.getSize(0),
+                          raft::linalg::L2Norm, true, stream);
   }
 
   std::mt19937 gen(params.seed);
@@ -689,8 +689,8 @@ void kmeansPlusPlus(const raft::handle_t &handle, const KMeansParams &params,
     // Output - pwd [n_trails x n_samples]
     auto pwd = std::move(
       Tensor<DataT, 2, IndexT>(distBuffer.data(), {n_trials, n_samples}));
-    kmeans::detail::pairwiseDistance(handle, centroidCandidates, X, pwd,
-                                     workspace, metric, stream);
+    kmeans::detail::pairwise_distance(handle, centroidCandidates, X, pwd,
+                                      workspace, metric, stream);
 
     // Update nearest cluster distance for each centroid candidate
     // Note pwd and minDistBuf points to same buffer which currently holds pairwise distance values.
@@ -704,9 +704,9 @@ void kmeansPlusPlus(const raft::handle_t &handle, const KMeansParams &params,
       stream);
 
     // Calculate costPerCandidate[n_trials] where costPerCandidate[i] is the cluster cost when using centroid candidate-i
-    MLCommon::LinAlg::reduce(costPerCandidate.data(), minDistBuf.data(),
-                             minDistBuf.getSize(1), minDistBuf.getSize(0),
-                             static_cast<DataT>(0), true, true, stream);
+    raft::linalg::reduce(costPerCandidate.data(), minDistBuf.data(),
+                         minDistBuf.getSize(1), minDistBuf.getSize(0),
+                         static_cast<DataT>(0), true, true, stream);
 
     // Greedy Choice - Choose the candidate that has minimum cluster cost
     // ArgMin operation below identifies the index of minimum cost in costPerCandidate
