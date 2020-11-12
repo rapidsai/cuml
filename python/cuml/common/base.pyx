@@ -151,7 +151,10 @@ class Base(metaclass=cuml.internals.BaseMetaClass):
         base.handle.sync()
         del base  # optional!
     """
-    def __init__(self, handle=None, verbose=False, output_type=None):
+    def __init__(self,
+                 handle=None,
+                 verbose=False,
+                 output_type=None):
         """
         Constructor. All children must call init method of this base class.
 

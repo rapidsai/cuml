@@ -203,8 +203,7 @@ class DBSCAN(Base):
         # internal array attributes
         self.labels_ = None
 
-        # accessed via estimator._core_sample_indices_ when
-        # `self.calc_core_sample_indices == True`
+        # One used when `self.calc_core_sample_indices == True`
         self.core_sample_indices_ = None
 
         # C++ API expects this to be numeric.

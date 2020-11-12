@@ -32,54 +32,6 @@ test_input_types = ['numpy', 'numba', 'cupy', 'cudf']
 
 test_output_types_str = ['numpy', 'numba', 'cupy', 'cudf']
 
-test_output_types = {
-    'numpy': np.ndarray,
-    'cupy': cp.ndarray,
-    'numba': None,
-    'series': cudf.Series,
-    'dataframe': cudf.DataFrame,
-    'cudf': None
-}
-
-test_dtypes_all = [
-    np.float16,
-    np.float32,
-    np.float64,
-    np.int8,
-    np.int16,
-    np.int32,
-    np.int64,
-    np.uint8,
-    np.uint16,
-    np.uint32,
-    np.uint64,
-    "float",
-    "float32",
-    "double",
-    "float64",
-    "int8",
-    "short",
-    "int16",
-    "int",
-    "int32",
-    "long",
-    "int64",
-]
-
-test_dtypes_output = [
-    np.float16,
-    np.float32,
-    np.float64,
-    np.int8,
-    np.int16,
-    np.int32,
-    np.int64,
-    np.uint8,
-    np.uint16,
-    np.uint32,
-    np.uint64
-]
-
 test_dtypes_short = [
     np.uint8,
     np.float16,
@@ -88,9 +40,6 @@ test_dtypes_short = [
 ]
 
 test_shapes = [10, (10, 1), (10, 5), (1, 10)]
-
-test_slices = [0, 5, 'left', 'right', 'both', 'bool_op']
-
 
 class TestEstimator(cuml.Base):
 
@@ -146,13 +95,7 @@ def array_identical(a, b):
 
 
 def create_input(input_type, input_dtype, input_shape, input_order):
-    float_dtypes = [np.float16, np.float32, np.float64]
-    if input_dtype in float_dtypes:
-        rand_ary = cp.random.random(input_shape)
-    else:
-        rand_ary = cp.random.randint(100, size=input_shape)
-
-    rand_ary = cp.array(rand_ary, dtype=input_dtype, order=input_order)
+    rand_ary = cp.ones(input_shape, dtype=input_dtype, order=input_order)
 
     cuml_ary = CumlArray(rand_ary)
 

@@ -46,7 +46,7 @@ At a high level, all cuML Estimators must:
       def __init__(self):
          ...
    ```
-5. Add input and return type annotations to public API functions OR wrap those functions explicitly with conversion decorators (see [Estimator Methods](#estimator-methods) for non-standard use cases)
+5. Add input and return type annotations to public API functions OR wrap those functions explicitly with conversion decorators (see [this example](#non-standard-predict) for a non-standard use case)
    ```python
    class MyEstimator(Base):
       
@@ -225,10 +225,9 @@ class SampleEstimator(cuml.Base):
       # Set my_cuml_array_ with a CumlArray
       self.my_cuml_array_, *_ = input_to_cuml_array(X, order="K")
 
-      # Access `my_cuml_array_` normally and set to another attribute
-      # The internal type of my_other_array_ will be the result of
-      # CumlArray + CuPy Array = Cupy Array
-      self.my_other_array_ = self.my_cuml_array_ + self.my_cupy_array_
+      # Access `my_cupy_array_` normally and set to another attribute
+      # The internal type of my_other_array_ will be a CuPy array
+      self.my_other_array_ = cp.ones((10, 10)) + self.my_cupy_array_
 
       return self
 ```
@@ -314,7 +313,7 @@ Simply setting the return type of a method is all that is necessary to automatic
 ##### `fit()`
 
 ```python
-def fit(self, X) -> "KMeans:
+def fit(self, X) -> "KMeans":
 
    # Convert the input to CumlArray
    self.coef_ = input_to_cuml_array(X, order="K").array
@@ -363,7 +362,7 @@ Simply choosing the decorator based off the return type and if the function is o
 
 An in-depth discussion of how these decorators work, when each should be used, and their default options can be found in the Appendix. For now, we will show an example method that uses a non-standard input argument name, and also requires converting the array dtype:
 
-##### `predict()`
+##### Non-Standard `predict()`
 
 ```python
 @cuml.internals.api_base_return_array(input_arg="X_in", get_output_dtype=True)
@@ -462,9 +461,9 @@ def predict(self, X, y) -> CumlArray:
    return CumlArray(self.my_cupy_attribute_).to_output("numpy") + np_arr
 ```
 
-### **Don't:** Perform parameter validation in `__init__()`
+### **Don't:** Perform parameter modification in `__init__()`
 
-Input arguments to `__init__()` should be stored as they were passed in. Parameter validation, such as converting parameter strings to integers should be done in `fit()` or a helper private function.
+Input arguments to `__init__()` should be stored as they were passed in. Parameter modification, such as converting parameter strings to integers, should be done in `fit()` or a helper private function.
 
 While it's more verbose, altering the parameters in `__init__` will break the estimator's ability to be used in `clone()`.
 

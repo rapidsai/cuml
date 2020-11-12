@@ -35,7 +35,7 @@ from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.logger import warn
 from cuml.raft.common.handle cimport handle_t
 from cuml.common import input_to_cuml_array, input_to_host_array, with_cupy_rmm
-from cuml.common import input_to_cupy_array
+from cuml.common.input_utils import input_to_cupy_array
 from cuml.preprocessing import LabelEncoder
 from cuml.common.memory_utils import using_output_type
 from libcpp cimport bool, nullptr
