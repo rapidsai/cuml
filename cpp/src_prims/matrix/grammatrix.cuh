@@ -18,7 +18,7 @@
 
 #include <raft/linalg/cublas_wrappers.h>
 #include <distance/distance.cuh>
-#include <linalg/gemm.cuh>
+#include <raft/linalg/gemm.cuh>
 
 namespace MLCommon {
 namespace Matrix {

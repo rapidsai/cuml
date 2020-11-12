@@ -16,8 +16,8 @@
 
 #include <gtest/gtest.h>
 #include <thrust/device_vector.h>
-#include <cuda_utils.cuh>
-#include <random/rng.cuh>
+#include <raft/cuda_utils.cuh>
+#include <raft/random/rng.cuh>
 #include <stats/weighted_mean.cuh>
 #include "test_utils.h"
 

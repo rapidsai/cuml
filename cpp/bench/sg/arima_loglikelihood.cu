@@ -22,9 +22,9 @@
 
 #include <cuml/tsa/arima_common.h>
 #include <cuml/tsa/batched_arima.hpp>
-#include <random/rng.cuh>
+#include <raft/random/rng.cuh>
 
-#include <common/cudart_utils.h>
+#include <raft/cudart_utils.h>
 #include "benchmark.cuh"
 
 namespace ML {

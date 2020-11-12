@@ -36,7 +36,7 @@
 #include <sparse/coo.cuh>
 #include <sparse/csr.cuh>
 
-#include <cuda_utils.cuh>
+#include <raft/cuda_utils.cuh>
 
 #include <cuda_runtime.h>
 #include <common/nvtx.hpp>

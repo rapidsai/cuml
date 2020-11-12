@@ -739,5 +739,5 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
             <RandomForestMetaData[double, double]*><uintptr_t> self.rf_forest64
 
         if self.dtype == np.float64:
-            return dump_rf_as_json(rf_forest64)
-        return dump_rf_as_json(rf_forest)
+            return dump_rf_as_json(rf_forest64).decode('utf-8')
+        return dump_rf_as_json(rf_forest).decode('utf-8')
