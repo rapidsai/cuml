@@ -11,6 +11,7 @@
 - PR #2903: Moving linalg's gemm, gemv, transpose to RAFT namespaces
 - PR #2905: `stats` prims `mean_center`, `sum` to RAFT namespaces
 - PR #2904: Moving `linalg` basic math ops to RAFT namespaces
+- PR #2956: Follow cuML array conventions in ARIMA and remove redundancy
 - PR #3000: Pin cmake policies to cmake 3.17 version, bump project version to 0.17
 - PR #3083: Improving test_make_blobs testing time
 - PR #2906: Moving `linalg` decomp to RAFT namespaces
