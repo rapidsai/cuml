@@ -178,7 +178,7 @@ struct tree_aggregator_t {
 
   __device__ __forceinline__ void finalize(float* out, int num_rows,
                                            int output_stride) {
-    __syncthreads();
+    __syncthreads();  // free up tmp_storage from input rows
     typedef typename BlockReduce<NITEMS>::TempStorage TempStorage;
     acc = BlockReduce<NITEMS>(*(TempStorage*)tmp_storage).Sum(acc);
     if (threadIdx.x == 0) {
@@ -349,7 +349,6 @@ struct tree_aggregator_t<NITEMS, CATEGORICAL_LEAF> {
   // is just the number of outputs for each data instance
   __device__ __forceinline__ void finalize_multiple_outputs(float* out,
                                                             int num_rows) {
-    __syncthreads();
     int item = threadIdx.x;
     int row = blockIdx.x * NITEMS + item;
     if (item < NITEMS && row < num_rows) {
@@ -362,7 +361,6 @@ struct tree_aggregator_t<NITEMS, CATEGORICAL_LEAF> {
   // or class probabilities or regression
   __device__ __forceinline__ void finalize_class_label(float* out,
                                                        int num_rows) {
-    __syncthreads();
     int item = threadIdx.x;
     int row = blockIdx.x * NITEMS + item;
     if (item < NITEMS && row < num_rows) {
@@ -379,6 +377,7 @@ struct tree_aggregator_t<NITEMS, CATEGORICAL_LEAF> {
   }
   __device__ __forceinline__ void finalize(float* out, int num_rows,
                                            int num_outputs) {
+    __syncthreads();  // make sure all votes[] are final
     if (num_outputs > 1) {
       // only supporting num_outputs == num_classes
       finalize_multiple_outputs(out, num_rows);
