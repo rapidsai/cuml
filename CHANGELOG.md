@@ -27,6 +27,7 @@
 - PR #3112: Speed test_array
 - PR #3111: Adding Cython to Code Coverage
 - PR #3129:  Update notebooks README
+- PR #3135: Add QuasiNewton tests
 
 ## Bug Fixes
 - PR #3065: Refactoring prims metrics function names from camelcase to underscore format

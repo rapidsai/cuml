@@ -61,15 +61,11 @@ def test_qn(loss, dtype, penalty, l1_strength, l2_strength, fit_intercept):
 
     elif loss == 'sigmoid':
         X = np.array(precomputed_X, dtype=dtype)
-
         y = np.array(precomputed_y_log, dtype=dtype)
-            
-        
         qn.fit(X, y)
-
         print(qn.objective)
         print(qn.coef_)
-    
+
         if penalty == 'none' and l1_strength == 0.0 and l2_strength == 0.0:
             if fit_intercept:
                 assert (qn.objective - 0.40263831615448) < tol
