@@ -364,6 +364,7 @@ def test_unfit_clone(model_name):
 
     # Cloning runs into many of the same problems as pickling
     mod = all_models[model_name]()
+
     clone(mod)
     # TODO: check parameters exactly?
 
@@ -422,7 +423,7 @@ def test_k_neighbors_classifier_pickle(tmpdir, datatype, data_info, keys):
         assert array_equal(result["neighbors"], D_after)
         state = pickled_model.__dict__
         assert state["n_indices"] == 1
-        assert "_X_m" in state
+        assert "X_m" in state
 
     pickle_save_load(tmpdir, create_mod, assert_model)
 
@@ -449,13 +450,13 @@ def test_neighbors_pickle_nofit(tmpdir, datatype, data_info):
     def assert_model(loaded_model, X):
         state = loaded_model.__dict__
         assert state["n_indices"] == 0
-        assert "_X_m" not in state
+        assert "X_m" not in state
         loaded_model.fit(X[0])
 
         state = loaded_model.__dict__
 
         assert state["n_indices"] == 1
-        assert "_X_m" in state
+        assert "X_m" in state
 
     pickle_save_load(tmpdir, create_mod, assert_model)
 
@@ -509,7 +510,7 @@ def test_tsne_pickle(tmpdir):
         result["fit_model"] = pickled_model.fit(X)
         result["data"] = X
         result["trust"] = trustworthiness(
-            X, pickled_model._embedding_.to_output('numpy'), 10)
+            X, pickled_model.embedding_, 10)
 
     def create_mod_2():
         model = result["fit_model"]
@@ -517,7 +518,7 @@ def test_tsne_pickle(tmpdir):
 
     def assert_second_model(pickled_model, X):
         trust_after = trustworthiness(
-            X, pickled_model._embedding_.to_output('numpy'), 10)
+            X, pickled_model.embedding_, 10)
         assert result["trust"] == trust_after
 
     pickle_save_load(tmpdir, create_mod, assert_model)

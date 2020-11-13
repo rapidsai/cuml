@@ -8,7 +8,11 @@ from sklearn.datasets import make_classification
 
 
 def func_positional_arg(func):
-    if hasattr(func, "__code__"):
+
+    if hasattr(func, "__wrapped__"):
+        return func_positional_arg(func.__wrapped__)
+
+    elif hasattr(func, "__code__"):
         all_args = func.__code__.co_argcount
         if func.__defaults__ is not None:
             kwargs = len(func.__defaults__)
@@ -37,7 +41,8 @@ def test_fit_function(dataset, model_name):
         "TSNE",
         "TruncatedSVD",
         "AutoARIMA",
-        "MultinomialNB"
+        "MultinomialNB",
+        "LabelEncoder",
     ]:
         pytest.xfail("These models are not tested yet")
 

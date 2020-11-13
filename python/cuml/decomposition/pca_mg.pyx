@@ -32,10 +32,10 @@ from cython.operator cimport dereference as deref
 from cuml.common.array import CumlArray
 import cuml.common.opg_data_utils_mg as opg
 
+import cuml.internals
 from cuml.common.base import Base
 from cuml.raft.common.handle cimport handle_t
 from cuml.decomposition.utils cimport paramsSolver
-from cuml.common import input_to_dev_array, zeros
 from cuml.common.opg_data_utils_mg cimport *
 
 from cuml.decomposition import PCA
@@ -127,15 +127,16 @@ class PCAMG(BaseDecompositionMG, PCA):
 
         return <size_t>params
 
+    @cuml.internals.api_base_return_any_skipall
     def _call_fit(self, X, rank, part_desc, arg_params):
 
-        cdef uintptr_t comp_ptr = self._components_.ptr
-        cdef uintptr_t explained_var_ptr = self._explained_variance_.ptr
+        cdef uintptr_t comp_ptr = self.components_.ptr
+        cdef uintptr_t explained_var_ptr = self.explained_variance_.ptr
         cdef uintptr_t explained_var_ratio_ptr = \
-            self._explained_variance_ratio_.ptr
-        cdef uintptr_t singular_vals_ptr = self._singular_values_.ptr
-        cdef uintptr_t mean_ptr = self._mean_.ptr
-        cdef uintptr_t noise_vars_ptr = self._noise_variance_.ptr
+            self.explained_variance_ratio_.ptr
+        cdef uintptr_t singular_vals_ptr = self.singular_values_.ptr
+        cdef uintptr_t mean_ptr = self.mean_.ptr
+        cdef uintptr_t noise_vars_ptr = self.noise_variance_.ptr
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
         cdef paramsPCAMG *params = <paramsPCAMG*><size_t>arg_params
