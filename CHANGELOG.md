@@ -29,6 +29,7 @@
 - PR #3129:  Update notebooks README
 - PR #3040: Improved Array Conversion with CumlArrayDescriptor and Decorators
 - PR #3134: Improving the Deprecation Message Formatting in Documentation
+- PR #3137: Reorganize Pytest Config and Add Quick Run Option
 
 ## Bug Fixes
 - PR #3065: Refactoring prims metrics function names from camelcase to underscore format
