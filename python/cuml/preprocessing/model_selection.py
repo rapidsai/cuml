@@ -245,8 +245,12 @@ def train_test_split(X,
     random_state : int, CuPy RandomState or NumPy RandomState optional
         If shuffle is true, seeds the generator. Unseeded by default
     seed: random_state : int, CuPy RandomState or NumPy RandomState optional
-        Deprecated in favor of `random_state`.
         If shuffle is true, seeds the generator. Unseeded by default
+
+        .. deprecated:: 0.11
+           Parameter `seed` is deprecated and will be removed in 0.17. Please
+           use `random_state` instead
+
     stratify: bool, optional
         Whether to stratify the input data based on class labels.
         None by default

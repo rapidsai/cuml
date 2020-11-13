@@ -28,6 +28,7 @@
 - PR #3111: Adding Cython to Code Coverage
 - PR #3129:  Update notebooks README
 - PR #3040: Improved Array Conversion with CumlArrayDescriptor and Decorators
+- PR #3134: Improving the Deprecation Message Formatting in Documentation
 
 ## Bug Fixes
 - PR #3065: Refactoring prims metrics function names from camelcase to underscore format
