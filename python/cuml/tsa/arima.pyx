@@ -463,6 +463,9 @@ class ARIMA(Base):
                 setattr(self, "{}_".format(param_name), array)
 
     def get_param_names(self):
+        raise NotImplementedError
+
+    def get_param_names(self):
         """
         .. warning:: ARIMA is unable to be cloned at this time. The methods:
             `get_param_names()`, `get_params` and `set_params` will raise
@@ -558,7 +561,6 @@ class ARIMA(Base):
             end = self.n_obs
 
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
-
         predict_size = end - start
 
         # allocate predictions and intervals device memory

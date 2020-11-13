@@ -91,7 +91,7 @@ def make_regression(
                   typing.Tuple[CumlArray, CumlArray, CumlArray]]:
     """Generate a random regression problem.
 
-    See https://scikit-learn.org/stable/modules/generated/sklearn.datasets.make_regression.html
+    See https://scikit-learn.org/stable/modules/generated/sklearn.datasets.make_regression.html # noqa: E501
 
     Examples
     --------

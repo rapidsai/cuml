@@ -11,6 +11,7 @@
 - PR #2903: Moving linalg's gemm, gemv, transpose to RAFT namespaces
 - PR #2905: `stats` prims `mean_center`, `sum` to RAFT namespaces
 - PR #2904: Moving `linalg` basic math ops to RAFT namespaces
+- PR #2956: Follow cuML array conventions in ARIMA and remove redundancy
 - PR #3000: Pin cmake policies to cmake 3.17 version, bump project version to 0.17
 - PR #3083: Improving test_make_blobs testing time
 - PR #2906: Moving `linalg` decomp to RAFT namespaces
@@ -19,6 +20,8 @@
 - PR #3044: Move leftover `linalg` and `stats` to RAFT namespaces
 - PR #3067: Deleting prims moved to RAFT and updating header paths
 - PR #3074: Reducing dask coordinate descent test runtime
+- PR #3096: Avoid memory transfers in CSR WeakCC for DBSCAN
+- PR #3088: More readable and robust FIL C++ test management
 - PR #3052: Speeding up MNMG KNN Cl&Re testing
 - PR #3115: Speeding up MNMG UMAP testing
 - PR #3112: Speed test_array
@@ -44,6 +47,7 @@
 - PR #3084: Fix artifacts in t-SNE results
 - PR #3086: Reverting FIL Notebook Testing
 - PR #3114: Fixed a typo in SVC's predict_proba AttributeError
+- PR #3117: Fix two crashes in experimental RF backend
 - PR #3119: Fix memset args for benchmark 
 - PR #3130: Return Python string from `dump_as_json()` of RF
 
