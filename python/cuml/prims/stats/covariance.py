@@ -18,7 +18,7 @@ import cupy as cp
 import cupyx
 import math
 
-from cuml.common.memory_utils import with_cupy_rmm
+import cuml.internals
 from cuml.common.kernel_utils import cuda_kernel_factory
 
 cov_kernel_str = r'''
@@ -41,7 +41,7 @@ def _cov_kernel(dtype):
                                "cov_kernel")
 
 
-@with_cupy_rmm
+@cuml.internals.api_return_any()
 def cov(x, y, mean_x=None, mean_y=None, return_gram=False,
         return_mean=False):
     """
