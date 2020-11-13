@@ -108,10 +108,10 @@ void _fit(const raft::handle_t &handle, const umap_inputs &inputs,
     /**
      * Allocate workspace for kNN graph
      */
-    knn_indices_b =
-      std::make_unique<MLCommon::device_buffer<value_idx>>(d_alloc, stream, inputs.n * k);
-    knn_dists_b =
-      std::make_unique<MLCommon::device_buffer<value_t>>(d_alloc, stream, inputs.n * k);
+    knn_indices_b = std::make_unique<MLCommon::device_buffer<value_idx>>(
+      d_alloc, stream, inputs.n * k);
+    knn_dists_b = std::make_unique<MLCommon::device_buffer<value_t>>(
+      d_alloc, stream, inputs.n * k);
 
     knn_graph.knn_indices = knn_indices_b->data();
     knn_graph.knn_dists = knn_dists_b->data();
@@ -119,8 +119,8 @@ void _fit(const raft::handle_t &handle, const umap_inputs &inputs,
 
   CUML_LOG_DEBUG("Calling knn graph run");
 
-  kNNGraph::run<value_idx, value_t, umap_inputs>(handle, inputs, inputs, knn_graph, k,
-                                                 params, d_alloc, stream);
+  kNNGraph::run<value_idx, value_t, umap_inputs>(
+    handle, inputs, inputs, knn_graph, k, params, d_alloc, stream);
   ML::POP_RANGE();
 
   CUML_LOG_DEBUG("Done. Calling fuzzy simplicial set");
@@ -191,17 +191,17 @@ void _fit_supervised(const raft::handle_t &handle, const umap_inputs &inputs,
     /**
      * Allocate workspace for kNN graph
      */
-    knn_indices_b =
-      std::make_unique<MLCommon::device_buffer<value_idx>>(d_alloc, stream, inputs.n * k);
-    knn_dists_b =
-      std::make_unique<MLCommon::device_buffer<value_t>>(d_alloc, stream, inputs.n * k);
+    knn_indices_b = std::make_unique<MLCommon::device_buffer<value_idx>>(
+      d_alloc, stream, inputs.n * k);
+    knn_dists_b = std::make_unique<MLCommon::device_buffer<value_t>>(
+      d_alloc, stream, inputs.n * k);
 
     knn_graph.knn_indices = knn_indices_b->data();
     knn_graph.knn_dists = knn_dists_b->data();
   }
 
-  kNNGraph::run<value_idx, value_t, umap_inputs>(handle, inputs, inputs, knn_graph, k,
-                                                 params, d_alloc, stream);
+  kNNGraph::run<value_idx, value_t, umap_inputs>(
+    handle, inputs, inputs, knn_graph, k, params, d_alloc, stream);
 
   ML::POP_RANGE();
 
@@ -313,10 +313,10 @@ void _transform(const raft::handle_t &handle, const umap_inputs &inputs,
     /**
      * Allocate workspace for kNN graph
      */
-    knn_indices_b =
-      std::make_unique<MLCommon::device_buffer<value_idx>>(d_alloc, stream, inputs.n * k);
-    knn_dists_b =
-      std::make_unique<MLCommon::device_buffer<value_t>>(d_alloc, stream, inputs.n * k);
+    knn_indices_b = std::make_unique<MLCommon::device_buffer<value_idx>>(
+      d_alloc, stream, inputs.n * k);
+    knn_dists_b = std::make_unique<MLCommon::device_buffer<value_t>>(
+      d_alloc, stream, inputs.n * k);
 
     knn_graph.knn_indices = knn_indices_b->data();
     knn_graph.knn_dists = knn_dists_b->data();

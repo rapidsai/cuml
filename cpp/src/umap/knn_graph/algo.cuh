@@ -39,8 +39,8 @@ namespace Algo {
 
 template <typename value_idx = int64_t, typename value_t = float,
           typename umap_inputs>
-void launcher(const raft::handle_t &handle,
-              const umap_inputs &inputsA, const umap_inputs &inputsB,
+void launcher(const raft::handle_t &handle, const umap_inputs &inputsA,
+              const umap_inputs &inputsB,
               ML::knn_graph<value_idx, value_t> &out, int n_neighbors,
               const ML::UMAPParams *params,
               std::shared_ptr<ML::deviceAllocator> d_alloc,
@@ -85,13 +85,13 @@ void launcher(const raft::handle_t &handle,
               const ML::UMAPParams *params,
               std::shared_ptr<ML::deviceAllocator> d_alloc,
               cudaStream_t stream) {
-
   MLCommon::Sparse::Selection::brute_force_knn(
     inputsA.indptr, inputsA.indices, inputsA.data, inputsA.nnz, inputsA.n,
     inputsA.d, inputsB.indptr, inputsB.indices, inputsB.data, inputsB.nnz,
     inputsB.n, inputsB.d, out.knn_indices, out.knn_dists, n_neighbors,
-    handle.get_cusparse_handle(), d_alloc, stream, ML::Sparse::DEFAULT_BATCH_SIZE,
-    ML::Sparse::DEFAULT_BATCH_SIZE, ML::MetricType::METRIC_L2);
+    handle.get_cusparse_handle(), d_alloc, stream,
+    ML::Sparse::DEFAULT_BATCH_SIZE, ML::Sparse::DEFAULT_BATCH_SIZE,
+    ML::MetricType::METRIC_L2);
 }
 
 template <>
