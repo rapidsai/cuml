@@ -19,12 +19,14 @@
 #include <cuml/manifold/umap.hpp>
 #include "runner.cuh"
 
+#include <raft/cuda_utils.cuh>
+
 #include <iostream>
 
 namespace ML {
 namespace UMAP {
 
-static const int TPB_X = 32;
+static const int TPB_X = raft::WarpSize;
 
 // Dense transform
 void transform(const raft::handle_t &handle, float *X, int n, int d,

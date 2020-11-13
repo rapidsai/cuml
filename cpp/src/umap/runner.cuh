@@ -27,6 +27,8 @@
 #include "knn_graph/runner.cuh"
 #include "simpl_set_embed/runner.cuh"
 
+#include <memory>
+
 #include <thrust/count.h>
 #include <thrust/device_ptr.h>
 #include <thrust/extrema.h>
@@ -94,8 +96,8 @@ void _fit(const raft::handle_t &handle, const umap_inputs &inputs,
   CUML_LOG_DEBUG("n_neighbors=%d", params->n_neighbors);
 
   ML::PUSH_RANGE("umap::knnGraph");
-  MLCommon::device_buffer<value_idx> *knn_indices_b = nullptr;
-  MLCommon::device_buffer<value_t> *knn_dists_b = nullptr;
+  std::unique_ptr<MLCommon::device_buffer<value_idx>> knn_indices_b = nullptr;
+  std::unique_ptr<MLCommon::device_buffer<value_t>> knn_dists_b = nullptr;
 
   knn_graph<value_idx, value_t> knn_graph(inputs.n, k);
 
@@ -107,9 +109,9 @@ void _fit(const raft::handle_t &handle, const umap_inputs &inputs,
      * Allocate workspace for kNN graph
      */
     knn_indices_b =
-      new MLCommon::device_buffer<value_idx>(d_alloc, stream, inputs.n * k);
+      std::make_unique<MLCommon::device_buffer<value_idx>>(d_alloc, stream, inputs.n * k);
     knn_dists_b =
-      new MLCommon::device_buffer<value_t>(d_alloc, stream, inputs.n * k);
+      std::make_unique<MLCommon::device_buffer<value_t>>(d_alloc, stream, inputs.n * k);
 
     knn_graph.knn_indices = knn_indices_b->data();
     knn_graph.knn_dists = knn_dists_b->data();
@@ -117,7 +119,7 @@ void _fit(const raft::handle_t &handle, const umap_inputs &inputs,
 
   CUML_LOG_DEBUG("Calling knn graph run");
 
-  kNNGraph::run<value_idx, value_t, umap_inputs>(inputs, inputs, knn_graph, k,
+  kNNGraph::run<value_idx, value_t, umap_inputs>(handle, inputs, inputs, knn_graph, k,
                                                  params, d_alloc, stream);
   ML::POP_RANGE();
 
@@ -145,9 +147,6 @@ void _fit(const raft::handle_t &handle, const umap_inputs &inputs,
   InitEmbed::run(handle, inputs.n, inputs.d, knn_graph.knn_indices,
                  knn_graph.knn_dists, &cgraph_coo, params, embeddings, stream,
                  params->init);
-
-  if (knn_indices_b) delete knn_indices_b;
-  if (knn_dists_b) delete knn_dists_b;
 
   if (params->callback) {
     params->callback->setup<value_t>(inputs.n, params->n_components);
@@ -180,8 +179,8 @@ void _fit_supervised(const raft::handle_t &handle, const umap_inputs &inputs,
     params->target_n_neighbors = params->n_neighbors;
 
   ML::PUSH_RANGE("umap::knnGraph");
-  MLCommon::device_buffer<value_idx> *knn_indices_b = nullptr;
-  MLCommon::device_buffer<value_t> *knn_dists_b = nullptr;
+  std::unique_ptr<MLCommon::device_buffer<value_idx>> knn_indices_b = nullptr;
+  std::unique_ptr<MLCommon::device_buffer<value_t>> knn_dists_b = nullptr;
 
   knn_graph<value_idx, value_t> knn_graph(inputs.n, k);
 
@@ -193,15 +192,15 @@ void _fit_supervised(const raft::handle_t &handle, const umap_inputs &inputs,
      * Allocate workspace for kNN graph
      */
     knn_indices_b =
-      new MLCommon::device_buffer<value_idx>(d_alloc, stream, inputs.n * k);
+      std::make_unique<MLCommon::device_buffer<value_idx>>(d_alloc, stream, inputs.n * k);
     knn_dists_b =
-      new MLCommon::device_buffer<value_t>(d_alloc, stream, inputs.n * k);
+      std::make_unique<MLCommon::device_buffer<value_t>>(d_alloc, stream, inputs.n * k);
 
     knn_graph.knn_indices = knn_indices_b->data();
     knn_graph.knn_dists = knn_dists_b->data();
   }
 
-  kNNGraph::run<value_idx, value_t, umap_inputs>(inputs, inputs, knn_graph, k,
+  kNNGraph::run<value_idx, value_t, umap_inputs>(handle, inputs, inputs, knn_graph, k,
                                                  params, d_alloc, stream);
 
   ML::POP_RANGE();
@@ -263,9 +262,6 @@ void _fit_supervised(const raft::handle_t &handle, const umap_inputs &inputs,
                  knn_graph.knn_dists, &ocoo, params, embeddings, stream,
                  params->init);
 
-  if (knn_indices_b) delete knn_indices_b;
-  if (knn_dists_b) delete knn_dists_b;
-
   if (params->callback) {
     params->callback->setup<value_t>(inputs.n, params->n_components);
     params->callback->on_preprocess_end(embeddings);
@@ -302,8 +298,8 @@ void _transform(const raft::handle_t &handle, const umap_inputs &inputs,
   CUML_LOG_DEBUG("Building KNN Graph");
 
   ML::PUSH_RANGE("umap::knnGraph");
-  MLCommon::device_buffer<value_idx> *knn_indices_b = nullptr;
-  MLCommon::device_buffer<value_t> *knn_dists_b = nullptr;
+  std::unique_ptr<MLCommon::device_buffer<value_idx>> knn_indices_b = nullptr;
+  std::unique_ptr<MLCommon::device_buffer<value_t>> knn_dists_b = nullptr;
 
   int k = params->n_neighbors;
 
@@ -318,16 +314,16 @@ void _transform(const raft::handle_t &handle, const umap_inputs &inputs,
      * Allocate workspace for kNN graph
      */
     knn_indices_b =
-      new MLCommon::device_buffer<value_idx>(d_alloc, stream, inputs.n * k);
+      std::make_unique<MLCommon::device_buffer<value_idx>>(d_alloc, stream, inputs.n * k);
     knn_dists_b =
-      new MLCommon::device_buffer<value_t>(d_alloc, stream, inputs.n * k);
+      std::make_unique<MLCommon::device_buffer<value_t>>(d_alloc, stream, inputs.n * k);
 
     knn_graph.knn_indices = knn_indices_b->data();
     knn_graph.knn_dists = knn_dists_b->data();
   }
 
   kNNGraph::run<value_idx, value_t, umap_inputs>(
-    orig_x_inputs, inputs, knn_graph, k, params, d_alloc, stream);
+    handle, orig_x_inputs, inputs, knn_graph, k, params, d_alloc, stream);
 
   ML::POP_RANGE();
 
@@ -378,9 +374,6 @@ void _transform(const raft::handle_t &handle, const umap_inputs &inputs,
                                    graph_coo.rows(), graph_coo.cols(),
                                    graph_coo.n_rows, params->n_neighbors);
   CUDA_CHECK(cudaPeekAtLastError());
-
-  if (knn_indices_b) delete knn_indices_b;
-  if (knn_dists_b) delete knn_dists_b;
 
   MLCommon::device_buffer<int> row_ind(d_alloc, stream, inputs.n);
   MLCommon::device_buffer<int> ia(d_alloc, stream, inputs.n);
