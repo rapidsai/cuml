@@ -189,6 +189,7 @@ if(BUILD_PRIMS_TESTS)
     prims/sparse/csr_to_dense.cu
     prims/sparse/csr_transpose.cu
     prims/sparse/distance.cu
+    prims/sparse/semiring.cu
     prims/sparse/knn.cu
     prims/sparse/selection.cu
     prims/silhouette_score.cu

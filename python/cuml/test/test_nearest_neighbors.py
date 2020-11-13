@@ -321,8 +321,8 @@ def test_knn_graph(input_type, nrows, n_feats, p, k, metric, mode,
 
 
 @pytest.mark.parametrize("metric", ["l1"]) # "#valid_metrics(cuml_algo="sparse"))
-@pytest.mark.parametrize('nrows', [3])
-@pytest.mark.parametrize('ncols', [3])
+@pytest.mark.parametrize('nrows', [4])
+@pytest.mark.parametrize('ncols', [4])
 @pytest.mark.parametrize('density', [0.3])
 @pytest.mark.parametrize('n_neighbors', [2])
 @pytest.mark.parametrize('batch_size_index', [20000])
@@ -342,6 +342,10 @@ def test_nearest_neighbors_sparse(nrows, ncols,
 
     print("Data created: indptr=%s, indices=%s, data=%s" % (a.indptr, a.indices, a.data))
 
+    from sklearn.metrics import pairwise_distances
+
+    print(str(pairwise_distances(a.get(), metric='l1')))
+
     logger.set_level(logger.level_trace)
     nn = cuKNN(metric="l1", n_neighbors=n_neighbors, algorithm="brute",
                verbose=logger.level_debug,
@@ -354,6 +358,8 @@ def test_nearest_neighbors_sparse(nrows, ncols,
     print("Calling kneighbors")
     start = time.time()
     cuD, cuI = nn.kneighbors(a)
+
+    print("cuD: %s, cuI: %s" % (cuD, cuI))
     print("cuML took %s" % (time.time() - start))
 
     sknn = skKNN(metric="l1", n_neighbors=n_neighbors,
