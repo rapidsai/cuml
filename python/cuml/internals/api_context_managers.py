@@ -169,6 +169,19 @@ class InternalAPIContext(contextlib.ExitStack):
                                  is not None else self.output_dtype)
 
 
+def get_internal_context() -> InternalAPIContext:
+
+    # Dask workers can have a separate thread access the object requiring this
+    # check
+    if (not hasattr(global_output_type_data, "root_cm")):
+        global_output_type_data.root_cm = None
+
+    if (global_output_type_data.root_cm is None):
+        return InternalAPIContext()
+
+    return global_output_type_data.root_cm
+
+
 class ProcessEnter(object):
     def __init__(self, context: "InternalAPIContextBase"):
         super().__init__()
@@ -484,10 +497,3 @@ class BaseReturnSparseArrayCM(
 class BaseReturnGenericCM(InternalAPIContextBase[ProcessEnterBaseReturnArray,
                                                  ProcessReturnGeneric]):
     pass
-
-
-def get_internal_context() -> InternalAPIContext:
-    if (global_output_type_data.root_cm is None):
-        return InternalAPIContext()
-
-    return global_output_type_data.root_cm
