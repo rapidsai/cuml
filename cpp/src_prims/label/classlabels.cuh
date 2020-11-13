@@ -18,11 +18,11 @@
 
 #include <cub/cub.cuh>
 
-#include <common/cudart_utils.h>
+#include <raft/cudart_utils.h>
 #include <common/cumlHandle.hpp>
 #include <common/device_buffer.hpp>
-#include <cuda_utils.cuh>
-#include <linalg/unary_op.cuh>
+#include <raft/cuda_utils.cuh>
+#include <raft/linalg/unary_op.cuh>
 
 namespace MLCommon {
 namespace Label {

@@ -229,8 +229,12 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
     random_state : int (default = None)
         Seed for the random number generator. Unseeded by default.
     seed : int (default = None)
-        Deprecated in favor of `random_state`.
         Seed for the random number generator. Unseeded by default.
+
+        .. deprecated:: 0.16
+           Parameter `seed` is deprecated and will be removed in 0.17. Please
+           use `random_state` instead
+
     handle : cuml.Handle
         Specifies the cuml.handle that holds internal CUDA state for
         computations in this model. Most importantly, this specifies the CUDA
@@ -588,9 +592,13 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
             while performing the predict operation on the GPU.
             It is applied if output_class == True, else it is ignored
         num_classes : int (default = None)
-            number of different classes present in the dataset. This variable
-            will be deprecated in 0.16. The number of classes passed
-            must match the number of classes the model was trained on
+            number of different classes present in the dataset.
+
+            .. deprecated:: 0.16
+                Parameter 'num_classes' is deprecated and will be removed in
+                an upcoming version. The number of classes passed must match
+                the number of classes the model was trained on.
+
         convert_dtype : bool, optional (default = True)
             When set to True, the predict method will, when necessary, convert
             the input to the data type which was used to train the model. This
@@ -734,9 +742,13 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
             while performing the predict operation on the GPU.
             It is applied if output_class == True, else it is ignored
         num_classes : int (default = None)
-            number of different classes present in the dataset. This variable
-            will be deprecated in 0.16. The number of classes passed
-            must match the number of classes the model was trained on
+            number of different classes present in the dataset.
+
+            .. deprecated:: 0.16
+                Parameter 'num_classes' is deprecated and will be removed in
+                an upcoming version. The number of classes passed must match
+                the number of classes the model was trained on.
+
         convert_dtype : bool, optional (default = True)
             When set to True, the predict method will, when necessary, convert
             the input to the data type which was used to train the model. This
@@ -810,9 +822,13 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
             This is optional and required only while performing the
             predict operation on the GPU.
         num_classes : int (default = None)
-            number of different classes present in the dataset. This variable
-            will be deprecated in 0.16. The number of classes passed
-            must match the number of classes the model was trained on
+            number of different classes present in the dataset.
+
+            .. deprecated:: 0.16
+                Parameter 'num_classes' is deprecated and will be removed in
+                an upcoming version. The number of classes passed must match
+                the number of classes the model was trained on.
+
         convert_dtype : boolean, default=True
             whether to convert input data to correct dtype automatically
         predict_model : String (default = 'GPU')
@@ -933,5 +949,5 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
             <RandomForestMetaData[double, int]*><uintptr_t> self.rf_forest64
 
         if self.dtype == np.float64:
-            return dump_rf_as_json(rf_forest64)
-        return dump_rf_as_json(rf_forest)
+            return dump_rf_as_json(rf_forest64).decode('utf-8')
+        return dump_rf_as_json(rf_forest).decode('utf-8')

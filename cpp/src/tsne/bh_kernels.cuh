@@ -33,8 +33,8 @@
 #define FACTOR6 2
 #define FACTOR7 1
 
-#include <common/cudart_utils.h>
 #include <float.h>
+#include <raft/cudart_utils.h>
 
 namespace ML {
 namespace TSNE {
@@ -449,7 +449,7 @@ __global__ __launch_bounds__(THREADS3, FACTOR3) void SummarizationKernel(
     }
 
   SKIP_LOOP:
-    __syncthreads();
+    __threadfence();
     if (flag != 0) {
       massd[k] = cm;
       k += inc;

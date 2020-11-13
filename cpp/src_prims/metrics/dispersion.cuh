@@ -16,13 +16,13 @@
 
 #pragma once
 
-#include <common/cudart_utils.h>
+#include <raft/cudart_utils.h>
 #include <common/device_buffer.hpp>
 #include <cub/cub.cuh>
-#include <cuda_utils.cuh>
 #include <cuml/common/cuml_allocator.hpp>
-#include <linalg/eltwise.cuh>
 #include <memory>
+#include <raft/cuda_utils.cuh>
+#include <raft/linalg/eltwise.cuh>
 
 namespace MLCommon {
 namespace Metrics {
