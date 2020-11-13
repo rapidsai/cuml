@@ -248,7 +248,8 @@ void pairwise_distance(const raft::handle_t &handle,
                        Tensor<DataT, 2, IndexT> &centroids,
                        Tensor<DataT, 2, IndexT> &pairwiseDistance,
                        MLCommon::device_buffer<char> &workspace,
-                       raft::distance::DistanceType metric, cudaStream_t stream) {
+                       raft::distance::DistanceType metric,
+                       cudaStream_t stream) {
   auto n_samples = X.getSize(0);
   auto n_features = X.getSize(1);
   auto n_clusters = centroids.getSize(0);
@@ -341,7 +342,8 @@ void minClusterAndDistance(
           minClusterAndDistanceView.data(), datasetView.data(),
           centroidsView.data(), L2NormXView.data(), centroidsNormView.data(),
           ns, nc, n_features, (void *)workspace.data(), redOp,
-          (metric == raft::distance::DistanceType::EucExpandedL2) ? false : true,
+          (metric == raft::distance::DistanceType::EucExpandedL2) ? false
+                                                                  : true,
           false, stream);
       } else {
         // pairwiseDistanceView [ns x nc] - view representing the pairwise
@@ -456,7 +458,8 @@ void minClusterDistance(const raft::handle_t &handle,
           minClusterDistanceView.data(), datasetView.data(),
           centroidsView.data(), L2NormXView.data(), centroidsNormView.data(),
           ns, nc, n_features, (void *)workspace.data(), redOp,
-          (metric == raft::distance::DistanceType::EucExpandedL2) ? false : true,
+          (metric == raft::distance::DistanceType::EucExpandedL2) ? false
+                                                                  : true,
           false, stream);
       } else {
         // pairwiseDistanceView [ns x nc] - view representing the pairwise
