@@ -84,7 +84,7 @@ In cuML we support both ingesting and generating a variety of different object t
 
 When converting between types, it's important to minimize the CPU<->GPU type conversions as much as possible. Conversions such as NumPy -> CuPy or Numba -> Pandas DataFrame will incur a performance penalty as memory is copied from device to host or vice-versa.
 
-Converting between types of the same device, i.e. CPU<->CPU or GPU<->GPU, do not have as significant of a penalty, though they may still increase memory usage.
+Converting between types of the same device, i.e. CPU<->CPU or GPU<->GPU, do not have as significant of a penalty, though they may still increase memory usage (this is particularly true for the array <-> dataframe conversion. i.e. when converting from CuPy to cuDF, memory usage may increase slightly).
 
 Finally, conversions between Numba<->CuPy<->CumlArray incur the least amount of overhead since only the device pointer is moved from one class to another.
 
