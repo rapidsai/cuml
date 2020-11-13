@@ -410,6 +410,10 @@ struct ClsTraits {
     dim3 grid(b.n_blks_for_rows, colBlks, batchSize);
     size_t smemSize = sizeof(int) * binSize + sizeof(DataT) * nbins;
     smemSize += sizeof(int);
+
+    // Extra room for alignment (see alignPointer in computeSplitClassificationKernel)
+    smemSize += 2 * sizeof(DataT) + 1 * sizeof(int);
+
     CUDA_CHECK(cudaMemsetAsync(b.hist, 0, sizeof(int) * b.nHistBins, s));
     ML::PUSH_RANGE(
       "computeSplitClassificationKernel @builder_base.cuh [batched-levelalgo]");
@@ -473,11 +477,16 @@ struct RegTraits {
                            cudaStream_t s) {
     ML::PUSH_RANGE(
       "Builder::computeSplit @builder_base.cuh [batched-levelalgo]");
-    auto n_col_blks = b.n_blks_for_cols;
+    auto n_col_blks = std::min(b.n_blks_for_cols, b.input.nSampledCols - col);
     dim3 grid(b.n_blks_for_rows, n_col_blks, batchSize);
     auto nbins = b.params.n_bins;
     size_t smemSize = 7 * nbins * sizeof(DataT) + nbins * sizeof(int);
     smemSize += sizeof(int);
+
+    // Room for alignment in worst case (see alignPointer in
+    // computeSplitRegressionKernel)
+    smemSize += 5 * sizeof(DataT) + 2 * sizeof(int);
+
     CUDA_CHECK(
       cudaMemsetAsync(b.pred, 0, sizeof(DataT) * b.nPredCounts * 2, s));
     if (splitType == CRITERION::MAE) {

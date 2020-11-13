@@ -221,9 +221,13 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
         Seed for the random number generator. Unseeded by default. Does not
         currently fully guarantee the exact same results.
     seed : int (default = None)
-        Deprecated in favor of `random_state`.
         Seed for the random number generator. Unseeded by default. Does not
         currently fully guarantee the exact same results.
+
+        .. deprecated:: 0.16
+           Parameter `seed` is deprecated and will be removed in 0.17. Please
+           use `random_state` instead
+
     handle : cuml.Handle
         Specifies the cuml.handle that holds internal CUDA state for
         computations in this model. Most importantly, this specifies the CUDA
