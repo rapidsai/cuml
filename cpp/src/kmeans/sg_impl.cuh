@@ -53,8 +53,8 @@ void fit(const raft::handle_t &handle, const KMeansParams &params,
   auto n_features = X.getSize(1);
   auto n_clusters = params.n_clusters;
 
-  ML::Distance::DistanceType metric =
-    static_cast<ML::Distance::DistanceType>(params.metric);
+  raft::distance::DistanceType metric =
+    static_cast<raft::distance::DistanceType>(params.metric);
 
   // stores (key, value) pair corresponding to each sample where
   //   - key is the index of nearest cluster
@@ -83,8 +83,8 @@ void fit(const raft::handle_t &handle, const KMeansParams &params,
 
   // L2 norm of X: ||x||^2
   Tensor<DataT, 1> L2NormX({n_samples}, handle.get_device_allocator(), stream);
-  if (metric == ML::Distance::DistanceType::EucExpandedL2 ||
-      metric == ML::Distance::DistanceType::EucExpandedL2Sqrt) {
+  if (metric == raft::distance::DistanceType::EucExpandedL2 ||
+      metric == raft::distance::DistanceType::EucExpandedL2Sqrt) {
     raft::linalg::rowNorm(L2NormX.data(), X.data(), X.getSize(1), X.getSize(0),
                           raft::linalg::L2Norm, true, stream);
   }
@@ -272,8 +272,8 @@ void initKMeansPlusPlus(const raft::handle_t &handle,
   auto n_samples = X.getSize(0);
   auto n_features = X.getSize(1);
   auto n_clusters = params.n_clusters;
-  ML::Distance::DistanceType metric =
-    static_cast<ML::Distance::DistanceType>(params.metric);
+  raft::distance::DistanceType metric =
+    static_cast<raft::distance::DistanceType>(params.metric);
   centroidsRawData.resize(n_clusters * n_features, stream);
   kmeans::detail::kmeansPlusPlus(handle, params, X, metric, workspace,
                                  centroidsRawData, stream);
@@ -309,8 +309,8 @@ void initScalableKMeansPlusPlus(
   auto n_samples = X.getSize(0);
   auto n_features = X.getSize(1);
   auto n_clusters = params.n_clusters;
-  ML::Distance::DistanceType metric =
-    static_cast<ML::Distance::DistanceType>(params.metric);
+  raft::distance::DistanceType metric =
+    static_cast<raft::distance::DistanceType>(params.metric);
 
   raft::random::Rng rng(params.seed, raft::random::GeneratorType::GenPhilox);
 
@@ -355,8 +355,8 @@ void initScalableKMeansPlusPlus(
 
   // L2 norm of X: ||x||^2
   Tensor<DataT, 1> L2NormX({n_samples}, handle.get_device_allocator(), stream);
-  if (metric == ML::Distance::DistanceType::EucExpandedL2 ||
-      metric == ML::Distance::DistanceType::EucExpandedL2Sqrt) {
+  if (metric == raft::distance::DistanceType::EucExpandedL2 ||
+      metric == raft::distance::DistanceType::EucExpandedL2Sqrt) {
     raft::linalg::rowNorm(L2NormX.data(), X.data(), X.getSize(1), X.getSize(0),
                           raft::linalg::L2Norm, true, stream);
   }
@@ -628,8 +628,8 @@ void predict(const raft::handle_t &handle, const KMeansParams &params,
   ASSERT(is_device_or_managed_type(cptr),
          "centroid data must be device accessible");
 
-  ML::Distance::DistanceType metric =
-    static_cast<ML::Distance::DistanceType>(params.metric);
+  raft::distance::DistanceType metric =
+    static_cast<raft::distance::DistanceType>(params.metric);
 
   Tensor<DataT, 2, IndexT> X((DataT *)Xptr, {n_samples, n_features});
   Tensor<DataT, 2, IndexT> centroids((DataT *)cptr, {n_clusters, n_features});
@@ -665,8 +665,8 @@ void predict(const raft::handle_t &handle, const KMeansParams &params,
 
   // L2 norm of X: ||x||^2
   Tensor<DataT, 1> L2NormX({n_samples}, handle.get_device_allocator(), stream);
-  if (metric == ML::Distance::DistanceType::EucExpandedL2 ||
-      metric == ML::Distance::DistanceType::EucExpandedL2Sqrt) {
+  if (metric == raft::distance::DistanceType::EucExpandedL2 ||
+      metric == raft::distance::DistanceType::EucExpandedL2Sqrt) {
     raft::linalg::rowNorm(L2NormX.data(), X.data(), X.getSize(1), X.getSize(0),
                           raft::linalg::L2Norm, true, stream);
   }
@@ -730,8 +730,8 @@ void transform(const raft::handle_t &handle, const KMeansParams &params,
   ML::Logger::get().setLevel(params.verbosity);
   cudaStream_t stream = handle.get_stream();
   auto n_clusters = params.n_clusters;
-  ML::Distance::DistanceType metric =
-    static_cast<ML::Distance::DistanceType>(transform_metric);
+  raft::distance::DistanceType metric =
+    static_cast<raft::distance::DistanceType>(transform_metric);
 
   ASSERT(n_clusters > 0 && cptr != nullptr, "no clusters exist");
 

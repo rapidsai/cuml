@@ -115,7 +115,7 @@ long *get_knn_indices(math_t *input, int n, int d, int n_neighbors,
  * @param batchSize batch size
  * @return Trustworthiness score
  */
-template <typename math_t, ML::Distance::DistanceType distance_type>
+template <typename math_t, raft::distance::DistanceType distance_type>
 double trustworthiness_score(math_t *X, math_t *X_embedded, int n, int m, int d,
                              int n_neighbors,
                              std::shared_ptr<deviceAllocator> d_alloc,
