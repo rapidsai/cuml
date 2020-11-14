@@ -28,6 +28,7 @@ import cuml.common.input_utils
 
 
 # tag system based on experimental tag system from Scikit-learn >=0.21
+# https://scikit-learn.org/stable/developers/develop.html#estimator-tags
 _default_tags = {
     # cuML specific tags
     'preferred_input_order': None,
