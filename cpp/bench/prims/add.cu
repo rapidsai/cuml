@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include <linalg/add.cuh>
+#include <raft/linalg/add.cuh>
 #include "../common/ml_benchmark.hpp"
 
 namespace MLCommon {

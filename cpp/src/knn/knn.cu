@@ -25,7 +25,7 @@
 #include <selection/knn.cuh>
 
 #include <cuda_runtime.h>
-#include <cuda_utils.cuh>
+#include <raft/cuda_utils.cuh>
 
 #include <sstream>
 #include <vector>

@@ -78,9 +78,8 @@ def test_make_blobs(nrows,
 
 
 @pytest.mark.parametrize('n_samples', [unit_param(int(1e3)),
-                         stress_param(int(1e6))])
-@pytest.mark.parametrize('n_features', [unit_param(int(1e2)),
-                         stress_param(int(1e3))])
+                                       stress_param(int(1e6))])
+@pytest.mark.parametrize('n_features', [unit_param(100), stress_param(1000)])
 @pytest.mark.parametrize('n_informative', [7])
 @pytest.mark.parametrize('n_targets', [1, 3])
 @pytest.mark.parametrize('bias', [-4.0])
@@ -89,7 +88,7 @@ def test_make_blobs(nrows,
 @pytest.mark.parametrize('noise', [1.0])
 @pytest.mark.parametrize('shuffle', [True, False])
 @pytest.mark.parametrize('coef', [True, False])
-@pytest.mark.parametrize('n_parts', [4, 23])
+@pytest.mark.parametrize('n_parts', [unit_param(4), stress_param(23)])
 @pytest.mark.parametrize('order', ['F', 'C'])
 @pytest.mark.parametrize('use_full_low_rank', [True, False])
 def test_make_regression(n_samples, n_features, n_informative,
@@ -171,14 +170,14 @@ def test_make_regression(n_samples, n_features, n_informative,
                 assert coefs_part.flags['C_CONTIGUOUS']
 
 
-@pytest.mark.parametrize('n_samples', [500, 1000])
-@pytest.mark.parametrize('n_features', [50, 100])
+@pytest.mark.parametrize('n_samples', [unit_param(500), stress_param(1000)])
+@pytest.mark.parametrize('n_features', [unit_param(50), stress_param(100)])
 @pytest.mark.parametrize('hypercube', [True, False])
 @pytest.mark.parametrize('n_classes', [2, 4])
 @pytest.mark.parametrize('n_clusters_per_class', [2, 4])
 @pytest.mark.parametrize('n_informative', [7, 20])
 @pytest.mark.parametrize('random_state', [None, 1234])
-@pytest.mark.parametrize('n_parts', [2, 23])
+@pytest.mark.parametrize('n_parts', [unit_param(4), stress_param(23)])
 @pytest.mark.parametrize('order', ['C', 'F'])
 @pytest.mark.parametrize('dtype', ['float32', 'float64'])
 def test_make_classification(n_samples, n_features, hypercube, n_classes,
