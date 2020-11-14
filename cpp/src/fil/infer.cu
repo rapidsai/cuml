@@ -245,6 +245,90 @@ __device__ __forceinline__ void write_best_class_in_block(
   }
 }
 
+template<typename T>
+struct BlockStridedIt {
+  //BlockStridedItArray& a;
+  //BlockStridedIt(BlockStridedItArray& a_, int size): a(a_) {}
+  T* p;
+  
+  BlockStridedIt(T* p_): p(p) { }
+  typedef BlockStridedIt iterator;
+  
+  iterator& operator++ () { p += blockDim.x; return *this; }
+  iterator operator++ (int) {
+    iterator tmp = *this; ++*this; return tmp; }
+  bool operator==(iterator a) const { return a.p == p; }
+  bool operator!=(iterator a) const { return a.p != p; }
+  T& operator*() const { return *p; }
+};
+
+template<typename T>
+struct BlockStridedItArray {
+  friend class BlockStridedIt<T>;
+  T* v;
+  int size;
+  BlockStridedItArray(T* v_, int size_): v(v_), size(size_) {}
+
+  typedef BlockStridedIt<T> iterator;
+  typedef ptrdiff_t difference_type;
+  typedef size_t size_type;
+  typedef T value_type;
+  typedef T * pointer;
+  typedef T & reference;
+  __device__ iterator begin() { return iterator(v + threadIdx.x); }
+  __device__ iterator end() { return iterator(v + size); }
+};
+
+template <typename BinaryOp, typename It>
+__device__ __forceinline__ vec<NITEMS, float> allreduce_shmem(
+  It values) {
+  // assuming size >= blockDim.x, else why the invocation?
+  vec<NITEMS, float> partial = values[threadIdx.x];
+  for (int i = threadIdx.x + blockDim.x; i < size; i += blockDim.x)
+    partial = Vectorized<BinaryOp>()(partial, values[i]);
+  return block_allreduce<BinaryOp>(partial, blockDim.x, &values[size]);
+}
+
+template<typename It>
+__device__ __forceinline__ void block_softmax(It per_class_value) {
+  // subtract max before exponentiating for numerical stability
+  vec<NITEMS, float> max =
+    allreduce_shmem<cub::Max>(per_class_value);
+  auto exp = thrust::make_transform_output_iterator<>(per_class_value);
+
+  //for (int c = threadIdx.x; c < num_classes; c += blockDim.x)
+  //  per_class_value[c] = vectorized<shifted_exp>(per_class_value[c], max);
+  // sum of exponents
+  vec<NITEMS, float> soe =
+    allreduce_shmem<cub::Sum>(exp, num_classes);
+  // softmax phase 2: normalization
+  for (int c = threadIdx.x; c < num_classes; c += blockDim.x)
+    per_class_value[c] /= soe;
+}
+
+template <int NITEMS>
+__device__ __forceinline__ void write_softmax(
+  vec<NITEMS, float>* per_class_value, output_t transform, void* tmp_storage, int num_classes,
+  float* out, int num_rows) {
+
+  BlockStridedItArray per_class_a(per_class_value, num_classes);
+  if ((transform & output_t::AVG) != 0)
+    thrust::for_each(per_class_a.begin(), per_class_a.end(), [num_trees](vec<NITEMS, float> v){ v /= num_trees; });
+  if ((transform & output_t::SOFTMAX) != 0)
+    block_softmax();
+  // write result to global memory
+  for (int i = 0; i < NITEMS; ++i) {
+    int row = blockIdx.x * NITEMS + i;
+    if (row >= num_rows) return;
+    BlockStridedItArray out_a(out + num_classes * row, num_classes);
+    auto unvectorized = thrust::make_transform_output_iterator(
+      per_class_a.begin(),
+      [](vec<NITEMS, float> v){ return v[i]; });
+    thrust::copy(unvectorized.begin(), unvectorized.end(), out_a.begin());
+  }
+}
+
+
 template <int NITEMS>
 struct tree_aggregator_t<NITEMS, GROVE_PER_CLASS_FEW_CLASSES> {
   vec<NITEMS, float> acc;
@@ -272,17 +356,6 @@ struct tree_aggregator_t<NITEMS, GROVE_PER_CLASS_FEW_CLASSES> {
     acc += single_tree_prediction;
   }
 
-  __device__ __forceinline__ vec<NITEMS, float> block_allsoftmax(
-    vec<NITEMS, float> acc) {
-    // subtract max before exponentiating for numerical stability
-    vec<NITEMS, float> max =
-      block_allreduce<cub::Max>(acc, num_classes, tmp_storage);
-    vec<NITEMS, float> exponent = vectorized<shifted_exp>(acc, max);
-    exponent /= block_allreduce<cub::Sum>(exponent, num_classes, tmp_storage);
-    ;
-    return exponent;
-  }
-
   __device__ __forceinline__ void finalize(float* out, int num_rows,
                                            int num_outputs, output_t transform,
                                            int num_trees) {
@@ -306,15 +379,8 @@ struct tree_aggregator_t<NITEMS, GROVE_PER_CLASS_FEW_CLASSES> {
       write_best_class_in_block(to_vec(c, acc), tmp_storage, num_classes, out,
                                 num_rows);
     } else {  // output softmax-ed margin
-      if ((transform & output_t::AVG) != 0) acc /= num_trees;
-      if ((transform & output_t::SOFTMAX) != 0) acc = block_allsoftmax(acc);
-      // write result to global memory
-      for (int i = 0; i < NITEMS; ++i) {
-        int row = blockIdx.x * NITEMS + i;
-        if (row < num_rows && c < num_classes) {
-          out[c + num_classes * row] = acc[i];
-        }
-      }
+      if(threadIdx.x < num_classes) per_thread[threadIdx.x] = acc;
+      write_softmax(per_thread, transform, tmp_storage, num_classes, out, num_rows);
     }
   }
 };
@@ -359,30 +425,6 @@ struct tree_aggregator_t<NITEMS, GROVE_PER_CLASS_MANY_CLASSES> {
     // __syncthreads() is called in infer_k
   }
 
-  template <typename BinaryOp>
-  __device__ __forceinline__ vec<NITEMS, float> allreduce_shmem(
-    vec<NITEMS, float>* values, int size) {
-    // assuming size >= blockDim.x, else why the invocation?
-    vec<NITEMS, float> partial = values[threadIdx.x];
-    for (int i = threadIdx.x + blockDim.x; i < size; i += blockDim.x)
-      partial = Vectorized<BinaryOp>()(partial, values[i]);
-    return block_allreduce<BinaryOp>(partial, blockDim.x, &values[size]);
-  }
-
-  __device__ __forceinline__ void block_allsoftmax() {
-    // subtract max before exponentiating for numerical stability
-    vec<NITEMS, float> max =
-      allreduce_shmem<cub::Max>(per_class_value, num_classes);
-    for (int c = threadIdx.x; c < num_classes; c += blockDim.x)
-      per_class_value[c] = vectorized<shifted_exp>(per_class_value[c], max);
-    // sum of exponents
-    vec<NITEMS, float> soe =
-      allreduce_shmem<cub::Sum>(per_class_value, num_classes);
-    // softmax phase 2: normalization
-    for (int c = threadIdx.x; c < num_classes; c += blockDim.x)
-      per_class_value[c] /= soe;  // TODO: do bank conflicts matter?
-  }
-
   __device__ __forceinline__ void finalize(float* out, int num_rows,
                                            int num_outputs, output_t transform,
                                            int num_trees) {
@@ -397,19 +439,7 @@ struct tree_aggregator_t<NITEMS, GROVE_PER_CLASS_MANY_CLASSES> {
       __syncthreads();  // free up per_class_value[]
       write_best_class_in_block(best, tmp_storage, blockDim.x, out, num_rows);
     } else {  // will output softmax-ed margins
-      if ((transform & output_t::AVG) != 0) {
-        for (int c = threadIdx.x; c < num_classes; c += blockDim.x)
-          per_class_value[c] /= num_trees;
-      }
-      if ((transform & output_t::SOFTMAX) != 0) block_allsoftmax();
-      // write result to global memory
-      for (int i = 0; i < NITEMS; ++i) {
-        int row = blockIdx.x * NITEMS + i;
-        if (row >= num_rows) return;
-        for (int c = threadIdx.x; c < num_classes; c += blockDim.x) {
-          out[c + num_classes * row] = per_class_value[c][i];
-        }
-      }
+      write_softmax(per_class_value, transform, tmp_storage, num_classes, out, num_rows);
     }
   }
 };
