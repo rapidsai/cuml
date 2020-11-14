@@ -437,9 +437,7 @@ void check_params(const forest_params_t* params, bool dense) {
              " or GROVE_PER_CLASS");
   }
   // output_t::RAW == 0, and doesn't have a separate flag
-  output_t all_set =
-    output_t(output_t::AVG | output_t::SIGMOID | output_t::CLASS);
-  if ((params->output & ~all_set) != 0) {
+  if ((params->output & ~output_t::all_set) != 0) {
     ASSERT(false,
            "output should be a combination of RAW, AVG, SIGMOID and CLASS");
   }

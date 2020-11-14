@@ -74,6 +74,7 @@ enum output_t {
   SIGMOID_CLASS = SIGMOID | CLASS,
   AVG_CLASS = AVG | CLASS,
   AVG_SIGMOID_CLASS = AVG | SIGMOID | CLASS,
+  all_set = AVG | SIGMOID | CLASS
 };
 
 /** storage_type_t defines whether to import the forests as dense or sparse */
