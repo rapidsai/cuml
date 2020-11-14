@@ -538,8 +538,7 @@ class ForestInference(Base):
     def load_from_treelite_model(self, model, output_class=False,
                                  algo='auto',
                                  threshold=0.5,
-                                 storage_type='auto',
-                                 blocks_per_sm=0):
+                                 storage_type='auto'):
         """
         Creates a FIL model using the treelite model
         passed to the function.
@@ -588,13 +587,12 @@ class ForestInference(Base):
         if isinstance(model, TreeliteModel):
             # TreeliteModel defined in this file
             return self._impl.load_from_treelite_model(
-                model, output_class, algo, threshold, str(storage_type),
-                blocks_per_sm)
+                model, output_class, algo, threshold, str(storage_type), 0)
         else:
             # assume it is treelite.Model
             return self._impl.load_from_treelite_model_handle(
                 model.handle.value, output_class, algo, threshold,
-                str(storage_type), blocks_per_sm)
+                str(storage_type), 0)
 
     @staticmethod
     def load_from_sklearn(skl_model,
@@ -602,8 +600,7 @@ class ForestInference(Base):
                           threshold=0.50,
                           algo='auto',
                           storage_type='auto',
-                          handle=None,
-                          blocks_per_sm=0):
+                          handle=None):
         """
         Creates a FIL model using the scikit-learn model passed to the
         function. This function requires Treelite 0.90 to be installed.
@@ -650,8 +647,7 @@ class ForestInference(Base):
         tl_model = tl_skl.import_model(skl_model)
         cuml_fm.load_from_treelite_model(
             tl_model, algo=algo, output_class=output_class,
-            storage_type=str(storage_type), threshold=threshold,
-            blocks_per_sm=blocks_per_sm)
+            storage_type=str(storage_type), threshold=threshold)
         return cuml_fm
 
     @staticmethod
@@ -661,8 +657,7 @@ class ForestInference(Base):
              algo='auto',
              storage_type='auto',
              model_type="xgboost",
-             handle=None,
-             blocks_per_sm=0):
+             handle=None):
         """
         Returns a FIL instance containing the forest saved in `filename`
         This uses Treelite to load the saved model.
@@ -702,8 +697,7 @@ class ForestInference(Base):
                                          algo=algo,
                                          output_class=output_class,
                                          storage_type=str(storage_type),
-                                         threshold=threshold,
-                                         blocks_per_sm=blocks_per_sm)
+                                         threshold=threshold)
         return cuml_fm
 
     def load_using_treelite_handle(self,
@@ -711,8 +705,7 @@ class ForestInference(Base):
                                    output_class=False,
                                    algo='auto',
                                    storage_type='auto',
-                                   threshold=0.50,
-                                   blocks_per_sm=0):
+                                   threshold=0.50):
         """
         Returns a FIL instance by converting a treelite model to
         FIL model by using the treelite ModelHandle passed.
@@ -745,4 +738,4 @@ class ForestInference(Base):
                                                      output_class,
                                                      algo, threshold,
                                                      str(storage_type),
-                                                     blocks_per_sm)
+                                                     0)
