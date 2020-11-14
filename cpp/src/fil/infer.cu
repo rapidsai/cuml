@@ -110,7 +110,7 @@ __device__ __forceinline__ vec<1, output_type> infer_one_tree(tree_type tree,
   vec<1, output_type> out;
   /** dependent names are not considered templates by default,
       unless it's a member of a current [template] instantiation.**/
-  out[0] = tree[curr[j]].template output<output_type>();
+  out[0] = tree[curr].template output<output_type>();
   return out;
 }
 
