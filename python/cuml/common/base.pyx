@@ -31,7 +31,7 @@ import cuml.common.input_utils
 _default_tags = {
     # cuML specific tags
     'preferred_input_order': None,
-    'X_types_gpu': ['2darray', 'dataframe'],
+    'X_types_gpu': ['2darray'],
 
     # Scikit-learn API standard tags
     'non_deterministic': False,
@@ -41,7 +41,7 @@ _default_tags = {
     'poor_score': False,
     'no_validation': False,
     'multioutput': False,
-    "allow_nan": False,
+    'allow_nan': False,
     'stateless': False,
     'multilabel': False,
     '_skip_test': False,

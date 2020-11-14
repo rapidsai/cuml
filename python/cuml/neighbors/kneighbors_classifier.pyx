@@ -308,5 +308,7 @@ class KNeighborsClassifier(NearestNeighbors, ClassifierMixin):
 
     def _more_tags(self):
         return {
-            'preferred_input_order': 'C'
+            # fit and predict require conflicting memory layouts
+            'preferred_input_order': None
         }
+

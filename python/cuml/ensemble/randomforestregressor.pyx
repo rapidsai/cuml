@@ -749,5 +749,6 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
 
     def _more_tags(self):
         return {
-            'preferred_input_order': 'F'
+            # fit and predict require conflicting memory layouts
+            'preferred_input_order': None
         }
