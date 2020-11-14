@@ -310,44 +310,14 @@ cdef class ForestInference_impl():
             output_dtype=output_dtype
         )
 
-    def load_from_treelite_model_handle(self,
-                                        uintptr_t model_handle,
-                                        bool output_class,
-                                        str algo,
-                                        float threshold,
-                                        str storage_type):
-        cdef treelite_params_t treelite_params
-
-        self.output_class = output_class
-        treelite_params.output_class = self.output_class
-        treelite_params.threshold = threshold
-        treelite_params.algo = self.get_algo(algo)
-        treelite_params.storage_type = self.get_storage_type(storage_type)
-
-        self.forest_data = NULL
-        cdef handle_t* handle_ =\
-            <handle_t*><size_t>self.handle.getHandle()
-        cdef uintptr_t model_ptr = <uintptr_t>model_handle
-
-        from_treelite(handle_[0],
-                      &self.forest_data,
-                      <ModelHandle> model_ptr,
-                      &treelite_params)
-        TreeliteQueryNumOutputGroups(<ModelHandle> model_ptr,
-                                     & self.num_output_groups)
-        return self
-
     def load_from_treelite_model(self,
                                  TreeliteModel model,
                                  bool output_class,
                                  str algo,
                                  float threshold,
                                  str storage_type):
-        TreeliteQueryNumOutputGroups(<ModelHandle> model.handle,
-                                     & self.num_output_groups)
-        return self.load_from_treelite_model_handle(<uintptr_t>model.handle,
-                                                    output_class, algo,
-                                                    threshold, storage_type)
+        return self.load_using_treelite_handle(model.handle, output_class,
+                                               algo, threshold, storage_type)
 
     def load_using_treelite_handle(self,
                                    model_handle,
@@ -582,7 +552,7 @@ class ForestInference(Base):
                 model, output_class, algo, threshold, str(storage_type))
         else:
             # assume it is treelite.Model
-            return self._impl.load_from_treelite_model_handle(
+            return self._impl.load_using_treelite_handle(
                 model.handle.value, output_class, algo, threshold,
                 str(storage_type))
 
