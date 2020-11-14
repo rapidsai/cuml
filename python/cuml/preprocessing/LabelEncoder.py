@@ -19,7 +19,6 @@ import cupy as cp
 from cuml import Base
 
 
-from cuml.common.memory_utils import with_cupy_rmm
 from cuml.common.exceptions import NotFittedError
 
 
@@ -152,7 +151,6 @@ class LabelEncoder(Base):
                    "got {0}.".format(self.handle_unknown))
             raise ValueError(msg)
 
-    @with_cupy_rmm
     def fit(self, y, _classes=None):
         """
         Fit a LabelEncoder (nvcategory) instance to a set of categories
@@ -235,7 +233,6 @@ class LabelEncoder(Base):
         self._fitted = True
         return cudf.Series(y._column.codes, index=y.index)
 
-    @with_cupy_rmm
     def inverse_transform(self, y: cudf.Series) -> cudf.Series:
         """
         Revert ordinal label to original label

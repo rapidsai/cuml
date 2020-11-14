@@ -23,17 +23,18 @@
 #include <algorithm>
 #include <cuml/common/cuml_allocator.hpp>
 
-#include <common/cudart_utils.h>
 #include <linalg/init.h>
-#include <linalg/transpose.h>
+#include <raft/cudart_utils.h>
 #include <raft/linalg/cublas_wrappers.h>
-#include <linalg/add.cuh>
-#include <linalg/qr.cuh>
-#include <matrix/matrix.cuh>
+#include <raft/linalg/transpose.h>
+#include <common/device_buffer.hpp>
 #include <raft/handle.hpp>
+#include <raft/linalg/add.cuh>
+#include <raft/linalg/qr.cuh>
+#include <raft/matrix/matrix.cuh>
 #include <raft/mr/device/buffer.hpp>
+#include <raft/random/rng.cuh>
 #include "permute.cuh"
-#include "rng.cuh"
 
 namespace MLCommon {
 namespace Random {
@@ -76,10 +77,8 @@ static void _make_low_rank_matrix(const raft::handle_t& handle, DataT* out,
   raft::mr::device::buffer<DataT> q1(allocator, stream);
   q0.resize(n_rows * n, stream);
   q1.resize(n_cols * n, stream);
-  LinAlg::qrGetQ(rd_mat_0.data(), q0.data(), n_rows, n, cusolver_handle, stream,
-                 allocator);
-  LinAlg::qrGetQ(rd_mat_1.data(), q1.data(), n_cols, n, cusolver_handle, stream,
-                 allocator);
+  raft::linalg::qrGetQ(handle, rd_mat_0.data(), q0.data(), n_rows, n, stream);
+  raft::linalg::qrGetQ(handle, rd_mat_1.data(), q1.data(), n_cols, n, stream);
 
   // Build the singular profile by assembling signal and noise components
   raft::mr::device::buffer<DataT> singular_vec(allocator, stream);
@@ -246,7 +245,7 @@ void make_regression(
 
   if (bias != 0.0) {
     // Add bias
-    LinAlg::addScalar(_values, _values, bias, n_rows * n_targets, stream);
+    raft::linalg::addScalar(_values, _values, bias, n_rows * n_targets, stream);
   }
 
   device_buffer<DataT> white_noise(allocator, stream);
@@ -254,8 +253,8 @@ void make_regression(
     // Add white noise
     white_noise.resize(n_rows * n_targets, stream);
     r.normal(white_noise.data(), n_rows * n_targets, (DataT)0.0, noise, stream);
-    LinAlg::add(_values, _values, white_noise.data(), n_rows * n_targets,
-                stream);
+    raft::linalg::add(_values, _values, white_noise.data(), n_rows * n_targets,
+                      stream);
   }
 
   if (shuffle) {

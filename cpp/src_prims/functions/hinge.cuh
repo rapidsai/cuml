@@ -16,21 +16,21 @@
 
 #pragma once
 
-#include <linalg/transpose.h>
 #include <raft/linalg/cublas_wrappers.h>
+#include <raft/linalg/transpose.h>
 #include <common/device_buffer.hpp>
-#include <cuda_utils.cuh>
-#include <linalg/add.cuh>
-#include <linalg/eltwise.cuh>
-#include <linalg/gemm.cuh>
-#include <linalg/matrix_vector_op.cuh>
-#include <linalg/subtract.cuh>
-#include <linalg/unary_op.cuh>
-#include <matrix/math.cuh>
-#include <matrix/matrix.cuh>
+#include <raft/cuda_utils.cuh>
+#include <raft/linalg/add.cuh>
+#include <raft/linalg/eltwise.cuh>
+#include <raft/linalg/gemm.cuh>
+#include <raft/linalg/matrix_vector_op.cuh>
+#include <raft/linalg/subtract.cuh>
+#include <raft/linalg/unary_op.cuh>
+#include <raft/matrix/math.cuh>
+#include <raft/matrix/matrix.cuh>
 #include <raft/mr/device/buffer.hpp>
-#include <stats/mean.cuh>
-#include <stats/sum.cuh>
+#include <raft/stats/mean.cuh>
+#include <raft/stats/sum.cuh>
 #include "penalty.cuh"
 
 namespace MLCommon {
@@ -72,7 +72,7 @@ void hingeH(const raft::handle_t &handle, const math_t *input, idx_type n_rows,
                      CUBLAS_OP_N, CUBLAS_OP_N, stream);
 
   if (intercept != math_t(0))
-    LinAlg::addScalar(pred, pred, intercept, n_rows, stream);
+    raft::linalg::addScalar(pred, pred, intercept, n_rows, stream);
 
   sign(pred, pred, math_t(1.0), n_rows, stream);
 }
@@ -108,7 +108,7 @@ void hingeLossGrads(const raft::handle_t &handle, math_t *input, int n_rows,
   }
 
   if (pen != penalty::NONE) {
-    LinAlg::add(grads, grads, pen_grads.data(), n_cols, stream);
+    raft::linalg::add(grads, grads, pen_grads.data(), n_cols, stream);
   }
 }
 
@@ -131,7 +131,7 @@ void hingeLoss(const raft::handle_t &handle, math_t *input, int n_rows,
   hingeLossSubtract(labels_pred.data(), labels_pred.data(), math_t(1), n_rows,
                     stream);
 
-  Stats::sum(loss, labels_pred.data(), 1, n_rows, false, stream);
+  raft::stats::sum(loss, labels_pred.data(), 1, n_rows, false, stream);
 
   raft::mr::device::buffer<math_t> pen_val(allocator, stream, 0);
 
@@ -146,7 +146,7 @@ void hingeLoss(const raft::handle_t &handle, math_t *input, int n_rows,
   }
 
   if (pen != penalty::NONE) {
-    LinAlg::add(loss, loss, pen_val.data(), 1, stream);
+    raft::linalg::add(loss, loss, pen_val.data(), 1, stream);
   }
 }
 

@@ -69,11 +69,11 @@ def dataset(request):
         if len(new_x) >= request.param['n_samples']:
             break
     X = X[new_x]
-    noise = np.random.normal(0, 1.2, X.shape)
+    noise = np.random.normal(0, 5., X.shape)
     X += noise
     y = np.array(new_y)
 
-    return train_test_split(X, y, test_size=0.1)
+    return train_test_split(X, y, test_size=0.3)
 
 
 def exact_match(output1, output2):
@@ -108,11 +108,11 @@ def check_probabilities(l_probas, d_probas):
 
 
 @pytest.mark.parametrize("datatype", ['dask_array', 'dask_cudf'])
-@pytest.mark.parametrize("n_neighbors", [1, 3, 8])
-@pytest.mark.parametrize("n_parts", [2, 4, 12])
-@pytest.mark.parametrize("batch_size", [128, 1024])
-def test_predict_and_score(dataset, datatype, n_neighbors,
-                           n_parts, batch_size, client):
+@pytest.mark.parametrize("parameters", [(1, 3, 256),
+                                        (8, 8, 256),
+                                        (9, 3, 128)])
+def test_predict_and_score(dataset, datatype, parameters, client):
+    n_neighbors, n_parts, batch_size = parameters
     X_train, X_test, y_train, y_test = dataset
     np_y_test = y_test
 
@@ -154,20 +154,22 @@ def test_predict_and_score(dataset, datatype, n_neighbors,
     exact_match(local_out, distributed_out)
 
     if datatype == 'dask_array':
-        assert distributed_score == handmade_local_score
+        assert distributed_score == pytest.approx(handmade_local_score,
+                                                  abs=1e-2)
     else:
         y_pred = distributed_out[0]
         handmade_distributed_score = np.mean(np_y_test == y_pred)
         handmade_distributed_score = round(handmade_distributed_score, 3)
-        assert handmade_distributed_score == handmade_local_score
+        assert handmade_distributed_score == pytest.approx(
+            handmade_local_score, abs=1e-2)
 
 
 @pytest.mark.parametrize("datatype", ['dask_array', 'dask_cudf'])
-@pytest.mark.parametrize("n_neighbors", [1, 3, 8])
-@pytest.mark.parametrize("n_parts", [2, 4, 12])
-@pytest.mark.parametrize("batch_size", [128, 1024])
-def test_predict_proba(dataset, datatype, n_neighbors,
-                       n_parts, batch_size, client):
+@pytest.mark.parametrize("parameters", [(1, 3, 256),
+                                        (8, 8, 256),
+                                        (9, 3, 128)])
+def test_predict_proba(dataset, datatype, parameters, client):
+    n_neighbors, n_parts, batch_size = parameters
     X_train, X_test, y_train, y_test = dataset
 
     l_model = lKNNClf(n_neighbors=n_neighbors)

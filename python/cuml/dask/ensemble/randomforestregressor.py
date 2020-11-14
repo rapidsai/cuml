@@ -121,9 +121,13 @@ class RandomForestRegressor(BaseRandomForestModel, DelayedPredictionMixin,
     random_state : int (default = None)
         Seed for the random number generator. Unseeded by default.
     seed : int (default = None)
-        Deprecated in favor of `random_state`.
         Base seed for the random number generator. Unseeded by default. Does
         not currently fully guarantee the exact same results.
+
+        .. deprecated:: 0.15
+           Parameter `seed` is deprecated and will be removed in 0.17. Please
+           use `random_state` instead
+
     ignore_empty_partitions: Boolean (default = False)
         Specify behavior when a worker does not hold any data
         while splitting. When True, it returns the results from workers

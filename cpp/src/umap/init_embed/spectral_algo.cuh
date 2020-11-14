@@ -21,10 +21,10 @@
 
 #include <sparse/coo.cuh>
 
-#include <linalg/add.cuh>
+#include <raft/linalg/add.cuh>
 
-#include <linalg/transpose.h>
-#include <random/rng.cuh>
+#include <raft/linalg/transpose.h>
+#include <raft/random/rng.cuh>
 
 #include <cuml/cluster/spectral.hpp>
 #include <iostream>
@@ -78,8 +78,8 @@ void launcher(const raft::handle_t &handle, const T *X, int n, int d,
     embedding, embedding, n * params->n_components,
     [=] __device__(T input) { return (10.0f / max) * input; }, stream);
 
-  MLCommon::LinAlg::add(embedding, embedding, tmp_storage.data(),
-                        n * params->n_components, stream);
+  raft::linalg::add(embedding, embedding, tmp_storage.data(),
+                    n * params->n_components, stream);
 
   CUDA_CHECK(cudaPeekAtLastError());
 }

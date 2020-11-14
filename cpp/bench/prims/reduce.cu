@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include <linalg/reduce.cuh>
+#include <raft/linalg/reduce.cuh>
 #include "../common/ml_benchmark.hpp"
 
 namespace MLCommon {
@@ -46,8 +46,8 @@ struct Reduce : public Fixture {
 
   void runBenchmark(::benchmark::State& state) override {
     loopOnState(state, [this]() {
-      MLCommon::LinAlg::reduce(dots, data, params.cols, params.rows, T(0.f),
-                               true, params.alongRows, stream);
+      raft::linalg::reduce(dots, data, params.cols, params.rows, T(0.f), true,
+                           params.alongRows, stream);
     });
   }
 

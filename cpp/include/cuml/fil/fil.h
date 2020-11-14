@@ -75,6 +75,11 @@ enum output_t {
       in multiclass classification. Softmax is made robust by subtracting max
       from margins before applying. */
   SOFTMAX = 0x1000,
+  SIGMOID_CLASS = SIGMOID | CLASS,
+  AVG_CLASS = AVG | CLASS,
+  AVG_SIGMOID_CLASS = AVG | SIGMOID | CLASS,
+  AVG_SOFTMAX = AVG | SOFTMAX,
+  AVG_CLASS_SOFTMAX = AVG | CLASS | SOFTMAX,
 };
 
 /** storage_type_t defines whether to import the forests as dense or sparse */

@@ -14,24 +14,24 @@
  * limitations under the License.
  */
 
-#include <common/cudart_utils.h>
+#include <raft/cudart_utils.h>
 #include <common/cumlHandle.hpp>
 #include <common/device_buffer.hpp>
-#include <cuda_utils.cuh>
 #include <cuml/common/cuml_allocator.hpp>
 #include <cuml/linear_model/preprocess_mg.hpp>
 #include <cuml/solvers/cd_mg.hpp>
 #include <functions/softThres.cuh>
-#include <linalg/add.cuh>
-#include <linalg/eltwise.cuh>
-#include <linalg/gemm.cuh>
-#include <linalg/multiply.cuh>
-#include <linalg/subtract.cuh>
-#include <matrix/math.cuh>
-#include <matrix/matrix.cuh>
 #include <opg/linalg/mv_aTb.hpp>
 #include <opg/linalg/norm.hpp>
 #include <raft/comms/comms.hpp>
+#include <raft/cuda_utils.cuh>
+#include <raft/linalg/add.cuh>
+#include <raft/linalg/eltwise.cuh>
+#include <raft/linalg/gemm.cuh>
+#include <raft/linalg/multiply.cuh>
+#include <raft/linalg/subtract.cuh>
+#include <raft/matrix/math.cuh>
+#include <raft/matrix/matrix.cuh>
 #include "shuffle.h"
 
 using namespace MLCommon;
@@ -108,10 +108,10 @@ void fit_impl(raft::handle_t &handle,
                            streams[0]);
   } else {
     Matrix::Data<T> squared_data{squared.data(), size_t(input_desc.N)};
-    LinAlg::opg::colNorm2NoSeq(squared_data, input_data, input_desc, comm,
-                               allocator, streams, n_streams, cublas_handle);
-    LinAlg::addScalar(squared.data(), squared.data(), l2_alpha, input_desc.N,
-                      streams[0]);
+    LinAlg::opg::colNorm2NoSeq(handle, squared_data, input_data, input_desc,
+                               streams, n_streams);
+    raft::linalg::addScalar(squared.data(), squared.data(), l2_alpha,
+                            input_desc.N, streams[0]);
   }
 
   std::vector<Matrix::Data<T> *> input_data_temp;
@@ -167,11 +167,12 @@ void fit_impl(raft::handle_t &handle,
         input_data_temp[k]->ptr = input_col_loc;
         input_data_temp[k]->totalSize = partsToRanks[k]->size;
 
-        LinAlg::multiplyScalar(pred_loc, input_col_loc, h_coef[ci],
-                               partsToRanks[k]->size, streams[k % n_streams]);
+        raft::linalg::multiplyScalar(pred_loc, input_col_loc, h_coef[ci],
+                                     partsToRanks[k]->size,
+                                     streams[k % n_streams]);
 
-        LinAlg::add(residual_loc, residual_loc, pred_loc, partsToRanks[k]->size,
-                    streams[k % n_streams]);
+        raft::linalg::add(residual_loc, residual_loc, pred_loc,
+                          partsToRanks[k]->size, streams[k % n_streams]);
 
         pred_loc = pred_loc + partsToRanks[k]->size;
         residual_loc = residual_loc + partsToRanks[k]->size;
@@ -183,9 +184,8 @@ void fit_impl(raft::handle_t &handle,
 
       coef_loc_data.ptr = coef_loc;
       coef_loc_data.totalSize = size_t(1);
-      LinAlg::opg::mv_aTb(coef_loc_data, input_data_temp, input_desc_temp,
-                          residual_temp, comm, allocator, streams, n_streams,
-                          cublas_handle);
+      LinAlg::opg::mv_aTb(handle, coef_loc_data, input_data_temp,
+                          input_desc_temp, residual_temp, streams, n_streams);
 
       if (l1_ratio > T(0.0))
         Functions::softThres(coef_loc, coef_loc, alpha, 1, streams[0]);
@@ -209,11 +209,12 @@ void fit_impl(raft::handle_t &handle,
       for (int k = 0; k < input_data.size(); k++) {
         input_col_loc = input_data[k]->ptr + (ci * partsToRanks[k]->size);
 
-        LinAlg::multiplyScalar(pred_loc, input_col_loc, h_coef[ci],
-                               partsToRanks[k]->size, streams[k % n_streams]);
+        raft::linalg::multiplyScalar(pred_loc, input_col_loc, h_coef[ci],
+                                     partsToRanks[k]->size,
+                                     streams[k % n_streams]);
 
-        LinAlg::subtract(residual_loc, residual_loc, pred_loc,
-                         partsToRanks[k]->size, streams[k % n_streams]);
+        raft::linalg::subtract(residual_loc, residual_loc, pred_loc,
+                               partsToRanks[k]->size, streams[k % n_streams]);
 
         pred_loc = pred_loc + partsToRanks[k]->size;
         residual_loc = residual_loc + partsToRanks[k]->size;
@@ -318,8 +319,8 @@ void predict_impl(raft::handle_t &handle,
                        size_t(1), CUBLAS_OP_N, CUBLAS_OP_N, alpha, beta,
                        streams[si]);
 
-    LinAlg::addScalar(preds[i]->ptr, preds[i]->ptr, intercept,
-                      local_blocks[i]->size, streams[si]);
+    raft::linalg::addScalar(preds[i]->ptr, preds[i]->ptr, intercept,
+                            local_blocks[i]->size, streams[si]);
   }
 }
 

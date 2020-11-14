@@ -27,6 +27,7 @@ from libcpp cimport bool
 from libc.stdint cimport uintptr_t, uint32_t, uint64_t
 from cython.operator cimport dereference as deref
 
+import cuml.internals
 from cuml.common.base import Base
 from cuml.raft.common.handle cimport handle_t
 from cuml.decomposition.utils cimport *
@@ -68,14 +69,15 @@ class TSVDMG(BaseDecompositionMG, TruncatedSVD):
     def __init__(self, **kwargs):
         super(TSVDMG, self).__init__(**kwargs)
 
+    @cuml.internals.api_base_return_any_skipall
     def _call_fit(self, X, trans, rank, input_desc,
                   trans_desc, arg_params):
 
-        cdef uintptr_t comp_ptr = self._components_.ptr
-        cdef uintptr_t explained_var_ptr = self._explained_variance_.ptr
+        cdef uintptr_t comp_ptr = self.components_.ptr
+        cdef uintptr_t explained_var_ptr = self.explained_variance_.ptr
         cdef uintptr_t explained_var_ratio_ptr = \
-            self._explained_variance_ratio_.ptr
-        cdef uintptr_t singular_vals_ptr = self._singular_values_.ptr
+            self.explained_variance_ratio_.ptr
+        cdef uintptr_t singular_vals_ptr = self.singular_values_.ptr
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
         cdef paramsTSVD *params = <paramsTSVD*><size_t>arg_params

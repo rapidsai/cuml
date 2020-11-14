@@ -16,19 +16,19 @@
 
 #pragma once
 
-#include <common/cudart_utils.h>
+#include <raft/cudart_utils.h>
 #include <common/cumlHandle.hpp>
-#include <linalg/add.cuh>
-#include <linalg/gemm.cuh>
-#include <linalg/norm.cuh>
-#include <linalg/subtract.cuh>
-#include <linalg/svd.cuh>
-#include <matrix/math.cuh>
-#include <matrix/matrix.cuh>
-#include <stats/mean.cuh>
-#include <stats/mean_center.cuh>
-#include <stats/stddev.cuh>
-#include <stats/sum.cuh>
+#include <raft/linalg/add.cuh>
+#include <raft/linalg/gemm.cuh>
+#include <raft/linalg/norm.cuh>
+#include <raft/linalg/subtract.cuh>
+#include <raft/linalg/svd.cuh>
+#include <raft/matrix/math.cuh>
+#include <raft/matrix/matrix.cuh>
+#include <raft/stats/mean.cuh>
+#include <raft/stats/mean_center.cuh>
+#include <raft/stats/stddev.cuh>
+#include <raft/stats/sum.cuh>
 #include "preprocess.cuh"
 
 namespace ML {
@@ -53,7 +53,7 @@ void ridgeSolve(const raft::handle_t &handle, math_t *S, math_t *V, math_t *U,
   raft::allocate(S_nnz, n_cols, true);
   raft::copy(S_nnz, S, n_cols, stream);
   raft::matrix::power(S_nnz, n_cols, stream);
-  LinAlg::addScalar(S_nnz, S_nnz, alpha[0], n_cols, stream);
+  raft::linalg::addScalar(S_nnz, S_nnz, alpha[0], n_cols, stream);
   raft::matrix::matrixVectorBinaryDivSkipZero(S, S_nnz, 1, n_cols, false, true,
                                               stream, true);
 
@@ -88,8 +88,8 @@ void ridgeSVD(const raft::handle_t &handle, math_t *A, int n_rows, int n_cols,
   raft::allocate(V, V_len);
   raft::allocate(S, n_cols);
 
-  LinAlg::svdQR(A, n_rows, n_cols, S, U, V, true, true, true, cusolverH,
-                cublasH, allocator, stream);
+  raft::linalg::svdQR(handle, A, n_rows, n_cols, S, U, V, true, true, true,
+                      stream);
   ridgeSolve(handle, S, V, U, n_rows, n_cols, b, alpha, n_alpha, w, stream);
 
   CUDA_CHECK(cudaFree(U));
@@ -117,7 +117,7 @@ void ridgeEig(const raft::handle_t &handle, math_t *A, int n_rows, int n_cols,
   raft::allocate(V, V_len);
   raft::allocate(S, n_cols);
 
-  LinAlg::svdEig(handle, A, n_rows, n_cols, S, U, V, true, stream);
+  raft::linalg::svdEig(handle, A, n_rows, n_cols, S, U, V, true, stream);
 
   ridgeSolve(handle, S, V, U, n_rows, n_cols, b, alpha, n_alpha, w, stream);
 
@@ -219,7 +219,7 @@ void ridgePredict(const raft::handle_t &handle, const math_t *input, int n_rows,
   raft::linalg::gemm(handle, input, n_rows, n_cols, coef, preds, n_rows, 1,
                      CUBLAS_OP_N, CUBLAS_OP_N, alpha, beta, stream);
 
-  LinAlg::addScalar(preds, preds, intercept, n_rows, stream);
+  raft::linalg::addScalar(preds, preds, intercept, n_rows, stream);
 }
 
 };  // namespace GLM

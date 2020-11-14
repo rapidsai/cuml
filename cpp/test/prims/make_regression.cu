@@ -18,11 +18,11 @@
 #include <thrust/count.h>
 #include <thrust/device_vector.h>
 
-#include <common/cudart_utils.h>
-#include <linalg/transpose.h>
+#include <raft/cudart_utils.h>
 #include <raft/linalg/cublas_wrappers.h>
-#include <cuda_utils.cuh>
-#include <linalg/subtract.cuh>
+#include <raft/linalg/transpose.h>
+#include <raft/cuda_utils.cuh>
+#include <raft/linalg/subtract.cuh>
 #include <random/make_regression.cuh>
 #include "test_utils.h"
 
@@ -77,8 +77,8 @@ class MakeRegressionTest
                             params.n_targets, stream);
 
     // Add the bias
-    LinAlg::addScalar(values_prod, values_prod, params.bias,
-                      params.n_samples * params.n_targets, stream);
+    raft::linalg::addScalar(values_prod, values_prod, params.bias,
+                            params.n_samples * params.n_targets, stream);
 
     // Count the number of zeroes in the coefficients
     thrust::device_ptr<T> __coef = thrust::device_pointer_cast(coef);

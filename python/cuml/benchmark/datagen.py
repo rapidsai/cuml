@@ -219,7 +219,8 @@ def _convert_to_gpuarray(data, order='F'):
         gs = cudf.Series.from_pandas(data)
         return cuda.as_cuda_array(gs)
     else:
-        return input_utils.input_to_dev_array(data, order=order)[0]
+        return input_utils.input_to_cuml_array(
+            data, order=order)[0].to_output("numba")
 
 
 def _convert_to_gpuarray_c(data):
