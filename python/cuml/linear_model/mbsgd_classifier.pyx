@@ -15,6 +15,9 @@
 #
 
 # distutils: language = c++
+
+import cuml.internals
+from cuml.common.array import CumlArray
 from cuml.common.base import Base, ClassifierMixin
 from cuml.common.doc_utils import generate_docstring
 from cuml.solvers import SGD
@@ -175,12 +178,11 @@ class MBSGDClassifier(Base, ClassifierMixin):
         self.solver_model = SGD(**self.get_params())
 
     @generate_docstring()
-    def fit(self, X, y, convert_dtype=True):
+    def fit(self, X, y, convert_dtype=True) -> "MBSGDClassifier":
         """
         Fit the model with X and y.
 
         """
-        self._set_base_attributes(n_features=X)
         self.solver_model._estimator_type = self._estimator_type
         self.solver_model.fit(X, y, convert_dtype=convert_dtype)
         return self
@@ -189,7 +191,8 @@ class MBSGDClassifier(Base, ClassifierMixin):
                                        'type': 'dense',
                                        'description': 'Predicted values',
                                        'shape': '(n_samples, 1)'})
-    def predict(self, X, convert_dtype=False):
+    @cuml.internals.api_base_return_array_skipall
+    def predict(self, X, convert_dtype=False) -> CumlArray:
         """
         Predicts the y for X.
 

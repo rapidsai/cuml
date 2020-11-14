@@ -19,6 +19,8 @@
 from cuml.solvers import CD
 from cuml.common.base import Base, RegressorMixin
 from cuml.common.doc_utils import generate_docstring
+from cuml.common.array import CumlArray
+from cuml.common.array_descriptor import CumlArrayDescriptor
 
 
 class ElasticNet(Base, RegressorMixin):
@@ -141,6 +143,8 @@ class ElasticNet(Base, RegressorMixin):
     <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.ElasticNet.html>`_.
     """
 
+    coef_ = CumlArrayDescriptor()
+
     def __init__(self, alpha=1.0, l1_ratio=0.5, fit_intercept=True,
                  normalize=False, max_iter=1000, tol=1e-3, selection='cyclic',
                  handle=None, output_type=None, verbose=False):
@@ -171,7 +175,6 @@ class ElasticNet(Base, RegressorMixin):
 
         self.alpha = alpha
         self.l1_ratio = l1_ratio
-        self._coef_ = None
         self.intercept_ = None
         self.fit_intercept = fit_intercept
         self.normalize = normalize
@@ -206,12 +209,11 @@ class ElasticNet(Base, RegressorMixin):
             raise ValueError(msg.format(l1_ratio))
 
     @generate_docstring()
-    def fit(self, X, y, convert_dtype=True):
+    def fit(self, X, y, convert_dtype=True) -> "ElasticNet":
         """
         Fit the model with X and y.
 
         """
-        self._set_base_attributes(output_type=X, n_features=X)
         self.solver_model.fit(X, y, convert_dtype=convert_dtype)
 
         return self
@@ -220,7 +222,7 @@ class ElasticNet(Base, RegressorMixin):
                                        'type': 'dense',
                                        'description': 'Predicted values',
                                        'shape': '(n_samples, 1)'})
-    def predict(self, X, convert_dtype=True):
+    def predict(self, X, convert_dtype=True) -> CumlArray:
         """
         Predicts `y` values for `X`.
 
