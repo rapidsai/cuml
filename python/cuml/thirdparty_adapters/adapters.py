@@ -287,8 +287,8 @@ def check_array(array, accept_sparse=False, accept_large_sparse=True,
 _input_type_to_str = {
     numpyArray: 'numpy',
     cupyArray: 'cupy',
-    cuSeries: 'cudf',
-    cuDataFrame: 'cudf',
+    cuSeries: 'series',
+    cuDataFrame: 'dataframe',
     pdSeries: 'numpy',
     pdDataFrame: 'numpy'
 }
@@ -356,6 +356,9 @@ def to_output_type(array, output_type, order='F'):
             array = array.todense()
 
     cuml_array = input_to_cuml_array(array, order=order)[0]
+    if output_type == 'series' and len(array.shape) > 1:
+        output_type = 'cudf'
+
     return cuml_array.to_output(output_type)
 
 
