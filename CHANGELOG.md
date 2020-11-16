@@ -31,6 +31,7 @@
 - PR #3134: Improving the Deprecation Message Formatting in Documentation
 
 ## Bug Fixes
+- PR #3069: Prevent conversion of DataFrames to Series in preprocessing
 - PR #3065: Refactoring prims metrics function names from camelcase to underscore format
 - PR #3033: Splitting ml metrics to individual files
 - PR #3072: Fusing metrics and score directories in src_prims
