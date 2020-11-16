@@ -76,7 +76,7 @@ PARALLEL_LEVEL=${PARALLEL_LEVEL:=""}
 
 # Allow setting arbitrary cmake args via the $CUML_ADDL_CMAKE_ARGS variable. Any
 # values listed here will override existing arguments. For example:
-# CUML_ADDL_CMAKE_ARGS="-DBUILD_CUML_C_LIBRARY=OFF" ./build.sh 
+# CUML_ADDL_CMAKE_ARGS="-DBUILD_CUML_C_LIBRARY=OFF" ./build.sh
 # Will disable building the C library even though it is hard coded to ON
 CUML_ADDL_CMAKE_ARGS=${CUML_ADDL_CMAKE_ARGS:=""}
 
