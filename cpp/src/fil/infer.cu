@@ -180,12 +180,10 @@ struct tree_aggregator_t {
     __syncthreads();
     typedef typename BlockReduce<NITEMS>::TempStorage TempStorage;
     acc = BlockReduce<NITEMS>(*(TempStorage*)tmp_storage).Sum(acc);
-    if (threadIdx.x == 0) {
-      for (int i = 0; i < NITEMS; ++i) {
-        int row = i;
-        if (row < num_rows) out[row * output_stride] = acc[i];
-      }
-    }
+    if (threadIdx.x > 0) return;
+#pragma unroll
+    for (int row = 0; row < num_rows; ++row)
+      out[row * output_stride] = acc[row];
   }
 };
 
@@ -211,12 +209,9 @@ struct finalize_block {
     best = BlockReduceT(*(typename BlockReduceT::TempStorage*)tmp_storage)
              .Reduce(best, ArgMax(), valid_threads);
     // write it out to global memory
-    if (threadIdx.x == 0) {
-      for (int i = 0; i < NITEMS; ++i) {
-        int row = i;
-        if (row < num_rows) out[row] = best[i].key;
-      }
-    }
+    if (threadIdx.x > 0) return;
+#pragma unroll
+    for (int row = 0; row < num_rows; ++row) out[row] = best[row].key;
   }
 };
 
@@ -349,12 +344,10 @@ struct tree_aggregator_t<NITEMS, CATEGORICAL_LEAF> {
   __device__ __forceinline__ void finalize_multiple_outputs(float* out,
                                                             int num_rows) {
     __syncthreads();
-    int item = threadIdx.x;
-    int row = item;
-    if (item < NITEMS && row < num_rows) {
+    for (int c = threadIdx.x; c < num_classes; c += blockDim.x) {
 #pragma unroll
-      for (int c = 0; c < num_classes; ++c)
-        out[row * num_classes + c] = votes[c * NITEMS + item];
+      for (int row = 0; row < num_rows; ++row)
+        out[row * num_classes + c] = votes[c * NITEMS + row];
     }
   }
   // using this when predicting a single class label, as opposed to sparse class vector
@@ -394,11 +387,13 @@ __global__ void infer_k(storage_type forest, predict_params params) {
   for (size_t block_row0 = blockIdx.x * NITEMS; block_row0 < params.num_rows;
        block_row0 += NITEMS * gridDim.x) {
     // cache the row for all threads to reuse
-    for (int j = 0; j < NITEMS; ++j) {
+    for (size_t row = 0; j < NITEMS; ++j) {
       size_t row = block_row0 + j;
-      for (int i = threadIdx.x; i < params.num_cols; i += blockDim.x) {
-        sdata[j * params.num_cols + i] =
-          row < params.num_rows ? params.data[row * params.num_cols + i] : 0.0f;
+#pragma unroll
+      for (int col = threadIdx.x; col < params.num_cols; col += blockDim.x) {
+        sdata[j * params.num_cols + col] =
+          row < params.num_rows ? params.data[row * params.num_cols + col]
+                                : 0.0f;
       }
     }
 
@@ -422,7 +417,8 @@ __global__ void infer_k(storage_type forest, predict_params params) {
       if (leaf_algo == GROVE_PER_CLASS_MANY_CLASSES) __syncthreads();
     }
     acc.finalize(params.preds + params.num_outputs * block_row0,
-                 params.num_rows - block_row0, params.num_outputs);
+                 std::min(NITEMS, params.num_rows - block_row0),
+                 params.num_outputs);
     __syncthreads();  // free up acc's shared memory resources for next row set
   }
 }
