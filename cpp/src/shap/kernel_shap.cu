@@ -23,19 +23,39 @@
 namespace ML {
 namespace Explainer {
 
+/*
+* Kernel distrubutes exact part of the kernel shap dataset
+* Each block scatters the data of a row of `observations` into the (number of rows of
+* background) in `dataset`, based on the row of `X`.
+* So, given:
+* background = [[0, 1, 2],
+                [3, 4, 5]]
+* observation = [100, 101, 102]
+* X = [[1, 0, 1],
+*      [0, 1, 1]]
+*
+* dataset (output):
+* [[100, 1, 102],
+*  [100, 4, 102]
+*  [0, 101, 102],
+*  [3, 101, 102]]
+*
+*
+*/
 template <typename DataT, typename IdxT>
 __global__ void exact_rows_kernel_sm(DataT* X,
                                      IdxT nrows_X,
                                      IdxT M,
                                      DataT* background,
                                      IdxT nrows_background,
-                                     DataT* combinations,
+                                     DataT* dataset,
                                      DataT* observation){
   extern __shared__ int idx[];
-  int tid = threadIdx.x + blockDim.x * blockIdx.x;
   int i, j;
 
   if(threadIdx.x < nrows_background){
+    // the first thread of each block gets the row of X that the block will use
+    // for the scatter.
     if(threadIdx.x == 0){
       for(i=0; i<M; i++){
         idx[i] = (int)X[blockIdx.x*M + i];
@@ -43,21 +63,27 @@ __global__ void exact_rows_kernel_sm(DataT* X,
     }
     __syncthreads();
 
+    // all the threads now scatter the row, based on background and new observation
     int row = blockIdx.x * nrows_background + threadIdx.x;
 #pragma unroll
     for(i=row; i<row+nrows_background; i+=blockDim.x){
 #pragma unroll
-        for(j=0; j<M; j++){
-          if (idx[j] == 0){
-            combinations[i * M + j] = background[(i % nrows_background) * M + j];
-          }else{
-            combinations[i * M + j] = observation[j];
-          }
+      for(j=0; j<M; j++){
+        if (idx[j] == 0){
+          dataset[i * M + j] = background[(i % nrows_background) * M + j];
+        }else{
+          dataset[i * M + j] = observation[j];
         }
       }
+    }
   }
-
 }
+
+/*
+* Similar kernel as above, but uses no shared memory for the index, in case
+* it cannot fir in the shared memory of the device.
+*
+*/
 
 template <typename DataT, typename IdxT>
 __global__ void exact_rows_kernel(DataT* X,
@@ -65,28 +91,47 @@ __global__ void exact_rows_kernel(DataT* X,
                                   IdxT M,
                                   DataT* background,
                                   IdxT nrows_background,
-                                  DataT* combinations,
+                                  DataT* dataset,
                                   DataT* observation){
   int tid = threadIdx.x + blockDim.x * blockIdx.x;
   int i, j;
 
 #pragma unroll
-    for(i=tid; i<nrows_background; i+=blockDim.x){
+  for(i=tid; i<nrows_background; i+=blockDim.x){
 #pragma unroll
-        for(j=0; j<M; j++){
-          if (X[blockIdx.x + j] == 0){
-            combinations[i * M + j] = background[(i % nrows_background) * M + j];
-          }else{
-            combinations[i * M + j] = observation[j];
-          }
-        }
+    for(j=0; j<M; j++){
+      if (X[blockIdx.x + j] == 0){
+        dataset[i * M + j] = background[(i % nrows_background) * M + j];
+      }else{
+        dataset[i * M + j] = observation[j];
       }
+    }
+  }
 }
 
-
-
-
-
+/*
+* Kernel distrubutes sampled part of the kernel shap dataset
+* The first thread of each block calculates the sampling of `k` entries of `observation`
+* to scatter into `dataset`. Afterwards each block scatters the data of a row of `X` into the (number of rows of
+* background) in `dataset`.
+* So, given:
+* background = [[0, 1, 2, 3],
+                [5, 6, 7, 8]]
+* observation = [100, 101, 102, 103]
+* nsamples = [3, 2]
+*
+* X (output)
+*      [[1, 0, 1, 1],
+*       [0, 1, 1, 0]]
+*
+* dataset (output):
+* [[100, 1, 102, 103],
+*  [100, 6, 102, 103]
+*  [0, 101, 102, 3],
+*  [5, 101, 102, 8]]
+*
+*
+*/
 template <typename DataT, typename IdxT>
 __global__ void sampled_rows_kernel(IdxT* nsamples,
                                     DataT* X,
@@ -94,7 +139,7 @@ __global__ void sampled_rows_kernel(IdxT* nsamples,
                                     IdxT M,
                                     DataT* background,
                                     IdxT nrows_background,
-                                    DataT* combinations,
+                                    DataT* dataset,
                                     DataT* observation,
                                     uint64_t seed){
   extern __shared__ int smps[];
@@ -137,14 +182,13 @@ __global__ void sampled_rows_kernel(IdxT* nsamples,
       }
     }
 
-
     // all threads write background line to their line
 
 #pragma unroll
     for(i=tid; i<nrows_background; i+=blockDim.x){
 #pragma unroll
       for(j=0; j<M; j++){
-        combinations[i * M + j] = background[(i % nrows_background) * M + j];
+        dataset[i * M + j] = background[(i % nrows_background) * M + j];
       }
     }
 
@@ -155,7 +199,7 @@ __global__ void sampled_rows_kernel(IdxT* nsamples,
     for(i=tid; i<nrows_background; i+=blockDim.x){
 #pragma unroll
       for(j=0; j<k_blk; j++){
-        combinations[i * M + smps[i]] = observation[smps[j]];
+        dataset[i * M + smps[i]] = observation[smps[j]];
       }
     }
   }
@@ -180,7 +224,11 @@ void kernel_dataset_impl(const raft::handle_t& handle,
 
     IdxT nblks;
     IdxT nthreads;
+
+    // calculate how many threads per block we need in multiples of 32
     nthreads = std::min(int(nrows_background / 32 + 1) * 32, 512);
+
+    // number of blocks for exact part of the dataset
     nblks = nrows_X - len_samples;
 
     cudaDeviceProp prop;
@@ -189,7 +237,7 @@ void kernel_dataset_impl(const raft::handle_t& handle,
     if(M * sizeof(DataT) <= prop.sharedMemPerMultiprocessor){
       // each block calculates the combinations of an entry in X
       // at least nrows_background threads per block, multiple of 32
-      exact_rows_kernel_sm<<< nblks, nthreads, M*sizeof(DataT), stream >>>(
+      exact_rows_kernel_sm<<<nblks, nthreads, M*sizeof(DataT), stream>>>(
         X,
         nrows_X,
         M,
@@ -199,7 +247,7 @@ void kernel_dataset_impl(const raft::handle_t& handle,
         observation
       );
     } else {
-      exact_rows_kernel<<< nblks, nthreads, 0, stream >>>(
+      exact_rows_kernel<<<nblks, nthreads, 0, stream>>>(
         X,
         nrows_X,
         M,
@@ -212,14 +260,14 @@ void kernel_dataset_impl(const raft::handle_t& handle,
 
     CUDA_CHECK(cudaPeekAtLastError());
 
-    // check if sample is needed
+    // check if random part of the dataset  is needed
     if(len_samples > 0){
       // each block does a sample
       nblks = len_samples;
 
       // shared memory shouldn't be a problem since k will be small
       // due to distribution of shapley kernel weights
-      sampled_rows_kernel<<< nblks, nthreads, maxsample*sizeof(int), stream >>>(
+      sampled_rows_kernel<<<nblks, nthreads, maxsample*sizeof(int), stream>>>(
         nsamples,
         &X[(nrows_X - len_samples) * M],
         len_samples,
@@ -242,7 +290,7 @@ void kernel_dataset(const raft::handle_t& handle,
                     int M,
                     float* background,
                     int nrows_background,
-                    float* combinations,
+                    float* dataset,
                     float* observation,
                     int* nsamples,
                     int len_nsamples,
@@ -255,7 +303,7 @@ void kernel_dataset(const raft::handle_t& handle,
                         M,
                         background,
                         nrows_background,
-                        combinations,
+                        dataset,
                         observation,
                         nsamples,
                         len_nsamples,
@@ -271,7 +319,7 @@ void kernel_dataset(const raft::handle_t& handle,
                     int M,
                     double* background,
                     int nrows_background,
-                    double* combinations,
+                    double* dataset,
                     double* observation,
                     int* nsamples,
                     int len_nsamples,
@@ -284,7 +332,7 @@ void kernel_dataset(const raft::handle_t& handle,
                         M,
                         background,
                         nrows_background,
-                        combinations,
+                        dataset,
                         observation,
                         nsamples,
                         len_nsamples,

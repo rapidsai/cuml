@@ -32,7 +32,7 @@ namespace Explainer{
  * @param[in]    M                  number of columns in X
  * @param[in]    background         background data [on device]
  * @param[in]    nrows_background   number of rows in background dataset
- * @param[out]   combinations       generated data [on device] observation=background
+ * @param[out]   dataset       generated data [on device] observation=background
  * @param[in]    observation        row to scatter
  * @param[in]    nsamples           vector with number of entries that are randomly sampled
  * @param[in]    len_nsamples       number of entries to be sampled
@@ -42,13 +42,13 @@ namespace Explainer{
  */
 void kernel_dataset(const raft::handle_t& handle, float* X, int nrows_X,
                     int M, float* background, int nrows_background,
-                    float* combinations, float* observation,
+                    float* dataset, float* observation,
                     int* nsamples, int len_nsamples, int maxsample,
                     uint64_t seed = 0ULL);
 
 void kernel_dataset(const raft::handle_t& handle, double* X, int nrows_X,
                     int M, double* background, int nrows_background,
-                    double* combinations, double* observation,
+                    double* dataset, double* observation,
                     int* nsamples, int len_nsamples, int maxsample,
                     uint64_t seed = 0ULL);
 
