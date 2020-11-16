@@ -51,6 +51,7 @@ struct BlockSemiring {
                                   value_idx *shared_cols_,
                                   value_t *shared_vals_, value_idx *chunk_cols_,
                                   value_t *chunk_vals_, value_t *sums_, value_idx *row_counts_,
+                                  value_idx *cum_row_counts_,
                                   bool verbose_)
     : tid(tid_),
       m(m_),
@@ -66,6 +67,7 @@ struct BlockSemiring {
       shared_idx(0),
       cur_sum(0),
       row_counts(row_counts_),
+      cum_row_counts(cum_row_counts_),
       verbose(verbose_) {}
 
   __device__ inline void load_a(value_idx row, value_idx *indptrA,
@@ -79,7 +81,20 @@ struct BlockSemiring {
       shared_vals[i] = dataA[start_offset_a + i];
     }
 
+    __syncthreads();
+
     shared_size = stop_offset_a - start_offset_a;
+
+    if (verbose && tid == 0) {
+      printf(
+        "row_a=%d, shared_cols=[",
+        row_a);
+      for (int i = 0; i < (stop_offset_a - start_offset_a); i++) {
+        printf("%d, ", shared_cols[i]);
+      }
+      printf("]\n");
+    }
+
     done = false;
 
     row_a = row;
@@ -94,16 +109,38 @@ struct BlockSemiring {
     stop_row_b =
       min(start_row_b + rows_per_block, start_row_b + (n - start_row_b) - 1);
 
-    if (verbose)
-      printf("tid=%d, start_col=%d, start_row_b=%d, stop_row_b=%d\n", tid,
-             start_row, start_row_b, stop_row_b);
+    // initialize start_rows
+    for (int i = tid; i < (stop_row_b - start_row_b) + 2; i += blockDim.x) {
+      start_rows[i] = MAX_INT;
+      value_idx diff = indptrB[start_row_b+i+1] - indptrB[start_row_b+i];
+      cum_row_counts[i] = max(1, diff);
+      row_counts[i] = diff;
+    }
+    __syncthreads();
 
-    // load start & end offsets to compute chunk size
-    start_offset_b = indptrB[start_row_b];
-    stop_offset_b = indptrB[stop_row_b+1]-1;
+    // Row counts need to be cumulative. Last entry will total number of
+    // rows that need to be processed.
+    if(tid == 0) {
+      for(int i = 1; i < (stop_row_b - start_row_b)+2; i+= 1)
+        cum_row_counts[i] += cum_row_counts[i-1];
+    }
+    __syncthreads();
+
+    if (verbose && tid == 0) {
+      printf(
+        "row_a=%d, row_counts=[",
+        row_a);
+      for (int i = 0; i < (stop_row_b - start_row_b) + 2; i++) {
+        printf("%d, ", cum_row_counts[i]);
+      }
+      printf("]\n");
+    }
 
     // divide the work evenly across threads in the warp
-    value_idx n_offsets = stop_offset_b - start_offset_b + 1;
+    value_idx n_offsets = cum_row_counts[(stop_row_b - start_row_b)+2];
+
+    if(verbose)
+      printf("n_offsets=%d\n", n_offsets);
 
     // TOOO: Don't use integer division
     working_chunk_size = n_offsets / blockDim.x;
@@ -112,16 +149,18 @@ struct BlockSemiring {
     working_chunk_size += n_offsets % blockDim.x < blockDim.x ? 1 : 0;
 
     if (verbose)
+      printf("tid=%d, start_col=%d, start_row_b=%d, stop_row_b=%d\n", tid,
+             start_row, start_row_b, stop_row_b);
+
+    // load start & end offsets to compute chunk size
+    start_offset_b = indptrB[start_row_b];
+    stop_offset_b = indptrB[stop_row_b+1];
+
+    if (verbose)
       printf(
         "tid=%d, start_offset_b=%d, stop_offset_b=%d, working_chunk_size=%d\n",
         tid, start_offset_b, stop_offset_b, working_chunk_size);
 
-    // initialize start_rows to -1
-    for (int i = tid; i < (stop_row_b - start_row_b) + 1; i += blockDim.x) {
-      start_rows[i] = MAX_INT;
-      row_counts[i] = indptrB[start_row_b+i+1] - indptrB[start_row_b+i];
-    }
-    __syncthreads();
 
     if (verbose) printf("Initialized start_rows to -1\n");
 
@@ -136,17 +175,31 @@ struct BlockSemiring {
         printf("building offsets: tid=%d, row_a=%d, offset=%d, adj_offset=%d\n",
                tid, row_a, offset, adj_offset);
 
-      offsets[i] = adj_offset;
-
+//      offsets[i] = adj_offset;
+//
       atomicMin(
-        start_rows + int(ceilf(float(i) / float(working_chunk_size))),
-        ceilf(float(i) / float(working_chunk_size)));
+        start_rows + int(ceilf(float(start_row_b + cum_row_counts[i]) / float(working_chunk_size))),
+        int(ceilf(float(start_row_b + cum_row_counts[i]) / float(working_chunk_size))));
     }
     __syncthreads();
 
+    // iterate start_rows and repeat any missing values
+    // TODO: Faster way to perform repeat?
+    if (tid == 0) {
+      start_rows[0] = start_row_b;
+      offsets[0] = 0;
+      for (int i = 1; i < tpb; i++) {
+        if (start_rows[i] == MAX_INT) start_rows[i] = start_rows[i - 1];
+
+        value_idx prev_offset = offsets[i-1];
+        if (row_counts[i-1] > 0) prev_offset += working_chunk_size;
+        offsets[i] = prev_offset;
+      }
+    }
+
     if (verbose && tid == 0) {
       printf("row_a=%d, offsets=[", row_a);
-      for (int i = 0; i < (stop_row_b - start_row_b) + 1; i++) {
+      for (int i = 0; i < tpb; i++) {
         printf("%d, ", offsets[i]);
       }
       printf("]\n");
@@ -154,36 +207,17 @@ struct BlockSemiring {
 
     if (verbose) printf("Computed starting row offsets for each block.\n");
 
-    // iterate start_rows and repeat any missing values
-    // TODO: Faster way to perform repeat?
-    if (tid == 0) {
-      start_rows[0] = start_row_b;
-      for (int i = 1; i < (stop_row_b - start_row_b) + 1; i++) {
-        if (start_rows[i] == MAX_INT) start_rows[i] = start_rows[i - 1];
-      }
-    }
     __syncthreads();
 
     if (verbose && tid == 0) {
       printf(
         "Performed a 'repeat' to fill in rows that span blocks. row_a=%d, start_rows=[",
         row_a);
-      for (int i = 0; i < (stop_row_b - start_row_b) + 1; i++) {
+      for (int i = 0; i < tpb; i++) {
         printf("%d, ", start_rows[i]);
       }
       printf("]\n");
     }
-
-    if (verbose && tid == 0) {
-      printf(
-        "row_a=%d, row_counts=[",
-        row_a);
-      for (int i = 0; i < (stop_row_b - start_row_b) + 1; i++) {
-        printf("%d, ", row_counts[i]);
-      }
-      printf("]\n");
-    }
-
 
     row_b = start_rows[tid];
 
@@ -199,7 +233,7 @@ struct BlockSemiring {
     if (verbose) printf("Read B rows into shared memory\n");
 
     // set starting and ending idx of local thread
-    local_idx = offsets[start_rows[tid]];//threadIdx.x * working_chunk_size;
+    local_idx = offsets[tid];//threadIdx.x * working_chunk_size;
     local_idx_stop = min(local_idx + working_chunk_size, stop_offset_b);
 
     if (verbose)
@@ -217,14 +251,14 @@ struct BlockSemiring {
      *  - look at the first column in tid+1 and make sure rv < that col
      */
     case1 = (tid > 0 && row_b == start_rows[tid - 1])
-              ? shared_cols[local_idx - 1]
+              ? chunk_cols[local_idx - 1]
               : -1;
     case2 = (tid < blockDim.x && row_b == start_rows[tid + 1])
-              ? shared_cols[local_idx_stop]
+              ? chunk_cols[local_idx_stop]
               : MAX_INT;
 
     if (verbose)
-      printf("Computed overlapping cases: case1: %d, case2: %d\n", case1,
+      printf("tid=%d, row_a=%d, row_b=%d, Computed overlapping cases: case1: %d, case2: %d\n", tid, row_a, row_b, case1,
              case2);
   }
 
@@ -239,6 +273,12 @@ struct BlockSemiring {
     value_t lv = local_idx_in_bounds ? chunk_vals[local_idx] : 0.0;
 
     bool shared_idx_in_bounds = shared_idx < shared_size;
+
+
+    if (verbose)
+      printf("About to load shared_cols/shared_vals. shared_idx_in_bounds=%d\n",
+             shared_idx_in_bounds);
+
 
     value_idx r = shared_idx_in_bounds ? shared_cols[shared_idx] : -1;
     value_t rv = shared_idx_in_bounds ? shared_vals[shared_idx] : 0.0;
@@ -271,7 +311,7 @@ struct BlockSemiring {
         row_a, row_b, tid, l, r, left_side, right_side, done, cur_sum);
 
     // adjust state when a new row is encountered
-    if (local_idx > offsets[row_b]) {
+    if (local_idx > local_idx_stop) {
       // apply "sum" function globally
       sums[row_b] += cur_sum;
 
@@ -299,8 +339,8 @@ struct BlockSemiring {
 
   __device__ inline void write(value_t *out) {
     for (int i = tid; i < (stop_row_b - start_row_b) + 1; i += blockDim.x) {
-      printf("Writing: row_a=%d, row_b=%d, tid=%d, cur_sum=%f, idx=%d\n", row_a,
-             row_b, tid, cur_sum, row_a * n + i);
+//      printf("Writing: row_a=%d, row_b=%d, tid=%d, cur_sum=%f, idx=%d\n", row_a,
+//             row_b, tid, cur_sum, row_a * n + i);
 
       // Pick up any straggling threads that didn't get to write to shared memory
       if (cur_sum != 0.0) {
@@ -311,6 +351,8 @@ struct BlockSemiring {
       out[row_a * n + i] = sums[i];
     }
   }
+
+
 
   __device__ inline void print() {
     printf(
@@ -355,6 +397,7 @@ struct BlockSemiring {
   value_idx *offsets;
   value_idx *start_rows;
   value_idx *row_counts;
+  value_idx *cum_row_counts;
   value_idx *shared_cols;
   value_t *shared_vals;
   value_idx *chunk_cols;
@@ -379,9 +422,12 @@ __global__ void semiring_kernel_load_balanced_matvec_layout(
 
   // num_warps = n_rows_a * (n_rows_b / rows_per_warp)
 
-  __shared__ value_idx offsets[rows_per_block + 1];
+  __shared__ value_idx offsets[tpb];
   __shared__ value_idx start_rows[tpb];
+
+  // TODO: This should really be computed once and passed in
   __shared__ value_idx row_counts[rows_per_block+1];
+  __shared__ value_idx cum_row_counts[rows_per_block+1];
 
   __shared__ value_idx shared_cols[buffer_size];
   __shared__ value_t shared_vals[buffer_size];
@@ -399,7 +445,7 @@ __global__ void semiring_kernel_load_balanced_matvec_layout(
 
   BlockSemiring<value_idx, value_t, tpb, buffer_size, rows_per_block> semiring(
     tid, m, n, offsets, start_rows, shared_cols, shared_vals, chunk_cols,
-    chunk_vals, sums, row_counts, verbose);
+    chunk_vals, sums, row_counts, cum_row_counts, verbose);
 
   if (verbose) printf("Calling load_a\n");
 
