@@ -74,6 +74,12 @@ BUILD_STATIC_FAISS=OFF
 INSTALL_PREFIX=${INSTALL_PREFIX:=${PREFIX:=${CONDA_PREFIX}}}
 PARALLEL_LEVEL=${PARALLEL_LEVEL:=""}
 
+# Allow setting arbitrary cmake args via the $CUML_ADDL_CMAKE_ARGS variable. Any
+# values listed here will override existing arguments. For example:
+# CUML_ADDL_CMAKE_ARGS="-DBUILD_CUML_C_LIBRARY=OFF" ./build.sh 
+# Will disable building the C library even though it is hard coded to ON
+CUML_ADDL_CMAKE_ARGS=${CUML_ADDL_CMAKE_ARGS:=""}
+
 function hasArg {
     (( ${NUMARGS} != 0 )) && (echo " ${ARGS} " | grep -q " $1 ")
 }
@@ -189,6 +195,7 @@ if completeBuild || hasArg libcuml || hasArg prims || hasArg bench || hasArg pri
           -DNCCL_PATH=${INSTALL_PREFIX} \
           -DDISABLE_DEPRECATION_WARNING=${BUILD_DISABLE_DEPRECATION_WARNING} \
           -DCMAKE_PREFIX_PATH=${INSTALL_PREFIX} \
+          ${CUML_ADDL_CMAKE_ARGS} \
           ..
 fi
 
