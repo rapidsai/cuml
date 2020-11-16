@@ -21,14 +21,16 @@ import cupy as cp
 
 from libc.stdint cimport uintptr_t
 
+import cuml.internals
+from cuml.common.array import CumlArray
 from cuml.raft.common.handle import Handle
 from cuml.raft.common.handle cimport handle_t
 from cuml.metrics cimport regression
 from cuml.common.input_utils import input_to_cuml_array
-from cuml.common.memory_utils import with_cupy_rmm
 
 
-def r2_score(y, y_hat, convert_dtype=True, handle=None):
+@cuml.internals.api_return_any()
+def r2_score(y, y_hat, convert_dtype=True, handle=None) -> double:
     """
     Calculates r2 score between y and y_hat
 
@@ -138,7 +140,6 @@ def _prepare_input_reg(y_true, y_pred, sample_weight, multioutput):
     return y_true, y_pred, sample_weight, multioutput, raw_multioutput
 
 
-@with_cupy_rmm
 def _mse(y_true, y_pred, sample_weight, multioutput, squared, raw_multioutput):
     """Helper to compute the mean squared error"""
     output_errors = cp.subtract(y_true, y_pred)
@@ -153,7 +154,7 @@ def _mse(y_true, y_pred, sample_weight, multioutput, squared, raw_multioutput):
     return mse if squared else cp.sqrt(mse)
 
 
-@with_cupy_rmm
+@cuml.internals.api_return_any()
 def mean_squared_error(y_true, y_pred,
                        sample_weight=None,
                        multioutput='uniform_average',
@@ -198,7 +199,7 @@ def mean_squared_error(y_true, y_pred,
                 raw_multioutput)
 
 
-@with_cupy_rmm
+@cuml.internals.api_return_any()
 def mean_absolute_error(y_true, y_pred,
                         sample_weight=None,
                         multioutput='uniform_average'):
@@ -249,7 +250,7 @@ def mean_absolute_error(y_true, y_pred,
     return cp.average(output_errors, weights=multioutput)
 
 
-@with_cupy_rmm
+@cuml.internals.api_return_any()
 def mean_squared_log_error(y_true, y_pred,
                            sample_weight=None,
                            multioutput='uniform_average',

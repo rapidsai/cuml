@@ -23,6 +23,7 @@ from contextlib import redirect_stdout
 
 from numba import cuda
 
+import cuml
 from cuml.ensemble import RandomForestClassifier as curfc
 from cuml.ensemble import RandomForestRegressor as curfr
 from cuml.metrics import r2_score
@@ -525,11 +526,11 @@ def test_rf_classification_sparse(small_clf, datatype,
         fil_acc = accuracy_score(y_test, fil_preds)
 
         fil_model = cuml_model.convert_to_fil_model()
-        input_type = 'numpy'
-        fil_model_preds = fil_model.predict(X_test,
-                                            output_type=input_type)
-        fil_model_acc = accuracy_score(y_test, fil_model_preds)
-        assert fil_acc == fil_model_acc
+
+        with cuml.using_output_type("numpy"):
+            fil_model_preds = fil_model.predict(X_test)
+            fil_model_acc = accuracy_score(y_test, fil_model_preds)
+            assert fil_acc == fil_model_acc
 
         tl_model = cuml_model.convert_to_treelite_model()
         assert num_treees == tl_model.num_trees
@@ -588,13 +589,12 @@ def test_rf_regression_sparse(special_reg, datatype, fil_sparse_format, algo):
 
         fil_model = cuml_model.convert_to_fil_model()
 
-        input_type = 'numpy'
-        fil_model_preds = fil_model.predict(X_test,
-                                            output_type=input_type)
-        fil_model_preds = np.reshape(fil_model_preds, np.shape(y_test))
-        fil_model_r2 = r2_score(y_test, fil_model_preds,
-                                convert_dtype=datatype)
-        assert fil_r2 == fil_model_r2
+        with cuml.using_output_type("numpy"):
+            fil_model_preds = fil_model.predict(X_test)
+            fil_model_preds = np.reshape(fil_model_preds, np.shape(y_test))
+            fil_model_r2 = r2_score(y_test, fil_model_preds,
+                                    convert_dtype=datatype)
+            assert fil_r2 == fil_model_r2
 
         tl_model = cuml_model.convert_to_treelite_model()
         assert num_treees == tl_model.num_trees
