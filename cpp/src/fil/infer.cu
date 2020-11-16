@@ -387,7 +387,7 @@ __global__ void infer_k(storage_type forest, predict_params params) {
   for (size_t block_row0 = blockIdx.x * NITEMS; block_row0 < params.num_rows;
        block_row0 += NITEMS * gridDim.x) {
     // cache the row for all threads to reuse
-    for (size_t row = 0; j < NITEMS; ++j) {
+    for (size_t j = 0; j < NITEMS; ++j) {
       size_t row = block_row0 + j;
 #pragma unroll
       for (int col = threadIdx.x; col < params.num_cols; col += blockDim.x) {
@@ -417,7 +417,7 @@ __global__ void infer_k(storage_type forest, predict_params params) {
       if (leaf_algo == GROVE_PER_CLASS_MANY_CLASSES) __syncthreads();
     }
     acc.finalize(params.preds + params.num_outputs * block_row0,
-                 std::min(NITEMS, params.num_rows - block_row0),
+                 min((size_t)NITEMS, params.num_rows - block_row0),
                  params.num_outputs);
     __syncthreads();  // free up acc's shared memory resources for next row set
   }

@@ -176,7 +176,8 @@ struct forest {
     params.max_shm = max_shm_;
     params.num_classes = num_classes_;
     params.leaf_algo = leaf_algo_;
-    // if == 0, will be resolved in infer_k_launcher, knowing num_items/block
+    // fixed_block_count_ == 0 means the number of thread blocks is
+    // proportional to the number of rows
     params.num_blocks = fixed_block_count_;
 
     /**
