@@ -17,9 +17,10 @@
 import cupy as cp
 
 
-def get_tag_from_model(model, tag, default=None):
+def get_tag_from_model_func(func, tag, default=None):
+    ""
     tags_fn = getattr(
-        getattr(model.predict, '__self__', None),
+        getattr(func, '__self__', None),
         '_get_tags',
         None
     )
@@ -28,7 +29,21 @@ def get_tag_from_model(model, tag, default=None):
         tag_value = tags_fn.get(tag)
         result = tag_value if tag_value is not None else default
 
-    return result
+        return result
+
+    return None
+
+
+def get_dtype_from_model_func(func, default=None):
+    dtype = getattr(
+        getattr(func, '__self__', None),
+        'dtype',
+        None
+    )
+
+    dtype = default if dtype is None else dtype
+
+    return dtype
 
 
 def get_link_fn_from_str(link):

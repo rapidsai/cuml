@@ -14,6 +14,7 @@
 # limitations under the License.
 #
 
+from pprint import pprint
 
 import cupy as cp
 import numpy as np
@@ -25,14 +26,17 @@ from cuml.common.import_utils import has_sklearn
 from cuml.common.input_utils import input_to_cuml_array
 from cuml.common.logger import info
 from cuml.common.logger import warn
+from cuml.experimental.explainer.common import get_dtype_from_model_func
 from cuml.experimental.explainer.common import get_link_fn_from_str
-from cuml.experimental.explainer.common import get_tag_from_model
+from cuml.experimental.explainer.common import get_tag_from_model_func
 from cuml.experimental.explainer.common import link_dict
 from cuml.linear_model import Lasso
+from cuml.raft.common.handle import Handle
 from functools import lru_cache
 from pandas import DataFrame as pd_df
 from itertools import combinations
 from random import randint
+from shap import Explanation
 
 from cuml.raft.common.handle cimport handle_t
 from libc.stdint cimport uintptr_t
@@ -42,7 +46,7 @@ from libc.stdint cimport uint64_t
 cdef extern from "cuml/explainer/kernel_shap.hpp" namespace "ML":
     void kernel_dataset "ML::Explainer::kernel_dataset"(
         handle_t& handle,
-        int* X,
+        float* X,
         int nrows_X,
         int M,
         float* background,
@@ -56,7 +60,7 @@ cdef extern from "cuml/explainer/kernel_shap.hpp" namespace "ML":
 
     void kernel_dataset "ML::Explainer::kernel_dataset"(
         handle_t& handle,
-        int* X,
+        double* X,
         int nrows_X,
         int M,
         double* background,
@@ -115,6 +119,13 @@ class KernelSHAP():
         model and the SHAP value units.
     random_state: int, RandomState instance or None (default)
         Seed for the random number generator for dataset creation.
+    gpu_model : bool
+
+    handle
+
+    dtype
+
+    output_type
 
     """
 
@@ -125,22 +136,40 @@ class KernelSHAP():
                  link='identity',
                  verbosity=False,
                  random_state=None,
-                 gpu_model=None):
+                 gpu_model=None,
+                 handle=None,
+                 dtype=None,
+                 output_type=None):
+
+        self.handle = Handle() if handle is None else handle
+        self.output_type = output_type
 
         self.link = link
         self.link_fn = get_link_fn_from_str(link)
         self.model = model
-        self.order = get_tag_from_model(model=model, tag='order',
-                                        default='C')
+        self.order = get_tag_from_model_func(func=model,
+                                             tag='preferred_input_order',
+                                             default='C')
         if gpu_model is None:
-            self.model_gpu_based = get_tag_from_model(model=model,
-                                                      tag='accepts_gpu_data',
-                                                      default=False)
+            # todo: when sparse support is added, use this tag to see if
+            # model can accept sparse data
+            self.model_gpu_based = \
+                get_tag_from_model_func(func=model,
+                                        tag='X_types_gpu',
+                                        default=False) is not None
         else:
             self.model_gpu_based = gpu_model
 
-        self.background, self.N, self.M, self.dtype = \
-            input_to_cuml_array(data, order=self.order)
+        # if not dtype is specified, we try to get it from the model
+        if dtype is None:
+            self.dtype = get_dtype_from_model_func(func=model,
+                                                   default=np.float32)
+        else:
+            self.dtype = np.dtype(dtype)
+
+        self.background, self.N, self.M, _ = \
+            input_to_cuml_array(data, order=self.order,
+                                convert_to_dtype=self.dtype)
 
         self.nsamples = 2 * self.M + 2 ** 11 if nsamples is None else nsamples
 
@@ -160,10 +189,11 @@ class KernelSHAP():
             self.feature_names = [None for _ in range(len(data))]
 
         # seeing how many exact samples from the powerset we can enumerate
-        # todo: check int optimization for large sizes by generating diagonal
+        # todo: optimization for larger sizes by generating diagonal
+        # and gpu lexicographical-binary numbers generation
         cur_nsamples = self.M
         r = 1
-        while cur_nsamples < nsamples:
+        while cur_nsamples < self.nsamples:
             if has_scipy():
                 from scipy.special import binom
                 cur_nsamples += int(binom(self.M, r))
@@ -171,31 +201,25 @@ class KernelSHAP():
                 cur_nsamples += int(binomCoef(self.M, r))
             r += 1
 
+        # see if we need to have randomly sampled entries in our mask
+        # and combinations matrices
+        self.nsamples_random = max(self.nsamples - cur_nsamples, 0)
+
         # using numpy powerset and calculations for initial version
         # cost is incurred only once, and generally we only generate
         # very few samples if M is big.
-        mat, weight = powerset(self.M, r, nsamples)
+        mat, weight = powerset(self.M, r, self.nsamples, dtype=self.dtype)
+        weight /= np.sum(weight)
 
-        self.X, *_ = input_to_cuml_array(mat)
-        self.nsamples_exact = len(self.exact_mask)
+        self.mask, *_ = input_to_cuml_array(mat)
+        self.nsamples_exact = len(self.mask)
 
-        # see if we need to have randomly sampled entries in our X
-        # and combinations matrices
-        self.nsamples_random = max(nsamples - cur_nsamples, 0)
-        if self.nsamples_random > 0:
-            self.X.append(cp.zeros((self.nsamples_random, self.M)))
+        self.weights = cp.empty(self.nsamples, dtype=self.dtype)
+        self.weights[:self.nsamples_exact] = cp.array(weight)
 
-        self.weights = cp.empty(nsamples)
+        self.synth_data = None
 
-        # todo: check in weight generation with
-        # (self.M - 1.0) / (i * (self.M - i)
-        self.weights[0:cur_nsamples] = cp.array(weight)
-        self._combinations = None
-
-        self.weights[cur_nsamples, nsamples] = \
-            calc_remaining_weights(cur_nsamples, nsamples)
-
-        self.expected_value = self.link_fn(cp.sum(model(self.background)))
+        self.expected_value = self.link_fn(cp.mean(model(self.background)))
 
         self.random_state = random_state
 
@@ -203,21 +227,32 @@ class KernelSHAP():
                 X,
                 nsamples=None,
                 l1_reg='auto'):
-        shap_values = cp.zeros((len(X), self.n_cols), dtype=self.dtype)
+        shap_values = cp.zeros((1, self.M), dtype=self.dtype)
 
         # allocating combinations array once for multiple explanations
-        if self._combinations is None:
-            self._combinations = CumlArray.zeros(
+        if self.synth_data is None:
+            self.synth_data = CumlArray.zeros(
                 shape=(self.N * self.nsamples, self.M),
-                dtype=np.float32
+                dtype=np.float32,
+                order='C'
             )
 
         idx = 0
         for x in X:
-            shap_values[idx] = self._explain_single_observation(x, l1_reg)
+            shap_values[idx, :-1] = self._explain_single_observation(x, l1_reg)
+
+            # we need to add the last value since we removed one variable
+            res = (self.link_fn(self.fx) -
+                   self.link_fn(self.expected_value)) - cp.sum(shap_values)
+
+            shap_values[idx, -1] = res[0]
             idx += 1
 
-        return shap_values
+        if isinstance(X, np.ndarray):
+            out_type = 'numpy'
+        else:
+            out_type = 'cupy'
+        return input_to_cuml_array(shap_values).to_output(out_type)
 
     def _explain_single_observation(self,
                                     row,
@@ -225,6 +260,9 @@ class KernelSHAP():
 
         # np choice of weights - for samples if needed
         # choice algorithm can be optimized for large dimensions
+
+        self.fx, *_ = input_to_cuml_array(self.model(row.reshape(1, self.M)))
+
         if self.nsamples_random > 0:
             samples = np.random.choice(np.arange(self.nsamples_exact + 1,
                                                  self.nsamples),
@@ -237,7 +275,6 @@ class KernelSHAP():
             for i in range(self.nsamples_exact, self.nsamples_random):
                 w[i] = shapley_kernel(samples[i], i)
 
-        row = row.reshape(1, self.n_cols)
         row, n_rows, n_cols, dtype = \
             input_to_cuml_array(row, order=self.order)
 
@@ -247,54 +284,79 @@ class KernelSHAP():
 
         row_ptr = row.ptr
         bg_ptr = self.background.ptr
-        cmb_ptr = self._combinations.ptr
-        smp_ptr = samples.ptr
-        x_ptr = self.X.ptr
+        cmb_ptr = self.synth_data.ptr
+        if self.nsamples_random > 0:
+            smp_ptr = samples.ptr
+        else:
+            smp_ptr = <uintptr_t> NULL
+            maxsample = 0
+        x_ptr = self.mask.ptr
 
         if self.random_state is None:
             random_state = randint(0, 1e18)
 
-        # todo: add dtype check / conversion
-        # todo (mainly for sparse): add varyinggroups functionality
+        # we default to float32 unless self.dtype is specifically np.float64
+        if self.dtype == np.float64:
+            kernel_dataset(
+                handle_[0],
+                <double*> x_ptr,
+                <int> self.mask.shape[0],
+                <int> self.mask.shape[1],
+                <double*> bg_ptr,
+                <int> self.background.shape[0],
+                <double*> cmb_ptr,
+                <double*> row_ptr,
+                <int*> smp_ptr,
+                <int> self.nsamples_random,
+                <int> maxsample,
+                <uint64_t> random_state)
 
-        kernel_dataset(
-            handle_[0],
-            <int*> x_ptr,
-            <int> self.X.shape[0],
-            <int> self.X.shape[1],
-            <float*> bg_ptr,
-            <int> self.background.shape[0],
-            <float*> cmb_ptr,
-            <float*> row_ptr,
-            <int*> smp_ptr,
-            <int> self.nsamples_random,
-            <int> maxsample,
-            <uint64_t> random_state)
+        else:
+            kernel_dataset(
+                handle_[0],
+                <float*> x_ptr,
+                <int> self.mask.shape[0],
+                <int> self.mask.shape[1],
+                <float*> bg_ptr,
+                <int> self.background.shape[0],
+                <float*> cmb_ptr,
+                <float*> row_ptr,
+                <int*> smp_ptr,
+                <int> self.nsamples_random,
+                <int> maxsample,
+                <uint64_t> random_state)
 
-        # evaluate model on combinations
+        # # evaluate model on combinations
 
         if self.model_gpu_based:
-            y = self.model(self._combinations)
+            self.y = self.model(self.synth_data)
         else:
             try:
-                y = cp.array(self.model(self._combinations.to_output('numpy')))
+                self.y = cp.array(self.model(
+                    self.synth_data.to_output('numpy'))
+                )
             except TypeError:
                 raise TypeError('Explainer can only explain models that can '
                                 'take GPU data or NumPy arrays as input.')
 
-        y_hat = cp.mean(cp.array(y).reshape((self.nsamples,
-                                             self.background.shape[0])))
+        y_hat = cp.mean(
+            cp.array(self.y).reshape((self.nsamples,
+                                      self.background.shape[0])),
+            axis=1
+        )
 
-        averaged_outs = cp.mean(cp.asarray(self.link(self._y)), axis=1)
+        # todo: minor optimization can be done by avoiding this array
+        # if l1 reg is not needed
+        nonzero_inds = cp.arange(self.M)
 
-        nonzero_inds = None
         # call lasso/lars if needed
-        if(l1_reg == 'auto' and self.nsamples / self.max_samples < 0.2):
-            nonzero_inds = cp.nonzero(
-                Lasso(alpha=l1_reg).fit(self.X, y_hat).coef_
-            )[0]
-            if len(nonzero_inds) == 0:
-                return cp.zeros(self.M), np.ones(self.M)
+        if l1_reg == 'auto':
+            if self.nsamples / self.max_samples < 0.2:
+                nonzero_inds = cp.nonzero(
+                    Lasso(alpha=l1_reg).fit(self.mask, y_hat).coef_
+                )[0]
+                if len(nonzero_inds) == 0:
+                    return cp.zeros(self.M), np.ones(self.M)
 
         else:
             if not has_sklearn():
@@ -309,35 +371,37 @@ class KernelSHAP():
                         and l1_reg.startswith("num_features(")):
                     r = int(l1_reg[len("num_features("):-1])
                     nonzero_inds = lars_path(
-                        self.X, y_hat, max_iter=r)[1]
+                        self.mask, y_hat, max_iter=r)[1]
                 elif (isinstance(l1_reg, str) and l1_reg == "bic" or
                         l1_reg == "aic"):
                     nonzero_inds = np.nonzero(
-                        LassoLarsIC(criterion=l1_reg).fit(self.X, y_hat).coef_)[0]
+                        LassoLarsIC(criterion=l1_reg).fit(self.mask,
+                                                          y_hat).coef_)[0]
 
         # weighted linear regression
-        if nonzero_inds is not None:
-            if len(nonzero_inds) == 0:
-                return cp.zeros(self.M), np.ones(self.M)
+        # todo: see wheter change to use cuML linear regression with weights
+        # todo: small optimizations
+        y_hat = y_hat - self.expected_value
 
-            res = cp.linalg.inv(cp.dot(cp.dot(self.X[nonzero_inds].T,
-                                              np.diag(self.weights[nonzero_inds])),
-                                       self.X[nonzero_inds]))
+        y_hat = y_hat - self.mask[:, nonzero_inds[-1]] * (
+            self.link_fn(self.fx) - self.link_fn(self.expected_value)
+        )
 
-            res = cp.dot(res, cp.dot(cp.dot(self.X[nonzero_inds].T,
-                                            cp.diag(self.weights[nonzero_inds])),
-                                     self._y))
+        etmp = cp.transpose(
+            cp.transpose(
+                self.mask[:,
+                          nonzero_inds[:-1]]) - self.mask[:, nonzero_inds[-1]])
 
-        else:
+        tmp = cp.dot(cp.dot(etmp.T, cp.diag(self.weights)), etmp)
 
-            res = cp.linalg.inv(cp.dot(cp.dot(self.X.T,
-                                              np.diag(self.weights)),
-                                       self.X))
-
-            res = cp.dot(res, cp.dot(cp.dot(self.X.T, cp.diag(self.weights)),
-                                     self._y))
-
-        return res
+        # cupy linalg solve requires tmp to be square and full rank,
+        # so we would need the pseudo inverse anyways
+        try:
+            tmp = cp.linalg.inv(tmp)
+        except cp.linalg.LinAlgError:
+            tmp = cp.linalg.pinv(tmp)
+        return cp.dot(tmp,
+                      cp.dot(cp.dot(etmp.T, cp.diag(self.weights)), y_hat))
 
     def shap_values(self, X, l1_reg='auto'):
         """
@@ -360,8 +424,17 @@ class KernelSHAP():
         return self.explain(X, l1_reg)
 
     def __call__(self, X, l1_reg='auto'):
-        # todo: add explanation object construction
-        return self.explain(X, l1_reg)
+        warn("SHAP's Explanation object is still experimental, the main API "
+             "currently is 'explainer.shap_values'.")
+        res = self.explain(X, l1_reg)
+        out = Explanation(
+            values=res,
+            base_values=self.expected_value,
+            base_values=self.expected_value,
+            data=self.background,
+            feature_names=self.feature_names,
+        )
+        return out
 
 
 @lru_cache(maxsize=None)
@@ -376,16 +449,17 @@ def binomCoef(n, k):
     return res
 
 
-def powerset(n, r, nrows):
+def powerset(n, r, nrows, dtype=np.float32):
+    print("n, r, nrows {}, {}, {}".format(n, r, nrows))
     N = np.arange(n)
-    w = np.empty(nrows, dtype=np.float32)
-    result = np.zeros((nrows, n), dtype=np.float32)
+    w = np.zeros(nrows, dtype=dtype)
+    result = np.zeros((nrows, n), dtype=dtype)
     idx = 0
     for i in range(1, r + 1):
         for c in combinations(N, i):
             result[idx, c] = 1
+            w[idx] = shapley_kernel(n, i)
             idx += 1
-        w[i] = shapley_kernel(N, i)
 
     return result, w
 

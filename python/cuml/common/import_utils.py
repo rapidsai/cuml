@@ -118,6 +118,14 @@ def has_sklearn():
         return False
 
 
+def has_shap():
+    try:
+        import shap  # noqa
+        return True
+    except ImportError:
+        return False
+
+
 def dummy_function_always_false(*args, **kwargs):
     return False
 
