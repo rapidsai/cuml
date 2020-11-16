@@ -24,7 +24,7 @@ namespace ML {
 namespace Explainer {
 
 template <typename DataT, typename IdxT>
-__global__ void exact_rows_kernel_sm(int* X,
+__global__ void exact_rows_kernel_sm(DataT* X,
                                      IdxT nrows_X,
                                      IdxT M,
                                      DataT* background,
@@ -38,19 +38,20 @@ __global__ void exact_rows_kernel_sm(int* X,
   if(threadIdx.x < nrows_background){
     if(threadIdx.x == 0){
       for(i=0; i<M; i++){
-        idx[i] = X[blockIdx.x + i];
+        idx[i] = (int)X[blockIdx.x*M + i];
       }
     }
     __syncthreads();
 
+    int row = blockIdx.x * nrows_background + threadIdx.x;
 #pragma unroll
-    for(i=tid; i<nrows_background; i+=blockDim.x){
+    for(i=row; i<row+nrows_background; i+=blockDim.x){
 #pragma unroll
         for(j=0; j<M; j++){
           if (idx[j] == 0){
-            combinations[tid * M + j] = background[blockIdx.x * M + j];
+            combinations[i * M + j] = background[(i % nrows_background) * M + j];
           }else{
-            combinations[tid * M + j] = observation[j];
+            combinations[i * M + j] = observation[j];
           }
         }
       }
@@ -59,7 +60,7 @@ __global__ void exact_rows_kernel_sm(int* X,
 }
 
 template <typename DataT, typename IdxT>
-__global__ void exact_rows_kernel(int* X,
+__global__ void exact_rows_kernel(DataT* X,
                                   IdxT nrows_X,
                                   IdxT M,
                                   DataT* background,
@@ -74,20 +75,21 @@ __global__ void exact_rows_kernel(int* X,
 #pragma unroll
         for(j=0; j<M; j++){
           if (X[blockIdx.x + j] == 0){
-            combinations[tid * M + j] = background[blockIdx.x * M + j];
+            combinations[i * M + j] = background[(i % nrows_background) * M + j];
           }else{
-            combinations[tid * M + j] = observation[j];
+            combinations[i * M + j] = observation[j];
           }
         }
       }
-  }
+}
+
 
 
 
 
 template <typename DataT, typename IdxT>
 __global__ void sampled_rows_kernel(IdxT* nsamples,
-                                    int* X,
+                                    DataT* X,
                                     IdxT nrows_X,
                                     IdxT M,
                                     DataT* background,
@@ -142,7 +144,7 @@ __global__ void sampled_rows_kernel(IdxT* nsamples,
     for(i=tid; i<nrows_background; i+=blockDim.x){
 #pragma unroll
       for(j=0; j<M; j++){
-        combinations[tid * M + j] = background[blockIdx.x * M + j];
+        combinations[i * M + j] = background[(i % nrows_background) * M + j];
       }
     }
 
@@ -153,7 +155,7 @@ __global__ void sampled_rows_kernel(IdxT* nsamples,
     for(i=tid; i<nrows_background; i+=blockDim.x){
 #pragma unroll
       for(j=0; j<k_blk; j++){
-        combinations[tid * M + smps[i]] = observation[smps[j]];
+        combinations[i * M + smps[i]] = observation[smps[j]];
       }
     }
   }
@@ -162,7 +164,7 @@ __global__ void sampled_rows_kernel(IdxT* nsamples,
 
 template <typename DataT, typename IdxT>
 void kernel_dataset_impl(const raft::handle_t& handle,
-                         int* X,
+                         DataT* X,
                          IdxT nrows_X,
                          IdxT M,
                          DataT* background,
@@ -178,15 +180,14 @@ void kernel_dataset_impl(const raft::handle_t& handle,
 
     IdxT nblks;
     IdxT nthreads;
-    // todo: check for max of 1024
-    nthreads = int(32 / nrows_background) * 32;
+    nthreads = std::min(int(nrows_background / 32 + 1) * 32, 512);
+    nblks = nrows_X - len_samples;
 
     cudaDeviceProp prop;
     cudaGetDeviceProperties(&prop, 0);
 
     if(M * sizeof(DataT) <= prop.sharedMemPerMultiprocessor){
       // each block calculates the combinations of an entry in X
-      nblks = nrows_X - len_samples;
       // at least nrows_background threads per block, multiple of 32
       exact_rows_kernel_sm<<< nblks, nthreads, M*sizeof(DataT), stream >>>(
         X,
@@ -236,7 +237,7 @@ void kernel_dataset_impl(const raft::handle_t& handle,
 }
 
 void kernel_dataset(const raft::handle_t& handle,
-                    int* X,
+                    float* X,
                     int nrows_X,
                     int M,
                     float* background,
@@ -265,7 +266,7 @@ void kernel_dataset(const raft::handle_t& handle,
 
 
 void kernel_dataset(const raft::handle_t& handle,
-                    int* X,
+                    double* X,
                     int nrows_X,
                     int M,
                     double* background,
