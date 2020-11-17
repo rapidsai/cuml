@@ -321,8 +321,8 @@ def test_knn_graph(input_type, nrows, n_feats, p, k, metric, mode,
 
 
 @pytest.mark.parametrize("metric", ["l1"]) # "#valid_metrics(cuml_algo="sparse"))
-@pytest.mark.parametrize('nrows', [4])
-@pytest.mark.parametrize('ncols', [4])
+@pytest.mark.parametrize('nrows', [1000])
+@pytest.mark.parametrize('ncols', [50])
 @pytest.mark.parametrize('density', [0.3])
 @pytest.mark.parametrize('n_neighbors', [2])
 @pytest.mark.parametrize('batch_size_index', [20000])
@@ -340,14 +340,15 @@ def test_nearest_neighbors_sparse(nrows, ncols,
     a = cp.sparse.random(nrows, ncols, format='csr', density=density,
                          random_state=32)
 
-    print("Data created: indptr=%s, indices=%s, data=%s" % (a.indptr, a.indices, a.data))
+    # print("Data created: indptr=%s, indices=%s, data=%s" % (a.indptr, a.indices, a.data))
 
     from sklearn.metrics import pairwise_distances
 
-    print(str(pairwise_distances(a.get(), metric='l1')))
-
+    # print(str(pairwise_distances(a.get(), metric='l1')))
+    #
     logger.set_level(logger.level_trace)
     nn = cuKNN(metric="l1", n_neighbors=n_neighbors, algorithm="brute",
+               output_type="numpy",
                verbose=logger.level_debug,
                algo_params={"batch_size_index": batch_size_index,
                             "batch_size_query": batch_size_query})
@@ -355,21 +356,19 @@ def test_nearest_neighbors_sparse(nrows, ncols,
 
     import time
 
-    print("Calling kneighbors")
     start = time.time()
     cuD, cuI = nn.kneighbors(a)
-
-    print("cuD: %s, cuI: %s" % (cuD, cuI))
+    # print("cuD: %s, cuI: %s" % (cuD, cuI))
     print("cuML took %s" % (time.time() - start))
-
-    sknn = skKNN(metric="l1", n_neighbors=n_neighbors,
-                 algorithm="brute", n_jobs=-1)
-    sk_X = a.get()
-    sknn.fit(sk_X)
-
-    start = time.time()
-    skD, skI = sknn.kneighbors(sk_X)
-    print("sk took %s" % (time.time() - start))
+    #
+    # sknn = skKNN(metric="l1", n_neighbors=n_neighbors,
+    #              algorithm="brute", n_jobs=-1)
+    # sk_X = a.get()
+    # sknn.fit(sk_X)
+    #
+    # start = time.time()
+    # skD, skI = sknn.kneighbors(sk_X)
+    # print("sk took %s" % (time.time() - start))
     #
     # cp.testing.assert_allclose(cuD, skD, atol=1e-3, rtol=1e-3)
     # cp.testing.assert_allclose(cuI, skI, atol=1e-4, rtol=1e-4)

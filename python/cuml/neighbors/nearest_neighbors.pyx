@@ -432,7 +432,7 @@ class NearestNeighbors(Base):
         self.handle.sync()
 
         out_type = _output_type \
-            if _output_type is None else self._get_output_type(X)
+            if _output_type is not None else self._get_output_type(X)
 
         I_ndarr = I_ndarr.to_output(out_type)
         D_ndarr = D_ndarr.to_output(out_type)
