@@ -13,10 +13,10 @@
 # limitations under the License.
 #
 
-from cuml.common import input_to_host_array
-from cuml.common.memory_utils import using_output_type
-from .one_vs_rest import _to_output
+import cuml.internals
 import sklearn.multiclass
+
+from cuml.common import input_to_host_array
 
 
 class OneVsOneClassifier(sklearn.multiclass.OneVsOneClassifier):
@@ -34,17 +34,17 @@ class OneVsOneClassifier(sklearn.multiclass.OneVsOneClassifier):
     def fit(self, X, y):
         X, _, _, _, _ = input_to_host_array(X)
         y, _, _, _, _ = input_to_host_array(y)
-        with using_output_type('numpy'):
+        with cuml.internals.exit_internal_api():
             return super(OneVsOneClassifier, self).fit(X, y)
 
     def predict(self, X):
-        out_type = self.estimator._get_output_type(X)
         X, _, _, _, _ = input_to_host_array(X)
-        preds = super(OneVsOneClassifier, self).predict(X)
-        return _to_output(preds, out_type)
+        with cuml.using_output_type('numpy'):
+            preds = super(OneVsOneClassifier, self).predict(X)
+        return preds
 
     def decision_function(self, X):
-        out_type = self.estimator._get_output_type(X)
         X, _, _, _, _ = input_to_host_array(X)
-        df = super(OneVsOneClassifier, self).decision_function(X)
-        return _to_output(df, out_type)
+        with cuml.using_output_type('numpy'):
+            df = super(OneVsOneClassifier, self).decision_function(X)
+        return df

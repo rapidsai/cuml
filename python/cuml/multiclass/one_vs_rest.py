@@ -13,30 +13,9 @@
 # limitations under the License.
 #
 
-from cuml.common import input_to_cuml_array, input_to_host_array
-from cuml.common.memory_utils import using_output_type
-
-import numpy as np
+import cuml.internals
+from cuml.common import input_to_host_array
 import sklearn.multiclass
-
-
-def _to_output(X, out_type):
-    """ Convert array X to out_type.
-
-    X can be host (numpy) array.
-
-    Arguments:
-    X: cuDF.DataFrame, cuDF.Series, numba array, NumPy array or any
-    cuda_array_interface compliant array like CuPy or pytorch.
-
-    out_type: string (as defined by the  CumlArray's to_output method).
-    """
-    if out_type == 'numpy' and isinstance(X, np.ndarray):
-        return X
-    else:
-        X, _, _, _ = input_to_cuml_array(X)
-        return X.to_output(output_type=out_type)
-
 
 class OneVsRestClassifier(sklearn.multiclass.OneVsRestClassifier):
     """ Wrapper around Sckit-learn's class with the same name. This wrapper
@@ -57,13 +36,15 @@ class OneVsRestClassifier(sklearn.multiclass.OneVsRestClassifier):
             return super(OneVsRestClassifier, self).fit(X, y)
 
     def predict(self, X):
-        out_type = self.estimator._get_output_type(X)
+        # out_type = self.estimator._get_output_type(X)
         X, _, _, _, _ = input_to_host_array(X)
-        preds = super(OneVsRestClassifier, self).predict(X)
-        return _to_output(preds, out_type)
+        with cuml.using_output_type('numpy'):
+            preds = super(OneVsRestClassifier, self).predict(X)
+        return preds
 
     def decision_function(self, X):
-        out_type = self.estimator._get_output_type(X)
+        # out_type = self.estimator._get_output_type(X)
         X, _, _, _, _ = input_to_host_array(X)
-        df = super(OneVsRestClassifier, self).decision_function(X)
-        return _to_output(df, out_type)
+        with cuml.using_output_type('numpy'):
+            df = super(OneVsRestClassifier, self).decision_function(X)
+        return df

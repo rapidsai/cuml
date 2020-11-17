@@ -37,7 +37,6 @@ from cuml.raft.common.handle cimport handle_t
 from cuml.common import input_to_cuml_array, input_to_host_array, with_cupy_rmm
 from cuml.common.input_utils import input_to_cupy_array
 from cuml.preprocessing import LabelEncoder
-from cuml.common.memory_utils import using_output_type
 from libcpp cimport bool, nullptr
 from cuml.svm.svm_base import SVMBase
 from cuml.common.import_utils import has_sklearn
@@ -241,6 +240,8 @@ class SVC(SVMBase, ClassifierMixin):
 
     """
 
+    _classes_ = CumlArrayDescriptor()
+
     def __init__(self, handle=None, C=1, kernel='rbf', degree=3,
                  gamma='scale', coef0=0.0, tol=1e-3, cache_size=200.0,
                  max_iter=-1, nochange_steps=1000, verbose=False,
@@ -262,23 +263,24 @@ class SVC(SVMBase, ClassifierMixin):
     def classes_(self):
         if self.probability:
             return self.prob_svc.classes_
-        elif self.n_classes_ > 2:
-            # TODO:
-            # n_classes_ is not defined before fit this way we throw an
-            # attribute error that is different than sklears attribute error
-            return self.classes_
+        elif self._n_classes_ > 2:
+            return self._classes_
         else:
             return self._unique_labels_
 
-    # TODO: make sure we can retrieve this as intercept_ instead of intercept_b
     @property
-    def intercept_b(self):
-        if self.n_classes_ > 2:
-            print('Here we are')
-            return [cls.intercept_ for cls in
-                    self.multiclass_svc.estimators_]
+    @cuml.internals.api_base_return_array_skipall
+    def intercept_(self):
+        if self._n_classes_ > 2:
+            return cp.concatenate(
+                [cp.asarray(cls._intercept_)
+                    for cls in self.multiclass_svc.estimators_])
         else:
-            return super(SVC, self).intercept_
+            return super(SVC, self)._intercept_
+
+    @intercept_.setter
+    def intercept_(self, value):
+        self._intercept_ = value
 
     @cuml.internals.api_base_return_array_skipall
     def _apply_class_weight(self, sample_weight, y_m) -> CumlArray:
@@ -341,12 +343,11 @@ class SVC(SVMBase, ClassifierMixin):
         Determine the unique classes in y.
         """
         y_m, _, _, _ = input_to_cuml_array(y, check_cols=1)
-        y_cp = y_m.to_output(output_type='cupy')
-        classes = cp.unique(y_cp)
-        self.n_classes_ = len(classes)
-        self._classes = input_to_cuml_array(classes)
+        self._classes_ = cp.unique(cp.asarray(y_m))
+        self._n_classes_ = len(self._classes_)
 
-    def _fit_multiclass(self, X, y, sample_weight):
+    @cuml.internals.api_base_return_any_skipall
+    def _fit_multiclass(self, X, y, sample_weight) -> "SVC":
         if sample_weight is not None:
             warn("Sample weights are currently ignored for multi class "
                  "classification")
@@ -361,6 +362,32 @@ class SVC(SVMBase, ClassifierMixin):
         self._fit_status_ = 0
         return self
 
+    @cuml.internals.api_base_return_any_skipall
+    def _fit_proba(self, X, y, samle_weight) -> "SVC":
+        params = self.get_params()
+        params["probability"] = False
+
+        # Ensure it always outputs numpy
+        params["output_type"] = "numpy"
+
+        # Currently CalibratedClassifierCV expects data on the host, see
+        # https://github.com/rapidsai/cuml/issues/2608
+        X, _, _, _, _ = input_to_host_array(X)
+        y, _, _, _, _ = input_to_host_array(y)
+
+        if not has_sklearn():
+            raise RuntimeError(
+                "Scikit-learn is needed to use SVM probabilities")
+
+        self.prob_svc = CalibratedClassifierCV(SVC(**params),
+                                               cv=5,
+                                               method='sigmoid')
+
+        with cuml.internals.exit_internal_api():
+            self.prob_svc.fit(X, y)
+        self._fit_status_ = 0
+        return self
+
     @generate_docstring(y='dense_anydtype')
     @cuml.internals.api_base_return_any(set_output_dtype=True)
     def fit(self, X, y, sample_weight=None, convert_dtype=True) -> "SVC":
@@ -370,35 +397,13 @@ class SVC(SVMBase, ClassifierMixin):
         """
 
         if self.probability:
-            params = self.get_params()
-            params["probability"] = False
+            return self._fit_proba(X, y, sample_weight)
 
-            # Ensure it always outputs numpy
-            params["output_type"] = "numpy"
-
-            # Currently CalibratedClassifierCV expects data on the host, see
-            # https://github.com/rapidsai/cuml/issues/2608
-            X, _, _, _, _ = input_to_host_array(X)
-            y, _, _, _, _ = input_to_host_array(y)
-
-            if not has_sklearn():
-                raise RuntimeError(
-                    "Scikit-learn is needed to use SVM probabilities")
-
-            self.prob_svc = CalibratedClassifierCV(SVC(**params),
-                                                   cv=5,
-                                                   method='sigmoid')
-
-            with cuml.internals.exit_internal_api():
-                self.prob_svc.fit(X, y)
-            self._fit_status_ = 0
-            return self
-
-        # count number of classes
         self._find_classes(y)
-        if self.n_classes_ > 2:
+        if self._n_classes_ > 2:
             return self._fit_multiclass(X, y, sample_weight)
 
+        # Fit binary classifier
         X_m, self.n_rows, self.n_cols, self.dtype = \
             input_to_cuml_array(X, order='F')
 
@@ -472,13 +477,9 @@ class SVC(SVMBase, ClassifierMixin):
                 preds = self.prob_svc.predict(X)
                 # prob_svc has numpy output type, change it if it is necessary:
                 return preds
-        # elif self.n_classes_ > 2:
-        #     self._check_is_fitted('multiclass_svc')
-        #     out_type = self._get_output_type(X)
-        #     X, _, _, _, _ = input_to_host_array(X)
-        #     preds = self.multiclass_svc.predict(X)
-        #     # prob_svc has numpy output type, change it if it is necessary:
-        #     return _to_output(preds, out_type)
+        elif self._n_classes_ > 2:
+            self._check_is_fitted('multiclass_svc')
+            return self.multiclass_svc.predict(X)
         else:
             return super(SVC, self).predict(X, True, convert_dtype)
 
@@ -559,11 +560,10 @@ class SVC(SVMBase, ClassifierMixin):
                 for clf in self.prob_svc.calibrated_classifiers_:
                     df = df + clf.base_estimator.decision_function(X)
             df = df / len(self.prob_svc.calibrated_classifiers_)
-            return df # instead of to_output_df
-        # elif self.n_classes_ > 2:
-        #     out_type = self._get_output_type(X)
-        #     df = self.multiclass_svc.decision_function(X)
-        #     return _to_output(df, out_type)
+            return df
+        elif self._n_classes_ > 2:
+            self._check_is_fitted('multiclass_svc')
+            return self.multiclass_svc.decision_function(X)
         else:
             return super().predict(X, False)
 
