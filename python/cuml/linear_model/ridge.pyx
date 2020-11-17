@@ -27,6 +27,7 @@ from libcpp cimport bool
 from libc.stdint cimport uintptr_t
 from libc.stdlib cimport calloc, malloc, free
 
+from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.base import Base, RegressorMixin
 from cuml.common.array import CumlArray
 from cuml.common.doc_utils import generate_docstring
@@ -207,6 +208,9 @@ class Ridge(Base, RegressorMixin):
     <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.Ridge.html>`_.
     """
 
+    coef_ = CumlArrayDescriptor()
+    intercept_ = CumlArrayDescriptor()
+
     def __init__(self, alpha=1.0, solver='eig', fit_intercept=True,
                  normalize=False, handle=None, output_type=None,
                  verbose=False):
@@ -229,8 +233,8 @@ class Ridge(Base, RegressorMixin):
                                     output_type=output_type)
 
         # internal array attributes
-        self._coef_ = None  # accessed via estimator.coef_
-        self._intercept_ = None  # accessed via estimator.intercept_
+        self.coef_ = None
+        self.intercept_ = None
 
         self.alpha = alpha
         self.fit_intercept = fit_intercept
@@ -257,12 +261,11 @@ class Ridge(Base, RegressorMixin):
         }[algorithm]
 
     @generate_docstring()
-    def fit(self, X, y, convert_dtype=True):
+    def fit(self, X, y, convert_dtype=True) -> "Ridge":
         """
         Fit the model with X and y.
 
         """
-        self._set_base_attributes(output_type=X, n_features=X)
         cdef uintptr_t X_ptr, y_ptr
         X_m, n_rows, self.n_cols, self.dtype = \
             input_to_cuml_array(X, check_dtype=[np.float32, np.float64])
@@ -291,8 +294,8 @@ class Ridge(Base, RegressorMixin):
 
         self.n_alpha = 1
 
-        self._coef_ = CumlArray.zeros(self.n_cols, dtype=self.dtype)
-        cdef uintptr_t coef_ptr = self._coef_.ptr
+        self.coef_ = CumlArray.zeros(self.n_cols, dtype=self.dtype)
+        cdef uintptr_t coef_ptr = self.coef_.ptr
 
         cdef float c_intercept1
         cdef double c_intercept2
@@ -345,13 +348,11 @@ class Ridge(Base, RegressorMixin):
                                        'type': 'dense',
                                        'description': 'Predicted values',
                                        'shape': '(n_samples, 1)'})
-    def predict(self, X, convert_dtype=True):
+    def predict(self, X, convert_dtype=True) -> CumlArray:
         """
         Predicts the y for X.
 
         """
-        out_type = self._get_output_type(X)
-
         cdef uintptr_t X_ptr
         X_m, n_rows, n_cols, dtype = \
             input_to_cuml_array(X, check_dtype=self.dtype,
@@ -360,7 +361,7 @@ class Ridge(Base, RegressorMixin):
                                 check_cols=self.n_cols)
         X_ptr = X_m.ptr
 
-        cdef uintptr_t coef_ptr = self._coef_.ptr
+        cdef uintptr_t coef_ptr = self.coef_.ptr
 
         preds = CumlArray.zeros(n_rows, dtype=dtype)
         cdef uintptr_t preds_ptr = preds.ptr
@@ -388,7 +389,7 @@ class Ridge(Base, RegressorMixin):
 
         del(X_m)
 
-        return preds.to_output(out_type)
+        return preds
 
     def get_param_names(self):
         return super().get_param_names() + \

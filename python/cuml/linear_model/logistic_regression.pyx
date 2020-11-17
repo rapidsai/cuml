@@ -19,12 +19,15 @@
 import cupy as cp
 import pprint
 
+import cuml.internals
 from cuml.solvers import QN
 from cuml.common.base import Base, ClassifierMixin
+from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.array import CumlArray
 from cuml.common.doc_utils import generate_docstring
 import cuml.common.logger as logger
-from cuml.common import input_to_cuml_array, with_cupy_rmm
+from cuml.common import input_to_cuml_array
+from cuml.common import using_output_type
 
 
 supported_penalties = ["l1", "l2", "none", "elasticnet"]
@@ -170,6 +173,8 @@ class LogisticRegression(Base, ClassifierMixin):
     <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.LogisticRegression.html>`_.
     """
 
+    classes_ = CumlArrayDescriptor()
+
     def __init__(
         self,
         penalty="l2",
@@ -257,22 +262,19 @@ class LogisticRegression(Base, ClassifierMixin):
             self.verb_prefix = ""
 
     @generate_docstring()
-    @with_cupy_rmm
-    def fit(self, X, y, convert_dtype=True):
+    @cuml.internals.api_base_return_any(set_output_dtype=True)
+    def fit(self, X, y, convert_dtype=True) -> "LogisticRegression":
         """
         Fit the model with X and y.
 
         """
-        self.solver_model._set_base_attributes(target_dtype=y)
-        self._set_base_attributes(output_type=X, n_features=X)
-
         # Converting y to device array here to use `unique` function
-        # since calling input_to_dev_array again in QN has no cost
+        # since calling input_to_cuml_array again in QN has no cost
         # Not needed to check dtype since qn class checks it already
         y_m, _, _, _ = input_to_cuml_array(y)
 
-        self._classes_ = CumlArray(cp.unique(y_m))
-        self._num_classes = len(self._classes_)
+        self.classes_ = cp.unique(y_m)
+        self._num_classes = len(self.classes_)
 
         if self._num_classes > 2:
             loss = "softmax"
@@ -296,14 +298,15 @@ class LogisticRegression(Base, ClassifierMixin):
             )
 
         if logger.should_log_for(logger.level_trace):
-            logger.trace(self.verb_prefix + "Coefficients: " +
-                         str(self._coef_.to_output("cupy")))
-            if self.fit_intercept:
-                logger.trace(
-                    self.verb_prefix
-                    + "Intercept: "
-                    + str(self._intercept_.to_output("cupy"))
-                )
+            with using_output_type("cupy"):
+                logger.trace(self.verb_prefix + "Coefficients: " +
+                             str(self.solver_model.coef_))
+                if self.fit_intercept:
+                    logger.trace(
+                        self.verb_prefix
+                        + "Intercept: "
+                        + str(self.solver_model.intercept_)
+                    )
 
         return self
 
@@ -311,7 +314,7 @@ class LogisticRegression(Base, ClassifierMixin):
                                        'type': 'dense',
                                        'description': 'Confidence score',
                                        'shape': '(n_samples, n_classes)'})
-    def decision_function(self, X, convert_dtype=False):
+    def decision_function(self, X, convert_dtype=False) -> CumlArray:
         """
         Gives confidence score for X
 
@@ -319,13 +322,14 @@ class LogisticRegression(Base, ClassifierMixin):
         return self.solver_model._decision_function(
             X,
             convert_dtype=convert_dtype
-        ).to_output(output_type=self._get_output_type(X))
+        )
 
     @generate_docstring(return_values={'name': 'preds',
                                        'type': 'dense',
                                        'description': 'Predicted values',
                                        'shape': '(n_samples, 1)'})
-    def predict(self, X, convert_dtype=True):
+    @cuml.internals.api_base_return_array(get_output_dtype=True)
+    def predict(self, X, convert_dtype=True) -> CumlArray:
         """
         Predicts the y for X.
 
@@ -337,8 +341,7 @@ class LogisticRegression(Base, ClassifierMixin):
                                        'description': 'Predicted class \
                                                        probabilities',
                                        'shape': '(n_samples, n_classes)'})
-    @with_cupy_rmm
-    def predict_proba(self, X, convert_dtype=True):
+    def predict_proba(self, X, convert_dtype=True) -> CumlArray:
         """
         Predicts the class probabilities for each class in X
 
@@ -354,7 +357,7 @@ class LogisticRegression(Base, ClassifierMixin):
                                        'description': 'Logaright of predicted \
                                                        class probabilities',
                                        'shape': '(n_samples, n_classes)'})
-    def predict_log_proba(self, X, convert_dtype=True):
+    def predict_log_proba(self, X, convert_dtype=True) -> CumlArray:
         """
         Predicts the log class probabilities for each class in X
 
@@ -365,9 +368,10 @@ class LogisticRegression(Base, ClassifierMixin):
             log_proba=True
         )
 
-    def _predict_proba_impl(self, X, convert_dtype=False, log_proba=False):
-        out_type = self._get_output_type(X)
-
+    def _predict_proba_impl(self,
+                            X,
+                            convert_dtype=False,
+                            log_proba=False) -> CumlArray:
         # TODO:
         # We currently need to grab the dtype and ncols attributes via the
         # qn solver due to https://github.com/rapidsai/cuml/issues/2404
@@ -397,8 +401,7 @@ class LogisticRegression(Base, ClassifierMixin):
         if log_proba:
             proba = cp.log(proba)
 
-        proba = CumlArray(proba)
-        return proba.to_output(out_type)
+        return proba
 
     def get_param_names(self):
         return super().get_param_names() + [

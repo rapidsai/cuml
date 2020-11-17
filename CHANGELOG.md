@@ -11,6 +11,7 @@
 - PR #2903: Moving linalg's gemm, gemv, transpose to RAFT namespaces
 - PR #2905: `stats` prims `mean_center`, `sum` to RAFT namespaces
 - PR #2904: Moving `linalg` basic math ops to RAFT namespaces
+- PR #2956: Follow cuML array conventions in ARIMA and remove redundancy
 - PR #3000: Pin cmake policies to cmake 3.17 version, bump project version to 0.17
 - PR #3083: Improving test_make_blobs testing time
 - PR #2906: Moving `linalg` decomp to RAFT namespaces
@@ -20,14 +21,18 @@
 - PR #3044: Move leftover `linalg` and `stats` to RAFT namespaces
 - PR #3067: Deleting prims moved to RAFT and updating header paths
 - PR #3074: Reducing dask coordinate descent test runtime
+- PR #3096: Avoid memory transfers in CSR WeakCC for DBSCAN
 - PR #3088: More readable and robust FIL C++ test management
 - PR #3052: Speeding up MNMG KNN Cl&Re testing
 - PR #3115: Speeding up MNMG UMAP testing
 - PR #3112: Speed test_array
 - PR #3111: Adding Cython to Code Coverage
 - PR #3129:  Update notebooks README
+- PR #3040: Improved Array Conversion with CumlArrayDescriptor and Decorators
+- PR #3134: Improving the Deprecation Message Formatting in Documentation
 
 ## Bug Fixes
+- PR #3069: Prevent conversion of DataFrames to Series in preprocessing
 - PR #3065: Refactoring prims metrics function names from camelcase to underscore format
 - PR #3033: Splitting ml metrics to individual files
 - PR #3072: Fusing metrics and score directories in src_prims
@@ -106,6 +111,7 @@
 - PR #2928: Updating Estimators Derived from Base for Consistency
 - PR #2942: Adding `cuml.experimental` to the Docs
 - PR #3010: Improve gpuCI Scripts
+- PR #3141: Move DistanceType enum to RAFT
 
 ## Bug Fixes
 - PR #2973: Allow data imputation for nan values
