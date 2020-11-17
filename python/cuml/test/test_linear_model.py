@@ -21,6 +21,8 @@ import cudf
 from cuml import LinearRegression as cuLinearRegression
 from cuml import LogisticRegression as cuLog
 from cuml import Ridge as cuRidge
+from cuml.linear_model import Lars as cuLars
+
 from cuml.test.utils import (
     array_equal,
     small_regression_dataset,
@@ -36,6 +38,7 @@ from sklearn.datasets import load_breast_cancer
 from sklearn.linear_model import LinearRegression as skLinearRegression
 from sklearn.linear_model import Ridge as skRidge
 from sklearn.linear_model import LogisticRegression as skLog
+from sklearn.linear_model import Lars as skLars
 from sklearn.model_selection import train_test_split
 
 
@@ -204,6 +207,45 @@ def test_ridge_regression_model(datatype, algorithm, nrows, column_info):
                            curidge_predict,
                            1e-1,
                            with_sign=True)
+
+
+@pytest.mark.parametrize("datatype", [np.float32, np.float64])
+@pytest.mark.parametrize(
+    "nrows", [unit_param(500), quality_param(5000), stress_param(500000)]
+)
+@pytest.mark.parametrize(
+    "column_info",
+    [
+        unit_param([20, 10]),
+        quality_param([100, 50]),
+        stress_param([1000, 500])
+    ],
+)
+def test_lars_model(datatype, nrows, column_info):
+
+    ncols, n_info = column_info
+    X_train, X_test, y_train, y_test = make_regression_dataset(
+        datatype, nrows, ncols, n_info
+    )
+
+    # Initialization of cuML's LARS
+    culars = cuLars()
+
+    # fit and predict cuml LARS
+    culars.fit(X_train, y_train)
+    culars_predict = culars.predict(X_test)
+
+    if nrows < 500000:
+        # sklearn model initialization, fit and predict
+        sklars = skLars()
+        sklars.fit(X_train, y_train)
+
+        sklars_predict = sklars.predict(X_test)
+
+        assert culars.score(X_train, y_train) >= sklars.score(X_train, y_train) - 0.05
+        assert culars.score(X_test, y_test) >= sklars.score(X_test, y_test) - 0.1
+    else:
+        assert culars.score(X_test, y_test) > 0.1  # ?
 
 
 @pytest.mark.parametrize(

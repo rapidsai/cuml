@@ -2,6 +2,7 @@
 
 ## New Features
 - PR #3164: Expose silhouette score in Python
+- PR #3160: Least Angle Regression
 - PR #2659: Add initial max inner product sparse knn
 - PR #2836: Refactor UMAP to accept sparse inputs
 
