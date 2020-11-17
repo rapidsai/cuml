@@ -158,6 +158,7 @@ std::vector<Params> getInputs() {
                   32,                  // n_bins
                   1,                   // split_algo
                   3,                   // min_rows_per_node
+                  3,                   // min_samples_split
                   0.0f,                // min_impurity_decrease
                   true,                // bootstrap_features
                   ML::CRITERION::MSE,  // split_criterion

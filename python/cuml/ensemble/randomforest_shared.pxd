@@ -107,6 +107,7 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
                                     int,
                                     int,
                                     int,
+                                    int,
                                     float,
                                     bool,
                                     bool,

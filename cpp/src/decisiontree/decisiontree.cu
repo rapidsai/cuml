@@ -30,6 +30,8 @@ namespace DecisionTree {
  * @param[in] cfg_n_bins: number of bins; default 8
  * @param[in] cfg_split_algo: split algorithm; default SPLIT_ALGO::HIST
  * @param[in] cfg_min_rows_per_node: min. rows per node; default 2
+ * @param[in] cfg_min_samples_split: min. rows needed to split an internal node;
+ *            default 2
  * @param[in] cfg_bootstrap_features: bootstrapping for features; default false
  * @param[in] cfg_split_criterion: split criterion; default CRITERION_END,
  *            i.e., GINI for classification or MSE for regression
@@ -41,7 +43,7 @@ namespace DecisionTree {
 void set_tree_params(DecisionTreeParams &params, int cfg_max_depth,
                      int cfg_max_leaves, float cfg_max_features, int cfg_n_bins,
                      int cfg_split_algo, int cfg_min_rows_per_node,
-                     float cfg_min_impurity_decrease,
+                     int cfg_min_samples_split, float cfg_min_impurity_decrease,
                      bool cfg_bootstrap_features, CRITERION cfg_split_criterion,
                      bool cfg_quantile_per_tree,
                      bool cfg_use_experimental_backend,
@@ -81,6 +83,7 @@ void set_tree_params(DecisionTreeParams &params, int cfg_max_depth,
   params.n_bins = cfg_n_bins;
   params.split_algo = cfg_split_algo;
   params.min_rows_per_node = cfg_min_rows_per_node;
+  params.min_samples_split = cfg_min_samples_split;
   params.bootstrap_features = cfg_bootstrap_features;
   params.split_criterion = cfg_split_criterion;
   params.quantile_per_tree = cfg_quantile_per_tree;

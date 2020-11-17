@@ -50,8 +50,8 @@ class DtBaseTest : public ::testing::TestWithParam<DtTestParams> {
     handle->set_stream(stream);
     set_tree_params(params, inparams.max_depth, 1 << inparams.max_depth, 1.f,
                     inparams.nbins, SPLIT_ALGO::GLOBAL_QUANTILE, inparams.nbins,
-                    inparams.min_gain, false, inparams.splitType, false, true,
-                    128);
+                    0, inparams.min_gain, false,
+                    inparams.splitType, false, true, 128);
     auto allocator = handle->get_device_allocator();
     data = (T*)allocator->allocate(sizeof(T) * inparams.M * inparams.N, stream);
     labels = (L*)allocator->allocate(sizeof(L) * inparams.M, stream);

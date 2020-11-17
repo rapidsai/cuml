@@ -337,9 +337,9 @@ struct Builder {
     nodeSplitKernel<DataT, LabelT, IdxT, typename Traits::DevTraits,
                     Traits::TPB_SPLIT>
       <<<batchSize, Traits::TPB_SPLIT, smemSize, s>>>(
-        params.max_depth, params.min_rows_per_node, params.max_leaves,
-        params.min_impurity_decrease, input, curr_nodes, next_nodes, n_nodes,
-        splits, n_leaves, h_total_nodes, n_depth);
+        params.max_depth, params.min_rows_per_node, params.min_samples_split,
+        params.max_leaves, params.min_impurity_decrease, input, curr_nodes,
+        next_nodes, n_nodes, splits, n_leaves, h_total_nodes, n_depth);
     CUDA_CHECK(cudaGetLastError());
     // copy the updated (due to leaf creation) and newly created child nodes
     raft::update_host(h_n_nodes, n_nodes, 1, s);

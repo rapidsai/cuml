@@ -41,6 +41,7 @@ struct RfInputs {
   int n_bins;
   int split_algo;
   int min_rows_per_node;
+  int min_samples_split;
   float min_impurity_decrease;
   int n_streams;
   CRITERION split_criterion;
@@ -56,9 +57,9 @@ class RFBatchedRegTest : public ::testing::TestWithParam<RfInputs> {
     DecisionTree::DecisionTreeParams tree_params;
     set_tree_params(tree_params, params.max_depth, params.max_leaves,
                     params.max_features, params.n_bins, params.split_algo,
-                    params.min_rows_per_node, params.min_impurity_decrease,
-                    params.bootstrap_features, params.split_criterion, false,
-                    true);
+                    params.min_rows_per_node, params.min_samples_split,
+                    params.min_impurity_decrease, params.bootstrap_features,
+                    params.split_criterion, false, true);
     RF_params rf_params;
     set_all_rf_params(rf_params, params.n_trees, params.bootstrap,
                       params.rows_sample, -1, params.n_streams, tree_params);
@@ -123,19 +124,19 @@ class RFBatchedRegTest : public ::testing::TestWithParam<RfInputs> {
 const std::vector<RfInputs> inputs = {
   // Small datasets to repro corner cases as in #3107 (test for crash)
   {100, 29, 1, 1.0f, 1.0f, 2, -1, false, false, 16, SPLIT_ALGO::GLOBAL_QUANTILE,
-   2, 0.0, 2, CRITERION::MAE, -10.0},
+   2, 2, 0.0, 2, CRITERION::MAE, -10.0},
   {100, 57, 2, 1.0f, 1.0f, 2, -1, false, false, 16, SPLIT_ALGO::GLOBAL_QUANTILE,
-   2, 0.0, 2, CRITERION::MAE, -10.0},
+   2, 2, 0.0, 2, CRITERION::MAE, -10.0},
   {101, 57, 2, 1.0f, 1.0f, 2, -1, false, false, 13, SPLIT_ALGO::GLOBAL_QUANTILE,
-   2, 0.0, 2, CRITERION::MSE, -10.0},
+   2, 2, 0.0, 2, CRITERION::MSE, -10.0},
   {100, 1, 2, 1.0f, 1.0f, 2, -1, false, false, 13, SPLIT_ALGO::GLOBAL_QUANTILE,
-   2, 0.0, 2, CRITERION::MAE, -10.0},
+   2, 2, 0.0, 2, CRITERION::MAE, -10.0},
 
   // Larger datasets for accuracy
   {1000, 10, 10, 1.0f, 1.0f, 12, -1, true, false, 10,
-   SPLIT_ALGO::GLOBAL_QUANTILE, 2, 0.0, 2, CRITERION::MAE, 0.7f},
+   SPLIT_ALGO::GLOBAL_QUANTILE, 2, 2, 0.0, 2, CRITERION::MAE, 0.7f},
   {2000, 20, 20, 1.0f, 0.6f, 13, -1, true, false, 10,
-   SPLIT_ALGO::GLOBAL_QUANTILE, 2, 0.0, 2, CRITERION::MSE, 0.7f}};
+   SPLIT_ALGO::GLOBAL_QUANTILE, 2, 2, 0.0, 2, CRITERION::MSE, 0.7f}};
 
 typedef RFBatchedRegTest<float> RFBatchedRegTestF;
 TEST_P(RFBatchedRegTestF, Fit) { ASSERT_GT(accuracy, params.min_expected_acc); }

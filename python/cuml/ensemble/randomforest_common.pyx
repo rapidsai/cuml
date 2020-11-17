@@ -41,6 +41,7 @@ class BaseRandomForestModel(Base):
     _param_names = ['n_estimators', 'max_depth', 'handle',
                     'max_features', 'n_bins',
                     'split_algo', 'split_criterion', 'min_rows_per_node',
+                    'min_samples_split',
                     'min_impurity_decrease',
                     'bootstrap', 'bootstrap_features',
                     'verbose', 'rows_sample',
@@ -59,6 +60,7 @@ class BaseRandomForestModel(Base):
                  n_bins=8, split_algo=1, bootstrap=True,
                  bootstrap_features=False,
                  verbose=False, min_rows_per_node=2,
+                 min_samples_split=2,
                  rows_sample=1.0, max_leaves=-1,
                  accuracy_metric=None, dtype=None,
                  output_type=None, min_samples_leaf=None,
@@ -131,6 +133,7 @@ class BaseRandomForestModel(Base):
                 BaseRandomForestModel.criterion_dict[str(split_criterion)]
 
         self.min_rows_per_node = min_rows_per_node
+        self.min_samples_split = min_samples_split
         self.min_impurity_decrease = min_impurity_decrease
         self.bootstrap_features = bootstrap_features
         self.rows_sample = rows_sample
@@ -282,7 +285,10 @@ class BaseRandomForestModel(Base):
         max_feature_val = self._get_max_feat_val()
         if type(self.min_rows_per_node) == float:
             self.min_rows_per_node = \
-                math.ceil(self.min_rows_per_node*self.n_rows)
+                math.ceil(self.min_rows_per_node * self.n_rows)
+        if type(self.min_samples_split) == float:
+            self.min_samples_split = \
+                math.ceil(self.min_samples_split * self.n_rows)
         return X_m, y_m, max_feature_val
 
     def _tl_handle_from_bytes(self, treelite_serialized_model):

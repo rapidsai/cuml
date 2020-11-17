@@ -196,6 +196,12 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
         The minimum number of samples (rows) needed to split a node.
         If int then number of sample rows
         If float the min_rows_per_sample*n_rows
+    min_samples_split : int or float (default = 2)
+        The minimum number of samples required to split an internal node.
+        If int, then min_samples_split represents the minimum number.
+        If float, then min_samples_split represents a fraction and
+        ceil(min_samples_split * n_rows) is the minimum number of samples
+        for each split.
     min_impurity_decrease : float (default = 0.0)
         The minimum decrease in impurity required for node to be split
     accuracy_metric : string (default = 'r2')
@@ -438,6 +444,7 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
                                      <int> self.n_bins,
                                      <int> self.split_algo,
                                      <int> self.min_rows_per_node,
+                                     <int> self.min_samples_split,
                                      <float> self.min_impurity_decrease,
                                      <bool> self.bootstrap_features,
                                      <bool> self.bootstrap,

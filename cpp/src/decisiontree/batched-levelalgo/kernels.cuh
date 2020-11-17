@@ -227,7 +227,8 @@ DI void partitionSamples(const Input<DataT, LabelT, IdxT>& input,
 template <typename DataT, typename LabelT, typename IdxT, typename DevTraits,
           int TPB>
 __global__ void nodeSplitKernel(IdxT max_depth, IdxT min_rows_per_node,
-                                IdxT max_leaves, DataT min_impurity_decrease,
+                                IdxT min_samples_split, IdxT max_leaves,
+                                DataT min_impurity_decrease,
                                 Input<DataT, LabelT, IdxT> input,
                                 volatile Node<DataT, LabelT, IdxT>* curr_nodes,
                                 volatile Node<DataT, LabelT, IdxT>* next_nodes,
@@ -240,9 +241,10 @@ __global__ void nodeSplitKernel(IdxT max_depth, IdxT min_rows_per_node,
   auto range_start = node->start, range_len = node->count;
   auto isLeaf = leafBasedOnParams<DataT, IdxT>(
     node->depth, max_depth, min_rows_per_node, max_leaves, n_leaves, range_len);
-  if (isLeaf || splits[nid].best_metric_val <= min_impurity_decrease
-      || splits[nid].nLeft < min_rows_per_node
-      || (range_len - splits[nid].nLeft) < min_rows_per_node) {
+  auto split = splits[nid];
+  if (isLeaf || split.best_metric_val <= min_impurity_decrease ||
+      split.nLeft < min_samples_split ||
+      (range_len - split.nLeft) < min_samples_split) {
     DevTraits::computePrediction(range_start, range_len, input, node, n_leaves,
                                  smem);
     return;
