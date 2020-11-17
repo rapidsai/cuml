@@ -463,8 +463,9 @@ void check_params(const forest_params_t* params, bool dense) {
     ASSERT(false,
            "output should be a combination of RAW, AVG, SIGMOID and CLASS");
   }
-  ASSERT((params->output & output_t::SIGMOID_SOFTMAX) != output_t::SIGMOID_SOFTMAX,
-         "not supporting softmax and sigmoid transformations together");
+  ASSERT(
+    (params->output & output_t::SIGMOID_SOFTMAX) != output_t::SIGMOID_SOFTMAX,
+    "not supporting softmax and sigmoid transformations together");
 }
 
 int tree_root(const tl::Tree& tree) {

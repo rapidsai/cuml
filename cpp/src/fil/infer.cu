@@ -14,8 +14,15 @@
  * limitations under the License.
  */
 
+#include <thrust/copy.h>
+#include <thrust/for_each.h>
+#include <thrust/iterator/counting_iterator.h>
+#include <thrust/iterator/iterator_adaptor.h>
+#include <thrust/iterator/transform_iterator.h>
+#include <thrust/reduce.h>
 #include <algorithm>
 #include <cmath>
+
 #include "common.cuh"
 
 namespace ML {
@@ -245,74 +252,88 @@ __device__ __forceinline__ void write_best_class_in_block(
   }
 }
 
-template<typename T>
-struct BlockStridedIt: thrust::forward_device_iterator_tag {
-  //BlockStridedItArray& a;
-  //BlockStridedIt(BlockStridedItArray& a_, int size): a(a_) {}
-  T* p;
-  
-  BlockStridedIt(T* p_): p(p) { }
-  typedef BlockStridedIt iterator;
-  
-  __device__ iterator& operator++ () { p += blockDim.x; return *this; }
-  __device__ iterator operator++ (int) {
-    iterator tmp = *this; ++*this; return tmp; }
-  __device__ iterator operator+= (int d) { p += d * blockDim.x; return *this; }
-  __device__ iterator operator+ (iterator it, int d) {
-    iterator res = it; res += d; return res;
+template <typename T>
+class StridedIt : public
+#define base                                                     \
+  thrust::iterator_adaptor<StridedIt<T>, T, thrust::use_default, \
+                           thrust::forward_device_iterator_tag>
+                  base {
+ public:
+  typedef base super_t;
+#undef base
+
+  explicit __device__ StridedIt(T p_, int stride_ = blockDim.x)
+    : super_t(p_), begin(p_), stride(stride_) {}
+  friend class thrust::iterator_core_access;
+  typedef typename super_t::value_type value_type;
+
+ private:
+  const T begin;
+  int stride;
+  __device__ typename super_t::reference dereference() const {
+    return *(begin + (this->base() - begin) * stride);
   }
-  __device__ T& operator*() const { return *p; }
 };
 
-template<typename T>
-struct BlockStridedItArray {
-  friend class BlockStridedIt<T>;
+template <typename T>
+struct StridedItArray {
   T* v;
   int size;
-  BlockStridedItArray(T* v_, int size_): v(v_), size(size_) {}
+  StridedItArray(T* v_, int size_) : v(v_), size(size_) {}
 
-  typedef BlockStridedIt<T> iterator;
-  typedef ptrdiff_t difference_type;
-  typedef size_t size_type;
-  typedef T value_type;
-  typedef T * pointer;
-  typedef T & reference;
+  typedef StridedIt<T*> iterator;
   __device__ iterator begin() { return iterator(v + threadIdx.x); }
   __device__ iterator end() { return iterator(v + size); }
+
+  __device__ auto row_begin(int row) {
+    return thrust::make_transform_iterator(begin(),
+                                           [row](T v) { return v[row]; });
+  }
+  __device__ auto row_end(int row) {
+    return thrust::make_transform_iterator(end(),
+                                           [row](T v) { return v[row]; });
+  }
 };
 
 template <typename BinaryOp, typename ItA>
-__device__ __forceinline__ ItA::value_type allreduce_shmem(ItA values, void* tmp_storage) {
-  ItA::value_type partial = thrust::reduce(
-    thrust::seq, values.begin(), values.end(),
-    ItA::value_type(), Vectorized<BinaryOp>());
+__device__ __forceinline__ typename ItA::value_type allreduce_shmem(
+  ItA begin, ItA end, void* tmp_storage) {
+  typedef typename ItA::value_type value_type;
+  value_type partial = thrust::reduce(thrust::seq, begin, end, value_type(),
+                                      Vectorized<BinaryOp>());
 
   return block_allreduce<BinaryOp>(partial, blockDim.x, tmp_storage);
 }
 
-template<typename ItA>
-__device__ __forceinline__ void block_softmax(ItA per_class_value, void* tmp_storage) {
+template <typename ItA>
+__device__ __forceinline__ void block_softmax(ItA per_class_a,
+                                              void* tmp_storage) {
   // subtract max before exponentiating for numerical stability
-  ItA::value_type max =
-    allreduce_shmem<cub::Max>(per_class_value, tmp_storage);
-  auto exp = thrust::make_transform_iterator(per_class_value.begin(),
-    [max](ItA::value_type v){ return vectorized<shifted_exp>(v, max); });
+  typedef typename ItA::iterator::value_type value_type;
+  typedef typename ItA::iterator::reference reference;
+  value_type max = allreduce_shmem<cub::Max>(per_class_a.begin(),
+                                             per_class_a.end(), tmp_storage);
+  auto exp_begin = thrust::make_transform_iterator(
+    per_class_a.begin(),
+    [max](value_type v) { return vectorized<shifted_exp>(v, max); });
+  auto exp_end = thrust::make_transform_iterator(
+    per_class_a.end(),
+    [max](value_type v) { return vectorized<shifted_exp>(v, max); });
   // sum of exponents
-  ItA::value_type soe = allreduce_shmem<cub::Sum>(exp, tmp_storage);
+  value_type soe = allreduce_shmem<cub::Sum>(exp_begin, exp_end, tmp_storage);
   // softmax phase 2: normalization
-  thrust::for_each(per_class_value.begin(), per_class_value.end(),
-    [soe](ItA::reference v){ v /= soe; });
+  thrust::for_each(per_class_a.begin(), per_class_a.end(),
+                   [soe](reference v) { v /= soe; });
 }
 
 template <int NITEMS>
-__device__ __forceinline__ void write_softmax(
-  vec<NITEMS, float>* per_class_value, output_t transform, void* tmp_storage, int num_classes,
-  float* out, int num_rows) {
-
-  BlockStridedItArray per_class_a(per_class_value, num_classes);
+__device__ __forceinline__ void normalize_softmax_and_write(
+  vec<NITEMS, float>* per_class_value, output_t transform, int num_trees,
+  void* tmp_storage, int num_classes, float* out, int num_rows) {
+  StridedItArray<vec<NITEMS, float>> per_class_a(per_class_value, num_classes);
   if ((transform & output_t::AVG) != 0) {
     thrust::for_each(per_class_a.begin(), per_class_a.end(),
-      [num_trees](vec<NITEMS, float>& v){ v /= num_trees; });
+                     [num_trees](vec<NITEMS, float>& v) { v /= num_trees; });
   }
   if ((transform & output_t::SOFTMAX) != 0)
     block_softmax(per_class_a, tmp_storage);
@@ -320,14 +341,11 @@ __device__ __forceinline__ void write_softmax(
   for (int i = 0; i < NITEMS; ++i) {
     int row = blockIdx.x * NITEMS + i;
     if (row >= num_rows) return;
-    BlockStridedItArray out_a(out + num_classes * row, num_classes);
-    auto unvectorized = thrust::make_transform_iterator(
-      per_class_a.begin(),
-      [](vec<NITEMS, float> v){ return v[i]; });
-    thrust::copy(unvectorized.begin(), unvectorized.end(), out_a.begin());
+    StridedItArray<float> out_a(out + num_classes * row, num_classes);
+    thrust::copy(per_class_a.row_begin(i), per_class_a.row_end(i),
+                 out_a.begin());
   }
 }
-
 
 template <int NITEMS>
 struct tree_aggregator_t<NITEMS, GROVE_PER_CLASS_FEW_CLASSES> {
@@ -379,8 +397,9 @@ struct tree_aggregator_t<NITEMS, GROVE_PER_CLASS_FEW_CLASSES> {
       write_best_class_in_block(to_vec(c, acc), tmp_storage, num_classes, out,
                                 num_rows);
     } else {  // output softmax-ed margin
-      if(threadIdx.x < num_classes) per_thread[threadIdx.x] = acc;
-      write_softmax(per_thread, transform, tmp_storage, num_classes, out, num_rows);
+      if (threadIdx.x < num_classes) per_thread[threadIdx.x] = acc;
+      normalize_softmax_and_write(per_thread, transform, num_trees, tmp_storage,
+                                  num_classes, out, num_rows);
     }
   }
 };
@@ -439,7 +458,8 @@ struct tree_aggregator_t<NITEMS, GROVE_PER_CLASS_MANY_CLASSES> {
       __syncthreads();  // free up per_class_value[]
       write_best_class_in_block(best, tmp_storage, blockDim.x, out, num_rows);
     } else {  // will output softmax-ed margins
-      write_softmax(per_class_value, transform, tmp_storage, num_classes, out, num_rows);
+      normalize_softmax_and_write(per_class_value, transform, num_trees,
+                                  tmp_storage, num_classes, out, num_rows);
     }
   }
 };
