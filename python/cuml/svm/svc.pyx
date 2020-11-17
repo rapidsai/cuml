@@ -216,7 +216,9 @@ class SVC(SVMBase, ClassifierMixin):
         hyperplane.
         coef_ = sum_k=1..n_support dual_coef_[k] * support_vectors[k,:]
     classes_: shape (n_classes_,)
-        Array of class labels.
+        Array of class labels
+    n_classes_ : int
+        Number of classes
 
     Notes
     -----
@@ -263,7 +265,7 @@ class SVC(SVMBase, ClassifierMixin):
     def classes_(self):
         if self.probability:
             return self.prob_svc.classes_
-        elif self._n_classes_ > 2:
+        elif self.n_classes_ > 2:
             return self._classes_
         else:
             return self._unique_labels_
@@ -271,7 +273,7 @@ class SVC(SVMBase, ClassifierMixin):
     @property
     @cuml.internals.api_base_return_array_skipall
     def intercept_(self):
-        if self._n_classes_ > 2:
+        if self.n_classes_ > 2:
             return cp.concatenate(
                 [cp.asarray(cls._intercept_)
                     for cls in self.multiclass_svc.estimators_])
@@ -344,7 +346,7 @@ class SVC(SVMBase, ClassifierMixin):
         """
         y_m, _, _, _ = input_to_cuml_array(y, check_cols=1)
         self._classes_ = cp.unique(cp.asarray(y_m))
-        self._n_classes_ = len(self._classes_)
+        self.n_classes_ = len(self._classes_)
 
     @cuml.internals.api_base_return_any_skipall
     def _fit_multiclass(self, X, y, sample_weight) -> "SVC":
@@ -400,7 +402,7 @@ class SVC(SVMBase, ClassifierMixin):
             return self._fit_proba(X, y, sample_weight)
 
         self._find_classes(y)
-        if self._n_classes_ > 2:
+        if self.n_classes_ > 2:
             return self._fit_multiclass(X, y, sample_weight)
 
         # Fit binary classifier
@@ -477,7 +479,7 @@ class SVC(SVMBase, ClassifierMixin):
                 preds = self.prob_svc.predict(X)
                 # prob_svc has numpy output type, change it if it is necessary:
                 return preds
-        elif self._n_classes_ > 2:
+        elif self.n_classes_ > 2:
             self._check_is_fitted('multiclass_svc')
             return self.multiclass_svc.predict(X)
         else:
@@ -561,7 +563,7 @@ class SVC(SVMBase, ClassifierMixin):
                     df = df + clf.base_estimator.decision_function(X)
             df = df / len(self.prob_svc.calibrated_classifiers_)
             return df
-        elif self._n_classes_ > 2:
+        elif self.n_classes_ > 2:
             self._check_is_fitted('multiclass_svc')
             return self.multiclass_svc.decision_function(X)
         else:
