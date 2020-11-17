@@ -729,10 +729,10 @@ class ForestInference(Base):
             A Forest Inference model which can be used to perform
             inferencing on the random forest model.
         """
-        return self._impl.load_using_treelite_handle(model_handle,
-                                                     output_class,
-                                                     algo, threshold,
-                                                     str(storage_type),
-                                                     0)
+        self._impl.load_using_treelite_handle(model_handle,
+                                              output_class,
+                                              algo, threshold,
+                                              str(storage_type),
+                                              0)
         # DO NOT RETURN self._impl here!!
         return self
