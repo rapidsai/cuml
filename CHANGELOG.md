@@ -32,6 +32,7 @@
 - PR #3134: Improving the Deprecation Message Formatting in Documentation
 
 ## Bug Fixes
+- PR #3069: Prevent conversion of DataFrames to Series in preprocessing
 - PR #3065: Refactoring prims metrics function names from camelcase to underscore format
 - PR #3033: Splitting ml metrics to individual files
 - PR #3072: Fusing metrics and score directories in src_prims
@@ -110,6 +111,7 @@
 - PR #2928: Updating Estimators Derived from Base for Consistency
 - PR #2942: Adding `cuml.experimental` to the Docs
 - PR #3010: Improve gpuCI Scripts
+- PR #3141: Move DistanceType enum to RAFT
 
 ## Bug Fixes
 - PR #2973: Allow data imputation for nan values
