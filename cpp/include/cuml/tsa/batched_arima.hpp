@@ -24,6 +24,30 @@ namespace ML {
 enum LoglikeMethod { CSS, MLE };
 
 /**
+ * Pack separate parameter arrays into a compact array
+ * 
+ * @param[in]  handle     cuML handle
+ * @param[in]  params     Parameter structure
+ * @param[in]  order      ARIMA order
+ * @param[in]  batch_size Batch size
+ * @param[out] param_vec  Compact parameter array
+ */
+void pack(raft::handle_t& handle, const ARIMAParams<double>& params,
+          const ARIMAOrder& order, int batch_size, double* param_vec);
+
+/**
+ * Unpack a compact array into separate parameter arrays
+ * 
+ * @param[in]  handle     cuML handle
+ * @param[out] params     Parameter structure
+ * @param[in]  order      ARIMA order
+ * @param[in]  batch_size Batch size
+ * @param[in]  param_vec  Compact parameter array
+ */
+void unpack(raft::handle_t& handle, ARIMAParams<double>& params,
+            const ARIMAOrder& order, int batch_size, const double* param_vec);
+
+/**
  * Compute the differenced series (seasonal and/or non-seasonal differences)
  * 
  * @param[in]  handle     cuML handle

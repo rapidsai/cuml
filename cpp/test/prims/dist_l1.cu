@@ -22,8 +22,8 @@ namespace Distance {
 
 template <typename DataType>
 class DistanceUnexpL1
-  : public DistanceTest<ML::Distance::DistanceType::EucUnexpandedL1, DataType> {
-};
+  : public DistanceTest<raft::distance::DistanceType::EucUnexpandedL1,
+                        DataType> {};
 
 const std::vector<DistanceInputs<float>> inputsf = {
   {0.001f, 1024, 1024, 32, true, 1234ULL},

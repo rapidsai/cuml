@@ -14,10 +14,14 @@
 # limitations under the License.
 #
 
+import typing
 import cupy as cp
 import math
+from cuml.common.input_utils import input_to_cupy_array
 
-from cuml.common.memory_utils import rmm_cupy_ary
+import cuml.internals
+from cuml.common.array import CumlArray
+
 from cuml.common.kernel_utils import cuda_kernel_factory
 
 
@@ -109,8 +113,11 @@ def _validate_kernel(dtype):
                                "validate_labels_kernel")
 
 
-def make_monotonic(labels, classes=None, copy=False):
-
+@cuml.internals.api_return_generic(input_arg="labels",
+                                   get_output_type=True)
+def make_monotonic(labels,
+                   classes=None,
+                   copy=False) -> typing.Tuple[CumlArray, CumlArray]:
     """
     Takes a set of labels that might not be drawn from the
     set [0, n-1] and renumbers them to be drawn that
@@ -133,17 +140,15 @@ def make_monotonic(labels, classes=None, copy=False):
     mapped_labels : array-like of size (n,)
     classes : array-like of size (n_classes,)
     """
-
-    labels = rmm_cupy_ary(cp.asarray, labels, dtype=labels.dtype)
-
-    if copy:
-        labels = labels.copy()
+    labels = input_to_cupy_array(labels, deepcopy=copy).array
 
     if labels.ndim != 1:
         raise ValueError("Labels array must be 1D")
 
     if classes is None:
-        classes = rmm_cupy_ary(cp.unique, labels)
+        classes = cp.unique(labels)
+    else:
+        classes = input_to_cupy_array(classes).array
 
     smem = labels.dtype.itemsize * int(classes.shape[0])
 
@@ -158,7 +163,8 @@ def make_monotonic(labels, classes=None, copy=False):
     return labels, classes
 
 
-def check_labels(labels, classes):
+@cuml.internals.api_return_any()
+def check_labels(labels, classes) -> bool:
     """
     Validates that a set of labels is drawn from the unique
     set of given classes.
@@ -176,12 +182,12 @@ def check_labels(labels, classes):
     result : boolean
     """
 
+    labels = input_to_cupy_array(labels, order="K").array
+    classes = input_to_cupy_array(classes, order="K").array
+
     if labels.dtype != classes.dtype:
         raise ValueError("Labels and classes must have same dtype (%s != %s" %
                          (labels.dtype, classes.dtype))
-
-    labels = rmm_cupy_ary(cp.asarray, labels, dtype=labels.dtype)
-    classes = rmm_cupy_ary(cp.asarray, classes, dtype=classes.dtype)
 
     if labels.ndim != 1:
         raise ValueError("Labels array must be 1D")
@@ -198,7 +204,9 @@ def check_labels(labels, classes):
     return valid[0] == 1
 
 
-def invert_labels(labels, classes, copy=False):
+@cuml.internals.api_return_array(input_arg="labels",
+                                 get_output_type=True)
+def invert_labels(labels, classes, copy=False) -> CumlArray:
     """
     Takes a set of labels that have been mapped to be drawn
     from a monotonically increasing set and inverts them to
@@ -221,16 +229,12 @@ def invert_labels(labels, classes, copy=False):
     inverted labels : array-like of size (n,)
 
     """
+    labels = input_to_cupy_array(labels, deepcopy=copy).array
+    classes = input_to_cupy_array(classes).array
 
     if labels.dtype != classes.dtype:
         raise ValueError("Labels and classes must have same dtype (%s != %s" %
                          (labels.dtype, classes.dtype))
-    labels = rmm_cupy_ary(cp.asarray, labels, dtype=labels.dtype)
-    classes = rmm_cupy_ary(cp.asarray, classes, dtype=classes.dtype)
-
-    if copy:
-        labels = labels.copy()
-
     smem = labels.dtype.itemsize * len(classes)
     inverse_map = _inverse_map_kernel(labels.dtype)
     inverse_map((math.ceil(len(labels) / 32),), (32,),

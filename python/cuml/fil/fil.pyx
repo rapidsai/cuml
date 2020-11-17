@@ -30,6 +30,7 @@ from libcpp cimport bool
 from libc.stdint cimport uintptr_t
 from libc.stdlib cimport calloc, malloc, free
 
+import cuml.internals
 from cuml.common.array import CumlArray
 from cuml.common.base import Base
 from cuml.raft.common.handle cimport handle_t
@@ -195,7 +196,7 @@ cdef extern from "cuml/fil/fil.h" namespace "ML::fil":
 
 cdef class ForestInference_impl():
 
-    cpdef object handle
+    cdef object handle
     cdef forest_t forest_data
     cdef size_t num_output_groups
     cdef bool output_class
@@ -237,7 +238,7 @@ cdef class ForestInference_impl():
             logger.info('storage_type=="sparse8" is an experimental feature')
         return storage_type_dict[storage_type_str]
 
-    def predict(self, X, output_type='numpy',
+    def predict(self, X,
                 output_dtype=None, predict_proba=False, preds=None):
         """
         Returns the results of forest inference on the examples in X
@@ -246,10 +247,6 @@ cdef class ForestInference_impl():
         ----------
         X : float32 array-like (device or host) shape = (n_samples, n_features)
             For optimal performance, pass a device array with C-style layout
-        output_type : string (default = 'numpy')
-            possible options are : {'input', 'cudf', 'cupy', 'numpy'}, optional
-            Variable to control output type of the results and attributes of
-            the estimators.
         preds : float32 device array, shape = n_samples
         predict_proba : bool, whether to output class probabilities(vs classes)
             Supported only for binary classification. output format
@@ -261,6 +258,10 @@ cdef class ForestInference_impl():
         Predicted results of type as defined by the output_type variable
 
         """
+
+        # Set the output_dtype. None is fine here
+        cuml.internals.set_api_output_dtype(output_dtype)
+
         if (not self.output_class) and predict_proba:
             raise NotImplementedError("Predict_proba function is not available"
                                       " for Regression models. If you are "
@@ -304,11 +305,9 @@ cdef class ForestInference_impl():
         # special case due to predict and predict_proba
         # both coming from the same CUDA/C++ function
         if predict_proba:
-            output_dtype = None
-        return preds.to_output(
-            output_type=output_type,
-            output_dtype=output_dtype
-        )
+            cuml.internals.set_api_output_dtype(None)
+
+        return preds
 
     def load_from_treelite_model_handle(self,
                                         uintptr_t model_handle,
@@ -376,11 +375,10 @@ cdef class ForestInference_impl():
         return self
 
     def __dealloc__(self):
-        cdef handle_t* handle_ =\
-            <handle_t*><size_t>self.handle.getHandle()
+        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+
         if self.forest_data !=NULL:
-            free(handle_[0],
-                 self.forest_data)
+            free(handle_[0], self.forest_data)
 
 
 class ForestInference(Base):
@@ -474,7 +472,7 @@ class ForestInference(Base):
                                               verbose=verbose)
         self._impl = ForestInference_impl(self.handle)
 
-    def predict(self, X, preds=None):
+    def predict(self, X, preds=None) -> CumlArray:
         """
         Predicts the labels for X with the loaded forest model.
         By default, the result is the raw floating point output
@@ -498,10 +496,9 @@ class ForestInference(Base):
         GPU array of length n_samples with inference results
         (or 'preds' filled with inference results if preds was specified)
         """
-        out_type = self._get_output_type(X)
-        return self._impl.predict(X, out_type, predict_proba=False, preds=None)
+        return self._impl.predict(X, predict_proba=False, preds=None)
 
-    def predict_proba(self, X, preds=None):
+    def predict_proba(self, X, preds=None) -> CumlArray:
         """
         Predicts the class probabilities for X with the loaded forest model.
         The result is the raw floating point output
@@ -523,9 +520,7 @@ class ForestInference(Base):
         GPU array of shape (n_samples,2) with inference results
         (or 'preds' filled with inference results if preds was specified)
         """
-        out_type = self._get_output_type(X)
-
-        return self._impl.predict(X, out_type, predict_proba=True, preds=None)
+        return self._impl.predict(X, predict_proba=True, preds=None)
 
     def load_from_treelite_model(self, model, output_class=False,
                                  algo='auto',
@@ -726,7 +721,10 @@ class ForestInference(Base):
             A Forest Inference model which can be used to perform
             inferencing on the random forest model.
         """
-        return self._impl.load_using_treelite_handle(model_handle,
-                                                     output_class,
-                                                     algo, threshold,
-                                                     str(storage_type))
+        self._impl.load_using_treelite_handle(model_handle,
+                                              output_class,
+                                              algo, threshold,
+                                              str(storage_type))
+
+        # DO NOT RETURN self._impl here!!
+        return self

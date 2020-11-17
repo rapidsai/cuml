@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 /**
-* @file adjustedRandIndex.cuh
+* @file adjusted_rand_index.cuh
 * @brief The adjusted Rand index is the corrected-for-chance version of the Rand index.
-* Such a correction for chance establishes a baseline by using the expected similarity 
+* Such a correction for chance establishes a baseline by using the expected similarity
 * of all pair-wise comparisons between clusterings specified by a random model.
 */
 
@@ -39,7 +39,7 @@ namespace Metrics {
 /**
  * @brief Lambda to calculate the number of unordered pairs in a given input
  *
- * @tparam Type: Data type of the input 
+ * @tparam Type: Data type of the input
  * @param in: the input to the functional mapping
  * @param i: the indexing(not used in this case)
  */
@@ -114,10 +114,10 @@ int countUnique(const T* arr, int size, T& minLabel, T& maxLabel,
 * @param stream: the cudaStream object
 */
 template <typename T, typename MathT = int>
-double computeAdjustedRandIndex(const T* firstClusterArray,
-                                const T* secondClusterArray, int size,
-                                std::shared_ptr<deviceAllocator> allocator,
-                                cudaStream_t stream) {
+double compute_adjusted_rand_index(const T* firstClusterArray,
+                                   const T* secondClusterArray, int size,
+                                   std::shared_ptr<deviceAllocator> allocator,
+                                   cudaStream_t stream) {
   ASSERT(size >= 2, "Rand Index for size less than 2 not defined!");
   T minFirst, maxFirst, minSecond, maxSecond;
   auto nUniqFirst =

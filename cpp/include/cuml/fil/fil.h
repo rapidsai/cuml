@@ -71,6 +71,9 @@ enum output_t {
   /** output class label: either apply threshold to the output of the previous stage (for binary classification),
       or select the class with the most votes to get the class label (for multi-class classification).  */
   CLASS = 0x100,
+  SIGMOID_CLASS = SIGMOID | CLASS,
+  AVG_CLASS = AVG | CLASS,
+  AVG_SIGMOID_CLASS = AVG | SIGMOID | CLASS,
 };
 
 /** storage_type_t defines whether to import the forests as dense or sparse */

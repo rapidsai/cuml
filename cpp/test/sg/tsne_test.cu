@@ -75,7 +75,7 @@ class TSNETest : public ::testing::Test {
     // Test trustworthiness
     score_bh =
       trustworthiness_score<float,
-                            ML::Distance::DistanceType::EucUnexpandedL2Sqrt>(
+                            raft::distance::DistanceType::EucUnexpandedL2Sqrt>(
         X_d.data(), Y_d.data(), n, p, 2, 5, handle.get_device_allocator(),
         handle.get_stream());
 
@@ -103,7 +103,7 @@ class TSNETest : public ::testing::Test {
     // Test trustworthiness
     score_exact =
       trustworthiness_score<float,
-                            ML::Distance::DistanceType::EucUnexpandedL2Sqrt>(
+                            raft::distance::DistanceType::EucUnexpandedL2Sqrt>(
         X_d.data(), Y_d.data(), n, p, 2, 5, handle.get_device_allocator(),
         handle.get_stream());
 

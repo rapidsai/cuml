@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 /**
-* @file mutualInfoScore.cuh
+* @file mutual_info_score.cuh
 * @brief The Mutual Information is a measure of the similarity between two labels of
 *   the same data.This metric is independent of the absolute values of the labels:
 *   a permutation of the class or cluster label values won't change the
@@ -47,9 +47,9 @@ namespace Metrics {
  * @param d_MI: pointer to the device memory that stores the aggreggate mutual information
  */
 template <typename T, int BLOCK_DIM_X, int BLOCK_DIM_Y>
-__global__ void mutualInfoKernel(const int *dContingencyMatrix, const int *a,
-                                 const int *b, int numUniqueClasses, int size,
-                                 double *d_MI) {
+__global__ void mutual_info_kernel(const int *dContingencyMatrix, const int *a,
+                                   const int *b, int numUniqueClasses, int size,
+                                   double *d_MI) {
   //calculating the indices of pairs of datapoints compared by the current thread
   int j = threadIdx.x + blockIdx.x * blockDim.x;
   int i = threadIdx.y + blockIdx.y * blockDim.y;
@@ -85,7 +85,7 @@ __global__ void mutualInfoKernel(const int *dContingencyMatrix, const int *a,
 
 /**
 * @brief Function to calculate the mutual information between two clusters
-* <a href="https://en.wikipedia.org/wiki/Mutual_information">more info on mutual information</a> 
+* <a href="https://en.wikipedia.org/wiki/Mutual_information">more info on mutual information</a>
 * @param firstClusterArray: the array of classes of type T
 * @param secondClusterArray: the array of classes of type T
 * @param size: the size of the data points of type int
@@ -95,10 +95,11 @@ __global__ void mutualInfoKernel(const int *dContingencyMatrix, const int *a,
 * @param stream: the cudaStream object
 */
 template <typename T>
-double mutualInfoScore(const T *firstClusterArray, const T *secondClusterArray,
-                       int size, T lowerLabelRange, T upperLabelRange,
-                       std::shared_ptr<MLCommon::deviceAllocator> allocator,
-                       cudaStream_t stream) {
+double mutual_info_score(const T *firstClusterArray,
+                         const T *secondClusterArray, int size,
+                         T lowerLabelRange, T upperLabelRange,
+                         std::shared_ptr<MLCommon::deviceAllocator> allocator,
+                         cudaStream_t stream) {
   int numUniqueClasses = upperLabelRange - lowerLabelRange + 1;
 
   //declaring, allocating and initializing memory for the contingency marix
@@ -152,7 +153,7 @@ double mutualInfoScore(const T *firstClusterArray, const T *secondClusterArray,
                  raft::ceildiv<int>(numUniqueClasses, numThreadsPerBlock.y));
 
   //calling the kernel
-  mutualInfoKernel<T, BLOCK_DIM_X, BLOCK_DIM_Y>
+  mutual_info_kernel<T, BLOCK_DIM_X, BLOCK_DIM_Y>
     <<<numBlocks, numThreadsPerBlock, 0, stream>>>(
       dContingencyMatrix.data(), a.data(), b.data(), numUniqueClasses, size,
       d_MI.data());
