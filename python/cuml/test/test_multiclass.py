@@ -41,7 +41,7 @@ def test_logistic_regression(strategy, use_wrapper, nrows, num_classes,
     if use_wrapper:
         cls = cu_multiclass.MulticlassClassifier(culog, strategy=strategy)
     else:
-        if (strategy =='ovo'):
+        if (strategy == 'ovo'):
             cls = cu_multiclass.OneVsOneClassifier(culog)
         else:
             cls = cu_multiclass.OneVsRestClassifier(culog)

@@ -69,7 +69,7 @@ class MulticlassClassifier(Base, ClassifierMixin):
             preds = self.multiclass_estimator.predict(X)
         return preds
 
-    def decision_function(self, X)-> CumlArray:
+    def decision_function(self, X) -> CumlArray:
         X, _, _, _, _ = input_to_host_array(X)
         with cuml.internals.exit_internal_api():
             df = self.multiclass_estimator.decision_function(X)
