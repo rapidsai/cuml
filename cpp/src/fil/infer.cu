@@ -262,7 +262,7 @@ class StridedIt : public
   typedef base super_t;
 #undef base
 
-  explicit __device__ StridedIt(T p_, int stride_ = blockDim.x)
+  explicit __device__ StridedIt(T p_, int stride_)
     : super_t(p_), begin(p_), stride(stride_) {}
   friend class thrust::iterator_core_access;
   typedef typename super_t::value_type value_type;
@@ -282,8 +282,8 @@ struct StridedItArray {
   StridedItArray(T* v_, int size_) : v(v_), size(size_) {}
 
   typedef StridedIt<T*> iterator;
-  __device__ iterator begin() { return iterator(v + threadIdx.x); }
-  __device__ iterator end() { return iterator(v + size); }
+  __device__ iterator begin() { return iterator(v + threadIdx.x, blockDim.x); }
+  __device__ iterator end() { return iterator(v + size, blockDim.x); }
 
   __device__ auto row_begin(int row) {
     return thrust::make_transform_iterator(begin(),
@@ -292,6 +292,19 @@ struct StridedItArray {
   __device__ auto row_end(int row) {
     return thrust::make_transform_iterator(end(),
                                            [row](T v) { return v[row]; });
+  }
+};
+
+template<typename Base, typename Lambda>
+struct TransformedArrayView : Base {
+  Lambda lambda;
+  TransformedArrayView(Base arr_, Lambda lambda_):
+    Base(arr_), lambda(lambda_) {}
+  __device__ auto begin() {
+    return thrust::make_transform_iterator(Base::begin(), lambda); 
+  }
+  __device__ auto end() {
+    return thrust::make_transform_iterator(Base::end(), lambda); 
   }
 };
 
@@ -313,14 +326,10 @@ __device__ __forceinline__ void block_softmax(ItA per_class_a,
   typedef typename ItA::iterator::reference reference;
   value_type max = allreduce_shmem<cub::Max>(per_class_a.begin(),
                                              per_class_a.end(), tmp_storage);
-  auto exp_begin = thrust::make_transform_iterator(
-    per_class_a.begin(),
-    [max](value_type v) { return vectorized<shifted_exp>(v, max); });
-  auto exp_end = thrust::make_transform_iterator(
-    per_class_a.end(),
-    [max](value_type v) { return vectorized<shifted_exp>(v, max); });
+  auto vse = [max](value_type v) { return vectorized<shifted_exp>(v, max); };
+  TransformedArrayView<ItA, typeid(vse)> exp(per_class_a, vse);
   // sum of exponents
-  value_type soe = allreduce_shmem<cub::Sum>(exp_begin, exp_end, tmp_storage);
+  value_type soe = allreduce_shmem<cub::Sum>(exp.begin(), exp.end(), tmp_storage);
   // softmax phase 2: normalization
   thrust::for_each(per_class_a.begin(), per_class_a.end(),
                    [soe](reference v) { v /= soe; });
@@ -330,6 +339,7 @@ template <int NITEMS>
 __device__ __forceinline__ void normalize_softmax_and_write(
   vec<NITEMS, float>* per_class_value, output_t transform, int num_trees,
   void* tmp_storage, int num_classes, float* out, int num_rows) {
+
   StridedItArray<vec<NITEMS, float>> per_class_a(per_class_value, num_classes);
   if ((transform & output_t::AVG) != 0) {
     thrust::for_each(per_class_a.begin(), per_class_a.end(),
