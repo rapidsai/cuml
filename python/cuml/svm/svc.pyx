@@ -42,7 +42,7 @@ from cuml.svm.svm_base import SVMBase
 from cuml.common.import_utils import has_sklearn
 
 if has_sklearn():
-    from cuml.multiclass import OneVsRestClassifier, OneVsOneClassifier
+    from cuml.multiclass import MulticlassClassifier
     from sklearn.calibration import CalibratedClassifierCV
 
 cdef extern from "cuml/matrix/kernelparams.h" namespace "MLCommon::Matrix":
@@ -242,8 +242,6 @@ class SVC(SVMBase, ClassifierMixin):
 
     """
 
-    _classes_ = CumlArrayDescriptor()
-
     def __init__(self, handle=None, C=1, kernel='rbf', degree=3,
                  gamma='scale', coef0=0.0, tol=1e-3, cache_size=200.0,
                  max_iter=-1, nochange_steps=1000, verbose=False,
@@ -266,7 +264,7 @@ class SVC(SVMBase, ClassifierMixin):
         if self.probability:
             return self.prob_svc.classes_
         elif self.n_classes_ > 2:
-            return self._classes_
+            return self.multiclass_svc.classes_
         else:
             return self._unique_labels_
 
@@ -274,9 +272,9 @@ class SVC(SVMBase, ClassifierMixin):
     @cuml.internals.api_base_return_array_skipall
     def intercept_(self):
         if self.n_classes_ > 2:
+            estimators = self.multiclass_svc.multiclass_estimator.estimators_
             return cp.concatenate(
-                [cp.asarray(cls._intercept_)
-                    for cls in self.multiclass_svc.estimators_])
+                [cp.asarray(cls._intercept_) for cls in estimators])
         else:
             return super(SVC, self)._intercept_
 
@@ -340,13 +338,12 @@ class SVC(SVMBase, ClassifierMixin):
 
         return sample_weight
 
-    def _find_classes(self, y):
+    def _get_num_classes(self, y):
         """
-        Determine the unique classes in y.
+        Determine the number of unique classes in y.
         """
         y_m, _, _, _ = input_to_cuml_array(y, check_cols=1)
-        self._classes_ = cp.unique(cp.asarray(y_m))
-        self.n_classes_ = len(self._classes_)
+        return len(cp.unique(cp.asarray(y_m)))
 
     @cuml.internals.api_base_return_any_skipall
     def _fit_multiclass(self, X, y, sample_weight) -> "SVC":
@@ -355,11 +352,13 @@ class SVC(SVMBase, ClassifierMixin):
                  "classification")
         if not has_sklearn():
             raise RuntimeError("Scikit-learn is needed to fit multiclass SVM")
+
         params = self.get_params()
-        if params.pop('multiclass_strategy', 'ovo') == 'ovo':
-            self.multiclass_svc = OneVsOneClassifier(SVC(**params))
-        else:
-            self.multiclass_svc = OneVsRestClassifier(SVC(**params))
+        strategy = params.pop('multiclass_strategy', 'ovo')
+
+        self.multiclass_svc = MulticlassClassifier(
+            estimator=SVC(**params), handle=self.handle, verbose=self.verbose,
+            output_type=self.output_type, strategy=strategy)
         self.multiclass_svc.fit(X, y)
         self._fit_status_ = 0
         return self
@@ -398,7 +397,7 @@ class SVC(SVMBase, ClassifierMixin):
 
         """
 
-        self._find_classes(y)
+        self.n_classes_ = self._get_num_classes(y)
 
         if self.probability:
             return self._fit_proba(X, y, sample_weight)

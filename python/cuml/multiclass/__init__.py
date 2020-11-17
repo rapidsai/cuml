@@ -15,3 +15,4 @@
 
 from cuml.multiclass.multiclass import OneVsOneClassifier
 from cuml.multiclass.multiclass import OneVsRestClassifier
+from cuml.multiclass.multiclass import MulticlassClassifier
