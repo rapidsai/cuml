@@ -246,7 +246,7 @@ __device__ __forceinline__ void write_best_class_in_block(
 }
 
 template<typename T>
-struct BlockStridedIt {
+struct BlockStridedIt: thrust::forward_device_iterator_tag {
   //BlockStridedItArray& a;
   //BlockStridedIt(BlockStridedItArray& a_, int size): a(a_) {}
   T* p;
@@ -254,12 +254,14 @@ struct BlockStridedIt {
   BlockStridedIt(T* p_): p(p) { }
   typedef BlockStridedIt iterator;
   
-  iterator& operator++ () { p += blockDim.x; return *this; }
-  iterator operator++ (int) {
+  __device__ iterator& operator++ () { p += blockDim.x; return *this; }
+  __device__ iterator operator++ (int) {
     iterator tmp = *this; ++*this; return tmp; }
-  bool operator==(iterator a) const { return a.p == p; }
-  bool operator!=(iterator a) const { return a.p != p; }
-  T& operator*() const { return *p; }
+  __device__ iterator operator+= (int d) { p += d * blockDim.x; return *this; }
+  __device__ iterator operator+ (iterator it, int d) {
+    iterator res = it; res += d; return res;
+  }
+  __device__ T& operator*() const { return *p; }
 };
 
 template<typename T>
@@ -279,31 +281,27 @@ struct BlockStridedItArray {
   __device__ iterator end() { return iterator(v + size); }
 };
 
-template <typename BinaryOp, typename It>
-__device__ __forceinline__ vec<NITEMS, float> allreduce_shmem(
-  It values) {
-  // assuming size >= blockDim.x, else why the invocation?
-  vec<NITEMS, float> partial = values[threadIdx.x];
-  for (int i = threadIdx.x + blockDim.x; i < size; i += blockDim.x)
-    partial = Vectorized<BinaryOp>()(partial, values[i]);
-  return block_allreduce<BinaryOp>(partial, blockDim.x, &values[size]);
+template <typename BinaryOp, typename ItA>
+__device__ __forceinline__ ItA::value_type allreduce_shmem(ItA values, void* tmp_storage) {
+  ItA::value_type partial = thrust::reduce(
+    thrust::seq, values.begin(), values.end(),
+    ItA::value_type(), Vectorized<BinaryOp>());
+
+  return block_allreduce<BinaryOp>(partial, blockDim.x, tmp_storage);
 }
 
-template<typename It>
-__device__ __forceinline__ void block_softmax(It per_class_value) {
+template<typename ItA>
+__device__ __forceinline__ void block_softmax(ItA per_class_value, void* tmp_storage) {
   // subtract max before exponentiating for numerical stability
-  vec<NITEMS, float> max =
-    allreduce_shmem<cub::Max>(per_class_value);
-  auto exp = thrust::make_transform_output_iterator<>(per_class_value);
-
-  //for (int c = threadIdx.x; c < num_classes; c += blockDim.x)
-  //  per_class_value[c] = vectorized<shifted_exp>(per_class_value[c], max);
+  ItA::value_type max =
+    allreduce_shmem<cub::Max>(per_class_value, tmp_storage);
+  auto exp = thrust::make_transform_iterator(per_class_value.begin(),
+    [max](ItA::value_type v){ return vectorized<shifted_exp>(v, max); });
   // sum of exponents
-  vec<NITEMS, float> soe =
-    allreduce_shmem<cub::Sum>(exp, num_classes);
+  ItA::value_type soe = allreduce_shmem<cub::Sum>(exp, tmp_storage);
   // softmax phase 2: normalization
-  for (int c = threadIdx.x; c < num_classes; c += blockDim.x)
-    per_class_value[c] /= soe;
+  thrust::for_each(per_class_value.begin(), per_class_value.end(),
+    [soe](ItA::reference v){ v /= soe; });
 }
 
 template <int NITEMS>
@@ -312,16 +310,18 @@ __device__ __forceinline__ void write_softmax(
   float* out, int num_rows) {
 
   BlockStridedItArray per_class_a(per_class_value, num_classes);
-  if ((transform & output_t::AVG) != 0)
-    thrust::for_each(per_class_a.begin(), per_class_a.end(), [num_trees](vec<NITEMS, float> v){ v /= num_trees; });
+  if ((transform & output_t::AVG) != 0) {
+    thrust::for_each(per_class_a.begin(), per_class_a.end(),
+      [num_trees](vec<NITEMS, float>& v){ v /= num_trees; });
+  }
   if ((transform & output_t::SOFTMAX) != 0)
-    block_softmax();
+    block_softmax(per_class_a, tmp_storage);
   // write result to global memory
   for (int i = 0; i < NITEMS; ++i) {
     int row = blockIdx.x * NITEMS + i;
     if (row >= num_rows) return;
     BlockStridedItArray out_a(out + num_classes * row, num_classes);
-    auto unvectorized = thrust::make_transform_output_iterator(
+    auto unvectorized = thrust::make_transform_iterator(
       per_class_a.begin(),
       [](vec<NITEMS, float> v){ return v[i]; });
     thrust::copy(unvectorized.begin(), unvectorized.end(), out_a.begin());
