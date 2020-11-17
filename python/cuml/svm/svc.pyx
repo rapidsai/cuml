@@ -398,10 +398,11 @@ class SVC(SVMBase, ClassifierMixin):
 
         """
 
+        self._find_classes(y)
+
         if self.probability:
             return self._fit_proba(X, y, sample_weight)
 
-        self._find_classes(y)
         if self.n_classes_ > 2:
             return self._fit_multiclass(X, y, sample_weight)
 

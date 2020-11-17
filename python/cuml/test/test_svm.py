@@ -342,15 +342,16 @@ def compare_probabilistic_svm(svc1, svc2, X_test, y_test, tol=1e-3,
                               brier_tol=1e-3):
     """ Compare the probability output from two support vector classifiers.
     """
+
     prob1 = svc1.predict_proba(X_test)
-    brier1 = brier_score_loss(y_test, prob1[:, 1])
-
     prob2 = svc2.predict_proba(X_test)
-    brier2 = brier_score_loss(y_test, prob2[:, 1])
-
     assert mean_squared_error(prob1, prob2) <= tol
-    # Brier score - smaller is better
-    assert brier1 - brier2 <= brier_tol
+
+    if (svc1.n_classes_ == 2):
+        brier1 = brier_score_loss(y_test, prob1[:, 1])
+        brier2 = brier_score_loss(y_test, prob2[:, 1])
+        # Brier score - smaller is better
+        assert brier1 - brier2 <= brier_tol
 
 
 # Probabilisic SVM uses scikit-learn's CalibratedClassifierCV, and therefore
