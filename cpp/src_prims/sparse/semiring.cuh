@@ -146,7 +146,7 @@ struct BlockSemiring {
     working_chunk_size = n_offsets / blockDim.x;
 
     // TODO: Don't use modulo
-    working_chunk_size += n_offsets % blockDim.x < blockDim.x ? 1 : 0;
+    working_chunk_size += n_offsets % blockDim.x <= blockDim.x ? 1 : 0;
 
     if (verbose)
       printf("tid=%d, start_col=%d, start_row_b=%d, stop_row_b=%d\n", tid,
@@ -236,9 +236,11 @@ struct BlockSemiring {
     local_idx = offsets[tid];//threadIdx.x * working_chunk_size;
     local_idx_stop = min(local_idx + working_chunk_size, stop_offset_b);
 
+    n_entries = min(tpb, (stop_offset_b - start_offset_b ) + 1);
+
     if (verbose)
-      printf("row_a=%d, tid=%d, local_idx=%d, local_idx_stop=%d\n", row_a, tid, local_idx,
-             local_idx_stop);
+      printf("row_a=%d, tid=%d, local_idx=%d, local_idx_stop=%d, n_entries=%d\n", row_a, tid, local_idx,
+             local_idx_stop, n_entries);
 
     /**
      * Need to account for rows of b that are either being continued from tid-1 or
@@ -269,6 +271,7 @@ struct BlockSemiring {
       printf("About to load chunk_cols/chunk_vals. local_idx_in_bounds=%d\n",
              local_idx_in_bounds);
 
+
     value_idx l = local_idx_in_bounds ? chunk_cols[local_idx] : -1;
     value_t lv = local_idx_in_bounds ? chunk_vals[local_idx] : 0.0;
 
@@ -276,8 +279,8 @@ struct BlockSemiring {
 
 
     if (verbose)
-      printf("About to load shared_cols/shared_vals. shared_idx_in_bounds=%d\n",
-             shared_idx_in_bounds);
+      printf("tid=%d, row_a=%d, row_b=%d, About to load shared_cols/shared_vals. shared_idx_in_bounds=%d\n",
+             tid, row_a, row_b, shared_idx_in_bounds);
 
 
     value_idx r = shared_idx_in_bounds ? shared_cols[shared_idx] : -1;
@@ -310,10 +313,14 @@ struct BlockSemiring {
         "Middle of step(). row_a=%d, row_b=%d, tid=%d, l=%d, r=%d, left_side=%f, right_side=%f, done=%d, cur_sum=%f\n",
         row_a, row_b, tid, l, r, left_side, right_side, done, cur_sum);
 
+    // finished when all items in chunk have been
+    // processed
+    done = l == -1 && r == -1;
+
     // adjust state when a new row is encountered
-    if (local_idx > local_idx_stop) {
+    if (tid < n_entries && (local_idx > local_idx_stop || done)) {
       // apply "sum" function globally
-      sums[row_b] += cur_sum;
+      atomicAdd(sums+row_b, cur_sum);
 
       if (verbose)
         printf("Processing new row. tid=%d, row_a=%d, row_b=%d, new_row_b=%d\n",
@@ -322,32 +329,19 @@ struct BlockSemiring {
       cur_sum = 0.0;
     }
 
-    // finished when all items in chunk have been
-    // processed
-    done = l == -1 && r == -1;
+    __syncthreads();
 
     if (verbose)
       printf(
         "End of step(). row_a=%d, row_b=%d, tid=%d, l=%d, r=%d, left_side=%f, right_side=%f, done=%d, cur_sum=%f, offsets[row_b]=%d, local_idx=%d\n",
         row_a, row_b, tid, l, r, left_side, right_side, done, cur_sum,
         offsets[row_b], local_idx);
-
-    __syncthreads();
   }
 
   __device__ inline bool isdone() { return done; }
 
   __device__ inline void write(value_t *out) {
-    for (int i = tid; i < (stop_row_b - start_row_b) + 1; i += blockDim.x) {
-//      printf("Writing: row_a=%d, row_b=%d, tid=%d, cur_sum=%f, idx=%d\n", row_a,
-//             row_b, tid, cur_sum, row_a * n + i);
-
-      // Pick up any straggling threads that didn't get to write to shared memory
-      if (cur_sum != 0.0) {
-        sums[i] += cur_sum;
-        cur_sum = 0.0;
-      }
-
+    for(int i = tid; i < (stop_row_b - start_row_b)+1; i+= blockDim.x) {
       out[row_a * n + i] = sums[i];
     }
   }
@@ -377,6 +371,8 @@ struct BlockSemiring {
   value_idx shared_idx;
 
   value_t cur_sum;
+
+  value_idx n_entries;
 
   value_idx m;
   value_idx n;
@@ -439,7 +435,7 @@ __global__ void semiring_kernel_load_balanced_matvec_layout(
 
   // TODO: Can chunk extremely large rows further by executing the semiring multiple times
 
-  bool verbose = tid <= 4 && out_row < 1;
+  bool verbose = tid <= 10 && out_row == 3;
 
   if (verbose) printf("Building block semiring\n");
 
@@ -462,9 +458,9 @@ __global__ void semiring_kernel_load_balanced_matvec_layout(
 
     ++iter;
   }
-
   semiring.write(out);
 }
+
 
 template <typename value_idx = int, typename value_t = float,
           int max_buffer_size = 1000,

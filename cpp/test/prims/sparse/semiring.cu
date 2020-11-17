@@ -123,7 +123,7 @@ class SparseDistanceSemiringTest
   }
 
   void compare() {
-    ASSERT_TRUE(devArrMatch(out_dists_ref, out_dists, 16, Compare<value_t>()));
+    ASSERT_TRUE(devArrMatch(out_dists_ref, out_dists, 16, CompareApprox<value_t>(1e-4)));
   }
 
  protected:
