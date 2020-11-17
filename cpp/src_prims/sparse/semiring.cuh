@@ -35,7 +35,9 @@
 #include <cub/block/block_store.cuh>
 #include <cub/block/block_radix_sort.cuh>
 
-#include <sparse/distance.cuh>
+#include <sparse/distance_api.h>
+
+#pragma once
 
 namespace MLCommon {
 namespace Sparse {
@@ -43,10 +45,231 @@ namespace Distance {
 
 const int MAX_INT = std::numeric_limits<int>::max();
 
+/**
+ * Semiring which schedules each row of B in a different thread.
+ * @tparam value_idx
+ * @tparam value_t
+ * @tparam tpb
+ * @tparam buffer_size
+ * @tparam rows_per_block
+ */
 template <typename value_idx, typename value_t, int tpb, int buffer_size,
-          int rows_per_block>
+  int rows_per_block>
 struct BlockSemiring {
   __device__ inline BlockSemiring(int tid_, value_idx m_, value_idx n_,
+                                         value_idx *start_rows_, value_idx *offsets_,
+                                         value_idx *shared_cols_,
+                                         value_t *shared_vals_, value_idx *chunk_cols_,
+                                         value_t *chunk_vals_, value_t *sums_, value_idx *row_counts_,
+                                         bool verbose_)
+    : tid(tid_),
+      m(m_),
+      n(n_),
+      start_rows(start_rows_),
+      offsets(offsets_),
+      shared_cols(shared_cols_),
+      shared_vals(shared_vals_),
+      chunk_cols(chunk_cols_),
+      chunk_vals(chunk_vals_),
+      sums(sums_),
+      done(false),
+      row_counts(row_counts_),
+      shared_idx(0),
+      verbose(verbose_),
+      cur_sum(0.0){}
+
+  __device__ inline void load_a(value_idx row, value_idx *indptrA,
+                                value_idx *indicesA, value_t *dataA) {
+    start_offset_a = indptrA[row];
+    stop_offset_a = indptrA[row + 1];
+
+    // Coalesce reads of row from matrix A into shared memory
+    for (int i = tid; i < stop_offset_a - start_offset_a; i += blockDim.x) {
+      shared_cols[i] = indicesA[start_offset_a + i];
+      shared_vals[i] = dataA[start_offset_a + i];
+    }
+
+    __syncthreads();
+
+    shared_size = stop_offset_a - start_offset_a;
+    row_a = row;
+  }
+
+  __device__ inline void load_b(value_idx start_row, value_idx *indptrB,
+                                value_idx *indicesB, value_t *dataB) {
+//    if (verbose)
+//      printf("tid=%d, start_col=%d, load_b called\n", tid, start_row);
+
+    start_row_b = start_row * rows_per_block;
+    stop_row_b =
+      min(start_row_b + rows_per_block, start_row_b + (n - start_row_b) - 1);
+
+    value_idx n_rows = (stop_row_b - start_row_b) + 1;
+
+    for(int i = tid; i < n_rows; i+= blockDim.x) {
+      row_counts[tid] = indptrB[start_row_b+i+1] - indptrB[start_row_b+i];
+    }
+
+//    if (verbose)
+//      printf("tid=%d, start_col=%d, start_row_b=%d, stop_row_b=%d\n", tid,
+//             start_row, start_row_b, stop_row_b);
+//
+    // load start & end offsets to compute chunk size
+    start_offset_b = indptrB[start_row_b];
+    stop_offset_b = indptrB[stop_row_b+1];
+
+    row_b = start_row_b + tid;
+
+    // coalesce reads of B rows into shared memory
+    for (int i = tid; i < (stop_offset_b - start_offset_b) + 1;
+         i += blockDim.x) {
+      chunk_cols[i] = indicesB[start_offset_b + i];
+      chunk_vals[i] = dataB[start_offset_b + i];
+    }
+
+    __syncthreads();
+
+//    if (verbose) printf("Read B rows into shared memory\n");
+//
+    for(int i = tid; i < (stop_row_b - start_row_b)+1; i+= blockDim.x) {
+      // set starting and ending idx of local thread
+      local_idx = indptrB[start_row_b + i];
+      local_idx_stop = local_idx+row_counts[i];
+
+//      if(verbose) {
+//        printf("tid=%d, row_a=%d, row_b=%d, local_idx=%d, local_idx_stop=%d\n",
+//               tid, row_a, row_b, local_idx, local_idx_stop);
+//      }
+    }
+  }
+
+  __device__ inline void step() {
+    bool local_idx_in_bounds = local_idx < local_idx_stop && row_counts[row_b] > 0;
+
+//    if (verbose)
+//      printf("About to load chunk_cols/chunk_vals. local_idx_in_bounds=%d\n",
+//             local_idx_in_bounds);
+//
+    value_idx l = local_idx_in_bounds ? chunk_cols[local_idx] : -1;
+    value_t lv = local_idx_in_bounds ? chunk_vals[local_idx] : 0.0;
+
+    bool shared_idx_in_bounds = shared_idx < shared_size;
+
+//    if (verbose)
+//      printf("tid=%d, row_a=%d, row_b=%d, About to load shared_cols/shared_vals. shared_idx_in_bounds=%d\n",
+//             tid, row_a, row_b, shared_idx_in_bounds);
+//
+
+    value_idx r = shared_idx_in_bounds ? shared_cols[shared_idx] : -1;
+    value_t rv = shared_idx_in_bounds ? shared_vals[shared_idx] : 0.0;
+
+//    if (verbose)
+//      printf("Loaded chunk_cols/chunk_vals. row_a=%d, row_b=%d, tid=%d, l=%d, lv=%f, r=%d, rv=%f\n",
+//             row_a, row_b, tid, l, lv, r, rv);
+//
+    value_t left_side = 0.0;
+    value_t right_side = 0.0;
+
+    if (l <= r && l != -1 || (l != -1 && r == -1)) {
+      local_idx++;
+      left_side = lv;
+    }
+
+    if (r <= l && r != -1 || (l == -1 && r != -1)) {
+      shared_idx++;
+      right_side = rv;
+    }
+
+    // Apply semiring "sum" & "product" functions locally
+    cur_sum += fabsf(left_side - right_side);
+
+//    if (verbose)
+//      printf(
+//        "Middle of step(). row_a=%d, row_b=%d, tid=%d, l=%d, r=%d, left_side=%f, right_side=%f, done=%d, cur_sum=%f\n",
+//        row_a, row_b, tid, l, r, left_side, right_side, done, cur_sum);
+//
+    // finished when all items in chunk have been
+    // processed
+    done = l == -1 && r == -1;
+
+//    if (verbose)
+//      printf(
+//        "End of step(). row_a=%d, row_b=%d, tid=%d, l=%d, r=%d, left_side=%f, right_side=%f, done=%d, cur_sum=%f, offsets[row_b]=%d, local_idx=%d\n",
+//        row_a, row_b, tid, l, r, left_side, right_side, done, cur_sum,
+//        offsets[row_b], local_idx);
+  }
+
+  __device__ inline bool isdone() { return done; }
+
+  __device__ inline void write(value_t *out) {
+    for(int i = tid; i < (stop_row_b - start_row_b)+1; i+= blockDim.x) {
+      out[row_a * n + i] = cur_sum;
+    }
+  }
+
+  __device__ inline void print() {
+    printf(
+      "BlockSemiring<local_idx=%d, local_idx_stop=%d, row_b=%d, cur_sum=%f\n",
+      local_idx, local_idx_stop, row_b, cur_sum);
+  }
+
+ private:
+  int tid;
+
+  bool done;
+
+  int shared_size;
+
+  value_idx local_idx;
+  value_idx local_idx_stop;
+  value_idx shared_idx;
+
+  value_t cur_sum;
+
+  value_idx n_entries;
+
+  value_idx m;
+  value_idx n;
+  value_idx start_offset_a;
+  value_idx stop_offset_a;
+
+  value_idx row_a;
+
+  value_idx row_b;
+
+  value_idx start_offset_b;
+  value_idx stop_offset_b;
+
+  value_idx start_row_b;
+  value_idx stop_row_b;
+
+  // shared memory
+  value_idx *offsets;
+  value_idx *start_rows;
+  value_idx *row_counts;
+  value_idx *shared_cols;
+  value_t *shared_vals;
+  value_idx *chunk_cols;
+  value_t *chunk_vals;
+
+  value_t *sums;
+
+  bool verbose;
+};
+
+/**
+ * A version of the block semiring that chunks offsets and rows
+ * over threads in the warps to keep them busy.
+ * @tparam value_idx
+ * @tparam value_t
+ * @tparam tpb
+ * @tparam buffer_size
+ * @tparam rows_per_block
+ */
+template <typename value_idx, typename value_t, int tpb, int buffer_size,
+          int rows_per_block>
+struct ChunkedBlockSemiring {
+  __device__ inline ChunkedBlockSemiring(int tid_, value_idx m_, value_idx n_,
                                   value_idx *start_rows_, value_idx *offsets_,
                                   value_idx *shared_cols_,
                                   value_t *shared_vals_, value_idx *chunk_cols_,
@@ -435,13 +658,13 @@ __global__ void semiring_kernel_load_balanced_matvec_layout(
 
   // TODO: Can chunk extremely large rows further by executing the semiring multiple times
 
-  bool verbose = tid <= 10 && out_row == 3;
+  bool verbose = tid <= 10 && out_row < 1;
 
   if (verbose) printf("Building block semiring\n");
 
   BlockSemiring<value_idx, value_t, tpb, buffer_size, rows_per_block> semiring(
     tid, m, n, offsets, start_rows, shared_cols, shared_vals, chunk_cols,
-    chunk_vals, sums, row_counts, cum_row_counts, verbose);
+    chunk_vals, sums, row_counts, verbose);
 
   if (verbose) printf("Calling load_a\n");
 
