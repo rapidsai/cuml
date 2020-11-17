@@ -308,16 +308,14 @@ struct TransformedArrayView : Base {
   }
 };
 
-template <typename ReduceOp, typename ItA, typename MapOp>
-__device__ __forceinline__ typename ItA::value_type all_map_reduce_shmem(
-  ItA begin, ItA end, void* tmp_storage, MapOp map = thrust::identity<ItA>()) {
+template <typename BinaryOp, typename ItA>
+__device__ __forceinline__ typename ItA::value_type allreduce_shmem(
+  ItA begin, ItA end, void* tmp_storage) {
   typedef typename ItA::value_type value_type;
-  auto mapped_begin = thrust::make_transform_iterator(begin, map);
-  auto mapped_end = thrust::make_transform_iterator(end, map);
-  value_type partial = thrust::reduce(thrust::seq, mapped_begin, mapped_end,
-                                      value_type(), Vectorized<ReduceOp>());
+  value_type partial = thrust::reduce(thrust::seq, begin, end, value_type(),
+                                      Vectorized<BinaryOp>());
 
-  return block_allreduce<ReduceOp>(partial, blockDim.x, tmp_storage);
+  return block_allreduce<BinaryOp>(partial, blockDim.x, tmp_storage);
 }
 
 template <typename ItA>
@@ -326,13 +324,12 @@ __device__ __forceinline__ void block_softmax(ItA per_class_a,
   // subtract max before exponentiating for numerical stability
   typedef typename ItA::iterator::value_type value_type;
   typedef typename ItA::iterator::reference reference;
-  value_type max = all_map_reduce_shmem<cub::Max>(per_class_a.begin(),
-                                             per_class_a.end(), 
-                                             tmp_storage);
+  value_type max = allreduce_shmem<cub::Max>(per_class_a.begin(),
+                                             per_class_a.end(), tmp_storage);
+  auto vse = [max](value_type v) { return vectorized<shifted_exp>(v, max); };
+  TransformedArrayView<ItA, typeid(vse)> exp(per_class_a, vse);
   // sum of exponents
-  value_type soe = all_map_reduce_shmem<cub::Sum>(per_class_a.begin(),
-    per_class_a.end(), tmp_storage,
-    [max](value_type v) { return ex });
+  value_type soe = allreduce_shmem<cub::Sum>(exp.begin(), exp.end(), tmp_storage);
   // softmax phase 2: normalization
   thrust::for_each(per_class_a.begin(), per_class_a.end(),
                    [soe](reference v) { v /= soe; });
