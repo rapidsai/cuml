@@ -59,21 +59,21 @@ def pytest_collection_modifyitems(config, items):
         should_run_quality or should_run_stress)
 
     # Mark the tests as "skip" if needed
-    if (not should_run_unit):
+    if not should_run_unit:
         skip_unit = pytest.mark.skip(
             reason="Stress tests run with --run_unit flag.")
         for item in items:
             if "unit" in item.keywords:
                 item.add_marker(skip_unit)
 
-    if (not should_run_quality):
+    if not should_run_quality:
         skip_quality = pytest.mark.skip(
             reason="Quality tests run with --run_quality flag.")
         for item in items:
             if "quality" in item.keywords:
                 item.add_marker(skip_quality)
 
-    if (not should_run_stress):
+    if not should_run_stress:
         skip_stress = pytest.mark.skip(
             reason="Stress tests run with --run_stress flag.")
         for item in items:

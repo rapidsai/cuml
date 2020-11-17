@@ -22,14 +22,16 @@ import _pytest.python
 
 def pytest_addoption(parser):
 
-    group = parser.getgroup('Quick Run Plugin')
+    group = parser.getgroup("Quick Run Plugin")
 
     group.addoption("--quick_run",
                     default=False,
                     action="store_true",
                     help=("Selecting this option will reduce the number of "
-                          "tests run by only picking tests if one of the "
-                          "parameters has never been seen before."))
+                          "tests run by only running parameter combinations "
+                          "if one of the parameters has never been seen "
+                          "before. Useful for testing code correctness while "
+                          "not running all numeric tests for the algorithms."))
 
 
 # This hook must be run last after all others as some plugins may have skipped
@@ -39,7 +41,7 @@ def pytest_collection_modifyitems(config, items):
 
     quick_run = config.getoption("--quick_run")
 
-    if (quick_run):
+    if quick_run:
         root_node = {}
         leafs = []
 
@@ -67,7 +69,7 @@ def pytest_collection_modifyitems(config, items):
                 # Add the interior node if it doesnt exist. Must be a function
                 # to be a leaf
                 if (name not in curr_node):
-                    if (isinstance(n, _pytest.python.Function)):
+                    if isinstance(n, _pytest.python.Function):
                         curr_node[name] = []
                         leafs.append(curr_node[name])
                     else:
@@ -93,10 +95,10 @@ def pytest_collection_modifyitems(config, items):
             # test already in the selected list
             def has_been_seen(cs: _pytest.python.CallSpec2):
                 for key, val in enumerate(cs._idlist):
-                    if (key not in seen):
+                    if key not in seen:
                         return False
 
-                    if (val not in seen[key]):
+                    if val not in seen[key]:
                         return False
 
                 return True
@@ -104,29 +106,29 @@ def pytest_collection_modifyitems(config, items):
             # Updates the seen dictionary with the parameters from this test
             def update_seen(cs: _pytest.python.CallSpec2):
                 for key, val in enumerate(cs._idlist):
-                    if (key not in seen):
+                    if key not in seen:
                         seen[key] = []
 
-                    if (val not in seen[key]):
+                    if val not in seen[key]:
                         seen[key].append(val)
 
             for f in leaf:
 
                 # If this is going to be skipped, add to deselected. No need to
                 # run it
-                if (f.get_closest_marker("skip") is not None):
+                if f.get_closest_marker("skip") is not None:
                     deselected_items.append(f)
                     continue
 
                 # If no callspec, this is the only function call. Must be run
-                if (not hasattr(f, "callspec")):
+                if not hasattr(f, "callspec"):
                     selected_items.append(f)
                     continue
 
                 callspec = f.callspec
 
                 # Check if this has been seen
-                if (has_been_seen(callspec)):
+                if has_been_seen(callspec):
                     deselected_items.append(f)
                 else:
                     # Otherwise, add to seen and selected
