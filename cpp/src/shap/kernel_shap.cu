@@ -65,7 +65,7 @@ __global__ void exact_rows_kernel_sm(DataT* X, IdxT nrows_X, IdxT ncols,
 #pragma unroll
       for (j = 0; j < ncols; j++) {
         if (idx[j] == 0) {
-          dataset[i * ncols + j] = background[(i % nrows_background) * M + j];
+          dataset[i * ncols + j] = background[(i % nrows_background) * ncols + j];
         } else {
           dataset[i * ncols + j] = observation[j];
         }
@@ -241,7 +241,7 @@ void kernel_dataset(const raft::handle_t& handle, float* X, int nrows_X,
                     int ncols, float* background, int nrows_background,
                     float* dataset, float* observation, int* nsamples,
                     int len_nsamples, int maxsample, uint64_t seed) {
-  kernel_dataset_impl(handle, X, nrows_X, M, background, nrows_background,
+  kernel_dataset_impl(handle, X, nrows_X, ncols, background, nrows_background,
                       dataset, observation, nsamples, len_nsamples, maxsample,
                       seed);
 }
@@ -250,7 +250,7 @@ void kernel_dataset(const raft::handle_t& handle, double* X, int nrows_X,
                     int ncols, double* background, int nrows_background,
                     double* dataset, double* observation, int* nsamples,
                     int len_nsamples, int maxsample, uint64_t seed) {
-  kernel_dataset_impl(handle, X, nrows_X, M, background, nrows_background,
+  kernel_dataset_impl(handle, X, nrows_X, ncols, background, nrows_background,
                       dataset, observation, nsamples, len_nsamples, maxsample,
                       seed);
 }
