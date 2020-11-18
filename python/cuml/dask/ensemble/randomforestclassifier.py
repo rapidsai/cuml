@@ -104,6 +104,12 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
         Number of bins used by the split algorithm.
     min_rows_per_node : int (default = 2)
         The minimum number of samples (rows) needed to split a node.
+    min_samples_split : int or float (default = 2)
+        The minimum number of samples required to split an internal node.
+        If int, then min_samples_split represents the minimum number.
+        If float, then min_samples_split represents a fraction and
+        ceil(min_samples_split * n_rows) is the minimum number of samples
+        for each split.
     quantile_per_tree : boolean (default = False)
         Whether quantile is computed for individual RF trees.
         Only relevant for GLOBAL_QUANTILE split_algo.
