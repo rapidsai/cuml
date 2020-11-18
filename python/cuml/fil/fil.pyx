@@ -178,7 +178,8 @@ cdef extern from "cuml/fil/fil.h" namespace "ML::fil":
         bool output_class
         float threshold
         storage_type_t storage_type
-        int blocks_per_sm
+        int blocks_per_sm # limit number of CUDA blocks launched per GPU SM (or unlimited if 0)
+        # this affects inference performance and will become a configurable parameter soon
 
     cdef void free(handle_t& handle,
                    forest_t)
