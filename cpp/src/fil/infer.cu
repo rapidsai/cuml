@@ -221,11 +221,6 @@ struct tree_aggregator_t {
   }
 };
 
-/// needed for softmax
-__device__ float shifted_exp(float margin, float max) {
-  return expf(margin - max);
-}
-
 template <typename BinaryOp, int NITEMS>
 __device__ __forceinline__ vec<NITEMS, float> block_allreduce(
   vec<NITEMS, float> value, int valid_threads, void* storage) {
@@ -237,12 +232,24 @@ __device__ __forceinline__ vec<NITEMS, float> block_allreduce(
   return *(vec<NITEMS, float>*)storage;
 }
 
-template <int NITEMS>
-__device__ __forceinline__ void write_best_class_in_block(
-  vec<NITEMS, best_margin_label> best, void* tmp_storage, int valid_threads,
-  float* out, int num_rows) {
+template <typename BinaryOp, typename ItA>
+__device__ __forceinline__ typename ItA::value_type allreduce_shmem(
+  ItA begin, ItA end, void* tmp_storage) {
+  typedef typename ItA::value_type value_type;
+  value_type partial = thrust::reduce(thrust::seq, begin, end, value_type(),
+                                      Vectorized<BinaryOp>());
+
+  return block_allreduce<BinaryOp>(partial, blockDim.x, tmp_storage);
+}
+
+template <int NITEMS, typename It>
+__device__ __forceinline__ void write_best_class_in_block(ItA begin, ItA end,
+                                                          void* tmp_storage,
+                                                          float* out,
+                                                          int num_rows) {
   // find best class per block (for each of the NITEMS rows)
-  best = block_reduce<cub::ArgMax>(best, valid_threads, tmp_storage);
+  best = allreduce_shmem<cub::ArgMax>(begin, end, tmp_storage);
+
   // write it out to global memory
   if (threadIdx.x == 0) {
     for (int i = 0; i < NITEMS; ++i) {
@@ -310,54 +317,46 @@ struct TransformedArrayView : Base {
   }
 };
 
-template <typename BinaryOp, typename ItA>
-__device__ __forceinline__ typename ItA::value_type allreduce_shmem(
-  ItA begin, ItA end, void* tmp_storage) {
-  typedef typename ItA::value_type value_type;
-  value_type partial = thrust::reduce(thrust::seq, begin, end, value_type(),
-                                      Vectorized<BinaryOp>());
-
-  return block_allreduce<BinaryOp>(partial, blockDim.x, tmp_storage);
+/// needed for softmax
+__device__ float shifted_exp(float margin, float max) {
+  return expf(margin - max);
 }
 
-template <typename ItA>
-__device__ __forceinline__ void block_softmax(ItA per_class_a,
+template <typename It>
+__device__ __forceinline__ void block_softmax(It begin, It end,
                                               void* tmp_storage) {
   // subtract max before exponentiating for numerical stability
-  typedef typename ItA::iterator::value_type value_type;
-  value_type max = allreduce_shmem<cub::Max>(per_class_a.begin(),
-                                             per_class_a.end(), tmp_storage);
-  auto vse = [max] __device__(value_type v) {
-    return vectorized<shifted_exp>(v, max);
-  };
-  TransformedArrayView<ItA, decltype(vse)> exp(per_class_a, vse);
+  typedef typename It::value_type value_type;
+  value_type max = allreduce_shmem<cub::Max>(begin, end, tmp_storage);
+
+  thrust::for_each(thrust::seq, begin, end, [max] __device__(auto& v) {
+    v = vectorized<shifted_exp>(v, max);
+  });
   // sum of exponents
-  value_type soe =
-    allreduce_shmem<cub::Sum>(exp.begin(), exp.end(), tmp_storage);
+  value_type soe = allreduce_shmem<cub::Sum>(begin, end, tmp_storage);
   // softmax phase 2: normalization
-  thrust::for_each(thrust::seq, per_class_a.begin(), per_class_a.end(),
+  thrust::for_each(thrust::seq, begin, end,
                    [soe] __device__(auto& v) { v /= soe; });
 }
 
-template <int NITEMS>
+template <int NITEMS, typename It>
 __device__ __forceinline__ void normalize_softmax_and_write(
-  vec<NITEMS, float>* per_class_value, output_t transform, int num_trees,
-  void* tmp_storage, int num_classes, float* out, int num_rows) {
-  StridedItArray<vec<NITEMS, float>> per_class_a(per_class_value, num_classes);
+  It begin, It end, output_t transform, int num_trees, void* tmp_storage,
+  int num_classes, float* out, int num_rows) {
   if ((transform & output_t::AVG) != 0) {
     thrust::for_each(
-      thrust::seq, per_class_a.begin(), per_class_a.end(),
+      thrust::seq, begin, end,
       [num_trees] __device__(vec<NITEMS, float> & v) { v /= num_trees; });
   }
+  return;
   if ((transform & output_t::SOFTMAX) != 0)
-    block_softmax(per_class_a, tmp_storage);
+    block_softmax(begin, end, tmp_storage);
   // write result to global memory
   for (int i = 0; i < NITEMS; ++i) {
     int row = blockIdx.x * NITEMS + i;
     if (row >= num_rows) return;
     StridedItArray<float> out_a(out + num_classes * row, num_classes);
-    thrust::copy_n(thrust::seq, per_class_a.row_begin(i), num_classes,
-                   out_a.begin());
+    thrust::copy_n(thrust::seq, row_begin(i), num_classes, out_a.begin());
   }
 }
 
@@ -406,14 +405,15 @@ struct tree_aggregator_t<NITEMS, GROVE_PER_CLASS_FEW_CLASSES> {
     }
     __syncthreads();  // free up per_thread[] margin
 
-    int c = threadIdx.x;
     if (num_outputs == 1) {  // will output class
-      write_best_class_in_block(to_vec(c, acc), tmp_storage, num_classes, out,
-                                num_rows);
+      auto candidate = to_vec(threadIdx.x, acc);
+      write_best_class_in_block<NITEMS>(
+        &candidate, &candidate + (threadIdx.x < num_classes), tmp_storage, out,
+        num_rows);
     } else {  // output softmax-ed margin
-      if (threadIdx.x < num_classes) per_thread[threadIdx.x] = acc;
-      normalize_softmax_and_write(per_thread, transform, num_trees, tmp_storage,
-                                  num_classes, out, num_rows);
+      normalize_softmax_and_write<NITEMS>(
+        &acc, &acc + (threadIdx.x < num_classes), transform, num_trees,
+        tmp_storage, num_classes, out, num_rows);
     }
   }
 };
@@ -425,6 +425,7 @@ struct tree_aggregator_t<NITEMS, GROVE_PER_CLASS_MANY_CLASSES> {
   vec<NITEMS, float>* per_class_value;
   void* tmp_storage;
   int num_classes;
+  StridedItArray<vec<NITEMS, float>> per_class_a;
 
   static size_t smem_finalize_footprint(size_t data_row_size, int num_classes,
                                         bool predict_proba) {
@@ -442,12 +443,12 @@ struct tree_aggregator_t<NITEMS, GROVE_PER_CLASS_MANY_CLASSES> {
   __device__ __forceinline__ tree_aggregator_t(int num_classes_,
                                                void* shared_workspace,
                                                size_t data_row_size)
-    : tmp_storage(shared_workspace),
+    : per_class_value(
+        (vec<NITEMS, float>*)((char*)shared_workspace + data_row_size)),
+      tmp_storage(shared_workspace),
       num_classes(num_classes_),
-      per_class_value(
-        (vec<NITEMS, float>*)((char*)shared_workspace + data_row_size)) {
-    for (int c = threadIdx.x; c < num_classes; c += blockDim.x)
-      per_class_value[c] = vec<NITEMS, float>();  // initialize to 0.0f
+      per_class_a(per_class_value, num_classes_) {
+    thrust::fill(thrust::seq, per_class_a.begin(), per_class_a.end(), 0.0f);
     // __syncthreads() is called in infer_k
   }
 
@@ -464,16 +465,19 @@ struct tree_aggregator_t<NITEMS, GROVE_PER_CLASS_MANY_CLASSES> {
     if (num_outputs == 1) {  // will output class
       // reduce per-class candidate margins to one best class candidate
       // per thread (for each of the NITEMS rows)
-      vec<NITEMS, best_margin_label> best({-1, -INFINITY});
+      auto candidate = [per_class_value] __device__(auto it) {
+        return to_vec(&*it - per_class_value, *it);
+      };
+      TransformedArrayView<decltype(per_class_a), decltype(candidate)>
+        per_class_candidate(per_class_a, candidate);
 
-      for (int c = threadIdx.x; c < num_classes; c += blockDim.x)
-        best = Vectorized<cub::ArgMax>()(best, to_vec(c, per_class_value[c]));
-
-      __syncthreads();  // free up per_class_value[]
-      write_best_class_in_block(best, tmp_storage, blockDim.x, out, num_rows);
+      write_best_class_in_block<NITEMS>(per_class_candidate.begin(),
+                                        per_class_candidate.end(), tmp_storage,
+                                        out, num_rows);
     } else {  // will output softmax-ed margins
-      normalize_softmax_and_write(per_class_value, transform, num_trees,
-                                  tmp_storage, num_classes, out, num_rows);
+      normalize_softmax_and_write<NITEMS>(
+        per_class_a.begin(), per_class_a.end(), transform, num_trees,
+        tmp_storage, num_classes, out, num_rows);
     }
   }
 };
