@@ -14,15 +14,18 @@
 # limitations under the License.
 #
 
+import typing
 import cupy as cp
 import numpy as np
-from cuml.common.memory_utils import with_cupy_rmm
-from cuml.common import input_to_cuml_array
+import cuml.internals
+from cuml.common.array import CumlArray
+from cuml.common.input_utils import input_to_cupy_array
 import math
 
 
-@with_cupy_rmm
-def precision_recall_curve(y_true, probs_pred):
+@cuml.internals.api_return_generic(get_output_type=True)
+def precision_recall_curve(
+        y_true, probs_pred) -> typing.Tuple[CumlArray, CumlArray, CumlArray]:
     """
     Compute precision-recall pairs for different probability thresholds
 
@@ -86,16 +89,13 @@ def precision_recall_curve(y_true, probs_pred):
 
     """
     y_true, n_rows, n_cols, ytype = \
-        input_to_cuml_array(y_true, check_dtype=[np.int32, np.int64,
+        input_to_cupy_array(y_true, check_dtype=[np.int32, np.int64,
                                                  np.float32, np.float64])
 
     y_score, _, _, _ = \
-        input_to_cuml_array(probs_pred, check_dtype=[np.int32, np.int64,
+        input_to_cupy_array(probs_pred, check_dtype=[np.int32, np.int64,
                             np.float32, np.float64],
                             check_rows=n_rows, check_cols=n_cols)
-
-    y_true = y_true.to_output('cupy')
-    y_score = y_score.to_output('cupy')
 
     if cp.any(y_true) == 0:
         raise ValueError("precision_recall_curve cannot be used when "
@@ -116,7 +116,7 @@ def precision_recall_curve(y_true, probs_pred):
     return precision, recall, thresholds
 
 
-@with_cupy_rmm
+@cuml.internals.api_return_any()
 def roc_auc_score(y_true, y_score):
     """
     Compute Area Under the Receiver Operating Characteristic Curve (ROC AUC)
@@ -151,11 +151,11 @@ def roc_auc_score(y_true, y_score):
 
     """
     y_true, n_rows, n_cols, ytype = \
-        input_to_cuml_array(y_true, check_dtype=[np.int32, np.int64,
+        input_to_cupy_array(y_true, check_dtype=[np.int32, np.int64,
                                                  np.float32, np.float64])
 
     y_score, _, _, _ = \
-        input_to_cuml_array(y_score, check_dtype=[np.int32, np.int64,
+        input_to_cupy_array(y_score, check_dtype=[np.int32, np.int64,
                                                   np.float32, np.float64],
                             check_rows=n_rows, check_cols=n_cols)
     return _binary_roc_auc_score(y_true, y_score)
@@ -191,8 +191,6 @@ def _binary_clf_curve(y_true, y_score):
 
 def _binary_roc_auc_score(y_true, y_score):
     """Compute binary roc_auc_score using cupy"""
-    y_true = y_true.to_output('cupy')
-    y_score = y_score.to_output('cupy')
 
     if cp.unique(y_true).shape[0] == 1:
         raise ValueError("roc_auc_score cannot be used when "

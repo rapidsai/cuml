@@ -53,7 +53,7 @@ struct KMeansParams {
   int seed = 0;
 
   // Metric to use for distance computation. Any metric from
-  // ML::Distance::DistanceType can be used
+  // raft::distance::DistanceType can be used
   int metric = 0;
 
   // Number of instance k-means algorithm will be run with different seeds.
@@ -184,7 +184,7 @@ void predict(const raft::handle_t &handle, const KMeansParams &params,
  * sample in 'X' (it should be same as the dimension for each cluster centers in
  * 'centroids').
  * @param[in]     metric        Metric to use for distance computation. Any
- * metric from ML::Distance::DistanceType can be used
+ * metric from raft::distance::DistanceType can be used
  * @param[out]    X_new         X transformed in the new space..
  */
 void transform(const raft::handle_t &handle, const KMeansParams &params,

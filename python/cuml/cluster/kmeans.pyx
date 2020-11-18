@@ -21,12 +21,14 @@ import cudf
 import numpy as np
 import rmm
 import warnings
+import typing
 
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t, int64_t
 from libc.stdlib cimport calloc, malloc, free
 
 from cuml.common.array import CumlArray
+from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.base import Base
 from cuml.common.doc_utils import generate_docstring
 from cuml.raft.common.handle cimport handle_t
@@ -259,6 +261,9 @@ class KMeans(Base):
     <http://scikit-learn.org/stable/modules/generated/sklearn.cluster.KMeans.html>`_.
     """
 
+    labels_ = CumlArrayDescriptor()
+    cluster_centers_ = CumlArrayDescriptor()
+
     def __init__(self, handle=None, n_clusters=8, max_iter=300, tol=1e-4,
                  verbose=False, random_state=1,
                  init='scalable-k-means++', n_init=1, oversampling_factor=2.0,
@@ -275,8 +280,8 @@ class KMeans(Base):
         self.max_samples_per_batch=int(max_samples_per_batch)
 
         # internal array attributes
-        self._labels_ = None  # accessed via estimator.labels_
-        self._cluster_centers_ = None  # accessed via estimator.cluster_centers_  # noqa
+        self.labels_ = None
+        self.cluster_centers_ = None
 
         cdef KMeansParams params
         params.n_clusters = <int>self.n_clusters
@@ -301,7 +306,7 @@ class KMeans(Base):
         else:
             self.init = 'preset'
             params.init = Array
-            self._cluster_centers_, n_rows, self.n_cols, self.dtype = \
+            self.cluster_centers_, n_rows, self.n_cols, self.dtype = \
                 input_to_cuml_array(init, order='C',
                                     check_dtype=[np.float32, np.float64])
 
@@ -316,13 +321,11 @@ class KMeans(Base):
         self._params = params
 
     @generate_docstring()
-    def fit(self, X, sample_weight=None):
+    def fit(self, X, sample_weight=None) -> "KMeans":
         """
         Compute k-means clustering with X.
 
         """
-        self._set_base_attributes(output_type=X, n_features=X)
-
         if self.init == 'preset':
             check_cols = self.n_cols
             check_dtype = self.dtype
@@ -349,15 +352,15 @@ class KMeans(Base):
 
         cdef uintptr_t sample_weight_ptr = sample_weight_m.ptr
 
-        self._labels_ = CumlArray.zeros(shape=n_rows, dtype=np.int32)
-        cdef uintptr_t labels_ptr = self._labels_.ptr
+        self.labels_ = CumlArray.zeros(shape=n_rows, dtype=np.int32)
+        cdef uintptr_t labels_ptr = self.labels_.ptr
 
         if (self.init in ['scalable-k-means++', 'k-means||', 'random']):
-            self._cluster_centers_ = \
+            self.cluster_centers_ = \
                 CumlArray.zeros(shape=(self.n_clusters, self.n_cols),
                                 dtype=self.dtype, order='C')
 
-        cdef uintptr_t cluster_centers_ptr = self._cluster_centers_.ptr
+        cdef uintptr_t cluster_centers_ptr = self.cluster_centers_.ptr
 
         cdef float inertiaf = 0
         cdef double inertiad = 0
@@ -409,7 +412,7 @@ class KMeans(Base):
                                        'type': 'dense',
                                        'description': 'Cluster indexes',
                                        'shape': '(n_samples, 1)'})
-    def fit_predict(self, X, sample_weight=None):
+    def fit_predict(self, X, sample_weight=None) -> CumlArray:
         """
         Compute cluster centers and predict cluster index for each sample.
 
@@ -417,7 +420,8 @@ class KMeans(Base):
         return self.fit(X, sample_weight=sample_weight).labels_
 
     def _predict_labels_inertia(self, X, convert_dtype=False,
-                                sample_weight=None):
+                                sample_weight=None) -> typing.Tuple[CumlArray,
+                                                                    float]:
         """
         Predict the closest cluster each sample in X belongs to.
 
@@ -446,8 +450,6 @@ class KMeans(Base):
         Sum of squared distances of samples to their closest cluster center.
         """
 
-        out_type = self._get_output_type(X)
-
         X_m, n_rows, n_cols, dtype = \
             input_to_cuml_array(X, order='C', check_dtype=self.dtype,
                                 convert_to_dtype=(self.dtype if convert_dtype
@@ -468,10 +470,10 @@ class KMeans(Base):
 
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
-        cdef uintptr_t cluster_centers_ptr = self._cluster_centers_.ptr
+        cdef uintptr_t cluster_centers_ptr = self.cluster_centers_.ptr
 
-        self._labels_ = CumlArray.zeros(shape=n_rows, dtype=np.int32)
-        cdef uintptr_t labels_ptr = self._labels_.ptr
+        self.labels_ = CumlArray.zeros(shape=n_rows, dtype=np.int32)
+        cdef uintptr_t labels_ptr = self.labels_.ptr
 
         # Sum of squared distances of samples to their closest cluster center.
         cdef float inertiaf = 0
@@ -511,13 +513,13 @@ class KMeans(Base):
         self.handle.sync()
         del(X_m)
         del(sample_weight_m)
-        return self._labels_.to_output(out_type), inertia
+        return self.labels_, inertia
 
     @generate_docstring(return_values={'name': 'preds',
                                        'type': 'dense',
                                        'description': 'Cluster indexes',
                                        'shape': '(n_samples, 1)'})
-    def predict(self, X, convert_dtype=False, sample_weight=None):
+    def predict(self, X, convert_dtype=False, sample_weight=None) -> CumlArray:
         """
         Predict the closest cluster each sample in X belongs to.
 
@@ -532,13 +534,11 @@ class KMeans(Base):
                                        'type': 'dense',
                                        'description': 'Transformed data',
                                        'shape': '(n_samples, n_clusters)'})
-    def transform(self, X, convert_dtype=False):
+    def transform(self, X, convert_dtype=False) -> CumlArray:
         """
         Transform X to a cluster-distance space.
 
         """
-
-        out_type = self._get_output_type(X)
 
         X_m, n_rows, n_cols, dtype = \
             input_to_cuml_array(X, order='C', check_dtype=self.dtype,
@@ -550,7 +550,7 @@ class KMeans(Base):
 
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
-        cdef uintptr_t cluster_centers_ptr = self._cluster_centers_.ptr
+        cdef uintptr_t cluster_centers_ptr = self.cluster_centers_.ptr
 
         preds = CumlArray.zeros(shape=(n_rows, self.n_clusters),
                                 dtype=self.dtype,
@@ -589,7 +589,7 @@ class KMeans(Base):
         self.handle.sync()
 
         del(X_m)
-        return preds.to_output(out_type)
+        return preds
 
     @generate_docstring(return_values={'name': 'score',
                                        'type': 'float',
@@ -610,7 +610,7 @@ class KMeans(Base):
                                        'type': 'dense',
                                        'description': 'Transformed data',
                                        'shape': '(n_samples, n_clusters)'})
-    def fit_transform(self, X, convert_dtype=False):
+    def fit_transform(self, X, convert_dtype=False) -> CumlArray:
         """
         Compute clustering and transform X to cluster-distance space.
 

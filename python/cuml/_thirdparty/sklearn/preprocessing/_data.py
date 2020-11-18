@@ -1710,7 +1710,10 @@ def normalize(X, norm='l2', *, axis=1, copy=True, return_norm=False):
 
     X = to_output_type(X, output_type)
     if return_norm:
-        norms = to_output_type(norms, output_type)
+        if output_type in {'dataframe', 'series'}:
+            norms = to_output_type(norms, 'cudf')
+        else:
+            norms = to_output_type(norms, output_type)
         return X, norms
     else:
         return X

@@ -14,14 +14,19 @@
  * limitations under the License.
  */
 
+#include <gtest/gtest.h>
+
 #include <cusparse_v2.h>
+
 #include <raft/cudart_utils.h>
+#include <raft/linalg/distance_type.h>
+#include <raft/sparse/cusparse_wrappers.h>
+
 #include <common/device_buffer.hpp>
 
-#include <gtest/gtest.h>
-#include <raft/sparse/cusparse_wrappers.h>
-#include <test_utils.h>
 #include <sparse/distance.cuh>
+
+#include <test_utils.h>
 
 namespace MLCommon {
 namespace Sparse {
@@ -39,7 +44,7 @@ struct SparseDistanceInputs {
 
   std::vector<value_t> out_dists_ref_h;
 
-  ML::Distance::DistanceType metric;
+  raft::distance::DistanceType metric;
 };
 
 template <typename value_idx, typename value_t>
@@ -163,14 +168,14 @@ const std::vector<SparseDistanceInputs<int, float>> inputs_i32_f = {
      1832.0,
      0.0,
    },
-   ML::Distance::DistanceType::EucExpandedL2},
+    raft::distance::DistanceType::EucExpandedL2},
   {2,
    {0, 2, 4, 6, 8},
    {0, 1, 0, 1, 0, 1, 0, 1},
    {1.0f, 2.0f, 1.0f, 2.0f, 1.0f, 2.0f, 1.0f, 2.0f},
    {5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0,
     5.0},
-   ML::Distance::DistanceType::InnerProduct
+    raft::distance::DistanceType::InnerProduct
 
   }};
 typedef SparseDistanceTest<int, float> SparseDistanceTestF;

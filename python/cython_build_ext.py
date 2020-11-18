@@ -46,10 +46,15 @@ class cython_build_ext(_build_ext, object):
 
     Parameters
     ----------
-    language_level : {"2", "3", "3str"}, default="2"
-        Globally set the Python language level to be used for module
-        compilation. Default is compatibility with Python 2. To enable Python 3
-        source code semantics, set this to 3 (or 3str)
+    annotate : bool, default=False
+        If True, will produce a HTML file for each of the .pyx or .py files
+        compiled. The HTML file gives an indication of how much Python
+        interaction there is in each of the source code lines, compared to
+        plain C code. It also allows you to see the C/C++ code generated for
+        each line of Cython code. This report is invaluable when optimizing a
+        function for speed, and for determining when to release the GIL: in
+        general, a nogil block may contain only “white” code. See examples in
+        Determining where to add types or Primes.
     binding : bool, default=True
         Controls whether free functions behave more like Python’s CFunctions
         (e.g. len()) or, when set to True, more like Python’s functions. When
@@ -59,46 +64,74 @@ class cython_build_ext(_build_ext, object):
         annotations.
 
         Changed in version 3.0.0: Default changed from False to True
-    profile : bool, default=False
-        Write hooks for Python profilers into the compiled C code.
+    cython_exclude : list of str
+        When passing glob patterns as module_list, you can exclude certain
+        module names explicitly by passing them into the exclude option.
     embedsignature : bool, default=False
         If set to True, Cython will embed a textual copy of the call signature
         in the docstring of all Python visible functions and classes. Tools
         like IPython and epydoc can thus display the signature, which cannot
         otherwise be retrieved after compilation.
-    cython_exclude : list of str
-        When passing glob patterns as module_list, you can exclude certain
-        module names explicitly by passing them into the exclude option.
     gdb_debug : bool, default=False
         Passes the `gdb_debug` argument to `cythonize()`. Setting up debugging
         for Cython can be difficult. See the debugging docs here
         https://cython.readthedocs.io/en/latest/src/userguide/debugging.html
+    language_level : {"2", "3", "3str"}, default="2"
+        Globally set the Python language level to be used for module
+        compilation. Default is compatibility with Python 2. To enable Python 3
+        source code semantics, set this to 3 (or 3str)
+    linetrace : bool, default=False
+        Write line tracing hooks for Python profilers or coverage reporting
+        into the compiled C code. This also enables profiling. Default is
+        False. Note that the generated module will not actually use line
+        tracing, unless you additionally pass the C macro definition
+        ``CYTHON_TRACE=1`` to the C compiler (e.g. using the setuptools option
+        define_macros). Define ``CYTHON_TRACE_NOGIL=1`` to also include nogil
+        functions and sections.
+    profile : bool, default=False
+        Write hooks for Python profilers into the compiled C code.
     """
     user_options = [
-        ('language-level=', None,
-         'Sets the python language syntax to use "2", "3", "3str".'),
-        ("binding", None,
+        ("annotate=",
+         None,
+         "Passes the `annotate` argument to `cythonize()`. See the Cython "
+         "docs for more info."),
+        ("binding",
+         None,
          "Sets the binding Cython compiler directive. See the Cython docs for "
          "more info."),
-        ("profile", None,
-         "Sets the profile Cython compiler directive. See the Cython docs for "
-         "more info."),
-        ("embedsignature", None,
-         "Sets the `embedsignature` Cython compiler directive. See the Cython "
-         "docs for more info."),
-        ("cython-exclude=", None,
+        ("cython-exclude=",
+         None,
          "Sets the exclude argument for `cythonize()`. See the Cython docs for"
          " more info."),
-        ("gdb-debug=", None,
+        ("embedsignature",
+         None,
+         "Sets the `embedsignature` Cython compiler directive. See the Cython "
+         "docs for more info."),
+        ("gdb-debug=",
+         None,
          "Passes the `gdb_debug` argument to `cythonize()`. See the Cython "
-         "docs for more info.")
+         "docs for more info."),
+        ('language-level=',
+         None,
+         'Sets the python language syntax to use "2", "3", "3str".'),
+        ("linetrace=",
+         None,
+         "Passes the `linetrace` argument to `cythonize()`. See the Cython "
+         "docs for more info."),
+        ("profile",
+         None,
+         "Sets the profile Cython compiler directive. See the Cython docs for "
+         "more info."),
     ] + _build_ext.user_options
 
     boolean_options = [
+        "annotate",
         "binding",
-        "profile",
         "embedsignature",
         "gdb-debug",
+        "linetrace",
+        "profile",
     ] + _build_ext.boolean_options
 
     def initialize_options(self):
@@ -107,12 +140,15 @@ class cython_build_ext(_build_ext, object):
         detect if they were set by the user
         """
 
-        self.language_level = None
+        self.annotate = None
         self.binding = None
-        self.profile = None
-        self.embedsignature = None
         self.cython_exclude = None
+        self.embedsignature = None
         self.gdb_debug = None
+        self.language_level = None
+        self.linetrace = None
+        self.profile = None
+
         super().initialize_options()
 
     def finalize_options(self):
@@ -153,12 +189,36 @@ class cython_build_ext(_build_ext, object):
                 self.profile = bool(self.profile)
                 compiler_directives.update({"profile": self.profile})
 
+            if (self.linetrace is not None):
+                self.linetrace = bool(self.linetrace)
+                compiler_directives.update({"linetrace": self.linetrace})
+
+                # Also need the compiler directive. Only add if it hasnt been
+                # specified yet
+                for ext in self.distribution.ext_modules:
+                    if (not hasattr(ext, "define_macros")):
+                        ext.define_macros = []
+
+                    found_macro = False
+
+                    for mac in ext.define_macros:
+                        if (mac[0] == "CYTHON_TRACE_NOGIL"):
+                            found_macro = True
+                            break
+
+                    if not found_macro:
+                        ext.define_macros.append(("CYTHON_TRACE_NOGIL", 1))
+
             if (self.embedsignature is not None):
                 self.embedsignature = bool(self.embedsignature)
                 compiler_directives.update(
                     {"embedsignature": self.embedsignature})
 
             cythonize_kwargs = {}
+
+            if (self.annotate is not None):
+
+                cythonize_kwargs.update({"annotate": self.annotate})
 
             if (self.cython_exclude is not None):
 

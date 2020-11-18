@@ -201,7 +201,7 @@ class UMAPParametrizableTest : public ::testing::Test {
 
     double trustworthiness =
       trustworthiness_score<float,
-                            ML::Distance::DistanceType::EucUnexpandedL2Sqrt>(
+                            raft::distance::DistanceType::EucUnexpandedL2Sqrt>(
         handle, X, embedding_ptr, n_samples, n_features,
         umap_params.n_components, umap_params.n_neighbors);
 
