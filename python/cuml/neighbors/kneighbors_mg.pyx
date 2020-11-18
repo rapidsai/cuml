@@ -18,6 +18,7 @@
 
 import numpy as np
 
+import cuml.internals
 from cuml.common.array import CumlArray
 from cuml.raft.common.handle cimport handle_t
 from cuml.common import input_to_cuml_array
@@ -46,6 +47,8 @@ class KNeighborsMG(NearestNeighbors):
         out_type = self.output_type
         if len(query) > 0:
             out_type = self._get_output_type(query[0])
+
+        cuml.internals.set_api_output_type(out_type)
         return out_type
 
     def gen_local_input(self, data, data_parts_to_ranks, data_nrows,
