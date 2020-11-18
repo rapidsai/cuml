@@ -26,6 +26,7 @@ import cuml.raft.common.handle
 from cuml.common.doc_utils import generate_docstring
 import cuml.common.input_utils
 
+
 class Base(metaclass=cuml.internals.BaseMetaClass):
     """
     Base class for all the ML algos. It handles some of the common operations
@@ -408,6 +409,7 @@ class ClassifierMixin:
 
         preds = self.predict(X, **kwargs)
         return accuracy_score(y, preds, handle=handle)
+
 
 # Internal, non class owned helper functions
 def _check_output_type_str(output_str):

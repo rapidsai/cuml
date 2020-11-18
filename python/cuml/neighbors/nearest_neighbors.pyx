@@ -278,7 +278,7 @@ class NearestNeighbors(Base):
 
         if is_sparse(X):
             self.X_m = SparseCumlArray(X, convert_to_dtype=cp.float32,
-                                        convert_format=False)
+                                       convert_format=False)
             self.n_rows = self.X_m.shape[0]
 
         else:
