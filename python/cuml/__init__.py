@@ -47,7 +47,7 @@ from cuml.linear_model.ridge import Ridge
 from cuml.manifold.t_sne import TSNE
 from cuml.manifold.umap import UMAP
 from cuml.metrics.accuracy import accuracy_score
-from cuml.metrics.cluster.adjustedrandindex import adjusted_rand_score
+from cuml.metrics.cluster.adjusted_rand_index import adjusted_rand_score
 from cuml.metrics.regression import r2_score
 
 from cuml.naive_bayes.naive_bayes import MultinomialNB
@@ -82,7 +82,7 @@ from cuml.raft import raft_include_test
 
 # Output type configuration
 
-global_output_type = 'input'
+global_output_type = None
 
 from cuml.common.memory_utils import set_global_output_type, using_output_type
 

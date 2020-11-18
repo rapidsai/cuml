@@ -18,9 +18,12 @@ import numpy as np
 import pytest
 import random
 import json
+import io
+from contextlib import redirect_stdout
 
 from numba import cuda
 
+import cuml
 from cuml.ensemble import RandomForestClassifier as curfc
 from cuml.ensemble import RandomForestRegressor as curfr
 from cuml.metrics import r2_score
@@ -142,8 +145,10 @@ def special_reg(request):
 @pytest.mark.parametrize('datatype', [np.float32])
 @pytest.mark.parametrize('split_algo', [0, 1])
 @pytest.mark.parametrize('max_features', [1.0, 'auto', 'log2', 'sqrt'])
+@pytest.mark.parametrize('use_experimental_backend', [True, False])
 def test_rf_classification(small_clf, datatype, split_algo,
-                           rows_sample, max_features):
+                           rows_sample, max_features,
+                           use_experimental_backend):
     use_handle = True
 
     X, y = small_clf
@@ -160,8 +165,30 @@ def test_rf_classification(small_clf, datatype, split_algo,
                        n_bins=16, split_algo=split_algo, split_criterion=0,
                        min_rows_per_node=2, random_state=123, n_streams=1,
                        n_estimators=40, handle=handle, max_leaves=-1,
-                       max_depth=16)
-    cuml_model.fit(X_train, y_train)
+                       max_depth=16,
+                       use_experimental_backend=use_experimental_backend)
+    f = io.StringIO()
+    with redirect_stdout(f):
+        cuml_model.fit(X_train, y_train)
+    captured_stdout = f.getvalue()
+    if use_experimental_backend:
+        is_fallback_used = False
+        if max_features != 1.0:
+            assert ('Experimental backend does not yet support feature ' +
+                    'sub-sampling' in captured_stdout)
+            is_fallback_used = True
+        if split_algo != 1:
+            assert ('Experimental backend does not yet support histogram ' +
+                    'split algorithm' in captured_stdout)
+            is_fallback_used = True
+        if is_fallback_used:
+            assert ('Not using the experimental backend due to above ' +
+                    'mentioned reason(s)' in captured_stdout)
+        else:
+            assert ('Using experimental backend for growing trees'
+                    in captured_stdout)
+    else:
+        assert captured_stdout == ''
     fil_preds = cuml_model.predict(X_test,
                                    predict_model="GPU",
                                    output_class=True,
@@ -186,10 +213,18 @@ def test_rf_classification(small_clf, datatype, split_algo,
 @pytest.mark.parametrize('rows_sample', [unit_param(1.0), quality_param(0.90),
                          stress_param(0.95)])
 @pytest.mark.parametrize('datatype', [np.float32])
-@pytest.mark.parametrize('split_algo', [0, 1])
-@pytest.mark.parametrize('max_features', [1.0, 'auto', 'log2', 'sqrt'])
+@pytest.mark.parametrize(
+    'split_algo,max_features,use_experimental_backend,n_bins',
+    [(0, 1.0, False, 16),
+     (1, 1.0, False, 11),
+     (0, 'auto', False, 128),
+     (1, 'log2', False, 100),
+     (1, 'sqrt', False, 100),
+     (1, 1.0, True, 17),
+     (1, 1.0, True, 32),
+     ])
 def test_rf_regression(special_reg, datatype, split_algo, max_features,
-                       rows_sample):
+                       rows_sample, use_experimental_backend, n_bins):
 
     use_handle = True
 
@@ -204,10 +239,11 @@ def test_rf_regression(special_reg, datatype, split_algo, max_features,
 
     # Initialize and fit using cuML's random forest regression model
     cuml_model = curfr(max_features=max_features, rows_sample=rows_sample,
-                       n_bins=16, split_algo=split_algo, split_criterion=2,
+                       n_bins=n_bins, split_algo=split_algo, split_criterion=2,
                        min_rows_per_node=2, random_state=123, n_streams=1,
                        n_estimators=50, handle=handle, max_leaves=-1,
-                       max_depth=16, accuracy_metric='mse')
+                       max_depth=16, accuracy_metric='mse',
+                       use_experimental_backend=use_experimental_backend)
     cuml_model.fit(X_train, y_train)
     # predict using FIL
     fil_preds = cuml_model.predict(X_test, predict_model="GPU")
@@ -490,11 +526,11 @@ def test_rf_classification_sparse(small_clf, datatype,
         fil_acc = accuracy_score(y_test, fil_preds)
 
         fil_model = cuml_model.convert_to_fil_model()
-        input_type = 'numpy'
-        fil_model_preds = fil_model.predict(X_test,
-                                            output_type=input_type)
-        fil_model_acc = accuracy_score(y_test, fil_model_preds)
-        assert fil_acc == fil_model_acc
+
+        with cuml.using_output_type("numpy"):
+            fil_model_preds = fil_model.predict(X_test)
+            fil_model_acc = accuracy_score(y_test, fil_model_preds)
+            assert fil_acc == fil_model_acc
 
         tl_model = cuml_model.convert_to_treelite_model()
         assert num_treees == tl_model.num_trees
@@ -553,13 +589,12 @@ def test_rf_regression_sparse(special_reg, datatype, fil_sparse_format, algo):
 
         fil_model = cuml_model.convert_to_fil_model()
 
-        input_type = 'numpy'
-        fil_model_preds = fil_model.predict(X_test,
-                                            output_type=input_type)
-        fil_model_preds = np.reshape(fil_model_preds, np.shape(y_test))
-        fil_model_r2 = r2_score(y_test, fil_model_preds,
-                                convert_dtype=datatype)
-        assert fil_r2 == fil_model_r2
+        with cuml.using_output_type("numpy"):
+            fil_model_preds = fil_model.predict(X_test)
+            fil_model_preds = np.reshape(fil_model_preds, np.shape(y_test))
+            fil_model_r2 = r2_score(y_test, fil_model_preds,
+                                    convert_dtype=datatype)
+            assert fil_r2 == fil_model_r2
 
         tl_model = cuml_model.convert_to_treelite_model()
         assert num_treees == tl_model.num_trees
