@@ -32,7 +32,7 @@ To start, it's recommended to read the following Scikit-learn documentation:
       1. [Instantiation](https://scikit-learn.org/stable/developers/develop.html#estimated-attributes)
       2. [Estimated Attributes](https://scikit-learn.org/stable/developers/develop.html#estimated-attributes)
       3. [`get_params` and `set_params`](https://scikit-learn.org/stable/developers/develop.html#estimated-attributes)
-      4. [Cloning](https://scikit-learn.org/stable/developers/develop.html#estimated-attributes)
+      4. [Cloning](https://scikit-learn.org/stable/developers/develop.html#cloning)
       5. [Estimator tags](https://scikit-learn.org/stable/developers/develop.html#estimator-tags)
 2. [Scikit-learn's Docstring Guide](https://scikit-learn.org/stable/developers/contributing.html#guidelines-for-writing-documentation)
    1. We follow the same guidelines for specifying array-like objects, array shapes, dtypes, and default values
