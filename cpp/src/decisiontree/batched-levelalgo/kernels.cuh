@@ -243,8 +243,9 @@ __global__ void nodeSplitKernel(IdxT max_depth, IdxT min_rows_per_node,
     node->depth, max_depth, min_rows_per_node, max_leaves, n_leaves, range_len);
   auto split = splits[nid];
   if (isLeaf || split.best_metric_val <= min_impurity_decrease ||
-      split.nLeft < min_samples_split ||
-      (range_len - split.nLeft) < min_samples_split) {
+      range_len < min_samples_split ||
+      split.nLeft < min_rows_per_node ||
+      (range_len - split.nLeft) < min_rows_per_node) {
     DevTraits::computePrediction(range_start, range_len, input, node, n_leaves,
                                  smem);
     return;
