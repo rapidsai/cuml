@@ -27,6 +27,7 @@ namespace MLCommon {
 namespace Sparse {
 
 using namespace raft;
+using namespace raft::sparse;
 
 template <typename value_idx, typename value_t>
 struct CSRTransposeInputs {

@@ -36,8 +36,8 @@
 
 #pragma once
 
-namespace MLCommon {
-namespace Sparse {
+namespace raft {
+namespace sparse {
 
 /** @brief A Container object for sparse coordinate. There are two motivations
  * behind using a container for COO arrays.
@@ -60,9 +60,9 @@ namespace Sparse {
 template <typename T, typename Index_Type = int>
 class COO {
  protected:
-  device_buffer<Index_Type> rows_arr;
-  device_buffer<Index_Type> cols_arr;
-  device_buffer<T> vals_arr;
+  MLCommon::device_buffer<Index_Type> rows_arr;
+  MLCommon::device_buffer<Index_Type> cols_arr;
+  MLCommon::device_buffer<T> vals_arr;
 
  public:
   Index_Type nnz;
@@ -73,7 +73,7 @@ class COO {
     * @param d_alloc: the device allocator to use for the underlying buffers
     * @param stream: CUDA stream to use
     */
-  COO(std::shared_ptr<deviceAllocator> d_alloc, cudaStream_t stream)
+  COO(std::shared_ptr<MLCommon::deviceAllocator> d_alloc, cudaStream_t stream)
     : rows_arr(d_alloc, stream, 0),
       cols_arr(d_alloc, stream, 0),
       vals_arr(d_alloc, stream, 0),
@@ -89,8 +89,8 @@ class COO {
     * @param n_rows: number of rows in the dense matrix
     * @param n_cols: number of cols in the dense matrix
     */
-  COO(device_buffer<Index_Type> &rows, device_buffer<Index_Type> &cols,
-      device_buffer<T> &vals, Index_Type nnz, Index_Type n_rows = 0,
+  COO(MLCommon::device_buffer<Index_Type> &rows, MLCommon::device_buffer<Index_Type> &cols,
+      MLCommon::device_buffer<T> &vals, Index_Type nnz, Index_Type n_rows = 0,
       Index_Type n_cols = 0)
     : rows_arr(rows),
       cols_arr(cols),
@@ -107,7 +107,7 @@ class COO {
     * @param n_cols: number of cols in the dense matrix
     * @param init: initialize arrays with zeros
     */
-  COO(std::shared_ptr<deviceAllocator> d_alloc, cudaStream_t stream,
+  COO(std::shared_ptr<MLCommon::deviceAllocator> d_alloc, cudaStream_t stream,
       Index_Type nnz, Index_Type n_rows = 0, Index_Type n_cols = 0,
       bool init = true)
     : rows_arr(d_alloc, stream, nnz),
@@ -270,7 +270,7 @@ class COO {
  */
 template <typename T>
 void coo_sort(int m, int n, int nnz, int *rows, int *cols, T *vals,
-              std::shared_ptr<deviceAllocator> d_alloc, cudaStream_t stream) {
+              std::shared_ptr<MLCommon::deviceAllocator> d_alloc, cudaStream_t stream) {
   cusparseHandle_t handle = NULL;
 
   size_t pBufferSizeInBytes = 0;
@@ -280,15 +280,15 @@ void coo_sort(int m, int n, int nnz, int *rows, int *cols, T *vals,
   CUSPARSE_CHECK(cusparseXcoosort_bufferSizeExt(handle, m, n, nnz, rows, cols,
                                                 &pBufferSizeInBytes));
 
-  device_buffer<int> d_P(d_alloc, stream, nnz);
-  device_buffer<char> pBuffer(d_alloc, stream, pBufferSizeInBytes);
+  MLCommon::device_buffer<int> d_P(d_alloc, stream, nnz);
+  MLCommon::device_buffer<char> pBuffer(d_alloc, stream, pBufferSizeInBytes);
 
   CUSPARSE_CHECK(cusparseCreateIdentityPermutation(handle, nnz, d_P.data()));
 
   CUSPARSE_CHECK(cusparseXcoosortByRow(handle, m, n, nnz, rows, cols,
                                        d_P.data(), pBuffer.data()));
 
-  device_buffer<T> vals_sorted(d_alloc, stream, nnz);
+  MLCommon::device_buffer<T> vals_sorted(d_alloc, stream, nnz);
 
   CUSPARSE_CHECK(raft::sparse::cusparsegthr<T>(
     handle, nnz, vals, vals_sorted.data(), d_P.data(), stream));
@@ -308,7 +308,7 @@ void coo_sort(int m, int n, int nnz, int *rows, int *cols, T *vals,
  * @param stream: the cuda stream to use
  */
 template <typename T>
-void coo_sort(COO<T> *const in, std::shared_ptr<deviceAllocator> d_alloc,
+void coo_sort(COO<T> *const in, std::shared_ptr<MLCommon::deviceAllocator> d_alloc,
               cudaStream_t stream) {
   coo_sort<T>(in->n_rows, in->n_cols, in->nnz, in->rows(), in->cols(),
               in->vals(), d_alloc, stream);
@@ -323,7 +323,7 @@ __global__ void coo_remove_zeros_kernel(const int *rows, const int *cols,
 
   if (row < m) {
     int start = cur_ex_scan[row];
-    int stop = MLCommon::Sparse::get_stop_idx(row, m, nnz, cur_ex_scan);
+    int stop = get_stop_idx(row, m, nnz, cur_ex_scan);
     int cur_out_idx = ex_scan[row];
 
     for (int idx = start; idx < stop; idx++) {
@@ -346,7 +346,7 @@ __global__ void coo_remove_scalar_kernel(const int *rows, const int *cols,
 
   if (row < m) {
     int start = cur_ex_scan[row];
-    int stop = MLCommon::Sparse::get_stop_idx(row, m, nnz, cur_ex_scan);
+    int stop = get_stop_idx(row, m, nnz, cur_ex_scan);
     int cur_out_idx = ex_scan[row];
 
     for (int idx = start; idx < stop; idx++) {
@@ -534,10 +534,10 @@ template <int TPB_X, typename T>
 void coo_remove_scalar(const int *rows, const int *cols, const T *vals, int nnz,
                        int *crows, int *ccols, T *cvals, int *cnnz,
                        int *cur_cnnz, T scalar, int n,
-                       std::shared_ptr<deviceAllocator> d_alloc,
+                       std::shared_ptr<MLCommon::deviceAllocator> d_alloc,
                        cudaStream_t stream) {
-  device_buffer<int> ex_scan(d_alloc, stream, n);
-  device_buffer<int> cur_ex_scan(d_alloc, stream, n);
+  MLCommon::device_buffer<int> ex_scan(d_alloc, stream, n);
+  MLCommon::device_buffer<int> cur_ex_scan(d_alloc, stream, n);
 
   CUDA_CHECK(cudaMemsetAsync(ex_scan.data(), 0, n * sizeof(int), stream));
   CUDA_CHECK(cudaMemsetAsync(cur_ex_scan.data(), 0, n * sizeof(int), stream));
@@ -576,21 +576,21 @@ void coo_remove_scalar(const int *rows, const int *cols, const T *vals, int nnz,
  */
 template <int TPB_X, typename T>
 void coo_remove_scalar(COO<T> *in, COO<T> *out, T scalar,
-                       std::shared_ptr<deviceAllocator> d_alloc,
+                       std::shared_ptr<MLCommon::deviceAllocator> d_alloc,
                        cudaStream_t stream) {
-  device_buffer<int> row_count_nz(d_alloc, stream, in->n_rows);
-  device_buffer<int> row_count(d_alloc, stream, in->n_rows);
+  MLCommon::device_buffer<int> row_count_nz(d_alloc, stream, in->n_rows);
+  MLCommon::device_buffer<int> row_count(d_alloc, stream, in->n_rows);
 
   CUDA_CHECK(
     cudaMemsetAsync(row_count_nz.data(), 0, in->n_rows * sizeof(int), stream));
   CUDA_CHECK(
     cudaMemsetAsync(row_count.data(), 0, in->n_rows * sizeof(int), stream));
 
-  MLCommon::Sparse::coo_row_count<TPB_X>(in->rows(), in->nnz, row_count.data(),
+  coo_row_count<TPB_X>(in->rows(), in->nnz, row_count.data(),
                                          stream);
   CUDA_CHECK(cudaPeekAtLastError());
 
-  MLCommon::Sparse::coo_row_count_scalar<TPB_X>(
+  coo_row_count_scalar<TPB_X>(
     in->rows(), in->vals(), in->nnz, scalar, row_count_nz.data(), stream);
   CUDA_CHECK(cudaPeekAtLastError());
 
@@ -618,7 +618,7 @@ void coo_remove_scalar(COO<T> *in, COO<T> *out, T scalar,
  */
 template <int TPB_X, typename T>
 void coo_remove_zeros(COO<T> *in, COO<T> *out,
-                      std::shared_ptr<deviceAllocator> d_alloc,
+                      std::shared_ptr<MLCommon::deviceAllocator> d_alloc,
                       cudaStream_t stream) {
   coo_remove_scalar<TPB_X, T>(in, out, T(0.0), d_alloc, stream);
 }
@@ -689,9 +689,9 @@ void from_knn(const long *knn_indices, const T *knn_dists, int m, int k,
  */
 template <typename T>
 void sorted_coo_to_csr(const T *rows, int nnz, T *row_ind, int m,
-                       std::shared_ptr<deviceAllocator> d_alloc,
+                       std::shared_ptr<MLCommon::deviceAllocator> d_alloc,
                        cudaStream_t stream) {
-  device_buffer<T> row_counts(d_alloc, stream, m);
+  MLCommon::device_buffer<T> row_counts(d_alloc, stream, m);
 
   CUDA_CHECK(cudaMemsetAsync(row_counts.data(), 0, m * sizeof(T), stream));
 
@@ -715,7 +715,7 @@ void sorted_coo_to_csr(const T *rows, int nnz, T *row_ind, int m,
  */
 template <typename T>
 void sorted_coo_to_csr(COO<T> *coo, int *row_ind,
-                       std::shared_ptr<deviceAllocator> d_alloc,
+                       std::shared_ptr<MLCommon::deviceAllocator> d_alloc,
                        cudaStream_t stream) {
   sorted_coo_to_csr(coo->rows(), coo->nnz, row_ind, coo->n_rows, d_alloc,
                     stream);
@@ -729,7 +729,7 @@ __global__ void coo_symmetrize_kernel(int *row_ind, int *rows, int *cols,
 
   if (row < n) {
     int start_idx = row_ind[row];  // each thread processes one row
-    int stop_idx = MLCommon::Sparse::get_stop_idx(row, n, cnnz, row_ind);
+    int stop_idx = get_stop_idx(row, n, cnnz, row_ind);
 
     int row_nnz = 0;
     int out_start_idx = start_idx * 2;
@@ -741,7 +741,7 @@ __global__ void coo_symmetrize_kernel(int *row_ind, int *rows, int *cols,
 
       int lookup_row = cur_col;
       int t_start = row_ind[lookup_row];  // Start at
-      int t_stop = MLCommon::Sparse::get_stop_idx(lookup_row, n, cnnz, row_ind);
+      int t_stop = get_stop_idx(lookup_row, n, cnnz, row_ind);
 
       T transpose = 0.0;
 
@@ -801,14 +801,14 @@ __global__ void coo_symmetrize_kernel(int *row_ind, int *rows, int *cols,
 template <int TPB_X, typename T, typename Lambda>
 void coo_symmetrize(COO<T> *in, COO<T> *out,
                     Lambda reduction_op,  // two-argument reducer
-                    std::shared_ptr<deviceAllocator> d_alloc,
+                    std::shared_ptr<MLCommon::deviceAllocator> d_alloc,
                     cudaStream_t stream) {
   dim3 grid(raft::ceildiv(in->n_rows, TPB_X), 1, 1);
   dim3 blk(TPB_X, 1, 1);
 
   ASSERT(!out->validate_mem(), "Expecting unallocated COO for output");
 
-  device_buffer<int> in_row_ind(d_alloc, stream, in->n_rows);
+  MLCommon::device_buffer<int> in_row_ind(d_alloc, stream, in->n_rows);
 
   sorted_coo_to_csr(in, in_row_ind.data(), d_alloc, stream);
 
@@ -926,17 +926,17 @@ void from_knn_symmetrize_matrix(const long *restrict knn_indices,
                                 const math_t *restrict knn_dists, const int n,
                                 const int k, COO<math_t> *out,
                                 cudaStream_t stream,
-                                std::shared_ptr<deviceAllocator> d_alloc) {
+                                std::shared_ptr<MLCommon::deviceAllocator> d_alloc) {
   // (1) Find how much space needed in each row
   // We look through all datapoints and increment the count for each row.
   const dim3 threadsPerBlock(TPB_X, TPB_Y);
   const dim3 numBlocks(raft::ceildiv(n, TPB_X), raft::ceildiv(k, TPB_Y));
 
   // Notice n+1 since we can reuse these arrays for transpose_edges, original_edges in step (4)
-  device_buffer<int> row_sizes(d_alloc, stream, n);
+  MLCommon::device_buffer<int> row_sizes(d_alloc, stream, n);
   CUDA_CHECK(cudaMemsetAsync(row_sizes.data(), 0, sizeof(int) * n, stream));
 
-  device_buffer<int> row_sizes2(d_alloc, stream, n);
+  MLCommon::device_buffer<int> row_sizes2(d_alloc, stream, n);
   CUDA_CHECK(cudaMemsetAsync(row_sizes2.data(), 0, sizeof(int) * n, stream));
 
   symmetric_find_size<<<numBlocks, threadsPerBlock, 0, stream>>>(

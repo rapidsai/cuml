@@ -40,7 +40,7 @@ void brute_force_knn(raft::handle_t &handle, const int *idx_indptr,
   cusparseHandle_t cusparse_handle = handle.get_cusparse_handle();
   cudaStream_t stream = handle.get_stream();
 
-  MLCommon::Sparse::Selection::brute_force_knn(
+  raft::sparse::selection::brute_force_knn(
     idx_indptr, idx_indices, idx_data, idx_nnz, n_idx_rows, n_idx_cols,
     query_indptr, query_indices, query_data, query_nnz, n_query_rows,
     n_query_cols, output_indices, output_dists, k, cusparse_handle, d_alloc,

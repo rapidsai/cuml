@@ -33,6 +33,7 @@ namespace Sparse {
 namespace Selection {
 
 using namespace raft;
+using namespace raft::sparse;
 
 template <typename value_idx, typename value_t>
 struct SparseDistanceInputs {
@@ -89,7 +90,7 @@ class SparseDistanceTest
 
     make_data();
 
-    Distance::distances_config_t<value_idx, value_t> dist_config;
+    raft::sparse::distance::distances_config_t<value_idx, value_t> dist_config;
     dist_config.b_nrows = params.indptr_h.size() - 1;
     dist_config.b_ncols = params.n_cols;
     dist_config.b_nnz = params.indices_h.size();

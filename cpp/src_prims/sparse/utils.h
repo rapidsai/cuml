@@ -16,8 +16,8 @@
 
 #pragma once
 
-namespace MLCommon {
-namespace Sparse {
+namespace raft {
+namespace sparse {
 
 /**
  * Quantizes ncols to a valid blockdim, which is

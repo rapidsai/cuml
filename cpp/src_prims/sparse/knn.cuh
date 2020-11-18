@@ -41,9 +41,9 @@
 
 #pragma once
 
-namespace MLCommon {
-namespace Sparse {
-namespace Selection {
+namespace raft {
+namespace sparse {
+namespace selection {
 
 template <typename value_idx, typename value_t>
 struct csr_batcher_t {
@@ -77,7 +77,7 @@ struct csr_batcher_t {
 
   value_idx get_batch_csr_indptr_nnz(value_idx *batch_indptr,
                                      cudaStream_t stream) {
-    MLCommon::Sparse::csr_row_slice_indptr(
+    raft::sparse::csr_row_slice_indptr(
       batch_start_, batch_stop_, csr_indptr_, batch_indptr,
       &batch_csr_start_offset_, &batch_csr_stop_offset_, stream);
 
@@ -89,7 +89,7 @@ struct csr_batcher_t {
 
   void get_batch_csr_indices_data(value_idx *csr_indices, value_t *csr_data,
                                   cudaStream_t stream) {
-    MLCommon::Sparse::csr_row_slice_populate(
+    raft::sparse::csr_row_slice_populate(
       batch_csr_start_offset_, batch_csr_stop_offset_, csr_indices_, csr_data_,
       csr_indices, csr_data, stream);
   }
@@ -126,7 +126,7 @@ class sparse_knn_t {
                size_t queryNNZ_, int n_query_rows_, int n_query_cols_,
                value_idx *output_indices_, value_t *output_dists_, int k_,
                cusparseHandle_t cusparseHandle_,
-               std::shared_ptr<deviceAllocator> allocator_,
+               std::shared_ptr<MLCommon::deviceAllocator> allocator_,
                cudaStream_t stream_,
                size_t batch_size_index_ = 2 << 14,  // approx 1M
                size_t batch_size_query_ = 2 << 14,
@@ -179,15 +179,15 @@ class sparse_knn_t {
       CUML_LOG_DEBUG("Slicing query CSR for batch. rows=%d out of %d",
                      query_batcher.batch_rows(), n_query_rows);
 
-      device_buffer<value_idx> query_batch_indptr(
+      MLCommon::device_buffer<value_idx> query_batch_indptr(
         allocator, stream, query_batcher.batch_rows() + 1);
 
       value_idx n_query_batch_nnz = query_batcher.get_batch_csr_indptr_nnz(
         query_batch_indptr.data(), stream);
 
-      device_buffer<value_idx> query_batch_indices(allocator, stream,
+      MLCommon::device_buffer<value_idx> query_batch_indices(allocator, stream,
                                                    n_query_batch_nnz);
-      device_buffer<value_t> query_batch_data(allocator, stream,
+      MLCommon::device_buffer<value_t> query_batch_data(allocator, stream,
                                               n_query_batch_nnz);
 
       query_batcher.get_batch_csr_indices_data(query_batch_indices.data(),
@@ -195,8 +195,8 @@ class sparse_knn_t {
 
       // A 3-partition temporary merge space to scale the batching. 2 parts for subsequent
       // batches and 1 space for the results of the merge, which get copied back to the top
-      device_buffer<value_idx> merge_buffer_indices(allocator, stream, 0);
-      device_buffer<value_t> merge_buffer_dists(allocator, stream, 0);
+      MLCommon::device_buffer<value_idx> merge_buffer_indices(allocator, stream, 0);
+      MLCommon::device_buffer<value_t> merge_buffer_dists(allocator, stream, 0);
 
       value_t *dists_merge_buffer_ptr;
       value_idx *indices_merge_buffer_ptr;
@@ -217,10 +217,10 @@ class sparse_knn_t {
             */
         CUML_LOG_DEBUG("Slicing index CSR for batch. rows=%d out of %d",
                        idx_batcher.batch_rows(), n_idx_rows);
-        device_buffer<value_idx> idx_batch_indptr(allocator, stream,
+        MLCommon::device_buffer<value_idx> idx_batch_indptr(allocator, stream,
                                                   idx_batcher.batch_rows() + 1);
-        device_buffer<value_idx> idx_batch_indices(allocator, stream, 0);
-        device_buffer<value_t> idx_batch_data(allocator, stream, 0);
+        MLCommon::device_buffer<value_idx> idx_batch_indices(allocator, stream, 0);
+        MLCommon::device_buffer<value_t> idx_batch_data(allocator, stream, 0);
 
         value_idx idx_batch_nnz =
           idx_batcher.get_batch_csr_indptr_nnz(idx_batch_indptr.data(), stream);
@@ -236,7 +236,7 @@ class sparse_knn_t {
            */
         value_idx dense_size =
           idx_batcher.batch_rows() * query_batcher.batch_rows();
-        device_buffer<value_t> batch_dists(allocator, stream, dense_size);
+        MLCommon::device_buffer<value_t> batch_dists(allocator, stream, dense_size);
 
         compute_distances(idx_batcher, query_batcher, idx_batch_nnz,
                           n_query_batch_nnz, idx_batch_indptr.data(),
@@ -249,7 +249,7 @@ class sparse_knn_t {
         idx_batch_data.release(stream);
 
         // Build batch indices array
-        device_buffer<value_idx> batch_indices(allocator, stream,
+        MLCommon::device_buffer<value_idx> batch_indices(allocator, stream,
                                                batch_dists.size());
 
         // populate batch indices array
@@ -346,7 +346,7 @@ class sparse_knn_t {
     id_ranges.push_back(0);
     id_ranges.push_back(idx_batcher.batch_start());
 
-    device_buffer<value_idx> trans(allocator, stream, id_ranges.size());
+    MLCommon::device_buffer<value_idx> trans(allocator, stream, id_ranges.size());
     raft::update_device(trans.data(), id_ranges.data(), id_ranges.size(),
                         stream);
 
@@ -411,7 +411,7 @@ class sparse_knn_t {
        * Compute distances
        */
     CUML_LOG_DEBUG("Computing pairwise distances for batch");
-    MLCommon::Sparse::Distance::distances_config_t<value_idx, value_t>
+    raft::sparse::distance::distances_config_t<value_idx, value_t>
       dist_config;
     dist_config.b_nrows = idx_batcher.batch_rows();
     dist_config.b_ncols = n_idx_cols;
@@ -433,7 +433,7 @@ class sparse_knn_t {
     dist_config.allocator = allocator;
     dist_config.stream = stream;
 
-    Distance::pairwiseDistance(batch_dists, dist_config, get_pw_metric());
+    raft::sparse::distance::pairwiseDistance(batch_dists, dist_config, get_pw_metric());
   }
 
   const value_idx *idxIndptr, *idxIndices, *queryIndptr, *queryIndices;
@@ -453,7 +453,7 @@ class sparse_knn_t {
 
   cusparseHandle_t cusparseHandle;
 
-  std::shared_ptr<deviceAllocator> allocator;
+  std::shared_ptr<MLCommon::deviceAllocator> allocator;
 
   cudaStream_t stream;
 };
@@ -492,7 +492,7 @@ void brute_force_knn(const value_idx *idxIndptr, const value_idx *idxIndices,
                      size_t queryNNZ, int n_query_rows, int n_query_cols,
                      value_idx *output_indices, value_t *output_dists, int k,
                      cusparseHandle_t cusparseHandle,
-                     std::shared_ptr<deviceAllocator> allocator,
+                     std::shared_ptr<MLCommon::deviceAllocator> allocator,
                      cudaStream_t stream,
                      size_t batch_size_index = 2 << 14,  // approx 1M
                      size_t batch_size_query = 2 << 14,

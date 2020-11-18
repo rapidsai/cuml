@@ -36,8 +36,8 @@
 
 #include <sparse/utils.h>
 
-namespace MLCommon {
-namespace Sparse {
+namespace raft {
+namespace sparse {
 
 static const float MIN_FLOAT = std::numeric_limits<float>::min();
 
@@ -132,7 +132,7 @@ void csr_transpose(cusparseHandle_t handle, const value_idx *csr_indptr,
                    const value_idx *csr_indices, const value_t *csr_data,
                    value_idx *csc_indptr, value_idx *csc_indices,
                    value_t *csc_data, value_idx csr_nrows, value_idx csr_ncols,
-                   value_idx nnz, std::shared_ptr<deviceAllocator> allocator,
+                   value_idx nnz, std::shared_ptr<MLCommon::deviceAllocator> allocator,
                    cudaStream_t stream) {
   size_t convert_csc_workspace_size = 0;
 
@@ -144,7 +144,7 @@ void csr_transpose(cusparseHandle_t handle, const value_idx *csr_indptr,
 
   CUML_LOG_DEBUG("Transpose workspace size: %d", convert_csc_workspace_size);
 
-  device_buffer<char> convert_csc_workspace(allocator, stream,
+  MLCommon::device_buffer<char> convert_csc_workspace(allocator, stream,
                                             convert_csc_workspace_size);
 
   CUSPARSE_CHECK(raft::sparse::cusparsecsr2csc(
@@ -503,12 +503,12 @@ template <typename T, int TPB_X = 32>
 size_t csr_add_calc_inds(const int *a_ind, const int *a_indptr, const T *a_val,
                          int nnz1, const int *b_ind, const int *b_indptr,
                          const T *b_val, int nnz2, int m, int *out_ind,
-                         std::shared_ptr<deviceAllocator> d_alloc,
+                         std::shared_ptr<MLCommon::deviceAllocator> d_alloc,
                          cudaStream_t stream) {
   dim3 grid(raft::ceildiv(m, TPB_X), 1, 1);
   dim3 blk(TPB_X, 1, 1);
 
-  device_buffer<int> row_counts(d_alloc, stream, m + 1);
+  MLCommon::device_buffer<int> row_counts(d_alloc, stream, m + 1);
   CUDA_CHECK(
     cudaMemsetAsync(row_counts.data(), 0, (m + 1) * sizeof(int), stream));
 
@@ -900,11 +900,11 @@ void weak_cc_batched(Index_ *labels, const Index_ *row_ind,
 template <typename Index_ = int, int TPB_X = 32,
           typename Lambda = auto(Index_)->bool>
 void weak_cc(Index_ *labels, const Index_ *row_ind, const Index_ *row_ind_ptr,
-             Index_ nnz, Index_ N, std::shared_ptr<deviceAllocator> d_alloc,
+             Index_ nnz, Index_ N, std::shared_ptr<MLCommon::deviceAllocator> d_alloc,
              cudaStream_t stream, Lambda filter_op) {
-  device_buffer<bool> xa(d_alloc, stream, N);
-  device_buffer<bool> fa(d_alloc, stream, N);
-  device_buffer<bool> m(d_alloc, stream, 1);
+  MLCommon::device_buffer<bool> xa(d_alloc, stream, N);
+  MLCommon::device_buffer<bool> fa(d_alloc, stream, N);
+  MLCommon::device_buffer<bool> m(d_alloc, stream, 1);
 
   WeakCCState state(xa.data(), fa.data(), m.data());
   weak_cc_batched<Index_, TPB_X>(labels, row_ind, row_ind_ptr, nnz, N, 0, N,
@@ -935,11 +935,11 @@ void weak_cc(Index_ *labels, const Index_ *row_ind, const Index_ *row_ind_ptr,
  */
 template <typename Index_, int TPB_X = 32>
 void weak_cc(Index_ *labels, const Index_ *row_ind, const Index_ *row_ind_ptr,
-             Index_ nnz, Index_ N, std::shared_ptr<deviceAllocator> d_alloc,
+             Index_ nnz, Index_ N, std::shared_ptr<MLCommon::deviceAllocator> d_alloc,
              cudaStream_t stream) {
-  device_buffer<bool> xa(d_alloc, stream, N);
-  device_buffer<bool> fa(d_alloc, stream, N);
-  device_buffer<bool> m(d_alloc, stream, 1);
+  MLCommon::device_buffer<bool> xa(d_alloc, stream, N);
+  MLCommon::device_buffer<bool> fa(d_alloc, stream, N);
+  MLCommon::device_buffer<bool> m(d_alloc, stream, 1);
   WeakCCState state(xa.data(), fa.data(), m.data());
   weak_cc_batched<Index_, TPB_X>(labels, row_ind, row_ind_ptr, nnz, N, 0, N,
                                  stream, [](Index_) { return true; });

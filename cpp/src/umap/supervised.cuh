@@ -47,7 +47,7 @@ namespace Supervised {
 
 using namespace ML;
 
-using namespace MLCommon::Sparse;
+using namespace raft::sparse;
 
 template <int TPB_X, typename T>
 __global__ void fast_intersection_kernel(int *rows, int *cols, T *vals, int nnz,
@@ -71,15 +71,15 @@ void reset_local_connectivity(COO<T> *in_coo, COO<T> *out_coo,
 ) {
   MLCommon::device_buffer<int> row_ind(d_alloc, stream, in_coo->n_rows);
 
-  MLCommon::Sparse::sorted_coo_to_csr(in_coo, row_ind.data(), d_alloc, stream);
+  raft::sparse::sorted_coo_to_csr(in_coo, row_ind.data(), d_alloc, stream);
 
   // Perform l_inf normalization
-  MLCommon::Sparse::csr_row_normalize_max<TPB_X, T>(
+  raft::sparse::csr_row_normalize_max<TPB_X, T>(
     row_ind.data(), in_coo->vals(), in_coo->nnz, in_coo->n_rows, in_coo->vals(),
     stream);
   CUDA_CHECK(cudaPeekAtLastError());
 
-  MLCommon::Sparse::coo_symmetrize<TPB_X, T>(
+  raft::sparse::coo_symmetrize<TPB_X, T>(
     in_coo, out_coo,
     [] __device__(int row, int col, T result, T transpose) {
       T prod_matrix = result * transpose;
@@ -120,13 +120,13 @@ __global__ void sset_intersection_kernel(
 
   if (row < m) {
     int start_idx_res = result_ind[row];
-    int stop_idx_res = MLCommon::Sparse::get_stop_idx(row, m, nnz, result_ind);
+    int stop_idx_res = raft::sparse::get_stop_idx(row, m, nnz, result_ind);
 
     int start_idx1 = row_ind1[row];
-    int stop_idx1 = MLCommon::Sparse::get_stop_idx(row, m, nnz1, row_ind1);
+    int stop_idx1 = raft::sparse::get_stop_idx(row, m, nnz1, row_ind1);
 
     int start_idx2 = row_ind2[row];
-    int stop_idx2 = MLCommon::Sparse::get_stop_idx(row, m, nnz2, row_ind2);
+    int stop_idx2 = raft::sparse::get_stop_idx(row, m, nnz2, row_ind2);
 
     for (int j = start_idx_res; j < stop_idx_res; j++) {
       int col = result_cols[j];
@@ -170,7 +170,7 @@ void general_simplicial_set_intersection(
   CUDA_CHECK(
     cudaMemsetAsync(result_ind.data(), 0, in1->n_rows * sizeof(int), stream));
 
-  int result_nnz = MLCommon::Sparse::csr_add_calc_inds<float, 32>(
+  int result_nnz = raft::sparse::csr_add_calc_inds<float, 32>(
     row1_ind, in1->cols(), in1->vals(), in1->nnz, row2_ind, in2->cols(),
     in2->vals(), in2->nnz, in1->n_rows, result_ind.data(), d_alloc, stream);
 
@@ -179,13 +179,13 @@ void general_simplicial_set_intersection(
   /**
    * Element-wise sum of two simplicial sets
    */
-  MLCommon::Sparse::csr_add_finalize<float, 32>(
+  raft::sparse::csr_add_finalize<float, 32>(
     row1_ind, in1->cols(), in1->vals(), in1->nnz, row2_ind, in2->cols(),
     in2->vals(), in2->nnz, in1->n_rows, result_ind.data(), result->cols(),
     result->vals(), stream);
 
   //@todo: Write a wrapper function for this
-  MLCommon::Sparse::csr_to_coo<int, TPB_X>(result_ind.data(), result->n_rows,
+  raft::sparse::csr_to_coo<int, TPB_X>(result_ind.data(), result->n_rows,
                                            result->rows(), result->nnz, stream);
 
   thrust::device_ptr<const T> d_ptr1 = thrust::device_pointer_cast(in1->vals());
@@ -300,9 +300,9 @@ void perform_general_intersection(const raft::handle_t &handle, value_t *y,
   COO<value_t> cygraph_coo(d_alloc, stream);
   coo_remove_zeros<TPB_X, value_t>(&ygraph_coo, &cygraph_coo, d_alloc, stream);
 
-  MLCommon::Sparse::sorted_coo_to_csr(&cygraph_coo, yrow_ind.data(), d_alloc,
+  raft::sparse::sorted_coo_to_csr(&cygraph_coo, yrow_ind.data(), d_alloc,
                                       stream);
-  MLCommon::Sparse::sorted_coo_to_csr(rgraph_coo, xrow_ind.data(), d_alloc,
+  raft::sparse::sorted_coo_to_csr(rgraph_coo, xrow_ind.data(), d_alloc,
                                       stream);
 
   COO<value_t> result_coo(d_alloc, stream);

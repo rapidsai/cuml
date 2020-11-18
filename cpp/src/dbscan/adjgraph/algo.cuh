@@ -54,7 +54,7 @@ void launcher(const raft::handle_t &handle, Pack<Index_> data, Index_ batchSize,
   int minPts = data.minPts;
   Index_ *vd = data.vd;
 
-  MLCommon::Sparse::csr_adj_graph_batched<Index_, TPB_X>(
+  raft::sparse::csr_adj_graph_batched<Index_, TPB_X>(
     data.ex_scan, data.N, data.adjnnz, batchSize, data.adj, data.adj_graph,
     stream,
     [core_pts, minPts, vd] __device__(Index_ row, Index_ start_idx,

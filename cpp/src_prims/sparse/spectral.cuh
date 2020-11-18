@@ -24,23 +24,24 @@
 
 #include <raft/spectral/partition.hpp>
 
-namespace MLCommon {
-namespace Spectral {
+namespace raft {
+namespace sparse {
+namespace spectral {
 
 template <typename T>
 void coo2csr(cusparseHandle_t handle, const int *srcRows, const int *srcCols,
              const T *srcVals, int nnz, int m, int *dst_offsets, int *dstCols,
-             T *dstVals, std::shared_ptr<deviceAllocator> d_alloc,
+             T *dstVals, std::shared_ptr<MLCommon::deviceAllocator> d_alloc,
              cudaStream_t stream) {
-  device_buffer<int> dstRows(d_alloc, stream, nnz);
+  MLCommon::device_buffer<int> dstRows(d_alloc, stream, nnz);
   CUDA_CHECK(cudaMemcpyAsync(dstRows.data(), srcRows, sizeof(int) * nnz,
                              cudaMemcpyDeviceToDevice, stream));
   CUDA_CHECK(cudaMemcpyAsync(dstCols, srcCols, sizeof(int) * nnz,
                              cudaMemcpyDeviceToDevice, stream));
   auto buffSize = raft::sparse::cusparsecoosort_bufferSizeExt(
     handle, m, m, nnz, srcRows, srcCols, stream);
-  device_buffer<char> pBuffer(d_alloc, stream, buffSize);
-  device_buffer<int> P(d_alloc, stream, nnz);
+  MLCommon::device_buffer<char> pBuffer(d_alloc, stream, buffSize);
+  MLCommon::device_buffer<int> P(d_alloc, stream, nnz);
   CUSPARSE_CHECK(cusparseCreateIdentityPermutation(handle, nnz, P.data()));
   raft::sparse::cusparsecoosortByRow(handle, m, m, nnz, dstRows.data(), dstCols,
                                      P.data(), pBuffer.data(), stream);
@@ -53,17 +54,17 @@ void coo2csr(cusparseHandle_t handle, const int *srcRows, const int *srcCols,
 template <typename T>
 void fit_embedding(cusparseHandle_t handle, int *rows, int *cols, T *vals,
                    int nnz, int n, int n_components, T *out,
-                   std::shared_ptr<deviceAllocator> d_alloc,
+                   std::shared_ptr<MLCommon::deviceAllocator> d_alloc,
                    cudaStream_t stream) {
-  device_buffer<int> src_offsets(d_alloc, stream, n + 1);
-  device_buffer<int> dst_cols(d_alloc, stream, nnz);
-  device_buffer<T> dst_vals(d_alloc, stream, nnz);
+  MLCommon::device_buffer<int> src_offsets(d_alloc, stream, n + 1);
+  MLCommon::device_buffer<int> dst_cols(d_alloc, stream, nnz);
+  MLCommon::device_buffer<T> dst_vals(d_alloc, stream, nnz);
   coo2csr(handle, rows, cols, vals, nnz, n, src_offsets.data(), dst_cols.data(),
           dst_vals.data(), d_alloc, stream);
 
-  device_buffer<T> eigVals(d_alloc, stream, n_components + 1);
-  device_buffer<T> eigVecs(d_alloc, stream, n * (n_components + 1));
-  device_buffer<int> labels(d_alloc, stream, n);
+  MLCommon::device_buffer<T> eigVals(d_alloc, stream, n_components + 1);
+  MLCommon::device_buffer<T> eigVecs(d_alloc, stream, n * (n_components + 1));
+  MLCommon::device_buffer<int> labels(d_alloc, stream, n);
 
   CUDA_CHECK(cudaStreamSynchronize(stream));
   //raft spectral clustering:
@@ -122,5 +123,6 @@ void fit_embedding(cusparseHandle_t handle, int *rows, int *cols, T *vals,
 
   CUDA_CHECK(cudaGetLastError());
 }
-}  // namespace Spectral
-}  // namespace MLCommon
+};  // namespace spectral
+};  // namespace sparse
+};  // namespace raft

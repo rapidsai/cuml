@@ -25,8 +25,8 @@
 #include <iostream>
 #include <limits>
 
-namespace MLCommon {
-namespace Sparse {
+namespace raft {
+namespace sparse {
 
 template <typename T>
 class CSRTest : public ::testing::TestWithParam<CSRInputs<T>> {
@@ -145,7 +145,7 @@ TEST_P(CSRSum, Result) {
   cudaStream_t stream;
   cudaStreamCreate(&stream);
 
-  std::shared_ptr<deviceAllocator> alloc(
+  std::shared_ptr<MLCommon::deviceAllocator> alloc(
     new raft::mr::device::default_allocator);
 
   int *ex_scan, *ind_ptr_a, *ind_ptr_b, *verify_indptr;
@@ -289,7 +289,7 @@ TEST_P(WeakCCTest, Result) {
   cudaStream_t stream;
   cudaStreamCreate(&stream);
 
-  std::shared_ptr<deviceAllocator> alloc(
+  std::shared_ptr<MLCommon::deviceAllocator> alloc(
     new raft::mr::device::default_allocator);
   int *row_ind, *row_ind_ptr, *result, *verify;
 
@@ -306,9 +306,9 @@ TEST_P(WeakCCTest, Result) {
   raft::allocate(result, 9, true);
   raft::allocate(verify, 9);
 
-  device_buffer<bool> xa(alloc, stream, 6);
-  device_buffer<bool> fa(alloc, stream, 6);
-  device_buffer<bool> m(alloc, stream, 1);
+  MLCommon::device_buffer<bool> xa(alloc, stream, 6);
+  MLCommon::device_buffer<bool> fa(alloc, stream, 6);
+  MLCommon::device_buffer<bool> m(alloc, stream, 1);
   WeakCCState state(xa.data(), fa.data(), m.data());
 
   /**

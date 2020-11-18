@@ -195,7 +195,7 @@ void optimize_layout(T *head_embedding, int head_n, T *tail_embedding,
  * and their 1-skeletons.
  */
 template <int TPB_X, typename T>
-void launcher(int m, int n, MLCommon::Sparse::COO<T> *in, UMAPParams *params,
+void launcher(int m, int n, raft::sparse::COO<T> *in, UMAPParams *params,
               T *embedding, std::shared_ptr<deviceAllocator> d_alloc,
               cudaStream_t stream) {
   int nnz = in->nnz;
@@ -229,8 +229,8 @@ void launcher(int m, int n, MLCommon::Sparse::COO<T> *in, UMAPParams *params,
     },
     stream);
 
-  MLCommon::Sparse::COO<T> out(d_alloc, stream);
-  MLCommon::Sparse::coo_remove_zeros<TPB_X, T>(in, &out, d_alloc, stream);
+  raft::sparse::COO<T> out(d_alloc, stream);
+  raft::sparse::coo_remove_zeros<TPB_X, T>(in, &out, d_alloc, stream);
 
   MLCommon::device_buffer<T> epochs_per_sample(d_alloc, stream, out.nnz);
   CUDA_CHECK(

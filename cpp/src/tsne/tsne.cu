@@ -103,7 +103,7 @@ void TSNE_fit(const raft::handle_t &handle, const float *X, float *Y,
   START_TIMER;
   //---------------------------------------------------
   // Convert data to COO layout
-  MLCommon::Sparse::COO<float> COO_Matrix(d_alloc, stream);
+  raft::sparse::COO<float> COO_Matrix(d_alloc, stream);
   TSNE::symmetrize_perplexity(P.data(), indices.data(), n, n_neighbors,
                               early_exaggeration, &COO_Matrix, stream, handle);
   P.release(stream);

@@ -31,9 +31,9 @@
 
 #include <cusparse_v2.h>
 
-namespace MLCommon {
-namespace Sparse {
-namespace Distance {
+namespace raft {
+namespace sparse {
+namespace distance {
 
 template <typename value_idx, typename value_t>
 struct distances_config_t {
@@ -55,7 +55,7 @@ struct distances_config_t {
 
   cusparseHandle_t handle;
 
-  std::shared_ptr<deviceAllocator> allocator;
+  std::shared_ptr<MLCommon::deviceAllocator> allocator;
   cudaStream_t stream;
 };
 
@@ -106,11 +106,11 @@ class ip_distances_t : public distances_t<value_t> {
 	   */
 
     CUML_LOG_DEBUG("Compute() inside inner-product d");
-    device_buffer<value_idx> out_batch_indptr(config_.allocator, config_.stream,
+    MLCommon::device_buffer<value_idx> out_batch_indptr(config_.allocator, config_.stream,
                                               config_.a_nrows + 1);
-    device_buffer<value_idx> out_batch_indices(config_.allocator,
+    MLCommon::device_buffer<value_idx> out_batch_indices(config_.allocator,
                                                config_.stream, 0);
-    device_buffer<value_t> out_batch_data(config_.allocator, config_.stream, 0);
+    MLCommon::device_buffer<value_t> out_batch_data(config_.allocator, config_.stream, 0);
 
     value_idx out_batch_nnz = get_nnz(out_batch_indptr.data());
 
@@ -126,7 +126,7 @@ class ip_distances_t : public distances_t<value_t> {
      * It would be nice if there was a gemm that could do
      * (sparse, sparse)->dense natively.
      */
-    csr_to_dense(config_.handle, config_.a_nrows, config_.b_nrows,
+    raft::sparse::csr_to_dense(config_.handle, config_.a_nrows, config_.b_nrows,
                  out_batch_indptr.data(), out_batch_indices.data(),
                  out_batch_data.data(), config_.a_nrows, out_distances,
                  config_.stream, true);
@@ -204,7 +204,7 @@ class ip_distances_t : public distances_t<value_t> {
     csc_indices.resize(config_.b_nnz, config_.stream);
     csc_data.resize(config_.b_nnz, config_.stream);
 
-    csr_transpose(config_.handle, config_.b_indptr, config_.b_indices,
+    raft::sparse::csr_transpose(config_.handle, config_.b_indptr, config_.b_indices,
                   config_.b_data, csc_indptr.data(), csc_indices.data(),
                   csc_data.data(), config_.b_nrows, config_.b_ncols,
                   config_.b_nnz, config_.allocator, config_.stream);
@@ -217,10 +217,10 @@ class ip_distances_t : public distances_t<value_t> {
   cusparseMatDescr_t matC;
   cusparseMatDescr_t matD;
   cusparsePointerMode_t orig_ptr_mode;
-  device_buffer<char> workspace;
-  device_buffer<value_idx> csc_indptr;
-  device_buffer<value_idx> csc_indices;
-  device_buffer<value_t> csc_data;
+  MLCommon::device_buffer<char> workspace;
+  MLCommon::device_buffer<value_idx> csc_indptr;
+  MLCommon::device_buffer<value_idx> csc_indices;
+  MLCommon::device_buffer<value_t> csc_data;
   distances_config_t<value_idx, value_t> config_;
 };
 
@@ -275,10 +275,10 @@ void compute_l2(value_t *out, const value_idx *Q_coo_rows,
                 const value_t *Q_data, value_idx Q_nnz,
                 const value_idx *R_coo_rows, const value_t *R_data,
                 value_idx R_nnz, value_idx m, value_idx n,
-                cusparseHandle_t handle, std::shared_ptr<deviceAllocator> alloc,
+                cusparseHandle_t handle, std::shared_ptr<MLCommon::deviceAllocator> alloc,
                 cudaStream_t stream) {
-  device_buffer<value_t> Q_sq_norms(alloc, stream, m);
-  device_buffer<value_t> R_sq_norms(alloc, stream, n);
+  MLCommon::device_buffer<value_t> Q_sq_norms(alloc, stream, m);
+  MLCommon::device_buffer<value_t> R_sq_norms(alloc, stream, n);
   CUDA_CHECK(
     cudaMemsetAsync(Q_sq_norms.data(), 0, Q_sq_norms.size() * sizeof(value_t)));
   CUDA_CHECK(
@@ -312,7 +312,7 @@ class l2_distances_t : public distances_t<value_t> {
     value_t *b_data = ip_dists.trans_data();
 
     CUML_LOG_DEBUG("Computing COO row index array");
-    device_buffer<value_idx> search_coo_rows(config_.allocator, config_.stream,
+    MLCommon::device_buffer<value_idx> search_coo_rows(config_.allocator, config_.stream,
                                              config_.a_nnz);
     csr_to_coo(config_.a_indptr, config_.a_nrows, search_coo_rows.data(),
                config_.a_nnz, config_.stream);
@@ -331,7 +331,7 @@ class l2_distances_t : public distances_t<value_t> {
 
  private:
   distances_config_t<value_idx, value_t> config_;
-  device_buffer<char> workspace;
+  MLCommon::device_buffer<char> workspace;
   ip_distances_t<value_idx, value_t> ip_dists;
 };
 

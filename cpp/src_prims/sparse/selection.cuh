@@ -40,9 +40,9 @@
 
 #include <cusparse_v2.h>
 
-namespace MLCommon {
-namespace Sparse {
-namespace Selection {
+namespace raft {
+namespace sparse {
+namespace selection {
 
 template <typename value_idx>
 __global__ void iota_fill_warp_kernel(value_idx *indices, value_idx ncols) {

@@ -26,6 +26,7 @@ namespace Sparse {
 namespace Selection {
 
 using namespace raft;
+using namespace raft::sparse;
 
 template <typename value_idx, typename value_t>
 struct SparseSelectionInputs {
@@ -59,7 +60,7 @@ class SparseSelectionTest
     update_device(dists, dists_h.data(), dists_h.size(), stream);
 
     allocate(inds, n_rows * n_cols);
-    iota_fill(inds, n_rows, n_cols, stream);
+    raft::sparse::selection::iota_fill(inds, n_rows, n_cols, stream);
 
     std::vector<value_t> out_dists_ref_h = params.out_dists_ref_h;
     std::vector<value_idx> out_indices_ref_h = params.out_indices_ref_h;
@@ -91,7 +92,7 @@ class SparseSelectionTest
 
     make_data();
 
-    select_k(dists, inds, n_rows, n_cols, out_dists, out_indices,
+    raft::sparse::selection::select_k(dists, inds, n_rows, n_cols, out_dists, out_indices,
              params.select_min, k, stream);
 
     CUDA_CHECK(cudaStreamSynchronize(stream));

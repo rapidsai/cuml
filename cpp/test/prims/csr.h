@@ -16,9 +16,9 @@
 
 #pragma once
 
-namespace MLCommon {
+namespace raft {
 
-namespace Sparse {
+namespace sparse {
 
 template <typename T>
 struct CSRInputs {

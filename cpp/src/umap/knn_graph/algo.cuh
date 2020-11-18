@@ -85,7 +85,7 @@ void launcher(const raft::handle_t &handle,
               const ML::UMAPParams *params,
               std::shared_ptr<ML::deviceAllocator> d_alloc,
               cudaStream_t stream) {
-  MLCommon::Sparse::Selection::brute_force_knn(
+  raft::sparse::selection::brute_force_knn(
     inputsA.indptr, inputsA.indices, inputsA.data, inputsA.nnz, inputsA.n,
     inputsA.d, inputsB.indptr, inputsB.indices, inputsB.data, inputsB.nnz,
     inputsB.n, inputsB.d, out.knn_indices, out.knn_dists, n_neighbors,

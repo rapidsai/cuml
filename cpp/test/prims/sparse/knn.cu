@@ -29,6 +29,7 @@ namespace Sparse {
 namespace Selection {
 
 using namespace raft;
+using namespace raft::sparse;
 
 template <typename value_idx, typename value_t>
 struct SparseKNNInputs {
@@ -104,7 +105,7 @@ class SparseKNNTest
 
     make_data();
 
-    brute_force_knn<value_idx, value_t>(
+    raft::sparse::selection::brute_force_knn<value_idx, value_t>(
       indptr, indices, data, nnz, n_rows, params.n_cols, indptr, indices, data,
       nnz, n_rows, params.n_cols, out_indices, out_dists, k, cusparseHandle,
       alloc, stream, params.batch_size_index, params.batch_size_query,
