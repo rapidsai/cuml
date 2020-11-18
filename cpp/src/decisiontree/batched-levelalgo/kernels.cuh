@@ -16,7 +16,9 @@
 
 #pragma once
 
+#include <cuml/tree/algo_helper.h>
 #include <common/grid_sync.cuh>
+#include <cub/cub.cuh>
 #include <raft/cuda_utils.cuh>
 #include "input.cuh"
 #include "metrics.cuh"
