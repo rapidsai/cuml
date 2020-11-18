@@ -105,8 +105,11 @@ void validity_check(const DecisionTreeParams params) {
          "split_algo value %d outside permitted [0, %d) range",
          params.split_algo, SPLIT_ALGO::SPLIT_ALGO_END);
   ASSERT((params.min_samples_leaf >= 2),
-         "Invalid min # rows per node value %d. Should be >= 2.",
+         "Invalid value for min_samples_leaf %d. Should be >= 2.",
          params.min_samples_leaf);
+  ASSERT((params.min_samples_split >= 2),
+         "Invalid value for min_samples_split: %d. Should be >= 2.",
+         params.min_samples_split);
 }
 
 void print(const DecisionTreeParams params) {
@@ -116,6 +119,7 @@ void print(const DecisionTreeParams params) {
   CUML_LOG_DEBUG("n_bins: %d", params.n_bins);
   CUML_LOG_DEBUG("split_algo: %d", params.split_algo);
   CUML_LOG_DEBUG("min_samples_leaf: %d", params.min_samples_leaf);
+  CUML_LOG_DEBUG("min_samples_split: %d", params.min_samples_split);
   CUML_LOG_DEBUG("bootstrap_features: %d", params.bootstrap_features);
   CUML_LOG_DEBUG("split_criterion: %d", params.split_criterion);
   CUML_LOG_DEBUG("quantile_per_tree: %d", params.quantile_per_tree);

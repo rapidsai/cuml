@@ -139,6 +139,7 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
         y = np.asarray([0.0,1.0,2.0,3.0], dtype=np.float32)
         cuml_model = curfc(max_features=1.0, n_bins=8,
                             split_algo=0, min_samples_leaf=2,
+                            min_samples_split=2,
                             n_estimators=40, accuracy_metric='r2')
         cuml_model.fit(X,y)
         cuml_score = cuml_model.score(X,y)
