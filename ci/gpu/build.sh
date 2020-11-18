@@ -187,8 +187,7 @@ else
     GTEST_OUTPUT="xml:${WORKSPACE}/test-results/libcuml_cpp/" ./test/ml
 
     CONDA_FILE=`find $WORKSPACE/ci/artifacts/cuml/cpu/conda-bld/ -name "libcuml*.tar.bz2"`
-    CONDA_FILE=`basename "$CONDA_FILE"` #strip path
-    CONDA_FILE=${CONDA_FILE%.tar.bz2} #strip extension
+    CONDA_FILE=`basename "$CONDA_FILE" .tar.bz2` #get filename without extension
     CONDA_FILE=${CONDA_FILE//-/=} #convert to conda install
     gpuci_logger "Installing $CONDA_FILE"
     conda install -c $WORKSPACE/ci/artifacts/cuml/cpu/conda-bld/ "$CONDA_FILE"
