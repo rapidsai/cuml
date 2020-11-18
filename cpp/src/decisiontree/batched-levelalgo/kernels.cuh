@@ -139,7 +139,8 @@ struct RegDeviceTraits {
  *
  * @param[in] myDepth           depth of this node
  * @param[in] max_depth maximum possible tree depth
- * @param[in] min_samples_leaf  min number of samples in each leaf node
+ * @param[in] min_samples_split min number of samples needed to split an
+ *                              internal node
  * @param[in] max_leaves        max leaf nodes per tree (it's a soft constraint)
  * @param[in] n_leaves          number of leaves in the tree already
  * @param[in] nSamples          number of samples belonging to this node
@@ -147,11 +148,11 @@ struct RegDeviceTraits {
  * @return true if the current node is to be declared as a leaf, else false
  */
 template <typename DataT, typename IdxT>
-DI bool leafBasedOnParams(IdxT myDepth, IdxT max_depth, IdxT min_samples_leaf,
+DI bool leafBasedOnParams(IdxT myDepth, IdxT max_depth, IdxT min_samples_split,
                           IdxT max_leaves, const IdxT* n_leaves,
                           IdxT nSamples) {
   if (myDepth >= max_depth) return true;
-  if (nSamples < min_samples_leaf) return true;
+  if (nSamples < min_samples_split) return true;
   if (max_leaves != -1) {
     if (*n_leaves >= max_leaves) return true;
   }
@@ -240,10 +241,9 @@ __global__ void nodeSplitKernel(IdxT max_depth, IdxT min_samples_leaf,
   volatile auto* node = curr_nodes + nid;
   auto range_start = node->start, n_samples = node->count;
   auto isLeaf = leafBasedOnParams<DataT, IdxT>(
-    node->depth, max_depth, min_samples_leaf, max_leaves, n_leaves, n_samples);
+    node->depth, max_depth, min_samples_split, max_leaves, n_leaves, n_samples);
   auto split = splits[nid];
   if (isLeaf || split.best_metric_val <= min_impurity_decrease ||
-      n_samples < min_samples_split ||
       split.nLeft < min_samples_leaf ||
       (n_samples - split.nLeft) < min_samples_leaf) {
     DevTraits::computePrediction(range_start, n_samples, input, node, n_leaves,
@@ -264,7 +264,7 @@ __device__ OutT* alignPointer(InT input) {
 
 template <typename DataT, typename LabelT, typename IdxT, int TPB>
 __global__ void computeSplitClassificationKernel(
-  int* hist, IdxT nbins, IdxT max_depth, IdxT min_samples_leaf,
+  int* hist, IdxT nbins, IdxT max_depth, IdxT min_samples_split,
   IdxT max_leaves, Input<DataT, LabelT, IdxT> input,
   const Node<DataT, LabelT, IdxT>* nodes, IdxT colStart, int* done_count,
   int* mutex, const IdxT* n_leaves, Split<DataT, IdxT>* splits,
@@ -274,7 +274,7 @@ __global__ void computeSplitClassificationKernel(
   auto node = nodes[nid];
   auto range_start = node.start;
   auto range_len = node.count;
-  if (leafBasedOnParams<DataT, IdxT>(node.depth, max_depth, min_samples_leaf,
+  if (leafBasedOnParams<DataT, IdxT>(node.depth, max_depth, min_samples_split,
                                      max_leaves, n_leaves, range_len)) {
     return;
   }
@@ -335,7 +335,7 @@ __global__ void computeSplitClassificationKernel(
 template <typename DataT, typename LabelT, typename IdxT, int TPB>
 __global__ void computeSplitRegressionKernel(
   DataT* pred, DataT* pred2, DataT* pred2P, IdxT* count, IdxT nbins,
-  IdxT max_depth, IdxT min_samples_leaf, IdxT max_leaves,
+  IdxT max_depth, IdxT min_samples_split, IdxT max_leaves,
   Input<DataT, LabelT, IdxT> input, const Node<DataT, LabelT, IdxT>* nodes,
   IdxT colStart, int* done_count, int* mutex, const IdxT* n_leaves,
   Split<DataT, IdxT>* splits, void* workspace, CRITERION splitType) {
@@ -344,7 +344,7 @@ __global__ void computeSplitRegressionKernel(
   auto node = nodes[nid];
   auto range_start = node.start;
   auto range_len = node.count;
-  if (leafBasedOnParams<DataT, IdxT>(node.depth, max_depth, min_samples_leaf,
+  if (leafBasedOnParams<DataT, IdxT>(node.depth, max_depth, min_samples_split,
                                      max_leaves, n_leaves, range_len)) {
     return;
   }
