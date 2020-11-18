@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-#include <algorithm>
 #include <decisiontree/memory.h>
 #include <gtest/gtest.h>
+#include <algorithm>
 #include <common/iota.cuh>
 #include <decisiontree/batched-levelalgo/builder_base.cuh>
 #include <decisiontree/batched-levelalgo/kernels.cuh>
@@ -33,9 +33,8 @@ struct NodeSplitKernelTestParams {
 };
 
 class NodeSplitKernelUnitTest
-    : public ::testing::TestWithParam<NodeSplitKernelTestParams> {
+  : public ::testing::TestWithParam<NodeSplitKernelTestParams> {
  protected:
-
   using DataT = float;
   using LabelT = float;
   using IdxT = int;
@@ -158,12 +157,11 @@ class NodeSplitKernelUnitTest
 
 TEST_F(NodeSplitKernelUnitTest, Quantiles) {
   /* Ensure that quantiles are computed correctly */
-  std::vector<DataT> expected_quantiles[]{
-    {-2.0f, -1.0f, 0.0f, 2.0f}, {0.0f, 1.0f, 3.0f}};
+  std::vector<DataT> expected_quantiles[]{{-2.0f, -1.0f, 0.0f, 2.0f},
+                                          {0.0f, 1.0f, 3.0f}};
   for (int col = 0; col < n_col; col++) {
     std::vector<DataT> col_quantile(n_bins);
-    std::copy(h_quantiles + n_bins * col,
-              h_quantiles + n_bins * (col + 1),
+    std::copy(h_quantiles + n_bins * col, h_quantiles + n_bins * (col + 1),
               col_quantile.begin());
     auto last = std::unique(col_quantile.begin(), col_quantile.end());
     col_quantile.erase(last, col_quantile.end());
@@ -178,7 +176,7 @@ TEST_P(NodeSplitKernelUnitTest, MinSamplesSplitLeaf) {
   auto smemSize = Traits::nodeSplitSmemSize(builder);
 
   IdxT h_n_total_nodes = 3;  // total number of nodes created so far
-  IdxT h_n_new_nodes;  // number of nodes created in this round
+  IdxT h_n_new_nodes;        // number of nodes created in this round
   IdxT batchSize = 2;
   std::vector<NodeT> h_nodes{
     /* {
@@ -197,19 +195,16 @@ TEST_P(NodeSplitKernelUnitTest, MinSamplesSplitLeaf) {
   initSplit<DataT, IdxT, Traits::TPB_DEFAULT>(splits, batchSize, 0);
 
   /* { quesval, colid, best_metric_val, nLeft } */
-  std::vector<Traits::SplitT> h_splits{
-    {-1.5f, 0, 0.25f, 1},
-    {2.0f, 1, 3.555556f, 2}
-  };
+  std::vector<Traits::SplitT> h_splits{{-1.5f, 0, 0.25f, 1},
+                                       {2.0f, 1, 3.555556f, 2}};
   raft::update_device(splits, h_splits.data(), 2, 0);
 
   nodeSplitKernel<DataT, LabelT, IdxT, Traits::DevTraits, Traits::TPB_SPLIT>
-        <<<batchSize, Traits::TPB_SPLIT, smemSize, 0>>>(
-    params.max_depth,
-    test_params.min_samples_leaf,
-    test_params.min_samples_split,
-    params.max_leaves, params.min_impurity_decrease, input,
-    curr_nodes, new_nodes, n_new_nodes, splits, n_new_leaves, h_n_total_nodes, new_depth);
+    <<<batchSize, Traits::TPB_SPLIT, smemSize, 0>>>(
+      params.max_depth, test_params.min_samples_leaf,
+      test_params.min_samples_split, params.max_leaves,
+      params.min_impurity_decrease, input, curr_nodes, new_nodes, n_new_nodes,
+      splits, n_new_leaves, h_n_total_nodes, new_depth);
   CUDA_CHECK(cudaGetLastError());
   raft::update_host(&h_n_new_nodes, n_new_nodes, 1, 0);
   CUDA_CHECK(cudaStreamSynchronize(0));
@@ -221,17 +216,8 @@ TEST_P(NodeSplitKernelUnitTest, MinSamplesSplitLeaf) {
 const std::vector<NodeSplitKernelTestParams> min_samples_split_leaf_test_params{
   /* { min_samples_split, min_samples_leaf,
    *   expected_n_total_nodes, expected_n_new_nodes } */
-  {0, 0, 7, 4},
-  {2, 0, 7, 4},
-  {3, 0, 5, 2},
-  {4, 0, 3, 0},
-  {5, 0, 3, 0},
-  {0, 1, 7, 4},
-  {0, 2, 3, 0},
-  {0, 5, 3, 0},
-  {4, 2, 3, 0},
-  {5, 5, 3, 0}
-};
+  {0, 0, 7, 4}, {2, 0, 7, 4}, {3, 0, 5, 2}, {4, 0, 3, 0}, {5, 0, 3, 0},
+  {0, 1, 7, 4}, {0, 2, 3, 0}, {0, 5, 3, 0}, {4, 2, 3, 0}, {5, 5, 3, 0}};
 
 INSTANTIATE_TEST_SUITE_P(
   NodeSplitKernelUnitTest, NodeSplitKernelUnitTest,
