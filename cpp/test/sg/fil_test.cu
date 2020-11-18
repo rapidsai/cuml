@@ -706,13 +706,8 @@ std::vector<FilTestParams> predict_dense_inputs = {
                   leaf_algo = GROVE_PER_CLASS, num_classes = 4),
   FIL_TEST_PARAMS(num_trees = 52, output = AVG, global_bias = 0.5,
                   leaf_algo = GROVE_PER_CLASS, num_classes = 4),
-  {20000, 50, 0.05, 8, 52, 0.05, fil::output_t::SOFTMAX, 0, 0.5,
-   fil::algo_t::TREE_REORG, 42, 2e-3f, tl::Operator(0),
-   fil::leaf_algo_t::GROVE_PER_CLASS, 4},
-  {20000, 50, 0.05, 8, 52, 0.05,
-   fil::output_t(fil::output_t::AVG | fil::output_t::SOFTMAX), 0, 0.5,
-   fil::algo_t::NAIVE, 42, 2e-3f, tl::Operator(0),
-   fil::leaf_algo_t::GROVE_PER_CLASS, 4},
+  FIL_TEST_PARAMS(num_trees = 52, output = SOFTMAX, leaf_algo = GROVE_PER_CLASS, num_classes = 4),
+  FIL_TEST_PARAMS(num_trees = 52, output = AVG_SOFTMAX, leaf_algo = GROVE_PER_CLASS, num_classes = 4),
 };
 
 TEST_P(PredictDenseFilTest, Predict) { compare(); }
