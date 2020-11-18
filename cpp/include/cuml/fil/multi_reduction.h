@@ -1,5 +1,5 @@
 #pragma once
-#include <cuda_utils.cuh>
+#include <raft/cuda_utils.cuh>
 // data [T]ype, reduction [R]adix
 template <int R, typename T>
 /**
