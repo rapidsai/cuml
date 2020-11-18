@@ -2,7 +2,8 @@
 
 ## New Features
 - PR #2659: Add initial max inner product sparse knn
-- PR #2836: Refactor UMAP to accept sparse inputs
+- PR #2837: Refactor UMAP to accept sparse inputs
+- PR #3157: Preparing sparse prims for movement to RAFT
 
 ## Improvements
 - PR #3077: Improve runtime for test_kmeans
