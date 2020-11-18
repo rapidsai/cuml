@@ -17,17 +17,17 @@
 #pragma once
 
 #include <raft/cudart_utils.h>
-#include <raft/cuda_utils.cuh>
 #include <raft/linalg/distance_type.h>
 #include <raft/sparse/cusparse_wrappers.h>
+#include <raft/cuda_utils.cuh>
 
 #include <common/device_buffer.hpp>
 
 #include <sparse/utils.h>
 #include <sparse/csr.cuh>
 
-#include <cuml/neighbors/knn.hpp>
 #include <cuml/common/cuml_allocator.hpp>
+#include <cuml/neighbors/knn.hpp>
 
 #include <cusparse_v2.h>
 
