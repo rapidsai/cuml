@@ -279,32 +279,34 @@ template <typename T>
 struct StridedItArray {
   T* v;
   int size;
-  StridedItArray(T* v_, int size_) : v(v_), size(size_) {}
+  __device__ StridedItArray(T* v_, int size_) : v(v_), size(size_) {}
 
   typedef StridedIt<T*> iterator;
   __device__ iterator begin() { return iterator(v + threadIdx.x, blockDim.x); }
   __device__ iterator end() { return iterator(v + size, blockDim.x); }
 
   __device__ auto row_begin(int row) {
-    return thrust::make_transform_iterator(begin(),
-                                           [row](T v) { return v[row]; });
+    return thrust::make_transform_iterator(
+      begin(), [row] __device__(T v) { return v[row]; });
   }
   __device__ auto row_end(int row) {
-    return thrust::make_transform_iterator(end(),
-                                           [row](T v) { return v[row]; });
+    return thrust::make_transform_iterator(
+      end(), [row] __device__(T v) { return v[row]; });
   }
 };
 
-template<typename Base, typename Lambda>
+template <typename Base, typename Lambda>
 struct TransformedArrayView : Base {
   Lambda lambda;
-  TransformedArrayView(Base arr_, Lambda lambda_):
-    Base(arr_), lambda(lambda_) {}
+
+  __device__ TransformedArrayView(Base arr_, Lambda lambda_)
+    : Base(arr_), lambda(lambda_) {}
+
   __device__ auto begin() {
-    return thrust::make_transform_iterator(Base::begin(), lambda); 
+    return thrust::make_transform_iterator(Base::begin(), lambda);
   }
   __device__ auto end() {
-    return thrust::make_transform_iterator(Base::end(), lambda); 
+    return thrust::make_transform_iterator(Base::end(), lambda);
   }
 };
 
@@ -323,27 +325,29 @@ __device__ __forceinline__ void block_softmax(ItA per_class_a,
                                               void* tmp_storage) {
   // subtract max before exponentiating for numerical stability
   typedef typename ItA::iterator::value_type value_type;
-  typedef typename ItA::iterator::reference reference;
   value_type max = allreduce_shmem<cub::Max>(per_class_a.begin(),
                                              per_class_a.end(), tmp_storage);
-  auto vse = [max](value_type v) { return vectorized<shifted_exp>(v, max); };
-  TransformedArrayView<ItA, typeid(vse)> exp(per_class_a, vse);
+  auto vse = [max] __device__(value_type v) {
+    return vectorized<shifted_exp>(v, max);
+  };
+  TransformedArrayView<ItA, decltype(vse)> exp(per_class_a, vse);
   // sum of exponents
-  value_type soe = allreduce_shmem<cub::Sum>(exp.begin(), exp.end(), tmp_storage);
+  value_type soe =
+    allreduce_shmem<cub::Sum>(exp.begin(), exp.end(), tmp_storage);
   // softmax phase 2: normalization
-  thrust::for_each(per_class_a.begin(), per_class_a.end(),
-                   [soe](reference v) { v /= soe; });
+  thrust::for_each(thrust::seq, per_class_a.begin(), per_class_a.end(),
+                   [soe] __device__(auto& v) { v /= soe; });
 }
 
 template <int NITEMS>
 __device__ __forceinline__ void normalize_softmax_and_write(
   vec<NITEMS, float>* per_class_value, output_t transform, int num_trees,
   void* tmp_storage, int num_classes, float* out, int num_rows) {
-
   StridedItArray<vec<NITEMS, float>> per_class_a(per_class_value, num_classes);
   if ((transform & output_t::AVG) != 0) {
-    thrust::for_each(per_class_a.begin(), per_class_a.end(),
-                     [num_trees](vec<NITEMS, float>& v) { v /= num_trees; });
+    thrust::for_each(
+      thrust::seq, per_class_a.begin(), per_class_a.end(),
+      [num_trees] __device__(vec<NITEMS, float> & v) { v /= num_trees; });
   }
   if ((transform & output_t::SOFTMAX) != 0)
     block_softmax(per_class_a, tmp_storage);
@@ -352,8 +356,8 @@ __device__ __forceinline__ void normalize_softmax_and_write(
     int row = blockIdx.x * NITEMS + i;
     if (row >= num_rows) return;
     StridedItArray<float> out_a(out + num_classes * row, num_classes);
-    thrust::copy(per_class_a.row_begin(i), per_class_a.row_end(i),
-                 out_a.begin());
+    thrust::copy_n(thrust::seq, per_class_a.row_begin(i), num_classes,
+                   out_a.begin());
   }
 }
 
