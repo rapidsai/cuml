@@ -13,10 +13,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+import cuml.internals
 from cuml.common.exceptions import NotFittedError
 import cupy as cp
 import cupyx
-from cuml.common import with_cupy_rmm
 from cuml.common.sparsefuncs import csr_row_normalize_l1, csr_row_normalize_l2
 from cuml.common.sparsefuncs import csr_diag_mul
 from cuml.common.array import CumlArray
@@ -132,7 +132,6 @@ class TfidfTransformer(Base):
         self.smooth_idf = smooth_idf
         self.sublinear_tf = sublinear_tf
 
-    @with_cupy_rmm
     def _set_doc_stats(self, X):
         """
         We set the following document level statistics here:
@@ -152,7 +151,6 @@ class TfidfTransformer(Base):
 
         return
 
-    @with_cupy_rmm
     def _set_idf_diag(self):
         """
             Sets idf_diagonal sparse array
@@ -172,8 +170,8 @@ class TfidfTransformer(Base):
         # Free up memory occupied by below
         del self.__df
 
-    @with_cupy_rmm
-    def fit(self, X):
+    @cuml.internals.api_base_return_any_skipall
+    def fit(self, X) -> "TfidfTransformer":
         """Learn the idf vector (global term weights).
 
         Parameters
@@ -189,7 +187,7 @@ class TfidfTransformer(Base):
 
         return self
 
-    @with_cupy_rmm
+    @cuml.internals.api_base_return_any_skipall
     def transform(self, X, copy=True):
         """Transform a count matrix to a tf or tf-idf representation
 
@@ -239,6 +237,7 @@ class TfidfTransformer(Base):
 
         return X
 
+    @cuml.internals.api_base_return_any_skipall
     def fit_transform(self, X, copy=True):
         """
         Fit TfidfTransformer to X, then transform X.
