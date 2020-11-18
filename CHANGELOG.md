@@ -52,6 +52,7 @@
 - PR #3117: Fix two crashes in experimental RF backend
 - PR #3119: Fix memset args for benchmark 
 - PR #3130: Return Python string from `dump_as_json()` of RF
+- PR #3132: Add `min_samples_split` + Rename `min_rows_per_node` -> `min_samples_leaf`
 
 # cuML 0.16.0 (Date TBD)
 
