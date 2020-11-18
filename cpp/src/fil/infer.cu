@@ -64,7 +64,7 @@ struct vec {
   __host__ __device__ T& operator[](int i) { return data[i]; }
   __host__ __device__ T operator[](int i) const { return data[i]; }
   friend __host__ __device__ void operator+=(vec<N, T>& a, const vec<N, T>& b) {
-    a = Vectorized<cub::Sum>()(a, b);
+    a = a + b;
   }
   friend __host__ __device__ vec<N, T> operator+(const vec<N, T>& a,
                                                  const vec<N, T>& b) {
@@ -168,7 +168,7 @@ size_t block_reduce_best_class_footprint_host() {
 // CUB defaults
 template <typename BinaryOp, typename T>
 __device__ __forceinline__ T block_reduce(T value,
-                                          const unsigned int valid_threads,
+                                          int valid_threads,
                                           void* storage) {
   typedef cub::BlockReduce<T, FIL_TPB> BlockReduceT;
   return BlockReduceT(*(typename BlockReduceT::TempStorage*)storage)

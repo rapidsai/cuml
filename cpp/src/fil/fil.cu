@@ -232,7 +232,7 @@ struct forest {
           // for GROVE_PER_CLASS, averaging happens in infer_k
           ot = output_t(ot & ~output_t::AVG);
           params.num_outputs = num_classes_;
-          do_transform = (ot != output_t::RAW && ot != output_t::SOFTMAX) ||
+          do_transform = ot != output_t::RAW && ot != output_t::SOFTMAX ||
                          global_bias != 0.0f;
           break;
         case leaf_algo_t::CATEGORICAL_LEAF:
@@ -451,7 +451,7 @@ void check_params(const forest_params_t* params, bool dense) {
              "num_classes >= 2 is required for "
              "leaf_algo == CATEGORICAL_LEAF");
       ASSERT((params->output & output_t::SOFTMAX) == 0,
-             "not implemented softmax for leaf_algo == CATEGORICAL_LEAF");
+             "softmax not implemented for leaf_algo == CATEGORICAL_LEAF");
       break;
     default:
       ASSERT(false,
@@ -459,13 +459,13 @@ void check_params(const forest_params_t* params, bool dense) {
              " or GROVE_PER_CLASS");
   }
   // output_t::RAW == 0, and doesn't have a separate flag
-  if ((params->output & ~output_t::all_set) != 0) {
+  if ((params->output & ~output_t::ALL_SET) != 0) {
     ASSERT(false,
            "output should be a combination of RAW, AVG, SIGMOID and CLASS");
   }
   ASSERT(
     (params->output & output_t::SIGMOID_SOFTMAX) != output_t::SIGMOID_SOFTMAX,
-    "not supporting softmax and sigmoid transformations together");
+    "combining softmax and sigmoid is not supported");
 }
 
 int tree_root(const tl::Tree& tree) {

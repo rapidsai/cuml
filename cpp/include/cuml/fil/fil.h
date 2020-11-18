@@ -84,7 +84,7 @@ enum output_t {
   SIGMOID_SOFTMAX = SIGMOID | SOFTMAX,
   SIGMOID_CLASS_SOFTMAX = SIGMOID | CLASS | SOFTMAX,
   AVG_SIGMOID_CLASS_SOFTMAX = AVG | SIGMOID | CLASS | SOFTMAX,
-  all_set = AVG_SIGMOID_CLASS_SOFTMAX
+  ALL_SET = AVG_SIGMOID_CLASS_SOFTMAX
 };
 
 /** storage_type_t defines whether to import the forests as dense or sparse */
