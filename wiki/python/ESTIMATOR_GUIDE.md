@@ -382,7 +382,7 @@ def predict(self, X) -> CumlArray:
 ```
 
 **Notes:**
- - Its not necessary to convert to `CumlArray` and casting with `to_output` before returning. This function directly returned a `cp.ndarray` object. Any array-like object can be returned.
+ - It's not necessary to convert to `CumlArray` and cast with `to_output` before returning. This function directly returned a `cp.ndarray` object. Any array-like object can be returned.
 
 #### Option 2: Manual Estimator Method Decoration
 
