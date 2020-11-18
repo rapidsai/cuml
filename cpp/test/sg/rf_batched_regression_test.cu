@@ -136,7 +136,7 @@ const std::vector<RfInputs> inputs = {
   {1000, 10, 10, 1.0f, 1.0f, 12, -1, true, false, 10,
    SPLIT_ALGO::GLOBAL_QUANTILE, 2, 2, 0.0, 2, CRITERION::MAE, 0.7f},
   {2000, 20, 20, 1.0f, 0.6f, 13, -1, true, false, 10,
-   SPLIT_ALGO::GLOBAL_QUANTILE, 2, 2, 0.0, 2, CRITERION::MSE, 0.7f}};
+   SPLIT_ALGO::GLOBAL_QUANTILE, 2, 2, 0.0, 2, CRITERION::MSE, 0.68f}};
 
 typedef RFBatchedRegTest<float> RFBatchedRegTestF;
 TEST_P(RFBatchedRegTestF, Fit) { ASSERT_GT(accuracy, params.min_expected_acc); }
