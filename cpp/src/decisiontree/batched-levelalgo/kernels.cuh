@@ -238,15 +238,15 @@ __global__ void nodeSplitKernel(IdxT max_depth, IdxT min_rows_per_node,
   extern __shared__ char smem[];
   IdxT nid = blockIdx.x;
   volatile auto* node = curr_nodes + nid;
-  auto range_start = node->start, range_len = node->count;
+  auto range_start = node->start, n_samples = node->count;
   auto isLeaf = leafBasedOnParams<DataT, IdxT>(
-    node->depth, max_depth, min_rows_per_node, max_leaves, n_leaves, range_len);
+    node->depth, max_depth, min_rows_per_node, max_leaves, n_leaves, n_samples);
   auto split = splits[nid];
   if (isLeaf || split.best_metric_val <= min_impurity_decrease ||
-      range_len < min_samples_split ||
+      n_samples < min_samples_split ||
       split.nLeft < min_rows_per_node ||
-      (range_len - split.nLeft) < min_rows_per_node) {
-    DevTraits::computePrediction(range_start, range_len, input, node, n_leaves,
+      (n_samples - split.nLeft) < min_rows_per_node) {
+    DevTraits::computePrediction(range_start, n_samples, input, node, n_leaves,
                                  smem);
     return;
   }
