@@ -181,6 +181,11 @@ TEST_P(NodeSplitKernelUnitTest, MinSamplesSplitLeaf) {
   IdxT h_n_new_nodes;  // number of nodes created in this round
   IdxT batchSize = 2;
   std::vector<NodeT> h_nodes{
+    /* {
+     *   SparseTreeNode{
+     *     prediction, colid, quesval, best_metric_val, left_child_id },
+     *   }, start, count, depth
+     * } */
     {{1.40f, 0, -0.5f, 5.606667f, 1}, 0, 5, 0},
     {{-1.50f, IdxT(-1), DataT(0), DataT(0), NodeT::Leaf}, 0, 2, 1},
     {{3.333333f, IdxT(-1), DataT(0), DataT(0), NodeT::Leaf}, 1, 3, 1},
@@ -191,6 +196,7 @@ TEST_P(NodeSplitKernelUnitTest, MinSamplesSplitLeaf) {
   CUDA_CHECK(cudaMemsetAsync(new_depth, 0, sizeof(IdxT), 0));
   initSplit<DataT, IdxT, Traits::TPB_DEFAULT>(splits, batchSize, 0);
 
+  /* { quesval, colid, best_metric_val, nLeft } */
   std::vector<Traits::SplitT> h_splits{
     {-1.5f, 0, 0.25f, 1},
     {2.0f, 1, 3.555556f, 2}
@@ -213,6 +219,8 @@ TEST_P(NodeSplitKernelUnitTest, MinSamplesSplitLeaf) {
 }
 
 const std::vector<NodeSplitKernelTestParams> min_samples_split_leaf_test_params{
+  /* { min_samples_split, min_samples_leaf,
+   *   expected_n_total_nodes, expected_n_new_nodes } */
   {0, 0, 7, 4},
   {2, 0, 7, 4},
   {3, 0, 5, 2},
