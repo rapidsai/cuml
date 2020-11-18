@@ -203,7 +203,7 @@ def get_param_names(self):
 
 Scikit-learn introduced estimator tags in version 0.21, which are used to programmatically inspect the capabilities of estimators. These capabilities include items like sparse matrix support and the need for positive inputs, among other things. cuML estimators support _all_ of the tags defined by the Scikit-learn estimator [developer guide](https://scikit-learn.org/stable/developers/index.html), and will add support for any tag added there.
 
-Additionaly, some tags specific to cuML have been added. These tags allow for optimization of data generation besides testing (for example pipelines and HPO), and/or are specific to GPU data types. These are:
+Additionaly, some tags specific to cuML have been added. These tags may or may not be specific to GPU data types and can even apply outside of automated testing, such as allowing for the optimization of data generation. This can be useful for pipelines and HPO, among other things. These are:
 
 - `X_types_gpu` (default=['2darray'])
    Analogous to `X_types`, indicates what types of GPU objects an estimator can take. `2darray` includes GPU ndarray objects (like CuPy and Numba) and cuDF objects, since they are all processed the same by `input_utils`. `sparse` includes `CuPy` sparse arrays.
