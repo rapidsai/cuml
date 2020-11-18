@@ -201,7 +201,7 @@ def get_param_names(self):
 
 ### Estimator Tags and cuML-Specific Tags
 
-Scikit-learn introduced estimator tags in version 0.21, which are used to programmatically inspect capabilities of estimars. These includes items like sparse matrix support, need for positive inputs, among multiple other things. cuML estimators support _all_ of the tags defined by the Scikit-learn estimator developer guide, and will add support for any tag added there.
+Scikit-learn introduced estimator tags in version 0.21, which are used to programmatically inspect the capabilities of estimators. These capabilities include items like sparse matrix support and the need for positive inputs, among other things. cuML estimators support _all_ of the tags defined by the Scikit-learn estimator [developer guide](https://scikit-learn.org/stable/developers/index.html), and will add support for any tag added there.
 
 Additionaly, some tags specific to cuML have been added. These tags allow for optimization of data generation besides testing (for example pipelines and HPO), and/or are specific to GPU data types. These are:
 
