@@ -95,7 +95,8 @@ def test_johnson_lindenstrauss_min_dim():
 
     for n_samples, eps in tests:
         cuml_value = cuml_johnson_lindenstrauss_min_dim(n_samples, eps=eps)
-        sklearn_value = sklearn_johnson_lindenstrauss_min_dim(n_samples, eps=eps)
+        sklearn_value = sklearn_johnson_lindenstrauss_min_dim(n_samples,
+                                                              eps=eps)
         assert cuml_value == sklearn_value
 
 
