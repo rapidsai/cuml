@@ -199,7 +199,7 @@ def get_param_names(self):
 
 **Note:** Be sure to include `super().get_param_names()` in the returned list to properly set the `super()` attributes.
 
-### Estimator Tags and cuML Specific Tags
+### Estimator Tags and cuML-Specific Tags
 
 Scikit-learn introduced estimator tags in version 0.21, which are used to programmatically inspect capabilities of estimars. These includes items like sparse matrix support, need for positive inputs, among multiple other things. cuML estimators support _all_ of the tags defined by the Scikit-learn estimator developer guide, and will add support for any tag added there.
 
