@@ -29,7 +29,7 @@ namespace DecisionTree {
  * @param[in] cfg_max_features: maximum number of features; default 1.0f
  * @param[in] cfg_n_bins: number of bins; default 8
  * @param[in] cfg_split_algo: split algorithm; default SPLIT_ALGO::HIST
- * @param[in] cfg_min_samples_leaf: min. rows per node; default 2
+ * @param[in] cfg_min_samples_leaf: min. rows in each leaf node; default 2
  * @param[in] cfg_min_samples_split: min. rows needed to split an internal node;
  *            default 2
  * @param[in] cfg_bootstrap_features: bootstrapping for features; default false

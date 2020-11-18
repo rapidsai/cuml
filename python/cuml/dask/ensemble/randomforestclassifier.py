@@ -102,8 +102,12 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
         per node split.
     n_bins : int (default = 8)
         Number of bins used by the split algorithm.
-    min_samples_leaf : int (default = 2)
-        The minimum number of samples (rows) needed to split a node.
+    min_samples_leaf : int or float (default = 2)
+        The minimum number of samples (rows) in each leaf node.
+        If int, then min_samples_leaf represents the minimum number.
+        If float, then min_samples_leaf represents a fraction and
+        ceil(min_samples_leaf * n_rows) is the minimum number of samples
+        for each leaf node.
     min_samples_split : int or float (default = 2)
         The minimum number of samples required to split an internal node.
         If int, then min_samples_split represents the minimum number.

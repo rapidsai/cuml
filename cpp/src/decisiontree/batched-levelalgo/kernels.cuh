@@ -139,7 +139,7 @@ struct RegDeviceTraits {
  *
  * @param[in] myDepth           depth of this node
  * @param[in] max_depth maximum possible tree depth
- * @param[in] min_samples_leaf  min number of samples needed to split the node
+ * @param[in] min_samples_leaf  min number of samples in each leaf node
  * @param[in] max_leaves        max leaf nodes per tree (it's a soft constraint)
  * @param[in] n_leaves          number of leaves in the tree already
  * @param[in] nSamples          number of samples belonging to this node
