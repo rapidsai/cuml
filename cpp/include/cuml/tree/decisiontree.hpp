@@ -48,7 +48,7 @@ struct DecisionTreeParams {
   /**
    * The minimum number of samples (rows) needed to split a node.
    */
-  int min_rows_per_node;
+  int min_samples_leaf;
   /**
    * The minimum number of samples (rows) needed to split an internal node.
    */
@@ -94,7 +94,7 @@ struct DecisionTreeParams {
  * @param[in] cfg_max_features: maximum number of features; default 1.0f
  * @param[in] cfg_n_bins: number of bins; default 8
  * @param[in] cfg_split_algo: split algorithm; default SPLIT_ALGO::HIST
- * @param[in] cfg_min_rows_per_node: min. rows per node; default 2
+ * @param[in] cfg_min_samples_leaf: min. rows per node; default 2
  * @param[in] cfg_min_samples_split: min. rows needed to split an internal node;
  *            default 2
  * @param[in] cfg_min_impurity_decrease: split a node only if its reduction in
@@ -113,7 +113,7 @@ struct DecisionTreeParams {
 void set_tree_params(DecisionTreeParams &params, int cfg_max_depth = -1,
                      int cfg_max_leaves = -1, float cfg_max_features = 1.0f,
                      int cfg_n_bins = 8, int cfg_split_algo = SPLIT_ALGO::HIST,
-                     int cfg_min_rows_per_node = 2,
+                     int cfg_min_samples_leaf = 2,
                      int cfg_min_samples_split = 2,
                      float cfg_min_impurity_decrease = 0.0f,
                      bool cfg_bootstrap_features = false,

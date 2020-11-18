@@ -187,7 +187,7 @@ RF_metrics score(const raft::handle_t& user_handle,
                  int verbosity = CUML_LEVEL_INFO);
 
 RF_params set_rf_class_obj(int max_depth, int max_leaves, float max_features,
-                           int n_bins, int split_algo, int min_rows_per_node,
+                           int n_bins, int split_algo, int min_samples_leaf,
                            int min_samples_split, float min_impurity_decrease,
                            bool bootstrap_features, bool bootstrap, int n_trees,
                            float rows_sample, int seed,

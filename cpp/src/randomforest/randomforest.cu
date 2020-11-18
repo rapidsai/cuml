@@ -612,7 +612,7 @@ RF_metrics score(const raft::handle_t& user_handle,
 }
 
 RF_params set_rf_class_obj(int max_depth, int max_leaves, float max_features,
-                           int n_bins, int split_algo, int min_rows_per_node,
+                           int n_bins, int split_algo, int min_samples_leaf,
                            int min_samples_split, float min_impurity_decrease,
                            bool bootstrap_features, bool bootstrap, int n_trees,
                            float rows_sample, int seed,
@@ -622,7 +622,7 @@ RF_params set_rf_class_obj(int max_depth, int max_leaves, float max_features,
   DecisionTree::DecisionTreeParams tree_params;
   DecisionTree::set_tree_params(
     tree_params, max_depth, max_leaves, max_features, n_bins, split_algo,
-    min_rows_per_node, min_samples_split, min_impurity_decrease,
+    min_samples_leaf, min_samples_split, min_impurity_decrease,
     bootstrap_features, split_criterion, quantile_per_tree,
     use_experimental_backend, max_batch_size);
   RF_params rf_params;

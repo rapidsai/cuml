@@ -51,7 +51,7 @@ cdef extern from "cuml/tree/decisiontree.hpp" namespace "ML::DecisionTree":
         float max_features
         int n_bins
         int split_algo
-        int min_rows_per_node
+        int min_samples_leaf
         bool bootstrap_features
         bool quantile_per_tree
         CRITERION split_criterion

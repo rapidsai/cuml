@@ -38,7 +38,7 @@ struct RfInputs {
   bool bootstrap_features;
   int n_bins;
   int split_algo;
-  int min_rows_per_node;
+  int min_samples_leaf;
   int min_samples_split;
   float min_impurity_decrease;
   int n_streams;
@@ -70,7 +70,7 @@ class RfClassifierDepthTest : public ::testing::TestWithParam<int> {
     DecisionTree::DecisionTreeParams tree_params;
     set_tree_params(tree_params, params.max_depth, params.max_leaves,
                     params.max_features, params.n_bins, params.split_algo,
-                    params.min_rows_per_node, params.min_samples_split,
+                    params.min_samples_leaf, params.min_samples_split,
                     params.min_impurity_decrease, params.bootstrap_features,
                     params.split_criterion, false);
     RF_params rf_params;
@@ -164,7 +164,7 @@ class RfRegressorDepthTest : public ::testing::TestWithParam<int> {
     DecisionTree::DecisionTreeParams tree_params;
     set_tree_params(tree_params, params.max_depth, params.max_leaves,
                     params.max_features, params.n_bins, params.split_algo,
-                    params.min_rows_per_node, params.min_samples_split,
+                    params.min_samples_leaf, params.min_samples_split,
                     params.min_impurity_decrease, params.bootstrap_features,
                     params.split_criterion, false);
     RF_params rf_params;

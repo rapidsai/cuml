@@ -163,7 +163,7 @@ def test_rf_classification(small_clf, datatype, split_algo,
     # random forest classification model
     cuml_model = curfc(max_features=max_features, rows_sample=rows_sample,
                        n_bins=16, split_algo=split_algo, split_criterion=0,
-                       min_rows_per_node=2, random_state=123, n_streams=1,
+                       min_samples_leaf=2, random_state=123, n_streams=1,
                        n_estimators=40, handle=handle, max_leaves=-1,
                        max_depth=16,
                        use_experimental_backend=use_experimental_backend)
@@ -240,7 +240,7 @@ def test_rf_regression(special_reg, datatype, split_algo, max_features,
     # Initialize and fit using cuML's random forest regression model
     cuml_model = curfr(max_features=max_features, rows_sample=rows_sample,
                        n_bins=n_bins, split_algo=split_algo, split_criterion=2,
-                       min_rows_per_node=2, random_state=123, n_streams=1,
+                       min_samples_leaf=2, random_state=123, n_streams=1,
                        n_estimators=50, handle=handle, max_leaves=-1,
                        max_depth=16, accuracy_metric='mse',
                        use_experimental_backend=use_experimental_backend)
@@ -420,7 +420,7 @@ def rf_classification(datatype, array_type, max_features, rows_sample,
     # random forest classification model
     cuml_model = curfc(max_features=max_features, rows_sample=rows_sample,
                        n_bins=16, split_criterion=0,
-                       min_rows_per_node=2, random_state=123,
+                       min_samples_leaf=2, random_state=123,
                        n_estimators=40, handle=handle, max_leaves=-1,
                        max_depth=16)
     if array_type == 'dataframe':
@@ -500,7 +500,7 @@ def test_rf_classification_sparse(small_clf, datatype,
     # Initialize, fit and predict using cuML's
     # random forest classification model
     cuml_model = curfc(n_bins=16, split_criterion=0,
-                       min_rows_per_node=2, random_state=123, n_streams=1,
+                       min_samples_leaf=2, random_state=123, n_streams=1,
                        n_estimators=num_treees, handle=handle, max_leaves=-1,
                        max_depth=40)
     cuml_model.fit(X_train, y_train)
@@ -567,7 +567,7 @@ def test_rf_regression_sparse(special_reg, datatype, fil_sparse_format, algo):
 
     # Initialize and fit using cuML's random forest regression model
     cuml_model = curfr(n_bins=16, split_criterion=2,
-                       min_rows_per_node=2, random_state=123, n_streams=1,
+                       min_samples_leaf=2, random_state=123, n_streams=1,
                        n_estimators=num_treees, handle=handle, max_leaves=-1,
                        max_depth=40, accuracy_metric='mse')
     cuml_model.fit(X_train, y_train)
@@ -751,7 +751,7 @@ def test_rf_printing(capfd, n_estimators, detailed_printing):
     # Initialize cuML Random Forest classification model
     cuml_model = curfc(handle=handle, max_features=1.0, rows_sample=1.0,
                        n_bins=16, split_algo=0, split_criterion=0,
-                       min_rows_per_node=2, random_state=23707, n_streams=1,
+                       min_samples_leaf=2, random_state=23707, n_streams=1,
                        n_estimators=n_estimators, max_leaves=-1,
                        max_depth=16)
 
@@ -790,14 +790,14 @@ def test_dump_json(estimator_type, max_depth, n_estimators):
     if estimator_type == 'classification':
         cuml_model = curfc(max_features=1.0, rows_sample=1.0,
                            n_bins=16, split_algo=0, split_criterion=0,
-                           min_rows_per_node=2, seed=23707, n_streams=1,
+                           min_samples_leaf=2, seed=23707, n_streams=1,
                            n_estimators=n_estimators, max_leaves=-1,
                            max_depth=max_depth)
         y = y.astype(np.int32)
     elif estimator_type == 'regression':
         cuml_model = curfr(max_features=1.0, rows_sample=1.0,
                            n_bins=16, split_algo=0,
-                           min_rows_per_node=2, seed=23707, n_streams=1,
+                           min_samples_leaf=2, seed=23707, n_streams=1,
                            n_estimators=n_estimators, max_leaves=-1,
                            max_depth=max_depth)
         y = y.astype(np.float32)
