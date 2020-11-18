@@ -86,7 +86,7 @@ from ._version import get_versions
 
 # Output type configuration
 
-global_output_type = 'input'
+global_output_type = None
 
 # Version configuration
 __version__ = get_versions()['version']

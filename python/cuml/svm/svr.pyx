@@ -234,12 +234,11 @@ class SVR(SVMBase, RegressorMixin):
         self.svmType = EPSILON_SVR
 
     @generate_docstring()
-    def fit(self, X, y, sample_weight=None, convert_dtype=True):
+    def fit(self, X, y, sample_weight=None, convert_dtype=True) -> "SVR":
         """
         Fit the model with X and y.
 
         """
-        self._set_base_attributes(output_type=X, n_features=X)
         cdef uintptr_t X_ptr, y_ptr
 
         X_m, self.n_rows, self.n_cols, self.dtype = \
@@ -263,7 +262,7 @@ class SVR(SVMBase, RegressorMixin):
             sample_weight_ptr = sample_weight_m.ptr
 
         self._dealloc()  # delete any previously fitted model
-        self._coef_ = None
+        self.coef_ = None
 
         cdef KernelParams _kernel_params = self._get_kernel_params(X_m)
         cdef svmParameter param = self._get_svm_params()
@@ -299,7 +298,7 @@ class SVR(SVMBase, RegressorMixin):
                                        'type': 'dense',
                                        'description': 'Predicted values',
                                        'shape': '(n_samples, 1)'})
-    def predict(self, X, convert_dtype=True):
+    def predict(self, X, convert_dtype=True) -> CumlArray:
         """
         Predicts the values for X.
 

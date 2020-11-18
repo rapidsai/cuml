@@ -16,27 +16,18 @@
 
 # distutils: language = c++
 
-import cuml
-import cuml.common.cuda
-import cuml.raft.common.handle
-import cuml.common.logger as logger
-from cuml.common import input_to_cuml_array
 import inspect
 
-from cudf.core import Series as cuSeries
-from cudf.core import DataFrame as cuDataFrame
-from cuml.common.array import CumlArray
+import cuml.common
+import cuml.common.cuda
+import cuml.common.logger as logger
+import cuml.internals
+import cuml.raft.common.handle
 from cuml.common.doc_utils import generate_docstring
-from cupy import ndarray as cupyArray
-from numba.cuda import devicearray as numbaArray
-from numpy import ndarray as numpyArray
-from pandas import DataFrame as pdDataFrame
-from pandas import Series as pdSeries
-
-from numba import cuda
+import cuml.common.input_utils
 
 
-class Base:
+class Base(metaclass=cuml.internals.BaseMetaClass):
     """
     Base class for all the ML algos. It handles some of the common operations
     across all algos. Every ML algo class exposed at cython level must inherit
@@ -160,8 +151,9 @@ class Base:
         base.handle.sync()
         del base  # optional!
     """
-
-    def __init__(self, handle=None, verbose=False,
+    def __init__(self,
+                 handle=None,
+                 verbose=False,
                  output_type=None):
         """
         Constructor. All children must call init method of this base class.
@@ -182,8 +174,9 @@ class Base:
 
         self.output_type = _check_output_type_str(
             cuml.global_output_type if output_type is None else output_type)
-
-        self._mirror_input = True if self.output_type == 'input' else False
+        self._input_type = None
+        self.target_dtype = None
+        self.n_features_in_ = None
 
     def __repr__(self):
         """
@@ -259,25 +252,14 @@ class Base:
 
     def __getattr__(self, attr):
         """
-        Method gives access to the correct format of cuml Array attribute to
-        the users. Any variable that starts with `_` and is a cuml Array
-        will return as the cuml Array converted to the appropriate format.
+        Redirects to `solver_model` if the attribute exists.
         """
-        real_name = '_' + attr
-        # using __dict__ due to a bug with scikit-learn hyperparam
-        # when doing hasattr. github issue #1736
-        if real_name in self.__dict__.keys():
-            if isinstance(self.__dict__[real_name], CumlArray):
-                return self.__dict__[real_name].to_output(self.output_type)
-            else:
-                return self.__dict__[real_name]
+        if attr == "solver_model":
+            return self.__dict__['solver_model']
+        if "solver_model" in self.__dict__.keys():
+            return getattr(self.solver_model, attr)
         else:
-            if attr == "solver_model":
-                return self.__dict__['solver_model']
-            if "solver_model" in self.__dict__.keys():
-                return getattr(self.solver_model, attr)
-            else:
-                raise AttributeError
+            raise AttributeError
 
     def _set_base_attributes(self,
                              output_type=None,
@@ -321,23 +303,32 @@ class Base:
         if n_features is not None:
             self._set_n_features_in(n_features)
 
-    def _set_output_type(self, input):
-        if self.output_type == 'input' or self._mirror_input:
-            self.output_type = _input_to_type(input)
+    def _set_output_type(self, inp):
+        self._input_type = cuml.common.input_utils.determine_array_type(inp)
 
-    def _get_output_type(self, input):
+    def _get_output_type(self, inp):
         """
         Method to be called by predict/transform methods of inheriting classes.
         Returns the appropriate output type depending on the type of the input,
         class output type and global output type.
         """
-        if self._mirror_input:
-            return _input_to_type(input)
-        else:
-            return self.output_type
+
+        # Default to the global type
+        output_type = cuml.global_output_type
+
+        # If its None, default to our type
+        if (output_type is None or output_type == "mirror"):
+            output_type = self.output_type
+
+        # If we are input, get the type from the input
+        if output_type == 'input':
+            output_type = cuml.common.input_utils.determine_array_type(inp)
+
+        return output_type
 
     def _set_target_dtype(self, target):
-        self.target_dtype = _input_target_to_dtype(target)
+        self.target_dtype = cuml.common.input_utils.determine_array_dtype(
+            target)
 
     def _get_target_dtype(self):
         """
@@ -363,10 +354,14 @@ class RegressorMixin:
 
     _estimator_type = "regressor"
 
-    @generate_docstring(return_values={'name': 'score',
-                                       'type': 'float',
-                                       'description': 'R^2 of self.predict(X) '
-                                                      'wrt. y.'})
+    @generate_docstring(
+        return_values={
+            'name': 'score',
+            'type': 'float',
+            'description': 'R^2 of self.predict(X) '
+                           'wrt. y.'
+        })
+    @cuml.internals.api_base_return_any_skipall
     def score(self, X, y, **kwargs):
         """
         Scoring function for regression estimators
@@ -390,21 +385,22 @@ class ClassifierMixin:
 
     _estimator_type = "classifier"
 
-    @generate_docstring(return_values={'name': 'score',
-                                       'type': 'float',
-                                       'description': 'Accuracy of \
-                                                      self.predict(X) wrt. y \
-                                                      (fraction where y == \
-                                                      pred_y)'})
+    @generate_docstring(
+        return_values={
+            'name':
+                'score',
+            'type':
+                'float',
+            'description': ('Accuracy of self.predict(X) wrt. y '
+                            '(fraction where y == pred_y)')
+        })
+    @cuml.internals.api_base_return_any_skipall
     def score(self, X, y, **kwargs):
         """
         Scoring function for classifier estimators based on mean accuracy.
 
         """
         from cuml.metrics.accuracy import accuracy_score
-        from cuml.common import input_to_dev_array
-
-        y_m = input_to_dev_array(y)[0]
 
         if hasattr(self, 'handle'):
             handle = self.handle
@@ -412,59 +408,34 @@ class ClassifierMixin:
             handle = None
 
         preds = self.predict(X, **kwargs)
-        return accuracy_score(y_m, preds, handle=handle)
+        return accuracy_score(y, preds, handle=handle)
 
 
 # Internal, non class owned helper functions
-
-_input_type_to_str = {
-    numpyArray: 'numpy',
-    cupyArray: 'cupy',
-    cuSeries: 'cudf',
-    cuDataFrame: 'cudf',
-    pdSeries: 'numpy',
-    pdDataFrame: 'numpy'
-}
-
-
-def _input_to_type(input):
-    # function to access _input_to_str, while still using the correct
-    # numba check for a numba device_array
-    if type(input) in _input_type_to_str.keys():
-        return _input_type_to_str[type(input)]
-    elif numbaArray.is_cuda_ndarray(input):
-        return 'numba'
-    else:
-        return 'cupy'
-
-
 def _check_output_type_str(output_str):
+
+    if (output_str is None):
+        return "input"
+
+    assert output_str != "mirror", \
+        ("Cannot pass output_type='mirror' in Base.__init__(). Did you forget "
+         "to pass `output_type=self.output_type` to a child estimator? "
+         "Currently `cuml.global_output_type==`{}`"
+         ).format(cuml.global_output_type)
+
     if isinstance(output_str, str):
         output_type = output_str.lower()
+        # Check for valid output types + "input"
         if output_type in ['numpy', 'cupy', 'cudf', 'numba', 'input']:
-            return output_str
-        else:
-            raise ValueError(("output_type must be one of "
-                              "'numpy', 'cupy', 'cudf', 'numba', or 'input'."
-                              " Got: '{}'"
-                              ).format(output_str))
-    else:
-        raise ValueError(("output_type must be a string"
-                          " Got: '{}'"
-                          ).format(type(output_str)))
+            # Return the original version if nothing has changed, otherwise
+            # return the lowered. This is to try and keep references the same
+            # to support sklearn.base.clone() where possible
+            return output_str if output_type == output_str else output_type
 
-
-def _input_target_to_dtype(target):
-    canonical_input_types = tuple(_input_type_to_str.keys())
-
-    if isinstance(target, (cuDataFrame, pdDataFrame)):
-        # Assume single-label target
-        dtype = target[target.columns[0]].dtype
-    elif isinstance(target, canonical_input_types):
-        dtype = target.dtype
-    else:
-        dtype = None
-    return dtype
+    # Did not match any acceptable value
+    raise ValueError("output_type must be one of " +
+                     "'numpy', 'cupy', 'cudf' or 'numba'" +
+                     "Got: {}".format(output_str))
 
 
 def _determine_stateless_output_type(output_type, input_obj):
@@ -482,6 +453,6 @@ def _determine_stateless_output_type(output_type, input_obj):
 
     # If we are using 'input', determine the the type from the input object
     if temp_output == 'input':
-        temp_output = _input_to_type(input_obj)
+        temp_output = cuml.common.input_utils.determine_array_type(input_obj)
 
     return temp_output

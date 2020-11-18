@@ -20,13 +20,14 @@
 # cython: wraparound = False
 
 import cudf
-import cuml
 import ctypes
 import numpy as np
 import inspect
 import pandas as pd
 import warnings
 
+import cuml.internals
+from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.base import Base
 from cuml.raft.common.handle cimport handle_t
 import cuml.common.logger as logger
@@ -192,6 +193,9 @@ class TSNE(Base):
         (https://arxiv.org/abs/1807.11824).
 
     """
+
+    embedding_ = CumlArrayDescriptor()
+
     def __init__(self,
                  n_components=2,
                  perplexity=30.0,
@@ -322,12 +326,11 @@ class TSNE(Base):
         self.post_learning_rate = learning_rate * 2
 
     @generate_docstring(convert_dtype_cast='np.float32')
-    def fit(self, X, convert_dtype=True):
+    def fit(self, X, convert_dtype=True) -> "TSNE":
         """
         Fit X into an embedded space.
 
         """
-        self._set_base_attributes(n_features=X)
         cdef int n, p
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
         if handle_ == NULL:
@@ -415,13 +418,13 @@ class TSNE(Base):
                  <bool> (self.method == 'barnes_hut'))
 
         # Clean up memory
-        self._embedding_ = Y
+        self.embedding_ = Y
         return self
 
     def __del__(self):
-        if hasattr(self, '_embedding_'):
-            del self._embedding_
-            self._embedding_ = None
+        if hasattr(self, 'embedding_'):
+            del self.embedding_
+            self.embedding_ = None
 
     @generate_docstring(convert_dtype_cast='np.float32',
                         return_values={'name': 'X_new',
@@ -430,17 +433,22 @@ class TSNE(Base):
                                                        training data in \
                                                        low-dimensional space.',
                                        'shape': '(n_samples, n_components)'})
-    def fit_transform(self, X, convert_dtype=True):
+    @cuml.internals.api_base_return_array_skipall
+    def fit_transform(self, X, convert_dtype=True) -> CumlArray:
         """
         Fit X into an embedded space and return that transformed output.
-
-
         """
-        self.fit(X, convert_dtype=convert_dtype)
-        out_type = self._get_output_type(X)
+        return self.fit(X, convert_dtype=convert_dtype)._transform(X)
 
-        data = self._embedding_.to_output(out_type)
-        del self._embedding_
+    def _transform(self, X) -> CumlArray:
+        """
+        Internal transform function to allow base wrappers default
+        functionality to work
+        """
+
+        data = self.embedding_
+
+        del self.embedding_
 
         return data
 
