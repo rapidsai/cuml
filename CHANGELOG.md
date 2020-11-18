@@ -27,9 +27,11 @@
 - PR #3112: Speed test_array
 - PR #3111: Adding Cython to Code Coverage
 - PR #3129:  Update notebooks README
+- PR #3135: Add QuasiNewton tests
 - PR #3040: Improved Array Conversion with CumlArrayDescriptor and Decorators
 - PR #3134: Improving the Deprecation Message Formatting in Documentation
 - PR #3151: MNMG Logistic Regression via dask-glm 
+- PR #3137: Reorganize Pytest Config and Add Quick Run Option
 
 ## Bug Fixes
 - PR #3069: Prevent conversion of DataFrames to Series in preprocessing
@@ -41,6 +43,7 @@
 - PR #3011: Fix unused initialize_embeddings parameter in Barnes-Hut t-SNE
 - PR #3008: Check number of columns in check_array validator
 - PR #3012: Increasing learning rate for SGD log loss and invscaling pytests
+- PR #2950: Fix includes in UMAP
 - PR #3021: Fix a hang in cuML RF experimental backend
 - PR #3039: Update RF and decision tree parameter initializations in benchmark codes
 - PR #3060: Speed up test suite `test_fil`
@@ -158,7 +161,6 @@
 - PR #2984: Fix GPU test scripts gcov error
 - PR #2990: Reduce MNMG kneighbors regressor test threshold
 - PR #2997: Changing ARIMA `get/set_params` to `get/set_fit_params`
-
 # cuML 0.15.0 (Date TBD)
 
 ## New Features
