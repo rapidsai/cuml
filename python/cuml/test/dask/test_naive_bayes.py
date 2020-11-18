@@ -16,12 +16,10 @@
 
 import cupy as cp
 import dask.array
-import numpy as np
 
 from cuml.dask.naive_bayes import MultinomialNB
 from cuml.naive_bayes.naive_bayes import MultinomialNB as SGNB
 from cuml.test.dask.utils import load_text_corpus
-from cupy.sparse import csr_matrix as cp_csr_matrix
 from sklearn.metrics import accuracy_score
 
 
