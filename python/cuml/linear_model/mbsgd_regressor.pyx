@@ -15,6 +15,9 @@
 #
 
 # distutils: language = c++
+
+import cuml.internals
+from cuml.common.array import CumlArray
 from cuml.common.base import Base, RegressorMixin
 from cuml.common.doc_utils import generate_docstring
 from cuml.solvers import SGD
@@ -171,12 +174,11 @@ class MBSGDRegressor(Base, RegressorMixin):
         self.solver_model = SGD(**self.get_params())
 
     @generate_docstring()
-    def fit(self, X, y, convert_dtype=True):
+    def fit(self, X, y, convert_dtype=True) -> "MBSGDRegressor":
         """
         Fit the model with X and y.
 
         """
-        self._set_base_attributes(n_features=X)
         self.solver_model.fit(X, y, convert_dtype=convert_dtype)
         return self
 
@@ -184,7 +186,8 @@ class MBSGDRegressor(Base, RegressorMixin):
                                        'type': 'dense',
                                        'description': 'Predicted values',
                                        'shape': '(n_samples, 1)'})
-    def predict(self, X, convert_dtype=False):
+    @cuml.internals.api_base_return_array_skipall
+    def predict(self, X, convert_dtype=False) -> CumlArray:
         """
         Predicts the y for X.
 

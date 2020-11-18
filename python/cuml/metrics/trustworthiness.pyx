@@ -23,15 +23,15 @@ import warnings
 from numba import cuda
 
 from libc.stdint cimport uintptr_t
+import cuml.internals
+from cuml.common.input_utils import input_to_cuml_array
 from cuml.raft.common.handle import Handle
 from cuml.raft.common.handle cimport handle_t
-from cuml.common import get_cudf_column_ptr, get_dev_array_ptr, \
-    input_to_dev_array
 
-cdef extern from "cuml/distance/distance_type.h" namespace "ML::Distance":
+cdef extern from "raft/linalg/distance_type.h" namespace "raft::distance":
 
     ctypedef int DistanceType
-    ctypedef DistanceType euclidean "(ML::Distance::DistanceType)5"
+    ctypedef DistanceType euclidean "(raft::distance::DistanceType)5"
 
 cdef extern from "metrics/trustworthiness_c.h" namespace "ML::Metrics":
 
@@ -52,9 +52,10 @@ def _get_array_ptr(obj):
     return obj.device_ctypes_pointer.value
 
 
+@cuml.internals.api_return_any()
 def trustworthiness(X, X_embedded, handle=None, n_neighbors=5,
                     metric='euclidean', should_downcast=True,
-                    convert_dtype=False, batch_size=512):
+                    convert_dtype=False, batch_size=512) -> double:
     """
     Expresses to what extent the local structure is retained in embedding.
     The score is defined in the range [0, 1].
@@ -90,15 +91,18 @@ def trustworthiness(X, X_embedded, handle=None, n_neighbors=5,
     cdef uintptr_t d_X_ptr
     cdef uintptr_t d_X_embedded_ptr
 
-    X_m, d_X_ptr, n_samples, n_features, dtype1 = \
-        input_to_dev_array(X, order='C', check_dtype=np.float32,
-                           convert_to_dtype=(np.float32 if convert_dtype
-                                             else None))
-    X_m2, d_X_embedded_ptr, n_rows, n_components, dtype2 = \
-        input_to_dev_array(X_embedded, order='C',
-                           check_dtype=np.float32,
-                           convert_to_dtype=(np.float32 if convert_dtype
-                                             else None))
+    X_m, n_samples, n_features, dtype1 = \
+        input_to_cuml_array(X, order='C', check_dtype=np.float32,
+                            convert_to_dtype=(np.float32 if convert_dtype
+                                              else None))
+    d_X_ptr = X_m.ptr
+
+    X_m2, n_rows, n_components, dtype2 = \
+        input_to_cuml_array(X_embedded, order='C',
+                            check_dtype=np.float32,
+                            convert_to_dtype=(np.float32 if convert_dtype
+                                              else None))
+    d_X_embedded_ptr = X_m2.ptr
 
     handle = Handle() if handle is None else handle
     cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()

@@ -16,6 +16,7 @@
 
 # distutils: language = c++
 
+import cuml.internals
 from cuml.raft.common.handle cimport handle_t
 from libc.stdint cimport uintptr_t
 
@@ -32,7 +33,8 @@ cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics":
                              const int upper_class_range) except +
 
 
-def cython_mutual_info_score(labels_true, labels_pred, handle=None):
+@cuml.internals.api_return_any()
+def cython_mutual_info_score(labels_true, labels_pred, handle=None) -> float:
     """
     Computes the Mutual Information between two clusterings.
 
