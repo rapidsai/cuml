@@ -168,14 +168,14 @@ const std::vector<SparseDistanceInputs<int, float>> inputs_i32_f = {
      1832.0,
      0.0,
    },
-    raft::distance::DistanceType::EucExpandedL2},
+   raft::distance::DistanceType::EucExpandedL2},
   {2,
    {0, 2, 4, 6, 8},
    {0, 1, 0, 1, 0, 1, 0, 1},
    {1.0f, 2.0f, 1.0f, 2.0f, 1.0f, 2.0f, 1.0f, 2.0f},
    {5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0,
     5.0},
-    raft::distance::DistanceType::InnerProduct
+   raft::distance::DistanceType::InnerProduct
 
   }};
 typedef SparseDistanceTest<int, float> SparseDistanceTestF;
