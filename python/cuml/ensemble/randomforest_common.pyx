@@ -19,6 +19,7 @@ import cupy as cp
 import math
 import warnings
 import typing
+from inspect import signature
 
 import numpy as np
 from cuml import ForestInference
@@ -59,8 +60,8 @@ class BaseRandomForestModel(Base):
                  max_depth=16, handle=None, max_features='auto',
                  n_bins=8, split_algo=1, bootstrap=True,
                  bootstrap_features=False,
-                 verbose=False, min_samples_leaf=1,
-                 min_samples_split=2,
+                 verbose=False, min_rows_per_node=None,
+                 min_samples_leaf=1, min_samples_split=2,
                  rows_sample=1.0, max_leaves=-1,
                  accuracy_metric=None, dtype=None,
                  output_type=None,
@@ -109,6 +110,10 @@ class BaseRandomForestModel(Base):
                           "recommended. If n_streams is > 1, results may vary "
                           "due to stream/thread timing differences, even when "
                           "random_state is set")
+        if min_rows_per_node is not None:
+            warnings.warn("The 'min_rows_per_node' parameter is deprecated and will be removed in "
+                          "0.18. Please use 'min_samples_leaf' parameter instead.")
+            min_samples_leaf = min_rows_per_node
         if handle is None:
             handle = Handle(n_streams)
 
