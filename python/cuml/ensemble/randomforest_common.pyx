@@ -111,8 +111,9 @@ class BaseRandomForestModel(Base):
                           "due to stream/thread timing differences, even when "
                           "random_state is set")
         if min_rows_per_node is not None:
-            warnings.warn("The 'min_rows_per_node' parameter is deprecated and will be removed in "
-                          "0.18. Please use 'min_samples_leaf' parameter instead.")
+            warnings.warn("The 'min_rows_per_node' parameter is deprecated "
+                          "and will be removed in 0.18. Please use "
+                          "'min_samples_leaf' parameter instead.")
             min_samples_leaf = min_rows_per_node
         if handle is None:
             handle = Handle(n_streams)
