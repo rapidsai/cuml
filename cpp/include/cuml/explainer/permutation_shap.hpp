@@ -19,7 +19,7 @@
 #include <cuml/cuml.hpp>
 
 namespace ML {
-namespace Explainer{
+namespace Explainer {
 
 /**
  * Generates a dataset by tiling the `background` matrix into `out`, while
@@ -64,12 +64,12 @@ namespace Explainer{
  * @{
  */
 void permutation_dataset(const raft::handle_t& handle, float* out,
-                      float* background, int n_rows, int n_cols,
-                      float* row, int* idx, bool rowMajor);
+                         float* background, int n_rows, int n_cols, float* row,
+                         int* idx, bool rowMajor);
 
 void permutation_dataset(const raft::handle_t& handle, double* out,
-                      double* background, int n_rows, int n_cols,
-                      double* row, int* idx, bool rowMajor);
+                         double* background, int n_rows, int n_cols,
+                         double* row, int* idx, bool rowMajor);
 
 /**
  * Generates a dataset by tiling the `background` matrix into `out`, while
@@ -106,12 +106,12 @@ void permutation_dataset(const raft::handle_t& handle, double* out,
  */
 
 void main_effect_dataset(const raft::handle_t& handle, float* out,
-                         float* background, int n_rows, int n_cols,
-                         float* row, int* idx, bool rowMajor);
+                         float* background, int n_rows, int n_cols, float* row,
+                         int* idx, bool rowMajor);
 
 void main_effect_dataset(const raft::handle_t& handle, double* out,
                          double* background, int n_rows, int n_cols,
                          double* row, int* idx, bool rowMajor);
 
-}  // namespace Datasets
+}  // namespace Explainer
 }  // namespace ML
