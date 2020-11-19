@@ -7,7 +7,6 @@ namespace MLCommon {
 namespace Sparse {
 namespace Distance {
 
-
 template <typename value_idx, typename value_t>
 struct distances_config_t {
   // left side
@@ -39,7 +38,6 @@ class distances_t {
   virtual ~distances_t() = default;
 };
 
-
-};
-}
-};
+};  // namespace Distance
+}  // namespace Sparse
+};  // namespace MLCommon

@@ -177,30 +177,30 @@ const std::vector<SparseDistanceInputs<int, float>> inputs_i32_f = {
     5.0},
    raft::distance::DistanceType::InnerProduct},
   {5,
-    {0, 4, 8, 12, 16},
-    {0, 1, 2, 3, 0, 1, 2, 3, 0, 1, 2, 3, 0, 1, 2, 3},  // indices
-    {1.0f, 3.0f, 1.0f, 5.0f, 50.0f, 28.0f, 16.0f, 2.0f, 1.0f, 3.0f, 1.0f, 5.0f, 50.0f, 28.0f, 16.0f, 2.0f},
-    {
-      // dense output
-      0.0,
-      4.0,
-      3026.0,
-      226.0,
-      4.0,
-      0.0,
-      2930.0,
-      234.0,
-      3026.0,
-      2930.0,
-      0.0,
-      1832.0,
-      226.0,
-      234.0,
-      1832.0,
-      0.0,
-    },
-    raft::distance::DistanceType::EucUnexpandedL1}
-};
+   {0, 4, 8, 12, 16},
+   {0, 1, 2, 3, 0, 1, 2, 3, 0, 1, 2, 3, 0, 1, 2, 3},  // indices
+   {1.0f, 3.0f, 1.0f, 5.0f, 50.0f, 28.0f, 16.0f, 2.0f, 1.0f, 3.0f, 1.0f, 5.0f,
+    50.0f, 28.0f, 16.0f, 2.0f},
+   {
+     // dense output
+     0.0,
+     4.0,
+     3026.0,
+     226.0,
+     4.0,
+     0.0,
+     2930.0,
+     234.0,
+     3026.0,
+     2930.0,
+     0.0,
+     1832.0,
+     226.0,
+     234.0,
+     1832.0,
+     0.0,
+   },
+   raft::distance::DistanceType::EucUnexpandedL1}};
 
 typedef SparseDistanceTest<int, float> SparseDistanceTestF;
 TEST_P(SparseDistanceTestF, Result) { compare(); }

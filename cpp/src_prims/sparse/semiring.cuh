@@ -32,8 +32,8 @@
 #include <raft/sparse/cusparse_wrappers.h>
 
 #include <cub/block/block_load.cuh>
-#include <cub/block/block_store.cuh>
 #include <cub/block/block_radix_sort.cuh>
+#include <cub/block/block_store.cuh>
 
 #include <sparse/distance_api.h>
 
@@ -54,13 +54,12 @@ const int MAX_INT = std::numeric_limits<int>::max();
  * @tparam rows_per_block
  */
 template <typename value_idx, typename value_t, int tpb, int buffer_size,
-  int rows_per_block>
+          int rows_per_block>
 struct BlockSemiring {
   __device__ inline BlockSemiring(int tid_, value_idx m_, value_idx n_,
                                   value_idx *shared_cols_,
                                   value_t *shared_vals_, value_idx *chunk_cols_,
-                                  value_t *chunk_vals_,
-                                  bool verbose_)
+                                  value_t *chunk_vals_, bool verbose_)
     : tid(tid_),
       m(m_),
       n(n_),
@@ -72,7 +71,7 @@ struct BlockSemiring {
       shared_idx(0),
       verbose(verbose_),
       row_count(0),
-      cur_sum(0.0){}
+      cur_sum(0.0) {}
 
   __device__ inline void load_a(value_idx row, value_idx *indptrA,
                                 value_idx *indicesA, value_t *dataA) {
@@ -93,7 +92,6 @@ struct BlockSemiring {
 
   __device__ inline void load_b(value_idx start_row, value_idx *indptrB,
                                 value_idx *indicesB, value_t *dataB) {
-
     start_row_b = start_row * rows_per_block;
     stop_row_b = min(start_row_b + rows_per_block - 1,
                      start_row_b + (n - start_row_b) - 1);
@@ -124,9 +122,7 @@ struct BlockSemiring {
   }
 
   __device__ inline void step() {
-
     if (tid < n_rows) {
-
       bool local_idx_in_bounds = local_idx < local_idx_stop && row_count > 0;
 
       value_idx l = local_idx_in_bounds ? chunk_cols[local_idx] : -1;
@@ -164,7 +160,7 @@ struct BlockSemiring {
   __device__ inline bool isdone() { return done; }
 
   __device__ inline void write(value_t *out) {
-    for(int i = tid; i < n_rows; i+= blockDim.x) {
+    for (int i = tid; i < n_rows; i += blockDim.x) {
       out[row_a * n + row_b] = cur_sum;
     }
   }
@@ -172,11 +168,9 @@ struct BlockSemiring {
   __device__ inline value_idx get_n_rows() { return n_rows; }
 
   __device__ inline void print() {
-    printf(
-      "BlockSemiring<local_idx=%d, local_idx_stop=%d, cur_sum=%f\n",
-      local_idx, local_idx_stop, cur_sum);
+    printf("BlockSemiring<local_idx=%d, local_idx_stop=%d, cur_sum=%f\n",
+           local_idx, local_idx_stop, cur_sum);
   }
-
 
  private:
   int tid;
@@ -219,15 +213,13 @@ struct BlockSemiring {
   bool verbose;
 };
 
-
-
-
 template <typename value_idx, typename value_t, int tpb, int buffer_size,
-  int max_chunk_size, int rows_per_block>
-__global__ void block_semiring(
-  value_idx *indptrA, value_idx *indicesA, value_t *dataA, value_idx *indptrB,
-  value_idx *indicesB, value_t *dataB, value_idx m, value_idx n, value_t *out,
-  int n_blocks_per_row) {
+          int max_chunk_size, int rows_per_block>
+__global__ void block_semiring(value_idx *indptrA, value_idx *indicesA,
+                               value_t *dataA, value_idx *indptrB,
+                               value_idx *indicesB, value_t *dataB, value_idx m,
+                               value_idx n, value_t *out,
+                               int n_blocks_per_row) {
   value_idx out_row = blockIdx.x / n_blocks_per_row;
   value_idx out_col_start = blockIdx.x % n_blocks_per_row;
   value_idx tid = threadIdx.x;
@@ -244,18 +236,14 @@ __global__ void block_semiring(
   bool verbose = tid <= 3 && out_row < 3;
 
   BlockSemiring<value_idx, value_t, tpb, buffer_size, rows_per_block> semiring(
-    tid, m, n, shared_cols, shared_vals, chunk_cols,
-    chunk_vals, verbose);
+    tid, m, n, shared_cols, shared_vals, chunk_cols, chunk_vals, verbose);
 
   semiring.load_a(out_row, indptrA, indicesA, dataA);
   semiring.load_b(out_col_start, indptrB, indicesB, dataB);
 
-  while (!semiring.isdone())
-    semiring.step();
+  while (!semiring.isdone()) semiring.step();
   semiring.write(out);
 }
-
-
 
 /**
  * A version of the block semiring that chunks offsets and rows
@@ -269,13 +257,11 @@ __global__ void block_semiring(
 template <typename value_idx, typename value_t, int tpb, int buffer_size,
           int rows_per_block>
 struct ChunkedBlockSemiring {
-  __device__ inline ChunkedBlockSemiring(int tid_, value_idx m_, value_idx n_,
-                                  value_idx *start_rows_, value_idx *offsets_,
-                                  value_idx *shared_cols_,
-                                  value_t *shared_vals_, value_idx *chunk_cols_,
-                                  value_t *chunk_vals_, value_t *sums_, value_idx *row_counts_,
-                                  value_idx *cum_row_counts_,
-                                  bool verbose_)
+  __device__ inline ChunkedBlockSemiring(
+    int tid_, value_idx m_, value_idx n_, value_idx *start_rows_,
+    value_idx *offsets_, value_idx *shared_cols_, value_t *shared_vals_,
+    value_idx *chunk_cols_, value_t *chunk_vals_, value_t *sums_,
+    value_idx *row_counts_, value_idx *cum_row_counts_, bool verbose_)
     : tid(tid_),
       m(m_),
       n(n_),
@@ -309,9 +295,7 @@ struct ChunkedBlockSemiring {
     shared_size = stop_offset_a - start_offset_a;
 
     if (verbose && tid == 0) {
-      printf(
-        "row_a=%d, shared_cols=[",
-        row_a);
+      printf("row_a=%d, shared_cols=[", row_a);
       for (int i = 0; i < (stop_offset_a - start_offset_a); i++) {
         printf("%d, ", shared_cols[i]);
       }
@@ -335,7 +319,7 @@ struct ChunkedBlockSemiring {
     // initialize start_rows
     for (int i = tid; i < (stop_row_b - start_row_b) + 2; i += blockDim.x) {
       start_rows[i] = MAX_INT;
-      value_idx diff = indptrB[start_row_b+i+1] - indptrB[start_row_b+i];
+      value_idx diff = indptrB[start_row_b + i + 1] - indptrB[start_row_b + i];
       cum_row_counts[i] = max(1, diff);
       row_counts[i] = diff;
     }
@@ -343,16 +327,14 @@ struct ChunkedBlockSemiring {
 
     // Row counts need to be cumulative. Last entry will total number of
     // rows that need to be processed.
-    if(tid == 0) {
-      for(int i = 1; i < (stop_row_b - start_row_b)+2; i+= 1)
-        cum_row_counts[i] += cum_row_counts[i-1];
+    if (tid == 0) {
+      for (int i = 1; i < (stop_row_b - start_row_b) + 2; i += 1)
+        cum_row_counts[i] += cum_row_counts[i - 1];
     }
     __syncthreads();
 
     if (verbose && tid == 0) {
-      printf(
-        "row_a=%d, row_counts=[",
-        row_a);
+      printf("row_a=%d, row_counts=[", row_a);
       for (int i = 0; i < (stop_row_b - start_row_b) + 2; i++) {
         printf("%d, ", cum_row_counts[i]);
       }
@@ -360,10 +342,9 @@ struct ChunkedBlockSemiring {
     }
 
     // divide the work evenly across threads in the warp
-    value_idx n_offsets = cum_row_counts[(stop_row_b - start_row_b)+2];
+    value_idx n_offsets = cum_row_counts[(stop_row_b - start_row_b) + 2];
 
-    if(verbose)
-      printf("n_offsets=%d\n", n_offsets);
+    if (verbose) printf("n_offsets=%d\n", n_offsets);
 
     // TOOO: Don't use integer division
     working_chunk_size = n_offsets / blockDim.x;
@@ -377,13 +358,12 @@ struct ChunkedBlockSemiring {
 
     // load start & end offsets to compute chunk size
     start_offset_b = indptrB[start_row_b];
-    stop_offset_b = indptrB[stop_row_b+1];
+    stop_offset_b = indptrB[stop_row_b + 1];
 
     if (verbose)
       printf(
         "tid=%d, start_offset_b=%d, stop_offset_b=%d, working_chunk_size=%d\n",
         tid, start_offset_b, stop_offset_b, working_chunk_size);
-
 
     if (verbose) printf("Initialized start_rows to -1\n");
 
@@ -398,11 +378,12 @@ struct ChunkedBlockSemiring {
         printf("building offsets: tid=%d, row_a=%d, offset=%d, adj_offset=%d\n",
                tid, row_a, offset, adj_offset);
 
-//      offsets[i] = adj_offset;
-//
-      atomicMin(
-        start_rows + int(ceilf(float(start_row_b + cum_row_counts[i]) / float(working_chunk_size))),
-        int(ceilf(float(start_row_b + cum_row_counts[i]) / float(working_chunk_size))));
+      //      offsets[i] = adj_offset;
+      //
+      atomicMin(start_rows + int(ceilf(float(start_row_b + cum_row_counts[i]) /
+                                       float(working_chunk_size))),
+                int(ceilf(float(start_row_b + cum_row_counts[i]) /
+                          float(working_chunk_size))));
     }
     __syncthreads();
 
@@ -414,8 +395,8 @@ struct ChunkedBlockSemiring {
       for (int i = 1; i < tpb; i++) {
         if (start_rows[i] == MAX_INT) start_rows[i] = start_rows[i - 1];
 
-        value_idx prev_offset = offsets[i-1];
-        if (row_counts[i-1] > 0) prev_offset += working_chunk_size;
+        value_idx prev_offset = offsets[i - 1];
+        if (row_counts[i - 1] > 0) prev_offset += working_chunk_size;
         offsets[i] = prev_offset;
       }
     }
@@ -434,7 +415,8 @@ struct ChunkedBlockSemiring {
 
     if (verbose && tid == 0) {
       printf(
-        "Performed a 'repeat' to fill in rows that span blocks. row_a=%d, start_rows=[",
+        "Performed a 'repeat' to fill in rows that span blocks. row_a=%d, "
+        "start_rows=[",
         row_a);
       for (int i = 0; i < tpb; i++) {
         printf("%d, ", start_rows[i]);
@@ -456,14 +438,15 @@ struct ChunkedBlockSemiring {
     if (verbose) printf("Read B rows into shared memory\n");
 
     // set starting and ending idx of local thread
-    local_idx = offsets[tid];//threadIdx.x * working_chunk_size;
+    local_idx = offsets[tid];  //threadIdx.x * working_chunk_size;
     local_idx_stop = min(local_idx + working_chunk_size, stop_offset_b);
 
-    n_entries = min(tpb, (stop_offset_b - start_offset_b ) + 1);
+    n_entries = min(tpb, (stop_offset_b - start_offset_b) + 1);
 
     if (verbose)
-      printf("row_a=%d, tid=%d, local_idx=%d, local_idx_stop=%d, n_entries=%d\n", row_a, tid, local_idx,
-             local_idx_stop, n_entries);
+      printf(
+        "row_a=%d, tid=%d, local_idx=%d, local_idx_stop=%d, n_entries=%d\n",
+        row_a, tid, local_idx, local_idx_stop, n_entries);
 
     /**
      * Need to account for rows of b that are either being continued from tid-1 or
@@ -483,36 +466,39 @@ struct ChunkedBlockSemiring {
               : MAX_INT;
 
     if (verbose)
-      printf("tid=%d, row_a=%d, row_b=%d, Computed overlapping cases: case1: %d, case2: %d\n", tid, row_a, row_b, case1,
-             case2);
+      printf(
+        "tid=%d, row_a=%d, row_b=%d, Computed overlapping cases: case1: %d, "
+        "case2: %d\n",
+        tid, row_a, row_b, case1, case2);
   }
 
   __device__ inline void step() {
-
-    bool local_idx_in_bounds = local_idx < local_idx_stop && row_counts[row_b] > 0;
+    bool local_idx_in_bounds =
+      local_idx < local_idx_stop && row_counts[row_b] > 0;
 
     if (verbose)
       printf("About to load chunk_cols/chunk_vals. local_idx_in_bounds=%d\n",
              local_idx_in_bounds);
-
 
     value_idx l = local_idx_in_bounds ? chunk_cols[local_idx] : -1;
     value_t lv = local_idx_in_bounds ? chunk_vals[local_idx] : 0.0;
 
     bool shared_idx_in_bounds = shared_idx < shared_size;
 
-
     if (verbose)
-      printf("tid=%d, row_a=%d, row_b=%d, About to load shared_cols/shared_vals. shared_idx_in_bounds=%d\n",
-             tid, row_a, row_b, shared_idx_in_bounds);
-
+      printf(
+        "tid=%d, row_a=%d, row_b=%d, About to load shared_cols/shared_vals. "
+        "shared_idx_in_bounds=%d\n",
+        tid, row_a, row_b, shared_idx_in_bounds);
 
     value_idx r = shared_idx_in_bounds ? shared_cols[shared_idx] : -1;
     value_t rv = shared_idx_in_bounds ? shared_vals[shared_idx] : 0.0;
 
     if (verbose)
-      printf("Loaded chunk_cols/chunk_vals. row_a=%d, row_b=%d, tid=%d, l=%d, lv=%f, r=%d, rv=%f\n",
-             row_a, row_b, tid, l, lv, r, rv);
+      printf(
+        "Loaded chunk_cols/chunk_vals. row_a=%d, row_b=%d, tid=%d, l=%d, "
+        "lv=%f, r=%d, rv=%f\n",
+        row_a, row_b, tid, l, lv, r, rv);
 
     r = r > case1 && r < case2 ? r : -1;
 
@@ -534,7 +520,8 @@ struct ChunkedBlockSemiring {
 
     if (verbose)
       printf(
-        "Middle of step(). row_a=%d, row_b=%d, tid=%d, l=%d, r=%d, left_side=%f, right_side=%f, done=%d, cur_sum=%f\n",
+        "Middle of step(). row_a=%d, row_b=%d, tid=%d, l=%d, r=%d, "
+        "left_side=%f, right_side=%f, done=%d, cur_sum=%f\n",
         row_a, row_b, tid, l, r, left_side, right_side, done, cur_sum);
 
     // finished when all items in chunk have been
@@ -544,7 +531,7 @@ struct ChunkedBlockSemiring {
     // adjust state when a new row is encountered
     if (tid < n_entries && (local_idx > local_idx_stop || done)) {
       // apply "sum" function globally
-      atomicAdd(sums+row_b, cur_sum);
+      atomicAdd(sums + row_b, cur_sum);
 
       if (verbose)
         printf("Processing new row. tid=%d, row_a=%d, row_b=%d, new_row_b=%d\n",
@@ -557,7 +544,8 @@ struct ChunkedBlockSemiring {
 
     if (verbose)
       printf(
-        "End of step(). row_a=%d, row_b=%d, tid=%d, l=%d, r=%d, left_side=%f, right_side=%f, done=%d, cur_sum=%f, offsets[row_b]=%d, local_idx=%d\n",
+        "End of step(). row_a=%d, row_b=%d, tid=%d, l=%d, r=%d, left_side=%f, "
+        "right_side=%f, done=%d, cur_sum=%f, offsets[row_b]=%d, local_idx=%d\n",
         row_a, row_b, tid, l, r, left_side, right_side, done, cur_sum,
         offsets[row_b], local_idx);
   }
@@ -565,16 +553,15 @@ struct ChunkedBlockSemiring {
   __device__ inline bool isdone() { return done; }
 
   __device__ inline void write(value_t *out) {
-    for(int i = tid; i < (stop_row_b - start_row_b)+1; i+= blockDim.x) {
+    for (int i = tid; i < (stop_row_b - start_row_b) + 1; i += blockDim.x) {
       out[row_a * n + i] = sums[i];
     }
   }
 
-
-
   __device__ inline void print() {
     printf(
-      "BlockSemiring<local_idx=%d, local_idx_stop=%d, row_b=%d, cur_sum=%f, working_chunk_size=%d\n",
+      "BlockSemiring<local_idx=%d, local_idx_stop=%d, row_b=%d, cur_sum=%f, "
+      "working_chunk_size=%d\n",
       local_idx, local_idx_stop, row_b, cur_sum, working_chunk_size);
   }
 
@@ -629,11 +616,12 @@ struct ChunkedBlockSemiring {
 };
 
 template <typename value_idx, typename value_t, int tpb, int buffer_size,
-  int max_chunk_size, int rows_per_block>
-__global__ void chunked_block_semiring(
-  value_idx *indptrA, value_idx *indicesA, value_t *dataA, value_idx *indptrB,
-  value_idx *indicesB, value_t *dataB, value_idx m, value_idx n, value_t *out,
-  int n_blocks_per_row) {
+          int max_chunk_size, int rows_per_block>
+__global__ void chunked_block_semiring(value_idx *indptrA, value_idx *indicesA,
+                                       value_t *dataA, value_idx *indptrB,
+                                       value_idx *indicesB, value_t *dataB,
+                                       value_idx m, value_idx n, value_t *out,
+                                       int n_blocks_per_row) {
   value_idx out_row = blockIdx.x / n_blocks_per_row;
   value_idx out_col_start = blockIdx.x % n_blocks_per_row;
   value_idx tid = threadIdx.x;
@@ -644,8 +632,8 @@ __global__ void chunked_block_semiring(
   __shared__ value_idx start_rows[tpb];
 
   // TODO: This should really be computed once and passed in
-  __shared__ value_idx row_counts[rows_per_block+1];
-  __shared__ value_idx cum_row_counts[rows_per_block+1];
+  __shared__ value_idx row_counts[rows_per_block + 1];
+  __shared__ value_idx cum_row_counts[rows_per_block + 1];
 
   __shared__ value_idx shared_cols[buffer_size];
   __shared__ value_t shared_vals[buffer_size];
@@ -659,23 +647,23 @@ __global__ void chunked_block_semiring(
 
   bool verbose = tid <= 10 && out_row < 1;
 
-//  if (verbose) printf("Building block semiring\n");
-//
-  ChunkedBlockSemiring<value_idx, value_t, tpb, buffer_size, rows_per_block> semiring(
-    tid, m, n, offsets, start_rows, shared_cols, shared_vals, chunk_cols,
-    chunk_vals, sums, row_counts, cum_row_counts, verbose);
+  //  if (verbose) printf("Building block semiring\n");
+  //
+  ChunkedBlockSemiring<value_idx, value_t, tpb, buffer_size, rows_per_block>
+    semiring(tid, m, n, offsets, start_rows, shared_cols, shared_vals,
+             chunk_cols, chunk_vals, sums, row_counts, cum_row_counts, verbose);
 
-//  if (verbose) printf("Calling load_a\n");
-//
+  //  if (verbose) printf("Calling load_a\n");
+  //
   semiring.load_a(out_row, indptrA, indicesA, dataA);
 
-//  if (verbose) printf("Calling load_b\n");
-//
+  //  if (verbose) printf("Calling load_b\n");
+  //
   semiring.load_b(out_col_start, indptrB, indicesB, dataB);
 
   int iter = 0;
   while (!semiring.isdone()) {
-//    if (verbose) printf("Iteration %d\n", iter);
+    //    if (verbose) printf("Iteration %d\n", iter);
     semiring.step();
 
     ++iter;
@@ -683,24 +671,22 @@ __global__ void chunked_block_semiring(
   semiring.write(out);
 }
 
-
-template <typename value_idx = int,
-          typename value_t = float,
-          int max_buffer_size = 1000, //
+template <typename value_idx = int, typename value_t = float,
+          int max_buffer_size = 1000,  //
           int threads_per_block = 16,
           typename reduce_f = auto(value_t, value_t)->value_t,
           typename accum_f = auto(value_t, value_t)->value_t>
 void distance_block_reduce(value_t *out_dists,
                            distances_config_t<value_idx, value_t> config_,
                            reduce_f reduce_func, accum_f accum_func) {
-
   int n_warps_per_row = raft::ceildiv(config_.b_nrows, threads_per_block);
   int n_blocks = config_.a_nrows * n_warps_per_row;
 
   CUML_LOG_DEBUG("n_blocks: %d", n_blocks);
   CUML_LOG_DEBUG("n_warps_per_row: %d", n_warps_per_row);
 
-  block_semiring<value_idx, value_t, threads_per_block, max_buffer_size, 256, threads_per_block>
+  block_semiring<value_idx, value_t, threads_per_block, max_buffer_size, 256,
+                 threads_per_block>
     <<<n_blocks, threads_per_block, 0, config_.stream>>>(
       config_.a_indptr, config_.a_indices, config_.a_data, config_.b_indptr,
       config_.b_indices, config_.b_data, config_.a_nrows, config_.b_nrows,
@@ -722,9 +708,9 @@ class l1_distances_t : public distances_t<value_t> {
 
     CUDA_CHECK(cudaStreamSynchronize(config_.stream));
 
-//    std::cout << raft::arr2Str(out_dists, config_.a_nrows * config_.b_nrows,
-//                               "out_dists", config_.stream)
-//              << std::endl;
+    //    std::cout << raft::arr2Str(out_dists, config_.a_nrows * config_.b_nrows,
+    //                               "out_dists", config_.stream)
+    //              << std::endl;
   }
 
  private:
@@ -784,6 +770,6 @@ class canberra_distances_t : public distances_t<value_t> {
   distances_config_t<value_idx, value_t> config_;
 };
 
-}  // END namespace distance
-}  // END namespace sparse
-}; // END namespace mlcommon
+}  // namespace Distance
+}  // namespace Sparse
+};  // namespace MLCommon

@@ -16,10 +16,10 @@
 
 #pragma once
 
+#include <limits.h>
 #include <raft/cudart_utils.h>
 #include <sparse/distance_api.h>
 #include <sparse/semiring.cuh>
-#include <limits.h>
 
 #include <raft/linalg/distance_type.h>
 #include <raft/sparse/cusparse_wrappers.h>

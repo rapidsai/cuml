@@ -43,13 +43,15 @@ struct SparseDistanceSemiringInputs {
 
 template <typename value_idx, typename value_t>
 ::std::ostream &operator<<(
-  ::std::ostream &os, const SparseDistanceSemiringInputs<value_idx, value_t> &dims) {
+  ::std::ostream &os,
+  const SparseDistanceSemiringInputs<value_idx, value_t> &dims) {
   return os;
 }
 
 template <typename value_idx, typename value_t>
 class SparseDistanceSemiringTest
-  : public ::testing::TestWithParam<SparseDistanceSemiringInputs<value_idx, value_t>> {
+  : public ::testing::TestWithParam<
+      SparseDistanceSemiringInputs<value_idx, value_t>> {
  protected:
   void make_data() {
     std::vector<value_idx> indptr_h = params.indptr_h;
@@ -123,7 +125,8 @@ class SparseDistanceSemiringTest
   }
 
   void compare() {
-    ASSERT_TRUE(devArrMatch(out_dists_ref, out_dists, 16, CompareApprox<value_t>(1e-4)));
+    ASSERT_TRUE(
+      devArrMatch(out_dists_ref, out_dists, 16, CompareApprox<value_t>(1e-4)));
   }
 
  protected:
@@ -142,35 +145,34 @@ class SparseDistanceSemiringTest
 
 const std::vector<SparseDistanceSemiringInputs<int, float>> inputs_i32_f = {
   {4,
-    {0, 1, 1, 2, 4},
-    {3, 2, 0, 1},  // indices
-    {0.99296, 0.42180, 0.11687, 0.305869},
-    {
-      // dense output
-      0.0,
-          0.99296,
-               1.41476,
-                    1.415707,
-                         0.99296,
-                              0.0,
-                                   0.42180,
-                                        0.42274,
-                                             1.41476,
-                                                  0.42180,
-                                                       0.0,
-                                                            0.84454,
-                                                                 1.41570,
-                                                                      0.42274,
-                                                                           0.84454,
-      0.0,
-    }
-  }
-};
+   {0, 1, 1, 2, 4},
+   {3, 2, 0, 1},  // indices
+   {0.99296, 0.42180, 0.11687, 0.305869},
+   {
+     // dense output
+     0.0,
+     0.99296,
+     1.41476,
+     1.415707,
+     0.99296,
+     0.0,
+     0.42180,
+     0.42274,
+     1.41476,
+     0.42180,
+     0.0,
+     0.84454,
+     1.41570,
+     0.42274,
+     0.84454,
+     0.0,
+   }}};
 typedef SparseDistanceSemiringTest<int, float> SparseDistanceSemiringTestF;
 TEST_P(SparseDistanceSemiringTestF, Result) { compare(); }
-INSTANTIATE_TEST_CASE_P(SparseDistanceSemiringTests, SparseDistanceSemiringTestF,
+INSTANTIATE_TEST_CASE_P(SparseDistanceSemiringTests,
+                        SparseDistanceSemiringTestF,
                         ::testing::ValuesIn(inputs_i32_f));
 
-};  // end namespace Selection
+};  // namespace Distance
 };  // end namespace Sparse
 };  // end namespace MLCommon
