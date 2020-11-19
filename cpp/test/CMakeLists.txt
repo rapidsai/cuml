@@ -49,6 +49,7 @@ if(BUILD_CUML_TESTS)
     sg/cd_test.cu
     sg/dbscan_test.cu
     sg/decisiontree_batchedlevel_algo.cu
+    sg/decisiontree_batchedlevel_unittest.cu
     sg/fil_test.cu
     sg/handle_test.cu
     sg/holtwinters_test.cu
