@@ -206,7 +206,7 @@ void kernel_dataset_impl(const raft::handle_t& handle, DataT* X, IdxT nrows_X,
   nblks = nrows_X - len_samples;
 
   cudaDeviceProp prop;
-  cudaGetDeviceProperties(&prop, 0);
+  prop = handle_impl.get_device_properties();
 
   if (ncols * sizeof(DataT) <= prop.sharedMemPerMultiprocessor) {
     // each block calculates the combinations of an entry in X
