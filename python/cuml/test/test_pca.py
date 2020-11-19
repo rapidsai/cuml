@@ -25,7 +25,7 @@ from cuml.test.utils import get_handle, array_equal, unit_param, \
 from sklearn import datasets
 from sklearn.datasets import make_multilabel_classification
 from sklearn.decomposition import PCA as skPCA
-from sklearn.datasets.samples_generator import make_blobs
+from sklearn.datasets import make_blobs
 
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
