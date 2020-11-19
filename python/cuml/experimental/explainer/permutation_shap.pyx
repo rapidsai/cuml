@@ -135,8 +135,8 @@ class PermutationSHAP():
     supported API for this version is the old one
     (i.e. explainer.shap_values())
     - Hierarchical clustering for Owen values are not GPU accelerated
-    - Sparse data support is in progress.
-    - Some optimizations are in progress.
+    - Sparse data support is not yet implemented.
+    - Some optimizations are not yet implemented.
 
     Parameters
     ----------
@@ -168,7 +168,8 @@ class PermutationSHAP():
                  link='identity',
                  output_names=None,
                  handle=None,
-                 gpu_model=None):
+                 gpu_model=None,
+                 random_state=None):
 
         self.handle = cuml.raft.common.handle.Handle() if handle is None \
             else handle
@@ -177,6 +178,8 @@ class PermutationSHAP():
         self.output_names = output_names
         self.link = link
         self.link_fn = get_link_fn_from_str(link)
+
+        self.random_state = random_state
 
         self.order = get_tag_from_model_func(func=model,
                                              tag='preferred_input_order',
@@ -263,6 +266,9 @@ class PermutationSHAP():
         cdef handle_t* handle_ = \
             <handle_t*><size_t>self.handle.getHandle()
         cdef uintptr_t row_ptr, bg_ptr, idx_ptr, masked_ptr
+
+        if self.random_state is not None:
+            cupy.random.seed(seed=self.random_state)
 
         for _ in range(npermutations):
 
@@ -421,8 +427,9 @@ class PermutationSHAP():
                  X,
                  max_evals='auto',
                  main_effects=False):
-        warn("SHAP's Explanation object is still experimental, the main API "
-             "currently is 'explainer.shap_values'.")
+        warn("SHAP's Explanation object is still experimental and depends "
+             "on SHAP >= 0.36. The main API currently is "
+             "'explainer.shap_values'.")
         res = self.explain(X,
                            l1_reg,
                            max_evals=max_evals)
