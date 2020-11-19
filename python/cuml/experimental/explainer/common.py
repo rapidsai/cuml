@@ -31,7 +31,7 @@ def get_tag_from_model_func(func, tag, default=None):
 
         return result
 
-    return None
+    return default
 
 
 def get_dtype_from_model_func(func, default=None):
@@ -60,6 +60,21 @@ def get_link_fn_from_str(link):
             raise TypeError("'link' function {} is not valid.".format(link))
 
     return link_fn
+
+
+def model_call(X, model, model_gpu_based=False):
+    if model_gpu_based:
+        y = model(X)
+    else:
+        try:
+            y = cp.array(model(
+                X.to_output('numpy'))
+            )
+        except TypeError:
+            raise TypeError('Explainer can only explain models that can '
+                            'take GPU data or NumPy arrays as input.')
+
+    return y
 
 
 # link functions
