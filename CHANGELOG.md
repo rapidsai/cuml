@@ -29,6 +29,7 @@
 - PR #3129:  Update notebooks README
 - PR #3040: Improved Array Conversion with CumlArrayDescriptor and Decorators
 - PR #3134: Improving the Deprecation Message Formatting in Documentation
+- PR #3113: Add tags and prefered memory order tags to estimators
 
 ## Bug Fixes
 - PR #3065: Refactoring prims metrics function names from camelcase to underscore format
@@ -49,7 +50,7 @@
 - PR #3086: Reverting FIL Notebook Testing
 - PR #3114: Fixed a typo in SVC's predict_proba AttributeError
 - PR #3117: Fix two crashes in experimental RF backend
-- PR #3119: Fix memset args for benchmark 
+- PR #3119: Fix memset args for benchmark
 - PR #3130: Return Python string from `dump_as_json()` of RF
 
 # cuML 0.16.0 (Date TBD)
