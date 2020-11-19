@@ -185,6 +185,12 @@ if(BUILD_PRIMS_TESTS)
     prims/score.cu
     prims/seive.cu
     prims/sigmoid.cu
+    prims/sparse/csr_row_slice.cu
+    prims/sparse/csr_to_dense.cu
+    prims/sparse/csr_transpose.cu
+    prims/sparse/distance.cu
+    prims/sparse/knn.cu
+    prims/sparse/selection.cu
     prims/silhouette_score.cu
     prims/sqrt.cu
     prims/ternary_op.cu

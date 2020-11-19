@@ -28,10 +28,10 @@ from cuml.common.input_utils import input_to_cuml_array
 from cuml.raft.common.handle import Handle
 from cuml.raft.common.handle cimport handle_t
 
-cdef extern from "cuml/distance/distance_type.h" namespace "ML::Distance":
+cdef extern from "raft/linalg/distance_type.h" namespace "raft::distance":
 
     ctypedef int DistanceType
-    ctypedef DistanceType euclidean "(ML::Distance::DistanceType)5"
+    ctypedef DistanceType euclidean "(raft::distance::DistanceType)5"
 
 cdef extern from "metrics/trustworthiness_c.h" namespace "ML::Metrics":
 

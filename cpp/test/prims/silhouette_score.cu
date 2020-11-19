@@ -81,7 +81,7 @@ class silhouetteScoreTest
 
     MLCommon::Distance::pairwise_distance(
       d_X, d_X, d_distanceMatrix.data(), nRows, nRows, nCols, workspace,
-      static_cast<ML::Distance::DistanceType>(params.metric), stream);
+      static_cast<raft::distance::DistanceType>(params.metric), stream);
 
     CUDA_CHECK(cudaStreamSynchronize(stream));
 

@@ -1,6 +1,8 @@
 # cuML 0.17.0 (Date TBD)
 
 ## New Features
+- PR #2659: Add initial max inner product sparse knn
+- PR #2836: Refactor UMAP to accept sparse inputs
 
 ## Improvements
 - PR #3077: Improve runtime for test_kmeans
@@ -27,11 +29,17 @@
 - PR #3112: Speed test_array
 - PR #3111: Adding Cython to Code Coverage
 - PR #3129:  Update notebooks README
+- PR #3002: Update flake8 Config To With Per File Settings
+- PR #3135: Add QuasiNewton tests
 - PR #3040: Improved Array Conversion with CumlArrayDescriptor and Decorators
 - PR #3134: Improving the Deprecation Message Formatting in Documentation
 - PR #3113: Add tags and prefered memory order tags to estimators
+- PR #3137: Reorganize Pytest Config and Add Quick Run Option
+- PR #3144: Adding Ability to Set Arbitrary Cmake Flags in ./build.sh
+- PR #3155: Eliminate unnecessary warnings from random projection test
 
 ## Bug Fixes
+- PR #3069: Prevent conversion of DataFrames to Series in preprocessing
 - PR #3065: Refactoring prims metrics function names from camelcase to underscore format
 - PR #3033: Splitting ml metrics to individual files
 - PR #3072: Fusing metrics and score directories in src_prims
@@ -40,6 +48,7 @@
 - PR #3011: Fix unused initialize_embeddings parameter in Barnes-Hut t-SNE
 - PR #3008: Check number of columns in check_array validator
 - PR #3012: Increasing learning rate for SGD log loss and invscaling pytests
+- PR #2950: Fix includes in UMAP
 - PR #3021: Fix a hang in cuML RF experimental backend
 - PR #3039: Update RF and decision tree parameter initializations in benchmark codes
 - PR #3060: Speed up test suite `test_fil`
@@ -52,6 +61,8 @@
 - PR #3117: Fix two crashes in experimental RF backend
 - PR #3119: Fix memset args for benchmark
 - PR #3130: Return Python string from `dump_as_json()` of RF
+- PR #3136: Fix stochastic gradient descent example
+- PR #3156: Force local conda artifact install
 
 # cuML 0.16.0 (Date TBD)
 
@@ -110,6 +121,7 @@
 - PR #2928: Updating Estimators Derived from Base for Consistency
 - PR #2942: Adding `cuml.experimental` to the Docs
 - PR #3010: Improve gpuCI Scripts
+- PR #3141: Move DistanceType enum to RAFT
 
 ## Bug Fixes
 - PR #2973: Allow data imputation for nan values
@@ -155,7 +167,6 @@
 - PR #2984: Fix GPU test scripts gcov error
 - PR #2990: Reduce MNMG kneighbors regressor test threshold
 - PR #2997: Changing ARIMA `get/set_params` to `get/set_fit_params`
-
 # cuML 0.15.0 (Date TBD)
 
 ## New Features
