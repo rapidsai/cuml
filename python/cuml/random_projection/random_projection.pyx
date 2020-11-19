@@ -22,6 +22,7 @@ import numpy as np
 from libc.stdint cimport uintptr_t
 from libcpp cimport bool
 
+import cuml.internals
 from cuml.common.array import CumlArray
 from cuml.common.base import Base
 from cuml.raft.common.handle cimport *
@@ -224,6 +225,7 @@ cdef class BaseRandomProjection():
     def density(self, value):
         self.params.density = value
 
+    @cuml.internals.api_base_return_any()
     def fit(self, X, y=None):
         """
         Fit the model. This function generates the random matrix on GPU.
@@ -241,8 +243,6 @@ cdef class BaseRandomProjection():
             generated random matrix as attributes
 
         """
-        self._set_base_attributes(output_type=X, n_features=X)
-
         _, n_samples, n_features, self.dtype = \
             input_to_cuml_array(X, check_dtype=[np.float32, np.float64])
 
@@ -259,6 +259,7 @@ cdef class BaseRandomProjection():
 
         return self
 
+    @cuml.internals.api_base_return_array()
     def transform(self, X, convert_dtype=True):
         """
         Apply transformation on provided data. This function outputs
@@ -283,9 +284,6 @@ cdef class BaseRandomProjection():
             Result of multiplication between input matrix and random matrix
 
         """
-
-        out_type = self._get_output_type(X)
-
         X_m, n_samples, n_features, dtype = \
             input_to_cuml_array(X, check_dtype=self.dtype,
                                 convert_to_dtype=(self.dtype if convert_dtype
@@ -319,8 +317,9 @@ cdef class BaseRandomProjection():
 
         self.handle.sync()
 
-        return X_new.to_output(out_type)
+        return X_new
 
+    @cuml.internals.api_base_return_array(get_output_type=False)
     def fit_transform(self, X, convert_dtype=True):
         return self.fit(X).transform(X, convert_dtype)
 
@@ -344,7 +343,7 @@ class GaussianRandomProjection(Base, BaseRandomProjection):
     .. code-block:: python
 
         from cuml.random_projection import GaussianRandomProjection
-        from sklearn.datasets.samples_generator import make_blobs
+        from sklearn.datasets import make_blobs
         from sklearn.svm import SVC
 
         # dataset generation
@@ -476,7 +475,7 @@ class SparseRandomProjection(Base, BaseRandomProjection):
     .. code-block:: python
 
         from cuml.random_projection import SparseRandomProjection
-        from sklearn.datasets.samples_generator import make_blobs
+        from sklearn.datasets import make_blobs
         from sklearn.svm import SVC
 
         # dataset generation

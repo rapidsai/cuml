@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include <cuml/distance/distance_type.h>
+#include <raft/linalg/distance_type.h>
 #include <cuml/cuml.hpp>
 
 namespace ML {
@@ -269,7 +269,7 @@ float accuracy_score_py(const raft::handle_t &handle, const int *predictions,
  */
 void pairwise_distance(const raft::handle_t &handle, const double *x,
                        const double *y, double *dist, int m, int n, int k,
-                       ML::Distance::DistanceType metric,
+                       raft::distance::DistanceType metric,
                        bool isRowMajor = true);
 
 /**
@@ -289,7 +289,7 @@ void pairwise_distance(const raft::handle_t &handle, const double *x,
  */
 void pairwise_distance(const raft::handle_t &handle, const float *x,
                        const float *y, float *dist, int m, int n, int k,
-                       ML::Distance::DistanceType metric,
+                       raft::distance::DistanceType metric,
                        bool isRowMajor = true);
 
 }  // namespace Metrics

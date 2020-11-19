@@ -26,10 +26,11 @@ import cuml.common.logger as logger
 from cuml import ForestInference
 from cuml.common.array import CumlArray
 from cuml.common.base import ClassifierMixin
+import cuml.internals
 from cuml.common.doc_utils import generate_docstring
 from cuml.common.doc_utils import insert_into_docstring
 from cuml.raft.common.handle import Handle
-from cuml.common import input_to_cuml_array, rmm_cupy_ary
+from cuml.common import input_to_cuml_array
 
 from cuml.ensemble.randomforest_common import BaseRandomForestModel
 from cuml.ensemble.randomforest_common import _obtain_fil_model
@@ -417,6 +418,9 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
     @generate_docstring(skip_parameters_heading=True,
                         y='dense_intdtype',
                         convert_dtype_cast='np.float32')
+    @cuml.internals.api_base_return_any(set_output_type=False,
+                                        set_output_dtype=True,
+                                        set_n_features_in=False)
     def fit(self, X, y, convert_dtype=True):
         """
         Perform Random Forest Classification on the input data
@@ -429,7 +433,6 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
             the method.
         """
         nvtx_range_push("Fit RF-Classifier @randomforestclassifier.pyx")
-        self._set_base_attributes(target_dtype=y)
 
         X_m, y_m, max_feature_val = self._dataset_setup_for_fit(X, y,
                                                                 convert_dtype)
@@ -506,10 +509,8 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
         nvtx_range_pop()
         return self
 
-    def _predict_model_on_cpu(self, X, convert_dtype):
-        out_type = self._get_output_type(X)
-        out_dtype = self._get_target_dtype()
-
+    @cuml.internals.api_base_return_array(get_output_dtype=True)
+    def _predict_model_on_cpu(self, X, convert_dtype) -> CumlArray:
         cdef uintptr_t X_ptr
         X_m, n_rows, n_cols, dtype = \
             input_to_cuml_array(X, order='C',
@@ -553,7 +554,7 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
         self.handle.sync()
         # synchronous w/o a stream
         del(X_m)
-        return preds.to_output(output_type=out_type, output_dtype=out_dtype)
+        return preds
 
     @insert_into_docstring(parameters=[('dense', '(n_samples, n_features)')],
                            return_values=[('dense', '(n_samples, 1)')])
@@ -561,7 +562,7 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
                 output_class=True, threshold=0.5,
                 algo='auto', num_classes=None,
                 convert_dtype=True,
-                fil_sparse_format='auto'):
+                fil_sparse_format='auto') -> CumlArray:
         """
         Predicts the labels for X.
 
@@ -651,7 +652,7 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
         nvtx_range_pop()
         return preds
 
-    def _predict_get_all(self, X, convert_dtype=True):
+    def _predict_get_all(self, X, convert_dtype=True) -> CumlArray:
         """
         Predicts the labels for X.
 
@@ -667,7 +668,6 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
         y : NumPy
            Dense vector (int) of shape (n_samples, 1)
         """
-        out_type = self._get_output_type(X)
         cdef uintptr_t X_ptr, preds_ptr
         X_m, n_rows, n_cols, dtype = \
             input_to_cuml_array(X, order='C',
@@ -709,14 +709,14 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
                             % (str(self.dtype)))
         self.handle.sync()
         del(X_m)
-        return preds.to_output(out_type)
+        return preds
 
     @insert_into_docstring(parameters=[('dense', '(n_samples, n_features)')],
                            return_values=[('dense', '(n_samples, 1)')])
     def predict_proba(self, X, output_class=True,
                       threshold=0.5, algo='auto',
                       num_classes=None, convert_dtype=True,
-                      fil_sparse_format='auto'):
+                      fil_sparse_format='auto') -> CumlArray:
         """
         Predicts class probabilites for X. This function uses the GPU
         implementation of predict. Therefore, data with 'dtype = np.float32'

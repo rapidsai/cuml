@@ -24,12 +24,13 @@ import cuml.common.logger as logger
 
 from cuml import ForestInference
 from cuml.common.array import CumlArray
+import cuml.internals
 
 from cuml.common.base import RegressorMixin
 from cuml.common.doc_utils import generate_docstring
 from cuml.common.doc_utils import insert_into_docstring
 from cuml.raft.common.handle import Handle
-from cuml.common import input_to_cuml_array, rmm_cupy_ary
+from cuml.common import input_to_cuml_array
 
 from cuml.ensemble.randomforest_common import BaseRandomForestModel
 from cuml.ensemble.randomforest_common import _obtain_fil_model
@@ -46,6 +47,7 @@ from libc.stdlib cimport calloc, malloc, free
 
 from numba import cuda
 
+from cuml.common.cuda import nvtx_range_wrap, nvtx_range_push, nvtx_range_pop
 from cuml.raft.common.handle cimport handle_t
 cimport cuml.common.cuda
 
@@ -403,11 +405,14 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
                                  fil_sparse_format=fil_sparse_format)
 
     @generate_docstring()
+    @cuml.internals.api_base_return_any_skipall
     def fit(self, X, y, convert_dtype=True):
         """
         Perform Random Forest Regression on the input data
 
         """
+        nvtx_range_push("Fit RF-Regressor @randomforestregressor.pyx")
+
         X_m, y_m, max_feature_val = self._dataset_setup_for_fit(X, y,
                                                                 convert_dtype)
 
@@ -473,10 +478,10 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
         self.handle.sync()
         del X_m
         del y_m
+        nvtx_range_pop()
         return self
 
-    def _predict_model_on_cpu(self, X, convert_dtype):
-        out_type = self._get_output_type(X)
+    def _predict_model_on_cpu(self, X, convert_dtype) -> CumlArray:
         cdef uintptr_t X_ptr
         X_m, n_rows, n_cols, dtype = \
             input_to_cuml_array(X, order='C',
@@ -521,13 +526,13 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
         self.handle.sync()
         # synchronous w/o a stream
         del(X_m)
-        return preds.to_output(out_type)
+        return preds
 
     @insert_into_docstring(parameters=[('dense', '(n_samples, n_features)')],
                            return_values=[('dense', '(n_samples, 1)')])
     def predict(self, X, predict_model="GPU",
                 algo='auto', convert_dtype=True,
-                fil_sparse_format='auto'):
+                fil_sparse_format='auto') -> CumlArray:
         """
         Predicts the labels for X.
 
@@ -568,6 +573,7 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
         y : {}
 
         """
+        nvtx_range_push("predict RF-Regressor @randomforestregressor.pyx")
         if predict_model == "CPU":
             preds = self._predict_model_on_cpu(X, convert_dtype)
 
@@ -586,6 +592,7 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
                 convert_dtype=convert_dtype,
                 fil_sparse_format=fil_sparse_format)
 
+        nvtx_range_pop()
         return preds
 
     @insert_into_docstring(parameters=[('dense', '(n_samples, n_features)'),
@@ -634,6 +641,7 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
         median_abs_error : float or
         mean_abs_error : float
         """
+        nvtx_range_push("score RF-Regressor @randomforestregressor.pyx")
         from cuml.metrics.regression import r2_score
 
         cdef uintptr_t y_ptr
@@ -699,6 +707,7 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
         self.handle.sync()
         del(y_m)
         del(preds_m)
+        nvtx_range_pop()
         return stats
 
     def print_summary(self):

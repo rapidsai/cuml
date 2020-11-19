@@ -15,6 +15,8 @@
 
 # distutils: language = c++
 
+import typing
+
 import ctypes
 import cudf
 import cupy as cp
@@ -25,12 +27,15 @@ from numba import cuda
 from cython.operator cimport dereference as deref
 from libc.stdint cimport uintptr_t
 
+import cuml.internals
 from cuml.common.array import CumlArray
 from cuml.common.base import Base, ClassifierMixin
 from cuml.common.doc_utils import generate_docstring
+from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.logger import warn
 from cuml.raft.common.handle cimport handle_t
 from cuml.common import input_to_cuml_array, input_to_host_array, with_cupy_rmm
+from cuml.common.input_utils import input_to_cupy_array
 from cuml.preprocessing import LabelEncoder
 from cuml.common.memory_utils import using_output_type
 from libcpp cimport bool, nullptr
@@ -99,24 +104,6 @@ cdef extern from "cuml/svm/svc.hpp" namespace "ML::SVM":
 
     cdef void svmFreeBuffers[math_t](const handle_t &handle,
                                      svmModel[math_t] &m) except +
-
-
-def _to_output(X, out_type):
-    """ Convert array X to out_type.
-
-    X can be host (numpy) array.
-
-    Arguments:
-    X: cuDF.DataFrame, cuDF.Series, numba array, NumPy array or any
-    cuda_array_interface compliant array like CuPy or pytorch.
-
-    out_type: string (as defined by the  CumlArray's to_output method).
-    """
-    if out_type == 'numpy' and isinstance(X, np.ndarray):
-        return X
-    else:
-        X, _, _, _ = input_to_cuml_array(X)
-        return X.to_output(output_type=out_type)
 
 
 class SVC(SVMBase, ClassifierMixin):
@@ -253,6 +240,7 @@ class SVC(SVMBase, ClassifierMixin):
        <https://github.com/Xtra-Computing/thundersvm>`_
 
     """
+
     def __init__(self, handle=None, C=1, kernel='rbf', degree=3,
                  gamma='scale', coef0=0.0, tol=1e-3, cache_size=200.0,
                  max_iter=-1, nochange_steps=1000, verbose=False,
@@ -269,14 +257,15 @@ class SVC(SVMBase, ClassifierMixin):
         self.svmType = C_SVC
 
     @property
+    @cuml.internals.api_base_return_array_skipall
     def classes_(self):
         if self.probability:
             return self.prob_svc.classes_
         else:
-            return self.unique_labels
+            return self._unique_labels_
 
-    @with_cupy_rmm
-    def _apply_class_weight(self, sample_weight, y_m):
+    @cuml.internals.api_base_return_array_skipall
+    def _apply_class_weight(self, sample_weight, y_m) -> CumlArray:
         """
         Scale the sample weights with the class weights.
 
@@ -299,7 +288,9 @@ class SVC(SVMBase, ClassifierMixin):
         if self.class_weight is None:
             return sample_weight
 
-        le = LabelEncoder()
+        le = LabelEncoder(handle=self.handle,
+                          verbose=self.verbose,
+                          output_type=self.output_type)
         labels = y_m.to_output(output_type='series')
         encoded_labels = cp.asarray(le.fit_transform(labels))
 
@@ -320,10 +311,9 @@ class SVC(SVMBase, ClassifierMixin):
         if sample_weight is None:
             sample_weight = cp.ones(y_m.shape, dtype=self.dtype)
         else:
-            sample_weight_m, _, _, _ = \
-                input_to_cuml_array(sample_weight, convert_to_dtype=self.dtype,
+            sample_weight, _, _, _ = \
+                input_to_cupy_array(sample_weight, convert_to_dtype=self.dtype,
                                     check_rows=self.n_rows, check_cols=1)
-            sample_weight = sample_weight_m.to_output(output_type='cupy')
 
         for label, weight in class_weight.items():
             sample_weight[encoded_labels==label] *= weight
@@ -331,30 +321,36 @@ class SVC(SVMBase, ClassifierMixin):
         return sample_weight
 
     @generate_docstring(y='dense_anydtype')
-    @with_cupy_rmm
-    def fit(self, X, y, sample_weight=None, convert_dtype=True):
+    @cuml.internals.api_base_return_any(set_output_dtype=True)
+    def fit(self, X, y, sample_weight=None, convert_dtype=True) -> "SVC":
         """
         Fit the model with X and y.
 
         """
-        self._set_base_attributes(output_type=X, target_dtype=y, n_features=X)
 
         if self.probability:
             params = self.get_params()
             params["probability"] = False
+
+            # Ensure it always outputs numpy
+            params["output_type"] = "numpy"
+
             # Currently CalibratedClassifierCV expects data on the host, see
             # https://github.com/rapidsai/cuml/issues/2608
             X, _, _, _, _ = input_to_host_array(X)
             y, _, _, _, _ = input_to_host_array(y)
-            with using_output_type('numpy'):
-                if not has_sklearn():
-                    raise RuntimeError(
-                        "Scikit-learn is needed to use SVM probabilities")
 
-                self.prob_svc = CalibratedClassifierCV(SVC(**params), cv=5,
-                                                       method='sigmoid')
+            if not has_sklearn():
+                raise RuntimeError(
+                    "Scikit-learn is needed to use SVM probabilities")
+
+            self.prob_svc = CalibratedClassifierCV(SVC(**params),
+                                                   cv=5,
+                                                   method='sigmoid')
+
+            with cuml.internals.exit_internal_api():
                 self.prob_svc.fit(X, y)
-                self._fit_status_ = 0
+            self._fit_status_ = 0
             return self
 
         X_m, self.n_rows, self.n_cols, self.dtype = \
@@ -379,7 +375,7 @@ class SVC(SVMBase, ClassifierMixin):
             sample_weight_ptr = sample_weight_m.ptr
 
         self._dealloc()  # delete any previously fitted model
-        self._coef_ = None
+        self.coef_ = None
 
         cdef KernelParams _kernel_params = self._get_kernel_params(X_m)
         cdef svmParameter param = self._get_svm_params()
@@ -415,7 +411,7 @@ class SVC(SVMBase, ClassifierMixin):
                                        'type': 'dense',
                                        'description': 'Predicted values',
                                        'shape': '(n_samples, 1)'})
-    def predict(self, X, convert_dtype=True):
+    def predict(self, X, convert_dtype=True) -> CumlArray:
         """
         Predicts the class labels for X. The returned y values are the class
         labels associated to sign(decision_function(X)).
@@ -423,11 +419,13 @@ class SVC(SVMBase, ClassifierMixin):
 
         if self.probability:
             self._check_is_fitted('prob_svc')
-            out_type = self._get_output_type(X)
+
             X, _, _, _, _ = input_to_host_array(X)
-            preds = self.prob_svc.predict(X)
-            # prob_svc has numpy output type, change it if it is necessary:
-            return _to_output(preds, out_type)
+
+            with cuml.internals.exit_internal_api():
+                preds = self.prob_svc.predict(X)
+                # prob_svc has numpy output type, change it if it is necessary:
+                return preds
         else:
             return super(SVC, self).predict(X, True, convert_dtype)
 
@@ -437,7 +435,7 @@ class SVC(SVMBase, ClassifierMixin):
                                        'description': 'Predicted \
                                        probabilities',
                                        'shape': '(n_samples, n_classes)'})
-    def predict_proba(self, X, log=False):
+    def predict_proba(self, X, log=False) -> CumlArray:
         """
         Predicts the class probabilities for X.
 
@@ -452,13 +450,17 @@ class SVC(SVMBase, ClassifierMixin):
 
         if self.probability:
             self._check_is_fitted('prob_svc')
-            out_type = self._get_output_type(X)
+
             X, _, _, _, _ = input_to_host_array(X)
-            preds = self.prob_svc.predict_proba(X)
-            if (log):
-                preds = np.log(preds)
-            # prob_svc has numpy output type, change it if it is necessary:
-            return _to_output(preds, out_type)
+
+            # Exit the internal API when calling sklearn code (forces numpy
+            # conversion)
+            with cuml.internals.exit_internal_api():
+                preds = self.prob_svc.predict_proba(X)
+                if (log):
+                    preds = np.log(preds)
+                # prob_svc has numpy output type, change it if it is necessary:
+                return preds
         else:
             raise AttributeError("This classifier is not fitted to predict "
                                  "probabilities. Fit a new classifier with "
@@ -469,7 +471,8 @@ class SVC(SVMBase, ClassifierMixin):
                                        'description': 'Log of predicted \
                                        probabilities',
                                        'shape': '(n_samples, n_classes)'})
-    def predict_log_proba(self, X):
+    @cuml.internals.api_base_return_array_skipall
+    def predict_log_proba(self, X) -> CumlArray:
         """
         Predicts the log probabilities for X (returns log(predict_proba(x)).
 
@@ -483,14 +486,13 @@ class SVC(SVMBase, ClassifierMixin):
                                        'description': 'Decision function \
                                        values',
                                        'shape': '(n_samples, 1)'})
-    def decision_function(self, X):
+    def decision_function(self, X) -> CumlArray:
         """
         Calculates the decision function values for X.
 
         """
         if self.probability:
             self._check_is_fitted('prob_svc')
-            out_type = self._get_output_type(X)
             # Probabilistic SVC is an ensemble of simple SVC classifiers
             # fitted to different subset of the training data. As such, it
             # does not have a single decision function. (During prediction
@@ -499,13 +501,14 @@ class SVC(SVMBase, ClassifierMixin):
             # be useful for visualization, but predictions should be made
             # using the probabilities.
             df = np.zeros((X.shape[0],))
-            with using_output_type('numpy'):
+
+            with cuml.internals.exit_internal_api():
                 for clf in self.prob_svc.calibrated_classifiers_:
                     df = df + clf.base_estimator.decision_function(X)
             df = df / len(self.prob_svc.calibrated_classifiers_)
-            return _to_output(df, out_type)
+            return df
         else:
-            return super(SVC, self).predict(X, False)
+            return super().predict(X, False)
 
     def get_param_names(self):
         params = super().get_param_names() + \
