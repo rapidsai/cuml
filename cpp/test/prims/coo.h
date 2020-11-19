@@ -30,5 +30,5 @@ template <typename T>
 ::std::ostream &operator<<(::std::ostream &os, const COOInputs<T> &dims) {
   return os;
 }
-}  // namespace Sparse
-}  // namespace MLCommon
+}  // namespace sparse
+}  // namespace raft

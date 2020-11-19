@@ -132,7 +132,8 @@ void csr_transpose(cusparseHandle_t handle, const value_idx *csr_indptr,
                    const value_idx *csr_indices, const value_t *csr_data,
                    value_idx *csc_indptr, value_idx *csc_indices,
                    value_t *csc_data, value_idx csr_nrows, value_idx csr_ncols,
-                   value_idx nnz, std::shared_ptr<MLCommon::deviceAllocator> allocator,
+                   value_idx nnz,
+                   std::shared_ptr<MLCommon::deviceAllocator> allocator,
                    cudaStream_t stream) {
   size_t convert_csc_workspace_size = 0;
 
@@ -144,8 +145,8 @@ void csr_transpose(cusparseHandle_t handle, const value_idx *csr_indptr,
 
   CUML_LOG_DEBUG("Transpose workspace size: %d", convert_csc_workspace_size);
 
-  MLCommon::device_buffer<char> convert_csc_workspace(allocator, stream,
-                                            convert_csc_workspace_size);
+  MLCommon::device_buffer<char> convert_csc_workspace(
+    allocator, stream, convert_csc_workspace_size);
 
   CUSPARSE_CHECK(raft::sparse::cusparsecsr2csc(
     handle, csr_nrows, csr_ncols, nnz, csr_data, csr_indptr, csr_indices,
@@ -900,7 +901,8 @@ void weak_cc_batched(Index_ *labels, const Index_ *row_ind,
 template <typename Index_ = int, int TPB_X = 32,
           typename Lambda = auto(Index_)->bool>
 void weak_cc(Index_ *labels, const Index_ *row_ind, const Index_ *row_ind_ptr,
-             Index_ nnz, Index_ N, std::shared_ptr<MLCommon::deviceAllocator> d_alloc,
+             Index_ nnz, Index_ N,
+             std::shared_ptr<MLCommon::deviceAllocator> d_alloc,
              cudaStream_t stream, Lambda filter_op) {
   MLCommon::device_buffer<bool> xa(d_alloc, stream, N);
   MLCommon::device_buffer<bool> fa(d_alloc, stream, N);
@@ -935,7 +937,8 @@ void weak_cc(Index_ *labels, const Index_ *row_ind, const Index_ *row_ind_ptr,
  */
 template <typename Index_, int TPB_X = 32>
 void weak_cc(Index_ *labels, const Index_ *row_ind, const Index_ *row_ind_ptr,
-             Index_ nnz, Index_ N, std::shared_ptr<MLCommon::deviceAllocator> d_alloc,
+             Index_ nnz, Index_ N,
+             std::shared_ptr<MLCommon::deviceAllocator> d_alloc,
              cudaStream_t stream) {
   MLCommon::device_buffer<bool> xa(d_alloc, stream, N);
   MLCommon::device_buffer<bool> fa(d_alloc, stream, N);
@@ -945,5 +948,5 @@ void weak_cc(Index_ *labels, const Index_ *row_ind, const Index_ *row_ind_ptr,
                                  stream, [](Index_) { return true; });
 }
 
-};  // namespace Sparse
-};  // namespace MLCommon
+};  // namespace sparse
+};  // namespace raft

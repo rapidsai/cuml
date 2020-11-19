@@ -316,5 +316,5 @@ INSTANTIATE_TEST_CASE_P(COOTests, COORowCountNonzero,
 
 INSTANTIATE_TEST_CASE_P(COOTests, COOSymmetrize, ::testing::ValuesIn(inputsf));
 
-}  // namespace Sparse
-}  // namespace MLCommon
+}  // namespace sparse
+}  // namespace raft

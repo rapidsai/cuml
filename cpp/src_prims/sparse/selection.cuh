@@ -175,6 +175,6 @@ inline void select_k(value_t *inK, value_idx *inV, size_t n_rows, size_t n_cols,
                                                outV, select_min, k, stream);
 }
 
-};  // END namespace Selection
-};  // END namespace Sparse
-};  // END namespace MLCommon
+};  // namespace selection
+};  // namespace sparse
+};  // namespace raft

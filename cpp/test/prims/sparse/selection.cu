@@ -92,8 +92,9 @@ class SparseSelectionTest
 
     make_data();
 
-    raft::sparse::selection::select_k(dists, inds, n_rows, n_cols, out_dists, out_indices,
-             params.select_min, k, stream);
+    raft::sparse::selection::select_k(dists, inds, n_rows, n_cols, out_dists,
+                                      out_indices, params.select_min, k,
+                                      stream);
 
     CUDA_CHECK(cudaStreamSynchronize(stream));
   }

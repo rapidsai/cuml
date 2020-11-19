@@ -361,5 +361,5 @@ INSTANTIATE_TEST_CASE_P(CSRTests, CSRRowNormalizeL1,
                         ::testing::ValuesIn(inputsf));
 
 INSTANTIATE_TEST_CASE_P(CSRTests, CSRSum, ::testing::ValuesIn(inputsf));
-}  // namespace Sparse
-}  // namespace MLCommon
+}  // namespace sparse
+}  // namespace raft

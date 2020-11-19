@@ -89,7 +89,8 @@ class COO {
     * @param n_rows: number of rows in the dense matrix
     * @param n_cols: number of cols in the dense matrix
     */
-  COO(MLCommon::device_buffer<Index_Type> &rows, MLCommon::device_buffer<Index_Type> &cols,
+  COO(MLCommon::device_buffer<Index_Type> &rows,
+      MLCommon::device_buffer<Index_Type> &cols,
       MLCommon::device_buffer<T> &vals, Index_Type nnz, Index_Type n_rows = 0,
       Index_Type n_cols = 0)
     : rows_arr(rows),
@@ -270,7 +271,8 @@ class COO {
  */
 template <typename T>
 void coo_sort(int m, int n, int nnz, int *rows, int *cols, T *vals,
-              std::shared_ptr<MLCommon::deviceAllocator> d_alloc, cudaStream_t stream) {
+              std::shared_ptr<MLCommon::deviceAllocator> d_alloc,
+              cudaStream_t stream) {
   cusparseHandle_t handle = NULL;
 
   size_t pBufferSizeInBytes = 0;
@@ -308,7 +310,8 @@ void coo_sort(int m, int n, int nnz, int *rows, int *cols, T *vals,
  * @param stream: the cuda stream to use
  */
 template <typename T>
-void coo_sort(COO<T> *const in, std::shared_ptr<MLCommon::deviceAllocator> d_alloc,
+void coo_sort(COO<T> *const in,
+              std::shared_ptr<MLCommon::deviceAllocator> d_alloc,
               cudaStream_t stream) {
   coo_sort<T>(in->n_rows, in->n_cols, in->nnz, in->rows(), in->cols(),
               in->vals(), d_alloc, stream);
@@ -586,12 +589,11 @@ void coo_remove_scalar(COO<T> *in, COO<T> *out, T scalar,
   CUDA_CHECK(
     cudaMemsetAsync(row_count.data(), 0, in->n_rows * sizeof(int), stream));
 
-  coo_row_count<TPB_X>(in->rows(), in->nnz, row_count.data(),
-                                         stream);
+  coo_row_count<TPB_X>(in->rows(), in->nnz, row_count.data(), stream);
   CUDA_CHECK(cudaPeekAtLastError());
 
-  coo_row_count_scalar<TPB_X>(
-    in->rows(), in->vals(), in->nnz, scalar, row_count_nz.data(), stream);
+  coo_row_count_scalar<TPB_X>(in->rows(), in->vals(), in->nnz, scalar,
+                              row_count_nz.data(), stream);
   CUDA_CHECK(cudaPeekAtLastError());
 
   thrust::device_ptr<int> d_row_count_nz =
@@ -922,11 +924,10 @@ __global__ static void symmetric_sum(int *restrict edges,
  * @param d_alloc device allocator for temporary buffers
  */
 template <typename math_t, int TPB_X = 32, int TPB_Y = 32>
-void from_knn_symmetrize_matrix(const long *restrict knn_indices,
-                                const math_t *restrict knn_dists, const int n,
-                                const int k, COO<math_t> *out,
-                                cudaStream_t stream,
-                                std::shared_ptr<MLCommon::deviceAllocator> d_alloc) {
+void from_knn_symmetrize_matrix(
+  const long *restrict knn_indices, const math_t *restrict knn_dists,
+  const int n, const int k, COO<math_t> *out, cudaStream_t stream,
+  std::shared_ptr<MLCommon::deviceAllocator> d_alloc) {
   // (1) Find how much space needed in each row
   // We look through all datapoints and increment the count for each row.
   const dim3 threadsPerBlock(TPB_X, TPB_Y);
@@ -973,5 +974,5 @@ void from_knn_symmetrize_matrix(const long *restrict knn_indices,
   CUDA_CHECK(cudaPeekAtLastError());
 }
 
-};  // namespace Sparse
-};  // namespace MLCommon
+};  // namespace sparse
+};  // namespace raft

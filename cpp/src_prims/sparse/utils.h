@@ -43,5 +43,5 @@ inline int block_dim(value_idx ncols) {
 
   return blockdim;
 }
-};  // namespace Sparse
-};  // namespace MLCommon
+};  // namespace sparse
+};  // namespace raft
