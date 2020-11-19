@@ -59,7 +59,7 @@ class BaseRandomForestModel(Base):
                  max_depth=16, handle=None, max_features='auto',
                  n_bins=8, split_algo=1, bootstrap=True,
                  bootstrap_features=False,
-                 verbose=False, min_samples_leaf=2,
+                 verbose=False, min_samples_leaf=1,
                  min_samples_split=2,
                  rows_sample=1.0, max_leaves=-1,
                  accuracy_metric=None, dtype=None,

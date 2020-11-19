@@ -138,7 +138,7 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
         X = np.asarray([[0,10],[0,20],[0,30],[0,40]], dtype=np.float32)
         y = np.asarray([0.0,1.0,2.0,3.0], dtype=np.float32)
         cuml_model = curfc(max_features=1.0, n_bins=8,
-                            split_algo=0, min_samples_leaf=2,
+                            split_algo=0, min_samples_leaf=1,
                             min_samples_split=2,
                             n_estimators=40, accuracy_metric='r2')
         cuml_model.fit(X,y)
@@ -193,7 +193,7 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
         If 'log2' then max_features=log2(n_features)/n_features.
     n_bins : int (default = 8)
         Number of bins used by the split algorithm.
-    min_samples_leaf : int or float (default = 2)
+    min_samples_leaf : int or float (default = 1)
         The minimum number of samples (rows) in each leaf node.
         If int, then min_samples_leaf represents the minimum number.
         If float, then min_samples_leaf represents a fraction and

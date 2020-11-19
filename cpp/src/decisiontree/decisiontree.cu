@@ -29,7 +29,7 @@ namespace DecisionTree {
  * @param[in] cfg_max_features: maximum number of features; default 1.0f
  * @param[in] cfg_n_bins: number of bins; default 8
  * @param[in] cfg_split_algo: split algorithm; default SPLIT_ALGO::HIST
- * @param[in] cfg_min_samples_leaf: min. rows in each leaf node; default 2
+ * @param[in] cfg_min_samples_leaf: min. rows in each leaf node; default 1
  * @param[in] cfg_min_samples_split: min. rows needed to split an internal node;
  *            default 2
  * @param[in] cfg_bootstrap_features: bootstrapping for features; default false
@@ -104,8 +104,8 @@ void validity_check(const DecisionTreeParams params) {
            (params.split_algo < SPLIT_ALGO::SPLIT_ALGO_END),
          "split_algo value %d outside permitted [0, %d) range",
          params.split_algo, SPLIT_ALGO::SPLIT_ALGO_END);
-  ASSERT((params.min_samples_leaf >= 2),
-         "Invalid value for min_samples_leaf %d. Should be >= 2.",
+  ASSERT((params.min_samples_leaf >= 1),
+         "Invalid value for min_samples_leaf %d. Should be >= 1.",
          params.min_samples_leaf);
   ASSERT((params.min_samples_split >= 2),
          "Invalid value for min_samples_split: %d. Should be >= 2.",

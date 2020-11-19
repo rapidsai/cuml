@@ -208,7 +208,7 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
         If 'log2' then max_features=log2(n_features)/n_features.
     n_bins : int (default = 8)
         Number of bins used by the split algorithm.
-    min_samples_leaf : int or float (default = 2)
+    min_samples_leaf : int or float (default = 1)
         The minimum number of samples (rows) in each leaf node.
         If int, then min_samples_leaf represents the minimum number.
         If float, then min_samples_leaf represents a fraction and
