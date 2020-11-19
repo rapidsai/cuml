@@ -213,9 +213,82 @@ struct BlockSemiring {
   bool verbose;
 };
 
+
+/**
+ * This implementation follows the load-balanced implementation
+ * from
+ *
+ * @tparam value_idx
+ * @tparam value_t
+ * @tparam tpb
+ * @tparam buffer_size
+ * @tparam chunk_size
+ * @param indptrA
+ * @param indicesA
+ * @param dataA
+ * @param rowsB
+ * @param indicesB
+ * @param dataB
+ * @param m
+ * @param n
+ * @param out
+ */
+template<typename value_idx, typename value_t, int tpb, int buffer_size, int chunk_size>
+__global__ void balanced_coo_semiring(value_idx *indptrA, value_idx *indicesA,
+                              value_t *dataA, value_idx *rowsB,
+                              value_idx *indicesB, value_t *dataB, value_idx m,
+                              value_idx n, value_idx dim, value_t *out,
+                              int n_blocks_per_row) {
+
+  value_idx cur_row_a = blockIdx.x / n_blocks_per_row;
+  value_idx cur_chunk_offset = blockIdx.x % n_blocks_per_row;
+  value_idx tid = threadIdx.x;
+
+  if (cur_row_a > m || cur_chunk_offset > n_blocks_per_row) return;
+
+  __shared__ value_t A[buffer_size];
+
+  value_idx start_offset_a = indptrA[cur_row_a];
+  value_idx stop_offset_a = indptrA[cur_row_a +1];
+
+  // Create dense vector A and populate with 0s
+  for(int i = threadIdx.x; i < dim; i += blockDim.x)
+    A[i] = 0;
+
+  // Convert current row vector in A to dense
+  for(int i = threadIdx.x; i < (start_offset_a - stop_offset_a)+1; i += blockDim.x) {
+    value_idx ind_a = indicesA[start_offset_a+i];
+    value_t val_a = dataA[start_offset_a+i];
+    A[ind_a] = val_a;
+  }
+
+  value_idx ind = cur_chunk_offset / threadIdx.x;
+  value_idx cur_row_b = rowsB[ind];
+
+  value_t c = A[ind] * dataB[indicesB[ind]];
+
+  for(int i = 1; i < chunk_size; i+=blockDim.x) {
+    value_idx ind_next = ind + blockDim.x;
+    value_idx next_row_b = rowsB[ind_next];
+    if(next_row_b != cur_row_b) {
+
+      // TODO: Compute segmented scan according to current row
+      if(threadIdx.x == 0) {
+        atomicAdd(out + (cur_row_a * n + cur_row_b), c);
+      }
+
+      c = 0;
+    }
+
+    ind = ind_next;
+    c += A[ind] * dataB[indicesB[ind]];
+    cur_row_b= next_row_b;
+  }
+}
+
 template <typename value_idx, typename value_t, int tpb, int buffer_size,
           int max_chunk_size, int rows_per_block>
-__global__ void block_semiring(value_idx *indptrA, value_idx *indicesA,
+__global__ void classic_csr_semiring(value_idx *indptrA, value_idx *indicesA,
                                value_t *dataA, value_idx *indptrB,
                                value_idx *indicesB, value_t *dataB, value_idx m,
                                value_idx n, value_t *out,
@@ -230,8 +303,8 @@ __global__ void block_semiring(value_idx *indptrA, value_idx *indicesA,
   __shared__ value_idx shared_cols[buffer_size];
   __shared__ value_t shared_vals[buffer_size];
 
-  __shared__ value_idx chunk_cols[buffer_size];
-  __shared__ value_t chunk_vals[buffer_size];
+  value_idx chunk_cols[buffer_size];
+  value_t chunk_vals[buffer_size];
 
   bool verbose = tid <= 3 && out_row < 3;
 
@@ -685,8 +758,8 @@ void distance_block_reduce(value_t *out_dists,
   CUML_LOG_DEBUG("n_blocks: %d", n_blocks);
   CUML_LOG_DEBUG("n_warps_per_row: %d", n_warps_per_row);
 
-  block_semiring<value_idx, value_t, threads_per_block, max_buffer_size, 256,
-                 threads_per_block>
+  classic_csr_semiring<value_idx, value_t, threads_per_block, max_buffer_size,
+                       256, threads_per_block>
     <<<n_blocks, threads_per_block, 0, config_.stream>>>(
       config_.a_indptr, config_.a_indices, config_.a_data, config_.b_indptr,
       config_.b_indices, config_.b_data, config_.a_nrows, config_.b_nrows,
