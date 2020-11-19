@@ -15,7 +15,7 @@
 - PR #3000: Pin cmake policies to cmake 3.17 version, bump project version to 0.17
 - PR #3083: Improving test_make_blobs testing time
 - PR #2906: Moving `linalg` decomp to RAFT namespaces
-- PR #2988: FIL: use tree reduction for GROVE_PER_CLASS_FEW_CLASSES
+- PR #2988: FIL: use tree-per-class reduction for GROVE_PER_CLASS_FEW_CLASSES
 - PR #2996: Removing the max_depth restriction for switching to the batched backend
 - PR #3004: Remove Single Process Multi GPU (SPMG) code
 - PR #3044: Move leftover `linalg` and `stats` to RAFT namespaces

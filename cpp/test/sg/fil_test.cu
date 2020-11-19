@@ -890,14 +890,14 @@ INSTANTIATE_TEST_CASE_P(FilTests, TreeliteThrowSparse8FilTest,
                         testing::ValuesIn(import_throw_sparse8_inputs));
 
 template <typename T>
-__device__ void serial_multi_reduction(T* in, T* out, int set_size,
-                                       int n_sets) {
+__device__ void serial_multi_reduction(const T* in, T* out, int n_groups,
+                                       int n_values) {
   __syncthreads();
-  if (threadIdx.x < set_size) {
+  if (threadIdx.x < n_groups) {
     int reduction_id = threadIdx.x;
     T sum = 0;
-    for (int set = 0; set < n_sets; ++set)
-      sum += in[reduction_id + set * set_size];
+    for (int i = 0; i < n_values; ++i)
+      sum += in[reduction_id + i * n_groups];
     out[reduction_id] = sum;
   }
   __syncthreads();
@@ -907,7 +907,7 @@ __device__ void serial_multi_reduction(T* in, T* out, int set_size,
 const int max_threads = 1024;
 
 struct MultiReductionTestParams {
-  int radix, set_size, n_sets;
+  int radix, n_groups, n_values;
 };
 
 template <int R, typename T>

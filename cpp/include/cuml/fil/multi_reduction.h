@@ -13,7 +13,6 @@ template <int R, typename T>
 __device__ T multi_reduction(T* data, int n_groups, int n_values) {
   T acc = threadIdx.x < n_groups * n_values ? data[threadIdx.x] : T();
   while (n_values > 1) {
-    // ceildiv(x, y) = (x + y - 1) / y, i.e. division with rounding upwards
     // n_targets is the number of values per group after the end of this iteration
     int n_targets = raft::ceildiv(n_values, R);
     if (threadIdx.x < n_targets * n_groups) {
