@@ -732,6 +732,6 @@ class PCA(Base):
     def _more_tags(self):
         return {
             'preferred_input_order': 'F',
-            'X_types_gpu': ['2darray', 'sparse']
+            'X_types_gpu': ['2darray', 'sparse'],
             'X_types': ['2darray', 'sparse']
         }

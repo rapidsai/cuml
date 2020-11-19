@@ -235,5 +235,5 @@ class KNeighborsRegressor(NearestNeighbors, RegressorMixin):
     def _more_tags(self):
         return {
             # fit and predict require conflicting memory layouts
-            'preferred_input_order': None
+            'preferred_input_order': 'F'
         }
