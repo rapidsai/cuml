@@ -175,7 +175,7 @@ template <typename InType, typename OutType>
 void sortColumnsPerRow(const InType *in, OutType *out, int n_rows,
                        int n_columns, bool &bAllocWorkspace, void *workspacePtr,
                        size_t &workspaceSize, cudaStream_t stream,
-                       InType *sortedKeys = nullptr) {
+                       InType *sortedKeys = nullptr, bool ascending = true) {
   // assume non-square row-major matrices
   // current use-case: KNN, trustworthiness scores
   // output : either sorted indices or sorted indices and input values
@@ -231,10 +231,17 @@ void sortColumnsPerRow(const InType *in, OutType *out, int n_rows,
       OutType *tmpValIn = nullptr;
       int *tmpOffsetBuffer = nullptr;
 
-      // first call is to get size of workspace
-      CUDA_CHECK(cub::DeviceSegmentedRadixSort::SortPairs(
-        workspacePtr, workspaceSize, in, sortedKeys, tmpValIn, out,
-        totalElements, numSegments, tmpOffsetBuffer, tmpOffsetBuffer + 1));
+      if (ascending) {
+        // first call is to get size of workspace
+        CUDA_CHECK(cub::DeviceSegmentedRadixSort::SortPairs(
+          workspacePtr, workspaceSize, in, sortedKeys, tmpValIn, out,
+          totalElements, numSegments, tmpOffsetBuffer, tmpOffsetBuffer + 1));
+      } else {
+        // first call is to get size of workspace
+        CUDA_CHECK(cub::DeviceSegmentedRadixSort::SortPairsDescending(
+          workspacePtr, workspaceSize, in, sortedKeys, tmpValIn, out,
+          totalElements, numSegments, tmpOffsetBuffer, tmpOffsetBuffer + 1));
+      }
       bAllocWorkspace = true;
       // more staging space for temp output of keys
       if (!sortedKeys)
@@ -275,10 +282,17 @@ void sortColumnsPerRow(const InType *in, OutType *out, int n_rows,
       CUDA_CHECK(
         layoutSortOffset(dSegmentOffsets, n_columns, numSegments, stream));
 
-      CUDA_CHECK(cub::DeviceSegmentedRadixSort::SortPairs(
-        workspacePtr, workspaceSize, in, sortedKeys, dValuesIn, out,
-        totalElements, numSegments, dSegmentOffsets, dSegmentOffsets + 1, 0,
-        sizeof(InType) * 8, stream));
+      if (ascending) {
+        CUDA_CHECK(cub::DeviceSegmentedRadixSort::SortPairs(
+          workspacePtr, workspaceSize, in, sortedKeys, dValuesIn, out,
+          totalElements, numSegments, dSegmentOffsets, dSegmentOffsets + 1, 0,
+          sizeof(InType) * 8, stream));
+      } else {
+        CUDA_CHECK(cub::DeviceSegmentedRadixSort::SortPairsDescending(
+          workspacePtr, workspaceSize, in, sortedKeys, dValuesIn, out,
+          totalElements, numSegments, dSegmentOffsets, dSegmentOffsets + 1, 0,
+          sizeof(InType) * 8, stream));
+      }
     }
   } else {
     // batched per row device wide sort
@@ -322,9 +336,15 @@ void sortColumnsPerRow(const InType *in, OutType *out, int n_rows,
         OutType *rowOut = reinterpret_cast<OutType *>(
           (size_t)out + (i * sizeof(OutType) * (size_t)n_columns));
 
-        CUDA_CHECK(cub::DeviceRadixSort::SortPairs(workspacePtr, workspaceSize,
-                                                   rowIn, sortedKeys, dValuesIn,
-                                                   rowOut, n_columns));
+        if (ascending) {
+          CUDA_CHECK(cub::DeviceRadixSort::SortPairs(
+            workspacePtr, workspaceSize, rowIn, sortedKeys, dValuesIn, rowOut,
+            n_columns));
+        } else {
+          CUDA_CHECK(cub::DeviceRadixSort::SortPairsDescending(
+            workspacePtr, workspaceSize, rowIn, sortedKeys, dValuesIn, rowOut,
+            n_columns));
+        }
 
         if (userKeyOutputBuffer)
           sortedKeys = reinterpret_cast<InType *>(
