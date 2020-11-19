@@ -31,6 +31,7 @@
 - PR #3040: Improved Array Conversion with CumlArrayDescriptor and Decorators
 - PR #3134: Improving the Deprecation Message Formatting in Documentation
 - PR #3137: Reorganize Pytest Config and Add Quick Run Option
+- PR #3155: Eliminate unnecessary warnings from random projection test
 
 ## Bug Fixes
 - PR #3069: Prevent conversion of DataFrames to Series in preprocessing
