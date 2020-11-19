@@ -35,7 +35,6 @@ from scipy.sparse import isspmatrix_csr
 import sklearn
 import cuml
 from cuml.common import has_scipy
-from cuml.common.array import CumlArray
 
 
 def predict(neigh_ind, _y, n_neighbors):
@@ -150,9 +149,10 @@ def test_knn_separate_index_search(input_type, nrows, n_feats, k, metric):
         D_cuml_arr = D_cuml
         I_cuml_arr = I_cuml
 
-    # Assert the cuml model was properly reverted
-    np.testing.assert_allclose(knn_cu._X_m.to_output("numpy"), X_orig,
-                               atol=1e-3, rtol=1e-3)
+    with cuml.using_output_type("numpy"):
+        # Assert the cuml model was properly reverted
+        np.testing.assert_allclose(knn_cu.X_m, X_orig,
+                                   atol=1e-3, rtol=1e-3)
 
     if metric == 'braycurtis':
         diff = D_cuml_arr - D_sk
@@ -200,26 +200,6 @@ def test_knn_x_none(input_type, nrows, n_feats, k, metric):
     cp.testing.assert_allclose(D_cuml, D_sk, atol=5e-2,
                                rtol=1e-1)
     assert I_cuml.all() == I_sk.all()
-
-
-@pytest.mark.parametrize('input_type', ['dataframe', 'ndarray'])
-def test_knn_return_cumlarray(input_type):
-    n_samples = 50
-    n_feats = 50
-    k = 5
-
-    X, _ = make_blobs(n_samples=n_samples,
-                      n_features=n_feats, random_state=0)
-
-    if input_type == "dataframe":
-        X = cudf.DataFrame(X)
-
-    knn_cu = cuKNN()
-    knn_cu.fit(X)
-    indices, distances = knn_cu._kneighbors(X, k, _output_cumlarray=True)
-
-    assert isinstance(indices, CumlArray)
-    assert isinstance(distances, CumlArray)
 
 
 def test_knn_fit_twice():
@@ -301,8 +281,9 @@ def test_knn_graph(input_type, nrows, n_feats, p, k, metric, mode,
         X = cudf.DataFrame(X)
 
     if as_instance:
-        sparse_cu = cuml.neighbors.kneighbors_graph(X, k, mode, metric=metric,
-                                                    p=p, include_self='auto',
+        sparse_cu = cuml.neighbors.kneighbors_graph(X, k, mode,
+                                                    metric=metric, p=p,
+                                                    include_self='auto',
                                                     output_type=output_type)
     else:
         knn_cu = cuKNN(metric=metric, p=p, output_type=output_type)

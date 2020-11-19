@@ -46,17 +46,18 @@ using namespace ML;
  */
 template <typename value_idx = int64_t, typename value_t = float,
           typename umap_inputs>
-void run(const umap_inputs &inputsA, const umap_inputs &inputsB,
-         knn_graph<value_idx, value_t> &out, int n_neighbors,
-         const UMAPParams *params, std::shared_ptr<deviceAllocator> d_alloc,
-         cudaStream_t stream, int algo = 0) {
+void run(const raft::handle_t &handle, const umap_inputs &inputsA,
+         const umap_inputs &inputsB, knn_graph<value_idx, value_t> &out,
+         int n_neighbors, const UMAPParams *params,
+         std::shared_ptr<deviceAllocator> d_alloc, cudaStream_t stream,
+         int algo = 0) {
   switch (algo) {
     /**
       * Initial algo uses FAISS indices
       */
     case 0:
       Algo::launcher<value_idx, value_t, umap_inputs>(
-        inputsA, inputsB, out, n_neighbors, params, d_alloc, stream);
+        handle, inputsA, inputsB, out, n_neighbors, params, d_alloc, stream);
       break;
   }
 }

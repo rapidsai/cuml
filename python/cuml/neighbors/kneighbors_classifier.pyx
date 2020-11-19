@@ -16,10 +16,14 @@
 
 # distutils: language = c++
 
+import typing
+
 from cuml.neighbors.nearest_neighbors import NearestNeighbors
 
+import cuml.internals
 from cuml.common.array import CumlArray
 from cuml.common import input_to_cuml_array
+from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.base import ClassifierMixin
 from cuml.common.doc_utils import generate_docstring
 
@@ -32,8 +36,6 @@ from cython.operator cimport dereference as deref
 
 from cuml.raft.common.handle cimport handle_t
 from libcpp.vector cimport vector
-
-from cuml.common import with_cupy_rmm
 
 from libcpp cimport bool
 from libcpp.memory cimport shared_ptr
@@ -142,6 +144,9 @@ class KNeighborsClassifier(NearestNeighbors, ClassifierMixin):
     <https://scikit-learn.org/stable/modules/generated/sklearn.neighbors.KNeighborsClassifier.html>`_.
     """
 
+    y = CumlArrayDescriptor()
+    classes_ = CumlArrayDescriptor()
+
     def __init__(self, weights="uniform", *, handle=None, verbose=False,
                  output_type=None, **kwargs):
         super(KNeighborsClassifier, self).__init__(
@@ -150,8 +155,8 @@ class KNeighborsClassifier(NearestNeighbors, ClassifierMixin):
             output_type=output_type,
             **kwargs)
 
-        self._y = None
-        self._classes_ = None
+        self.y = None
+        self.classes_ = None
         self.weights = weights
 
         if weights != "uniform":
@@ -159,21 +164,19 @@ class KNeighborsClassifier(NearestNeighbors, ClassifierMixin):
                              "supported currently.")
 
     @generate_docstring(convert_dtype_cast='np.float32')
-    @with_cupy_rmm
-    def fit(self, X, y, convert_dtype=True):
+    @cuml.internals.api_base_return_any(set_output_dtype=True)
+    def fit(self, X, y, convert_dtype=True) -> "KNeighborsClassifier":
         """
         Fit a GPU index for k-nearest neighbors classifier model.
 
         """
-        self._set_base_attributes(output_type=X, target_dtype=y)
-
         super(KNeighborsClassifier, self).fit(X, convert_dtype)
-        self._y, _, _, _ = \
+        self.y, _, _, _ = \
             input_to_cuml_array(y, order='F', check_dtype=np.int32,
                                 convert_to_dtype=(np.int32
                                                   if convert_dtype
                                                   else None))
-        self._classes_ = CumlArray(cp.unique(self._y))
+        self.classes_ = cp.unique(self.y)
         return self
 
     @generate_docstring(convert_dtype_cast='np.float32',
@@ -181,16 +184,13 @@ class KNeighborsClassifier(NearestNeighbors, ClassifierMixin):
                                        'type': 'dense',
                                        'description': 'Labels predicted',
                                        'shape': '(n_samples, 1)'})
-    def predict(self, X, convert_dtype=True):
+    @cuml.internals.api_base_return_array(get_output_dtype=True)
+    def predict(self, X, convert_dtype=True) -> CumlArray:
         """
         Use the trained k-nearest neighbors classifier to
         predict the labels for X
 
         """
-
-        out_type = self._get_output_type(X)
-        out_dtype = self._get_target_dtype()
-
         knn_indices = self.kneighbors(X, return_distance=False,
                                       convert_dtype=convert_dtype)
 
@@ -201,7 +201,7 @@ class KNeighborsClassifier(NearestNeighbors, ClassifierMixin):
                                                   else None))
         cdef uintptr_t inds_ctype = inds.ptr
 
-        out_cols = self._y.shape[1] if len(self._y.shape) == 2 else 1
+        out_cols = self.y.shape[1] if len(self.y.shape) == 2 else 1
 
         out_shape = (n_rows, out_cols) if out_cols > 1 else n_rows
 
@@ -213,7 +213,7 @@ class KNeighborsClassifier(NearestNeighbors, ClassifierMixin):
         # classification
         cdef uintptr_t y_ptr
         for i in range(out_cols):
-            col = self._y[:, i] if out_cols > 1 else self._y
+            col = self.y[:, i] if out_cols > 1 else self.y
             y_ptr = col.ptr
             y_vec.push_back(<int*>y_ptr)
 
@@ -233,23 +233,23 @@ class KNeighborsClassifier(NearestNeighbors, ClassifierMixin):
 
         self.handle.sync()
 
-        return classes.to_output(output_type=out_type, output_dtype=out_dtype)
+        return classes
 
     @generate_docstring(convert_dtype_cast='np.float32',
                         return_values={'name': 'X_new',
                                        'type': 'dense',
                                        'description': 'Labels probabilities',
                                        'shape': '(n_samples, 1)'})
-    @with_cupy_rmm
-    def predict_proba(self, X, convert_dtype=True):
+    @cuml.internals.api_base_return_generic()
+    def predict_proba(
+            self,
+            X,
+            convert_dtype=True) -> typing.Union[CumlArray, typing.Tuple]:
         """
         Use the trained k-nearest neighbors classifier to
         predict the label probabilities for X
 
         """
-
-        out_type = self._get_output_type(X)
-
         knn_indices = self.kneighbors(X, return_distance=False,
                                       convert_dtype=convert_dtype)
 
@@ -261,7 +261,7 @@ class KNeighborsClassifier(NearestNeighbors, ClassifierMixin):
                                                   else None))
         cdef uintptr_t inds_ctype = inds.ptr
 
-        out_cols = self._y.shape[1] if len(self._y.shape) == 2 else 1
+        out_cols = self.y.shape[1] if len(self.y.shape) == 2 else 1
 
         cdef vector[int*] *y_vec = new vector[int*]()
         cdef vector[float*] *out_vec = new vector[float*]()
@@ -270,7 +270,7 @@ class KNeighborsClassifier(NearestNeighbors, ClassifierMixin):
         cdef uintptr_t classes_ptr
         cdef uintptr_t y_ptr
         for out_col in range(out_cols):
-            col = self._y[:, out_col] if out_cols > 1 else self._y
+            col = self.y[:, out_col] if out_cols > 1 else self.y
             classes = CumlArray.zeros((n_rows,
                                        len(cp.unique(cp.asarray(col)))),
                                       dtype=np.float32,
@@ -298,7 +298,7 @@ class KNeighborsClassifier(NearestNeighbors, ClassifierMixin):
 
         final_classes = []
         for out_class in out_classes:
-            final_classes.append(out_class.to_output(out_type))
+            final_classes.append(out_class)
 
         return final_classes[0] \
             if len(final_classes) == 1 else tuple(final_classes)

@@ -131,7 +131,7 @@ inline void select_k_impl(value_t *inK, value_idx *inV, size_t n_rows,
       <<<grid, block, 0, stream>>>(inK, inV, n_rows, n_cols, outK, outV, kInit,
                                    vInit, k);
   }
-  CUDA_CHECK(cudaPeekAtLastError());
+  CUDA_CHECK(cudaGetLastError());
 }
 
 /**

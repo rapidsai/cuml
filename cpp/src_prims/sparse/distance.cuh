@@ -17,24 +17,25 @@
 #pragma once
 
 #include <raft/cudart_utils.h>
-#include <raft/cuda_utils.cuh>
-
 #include <sparse/distance_api.h>
 #include <sparse/semiring.cuh>
-#include <sparse/utils.h>
-#include <common/device_buffer.hpp>
-#include <cuml/common/cuml_allocator.hpp>
-#include <sparse/csr.cuh>
-
 #include <limits.h>
 
-#include <cuml/distance/distance_type.h>
+#include <raft/linalg/distance_type.h>
+#include <raft/sparse/cusparse_wrappers.h>
+#include <raft/cuda_utils.cuh>
+
+#include <common/device_buffer.hpp>
+
+#include <sparse/utils.h>
+#include <sparse/csr.cuh>
+
+#include <cuml/common/cuml_allocator.hpp>
 #include <cuml/neighbors/knn.hpp>
 
 #include <nvfunctional>
 
 #include <cusparse_v2.h>
-#include <raft/sparse/cusparse_wrappers.h>
 
 namespace MLCommon {
 namespace Sparse {
@@ -63,6 +64,8 @@ class ip_distances_t : public distances_t<value_t> {
     init_mat_descriptor(matD);
 
     CUSPARSE_CHECK(cusparseCreateCsrgemm2Info(&info));
+
+    CUSPARSE_CHECK(cusparseGetPointerMode(config.handle, &orig_ptr_mode));
 
     CUSPARSE_CHECK(
       cusparseSetPointerMode(config.handle, CUSPARSE_POINTER_MODE_HOST));
@@ -115,6 +118,9 @@ class ip_distances_t : public distances_t<value_t> {
     CUSPARSE_CHECK_NO_THROW(cusparseDestroyMatDescr(matB));
     CUSPARSE_CHECK_NO_THROW(cusparseDestroyMatDescr(matC));
     CUSPARSE_CHECK_NO_THROW(cusparseDestroyMatDescr(matD));
+
+    CUSPARSE_CHECK_NO_THROW(
+      cusparseSetPointerMode(config_.handle, orig_ptr_mode));
   }
 
  private:
@@ -185,6 +191,7 @@ class ip_distances_t : public distances_t<value_t> {
   cusparseMatDescr_t matB;
   cusparseMatDescr_t matC;
   cusparseMatDescr_t matD;
+  cusparsePointerMode_t orig_ptr_mode;
   device_buffer<char> workspace;
   device_buffer<value_idx> csc_indptr;
   device_buffer<value_idx> csc_indices;
@@ -320,16 +327,15 @@ template class distances_config_t<int, float>;
 template <typename value_idx = int, typename value_t = float>
 void pairwiseDistance(value_t *out,
                       distances_config_t<value_idx, value_t> input_config,
-                      ML::Distance::DistanceType metric) {
-
+                      raft::distance::DistanceType metric) {
   CUML_LOG_DEBUG("Running sparse pairwise distances with metric=%d", metric);
 
   switch (metric) {
-    case ML::Distance::DistanceType::EucExpandedL2:
+    case raft::distance::DistanceType::EucExpandedL2:
       // EucExpandedL2
       l2_distances_t<value_idx, value_t>(input_config).compute(out);
       break;
-    case ML::Distance::DistanceType::InnerProduct:
+    case raft::distance::DistanceType::InnerProduct:
       // InnerProduct
       ip_distances_t<value_idx, value_t>(input_config).compute(out);
       break;

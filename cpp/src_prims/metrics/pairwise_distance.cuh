@@ -45,7 +45,7 @@ namespace Metrics {
  */
 template <typename DataT, typename IndexT>
 void pairwise_distance(const DataT *x, const DataT *y, DataT *dist, IndexT m,
-                       IndexT n, IndexT k, ML::Distance::DistanceType metric,
+                       IndexT n, IndexT k, raft::distance::DistanceType metric,
                        std::shared_ptr<MLCommon::deviceAllocator> allocator,
                        cudaStream_t stream, bool isRowMajor = true) {
   //Allocate workspace

@@ -25,6 +25,8 @@
 #include <sparse/distance.cuh>
 #include <sparse/selection.cuh>
 
+#include <raft/linalg/distance_type.h>
+
 #include <raft/cudart_utils.h>
 #include <common/device_buffer.hpp>
 #include <cuml/common/cuml_allocator.hpp>
@@ -381,17 +383,17 @@ class sparse_knn_t {
              out_indices, ascending, n_neighbors, stream);
   }
 
-  ML::Distance::DistanceType get_pw_metric() {
-    ML::Distance::DistanceType pw_metric;
+  raft::distance::DistanceType get_pw_metric() {
+    raft::distance::DistanceType pw_metric;
     switch (metric) {
       case ML::MetricType::METRIC_INNER_PRODUCT:
-        pw_metric = ML::Distance::DistanceType::InnerProduct;
+        pw_metric = raft::distance::DistanceType::InnerProduct;
         break;
       case ML::MetricType::METRIC_L2:
-        pw_metric = ML::Distance::DistanceType::EucExpandedL2;
+        pw_metric = raft::distance::DistanceType::EucExpandedL2;
         break;
       case ML::MetricType::METRIC_L1:
-        pw_metric = ML::Distance::DistanceType::EucUnexpandedL1;
+        pw_metric = raft::distance::DistanceType::EucUnexpandedL1;
         break;
       default:
         THROW("MetricType not supported: %d", metric);

@@ -42,24 +42,24 @@ def test_monotonic_validate_invert_labels(arr_type, dtype, copy):
 
     cp.cuda.Stream.null.synchronize()
 
-    assert array_equal(monotonic.get(), np.array([0, 2, 1, 4, 3, 4]))
+    assert array_equal(monotonic, np.array([0, 2, 1, 4, 3, 4]))
 
     # We only care about in-place updating if data is on device
     if arr_type == "cp":
         if copy:
-            assert array_equal(arr_orig.get(), arr.get())
+            assert array_equal(arr_orig, arr)
         else:
-            assert array_equal(arr.get(), monotonic.get())
+            assert array_equal(arr, monotonic)
 
     wrong_classes = cp.asarray([0, 1, 2], dtype=dtype)
-    val_labels = check_labels(monotonic.get(), classes=wrong_classes)
+    val_labels = check_labels(monotonic, classes=wrong_classes)
 
     cp.cuda.Stream.null.synchronize()
 
     assert not val_labels
 
     correct_classes = cp.asarray([0, 1, 2, 3, 4], dtype=dtype)
-    val_labels = check_labels(monotonic.get(), classes=correct_classes)
+    val_labels = check_labels(monotonic, classes=correct_classes)
 
     cp.cuda.Stream.null.synchronize()
 
@@ -76,8 +76,8 @@ def test_monotonic_validate_invert_labels(arr_type, dtype, copy):
 
     if arr_type == "cp":
         if copy:
-            assert array_equal(monotonic_copy.get(), monotonic.get())
+            assert array_equal(monotonic_copy, monotonic)
         else:
-            assert array_equal(monotonic.get(), arr_orig.get())
+            assert array_equal(monotonic, arr_orig)
 
-    assert array_equal(inverted.get(), original)
+    assert array_equal(inverted, original)

@@ -16,6 +16,7 @@
 import numpy as np
 import cupy as cp
 from cuml.common import input_to_cuml_array
+from cuml.common.input_utils import input_to_cupy_array
 from cupy.sparse import csr_matrix as gpu_csr_matrix
 from cupy.sparse import csc_matrix as gpu_csc_matrix
 from cupy.sparse import csc_matrix as gpu_coo_matrix
@@ -274,10 +275,9 @@ def check_array(array, accept_sparse=False, accept_large_sparse=True,
             new_array = new_array.astype(correct_dtype)
         return new_array
     else:
-        X, n_rows, n_cols, dtype = input_to_cuml_array(array,
+        X, n_rows, n_cols, dtype = input_to_cupy_array(array,
                                                        order=order,
                                                        deepcopy=copy)
-        X = X.to_output('cupy')
         if correct_dtype != dtype:
             X = X.astype(correct_dtype)
         check_finite(X, force_all_finite)
@@ -287,8 +287,8 @@ def check_array(array, accept_sparse=False, accept_large_sparse=True,
 _input_type_to_str = {
     numpyArray: 'numpy',
     cupyArray: 'cupy',
-    cuSeries: 'cudf',
-    cuDataFrame: 'cudf',
+    cuSeries: 'series',
+    cuDataFrame: 'dataframe',
     pdSeries: 'numpy',
     pdDataFrame: 'numpy'
 }
@@ -356,6 +356,9 @@ def to_output_type(array, output_type, order='F'):
             array = array.todense()
 
     cuml_array = input_to_cuml_array(array, order=order)[0]
+    if output_type == 'series' and len(array.shape) > 1:
+        output_type = 'cudf'
+
     return cuml_array.to_output(output_type)
 
 
