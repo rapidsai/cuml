@@ -401,6 +401,7 @@ if(BUILD_CUML_CPP_LIBRARY)
     src/holtwinters/holtwinters.cu
     src/kmeans/kmeans.cu
     src/knn/knn.cu
+    src/knn/knn_sparse.cu
     src/metrics/accuracy_score.cu
     src/metrics/adjusted_rand_index.cu
     src/metrics/completeness_score.cu

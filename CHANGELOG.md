@@ -1,6 +1,8 @@
 # cuML 0.17.0 (Date TBD)
 
 ## New Features
+- PR #2659: Add initial max inner product sparse knn
+- PR #2836: Refactor UMAP to accept sparse inputs
 
 ## Improvements
 - PR #3077: Improve runtime for test_kmeans
