@@ -30,7 +30,7 @@ import joblib
 
 from sklearn import datasets
 from sklearn.cluster import KMeans
-from sklearn.datasets.samples_generator import make_blobs
+from sklearn.datasets import make_blobs
 from sklearn.manifold.t_sne import trustworthiness
 from sklearn.metrics import adjusted_rand_score
 

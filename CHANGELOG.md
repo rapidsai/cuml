@@ -27,11 +27,13 @@
 - PR #3112: Speed test_array
 - PR #3111: Adding Cython to Code Coverage
 - PR #3129:  Update notebooks README
+- PR #3002: Update flake8 Config To With Per File Settings
 - PR #3135: Add QuasiNewton tests
 - PR #3040: Improved Array Conversion with CumlArrayDescriptor and Decorators
 - PR #3134: Improving the Deprecation Message Formatting in Documentation
 - PR #3137: Reorganize Pytest Config and Add Quick Run Option
 - PR #3144: Adding Ability to Set Arbitrary Cmake Flags in ./build.sh
+- PR #3155: Eliminate unnecessary warnings from random projection test
 
 ## Bug Fixes
 - PR #3069: Prevent conversion of DataFrames to Series in preprocessing
@@ -57,6 +59,7 @@
 - PR #3119: Fix memset args for benchmark 
 - PR #3130: Return Python string from `dump_as_json()` of RF
 - PR #3136: Fix stochastic gradient descent example
+- PR #3156: Force local conda artifact install
 
 # cuML 0.16.0 (Date TBD)
 
