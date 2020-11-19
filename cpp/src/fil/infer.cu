@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#include <cuml/fil/multi_reduction.h>
 #include <algorithm>
+#include <cuml/fil/multi_sum.cuh>
 #include "common.cuh"
 
 namespace ML {
@@ -251,7 +251,7 @@ struct tree_aggregator_t<NITEMS, GROVE_PER_CLASS_FEW_CLASSES> : finalize_block {
     auto per_thread = (vec<NITEMS, float>*)tmp_storage;
     per_thread[threadIdx.x] = acc;
     __syncthreads();
-    acc = multi_reduction<6>(per_thread, num_classes, blockDim.x / num_classes);
+    acc = multi_sum<6>(per_thread, num_classes, blockDim.x / num_classes);
     write_best_class_in_block(to_vec(threadIdx.x, acc), num_classes, out,
                               num_rows);
   }

@@ -50,6 +50,7 @@ if(BUILD_CUML_TESTS)
     sg/dbscan_test.cu
     sg/decisiontree_batchedlevel_algo.cu
     sg/fil_test.cu
+    sg/multi_sum_test.cu
     sg/handle_test.cu
     sg/holtwinters_test.cu
     sg/kmeans_test.cu
