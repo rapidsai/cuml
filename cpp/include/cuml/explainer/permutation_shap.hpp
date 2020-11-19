@@ -54,22 +54,22 @@ namespace Explainer {
  *
  *
  * @param[in]  handle          cuML handle
- * @param[out] out             generated data [on device] [dim = (2 * n_cols * n_rows + n_rows) * n_cols]
- * @param[in] background       background data [on device] [dim = n_cols * n_rows]
- * @param[in] n_rows           number of rows in background dataset
- * @param[in] n_cols           number of columns
- * @param[in] row              row to scatter in a permutated fashion [dim = n_cols]
- * @param[in] idx              permutation indexes [dim = n_cols]
+ * @param[out] out             generated data [on device] [dim = (2 * ncols * nrows_bg + nrows_bg) * ncols]
+ * @param[in] background       background data [on device] [dim = ncols * nrows_bg]
+ * @param[in] nrows_bg           number of rows in background dataset
+ * @param[in] ncols           number of columns
+ * @param[in] row              row to scatter in a permutated fashion [dim = ncols]
+ * @param[in] idx              permutation indexes [dim = ncols]
  * @param[in]
  * @{
  */
-void permutation_dataset(const raft::handle_t& handle, float* out,
-                         float* background, int n_rows, int n_cols, float* row,
-                         int* idx, bool rowMajor);
+void permutation_shap_dataset(const raft::handle_t& handle, float* out,
+                              const float* background, int nrows_bg, int ncols,
+                              const float* row, int* idx, bool row_major);
 
-void permutation_dataset(const raft::handle_t& handle, double* out,
-                         double* background, int n_rows, int n_cols,
-                         double* row, int* idx, bool rowMajor);
+void permutation_shap_dataset(const raft::handle_t& handle, double* out,
+                              const double* background, int nrows_bg, int ncols,
+                              const double* row, int* idx, bool row_major);
 
 /**
  * Generates a dataset by tiling the `background` matrix into `out`, while
@@ -95,23 +95,23 @@ void permutation_dataset(const raft::handle_t& handle, double* out,
  *
  *
  * @param[in]  handle          cuML handle
- * @param[out] out             generated data [on device] [dim = (2 * n_cols * n_rows + n_rows) * n_cols]
- * @param[in] background       background data [on device] [dim = n_cols * n_rows]
- * @param[in] n_rows           number of rows in background dataset
- * @param[in] n_cols           number of columns
- * @param[in] row              row to scatter in a permutated fashion [dim = n_cols]
- * @param[in] idx              permutation indexes [dim = n_cols]
+ * @param[out] out             generated data [on device] [dim = (2 * ncols * nrows_bg + nrows_bg) * ncols]
+ * @param[in] background       background data [on device] [dim = ncols * nrows_bg]
+ * @param[in] nrows_bg           number of rows in background dataset
+ * @param[in] ncols           number of columns
+ * @param[in] row              row to scatter in a permutated fashion [dim = ncols]
+ * @param[in] idx              permutation indexes [dim = ncols]
  * @param[in]
  * @{
  */
 
-void main_effect_dataset(const raft::handle_t& handle, float* out,
-                         float* background, int n_rows, int n_cols, float* row,
-                         int* idx, bool rowMajor);
+void shap_main_effect_dataset(const raft::handle_t& handle, float* out,
+                              const float* background, int nrows_bg, int ncols,
+                              const float* row, int* idx, bool row_major);
 
-void main_effect_dataset(const raft::handle_t& handle, double* out,
-                         double* background, int n_rows, int n_cols,
-                         double* row, int* idx, bool rowMajor);
+void shap_main_effect_dataset(const raft::handle_t& handle, double* out,
+                              const double* background, int nrows_bg, int ncols,
+                              const double* row, int* idx, bool row_major);
 
 }  // namespace Explainer
 }  // namespace ML
