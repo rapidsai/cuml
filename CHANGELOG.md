@@ -57,6 +57,7 @@
 - PR #3119: Fix memset args for benchmark 
 - PR #3130: Return Python string from `dump_as_json()` of RF
 - PR #3136: Fix stochastic gradient descent example
+- PR #3156: Force local conda artifact install
 
 # cuML 0.16.0 (Date TBD)
 
