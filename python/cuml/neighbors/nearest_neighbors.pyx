@@ -435,8 +435,7 @@ class NearestNeighbors(Base):
             D_ndarr, I_ndarr = self._kneighbors_dense(X, n_neighbors,
                                                       convert_dtype)
         elif isinstance(self.X_m, SparseCumlArray):
-            D_ndarr, I_ndarr = self._kneighbors_sparse(X, n_neighbors,
-                                                       convert_dtype)
+            D_ndarr, I_ndarr = self._kneighbors_sparse(X, n_neighbors)
 
         self.handle.sync()
 
