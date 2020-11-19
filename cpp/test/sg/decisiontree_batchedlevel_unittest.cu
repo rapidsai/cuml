@@ -32,8 +32,9 @@ struct NodeSplitKernelTestParams {
   int expected_n_new_nodes;
 };
 
-class NodeSplitKernelUnitTest
-  : public ::testing::TestWithParam<NodeSplitKernelTestParams> {
+struct NoOpParams {};
+
+class BatchedLevelAlgoUnitTestFixture {
  protected:
   using DataT = float;
   using LabelT = float;
@@ -46,7 +47,7 @@ class NodeSplitKernelUnitTest
   constexpr static IdxT n_col = 2;
   constexpr static IdxT max_batch = 8;
 
-  void SetUp() override {
+  void SetUp() {
     params.max_depth = 2;
     params.max_leaves = 8;
     params.max_features = 1.0f;
@@ -120,7 +121,7 @@ class NodeSplitKernelUnitTest
     input.quantiles = quantiles;
   }
 
-  void TearDown() override {
+  void TearDown() {
     auto d_allocator = raft_handle->get_device_allocator();
     d_allocator->deallocate(data, sizeof(DataT) * n_row * n_col, 0);
     d_allocator->deallocate(labels, sizeof(LabelT) * n_row, 0);
@@ -155,7 +156,24 @@ class NodeSplitKernelUnitTest
   IdxT* col_ids;
 };
 
-TEST_F(NodeSplitKernelUnitTest, Quantiles) {
+class TestQuantiles : public ::testing::TestWithParam<NoOpParams>,
+                      protected BatchedLevelAlgoUnitTestFixture {
+ protected:
+  void SetUp() override { BatchedLevelAlgoUnitTestFixture::SetUp(); }
+
+  void TearDown() override { BatchedLevelAlgoUnitTestFixture::TearDown(); }
+};
+
+class TestNodeSplitKernel
+  : public ::testing::TestWithParam<NodeSplitKernelTestParams>,
+    protected BatchedLevelAlgoUnitTestFixture {
+ protected:
+  void SetUp() override { BatchedLevelAlgoUnitTestFixture::SetUp(); }
+
+  void TearDown() override { BatchedLevelAlgoUnitTestFixture::TearDown(); }
+};
+
+TEST_P(TestQuantiles, Quantiles) {
   /* Ensure that quantiles are computed correctly */
   std::vector<DataT> expected_quantiles[]{{-2.0f, -1.0f, 0.0f, 2.0f},
                                           {0.0f, 1.0f, 3.0f}};
@@ -169,7 +187,10 @@ TEST_F(NodeSplitKernelUnitTest, Quantiles) {
   }
 }
 
-TEST_P(NodeSplitKernelUnitTest, MinSamplesSplitLeaf) {
+INSTANTIATE_TEST_SUITE_P(BatchedLevelAlgoUnitTest, TestQuantiles,
+                         ::testing::Values(NoOpParams{}));
+
+TEST_P(TestNodeSplitKernel, MinSamplesSplitLeaf) {
   auto test_params = GetParam();
 
   Builder<Traits> builder;
@@ -220,7 +241,7 @@ const std::vector<NodeSplitKernelTestParams> min_samples_split_leaf_test_params{
   {0, 1, 7, 4}, {0, 2, 3, 0}, {0, 5, 3, 0}, {4, 2, 3, 0}, {5, 5, 3, 0}};
 
 INSTANTIATE_TEST_SUITE_P(
-  NodeSplitKernelUnitTest, NodeSplitKernelUnitTest,
+  BatchedLevelAlgoUnitTest, TestNodeSplitKernel,
   ::testing::ValuesIn(min_samples_split_leaf_test_params));
 
 }  // namespace DecisionTree
