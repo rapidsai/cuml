@@ -20,6 +20,7 @@ import numpy as np
 
 from cudf import DataFrame as cu_df
 from cuml.common.array import CumlArray
+from cuml.common.import_utils import has_shap
 from cuml.common.input_utils import input_to_cuml_array
 from cuml.common.logger import warn
 from cuml.common.logger import info
@@ -33,13 +34,6 @@ from pandas import DataFrame as pd_df
 from cuml.raft.common.handle cimport handle_t
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t
-
-
-try:
-    from shap.utils import partition_tree_shuffle
-    shap_not_found = False
-except ImportError:
-    shap_not_found = True
 
 
 cdef extern from "cuml/explainer/permutation_shap.hpp" namespace "ML":
@@ -272,7 +266,20 @@ class PermutationSHAP():
 
         for _ in range(npermutations):
 
-            cp.random.shuffle(idx)
+            if masker_type != 'independent':
+                if has_shap(version="0.36"):
+                    warn("Using CPU partition shuffle. GPU accelerated "
+                         "support will be supported in a future version.")
+                    from shap.utils import partition_tree_shuffle
+                    inds = cp.asarray(idx)
+                    inds_mask = np.zeros(len(fm), dtype=np.bool)
+                    inds_mask[inds] = True
+                    partition_tree_shuffle(inds,
+                                           inds_mask,
+                                           self.clustering)
+                    idx = cp.asarray(inds)
+            else:
+                cp.random.shuffle(idx)
 
             masked_ptr = masked_inputs.__cuda_array_interface__['data'][0]
             bg_ptr = self.masker.ptr

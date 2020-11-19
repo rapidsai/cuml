@@ -118,6 +118,16 @@ def has_sklearn():
         return False
 
 
+def has_shap(version=None):
+    try:
+        import shap  # noqa
+        if version is None:
+            return True
+        else:
+            return LooseVersion(str(shap.__version__)) >= LooseVersion(version)
+    except ImportError:
+        return False
+
 def dummy_function_always_false(*args, **kwargs):
     return False
 
