@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#include <common/cudart_utils.h>
 #include <cuml/manifold/tsne.h>
+#include <raft/cudart_utils.h>
 #include <common/device_buffer.hpp>
 #include <cuml/common/logger.hpp>
 #include "distances.cuh"
@@ -36,7 +36,8 @@ void TSNE_fit(const raft::handle_t &handle, const float *X, float *Y,
               const float post_learning_rate, const int max_iter,
               const float min_grad_norm, const float pre_momentum,
               const float post_momentum, const long long random_state,
-              int verbosity, const bool intialize_embeddings, bool barnes_hut) {
+              int verbosity, const bool initialize_embeddings,
+              bool barnes_hut) {
   ASSERT(n > 0 && p > 0 && dim > 0 && n_neighbors > 0 && X != NULL && Y != NULL,
          "Wrong input args");
   ML::Logger::get().setLevel(verbosity);
@@ -92,11 +93,10 @@ void TSNE_fit(const raft::handle_t &handle, const float *X, float *Y,
   // Optimal perplexity
   CUML_LOG_DEBUG("Searching for optimal perplexity via bisection search.");
   MLCommon::device_buffer<float> P(d_alloc, stream, n * n_neighbors);
-  const float P_sum = TSNE::perplexity_search(
-    distances.data(), P.data(), perplexity, perplexity_max_iter, perplexity_tol,
-    n, n_neighbors, handle);
+  TSNE::perplexity_search(distances.data(), P.data(), perplexity,
+                          perplexity_max_iter, perplexity_tol, n, n_neighbors,
+                          handle);
   distances.release(stream);
-  CUML_LOG_DEBUG("Perplexity sum = %f", P_sum);
   //---------------------------------------------------
   END_TIMER(PerplexityTime);
 
@@ -104,7 +104,7 @@ void TSNE_fit(const raft::handle_t &handle, const float *X, float *Y,
   //---------------------------------------------------
   // Convert data to COO layout
   MLCommon::Sparse::COO<float> COO_Matrix(d_alloc, stream);
-  TSNE::symmetrize_perplexity(P.data(), indices.data(), n, n_neighbors, P_sum,
+  TSNE::symmetrize_perplexity(P.data(), indices.data(), n, n_neighbors,
                               early_exaggeration, &COO_Matrix, stream, handle);
   P.release(stream);
   indices.release(stream);
@@ -119,12 +119,13 @@ void TSNE_fit(const raft::handle_t &handle, const float *X, float *Y,
     TSNE::Barnes_Hut(VAL, COL, ROW, NNZ, handle, Y, n, theta, epssq,
                      early_exaggeration, exaggeration_iter, min_gain,
                      pre_learning_rate, post_learning_rate, max_iter,
-                     min_grad_norm, pre_momentum, post_momentum, random_state);
+                     min_grad_norm, pre_momentum, post_momentum, random_state,
+                     initialize_embeddings);
   } else {
     TSNE::Exact_TSNE(VAL, COL, ROW, NNZ, handle, Y, n, dim, early_exaggeration,
                      exaggeration_iter, min_gain, pre_learning_rate,
                      post_learning_rate, max_iter, min_grad_norm, pre_momentum,
-                     post_momentum, random_state, intialize_embeddings);
+                     post_momentum, random_state, initialize_embeddings);
   }
 }
 

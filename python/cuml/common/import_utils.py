@@ -15,6 +15,7 @@
 #
 
 
+import inspect
 import numba
 
 from distutils.version import LooseVersion
@@ -68,6 +69,13 @@ def has_xgboost():
         import xgboost  # NOQA
         return True
     except ImportError:
+        return False
+    except Exception as ex:
+        import warnings
+        warnings.warn(
+            ("The XGBoost library was found but raised an exception during "
+             "import. Importing xgboost will be skipped. "
+             "Error message:\n{}").format(str(ex)))
         return False
 
 
@@ -127,6 +135,11 @@ def check_cupy8(conf=None):
 
     """
     def check_cupy8_dec(func):
+
+        assert not inspect.isclass(func), \
+            ("Do not use this decorator on classes. Instead decorate "
+             "__init__  and any static or class methods.")
+
         @wraps(func)
         def inner(*args, **kwargs):
             import cupy as cp

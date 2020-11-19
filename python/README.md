@@ -4,9 +4,11 @@ This folder contains the Python and Cython code of the algorithms and ML primiti
 
 Contents:
 
-- [Build Configuration](#build-configuration)
-- [RAFT Integration in cuml.raft](#raft-integration-in-cumlraft)
-- [Running Unit Tests](#build-requirements)
+- [cuML Python Package](#cuml-python-package)
+    - [Build Configuration](#build-configuration)
+    - [RAFT Integration in cuml.raft](#raft-integration-in-cumlraft)
+    - [Build Requirements](#build-requirements)
+    - [Python Tests](#python-tests)
 
 ### Build Configuration
 
@@ -60,7 +62,7 @@ To build cuML's Python package, the following dependencies are required:
 - cudf version matching the cuML version
 - libcuml version matching the cuML version
 - libcuml={{ version }}
-- cupy>=7,<8.0.0a0
+- cupy>7.1.0,<9.0.0a0
 - joblib >=0.11
 
 Packages required for multigpu algorithms*:

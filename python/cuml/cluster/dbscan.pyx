@@ -30,6 +30,8 @@ from cuml.common.base import Base
 from cuml.common.doc_utils import generate_docstring
 from cuml.raft.common.handle cimport handle_t
 from cuml.common import input_to_cuml_array
+from cuml.common import using_output_type
+from cuml.common.array_descriptor import CumlArrayDescriptor
 
 from collections import defaultdict
 
@@ -125,12 +127,18 @@ class DBSCAN(Base):
         The maximum distance between 2 points such they reside in the same
         neighborhood.
     handle : cuml.Handle
-        If it is None, a new one is created just for this class
+        Specifies the cuml.handle that holds internal CUDA state for
+        computations in this model. Most importantly, this specifies the CUDA
+        stream that will be used for the model's computations, so users can
+        run different models concurrently in different streams by creating
+        handles in several streams.
+        If it is None, a new one is created.
     min_samples : int (default = 5)
         The number of samples in a neighborhood such that this group can be
         considered as an important core point (including the point itself).
-    verbose : int or boolean (default = False)
-        Logging level
+    verbose : int or boolean, default=False
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        See :ref:`verbosity-levels` for more info.
     max_mbytes_per_batch : (optional) int64
         Calculate batch size using no more than this number of megabytes for
         the pairwise distance computation. This enables the trade-off between
@@ -141,13 +149,11 @@ class DBSCAN(Base):
         Note: this option does not set the maximum total memory used in the
         DBSCAN computation and so this value will not be able to be set to
         the total memory available on the device.
-    output_type : (optional) {'input', 'cudf', 'cupy', 'numpy'} default = None
-        Use it to control output type of the results and attributes.
-        If None it'll inherit the output type set at the
-        module level, cuml.output_type. If that has not been changed, by
-        default the estimator will mirror the type of the data used for each
-        fit or predict call.
-        If set, the estimator will override the global option for its behavior.
+    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
+        Variable to control output type of the results and attributes of
+        the estimator. If None, it'll inherit the output type set at the
+        module level, `cuml.global_output_type`.
+        See :ref:`output-data-type-configuration` for more info.
     calc_core_sample_indices : (optional) boolean (default = True)
         Indicates whether the indices of the core samples should be calculated.
         The the attribute `core_sample_indices_` will not be used, setting this
@@ -182,6 +188,9 @@ class DBSCAN(Base):
     <http://scikit-learn.org/stable/modules/generated/sklearn.cluster.DBSCAN.html>`_.
     """
 
+    labels_ = CumlArrayDescriptor()
+    core_sample_indices_ = CumlArrayDescriptor()
+
     def __init__(self, eps=0.5, handle=None, min_samples=5,
                  verbose=False, max_mbytes_per_batch=None,
                  output_type=None, calc_core_sample_indices=True):
@@ -192,18 +201,17 @@ class DBSCAN(Base):
         self.calc_core_sample_indices = calc_core_sample_indices
 
         # internal array attributes
-        self._labels_ = None  # accessed via estimator.labels_
+        self.labels_ = None
 
-        # accessed via estimator._core_sample_indices_ when
-        # self.calc_core_sample_indices == True
-        self._core_sample_indices_ = None
+        # One used when `self.calc_core_sample_indices == True`
+        self.core_sample_indices_ = None
 
         # C++ API expects this to be numeric.
         if self.max_mbytes_per_batch is None:
             self.max_mbytes_per_batch = 0
 
     @generate_docstring(skip_parameters_heading=True)
-    def fit(self, X, out_dtype="int32"):
+    def fit(self, X, out_dtype="int32") -> "DBSCAN":
         """
         Perform DBSCAN clustering from features.
 
@@ -214,11 +222,6 @@ class DBSCAN(Base):
             "int64", np.int64}.
 
         """
-        self._set_base_attributes(output_type=X, n_features=X)
-
-        if self._labels_ is not None:
-            del self._labels_
-
         if out_dtype not in ["int32", np.int32, "int64", np.int64]:
             raise ValueError("Invalid value for out_dtype. "
                              "Valid values are {'int32', 'int64', "
@@ -232,16 +235,16 @@ class DBSCAN(Base):
 
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
-        self._labels_ = CumlArray.empty(n_rows, dtype=out_dtype)
-        cdef uintptr_t labels_ptr = self._labels_.ptr
+        self.labels_ = CumlArray.empty(n_rows, dtype=out_dtype)
+        cdef uintptr_t labels_ptr = self.labels_.ptr
 
         cdef uintptr_t core_sample_indices_ptr = <uintptr_t> NULL
 
         # Create the output core_sample_indices only if needed
         if self.calc_core_sample_indices:
-            self._core_sample_indices_ = \
+            self.core_sample_indices_ = \
                 CumlArray.empty(n_rows, dtype=out_dtype)
-            core_sample_indices_ptr = self._core_sample_indices_.ptr
+            core_sample_indices_ptr = self.core_sample_indices_.ptr
 
         if self.dtype == np.float32:
             if out_dtype is "int32" or out_dtype is np.int32:
@@ -299,20 +302,21 @@ class DBSCAN(Base):
         # Finally, resize the core_sample_indices array if necessary
         if self.calc_core_sample_indices:
 
-            # Temp convert to cupy array only once
-            core_samples_cupy = self._core_sample_indices_.to_output("cupy")
+            # Temp convert to cupy array (better than using `cupy.asarray`)
+            with using_output_type("cupy"):
 
-            # First get the min index. These have to monotonically increasing,
-            # so the min index should be the first returned -1
-            min_index = cp.argmin(core_samples_cupy).item()
+                # First get the min index. These have to monotonically
+                # increasing, so the min index should be the first returned -1
+                min_index = cp.argmin(self.core_sample_indices_).item()
 
-            # Check for the case where there are no -1's
-            if (min_index == 0 and core_samples_cupy[min_index].item() != -1):
-                # Nothing to delete. The array has no -1's
-                pass
-            else:
-                self._core_sample_indices_ = \
-                    self._core_sample_indices_[:min_index]
+                # Check for the case where there are no -1's
+                if ((min_index == 0 and
+                     self.core_sample_indices_[min_index].item() != -1)):
+                    # Nothing to delete. The array has no -1's
+                    pass
+                else:
+                    self.core_sample_indices_ = \
+                        self.core_sample_indices_[:min_index]
 
         return self
 
@@ -321,7 +325,7 @@ class DBSCAN(Base):
                                        'type': 'dense',
                                        'description': 'Cluster labels',
                                        'shape': '(n_samples, 1)'})
-    def fit_predict(self, X, out_dtype="int32"):
+    def fit_predict(self, X, out_dtype="int32") -> CumlArray:
         """
         Performs clustering on X and returns cluster labels.
 
@@ -336,4 +340,9 @@ class DBSCAN(Base):
         return self.labels_
 
     def get_param_names(self):
-        return ["eps", "min_samples"]
+        return super().get_param_names() + [
+            "eps",
+            "min_samples",
+            "max_mbytes_per_batch",
+            "calc_core_sample_indices",
+        ]

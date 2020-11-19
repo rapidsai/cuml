@@ -16,6 +16,8 @@
 
 # distutils: language = c++
 
+import cuml.internals
+from cuml.common.array import CumlArray
 from cuml.solvers import CD
 from cuml.common.base import Base, RegressorMixin
 from cuml.common.doc_utils import generate_docstring
@@ -109,7 +111,20 @@ class Lasso(Base, RegressorMixin):
         This (setting to ‘random’) often leads to significantly faster
         convergence especially when tol is higher than 1e-4.
     handle : cuml.Handle
-        If it is None, a new one is created just for this class.
+        Specifies the cuml.handle that holds internal CUDA state for
+        computations in this model. Most importantly, this specifies the CUDA
+        stream that will be used for the model's computations, so users can
+        run different models concurrently in different streams by creating
+        handles in several streams.
+        If it is None, a new one is created.
+    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
+        Variable to control output type of the results and attributes of
+        the estimator. If None, it'll inherit the output type set at the
+        module level, `cuml.global_output_type`.
+        See :ref:`output-data-type-configuration` for more info.
+    verbose : int or boolean, default=False
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        See :ref:`verbosity-levels` for more info.
 
     Attributes
     -----------
@@ -126,10 +141,10 @@ class Lasso(Base, RegressorMixin):
 
     def __init__(self, alpha=1.0, fit_intercept=True, normalize=False,
                  max_iter=1000, tol=1e-3, selection='cyclic', handle=None,
-                 output_type=None):
+                 output_type=None, verbose=False):
 
         # Hard-code verbosity as CoordinateDescent does not have verbosity
-        super(Lasso, self).__init__(handle=handle, verbose=False,
+        super(Lasso, self).__init__(handle=handle, verbose=verbose,
                                     output_type=output_type)
 
         self._check_alpha(alpha)
@@ -162,12 +177,11 @@ class Lasso(Base, RegressorMixin):
             raise ValueError(msg.format(alpha))
 
     @generate_docstring()
-    def fit(self, X, y, convert_dtype=True):
+    def fit(self, X, y, convert_dtype=True) -> "Lasso":
         """
         Fit the model with X and y.
 
         """
-        self._set_base_attributes(output_type=X, n_features=X)
         self.solver_model.fit(X, y, convert_dtype=convert_dtype)
 
         return self
@@ -176,7 +190,8 @@ class Lasso(Base, RegressorMixin):
                                        'type': 'dense',
                                        'description': 'Predicted values',
                                        'shape': '(n_samples, 1)'})
-    def predict(self, X, convert_dtype=True):
+    @cuml.internals.api_base_return_array_skipall
+    def predict(self, X, convert_dtype=True) -> CumlArray:
         """
         Predicts the y for X.
 
@@ -184,38 +199,12 @@ class Lasso(Base, RegressorMixin):
 
         return self.solver_model.predict(X, convert_dtype=convert_dtype)
 
-    def get_params(self, deep=True):
-        """
-        Scikit-learn style function that returns the estimator parameters.
-
-        Parameters
-        -----------
-        deep : boolean (default = True)
-        """
-        params = dict()
-        variables = ['alpha', 'fit_intercept', 'normalize', 'max_iter', 'tol',
-                     'selection']
-        for key in variables:
-            var_value = getattr(self, key, None)
-            params[key] = var_value
-        return params
-
-    def set_params(self, **params):
-        """
-        Sklearn style set parameter state to dictionary of params.
-
-        Parameters
-        -----------
-        params : dict of new params
-        """
-        if not params:
-            return self
-        variables = ['alpha', 'fit_intercept', 'normalize', 'max_iter', 'tol',
-                     'selection']
-        for key, value in params.items():
-            if key not in variables:
-                raise ValueError('Invalid parameter for estimator')
-            else:
-                setattr(self, key, value)
-
-        return self
+    def get_param_names(self):
+        return super().get_param_names() + [
+            "alpha",
+            "fit_intercept",
+            "normalize",
+            "max_iter",
+            "tol",
+            "selection",
+        ]

@@ -20,13 +20,14 @@
 # cython: wraparound = False
 
 import cudf
-import cuml
 import ctypes
 import numpy as np
 import inspect
 import pandas as pd
 import warnings
 
+import cuml.internals
+from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.base import Base
 from cuml.raft.common.handle cimport handle_t
 import cuml.common.logger as logger
@@ -67,7 +68,7 @@ cdef extern from "cuml/manifold/tsne.h" namespace "ML" nogil:
         const float post_momentum,
         const long long random_state,
         int verbosity,
-        const bool intialize_embeddings,
+        const bool initialize_embeddings,
         bool barnes_hut) except +
 
 
@@ -111,9 +112,9 @@ class TSNE(Base):
         a future release.
     init : str 'random' (default 'random')
         Currently supports random intialization.
-    verbose : int or boolean (default = False) (default logger.level_info)
-        Level of verbosity.
-        Most messages will be printed inside the Python Console.
+    verbose : int or boolean, default=False
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        See :ref:`verbosity-levels` for more info.
     random_state : int (default None)
         Setting this can allow future runs of TSNE to look mostly the same.
         It is known that TSNE tends to have vastly different outputs on
@@ -144,9 +145,18 @@ class TSNE(Base):
         During the exaggeration iteration, more forcefully apply gradients.
     post_momentum : float (default 0.8)
         During the late phases, less forcefully apply gradients.
-    handle : (cuML Handle, default None)
-        You can pass in a past handle that was initialized, or we will create
-        one for you anew!
+    handle : cuml.Handle
+        Specifies the cuml.handle that holds internal CUDA state for
+        computations in this model. Most importantly, this specifies the CUDA
+        stream that will be used for the model's computations, so users can
+        run different models concurrently in different streams by creating
+        handles in several streams.
+        If it is None, a new one is created.
+    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
+        Variable to control output type of the results and attributes of
+        the estimator. If None, it'll inherit the output type set at the
+        module level, `cuml.global_output_type`.
+        See :ref:`output-data-type-configuration` for more info.
 
     References
     -----------
@@ -183,29 +193,35 @@ class TSNE(Base):
         (https://arxiv.org/abs/1807.11824).
 
     """
-    def __init__(self,
-                 int n_components=2,
-                 float perplexity=30.0,
-                 float early_exaggeration=12.0,
-                 float learning_rate=200.0,
-                 int n_iter=1000,
-                 int n_iter_without_progress=300,
-                 float min_grad_norm=1e-07,
-                 str metric='euclidean',
-                 str init='random',
-                 int verbose=False,
-                 random_state=None,
-                 str method='barnes_hut',
-                 float angle=0.5,
-                 learning_rate_method='adaptive',
-                 int n_neighbors=90,
-                 int perplexity_max_iter=100,
-                 int exaggeration_iter=250,
-                 float pre_momentum=0.5,
-                 float post_momentum=0.8,
-                 handle=None):
 
-        super(TSNE, self).__init__(handle=handle, verbose=verbose)
+    embedding_ = CumlArrayDescriptor()
+
+    def __init__(self,
+                 n_components=2,
+                 perplexity=30.0,
+                 early_exaggeration=12.0,
+                 learning_rate=200.0,
+                 n_iter=1000,
+                 n_iter_without_progress=300,
+                 min_grad_norm=1e-07,
+                 metric='euclidean',
+                 init='random',
+                 verbose=False,
+                 random_state=None,
+                 method='barnes_hut',
+                 angle=0.5,
+                 learning_rate_method='adaptive',
+                 n_neighbors=90,
+                 perplexity_max_iter=100,
+                 exaggeration_iter=250,
+                 pre_momentum=0.5,
+                 post_momentum=0.8,
+                 handle=None,
+                 output_type=None):
+
+        super(TSNE, self).__init__(handle=handle,
+                                   verbose=verbose,
+                                   output_type=output_type)
 
         if n_components < 0:
             raise ValueError("n_components = {} should be more "
@@ -294,7 +310,15 @@ class TSNE(Base):
         if learning_rate_method is None:
             self.learning_rate_method = 'none'
         else:
-            self.learning_rate_method = learning_rate_method.lower()
+            # To support `sklearn.base.clone()`, we must minimize altering
+            # argument references unless absolutely necessary. Check to see if
+            # lowering the string results in the same value, and if so, keep
+            # the same reference that was passed in. This may seem redundant,
+            # but it allows `clone()` to function without raising an error
+            if (learning_rate_method.lower() != learning_rate_method):
+                learning_rate_method = learning_rate_method.lower()
+
+            self.learning_rate_method = learning_rate_method
         self.epssq = 0.0025
         self.perplexity_tol = 1e-5
         self.min_gain = 0.01
@@ -302,12 +326,11 @@ class TSNE(Base):
         self.post_learning_rate = learning_rate * 2
 
     @generate_docstring(convert_dtype_cast='np.float32')
-    def fit(self, X, convert_dtype=True):
+    def fit(self, X, convert_dtype=True) -> "TSNE":
         """
         Fit X into an embedded space.
 
         """
-        self._set_base_attributes(n_features=X)
         cdef int n, p
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
         if handle_ == NULL:
@@ -395,13 +418,13 @@ class TSNE(Base):
                  <bool> (self.method == 'barnes_hut'))
 
         # Clean up memory
-        self._embedding_ = Y
+        self.embedding_ = Y
         return self
 
     def __del__(self):
-        if hasattr(self, '_embedding_'):
-            del self._embedding_
-            self._embedding_ = None
+        if hasattr(self, 'embedding_'):
+            del self.embedding_
+            self.embedding_ = None
 
     @generate_docstring(convert_dtype_cast='np.float32',
                         return_values={'name': 'X_new',
@@ -410,17 +433,22 @@ class TSNE(Base):
                                                        training data in \
                                                        low-dimensional space.',
                                        'shape': '(n_samples, n_components)'})
-    def fit_transform(self, X, convert_dtype=True):
+    @cuml.internals.api_base_return_array_skipall
+    def fit_transform(self, X, convert_dtype=True) -> CumlArray:
         """
         Fit X into an embedded space and return that transformed output.
-
-
         """
-        self.fit(X, convert_dtype=convert_dtype)
-        out_type = self._get_output_type(X)
+        return self.fit(X, convert_dtype=convert_dtype)._transform(X)
 
-        data = self._embedding_.to_output(out_type)
-        del self._embedding_
+    def _transform(self, X) -> CumlArray:
+        """
+        Internal transform function to allow base wrappers default
+        functionality to work
+        """
+
+        data = self.embedding_
+
+        del self.embedding_
 
         return data
 
@@ -435,3 +463,25 @@ class TSNE(Base):
                                    verbose=state['verbose'])
         self.__dict__.update(state)
         return state
+
+    def get_param_names(self):
+        return super().get_param_names() + [
+            "n_components",
+            "perplexity",
+            "early_exaggeration",
+            "learning_rate",
+            "n_iter",
+            "n_iter_without_progress",
+            "min_grad_norm",
+            "metric",
+            "init",
+            "random_state",
+            "method",
+            "angle",
+            "learning_rate_method",
+            "n_neighbors",
+            "perplexity_max_iter",
+            "exaggeration_iter",
+            "pre_momentum",
+            "post_momentum",
+        ]

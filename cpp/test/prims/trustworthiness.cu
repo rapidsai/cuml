@@ -14,12 +14,11 @@
  * limitations under the License.
  */
 
-#include <common/cudart_utils.h>
 #include <gtest/gtest.h>
-#include <cuda_utils.cuh>
+#include <raft/cudart_utils.h>
 #include <distance/distance.cuh>
 #include <iostream>
-#include <score/scores.cuh>
+#include <metrics/scores.cuh>
 #include <vector>
 #include "test_utils.h"
 
@@ -429,7 +428,7 @@ class TrustworthinessScoreTest : public ::testing::Test {
     // euclidean test
     score =
       trustworthiness_score<float,
-                            ML::Distance::DistanceType::EucUnexpandedL2Sqrt>(
+                            raft::distance::DistanceType::EucUnexpandedL2Sqrt>(
         d_X, d_X_embedded, 50, 30, 8, 5, allocator, stream);
 
     allocator->deallocate(d_X, X.size() * sizeof(float), stream);

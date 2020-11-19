@@ -13,4 +13,6 @@
 # limitations under the License.
 #
 
-from .adapters import check_array, get_input_type, to_output_type
+from .adapters import (check_array, get_input_type, to_output_type, _get_mask,
+                       _masked_column_median, _masked_column_mean,
+                       _masked_column_mode)

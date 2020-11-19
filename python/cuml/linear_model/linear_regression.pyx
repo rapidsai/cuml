@@ -29,6 +29,7 @@ from libc.stdint cimport uintptr_t
 from libc.stdlib cimport calloc, malloc, free
 
 from cuml.common.array import CumlArray
+from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.base import Base, RegressorMixin
 from cuml.common.doc_utils import generate_docstring
 from cuml.raft.common.handle cimport handle_t
@@ -149,6 +150,21 @@ class LinearRegression(Base, RegressorMixin):
         If True, the predictors in X will be normalized by dividing by it's
         L2 norm.
         If False, no scaling will be done.
+    handle : cuml.Handle
+        Specifies the cuml.handle that holds internal CUDA state for
+        computations in this model. Most importantly, this specifies the CUDA
+        stream that will be used for the model's computations, so users can
+        run different models concurrently in different streams by creating
+        handles in several streams.
+        If it is None, a new one is created.
+    verbose : int or boolean, default=False
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        See :ref:`verbosity-levels` for more info.
+    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
+        Variable to control output type of the results and attributes of
+        the estimator. If None, it'll inherit the output type set at the
+        module level, `cuml.global_output_type`.
+        See :ref:`output-data-type-configuration` for more info.
 
     Attributes
     -----------
@@ -182,6 +198,9 @@ class LinearRegression(Base, RegressorMixin):
 
     """
 
+    coef_ = CumlArrayDescriptor()
+    intercept_ = CumlArrayDescriptor()
+
     def __init__(self, algorithm='eig', fit_intercept=True, normalize=False,
                  handle=None, verbose=False, output_type=None):
         super(LinearRegression, self).__init__(handle=handle,
@@ -189,8 +208,8 @@ class LinearRegression(Base, RegressorMixin):
                                                output_type=output_type)
 
         # internal array attributes
-        self._coef_ = None  # accessed via estimator.coef_
-        self._intercept_ = None  # accessed via estimator.intercept_
+        self.coef_ = None
+        self.intercept_ = None
 
         self.fit_intercept = fit_intercept
         self.normalize = normalize
@@ -210,13 +229,11 @@ class LinearRegression(Base, RegressorMixin):
         }[algorithm]
 
     @generate_docstring()
-    def fit(self, X, y, convert_dtype=True):
+    def fit(self, X, y, convert_dtype=True) -> "LinearRegression":
         """
         Fit the model with X and y.
 
         """
-        self._set_base_attributes(output_type=X, n_features=X)
-
         cdef uintptr_t X_ptr, y_ptr
         X_m, n_rows, self.n_cols, self.dtype = \
             input_to_cuml_array(X, check_dtype=[np.float32, np.float64])
@@ -243,8 +260,8 @@ class LinearRegression(Base, RegressorMixin):
                           "column currently.", UserWarning)
             self.algo = 0
 
-        self._coef_ = CumlArray.zeros(self.n_cols, dtype=self.dtype)
-        cdef uintptr_t coef_ptr = self._coef_.ptr
+        self.coef_ = CumlArray.zeros(self.n_cols, dtype=self.dtype)
+        cdef uintptr_t coef_ptr = self.coef_.ptr
 
         cdef float c_intercept1
         cdef double c_intercept2
@@ -289,14 +306,11 @@ class LinearRegression(Base, RegressorMixin):
                                        'type': 'dense',
                                        'description': 'Predicted values',
                                        'shape': '(n_samples, 1)'})
-    def predict(self, X, convert_dtype=True):
+    def predict(self, X, convert_dtype=True) -> CumlArray:
         """
         Predicts `y` values for `X`.
 
         """
-
-        out_type = self._get_output_type(X)
-
         cdef uintptr_t X_ptr
         X_m, n_rows, n_cols, dtype = \
             input_to_cuml_array(X, check_dtype=self.dtype,
@@ -305,7 +319,7 @@ class LinearRegression(Base, RegressorMixin):
                                 check_cols=self.n_cols)
         X_ptr = X_m.ptr
 
-        cdef uintptr_t coef_ptr = self._coef_.ptr
+        cdef uintptr_t coef_ptr = self.coef_.ptr
 
         preds = CumlArray.zeros(n_rows, dtype=dtype)
         cdef uintptr_t preds_ptr = preds.ptr
@@ -333,7 +347,8 @@ class LinearRegression(Base, RegressorMixin):
 
         del(X_m)
 
-        return preds.to_output(out_type)
+        return preds
 
     def get_param_names(self):
-        return ['algorithm', 'fit_intercept', 'normalize']
+        return super().get_param_names() + \
+            ['algorithm', 'fit_intercept', 'normalize']

@@ -35,9 +35,8 @@ void make_regression_helper(const raft::handle_t& handle, DataT* out,
   auto allocator = handle_impl.get_device_allocator();
 
   MLCommon::Random::make_regression(
-    out, values, n_rows, n_cols, n_informative, cublas_handle, cusolver_handle,
-    allocator, stream, coef, n_targets, bias, effective_rank, tail_strength,
-    noise, shuffle, seed);
+    handle, out, values, n_rows, n_cols, n_informative, stream, coef, n_targets,
+    bias, effective_rank, tail_strength, noise, shuffle, seed);
 }
 
 void make_regression(const raft::handle_t& handle, float* out, float* values,

@@ -14,14 +14,14 @@
  * limitations under the License.
  */
 
-#include <common/cudart_utils.h>
 #include <cuml/random_projection/rproj_c.h>
 #include <gtest/gtest.h>
-#include <linalg/transpose.h>
+#include <raft/cudart_utils.h>
+#include <raft/linalg/transpose.h>
 #include <test_utils.h>
-#include <cuda_utils.cuh>
 #include <distance/distance.cuh>
 #include <iostream>
+#include <raft/cuda_utils.cuh>
 #include <random>
 #include <vector>
 
@@ -37,8 +37,7 @@ class RPROJTest : public ::testing::Test {
     cublasHandle_t cublas_handle = h.get_cublas_handle();
     T* result;
     raft::allocate(result, n_rows * n_cols);
-    MLCommon::LinAlg::transpose(in, result, n_rows, n_cols, cublas_handle,
-                                stream);
+    raft::linalg::transpose(h, in, result, n_rows, n_cols, stream);
     CUDA_CHECK(cudaPeekAtLastError());
     CUDA_CHECK(cudaFree(in));
     return result;
@@ -144,7 +143,7 @@ class RPROJTest : public ::testing::Test {
     int D = johnson_lindenstrauss_min_dim(N, epsilon);
 
     constexpr auto distance_type =
-      ML::Distance::DistanceType::EucUnexpandedL2Sqrt;
+      raft::distance::DistanceType::EucUnexpandedL2Sqrt;
     size_t workspaceSize = 0;
     typedef cutlass::Shape<8, 128, 128> OutputTile_t;
 

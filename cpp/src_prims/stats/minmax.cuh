@@ -16,9 +16,9 @@
 
 #pragma once
 
-#include <common/cudart_utils.h>
-#include <cuda_utils.cuh>
+#include <raft/cudart_utils.h>
 #include <limits>
+#include <raft/cuda_utils.cuh>
 
 namespace MLCommon {
 namespace Stats {

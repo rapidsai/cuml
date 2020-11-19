@@ -1,6 +1,14 @@
-# Authors: Andreas Mueller <amueller@ais.uni-bonn.de>
+# Original authors from Sckit-Learn:
+#          Andreas Mueller <amueller@ais.uni-bonn.de>
 #          Joris Van den Bossche <jorisvandenbossche@gmail.com>
 # License: BSD 3 clause
+
+
+# This code originates from the Scikit-Learn library,
+# it was since modified to allow GPU acceleration.
+# This code is under BSD 3 clause license.
+# Authors mentioned above do not endorse or promote this production.
+
 
 import numpy as np
 from scipy import sparse

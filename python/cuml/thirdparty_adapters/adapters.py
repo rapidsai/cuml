@@ -16,6 +16,7 @@
 import numpy as np
 import cupy as cp
 from cuml.common import input_to_cuml_array
+from cuml.common.input_utils import input_to_cupy_array
 from cupy.sparse import csr_matrix as gpu_csr_matrix
 from cupy.sparse import csc_matrix as gpu_csc_matrix
 from cupy.sparse import csc_matrix as gpu_coo_matrix
@@ -251,6 +252,13 @@ def check_array(array, accept_sparse=False, accept_large_sparse=True,
         if array.shape[0] < ensure_min_samples:
             raise ValueError("Not enough samples")
 
+    if ensure_min_features > 0 and hasshape and array.ndim == 2:
+        n_features = array.shape[1]
+        if n_features < ensure_min_features:
+            raise ValueError("Found array with %d feature(s) (shape=%s) while"
+                             " a minimum of %d is required."
+                             % (n_features, array.shape, ensure_min_features))
+
     is_sparse = cpu_sparse.issparse(array) or gpu_sparse.issparse(array)
     if is_sparse:
         check_sparse(array, accept_sparse, accept_large_sparse)
@@ -267,10 +275,9 @@ def check_array(array, accept_sparse=False, accept_large_sparse=True,
             new_array = new_array.astype(correct_dtype)
         return new_array
     else:
-        X, n_rows, n_cols, dtype = input_to_cuml_array(array,
+        X, n_rows, n_cols, dtype = input_to_cupy_array(array,
                                                        order=order,
                                                        deepcopy=copy)
-        X = X.to_output('cupy')
         if correct_dtype != dtype:
             X = X.astype(correct_dtype)
         check_finite(X, force_all_finite)
@@ -280,8 +287,8 @@ def check_array(array, accept_sparse=False, accept_large_sparse=True,
 _input_type_to_str = {
     numpyArray: 'numpy',
     cupyArray: 'cupy',
-    cuSeries: 'cudf',
-    cuDataFrame: 'cudf',
+    cuSeries: 'series',
+    cuDataFrame: 'dataframe',
     pdSeries: 'numpy',
     pdDataFrame: 'numpy'
 }
@@ -349,4 +356,81 @@ def to_output_type(array, output_type, order='F'):
             array = array.todense()
 
     cuml_array = input_to_cuml_array(array, order=order)[0]
+    if output_type == 'series' and len(array.shape) > 1:
+        output_type = 'cudf'
+
     return cuml_array.to_output(output_type)
+
+
+def _get_mask(X, value_to_mask):
+    """Compute the boolean mask X == missing_values."""
+    if value_to_mask == "NaN" or cp.isnan(value_to_mask):
+        return cp.isnan(X)
+    else:
+        return X == value_to_mask
+
+
+def _masked_column_median(arr, masked_value):
+    """Compute the median of each column in the 2D array arr, ignoring any
+    instances of masked_value"""
+    mask = _get_mask(arr, masked_value)
+    if arr.size == 0:
+        return cp.full(arr.shape[1], cp.nan)
+    arr_sorted = arr.copy()
+    if not cp.isnan(masked_value):
+        # If nan is not the missing value, any column with nans should
+        # have a median of nan
+        nan_cols = cp.any(cp.isnan(arr), axis=0)
+        arr_sorted[mask] = cp.nan
+    else:
+        nan_cols = cp.full(arr.shape[1], False)
+    # nans are always sorted to end of array
+    arr_sorted = cp.sort(arr_sorted, axis=0)
+
+    count_missing_values = mask.sum(axis=0)
+    # Ignore missing values in determining "halfway" index of sorted
+    # array
+    n_elems = arr.shape[0] - count_missing_values
+
+    # If no elements remain after removing missing value, median for
+    # that colum is nan
+    nan_cols = cp.logical_or(nan_cols, n_elems <= 0)
+
+    col_index = cp.arange(arr_sorted.shape[1])
+    median = (arr_sorted[cp.floor_divide(n_elems - 1, 2), col_index] +
+              arr_sorted[cp.floor_divide(n_elems, 2), col_index]) / 2
+
+    median[nan_cols] = cp.nan
+    return median
+
+
+def _masked_column_mean(arr, masked_value):
+    """Compute the mean of each column in the 2D array arr, ignoring any
+    instances of masked_value"""
+    mask = _get_mask(arr, masked_value)
+    count_missing_values = mask.sum(axis=0)
+    n_elems = arr.shape[0] - count_missing_values
+    mean = cp.nansum(arr, axis=0)
+    if not cp.isnan(masked_value):
+        mean -= (count_missing_values * masked_value)
+    mean /= n_elems
+    return mean
+
+
+def _masked_column_mode(arr, masked_value):
+    """Determine the most frequently appearing element in each column in the 2D
+    array arr, ignoring any instances of masked_value"""
+    mask = _get_mask(arr, masked_value)
+    n_features = arr.shape[1]
+    most_frequent = np.empty(n_features, dtype=arr.dtype)
+    for i in range(n_features):
+        feature_mask_idxs = cp.where(~mask[:, i])[0]
+        values, counts = cp.unique(arr[feature_mask_idxs, i],
+                                   return_counts=True)
+        count_max = counts.max()
+        if count_max > 0:
+            value = values[counts == count_max].min()
+        else:
+            value = cp.nan
+        most_frequent[i] = value
+    return cp.array(most_frequent)

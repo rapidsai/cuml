@@ -16,6 +16,8 @@
 
 # distutils: language = c++
 
+import typing
+
 import ctypes
 import itertools
 from libc.stdint cimport uintptr_t
@@ -25,13 +27,15 @@ import numpy as np
 
 import cupy as cp
 
-import cuml
+import cuml.internals
 from cuml.common import logger
-from cuml.common.array import CumlArray as cumlArray
+from cuml.common.array_descriptor import CumlArrayDescriptor
+from cuml.common.array import CumlArray
 from cuml.common.base import Base
 from cuml.raft.common.handle cimport handle_t
 from cuml.raft.common.handle import Handle
-from cuml.common.input_utils import input_to_cuml_array
+from cuml.common import input_to_cuml_array
+from cuml.common import using_output_type
 from cuml.tsa.arima import ARIMA
 from cuml.tsa.seasonality import seas_test
 from cuml.tsa.stationarity import kpss_test
@@ -101,73 +105,95 @@ tests_map = {
 
 
 class AutoARIMA(Base):
-    """Implements a batched auto-ARIMA model for in- and out-of-sample
+    """
+    Implements a batched auto-ARIMA model for in- and out-of-sample
     times-series prediction.
 
     This interface offers a highly customizable search, with functionality
-    similar to the `forecast` and `fable` packages in R.
-    It provides an abstraction around the underlying ARIMA models to predict
-    and forecast as if using a single model.
-
-    Examples
-    --------
-    .. code-block:: python
-
-        from cuml.tsa.auto_arima import AutoARIMA
-
-        model = AutoARIMA(y)
-        model.search(s=12, d=(0, 1), D=(0, 1), p=(0, 2, 4), q=(0, 2, 4),
-                     P=range(2), Q=range(2), method="css", truncate=100)
-        model.fit(method="css-ml")
-        fc = model.forecast(20)
-
+    similar to the `forecast` and `fable` packages in R. It provides an
+    abstraction around the underlying ARIMA models to predict and forecast as
+    if using a single model.
 
     Parameters
     ----------
+
     endog : dataframe or array-like (device or host)
         The time series data, assumed to have each time series in columns.
         Acceptable formats: cuDF DataFrame, cuDF Series, NumPy ndarray,
         Numba device ndarray, cuda array interface compliant array like CuPy.
     handle : cuml.Handle
-        If it is None, a new one is created just for this instance
-    simple_differencing: bool or int (default = True)
+        Specifies the cuml.handle that holds internal CUDA state for
+        computations in this model. Most importantly, this specifies the CUDA
+        stream that will be used for the model's computations, so users can
+        run different models concurrently in different streams by creating
+        handles in several streams.
+        If it is None, a new one is created.
+    simple_differencing: bool or int, default=True
         If True, the data is differenced before being passed to the Kalman
         filter. If False, differencing is part of the state-space model.
         See additional notes in the ARIMA docs
-    verbose : int
-        Logging level. It must be one of `cuml.common.logger.level_*`
-    output_type : {'input', 'cudf', 'cupy', 'numpy'}, optional
-        Variable to control output type of the results and attributes.
-        If None, it'll inherit the output type set at the module level,
-        cuml.output_type. If set, it will override the global option.
+    verbose : int or boolean, default=False
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        See :ref:`verbosity-levels` for more info.
+    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
+        Variable to control output type of the results and attributes of
+        the estimator. If None, it'll inherit the output type set at the
+        module level, `cuml.global_output_type`.
+        See :ref:`output-data-type-configuration` for more info.
 
-    References
-    ----------
+    Notes
+    -----
+
     The interface was influenced by the R `fable` package:
     See https://fable.tidyverts.org/reference/ARIMA.html
 
+    References
+    ----------
+
     A useful (though outdated) reference is the paper:
-    "Automatic Time Series Forecasting: The `forecast` Package for R",
-    Rob J. Hyndman & Yeasmin Khandakar (2008),
-    Journal of Statistical Software 27, https://doi.org/10.18637/jss.v027.i03
+
+    .. [1] Rob J. Hyndman, Yeasmin Khandakar, 2008. "Automatic Time Series
+        Forecasting: The 'forecast' Package for R", Journal of Statistical
+        Software 27
+
+    Examples
+    --------
+
+    .. code-block:: python
+
+            from cuml.tsa.auto_arima import AutoARIMA
+
+            model = AutoARIMA(y)
+            model.search(s=12, d=(0, 1), D=(0, 1), p=(0, 2, 4), q=(0, 2, 4),
+                         P=range(2), Q=range(2), method="css", truncate=100)
+            model.fit(method="css-ml")
+            fc = model.forecast(20)
+
+
     """
+
+    d_y = CumlArrayDescriptor()
 
     def __init__(self,
                  endog,
                  handle=None,
                  simple_differencing=True,
-                 verbose=logger.level_info,
+                 verbose=False,
                  output_type=None):
         # Initialize base class
-        super().__init__(handle, output_type=output_type, verbose=verbose)
+        super().__init__(
+            handle=handle,
+            output_type=output_type,
+            verbose=verbose)
         self._set_base_attributes(output_type=endog)
 
         # Get device array. Float64 only for now.
-        self._d_y, self.n_obs, self.batch_size, self.dtype \
+        self.d_y, self.n_obs, self.batch_size, self.dtype \
             = input_to_cuml_array(endog, check_dtype=np.float64)
 
         self.simple_differencing = simple_differencing
 
+    @cuml.internals.api_return_any()
     def search(self,
                s=None,
                d=range(3),
@@ -258,20 +284,23 @@ class AutoARIMA(Base):
         D_options = _parse_sequence("D", D, 0, 1)
         if not s:
             # Non-seasonal -> D=0
-            data_D = {0: (self._d_y, d_index)}
+            data_D = {0: (self.d_y, d_index)}
         elif len(D_options) == 1:
             # D is specified by the user
-            data_D = {D_options[0]: (self._d_y, d_index)}
+            data_D = {D_options[0]: (self.d_y, d_index)}
         else:
             # D is chosen with a seasonal differencing test
             if seasonal_test not in tests_map:
                 raise ValueError("Unknown seasonal diff test: {}"
                                  .format(seasonal_test))
-            mask_cp = tests_map[seasonal_test](self._d_y.to_output("cupy"), s)
+
+            with using_output_type("cupy"):
+                mask_cp = tests_map[seasonal_test](self.d_y, s)
+
             mask = input_to_cuml_array(mask_cp)[0]
             del mask_cp
             data_D = {}
-            out0, index0, out1, index1 = _divide_by_mask(self._d_y, mask,
+            out0, index0, out1, index1 = _divide_by_mask(self.d_y, mask,
                                                          d_index)
             if out0 is not None:
                 data_D[0] = (out0, index0)
@@ -378,6 +407,7 @@ class AutoARIMA(Base):
         self.id_to_model, self.id_to_pos = _build_division_map(id_tracker,
                                                                self.batch_size)
 
+    @cuml.internals.api_base_return_any_skipall
     def fit(self,
             h: float = 1e-8,
             maxiter: int = 1000,
@@ -404,7 +434,14 @@ class AutoARIMA(Base):
             logger.debug("Fitting {} ({})".format(model, method))
             model.fit(h=h, maxiter=maxiter, method=method, truncate=truncate)
 
-    def predict(self, start=0, end=None, level=None):
+    @cuml.internals.api_base_return_generic_skipall
+    def predict(
+        self,
+        start=0,
+        end=None,
+        level=None
+    ) -> typing.Union[CumlArray, typing.Tuple[CumlArray, CumlArray,
+                                              CumlArray]]:
         """Compute in-sample and/or out-of-sample prediction for each series
 
         Parameters
@@ -444,12 +481,12 @@ class AutoARIMA(Base):
 
         # Put all the predictions together
         y_p = _merge_series(pred_list, self.id_to_model, self.id_to_pos,
-                            self.batch_size).to_output(self.output_type)
+                            self.batch_size)
         if level is not None:
             lower = _merge_series(lower_list, self.id_to_model, self.id_to_pos,
-                                  self.batch_size).to_output(self.output_type)
+                                  self.batch_size)
             upper = _merge_series(upper_list, self.id_to_model, self.id_to_pos,
-                                  self.batch_size).to_output(self.output_type)
+                                  self.batch_size)
 
         # Return the results
         if level is None:
@@ -457,7 +494,13 @@ class AutoARIMA(Base):
         else:
             return y_p, lower, upper
 
-    def forecast(self, nsteps: int, level=None):
+    @cuml.internals.api_base_return_generic_skipall
+    def forecast(self,
+                 nsteps: int,
+                 level=None) -> typing.Union[CumlArray,
+                                             typing.Tuple[CumlArray,
+                                                          CumlArray,
+                                                          CumlArray]]:
         """Forecast `nsteps` into the future.
 
         Parameters
@@ -514,25 +557,30 @@ def _divide_by_mask(original, mask, batch_id, handle=None):
 
     Parameters
     ----------
-    original : cumlArray (float32 or float64)
+    original : CumlArray (float32 or float64)
         Original batch
-    mask : cumlArray (bool)
+    mask : CumlArray (bool)
         Boolean mask: False for the 1st sub-batch and True for the second
-    batch_id : cumlArray (int)
+    batch_id : CumlArray (int)
         Integer array to track the id of each member in the initial batch
     handle : cuml.Handle
-        If it is None, a new one is created just for this call
+        Specifies the cuml.handle that holds internal CUDA state for
+        computations in this model. Most importantly, this specifies the CUDA
+        stream that will be used for the model's computations, so users can
+        run different models concurrently in different streams by creating
+        handles in several streams.
+        If it is None, a new one is created.
 
     Returns
     -------
-    out0 : cumlArray (float32 or float64)
+    out0 : CumlArray (float32 or float64)
         Sub-batch 0, or None if empty
-    batch0_id : cumlArray (int)
+    batch0_id : CumlArray (int)
         Indices of the members of the sub-batch 0 in the initial batch,
         or None if empty
-    out1 : cumlArray (float32 or float64)
+    out1 : CumlArray (float32 or float64)
         Sub-batch 1, or None if empty
-    batch1_id : cumlArray (int)
+    batch1_id : CumlArray (int)
         Indices of the members of the sub-batch 1 in the initial batch,
         or None if empty
     """
@@ -546,7 +594,7 @@ def _divide_by_mask(original, mask, batch_id, handle=None):
         handle = Handle()
     cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
 
-    index = cumlArray.empty(batch_size, np.int32)
+    index = CumlArray.empty(batch_size, np.int32)
     cdef uintptr_t d_index = index.ptr
     cdef uintptr_t d_mask = mask.ptr
 
@@ -556,8 +604,8 @@ def _divide_by_mask(original, mask, batch_id, handle=None):
                                          <int*> d_index,
                                          <int> batch_size)
 
-    out0 = cumlArray.empty((n_obs, batch_size - nb_true), dtype)
-    out1 = cumlArray.empty((n_obs, nb_true), dtype)
+    out0 = CumlArray.empty((n_obs, batch_size - nb_true), dtype)
+    out1 = CumlArray.empty((n_obs, nb_true), dtype)
 
     # Type declarations (can't be in if-else statements)
     cdef uintptr_t d_out0
@@ -583,8 +631,8 @@ def _divide_by_mask(original, mask, batch_id, handle=None):
 
     # If both sub-batches have elements
     else:
-        out0 = cumlArray.empty((n_obs, batch_size - nb_true), dtype)
-        out1 = cumlArray.empty((n_obs, nb_true), dtype)
+        out0 = CumlArray.empty((n_obs, batch_size - nb_true), dtype)
+        out1 = CumlArray.empty((n_obs, nb_true), dtype)
         d_out0 = out0.ptr
         d_out1 = out1.ptr
 
@@ -609,8 +657,8 @@ def _divide_by_mask(original, mask, batch_id, handle=None):
                                    <int> n_obs)
 
         # Also keep track of the original id of the series in the batch
-        batch0_id = cumlArray.empty(batch_size - nb_true, np.int32)
-        batch1_id = cumlArray.empty(nb_true, np.int32)
+        batch0_id = CumlArray.empty(batch_size - nb_true, np.int32)
+        batch1_id = CumlArray.empty(nb_true, np.int32)
         d_batch0_id = batch0_id.ptr
         d_batch1_id = batch1_id.ptr
         d_batch_id = batch_id.ptr
@@ -631,22 +679,27 @@ def _divide_by_min(original, metrics, batch_id, handle=None):
     """Divide a given batch into multiple sub-batches according to the values
     of the given metrics, by selecting the minimum value for each member
 
-    Parameters
+    Parameters:
     ----------
-    original : cumlArray (float32 or float64)
+    original : CumlArray (float32 or float64)
         Original batch
-    metrics : cumlArray (float32 or float64)
+    metrics : CumlArray (float32 or float64)
         Matrix of shape (batch_size, n_sub) containing the metrics to minimize
-    batch_id : cumlArray (int)
+    batch_id : CumlArray (int)
         Integer array to track the id of each member in the initial batch
     handle : cuml.Handle
-        If it is None, a new one is created just for this call
+        Specifies the cuml.handle that holds internal CUDA state for
+        computations in this model. Most importantly, this specifies the CUDA
+        stream that will be used for the model's computations, so users can
+        run different models concurrently in different streams by creating
+        handles in several streams.
+        If it is None, a new one is created.
 
     Returns
     -------
-    sub_batches : List[cumlArray] (float32 or float64)
+    sub_batches : List[CumlArray] (float32 or float64)
         List of arrays containing each sub-batch, or None if empty
-    sub_id : List[cumlArray] (int)
+    sub_id : List[CumlArray] (int)
         List of arrays containing the indices of each member in the initial
         batch, or None if empty
     """
@@ -661,8 +714,8 @@ def _divide_by_min(original, metrics, batch_id, handle=None):
         handle = Handle()
     cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
 
-    batch_buffer = cumlArray.empty(batch_size, np.int32)
-    index_buffer = cumlArray.empty(batch_size, np.int32)
+    batch_buffer = CumlArray.empty(batch_size, np.int32)
+    index_buffer = CumlArray.empty(batch_size, np.int32)
     cdef vector[int] size_buffer
     size_buffer.resize(n_sub)
 
@@ -691,7 +744,7 @@ def _divide_by_min(original, metrics, batch_id, handle=None):
 
     # Build a list of cuML arrays for the sub-batches and a vector of pointers
     # to be passed to the next C++ step
-    sub_batches = [cumlArray.empty((n_obs, s), dtype) if s else None
+    sub_batches = [CumlArray.empty((n_obs, s), dtype) if s else None
                    for s in size_buffer]
     cdef vector[uintptr_t] sub_ptr
     sub_ptr.resize(n_sub)
@@ -724,7 +777,7 @@ def _divide_by_min(original, metrics, batch_id, handle=None):
 
     # Keep track of the id of the series if requested
     cdef vector[uintptr_t] id_ptr
-    sub_id = [cumlArray.empty(s, np.int32) if s else None
+    sub_id = [CumlArray.empty(s, np.int32) if s else None
               for s in size_buffer]
     id_ptr.resize(n_sub)
     for i in range(n_sub):
@@ -752,16 +805,16 @@ def _build_division_map(id_tracker, batch_size, handle=None):
 
     Parameters
     ----------
-    id_tracker : List[cumlArray] (int)
+    id_tracker : List[CumlArray] (int)
         List of the index arrays of each sub-batch
     batch_size : int
         Size of the initial batch
 
     Returns
     -------
-    id_to_model : cumlArray (int)
+    id_to_model : CumlArray (int)
         Associates each batch member with a model
-    id_to_pos : cumlArray (int)
+    id_to_pos : CumlArray (int)
         Position of each member in the respective sub-batch
     """
     if handle is None:
@@ -770,8 +823,8 @@ def _build_division_map(id_tracker, batch_size, handle=None):
 
     n_sub = len(id_tracker)
 
-    id_to_pos = cumlArray.empty(batch_size, np.int32)
-    id_to_model = cumlArray.empty(batch_size, np.int32)
+    id_to_pos = CumlArray.empty(batch_size, np.int32)
+    id_to_model = CumlArray.empty(batch_size, np.int32)
 
     cdef vector[uintptr_t] id_ptr
     cdef vector[int] size_vec
@@ -804,18 +857,18 @@ def _merge_series(data_in, id_to_sub, id_to_pos, batch_size, handle=None):
 
     Parameters
     ----------
-    data_in : List[cumlArray] (float32 or float64)
+    data_in : List[CumlArray] (float32 or float64)
         List of sub-batches to merge
-    id_to_model : cumlArray (int)
+    id_to_model : CumlArray (int)
         Associates each member of the batch with a sub-batch
-    id_to_pos : cumlArray (int)
+    id_to_pos : CumlArray (int)
         Position of each member of the batch in its respective sub-batch
     batch_size : int
         Size of the initial batch
 
     Returns
     -------
-    data_out : cumlArray (float32 or float64)
+    data_out : CumlArray (float32 or float64)
         Merged batch
     """
     dtype = data_in[0].dtype
@@ -831,7 +884,7 @@ def _merge_series(data_in, id_to_sub, id_to_pos, batch_size, handle=None):
     for i in range(n_sub):
         in_ptr[i] = data_in[i].ptr
 
-    data_out = cumlArray.empty((n_obs, batch_size), dtype)
+    data_out = CumlArray.empty((n_obs, batch_size), dtype)
 
     cdef uintptr_t hd_in = <uintptr_t> in_ptr.data()
     cdef uintptr_t d_id_to_pos = id_to_pos.ptr

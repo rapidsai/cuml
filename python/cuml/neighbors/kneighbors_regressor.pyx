@@ -18,8 +18,10 @@
 
 from cuml.neighbors.nearest_neighbors import NearestNeighbors
 
+import cuml.internals
 from cuml.common.array import CumlArray
 from cuml.common import input_to_cuml_array
+from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.base import RegressorMixin
 from cuml.common.doc_utils import generate_docstring
 
@@ -75,10 +77,6 @@ class KNeighborsRegressor(NearestNeighbors, RegressorMixin):
     ----------
     n_neighbors : int (default=5)
         Default number of neighbors to query
-    verbose : int or boolean (default = False)
-        Logging level
-    handle : handle_t
-        The handle_t resources to use
     algorithm : string (default='brute')
         The query algorithm to use. Currently, only 'brute' is supported.
     metric : string (default='euclidean').
@@ -86,6 +84,21 @@ class KNeighborsRegressor(NearestNeighbors, RegressorMixin):
     weights : string (default='uniform')
         Sample weights to use. Currently, only the uniform strategy is
         supported.
+    handle : cuml.Handle
+        Specifies the cuml.handle that holds internal CUDA state for
+        computations in this model. Most importantly, this specifies the CUDA
+        stream that will be used for the model's computations, so users can
+        run different models concurrently in different streams by creating
+        handles in several streams.
+        If it is None, a new one is created.
+    verbose : int or boolean, default=False
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        See :ref:`verbosity-levels` for more info.
+    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
+        Variable to control output type of the results and attributes of
+        the estimator. If None, it'll inherit the output type set at the
+        module level, `cuml.global_output_type`.
+        See :ref:`output-data-type-configuration` for more info.
 
     Examples
     --------
@@ -131,23 +144,31 @@ class KNeighborsRegressor(NearestNeighbors, RegressorMixin):
     <https://scikit-learn.org/stable/modules/generated/sklearn.neighbors.KNeighborsClassifier.html>`_.
     """
 
-    def __init__(self, weights="uniform", **kwargs):
-        super(KNeighborsRegressor, self).__init__(**kwargs)
-        self._y = None
+    y = CumlArrayDescriptor()
+
+    def __init__(self, weights="uniform", *, handle=None, verbose=False,
+                 output_type=None, **kwargs):
+        super(KNeighborsRegressor, self).__init__(
+            handle=handle,
+            verbose=verbose,
+            output_type=output_type,
+            **kwargs)
+        self.y = None
         self.weights = weights
         if weights != "uniform":
             raise ValueError("Only uniform weighting strategy "
                              "is supported currently.")
 
     @generate_docstring(convert_dtype_cast='np.float32')
-    def fit(self, X, y, convert_dtype=True):
+    def fit(self, X, y, convert_dtype=True) -> "KNeighborsRegressor":
         """
         Fit a GPU index for k-nearest neighbors regression model.
 
         """
         self._set_target_dtype(y)
+
         super(KNeighborsRegressor, self).fit(X, convert_dtype=convert_dtype)
-        self._y, _, _, _ = \
+        self.y, _, _, _ = \
             input_to_cuml_array(y, order='F', check_dtype=np.float32,
                                 convert_to_dtype=(np.float32
                                                   if convert_dtype
@@ -159,15 +180,14 @@ class KNeighborsRegressor(NearestNeighbors, RegressorMixin):
                                        'type': 'dense',
                                        'description': 'Predicted values',
                                        'shape': '(n_samples, n_features)'})
-    def predict(self, X, convert_dtype=True):
+    def predict(self, X, convert_dtype=True) -> CumlArray:
         """
         Use the trained k-nearest neighbors regression model to
         predict the labels for X
 
         """
-
-        out_type = self._get_output_type(X)
-        out_dtype = self._get_target_dtype() if convert_dtype else None
+        if (convert_dtype):
+            cuml.internals.set_api_output_dtype(self._get_target_dtype())
 
         knn_indices = self.kneighbors(X, return_distance=False,
                                       convert_dtype=convert_dtype)
@@ -179,7 +199,7 @@ class KNeighborsRegressor(NearestNeighbors, RegressorMixin):
                                                   else None))
         cdef uintptr_t inds_ctype = inds.ptr
 
-        res_cols = 1 if len(self._y.shape) == 1 else self._y.shape[1]
+        res_cols = 1 if len(self.y.shape) == 1 else self.y.shape[1]
         res_shape = n_rows if res_cols == 1 else (n_rows, res_cols)
         results = CumlArray.zeros(res_shape, dtype=np.float32,
                                   order="C")
@@ -189,7 +209,7 @@ class KNeighborsRegressor(NearestNeighbors, RegressorMixin):
         cdef vector[float*] *y_vec = new vector[float*]()
 
         for col_num in range(res_cols):
-            col = self._y if res_cols == 1 else self._y[:, col_num]
+            col = self.y if res_cols == 1 else self.y[:, col_num]
             y_ptr = col.ptr
             y_vec.push_back(<float*>y_ptr)
 
@@ -207,8 +227,7 @@ class KNeighborsRegressor(NearestNeighbors, RegressorMixin):
 
         self.handle.sync()
 
-        return results.to_output(out_type, output_dtype=out_dtype)
+        return results
 
     def get_param_names(self):
-        return super(KNeighborsRegressor, self).get_param_names() \
-            + ["weights"]
+        return super().get_param_names() + ["weights"]

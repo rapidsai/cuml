@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
-#include <common/cudart_utils.h>
 #include <gtest/gtest.h>
-#include <cuda_utils.cuh>
+#include <raft/cudart_utils.h>
 #include <distance/fused_l2_nn.cuh>
-#include <linalg/norm.cuh>
-#include <random/rng.cuh>
+#include <raft/cuda_utils.cuh>
+#include <raft/linalg/norm.cuh>
+#include <raft/random/rng.cuh>
 #include "test_utils.h"
 
 namespace MLCommon {
@@ -103,8 +103,8 @@ class FusedL2NNTest : public ::testing::TestWithParam<Inputs<DataT>> {
     r.uniform(x, m * k, DataT(-1.0), DataT(1.0), stream);
     r.uniform(y, n * k, DataT(-1.0), DataT(1.0), stream);
     generateGoldenResult();
-    LinAlg::rowNorm(xn, x, k, m, LinAlg::L2Norm, true, stream);
-    LinAlg::rowNorm(yn, y, k, n, LinAlg::L2Norm, true, stream);
+    raft::linalg::rowNorm(xn, x, k, m, raft::linalg::L2Norm, true, stream);
+    raft::linalg::rowNorm(yn, y, k, n, raft::linalg::L2Norm, true, stream);
   }
 
   void TearDown() override {

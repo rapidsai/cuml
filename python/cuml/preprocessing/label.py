@@ -16,16 +16,17 @@
 import cupy as cp
 import cupyx
 
-from cuml.prims.label import make_monotonic, check_labels, \
-    invert_labels
-
 from cuml import Base
-from cuml.common import rmm_cupy_ary, with_cupy_rmm, CumlArray
-from cuml.common import has_scipy
+import cuml.internals
+from cuml.common import CumlArray, has_scipy
+from cuml.common.array_descriptor import CumlArrayDescriptor
+from cuml.common.array_sparse import SparseCumlArray
+from cuml.prims.label import check_labels, invert_labels, make_monotonic
 
 
+@cuml.internals.api_return_sparse_array()
 def label_binarize(y, classes, neg_label=0, pos_label=1,
-                   sparse_output=False):
+                   sparse_output=False) -> SparseCumlArray:
     """
     A stateless helper function to dummy encode multi-class labels.
 
@@ -39,17 +40,20 @@ def label_binarize(y, classes, neg_label=0, pos_label=1,
     sparse_output : bool whether to return sparse array
     """
 
-    classes = rmm_cupy_ary(cp.asarray, classes, dtype=classes.dtype)
-    labels = rmm_cupy_ary(cp.asarray, y, dtype=y.dtype)
+    classes = cp.asarray(classes, dtype=classes.dtype)
+    labels = cp.asarray(y, dtype=y.dtype)
 
     if not check_labels(labels, classes):
         raise ValueError("Unseen classes encountered in input")
 
-    row_ind = rmm_cupy_ary(cp.arange, 0, labels.shape[0], 1,
-                           dtype=y.dtype)
+    row_ind = cp.arange(0, labels.shape[0], 1,
+                        dtype=y.dtype)
     col_ind, _ = make_monotonic(labels, classes, copy=True)
 
-    val = rmm_cupy_ary(cp.full, row_ind.shape[0], pos_label, dtype=y.dtype)
+    # Convert from CumlArray to cupy
+    col_ind = cp.asarray(col_ind)
+
+    val = cp.full(row_ind.shape[0], pos_label, dtype=y.dtype)
 
     sp = cupyx.scipy.sparse.coo_matrix((val, (row_ind, col_ind)),
                                        shape=(col_ind.shape[0],
@@ -73,6 +77,31 @@ class LabelBinarizer(Base):
 
     """
     A multi-class dummy encoder for labels.
+
+    Parameters
+    ----------
+
+    neg_label : integer
+        label to be used as the negative binary label
+    pos_label : integer
+        label to be used as the positive binary label
+    sparse_output : bool
+        whether to return sparse arrays for transformed output
+    handle : cuml.Handle
+        Specifies the cuml.handle that holds internal CUDA state for
+        computations in this model. Most importantly, this specifies the CUDA
+        stream that will be used for the model's computations, so users can
+        run different models concurrently in different streams by creating
+        handles in several streams.
+        If it is None, a new one is created.
+    verbose : int or boolean, default=False
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        See :ref:`verbosity-levels` for more info.
+    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
+        Variable to control output type of the results and attributes of
+        the estimator. If None, it'll inherit the output type set at the
+        module level, `cuml.global_output_type`.
+        See :ref:`output-data-type-configuration` for more info.
 
     Examples
     --------
@@ -120,19 +149,19 @@ class LabelBinarizer(Base):
          [ 0  5 10  7  2  4  1  0  0  4  3  2  1]
     """
 
-    def __init__(self, neg_label=0, pos_label=1, sparse_output=False):
-        """
-        Creates a LabelBinarizer instance
+    classes_ = CumlArrayDescriptor()
 
-        Parameters
-        ----------
-
-        neg_label : integer label to be used as the negative binary label
-        pos_label : integer label to be used as the positive binary label
-        sparse_output : bool whether to return sparse arrays for transformed
-                        output
-        """
-        super().__init__()
+    def __init__(self,
+                 neg_label=0,
+                 pos_label=1,
+                 sparse_output=False,
+                 *,
+                 handle=None,
+                 verbose=False,
+                 output_type=None):
+        super().__init__(handle=handle,
+                         verbose=verbose,
+                         output_type=output_type)
 
         if neg_label >= pos_label:
             raise ValueError("neg_label=%s must be less "
@@ -148,10 +177,9 @@ class LabelBinarizer(Base):
         self.neg_label = neg_label
         self.pos_label = pos_label
         self.sparse_output = sparse_output
-        self._classes_ = None
+        self.classes_ = None
 
-    @with_cupy_rmm
-    def fit(self, y):
+    def fit(self, y) -> "LabelBinarizer":
         """
         Fit label binarizer
 
@@ -166,8 +194,6 @@ class LabelBinarizer(Base):
         self : returns an instance of self.
         """
 
-        self._set_output_type(y)
-
         if y.ndim > 2:
             raise ValueError("labels cannot be greater than 2 dimensions")
 
@@ -177,16 +203,15 @@ class LabelBinarizer(Base):
             if unique_classes != [0, 1]:
                 raise ValueError("2-d array can must be binary")
 
-            self._classes_ = CumlArray(cp.arange(0, y.shape[1]))
+            self.classes_ = cp.arange(0, y.shape[1])
         else:
-            self._classes_ = CumlArray(cp.unique(y).astype(y.dtype))
+            self.classes_ = cp.unique(y).astype(y.dtype)
 
         cp.cuda.Stream.null.synchronize()
 
         return self
 
-    @with_cupy_rmm
-    def fit_transform(self, y):
+    def fit_transform(self, y) -> SparseCumlArray:
         """
         Fit label binarizer and transform multi-class labels to their
         dummy-encoded representation.
@@ -202,7 +227,7 @@ class LabelBinarizer(Base):
         """
         return self.fit(y).transform(y)
 
-    def transform(self, y):
+    def transform(self, y) -> SparseCumlArray:
         """
         Transform multi-class labels to their dummy-encoded representation
         labels.
@@ -215,12 +240,12 @@ class LabelBinarizer(Base):
         -------
         arr : array with encoded labels
         """
-        return label_binarize(y, self._classes_,
+        return label_binarize(y, self.classes_,
                               pos_label=self.pos_label,
                               neg_label=self.neg_label,
                               sparse_output=self.sparse_output)
 
-    def inverse_transform(self, y, threshold=None):
+    def inverse_transform(self, y, threshold=None) -> CumlArray:
         """
         Transform binary labels back to original multi-class labels
 
@@ -244,15 +269,19 @@ class LabelBinarizer(Base):
 
         # If we are already given multi-class, just return it.
         if cupyx.scipy.sparse.isspmatrix(y):
-            y_mapped = y.tocsr().indices.astype(self._classes_.dtype)
+            y_mapped = y.tocsr().indices.astype(self.classes_.dtype)
         elif scipy_sparse_isspmatrix(y):
             y = y.tocsr()
-            y_mapped = rmm_cupy_ary(cp.array, y.indices,
-                                    dtype=y.indices.dtype)
+            y_mapped = cp.array(y.indices, dtype=y.indices.dtype)
         else:
-            y_mapped = rmm_cupy_ary(cp.argmax,
-                                    rmm_cupy_ary(cp.asarray, y,
-                                                 dtype=y.dtype),
-                                    axis=1).astype(y.dtype)
+            y_mapped = cp.argmax(cp.asarray(y, dtype=y.dtype),
+                                 axis=1).astype(y.dtype)
 
-        return invert_labels(y_mapped, self._classes_)
+        return invert_labels(y_mapped, self.classes_)
+
+    def get_param_names(self):
+        return super().get_param_names() + [
+            "neg_label",
+            "pos_label",
+            "sparse_output",
+        ]

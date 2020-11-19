@@ -16,7 +16,7 @@
 
 #include <cuml/manifold/umapparams.h>
 #include <iostream>
-#include <linalg/unary_op.cuh>
+#include <raft/linalg/unary_op.cuh>
 #include <selection/knn.cuh>
 
 #pragma once

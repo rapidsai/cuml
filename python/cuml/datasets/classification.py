@@ -13,10 +13,9 @@
 # limitations under the License.
 #
 
-
+import cuml.internals
 from cuml.common.import_utils import has_sklearn
 from cuml.datasets.utils import _create_rs_generator
-from cuml.common import with_cupy_rmm
 
 import cupy as cp
 import numpy as np
@@ -42,7 +41,7 @@ def _generate_hypercube(samples, dimensions, rng):
     return out
 
 
-@with_cupy_rmm
+@cuml.internals.api_return_any()
 def make_classification(n_samples=100, n_features=20, n_informative=2,
                         n_redundant=2, n_repeated=0, n_classes=2,
                         n_clusters_per_class=2, weights=None, flip_y=0.01,
@@ -247,7 +246,7 @@ def make_classification(n_samples=100, n_features=20, n_informative=2,
     # Initialize X and y
     X = generator.randn(n_samples * n_features, dtype=dtype)
     X = X.reshape((n_samples, n_features), order=order)
-    y = cp.zeros(n_samples, dtype=np.int)
+    y = cp.zeros(n_samples, dtype=np.int64)
 
     # Build the polytope whose vertices become cluster centroids
     if _centroids is None:

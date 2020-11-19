@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 
-#include <common/cudart_utils.h>
 #include <gtest/gtest.h>
-#include <cuda_utils.cuh>
+#include <raft/cudart_utils.h>
 #include <cuml/ensemble/randomforest.hpp>
-#include <random/rng.cuh>
+#include <raft/cuda_utils.cuh>
+#include <raft/random/rng.cuh>
 
 namespace ML {
 
@@ -93,8 +93,7 @@ class RFClassifierAccuracyTest : public ::testing::TestWithParam<RFInputs> {
                     0.f,            /* min_impurity_decrease */
                     false,          /* bootstrap_features */
                     sc,             /* split_criterion */
-                    false,          /* quantile_per_tree */
-                    false           /* shuffle_features */
+                    false           /* quantile_per_tree */
     );
     set_all_rf_params(rfp, 1, /* n_trees */
                       true,   /* bootstrap */

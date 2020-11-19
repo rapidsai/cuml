@@ -16,7 +16,7 @@
 import pytest
 
 from cuml.datasets import make_classification, make_blobs
-from ..thirdparty_adapters import to_output_type
+from cuml.thirdparty_adapters import to_output_type
 from numpy.testing import assert_allclose as np_assert_allclose
 
 import numpy as np
@@ -115,6 +115,10 @@ def blobs_dataset(request):
                 params=["numpy", "dataframe", "cupy", "cudf", "numba"])
 def int_dataset(request):
     randint = create_rand_integers()
+    random_loc = cp.random.choice(randint.size,
+                                  int(randint.size * 0.3),
+                                  replace=False)
+    randint.ravel()[random_loc] = cp.nan
     return convert(randint, request.param)
 
 

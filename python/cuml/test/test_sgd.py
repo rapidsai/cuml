@@ -51,7 +51,8 @@ def test_sgd(dtype, lrate, penalty, loss, datatype):
 
     cu_sgd = cumlSGD(learning_rate=lrate, eta0=0.005, epochs=2000,
                      fit_intercept=True, batch_size=4096,
-                     tol=0.0, penalty=penalty, loss=loss)
+                     tol=0.0, penalty=penalty, loss=loss,
+                     power_t=0.4)
 
     cu_sgd.fit(X_train, y_train)
     cu_pred = cu_sgd.predict(X_test)

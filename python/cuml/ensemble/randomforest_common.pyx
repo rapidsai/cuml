@@ -18,6 +18,7 @@ import ctypes
 import cupy as cp
 import math
 import warnings
+import typing
 
 import numpy as np
 from cuml import ForestInference
@@ -25,27 +26,34 @@ from cuml.fil.fil import TreeliteModel
 from cuml.raft.common.handle import Handle
 from cuml.common.base import Base
 from cuml.common.array import CumlArray
+import cuml.internals
 
 from cython.operator cimport dereference as deref
 
 from cuml.ensemble.randomforest_shared import treelite_serialize, \
     treelite_deserialize
 from cuml.ensemble.randomforest_shared cimport *
-from cuml.common import input_to_cuml_array, with_cupy_rmm
+from cuml.common import input_to_cuml_array
+from cuml.common.array_descriptor import CumlArrayDescriptor
 
 
 class BaseRandomForestModel(Base):
-    variables = ['n_estimators', 'max_depth', 'handle',
-                 'max_features', 'n_bins',
-                 'split_algo', 'split_criterion', 'min_rows_per_node',
-                 'min_impurity_decrease',
-                 'bootstrap', 'bootstrap_features',
-                 'verbose', 'rows_sample',
-                 'max_leaves', 'quantile_per_tree']
+    _param_names = ['n_estimators', 'max_depth', 'handle',
+                    'max_features', 'n_bins',
+                    'split_algo', 'split_criterion', 'min_rows_per_node',
+                    'min_impurity_decrease',
+                    'bootstrap', 'bootstrap_features',
+                    'verbose', 'rows_sample',
+                    'max_leaves', 'quantile_per_tree',
+                    'accuracy_metric', 'use_experimental_backend',
+                    'max_batch_size']
+
     criterion_dict = {'0': GINI, '1': ENTROPY, '2': MSE,
                       '3': MAE, '4': CRITERION_END}
 
-    def __init__(self, split_criterion, seed=None,
+    classes_ = CumlArrayDescriptor()
+
+    def __init__(self, *, split_criterion, seed=None,
                  n_streams=8, n_estimators=100,
                  max_depth=16, handle=None, max_features='auto',
                  n_bins=8, split_algo=1, bootstrap=True,
@@ -58,10 +66,8 @@ class BaseRandomForestModel(Base):
                  max_leaf_nodes=None, min_impurity_decrease=0.0,
                  min_impurity_split=None, oob_score=None,
                  random_state=None, warm_start=None, class_weight=None,
-                 quantile_per_tree=False, criterion=None):
-
-        if accuracy_metric:
-            BaseRandomForestModel.variables.append('accuracy_metric')
+                 quantile_per_tree=False, criterion=None,
+                 use_experimental_backend=False, max_batch_size=128):
 
         sklearn_params = {"criterion": criterion,
                           "min_samples_leaf": min_samples_leaf,
@@ -138,6 +144,8 @@ class BaseRandomForestModel(Base):
         self.dtype = dtype
         self.accuracy_metric = accuracy_metric
         self.quantile_per_tree = quantile_per_tree
+        self.use_experimental_backend = use_experimental_backend
+        self.max_batch_size = max_batch_size
         self.n_streams = handle.getNumInternalStreams()
         self.random_state = random_state
         self.rf_forest = 0
@@ -146,7 +154,7 @@ class BaseRandomForestModel(Base):
         self.treelite_handle = None
         self.treelite_serialized_model = None
 
-    def _get_max_feat_val(self):
+    def _get_max_feat_val(self) -> float:
         if type(self.max_features) == int:
             return self.max_features/self.n_cols
         elif type(self.max_features) == float:
@@ -225,10 +233,12 @@ class BaseRandomForestModel(Base):
         self.treelite_handle = <uintptr_t> tl_handle
         return self.treelite_handle
 
-    @with_cupy_rmm
-    def _dataset_setup_for_fit(self, X, y, convert_dtype):
-        self._set_output_type(X)
-        self._set_n_features_in(X)
+    @cuml.internals.api_base_return_generic(set_output_type=True,
+                                            set_n_features_in=True,
+                                            get_output_type=False)
+    def _dataset_setup_for_fit(
+            self, X, y,
+            convert_dtype) -> typing.Tuple[CumlArray, CumlArray, float]:
         # Reset the old tree data for new fit call
         self._reset_forest_data()
 
@@ -249,16 +259,14 @@ class BaseRandomForestModel(Base):
             if y_dtype != np.int32:
                 raise TypeError("The labels `y` need to be of dtype"
                                 " `int32`")
-            temp_classes = cp.unique(y_m)
-            self.num_classes = len(temp_classes)
+            self.classes_ = cp.unique(y_m)
+            self.num_classes = len(self.classes_)
             for i in range(self.num_classes):
-                if i not in temp_classes:
+                if i not in self.classes_:
                     raise ValueError("The labels need "
                                      "to be consecutive values from "
                                      "0 to the number of unique label values")
 
-            # Save internally as CumlArray
-            self._classes_ = CumlArray(temp_classes)
         else:
             y_m, _, _, y_dtype = \
                 input_to_cuml_array(
@@ -310,8 +318,8 @@ class BaseRandomForestModel(Base):
 
     def _predict_model_on_gpu(self, X, algo, convert_dtype,
                               fil_sparse_format, threshold=0.5,
-                              output_class=False, predict_proba=False):
-        out_type = self._get_output_type(X)
+                              output_class=False,
+                              predict_proba=False) -> CumlArray:
         _, n_rows, n_cols, dtype = \
             input_to_cuml_array(X, order='F',
                                 check_cols=self.n_cols)
@@ -331,7 +339,8 @@ class BaseRandomForestModel(Base):
             _check_fil_parameter_validity(depth=self.max_depth,
                                           fil_sparse_format=fil_sparse_format,
                                           algo=algo)
-        fil_model = ForestInference()
+        fil_model = ForestInference(handle=self.handle, verbose=self.verbose,
+                                    output_type=self.output_type)
         tl_to_fil_model = \
             fil_model.load_using_treelite_handle(treelite_handle,
                                                  output_class=output_class,
@@ -339,30 +348,19 @@ class BaseRandomForestModel(Base):
                                                  algo=algo,
                                                  storage_type=storage_type)
 
-        preds = tl_to_fil_model.predict(X, output_type=out_type,
-                                        predict_proba=predict_proba)
+        if (predict_proba):
+            preds = tl_to_fil_model.predict_proba(X)
+        else:
+            preds = tl_to_fil_model.predict(X)
         return preds
 
-    def _get_params(self, deep):
-        params = dict()
-        for key in BaseRandomForestModel.variables:
-            if key in ['handle']:
-                continue
-            var_value = getattr(self, key, None)
-            params[key] = var_value
-        return params
+    def get_param_names(self):
+        return super().get_param_names() + BaseRandomForestModel._param_names
 
-    def _set_params(self, **params):
+    def set_params(self, **params):
         self.treelite_serialized_model = None
 
-        if not params:
-            return self
-        for key, value in params.items():
-            if key not in BaseRandomForestModel.variables:
-                raise ValueError('Invalid parameter for estimator')
-            else:
-                setattr(self, key, value)
-        return self
+        super().set_params(**params)
 
 
 def _check_fil_parameter_validity(depth, algo, fil_sparse_format):
@@ -437,7 +435,9 @@ def _obtain_fil_model(treelite_handle, depth,
                                       fil_sparse_format=fil_sparse_format,
                                       algo=algo)
 
-    fil_model = ForestInference()
+    # Use output_type="input" to prevent an error
+    fil_model = ForestInference(output_type="input")
+
     tl_to_fil_model = \
         fil_model.load_using_treelite_handle(treelite_handle,
                                              output_class=output_class,

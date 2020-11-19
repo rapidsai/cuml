@@ -19,7 +19,6 @@ import cupy as cp
 from cuml import Base
 
 
-from cuml.common.memory_utils import with_cupy_rmm
 from cuml.common.exceptions import NotFittedError
 
 
@@ -34,6 +33,21 @@ class LabelEncoder(Base):
         is present during transform (default is to raise). When this parameter
         is set to 'ignore' and an unknown category is encountered during
         transform or inverse transform, the resulting encoding will be null.
+    handle : cuml.Handle
+        Specifies the cuml.handle that holds internal CUDA state for
+        computations in this model. Most importantly, this specifies the CUDA
+        stream that will be used for the model's computations, so users can
+        run different models concurrently in different streams by creating
+        handles in several streams.
+        If it is None, a new one is created.
+    verbose : int or boolean, default=False
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        See :ref:`verbosity-levels` for more info.
+    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
+        Variable to control output type of the results and attributes of
+        the estimator. If None, it'll inherit the output type set at the
+        module level, `cuml.global_output_type`.
+        See :ref:`output-data-type-configuration` for more info.
 
     Examples
     --------
@@ -109,7 +123,17 @@ class LabelEncoder(Base):
 
     """
 
-    def __init__(self, handle_unknown='error'):
+    def __init__(self,
+                 handle_unknown='error',
+                 *,
+                 handle=None,
+                 verbose=False,
+                 output_type=None):
+
+        super().__init__(handle=handle,
+                         verbose=verbose,
+                         output_type=output_type)
+
         self.classes_ = None
         self.dtype = None
         self._fitted: bool = False
@@ -127,7 +151,6 @@ class LabelEncoder(Base):
                    "got {0}.".format(self.handle_unknown))
             raise ValueError(msg)
 
-    @with_cupy_rmm
     def fit(self, y, _classes=None):
         """
         Fit a LabelEncoder (nvcategory) instance to a set of categories
@@ -210,7 +233,6 @@ class LabelEncoder(Base):
         self._fitted = True
         return cudf.Series(y._column.codes, index=y.index)
 
-    @with_cupy_rmm
     def inverse_transform(self, y: cudf.Series) -> cudf.Series:
         """
         Revert ordinal label to original label
@@ -248,3 +270,8 @@ class LabelEncoder(Base):
         reverted = y._column.find_and_replace(ran_idx, self.classes_, False)
 
         return cudf.Series(reverted)
+
+    def get_param_names(self):
+        return super().get_param_names() + [
+            "handle_unknown",
+        ]
