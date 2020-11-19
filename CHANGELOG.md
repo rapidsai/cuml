@@ -62,6 +62,8 @@
 - PR #3130: Return Python string from `dump_as_json()` of RF
 - PR #3136: Fix stochastic gradient descent example
 - PR #3156: Force local conda artifact install
+- PR #3162: Removing accidentally checked in debug file
+
 
 # cuML 0.16.0 (Date TBD)
 
