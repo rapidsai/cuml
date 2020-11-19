@@ -14,12 +14,8 @@
  * limitations under the License.
  */
 
-#include <thrust/copy.h>
-#include <thrust/for_each.h>
-#include <thrust/iterator/counting_iterator.h>
 #include <thrust/iterator/iterator_adaptor.h>
 #include <thrust/iterator/transform_iterator.h>
-#include <thrust/reduce.h>
 #include <algorithm>
 #include <cmath>
 
@@ -36,23 +32,17 @@ struct vec;
 
 template <typename BinaryOp>
 struct Vectorized {
+  BinaryOp op;
+  __device__ Vectorized(BinaryOp op_) : op(op_) {}
   template <int NITEMS, typename T>
   constexpr __host__ __device__ __forceinline__ vec<NITEMS, T> operator()(
     vec<NITEMS, T> a, vec<NITEMS, T> b) const {
     vec<NITEMS, T> c;
 #pragma unroll
-    for (int i = 0; i < NITEMS; i++) c[i] = BinaryOp()(a[i], b[i]);
+    for (int i = 0; i < NITEMS; i++) c[i] = op(a[i], b[i]);
     return c;
   }
 };
-template <float (*BinaryOp)(float, float), int N, typename T>
-constexpr __host__ __device__ __forceinline__ vec<N, T> vectorized(
-  vec<N, T> a, vec<N, T> b) {
-  vec<N, T> c;
-#pragma unroll
-  for (int i = 0; i < N; i++) c[i] = BinaryOp(a[i], b[i]);
-  return c;
-}
 
 template <int N, typename T>
 struct vec {
@@ -63,16 +53,22 @@ struct vec {
   }
   __host__ __device__ T& operator[](int i) { return data[i]; }
   __host__ __device__ T operator[](int i) const { return data[i]; }
-  friend __host__ __device__ void operator+=(vec<N, T>& a, const vec<N, T>& b) {
+  template <typename Vec>
+  friend __host__ __device__ vec<N, T> operator+(const vec<N, T>& a,
+                                                 const Vec& b) {
+    return Vectorized(cub::Sum())(a, vec<N, T>(b));
+  }
+  template <typename Vec>
+  friend __host__ __device__ void operator+=(vec<N, T>& a, const Vec& b) {
     a = a + b;
   }
-  friend __host__ __device__ vec<N, T> operator+(const vec<N, T>& a,
-                                                 const vec<N, T>& b) {
-    return Vectorized<cub::Sum>()(a, b);
+  template <typename Vec>
+  friend __host__ __device__ void operator/(vec<N, T>& a, const Vec& b) {
+    return Vectorized(thrust::divides<T>())(a, vec<N, T>(b));
   }
   template <typename Vec>
   friend __host__ __device__ void operator/=(vec<N, T>& a, const Vec& b) {
-    a = Vectorized<thrust::divides<T>>()(a, vec<N, T>(b));
+    a = a / b;
   }
 };
 
@@ -166,13 +162,11 @@ size_t block_reduce_best_class_footprint_host() {
 
 // the device template should achieve the best performance, using up-to-date
 // CUB defaults
-template <typename BinaryOp, typename T>
-__device__ __forceinline__ T block_reduce(T value,
-                                          int valid_threads,
-                                          void* storage) {
+template <typename T, typename BinaryOp>
+__device__ __forceinline__ T block_reduce(T value, BinaryOp op void* storage) {
   typedef cub::BlockReduce<T, FIL_TPB> BlockReduceT;
   return BlockReduceT(*(typename BlockReduceT::TempStorage*)storage)
-    .Reduce(value, Vectorized<BinaryOp>(), valid_threads);
+    .Reduce(value, Vectorized(op));
 }
 
 template <int NITEMS,
@@ -211,8 +205,9 @@ struct tree_aggregator_t {
                                            int output_stride,
                                            output_t transform, int num_trees) {
     __syncthreads();
-    acc = block_reduce<cub::Sum>(acc, blockDim.x, tmp_storage);
+    acc = block_reduce(acc, cub::Sum(), tmp_storage);
     if (threadIdx.x == 0) {
+#pragma unroll
       for (int i = 0; i < NITEMS; ++i) {
         int row = blockIdx.x * NITEMS + i;
         if (row < num_rows) out[row * output_stride] = acc[i];
@@ -221,53 +216,49 @@ struct tree_aggregator_t {
   }
 };
 
-template <typename BinaryOp, int NITEMS>
-__device__ __forceinline__ vec<NITEMS, float> block_allreduce(
-  vec<NITEMS, float> value, int valid_threads, void* storage) {
-  auto result = block_reduce<BinaryOp>(value, valid_threads, storage);
+template <typename T, typename BinaryOp>
+__device__ __forceinline__ T block_allreduce(T value, BinaryOp op,
+                                             void* storage) {
+  auto result = block_reduce(value, op, storage);
   // broadcast sum to all threads
   __syncthreads();  // free up tmp_storage
-  if (threadIdx.x == 0) *(vec<NITEMS, float>*)storage = result;
+  if (threadIdx.x == 0) *(T*)storage = result;
   __syncthreads();
-  return *(vec<NITEMS, float>*)storage;
+  return *(T*)storage;
 }
 
-template <typename BinaryOp, typename ItA>
-__device__ __forceinline__ typename ItA::value_type allreduce_shmem(
-  ItA begin, ItA end, void* tmp_storage) {
-  typedef typename ItA::value_type value_type;
-  value_type partial = thrust::reduce(thrust::seq, begin, end, value_type(),
-                                      Vectorized<BinaryOp>());
-
-  return block_allreduce<BinaryOp>(partial, blockDim.x, tmp_storage);
+template <typename It, typename BinaryOp>
+__device__ __forceinline__ auto allreduce_shmem(It begin, It end, BinaryOp op,
+                                                void* tmp_storage)
+  -> It::typename value_type {
+  It::typename value_type thread_sum(0);
+  for (It it = begin; it < end; ++it)
+    thread_sum = Vectorized(op)(thread_sum, *it);
+  return block_allreduce(thread_sum, op, tmp_storage);
 }
 
-template <int NITEMS, typename It>
-__device__ __forceinline__ void write_best_class_in_block(ItA begin, ItA end,
+template <typename It>
+__device__ __forceinline__ void write_best_class_in_block(It begin, It end,
                                                           void* tmp_storage,
                                                           float* out,
                                                           int num_rows) {
   // find best class per block (for each of the NITEMS rows)
-  best = allreduce_shmem<cub::ArgMax>(begin, end, tmp_storage);
-
+  auto best = allreduce_shmem(begin, end, cub::ArgMax(), tmp_storage);
   // write it out to global memory
   if (threadIdx.x == 0) {
-    for (int i = 0; i < NITEMS; ++i) {
-      int row = blockIdx.x * NITEMS + i;
-      if (row < num_rows) out[row] = best[i].key;
-    }
+    for (int row = 0; row < num_rows; ++row)
+      if (row < num_rows) out[row] = best[row].key;
   }
 }
 
 template <typename T>
-class StridedIt : public
-#define base                                                     \
-  thrust::iterator_adaptor<StridedIt<T>, T, thrust::use_default, \
-                           thrust::forward_device_iterator_tag>
-                  base {
+class StridedIt
+  : public thrust::iterator_adaptor<StridedIt<T>, T, thrust::use_default,
+                                    thrust::forward_device_iterator_tag> {
  public:
-  typedef base super_t;
-#undef base
+  typedef thrust::iterator_adaptor<StridedIt<T>, T, thrust::use_default,
+                                   thrust::forward_device_iterator_tag>
+    super_t;
 
   explicit __device__ StridedIt(T p_, int stride_)
     : super_t(p_), begin(p_), stride(stride_) {}
@@ -326,37 +317,31 @@ template <typename It>
 __device__ __forceinline__ void block_softmax(It begin, It end,
                                               void* tmp_storage) {
   // subtract max before exponentiating for numerical stability
-  typedef typename It::value_type value_type;
-  value_type max = allreduce_shmem<cub::Max>(begin, end, tmp_storage);
+  typedef It::typename value_type value_type;
+  value_type max = allreduce_shmem(begin, end, cub::Max(), tmp_storage);
 
-  thrust::for_each(thrust::seq, begin, end, [max] __device__(auto& v) {
-    v = vectorized<shifted_exp>(v, max);
-  });
+  for (It it = begin; it < end; ++it) *it = Vectorized(shifted_exp)(*it, max);
   // sum of exponents
-  value_type soe = allreduce_shmem<cub::Sum>(begin, end, tmp_storage);
+  value_type soe = allreduce_shmem(begin, end, cub::Sum(), tmp_storage);
   // softmax phase 2: normalization
-  thrust::for_each(thrust::seq, begin, end,
-                   [soe] __device__(auto& v) { v /= soe; });
+  for (It it = begin; it < end; ++it) *it /= soe;
 }
 
-template <int NITEMS, typename It>
+template <typename It>
 __device__ __forceinline__ void normalize_softmax_and_write(
   It begin, It end, output_t transform, int num_trees, void* tmp_storage,
   int num_classes, float* out, int num_rows) {
   if ((transform & output_t::AVG) != 0) {
-    thrust::for_each(
-      thrust::seq, begin, end,
-      [num_trees] __device__(vec<NITEMS, float> & v) { v /= num_trees; });
+    for (It it = begin; it < end; ++it) *it /= num_trees;
   }
-  return;
   if ((transform & output_t::SOFTMAX) != 0)
     block_softmax(begin, end, tmp_storage);
-  // write result to global memory
-  for (int i = 0; i < NITEMS; ++i) {
-    int row = blockIdx.x * NITEMS + i;
-    if (row >= num_rows) return;
+    // write result to global memory
+#pragma unroll
+  for (int row = 0; row < num_rows; ++row) {
     StridedItArray<float> out_a(out + num_classes * row, num_classes);
-    thrust::copy_n(thrust::seq, row_begin(i), num_classes, out_a.begin());
+    auto out = out_a.begin();
+    for (It in = begin; in < end;) *out++ = (*in++)[row];
   }
 }
 
@@ -407,13 +392,13 @@ struct tree_aggregator_t<NITEMS, GROVE_PER_CLASS_FEW_CLASSES> {
 
     if (num_outputs == 1) {  // will output class
       auto candidate = to_vec(threadIdx.x, acc);
-      write_best_class_in_block<NITEMS>(
-        &candidate, &candidate + (threadIdx.x < num_classes), tmp_storage, out,
-        num_rows);
+      write_best_class_in_block(&candidate,
+                                &candidate + (threadIdx.x < num_classes),
+                                tmp_storage, out, num_rows);
     } else {  // output softmax-ed margin
-      normalize_softmax_and_write<NITEMS>(
-        &acc, &acc + (threadIdx.x < num_classes), transform, num_trees,
-        tmp_storage, num_classes, out, num_rows);
+      normalize_softmax_and_write(&acc, &acc + (threadIdx.x < num_classes),
+                                  transform, num_trees, tmp_storage,
+                                  num_classes, out, num_rows);
     }
   }
 };
@@ -448,7 +433,7 @@ struct tree_aggregator_t<NITEMS, GROVE_PER_CLASS_MANY_CLASSES> {
       tmp_storage(shared_workspace),
       num_classes(num_classes_),
       per_class_a(per_class_value, num_classes_) {
-    thrust::fill(thrust::seq, per_class_a.begin(), per_class_a.end(), 0.0f);
+    for (It it = per_class_a.begin(); it < per_class_a.end(); ++it) (*it)(0);
     // __syncthreads() is called in infer_k
   }
 
@@ -591,8 +576,9 @@ __global__ void infer_k(storage_type forest, predict_params params) {
     }
     if (leaf_algo == GROVE_PER_CLASS_MANY_CLASSES) __syncthreads();
   }
-  acc.finalize(params.preds, params.num_rows, params.num_outputs,
-               params.transform, forest.num_trees());
+  acc.finalize(params.preds + params.num_outputs * block_row0,
+               min((size_t)NITEMS, params.num_rows - block_row0),
+               params.num_outputs, params.transform, forest.num_trees());
 }
 
 template <int NITEMS, leaf_algo_t leaf_algo>
