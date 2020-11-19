@@ -956,4 +956,3 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
             # fit and predict require conflicting memory layouts
             'preferred_input_order': None
         }
-
