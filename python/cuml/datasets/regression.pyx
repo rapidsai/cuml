@@ -14,16 +14,16 @@
 # limitations under the License.
 #
 
-# cython: profile=False
 # distutils: language = c++
-# cython: embedsignature = True
-# cython: language_level = 3
 
-import cuml
+import typing
+
 import numpy as np
 
-from cuml.common.handle cimport cumlHandle
-from cuml.common import get_dev_array_ptr, zeros
+import cuml.internals
+from cuml.common.array import CumlArray
+from cuml.raft.common.handle cimport handle_t
+from cuml.raft.common.handle import Handle
 
 from libcpp cimport bool
 from libc.stdint cimport uint64_t, uintptr_t
@@ -32,7 +32,7 @@ from random import randint
 
 cdef extern from "cuml/datasets/make_regression.hpp" namespace "ML":
     void cpp_make_regression "ML::Datasets::make_regression" (
-        const cumlHandle& handle,
+        const handle_t& handle,
         float* out,
         float* values,
         long n_rows,
@@ -48,7 +48,7 @@ cdef extern from "cuml/datasets/make_regression.hpp" namespace "ML":
         uint64_t seed)
 
     void cpp_make_regression "ML::Datasets::make_regression" (
-        const cumlHandle& handle,
+        const handle_t& handle,
         double* out,
         double* values,
         long n_rows,
@@ -72,13 +72,26 @@ inp_to_dtype = {
 }
 
 
-def make_regression(n_samples=100, n_features=2, n_informative=2, n_targets=1,
-                    bias=0.0, effective_rank=None, tail_strength=0.5,
-                    noise=0.0, shuffle=True, coef=False, random_state=None,
-                    dtype='single', handle=None):
+@cuml.internals.api_return_generic()
+def make_regression(
+    n_samples=100,
+    n_features=2,
+    n_informative=2,
+    n_targets=1,
+    bias=0.0,
+    effective_rank=None,
+    tail_strength=0.5,
+    noise=0.0,
+    shuffle=True,
+    coef=False,
+    random_state=None,
+    dtype='single',
+    handle=None
+) -> typing.Union[typing.Tuple[CumlArray, CumlArray],
+                  typing.Tuple[CumlArray, CumlArray, CumlArray]]:
     """Generate a random regression problem.
 
-    See https://scikit-learn.org/stable/modules/generated/sklearn.datasets.make_regression.html
+    See https://scikit-learn.org/stable/modules/generated/sklearn.datasets.make_regression.html # noqa: E501
 
     Examples
     --------
@@ -149,7 +162,12 @@ def make_regression(n_samples=100, n_features=2, n_informative=2, n_targets=1,
     coef : device array of shape [n_features, n_targets], optional
         The coefficient of the underlying linear model. It is returned only if
         coef is True.
-    """  # noqa
+    """
+
+    # Set the default output type to "cupy". This will be ignored if the user
+    # has set `cuml.global_output_type`. Only necessary for array generation
+    # methods that do not take an array as input
+    cuml.internals.set_api_output_type("cupy")
 
     if dtype not in ['single', 'float', 'double', np.float32, np.float64]:
         raise TypeError("dtype must be either 'float' or 'double'")
@@ -159,20 +177,22 @@ def make_regression(n_samples=100, n_features=2, n_informative=2, n_targets=1,
     if effective_rank is None:
         effective_rank = -1
 
-    handle = cuml.common.handle.Handle() if handle is None else handle
-    cdef cumlHandle* handle_ = <cumlHandle*><size_t>handle.getHandle()
+    handle = Handle() if handle is None else handle
+    cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
 
-    out = zeros((n_samples, n_features), dtype=dtype, order='C')
-    cdef uintptr_t out_ptr = get_dev_array_ptr(out)
+    out = CumlArray.zeros((n_samples, n_features), dtype=dtype, order='C')
+    cdef uintptr_t out_ptr = out.ptr
 
-    values = zeros((n_samples, n_targets), dtype=dtype, order='C')
-    cdef uintptr_t values_ptr = get_dev_array_ptr(values)
+    values = CumlArray.zeros((n_samples, n_targets), dtype=dtype, order='C')
+    cdef uintptr_t values_ptr = values.ptr
 
     cdef uintptr_t coef_ptr
     coef_ptr = <uintptr_t> NULL
     if coef:
-        coefs = zeros((n_features, n_targets), dtype=dtype, order='C')
-        coef_ptr = get_dev_array_ptr(coefs)
+        coefs = CumlArray.zeros((n_features, n_targets),
+                                dtype=dtype,
+                                order='C')
+        coef_ptr = coefs.ptr
 
     if random_state is None:
         random_state = randint(0, 1e18)

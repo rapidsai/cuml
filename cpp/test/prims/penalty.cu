@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
-#include <common/cudart_utils.h>
 #include <gtest/gtest.h>
+#include <raft/cudart_utils.h>
 #include <functions/penalty.cuh>
-#include <random/rng.cuh>
+#include <raft/random/rng.cuh>
 #include "test_utils.h"
 
 namespace MLCommon {
@@ -39,41 +39,41 @@ class PenaltyTest : public ::testing::TestWithParam<PenaltyInputs<T>> {
     cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
 
-    allocate(in, len);
-    allocate(out_lasso, 1);
-    allocate(out_ridge, 1);
-    allocate(out_elasticnet, 1);
-    allocate(out_lasso_grad, len);
-    allocate(out_ridge_grad, len);
-    allocate(out_elasticnet_grad, len);
-    allocate(out_lasso_ref, 1);
-    allocate(out_ridge_ref, 1);
-    allocate(out_elasticnet_ref, 1);
-    allocate(out_lasso_grad_ref, len);
-    allocate(out_ridge_grad_ref, len);
-    allocate(out_elasticnet_grad_ref, len);
+    raft::allocate(in, len);
+    raft::allocate(out_lasso, 1);
+    raft::allocate(out_ridge, 1);
+    raft::allocate(out_elasticnet, 1);
+    raft::allocate(out_lasso_grad, len);
+    raft::allocate(out_ridge_grad, len);
+    raft::allocate(out_elasticnet_grad, len);
+    raft::allocate(out_lasso_ref, 1);
+    raft::allocate(out_ridge_ref, 1);
+    raft::allocate(out_elasticnet_ref, 1);
+    raft::allocate(out_lasso_grad_ref, len);
+    raft::allocate(out_ridge_grad_ref, len);
+    raft::allocate(out_elasticnet_grad_ref, len);
 
     T h_in[len] = {0.1, 0.35, -0.9, -1.4};
-    updateDevice(in, h_in, len, stream);
+    raft::update_device(in, h_in, len, stream);
 
     T h_out_lasso_ref[1] = {1.65};
-    updateDevice(out_lasso_ref, h_out_lasso_ref, 1, stream);
+    raft::update_device(out_lasso_ref, h_out_lasso_ref, 1, stream);
 
     T h_out_ridge_ref[1] = {1.741499};
-    updateDevice(out_ridge_ref, h_out_ridge_ref, 1, stream);
+    raft::update_device(out_ridge_ref, h_out_ridge_ref, 1, stream);
 
     T h_out_elasticnet_ref[1] = {1.695749};
-    updateDevice(out_elasticnet_ref, h_out_elasticnet_ref, 1, stream);
+    raft::update_device(out_elasticnet_ref, h_out_elasticnet_ref, 1, stream);
 
     T h_out_lasso_grad_ref[len] = {0.6, 0.6, -0.6, -0.6};
-    updateDevice(out_lasso_grad_ref, h_out_lasso_grad_ref, len, stream);
+    raft::update_device(out_lasso_grad_ref, h_out_lasso_grad_ref, len, stream);
 
     T h_out_ridge_grad_ref[len] = {0.12, 0.42, -1.08, -1.68};
-    updateDevice(out_ridge_grad_ref, h_out_ridge_grad_ref, len, stream);
+    raft::update_device(out_ridge_grad_ref, h_out_ridge_grad_ref, len, stream);
 
     T h_out_elasticnet_grad_ref[len] = {0.36, 0.51, -0.84, -1.14};
-    updateDevice(out_elasticnet_grad_ref, h_out_elasticnet_grad_ref, len,
-                 stream);
+    raft::update_device(out_elasticnet_grad_ref, h_out_elasticnet_grad_ref, len,
+                        stream);
 
     T alpha = 0.6;
     T l1_ratio = 0.5;
@@ -119,43 +119,45 @@ const std::vector<PenaltyInputs<double>> inputsd = {{0.01, 4}};
 typedef PenaltyTest<float> PenaltyTestF;
 TEST_P(PenaltyTestF, Result) {
   ASSERT_TRUE(devArrMatch(out_lasso_ref, out_lasso, 1,
-                          CompareApprox<float>(params.tolerance)));
+                          raft::CompareApprox<float>(params.tolerance)));
 
   ASSERT_TRUE(devArrMatch(out_lasso_grad_ref, out_lasso_grad, params.len,
-                          CompareApprox<float>(params.tolerance)));
+                          raft::CompareApprox<float>(params.tolerance)));
 
   ASSERT_TRUE(devArrMatch(out_ridge_ref, out_ridge, 1,
-                          CompareApprox<float>(params.tolerance)));
+                          raft::CompareApprox<float>(params.tolerance)));
 
   ASSERT_TRUE(devArrMatch(out_ridge_grad_ref, out_ridge_grad, params.len,
-                          CompareApprox<float>(params.tolerance)));
+                          raft::CompareApprox<float>(params.tolerance)));
 
   ASSERT_TRUE(devArrMatch(out_elasticnet_ref, out_elasticnet, 1,
-                          CompareApprox<float>(params.tolerance)));
+                          raft::CompareApprox<float>(params.tolerance)));
 
   ASSERT_TRUE(devArrMatch(out_elasticnet_grad_ref, out_elasticnet_grad,
-                          params.len, CompareApprox<float>(params.tolerance)));
+                          params.len,
+                          raft::CompareApprox<float>(params.tolerance)));
 }
 
 typedef PenaltyTest<double> PenaltyTestD;
 TEST_P(PenaltyTestD, Result) {
   ASSERT_TRUE(devArrMatch(out_lasso_ref, out_lasso, 1,
-                          CompareApprox<double>(params.tolerance)));
+                          raft::CompareApprox<double>(params.tolerance)));
 
   ASSERT_TRUE(devArrMatch(out_lasso_grad_ref, out_lasso_grad, params.len,
-                          CompareApprox<double>(params.tolerance)));
+                          raft::CompareApprox<double>(params.tolerance)));
 
   ASSERT_TRUE(devArrMatch(out_ridge_ref, out_ridge, 1,
-                          CompareApprox<double>(params.tolerance)));
+                          raft::CompareApprox<double>(params.tolerance)));
 
   ASSERT_TRUE(devArrMatch(out_ridge_grad_ref, out_ridge_grad, params.len,
-                          CompareApprox<double>(params.tolerance)));
+                          raft::CompareApprox<double>(params.tolerance)));
 
   ASSERT_TRUE(devArrMatch(out_elasticnet_ref, out_elasticnet, 1,
-                          CompareApprox<double>(params.tolerance)));
+                          raft::CompareApprox<double>(params.tolerance)));
 
   ASSERT_TRUE(devArrMatch(out_elasticnet_grad_ref, out_elasticnet_grad,
-                          params.len, CompareApprox<double>(params.tolerance)));
+                          params.len,
+                          raft::CompareApprox<double>(params.tolerance)));
 }
 
 INSTANTIATE_TEST_CASE_P(PenaltyTests, PenaltyTestF,

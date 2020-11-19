@@ -20,6 +20,7 @@ import cupyx
 from cuml.common.input_utils import input_to_cuml_array
 from cuml.common.memory_utils import with_cupy_rmm
 from cuml.common.import_utils import has_scipy
+import cuml.internals
 from cuml.common.kernel_utils import cuda_kernel_factory
 from cupy.sparse import csr_matrix as cp_csr_matrix,\
     coo_matrix as cp_coo_matrix, csc_matrix as cp_csc_matrix
@@ -79,7 +80,7 @@ def _map_l2_norm_kernel(dtype):
     return cuda_kernel_factory(map_kernel_str, dtype, "map_l2_norm_kernel")
 
 
-@with_cupy_rmm
+@cuml.internals.api_return_any()
 def csr_row_normalize_l1(X, inplace=True):
     """Row normalize for csr matrix using the l1 norm"""
     if not inplace:
@@ -92,7 +93,7 @@ def csr_row_normalize_l1(X, inplace=True):
     return X
 
 
-@with_cupy_rmm
+@cuml.internals.api_return_any()
 def csr_row_normalize_l2(X, inplace=True):
     """Row normalize for csr matrix using the l2 norm"""
     if not inplace:
@@ -105,7 +106,7 @@ def csr_row_normalize_l2(X, inplace=True):
     return X
 
 
-@with_cupy_rmm
+@cuml.internals.api_return_any()
 def csr_diag_mul(X, y, inplace=True):
     """Multiply a sparse X matrix with diagonal matrix y"""
     if not inplace:
@@ -116,6 +117,7 @@ def csr_diag_mul(X, y, inplace=True):
     return X
 
 
+@cuml.internals.api_return_any()
 def create_csr_matrix_from_count_df(count_df, empty_doc_ids, n_doc, n_features,
                                     dtype=cp.float32):
     """

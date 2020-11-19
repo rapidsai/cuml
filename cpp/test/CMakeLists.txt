@@ -48,16 +48,20 @@ if(BUILD_CUML_TESTS)
   add_executable(ml
     sg/cd_test.cu
     sg/dbscan_test.cu
+    sg/decisiontree_batchedlevel_algo.cu
     sg/fil_test.cu
     sg/handle_test.cu
     sg/holtwinters_test.cu
     sg/kmeans_test.cu
     sg/knn_test.cu
     sg/logger.cpp
+    sg/nvtx_test.cpp
     sg/ols.cu
     sg/pca_test.cu
     sg/quasi_newton.cu
     sg/rf_accuracy_test.cu
+    sg/rf_batched_classification_test.cu
+    sg/rf_batched_regression_test.cu
     sg/rf_depth_test.cu
     sg/rf_test.cu
     sg/rf_treelite_test.cu
@@ -70,16 +74,18 @@ if(BUILD_CUML_TESTS)
     sg/tsvd_test.cu
     sg/umap_parametrizable_test.cu)
 
+  add_dependencies(ml cutlass)
+
   target_include_directories(ml PRIVATE ${CUML_TEST_INCLUDE_DIRS})
 
   target_link_libraries(ml ${CUML_TEST_LINK_LIBRARIES})
+
 endif(BUILD_CUML_TESTS)
 
 ##############################################################################
 # - build test_ml_mg executable ----------------------------------------------
 
 if(BUILD_CUML_MG_TESTS)
-  find_package(MPI)
 
   if(MPI_CXX_FOUND)
     # (please keep the filenames in alphabetical order)
@@ -88,23 +94,21 @@ if(BUILD_CUML_MG_TESTS)
       mg/knn_classify.cu
       mg/knn_regress.cu
       mg/main.cu
-      mg/pca.cu
-      mg/test_ml_mg_utils.cu)
-
-    add_dependencies(ml_mg cumlcommsmpi)
+      mg/pca.cu)
 
     set(CUML_TEST_INCLUDE_DIRS
         ${CUML_TEST_INCLUDE_DIRS}
+        NCCL::NCCL
         ${MPI_CXX_INCLUDE_PATH}
-        ${CMAKE_CURRENT_SOURCE_DIR}/../comms/mpi/include)
+        ${cumlprims_mg_INCLUDE_DIRS})
 
     target_include_directories(ml_mg PUBLIC ${CUML_TEST_INCLUDE_DIRS})
 
-    set(CUML_TEST_LINK_LIBRARIES 
-    	${CUML_TEST_LINK_LIBRARIES} 
+    set(CUML_TEST_LINK_LIBRARIES
+    	${CUML_TEST_LINK_LIBRARIES}
+    	NCCL::NCCL
     	${MPI_CXX_LIBRARIES}
-    	cumlcommsmpi
-    	cumlprims)
+    	cumlprims_mg::cumlprims_mg)
 
     target_link_libraries(ml_mg ${CUML_TEST_LINK_LIBRARIES})
 
@@ -119,25 +123,21 @@ endif(BUILD_CUML_MG_TESTS)
 if(BUILD_PRIMS_TESTS)
   # (please keep the filenames in alphabetical order)
   add_executable(prims
-    prims/add.cu
     prims/add_sub_dev_scalar.cu
-    prims/adjustedRandIndex.cu
+    prims/adjusted_rand_index.cu
     prims/batched/csr.cu
     prims/batched/gemv.cu
     prims/batched/information_criterion.cu
     prims/batched/make_symm.cu
     prims/batched/matrix.cu
-    prims/binary_op.cu
-    prims/ternary_op.cu
     prims/cache.cu
-    prims/coalesced_reduction.cu
-    prims/cuda_utils.cu
     prims/columnSort.cu
-    prims/completenessScore.cu
+    prims/completeness_score.cu
     prims/contingencyMatrix.cu
     prims/coo.cu
     prims/cov.cu
     prims/csr.cu
+    prims/cutlass_gemm.cu
     prims/decoupled_lookback.cu
     prims/device_utils.cu
     prims/dispersion.cu
@@ -146,26 +146,20 @@ if(BUILD_PRIMS_TESTS)
     prims/dist_euc_exp.cu
     prims/dist_euc_unexp.cu
     prims/dist_l1.cu
-    prims/divide.cu
-    prims/eig.cu
-    prims/eig_sel.cu
-    prims/eltwise.cu
     prims/eltwise2d.cu
     prims/entropy.cu
     prims/epsilon_neighborhood.cu
     prims/fast_int_div.cu
     prims/fused_l2_nn.cu
     prims/gather.cu
-    prims/gemm.cu
-    prims/gemm_layout.cu
     prims/gram.cu
     prims/grid_sync.cu
     prims/hinge.cu
     prims/histogram.cu
-    prims/homogeneityScore.cu
+    prims/homogeneity_score.cu
     prims/host_buffer.cu
     prims/jones_transform.cu
-    prims/klDivergence.cu
+    prims/kl_divergence.cu
     prims/knn_classify.cu
     prims/knn_regression.cu
     prims/knn.cu
@@ -177,45 +171,25 @@ if(BUILD_PRIMS_TESTS)
     prims/make_arima.cu
     prims/make_blobs.cu
     prims/make_regression.cu
-    prims/map_then_reduce.cu
-    prims/math.cu
-    prims/matrix.cu
-    prims/matrix_vector_op.cu
-    prims/mean.cu
-    prims/mean_center.cu
     prims/minmax.cu
     prims/mvg.cu
-    prims/multiply.cu
-    prims/mutualInfoScore.cu
-    prims/norm.cu
+    prims/mutual_info_score.cu
     prims/penalty.cu
     prims/permute.cu
     prims/power.cu
-    prims/randIndex.cu
-    prims/reduce.cu
+    prims/rand_index.cu
     prims/reduce_cols_by_key.cu
     prims/reduce_rows_by_key.cu
     prims/reverse.cu
-    prims/rng.cu
-    prims/rng_int.cu
     prims/rsvd.cu
-    prims/sample_without_replacement.cu
-    prims/scatter.cu
     prims/score.cu
     prims/seive.cu
     prims/sigmoid.cu
-    prims/silhouetteScore.cu
+    prims/silhouette_score.cu
     prims/sqrt.cu
-    prims/stddev.cu
-    prims/strided_reduction.cu
-    prims/subtract.cu
-    prims/sum.cu
-    prims/svd.cu
     prims/ternary_op.cu
-    prims/transpose.cu
     prims/trustworthiness.cu
-    prims/unary_op.cu
-    prims/vMeasure.cu
+    prims/v_measure.cu
     prims/weighted_mean.cu
     ../src/common/logger.cpp)  # because prims is header only!
 

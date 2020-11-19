@@ -13,10 +13,7 @@
 # limitations under the License.
 #
 
-# cython: profile=False
 # distutils: language = c++
-# cython: embedsignature = True
-# cython: language_level = 3
 
 import cudf
 import cupy as cp
@@ -25,10 +22,12 @@ import numpy as np
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t
 
+import cuml.internals
 from cuml.common.array import CumlArray
 from cuml.common.base import Base
+from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
-from cuml.common.handle cimport cumlHandle
+from cuml.raft.common.handle cimport handle_t
 from cuml.common import input_to_cuml_array
 from cuml.common import with_cupy_rmm
 from cuml.metrics import accuracy_score
@@ -36,7 +35,7 @@ from cuml.metrics import accuracy_score
 
 cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM":
 
-    void qnFit(cumlHandle& cuml_handle,
+    void qnFit(handle_t& cuml_handle,
                float *X,
                float *y,
                int N,
@@ -56,7 +55,7 @@ cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM":
                bool X_col_major,
                int loss_type) except +
 
-    void qnFit(cumlHandle& cuml_handle,
+    void qnFit(handle_t& cuml_handle,
                double *X,
                double *y,
                int N,
@@ -76,7 +75,7 @@ cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM":
                bool X_col_major,
                int loss_type) except +
 
-    void qnDecisionFunction(cumlHandle& cuml_handle,
+    void qnDecisionFunction(handle_t& cuml_handle,
                             float *X,
                             int N,
                             int D,
@@ -87,7 +86,7 @@ cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM":
                             int loss_type,
                             float *scores) except +
 
-    void qnDecisionFunction(cumlHandle& cuml_handle,
+    void qnDecisionFunction(handle_t& cuml_handle,
                             double *X,
                             int N,
                             int D,
@@ -98,7 +97,7 @@ cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM":
                             int loss_type,
                             double *scores) except +
 
-    void qnPredict(cumlHandle& cuml_handle,
+    void qnPredict(handle_t& cuml_handle,
                    float *X,
                    int N,
                    int D,
@@ -109,7 +108,7 @@ cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM":
                    int loss_type,
                    float *preds) except +
 
-    void qnPredict(cumlHandle& cuml_handle,
+    void qnPredict(handle_t& cuml_handle,
                    double *X,
                    int N,
                    int D,
@@ -212,8 +211,21 @@ class QN(Base):
     lbfgs_memory: int (default = 5)
         Rank of the lbfgs inverse-Hessian approximation. Method will use
         O(lbfgs_memory * D) memory.
-    verbose : int or boolean (default = False)
-        Controls verbose level of logging.
+    handle : cuml.Handle
+        Specifies the cuml.handle that holds internal CUDA state for
+        computations in this model. Most importantly, this specifies the CUDA
+        stream that will be used for the model's computations, so users can
+        run different models concurrently in different streams by creating
+        handles in several streams.
+        If it is None, a new one is created.
+    verbose : int or boolean, default=False
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        See :ref:`verbosity-levels` for more info.
+    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
+        Variable to control output type of the results and attributes of
+        the estimator. If None, it'll inherit the output type set at the
+        module level, `cuml.global_output_type`.
+        See :ref:`output-data-type-configuration` for more info.
 
     Attributes
     -----------
@@ -235,6 +247,9 @@ class QN(Base):
          <https://www.microsoft.com/en-us/research/publication/scalable-training-of-l1-regularized-log-linear-models/>
     """
 
+    _coef_ = CumlArrayDescriptor()
+    intercept_ = CumlArrayDescriptor()
+
     def __init__(self, loss='sigmoid', fit_intercept=True,
                  l1_strength=0.0, l2_strength=0.0, max_iter=1000, tol=1e-3,
                  linesearch_max_iter=50, lbfgs_memory=5,
@@ -251,7 +266,8 @@ class QN(Base):
         self.linesearch_max_iter = linesearch_max_iter
         self.lbfgs_memory = lbfgs_memory
         self.num_iter = 0
-        self._coef_ = None  # accessed via coef_
+        self._coef_ = None
+        self.intercept_ = None
 
         if loss not in ['sigmoid', 'softmax', 'normal']:
             raise ValueError("loss " + str(loss) + " not supported.")
@@ -265,15 +281,20 @@ class QN(Base):
             'normal': 1
         }[loss]
 
+    @property
+    @cuml.internals.api_base_return_array_skipall
+    def coef_(self):
+        if self.fit_intercept:
+            return self._coef_[0:-1]
+        else:
+            return self._coef_
+
     @generate_docstring()
-    @with_cupy_rmm
-    def fit(self, X, y, convert_dtype=False):
+    def fit(self, X, y, convert_dtype=False) -> "QN":
         """
         Fit the model with X and y.
 
         """
-        self._set_base_attributes(output_type=X)
-
         X_m, n_rows, self.n_cols, self.dtype = input_to_cuml_array(
             X, order='F', check_dtype=[np.float32, np.float64]
         )
@@ -312,7 +333,7 @@ class QN(Base):
 
         cdef float objective32
         cdef double objective64
-        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
+        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
         cdef int num_iters
 
@@ -364,6 +385,8 @@ class QN(Base):
 
         self.num_iters = num_iters
 
+        self._calc_intercept()
+
         self.handle.sync()
 
         del X_m
@@ -371,7 +394,8 @@ class QN(Base):
 
         return self
 
-    def _decision_function(self, X, convert_dtype=False):
+    @cuml.internals.api_base_return_array_skipall
+    def _decision_function(self, X, convert_dtype=False) -> CumlArray:
         """
         Gives confidence score for X
 
@@ -405,7 +429,7 @@ class QN(Base):
         cdef uintptr_t coef_ptr = self._coef_.ptr
         cdef uintptr_t scores_ptr = scores.ptr
 
-        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
+        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
         if self.dtype == np.float32:
             qnDecisionFunction(handle_[0],
@@ -431,6 +455,8 @@ class QN(Base):
                                <int> self.loss_type,
                                <double*> scores_ptr)
 
+        self._calc_intercept()
+
         self.handle.sync()
 
         del X_m
@@ -441,14 +467,12 @@ class QN(Base):
                                        'type': 'dense',
                                        'description': 'Predicted values',
                                        'shape': '(n_samples, 1)'})
-    def predict(self, X, convert_dtype=False):
+    @cuml.internals.api_base_return_array(get_output_dtype=True)
+    def predict(self, X, convert_dtype=False) -> CumlArray:
         """
         Predicts the y for X.
 
         """
-        out_type = self._get_output_type(X)
-        out_dtype = self._get_target_dtype()
-
         X_m, n_rows, n_cols, self.dtype = input_to_cuml_array(
             X, check_dtype=self.dtype,
             convert_to_dtype=(self.dtype if convert_dtype else None),
@@ -460,7 +484,7 @@ class QN(Base):
         cdef uintptr_t coef_ptr = self._coef_.ptr
         cdef uintptr_t pred_ptr = preds.ptr
 
-        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
+        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
         if self.dtype == np.float32:
             qnPredict(handle_[0],
@@ -486,29 +510,30 @@ class QN(Base):
                       <int> self.loss_type,
                       <double*> pred_ptr)
 
+        self._calc_intercept()
+
         self.handle.sync()
 
         del X_m
 
-        return preds.to_output(output_type=out_type, output_dtype=out_dtype)
+        return preds
 
     def score(self, X, y):
         return accuracy_score(y, self.predict(X))
 
-    def __getattr__(self, attr):
-        if attr == 'intercept_':
-            if self.fit_intercept:
-                return self._coef_[-1].to_output(self.output_type)
-            else:
-                return CumlArray.zeros(shape=1)
-        elif attr == 'coef_':
-            if self.fit_intercept:
-                return self._coef_[0:-1].to_output(self.output_type)
-            else:
-                return self._coef_.to_output(self.output_type)
+    def _calc_intercept(self):
+        """
+        If `fit_intercept == True`, then the last row of `coef_` contains
+        `intercept_`. This should be called after every function that sets
+        `coef_`
+        """
+
+        if (self.fit_intercept):
+            self.intercept_ = self._coef_[-1]
         else:
-            return super().__getattr__(attr)
+            self.intercept_ = CumlArray.zeros(shape=1)
 
     def get_param_names(self):
-        return ['loss', 'fit_intercept', 'l1_strength', 'l2_strength',
+        return super().get_param_names() + \
+            ['loss', 'fit_intercept', 'l1_strength', 'l2_strength',
                 'max_iter', 'tol', 'linesearch_max_iter', 'lbfgs_memory']

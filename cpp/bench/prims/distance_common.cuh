@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include <common/cudart_utils.h>
+#include <raft/cudart_utils.h>
 #include <distance/distance.cuh>
 #include "../common/ml_benchmark.hpp"
 
@@ -26,11 +26,11 @@ struct Params {
   int m, n, k;
 };  // struct Params
 
-template <typename T, ML::Distance::DistanceType DType>
+template <typename T, raft::distance::DistanceType DType>
 struct Distance : public Fixture {
   Distance(const std::string& name, const Params& p)
-    : Fixture(name,
-              std::shared_ptr<deviceAllocator>(new defaultDeviceAllocator)),
+    : Fixture(name, std::shared_ptr<deviceAllocator>(
+                      new raft::mr::device::default_allocator)),
       params(p) {}
 
  protected:

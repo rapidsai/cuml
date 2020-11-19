@@ -15,7 +15,7 @@
  */
 
 #pragma once
-#include <common/cudart_utils.h>
+#include <raft/cudart_utils.h>
 #include "hw_eval.cuh"
 #include "hw_utils.cuh"
 
@@ -414,15 +414,14 @@ __global__ void holtwinters_optim_gpu_global_kernel(
 // https://github.com/rapidsai/cuml/issues/890
 template <typename Dtype>
 void holtwinters_optim_gpu(
-  const ML::cumlHandle_impl &handle, const Dtype *ts, int n, int batch_size,
+  const raft::handle_t &handle, const Dtype *ts, int n, int batch_size,
   int frequency, const Dtype *start_level, const Dtype *start_trend,
   const Dtype *start_season, Dtype *alpha, bool optim_alpha, Dtype *beta,
   bool optim_beta, Dtype *gamma, bool optim_gamma, Dtype *level, Dtype *trend,
   Dtype *season, Dtype *xhat, Dtype *error, ML::OptimCriterion *optim_result,
   ML::SeasonalType seasonal, const ML::OptimParams<Dtype> optim_params) {
-  cudaStream_t stream = handle.getStream();
-  std::shared_ptr<MLCommon::deviceAllocator> dev_allocator =
-    handle.getDeviceAllocator();
+  cudaStream_t stream = handle.get_stream();
+  auto dev_allocator = handle.get_device_allocator();
 
   //int total_blocks = GET_NUM_BLOCKS(batch_size);
   //int threads_per_block = GET_THREADS_PER_BLOCK(batch_size);
@@ -435,7 +434,7 @@ void holtwinters_optim_gpu(
   bool single_param =
     (optim_alpha + optim_beta + optim_gamma > 1) ? false : true;
 
-  if (sm_needed > MLCommon::getSharedMemPerBlock()) {  // Global memory //
+  if (sm_needed > raft::getSharedMemPerBlock()) {  // Global memory //
     MLCommon::device_buffer<Dtype> pseason(dev_allocator, stream,
                                            batch_size * frequency);
     holtwinters_optim_gpu_global_kernel<Dtype>

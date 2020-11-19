@@ -16,8 +16,8 @@
 
 #pragma once
 
-#include <cuda_utils.cuh>
-#include "unary_op.cuh"
+#include <raft/cuda_utils.cuh>
+#include <raft/linalg/unary_op.cuh>
 
 namespace MLCommon {
 namespace LinAlg {
@@ -34,8 +34,9 @@ namespace LinAlg {
  */
 template <typename math_t, typename IdxType = int>
 void sqrt(math_t *out, const math_t *in, IdxType len, cudaStream_t stream) {
-  unaryOp(
-    out, in, len, [] __device__(math_t in) { return mySqrt(in); }, stream);
+  raft::linalg::unaryOp(
+    out, in, len, [] __device__(math_t in) { return raft::mySqrt(in); },
+    stream);
 }
 /** @} */
 

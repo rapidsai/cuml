@@ -107,8 +107,10 @@ def test_rf_classification_multi_class(partitions_per_worker, cluster):
         # the sklearn model when ran with the same parameters gives an
         # accuracy of 0.69. There is a difference of 0.0632 (6.32%) between
         # the two when the code runs on a single GPU (seen in the CI)
+        # Refer to issue : https://github.com/rapidsai/cuml/issues/2806 for
+        # more information on the threshold value.
 
-        assert acc_score_gpu >= 0.61
+        assert acc_score_gpu >= 0.60
 
     finally:
         c.close()
@@ -266,7 +268,7 @@ def test_rf_classification_dask_fil_predict_proba(partitions_per_worker,
     cu_rf_mg.fit(X_train_df, y_train_df)
 
     fil_preds_proba = cu_rf_mg.predict_proba(X_test_df).compute()
-    fil_preds_proba = cp.asnumpy(fil_preds_proba.to_gpu_matrix())
+    fil_preds_proba = cp.asnumpy(fil_preds_proba.as_gpu_matrix())
     y_proba = np.zeros(np.shape(fil_preds_proba))
     y_proba[:, 1] = y_test
     y_proba[:, 0] = 1.0 - y_test

@@ -23,7 +23,6 @@ from cudf import DataFrame, Series
 from cudf.core import GenericIndex
 import cuml.common.logger as logger
 
-from cuml.common import with_cupy_rmm
 import warnings
 
 
@@ -81,6 +80,21 @@ class OneHotEncoder(Base):
         transform, the resulting one-hot encoded columns for this feature
         will be all zeros. In the inverse transform, an unknown category
         will be denoted as None.
+    handle : cuml.Handle
+        Specifies the cuml.handle that holds internal CUDA state for
+        computations in this model. Most importantly, this specifies the CUDA
+        stream that will be used for the model's computations, so users can
+        run different models concurrently in different streams by creating
+        handles in several streams.
+        If it is None, a new one is created.
+    verbose : int or boolean, default=False
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        See :ref:`verbosity-levels` for more info.
+    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
+        Variable to control output type of the results and attributes of
+        the estimator. If None, it'll inherit the output type set at the
+        module level, `cuml.global_output_type`.
+        See :ref:`output-data-type-configuration` for more info.
 
     Attributes
     ----------
@@ -90,8 +104,19 @@ class OneHotEncoder(Base):
         be retained.
 
     """
-    def __init__(self, categories='auto', drop=None, sparse=True,
-                 dtype=np.float, handle_unknown='error'):
+    def __init__(self,
+                 categories='auto',
+                 drop=None,
+                 sparse=True,
+                 dtype=np.float,
+                 handle_unknown='error',
+                 *,
+                 handle=None,
+                 verbose=False,
+                 output_type=None):
+        super().__init__(handle=handle,
+                         verbose=verbose,
+                         output_type=output_type)
         self.categories = categories
         self.sparse = sparse
         self.dtype = dtype
@@ -220,8 +245,11 @@ class OneHotEncoder(Base):
         if type(self.categories) is str and self.categories == 'auto':
             self._features = X.columns
             self._encoders = {
-                feature: LabelEncoder(handle_unknown=self.handle_unknown).fit(
-                    self._unique(X[feature]))
+                feature: LabelEncoder(handle=self.handle,
+                                      verbose=self.verbose,
+                                      output_type=self.output_type,
+                                      handle_unknown=self.handle_unknown).fit(
+                                          self._unique(X[feature]))
                 for feature in self._features
             }
         else:
@@ -232,8 +260,14 @@ class OneHotEncoder(Base):
                                  " it has to be of shape (n_features, _).")
             self._encoders = dict()
             for feature in self._features:
-                le = LabelEncoder(handle_unknown=self.handle_unknown)
+
+                le = LabelEncoder(handle=self.handle,
+                                  verbose=self.verbose,
+                                  output_type=self.output_type,
+                                  handle_unknown=self.handle_unknown)
+
                 self._encoders[feature] = le.fit(self.categories[feature])
+
                 if self.handle_unknown == 'error':
                     if self._has_unknown(X[feature],
                                          self._encoders[feature].classes_):
@@ -264,7 +298,6 @@ class OneHotEncoder(Base):
         X = self._check_input(X)
         return self.fit(X).transform(X)
 
-    @with_cupy_rmm
     def transform(self, X):
         """
         Transform X using one-hot encoding.
@@ -302,9 +335,11 @@ class OneHotEncoder(Base):
                 # If we exceed the max value, upconvert
                 if (max_value > np.iinfo(col_idx.dtype).max):
                     col_idx = col_idx.astype(np.min_scalar_type(max_value))
-                    logger.debug("Upconverting column: '{}', to dtype: '{}', \
-                            to support up to {} classes".format(
-                        feature, np.min_scalar_type(max_value), max_value))
+                    logger.debug("Upconverting column: '{}', to dtype: '{}', "
+                                 "to support up to {} classes".format(
+                                     feature,
+                                     np.min_scalar_type(max_value),
+                                     max_value))
 
                 # increase indices to take previous features into account
                 col_idx += j
@@ -355,7 +390,6 @@ class OneHotEncoder(Base):
                 "Calculated column code dtypes: {}.\n"
                 "Internal Error: {}".format(input_types_str, repr(e)))
 
-    @with_cupy_rmm
     def inverse_transform(self, X):
         """
         Convert the data back to the original representation.
@@ -426,3 +460,12 @@ class OneHotEncoder(Base):
                               "values. Returning output as a DataFrame "
                               "instead.")
         return result
+
+    def get_param_names(self):
+        return super().get_param_names() + [
+            "categories",
+            "drop",
+            "sparse",
+            "dtype",
+            "handle_unknown",
+        ]

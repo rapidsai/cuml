@@ -13,7 +13,7 @@
 # limitations under the License.
 #
 
-find_package(Doxygen 1.8.20 REQUIRED)
+find_package(Doxygen 1.8.12 REQUIRED)
 
 function(add_doxygen_target)
   if(Doxygen_FOUND)

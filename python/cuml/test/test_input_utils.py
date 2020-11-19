@@ -22,7 +22,6 @@ import numpy as np
 from pandas import DataFrame as pdDF
 
 from cuml.common import input_to_cuml_array, CumlArray
-from cuml.common import input_to_dev_array
 from cuml.common import input_to_host_array
 from cuml.common import has_cupy
 from cuml.common.input_utils import convert_dtype
@@ -205,15 +204,15 @@ def test_dtype_check(dtype, check_dtype, input_type, order):
         pytest.skip('cupy not installed')
 
     if dtype == check_dtype:
-        _, _, _, _, got_dtype = \
-            input_to_dev_array(input_data, check_dtype=check_dtype,
-                               order=order)
+        _, _, _, got_dtype = \
+            input_to_cuml_array(input_data, check_dtype=check_dtype,
+                                order=order)
         assert got_dtype == check_dtype
     else:
         with pytest.raises(TypeError):
-            _, _, _, _, got_dtype = \
-                input_to_dev_array(input_data, check_dtype=check_dtype,
-                                   order=order)
+            _, _, _, got_dtype = \
+                input_to_cuml_array(input_data, check_dtype=check_dtype,
+                                    order=order)
 
 
 @pytest.mark.parametrize('num_rows', test_num_rows)
@@ -320,7 +319,7 @@ def check_ptr(a, b, input_type):
 
 def get_input(type, nrows, ncols, dtype, order='C', out_dtype=False):
     rand_mat = (cp.random.rand(nrows, ncols) * 10)
-    rand_mat = cp.array(rand_mat, order=order).astype(dtype)
+    rand_mat = cp.array(rand_mat, dtype=dtype, order=order)
 
     if type == 'numpy':
         result = np.array(cp.asnumpy(rand_mat), order=order)
@@ -338,8 +337,7 @@ def get_input(type, nrows, ncols, dtype, order='C', out_dtype=False):
         result = pdDF(cp.asnumpy(rand_mat))
 
     if type == 'cuml':
-        result = CumlArray(data=rand_mat,
-                           order=order if order != 'K' else None)
+        result = CumlArray(data=rand_mat)
 
     if out_dtype:
         return result, np.array(cp.asnumpy(rand_mat).astype(out_dtype),

@@ -17,7 +17,7 @@
 #pragma once
 
 #include <common/cumlHandle.hpp>
-#include <cuda_utils.cuh>
+#include <raft/cuda_utils.cuh>
 #include "pack.h"
 
 namespace Dbscan {
@@ -62,11 +62,13 @@ __global__ void vertex_degree_kernel(Pack<Type, Index_> data,
   adj[row * N + col] = res;
 
   if (sizeof(Index_) == 4) {
-    atomicAdd((int *)(vd + row), (int)res);
-    atomicAdd((int *)(vd + batchSize), (int)res);
+    raft::myAtomicAdd((int *)(vd + row), (int)res);
+    raft::myAtomicAdd((int *)(vd + batchSize), (int)res);
   } else if (sizeof(Index_) == 8) {
-    atomicAdd((unsigned long long *)(vd + row), res);
-    atomicAdd((unsigned long long *)(vd + batchSize), res);
+    raft::myAtomicAdd<unsigned long long>((unsigned long long *)(vd + row),
+                                          res);
+    raft::myAtomicAdd<unsigned long long>(
+      (unsigned long long *)(vd + batchSize), res);
   }
 }
 
@@ -76,8 +78,8 @@ void launcher(Pack<Type, Index_> data, Index_ startVertexId, Index_ batchSize,
   ASSERT(sizeof(Index_) == 4 || sizeof(Index_) == 8,
          "index_t should be 4 or 8 bytes");
 
-  dim3 grid(ceildiv(data.N, (Index_)TPB_X), ceildiv(batchSize, (Index_)TPB_Y),
-            1);
+  dim3 grid(raft::ceildiv(data.N, (Index_)TPB_X),
+            raft::ceildiv(batchSize, (Index_)TPB_Y), 1);
   dim3 blk(TPB_X, TPB_Y, 1);
   data.resetArray(stream, batchSize + 1);
   vertex_degree_kernel<<<grid, blk, 0, stream>>>(data, startVertexId,

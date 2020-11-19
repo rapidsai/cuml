@@ -16,14 +16,14 @@
 
 #pragma once
 
-#include <common/cudart_utils.h>
-#include <linalg/cublas_wrappers.h>
-#include <cuda_utils.cuh>
-#include <linalg/add.cuh>
-#include <linalg/binary_op.cuh>
-#include <linalg/map_then_reduce.cuh>
-#include <linalg/matrix_vector_op.cuh>
-#include <stats/mean.cuh>
+#include <raft/cudart_utils.h>
+#include <raft/linalg/cublas_wrappers.h>
+#include <raft/cuda_utils.cuh>
+#include <raft/linalg/add.cuh>
+#include <raft/linalg/binary_op.cuh>
+#include <raft/linalg/map_then_reduce.cuh>
+#include <raft/linalg/matrix_vector_op.cuh>
+#include <raft/stats/mean.cuh>
 #include <vector>
 #include "simple_mat.cuh"
 
@@ -31,7 +31,7 @@ namespace ML {
 namespace GLM {
 
 template <typename T>
-inline void linearFwd(const cumlHandle_impl &handle, SimpleMat<T> &Z,
+inline void linearFwd(const raft::handle_t &handle, SimpleMat<T> &Z,
                       const SimpleMat<T> &X, const SimpleMat<T> &W,
                       cudaStream_t stream) {
   // Forward pass:  compute Z <- W * X.T + bias
@@ -46,8 +46,8 @@ inline void linearFwd(const cumlHandle_impl &handle, SimpleMat<T> &Z,
     // - Z <- b (broadcast): TODO reads Z unnecessarily atm
     // - Z <- W * X^T + Z    : TODO can be fused in CUTLASS?
     auto set_bias = [] __device__(const T z, const T b) { return b; };
-    MLCommon::LinAlg::matrixVectorOp(Z.data, Z.data, bias.data, Z.n, Z.m, false,
-                                     false, set_bias, stream);
+    raft::linalg::matrixVectorOp(Z.data, Z.data, bias.data, Z.n, Z.m, false,
+                                 false, set_bias, stream);
 
     Z.assign_gemm(handle, 1, weights, false, X, true, 1, stream);
   } else {
@@ -56,7 +56,7 @@ inline void linearFwd(const cumlHandle_impl &handle, SimpleMat<T> &Z,
 }
 
 template <typename T>
-inline void linearBwd(const cumlHandle_impl &handle, SimpleMat<T> &G,
+inline void linearBwd(const raft::handle_t &handle, SimpleMat<T> &G,
                       const SimpleMat<T> &X, const SimpleMat<T> &dZ,
                       bool setZero, cudaStream_t stream) {
   // Backward pass:
@@ -74,7 +74,7 @@ inline void linearBwd(const cumlHandle_impl &handle, SimpleMat<T> &G,
 
     // TODO can this be fused somehow?
     Gweights.assign_gemm(handle, 1.0 / X.m, dZ, false, X, false, beta, stream);
-    MLCommon::Stats::mean(Gbias.data, dZ.data, dZ.m, dZ.n, false, true, stream);
+    raft::stats::mean(Gbias.data, dZ.data, dZ.m, dZ.n, false, true, stream);
   } else {
     G.assign_gemm(handle, 1.0 / X.m, dZ, false, X, false, beta, stream);
   }
@@ -95,9 +95,9 @@ struct GLMBase : GLMDims {
   typedef SimpleMat<T> Mat;
   typedef SimpleVec<T> Vec;
 
-  const cumlHandle_impl &handle;
+  const raft::handle_t &handle;
 
-  GLMBase(const cumlHandle_impl &handle, int D, int C, bool fit_intercept)
+  GLMBase(const raft::handle_t &handle, int D, int C, bool fit_intercept)
     : GLMDims(C, D, fit_intercept), handle(handle) {}
 
   /*
@@ -120,13 +120,13 @@ struct GLMBase : GLMDims {
     // TODO would be nice to have a kernel that fuses these two steps
     // This would be easy, if mapThenSumReduce allowed outputing the result of
     // map (supporting inplace)
-    MLCommon::LinAlg::mapThenSumReduce(loss_val, y.len, f_l, stream, y.data,
-                                       Z.data);
+    raft::linalg::mapThenSumReduce(loss_val, y.len, f_l, stream, y.data,
+                                   Z.data);
 
     auto f_dl = [=] __device__(const T y, const T z) {
       return loss->dlz(y, z);
     };
-    MLCommon::LinAlg::binaryOp(Z.data, y.data, Z.data, y.len, f_dl, stream);
+    raft::linalg::binaryOp(Z.data, y.data, Z.data, y.len, f_dl, stream);
   }
 
   inline void loss_grad(T *loss_val, Mat &G, const Mat &W,
@@ -168,7 +168,7 @@ struct GLMWithData : GLMDims {
     objective->loss_grad(dev_scalar, G, W, X, y, Z, stream);
     lossVal.reset(dev_scalar, 1);
     T loss_host;
-    MLCommon::updateHost(&loss_host, lossVal.data, 1, stream);
+    raft::update_host(&loss_host, lossVal.data, 1, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
     return loss_host;
   }

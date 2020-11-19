@@ -18,9 +18,9 @@
 
 #include <stdint.h>
 #include <cub/cub.cuh>
-#include <cuda_utils.cuh>
 #include <limits>
 #include <linalg/contractions.cuh>
+#include <raft/cuda_utils.cuh>
 
 #if (ENABLE_MEMCPY_ASYNC == 1)
 #include <cuda_pipeline.h>
@@ -183,14 +183,14 @@ struct FusedL2NN : public BaseClass {
       for (int i = 0; i < P::AccRowsPerTh; ++i) {
 #pragma unroll
         for (int j = 0; j < P::AccColsPerTh; ++j) {
-          acc[i][j] = mySqrt(acc[i][j]);
+          acc[i][j] = raft::mySqrt(acc[i][j]);
         }
       }
     }
     // reduce
     cub::KeyValuePair<IdxT, DataT> val[P::AccRowsPerTh];
     KVPMinReduce<IdxT, DataT> pairRedOp;
-    auto lid = laneId();
+    auto lid = raft::laneId();
 #pragma unroll
     for (int i = 0; i < P::AccRowsPerTh; ++i) {
       val[i] = {-1, maxVal};
@@ -203,8 +203,8 @@ struct FusedL2NN : public BaseClass {
       __syncthreads();
 #pragma unroll
       for (int j = P::AccThCols / 2; j > 0; j >>= 1) {
-        auto tmpkey = shfl(val[i].key, lid + j);
-        auto tmpvalue = shfl(val[i].value, lid + j);
+        auto tmpkey = raft::shfl(val[i].key, lid + j);
+        auto tmpvalue = raft::shfl(val[i].value, lid + j);
         cub::KeyValuePair<IdxT, DataT> tmp = {tmpkey, tmpvalue};
         val[i] = pairRedOp(tmp, val[i]);
       }
@@ -239,11 +239,11 @@ struct FusedL2NN : public BaseClass {
   DI void updateResults() {
     // for now have first lane from each warp update a unique output row. This
     // will resolve hang issues with pre-Volta architectures
-    auto nWarps = blockDim.x / WarpSize;
-    auto lid = laneId();
+    auto nWarps = blockDim.x / raft::WarpSize;
+    auto lid = raft::laneId();
     auto ridx = IdxT(blockIdx.x) * P::Mblk;
     if (lid == 0) {
-      for (int i = threadIdx.x / WarpSize; i < P::Mblk; i += nWarps) {
+      for (int i = threadIdx.x / raft::WarpSize; i < P::Mblk; i += nWarps) {
         auto rid = ridx + i;
         if (rid < this->m) {
           auto val = sRed[i];
@@ -331,9 +331,10 @@ void fusedL2NNImpl(OutT* min, const DataT* x, const DataT* y, const DataT* xn,
                    ReduceOpT redOp, bool sqrt, bool initOutBuffer,
                    cudaStream_t stream) {
   typedef typename LinAlg::Policy4x4<DataT, VecLen>::Policy Policy;
-  dim3 grid(ceildiv<int>(m, Policy::Mblk), ceildiv<int>(n, Policy::Nblk));
+  dim3 grid(raft::ceildiv<int>(m, Policy::Mblk),
+            raft::ceildiv<int>(n, Policy::Nblk));
   dim3 blk(Policy::Nthreads);
-  auto nblks = ceildiv<int>(m, Policy::Nthreads);
+  auto nblks = raft::ceildiv<int>(m, Policy::Nthreads);
   auto maxVal = std::numeric_limits<DataT>::max();
   CUDA_CHECK(cudaMemsetAsync(workspace, 0, sizeof(int) * m, stream));
   if (initOutBuffer) {

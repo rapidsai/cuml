@@ -15,9 +15,9 @@
  */
 
 #pragma once
-#include <cuda_utils.cuh>
 #include <cuml/common/logger.hpp>
 #include <limits>
+#include <raft/cuda_utils.cuh>
 
 namespace ML {
 namespace GLM {
@@ -214,7 +214,7 @@ inline int lbfgs_search_dir(const LBFGSParam<T> &param, int *n_vec,
 template <typename T>
 HDI T get_pseudo_grad(T x, T dlossx, T C) {
   if (x != 0) {
-    return dlossx + MLCommon::sgn(x) * C;
+    return dlossx + raft::sgn(x) * C;
   }
   T dplus = dlossx + C;
   T dmins = dlossx - C;

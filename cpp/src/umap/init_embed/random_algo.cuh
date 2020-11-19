@@ -15,7 +15,7 @@
  */
 
 #include <cuml/manifold/umapparams.h>
-#include <random/rng.cuh>
+#include <raft/random/rng.cuh>
 
 #pragma once
 
@@ -33,7 +33,7 @@ void launcher(const T *X, int n, int d, const int64_t *knn_indices,
               cudaStream_t stream) {
   uint64_t seed = params->random_state;
 
-  MLCommon::Random::Rng r(seed);
+  raft::random::Rng r(seed);
   r.uniform<T>(embedding, n * params->n_components, -10, 10, stream);
 }
 }  // namespace RandomInit

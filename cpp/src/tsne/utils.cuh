@@ -23,7 +23,7 @@
 
 #include <common/cumlHandle.hpp>
 #include <cuml/common/logger.hpp>
-#include <linalg/norm.cuh>
+#include <raft/linalg/norm.cuh>
 
 #include <cuda_runtime.h>
 #include <cuml/cuml.hpp>
@@ -33,8 +33,8 @@
 #include <thrust/transform.h>
 
 #include <sys/time.h>
-#include <random/rng.cuh>
-#include <stats/sum.cuh>
+#include <raft/random/rng.cuh>
+#include <raft/stats/sum.cuh>
 
 #include <unistd.h>
 #include <chrono>
@@ -57,7 +57,7 @@ void random_vector(float *vector, const float minimum, const float maximum,
     gettimeofday(&tp, NULL);
     seed = tp.tv_sec * 1000 + tp.tv_usec;
   }
-  MLCommon::Random::Rng random(seed);
+  raft::random::Rng random(seed);
   random.uniform<float>(vector, size, minimum, maximum, stream);
   CUDA_CHECK(cudaPeekAtLastError());
 }

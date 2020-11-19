@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include <cuda_utils.cuh>
+#include <raft/cuda_utils.cuh>
 
 namespace MLCommon {
 namespace LinAlg {
@@ -73,11 +73,12 @@ __global__ void symmKernel(DataT* out, const DataT* in, IdxT batchSize, IdxT n,
  * @param stream cuda stream
  * @param op custom epilogue functor
  */
-template <typename DataT, typename IdxT, typename EpilogueOp = Nop<DataT, IdxT>>
+template <typename DataT, typename IdxT,
+          typename EpilogueOp = raft::Nop<DataT, IdxT>>
 void make_symm(DataT* out, const DataT* in, IdxT batchSize, IdxT n,
-               cudaStream_t stream, EpilogueOp op = Nop<DataT, IdxT>()) {
+               cudaStream_t stream, EpilogueOp op = raft::Nop<DataT, IdxT>()) {
   dim3 blk(TileDim, BlockRows);
-  auto nblks = ceildiv<int>(n, TileDim);
+  auto nblks = raft::ceildiv<int>(n, TileDim);
   dim3 grid(nblks, nblks, batchSize);
   symmKernel<DataT, IdxT, EpilogueOp>
     <<<grid, blk, 0, stream>>>(out, in, batchSize, n, op);

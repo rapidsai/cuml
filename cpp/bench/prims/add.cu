@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include <linalg/add.cuh>
+#include <raft/linalg/add.cuh>
 #include "../common/ml_benchmark.hpp"
 
 namespace MLCommon {
@@ -28,8 +28,8 @@ struct AddParams {
 template <typename T>
 struct AddBench : public Fixture {
   AddBench(const std::string& name, const AddParams& p)
-    : Fixture(name,
-              std::shared_ptr<deviceAllocator>(new defaultDeviceAllocator)),
+    : Fixture(name, std::shared_ptr<deviceAllocator>(
+                      new raft::mr::device::default_allocator)),
       params(p) {}
 
  protected:
@@ -45,7 +45,7 @@ struct AddBench : public Fixture {
 
   void runBenchmark(::benchmark::State& state) override {
     loopOnState(state, [this]() {
-      MLCommon::LinAlg::add(ptr0, ptr0, ptr1, params.len, stream);
+      raft::linalg::add(ptr0, ptr0, ptr1, params.len, stream);
     });
   }
 

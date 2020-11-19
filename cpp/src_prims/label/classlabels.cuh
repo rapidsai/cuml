@@ -18,11 +18,11 @@
 
 #include <cub/cub.cuh>
 
-#include <common/cudart_utils.h>
+#include <raft/cudart_utils.h>
 #include <common/cumlHandle.hpp>
 #include <common/device_buffer.hpp>
-#include <cuda_utils.cuh>
-#include <linalg/unary_op.cuh>
+#include <raft/cuda_utils.cuh>
+#include <raft/linalg/unary_op.cuh>
 
 namespace MLCommon {
 namespace Label {
@@ -66,12 +66,12 @@ void getUniqueLabels(math_t *y, size_t n, math_t **y_unique, int *n_unique,
   cub::DeviceRadixSort::SortKeys(cub_storage.data(), bytes, y, y2.data(), n);
   cub::DeviceSelect::Unique(cub_storage.data(), bytes, y2.data(), y3.data(),
                             d_num_selected.data(), n);
-  updateHost(n_unique, d_num_selected.data(), 1, stream);
+  raft::update_host(n_unique, d_num_selected.data(), 1, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
   // Copy unique classes to output
   *y_unique = (math_t *)allocator->allocate(*n_unique * sizeof(math_t), stream);
-  copy(*y_unique, y3.data(), *n_unique, stream);
+  raft::copy(*y_unique, y3.data(), *n_unique, stream);
 }
 
 /**
@@ -98,7 +98,7 @@ void getOvrLabels(math_t *y, int n, math_t *y_unique, int n_classes,
   ASSERT(idx < n_classes,
          "Parameter idx should not be larger than the number "
          "of classes");
-  LinAlg::unaryOp(
+  raft::linalg::unaryOp(
     y_out, y, n,
     [idx, y_unique] __device__(math_t y) {
       return y == y_unique[idx] ? +1 : -1;
@@ -147,13 +147,12 @@ __global__ void map_label_kernel(Type *map_ids, size_t N_labels, Type *in,
    */
 template <typename Type, typename Lambda>
 void make_monotonic(Type *out, Type *in, size_t N, cudaStream_t stream,
-                    Lambda filter_op) {
+                    Lambda filter_op,
+                    std::shared_ptr<deviceAllocator> allocator) {
   static const size_t TPB_X = 256;
 
-  dim3 blocks(ceildiv(N, TPB_X));
+  dim3 blocks(raft::ceildiv(N, TPB_X));
   dim3 threads(TPB_X);
-
-  std::shared_ptr<deviceAllocator> allocator(new defaultDeviceAllocator);
 
   Type *map_ids;
   int num_clusters;
@@ -183,9 +182,10 @@ void make_monotonic(Type *out, Type *in, size_t N, cudaStream_t stream,
    * @param stream cuda stream to use
    */
 template <typename Type>
-void make_monotonic(Type *out, Type *in, size_t N, cudaStream_t stream) {
-  make_monotonic<Type>(out, in, N, stream,
-                       [] __device__(Type val) { return false; });
+void make_monotonic(Type *out, Type *in, size_t N, cudaStream_t stream,
+                    std::shared_ptr<deviceAllocator> allocator) {
+  make_monotonic<Type>(
+    out, in, N, stream, [] __device__(Type val) { return false; }, allocator);
 }
 };  // namespace Label
 };  // end namespace MLCommon

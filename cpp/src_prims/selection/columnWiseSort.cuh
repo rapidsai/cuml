@@ -18,7 +18,7 @@
 
 #include <cuda_runtime.h>
 #include <cstddef>
-#include <cuda_utils.cuh>
+#include <raft/cuda_utils.cuh>
 
 #include <cub/cub.cuh>
 #include <limits>
@@ -239,33 +239,33 @@ void sortColumnsPerRow(const InType *in, OutType *out, int n_rows,
       // more staging space for temp output of keys
       if (!sortedKeys)
         workspaceSize +=
-          alignTo(sizeof(InType) * (size_t)totalElements, memAlignWidth);
+          raft::alignTo(sizeof(InType) * (size_t)totalElements, memAlignWidth);
 
       // value in KV pair need to be passed in, out buffer is separate
       workspaceSize +=
-        alignTo(sizeof(OutType) * (size_t)totalElements, memAlignWidth);
+        raft::alignTo(sizeof(OutType) * (size_t)totalElements, memAlignWidth);
 
       // for segment offsets
       workspaceSize +=
-        alignTo(sizeof(int) * (size_t)numSegments, memAlignWidth);
+        raft::alignTo(sizeof(int) * (size_t)numSegments, memAlignWidth);
     } else {
       size_t workspaceOffset = 0;
 
       if (!sortedKeys) {
         sortedKeys = reinterpret_cast<InType *>(workspacePtr);
         workspaceOffset =
-          alignTo(sizeof(InType) * (size_t)totalElements, memAlignWidth);
+          raft::alignTo(sizeof(InType) * (size_t)totalElements, memAlignWidth);
         workspacePtr = (void *)((size_t)workspacePtr + workspaceOffset);
       }
 
       OutType *dValuesIn = reinterpret_cast<OutType *>(workspacePtr);
       workspaceOffset =
-        alignTo(sizeof(OutType) * (size_t)totalElements, memAlignWidth);
+        raft::alignTo(sizeof(OutType) * (size_t)totalElements, memAlignWidth);
       workspacePtr = (void *)((size_t)workspacePtr + workspaceOffset);
 
       int *dSegmentOffsets = reinterpret_cast<int *>(workspacePtr);
       workspaceOffset =
-        alignTo(sizeof(int) * (size_t)numSegments, memAlignWidth);
+        raft::alignTo(sizeof(int) * (size_t)numSegments, memAlignWidth);
       workspacePtr = (void *)((size_t)workspacePtr + workspaceOffset);
 
       // layout idx
@@ -292,10 +292,10 @@ void sortColumnsPerRow(const InType *in, OutType *out, int n_rows,
 
       if (!sortedKeys)
         workspaceSize +=
-          alignTo(sizeof(InType) * (size_t)n_columns, memAlignWidth);
+          raft::alignTo(sizeof(InType) * (size_t)n_columns, memAlignWidth);
 
       workspaceSize +=
-        alignTo(sizeof(OutType) * (size_t)n_columns, memAlignWidth);
+        raft::alignTo(sizeof(OutType) * (size_t)n_columns, memAlignWidth);
     } else {
       size_t workspaceOffset = 0;
       bool userKeyOutputBuffer = true;
@@ -304,13 +304,13 @@ void sortColumnsPerRow(const InType *in, OutType *out, int n_rows,
         userKeyOutputBuffer = false;
         sortedKeys = reinterpret_cast<InType *>(workspacePtr);
         workspaceOffset =
-          alignTo(sizeof(InType) * (size_t)n_columns, memAlignWidth);
+          raft::alignTo(sizeof(InType) * (size_t)n_columns, memAlignWidth);
         workspacePtr = (void *)((size_t)workspacePtr + workspaceOffset);
       }
 
       OutType *dValuesIn = reinterpret_cast<OutType *>(workspacePtr);
       workspaceOffset =
-        alignTo(sizeof(OutType) * (size_t)n_columns, memAlignWidth);
+        raft::alignTo(sizeof(OutType) * (size_t)n_columns, memAlignWidth);
       workspacePtr = (void *)((size_t)workspacePtr + workspaceOffset);
 
       // layout idx

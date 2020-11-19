@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 
-#include <common/cudart_utils.h>
 #include <gtest/gtest.h>
+#include <raft/cudart_utils.h>
 #include <test_utils.h>
-#include <cuda_utils.cuh>
 #include <cuml/ensemble/randomforest.hpp>
+#include <raft/cuda_utils.cuh>
 
 namespace ML {
 
@@ -70,9 +70,9 @@ class RfClassifierTest : public ::testing::TestWithParam<RfInputs<T>> {
     //--------------------------------------------------------
 
     int data_len = params.n_rows * params.n_cols;
-    allocate(data, data_len);
-    allocate(labels, params.n_rows);
-    allocate(predicted_labels, params.n_inference_rows);
+    raft::allocate(data, data_len);
+    raft::allocate(labels, params.n_rows);
+    raft::allocate(predicted_labels, params.n_inference_rows);
 
     cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
@@ -80,19 +80,19 @@ class RfClassifierTest : public ::testing::TestWithParam<RfInputs<T>> {
     // Populate data (assume Col major)
     std::vector<T> data_h = {30.0, 1.0, 2.0, 0.0, 10.0, 20.0, 10.0, 40.0};
     data_h.resize(data_len);
-    updateDevice(data, data_h.data(), data_len, stream);
+    raft::update_device(data, data_h.data(), data_len, stream);
 
     // Populate labels
     labels_h = {0, 1, 0, 4};
     labels_h.resize(params.n_rows);
     preprocess_labels(params.n_rows, labels_h, labels_map);
-    updateDevice(labels, labels_h.data(), params.n_rows, stream);
+    raft::update_device(labels, labels_h.data(), params.n_rows, stream);
 
     forest = new typename ML::RandomForestMetaData<T, int>;
     null_trees_ptr(forest);
 
-    cumlHandle handle(rf_params.n_streams);
-    handle.setStream(stream);
+    raft::handle_t handle(rf_params.n_streams);
+    handle.set_stream(stream);
 
     fit(handle, forest, data, params.n_rows, params.n_cols, labels,
         labels_map.size(), rf_params);
@@ -103,9 +103,9 @@ class RfClassifierTest : public ::testing::TestWithParam<RfInputs<T>> {
     int inference_data_len = params.n_inference_rows * params.n_cols;
     inference_data_h = {30.0, 10.0, 1.0, 20.0, 2.0, 10.0, 0.0, 40.0};
     inference_data_h.resize(inference_data_len);
-    allocate(inference_data_d, inference_data_len);
-    updateDevice(inference_data_d, inference_data_h.data(), inference_data_len,
-                 stream);
+    raft::allocate(inference_data_d, inference_data_len);
+    raft::update_device(inference_data_d, inference_data_h.data(),
+                        inference_data_len, stream);
 
     predict(handle, forest, inference_data_d, params.n_inference_rows,
             params.n_cols, predicted_labels);
@@ -172,27 +172,27 @@ class RfRegressorTest : public ::testing::TestWithParam<RfInputs<T>> {
     //--------------------------------------------------------
 
     int data_len = params.n_rows * params.n_cols;
-    allocate(data, data_len);
-    allocate(labels, params.n_rows);
-    allocate(predicted_labels, params.n_inference_rows);
+    raft::allocate(data, data_len);
+    raft::allocate(labels, params.n_rows);
+    raft::allocate(predicted_labels, params.n_inference_rows);
     cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
 
     // Populate data (assume Col major)
     std::vector<T> data_h = {0.0, 0.0, 0.0, 0.0, 10.0, 20.0, 30.0, 40.0};
     data_h.resize(data_len);
-    updateDevice(data, data_h.data(), data_len, stream);
+    raft::update_device(data, data_h.data(), data_len, stream);
 
     // Populate labels
     labels_h = {1.0, 2.0, 3.0, 4.0};
     labels_h.resize(params.n_rows);
-    updateDevice(labels, labels_h.data(), params.n_rows, stream);
+    raft::update_device(labels, labels_h.data(), params.n_rows, stream);
 
     forest = new typename ML::RandomForestMetaData<T, T>;
     null_trees_ptr(forest);
 
-    cumlHandle handle(rf_params.n_streams);
-    handle.setStream(stream);
+    raft::handle_t handle(rf_params.n_streams);
+    handle.set_stream(stream);
 
     fit(handle, forest, data, params.n_rows, params.n_cols, labels, rf_params);
 
@@ -202,9 +202,9 @@ class RfRegressorTest : public ::testing::TestWithParam<RfInputs<T>> {
     int inference_data_len = params.n_inference_rows * params.n_cols;
     inference_data_h = {0.0, 10.0, 0.0, 20.0, 0.0, 30.0, 0.0, 40.0};
     inference_data_h.resize(inference_data_len);
-    allocate(inference_data_d, inference_data_len);
-    updateDevice(inference_data_d, inference_data_h.data(), inference_data_len,
-                 stream);
+    raft::allocate(inference_data_d, inference_data_len);
+    raft::update_device(inference_data_d, inference_data_h.data(),
+                        inference_data_len, stream);
 
     predict(handle, forest, inference_data_d, params.n_inference_rows,
             params.n_cols, predicted_labels);

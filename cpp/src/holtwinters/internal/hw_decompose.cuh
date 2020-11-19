@@ -15,7 +15,7 @@
  */
 
 #pragma once
-#include <common/cudart_utils.h>
+#include <raft/cudart_utils.h>
 #include "hw_utils.cuh"
 
 // optimize, maybe im2col ?
@@ -36,14 +36,14 @@ __global__ void conv1d_kernel(const Dtype *input, int batch_size,
 }
 
 template <typename Dtype>
-void conv1d(const ML::cumlHandle_impl &handle, const Dtype *input,
-            int batch_size, const Dtype *filter, int filter_size, Dtype *output,
+void conv1d(const raft::handle_t &handle, const Dtype *input, int batch_size,
+            const Dtype *filter, int filter_size, Dtype *output,
             int output_size) {
   int total_threads = batch_size;
   conv1d_kernel<Dtype>
     <<<GET_NUM_BLOCKS(total_threads), GET_THREADS_PER_BLOCK(total_threads), 0,
-       handle.getStream()>>>(input, batch_size, filter, filter_size, output,
-                             output_size);
+       handle.get_stream()>>>(input, batch_size, filter, filter_size, output,
+                              output_size);
 }
 
 //https://github.com/rapidsai/cuml/issues/891
@@ -78,10 +78,10 @@ __global__ void season_mean_kernel(const Dtype *season, int len, int batch_size,
 }
 
 template <typename Dtype>
-void season_mean(const ML::cumlHandle_impl &handle, const Dtype *season,
-                 int len, int batch_size, Dtype *start_season, int frequency,
+void season_mean(const raft::handle_t &handle, const Dtype *season, int len,
+                 int batch_size, Dtype *start_season, int frequency,
                  int half_filter_size, ML::SeasonalType seasonal) {
-  cudaStream_t stream = handle.getStream();
+  cudaStream_t stream = handle.get_stream();
   bool is_additive = seasonal == ML::SeasonalType::ADDITIVE;
   season_mean_kernel<Dtype>
     <<<GET_NUM_BLOCKS(batch_size), GET_THREADS_PER_BLOCK(batch_size), 0,
@@ -121,13 +121,12 @@ __global__ void batched_ls_solver_kernel(const Dtype *B, const Dtype *rq,
 }
 
 template <typename Dtype>
-void batched_ls(const ML::cumlHandle_impl &handle, const Dtype *data,
-                int trend_len, int batch_size, Dtype *level, Dtype *trend) {
-  cudaStream_t stream = handle.getStream();
-  cublasHandle_t cublas_h = handle.getCublasHandle();
-  cusolverDnHandle_t cusolver_h = handle.getcusolverDnHandle();
-  std::shared_ptr<MLCommon::deviceAllocator> dev_allocator =
-    handle.getDeviceAllocator();
+void batched_ls(const raft::handle_t &handle, const Dtype *data, int trend_len,
+                int batch_size, Dtype *level, Dtype *trend) {
+  cudaStream_t stream = handle.get_stream();
+  cublasHandle_t cublas_h = handle.get_cublas_handle();
+  cusolverDnHandle_t cusolver_h = handle.get_cusolver_dn_handle();
+  auto dev_allocator = handle.get_device_allocator();
 
   const Dtype one = (Dtype)1.;
   const Dtype zero = (Dtype)0.;
@@ -149,19 +148,19 @@ void batched_ls(const ML::cumlHandle_impl &handle, const Dtype *data,
     A_h[i] = (Dtype)1.;
     A_h[trend_len + i] = (Dtype)(i + 1);
   }
-  MLCommon::updateDevice(A_d.data(), A_h.data(), 2 * trend_len, stream);
+  raft::update_device(A_d.data(), A_h.data(), 2 * trend_len, stream);
 
-  CUSOLVER_CHECK(MLCommon::LinAlg::cusolverDngeqrf_bufferSize<Dtype>(
+  CUSOLVER_CHECK(raft::linalg::cusolverDngeqrf_bufferSize<Dtype>(
     cusolver_h, trend_len, 2, A_d.data(), 2, &geqrf_buffer));
 
-  CUSOLVER_CHECK(MLCommon::LinAlg::cusolverDnorgqr_bufferSize<Dtype>(
+  CUSOLVER_CHECK(raft::linalg::cusolverDnorgqr_bufferSize<Dtype>(
     cusolver_h, trend_len, 2, 2, A_d.data(), 2, tau_d.data(), &orgqr_buffer));
 
   lwork_size = geqrf_buffer > orgqr_buffer ? geqrf_buffer : orgqr_buffer;
   MLCommon::device_buffer<Dtype> lwork_d(dev_allocator, stream, lwork_size);
 
   // QR decomposition of A
-  CUSOLVER_CHECK(MLCommon::LinAlg::cusolverDngeqrf<Dtype>(
+  CUSOLVER_CHECK(raft::linalg::cusolverDngeqrf<Dtype>(
     cusolver_h, trend_len, 2, A_d.data(), trend_len, tau_d.data(),
     lwork_d.data(), lwork_size, dev_info_d.data(), stream));
 
@@ -169,11 +168,11 @@ void batched_ls(const ML::cumlHandle_impl &handle, const Dtype *data,
   RinvKernel<Dtype><<<1, 1, 0, stream>>>(A_d.data(), Rinv_d.data(), trend_len);
 
   // R1QT = inv(R)*transpose(Q)
-  CUSOLVER_CHECK(MLCommon::LinAlg::cusolverDnorgqr<Dtype>(
+  CUSOLVER_CHECK(raft::linalg::cusolverDnorgqr<Dtype>(
     cusolver_h, trend_len, 2, 2, A_d.data(), trend_len, tau_d.data(),
     lwork_d.data(), lwork_size, dev_info_d.data(), stream));
 
-  CUBLAS_CHECK(MLCommon::LinAlg::cublasgemm<Dtype>(
+  CUBLAS_CHECK(raft::linalg::cublasgemm<Dtype>(
     cublas_h, CUBLAS_OP_N, CUBLAS_OP_T, 2, trend_len, 2, &one, Rinv_d.data(), 2,
     A_d.data(), trend_len, &zero, R1Qt_d.data(), 2, stream));
 
@@ -183,15 +182,13 @@ void batched_ls(const ML::cumlHandle_impl &handle, const Dtype *data,
 }
 
 template <typename Dtype>
-void stl_decomposition_gpu(const ML::cumlHandle_impl &handle, const Dtype *ts,
-                           int n, int batch_size, int frequency,
-                           int start_periods, Dtype *start_level,
-                           Dtype *start_trend, Dtype *start_season,
-                           ML::SeasonalType seasonal) {
-  cudaStream_t stream = handle.getStream();
-  cublasHandle_t cublas_h = handle.getCublasHandle();
-  std::shared_ptr<MLCommon::deviceAllocator> dev_allocator =
-    handle.getDeviceAllocator();
+void stl_decomposition_gpu(const raft::handle_t &handle, const Dtype *ts, int n,
+                           int batch_size, int frequency, int start_periods,
+                           Dtype *start_level, Dtype *start_trend,
+                           Dtype *start_season, ML::SeasonalType seasonal) {
+  cudaStream_t stream = handle.get_stream();
+  cublasHandle_t cublas_h = handle.get_cublas_handle();
+  auto dev_allocator = handle.get_device_allocator();
 
   const int end = start_periods * frequency;
   const int filter_size = (frequency / 2) * 2 + 1;
@@ -205,7 +202,7 @@ void stl_decomposition_gpu(const ML::cumlHandle_impl &handle, const Dtype *ts,
   }
 
   MLCommon::device_buffer<Dtype> filter_d(dev_allocator, stream, filter_size);
-  MLCommon::updateDevice(filter_d.data(), filter_h.data(), filter_size, stream);
+  raft::update_device(filter_d.data(), filter_h.data(), filter_size, stream);
 
   // Set Trend
   MLCommon::device_buffer<Dtype> trend_d(dev_allocator, stream,
@@ -220,18 +217,18 @@ void stl_decomposition_gpu(const ML::cumlHandle_impl &handle, const Dtype *ts,
   if (seasonal == ML::SeasonalType::ADDITIVE) {
     const Dtype one = 1.;
     const Dtype minus_one = -1.;
-    CUBLAS_CHECK(MLCommon::LinAlg::cublasgeam<Dtype>(
+    CUBLAS_CHECK(raft::linalg::cublasgeam<Dtype>(
       cublas_h, CUBLAS_OP_N, CUBLAS_OP_N, trend_len, batch_size, &one,
       ts + ts_offset, trend_len, &minus_one, trend_d.data(), trend_len,
       season_d.data(), trend_len, stream));
   } else {
     MLCommon::device_buffer<Dtype> aligned_ts(dev_allocator, stream,
                                               batch_size * trend_len);
-    MLCommon::copy(aligned_ts.data(), ts + ts_offset, batch_size * trend_len,
-                   stream);
-    MLCommon::LinAlg::eltwiseDivide<Dtype>(season_d.data(), aligned_ts.data(),
-                                           trend_d.data(),
-                                           trend_len * batch_size, stream);
+    raft::copy(aligned_ts.data(), ts + ts_offset, batch_size * trend_len,
+               stream);
+    raft::linalg::eltwiseDivide<Dtype>(season_d.data(), aligned_ts.data(),
+                                       trend_d.data(), trend_len * batch_size,
+                                       stream);
   }
 
   season_mean(handle, season_d.data(), trend_len, batch_size, start_season,

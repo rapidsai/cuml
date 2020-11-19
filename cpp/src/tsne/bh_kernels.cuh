@@ -33,8 +33,8 @@
 #define FACTOR6 2
 #define FACTOR7 1
 
-#include <common/cudart_utils.h>
 #include <float.h>
+#include <raft/cudart_utils.h>
 
 namespace ML {
 namespace TSNE {
@@ -449,7 +449,7 @@ __global__ __launch_bounds__(THREADS3, FACTOR3) void SummarizationKernel(
     }
 
   SKIP_LOOP:
-    __syncthreads();
+    __threadfence();
     if (flag != 0) {
       massd[k] = cm;
       k += inc;
@@ -629,7 +629,7 @@ __global__ __launch_bounds__(
     // update velocity
     velxd[i] += vx;
     velyd[i] += vy;
-    atomicAdd(Z_norm, normsum);
+    raft::myAtomicAdd(Z_norm, normsum);
   }
 }
 
@@ -657,8 +657,8 @@ __global__ void attractive_kernel_bh(
   // TODO: Convert attractive forces to CSR format
 
   // Apply forces
-  atomicAdd(&attract1[i], PQ * (Y1[i] - Y1[j]));
-  atomicAdd(&attract2[i], PQ * (Y2[i] - Y2[j]));
+  raft::myAtomicAdd(&attract1[i], PQ * (Y1[i] - Y1[j]));
+  raft::myAtomicAdd(&attract2[i], PQ * (Y2[i] - Y2[j]));
 }
 
 /**

@@ -1,3 +1,4 @@
+
 # Copyright (c) 2019, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -20,7 +21,6 @@ import numpy as np
 import warnings
 
 from cuml.common.memory_utils import _strides_to_order
-from cuml.common.memory_utils import rmm_cupy_ary
 from numba import cuda
 from typing import Union
 
@@ -45,26 +45,31 @@ def _stratify_split(X, y, n_train, n_test, x_numba, y_numba, random_state):
     """
     x_cudf = False
     y_cudf = False
+
     if isinstance(X, cudf.DataFrame):
         x_cudf = True
-        X = X.values
     elif hasattr(X, "__cuda_array_interface__"):
         X = cp.asarray(X)
+        x_order = _strides_to_order(X.__cuda_array_interface__['strides'],
+                                    cp.dtype(X.dtype))
+
     if isinstance(y, cudf.Series):
         y_cudf = True
-        y = y.values
     elif hasattr(y, "__cuda_array_interface__"):
         y = cp.asarray(y)
+        y_order = _strides_to_order(y.__cuda_array_interface__['strides'],
+                                    cp.dtype(y.dtype))
     elif isinstance(y, cudf.DataFrame):
         y_cudf = True
         # ensuring it has just one column
-        if y.shape[1] == 1:
-            y = y.values
-        else:
+        if y.shape[1] != 1:
             raise ValueError('Expected one label, but found y'
                              'with shape = %d' % (y.shape))
 
-    classes, y_indices = cp.unique(y, return_inverse=True)
+    classes, y_indices = cp.unique(y.values if y_cudf
+                                   else y,
+                                   return_inverse=True)
+
     n_classes = classes.shape[0]
     class_counts = cp.bincount(y_indices)
     if n_train < n_classes:
@@ -91,21 +96,50 @@ def _stratify_split(X, y, n_train, n_test, x_numba, y_numba, random_state):
     for i in range(n_classes):
         permutation = random_state.permutation(class_counts[i].item())
         perm_indices_class_i = class_indices[i].take(permutation)
-        X_train_i = X[perm_indices_class_i[:n_i[i]]]
-        X_test_i = X[perm_indices_class_i[n_i[i]:n_i[i] + t_i[i]]]
-        y_train_i = y[perm_indices_class_i[:n_i[i]]]
-        y_test_i = y[perm_indices_class_i[n_i[i]:n_i[i] + t_i[i]]]
 
-        if X_train is None:
-            X_train = X_train_i
-            y_train = y_train_i
-            X_test = X_test_i
-            y_test = y_test_i
-        else:
-            X_train = cp.concatenate([X_train, X_train_i], axis=0)
-            X_test = cp.concatenate([X_test, X_test_i], axis=0)
-            y_train = cp.concatenate([y_train, y_train_i], axis=0)
-            y_test = cp.concatenate([y_test, y_test_i], axis=0)
+        if hasattr(X, "__cuda_array_interface__") or \
+           isinstance(X, cupyx.scipy.sparse.csr_matrix):
+
+            X_train_i = cp.array(X[perm_indices_class_i[:n_i[i]]],
+                                 order=x_order)
+            X_test_i = cp.array(X[perm_indices_class_i[n_i[i]:n_i[i] +
+                                                       t_i[i]]],
+                                order=x_order)
+
+            y_train_i = cp.array(y[perm_indices_class_i[:n_i[i]]],
+                                 order=y_order)
+            y_test_i = cp.array(y[perm_indices_class_i[n_i[i]:n_i[i] +
+                                                       t_i[i]]],
+                                order=y_order)
+
+            if X_train is None:
+                X_train = cp.array(X_train_i, order=x_order)
+                y_train = cp.array(y_train_i, order=y_order)
+                X_test = cp.array(X_test_i, order=x_order)
+                y_test = cp.array(y_test_i, order=y_order)
+            else:
+                X_train = cp.concatenate([X_train, X_train_i], axis=0)
+                X_test = cp.concatenate([X_test, X_test_i], axis=0)
+                y_train = cp.concatenate([y_train, y_train_i], axis=0)
+                y_test = cp.concatenate([y_test, y_test_i], axis=0)
+
+        elif x_cudf:
+            X_train_i = X.iloc[perm_indices_class_i[:n_i[i]]]
+            X_test_i = X.iloc[perm_indices_class_i[n_i[i]:n_i[i] + t_i[i]]]
+
+            y_train_i = y.iloc[perm_indices_class_i[:n_i[i]]]
+            y_test_i = y.iloc[perm_indices_class_i[n_i[i]:n_i[i] + t_i[i]]]
+
+            if X_train is None:
+                X_train = X_train_i
+                y_train = y_train_i
+                X_test = X_test_i
+                y_test = y_test_i
+            else:
+                X_train = cudf.concat([X_train, X_train_i], ignore_index=False)
+                X_test = cudf.concat([X_test, X_test_i], ignore_index=False)
+                y_train = cudf.concat([y_train, y_train_i], ignore_index=False)
+                y_test = cudf.concat([y_test, y_test_i], ignore_index=False)
 
     if x_numba:
         X_train = cuda.as_cuda_array(X_train)
@@ -211,8 +245,12 @@ def train_test_split(X,
     random_state : int, CuPy RandomState or NumPy RandomState optional
         If shuffle is true, seeds the generator. Unseeded by default
     seed: random_state : int, CuPy RandomState or NumPy RandomState optional
-        Deprecated in favor of `random_state`.
         If shuffle is true, seeds the generator. Unseeded by default
+
+        .. deprecated:: 0.11
+           Parameter `seed` is deprecated and will be removed in 0.17. Please
+           use `random_state` instead
+
     stratify: bool, optional
         Whether to stratify the input data based on class labels.
         None by default
@@ -240,7 +278,7 @@ def train_test_split(X,
 
         # Alternatively, if our labels are stored separately
         labels = df['y']
-        df = df.drop(['y'])
+        df = df.drop(['y'], axis=1)
 
         # we can also do
         X_train, X_test, y_train, y_test = train_test_split(df, labels,
@@ -271,7 +309,7 @@ def train_test_split(X,
         if isinstance(X, cudf.DataFrame):
             name = y
             y = X[name]
-            X = X.drop(name)
+            X = X.drop(name, axis=1)
         else:
             raise TypeError("X needs to be a cuDF Dataframe when y is a \
                              string")
@@ -362,11 +400,11 @@ def train_test_split(X,
     if shuffle:
         # Shuffle the data
         if random_state is None or isinstance(random_state, int):
-            idxs = rmm_cupy_ary(cp.arange, X.shape[0])
+            idxs = cp.arange(X.shape[0])
             random_state = cp.random.RandomState(seed=random_state)
 
         elif isinstance(random_state, cp.random.RandomState):
-            idxs = rmm_cupy_ary(cp.arange, X.shape[0])
+            idxs = cp.arange(X.shape[0])
 
         elif isinstance(random_state, np.random.RandomState):
             idxs = np.arange(X.shape[0])

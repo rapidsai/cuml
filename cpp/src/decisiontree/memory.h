@@ -15,7 +15,8 @@
  */
 
 #pragma once
-#include <common/cudart_utils.h>
+#include <cuml/tree/flatnode.h>
+#include <raft/cudart_utils.h>
 #include <common/cumlHandle.hpp>
 #include <common/device_buffer.hpp>
 #include <common/host_buffer.hpp>
@@ -112,8 +113,8 @@ struct TemporaryMemory {
     const cudaStream_t stream_in, int N, int Ncols, int n_unique,
     const ML::DecisionTree::DecisionTreeParams &tree_params);
 
-  TemporaryMemory(const ML::cumlHandle_impl &handle, cudaStream_t stream_in,
-                  int N, int Ncols, int n_unique,
+  TemporaryMemory(const raft::handle_t &handle, cudaStream_t stream_in, int N,
+                  int Ncols, int n_unique,
                   const ML::DecisionTree::DecisionTreeParams &tree_params);
 
   ~TemporaryMemory();

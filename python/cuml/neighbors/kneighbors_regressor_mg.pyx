@@ -14,15 +14,15 @@
 # limitations under the License.
 #
 
-# cython: profile=False
 # distutils: language = c++
-# cython: embedsignature = True
-# cython: language_level = 3
+
+import typing
 
 import numpy as np
 
+import cuml.internals
 from cuml.common.array import CumlArray
-from cuml.common.handle cimport cumlHandle
+from cuml.raft.common.handle cimport handle_t
 from cuml.common import input_to_cuml_array
 from cuml.common.opg_data_utils_mg cimport *
 from cuml.common.opg_data_utils_mg import _build_part_inputs
@@ -41,7 +41,7 @@ cdef extern from "cuml/neighbors/knn_mg.hpp" namespace \
         "ML::KNN::opg":
 
     cdef void knn_regress(
-        cumlHandle &handle,
+        handle_t &handle,
         vector[floatData_t*] *out,
         vector[int64Data_t*] *out_I,
         vector[floatData_t*] *out_D,
@@ -71,9 +71,22 @@ class KNeighborsRegressorMG(KNeighborsMG):
         super(KNeighborsRegressorMG, self).__init__(**kwargs)
         self.batch_size = batch_size
 
-    def predict(self, data, data_parts_to_ranks, data_nrows,
-                query, query_parts_to_ranks, query_nrows,
-                ncols, n_outputs, rank, convert_dtype):
+    @cuml.internals.api_base_return_generic_skipall
+    def predict(
+        self,
+        data,
+        data_parts_to_ranks,
+        data_nrows,
+        query,
+        query_parts_to_ranks,
+        query_nrows,
+        ncols,
+        n_outputs,
+        rank,
+        convert_dtype
+    ) -> typing.Tuple[typing.List[CumlArray],
+                      typing.List[CumlArray],
+                      typing.List[CumlArray]]:
         """
         Predict outputs for a query from previously stored index
         and index labels.
@@ -96,15 +109,13 @@ class KNeighborsRegressorMG(KNeighborsMG):
         -------
         predictions : outputs, indices, distances
         """
-        out_type = self.get_out_type(data, query)
-
-        out_type = self.get_out_type(data, query)
+        self.get_out_type(data, query)
 
         input = self.gen_local_input(data, data_parts_to_ranks, data_nrows,
                                      query, query_parts_to_ranks, query_nrows,
                                      ncols, rank, convert_dtype)
 
-        output = self.gen_local_output(data, convert_dtype, dtype='int32')
+        output = self.gen_local_output(data, convert_dtype, dtype='float32')
 
         query_cais = input['cais']['query']
         local_query_rows = list(map(lambda x: x.shape[0], query_cais))
@@ -120,7 +131,7 @@ class KNeighborsRegressorMG(KNeighborsMG):
             out_result_local_parts.push_back(new floatData_t(
                 <float*><uintptr_t>o_cai.ptr, n_rows * n_outputs))
 
-        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
+        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
         knn_regress(
             handle_[0],
@@ -151,10 +162,6 @@ class KNeighborsRegressorMG(KNeighborsMG):
             free(<void*>out_result_local_parts.at(i))
         free(<void*><uintptr_t>out_result_local_parts)
 
-        output = list(map(lambda o: o.to_output(out_type), output_cais))
-        output_i = list(map(lambda o: o.to_output(out_type),
-                            result['cais']['indices']))
-        output_d = list(map(lambda o: o.to_output(out_type),
-                            result['cais']['distances']))
-
-        return output, output_i, output_d
+        return output_cais, \
+            result['cais']['indices'], \
+            result['cais']['distances']

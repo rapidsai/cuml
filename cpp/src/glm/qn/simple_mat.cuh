@@ -18,16 +18,16 @@
 #include <iostream>
 #include <vector>
 
-#include <common/cudart_utils.h>
-#include <linalg/cublas_wrappers.h>
+#include <raft/cudart_utils.h>
+#include <raft/linalg/cublas_wrappers.h>
 #include <common/cumlHandle.hpp>
 #include <common/device_buffer.hpp>
-#include <cuda_utils.cuh>
-#include <linalg/binary_op.cuh>
-#include <linalg/map_then_reduce.cuh>
-#include <linalg/norm.cuh>
 #include <linalg/ternary_op.cuh>
-#include <linalg/unary_op.cuh>
+#include <raft/cuda_utils.cuh>
+#include <raft/linalg/binary_op.cuh>
+#include <raft/linalg/map_then_reduce.cuh>
+#include <raft/linalg/norm.cuh>
+#include <raft/linalg/unary_op.cuh>
 
 namespace ML {
 
@@ -56,7 +56,7 @@ struct SimpleMat {
 
   void print(std::ostream &oss) const { oss << (*this) << std::endl; }
 
-  inline void assign_gemm(const cumlHandle_impl &handle, const T alpha,
+  inline void assign_gemm(const raft::handle_t &handle, const T alpha,
                           const SimpleMat<T> &A, const bool transA,
                           const SimpleMat<T> &B, const bool transB,
                           const T beta, cudaStream_t stream) {
@@ -79,18 +79,17 @@ struct SimpleMat {
     ASSERT(kA == kB, "GEMM invalid dims: k");
 
     if (ord == COL_MAJOR && A.ord == COL_MAJOR &&
-        B.ord == COL_MAJOR) {  // base case
-      MLCommon::LinAlg::cublasgemm(
-        handle.getCublasHandle(),            // handle
-        transA ? CUBLAS_OP_T : CUBLAS_OP_N,  // transA
-        transB ? CUBLAS_OP_T : CUBLAS_OP_N,  // transB
-        this->m, this->n, kA,                // dimensions m,n,k
-        &alpha, A.data,
-        A.m,          // lda
-        B.data, B.m,  // ldb
-        &beta, this->data,
-        this->m,  // ldc,
-        stream);
+        B.ord == COL_MAJOR) {                                       // base case
+      raft::linalg::cublasgemm(handle.get_cublas_handle(),          // handle
+                               transA ? CUBLAS_OP_T : CUBLAS_OP_N,  // transA
+                               transB ? CUBLAS_OP_T : CUBLAS_OP_N,  // transB
+                               this->m, this->n, kA,  // dimensions m,n,k
+                               &alpha, A.data,
+                               A.m,          // lda
+                               B.data, B.m,  // ldb
+                               &beta, this->data,
+                               this->m,  // ldc,
+                               stream);
       return;
     }
     if (A.ord == ROW_MAJOR) {
@@ -115,7 +114,7 @@ struct SimpleMat {
     ASSERT(ord == x.ord, "SimpleMat::ax: Storage orders must match");
 
     auto scale = [a] __device__(const T x) { return a * x; };
-    MLCommon::LinAlg::unaryOp(data, x.data, len, scale, stream);
+    raft::linalg::unaryOp(data, x.data, len, scale, stream);
   }
 
   // this = a*x + y
@@ -125,7 +124,7 @@ struct SimpleMat {
     ASSERT(ord == y.ord, "SimpleMat::axpy: Storage orders must match");
 
     auto axpy = [a] __device__(const T x, const T y) { return a * x + y; };
-    MLCommon::LinAlg::binaryOp(data, x.data, y.data, len, axpy, stream);
+    raft::linalg::binaryOp(data, x.data, y.data, len, axpy, stream);
   }
 
   template <typename Lambda>
@@ -134,7 +133,7 @@ struct SimpleMat {
     ASSERT(ord == other.ord,
            "SimpleMat::assign_unary: Storage orders must match");
 
-    MLCommon::LinAlg::unaryOp(data, other.data, len, f, stream);
+    raft::linalg::unaryOp(data, other.data, len, f, stream);
   }
 
   template <typename Lambda>
@@ -146,7 +145,7 @@ struct SimpleMat {
     ASSERT(ord == other2.ord,
            "SimpleMat::assign_binary: Storage orders must match");
 
-    MLCommon::LinAlg::binaryOp(data, other1.data, other2.data, len, f, stream);
+    raft::linalg::binaryOp(data, other1.data, other2.data, len, f, stream);
   }
 
   template <typename Lambda>
@@ -168,7 +167,7 @@ struct SimpleMat {
   inline void fill(const T val, cudaStream_t stream) {
     // TODO this reads data unnecessary, though it's mostly used for testing
     auto f = [val] __device__(const T x) { return val; };
-    MLCommon::LinAlg::unaryOp(data, data, len, f, stream);
+    raft::linalg::unaryOp(data, data, len, f, stream);
   }
 
   inline void copy_async(const SimpleMat<T> &other, cudaStream_t stream) {
@@ -188,7 +187,7 @@ struct SimpleVec : SimpleMat<T> {
 
   SimpleVec(T *data, const int n) : Super(data, n, 1, COL_MAJOR) {}
   // this = alpha * A * x + beta * this
-  void assign_gemv(const cumlHandle_impl &handle, const T alpha,
+  void assign_gemv(const raft::handle_t &handle, const T alpha,
                    const SimpleMat<T> &A, bool transA, const SimpleVec<T> &x,
                    const T beta, cudaStream_t stream) {
     Super::assign_gemm(handle, alpha, A, transA, x, false, beta, stream);
@@ -227,9 +226,9 @@ template <typename T>
 inline T dot(const SimpleVec<T> &u, const SimpleVec<T> &v, T *tmp_dev,
              cudaStream_t stream) {
   auto f = [] __device__(const T x, const T y) { return x * y; };
-  MLCommon::LinAlg::mapThenSumReduce(tmp_dev, u.len, f, stream, u.data, v.data);
+  raft::linalg::mapThenSumReduce(tmp_dev, u.len, f, stream, u.data, v.data);
   T tmp_host;
-  MLCommon::updateHost(&tmp_host, tmp_dev, 1, stream);
+  raft::update_host(&tmp_host, tmp_dev, 1, stream);
   cudaStreamSynchronize(stream);
   return tmp_host;
 }
@@ -241,15 +240,15 @@ inline T squaredNorm(const SimpleVec<T> &u, T *tmp_dev, cudaStream_t stream) {
 
 template <typename T>
 inline T nrm2(const SimpleVec<T> &u, T *tmp_dev, cudaStream_t stream) {
-  return MLCommon::mySqrt<T>(squaredNorm(u, tmp_dev, stream));
+  return raft::mySqrt<T>(squaredNorm(u, tmp_dev, stream));
 }
 
 template <typename T>
 inline T nrm1(const SimpleVec<T> &u, T *tmp_dev, cudaStream_t stream) {
-  MLCommon::LinAlg::rowNorm(tmp_dev, u.data, u.len, 1, MLCommon::LinAlg::L1Norm,
-                            true, stream, MLCommon::Nop<T>());
+  raft::linalg::rowNorm(tmp_dev, u.data, u.len, 1, raft::linalg::L1Norm, true,
+                        stream, raft::Nop<T>());
   T tmp_host;
-  MLCommon::updateHost(&tmp_host, tmp_dev, 1, stream);
+  raft::update_host(&tmp_host, tmp_dev, 1, stream);
   cudaStreamSynchronize(stream);
   return tmp_host;
 }
@@ -257,7 +256,7 @@ inline T nrm1(const SimpleVec<T> &u, T *tmp_dev, cudaStream_t stream) {
 template <typename T>
 std::ostream &operator<<(std::ostream &os, const SimpleVec<T> &v) {
   std::vector<T> out(v.len);
-  MLCommon::updateHost(&out[0], v.data, v.len, 0);
+  raft::update_host(&out[0], v.data, v.len, 0);
   CUDA_CHECK(cudaStreamSynchronize(0));
   int it = 0;
   for (; it < v.len - 1;) {
@@ -272,7 +271,7 @@ template <typename T>
 std::ostream &operator<<(std::ostream &os, const SimpleMat<T> &mat) {
   os << "ord=" << (mat.ord == COL_MAJOR ? "CM" : "RM") << "\n";
   std::vector<T> out(mat.len);
-  MLCommon::updateHost(&out[0], mat.data, mat.len, 0);
+  raft::update_host(&out[0], mat.data, mat.len, 0);
   CUDA_CHECK(cudaStreamSynchronize(0));
   if (mat.ord == COL_MAJOR) {
     for (int r = 0; r < mat.m; r++) {

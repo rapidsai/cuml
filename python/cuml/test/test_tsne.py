@@ -172,3 +172,7 @@ def test_tsne_knn_graph_used(name, type_knn_graph):
     trust_garbage = trustworthiness(X, Y)
     print("Trust = ", trust_garbage)
     assert (trust_normal - trust_garbage) > 0.15
+
+def test_components_exception():
+    with pytest.raises(ValueError):
+        TSNE(n_components=3)

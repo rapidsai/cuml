@@ -15,7 +15,7 @@
  */
 #pragma once
 
-#include <common/cudart_utils.h>
+#include <raft/cudart_utils.h>
 #include <common/device_buffer.hpp>
 #include <cuml/common/logger.hpp>
 #include "exact_kernels.cuh"
@@ -44,22 +44,22 @@ namespace TSNE {
  * @param[in] pre_momentum: The momentum used during the exaggeration phase.
  * @param[in] post_momentum: The momentum used after the exaggeration phase.
  * @param[in] random_state: Set this to -1 for pure random intializations or >= 0 for reproducible outputs.
- * @param[in] intialize_embeddings: Whether to overwrite the current Y vector with random noise.
+ * @param[in] initialize_embeddings: Whether to overwrite the current Y vector with random noise.
  */
 void Exact_TSNE(float *VAL, const int *COL, const int *ROW, const int NNZ,
-                const cumlHandle &handle, float *Y, const int n, const int dim,
-                const float early_exaggeration = 12.0f,
+                const raft::handle_t &handle, float *Y, const int n,
+                const int dim, const float early_exaggeration = 12.0f,
                 const int exaggeration_iter = 250, const float min_gain = 0.01f,
                 const float pre_learning_rate = 200.0f,
                 const float post_learning_rate = 500.0f,
                 const int max_iter = 1000, const float min_grad_norm = 1e-7,
                 const float pre_momentum = 0.5, const float post_momentum = 0.8,
                 const long long random_state = -1,
-                const bool intialize_embeddings = true) {
-  auto d_alloc = handle.getDeviceAllocator();
-  cudaStream_t stream = handle.getStream();
+                const bool initialize_embeddings = true) {
+  auto d_alloc = handle.get_device_allocator();
+  cudaStream_t stream = handle.get_stream();
 
-  if (intialize_embeddings)
+  if (initialize_embeddings)
     random_vector(Y, -0.0001f, 0.0001f, n * dim, stream, random_state);
 
   // Allocate space
@@ -102,13 +102,13 @@ void Exact_TSNE(float *VAL, const int *COL, const int *ROW, const int NNZ,
       momentum = post_momentum;
       // Divide perplexities
       const float div = 1.0f / early_exaggeration;
-      MLCommon::LinAlg::scalarMultiply(VAL, VAL, div, NNZ, stream);
+      raft::linalg::scalarMultiply(VAL, VAL, div, NNZ, stream);
       learning_rate = post_learning_rate;
     }
 
     // Get row norm of Y
-    MLCommon::LinAlg::rowNorm(norm.data(), Y, dim, n, MLCommon::LinAlg::L2Norm,
-                              false, stream);
+    raft::linalg::rowNorm(norm.data(), Y, dim, n, raft::linalg::L2Norm, false,
+                          stream);
 
     // Compute attractive forces
     TSNE::attractive_forces(VAL, COL, ROW, Y, norm.data(), attract.data(), NNZ,

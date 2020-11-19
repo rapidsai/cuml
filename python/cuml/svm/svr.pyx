@@ -13,10 +13,7 @@
 # limitations under the License.
 #
 
-# cython: profile=False
 # distutils: language = c++
-# cython: embedsignature = True
-# cython: language_level = 3
 
 import ctypes
 import cudf
@@ -33,7 +30,7 @@ from cuml.common.base import Base
 from cuml.common.base import RegressorMixin
 from cuml.common.doc_utils import generate_docstring
 from cuml.metrics import r2_score
-from cuml.common.handle cimport cumlHandle
+from cuml.raft.common.handle cimport handle_t
 from cuml.common import input_to_cuml_array
 from libcpp cimport bool, nullptr
 from cuml.svm.svm_base import SVMBase
@@ -77,7 +74,7 @@ cdef extern from "cuml/svm/svm_model.h" namespace "ML::SVM":
 
 cdef extern from "cuml/svm/svc.hpp" namespace "ML::SVM":
 
-    cdef void svcFit[math_t](const cumlHandle &handle, math_t *input,
+    cdef void svcFit[math_t](const handle_t &handle, math_t *input,
                              int n_rows, int n_cols, math_t *labels,
                              const svmParameter &param,
                              KernelParams &kernel_params,
@@ -85,16 +82,16 @@ cdef extern from "cuml/svm/svc.hpp" namespace "ML::SVM":
                              const math_t *sample_weight) except+
 
     cdef void svcPredict[math_t](
-        const cumlHandle &handle, math_t *input, int n_rows, int n_cols,
+        const handle_t &handle, math_t *input, int n_rows, int n_cols,
         KernelParams &kernel_params, const svmModel[math_t] &model,
         math_t *preds, math_t buffer_size, bool predict_class) except +
 
-    cdef void svmFreeBuffers[math_t](const cumlHandle &handle,
+    cdef void svmFreeBuffers[math_t](const handle_t &handle,
                                      svmModel[math_t] &m) except +
 
 cdef extern from "cuml/svm/svr.hpp" namespace "ML::SVM":
 
-    cdef void svrFit[math_t](const cumlHandle &handle, math_t *X,
+    cdef void svrFit[math_t](const handle_t &handle, math_t *X,
                              int n_rows, int n_cols, math_t *y,
                              const svmParameter &param,
                              KernelParams &kernel_params,
@@ -111,7 +108,12 @@ class SVR(SVMBase, RegressorMixin):
     Parameters
     ----------
     handle : cuml.Handle
-        If it is None, a new one is created for this class
+        Specifies the cuml.handle that holds internal CUDA state for
+        computations in this model. Most importantly, this specifies the CUDA
+        stream that will be used for the model's computations, so users can
+        run different models concurrently in different streams by creating
+        handles in several streams.
+        If it is None, a new one is created.
     C : float (default = 1.0)
         Penalty parameter C
     kernel : string (default='rbf')
@@ -150,8 +152,14 @@ class SVR(SVMBase, RegressorMixin):
         We monitor how much our stopping criteria changes during outer
         iterations. If it does not change (changes less then 1e-3*tol)
         for nochange_steps consecutive steps, then we stop training.
-    verbose : int or boolean (default = False)
-        verbosity level
+    verbose : int or boolean, default=False
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        See :ref:`verbosity-levels` for more info.
+    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
+        Variable to control output type of the results and attributes of
+        the estimator. If None, it'll inherit the output type set at the
+        module level, `cuml.global_output_type`.
+        See :ref:`output-data-type-configuration` for more info.
 
     Attributes
     ----------
@@ -219,19 +227,18 @@ class SVR(SVMBase, RegressorMixin):
     def __init__(self, handle=None, C=1, kernel='rbf', degree=3,
                  gamma='scale', coef0=0.0, tol=1e-3, epsilon=0.1,
                  cache_size=200.0, max_iter=-1, nochange_steps=1000,
-                 verbose=False):
+                 verbose=False, output_type=None):
         super(SVR, self).__init__(handle, C, kernel, degree, gamma, coef0, tol,
                                   cache_size, max_iter, nochange_steps,
-                                  verbose, epsilon)
+                                  verbose, epsilon, output_type=output_type)
         self.svmType = EPSILON_SVR
 
     @generate_docstring()
-    def fit(self, X, y, sample_weight=None, convert_dtype=True):
+    def fit(self, X, y, sample_weight=None, convert_dtype=True) -> "SVR":
         """
         Fit the model with X and y.
 
         """
-        self._set_base_attributes(output_type=X, n_features=X)
         cdef uintptr_t X_ptr, y_ptr
 
         X_m, self.n_rows, self.n_cols, self.dtype = \
@@ -255,13 +262,13 @@ class SVR(SVMBase, RegressorMixin):
             sample_weight_ptr = sample_weight_m.ptr
 
         self._dealloc()  # delete any previously fitted model
-        self._coef_ = None
+        self.coef_ = None
 
         cdef KernelParams _kernel_params = self._get_kernel_params(X_m)
         cdef svmParameter param = self._get_svm_params()
         cdef svmModel[float] *model_f
         cdef svmModel[double] *model_d
-        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
+        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
         if self.dtype == np.float32:
             model_f = new svmModel[float]()
@@ -291,7 +298,7 @@ class SVR(SVMBase, RegressorMixin):
                                        'type': 'dense',
                                        'description': 'Predicted values',
                                        'shape': '(n_samples, 1)'})
-    def predict(self, X, convert_dtype=True):
+    def predict(self, X, convert_dtype=True) -> CumlArray:
         """
         Predicts the values for X.
 

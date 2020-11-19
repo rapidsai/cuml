@@ -14,25 +14,24 @@
 # limitations under the License.
 #
 
-# cython: profile=False
 # distutils: language = c++
-# cython: embedsignature = True
-# cython: language_level = 3
 
-from cuml.common.handle cimport cumlHandle
+import cuml.internals
+from cuml.raft.common.handle cimport handle_t
 from libc.stdint cimport uintptr_t
 from cuml.metrics.cluster.utils import prepare_cluster_metric_inputs
-import cuml.common.handle
+from cuml.raft.common.handle import Handle
 
 
 cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics":
-    double homogeneityScore(const cumlHandle & handle, const int *y,
-                            const int *y_hat, const int n,
-                            const int lower_class_range,
-                            const int upper_class_range) except +
+    double homogeneity_score(const handle_t & handle, const int *y,
+                             const int *y_hat, const int n,
+                             const int lower_class_range,
+                             const int upper_class_range) except +
 
 
-def homogeneity_score(labels_true, labels_pred, handle=None):
+@cuml.internals.api_return_any()
+def cython_homogeneity_score(labels_true, labels_pred, handle=None) -> float:
     """
     Computes the homogeneity metric of a cluster labeling given a ground truth.
 
@@ -74,8 +73,8 @@ def homogeneity_score(labels_true, labels_pred, handle=None):
       The homogeneity of the predicted labeling given the ground truth.
       Score between 0.0 and 1.0. 1.0 stands for perfectly homogeneous labeling.
     """
-    handle = cuml.common.handle.Handle() if handle is None else handle
-    cdef cumlHandle *handle_ = <cumlHandle*> <size_t> handle.getHandle()
+    handle = Handle() if handle is None else handle
+    cdef handle_t *handle_ = <handle_t*> <size_t> handle.getHandle()
 
     (y_true, y_pred,
      n_rows,
@@ -87,11 +86,11 @@ def homogeneity_score(labels_true, labels_pred, handle=None):
     cdef uintptr_t ground_truth_ptr = y_true.ptr
     cdef uintptr_t preds_ptr = y_pred.ptr
 
-    hom = homogeneityScore(handle_[0],
-                           <int*> ground_truth_ptr,
-                           <int*> preds_ptr,
-                           <int> n_rows,
-                           <int> lower_class_range,
-                           <int> upper_class_range)
+    hom = homogeneity_score(handle_[0],
+                            <int*> ground_truth_ptr,
+                            <int*> preds_ptr,
+                            <int> n_rows,
+                            <int> lower_class_range,
+                            <int> upper_class_range)
 
     return hom

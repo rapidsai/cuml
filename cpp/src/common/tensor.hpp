@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <raft/cudart_utils.h>
 #include <cuml/common/cuml_allocator.hpp>
 #include <vector>
 

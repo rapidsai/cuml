@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 
-#include <common/cudart_utils.h>
+#include <raft/cudart_utils.h>
 #include <distance/fused_l2_nn.cuh>
 #include <limits>
-#include <linalg/norm.cuh>
-#include <random/rng.cuh>
+#include <raft/linalg/norm.cuh>
+#include <raft/random/rng.cuh>
 #include "../common/ml_benchmark.hpp"
 
 namespace MLCommon {
@@ -32,8 +32,8 @@ struct FLNParams {
 template <typename T>
 struct FusedL2NN : public Fixture {
   FusedL2NN(const std::string& name, const FLNParams& p)
-    : Fixture(name,
-              std::shared_ptr<deviceAllocator>(new defaultDeviceAllocator)),
+    : Fixture(name, std::shared_ptr<deviceAllocator>(
+                      new raft::mr::device::default_allocator)),
       params(p) {}
 
  protected:
@@ -44,14 +44,14 @@ struct FusedL2NN : public Fixture {
     alloc(yn, params.n);
     alloc(out, params.m);
     alloc(workspace, params.m);
-    MLCommon::Random::Rng r(123456ULL);
+    raft::random::Rng r(123456ULL);
     r.uniform(x, params.m * params.k, T(-1.0), T(1.0), stream);
     r.uniform(y, params.n * params.k, T(-1.0), T(1.0), stream);
-    MLCommon::LinAlg::rowNorm(xn, x, params.k, params.m,
-                              MLCommon::LinAlg::L2Norm, true, stream);
-    MLCommon::LinAlg::rowNorm(yn, y, params.k, params.n,
-                              MLCommon::LinAlg::L2Norm, true, stream);
-    auto blks = ceildiv(params.m, 256);
+    raft::linalg::rowNorm(xn, x, params.k, params.m, raft::linalg::L2Norm, true,
+                          stream);
+    raft::linalg::rowNorm(yn, y, params.k, params.n, raft::linalg::L2Norm, true,
+                          stream);
+    auto blks = raft::ceildiv(params.m, 256);
     MLCommon::Distance::initKernel<T, cub::KeyValuePair<int, T>, int>
       <<<blks, 256, 0, stream>>>(out, params.m, std::numeric_limits<T>::max(),
                                  op);

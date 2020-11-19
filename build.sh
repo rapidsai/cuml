@@ -19,7 +19,7 @@ ARGS=$*
 REPODIR=$(cd $(dirname $0); pwd)
 
 VALIDTARGETS="clean libcuml cuml cpp-mgtests prims bench prims-bench cppdocs pydocs"
-VALIDFLAGS="-v -g -n --allgpuarch --buildfaiss --buildgtest --singlegpu --nvtx --show_depr_warn -h --help "
+VALIDFLAGS="-v -g -n --allgpuarch --buildfaiss --buildgtest --singlegpu --nvtx --show_depr_warn --codecov -h --help "
 VALIDARGS="${VALIDTARGETS} ${VALIDFLAGS}"
 HELP="$0 [<target> ...] [<flag> ...]
  where <target> is:
@@ -43,11 +43,13 @@ HELP="$0 [<target> ...] [<flag> ...]
    --singlegpu      - Build libcuml and cuml without multigpu components
    --nvtx           - Enable nvtx for profiling support
    --show_depr_warn - show cmake deprecation warnings
+   --codecov        - Enable code coverage support by compiling with Cython linetracing
+                      and profiling enabled (WARNING: Impacts performance)
    -h               - print this text
 
  default action (no args) is to build and install 'libcuml', 'cuml', and 'prims' targets only for the detected GPU arch
 "
-LIBCUML_BUILD_DIR=${REPODIR}/cpp/build
+LIBCUML_BUILD_DIR=${LIBCUML_BUILD_DIR:=${REPODIR}/cpp/build}
 CUML_BUILD_DIR=${REPODIR}/python/build
 PYTHON_DEPS_CLONE=${REPODIR}/python/external_repositories
 BUILD_DIRS="${LIBCUML_BUILD_DIR} ${CUML_BUILD_DIR} ${PYTHON_DEPS_CLONE}"
@@ -58,7 +60,7 @@ BUILD_TYPE=Release
 INSTALL_TARGET=install
 BUILD_ALL_GPU_ARCH=0
 SINGLEGPU_CPP_FLAG=""
-SINGLEGPU_PYTHON_FLAG=""
+BUILD_PYTHON_ARGS=${BUILD_PYTHON_ARGS:=""}
 NVTX=OFF
 CLEAN=0
 BUILD_DISABLE_DEPRECATION_WARNING=ON
@@ -71,7 +73,6 @@ BUILD_STATIC_FAISS=OFF
 #         CONDA_PREFIX, but there is no fallback from there!
 INSTALL_PREFIX=${INSTALL_PREFIX:=${PREFIX:=${CONDA_PREFIX}}}
 PARALLEL_LEVEL=${PARALLEL_LEVEL:=""}
-BUILD_ABI=${BUILD_ABI:=ON}
 
 function hasArg {
     (( ${NUMARGS} != 0 )) && (echo " ${ARGS} " | grep -q " $1 ")
@@ -116,7 +117,7 @@ if hasArg --allgpuarch; then
     BUILD_ALL_GPU_ARCH=1
 fi
 if hasArg --singlegpu; then
-    SINGLEGPU_PYTHON_FLAG="--singlegpu"
+    BUILD_PYTHON_ARGS="${BUILD_PYTHON_ARGS} --singlegpu"
     SINGLEGPU_CPP_FLAG=ON
 fi
 if hasArg cpp-mgtests; then
@@ -133,6 +134,9 @@ if hasArg --nvtx; then
 fi
 if hasArg --show_depr_warn; then
     BUILD_DISABLE_DEPRECATION_WARNING=OFF
+fi
+if hasArg --codecov; then
+    BUILD_PYTHON_ARGS="${BUILD_PYTHON_ARGS} --linetrace=1 --profile"
 fi
 if hasArg clean; then
     CLEAN=1
@@ -171,7 +175,6 @@ if completeBuild || hasArg libcuml || hasArg prims || hasArg bench || hasArg pri
     cd ${LIBCUML_BUILD_DIR}
 
     cmake -DCMAKE_INSTALL_PREFIX=${INSTALL_PREFIX} \
-          -DCMAKE_CXX11_ABI=${BUILD_ABI} \
           -DBLAS_LIBRARIES=${INSTALL_PREFIX}/lib/libopenblas.so.0 \
           ${GPU_ARCH} \
           -DCMAKE_BUILD_TYPE=${BUILD_TYPE} \
@@ -226,10 +229,9 @@ fi
 if completeBuild || hasArg cuml || hasArg pydocs; then
     cd ${REPODIR}/python
     if [[ ${INSTALL_TARGET} != "" ]]; then
-        python setup.py build_ext -j${PARALLEL_LEVEL:-1} --inplace ${SINGLEGPU_PYTHON_FLAG}
-        python setup.py install --single-version-externally-managed --record=record.txt ${SINGLEGPU_PYTHON_FLAG}
+        python setup.py build_ext -j${PARALLEL_LEVEL:-1} ${BUILD_PYTHON_ARGS} --library-dir=${LIBCUML_BUILD_DIR} install --single-version-externally-managed --record=record.txt
     else
-        python setup.py build_ext -j${PARALLEL_LEVEL:-1} --inplace --library-dir=${LIBCUML_BUILD_DIR} ${SINGLEGPU_PYTHON_FLAG}
+        python setup.py build_ext -j${PARALLEL_LEVEL:-1} ${BUILD_PYTHON_ARGS} --library-dir=${LIBCUML_BUILD_DIR}
     fi
 
     if hasArg pydocs; then

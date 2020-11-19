@@ -27,9 +27,9 @@
 #include <thrust/device_vector.h>
 #include <thrust/scan.h>
 
-#include <common/cudart_utils.h>
 #include <cuda_runtime.h>
-#include <cuda_utils.cuh>
+#include <raft/cudart_utils.h>
+#include <raft/cuda_utils.cuh>
 
 #include <iostream>
 #define restrict __restrict__
@@ -175,9 +175,12 @@ class COO {
       cudaStream_t stream;
       CUDA_CHECK(cudaStreamCreateWithFlags(&stream, cudaStreamNonBlocking));
 
-      out << arr2Str(c.rows_arr.data(), c.nnz, "rows", stream) << std::endl;
-      out << arr2Str(c.cols_arr.data(), c.nnz, "cols", stream) << std::endl;
-      out << arr2Str(c.vals_arr.data(), c.nnz, "vals", stream) << std::endl;
+      out << raft::arr2Str(c.rows_arr.data(), c.nnz, "rows", stream)
+          << std::endl;
+      out << raft::arr2Str(c.cols_arr.data(), c.nnz, "cols", stream)
+          << std::endl;
+      out << raft::arr2Str(c.vals_arr.data(), c.nnz, "vals", stream)
+          << std::endl;
       out << "nnz=" << c.nnz << std::endl;
       out << "n_rows=" << c.n_rows << std::endl;
       out << "n_cols=" << c.n_cols << std::endl;
@@ -292,7 +295,7 @@ void coo_sort(int m, int n, int nnz, int *rows, int *cols, T *vals,
 
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
-  copy(vals, vals_sorted.data(), nnz, stream);
+  raft::copy(vals, vals_sorted.data(), nnz, stream);
 
   CUSPARSE_CHECK(cusparseDestroy(handle));
 }
@@ -370,7 +373,7 @@ template <int TPB_X>
 __global__ void coo_row_count_kernel(const int *rows, int nnz, int *results) {
   int row = (blockIdx.x * TPB_X) + threadIdx.x;
   if (row < nnz) {
-    atomicAdd(results + rows[row], 1);
+    raft::myAtomicAdd(results + rows[row], 1);
   }
 }
 
@@ -385,7 +388,7 @@ __global__ void coo_row_count_kernel(const int *rows, int nnz, int *results) {
 template <int TPB_X>
 void coo_row_count(const int *rows, int nnz, int *results,
                    cudaStream_t stream) {
-  dim3 grid_rc(MLCommon::ceildiv(nnz, TPB_X), 1, 1);
+  dim3 grid_rc(raft::ceildiv(nnz, TPB_X), 1, 1);
   dim3 blk_rc(TPB_X, 1, 1);
 
   coo_row_count_kernel<TPB_X>
@@ -403,7 +406,7 @@ void coo_row_count(const int *rows, int nnz, int *results,
  */
 template <int TPB_X, typename T>
 void coo_row_count(COO<T> *in, int *results, cudaStream_t stream) {
-  dim3 grid_rc(MLCommon::ceildiv(in->nnz, TPB_X), 1, 1);
+  dim3 grid_rc(raft::ceildiv(in->nnz, TPB_X), 1, 1);
   dim3 blk_rc(TPB_X, 1, 1);
 
   coo_row_count_kernel<TPB_X>
@@ -416,7 +419,7 @@ __global__ void coo_row_count_nz_kernel(const int *rows, const T *vals, int nnz,
                                         int *results) {
   int row = (blockIdx.x * TPB_X) + threadIdx.x;
   if (row < nnz && vals[row] != 0.0) {
-    atomicAdd(results + rows[row], 1);
+    raft::myAtomicAdd(results + rows[row], 1);
   }
 }
 
@@ -425,7 +428,7 @@ __global__ void coo_row_count_scalar_kernel(const int *rows, const T *vals,
                                             int nnz, T scalar, int *results) {
   int row = (blockIdx.x * TPB_X) + threadIdx.x;
   if (row < nnz && vals[row] != scalar) {
-    atomicAdd(results + rows[row], 1);
+    raft::myAtomicAdd(results + rows[row], 1);
   }
 }
 
@@ -441,7 +444,7 @@ __global__ void coo_row_count_scalar_kernel(const int *rows, const T *vals,
 template <int TPB_X, typename T>
 void coo_row_count_scalar(COO<T> *in, T scalar, int *results,
                           cudaStream_t stream) {
-  dim3 grid_rc(MLCommon::ceildiv(in->nnz, TPB_X), 1, 1);
+  dim3 grid_rc(raft::ceildiv(in->nnz, TPB_X), 1, 1);
   dim3 blk_rc(TPB_X, 1, 1);
 
   coo_row_count_scalar_kernel<TPB_X, T><<<grid_rc, blk_rc, 0, stream>>>(
@@ -463,7 +466,7 @@ void coo_row_count_scalar(COO<T> *in, T scalar, int *results,
 template <int TPB_X, typename T>
 void coo_row_count_scalar(const int *rows, const T *vals, int nnz, T scalar,
                           int *results, cudaStream_t stream = 0) {
-  dim3 grid_rc(MLCommon::ceildiv(nnz, TPB_X), 1, 1);
+  dim3 grid_rc(raft::ceildiv(nnz, TPB_X), 1, 1);
   dim3 blk_rc(TPB_X, 1, 1);
 
   coo_row_count_scalar_kernel<TPB_X, T>
@@ -484,7 +487,7 @@ void coo_row_count_scalar(const int *rows, const T *vals, int nnz, T scalar,
 template <int TPB_X, typename T>
 void coo_row_count_nz(const int *rows, const T *vals, int nnz, int *results,
                       cudaStream_t stream) {
-  dim3 grid_rc(MLCommon::ceildiv(nnz, TPB_X), 1, 1);
+  dim3 grid_rc(raft::ceildiv(nnz, TPB_X), 1, 1);
   dim3 blk_rc(TPB_X, 1, 1);
 
   coo_row_count_nz_kernel<TPB_X, T>
@@ -502,7 +505,7 @@ void coo_row_count_nz(const int *rows, const T *vals, int nnz, int *results,
  */
 template <int TPB_X, typename T>
 void coo_row_count_nz(COO<T> *in, int *results, cudaStream_t stream) {
-  dim3 grid_rc(MLCommon::ceildiv(in->nnz, TPB_X), 1, 1);
+  dim3 grid_rc(raft::ceildiv(in->nnz, TPB_X), 1, 1);
   dim3 blk_rc(TPB_X, 1, 1);
 
   coo_row_count_nz_kernel<TPB_X, T>
@@ -553,7 +556,7 @@ void coo_remove_scalar(const int *rows, const int *cols, const T *vals, int nnz,
                          dev_cur_cnnz + n, dev_cur_ex_scan);
   CUDA_CHECK(cudaPeekAtLastError());
 
-  dim3 grid(ceildiv(n, TPB_X), 1, 1);
+  dim3 grid(raft::ceildiv(n, TPB_X), 1, 1);
   dim3 blk(TPB_X, 1, 1);
 
   coo_remove_scalar_kernel<TPB_X><<<grid, blk, 0, stream>>>(
@@ -649,7 +652,7 @@ __global__ void from_knn_graph_kernel(const long *knn_indices,
 template <typename T>
 void from_knn(const long *knn_indices, const T *knn_dists, int m, int k,
               int *rows, int *cols, T *vals) {
-  dim3 grid(ceildiv(m, 32), 1, 1);
+  dim3 grid(raft::ceildiv(m, 32), 1, 1);
   dim3 blk(32, 1, 1);
   from_knn_graph_kernel<32, T>
     <<<grid, blk>>>(knn_indices, knn_dists, m, k, rows, cols, vals);
@@ -800,7 +803,7 @@ void coo_symmetrize(COO<T> *in, COO<T> *out,
                     Lambda reduction_op,  // two-argument reducer
                     std::shared_ptr<deviceAllocator> d_alloc,
                     cudaStream_t stream) {
-  dim3 grid(ceildiv(in->n_rows, TPB_X), 1, 1);
+  dim3 grid(raft::ceildiv(in->n_rows, TPB_X), 1, 1);
   dim3 blk(TPB_X, 1, 1);
 
   ASSERT(!out->validate_mem(), "Expecting unallocated COO for output");
@@ -840,9 +843,9 @@ __global__ static void symmetric_find_size(const math_t *restrict data,
 
   const int col = indices[row * k + j];
   if (j % 2)
-    atomicAdd(&row_sizes[col], 1);
+    raft::myAtomicAdd(&row_sizes[col], 1);
   else
-    atomicAdd(&row_sizes2[col], 1);
+    raft::myAtomicAdd(&row_sizes2[col], 1);
 }
 
 /**
@@ -927,7 +930,7 @@ void from_knn_symmetrize_matrix(const long *restrict knn_indices,
   // (1) Find how much space needed in each row
   // We look through all datapoints and increment the count for each row.
   const dim3 threadsPerBlock(TPB_X, TPB_Y);
-  const dim3 numBlocks(ceildiv(n, TPB_X), ceildiv(k, TPB_Y));
+  const dim3 numBlocks(raft::ceildiv(n, TPB_X), raft::ceildiv(k, TPB_Y));
 
   // Notice n+1 since we can reuse these arrays for transpose_edges, original_edges in step (4)
   device_buffer<int> row_sizes(d_alloc, stream, n);
@@ -940,7 +943,7 @@ void from_knn_symmetrize_matrix(const long *restrict knn_indices,
     knn_dists, knn_indices, n, k, row_sizes.data(), row_sizes2.data());
   CUDA_CHECK(cudaPeekAtLastError());
 
-  reduce_find_size<<<ceildiv(n, 1024), 1024, 0, stream>>>(
+  reduce_find_size<<<raft::ceildiv(n, 1024), 1024, 0, stream>>>(
     n, k, row_sizes.data(), row_sizes2.data());
   CUDA_CHECK(cudaPeekAtLastError());
 

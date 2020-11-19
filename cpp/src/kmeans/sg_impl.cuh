@@ -16,19 +16,21 @@
 
 #pragma once
 
-#include <common/cudart_utils.h>
+#include <raft/cudart_utils.h>
 #include "common.cuh"
 
 namespace ML {
 
 namespace kmeans {
 
+namespace impl {
+
 // Selects 'n_clusters' samples randomly from X
 template <typename DataT, typename IndexT>
-void initRandom(const ML::cumlHandle_impl &handle, const KMeansParams &params,
+void initRandom(const raft::handle_t &handle, const KMeansParams &params,
                 Tensor<DataT, 2, IndexT> &X,
                 MLCommon::device_buffer<DataT> &centroidsRawData) {
-  cudaStream_t stream = handle.getStream();
+  cudaStream_t stream = handle.get_stream();
   auto n_features = X.getSize(1);
   auto n_clusters = params.n_clusters;
   // allocate centroids buffer
@@ -41,54 +43,53 @@ void initRandom(const ML::cumlHandle_impl &handle, const KMeansParams &params,
 }
 
 template <typename DataT, typename IndexT>
-void fit(const ML::cumlHandle_impl &handle, const KMeansParams &params,
+void fit(const raft::handle_t &handle, const KMeansParams &params,
          Tensor<DataT, 2, IndexT> &X, Tensor<DataT, 1, IndexT> &weight,
          MLCommon::device_buffer<DataT> &centroidsRawData, DataT &inertia,
          int &n_iter, MLCommon::device_buffer<char> &workspace) {
   ML::Logger::get().setLevel(params.verbosity);
-  cudaStream_t stream = handle.getStream();
+  cudaStream_t stream = handle.get_stream();
   auto n_samples = X.getSize(0);
   auto n_features = X.getSize(1);
   auto n_clusters = params.n_clusters;
 
-  ML::Distance::DistanceType metric =
-    static_cast<ML::Distance::DistanceType>(params.metric);
+  raft::distance::DistanceType metric =
+    static_cast<raft::distance::DistanceType>(params.metric);
 
   // stores (key, value) pair corresponding to each sample where
   //   - key is the index of nearest cluster
   //   - value is the distance to the nearest cluster
   Tensor<cub::KeyValuePair<IndexT, DataT>, 1, IndexT> minClusterAndDistance(
-    {n_samples}, handle.getDeviceAllocator(), stream);
+    {n_samples}, handle.get_device_allocator(), stream);
 
   // temporary buffer to store L2 norm of centroids or distance matrix,
   // destructor releases the resource
   MLCommon::device_buffer<DataT> L2NormBuf_OR_DistBuf(
-    handle.getDeviceAllocator(), stream);
+    handle.get_device_allocator(), stream);
 
   // temporary buffer to store intermediate centroids, destructor releases the
   // resource
   Tensor<DataT, 2, IndexT> newCentroids({n_clusters, n_features},
-                                        handle.getDeviceAllocator(), stream);
+                                        handle.get_device_allocator(), stream);
 
   // temporary buffer to store weights per cluster, destructor releases the
   // resource
   Tensor<DataT, 1, IndexT> wtInCluster({n_clusters},
-                                       handle.getDeviceAllocator(), stream);
+                                       handle.get_device_allocator(), stream);
 
   cub::KeyValuePair<IndexT, DataT> *clusterCostD =
-    (cub::KeyValuePair<IndexT, DataT> *)handle.getDeviceAllocator()->allocate(
+    (cub::KeyValuePair<IndexT, DataT> *)handle.get_device_allocator()->allocate(
       sizeof(cub::KeyValuePair<IndexT, DataT>), stream);
 
   // L2 norm of X: ||x||^2
-  Tensor<DataT, 1> L2NormX({n_samples}, handle.getDeviceAllocator(), stream);
-  if (metric == ML::Distance::DistanceType::EucExpandedL2 ||
-      metric == ML::Distance::DistanceType::EucExpandedL2Sqrt) {
-    MLCommon::LinAlg::rowNorm(L2NormX.data(), X.data(), X.getSize(1),
-                              X.getSize(0), MLCommon::LinAlg::L2Norm, true,
-                              stream);
+  Tensor<DataT, 1> L2NormX({n_samples}, handle.get_device_allocator(), stream);
+  if (metric == raft::distance::DistanceType::EucExpandedL2 ||
+      metric == raft::distance::DistanceType::EucExpandedL2Sqrt) {
+    raft::linalg::rowNorm(L2NormX.data(), X.data(), X.getSize(1), X.getSize(0),
+                          raft::linalg::L2Norm, true, stream);
   }
 
-  ML::thrustAllocatorAdapter alloc(handle.getDeviceAllocator(), stream);
+  ML::thrustAllocatorAdapter alloc(handle.get_device_allocator(), stream);
   auto thrust_exec_policy = thrust::cuda::par(alloc).on(stream);
 
   LOG(handle,
@@ -141,7 +142,7 @@ void fit(const ML::cumlHandle_impl &handle, const KMeansParams &params,
     //   newCentroids[n_clusters x n_features] - 2D array, newCentroids[i] has sum of all the samples assigned to cluster-i
     //   wtInCluster[n_clusters] - 1D array, wtInCluster[i] contains # of samples in cluster-i.
     // Note - when wtInCluster[i] is 0, newCentroid[i] is reset to 0
-    MLCommon::LinAlg::matrixVectorOp(
+    raft::linalg::matrixVectorOp(
       newCentroids.data(), newCentroids.data(), wtInCluster.data(),
       newCentroids.getSize(1), newCentroids.getSize(0), true, false,
       [=] __device__(DataT mat, DataT vec) {
@@ -171,8 +172,8 @@ void fit(const ML::cumlHandle_impl &handle, const KMeansParams &params,
 
     // compute the squared norm between the newCentroids and the original
     // centroids, destructor releases the resource
-    Tensor<DataT, 1> sqrdNorm({1}, handle.getDeviceAllocator(), stream);
-    MLCommon::LinAlg::mapThenSumReduce(
+    Tensor<DataT, 1> sqrdNorm({1}, handle.get_device_allocator(), stream);
+    raft::linalg::mapThenSumReduce(
       sqrdNorm.data(), newCentroids.numElements(),
       [=] __device__(const DataT a, const DataT b) {
         DataT diff = a - b;
@@ -181,11 +182,10 @@ void fit(const ML::cumlHandle_impl &handle, const KMeansParams &params,
       stream, centroids.data(), newCentroids.data());
 
     DataT sqrdNormError = 0;
-    MLCommon::copy(&sqrdNormError, sqrdNorm.data(), sqrdNorm.numElements(),
-                   stream);
+    raft::copy(&sqrdNormError, sqrdNorm.data(), sqrdNorm.numElements(), stream);
 
-    MLCommon::copy(centroidsRawData.data(), newCentroids.data(),
-                   newCentroids.numElements(), stream);
+    raft::copy(centroidsRawData.data(), newCentroids.data(),
+               newCentroids.numElements(), stream);
 
     bool done = false;
     if (params.inertia_check) {
@@ -202,7 +202,7 @@ void fit(const ML::cumlHandle_impl &handle, const KMeansParams &params,
         stream);
 
       DataT curClusteringCost = 0;
-      MLCommon::copy(&curClusteringCost, &clusterCostD->value, 1, stream);
+      raft::copy(&curClusteringCost, &clusterCostD->value, 1, stream);
 
       CUDA_CHECK(cudaStreamSynchronize(stream));
       ASSERT(curClusteringCost != (DataT)0.0,
@@ -254,26 +254,26 @@ void fit(const ML::cumlHandle_impl &handle, const KMeansParams &params,
     },
     stream);
 
-  MLCommon::copy(&inertia, &clusterCostD->value, 1, stream);
+  raft::copy(&inertia, &clusterCostD->value, 1, stream);
 
   LOG(handle, "KMeans.fit: completed after %d iterations with %f inertia ",
       n_iter > params.max_iter ? n_iter - 1 : n_iter, inertia);
 
-  handle.getDeviceAllocator()->deallocate(
+  handle.get_device_allocator()->deallocate(
     clusterCostD, sizeof(cub::KeyValuePair<IndexT, DataT>), stream);
 }
 
 template <typename DataT, typename IndexT>
-void initKMeansPlusPlus(const ML::cumlHandle_impl &handle,
+void initKMeansPlusPlus(const raft::handle_t &handle,
                         const KMeansParams &params, Tensor<DataT, 2, IndexT> &X,
                         MLCommon::device_buffer<DataT> &centroidsRawData,
                         MLCommon::device_buffer<char> &workspace) {
-  cudaStream_t stream = handle.getStream();
+  cudaStream_t stream = handle.get_stream();
   auto n_samples = X.getSize(0);
   auto n_features = X.getSize(1);
   auto n_clusters = params.n_clusters;
-  ML::Distance::DistanceType metric =
-    static_cast<ML::Distance::DistanceType>(params.metric);
+  raft::distance::DistanceType metric =
+    static_cast<raft::distance::DistanceType>(params.metric);
   centroidsRawData.resize(n_clusters * n_features, stream);
   kmeans::detail::kmeansPlusPlus(handle, params, X, metric, workspace,
                                  centroidsRawData, stream);
@@ -302,18 +302,17 @@ void initKMeansPlusPlus(const ML::cumlHandle_impl &handle,
  */
 template <typename DataT, typename IndexT>
 void initScalableKMeansPlusPlus(
-  const ML::cumlHandle_impl &handle, const KMeansParams &params,
+  const raft::handle_t &handle, const KMeansParams &params,
   Tensor<DataT, 2, IndexT> &X, MLCommon::device_buffer<DataT> &centroidsRawData,
   MLCommon::device_buffer<char> &workspace) {
-  cudaStream_t stream = handle.getStream();
+  cudaStream_t stream = handle.get_stream();
   auto n_samples = X.getSize(0);
   auto n_features = X.getSize(1);
   auto n_clusters = params.n_clusters;
-  ML::Distance::DistanceType metric =
-    static_cast<ML::Distance::DistanceType>(params.metric);
+  raft::distance::DistanceType metric =
+    static_cast<raft::distance::DistanceType>(params.metric);
 
-  MLCommon::Random::Rng rng(params.seed,
-                            MLCommon::Random::GeneratorType::GenPhilox);
+  raft::random::Rng rng(params.seed, raft::random::GeneratorType::GenPhilox);
 
   // <<<< Step-1 >>> : C <- sample a point uniformly at random from X
   std::mt19937 gen(params.seed);
@@ -323,26 +322,26 @@ void initScalableKMeansPlusPlus(
   auto initialCentroid = X.template view<2>({1, n_features}, {cIdx, 0});
 
   // flag the sample that is chosen as initial centroid
-  MLCommon::host_buffer<int> h_isSampleCentroid(handle.getHostAllocator(),
+  MLCommon::host_buffer<int> h_isSampleCentroid(handle.get_host_allocator(),
                                                 stream, n_samples);
   std::fill(h_isSampleCentroid.begin(), h_isSampleCentroid.end(), 0);
   h_isSampleCentroid[cIdx] = 1;
 
   // device buffer to flag the sample that is chosen as initial centroid
-  Tensor<int, 1> isSampleCentroid({n_samples}, handle.getDeviceAllocator(),
+  Tensor<int, 1> isSampleCentroid({n_samples}, handle.get_device_allocator(),
                                   stream);
 
-  MLCommon::copy(isSampleCentroid.data(), h_isSampleCentroid.data(),
-                 isSampleCentroid.numElements(), stream);
+  raft::copy(isSampleCentroid.data(), h_isSampleCentroid.data(),
+             isSampleCentroid.numElements(), stream);
 
-  MLCommon::device_buffer<DataT> centroidsBuf(handle.getDeviceAllocator(),
+  MLCommon::device_buffer<DataT> centroidsBuf(handle.get_device_allocator(),
                                               stream);
 
   // reset buffer to store the chosen centroid
   centroidsBuf.reserve(n_clusters * n_features, stream);
   centroidsBuf.resize(initialCentroid.numElements(), stream);
-  MLCommon::copy(centroidsBuf.begin(), initialCentroid.data(),
-                 initialCentroid.numElements(), stream);
+  raft::copy(centroidsBuf.begin(), initialCentroid.data(),
+             initialCentroid.numElements(), stream);
 
   auto potentialCentroids = std::move(Tensor<DataT, 2, IndexT>(
     centroidsBuf.data(),
@@ -352,22 +351,21 @@ void initScalableKMeansPlusPlus(
   // temporary buffer to store L2 norm of centroids or distance matrix,
   // destructor releases the resource
   MLCommon::device_buffer<DataT> L2NormBuf_OR_DistBuf(
-    handle.getDeviceAllocator(), stream);
+    handle.get_device_allocator(), stream);
 
   // L2 norm of X: ||x||^2
-  Tensor<DataT, 1> L2NormX({n_samples}, handle.getDeviceAllocator(), stream);
-  if (metric == ML::Distance::DistanceType::EucExpandedL2 ||
-      metric == ML::Distance::DistanceType::EucExpandedL2Sqrt) {
-    MLCommon::LinAlg::rowNorm(L2NormX.data(), X.data(), X.getSize(1),
-                              X.getSize(0), MLCommon::LinAlg::L2Norm, true,
-                              stream);
+  Tensor<DataT, 1> L2NormX({n_samples}, handle.get_device_allocator(), stream);
+  if (metric == raft::distance::DistanceType::EucExpandedL2 ||
+      metric == raft::distance::DistanceType::EucExpandedL2Sqrt) {
+    raft::linalg::rowNorm(L2NormX.data(), X.data(), X.getSize(1), X.getSize(0),
+                          raft::linalg::L2Norm, true, stream);
   }
 
   Tensor<DataT, 1, IndexT> minClusterDistance(
-    {n_samples}, handle.getDeviceAllocator(), stream);
+    {n_samples}, handle.get_device_allocator(), stream);
   Tensor<DataT, 1, IndexT> uniformRands({n_samples},
-                                        handle.getDeviceAllocator(), stream);
-  MLCommon::device_buffer<DataT> clusterCost(handle.getDeviceAllocator(),
+                                        handle.get_device_allocator(), stream);
+  MLCommon::device_buffer<DataT> clusterCost(handle.get_device_allocator(),
                                              stream, 1);
 
   // <<< Step-2 >>>: psi <- phi_X (C)
@@ -381,7 +379,7 @@ void initScalableKMeansPlusPlus(
     [] __device__(const DataT &a, const DataT &b) { return a + b; }, stream);
 
   DataT psi = 0;
-  MLCommon::copy(&psi, clusterCost.data(), clusterCost.size(), stream);
+  raft::copy(&psi, clusterCost.data(), clusterCost.size(), stream);
 
   // <<< End of Step-2 >>>
 
@@ -404,7 +402,7 @@ void initScalableKMeansPlusPlus(
       handle, minClusterDistance, workspace, clusterCost.data(),
       [] __device__(const DataT &a, const DataT &b) { return a + b; }, stream);
 
-    MLCommon::copy(&psi, clusterCost.data(), clusterCost.size(), stream);
+    raft::copy(&psi, clusterCost.data(), clusterCost.size(), stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
 
     // <<<< Step-4 >>> : Sample each point x in X independently and identify new
@@ -424,8 +422,8 @@ void initScalableKMeansPlusPlus(
     /// <<<< Step-5 >>> : C = C U C'
     // append the data in Cp to the buffer holding the potentialCentroids
     centroidsBuf.resize(centroidsBuf.size() + Cp.numElements(), stream);
-    MLCommon::copy(centroidsBuf.end() - Cp.numElements(), Cp.data(),
-                   Cp.numElements(), stream);
+    raft::copy(centroidsBuf.end() - Cp.numElements(), Cp.data(),
+               Cp.numElements(), stream);
 
     int tot_centroids = potentialCentroids.getSize(0) + Cp.getSize(0);
     potentialCentroids = std::move(Tensor<DataT, 2, IndexT>(
@@ -441,7 +439,7 @@ void initScalableKMeansPlusPlus(
     // temporary buffer to store the sample count per cluster, destructor
     // releases the resource
     Tensor<DataT, 1, IndexT> weight({potentialCentroids.getSize(0)},
-                                    handle.getDeviceAllocator(), stream);
+                                    handle.get_device_allocator(), stream);
 
     kmeans::detail::countSamplesInCluster(handle, params, X, L2NormX,
                                           potentialCentroids, workspace, metric,
@@ -459,8 +457,8 @@ void initScalableKMeansPlusPlus(
     KMeansParams default_params;
     default_params.n_clusters = params.n_clusters;
 
-    ML::kmeans::fit(handle, default_params, potentialCentroids, weight,
-                    centroidsRawData, inertia, n_iter, workspace);
+    ML::kmeans::impl::fit(handle, default_params, potentialCentroids, weight,
+                          centroidsRawData, inertia, n_iter, workspace);
 
   } else if (potentialCentroids.getSize(0) < n_clusters) {
     // supplement with random
@@ -482,24 +480,24 @@ void initScalableKMeansPlusPlus(
     initRandom(handle, rand_params, X, centroidsRawData);
 
     // copy centroids generated during kmeans|| iteration to the buffer
-    MLCommon::copy(centroidsRawData.data() + n_random_clusters * n_features,
-                   potentialCentroids.data(), potentialCentroids.numElements(),
-                   stream);
+    raft::copy(centroidsRawData.data() + n_random_clusters * n_features,
+               potentialCentroids.data(), potentialCentroids.numElements(),
+               stream);
   } else {
     // found the required n_clusters
     centroidsRawData.resize(n_clusters * n_features, stream);
-    MLCommon::copy(centroidsRawData.data(), potentialCentroids.data(),
-                   potentialCentroids.numElements(), stream);
+    raft::copy(centroidsRawData.data(), potentialCentroids.data(),
+               potentialCentroids.numElements(), stream);
   }
 }
 
 template <typename DataT, typename IndexT = int>
-void fit(const ML::cumlHandle_impl &handle, const KMeansParams &km_params,
+void fit(const raft::handle_t &handle, const KMeansParams &km_params,
          const DataT *X, const int n_samples, const int n_features,
          const DataT *sample_weight, DataT *centroids, DataT &inertia,
          int &n_iter) {
   ML::Logger::get().setLevel(km_params.verbosity);
-  cudaStream_t stream = handle.getStream();
+  cudaStream_t stream = handle.get_stream();
 
   ASSERT(n_samples > 0, "# of samples must be > 0");
 
@@ -511,22 +509,23 @@ void fit(const ML::cumlHandle_impl &handle, const KMeansParams &km_params,
 
   Tensor<DataT, 2, IndexT> data((DataT *)X, {n_samples, n_features});
 
-  Tensor<DataT, 1, IndexT> weight({n_samples}, handle.getDeviceAllocator(),
+  Tensor<DataT, 1, IndexT> weight({n_samples}, handle.get_device_allocator(),
                                   stream);
   if (sample_weight != nullptr) {
-    MLCommon::copy(weight.data(), sample_weight, n_samples, stream);
+    raft::copy(weight.data(), sample_weight, n_samples, stream);
   } else {
-    ML::thrustAllocatorAdapter alloc(handle.getDeviceAllocator(), stream);
+    ML::thrustAllocatorAdapter alloc(handle.get_device_allocator(), stream);
     auto thrust_exec_policy = thrust::cuda::par(alloc).on(stream);
     thrust::fill(thrust_exec_policy, weight.begin(), weight.end(), 1);
   }
 
   // underlying expandable storage that holds centroids data
-  MLCommon::device_buffer<DataT> centroidsRawData(handle.getDeviceAllocator(),
+  MLCommon::device_buffer<DataT> centroidsRawData(handle.get_device_allocator(),
                                                   stream);
 
   // Device-accessible allocation of expandable storage used as temorary buffers
-  MLCommon::device_buffer<char> workspace(handle.getDeviceAllocator(), stream);
+  MLCommon::device_buffer<char> workspace(handle.get_device_allocator(),
+                                          stream);
 
   // check if weights sum up to n_samples
   kmeans::detail::checkWeights(handle, workspace, weight, stream);
@@ -583,8 +582,8 @@ void fit(const ML::cumlHandle_impl &handle, const KMeansParams &km_params,
              "the requested initialization method)");
 
       centroidsRawData.resize(params.n_clusters * n_features, stream);
-      MLCommon::copy(centroidsRawData.begin(), centroids,
-                     params.n_clusters * n_features, stream);
+      raft::copy(centroidsRawData.begin(), centroids,
+                 params.n_clusters * n_features, stream);
 
     } else {
       THROW("unknown initialization method to select initial centers");
@@ -596,8 +595,8 @@ void fit(const ML::cumlHandle_impl &handle, const KMeansParams &km_params,
     if (_inertia < inertia) {
       inertia = _inertia;
       n_iter = _n_iter;
-      MLCommon::copy(centroids, centroidsRawData.data(),
-                     params.n_clusters * n_features, stream);
+      raft::copy(centroids, centroidsRawData.data(),
+                 params.n_clusters * n_features, stream);
     }
 
     LOG(handle, "KMeans.fit after iteration-%d/%d: inertia - %f, n_iter - %d",
@@ -613,12 +612,12 @@ void fit(const ML::cumlHandle_impl &handle, const KMeansParams &km_params,
 }
 
 template <typename DataT, typename IndexT = int>
-void predict(const ML::cumlHandle_impl &handle, const KMeansParams &params,
+void predict(const raft::handle_t &handle, const KMeansParams &params,
              const DataT *cptr, const DataT *Xptr, const int n_samples,
              const int n_features, const DataT *sample_weight,
              IndexT *labelsRawPtr, DataT &inertia) {
   ML::Logger::get().setLevel(params.verbosity);
-  cudaStream_t stream = handle.getStream();
+  cudaStream_t stream = handle.get_stream();
   auto n_clusters = params.n_clusters;
 
   ASSERT(n_clusters > 0 && cptr != nullptr, "no clusters exist");
@@ -629,47 +628,47 @@ void predict(const ML::cumlHandle_impl &handle, const KMeansParams &params,
   ASSERT(is_device_or_managed_type(cptr),
          "centroid data must be device accessible");
 
-  ML::Distance::DistanceType metric =
-    static_cast<ML::Distance::DistanceType>(params.metric);
+  raft::distance::DistanceType metric =
+    static_cast<raft::distance::DistanceType>(params.metric);
 
   Tensor<DataT, 2, IndexT> X((DataT *)Xptr, {n_samples, n_features});
   Tensor<DataT, 2, IndexT> centroids((DataT *)cptr, {n_clusters, n_features});
 
-  Tensor<DataT, 1, IndexT> weight({n_samples}, handle.getDeviceAllocator(),
+  Tensor<DataT, 1, IndexT> weight({n_samples}, handle.get_device_allocator(),
                                   stream);
   if (sample_weight != nullptr) {
-    MLCommon::copy(weight.data(), sample_weight, n_samples, stream);
+    raft::copy(weight.data(), sample_weight, n_samples, stream);
   } else {
-    ML::thrustAllocatorAdapter alloc(handle.getDeviceAllocator(), stream);
+    ML::thrustAllocatorAdapter alloc(handle.get_device_allocator(), stream);
     auto thrust_exec_policy = thrust::cuda::par(alloc).on(stream);
     thrust::fill(thrust_exec_policy, weight.begin(), weight.end(), 1);
   }
 
   // underlying expandable storage that holds labels
-  MLCommon::device_buffer<IndexT> labelsRawData(handle.getDeviceAllocator(),
+  MLCommon::device_buffer<IndexT> labelsRawData(handle.get_device_allocator(),
                                                 stream);
 
   // Device-accessible allocation of expandable storage used as temorary buffers
-  MLCommon::device_buffer<char> workspace(handle.getDeviceAllocator(), stream);
+  MLCommon::device_buffer<char> workspace(handle.get_device_allocator(),
+                                          stream);
 
   // check if weights sum up to n_samples
   kmeans::detail::checkWeights(handle, workspace, weight, stream);
 
   Tensor<cub::KeyValuePair<IndexT, DataT>, 1> minClusterAndDistance(
-    {n_samples}, handle.getDeviceAllocator(), stream);
+    {n_samples}, handle.get_device_allocator(), stream);
 
   // temporary buffer to store L2 norm of centroids or distance matrix,
   // destructor releases the resource
   MLCommon::device_buffer<DataT> L2NormBuf_OR_DistBuf(
-    handle.getDeviceAllocator(), stream);
+    handle.get_device_allocator(), stream);
 
   // L2 norm of X: ||x||^2
-  Tensor<DataT, 1> L2NormX({n_samples}, handle.getDeviceAllocator(), stream);
-  if (metric == ML::Distance::DistanceType::EucExpandedL2 ||
-      metric == ML::Distance::DistanceType::EucExpandedL2Sqrt) {
-    MLCommon::LinAlg::rowNorm(L2NormX.data(), X.data(), X.getSize(1),
-                              X.getSize(0), MLCommon::LinAlg::L2Norm, true,
-                              stream);
+  Tensor<DataT, 1> L2NormX({n_samples}, handle.get_device_allocator(), stream);
+  if (metric == raft::distance::DistanceType::EucExpandedL2 ||
+      metric == raft::distance::DistanceType::EucExpandedL2Sqrt) {
+    raft::linalg::rowNorm(L2NormX.data(), X.data(), X.getSize(1), X.getSize(0),
+                          raft::linalg::L2Norm, true, stream);
   }
 
   // computes minClusterAndDistance[0:n_samples) where  minClusterAndDistance[i]
@@ -683,10 +682,10 @@ void predict(const ML::cumlHandle_impl &handle, const KMeansParams &params,
 
   // calculate cluster cost phi_x(C)
   cub::KeyValuePair<IndexT, DataT> *clusterCostD =
-    (cub::KeyValuePair<IndexT, DataT> *)handle.getDeviceAllocator()->allocate(
+    (cub::KeyValuePair<IndexT, DataT> *)handle.get_device_allocator()->allocate(
       sizeof(cub::KeyValuePair<IndexT, DataT>), stream);
 
-  ML::thrustAllocatorAdapter alloc(handle.getDeviceAllocator(), stream);
+  ML::thrustAllocatorAdapter alloc(handle.get_device_allocator(), stream);
   auto thrust_exec_policy = thrust::cuda::par(alloc).on(stream);
   thrust::transform(
     thrust_exec_policy, minClusterAndDistance.begin(),
@@ -708,7 +707,7 @@ void predict(const ML::cumlHandle_impl &handle, const KMeansParams &params,
     },
     stream);
 
-  MLCommon::copy(&inertia, &clusterCostD->value, 1, stream);
+  raft::copy(&inertia, &clusterCostD->value, 1, stream);
 
   labelsRawData.resize(n_samples, stream);
 
@@ -718,21 +717,21 @@ void predict(const ML::cumlHandle_impl &handle, const KMeansParams &params,
     minClusterAndDistance.end(), labels.begin(),
     [=] __device__(cub::KeyValuePair<IndexT, DataT> pair) { return pair.key; });
 
-  handle.getDeviceAllocator()->deallocate(
+  handle.get_device_allocator()->deallocate(
     clusterCostD, sizeof(cub::KeyValuePair<IndexT, DataT>), stream);
 
-  MLCommon::copy(labelsRawPtr, labelsRawData.data(), n_samples, stream);
+  raft::copy(labelsRawPtr, labelsRawData.data(), n_samples, stream);
 }
 
 template <typename DataT, typename IndexT = int>
-void transform(const ML::cumlHandle_impl &handle, const KMeansParams &params,
+void transform(const raft::handle_t &handle, const KMeansParams &params,
                const DataT *cptr, const DataT *Xptr, int n_samples,
                int n_features, int transform_metric, DataT *X_new) {
   ML::Logger::get().setLevel(params.verbosity);
-  cudaStream_t stream = handle.getStream();
+  cudaStream_t stream = handle.get_stream();
   auto n_clusters = params.n_clusters;
-  ML::Distance::DistanceType metric =
-    static_cast<ML::Distance::DistanceType>(transform_metric);
+  raft::distance::DistanceType metric =
+    static_cast<raft::distance::DistanceType>(transform_metric);
 
   ASSERT(n_clusters > 0 && cptr != nullptr, "no clusters exist");
 
@@ -751,7 +750,8 @@ void transform(const ML::cumlHandle_impl &handle, const KMeansParams &params,
                                             {n_samples, n_clusters});
 
   // Device-accessible allocation of expandable storage used as temorary buffers
-  MLCommon::device_buffer<char> workspace(handle.getDeviceAllocator(), stream);
+  MLCommon::device_buffer<char> workspace(handle.get_device_allocator(),
+                                          stream);
 
   auto dataBatchSize = kmeans::detail::getDataBatchSize(params, n_samples);
 
@@ -771,11 +771,12 @@ void transform(const ML::cumlHandle_impl &handle, const KMeansParams &params,
 
     // calculate pairwise distance between cluster centroids and current batch
     // of input dataset
-    kmeans::detail::pairwiseDistance(handle, datasetView, centroids,
-                                     pairwiseDistanceView, workspace, metric,
-                                     stream);
+    kmeans::detail::pairwise_distance(handle, datasetView, centroids,
+                                      pairwiseDistanceView, workspace, metric,
+                                      stream);
   }
 }
 
+};  // namespace impl
 };  // namespace kmeans
 };  // end namespace ML

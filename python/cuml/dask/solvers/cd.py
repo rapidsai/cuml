@@ -17,15 +17,14 @@ from cuml.dask.common.base import BaseEstimator
 from cuml.dask.common.base import DelayedPredictionMixin
 from cuml.dask.common.base import mnmg_import
 from cuml.dask.common.base import SyncFitMixinLinearModel
-from cuml.dask.common.comms import worker_state
+from cuml.raft.dask.common.comms import worker_state
 
 
 class CD(BaseEstimator,
          SyncFitMixinLinearModel,
          DelayedPredictionMixin):
     """
-    Model-Parallel Multi-GPU Linear Regression Model. Single Process Multi GPU
-    supported currently
+    Model-Parallel Multi-GPU Linear Regression Model.
     """
 
     def __init__(self, client=None, **kwargs):

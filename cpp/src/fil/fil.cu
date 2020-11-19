@@ -28,6 +28,7 @@
 #include <utility>
 
 #include <cuml/fil/fil.h>
+#include <raft/cudart_utils.h>
 #include <cuml/common/cuml_allocator.hpp>
 #include "common.cuh"
 
@@ -108,7 +109,7 @@ __global__ void transform_k(float* preds, size_t n, output_t output,
   if ((output & output_t::AVG) != 0) result *= inv_num_trees;
   result += global_bias;
   if ((output & output_t::SIGMOID) != 0) result = sigmoid(result);
-  // will not be done on INT_CLASS_LABEL because the whole kernel will not run
+  // will not be done on CATEGORICAL_LEAF because the whole kernel will not run
   if ((output & output_t::CLASS) != 0) {
     result = result > threshold ? 1.0f : 0.0f;
   }
@@ -125,7 +126,7 @@ struct forest {
   void init_max_shm() {
     int max_shm_std = 48 * 1024;  // 48 KiB
     int device = 0;
-    // TODO(canonizer): use cumlHandle for this
+    // TODO(canonizer): use raft::handle_t for this
     CUDA_CHECK(cudaGetDevice(&device));
     CUDA_CHECK(cudaDeviceGetAttribute(
       &max_shm_, cudaDevAttrMaxSharedMemoryPerBlockOptin, device));
@@ -141,14 +142,14 @@ struct forest {
     output_ = params->output;
     threshold_ = params->threshold;
     global_bias_ = params->global_bias;
-    leaf_payload_type_ = params->leaf_payload_type;
+    leaf_algo_ = params->leaf_algo;
     num_classes_ = params->num_classes;
     init_max_shm();
   }
 
   virtual void infer(predict_params params, cudaStream_t stream) = 0;
 
-  void predict(const cumlHandle& h, float* preds, const float* data,
+  void predict(const raft::handle_t& h, float* preds, const float* data,
                size_t num_rows, bool predict_proba) {
     // Initialize prediction parameters.
     predict_params params;
@@ -159,10 +160,10 @@ struct forest {
     params.num_rows = num_rows;
     params.max_shm = max_shm_;
     params.num_classes = num_classes_;
-    params.leaf_payload_type = leaf_payload_type_;
+    params.leaf_algo = leaf_algo_;
 
     /**
-    The binary classification / regression (FLOAT_SCALAR) predict_proba() works as follows
+    The binary classification / regression (FLOAT_UNARY_BINARY) predict_proba() works as follows
       (always 2 outputs):
     RAW: output the sum of tree predictions
     AVG is set: divide by the number of trees (averaging)
@@ -170,69 +171,87 @@ struct forest {
     CLASS is set: ignored
     write the output of the previous stages and its complement
 
-    The binary classification / regression (FLOAT_SCALAR) predict() works as follows
+    The binary classification / regression (FLOAT_UNARY_BINARY) predict() works as follows
       (always 1 output):
     RAW (no values set): output the sum of tree predictions
     AVG is set: divide by the number of trees (averaging)
     SIGMOID is set: apply sigmoid
     CLASS is set: apply threshold (equivalent to choosing best class)
     
-    The multi-class classification / regression (INT_CLASS_LABEL) predict_proba() works as follows
+    The multi-class classification / regression (CATEGORICAL_LEAF) predict_proba() works as follows
       (always num_classes outputs):
     RAW (no values set): output class votes
     AVG is set: divide by the number of trees (averaging, output class probability)
     SIGMOID is set: apply sigmoid
     CLASS is set: ignored
     
-    The multi-class classification / regression (INT_CLASS_LABEL) predict() works as follows
+    The multi-class classification / regression (CATEGORICAL_LEAF) predict() works as follows
       (always 1 output):
     RAW (no values set): output the label of the class with highest probability, else output label 0.
-    AVG is set: ignored
-    SIGMOID is set: ignored
-    CLASS is set: ignored
+    All other flags (AVG, SIGMOID, CLASS) are ignored
+    
+    The multi-class classification / regression (GROVE_PER_CLASS) predict_proba() is not implemented
+    
+    The multi-class classification / regression (GROVE_PER_CLASS) predict() works as follows
+      (always 1 output):
+    RAW (no values set): output the label of the class with highest margin,
+      equal margins resolved in favor of smaller label integer
+    All other flags (AVG, SIGMOID, CLASS) are ignored
     */
     output_t ot = output_;
-    bool complement_proba = false, do_transform = global_bias_ != 0.0f;
+    bool complement_proba = false, do_transform;
 
-    if (leaf_payload_type_ == leaf_value_t::FLOAT_SCALAR) {
-      if (predict_proba) {
-        params.num_outputs = 2;
-        ot = output_t(ot & ~output_t::CLASS);  // no threshold on probabilities
-        complement_proba = true;
-        do_transform = true;
-      } else {
-        params.num_outputs = 1;
-        if (ot != output_t::RAW) do_transform = true;
+    if (predict_proba) {
+      // no threshold on probabilities
+      ot = output_t(ot & ~output_t::CLASS);
+
+      switch (leaf_algo_) {
+        case leaf_algo_t::FLOAT_UNARY_BINARY:
+          params.num_outputs = 2;
+          complement_proba = true;
+          do_transform = true;
+          break;
+        case leaf_algo_t::GROVE_PER_CLASS:
+          // TODO(levsnv): add softmax to implement predict_proba
+          ASSERT(
+            false,
+            "predict_proba not supported for multi-class gradient boosted "
+            "decision trees (encountered in xgboost, scikit-learn, lightgbm)");
+        case leaf_algo_t::CATEGORICAL_LEAF:
+          params.num_outputs = num_classes_;
+          do_transform = ot != output_t::RAW || global_bias_ != 0.0f;
+          break;
+        default:
+          ASSERT(false, "internal error: invalid leaf_algo_");
       }
-    } else if (leaf_payload_type_ == leaf_value_t::INT_CLASS_LABEL) {
-      if (predict_proba) {
-        params.num_outputs = num_classes_;
-        ot = output_t(ot & ~output_t::CLASS);  // no threshold on probabilities
-        if (ot != output_t::RAW) do_transform = true;
+    } else {
+      if (leaf_algo_ == leaf_algo_t::FLOAT_UNARY_BINARY) {
+        do_transform = ot != output_t::RAW || global_bias_ != 0.0f;
       } else {
-        params.num_outputs = 1;
-        // moot since choosing best class and all transforms are monotonic
-        // also, would break current code
+        // GROVE_PER_CLASS, CATEGORICAL_LEAF: moot since choosing best class and
+        // all transforms are monotonic. also, would break current code
         do_transform = false;
       }
+      params.num_outputs = 1;
     }
 
     // Predict using the forest.
-    cudaStream_t stream = h.getStream();
+    cudaStream_t stream = h.get_stream();
     infer(params, stream);
 
     if (do_transform) {
       size_t num_values_to_transform =
         (size_t)num_rows * (size_t)params.num_outputs;
-      transform_k<<<ceildiv(num_values_to_transform, (size_t)FIL_TPB), FIL_TPB,
-                    0, stream>>>(preds, num_values_to_transform, ot,
-                                 num_trees_ > 0 ? (1.0f / num_trees_) : 1.0f,
-                                 threshold_, global_bias_, complement_proba);
+      transform_k<<<raft::ceildiv(num_values_to_transform, (size_t)FIL_TPB),
+                    FIL_TPB, 0, stream>>>(
+        preds, num_values_to_transform, ot,
+        num_trees_ > 0 ? (1.0f / num_trees_) : 1.0f, threshold_, global_bias_,
+        complement_proba);
       CUDA_CHECK(cudaPeekAtLastError());
     }
   }
 
-  virtual void free(const cumlHandle& h) = 0;
+  virtual void free(const raft::handle_t& h) = 0;
   virtual ~forest() {}
 
   int num_trees_ = 0;
@@ -243,30 +262,45 @@ struct forest {
   output_t output_ = output_t::RAW;
   float threshold_ = 0.5;
   float global_bias_ = 0;
-  leaf_value_t leaf_payload_type_ = leaf_value_t::FLOAT_SCALAR;
-  int num_classes_ = 0;
+  leaf_algo_t leaf_algo_ = leaf_algo_t::FLOAT_UNARY_BINARY;
+  int num_classes_ = 1;
 };
 
 struct dense_forest : forest {
   void transform_trees(const dense_node_t* nodes) {
-    // populate node information
-    for (int i = 0, gid = 0; i < num_trees_; ++i) {
-      for (int j = 0, nid = 0; j <= depth_; ++j) {
-        for (int k = 0; k < 1 << j; ++k, ++nid, ++gid) {
-          h_nodes_[nid * num_trees_ + i] = dense_node(nodes[gid]);
+    /* Populate node information:
+       For each tree, the nodes are still stored in the breadth-first,
+       left-to-right order. However, instead of storing the nodes of the same
+       tree adjacently, it uses a different layout. In this layout, the roots
+       of all trees (node 0) are stored first, followed by left children of
+       the roots of all trees (node 1), followed by the right children of the
+       roots of all trees (node 2), and so on.
+    */
+    int global_node = 0;
+    for (int tree = 0; tree < num_trees_; ++tree) {
+      int tree_node = 0;
+      // the counters `level` and `branch` are not used for computing node
+      // indices, they are only here to highlight the node ordering within
+      // each tree
+      for (int level = 0; level <= depth_; ++level) {
+        for (int branch = 0; branch < 1 << level; ++branch) {
+          h_nodes_[tree_node * num_trees_ + tree] =
+            dense_node(nodes[global_node]);
+          ++tree_node;
+          ++global_node;
         }
       }
     }
   }
 
-  void init(const cumlHandle& h, const dense_node_t* nodes,
+  void init(const raft::handle_t& h, const dense_node_t* nodes,
             const forest_params_t* params) {
     init_common(params);
     if (algo_ == algo_t::NAIVE) algo_ = algo_t::BATCH_TREE_REORG;
 
     int num_nodes = forest_num_nodes(num_trees_, depth_);
-    nodes_ = (dense_node*)h.getDeviceAllocator()->allocate(
-      sizeof(dense_node) * num_nodes, h.getStream());
+    nodes_ = (dense_node*)h.get_device_allocator()->allocate(
+      sizeof(dense_node) * num_nodes, h.get_stream());
     h_nodes_.resize(num_nodes);
     if (algo_ == algo_t::NAIVE) {
       std::copy(nodes, nodes + num_nodes, h_nodes_.begin());
@@ -275,9 +309,9 @@ struct dense_forest : forest {
     }
     CUDA_CHECK(cudaMemcpyAsync(nodes_, h_nodes_.data(),
                                num_nodes * sizeof(dense_node),
-                               cudaMemcpyHostToDevice, h.getStream()));
+                               cudaMemcpyHostToDevice, h.get_stream()));
     // copy must be finished before freeing the host data
-    CUDA_CHECK(cudaStreamSynchronize(h.getStream()));
+    CUDA_CHECK(cudaStreamSynchronize(h.get_stream()));
     h_nodes_.clear();
     h_nodes_.shrink_to_fit();
   }
@@ -289,10 +323,10 @@ struct dense_forest : forest {
     fil::infer(forest, params, stream);
   }
 
-  virtual void free(const cumlHandle& h) override {
+  virtual void free(const raft::handle_t& h) override {
     int num_nodes = forest_num_nodes(num_trees_, depth_);
-    h.getDeviceAllocator()->deallocate(nodes_, sizeof(dense_node) * num_nodes,
-                                       h.getStream());
+    h.get_device_allocator()->deallocate(nodes_, sizeof(dense_node) * num_nodes,
+                                         h.get_stream());
   }
 
   dense_node* nodes_ = nullptr;
@@ -315,24 +349,24 @@ struct external_node<sparse_node8> {
 template <typename node_t>
 struct sparse_forest : forest {
   typedef typename external_node<node_t>::t external_node_t;
-  void init(const cumlHandle& h, const int* trees, const external_node_t* nodes,
-            const forest_params_t* params) {
+  void init(const raft::handle_t& h, const int* trees,
+            const external_node_t* nodes, const forest_params_t* params) {
     init_common(params);
     if (algo_ == algo_t::ALGO_AUTO) algo_ = algo_t::NAIVE;
     depth_ = 0;  // a placeholder value
     num_nodes_ = params->num_nodes;
 
     // trees
-    trees_ = (int*)h.getDeviceAllocator()->allocate(sizeof(int) * num_trees_,
-                                                    h.getStream());
+    trees_ = (int*)h.get_device_allocator()->allocate(sizeof(int) * num_trees_,
+                                                      h.get_stream());
     CUDA_CHECK(cudaMemcpyAsync(trees_, trees, sizeof(int) * num_trees_,
-                               cudaMemcpyHostToDevice, h.getStream()));
+                               cudaMemcpyHostToDevice, h.get_stream()));
 
     // nodes
-    nodes_ = (node_t*)h.getDeviceAllocator()->allocate(
-      sizeof(node_t) * num_nodes_, h.getStream());
+    nodes_ = (node_t*)h.get_device_allocator()->allocate(
+      sizeof(node_t) * num_nodes_, h.get_stream());
     CUDA_CHECK(cudaMemcpyAsync(nodes_, nodes, sizeof(node_t) * num_nodes_,
-                               cudaMemcpyHostToDevice, h.getStream()));
+                               cudaMemcpyHostToDevice, h.get_stream()));
   }
 
   virtual void infer(predict_params params, cudaStream_t stream) override {
@@ -340,11 +374,11 @@ struct sparse_forest : forest {
     fil::infer(forest, params, stream);
   }
 
-  void free(const cumlHandle& h) override {
-    h.getDeviceAllocator()->deallocate(trees_, sizeof(int) * num_trees_,
-                                       h.getStream());
-    h.getDeviceAllocator()->deallocate(nodes_, sizeof(node_t) * num_nodes_,
-                                       h.getStream());
+  void free(const raft::handle_t& h) override {
+    h.get_device_allocator()->deallocate(trees_, sizeof(int) * num_trees_,
+                                         h.get_stream());
+    h.get_device_allocator()->deallocate(nodes_, sizeof(node_t) * num_nodes_,
+                                         h.get_stream());
   }
 
   int num_nodes_ = 0;
@@ -374,20 +408,33 @@ void check_params(const forest_params_t* params, bool dense) {
       ASSERT(false,
              "algo should be ALGO_AUTO, NAIVE, TREE_REORG or BATCH_TREE_REORG");
   }
-  switch (params->leaf_payload_type) {
-    case leaf_value_t::FLOAT_SCALAR:
-      /* params->num_classes is ignored in this case, since the user might call
-         predict_proba() on regression. Hence, no point checking the range of
-         an ignored variable */
+  switch (params->leaf_algo) {
+    case leaf_algo_t::FLOAT_UNARY_BINARY:
+      if ((params->output & output_t::CLASS) != 0) {
+        ASSERT(params->num_classes == 2,
+               "only supporting binary"
+               " classification using FLOAT_UNARY_BINARY");
+      } else {
+        ASSERT(params->num_classes == 1,
+               "num_classes must be 1 for "
+               "regression");
+      }
       break;
-    case leaf_value_t::INT_CLASS_LABEL:
+    case leaf_algo_t::GROVE_PER_CLASS:
+      ASSERT(params->num_classes > 2,
+             "num_classes > 2 is required for leaf_algo == GROVE_PER_CLASS");
+      ASSERT(params->num_trees % params->num_classes == 0,
+             "num_classes must divide num_trees evenly for GROVE_PER_CLASS");
+      break;
+    case leaf_algo_t::CATEGORICAL_LEAF:
       ASSERT(params->num_classes >= 2,
              "num_classes >= 2 is required for "
-             "leaf_payload_type == INT_CLASS_LABEL");
+             "leaf_algo == CATEGORICAL_LEAF");
       break;
     default:
       ASSERT(false,
-             "leaf_payload_type should be FLOAT_SCALAR or INT_CLASS_LABEL");
+             "leaf_algo must be FLOAT_UNARY_BINARY, CATEGORICAL_LEAF"
+             " or GROVE_PER_CLASS");
   }
   // output_t::RAW == 0, and doesn't have a separate flag
   output_t all_set =
@@ -497,19 +544,20 @@ template <typename fil_node_t>
 void tl2fil_leaf_payload(fil_node_t* fil_node, const tl::Tree& tl_tree,
                          int tl_node_id, const forest_params_t& forest_params) {
   auto vec = tl_tree.LeafVector(tl_node_id);
-  switch (forest_params.leaf_payload_type) {
-    case leaf_value_t::INT_CLASS_LABEL:
+  switch (forest_params.leaf_algo) {
+    case leaf_algo_t::CATEGORICAL_LEAF:
       ASSERT(vec.size() == forest_params.num_classes,
              "inconsistent number of classes in treelite leaves");
       fil_node->val.idx = find_class_label_from_one_hot(&vec[0], vec.size());
       break;
-    case leaf_value_t::FLOAT_SCALAR:
+    case leaf_algo_t::FLOAT_UNARY_BINARY:
+    case leaf_algo_t::GROVE_PER_CLASS:
       fil_node->val.f = tl_tree.LeafValue(tl_node_id);
       ASSERT(!tl_tree.HasLeafVector(tl_node_id),
              "some but not all treelite leaves have leaf_vector()");
       break;
     default:
-      ASSERT(false, "internal error: invalid leaf_payload_type");
+      ASSERT(false, "internal error: invalid leaf_algo");
   };
 }
 
@@ -625,7 +673,7 @@ void tl2fil_common(forest_params_t* params, const tl::Model& model,
     ASSERT(leaf_vec_size == model.num_output_group,
            "treelite model inconsistent");
     params->num_classes = leaf_vec_size;
-    params->leaf_payload_type = leaf_value_t::INT_CLASS_LABEL;
+    params->leaf_algo = leaf_algo_t::CATEGORICAL_LEAF;
 
     ASSERT(tl_params->output_class,
            "output_class==true is required for multi-class models");
@@ -636,11 +684,25 @@ void tl2fil_common(forest_params_t* params, const tl::Model& model,
       "are supported for multi-class models");
 
   } else {
-    ASSERT(pred_transform == "sigmoid" || pred_transform == "identity",
-           "only sigmoid and identity values of pred_transform "
-           "are supported for binary classification and regression models");
-    params->leaf_payload_type = leaf_value_t::FLOAT_SCALAR;
-    params->num_classes = 0;  // ignored
+    if (model.num_output_group > 1) {
+      params->num_classes = model.num_output_group;
+      ASSERT(tl_params->output_class,
+             "output_class==true is required for multi-class models");
+      ASSERT(pred_transform == "sigmoid" || pred_transform == "identity" ||
+               pred_transform == "max_index" || pred_transform == "softmax" ||
+               pred_transform == "multiclass_ova",
+             "only sigmoid, identity, max_index, multiclass_ova and softmax "
+             "values of pred_transform are supported for xgboost-style "
+             "multi-class classification models.");
+      // this function should not know how many threads per block will be used
+      params->leaf_algo = leaf_algo_t::GROVE_PER_CLASS;
+    } else {
+      params->num_classes = tl_params->output_class ? 2 : 1;
+      ASSERT(pred_transform == "sigmoid" || pred_transform == "identity",
+             "only sigmoid and identity values of pred_transform "
+             "are supported for binary classification and regression models.");
+      params->leaf_algo = leaf_algo_t::FLOAT_UNARY_BINARY;
+    }
   }
 
   params->num_cols = model.num_feature;
@@ -648,7 +710,13 @@ void tl2fil_common(forest_params_t* params, const tl::Model& model,
   ASSERT(param.sigmoid_alpha == 1.0f, "sigmoid_alpha not supported");
   params->global_bias = param.global_bias;
   params->output = output_t::RAW;
-  if (tl_params->output_class) {
+  /** output_t::CLASS denotes using a threshold in FIL, when
+      predict_proba == false. For all multiclass models, the best class is
+      selected using argmax instead. This happens when either
+      leaf_algo == CATEGORICAL_LEAF or num_classes > 2.
+  **/
+  if (tl_params->output_class && params->leaf_algo != CATEGORICAL_LEAF &&
+      params->num_classes <= 2) {
     params->output = output_t(params->output | output_t::CLASS);
   }
   // "random forest" in treelite means tree output averaging
@@ -732,8 +800,8 @@ void tl2fil_sparse(std::vector<int>* ptrees, std::vector<fil_node_t>* pnodes,
   params->num_nodes = pnodes->size();
 }
 
-void init_dense(const cumlHandle& h, forest_t* pf, const dense_node_t* nodes,
-                const forest_params_t* params) {
+void init_dense(const raft::handle_t& h, forest_t* pf,
+                const dense_node_t* nodes, const forest_params_t* params) {
   check_params(params, true);
   dense_forest* f = new dense_forest;
   f->init(h, nodes, params);
@@ -741,7 +809,7 @@ void init_dense(const cumlHandle& h, forest_t* pf, const dense_node_t* nodes,
 }
 
 template <typename fil_node_t>
-void init_sparse(const cumlHandle& h, forest_t* pf, const int* trees,
+void init_sparse(const raft::handle_t& h, forest_t* pf, const int* trees,
                  const typename external_node<fil_node_t>::t* nodes,
                  const forest_params_t* params) {
   check_params(params, false);
@@ -750,17 +818,17 @@ void init_sparse(const cumlHandle& h, forest_t* pf, const int* trees,
   *pf = f;
 }
 
-void init_sparse(const cumlHandle& h, forest_t* pf, const int* trees,
+void init_sparse(const raft::handle_t& h, forest_t* pf, const int* trees,
                  const sparse_node16_t* nodes, const forest_params_t* params) {
   init_sparse<sparse_node16>(h, pf, trees, nodes, params);
 }
 
-void init_sparse(const cumlHandle& h, forest_t* pf, const int* trees,
+void init_sparse(const raft::handle_t& h, forest_t* pf, const int* trees,
                  const sparse_node8_t* nodes, const forest_params_t* params) {
   init_sparse<sparse_node8>(h, pf, trees, nodes, params);
 }
 
-void from_treelite(const cumlHandle& handle, forest_t* pforest,
+void from_treelite(const raft::handle_t& handle, forest_t* pforest,
                    ModelHandle model, const treelite_params_t* tl_params) {
   storage_type_t storage_type = tl_params->storage_type;
   // build dense trees by default
@@ -790,7 +858,7 @@ void from_treelite(const cumlHandle& handle, forest_t* pforest,
       init_dense(handle, pforest, nodes.data(), &params);
       // sync is necessary as nodes is used in init_dense(),
       // but destructed at the end of this function
-      CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
+      CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
       break;
     }
     case storage_type_t::SPARSE: {
@@ -799,7 +867,7 @@ void from_treelite(const cumlHandle& handle, forest_t* pforest,
       tl2fil_sparse(&trees, &nodes, &params, model_ref, tl_params);
       init_sparse<sparse_node16>(handle, pforest, trees.data(), nodes.data(),
                                  &params);
-      CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
+      CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
       break;
     }
     case storage_type_t::SPARSE8: {
@@ -808,7 +876,7 @@ void from_treelite(const cumlHandle& handle, forest_t* pforest,
       tl2fil_sparse(&trees, &nodes, &params, model_ref, tl_params);
       init_sparse<sparse_node8>(handle, pforest, trees.data(), nodes.data(),
                                 &params);
-      CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
+      CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
       break;
     }
     default:
@@ -816,13 +884,13 @@ void from_treelite(const cumlHandle& handle, forest_t* pforest,
   }
 }
 
-void free(const cumlHandle& h, forest_t f) {
+void free(const raft::handle_t& h, forest_t f) {
   f->free(h);
   delete f;
 }
 
-void predict(const cumlHandle& h, forest_t f, float* preds, const float* data,
-             size_t num_rows, bool predict_proba) {
+void predict(const raft::handle_t& h, forest_t f, float* preds,
+             const float* data, size_t num_rows, bool predict_proba) {
   f->predict(h, preds, data, num_rows, predict_proba);
 }
 

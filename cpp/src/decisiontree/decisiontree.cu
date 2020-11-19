@@ -21,12 +21,60 @@
 namespace ML {
 namespace DecisionTree {
 
+/**
+ * @brief Set all DecisionTreeParams members.
+ * @param[in,out] params: update with tree parameters
+ * @param[in] cfg_max_depth: maximum tree depth; default -1
+ * @param[in] cfg_max_leaves: maximum leaves; default -1
+ * @param[in] cfg_max_features: maximum number of features; default 1.0f
+ * @param[in] cfg_n_bins: number of bins; default 8
+ * @param[in] cfg_split_algo: split algorithm; default SPLIT_ALGO::HIST
+ * @param[in] cfg_min_rows_per_node: min. rows per node; default 2
+ * @param[in] cfg_bootstrap_features: bootstrapping for features; default false
+ * @param[in] cfg_split_criterion: split criterion; default CRITERION_END,
+ *            i.e., GINI for classification or MSE for regression
+ * @param[in] cfg_quantile_per_tree: compute quantile per tree; default false
+ * @param[in] cfg_use_experimental_backend: Switch to using experimental
+              backend; default false
+ * @param[in] cfg_max_batch_size: batch size for experimental backend
+ */
 void set_tree_params(DecisionTreeParams &params, int cfg_max_depth,
                      int cfg_max_leaves, float cfg_max_features, int cfg_n_bins,
                      int cfg_split_algo, int cfg_min_rows_per_node,
                      float cfg_min_impurity_decrease,
                      bool cfg_bootstrap_features, CRITERION cfg_split_criterion,
-                     bool cfg_quantile_per_tree, bool cfg_shuffle_features) {
+                     bool cfg_quantile_per_tree,
+                     bool cfg_use_experimental_backend,
+                     int cfg_max_batch_size) {
+  if (cfg_use_experimental_backend) {
+    if (cfg_split_algo != SPLIT_ALGO::GLOBAL_QUANTILE) {
+      CUML_LOG_WARN(
+        "Experimental backend does not yet support histogram split algorithm");
+      CUML_LOG_WARN(
+        "To use experimental backend set split_algo = 1 (GLOBAL_QUANTILE)");
+      cfg_use_experimental_backend = false;
+    }
+    if (cfg_max_features != 1.0) {
+      CUML_LOG_WARN(
+        "Experimental backend does not yet support feature sub-sampling");
+      CUML_LOG_WARN("To use experimental backend set max_features = 1.0");
+      cfg_use_experimental_backend = false;
+    }
+    if (cfg_quantile_per_tree) {
+      CUML_LOG_WARN(
+        "Experimental backend does not yet support per tree quantile "
+        "computation");
+      CUML_LOG_WARN(
+        "To use experimental backend set quantile_per_tree = false");
+      cfg_use_experimental_backend = false;
+    }
+    if (!cfg_use_experimental_backend) {
+      CUML_LOG_WARN(
+        "Not using the experimental backend due to above mentioned reason(s)");
+      CUML_LOG_WARN("Switching back to default backend");
+    }
+  }
+
   params.max_depth = cfg_max_depth;
   params.max_leaves = cfg_max_leaves;
   params.max_features = cfg_max_features;
@@ -36,8 +84,9 @@ void set_tree_params(DecisionTreeParams &params, int cfg_max_depth,
   params.bootstrap_features = cfg_bootstrap_features;
   params.split_criterion = cfg_split_criterion;
   params.quantile_per_tree = cfg_quantile_per_tree;
-  params.shuffle_features = cfg_shuffle_features;
+  params.use_experimental_backend = cfg_use_experimental_backend;
   params.min_impurity_decrease = cfg_min_impurity_decrease;
+  params.max_batch_size = cfg_max_batch_size;
 }
 
 void validity_check(const DecisionTreeParams params) {
@@ -67,7 +116,10 @@ void print(const DecisionTreeParams params) {
   CUML_LOG_DEBUG("bootstrap_features: %d", params.bootstrap_features);
   CUML_LOG_DEBUG("split_criterion: %d", params.split_criterion);
   CUML_LOG_DEBUG("quantile_per_tree: %d", params.quantile_per_tree);
-  CUML_LOG_DEBUG("shuffle_features: %d", params.shuffle_features);
+  CUML_LOG_DEBUG("min_impurity_decrease: %f", params.min_impurity_decrease);
+  CUML_LOG_DEBUG("use_experimental_backend: %s",
+                 params.use_experimental_backend ? "True" : "False");
+  CUML_LOG_DEBUG("max_batch_size: %d", params.max_batch_size);
 }
 
 template <class T, class L>
@@ -86,7 +138,13 @@ void print_tree(const TreeMetaDataNode<T, L> *tree) {
   print_node<T, L>("", tree->sparsetree, 0, false);
 }
 
-void decisionTreeClassifierFit(const ML::cumlHandle &handle,
+template <class T, class L>
+std::string dump_tree_as_json(const TreeMetaDataNode<T, L> *tree) {
+  std::ostringstream oss;
+  return dump_node_as_json("", tree->sparsetree, 0);
+}
+
+void decisionTreeClassifierFit(const raft::handle_t &handle,
                                TreeClassifierF *&tree, float *data,
                                const int ncols, const int nrows, int *labels,
                                unsigned int *rowids, const int n_sampled_rows,
@@ -98,7 +156,7 @@ void decisionTreeClassifierFit(const ML::cumlHandle &handle,
                      unique_labels, tree, tree_params);
 }
 
-void decisionTreeClassifierFit(const ML::cumlHandle &handle,
+void decisionTreeClassifierFit(const raft::handle_t &handle,
                                TreeClassifierD *&tree, double *data,
                                const int ncols, const int nrows, int *labels,
                                unsigned int *rowids, const int n_sampled_rows,
@@ -110,7 +168,7 @@ void decisionTreeClassifierFit(const ML::cumlHandle &handle,
                      unique_labels, tree, tree_params);
 }
 
-void decisionTreeClassifierPredict(const ML::cumlHandle &handle,
+void decisionTreeClassifierPredict(const raft::handle_t &handle,
                                    const TreeClassifierF *tree,
                                    const float *rows, const int n_rows,
                                    const int n_cols, int *predictions,
@@ -121,7 +179,7 @@ void decisionTreeClassifierPredict(const ML::cumlHandle &handle,
                          verbosity);
 }
 
-void decisionTreeClassifierPredict(const ML::cumlHandle &handle,
+void decisionTreeClassifierPredict(const raft::handle_t &handle,
                                    const TreeClassifierD *tree,
                                    const double *rows, const int n_rows,
                                    const int n_cols, int *predictions,
@@ -134,7 +192,7 @@ void decisionTreeClassifierPredict(const ML::cumlHandle &handle,
 
 // ----------------------------- Regression ----------------------------------- //
 
-void decisionTreeRegressorFit(const ML::cumlHandle &handle,
+void decisionTreeRegressorFit(const raft::handle_t &handle,
                               TreeRegressorF *&tree, float *data,
                               const int ncols, const int nrows, float *labels,
                               unsigned int *rowids, const int n_sampled_rows,
@@ -145,7 +203,7 @@ void decisionTreeRegressorFit(const ML::cumlHandle &handle,
                     tree, tree_params);
 }
 
-void decisionTreeRegressorFit(const ML::cumlHandle &handle,
+void decisionTreeRegressorFit(const raft::handle_t &handle,
                               TreeRegressorD *&tree, double *data,
                               const int ncols, const int nrows, double *labels,
                               unsigned int *rowids, const int n_sampled_rows,
@@ -156,7 +214,7 @@ void decisionTreeRegressorFit(const ML::cumlHandle &handle,
                     tree, tree_params);
 }
 
-void decisionTreeRegressorPredict(const ML::cumlHandle &handle,
+void decisionTreeRegressorPredict(const raft::handle_t &handle,
                                   const TreeRegressorF *tree, const float *rows,
                                   const int n_rows, const int n_cols,
                                   float *predictions, int verbosity) {
@@ -166,7 +224,7 @@ void decisionTreeRegressorPredict(const ML::cumlHandle &handle,
                         verbosity);
 }
 
-void decisionTreeRegressorPredict(const ML::cumlHandle &handle,
+void decisionTreeRegressorPredict(const raft::handle_t &handle,
                                   const TreeRegressorD *tree,
                                   const double *rows, const int n_rows,
                                   const int n_cols, double *predictions,
@@ -187,6 +245,14 @@ template void print_tree<float, int>(const TreeClassifierF *tree);
 template void print_tree<double, int>(const TreeClassifierD *tree);
 template void print_tree<float, float>(const TreeRegressorF *tree);
 template void print_tree<double, double>(const TreeRegressorD *tree);
+
+template std::string dump_tree_as_json<float, int>(const TreeClassifierF *tree);
+template std::string dump_tree_as_json<double, int>(
+  const TreeClassifierD *tree);
+template std::string dump_tree_as_json<float, float>(
+  const TreeRegressorF *tree);
+template std::string dump_tree_as_json<double, double>(
+  const TreeRegressorD *tree);
 
 }  // End namespace DecisionTree
 }  //End namespace ML

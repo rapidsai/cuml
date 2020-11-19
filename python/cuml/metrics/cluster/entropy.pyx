@@ -14,47 +14,47 @@
 # limitations under the License.
 #
 
-# cython: profile=False
 # distutils: language = c++
-# cython: embedsignature = True
-# cython: language_level = 3
 import math
+import typing
 
 import numpy as np
 import cupy as cp
 
 from libc.stdint cimport uintptr_t
 
-from cuml.common.handle cimport cumlHandle
-from cuml.common import with_cupy_rmm, input_to_cuml_array
-import cuml.common.handle
+import cuml.internals
+from cuml.raft.common.handle cimport handle_t
+from cuml.common import CumlArray
+from cuml.common.input_utils import input_to_cupy_array
+from cuml.raft.common.handle import Handle
 cimport cuml.common.cuda
 
 cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics":
-    double entropy(const cumlHandle &handle,
+    double entropy(const handle_t &handle,
                    const int *y,
                    const int n,
                    const int lower_class_range,
                    const int upper_class_range) except +
 
 
-@with_cupy_rmm
-def _prepare_cluster_input(cluster):
+@cuml.internals.api_return_generic()
+def _prepare_cluster_input(cluster) -> typing.Tuple[CumlArray, int, int, int]:
     """Helper function to avoid code duplication for clustering metrics."""
-    cluster_m, n_rows, _, _ = input_to_cuml_array(
+    cluster_m, n_rows, _, _ = input_to_cupy_array(
         cluster,
         check_dtype=np.int32,
         check_cols=1
     )
-    cp_ground_truth_m = cluster_m.to_output(output_type='cupy')
 
-    lower_class_range = cp.min(cp_ground_truth_m)
-    upper_class_range = cp.max(cp_ground_truth_m)
+    lower_class_range = cp.min(cluster_m).item()
+    upper_class_range = cp.max(cluster_m).item()
 
     return cluster_m, n_rows, lower_class_range, upper_class_range
 
 
-def cython_entropy(clustering, base=None, handle=None):
+@cuml.internals.api_return_any()
+def cython_entropy(clustering, base=None, handle=None) -> float:
     """
     Computes the entropy of a distribution for given probability values.
 
@@ -80,8 +80,8 @@ def cython_entropy(clustering, base=None, handle=None):
     S : float
         The calculated entropy.
     """
-    handle = cuml.common.handle.Handle() if handle is None else handle
-    cdef cumlHandle *handle_ = <cumlHandle*> <size_t> handle.getHandle()
+    handle = Handle() if handle is None else handle
+    cdef handle_t *handle_ = <handle_t*> <size_t> handle.getHandle()
 
     (clustering, n_rows,
      lower_class_range, upper_class_range) = _prepare_cluster_input(clustering)

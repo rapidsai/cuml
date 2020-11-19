@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include <cuml/distance/distance_type.h>
+#include <raft/linalg/distance_type.h>
 #include <cuml/cuml.hpp>
 
 namespace ML {
@@ -33,13 +33,13 @@ namespace Metrics {
 * in a linear regression model. The larger the R-squared value, the
 * more variability is explained by the linear regression model.
 *
-* @param handle: cumlHandle
+* @param handle: raft::handle_t
 * @param y: Array of ground-truth response variables
 * @param y_hat: Array of predicted response variables
 * @param n: Number of elements in y and y_hat
 * @return: The R-squared value.
 */
-float r2_score_py(const cumlHandle &handle, float *y, float *y_hat, int n);
+float r2_score_py(const raft::handle_t &handle, float *y, float *y_hat, int n);
 
 /**
 * Calculates the "Coefficient of Determination" (R-Squared) score
@@ -51,27 +51,29 @@ float r2_score_py(const cumlHandle &handle, float *y, float *y_hat, int n);
 * in a linear regression model. The larger the R-squared value, the
 * more variability is explained by the linear regression model.
 *
-* @param handle: cumlHandle
+* @param handle: raft::handle_t
 * @param y: Array of ground-truth response variables
 * @param y_hat: Array of predicted response variables
 * @param n: Number of elements in y and y_hat
 * @return: The R-squared value.
 */
-double r2_score_py(const cumlHandle &handle, double *y, double *y_hat, int n);
+double r2_score_py(const raft::handle_t &handle, double *y, double *y_hat,
+                   int n);
 
 /**
 * Calculates the "rand index"
 *
 * This metric is a measure of similarity between two data clusterings.
 *
-* @param handle: cumlHandle
+* @param handle: raft::handle_t
 * @param y: Array of response variables of the first clustering classifications
 * @param y_hat: Array of response variables of the second clustering classifications
 * @param n: Number of elements in y and y_hat
 * @return: The rand index value
 */
 
-double randIndex(const cumlHandle &handle, double *y, double *y_hat, int n);
+double rand_index(const raft::handle_t &handle, double *y, double *y_hat,
+                  int n);
 
 /**
 * Calculates the "Silhouette Score"
@@ -82,7 +84,7 @@ double randIndex(const cumlHandle &handle, double *y, double *y_hat, int n);
 * and the nearest cluster that the sample is not a part of. Note that Silhouette Coefficient
 * is only defined if number of labels is 2 <= n_labels <= n_samples - 1.
 *
-* @param handle: cumlHandle
+* @param handle: raft::handle_t
 * @param y: Array of data samples with dimensions (nRows x nCols)
 * @param nRows: number of data samples
 * @param nCols: number of features
@@ -91,25 +93,25 @@ double randIndex(const cumlHandle &handle, double *y, double *y_hat, int n);
 * @param metric: the numerical value that maps to the type of distance metric to be used in the calculations
 * @param silScores: Array that is optionally taken in as input if required to be populated with the silhouette score for every sample (1 x nRows), else nullptr is passed
 */
-double silhouetteScore(const cumlHandle &handle, double *y, int nRows,
-                       int nCols, int *labels, int nLabels, double *silScores,
-                       int metric);
+double silhouette_score(const raft::handle_t &handle, double *y, int nRows,
+                        int nCols, int *labels, int nLabels, double *silScores,
+                        int metric);
 /**
 * Calculates the "adjusted rand index"
 *
 * This metric is the corrected-for-chance version of the rand index
 *
-* @param handle: cumlHandle
+* @param handle: raft::handle_t
 * @param y: Array of response variables of the first clustering classifications
 * @param y_hat: Array of response variables of the second clustering classifications
 * @param n: Number of elements in y and y_hat
 * @return: The adjusted rand index value
 * @{
 */
-double adjustedRandIndex(const cumlHandle &handle, const int64_t *y,
-                         const int64_t *y_hat, const int64_t n);
-double adjustedRandIndex(const cumlHandle &handle, const int *y,
-                         const int *y_hat, const int n);
+double adjusted_rand_index(const raft::handle_t &handle, const int64_t *y,
+                           const int64_t *y_hat, const int64_t n);
+double adjusted_rand_index(const raft::handle_t &handle, const int *y,
+                           const int *y_hat, const int n);
 /** @} */
 
 /**
@@ -119,14 +121,14 @@ double adjustedRandIndex(const cumlHandle &handle, const int *y,
 * approximates the probability distribution P
 * It is often also used as a 'distance metric' between two probablity ditributions (not symmetric)
 *
-* @param handle: cumlHandle
+* @param handle: raft::handle_t
 * @param y: Array of probabilities corresponding to distribution P
 * @param y_hat: Array of probabilities corresponding to distribution Q
 * @param n: Number of elements in y and y_hat
 * @return: The KL Divergence value
 */
-double klDivergence(const cumlHandle &handle, const double *y,
-                    const double *y_hat, int n);
+double kl_divergence(const raft::handle_t &handle, const double *y,
+                     const double *y_hat, int n);
 
 /**
 * Calculates the "Kullback-Leibler Divergence"
@@ -135,28 +137,28 @@ double klDivergence(const cumlHandle &handle, const double *y,
 * approximates the probability distribution P
 * It is often also used as a 'distance metric' between two probablity ditributions (not symmetric)
 *
-* @param handle: cumlHandle
+* @param handle: raft::handle_t
 * @param y: Array of probabilities corresponding to distribution P
 * @param y_hat: Array of probabilities corresponding to distribution Q
 * @param n: Number of elements in y and y_hat
 * @return: The KL Divergence value
 */
-float klDivergence(const cumlHandle &handle, const float *y, const float *y_hat,
-                   int n);
+float kl_divergence(const raft::handle_t &handle, const float *y,
+                    const float *y_hat, int n);
 
 /**
 * Calculates the "entropy" of a labelling
 *
 * This metric is a measure of the purity/polarity of the clustering
 *
-* @param handle: cumlHandle
+* @param handle: raft::handle_t
 * @param y: Array of response variables of the clustering
 * @param n: Number of elements in y
 * @param lower_class_range: the lowest value in the range of classes
 * @param upper_class_range: the highest value in the range of classes
 * @return: The entropy value of the clustering
 */
-double entropy(const cumlHandle &handle, const int *y, const int n,
+double entropy(const raft::handle_t &handle, const int *y, const int n,
                const int lower_class_range, const int upper_class_range);
 
 /**
@@ -165,7 +167,7 @@ double entropy(const cumlHandle &handle, const int *y, const int n,
 * Mutual Information is a measure of the similarity between two labels of
 * the same data.
 *
-* @param handle: cumlHandle
+* @param handle: raft::handle_t
 * @param y: Array of response variables of the first clustering classifications
 * @param y_hat: Array of response variables of the second clustering classifications
 * @param n: Number of elements in y and y_hat
@@ -173,9 +175,10 @@ double entropy(const cumlHandle &handle, const int *y, const int n,
 * @param upper_class_range: the highest value in the range of classes
 * @return: The mutual information score
 */
-double mutualInfoScore(const cumlHandle &handle, const int *y, const int *y_hat,
-                       const int n, const int lower_class_range,
-                       const int upper_class_range);
+double mutual_info_score(const raft::handle_t &handle, const int *y,
+                         const int *y_hat, const int n,
+                         const int lower_class_range,
+                         const int upper_class_range);
 
 /**
 * Calculates the "homogeneity score" between two clusters
@@ -183,7 +186,7 @@ double mutualInfoScore(const cumlHandle &handle, const int *y, const int *y_hat,
 * A clustering result satisfies homogeneity if all of its clusters
 * contain only data points which are members of a single class.
 *
-* @param handle: cumlHandle
+* @param handle: raft::handle_t
 * @param y: truth labels
 * @param y_hat: predicted labels
 * @param n: Number of elements in y and y_hat
@@ -191,10 +194,10 @@ double mutualInfoScore(const cumlHandle &handle, const int *y, const int *y_hat,
 * @param upper_class_range: the highest value in the range of classes
 * @return: The homogeneity score
 */
-double homogeneityScore(const cumlHandle &handle, const int *y,
-                        const int *y_hat, const int n,
-                        const int lower_class_range,
-                        const int upper_class_range);
+double homogeneity_score(const raft::handle_t &handle, const int *y,
+                         const int *y_hat, const int n,
+                         const int lower_class_range,
+                         const int upper_class_range);
 
 /**
 * Calculates the "completeness score" between two clusters
@@ -202,7 +205,7 @@ double homogeneityScore(const cumlHandle &handle, const int *y,
 * A clustering result satisfies completeness if all the data points
 * that are members of a given class are elements of the same cluster.
 *
-* @param handle: cumlHandle
+* @param handle: raft::handle_t
 * @param y: truth labels
 * @param y_hat: predicted labels
 * @param n: Number of elements in y and y_hat
@@ -210,10 +213,10 @@ double homogeneityScore(const cumlHandle &handle, const int *y,
 * @param upper_class_range: the highest value in the range of classes
 * @return: The completeness score
 */
-double completenessScore(const cumlHandle &handle, const int *y,
-                         const int *y_hat, const int n,
-                         const int lower_class_range,
-                         const int upper_class_range);
+double completeness_score(const raft::handle_t &handle, const int *y,
+                          const int *y_hat, const int n,
+                          const int lower_class_range,
+                          const int upper_class_range);
 
 /**
 * Calculates the "v-measure" between two clusters
@@ -221,7 +224,7 @@ double completenessScore(const cumlHandle &handle, const int *y,
 * v-measure is the harmonic mean between the homogeneity
 * and completeness scores of 2 cluster classifications
 *
-* @param handle: cumlHandle
+* @param handle: raft::handle_t
 * @param y: truth labels
 * @param y_hat: predicted labels
 * @param n: Number of elements in y and y_hat
@@ -229,9 +232,9 @@ double completenessScore(const cumlHandle &handle, const int *y,
 * @param upper_class_range: the highest value in the range of classes
 * @return: The v-measure
 */
-double vMeasure(const cumlHandle &handle, const int *y, const int *y_hat,
-                const int n, const int lower_class_range,
-                const int upper_class_range);
+double v_measure(const raft::handle_t &handle, const int *y, const int *y_hat,
+                 const int n, const int lower_class_range,
+                 const int upper_class_range);
 
 /**
 * Calculates the "accuracy" between two input numpy arrays/ cudf series
@@ -239,20 +242,20 @@ double vMeasure(const cumlHandle &handle, const int *y, const int *y_hat,
 * The accuracy metric is used to calculate the accuracy of the predict labels
 * predict labels
 *
-* @param handle: cumlHandle
+* @param handle: raft::handle_t
 * @param predictions: predicted labels
 * @param ref_predictions: truth labels
 * @param n: Number of elements in y and y_hat
 * @return: The accuracy
 */
-float accuracy_score_py(const cumlHandle &handle, const int *predictions,
+float accuracy_score_py(const raft::handle_t &handle, const int *predictions,
                         const int *ref_predictions, int n);
 
 /**
  * @brief Calculates the ij pairwise distances between two input arrays of
  *        double type
- * 
- * @param handle cumlHandle
+ *
+ * @param handle raft::handle_t
  * @param x pointer to the input data samples array (mRows x kCols)
  * @param y pointer to the second input data samples array. Can use the same
  *          pointer as x (nRows x kCols)
@@ -264,15 +267,15 @@ float accuracy_score_py(const cumlHandle &handle, const int *predictions,
  * @param isRowMajor specifies whether the x and y data pointers are row (C
  *                   type array) or col (F type array) major
  */
-void pairwiseDistance(const cumlHandle &handle, const double *x,
-                      const double *y, double *dist, int m, int n, int k,
-                      ML::Distance::DistanceType metric,
-                      bool isRowMajor = true);
+void pairwise_distance(const raft::handle_t &handle, const double *x,
+                       const double *y, double *dist, int m, int n, int k,
+                       raft::distance::DistanceType metric,
+                       bool isRowMajor = true);
 
 /**
  * @brief Calculates the ij pairwise distances between two input arrays of float type
- * 
- * @param handle cumlHandle
+ *
+ * @param handle raft::handle_t
  * @param x pointer to the input data samples array (mRows x kCols)
  * @param y pointer to the second input data samples array. Can use the same
  *          pointer as x (nRows x kCols)
@@ -284,10 +287,10 @@ void pairwiseDistance(const cumlHandle &handle, const double *x,
  * @param isRowMajor specifies whether the x and y data pointers are row (C
  *                   type array) or col (F type array) major
  */
-void pairwiseDistance(const cumlHandle &handle, const float *x, const float *y,
-                      float *dist, int m, int n, int k,
-                      ML::Distance::DistanceType metric,
-                      bool isRowMajor = true);
+void pairwise_distance(const raft::handle_t &handle, const float *x,
+                       const float *y, float *dist, int m, int n, int k,
+                       raft::distance::DistanceType metric,
+                       bool isRowMajor = true);
 
 }  // namespace Metrics
 }  // namespace ML

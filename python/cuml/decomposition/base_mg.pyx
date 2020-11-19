@@ -13,10 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-# cython: profile=False
 # distutils: language = c++
-# cython: embedsignature = True
-# cython: language_level = 3
 
 
 import ctypes
@@ -34,10 +31,10 @@ from cython.operator cimport dereference as deref
 from cuml.common.array import CumlArray
 import cuml.common.opg_data_utils_mg as opg
 
+import cuml.internals
 from cuml.common.base import Base
-from cuml.common.handle cimport cumlHandle
+from cuml.raft.common.handle cimport handle_t
 from cuml.decomposition.utils cimport *
-from cuml.common import input_to_dev_array, zeros
 from cuml.common import input_to_cuml_array
 from cuml.common.opg_data_utils_mg cimport *
 
@@ -47,6 +44,7 @@ class BaseDecompositionMG(object):
     def __init__(self, **kwargs):
         super(BaseDecompositionMG, self).__init__(**kwargs)
 
+    @cuml.internals.api_base_return_any_skipall
     def fit(self, X, total_rows, n_cols, partsToRanks, rank,
             _transform=False):
         """

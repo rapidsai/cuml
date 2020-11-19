@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
-#include <common/cudart_utils.h>
 #include <gtest/gtest.h>
-#include <cuda_utils.cuh>
+#include <raft/cudart_utils.h>
 #include <functions/log.cuh>
+#include <raft/cuda_utils.cuh>
 #include "test_utils.h"
 
 namespace MLCommon {
@@ -44,15 +44,15 @@ class LogTest : public ::testing::TestWithParam<LogInputs<T>> {
 
     int len = params.len;
 
-    allocate(data, len);
+    raft::allocate(data, len);
     T data_h[params.len] = {2.1, 4.5, 0.34, 10.0};
-    updateDevice(data, data_h, len, stream);
+    raft::update_device(data, data_h, len, stream);
 
-    allocate(result, len);
-    allocate(result_ref, len);
+    raft::allocate(result, len);
+    raft::allocate(result_ref, len);
     T result_ref_h[params.len] = {0.74193734, 1.5040774, -1.07880966,
                                   2.30258509};
-    updateDevice(result_ref, result_ref_h, len, stream);
+    raft::update_device(result_ref, result_ref_h, len, stream);
 
     f_log(result, data, T(1), len, stream);
     CUDA_CHECK(cudaStreamDestroy(stream));
@@ -76,13 +76,13 @@ const std::vector<LogInputs<double>> inputsd2 = {{0.001, 4}};
 typedef LogTest<float> LogTestValF;
 TEST_P(LogTestValF, Result) {
   ASSERT_TRUE(devArrMatch(result_ref, result, params.len,
-                          CompareApproxAbs<float>(params.tolerance)));
+                          raft::CompareApproxAbs<float>(params.tolerance)));
 }
 
 typedef LogTest<double> LogTestValD;
 TEST_P(LogTestValD, Result) {
   ASSERT_TRUE(devArrMatch(result_ref, result, params.len,
-                          CompareApproxAbs<double>(params.tolerance)));
+                          raft::CompareApproxAbs<double>(params.tolerance)));
 }
 
 INSTANTIATE_TEST_CASE_P(LogTests, LogTestValF, ::testing::ValuesIn(inputsf2));

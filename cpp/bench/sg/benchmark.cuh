@@ -17,8 +17,8 @@
 #pragma once
 
 #include <benchmark/benchmark.h>
-#include <common/cudart_utils.h>
 #include <cuda_runtime.h>
+#include <raft/cudart_utils.h>
 #include <cuml/common/logger.hpp>
 #include <cuml/cuml.hpp>
 #include "../common/ml_benchmark.hpp"
@@ -32,15 +32,16 @@ namespace Bench {
 class Fixture : public MLCommon::Bench::Fixture {
  public:
   Fixture(const std::string& name)
-    : MLCommon::Bench::Fixture(
-        name, std::shared_ptr<deviceAllocator>(new defaultDeviceAllocator)) {}
+    : MLCommon::Bench::Fixture(name,
+                               std::shared_ptr<deviceAllocator>(
+                                 new raft::mr::device::default_allocator)) {}
   Fixture() = delete;
 
   void SetUp(const ::benchmark::State& state) override {
-    handle.reset(new cumlHandle(NumStreams));
-    d_alloc = handle->getDeviceAllocator();
+    handle.reset(new raft::handle_t(NumStreams));
+    d_alloc = handle->get_device_allocator();
     MLCommon::Bench::Fixture::SetUp(state);
-    handle->setStream(stream);
+    handle->set_stream(stream);
   }
 
   void TearDown(const ::benchmark::State& state) override {
@@ -82,7 +83,7 @@ class Fixture : public MLCommon::Bench::Fixture {
     generateMetrics(state);
   }
 
-  std::unique_ptr<cumlHandle> handle;
+  std::unique_ptr<raft::handle_t> handle;
 
   ///@todo: ideally, this should be determined at runtime based on the inputs
   ///       passed to the fixture. That will require a whole lot of plumbing of

@@ -18,8 +18,8 @@
 #include <thrust/count.h>
 #include <thrust/device_vector.h>
 
-#include <common/cudart_utils.h>
-#include <cuda_utils.cuh>
+#include <raft/cudart_utils.h>
+#include <raft/cuda_utils.cuh>
 #include <random/make_arima.cuh>
 #include "test_utils.h"
 
@@ -32,7 +32,7 @@ namespace Random {
 struct MakeArimaInputs {
   int batch_size, n_obs;
   int p, d, q, P, D, Q, s, k;
-  GeneratorType gtype;
+  raft::random::GeneratorType gtype;
   uint64_t seed;
 };
 
@@ -50,10 +50,10 @@ class MakeArimaTest : public ::testing::TestWithParam<MakeArimaInputs> {
     ML::ARIMAOrder order = {params.p, params.d, params.q, params.P,
                             params.D, params.Q, params.s, params.k};
 
-    allocator.reset(new defaultDeviceAllocator);
+    allocator.reset(new raft::mr::device::default_allocator);
     CUDA_CHECK(cudaStreamCreate(&stream));
 
-    allocate(data, params.batch_size * params.n_obs);
+    raft::allocate(data, params.batch_size * params.n_obs);
 
     // Create the time series dataset
     make_arima(data, params.batch_size, params.n_obs, order, allocator, stream,
@@ -73,9 +73,9 @@ class MakeArimaTest : public ::testing::TestWithParam<MakeArimaInputs> {
 };
 
 const std::vector<MakeArimaInputs> make_arima_inputs = {
-  {100, 200, 1, 1, 2, 0, 0, 0, 0, 1, GenPhilox, 1234ULL},
-  {1000, 100, 3, 0, 0, 1, 1, 0, 4, 1, GenPhilox, 1234ULL},
-  {10000, 150, 2, 1, 2, 0, 1, 2, 4, 0, GenPhilox, 1234ULL}};
+  {100, 200, 1, 1, 2, 0, 0, 0, 0, 1, raft::random::GenPhilox, 1234ULL},
+  {1000, 100, 3, 0, 0, 1, 1, 0, 4, 1, raft::random::GenPhilox, 1234ULL},
+  {10000, 150, 2, 1, 2, 0, 1, 2, 4, 0, raft::random::GenPhilox, 1234ULL}};
 
 typedef MakeArimaTest<float> MakeArimaTestF;
 TEST_P(MakeArimaTestF, Result) { CUDA_CHECK(cudaStreamSynchronize(stream)); }

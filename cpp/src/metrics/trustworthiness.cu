@@ -14,10 +14,9 @@
  * limitations under the License.
  */
 
-#include <common/cumlHandle.hpp>
-#include <cuda_utils.cuh>
 #include <distance/distance.cuh>
-#include <score/scores.cuh>
+#include <metrics/scores.cuh>
+#include <raft/handle.hpp>
 
 namespace ML {
 namespace Metrics {
@@ -33,20 +32,20 @@ namespace Metrics {
         * @input tparam distance_type: Distance type to consider
         * @return Trustworthiness score
         */
-template <typename math_t, ML::Distance::DistanceType distance_type>
-double trustworthiness_score(const cumlHandle& h, math_t* X, math_t* X_embedded,
-                             int n, int m, int d, int n_neighbors,
-                             int batchSize) {
-  cudaStream_t stream = h.getStream();
-  auto d_alloc = h.getDeviceAllocator();
+template <typename math_t, raft::distance::DistanceType distance_type>
+double trustworthiness_score(const raft::handle_t& h, math_t* X,
+                             math_t* X_embedded, int n, int m, int d,
+                             int n_neighbors, int batchSize) {
+  cudaStream_t stream = h.get_stream();
+  auto d_alloc = h.get_device_allocator();
 
   return MLCommon::Score::trustworthiness_score<math_t, distance_type>(
     X, X_embedded, n, m, d, n_neighbors, d_alloc, stream, batchSize);
 }
 
 template double
-trustworthiness_score<float, ML::Distance::DistanceType::EucUnexpandedL2Sqrt>(
-  const cumlHandle& h, float* X, float* X_embedded, int n, int m, int d,
+trustworthiness_score<float, raft::distance::DistanceType::EucUnexpandedL2Sqrt>(
+  const raft::handle_t& h, float* X, float* X_embedded, int n, int m, int d,
   int n_neighbors, int batchSize);
 
 };  //end namespace Metrics

@@ -16,9 +16,9 @@
 
 #pragma once
 
-#include <common/cudart_utils.h>
-#include <linalg/coalesced_reduction.cuh>
-#include <linalg/strided_reduction.cuh>
+#include <raft/cudart_utils.h>
+#include <raft/linalg/coalesced_reduction.cuh>
+#include <raft/linalg/strided_reduction.cuh>
 
 namespace MLCommon {
 namespace Stats {
@@ -39,10 +39,10 @@ void rowWeightedMean(Type *mu, const Type *data, const Type *weights, int D,
                      int N, cudaStream_t stream) {
   //sum the weights & copy back to CPU
   Type WS = 0;
-  LinAlg::coalescedReduction(mu, weights, D, 1, (Type)0, stream, false);
-  updateHost(&WS, mu, 1, stream);
+  raft::linalg::coalescedReduction(mu, weights, D, 1, (Type)0, stream, false);
+  raft::update_host(&WS, mu, 1, stream);
 
-  LinAlg::coalescedReduction(
+  raft::linalg::coalescedReduction(
     mu, data, D, N, (Type)0, stream, false,
     [weights] __device__(Type v, int i) { return v * weights[i]; },
     [] __device__(Type a, Type b) { return a + b; },
@@ -65,10 +65,10 @@ void colWeightedMean(Type *mu, const Type *data, const Type *weights, int D,
                      int N, cudaStream_t stream) {
   //sum the weights & copy back to CPU
   Type WS = 0;
-  LinAlg::stridedReduction(mu, weights, 1, N, (Type)0, stream, false);
-  updateHost(&WS, mu, 1, stream);
+  raft::linalg::stridedReduction(mu, weights, 1, N, (Type)0, stream, false);
+  raft::update_host(&WS, mu, 1, stream);
 
-  LinAlg::stridedReduction(
+  raft::linalg::stridedReduction(
     mu, data, D, N, (Type)0, stream, false,
     [weights] __device__(Type v, int i) { return v * weights[i]; },
     [] __device__(Type a, Type b) { return a + b; },
