@@ -1,4 +1,3 @@
-
 # Copyright (c) 2019, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -18,7 +17,10 @@ from cuml.common.import_utils import has_dask
 import warnings
 
 if has_dask():
-    from cuml.dask.ensemble.randomforestclassifier import RandomForestClassifier
-    from cuml.dask.ensemble.randomforestregressor import RandomForestRegressor
+    from cuml.dask.ensemble.randomforestclassifier import \
+        RandomForestClassifier
+    from cuml.dask.ensemble.randomforestregressor import \
+        RandomForestRegressor
 else:
-    warnings.warn("Dask not found. All Dask-based multi-GPU operation is disabed.")
+    warnings.warn(
+        "Dask not found. All Dask-based multi-GPU operation is disabed.")
