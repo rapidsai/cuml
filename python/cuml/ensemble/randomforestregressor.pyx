@@ -756,3 +756,9 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
         if self.dtype == np.float64:
             return dump_rf_as_json(rf_forest64).decode('utf-8')
         return dump_rf_as_json(rf_forest).decode('utf-8')
+
+    def _more_tags(self):
+        return {
+            # fit and predict require conflicting memory layouts
+            'preferred_input_order': None
+        }

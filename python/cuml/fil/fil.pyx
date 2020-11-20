@@ -728,3 +728,8 @@ class ForestInference(Base):
 
         # DO NOT RETURN self._impl here!!
         return self
+
+    def _more_tags(self):
+        return {
+            'preferred_input_order': 'C'
+        }
