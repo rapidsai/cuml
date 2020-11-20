@@ -52,6 +52,7 @@ struct FilTestParams {
   float threshold = 0.0f;
   float global_bias = 0.0f;
   // runtime parameters
+  int blocks_per_sm = 0;
   algo_t algo = algo_t::NAIVE;
   int seed = 42;
   float tolerance = 2e-3f;
@@ -90,7 +91,8 @@ std::ostream& operator<<(std::ostream& os, const FilTestParams& ps) {
      << ", nan_prob = " << ps.nan_prob << ", depth = " << ps.depth
      << ", num_trees = " << ps.num_trees << ", leaf_prob = " << ps.leaf_prob
      << ", output = " << output2str(ps.output)
-     << ", threshold = " << ps.threshold << ", algo = " << ps.algo
+     << ", threshold = " << ps.threshold
+     << ", blocks_per_sm = " << ps.blocks_per_sm << ", algo = " << ps.algo
      << ", seed = " << ps.seed << ", tolerance = " << ps.tolerance
      << ", op = " << tl::OpName(ps.op) << ", global_bias = " << ps.global_bias
      << ", leaf_algo = " << ps.leaf_algo
@@ -415,6 +417,7 @@ class PredictDenseFilTest : public BaseFilTest {
     fil_ps.global_bias = ps.global_bias;
     fil_ps.leaf_algo = ps.leaf_algo;
     fil_ps.num_classes = ps.num_classes;
+    fil_ps.blocks_per_sm = ps.blocks_per_sm;
 
     fil::init_dense(handle, pforest, nodes.data(), &fil_ps);
   }
@@ -473,6 +476,7 @@ class BasePredictSparseFilTest : public BaseFilTest {
     fil_params.global_bias = ps.global_bias;
     fil_params.leaf_algo = ps.leaf_algo;
     fil_params.num_classes = ps.num_classes;
+    fil_params.blocks_per_sm = ps.blocks_per_sm;
 
     dense2sparse();
     fil_params.num_nodes = sparse_nodes.size();
@@ -591,6 +595,7 @@ class TreeliteFilTest : public BaseFilTest {
     params.threshold = ps.threshold;
     params.output_class = (ps.output & fil::output_t::CLASS) != 0;
     params.storage_type = storage_type;
+    params.blocks_per_sm = ps.blocks_per_sm;
     fil::from_treelite(handle, pforest, (ModelHandle)model.get(), &params);
     CUDA_CHECK(cudaStreamSynchronize(stream));
   }
@@ -694,6 +699,20 @@ std::vector<FilTestParams> predict_dense_inputs = {
                   leaf_algo = GROVE_PER_CLASS, num_classes = 4),
   FIL_TEST_PARAMS(num_trees = 52, output = AVG, global_bias = 0.5,
                   leaf_algo = GROVE_PER_CLASS, num_classes = 4),
+  FIL_TEST_PARAMS(blocks_per_sm = 1),
+  FIL_TEST_PARAMS(blocks_per_sm = 4),
+  FIL_TEST_PARAMS(num_classes = 3, blocks_per_sm = 1,
+                  leaf_algo = CATEGORICAL_LEAF),
+  FIL_TEST_PARAMS(num_classes = 3, blocks_per_sm = 4,
+                  leaf_algo = CATEGORICAL_LEAF),
+  FIL_TEST_PARAMS(num_classes = 5, blocks_per_sm = 1,
+                  leaf_algo = GROVE_PER_CLASS),
+  FIL_TEST_PARAMS(num_classes = 5, blocks_per_sm = 4,
+                  leaf_algo = GROVE_PER_CLASS),
+  FIL_TEST_PARAMS(leaf_algo = GROVE_PER_CLASS, blocks_per_sm = 1,
+                  num_trees = 512, num_classes = 512),
+  FIL_TEST_PARAMS(leaf_algo = GROVE_PER_CLASS, blocks_per_sm = 4,
+                  num_trees = 512, num_classes = 512),
 };
 
 TEST_P(PredictDenseFilTest, Predict) { compare(); }
