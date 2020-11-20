@@ -63,6 +63,7 @@
 - PR #3130: Return Python string from `dump_as_json()` of RF
 - PR #3132: Add `min_samples_split` + Rename `min_rows_per_node` -> `min_samples_leaf`
 - PR #3136: Fix stochastic gradient descent example
+- PR #3152: Fix access to attributes of individual NB objects in dask NB
 - PR #3156: Force local conda artifact install
 - PR #3162: Removing accidentally checked in debug file
 
