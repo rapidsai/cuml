@@ -622,3 +622,8 @@ class KMeans(Base):
             ['n_init', 'oversampling_factor', 'max_samples_per_batch',
                 'init', 'max_iter', 'n_clusters', 'random_state',
                 'tol']
+
+    def _more_tags(self):
+        return {
+            'preferred_input_order': 'C'
+        }

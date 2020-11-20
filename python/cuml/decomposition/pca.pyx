@@ -728,3 +728,10 @@ class PCA(Base):
     def __setstate__(self, state):
         self.__dict__.update(state)
         self.handle = Handle()
+
+    def _more_tags(self):
+        return {
+            'preferred_input_order': 'F',
+            'X_types_gpu': ['2darray', 'sparse'],
+            'X_types': ['2darray', 'sparse']
+        }

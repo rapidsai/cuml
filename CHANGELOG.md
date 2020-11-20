@@ -33,6 +33,7 @@
 - PR #3135: Add QuasiNewton tests
 - PR #3040: Improved Array Conversion with CumlArrayDescriptor and Decorators
 - PR #3134: Improving the Deprecation Message Formatting in Documentation
+- PR #3113: Add tags and prefered memory order tags to estimators
 - PR #3137: Reorganize Pytest Config and Add Quick Run Option
 - PR #3144: Adding Ability to Set Arbitrary Cmake Flags in ./build.sh
 - PR #3155: Eliminate unnecessary warnings from random projection test
@@ -58,7 +59,7 @@
 - PR #3086: Reverting FIL Notebook Testing
 - PR #3114: Fixed a typo in SVC's predict_proba AttributeError
 - PR #3117: Fix two crashes in experimental RF backend
-- PR #3119: Fix memset args for benchmark 
+- PR #3119: Fix memset args for benchmark
 - PR #3130: Return Python string from `dump_as_json()` of RF
 - PR #3132: Add `min_samples_split` + Rename `min_rows_per_node` -> `min_samples_leaf`
 - PR #3136: Fix stochastic gradient descent example
