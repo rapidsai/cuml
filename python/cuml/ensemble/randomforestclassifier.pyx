@@ -208,10 +208,18 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
         If 'log2' then max_features=log2(n_features)/n_features.
     n_bins : int (default = 8)
         Number of bins used by the split algorithm.
-    min_rows_per_node : int or float (default = 2)
-        The minimum number of samples (rows) needed to split a node.
-        If int then number of sample rows.
-        If float the min_rows_per_sample*n_rows
+    min_samples_leaf : int or float (default = 1)
+        The minimum number of samples (rows) in each leaf node.
+        If int, then min_samples_leaf represents the minimum number.
+        If float, then min_samples_leaf represents a fraction and
+        ceil(min_samples_leaf * n_rows) is the minimum number of samples
+        for each leaf node.
+    min_samples_split : int or float (default = 2)
+        The minimum number of samples required to split an internal node.
+        If int, then min_samples_split represents the minimum number.
+        If float, then min_samples_split represents a fraction and
+        ceil(min_samples_split * n_rows) is the minimum number of samples
+        for each split.
     min_impurity_decrease : float (default = 0.0)
         Minimum decrease in impurity requried for
         node to be spilt.
@@ -458,7 +466,8 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
                                      <float> max_feature_val,
                                      <int> self.n_bins,
                                      <int> self.split_algo,
-                                     <int> self.min_rows_per_node,
+                                     <int> self.min_samples_leaf,
+                                     <int> self.min_samples_split,
                                      <float> self.min_impurity_decrease,
                                      <bool> self.bootstrap_features,
                                      <bool> self.bootstrap,

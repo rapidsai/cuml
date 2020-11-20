@@ -302,7 +302,7 @@ void pairwise_distance(const Type *x, const Type *y, Type *dist, Index_ m,
         x, y, dist, m, n, k, workspace, stream, isRowMajor);
       break;
     default:
-      THROW("Unknown distance metric '%d'!", (int)metric);
+      THROW("Unknown or unsupported distance metric '%d'!", (int)metric);
   };
 }
 /** @} */
