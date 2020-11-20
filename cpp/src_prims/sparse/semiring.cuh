@@ -234,7 +234,7 @@ struct BlockSemiring {
  * @param out
  */
 template<typename value_idx, typename value_t, int tpb, int buffer_size, int chunk_size>
-__global__ void balanced_coo_semiring(value_idx *indptrA, value_idx *indicesA,
+__global__ void balanced_coo_semiring_kernel(value_idx *indptrA, value_idx *indicesA,
                               value_t *dataA, value_idx *rowsB,
                               value_idx *indicesB, value_t *dataB, value_idx m,
                               value_idx n, value_idx dim, value_t *out,
@@ -271,12 +271,9 @@ __global__ void balanced_coo_semiring(value_idx *indptrA, value_idx *indicesA,
     value_idx ind_next = ind + blockDim.x;
     value_idx next_row_b = rowsB[ind_next];
     if(next_row_b != cur_row_b) {
-
-      // TODO: Compute segmented scan according to current row
-      if(threadIdx.x == 0) {
-        atomicAdd(out + (cur_row_a * n + cur_row_b), c);
-      }
-
+      unsigned mask = __ballot_sync(0xffffffff, cur_row_b);
+      c = __reduce_add_sync(mask, c);
+      atomicAdd(out + (cur_row_a * n + cur_row_b), c);
       c = 0;
     }
 
@@ -288,7 +285,7 @@ __global__ void balanced_coo_semiring(value_idx *indptrA, value_idx *indicesA,
 
 template <typename value_idx, typename value_t, int tpb, int buffer_size,
           int max_chunk_size, int rows_per_block>
-__global__ void classic_csr_semiring(value_idx *indptrA, value_idx *indicesA,
+__global__ void classic_csr_semiring_kernel(value_idx *indptrA, value_idx *indicesA,
                                value_t *dataA, value_idx *indptrB,
                                value_idx *indicesB, value_t *dataB, value_idx m,
                                value_idx n, value_t *out,
@@ -758,8 +755,8 @@ void distance_block_reduce(value_t *out_dists,
   CUML_LOG_DEBUG("n_blocks: %d", n_blocks);
   CUML_LOG_DEBUG("n_warps_per_row: %d", n_warps_per_row);
 
-  classic_csr_semiring<value_idx, value_t, threads_per_block, max_buffer_size,
-                       256, threads_per_block>
+  classic_csr_semiring_kernel<value_idx, value_t, threads_per_block,
+                              max_buffer_size, 256, threads_per_block>
     <<<n_blocks, threads_per_block, 0, config_.stream>>>(
       config_.a_indptr, config_.a_indices, config_.a_data, config_.b_indptr,
       config_.b_indices, config_.b_data, config_.a_nrows, config_.b_nrows,
