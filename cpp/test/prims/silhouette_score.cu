@@ -80,9 +80,9 @@ class silhouetteScoreTest
     double *h_distanceMatrix =
       (double *)malloc(nRows * nRows * sizeof(double *));
 
-    MLCommon::Distance::pairwise_distance(
-      d_X, d_X, d_distanceMatrix.data(), nRows, nRows, nCols, workspace,
-      params.metric, stream);
+    MLCommon::Distance::pairwise_distance(d_X, d_X, d_distanceMatrix.data(),
+                                          nRows, nRows, nCols, workspace,
+                                          params.metric, stream);
 
     CUDA_CHECK(cudaStreamSynchronize(stream));
 

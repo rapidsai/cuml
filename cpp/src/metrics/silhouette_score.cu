@@ -15,9 +15,9 @@
  * limitations under the License.
  */
 
+#include <raft/linalg/distance_type.h>
 #include <cuml/metrics/metrics.hpp>
 #include <metrics/silhouette_score.cuh>
-#include <raft/linalg/distance_type.h>
 
 namespace ML {
 
