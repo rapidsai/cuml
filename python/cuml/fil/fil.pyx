@@ -178,6 +178,9 @@ cdef extern from "cuml/fil/fil.h" namespace "ML::fil":
         bool output_class
         float threshold
         storage_type_t storage_type
+        int blocks_per_sm
+        # limit number of CUDA blocks launched per GPU SM (or unlimited if 0)
+        # this affects inference performance and will become configurable soon
 
     cdef void free(handle_t& handle,
                    forest_t)
@@ -314,7 +317,8 @@ cdef class ForestInference_impl():
                                         bool output_class,
                                         str algo,
                                         float threshold,
-                                        str storage_type):
+                                        str storage_type,
+                                        int blocks_per_sm):
         cdef treelite_params_t treelite_params
 
         self.output_class = output_class
@@ -322,6 +326,7 @@ cdef class ForestInference_impl():
         treelite_params.threshold = threshold
         treelite_params.algo = self.get_algo(algo)
         treelite_params.storage_type = self.get_storage_type(storage_type)
+        treelite_params.blocks_per_sm = blocks_per_sm
 
         self.forest_data = NULL
         cdef handle_t* handle_ =\
@@ -341,19 +346,22 @@ cdef class ForestInference_impl():
                                  bool output_class,
                                  str algo,
                                  float threshold,
-                                 str storage_type):
+                                 str storage_type,
+                                 int blocks_per_sm):
         TreeliteQueryNumOutputGroups(<ModelHandle> model.handle,
                                      & self.num_output_groups)
         return self.load_from_treelite_model_handle(<uintptr_t>model.handle,
                                                     output_class, algo,
-                                                    threshold, storage_type)
+                                                    threshold, storage_type,
+                                                    blocks_per_sm)
 
     def load_using_treelite_handle(self,
                                    model_handle,
                                    bool output_class,
                                    str algo,
                                    float threshold,
-                                   str storage_type):
+                                   str storage_type,
+                                   int blocks_per_sm):
 
         cdef treelite_params_t treelite_params
 
@@ -362,6 +370,8 @@ cdef class ForestInference_impl():
         treelite_params.threshold = threshold
         treelite_params.algo = self.get_algo(algo)
         treelite_params.storage_type = self.get_storage_type(storage_type)
+        treelite_params.blocks_per_sm = blocks_per_sm
+
         cdef handle_t* handle_ =\
             <handle_t*><size_t>self.handle.getHandle()
         cdef uintptr_t model_ptr = <uintptr_t>model_handle
@@ -574,12 +584,12 @@ class ForestInference(Base):
         if isinstance(model, TreeliteModel):
             # TreeliteModel defined in this file
             return self._impl.load_from_treelite_model(
-                model, output_class, algo, threshold, str(storage_type))
+                model, output_class, algo, threshold, str(storage_type), 0)
         else:
             # assume it is treelite.Model
             return self._impl.load_from_treelite_model_handle(
                 model.handle.value, output_class, algo, threshold,
-                str(storage_type))
+                str(storage_type), 0)
 
     @staticmethod
     def load_from_sklearn(skl_model,
@@ -724,8 +734,8 @@ class ForestInference(Base):
         self._impl.load_using_treelite_handle(model_handle,
                                               output_class,
                                               algo, threshold,
-                                              str(storage_type))
-
+                                              str(storage_type),
+                                              0)
         # DO NOT RETURN self._impl here!!
         return self
 
