@@ -1,6 +1,7 @@
 # cuML 0.17.0 (Date TBD)
 
 ## New Features
+- PR #3164: Expose silhouette score in Python
 
 ## Improvements
 - PR #3077: Improve runtime for test_kmeans
