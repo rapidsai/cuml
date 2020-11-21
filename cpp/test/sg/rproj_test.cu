@@ -143,7 +143,7 @@ class RPROJTest : public ::testing::Test {
     int D = johnson_lindenstrauss_min_dim(N, epsilon);
 
     constexpr auto distance_type =
-      ML::Distance::DistanceType::EucUnexpandedL2Sqrt;
+      raft::distance::DistanceType::EucUnexpandedL2Sqrt;
     size_t workspaceSize = 0;
     typedef cutlass::Shape<8, 128, 128> OutputTile_t;
 

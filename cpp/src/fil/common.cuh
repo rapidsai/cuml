@@ -213,6 +213,7 @@ struct predict_params {
   // to signal infer kernel to apply softmax and also average prior to that
   // for GROVE_PER_CLASS for predict_proba
   output_t transform;
+  int num_blocks;
 };
 
 // infer() calls the inference kernel with the parameters on the stream

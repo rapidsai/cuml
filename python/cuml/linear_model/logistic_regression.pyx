@@ -424,3 +424,8 @@ class LogisticRegression(Base, ClassifierMixin):
         super(LogisticRegression, self).__init__(handle=None,
                                                  verbose=state["verbose"])
         self.__dict__.update(state)
+
+    def _more_tags(self):
+        return {
+            'preferred_input_order': 'F'
+        }

@@ -519,3 +519,8 @@ class SVC(SVMBase, ClassifierMixin):
             params.remove("epsilon")
 
         return params
+
+    def _more_tags(self):
+        return {
+            'preferred_input_order': 'F'
+        }

@@ -44,12 +44,12 @@ from sklearn.preprocessing import StandardScaler
 from cuml.metrics.cluster import entropy
 from cuml.metrics.regression import mean_squared_error, \
     mean_squared_log_error, mean_absolute_error
-from sklearn.metrics.regression import mean_squared_error as sklearn_mse
+from sklearn.metrics import mean_squared_error as sklearn_mse
 from sklearn.metrics import confusion_matrix as sk_confusion_matrix
 
 from cuml.metrics import confusion_matrix
-from sklearn.metrics.regression import mean_absolute_error as sklearn_mae
-from sklearn.metrics.regression import mean_squared_log_error as sklearn_msle
+from sklearn.metrics import mean_absolute_error as sklearn_mae
+from sklearn.metrics import mean_squared_log_error as sklearn_msle
 
 from cuml.common import has_scipy
 
@@ -139,7 +139,7 @@ def test_accuracy(nrows, ncols, n_info, datatype):
     # random forest classification model
     cuml_model = curfc(max_features=1.0,
                        n_bins=8, split_algo=0, split_criterion=0,
-                       min_rows_per_node=2,
+                       min_samples_leaf=2,
                        n_estimators=40, handle=handle, max_leaves=-1,
                        max_depth=16)
 

@@ -25,11 +25,13 @@
 #include <cuml/common/cuml_allocator.hpp>
 #include <cuml/cuml.hpp>
 #include <cuml/datasets/make_blobs.hpp>
+#include <cuml/manifold/umap.hpp>
 #include <cuml/neighbors/knn.hpp>
 #include <distance/distance.cuh>
 #include <linalg/reduce_rows_by_key.cuh>
 #include <metrics/trustworthiness.cuh>
 #include <raft/cuda_utils.cuh>
+#include <selection/knn.cuh>
 #include <umap/runner.cuh>
 
 using namespace ML;
@@ -157,12 +159,11 @@ class UMAPParametrizableTest : public ::testing::Test {
     CUDA_CHECK(cudaStreamSynchronize(stream));
 
     if (test_params.supervised) {
-      UMAPAlgo::_fit<float, 256>(handle, X, y, n_samples, n_features,
-                                 knn_indices, knn_dists, &umap_params,
-                                 model_embedding);
+      ML::UMAP::fit(handle, X, y, n_samples, n_features, knn_indices, knn_dists,
+                    &umap_params, model_embedding);
     } else {
-      UMAPAlgo::_fit<float, 256>(handle, X, n_samples, n_features, knn_indices,
-                                 knn_dists, &umap_params, model_embedding);
+      ML::UMAP::fit(handle, X, nullptr, n_samples, n_features, knn_indices,
+                    knn_dists, &umap_params, model_embedding);
     }
     CUDA_CHECK(cudaStreamSynchronize(stream));
 
@@ -173,9 +174,9 @@ class UMAPParametrizableTest : public ::testing::Test {
 
       CUDA_CHECK(cudaStreamSynchronize(stream));
 
-      UMAPAlgo::_transform<float, 256>(
-        handle, X, n_samples, umap_params.n_components, knn_indices, knn_dists,
-        X, n_samples, model_embedding, n_samples, &umap_params, embedding_ptr);
+      ML::UMAP::transform(handle, X, n_samples, umap_params.n_components,
+                          knn_indices, knn_dists, X, n_samples, model_embedding,
+                          n_samples, &umap_params, embedding_ptr);
 
       CUDA_CHECK(cudaStreamSynchronize(stream));
 
@@ -200,7 +201,7 @@ class UMAPParametrizableTest : public ::testing::Test {
 
     double trustworthiness =
       trustworthiness_score<float,
-                            ML::Distance::DistanceType::EucUnexpandedL2Sqrt>(
+                            raft::distance::DistanceType::EucUnexpandedL2Sqrt>(
         handle, X, embedding_ptr, n_samples, n_features,
         umap_params.n_components, umap_params.n_neighbors);
 
@@ -228,7 +229,7 @@ class UMAPParametrizableTest : public ::testing::Test {
     int& n_samples = test_params.n_samples;
     int& n_features = test_params.n_features;
 
-    UMAPAlgo::find_ab(&umap_params, alloc, stream);
+    UMAP::find_ab(handle, &umap_params);
 
     device_buffer<float> X_d(alloc, stream, n_samples * n_features);
     device_buffer<int> y_d(alloc, stream, n_samples);

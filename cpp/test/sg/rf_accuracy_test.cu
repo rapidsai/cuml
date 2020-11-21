@@ -89,7 +89,8 @@ class RFClassifierAccuracyTest : public ::testing::TestWithParam<RFInputs> {
                     1.0,            /* max_features */
                     16,             /* n_bins */
                     algo,           /* split_algo */
-                    2,              /* min_rows_per_node */
+                    2,              /* min_samples_leaf */
+                    2,              /* min_samples_split */
                     0.f,            /* min_impurity_decrease */
                     false,          /* bootstrap_features */
                     sc,             /* split_criterion */
