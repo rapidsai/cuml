@@ -78,6 +78,7 @@ def random_state():
         logger.debug("Random seed: {}".format(random_state))
     return random_state
 
+
 @pytest.fixture(
     scope='module',
     params=(
@@ -225,6 +226,7 @@ def test_rand_index_score(name, nrows):
 
     assert array_equal(cu_score, cu_score_using_sk)
 
+
 @pytest.mark.parametrize('metric', (
     'cityblock', 'cosine', 'euclidean', 'l1', 'sqeuclidean'
 ))
@@ -233,6 +235,7 @@ def test_silhouette_score(metric, labeled_clusters):
     cuml_score = cu_silhouette_score(X, labels, metric=metric)
     sk_score = sk_silhouette_score(X, labels, metric=metric)
     assert_almost_equal(cuml_score, sk_score)
+
 
 @pytest.mark.parametrize('metric', (
     'cityblock', 'cosine', 'euclidean', 'l1', 'sqeuclidean'
