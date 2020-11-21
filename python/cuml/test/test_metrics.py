@@ -32,6 +32,7 @@ from cuml.metrics.cluster import silhouette_samples as cu_silhouette_samples
 from cuml.test.utils import get_handle, get_pattern, array_equal, \
     unit_param, quality_param, stress_param, generate_random_labels, \
     score_labeling_with_handle
+from cupy.testing import assert_allclose
 
 from numba import cuda
 from numpy.testing import assert_almost_equal
@@ -80,18 +81,25 @@ def random_state():
 @pytest.fixture(
     scope='module',
     params=(
-        {'n_clusters': 2, 'n_features': 2},
-        {'n_clusters': 5, 'n_features': 1000}
+        {'n_clusters': 2, 'n_features': 2, 'label_type': 'int64',
+            'data_type': 'float32'},
+        {'n_clusters': 5, 'n_features': 1000, 'label_type': 'int32',
+            'data_type': 'float64'}
     )
 )
 def labeled_clusters(request, random_state):
-    return make_blobs(
+    data, labels = make_blobs(
         n_samples=1000,
         n_features=request.param['n_features'],
         random_state=random_state,
         centers=request.param['n_clusters'],
         center_box=(-1, 1),
         cluster_std=1.5  # Allow some cluster overlap
+    )
+
+    return (
+        data.astype(request.param['data_type']),
+        labels.astype(request.param['label_type'])
     )
 
 
@@ -218,16 +226,22 @@ def test_rand_index_score(name, nrows):
     assert array_equal(cu_score, cu_score_using_sk)
 
 @pytest.mark.parametrize('metric', (
-    #'cityblock', 'cosine', 'euclidean', 'l1', 'sqeuclidean'
-    'euclidean',
+    'cityblock', 'cosine', 'euclidean', 'l1', 'sqeuclidean'
 ))
-def test_silhouette_score(metric):  #, labeled_clusters):
-    # X, labels = labeled_clusters
-    X = np.array([[-1, -1], [-2, -2], [1, 1], [2, 2]], dtype='float32')
-    labels = np.array([0, 0, 1, 1])
+def test_silhouette_score(metric, labeled_clusters):
+    X, labels = labeled_clusters
     cuml_score = cu_silhouette_score(X, labels, metric=metric)
     sk_score = sk_silhouette_score(X, labels, metric=metric)
     assert_almost_equal(cuml_score, sk_score)
+
+@pytest.mark.parametrize('metric', (
+    'cityblock', 'cosine', 'euclidean', 'l1', 'sqeuclidean'
+))
+def test_silhouette_samples(metric, labeled_clusters):
+    X, labels = labeled_clusters
+    cuml_scores = cu_silhouette_samples(X, labels, metric=metric)
+    sk_scores = sk_silhouette_samples(X, labels, metric=metric)
+    assert_allclose(cuml_scores, sk_scores, rtol=1e-3)
 
 
 def score_homogeneity(ground_truth, predictions, use_handle):

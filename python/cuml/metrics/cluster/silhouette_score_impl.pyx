@@ -36,7 +36,7 @@ def _silhouette_coeff(
         A string representation of the distance metric to use for evaluating
         the silhouette schore. Available options are "cityblock", "cosine",
         "euclidean", "l1", "l2", "manhattan", and "sqeuclidean".
-    sil_scores : array_like, shape = (1, n_samples)
+    sil_scores : array_like, shape = (1, n_samples), dtype='float64'
         An optional array in which to store the silhouette score for each
         sample.
     handle : cuml.Handle
@@ -53,13 +53,13 @@ def _silhouette_coeff(
     data, n_rows, n_cols, _ = input_to_cuml_array(
         X,
         order='C',
-        check_dtype=[np.float32, np.float64]
+        convert_to_dtype=np.float64
     )
 
     labels, _, _, _ = input_to_cuml_array(
         labels,
         order='C',
-        check_dtype=[np.int32, np.int64]
+        convert_to_dtype=np.int32
     )
 
     n_labels = cp.unique(
@@ -71,8 +71,8 @@ def _silhouette_coeff(
         scores_ptr = <uintptr_t> NULL
     else:
         sil_scores = input_to_cuml_array(
-            labels,
-            check_dtype=[np.float32, np.float64])[0]
+            sil_scores,
+            check_dtype=np.float64)[0]
 
         scores_ptr = sil_scores.ptr
 

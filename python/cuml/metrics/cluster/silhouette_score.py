@@ -63,7 +63,7 @@ def silhouette_samples(X, labels, metric='euclidean', handle=None):
         If it is None, a new one is created.
     """
 
-    sil_scores = cp.empty((1, X.shape[0]))
+    sil_scores = cp.empty((X.shape[0],), dtype='float64')
 
     _silhouette_coeff(
         X, labels, metric=metric, sil_scores=sil_scores, handle=handle
