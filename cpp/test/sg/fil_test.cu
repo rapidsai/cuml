@@ -904,5 +904,4 @@ TEST_P(TreeliteThrowSparse8FilTest, Import) { check(); }
 
 INSTANTIATE_TEST_CASE_P(FilTests, TreeliteThrowSparse8FilTest,
                         testing::ValuesIn(import_throw_sparse8_inputs));
-
 }  // namespace ML
