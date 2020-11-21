@@ -49,6 +49,7 @@ if(BUILD_CUML_TESTS)
     sg/cd_test.cu
     sg/dbscan_test.cu
     sg/decisiontree_batchedlevel_algo.cu
+    sg/decisiontree_batchedlevel_unittest.cu
     sg/fil_test.cu
     sg/handle_test.cu
     sg/holtwinters_test.cu
@@ -185,6 +186,12 @@ if(BUILD_PRIMS_TESTS)
     prims/score.cu
     prims/seive.cu
     prims/sigmoid.cu
+    prims/sparse/csr_row_slice.cu
+    prims/sparse/csr_to_dense.cu
+    prims/sparse/csr_transpose.cu
+    prims/sparse/distance.cu
+    prims/sparse/knn.cu
+    prims/sparse/selection.cu
     prims/silhouette_score.cu
     prims/sqrt.cu
     prims/ternary_op.cu

@@ -19,6 +19,7 @@ import cupy as cp
 import math
 import warnings
 import typing
+from inspect import signature
 
 import numpy as np
 from cuml import ForestInference
@@ -40,7 +41,8 @@ from cuml.common.array_descriptor import CumlArrayDescriptor
 class BaseRandomForestModel(Base):
     _param_names = ['n_estimators', 'max_depth', 'handle',
                     'max_features', 'n_bins',
-                    'split_algo', 'split_criterion', 'min_rows_per_node',
+                    'split_algo', 'split_criterion', 'min_samples_leaf',
+                    'min_samples_split',
                     'min_impurity_decrease',
                     'bootstrap', 'bootstrap_features',
                     'verbose', 'rows_sample',
@@ -58,10 +60,11 @@ class BaseRandomForestModel(Base):
                  max_depth=16, handle=None, max_features='auto',
                  n_bins=8, split_algo=1, bootstrap=True,
                  bootstrap_features=False,
-                 verbose=False, min_rows_per_node=2,
+                 verbose=False, min_rows_per_node=None,
+                 min_samples_leaf=1, min_samples_split=2,
                  rows_sample=1.0, max_leaves=-1,
                  accuracy_metric=None, dtype=None,
-                 output_type=None, min_samples_leaf=None,
+                 output_type=None,
                  min_weight_fraction_leaf=None, n_jobs=None,
                  max_leaf_nodes=None, min_impurity_decrease=0.0,
                  min_impurity_split=None, oob_score=None,
@@ -70,7 +73,6 @@ class BaseRandomForestModel(Base):
                  use_experimental_backend=False, max_batch_size=128):
 
         sklearn_params = {"criterion": criterion,
-                          "min_samples_leaf": min_samples_leaf,
                           "min_weight_fraction_leaf": min_weight_fraction_leaf,
                           "max_leaf_nodes": max_leaf_nodes,
                           "min_impurity_split": min_impurity_split,
@@ -108,6 +110,11 @@ class BaseRandomForestModel(Base):
                           "recommended. If n_streams is > 1, results may vary "
                           "due to stream/thread timing differences, even when "
                           "random_state is set")
+        if min_rows_per_node is not None:
+            warnings.warn("The 'min_rows_per_node' parameter is deprecated "
+                          "and will be removed in 0.18. Please use "
+                          "'min_samples_leaf' parameter instead.")
+            min_samples_leaf = min_rows_per_node
         if handle is None:
             handle = Handle(n_streams)
 
@@ -130,7 +137,8 @@ class BaseRandomForestModel(Base):
             self.split_criterion = \
                 BaseRandomForestModel.criterion_dict[str(split_criterion)]
 
-        self.min_rows_per_node = min_rows_per_node
+        self.min_samples_leaf = min_samples_leaf
+        self.min_samples_split = min_samples_split
         self.min_impurity_decrease = min_impurity_decrease
         self.bootstrap_features = bootstrap_features
         self.rows_sample = rows_sample
@@ -280,9 +288,12 @@ class BaseRandomForestModel(Base):
                           "train using float32 data to fit the estimator")
 
         max_feature_val = self._get_max_feat_val()
-        if type(self.min_rows_per_node) == float:
-            self.min_rows_per_node = \
-                math.ceil(self.min_rows_per_node*self.n_rows)
+        if type(self.min_samples_leaf) == float:
+            self.min_samples_leaf = \
+                math.ceil(self.min_samples_leaf * self.n_rows)
+        if type(self.min_samples_split) == float:
+            self.min_samples_split = \
+                math.ceil(self.min_samples_split * self.n_rows)
         return X_m, y_m, max_feature_val
 
     def _tl_handle_from_bytes(self, treelite_serialized_model):

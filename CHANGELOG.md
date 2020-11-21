@@ -2,6 +2,8 @@
 
 ## New Features
 - PR #3164: Expose silhouette score in Python
+- PR #2659: Add initial max inner product sparse knn
+- PR #2836: Refactor UMAP to accept sparse inputs
 
 ## Improvements
 - PR #3077: Improve runtime for test_kmeans
@@ -18,6 +20,7 @@
 - PR #2906: Moving `linalg` decomp to RAFT namespaces
 - PR #2996: Removing the max_depth restriction for switching to the batched backend
 - PR #3004: Remove Single Process Multi GPU (SPMG) code
+- PR #3032: FIL: Add optimization parameter `blocks_per_sm` that will help all but tiniest models
 - PR #3044: Move leftover `linalg` and `stats` to RAFT namespaces
 - PR #3067: Deleting prims moved to RAFT and updating header paths
 - PR #3074: Reducing dask coordinate descent test runtime
@@ -28,10 +31,14 @@
 - PR #3112: Speed test_array
 - PR #3111: Adding Cython to Code Coverage
 - PR #3129:  Update notebooks README
+- PR #3002: Update flake8 Config To With Per File Settings
 - PR #3135: Add QuasiNewton tests
 - PR #3040: Improved Array Conversion with CumlArrayDescriptor and Decorators
 - PR #3134: Improving the Deprecation Message Formatting in Documentation
+- PR #3113: Add tags and prefered memory order tags to estimators
 - PR #3137: Reorganize Pytest Config and Add Quick Run Option
+- PR #3144: Adding Ability to Set Arbitrary Cmake Flags in ./build.sh
+- PR #3155: Eliminate unnecessary warnings from random projection test
 
 ## Bug Fixes
 - PR #3069: Prevent conversion of DataFrames to Series in preprocessing
@@ -54,9 +61,14 @@
 - PR #3086: Reverting FIL Notebook Testing
 - PR #3114: Fixed a typo in SVC's predict_proba AttributeError
 - PR #3117: Fix two crashes in experimental RF backend
-- PR #3119: Fix memset args for benchmark 
+- PR #3119: Fix memset args for benchmark
 - PR #3130: Return Python string from `dump_as_json()` of RF
+- PR #3132: Add `min_samples_split` + Rename `min_rows_per_node` -> `min_samples_leaf`
 - PR #3136: Fix stochastic gradient descent example
+- PR #3152: Fix access to attributes of individual NB objects in dask NB
+- PR #3156: Force local conda artifact install
+- PR #3162: Removing accidentally checked in debug file
+
 
 # cuML 0.16.0 (Date TBD)
 
