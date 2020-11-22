@@ -306,7 +306,7 @@ def test_knn_graph(input_type, nrows, n_feats, p, k, metric, mode,
 @pytest.mark.parametrize("metric", ["l1"]) # "#valid_metrics(cuml_algo="sparse"))
 @pytest.mark.parametrize('nrows', [10000])
 @pytest.mark.parametrize('ncols', [50])
-@pytest.mark.parametrize('density', [0.3])
+@pytest.mark.parametrize('density', [0.4])
 @pytest.mark.parametrize('n_neighbors', [2])
 @pytest.mark.parametrize('batch_size_index', [20000])
 @pytest.mark.parametrize('batch_size_query', [20000])
@@ -345,7 +345,7 @@ def test_nearest_neighbors_sparse(nrows, ncols,
     print("cuML took %s" % (time.time() - start))
     #
     sknn = skKNN(metric="l1", n_neighbors=n_neighbors,
-                 algorithm="brute", n_jobs=-1)
+                 algorithm="brute", n_jobs=20)
     sk_X = a.get()
     sknn.fit(sk_X)
 

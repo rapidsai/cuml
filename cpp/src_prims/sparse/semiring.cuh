@@ -39,9 +39,12 @@
 
 #pragma once
 
+
 namespace MLCommon {
 namespace Sparse {
 namespace Distance {
+
+#define NNZ_PER_WG 64u ///< Should be power of two
 
 const int MAX_INT = std::numeric_limits<int>::max();
 
@@ -99,25 +102,16 @@ struct BlockSemiring {
     row_b = start_row_b + tid;
     n_rows = (stop_row_b - start_row_b) + 1;
 
-    for (int i = tid; i < n_rows; i += blockDim.x) {
+    for (int i = tid; i < n_rows; i += blockDim.x)
       row_count = indptrB[start_row_b + i + 1] - indptrB[start_row_b + i];
-    }
 
     start_offset_b = indptrB[start_row_b];
     stop_offset_b = indptrB[stop_row_b + 1] - 1;
-    // coalesce reads of B rows into shared memory
-    for (int i = tid; i < (stop_offset_b - start_offset_b) + 1;
-         i += blockDim.x) {
-      chunk_cols[i] = indicesB[start_offset_b + i];
-      chunk_vals[i] = dataB[start_offset_b + i];
-    }
-
-    __syncthreads();
 
     for (int i = tid; i < n_rows; i += blockDim.x) {
       // set starting and ending idx of local thread
-      local_idx = indptrB[start_row_b + i] - start_offset_b;
-      local_idx_stop = local_idx + row_count;
+      local_idx = indptrB[start_row_b + i]; //- start_offset_b;
+      local_idx_stop = min(local_idx + row_count, stop_offset_b);
     }
   }
 
@@ -213,6 +207,207 @@ struct BlockSemiring {
   bool verbose;
 };
 
+template<typename value_t>
+__device__ value_t prev_power_of_2 (value_t n) {
+  while (n & n - 1)
+    n = n & n - 1;
+  return n;
+}
+
+template <typename data_type>
+__global__ void adaptive_csr_spmv_semiring_kernel (
+  const unsigned int n_rows,
+  const unsigned int *indices_b,
+  const unsigned int *row_ind_b,
+  const unsigned int *row_blocks,
+  const data_type *data_b,
+  const data_type *x,
+  data_type *out) {
+  const unsigned int block_row_begin = row_blocks[blockIdx.x];
+  const unsigned int block_row_end = row_blocks[blockIdx.x + 1];
+  const unsigned int nnz =
+    row_ind_b[block_row_end] - row_ind_b[block_row_begin];
+
+  __shared__ data_type cache[NNZ_PER_WG];
+
+  if (block_row_end - block_row_begin > 1)
+  {
+    /// CSR-Stream case
+    const unsigned int i = threadIdx.x;
+    const unsigned int block_data_begin = row_ind_b[block_row_begin];
+    const unsigned int thread_data_begin = block_data_begin + i;
+
+    if (i < nnz)
+      cache[i] = data_b[thread_data_begin] * x[indices_b[thread_data_begin]];
+    __syncthreads ();
+
+    const unsigned int threads_for_reduction =
+      prev_power_of_2 (blockDim.x / (block_row_end - block_row_begin));
+
+    if (threads_for_reduction > 1)
+    {
+      /// Reduce all non zeroes of row by multiple thread
+      const unsigned int thread_in_block = i % threads_for_reduction;
+      const unsigned int local_row = block_row_begin + i / threads_for_reduction;
+
+      data_type dot = 0.0;
+
+      if (local_row < block_row_end)
+      {
+        const unsigned int local_first_element =
+          row_ind_b[local_row] - row_ind_b[block_row_begin];
+        const unsigned int local_last_element =
+          row_ind_b[local_row + 1] - row_ind_b[block_row_begin];
+
+        for (unsigned int local_element = local_first_element + thread_in_block;
+             local_element < local_last_element;
+             local_element += threads_for_reduction)
+        {
+          dot += cache[local_element];
+        }
+      }
+      __syncthreads ();
+      cache[i] = dot;
+
+      /// Now each row has threads_for_reduction values in cache
+      for (int j = threads_for_reduction / 2; j > 0; j /= 2)
+      {
+        /// Reduce for each row
+        __syncthreads ();
+
+        const bool use_result = thread_in_block < j && i + j < NNZ_PER_WG;
+
+        if (use_result)
+          dot += cache[i + j];
+        __syncthreads ();
+
+        if (use_result)
+          cache[i] = dot;
+      }
+
+      if (thread_in_block == 0 && local_row < block_row_end)
+        out[local_row] = dot;
+    }
+    else
+    {
+      /// Reduce all non zeroes of row by single thread
+      unsigned int local_row = block_row_begin + i;
+      while (local_row < block_row_end)
+      {
+        data_type dot = 0.0;
+
+        for (unsigned int j = row_ind_b[local_row] - block_data_begin;
+             j < row_ind_b[local_row + 1] - block_data_begin;
+             j++)
+        {
+          dot += cache[j];
+        }
+
+        out[local_row] = dot;
+        local_row += NNZ_PER_WG;
+      }
+    }
+  }
+  else
+  {
+    const unsigned int row = block_row_begin;
+    const unsigned int warp_id = threadIdx.x / 32;
+    const unsigned int lane = threadIdx.x % 32;
+
+    data_type dot = 0;
+
+    if (nnz <= 64 || NNZ_PER_WG <= 32)
+    {
+      /// CSR-Vector case
+      if (row < n_rows)
+      {
+        const unsigned int row_start = row_ind_b[row];
+        const unsigned int row_end = row_ind_b[row + 1];
+
+        for (unsigned int element = row_start + lane; element < row_end; element += 32)
+          dot += data_b[element] * x[indices_b[element]];
+      }
+
+      dot = warp_reduce (dot);
+
+      if (lane == 0 && warp_id == 0 && row < n_rows)
+      {
+        out[row] = dot;
+      }
+    }
+    else
+    {
+      /// CSR-VectorL case
+      if (row < n_rows)
+      {
+        const unsigned int row_start = row_ind_b[row];
+        const unsigned int row_end = row_ind_b[row + 1];
+
+        for (unsigned int element = row_start + threadIdx.x; element < row_end; element += blockDim.x)
+          dot += data_b[element] * x[indices_b[element]];
+      }
+
+      dot = warp_reduce (dot);
+
+      if (lane == 0)
+        cache[warp_id] = dot;
+      __syncthreads ();
+
+      if (warp_id == 0)
+      {
+        dot = 0.0;
+
+        for (unsigned int element = lane; element < blockDim.x / 32; element += 32)
+          dot += cache[element];
+
+        dot = warp_reduce (dot);
+
+        if (lane == 0 && row < n_rows)
+        {
+          out[row] = dot;
+        }
+      }
+    }
+  }
+}
+
+/**
+ * Optimized for large numbers of rows but small enough numbers of columns
+ * that each thread can process their rows in parallel.
+ */
+template <typename value_idx, typename value_t, int tpb, int buffer_size,
+          int max_chunk_size, int rows_per_block>
+__global__ void classic_csr_semiring_spmv_kernel(
+    value_idx *indptrA,
+    value_idx *indicesA,
+    value_t *dataA,
+    value_idx *indptrB,
+    value_idx *indicesB,
+    value_t *dataB,
+    value_idx m, value_idx n, value_t *out,
+    int n_blocks_per_row
+  ) {
+  value_idx out_row = blockIdx.x / n_blocks_per_row;
+  value_idx out_col_start = blockIdx.x % n_blocks_per_row;
+  value_idx tid = threadIdx.x;
+
+  if (out_row > m || out_col_start > n_blocks_per_row) return;
+
+  __shared__ value_idx shared_cols[buffer_size];
+  __shared__ value_t shared_vals[buffer_size];
+
+  bool verbose = tid <= 3 && out_row < 3;
+
+  BlockSemiring<value_idx, value_t, tpb, buffer_size, rows_per_block> semiring(
+    tid, m, n, shared_cols, shared_vals, indicesB, dataB, verbose);
+
+  semiring.load_a(out_row, indptrA, indicesA, dataA);
+  semiring.load_b(out_col_start, indptrB, indicesB, dataB);
+
+  while (!semiring.isdone()) semiring.step();
+  semiring.write(out);
+}
+
 
 /**
  * This implementation follows the load-balanced implementation
@@ -235,10 +430,10 @@ struct BlockSemiring {
  */
 template<typename value_idx, typename value_t, int tpb, int buffer_size, int chunk_size>
 __global__ void balanced_coo_semiring_kernel(value_idx *indptrA, value_idx *indicesA,
-                              value_t *dataA, value_idx *rowsB,
-                              value_idx *indicesB, value_t *dataB, value_idx m,
-                              value_idx n, value_idx dim, value_t *out,
-                              int n_blocks_per_row) {
+                                             value_t *dataA, value_idx *rowsB,
+                                             value_idx *indicesB, value_t *dataB, value_idx m,
+                                             value_idx n, value_idx dim, value_t *out,
+                                             int n_blocks_per_row) {
 
   value_idx cur_row_a = blockIdx.x / n_blocks_per_row;
   value_idx cur_chunk_offset = blockIdx.x % n_blocks_per_row;
@@ -283,37 +478,6 @@ __global__ void balanced_coo_semiring_kernel(value_idx *indptrA, value_idx *indi
   }
 }
 
-template <typename value_idx, typename value_t, int tpb, int buffer_size,
-          int max_chunk_size, int rows_per_block>
-__global__ void classic_csr_semiring_kernel(value_idx *indptrA, value_idx *indicesA,
-                               value_t *dataA, value_idx *indptrB,
-                               value_idx *indicesB, value_t *dataB, value_idx m,
-                               value_idx n, value_t *out,
-                               int n_blocks_per_row) {
-  value_idx out_row = blockIdx.x / n_blocks_per_row;
-  value_idx out_col_start = blockIdx.x % n_blocks_per_row;
-  value_idx tid = threadIdx.x;
-
-  if (out_row > m || out_col_start > n_blocks_per_row) return;
-
-  // TODO: Make these local to each thread and profile
-  __shared__ value_idx shared_cols[buffer_size];
-  __shared__ value_t shared_vals[buffer_size];
-
-  value_idx chunk_cols[buffer_size];
-  value_t chunk_vals[buffer_size];
-
-  bool verbose = tid <= 3 && out_row < 3;
-
-  BlockSemiring<value_idx, value_t, tpb, buffer_size, rows_per_block> semiring(
-    tid, m, n, shared_cols, shared_vals, chunk_cols, chunk_vals, verbose);
-
-  semiring.load_a(out_row, indptrA, indicesA, dataA);
-  semiring.load_b(out_col_start, indptrB, indicesB, dataB);
-
-  while (!semiring.isdone()) semiring.step();
-  semiring.write(out);
-}
 
 /**
  * A version of the block semiring that chunks offsets and rows
@@ -717,25 +881,17 @@ __global__ void chunked_block_semiring(value_idx *indptrA, value_idx *indicesA,
 
   bool verbose = tid <= 10 && out_row < 1;
 
-  //  if (verbose) printf("Building block semiring\n");
-  //
   ChunkedBlockSemiring<value_idx, value_t, tpb, buffer_size, rows_per_block>
     semiring(tid, m, n, offsets, start_rows, shared_cols, shared_vals,
              chunk_cols, chunk_vals, sums, row_counts, cum_row_counts, verbose);
 
-  //  if (verbose) printf("Calling load_a\n");
-  //
   semiring.load_a(out_row, indptrA, indicesA, dataA);
 
-  //  if (verbose) printf("Calling load_b\n");
-  //
   semiring.load_b(out_col_start, indptrB, indicesB, dataB);
 
   int iter = 0;
   while (!semiring.isdone()) {
-    //    if (verbose) printf("Iteration %d\n", iter);
     semiring.step();
-
     ++iter;
   }
   semiring.write(out);
@@ -743,7 +899,7 @@ __global__ void chunked_block_semiring(value_idx *indptrA, value_idx *indicesA,
 
 template <typename value_idx = int, typename value_t = float,
           int max_buffer_size = 1000,  //
-          int threads_per_block = 16,
+          int threads_per_block = 32,
           typename reduce_f = auto(value_t, value_t)->value_t,
           typename accum_f = auto(value_t, value_t)->value_t>
 void distance_block_reduce(value_t *out_dists,
@@ -755,7 +911,7 @@ void distance_block_reduce(value_t *out_dists,
   CUML_LOG_DEBUG("n_blocks: %d", n_blocks);
   CUML_LOG_DEBUG("n_warps_per_row: %d", n_warps_per_row);
 
-  classic_csr_semiring_kernel<value_idx, value_t, threads_per_block,
+  classic_csr_semiring_spmv_kernel<value_idx, value_t, threads_per_block,
                               max_buffer_size, 256, threads_per_block>
     <<<n_blocks, threads_per_block, 0, config_.stream>>>(
       config_.a_indptr, config_.a_indices, config_.a_data, config_.b_indptr,
@@ -774,7 +930,7 @@ class l1_distances_t : public distances_t<value_t> {
     distance_block_reduce<value_idx, value_t>(
       out_dists, config_,
       [] __device__(value_t a, value_t b) { return fabsf(a - b); },
-      [] __device__(value_t a, value_t b) { return a + b; });
+      [] __device__(value_t out, value_t b) { return out +  b; });
 
     CUDA_CHECK(cudaStreamSynchronize(config_.stream));
 
