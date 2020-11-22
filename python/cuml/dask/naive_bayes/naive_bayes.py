@@ -136,8 +136,8 @@ class MultinomialNB(BaseEstimator,
         modela = first(models)
 
         for model in models[1:]:
-            modela._feature_count_ += model._feature_count_
-            modela._class_count_ += model._class_count_
+            modela.feature_count_ += model.feature_count_
+            modela.class_count_ += model.class_count_
         return modela
 
     @staticmethod
