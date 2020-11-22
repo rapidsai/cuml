@@ -63,7 +63,8 @@ __global__ void exact_rows_kernel_sm(DataT* X, IdxT nrows_X, IdxT ncols,
     for (i = row; i < row + nrows_background; i += blockDim.x) {
       for (j = 0; j < ncols; j++) {
         if (idx[j] == 0) {
-          dataset[i * ncols + j] = background[(i % nrows_background) * ncols + j];
+          dataset[i * ncols + j] =
+            background[(i % nrows_background) * ncols + j];
         } else {
           dataset[i * ncols + j] = observation[j];
         }
@@ -85,9 +86,7 @@ __global__ void exact_rows_kernel(DataT* X, IdxT nrows_X, IdxT ncols,
   int tid = threadIdx.x + blockDim.x * blockIdx.x;
   int i, j;
 
-#pragma unroll
   for (i = tid; i < nrows_background; i += blockDim.x) {
-#pragma unroll
     for (j = 0; j < ncols; j++) {
       if (X[blockIdx.x + j] == 0) {
         dataset[i * ncols + j] = background[(i % nrows_background) * ncols + j];
@@ -151,16 +150,19 @@ __global__ void sampled_rows_kernel(IdxT* nsamples, DataT* X, IdxT nrows_X,
 
       while (i < ncols) {
         i = i + floor(log(curand_uniform(&state)) / log(1 - w)) + 1;
-        if (i <= ncols) {
+        if (i < ncols) {
           smps[(int)(curand_uniform(&state) * k_blk)] = i;
           w = w * exp(log(curand_uniform(&state)) / k_blk);
         }
       }
 
       // write samples to 1-0 matrix
+      if (blockIdx.x == 41) printf("blockIdx, k: %d, %d\n", blockIdx.x, k_blk);
       for (i = 0; i < k_blk; i++) {
         X[blockIdx.x * ncols + smps[i]] = 1;
+        if (blockIdx.x == 41) printf(" %d", smps[i]);
       }
+      if (blockIdx.x == 41) printf("\n");
     }
 
     // all threads write background line to their line
@@ -199,24 +201,25 @@ void kernel_dataset_impl(const raft::handle_t& handle, DataT* X, IdxT nrows_X,
   // number of blocks for exact part of the dataset
   nblks = nrows_X - len_samples;
 
-  cudaDeviceProp prop;
-  prop = handle_impl.get_device_properties();
+  // check if exact part of the dataset is needed
+  if (nblks > 0) {
+    cudaDeviceProp prop;
+    prop = handle_impl.get_device_properties();
 
-  if (ncols * sizeof(DataT) <= prop.sharedMemPerMultiprocessor) {
-    // each block calculates the combinations of an entry in X
-    // at least nrows_background threads per block, multiple of 32
-    exact_rows_kernel_sm<<<nblks, nthreads, ncols * sizeof(DataT), stream>>>(
-      X, nrows_X, ncols, background, nrows_background, dataset,
-      observation);
-  } else {
-    exact_rows_kernel<<<nblks, nthreads, 0, stream>>>(
-      X, nrows_X, ncols, background, nrows_background, dataset,
-      observation);
+    if (ncols * sizeof(DataT) <= prop.sharedMemPerMultiprocessor) {
+      // each block calculates the combinations of an entry in X
+      // at least nrows_background threads per block, multiple of 32
+      exact_rows_kernel_sm<<<nblks, nthreads, ncols * sizeof(DataT), stream>>>(
+        X, nrows_X, ncols, background, nrows_background, dataset, observation);
+    } else {
+      exact_rows_kernel<<<nblks, nthreads, 0, stream>>>(
+        X, nrows_X, ncols, background, nrows_background, dataset, observation);
+    }
   }
 
   CUDA_CHECK(cudaPeekAtLastError());
 
-  // check if random part of the dataset  is needed
+  // check if random part of the dataset is needed
   if (len_samples > 0) {
     // each block does a sample
     nblks = len_samples;
@@ -224,14 +227,9 @@ void kernel_dataset_impl(const raft::handle_t& handle, DataT* X, IdxT nrows_X,
     // shared memory shouldn't be a problem since k will be small
     // due to distribution of shapley kernel weights
     sampled_rows_kernel<<<nblks, nthreads, maxsample * sizeof(int), stream>>>(
-      nsamples,
-      &X[(nrows_X - len_samples) * ncols],
-      len_samples,
-      ncols,
-      background,
-      nrows_background,
-      &dataset[(nrows_X - len_samples) * nrows_background * ncols],
-      observation,
+      nsamples, &X[(nrows_X - len_samples) * ncols], len_samples, ncols,
+      background, nrows_background,
+      &dataset[(nrows_X - len_samples) * nrows_background * ncols], observation,
       seed);
   }
 
