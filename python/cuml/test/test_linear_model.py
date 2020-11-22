@@ -233,19 +233,19 @@ def test_lars_model(datatype, nrows, column_info):
 
     # fit and predict cuml LARS
     culars.fit(X_train, y_train)
-    culars_predict = culars.predict(X_test)
+
+    cu_score_train = culars.score(X_train, y_train)
+    cu_score_test = culars.score(X_test, y_test)
 
     if nrows < 500000:
         # sklearn model initialization, fit and predict
         sklars = skLars()
         sklars.fit(X_train, y_train)
 
-        sklars_predict = sklars.predict(X_test)
-
-        assert culars.score(X_train, y_train) >= sklars.score(X_train, y_train) - 0.05
-        assert culars.score(X_test, y_test) >= sklars.score(X_test, y_test) - 0.1
+        assert cu_score_train >= sklars.score(X_train, y_train) - 0.05
+        assert cu_score_test >= sklars.score(X_test, y_test) - 0.1
     else:
-        assert culars.score(X_test, y_test) > 0.1  # ?
+        assert cu_score_test > 0.95  # ?
 
 
 @pytest.mark.parametrize(

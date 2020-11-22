@@ -166,7 +166,8 @@ class Lars(Base, RegressorMixin):
             y = y - y_mean
             if self.normalize:
                 x_mean = cp.mean(X, axis=0)
-                x_scale = cp.sqrt(cp.var(X, axis=0))
+                x_scale = cp.sqrt(cp.var(X, axis=0) * X.shape[0])
+                x_scale[x_scale==0] = 1
                 X = (X - x_mean) / x_scale
         return X, y, x_mean, x_scale, y_mean
 

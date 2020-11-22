@@ -346,7 +346,7 @@ void calcEquiangularVec(const raft::handle_t& handle, idx_t n_active, math_t* X,
  * @brief Calculate the maximum step size (gamma) in the equiangular direction.
  *
  * Let mu = X beta.T be the current prediction vector. The modified solution
- * after taking step gamma is defined as mu' = mu + gamma mu. With this
+ * after taking step gamma is defined as mu' = mu + gamma u. With this
  * solution the correlation of the covariates in the active set will decrease
  * equally, to a new value |c_j(gamma)| = Cmax - gamma A. At the same time
  * the correlation of the values in the inactive set changes according to the
@@ -384,12 +384,12 @@ void calcMaxStep(const raft::handle_t& handle, idx_t max_iter, idx_t n_rows,
   // In the active set each element has the same correlation, whose absolute
   // value is given by Cmax.
   math_t Cmax = std::abs(cj);
-  if (n_active == max_iter) {
+  if (n_active == n_cols) {
     // Last iteration, the inactive set is empty we use equation (2.21)
     raft::linalg::unaryOp(
       gamma, A, 1, [Cmax] __device__(math_t A) { return Cmax / A; }, stream);
   } else {
-    const int n_inactive = max_iter - n_active;
+    const int n_inactive = n_cols - n_active;
     if (G == nullptr) {
       // Calculate a = X.T[:,n_active:] * u                              (2.11)
       math_t one = 1;
@@ -456,11 +456,11 @@ void larsInit(const raft::handle_t& handle, const math_t* X, idx_t n_rows,
   math_t one = 1;
   math_t zero = 0;
   // Set initial correlation to X.T * y
+  // TODO: this returns NaNs if n_rows >= 65536 and math_t = fp32
   CUBLAS_CHECK(raft::linalg::cublasgemv(handle.get_cublas_handle(), CUBLAS_OP_T,
                                         n_rows, n_cols, &one, X, ld_X, y, 1,
                                         &zero, cor.data(), 1, stream));
   if (coef_path) {
-    std::cout << "Max iter " << *max_iter << "\n";
     CUDA_CHECK(cudaMemsetAsync(
       coef_path, 0, sizeof(math_t) * (*max_iter) * (*max_iter), stream));
   }
@@ -481,18 +481,12 @@ void updateCoef(const raft::handle_t& handle, idx_t max_iter, idx_t n_cols,
   // cor[n_active:] -= gamma * a_vec
   int n_inactive = n_cols - n_active;
   if (n_inactive > 0) {
-    // We are accessing elements starting from cor + n_active. This might not be
-    // aligned, therefore we copy the data to aligned memory loc.
-    // TODO fix binary op to choose veclen automatically such that we do not
-    // have alignment issues.
-    raft::copy(workspace.data(), cor + n_active, n_inactive, stream);
     raft::linalg::binaryOp(
-      workspace.data(), workspace.data(), a_vec, n_inactive,
+      cor + n_active, cor + n_active, a_vec, n_inactive,
       [gamma] __device__(math_t c, math_t a) { return c - *gamma * a; },
       stream);
-    raft::copy(cor + n_active, workspace.data(), n_inactive, stream);
   }
-  // beta[:n_active] += gamma * a
+  // beta[:n_active] += gamma * ws
   raft::linalg::binaryOp(
     beta, beta, ws, n_active,
     [gamma] __device__(math_t b, math_t w) { return b + *gamma * w; }, stream);
@@ -637,9 +631,22 @@ void larsFit(const raft::handle_t& handle, math_t* X, idx_t n_rows,
                cor.data(), a_vec.data(), beta, coef_path, workspace, stream);
   }
 
-  // TODO apply sklearn definition of alphas
-  raft::copy(alphas, cor.data(), *n_active, stream);
-  CUDA_CHECK(cudaMemsetAsync(alphas + *n_active, 0, sizeof(math_t), stream));
+  // Apply sklearn definition of alphas = cor / n_rows
+  raft::linalg::unaryOp(
+    alphas, cor.data(), *n_active,
+    [n_rows] __device__(math_t c) { return abs(c) / n_rows; }, stream);
+
+  // Calculate the final correlation. We use the correlation from the last
+  // iteration and apply the changed during the last LARS iteration:
+  // alpha[n_active] = cor[n_active-1] - gamma * A
+  math_t* gamma_ptr = gamma.data();
+  math_t* A_ptr = A.data();
+  raft::linalg::unaryOp(
+    alphas + *n_active, cor.data() + *n_active - 1, 1,
+    [gamma_ptr, A_ptr, n_rows] __device__(math_t c) {
+      return abs(c - (*gamma_ptr) * (*A_ptr)) / n_rows;
+    },
+    stream);
 
   raft::update_device(active_idx, indices.data(), *n_active, stream);
 }
@@ -686,9 +693,10 @@ void larsPredict(const raft::handle_t& handle, const math_t* X, idx_t n_rows,
     // We collect active columns of X to contiguous space
     X_active_cols.resize(n_active * ld_X, stream);
     const int TPB = 64;
-    MLCommon::Cache::get_vecs<<<raft::ceildiv(n_active, TPB), TPB, 0, stream>>>(
-      X, ld_X, active_idx, n_active, X_active_cols.data());
-    CUDA_CHECK(cudaPeekAtLastError());
+    MLCommon::Cache::
+      get_vecs<<<raft::ceildiv(n_active * ld_X, TPB), TPB, 0, stream>>>(
+        X, ld_X, active_idx, n_active, X_active_cols.data());
+    CUDA_CHECK(cudaGetLastError());
     X = X_active_cols.data();
   }
   // Initialize preds = intercept
@@ -702,4 +710,4 @@ void larsPredict(const raft::handle_t& handle, const math_t* X, idx_t n_rows,
 }
 };  // namespace Lars
 };  // namespace Solver
-};  // end namespace ML
+};  // namespace ML
