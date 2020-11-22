@@ -39,13 +39,13 @@ namespace Explainer {
  * @param[in]    seed               Seed for the random number generator
  * @{
  */
-void kernel_dataset(const raft::handle_t& handle, float* ncols, int nrows_X,
-                    int M, float* background, int nrows_background,
+void kernel_dataset(const raft::handle_t& handle, float* X, int nrows_X,
+                    int ncols, float* background, int nrows_background,
                     float* dataset, float* observation, int* nsamples,
                     int len_nsamples, int maxsample, uint64_t seed = 0ULL);
 
-void kernel_dataset(const raft::handle_t& handle, double* ncols, int nrows_X,
-                    int M, double* background, int nrows_background,
+void kernel_dataset(const raft::handle_t& handle, double* X, int nrows_X,
+                    int ncols, double* background, int nrows_background,
                     double* dataset, double* observation, int* nsamples,
                     int len_nsamples, int maxsample, uint64_t seed = 0ULL);
 
