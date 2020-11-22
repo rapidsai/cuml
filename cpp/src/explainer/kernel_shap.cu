@@ -157,12 +157,9 @@ __global__ void sampled_rows_kernel(IdxT* nsamples, DataT* X, IdxT nrows_X,
       }
 
       // write samples to 1-0 matrix
-      if (blockIdx.x == 41) printf("blockIdx, k: %d, %d\n", blockIdx.x, k_blk);
       for (i = 0; i < k_blk; i++) {
         X[blockIdx.x * ncols + smps[i]] = 1;
-        if (blockIdx.x == 41) printf(" %d", smps[i]);
       }
-      if (blockIdx.x == 41) printf("\n");
     }
 
     // all threads write background line to their line
