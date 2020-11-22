@@ -149,6 +149,7 @@ class MakeKSHAPDatasetTest
     CUDA_CHECK(cudaFree(observation));
     CUDA_CHECK(cudaFree(X));
     CUDA_CHECK(cudaFree(dataset));
+    CUDA_CHECK(cudaFree(nsamples));
   }
 
  protected:
