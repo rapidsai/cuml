@@ -186,12 +186,18 @@ class Lars(Base, RegressorMixin):
         Return the Gram matrix, or None if it is not applicable.
         """
         Gram = None
-        # TODO check once more the n_cols / n_rows condition
+        X = cp.asarray(X)
         if self.precompute is True or (self.precompute == 'auto' and
-                                       self.n_cols < self.n_nonzero_coefs):
+                                       self.n_cols < X.shape[0]):
             logger.debug('Calculating Gram matrix')
-            X = cp.asarray(X)
-            Gram = cp.dot(X.T, X)
+            try:
+                Gram = cp.dot(X.T, X)
+            except MemoryError as err:
+                if self.precompute:
+                    logger.debug("Not enought memory to store the Gram matrix."
+                                 " Proceeding without it.")
+                if Gram is not None:
+                    print("Error Gram is not none")
         elif hasattr(self.precompute, '__cuda_array_interface__') or \
                 hasattr(self.precompute, '__array_interface__'):
             G_m, n_rows, self.n_cols, self.dtype = \
@@ -223,10 +229,13 @@ class Lars(Base, RegressorMixin):
             Gram_ptr = Gram_m.ptr
         cdef uintptr_t coef_path_ptr = <uintptr_t> nullptr
         if (self.fit_path):
-            # TODO catch memory error and give informative message if max_iter
-            # is too large.
-            self.coef_path_ = CumlArray.zeros((max_iter, max_iter),
-                                              dtype=self.dtype)
+            try:
+                self.coef_path_ = CumlArray.zeros((max_iter, max_iter),
+                                                  dtype=self.dtype)
+            except MemoryError as err:
+                raise MemoryError("Not enough memory to store coef_path_. "
+                                  "Try to decrease n_nonzero_coefs or set "
+                                  "fit_path=False.") from err
             coef_path_ptr = self.coef_path_.ptr
         cdef int ld_X = n_rows
         cdef int ld_G = self.n_cols

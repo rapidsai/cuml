@@ -441,9 +441,13 @@ void larsInit(const raft::handle_t& handle, const math_t* X, idx_t n_rows,
   if (Gram == nullptr) {
     const idx_t align_bytes = 256;
     *ld_U = raft::alignTo<idx_t>(*max_iter, align_bytes);
-    // TODO Catch memory error, and recommend user to adjust max_iter
-    // in a way that would avoid it
-    U_buffer.resize((*ld_U) * (*max_iter), stream);
+    try {
+      U_buffer.resize((*ld_U) * (*max_iter), stream);
+    } catch (std::bad_alloc) {
+      THROW(
+        "Not enough GPU memory! The memory usage depends quadraticaly on the "
+        "n_nonzero_coefs parameter, try to decrease it!");
+    }
     *U = U_buffer.data();
   } else {
     // Set U as G. During the solution in larsFit, the Cholesky factorization
