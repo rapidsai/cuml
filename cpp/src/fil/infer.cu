@@ -21,6 +21,10 @@
 
 #include <cuml/fil/multi_sum.cuh>
 #include "common.cuh"
+using cub::Sum;
+using cub::Max;
+using cub::ArgMax;
+using thrust::divides;
 
 namespace ML {
 namespace fil {
@@ -34,7 +38,7 @@ struct vec;
 template <typename BinaryOp>
 struct Vectorized {
   BinaryOp op;
-  __device__ Vectorized(BinaryOp op_ = BinaryOp()) : op(op_) {}
+  __device__ Vectorized(BinaryOp op_) : op(op_) {}
   template <int NITEMS, typename T>
   constexpr __host__ __device__ __forceinline__ vec<NITEMS, T> operator()(
     vec<NITEMS, T> a, vec<NITEMS, T> b) const {
@@ -48,24 +52,25 @@ struct Vectorized {
 template <int N, typename T>
 struct vec {
   T data[N];
-  explicit __host__ __device__ vec(T t = T()) {
+  explicit __host__ __device__ vec(T t) {
 #pragma unroll
     for (int i = 0; i < N; ++i) data[i] = t;
   }
+  __host__ __device__ vec(): vec(T()) {}
   __host__ __device__ T& operator[](int i) { return data[i]; }
   __host__ __device__ T operator[](int i) const { return data[i]; }
   template <typename Vec>
   friend __host__ __device__ vec<N, T> operator+(const vec<N, T>& a,
                                                  const Vec& b) {
-    return Vectorized<cub::Sum>()(a, vec<N, T>(b));
+    return Vectorized<Sum>(Sum())(a, vec<N, T>(b));
   }
   template <typename Vec>
   friend __host__ __device__ void operator+=(vec<N, T>& a, const Vec& b) {
     a = a + b;
   }
   template <typename Vec>
-  friend __host__ __device__ void operator/(vec<N, T>& a, const Vec& b) {
-    return Vectorized<thrust::divides<T>>()(a, vec<N, T>(b));
+  friend __host__ __device__ vec<N, T> operator/(vec<N, T>& a, const Vec& b) {
+    return Vectorized<divides<T>>(divides<T>())(a, vec<N, T>(b));
   }
   template <typename Vec>
   friend __host__ __device__ void operator/=(vec<N, T>& a, const Vec& b) {
@@ -73,14 +78,19 @@ struct vec {
   }
 };
 
-typedef cub::KeyValuePair<int, float> best_margin_label;
+struct best_margin_label: cub::KeyValuePair<int, float> {
+  __host__ __device__ best_margin_label(int i, float f)
+    : cub::KeyValuePair<int, float>({i, f}) {}
+  __host__ __device__ best_margin_label(cub::KeyValuePair<int, float> pair = {-1, INFINITY})
+    : cub::KeyValuePair<int, float>(pair) {}
+};
 
 template <int NITEMS>
 __device__ __forceinline__ vec<NITEMS, best_margin_label> to_vec(
   int c, vec<NITEMS, float> margin) {
   vec<NITEMS, best_margin_label> ret;
 #pragma unroll
-  for (int i = 0; i < NITEMS; i++) ret[i] = best_margin_label(c, margin[i]);
+  for (int i = 0; i < NITEMS; ++i) ret[i] = {c, margin[i]};
   return ret;
 }
 
@@ -206,7 +216,7 @@ struct tree_aggregator_t {
                                            int output_stride,
                                            output_t transform, int num_trees) {
     __syncthreads();
-    acc = block_reduce(acc, Vectorized<cub::Sum>(), tmp_storage);
+    acc = block_reduce(acc, Vectorized<Sum>(Sum()), tmp_storage);
     if (threadIdx.x > 0) return;
     #pragma unroll
     for (int row = 0; row < num_rows; ++row)
@@ -217,7 +227,7 @@ struct tree_aggregator_t {
 template <typename T, typename BinaryOp>
 __device__ __forceinline__ T block_allreduce(T value, BinaryOp op,
                                              void* storage) {
-  auto result = block_reduce(value, op, storage);
+  T result = block_reduce(value, op, storage);
   // broadcast sum to all threads
   __syncthreads();  // free up tmp_storage
   if (threadIdx.x == 0) *(T*)storage = result;
@@ -229,9 +239,9 @@ template <typename Iterator, typename BinaryOp>
 __device__ __forceinline__ auto allreduce_shmem(Iterator begin, Iterator end,
                                                 BinaryOp op, void* tmp_storage)
 {
-  Iterator::typename value_type thread_partial(0);
+  typename std::remove_reference<decltype(*begin)>::type thread_partial;
   for (Iterator it = begin; it < end; ++it)
-    thread_sum = op(thread_partial, *it);
+    thread_partial = op(thread_partial, *it);
   return block_allreduce(thread_partial, op, tmp_storage);
 }
 
@@ -240,7 +250,7 @@ __device__ __forceinline__ void write_best_class_in_block(
   Iterator begin, Iterator end, void* tmp_storage, float* out, int num_rows) {
   // find best class per block (for each of the NITEMS rows)
   auto best =
-    allreduce_shmem(begin, end, Vectorized<cub::ArgMax>(), tmp_storage);
+    allreduce_shmem(begin, end, Vectorized<ArgMax>(ArgMax()), tmp_storage);
   // write it out to global memory
   if (threadIdx.x > 0) return;
 #pragma unroll
@@ -274,6 +284,7 @@ struct StridedItArray {
   T v;
   int size;
   __device__ StridedItArray(T v_, int size_) : v(v_), size(size_) {}
+  explicit __device__ StridedItArray(void* v_, int size_) : v((T)v_), size(size_) {}
 
   typedef StridedIt<T> iterator;
   __device__ iterator begin() { return iterator(v + threadIdx.x, blockDim.x); }
@@ -289,15 +300,15 @@ template <typename Iterator>
 __device__ __forceinline__ void block_softmax(Iterator begin, Iterator end,
                                               void* tmp_storage) {
   // subtract max before exponentiating for numerical stability
-  typedef decltype(*begin) value_type;
+  typedef typename std::remove_reference<decltype(*begin)>::type value_type;
   value_type max =
-    allreduce_shmem(begin, end, Vectorized<cub::Max>(), tmp_storage);
+    allreduce_shmem(begin, end, Vectorized<Max>(Max()), tmp_storage);
 
   for (Iterator it = begin; it < end; ++it)
     *it = Vectorized<float(*)(float, float)>(shifted_exp)(*it, max);
   // sum of exponents
   value_type soe =
-    allreduce_shmem(begin, end, Vectorized<cub::Sum>(), tmp_storage);
+    allreduce_shmem(begin, end, Vectorized<Sum>(Sum()), tmp_storage);
   // softmax phase 2: normalization
   for (Iterator it = begin; it < end; ++it) *it /= soe;
 }
@@ -625,7 +636,7 @@ void infer_k_launcher(storage_type forest, predict_params params,
     case 1:
       infer_k<1, leaf_algo>
         <<<params.num_blocks, blockdim_x, shm_sz, stream>>>(forest, params);
-      break; /*
+      break;
     case 2:
       infer_k<2, leaf_algo>
         <<<params.num_blocks, blockdim_x, shm_sz, stream>>>(forest, params);
@@ -637,7 +648,7 @@ void infer_k_launcher(storage_type forest, predict_params params,
     case 4:
       infer_k<4, leaf_algo>
         <<<params.num_blocks, blockdim_x, shm_sz, stream>>>(forest, params);
-      break;*/
+      break;
     default:
       ASSERT(false, "internal error: nitems > 4");
   }
@@ -648,7 +659,7 @@ template <typename storage_type>
 void infer(storage_type forest, predict_params params, cudaStream_t stream) {
   switch (params.leaf_algo) {
     case FLOAT_UNARY_BINARY:
-      //infer_k_launcher<FLOAT_UNARY_BINARY>(forest, params, stream, FIL_TPB);
+      infer_k_launcher<FLOAT_UNARY_BINARY>(forest, params, stream, FIL_TPB);
       break;
     case GROVE_PER_CLASS:
       if (params.num_classes > FIL_TPB) {
@@ -662,7 +673,7 @@ void infer(storage_type forest, predict_params params, cudaStream_t stream) {
       }
       break;
     case CATEGORICAL_LEAF:
-      //infer_k_launcher<CATEGORICAL_LEAF>(forest, params, stream, FIL_TPB);
+      infer_k_launcher<CATEGORICAL_LEAF>(forest, params, stream, FIL_TPB);
       break;
     default:
       ASSERT(false, "internal error: invalid leaf_algo");
