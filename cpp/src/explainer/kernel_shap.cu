@@ -219,7 +219,6 @@ void kernel_dataset_impl(const raft::handle_t& handle, DataT* X, IdxT nrows_X,
   // check if random part of the dataset is needed
   if (len_samples > 0) {
     // each block does a sample
-    nblks = len_samples;
 
     // shared memory shouldn't be a problem since k will be small
     // due to distribution of shapley kernel weights
