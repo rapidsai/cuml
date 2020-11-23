@@ -510,8 +510,7 @@ void updateCoef(const raft::handle_t& handle, idx_t max_iter, idx_t n_cols,
     beta, beta, ws, n_active,
     [gamma] __device__(math_t b, math_t w) { return b + *gamma * w; }, stream);
   if (coef_path) {
-    int i = n_active - 1;
-    raft::copy(coef_path + i * max_iter, beta, n_active, stream);
+    raft::copy(coef_path + n_active * max_iter, beta, n_active, stream);
   }
 }
 
@@ -567,7 +566,7 @@ void updateCoef(const raft::handle_t& handle, idx_t max_iter, idx_t n_cols,
  *    number of coefficients returned. max_iter <= n_cols.
  * @param coef_path coefficients along the regularization path are returned
  *    here. Must be nullptr, or a device array already allocated on entry.
- *    Size [max_iter * max_iter].
+ *    Size [max_iter * (max_iter+1)].
  * @param verbosity verbosity level
  * @param ld_X leading dimension of X (stride of columns)
  * @param ld_G leading dimesion of G

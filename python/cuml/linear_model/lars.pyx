@@ -112,9 +112,10 @@ class Lars(Base, RegressorMixin):
         The indices of the active variables at the end of the path.
     beta_ : array of floats or doubles [n_asphas]
         The active regression coefficients (same as coef_ but zeros omitted).
-    coef_path_ : array of floats or doubles, shape = [n_features, n_alphas + 1]
+    coef_path_ : array of floats or doubles, shape = [n_alphas, n_alphas + 1]
         The coefficients along the regularization path. Stored only if fit_path
-        is True.
+        is True. Note that we only store coefficients for indices in the active
+        set (i.e. coef_path_[:,-1] == coef_[active_])
     coef_ : array, shape (n_features)
         The estimated coefficients for the regression model.
     intercept_ : scalar, float or double
@@ -230,8 +231,8 @@ class Lars(Base, RegressorMixin):
         cdef uintptr_t coef_path_ptr = <uintptr_t> nullptr
         if (self.fit_path):
             try:
-                self.coef_path_ = CumlArray.zeros((max_iter, max_iter),
-                                                  dtype=self.dtype)
+                self.coef_path_ = CumlArray.zeros((max_iter, max_iter+1),
+                                                  dtype=self.dtype, order='F')
             except MemoryError as err:
                 raise MemoryError("Not enough memory to store coef_path_. "
                                   "Try to decrease n_nonzero_coefs or set "
