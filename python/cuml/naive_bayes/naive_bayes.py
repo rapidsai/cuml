@@ -26,7 +26,6 @@ from cuml.common.doc_utils import generate_docstring
 from cuml.common.import_utils import has_scipy
 from cuml.common.input_utils import input_to_cuml_array, input_to_cupy_array
 from cuml.common.kernel_utils import cuda_kernel_factory
-from cuml.metrics import accuracy_score
 from cuml.prims.label import check_labels, invert_labels, make_monotonic
 
 
