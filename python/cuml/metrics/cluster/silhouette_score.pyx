@@ -27,7 +27,7 @@ from cuml.metrics.distance_type cimport DistanceType
 
 
 cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics":
-    double c_silhouette_score "silhouette_score" (
+    double silhouette_score (
         const handle_t &handle,
         double *y,
         int n_rows,
@@ -95,7 +95,7 @@ def _silhouette_coeff(
 
     metric = _determine_metric(metric)
 
-    return c_silhouette_score(handle_[0],
+    return silhouette_score(handle_[0],
                             <double*> <uintptr_t> data.ptr,
                             n_rows,
                             n_cols,
@@ -105,7 +105,7 @@ def _silhouette_coeff(
                             metric)
 
 
-def silhouette_score(
+def cython_silhouette_score(
         X,
         labels,
         metric='euclidean',
@@ -141,7 +141,7 @@ def silhouette_score(
     )
 
 
-def silhouette_samples(
+def cython_silhouette_samples(
         X,
         labels,
         metric='euclidean',
