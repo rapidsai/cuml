@@ -70,9 +70,11 @@ from cuml.common import has_scipy
 from cuml.common.sparsefuncs import csr_row_normalize_l1
 
 from cuml.metrics import roc_auc_score
+# from cuml.metrics import precision_score
 from cuml.metrics import precision_recall_curve
 from cuml.metrics import log_loss
 from sklearn.metrics import roc_auc_score as sklearn_roc_auc_score
+# from sklearn.metrics import precision_score as sklearn_precision_score
 from sklearn.metrics import precision_recall_curve \
     as sklearn_precision_recall_curve
 
@@ -771,6 +773,31 @@ def test_roc_auc_score_at_limits():
 
     with pytest.raises(ValueError, match=err_msg):
         roc_auc_score(y_true, y_pred)
+
+
+"""
+@pytest.mark.parametrize('dtype', [np.int32, np.int64, np.float32, np.float64])
+def test_precision_score(dtype):
+  y_true = np.array([0, 0, 1, 1], dtype=dtype)
+  y_pred = np.array([0, 0, 1, 1], dtype=dtype)
+  precision = precision_score(y_true, y_pred)
+  sklearn_precision = sklearn_precision_score(y_true, y_pred)
+  assert_almost_equal(precision, sklearn_precision)
+
+
+@pytest.mark.parametrize('n_samples', [50, 500000])
+@pytest.mark.parametrize('dtype', [np.int32, np.int64, np.float32, np.float64])
+def test_precision_score_random(n_samples, dtype):
+  y_true, _, _, _ = generate_random_labels(
+        lambda rng: rng.randint(0, 2, n_samples).astype(dtype))
+
+  y_pred, _, _, _ = generate_random_labels(
+        lambda rng: rng.randint(0, 1000, n_samples).astype(dtype))
+
+  precision = precision_score(y_true, y_pred)
+  sklearn_precision = sklearn_precision_score(y_true, y_pred)
+  assert_almost_equal(precision, sklearn_precision)
+"""
 
 
 def test_precision_recall_curve():
