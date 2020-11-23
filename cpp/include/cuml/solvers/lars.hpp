@@ -51,13 +51,14 @@ namespace Lars {
  * @param verbosity verbosity level
  * @param ld_X leading dimension of X (stride of columns)
  * @param ld_G leading dimesion of G
+ * @param eps numeric parameter for Cholesky rank one update
  */
 template <typename math_t, typename idx_t>
 void larsFit(const raft::handle_t& handle, math_t* X, idx_t n_rows,
              idx_t n_cols, const math_t* y, math_t* beta, idx_t* active_idx,
              math_t* alphas, idx_t* n_active, math_t* Gram = nullptr,
              int max_iter = 500, math_t* coef_path = nullptr, int verbosity = 0,
-             idx_t ld_X = 0, idx_t ld_G = 0);
+             idx_t ld_X = 0, idx_t ld_G = 0, math_t eps = -1);
 
 /**
  * @brief Predict with LARS regressor.

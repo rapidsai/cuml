@@ -27,14 +27,15 @@ template void larsFit<float, int>(const raft::handle_t& handle, float* X,
                                   float* beta, int* active_idx, float* alphas,
                                   int* n_active, float* Gram, int max_iter,
                                   float* coef_path, int verbosity, int ld_X,
-                                  int ld_G);
+                                  int ld_G, float eps);
 
 template void larsFit<double, int>(const raft::handle_t& handle, double* X,
                                    int n_rows, int n_cols, const double* y,
                                    double* beta, int* active_idx,
                                    double* alphas, int* n_active, double* Gram,
                                    int max_iter, double* coef_path,
-                                   int verbosity, int ld_X, int ld_G);
+                                   int verbosity, int ld_X, int ld_G,
+                                   double eps);
 
 template void larsPredict(const raft::handle_t& handle, const float* X,
                           int n_rows, int n_cols, int ld_X, const float* beta,

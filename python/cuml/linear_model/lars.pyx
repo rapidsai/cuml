@@ -46,7 +46,7 @@ cdef extern from "cuml/solvers/lars.hpp" namespace "ML::Solver::Lars":
         const handle_t& handle, math_t* X, int n_rows, int n_cols,
         const math_t* y, math_t* beta, int* active_idx, math_t* alphas,
         int* n_active, math_t* Gram, int max_iter, math_t* coef_path,
-        int verbosity, int ld_X, int ld_G) except +
+        int verbosity, int ld_X, int ld_G, math_t epsilon) except +
 
     cdef void larsPredict[math_t](
         const handle_t& handle, const math_t* X, int n_rows, int n_cols,
@@ -245,13 +245,13 @@ class Lars(Base, RegressorMixin):
                     <float*> y_ptr, <float*> beta_ptr, <int*> active_idx_ptr,
                     <float*> alphas_ptr, &n_active, <float*> Gram_ptr,
                     max_iter, <float*> coef_path_ptr, <int> self.verbose, ld_X,
-                    ld_G)
+                    ld_G, <float> self.eps)
         else:
             larsFit(handle_[0], <double*> X_ptr, n_rows, <int> self.n_cols,
                     <double*> y_ptr, <double*> beta_ptr, <int*> active_idx_ptr,
                     <double*> alphas_ptr, &n_active, <double*> Gram_ptr,
                     max_iter, <double*> coef_path_ptr, <int> self.verbose,
-                    ld_X, ld_G)
+                    ld_X, ld_G, <double> self.eps)
         self.n_active = n_active
         self.n_iter_ = n_active
 
@@ -293,9 +293,6 @@ class Lars(Base, RegressorMixin):
 
         if self.eps is None:
             self.eps = np.finfo(np.float).eps
-        else:
-            # TODO propagate eps to the solver
-            logger.warn("Epsilon parameter is ignored")
 
         self._fit_cpp(X, y, Gram, x_scale)
 

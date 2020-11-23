@@ -127,12 +127,13 @@ class LarsTest : public ::testing::Test {
 
     MLCommon::device_buffer<math_t> U(allocator, stream, n_cols * n_cols);
     n_active = 4;
+    math_t eps = -1;
 
     // First test with U already initialized
     initGU(U.data(), G.data(), U_dev_exp.data(), n_active, true);
     ML::Solver::Lars::updateCholesky(handle, n_active, X.data(), n_rows, n_cols,
                                      ld_X, U.data(), ld_U, U.data(), ld_G,
-                                     workspace, stream);
+                                     workspace, eps, stream);
     EXPECT_TRUE(raft::devArrMatch(U_dev_exp.data(), U.data(), n_cols * n_cols,
                                   raft::CompareApprox<math_t>(1e-5)));
 
@@ -140,7 +141,7 @@ class LarsTest : public ::testing::Test {
     initGU(U.data(), G.data(), U_dev_exp.data(), n_active, false);
     ML::Solver::Lars::updateCholesky(handle, n_active, X.data(), n_rows, n_cols,
                                      ld_X, U.data(), ld_U, G.data(), ld_G,
-                                     workspace, stream);
+                                     workspace, eps, stream);
     EXPECT_TRUE(raft::devArrMatch(U_dev_exp.data(), U.data(), n_cols * n_cols,
                                   raft::CompareApprox<math_t>(1e-5)));
 
@@ -148,7 +149,7 @@ class LarsTest : public ::testing::Test {
     initGU(U.data(), G.data(), U_dev_exp.data(), n_active, false);
     ML::Solver::Lars::updateCholesky(handle, n_active, X.data(), n_rows, n_cols,
                                      ld_X, U.data(), ld_U, (math_t*)nullptr, 0,
-                                     workspace, stream);
+                                     workspace, eps, stream);
     EXPECT_TRUE(raft::devArrMatch(U_dev_exp.data(), U.data(), n_cols * n_cols,
                                   raft::CompareApprox<math_t>(1e-4)));
   }
@@ -193,7 +194,7 @@ class LarsTest : public ::testing::Test {
     ML::Solver::Lars::calcEquiangularVec(
       handle, n_active, X.data(), n_rows, n_cols, ld_X, sign.data(), G.data(),
       ld_U, G.data(), ld_G, workspace, ws.data(), A.data(), u_eq.data(),
-      stream);
+      (math_t)-1, stream);
 
     EXPECT_TRUE(raft::devArrMatchHost(ws_exp, ws.data(), n_active,
                                       raft::CompareApprox<math_t>(1e-3)));
@@ -206,7 +207,7 @@ class LarsTest : public ::testing::Test {
     ML::Solver::Lars::calcEquiangularVec(
       handle, n_active, X.data(), n_rows, n_cols, ld_X, sign.data(), G.data(),
       ld_U, (math_t*)nullptr, 0, workspace, ws.data(), A.data(), u_eq.data(),
-      stream);
+      (math_t)-1, stream);
 
     EXPECT_TRUE(raft::devArrMatchHost(u_eq_exp, u_eq.data(), 1,
                                       raft::CompareApprox<math_t>(1e-3)));
@@ -359,7 +360,7 @@ class LarsTestFitPredict : public ::testing::Test {
                               beta.data(), active_idx.data(), alphas.data(),
                               &n_active, G.data(), max_iter,
                               (math_t*)nullptr,  //coef_path.data(),
-                              verbosity, n_rows, n_cols);
+                              verbosity, n_rows, n_cols, (math_t)-1);
     EXPECT_EQ(n_cols, n_active);
     EXPECT_TRUE(raft::devArrMatchHost(beta_exp, beta.data(), n_cols,
                                       raft::CompareApprox<math_t>(1e-5)));
@@ -377,7 +378,7 @@ class LarsTestFitPredict : public ::testing::Test {
                               beta.data(), active_idx.data(), alphas.data(),
                               &n_active, (math_t*)nullptr, max_iter,
                               (math_t*)nullptr,  //coef_path.data(),
-                              verbosity, n_rows, n_cols);
+                              verbosity, n_rows, n_cols, (math_t)-1);
     EXPECT_EQ(n_cols, n_active);
     EXPECT_TRUE(raft::devArrMatchHost(beta_exp, beta.data(), n_cols,
                                       raft::CompareApprox<math_t>(1e-5)));

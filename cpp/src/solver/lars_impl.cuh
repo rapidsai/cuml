@@ -168,13 +168,14 @@ void moveToActive(cublasHandle_t handle, idx_t* n_active, idx_t j, math_t* X,
  * @param G0 device pointer to Gram matrix G0 = X.T*X (can be nullptr),
  *     size [n_cols * n_cols].
  * @param workspace workspace for the Cholesky update
+ * @param eps parameter for cheleskyRankOneUpdate
  * @param stream CUDA stream
  */
 template <typename math_t, typename idx_t = int>
 void updateCholesky(const raft::handle_t& handle, idx_t n_active,
                     const math_t* X, idx_t n_rows, idx_t n_cols, idx_t ld_X,
                     math_t* U, idx_t ld_U, const math_t* G0, idx_t ld_G,
-                    MLCommon::device_buffer<math_t>& workspace,
+                    MLCommon::device_buffer<math_t>& workspace, math_t eps,
                     cudaStream_t stream) {
   const cublasFillMode_t fillmode = CUBLAS_FILL_MODE_UPPER;
   if (G0 == nullptr) {
@@ -202,7 +203,7 @@ void updateCholesky(const raft::handle_t& handle, idx_t n_active,
     workspace.resize(n_work, stream);
   }
   raft::linalg::choleskyRank1Update(handle, U, n_active, ld_U, workspace.data(),
-                                    &n_work, fillmode, stream);
+                                    &n_work, fillmode, stream, eps);
 }
 
 /**
@@ -310,18 +311,24 @@ void calcA(const raft::handle_t& handle, math_t* A, idx_t n_active,
  * @param workspace workspace for the Cholesky update
  * @param w device pointer, size [n_active]
  * @param A device pointer to a scalar
+ * @param u_eq device pointer to the equiangular vector, only used if
+ *    Gram==nullptr, size [n_rows].
+ * @param eps numerical regularizaton parameter for the Cholesky decomposition
  * @param stream CUDA stream
+ *
+ * @return false if no update can be made due to numerical error.
  */
 template <typename math_t, typename idx_t = int>
-void calcEquiangularVec(const raft::handle_t& handle, idx_t n_active, math_t* X,
+bool calcEquiangularVec(const raft::handle_t& handle, idx_t n_active, math_t* X,
                         idx_t n_rows, idx_t n_cols, idx_t ld_X, math_t* sign,
                         math_t* U, idx_t ld_U, math_t* G0, idx_t ld_G,
                         MLCommon::device_buffer<math_t>& workspace, math_t* ws,
-                        math_t* A, math_t* u_eq, cudaStream_t stream) {
+                        math_t* A, math_t* u_eq, math_t eps,
+                        cudaStream_t stream) {
   // Since we added a new vector to the active set, we update the Cholesky
   // decomposition (U)
   updateCholesky(handle, n_active, X, n_rows, n_cols, ld_X, U, ld_U, G0, ld_G,
-                 workspace, stream);
+                 workspace, eps, stream);
 
   // Calculate ws = S GA^{-1} 1_A using U
   calcW0(handle, n_active, n_cols, sign, U, ld_U, ws, stream);
@@ -332,6 +339,15 @@ void calcEquiangularVec(const raft::handle_t& handle, idx_t n_active, math_t* X,
   raft::linalg::unaryOp(
     ws, ws, n_active, [A] __device__(math_t w) { return (*A) * w; }, stream);
 
+  // Check for numeric error
+  math_t ws_host;
+  raft::update_host(&ws_host, ws, 1, stream);
+  CUDA_CHECK(cudaStreamSynchronize(stream));
+  if (!std::isfinite(ws_host)) {
+    CUML_LOG_WARN("ws=%f is not finite at iteration %d", ws_host, n_active);
+    return false;
+  }
+
   if (G0 == nullptr) {
     // Calculate u_eq only in the case if the Gram matrix is not stored.
     math_t one = 1;
@@ -340,6 +356,7 @@ void calcEquiangularVec(const raft::handle_t& handle, idx_t n_active, math_t* X,
       handle.get_cublas_handle(), CUBLAS_OP_N, n_rows, n_active, &one, X, ld_X,
       ws, 1, &zero, u_eq, 1, stream));
   }
+  return true;
 }
 
 /**
@@ -472,8 +489,6 @@ void larsInit(const raft::handle_t& handle, const math_t* X, idx_t n_rows,
 
 /**
  * @brief Update regression coefficient and correlations
- *
- *
  */
 template <typename math_t, typename idx_t>
 void updateCoef(const raft::handle_t& handle, idx_t max_iter, idx_t n_cols,
@@ -556,12 +571,14 @@ void updateCoef(const raft::handle_t& handle, idx_t max_iter, idx_t n_cols,
  * @param verbosity verbosity level
  * @param ld_X leading dimension of X (stride of columns)
  * @param ld_G leading dimesion of G
+ * @param eps numeric parameter for Cholesky rank one update
  */
 template <typename math_t, typename idx_t>
 void larsFit(const raft::handle_t& handle, math_t* X, idx_t n_rows,
              idx_t n_cols, const math_t* y, math_t* beta, idx_t* active_idx,
              math_t* alphas, idx_t* n_active, math_t* Gram, int max_iter,
-             math_t* coef_path, int verbosity, idx_t ld_X, idx_t ld_G) {
+             math_t* coef_path, int verbosity, idx_t ld_X, idx_t ld_G,
+             math_t eps) {
   ASSERT(n_cols > 0,
          "Parameter n_cols: number of columns cannot be less than one");
   ASSERT(n_rows > 0,
@@ -602,7 +619,11 @@ void larsFit(const raft::handle_t& handle, math_t* X, idx_t n_rows,
   larsInit(handle, X, n_rows, n_cols, ld_X, y, Gram, ld_G, U_buffer, &U, &ld_U,
            indices, cor, sign, &max_iter, coef_path, stream);
 
-  math_t tolerance = std::numeric_limits<math_t>::epsilon();
+  // Tolerance for early stopping. Note we intentionally use here fp32 epsilon,
+  // otherwise the tolerance is too small (which could result in numeric error
+  // in Cholesky rank one update if eps < 0, or exploding regression parameters
+  // if eps > 0).
+  math_t tolerance = std::numeric_limits<float>::epsilon();
 
   *n_active = 0;
   for (int i = 0; i < max_iter; i++) {
@@ -623,9 +644,19 @@ void larsFit(const raft::handle_t& handle, math_t* X, idx_t n_rows,
       break;
     }
 
-    calcEquiangularVec(handle, *n_active, X, n_rows, n_cols, ld_X, sign.data(),
-                       U, ld_U, Gram, ld_G, workspace, ws.data(), A.data(),
-                       u_eq.data(), stream);
+    bool keep_going = calcEquiangularVec(
+      handle, *n_active, X, n_rows, n_cols, ld_X, sign.data(), U, ld_U, Gram,
+      ld_G, workspace, ws.data(), A.data(), u_eq.data(), eps, stream);
+
+    if (!keep_going) {
+      if (*n_active > 1) {
+        CUML_LOG_WARN("Returning with last valid model.");
+      } else {
+        THROW("Model is not fitted.");
+      }
+      *n_active -= 1;
+      break;
+    }
 
     calcMaxStep(handle, max_iter, n_rows, n_cols, *n_active, cj, A.data(),
                 cor.data(), Gram, ld_G, X, ld_X, u_eq.data(), ws.data(),
