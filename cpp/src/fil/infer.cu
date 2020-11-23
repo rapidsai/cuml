@@ -50,6 +50,10 @@ struct Vectorized {
     return c;
   }
 };
+template <typename BinaryOp>
+constexpr __host__ __device__ Vectorized<BinaryOp> vectorized(BinaryOp op) {
+  return Vectorized<BinaryOp>(op);
+}
 
 template <int N, typename T>
 struct vec {
@@ -64,7 +68,7 @@ struct vec {
   template <typename Vec>
   friend __host__ __device__ vec<N, T> operator+(const vec<N, T>& a,
                                                  const Vec& b) {
-    return Vectorized<Sum>(Sum())(a, vec<N, T>(b));
+    return vectorized(Sum())(a, vec<N, T>(b));
   }
   template <typename Vec>
   friend __host__ __device__ void operator+=(vec<N, T>& a, const Vec& b) {
@@ -72,7 +76,7 @@ struct vec {
   }
   template <typename Vec>
   friend __host__ __device__ vec<N, T> operator/(vec<N, T>& a, const Vec& b) {
-    return Vectorized<divides<T>>(divides<T>())(a, vec<N, T>(b));
+    return vectorized(divides<T>())(a, vec<N, T>(b));
   }
   template <typename Vec>
   friend __host__ __device__ void operator/=(vec<N, T>& a, const Vec& b) {
@@ -219,7 +223,7 @@ struct tree_aggregator_t {
                                            int output_stride,
                                            output_t transform, int num_trees) {
     __syncthreads();
-    acc = block_reduce(acc, Vectorized<Sum>(Sum()), tmp_storage);
+    acc = block_reduce(acc, vectorized(Sum()), tmp_storage);
     if (threadIdx.x > 0) return;
 #pragma unroll
     for (int row = 0; row < num_rows; ++row)
@@ -252,8 +256,7 @@ template <typename Iterator>
 __device__ __forceinline__ void write_best_class_in_block(
   Iterator begin, Iterator end, void* tmp_storage, float* out, int num_rows) {
   // find best class per block (for each of the NITEMS rows)
-  auto best =
-    allreduce_shmem(begin, end, Vectorized<ArgMax>(ArgMax()), tmp_storage);
+  auto best = allreduce_shmem(begin, end, vectorized(ArgMax()), tmp_storage);
   // write it out to global memory
   if (threadIdx.x > 0) return;
 #pragma unroll
@@ -275,16 +278,24 @@ class StridedIt
   friend class thrust::iterator_core_access;
 
   __device__ bool operator>=(StridedIt<T> other) const {
-    return &**this >= &*other;
+    auto this_it = begin + (this->base() - begin) * stride;
+    auto other_it = other.begin + (other.base() - other.begin) * other.stride;
+    return this_it >= other_it;
   }
   __device__ bool operator>(StridedIt<T> other) const {
-    return &**this > &*other;
+    auto this_it = begin + (this->base() - begin) * stride;
+    auto other_it = other.begin + (other.base() - other.begin) * other.stride;
+    return this_it > other_it;
   }
   __device__ bool operator<=(StridedIt<T> other) const {
-    return &**this <= &*other;
+    auto this_it = begin + (this->base() - begin) * stride;
+    auto other_it = other.begin + (other.base() - other.begin) * other.stride;
+    return this_it <= other_it;
   }
   __device__ bool operator<(StridedIt<T> other) const {
-    return &**this < &*other;
+    auto this_it = begin + (this->base() - begin) * stride;
+    auto other_it = other.begin + (other.base() - other.begin) * other.stride;
+    return this_it < other_it;
   }
 
  private:
@@ -318,14 +329,12 @@ __device__ __forceinline__ void block_softmax(Iterator begin, Iterator end,
                                               void* tmp_storage) {
   // subtract max before exponentiating for numerical stability
   typedef typename std::remove_reference<decltype(*begin)>::type value_type;
-  value_type max =
-    allreduce_shmem(begin, end, Vectorized<Max>(Max()), tmp_storage);
+  value_type max = allreduce_shmem(begin, end, vectorized(Max()), tmp_storage);
 
   for (Iterator it = begin; it < end; ++it)
-    *it = Vectorized<float (*)(float, float)>(shifted_exp)(*it, max);
+    *it = vectorized(shifted_exp)(*it, max);
   // sum of exponents
-  value_type soe =
-    allreduce_shmem(begin, end, Vectorized<Sum>(Sum()), tmp_storage);
+  value_type soe = allreduce_shmem(begin, end, vectorized(Sum()), tmp_storage);
   // softmax phase 2: normalization
   for (Iterator it = begin; it < end; ++it) *it /= soe;
 }
@@ -458,10 +467,11 @@ struct tree_aggregator_t<NITEMS, GROVE_PER_CLASS_MANY_CLASSES> {
 
       auto to_candidate =
         [] __device__(const thrust::tuple<int, vec<NITEMS, float>>& it) {
-          return to_vec(it.get<0>(), it.get<1>());
+          using thrust::get;
+          return to_vec(get<0>(it), get<1>(it));
         };
       auto candidates = thrust::make_transform_iterator(zip, to_candidate);
-      StridedItArray<decltype(candidates.begin())> strided_c;
+      StridedItArray<decltype(candidates)> strided_c(candidates, num_classes);
 
       write_best_class_in_block(strided_c.begin(), strided_c.end(), tmp_storage,
                                 out, num_rows);
