@@ -376,6 +376,26 @@ def test_output_storage_type(storage_type, small_classifier_and_preds):
     assert np.allclose(fil_preds, xgb_preds_int, 1e-3)
 
 
+@pytest.mark.skipif(has_xgboost() is False, reason="need to install xgboost")
+@pytest.mark.parametrize('storage_type',
+                         ['dense', 'sparse', 'sparse8'])
+@pytest.mark.parametrize('blocks_per_sm', [0, 1, 2, 3, 4])
+def test_output_blocks_per_sm(storage_type, blocks_per_sm,
+                              small_classifier_and_preds):
+    model_path, X, xgb_preds = small_classifier_and_preds
+    fm = ForestInference.load(model_path,
+                              output_class=True,
+                              storage_type=storage_type,
+                              threshold=0.50,
+                              blocks_per_sm=blocks_per_sm)
+
+    xgb_preds_int = np.around(xgb_preds)
+    fil_preds = np.asarray(fm.predict(X))
+    fil_preds = np.reshape(fil_preds, np.shape(xgb_preds_int))
+
+    assert np.allclose(fil_preds, xgb_preds_int, 1e-3)
+
+
 @pytest.mark.parametrize('output_class', [True, False])
 @pytest.mark.skipif(has_xgboost() is False, reason="need to install xgboost")
 def test_thresholding(output_class, small_classifier_and_preds):
