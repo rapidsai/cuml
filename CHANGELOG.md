@@ -39,6 +39,7 @@
 - PR #3137: Reorganize Pytest Config and Add Quick Run Option
 - PR #3144: Adding Ability to Set Arbitrary Cmake Flags in ./build.sh
 - PR #3155: Eliminate unnecessary warnings from random projection test
+- PR #3180: FIL: `blocks_per_sm` support in Python
 
 ## Bug Fixes
 - PR #3069: Prevent conversion of DataFrames to Series in preprocessing
