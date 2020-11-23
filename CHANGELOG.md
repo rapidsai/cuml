@@ -71,7 +71,7 @@
 - PR #3162: Removing accidentally checked in debug file
 
 
-# cuML 0.16.0 (Date TBD)
+# cuML 0.16.0 (23 Oct 2020)
 
 ## New Features
 - PR #2922: Install RAFT headers with cuML
@@ -174,7 +174,8 @@
 - PR #2984: Fix GPU test scripts gcov error
 - PR #2990: Reduce MNMG kneighbors regressor test threshold
 - PR #2997: Changing ARIMA `get/set_params` to `get/set_fit_params`
-# cuML 0.15.0 (Date TBD)
+
+# cuML 0.15.0 (26 Aug 2020)
 
 ## New Features
 - PR #2581: Added model persistence via joblib in each section of estimator_intro.ipynb
