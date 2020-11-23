@@ -27,7 +27,7 @@ from cuml.metrics.distance_type cimport DistanceType
 
 
 cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics":
-    double silhouette_score (
+    double silhouette_score(
         const handle_t &handle,
         double *y,
         int n_rows,
