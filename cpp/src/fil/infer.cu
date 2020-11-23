@@ -65,13 +65,11 @@ struct vec {
   __host__ __device__ vec() : vec(T()) {}
   __host__ __device__ T& operator[](int i) { return data[i]; }
   __host__ __device__ T operator[](int i) const { return data[i]; }
-  template <typename Vec>
   friend __host__ __device__ vec<N, T> operator+(const vec<N, T>& a,
-                                                 const Vec& b) {
-    return vectorized(Sum())(a, vec<N, T>(b));
+                                                 const vec<N, T>& b) {
+    return vectorized(Sum())(a, b);
   }
-  template <typename Vec>
-  friend __host__ __device__ void operator+=(vec<N, T>& a, const Vec& b) {
+  friend __host__ __device__ void operator+=(vec<N, T>& a, const vec<N, T>& b) {
     a = a + b;
   }
   template <typename Vec>
@@ -85,10 +83,8 @@ struct vec {
 };
 
 struct best_margin_label : cub::KeyValuePair<int, float> {
-  __host__ __device__ best_margin_label(int i, float f)
-    : cub::KeyValuePair<int, float>({i, f}) {}
   __host__ __device__
-  best_margin_label(cub::KeyValuePair<int, float> pair = {-1, INFINITY})
+  best_margin_label(cub::KeyValuePair<int, float> pair = {-1, -INFINITY})
     : cub::KeyValuePair<int, float>(pair) {}
 };
 
@@ -97,7 +93,7 @@ __device__ __forceinline__ vec<NITEMS, best_margin_label> to_vec(
   int c, vec<NITEMS, float> margin) {
   vec<NITEMS, best_margin_label> ret;
 #pragma unroll
-  for (int i = 0; i < NITEMS; ++i) ret[i] = {c, margin[i]};
+  for (int i = 0; i < NITEMS; ++i) ret[i] = best_margin_label({c, margin[i]});
   return ret;
 }
 
@@ -231,39 +227,6 @@ struct tree_aggregator_t {
   }
 };
 
-template <typename T, typename BinaryOp>
-__device__ __forceinline__ T block_allreduce(T value, BinaryOp op,
-                                             void* storage) {
-  T result = block_reduce(value, op, storage);
-  // broadcast sum to all threads
-  __syncthreads();  // free up tmp_storage
-  if (threadIdx.x == 0) *(T*)storage = result;
-  __syncthreads();
-  return *(T*)storage;
-}
-
-template <typename Iterator, typename BinaryOp>
-__device__ __forceinline__ auto allreduce_shmem(Iterator begin, Iterator end,
-                                                BinaryOp op,
-                                                void* tmp_storage) {
-  typename std::remove_reference<decltype(*begin)>::type thread_partial;
-  for (Iterator it = begin; it < end; ++it)
-    thread_partial = op(thread_partial, *it);
-  return block_allreduce(thread_partial, op, tmp_storage);
-}
-
-template <typename Iterator>
-__device__ __forceinline__ void write_best_class_in_block(
-  Iterator begin, Iterator end, void* tmp_storage, float* out, int num_rows) {
-  // find best class per block (for each of the NITEMS rows)
-  auto best = allreduce_shmem(begin, end, vectorized(ArgMax()), tmp_storage);
-  // write it out to global memory
-  if (threadIdx.x > 0) return;
-#pragma unroll
-  for (int row = 0; row < num_rows; ++row)
-    if (row < num_rows) out[row] = best[row].key;
-}
-
 template <typename T>
 class StridedIt
   : public thrust::iterator_adaptor<StridedIt<T>, T, thrust::use_default,
@@ -305,6 +268,68 @@ class StridedIt
     return *(begin + (this->base() - begin) * stride);
   }
 };
+
+template <typename T, typename BinaryOp>
+__device__ __forceinline__ T block_allreduce(T value, BinaryOp op,
+                                             void* storage) {
+  T result = block_reduce(value, op, storage);
+  // broadcast sum to all threads
+  __syncthreads();  // free up tmp_storage
+  if (threadIdx.x == 0) *(T*)storage = result;
+  __syncthreads();
+  return *(T*)storage;
+}
+
+template <typename Iterator, typename BinaryOp>
+__device__ __forceinline__ auto allreduce_shmem(Iterator begin, Iterator end,
+                                                BinaryOp op,
+                                                void* tmp_storage) {
+  typename std::remove_reference<decltype(*begin)>::type thread_partial;
+  for (Iterator it = begin; it < end; ++it)
+    thread_partial = op(thread_partial, *it);
+  auto res = block_allreduce(thread_partial, op, tmp_storage);
+  return res;
+}
+
+template <typename Iterator>
+__device__ __forceinline__ void write_best_class_in_block(
+  Iterator begin, Iterator end, void* tmp_storage, float* out, int num_rows) {
+  for (int row = 0; row < num_rows; ++row) {
+    if (blockIdx.x == 0 && (end > begin))
+      printf("begin[row=%d]={%d, %f}\n", row, (*begin)[row].key,
+             (*begin)[row].value);
+  }
+  // find best class per block (for each of the NITEMS rows)
+  auto best = allreduce_shmem(begin, end, vectorized(ArgMax()), tmp_storage);
+  // write it out to global memory
+  if (threadIdx.x > 0) return;
+#pragma unroll
+  for (int row = 0; row < num_rows; ++row) {
+    if (blockIdx.x == 0)
+      printf("best[row=%d]={%d, %f}\n", row, best[row].key, best[row].value);
+    if (row < num_rows) out[row] = best[row].key;
+  }
+}
+
+template <>
+__device__ __forceinline__ auto
+allreduce_shmem<StridedIt<vec<1, best_margin_label>*>, Vectorized<ArgMax>>(
+  StridedIt<vec<1, best_margin_label>*> begin,
+  StridedIt<vec<1, best_margin_label>*> end, Vectorized<ArgMax> op,
+  void* tmp_storage) {
+  if (blockIdx.x == 0 && (end > begin))
+    printf("begin[0]={%d, %f}\n", (*begin)[0].key, (*begin)[0].value);
+  typename std::remove_reference<decltype(*begin)>::type thread_partial;
+  for (auto it = begin; it < end; ++it)
+    thread_partial = op(thread_partial, *it);
+  if (blockIdx.x == 0 && (end > begin))
+    printf("thread_partial[0]={%d, %f}\n", thread_partial[0].key,
+           thread_partial[0].value);
+  auto res = block_allreduce(thread_partial, op, tmp_storage);
+  if (blockIdx.x == 0 && (end > begin))
+    printf("res[0]={%d, %f}\n", res[0].key, res[0].value);
+  return res;
+}
 
 template <typename T>
 struct StridedItArray {
