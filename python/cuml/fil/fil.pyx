@@ -595,7 +595,8 @@ class ForestInference(Base):
         if isinstance(model, TreeliteModel):
             # TreeliteModel defined in this file
             return self._impl.load_from_treelite_model(
-                model, output_class, algo, threshold, str(storage_type), blocks_per_sm)
+                model, output_class, algo, threshold, str(storage_type),
+                blocks_per_sm)
         else:
             # assume it is treelite.Model
             return self._impl.load_from_treelite_model_handle(
