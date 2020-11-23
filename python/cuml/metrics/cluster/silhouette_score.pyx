@@ -14,8 +14,6 @@
 # limitations under the License.
 #
 
-# distutils: language = c++
-
 import cupy as cp
 import numpy as np
 
@@ -29,14 +27,15 @@ from cuml.metrics.distance_type cimport DistanceType
 
 
 cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics":
-    double silhouette_score(const handle_t &handle,
-                            double *y,
-                            int n_rows,
-                            int n_cols,
-                            int *labels,
-                            int n_labels,
-                            double *sil_scores,
-                            DistanceType metric) except +
+    double c_silhouette_score "silhouette_score" (
+        const handle_t &handle,
+        double *y,
+        int n_rows,
+        int n_cols,
+        int *labels,
+        int n_labels,
+        double *sil_scores,
+        DistanceType metric) except +
 
 
 def _silhouette_coeff(
@@ -96,7 +95,7 @@ def _silhouette_coeff(
 
     metric = _determine_metric(metric)
 
-    return silhouette_score(handle_[0],
+    return c_silhouette_score(handle_[0],
                             <double*> <uintptr_t> data.ptr,
                             n_rows,
                             n_cols,
@@ -104,3 +103,79 @@ def _silhouette_coeff(
                             n_labels,
                             <double*> scores_ptr,
                             metric)
+
+
+def silhouette_score(
+        X,
+        labels,
+        metric='euclidean',
+        handle=None):
+    """Calculate the mean silhouette coefficient for the provided data
+
+    Given a set of cluster labels for every sample in the provided data,
+    compute the mean intra-cluster distance (a) and the mean nearest-cluster
+    distance (b) for each sample. The silhouette coefficient for a sample is
+    then (b - a) / max(a, b).
+
+    Parameters
+    ----------
+    X : array-like, shape = (n_samples, n_features)
+        The feature vectors for all samples.
+    labels : array-like, shape = (n_samples,)
+        The assigned cluster labels for each sample.
+    metric : string
+        A string representation of the distance metric to use for evaluating
+        the silhouette schore. Available options are "cityblock", "cosine",
+        "euclidean", "l1", "l2", "manhattan", and "sqeuclidean".
+    handle : cuml.Handle
+        Specifies the cuml.handle that holds internal CUDA state for
+        computations in this model. Most importantly, this specifies the CUDA
+        stream that will be used for the model's computations, so users can
+        run different models concurrently in different streams by creating
+        handles in several streams.
+        If it is None, a new one is created.
+    """
+
+    return _silhouette_coeff(
+        X, labels, metric=metric, handle=handle
+    )
+
+
+def silhouette_samples(
+        X,
+        labels,
+        metric='euclidean',
+        handle=None):
+    """Calculate the silhouette coefficient for each sample in the provided data
+
+    Given a set of cluster labels for every sample in the provided data,
+    compute the mean intra-cluster distance (a) and the mean nearest-cluster
+    distance (b) for each sample. The silhouette coefficient for a sample is
+    then (b - a) / max(a, b).
+
+    Parameters
+    ----------
+    X : array-like, shape = (n_samples, n_features)
+        The feature vectors for all samples.
+    labels : array-like, shape = (n_samples,)
+        The assigned cluster labels for each sample.
+    metric : string
+        A string representation of the distance metric to use for evaluating
+        the silhouette schore. Available options are "cityblock", "cosine",
+        "euclidean", "l1", "l2", "manhattan", and "sqeuclidean".
+    handle : cuml.Handle
+        Specifies the cuml.handle that holds internal CUDA state for
+        computations in this model. Most importantly, this specifies the CUDA
+        stream that will be used for the model's computations, so users can
+        run different models concurrently in different streams by creating
+        handles in several streams.
+        If it is None, a new one is created.
+    """
+
+    sil_scores = cp.empty((X.shape[0],), dtype='float64')
+
+    _silhouette_coeff(
+        X, labels, metric=metric, sil_scores=sil_scores, handle=handle
+    )
+
+    return sil_scores
