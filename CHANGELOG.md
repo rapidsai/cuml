@@ -66,7 +66,7 @@
 - PR #3086: Reverting FIL Notebook Testing
 - PR #3114: Fixed a typo in SVC's predict_proba AttributeError
 - PR #3117: Fix two crashes in experimental RF backend
-- PR #3119: Fix memset args for benchmark
+- PR #3119: Fix memset args for benchmark 
 - PR #3130: Return Python string from `dump_as_json()` of RF
 - PR #3132: Add `min_samples_split` + Rename `min_rows_per_node` -> `min_samples_leaf`
 - PR #3136: Fix stochastic gradient descent example
