@@ -15,13 +15,16 @@
 #
 
 # distutils: language = c++
+
 import cupy as cp
+
+import cuml.internals
 from cuml.metrics.utils import sorted_unique_labels
 from cuml.prims.label import make_monotonic
-from cuml.common import with_cupy_rmm, input_to_cuml_array
+from cuml.common import input_to_cuml_array
 
 
-@with_cupy_rmm
+@cuml.internals.api_return_generic(get_output_type=True)
 def prepare_cluster_metric_inputs(labels_true, labels_pred):
     """Helper function to avoid code duplication for homogeneity score, mutual
     info score and completeness score.

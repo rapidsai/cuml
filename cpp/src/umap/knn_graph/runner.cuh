@@ -14,7 +14,8 @@
  * limitations under the License.
  */
 
-#include "algo.cuh"
+#include <cuml/manifold/common.hpp>
+#include <umap/knn_graph/algo.cuh>
 
 #pragma once
 
@@ -28,24 +29,26 @@ using namespace ML;
   * @brief This function performs a k-nearest neighbors against
   *        the input algorithm using the specified knn algorithm. 
   *        Only algorithm supported at the moment is brute force
-  *        knn primitive. 
-  * @tparam T: Type of input, query, and dist matrices. Usually float
-  * @param X: Matrix to query (size n x d) in row-major format
-  * @param n: Number of rows in X
-  * @param query: Search matrix in row-major format
-  * @param q_n: Number of rows in query matrix
-  * @param d: Number of columns in X and query matrices
-  * @param knn_indices: Return indices matrix (size n*k)
-  * @param knn_dists: Return dists matrix (size n*k)
-  * @param n_neighbors: Number of closest neighbors, k, to query
-  * @param params: Instance of UMAPParam settings
-  * @param d_alloc: device allocator
-  * @param stream: cuda stream to use
-  * @param algo: Algorithm to use. Currently only brute force is supported
+  *        knn primitive.
+  * @tparam value_idx: Type of knn indices matrix. Usually an integral type.
+  * @tparam value_t: Type of input, query, and dist matrices. Usually float
+  * @param[in] X: Matrix to query (size n x d) in row-major format
+  * @param[in] n: Number of rows in X
+  * @param[in] query: Search matrix in row-major format
+  * @param[in] q_n: Number of rows in query matrix
+  * @param[in] d: Number of columns in X and query matrices
+  * @param[out] knn_graph : output knn_indices and knn_dists (size n*k)
+  * @param[in] n_neighbors: Number of closest neighbors, k, to query
+  * @param[in] params: Instance of UMAPParam settings
+  * @param[in] d_alloc: device allocator
+  * @param[in] stream: cuda stream to use
+  * @param[in] algo: Algorithm to use. Currently only brute force is supported
  */
-template <typename T = float>
-void run(T *X, int n, T *query, int q_n, int d, int64_t *knn_indices,
-         T *knn_dists, int n_neighbors, UMAPParams *params,
+template <typename value_idx = int64_t, typename value_t = float,
+          typename umap_inputs>
+void run(const raft::handle_t &handle, const umap_inputs &inputsA,
+         const umap_inputs &inputsB, knn_graph<value_idx, value_t> &out,
+         int n_neighbors, const UMAPParams *params,
          std::shared_ptr<deviceAllocator> d_alloc, cudaStream_t stream,
          int algo = 0) {
   switch (algo) {
@@ -53,10 +56,11 @@ void run(T *X, int n, T *query, int q_n, int d, int64_t *knn_indices,
       * Initial algo uses FAISS indices
       */
     case 0:
-      Algo::launcher(X, n, query, q_n, d, knn_indices, knn_dists, n_neighbors,
-                     params, d_alloc, stream);
+      Algo::launcher<value_idx, value_t, umap_inputs>(
+        handle, inputsA, inputsB, out, n_neighbors, params, d_alloc, stream);
       break;
   }
 }
+
 }  // namespace kNNGraph
 };  // namespace UMAPAlgo

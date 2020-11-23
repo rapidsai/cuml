@@ -26,10 +26,11 @@ import cuml.common.logger as logger
 from cuml import ForestInference
 from cuml.common.array import CumlArray
 from cuml.common.base import ClassifierMixin
+import cuml.internals
 from cuml.common.doc_utils import generate_docstring
 from cuml.common.doc_utils import insert_into_docstring
 from cuml.raft.common.handle import Handle
-from cuml.common import input_to_cuml_array, rmm_cupy_ary
+from cuml.common import input_to_cuml_array
 
 from cuml.ensemble.randomforest_common import BaseRandomForestModel
 from cuml.ensemble.randomforest_common import _obtain_fil_model
@@ -207,10 +208,18 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
         If 'log2' then max_features=log2(n_features)/n_features.
     n_bins : int (default = 8)
         Number of bins used by the split algorithm.
-    min_rows_per_node : int or float (default = 2)
-        The minimum number of samples (rows) needed to split a node.
-        If int then number of sample rows.
-        If float the min_rows_per_sample*n_rows
+    min_samples_leaf : int or float (default = 1)
+        The minimum number of samples (rows) in each leaf node.
+        If int, then min_samples_leaf represents the minimum number.
+        If float, then min_samples_leaf represents a fraction and
+        ceil(min_samples_leaf * n_rows) is the minimum number of samples
+        for each leaf node.
+    min_samples_split : int or float (default = 2)
+        The minimum number of samples required to split an internal node.
+        If int, then min_samples_split represents the minimum number.
+        If float, then min_samples_split represents a fraction and
+        ceil(min_samples_split * n_rows) is the minimum number of samples
+        for each split.
     min_impurity_decrease : float (default = 0.0)
         Minimum decrease in impurity requried for
         node to be spilt.
@@ -229,8 +238,12 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
     random_state : int (default = None)
         Seed for the random number generator. Unseeded by default.
     seed : int (default = None)
-        Deprecated in favor of `random_state`.
         Seed for the random number generator. Unseeded by default.
+
+        .. deprecated:: 0.16
+           Parameter `seed` is deprecated and will be removed in 0.17. Please
+           use `random_state` instead
+
     handle : cuml.Handle
         Specifies the cuml.handle that holds internal CUDA state for
         computations in this model. Most importantly, this specifies the CUDA
@@ -412,6 +425,9 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
     @generate_docstring(skip_parameters_heading=True,
                         y='dense_intdtype',
                         convert_dtype_cast='np.float32')
+    @cuml.internals.api_base_return_any(set_output_type=False,
+                                        set_output_dtype=True,
+                                        set_n_features_in=False)
     def fit(self, X, y, convert_dtype=True):
         """
         Perform Random Forest Classification on the input data
@@ -423,8 +439,6 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
             y to be of dtype int32. This will increase memory used for
             the method.
         """
-        self._set_base_attributes(target_dtype=y)
-
         X_m, y_m, max_feature_val = self._dataset_setup_for_fit(X, y,
                                                                 convert_dtype)
         cdef uintptr_t X_ptr, y_ptr
@@ -452,7 +466,8 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
                                      <float> max_feature_val,
                                      <int> self.n_bins,
                                      <int> self.split_algo,
-                                     <int> self.min_rows_per_node,
+                                     <int> self.min_samples_leaf,
+                                     <int> self.min_samples_split,
                                      <float> self.min_impurity_decrease,
                                      <bool> self.bootstrap_features,
                                      <bool> self.bootstrap,
@@ -499,10 +514,8 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
         del y_m
         return self
 
-    def _predict_model_on_cpu(self, X, convert_dtype):
-        out_type = self._get_output_type(X)
-        out_dtype = self._get_target_dtype()
-
+    @cuml.internals.api_base_return_array(get_output_dtype=True)
+    def _predict_model_on_cpu(self, X, convert_dtype) -> CumlArray:
         cdef uintptr_t X_ptr
         X_m, n_rows, n_cols, dtype = \
             input_to_cuml_array(X, order='C',
@@ -546,7 +559,7 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
         self.handle.sync()
         # synchronous w/o a stream
         del(X_m)
-        return preds.to_output(output_type=out_type, output_dtype=out_dtype)
+        return preds
 
     @insert_into_docstring(parameters=[('dense', '(n_samples, n_features)')],
                            return_values=[('dense', '(n_samples, 1)')])
@@ -554,7 +567,7 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
                 output_class=True, threshold=0.5,
                 algo='auto', num_classes=None,
                 convert_dtype=True,
-                fil_sparse_format='auto'):
+                fil_sparse_format='auto') -> CumlArray:
         """
         Predicts the labels for X.
 
@@ -588,9 +601,13 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
             while performing the predict operation on the GPU.
             It is applied if output_class == True, else it is ignored
         num_classes : int (default = None)
-            number of different classes present in the dataset. This variable
-            will be deprecated in 0.16. The number of classes passed
-            must match the number of classes the model was trained on
+            number of different classes present in the dataset.
+
+            .. deprecated:: 0.16
+                Parameter 'num_classes' is deprecated and will be removed in
+                an upcoming version. The number of classes passed must match
+                the number of classes the model was trained on.
+
         convert_dtype : bool, optional (default = True)
             When set to True, the predict method will, when necessary, convert
             the input to the data type which was used to train the model. This
@@ -638,7 +655,7 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
 
         return preds
 
-    def _predict_get_all(self, X, convert_dtype=True):
+    def _predict_get_all(self, X, convert_dtype=True) -> CumlArray:
         """
         Predicts the labels for X.
 
@@ -654,7 +671,6 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
         y : NumPy
            Dense vector (int) of shape (n_samples, 1)
         """
-        out_type = self._get_output_type(X)
         cdef uintptr_t X_ptr, preds_ptr
         X_m, n_rows, n_cols, dtype = \
             input_to_cuml_array(X, order='C',
@@ -696,14 +712,14 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
                             % (str(self.dtype)))
         self.handle.sync()
         del(X_m)
-        return preds.to_output(out_type)
+        return preds
 
     @insert_into_docstring(parameters=[('dense', '(n_samples, n_features)')],
                            return_values=[('dense', '(n_samples, 1)')])
     def predict_proba(self, X, output_class=True,
                       threshold=0.5, algo='auto',
                       num_classes=None, convert_dtype=True,
-                      fil_sparse_format='auto'):
+                      fil_sparse_format='auto') -> CumlArray:
         """
         Predicts class probabilites for X. This function uses the GPU
         implementation of predict. Therefore, data with 'dtype = np.float32'
@@ -734,9 +750,13 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
             while performing the predict operation on the GPU.
             It is applied if output_class == True, else it is ignored
         num_classes : int (default = None)
-            number of different classes present in the dataset. This variable
-            will be deprecated in 0.16. The number of classes passed
-            must match the number of classes the model was trained on
+            number of different classes present in the dataset.
+
+            .. deprecated:: 0.16
+                Parameter 'num_classes' is deprecated and will be removed in
+                an upcoming version. The number of classes passed must match
+                the number of classes the model was trained on.
+
         convert_dtype : bool, optional (default = True)
             When set to True, the predict method will, when necessary, convert
             the input to the data type which was used to train the model. This
@@ -810,9 +830,13 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
             This is optional and required only while performing the
             predict operation on the GPU.
         num_classes : int (default = None)
-            number of different classes present in the dataset. This variable
-            will be deprecated in 0.16. The number of classes passed
-            must match the number of classes the model was trained on
+            number of different classes present in the dataset.
+
+            .. deprecated:: 0.16
+                Parameter 'num_classes' is deprecated and will be removed in
+                an upcoming version. The number of classes passed must match
+                the number of classes the model was trained on.
+
         convert_dtype : boolean, default=True
             whether to convert input data to correct dtype automatically
         predict_model : String (default = 'GPU')
@@ -933,5 +957,11 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
             <RandomForestMetaData[double, int]*><uintptr_t> self.rf_forest64
 
         if self.dtype == np.float64:
-            return dump_rf_as_json(rf_forest64)
-        return dump_rf_as_json(rf_forest)
+            return dump_rf_as_json(rf_forest64).decode('utf-8')
+        return dump_rf_as_json(rf_forest).decode('utf-8')
+
+    def _more_tags(self):
+        return {
+            # fit and predict require conflicting memory layouts
+            'preferred_input_order': None
+        }

@@ -23,6 +23,7 @@ from contextlib import redirect_stdout
 
 from numba import cuda
 
+import cuml
 from cuml.ensemble import RandomForestClassifier as curfc
 from cuml.ensemble import RandomForestRegressor as curfr
 from cuml.metrics import r2_score
@@ -162,7 +163,7 @@ def test_rf_classification(small_clf, datatype, split_algo,
     # random forest classification model
     cuml_model = curfc(max_features=max_features, rows_sample=rows_sample,
                        n_bins=16, split_algo=split_algo, split_criterion=0,
-                       min_rows_per_node=2, random_state=123, n_streams=1,
+                       min_samples_leaf=2, random_state=123, n_streams=1,
                        n_estimators=40, handle=handle, max_leaves=-1,
                        max_depth=16,
                        use_experimental_backend=use_experimental_backend)
@@ -212,10 +213,18 @@ def test_rf_classification(small_clf, datatype, split_algo,
 @pytest.mark.parametrize('rows_sample', [unit_param(1.0), quality_param(0.90),
                          stress_param(0.95)])
 @pytest.mark.parametrize('datatype', [np.float32])
-@pytest.mark.parametrize('split_algo', [0, 1])
-@pytest.mark.parametrize('max_features', [1.0, 'auto', 'log2', 'sqrt'])
+@pytest.mark.parametrize(
+    'split_algo,max_features,use_experimental_backend,n_bins',
+    [(0, 1.0, False, 16),
+     (1, 1.0, False, 11),
+     (0, 'auto', False, 128),
+     (1, 'log2', False, 100),
+     (1, 'sqrt', False, 100),
+     (1, 1.0, True, 17),
+     (1, 1.0, True, 32),
+     ])
 def test_rf_regression(special_reg, datatype, split_algo, max_features,
-                       rows_sample):
+                       rows_sample, use_experimental_backend, n_bins):
 
     use_handle = True
 
@@ -230,10 +239,11 @@ def test_rf_regression(special_reg, datatype, split_algo, max_features,
 
     # Initialize and fit using cuML's random forest regression model
     cuml_model = curfr(max_features=max_features, rows_sample=rows_sample,
-                       n_bins=16, split_algo=split_algo, split_criterion=2,
-                       min_rows_per_node=2, random_state=123, n_streams=1,
+                       n_bins=n_bins, split_algo=split_algo, split_criterion=2,
+                       min_samples_leaf=2, random_state=123, n_streams=1,
                        n_estimators=50, handle=handle, max_leaves=-1,
-                       max_depth=16, accuracy_metric='mse')
+                       max_depth=16, accuracy_metric='mse',
+                       use_experimental_backend=use_experimental_backend)
     cuml_model.fit(X_train, y_train)
     # predict using FIL
     fil_preds = cuml_model.predict(X_test, predict_model="GPU")
@@ -410,7 +420,7 @@ def rf_classification(datatype, array_type, max_features, rows_sample,
     # random forest classification model
     cuml_model = curfc(max_features=max_features, rows_sample=rows_sample,
                        n_bins=16, split_criterion=0,
-                       min_rows_per_node=2, random_state=123,
+                       min_samples_leaf=2, random_state=123,
                        n_estimators=40, handle=handle, max_leaves=-1,
                        max_depth=16)
     if array_type == 'dataframe':
@@ -490,7 +500,7 @@ def test_rf_classification_sparse(small_clf, datatype,
     # Initialize, fit and predict using cuML's
     # random forest classification model
     cuml_model = curfc(n_bins=16, split_criterion=0,
-                       min_rows_per_node=2, random_state=123, n_streams=1,
+                       min_samples_leaf=2, random_state=123, n_streams=1,
                        n_estimators=num_treees, handle=handle, max_leaves=-1,
                        max_depth=40)
     cuml_model.fit(X_train, y_train)
@@ -516,11 +526,11 @@ def test_rf_classification_sparse(small_clf, datatype,
         fil_acc = accuracy_score(y_test, fil_preds)
 
         fil_model = cuml_model.convert_to_fil_model()
-        input_type = 'numpy'
-        fil_model_preds = fil_model.predict(X_test,
-                                            output_type=input_type)
-        fil_model_acc = accuracy_score(y_test, fil_model_preds)
-        assert fil_acc == fil_model_acc
+
+        with cuml.using_output_type("numpy"):
+            fil_model_preds = fil_model.predict(X_test)
+            fil_model_acc = accuracy_score(y_test, fil_model_preds)
+            assert fil_acc == fil_model_acc
 
         tl_model = cuml_model.convert_to_treelite_model()
         assert num_treees == tl_model.num_trees
@@ -557,7 +567,7 @@ def test_rf_regression_sparse(special_reg, datatype, fil_sparse_format, algo):
 
     # Initialize and fit using cuML's random forest regression model
     cuml_model = curfr(n_bins=16, split_criterion=2,
-                       min_rows_per_node=2, random_state=123, n_streams=1,
+                       min_samples_leaf=2, random_state=123, n_streams=1,
                        n_estimators=num_treees, handle=handle, max_leaves=-1,
                        max_depth=40, accuracy_metric='mse')
     cuml_model.fit(X_train, y_train)
@@ -579,13 +589,12 @@ def test_rf_regression_sparse(special_reg, datatype, fil_sparse_format, algo):
 
         fil_model = cuml_model.convert_to_fil_model()
 
-        input_type = 'numpy'
-        fil_model_preds = fil_model.predict(X_test,
-                                            output_type=input_type)
-        fil_model_preds = np.reshape(fil_model_preds, np.shape(y_test))
-        fil_model_r2 = r2_score(y_test, fil_model_preds,
-                                convert_dtype=datatype)
-        assert fil_r2 == fil_model_r2
+        with cuml.using_output_type("numpy"):
+            fil_model_preds = fil_model.predict(X_test)
+            fil_model_preds = np.reshape(fil_model_preds, np.shape(y_test))
+            fil_model_r2 = r2_score(y_test, fil_model_preds,
+                                    convert_dtype=datatype)
+            assert fil_r2 == fil_model_r2
 
         tl_model = cuml_model.convert_to_treelite_model()
         assert num_treees == tl_model.num_trees
@@ -742,7 +751,7 @@ def test_rf_printing(capfd, n_estimators, detailed_printing):
     # Initialize cuML Random Forest classification model
     cuml_model = curfc(handle=handle, max_features=1.0, rows_sample=1.0,
                        n_bins=16, split_algo=0, split_criterion=0,
-                       min_rows_per_node=2, random_state=23707, n_streams=1,
+                       min_samples_leaf=2, random_state=23707, n_streams=1,
                        n_estimators=n_estimators, max_leaves=-1,
                        max_depth=16)
 
@@ -781,14 +790,14 @@ def test_dump_json(estimator_type, max_depth, n_estimators):
     if estimator_type == 'classification':
         cuml_model = curfc(max_features=1.0, rows_sample=1.0,
                            n_bins=16, split_algo=0, split_criterion=0,
-                           min_rows_per_node=2, seed=23707, n_streams=1,
+                           min_samples_leaf=2, seed=23707, n_streams=1,
                            n_estimators=n_estimators, max_leaves=-1,
                            max_depth=max_depth)
         y = y.astype(np.int32)
     elif estimator_type == 'regression':
         cuml_model = curfr(max_features=1.0, rows_sample=1.0,
                            n_bins=16, split_algo=0,
-                           min_rows_per_node=2, seed=23707, n_streams=1,
+                           min_samples_leaf=2, seed=23707, n_streams=1,
                            n_estimators=n_estimators, max_leaves=-1,
                            max_depth=max_depth)
         y = y.astype(np.float32)

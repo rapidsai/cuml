@@ -16,7 +16,7 @@
 import pytest
 
 from cuml.datasets import make_classification, make_blobs
-from ..thirdparty_adapters import to_output_type
+from cuml.thirdparty_adapters import to_output_type
 from numpy.testing import assert_allclose as np_assert_allclose
 
 import numpy as np

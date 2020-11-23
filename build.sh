@@ -48,6 +48,13 @@ HELP="$0 [<target> ...] [<flag> ...]
    -h               - print this text
 
  default action (no args) is to build and install 'libcuml', 'cuml', and 'prims' targets only for the detected GPU arch
+
+ The following environment variables are also accepted to allow further customization:
+   PARALLEL_LEVEL         - Number of parallel threads to use in compilation.
+   CUML_EXTRA_CMAKE_ARGS  - Extra arguments to pass directly to cmake. Values listed in environment
+                            variable will override existing arguments. Example:
+                            CUML_EXTRA_CMAKE_ARGS=\"-DBUILD_CUML_C_LIBRARY=OFF\" ./build.sh
+   CUML_EXTRA_PYTHON_ARGS - Extra argument to pass directly to python setup.py
 "
 LIBCUML_BUILD_DIR=${LIBCUML_BUILD_DIR:=${REPODIR}/cpp/build}
 CUML_BUILD_DIR=${REPODIR}/python/build
@@ -60,7 +67,7 @@ BUILD_TYPE=Release
 INSTALL_TARGET=install
 BUILD_ALL_GPU_ARCH=0
 SINGLEGPU_CPP_FLAG=""
-BUILD_PYTHON_ARGS=${BUILD_PYTHON_ARGS:=""}
+CUML_EXTRA_PYTHON_ARGS=${CUML_EXTRA_PYTHON_ARGS:=""}
 NVTX=OFF
 CLEAN=0
 BUILD_DISABLE_DEPRECATION_WARNING=ON
@@ -73,6 +80,12 @@ BUILD_STATIC_FAISS=OFF
 #         CONDA_PREFIX, but there is no fallback from there!
 INSTALL_PREFIX=${INSTALL_PREFIX:=${PREFIX:=${CONDA_PREFIX}}}
 PARALLEL_LEVEL=${PARALLEL_LEVEL:=""}
+
+# Allow setting arbitrary cmake args via the $CUML_ADDL_CMAKE_ARGS variable. Any
+# values listed here will override existing arguments. For example:
+# CUML_EXTRA_CMAKE_ARGS="-DBUILD_CUML_C_LIBRARY=OFF" ./build.sh
+# Will disable building the C library even though it is hard coded to ON
+CUML_EXTRA_CMAKE_ARGS=${CUML_EXTRA_CMAKE_ARGS:=""}
 
 function hasArg {
     (( ${NUMARGS} != 0 )) && (echo " ${ARGS} " | grep -q " $1 ")
@@ -117,7 +130,7 @@ if hasArg --allgpuarch; then
     BUILD_ALL_GPU_ARCH=1
 fi
 if hasArg --singlegpu; then
-    BUILD_PYTHON_ARGS="${BUILD_PYTHON_ARGS} --singlegpu"
+    CUML_EXTRA_PYTHON_ARGS="${CUML_EXTRA_PYTHON_ARGS} --singlegpu"
     SINGLEGPU_CPP_FLAG=ON
 fi
 if hasArg cpp-mgtests; then
@@ -136,7 +149,7 @@ if hasArg --show_depr_warn; then
     BUILD_DISABLE_DEPRECATION_WARNING=OFF
 fi
 if hasArg --codecov; then
-    BUILD_PYTHON_ARGS="${BUILD_PYTHON_ARGS} --linetrace=1 --profile"
+    CUML_EXTRA_PYTHON_ARGS="${CUML_EXTRA_PYTHON_ARGS} --linetrace=1 --profile"
 fi
 if hasArg clean; then
     CLEAN=1
@@ -189,6 +202,7 @@ if completeBuild || hasArg libcuml || hasArg prims || hasArg bench || hasArg pri
           -DNCCL_PATH=${INSTALL_PREFIX} \
           -DDISABLE_DEPRECATION_WARNING=${BUILD_DISABLE_DEPRECATION_WARNING} \
           -DCMAKE_PREFIX_PATH=${INSTALL_PREFIX} \
+          ${CUML_EXTRA_CMAKE_ARGS} \
           ..
 fi
 
@@ -229,9 +243,9 @@ fi
 if completeBuild || hasArg cuml || hasArg pydocs; then
     cd ${REPODIR}/python
     if [[ ${INSTALL_TARGET} != "" ]]; then
-        python setup.py build_ext -j${PARALLEL_LEVEL:-1} ${BUILD_PYTHON_ARGS} --library-dir=${LIBCUML_BUILD_DIR} install --single-version-externally-managed --record=record.txt
+        python setup.py build_ext -j${PARALLEL_LEVEL:-1} ${CUML_EXTRA_PYTHON_ARGS} --library-dir=${LIBCUML_BUILD_DIR} install --single-version-externally-managed --record=record.txt
     else
-        python setup.py build_ext -j${PARALLEL_LEVEL:-1} ${BUILD_PYTHON_ARGS} --library-dir=${LIBCUML_BUILD_DIR}
+        python setup.py build_ext -j${PARALLEL_LEVEL:-1} ${CUML_EXTRA_PYTHON_ARGS} --library-dir=${LIBCUML_BUILD_DIR}
     fi
 
     if hasArg pydocs; then
