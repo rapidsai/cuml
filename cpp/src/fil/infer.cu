@@ -21,9 +21,9 @@
 
 #include <cuml/fil/multi_sum.cuh>
 #include "common.cuh"
-using cub::Sum;
-using cub::Max;
 using cub::ArgMax;
+using cub::Max;
+using cub::Sum;
 using thrust::divides;
 
 namespace ML {
@@ -56,7 +56,7 @@ struct vec {
 #pragma unroll
     for (int i = 0; i < N; ++i) data[i] = t;
   }
-  __host__ __device__ vec(): vec(T()) {}
+  __host__ __device__ vec() : vec(T()) {}
   __host__ __device__ T& operator[](int i) { return data[i]; }
   __host__ __device__ T operator[](int i) const { return data[i]; }
   template <typename Vec>
@@ -78,10 +78,11 @@ struct vec {
   }
 };
 
-struct best_margin_label: cub::KeyValuePair<int, float> {
+struct best_margin_label : cub::KeyValuePair<int, float> {
   __host__ __device__ best_margin_label(int i, float f)
     : cub::KeyValuePair<int, float>({i, f}) {}
-  __host__ __device__ best_margin_label(cub::KeyValuePair<int, float> pair = {-1, INFINITY})
+  __host__ __device__
+  best_margin_label(cub::KeyValuePair<int, float> pair = {-1, INFINITY})
     : cub::KeyValuePair<int, float>(pair) {}
 };
 
@@ -218,7 +219,7 @@ struct tree_aggregator_t {
     __syncthreads();
     acc = block_reduce(acc, Vectorized<Sum>(Sum()), tmp_storage);
     if (threadIdx.x > 0) return;
-    #pragma unroll
+#pragma unroll
     for (int row = 0; row < num_rows; ++row)
       out[row * output_stride] = acc[row];
   }
@@ -237,8 +238,8 @@ __device__ __forceinline__ T block_allreduce(T value, BinaryOp op,
 
 template <typename Iterator, typename BinaryOp>
 __device__ __forceinline__ auto allreduce_shmem(Iterator begin, Iterator end,
-                                                BinaryOp op, void* tmp_storage)
-{
+                                                BinaryOp op,
+                                                void* tmp_storage) {
   typename std::remove_reference<decltype(*begin)>::type thread_partial;
   for (Iterator it = begin; it < end; ++it)
     thread_partial = op(thread_partial, *it);
@@ -284,7 +285,8 @@ struct StridedItArray {
   T v;
   int size;
   __device__ StridedItArray(T v_, int size_) : v(v_), size(size_) {}
-  explicit __device__ StridedItArray(void* v_, int size_) : v((T)v_), size(size_) {}
+  explicit __device__ StridedItArray(void* v_, int size_)
+    : v((T)v_), size(size_) {}
 
   typedef StridedIt<T> iterator;
   __device__ iterator begin() { return iterator(v + threadIdx.x, blockDim.x); }
@@ -305,7 +307,7 @@ __device__ __forceinline__ void block_softmax(Iterator begin, Iterator end,
     allreduce_shmem(begin, end, Vectorized<Max>(Max()), tmp_storage);
 
   for (Iterator it = begin; it < end; ++it)
-    *it = Vectorized<float(*)(float, float)>(shifted_exp)(*it, max);
+    *it = Vectorized<float (*)(float, float)>(shifted_exp)(*it, max);
   // sum of exponents
   value_type soe =
     allreduce_shmem(begin, end, Vectorized<Sum>(Sum()), tmp_storage);
@@ -416,7 +418,8 @@ struct tree_aggregator_t<NITEMS, GROVE_PER_CLASS_MANY_CLASSES> {
       tmp_storage(shared_workspace),
       num_classes(num_classes_),
       per_class_a(per_class_value, num_classes_) {
-    for (StridedIt<vec<NITEMS, float>*> it = per_class_a.begin(); it < per_class_a.end(); ++it)
+    for (StridedIt<vec<NITEMS, float>*> it = per_class_a.begin();
+         it < per_class_a.end(); ++it)
       *it = vec<NITEMS, float>(0);
     // __syncthreads() is called in infer_k
   }
@@ -442,9 +445,9 @@ struct tree_aggregator_t<NITEMS, GROVE_PER_CLASS_MANY_CLASSES> {
         thrust::make_transform_iterator(per_class_a.end(), candidate),
         tmp_storage, out, num_rows);
     } else {  // will output softmax-ed margins
-      normalize_softmax_and_write(
-        per_class_a.begin(), per_class_a.end(), transform, num_trees,
-        tmp_storage, num_classes, out, num_rows);
+      normalize_softmax_and_write(per_class_a.begin(), per_class_a.end(),
+                                  transform, num_trees, tmp_storage,
+                                  num_classes, out, num_rows);
     }
   }
 };
