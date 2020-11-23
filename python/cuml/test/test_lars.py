@@ -18,7 +18,7 @@ import numpy as np
 import pytest
 from distutils.version import LooseVersion
 import cudf
-from cuml.linear_model import Lars as cuLars
+from cuml.experimental.linear_model import Lars as cuLars
 from cuml.common import logger
 from cuml.test.utils import (
     array_equal,
