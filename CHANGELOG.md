@@ -35,6 +35,7 @@
 - PR #3135: Add QuasiNewton tests
 - PR #3040: Improved Array Conversion with CumlArrayDescriptor and Decorators
 - PR #3134: Improving the Deprecation Message Formatting in Documentation
+- PR #3151: MNMG Logistic Regression via dask-glm 
 - PR #3113: Add tags and prefered memory order tags to estimators
 - PR #3137: Reorganize Pytest Config and Add Quick Run Option
 - PR #3144: Adding Ability to Set Arbitrary Cmake Flags in ./build.sh
