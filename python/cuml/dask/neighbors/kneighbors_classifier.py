@@ -234,7 +234,10 @@ class KNeighborsClassifier(NearestNeighbors):
         out = to_output(out_futures, self.datatype).squeeze()
         out_i = to_output(out_i_futures, self.datatype)
         out_d = to_output(out_d_futures, self.datatype)
-        return out, out_i, out_d
+
+        # Returning predictions only to conform with Scikit-Learn behavior
+        # Complete removal of indices and distances will be effective in further release
+        return out
 
     def score(self, X, y, convert_dtype=True):
         """
@@ -256,7 +259,7 @@ class KNeighborsClassifier(NearestNeighbors):
         -------
         score
         """
-        y_pred, _, _ = self.predict(X, convert_dtype=convert_dtype)
+        y_pred = self.predict(X, convert_dtype=convert_dtype)
         if not isinstance(y_pred, da.Array):
             y_pred = y_pred.to_dask_array(lengths=True)
         if not isinstance(y, da.Array):
