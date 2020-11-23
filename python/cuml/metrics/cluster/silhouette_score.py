@@ -4,7 +4,10 @@ from cuml.metrics.cluster.silhouette_score_impl import _silhouette_coeff
 
 
 def silhouette_score(
-        X, labels, metric='euclidean', handle=None):
+        X,
+        labels,
+        metric='euclidean',
+        handle=None):
     """Calculate the mean silhouette coefficient for the provided data
 
     Given a set of cluster labels for every sample in the provided data,
@@ -36,7 +39,11 @@ def silhouette_score(
     )
 
 
-def silhouette_samples(X, labels, metric='euclidean', handle=None):
+def silhouette_samples(
+        X,
+        labels,
+        metric='euclidean',
+        handle=None):
     """Calculate the silhouette coefficient for each sample in the provided data
 
     Given a set of cluster labels for every sample in the provided data,
