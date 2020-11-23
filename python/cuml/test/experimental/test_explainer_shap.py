@@ -86,9 +86,10 @@ def test_kernel_shap_standalone(dtype, nfeatures, nbackground, model):
 
     mod = model().fit(X_train, y_train)
 
-    cu_explainer = cuml.experimental.explainer.KernelSHAP(model=mod.predict,
-                                                          data=X_train,
-                                                          gpu_model=True)
+    cu_explainer = \
+        cuml.experimental.explainer.KernelExplainer(model=mod.predict,
+                                                    data=X_train,
+                                                    gpu_model=True)
 
     cu_shap_values = cu_explainer.shap_values(X_test[0])
 
@@ -125,9 +126,10 @@ def test_kernel_gpu_cpu_shap(dtype, nfeatures, nbackground, model):
     explainer = shap.KernelExplainer(mod.predict, X_train)
     shap_values = explainer.shap_values(X_test[0])
 
-    cu_explainer = cuml.experimental.explainer.KernelSHAP(model=mod.predict,
-                                                          data=X_train,
-                                                          gpu_model=True)
+    cu_explainer = \
+        cuml.experimental.explainer.KernelExplainer(model=mod.predict,
+                                                    data=X_train,
+                                                    gpu_model=True)
 
     cu_shap_values = cu_explainer.shap_values(X_test[0])
 
@@ -163,9 +165,10 @@ def test_cuml_models(single_dataset, model_name):
 
     mod = model().fit(X_train, y_train)
 
-    cu_explainer = cuml.experimental.explainer.KernelSHAP(model=mod.predict,
-                                                          data=X_train,
-                                                          gpu_model=True)
+    cu_explainer = \
+        cuml.experimental.explainer.KernelExplainer(model=mod.predict,
+                                                    data=X_train,
+                                                    gpu_model=True)
 
     cu_shap_values = cu_explainer.shap_values(X_test[0])
 

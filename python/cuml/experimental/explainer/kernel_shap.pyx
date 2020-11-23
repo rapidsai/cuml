@@ -76,7 +76,7 @@ cdef extern from "cuml/explainer/kernel_shap.hpp" namespace "ML":
         uint64_t seed)
 
 
-class KernelSHAP():
+class KernelExplainer():
     """
     GPU accelerated of SHAP's kernel explainer:
     https://github.com/slundberg/shap/blob/master/shap/explainers/_kernel.py
@@ -206,19 +206,12 @@ class KernelSHAP():
         else:
             self.feature_names = [None for _ in range(len(data))]
 
-        # seeing how many exact samples from the powerset we can enumerate
-        # todo: optimization for larger sizes by generating diagonal
-        # future item: gpu lexicographical-binary numbers generation
-        # cur_nsamples = self.M
-        # r = 1
-        # while cur_nsamples < self.nsamples:
-        #     r += 1
-        #     cur_nsamples += int(binomCoef(self.M, r))
-
         cur_nsamples = 0
         self.nsamples_exact = 0
         r = 0
 
+        # we check how many subsets of the powerset of self.M we can fit
+        # in self.nsamples
         while cur_nsamples <= self.nsamples:
             r += 1
             self.nsamples_exact = cur_nsamples
@@ -226,14 +219,17 @@ class KernelSHAP():
 
         # see if we need to have randomly sampled entries in our mask
         # and combinations matrices
-        self.nsamples_random = self.nsamples - self.nsamples_exact if r < self.M else 0
+        self.nsamples_random = \
+            self.nsamples - self.nsamples_exact if r < self.M else 0
+
+        # we save r so we can generate random samples later
         self.randind = r
 
         # using numpy powerset and calculations for initial version
         # cost is incurred only once, and generally we only generate
         # very few samples if M is big.
-        mat, weight = powerset(self.M, r - 1, self.nsamples_exact, dtype=self.dtype)
-        weight /= np.sum(weight)
+        mat, weight = powerset(self.M, r - 1, self.nsamples_exact,
+                               dtype=self.dtype)
 
         self.mask = cp.zeros((self.nsamples, self.M), dtype=np.float32)
         self.mask[:self.nsamples_exact] = cp.array(mat)
@@ -279,27 +275,14 @@ class KernelSHAP():
     def _explain_single_observation(self,
                                     row,
                                     l1_reg):
-
-        # np choice of weights - for samples if needed
         self.fx = cp.array(
             model_call(X=row,
                        model=self.model,
                        model_gpu_based=self.model_gpu_based))
 
         if self.nsamples_random > 0:
-            # samples = np.random.choice(np.arange(self.nsamples_exact + 1,
-            #                                      self.nsamples),
-            #                            self.nsamples_random,
-            #                            p=self.weights[self.nsamples_exact + 1:
-            #                                           self.nsamples])
-            samples = np.random.choice(np.arange(self.randind + 1,
-                                                 self.randind + 3),
-                                       self.nsamples_random)
-            maxsample = np.max(samples)
-            w = np.empty(self.nsamples_random, dtype=np.float32)
-            for i in range(self.nsamples_exact, self.nsamples_random):
-                w[i] = 1
-            samples = cp.array(samples, dtype=np.int32)
+            samples, self.weights[self.nsamples_exact:self.nsamples] = \
+                self._generate_number_samples_weights()
 
         row, n_rows, n_cols, dtype = \
             input_to_cuml_array(row, order=self.order)
@@ -371,8 +354,10 @@ class KernelSHAP():
         # call lasso/lars if needed
         if l1_reg == 'auto':
             if self.nsamples / self.max_samples < 0.2:
+                # todo: analyze ideal alpha if staying with lasso or switch
+                # to cuml lars once that is merged
                 nonzero_inds = cp.nonzero(
-                    Lasso(alpha=0.2).fit(self.mask, y_hat).coef_
+                    Lasso(alpha=0.25).fit(self.mask, y_hat).coef_
                 )[0]
                 if len(nonzero_inds) == 0:
                     return cp.zeros(self.M), np.ones(self.M)
@@ -398,6 +383,22 @@ class KernelSHAP():
                                                           y_hat).coef_)[0]
 
         return self._weighted_linear_regression(y_hat, nonzero_inds)
+
+    def _generate_number_samples_weights(self):
+        """
+        Function generates an array `samples` of ints of samples and their
+        weights that can be used for generating X and dataset.
+        """
+        samples = np.random.choice(np.arange(self.randind,
+                                             self.randind + 3),
+                                   self.nsamples_random)
+        maxsample = np.max(samples)
+        w = np.empty(self.nsamples_random, dtype=np.float32)
+        for i in range(self.nsamples_exact, self.nsamples_random):
+            w[i] = shapley_kernel(self.M, samples[i])
+        samples = cp.array(samples, dtype=np.int32)
+        w = cp.array(w)
+        return samples, w
 
     def _weighted_linear_regression(self, y_hat, nonzero_inds=None):
         if nonzero_inds is None:
@@ -461,7 +462,7 @@ class KernelSHAP():
                               "SHAP to use the new API style.")
 
 
-# @lru_cache(maxsize=None)
+@lru_cache(maxsize=None)
 def binomCoef(n, k):
     res = 1
     if(k > n - k):
@@ -495,7 +496,7 @@ def calc_sample_weights(M, r):
     return w
 
 
-# @lru_cache(maxsize=None)
+@lru_cache(maxsize=None)
 def shapley_kernel(M, s):
     if(s == 0 or s == M):
         return 10000

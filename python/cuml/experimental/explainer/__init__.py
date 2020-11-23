@@ -14,4 +14,4 @@
 # limitations under the License.
 #
 
-from cuml.experimental.explainer.kernel_shap import KernelSHAP
+from cuml.experimental.explainer.kernel_shap import KernelExplainer
