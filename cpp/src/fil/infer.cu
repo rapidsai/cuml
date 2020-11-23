@@ -14,8 +14,10 @@
  * limitations under the License.
  */
 
+#include <thrust/iterator/counting_iterator.h>
 #include <thrust/iterator/iterator_adaptor.h>
 #include <thrust/iterator/transform_iterator.h>
+#include <thrust/iterator/zip_iterator.h>
 #include <algorithm>
 #include <cmath>
 
@@ -272,6 +274,19 @@ class StridedIt
     : super_t(p_), begin(p_), stride(stride_) {}
   friend class thrust::iterator_core_access;
 
+  __device__ bool operator>=(StridedIt<T> other) const {
+    return &**this >= &*other;
+  }
+  __device__ bool operator>(StridedIt<T> other) const {
+    return &**this > &*other;
+  }
+  __device__ bool operator<=(StridedIt<T> other) const {
+    return &**this <= &*other;
+  }
+  __device__ bool operator<(StridedIt<T> other) const {
+    return &**this < &*other;
+  }
+
  private:
   const T begin;
   int stride;
@@ -374,13 +389,13 @@ struct tree_aggregator_t<NITEMS, GROVE_PER_CLASS_FEW_CLASSES> {
       __syncthreads();       // free up per_thread[] margin
       StridedItArray<vec<NITEMS, best_margin_label>*> to_reduce(tmp_storage,
                                                                 num_classes);
-      if (to_reduce.begin() != to_reduce.end())
+      if (to_reduce.begin() < to_reduce.end())
         *to_reduce.begin() = to_vec(threadIdx.x, acc);
       write_best_class_in_block(to_reduce.begin(), to_reduce.end(), tmp_storage,
                                 out, num_rows);
     } else {  // output softmax-ed margin
       StridedItArray<vec<NITEMS, float>*> to_reduce(tmp_storage, num_classes);
-      if (to_reduce.begin() != to_reduce.end()) *to_reduce.begin() = acc;
+      if (to_reduce.begin() < to_reduce.end()) *to_reduce.begin() = acc;
       normalize_softmax_and_write(to_reduce.begin(), to_reduce.end(), transform,
                                   num_trees, tmp_storage, num_classes, out,
                                   num_rows);
@@ -437,13 +452,19 @@ struct tree_aggregator_t<NITEMS, GROVE_PER_CLASS_MANY_CLASSES> {
     if (num_outputs == 1) {  // will output class
       // reduce per-class candidate margins to one best class candidate
       // per thread (for each of the NITEMS rows)
-      auto candidate = [this] __device__(auto it) {
-        return to_vec(&it - this->per_class_value, it);
-      };
-      write_best_class_in_block(
-        thrust::make_transform_iterator(per_class_a.begin(), candidate),
-        thrust::make_transform_iterator(per_class_a.end(), candidate),
-        tmp_storage, out, num_rows);
+      thrust::counting_iterator<int> idxbegin(0);
+      auto zip = thrust::make_zip_iterator(
+        thrust::make_tuple(idxbegin, per_class_value));
+
+      auto to_candidate =
+        [] __device__(const thrust::tuple<int, vec<NITEMS, float>>& it) {
+          return to_vec(it.get<0>(), it.get<1>());
+        };
+      auto candidates = thrust::make_transform_iterator(zip, to_candidate);
+      StridedItArray<decltype(candidates.begin())> strided_c;
+
+      write_best_class_in_block(strided_c.begin(), strided_c.end(), tmp_storage,
+                                out, num_rows);
     } else {  // will output softmax-ed margins
       normalize_softmax_and_write(per_class_a.begin(), per_class_a.end(),
                                   transform, num_trees, tmp_storage,
