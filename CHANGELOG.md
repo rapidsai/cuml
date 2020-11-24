@@ -42,6 +42,7 @@
 - PR #3155: Eliminate unnecessary warnings from random projection test
 
 ## Bug Fixes
+- PR #3179: Remove unused metrics.cu file
 - PR #3069: Prevent conversion of DataFrames to Series in preprocessing
 - PR #3065: Refactoring prims metrics function names from camelcase to underscore format
 - PR #3033: Splitting ml metrics to individual files
