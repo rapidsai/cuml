@@ -184,7 +184,8 @@ class TfidfTransformer(BaseEstimator, DelayedTransformMixin):
 
     def fit_transform(self, X):
         """
-        Fit distributed TFIDFTransformer and then transform the given set of data samples.
+        Fit distributed TFIDFTransformer and then transform
+        the given set of data samples.
 
         Parameters
         ----------
