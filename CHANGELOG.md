@@ -73,6 +73,7 @@
 - PR #3156: Force local conda artifact install
 - PR #3162: Removing accidentally checked in debug file
 - PR #3175: Fix gtest pinned cmake version for build from source option
+- PR #3182: Fix a bug in MSE metric calculation
 
 
 # cuML 0.16.0 (23 Oct 2020)
