@@ -28,9 +28,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-
+import cudf
 import numpy as np
+import pandas
 
+import cuml.common.logger as logger
 from cuml.experimental.explainer.common import get_dtype_from_model_func
 from cuml.experimental.explainer.common import get_handle_from_cuml_model_func
 from cuml.experimental.explainer.common import get_link_fn_from_str
@@ -41,6 +43,49 @@ from cuml.common.input_utils import input_to_cupy_array
 class SHAPBase():
     """
     Base class for SHAP based explainers.
+
+    Parameters
+    ----------
+    model : function
+        Function that takes a matrix of samples (n_samples, n_features) and
+        computes the output for those samples with shape (n_samples). Function
+        must use either CuPy or NumPy arrays as input/output.
+    data : Dense matrix containing floats or doubles.
+        Background dataset. Dense arrays are supported.
+    order : 'F', 'C' or None (default = None)
+        Set to override detection of row ('C') or column ('F') major order,
+        if None it will be attempted to be inferred from model.
+    order_default : 'F' or 'C' (default = 'C')
+        Used when `order` is None. If the order cannot be inferred from the
+        model, then order is set to `order_default`.
+    link : function or str (default = 'identity')
+        The link function used to map between the output units of the
+        model and the SHAP value units.
+    random_state: int, RandomState instance or None (default = None)
+        Seed for the random number generator for dataset creation.
+    gpu_model : bool or None (default = None)
+        If None Explainer will try to infer whether `model` can take GPU data
+        (as CuPy arrays), otherwise it will use NumPy arrays to call `model`.
+        Set to True to force the explainer to use GPU data,  set to False to
+        force the Explainer to use NumPy data.
+    handle : cuml.raft.common.handle
+        Specifies the handle that holds internal CUDA state for
+        computations in this model. Most importantly, this specifies the CUDA
+        stream that will be used for the model's computations, so users can
+        run different models concurrently in different streams by creating
+        handles in several streams.
+        If it is None, a new one is created.
+    dtype : np.float32 or np.float64 (default = None)
+        Parameter to specify the precision of data to generate to call the
+        model. If not specified, the explainer will try to get the dtype
+        of the model, if it cannot be queried, then it will defaul to
+        np.float32.
+    output_type : 'cupy' or 'numpy' (default = None)
+        Parameter to specify the type of data to output.
+        If not specified, the explainer will try to see if model is gpu based,
+        if so it will be set to `cupy`, otherwise it will be set to `numpy`.
+        For compatibility with SHAP's graphing libraries, specify `numpy`.
+
     """
 
     def __init__(self,
@@ -48,14 +93,21 @@ class SHAPBase():
                  model,
                  data,
                  order=None,
-                 default_order='C',
+                 order_default='C',
                  link='identity',
-                 verbosity=False,
+                 verbose=False,
                  random_state=None,
                  gpu_model=None,
                  handle=None,
                  dtype=None,
                  output_type=None):
+
+        if verbose is True:
+            self.verbose = logger.level_debug
+        elif verbose is False:
+            self.verbose = logger.level_info
+        else:
+            self.verbose = verbose
 
         if handle is None:
             self.handle = get_handle_from_cuml_model_func(model,
@@ -66,7 +118,7 @@ class SHAPBase():
         if order is None:
             self.order = get_tag_from_model_func(func=model,
                                                  tag='preferred_input_order',
-                                                 default=default_order)
+                                                 default=order_default)
         else:
             self.order = order
 
@@ -98,3 +150,11 @@ class SHAPBase():
         self.background, self.N, self.M, _ = \
             input_to_cupy_array(data, order=self.order,
                                 convert_to_dtype=self.dtype)
+
+        self.random_state = random_state
+
+        if isinstance(data, pandas.DataFrame) or isinstance(data,
+                                                            cudf.DataFrame):
+            self.feature_names = data.columns.to_list()
+        else:
+            self.feature_names = [None for _ in range(len(data))]

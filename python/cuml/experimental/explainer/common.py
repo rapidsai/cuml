@@ -97,12 +97,23 @@ def get_dtype_from_model_func(func, default=None):
     return dtype
 
 
-def model_call(X, model, model_gpu_based=False):
+def model_func_call(X,
+                    model_func,
+                    model_gpu_based=False,
+                    cuml_output_type='cupy'):
+    """
+    Function to call `model_func(X)` using either `NumPy` arrays if
+    model_gpu_based is False and returning as CuPy, else call model_func
+    directly with `X` and return as `cuml_output_type`
+    """
     if model_gpu_based:
-        y = model(X)
+        # Even if the gpu model is not cuml proper, this call has no
+        # negative side effects
+        with cuml.using_output_type(cuml_output_type):
+            y = model_func(X)
     else:
         try:
-            y = cp.array(model(
+            y = cp.array(model_func(
                 X.to_output('numpy'))
             )
         except TypeError:
@@ -110,6 +121,13 @@ def model_call(X, model, model_gpu_based=False):
                             'take GPU data or NumPy arrays as input.')
 
     return y
+
+
+def get_cai_ptr(X):
+    if hasattr(X, '__cuda_array_interface__'):
+        return X.__cuda_array_interface__['data'][0]
+    else:
+        raise TypeError("X must support `__cuda_array_interface__`")
 
 
 def get_link_fn_from_str(link):
