@@ -90,7 +90,7 @@ struct best_margin_label : cub::KeyValuePair<int, float> {
 
 template <int NITEMS>
 __device__ __forceinline__ vec<NITEMS, best_margin_label> to_vec(
-  int c, vec<NITEMS, float> margin) {
+  const int c, const vec<NITEMS, float> margin) {
   vec<NITEMS, best_margin_label> ret;
 #pragma unroll
   for (int i = 0; i < NITEMS; ++i) ret[i] = best_margin_label({c, margin[i]});
@@ -180,7 +180,7 @@ template <typename T, typename BinaryOp>
 __device__ __forceinline__ T block_reduce(T value, BinaryOp op, void* storage) {
   typedef cub::BlockReduce<T, FIL_TPB> BlockReduceT;
   return BlockReduceT(*(typename BlockReduceT::TempStorage*)storage)
-    .Reduce(value, op);
+    .Reduce(value, op, blockDim.x);
 }
 
 template <int NITEMS,
@@ -230,45 +230,43 @@ struct tree_aggregator_t {
 template <typename T>
 class StridedIt
   : public thrust::iterator_adaptor<StridedIt<T>, T, thrust::use_default,
-                                    thrust::forward_device_iterator_tag> {
+                                    thrust::bidirectional_device_iterator_tag> {
  public:
   typedef thrust::iterator_adaptor<StridedIt<T>, T, thrust::use_default,
-                                   thrust::forward_device_iterator_tag>
+                                   thrust::bidirectional_device_iterator_tag>
     super_t;
 
   explicit __device__ StridedIt(T p_, int stride_)
     : super_t(p_), begin(p_), stride(stride_) {}
   friend class thrust::iterator_core_access;
+  using typename super_t::value_type;
 
-  __device__ bool operator>=(StridedIt<T> other) const {
-    auto this_it = begin + (this->base() - begin) * stride;
-    auto other_it = other.begin + (other.base() - other.begin) * other.stride;
-    return this_it >= other_it;
+  __device__ bool operator==(StridedIt<T> other) const {
+    return ref() == other.ref();
   }
   __device__ bool operator>(StridedIt<T> other) const {
-    auto this_it = begin + (this->base() - begin) * stride;
-    auto other_it = other.begin + (other.base() - other.begin) * other.stride;
-    return this_it > other_it;
+    return ref() > other.ref();
+  }
+  __device__ bool operator!=(StridedIt<T> other) const {
+    return !(*this == other);
+  }
+  __device__ bool operator>=(StridedIt<T> other) const {
+    return !(other > *this);
   }
   __device__ bool operator<=(StridedIt<T> other) const {
-    auto this_it = begin + (this->base() - begin) * stride;
-    auto other_it = other.begin + (other.base() - other.begin) * other.stride;
-    return this_it <= other_it;
+    return !(*this > other);
   }
-  __device__ bool operator<(StridedIt<T> other) const {
-    auto this_it = begin + (this->base() - begin) * stride;
-    auto other_it = other.begin + (other.base() - other.begin) * other.stride;
-    return this_it < other_it;
-  }
+  __device__ bool operator<(StridedIt<T> other) const { return other > *this; }
 
  private:
   const T begin;
   int stride;
-  __device__ typename super_t::reference dereference() const {
-    return *(begin + (this->base() - begin) * stride);
-  }
+  __device__ T ref() const { return begin + (this->base() - begin) * stride; }
+  __device__ typename super_t::reference dereference() const { return *ref(); }
 };
 
+// caller must ensure `value` has been read by all threads before
+// block_allreduce, so that the location tmp_storage is safe to use
 template <typename T, typename BinaryOp>
 __device__ __forceinline__ T block_allreduce(T value, BinaryOp op,
                                              void* storage) {
@@ -280,55 +278,32 @@ __device__ __forceinline__ T block_allreduce(T value, BinaryOp op,
   return *(T*)storage;
 }
 
+// tmp_storage may overlap shared memory addressed by begin..end
+// allreduce_shmem ensures no race conditions
 template <typename Iterator, typename BinaryOp>
 __device__ __forceinline__ auto allreduce_shmem(Iterator begin, Iterator end,
                                                 BinaryOp op,
                                                 void* tmp_storage) {
-  typename std::remove_reference<decltype(*begin)>::type thread_partial;
+  typename std::iterator_traits<Iterator>::value_type thread_partial;
   for (Iterator it = begin; it < end; ++it)
     thread_partial = op(thread_partial, *it);
+  __syncthreads();  // free shared memory begin..end
   auto res = block_allreduce(thread_partial, op, tmp_storage);
   return res;
 }
 
+// tmp_storage may overlap shared memory addressed by begin..end
 template <typename Iterator>
 __device__ __forceinline__ void write_best_class_in_block(
   Iterator begin, Iterator end, void* tmp_storage, float* out, int num_rows) {
-  for (int row = 0; row < num_rows; ++row) {
-    if (blockIdx.x == 0 && (end > begin))
-      printf("begin[row=%d]={%d, %f}\n", row, (*begin)[row].key,
-             (*begin)[row].value);
-  }
   // find best class per block (for each of the NITEMS rows)
   auto best = allreduce_shmem(begin, end, vectorized(ArgMax()), tmp_storage);
   // write it out to global memory
   if (threadIdx.x > 0) return;
 #pragma unroll
   for (int row = 0; row < num_rows; ++row) {
-    if (blockIdx.x == 0)
-      printf("best[row=%d]={%d, %f}\n", row, best[row].key, best[row].value);
     if (row < num_rows) out[row] = best[row].key;
   }
-}
-
-template <>
-__device__ __forceinline__ auto
-allreduce_shmem<StridedIt<vec<1, best_margin_label>*>, Vectorized<ArgMax>>(
-  StridedIt<vec<1, best_margin_label>*> begin,
-  StridedIt<vec<1, best_margin_label>*> end, Vectorized<ArgMax> op,
-  void* tmp_storage) {
-  if (blockIdx.x == 0 && (end > begin))
-    printf("begin[0]={%d, %f}\n", (*begin)[0].key, (*begin)[0].value);
-  typename std::remove_reference<decltype(*begin)>::type thread_partial;
-  for (auto it = begin; it < end; ++it)
-    thread_partial = op(thread_partial, *it);
-  if (blockIdx.x == 0 && (end > begin))
-    printf("thread_partial[0]={%d, %f}\n", thread_partial[0].key,
-           thread_partial[0].value);
-  auto res = block_allreduce(thread_partial, op, tmp_storage);
-  if (blockIdx.x == 0 && (end > begin))
-    printf("res[0]={%d, %f}\n", res[0].key, res[0].value);
-  return res;
 }
 
 template <typename T>
@@ -349,11 +324,12 @@ __device__ float shifted_exp(float margin, float max) {
   return expf(margin - max);
 }
 
+// tmp_storage may overlap shared memory addressed by begin..end
 template <typename Iterator>
 __device__ __forceinline__ void block_softmax(Iterator begin, Iterator end,
                                               void* tmp_storage) {
   // subtract max before exponentiating for numerical stability
-  typedef typename std::remove_reference<decltype(*begin)>::type value_type;
+  typedef typename std::iterator_traits<Iterator>::value_type value_type;
   value_type max = allreduce_shmem(begin, end, vectorized(Max()), tmp_storage);
 
   for (Iterator it = begin; it < end; ++it)
@@ -364,6 +340,7 @@ __device__ __forceinline__ void block_softmax(Iterator begin, Iterator end,
   for (Iterator it = begin; it < end; ++it) *it /= soe;
 }
 
+// tmp_storage may overlap shared memory addressed by begin..end
 template <typename Iterator>
 __device__ __forceinline__ void normalize_softmax_and_write(
   Iterator begin, Iterator end, output_t transform, int num_trees,
