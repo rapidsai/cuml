@@ -22,9 +22,9 @@ namespace ML{
 namespace Metrics {
 
 double precision_score(const raft::handle_t &handle, const int *y,
-											 const int *y_hat, const int n) {
-	return MLCommon::Metrics::precision_score(
-		gold, pred, n, handle.get_device_allocator(), handle.get_stream());
+                       const int *y_hat, const int n) {
+  return MLCommon::Metrics::precision_score(
+    y, y_hat, n, handle.get_device_allocator(), handle.get_stream());
 }
 
 } // end namespace Metrics

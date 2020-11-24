@@ -29,69 +29,68 @@ from cuml.raft.common.handle import Handle
 
 
 cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics":
-	double precision_score(const handle_t &handle,
-						   const int *y,
-						   const int *y_hat,
-						   const int n) except +
-
+  double precision_score(const handle_t &handle,
+                         const int *y,
+                         const int *y_hat,
+                         const int n) except +
 
 @cuml.internals.api_return_any()
 def cython_precision_score(labels_true, labels_pred, handle=None) -> float:
-	"""
-	Compute the Precision Score
+  """
+  Compute the Precision Score
 
-	Parameters
-	----------
-	handle : cuml.Handle
-	labels_pred : array-like (device or host) shape = (n_samples,)
-	    Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-	    ndarray, cuda array interface compliant array like CuPy
-	labels_true : array-like (device or host) shape = (n_samples,)
-	    Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-	    ndarray, cuda array interface compliant array like CuPy
+  Parameters
+  ----------
+  handle : cuml.Handle
+  labels_pred : array-like (device or host) shape = (n_samples,)
+      Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+      ndarray, cuda array interface compliant array like CuPy
+  labels_true : array-like (device or host) shape = (n_samples,)
+      Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+      ndarray, cuda array interface compliant array like CuPy
 
-	Returns
-	-------
-	float
-	  Precision Score, a non-negative value
-	"""
-	handle = Handle() if handle is None else handle
-	cdef handle_t *handle_ = <handle_t*> <size_t> handle.getHandle()
+  Returns
+  -------
+  float
+    Precision Score, a non-negative value
+  """
+  handle = Handle() if handle is None else handle
+  cdef handle_t *handle_ = <handle_t*> <size_t> handle.getHandle()
 
-	y_true, n_rows, _, dtype = input_to_cuml_array(
-	    labels_true,
-	    check_dtype=[cp.int32, cp.int64],
-	    check_cols=1,
-	    deepcopy=True  # deepcopy because we call make_monotonic inplace below
-	)
+  y_true, n_rows, _, dtype = input_to_cuml_array(
+    labels_true,
+    check_dtype=[cp.int32, cp.int64],
+    check_cols=1,
+    deepcopy=True  # deepcopy because we call make_monotonic inplace below
+  )
 
-	y_pred, _, _, _ = input_to_cuml_array(
-	    labels_pred,
-	    check_dtype=dtype,
-	    check_rows=n_rows,
-	    check_cols=1,
-	    deepcopy=True  # deepcopy because we call make_monotonic inplace below
-	)
+  y_pred, _, _, _ = input_to_cuml_array(
+    labels_pred,
+    check_dtype=dtype,
+    check_rows=n_rows,
+    check_cols=1,
+    deepcopy=True  # deepcopy because we call make_monotonic inplace below
+  )
 
-	classes = sorted_unique_labels(y_true, y_pred)
+  classes = sorted_unique_labels(y_true, y_pred)
 
-	make_monotonic(y_true, classes=classes, copy=False)
-	make_monotonic(y_pred, classes=classes, copy=False)
+  make_monotonic(y_true, classes=classes, copy=False)
+  make_monotonic(y_pred, classes=classes, copy=False)
 
-	cdef uintptr_t ground_truth_ptr = y_true.ptr
-	cdef uintptr_t preds_ptr = y_pred.ptr
+  cdef uintptr_t ground_truth_ptr = y_true.ptr
+  cdef uintptr_t preds_ptr = y_pred.ptr
 
-	lower_class_range = 0
-	upper_class_range = len(classes) - 1
+  lower_class_range = 0
+  upper_class_range = len(classes) - 1
 
-	# ERROR CHECKING HERE: only binary is currently supported
-	if upper_class_range - lower_class_range + 1 > 2:
-		raise ValueError("Only binary labels are currently supported.")
+  # ERROR CHECKING HERE: only binary is currently supported
+  if upper_class_range - lower_class_range + 1 > 2:
+    raise ValueError("Only binary labels are currently supported.")
 
-	precision = precision_score(handle_[0],
-								<int*> ground_truth_ptr,
-								<int*> preds_ptr,
-								<int> n_rows)
+  precision = precision_score(handle_[0],
+                              <int*> ground_truth_ptr, 
+                              <int*> preds_ptr,
+                              <int> n_rows)
 
-	return precision
+  return precision
 

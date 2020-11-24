@@ -22,7 +22,7 @@ from cuml.metrics.regression import mean_absolute_error
 from cuml.metrics.accuracy import accuracy_score
 from cuml.metrics.cluster.adjusted_rand_index import adjusted_rand_score
 from cuml.metrics._ranking import roc_auc_score
-# from cuml.metrics.precision_score import cython_precision_score as precision_score
+from cuml.metrics.precision_score import cython_precision_score as precision_score
 from cuml.metrics._ranking import precision_recall_curve
 from cuml.metrics._classification import log_loss
 from cuml.metrics.cluster.homogeneity_score import \

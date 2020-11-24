@@ -26,12 +26,12 @@ namespace MLCommon {
 namespace Metrics {
 
 /**
- * @brief kernel to calculate the precision score
+ * @brief kernel to calculate the precision score (currently only supporting binary class precision score)
  * @param gold: 1D array-like of ground truth class labels
  * @param pred: 1D array-like of predicted class labels
  * @param size: the size of array a and b
- * @param d_TP: pointer to the device memory that stores the aggregate TP count
- * @param d_FP: pointer to the device memory that stores the aggregate FP count
+ * @param d_TP: pointer to the device memory that stores the aggregate true positive count
+ * @param d_FP: pointer to the device memory that stores the aggregate false positive count
  */
 template <int BLOCK_DIM_X>
 __global__ void precision_score_kernel(const int *gold, const int *pred,
@@ -42,7 +42,7 @@ __global__ void precision_score_kernel(const int *gold, const int *pred,
   int localFP = 0;
   for (int i = idx; i < size; i += stride) {
   	if (pred[i] == 1) {
-      if gold[i] == 1 {
+      if (gold[i] == 1) {
         localTP++;
       } else {
         localFP++;
@@ -64,15 +64,15 @@ __global__ void precision_score_kernel(const int *gold, const int *pred,
 
   //executed once per block
   if (threadIdx.x == 0) {
-    raft::myAtomicAdd(d_TP, local_TP);
-    raft::myAtomicAdd(d_FP, local_FP);
+    raft::myAtomicAdd(d_TP, localTP);
+    raft::myAtomicAdd(d_FP, localFP);
   }
 }
 
 
-double precision_score(const int* y, const int* y_hat,
-											 int size, std::shared_ptr<MLCommon::deviceAllocator> allocator,
-											 cudaStream_t stream) {
+double precision_score(const int* y, const int* y_hat, int size,
+                       std::shared_ptr<MLCommon::deviceAllocator> allocator,
+                       cudaStream_t stream) {
   // TODO: multi-class precision_score
 
   //creating device buffers needed for precision_score calculation
@@ -88,22 +88,22 @@ double precision_score(const int* y, const int* y_hat,
 
   //allocate and copy data from host memory to device memory
   CUDA_CHECK(cudaMemcpyAsync(d_gold.data(), y, size * sizeof(int),
-          cudaMemcpyHostToDevice, stream));
+             cudaMemcpyHostToDevice, stream));
   CUDA_CHECK(cudaMemcpyAsync(d_pred.data(), y_hat, size * sizeof(int),
-          cudaMemcpyHostToDevice, stream));
+             cudaMemcpyHostToDevice, stream));
   CUDA_CHECK(cudaMemsetAsync(d_TP.data(), 0, sizeof(int), stream));
   CUDA_CHECK(cudaMemsetAsync(d_FP.data(), 0, sizeof(int), stream));
 
   //kernel configuration
   static const int BLOCK_DIM_X = 16;
   dim3 numThreadsPerBlock(BLOCK_DIM_X);
-  dim3 numBlocks(raft::ceildiv<int>(numUniqueClasses, numThreadsPerBlock.x))
+  dim3 numBlocks(raft::ceildiv<int>(2, numThreadsPerBlock.x));
 
   //calling the kernel
-  precision_score_kernel<T, BLOCK_DIM_X>
-  <<<numBlocks, numThreadsPerBlock, 0, stream>>>(
-    d_gold.data(), d_pred.data(), numUniqueClasses, size,
-    d_TP.data(), d_FP.data());
+  precision_score_kernel<BLOCK_DIM_X> 
+    <<<numBlocks, numThreadsPerBlock, 0, stream>>>(
+      d_gold.data(), d_pred.data(), size,
+      d_TP.data(), d_FP.data());
 
   //updating in the host memory
   raft::update_host(&h_TP, d_TP.data(), 1, stream);
@@ -111,7 +111,11 @@ double precision_score(const int* y, const int* y_hat,
 
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
-  return h_TP / (h_TP + h_FP)
+  double precision = 0;
+  if (h_TP + h_FP > 0) {
+    precision = h_TP / (h_TP + h_FP);
+  } 
+  return precision;
 }
 
 
