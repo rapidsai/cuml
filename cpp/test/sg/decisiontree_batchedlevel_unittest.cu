@@ -263,8 +263,7 @@ TEST_P(TestMetric, MSEGain) {
      *     prediction, colid, quesval, best_metric_val, left_child_id },
      *   }, start, count, depth
      * } */
-    {{1.40f, IdxT(-1), DataT(0), DataT(0), NodeT::Leaf}, 0, 5, 0}
-  };
+    {{1.40f, IdxT(-1), DataT(0), DataT(0), NodeT::Leaf}, 0, 5, 0}};
   raft::update_device(curr_nodes, h_nodes.data(), batchSize, 0);
 
   int n_blks_for_rows = 4;
@@ -280,33 +279,30 @@ TEST_P(TestMetric, MSEGain) {
   auto d_allocator = raft_handle->get_device_allocator();
 
   // mutex array used for atomically updating best split
-  int* mutex = static_cast<int*>(
-    d_allocator->allocate(sizeof(int) * max_batch, 0));
+  int* mutex =
+    static_cast<int*>(d_allocator->allocate(sizeof(int) * max_batch, 0));
   // threadblock arrival count
   int* done_count = static_cast<int*>(
     d_allocator->allocate(sizeof(int) * max_batch * n_col_blks, 0));
   DataT* pred = static_cast<DataT*>(
     d_allocator->allocate(2 * nPredCounts * sizeof(DataT), 0));
-  IdxT* pred_count = static_cast<IdxT*>(
-    d_allocator->allocate(nPredCounts * sizeof(IdxT), 0));
+  IdxT* pred_count =
+    static_cast<IdxT*>(d_allocator->allocate(nPredCounts * sizeof(IdxT), 0));
   CUDA_CHECK(cudaMemsetAsync(mutex, 0, sizeof(int) * max_batch, 0));
   CUDA_CHECK(
     cudaMemsetAsync(done_count, 0, sizeof(int) * max_batch * n_col_blks, 0));
-  CUDA_CHECK(
-    cudaMemsetAsync(pred, 0, 2 * sizeof(DataT) * nPredCounts, 0));
-  CUDA_CHECK(
-    cudaMemsetAsync(pred_count, 0, nPredCounts * sizeof(IdxT), 0));
+  CUDA_CHECK(cudaMemsetAsync(pred, 0, 2 * sizeof(DataT) * nPredCounts, 0));
+  CUDA_CHECK(cudaMemsetAsync(pred_count, 0, nPredCounts * sizeof(IdxT), 0));
   CUDA_CHECK(cudaMemsetAsync(n_new_leaves, 0, sizeof(IdxT), 0));
   initSplit<DataT, IdxT, Traits::TPB_DEFAULT>(splits, batchSize, 0);
 
   std::vector<Traits::SplitT> h_splits(1);
 
   computeSplitRegressionKernel<DataT, DataT, IdxT, Traits::TPB_DEFAULT>
-  <<<grid, Traits::TPB_DEFAULT, smemSize, 0>>>(
-    pred, nullptr, nullptr, pred_count, n_bins,
-    params.max_depth, params.min_samples_split, params.max_leaves,
-    input, curr_nodes, 0, done_count, mutex, n_new_leaves,
-    splits, nullptr, params.split_criterion);
+    <<<grid, Traits::TPB_DEFAULT, smemSize, 0>>>(
+      pred, nullptr, nullptr, pred_count, n_bins, params.max_depth,
+      params.min_samples_split, params.max_leaves, input, curr_nodes, 0,
+      done_count, mutex, n_new_leaves, splits, nullptr, params.split_criterion);
   raft::update_host(h_splits.data(), splits, 1, 0);
   CUDA_CHECK(cudaGetLastError());
   CUDA_CHECK(cudaStreamSynchronize(0));
@@ -337,17 +333,16 @@ TEST_P(TestMetric, MSEGain) {
       }
       return mse / idx.size();
     };
-    float gain = mse(h_labels, {0, 1, 2, 3, 4})
-      - 2.0f / 5.0f * mse(h_labels, {0, 4})
-      - 3.0f / 5.0f * mse(h_labels, {1, 2, 3});
+    float gain = mse(h_labels, {0, 1, 2, 3, 4}) -
+                 2.0f / 5.0f * mse(h_labels, {0, 4}) -
+                 3.0f / 5.0f * mse(h_labels, {1, 2, 3});
 
     EXPECT_FLOAT_EQ(h_splits[0].best_metric_val, gain);
   }
 }
 
-INSTANTIATE_TEST_SUITE_P(
-  BatchedLevelAlgoUnitTest, TestMetric,
-  ::testing::Values(NoOpParams{}));
+INSTANTIATE_TEST_SUITE_P(BatchedLevelAlgoUnitTest, TestMetric,
+                         ::testing::Values(NoOpParams{}));
 
 }  // namespace DecisionTree
 }  // namespace ML
