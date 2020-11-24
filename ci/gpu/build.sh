@@ -186,8 +186,11 @@ else
     patchelf --replace-needed `patchelf --print-needed ./test/ml | grep faiss` libfaiss.so ./test/ml
     GTEST_OUTPUT="xml:${WORKSPACE}/test-results/libcuml_cpp/" ./test/ml
 
-    gpuci_logger "Installing libcuml"
-    conda install -c $WORKSPACE/ci/artifacts/cuml/cpu/conda-bld/ libcuml
+    CONDA_FILE=`find $WORKSPACE/ci/artifacts/cuml/cpu/conda-bld/ -name "libcuml*.tar.bz2"`
+    CONDA_FILE=`basename "$CONDA_FILE" .tar.bz2` #get filename without extension
+    CONDA_FILE=${CONDA_FILE//-/=} #convert to conda install
+    gpuci_logger "Installing $CONDA_FILE"
+    conda install -c $WORKSPACE/ci/artifacts/cuml/cpu/conda-bld/ "$CONDA_FILE"
         
     gpuci_logger "Building cuml"
     "$WORKSPACE/build.sh" -v cuml --codecov
