@@ -26,7 +26,6 @@ from cuml.common.input_utils import input_to_cupy_array
 from cuml.common.logger import info
 from cuml.common.logger import warn
 from cuml.experimental.explainer.base import SHAPBase
-from cuml.experimental.explainer.common import link_dict
 from cuml.experimental.explainer.common import get_cai_ptr
 from cuml.experimental.explainer.common import model_func_call
 from cuml.linear_model import Lasso
@@ -252,8 +251,7 @@ class KernelExplainer(SHAPBase):
             cp.mean(
                 model_func_call(X=self.background,
                                 model_func=self.model,
-                                model_gpu_based=self.model_gpu_based,
-                                cuml_output_type='cupy')
+                                model_gpu_based=self.model_gpu_based)
             )
         )
 
@@ -333,9 +331,9 @@ class KernelExplainer(SHAPBase):
         array or list
 
         """
-        if has_shap():
+        if has_shap("0.36"):
             warn("SHAP's Explanation object is still experimental, the main "
-                 "API currently is ``explainer.shap_values``.")
+                 "API currently is `explainer.shap_values`.")
             from shap import Explanation
             res = self._explain(X, l1_reg)
             out = Explanation(
@@ -346,9 +344,10 @@ class KernelExplainer(SHAPBase):
             )
             return out
         else:
-            raise ImportError("SHAP package required to build Explanation "
-                              "object. Use the explainer.shap_values "
-                              "function to get the shap values, or install "
+            raise ImportError("SHAP >= 0.36 package required to build "
+                              "Explanation object. Use the "
+                              "`explainer.shap_values` function to get "
+                              "the shap values, or install "
                               "SHAP to use the new API style.")
 
     @cuml.internals.api_return_array()
@@ -386,8 +385,7 @@ class KernelExplainer(SHAPBase):
         self.fx = cp.array(
             model_func_call(X=row,
                             model_func=self.model,
-                            model_gpu_based=self.model_gpu_based,
-                            cuml_output_type='cupy'))
+                            model_gpu_based=self.model_gpu_based))
 
         # If we need sampled rows, then we call the function that generates
         # the samples array with how many samples each row will have
@@ -451,8 +449,7 @@ class KernelExplainer(SHAPBase):
         # evaluate model on combinations
         y = model_func_call(X=self._synth_data,
                             model_func=self.model,
-                            model_gpu_based=self.model_gpu_based,
-                            cuml_output_type='cupy')
+                            model_gpu_based=self.model_gpu_based)
 
         # get average of each combination of X
         y_hat = cp.mean(

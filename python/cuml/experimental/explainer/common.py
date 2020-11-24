@@ -39,7 +39,7 @@ def get_tag_from_model_func(func, tag, default=None):
     )
 
     if tags_fn is not None:
-        tag_value = tags_fn.get(tag)
+        tag_value = tags_fn().get(tag)
         result = tag_value if tag_value is not None else default
 
         return result
@@ -67,7 +67,7 @@ def get_handle_from_cuml_model_func(func, create_new=False):
         handle = owner.handle
 
     else:
-        handle = cuml.raft.common.handle.Handle() if create_new else handle
+        handle = cuml.raft.common.handle.Handle() if create_new else None
 
     return handle
 
@@ -99,23 +99,22 @@ def get_dtype_from_model_func(func, default=None):
 
 def model_func_call(X,
                     model_func,
-                    model_gpu_based=False,
-                    cuml_output_type='cupy'):
+                    model_gpu_based=False):
     """
     Function to call `model_func(X)` using either `NumPy` arrays if
-    model_gpu_based is False and returning as CuPy, else call model_func
-    directly with `X` and return as `cuml_output_type`
+    model_gpu_based is False or X directly if model_gpu based is True.
+    Returns the results as CuPy arrays.
     """
     if model_gpu_based:
         # Even if the gpu model is not cuml proper, this call has no
         # negative side effects
-        with cuml.using_output_type(cuml_output_type):
-            y = model_func(X)
+        with cuml.using_output_type('cupy'):
+            y = cp.asarray(model_func(X))
     else:
         try:
             y = cp.array(model_func(
-                X.to_output('numpy'))
-            )
+                cp.asnumpy(X)
+            ))
         except TypeError:
             raise TypeError('Explainer can only explain models that can '
                             'take GPU data or NumPy arrays as input.')
@@ -124,19 +123,23 @@ def model_func_call(X,
 
 
 def get_cai_ptr(X):
+    """
+    Function gets the pointer from an object that supports the
+    __cuda_array_interface__. Raises TypeError if `X` does not support it.
+    """
     if hasattr(X, '__cuda_array_interface__'):
         return X.__cuda_array_interface__['data'][0]
     else:
         raise TypeError("X must support `__cuda_array_interface__`")
 
 
-def get_link_fn_from_str(link):
+def get_link_fn_from_str_or_fn(link):
     if isinstance(link, str):
         if link in link_dict:
             link_fn = link_dict[link]
         else:
-            return ValueError("'link' string does not identify any known"
-                              " link functions. ")
+            raise ValueError("'link' string does not identify any known"
+                             " link functions. ")
     elif callable(link):
         if callable(getattr(link, "inverse", None)):
             link_fn = link

@@ -35,7 +35,7 @@ import pandas
 import cuml.common.logger as logger
 from cuml.experimental.explainer.common import get_dtype_from_model_func
 from cuml.experimental.explainer.common import get_handle_from_cuml_model_func
-from cuml.experimental.explainer.common import get_link_fn_from_str
+from cuml.experimental.explainer.common import get_link_fn_from_str_or_fn
 from cuml.experimental.explainer.common import get_tag_from_model_func
 from cuml.common.input_utils import input_to_cupy_array
 
@@ -123,7 +123,7 @@ class SHAPBase():
             self.order = order
 
         self.link = link
-        self.link_fn = get_link_fn_from_str(link)
+        self.link_fn = get_link_fn_from_str_or_fn(link)
         self.model = model
         if gpu_model is None:
             # todo: when sparse support is added, use this tag to see if

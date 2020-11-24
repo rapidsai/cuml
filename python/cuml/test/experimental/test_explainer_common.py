@@ -14,16 +14,25 @@
 # limitations under the License.
 #
 
+import cuml
+import cupy as cp
 import numpy as np
 import pytest
 
 from cuml import LinearRegression as reg
+from cuml.experimental.explainer.common import get_cai_ptr
 from cuml.experimental.explainer.common import get_dtype_from_model_func
+from cuml.experimental.explainer.common import get_handle_from_cuml_model_func
+from cuml.experimental.explainer.common import get_link_fn_from_str_or_fn
 from cuml.experimental.explainer.common import get_tag_from_model_func
-from sklearn.datasets import make_regression
-# todo: uncomment after PR 3113 is merged
-# from cuml.common.base import _default_tags
+from cuml.experimental.explainer.common import link_dict
+from cuml.experimental.explainer.common import model_func_call
+from cuml.test.utils import ClassEnumerator
+from cuml.datasets import make_regression
 
+
+models_config = ClassEnumerator(module=cuml)
+models = models_config.get_models()
 
 _default_tags = [
     'preferred_input_order',
@@ -50,12 +59,9 @@ _default_tags = [
 
 def test_get_dtype_from_model_func():
     X, y = make_regression(n_samples=81, n_features=10, noise=0.1,
-                           random_state=42)
+                           random_state=42, dtype=np.float32)
 
     # checking model with float32 dtype
-    X = X.astype(np.float32)
-    y = y.astype(np.float32)
-
     model_f32 = reg().fit(X, y)
 
     assert get_dtype_from_model_func(model_f32.predict) == np.float32
@@ -81,11 +87,7 @@ def test_get_dtype_from_model_func():
 
 
 def test_get_gpu_tag_from_model_func():
-    pytest.skip("Skipped until tags PR "
-                "https://github.com/rapidsai/cuml/pull/3113 is merged")
-
-    # testing getting the gpu tags from the model that we use in explainers
-
+    # test getting the gpu tags from the model that we use in explainers
     model = reg()
 
     order = get_tag_from_model_func(func=model.predict,
@@ -102,9 +104,6 @@ def test_get_gpu_tag_from_model_func():
     assert '2darray' in out_types
 
     # checking arbitrary function
-    def dummy_func(x):
-        return x + x
-
     order = get_tag_from_model_func(func=dummy_func,
                                     tag='preferred_input_order',
                                     default='C')
@@ -118,15 +117,118 @@ def test_get_gpu_tag_from_model_func():
     assert out_types is False
 
 
-@pytest.mark.parametrize("tag", list(_default_tags))
-def test_get_tag_from_model_func(tag):
-    pytest.skip("Skipped until tags PR "
-                "https://github.com/rapidsai/cuml/pull/3113 is merged")
+@pytest.mark.parametrize("model", list(models.values()))
+def test_get_tag_from_model_func(model):
+    mod = create_dummy_model(model)
 
-    model = reg()
+    for tag in _default_tags:
+        res = get_tag_from_model_func(func=mod.get_param_names,
+                                      tag=tag,
+                                      default='FFF')
 
-    res = get_tag_from_model_func(func=model.predict,
-                                  tag='preferred_input_order',
-                                  default='FFF')
+        if tag != 'preferred_input_order':
+            assert res != 'FFF'
 
-    assert res != 'FFF'
+
+@pytest.mark.parametrize("model", list(models.values()))
+def test_get_handle_from_cuml_model_func(model):
+    mod = create_dummy_model(model)
+
+    handle = get_handle_from_cuml_model_func(mod.get_param_names,
+                                             create_new=False)
+
+    # Naive Bayes does not use a handle currently
+    if model != cuml.naive_bayes.naive_bayes.MultinomialNB:
+        assert isinstance(handle, cuml.raft.common.handle.Handle)
+
+
+@pytest.mark.parametrize("create_new", [True, False])
+def test_get_handle_from_dummy_func(create_new):
+    handle = get_handle_from_cuml_model_func(dummy_func,
+                                             create_new=create_new)
+
+    res = isinstance(handle, cuml.raft.common.handle.Handle)
+
+    assert res == create_new
+
+
+def test_model_func_call_gpu():
+    X, y = make_regression(n_samples=81, n_features=10, noise=0.1,
+                           random_state=42, dtype=np.float32)
+
+    model = reg().fit(X, y)
+
+    z = model_func_call(X=X,
+                        model_func=model.predict,
+                        model_gpu_based=True)
+
+    assert isinstance(z, cp.ndarray)
+
+    z = model_func_call(X=cp.asnumpy(X),
+                        model_func=dummy_func,
+                        model_gpu_based=False)
+
+    assert isinstance(z, cp.ndarray)
+
+    with pytest.raises(TypeError):
+        z = model_func_call(X=X,
+                            model_func=dummy_func,
+                            model_gpu_based=True)
+
+
+def test_get_cai_ptr():
+    a = cp.ones(10)
+    ptr = get_cai_ptr(a)
+
+    assert ptr == a.__cuda_array_interface__['data'][0]
+
+    b = np.ones(10)
+    with pytest.raises(TypeError):
+        ptr = get_cai_ptr(b)
+
+
+@pytest.mark.parametrize("link_function", ['identity', 'logit'])
+def test_get_link_fn_from_str(link_function):
+    fn = get_link_fn_from_str_or_fn(link_function)
+    a = cp.ones(10)
+
+    assert cp.all(fn(a) == link_dict[link_function](a))
+    assert cp.all(fn.inverse(a) == link_dict[link_function].inverse(a))
+
+
+def test_get_link_fn_from_wrong_str():
+    with pytest.raises(ValueError):
+        get_link_fn_from_str_or_fn('this_is_wrong')
+
+
+def test_get_link_fn_from_fn():
+    def dummylink(x):
+        return 2 * x
+
+    # check we raise error if link has no inverse
+    with pytest.raises(TypeError):
+        get_link_fn_from_str_or_fn(dummylink)
+
+    def dummylink_inv(x):
+        return x / 2
+
+    dummylink.inverse = dummylink_inv
+
+    fn = get_link_fn_from_str_or_fn(dummylink)
+
+    assert fn(2) == 4
+    assert fn.inverse(2) == 1
+
+
+def create_dummy_model(model):
+    try:
+        mod = model()
+    except TypeError:
+        mod = model(np.zeros(10))
+    return mod
+
+
+def dummy_func(x):
+    if not isinstance(x, np.ndarray):
+        raise TypeError("x must be a NumPy array")
+    return np.mean(x)
