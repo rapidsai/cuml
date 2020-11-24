@@ -377,9 +377,8 @@ def test_output_storage_type(storage_type, small_classifier_and_preds):
 
 
 @pytest.mark.skipif(has_xgboost() is False, reason="need to install xgboost")
-@pytest.mark.parametrize('storage_type',
-                         ['dense', 'sparse', 'sparse8'])
-@pytest.mark.parametrize('blocks_per_sm', [0, 1, 2, 3, 4])
+@pytest.mark.parametrize('storage_type', ['dense', 'sparse'])
+@pytest.mark.parametrize('blocks_per_sm', [1, 2, 3, 4])
 def test_output_blocks_per_sm(storage_type, blocks_per_sm,
                               small_classifier_and_preds):
     model_path, X, xgb_preds = small_classifier_and_preds
