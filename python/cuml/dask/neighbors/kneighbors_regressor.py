@@ -199,11 +199,13 @@ class KNeighborsRegressor(NearestNeighbors):
         comms.destroy()
 
         out = to_output(out_futures, self.datatype).squeeze()
-        out_i = to_output(out_i_futures, self.datatype)
-        out_d = to_output(out_d_futures, self.datatype)
+
+        out_i = to_output(out_i_futures, self.datatype)  # noqa: F841
+        out_d = to_output(out_d_futures, self.datatype)  # noqa: F841
 
         # Returning predictions only to conform with Scikit-Learn behavior
-        # Complete removal of indices and distances will be effective in a further release
+        # Complete removal of indices and distances will be effective
+        # in a future release
         return out
 
     def score(self, X, y):
