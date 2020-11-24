@@ -1,6 +1,7 @@
 # cuML 0.17.0 (Date TBD)
 
 ## New Features
+- PR #3164: Expose silhouette score in Python
 - PR #2659: Add initial max inner product sparse knn
 - PR #2836: Refactor UMAP to accept sparse inputs
 
@@ -35,13 +36,16 @@
 - PR #3135: Add QuasiNewton tests
 - PR #3040: Improved Array Conversion with CumlArrayDescriptor and Decorators
 - PR #3134: Improving the Deprecation Message Formatting in Documentation
+- PR #3151: MNMG Logistic Regression via dask-glm
 - PR #3113: Add tags and prefered memory order tags to estimators
 - PR #3137: Reorganize Pytest Config and Add Quick Run Option
 - PR #3144: Adding Ability to Set Arbitrary Cmake Flags in ./build.sh
 - PR #3155: Eliminate unnecessary warnings from random projection test
+- PR #3176: Add probabilistic SVM tests with various input array types
 - PR #3180: FIL: `blocks_per_sm` support in Python
 
 ## Bug Fixes
+- PR #3179: Remove unused metrics.cu file
 - PR #3069: Prevent conversion of DataFrames to Series in preprocessing
 - PR #3065: Refactoring prims metrics function names from camelcase to underscore format
 - PR #3033: Splitting ml metrics to individual files
@@ -69,9 +73,10 @@
 - PR #3152: Fix access to attributes of individual NB objects in dask NB
 - PR #3156: Force local conda artifact install
 - PR #3162: Removing accidentally checked in debug file
+- PR #3175: Fix gtest pinned cmake version for build from source option
 
 
-# cuML 0.16.0 (Date TBD)
+# cuML 0.16.0 (23 Oct 2020)
 
 ## New Features
 - PR #2922: Install RAFT headers with cuML
@@ -174,7 +179,8 @@
 - PR #2984: Fix GPU test scripts gcov error
 - PR #2990: Reduce MNMG kneighbors regressor test threshold
 - PR #2997: Changing ARIMA `get/set_params` to `get/set_fit_params`
-# cuML 0.15.0 (Date TBD)
+
+# cuML 0.15.0 (26 Aug 2020)
 
 ## New Features
 - PR #2581: Added model persistence via joblib in each section of estimator_intro.ipynb
