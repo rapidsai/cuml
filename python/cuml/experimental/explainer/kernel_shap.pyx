@@ -14,11 +14,11 @@
 # limitations under the License.
 #
 
-
+import cudf.DataFrame
 import cupy as cp
 import numpy as np
+import pandas.DataFrame
 
-from cudf import DataFrame as cu_df
 from cuml.common.array import CumlArray
 from cuml.common.import_utils import has_scipy
 from cuml.common.import_utils import has_shap
@@ -27,15 +27,12 @@ from cuml.common.input_utils import input_to_cuml_array
 from cuml.common.input_utils import input_to_cupy_array
 from cuml.common.logger import info
 from cuml.common.logger import warn
-from cuml.experimental.explainer.common import get_dtype_from_model_func
-from cuml.experimental.explainer.common import get_link_fn_from_str
-from cuml.experimental.explainer.common import get_tag_from_model_func
+from cuml.experimental.explainer.base import SHAPBase
 from cuml.experimental.explainer.common import link_dict
 from cuml.experimental.explainer.common import model_call
 from cuml.linear_model import Lasso
 from cuml.raft.common.handle import Handle
 from functools import lru_cache
-from pandas import DataFrame as pd_df
 from itertools import combinations
 from random import randint
 
@@ -76,9 +73,10 @@ cdef extern from "cuml/explainer/kernel_shap.hpp" namespace "ML":
         uint64_t seed)
 
 
-class KernelExplainer():
+class KernelExplainer(SHAPBase):
     """
-    GPU accelerated of SHAP's kernel explainer:
+    GPU accelerated of SHAP's kernel explainer, optimized for tabular data.
+    Based on the SHAP package:
     https://github.com/slundberg/shap/blob/master/shap/explainers/_kernel.py
 
     Main differences of the GPU version:
@@ -86,43 +84,45 @@ class KernelExplainer():
     - Data generation and Kernel SHAP calculations are significantly faster,
     but this has a tradeoff of having more model evaluations if both the
     observation explained and the background data have many 0-valued columns.
-    - There is an initialization cost (similar to training time of regular
+    - There is a small initialization cost (similar to training time of regular
     Scikit/cuML models), which was a tradeoff for faster explanations after
     that.
     - Only tabular data is supported for now, via passing the background
     dataset explicitly. Since the new API of SHAP is still evolving, the main
     supported API right now is the old one
-    (i.e. explainer.shap_values())
+    (i.e. ``explainer.shap_values()``)
     - Sparse data support is not yet implemented.
     - Further optimizations are in progress.
 
     Parameters
     ----------
     model : function
-        A callable python object that executes the model given a set of input
-        data samples.
+        Function that takes a matrix of samples (n_samples, n_features) and
+        computes the output for those samples with shape (n_samples). Function
+        must use either CuPy or NumPy arrays as input/output.
     data : Dense matrix containing floats or doubles.
         cuML's kernel SHAP supports tabular data for now, so it expects
-        a background dataset, as opposed to a shap.masker object. To respect
-        a hierarchical structure of the data, use the (temporary) parameter
-        'masker_type'
+        a background dataset, as opposed to a shap.masker object.
+        The background dataset to use for integrating out features.
+        To determine the impact of a feature, that feature is set to "missing"
+        and the change in the model output is observed.
         Acceptable formats: CUDA array interface compliant objects like
         CuPy, cuDF DataFrame/Series, NumPy ndarray and Pandas
         DataFrame/Series.
-    nsamples : int
-        Number of samples to use to estimate shap values.
-    masker_type: {'independent', 'partition'} default = 'independent'
-        If 'independent' is used, then this is equivalent to SHAP's
-        independent masker and the algorithm is fully GPU accelerated.
-        If 'partition' then it is equivalent to SHAP's Partition masker,
-        which respects a hierarchical structure in the background data.
+    nsamples : int (default = 2 * data.shape[1] + 2048)
+        Number of times to re-evaluate the model when explaining each
+        prediction. More samples lead to lower variance estimates of the SHAP
+        values. The "auto" setting uses `nsamples = 2 * X.shape[1] + 2048`.
     link : function or str
         The link function used to map between the output units of the
         model and the SHAP value units.
-    random_state: int, RandomState instance or None (default)
+    random_state: int, RandomState instance or None (default = None)
         Seed for the random number generator for dataset creation.
     gpu_model : bool
-
+        If Nonse Explainer will try to infer whether `model` can take GPU data
+        (as CuPy arrays), otherwise it will use NumPy arrays to call `model`.
+        Set to True to force the explainer to use GPU data,  set to False to
+        force the Explainer to use NumPy data.
     handle : cuml.raft.common.handle
         Specifies the handle that holds internal CUDA state for
         computations in this model. Most importantly, this specifies the CUDA
@@ -130,16 +130,53 @@ class KernelExplainer():
         run different models concurrently in different streams by creating
         handles in several streams.
         If it is None, a new one is created.
-    dtype : np.float32 or np.float64 (default=None)
+    dtype : np.float32 or np.float64 (default = None)
         Parameter to specify the precision of data to generate to call the
         model. If not specified, the explainer will try to get the dtype
         of the model, if it cannot be queried, then it will defaul to
         np.float32.
-    output_type : 'cupy' or 'numpy' (default:None)
+    output_type : 'cupy' or 'numpy' (default = None)
         Parameter to specify the type of data to output.
         If not specified, the explainer will try to see if model is gpu based,
-        if so it will default to `cupy`, otherwise it will default to `numpy`.
+        if so it will be set to `cupy`, otherwise it will be set to `numpy`.
         For compatibility with SHAP's graphing libraries, specify `numpy`.
+
+    Examples
+    --------
+
+    >>> from cuml import SVR
+    >>> from cuml import make_regression
+    >>> from cuml import train_test_split
+    >>>
+    >>> from cuml.experimental.explainer import KernelExplainer as cuKE
+    >>>
+    >>> X, y = make_regression(
+    ...     n_samples=102,
+    ...     n_features=10,
+    ...     noise=0.1,
+    ...     random_state=42)
+
+    >>>
+    >>> X_train, X_test, y_train, y_test = train_test_split(
+    ...     X,
+    ...     y,
+    ...     test_size=2,
+    ...     random_state=42)
+    >>>
+    >>> model = SVR().fit(X_train, y_train)
+    >>>
+    >>> cu_explainer = cuKE(
+    ...     model=model.predict,
+    ...     data=X_train,
+    ...     gpu_model=True)
+    >>>
+    >>> cu_shap_values = cu_explainer.shap_values(X_test)
+    >>> cu_shap_values
+    array([[ 0.02104662, -0.03674018, -0.01316485,  0.02408933, -0.5943235 ,
+             0.15274985, -0.01287319, -0.3050412 ,  0.0262317 , -0.07229283],
+           [ 0.15244992,  0.16341315, -0.09833339,  0.07259235, -0.17099564,
+             2.7372282 ,  0.0998467 , -0.29607034, -0.11780564, -0.50097287]],
+          dtype=float32)
 
     """
 
@@ -155,53 +192,42 @@ class KernelExplainer():
                  dtype=None,
                  output_type=None):
 
-        self.handle = Handle() if handle is None else handle
+        super(KernelExplainer, self).__init__(
+            model=model,
+            data=data,
+            order='C',
+            link=link,
+            verbosity=verbosity,
+            random_state=random_state,
+            gpu_model=gpu_model,
+            handle=handle,
+            dtype=dtype,
+            output_type=output_type
+        )
 
-        self.link = link
-        self.link_fn = get_link_fn_from_str(link)
-        self.model = model
-        self.order = get_tag_from_model_func(func=model,
-                                             tag='preferred_input_order',
-                                             default='C')
-        if gpu_model is None:
-            # todo: when sparse support is added, use this tag to see if
-            # model can accept sparse data
-            self.model_gpu_based = \
-                get_tag_from_model_func(func=model,
-                                        tag='X_types_gpu',
-                                        default=False) is not None
-        else:
-            self.model_gpu_based = gpu_model
+        # Matching SHAP package default values for number of samples
+        self.nsamples = 2 * self.M + 2 ** 11 if nsamples is None else nsamples
 
-        if output_type is None:
-            self.output_type = 'cupy' if self.model_gpu_based else 'numpy'
-        else:
-            self.output_type = output_type
+        # Maximum number of samples that user can set
+        max_samples = 2 ** 32
 
-        # if not dtype is specified, we try to get it from the model
-        if dtype is None:
-            self.dtype = get_dtype_from_model_func(func=model,
-                                                   default=np.float32)
-        else:
-            self.dtype = np.dtype(dtype)
+        # restricting maximum number of samples
+        if self.M <= 32:
+            max_samples = 2 ** self.M - 2
 
-        self.background, self.N, self.M, _ = \
-            input_to_cupy_array(data, order='C',
-                                convert_to_dtype=self.dtype)
+            # if the user requested more samples than there are subsets in the
+            # _powerset, we set nsamples to max_samples
+            if self.nsamples > max_samples:
+                warn("`nsamples` exceeds maximum number of samples {}, "
+                     "setting it to that value.")
+                self.nsamples = max_samples
 
-        self.nsamples = 2 * self.M + 2 ** 12 if nsamples is None else nsamples
+        # Check the ratio between samples we evaluate divided by
+        # all possible samples to check for need for l1
+        self.ratio_evaluated = self.nsamples / max_samples
 
-        self.max_samples = 2 ** 30
-
-        # restricting maximum number of samples for memory and performance
-        # value being checked, right now based on mainline SHAP package
-        self.max_samples = 2 ** 30
-        if self.M <= 30:
-            self.max_samples = 2 ** self.M - 2
-            if self.nsamples > self.max_samples:
-                self.nsamples = self.max_samples
-
-        if isinstance(data, pd_df) or isinstance(data, cu_df):
+        if isinstance(data, pandas.DataFrame) or isinstance(data,
+                                                            cudf.DataFrame):
             self.feature_names = data.columns.to_list()
         else:
             self.feature_names = [None for _ in range(len(data))]
@@ -210,12 +236,12 @@ class KernelExplainer():
         self.nsamples_exact = 0
         r = 0
 
-        # we check how many subsets of the powerset of self.M we can fit
+        # we check how many subsets of the _powerset of self.M we can fit
         # in self.nsamples
         while cur_nsamples <= self.nsamples:
             r += 1
             self.nsamples_exact = cur_nsamples
-            cur_nsamples += int(binomCoef(self.M, r))
+            cur_nsamples += int(_binomCoef(self.M, r))
 
         # see if we need to have randomly sampled entries in our mask
         # and combinations matrices
@@ -225,12 +251,13 @@ class KernelExplainer():
         # we save r so we can generate random samples later
         self.randind = r
 
-        # using numpy powerset and calculations for initial version
+        # using numpy for powerset and shapley kernel weight calculations
         # cost is incurred only once, and generally we only generate
-        # very few samples if M is big.
-        mat, weight = powerset(self.M, r - 1, self.nsamples_exact,
-                               dtype=self.dtype)
+        # very few samples of the powerset if M is big.
+        mat, weight = _powerset(self.M, r - 1, self.nsamples_exact,
+                                dtype=self.dtype)
 
+        # Store the mask and weights as device arrays
         self.mask = cp.zeros((self.nsamples, self.M), dtype=np.float32)
         self.mask[:self.nsamples_exact] = cp.array(mat)
 
@@ -239,25 +266,96 @@ class KernelExplainer():
 
         self.synth_data = None
 
-        self.expected_value = self.link_fn(cp.mean(model(self.background)))
+        # evaluate the model in background to get the expected_value
+        self.expected_value = self.link_fn(
+            cp.mean(
+                model_call(X=self.background,
+                           model=self.model,
+                           model_gpu_based=self.model_gpu_based)
+            )
+        )
 
         self.random_state = random_state
 
-    def explain(self,
-                X,
-                nsamples=None,
-                l1_reg='auto'):
-        shap_values = cp.zeros((1, self.M), dtype=self.dtype)
+    def shap_values(self, X, l1_reg='auto'):
+        """
+        Interface to estimate the SHAP values for a set of samples.
+        Corresponds to the SHAP package's legacy interface, and is our main
+        API currently.
 
+        Parameters
+        ----------
+        X : Dense matrix containing floats or doubles.
+            Acceptable formats: CUDA array interface compliant objects like
+            CuPy, cuDF DataFrame/Series, NumPy ndarray and Pandas
+            DataFrame/Series.
+        l1_reg : str (default: 'auto')
+            The l1 regularization to use for feature selection.
+
+        Returns
+        -------
+        array or list
+
+        """
+        return self._explain(X, l1_reg)
+
+    def __call__(self,
+                 X,
+                 l1_reg='auto'):
+        """
+        Experimental interface to estimate the SHAP values for a set of
+        samples.
+        Corresponds to the SHAP package's new API, building a SHAP.Explanation
+        object for the result. It is experimental, it is recommended to use
+        `Explainer.shap_values` during the first version.
+
+        Parameters
+        ----------
+        X : Dense matrix containing floats or doubles.
+            Acceptable formats: CUDA array interface compliant objects like
+            CuPy, cuDF DataFrame/Series, NumPy ndarray and Pandas
+            DataFrame/Series.
+        l1_reg : str (default: 'auto')
+            The l1 regularization to use for feature selection.
+
+        Returns
+        -------
+        array or list
+
+        """
+        if has_shap():
+            warn("SHAP's Explanation object is still experimental, the main "
+                 "API currently is ``explainer.shap_values``.")
+            from shap import Explanation
+            res = self._explain(X, l1_reg)
+            out = Explanation(
+                values=res,
+                base_values=self.expected_value,
+                data=self.background,
+                feature_names=self.feature_names,
+            )
+            return out
+        else:
+            raise ImportError("SHAP package required to build Explanation "
+                              "object. Use the explainer.shap_values "
+                              "function to get the shap values, or install "
+                              "SHAP to use the new API style.")
+
+    def _explain(self,
+                 X,
+                 nsamples=None,
+                 l1_reg='auto'):
         if X.ndim == 1:
             X = X.reshape((1, self.M))
+
+        shap_values = cp.zeros(X.shape, dtype=self.dtype)
 
         # allocating combinations array once for multiple explanations
         if self.synth_data is None:
             self.synth_data = cp.zeros(
                 shape=(self.N * self.nsamples, self.M),
                 dtype=np.float32,
-                order='C'
+                order=self.order
             )
 
         idx = 0
@@ -265,6 +363,7 @@ class KernelExplainer():
             shap_values[idx] = self._explain_single_observation(
                 x.reshape(1, self.M), l1_reg
             )
+            idx = idx + 1
 
         if isinstance(X, np.ndarray):
             out_type = 'numpy'
@@ -349,16 +448,44 @@ class KernelExplainer():
             axis=1
         )
 
-        nonzero_inds = None
+        nonzero_inds = self._l1_regularization(y_hat, l1_reg)
 
+        return self._weighted_linear_regression(y_hat, nonzero_inds)
+
+    def _generate_number_samples_weights(self):
+        """
+        Function generates an array `samples` of ints of samples and their
+        weights that can be used for generating X and dataset.
+        """
+        samples = np.random.choice(np.arange(self.randind,
+                                             self.randind + 2),
+                                   self.nsamples_random)
+        maxsample = np.max(samples)
+        w = np.empty(self.nsamples_random, dtype=np.float32)
+        for i in range(self.nsamples_exact, self.nsamples_random):
+            w[i] = shapley_kernel(self.M, samples[i])
+        samples = cp.array(samples, dtype=np.int32)
+        w = cp.array(w)
+        return samples, w
+
+    def _l1_regularization(self, y_hat, l1_reg):
+        """
+        Function calls LASSO or LARS if l1 regularization is needed.
+        """
+        nonzero_inds = None
         # call lasso/lars if needed
         if l1_reg == 'auto':
-            if self.nsamples / self.max_samples < 0.2:
+            if self.ratio_evaluated < 0.2:
                 # todo: analyze ideal alpha if staying with lasso or switch
                 # to cuml lars once that is merged
                 nonzero_inds = cp.nonzero(
-                    Lasso(alpha=0.25).fit(self.mask, y_hat).coef_
-                )[0]
+                    Lasso(
+                        alpha=0.1,
+                        handle=self.handle,
+                        verbosity=self.verbosity).fit(
+                            X=self.mask,
+                            y=y_hat
+                    ).coef_)[0]
                 if len(nonzero_inds) == 0:
                     return cp.zeros(self.M), np.ones(self.M)
 
@@ -381,89 +508,36 @@ class KernelExplainer():
                     nonzero_inds = np.nonzero(
                         LassoLarsIC(criterion=l1_reg).fit(self.mask,
                                                           y_hat).coef_)[0]
-
-        return self._weighted_linear_regression(y_hat, nonzero_inds)
-
-    def _generate_number_samples_weights(self):
-        """
-        Function generates an array `samples` of ints of samples and their
-        weights that can be used for generating X and dataset.
-        """
-        samples = np.random.choice(np.arange(self.randind,
-                                             self.randind + 3),
-                                   self.nsamples_random)
-        maxsample = np.max(samples)
-        w = np.empty(self.nsamples_random, dtype=np.float32)
-        for i in range(self.nsamples_exact, self.nsamples_random):
-            w[i] = shapley_kernel(self.M, samples[i])
-        samples = cp.array(samples, dtype=np.int32)
-        w = cp.array(w)
-        return samples, w
+        return nonzero_inds
 
     def _weighted_linear_regression(self, y_hat, nonzero_inds=None):
+        """
+        Function performs weighted linear regression, the shap values
+        are the coefficients.
+        """
         if nonzero_inds is None:
             y_hat = y_hat - self.expected_value
-
             Aw = self.mask * cp.sqrt(self.weights[:, cp.newaxis])
             Bw = y_hat * cp.sqrt(self.weights)
-            X, *_ = cp.linalg.lstsq(Aw, Bw)
 
-            return X
         else:
             y_hat = y_hat[nonzero_inds] - self.expected_value
+
             Aw = self.mask[nonzero_inds] * cp.sqrt(
                 self.weights[nonzero_inds, cp.newaxis]
             )
+
             Bw = y_hat * cp.sqrt(self.weights[nonzero_inds])
-            X, *_ = cp.linalg.lstsq(Aw, Bw)
 
-            return X
-
-    def shap_values(self, X, l1_reg='auto'):
-        """
-        Legacy interface to estimate the SHAP values for a set of samples.
-
-        Parameters
-        ----------
-        X : Dense matrix containing floats or doubles.
-            Acceptable formats: CUDA array interface compliant objects like
-            CuPy, cuDF DataFrame/Series, NumPy ndarray and Pandas
-            DataFrame/Series.
-        l1_reg : str (default: 'auto')
-            The l1 regularization to use for feature selection.
-
-        Returns
-        -------
-        array or list
-
-        """
-        return self.explain(X, l1_reg)
-
-    def __call__(self,
-                 X,
-                 l1_reg='auto'):
-        if has_shap():
-            warn("SHAP's Explanation object is still experimental, the main "
-                 "API currently is 'explainer.shap_values'.")
-            from shap import Explanation
-            res = self.explain(X, l1_reg)
-            out = Explanation(
-                values=res,
-                base_values=self.expected_value,
-                base_values=self.expected_value,
-                data=self.background,
-                feature_names=self.feature_names,
-            )
-            return out
-        else:
-            raise ImportError("SHAP package required to build Explanation "
-                              "object. Use the explainer.shap_values "
-                              "function to get the shap values, or install "
-                              "SHAP to use the new API style.")
+        X, *_ = cp.linalg.lstsq(Aw, Bw)
+        return X
 
 
 @lru_cache(maxsize=None)
-def binomCoef(n, k):
+def _binomCoef(n, k):
+    """
+    Binomial coefficient function with cache
+    """
     res = 1
     if(k > n - k):
         k = n - k
@@ -474,7 +548,10 @@ def binomCoef(n, k):
     return res
 
 
-def powerset(n, r, nrows, dtype=np.float32):
+def _powerset(n, r, nrows, dtype=np.float32):
+    """
+    Function to generate the subsets of range(n) up to size r.
+    """
     N = np.arange(n)
     w = np.zeros(nrows, dtype=dtype)
     result = np.zeros((nrows, n), dtype=dtype)
@@ -488,18 +565,25 @@ def powerset(n, r, nrows, dtype=np.float32):
     return result, w
 
 
-def calc_sample_weights(M, r):
+def _calc_sampling_weights(M, r):
+    """
+    Function to calculate sampling weights to
+    """
     w = np.empty(M - r, dtype=np.float32)
     for i in range(M - r, M):
-        # w[i] = shapley_kernel(nsamples, i)
         w[i] = (M - 1) / i * (M - i)
     return w
 
 
 @lru_cache(maxsize=None)
 def shapley_kernel(M, s):
+    """
+    Function that calculates shapley kernel, cached.
+    """
+    # To avoid infinite values
+    # Based on reference implementation
     if(s == 0 or s == M):
         return 10000
 
-    res = (M - 1) / (binomCoef(M, s) * s * (M - s))
+    res = (M - 1) / (_binomCoef(M, s) * s * (M - s))
     return res

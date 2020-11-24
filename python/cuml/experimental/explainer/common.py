@@ -14,11 +14,24 @@
 # limitations under the License.
 #
 
+import cuml
 import cupy as cp
 
 
 def get_tag_from_model_func(func, tag, default=None):
-    ""
+    """
+    Function returns the tags from the model that function `func` is bound to.
+
+    Parameters
+    ----------
+    func: object
+        Function to check whether the object it is bound to has a _get_tags
+        attribute, and return tags from it.
+    tag: str
+        Tag that will be returned if exists
+    default: object  (default = None)
+        Value that will be returned if tags cannot be fetched.
+    """
     tags_fn = getattr(
         getattr(func, '__self__', None),
         '_get_tags',
@@ -34,7 +47,45 @@ def get_tag_from_model_func(func, tag, default=None):
     return default
 
 
+def get_handle_from_cuml_model_func(func, create_new=False):
+    """
+    Function to obtain a RAFT handle from the object that `func` is bound to
+    if possible.
+
+    Parameters
+    ----------
+    func: object
+        Function to check whether the object it is bound to has a _get_tags
+        attribute, and return tags from it.
+    create_new: boolean (default = False)
+        Whether to return a new RAFT handle if none could be fetched. Otherwise
+        the function will return None.
+    """
+    owner = getattr(func, '__self__', None)
+
+    if owner is not None and isinstance(owner, cuml.common.base.Base):
+        handle = owner.handle
+
+    else:
+        handle = cuml.raft.common.handle.Handle() if create_new else handle
+
+    return handle
+
+
 def get_dtype_from_model_func(func, default=None):
+    """
+    Function detect if model that `func` is bound to prefers data of certain
+    data type. It checks the attribute model.dtype.
+
+    Parameters
+    ----------
+    func: object
+        Function to check whether the object it is bound to has a _get_tags
+        attribute, and return tags from it.
+    create_new: boolean (default = False)
+        Whether to return a new RAFT handle if none could be fetched. Otherwise
+        the function will return None.
+    """
     dtype = getattr(
         getattr(func, '__self__', None),
         'dtype',
@@ -44,6 +95,21 @@ def get_dtype_from_model_func(func, default=None):
     dtype = default if dtype is None else dtype
 
     return dtype
+
+
+def model_call(X, model, model_gpu_based=False):
+    if model_gpu_based:
+        y = model(X)
+    else:
+        try:
+            y = cp.array(model(
+                X.to_output('numpy'))
+            )
+        except TypeError:
+            raise TypeError('Explainer can only explain models that can '
+                            'take GPU data or NumPy arrays as input.')
+
+    return y
 
 
 def get_link_fn_from_str(link):
@@ -60,21 +126,6 @@ def get_link_fn_from_str(link):
             raise TypeError("'link' function {} is not valid.".format(link))
 
     return link_fn
-
-
-def model_call(X, model, model_gpu_based=False):
-    if model_gpu_based:
-        y = model(X)
-    else:
-        try:
-            y = cp.array(model(
-                X.to_output('numpy'))
-            )
-        except TypeError:
-            raise TypeError('Explainer can only explain models that can '
-                            'take GPU data or NumPy arrays as input.')
-
-    return y
 
 
 # link functions
