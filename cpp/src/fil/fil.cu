@@ -134,7 +134,21 @@ struct forest {
     max_shm_ = std::min(max_shm_, max_shm_std);
   }
 
-  void init_common(const forest_params_t* params) {
+  void init_fixed_block_count(const raft::handle_t& h, int blocks_per_sm) {
+    int max_threads_per_sm, sm_count;
+    CUDA_CHECK(cudaDeviceGetAttribute(&max_threads_per_sm,
+                                      cudaDevAttrMaxThreadsPerMultiProcessor,
+                                      h.get_device()));
+    int max_blocks_per_sm = max_threads_per_sm / FIL_TPB;
+    ASSERT(blocks_per_sm <= max_blocks_per_sm,
+           "on this GPU, FIL blocks_per_sm cannot exceed %d",
+           max_blocks_per_sm);
+    CUDA_CHECK(cudaDeviceGetAttribute(&sm_count, cudaDevAttrMultiProcessorCount,
+                                      h.get_device()));
+    fixed_block_count_ = blocks_per_sm * sm_count;
+  }
+
+  void init_common(const raft::handle_t& h, const forest_params_t* params) {
     depth_ = params->depth;
     num_trees_ = params->num_trees;
     num_cols_ = params->num_cols;
@@ -145,6 +159,7 @@ struct forest {
     leaf_algo_ = params->leaf_algo;
     num_classes_ = params->num_classes;
     init_max_shm();
+    init_fixed_block_count(h, params->blocks_per_sm);
   }
 
   virtual void infer(predict_params params, cudaStream_t stream) = 0;
@@ -161,6 +176,9 @@ struct forest {
     params.max_shm = max_shm_;
     params.num_classes = num_classes_;
     params.leaf_algo = leaf_algo_;
+    // fixed_block_count_ == 0 means the number of thread blocks is
+    // proportional to the number of rows
+    params.num_blocks = fixed_block_count_;
 
     /**
     The binary classification / regression (FLOAT_UNARY_BINARY) predict_proba() works as follows
@@ -264,6 +282,7 @@ struct forest {
   float global_bias_ = 0;
   leaf_algo_t leaf_algo_ = leaf_algo_t::FLOAT_UNARY_BINARY;
   int num_classes_ = 1;
+  int fixed_block_count_ = 0;
 };
 
 struct dense_forest : forest {
@@ -295,7 +314,7 @@ struct dense_forest : forest {
 
   void init(const raft::handle_t& h, const dense_node_t* nodes,
             const forest_params_t* params) {
-    init_common(params);
+    init_common(h, params);
     if (algo_ == algo_t::NAIVE) algo_ = algo_t::BATCH_TREE_REORG;
 
     int num_nodes = forest_num_nodes(num_trees_, depth_);
@@ -351,7 +370,7 @@ struct sparse_forest : forest {
   typedef typename external_node<node_t>::t external_node_t;
   void init(const raft::handle_t& h, const int* trees,
             const external_node_t* nodes, const forest_params_t* params) {
-    init_common(params);
+    init_common(h, params);
     if (algo_ == algo_t::ALGO_AUTO) algo_ = algo_t::NAIVE;
     depth_ = 0;  // a placeholder value
     num_nodes_ = params->num_nodes;
@@ -443,6 +462,7 @@ void check_params(const forest_params_t* params, bool dense) {
     ASSERT(false,
            "output should be a combination of RAW, AVG, SIGMOID and CLASS");
   }
+  ASSERT(params->blocks_per_sm >= 0, "blocks_per_sm must be nonnegative");
 }
 
 int tree_root(const tl::Tree& tree) {
@@ -727,6 +747,7 @@ void tl2fil_common(forest_params_t* params, const tl::Model& model,
     params->output = output_t(params->output | output_t::SIGMOID);
   }
   params->num_trees = model.trees.size();
+  params->blocks_per_sm = tl_params->blocks_per_sm;
 }
 
 // uses treelite model with additional tl_params to initialize FIL params

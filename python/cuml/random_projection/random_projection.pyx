@@ -343,7 +343,7 @@ class GaussianRandomProjection(Base, BaseRandomProjection):
     .. code-block:: python
 
         from cuml.random_projection import GaussianRandomProjection
-        from sklearn.datasets.samples_generator import make_blobs
+        from sklearn.datasets import make_blobs
         from sklearn.svm import SVC
 
         # dataset generation
@@ -475,7 +475,7 @@ class SparseRandomProjection(Base, BaseRandomProjection):
     .. code-block:: python
 
         from cuml.random_projection import SparseRandomProjection
-        from sklearn.datasets.samples_generator import make_blobs
+        from sklearn.datasets import make_blobs
         from sklearn.svm import SVC
 
         # dataset generation
@@ -589,3 +589,8 @@ class SparseRandomProjection(Base, BaseRandomProjection):
             "dense_output",
             "random_state"
         ]
+
+    def _more_tags(self):
+        return {
+            'preferred_input_order': 'F'
+        }
