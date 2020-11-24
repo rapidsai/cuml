@@ -199,7 +199,7 @@ if(BUILD_GTEST)
 	include(ExternalProject)
 	ExternalProject_Add(googletest
 	  GIT_REPOSITORY    https://github.com/google/googletest.git
-	  GIT_TAG           6ce9b98f541b8bcd84c5c5b3483f29a933c4aefb
+	  GIT_TAG           release-1.10.0
 	  PREFIX            ${GTEST_DIR}
 	  CMAKE_ARGS        -DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>
 	                    -DBUILD_SHARED_LIBS=OFF
