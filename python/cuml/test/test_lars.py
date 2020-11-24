@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2020, NVIDIA CORPORATION.
+# Copyright (c) 2020, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,27 +12,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from functools import lru_cache
 import cupy as cp
 import numpy as np
 import pytest
-from distutils.version import LooseVersion
-import cudf
+
 from cuml.experimental.linear_model import Lars as cuLars
-from cuml.common import logger
 from cuml.test.utils import (
     array_equal,
-    small_regression_dataset,
-    small_classification_dataset,
     unit_param,
     quality_param,
     stress_param,
 )
 
-#import sklearn
 from sklearn.datasets import load_boston
 from sklearn.linear_model import Lars as skLars
-from sklearn.model_selection import train_test_split
 
 from . test_linear_model import make_regression_dataset
 
