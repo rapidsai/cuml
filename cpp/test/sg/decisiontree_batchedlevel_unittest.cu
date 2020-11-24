@@ -266,7 +266,7 @@ TEST_P(TestMetric, MSEGain) {
     {{1.40f, IdxT(-1), DataT(0), DataT(0), NodeT::Leaf}, 0, 5, 0}};
   raft::update_device(curr_nodes, h_nodes.data(), batchSize, 0);
 
-  int n_blks_for_rows = 4;
+  int n_blks_for_rows = 1;
   auto n_col_blks = 1;  // evaluate only one column (feature)
   dim3 grid(n_blks_for_rows, n_col_blks, batchSize);
   size_t smemSize = 7 * n_bins * sizeof(DataT) + n_bins * sizeof(int);
@@ -298,8 +298,8 @@ TEST_P(TestMetric, MSEGain) {
 
   std::vector<Traits::SplitT> h_splits(1);
 
-  computeSplitRegressionKernel<DataT, DataT, IdxT, Traits::TPB_DEFAULT>
-    <<<grid, Traits::TPB_DEFAULT, smemSize, 0>>>(
+  computeSplitRegressionKernel<DataT, DataT, IdxT, 32>
+    <<<grid, 32, smemSize, 0>>>(
       pred, nullptr, nullptr, pred_count, n_bins, params.max_depth,
       params.min_samples_split, params.max_leaves, input, curr_nodes, 0,
       done_count, mutex, n_new_leaves, splits, nullptr, params.split_criterion);
