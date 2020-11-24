@@ -67,6 +67,7 @@
 - PR #3152: Fix access to attributes of individual NB objects in dask NB
 - PR #3156: Force local conda artifact install
 - PR #3162: Removing accidentally checked in debug file
+- PR #3182: Fix a bug in MSE metric calculation
 
 
 # cuML 0.16.0 (Date TBD)
