@@ -42,7 +42,7 @@
 - PR #3144: Adding Ability to Set Arbitrary Cmake Flags in ./build.sh
 - PR #3155: Eliminate unnecessary warnings from random projection test
 - PR #3176: Add probabilistic SVM tests with various input array types
-- PR #3185: Add documentation for Distributed TFIDF Transformer
+- PR #3180: FIL: `blocks_per_sm` support in Python
 
 ## Bug Fixes
 - PR #3179: Remove unused metrics.cu file
@@ -75,6 +75,7 @@
 - PR #3162: Removing accidentally checked in debug file
 - PR #3175: Fix gtest pinned cmake version for build from source option
 - PR #3182: Fix a bug in MSE metric calculation
+- PR #3185: Add documentation for Distributed TFIDF Transformer
 
 
 # cuML 0.16.0 (23 Oct 2020)
