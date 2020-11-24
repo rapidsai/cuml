@@ -371,9 +371,12 @@ class KernelExplainer(SHAPBase):
         # Explain each observation
         idx = 0
         for x in X:
-            shap_values[idx] = self._explain_single_observation(
+            shap_values[idx, :-1] = self._explain_single_observation(
                 x.reshape(1, self.M), l1_reg
             )
+            shap_values[idx, -1] = \
+                (self.fx - self.expected_value)[0] - cp.sum(
+                    shap_values[idx, :-1])
             idx = idx + 1
 
         return shap_values[0]
@@ -527,19 +530,33 @@ class KernelExplainer(SHAPBase):
         """
         if nonzero_inds is None:
             y_hat = y_hat - self.expected_value
-            Aw = self._mask * cp.sqrt(self._weights[:, cp.newaxis])
-            Bw = y_hat * cp.sqrt(self._weights)
+
+            # taken from main SHAP package:
+            # eliminate one variable with the constraint that all features
+            # sum to the output, improves result accuracy significantly
+            y_hat = y_hat - self._mask[:, -1] * (self.fx - self.expected_value)
+            Mw = cp.transpose(
+                cp.transpose(self._mask[:, :-1]) - self._mask[:, -1])
+
+            Mw = Mw * cp.sqrt(self._weights[:, cp.newaxis])
+            y_hat = y_hat * cp.sqrt(self._weights)
 
         else:
             y_hat = y_hat[nonzero_inds] - self.expected_value
 
-            Aw = self._mask[nonzero_inds] * cp.sqrt(
+            y_hat = y_hat - self._mask[:, nonzero_inds[-1]] * (
+                self.fx - self.expected_value)
+            Mw = cp.transpose(
+                cp.transpose(self._mask[:, nonzero_inds[:-1]]) -
+                             self._mask[:, nonzero_inds[-1]])
+
+            Mw = self._mask[nonzero_inds] * cp.sqrt(
                 self._weights[nonzero_inds, cp.newaxis]
             )
 
-            Bw = y_hat * cp.sqrt(self._weights[nonzero_inds])
+            y_hat = y_hat * cp.sqrt(self._weights[nonzero_inds])
 
-        X, *_ = cp.linalg.lstsq(Aw, Bw)
+        X, *_ = cp.linalg.lstsq(Mw, y_hat)
         return X
 
 

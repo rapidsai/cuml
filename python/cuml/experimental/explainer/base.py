@@ -105,7 +105,7 @@ class SHAPBase():
         if verbose is True:
             self.verbose = logger.level_debug
         elif verbose is False:
-            self.verbose = logger.level_info
+            self.verbose = logger.level_error
         else:
             self.verbose = verbose
 

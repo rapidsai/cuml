@@ -106,10 +106,7 @@ def model_func_call(X,
     Returns the results as CuPy arrays.
     """
     if model_gpu_based:
-        # Even if the gpu model is not cuml proper, this call has no
-        # negative side effects
-        with cuml.using_output_type('cupy'):
-            y = cp.asarray(model_func(X))
+        y = cp.asarray(model_func(X))
     else:
         try:
             y = cp.array(model_func(
