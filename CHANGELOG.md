@@ -42,6 +42,7 @@
 - PR #3144: Adding Ability to Set Arbitrary Cmake Flags in ./build.sh
 - PR #3155: Eliminate unnecessary warnings from random projection test
 - PR #3176: Add probabilistic SVM tests with various input array types
+- PR #3180: FIL: `blocks_per_sm` support in Python
 
 ## Bug Fixes
 - PR #3179: Remove unused metrics.cu file
