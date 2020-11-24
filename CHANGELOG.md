@@ -36,11 +36,12 @@
 - PR #3135: Add QuasiNewton tests
 - PR #3040: Improved Array Conversion with CumlArrayDescriptor and Decorators
 - PR #3134: Improving the Deprecation Message Formatting in Documentation
-- PR #3151: MNMG Logistic Regression via dask-glm 
+- PR #3151: MNMG Logistic Regression via dask-glm
 - PR #3113: Add tags and prefered memory order tags to estimators
 - PR #3137: Reorganize Pytest Config and Add Quick Run Option
 - PR #3144: Adding Ability to Set Arbitrary Cmake Flags in ./build.sh
 - PR #3155: Eliminate unnecessary warnings from random projection test
+- PR #3176: Add probabilistic SVM tests with various input array types
 
 ## Bug Fixes
 - PR #3179: Remove unused metrics.cu file
