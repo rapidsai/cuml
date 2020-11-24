@@ -21,7 +21,6 @@ import cudf
 from cuml import LinearRegression as cuLinearRegression
 from cuml import LogisticRegression as cuLog
 from cuml import Ridge as cuRidge
-
 from cuml.test.utils import (
     array_equal,
     small_regression_dataset,

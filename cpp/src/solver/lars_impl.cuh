@@ -80,10 +80,51 @@ idx_t selectMostCorrelated(idx_t n_active, idx_t n, math_t* correlation,
 }
 
 /**
+ * @brief Swap two feature vectors.
+ *
+ * The function swaps feature column j and k or the corresponding rows and
+ * and columns of the Gram matrix. The elements of the cor and indices arrays
+ * are also swapped.
+ *
+ * @param handle cuBLAS handle
+ * @param j column index
+ * @param k column index
+ * @param X device array of feature vectors in column major format, size
+ *     [n_cols * ld_X]
+ * @param n_rows number of training vectors
+ * @param n_cols number of features
+ * @param ld_X leading dimension of X
+ * @param correlations device array of correlations, size [n_cols]
+ * @param indices host array of indices, size [n_cols]
+ * @param G device pointer of Gram matrix (or nullptr), size [n_cols * ld_G]
+ * @param ld_G leading dimension of G
+ */
+template <typename math_t, typename idx_t = int>
+void swapFeatures(cublasHandle_t handle, idx_t j, idx_t k, math_t* X,
+                  idx_t n_rows, idx_t n_cols, idx_t ld_X, math_t* cor,
+                  idx_t* indices, math_t* G, idx_t ld_G, cudaStream_t stream) {
+  std::swap(indices[j], indices[k]);
+  if (G) {
+    CUBLAS_CHECK(raft::linalg::cublasSwap(handle, n_cols, G + ld_G * j, 1,
+                                          G + ld_G * k, 1, stream));
+    CUBLAS_CHECK(raft::linalg::cublasSwap(handle, n_cols, G + j, ld_G, G + k,
+                                          ld_G, stream));
+  } else {
+    // Only swap X if G is nullptr. Only in that case will we use the feature
+    // columns, otherwise all the necessary information is already there in G.
+    CUBLAS_CHECK(raft::linalg::cublasSwap(handle, n_rows, X + ld_X * j, 1,
+                                          X + ld_X * k, 1, stream));
+  }
+  // swap (c[j], c[k])
+  CUBLAS_CHECK(
+    raft::linalg::cublasSwap(handle, 1, cor + j, 1, cor + k, 1, stream));
+}
+
+/**
  * @brief Move feature at idx=j into the active set.
  *
  * We have an active set with n_active elements, and an inactive set with
- * n_cols - n_active elements. The matrix X [n_samples, n_features] is
+ * n_valid_cols - n_active elements. The matrix X [n_samples, n_features] is
  * partitioned in a way that the first n_active columns store the active set.
  * Similarily the vectors correlation and indices are partitioned in a way
  * that the first n_active elements belong to the active set:
@@ -102,7 +143,8 @@ idx_t selectMostCorrelated(idx_t n_active, idx_t n, math_t* correlation,
  * @param X device array of feature vectors in column major format, size
  *     [n_cols * ld_X]
  * @param n_rows number of training vectors
- * @param n_cols number of features
+ * @param n_cols number of valid features colums (ignoring those features which
+ *    are detected to be collinear with the active set)
  * @param ld_X leading dimension of X
  * @param correlations device array of correlations, size [n_cols]
  * @param indices host array of indices, size [n_cols]
@@ -116,29 +158,18 @@ void moveToActive(cublasHandle_t handle, idx_t* n_active, idx_t j, math_t* X,
                   idx_t* indices, math_t* G, idx_t ld_G, math_t* sign,
                   cudaStream_t stream) {
   idx_t idx_free = *n_active;
-  std::swap(indices[idx_free], indices[j]);
-  if (G) {
-    CUBLAS_CHECK(raft::linalg::cublasSwap(handle, n_cols, G + ld_G * idx_free,
-                                          1, G + ld_G * j, 1, stream));
-    CUBLAS_CHECK(raft::linalg::cublasSwap(handle, n_cols, G + idx_free, ld_G,
-                                          G + j, ld_G, stream));
-  } else {
-    // Only swap X if G is nullptr. Only in that case will we use the feature
-    // columns, otherwise all the necessary information is already there in G.
-    CUBLAS_CHECK(raft::linalg::cublasSwap(handle, n_rows, X + ld_X * idx_free,
-                                          1, X + ld_X * j, 1, stream));
-  }
-  // sign[n_active] = sign(c[j])
+  swapFeatures(handle, idx_free, j, X, n_rows, n_cols, ld_X, cor, indices, G,
+               ld_G, stream);
+
+  // sign[n_active] = sign(c[n_active])
   raft::linalg::unaryOp(
-    sign + idx_free, cor + j, 1,
+    sign + idx_free, cor + idx_free, 1,
     [] __device__(math_t c) -> math_t {
       // return the sign of c
       return (math_t(0) < c) - (c < math_t(0));
     },
     stream);
-  // swap (c[idx_free], c[j])
-  CUBLAS_CHECK(
-    raft::linalg::cublasSwap(handle, 1, cor + idx_free, 1, cor + j, 1, stream));
+
   (*n_active)++;
 }
 
@@ -163,10 +194,10 @@ void moveToActive(cublasHandle_t handle, idx_t* n_active, idx_t j, math_t* X,
  * @param n_cols number of features
  * @param ld_X leading dimension of X (stride of columns)
  * @param U device pointer to the Cholesky decomposition of G0,
- *     size [n_cols * n_cols]
+ *     size [n_cols * ld_U]
  * @param ld_U leading dimension of U
  * @param G0 device pointer to Gram matrix G0 = X.T*X (can be nullptr),
- *     size [n_cols * n_cols].
+ *     size [n_cols * ld_G].
  * @param workspace workspace for the Cholesky update
  * @param eps parameter for cheleskyRankOneUpdate
  * @param stream CUDA stream
@@ -264,6 +295,7 @@ void calcA(const raft::handle_t& handle, math_t* A, idx_t n_active,
     A, A, 1, [] __device__(math_t a) { return 1 / sqrt(a); }, stream);
 }
 
+enum class LarsFitStatus { kOk, kCollinear, kError };
 /**
  * @brief Calculate the equiangular vector u, w and A according to [1].
  *
@@ -316,15 +348,16 @@ void calcA(const raft::handle_t& handle, math_t* A, idx_t n_active,
  * @param eps numerical regularizaton parameter for the Cholesky decomposition
  * @param stream CUDA stream
  *
- * @return false if no update can be made due to numerical error.
+ * @return fit status
  */
 template <typename math_t, typename idx_t = int>
-bool calcEquiangularVec(const raft::handle_t& handle, idx_t n_active, math_t* X,
-                        idx_t n_rows, idx_t n_cols, idx_t ld_X, math_t* sign,
-                        math_t* U, idx_t ld_U, math_t* G0, idx_t ld_G,
-                        MLCommon::device_buffer<math_t>& workspace, math_t* ws,
-                        math_t* A, math_t* u_eq, math_t eps,
-                        cudaStream_t stream) {
+LarsFitStatus calcEquiangularVec(const raft::handle_t& handle, idx_t n_active,
+                                 math_t* X, idx_t n_rows, idx_t n_cols,
+                                 idx_t ld_X, math_t* sign, math_t* U,
+                                 idx_t ld_U, math_t* G0, idx_t ld_G,
+                                 MLCommon::device_buffer<math_t>& workspace,
+                                 math_t* ws, math_t* A, math_t* u_eq,
+                                 math_t eps, cudaStream_t stream) {
   // Since we added a new vector to the active set, we update the Cholesky
   // decomposition (U)
   updateCholesky(handle, n_active, X, n_rows, n_cols, ld_X, U, ld_U, G0, ld_G,
@@ -342,10 +375,20 @@ bool calcEquiangularVec(const raft::handle_t& handle, idx_t n_active, math_t* X,
   // Check for numeric error
   math_t ws_host;
   raft::update_host(&ws_host, ws, 1, stream);
+  math_t diag_host;  // U[n_active-1, n_active-1]
+  raft::update_host(&diag_host, U + ld_U * (n_active - 1) + n_active - 1, 1,
+                    stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
+  if (diag_host < 1e-7) {
+    CUML_LOG_WARN(
+      "Vanising diagonal in Cholesky factorization (%e). This indicates "
+      "collinear features. Dropping current regressor.",
+      diag_host);
+    return LarsFitStatus::kCollinear;
+  }
   if (!std::isfinite(ws_host)) {
     CUML_LOG_WARN("ws=%f is not finite at iteration %d", ws_host, n_active);
-    return false;
+    return LarsFitStatus::kError;
   }
 
   if (G0 == nullptr) {
@@ -356,7 +399,7 @@ bool calcEquiangularVec(const raft::handle_t& handle, idx_t n_active, math_t* X,
       handle.get_cublas_handle(), CUBLAS_OP_N, n_rows, n_active, &one, X, ld_X,
       ws, 1, &zero, u_eq, 1, stream));
   }
-  return true;
+  return LarsFitStatus::kOk;
 }
 
 /**
@@ -624,17 +667,25 @@ void larsFit(const raft::handle_t& handle, math_t* X, idx_t n_rows,
   // if eps > 0).
   math_t tolerance = std::numeric_limits<float>::epsilon();
 
+  // If we detect collinear features, then we will move them to the end of the
+  // correlation array and mark them as invalid (simply by decreasing
+  // n_valid_cols). At every iteration the solver is only working with the valid
+  // columns stored at X[:,:n_valid_cols], and G[:n_valid_cols, :n_valid_cols]
+  // cor[:n_valid_cols].
+  int n_valid_cols = n_cols;
+
   *n_active = 0;
   for (int i = 0; i < max_iter; i++) {
     math_t cj;
-    idx_t j = selectMostCorrelated(*n_active, n_cols, cor.data(), &cj,
+    idx_t j = selectMostCorrelated(*n_active, n_valid_cols, cor.data(), &cj,
                                    workspace, stream);
 
-    CUML_LOG_DEBUG("Iteration %d, cor=%f", i, cj);
+    CUML_LOG_DEBUG("Iteration %d, selected feature %d with correlation %f", i,
+                   indices[j], cj);
 
-    moveToActive(handle.get_cublas_handle(), n_active, j, X, n_rows, n_cols,
-                 ld_X, cor.data(), indices.data(), Gram, ld_G, sign.data(),
-                 stream);
+    moveToActive(handle.get_cublas_handle(), n_active, j, X, n_rows,
+                 n_valid_cols, ld_X, cor.data(), indices.data(), Gram, ld_G,
+                 sign.data(), stream);
 
     // safety check
     if (abs(cj) / n_rows < tolerance) {
@@ -643,11 +694,11 @@ void larsFit(const raft::handle_t& handle, math_t* X, idx_t n_rows,
       break;
     }
 
-    bool keep_going = calcEquiangularVec(
-      handle, *n_active, X, n_rows, n_cols, ld_X, sign.data(), U, ld_U, Gram,
-      ld_G, workspace, ws.data(), A.data(), u_eq.data(), eps, stream);
+    LarsFitStatus status = calcEquiangularVec(
+      handle, *n_active, X, n_rows, n_valid_cols, ld_X, sign.data(), U, ld_U,
+      Gram, ld_G, workspace, ws.data(), A.data(), u_eq.data(), eps, stream);
 
-    if (!keep_going) {
+    if (status == LarsFitStatus::kError) {
       if (*n_active > 1) {
         CUML_LOG_WARN("Returning with last valid model.");
       } else {
@@ -655,14 +706,23 @@ void larsFit(const raft::handle_t& handle, math_t* X, idx_t n_rows,
       }
       *n_active -= 1;
       break;
+    } else if (status == LarsFitStatus::kCollinear) {
+      // We move the current feature to the invalid set
+      swapFeatures(handle.get_cublas_handle(), n_valid_cols - 1, *n_active - 1,
+                   X, n_rows, n_cols, ld_X, cor.data(), indices.data(), Gram,
+                   ld_G, stream);
+      *n_active -= 1;
+      n_valid_cols--;
+      continue;
     }
 
-    calcMaxStep(handle, max_iter, n_rows, n_cols, *n_active, cj, A.data(),
+    calcMaxStep(handle, max_iter, n_rows, n_valid_cols, *n_active, cj, A.data(),
                 cor.data(), Gram, ld_G, X, ld_X, u_eq.data(), ws.data(),
                 gamma.data(), a_vec.data(), stream);
 
-    updateCoef(handle, max_iter, n_cols, *n_active, gamma.data(), ws.data(),
-               cor.data(), a_vec.data(), beta, coef_path, workspace, stream);
+    updateCoef(handle, max_iter, n_valid_cols, *n_active, gamma.data(),
+               ws.data(), cor.data(), a_vec.data(), beta, coef_path, workspace,
+               stream);
   }
 
   // Apply sklearn definition of alphas = cor / n_rows

@@ -44,12 +44,13 @@ from . test_linear_model import make_regression_dataset
 )
 @pytest.mark.parametrize("precompute", [True, False, 'precompute'])
 def test_lars_model(datatype, nrows, column_info, precompute):
-
+    if datatype == np.float32 and nrows >= 65536:
+        pytest.skip('Ignoring test with cublas error')
     ncols, n_info = column_info
     X_train, X_test, y_train, y_test = make_regression_dataset(
         datatype, nrows, ncols, n_info
     )
-    if precompute=='precompute':
+    if precompute == 'precompute':
         precompute = np.dot(X_train.T, X_train)
     params = {'precompute': precompute}
 
@@ -57,11 +58,10 @@ def test_lars_model(datatype, nrows, column_info, precompute):
     culars = cuLars(**params)
 
     # fit and predict cuml LARS
-    if not (datatype == np.float32 and nrows >=500000):
-        culars.fit(X_train, y_train)
+    culars.fit(X_train, y_train)
 
-        cu_score_train = culars.score(X_train, y_train)
-        cu_score_test = culars.score(X_test, y_test)
+    cu_score_train = culars.score(X_train, y_train)
+    cu_score_test = culars.score(X_test, y_test)
 
     if nrows < 500000:
         # sklearn model initialization, fit and predict
@@ -71,12 +71,7 @@ def test_lars_model(datatype, nrows, column_info, precompute):
         assert cu_score_train >= sklars.score(X_train, y_train) - 0.05
         assert cu_score_test >= sklars.score(X_test, y_test) - 0.1
     else:
-        if datatype == np.float32:
-            # We ignore this test until the cuBLAS error is fixed with
-            # n_rows > 65536
-            pass
-        else:
-            assert cu_score_test > 0.95
+        assert cu_score_test > 0.95
 
 
 @pytest.mark.parametrize("datatype", [np.float32, np.float64])
@@ -92,9 +87,9 @@ def test_lars_model(datatype, nrows, column_info, precompute):
     ],
 )
 @pytest.mark.parametrize("precompute", [True, False])
-def test_lars_colinear(datatype, nrows, column_info, precompute):
-    # TODO Fix handling of colinear input and run these tests
-    pytest.skip("Handling collinear input needs improvement")
+def test_lars_collinear(datatype, nrows, column_info, precompute):
+    if datatype == np.float32 and nrows >= 65536:
+        pytest.skip('Ignoring test with cublas error')
     ncols, n_info = column_info
 
     X_train, X_test, y_train, y_test = make_regression_dataset(
@@ -104,13 +99,12 @@ def test_lars_colinear(datatype, nrows, column_info, precompute):
     X_train = np.concatenate((X_train, X_train[:, :n_duplicate]), axis=1)
     X_test = np.concatenate((X_test, X_test[:, :n_duplicate]), axis=1)
 
-    params = {"precompute": precompute, "n_nonzero_coefs": ncols + n_duplicate,
-              "eps": 1e-6}
+    params = {"precompute": precompute, "n_nonzero_coefs": ncols + n_duplicate}
     culars = cuLars(**params)
     culars.fit(X_train, y_train)
 
-    assert culars.score(X_train, y_train) > 0.1
-    assert culars.score(X_test, y_test) > 0.1
+    assert culars.score(X_train, y_train) > 0.85
+    assert culars.score(X_test, y_test) > 0.85
 
 
 @pytest.mark.parametrize("datatype", [np.float32, np.float64])
@@ -169,8 +163,9 @@ def test_lars_copy_X(datatype):
     # Test that array was not changed
     assert cp.all(X0 == X)
 
-    # TODO We make a copy of X during preprocessing, we should preprocess
-    # in place if copy_X is false
+    # We make a copy of X during preprocessing, we should preprocess
+    # in place if copy_X is false to save memory. Afterwards we can enable
+    # the following test:
     # culars2 = cuLars(precompute=False, copy_X=False)
     # culars2.fit(X, y)
     # Test that array was changed i.e. no unnecessary copies were made
