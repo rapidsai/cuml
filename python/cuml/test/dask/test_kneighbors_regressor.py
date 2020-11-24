@@ -118,8 +118,8 @@ def test_predict_and_score(dataset, datatype, parameters, client):
     d_outputs = d_outputs.compute()
 
     d_outputs = d_outputs.as_matrix() \
-                if isinstance(d_outputs, DataFrame) \
-                else d_outputs
+        if isinstance(d_outputs, DataFrame) \
+        else d_outputs
 
     exact_match(l_outputs, d_outputs)
 

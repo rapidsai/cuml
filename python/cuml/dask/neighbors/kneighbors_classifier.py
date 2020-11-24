@@ -236,7 +236,7 @@ class KNeighborsClassifier(NearestNeighbors):
         out_d = to_output(out_d_futures, self.datatype)
 
         # Returning predictions only to conform with Scikit-Learn behavior
-        # Complete removal of indices and distances will be effective in further release
+        # Complete removal of indices and distances will be effective in a further release
         return out
 
     def score(self, X, y, convert_dtype=True):
