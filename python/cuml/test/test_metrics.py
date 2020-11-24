@@ -13,10 +13,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+import random
 from itertools import chain, permutations
 from functools import partial
 
 import cuml
+import cuml.common.logger as logger
 import cupy as cp
 import numpy as np
 import pytest
@@ -25,20 +27,25 @@ import cudf
 from cuml.ensemble import RandomForestClassifier as curfc
 from cuml.metrics.cluster import adjusted_rand_score as cu_ars
 from cuml.metrics import accuracy_score as cu_acc_score
+from cuml.metrics.cluster import silhouette_score as cu_silhouette_score
+from cuml.metrics.cluster import silhouette_samples as cu_silhouette_samples
 from cuml.test.utils import get_handle, get_pattern, array_equal, \
     unit_param, quality_param, stress_param, generate_random_labels, \
     score_labeling_with_handle
+from cupy.testing import assert_allclose
 
 from numba import cuda
 from numpy.testing import assert_almost_equal
 
-from sklearn.datasets import make_classification
+from sklearn.datasets import make_classification, make_blobs
 from sklearn.metrics import accuracy_score as sk_acc_score
 from sklearn.metrics import log_loss as sklearn_log_loss
 from sklearn.metrics.cluster import adjusted_rand_score as sk_ars
 from sklearn.metrics.cluster import homogeneity_score as sk_homogeneity_score
 from sklearn.metrics.cluster import completeness_score as sk_completeness_score
 from sklearn.metrics.cluster import mutual_info_score as sk_mutual_info_score
+from sklearn.metrics.cluster import silhouette_score as sk_silhouette_score
+from sklearn.metrics.cluster import silhouette_samples as sk_silhouette_samples
 from sklearn.preprocessing import StandardScaler
 
 from cuml.metrics.cluster import entropy
@@ -62,6 +69,39 @@ from sklearn.metrics import precision_recall_curve \
 
 from cuml.metrics import pairwise_distances, PAIRWISE_DISTANCE_METRICS
 from sklearn.metrics import pairwise_distances as sklearn_pairwise_distances
+
+
+@pytest.fixture(scope='module')
+def random_state():
+    random_state = random.randint(0, 1e6)
+    with logger.set_level(logger.level_debug):
+        logger.debug("Random seed: {}".format(random_state))
+    return random_state
+
+
+@pytest.fixture(
+    scope='module',
+    params=(
+        {'n_clusters': 2, 'n_features': 2, 'label_type': 'int64',
+            'data_type': 'float32'},
+        {'n_clusters': 5, 'n_features': 1000, 'label_type': 'int32',
+            'data_type': 'float64'}
+    )
+)
+def labeled_clusters(request, random_state):
+    data, labels = make_blobs(
+        n_samples=1000,
+        n_features=request.param['n_features'],
+        random_state=random_state,
+        centers=request.param['n_clusters'],
+        center_box=(-1, 1),
+        cluster_std=1.5  # Allow some cluster overlap
+    )
+
+    return (
+        data.astype(request.param['data_type']),
+        labels.astype(request.param['label_type'])
+    )
 
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
@@ -185,6 +225,26 @@ def test_rand_index_score(name, nrows):
     cu_score_using_sk = sk_ars(y, cp.asnumpy(cu_y_pred))
 
     assert array_equal(cu_score, cu_score_using_sk)
+
+
+@pytest.mark.parametrize('metric', (
+    'cityblock', 'cosine', 'euclidean', 'l1', 'sqeuclidean'
+))
+def test_silhouette_score(metric, labeled_clusters):
+    X, labels = labeled_clusters
+    cuml_score = cu_silhouette_score(X, labels, metric=metric)
+    sk_score = sk_silhouette_score(X, labels, metric=metric)
+    assert_almost_equal(cuml_score, sk_score)
+
+
+@pytest.mark.parametrize('metric', (
+    'cityblock', 'cosine', 'euclidean', 'l1', 'sqeuclidean'
+))
+def test_silhouette_samples(metric, labeled_clusters):
+    X, labels = labeled_clusters
+    cuml_scores = cu_silhouette_samples(X, labels, metric=metric)
+    sk_scores = sk_silhouette_samples(X, labels, metric=metric)
+    assert_allclose(cuml_scores, sk_scores, rtol=1e-2)
 
 
 def score_homogeneity(ground_truth, predictions, use_handle):
