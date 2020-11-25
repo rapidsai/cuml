@@ -29,7 +29,7 @@ from cuml.raft.common.handle import Handle
 
 
 cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics":
-  double precision_score(const handle_t &handle,
+  double cuda_precision_score(const handle_t &handle,
                          const int *y,
                          const int *y_hat,
                          const int n) except +
@@ -87,7 +87,7 @@ def cython_precision_score(labels_true, labels_pred, handle=None) -> float:
   if upper_class_range - lower_class_range + 1 > 2:
     raise ValueError("Only binary labels are currently supported.")
 
-  precision = precision_score(handle_[0],
+  precision = cuda_precision_score(handle_[0],
                               <int*> ground_truth_ptr, 
                               <int*> preds_ptr,
                               <int> n_rows)
