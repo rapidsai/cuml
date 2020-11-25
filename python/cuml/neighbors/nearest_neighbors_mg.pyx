@@ -192,7 +192,9 @@ class NearestNeighborsMG(NearestNeighbors):
         self._set_base_attributes(output_type=indices[0])
 
         # Specify the output return type
-        cuml.internals.set_api_output_type(self._get_output_type(queries[0]))
+        if len(queries) > 0:
+            cuml.internals.set_api_output_type(self._get_output_type(
+                                               queries[0]))
 
         n_neighbors = self.n_neighbors if n_neighbors is None else n_neighbors
 

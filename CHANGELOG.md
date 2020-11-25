@@ -42,8 +42,10 @@
 - PR #3144: Adding Ability to Set Arbitrary Cmake Flags in ./build.sh
 - PR #3155: Eliminate unnecessary warnings from random projection test
 - PR #3176: Add probabilistic SVM tests with various input array types
+- PR #3180: FIL: `blocks_per_sm` support in Python
 
 ## Bug Fixes
+- PR #3051: MNMG KNN Cl&Re fix + multiple improvements
 - PR #3179: Remove unused metrics.cu file
 - PR #3069: Prevent conversion of DataFrames to Series in preprocessing
 - PR #3065: Refactoring prims metrics function names from camelcase to underscore format
@@ -73,7 +75,7 @@
 - PR #3156: Force local conda artifact install
 - PR #3162: Removing accidentally checked in debug file
 - PR #3175: Fix gtest pinned cmake version for build from source option
-- PR #3051: MNMG KNN Cl&Re fix + multiple improvements
+- PR #3182: Fix a bug in MSE metric calculation
 
 
 # cuML 0.16.0 (23 Oct 2020)
