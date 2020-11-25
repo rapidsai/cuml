@@ -25,8 +25,16 @@ class MulticlassClassifier(Base, ClassifierMixin):
     """ Wrapper around scikit-learn multiclass classifiers that allows to
     choose different multiclass strategies.
 
-    See issue https://github.com/rapidsai/cuml/issues/2876 for more info about
-    using Sklearn meta estimators.
+    The input can be any kind of cuML compatible array, and the output type
+    follows cuML's output type configuration rules.
+
+    Berofe passing the data to scikit-learn, it is converted to host (numpy)
+    array. Under the hood the data is partitioned for binary classification,
+    and it is transformed back to the device by the cuML estimator. These
+    copies back and forth the device and the host have some overhead, but it is
+    often negligible compared to the time to train the model. For more details
+    see issue https://github.com/rapidsai/cuml/issues/2876.
+
     """
     def __init__(self, estimator, handle=None, verbose=False,
                  output_type=None, n_jobs=None, strategy='ovr'):
@@ -80,15 +88,20 @@ class MulticlassClassifier(Base, ClassifierMixin):
 
 
 class OneVsRestClassifier(MulticlassClassifier):
-    """ Wrapper around Sckit-learn's class with the same name. This wrapper
-    accepts any array type supported by cuML and converts them to numpy if
-    needed to call the corresponding sklearn routine.
+    """ Wrapper around Sckit-learn's class with the same name. The input can be
+    any kind of cuML compatible array, and the output type follows cuML's
+    output type configuration rules.
+
+    Berofe passing the data to scikit-learn, it is converted to host (numpy)
+    array. Under the hood the data is partitioned for binary classification,
+    and it is transformed back to the device by the cuML estimator. These
+    copies back and forth the device and the host have some overhead, but it is
+    often negligible compared to the time to train the model. For more details
+    see issue https://github.com/rapidsai/cuml/issues/2876.
 
     For documentation see `scikit-learn's OneVsOneClassifier
     <https://scikit-learn.org/stable/modules/generated/sklearn.multiclass.OneVsRestClassifier.html>`_. # noqa: E501
 
-    See issue https://github.com/rapidsai/cuml/issues/2876 for more info about
-    using Sklearn meta estimators.
     """
     def __init__(self, estimator, *args, handle=None, verbose=False,
                  output_type=None, n_jobs=None):
@@ -98,15 +111,20 @@ class OneVsRestClassifier(MulticlassClassifier):
 
 
 class OneVsOneClassifier(MulticlassClassifier):
-    """ Wrapper around Sckit-learn's class with the same name. This wrapper
-    accepts any array type supported by cuML and converts them to numpy if
-    needed to call the corresponding sklearn routine.
+    """ Wrapper around Sckit-learn's class with the same name. The input can be
+    any kind of cuML compatible array, and the output type follows cuML's
+    output type configuration rules.
+
+    Berofe passing the data to scikit-learn, it is converted to host (numpy)
+    array. Under the hood the data is partitioned for binary classification,
+    and it is transformed back to the device by the cuML estimator. These
+    copies back and forth the device and the host have some overhead, but it is
+    often negligible compared to the time to train the model. For more details
+    see issue https://github.com/rapidsai/cuml/issues/2876.
 
     For documentation see `scikit-learn's OneVsOneClassifier
     <https://scikit-learn.org/stable/modules/generated/sklearn.multiclass.OneVsOneClassifier.html>`_. # noqa: E501
 
-    See issue https://github.com/rapidsai/cuml/issues/2876 for more info about
-    using Sklearn meta estimators.
     """
     def __init__(self, estimator, *args, handle=None, verbose=False,
                  output_type=None, n_jobs=None):
