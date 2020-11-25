@@ -521,14 +521,14 @@ class PCA(Base):
             cp.multiply(self.components_,
                         (1 / cp.sqrt(self.n_rows - 1)), out=self.components_)
             cp.multiply(self.components_,
-                        self.singular_values_.reshape((-1,1)),
+                        self.singular_values_.reshape((-1, 1)),
                         out=self.components_)
 
         X_inv = cp.dot(X, self.components_)
         cp.add(X_inv, self.mean_, out=X_inv)
 
         if self.whiten:
-            self.components_ /= self.singular_values_.reshape((-1,1))
+            self.components_ /= self.singular_values_.reshape((-1, 1))
             self.components_ *= cp.sqrt(self.n_rows - 1)
 
         if return_sparse:
@@ -634,7 +634,7 @@ class PCA(Base):
             X_transformed = X.dot(self.components_.T)
 
             if self.whiten:
-                self.components_ *= self.singular_values_.reshape((-1,1))
+                self.components_ *= self.singular_values_.reshape((-1, 1))
                 self.components_ *= (1 / cp.sqrt(self.n_rows - 1))
 
         return X_transformed
