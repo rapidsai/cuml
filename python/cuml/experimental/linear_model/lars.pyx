@@ -159,7 +159,9 @@ class Lars(Base, RegressorMixin):
 
     def _preprocess_data(self, X_m, y_m):
         """ Remove mean and scale each feature column. """
-        x_mean, x_scale, y_mean = 0.0, 1.0, 0.0
+        x_mean = cp.zeros(self.n_cols, dtype=self.dtype)
+        x_scale = cp.ones(self.n_cols, dtype=self.dtype)
+        y_mean = 0.0
         X = cp.asarray(X_m)
         y = cp.asarray(y_m)
         if self.fit_intercept:
@@ -197,22 +199,12 @@ class Lars(Base, RegressorMixin):
                 if self.precompute:
                     logger.debug("Not enought memory to store the Gram matrix."
                                  " Proceeding without it.")
-                if Gram is not None:
-                    print("Error Gram is not none")
-        elif hasattr(self.precompute, '__cuda_array_interface__') or \
-                hasattr(self.precompute, '__array_interface__'):
-            G_m, n_rows, self.n_cols, self.dtype = \
-                input_to_cuml_array(self.precompute, order='F',
-                                    check_dtype=[np.float32, np.float64],
-                                    deepcopy=self.copy_X)
-            logger.debug('Using precalculated Gram matrix')
-            Gram = cp.asarray(G_m)
         return Gram
 
     def _fit_cpp(self, X, y, Gram, x_scale):
         """ Fit lars model using cpp solver"""
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
-        X_m, _, _, _ = input_to_cuml_array(X)
+        X_m, _, _, _ = input_to_cuml_array(X, order='F')
         cdef uintptr_t X_ptr = X_m.ptr
         cdef int n_rows = X.shape[0]
         cdef uintptr_t y_ptr = input_to_cuml_array(y).array.ptr
@@ -277,7 +269,8 @@ class Lars(Base, RegressorMixin):
         self._set_output_type(X)
 
         X_m, n_rows, self.n_cols, self.dtype = input_to_cuml_array(
-            X, check_dtype=[np.float32, np.float64], order='F')
+            X, check_dtype=[np.float32, np.float64], order='F',
+            convert_to_dtype=np.float64)
 
         conv_dtype = self.dtype if convert_dtype else None
         y_m, _, _, _ = input_to_cuml_array(
@@ -286,7 +279,18 @@ class Lars(Base, RegressorMixin):
 
         X, y, x_mean, x_scale, y_scale = self._preprocess_data(X_m, y_m)
 
-        Gram = self._calc_gram(X)
+        if hasattr(self.precompute, '__cuda_array_interface__') or \
+                hasattr(self.precompute, '__array_interface__'):
+            Gram, _, _, _ = \
+                input_to_cuml_array(self.precompute, order='F',
+                                    check_dtype=[np.float32, np.float64],
+                                    convert_to_dtype=conv_dtype,
+                                    check_rows=self.n_cols,
+                                    check_cols=self.n_cols)
+            logger.debug('Using precalculated Gram matrix')
+        else:
+            Gram = self._calc_gram(X)
+
         if Gram is None and self.copy_X and not isinstance(X, np.ndarray):
             # Without Gram matrix, the solver will permute columns of X
             # We make a copy here, and work on the copy.
@@ -307,7 +311,7 @@ class Lars(Base, RegressorMixin):
 
         return self
 
-    def predict(self, X, convert_dtype=False) -> CumlArray:
+    def predict(self, X, convert_dtype=True) -> CumlArray:
         """
         Predicts `y` values for `X`.
 
@@ -318,7 +322,7 @@ class Lars(Base, RegressorMixin):
             Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
 
-        convert_dtype : bool, optional (default = False)
+        convert_dtype : bool, optional (default = True)
             When set to True, the predict method will, when necessary, convert
             the input to the data type which was used to train the model. This
             will increase memory used for the method.

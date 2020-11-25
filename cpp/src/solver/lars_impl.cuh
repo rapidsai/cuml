@@ -46,6 +46,8 @@ namespace ML {
 namespace Solver {
 namespace Lars {
 
+enum class LarsFitStatus { kOk, kCollinear, kError, kStop };
+
 /**
  * @brief Select the largest element from the inactive working set.
  *
@@ -53,17 +55,26 @@ namespace Lars {
  * index of the most correlated element. The value of the largest element is
  * returned in cj.
  *
+ * The correlation value is checked for numeric error and convergence, and the
+ * return status indicates whether training should continue.
+ *
  * @param n_active number of active elements (n_active <= n )
  * @param n number of elements in vector cor
  * @param correlation device array of correlations, size [n]
  * @param cj host pointer to return the value of the largest element
+ * @param max_idx host pointer the index of the max correlation is returned here
+ * @param indices host pointer of feature column indices, size [n_cols]
+ * @param n_iter iteration counter
  * @param stream CUDA stream
+ *
+ * @return fit status
  */
 template <typename math_t, typename idx_t = int>
-idx_t selectMostCorrelated(idx_t n_active, idx_t n, math_t* correlation,
-                           math_t* cj,
-                           MLCommon::device_buffer<math_t>& workspace,
-                           cudaStream_t stream) {
+LarsFitStatus selectMostCorrelated(idx_t n_active, idx_t n, math_t* correlation,
+                                   math_t* cj,
+                                   MLCommon::device_buffer<math_t>& workspace,
+                                   idx_t* max_idx, idx_t n_rows, idx_t* indices,
+                                   idx_t n_iter, cudaStream_t stream) {
   const idx_t align_bytes = 16 * sizeof(math_t);
   // We might need to start a few elements earlier to ensure that the unary
   // op has aligned access for vectorized load.
@@ -76,7 +87,27 @@ idx_t selectMostCorrelated(idx_t n_active, idx_t n, math_t* correlation,
     thrust::max_element(thrust::cuda::par.on(stream), ptr, ptr + n - n_active);
   raft::update_host(cj, max_ptr.get(), 1, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
-  return n_active + (max_ptr - ptr);  // return the index
+
+  *max_idx = n_active + (max_ptr - ptr);  // the index of the maximum element
+
+  CUML_LOG_DEBUG("Iteration %d, selected feature %d with correlation %f",
+                 n_iter, indices[*max_idx], *cj);
+
+  if (!std::isfinite(*cj)) {
+    CUML_LOG_ERROR("Correlation is not finite, aborting.");
+    return LarsFitStatus::kError;
+  }
+
+  // Tolerance for early stopping. Note we intentionally use here fp32 epsilon,
+  // otherwise the tolerance is too small (which could result in numeric error
+  // in Cholesky rank one update if eps < 0, or exploding regression parameters
+  // if eps > 0).
+  const math_t tolerance = std::numeric_limits<float>::epsilon();
+  if (abs(*cj) / n_rows < tolerance) {
+    CUML_LOG_WARN("Reached tolarence limit with %e", abs(*cj));
+    return LarsFitStatus::kStop;
+  }
+  return LarsFitStatus::kOk;
 }
 
 /**
@@ -297,7 +328,6 @@ void calcA(const raft::handle_t& handle, math_t* A, idx_t n_active,
     A, A, 1, [] __device__(math_t a) { return 1 / sqrt(a); }, stream);
 }
 
-enum class LarsFitStatus { kOk, kCollinear, kError };
 /**
  * @brief Calculate the equiangular vector u, w and A according to [1].
  *
@@ -553,7 +583,6 @@ void larsInit(const raft::handle_t& handle, const math_t* X, idx_t n_rows,
   math_t one = 1;
   math_t zero = 0;
   // Set initial correlation to X.T * y
-  // TODO: this returns NaNs if n_rows >= 65536 and math_t = fp32
   CUBLAS_CHECK(raft::linalg::cublasgemv(handle.get_cublas_handle(), CUBLAS_OP_T,
                                         n_rows, n_cols, &one, X, ld_X, y, 1,
                                         &zero, cor.data(), 1, stream));
@@ -711,12 +740,6 @@ void larsFit(const raft::handle_t& handle, math_t* X, idx_t n_rows,
   larsInit(handle, X, n_rows, n_cols, ld_X, y, Gram, ld_G, U_buffer, &U, &ld_U,
            indices, cor, &max_iter, coef_path, stream);
 
-  // Tolerance for early stopping. Note we intentionally use here fp32 epsilon,
-  // otherwise the tolerance is too small (which could result in numeric error
-  // in Cholesky rank one update if eps < 0, or exploding regression parameters
-  // if eps > 0).
-  math_t tolerance = std::numeric_limits<float>::epsilon();
-
   // If we detect collinear features, then we will move them to the end of the
   // correlation array and mark them as invalid (simply by decreasing
   // n_valid_cols). At every iteration the solver is only working with the valid
@@ -727,32 +750,25 @@ void larsFit(const raft::handle_t& handle, math_t* X, idx_t n_rows,
   *n_active = 0;
   for (int i = 0; i < max_iter; i++) {
     math_t cj;
-    idx_t j = selectMostCorrelated(*n_active, n_valid_cols, cor.data(), &cj,
-                                   workspace, stream);
-
-    CUML_LOG_DEBUG("Iteration %d, selected feature %d with correlation %f", i,
-                   indices[j], cj);
+    idx_t j;
+    LarsFitStatus status =
+      selectMostCorrelated(*n_active, n_valid_cols, cor.data(), &cj, workspace,
+                           &j, n_rows, indices.data(), i, stream);
+    if (status != LarsFitStatus::kOk) {
+      break;
+    }
 
     moveToActive(handle.get_cublas_handle(), n_active, j, X, n_rows,
                  n_valid_cols, ld_X, cor.data(), indices.data(), Gram, ld_G,
                  sign.data(), stream);
 
-    // safety check
-    if (abs(cj) / n_rows < tolerance) {
-      CUML_LOG_WARN("Iteration %d, reached tolarence limit  with %f", i,
-                    abs(cj));
-      break;
-    }
-
-    LarsFitStatus status = calcEquiangularVec(
+    status = calcEquiangularVec(
       handle, *n_active, X, n_rows, n_valid_cols, ld_X, sign.data(), U, ld_U,
       Gram, ld_G, workspace, ws.data(), A.data(), u_eq.data(), eps, stream);
 
     if (status == LarsFitStatus::kError) {
       if (*n_active > 1) {
         CUML_LOG_WARN("Returning with last valid model.");
-      } else {
-        THROW("Model is not fitted.");
       }
       *n_active -= 1;
       break;
@@ -774,24 +790,28 @@ void larsFit(const raft::handle_t& handle, math_t* X, idx_t n_rows,
                ws.data(), cor.data(), a_vec.data(), beta, coef_path, stream);
   }
 
-  // Apply sklearn definition of alphas = cor / n_rows
-  raft::linalg::unaryOp(
-    alphas, cor.data(), *n_active,
-    [n_rows] __device__(math_t c) { return abs(c) / n_rows; }, stream);
+  if (*n_active > 0) {
+    // Apply sklearn definition of alphas = cor / n_rows
+    raft::linalg::unaryOp(
+      alphas, cor.data(), *n_active,
+      [n_rows] __device__(math_t c) { return abs(c) / n_rows; }, stream);
 
-  // Calculate the final correlation. We use the correlation from the last
-  // iteration and apply the changed during the last LARS iteration:
-  // alpha[n_active] = cor[n_active-1] - gamma * A
-  math_t* gamma_ptr = gamma.data();
-  math_t* A_ptr = A.data();
-  raft::linalg::unaryOp(
-    alphas + *n_active, cor.data() + *n_active - 1, 1,
-    [gamma_ptr, A_ptr, n_rows] __device__(math_t c) {
-      return abs(c - (*gamma_ptr) * (*A_ptr)) / n_rows;
-    },
-    stream);
+    // Calculate the final correlation. We use the correlation from the last
+    // iteration and apply the changed during the last LARS iteration:
+    // alpha[n_active] = cor[n_active-1] - gamma * A
+    math_t* gamma_ptr = gamma.data();
+    math_t* A_ptr = A.data();
+    raft::linalg::unaryOp(
+      alphas + *n_active, cor.data() + *n_active - 1, 1,
+      [gamma_ptr, A_ptr, n_rows] __device__(math_t c) {
+        return abs(c - (*gamma_ptr) * (*A_ptr)) / n_rows;
+      },
+      stream);
 
-  raft::update_device(active_idx, indices.data(), *n_active, stream);
+    raft::update_device(active_idx, indices.data(), *n_active, stream);
+  } else {
+    THROW("Model is not fitted.");
+  }
 }
 
 /**
@@ -820,6 +840,8 @@ void larsPredict(const raft::handle_t& handle, const math_t* X, idx_t n_rows,
   MLCommon::device_buffer<math_t> beta_sorted(allocator, stream);
   MLCommon::device_buffer<math_t> X_active_cols(allocator, stream);
   auto execution_policy = ML::thrust_exec_policy(allocator, stream);
+
+  if (n_active == 0 || n_rows == 0) return;
 
   if (n_active == n_cols) {
     // We make a copy of the beta coefs and sort them

@@ -20,6 +20,7 @@
 #include <test_utils.h>
 #include <iomanip>
 #include <raft/handle.hpp>
+#include <raft/random/rng.cuh>
 #include <solver/lars_impl.cuh>
 #include <sstream>
 #include <vector>
@@ -51,9 +52,11 @@ class LarsTest : public ::testing::Test {
 
   void testSelectMostCorrelated() {
     math_t cj;
+    int idx;
     MLCommon::device_buffer<math_t> workspace(allocator, stream, n_cols);
-    int idx = ML::Solver::Lars::selectMostCorrelated(
-      n_active, n_cols, cor.data(), &cj, workspace, stream);
+    ML::Solver::Lars::selectMostCorrelated(n_active, n_cols, cor.data(), &cj,
+                                           workspace, &idx, n_rows, indices, 1,
+                                           stream);
     EXPECT_EQ(idx, 3);
     EXPECT_EQ(7, cj);
   }
@@ -63,7 +66,7 @@ class LarsTest : public ::testing::Test {
       handle.get_cublas_handle(), &n_active, 3, X.data(), n_rows, n_cols,
       n_rows, cor.data(), indices, G.data(), n_cols, sign.data(), stream);
     EXPECT_EQ(n_active, 3);
-    // test swap of cor?
+
     EXPECT_TRUE(raft::devArrMatchHost(cor_exp, cor.data(), n_cols,
                                       raft::Compare<math_t>()));
     EXPECT_TRUE(raft::devArrMatchHost(G_exp, G.data(), n_cols * n_cols,
@@ -340,7 +343,7 @@ class LarsTestFitPredict : public ::testing::Test {
       y(allocator, handle.get_stream(), n_rows),
       G(allocator, handle.get_stream(), n_cols * n_cols),
       beta(allocator, handle.get_stream(), n_cols),
-      coef_path(allocator, handle.get_stream(), n_cols * n_cols),
+      coef_path(allocator, handle.get_stream(), (n_cols + 1) * n_cols),
       alphas(allocator, handle.get_stream(), n_cols + 1),
       active_idx(allocator, handle.get_stream(), n_cols) {
     CUDA_CHECK(cudaStreamCreate(&stream));
@@ -420,6 +423,29 @@ class LarsTestFitPredict : public ::testing::Test {
                                       raft::CompareApprox<math_t>(1e-5)));
   }
 
+  void testFitLarge() {
+    int n_rows = 65536;
+    int n_cols = 10;
+    int max_iter = n_cols;
+    int verbosity = 0;
+    int n_active;
+    MLCommon::device_buffer<math_t> X(allocator, stream, n_rows * n_cols);
+    MLCommon::device_buffer<math_t> y(allocator, stream, n_rows);
+    beta.resize(max_iter, stream);
+    active_idx.resize(max_iter, stream);
+    alphas.resize(max_iter + 1, stream);
+    raft::random::Rng r(1234);
+    r.uniform(X.data(), n_rows * n_cols, math_t(-1.0), math_t(1.0), stream);
+    r.uniform(y.data(), n_rows, math_t(-1.0), math_t(1.0), stream);
+
+    ML::Solver::Lars::larsFit(
+      handle, X.data(), n_rows, n_cols, y.data(), beta.data(),
+      active_idx.data(), alphas.data(), &n_active, (math_t*)nullptr, max_iter,
+      (math_t*)nullptr, verbosity, n_rows, n_cols, (math_t)-1);
+
+    EXPECT_EQ(n_cols, n_active);
+  }
+
   raft::handle_t handle;
   cudaStream_t stream;
   std::shared_ptr<deviceAllocator> allocator;
@@ -475,6 +501,7 @@ TYPED_TEST_CASE(LarsTestFitPredict, FloatTypes);
 
 TYPED_TEST(LarsTestFitPredict, fitGram) { this->testFitGram(); }
 TYPED_TEST(LarsTestFitPredict, fitX) { this->testFitX(); }
+TYPED_TEST(LarsTestFitPredict, fitLarge) { this->testFitLarge(); }
 TYPED_TEST(LarsTestFitPredict, predictV1) { this->testPredictV1(); }
 TYPED_TEST(LarsTestFitPredict, predictV2) { this->testPredictV2(); }
 };  // namespace Lars

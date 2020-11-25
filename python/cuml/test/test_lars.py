@@ -30,9 +30,19 @@ from sklearn.linear_model import Lars as skLars
 from . test_linear_model import make_regression_dataset
 
 
+def normalize_data(X, y):
+    y_mean = np.mean(y)
+    y = y - y_mean
+    x_mean = np.mean(X, axis=0)
+    x_scale = np.sqrt(np.var(X, axis=0) * X.shape[0])
+    x_scale[x_scale==0] = 1
+    X = (X - x_mean) / x_scale
+    return X, y, x_mean, x_scale, y_mean
+
+
 @pytest.mark.parametrize("datatype", [np.float32, np.float64])
 @pytest.mark.parametrize(
-    "nrows", [unit_param(500), quality_param(5000), stress_param(500000)]
+    "nrows", [unit_param(500), quality_param(5000), stress_param(90000)]
 )
 @pytest.mark.parametrize(
     "column_info",
@@ -42,17 +52,26 @@ from . test_linear_model import make_regression_dataset
         stress_param([1000, 500])
     ],
 )
+@pytest.mark.parametrize("normalize", [True, False])
 @pytest.mark.parametrize("precompute", [True, False, 'precompute'])
-def test_lars_model(datatype, nrows, column_info, precompute):
-    if datatype == np.float32 and nrows >= 65536:
-        pytest.skip('Ignoring test with cublas error')
+def test_lars_model(datatype, nrows, column_info, precompute, normalize):
     ncols, n_info = column_info
     X_train, X_test, y_train, y_test = make_regression_dataset(
         datatype, nrows, ncols, n_info
     )
+
+    if precompute == 'precompute' or not normalize:
+        # Apply normalization manually, because the solver expects normalized
+        # input data
+        X_train, y_train, x_mean, x_scale, y_mean = \
+            normalize_data(X_train, y_train)
+        y_test = y_test - y_mean
+        X_test = (X_test - x_mean) / x_scale
+
     if precompute == 'precompute':
         precompute = np.dot(X_train.T, X_train)
-    params = {'precompute': precompute}
+
+    params = {'precompute': precompute, 'normalize': normalize}
 
     # Initialization of cuML's LARS
     culars = cuLars(**params)
@@ -88,8 +107,6 @@ def test_lars_model(datatype, nrows, column_info, precompute):
 )
 @pytest.mark.parametrize("precompute", [True, False])
 def test_lars_collinear(datatype, nrows, column_info, precompute):
-    if datatype == np.float32 and nrows >= 65536:
-        pytest.skip('Ignoring test with cublas error')
     ncols, n_info = column_info
 
     X_train, X_test, y_train, y_test = make_regression_dataset(
