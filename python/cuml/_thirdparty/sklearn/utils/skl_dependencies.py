@@ -163,7 +163,7 @@ class BaseEstimator:
         # characters to render. We pass it as an optional parameter to ease
         # the tests.
 
-        from .utils._pprint import _EstimatorPrettyPrinter
+        from ._pprint import _EstimatorPrettyPrinter
 
         N_MAX_ELEMENTS_TO_SHOW = 30  # number of elements to show in sequences
 
