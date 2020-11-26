@@ -363,3 +363,8 @@ def test_tocupy_missing_values_handling():
     array, n_rows, n_cols, dtype = input_to_cupy_array(df, fail_on_nan=False)
     assert str(array.dtype) == 'float64'
     assert cp.isnan(array[1])
+
+    with pytest.raises(ValueError):
+        df = cudf.Series(data=[7, None, 3])
+        array, n_rows, n_cols, dtype = input_to_cupy_array(df,
+                                                           fail_on_nan=True)
