@@ -70,13 +70,19 @@ unfit_pickle_xfail = [
     'AutoARIMA',
     'KalmanFilter',
     'BaseRandomForestModel',
-    'ForestInference'
+    'ForestInference',
+    'MulticlassClassifier',
+    'OneVsOneClassifier',
+    'OneVsRestClassifier'
 ]
 unfit_clone_xfail = [
     'AutoARIMA',
     "ARIMA",
     "BaseRandomForestModel",
     "GaussianRandomProjection",
+    'MulticlassClassifier',
+    'OneVsOneClassifier',
+    'OneVsRestClassifier',
     "SparseRandomProjection",
 ]
 
