@@ -46,13 +46,13 @@ class MulticlassClassifier(Base, ClassifierMixin):
         handles in several streams.
         If it is None, a new one is created.
     verbose : int or boolean, default=False
-         Sets logging level. It must be one of `cuml.common.logger.level_*`.
-         See :ref:`verbosity-levels` for more info.
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        See :ref:`verbosity-levels` for more info.
     output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
         Variable to control output type of the results and attributes of
         the estimator. If None, it'll inherit the output type set at the
         module level, `cuml.global_output_type`.
-        See :ref:`output-data-type-configuration` for more info
+        See :ref:`output-data-type-configuration` for more info.
     strategy: string {'ovr', 'ovo'}, default='ovr'
         Multiclass classification strategy: 'ovr': one vs. rest or 'ovo': one
         vs. one
@@ -64,8 +64,12 @@ class MulticlassClassifier(Base, ClassifierMixin):
     n_classes_ : int
         Number of classes.
     """
-    def __init__(self, estimator, handle=None, verbose=False,
-                 output_type=None, strategy='ovr'):
+    def __init__(self,
+                 estimator,
+                 handle=None,
+                 verbose=False,
+                 output_type=None,
+                 strategy='ovr'):
         super().__init__(handle=handle, verbose=verbose,
                          output_type=output_type)
         self.strategy = strategy
@@ -152,15 +156,19 @@ class OneVsRestClassifier(MulticlassClassifier):
         handles in several streams.
         If it is None, a new one is created.
     verbose : int or boolean, default=False
-         Sets logging level. It must be one of `cuml.common.logger.level_*`.
-         See :ref:`verbosity-levels` for more info.
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        See :ref:`verbosity-levels` for more info.
     output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
         Variable to control output type of the results and attributes of
         the estimator. If None, it'll inherit the output type set at the
         module level, `cuml.global_output_type`.
-        See :ref:`output-data-type-configuration` for more info
+        See :ref:`output-data-type-configuration` for more info.
     """
-    def __init__(self, estimator, *args, handle=None, verbose=False,
+    def __init__(self,
+                 estimator,
+                 *args,
+                 handle=None,
+                 verbose=False,
                  output_type=None):
         super(OneVsRestClassifier, self).__init__(
             estimator, *args, handle=handle, verbose=verbose,
@@ -192,15 +200,19 @@ class OneVsOneClassifier(MulticlassClassifier):
         handles in several streams.
         If it is None, a new one is created.
     verbose : int or boolean, default=False
-         Sets logging level. It must be one of `cuml.common.logger.level_*`.
-         See :ref:`verbosity-levels` for more info.
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        See :ref:`verbosity-levels` for more info.
     output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
         Variable to control output type of the results and attributes of
         the estimator. If None, it'll inherit the output type set at the
         module level, `cuml.global_output_type`.
-        See :ref:`output-data-type-configuration` for more info
+        See :ref:`output-data-type-configuration` for more info.
     """
-    def __init__(self, estimator, *args, handle=None, verbose=False,
+    def __init__(self,
+                 estimator,
+                 *args,
+                 handle=None,
+                 verbose=False,
                  output_type=None):
         super(OneVsOneClassifier, self).__init__(
             estimator, *args, handle=handle, verbose=verbose,
