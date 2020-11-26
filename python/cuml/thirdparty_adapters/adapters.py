@@ -277,7 +277,8 @@ def check_array(array, accept_sparse=False, accept_large_sparse=True,
     else:
         X, n_rows, n_cols, dtype = input_to_cupy_array(array,
                                                        order=order,
-                                                       deepcopy=copy)
+                                                       deepcopy=copy,
+                                                       fail_on_nan=False)
         if correct_dtype != dtype:
             X = X.astype(correct_dtype)
         check_finite(X, force_all_finite)

@@ -349,17 +349,17 @@ def get_input(type, nrows, ncols, dtype, order='C', out_dtype=False):
 
 def test_tocupy_missing_values_handling():
     df = cudf.DataFrame(data=[[7, 2, 3], [4, 5, 6], [10, 5, 9]])
-    array, n_rows, n_cols, dtype = input_to_cupy_array(df)
+    array, n_rows, n_cols, dtype = input_to_cupy_array(df, fail_on_nan=False)
     assert isinstance(array, cp.ndarray)
     assert str(array.dtype) == 'int64'
 
     df = cudf.DataFrame(data=[[7, 2, 3], [4, None, 6], [10, 5, 9]])
-    array, n_rows, n_cols, dtype = input_to_cupy_array(df)
+    array, n_rows, n_cols, dtype = input_to_cupy_array(df, fail_on_nan=False)
     assert isinstance(array, cp.ndarray)
     assert str(array.dtype) == 'float64'
     assert cp.isnan(array[1, 1])
 
     df = cudf.Series(data=[7, None, 3])
-    array, n_rows, n_cols, dtype = input_to_cupy_array(df)
+    array, n_rows, n_cols, dtype = input_to_cupy_array(df, fail_on_nan=False)
     assert str(array.dtype) == 'float64'
     assert cp.isnan(array[1])
