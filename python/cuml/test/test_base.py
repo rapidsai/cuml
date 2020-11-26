@@ -23,6 +23,12 @@ from cuml.test.utils import (get_classes_from_package,
 
 all_base_children = get_classes_from_package(cuml, import_sub_packages=True)
 
+subclass_doc_skip = [
+    'MulticlassClassifier',
+    'OneVsOneClassifier',
+    'OneVsRestClassifier'
+]
+
 
 def test_base_class_usage():
     # Ensure base class returns the 3 main properties needed by all classes
@@ -86,6 +92,9 @@ def test_base_subclass_init_matches_docs(child_class: str):
         Classname to test in the dict all_base_children
 
     """
+
+    if child_class in subclass_doc_skip:
+        pytest.skip()
 
     # To quickly find and replace all instances in the documentation, the below
     # regex's may be useful
