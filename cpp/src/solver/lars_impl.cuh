@@ -62,6 +62,7 @@ enum class LarsFitStatus { kOk, kCollinear, kError, kStop };
  * @param n number of elements in vector cor
  * @param correlation device array of correlations, size [n]
  * @param cj host pointer to return the value of the largest element
+ * @param wokspace buffer, size >= n_cols
  * @param max_idx host pointer the index of the max correlation is returned here
  * @param indices host pointer of feature column indices, size [n_cols]
  * @param n_iter iteration counter
@@ -125,10 +126,11 @@ LarsFitStatus selectMostCorrelated(idx_t n_active, idx_t n, math_t* correlation,
  * @param n_rows number of training vectors
  * @param n_cols number of features
  * @param ld_X leading dimension of X
- * @param correlations device array of correlations, size [n_cols]
+ * @param cor device array of correlations, size [n_cols]
  * @param indices host array of indices, size [n_cols]
  * @param G device pointer of Gram matrix (or nullptr), size [n_cols * ld_G]
  * @param ld_G leading dimension of G
+ * @param stream CUDA stream
  */
 template <typename math_t, typename idx_t = int>
 void swapFeatures(cublasHandle_t handle, idx_t j, idx_t k, math_t* X,
@@ -230,6 +232,7 @@ void moveToActive(cublasHandle_t handle, idx_t* n_active, idx_t j, math_t* X,
  * @param ld_U leading dimension of U
  * @param G0 device pointer to Gram matrix G0 = X.T*X (can be nullptr),
  *     size [n_cols * ld_G].
+ * @param ld_G leading dimension of G
  * @param workspace workspace for the Cholesky update
  * @param eps parameter for cheleskyRankOneUpdate
  * @param stream CUDA stream
@@ -544,6 +547,7 @@ void calcMaxStep(const raft::handle_t& handle, idx_t max_iter, idx_t n_rows,
  * @param U_buffer device buffer that will be initialized to store the Cholesky
  *    factorization. Only used if Gram is nullptr.
  * @param U device pointer to U
+ * @param ld_U leading dimension of U
  * @param indices host buffer to store feature column indices
  * @param cor device pointer to correlation vector, size [n_cols]
  * @param max_iter host pointer to the maximum number of iterations

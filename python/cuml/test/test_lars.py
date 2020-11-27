@@ -35,7 +35,7 @@ def normalize_data(X, y):
     y = y - y_mean
     x_mean = np.mean(X, axis=0)
     x_scale = np.sqrt(np.var(X, axis=0) * X.shape[0])
-    x_scale[x_scale==0] = 1
+    x_scale[x_scale == 0] = 1
     X = (X - x_mean) / x_scale
     return X, y, x_mean, x_scale, y_mean
 
