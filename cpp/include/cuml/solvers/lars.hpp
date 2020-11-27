@@ -36,7 +36,7 @@ namespace Lars {
  *     be normalized to have zero mean.
  * @param beta device array of regression coefficients, has to be allocated on
  *     entry, size [max_iter]
- * @param active_idx, device array containing the indices of active variables.
+ * @param active_idx device array containing the indices of active variables.
  *     Must be allocated on entry. Size [max_iter]
  * @param alphas the maximum correlation along the regularization path are
  *    returned here. Must be a device array allocated on entry Size [max_iter].
@@ -71,7 +71,7 @@ void larsFit(const raft::handle_t& handle, math_t* X, idx_t n_rows,
  * @param ld_X leading dimension of X (stride of columns)
  * @param beta device array of regression coefficients, size [n_active]
  * @param n_active the number of regression coefficients
- * @param active_idx, device array containing the indices of active variables.
+ * @param active_idx device array containing the indices of active variables.
  *     Only these columns of X will be used for prediction, size [n_active].
  * @param intercept
  * @param preds device array to store the predictions, size [n_rows]. Must be
