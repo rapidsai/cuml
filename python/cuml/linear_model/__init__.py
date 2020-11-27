@@ -16,7 +16,6 @@
 
 
 from cuml.linear_model.elastic_net import ElasticNet
-from cuml.linear_model.lars import Lars
 from cuml.linear_model.lasso import Lasso
 from cuml.linear_model.linear_regression import LinearRegression
 from cuml.linear_model.logistic_regression import LogisticRegression
