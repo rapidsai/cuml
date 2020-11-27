@@ -405,27 +405,13 @@ def input_to_cupy_array(X,
     CumlArray
     """
     if not fail_on_nan:
-        if isinstance(X, cudf.DataFrame):
-            # Columns containing missing values
-            colWithMissing = X.isnull().any().to_array()
-            if colWithMissing.any():
-                # Columns types
-                colTypes = X.dtypes.values
-                # Types of columns containing missing values
-                colTypesWithMissing = colTypes[colWithMissing]
-                checkIfFloatType = np.vectorize(
-                    lambda x: not np.issubclass_(x, float))
-                # Columns that require conversion
-                colToConvert = checkIfFloatType(colTypesWithMissing)
-                if colToConvert.any():
-                    X = X.astype('float64', copy=False)
+        if isinstance(X, (cudf.DataFrame, cudf.Series)):
+            try:
+                X = X.values
+            except ValueError:
+                X = X.astype('float64', copy=False)
                 X.fillna(cp.nan, inplace=True)
-        elif isinstance(X, cudf.Series):
-            hasMissing = X.isnull().any()
-            if hasMissing:
-                if not np.issubclass_(X.dtype, float):
-                    X = X.astype('float64', copy=False)
-            X.fillna(cp.nan, inplace=True)
+                X = X.values
 
     out_data = input_to_cuml_array(X,
                                    order=order,
