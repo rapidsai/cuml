@@ -54,7 +54,6 @@ if(BUILD_CUML_TESTS)
     sg/multi_sum_test.cu
     sg/handle_test.cu
     sg/holtwinters_test.cu
-    sg/kernel_shap.cu
     sg/kmeans_test.cu
     sg/knn_test.cu
     sg/logger.cpp
@@ -71,6 +70,8 @@ if(BUILD_CUML_TESTS)
     sg/ridge.cu
     sg/rproj_test.cu
     sg/sgd.cu
+    sg/shap_kernel.cu
+    sg/shap_permutation.cu
     sg/svc_test.cu
     sg/trustworthiness_test.cu
     sg/tsne_test.cu
