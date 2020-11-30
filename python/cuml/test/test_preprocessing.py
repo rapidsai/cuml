@@ -556,10 +556,10 @@ def test_robust_scale_sparse(sparse_clf_dataset,  # noqa: F811
 @pytest.mark.parametrize("n_bins", [5, 20])
 @pytest.mark.parametrize("encode", ['ordinal', 'onehot-dense', 'onehot'])
 @pytest.mark.parametrize("strategy", ['uniform', 'quantile', 'kmeans'])
-@pytest.mark.xfail(strict=False)
 def test_kbinsdiscretizer(blobs_dataset, n_bins,  # noqa: F811
                           encode, strategy):
     X_np, X = blobs_dataset
+    X = cp.array(X_np)  # Workaround for possible memory issue
 
     transformer = cuKBinsDiscretizer(n_bins=n_bins,
                                      encode=encode,
