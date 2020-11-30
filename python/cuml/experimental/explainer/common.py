@@ -99,13 +99,13 @@ def get_dtype_from_model_func(func, default=None):
 
 def model_func_call(X,
                     model_func,
-                    model_gpu_based=False):
+                    gpu_model=False):
     """
     Function to call `model_func(X)` using either `NumPy` arrays if
-    model_gpu_based is False or X directly if model_gpu based is True.
+    gpu_model is False or X directly if model_gpu based is True.
     Returns the results as CuPy arrays.
     """
-    if model_gpu_based:
+    if gpu_model:
         y = cp.asarray(model_func(X))
     else:
         try:
@@ -146,8 +146,25 @@ def get_link_fn_from_str_or_fn(link):
     return link_fn
 
 
-# link functions
+# temporary function while explainers adopt decorators and cumlarray descriptor
+def output_list_shap_values(X, dimensions, output_type):
+    print(type(X))
+    if output_type == 'cupy':
+        if dimensions == 1:
+            return X[0]
+        else:
+            return X
+    else:
+        if dimensions == 1:
+            return cp.asnumpy(X[0])
+        else:
+            res = []
+            for x in X:
+                res.append(cp.asnumpy(x))
+            return res
 
+
+# link functions
 
 def identity(x):
     return x

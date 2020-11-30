@@ -28,7 +28,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+
 import cudf
+import cupy as cp
 import numpy as np
 import pandas
 
@@ -37,6 +39,7 @@ from cuml.experimental.explainer.common import get_dtype_from_model_func
 from cuml.experimental.explainer.common import get_handle_from_cuml_model_func
 from cuml.experimental.explainer.common import get_link_fn_from_str_or_fn
 from cuml.experimental.explainer.common import get_tag_from_model_func
+from cuml.experimental.explainer.common import model_func_call
 from cuml.common.input_utils import input_to_cupy_array
 
 
@@ -91,7 +94,7 @@ class SHAPBase():
     def __init__(self,
                  *,
                  model,
-                 data,
+                 background,
                  order=None,
                  order_default='C',
                  link='identity',
@@ -128,15 +131,17 @@ class SHAPBase():
         if gpu_model is None:
             # todo: when sparse support is added, use this tag to see if
             # model can accept sparse data
-            self.model_gpu_based = \
+            self.gpu_model = \
                 get_tag_from_model_func(func=model,
                                         tag='X_types_gpu',
                                         default=None) is not None
         else:
-            self.model_gpu_based = gpu_model
+            self.gpu_model = gpu_model
 
+        # we are defaulting to numpy for now for compatibility
         if output_type is None:
-            self.output_type = 'cupy' if self.model_gpu_based else 'numpy'
+            # self.output_type = 'cupy' if self.gpu_model else 'numpy'
+            self.output_type = 'numpy'
         else:
             self.output_type = output_type
 
@@ -145,16 +150,37 @@ class SHAPBase():
             self.dtype = get_dtype_from_model_func(func=model,
                                                    default=np.float32)
         else:
-            self.dtype = np.dtype(dtype)
+            if dtype in [np.float32, np.float64]:
+                self.dtype = np.dtype(dtype)
+            raise ValueError("dtype must be either np.float32 or np.float64")
 
         self.background, self.N, self.M, _ = \
-            input_to_cupy_array(data, order=self.order,
+            input_to_cupy_array(background, order=self.order,
                                 convert_to_dtype=self.dtype)
 
         self.random_state = random_state
 
-        if isinstance(data, pandas.DataFrame) or isinstance(data,
-                                                            cudf.DataFrame):
-            self.feature_names = data.columns.to_list()
+        if isinstance(background,
+                      pandas.DataFrame) or isinstance(background,
+                                                      cudf.DataFrame):
+            self.feature_names = background.columns.to_list()
         else:
-            self.feature_names = [None for _ in range(len(data))]
+            self.feature_names = [None for _ in range(len(background))]
+
+        # evaluate the model in background to get the expected_value
+        self.expected_value = self.link_fn(
+            cp.mean(
+                model_func_call(X=self.background,
+                                model_func=self.model,
+                                gpu_model=self.gpu_model),
+                axis=0
+            )
+        )
+
+        # D tells us the dimension of the model. For example, `predict_proba`
+        # functions typically return n values for n classes as opposed to
+        # 1 valued for a typical `predict`
+        if len(self.expected_value.shape) == 0:
+            self.D = 1
+        else:
+            self.D = self.expected_value.shape[0]

@@ -14,24 +14,23 @@
 # limitations under the License.
 #
 
-import cuml
-import cuml.internals
 import cupy as cp
 import numpy as np
 
 from cuml.common.import_utils import has_shap
 from cuml.common.import_utils import has_sklearn
-from cuml.common.input_utils import input_to_cuml_array
 from cuml.common.input_utils import input_to_cupy_array
-from cuml.common.logger import info
 from cuml.common.logger import warn
 from cuml.experimental.explainer.base import SHAPBase
 from cuml.experimental.explainer.common import get_cai_ptr
 from cuml.experimental.explainer.common import model_func_call
+from cuml.experimental.explainer.common import output_list_shap_values
 from cuml.linear_model import Lasso
+from cuml.linear_model import LinearRegression
 from cuml.raft.common.handle import Handle
 from functools import lru_cache
 from itertools import combinations
+from numbers import Number
 from random import randint
 
 from cuml.raft.common.handle cimport handle_t
@@ -56,7 +55,7 @@ cdef extern from "cuml/explainer/kernel_shap.hpp" namespace "ML":
 
     void kernel_dataset "ML::Explainer::kernel_dataset"(
         handle_t& handle,
-        double* X,
+        float* X,
         int nrows_X,
         int ncols,
         double* background,
@@ -80,9 +79,11 @@ class KernelExplainer(SHAPBase):
     - Data generation and Kernel SHAP calculations are significantly faster,
     but this has a tradeoff of having more model evaluations if both the
     observation explained and the background data have many 0-valued columns.
+    - Support for SHAP's new Explanation and API will be available in the
+    next version.
     - There is a small initialization cost (similar to training time of regular
-    Scikit/cuML models), which was a tradeoff for faster explanations after
-    that.
+    Scikit/cuML models) of a few seconds, which was a tradeoff for
+    faster explanations after that.
     - Only tabular data is supported for now, via passing the background
     dataset explicitly. Since the new API of SHAP is still evolving, the main
     supported API right now is the old one
@@ -119,13 +120,13 @@ class KernelExplainer(SHAPBase):
         (as CuPy arrays), otherwise it will use NumPy arrays to call `model`.
         Set to True to force the explainer to use GPU data,  set to False to
         force the Explainer to use NumPy data.
-    handle : cuml.raft.common.handle
+    handle : cuml.raft.common.handle (default = None)
         Specifies the handle that holds internal CUDA state for
-        computations in this model. Most importantly, this specifies the CUDA
-        stream that will be used for the model's computations, so users can
-        run different models concurrently in different streams by creating
-        handles in several streams.
-        If it is None, a new one is created.
+        computations in this model, a new one is created if it is None.
+        Most importantly, this specifies the CUDA stream that will be used for
+        the model's computations, so users can run different models
+        concurrently in different streams by creating handles in several
+        streams.
     dtype : np.float32 or np.float64 (default = None)
         Parameter to specify the precision of data to generate to call the
         model. If not specified, the explainer will try to get the dtype
@@ -176,12 +177,11 @@ class KernelExplainer(SHAPBase):
 
     """
 
-    @cuml.internals.api_return_any()
     def __init__(self,
                  *,
                  model,
                  data,
-                 nsamples=None,
+                 nsamples=2**11,
                  link='identity',
                  verbose=False,
                  random_state=None,
@@ -192,20 +192,18 @@ class KernelExplainer(SHAPBase):
 
         super(KernelExplainer, self).__init__(
             model=model,
-            data=data,
+            background=data,
             order='C',
             link=link,
             verbose=verbose,
             random_state=random_state,
-            gpu_model=True,
+            gpu_model=gpu_model,
             handle=handle,
             dtype=dtype,
             output_type=output_type
         )
 
-        # Matching SHAP package default values for number of samples
-        self.nsamples = 2 * self.M + 2 ** 11 if nsamples is None else nsamples
-
+        self.nsamples = nsamples
         # Maximum number of samples that user can set
         max_samples = 2 ** 32
 
@@ -216,8 +214,6 @@ class KernelExplainer(SHAPBase):
             # if the user requested more samples than there are subsets in the
             # _powerset, we set nsamples to max_samples
             if self.nsamples > max_samples:
-                info("`nsamples` exceeds maximum number of samples {}, "
-                     "setting it to that value.".format(max_samples))
                 self.nsamples = max_samples
 
         # Check the ratio between samples we evaluate divided by
@@ -225,14 +221,14 @@ class KernelExplainer(SHAPBase):
         self.ratio_evaluated = self.nsamples / max_samples
 
         self.nsamples_exact, self.nsamples_random, self.randind = \
-            self._get_number_of_exact_random_samples(data=data,
-                                                     ncols=self.M,
-                                                     nsamples=self.nsamples)
+            _get_number_of_exact_random_samples(ncols=self.M,
+                                                nsamples=self.nsamples)
 
         # using numpy for powerset and shapley kernel weight calculations
         # cost is incurred only once, and generally we only generate
         # very few samples of the powerset if M is big.
-        mat, weight = _powerset(self.M, self.randind - 1, self.nsamples_exact,
+        mat, weight = _powerset(self.M, self.randind, self.nsamples_exact,
+                                full_powerset=(self.nsamples_random == 0),
                                 dtype=self.dtype)
 
         # Store the mask and weights as device arrays
@@ -245,43 +241,6 @@ class KernelExplainer(SHAPBase):
         self._weights[:self.nsamples_exact] = cp.array(weight)
 
         self._synth_data = None
-
-        # evaluate the model in background to get the expected_value
-        self.expected_value = self.link_fn(
-            cp.mean(
-                model_func_call(X=self.background,
-                                model_func=self.model,
-                                model_gpu_based=self.model_gpu_based)
-            )
-        )
-
-    def _get_number_of_exact_random_samples(self, data, ncols, nsamples):
-        """
-        Function calculates how many rows will be from the powerset (exact)
-        and how many will be from random samples, based on the nsamples
-        of the explainer.
-        """
-        cur_nsamples = 0
-        nsamples_exact = 0
-        r = 0
-
-        # we check how many subsets of the _powerset of self.M we can fit
-        # in self.nsamples. This sets of the powerset are used  as indexes
-        # to generate the mask matrix
-        while cur_nsamples <= self.nsamples:
-            r += 1
-            nsamples_exact = cur_nsamples
-            cur_nsamples += int(_binomCoef(self.M, r))
-
-        # see if we need to have randomly sampled entries in our mask
-        # and combinations matrices
-        nsamples_random = \
-            nsamples - nsamples_exact if r < ncols else 0
-
-        # we save r so we can generate random samples later
-        randind = r
-
-        return nsamples_exact, nsamples_random, r
 
     def shap_values(self,
                     X,
@@ -305,60 +264,25 @@ class KernelExplainer(SHAPBase):
         array or list
 
         """
-        return self._explain(X, l1_reg)
+        return self._explain(X,
+                             l1_reg=l1_reg)
 
-    def __call__(self,
-                 X,
-                 l1_reg='auto'):
-        """
-        Experimental interface to estimate the SHAP values for a set of
-        samples.
-        Corresponds to the SHAP package's new API, building a SHAP.Explanation
-        object for the result. It is experimental, it is recommended to use
-        `Explainer.shap_values` during the first version.
-
-        Parameters
-        ----------
-        X : Dense matrix containing floats or doubles.
-            Acceptable formats: CUDA array interface compliant objects like
-            CuPy, cuDF DataFrame/Series, NumPy ndarray and Pandas
-            DataFrame/Series.
-        l1_reg : str (default: 'auto')
-            The l1 regularization to use for feature selection.
-
-        Returns
-        -------
-        array or list
-
-        """
-        if has_shap("0.36"):
-            warn("SHAP's Explanation object is still experimental, the main "
-                 "API currently is `explainer.shap_values`.")
-            from shap import Explanation
-            res = self._explain(X, l1_reg)
-            out = Explanation(
-                values=res,
-                base_values=self.expected_value,
-                data=self.background,
-                feature_names=self.feature_names,
-            )
-            return out
-        else:
-            raise ImportError("SHAP >= 0.36 package required to build "
-                              "Explanation object. Use the "
-                              "`explainer.shap_values` function to get "
-                              "the shap values, or install "
-                              "SHAP to use the new API style.")
-
-    @cuml.internals.api_return_array()
     def _explain(self,
                  X,
                  nsamples=None,
                  l1_reg='auto'):
+        X = input_to_cupy_array(X, order='C', convert_to_dtype=self.dtype)[0]
+
         if X.ndim == 1:
             X = X.reshape((1, self.M))
 
-        shap_values = cp.zeros(X.shape, dtype=self.dtype)
+
+        # shap_values is a list so we can return a list in the case that
+        # model is a multidimensional-output function
+        shap_values = []
+
+        for i in range(self.D):
+            shap_values.append(cp.zeros(X.shape, dtype=self.dtype))
 
         # Allocate synthetic dataset array once for multiple explanations
         if self._synth_data is None:
@@ -371,42 +295,55 @@ class KernelExplainer(SHAPBase):
         # Explain each observation
         idx = 0
         for x in X:
-            shap_values[idx, :-1] = self._explain_single_observation(
-                x.reshape(1, self.M), l1_reg
+            # use mutability of lists and cupy arrays to get all shap values
+            self._explain_single_observation(
+                shap_values,
+                x.reshape(1, self.M),
+                l1_reg,
+                idx
             )
-            shap_values[idx, -1] = \
-                (self.fx - self.expected_value)[0] - cp.sum(
-                    shap_values[idx, :-1])
             idx = idx + 1
 
-        return shap_values[0]
+        del(self._synth_data)
+
+        return output_list_shap_values(shap_values, self.D, self.output_type)
 
     def _explain_single_observation(self,
+                                    shap_values,
                                     row,
-                                    l1_reg):
+                                    l1_reg,
+                                    idx):
         # Call the model to get the value f(row)
-        self.fx = cp.array(
+        fx = cp.array(
             model_func_call(X=row,
                             model_func=self.model,
-                            model_gpu_based=self.model_gpu_based))
+                            gpu_model=self.gpu_model))
+
+        self._mask[self.nsamples_exact:self.nsamples] = \
+            cp.zeros((self.nsamples_random, self.M), dtype=cp.float32)
 
         # If we need sampled rows, then we call the function that generates
         # the samples array with how many samples each row will have
         # and its corresponding weight
         if self.nsamples_random > 0:
             samples, self._weights[self.nsamples_exact:self.nsamples] = \
-                self._generate_nsamples_weights()
+                _generate_nsamples_weights(self.M,
+                                           self.nsamples,
+                                           self.nsamples_exact,
+                                           int(self.nsamples_random / 2),
+                                           self.randind,
+                                           self.dtype)
 
         row, n_rows, n_cols, dtype = \
-            input_to_cuml_array(row, order=self.order)
+            input_to_cupy_array(row, order=self.order)
 
         cdef handle_t* handle_ = \
             <handle_t*><size_t>self.handle.getHandle()
-        cdef uintptr_t row_ptr, bg_ptr, cmb_ptr, masked_ptr, x_ptr, smp_ptr
+        cdef uintptr_t row_ptr, bg_ptr, ds_ptr, masked_ptr, x_ptr, smp_ptr
 
-        row_ptr = row.ptr
+        row_ptr = get_cai_ptr(row)
         bg_ptr = get_cai_ptr(self.background)
-        cmb_ptr = get_cai_ptr(self._synth_data)
+        ds_ptr = get_cai_ptr(self._synth_data)
         if self.nsamples_random > 0:
             smp_ptr = get_cai_ptr(samples)
         else:
@@ -416,23 +353,23 @@ class KernelExplainer(SHAPBase):
         x_ptr = get_cai_ptr(self._mask)
 
         if self.random_state is None:
-            random_state = randint(0, 1e18)
+            self.random_state = randint(0, 1e18)
 
         # we default to float32 unless self.dtype is specifically np.float64
         if self.dtype == np.float64:
             kernel_dataset(
                 handle_[0],
-                <double*> x_ptr,
+                <float*> x_ptr,
                 <int> self._mask.shape[0],
                 <int> self._mask.shape[1],
                 <double*> bg_ptr,
                 <int> self.background.shape[0],
-                <double*> cmb_ptr,
+                <double*> ds_ptr,
                 <double*> row_ptr,
                 <int*> smp_ptr,
                 <int> self.nsamples_random,
                 <int> maxsample,
-                <uint64_t> random_state)
+                <uint64_t> self.random_state)
 
         else:
             kernel_dataset(
@@ -442,122 +379,109 @@ class KernelExplainer(SHAPBase):
                 <int> self._mask.shape[1],
                 <float*> bg_ptr,
                 <int> self.background.shape[0],
-                <float*> cmb_ptr,
+                <float*> ds_ptr,
                 <float*> row_ptr,
                 <int*> smp_ptr,
                 <int> self.nsamples_random,
                 <int> maxsample,
-                <uint64_t> random_state)
+                <uint64_t> self.random_state)
+
+        # kept while in experimental phase. It is not needed for cuml
+        # models, but for other GPU models it is
+        self.handle.sync()
 
         # evaluate model on combinations
         y = model_func_call(X=self._synth_data,
                             model_func=self.model,
-                            model_gpu_based=self.model_gpu_based)
+                            gpu_model=self.gpu_model)
 
-        # get average of each combination of X
-        y_hat = cp.mean(
-            cp.array(y).reshape((self.nsamples,
-                                 self.background.shape[0])),
-            axis=1
-        )
-
-        nonzero_inds = self._l1_regularization(y_hat, l1_reg)
-
-        return self._weighted_linear_regression(y_hat, nonzero_inds)
-
-    def _generate_nsamples_weights(self):
-        """
-        Function generates an array `samples` of ints of samples and their
-        weights that can be used for generating X and dataset.
-        """
-        samples = np.random.choice(np.arange(self.randind,
-                                             self.randind + 1),
-                                   self.nsamples_random)
-        maxsample = np.max(samples)
-        w = np.empty(self.nsamples_random, dtype=self.dtype)
-        for i in range(self.nsamples_exact, self.nsamples_random):
-            w[i] = shapley_kernel(self.M, samples[i])
-        samples = cp.array(samples, dtype=np.int32)
-        w = cp.array(w)
-        return samples, w
-
-    def _l1_regularization(self, y_hat, l1_reg):
-        """
-        Function calls LASSO or LARS if l1 regularization is needed.
-        """
-        nonzero_inds = None
-        # call lasso/lars if needed
-        if l1_reg == 'auto':
-            if self.ratio_evaluated < 0.2:
-                # todo: analyze ideal alpha if staying with lasso or switch
-                # to cuml lars once that is merged
-                nonzero_inds = cp.nonzero(
-                    Lasso(
-                        alpha=0.1,
-                        handle=self.handle,
-                        verbosity=self.verbosity).fit(
-                            X=self._mask,
-                            y=y_hat
-                    ).coef_)[0]
-                if len(nonzero_inds) == 0:
-                    return cp.zeros(self.M)
-
-        else:
-            if not has_sklearn():
-                raise ImportError("Scikit-learn needed for lars l1 "
-                                  "regularization currently.")
+        for i in range(self.D):
+            if self.D == 1:
+                y_hat = y - self.expected_value
+                exp_val_param = self.expected_value
+                fx_param = fx[0]
             else:
-                warn("LARS is not currently GPU accelerated, using "
-                     "Scikit-learn.")
+                y_hat = y[:, i] - self.expected_value[i]
+                fx_param = fx[0][i]
+                exp_val_param = self.expected_value[i]
 
-                from sklearn.linear_model import LassoLarsIC, lars_path
-                if (isinstance(l1_reg, str)
-                        and l1_reg.startswith("num_features(")):
-                    r = int(l1_reg[len("num_features("):-1])
-                    nonzero_inds = lars_path(
-                        self._mask, y_hat, max_iter=r)[1]
-                elif (isinstance(l1_reg, str) and l1_reg == "bic" or
-                        l1_reg == "aic"):
-                    nonzero_inds = np.nonzero(
-                        LassoLarsIC(criterion=l1_reg).fit(self._mask,
-                                                          y_hat).coef_)[0]
-        return nonzero_inds
-
-    def _weighted_linear_regression(self, y_hat, nonzero_inds=None):
-        """
-        Function performs weighted linear regression, the shap values
-        are the coefficients.
-        """
-        if nonzero_inds is None:
-            y_hat = y_hat - self.expected_value
-
-            # taken from main SHAP package:
-            # eliminate one variable with the constraint that all features
-            # sum to the output, improves result accuracy significantly
-            y_hat = y_hat - self._mask[:, -1] * (self.fx - self.expected_value)
-            Mw = cp.transpose(
-                cp.transpose(self._mask[:, :-1]) - self._mask[:, -1])
-
-            Mw = Mw * cp.sqrt(self._weights[:, cp.newaxis])
-            y_hat = y_hat * cp.sqrt(self._weights)
-
-        else:
-            y_hat = y_hat[nonzero_inds] - self.expected_value
-
-            y_hat = y_hat - self._mask[:, nonzero_inds[-1]] * (
-                self.fx - self.expected_value)
-            Mw = cp.transpose(
-                cp.transpose(self._mask[:, nonzero_inds[:-1]]) -
-                             self._mask[:, nonzero_inds[-1]])
-
-            Mw = self._mask[nonzero_inds] * cp.sqrt(
-                self._weights[nonzero_inds, cp.newaxis]
+            # get average of each combination of X
+            y_hat = cp.mean(
+                cp.array(y_hat).reshape((self.nsamples,
+                                         self.background.shape[0])),
+                axis=1
             )
 
-            y_hat = y_hat * cp.sqrt(self._weights[nonzero_inds])
+            # we neeed to do l1 regularization if user left it as auto and we
+            # evaluated less than 20% of the space, or if the user set it
+            # and we did not evaluate all the space (i.e. nsamples_random == 0)
+            nonzero_inds = None
+            if ((self.ratio_evaluated < 0.2 and l1_reg == "auto") or
+                    (self.ratio_evaluated < 1.0 and l1_reg != "auto")):
+                nonzero_inds = _l1_regularization(self._mask,
+                                                  y_hat,
+                                                  self._weights,
+                                                  exp_val_param,
+                                                  fx_param,
+                                                  self.link_fn,
+                                                  l1_reg)
 
-        X, *_ = cp.linalg.lstsq(Mw, y_hat)
-        return X
+                # in case all indexes become zero
+                if nonzero_inds.shape == (0, ):
+                    return None
+
+            shap_values[i][idx, :-1] = _weighted_linear_regression(
+                self._mask,
+                y_hat,
+                self._weights,
+                exp_val_param,
+                fx_param,
+                nonzero_inds=nonzero_inds,
+                handle=self.handle)
+
+            # add back the variable that was removed in the weighted
+            # linear regression preprocessing
+            if nonzero_inds is None:
+                shap_values[i][idx, -1] = \
+                    (fx_param - exp_val_param) - cp.sum(
+                        shap_values[i][idx, :-1])
+            else:
+                shap_values[i][idx, nonzero_inds[-1]] = \
+                    (fx_param - exp_val_param) - cp.sum(
+                        shap_values[i][idx, :-1])
+
+
+def _get_number_of_exact_random_samples(ncols, nsamples):
+    """
+    Function calculates how many rows will be from the powerset (exact)
+    and how many will be from random samples, based on the nsamples
+    of the explainer.
+    """
+    cur_nsamples = 0
+    nsamples_exact = 0
+    r = 0
+
+    # we check how many subsets of the _powerset of self.M we can fit
+    # in self.nsamples. This sets of the powerset are used  as indexes
+    # to generate the mask matrix
+    while cur_nsamples <= nsamples / 2:
+        r += 1
+        nsamples_exact = cur_nsamples
+        cur_nsamples += int(_binomCoef(ncols, r))
+
+    # if we are going to generate a full powerset (i.e. we reached
+    # bincoef bincoef(ncols, r/2)) we return 2**ncols - 2
+    if r >= ncols / 2:
+        nsamples_exact = 2**ncols - 2
+    else:
+        nsamples_exact *= 2
+    # see if we need to have randomly sampled entries in our mask
+    # and combinations matrices
+    nsamples_random = \
+        nsamples - nsamples_exact if r < ncols / 2 else 0
+
+    # we save r so we can generate random samples later
+    return nsamples_exact, nsamples_random, r
 
 
 @lru_cache(maxsize=None)
@@ -575,35 +499,8 @@ def _binomCoef(n, k):
     return res
 
 
-def _powerset(n, r, nrows, dtype=np.float32):
-    """
-    Function to generate the subsets of range(n) up to size r.
-    """
-    N = np.arange(n)
-    w = np.zeros(nrows, dtype=dtype)
-    result = np.zeros((nrows, n), dtype=dtype)
-    idx = 0
-    for i in range(1, r + 1):
-        for c in combinations(N, i):
-            result[idx, c] = 1
-            w[idx] = shapley_kernel(n, i)
-            idx += 1
-
-    return result, w
-
-
-def _calc_sampling_weights(M, r):
-    """
-    Function to calculate sampling weights to
-    """
-    w = np.empty(M - r, dtype=np.float32)
-    for i in range(M - r, M):
-        w[i] = (M - 1) / i * (M - i)
-    return w
-
-
 @lru_cache(maxsize=None)
-def shapley_kernel(M, s):
+def _shapley_kernel(M, s):
     """
     Function that calculates shapley kernel, cached.
     """
@@ -614,3 +511,152 @@ def shapley_kernel(M, s):
 
     res = (M - 1) / (_binomCoef(M, s) * s * (M - s))
     return res
+
+
+def _powerset(n, r, nrows, full_powerset=False, dtype=np.float32):
+    """
+    Function to generate the subsets of range(n) up to size r.
+    """
+    N = np.arange(n)
+    w = np.zeros(nrows, dtype=dtype)
+    result = np.zeros((nrows, n), dtype=dtype)
+    idx = 0
+    upper_limit = n if full_powerset else r
+    for i in range(1, upper_limit):
+        for c in combinations(N, i):
+            result[idx, c] = 1
+            w[idx] = _shapley_kernel(n, i)
+            if not full_powerset:
+                result[idx + 1] = 1 - result[idx]
+                w[idx + 1] = _shapley_kernel(n, i)
+                idx += 1
+            idx += 1
+
+    return result, w
+
+
+def _generate_nsamples_weights(ncols,
+                               nsamples,
+                               nsamples_exact,
+                               nsamples_random,
+                               randind,
+                               dtype):
+    """
+    Function generates an array `samples` of ints of samples and their
+    weights that can be used for generating X and dataset.
+    """
+    samples = np.random.choice(np.arange(randind,
+                                         randind + 2),
+                               nsamples_random)
+    w = np.empty(nsamples_random * 2, dtype=dtype)
+    for i in range(len(samples)):
+        weight = \
+            _shapley_kernel(ncols, samples[i])
+        w[i * 2] = weight
+        w[i * 2 + 1] = weight
+    samples = cp.array(samples, dtype=np.int32)
+    w = cp.array(w)
+    return samples, w
+
+
+def _l1_regularization(X,
+                       y,
+                       weights,
+                       expected_value,
+                       fx,
+                       link_fn,
+                       l1_reg='auto'):
+    """
+    Function calls LASSO or LARS if l1 regularization is needed.
+    """
+
+    # create augmented dataset for feature selection
+    s = cp.sum(X, axis=1)
+    w_aug = cp.hstack(
+        (weights * (X.shape[1] - s), weights * s))
+    w_sqrt_aug = np.sqrt(w_aug)
+    y = cp.hstack(
+        (y, y - (link_fn(fx) - link_fn(expected_value))))
+    y *= w_sqrt_aug
+    X = cp.transpose(
+        w_sqrt_aug * cp.transpose(cp.vstack((X, X - 1))))
+
+    # Use lasso if Scikit-learn is not present
+    if not has_sklearn():
+        if l1_reg == 'auto':
+            l1_reg = 0.2
+        elif not isinstance(l1_reg, Number):
+            raise ImportError("Scikit-learn is required for l1 "
+                              "regularization that is not Lasso.")
+        nonzero_inds = cp.nonzero(Lasso(alpha=l1_reg).fit(X, y).coef_)[0]
+
+    # Else match default behavior of mainline SHAP
+    elif l1_reg == 'auto':
+        from sklearn.linear_model import LassoLarsIC
+        nonzero_inds = np.nonzero(
+            LassoLarsIC(criterion="aic").fit(cp.asnumpy(X),
+                                             cp.asnumpy(y)).coef_)[0]
+
+    elif isinstance(l1_reg, str):
+        if l1_reg.startswith("num_features("):
+            from sklearn.linear_model import lars_path
+            r = int(l1_reg[len("num_features("):-1])
+            nonzero_inds = lars_path(cp.asnumpy(X),
+                                     cp.asnumpy(y), max_iter=r)[1]
+        elif l1_reg in ["aic", "bic"]:
+            from sklearn.linear_model import LassoLarsIC
+            nonzero_inds = np.nonzero(
+                LassoLarsIC(criterion=l1_reg).fit(cp.asnumpy(X),
+                                                  cp.asnumpy(y)).coef_)[0]
+
+    else:
+        nonzero_inds = cp.nonzero(Lasso(alpha=0.2).fit(X, y).coef_)[0]
+
+    return cp.asarray(nonzero_inds)
+
+
+def _weighted_linear_regression(X,
+                                y,
+                                weights,
+                                expected_value,
+                                fx,
+                                nonzero_inds=None,
+                                handle=None):
+    """
+    Function performs weighted linear regression, the shap values
+    are the coefficients.
+    """
+    if nonzero_inds is None:
+        # taken from main SHAP package:
+        # eliminate one variable with the constraint that all features
+        # sum to the output, improves result accuracy significantly
+        y = y - X[:, -1] * (fx - expected_value)
+        Xw = cp.transpose(
+            cp.transpose(X[:, :-1]) - X[:, -1])
+
+        Xw = Xw * cp.sqrt(weights[:, cp.newaxis])
+        y = y * cp.sqrt(weights)
+        shap_vals = LinearRegression(fit_intercept=False,
+                                     output_type='cupy',
+                                     handle=handle).fit(Xw, y).coef_
+
+    else:
+        # mathematically the same as above, but we need to use the indexes
+        # from nonzero_inds and some additional arrays
+        # nonzero_inds tells us which cols of X to use
+        y = y - X[:, nonzero_inds[-1]] * (fx - expected_value)
+        print(nonzero_inds)
+        Xw = cp.transpose(
+            cp.transpose(X[:, nonzero_inds[:-1]]) - X[:, nonzero_inds[-1]])
+
+        Xw = Xw * cp.sqrt(weights[:, cp.newaxis])
+        y = y * cp.sqrt(weights)
+
+        X_t = LinearRegression(fit_intercept=False,
+                               output_type='cupy',
+                               handle=handle).fit(Xw, y).coef_
+
+        shap_vals = cp.zeros(X.shape[1] - 1)
+        shap_vals[nonzero_inds[:-1]] = X_t
+
+    return shap_vals
