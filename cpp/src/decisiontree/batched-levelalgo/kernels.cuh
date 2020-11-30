@@ -28,6 +28,65 @@
 namespace ML {
 namespace DecisionTree {
 
+DI uint32_t mulwide32(uint32_t a, uint32_t b, uint32_t *hi) { 
+    uint64_t res = uint64_t(a) * b;
+    *hi = uint32_t(res >> 32);
+    return uint32_t(res & 0xFFFFFFFF);
+}
+
+// Philox 4x32 constants
+constexpr uint32_t ADD_CONSTANT_0 = uint32_t(0x9E3779B9);
+constexpr uint32_t ADD_CONSTANT_1 = uint32_t(0xBB67AE85);
+
+constexpr uint32_t MUL_CONSTANT_0 = uint32_t(0xD2511F53);
+constexpr uint32_t MUL_CONSTANT_1 = uint32_t(0xCD9E8D57);
+
+
+DI uint4 philox_4x32_round(uint4 counter, uint2 seed) { 
+    uint32_t hi0, hi1;
+    uint4 out;
+    uint32_t lo0 = mulwide32(MUL_CONSTANT_0, counter.x, &hi0);
+    uint32_t lo1 = mulwide32(MUL_CONSTANT_1, counter.z, &hi1);
+    out.x = hi1 ^ counter.y ^ seed.x;
+    out.y = lo1;
+    out.z = hi0 ^ counter.w ^ seed.y;
+    out.w = lo0;
+    return out;
+}
+
+DI uint4 philox_4x32_10(uint4 counter, uint2 seed) { 
+    counter = philox_4x32_round(counter, seed); // 0
+    seed.x += ADD_CONSTANT_0;
+    seed.y += ADD_CONSTANT_1;
+    counter = philox_4x32_round(counter, seed); // 1
+    seed.x += ADD_CONSTANT_0;
+    seed.y += ADD_CONSTANT_1;
+    counter = philox_4x32_round(counter, seed); // 2
+    seed.x += ADD_CONSTANT_0;
+    seed.y += ADD_CONSTANT_1;
+    counter = philox_4x32_round(counter, seed); // 3
+    seed.x += ADD_CONSTANT_0;
+    seed.y += ADD_CONSTANT_1;
+    counter = philox_4x32_round(counter, seed); // 4
+    seed.x += ADD_CONSTANT_0;
+    seed.y += ADD_CONSTANT_1;
+    counter = philox_4x32_round(counter, seed); // 5
+    seed.x += ADD_CONSTANT_0;
+    seed.y += ADD_CONSTANT_1;
+    counter = philox_4x32_round(counter, seed); // 6
+    seed.x += ADD_CONSTANT_0;
+    seed.y += ADD_CONSTANT_1;
+    counter = philox_4x32_round(counter, seed); // 7
+    seed.x += ADD_CONSTANT_0;
+    seed.y += ADD_CONSTANT_1;
+    counter = philox_4x32_round(counter, seed); // 8
+    seed.x += ADD_CONSTANT_0;
+    seed.y += ADD_CONSTANT_1;
+    counter = philox_4x32_round(counter, seed); // 9
+
+    return counter;
+}
+
 /**
  * @brief Traits used to customize device-side methods for classification task
  *
@@ -264,13 +323,40 @@ __device__ OutT* alignPointer(InT input) {
     raft::alignTo(reinterpret_cast<size_t>(input), sizeof(OutT)));
 }
 
+template <typename IdxT>
+DI IdxT selectFeature(IdxT treeid, IdxT nodeid, IdxT k, uint64_t seed, IdxT N) {
+  uint4 counter;
+  uint2 key;
+
+  counter.x = uint32_t(k);
+  counter.y = uint32_t(nodeid);
+  counter.z = uint32_t(treeid);
+  counter.w = uint32_t(0xAAAAAAAA); // Reserved capacity
+  key.x = uint32_t(seed & 0xFFFFFFFF);
+  key.y = uint32_t(seed >> 32);
+
+  counter.x = k;
+  uint4 n_counter = philox_4x32_10(counter, key);
+  uint32_t watch_for = k + n_counter.x % (N - k);
+
+  for(int i = k - 1; i > 0; i--) {
+    counter.x = i;
+    n_counter = philox_4x32_10(counter, key);
+    int  j = i + n_counter.x % (N - i);
+    if(j == watch_for) {
+        watch_for = i;
+    }
+  }
+  return int(watch_for);
+}
+
 template <typename DataT, typename LabelT, typename IdxT, int TPB>
 __global__ void computeSplitClassificationKernel(
   int* hist, IdxT nbins, IdxT max_depth, IdxT min_samples_split,
   IdxT max_leaves, Input<DataT, LabelT, IdxT> input,
   const Node<DataT, LabelT, IdxT>* nodes, IdxT colStart, int* done_count,
   int* mutex, const IdxT* n_leaves, Split<DataT, IdxT>* splits,
-  CRITERION splitType) {
+  CRITERION splitType, IdxT treeid, uint64_t seed) {
   extern __shared__ char smem[];
   IdxT nid = blockIdx.z;
   auto node = nodes[nid];
@@ -288,11 +374,34 @@ __global__ void computeSplitClassificationKernel(
   auto* sDone = alignPointer<int>(sbins + nbins);
   IdxT stride = blockDim.x * gridDim.x;
   IdxT tid = threadIdx.x + blockIdx.x * blockDim.x;
-  auto col = input.colids[colStart + blockIdx.y];
+  // auto col = input.colids[colStart + blockIdx.y];
+  int colIndex = blockIdx.y;
+  auto col = selectFeature(treeid, nid, colIndex, seed, input.N);
+
   for (IdxT i = threadIdx.x; i < len; i += blockDim.x) shist[i] = 0;
   for (IdxT b = threadIdx.x; b < nbins; b += blockDim.x)
     sbins[b] = input.quantiles[col * nbins + b];
   __syncthreads();
+// #if defined(RF_PRINT_DEVICE_DEBUG_MSGS)
+  if(node.info.unique_id == NODE_TO_PRINT /*&& col == COL_TO_PRINT*/) {
+    if(tid == 0) {
+      printf("At treeid = %d, seed = %lu, blockIdx.y = %.3d, evaluating split for col = %.3d\n",
+             treeid, seed, blockIdx.y, col);
+
+      // printf("At blockIdx.x = %d, evaluating split for col = %d\n"
+      //        "Considering samples rowids[%d] to rowids[%d]\n",
+      //        blockIdx.x, col, range_start, end);
+      // for(int i = range_start; i < end; i++) {
+      //   printf("[[%d, %d, %f, %d]], ", i, input.rowids[i], 
+      //     input.data[input.rowids[i] + col * input.M],
+      //     input.labels[input.rowids[i]]);
+      //   }
+      // printf("Questions considered for the split:\n");
+      // for(int i = 0; i < nbins; i++)
+      //   printf("quesval[%d]: %f\n", i, sbins[i]);
+    }
+  }
+// #endif
   auto coloffset = col * input.M;
   // compute class histogram for all bins for all classes in shared mem
   for (auto i = range_start + tid; i < end; i += stride) {
@@ -306,12 +415,42 @@ __global__ void computeSplitClassificationKernel(
     }
   }
   __syncthreads();
+#if defined(RF_PRINT_DEVICE_DEBUG_MSGS)
+  // if(node.info.unique_id == NODE_TO_PRINT && col == COL_TO_PRINT) {
+  //     if(tid == 0) {
+  //       for(int i = 0; i < len; i++)
+  //         printf("shist[%d] = %d\n", i, shist[i]);
+  //     }
+  // }
+#endif
   // update the corresponding global location
   auto histOffset = ((nid * gridDim.y) + blockIdx.y) * len;
   for (IdxT i = threadIdx.x; i < len; i += blockDim.x) {
     atomicAdd(hist + histOffset + i, shist[i]);
   }
   __threadfence();  // for commit guarantee
+  __syncthreads();
+#if defined(RF_PRINT_DEVICE_DEBUG_MSGS)
+  if(node.info.unique_id == NODE_TO_PRINT && col == COL_TO_PRINT) {
+    if(tid == 0) {
+      for(int bin_id = 0; bin_id < nbins; bin_id++) {
+        printf("quesval[%d]: %f\n", bin_id, sbins[bin_id]);
+        for(int cls = 0; cls < nclasses; cls++) {
+          int ncols= gridDim.y;
+          int left_count  = hist[cls + 0*nclasses + bin_id*2*nclasses +
+                            col*nbins*2*nclasses + 
+                            nid*ncols*nbins*2*nclasses];
+
+          int right_count = hist[cls + 1*nclasses + bin_id*2*nclasses +
+                            col*nbins*2*nclasses +
+                            nid*ncols*nbins*2*nclasses];
+          printf("\tFor class = %d, left = %d, right = %d\n", cls, 
+                 left_count, right_count);
+        }
+      }
+    }
+  }
+#endif
   __syncthreads();
   // last threadblock will go ahead and compute the best split
   bool last = true;
@@ -320,6 +459,11 @@ __global__ void computeSplitClassificationKernel(
                                 gridDim.x, blockIdx.x == 0, sDone);
   }
   if (!last) return;
+#if defined(RF_PRINT_DEVICE_DEBUG_MSGS)
+  // if(threadIdx.x == 0)
+  //   printf("threadIdx{.x, .y, .z} = {%d, %d, %d}, blockdIdx{.x, .y, .z} = {%d, %d, %d}\n", 
+  //     threadIdx.x, threadIdx.y, threadIdx.z, blockIdx.x, blockIdx.y, blockIdx.z);
+#endif
   for (IdxT i = threadIdx.x; i < len; i += blockDim.x)
     shist[i] = hist[histOffset + i];
   Split<DataT, IdxT> sp;
@@ -340,7 +484,8 @@ __global__ void computeSplitRegressionKernel(
   IdxT max_depth, IdxT min_samples_split, IdxT max_leaves,
   Input<DataT, LabelT, IdxT> input, const Node<DataT, LabelT, IdxT>* nodes,
   IdxT colStart, int* done_count, int* mutex, const IdxT* n_leaves,
-  Split<DataT, IdxT>* splits, void* workspace, CRITERION splitType) {
+  Split<DataT, IdxT>* splits, void* workspace, CRITERION splitType, IdxT treeid,
+  uint64_t seed) {
   extern __shared__ char smem[];
   IdxT nid = blockIdx.z;
   auto node = nodes[nid];
@@ -363,7 +508,9 @@ __global__ void computeSplitRegressionKernel(
   auto* sDone = alignPointer<int>(spredP + nbins);
   IdxT stride = blockDim.x * gridDim.x;
   IdxT tid = threadIdx.x + blockIdx.x * blockDim.x;
-  auto col = input.colids[colStart + blockIdx.y];
+  // auto col = input.colids[colStart + blockIdx.y];
+  int colIndex = blockIdx.y;
+  auto col = selectFeature(treeid, nid, colIndex, seed, input.N);
   for (IdxT i = threadIdx.x; i < len; i += blockDim.x) {
     spred[i] = DataT(0.0);
   }

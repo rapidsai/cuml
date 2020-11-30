@@ -147,7 +147,7 @@ std::vector<Params> getInputs() {
                 1,  // n_trees, just a placeholder value, anyway changed below
                 true,  // bootstrap
                 1.f,   // rows_sample
-                1234,  // seed
+                uint64_t(1234),  // seed
                 8);    // n_streams
 
   set_tree_params(p.rf.tree_params,    // Output tree parameters

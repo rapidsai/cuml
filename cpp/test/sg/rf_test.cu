@@ -64,7 +64,7 @@ class RfClassifierTest : public ::testing::TestWithParam<RfInputs<T>> {
                     params.split_criterion, false);
     RF_params rf_params;
     set_all_rf_params(rf_params, params.n_trees, params.bootstrap,
-                      params.rows_sample, -1, params.n_streams, tree_params);
+                      params.rows_sample, 0, params.n_streams, tree_params);
     //print(rf_params);
 
     //--------------------------------------------------------
@@ -167,7 +167,7 @@ class RfRegressorTest : public ::testing::TestWithParam<RfInputs<T>> {
                     params.split_criterion, false);
     RF_params rf_params;
     set_all_rf_params(rf_params, params.n_trees, params.bootstrap,
-                      params.rows_sample, -1, params.n_streams, tree_params);
+                      params.rows_sample, 0, params.n_streams, tree_params);
     //print(rf_params);
 
     //--------------------------------------------------------

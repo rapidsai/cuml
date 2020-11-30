@@ -68,7 +68,7 @@ void rf<T, L>::prepare_fit_per_tree(
   const int num_sms, const cudaStream_t stream,
   const std::shared_ptr<deviceAllocator> device_allocator) {
   int rs = tree_id;
-  if (rf_params.seed > -1) rs = rf_params.seed + tree_id;
+  if (rf_params.seed != 0) rs = rf_params.seed + tree_id;
 
   raft::random::Rng rng(rs * 1000 | 0xFF00AA,
                         raft::random::GeneratorType::GenKiss99);
@@ -228,8 +228,9 @@ void rfClassifier<T>::fit(const raft::handle_t& user_handle, const T* input,
     tree_ptr->treeid = i;
     trees[i].fit(handle.get_device_allocator(), handle.get_host_allocator(),
                  tempmem[stream_id]->stream, input, n_cols, n_rows, labels,
-                 rowids, n_sampled_rows, n_unique_labels, tree_ptr,
-                 this->rf_params.tree_params, tempmem[stream_id]);
+                 rowids, n_sampled_rows, n_unique_labels, tree_ptr, 
+                 this->rf_params.tree_params, this->rf_params.seed,
+                 tempmem[stream_id]);
   }
   //Cleanup
   for (int i = 0; i < n_streams; i++) {
@@ -505,7 +506,7 @@ void rfRegressor<T>::fit(const raft::handle_t& user_handle, const T* input,
     trees[i].fit(handle.get_device_allocator(), handle.get_host_allocator(),
                  tempmem[stream_id]->stream, input, n_cols, n_rows, labels,
                  rowids, n_sampled_rows, tree_ptr, this->rf_params.tree_params,
-                 tempmem[stream_id]);
+                 this->rf_params.seed, tempmem[stream_id]);
   }
   //Cleanup
   for (int i = 0; i < n_streams; i++) {

@@ -60,6 +60,10 @@ struct Builder {
   /** size of block-sync workspace (regression + MAE only) */
   size_t block_sync_size;
 
+  /** Tree index */
+  IdxT treeid;
+  /** Random number seed */
+  uint64_t seed;
   /** number of nodes created in the current batch */
   IdxT* n_nodes;
   /** class histograms (classification only) */
@@ -133,7 +137,7 @@ struct Builder {
    *                        be computed fresh. [on device] [col-major]
    *                        [dim = nbins x sampledCols]
    */
-  void workspaceSize(size_t& d_wsize, size_t& h_wsize,
+  void workspaceSize(size_t& d_wsize, size_t& h_wsize, IdxT treeid, uint64_t seed,
                      const DecisionTreeParams& p, const DataT* data,
                      const LabelT* labels, IdxT totalRows, IdxT totalCols,
                      IdxT sampledRows, IdxT sampledCols, IdxT* rowids,
@@ -141,6 +145,8 @@ struct Builder {
     ASSERT(quantiles != nullptr,
            "Currently quantiles need to be computed before this call!");
     params = p;
+    this->treeid = treeid;
+    this->seed = seed;
     n_blks_for_cols = std::min(sampledCols, n_blks_for_cols);
     input.data = data;
     input.labels = labels;
@@ -257,6 +263,7 @@ struct Builder {
   void train(std::vector<Node<DataT, LabelT, IdxT>>& h_nodes, IdxT& num_leaves,
              IdxT& depth, cudaStream_t s) {
     init(h_nodes, s);
+    printf("Training tree %d with random seed %" PRIu64 "\n", treeid, seed);
     while (true) {
       IdxT new_nodes = doSplit(h_nodes, s);
       h_total_nodes += new_nodes;
@@ -294,6 +301,7 @@ struct Builder {
     h_nodes[0].start = 0;
     h_nodes[0].count = input.nSampledRows;
     h_nodes[0].depth = 0;
+    h_nodes[0].info.unique_id = 0;
   }
 
   /** check whether any more nodes need to be processed or not */
@@ -323,6 +331,25 @@ struct Builder {
     // start fresh on the number of *new* nodes created in this batch
     CUDA_CHECK(cudaMemsetAsync(n_nodes, 0, sizeof(IdxT), s));
     initSplit<DataT, IdxT, Traits::TPB_DEFAULT>(splits, batchSize, s);
+
+    if (ML::Logger::get().shouldLogFor(CUML_LEVEL_DEBUG)) {
+      CUDA_CHECK(cudaStreamSynchronize(s));
+      for(int i = node_start; i < node_end; i++) {
+        if(NODE_TO_PRINT == h_nodes[i].info.unique_id) {
+          CUML_LOG_DEBUG("Current batch size = %d, from = %d, to = %d", batchSize,
+                         node_start, node_end);
+          CUML_LOG_DEBUG("Prining initialized split for node %d", NODE_TO_PRINT);
+          printSplits(splits + i - node_start, 1, s);
+          CUML_LOG_DEBUG(
+            "Samples considered for this split: from = %d, count = %d\n",
+            h_nodes[i].start, h_nodes[i].count);
+          CUDA_CHECK(cudaDeviceSynchronize());
+        }
+      }
+    }
+    for(int i = 0; i < batchSize; i++) {
+      h_nodes[node_start + i].info.unique_id = i + node_start;
+    }
     // get the current set of nodes to be worked upon
     raft::update_device(curr_nodes, h_nodes.data() + node_start, batchSize, s);
     // iterate through a batch of columns (to reduce the memory pressure) and
@@ -332,6 +359,17 @@ struct Builder {
       Traits::computeSplit(*this, c, batchSize, params.split_criterion, s);
       CUDA_CHECK(cudaGetLastError());
     }
+    if (ML::Logger::get().shouldLogFor(CUML_LEVEL_DEBUG)) {
+      CUDA_CHECK(cudaStreamSynchronize(s));
+      for(int i = node_start; i < node_end; i++) {
+        if(NODE_TO_PRINT == h_nodes[i].info.unique_id) {
+          CUML_LOG_DEBUG("Prining computed split for node %d", NODE_TO_PRINT);
+          printSplits(splits + i - node_start, 1, s);
+          CUDA_CHECK(cudaDeviceSynchronize());
+        }
+      }
+    }
+
     // create child nodes (or make the current ones leaf)
     auto smemSize = Traits::nodeSplitSmemSize(*this);
     nodeSplitKernel<DataT, LabelT, IdxT, typename Traits::DevTraits,
@@ -399,11 +437,22 @@ struct ClsTraits {
     smemSize += 2 * sizeof(DataT) + 1 * sizeof(int);
 
     CUDA_CHECK(cudaMemsetAsync(b.hist, 0, sizeof(int) * b.nHistBins, s));
+
+    // if (ML::Logger::get().shouldLogFor(CUML_LEVEL_DEBUG)) {
+    //   CUDA_CHECK(cudaStreamSynchronize(s));
+    //   for(int i = b.node_start; i < b.node_end; i++) {
+    //     if(NODE_TO_PRINT == h_nodes[i].info.unique_id) {
+    //       CUML_LOG_DEBUG(
+    //         "Launching compute split classification kernel with block rows = %d columns = %d, nodes in z-direction %d", 
+    //         grid.x, grid.y, grid.z);
+    //     }
+    //   }
+    // }
     computeSplitClassificationKernel<DataT, LabelT, IdxT, TPB_DEFAULT>
       <<<grid, TPB_DEFAULT, smemSize, s>>>(
         b.hist, b.params.n_bins, b.params.max_depth, b.params.min_samples_split,
         b.params.max_leaves, b.input, b.curr_nodes, col, b.done_count, b.mutex,
-        b.n_leaves, b.splits, splitType);
+        b.n_leaves, b.splits, splitType, b.treeid, b.seed);
   }
 
   /**
@@ -481,7 +530,7 @@ struct RegTraits {
         b.pred, b.pred2, b.pred2P, b.pred_count, b.params.n_bins,
         b.params.max_depth, b.params.min_samples_split, b.params.max_leaves,
         b.input, b.curr_nodes, col, b.done_count, b.mutex, b.n_leaves, b.splits,
-        b.block_sync, splitType);
+        b.block_sync, splitType, b.treeid, b.seed);
   }
 
   /**

@@ -20,7 +20,7 @@ import numpy as np
 import warnings
 
 from libcpp cimport bool
-from libc.stdint cimport uintptr_t
+from libc.stdint cimport uintptr_t, uint64_t
 from libc.stdlib cimport calloc, malloc, free
 from libcpp.vector cimport vector
 from libcpp.string cimport string
@@ -114,7 +114,7 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
                                     bool,
                                     int,
                                     float,
-                                    int,
+                                    uint64_t,
                                     CRITERION,
                                     bool,
                                     int,

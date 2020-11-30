@@ -159,7 +159,7 @@ void postprocess_labels(int n_rows, std::vector<int>& labels,
  * @param[in] cfg_n_streams: No of parallel CUDA for training forest
  */
 void set_rf_params(RF_params& params, int cfg_n_trees, bool cfg_bootstrap,
-                   float cfg_rows_sample, int cfg_seed, int cfg_n_streams) {
+                   float cfg_rows_sample, uint64_t cfg_seed, int cfg_n_streams) {
   params.n_trees = cfg_n_trees;
   params.bootstrap = cfg_bootstrap;
   params.rows_sample = cfg_rows_sample;
@@ -183,7 +183,7 @@ void set_rf_params(RF_params& params, int cfg_n_trees, bool cfg_bootstrap,
  * @param[in] cfg_tree_params: tree parameters
  */
 void set_all_rf_params(RF_params& params, int cfg_n_trees, bool cfg_bootstrap,
-                       float cfg_rows_sample, int cfg_seed, int cfg_n_streams,
+                       float cfg_rows_sample, uint64_t cfg_seed, int cfg_n_streams,
                        DecisionTree::DecisionTreeParams cfg_tree_params) {
   params.n_trees = cfg_n_trees;
   params.bootstrap = cfg_bootstrap;
@@ -615,7 +615,7 @@ RF_params set_rf_class_obj(int max_depth, int max_leaves, float max_features,
                            int n_bins, int split_algo, int min_samples_leaf,
                            int min_samples_split, float min_impurity_decrease,
                            bool bootstrap_features, bool bootstrap, int n_trees,
-                           float rows_sample, int seed,
+                           float rows_sample, uint64_t seed,
                            CRITERION split_criterion, bool quantile_per_tree,
                            int cfg_n_streams, bool use_experimental_backend,
                            int max_batch_size) {

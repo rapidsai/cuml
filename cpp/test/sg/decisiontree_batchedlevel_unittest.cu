@@ -302,7 +302,8 @@ TEST_P(TestMetric, MSEGain) {
     <<<grid, 32, smemSize, 0>>>(
       pred, nullptr, nullptr, pred_count, n_bins, params.max_depth,
       params.min_samples_split, params.max_leaves, input, curr_nodes, 0,
-      done_count, mutex, n_new_leaves, splits, nullptr, params.split_criterion);
+      done_count, mutex, n_new_leaves, splits, nullptr, params.split_criterion, 
+      1, 0);
   raft::update_host(h_splits.data(), splits, 1, 0);
   CUDA_CHECK(cudaGetLastError());
   CUDA_CHECK(cudaStreamSynchronize(0));

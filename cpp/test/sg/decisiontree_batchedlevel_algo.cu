@@ -129,7 +129,7 @@ typedef DtClassifierTest<float> DtClsTestF;
 TEST_P(DtClsTestF, Test) {
   int num_leaves, depth;
   grow_tree<float, int, int>(
-    handle->get_device_allocator(), handle->get_host_allocator(), data,
+    handle->get_device_allocator(), handle->get_host_allocator(), data, 1, 0,
     inparams.N, inparams.M, labels, quantiles, rowids, colids, inparams.M,
     inparams.nclasses, params, stream, sparsetree, num_leaves, depth);
   // this is a "well behaved" dataset!
@@ -163,7 +163,7 @@ typedef DtRegressorTest<float> DtRegTestF;
 TEST_P(DtRegTestF, Test) {
   int num_leaves, depth;
   grow_tree<float, int>(
-    handle->get_device_allocator(), handle->get_host_allocator(), data,
+    handle->get_device_allocator(), handle->get_host_allocator(), data, 1, 0,
     inparams.N, inparams.M, labels, quantiles, rowids, colids, inparams.M, 0,
     params, stream, sparsetree, num_leaves, depth);
   // goes all the way to max-depth

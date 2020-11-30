@@ -198,13 +198,15 @@ void decisionTreeClassifierFit(const raft::handle_t &handle,
                                const int ncols, const int nrows, int *labels,
                                unsigned int *rowids, const int n_sampled_rows,
                                int unique_labels,
-                               DecisionTree::DecisionTreeParams tree_params);
+                               DecisionTree::DecisionTreeParams tree_params,
+                               uint64_t seed);
 void decisionTreeClassifierFit(const raft::handle_t &handle,
                                TreeClassifierD *&tree, double *data,
                                const int ncols, const int nrows, int *labels,
                                unsigned int *rowids, const int n_sampled_rows,
                                int unique_labels,
-                               DecisionTree::DecisionTreeParams tree_params);
+                               DecisionTree::DecisionTreeParams tree_params,
+                               uint64_t seed);
 /** @} */
 
 /**
@@ -265,12 +267,14 @@ void decisionTreeRegressorFit(const raft::handle_t &handle,
                               TreeRegressorF *&tree, float *data,
                               const int ncols, const int nrows, float *labels,
                               unsigned int *rowids, const int n_sampled_rows,
-                              DecisionTree::DecisionTreeParams tree_params);
+                              DecisionTree::DecisionTreeParams tree_params,
+                              uint64_t seed);
 void decisionTreeRegressorFit(const raft::handle_t &handle,
                               TreeRegressorD *&tree, double *data,
                               const int ncols, const int nrows, double *labels,
                               unsigned int *rowids, const int n_sampled_rows,
-                              DecisionTree::DecisionTreeParams tree_params);
+                              DecisionTree::DecisionTreeParams tree_params,
+                              uint64_t seed);
 /** @} */
 
 /**
