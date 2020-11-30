@@ -399,12 +399,12 @@ def input_to_cupy_array(X,
                         check_rows=False,
                         fail_on_order=False,
                         force_contiguous=True,
-                        fail_on_nan=True) -> cuml_array:
+                        fail_on_null=True) -> cuml_array:
     """
     Identical to input_to_cuml_array but it returns a cupy array instead of
     CumlArray
     """
-    if not fail_on_nan:
+    if not fail_on_null:
         if isinstance(X, (cudf.DataFrame, cudf.Series)):
             try:
                 X = X.values
