@@ -174,6 +174,9 @@ class OneVsRestClassifier(MulticlassClassifier):
             estimator, *args, handle=handle, verbose=verbose,
             output_type=output_type, strategy='ovr')
 
+    def get_param_names(self):
+        return super().get_param_names().remove("strategy")
+
 
 class OneVsOneClassifier(MulticlassClassifier):
     """ Wrapper around Sckit-learn's class with the same name. The input can be
@@ -217,3 +220,6 @@ class OneVsOneClassifier(MulticlassClassifier):
         super(OneVsOneClassifier, self).__init__(
             estimator, *args, handle=handle, verbose=verbose,
             output_type=output_type, strategy='ovo')
+
+    def get_param_names(self):
+        return super().get_param_names().remove("strategy")
