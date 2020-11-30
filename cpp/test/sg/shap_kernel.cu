@@ -94,6 +94,8 @@ class MakeKSHAPDatasetTest
                    params.nrows_background, dataset, observation, nsamples,
                    params.nrows_sampled, params.max_samples, params.seed);
 
+    CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
+
     int counter;
 
     // Check the generated part of X by sampling. The first nrows_exact
@@ -127,6 +129,14 @@ class MakeKSHAPDatasetTest
 
         // Check that indeed we have two observation entries ber row
         test_scatter_exact = test_scatter_exact && (counter == 2);
+        if(not test_scatter_exact){
+          std::cout << "test_scatter_exact counter failed with: " << counter
+          << ", expected value was 2." << std::endl;
+          break;
+        }
+      }
+      if(not test_scatter_exact){
+        break;
       }
     }
 
