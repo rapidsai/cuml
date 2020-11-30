@@ -80,7 +80,7 @@ class MakeKSHAPDatasetTest
     thrust::fill(thrust::device, X_ptr, &X_ptr[nrows_X * params.ncols - 1], 0);
     for (i = 0; i < params.nrows_exact; i++) {
       for (j = i; j < i + 2; j++) {
-        X_ptr[i * params.ncols + j] = (T)1.0;
+        X_ptr[i * params.ncols + j] = (float)1.0;
       }
     }
 
