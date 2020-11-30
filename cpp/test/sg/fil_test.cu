@@ -751,8 +751,9 @@ std::vector<FilTestParams> predict_sparse_inputs = {
 
 TEST_P(PredictSparse16FilTest, Predict) { compare(); }
 
-INSTANTIATE_TEST_CASE_P(FilTests, PredictSparse16FilTest,
-                        testing::ValuesIn(predict_sparse_inputs));
+// Temporarily disabled, see https://github.com/rapidsai/cuml/issues/3205
+// INSTANTIATE_TEST_CASE_P(FilTests, PredictSparse16FilTest,
+//                        testing::ValuesIn(predict_sparse_inputs));
 
 TEST_P(PredictSparse8FilTest, Predict) { compare(); }
 

@@ -46,6 +46,7 @@
 - PR #3180: FIL: `blocks_per_sm` support in Python
 
 ## Bug Fixes
+- PR #3196: Disable ascending=false path for sortColumnsPerRow
 - PR #3051: MNMG KNN Cl&Re fix + multiple improvements
 - PR #3179: Remove unused metrics.cu file
 - PR #3069: Prevent conversion of DataFrames to Series in preprocessing
