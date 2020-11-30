@@ -4,6 +4,7 @@
 - PR #3164: Expose silhouette score in Python
 - PR #2659: Add initial max inner product sparse knn
 - PR #2836: Refactor UMAP to accept sparse inputs
+- PR #3126: Experimental versions of GPU accelerated Kernel and Permutation SHAP
 
 ## Improvements
 - PR #3077: Improve runtime for test_kmeans
