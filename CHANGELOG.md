@@ -1,6 +1,7 @@
 # cuML 0.17.0 (Date TBD)
 
 ## New Features
+- PR #3164: Expose silhouette score in Python
 - PR #2659: Add initial max inner product sparse knn
 - PR #2836: Refactor UMAP to accept sparse inputs
 
@@ -35,14 +36,18 @@
 - PR #3135: Add QuasiNewton tests
 - PR #3040: Improved Array Conversion with CumlArrayDescriptor and Decorators
 - PR #3134: Improving the Deprecation Message Formatting in Documentation
-- PR #3151: MNMG Logistic Regression via dask-glm 
+- PR #3154: Adding estimator pickling demo notebooks (and docs)
+- PR #3151: MNMG Logistic Regression via dask-glm
 - PR #3113: Add tags and prefered memory order tags to estimators
 - PR #3137: Reorganize Pytest Config and Add Quick Run Option
 - PR #3144: Adding Ability to Set Arbitrary Cmake Flags in ./build.sh
 - PR #3155: Eliminate unnecessary warnings from random projection test
+- PR #3176: Add probabilistic SVM tests with various input array types
+- PR #3180: FIL: `blocks_per_sm` support in Python
 - PR #3177: Make Multinomial Naive Bayes inherit from `ClassifierMixin` and use it for score
 
 ## Bug Fixes
+- PR #3179: Remove unused metrics.cu file
 - PR #3069: Prevent conversion of DataFrames to Series in preprocessing
 - PR #3065: Refactoring prims metrics function names from camelcase to underscore format
 - PR #3033: Splitting ml metrics to individual files
@@ -61,6 +66,7 @@
 - PR #3062: Bumping xgboost version to match cuml version
 - PR #3084: Fix artifacts in t-SNE results
 - PR #3086: Reverting FIL Notebook Testing
+- PR #3192: Enable pipeline usage for OneHotEncoder and LabelEncoder
 - PR #3114: Fixed a typo in SVC's predict_proba AttributeError
 - PR #3117: Fix two crashes in experimental RF backend
 - PR #3119: Fix memset args for benchmark
@@ -70,6 +76,8 @@
 - PR #3152: Fix access to attributes of individual NB objects in dask NB
 - PR #3156: Force local conda artifact install
 - PR #3162: Removing accidentally checked in debug file
+- PR #3175: Fix gtest pinned cmake version for build from source option
+- PR #3182: Fix a bug in MSE metric calculation
 
 
 # cuML 0.16.0 (23 Oct 2020)
