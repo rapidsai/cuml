@@ -352,7 +352,6 @@ class PermutationExplainer(SHAPBase):
                 if self.D == 1:
                     y_hat = y.reshape(2 * self.M + 1, len(self.background))
 
-
                 else:
                     y_hat = y[:, i].reshape(2 * self.M + 1,
                                             len(self.background))

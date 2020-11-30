@@ -283,7 +283,6 @@ class KernelExplainer(SHAPBase):
         if X.ndim == 1:
             X = X.reshape((1, self.M))
 
-
         # shap_values is a list so we can return a list in the case that
         # model is a multidimensional-output function
         shap_values = []
