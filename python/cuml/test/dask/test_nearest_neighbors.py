@@ -251,8 +251,8 @@ def test_one_query_partition(client):
                             n_parts=4)
 
     X_test, _ = make_blobs(n_samples=200,
-                        n_features=16,
-                        n_parts=1)
+                           n_features=16,
+                           n_parts=1)
 
     cumlModel = daskNN(n_neighbors=4)
     cumlModel.fit(X_train)
