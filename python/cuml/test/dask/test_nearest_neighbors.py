@@ -240,3 +240,20 @@ def test_default_n_neighbors(client):
     ret = cumlModel.kneighbors(X_cudf, k, return_distance=False)
 
     assert ret.shape[1] == k
+
+
+def test_one_query_partition(client):
+    from cuml.dask.neighbors import NearestNeighbors as daskNN
+    from cuml.dask.datasets import make_blobs
+
+    X_train, _ = make_blobs(n_samples=4000,
+                            n_features=16,
+                            n_parts=4)
+
+    X_test, _ = make_blobs(n_samples=200,
+                        n_features=16,
+                        n_parts=1)
+
+    cumlModel = daskNN(n_neighbors=4)
+    cumlModel.fit(X_train)
+    cumlModel.kneighbors(X_test)
