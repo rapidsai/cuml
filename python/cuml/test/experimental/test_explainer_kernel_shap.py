@@ -69,7 +69,8 @@ def test_exact_regression_datasets(exact_tests_dataset, model):
         data=X_train)
 
     cu_shap_values = explainer.shap_values(X_test)
-    assert np.allclose(cu_shap_values, golden_regression_results[model])
+    assert np.allclose(cu_shap_values, golden_regression_results[model],
+                       rtol=1e-02, atol=1e-02)
 
     skmod = cuml_skl_class_dict[model]().fit(X_train, y_train)
 
@@ -82,7 +83,7 @@ def test_exact_regression_datasets(exact_tests_dataset, model):
     # since the values were calculated with the cuml models, a little
     # looser tolerance in the comparison is expected
     assert np.allclose(cu_shap_values, golden_regression_results[model],
-                       rtol=1e-03, atol=1e-03)
+                       rtol=1e-02, atol=1e-02)
 
 
 def test_exact_classification_datasets():
@@ -108,8 +109,10 @@ def test_exact_classification_datasets():
 
     cu_shap_values = explainer.shap_values(X_test)
 
-    assert np.allclose(cu_shap_values[0], golden_classification_result[0])
-    assert np.allclose(cu_shap_values[1], golden_classification_result[1])
+    assert np.allclose(cu_shap_values[0], golden_classification_result[0],
+                       rtol=1e-01, atol=1e-01)
+    assert np.allclose(cu_shap_values[1], golden_classification_result[1],
+                       rtol=1e-01, atol=1e-01)
 
     mod = sklearn.svm.SVC(probability=True).fit(X_train, y_train)
 

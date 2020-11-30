@@ -169,7 +169,7 @@ def test_different_parameters(dtype, nfeatures, nbackground, model,
     print(fx)
     for i in range(5):
         assert(np.sum(cp.asnumpy(
-            cu_shap_values[i])) - abs(fx[i] - exp_v)) <= 1e-3
+            cu_shap_values[i])) - abs(fx[i] - exp_v)) <= 0.01
 
 
 ###############################################################################
