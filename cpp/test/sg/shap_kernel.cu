@@ -101,7 +101,7 @@ class MakeKSHAPDatasetTest
     test_sampled_X = true;
     j = 0;
     for (i = params.nrows_exact * params.ncols; i < nrows_X * params.ncols / 2;
-         i +=  2 * params.ncols) {
+         i += 2 * params.ncols) {
       // check that number of samples is the number indicated by nsamples.
       counter = thrust::count(&X_ptr[i], &X_ptr[i + params.ncols], 1);
       test_sampled_X = (test_sampled_X && (counter == n_ptr[j]));
@@ -109,9 +109,9 @@ class MakeKSHAPDatasetTest
       // check that number of samples of the next line is the compliment,
       // i.e. ncols - nsamples[j]
       counter = thrust::count(&X_ptr[i + params.ncols],
-                              &X_ptr[i +  2 * params.ncols],
-                              1);
-      test_sampled_X = (test_sampled_X && (counter == (params.ncols - n_ptr[j])));
+                              &X_ptr[i + 2 * params.ncols], 1);
+      test_sampled_X =
+        (test_sampled_X && (counter == (params.ncols - n_ptr[j])));
 
       j++;
     }
@@ -136,13 +136,13 @@ class MakeKSHAPDatasetTest
     // compliment_ctr is a helper counter to help check nrows_dataset per entry in
     // nsamples without complicating indexing since sampled part starts at nrows_sampled
     int compliment_ctr = 0;
-    for (i = params.nrows_exact; i < params.nrows_exact + params.nrows_sampled/2; i++) {
-
+    for (i = params.nrows_exact;
+         i < params.nrows_exact + params.nrows_sampled / 2; i++) {
       // First set of dataset observations must correspond to nsamples[i]
       for (j = (i + compliment_ctr) * params.nrows_background * params.ncols;
-           j < (i + compliment_ctr + 1) * params.nrows_background * params.ncols;
+           j <
+           (i + compliment_ctr + 1) * params.nrows_background * params.ncols;
            j += params.ncols) {
-
         counter =
           thrust::count(&d_ptr[j], &d_ptr[j + params.ncols], sent_value);
         test_scatter_sampled =
@@ -152,18 +152,17 @@ class MakeKSHAPDatasetTest
       // The next set of samples must correspond to the compliment: ncols - nsamples[i]
       compliment_ctr++;
       for (j = (i + compliment_ctr) * params.nrows_background * params.ncols;
-           j < (i + compliment_ctr + 1) * params.nrows_background * params.ncols;
+           j <
+           (i + compliment_ctr + 1) * params.nrows_background * params.ncols;
            j += params.ncols) {
         // Check that number of observation entries corresponds to nsamples.
         counter =
           thrust::count(&d_ptr[j], &d_ptr[j + params.ncols], sent_value);
         test_scatter_sampled =
-          test_scatter_sampled && (counter == params.ncols - n_ptr[i - params.nrows_exact]);
+          test_scatter_sampled &&
+          (counter == params.ncols - n_ptr[i - params.nrows_exact]);
       }
-
     }
-
-
   }
 
   void TearDown() override {

@@ -38,16 +38,15 @@ struct MakePSHAPDatasetInputs {
 };
 
 template <typename DataT>
-void print_vec(thrust::device_ptr<DataT> x, int nrows, int ncols){
-  int i,j;
+void print_vec(thrust::device_ptr<DataT> x, int nrows, int ncols) {
+  int i, j;
 
-  for(i = 0; i < nrows; i++){
-    for(j = 0; j < ncols; j++){
-      std::cout << x[i * ncols + j]  << " ";
+  for (i = 0; i < nrows; i++) {
+    for (j = 0; j < ncols; j++) {
+      std::cout << x[i * ncols + j] << " ";
     }
     std::cout << std::endl;
   }
-
 }
 
 template <typename T>

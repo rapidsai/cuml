@@ -50,17 +50,19 @@ __global__ void exact_rows_kernel(float* X, IdxT nrows_X, IdxT ncols,
   int col = threadIdx.x;
   int row = blockIdx.x * ncols;
 
-  while (col < ncols){
+  while (col < ncols) {
     // Load the X idx for the current column
     int curr_X = (int)X[row + col];
 
     // Iterate over nrows_background
-    for (int i = blockIdx.x * nrows_background; i < blockIdx.x * nrows_background + nrows_background; i += 1) {
-
-      if (curr_X == 0){
-        dataset[i * ncols + col] = background[(i % nrows_background) * ncols + col];
+    for (int row_idx = blockIdx.x * nrows_background;
+         row_idx < blockIdx.x * nrows_background + nrows_background;
+         row_idx += 1) {
+      if (curr_X == 0) {
+        dataset[row_idx * ncols + col] =
+          background[(row_idx % nrows_background) * ncols + col];
       } else {
-        dataset[i * ncols + col] = observation[col];
+        dataset[row_idx * ncols + col] = observation[col];
       }
     }
     // Increment the column
@@ -96,19 +98,18 @@ __global__ void sampled_rows_kernel(IdxT* nsamples, float* X, IdxT nrows_X,
                                     IdxT ncols, DataT* background,
                                     IdxT nrows_background, DataT* dataset,
                                     DataT* observation, uint64_t seed) {
-
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
   // see what k this block will generate
   int k_blk = nsamples[blockIdx.x];
 
   // First k threads of block generate samples
-  if (threadIdx.x < k_blk){
+  if (threadIdx.x < k_blk) {
     curandStatePhilox4_32_10_t state;
     curand_init((unsigned long long)seed, (unsigned long long)tid, 0, &state);
     int rand_idx = (int)(curand_uniform(&state) * ncols);
 
     // Since X is initialized to 0, we quickly check for collisions (if k_blk << ncols the likelyhood of collisions is low)
-    while (atomicExch(&(X[2 * blockIdx.x * ncols + rand_idx]), 1) == 1){
+    while (atomicExch(&(X[2 * blockIdx.x * ncols + rand_idx]), 1) == 1) {
       rand_idx = (int)(curand_uniform(&state) * ncols);
     }
   }
@@ -116,25 +117,32 @@ __global__ void sampled_rows_kernel(IdxT* nsamples, float* X, IdxT nrows_X,
 
   // Each block processes one row of X. Columns are iterated over by blockDim.x at a time to ensure data coelescing
   int col_idx = threadIdx.x;
-  while (col_idx < ncols){
+  while (col_idx < ncols) {
     // Load the X idx for the current column
     int curr_X = (int)X[2 * blockIdx.x * ncols + col_idx];
     X[(2 * blockIdx.x + 1) * ncols + col_idx] = 1 - curr_X;
 
-    for (int bg_row_idx = 2 * blockIdx.x * nrows_background; bg_row_idx < 2 * blockIdx.x * nrows_background + nrows_background; bg_row_idx += 1) {
-      if (curr_X == 0){
-        dataset[bg_row_idx * ncols + col_idx] = background[(bg_row_idx % nrows_background) * ncols + col_idx];
+    for (int bg_row_idx = 2 * blockIdx.x * nrows_background;
+         bg_row_idx < 2 * blockIdx.x * nrows_background + nrows_background;
+         bg_row_idx += 1) {
+      if (curr_X == 0) {
+        dataset[bg_row_idx * ncols + col_idx] =
+          background[(bg_row_idx % nrows_background) * ncols + col_idx];
       } else {
         dataset[bg_row_idx * ncols + col_idx] = observation[col_idx];
       }
     }
 
-    for (int bg_row_idx = (2 * blockIdx.x + 1) * nrows_background; bg_row_idx < (2 * blockIdx.x + 1) * nrows_background + nrows_background; bg_row_idx += 1) {
-      if (curr_X == 0){
+    for (int bg_row_idx = (2 * blockIdx.x + 1) * nrows_background;
+         bg_row_idx <
+         (2 * blockIdx.x + 1) * nrows_background + nrows_background;
+         bg_row_idx += 1) {
+      if (curr_X == 0) {
         dataset[bg_row_idx * ncols + col_idx] = observation[col_idx];
       } else {
         // if(threadIdx.x == 0) printf("tid bg_row_idx: %d %d\n", tid, bg_row_idx);
-        dataset[bg_row_idx * ncols + col_idx] = background[(bg_row_idx) % nrows_background * ncols + col_idx];
+        dataset[bg_row_idx * ncols + col_idx] =
+          background[(bg_row_idx) % nrows_background * ncols + col_idx];
       }
     }
 
@@ -158,7 +166,7 @@ void kernel_dataset_impl(const raft::handle_t& handle, float* X, IdxT nrows_X,
 
   if (nblks > 0) {
     exact_rows_kernel<<<nblks, nthreads, 0, stream>>>(
-          X, nrows_X, ncols, background, nrows_background, dataset, observation);
+      X, nrows_X, ncols, background, nrows_background, dataset, observation);
   }
 
   CUDA_CHECK(cudaPeekAtLastError());

@@ -71,7 +71,6 @@ if(BUILD_CUML_TESTS)
     sg/rproj_test.cu
     sg/sgd.cu
     sg/shap_kernel.cu
-    sg/shap_permutation.cu
     sg/svc_test.cu
     sg/trustworthiness_test.cu
     sg/tsne_test.cu

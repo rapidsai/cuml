@@ -61,7 +61,7 @@ namespace Explainer {
  * @param[in] row              row to scatter in a permutated fashion [dim = ncols]
  * @param[in] idx              permutation indexes [dim = ncols]
  * @param[in]
- * @{
+ *
  */
 void permutation_shap_dataset(const raft::handle_t& handle, float* out,
                               const float* background, int nrows_bg, int ncols,
@@ -102,7 +102,7 @@ void permutation_shap_dataset(const raft::handle_t& handle, double* out,
  * @param[in] row              row to scatter in a permutated fashion [dim = ncols]
  * @param[in] idx              permutation indexes [dim = ncols]
  * @param[in]
- * @{
+ *
  */
 
 void shap_main_effect_dataset(const raft::handle_t& handle, float* out,
@@ -112,6 +112,47 @@ void shap_main_effect_dataset(const raft::handle_t& handle, float* out,
 void shap_main_effect_dataset(const raft::handle_t& handle, double* out,
                               const double* background, int nrows_bg, int ncols,
                               const double* row, int* idx, bool row_major);
+
+/**
+ * Generates a dataset by tiling the `background` matrix into `out`, while
+ *  adding a forward and backward permutation pass of the observation `row`
+ * on the positions defined by `idx`. Example:
+ *
+ * background = [[0, 1, 2], [3, 4, 5], [6, 7, 8]]
+ * idx = [2, 0, 1]
+ * row = [100, 101, 102]
+ * output:
+ * [[  0,   1,   2]
+ *  [  3,   4,   5]
+ *  [  6,   7,   8]
+ *  [  0,   1, 102]
+ *  [  3,   4, 102]
+ *  [  6,   7, 102]
+ *  [100,   1,   2]
+ *  [100,   4,   5]
+ *  [100,   7,   8]
+ *  [  0, 101,   2]
+ *  [  3, 101,   5]
+ *  [  6, 101,   8]]
+ *
+ *
+ * @param[in]  handle          cuML handle
+ * @param[out] out             generated data [on device] [dim = (2 * ncols * nrows_bg + nrows_bg) * ncols]
+ * @param[in] background       background data [on device] [dim = ncols * nrows_bg]
+ * @param[in] nrows_bg           number of rows in background dataset
+ * @param[in] ncols           number of columns
+ * @param[in] row              row to scatter in a permutated fashion [dim = ncols]
+ * @param[in] idx              permutation indexes [dim = ncols]
+ * @param[in]
+ *
+ */
+void update_perm_shap_values(const raft::handle_t& handle, float* shap_values,
+                             const float* y_hat, const int ncols,
+                             const int* idx);
+
+void update_perm_shap_values(const raft::handle_t& handle, double* shap_values,
+                             const double* y_hat, const int ncols,
+                             const int* idx);
 
 }  // namespace Explainer
 }  // namespace ML
