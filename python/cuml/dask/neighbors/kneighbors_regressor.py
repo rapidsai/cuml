@@ -203,9 +203,6 @@ class KNeighborsRegressor(NearestNeighbors):
         out_i = to_output(out_i_futures, self.datatype)  # noqa: F841
         out_d = to_output(out_d_futures, self.datatype)  # noqa: F841
 
-        # Returning predictions only to conform with Scikit-Learn behavior
-        # Complete removal of indices and distances will be effective
-        # in a future release
         return out
 
     def score(self, X, y):
