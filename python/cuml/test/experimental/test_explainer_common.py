@@ -20,6 +20,7 @@ import numpy as np
 import pytest
 
 from cuml import LinearRegression as reg
+from cuml import PCA
 from cuml.experimental.explainer.common import get_cai_ptr
 from cuml.experimental.explainer.common import get_dtype_from_model_func
 from cuml.experimental.explainer.common import get_handle_from_cuml_model_func
@@ -29,6 +30,7 @@ from cuml.experimental.explainer.common import link_dict
 from cuml.experimental.explainer.common import model_func_call
 from cuml.test.utils import ClassEnumerator
 from cuml.datasets import make_regression
+from sklearn.linear_model import LinearRegression as skreg
 
 
 models_config = ClassEnumerator(module=cuml)
@@ -85,6 +87,8 @@ def test_get_dtype_from_model_func():
 
     assert get_dtype_from_model_func(dummy_func) is None
 
+    # checking scikit-lern function for gpu tags
+
 
 def test_get_gpu_tag_from_model_func():
     # test getting the gpu tags from the model that we use in explainers
@@ -111,6 +115,14 @@ def test_get_gpu_tag_from_model_func():
     assert order == 'C'
 
     out_types = get_tag_from_model_func(func=dummy_func,
+                                        tag='X_types_gpu',
+                                        default=False)
+
+    assert out_types is False
+
+    model2 = skreg()
+
+    out_types = get_tag_from_model_func(func=model2.predict,
                                         tag='X_types_gpu',
                                         default=False)
 
@@ -160,20 +172,28 @@ def test_model_func_call_gpu():
 
     z = model_func_call(X=X,
                         model_func=model.predict,
-                        model_gpu_based=True)
+                        gpu_model=True)
 
     assert isinstance(z, cp.ndarray)
 
     z = model_func_call(X=cp.asnumpy(X),
                         model_func=dummy_func,
-                        model_gpu_based=False)
+                        gpu_model=False)
 
     assert isinstance(z, cp.ndarray)
 
     with pytest.raises(TypeError):
         z = model_func_call(X=X,
                             model_func=dummy_func,
-                            model_gpu_based=True)
+                            gpu_model=True)
+
+    model = PCA(n_components=10).fit(X)
+
+    z = model_func_call(X=X,
+                        model_func=model.transform,
+                        gpu_model=True)
+
+    assert isinstance(z, cp.ndarray)
 
 
 def test_get_cai_ptr():
