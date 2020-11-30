@@ -56,11 +56,11 @@ namespace Explainer {
  * @param[in]  handle          cuML handle
  * @param[out] out             generated data [on device] [dim = (2 * ncols * nrows_bg + nrows_bg) * ncols]
  * @param[in] background       background data [on device] [dim = ncols * nrows_bg]
- * @param[in] nrows_bg           number of rows in background dataset
- * @param[in] ncols           number of columns
+ * @param[in] nrows_bg         number of rows in background dataset
+ * @param[in] ncols            number of columns
  * @param[in] row              row to scatter in a permutated fashion [dim = ncols]
  * @param[in] idx              permutation indexes [dim = ncols]
- * @param[in]
+ * @param[in] row_major        boolean to generate either row or column major data
  *
  */
 void permutation_shap_dataset(const raft::handle_t& handle, float* out,
@@ -101,7 +101,7 @@ void permutation_shap_dataset(const raft::handle_t& handle, double* out,
  * @param[in] ncols           number of columns
  * @param[in] row              row to scatter in a permutated fashion [dim = ncols]
  * @param[in] idx              permutation indexes [dim = ncols]
- * @param[in]
+ * @param[in] row_major        boolean to generate either row or column major data
  *
  */
 
@@ -114,37 +114,19 @@ void shap_main_effect_dataset(const raft::handle_t& handle, double* out,
                               const double* row, int* idx, bool row_major);
 
 /**
- * Generates a dataset by tiling the `background` matrix into `out`, while
- *  adding a forward and backward permutation pass of the observation `row`
- * on the positions defined by `idx`. Example:
- *
- * background = [[0, 1, 2], [3, 4, 5], [6, 7, 8]]
- * idx = [2, 0, 1]
- * row = [100, 101, 102]
- * output:
- * [[  0,   1,   2]
- *  [  3,   4,   5]
- *  [  6,   7,   8]
- *  [  0,   1, 102]
- *  [  3,   4, 102]
- *  [  6,   7, 102]
- *  [100,   1,   2]
- *  [100,   4,   5]
- *  [100,   7,   8]
- *  [  0, 101,   2]
- *  [  3, 101,   5]
- *  [  6, 101,   8]]
- *
+ * Function that aggregates averages of the averatge of results of the model
+ * called with the permutation dataset, to estimate the SHAP values.
+ * It is equivalent to the Python code:
+ *  for i,ind in enumerate(idx):
+ *     shap_values[ind] += y_hat[i + 1] - y_hat[i]
+ *  for i,ind in enumerate(idx):
+ *     shap_values[ind] += y_hat[i + ncols] - y_hat[i + ncols + 1]
  *
  * @param[in]  handle          cuML handle
- * @param[out] out             generated data [on device] [dim = (2 * ncols * nrows_bg + nrows_bg) * ncols]
- * @param[in] background       background data [on device] [dim = ncols * nrows_bg]
- * @param[in] nrows_bg           number of rows in background dataset
- * @param[in] ncols           number of columns
- * @param[in] row              row to scatter in a permutated fashion [dim = ncols]
+ * @param[out] shap_values     Array where the results are aggregated [dim = ncols]
+ * @param[in] y_hat            Results to use for the aggregation [dim = ncols + 1]
+ * @param[in] ncols            number of columns
  * @param[in] idx              permutation indexes [dim = ncols]
- * @param[in]
- *
  */
 void update_perm_shap_values(const raft::handle_t& handle, float* shap_values,
                              const float* y_hat, const int ncols,

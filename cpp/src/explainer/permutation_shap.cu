@@ -138,7 +138,6 @@ __global__ void update_perm_shap_values_kernel(DataT* output,
 
   if (tid < ncols) {
     DataT result = output[idx[tid]];
-    // result += 2 * (input[tid + 1] - input[tid]);
     result += input[tid + 1] - input[tid];
     result += input[tid + ncols] - input[tid + ncols + 1];
     output[idx[tid]] = result;

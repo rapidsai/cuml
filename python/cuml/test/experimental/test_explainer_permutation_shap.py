@@ -19,15 +19,10 @@ import cuml
 import cuml.experimental.explainer
 import cupy as cp
 import numpy as np
-import math
 import pytest
 import sklearn.neighbors
 
-from cuml.common.import_utils import has_scipy
-from cuml.common.import_utils import has_shap
-from cuml.test.utils import array_equal
 from cuml.test.utils import ClassEnumerator
-from cuml.test.utils import get_number_positional_args
 from sklearn.datasets import make_classification
 from sklearn.datasets import make_regression
 from sklearn.model_selection import train_test_split

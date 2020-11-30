@@ -22,7 +22,6 @@ import pytest
 
 from cuml.experimental.explainer.base import SHAPBase
 from cuml import LinearRegression as cuLR
-from sklearn.linear_model import LinearRegression as skLR
 
 
 @pytest.mark.parametrize("handle", [True, False])
@@ -84,7 +83,6 @@ def test_init_explainer_base_init_abritrary_model(handle,
                                                   gpu_model,
                                                   output_type):
     bg = np.arange(10).reshape(5, 2).astype(np.float32)
-    y = np.arange(5).astype(np.float32)
 
     if handle:
         handle = cuml.raft.common.handle.Handle()
@@ -136,6 +134,7 @@ def test_init_explainer_base_wrong_dtype():
         explainer = SHAPBase(model=dummy_func,
                              background=np.ones(10),
                              dtype=np.int32)
+        explainer.M
 
 
 def dummy_func(x):

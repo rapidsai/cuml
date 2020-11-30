@@ -87,8 +87,6 @@ def test_get_dtype_from_model_func():
 
     assert get_dtype_from_model_func(dummy_func) is None
 
-    # checking scikit-lern function for gpu tags
-
 
 def test_get_gpu_tag_from_model_func():
     # test getting the gpu tags from the model that we use in explainers

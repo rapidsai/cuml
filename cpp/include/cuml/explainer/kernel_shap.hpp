@@ -26,12 +26,12 @@ namespace Explainer {
  *
  *
  * @param[in]    handle             cuML handle
- * @param[inout] X                  generated data [on device] 1-0
+ * @param[inout] X                  generated data [on device] 1-0 (row major)
  * @param[in]    nrows_X            number of rows in X
  * @param[in]    ncols              number of columns in X, background and dataset
  * @param[in]    background         background data [on device]
  * @param[in]    nrows_background   number of rows in background dataset
- * @param[out]   dataset            generated data [on device] observation=background
+ * @param[out]   dataset            generated data [on device] observation=background (row major)
  * @param[in]    observation        row to scatter
  * @param[in]    nsamples           vector with number of entries that are randomly sampled
  * @param[in]    len_nsamples       number of entries to be sampled

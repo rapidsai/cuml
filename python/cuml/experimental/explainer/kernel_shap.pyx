@@ -112,9 +112,17 @@ class KernelExplainer(SHAPBase):
         values. The "auto" setting uses `nsamples = 2 * X.shape[1] + 2048`.
     link : function or str (default = 'identity')
         The link function used to map between the output units of the
-        model and the SHAP value units.
+        model and the SHAP value units. From the SHAP package: The link
+        function used to map between the output units of the model and the
+        SHAP value units. By default it is identity, but logit can be useful
+        so that expectations are computed in probability units while
+        explanations remain in the (more naturally additive) log-odds units.
+        For more details on how link functions work see any overview of link
+        functions for generalized linear models.
     random_state: int, RandomState instance or None (default = None)
-        Seed for the random number generator for dataset creation.
+        Seed for the random number generator for dataset creation. Note: due to
+        the design of the sampling algorithm the concurrency can affect
+        results so currently 100% deterministic execution is not guaranteed.
     gpu_model : bool or None (default = None)
         If None Explainer will try to infer whether `model` can take GPU data
         (as CuPy arrays), otherwise it will use NumPy arrays to call `model`.
@@ -132,11 +140,10 @@ class KernelExplainer(SHAPBase):
         model. If not specified, the explainer will try to get the dtype
         of the model, if it cannot be queried, then it will defaul to
         np.float32.
-    output_type : 'cupy' or 'numpy' (default = None)
+    output_type : 'cupy' or 'numpy' (default = 'numpy')
         Parameter to specify the type of data to output.
-        If not specified, the explainer will try to see if model is gpu based,
-        if so it will be set to `cupy`, otherwise it will be set to `numpy`.
-        For compatibility with SHAP's graphing libraries, specify `numpy`.
+        If not specified, the explainer will default to 'numpy' for the time
+        being to improve compatibility.
 
     Examples
     --------

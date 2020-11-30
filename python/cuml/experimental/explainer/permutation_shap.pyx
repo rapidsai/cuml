@@ -106,9 +106,9 @@ class PermutationExplainer(SHAPBase):
     supported API for this version is the old one
     (i.e. explainer.shap_values()). The new one, and the new SHAP Explanation
     object will be supported in the next version.
-    - Hierarchical clustering for Owen values is not GPU accelerated
+    - Hierarchical clustering for Owen values are planned for the near
+    future.
     - Sparse data support is not yet implemented.
-    - Some optimizations are not yet implemented.
 
     Parameters
     ----------
@@ -128,9 +128,76 @@ class PermutationExplainer(SHAPBase):
         independent masker and the algorithm is fully GPU accelerated.
         If 'partition' then it is equivalent to SHAP's Partition masker,
         which respects a hierarchical structure in the background data.
-    link : function
+    link : function or str (default = 'identity')
         The link function used to map between the output units of the
-        model and the SHAP value units.
+        model and the SHAP value units. From the SHAP package: The link
+        function used to map between the output units of the model and the
+        SHAP value units. By default it is identity, but logit can be useful
+        so that expectations are computed in probability units while
+        explanations remain in the (more naturally additive) log-odds units.
+        For more details on how link functions work see any overview of link
+        functions for generalized linear models.
+    random_state: int, RandomState instance or None (default = None)
+        Seed for the random number generator for dataset creation.
+    gpu_model : bool or None (default = None)
+        If None Explainer will try to infer whether `model` can take GPU data
+        (as CuPy arrays), otherwise it will use NumPy arrays to call `model`.
+        Set to True to force the explainer to use GPU data,  set to False to
+        force the Explainer to use NumPy data.
+    handle : cuml.raft.common.handle (default = None)
+        Specifies the handle that holds internal CUDA state for
+        computations in this model, a new one is created if it is None.
+        Most importantly, this specifies the CUDA stream that will be used for
+        the model's computations, so users can run different models
+        concurrently in different streams by creating handles in several
+        streams.
+    dtype : np.float32 or np.float64 (default = None)
+        Parameter to specify the precision of data to generate to call the
+        model. If not specified, the explainer will try to get the dtype
+        of the model, if it cannot be queried, then it will defaul to
+        np.float32.
+    output_type : 'cupy' or 'numpy' (default = 'numpy')
+        Parameter to specify the type of data to output.
+        If not specified, the explainer will default to 'numpy' for the time
+        being to improve compatibility.
+
+    Examples
+    --------
+    >>> from cuml import SVR
+    >>> from cuml import make_regression
+    >>> from cuml import train_test_split
+    >>>
+    >>> from cuml.experimental.explainer import PermutationExplainer as cuPE
+    >>>
+    >>> X, y = make_regression(
+    ...     n_samples=102,
+    ...     n_features=10,
+    ...     noise=0.1,
+    ...     random_state=42)
+
+    >>>
+    >>> X_train, X_test, y_train, y_test = train_test_split(
+    ...     X,
+    ...     y,
+    ...     test_size=2,
+    ...     random_state=42)
+    >>>
+    >>> model = SVR().fit(X_train, y_train)
+    >>>
+    >>> cu_explainer = cuPE(
+    ...     model=model.predict,
+    ...     masker=X_train)
+    >>>
+    >>> cu_shap_values = cu_explainer.shap_values(X_test)
+    <class 'list'>
+    >>>
+    >>> cu_shap_values
+    array([[-0.0225287 , -0.15753658, -0.14129443, -0.04841001, -0.21607995,
+            -0.08518306, -0.0558504 , -0.09816966, -0.06009924, -0.05091984],
+           [ 0.23368585,  0.14425121, -0.10782719,  0.4295706 ,  0.12154603,
+             0.509903  ,  0.22636597, -0.01573469,  0.24435756,  0.15525377]],
+          dtype=float32)
+
     """
 
     def __init__(self,
@@ -246,8 +313,7 @@ class PermutationExplainer(SHAPBase):
 
             if not testing:
                 cp.random.shuffle(inds)
-            # inds = cp.asarray(inds)
-            # inds = cp.arange(self.M - 1, -1, -1).astype(cp.int32)
+
             ds_ptr = get_cai_ptr(self._synth_data)
             bg_ptr = get_cai_ptr(self.background)
             row_ptr = get_cai_ptr(row)
