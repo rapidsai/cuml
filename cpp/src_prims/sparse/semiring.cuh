@@ -62,7 +62,10 @@ struct BlockSemiring {
   __device__ inline BlockSemiring(int tid_, value_idx m_, value_idx n_,
                                   value_idx *shared_cols_,
                                   value_t *shared_vals_, value_idx *chunk_cols_,
-                                  value_t *chunk_vals_, bool verbose_)
+                                  value_t *chunk_vals_,
+                                  value_idx *offsets_a_,
+                                  value_idx *offsets_b_,
+                                  bool verbose_)
     : tid(tid_),
       m(m_),
       n(n_),
@@ -70,6 +73,8 @@ struct BlockSemiring {
       shared_vals(shared_vals_),
       chunk_cols(chunk_cols_),
       chunk_vals(chunk_vals_),
+      offsets_a(offsets_a_),
+      offsets_b(offsets_b_),
       done(false),
       shared_idx(0),
       verbose(verbose_),
@@ -78,8 +83,17 @@ struct BlockSemiring {
 
   __device__ inline void load_a(value_idx row, value_idx *indptrA,
                                 value_idx *indicesA, value_t *dataA) {
-    start_offset_a = indptrA[row];
-    stop_offset_a = indptrA[row + 1];
+
+    // TODO: Hide these latencies further w/ shared memory
+
+    if(tid == 0) {
+      offsets_a[0] = indptrA[row];
+      offsets_a[1] = indptrA[row + 1];
+    }
+    __syncthreads();
+
+    start_offset_a = offsets_a[0];
+    stop_offset_a = offsets_a[1];
 
     // Coalesce reads of row from matrix A into shared memory
     for (int i = tid; i < stop_offset_a - start_offset_a; i += blockDim.x) {
@@ -105,8 +119,16 @@ struct BlockSemiring {
     for (int i = tid; i < n_rows; i += blockDim.x)
       row_count = indptrB[start_row_b + i + 1] - indptrB[start_row_b + i];
 
-    start_offset_b = indptrB[start_row_b];
-    stop_offset_b = indptrB[stop_row_b + 1] - 1;
+
+    if(tid == 0) {
+      offsets_b[0] = indptrB[start_row_b];
+      offsets_b[1] = indptrB[stop_row_b + 1] - 1;
+    }
+
+    __syncthreads();
+
+    start_offset_b = offsets_b[0];
+    stop_offset_b = offsets_b[1];
 
     for (int i = tid; i < n_rows; i += blockDim.x) {
       // set starting and ending idx of local thread
@@ -196,6 +218,9 @@ struct BlockSemiring {
 
   value_idx start_row_b;
   value_idx stop_row_b;
+
+  value_idx *offsets_a;
+  value_idx *offsets_b;
 
   // shared memory
   value_idx row_count;
@@ -396,10 +421,14 @@ __global__ void classic_csr_semiring_spmv_kernel(
   __shared__ value_idx shared_cols[buffer_size];
   __shared__ value_t shared_vals[buffer_size];
 
+  __shared__ value_idx offsets_a[2];
+  __shared__ value_idx offsets_b[2];
+
   bool verbose = tid <= 3 && out_row < 3;
 
   BlockSemiring<value_idx, value_t, tpb, buffer_size, rows_per_block> semiring(
-    tid, m, n, shared_cols, shared_vals, indicesB, dataB, verbose);
+    tid, m, n, shared_cols, shared_vals, indicesB, dataB,
+    offsets_a, offsets_b, verbose);
 
   semiring.load_a(out_row, indptrA, indicesA, dataA);
   semiring.load_b(out_col_start, indptrB, indicesB, dataB);
@@ -897,9 +926,106 @@ __global__ void chunked_block_semiring(value_idx *indptrA, value_idx *indicesA,
   semiring.write(out);
 }
 
+//unsigned int
+//fill_row_blocks (
+//  bool fill,
+//  unsigned int rows_count,
+//  const unsigned int *row_ptr,
+//  unsigned int *row_blocks
+//)
+//{
+//  if (fill)
+//    row_blocks[0] = 0;
+//
+//  int last_i = 0;
+//  int current_wg = 1;
+//  unsigned int nnz_sum = 0;
+//  for (int i = 1; i <= rows_count; i++)
+//  {
+//    nnz_sum += row_ptr[i] - row_ptr[i - 1];
+//
+//    if (nnz_sum == NNZ_PER_WG)
+//    {
+//      last_i = i;
+//
+//      if (fill)
+//        row_blocks[current_wg] = i;
+//      current_wg++;
+//      nnz_sum = 0;
+//    }
+//    else if (nnz_sum > NNZ_PER_WG)
+//    {
+//      if (i - last_i > 1)
+//      {
+//        if (fill)
+//          row_blocks[current_wg] = i - 1;
+//        current_wg++;
+//        i--;
+//      }
+//      else
+//      {
+//        if (fill)
+//          row_blocks[current_wg] = i;
+//        current_wg++;
+//      }
+//
+//      last_i = i;
+//      nnz_sum = 0;
+//    }
+//    else if (i - last_i > NNZ_PER_WG)
+//    {
+//      last_i = i;
+//      if (fill)
+//        row_blocks[current_wg] = i;
+//      current_wg++;
+//      nnz_sum = 0;
+//    }
+//  }
+//
+//  if (fill)
+//    row_blocks[current_wg] = rows_count;
+//
+//  return current_wg;
+//}
+//
+//template <typename value_idx, typename value_t>
+//void gpu_csr_adaptive_spmv (
+//  const value_idx *indptr_a,
+//  const value_idx *indices_a,
+//  const value_t *data_a,
+//  value_idx n_rows_a,
+//  value_idx nnz_a,
+//  const value_idx *indptr_b,
+//  const value_idx *indices_b,
+//  const value_t *data_b,
+//  value_idx n_rows_b,
+//  value_idx nnz_b,
+//  value_t *out)
+//{
+//  // fill delimiters
+//  const unsigned int blocks_count = fill_row_blocks (false, n_rows_a, indptr_a, nullptr);
+//  std::unique_ptr<unsigned int[]> row_blocks(new unsigned int[blocks_count + 1]);
+//  fill_row_blocks (true, n_rows_a, indptr_a, row_blocks.get ());
+//
+//  // TODO: Do this on device
+//  unsigned int *d_row_blocks {};
+//  cudaMalloc (&d_row_blocks, (blocks_count + 1) * sizeof (unsigned int));
+//  cudaMemcpy (d_row_blocks, row_blocks.get (), sizeof (unsigned int) * (blocks_count + 1), cudaMemcpyHostToDevice);
+//
+//  dim3 block_size = dim3 (NNZ_PER_WG);
+//  dim3 grid_size {};
+//
+//  grid_size.x = blocks_count;
+//
+//  // TODO: Need to schedule exhaustively for all rows of b.
+//  adaptive_csr_spmv_semiring_kernel<<<grid_size, block_size>>> (
+//    n_rows_a, indices_b, indptr_a, d_row_blocks, data_b, out);
+//}
+
+
 template <typename value_idx = int, typename value_t = float,
           int max_buffer_size = 1000,  //
-          int threads_per_block = 32,
+          int threads_per_block = 1024,
           typename reduce_f = auto(value_t, value_t)->value_t,
           typename accum_f = auto(value_t, value_t)->value_t>
 void distance_block_reduce(value_t *out_dists,
