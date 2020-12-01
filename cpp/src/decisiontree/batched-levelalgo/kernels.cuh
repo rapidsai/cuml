@@ -267,10 +267,10 @@ __device__ OutT* alignPointer(InT input) {
 template <typename DataT, typename LabelT, typename IdxT, int TPB>
 __global__ void computeSplitClassificationKernel(
   int* hist, IdxT nbins, IdxT max_depth, IdxT min_samples_split,
-  IdxT max_leaves, Input<DataT, LabelT, IdxT> input,
-  const Node<DataT, LabelT, IdxT>* nodes, IdxT colStart, int* done_count,
-  int* mutex, const IdxT* n_leaves, Split<DataT, IdxT>* splits,
-  CRITERION splitType) {
+  IdxT min_samples_leaf, DataT min_impurity_decrease, IdxT max_leaves,
+  Input<DataT, LabelT, IdxT> input, const Node<DataT, LabelT, IdxT>* nodes,
+  IdxT colStart, int* done_count, int* mutex, const IdxT* n_leaves,
+  Split<DataT, IdxT>* splits, CRITERION splitType) {
   extern __shared__ char smem[];
   IdxT nid = blockIdx.z;
   auto node = nodes[nid];
@@ -326,7 +326,8 @@ __global__ void computeSplitClassificationKernel(
   sp.init();
   __syncthreads();
   if (splitType == CRITERION::GINI) {
-    giniGain<DataT, IdxT>(shist, sbins, sp, col, range_len, nbins, nclasses);
+    giniGain<DataT, IdxT>(shist, sbins, sp, col, range_len, nbins, nclasses,
+                          min_samples_leaf, min_impurity_decrease);
   } else {
     entropyGain<DataT, IdxT>(shist, sbins, sp, col, range_len, nbins, nclasses);
   }

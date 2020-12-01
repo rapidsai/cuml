@@ -22,25 +22,55 @@
 #include "node.cuh"
 #include "split.cuh"
 
+namespace {
+
+template <typename DataT>
+class NumericLimits;
+
+template <>
+class NumericLimits<float> {
+ public:
+  static constexpr double kMax = __FLT_MAX__;
+};
+
+template <>
+class NumericLimits<double> {
+ public:
+  static constexpr double kMax = __DBL_MAX__;
+};
+
+}  // anonymous namespace
+
 namespace ML {
 namespace DecisionTree {
 
 /**
  * @brief Compute gain based on gini impurity metric
  *
- * @param[in]    shist    left/right class histograms for all bins
- *                        [dim = nbins x 2 x nclasses]
- * @param[in]    sbins    quantiles for the current column [len = nbins]
- * @param[inout] sp       will contain the per-thread best split so far
- * @param[in]    col      current column
- * @param[in]    len      total number of samples for the current node to be
- *                        split
- * @param[in]    nbins    number of bins
- * @param[in]    nclasses number of classes
+ * @param[in]    shist                 left/right class histograms for all bins
+ *                                     [dim = nbins x 2 x nclasses]
+ * @param[in]    sbins                 quantiles for the current column
+ *                                     [len = nbins]
+ * @param[inout] sp                    will contain the per-thread best split
+ *                                     so far
+ * @param[in]    col                   current column
+ * @param[in]    len                   total number of samples for the current
+ *                                     node to be split
+ * @param[in]    nbins                 number of bins
+ * @param[in]    nclasses              number of classes
+ * @param[in]    min_samples_leaf      minimum number of samples per each leaf.
+ *                                     Any splits that lead to a leaf node with
+ *                                     samples fewer than min_samples_leaf will
+ *                                     be ignored.
+ * @param[in]    min_impurity_decrease minimum improvement in MSE metric. Any
+ *                                     splits that do not improve (decrease)
+ *                                     the MSE metric at least by this amount
+ *                                     will be ignored.
  */
 template <typename DataT, typename IdxT>
 DI void giniGain(int* shist, DataT* sbins, Split<DataT, IdxT>& sp, IdxT col,
-                 IdxT len, IdxT nbins, IdxT nclasses) {
+                 IdxT len, IdxT nbins, IdxT nclasses, IdxT min_samples_leaf,
+                 DataT min_impurity_decrease) {
   constexpr DataT One = DataT(1.0);
   DataT invlen = One / len;
   for (IdxT i = threadIdx.x; i < nbins; i += blockDim.x) {
@@ -49,27 +79,32 @@ DI void giniGain(int* shist, DataT* sbins, Split<DataT, IdxT>& sp, IdxT col,
       nLeft += shist[i * 2 * nclasses + j];
     }
     auto nRight = len - nLeft;
-    auto invLeft = One / nLeft;
-    auto invRight = One / nRight;
     auto gain = DataT(0.0);
-    for (IdxT j = 0; j < nclasses; ++j) {
-      int val_i = 0;
-      if (nLeft != 0) {
+    // if there aren't enough samples in this split, don't bother!
+    if (nLeft < min_samples_leaf || nRight < min_samples_leaf) {
+      gain = -NumericLimits<DataT>::kMax;
+    } else {
+      auto invLeft = One / nLeft;
+      auto invRight = One / nRight;
+      for (IdxT j = 0; j < nclasses; ++j) {
+        int val_i = 0;
         auto lval_i = shist[i * 2 * nclasses + j];
         auto lval = DataT(lval_i);
         gain += lval * invLeft * lval * invlen;
+
         val_i += lval_i;
-      }
-      if (nRight != 0) {
         auto rval_i = shist[i * 2 * nclasses + nclasses + j];
         auto rval = DataT(rval_i);
         gain += rval * invRight * rval * invlen;
+
         val_i += rval_i;
+        auto val = DataT(val_i) * invlen;
+        gain -= val * val;
       }
-      auto val = DataT(val_i) * invlen;
-      gain -= val * val;
     }
-    sp.update({sbins[i], col, gain, nLeft});
+    if (gain <= min_impurity_decrease) {
+      sp.update({sbins[i], col, gain, nLeft});
+    }
   }
 }
 
@@ -125,21 +160,6 @@ DI void entropyGain(int* shist, DataT* sbins, Split<DataT, IdxT>& sp, IdxT col,
     sp.update({sbins[i], col, gain, nLeft});
   }
 }
-
-template <typename DataT>
-class NumericLimits;
-
-template <>
-class NumericLimits<float> {
- public:
-  static constexpr double kMax = __FLT_MAX__;
-};
-
-template <>
-class NumericLimits<double> {
- public:
-  static constexpr double kMax = __DBL_MAX__;
-};
 
 /**
  * @brief Compute gain based on MSE
