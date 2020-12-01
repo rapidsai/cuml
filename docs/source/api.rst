@@ -104,6 +104,11 @@ Feature Extraction (Single-GPU)
   .. autoclass:: cuml.feature_extraction.text.TfidfVectorizer
     :members:
 
+Feature Extraction (Dask-based Multi-GPU)
+-----------------------------------------
+  .. autoclass:: cuml.dask.feature_extraction.text.TfidfTransformer
+    :members:
+
 Dataset Generation (Single-GPU)
 -------------------------------
   .. glossary::
