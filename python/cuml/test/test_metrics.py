@@ -244,7 +244,7 @@ def test_silhouette_samples(metric, labeled_clusters):
     X, labels = labeled_clusters
     cuml_scores = cu_silhouette_samples(X, labels, metric=metric)
     sk_scores = sk_silhouette_samples(X, labels, metric=metric)
-    assert_allclose(cuml_scores, sk_scores, rtol=1e-2)
+    assert_allclose(cuml_scores, sk_scores, rtol=1e-2, atol=1e-5)
 
 
 def score_homogeneity(ground_truth, predictions, use_handle):
