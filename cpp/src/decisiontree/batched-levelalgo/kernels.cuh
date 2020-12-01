@@ -329,7 +329,8 @@ __global__ void computeSplitClassificationKernel(
     giniGain<DataT, IdxT>(shist, sbins, sp, col, range_len, nbins, nclasses,
                           min_samples_leaf, min_impurity_decrease);
   } else {
-    entropyGain<DataT, IdxT>(shist, sbins, sp, col, range_len, nbins, nclasses);
+    entropyGain<DataT, IdxT>(shist, sbins, sp, col, range_len, nbins, nclasses,
+                             min_samples_leaf, min_impurity_decrease);
   }
   __syncthreads();
   sp.evalBestSplit(smem, splits + nid, mutex + nid);
@@ -483,7 +484,8 @@ __global__ void computeSplitRegressionKernel(
       spred2P[i] = pred2P[gcOffset + i];
     }
     __syncthreads();
-    maeGain(spred2, spred2P, scount, sbins, sp, col, range_len, nbins);
+    maeGain(spred2, spred2P, scount, sbins, sp, col, range_len, nbins,
+            min_samples_leaf, min_impurity_decrease);
   }
   __syncthreads();
   sp.evalBestSplit(smem, splits + nid, mutex + nid);
