@@ -339,7 +339,7 @@ DI IdxT selectFeature(IdxT treeid, IdxT nodeid, IdxT k, uint64_t seed, IdxT N) {
   uint4 n_counter = philox_4x32_10(counter, key);
   uint32_t watch_for = k + n_counter.x % (N - k);
 
-  for(int i = k - 1; i > 0; i--) {
+  for(int i = k - 1; i >= 0; i--) {
     counter.x = i;
     n_counter = philox_4x32_10(counter, key);
     int  j = i + n_counter.x % (N - i);
@@ -376,18 +376,21 @@ __global__ void computeSplitClassificationKernel(
   IdxT tid = threadIdx.x + blockIdx.x * blockDim.x;
   // auto col = input.colids[colStart + blockIdx.y];
   int colIndex = blockIdx.y;
-  auto col = selectFeature(treeid, nid, colIndex, seed, input.N);
+  auto col = selectFeature(treeid, int(node.info.unique_id), colIndex, seed, input.N);
 
   for (IdxT i = threadIdx.x; i < len; i += blockDim.x) shist[i] = 0;
   for (IdxT b = threadIdx.x; b < nbins; b += blockDim.x)
     sbins[b] = input.quantiles[col * nbins + b];
   __syncthreads();
 // #if defined(RF_PRINT_DEVICE_DEBUG_MSGS)
-  if(node.info.unique_id == NODE_TO_PRINT /*&& col == COL_TO_PRINT*/) {
+  // if(node.info.unique_id == NODE_TO_PRINT /*&& col == COL_TO_PRINT*/) {
     if(tid == 0) {
-      printf("At treeid = %d, seed = %lu, blockIdx.y = %.3d, evaluating split for col = %.3d\n",
-             treeid, seed, blockIdx.y, col);
+      printf("treeid = %.3d, unique_id = %.3d, colIndex = %.3d, seed = %.10lu,"
+             "N = %.3d, col = %.3d\n", treeid, int(node.info.unique_id), colIndex,
+              seed, input.N, col);
 
+      // printf("treeid = %d, nodeid = %d, k = %d, seed = %lu, N = %d watch_for = %d\n",
+        // treeid, nid, colIndex, seed, input.N, col);
       // printf("At blockIdx.x = %d, evaluating split for col = %d\n"
       //        "Considering samples rowids[%d] to rowids[%d]\n",
       //        blockIdx.x, col, range_start, end);
@@ -400,7 +403,7 @@ __global__ void computeSplitClassificationKernel(
       // for(int i = 0; i < nbins; i++)
       //   printf("quesval[%d]: %f\n", i, sbins[i]);
     }
-  }
+  // }
 // #endif
   auto coloffset = col * input.M;
   // compute class histogram for all bins for all classes in shared mem
