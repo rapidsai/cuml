@@ -47,6 +47,7 @@
 - PR #3176: Add probabilistic SVM tests with various input array types
 - PR #3180: FIL: `blocks_per_sm` support in Python
 - PR #3221: Update contributing doc for label support
+- PR #3177: Make Multinomial Naive Bayes inherit from `ClassifierMixin` and use it for score
 
 ## Bug Fixes
 - PR #3196: Disable ascending=false path for sortColumnsPerRow
@@ -83,6 +84,7 @@
 - PR #3162: Removing accidentally checked in debug file
 - PR #3175: Fix gtest pinned cmake version for build from source option
 - PR #3182: Fix a bug in MSE metric calculation
+- PR #3215: Add a missing `__syncthreads()`
 - PR #3185: Add documentation for Distributed TFIDF Transformer
 - PR #3190: Fix Attribute error on ICPA #3183 and PCA input type
 - PR #3208: Fix EXITCODE override in notebook test script
