@@ -198,7 +198,7 @@ class Lars(Base, RegressorMixin):
                 self.intercept_ = y_mean - cp.dot(x_mean, self.coef_.T)
                 self.intercept_ = self.intercept_.item()
         else:
-            self.intercept_ = 0.
+            self.intercept_ = self.dtype.type(0.0)
 
     def _calc_gram(self, X):
         """
