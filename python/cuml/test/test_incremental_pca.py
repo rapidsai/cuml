@@ -28,17 +28,19 @@ from cuml.test.utils import array_equal
 
 @pytest.mark.parametrize(
     'nrows, ncols, n_components, sparse_input, density, sparse_format,'
-    ' batch_size_divider', [
-        (500, 15, 2, True, 0.4, 'csr', 5),
-        (5000, 25, 12, False, 0.07, 'csc', 10),
-        (5000, 15, None, True, 0.4, 'csc', 5),
-        (500, 25, 2, False, 0.07, 'csr', 10),
-        (5000, 25, 12, False, 0.07, 'csr', 10)
+    ' batch_size_divider, whiten',  [
+        (500, 15, 2, True, 0.4, 'csr', 5, True),
+        (5000, 25, 12, False, 0.07, 'csc', 10, False),
+        (5000, 15, None, True, 0.4, 'csc', 5, False),
+        (500, 25, 2, False, 0.07, 'csr', 10, False),
+        (5000, 25, 12, False, 0.07, 'csr', 10, True),
+        (500, 2500, 9, False, 0.07, 'csr', 50, True),
+        (500, 250, 14, True, 0.07, 'csr', 1, True),
     ]
 )
 @pytest.mark.no_bad_cuml_array_check
 def test_fit(nrows, ncols, n_components, sparse_input, density,
-             sparse_format, batch_size_divider):
+             sparse_format, batch_size_divider, whiten):
 
     if sparse_format == 'csc':
         pytest.skip("cupyx.scipy.sparse.csc.csc_matrix does not support"
@@ -50,13 +52,13 @@ def test_fit(nrows, ncols, n_components, sparse_input, density,
     else:
         X, _ = make_blobs(n_samples=nrows, n_features=ncols, random_state=10)
 
-    cu_ipca = cuIPCA(n_components=n_components,
+    cu_ipca = cuIPCA(n_components=n_components, whiten=whiten,
                      batch_size=int(nrows / batch_size_divider))
     cu_ipca.fit(X)
     cu_t = cu_ipca.transform(X)
     cu_inv = cu_ipca.inverse_transform(cu_t)
 
-    sk_ipca = skIPCA(n_components=n_components,
+    sk_ipca = skIPCA(n_components=n_components, whiten=whiten,
                      batch_size=int(nrows / batch_size_divider))
     if sparse_input:
         X = X.get()
@@ -71,20 +73,22 @@ def test_fit(nrows, ncols, n_components, sparse_input, density,
 
 
 @pytest.mark.parametrize(
-    'nrows, ncols, n_components, density, batch_size_divider', [
-        (500, 15, 2, 0.07, 5),
-        (5000, 25, 12, 0.07, 10),
-        (5000, 15, 2, 0.4, 5),
-        (500, 25, 12, 0.4, 10),
+    'nrows, ncols, n_components, density, batch_size_divider, whiten', [
+        (500, 15, 2, 0.07, 5, False),
+        (500, 15, 2, 0.07, 5, True),
+        (5000, 25, 12, 0.07, 10, False),
+        (5000, 15, 2, 0.4, 5, True),
+        (500, 25, 12, 0.4, 10, False),
+        (5000, 4, 2, 0.1, 100, False)
     ]
 )
 @pytest.mark.no_bad_cuml_array_check
 def test_partial_fit(nrows, ncols, n_components, density,
-                     batch_size_divider):
+                     batch_size_divider, whiten):
 
     X, _ = make_blobs(n_samples=nrows, n_features=ncols, random_state=10)
 
-    cu_ipca = cuIPCA(n_components=n_components)
+    cu_ipca = cuIPCA(n_components=n_components, whiten=whiten)
 
     sample_size = int(nrows / batch_size_divider)
     for i in range(0, nrows, sample_size):
@@ -93,7 +97,7 @@ def test_partial_fit(nrows, ncols, n_components, density,
     cu_t = cu_ipca.transform(X)
     cu_inv = cu_ipca.inverse_transform(cu_t)
 
-    sk_ipca = skIPCA(n_components=n_components)
+    sk_ipca = skIPCA(n_components=n_components, whiten=whiten)
 
     X = cp.asnumpy(X)
 

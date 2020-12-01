@@ -145,8 +145,8 @@ DI void mseGain(DataT* spred, IdxT* scount, DataT* sbins,
   for (IdxT i = threadIdx.x; i < nbins; i += blockDim.x) {
     auto nLeft = scount[i];
     auto nRight = len - nLeft;
-    auto invLeft = (DataT)len / nLeft;
-    auto invRight = (DataT)len / nRight;
+    auto invLeft = DataT(1.0) / nLeft;
+    auto invRight = DataT(1.0) / nRight;
     auto valL = spred[i];
     auto valR = spred[nbins + i];
     // parent sum is basically sum of its left and right children
