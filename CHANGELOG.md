@@ -81,6 +81,7 @@
 - PR #3175: Fix gtest pinned cmake version for build from source option
 - PR #3182: Fix a bug in MSE metric calculation
 - PR #3185: Add documentation for Distributed TFIDF Transformer
+- PR #3190: Fix Attribute error on ICPA #3183 and PCA input type
 - PR #3208: Fix EXITCODE override in notebook test script
 
 
