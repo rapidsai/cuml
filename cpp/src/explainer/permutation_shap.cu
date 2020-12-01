@@ -22,10 +22,9 @@ namespace Explainer {
 template <typename DataT, typename IdxT>
 __global__ void _fused_tile_scatter_pe(DataT* dataset, const DataT* background,
                                        IdxT nrows_dataset, IdxT ncols,
-                                       const DataT* obs, IdxT* idx, IdxT nrows_background,
-                                       IdxT sc_size, bool row_major) {
-
-
+                                       const DataT* obs, IdxT* idx,
+                                       IdxT nrows_background, IdxT sc_size,
+                                       bool row_major) {
   // kernel that actually does the scattering as described in the
   // descriptions of `permutation_dataset` and `shap_main_effect_dataset`
   IdxT tid = threadIdx.x + blockDim.x * blockIdx.x;
@@ -42,7 +41,8 @@ __global__ void _fused_tile_scatter_pe(DataT* dataset, const DataT* background,
       if ((start <= row && row < end)) {
         dataset[row * ncols + col] = obs[col];
       } else {
-        dataset[row * ncols + col] = background[(row % nrows_background) * ncols + col];
+        dataset[row * ncols + col] =
+          background[(row % nrows_background) * ncols + col];
       }
 
     } else {
@@ -63,8 +63,9 @@ __global__ void _fused_tile_scatter_pe(DataT* dataset, const DataT* background,
 
 template <typename DataT, typename IdxT>
 void permutation_shap_dataset_impl(const raft::handle_t& handle, DataT* dataset,
-                                   const DataT* background, IdxT nrows_background,
-                                   IdxT ncols, const DataT* row, IdxT* idx,
+                                   const DataT* background,
+                                   IdxT nrows_background, IdxT ncols,
+                                   const DataT* row, IdxT* idx,
                                    bool row_major) {
   const auto& handle_impl = handle;
   cudaStream_t stream = handle_impl.get_stream();
@@ -87,15 +88,15 @@ void permutation_shap_dataset_impl(const raft::handle_t& handle, DataT* dataset,
 void permutation_shap_dataset(const raft::handle_t& handle, float* dataset,
                               const float* background, int nrows_bg, int ncols,
                               const float* row, int* idx, bool row_major) {
-  permutation_shap_dataset_impl(handle, dataset, background, nrows_bg, ncols, row,
-                                idx, row_major);
+  permutation_shap_dataset_impl(handle, dataset, background, nrows_bg, ncols,
+                                row, idx, row_major);
 }
 
 void permutation_shap_dataset(const raft::handle_t& handle, double* dataset,
                               const double* background, int nrows_bg, int ncols,
                               const double* row, int* idx, bool row_major) {
-  permutation_shap_dataset_impl(handle, dataset, background, nrows_bg, ncols, row,
-                                idx, row_major);
+  permutation_shap_dataset_impl(handle, dataset, background, nrows_bg, ncols,
+                                row, idx, row_major);
 }
 
 template <typename DataT, typename IdxT>
@@ -114,8 +115,8 @@ void shap_main_effect_dataset_impl(const raft::handle_t& handle, DataT* dataset,
   IdxT nblks = (total_num_elements + nthreads - 1) / nthreads;
 
   _fused_tile_scatter_pe<<<nblks, nthreads, 0, stream>>>(
-    dataset, background, total_num_elements / ncols, ncols, row, idx, nrows_bg, 1,
-    row_major);
+    dataset, background, total_num_elements / ncols, ncols, row, idx, nrows_bg,
+    1, row_major);
 
   CUDA_CHECK(cudaPeekAtLastError());
 }
@@ -123,15 +124,15 @@ void shap_main_effect_dataset_impl(const raft::handle_t& handle, DataT* dataset,
 void shap_main_effect_dataset(const raft::handle_t& handle, float* dataset,
                               const float* background, int nrows_bg, int ncols,
                               const float* row, int* idx, bool row_major) {
-  shap_main_effect_dataset_impl(handle, dataset, background, nrows_bg, ncols, row,
-                                idx, row_major);
+  shap_main_effect_dataset_impl(handle, dataset, background, nrows_bg, ncols,
+                                row, idx, row_major);
 }
 
 void shap_main_effect_dataset(const raft::handle_t& handle, double* dataset,
                               const double* background, int nrows_bg, int ncols,
                               const double* row, int* idx, bool row_major) {
-  shap_main_effect_dataset_impl(handle, dataset, background, nrows_bg, ncols, row,
-                                idx, row_major);
+  shap_main_effect_dataset_impl(handle, dataset, background, nrows_bg, ncols,
+                                row, idx, row_major);
 }
 
 template <typename DataT, typename IdxT>
