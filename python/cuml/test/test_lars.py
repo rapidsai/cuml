@@ -47,6 +47,7 @@ def normalize_data(X, y):
 @pytest.mark.parametrize(
     "column_info",
     [
+        unit_param([1, 1]),
         unit_param([20, 10]),
         quality_param([100, 50]),
         stress_param([1000, 500])
@@ -86,9 +87,15 @@ def test_lars_model(datatype, nrows, column_info, precompute, normalize):
         # sklearn model initialization, fit and predict
         sklars = skLars(**params)
         sklars.fit(X_train, y_train)
-
-        assert cu_score_train >= sklars.score(X_train, y_train) - 0.05
-        assert cu_score_test >= sklars.score(X_test, y_test) - 0.1
+        # Set tolerance to include the 95% confidence interval around
+        # scikit-learn accuracy.
+        accuracy_target = sklars.score(X_test, y_test)
+        tol = 1.96 * np.sqrt(accuracy_target * (1.0-accuracy_target)/100.0)
+        if tol < 0.001:
+            tol = 0.001  # We allow at least 0.1% tolerance
+        print(cu_score_train, cu_score_test, accuracy_target, tol)
+        assert cu_score_train >= sklars.score(X_train, y_train) - tol
+        assert cu_score_test >= accuracy_target - tol
     else:
         assert cu_score_test > 0.95
 
@@ -128,7 +135,9 @@ def test_lars_collinear(datatype, nrows, column_info, precompute):
 @pytest.mark.parametrize("params", [{"precompute": True},
                                     {"precompute": False},
                                     {"n_nonzero_coefs": 5},
-                                    {"n_nonzero_coefs": 2}])
+                                    {"n_nonzero_coefs": 2},
+                                    {"n_nonzero_coefs": 2,
+                                     "fit_intercept": False}])
 def test_lars_attributes(datatype, params):
     X, y = load_boston(return_X_y=True)
     X = X.astype(datatype)
@@ -150,8 +159,10 @@ def test_lars_attributes(datatype, params):
 
     assert abs(culars.n_iter_ - sklars.n_iter_) <= n_iter_tol
 
+    tol = 1e-4 if params.pop("fit_intercept", True) else 1e-1
     n = min(culars.n_iter_, sklars.n_iter_)
-    assert array_equal(culars.alphas_[:n], sklars.alphas_[:n])
+    assert array_equal(culars.alphas_[:n], sklars.alphas_[:n], unit_tol=tol,
+                       total_tol=1e-4)
     assert array_equal(culars.active_[:n], sklars.active_[:n])
 
     if limit_max_iter:
