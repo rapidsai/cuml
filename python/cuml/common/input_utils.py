@@ -398,11 +398,21 @@ def input_to_cupy_array(X,
                         check_cols=False,
                         check_rows=False,
                         fail_on_order=False,
-                        force_contiguous=True) -> cuml_array:
+                        force_contiguous=True,
+                        fail_on_null=True) -> cuml_array:
     """
     Identical to input_to_cuml_array but it returns a cupy array instead of
     CumlArray
     """
+    if not fail_on_null:
+        if isinstance(X, (cudf.DataFrame, cudf.Series)):
+            try:
+                X = X.values
+            except ValueError:
+                X = X.astype('float64', copy=False)
+                X.fillna(cp.nan, inplace=True)
+                X = X.values
+
     out_data = input_to_cuml_array(X,
                                    order=order,
                                    deepcopy=deepcopy,
