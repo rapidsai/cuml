@@ -133,24 +133,19 @@ def test_exact_classification_datasets():
 
 
 @pytest.mark.parametrize("dtype", [np.float32, np.float64])
-@pytest.mark.parametrize("nfeatures", [20, 50])
-@pytest.mark.parametrize("nbackground", [10, 100])
+@pytest.mark.parametrize("nfeatures", [10])
+@pytest.mark.parametrize("nbackground", [10])
 @pytest.mark.parametrize("model", [cuml.TruncatedSVD,
                                    cuml.PCA])
 def test_kernel_shap_standalone(dtype, nfeatures, nbackground, model):
     X, y = cuml.datasets.make_regression(n_samples=nbackground + 10,
                                          n_features=nfeatures,
-                                         noise=0.1)
+                                         noise=0.1, dtype=dtype)
 
     X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=10)
+        X, y, test_size=2)
 
-    X_train = X_train.astype(np.float32)
-    X_test = X_test.astype(np.float32)
-    y_train = y_train.astype(np.float32)
-    y_test = y_test.astype(np.float32)
-
-    mod = model(n_components=5).fit(X_train, y_train)
+    mod = model(n_components=3).fit(X_train, y_train)
 
     cu_explainer = \
         cuml.experimental.explainer.KernelExplainer(model=mod.transform,
@@ -166,11 +161,11 @@ def test_kernel_shap_standalone(dtype, nfeatures, nbackground, model):
     # sum of the shap values is the same as the difference between the
     # expected value for that component minus the value of the transform of
     # the row.
-    for sv_idx in range(10):
+    for sv_idx in range(2):
         # pca and tsvd transform give results back nested
         fx = mod.transform(X_test[sv_idx].reshape(1, nfeatures))[0]
 
-        for comp_idx in range(5):
+        for comp_idx in range(3):
             assert(
                 np.sum(
                     cu_shap_values[comp_idx][sv_idx]) - abs(
