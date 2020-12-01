@@ -42,7 +42,7 @@ cdef extern from "cuml/explainer/permutation_shap.hpp" namespace "ML":
 
     void permutation_shap_dataset "ML::Explainer::permutation_shap_dataset"(
         const handle_t& handle,
-        float* out,
+        float* dataset,
         const float* background,
         int n_rows,
         int n_cols,
@@ -52,7 +52,7 @@ cdef extern from "cuml/explainer/permutation_shap.hpp" namespace "ML":
 
     void permutation_shap_dataset "ML::Explainer::permutation_shap_dataset"(
         const handle_t& handle,
-        double* out,
+        double* dataset,
         const double* background,
         int n_rows,
         int n_cols,
@@ -62,7 +62,7 @@ cdef extern from "cuml/explainer/permutation_shap.hpp" namespace "ML":
 
     void shap_main_effect_dataset "ML::Explainer::shap_main_effect_dataset"(
         const handle_t& handle,
-        float* out,
+        float* dataset,
         const float* background,
         int n_rows,
         int n_cols,
@@ -206,7 +206,7 @@ class PermutationExplainer(SHAPBase):
                  masker_type='independent',
                  link='identity',
                  handle=None,
-                 gpu_model=None,
+                 is_gpu_model=None,
                  random_state=None,
                  dtype=None,
                  output_type=None,
@@ -218,7 +218,7 @@ class PermutationExplainer(SHAPBase):
             link=link,
             verbose=verbose,
             random_state=random_state,
-            gpu_model=gpu_model,
+            is_gpu_model=is_gpu_model,
             handle=handle,
             dtype=dtype,
             output_type=output_type
@@ -277,8 +277,7 @@ class PermutationExplainer(SHAPBase):
                 order=self.order
             )
 
-        idx = 0
-        for x in X:
+        for idx, x in enumerate(X):
             # use mutability of lists and cupy arrays to get all shap values
             self._explain_single_observation(
                 shap_values,
@@ -288,7 +287,6 @@ class PermutationExplainer(SHAPBase):
                 idx=idx,
                 testing=testing
             )
-            idx = idx + 1
 
         return output_list_shap_values(shap_values, self.D, self.output_type)
 
@@ -344,7 +342,7 @@ class PermutationExplainer(SHAPBase):
             # evaluate model on combinations
             y = model_func_call(X=self._synth_data,
                                 model_func=self.model,
-                                gpu_model=self.gpu_model)
+                                gpu_model=self.is_gpu_model)
 
             for i in range(self.D):
                 # reshape the results to coincide with each entry of the

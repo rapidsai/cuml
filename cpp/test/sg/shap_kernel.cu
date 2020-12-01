@@ -213,6 +213,7 @@ const std::vector<MakeKSHAPDatasetInputs> inputsf = {
 typedef MakeKSHAPDatasetTest<float> MakeKSHAPDatasetTestF;
 TEST_P(MakeKSHAPDatasetTestF, Result) {
   ASSERT_TRUE(test_sampled_X);
+  // todo (dgd): re-enable assertions
   // disabled due to a sporadic cuda 10.1 fail (by one value in one case!)
   // will be re-enabled soon after 0.17 release
   // ASSERT_TRUE(test_scatter_exact);
@@ -229,6 +230,7 @@ const std::vector<MakeKSHAPDatasetInputs> inputsd = {
 typedef MakeKSHAPDatasetTest<double> MakeKSHAPDatasetTestD;
 TEST_P(MakeKSHAPDatasetTestD, Result) {
   ASSERT_TRUE(test_sampled_X);
+  // todo (dgd): re-enable assertions
   // disabled due to a sporadic cuda 10.1 fail (by one value in one case!)
   // will be re-enabled soon after 0.17 release
   // ASSERT_TRUE(test_scatter_exact);

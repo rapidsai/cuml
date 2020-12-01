@@ -155,7 +155,7 @@ def test_kernel_shap_standalone(dtype, nfeatures, nbackground, model):
     cu_explainer = \
         cuml.experimental.explainer.KernelExplainer(model=mod.transform,
                                                     data=X_train,
-                                                    gpu_model=True)
+                                                    is_gpu_model=True)
 
     cu_shap_values = cu_explainer.shap_values(X_test)
     exp_v = cu_explainer.expected_value
@@ -199,7 +199,7 @@ def test_kernel_gpu_cpu_shap(dtype, nfeatures, nbackground, model):
     cu_explainer = \
         cuml.experimental.explainer.KernelExplainer(model=mod.predict,
                                                     data=X_train,
-                                                    gpu_model=True)
+                                                    is_gpu_model=True)
 
     cu_shap_values = cu_explainer.shap_values(X_test)
 
@@ -250,8 +250,6 @@ def test_full_powerset():
 def test_partial_powerset():
     ps, w = cuml.experimental.explainer.kernel_shap._powerset(6, 3, 42)
 
-    print(ps)
-
     for i in range(len(ps)):
         assert np.all(ps[i] == partial_powerset_result[i])
         assert math.isclose(w[i], partial_powerset_weight_result[i])
@@ -264,8 +262,6 @@ def test_get_number_of_exact_random_samples(full_powerset):
         nsamples_exact, nsamples_random, ind = \
             (cuml.experimental.explainer.kernel_shap.
              _get_number_of_exact_random_samples(10, 2**10 + 1))
-
-        print(nsamples_exact, nsamples_random, ind)
         assert nsamples_exact == 1022
         assert nsamples_random == 0
         assert ind == 5

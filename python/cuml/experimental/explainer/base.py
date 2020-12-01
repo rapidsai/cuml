@@ -66,7 +66,7 @@ class SHAPBase():
         model and the SHAP value units.
     random_state: int, RandomState instance or None (default = None)
         Seed for the random number generator for dataset creation.
-    gpu_model : bool or None (default = None)
+    is_gpu_model : bool or None (default = None)
         If None Explainer will try to infer whether `model` can take GPU data
         (as CuPy arrays), otherwise it will use NumPy arrays to call `model`.
         Set to True to force the explainer to use GPU data,  set to False to
@@ -100,7 +100,7 @@ class SHAPBase():
                  link='identity',
                  verbose=False,
                  random_state=None,
-                 gpu_model=None,
+                 is_gpu_model=None,
                  handle=None,
                  dtype=None,
                  output_type=None):
@@ -128,19 +128,19 @@ class SHAPBase():
         self.link = link
         self.link_fn = get_link_fn_from_str_or_fn(link)
         self.model = model
-        if gpu_model is None:
-            # todo: when sparse support is added, use this tag to see if
+        if is_gpu_model is None:
+            # todo (dgd): when sparse support is added, use this tag to see if
             # model can accept sparse data
-            self.gpu_model = \
+            self.is_gpu_model = \
                 get_tag_from_model_func(func=model,
                                         tag='X_types_gpu',
                                         default=None) is not None
         else:
-            self.gpu_model = gpu_model
+            self.is_gpu_model = is_gpu_model
 
         # we are defaulting to numpy for now for compatibility
         if output_type is None:
-            # self.output_type = 'cupy' if self.gpu_model else 'numpy'
+            # self.output_type = 'cupy' if self.is_gpu_model else 'numpy'
             self.output_type = 'numpy'
         else:
             self.output_type = output_type
@@ -172,7 +172,7 @@ class SHAPBase():
             cp.mean(
                 model_func_call(X=self.background,
                                 model_func=self.model,
-                                gpu_model=self.gpu_model),
+                                gpu_model=self.is_gpu_model),
                 axis=0
             )
         )

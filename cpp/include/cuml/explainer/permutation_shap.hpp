@@ -54,7 +54,7 @@ namespace Explainer {
  *
  *
  * @param[in]  handle          cuML handle
- * @param[out] out             generated data [on device] [dim = (2 * ncols * nrows_bg + nrows_bg) * ncols]
+ * @param[out] out             generated data in either row major or column major format, depending on the `row_major` parameter [on device] [dim = (2 * ncols * nrows_bg + nrows_bg) * ncols]
  * @param[in] background       background data [on device] [dim = ncols * nrows_bg]
  * @param[in] nrows_bg         number of rows in background dataset
  * @param[in] ncols            number of columns
@@ -63,11 +63,11 @@ namespace Explainer {
  * @param[in] row_major        boolean to generate either row or column major data
  *
  */
-void permutation_shap_dataset(const raft::handle_t& handle, float* out,
+void permutation_shap_dataset(const raft::handle_t& handle, float* dataset,
                               const float* background, int nrows_bg, int ncols,
                               const float* row, int* idx, bool row_major);
 
-void permutation_shap_dataset(const raft::handle_t& handle, double* out,
+void permutation_shap_dataset(const raft::handle_t& handle, double* dataset,
                               const double* background, int nrows_bg, int ncols,
                               const double* row, int* idx, bool row_major);
 
@@ -95,21 +95,21 @@ void permutation_shap_dataset(const raft::handle_t& handle, double* out,
  *
  *
  * @param[in]  handle          cuML handle
- * @param[out] out             generated data [on device] [dim = (2 * ncols * nrows_bg + nrows_bg) * ncols]
+ * @param[out] dataset         generated data [on device] [dim = (2 * ncols * nrows_bg + nrows_bg) * ncols]
  * @param[in] background       background data [on device] [dim = ncols * nrows_bg]
- * @param[in] nrows_bg           number of rows in background dataset
- * @param[in] ncols           number of columns
+ * @param[in] nrows_bg         number of rows in background dataset
+ * @param[in] ncols            number of columns
  * @param[in] row              row to scatter in a permutated fashion [dim = ncols]
  * @param[in] idx              permutation indexes [dim = ncols]
  * @param[in] row_major        boolean to generate either row or column major data
  *
  */
 
-void shap_main_effect_dataset(const raft::handle_t& handle, float* out,
+void shap_main_effect_dataset(const raft::handle_t& handle, float* dataset,
                               const float* background, int nrows_bg, int ncols,
                               const float* row, int* idx, bool row_major);
 
-void shap_main_effect_dataset(const raft::handle_t& handle, double* out,
+void shap_main_effect_dataset(const raft::handle_t& handle, double* dataset,
                               const double* background, int nrows_bg, int ncols,
                               const double* row, int* idx, bool row_major);
 

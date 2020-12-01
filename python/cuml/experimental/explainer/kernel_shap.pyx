@@ -192,7 +192,7 @@ class KernelExplainer(SHAPBase):
                  link='identity',
                  verbose=False,
                  random_state=None,
-                 gpu_model=None,
+                 is_gpu_model=None,
                  handle=None,
                  dtype=None,
                  output_type=None):
@@ -204,7 +204,7 @@ class KernelExplainer(SHAPBase):
             link=link,
             verbose=verbose,
             random_state=random_state,
-            gpu_model=gpu_model,
+            is_gpu_model=is_gpu_model,
             handle=handle,
             dtype=dtype,
             output_type=output_type
@@ -299,8 +299,7 @@ class KernelExplainer(SHAPBase):
             )
 
         # Explain each observation
-        idx = 0
-        for x in X:
+        for idx, x in enumerate(X):
             # use mutability of lists and cupy arrays to get all shap values
             self._explain_single_observation(
                 shap_values,
@@ -308,7 +307,6 @@ class KernelExplainer(SHAPBase):
                 l1_reg,
                 idx
             )
-            idx = idx + 1
 
         del(self._synth_data)
 
@@ -323,7 +321,7 @@ class KernelExplainer(SHAPBase):
         fx = cp.array(
             model_func_call(X=row,
                             model_func=self.model,
-                            gpu_model=self.gpu_model))
+                            gpu_model=self.is_gpu_model))
 
         self._mask[self.nsamples_exact:self.nsamples] = \
             cp.zeros((self.nsamples_random, self.M), dtype=cp.float32)
@@ -399,7 +397,7 @@ class KernelExplainer(SHAPBase):
         # evaluate model on combinations
         y = model_func_call(X=self._synth_data,
                             model_func=self.model,
-                            gpu_model=self.gpu_model)
+                            gpu_model=self.is_gpu_model)
 
         for i in range(self.D):
             if self.D == 1:
@@ -651,7 +649,6 @@ def _weighted_linear_regression(X,
         # from nonzero_inds and some additional arrays
         # nonzero_inds tells us which cols of X to use
         y = y - X[:, nonzero_inds[-1]] * (fx - expected_value)
-        print(nonzero_inds)
         Xw = cp.transpose(
             cp.transpose(X[:, nonzero_inds[:-1]]) - X[:, nonzero_inds[-1]])
 

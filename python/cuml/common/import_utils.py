@@ -121,10 +121,11 @@ def has_sklearn():
 def has_shap(min_version=None):
     try:
         import shap  # noqa
-        if version is None:
+        if min_version is None:
             return True
         else:
-            return LooseVersion(str(shap.__version__)) >= LooseVersion(version)
+            return (LooseVersion(str(shap.__version__)) >=
+                    LooseVersion(min_version))
     except ImportError:
         return False
 

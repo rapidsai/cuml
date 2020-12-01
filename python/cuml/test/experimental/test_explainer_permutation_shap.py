@@ -158,15 +158,13 @@ def test_different_parameters(dtype, nfeatures, nbackground, model,
     cu_explainer = \
         cuml.experimental.explainer.PermutationExplainer(model=mod.predict,
                                                          masker=X_train,
-                                                         gpu_model=True)
+                                                         is_gpu_model=True)
 
     cu_shap_values = cu_explainer.shap_values(X_test,
                                               npermutations=npermutations)
 
     exp_v = float(cu_explainer.expected_value)
     fx = mod.predict(X_test)
-    print(exp_v)
-    print(fx)
     for i in range(5):
         assert(np.sum(cp.asnumpy(
             cu_shap_values[i])) - abs(fx[i] - exp_v)) <= 0.01

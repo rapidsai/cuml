@@ -47,7 +47,7 @@ def test_init_explainer_base_init_cuml_model(handle,
                          link='identity',
                          verbose=2,
                          random_state=None,
-                         gpu_model=None,
+                         is_gpu_model=None,
                          handle=handle,
                          dtype=None,
                          output_type=None)
@@ -56,7 +56,7 @@ def test_init_explainer_base_init_cuml_model(handle,
     assert explainer.N == 5
     assert np.all(cp.asnumpy(explainer.background) == bg)
     assert np.all(explainer.feature_names == bg_df.columns)
-    assert explainer.gpu_model
+    assert explainer.is_gpu_model
 
     # check that we infer the order from the model (F for LinearRegression) if
     # it is not passed explicitly
@@ -75,12 +75,12 @@ def test_init_explainer_base_init_cuml_model(handle,
 @pytest.mark.parametrize("handle", [True, False])
 @pytest.mark.parametrize("dtype", [np.float32, np.float64, None])
 @pytest.mark.parametrize("order", ['C', None])
-@pytest.mark.parametrize("gpu_model", [True, False, None])
+@pytest.mark.parametrize("is_gpu_model", [True, False, None])
 @pytest.mark.parametrize("output_type", ['cupy', None])
 def test_init_explainer_base_init_abritrary_model(handle,
                                                   dtype,
                                                   order,
-                                                  gpu_model,
+                                                  is_gpu_model,
                                                   output_type):
     bg = np.arange(10).reshape(5, 2).astype(np.float32)
 
@@ -96,7 +96,7 @@ def test_init_explainer_base_init_abritrary_model(handle,
                          link='identity',
                          verbose=2,
                          random_state=None,
-                         gpu_model=gpu_model,
+                         is_gpu_model=is_gpu_model,
                          handle=handle,
                          dtype=None,
                          output_type=output_type)
@@ -104,10 +104,10 @@ def test_init_explainer_base_init_abritrary_model(handle,
     assert explainer.M == 2
     assert explainer.N == 5
     assert np.all(cp.asnumpy(explainer.background) == bg)
-    if not gpu_model or gpu_model is None:
-        assert not explainer.gpu_model
+    if not is_gpu_model or is_gpu_model is None:
+        assert not explainer.is_gpu_model
     else:
-        assert explainer.gpu_model
+        assert explainer.is_gpu_model
 
     if output_type is not None:
         assert explainer.output_type == output_type
