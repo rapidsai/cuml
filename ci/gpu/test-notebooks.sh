@@ -15,7 +15,7 @@ SKIPNBS="cuml_benchmarks.ipynb"
 ## Check env
 env
 
-EXITCODE=0
+NOTEBOOKS_EXITCODE=0
 
 # Always run nbtest in all TOPLEVEL_NB_FOLDERS, set EXITCODE to failure
 # if any run fails
@@ -36,7 +36,7 @@ for nb in $(find . -name "*.ipynb"); do
     else
         nvidia-smi
         ${NBTEST} ${nbBasename}
-        EXITCODE=$((EXITCODE | $?))
+        NOTEBOOKS_EXITCODE=$((NOTEBOOKS_EXITCODE | $?))
         rm -rf ${LIBCUDF_KERNEL_CACHE_PATH}/*
     fi
 done
@@ -44,4 +44,4 @@ done
 
 nvidia-smi
 
-exit ${EXITCODE}
+exit ${NOTEBOOKS_EXITCODE}

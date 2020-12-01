@@ -2,6 +2,7 @@
 
 ## New Features
 - PR #3164: Expose silhouette score in Python
+- PR #3214: Correct flaky silhouette score test by setting atol
 - PR #2659: Add initial max inner product sparse knn
 - PR #2836: Refactor UMAP to accept sparse inputs
 
@@ -59,6 +60,7 @@
 - PR #3008: Check number of columns in check_array validator
 - PR #3012: Increasing learning rate for SGD log loss and invscaling pytests
 - PR #2950: Fix includes in UMAP
+- PR #3194: Fix cuDF to cuPy conversion (missing value)
 - PR #3021: Fix a hang in cuML RF experimental backend
 - PR #3039: Update RF and decision tree parameter initializations in benchmark codes
 - PR #3060: Speed up test suite `test_fil`
@@ -80,6 +82,8 @@
 - PR #3175: Fix gtest pinned cmake version for build from source option
 - PR #3182: Fix a bug in MSE metric calculation
 - PR #3215: Add a missing `__syncthreads()`
+- PR #3190: Fix Attribute error on ICPA #3183 and PCA input type
+- PR #3208: Fix EXITCODE override in notebook test script
 
 
 # cuML 0.16.0 (23 Oct 2020)
