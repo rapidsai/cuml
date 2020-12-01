@@ -279,7 +279,7 @@ class OneHotEncoder(Base):
         self._fitted = True
         return self
 
-    def fit_transform(self, X):
+    def fit_transform(self, X, y=None):
         """
         Fit OneHotEncoder to X, then transform X.
         Equivalent to fit(X).transform(X).
