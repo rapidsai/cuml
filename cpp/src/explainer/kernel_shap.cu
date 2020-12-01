@@ -71,7 +71,7 @@ __global__ void exact_rows_kernel(float* X, IdxT nrows_X, IdxT ncols,
 }
 
 /*
-* Kernel distrubutes sampled part of the kernel shap dataset
+* Kernel distributes sampled part of the kernel shap dataset
 * The first thread of each block calculates the sampling of `k` entries of `observation`
 * to scatter into `dataset`. Afterwards each block scatters the data of a row of `X` into the (number of rows of
 * background) in `dataset`.
