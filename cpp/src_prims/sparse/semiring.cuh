@@ -48,6 +48,139 @@ namespace Distance {
 
 const int MAX_INT = std::numeric_limits<int>::max();
 
+template<typename value_idx,
+  typename value_t,
+  typename UnaryFunction,
+  typename BinaryFunction1,
+  typename BinaryFunction2>
+struct sparse_inner_functor {
+
+  sparse_inner_functor(const value_idx* row_indices_a_,
+                       const value_idx* indices_a_,
+                       const value_t* data_a_,
+                       const value_idx* row_indices_b_,
+                       const value_idx* indices_b_,
+                       const value_t* data_b_,
+                       const value_idx* A_row_offsets_,
+                       const value_idx* B_row_offsets_,
+                       const value_idx* permutation_,
+                       UnaryFunction   initialize_,
+                       BinaryFunction1 combine_,
+                       BinaryFunction2 reduce_)
+    : row_indices_a(row_indices_a_),
+      indices_a(indices_a_),
+      data_a(data_a_),
+      row_indices_b(row_indices_b_),
+      indices_b(indices_b_),
+      data_b(data_b_),
+      A_row_offsets(A_row_offsets_),
+      B_row_offsets(B_row_offsets_),
+      permutation(permutation_),
+      initialize(initialize_),
+      combine(combine_),
+      reduce(reduce_) {}
+
+  template <typename Tuple>
+  __host__ __device__
+  value_t operator()(const Tuple& t) const {
+    value_idx row = thrust::get<0>(t);
+    value_idx col = thrust::get<1>(t);
+    value_t sum = initialize(thrust::get<2>(t));
+
+    value_idx A_pos = A_row_offsets[row];
+    value_idx A_end = A_row_offsets[row + 1];
+    value_idx B_pos = B_row_offsets[col];
+    value_idx B_end = B_row_offsets[col + 1];
+
+    //while not finished with either A[row,:] or B[row,:]
+    while(A_pos < A_end && B_pos < B_end) {
+      value_idx perm = permutation[B_pos];
+      value_idx A_j  = indices_a[A_pos];
+      value_idx B_j  = row_indices_b[perm];
+
+      if(A_j == B_j) {
+        sum = reduce(sum, combine(data_a[A_pos], data_b[perm]));
+        A_pos++;
+        B_pos++;
+      } else if (A_j < B_j) {
+        A_pos++;
+      } else {
+        //B_j < A_j
+        B_pos++;
+      }
+    }
+
+    return sum;
+  }
+
+  private:
+
+    value_idx *row_indices_a;
+    value_idx *indices_a;
+    value_t *data_a;
+    value_idx *row_indices_b;
+    value_idx *indices_b;
+    value_t *data_b;
+    value_idx *A_row_offsets;
+    value_idx *B_row_offsets;
+    value_idx *permutation;
+
+    UnaryFunction initialize;
+    BinaryFunction1 combine;
+    BinaryFunction2 reduce;
+};
+
+
+
+//template <typename DerivedPolicy,
+//          typename value_idx,
+//          typename value_t,
+//          typename UnaryFunction,
+//          typename BinaryFunction1,
+//          typename BinaryFunction2>
+//void generalized_spgemm(thrust::execution_policy<DerivedPolicy> &exec,
+//                        const value_idx *row_indptr_a,
+//                        const value_idx *row_indices_a,
+//                        const value_idx *indices_a,
+//                        const value_t *data_a,
+//                        const value_idx nnz_a,
+//                        const value_idx n_rows_a,
+//                        const value_idx *row_indptr_b,
+//                        const value_idx *row_indices_b,
+//                        const value_idx *indices_b,
+//                        const value_t *data_b,
+//                        const value_idx nnz_b,
+//                        const value_idx n_rows_b,
+//
+//                        MatrixOrVector2& C,
+//                        UnaryFunction   initialize,
+//                        BinaryFunction1 combine,
+//                        BinaryFunction2 reduce,
+//                        cudaStream_t stream)
+//{
+//
+//
+//  typedef thrust::detail::temporary_array<value_idx, DerivedPolicy> ArrayType;
+//  typedef sparse_inner_functor<value_idx, value_t, UnaryFunction, BinaryFunction1, BinaryFunction2> InnerOp;
+//
+//  if(C.num_entries == 0)
+//    return;
+//
+//  ArrayType permutation(exec, nnz_b);
+//  thrust::sequence(exec, permutation.begin(), permutation.end());
+//
+//  InnerOp incomp_op(row_indices_a, indices_a, data_a, row_indices_b, indices_b, data_b,
+//                    row_indptr_a, row_indptr_b, permutation, initialize, combine, reduce);
+//
+//  thrust::transform(exec,
+//                    thrust::make_zip_iterator(thrust::make_tuple(C.row_indices.begin(), C.column_indices.begin(), C.values.begin())),
+//                    thrust::make_zip_iterator(thrust::make_tuple(C.row_indices.begin(), C.column_indices.begin(), C.values.begin())) + C.num_entries,
+//                    C.values.begin(),
+//                    incomp_op);
+//}
+//
+
+
 /**
  * Semiring which schedules each row of B in a different thread.
  * @tparam value_idx
@@ -437,10 +570,79 @@ __global__ void classic_csr_semiring_spmv_kernel(
   semiring.write(out);
 }
 
+template<typename G>
+__device__ __inline__ unsigned int get_peers(G key) {
+  uint peers=0;
+  bool is_peer;
+
+  // in the beginning, all lanes are available
+  uint unclaimed=0xffffffff;
+
+  do {
+    // fetch key of first unclaimed lane and compare with this key
+    is_peer = (key == __shfl_sync(unclaimed, key, __ffs(unclaimed) - 1));
+
+    // determine which lanes had a match
+    peers = __ballot_sync(unclaimed, is_peer);
+
+    // remove lanes with matching keys from the pool
+    unclaimed ^= peers;
+
+    // quit if we had a match
+  } while (!is_peer);
+
+  return peers;
+}
+
+template <typename F>
+__device__ __inline__ F reduce_peers(int lane, unsigned int peers, F &x) {
+
+  // find the peer with lowest lane index
+  int first = __ffs(peers)-1;
+
+  // calculate own relative position among peers
+  int rel_pos = __popc(peers << (32 - lane));
+
+  // ignore peers with lower (or same) lane index
+  peers &= (0xfffffffe << lane);
+
+  while(__any_sync(peers, 1)) {
+    // find next-highest remaining peer
+    int next = __ffs(peers);
+
+    // __shfl() only works if both threads participate, so we always do.
+    F t = __shfl_sync(peers, x, next - 1);
+
+    // only add if there was anything to add
+    if (next) x += t;
+
+    // all lanes with their least significant index bit set are done
+    unsigned int done = rel_pos & 1;
+
+    // remove all peers that are already done
+    peers &= ~__ballot_sync(peers, done);
+
+    // abuse relative position as iteration counter
+    rel_pos >>= 1;
+  }
+
+  // distribute final result to all peers (optional)
+  F res = __shfl_sync(peers, x, first);
+
+  return res;
+}
+
 
 /**
- * This implementation follows the load-balanced implementation
- * from
+ * This implementation follows the load-balanced implementation. This is intended
+ * to be scheduled n_chunks_b times for each row of a.
+ *
+ * The steps are as follows:
+ *
+ * 1. Load row from A into dense vector in shared memory. This can be chunked if necessary.
+ * 2. Threads of block all step through chunks of B in parallel. When a new row is encountered in row_indices_b,
+ *    a segmented reduction is performed across the warps and then across the block and the final value written out
+ *    to host memory.
  *
  * @tparam value_idx
  * @tparam value_t
@@ -461,19 +663,41 @@ template<typename value_idx, typename value_t, int tpb, int buffer_size, int chu
 __global__ void balanced_coo_semiring_kernel(value_idx *indptrA, value_idx *indicesA,
                                              value_t *dataA, value_idx *rowsB,
                                              value_idx *indicesB, value_t *dataB, value_idx m,
-                                             value_idx n, value_idx dim, value_t *out,
+                                             value_idx n, value_idx dim, value_idx nnz_b, value_t *out,
                                              int n_blocks_per_row) {
 
   value_idx cur_row_a = blockIdx.x / n_blocks_per_row;
   value_idx cur_chunk_offset = blockIdx.x % n_blocks_per_row;
+  value_idx ind_offset = cur_chunk_offset * chunk_size;
+  value_idx active_chunk_size = min(chunk_size, max(0, nnz_b - (ind_offset+chunk_size)));
+
   value_idx tid = threadIdx.x;
 
+  // compute thread id relative to current warp
+  value_idx lane_id = tid % 32;
+  value_idx ind = ind_offset + threadIdx.x;
+
   if (cur_row_a > m || cur_chunk_offset > n_blocks_per_row) return;
+  if (ind >= nnz_b) return;
+
+  if(cur_row_a == 0 && tid==0) {
+    printf("cur_row_a=%d, cur_chunk_offset=%d, ind_offset=%d, nnz_b=%d, active_chunk_size=%d", cur_row_a, cur_chunk_offset, ind_offset, nnz_b, active_chunk_size);
+  }
 
   __shared__ value_t A[buffer_size];
+  __shared__ value_idx offsets_a[2];
 
-  value_idx start_offset_a = indptrA[cur_row_a];
-  value_idx stop_offset_a = indptrA[cur_row_a +1];
+  if(tid == 0) {
+
+    // todo: Use warp-level broadcast instead of shared memory
+    offsets_a[0] = indptrA[cur_row_a];
+    offsets_a[1] = indptrA[cur_row_a +1];
+  }
+
+  __syncthreads();
+
+  value_idx start_offset_a = offsets_a[0];
+  value_idx stop_offset_a = offsets_a[1];
 
   // Create dense vector A and populate with 0s
   for(int i = threadIdx.x; i < dim; i += blockDim.x)
@@ -486,25 +710,39 @@ __global__ void balanced_coo_semiring_kernel(value_idx *indptrA, value_idx *indi
     A[ind_a] = val_a;
   }
 
-  value_idx ind = cur_chunk_offset / threadIdx.x;
-  value_idx cur_row_b = rowsB[ind];
+  __syncthreads();
 
+  value_idx cur_row_b = rowsB[ind];
   value_t c = A[ind] * dataB[indicesB[ind]];
 
-  for(int i = 1; i < chunk_size; i+=blockDim.x) {
+  for(int i = tid; i < active_chunk_size-blockDim.x; i+=blockDim.x) {
+
     value_idx ind_next = ind + blockDim.x;
     value_idx next_row_b = rowsB[ind_next];
-    if(next_row_b != cur_row_b) {
-      unsigned mask = __ballot_sync(0xffffffff, cur_row_b);
-      c = __reduce_add_sync(mask, c);
-      atomicAdd(out + (cur_row_a * n + cur_row_b), c);
-      c = 0;
+
+    if(next_row_b != cur_row_b || next_row_b == -1) {
+      // reduce by key
+      unsigned int peers = get_peers(cur_row_b);
+      value_t v = reduce_peers(lane_id, peers, c);
+
+      // find the peer with lowest lane index to write out
+      if(__ffs(peers)-1 == lane_id)
+        atomicAdd(out + (cur_row_a * n + cur_row_b), c);
+      c = 0.0;
     }
 
     ind = ind_next;
     c += A[ind] * dataB[indicesB[ind]];
-    cur_row_b= next_row_b;
+    cur_row_b = next_row_b;
   }
+
+  // reduce by key
+  unsigned int peers = get_peers(cur_row_b);
+  value_t v = reduce_peers(lane_id, peers, c);
+
+  // find the peer with lowest lane index to write out
+  if(__ffs(peers)-1 == lane_id)
+    atomicAdd(out + (cur_row_a * n + cur_row_b), c);
 }
 
 
@@ -1045,6 +1283,41 @@ void distance_block_reduce(value_t *out_dists,
       out_dists, n_warps_per_row);
 };
 
+template <typename value_idx = int, typename value_t = float,
+  int max_buffer_size = 1000,  //
+  int threads_per_block = 1024,
+  typename reduce_f = auto(value_t, value_t)->value_t,
+  typename accum_f = auto(value_t, value_t)->value_t>
+void distance_block_reduce2(value_t *out_dists,
+                           distances_config_t<value_idx, value_t> config_,
+                           reduce_f reduce_func, accum_f accum_func) {
+  constexpr int chunk_size = 5;
+
+  int n_warps_per_row = raft::ceildiv(config_.b_nrows, raft::ceildiv(chunk_size, threads_per_block));
+  int n_blocks = config_.a_nrows * n_warps_per_row;
+
+  CUML_LOG_DEBUG("n_blocks: %d", n_blocks);
+  CUML_LOG_DEBUG("n_warps_per_row: %d", n_warps_per_row);
+
+  device_buffer<value_idx> rows_b(config_.allocator, config_.stream, config_.b_nnz);
+  MLCommon::Sparse::csr_to_coo(config_.b_indptr, config_.b_nrows, rows_b.data(), config_.b_nnz, config_.stream);
+
+  balanced_coo_semiring_kernel<value_idx, value_t, threads_per_block,
+    max_buffer_size, chunk_size>
+  <<<n_blocks, threads_per_block, 0, config_.stream>>>(
+    config_.a_indptr, config_.a_indices, config_.a_data, rows_b.data(),
+      config_.b_indices, config_.b_data, config_.a_nrows, config_.b_nrows,
+      config_.b_ncols, config_.b_nnz, out_dists, n_warps_per_row);
+
+//  template<typename value_idx, typename value_t, int tpb, int buffer_size, int chunk_size>
+//  __global__ void balanced_coo_semiring_kernel(value_idx *indptrA, value_idx *indicesA,
+//                                               value_t *dataA, value_idx *rowsB,
+//                                               value_idx *indicesB, value_t *dataB, value_idx m,
+//                                               value_idx n, value_idx dim, value_t *out,
+//                                               int n_blocks_per_row)
+};
+
+
 template <typename value_idx = int, typename value_t = float>
 class l1_distances_t : public distances_t<value_t> {
  public:
@@ -1053,7 +1326,7 @@ class l1_distances_t : public distances_t<value_t> {
 
   void compute(value_t *out_dists) {
     CUML_LOG_DEBUG("Running l1 dists");
-    distance_block_reduce<value_idx, value_t>(
+    distance_block_reduce2<value_idx, value_t>(
       out_dists, config_,
       [] __device__(value_t a, value_t b) { return fabsf(a - b); },
       [] __device__(value_t out, value_t b) { return out +  b; });

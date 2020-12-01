@@ -304,7 +304,7 @@ def test_knn_graph(input_type, nrows, n_feats, p, k, metric, mode,
 
 
 @pytest.mark.parametrize("metric", ["l1"]) # "#valid_metrics(cuml_algo="sparse"))
-@pytest.mark.parametrize('nrows', [20000])
+@pytest.mark.parametrize('nrows', [2000])
 @pytest.mark.parametrize('ncols', [500])
 @pytest.mark.parametrize('density', [0.4])
 @pytest.mark.parametrize('n_neighbors', [2])
@@ -344,14 +344,14 @@ def test_nearest_neighbors_sparse(nrows, ncols,
     # print("cuD: %s, cuI: %s" % (cuD, cuI))
     print("cuML took %s" % (time.time() - start))
     #
-    # sknn = skKNN(metric="l1", n_neighbors=n_neighbors,
-    #              algorithm="brute", n_jobs=20)
-    # sk_X = a.get()
-    # sknn.fit(sk_X)
+    sknn = skKNN(metric="l1", n_neighbors=n_neighbors,
+                 algorithm="brute", n_jobs=5)
+    sk_X = a.get()
+    sknn.fit(sk_X)
+
+    start = time.time()
+    skD, skI = sknn.kneighbors(sk_X)
+    print("sk took %s" % (time.time() - start))
     #
-    # start = time.time()
-    # skD, skI = sknn.kneighbors(sk_X)
-    # print("sk took %s" % (time.time() - start))
-    #
-    # cp.testing.assert_allclose(cuD, skD, atol=1e-3, rtol=1e-3)
-    # cp.testing.assert_allclose(cuI, skI, atol=1e-4, rtol=1e-4)
+    cp.testing.assert_allclose(cuD, skD, atol=1e-3, rtol=1e-3)
+    cp.testing.assert_allclose(cuI, skI, atol=1e-4, rtol=1e-4)
