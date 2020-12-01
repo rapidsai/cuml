@@ -46,6 +46,7 @@
 - PR #3180: FIL: `blocks_per_sm` support in Python
 
 ## Bug Fixes
+- PR #3218: Specify dependency branches in conda dev environment to avoid pip resolver issue
 - PR #3179: Remove unused metrics.cu file
 - PR #3069: Prevent conversion of DataFrames to Series in preprocessing
 - PR #3065: Refactoring prims metrics function names from camelcase to underscore format
