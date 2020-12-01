@@ -47,10 +47,6 @@ class MakeKSHAPDatasetTest
     params = ::testing::TestWithParam<MakeKSHAPDatasetInputs>::GetParam();
     nrows_X = params.nrows_exact + params.nrows_sampled;
 
-    std::cout << "nrows_exact " << params.nrows_exact << std::endl;
-    std::cout << "nrows_sample " << params.nrows_sampled << std::endl;
-    std::cout << "ncols " << params.ncols << std::endl;
-
     raft::allocate(background, params.nrows_background * params.ncols);
     raft::allocate(observation, params.ncols);
     raft::allocate(nsamples, params.nrows_sampled / 2);
