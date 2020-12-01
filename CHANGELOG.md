@@ -19,6 +19,7 @@
 - PR #2956: Follow cuML array conventions in ARIMA and remove redundancy
 - PR #3000: Pin cmake policies to cmake 3.17 version, bump project version to 0.17
 - PR #3083: Improving test_make_blobs testing time
+- PR #3223: Increase default SVM kernel cache to 2000 MiB
 - PR #2906: Moving `linalg` decomp to RAFT namespaces
 - PR #2988: FIL: use tree-per-class reduction for GROVE_PER_CLASS_FEW_CLASSES
 - PR #2996: Removing the max_depth restriction for switching to the batched backend
