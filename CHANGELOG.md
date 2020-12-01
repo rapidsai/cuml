@@ -59,6 +59,7 @@
 - PR #3008: Check number of columns in check_array validator
 - PR #3012: Increasing learning rate for SGD log loss and invscaling pytests
 - PR #2950: Fix includes in UMAP
+- PR #3194: Fix cuDF to cuPy conversion (missing value)
 - PR #3021: Fix a hang in cuML RF experimental backend
 - PR #3039: Update RF and decision tree parameter initializations in benchmark codes
 - PR #3060: Speed up test suite `test_fil`
