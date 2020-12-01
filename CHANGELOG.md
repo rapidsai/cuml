@@ -46,6 +46,7 @@
 - PR #3155: Eliminate unnecessary warnings from random projection test
 - PR #3176: Add probabilistic SVM tests with various input array types
 - PR #3180: FIL: `blocks_per_sm` support in Python
+- PR #3221: Update contributing doc for label support
 
 ## Bug Fixes
 - PR #3196: Disable ascending=false path for sortColumnsPerRow
