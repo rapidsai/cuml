@@ -10,6 +10,7 @@
 
 ## New Features
 - PR #3164: Expose silhouette score in Python
+- PR #3160: Least Angle Regression
 - PR #3214: Correct flaky silhouette score test by setting atol
 - PR #2659: Add initial max inner product sparse knn
 - PR #2836: Refactor UMAP to accept sparse inputs
