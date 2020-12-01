@@ -81,7 +81,7 @@ class SHAPBase():
     dtype : np.float32 or np.float64 (default = None)
         Parameter to specify the precision of data to generate to call the
         model. If not specified, the explainer will try to get the dtype
-        of the model, if it cannot be queried, then it will defaul to
+        of the model, if it cannot be queried, then it will default to
         np.float32.
     output_type : 'cupy' or 'numpy' (default = None)
         Parameter to specify the type of data to output.
