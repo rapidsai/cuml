@@ -247,6 +247,7 @@ struct tree_aggregator_t<NITEMS, GROVE_PER_CLASS_FEW_CLASSES> : finalize_block {
     per_thread[threadIdx.x] = acc;
     __syncthreads();
     acc = multi_sum<6>(per_thread, num_classes, blockDim.x / num_classes);
+    __syncthreads();
     write_best_class_in_block(to_vec(threadIdx.x, acc), num_classes, out,
                               num_rows);
   }
