@@ -218,7 +218,7 @@ class LabelEncoder(Base):
 
         return encoded
 
-    def fit_transform(self, y: cudf.Series) -> cudf.Series:
+    def fit_transform(self, y: cudf.Series, z=None) -> cudf.Series:
         """
         Simultaneously fit and transform an input
 
