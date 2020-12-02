@@ -54,7 +54,9 @@ namespace Explainer {
  *
  *
  * @param[in]  handle          cuML handle
- * @param[out] out             generated data in either row major or column major format, depending on the `row_major` parameter [on device] [dim = (2 * ncols * nrows_bg + nrows_bg) * ncols]
+ * @param[out] dataset         generated data in either row major or column major
+ *                             format, depending on the `row_major` parameter [on device]
+ *                             [dim = (2 * ncols * nrows_bg + nrows_bg) * ncols]
  * @param[in] background       background data [on device] [dim = ncols * nrows_bg]
  * @param[in] nrows_bg         number of rows in background dataset
  * @param[in] ncols            number of columns
