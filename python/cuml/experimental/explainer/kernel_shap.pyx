@@ -70,7 +70,8 @@ cdef extern from "cuml/explainer/kernel_shap.hpp" namespace "ML":
 
 class KernelExplainer(SHAPBase):
     """
-    GPU accelerated of SHAP's kernel explainer, optimized for tabular data.
+    GPU accelerated of SHAP's kernel explainer (experimental).
+
     Based on the SHAP package:
     https://github.com/slundberg/shap/blob/master/shap/explainers/_kernel.py
 

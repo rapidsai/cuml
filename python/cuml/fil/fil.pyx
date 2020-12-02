@@ -708,10 +708,10 @@ class ForestInference(Base):
             - 0 (default) - launches the number of blocks proportional to the
               number of data rows;
             - >= 1 - attempts to lauch blocks_per_sm blocks per SM. This will
-               fail if blocks_per_sm blocks result in more threads than the
-               maximum supported number of threads per GPU. Even if successful,
-               it is not guaranteed that blocks_per_sm blocks will run on an SM
-               concurrently.
+              fail if blocks_per_sm blocks result in more threads than the
+              maximum supported number of threads per GPU. Even if successful,
+              it is not guaranteed that blocks_per_sm blocks will run on an SM
+              concurrently.
         model_type : string (default="xgboost")
             Format of the saved treelite model to be load.
             It can be 'xgboost', 'lightgbm'.

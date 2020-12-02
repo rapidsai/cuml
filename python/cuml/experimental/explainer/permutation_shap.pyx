@@ -87,6 +87,7 @@ cdef extern from "cuml/explainer/permutation_shap.hpp" namespace "ML":
 
 class PermutationExplainer(SHAPBase):
     """
+    GPU accelerated of SHAP's permutation explainer (experimental)
 
     Initial experimental version of a GPU accelerated of SHAP's
     permutation explainer:
