@@ -96,7 +96,7 @@
 - PR #3190: Fix Attribute error on ICPA #3183 and PCA input type
 - PR #3208: Fix EXITCODE override in notebook test script
 - PR #3216: Ignore splits that do not satisfy constraints
-
+- PR #3239: Fix intermittent dask random forest failure
 # cuML 0.16.0 (23 Oct 2020)
 
 ## New Features
