@@ -70,8 +70,8 @@ fi
 
 gpuci_logger "Install the master version of dask and distributed"
 set -x
-pip install "git+https://github.com/dask/distributed.git" --upgrade --no-deps
-pip install "git+https://github.com/dask/dask.git" --upgrade --no-deps
+pip install "git+https://github.com/dask/distributed.git@master" --upgrade --no-deps
+pip install "git+https://github.com/dask/dask.git@master" --upgrade --no-deps
 set +x
 
 gpuci_logger "Check compiler versions"
