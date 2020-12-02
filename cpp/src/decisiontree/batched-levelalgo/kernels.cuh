@@ -360,10 +360,10 @@ __device__ OutT* alignPointer(InT input) {
 template <typename DataT, typename LabelT, typename IdxT, int TPB>
 __global__ void computeSplitClassificationKernel(
   int* hist, IdxT nbins, IdxT max_depth, IdxT min_samples_split,
-  IdxT max_leaves, Input<DataT, LabelT, IdxT> input,
-  const Node<DataT, LabelT, IdxT>* nodes, IdxT colStart, int* done_count,
-  int* mutex, const IdxT* n_leaves, Split<DataT, IdxT>* splits,
-  CRITERION splitType) {
+  IdxT min_samples_leaf, DataT min_impurity_decrease, IdxT max_leaves,
+  Input<DataT, LabelT, IdxT> input, const Node<DataT, LabelT, IdxT>* nodes,
+  IdxT colStart, int* done_count, int* mutex, const IdxT* n_leaves,
+  Split<DataT, IdxT>* splits, CRITERION splitType) {
   extern __shared__ char smem[];
   IdxT nid = blockIdx.z;
   auto node = nodes[nid];
@@ -419,9 +419,11 @@ __global__ void computeSplitClassificationKernel(
   sp.init();
   __syncthreads();
   if (splitType == CRITERION::GINI) {
-    giniGain<DataT, IdxT>(shist, sbins, sp, col, range_len, nbins, nclasses);
+    giniGain<DataT, IdxT>(shist, sbins, sp, col, range_len, nbins, nclasses,
+                          min_samples_leaf, min_impurity_decrease);
   } else {
-    entropyGain<DataT, IdxT>(shist, sbins, sp, col, range_len, nbins, nclasses);
+    entropyGain<DataT, IdxT>(shist, sbins, sp, col, range_len, nbins, nclasses,
+                             min_samples_leaf, min_impurity_decrease);
   }
   __syncthreads();
   sp.evalBestSplit(smem, splits + nid, mutex + nid);
@@ -440,7 +442,8 @@ __global__ void initLabelRange(LabelT* label_range) {
 template <typename DataT, typename LabelT, typename IdxT, int TPB>
 __global__ void computeSplitRegressionKernel(
   DataT* pred, DataT* pred2, DataT* pred2P, IdxT* count, LabelT* label_range,
-  IdxT nbins, IdxT max_depth, IdxT min_samples_split, IdxT max_leaves,
+  IdxT nbins, IdxT max_depth, IdxT min_samples_split, IdxT min_samples_leaf,
+  DataT min_impurity_decrease, IdxT max_leaves,
   Input<DataT, LabelT, IdxT> input, const Node<DataT, LabelT, IdxT>* nodes,
   IdxT colStart, int* done_count, int* mutex, const IdxT* n_leaves,
   Split<DataT, IdxT>* splits, void* workspace, CRITERION splitType) {
@@ -586,9 +589,8 @@ __global__ void computeSplitRegressionKernel(
       scount[i] = count[gcOffset + i];
     }
     __syncthreads();
-    if (slabel_range[0] != slabel_range[1]) {
-      mseGain(spred, scount, sbins, sp, col, range_len, nbins);
-    }
+    mseGain(spred, scount, sbins, sp, col, range_len, nbins, min_samples_leaf,
+            min_impurity_decrease);
   } else {
     for (IdxT i = threadIdx.x; i < len; i += blockDim.x) {
       spred2[i] = pred2[gOffset + i];
@@ -597,9 +599,8 @@ __global__ void computeSplitRegressionKernel(
       spred2P[i] = pred2P[gcOffset + i];
     }
     __syncthreads();
-    if (slabel_range[0] != slabel_range[1]) {
-      maeGain(spred2, spred2P, scount, sbins, sp, col, range_len, nbins);
-    }
+    maeGain(spred2, spred2P, scount, sbins, sp, col, range_len, nbins,
+            min_samples_leaf, min_impurity_decrease);
   }
   __syncthreads();
   sp.evalBestSplit(smem, splits + nid, mutex + nid);

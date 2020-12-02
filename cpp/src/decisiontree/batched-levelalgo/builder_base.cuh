@@ -409,6 +409,7 @@ struct ClsTraits {
     computeSplitClassificationKernel<DataT, LabelT, IdxT, TPB_DEFAULT>
       <<<grid, TPB_DEFAULT, smemSize, s>>>(
         b.hist, b.params.n_bins, b.params.max_depth, b.params.min_samples_split,
+        b.params.min_samples_leaf, b.params.min_impurity_decrease,
         b.params.max_leaves, b.input, b.curr_nodes, col, b.done_count, b.mutex,
         b.n_leaves, b.splits, splitType);
   }
@@ -488,9 +489,10 @@ struct RegTraits {
     computeSplitRegressionKernel<DataT, DataT, IdxT, TPB_DEFAULT>
       <<<grid, TPB_DEFAULT, smemSize, s>>>(
         b.pred, b.pred2, b.pred2P, b.pred_count, b.label_range, b.params.n_bins,
-        b.params.max_depth, b.params.min_samples_split, b.params.max_leaves,
-        b.input, b.curr_nodes, col, b.done_count, b.mutex, b.n_leaves, b.splits,
-        b.block_sync, splitType);
+        b.params.max_depth, b.params.min_samples_split,
+        b.params.min_samples_leaf, b.params.min_impurity_decrease,
+        b.params.max_leaves, b.input, b.curr_nodes, col, b.done_count, b.mutex,
+        b.n_leaves, b.splits, b.block_sync, splitType);
   }
 
   /**
