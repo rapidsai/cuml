@@ -38,25 +38,18 @@ class MulticlassClassifier(Base, ClassifierMixin):
 
     Examples
     --------
-    .. code-block:: python
 
-        from cuml.linear_model import LogisticRegression
-        from cuml.multiclass import MulticlassClassifier
-        from cuml.datasets.classification import make_classification
-
-        X, y = make_classification(n_samples=10, n_features=6, n_informative=4,
-                                   n_classes=3, random_state=137)
-
-        cls = MulticlassClassifier(LogisticRegression(), strategy='ovo')
-        cls.fit(X,y)
-
-        print("Predictions", cls.predict(X))
-
-    Output:
-
-    .. code-block:: none
-
-        Predictions [1 1 1 0 0 2 2 2 0 1]
+    >>> from cuml.linear_model import LogisticRegression
+    >>> from cuml.multiclass import MulticlassClassifier
+    >>> from cuml.datasets.classification import make_classification
+    >>>
+    >>> X, y = make_classification(n_samples=10, n_features=6, n_informative=4,
+    ...                            n_classes=3, random_state=137)
+    >>>
+    >>> cls = MulticlassClassifier(LogisticRegression(), strategy='ovo')
+    >>> cls.fit(X,y)
+    >>> cls.predict(X)
+    array([1, 1, 1, 0, 0, 2, 2, 2, 0, 1])
 
     Parameters
     ----------
@@ -176,25 +169,19 @@ class OneVsRestClassifier(MulticlassClassifier):
 
     Examples
     --------
-    .. code-block:: python
 
-        from cuml.linear_model import LogisticRegression
-        from cuml.multiclass import OneVsRestClassifier
-        from cuml.datasets.classification import make_classification
+    >>> from cuml.linear_model import LogisticRegression
+    >>> from cuml.multiclass import OneVsRestClassifier
+    >>> from cuml.datasets.classification import make_classification
+    >>>
+    >>> X, y = make_classification(n_samples=10, n_features=6, n_informative=4,
+    ...                            n_classes=3, random_state=137)
+    >>>
+    >>> cls = OneVsRestClassifier(LogisticRegression())
+    >>> cls.fit(X,y)
+    >>> cls.predict(X)
+    array([1, 1, 1, 0, 1, 2, 2, 2, 0, 1])
 
-        X, y = make_classification(n_samples=10, n_features=6, n_informative=4,
-                                   n_classes=3, random_state=137)
-
-        cls = OneVsRestClassifier(LogisticRegression())
-        cls.fit(X,y)
-
-        print("Predictions", cls.predict(X))
-
-    Output:
-
-    .. code-block:: none
-
-        Predictions [1 1 1 0 1 2 2 2 0 1]
 
     Parameters
     ----------
@@ -248,25 +235,18 @@ class OneVsOneClassifier(MulticlassClassifier):
 
     Examples
     --------
-    .. code-block:: python
 
-        from cuml.linear_model import LogisticRegression
-        from cuml.multiclass import OneVsOneClassifier
-        from cuml.datasets.classification import make_classification
-
-        X, y = make_classification(n_samples=10, n_features=6, n_informative=4,
-                                   n_classes=3, random_state=137)
-
-        cls = OneVsOneClassifier(LogisticRegression())
-        cls.fit(X,y)
-
-        print("Predictions", cls.predict(X))
-
-    Output:
-
-    .. code-block:: none
-
-        Predictions [1 1 1 0 0 2 2 2 0 1]
+    >>> from cuml.linear_model import LogisticRegression
+    >>> from cuml.multiclass import OneVsOneClassifier
+    >>> from cuml.datasets.classification import make_classification
+    >>>
+    >>> X, y = make_classification(n_samples=10, n_features=6, n_informative=4,
+    ...                            n_classes=3, random_state=137)
+    >>>
+    >>> cls = OneVsOneClassifier(LogisticRegression())
+    >>> cls.fit(X,y)
+    >>> cls.predict(X)
+    array([1, 1, 1, 0, 0, 2, 2, 2, 0, 1])
 
     Parameters
     ----------
