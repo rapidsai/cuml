@@ -675,3 +675,15 @@ def test_inplace_csr_row_normalize_l2(sparse_clf_dataset):  # noqa: F811
     X_np = sk_normalize(X_np, norm='l2', axis=1)
 
     assert_allclose(X, X_np)
+
+
+def test__repr__():
+    assert cuStandardScaler().__repr__() == 'StandardScaler()'
+    assert cuMinMaxScaler().__repr__() == 'MinMaxScaler()'
+    assert cuMaxAbsScaler().__repr__() == 'MaxAbsScaler()'
+    assert cuNormalizer().__repr__() == 'Normalizer()'
+    assert cuBinarizer().__repr__() == 'Binarizer()'
+    assert cuPolynomialFeatures().__repr__() == 'PolynomialFeatures()'
+    assert cuSimpleImputer().__repr__() == 'SimpleImputer()'
+    assert cuRobustScaler().__repr__() == 'RobustScaler()'
+    assert cuKBinsDiscretizer().__repr__() == 'KBinsDiscretizer()'
