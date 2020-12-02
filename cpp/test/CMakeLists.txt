@@ -71,11 +71,13 @@ if(BUILD_CUML_TESTS)
     sg/ridge.cu
     sg/rproj_test.cu
     sg/sgd.cu
+    sg/shap_kernel.cu
     sg/svc_test.cu
     sg/trustworthiness_test.cu
     sg/tsne_test.cu
     sg/tsvd_test.cu
-    sg/umap_parametrizable_test.cu)
+    sg/umap_parametrizable_test.cu
+    )
 
   add_dependencies(ml cutlass)
 
