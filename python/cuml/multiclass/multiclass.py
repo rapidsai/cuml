@@ -226,7 +226,9 @@ class OneVsRestClassifier(MulticlassClassifier):
             output_type=output_type, strategy='ovr')
 
     def get_param_names(self):
-        return super().get_param_names().remove("strategy")
+        param_names = super().get_param_names()
+        param_names.remove('strategy')
+        return param_names
 
 
 class OneVsOneClassifier(MulticlassClassifier):
@@ -296,4 +298,6 @@ class OneVsOneClassifier(MulticlassClassifier):
             output_type=output_type, strategy='ovo')
 
     def get_param_names(self):
-        return super().get_param_names().remove("strategy")
+        param_names = super().get_param_names()
+        param_names.remove('strategy')
+        return param_names
