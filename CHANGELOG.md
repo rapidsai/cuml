@@ -57,6 +57,8 @@
 - PR #3155: Eliminate unnecessary warnings from random projection test
 - PR #3176: Add probabilistic SVM tests with various input array types
 - PR #3180: FIL: `blocks_per_sm` support in Python
+- PR #3219: Update CI to use XGBoost 1.3.0 RCs
+- PR #3221: Update contributing doc for label support
 - PR #3177: Make Multinomial Naive Bayes inherit from `ClassifierMixin` and use it for score
 
 ## Bug Fixes
@@ -99,6 +101,7 @@
 - PR #3185: Add documentation for Distributed TFIDF Transformer
 - PR #3190: Fix Attribute error on ICPA #3183 and PCA input type
 - PR #3208: Fix EXITCODE override in notebook test script
+- PR #3216: Ignore splits that do not satisfy constraints
 
 
 # cuML 0.16.0 (23 Oct 2020)
