@@ -72,6 +72,8 @@ struct Builder {
   DataT* pred2P;
   /** node count tracker for averaging (regression only) */
   IdxT* pred_count;
+  /** min and max value for the labels (regression only) */
+  LabelT* label_range;
   /** threadblock arrival count */
   int* done_count;
   /** mutex array used for atomically updating best split */
@@ -185,6 +187,8 @@ struct Builder {
       d_wsize += calculateAlignedBytes(nPredCounts * sizeof(DataT));  // pred2P
       d_wsize +=
         calculateAlignedBytes(nPredCounts * sizeof(IdxT));  // pred_count
+      d_wsize += calculateAlignedBytes(max_batch * 2 * n_col_blks *
+                                       sizeof(LabelT));  // label_range
     }
     d_wsize += calculateAlignedBytes(sizeof(int) * max_batch *
                                      n_col_blks);                  // done_count
@@ -225,6 +229,9 @@ struct Builder {
       d_wspace += calculateAlignedBytes(nPredCounts * sizeof(DataT));
       pred_count = reinterpret_cast<IdxT*>(d_wspace);
       d_wspace += calculateAlignedBytes(nPredCounts * sizeof(IdxT));
+      label_range = reinterpret_cast<LabelT*>(d_wspace);
+      d_wspace +=
+        calculateAlignedBytes(max_batch * 2 * n_col_blks * sizeof(LabelT));
     }
     done_count = reinterpret_cast<int*>(d_wspace);
     d_wspace += calculateAlignedBytes(sizeof(int) * max_batch * n_col_blks);
@@ -461,6 +468,7 @@ struct RegTraits {
     auto nbins = b.params.n_bins;
     size_t smemSize = 7 * nbins * sizeof(DataT) + nbins * sizeof(int);
     smemSize += sizeof(int);
+    smemSize += 2 * sizeof(LabelT);  // to keep track of min and max of labels
 
     // Room for alignment in worst case (see alignPointer in
     // computeSplitRegressionKernel)
@@ -476,9 +484,10 @@ struct RegTraits {
     }
     CUDA_CHECK(
       cudaMemsetAsync(b.pred_count, 0, sizeof(IdxT) * b.nPredCounts, s));
+    initLabelRange<<<dim3(n_col_blks, batchSize, 1), 1>>>(b.label_range);
     computeSplitRegressionKernel<DataT, DataT, IdxT, TPB_DEFAULT>
       <<<grid, TPB_DEFAULT, smemSize, s>>>(
-        b.pred, b.pred2, b.pred2P, b.pred_count, b.params.n_bins,
+        b.pred, b.pred2, b.pred2P, b.pred_count, b.label_range, b.params.n_bins,
         b.params.max_depth, b.params.min_samples_split, b.params.max_leaves,
         b.input, b.curr_nodes, col, b.done_count, b.mutex, b.n_leaves, b.splits,
         b.block_sync, splitType);

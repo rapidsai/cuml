@@ -25,6 +25,99 @@
 #include "node.cuh"
 #include "split.cuh"
 
+namespace {
+
+template <typename DataT>
+class NumericLimits;
+
+template <>
+class NumericLimits<float> {
+ public:
+  static constexpr double kMax = __FLT_MAX__;
+};
+
+template <>
+class NumericLimits<double> {
+ public:
+  static constexpr double kMax = __DBL_MAX__;
+};
+
+__device__ void atomicMin(float* const address, const float value) {
+  if (*address <= value) {
+    return;
+  }
+  int* const address_as_i = reinterpret_cast<int*>(address);
+  int old = *address_as_i;
+  int assumed;
+
+  do {
+    assumed = old;
+    if (__int_as_float(assumed) <= value) {
+      break;
+    }
+    old = atomicCAS(address_as_i, assumed, __float_as_int(value));
+  } while (assumed != old);
+}
+
+__device__ void atomicMin(double* const address, const double value) {
+  if (*address <= value) {
+    return;
+  }
+  static_assert(sizeof(unsigned long long) == sizeof(double),
+                "invariant violated");
+  unsigned long long* const address_as_i =
+    reinterpret_cast<unsigned long long*>(address);
+  unsigned long long old = *address_as_i;
+  unsigned long long assumed;
+
+  do {
+    assumed = old;
+    if (__longlong_as_double(assumed) <= value) {
+      break;
+    }
+    old = atomicCAS(address_as_i, assumed, __longlong_as_double(value));
+  } while (assumed != old);
+}
+
+__device__ void atomicMax(float* const address, const float value) {
+  if (*address >= value) {
+    return;
+  }
+  int* const address_as_i = reinterpret_cast<int*>(address);
+  int old = *address_as_i;
+  int assumed;
+
+  do {
+    assumed = old;
+    if (__int_as_float(assumed) >= value) {
+      break;
+    }
+    old = atomicCAS(address_as_i, assumed, __float_as_int(value));
+  } while (assumed != old);
+}
+
+__device__ void atomicMax(double* const address, const double value) {
+  if (*address >= value) {
+    return;
+  }
+  static_assert(sizeof(unsigned long long) == sizeof(double),
+                "invariant violated");
+  unsigned long long* const address_as_i =
+    reinterpret_cast<unsigned long long*>(address);
+  unsigned long long old = *address_as_i;
+  unsigned long long assumed;
+
+  do {
+    assumed = old;
+    if (__longlong_as_double(assumed) >= value) {
+      break;
+    }
+    old = atomicCAS(address_as_i, assumed, __longlong_as_double(value));
+  } while (assumed != old);
+}
+
+}  // anonymous namespace
+
 namespace ML {
 namespace DecisionTree {
 
@@ -334,10 +427,20 @@ __global__ void computeSplitClassificationKernel(
   sp.evalBestSplit(smem, splits + nid, mutex + nid);
 }
 
+template <typename LabelT>
+__global__ void initLabelRange(LabelT* label_range) {
+  auto n_col_blks = gridDim.x;
+  auto colid = blockIdx.x;
+  auto nid = blockIdx.y;
+  auto labelRangeOffset = ((nid * n_col_blks) + colid) * 2;
+  label_range[labelRangeOffset] = NumericLimits<LabelT>::kMax;
+  label_range[labelRangeOffset + 1] = -NumericLimits<LabelT>::kMax;
+}
+
 template <typename DataT, typename LabelT, typename IdxT, int TPB>
 __global__ void computeSplitRegressionKernel(
-  DataT* pred, DataT* pred2, DataT* pred2P, IdxT* count, IdxT nbins,
-  IdxT max_depth, IdxT min_samples_split, IdxT max_leaves,
+  DataT* pred, DataT* pred2, DataT* pred2P, IdxT* count, LabelT* label_range,
+  IdxT nbins, IdxT max_depth, IdxT min_samples_split, IdxT max_leaves,
   Input<DataT, LabelT, IdxT> input, const Node<DataT, LabelT, IdxT>* nodes,
   IdxT colStart, int* done_count, int* mutex, const IdxT* n_leaves,
   Split<DataT, IdxT>* splits, void* workspace, CRITERION splitType) {
@@ -355,9 +458,10 @@ __global__ void computeSplitRegressionKernel(
   auto* spred = alignPointer<DataT>(smem);
   auto* scount = alignPointer<int>(spred + len);
   auto* sbins = alignPointer<DataT>(scount + nbins);
+  auto* slabel_range = alignPointer<LabelT>(sbins + nbins);
 
   // used only for MAE criterion
-  auto* spred2 = alignPointer<DataT>(sbins + nbins);
+  auto* spred2 = alignPointer<DataT>(slabel_range + 2);
   auto* spred2P = alignPointer<DataT>(spred2 + len);
   auto* spredP = alignPointer<DataT>(spred2P + nbins);
   auto* sDone = alignPointer<int>(spredP + nbins);
@@ -376,11 +480,17 @@ __global__ void computeSplitRegressionKernel(
   __syncthreads();
   auto coloffset = col * input.M;
 
+  // Initialize min / max of labels
+  slabel_range[0] = NumericLimits<LabelT>::kMax;   // min
+  slabel_range[1] = -NumericLimits<LabelT>::kMax;  // max
+
   // compute prediction averages for all bins in shared mem
   for (auto i = range_start + tid; i < end; i += stride) {
     auto row = input.rowids[i];
     auto d = input.data[row + coloffset];
     auto label = input.labels[row];
+    atomicMin(&slabel_range[0], label);
+    atomicMax(&slabel_range[1], label);
     for (IdxT b = 0; b < nbins; ++b) {
       auto isRight = d > sbins[b];  // no divergence
       auto offset = isRight * nbins + b;
@@ -391,6 +501,9 @@ __global__ void computeSplitRegressionKernel(
   __syncthreads();
   // update the corresponding global location
   auto gcOffset = ((nid * gridDim.y) + blockIdx.y) * nbins;
+  auto labelRangeOffset = ((nid * gridDim.y) + blockIdx.y) * 2;
+  atomicMin(label_range + labelRangeOffset, slabel_range[0]);
+  atomicMax(label_range + labelRangeOffset + 1, slabel_range[1]);
   for (IdxT i = threadIdx.x; i < nbins; i += blockDim.x) {
     atomicAdd(count + gcOffset + i, scount[i]);
   }
@@ -463,6 +576,8 @@ __global__ void computeSplitRegressionKernel(
   // last block computes the final gain
   Split<DataT, IdxT> sp;
   sp.init();
+  slabel_range[0] = label_range[labelRangeOffset];
+  slabel_range[1] = label_range[labelRangeOffset + 1];
   if (splitType == CRITERION::MSE) {
     for (IdxT i = threadIdx.x; i < len; i += blockDim.x) {
       spred[i] = pred[gOffset + i];
@@ -471,7 +586,9 @@ __global__ void computeSplitRegressionKernel(
       scount[i] = count[gcOffset + i];
     }
     __syncthreads();
-    mseGain(spred, scount, sbins, sp, col, range_len, nbins);
+    if (slabel_range[0] != slabel_range[1]) {
+      mseGain(spred, scount, sbins, sp, col, range_len, nbins);
+    }
   } else {
     for (IdxT i = threadIdx.x; i < len; i += blockDim.x) {
       spred2[i] = pred2[gOffset + i];
@@ -480,7 +597,9 @@ __global__ void computeSplitRegressionKernel(
       spred2P[i] = pred2P[gcOffset + i];
     }
     __syncthreads();
-    maeGain(spred2, spred2P, scount, sbins, sp, col, range_len, nbins);
+    if (slabel_range[0] != slabel_range[1]) {
+      maeGain(spred2, spred2P, scount, sbins, sp, col, range_len, nbins);
+    }
   }
   __syncthreads();
   sp.evalBestSplit(smem, splits + nid, mutex + nid);

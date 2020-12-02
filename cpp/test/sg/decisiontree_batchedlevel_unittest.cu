@@ -288,6 +288,8 @@ TEST_P(TestMetric, MSEGain) {
     d_allocator->allocate(2 * nPredCounts * sizeof(DataT), 0));
   IdxT* pred_count =
     static_cast<IdxT*>(d_allocator->allocate(nPredCounts * sizeof(IdxT), 0));
+  LabelT* label_range = static_cast<LabelT*>(
+    d_allocator->allocate(max_batch * 2 * n_col_blks * sizeof(LabelT), 0));
   CUDA_CHECK(cudaMemsetAsync(mutex, 0, sizeof(int) * max_batch, 0));
   CUDA_CHECK(
     cudaMemsetAsync(done_count, 0, sizeof(int) * max_batch * n_col_blks, 0));
@@ -297,15 +299,26 @@ TEST_P(TestMetric, MSEGain) {
   initSplit<DataT, IdxT, Traits::TPB_DEFAULT>(splits, batchSize, 0);
 
   std::vector<Traits::SplitT> h_splits(1);
+  std::vector<LabelT> h_label_range(max_batch * 2 * n_col_blks);
 
   computeSplitRegressionKernel<DataT, DataT, IdxT, 32>
     <<<grid, 32, smemSize, 0>>>(
-      pred, nullptr, nullptr, pred_count, n_bins, params.max_depth,
+      pred, nullptr, nullptr, pred_count, label_range, n_bins, params.max_depth,
       params.min_samples_split, params.max_leaves, input, curr_nodes, 0,
       done_count, mutex, n_new_leaves, splits, nullptr, params.split_criterion);
   raft::update_host(h_splits.data(), splits, 1, 0);
+  raft::update_host(h_label_range.data(), label_range,
+                    max_batch * 2 * n_col_blks, 0);
   CUDA_CHECK(cudaGetLastError());
   CUDA_CHECK(cudaStreamSynchronize(0));
+
+  // Check if min and max of the labels are computed correctly.
+  // Here we only have a single node (the root node), so there is only
+  // one range to check.
+  EXPECT_EQ(h_label_range[0],
+            *std::min_element(h_labels.begin(), h_labels.end()));
+  EXPECT_EQ(h_label_range[1],
+            *std::max_element(h_labels.begin(), h_labels.end()));
 
   // the split uses feature 0
   // rows 0, 4 go to the left side of the threshold
