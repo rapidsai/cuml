@@ -27,21 +27,6 @@
 
 namespace {
 
-template <typename DataT>
-class NumericLimits;
-
-template <>
-class NumericLimits<float> {
- public:
-  static constexpr double kMax = __FLT_MAX__;
-};
-
-template <>
-class NumericLimits<double> {
- public:
-  static constexpr double kMax = __DBL_MAX__;
-};
-
 __device__ void atomicMin(float* const address, const float value) {
   if (*address <= value) {
     return;

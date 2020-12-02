@@ -22,7 +22,8 @@
 #include "node.cuh"
 #include "split.cuh"
 
-namespace {
+namespace ML {
+namespace DecisionTree {
 
 template <typename DataT>
 class NumericLimits;
@@ -38,11 +39,6 @@ class NumericLimits<double> {
  public:
   static constexpr double kMax = __DBL_MAX__;
 };
-
-}  // anonymous namespace
-
-namespace ML {
-namespace DecisionTree {
 
 /**
  * @brief Compute gain based on gini impurity metric
