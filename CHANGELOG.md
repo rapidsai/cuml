@@ -95,6 +95,7 @@
 - PR #3152: Fix access to attributes of individual NB objects in dask NB
 - PR #3156: Force local conda artifact install
 - PR #3162: Removing accidentally checked in debug file
+- PR #3191: Fix __repr__ function for preprocessing models
 - PR #3175: Fix gtest pinned cmake version for build from source option
 - PR #3182: Fix a bug in MSE metric calculation
 - PR #3215: Add a missing `__syncthreads()`
