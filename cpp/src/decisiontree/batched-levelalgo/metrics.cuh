@@ -157,14 +157,16 @@ DI void entropyGain(int* shist, DataT* sbins, Split<DataT, IdxT>& sp, IdxT col,
         auto lval_i = shist[i * 2 * nclasses + j];
         if (lval_i != 0) {
           auto lval = DataT(lval_i);
-          gain += raft::myLog(lval * invLeft) / raft::myLog(DataT(2)) * lval * invlen;
+          gain +=
+            raft::myLog(lval * invLeft) / raft::myLog(DataT(2)) * lval * invlen;
         }
 
         val_i += lval_i;
         auto rval_i = shist[i * 2 * nclasses + nclasses + j];
         if (rval_i != 0) {
           auto rval = DataT(rval_i);
-          gain += raft::myLog(rval * invRight) / raft::myLog(DataT(2)) * rval * invlen;
+          gain += raft::myLog(rval * invRight) / raft::myLog(DataT(2)) * rval *
+                  invlen;
         }
 
         val_i += rval_i;
