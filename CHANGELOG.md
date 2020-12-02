@@ -50,6 +50,7 @@
 - PR #3177: Make Multinomial Naive Bayes inherit from `ClassifierMixin` and use it for score
 
 ## Bug Fixes
+- PR #3218: Specify dependency branches in conda dev environment to avoid pip resolver issue
 - PR #3196: Disable ascending=false path for sortColumnsPerRow
 - PR #3051: MNMG KNN Cl&Re fix + multiple improvements
 - PR #3179: Remove unused metrics.cu file
