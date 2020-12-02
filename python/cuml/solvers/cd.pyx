@@ -349,3 +349,8 @@ class CD(Base):
             "tol",
             "shuffle",
         ]
+
+    def _more_tags(self):
+        return {
+            'preferred_input_order': 'F'
+        }

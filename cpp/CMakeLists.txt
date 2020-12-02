@@ -401,6 +401,7 @@ if(BUILD_CUML_CPP_LIBRARY)
     src/holtwinters/holtwinters.cu
     src/kmeans/kmeans.cu
     src/knn/knn.cu
+    src/knn/knn_sparse.cu
     src/metrics/accuracy_score.cu
     src/metrics/adjusted_rand_index.cu
     src/metrics/completeness_score.cu
@@ -417,6 +418,7 @@ if(BUILD_CUML_CPP_LIBRARY)
     src/pca/pca.cu
     src/randomforest/randomforest.cu
     src/random_projection/rproj.cu
+    src/solver/lars.cu
     src/solver/solver.cu
     src/spectral/spectral.cu
     src/svm/svc.cu

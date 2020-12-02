@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+#include <raft/linalg/distance_type.h>
 #include <cuml/metrics/metrics.hpp>
 #include <metrics/silhouette_score.cuh>
 
@@ -23,7 +24,7 @@ namespace ML {
 namespace Metrics {
 double silhouette_score(const raft::handle_t &handle, double *y, int nRows,
                         int nCols, int *labels, int nLabels, double *silScores,
-                        int metric) {
+                        raft::distance::DistanceType metric) {
   return MLCommon::Metrics::silhouette_score<double, int>(
     y, nRows, nCols, labels, nLabels, silScores, handle.get_device_allocator(),
     handle.get_stream(), metric);
