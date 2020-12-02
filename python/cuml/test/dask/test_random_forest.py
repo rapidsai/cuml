@@ -320,7 +320,7 @@ def test_rf_concatenation_dask(client, model_type):
 @pytest.mark.parametrize('model_type', ['classification', 'regression'])
 @pytest.mark.parametrize('ignore_empty_partitions', [True, False])
 def test_single_input(client, model_type, ignore_empty_partitions):
-    X, y = make_classification(n_samples=1)
+    X, y = make_classification(n_samples=1, n_classes=1)
     X = X.astype(np.float32)
     if model_type == 'classification':
         y = y.astype(np.int32)
