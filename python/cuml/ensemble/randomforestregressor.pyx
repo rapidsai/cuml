@@ -169,7 +169,7 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
         Control bootstrapping.
         If True, each tree in the forest is built
         on a bootstrapped sample with replacement.
-        If False, sampling without replacement is done.
+        If False, the whole dataset is used to build each tree.
     bootstrap_features : boolean (default = False)
         Control bootstrapping for features.
         If features are drawn with or without replacement

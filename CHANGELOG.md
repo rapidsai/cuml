@@ -98,12 +98,12 @@
 - PR #3191: Fix __repr__ function for preprocessing models
 - PR #3175: Fix gtest pinned cmake version for build from source option
 - PR #3182: Fix a bug in MSE metric calculation
+- PR #3187: Update docstring to document behavior of `bootstrap=False`
 - PR #3215: Add a missing `__syncthreads()`
 - PR #3185: Add documentation for Distributed TFIDF Transformer
 - PR #3190: Fix Attribute error on ICPA #3183 and PCA input type
 - PR #3208: Fix EXITCODE override in notebook test script
 - PR #3216: Ignore splits that do not satisfy constraints
-
 
 # cuML 0.16.0 (23 Oct 2020)
 
