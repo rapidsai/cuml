@@ -485,7 +485,7 @@ struct RegTraits {
     }
     CUDA_CHECK(
       cudaMemsetAsync(b.pred_count, 0, sizeof(IdxT) * b.nPredCounts, s));
-    initLabelRange<<<dim3(n_col_blks, batchSize, 1), 1>>>(b.label_range);
+    initLabelRange<<<dim3(n_col_blks, batchSize, 1), 1, 0, s>>>(b.label_range);
     computeSplitRegressionKernel<DataT, DataT, IdxT, TPB_DEFAULT>
       <<<grid, TPB_DEFAULT, smemSize, s>>>(
         b.pred, b.pred2, b.pred2P, b.pred_count, b.label_range, b.params.n_bins,

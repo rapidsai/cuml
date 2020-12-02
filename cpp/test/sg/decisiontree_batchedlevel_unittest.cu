@@ -301,6 +301,7 @@ TEST_P(TestMetric, MSEGain) {
   std::vector<Traits::SplitT> h_splits(1);
   std::vector<LabelT> h_label_range(max_batch * 2 * n_col_blks);
 
+  initLabelRange<<<dim3(n_col_blks, batchSize, 1), 1, 0, 0>>>(label_range);
   computeSplitRegressionKernel<DataT, DataT, IdxT, 32>
     <<<grid, 32, smemSize, 0>>>(
       pred, nullptr, nullptr, pred_count, label_range, n_bins, params.max_depth,

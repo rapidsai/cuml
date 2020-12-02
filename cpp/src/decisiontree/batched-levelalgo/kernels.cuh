@@ -477,14 +477,14 @@ __global__ void computeSplitRegressionKernel(
     auto row = input.rowids[i];
     auto d = input.data[row + coloffset];
     auto label = input.labels[row];
-    atomicMin(&slabel_range[0], label);
-    atomicMax(&slabel_range[1], label);
     for (IdxT b = 0; b < nbins; ++b) {
       auto isRight = d > sbins[b];  // no divergence
       auto offset = isRight * nbins + b;
       atomicAdd(spred + offset, label);
       if (!isRight) atomicAdd(scount + b, 1);
     }
+    atomicMin(slabel_range, label);
+    atomicMax(slabel_range + 1, label);
   }
   __syncthreads();
   // update the corresponding global location
@@ -574,8 +574,10 @@ __global__ void computeSplitRegressionKernel(
       scount[i] = count[gcOffset + i];
     }
     __syncthreads();
-    mseGain(spred, scount, sbins, sp, col, range_len, nbins, min_samples_leaf,
-            min_impurity_decrease);
+    if (slabel_range[0] != slabel_range[1]) {
+      mseGain(spred, scount, sbins, sp, col, range_len, nbins, min_samples_leaf,
+              min_impurity_decrease);
+    }
   } else {
     for (IdxT i = threadIdx.x; i < len; i += blockDim.x) {
       spred2[i] = pred2[gOffset + i];
@@ -584,8 +586,10 @@ __global__ void computeSplitRegressionKernel(
       spred2P[i] = pred2P[gcOffset + i];
     }
     __syncthreads();
-    maeGain(spred2, spred2P, scount, sbins, sp, col, range_len, nbins,
-            min_samples_leaf, min_impurity_decrease);
+    if (slabel_range[0] != slabel_range[1]) {
+      maeGain(spred2, spred2P, scount, sbins, sp, col, range_len, nbins,
+              min_samples_leaf, min_impurity_decrease);
+    }
   }
   __syncthreads();
   sp.evalBestSplit(smem, splits + nid, mutex + nid);
