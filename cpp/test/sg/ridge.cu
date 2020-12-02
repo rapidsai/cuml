@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 
-#include <common/cudart_utils.h>
 #include <gtest/gtest.h>
+#include <raft/cudart_utils.h>
 #include <test_utils.h>
-#include <cuda_utils.cuh>
 #include <glm/ridge.cuh>
+#include <raft/cuda_utils.cuh>
 
 namespace ML {
 namespace GLM {

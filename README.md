@@ -96,7 +96,7 @@ repo](https://github.com/rapidsai/notebooks-contrib).
 | **Linear Models for Regression or Classification** | Linear Regression (OLS) | Multi-node multi-GPU via Dask |
 | | Linear Regression with Lasso or Ridge Regularization | Multi-node multi-GPU via Dask |
 | | ElasticNet Regression | |
-| | Logistic Regression | |
+| | Logistic Regression | Multi-node multi-GPU via Dask-GLM [demo](https://github.com/daxiongshu/rapids-demos) |
 | | Naive Bayes | Multi-node multi-GPU via Dask |
 | | Stochastic Gradient Descent (SGD), Coordinate Descent (CD), and Quasi-Newton (QN) (including L-BFGS and OWL-QN) solvers for linear models  | |
 | **Nonlinear Models for Regression or Classification** | Random Forest (RF) Classification | Experimental multi-node multi-GPU via Dask |

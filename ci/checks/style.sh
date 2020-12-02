@@ -16,7 +16,7 @@ export MINOR_VERSION=`echo $GIT_DESCRIBE_TAG | grep -o -E '([0-9]+\.[0-9]+)'`
 conda install "ucx-py=${MINOR_VERSION}"
 
 # Run flake8 and get results/return code
-FLAKE=`flake8 --exclude=cpp,thirdparty,__init__.py,versioneer.py && flake8 --config=python/.flake8.cython`
+FLAKE=`flake8 --config=python/setup.cfg`
 RETVAL=$?
 
 # Output results if failure otherwise show pass

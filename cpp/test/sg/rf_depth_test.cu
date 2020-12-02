@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 
-#include <common/cudart_utils.h>
 #include <gtest/gtest.h>
-#include <cuda_utils.cuh>
+#include <raft/cudart_utils.h>
 #include <cuml/ensemble/randomforest.hpp>
 #include <queue>
+#include <raft/cuda_utils.cuh>
 #include <random>
 
 namespace ML {
@@ -38,7 +38,8 @@ struct RfInputs {
   bool bootstrap_features;
   int n_bins;
   int split_algo;
-  int min_rows_per_node;
+  int min_samples_leaf;
+  int min_samples_split;
   float min_impurity_decrease;
   int n_streams;
   CRITERION split_criterion;
@@ -61,6 +62,7 @@ class RfClassifierDepthTest : public ::testing::TestWithParam<int> {
                          8,
                          SPLIT_ALGO::GLOBAL_QUANTILE,
                          2,
+                         2,
                          0.0,
                          2,
                          CRITERION::ENTROPY};
@@ -68,8 +70,9 @@ class RfClassifierDepthTest : public ::testing::TestWithParam<int> {
     DecisionTree::DecisionTreeParams tree_params;
     set_tree_params(tree_params, params.max_depth, params.max_leaves,
                     params.max_features, params.n_bins, params.split_algo,
-                    params.min_rows_per_node, params.min_impurity_decrease,
-                    params.bootstrap_features, params.split_criterion, false);
+                    params.min_samples_leaf, params.min_samples_split,
+                    params.min_impurity_decrease, params.bootstrap_features,
+                    params.split_criterion, false);
     RF_params rf_params;
     set_all_rf_params(rf_params, params.n_trees, params.bootstrap,
                       params.rows_sample, -1, params.n_streams, tree_params);
@@ -153,6 +156,7 @@ class RfRegressorDepthTest : public ::testing::TestWithParam<int> {
                          8,
                          SPLIT_ALGO::GLOBAL_QUANTILE,
                          2,
+                         2,
                          0.0,
                          2,
                          CRITERION::MSE};
@@ -160,8 +164,9 @@ class RfRegressorDepthTest : public ::testing::TestWithParam<int> {
     DecisionTree::DecisionTreeParams tree_params;
     set_tree_params(tree_params, params.max_depth, params.max_leaves,
                     params.max_features, params.n_bins, params.split_algo,
-                    params.min_rows_per_node, params.min_impurity_decrease,
-                    params.bootstrap_features, params.split_criterion, false);
+                    params.min_samples_leaf, params.min_samples_split,
+                    params.min_impurity_decrease, params.bootstrap_features,
+                    params.split_criterion, false);
     RF_params rf_params;
     set_all_rf_params(rf_params, params.n_trees, params.bootstrap,
                       params.rows_sample, -1, params.n_streams, tree_params);

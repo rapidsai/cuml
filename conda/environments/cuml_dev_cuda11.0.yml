@@ -6,15 +6,15 @@ channels:
 - conda-forge
 dependencies:
 - cudatoolkit=11.0
-- rapids-build-env=0.16
-- rapids-notebook-env=0.16
-- rapids-doc-env=0.16
-- cudf=0.16.*
-- rmm=0.16.*
-- libcumlprims=0.16.*
-- dask-cudf=0.16.*
-- dask-cuda=0.16.*
-- ucx-py=0.16.*
+- rapids-build-env=0.17
+- rapids-notebook-env=0.17
+- rapids-doc-env=0.17
+- cudf=0.17.*
+- rmm=0.17.*
+- libcumlprims=0.17.*
+- dask-cudf=0.17.*
+- dask-cuda=0.17.*
+- ucx-py=0.17.*
 - dask-ml
 - doxygen>=1.8.20
 - libfaiss>=1.6.3
@@ -25,8 +25,8 @@ dependencies:
 - pip
 - pip:
     - sphinx_markdown_tables
-    - git+https://github.com/dask/dask.git
-    - git+https://github.com/dask/distributed.git
+    - git+https://github.com/dask/dask.git@master
+    - git+https://github.com/dask/distributed.git@master
 
 # rapids-build-env, notebook-env and doc-env are defined in
 # https://docs.rapids.ai/maintainers/depmgmt/

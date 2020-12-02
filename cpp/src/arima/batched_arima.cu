@@ -28,17 +28,29 @@
 #include <cuml/tsa/batched_arima.hpp>
 #include <cuml/tsa/batched_kalman.hpp>
 
-#include <common/cudart_utils.h>
+#include <raft/cudart_utils.h>
 #include <common/cumlHandle.hpp>
 #include <common/device_buffer.hpp>
 #include <common/nvtx.hpp>
-#include <cuda_utils.cuh>
 #include <linalg/batched/matrix.cuh>
-#include <linalg/matrix_vector_op.cuh>
 #include <metrics/batched/information_criterion.cuh>
+#include <raft/cuda_utils.cuh>
+#include <raft/linalg/matrix_vector_op.cuh>
 #include <timeSeries/arima_helpers.cuh>
 
 namespace ML {
+
+void pack(raft::handle_t& handle, const ARIMAParams<double>& params,
+          const ARIMAOrder& order, int batch_size, double* param_vec) {
+  const auto stream = handle.get_stream();
+  params.pack(order, batch_size, param_vec, stream);
+}
+
+void unpack(raft::handle_t& handle, ARIMAParams<double>& params,
+            const ARIMAOrder& order, int batch_size, const double* param_vec) {
+  const auto stream = handle.get_stream();
+  params.unpack(order, batch_size, param_vec, stream);
+}
 
 void batched_diff(raft::handle_t& handle, double* d_y_diff, const double* d_y,
                   int batch_size, int n_obs, const ARIMAOrder& order) {

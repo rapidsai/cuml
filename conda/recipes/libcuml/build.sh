@@ -5,10 +5,6 @@ if [ -n "$MACOSX_DEPLOYMENT_TARGET" ]; then
     export MACOSX_DEPLOYMENT_TARGET=10.11
 fi
 
-# show environment
-printenv
-# Cleanup local git
-git clean -xdf
 if [[ -z "$PROJECT_FLASH" || "$PROJECT_FLASH" == "0" ]]; then
     ./build.sh clean libcuml -v --allgpuarch
 else

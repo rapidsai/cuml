@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include <common/cudart_utils.h>
+#include <raft/cudart_utils.h>
 #include "common.cuh"
 #include "sg_impl.cuh"
 
@@ -116,8 +116,8 @@ void initKMeansPlusPlus(const raft::handle_t &handle,
   auto n_samples = X.getSize(0);
   auto n_features = X.getSize(1);
   auto n_clusters = params.n_clusters;
-  ML::Distance::DistanceType metric =
-    static_cast<ML::Distance::DistanceType>(params.metric);
+  raft::distance::DistanceType metric =
+    static_cast<raft::distance::DistanceType>(params.metric);
 
   raft::random::Rng rng(params.seed, raft::random::GeneratorType::GenPhilox);
 
@@ -191,11 +191,10 @@ void initKMeansPlusPlus(const raft::handle_t &handle,
 
   // L2 norm of X: ||x||^2
   Tensor<DataT, 1> L2NormX({n_samples}, handle.get_device_allocator(), stream);
-  if (metric == ML::Distance::DistanceType::EucExpandedL2 ||
-      metric == ML::Distance::DistanceType::EucExpandedL2Sqrt) {
-    MLCommon::LinAlg::rowNorm(L2NormX.data(), X.data(), X.getSize(1),
-                              X.getSize(0), MLCommon::LinAlg::L2Norm, true,
-                              stream);
+  if (metric == raft::distance::DistanceType::EucExpandedL2 ||
+      metric == raft::distance::DistanceType::EucExpandedL2Sqrt) {
+    raft::linalg::rowNorm(L2NormX.data(), X.data(), X.getSize(1), X.getSize(0),
+                          raft::linalg::L2Norm, true, stream);
   }
 
   Tensor<DataT, 1, IndexT> minClusterDistance(
@@ -387,8 +386,8 @@ void fit(const raft::handle_t &handle, const KMeansParams &params,
   auto n_features = X.getSize(1);
   auto n_clusters = params.n_clusters;
 
-  ML::Distance::DistanceType metric =
-    static_cast<ML::Distance::DistanceType>(params.metric);
+  raft::distance::DistanceType metric =
+    static_cast<raft::distance::DistanceType>(params.metric);
 
   // stores (key, value) pair corresponding to each sample where
   //   - key is the index of nearest cluster
@@ -413,11 +412,10 @@ void fit(const raft::handle_t &handle, const KMeansParams &params,
 
   // L2 norm of X: ||x||^2
   Tensor<DataT, 1> L2NormX({n_samples}, handle.get_device_allocator(), stream);
-  if (metric == ML::Distance::DistanceType::EucExpandedL2 ||
-      metric == ML::Distance::DistanceType::EucExpandedL2Sqrt) {
-    MLCommon::LinAlg::rowNorm(L2NormX.data(), X.data(), X.getSize(1),
-                              X.getSize(0), MLCommon::LinAlg::L2Norm, true,
-                              stream);
+  if (metric == raft::distance::DistanceType::EucExpandedL2 ||
+      metric == raft::distance::DistanceType::EucExpandedL2Sqrt) {
+    raft::linalg::rowNorm(L2NormX.data(), X.data(), X.getSize(1), X.getSize(0),
+                          raft::linalg::L2Norm, true, stream);
   }
 
   DataT priorClusteringCost = 0;

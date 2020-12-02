@@ -16,25 +16,25 @@
 
 #pragma once
 
-#include <common/cudart_utils.h>
-#include <linalg/gemv.h>
+#include <raft/cudart_utils.h>
 #include <raft/linalg/cublas_wrappers.h>
+#include <raft/linalg/gemv.h>
 #include <common/cumlHandle.hpp>
-#include <cuda_utils.cuh>
 #include <cuml/solvers/params.hpp>
 #include <functions/hinge.cuh>
 #include <functions/linearReg.cuh>
 #include <functions/logisticReg.cuh>
 #include <glm/preprocess.cuh>
-#include <linalg/add.cuh>
-#include <linalg/eltwise.cuh>
-#include <linalg/norm.cuh>
-#include <linalg/subtract.cuh>
-#include <linalg/unary_op.cuh>
-#include <matrix/math.cuh>
-#include <matrix/matrix.cuh>
-#include <stats/mean.cuh>
-#include <stats/mean_center.cuh>
+#include <raft/cuda_utils.cuh>
+#include <raft/linalg/add.cuh>
+#include <raft/linalg/eltwise.cuh>
+#include <raft/linalg/norm.cuh>
+#include <raft/linalg/subtract.cuh>
+#include <raft/linalg/unary_op.cuh>
+#include <raft/matrix/math.cuh>
+#include <raft/matrix/matrix.cuh>
+#include <raft/stats/mean.cuh>
+#include <raft/stats/mean_center.cuh>
 #include "learning_rate.h"
 #include "shuffle.h"
 
@@ -159,26 +159,23 @@ void sgdFit(const raft::handle_t &handle, math_t *input, int n_rows, int n_cols,
       if (cbs == 0) break;
 
       raft::update_device(indices.data(), &rand_indices[j], cbs, stream);
-      Matrix::copyRows(input, n_rows, n_cols, input_batch.data(),
-                       indices.data(), cbs, stream);
-      Matrix::copyRows(labels, n_rows, 1, labels_batch.data(), indices.data(),
-                       cbs, stream);
+      raft::matrix::copyRows(input, n_rows, n_cols, input_batch.data(),
+                             indices.data(), cbs, stream);
+      raft::matrix::copyRows(labels, n_rows, 1, labels_batch.data(),
+                             indices.data(), cbs, stream);
 
       if (loss == ML::loss_funct::SQRD_LOSS) {
-        Functions::linearRegLossGrads(input_batch.data(), cbs, n_cols,
+        Functions::linearRegLossGrads(handle, input_batch.data(), cbs, n_cols,
                                       labels_batch.data(), coef, grads.data(),
-                                      penalty, alpha, l1_ratio, cublas_handle,
-                                      allocator, stream);
+                                      penalty, alpha, l1_ratio, stream);
       } else if (loss == ML::loss_funct::LOG) {
-        Functions::logisticRegLossGrads(input_batch.data(), cbs, n_cols,
+        Functions::logisticRegLossGrads(handle, input_batch.data(), cbs, n_cols,
                                         labels_batch.data(), coef, grads.data(),
-                                        penalty, alpha, l1_ratio, cublas_handle,
-                                        allocator, stream);
+                                        penalty, alpha, l1_ratio, stream);
       } else if (loss == ML::loss_funct::HINGE) {
-        Functions::hingeLossGrads(input_batch.data(), cbs, n_cols,
+        Functions::hingeLossGrads(handle, input_batch.data(), cbs, n_cols,
                                   labels_batch.data(), coef, grads.data(),
-                                  penalty, alpha, l1_ratio, cublas_handle,
-                                  allocator, stream);
+                                  penalty, alpha, l1_ratio, stream);
       } else {
         ASSERT(false,
                "sgd.cuh: Other loss functions have not been implemented yet!");
@@ -189,7 +186,7 @@ void sgdFit(const raft::handle_t &handle, math_t *input, int n_rows, int n_cols,
 
       raft::linalg::scalarMultiply(grads.data(), grads.data(), learning_rate,
                                    n_cols, stream);
-      LinAlg::subtract(coef, coef, grads.data(), n_cols, stream);
+      raft::linalg::subtract(coef, coef, grads.data(), n_cols, stream);
 
       j = j + cbs;
       t = t + 1;
@@ -197,17 +194,17 @@ void sgdFit(const raft::handle_t &handle, math_t *input, int n_rows, int n_cols,
 
     if (tol > math_t(0)) {
       if (loss == ML::loss_funct::SQRD_LOSS) {
-        Functions::linearRegLoss(input, n_rows, n_cols, labels, coef,
+        Functions::linearRegLoss(handle, input, n_rows, n_cols, labels, coef,
                                  loss_value.data(), penalty, alpha, l1_ratio,
-                                 cublas_handle, allocator, stream);
+                                 stream);
       } else if (loss == ML::loss_funct::LOG) {
-        Functions::logisticRegLoss(input, n_rows, n_cols, labels, coef,
+        Functions::logisticRegLoss(handle, input, n_rows, n_cols, labels, coef,
                                    loss_value.data(), penalty, alpha, l1_ratio,
-                                   cublas_handle, allocator, stream);
+                                   stream);
       } else if (loss == ML::loss_funct::HINGE) {
-        Functions::hingeLoss(input, n_rows, n_cols, labels, coef,
+        Functions::hingeLoss(handle, input, n_rows, n_cols, labels, coef,
                              loss_value.data(), penalty, alpha, l1_ratio,
-                             cublas_handle, allocator, stream);
+                             stream);
       }
 
       raft::update_host(&curr_loss_value, loss_value.data(), 1, stream);
@@ -273,17 +270,15 @@ void sgdPredict(const raft::handle_t &handle, const math_t *input, int n_rows,
   ASSERT(n_rows > 1,
          "Parameter n_rows: number of rows cannot be less than two");
 
-  cublasHandle_t cublas_handle = handle.get_cublas_handle();
-
   if (loss == ML::loss_funct::SQRD_LOSS) {
-    Functions::linearRegH(input, n_rows, n_cols, coef, preds, intercept,
-                          cublas_handle, stream);
+    Functions::linearRegH(handle, input, n_rows, n_cols, coef, preds, intercept,
+                          stream);
   } else if (loss == ML::loss_funct::LOG) {
-    Functions::logisticRegH(input, n_rows, n_cols, coef, preds, intercept,
-                            cublas_handle, stream);
+    Functions::logisticRegH(handle, input, n_rows, n_cols, coef, preds,
+                            intercept, stream);
   } else if (loss == ML::loss_funct::HINGE) {
-    Functions::hingeH(input, n_rows, n_cols, coef, preds, intercept,
-                      cublas_handle, stream);
+    Functions::hingeH(handle, input, n_rows, n_cols, coef, preds, intercept,
+                      stream);
   }
 }
 

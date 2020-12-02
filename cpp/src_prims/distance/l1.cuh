@@ -16,7 +16,7 @@
 
 #pragma once
 #include <linalg/custom_accum.h>
-#include <linalg/gemm.cuh>
+#include <linalg/cutlass_gemm.cuh>
 
 #include <type_traits>
 

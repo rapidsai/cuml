@@ -16,21 +16,21 @@
 
 #pragma once
 
-#include <linalg/transpose.h>
 #include <raft/linalg/cublas_wrappers.h>
+#include <raft/linalg/transpose.h>
 #include <common/device_buffer.hpp>
-#include <cuda_utils.cuh>
-#include <cuml/common/cuml_allocator.hpp>
-#include <linalg/add.cuh>
-#include <linalg/eltwise.cuh>
-#include <linalg/gemm.cuh>
-#include <linalg/matrix_vector_op.cuh>
-#include <linalg/subtract.cuh>
-#include <linalg/unary_op.cuh>
-#include <matrix/math.cuh>
-#include <matrix/matrix.cuh>
-#include <stats/mean.cuh>
-#include <stats/sum.cuh>
+#include <raft/cuda_utils.cuh>
+#include <raft/linalg/add.cuh>
+#include <raft/linalg/eltwise.cuh>
+#include <raft/linalg/gemm.cuh>
+#include <raft/linalg/matrix_vector_op.cuh>
+#include <raft/linalg/subtract.cuh>
+#include <raft/linalg/unary_op.cuh>
+#include <raft/matrix/math.cuh>
+#include <raft/matrix/matrix.cuh>
+#include <raft/mr/device/buffer.hpp>
+#include <raft/stats/mean.cuh>
+#include <raft/stats/sum.cuh>
 #include "penalty.cuh"
 
 namespace MLCommon {
@@ -65,35 +65,37 @@ void hingeLossSubtract(math_t *out, const math_t *in, math_t scalar,
 }
 
 template <typename math_t, typename idx_type = int>
-void hingeH(const math_t *input, idx_type n_rows, idx_type n_cols,
-            const math_t *coef, math_t *pred, math_t intercept,
-            cublasHandle_t cublas_handle, cudaStream_t stream) {
-  LinAlg::gemm(input, n_rows, n_cols, coef, pred, n_rows, 1, CUBLAS_OP_N,
-               CUBLAS_OP_N, cublas_handle, stream);
+void hingeH(const raft::handle_t &handle, const math_t *input, idx_type n_rows,
+            idx_type n_cols, const math_t *coef, math_t *pred, math_t intercept,
+            cudaStream_t stream) {
+  raft::linalg::gemm(handle, input, n_rows, n_cols, coef, pred, n_rows, 1,
+                     CUBLAS_OP_N, CUBLAS_OP_N, stream);
 
   if (intercept != math_t(0))
-    LinAlg::addScalar(pred, pred, intercept, n_rows, stream);
+    raft::linalg::addScalar(pred, pred, intercept, n_rows, stream);
 
   sign(pred, pred, math_t(1.0), n_rows, stream);
 }
 
 template <typename math_t>
-void hingeLossGrads(math_t *input, int n_rows, int n_cols, const math_t *labels,
-                    const math_t *coef, math_t *grads, penalty pen,
-                    math_t alpha, math_t l1_ratio, cublasHandle_t cublas_handle,
-                    std::shared_ptr<deviceAllocator> allocator,
+void hingeLossGrads(const raft::handle_t &handle, math_t *input, int n_rows,
+                    int n_cols, const math_t *labels, const math_t *coef,
+                    math_t *grads, penalty pen, math_t alpha, math_t l1_ratio,
                     cudaStream_t stream) {
-  device_buffer<math_t> labels_pred(allocator, stream, n_rows);
+  std::shared_ptr<raft::mr::device::allocator> allocator =
+    handle.get_device_allocator();
 
-  LinAlg::gemm(input, n_rows, n_cols, coef, labels_pred.data(), n_rows, 1,
-               CUBLAS_OP_N, CUBLAS_OP_N, cublas_handle, stream);
+  raft::mr::device::buffer<math_t> labels_pred(allocator, stream, n_rows);
+
+  raft::linalg::gemm(handle, input, n_rows, n_cols, coef, labels_pred.data(),
+                     n_rows, 1, CUBLAS_OP_N, CUBLAS_OP_N, stream);
 
   raft::linalg::eltwiseMultiply(labels_pred.data(), labels_pred.data(), labels,
                                 n_rows, stream);
   hingeLossGradMult(input, labels, labels_pred.data(), n_rows, n_cols, stream);
   raft::stats::mean(grads, input, n_cols, n_rows, false, false, stream);
 
-  device_buffer<math_t> pen_grads(allocator, stream, 0);
+  raft::mr::device::buffer<math_t> pen_grads(allocator, stream, 0);
 
   if (pen != penalty::NONE) pen_grads.resize(n_cols, stream);
 
@@ -106,20 +108,22 @@ void hingeLossGrads(math_t *input, int n_rows, int n_cols, const math_t *labels,
   }
 
   if (pen != penalty::NONE) {
-    LinAlg::add(grads, grads, pen_grads.data(), n_cols, stream);
+    raft::linalg::add(grads, grads, pen_grads.data(), n_cols, stream);
   }
 }
 
 template <typename math_t>
-void hingeLoss(math_t *input, int n_rows, int n_cols, const math_t *labels,
-               const math_t *coef, math_t *loss, penalty pen, math_t alpha,
-               math_t l1_ratio, cublasHandle_t cublas_handle,
-               std::shared_ptr<deviceAllocator> allocator,
+void hingeLoss(const raft::handle_t &handle, math_t *input, int n_rows,
+               int n_cols, const math_t *labels, const math_t *coef,
+               math_t *loss, penalty pen, math_t alpha, math_t l1_ratio,
                cudaStream_t stream) {
-  device_buffer<math_t> labels_pred(allocator, stream, n_rows);
+  std::shared_ptr<raft::mr::device::allocator> allocator =
+    handle.get_device_allocator();
 
-  LinAlg::gemm(input, n_rows, n_cols, coef, labels_pred.data(), n_rows, 1,
-               CUBLAS_OP_N, CUBLAS_OP_N, cublas_handle, stream);
+  raft::mr::device::buffer<math_t> labels_pred(allocator, stream, n_rows);
+
+  raft::linalg::gemm(handle, input, n_rows, n_cols, coef, labels_pred.data(),
+                     n_rows, 1, CUBLAS_OP_N, CUBLAS_OP_N, stream);
 
   raft::linalg::eltwiseMultiply(labels_pred.data(), labels_pred.data(), labels,
                                 n_rows, stream);
@@ -127,9 +131,9 @@ void hingeLoss(math_t *input, int n_rows, int n_cols, const math_t *labels,
   hingeLossSubtract(labels_pred.data(), labels_pred.data(), math_t(1), n_rows,
                     stream);
 
-  Stats::sum(loss, labels_pred.data(), 1, n_rows, false, stream);
+  raft::stats::sum(loss, labels_pred.data(), 1, n_rows, false, stream);
 
-  device_buffer<math_t> pen_val(allocator, stream, 0);
+  raft::mr::device::buffer<math_t> pen_val(allocator, stream, 0);
 
   if (pen != penalty::NONE) pen_val.resize(1, stream);
 
@@ -142,7 +146,7 @@ void hingeLoss(math_t *input, int n_rows, int n_cols, const math_t *labels,
   }
 
   if (pen != penalty::NONE) {
-    LinAlg::add(loss, loss, pen_val.data(), 1, stream);
+    raft::linalg::add(loss, loss, pen_val.data(), 1, stream);
   }
 }
 

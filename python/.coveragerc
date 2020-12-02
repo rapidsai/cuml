@@ -1,0 +1,5 @@
+# Configuration file for Python coverage tests
+[run]
+include = cuml/*
+omit = cuml/test/*
+plugins = Cython.Coverage

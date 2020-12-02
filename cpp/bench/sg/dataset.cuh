@@ -16,15 +16,15 @@
 
 #pragma once
 
-#include <common/cudart_utils.h>
-#include <linalg/transpose.h>
+#include <raft/cudart_utils.h>
+#include <raft/linalg/transpose.h>
 #include <common/cumlHandle.hpp>
-#include <cuda_utils.cuh>
 #include <cuml/cuml.hpp>
 #include <cuml/datasets/make_blobs.hpp>
 #include <fstream>
 #include <iostream>
-#include <linalg/unary_op.cuh>
+#include <raft/cuda_utils.cuh>
+#include <raft/linalg/unary_op.cuh>
 #include <random/make_regression.cuh>
 #include <sstream>
 #include <string>
@@ -150,12 +150,11 @@ struct Dataset {
       tmpX = (D*)allocator->allocate(p.nrows * p.ncols * sizeof(D), stream);
     }
     MLCommon::Random::make_regression(
-      tmpX, y, p.nrows, p.ncols, r.n_informative, cublas_handle,
-      cusolver_handle, allocator, stream, (D*)nullptr, 1, D(r.bias),
-      r.effective_rank, D(r.tail_strength), D(r.noise), r.shuffle, r.seed);
+      handle, tmpX, y, p.nrows, p.ncols, r.n_informative, stream, (D*)nullptr,
+      1, D(r.bias), r.effective_rank, D(r.tail_strength), D(r.noise), r.shuffle,
+      r.seed);
     if (!p.rowMajor) {
-      MLCommon::LinAlg::transpose(tmpX, X, p.nrows, p.ncols, cublas_handle,
-                                  stream);
+      raft::linalg::transpose(handle, tmpX, X, p.nrows, p.ncols, stream);
       allocator->deallocate(tmpX, p.nrows * p.ncols * sizeof(D), stream);
     }
   }
