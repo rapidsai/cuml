@@ -344,3 +344,15 @@ def score_labeling_with_handle(func,
     handle, stream = get_handle(use_handle)
 
     return func(a, b, handle=handle)
+
+
+def get_number_positional_args(func, default=2):
+    # function to return number of positional arguments in func
+    if hasattr(func, "__code__"):
+        all_args = func.__code__.co_argcount
+        if func.__defaults__ is not None:
+            kwargs = len(func.__defaults__)
+        else:
+            kwargs = 0
+        return all_args - kwargs
+    return default
