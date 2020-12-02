@@ -173,9 +173,10 @@ class SVC(SVMBase, ClassifierMixin):
     max_iter : int (default = 100*n_samples)
         Limit the number of outer iterations in the solver
     multiclass_strategy : str ('ovo' or 'ovr', default 'ovo')
-        Multiclass classification strategy. ``'ovo'`` uses
-        `OneVsOneClassifier <https://scikit-learn.org/stable/modules/generated/sklearn.multiclass.OneVsOneClassifier.html>`_
-        while ``'ovr'`` selects `OneVsRestClassifier <https://scikit-learn.org/stable/modules/generated/sklearn.multiclass.OneVsRestClassifier.html>`_
+        Multiclass classification strategy. ``'ovo'`` uses `OneVsOneClassifier
+        <https://scikit-learn.org/stable/modules/generated/sklearn.multiclass.OneVsOneClassifier.html>`_
+        while ``'ovr'`` selects `OneVsRestClassifier
+        <https://scikit-learn.org/stable/modules/generated/sklearn.multiclass.OneVsRestClassifier.html>`_
     nochange_steps : int (default = 1000)
         We monitor how much our stopping criteria changes during outer
         iterations. If it does not change (changes less then 1e-3*tol)

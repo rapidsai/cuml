@@ -16,7 +16,6 @@ import numpy as np
 import pytest
 from cuml import multiclass as cu_multiclass
 from cuml import LogisticRegression as cuLog
-from cuml.test.utils import unit_param
 from . test_linear_model import make_classification_dataset
 
 
