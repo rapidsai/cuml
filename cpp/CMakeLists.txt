@@ -395,6 +395,8 @@ if(BUILD_CUML_CPP_LIBRARY)
     src/datasets/make_regression.cu
     src/dbscan/dbscan.cu
     src/decisiontree/decisiontree.cu
+    src/explainer/kernel_shap.cu
+    src/explainer/permutation_shap.cu
     src/fil/fil.cu
     src/fil/infer.cu
     src/glm/glm.cu

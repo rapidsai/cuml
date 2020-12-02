@@ -14,6 +14,7 @@
 - PR #3214: Correct flaky silhouette score test by setting atol
 - PR #2659: Add initial max inner product sparse knn
 - PR #2836: Refactor UMAP to accept sparse inputs
+- PR #3126: Experimental versions of GPU accelerated Kernel and Permutation SHAP
 - PR #3186: Add gain to RF JSON dump
 
 ## Improvements
