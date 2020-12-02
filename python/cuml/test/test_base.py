@@ -23,8 +23,6 @@ from cuml.test.utils import (get_classes_from_package,
 
 all_base_children = get_classes_from_package(cuml, import_sub_packages=True)
 
-]
-
 
 def test_base_class_usage():
     # Ensure base class returns the 3 main properties needed by all classes

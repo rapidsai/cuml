@@ -533,10 +533,10 @@ def test_tsne_pickle(tmpdir):
 
 # Probabilistic SVM is tested separately because it is a meta estimator that
 # owns a set of base SV classifiers.
+@pytest.mark.parametrize('datatype', [np.float32, np.float64])
 @pytest.mark.parametrize('params', [{'probability': True},
                                     {'probability': False}])
 @pytest.mark.parametrize('multiclass', [True, False])
-@pytest.mark.parametrize('datatype', [np.float32, np.float64])
 def test_svc_pickle(tmpdir, datatype, params, multiclass):
     result = {}
 

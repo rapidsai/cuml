@@ -23,7 +23,8 @@ from cuml.common import input_to_host_array
 
 
 class MulticlassClassifier(Base, ClassifierMixin):
-    """ Wrapper around scikit-learn multiclass classifiers that allows to
+    """
+    Wrapper around scikit-learn multiclass classifiers that allows to
     choose different multiclass strategies.
 
     The input can be any kind of cuML compatible array, and the output type
@@ -34,6 +35,28 @@ class MulticlassClassifier(Base, ClassifierMixin):
     and it is transformed back to the device by the cuML estimator. These
     copies back and forth the device and the host have some overhead. For more
     details see issue https://github.com/rapidsai/cuml/issues/2876.
+
+    Examples
+    --------
+    .. code-block:: python
+
+        from cuml.linear_model import LogisticRegression
+        from cuml.multiclass import MulticlassClassifier
+        from cuml.datasets.classification import make_classification
+
+        X, y = make_classification(n_samples=10, n_features=6, n_informative=4,
+                                   n_classes=3, random_state=137)
+
+        cls = MulticlassClassifier(LogisticRegression(), strategy='ovo')
+        cls.fit(X,y)
+
+        print("Predictions", cls.predict(X))
+
+    Output:
+
+    .. code-block:: none
+
+        Predictions [1 1 1 0 0 2 2 2 0 1]
 
     Parameters
     ----------
@@ -87,7 +110,9 @@ class MulticlassClassifier(Base, ClassifierMixin):
 
     @generate_docstring(y='dense_anydtype')
     def fit(self, X, y) -> 'MulticlassClassifier':
-        """ Fit a multiclass classifier. """
+        """
+        Fit a multiclass classifier.
+        """
         if self.strategy == 'ovr':
             self.multiclass_estimator = sklearn.multiclass.\
                 OneVsRestClassifier(self.estimator, n_jobs=None)
@@ -102,18 +127,20 @@ class MulticlassClassifier(Base, ClassifierMixin):
         X, _, _, _, _ = input_to_host_array(X)
         y, _, _, _, _ = input_to_host_array(y)
         with cuml.internals.exit_internal_api():
-            return self.multiclass_estimator.fit(X, y)
+            self.multiclass_estimator.fit(X, y)
+            return self
 
     @generate_docstring(return_values={'name': 'preds',
                                        'type': 'dense',
                                        'description': 'Predicted values',
                                        'shape': '(n_samples, 1)'})
     def predict(self, X) -> CumlArray:
-        """ Predict using multi class classifier. """
+        """
+        Predict using multi class classifier.
+        """
         X, _, _, _, _ = input_to_host_array(X)
         with cuml.internals.exit_internal_api():
-            preds = self.multiclass_estimator.predict(X)
-        return preds
+            return self.multiclass_estimator.predict(X)
 
     @generate_docstring(return_values={'name': 'results',
                                        'type': 'dense',
@@ -121,11 +148,12 @@ class MulticlassClassifier(Base, ClassifierMixin):
                                        values',
                                        'shape': '(n_samples, 1)'})
     def decision_function(self, X) -> CumlArray:
-        """ Calculate the decision function. """
+        """
+        Calculate the decision function.
+        """
         X, _, _, _, _ = input_to_host_array(X)
         with cuml.internals.exit_internal_api():
-            df = self.multiclass_estimator.decision_function(X)
-        return df
+            return self.multiclass_estimator.decision_function(X)
 
     def get_param_names(self):
         return super().get_param_names() + ['estimator', 'strategy']
@@ -143,8 +171,30 @@ class OneVsRestClassifier(MulticlassClassifier):
     copies back and forth the device and the host have some overhead. For more
     details see issue https://github.com/rapidsai/cuml/issues/2876.
 
-    For documentation see `scikit-learn's OneVsOneClassifier
-    <https://scikit-learn.org/stable/modules/generated/sklearn.multiclass.OneVsRestClassifier.html>`_. # noqa: E501
+    For documentation see `scikit-learn's OneVsRestClassifier
+    <https://scikit-learn.org/stable/modules/generated/sklearn.multiclass.OneVsRestClassifier.html>`_.
+
+    Examples
+    --------
+    .. code-block:: python
+
+        from cuml.linear_model import LogisticRegression
+        from cuml.multiclass import OneVsRestClassifier
+        from cuml.datasets.classification import make_classification
+
+        X, y = make_classification(n_samples=10, n_features=6, n_informative=4,
+                                   n_classes=3, random_state=137)
+
+        cls = OneVsRestClassifier(LogisticRegression())
+        cls.fit(X,y)
+
+        print("Predictions", cls.predict(X))
+
+    Output:
+
+    .. code-block:: none
+
+        Predictions [1 1 1 0 1 2 2 2 0 1]
 
     Parameters
     ----------
@@ -171,7 +221,7 @@ class OneVsRestClassifier(MulticlassClassifier):
                  handle=None,
                  verbose=False,
                  output_type=None):
-        super(OneVsRestClassifier, self).__init__(
+        super().__init__(
             estimator, *args, handle=handle, verbose=verbose,
             output_type=output_type, strategy='ovr')
 
@@ -180,7 +230,8 @@ class OneVsRestClassifier(MulticlassClassifier):
 
 
 class OneVsOneClassifier(MulticlassClassifier):
-    """ Wrapper around Sckit-learn's class with the same name. The input can be
+    """
+    Wrapper around Sckit-learn's class with the same name. The input can be
     any kind of cuML compatible array, and the output type follows cuML's
     output type configuration rules.
 
@@ -191,7 +242,29 @@ class OneVsOneClassifier(MulticlassClassifier):
     details see issue https://github.com/rapidsai/cuml/issues/2876.
 
     For documentation see `scikit-learn's OneVsOneClassifier
-    <https://scikit-learn.org/stable/modules/generated/sklearn.multiclass.OneVsOneClassifier.html>`_. # noqa: E501
+    <https://scikit-learn.org/stable/modules/generated/sklearn.multiclass.OneVsOneClassifier.html>`_.
+
+    Examples
+    --------
+    .. code-block:: python
+
+        from cuml.linear_model import LogisticRegression
+        from cuml.multiclass import OneVsOneClassifier
+        from cuml.datasets.classification import make_classification
+
+        X, y = make_classification(n_samples=10, n_features=6, n_informative=4,
+                                   n_classes=3, random_state=137)
+
+        cls = OneVsOneClassifier(LogisticRegression())
+        cls.fit(X,y)
+
+        print("Predictions", cls.predict(X))
+
+    Output:
+
+    .. code-block:: none
+
+        Predictions [1 1 1 0 0 2 2 2 0 1]
 
     Parameters
     ----------
@@ -218,7 +291,7 @@ class OneVsOneClassifier(MulticlassClassifier):
                  handle=None,
                  verbose=False,
                  output_type=None):
-        super(OneVsOneClassifier, self).__init__(
+        super().__init__(
             estimator, *args, handle=handle, verbose=verbose,
             output_type=output_type, strategy='ovo')
 

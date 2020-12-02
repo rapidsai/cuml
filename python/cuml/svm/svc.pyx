@@ -174,8 +174,8 @@ class SVC(SVMBase, ClassifierMixin):
         Limit the number of outer iterations in the solver
     multiclass_strategy : str ('ovo' or 'ovr', default 'ovo')
         Multiclass classification strategy. ``'ovo'`` uses
-        `OneVsOneClassifier <https://scikit-learn.org/stable/modules/generated/sklearn.multiclass.OneVsOneClassifier.html>`_ # noqa: E501
-        while ``'ovr'`` selects `OneVsRestClassifier <https://scikit-learn.org/stable/modules/generated/sklearn.multiclass.OneVsRestClassifier.html>`_ # noqa: E501
+        `OneVsOneClassifier <https://scikit-learn.org/stable/modules/generated/sklearn.multiclass.OneVsOneClassifier.html>`_
+        while ``'ovr'`` selects `OneVsRestClassifier <https://scikit-learn.org/stable/modules/generated/sklearn.multiclass.OneVsRestClassifier.html>`_
     nochange_steps : int (default = 1000)
         We monitor how much our stopping criteria changes during outer
         iterations. If it does not change (changes less then 1e-3*tol)
@@ -276,7 +276,7 @@ class SVC(SVMBase, ClassifierMixin):
             return cp.concatenate(
                 [cp.asarray(cls._intercept_) for cls in estimators])
         else:
-            return super(SVC, self)._intercept_
+            return super()._intercept_
 
     @intercept_.setter
     def intercept_(self, value):
@@ -345,7 +345,6 @@ class SVC(SVMBase, ClassifierMixin):
         y_m, _, _, _ = input_to_cuml_array(y, check_cols=1)
         return len(cp.unique(cp.asarray(y_m)))
 
-    @cuml.internals.api_base_return_any_skipall
     def _fit_multiclass(self, X, y, sample_weight) -> "SVC":
         if sample_weight is not None:
             warn("Sample weights are currently ignored for multi class "
@@ -363,7 +362,6 @@ class SVC(SVMBase, ClassifierMixin):
         self._fit_status_ = 0
         return self
 
-    @cuml.internals.api_base_return_any_skipall
     def _fit_proba(self, X, y, samle_weight) -> "SVC":
         params = self.get_params()
         params["probability"] = False

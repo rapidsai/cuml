@@ -20,6 +20,7 @@ from numba import cuda
 import cuml
 import cuml.svm as cu_svm
 from cuml.common import input_to_cuml_array
+from cuml.common.input_utils import is_array_like
 from cuml.test.utils import unit_param, quality_param, stress_param
 
 from sklearn import svm
@@ -129,9 +130,13 @@ def compare_svm(svm1, svm2, X, y, b_tol=None, coef_tol=None,
             coef_tol *= 10
 
     # Compare model parameter b (intercept). In practice some models can have
-    # same differences in the model parameters while still being within
+    # some differences in the model parameters while still being within
     # the accuracy tolerance.
-    if not hasattr(svm2.intercept_, '__len__'):  # skip this for multiclass
+    #
+    # We skip this test for multiclass (when intercept_ is an array). Apart
+    # from the larger discrepancies in multiclass case, sklearn also uses a
+    # different sign convention for intercept in that case.
+    if (not is_array_like(svm2.intercept_)) or svm2.intercept_.shape[0] == 1:
         if abs(svm2.intercept_) > 1e-6:
             assert abs((svm1.intercept_-svm2.intercept_)/svm2.intercept_) \
                 <= b_tol
