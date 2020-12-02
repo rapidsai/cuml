@@ -22,9 +22,9 @@ from . test_linear_model import make_classification_dataset
 
 @pytest.mark.parametrize("strategy", ['ovr', 'ovo'])
 @pytest.mark.parametrize("use_wrapper", [True, False])
-@pytest.mark.parametrize("nrows", [unit_param(1000)])
+@pytest.mark.parametrize("nrows", [1000])
 @pytest.mark.parametrize("num_classes", [3])
-@pytest.mark.parametrize("column_info", [unit_param([10, 4])])
+@pytest.mark.parametrize("column_info", [[10, 4]])
 def test_logistic_regression(strategy, use_wrapper, nrows, num_classes,
                              column_info, dtype=np.float32):
 

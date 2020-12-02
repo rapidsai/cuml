@@ -132,7 +132,8 @@ class MulticlassClassifier(Base, ClassifierMixin):
 
 
 class OneVsRestClassifier(MulticlassClassifier):
-    """ Wrapper around Sckit-learn's class with the same name. The input can be
+    """
+    Wrapper around Sckit-learn's class with the same name. The input can be
     any kind of cuML compatible array, and the output type follows cuML's
     output type configuration rules.
 
