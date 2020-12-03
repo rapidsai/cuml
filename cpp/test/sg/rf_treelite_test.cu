@@ -42,7 +42,7 @@ struct RfInputs {
   int n_cols;
   int n_trees;
   float max_features;
-  float rows_sample;
+  float max_samples;
   int n_inference_rows;
   int max_depth;
   int max_leaves;
@@ -190,7 +190,7 @@ class RfTreeliteTestCommon : public ::testing::TestWithParam<RfInputs<T>> {
                     params.min_impurity_decrease, params.bootstrap_features,
                     params.split_criterion, false);
     set_all_rf_params(rf_params, params.n_trees, params.bootstrap,
-                      params.rows_sample, -1, params.n_streams, tree_params);
+                      params.max_samples, -1, params.n_streams, tree_params);
     handle.reset(new raft::handle_t(rf_params.n_streams));
 
     data_len = params.n_rows * params.n_cols;
