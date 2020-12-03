@@ -98,6 +98,7 @@
 - PR #3214: Correct flaky silhouette score test by setting atol
 - PR #3216: Ignore splits that do not satisfy constraints
 - PR #3239: Fix intermittent dask random forest failure
+- PR #3245: Rename `rows_sample` -> `max_samples` to be consistent with sklearn's RF
 
 # cuML 0.16.0 (23 Oct 2020)
 
