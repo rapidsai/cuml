@@ -27,6 +27,9 @@ from cuml.dask.common.input_utils import DistributedDataHandler
 from uuid import uuid1
 
 
+DEFAULT_BATCH_SIZE = 2000000
+
+
 def _func_get_d(f, idx):
     i, d = f
     return d[idx]
@@ -45,9 +48,12 @@ class NearestNeighbors(BaseEstimator):
     ----------
     n_neighbors : int (default=5)
         Default number of neighbors to query
-    batch_size: int (optional, default 1024)
-        Maximum number of queries processed at once. This parameter can
-        greatly affect the throughput of the algorithm.
+    batch_size: int (optional, default 2000000)
+        Maximum number of query rows processed at once. This parameter can
+        greatly affect the throughput of the algorithm. The optimal setting
+        of this value will vary for different layouts index to query ratios,
+        but it will require `batch_size * n_features * 4` bytes of additional
+        memory on each worker hosting index partitions.
     handle : cuml.Handle
         Specifies the cuml.handle that holds internal CUDA state for
         computations in this model. Most importantly, this specifies the CUDA
@@ -61,12 +67,12 @@ class NearestNeighbors(BaseEstimator):
 
     """
     def __init__(self, client=None, streams_per_handle=0,
-                 batch_size=1024, **kwargs):
+                 n_neighbors=5, batch_size=DEFAULT_BATCH_SIZE,
+                 **kwargs):
         super(NearestNeighbors, self).__init__(client=client,
                                                **kwargs)
-
+        self.kwargs['batch_size'] = batch_size
         self.streams_per_handle = streams_per_handle
-        self.batch_size = batch_size
 
     def fit(self, X):
         """
@@ -94,7 +100,7 @@ class NearestNeighbors(BaseEstimator):
         return self
 
     @staticmethod
-    def _func_create_model(sessionId, batch_size, **kwargs):
+    def _func_create_model(sessionId, **kwargs):
         try:
             from cuml.neighbors.nearest_neighbors_mg import \
                 NearestNeighborsMG as cumlNN
@@ -102,7 +108,7 @@ class NearestNeighbors(BaseEstimator):
             raise_mg_import_exception()
 
         handle = worker_state(sessionId)["handle"]
-        return cumlNN(handle=handle, batch_size=batch_size, **kwargs)
+        return cumlNN(handle=handle, **kwargs)
 
     @staticmethod
     def _func_kneighbors(model, local_idx_parts, idx_m, n, idx_parts_to_ranks,
@@ -165,7 +171,6 @@ class NearestNeighbors(BaseEstimator):
         nn_models = dict([(worker, self.client.submit(
             NearestNeighbors._func_create_model,
             comms.sessionId,
-            self.batch_size,
             **self.kwargs,
             workers=[worker],
             key="%s-%s" % (key, idx)))

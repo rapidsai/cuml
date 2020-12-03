@@ -21,7 +21,7 @@ from cuml.dask.common import flatten_grouped_results
 from cuml.dask.common.utils import raise_mg_import_exception
 from cuml.dask.common.utils import wait_and_raise_from_futures
 from cuml.raft.dask.common.comms import worker_state
-from cuml.dask.neighbors import NearestNeighbors
+from cuml.dask.neighbors import NearestNeighbors, DEFAULT_BATCH_SIZE
 import dask.array as da
 from uuid import uuid1
 
@@ -44,9 +44,12 @@ class KNeighborsRegressor(NearestNeighbors):
     ----------
     n_neighbors : int (default=5)
         Default number of neighbors to query
-    batch_size: int (optional, default 1024)
-        Maximum number of queries processed at once. This parameter can
-        greatly affect the throughput of the algorithm.
+    batch_size: int (optional, default 2000000)
+        Maximum number of query rows processed at once. This parameter can
+        greatly affect the throughput of the algorithm. The optimal setting
+        of this value will vary for different layouts index to query ratios,
+        but it will require `batch_size * n_features * 4` bytes of additional
+        memory on each worker hosting index partitions.
     handle : cuml.Handle
         Specifies the cuml.handle that holds internal CUDA state for
         computations in this model. Most importantly, this specifies the CUDA
@@ -58,13 +61,14 @@ class KNeighborsRegressor(NearestNeighbors):
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
     """
-    def __init__(self, client=None, streams_per_handle=0,
-                 verbose=False, batch_size=1024, **kwargs):
+    def __init__(self, client=None, streams_per_handle=0, verbose=False,
+                 n_neighbors=5, batch_size=DEFAULT_BATCH_SIZE, **kwargs):
+        self.kwargs['n_neighbors'] = n_neighbors
+        self.kwargs['batch_size'] = batch_size
         super(KNeighborsRegressor, self).__init__(client=client,
                                                   verbose=verbose,
                                                   **kwargs)
         self.streams_per_handle = streams_per_handle
-        self.batch_size = batch_size
 
     def fit(self, X, y):
         """
@@ -92,7 +96,7 @@ class KNeighborsRegressor(NearestNeighbors):
         return self
 
     @staticmethod
-    def _func_create_model(sessionId, batch_size, **kwargs):
+    def _func_create_model(sessionId, **kwargs):
         try:
             from cuml.neighbors.kneighbors_regressor_mg import \
                 KNeighborsRegressorMG as cumlKNN
@@ -100,7 +104,7 @@ class KNeighborsRegressor(NearestNeighbors):
             raise_mg_import_exception()
 
         handle = worker_state(sessionId)["handle"]
-        return cumlKNN(handle=handle, batch_size=batch_size, **kwargs)
+        return cumlKNN(handle=handle, **kwargs)
 
     @staticmethod
     def _func_predict(model, data, data_parts_to_ranks, data_nrows,
@@ -166,7 +170,6 @@ class KNeighborsRegressor(NearestNeighbors):
         models = dict([(worker, self.client.submit(
             self._func_create_model,
             comms.sessionId,
-            self.batch_size,
             **self.kwargs,
             workers=[worker],
             key="%s-%s" % (key, idx)))
