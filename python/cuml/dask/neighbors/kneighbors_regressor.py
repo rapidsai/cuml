@@ -21,7 +21,7 @@ from cuml.dask.common import flatten_grouped_results
 from cuml.dask.common.utils import raise_mg_import_exception
 from cuml.dask.common.utils import wait_and_raise_from_futures
 from cuml.raft.dask.common.comms import worker_state
-from cuml.dask.neighbors import NearestNeighbors, DEFAULT_BATCH_SIZE
+from cuml.dask.neighbors import NearestNeighbors
 import dask.array as da
 from uuid import uuid1
 
@@ -207,24 +207,9 @@ class KNeighborsRegressor(NearestNeighbors):
                                               knn_reg_res,
                                               getter_func=_custom_getter(0))
 
-        out_i_futures = flatten_grouped_results(self.client,
-                                                query_parts_to_ranks,
-                                                knn_reg_res,
-                                                getter_func=_custom_getter(1))
-
-        out_d_futures = flatten_grouped_results(self.client,
-                                                query_parts_to_ranks,
-                                                knn_reg_res,
-                                                getter_func=_custom_getter(2))
-
         comms.destroy()
 
-        out = to_output(out_futures, self.datatype).squeeze()
-
-        out_i = to_output(out_i_futures, self.datatype)  # noqa: F841
-        out_d = to_output(out_d_futures, self.datatype)  # noqa: F841
-
-        return out
+        return to_output(out_futures, self.datatype).squeeze()
 
     def score(self, X, y):
         """
