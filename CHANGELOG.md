@@ -59,6 +59,7 @@
 - PR #3219: Update CI to use XGBoost 1.3.0 RCs
 - PR #3221: Update contributing doc for label support
 - PR #3177: Make Multinomial Naive Bayes inherit from `ClassifierMixin` and use it for score
+- PR #3241: Updating RAFT to latest
 - PR #3240: Minor doc updates
 
 ## Bug Fixes
