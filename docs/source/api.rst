@@ -170,6 +170,9 @@ Metrics (clustering and trustworthiness)
   .. automodule:: cuml.metrics.cluster.homogeneity_score
     :members:
 
+  .. automodule:: cuml.metrics.cluster.silhouette_score
+    :members:
+       
   .. automodule:: cuml.metrics.cluster.completeness_score
     :members:
 
@@ -504,3 +507,12 @@ Preprocessing
       Normalizer, RobustScaler, SimpleImputer, StandardScaler,
       add_dummy_feature, binarize, minmax_scale, normalize,
       PolynomialFeatures, robust_scale, scale
+
+
+Model Explanation (SHAP)
+------------------------
+.. autoclass:: cuml.experimental.explainer.KernelExplainer
+   :members:
+
+.. autoclass:: cuml.experimental.explainer.PermutationExplainer
+   :members:
