@@ -77,20 +77,21 @@ class KernelExplainer(SHAPBase):
 
     Main differences of the GPU version:
 
-    - Data generation and Kernel SHAP calculations are significantly faster,
-    but this has a tradeoff of having more model evaluations if both the
-    observation explained and the background data have many 0-valued columns.
-    - Support for SHAP's new Explanation and API will be available in the
-    next version.
-    - There is a small initialization cost (similar to training time of regular
-    Scikit/cuML models) of a few seconds, which was a tradeoff for
-    faster explanations after that.
-    - Only tabular data is supported for now, via passing the background
-    dataset explicitly. Since the new API of SHAP is still evolving, the main
-    supported API right now is the old one
-    (i.e. ``explainer.shap_values()``)
-    - Sparse data support is planned for the near future.
-    - Further optimizations are in progress.
+     - Data generation and Kernel SHAP calculations are significantly faster,
+       but this has a tradeoff of having more model evaluations if both the
+       observation explained and the background data have many 0-valued
+       columns.
+     - Support for SHAP's new Explanation and API will be available in the
+       next version.
+     - There is a small initialization cost (similar to training time of
+       regular Scikit/cuML models) of a few seconds, which was a tradeoff for
+       faster explanations after that.
+     - Only tabular data is supported for now, via passing the background
+       dataset explicitly. Since the new API of SHAP is still evolving, the
+       main supported API right now is the old one
+       (i.e. ``explainer.shap_values()``)
+     - Sparse data support is planned for the near future.
+     - Further optimizations are in progress.
 
     Parameters
     ----------
@@ -110,7 +111,7 @@ class KernelExplainer(SHAPBase):
     nsamples : int (default = 2 * data.shape[1] + 2048)
         Number of times to re-evaluate the model when explaining each
         prediction. More samples lead to lower variance estimates of the SHAP
-        values. The "auto" setting uses `nsamples = 2 * X.shape[1] + 2048`.
+        values. The "auto" setting uses ``nsamples = 2 * X.shape[1] + 2048``.
     link : function or str (default = 'identity')
         The link function used to map between the output units of the
         model and the SHAP value units. From the SHAP package: The link
@@ -160,7 +161,6 @@ class KernelExplainer(SHAPBase):
     ...     n_features=10,
     ...     noise=0.1,
     ...     random_state=42)
-
     >>>
     >>> X_train, X_test, y_train, y_test = train_test_split(
     ...     X,
