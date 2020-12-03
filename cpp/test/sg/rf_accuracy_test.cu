@@ -98,7 +98,7 @@ class RFClassifierAccuracyTest : public ::testing::TestWithParam<RFInputs> {
     );
     set_all_rf_params(rfp, 1, /* n_trees */
                       true,   /* bootstrap */
-                      1.0,    /* rows_sample */
+                      1.0,    /* max_samples */
                       -1,     /* seed */
                       1,      /* n_streams */
                       tree_params);
