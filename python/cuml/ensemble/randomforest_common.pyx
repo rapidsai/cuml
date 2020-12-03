@@ -45,7 +45,7 @@ class BaseRandomForestModel(Base):
                     'min_samples_split',
                     'min_impurity_decrease',
                     'bootstrap', 'bootstrap_features',
-                    'verbose', 'rows_sample',
+                    'verbose', 'max_samples',
                     'max_leaves', 'quantile_per_tree',
                     'accuracy_metric', 'use_experimental_backend',
                     'max_batch_size']
@@ -62,7 +62,7 @@ class BaseRandomForestModel(Base):
                  bootstrap_features=False,
                  verbose=False, min_rows_per_node=None,
                  min_samples_leaf=1, min_samples_split=2,
-                 rows_sample=1.0, max_leaves=-1,
+                 max_samples=1.0, max_leaves=-1,
                  accuracy_metric=None, dtype=None,
                  output_type=None,
                  min_weight_fraction_leaf=None, n_jobs=None,
@@ -141,7 +141,7 @@ class BaseRandomForestModel(Base):
         self.min_samples_split = min_samples_split
         self.min_impurity_decrease = min_impurity_decrease
         self.bootstrap_features = bootstrap_features
-        self.rows_sample = rows_sample
+        self.max_samples = max_samples
         self.max_leaves = max_leaves
         self.n_estimators = n_estimators
         self.max_depth = max_depth

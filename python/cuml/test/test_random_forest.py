@@ -140,14 +140,14 @@ def special_reg(request):
     return X, y
 
 
-@pytest.mark.parametrize('rows_sample', [unit_param(1.0), quality_param(0.90),
+@pytest.mark.parametrize('max_samples', [unit_param(1.0), quality_param(0.90),
                          stress_param(0.95)])
 @pytest.mark.parametrize('datatype', [np.float32])
 @pytest.mark.parametrize('split_algo', [0, 1])
 @pytest.mark.parametrize('max_features', [1.0, 'auto', 'log2', 'sqrt'])
 @pytest.mark.parametrize('use_experimental_backend', [True, False])
 def test_rf_classification(small_clf, datatype, split_algo,
-                           rows_sample, max_features,
+                           max_samples, max_features,
                            use_experimental_backend):
     use_handle = True
 
@@ -161,7 +161,7 @@ def test_rf_classification(small_clf, datatype, split_algo,
 
     # Initialize, fit and predict using cuML's
     # random forest classification model
-    cuml_model = curfc(max_features=max_features, rows_sample=rows_sample,
+    cuml_model = curfc(max_features=max_features, max_samples=max_samples,
                        n_bins=16, split_algo=split_algo, split_criterion=0,
                        min_samples_leaf=2, random_state=123, n_streams=1,
                        n_estimators=40, handle=handle, max_leaves=-1,
@@ -210,7 +210,7 @@ def test_rf_classification(small_clf, datatype, split_algo,
     assert fil_acc >= (cuml_acc - 0.02)
 
 
-@pytest.mark.parametrize('rows_sample', [unit_param(1.0), quality_param(0.90),
+@pytest.mark.parametrize('max_samples', [unit_param(1.0), quality_param(0.90),
                          stress_param(0.95)])
 @pytest.mark.parametrize('datatype', [np.float32])
 @pytest.mark.parametrize(
@@ -224,7 +224,7 @@ def test_rf_classification(small_clf, datatype, split_algo,
      (1, 1.0, True, 32),
      ])
 def test_rf_regression(special_reg, datatype, split_algo, max_features,
-                       rows_sample, use_experimental_backend, n_bins):
+                       max_samples, use_experimental_backend, n_bins):
 
     use_handle = True
 
@@ -238,7 +238,7 @@ def test_rf_regression(special_reg, datatype, split_algo, max_features,
     handle, stream = get_handle(use_handle, n_streams=1)
 
     # Initialize and fit using cuML's random forest regression model
-    cuml_model = curfr(max_features=max_features, rows_sample=rows_sample,
+    cuml_model = curfr(max_features=max_features, max_samples=max_samples,
                        n_bins=n_bins, split_algo=split_algo, split_criterion=2,
                        min_samples_leaf=2, random_state=123, n_streams=1,
                        n_estimators=50, handle=handle, max_leaves=-1,
@@ -406,7 +406,7 @@ def check_predict_proba(test_proba, baseline_proba, y_test, rel_err):
     assert test_mse <= baseline_mse * (1.0 + rel_err)
 
 
-def rf_classification(datatype, array_type, max_features, rows_sample,
+def rf_classification(datatype, array_type, max_features, max_samples,
                       fixture):
     X, y = fixture
     X = X.astype(datatype[0])
@@ -418,7 +418,7 @@ def rf_classification(datatype, array_type, max_features, rows_sample,
     handle, stream = get_handle(True, n_streams=1)
     # Initialize, fit and predict using cuML's
     # random forest classification model
-    cuml_model = curfc(max_features=max_features, rows_sample=rows_sample,
+    cuml_model = curfc(max_features=max_features, max_samples=max_samples,
                        n_bins=16, split_criterion=0,
                        min_samples_leaf=2, random_state=123,
                        n_estimators=40, handle=handle, max_leaves=-1,
@@ -470,12 +470,12 @@ def test_rf_classification_multi_class(mclass_clf, datatype, array_type):
 
 
 @pytest.mark.parametrize('datatype', [(np.float32, np.float32)])
-@pytest.mark.parametrize('rows_sample', [unit_param(1.0),
+@pytest.mark.parametrize('max_samples', [unit_param(1.0),
                          stress_param(0.95)])
 @pytest.mark.parametrize('max_features', [1.0, 'auto', 'log2', 'sqrt'])
 def test_rf_classification_proba(small_clf, datatype,
-                                 rows_sample, max_features):
-    rf_classification(datatype, 'numpy', max_features, rows_sample,
+                                 max_samples, max_features):
+    rf_classification(datatype, 'numpy', max_features, max_samples,
                       small_clf)
 
 
@@ -749,7 +749,7 @@ def test_rf_printing(capfd, n_estimators, detailed_printing):
     handle, stream = get_handle(True, n_streams=1)
 
     # Initialize cuML Random Forest classification model
-    cuml_model = curfc(handle=handle, max_features=1.0, rows_sample=1.0,
+    cuml_model = curfc(handle=handle, max_features=1.0, max_samples=1.0,
                        n_bins=16, split_algo=0, split_criterion=0,
                        min_samples_leaf=2, random_state=23707, n_streams=1,
                        n_estimators=n_estimators, max_leaves=-1,
@@ -788,14 +788,14 @@ def test_dump_json(estimator_type, max_depth, n_estimators):
                                random_state=123, n_classes=2)
     X = X.astype(np.float32)
     if estimator_type == 'classification':
-        cuml_model = curfc(max_features=1.0, rows_sample=1.0,
+        cuml_model = curfc(max_features=1.0, max_samples=1.0,
                            n_bins=16, split_algo=0, split_criterion=0,
                            min_samples_leaf=2, seed=23707, n_streams=1,
                            n_estimators=n_estimators, max_leaves=-1,
                            max_depth=max_depth)
         y = y.astype(np.int32)
     elif estimator_type == 'regression':
-        cuml_model = curfr(max_features=1.0, rows_sample=1.0,
+        cuml_model = curfr(max_features=1.0, max_samples=1.0,
                            n_bins=16, split_algo=0,
                            min_samples_leaf=2, seed=23707, n_streams=1,
                            n_estimators=n_estimators, max_leaves=-1,
