@@ -41,11 +41,13 @@ class NearestNeighbors(BaseEstimator):
     """
     Multi-node Multi-GPU NearestNeighbors Model.
     """
-    def __init__(self, client=None, streams_per_handle=0, **kwargs):
+    def __init__(self, client=None, streams_per_handle=0,
+                 batch_size=1024, **kwargs):
         super(NearestNeighbors, self).__init__(client=client,
                                                **kwargs)
 
         self.streams_per_handle = streams_per_handle
+        self.batch_size = batch_size
 
     def fit(self, X):
         """
@@ -73,7 +75,7 @@ class NearestNeighbors(BaseEstimator):
         return self
 
     @staticmethod
-    def _func_create_model(sessionId, **kwargs):
+    def _func_create_model(sessionId, batch_size, **kwargs):
         try:
             from cuml.neighbors.nearest_neighbors_mg import \
                 NearestNeighborsMG as cumlNN
@@ -81,7 +83,7 @@ class NearestNeighbors(BaseEstimator):
             raise_mg_import_exception()
 
         handle = worker_state(sessionId)["handle"]
-        return cumlNN(handle=handle, **kwargs)
+        return cumlNN(handle=handle, batch_size=batch_size, **kwargs)
 
     @staticmethod
     def _func_kneighbors(model, local_idx_parts, idx_m, n, idx_parts_to_ranks,
@@ -144,6 +146,7 @@ class NearestNeighbors(BaseEstimator):
         nn_models = dict([(worker, self.client.submit(
             NearestNeighbors._func_create_model,
             comms.sessionId,
+            self.batch_size,
             **self.kwargs,
             workers=[worker],
             key="%s-%s" % (key, idx)))

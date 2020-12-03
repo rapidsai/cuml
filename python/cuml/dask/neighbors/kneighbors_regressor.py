@@ -41,11 +41,12 @@ class KNeighborsRegressor(NearestNeighbors):
     to learn a generalizable set of model parameters.
     """
     def __init__(self, client=None, streams_per_handle=0,
-                 verbose=False, **kwargs):
+                 verbose=False, batch_size=1024, **kwargs):
         super(KNeighborsRegressor, self).__init__(client=client,
                                                   verbose=verbose,
                                                   **kwargs)
         self.streams_per_handle = streams_per_handle
+        self.batch_size = batch_size
 
     def fit(self, X, y):
         """
@@ -73,7 +74,7 @@ class KNeighborsRegressor(NearestNeighbors):
         return self
 
     @staticmethod
-    def _func_create_model(sessionId, **kwargs):
+    def _func_create_model(sessionId, batch_size, **kwargs):
         try:
             from cuml.neighbors.kneighbors_regressor_mg import \
                 KNeighborsRegressorMG as cumlKNN
@@ -81,7 +82,7 @@ class KNeighborsRegressor(NearestNeighbors):
             raise_mg_import_exception()
 
         handle = worker_state(sessionId)["handle"]
-        return cumlKNN(handle=handle, **kwargs)
+        return cumlKNN(handle=handle, batch_size=batch_size, **kwargs)
 
     @staticmethod
     def _func_predict(model, data, data_parts_to_ranks, data_nrows,
@@ -147,6 +148,7 @@ class KNeighborsRegressor(NearestNeighbors):
         models = dict([(worker, self.client.submit(
             self._func_create_model,
             comms.sessionId,
+            self.batch_size,
             **self.kwargs,
             workers=[worker],
             key="%s-%s" % (key, idx)))
