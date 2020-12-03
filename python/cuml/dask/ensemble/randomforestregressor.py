@@ -84,7 +84,7 @@ class RandomForestRegressor(BaseRandomForestModel, DelayedPredictionMixin,
     bootstrap_features : boolean (default = False)
         Control bootstrapping for features.
         If features are drawn with or without replacement
-    rows_sample : float (default = 1.0)
+    max_samples : float (default = 1.0)
         Ratio of dataset rows used while fitting each tree.
     max_depth : int (default = -1)
         Maximum tree depth. Unlimited (i.e, until leaves are pure), if -1.
