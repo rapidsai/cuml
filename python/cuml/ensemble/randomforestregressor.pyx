@@ -173,7 +173,7 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
     bootstrap_features : boolean (default = False)
         Control bootstrapping for features.
         If features are drawn with or without replacement
-    rows_sample : float (default = 1.0)
+    max_samples : float (default = 1.0)
         Ratio of dataset rows used while fitting each tree.
     max_depth : int (default = 16)
         Maximum tree depth. Unlimited (i.e, until leaves are pure),
@@ -452,7 +452,7 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
                                      <bool> self.bootstrap_features,
                                      <bool> self.bootstrap,
                                      <int> self.n_estimators,
-                                     <float> self.rows_sample,
+                                     <float> self.max_samples,
                                      <int> seed_val,
                                      <CRITERION> self.split_criterion,
                                      <bool> self.quantile_per_tree,
