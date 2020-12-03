@@ -43,9 +43,21 @@ class NearestNeighbors(BaseEstimator):
 
     Parameters
     ----------
+    n_neighbors : int (default=5)
+        Default number of neighbors to query
     batch_size: int (optional, default 1024)
         Maximum number of queries processed at once. This parameter can
         greatly affect the throughput of the algorithm.
+    handle : cuml.Handle
+        Specifies the cuml.handle that holds internal CUDA state for
+        computations in this model. Most importantly, this specifies the CUDA
+        stream that will be used for the model's computations, so users can
+        run different models concurrently in different streams by creating
+        handles in several streams.
+        If it is None, a new one is created.
+    verbose : int or boolean, default=False
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        See :ref:`verbosity-levels` for more info.
 
     """
     def __init__(self, client=None, streams_per_handle=0,
