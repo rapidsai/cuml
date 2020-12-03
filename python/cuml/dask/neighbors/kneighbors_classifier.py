@@ -51,7 +51,7 @@ class KNeighborsClassifier(NearestNeighbors):
     metric : string (default='euclidean').
         Distance metric to use.
     weights : string (default='uniform')
-        Sample weights to use. Currently, only the uniform strategy is
+        Sample weights to use. Currently, only the 'uniform' strategy is
         supported.
     handle : cuml.Handle
         Specifies the cuml.handle that holds internal CUDA state for
