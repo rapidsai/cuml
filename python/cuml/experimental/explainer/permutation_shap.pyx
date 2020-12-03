@@ -87,6 +87,7 @@ cdef extern from "cuml/explainer/permutation_shap.hpp" namespace "ML":
 
 class PermutationExplainer(SHAPBase):
     """
+    GPU accelerated of SHAP's permutation explainer (experimental)
 
     Initial experimental version of a GPU accelerated of SHAP's
     permutation explainer:
@@ -99,16 +100,16 @@ class PermutationExplainer(SHAPBase):
 
     Current limitations of the GPU version (support in progress):
 
-    - Batched, both for supporting larger daasets as well as to accelerate
-    smaller ones, is not implemented yet.
-    - Only tabular masker is supported, via passing the background
-    dataset explicitly. Since the new API of SHAP is still evolving, the
-    supported API for this version is the old one
-    (i.e. explainer.shap_values()). The new one, and the new SHAP Explanation
-    object will be supported in the next version.
-    - Hierarchical clustering for Owen values are planned for the near
-    future.
-    - Sparse data support is not yet implemented.
+     - Batched, both for supporting larger daasets as well as to accelerate
+       smaller ones, is not implemented yet.
+     - Only tabular masker is supported, via passing the background
+       dataset explicitly. Since the new API of SHAP is still evolving, the
+       supported API for this version is the old one
+       (i.e. ``explainer.shap_values()``). The new one, and the new SHAP
+       Explanation object will be supported in the next version.
+     - Hierarchical clustering for Owen values are planned for the near
+       future.
+     - Sparse data support is not yet implemented.
 
     Parameters
     ----------
@@ -119,7 +120,7 @@ class PermutationExplainer(SHAPBase):
         cuML's permutation SHAP supports tabular data for now, so it expects
         a background dataset, as opposed to a shap.masker object. To respect
         a hierarchical structure of the data, use the (temporary) parameter
-        'masker_type'
+        `masker_type`
         Acceptable formats: CUDA array interface compliant objects like
         CuPy, cuDF DataFrame/Series, NumPy ndarray and Pandas
         DataFrame/Series.
@@ -174,7 +175,6 @@ class PermutationExplainer(SHAPBase):
     ...     n_features=10,
     ...     noise=0.1,
     ...     random_state=42)
-
     >>>
     >>> X_train, X_test, y_train, y_test = train_test_split(
     ...     X,
