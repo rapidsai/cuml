@@ -40,6 +40,13 @@ def _func_get_i(f, idx):
 class NearestNeighbors(BaseEstimator):
     """
     Multi-node Multi-GPU NearestNeighbors Model.
+
+    Parameters
+    ----------
+    batch_size: int (optional, default 1024)
+        Maximum number of queries processed at once. This parameter can
+        greatly affect the throughput of the algorithm.
+
     """
     def __init__(self, client=None, streams_per_handle=0,
                  batch_size=1024, **kwargs):

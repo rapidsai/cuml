@@ -39,6 +39,13 @@ class KNeighborsRegressor(NearestNeighbors):
     K-Nearest Neighbors Regressor is an instance-based learning technique,
     that keeps training samples around for prediction, rather than trying
     to learn a generalizable set of model parameters.
+
+    Parameters
+    ----------
+    batch_size: int (optional, default 1024)
+        Maximum number of queries processed at once. This parameter can
+        greatly affect the throughput of the algorithm.
+
     """
     def __init__(self, client=None, streams_per_handle=0,
                  verbose=False, batch_size=1024, **kwargs):
