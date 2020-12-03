@@ -62,7 +62,7 @@ class BaseRandomForestModel(Base):
                  bootstrap_features=False,
                  verbose=False, min_rows_per_node=None,
                  min_samples_leaf=1, min_samples_split=2,
-                 max_samples=1.0, max_leaves=-1,
+                 rows_sample=None, max_samples=1.0, max_leaves=-1,
                  accuracy_metric=None, dtype=None,
                  output_type=None,
                  min_weight_fraction_leaf=None, n_jobs=None,
@@ -115,6 +115,11 @@ class BaseRandomForestModel(Base):
                           "and will be removed in 0.18. Please use "
                           "'min_samples_leaf' parameter instead.")
             min_samples_leaf = min_rows_per_node
+        if rows_sample is not None:
+            warnings.warn("The 'rows_sample' parameter is deprecated and will "
+                          "be removed in 0.18. Please use 'max_samples' "
+                          "parameter instead.")
+            max_samples = rows_sample
         if handle is None:
             handle = Handle(n_streams)
 
