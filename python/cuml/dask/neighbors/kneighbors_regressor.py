@@ -42,10 +42,33 @@ class KNeighborsRegressor(NearestNeighbors):
 
     Parameters
     ----------
+    n_neighbors : int (default=5)
+        Default number of neighbors to query
+    algorithm : string (default='brute')
+        The query algorithm to use. Currently, only 'brute' is supported.
+    metric : string (default='euclidean').
+        Distance metric to use.
+    weights : string (default='uniform')
+        Sample weights to use. Currently, only the 'uniform' strategy is
+        supported.
     batch_size: int (optional, default 1024)
         Maximum number of queries processed at once. This parameter can
         greatly affect the throughput of the algorithm.
-
+    handle : cuml.Handle
+        Specifies the cuml.handle that holds internal CUDA state for
+        computations in this model. Most importantly, this specifies the CUDA
+        stream that will be used for the model's computations, so users can
+        run different models concurrently in different streams by creating
+        handles in several streams.
+        If it is None, a new one is created.
+    verbose : int or boolean, default=False
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        See :ref:`verbosity-levels` for more info.
+    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
+        Variable to control output type of the results and attributes of
+        the estimator. If None, it'll inherit the output type set at the
+        module level, `cuml.global_output_type`.
+        See :ref:`output-data-type-configuration` for more info.
     """
     def __init__(self, client=None, streams_per_handle=0,
                  verbose=False, batch_size=1024, **kwargs):

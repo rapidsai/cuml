@@ -2,12 +2,10 @@
 
 ## New Features
 - PR #3164: Expose silhouette score in Python
-- PR #3160: Least Angle Regression
-- PR #3214: Correct flaky silhouette score test by setting atol
+- PR #3160: Least Angle Regression (experimental)
 - PR #2659: Add initial max inner product sparse knn
 - PR #2836: Refactor UMAP to accept sparse inputs
 - PR #3126: Experimental versions of GPU accelerated Kernel and Permutation SHAP
-- PR #3186: Add gain to RF JSON dump
 
 ## Improvements
 - PR #3077: Improve runtime for test_kmeans
@@ -36,7 +34,7 @@
 - PR #3115: Speeding up MNMG UMAP testing
 - PR #3112: Speed test_array
 - PR #3111: Adding Cython to Code Coverage
-- PR #3129:  Update notebooks README
+- PR #3129: Update notebooks README
 - PR #3002: Update flake8 Config To With Per File Settings
 - PR #3135: Add QuasiNewton tests
 - PR #3040: Improved Array Conversion with CumlArrayDescriptor and Decorators
@@ -49,7 +47,11 @@
 - PR #3155: Eliminate unnecessary warnings from random projection test
 - PR #3176: Add probabilistic SVM tests with various input array types
 - PR #3180: FIL: `blocks_per_sm` support in Python
+- PR #3186: Add gain to RF JSON dump
+- PR #3219: Update CI to use XGBoost 1.3.0 RCs
+- PR #3221: Update contributing doc for label support
 - PR #3177: Make Multinomial Naive Bayes inherit from `ClassifierMixin` and use it for score
+- PR #3240: Minor doc updates
 
 ## Bug Fixes
 - PR #3218: Specify dependency branches in conda dev environment to avoid pip resolver issue
@@ -85,14 +87,18 @@
 - PR #3152: Fix access to attributes of individual NB objects in dask NB
 - PR #3156: Force local conda artifact install
 - PR #3162: Removing accidentally checked in debug file
+- PR #3191: Fix __repr__ function for preprocessing models
 - PR #3175: Fix gtest pinned cmake version for build from source option
 - PR #3182: Fix a bug in MSE metric calculation
+- PR #3187: Update docstring to document behavior of `bootstrap=False`
 - PR #3215: Add a missing `__syncthreads()`
 - PR #3246: Fix MNMG KNN doc (adding batch_size)
 - PR #3185: Add documentation for Distributed TFIDF Transformer
 - PR #3190: Fix Attribute error on ICPA #3183 and PCA input type
 - PR #3208: Fix EXITCODE override in notebook test script
-
+- PR #3214: Correct flaky silhouette score test by setting atol
+- PR #3216: Ignore splits that do not satisfy constraints
+- PR #3239: Fix intermittent dask random forest failure
 
 # cuML 0.16.0 (23 Oct 2020)
 
