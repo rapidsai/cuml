@@ -166,8 +166,8 @@ def test_different_parameters(dtype, nfeatures, nbackground, model,
     exp_v = float(cu_explainer.expected_value)
     fx = mod.predict(X_test)
     for i in range(5):
-        assert(np.sum(cp.asnumpy(
-            cu_shap_values[i])) - abs(fx[i] - exp_v)) <= 0.01
+        assert 0.99 <= (abs(np.sum(cp.asnumpy(
+            cu_shap_values[i]))) / abs(fx[i] - exp_v)) <= 1.01
 
 
 ###############################################################################
