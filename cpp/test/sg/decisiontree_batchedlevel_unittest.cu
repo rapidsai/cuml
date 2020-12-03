@@ -17,11 +17,11 @@
 #include <decisiontree/memory.h>
 #include <gtest/gtest.h>
 #include <algorithm>
-#include <functional>
 #include <common/iota.cuh>
 #include <decisiontree/batched-levelalgo/builder_base.cuh>
 #include <decisiontree/batched-levelalgo/kernels.cuh>
 #include <decisiontree/quantile/quantile.cuh>
+#include <functional>
 
 namespace ML {
 namespace DecisionTree {
