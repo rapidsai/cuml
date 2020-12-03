@@ -67,7 +67,7 @@ class NearestNeighbors(BaseEstimator):
 
     """
     def __init__(self, client=None, streams_per_handle=0,
-                 n_neighbors=5, batch_size=DEFAULT_BATCH_SIZE,
+                 batch_size=DEFAULT_BATCH_SIZE,
                  **kwargs):
         super(NearestNeighbors, self).__init__(client=client,
                                                **kwargs)

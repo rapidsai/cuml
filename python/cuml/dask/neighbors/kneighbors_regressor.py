@@ -47,9 +47,9 @@ class KNeighborsRegressor(NearestNeighbors):
     batch_size: int (optional, default 2000000)
         Maximum number of query rows processed at once. This parameter can
         greatly affect the throughput of the algorithm. The optimal setting
-        of this value will vary for different layouts index to query ratios,
-        but it will require `batch_size * n_features * 4` bytes of additional
-        memory on each worker hosting index partitions.
+        of this value will vary for different layouts and index to query
+        ratios, but it will require `batch_size * n_features * 4` bytes of
+        additional memory on each worker hosting index partitions.
     handle : cuml.Handle
         Specifies the cuml.handle that holds internal CUDA state for
         computations in this model. Most importantly, this specifies the CUDA
@@ -61,10 +61,8 @@ class KNeighborsRegressor(NearestNeighbors):
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
     """
-    def __init__(self, client=None, streams_per_handle=0, verbose=False,
-                 n_neighbors=5, batch_size=DEFAULT_BATCH_SIZE, **kwargs):
-        self.kwargs['n_neighbors'] = n_neighbors
-        self.kwargs['batch_size'] = batch_size
+    def __init__(self, client=None, streams_per_handle=0,
+                 verbose=False, **kwargs):
         super(KNeighborsRegressor, self).__init__(client=client,
                                                   verbose=verbose,
                                                   **kwargs)
