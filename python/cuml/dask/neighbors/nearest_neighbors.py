@@ -27,9 +27,6 @@ from cuml.dask.common.input_utils import DistributedDataHandler
 from uuid import uuid1
 
 
-DEFAULT_BATCH_SIZE = 2000000
-
-
 def _func_get_d(f, idx):
     i, d = f
     return d[idx]
@@ -67,11 +64,9 @@ class NearestNeighbors(BaseEstimator):
 
     """
     def __init__(self, client=None, streams_per_handle=0,
-                 batch_size=DEFAULT_BATCH_SIZE,
                  **kwargs):
         super(NearestNeighbors, self).__init__(client=client,
                                                **kwargs)
-        self.kwargs['batch_size'] = batch_size
         self.streams_per_handle = streams_per_handle
 
     def fit(self, X):
