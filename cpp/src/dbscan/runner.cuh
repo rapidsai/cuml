@@ -24,6 +24,7 @@
 #include <label/classlabels.cuh>
 #include <sparse/csr.cuh>
 #include "adjgraph/runner.cuh"
+#include "corepoints/runner.cuh"
 #include "vertexdeg/runner.cuh"
 
 #include <sys/time.h>
@@ -144,8 +145,44 @@ size_t run(const raft::handle_t& handle, Type_f* x, Index_ N, Index_ D,
   Index_* ex_scan = (Index_*)temp;
   temp += exScanSize;
 
-  // Compute the labelling for the owned part of the graph
+  /// TODO: do logs and timings make sense for asynchronous operations?
 
+  // Compute the mask
+  // 1. Compute the part owned by this worker (reversed order of batches to
+  // keep the batch 0 in memory)
+  for (int i = nBatches - 1; i >= 0; i--) {
+    Index_ startVertexId = start_row + i * batchSize;
+    Index_ nPoints = min(size_t(n_owned_rows - i * batchSize), batchSize);
+    if (nPoints <= 0) break;
+
+    CUML_LOG_DEBUG("- Batch %d / %ld (%ld samples)", i + 1,
+                   (unsigned long)nBatches, (unsigned long)nPoints);
+
+    CUML_LOG_DEBUG("--> Computing vertex degrees");
+    ML::PUSH_RANGE("Trace::Dbscan::VertexDeg");
+    int64_t start_time = raft::curTimeMillis();
+    VertexDeg::run<Type_f, Index_>(handle, adj, vd, x, eps, N, D, algoVd,
+                                   startVertexId, nPoints, stream);
+    // raft::update_host(&curradjlen, vd + nPoints, 1, stream);
+    // CUDA_CHECK(cudaStreamSynchronize(stream));
+    int64_t cur_time = raft::curTimeMillis();
+    ML::POP_RANGE();
+    CUML_LOG_DEBUG("    |-> Took %ld ms", (cur_time - start_time));
+
+    CUML_LOG_DEBUG("--> Computing core point mask");
+    ML::PUSH_RANGE("Trace::Dbscan::CorePoints");
+    start_time = raft::curTimeMillis();
+    CorePoints::run<Type_f, Index_>(handle, vd, core_pts, minPts, startVertexId,
+                                    nPoints, stream);
+    // CUDA_CHECK(cudaStreamSynchronize(stream));
+    cur_time = raft::curTimeMillis();
+    ML::POP_RANGE();
+    CUML_LOG_DEBUG("    |-> Took %ld ms", (cur_time - start_time));
+  }
+  // 2. Exchange with the other workers
+  /// TODO: allgatherv
+
+  // Compute the labelling for the owned part of the graph
   MLCommon::Sparse::WeakCCState state(xa, fa, m);
   MLCommon::device_buffer<Index_> adj_graph(handle.get_device_allocator(),
                                             stream);
@@ -155,7 +192,7 @@ size_t run(const raft::handle_t& handle, Type_f* x, Index_ N, Index_ D,
     Index_ nPoints = min(size_t(n_owned_rows - i * batchSize), batchSize);
     if (nPoints <= 0) break;
 
-    CUML_LOG_DEBUG("- Iteration %d / %ld. Batch size is %ld samples", i + 1,
+    CUML_LOG_DEBUG("- Batch %d / %ld (%ld samples)", i + 1,
                    (unsigned long)nBatches, (unsigned long)nPoints);
 
     CUML_LOG_DEBUG("--> Computing vertex degrees");
@@ -222,6 +259,7 @@ size_t run(const raft::handle_t& handle, Type_f* x, Index_ N, Index_ D,
   ML::POP_RANGE();
 
   // Calculate the core_sample_indices only if an array was passed in
+  /// TODO: MNMG version
   if (core_sample_indices != nullptr) {
     ML::PUSH_RANGE("Trace::Dbscan::CoreSampleIndices");
 

@@ -39,7 +39,7 @@ struct Pack {
   Index_ *ex_scan;
   /** array to store whether a vertex is core poType or not */
   bool *core_pts;
-  /** number of poTypes in the dataset */
+  /** number of points in the dataset */
   Index_ N;
   /** Minpts for classifying core pts */
   Index_ minPts;
