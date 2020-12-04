@@ -54,7 +54,8 @@
 - PR #3240: Minor doc updates
 
 ## Bug Fixes
-- PR #3258: Hide silhouette_score Python binding due to memory issue
+- PR #3164: Expose silhouette score in Python
+- PR #3258: Revert silhouette_score Python exposure due to memory issue
 - PR #3218: Specify dependency branches in conda dev environment to avoid pip resolver issue
 - PR #3196: Disable ascending=false path for sortColumnsPerRow
 - PR #3051: MNMG KNN Cl&Re fix + multiple improvements
