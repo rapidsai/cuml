@@ -747,7 +747,8 @@ def kneighbors_graph(X=None, n_neighbors=5, mode='connectivity', verbose=False,
 
     return X.kneighbors_graph(X=query, n_neighbors=n_neighbors, mode=mode)
 
-    def _more_tags(self):
+    @staticmethod
+    def _more_tags():
         return {
             'preferred_input_order': 'F'
         }

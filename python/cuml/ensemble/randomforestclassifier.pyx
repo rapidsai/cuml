@@ -960,7 +960,8 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
             return dump_rf_as_json(rf_forest64).decode('utf-8')
         return dump_rf_as_json(rf_forest).decode('utf-8')
 
-    def _more_tags(self):
+    @staticmethod
+    def _more_tags():
         return {
             # fit and predict require conflicting memory layouts
             'preferred_input_order': None

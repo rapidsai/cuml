@@ -486,7 +486,8 @@ class TSNE(Base):
             "post_momentum",
         ]
 
-    def _more_tags(self):
+    @staticmethod
+    def _more_tags():
         return {
             'preferred_input_order': 'C'
         }

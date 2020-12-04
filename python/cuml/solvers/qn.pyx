@@ -538,7 +538,8 @@ class QN(Base):
             ['loss', 'fit_intercept', 'l1_strength', 'l2_strength',
                 'max_iter', 'tol', 'linesearch_max_iter', 'lbfgs_memory']
 
-    def _more_tags(self):
+    @staticmethod
+    def _more_tags():
         return {
             'preferred_input_order': 'F'
         }

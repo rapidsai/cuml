@@ -590,7 +590,8 @@ class SparseRandomProjection(Base, BaseRandomProjection):
             "random_state"
         ]
 
-    def _more_tags(self):
+    @staticmethod
+    def _more_tags():
         return {
             'preferred_input_order': 'F'
         }

@@ -214,7 +214,8 @@ class MBSGDRegressor(Base, RegressorMixin):
             "n_iter_no_change",
         ]
 
-    def _more_tags(self):
+    @staticmethod
+    def _more_tags():
         return {
             'preferred_input_order': 'F'
         }

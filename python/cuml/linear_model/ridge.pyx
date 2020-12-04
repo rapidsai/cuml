@@ -394,7 +394,8 @@ class Ridge(Base, RegressorMixin):
         return super().get_param_names() + \
             ['solver', 'fit_intercept', 'normalize', 'alpha']
 
-    def _more_tags(self):
+    @staticmethod
+    def _more_tags():
         return {
             'preferred_input_order': 'F'
         }

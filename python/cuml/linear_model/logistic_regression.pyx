@@ -425,7 +425,8 @@ class LogisticRegression(Base, ClassifierMixin):
                                                  verbose=state["verbose"])
         self.__dict__.update(state)
 
-    def _more_tags(self):
+    @staticmethod
+    def _more_tags():
         return {
             'preferred_input_order': 'F'
         }

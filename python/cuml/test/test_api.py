@@ -81,22 +81,10 @@ tags = {
 def test_get_tags(model):
     # This test ensures that our estimators return the tags defined by
     # Scikit-learn and our cuML specific tags
-    # mod = models[model_name]
-    # assert hasattr('_get_tags', m)
 
-    # for tag in tags:
-    #     assert
+    assert hasattr(model, '_get_tags')
 
-    print(model)
-    if model in (cuml.tsa.auto_arima.AutoARIMA, cuml.tsa.arima.ARIMA,
-                 cuml.tsa.holtwinters.ExponentialSmoothing):
-        mod = model(cp.ones(10))
-    else:
-        mod = model()
-
-    assert hasattr(mod, '_get_tags')
-
-    model_tags = mod._get_tags()
+    model_tags = model._get_tags()
     for tag, tag_type in tags.items():
         # preferred input order can be None or a string
         if tag == 'preferred_input_order':

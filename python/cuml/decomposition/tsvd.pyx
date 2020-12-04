@@ -477,7 +477,8 @@ class TruncatedSVD(Base):
         return super().get_param_names() + \
             ["algorithm", "n_components", "n_iter", "random_state", "tol"]
 
-    def _more_tags(self):
+    @staticmethod
+    def _more_tags():
         return {
             'preferred_input_order': 'F'
         }

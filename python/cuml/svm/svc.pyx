@@ -519,7 +519,8 @@ class SVC(SVMBase, ClassifierMixin):
 
         return params
 
-    def _more_tags(self):
+    @staticmethod
+    def _more_tags():
         return {
             'preferred_input_order': 'F'
         }
