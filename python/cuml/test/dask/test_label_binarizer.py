@@ -37,7 +37,7 @@ def test_basic_functions(labels, client):
     s2 = cp.asarray(xform_labels, dtype=np.int32)
     df2 = dask.array.from_array(s2)
 
-    binarizer = LabelBinarizer(client=client, sparse_output=False)
+    binarizer = LabelBinarizer(client=client)
     binarizer.fit(df)
 
     assert array_equal(cp.asnumpy(binarizer.classes_),
