@@ -39,6 +39,33 @@ class KNeighborsRegressor(NearestNeighbors):
     K-Nearest Neighbors Regressor is an instance-based learning technique,
     that keeps training samples around for prediction, rather than trying
     to learn a generalizable set of model parameters.
+
+    Parameters
+    ----------
+    n_neighbors : int (default=5)
+        Default number of neighbors to query
+    algorithm : string (default='brute')
+        The query algorithm to use. Currently, only 'brute' is supported.
+    metric : string (default='euclidean').
+        Distance metric to use.
+    weights : string (default='uniform')
+        Sample weights to use. Currently, only the 'uniform' strategy is
+        supported.
+    handle : cuml.Handle
+        Specifies the cuml.handle that holds internal CUDA state for
+        computations in this model. Most importantly, this specifies the CUDA
+        stream that will be used for the model's computations, so users can
+        run different models concurrently in different streams by creating
+        handles in several streams.
+        If it is None, a new one is created.
+    verbose : int or boolean, default=False
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        See :ref:`verbosity-levels` for more info.
+    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
+        Variable to control output type of the results and attributes of
+        the estimator. If None, it'll inherit the output type set at the
+        module level, `cuml.global_output_type`.
+        See :ref:`output-data-type-configuration` for more info.
     """
     def __init__(self, client=None, streams_per_handle=0,
                  verbose=False, **kwargs):
@@ -198,10 +225,12 @@ class KNeighborsRegressor(NearestNeighbors):
 
         comms.destroy()
 
-        out = to_output(out_futures, self.datatype)
-        out_i = to_output(out_i_futures, self.datatype)
-        out_d = to_output(out_d_futures, self.datatype)
-        return out, out_i, out_d
+        out = to_output(out_futures, self.datatype).squeeze()
+
+        out_i = to_output(out_i_futures, self.datatype)  # noqa: F841
+        out_d = to_output(out_d_futures, self.datatype)  # noqa: F841
+
+        return out
 
     def score(self, X, y):
         """
@@ -221,12 +250,14 @@ class KNeighborsRegressor(NearestNeighbors):
         -------
         score
         """
-        if self.data_handler.datatype == 'cupy':
-            preds, _, _ = self.predict(X, convert_dtype=True)
-            y_mean = y.mean(axis=0)
-            residual_sss = ((y - preds) ** 2).sum(axis=0)
-            total_sss = ((y - y_mean) ** 2).sum(axis=0)
-            r2_score = da.mean(1 - (residual_sss / total_sss))
-            return r2_score.compute()
-        else:
-            raise ValueError("Only Dask arrays are supported")
+        y_pred = self.predict(X, convert_dtype=True)
+        if not isinstance(y_pred, da.Array):
+            y_pred = y_pred.to_dask_array(lengths=True)
+        if not isinstance(y, da.Array):
+            y = y.to_dask_array(lengths=True)
+        y_true = y.squeeze()
+        y_mean = y_true.mean(axis=0)
+        residual_sss = ((y_true - y_pred) ** 2).sum(axis=0, dtype='float64')
+        total_sss = ((y_true - y_mean) ** 2).sum(axis=0, dtype='float64')
+        r2_score = da.mean(1 - (residual_sss / total_sss))
+        return r2_score.compute()

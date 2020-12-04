@@ -53,7 +53,7 @@ gpuci_conda_retry install -c conda-forge -c rapidsai -c rapidsai-nightly -c nvid
       "dask-cudf=${MINOR_VERSION}" \
       "dask-cuda=${MINOR_VERSION}" \
       "ucx-py=${MINOR_VERSION}" \
-      "xgboost=1.2.0dev.rapidsai0.16" \
+      "xgboost=1.3.0dev.rapidsai${MINOR_VERSION}" \
       "rapids-build-env=${MINOR_VERSION}.*" \
       "rapids-notebook-env=${MINOR_VERSION}.*" \
       "rapids-doc-env=${MINOR_VERSION}.*"
@@ -70,8 +70,8 @@ fi
 
 gpuci_logger "Install the master version of dask and distributed"
 set -x
-pip install "git+https://github.com/dask/distributed.git" --upgrade --no-deps
-pip install "git+https://github.com/dask/dask.git" --upgrade --no-deps
+pip install "git+https://github.com/dask/distributed.git@master" --upgrade --no-deps
+pip install "git+https://github.com/dask/dask.git@master" --upgrade --no-deps
 set +x
 
 gpuci_logger "Check compiler versions"
@@ -98,7 +98,7 @@ if [[ -z "$PROJECT_FLASH" || "$PROJECT_FLASH" == "0" ]]; then
     ################################################################################
 
     gpuci_logger "Build from source"
-    $WORKSPACE/build.sh clean libcuml cuml prims bench -v
+    $WORKSPACE/build.sh clean libcuml cuml prims bench -v --codecov
 
     gpuci_logger "Resetting LD_LIBRARY_PATH"
 
@@ -110,9 +110,6 @@ if [[ -z "$PROJECT_FLASH" || "$PROJECT_FLASH" == "0" ]]; then
     ################################################################################
     # TEST - Run GoogleTest and py.tests for libcuml and cuML
     ################################################################################
-    set +e -Eo pipefail
-    EXITCODE=0
-    trap "EXITCODE=1" ERR
     
     if hasArg --skip-tests; then
         gpuci_logger "Skipping Tests"
@@ -139,6 +136,9 @@ if [[ -z "$PROJECT_FLASH" || "$PROJECT_FLASH" == "0" ]]; then
     ################################################################################
     # TEST - Run notebook tests
     ################################################################################
+    set +e -Eo pipefail
+    EXITCODE=0
+    trap "EXITCODE=1" ERR
 
     gpuci_logger "Notebook tests"
     ${WORKSPACE}/ci/gpu/test-notebooks.sh 2>&1 | tee nbtest.log
@@ -186,11 +186,14 @@ else
     patchelf --replace-needed `patchelf --print-needed ./test/ml | grep faiss` libfaiss.so ./test/ml
     GTEST_OUTPUT="xml:${WORKSPACE}/test-results/libcuml_cpp/" ./test/ml
 
-    gpuci_logger "Installing libcuml"
-    conda install -c $WORKSPACE/ci/artifacts/cuml/cpu/conda-bld/ libcuml
+    CONDA_FILE=`find $WORKSPACE/ci/artifacts/cuml/cpu/conda-bld/ -name "libcuml*.tar.bz2"`
+    CONDA_FILE=`basename "$CONDA_FILE" .tar.bz2` #get filename without extension
+    CONDA_FILE=${CONDA_FILE//-/=} #convert to conda install
+    gpuci_logger "Installing $CONDA_FILE"
+    conda install -c $WORKSPACE/ci/artifacts/cuml/cpu/conda-bld/ "$CONDA_FILE"
         
     gpuci_logger "Building cuml"
-    "$WORKSPACE/build.sh" -v cuml
+    "$WORKSPACE/build.sh" -v cuml --codecov
 
     gpuci_logger "Python pytest for cuml"
     cd $WORKSPACE/python
@@ -236,6 +239,10 @@ else
     unset LIBCUML_BUILD_DIR
     $WORKSPACE/build.sh cppdocs -v
 
+fi
+
+if [ -n "\${CODECOV_TOKEN}" ]; then
+    codecov -t \$CODECOV_TOKEN
 fi
 
 return ${EXITCODE}

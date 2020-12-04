@@ -22,7 +22,7 @@ namespace Distance {
 
 template <typename DataType>
 class DistanceExpCos
-  : public DistanceTest<ML::Distance::DistanceType::EucExpandedCosine,
+  : public DistanceTest<raft::distance::DistanceType::EucExpandedCosine,
                         DataType> {};
 
 const std::vector<DistanceInputs<float>> inputsf = {

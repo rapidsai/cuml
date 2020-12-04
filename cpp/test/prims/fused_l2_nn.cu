@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
-#include <common/cudart_utils.h>
 #include <gtest/gtest.h>
-#include <cuda_utils.cuh>
+#include <raft/cudart_utils.h>
 #include <distance/fused_l2_nn.cuh>
-#include <linalg/norm.cuh>
-#include <random/rng.cuh>
+#include <raft/cuda_utils.cuh>
+#include <raft/linalg/norm.cuh>
+#include <raft/random/rng.cuh>
 #include "test_utils.h"
 
 namespace MLCommon {

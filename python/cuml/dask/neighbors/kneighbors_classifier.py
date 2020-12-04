@@ -22,6 +22,7 @@ from cuml.dask.common.utils import raise_mg_import_exception
 from cuml.dask.common.utils import wait_and_raise_from_futures
 from cuml.raft.dask.common.comms import worker_state
 from cuml.dask.neighbors import NearestNeighbors
+from dask.dataframe import Series as DaskSeries
 import dask.array as da
 from uuid import uuid1
 import numpy as np
@@ -40,6 +41,33 @@ class KNeighborsClassifier(NearestNeighbors):
     K-Nearest Neighbors Classifier is an instance-based learning technique,
     that keeps training samples around for prediction, rather than trying
     to learn a generalizable set of model parameters.
+
+    Parameters
+    ----------
+    n_neighbors : int (default=5)
+        Default number of neighbors to query
+    algorithm : string (default='brute')
+        The query algorithm to use. Currently, only 'brute' is supported.
+    metric : string (default='euclidean').
+        Distance metric to use.
+    weights : string (default='uniform')
+        Sample weights to use. Currently, only the 'uniform' strategy is
+        supported.
+    handle : cuml.Handle
+        Specifies the cuml.handle that holds internal CUDA state for
+        computations in this model. Most importantly, this specifies the CUDA
+        stream that will be used for the model's computations, so users can
+        run different models concurrently in different streams by creating
+        handles in several streams.
+        If it is None, a new one is created.
+    verbose : int or boolean, default=False
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        See :ref:`verbosity-levels` for more info.
+    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
+        Variable to control output type of the results and attributes of
+        the estimator. If None, it'll inherit the output type set at the
+        module level, `cuml.global_output_type`.
+        See :ref:`output-data-type-configuration` for more info.
     """
     def __init__(self, client=None, streams_per_handle=0,
                  verbose=False, **kwargs):
@@ -79,9 +107,12 @@ class KNeighborsClassifier(NearestNeighbors):
                 for i in range(n_targets):
                     uniq_labels.append(da.unique(y[:, i]))
         else:
-            n_targets = y.shape[1]
-            for i in range(n_targets):
-                uniq_labels.append(y.iloc[:, i].unique())
+            if isinstance(y, DaskSeries):
+                uniq_labels.append(y.unique())
+            else:
+                n_targets = len(y.columns)
+                for i in range(n_targets):
+                    uniq_labels.append(y.iloc[:, i].unique())
 
         uniq_labels = da.compute(uniq_labels)[0]
         if not isinstance(uniq_labels[0], np.ndarray):  # for cuDF Series
@@ -227,10 +258,11 @@ class KNeighborsClassifier(NearestNeighbors):
 
         comms.destroy()
 
-        out = to_output(out_futures, self.datatype)
-        out_i = to_output(out_i_futures, self.datatype)
-        out_d = to_output(out_d_futures, self.datatype)
-        return out, out_i, out_d
+        out = to_output(out_futures, self.datatype).squeeze()
+        out_i = to_output(out_i_futures, self.datatype)  # noqa: F841
+        out_d = to_output(out_d_futures, self.datatype)  # noqa: F841
+
+        return out
 
     def score(self, X, y, convert_dtype=True):
         """
@@ -252,13 +284,15 @@ class KNeighborsClassifier(NearestNeighbors):
         -------
         score
         """
-        if self.data_handler.datatype == 'cupy':
-            preds, _, _ = self.predict(X, convert_dtype=convert_dtype)
-            diff = (preds == y)
-            mean = da.mean(diff)
-            return mean.compute()
-        else:
-            raise ValueError("Only Dask arrays are supported")
+        y_pred = self.predict(X, convert_dtype=convert_dtype)
+        if not isinstance(y_pred, da.Array):
+            y_pred = y_pred.to_dask_array(lengths=True)
+        if not isinstance(y, da.Array):
+            y = y.to_dask_array(lengths=True)
+        y_true = y.squeeze()
+        matched = (y_pred == y_true)
+        mean_match = matched.mean()
+        return float(mean_match.compute())
 
     def predict_proba(self, X, convert_dtype=True):
         """
@@ -360,4 +394,6 @@ class KNeighborsClassifier(NearestNeighbors):
 
         comms.destroy()
 
+        if n_outputs == 1:
+            return da.concatenate(outputs, axis=0)
         return tuple(outputs)

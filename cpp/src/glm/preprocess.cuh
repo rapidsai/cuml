@@ -16,16 +16,16 @@
 
 #pragma once
 
-#include <common/cudart_utils.h>
+#include <raft/cudart_utils.h>
 #include <common/cumlHandle.hpp>
 #include <common/device_buffer.hpp>
-#include <linalg/gemm.cuh>
-#include <linalg/norm.cuh>
-#include <matrix/math.cuh>
-#include <matrix/matrix.cuh>
-#include <stats/mean.cuh>
-#include <stats/mean_center.cuh>
-#include <stats/stddev.cuh>
+#include <raft/linalg/gemm.cuh>
+#include <raft/linalg/norm.cuh>
+#include <raft/matrix/math.cuh>
+#include <raft/matrix/matrix.cuh>
+#include <raft/stats/mean.cuh>
+#include <raft/stats/mean_center.cuh>
+#include <raft/stats/stddev.cuh>
 
 namespace ML {
 namespace GLM {

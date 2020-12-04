@@ -14,22 +14,22 @@
  * limitations under the License.
  */
 
-#include <common/cudart_utils.h>
+#include <raft/cudart_utils.h>
 #include <common/cumlHandle.hpp>
 #include <common/device_buffer.hpp>
-#include <cuda_utils.cuh>
 #include <cuml/common/cuml_allocator.hpp>
 #include <cuml/decomposition/sign_flip_mg.hpp>
 #include <cuml/decomposition/tsvd.hpp>
 #include <cuml/decomposition/tsvd_mg.hpp>
-#include <linalg/eltwise.cuh>
-#include <matrix/math.cuh>
 #include <opg/linalg/mm_aTa.hpp>
 #include <opg/stats/mean.hpp>
 #include <opg/stats/mean_center.hpp>
 #include <opg/stats/stddev.hpp>
 #include <raft/comms/comms.hpp>
-#include <stats/mean_center.cuh>
+#include <raft/cuda_utils.cuh>
+#include <raft/linalg/eltwise.cuh>
+#include <raft/matrix/math.cuh>
+#include <raft/stats/mean_center.cuh>
 #include "tsvd.cuh"
 
 using namespace MLCommon;
@@ -56,8 +56,7 @@ void fit_impl(raft::handle_t &handle,
   size_t cov_data_size = cov_data.size();
   Matrix::Data<T> cov{cov_data.data(), cov_data_size};
 
-  LinAlg::opg::mm_aTa(cov, input_data, input_desc, comm, allocator, streams,
-                      n_streams, cublas_handle);
+  LinAlg::opg::mm_aTa(handle, cov, input_data, input_desc, streams, n_streams);
 
   device_buffer<T> components_all(allocator, streams[0], len);
   device_buffer<T> explained_var_all(allocator, streams[0], prms.n_cols);
@@ -311,30 +310,25 @@ void fit_transform_impl(raft::handle_t &handle,
                             prms.n_components);
   Matrix::Data<T> mu_trans_data{mu_trans.data(), size_t(prms.n_components)};
 
-  Stats::opg::mean(mu_trans_data, trans_data, trans_desc, handle.get_comms(),
-                   handle.get_device_allocator(), streams, n_streams,
-                   handle.get_cublas_handle());
+  Stats::opg::mean(handle, mu_trans_data, trans_data, trans_desc, streams,
+                   n_streams);
 
   Matrix::Data<T> explained_var_data{explained_var, size_t(prms.n_components)};
 
-  Stats::opg::var(explained_var_data, trans_data, trans_desc, mu_trans_data.ptr,
-                  handle.get_comms(), handle.get_device_allocator(), streams,
-                  n_streams, handle.get_cublas_handle());
+  Stats::opg::var(handle, explained_var_data, trans_data, trans_desc,
+                  mu_trans_data.ptr, streams, n_streams);
 
   device_buffer<T> mu(handle.get_device_allocator(), streams[0], prms.n_rows);
   Matrix::Data<T> mu_data{mu.data(), size_t(prms.n_rows)};
 
-  Stats::opg::mean(mu_data, input_data, input_desc, handle.get_comms(),
-                   handle.get_device_allocator(), streams, n_streams,
-                   handle.get_cublas_handle());
+  Stats::opg::mean(handle, mu_data, input_data, input_desc, streams, n_streams);
 
   device_buffer<T> var_input(handle.get_device_allocator(), streams[0],
                              prms.n_rows);
   Matrix::Data<T> var_input_data{var_input.data(), size_t(prms.n_rows)};
 
-  Stats::opg::var(var_input_data, input_data, input_desc, mu_data.ptr,
-                  handle.get_comms(), handle.get_device_allocator(), streams,
-                  n_streams, handle.get_cublas_handle());
+  Stats::opg::var(handle, var_input_data, input_data, input_desc, mu_data.ptr,
+                  streams, n_streams);
 
   device_buffer<T> total_vars(handle.get_device_allocator(), streams[0], 1);
   raft::stats::sum(total_vars.data(), var_input_data.ptr, 1, prms.n_cols, false,

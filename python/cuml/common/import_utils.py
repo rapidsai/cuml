@@ -70,6 +70,13 @@ def has_xgboost():
         return True
     except ImportError:
         return False
+    except Exception as ex:
+        import warnings
+        warnings.warn(
+            ("The XGBoost library was found but raised an exception during "
+             "import. Importing xgboost will be skipped. "
+             "Error message:\n{}").format(str(ex)))
+        return False
 
 
 def has_pytest_benchmark():
@@ -107,6 +114,18 @@ def has_sklearn():
     try:
         import sklearn   # NOQA
         return True
+    except ImportError:
+        return False
+
+
+def has_shap(min_version=None):
+    try:
+        import shap  # noqa
+        if min_version is None:
+            return True
+        else:
+            return (LooseVersion(str(shap.__version__)) >=
+                    LooseVersion(min_version))
     except ImportError:
         return False
 

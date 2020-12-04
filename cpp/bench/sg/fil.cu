@@ -146,7 +146,7 @@ std::vector<Params> getInputs() {
   set_rf_params(p.rf,  // Output RF parameters
                 1,  // n_trees, just a placeholder value, anyway changed below
                 true,  // bootstrap
-                1.f,   // rows_sample
+                1.f,   // max_samples
                 1234,  // seed
                 8);    // n_streams
 
@@ -157,7 +157,8 @@ std::vector<Params> getInputs() {
                   1,                   // max_features
                   32,                  // n_bins
                   1,                   // split_algo
-                  3,                   // min_rows_per_node
+                  3,                   // min_samples_leaf
+                  3,                   // min_samples_split
                   0.0f,                // min_impurity_decrease
                   true,                // bootstrap_features
                   ML::CRITERION::MSE,  // split_criterion

@@ -104,6 +104,11 @@ Feature Extraction (Single-GPU)
   .. autoclass:: cuml.feature_extraction.text.TfidfVectorizer
     :members:
 
+Feature Extraction (Dask-based Multi-GPU)
+-----------------------------------------
+  .. autoclass:: cuml.dask.feature_extraction.text.TfidfTransformer
+    :members:
+
 Dataset Generation (Single-GPU)
 -------------------------------
   .. glossary::
@@ -156,7 +161,7 @@ Metrics (clustering and trustworthiness)
   .. automodule:: cuml.metrics.trustworthiness
     :members:
 
-  .. automodule:: cuml.metrics.cluster.adjustedrandindex
+  .. automodule:: cuml.metrics.cluster.adjusted_rand_index
     :members:
 
   .. automodule:: cuml.metrics.cluster.entropy
@@ -165,6 +170,9 @@ Metrics (clustering and trustworthiness)
   .. automodule:: cuml.metrics.cluster.homogeneity_score
     :members:
 
+  .. automodule:: cuml.metrics.cluster.silhouette_score
+    :members:
+       
   .. automodule:: cuml.metrics.cluster.completeness_score
     :members:
 
@@ -499,3 +507,12 @@ Preprocessing
       Normalizer, RobustScaler, SimpleImputer, StandardScaler,
       add_dummy_feature, binarize, minmax_scale, normalize,
       PolynomialFeatures, robust_scale, scale
+
+
+Model Explanation (SHAP)
+------------------------
+.. autoclass:: cuml.experimental.explainer.KernelExplainer
+   :members:
+
+.. autoclass:: cuml.experimental.explainer.PermutationExplainer
+   :members:

@@ -28,10 +28,9 @@ namespace SimplSetEmbed {
 using namespace ML;
 
 template <int TPB_X, typename T>
-void run(const T *X, int m, int n, MLCommon::Sparse::COO<T> *coo,
-         UMAPParams *params, T *embedding,
-         std::shared_ptr<deviceAllocator> alloc, cudaStream_t stream,
-         int algorithm = 0) {
+void run(int m, int n, MLCommon::Sparse::COO<T> *coo, UMAPParams *params,
+         T *embedding, std::shared_ptr<deviceAllocator> alloc,
+         cudaStream_t stream, int algorithm = 0) {
   switch (algorithm) {
     case 0:
       SimplSetEmbed::Algo::launcher<TPB_X, T>(m, n, coo, params, embedding,
