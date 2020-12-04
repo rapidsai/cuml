@@ -76,16 +76,11 @@ void ridgeFit(const raft::handle_t &handle, double *input, int n_rows,
  * @param preds         device pointer to store predictions of size n_rows
  * @{
  */
-void olsPredict(const raft::handle_t &handle, const float *input, int n_rows,
+void gemmPredict(const raft::handle_t &handle, const float *input, int n_rows,
                 int n_cols, const float *coef, float intercept, float *preds);
-void olsPredict(const raft::handle_t &handle, const double *input, int n_rows,
+void gemmPredict(const raft::handle_t &handle, const double *input, int n_rows,
                 int n_cols, const double *coef, double intercept,
                 double *preds);
-void ridgePredict(const raft::handle_t &handle, const float *input, int n_rows,
-                  int n_cols, const float *coef, float intercept, float *preds);
-void ridgePredict(const raft::handle_t &handle, const double *input, int n_rows,
-                  int n_cols, const double *coef, double intercept,
-                  double *preds);
 /** @} */
 
 /**

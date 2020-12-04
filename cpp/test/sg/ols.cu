@@ -101,7 +101,7 @@ class OlsTest : public ::testing::TestWithParam<OlsInputs<T>> {
     olsFit(handle, data, params.n_row, params.n_col, labels, coef, &intercept,
            false, false, stream, params.algo);
 
-    olsPredict(handle, pred_data, params.n_row_2, params.n_col, coef, intercept,
+    gemmPredict(handle, pred_data, params.n_row_2, params.n_col, coef, intercept,
                pred, stream);
 
     raft::update_device(data, data_h.data(), len, stream);
@@ -111,7 +111,7 @@ class OlsTest : public ::testing::TestWithParam<OlsInputs<T>> {
     olsFit(handle, data, params.n_row, params.n_col, labels, coef2, &intercept2,
            true, false, stream, params.algo);
 
-    olsPredict(handle, pred_data, params.n_row_2, params.n_col, coef2,
+    gemmPredict(handle, pred_data, params.n_row_2, params.n_col, coef2,
                intercept2, pred2, stream);
 
     raft::update_device(data, data_h.data(), len, stream);
@@ -121,7 +121,7 @@ class OlsTest : public ::testing::TestWithParam<OlsInputs<T>> {
     olsFit(handle, data, params.n_row, params.n_col, labels, coef3, &intercept3,
            true, true, stream, params.algo);
 
-    olsPredict(handle, pred_data, params.n_row_2, params.n_col, coef3,
+    gemmPredict(handle, pred_data, params.n_row_2, params.n_col, coef3,
                intercept3, pred3, stream);
   }
 

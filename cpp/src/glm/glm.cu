@@ -41,17 +41,17 @@ void olsFit(const raft::handle_t &handle, double *input, int n_rows, int n_cols,
   CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 }
 
-void olsPredict(const raft::handle_t &handle, const float *input, int n_rows,
+void gemmPredict(const raft::handle_t &handle, const float *input, int n_rows,
                 int n_cols, const float *coef, float intercept, float *preds) {
-  olsPredict(handle, input, n_rows, n_cols, coef, intercept, preds,
+  gemmPredict(handle, input, n_rows, n_cols, coef, intercept, preds,
              handle.get_stream());
   CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 }
 
-void olsPredict(const raft::handle_t &handle, const double *input, int n_rows,
+void gemmPredict(const raft::handle_t &handle, const double *input, int n_rows,
                 int n_cols, const double *coef, double intercept,
                 double *preds) {
-  olsPredict(handle, input, n_rows, n_cols, coef, intercept, preds,
+  gemmPredict(handle, input, n_rows, n_cols, coef, intercept, preds,
              handle.get_stream());
   CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 }
@@ -70,22 +70,6 @@ void ridgeFit(const raft::handle_t &handle, double *input, int n_rows,
               bool normalize, int algo) {
   ridgeFit(handle, input, n_rows, n_cols, labels, alpha, n_alpha, coef,
            intercept, fit_intercept, normalize, handle.get_stream(), algo);
-  CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
-}
-
-void ridgePredict(const raft::handle_t &handle, const float *input, int n_rows,
-                  int n_cols, const float *coef, float intercept,
-                  float *preds) {
-  ridgePredict(handle, input, n_rows, n_cols, coef, intercept, preds,
-               handle.get_stream());
-  CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
-}
-
-void ridgePredict(const raft::handle_t &handle, const double *input, int n_rows,
-                  int n_cols, const double *coef, double intercept,
-                  double *preds) {
-  ridgePredict(handle, input, n_rows, n_cols, coef, intercept, preds,
-               handle.get_stream());
   CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 }
 
