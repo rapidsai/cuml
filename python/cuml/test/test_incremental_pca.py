@@ -38,7 +38,7 @@ from cuml.test.utils import array_equal
         (500, 250, 14, True, 0.07, 'csr', 1, True),
     ]
 )
-@pytest.mark.no_bad_cuml_array_check
+
 def test_fit(nrows, ncols, n_components, sparse_input, density,
              sparse_format, batch_size_divider, whiten):
 
@@ -82,7 +82,7 @@ def test_fit(nrows, ncols, n_components, sparse_input, density,
         (5000, 4, 2, 0.1, 100, False)
     ]
 )
-@pytest.mark.no_bad_cuml_array_check
+
 def test_partial_fit(nrows, ncols, n_components, density,
                      batch_size_divider, whiten):
 
