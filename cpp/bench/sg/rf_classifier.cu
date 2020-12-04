@@ -86,7 +86,7 @@ std::vector<Params> getInputs() {
   set_rf_params(p.rf,  // Output RF parameters
                 500,   // n_trees
                 true,  // bootstrap
-                1.f,   // rows_sample
+                1.f,   // max_samples
                 1234,  // seed
                 8);    // n_streams
 
