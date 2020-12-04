@@ -30,7 +30,6 @@ from cuml.metrics import accuracy_score as cu_acc_score
 from cuml.test.utils import get_handle, get_pattern, array_equal, \
     unit_param, quality_param, stress_param, generate_random_labels, \
     score_labeling_with_handle
-from cupy.testing import assert_allclose
 
 from numba import cuda
 from numpy.testing import assert_almost_equal
