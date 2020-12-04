@@ -96,6 +96,7 @@
 - PR #3185: Add documentation for Distributed TFIDF Transformer
 - PR #3190: Fix Attribute error on ICPA #3183 and PCA input type
 - PR #3208: Fix EXITCODE override in notebook test script
+- PR #3250: Fixing label binarizer bug with multiple partitions
 - PR #3214: Correct flaky silhouette score test by setting atol
 - PR #3216: Ignore splits that do not satisfy constraints
 - PR #3239: Fix intermittent dask random forest failure
