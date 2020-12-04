@@ -22,7 +22,10 @@ from cuml.metrics.cluster.completeness_score import \
 from cuml.metrics.cluster.mutual_info_score import \
    cython_mutual_info_score as mutual_info_score
 from cuml.metrics.cluster.entropy import cython_entropy as entropy
-from cuml.metrics.cluster.silhouette_score import \
-    cython_silhouette_score as silhouette_score
+
+# Temporarily disabled due to memory issue in C++ implementation. See
+# https://github.com/rapidsai/cuml/issues/3255
+# from cuml.metrics.cluster.silhouette_score import \
+#     cython_silhouette_score as silhouette_score
 # from cuml.metrics.cluster.silhouette_score import \
 #     cython_silhouette_samples as silhouette_samples
