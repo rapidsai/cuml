@@ -32,10 +32,13 @@ def test_basic_functions(labels, client):
     fit_labels, xform_labels = labels
 
     s = cp.asarray(fit_labels, dtype=np.int32)
-    df = dask.array.from_array(s)
+    df = dask.array.from_array(s).rechunk((1,))
 
     s2 = cp.asarray(xform_labels, dtype=np.int32)
-    df2 = dask.array.from_array(s2)
+    df2 = dask.array.from_array(s2).rechunk((1,))
+
+
+
 
     binarizer = LabelBinarizer(client=client, sparse_output=False)
     binarizer.fit(df)
