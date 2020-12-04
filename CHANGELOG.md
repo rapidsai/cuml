@@ -1,7 +1,6 @@
 # cuML 0.17.0 (Date TBD)
 
 ## New Features
-- PR #3164: Expose silhouette score in Python (REMOVED in #3258)
 - PR #3160: Least Angle Regression (experimental)
 - PR #2659: Add initial max inner product sparse knn
 - PR #2836: Refactor UMAP to accept sparse inputs
