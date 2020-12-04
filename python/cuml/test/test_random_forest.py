@@ -977,3 +977,23 @@ def test_rf_nbins_small(small_clf):
     # random forest classification model
     cuml_model = curfc()
     cuml_model.fit(X_train[0:3, :], y_train[0:3])
+
+
+@pytest.mark.parametrize('split_criterion', [2, 3], ids=['mse', 'mae'])
+@pytest.mark.parametrize('use_experimental_backend', [True, False])
+def test_rf_regression_with_identical_labels(split_criterion,
+                                             use_experimental_backend):
+    X = np.array([[-1, 0], [0, 1], [2, 0], [0, 3], [-2, 0]], dtype=np.float32)
+    y = np.array([1, 1, 1, 1, 1], dtype=np.float32)
+    # Degenerate case: all labels are identical.
+    # RF Regressor must not create any split. It must yield an empty tree
+    # with only the root node.
+    clf = curfr(max_features=1.0, rows_sample=1.0, n_bins=5, split_algo=1,
+                bootstrap=False, split_criterion=split_criterion,
+                min_samples_leaf=1, min_samples_split=2, random_state=0,
+                n_streams=1, n_estimators=1, max_depth=1,
+                use_experimental_backend=use_experimental_backend)
+    clf.fit(X, y)
+    model_dump = json.loads(clf.dump_as_json())
+    assert len(model_dump) == 1
+    assert model_dump[0] == {'nodeid': 0, 'leaf_value': 1.0}
