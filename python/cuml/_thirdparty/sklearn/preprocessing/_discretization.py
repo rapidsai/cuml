@@ -21,13 +21,15 @@ import warnings
 from cuml.preprocessing import OneHotEncoder
 from cuml.cluster import KMeans
 
-from ..utils.skl_dependencies import BaseEstimator, TransformerMixin
+from ..utils.skl_dependencies import BaseEstimator, TransformerMixin, \
+                                     cuml_estimator
 from ..utils.validation import check_is_fitted
 from ..utils.validation import FLOAT_DTYPES
 from ..utils.validation import _deprecate_positional_args
 from ....thirdparty_adapters import check_array, get_input_type, \
                                     to_output_type
 from ....common.import_utils import check_cupy8
+from ....common.array_descriptor import CumlArrayDescriptor
 
 
 def digitize(x, bins):
@@ -43,7 +45,7 @@ def digitize(x, bins):
     out[matched] = len(bins)
     return out
 
-
+@cuml_estimator
 class KBinsDiscretizer(TransformerMixin, BaseEstimator):
     """
     Bin continuous data into intervals.
@@ -140,6 +142,9 @@ class KBinsDiscretizer(TransformerMixin, BaseEstimator):
 
     """
 
+    bin_edges_ = CumlArrayDescriptor()
+    n_bins_ = CumlArrayDescriptor()
+
     @check_cupy8()
     @_deprecate_positional_args
     def __init__(self, n_bins=5, *, encode='onehot', strategy='quantile'):
@@ -147,7 +152,13 @@ class KBinsDiscretizer(TransformerMixin, BaseEstimator):
         self.encode = encode
         self.strategy = strategy
 
-    def fit(self, X, y=None):
+    def get_param_names(self):
+      return super().get_param_names() + [
+         "bin_edges_",
+         "n_bins_",
+      ]
+
+    def fit(self, X, y=None) -> "KBinsDiscretizer":
         """
         Fit the estimator.
 

@@ -19,11 +19,13 @@ from cupy import sparse
 from ....thirdparty_adapters import (get_input_type, to_output_type, _get_mask,
                                      _masked_column_median,
                                      _masked_column_mean, _masked_column_mode)
-from ..utils.skl_dependencies import BaseEstimator, TransformerMixin
+from ..utils.skl_dependencies import BaseEstimator, TransformerMixin, \
+                                     cuml_estimator
 from ..utils.validation import check_is_fitted
 from ..utils.validation import FLOAT_DTYPES
 from ..utils.validation import _deprecate_positional_args
 from ....common.import_utils import check_cupy8
+from ....common.array_descriptor import CumlArrayDescriptor
 
 
 def is_scalar_nan(x):
@@ -84,7 +86,7 @@ def _most_frequent(array, extra_value, n_repeat):
     return value
 
 
-class _BaseImputer(TransformerMixin, BaseEstimator):
+class _BaseImputer(TransformerMixin):
     """Base class for all imputers.
 
     It adds automatically support for `add_indicator`.
@@ -136,8 +138,8 @@ class _BaseImputer(TransformerMixin, BaseEstimator):
     def _more_tags(self):
         return {'allow_nan': is_scalar_nan(self.missing_values)}
 
-
-class SimpleImputer(_BaseImputer):
+@cuml_estimator
+class SimpleImputer(_BaseImputer, BaseEstimator):
     """Imputation transformer for completing missing values.
 
     Parameters
@@ -219,6 +221,10 @@ class SimpleImputer(_BaseImputer):
     upon :meth:`transform` if strategy is not "constant".
 
     """
+
+    statistics_ = CumlArrayDescriptor()
+    features_ = CumlArrayDescriptor()
+
     @check_cupy8()
     @_deprecate_positional_args
     def __init__(self, *, missing_values=np.nan, strategy="mean",
@@ -231,6 +237,12 @@ class SimpleImputer(_BaseImputer):
         self.fill_value = fill_value
         self.verbose = verbose
         self.copy = copy
+
+    def get_param_names(self):
+      return super().get_param_names() + [
+         "statistics_",
+         "features_",
+      ]
 
     def _validate_input(self, X, in_fit):
         allowed_strategies = ["mean", "median", "most_frequent", "constant"]
@@ -273,7 +285,7 @@ class SimpleImputer(_BaseImputer):
 
         return X
 
-    def fit(self, X, y=None):
+    def fit(self, X, y=None) -> "SimpleImputer":
         """Fit the imputer on X.
 
         Parameters
@@ -445,7 +457,7 @@ class SimpleImputer(_BaseImputer):
         X = to_output_type(X, output_type)
         return X
 
-
+@cuml_estimator
 class MissingIndicator(TransformerMixin, BaseEstimator):
     """Binary indicators for missing values.
 
@@ -635,7 +647,7 @@ class MissingIndicator(TransformerMixin, BaseEstimator):
 
         return missing_features_info[0]
 
-    def fit(self, X, y=None):
+    def fit(self, X, y=None) -> "MissingIndicator":
         """Fit the transformer on X.
 
         Parameters
