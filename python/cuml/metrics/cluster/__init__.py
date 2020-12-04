@@ -24,5 +24,5 @@ from cuml.metrics.cluster.mutual_info_score import \
 from cuml.metrics.cluster.entropy import cython_entropy as entropy
 from cuml.metrics.cluster.silhouette_score import \
     cython_silhouette_score as silhouette_score
-from cuml.metrics.cluster.silhouette_score import \
-    cython_silhouette_samples as silhouette_samples
+# from cuml.metrics.cluster.silhouette_score import \
+#     cython_silhouette_samples as silhouette_samples
