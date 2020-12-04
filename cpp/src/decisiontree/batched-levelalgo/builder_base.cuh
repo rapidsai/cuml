@@ -169,7 +169,7 @@ struct Builder {
       maxNodes = 8191;
     }
 
-    if (isRegression() && params.split_criterion == CRITERION::MAE) {
+    if (isRegression()) {
       dim3 grid(n_blks_for_rows, n_col_blks, max_batch);
       block_sync_size = MLCommon::GridSync::computeWorkspaceSize(
         grid, MLCommon::SyncType::ACROSS_X, false);
@@ -420,6 +420,7 @@ struct ClsTraits {
     computeSplitClassificationKernel<DataT, LabelT, IdxT, TPB_DEFAULT>
       <<<grid, TPB_DEFAULT, smemSize, s>>>(
         b.hist, b.params.n_bins, b.params.max_depth, b.params.min_samples_split,
+        b.params.min_samples_leaf, b.params.min_impurity_decrease,
         b.params.max_leaves, b.input, b.curr_nodes, col, b.done_count, b.mutex,
         b.n_leaves, b.splits, splitType);
     ML::POP_RANGE();  //computeSplitClassificationKernel
@@ -489,12 +490,9 @@ struct RegTraits {
 
     CUDA_CHECK(
       cudaMemsetAsync(b.pred, 0, sizeof(DataT) * b.nPredCounts * 2, s));
-    if (splitType == CRITERION::MAE) {
-      CUDA_CHECK(
-        cudaMemsetAsync(b.pred2, 0, sizeof(DataT) * b.nPredCounts * 2, s));
-      CUDA_CHECK(
-        cudaMemsetAsync(b.pred2P, 0, sizeof(DataT) * b.nPredCounts, s));
-    }
+    CUDA_CHECK(
+      cudaMemsetAsync(b.pred2, 0, sizeof(DataT) * b.nPredCounts * 2, s));
+    CUDA_CHECK(cudaMemsetAsync(b.pred2P, 0, sizeof(DataT) * b.nPredCounts, s));
     CUDA_CHECK(
       cudaMemsetAsync(b.pred_count, 0, sizeof(IdxT) * b.nPredCounts, s));
 
@@ -503,10 +501,10 @@ struct RegTraits {
     computeSplitRegressionKernel<DataT, DataT, IdxT, TPB_DEFAULT>
       <<<grid, TPB_DEFAULT, smemSize, s>>>(
         b.pred, b.pred2, b.pred2P, b.pred_count, b.params.n_bins,
-        b.params.max_depth, b.params.min_samples_split, b.params.max_leaves,
-        b.input, b.curr_nodes, col, b.done_count, b.mutex, b.n_leaves, b.splits,
-        b.block_sync, splitType);
-
+        b.params.max_depth, b.params.min_samples_split,
+        b.params.min_samples_leaf, b.params.min_impurity_decrease,
+        b.params.max_leaves, b.input, b.curr_nodes, col, b.done_count, b.mutex,
+        b.n_leaves, b.splits, b.block_sync, splitType);
     ML::POP_RANGE();  //computeSplitRegressionKernel
     ML::POP_RANGE();  //Builder::computeSplit
   }

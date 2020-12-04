@@ -155,14 +155,14 @@ void postprocess_labels(int n_rows, std::vector<int>& labels,
  * @param[in,out] params: update with random forest parameters
  * @param[in] cfg_n_trees: number of trees; default 1
  * @param[in] cfg_bootstrap: bootstrapping; default true
- * @param[in] cfg_rows_sample: rows sample; default 1.0f
+ * @param[in] cfg_max_samples: rows sample; default 1.0f
  * @param[in] cfg_n_streams: No of parallel CUDA for training forest
  */
 void set_rf_params(RF_params& params, int cfg_n_trees, bool cfg_bootstrap,
-                   float cfg_rows_sample, int cfg_seed, int cfg_n_streams) {
+                   float cfg_max_samples, int cfg_seed, int cfg_n_streams) {
   params.n_trees = cfg_n_trees;
   params.bootstrap = cfg_bootstrap;
-  params.rows_sample = cfg_rows_sample;
+  params.max_samples = cfg_max_samples;
   params.seed = cfg_seed;
   params.n_streams = min(cfg_n_streams, omp_get_max_threads());
   if (params.n_streams == cfg_n_streams) {
@@ -178,16 +178,16 @@ void set_rf_params(RF_params& params, int cfg_n_trees, bool cfg_bootstrap,
  * @param[in,out] params: update with random forest parameters
  * @param[in] cfg_n_trees: number of trees
  * @param[in] cfg_bootstrap: bootstrapping
- * @param[in] cfg_rows_sample: rows sample
+ * @param[in] cfg_max_samples: rows sample
  * @param[in] cfg_n_streams: No of parallel CUDA for training forest
  * @param[in] cfg_tree_params: tree parameters
  */
 void set_all_rf_params(RF_params& params, int cfg_n_trees, bool cfg_bootstrap,
-                       float cfg_rows_sample, int cfg_seed, int cfg_n_streams,
+                       float cfg_max_samples, int cfg_seed, int cfg_n_streams,
                        DecisionTree::DecisionTreeParams cfg_tree_params) {
   params.n_trees = cfg_n_trees;
   params.bootstrap = cfg_bootstrap;
-  params.rows_sample = cfg_rows_sample;
+  params.max_samples = cfg_max_samples;
   params.seed = cfg_seed;
   params.n_streams = min(cfg_n_streams, omp_get_max_threads());
   if (cfg_n_trees < params.n_streams) params.n_streams = cfg_n_trees;
@@ -201,9 +201,9 @@ void set_all_rf_params(RF_params& params, int cfg_n_trees, bool cfg_bootstrap,
  */
 void validity_check(const RF_params rf_params) {
   ASSERT((rf_params.n_trees > 0), "Invalid n_trees %d", rf_params.n_trees);
-  ASSERT((rf_params.rows_sample > 0) && (rf_params.rows_sample <= 1.0),
-         "rows_sample value %f outside permitted (0, 1] range",
-         rf_params.rows_sample);
+  ASSERT((rf_params.max_samples > 0) && (rf_params.max_samples <= 1.0),
+         "max_samples value %f outside permitted (0, 1] range",
+         rf_params.max_samples);
   DecisionTree::validity_check(rf_params.tree_params);
 }
 
@@ -215,7 +215,7 @@ void print(const RF_params rf_params) {
   ML::PatternSetter _("%v");
   CUML_LOG_DEBUG("n_trees: %d", rf_params.n_trees);
   CUML_LOG_DEBUG("bootstrap: %d", rf_params.bootstrap);
-  CUML_LOG_DEBUG("rows_sample: %f", rf_params.rows_sample);
+  CUML_LOG_DEBUG("max_samples: %f", rf_params.max_samples);
   CUML_LOG_DEBUG("n_streams: %d", rf_params.n_streams);
   DecisionTree::print(rf_params.tree_params);
 }
@@ -619,7 +619,7 @@ RF_params set_rf_class_obj(int max_depth, int max_leaves, float max_features,
                            int n_bins, int split_algo, int min_samples_leaf,
                            int min_samples_split, float min_impurity_decrease,
                            bool bootstrap_features, bool bootstrap, int n_trees,
-                           float rows_sample, int seed,
+                           float max_samples, int seed,
                            CRITERION split_criterion, bool quantile_per_tree,
                            int cfg_n_streams, bool use_experimental_backend,
                            int max_batch_size) {
@@ -630,7 +630,7 @@ RF_params set_rf_class_obj(int max_depth, int max_leaves, float max_features,
     bootstrap_features, split_criterion, quantile_per_tree,
     use_experimental_backend, max_batch_size);
   RF_params rf_params;
-  set_all_rf_params(rf_params, n_trees, bootstrap, rows_sample, seed,
+  set_all_rf_params(rf_params, n_trees, bootstrap, max_samples, seed,
                     cfg_n_streams, tree_params);
   return rf_params;
 }
