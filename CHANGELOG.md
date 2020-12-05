@@ -94,6 +94,7 @@
 - PR #3182: Fix a bug in MSE metric calculation
 - PR #3187: Update docstring to document behavior of `bootstrap=False`
 - PR #3215: Add a missing `__syncthreads()`
+- PR #3246: Fix MNMG KNN doc (adding batch_size)
 - PR #3185: Add documentation for Distributed TFIDF Transformer
 - PR #3190: Fix Attribute error on ICPA #3183 and PCA input type
 - PR #3208: Fix EXITCODE override in notebook test script
