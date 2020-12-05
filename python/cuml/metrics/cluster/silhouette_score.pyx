@@ -43,6 +43,14 @@ def _silhouette_coeff(
     """Function wrapped by silhouette_score and silhouette_samples to compute
     silhouette coefficients
 
+    Warning
+    -------
+    The underlying silhouette_score implementation's memory usage is quadratic
+    in the number of samples, so this call will fail on anything more than a
+    modest-size input (relative to available GPU memory). This issue is being
+    tracked at https://github.com/rapidsai/cuml/issues/3255 and will be fixed
+    in an upcoming release.
+
     Parameters
     ----------
     X : array-like, shape = (n_samples, n_features)
@@ -117,6 +125,14 @@ def cython_silhouette_score(
     distance (b) for each sample. The silhouette coefficient for a sample is
     then (b - a) / max(a, b).
 
+    Warning
+    -------
+    The underlying silhouette_score implementation's memory usage is quadratic
+    in the number of samples, so this call will fail on anything more than a
+    modest-size input (relative to available GPU memory). This issue is being
+    tracked at https://github.com/rapidsai/cuml/issues/3255 and will be fixed
+    in an upcoming release.
+
     Parameters
     ----------
     X : array-like, shape = (n_samples, n_features)
@@ -152,6 +168,14 @@ def cython_silhouette_samples(
     compute the mean intra-cluster distance (a) and the mean nearest-cluster
     distance (b) for each sample. The silhouette coefficient for a sample is
     then (b - a) / max(a, b).
+
+    Warning
+    -------
+    The underlying silhouette_score implementation's memory usage is quadratic
+    in the number of samples, so this call will fail on anything more than a
+    modest-size input (relative to available GPU memory). This issue is being
+    tracked at https://github.com/rapidsai/cuml/issues/3255 and will be fixed
+    in an upcoming release.
 
     Parameters
     ----------
