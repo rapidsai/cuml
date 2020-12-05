@@ -150,7 +150,7 @@ class NearestNeighborsMG(NearestNeighbors):
     The end-user API for multi-node multi-GPU NearestNeighbors is
     `cuml.dask.neighbors.NearestNeighbors`
     """
-    def __init__(self, batch_size=1 << 21, **kwargs):
+    def __init__(self, batch_size=2000000, **kwargs):
         super(NearestNeighborsMG, self).__init__(**kwargs)
         self.batch_size = batch_size
 
