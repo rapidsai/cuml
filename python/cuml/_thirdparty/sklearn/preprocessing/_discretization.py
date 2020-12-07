@@ -26,9 +26,9 @@ from ..utils.skl_dependencies import BaseEstimator, TransformerMixin, \
 from ..utils.validation import check_is_fitted
 from ..utils.validation import FLOAT_DTYPES
 from ..utils.validation import _deprecate_positional_args
-from ....thirdparty_adapters import check_array, get_input_type, \
-                                    to_output_type
+from ....thirdparty_adapters import check_array, get_input_type
 from ....common.import_utils import check_cupy8
+from cuml.common.array_sparse import SparseCumlArray
 from ....common.array_descriptor import CumlArrayDescriptor
 
 
@@ -281,7 +281,7 @@ class KBinsDiscretizer(TransformerMixin, BaseEstimator):
                              .format(KBinsDiscretizer.__name__, indices))
         return n_bins
 
-    def transform(self, X):
+    def transform(self, X) -> SparseCumlArray:
         """
         Discretize the data.
 
@@ -319,15 +319,15 @@ class KBinsDiscretizer(TransformerMixin, BaseEstimator):
 
         Xt = Xt.astype(np.int32)
         if self.encode == 'ordinal':
-            return to_output_type(Xt, output_type)
+            return Xt
 
         Xt = self._encoder.transform(Xt)
         if self.encode == 'onehot':
             return Xt
         else:
-            return to_output_type(Xt, output_type)
+            return Xt
 
-    def inverse_transform(self, Xt):
+    def inverse_transform(self, Xt) -> SparseCumlArray:
         """
         Transform discretized data back to original feature space.
 
@@ -366,7 +366,7 @@ class KBinsDiscretizer(TransformerMixin, BaseEstimator):
 
         if not sparse_input:
             # Dense input -> Dense output in correct format
-            return to_output_type(Xinv, output_type)
+            return Xinv
         else:
             # Sparse input -> Dense CuPy output
             return Xinv

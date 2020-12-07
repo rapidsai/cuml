@@ -16,7 +16,7 @@ import warnings
 import cupy as np
 from cupy import sparse
 
-from ....thirdparty_adapters import (get_input_type, to_output_type, _get_mask,
+from ....thirdparty_adapters import (get_input_type, _get_mask,
                                      _masked_column_median,
                                      _masked_column_mean, _masked_column_mode)
 from ..utils.skl_dependencies import BaseEstimator, TransformerMixin, \
@@ -25,6 +25,7 @@ from ..utils.validation import check_is_fitted
 from ..utils.validation import FLOAT_DTYPES
 from ..utils.validation import _deprecate_positional_args
 from ....common.import_utils import check_cupy8
+from cuml.common.array_sparse import SparseCumlArray
 from ....common.array_descriptor import CumlArrayDescriptor
 
 
@@ -393,7 +394,7 @@ class SimpleImputer(_BaseImputer, BaseEstimator):
         elif strategy == "constant":
             return np.full(X.shape[1], fill_value, dtype=X.dtype)
 
-    def transform(self, X):
+    def transform(self, X) -> SparseCumlArray:
         """Impute all missing values in X.
 
         Parameters
@@ -454,7 +455,6 @@ class SimpleImputer(_BaseImputer, BaseEstimator):
                     X[feature_idxs, vi] = valid_statistics[i]
 
         X = super()._concatenate_indicator(X, X_indicator)
-        X = to_output_type(X, output_type)
         return X
 
 @cuml_estimator
@@ -665,7 +665,7 @@ class MissingIndicator(TransformerMixin, BaseEstimator):
 
         return self
 
-    def transform(self, X):
+    def transform(self, X) -> SparseCumlArray:
         """Generate missing values indicator for X.
 
         Parameters

@@ -27,7 +27,7 @@ from scipy import optimize
 from scipy.special import boxcox
 
 from ..utils.skl_dependencies import BaseEstimator, TransformerMixin, \
-                                     cuml_estimator
+                                     cuml_estimator, cuml_function
 from ....thirdparty_adapters import check_array, get_input_type, \
                                     to_output_type
 from ..utils.extmath import row_norms
@@ -46,6 +46,7 @@ from ....common.import_utils import check_cupy8
 
 from cuml.common.array import CumlArray
 from cuml.common.array_sparse import SparseCumlArray
+from cuml.internals import api_return_array, api_return_sparse_array
 from ....common.array_descriptor import CumlArrayDescriptor
 
 
@@ -92,7 +93,8 @@ def _handle_zeros_in_scale(scale, copy=True):
 
 
 @_deprecate_positional_args
-def scale(X, *, axis=0, with_mean=True, with_std=True, copy=True):
+@cuml_function
+def scale(X, *, axis=0, with_mean=True, with_std=True, copy=True) -> SparseCumlArray:
     """Standardize a dataset along any axis
 
     Center to the mean and component wise scale to unit variance.
@@ -202,7 +204,6 @@ def scale(X, *, axis=0, with_mean=True, with_std=True, copy=True):
                                   "very close to 0. ")
                     Xr -= mean_2
 
-    X = to_output_type(X, output_type)
     return X
 
 @cuml_estimator
@@ -343,7 +344,7 @@ class MinMaxScaler(TransformerMixin, BaseEstimator):
         self._reset()
         return self.partial_fit(X, y)
 
-    def partial_fit(self, X, y=None):
+    def partial_fit(self, X, y=None) -> "MinMaxScaler":
         """Online computation of min and max on X for later scaling.
 
         All of X is processed as a single batch. This is intended for cases
@@ -393,7 +394,7 @@ class MinMaxScaler(TransformerMixin, BaseEstimator):
         self.data_range_ = data_range
         return self
 
-    def transform(self, X):
+    def transform(self, X) -> CumlArray:
         """Scale features of X according to feature_range.
 
         Parameters
@@ -415,10 +416,9 @@ class MinMaxScaler(TransformerMixin, BaseEstimator):
         X *= self.scale_
         X += self.min_
 
-        X = to_output_type(X, output_type)
         return X
 
-    def inverse_transform(self, X):
+    def inverse_transform(self, X) -> CumlArray:
         """Undo the scaling of X according to feature_range.
 
         Parameters
@@ -440,7 +440,6 @@ class MinMaxScaler(TransformerMixin, BaseEstimator):
         X -= self.min_
         X /= self.scale_
 
-        X = to_output_type(X, output_type)
         return X
 
     def _more_tags(self):
@@ -448,6 +447,7 @@ class MinMaxScaler(TransformerMixin, BaseEstimator):
 
 
 @_deprecate_positional_args
+@cuml_function
 def minmax_scale(X, feature_range=(0, 1), *, axis=0, copy=True):
     """Transform features by scaling each feature to a given range.
 
@@ -510,7 +510,6 @@ def minmax_scale(X, feature_range=(0, 1), *, axis=0, copy=True):
     if original_ndim == 1:
         X = X.ravel()
 
-    X = to_output_type(X, output_type)
     return X
 
 @cuml_estimator
@@ -668,7 +667,7 @@ class StandardScaler(TransformerMixin, BaseEstimator):
         self._reset()
         return self.partial_fit(X, y)
 
-    def partial_fit(self, X, y=None):
+    def partial_fit(self, X, y=None) -> "StandardScaler":
         """
         Online computation of mean and std on X for later scaling.
 
@@ -788,7 +787,7 @@ class StandardScaler(TransformerMixin, BaseEstimator):
 
         return self
 
-    def transform(self, X, copy=None):
+    def transform(self, X, copy=None) -> SparseCumlArray:
         """Perform standardization by centering and scaling
 
         Parameters
@@ -822,10 +821,9 @@ class StandardScaler(TransformerMixin, BaseEstimator):
             if self.with_std:
                 X /= self.scale_
 
-        X = to_output_type(X, output_type)
         return X
 
-    def inverse_transform(self, X, copy=None):
+    def inverse_transform(self, X, copy=None) -> SparseCumlArray:
         """Scale back the data to the original representation
 
         Parameters
@@ -871,7 +869,6 @@ class StandardScaler(TransformerMixin, BaseEstimator):
             if self.with_mean:
                 X += self.mean_
 
-        X = to_output_type(X, output_type)
         return X
 
     def _more_tags(self):
@@ -973,7 +970,7 @@ class MaxAbsScaler(TransformerMixin, BaseEstimator):
         self._reset()
         return self.partial_fit(X, y)
 
-    def partial_fit(self, X, y=None):
+    def partial_fit(self, X, y=None) -> "MaxAbsScaler":
         """
         Online computation of max absolute value of X for later scaling.
 
@@ -1017,7 +1014,7 @@ class MaxAbsScaler(TransformerMixin, BaseEstimator):
         self.scale_ = _handle_zeros_in_scale(max_abs)
         return self
 
-    def transform(self, X):
+    def transform(self, X) -> SparseCumlArray:
         """Scale the data
 
         Parameters
@@ -1037,10 +1034,9 @@ class MaxAbsScaler(TransformerMixin, BaseEstimator):
         else:
             X /= self.scale_
 
-        X = to_output_type(X, output_type)
         return X
 
-    def inverse_transform(self, X):
+    def inverse_transform(self, X) -> SparseCumlArray:
         """Scale back the data to the original representation
 
         Parameters
@@ -1060,7 +1056,6 @@ class MaxAbsScaler(TransformerMixin, BaseEstimator):
         else:
             X *= self.scale_
 
-        X = to_output_type(X, output_type)
         return X
 
     def _more_tags(self):
@@ -1069,6 +1064,7 @@ class MaxAbsScaler(TransformerMixin, BaseEstimator):
 
 @check_cupy8()
 @_deprecate_positional_args
+@cuml_function
 def maxabs_scale(X, *, axis=0, copy=True):
     """Scale each feature to the [-1, 1] range without breaking the sparsity.
 
@@ -1273,7 +1269,7 @@ class RobustScaler(TransformerMixin, BaseEstimator):
 
         return self
 
-    def transform(self, X):
+    def transform(self, X) -> SparseCumlArray:
         """Center and scale the data.
 
         Parameters
@@ -1296,9 +1292,9 @@ class RobustScaler(TransformerMixin, BaseEstimator):
                 X -= self.center_
             if self.with_scaling:
                 X /= self.scale_
-        return to_output_type(X, output_type)
+        return X
 
-    def inverse_transform(self, X):
+    def inverse_transform(self, X) -> SparseCumlArray:
         """Scale back the data to the original representation
 
         Parameters
@@ -1321,13 +1317,14 @@ class RobustScaler(TransformerMixin, BaseEstimator):
                 X *= self.scale_
             if self.with_centering:
                 X += self.center_
-        return to_output_type(X, output_type)
+        return X
 
     def _more_tags(self):
         return {'allow_nan': True}
 
 
 @_deprecate_positional_args
+@cuml_function
 def robust_scale(X, *, axis=0, with_centering=True, with_scaling=True,
                  quantile_range=(25.0, 75.0), copy=True):
     """
@@ -1398,7 +1395,7 @@ def robust_scale(X, *, axis=0, with_centering=True, with_scaling=True,
     if original_ndim == 1:
         X = X.ravel()
 
-    return to_output_type(X, output_type)
+    return X
 
 @cuml_estimator
 class PolynomialFeatures(TransformerMixin, BaseEstimator):
@@ -1555,7 +1552,7 @@ class PolynomialFeatures(TransformerMixin, BaseEstimator):
         self.n_output_features_ = sum(1 for _ in combinations)
         return self
 
-    def transform(self, X):
+    def transform(self, X) -> SparseCumlArray:
         """Transform data to polynomial features
 
         Parameters
@@ -1688,6 +1685,7 @@ class PolynomialFeatures(TransformerMixin, BaseEstimator):
 
 @check_cupy8()
 @_deprecate_positional_args
+@cuml_function
 def normalize(X, norm='l2', *, axis=1, copy=True, return_norm=False):
     """Scale input vectors individually to unit norm (vector length).
 
@@ -1772,12 +1770,7 @@ def normalize(X, norm='l2', *, axis=1, copy=True, return_norm=False):
     if axis == 0:
         X = X.T
 
-    X = to_output_type(X, output_type)
     if return_norm:
-        if output_type in {'dataframe', 'series'}:
-            norms = to_output_type(norms, 'cudf')
-        else:
-            norms = to_output_type(norms, output_type)
         return X, norms
     else:
         return X
@@ -1854,7 +1847,7 @@ class Normalizer(TransformerMixin, BaseEstimator):
         self._validate_data(X, accept_sparse='csr')
         return self
 
-    def transform(self, X, copy=None):
+    def transform(self, X, copy=None) -> SparseCumlArray:
         """Scale each non zero row of X to unit norm
 
         Parameters
@@ -1869,13 +1862,14 @@ class Normalizer(TransformerMixin, BaseEstimator):
         copy = copy if copy is not None else self.copy
         X = check_array(X, accept_sparse='csr')
         X = normalize(X, norm=self.norm, axis=1, copy=copy)
-        return to_output_type(X, output_type)
+        return X
 
     def _more_tags(self):
         return {'stateless': True}
 
 
 @_deprecate_positional_args
+@cuml_function
 def binarize(X, *, threshold=0.0, copy=True):
     """Boolean thresholding of array-like or sparse matrix
 
@@ -1912,7 +1906,7 @@ def binarize(X, *, threshold=0.0, copy=True):
         not_cond = np.logical_not(cond)
         X[cond] = 1
         X[not_cond] = 0
-    return to_output_type(X, output_type)
+    return X
 
 @cuml_estimator
 class Binarizer(TransformerMixin, BaseEstimator):
@@ -1985,7 +1979,7 @@ class Binarizer(TransformerMixin, BaseEstimator):
         self._validate_data(X, accept_sparse=['csr', 'csc'])
         return self
 
-    def transform(self, X, copy=None):
+    def transform(self, X, copy=None) -> SparseCumlArray:
         """Binarize each element of X
 
         Parameters
@@ -2003,6 +1997,7 @@ class Binarizer(TransformerMixin, BaseEstimator):
     def _more_tags(self):
         return {'stateless': True}
 
+@cuml_function
 def add_dummy_feature(X, value=1.0):
     """Augment dataset with an additional dummy feature.
 
@@ -2046,7 +2041,7 @@ def add_dummy_feature(X, value=1.0):
             # Prepend the dummy feature n_samples times.
             data = np.concatenate((np.full(n_samples, value), X.data))
             X = sparse.coo_matrix((data, (row, col)), shape)
-            return to_output_type(X, output_type)
+            return X
         elif sparse.isspmatrix_csc(X):
             # Shift index pointers since we need to add n_samples elements.
             indptr = X.indptr + n_samples
@@ -2057,12 +2052,11 @@ def add_dummy_feature(X, value=1.0):
             # Prepend the dummy feature n_samples times.
             data = np.concatenate((np.full(n_samples, value), X.data))
             X = sparse.csc_matrix((data, indices, indptr), shape)
-            return to_output_type(X, output_type)
+            return X
         else:
             klass = X.__class__
             X = klass(add_dummy_feature(X.tocoo(), value))
-            return to_output_type(X, output_type)
+            return X
     else:
         X = np.hstack((np.full((n_samples, 1), value), X))
-        return to_output_type(X, output_type)
-
+        return X
