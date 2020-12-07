@@ -85,6 +85,10 @@ def test_get_tags(model):
     assert hasattr(model, '_get_tags')
 
     model_tags = model._get_tags()
+    
+    if (hasattr(model, "_more_tags")):
+        import inspect
+        assert(isinstance(inspect.getattr_static(model, "_more_tags"), staticmethod))
     for tag, tag_type in tags.items():
         # preferred input order can be None or a string
         if tag == 'preferred_input_order':
