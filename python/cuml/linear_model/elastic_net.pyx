@@ -19,7 +19,6 @@
 from cuml.solvers import CD
 from cuml.common.base import Base, RegressorMixin
 from cuml.common.doc_utils import generate_docstring
-from cuml.common.array import CumlArray
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.linear_model.base import LinearPredictMixin
 
