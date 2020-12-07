@@ -30,6 +30,8 @@
 #include <sys/time.h>
 #include <cuml/common/logger.hpp>
 
+#include <sstream>  // TODO: remove
+
 namespace ML {
 namespace Dbscan {
 
@@ -154,6 +156,7 @@ size_t run(const raft::handle_t& handle, Type_f* x, Index_ N, Index_ D,
     Index_ startVertexId = start_row + i * batchSize;
     Index_ nPoints = min(size_t(n_owned_rows - i * batchSize), batchSize);
     if (nPoints <= 0) break;
+    /// TODO: can this happen? If yes, is the rest of the code correct?
 
     CUML_LOG_DEBUG("- Batch %d / %ld (%ld samples)", i + 1,
                    (unsigned long)nBatches, (unsigned long)nPoints);
@@ -167,7 +170,7 @@ size_t run(const raft::handle_t& handle, Type_f* x, Index_ N, Index_ D,
     // CUDA_CHECK(cudaStreamSynchronize(stream));
     int64_t cur_time = raft::curTimeMillis();
     ML::POP_RANGE();
-    CUML_LOG_DEBUG("    |-> Took %ld ms", (cur_time - start_time));
+    // CUML_LOG_DEBUG("    |-> Took %ld ms", (cur_time - start_time));
 
     CUML_LOG_DEBUG("--> Computing core point mask");
     ML::PUSH_RANGE("Trace::Dbscan::CorePoints");
@@ -177,10 +180,45 @@ size_t run(const raft::handle_t& handle, Type_f* x, Index_ N, Index_ D,
     // CUDA_CHECK(cudaStreamSynchronize(stream));
     cur_time = raft::curTimeMillis();
     ML::POP_RANGE();
-    CUML_LOG_DEBUG("    |-> Took %ld ms", (cur_time - start_time));
+    // CUML_LOG_DEBUG("    |-> Took %ld ms", (cur_time - start_time));
   }
   // 2. Exchange with the other workers
-  /// TODO: allgatherv
+  if (opg) {
+    const auto& comm = handle.get_comms();
+    // my_rank = comm.get_rank();
+    int n_rank = comm.get_size();
+
+    // Array with the size of the contribution of each worker
+    Index_ rows_per_rank = raft::ceildiv<Index_>(N, n_rank);
+    std::vector<size_t> recvcounts = std::vector<size_t>(n_rank, rows_per_rank);
+    // recvcounts[n_rank - 1] =
+    //   min(n_rank * rows_per_rank, N) - (n_rank - 1) * rows_per_rank;
+    recvcounts[n_rank - 1] = n_rank % rows_per_rank;
+
+    // Array with the displacement of each part
+    std::vector<size_t> displs = std::vector<size_t>(n_rank);
+    for (int i = 0; i < n_rank; i++) displs[i] = i * rows_per_rank;
+
+    // All-gather operation with variable contribution length
+    comm.allgatherv<char>((char*)core_pts + start_row, (char*)core_pts,
+                          recvcounts.data(), displs.data(), stream);
+    /// TODO: is it ok to use char datatype for bool?
+    ASSERT(
+      comm.sync_stream(stream) == raft::comms::status_t::SUCCESS,
+      "An error occurred in the distributed operation. This can result from "
+      "a failed rank");
+  }
+
+  // CUDA_CHECK(cudaStreamSynchronize(stream));
+
+  // std::ostringstream oss;
+  // MLCommon::host_buffer<bool> host_mask(handle.get_host_allocator(), stream,
+  //                                       batchSize * N);
+  // bool* h_mask = host_mask.data();
+  // raft::update_host(h_mask, core_pts, N, stream);
+  // CUDA_CHECK(cudaStreamSynchronize(stream));
+  // for (int i = 0; i < N; i++) oss << h_mask[i] << " ";
+  // CUML_LOG_DEBUG(oss.str().c_str());
 
   // Compute the labelling for the owned part of the graph
   MLCommon::Sparse::WeakCCState state(xa, fa, m);
@@ -215,8 +253,7 @@ size_t run(const raft::handle_t& handle, Type_f* x, Index_ N, Index_ D,
       adj_graph.resize(maxadjlen, stream);
     }
     AdjGraph::run<Index_>(handle, adj, vd, adj_graph.data(), curradjlen,
-                          ex_scan, N, minPts, core_pts + startVertexId, algoAdj,
-                          nPoints, stream);
+                          ex_scan, N, algoAdj, nPoints, stream);
     cur_time = raft::curTimeMillis();
     ML::POP_RANGE();
     CUML_LOG_DEBUG("    |-> Took %ld ms.", (cur_time - start_time));

@@ -28,6 +28,7 @@ from cuml.common.array import CumlArray
 from cuml.common.doc_utils import generate_docstring
 from cuml.raft.common.handle cimport handle_t
 from cuml.common import input_to_cuml_array
+from cuml.common import using_output_type
 
 
 cdef extern from "cuml/cluster/dbscan_mg.hpp" \
@@ -116,16 +117,16 @@ class DBSCANMG(DBSCAN):
 
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
-        self._labels_ = CumlArray.empty(n_rows, dtype=out_dtype)
-        cdef uintptr_t labels_ptr = self._labels_.ptr
+        self.labels_ = CumlArray.empty(n_rows, dtype=out_dtype)
+        cdef uintptr_t labels_ptr = self.labels_.ptr
 
         cdef uintptr_t core_sample_indices_ptr = <uintptr_t> NULL
 
         # Create the output core_sample_indices only if needed
         if self.calc_core_sample_indices:
-            self._core_sample_indices_ = \
+            self.core_sample_indices_ = \
                 CumlArray.empty(n_rows, dtype=out_dtype)
-            core_sample_indices_ptr = self._core_sample_indices_.ptr
+            core_sample_indices_ptr = self.core_sample_indices_.ptr
 
         if self.dtype == np.float32:
             if out_dtype == "int32" or out_dtype is np.int32:
@@ -183,19 +184,20 @@ class DBSCANMG(DBSCAN):
         # Finally, resize the core_sample_indices array if necessary
         if self.calc_core_sample_indices:
 
-            # Temp convert to cupy array only once
-            core_samples_cupy = self._core_sample_indices_.to_output("cupy")
+            # Temp convert to cupy array (better than using `cupy.asarray`)
+            with using_output_type("cupy"):
 
-            # First get the min index. These have to monotonically increasing,
-            # so the min index should be the first returned -1
-            min_index = cp.argmin(core_samples_cupy).item()
+                # First get the min index. These have to monotonically
+                # increasing, so the min index should be the first returned -1
+                min_index = cp.argmin(self.core_sample_indices_).item()
 
-            # Check for the case where there are no -1's
-            if (min_index == 0 and core_samples_cupy[min_index].item() != -1):
-                # Nothing to delete. The array has no -1's
-                pass
-            else:
-                self._core_sample_indices_ = \
-                    self._core_sample_indices_[:min_index]
+                # Check for the case where there are no -1's
+                if ((min_index == 0 and
+                     self.core_sample_indices_[min_index].item() != -1)):
+                    # Nothing to delete. The array has no -1's
+                    pass
+                else:
+                    self.core_sample_indices_ = \
+                        self.core_sample_indices_[:min_index]
 
         return self

@@ -35,8 +35,6 @@ void launcher(const raft::handle_t& handle, Pack<Index_> data, Index_ batchSize,
   Index_ N = data.N;
   MLCommon::host_buffer<Index_> host_vd(handle.get_host_allocator(), stream,
                                         batchSize + 1);
-  MLCommon::host_buffer<bool> host_core_pts(handle.get_host_allocator(), stream,
-                                            batchSize);
   MLCommon::host_buffer<bool> host_adj(handle.get_host_allocator(), stream,
                                        batchSize * N);
   MLCommon::host_buffer<Index_> host_ex_scan(handle.get_host_allocator(),
@@ -55,14 +53,11 @@ void launcher(const raft::handle_t& handle, Pack<Index_> data, Index_ batchSize,
       }
     }
   }
-  for (Index_ i = 0; i < batchSize; i++)
-    host_core_pts[i] = (host_vd[i] >= data.minPts);
   host_ex_scan[0] = Index_(0);
   for (Index_ i = 1; i < batchSize; i++)
     host_ex_scan[i] = host_ex_scan[i - 1] + host_vd[i - 1];
   raft::update_device(data.adj_graph, host_adj_graph.data(), adjgraph_size,
                       stream);
-  raft::update_device(data.core_pts, host_core_pts.data(), batchSize, stream);
   raft::update_device(data.ex_scan, host_ex_scan.data(), batchSize, stream);
 }
 }  // namespace Naive

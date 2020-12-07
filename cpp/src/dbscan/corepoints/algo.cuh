@@ -41,7 +41,7 @@ void launcher(const raft::handle_t &handle, Pack<value_t, index_t> data,
   thrust::for_each(execution_policy->on(stream), counting, counting + batchSize,
                    [=] __device__(int idx) {
                      data.mask[idx + startVertexId] =
-                       data.vd[idx] <= data.minPts;
+                       data.vd[idx] >= data.minPts;
                    });
 }
 
