@@ -94,7 +94,7 @@ class RidgeTest : public ::testing::TestWithParam<RidgeInputs<T>> {
              &intercept, false, false, stream, params.algo);
 
     gemmPredict(handle, pred_data, params.n_row_2, params.n_col, coef,
-                 intercept, pred, stream);
+                intercept, pred, stream);
 
     raft::update_device(data, data_h, len, stream);
     raft::update_device(labels, labels_h, params.n_row, stream);
@@ -104,7 +104,7 @@ class RidgeTest : public ::testing::TestWithParam<RidgeInputs<T>> {
              &intercept2, true, false, stream, params.algo);
 
     gemmPredict(handle, pred_data, params.n_row_2, params.n_col, coef2,
-                 intercept2, pred2, stream);
+                intercept2, pred2, stream);
 
     raft::update_device(data, data_h, len, stream);
     raft::update_device(labels, labels_h, params.n_row, stream);
@@ -114,7 +114,7 @@ class RidgeTest : public ::testing::TestWithParam<RidgeInputs<T>> {
              &intercept3, true, true, stream, params.algo);
 
     gemmPredict(handle, pred_data, params.n_row_2, params.n_col, coef3,
-                 intercept3, pred3, stream);
+                intercept3, pred3, stream);
   }
 
   void basicTest2() {

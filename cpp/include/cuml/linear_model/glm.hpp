@@ -77,10 +77,10 @@ void ridgeFit(const raft::handle_t &handle, double *input, int n_rows,
  * @{
  */
 void gemmPredict(const raft::handle_t &handle, const float *input, int n_rows,
-                int n_cols, const float *coef, float intercept, float *preds);
+                 int n_cols, const float *coef, float intercept, float *preds);
 void gemmPredict(const raft::handle_t &handle, const double *input, int n_rows,
-                int n_cols, const double *coef, double intercept,
-                double *preds);
+                 int n_cols, const double *coef, double intercept,
+                 double *preds);
 /** @} */
 
 /**

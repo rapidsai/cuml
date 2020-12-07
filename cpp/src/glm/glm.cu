@@ -42,17 +42,17 @@ void olsFit(const raft::handle_t &handle, double *input, int n_rows, int n_cols,
 }
 
 void gemmPredict(const raft::handle_t &handle, const float *input, int n_rows,
-                int n_cols, const float *coef, float intercept, float *preds) {
+                 int n_cols, const float *coef, float intercept, float *preds) {
   gemmPredict(handle, input, n_rows, n_cols, coef, intercept, preds,
-             handle.get_stream());
+              handle.get_stream());
   CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 }
 
 void gemmPredict(const raft::handle_t &handle, const double *input, int n_rows,
-                int n_cols, const double *coef, double intercept,
-                double *preds) {
+                 int n_cols, const double *coef, double intercept,
+                 double *preds) {
   gemmPredict(handle, input, n_rows, n_cols, coef, intercept, preds,
-             handle.get_stream());
+              handle.get_stream());
   CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 }
 
