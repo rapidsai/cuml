@@ -81,8 +81,7 @@ def _handle_zeros_in_scale(scale, copy=True):
 
 @_deprecate_positional_args
 @cuml_function
-def scale(X, *, axis=0, with_mean=True,
-          with_std=True, copy=True) -> SparseCumlArray:
+def scale(X, *, axis=0, with_mean=True, with_std=True, copy=True):
     """Standardize a dataset along any axis
 
     Center to the mean and component wise scale to unit variance.
@@ -425,7 +424,6 @@ class MinMaxScaler(TransformerMixin, BaseEstimator):
 
         X -= self.min_
         X /= self.scale_
-
         return X
 
     def _more_tags(self):
@@ -852,11 +850,12 @@ class StandardScaler(TransformerMixin, BaseEstimator):
                 X *= self.scale_
             if self.with_mean:
                 X += self.mean_
-
         return X
 
     def _more_tags(self):
-        return {'allow_nan': True}
+        return {'X_types_gpu': ['2darray', 'sparse'],
+                'X_types': ['2darray', 'sparse'],
+                'allow_nan': True}
 
 
 @cuml_estimator
@@ -1038,11 +1037,12 @@ class MaxAbsScaler(TransformerMixin, BaseEstimator):
             inplace_column_scale(X, self.scale_)
         else:
             X *= self.scale_
-
         return X
 
     def _more_tags(self):
-        return {'allow_nan': True}
+        return {'X_types_gpu': ['2darray', 'sparse'],
+                'X_types': ['2darray', 'sparse'],
+                'allow_nan': True}
 
 
 @check_cupy8()
@@ -1302,7 +1302,9 @@ class RobustScaler(TransformerMixin, BaseEstimator):
         return X
 
     def _more_tags(self):
-        return {'allow_nan': True}
+        return {'X_types_gpu': ['2darray', 'sparse'],
+                'X_types': ['2darray', 'sparse'],
+                'allow_nan': True}
 
 
 @_deprecate_positional_args
@@ -1660,6 +1662,11 @@ class PolynomialFeatures(TransformerMixin, BaseEstimator):
 
         return XP  # TODO keep order
 
+    def _more_tags(self):
+        return {'X_types_gpu': ['2darray', 'sparse'],
+                'X_types': ['2darray', 'sparse'],
+                'allow_nan': True}
+
 
 @check_cupy8()
 @_deprecate_positional_args
@@ -1838,11 +1845,12 @@ class Normalizer(TransformerMixin, BaseEstimator):
         """
         copy = copy if copy is not None else self.copy
         X = check_array(X, accept_sparse='csr')
-        X = normalize(X, norm=self.norm, axis=1, copy=copy)
-        return X
+        return normalize(X, norm=self.norm, axis=1, copy=copy)
 
     def _more_tags(self):
-        return {'stateless': True}
+        return {'X_types_gpu': ['2darray', 'sparse'],
+                'X_types': ['2darray', 'sparse'],
+                'stateless': True}
 
 
 @_deprecate_positional_args
@@ -1972,7 +1980,9 @@ class Binarizer(TransformerMixin, BaseEstimator):
         return binarize(X, threshold=self.threshold, copy=copy)
 
     def _more_tags(self):
-        return {'stateless': True}
+        return {'X_types_gpu': ['2darray', 'sparse'],
+                'X_types': ['2darray', 'sparse'],
+                'stateless': True}
 
 
 @cuml_function

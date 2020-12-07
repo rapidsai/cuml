@@ -368,3 +368,7 @@ class KBinsDiscretizer(TransformerMixin, BaseEstimator):
         else:
             # Sparse input -> Dense CuPy output
             return Xinv
+
+        def _more_tags(self):
+            return {'X_types_gpu': ['2darray', 'sparse'],
+                    'X_types': ['2darray', 'sparse']}
