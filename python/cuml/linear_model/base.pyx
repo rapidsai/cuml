@@ -100,6 +100,4 @@ class LinearPredictMixin:
 
         self.handle.sync()
 
-        del(X_m)
-
         return preds

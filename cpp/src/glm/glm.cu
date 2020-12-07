@@ -30,7 +30,6 @@ void olsFit(const raft::handle_t &handle, float *input, int n_rows, int n_cols,
             bool normalize, int algo) {
   olsFit(handle, input, n_rows, n_cols, labels, coef, intercept, fit_intercept,
          normalize, handle.get_stream(), algo);
-  CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 }
 
 void olsFit(const raft::handle_t &handle, double *input, int n_rows, int n_cols,
@@ -38,14 +37,12 @@ void olsFit(const raft::handle_t &handle, double *input, int n_rows, int n_cols,
             bool normalize, int algo) {
   olsFit(handle, input, n_rows, n_cols, labels, coef, intercept, fit_intercept,
          normalize, handle.get_stream(), algo);
-  CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 }
 
 void gemmPredict(const raft::handle_t &handle, const float *input, int n_rows,
                  int n_cols, const float *coef, float intercept, float *preds) {
   gemmPredict(handle, input, n_rows, n_cols, coef, intercept, preds,
               handle.get_stream());
-  CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 }
 
 void gemmPredict(const raft::handle_t &handle, const double *input, int n_rows,
@@ -53,7 +50,6 @@ void gemmPredict(const raft::handle_t &handle, const double *input, int n_rows,
                  double *preds) {
   gemmPredict(handle, input, n_rows, n_cols, coef, intercept, preds,
               handle.get_stream());
-  CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 }
 
 void ridgeFit(const raft::handle_t &handle, float *input, int n_rows,
@@ -61,7 +57,6 @@ void ridgeFit(const raft::handle_t &handle, float *input, int n_rows,
               float *intercept, bool fit_intercept, bool normalize, int algo) {
   ridgeFit(handle, input, n_rows, n_cols, labels, alpha, n_alpha, coef,
            intercept, fit_intercept, normalize, handle.get_stream(), algo);
-  CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 }
 
 void ridgeFit(const raft::handle_t &handle, double *input, int n_rows,
@@ -70,7 +65,6 @@ void ridgeFit(const raft::handle_t &handle, double *input, int n_rows,
               bool normalize, int algo) {
   ridgeFit(handle, input, n_rows, n_cols, labels, alpha, n_alpha, coef,
            intercept, fit_intercept, normalize, handle.get_stream(), algo);
-  CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 }
 
 void qnFit(const raft::handle_t &cuml_handle, float *X, float *y, int N, int D,
