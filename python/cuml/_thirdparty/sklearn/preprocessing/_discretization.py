@@ -21,12 +21,11 @@ import warnings
 from cuml.preprocessing import OneHotEncoder
 from cuml.cluster import KMeans
 
-from ..utils.skl_dependencies import BaseEstimator, TransformerMixin, \
-                                     cuml_estimator
+from ..utils.skl_dependencies import BaseEstimator, TransformerMixin
 from ..utils.validation import check_is_fitted
 from ..utils.validation import FLOAT_DTYPES
 from ..utils.validation import _deprecate_positional_args
-from ....thirdparty_adapters import check_array, get_input_type
+from ....thirdparty_adapters import check_array, cuml_estimator
 from ....common.import_utils import check_cupy8
 from cuml.common.array_sparse import SparseCumlArray
 from ....common.array_descriptor import CumlArrayDescriptor
@@ -44,6 +43,7 @@ def digitize(x, bins):
     matched = np.where(bool_arr)
     out[matched] = len(bins)
     return out
+
 
 @cuml_estimator
 class KBinsDiscretizer(TransformerMixin, BaseEstimator):
@@ -153,10 +153,10 @@ class KBinsDiscretizer(TransformerMixin, BaseEstimator):
         self.strategy = strategy
 
     def get_param_names(self):
-      return super().get_param_names() + [
-         "bin_edges_",
-         "n_bins_",
-      ]
+        return super().get_param_names() + [
+            "bin_edges_",
+            "n_bins_",
+        ]
 
     def fit(self, X, y=None) -> "KBinsDiscretizer":
         """
@@ -297,7 +297,6 @@ class KBinsDiscretizer(TransformerMixin, BaseEstimator):
         """
         check_is_fitted(self)
 
-        output_type = get_input_type(X)
         Xt = check_array(X, copy=True, dtype=FLOAT_DTYPES)
         n_features = self.n_bins_.shape[0]
         if Xt.shape[1] != n_features:
@@ -346,7 +345,6 @@ class KBinsDiscretizer(TransformerMixin, BaseEstimator):
         """
         check_is_fitted(self)
 
-        output_type = get_input_type(Xt)
         sparse_input = hasattr(Xt, 'format')
         if 'onehot' in self.encode:
             Xt = check_array(Xt, accept_sparse='coo', copy=True)

@@ -22,18 +22,13 @@ from itertools import combinations_with_replacement as combinations_w_r
 
 import cupy as np
 from cupy import sparse
-from scipy import stats
-from scipy import optimize
-from scipy.special import boxcox
 
-from ..utils.skl_dependencies import BaseEstimator, TransformerMixin, \
-                                     cuml_estimator, cuml_function
-from ....thirdparty_adapters import check_array, get_input_type, \
-                                    to_output_type
+from ..utils.skl_dependencies import BaseEstimator, TransformerMixin
+from ....thirdparty_adapters import check_array, cuml_estimator, cuml_function
 from ..utils.extmath import row_norms
 from ..utils.extmath import _incremental_mean_and_var
-from ..utils.validation import (check_is_fitted, check_random_state,
-                                FLOAT_DTYPES, _deprecate_positional_args)
+from ..utils.validation import (check_is_fitted, FLOAT_DTYPES,
+                                _deprecate_positional_args)
 
 from ..utils.sparsefuncs import (inplace_column_scale,
                                  min_max_axis,
@@ -46,31 +41,23 @@ from ....common.import_utils import check_cupy8
 
 from cuml.common.array import CumlArray
 from cuml.common.array_sparse import SparseCumlArray
-from cuml.internals import api_return_array, api_return_sparse_array
 from ....common.array_descriptor import CumlArrayDescriptor
 
 
-BOUNDS_THRESHOLD = 1e-7
-
 __all__ = [
     'Binarizer',
-    'KernelCenterer',
     'MinMaxScaler',
     'MaxAbsScaler',
     'Normalizer',
     'RobustScaler',
     'StandardScaler',
-    'QuantileTransformer',
-    'PowerTransformer',
     'add_dummy_feature',
     'binarize',
     'normalize',
     'scale',
     'robust_scale',
     'maxabs_scale',
-    'minmax_scale',
-    'quantile_transform',
-    'power_transform',
+    'minmax_scale'
 ]
 
 
@@ -94,7 +81,8 @@ def _handle_zeros_in_scale(scale, copy=True):
 
 @_deprecate_positional_args
 @cuml_function
-def scale(X, *, axis=0, with_mean=True, with_std=True, copy=True) -> SparseCumlArray:
+def scale(X, *, axis=0, with_mean=True,
+          with_std=True, copy=True) -> SparseCumlArray:
     """Standardize a dataset along any axis
 
     Center to the mean and component wise scale to unit variance.
@@ -145,7 +133,6 @@ def scale(X, *, axis=0, with_mean=True, with_std=True, copy=True) -> SparseCumlA
     StandardScaler: Performs scaling to unit variance using the``Transformer`` API
 
     """  # noqa
-    output_type = get_input_type(X)
     X = check_array(X, accept_sparse=['csr', 'csc'], copy=copy,
                     ensure_2d=False, estimator='the scale function',
                     dtype=FLOAT_DTYPES, force_all_finite='allow-nan')
@@ -205,6 +192,7 @@ def scale(X, *, axis=0, with_mean=True, with_std=True, copy=True) -> SparseCumlA
                     Xr -= mean_2
 
     return X
+
 
 @cuml_estimator
 class MinMaxScaler(TransformerMixin, BaseEstimator):
@@ -313,14 +301,14 @@ class MinMaxScaler(TransformerMixin, BaseEstimator):
             self.data_range_ = None
 
     def get_param_names(self):
-      return super().get_param_names() + [
-         "scale_",
-         "min_",
-         "n_samples_seen_",
-         "data_min_",
-         "data_max_",
-         "data_range_"
-      ]
+        return super().get_param_names() + [
+            "scale_",
+            "min_",
+            "n_samples_seen_",
+            "data_min_",
+            "data_max_",
+            "data_range_"
+        ]
 
     def fit(self, X, y=None) -> "MinMaxScaler":
         """Compute the minimum and maximum to be used for later scaling.
@@ -409,7 +397,6 @@ class MinMaxScaler(TransformerMixin, BaseEstimator):
         """
         check_is_fitted(self)
 
-        output_type = get_input_type(X)
         X = check_array(X, copy=self.copy, dtype=FLOAT_DTYPES,
                         force_all_finite="allow-nan")
 
@@ -433,7 +420,6 @@ class MinMaxScaler(TransformerMixin, BaseEstimator):
         """
         check_is_fitted(self)
 
-        output_type = get_input_type(X)
         X = check_array(X, copy=self.copy, dtype=FLOAT_DTYPES,
                         force_all_finite="allow-nan")
 
@@ -493,7 +479,6 @@ def minmax_scale(X, feature_range=(0, 1), *, axis=0, copy=True):
     # Unlike the scaler object, this function allows 1d input.
     # If copy is required, it will be done inside the scaler object.
 
-    output_type = get_input_type(X)
     X = check_array(X, copy=False, ensure_2d=False,
                     dtype=FLOAT_DTYPES, force_all_finite='allow-nan')
     original_ndim = X.ndim
@@ -511,6 +496,7 @@ def minmax_scale(X, feature_range=(0, 1), *, axis=0, copy=True):
         X = X.ravel()
 
     return X
+
 
 @cuml_estimator
 class StandardScaler(TransformerMixin, BaseEstimator):
@@ -643,12 +629,12 @@ class StandardScaler(TransformerMixin, BaseEstimator):
             self.var_ = None
 
     def get_param_names(self):
-      return super().get_param_names() + [
-         "scale_",
-         "n_samples_seen_",
-         "mean_",
-         "var_"
-      ]
+        return super().get_param_names() + [
+            "scale_",
+            "n_samples_seen_",
+            "mean_",
+            "var_"
+        ]
 
     def fit(self, X, y=None) -> "StandardScaler":
         """Compute the mean and std to be used for later scaling.
@@ -802,7 +788,6 @@ class StandardScaler(TransformerMixin, BaseEstimator):
 
         copy = copy if copy is not None else self.copy
 
-        output_type = get_input_type(X)
         X = self._validate_data(X, reset=False,
                                 accept_sparse=['csr', 'csc'], copy=copy,
                                 estimator=self, dtype=FLOAT_DTYPES,
@@ -843,7 +828,6 @@ class StandardScaler(TransformerMixin, BaseEstimator):
 
         copy = copy if copy is not None else self.copy
 
-        output_type = get_input_type(X)
         X = check_array(X, accept_sparse=['csr', 'csc'], copy=copy,
                         estimator=self, dtype=FLOAT_DTYPES,
                         force_all_finite='allow-nan')
@@ -873,6 +857,7 @@ class StandardScaler(TransformerMixin, BaseEstimator):
 
     def _more_tags(self):
         return {'allow_nan': True}
+
 
 @cuml_estimator
 class MaxAbsScaler(TransformerMixin, BaseEstimator):
@@ -950,11 +935,11 @@ class MaxAbsScaler(TransformerMixin, BaseEstimator):
             self.max_abs_ = None
 
     def get_param_names(self):
-      return super().get_param_names() + [
-         "scale_",
-         "n_samples_seen_",
-         "max_abs_"
-      ]
+        return super().get_param_names() + [
+            "scale_",
+            "n_samples_seen_",
+            "max_abs_"
+        ]
 
     def fit(self, X, y=None) -> "MaxAbsScaler":
         """Compute the maximum absolute value to be used for later scaling.
@@ -1024,7 +1009,6 @@ class MaxAbsScaler(TransformerMixin, BaseEstimator):
         """
         check_is_fitted(self)
 
-        output_type = get_input_type(X)
         X = check_array(X, accept_sparse=('csr', 'csc'), copy=self.copy,
                         estimator=self, dtype=FLOAT_DTYPES,
                         force_all_finite='allow-nan')
@@ -1046,7 +1030,6 @@ class MaxAbsScaler(TransformerMixin, BaseEstimator):
         """
         check_is_fitted(self)
 
-        output_type = get_input_type(X)
         X = check_array(X, accept_sparse=('csr', 'csc'), copy=self.copy,
                         estimator=self, dtype=FLOAT_DTYPES,
                         force_all_finite='allow-nan')
@@ -1117,6 +1100,7 @@ def maxabs_scale(X, *, axis=0, copy=True):
         X = X.ravel()
 
     return X
+
 
 @cuml_estimator
 class RobustScaler(TransformerMixin, BaseEstimator):
@@ -1203,10 +1187,10 @@ class RobustScaler(TransformerMixin, BaseEstimator):
         self.copy = copy
 
     def get_param_names(self):
-      return super().get_param_names() + [
-         "center_",
-         "scale_",
-      ]
+        return super().get_param_names() + [
+            "center_",
+            "scale_",
+        ]
 
     def fit(self, X, y=None) -> "RobustScaler":
         """Compute the median and quantiles to be used for scaling.
@@ -1279,7 +1263,6 @@ class RobustScaler(TransformerMixin, BaseEstimator):
         """
         check_is_fitted(self)
 
-        output_type = get_input_type(X)
         X = check_array(X, accept_sparse=('csr', 'csc'), copy=self.copy,
                         estimator=self, dtype=FLOAT_DTYPES,
                         force_all_finite='allow-nan')
@@ -1304,7 +1287,6 @@ class RobustScaler(TransformerMixin, BaseEstimator):
         """
         check_is_fitted(self)
 
-        output_type = get_input_type(X)
         X = check_array(X, accept_sparse=('csr', 'csc'), copy=self.copy,
                         estimator=self, dtype=FLOAT_DTYPES,
                         force_all_finite='allow-nan')
@@ -1376,7 +1358,6 @@ def robust_scale(X, *, axis=0, with_centering=True, with_scaling=True,
     RobustScaler: Performs centering and scaling using the ``Transformer`` API
 
     """
-    output_type = get_input_type(X)
     X = check_array(X, accept_sparse=('csr', 'csc'), copy=False,
                     ensure_2d=False, dtype=FLOAT_DTYPES,
                     force_all_finite='allow-nan')
@@ -1396,6 +1377,7 @@ def robust_scale(X, *, axis=0, with_centering=True, with_scaling=True,
         X = X.ravel()
 
     return X
+
 
 @cuml_estimator
 class PolynomialFeatures(TransformerMixin, BaseEstimator):
@@ -1477,9 +1459,9 @@ class PolynomialFeatures(TransformerMixin, BaseEstimator):
         self.order = order
 
     def get_param_names(self):
-      return super().get_param_names() + [
-         "powers_"
-      ]
+        return super().get_param_names() + [
+            "powers_"
+        ]
 
     @staticmethod
     @check_cupy8()
@@ -1581,7 +1563,6 @@ class PolynomialFeatures(TransformerMixin, BaseEstimator):
         """
         check_is_fitted(self)
 
-        output_type = get_input_type(X)
         X = check_array(X, order='F', dtype=FLOAT_DTYPES,
                         accept_sparse=('csr', 'csc'))
 
@@ -1592,8 +1573,7 @@ class PolynomialFeatures(TransformerMixin, BaseEstimator):
 
         if sparse.isspmatrix_csr(X):
             if self.degree > 3:
-                res = self.transform(X.tocsc()).tocsr()
-                return to_output_type(res, output_type, order=self.order)
+                return self.transform(X.tocsc())  # TODO keep order
             to_stack = []
             if self.include_bias:
                 bias = np.ones(shape=(n_samples, 1), dtype=X.dtype)
@@ -1607,8 +1587,7 @@ class PolynomialFeatures(TransformerMixin, BaseEstimator):
                 to_stack.append(Xp_next)
             XP = sparse.hstack(to_stack, format='csr')
         elif sparse.isspmatrix_csc(X) and self.degree < 4:
-            res = self.transform(X.tocsr()).tocsc()
-            return to_output_type(res, output_type, order=self.order)
+            return self.transform(X.tocsr())  # TODO convert to csc, keep order
         else:
             if sparse.isspmatrix(X):
                 combinations = self._combinations(n_features, self.degree,
@@ -1679,8 +1658,7 @@ class PolynomialFeatures(TransformerMixin, BaseEstimator):
                     new_index.append(current_col)
                     index = new_index
 
-        XP = to_output_type(XP, output_type, order=self.order)
-        return XP
+        return XP  # TODO keep order
 
 
 @check_cupy8()
@@ -1735,7 +1713,6 @@ def normalize(X, norm='l2', *, axis=1, copy=True, return_norm=False):
     else:
         raise ValueError("'%d' is not a supported axis" % axis)
 
-    output_type = get_input_type(X)
     X = check_array(X, accept_sparse=sparse_format, copy=copy,
                     estimator='the normalize function', dtype=FLOAT_DTYPES)
 
@@ -1774,6 +1751,7 @@ def normalize(X, norm='l2', *, axis=1, copy=True, return_norm=False):
         return X, norms
     else:
         return X
+
 
 @cuml_estimator
 class Normalizer(TransformerMixin, BaseEstimator):
@@ -1858,7 +1836,6 @@ class Normalizer(TransformerMixin, BaseEstimator):
             Whether a forced copy will be triggered. If copy=False,
             a copy might be triggered by a conversion.
         """
-        output_type = get_input_type(X)
         copy = copy if copy is not None else self.copy
         X = check_array(X, accept_sparse='csr')
         X = normalize(X, norm=self.norm, axis=1, copy=copy)
@@ -1890,7 +1867,6 @@ def binarize(X, *, threshold=0.0, copy=True):
     --------
     Binarizer: Performs binarization using the ``Transformer`` API
     """
-    output_type = get_input_type(X)
     X = check_array(X, accept_sparse=['csr', 'csc'], copy=copy)
     if sparse.issparse(X):
         if threshold < 0:
@@ -1907,6 +1883,7 @@ def binarize(X, *, threshold=0.0, copy=True):
         X[cond] = 1
         X[not_cond] = 0
     return X
+
 
 @cuml_estimator
 class Binarizer(TransformerMixin, BaseEstimator):
@@ -1997,6 +1974,7 @@ class Binarizer(TransformerMixin, BaseEstimator):
     def _more_tags(self):
         return {'stateless': True}
 
+
 @cuml_function
 def add_dummy_feature(X, value=1.0):
     """Augment dataset with an additional dummy feature.
@@ -2026,7 +2004,6 @@ def add_dummy_feature(X, value=1.0):
     array([[1., 0., 1.],
            [1., 1., 0.]])
     """
-    output_type = get_input_type(X)
     X = check_array(X, accept_sparse=['csc', 'csr', 'coo'], dtype=FLOAT_DTYPES)
     n_samples, n_features = X.shape
     shape = (n_samples, n_features + 1)

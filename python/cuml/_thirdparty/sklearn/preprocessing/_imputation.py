@@ -16,11 +16,12 @@ import warnings
 import cupy as np
 from cupy import sparse
 
-from ....thirdparty_adapters import (get_input_type, _get_mask,
+from ....thirdparty_adapters import (cuml_estimator,
+                                     _get_mask,
                                      _masked_column_median,
-                                     _masked_column_mean, _masked_column_mode)
-from ..utils.skl_dependencies import BaseEstimator, TransformerMixin, \
-                                     cuml_estimator
+                                     _masked_column_mean,
+                                     _masked_column_mode)
+from ..utils.skl_dependencies import BaseEstimator, TransformerMixin
 from ..utils.validation import check_is_fitted
 from ..utils.validation import FLOAT_DTYPES
 from ..utils.validation import _deprecate_positional_args
@@ -139,6 +140,7 @@ class _BaseImputer(TransformerMixin):
     def _more_tags(self):
         return {'allow_nan': is_scalar_nan(self.missing_values)}
 
+
 @cuml_estimator
 class SimpleImputer(_BaseImputer, BaseEstimator):
     """Imputation transformer for completing missing values.
@@ -240,10 +242,10 @@ class SimpleImputer(_BaseImputer, BaseEstimator):
         self.copy = copy
 
     def get_param_names(self):
-      return super().get_param_names() + [
-         "statistics_",
-         "features_",
-      ]
+        return super().get_param_names() + [
+            "statistics_",
+            "features_",
+        ]
 
     def _validate_input(self, X, in_fit):
         allowed_strategies = ["mean", "median", "most_frequent", "constant"]
@@ -404,7 +406,6 @@ class SimpleImputer(_BaseImputer, BaseEstimator):
         """
         check_is_fitted(self)
 
-        output_type = get_input_type(X)
         X = self._validate_input(X, in_fit=False)
         X_indicator = super()._transform_indicator(X)
 
@@ -456,6 +457,7 @@ class SimpleImputer(_BaseImputer, BaseEstimator):
 
         X = super()._concatenate_indicator(X, X_indicator)
         return X
+
 
 @cuml_estimator
 class MissingIndicator(TransformerMixin, BaseEstimator):

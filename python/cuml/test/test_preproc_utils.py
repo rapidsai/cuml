@@ -16,15 +16,62 @@
 import pytest
 
 from cuml.datasets import make_classification, make_blobs
-from cuml.thirdparty_adapters import to_output_type
 from numpy.testing import assert_allclose as np_assert_allclose
 
 import numpy as np
 import cupy as cp
+import cupy.sparse as gpu_sparse
+import scipy.sparse as cpu_sparse
 from cupy.sparse import csr_matrix as gpu_csr_matrix
 from cupy.sparse import csc_matrix as gpu_csc_matrix
 from scipy.sparse import csr_matrix as cpu_csr_matrix
 from scipy.sparse import csc_matrix as cpu_csc_matrix
+from cuml.common import input_to_cuml_array
+
+
+def to_output_type(array, output_type, order='F'):
+    if output_type == 'scipy_csr':
+        return cpu_sparse.csr_matrix(array.get())
+    if output_type == 'scipy_csc':
+        return cpu_sparse.csc_matrix(array.get())
+    if output_type == 'scipy_coo':
+        return cpu_sparse.coo_matrix(array.get())
+    if output_type == 'cupy_csr':
+        if array.format in ['csc', 'coo']:
+            return array.tocsr()
+        else:
+            return array
+    if output_type == 'cupy_csc':
+        if array.format in ['csr', 'coo']:
+            return array.tocsc()
+        else:
+            return array
+    if output_type == 'cupy_coo':
+        if array.format in ['csr', 'csc']:
+            return array.tocoo()
+        else:
+            return array
+
+    if cpu_sparse.issparse(array):
+        if output_type == 'numpy':
+            return array.todense()
+        elif output_type == 'cupy':
+            return cp.array(array.todense())
+        else:
+            array = array.todense()
+    elif gpu_sparse.issparse(array):
+        if output_type == 'numpy':
+            return cp.asnumpy(array.todense())
+        elif output_type == 'cupy':
+            return array.todense()
+        else:
+            array = array.todense()
+
+    cuml_array = input_to_cuml_array(array, order=order)[0]
+    if output_type == 'series' and len(array.shape) > 1:
+        output_type = 'cudf'
+
+    return cuml_array.to_output(output_type)
 
 
 def create_rand_clf():
