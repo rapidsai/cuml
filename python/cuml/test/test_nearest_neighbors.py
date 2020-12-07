@@ -95,7 +95,6 @@ def test_self_neighboring(nrows, ncols, n_clusters, datatype):
     )
 
 
-
 @pytest.mark.parametrize("datatype", ["dataframe", "numpy"])
 @pytest.mark.parametrize("nrows", [500, 1000, 10000])
 @pytest.mark.parametrize("ncols", [100, 1000])
