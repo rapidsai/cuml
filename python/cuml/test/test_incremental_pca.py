@@ -24,6 +24,7 @@ from cuml.datasets import make_blobs
 from cuml.experimental.decomposition import IncrementalPCA as cuIPCA
 
 from cuml.test.utils import array_equal
+from cuml.common.exception import NotFittedError
 
 
 @pytest.mark.parametrize(
@@ -109,3 +110,17 @@ def test_partial_fit(nrows, ncols, n_components, density,
 
     assert array_equal(cu_inv, sk_inv,
                        5e-5, with_sign=True)
+
+def test_exceptions():
+    with pytest.raises(TypeError):
+        X = cupyx.scipy.sparse.random(10, 10)
+        ipca = cuIPCA()
+        ipca.partial_fit(X)
+
+    with pytest.raises(NotFittedError):
+        X = cupyx.scipy.sparse.random(10, 10)
+        cuIPCA().transform(X)
+    
+    with pytest.raises(NotFittedError):
+        X = cupyx.scipy.sparse.random(10, 10)
+        cuIPCA().inverse_transform(X)
