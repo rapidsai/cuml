@@ -99,6 +99,11 @@ def confusion_matrix(y_true, y_pred,
                                        shape=(n_labels, n_labels),
                                        dtype=np.float64).toarray()
 
+    # Choose the accumulator dtype to always have high precision
+    if sample_weight.dtype.kind in {'i', 'u', 'b'}:
+         cm = cm.astype(np.int64)
+
+
     with np.errstate(all='ignore'):
         if normalize == 'true':
             cm = cp.divide(cm, cm.sum(axis=1, keepdims=True))
