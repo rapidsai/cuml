@@ -118,9 +118,9 @@ def test_exceptions():
         ipca.partial_fit(X)
 
     with pytest.raises(NotFittedError):
-        X = cupyx.scipy.sparse.random(10, 10)
+        X = cp.random.random(10, 10)
         cuIPCA().transform(X)
     
     with pytest.raises(NotFittedError):
-        X = cupyx.scipy.sparse.random(10, 10)
+        X = cp.random.random(10, 10)
         cuIPCA().inverse_transform(X)

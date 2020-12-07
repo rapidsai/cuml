@@ -555,7 +555,7 @@ class PCA(Base):
 
         """
 
-        _check_is_fitted(self.components_)
+        self._check_is_fitted('components_')
         if cupyx.scipy.sparse.issparse(X):
             return self._sparse_inverse_transform(X,
                                                   return_sparse=return_sparse,
@@ -655,7 +655,7 @@ class PCA(Base):
 
         """
 
-        _check_is_fitted(self.components_)
+        self._check_is_fitted('components_')
         if cupyx.scipy.sparse.issparse(X):
             return self._sparse_transform(X)
         elif scipy.sparse.issparse(X):

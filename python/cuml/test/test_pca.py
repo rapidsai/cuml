@@ -238,9 +238,9 @@ def test_sparse_pca_inputs(nrows, ncols, whiten, return_sparse, cupy_input):
 
 def test_exceptions():
     with pytest.raises(NotFittedError):
-        X = cupyx.scipy.sparse.random(10, 10)
+        X = cp.random.random(10, 10)
         cuPCA().transform(X)
     
     with pytest.raises(NotFittedError):
-        X = cupyx.scipy.sparse.random(10, 10)
+        X = cp.random.random(10, 10)
         cuPCA().inverse_transform(X)
