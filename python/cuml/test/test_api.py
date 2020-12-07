@@ -41,8 +41,8 @@ def func_positional_arg(func):
 @pytest.fixture(scope="session")
 def dataset():
     X, y = make_classification(100, 5, random_state=42)
-    X = X.astype(np.float64)
-    y = y.astype(np.float64)
+    X = X.astype(np.float32)
+    y = y.astype(np.float32)
     return X, y
 
 
@@ -85,7 +85,7 @@ def test_get_tags(model):
     assert hasattr(model, '_get_tags')
 
     model_tags = model._get_tags()
-    
+
     if (hasattr(model, "_more_tags")):
         import inspect
         assert(isinstance(inspect.getattr_static(model, "_more_tags"), staticmethod))
