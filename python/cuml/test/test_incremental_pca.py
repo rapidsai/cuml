@@ -24,7 +24,7 @@ from cuml.datasets import make_blobs
 from cuml.experimental.decomposition import IncrementalPCA as cuIPCA
 
 from cuml.test.utils import array_equal
-from cuml.common.exception import NotFittedError
+from cuml.common.exceptions import NotFittedError
 
 
 @pytest.mark.parametrize(

@@ -26,7 +26,7 @@ from sklearn import datasets
 from sklearn.datasets import make_multilabel_classification
 from sklearn.decomposition import PCA as skPCA
 from sklearn.datasets import make_blobs
-from cuml.common.exception import NotFittedError
+from cuml.common.exceptions import NotFittedError
 
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])

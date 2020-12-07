@@ -46,7 +46,7 @@ from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common import using_output_type
 from cuml.prims.stats import cov
 from cuml.common.input_utils import sparse_scipy_to_cp
-from cuml.common.exception import NotFittedError
+from cuml.common.exceptions import NotFittedError
 
 
 cdef extern from "cuml/decomposition/pca.hpp" namespace "ML":
