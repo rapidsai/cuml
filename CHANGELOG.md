@@ -1,7 +1,7 @@
 # cuML 0.18.0 (Date TBD)
 
 ## New Features
-- PR #2780: Multiple KNN strategies
+- PR #2780: Approximate Nearest Neighbors
 
 ## Improvements
 
