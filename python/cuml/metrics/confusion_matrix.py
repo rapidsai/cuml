@@ -103,7 +103,6 @@ def confusion_matrix(y_true, y_pred,
     if sample_weight.dtype.kind in {'i', 'u', 'b'}:
          cm = cm.astype(np.int64)
 
-
     with np.errstate(all='ignore'):
         if normalize == 'true':
             cm = cp.divide(cm, cm.sum(axis=1, keepdims=True))
