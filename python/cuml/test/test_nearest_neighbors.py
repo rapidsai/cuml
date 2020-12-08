@@ -30,6 +30,7 @@ import cupyx
 import cudf
 import pandas as pd
 import numpy as np
+from numpy.testing import assert_allclose, assert_array_equal
 from scipy.sparse import isspmatrix_csr
 
 import sklearn
@@ -51,6 +52,48 @@ def valid_metrics(algo="brute", cuml_algo=None):
     cuml_metrics = cuml.neighbors.VALID_METRICS[cuml_algo]
     sklearn_metrics = sklearn.neighbors.VALID_METRICS[algo]
     return [value for value in cuml_metrics if value in sklearn_metrics]
+
+
+@pytest.mark.parametrize("datatype", ["dataframe", "numpy"])
+@pytest.mark.parametrize("nrows", [500, 1000, 10000])
+@pytest.mark.parametrize("ncols", [100, 1000])
+@pytest.mark.parametrize("n_clusters", [2, 10])
+def test_self_neighboring(nrows, ncols, n_clusters, datatype):
+    n_neighbors = 1
+    if not has_scipy():
+        pytest.skip('Skipping test_neighborhood_predictions because ' +
+                    'Scipy is missing')
+
+    X, y = make_blobs(n_samples=nrows, centers=n_clusters,
+                      n_features=ncols, random_state=0)
+
+    X = X.astype(np.float32)
+
+    if datatype == "dataframe":
+        X = cudf.DataFrame(X)
+
+    knn_cu = cuKNN(n_neighbors=n_neighbors)
+    knn_cu.fit(X)
+    neigh_dist, neigh_ind = knn_cu.kneighbors(X, n_neighbors=n_neighbors,
+                                              return_distance=True)
+
+    if datatype == "dataframe":
+        assert isinstance(neigh_ind, cudf.Series)
+        neigh_ind = cp.asnumpy(neigh_ind)
+        neigh_dist = cp.asnumpy(neigh_dist)
+    else:
+        assert isinstance(neigh_ind, np.ndarray)
+        neigh_ind = neigh_ind[:, 0]
+
+    assert_array_equal(
+        neigh_ind,
+        np.arange(0, neigh_dist.shape[0]),
+    )
+    assert_allclose(
+        neigh_dist,
+        np.zeros(neigh_dist.shape, dtype=neigh_dist.dtype),
+        atol=1e-5
+    )
 
 
 @pytest.mark.parametrize("datatype", ["dataframe", "numpy"])
