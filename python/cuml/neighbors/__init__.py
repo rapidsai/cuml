@@ -29,9 +29,11 @@ VALID_METRICS = {
         "minkowski", "lp",
         "chebyshev", "linf",
         "jensenshannon",
-        "cosine", "correlation"
+        "cosine", "correlation",
+        "inner_product", "sqeuclidean"
     ]),
+    "sparse": set(["euclidean", "l2", "inner_product"]),
     "ivfflat": set(["l2", "euclidean"]),
     "ivfpq": set(["l2", "euclidean"]),
     "ivfsq": set(["l2", "euclidean"])
-}
+    }

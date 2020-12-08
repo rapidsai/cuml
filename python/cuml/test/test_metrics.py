@@ -13,10 +13,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+import random
 from itertools import chain, permutations
 from functools import partial
 
 import cuml
+import cuml.common.logger as logger
 import cupy as cp
 import numpy as np
 import pytest
@@ -32,7 +34,7 @@ from cuml.test.utils import get_handle, get_pattern, array_equal, \
 from numba import cuda
 from numpy.testing import assert_almost_equal
 
-from sklearn.datasets import make_classification
+from sklearn.datasets import make_classification, make_blobs
 from sklearn.metrics import accuracy_score as sk_acc_score
 from sklearn.metrics import log_loss as sklearn_log_loss
 from sklearn.metrics.cluster import adjusted_rand_score as sk_ars
@@ -44,12 +46,12 @@ from sklearn.preprocessing import StandardScaler
 from cuml.metrics.cluster import entropy
 from cuml.metrics.regression import mean_squared_error, \
     mean_squared_log_error, mean_absolute_error
-from sklearn.metrics.regression import mean_squared_error as sklearn_mse
+from sklearn.metrics import mean_squared_error as sklearn_mse
 from sklearn.metrics import confusion_matrix as sk_confusion_matrix
 
 from cuml.metrics import confusion_matrix
-from sklearn.metrics.regression import mean_absolute_error as sklearn_mae
-from sklearn.metrics.regression import mean_squared_log_error as sklearn_msle
+from sklearn.metrics import mean_absolute_error as sklearn_mae
+from sklearn.metrics import mean_squared_log_error as sklearn_msle
 
 from cuml.common import has_scipy
 
@@ -62,6 +64,39 @@ from sklearn.metrics import precision_recall_curve \
 
 from cuml.metrics import pairwise_distances, PAIRWISE_DISTANCE_METRICS
 from sklearn.metrics import pairwise_distances as sklearn_pairwise_distances
+
+
+@pytest.fixture(scope='module')
+def random_state():
+    random_state = random.randint(0, 1e6)
+    with logger.set_level(logger.level_debug):
+        logger.debug("Random seed: {}".format(random_state))
+    return random_state
+
+
+@pytest.fixture(
+    scope='module',
+    params=(
+        {'n_clusters': 2, 'n_features': 2, 'label_type': 'int64',
+            'data_type': 'float32'},
+        {'n_clusters': 5, 'n_features': 1000, 'label_type': 'int32',
+            'data_type': 'float64'}
+    )
+)
+def labeled_clusters(request, random_state):
+    data, labels = make_blobs(
+        n_samples=1000,
+        n_features=request.param['n_features'],
+        random_state=random_state,
+        centers=request.param['n_clusters'],
+        center_box=(-1, 1),
+        cluster_std=1.5  # Allow some cluster overlap
+    )
+
+    return (
+        data.astype(request.param['data_type']),
+        labels.astype(request.param['label_type'])
+    )
 
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
@@ -139,7 +174,7 @@ def test_accuracy(nrows, ncols, n_info, datatype):
     # random forest classification model
     cuml_model = curfc(max_features=1.0,
                        n_bins=8, split_algo=0, split_criterion=0,
-                       min_rows_per_node=2,
+                       min_samples_leaf=2,
                        n_estimators=40, handle=handle, max_leaves=-1,
                        max_depth=16)
 

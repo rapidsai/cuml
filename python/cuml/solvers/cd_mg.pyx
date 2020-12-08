@@ -24,6 +24,7 @@ from libcpp cimport bool
 from libc.stdint cimport uintptr_t, uint32_t, uint64_t
 from cython.operator cimport dereference as deref
 
+import cuml.internals
 from cuml.common.base import Base
 from cuml.common.array import CumlArray
 from cuml.raft.common.handle cimport handle_t
@@ -74,6 +75,7 @@ class CDMG(MGFitMixin, CD):
     def __init__(self, **kwargs):
         super(CDMG, self).__init__(**kwargs)
 
+    @cuml.internals.api_base_return_any_skipall
     def _fit(self, X, y, coef_ptr, input_desc):
 
         cdef float float_intercept

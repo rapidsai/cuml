@@ -49,11 +49,14 @@ if(BUILD_CUML_TESTS)
     sg/cd_test.cu
     sg/dbscan_test.cu
     sg/decisiontree_batchedlevel_algo.cu
+    sg/decisiontree_batchedlevel_unittest.cu
     sg/fil_test.cu
+    sg/multi_sum_test.cu
     sg/handle_test.cu
     sg/holtwinters_test.cu
     sg/kmeans_test.cu
     sg/knn_test.cu
+    sg/lars_test.cu
     sg/logger.cpp
     sg/nvtx_test.cpp
     sg/ols.cu
@@ -68,11 +71,13 @@ if(BUILD_CUML_TESTS)
     sg/ridge.cu
     sg/rproj_test.cu
     sg/sgd.cu
+    sg/shap_kernel.cu
     sg/svc_test.cu
     sg/trustworthiness_test.cu
     sg/tsne_test.cu
     sg/tsvd_test.cu
-    sg/umap_parametrizable_test.cu)
+    sg/umap_parametrizable_test.cu
+    )
 
   add_dependencies(ml cutlass)
 
@@ -124,7 +129,7 @@ if(BUILD_PRIMS_TESTS)
   # (please keep the filenames in alphabetical order)
   add_executable(prims
     prims/add_sub_dev_scalar.cu
-    prims/adjustedRandIndex.cu
+    prims/adjusted_rand_index.cu
     prims/batched/csr.cu
     prims/batched/gemv.cu
     prims/batched/information_criterion.cu
@@ -132,7 +137,7 @@ if(BUILD_PRIMS_TESTS)
     prims/batched/matrix.cu
     prims/cache.cu
     prims/columnSort.cu
-    prims/completenessScore.cu
+    prims/completeness_score.cu
     prims/contingencyMatrix.cu
     prims/coo.cu
     prims/cov.cu
@@ -156,10 +161,10 @@ if(BUILD_PRIMS_TESTS)
     prims/grid_sync.cu
     prims/hinge.cu
     prims/histogram.cu
-    prims/homogeneityScore.cu
+    prims/homogeneity_score.cu
     prims/host_buffer.cu
     prims/jones_transform.cu
-    prims/klDivergence.cu
+    prims/kl_divergence.cu
     prims/knn_classify.cu
     prims/knn_regression.cu
     prims/knn.cu
@@ -173,11 +178,11 @@ if(BUILD_PRIMS_TESTS)
     prims/make_regression.cu
     prims/minmax.cu
     prims/mvg.cu
-    prims/mutualInfoScore.cu
+    prims/mutual_info_score.cu
     prims/penalty.cu
     prims/permute.cu
     prims/power.cu
-    prims/randIndex.cu
+    prims/rand_index.cu
     prims/reduce_cols_by_key.cu
     prims/reduce_rows_by_key.cu
     prims/reverse.cu
@@ -185,11 +190,17 @@ if(BUILD_PRIMS_TESTS)
     prims/score.cu
     prims/seive.cu
     prims/sigmoid.cu
-    prims/silhouetteScore.cu
+    prims/sparse/csr_row_slice.cu
+    prims/sparse/csr_to_dense.cu
+    prims/sparse/csr_transpose.cu
+    prims/sparse/distance.cu
+    prims/sparse/knn.cu
+    prims/sparse/selection.cu
+    prims/silhouette_score.cu
     prims/sqrt.cu
     prims/ternary_op.cu
     prims/trustworthiness.cu
-    prims/vMeasure.cu
+    prims/v_measure.cu
     prims/weighted_mean.cu
     ../src/common/logger.cpp)  # because prims is header only!
 
