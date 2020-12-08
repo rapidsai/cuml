@@ -25,7 +25,7 @@ cimport cuml.common.cuda
 
 cdef extern from "cuml/neighbors/knn.hpp" namespace "ML":
     cdef cppclass knnIndexParam:
-        bool automated
+        pass
 
     ctypedef enum QuantizerType:
         QT_8bit,
@@ -72,16 +72,47 @@ cdef inline check_algo_params(algo, params):
 cdef inline build_ivfflat_algo_params(params, automated):
     cdef IVFFlatParam* algo_params = new IVFFlatParam()
     if automated:
-        return <uintptr_t>algo_params
+        params = {
+            'nlist': 8,
+            'nprobe': 2
+        }
     algo_params.nlist = <int> params['nlist']
     algo_params.nprobe = <int> params['nprobe']
     return <uintptr_t>algo_params
 
 
-cdef inline build_ivfpq_algo_params(params, automated):
+cdef inline build_ivfpq_algo_params(params, automated, additional_info):
     cdef IVFPQParam* algo_params = new IVFPQParam()
     if automated:
-        return <uintptr_t>algo_params
+        allowedSubquantizers = [1, 2, 3, 4, 8, 12, 16, 20, 24, 28, 32]
+        allowedSubDimSize = {1, 2, 3, 4, 6, 8, 10, 12, 16, 20, 24, 28, 32}
+        N = additional_info['n_samples']
+        D = additional_info['n_features']
+
+        params = {
+            'nlist': 8,
+            'nprobe': 3
+        }
+
+        for n_subq in allowedSubquantizers:
+            if D % n_subq == 0 and (D / n_subq) in allowedSubDimSize:
+                params['usePrecomputedTables'] = False
+                params['M'] = n_subq
+                break
+
+        if 'M' not in params:
+            for n_subq in allowedSubquantizers:
+                if D % n_subq == 0:
+                    params['usePrecomputedTables'] = True
+                    params['M'] = n_subq
+                    break
+
+        for i in reversed(range(1, 4)):
+            min_train_points = (2 ** i) * 39
+            if N >= min_train_points:
+                params['n_bits'] = i
+                break
+
     algo_params.nlist = <int> params['nlist']
     algo_params.nprobe = <int> params['nprobe']
     algo_params.M = <int> params['M']
@@ -94,7 +125,12 @@ cdef inline build_ivfpq_algo_params(params, automated):
 cdef inline build_ivfsq_algo_params(params, automated):
     cdef IVFSQParam* algo_params = new IVFSQParam()
     if automated:
-        return <uintptr_t>algo_params
+        params = {
+            'nlist': 8,
+            'nprobe': 2,
+            'qtype': 'QT_8bit',
+            'encodeResidual': True
+        }
 
     quantizer_type = {
         'QT_8bit': <int> QuantizerType.QT_8bit,
@@ -113,24 +149,22 @@ cdef inline build_ivfsq_algo_params(params, automated):
     return <uintptr_t>algo_params
 
 
-cdef inline build_algo_params(algo, params):
+cdef inline build_algo_params(algo, params, additional_info):
     automated = params is None or params == 'auto'
     if not automated:
         check_algo_params(algo, params)
 
-    automated = params is None or params == 'auto'
     cdef knnIndexParam* algo_params = <knnIndexParam*> 0
     if algo == 'ivfflat':
         algo_params = <knnIndexParam*><uintptr_t> \
             build_ivfflat_algo_params(params, automated)
     if algo == 'ivfpq':
         algo_params = <knnIndexParam*><uintptr_t> \
-            build_ivfpq_algo_params(params, automated)
+            build_ivfpq_algo_params(params, automated, additional_info)
     elif algo == 'ivfsq':
         algo_params = <knnIndexParam*><uintptr_t> \
             build_ivfsq_algo_params(params, automated)
 
-    algo_params.automated = <bool>automated
     return <uintptr_t>algo_params
 
 

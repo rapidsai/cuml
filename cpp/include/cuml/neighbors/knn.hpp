@@ -60,8 +60,7 @@ typedef enum {
 } QuantizerType;
 
 struct knnIndexParam {
-  bool automated;
-  virtual bool isBaseClass() { return true; }
+  virtual ~knnIndexParam() {}
 };
 
 struct IVFParam : knnIndexParam {

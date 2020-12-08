@@ -217,20 +217,10 @@ inline faiss::ScalarQuantizer::QuantizerType build_faiss_qtype(
   }
 }
 
-const std::set<int> allowedSubDimSize = {1,  2,  3,  4,  6,  8, 10,
-                                         12, 16, 20, 24, 28, 32};
-const std::initializer_list<int> allowedSubquantizers = {32, 28, 24, 20, 16, 12,
-                                                         8,  4,  3,  2,  1};
-
 template <typename IntType = int>
 void approx_knn_ivfflat_build_index(ML::knnIndex *index, ML::IVFParam *params,
                                     IntType D, ML::MetricType metric,
                                     IntType n) {
-  if (params->automated) {
-    params->nlist = 8;
-    params->nprobe = params->nlist * 0.3;
-  }
-
   faiss::gpu::GpuIndexIVFFlatConfig config;
   config.device = index->device;
   faiss::MetricType faiss_metric = build_faiss_metric(metric);
@@ -243,40 +233,6 @@ void approx_knn_ivfflat_build_index(ML::knnIndex *index, ML::IVFParam *params,
 template <typename IntType = int>
 void approx_knn_ivfpq_build_index(ML::knnIndex *index, ML::IVFPQParam *params,
                                   IntType D, ML::MetricType metric, IntType n) {
-  if (params->automated) {
-    params->M = 0;
-    params->n_bits = 0;
-    params->nlist = 8;
-    params->nprobe = params->nlist * 0.3;
-
-    for (int n_subq : allowedSubquantizers) {
-      if (D % n_subq == 0 &&
-          allowedSubDimSize.find(D / n_subq) != allowedSubDimSize.end()) {
-        params->usePrecomputedTables = false;
-        params->M = n_subq;
-        break;
-      }
-    }
-
-    if (params->M == 0) {
-      for (int n_subq : allowedSubquantizers) {
-        if (D % n_subq == 0) {
-          params->usePrecomputedTables = true;
-          params->M = n_subq;
-          break;
-        }
-      }
-    }
-
-    for (size_t i = 8; i > 0; --i) {
-      size_t min_train_points = std::pow(2, i) * 39;
-      if (n >= min_train_points) {
-        params->n_bits = i;
-        break;
-      }
-    }
-  }
-
   faiss::gpu::GpuIndexIVFPQConfig config;
   config.device = index->device;
   config.usePrecomputedTables = params->usePrecomputedTables;
@@ -291,13 +247,6 @@ void approx_knn_ivfpq_build_index(ML::knnIndex *index, ML::IVFPQParam *params,
 template <typename IntType = int>
 void approx_knn_ivfsq_build_index(ML::knnIndex *index, ML::IVFSQParam *params,
                                   IntType D, ML::MetricType metric, IntType n) {
-  if (params->automated) {
-    params->nlist = 8;
-    params->nprobe = params->nlist * 0.3;
-    params->qtype = ML::QuantizerType::QT_8bit;
-    params->encodeResidual = true;
-  }
-
   faiss::gpu::GpuIndexIVFScalarQuantizerConfig config;
   config.device = index->device;
   faiss::MetricType faiss_metric = build_faiss_metric(metric);

@@ -346,10 +346,14 @@ class NearestNeighbors(Base):
         cdef knnIndex* knn_index = <knnIndex*> 0
         cdef knnIndexParam* algo_params = <knnIndexParam*> 0
         if self.algorithm not in ['brute', 'sparse']:
+            additional_info = {'n_samples': self.n_rows,
+                               'n_features': n_cols}
+
             knn_index = new knnIndex()
             self.knn_index = <uintptr_t> knn_index
             algo_params = <knnIndexParam*><uintptr_t> \
-                build_algo_params(self.algorithm, self.algo_params)
+                build_algo_params(self.algorithm, self.algo_params,
+                                  additional_info)
             metric, expanded = self._build_metric_type(self.metric)
 
             approx_knn_build_index(handle_[0],

@@ -58,7 +58,7 @@ def valid_metrics(algo="brute", cuml_algo=None):
 @pytest.mark.parametrize("ncols", [128, 1024])
 @pytest.mark.parametrize("n_neighbors", [10, 50])
 @pytest.mark.parametrize("n_clusters", [2, 10])
-@pytest.mark.parametrize("algo", ["brute", "ivfflat", "ivfpq", "ivfsq"])
+@pytest.mark.parametrize("algo", ["ivfpq"])
 def test_neighborhood_predictions(nrows, ncols, n_neighbors, n_clusters,
                                   datatype, algo):
     if not has_scipy():
