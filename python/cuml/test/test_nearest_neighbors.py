@@ -80,6 +80,7 @@ def test_self_neighboring(nrows, ncols, n_clusters, datatype):
     if datatype == "dataframe":
         assert isinstance(neigh_ind, cudf.Series)
         neigh_ind = cp.asnumpy(neigh_ind)
+        neigh_dist = cp.asnumpy(neigh_dist)
     else:
         assert isinstance(neigh_ind, np.ndarray)
         neigh_ind = neigh_ind[:, 0]
