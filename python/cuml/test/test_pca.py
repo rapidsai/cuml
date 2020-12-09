@@ -240,7 +240,7 @@ def test_exceptions():
     with pytest.raises(NotFittedError):
         X = cp.random.random((10, 10))
         cuPCA().transform(X)
-    
+
     with pytest.raises(NotFittedError):
         X = cp.random.random((10, 10))
         cuPCA().inverse_transform(X)
