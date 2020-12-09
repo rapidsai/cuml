@@ -302,12 +302,8 @@ class MinMaxScaler(TransformerMixin, BaseEstimator):
 
     def get_param_names(self):
         return super().get_param_names() + [
-            "scale_",
-            "min_",
-            "n_samples_seen_",
-            "data_min_",
-            "data_max_",
-            "data_range_"
+            "feature_range",
+            "copy"
         ]
 
     def fit(self, X, y=None) -> "MinMaxScaler":
@@ -631,11 +627,7 @@ class StandardScaler(TransformerMixin, BaseEstimator):
         return super().get_param_names() + [
             "with_mean",
             "with_std",
-            "copy",
-            "scale_",
-            "n_samples_seen_",
-            "mean_",
-            "var_"
+            "copy"
         ]
 
     def fit(self, X, y=None) -> "StandardScaler":
@@ -938,10 +930,7 @@ class MaxAbsScaler(TransformerMixin, BaseEstimator):
 
     def get_param_names(self):
         return super().get_param_names() + [
-            "copy",
-            "scale_",
-            "n_samples_seen_",
-            "max_abs_"
+            "copy"
         ]
 
     def fit(self, X, y=None) -> "MaxAbsScaler":
@@ -1194,9 +1183,7 @@ class RobustScaler(TransformerMixin, BaseEstimator):
             "with_centering",
             "with_scaling",
             "quantile_range",
-            "copy",
-            "center_",
-            "scale_",
+            "copy"
         ]
 
     def fit(self, X, y=None) -> "RobustScaler":

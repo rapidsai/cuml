@@ -243,8 +243,7 @@ class SimpleImputer(_BaseImputer, BaseEstimator):
             "strategy",
             "fill_value",
             "verbose",
-            "copy",
-            "statistics_"
+            "copy"
         ]
 
     def _validate_input(self, X, in_fit):

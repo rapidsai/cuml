@@ -155,9 +155,7 @@ class KBinsDiscretizer(TransformerMixin, BaseEstimator):
         return super().get_param_names() + [
             "n_bins",
             "encode",
-            "strategy",
-            "bin_edges_",
-            "n_bins_",
+            "strategy"
         ]
 
     def fit(self, X, y=None) -> "KBinsDiscretizer":
