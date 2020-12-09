@@ -88,7 +88,7 @@ def test_neighborhood_predictions(nrows, ncols, n_neighbors, n_clusters,
 
 
 @pytest.mark.parametrize("nlist", [4, 8])
-@pytest.mark.parametrize("nrows", [500, 1000, 10000])
+@pytest.mark.parametrize("nrows", [1000, 10000])
 @pytest.mark.parametrize("ncols", [128, 512])
 @pytest.mark.parametrize("n_neighbors", [8, 20])
 def test_ivfflat_pred(nrows, ncols, n_neighbors, nlist):
@@ -110,13 +110,13 @@ def test_ivfflat_pred(nrows, ncols, n_neighbors, nlist):
     assert array_equal(labels, y)
 
 
-@pytest.mark.parametrize("nlist", [4, 8])
+@pytest.mark.parametrize("nlist", [8])
 @pytest.mark.parametrize("M", [16, 32])
-@pytest.mark.parametrize("n_bits", [2, 3, 4])
+@pytest.mark.parametrize("n_bits", [2, 4])
 @pytest.mark.parametrize("usePrecomputedTables", [False, True])
-@pytest.mark.parametrize("nrows", [500, 1000, 10000])
+@pytest.mark.parametrize("nrows", [1000, 4000])
 @pytest.mark.parametrize("ncols", [128, 512])
-@pytest.mark.parametrize("n_neighbors", [8, 20])
+@pytest.mark.parametrize("n_neighbors", [4, 12])
 def test_ivfpq_pred(nrows, ncols, n_neighbors,
                     nlist, M, n_bits, usePrecomputedTables):
     algo_params = {
@@ -143,7 +143,7 @@ def test_ivfpq_pred(nrows, ncols, n_neighbors,
 @pytest.mark.parametrize("nlist", [4, 8])
 @pytest.mark.parametrize("qtype", ['QT_4bit', 'QT_8bit', 'QT_fp16'])
 @pytest.mark.parametrize("encodeResidual", [False, True])
-@pytest.mark.parametrize("nrows", [500, 1000, 10000])
+@pytest.mark.parametrize("nrows", [1000, 10000])
 @pytest.mark.parametrize("ncols", [128, 512])
 @pytest.mark.parametrize("n_neighbors", [8, 20])
 def test_ivfsq_pred(nrows, ncols, n_neighbors, nlist, qtype, encodeResidual):
