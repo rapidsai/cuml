@@ -2044,3 +2044,1104 @@ def add_dummy_feature(X, value=1.0):
     else:
         X = np.hstack((np.full((n_samples, 1), value), X))
         return X
+
+
+class KernelCenterer(TransformerMixin, BaseEstimator):
+    """Center a kernel matrix
+
+    Let K(x, z) be a kernel defined by phi(x)^T phi(z), where phi is a
+    function mapping x to a Hilbert space. KernelCenterer centers (i.e.,
+    normalize to have zero mean) the data without explicitly computing phi(x).
+    It is equivalent to centering phi(x) with
+    sklearn.preprocessing.StandardScaler(with_std=False).
+
+    Read more in the :ref:`User Guide <kernel_centering>`.
+
+    Attributes
+    ----------
+    K_fit_rows_ : array, shape (n_samples,)
+        Average of each column of kernel matrix
+
+    K_fit_all_ : float
+        Average of kernel matrix
+
+    Examples
+    --------
+    >>> from sklearn.preprocessing import KernelCenterer
+    >>> from sklearn.metrics.pairwise import pairwise_kernels
+    >>> X = [[ 1., -2.,  2.],
+    ...      [ -2.,  1.,  3.],
+    ...      [ 4.,  1., -2.]]
+    >>> K = pairwise_kernels(X, metric='linear')
+    >>> K
+    array([[  9.,   2.,  -2.],
+           [  2.,  14., -13.],
+           [ -2., -13.,  21.]])
+    >>> transformer = KernelCenterer().fit(K)
+    >>> transformer
+    KernelCenterer()
+    >>> transformer.transform(K)
+    array([[  5.,   0.,  -5.],
+           [  0.,  14., -14.],
+           [ -5., -14.,  19.]])
+    """
+
+    def __init__(self):
+        # Needed for backported inspect.signature compatibility with PyPy
+        pass
+
+    def fit(self, K, y=None):
+        """Fit KernelCenterer
+
+        Parameters
+        ----------
+        K : numpy array of shape [n_samples, n_samples]
+            Kernel matrix.
+
+        Returns
+        -------
+        self : returns an instance of self.
+        """
+
+        K = self._validate_data(K, dtype=FLOAT_DTYPES)
+
+        if K.shape[0] != K.shape[1]:
+            raise ValueError("Kernel matrix must be a square matrix."
+                             " Input is a {}x{} matrix."
+                             .format(K.shape[0], K.shape[1]))
+
+        n_samples = K.shape[0]
+        self.K_fit_rows_ = np.sum(K, axis=0) / n_samples
+        self.K_fit_all_ = self.K_fit_rows_.sum() / n_samples
+        return self
+
+    def transform(self, K, copy=True):
+        """Center kernel matrix.
+
+        Parameters
+        ----------
+        K : numpy array of shape [n_samples1, n_samples2]
+            Kernel matrix.
+
+        copy : boolean, optional, default True
+            Whether a forced copy will be triggered. If copy=False,
+            a copy might be triggered by a conversion.
+
+        Returns
+        -------
+        K_new : numpy array of shape [n_samples1, n_samples2]
+        """
+        check_is_fitted(self)
+
+        K = check_array(K, copy=copy, dtype=FLOAT_DTYPES)
+
+        K_pred_cols = (np.sum(K, axis=1) /
+                       self.K_fit_rows_.shape[0])[:, np.newaxis]
+
+        K -= self.K_fit_rows_
+        K -= K_pred_cols
+        K += self.K_fit_all_
+
+        return K
+
+    @property
+    def _pairwise(self):
+        return True
+
+
+class QuantileTransformer(TransformerMixin, BaseEstimator):
+    """Transform features using quantiles information.
+
+    This method transforms the features to follow a uniform or a normal
+    distribution. Therefore, for a given feature, this transformation tends
+    to spread out the most frequent values. It also reduces the impact of
+    (marginal) outliers: this is therefore a robust preprocessing scheme.
+
+    The transformation is applied on each feature independently. First an
+    estimate of the cumulative distribution function of a feature is
+    used to map the original values to a uniform distribution. The obtained
+    values are then mapped to the desired output distribution using the
+    associated quantile function. Features values of new/unseen data that fall
+    below or above the fitted range will be mapped to the bounds of the output
+    distribution. Note that this transform is non-linear. It may distort linear
+    correlations between variables measured at the same scale but renders
+    variables measured at different scales more directly comparable.
+
+    Read more in the :ref:`User Guide <preprocessing_transformer>`.
+
+    .. versionadded:: 0.19
+
+    Parameters
+    ----------
+    n_quantiles : int, optional (default=1000 or n_samples)
+        Number of quantiles to be computed. It corresponds to the number
+        of landmarks used to discretize the cumulative distribution function.
+        If n_quantiles is larger than the number of samples, n_quantiles is set
+        to the number of samples as a larger number of quantiles does not give
+        a better approximation of the cumulative distribution function
+        estimator.
+
+    output_distribution : str, optional (default='uniform')
+        Marginal distribution for the transformed data. The choices are
+        'uniform' (default) or 'normal'.
+
+    ignore_implicit_zeros : bool, optional (default=False)
+        Only applies to sparse matrices. If True, the sparse entries of the
+        matrix are discarded to compute the quantile statistics. If False,
+        these entries are treated as zeros.
+
+    subsample : int, optional (default=1e5)
+        Maximum number of samples used to estimate the quantiles for
+        computational efficiency. Note that the subsampling procedure may
+        differ for value-identical sparse and dense matrices.
+
+    random_state : int, RandomState instance or None, optional (default=None)
+        Determines random number generation for subsampling and smoothing
+        noise.
+        Please see ``subsample`` for more details.
+        Pass an int for reproducible results across multiple function calls.
+        See :term:`Glossary <random_state>`
+
+    copy : boolean, optional, (default=True)
+        Set to False to perform inplace transformation and avoid a copy (if the
+        input is already a numpy array).
+
+    Attributes
+    ----------
+    n_quantiles_ : integer
+        The actual number of quantiles used to discretize the cumulative
+        distribution function.
+
+    quantiles_ : ndarray, shape (n_quantiles, n_features)
+        The values corresponding the quantiles of reference.
+
+    references_ : ndarray, shape(n_quantiles, )
+        Quantiles of references.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from sklearn.preprocessing import QuantileTransformer
+    >>> rng = np.random.RandomState(0)
+    >>> X = np.sort(rng.normal(loc=0.5, scale=0.25, size=(25, 1)), axis=0)
+    >>> qt = QuantileTransformer(n_quantiles=10, random_state=0)
+    >>> qt.fit_transform(X)
+    array([...])
+
+    See also
+    --------
+    quantile_transform : Equivalent function without the estimator API.
+    PowerTransformer : Perform mapping to a normal distribution using a power
+        transform.
+    StandardScaler : Perform standardization that is faster, but less robust
+        to outliers.
+    RobustScaler : Perform robust standardization that removes the influence
+        of outliers but does not put outliers and inliers on the same scale.
+
+    Notes
+    -----
+    NaNs are treated as missing values: disregarded in fit, and maintained in
+    transform.
+
+    For a comparison of the different scalers, transformers, and normalizers,
+    see :ref:`examples/preprocessing/plot_all_scaling.py
+    <sphx_glr_auto_examples_preprocessing_plot_all_scaling.py>`.
+    """
+
+    @_deprecate_positional_args
+    def __init__(self, *, n_quantiles=1000, output_distribution='uniform',
+                 ignore_implicit_zeros=False, subsample=int(1e5),
+                 random_state=None, copy=True):
+        self.n_quantiles = n_quantiles
+        self.output_distribution = output_distribution
+        self.ignore_implicit_zeros = ignore_implicit_zeros
+        self.subsample = subsample
+        self.random_state = random_state
+        self.copy = copy
+
+    def _dense_fit(self, X, random_state):
+        """Compute percentiles for dense matrices.
+
+        Parameters
+        ----------
+        X : ndarray, shape (n_samples, n_features)
+            The data used to scale along the features axis.
+        """
+        if self.ignore_implicit_zeros:
+            warnings.warn("'ignore_implicit_zeros' takes effect only with"
+                          " sparse matrix. This parameter has no effect.")
+
+        n_samples, n_features = X.shape
+        references = self.references_ * 100
+
+        self.quantiles_ = []
+        for col in X.T:
+            if self.subsample < n_samples:
+                subsample_idx = random_state.choice(n_samples,
+                                                    size=self.subsample,
+                                                    replace=False)
+                col = col.take(subsample_idx, mode='clip')
+            self.quantiles_.append(np.nanpercentile(col, references))
+        self.quantiles_ = np.transpose(self.quantiles_)
+        # Due to floating-point precision error in `np.nanpercentile`,
+        # make sure that quantiles are monotonically increasing.
+        # Upstream issue in numpy:
+        # https://github.com/numpy/numpy/issues/14685
+        self.quantiles_ = np.maximum.accumulate(self.quantiles_)
+
+    def _sparse_fit(self, X, random_state):
+        """Compute percentiles for sparse matrices.
+
+        Parameters
+        ----------
+        X : sparse matrix CSC, shape (n_samples, n_features)
+            The data used to scale along the features axis. The sparse matrix
+            needs to be nonnegative.
+        """
+        n_samples, n_features = X.shape
+        references = self.references_ * 100
+
+        self.quantiles_ = []
+        for feature_idx in range(n_features):
+            column_nnz_data = X.data[X.indptr[feature_idx]:
+                                     X.indptr[feature_idx + 1]]
+            if len(column_nnz_data) > self.subsample:
+                column_subsample = (self.subsample * len(column_nnz_data) //
+                                    n_samples)
+                if self.ignore_implicit_zeros:
+                    column_data = np.zeros(shape=column_subsample,
+                                           dtype=X.dtype)
+                else:
+                    column_data = np.zeros(shape=self.subsample, dtype=X.dtype)
+                column_data[:column_subsample] = random_state.choice(
+                    column_nnz_data, size=column_subsample, replace=False)
+            else:
+                if self.ignore_implicit_zeros:
+                    column_data = np.zeros(shape=len(column_nnz_data),
+                                           dtype=X.dtype)
+                else:
+                    column_data = np.zeros(shape=n_samples, dtype=X.dtype)
+                column_data[:len(column_nnz_data)] = column_nnz_data
+
+            if not column_data.size:
+                # if no nnz, an error will be raised for computing the
+                # quantiles. Force the quantiles to be zeros.
+                self.quantiles_.append([0] * len(references))
+            else:
+                self.quantiles_.append(
+                        np.nanpercentile(column_data, references))
+        self.quantiles_ = np.transpose(self.quantiles_)
+        # due to floating-point precision error in `np.nanpercentile`,
+        # make sure the quantiles are monotonically increasing
+        # Upstream issue in numpy:
+        # https://github.com/numpy/numpy/issues/14685
+        self.quantiles_ = np.maximum.accumulate(self.quantiles_)
+
+    def fit(self, X, y=None):
+        """Compute the quantiles used for transforming.
+
+        Parameters
+        ----------
+        X : ndarray or sparse matrix, shape (n_samples, n_features)
+            The data used to scale along the features axis. If a sparse
+            matrix is provided, it will be converted into a sparse
+            ``csc_matrix``. Additionally, the sparse matrix needs to be
+            nonnegative if `ignore_implicit_zeros` is False.
+
+        Returns
+        -------
+        self : object
+        """
+        if self.n_quantiles <= 0:
+            raise ValueError("Invalid value for 'n_quantiles': %d. "
+                             "The number of quantiles must be at least one."
+                             % self.n_quantiles)
+
+        if self.subsample <= 0:
+            raise ValueError("Invalid value for 'subsample': %d. "
+                             "The number of subsamples must be at least one."
+                             % self.subsample)
+
+        if self.n_quantiles > self.subsample:
+            raise ValueError("The number of quantiles cannot be greater than"
+                             " the number of samples used. Got {} quantiles"
+                             " and {} samples.".format(self.n_quantiles,
+                                                       self.subsample))
+
+        X = self._check_inputs(X, in_fit=True, copy=False)
+        n_samples = X.shape[0]
+
+        if self.n_quantiles > n_samples:
+            warnings.warn("n_quantiles (%s) is greater than the total number "
+                          "of samples (%s). n_quantiles is set to "
+                          "n_samples."
+                          % (self.n_quantiles, n_samples))
+        self.n_quantiles_ = max(1, min(self.n_quantiles, n_samples))
+
+        rng = check_random_state(self.random_state)
+
+        # Create the quantiles of reference
+        self.references_ = np.linspace(0, 1, self.n_quantiles_,
+                                       endpoint=True)
+        if sparse.issparse(X):
+            self._sparse_fit(X, rng)
+        else:
+            self._dense_fit(X, rng)
+
+        return self
+
+    def _transform_col(self, X_col, quantiles, inverse):
+        """Private function to transform a single feature"""
+
+        output_distribution = self.output_distribution
+
+        if not inverse:
+            lower_bound_x = quantiles[0]
+            upper_bound_x = quantiles[-1]
+            lower_bound_y = 0
+            upper_bound_y = 1
+        else:
+            lower_bound_x = 0
+            upper_bound_x = 1
+            lower_bound_y = quantiles[0]
+            upper_bound_y = quantiles[-1]
+            # for inverse transform, match a uniform distribution
+            with np.errstate(invalid='ignore'):  # hide NaN comparison warnings
+                if output_distribution == 'normal':
+                    X_col = stats.norm.cdf(X_col)
+                # else output distribution is already a uniform distribution
+
+        # find index for lower and higher bounds
+        with np.errstate(invalid='ignore'):  # hide NaN comparison warnings
+            if output_distribution == 'normal':
+                lower_bounds_idx = (X_col - BOUNDS_THRESHOLD <
+                                    lower_bound_x)
+                upper_bounds_idx = (X_col + BOUNDS_THRESHOLD >
+                                    upper_bound_x)
+            if output_distribution == 'uniform':
+                lower_bounds_idx = (X_col == lower_bound_x)
+                upper_bounds_idx = (X_col == upper_bound_x)
+
+        isfinite_mask = ~np.isnan(X_col)
+        X_col_finite = X_col[isfinite_mask]
+        if not inverse:
+            # Interpolate in one direction and in the other and take the
+            # mean. This is in case of repeated values in the features
+            # and hence repeated quantiles
+            #
+            # If we don't do this, only one extreme of the duplicated is
+            # used (the upper when we do ascending, and the
+            # lower for descending). We take the mean of these two
+            X_col[isfinite_mask] = .5 * (
+                np.interp(X_col_finite, quantiles, self.references_)
+                - np.interp(-X_col_finite, -quantiles[::-1],
+                            -self.references_[::-1]))
+        else:
+            X_col[isfinite_mask] = np.interp(X_col_finite,
+                                             self.references_, quantiles)
+
+        X_col[upper_bounds_idx] = upper_bound_y
+        X_col[lower_bounds_idx] = lower_bound_y
+        # for forward transform, match the output distribution
+        if not inverse:
+            with np.errstate(invalid='ignore'):  # hide NaN comparison warnings
+                if output_distribution == 'normal':
+                    X_col = stats.norm.ppf(X_col)
+                    # find the value to clip the data to avoid mapping to
+                    # infinity. Clip such that the inverse transform will be
+                    # consistent
+                    clip_min = stats.norm.ppf(BOUNDS_THRESHOLD - np.spacing(1))
+                    clip_max = stats.norm.ppf(1 - (BOUNDS_THRESHOLD -
+                                                   np.spacing(1)))
+                    X_col = np.clip(X_col, clip_min, clip_max)
+                # else output distribution is uniform and the ppf is the
+                # identity function so we let X_col unchanged
+
+        return X_col
+
+    def _check_inputs(self, X, in_fit, accept_sparse_negative=False,
+                      copy=False):
+        """Check inputs before fit and transform"""
+        # In theory reset should be equal to `in_fit`, but there are tests
+        # checking the input number of feature and they expect a specific
+        # string, which is not the same one raised by check_n_features. So we
+        # don't check n_features_in_ here for now (it's done with adhoc code in
+        # the estimator anyway).
+        # TODO: set reset=in_fit when addressing reset in
+        # predict/transform/etc.
+        reset = True
+
+        X = self._validate_data(X, reset=reset,
+                                accept_sparse='csc', copy=copy,
+                                dtype=FLOAT_DTYPES,
+                                force_all_finite='allow-nan')
+        # we only accept positive sparse matrix when ignore_implicit_zeros is
+        # false and that we call fit or transform.
+        with np.errstate(invalid='ignore'):  # hide NaN comparison warnings
+            if (not accept_sparse_negative and not self.ignore_implicit_zeros
+                    and (sparse.issparse(X) and np.any(X.data < 0))):
+                raise ValueError('QuantileTransformer only accepts'
+                                 ' non-negative sparse matrices.')
+
+        # check the output distribution
+        if self.output_distribution not in ('normal', 'uniform'):
+            raise ValueError("'output_distribution' has to be either 'normal'"
+                             " or 'uniform'. Got '{}' instead.".format(
+                                 self.output_distribution))
+
+        return X
+
+    def _check_is_fitted(self, X):
+        """Check the inputs before transforming"""
+        check_is_fitted(self)
+        # check that the dimension of X are adequate with the fitted data
+        if X.shape[1] != self.quantiles_.shape[1]:
+            raise ValueError('X does not have the same number of features as'
+                             ' the previously fitted data. Got {} instead of'
+                             ' {}.'.format(X.shape[1],
+                                           self.quantiles_.shape[1]))
+
+    def _transform(self, X, inverse=False):
+        """Forward and inverse transform.
+
+        Parameters
+        ----------
+        X : ndarray, shape (n_samples, n_features)
+            The data used to scale along the features axis.
+
+        inverse : bool, optional (default=False)
+            If False, apply forward transform. If True, apply
+            inverse transform.
+
+        Returns
+        -------
+        X : ndarray, shape (n_samples, n_features)
+            Projected data
+        """
+
+        if sparse.issparse(X):
+            for feature_idx in range(X.shape[1]):
+                column_slice = slice(X.indptr[feature_idx],
+                                     X.indptr[feature_idx + 1])
+                X.data[column_slice] = self._transform_col(
+                    X.data[column_slice], self.quantiles_[:, feature_idx],
+                    inverse)
+        else:
+            for feature_idx in range(X.shape[1]):
+                X[:, feature_idx] = self._transform_col(
+                    X[:, feature_idx], self.quantiles_[:, feature_idx],
+                    inverse)
+
+        return X
+
+    def transform(self, X):
+        """Feature-wise transformation of the data.
+
+        Parameters
+        ----------
+        X : ndarray or sparse matrix, shape (n_samples, n_features)
+            The data used to scale along the features axis. If a sparse
+            matrix is provided, it will be converted into a sparse
+            ``csc_matrix``. Additionally, the sparse matrix needs to be
+            nonnegative if `ignore_implicit_zeros` is False.
+
+        Returns
+        -------
+        Xt : ndarray or sparse matrix, shape (n_samples, n_features)
+            The projected data.
+        """
+        X = self._check_inputs(X, in_fit=False, copy=self.copy)
+        self._check_is_fitted(X)
+
+        return self._transform(X, inverse=False)
+
+    def inverse_transform(self, X):
+        """Back-projection to the original space.
+
+        Parameters
+        ----------
+        X : ndarray or sparse matrix, shape (n_samples, n_features)
+            The data used to scale along the features axis. If a sparse
+            matrix is provided, it will be converted into a sparse
+            ``csc_matrix``. Additionally, the sparse matrix needs to be
+            nonnegative if `ignore_implicit_zeros` is False.
+
+        Returns
+        -------
+        Xt : ndarray or sparse matrix, shape (n_samples, n_features)
+            The projected data.
+        """
+        X = self._check_inputs(X, in_fit=False, accept_sparse_negative=True,
+                               copy=self.copy)
+        self._check_is_fitted(X)
+
+        return self._transform(X, inverse=True)
+
+    def _more_tags(self):
+        return {'allow_nan': True}
+
+
+@_deprecate_positional_args
+def quantile_transform(X, *, axis=0, n_quantiles=1000,
+                       output_distribution='uniform',
+                       ignore_implicit_zeros=False,
+                       subsample=int(1e5),
+                       random_state=None,
+                       copy=True):
+    """Transform features using quantiles information.
+
+    This method transforms the features to follow a uniform or a normal
+    distribution. Therefore, for a given feature, this transformation tends
+    to spread out the most frequent values. It also reduces the impact of
+    (marginal) outliers: this is therefore a robust preprocessing scheme.
+
+    The transformation is applied on each feature independently. First an
+    estimate of the cumulative distribution function of a feature is
+    used to map the original values to a uniform distribution. The obtained
+    values are then mapped to the desired output distribution using the
+    associated quantile function. Features values of new/unseen data that fall
+    below or above the fitted range will be mapped to the bounds of the output
+    distribution. Note that this transform is non-linear. It may distort linear
+    correlations between variables measured at the same scale but renders
+    variables measured at different scales more directly comparable.
+
+    Read more in the :ref:`User Guide <preprocessing_transformer>`.
+
+    Parameters
+    ----------
+    X : array-like, sparse matrix
+        The data to transform.
+
+    axis : int, (default=0)
+        Axis used to compute the means and standard deviations along. If 0,
+        transform each feature, otherwise (if 1) transform each sample.
+
+    n_quantiles : int, optional (default=1000 or n_samples)
+        Number of quantiles to be computed. It corresponds to the number
+        of landmarks used to discretize the cumulative distribution function.
+        If n_quantiles is larger than the number of samples, n_quantiles is set
+        to the number of samples as a larger number of quantiles does not give
+        a better approximation of the cumulative distribution function
+        estimator.
+
+    output_distribution : str, optional (default='uniform')
+        Marginal distribution for the transformed data. The choices are
+        'uniform' (default) or 'normal'.
+
+    ignore_implicit_zeros : bool, optional (default=False)
+        Only applies to sparse matrices. If True, the sparse entries of the
+        matrix are discarded to compute the quantile statistics. If False,
+        these entries are treated as zeros.
+
+    subsample : int, optional (default=1e5)
+        Maximum number of samples used to estimate the quantiles for
+        computational efficiency. Note that the subsampling procedure may
+        differ for value-identical sparse and dense matrices.
+
+    random_state : int, RandomState instance or None, optional (default=None)
+        Determines random number generation for subsampling and smoothing
+        noise.
+        Please see ``subsample`` for more details.
+        Pass an int for reproducible results across multiple function calls.
+        See :term:`Glossary <random_state>`
+
+    copy : boolean, optional, (default=True)
+        Set to False to perform inplace transformation and avoid a copy (if the
+        input is already a numpy array). If True, a copy of `X` is transformed,
+        leaving the original `X` unchanged
+
+        ..versionchnanged:: 0.23
+            The default value of `copy` changed from False to True in 0.23.
+
+    Returns
+    -------
+    Xt : ndarray or sparse matrix, shape (n_samples, n_features)
+        The transformed data.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from sklearn.preprocessing import quantile_transform
+    >>> rng = np.random.RandomState(0)
+    >>> X = np.sort(rng.normal(loc=0.5, scale=0.25, size=(25, 1)), axis=0)
+    >>> quantile_transform(X, n_quantiles=10, random_state=0, copy=True)
+    array([...])
+
+    See also
+    --------
+    QuantileTransformer : Performs quantile-based scaling using the
+        ``Transformer`` API (e.g. as part of a preprocessing
+        :class:`sklearn.pipeline.Pipeline`).
+    power_transform : Maps data to a normal distribution using a
+        power transformation.
+    scale : Performs standardization that is faster, but less robust
+        to outliers.
+    robust_scale : Performs robust standardization that removes the influence
+        of outliers but does not put outliers and inliers on the same scale.
+
+    Notes
+    -----
+    NaNs are treated as missing values: disregarded in fit, and maintained in
+    transform.
+
+    For a comparison of the different scalers, transformers, and normalizers,
+    see :ref:`examples/preprocessing/plot_all_scaling.py
+    <sphx_glr_auto_examples_preprocessing_plot_all_scaling.py>`.
+    """
+    n = QuantileTransformer(n_quantiles=n_quantiles,
+                            output_distribution=output_distribution,
+                            subsample=subsample,
+                            ignore_implicit_zeros=ignore_implicit_zeros,
+                            random_state=random_state,
+                            copy=copy)
+    if axis == 0:
+        return n.fit_transform(X)
+    elif axis == 1:
+        return n.fit_transform(X.T).T
+    else:
+        raise ValueError("axis should be either equal to 0 or 1. Got"
+                         " axis={}".format(axis))
+
+
+class PowerTransformer(TransformerMixin, BaseEstimator):
+    """Apply a power transform featurewise to make data more Gaussian-like.
+
+    Power transforms are a family of parametric, monotonic transformations
+    that are applied to make data more Gaussian-like. This is useful for
+    modeling issues related to heteroscedasticity (non-constant variance),
+    or other situations where normality is desired.
+
+    Currently, PowerTransformer supports the Box-Cox transform and the
+    Yeo-Johnson transform. The optimal parameter for stabilizing variance and
+    minimizing skewness is estimated through maximum likelihood.
+
+    Box-Cox requires input data to be strictly positive, while Yeo-Johnson
+    supports both positive or negative data.
+
+    By default, zero-mean, unit-variance normalization is applied to the
+    transformed data.
+
+    Read more in the :ref:`User Guide <preprocessing_transformer>`.
+
+    .. versionadded:: 0.20
+
+    Parameters
+    ----------
+    method : str, (default='yeo-johnson')
+        The power transform method. Available methods are:
+
+        - 'yeo-johnson' [1]_, works with positive and negative values
+        - 'box-cox' [2]_, only works with strictly positive values
+
+    standardize : boolean, default=True
+        Set to True to apply zero-mean, unit-variance normalization to the
+        transformed output.
+
+    copy : boolean, optional, default=True
+        Set to False to perform inplace computation during transformation.
+
+    Attributes
+    ----------
+    lambdas_ : array of float, shape (n_features,)
+        The parameters of the power transformation for the selected features.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from sklearn.preprocessing import PowerTransformer
+    >>> pt = PowerTransformer()
+    >>> data = [[1, 2], [3, 2], [4, 5]]
+    >>> print(pt.fit(data))
+    PowerTransformer()
+    >>> print(pt.lambdas_)
+    [ 1.386... -3.100...]
+    >>> print(pt.transform(data))
+    [[-1.316... -0.707...]
+     [ 0.209... -0.707...]
+     [ 1.106...  1.414...]]
+
+    See also
+    --------
+    power_transform : Equivalent function without the estimator API.
+
+    QuantileTransformer : Maps data to a standard normal distribution with
+        the parameter `output_distribution='normal'`.
+
+    Notes
+    -----
+    NaNs are treated as missing values: disregarded in ``fit``, and maintained
+    in ``transform``.
+
+    For a comparison of the different scalers, transformers, and normalizers,
+    see :ref:`examples/preprocessing/plot_all_scaling.py
+    <sphx_glr_auto_examples_preprocessing_plot_all_scaling.py>`.
+
+    References
+    ----------
+
+    .. [1] I.K. Yeo and R.A. Johnson, "A new family of power transformations to
+           improve normality or symmetry." Biometrika, 87(4), pp.954-959,
+           (2000).
+
+    .. [2] G.E.P. Box and D.R. Cox, "An Analysis of Transformations", Journal
+           of the Royal Statistical Society B, 26, 211-252 (1964).
+
+    """
+    @_deprecate_positional_args
+    def __init__(self, method='yeo-johnson', *, standardize=True, copy=True):
+        self.method = method
+        self.standardize = standardize
+        self.copy = copy
+
+    def fit(self, X, y=None):
+        """Estimate the optimal parameter lambda for each feature.
+
+        The optimal lambda parameter for minimizing skewness is estimated on
+        each feature independently using maximum likelihood.
+
+        Parameters
+        ----------
+        X : array-like, shape (n_samples, n_features)
+            The data used to estimate the optimal transformation parameters.
+
+        y : Ignored
+
+        Returns
+        -------
+        self : object
+        """
+        self._fit(X, y=y, force_transform=False)
+        return self
+
+    def fit_transform(self, X, y=None):
+        return self._fit(X, y, force_transform=True)
+
+    def _fit(self, X, y=None, force_transform=False):
+        X = self._check_input(X, in_fit=True, check_positive=True,
+                              check_method=True)
+
+        if not self.copy and not force_transform:  # if call from fit()
+            X = X.copy()  # force copy so that fit does not change X inplace
+
+        optim_function = {'box-cox': self._box_cox_optimize,
+                          'yeo-johnson': self._yeo_johnson_optimize
+                          }[self.method]
+        with np.errstate(invalid='ignore'):  # hide NaN warnings
+            self.lambdas_ = np.array([optim_function(col) for col in X.T])
+
+        if self.standardize or force_transform:
+            transform_function = {'box-cox': boxcox,
+                                  'yeo-johnson': self._yeo_johnson_transform
+                                  }[self.method]
+            for i, lmbda in enumerate(self.lambdas_):
+                with np.errstate(invalid='ignore'):  # hide NaN warnings
+                    X[:, i] = transform_function(X[:, i], lmbda)
+
+        if self.standardize:
+            self._scaler = StandardScaler(copy=False)
+            if force_transform:
+                X = self._scaler.fit_transform(X)
+            else:
+                self._scaler.fit(X)
+
+        return X
+
+    def transform(self, X):
+        """Apply the power transform to each feature using the fitted lambdas.
+
+        Parameters
+        ----------
+        X : array-like, shape (n_samples, n_features)
+            The data to be transformed using a power transformation.
+
+        Returns
+        -------
+        X_trans : array-like, shape (n_samples, n_features)
+            The transformed data.
+        """
+        check_is_fitted(self)
+        X = self._check_input(X, in_fit=False, check_positive=True,
+                              check_shape=True)
+
+        transform_function = {'box-cox': boxcox,
+                              'yeo-johnson': self._yeo_johnson_transform
+                              }[self.method]
+        for i, lmbda in enumerate(self.lambdas_):
+            with np.errstate(invalid='ignore'):  # hide NaN warnings
+                X[:, i] = transform_function(X[:, i], lmbda)
+
+        if self.standardize:
+            X = self._scaler.transform(X)
+
+        return X
+
+    def inverse_transform(self, X):
+        """Apply the inverse power transformation using the fitted lambdas.
+
+        The inverse of the Box-Cox transformation is given by::
+
+            if lambda_ == 0:
+                X = exp(X_trans)
+            else:
+                X = (X_trans * lambda_ + 1) ** (1 / lambda_)
+
+        The inverse of the Yeo-Johnson transformation is given by::
+
+            if X >= 0 and lambda_ == 0:
+                X = exp(X_trans) - 1
+            elif X >= 0 and lambda_ != 0:
+                X = (X_trans * lambda_ + 1) ** (1 / lambda_) - 1
+            elif X < 0 and lambda_ != 2:
+                X = 1 - (-(2 - lambda_) * X_trans + 1) ** (1 / (2 - lambda_))
+            elif X < 0 and lambda_ == 2:
+                X = 1 - exp(-X_trans)
+
+        Parameters
+        ----------
+        X : array-like, shape (n_samples, n_features)
+            The transformed data.
+
+        Returns
+        -------
+        X : array-like, shape (n_samples, n_features)
+            The original data
+        """
+        check_is_fitted(self)
+        X = self._check_input(X, in_fit=False, check_shape=True)
+
+        if self.standardize:
+            X = self._scaler.inverse_transform(X)
+
+        inv_fun = {'box-cox': self._box_cox_inverse_tranform,
+                   'yeo-johnson': self._yeo_johnson_inverse_transform
+                   }[self.method]
+        for i, lmbda in enumerate(self.lambdas_):
+            with np.errstate(invalid='ignore'):  # hide NaN warnings
+                X[:, i] = inv_fun(X[:, i], lmbda)
+
+        return X
+
+    def _box_cox_inverse_tranform(self, x, lmbda):
+        """Return inverse-transformed input x following Box-Cox inverse
+        transform with parameter lambda.
+        """
+        if lmbda == 0:
+            x_inv = np.exp(x)
+        else:
+            x_inv = (x * lmbda + 1) ** (1 / lmbda)
+
+        return x_inv
+
+    def _yeo_johnson_inverse_transform(self, x, lmbda):
+        """Return inverse-transformed input x following Yeo-Johnson inverse
+        transform with parameter lambda.
+        """
+        x_inv = np.zeros_like(x)
+        pos = x >= 0
+
+        # when x >= 0
+        if abs(lmbda) < np.spacing(1.):
+            x_inv[pos] = np.exp(x[pos]) - 1
+        else:  # lmbda != 0
+            x_inv[pos] = np.power(x[pos] * lmbda + 1, 1 / lmbda) - 1
+
+        # when x < 0
+        if abs(lmbda - 2) > np.spacing(1.):
+            x_inv[~pos] = 1 - np.power(-(2 - lmbda) * x[~pos] + 1,
+                                       1 / (2 - lmbda))
+        else:  # lmbda == 2
+            x_inv[~pos] = 1 - np.exp(-x[~pos])
+
+        return x_inv
+
+    def _yeo_johnson_transform(self, x, lmbda):
+        """Return transformed input x following Yeo-Johnson transform with
+        parameter lambda.
+        """
+
+        out = np.zeros_like(x)
+        pos = x >= 0  # binary mask
+
+        # when x >= 0
+        if abs(lmbda) < np.spacing(1.):
+            out[pos] = np.log1p(x[pos])
+        else:  # lmbda != 0
+            out[pos] = (np.power(x[pos] + 1, lmbda) - 1) / lmbda
+
+        # when x < 0
+        if abs(lmbda - 2) > np.spacing(1.):
+            out[~pos] = -(np.power(-x[~pos] + 1, 2 - lmbda) - 1) / (2 - lmbda)
+        else:  # lmbda == 2
+            out[~pos] = -np.log1p(-x[~pos])
+
+        return out
+
+    def _box_cox_optimize(self, x):
+        """Find and return optimal lambda parameter of the Box-Cox transform by
+        MLE, for observed data x.
+
+        We here use scipy builtins which uses the brent optimizer.
+        """
+        # the computation of lambda is influenced by NaNs so we need to
+        # get rid of them
+        _, lmbda = stats.boxcox(x[~np.isnan(x)], lmbda=None)
+
+        return lmbda
+
+    def _yeo_johnson_optimize(self, x):
+        """Find and return optimal lambda parameter of the Yeo-Johnson
+        transform by MLE, for observed data x.
+
+        Like for Box-Cox, MLE is done via the brent optimizer.
+        """
+
+        def _neg_log_likelihood(lmbda):
+            """Return the negative log likelihood of the observed data x as a
+            function of lambda."""
+            x_trans = self._yeo_johnson_transform(x, lmbda)
+            n_samples = x.shape[0]
+
+            loglike = -n_samples / 2 * np.log(x_trans.var())
+            loglike += (lmbda - 1) * (np.sign(x) * np.log1p(np.abs(x))).sum()
+
+            return -loglike
+
+        # the computation of lambda is influenced by NaNs so we need to
+        # get rid of them
+        x = x[~np.isnan(x)]
+        # choosing bracket -2, 2 like for boxcox
+        return optimize.brent(_neg_log_likelihood, brack=(-2, 2))
+
+    def _check_input(self, X, in_fit, check_positive=False, check_shape=False,
+                     check_method=False):
+        """Validate the input before fit and transform.
+
+        Parameters
+        ----------
+        X : array-like, shape (n_samples, n_features)
+
+        check_positive : bool
+            If True, check that all data is positive and non-zero (only if
+            ``self.method=='box-cox'``).
+
+        check_shape : bool
+            If True, check that n_features matches the length of self.lambdas_
+
+        check_method : bool
+            If True, check that the transformation method is valid.
+        """
+        X = self._validate_data(X, ensure_2d=True, dtype=FLOAT_DTYPES,
+                                copy=self.copy, force_all_finite='allow-nan')
+
+        with np.warnings.catch_warnings():
+            np.warnings.filterwarnings(
+                'ignore', r'All-NaN (slice|axis) encountered')
+            if (check_positive and self.method == 'box-cox' and
+                    np.nanmin(X) <= 0):
+                raise ValueError("The Box-Cox transformation can only be "
+                                 "applied to strictly positive data")
+
+        if check_shape and not X.shape[1] == len(self.lambdas_):
+            raise ValueError("Input data has a different number of features "
+                             "than fitting data. Should have {n}, data has {m}"
+                             .format(n=len(self.lambdas_), m=X.shape[1]))
+
+        valid_methods = ('box-cox', 'yeo-johnson')
+        if check_method and self.method not in valid_methods:
+            raise ValueError("'method' must be one of {}, "
+                             "got {} instead."
+                             .format(valid_methods, self.method))
+
+        return X
+
+    def _more_tags(self):
+        return {'allow_nan': True}
+
+
+@_deprecate_positional_args
+def power_transform(X, method='yeo-johnson', *, standardize=True, copy=True):
+    """
+    Power transforms are a family of parametric, monotonic transformations
+    that are applied to make data more Gaussian-like. This is useful for
+    modeling issues related to heteroscedasticity (non-constant variance),
+    or other situations where normality is desired.
+
+    Currently, power_transform supports the Box-Cox transform and the
+    Yeo-Johnson transform. The optimal parameter for stabilizing variance and
+    minimizing skewness is estimated through maximum likelihood.
+
+    Box-Cox requires input data to be strictly positive, while Yeo-Johnson
+    supports both positive or negative data.
+
+    By default, zero-mean, unit-variance normalization is applied to the
+    transformed data.
+
+    Read more in the :ref:`User Guide <preprocessing_transformer>`.
+
+    Parameters
+    ----------
+    X : array-like, shape (n_samples, n_features)
+        The data to be transformed using a power transformation.
+
+    method : {'yeo-johnson', 'box-cox'}, default='yeo-johnson'
+        The power transform method. Available methods are:
+
+        - 'yeo-johnson' [1]_, works with positive and negative values
+        - 'box-cox' [2]_, only works with strictly positive values
+
+        .. versionchanged:: 0.23
+            The default value of the `method` parameter changed from
+            'box-cox' to 'yeo-johnson' in 0.23.
+
+    standardize : boolean, default=True
+        Set to True to apply zero-mean, unit-variance normalization to the
+        transformed output.
+
+    copy : boolean, optional, default=True
+        Set to False to perform inplace computation during transformation.
+
+    Returns
+    -------
+    X_trans : array-like, shape (n_samples, n_features)
+        The transformed data.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from sklearn.preprocessing import power_transform
+    >>> data = [[1, 2], [3, 2], [4, 5]]
+    >>> print(power_transform(data, method='box-cox'))
+    [[-1.332... -0.707...]
+     [ 0.256... -0.707...]
+     [ 1.076...  1.414...]]
+
+    See also
+    --------
+    PowerTransformer : Equivalent transformation with the
+        ``Transformer`` API (e.g. as part of a preprocessing
+        :class:`sklearn.pipeline.Pipeline`).
+
+    quantile_transform : Maps data to a standard normal distribution with
+        the parameter `output_distribution='normal'`.
+
+    Notes
+    -----
+    NaNs are treated as missing values: disregarded in ``fit``, and maintained
+    in ``transform``.
+
+    For a comparison of the different scalers, transformers, and normalizers,
+    see :ref:`examples/preprocessing/plot_all_scaling.py
+    <sphx_glr_auto_examples_preprocessing_plot_all_scaling.py>`.
+
+    References
+    ----------
+
+    .. [1] I.K. Yeo and R.A. Johnson, "A new family of power transformations to
+           improve normality or symmetry." Biometrika, 87(4), pp.954-959,
+           (2000).
+
+    .. [2] G.E.P. Box and D.R. Cox, "An Analysis of Transformations", Journal
+           of the Royal Statistical Society B, 26, 211-252 (1964).
+    """
+    pt = PowerTransformer(method=method, standardize=standardize, copy=copy)
+    return pt.fit_transform(X)
