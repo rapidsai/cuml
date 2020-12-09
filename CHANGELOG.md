@@ -3,7 +3,6 @@
 ## New Features
 
 ## Improvements
-- PR #3256: Linear models predict function consolidation
 
 ## Bug Fixes
 
