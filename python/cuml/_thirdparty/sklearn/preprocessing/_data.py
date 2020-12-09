@@ -22,12 +22,16 @@ from itertools import combinations_with_replacement as combinations_w_r
 
 import cupy as np
 from cupy import sparse
+from scipy import stats
+from scipy import optimize
+from scipy.special import boxcox
 
 from ..utils.skl_dependencies import BaseEstimator, TransformerMixin
 from ....thirdparty_adapters import check_array
 from ..utils.extmath import row_norms
 from ..utils.extmath import _incremental_mean_and_var
 from ..utils.validation import (check_is_fitted, FLOAT_DTYPES,
+                                check_random_state,
                                 _deprecate_positional_args)
 
 from ..utils.sparsefuncs import (inplace_column_scale,
@@ -45,6 +49,7 @@ from ....common.array_descriptor import CumlArrayDescriptor
 from ....internals import api_return_generic
 from ....common.memory_utils import using_output_type
 
+BOUNDS_THRESHOLD = 1e-7
 
 __all__ = [
     'Binarizer',
