@@ -25,7 +25,7 @@ from ..utils.skl_dependencies import BaseEstimator, TransformerMixin
 from ..utils.validation import check_is_fitted
 from ..utils.validation import FLOAT_DTYPES
 from ..utils.validation import _deprecate_positional_args
-from ....thirdparty_adapters import check_array, cuml_estimator
+from ....thirdparty_adapters import check_array
 from ....common.import_utils import check_cupy8
 from ....common.array_sparse import SparseCumlArray
 from ....common.array_descriptor import CumlArrayDescriptor
@@ -45,7 +45,6 @@ def digitize(x, bins):
     return out
 
 
-@cuml_estimator
 class KBinsDiscretizer(TransformerMixin, BaseEstimator):
     """
     Bin continuous data into intervals.

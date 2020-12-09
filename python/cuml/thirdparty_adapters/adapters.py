@@ -277,23 +277,6 @@ def check_array(array, accept_sparse=False, accept_large_sparse=True,
         return X
 
 
-def cuml_estimator(cuml_class):
-    from cuml._thirdparty.sklearn.utils.skl_dependencies import BaseEstimator
-
-    orig_init = cuml_class.__init__
-
-    def __init__(self, *args, **kwargs):
-        BaseEstimator.__init__(self, *args, **kwargs)
-        for param in ['handle', 'verbose', 'output_type']:
-            if param in kwargs:
-                del kwargs[param]
-        orig_init(self, *args, **kwargs)
-
-    cuml_class.__init__ = __init__
-
-    return cuml_class
-
-
 def _get_mask(X, value_to_mask):
     """Compute the boolean mask X == missing_values."""
     if value_to_mask == "NaN" or cp.isnan(value_to_mask):

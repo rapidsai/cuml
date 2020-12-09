@@ -28,10 +28,11 @@ class BaseEstimator(Base):
     at the class level in their ``__init__`` as explicit keyword
     arguments (no ``*args`` or ``**kwargs``).
     """
-    def __init__(self, handle=None, verbose=False,
-                 output_type=None, *args, **kwargs):
-        super(BaseEstimator, self).__init__(handle=handle, verbose=verbose,
-                                            output_type=output_type)
+
+    def __init_subclass__(cls, handle=None, verbose=False,
+                          output_type=None, *args, **kwargs):
+        Base.__init__(cls, handle=handle, verbose=verbose,
+                      output_type=output_type)
 
     @classmethod
     def _check_n_features(self, X, reset):

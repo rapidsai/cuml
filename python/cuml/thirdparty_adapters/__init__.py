@@ -14,7 +14,6 @@
 #
 
 from .adapters import (check_array,
-                       cuml_estimator,
                        _get_mask,
                        _masked_column_median,
                        _masked_column_mean,

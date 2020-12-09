@@ -16,8 +16,7 @@ import warnings
 import cupy as np
 from cupy import sparse
 
-from ....thirdparty_adapters import (cuml_estimator,
-                                     _get_mask,
+from ....thirdparty_adapters import (_get_mask,
                                      _masked_column_median,
                                      _masked_column_mean,
                                      _masked_column_mode)
@@ -141,7 +140,6 @@ class _BaseImputer(TransformerMixin):
         return {'allow_nan': is_scalar_nan(self.missing_values)}
 
 
-@cuml_estimator
 class SimpleImputer(_BaseImputer, BaseEstimator):
     """Imputation transformer for completing missing values.
 
@@ -463,7 +461,6 @@ class SimpleImputer(_BaseImputer, BaseEstimator):
                 'X_types': ['2darray', 'sparse']}
 
 
-@cuml_estimator
 class MissingIndicator(TransformerMixin, BaseEstimator):
     """Binary indicators for missing values.
 

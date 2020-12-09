@@ -24,7 +24,7 @@ import cupy as np
 from cupy import sparse
 
 from ..utils.skl_dependencies import BaseEstimator, TransformerMixin
-from ....thirdparty_adapters import check_array, cuml_estimator
+from ....thirdparty_adapters import check_array
 from ..utils.extmath import row_norms
 from ..utils.extmath import _incremental_mean_and_var
 from ..utils.validation import (check_is_fitted, FLOAT_DTYPES,
@@ -195,7 +195,6 @@ def scale(X, *, axis=0, with_mean=True, with_std=True, copy=True):
     return X
 
 
-@cuml_estimator
 class MinMaxScaler(TransformerMixin, BaseEstimator):
     """Transform features by scaling each feature to a given range.
 
@@ -499,7 +498,6 @@ def minmax_scale(X, feature_range=(0, 1), *, axis=0, copy=True):
         return X
 
 
-@cuml_estimator
 class StandardScaler(TransformerMixin, BaseEstimator):
     """Standardize features by removing the mean and scaling to unit variance
 
@@ -861,7 +859,6 @@ class StandardScaler(TransformerMixin, BaseEstimator):
                 'allow_nan': True}
 
 
-@cuml_estimator
 class MaxAbsScaler(TransformerMixin, BaseEstimator):
     """Scale each feature by its maximum absolute value.
 
@@ -1105,7 +1102,6 @@ def maxabs_scale(X, *, axis=0, copy=True):
     return X
 
 
-@cuml_estimator
 class RobustScaler(TransformerMixin, BaseEstimator):
     """Scale features using statistics that are robust to outliers.
 
@@ -1387,7 +1383,6 @@ def robust_scale(X, *, axis=0, with_centering=True, with_scaling=True,
         return X
 
 
-@cuml_estimator
 class PolynomialFeatures(TransformerMixin, BaseEstimator):
     """Generate polynomial and interaction features.
 
@@ -1766,7 +1761,6 @@ def normalize(X, norm='l2', *, axis=1, copy=True, return_norm=False):
         return X
 
 
-@cuml_estimator
 class Normalizer(TransformerMixin, BaseEstimator):
     """Normalize samples individually to unit norm.
 
@@ -1899,7 +1893,6 @@ def binarize(X, *, threshold=0.0, copy=True):
     return X
 
 
-@cuml_estimator
 class Binarizer(TransformerMixin, BaseEstimator):
     """Binarize data (set feature values to 0 or 1) according to a threshold
 
