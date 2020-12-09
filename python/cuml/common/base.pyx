@@ -33,6 +33,7 @@ _default_tags = {
     # cuML specific tags
     'preferred_input_order': None,
     'X_types_gpu': ['2darray'],
+    'dynamic_tags': False,
 
     # Scikit-learn API standard tags
     'non_deterministic': False,
@@ -53,6 +54,32 @@ _default_tags = {
     'requires_y': False,
     'pairwise': False,
 }
+
+
+class class_and_instance_method:
+    """
+    Decorator for dynamic and static _get_tags
+    """
+
+    def __init__(self, _class, _instance=None):
+        self._class = _class
+        self._instance = _instance
+
+    def instance_method(self, _instance):
+        """
+        Factory to create a class_and_instance_method instance method with
+        the existing class associated.
+        """
+        return class_and_instance_method(self._class, _instance)
+
+    def __get__(self, _instance, _class):
+        # if the caller had no instance (i.e. it was a class) or there is no
+        # instance associated we the method we return the class call
+        if _instance is None or self._instance is None:
+            return self._class.__get__(_class, None)
+
+        # otherwise return instance call
+        return self._instance.__get__(_instance, _class)
 
 
 class Base(metaclass=cuml.internals.BaseMetaClass):
@@ -376,14 +403,28 @@ class Base(metaclass=cuml.internals.BaseMetaClass):
         else:
             self.n_features_in_ = X.shape[1]
 
-    @classmethod
+    @class_and_instance_method
     def _get_tags(cls):
         # method and code based on scikit-learn 0.21 _get_tags functionality:
         # https://scikit-learn.org/stable/developers/develop.html#estimator-tags
         collected_tags = _default_tags
         for cl in reversed(inspect.getmro(cls)):
+            if hasattr(cl, '_more_static_tags'):
+                more_tags = cl._more_static_tags()
+                collected_tags.update(more_tags)
             if hasattr(cl, '_more_tags'):
-                more_tags = cl._more_tags()
+                collected_tags['dynamic_tags'] = True
+        return collected_tags
+
+    @_get_tags.instance_method
+    def _get_tags(self):
+        collected_tags = _default_tags
+        for cl in reversed(inspect.getmro(self.__class__)):
+            if hasattr(cl, '_more_static_tags'):
+                more_tags = cl._more_static_tags()
+                collected_tags.update(more_tags)
+            if hasattr(cl, '_more_tags'):
+                more_tags = self._more_tags()
                 collected_tags.update(more_tags)
         return collected_tags
 
@@ -419,7 +460,7 @@ class RegressorMixin:
         return r2_score(y, preds, handle=handle)
 
     @staticmethod
-    def _more_tags():
+    def _more_static_tags():
         return {
             'requires_y': True
         }
@@ -456,7 +497,7 @@ class ClassifierMixin:
         return accuracy_score(y, preds, handle=handle)
 
     @staticmethod
-    def _more_tags():
+    def _more_static_tags():
         return {
             'requires_y': True
         }

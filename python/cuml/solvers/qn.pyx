@@ -539,7 +539,7 @@ class QN(Base):
                 'max_iter', 'tol', 'linesearch_max_iter', 'lbfgs_memory']
 
     @staticmethod
-    def _more_tags():
+    def _more_static_tags():
         return {
             'preferred_input_order': 'F'
         }

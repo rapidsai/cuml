@@ -478,7 +478,7 @@ class TruncatedSVD(Base):
             ["algorithm", "n_components", "n_iter", "random_state", "tol"]
 
     @staticmethod
-    def _more_tags():
+    def _more_static_tags():
         return {
             'preferred_input_order': 'F'
         }

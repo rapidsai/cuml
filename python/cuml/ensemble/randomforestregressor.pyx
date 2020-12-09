@@ -758,7 +758,7 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
         return dump_rf_as_json(rf_forest).decode('utf-8')
 
     @staticmethod
-    def _more_tags():
+    def _more_static_tags():
         return {
             # fit and predict require conflicting memory layouts
             'preferred_input_order': None

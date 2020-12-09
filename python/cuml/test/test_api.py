@@ -16,6 +16,7 @@
 
 import pytest
 import cuml
+from cuml.common.base import Base
 from cuml.test.utils import ClassEnumerator
 import numpy as np
 import cupy as cp
@@ -77,6 +78,23 @@ tags = {
 }
 
 
+class dummy_estimator(Base):
+    def __init__(self):
+        super(dummy_estimator).__init__()
+        self.po = 'dynamic'
+
+    @staticmethod
+    def _more_static_tags():
+        return {
+            'preferred_input_order': 'static'
+        }
+
+    def _more_tags(self):
+        return {
+            'preferred_input_order': self.po
+        }
+
+
 @pytest.mark.parametrize("model", list(models.values()))
 def test_get_tags(model):
     # This test ensures that our estimators return the tags defined by
@@ -86,9 +104,10 @@ def test_get_tags(model):
 
     model_tags = model._get_tags()
 
-    if (hasattr(model, "_more_tags")):
+    if (hasattr(model, "_more_static_tags")):
         import inspect
-        assert(isinstance(inspect.getattr_static(model, "_more_tags"), staticmethod))
+        assert(isinstance(inspect.getattr_static(model, "_more_static_tags"),
+                          staticmethod))
     for tag, tag_type in tags.items():
         # preferred input order can be None or a string
         if tag == 'preferred_input_order':
@@ -98,6 +117,15 @@ def test_get_tags(model):
             assert isinstance(model_tags[tag], tag_type)
 
     return True
+
+
+def test_dynamic_tags():
+    estimator = dummy_estimator()
+
+    assert dummy_estimator._get_tags()['preferred_input_order'] == 'static'
+    assert dummy_estimator._get_tags()['dynamic_tags'] is True
+    assert estimator._get_tags()['preferred_input_order'] == 'dynamic'
+    assert estimator._get_tags()['dynamic_tags'] is True
 
 
 @pytest.mark.parametrize("model_name", list(models.keys()))

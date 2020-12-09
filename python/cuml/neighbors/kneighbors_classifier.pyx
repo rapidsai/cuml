@@ -307,7 +307,7 @@ class KNeighborsClassifier(NearestNeighbors, ClassifierMixin):
         return super().get_param_names() + ["weights"]
 
     @staticmethod
-    def _more_tags():
+    def _more_static_tags():
         return {
             # fit and predict require conflicting memory layouts
             'preferred_input_order': 'F'

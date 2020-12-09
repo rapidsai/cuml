@@ -624,7 +624,7 @@ class KMeans(Base):
                 'tol']
 
     @staticmethod
-    def _more_tags():
+    def _more_static_tags():
         return {
             'preferred_input_order': 'C'
         }
