@@ -132,12 +132,6 @@ def test_exceptions():
     with pytest.raises(ValueError):
         cuIPCA(n_components=8).fit(X[:, :5])
 
-    with pytest.raises(ValueError):
-        # Check feature size between partial_fit calls
-        ipca = cuIPCA()
-        ipca.partial_fit(X[:, :5])
-        ipca.partial_fit(X[:, :3])
-
 
 def test_svd_flip():
     x = cp.array(range(-10, 80)).reshape((9, 10))
