@@ -153,6 +153,9 @@ class KBinsDiscretizer(TransformerMixin, BaseEstimator):
 
     def get_param_names(self):
         return super().get_param_names() + [
+            "n_bins",
+            "encode",
+            "strategy",
             "bin_edges_",
             "n_bins_",
         ]

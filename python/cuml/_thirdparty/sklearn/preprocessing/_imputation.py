@@ -224,7 +224,6 @@ class SimpleImputer(_BaseImputer, BaseEstimator):
     """
 
     statistics_ = CumlArrayDescriptor()
-    features_ = CumlArrayDescriptor()
 
     @check_cupy8()
     @_deprecate_positional_args
@@ -241,8 +240,11 @@ class SimpleImputer(_BaseImputer, BaseEstimator):
 
     def get_param_names(self):
         return super().get_param_names() + [
-            "statistics_",
-            "features_",
+            "strategy",
+            "fill_value",
+            "verbose",
+            "copy",
+            "statistics_"
         ]
 
     def _validate_input(self, X, in_fit):

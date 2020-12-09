@@ -629,6 +629,9 @@ class StandardScaler(TransformerMixin, BaseEstimator):
 
     def get_param_names(self):
         return super().get_param_names() + [
+            "with_mean",
+            "with_std",
+            "copy",
             "scale_",
             "n_samples_seen_",
             "mean_",
@@ -935,6 +938,7 @@ class MaxAbsScaler(TransformerMixin, BaseEstimator):
 
     def get_param_names(self):
         return super().get_param_names() + [
+            "copy",
             "scale_",
             "n_samples_seen_",
             "max_abs_"
@@ -1187,6 +1191,10 @@ class RobustScaler(TransformerMixin, BaseEstimator):
 
     def get_param_names(self):
         return super().get_param_names() + [
+            "with_centering",
+            "with_scaling",
+            "quantile_range",
+            "copy",
             "center_",
             "scale_",
         ]
@@ -1450,8 +1458,6 @@ class PolynomialFeatures(TransformerMixin, BaseEstimator):
     exponentially in the degree. High degrees can cause overfitting.
     """
 
-    powers_ = CumlArrayDescriptor()
-
     @check_cupy8()
     @_deprecate_positional_args
     def __init__(self, degree=2, *, interaction_only=False, include_bias=True,
@@ -1463,7 +1469,10 @@ class PolynomialFeatures(TransformerMixin, BaseEstimator):
 
     def get_param_names(self):
         return super().get_param_names() + [
-            "powers_"
+            "degree",
+            "interaction_only",
+            "include_bias",
+            "order"
         ]
 
     @staticmethod
