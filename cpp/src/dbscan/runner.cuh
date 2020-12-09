@@ -25,6 +25,7 @@
 #include <sparse/csr.cuh>
 #include "adjgraph/runner.cuh"
 #include "corepoints/runner.cuh"
+#include "mergelabels/runner.cuh"
 #include "vertexdeg/runner.cuh"
 
 #include <sys/time.h>
@@ -106,11 +107,11 @@ size_t run(const raft::handle_t& handle, Type_f* x, Index_ N, Index_ D,
    */
   size_t adjSize = raft::alignTo<size_t>(sizeof(bool) * N * batchSize, align);
   size_t corePtsSize = raft::alignTo<size_t>(sizeof(bool) * N, align);
-  size_t xaSize = raft::alignTo<size_t>(sizeof(bool) * N, align);
   size_t mSize = raft::alignTo<size_t>(sizeof(bool), align);
   size_t vdSize =
     raft::alignTo<size_t>(sizeof(Index_) * (batchSize + 1), align);
   size_t exScanSize = raft::alignTo<size_t>(sizeof(Index_) * batchSize, align);
+  size_t labelsSize = raft::alignTo<size_t>(sizeof(Index_) * N, align);
 
   Index_ MAX_LABEL = std::numeric_limits<Index_>::max();
 
@@ -123,7 +124,7 @@ size_t run(const raft::handle_t& handle, Type_f* x, Index_ N, Index_ D,
 
   if (workspace == NULL) {
     auto size =
-      adjSize + corePtsSize + 2 * xaSize + mSize + vdSize + exScanSize;
+      adjSize + corePtsSize + mSize + vdSize + exScanSize + 2 * labelsSize;
     return size;
   }
 
@@ -136,16 +137,18 @@ size_t run(const raft::handle_t& handle, Type_f* x, Index_ N, Index_ D,
   temp += adjSize;
   bool* core_pts = (bool*)temp;
   temp += corePtsSize;
-  bool* xa = (bool*)temp;
-  temp += xaSize;
-  bool* fa = (bool*)temp;
-  temp += xaSize;
   bool* m = (bool*)temp;
   temp += mSize;
   Index_* vd = (Index_*)temp;
   temp += vdSize;
   Index_* ex_scan = (Index_*)temp;
   temp += exScanSize;
+  Index_* labelsTemp = (Index_*)temp;
+  temp += labelsSize;
+  Index_* workBuffer = (Index_*)temp;
+  temp += labelsSize;
+
+  int64_t start_time, cur_time;
 
   /// TODO: do logs and timings make sense for asynchronous operations?
 
@@ -163,20 +166,20 @@ size_t run(const raft::handle_t& handle, Type_f* x, Index_ N, Index_ D,
 
     CUML_LOG_DEBUG("--> Computing vertex degrees");
     ML::PUSH_RANGE("Trace::Dbscan::VertexDeg");
-    int64_t start_time = raft::curTimeMillis();
+    start_time = raft::curTimeMillis();
     VertexDeg::run<Type_f, Index_>(handle, adj, vd, x, eps, N, D, algoVd,
                                    startVertexId, nPoints, stream);
     // raft::update_host(&curradjlen, vd + nPoints, 1, stream);
     // CUDA_CHECK(cudaStreamSynchronize(stream));
-    int64_t cur_time = raft::curTimeMillis();
+    cur_time = raft::curTimeMillis();
     ML::POP_RANGE();
     // CUML_LOG_DEBUG("    |-> Took %ld ms", (cur_time - start_time));
 
     CUML_LOG_DEBUG("--> Computing core point mask");
     ML::PUSH_RANGE("Trace::Dbscan::CorePoints");
     start_time = raft::curTimeMillis();
-    CorePoints::run<Type_f, Index_>(handle, vd, core_pts, minPts, startVertexId,
-                                    nPoints, stream);
+    CorePoints::run<Index_>(handle, vd, core_pts, minPts, startVertexId,
+                            nPoints, stream);
     // CUDA_CHECK(cudaStreamSynchronize(stream));
     cur_time = raft::curTimeMillis();
     ML::POP_RANGE();
@@ -185,14 +188,11 @@ size_t run(const raft::handle_t& handle, Type_f* x, Index_ N, Index_ D,
   // 2. Exchange with the other workers
   if (opg) {
     const auto& comm = handle.get_comms();
-    // my_rank = comm.get_rank();
     int n_rank = comm.get_size();
 
     // Array with the size of the contribution of each worker
     Index_ rows_per_rank = raft::ceildiv<Index_>(N, n_rank);
     std::vector<size_t> recvcounts = std::vector<size_t>(n_rank, rows_per_rank);
-    // recvcounts[n_rank - 1] =
-    //   min(n_rank * rows_per_rank, N) - (n_rank - 1) * rows_per_rank;
     recvcounts[n_rank - 1] = n_rank % rows_per_rank;
 
     // Array with the displacement of each part
@@ -219,9 +219,13 @@ size_t run(const raft::handle_t& handle, Type_f* x, Index_ N, Index_ D,
   // CUDA_CHECK(cudaStreamSynchronize(stream));
   // for (int i = 0; i < N; i++) oss << h_mask[i] << " ";
   // CUML_LOG_DEBUG(oss.str().c_str());
+  /// TODO: cleanup
+
+  /// TODO: two arrays for labels, use accumulator in first iteration and
+  /// temporary buffer in subsequent iterations
 
   // Compute the labelling for the owned part of the graph
-  MLCommon::Sparse::WeakCCState state(xa, fa, m);
+  MLCommon::Sparse::WeakCCState state(m);
   MLCommon::device_buffer<Index_> adj_graph(handle.get_device_allocator(),
                                             stream);
 
@@ -233,16 +237,19 @@ size_t run(const raft::handle_t& handle, Type_f* x, Index_ N, Index_ D,
     CUML_LOG_DEBUG("- Batch %d / %ld (%ld samples)", i + 1,
                    (unsigned long)nBatches, (unsigned long)nPoints);
 
-    CUML_LOG_DEBUG("--> Computing vertex degrees");
-    ML::PUSH_RANGE("Trace::Dbscan::VertexDeg");
-    int64_t start_time = raft::curTimeMillis();
-    VertexDeg::run<Type_f, Index_>(handle, adj, vd, x, eps, N, D, algoVd,
-                                   startVertexId, nPoints, stream);
+    // i==0 -> adj and vd for batch 0 already in memory
+    if (i > 0) {
+      CUML_LOG_DEBUG("--> Computing vertex degrees");
+      ML::PUSH_RANGE("Trace::Dbscan::VertexDeg");
+      start_time = raft::curTimeMillis();
+      VertexDeg::run<Type_f, Index_>(handle, adj, vd, x, eps, N, D, algoVd,
+                                     startVertexId, nPoints, stream);
+      cur_time = raft::curTimeMillis();
+      ML::POP_RANGE();
+      // CUML_LOG_DEBUG("    |-> Took %ld ms", (cur_time - start_time));
+    }
     raft::update_host(&curradjlen, vd + nPoints, 1, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
-    int64_t cur_time = raft::curTimeMillis();
-    ML::POP_RANGE();
-    CUML_LOG_DEBUG("    |-> Took %ld ms", (cur_time - start_time));
 
     CUML_LOG_DEBUG("--> Computing adjacency graph of size %ld samples.",
                    (unsigned long)curradjlen);
@@ -256,36 +263,92 @@ size_t run(const raft::handle_t& handle, Type_f* x, Index_ N, Index_ D,
                           ex_scan, N, algoAdj, nPoints, stream);
     cur_time = raft::curTimeMillis();
     ML::POP_RANGE();
-    CUML_LOG_DEBUG("    |-> Took %ld ms.", (cur_time - start_time));
+    // CUML_LOG_DEBUG("    |-> Took %ld ms.", (cur_time - start_time));
 
     CUML_LOG_DEBUG("--> Computing connected components");
     ML::PUSH_RANGE("Trace::Dbscan::WeakCC");
     start_time = raft::curTimeMillis();
     MLCommon::Sparse::weak_cc_batched<Index_, 1024>(
-      labels, ex_scan, adj_graph.data(), curradjlen, N, startVertexId, nPoints,
-      &state, stream,
-      [core_pts, startVertexId, nPoints] __device__(Index_ global_id) {
-        return global_id < startVertexId + nPoints ? core_pts[global_id]
-                                                   : false;
+      i == 0 ? labels : labelsTemp, ex_scan, adj_graph.data(), curradjlen, N,
+      startVertexId, nPoints, &state, stream,
+      [core_pts, N] __device__(Index_ global_id) {
+        return global_id < N ? __ldg((char*)core_pts + global_id) : 0;
       });
     cur_time = raft::curTimeMillis();
     ML::POP_RANGE();
-    CUML_LOG_DEBUG("    |-> Took %ld ms.", (cur_time - start_time));
+    // CUML_LOG_DEBUG("    |-> Took %ld ms.", (cur_time - start_time));
+
+    if (i > 0) {
+      CUML_LOG_DEBUG("--> Accumulating labels");
+      ML::PUSH_RANGE("Trace::Dbscan::MergeLabels");
+      start_time = raft::curTimeMillis();
+      MergeLabels::run<Index_>(handle, labels, labelsTemp, core_pts, workBuffer,
+                               m, N, 0, stream);
+      cur_time = raft::curTimeMillis();
+      ML::POP_RANGE();
+      // CUML_LOG_DEBUG("    |-> Took %ld ms", (cur_time - start_time));
+    }
   }
 
   // Combine the results in the multi-node multi-GPU case
 
+  // if (opg) {
+  //   // Temporary: naive merge
+  //   const auto& comm = handle.get_comms();
+  //   comm.allreduce(labels, labels, N, raft::comms::op_t::MIN, stream);
+  //   ASSERT(
+  //     comm.sync_stream(stream) == raft::comms::status_t::SUCCESS,
+  //     "An error occurred in the distributed operation. This can result from "
+  //     "a failed rank");
+  // }
+
   if (opg) {
-    // Temporary: naive merge
     const auto& comm = handle.get_comms();
-    comm.allreduce(labels, labels, N, raft::comms::op_t::MIN, stream);
-    ASSERT(
-      comm.sync_stream(stream) == raft::comms::status_t::SUCCESS,
-      "An error occurred in the distributed operation. This can result from "
-      "a failed rank");
+    int my_rank = comm.get_rank();
+    int n_rank = comm.get_size();
+    raft::comms::request_t request;
+
+    int s = 1;
+    while (s < n_rank) {
+      CUML_LOG_DEBUG("Tree reduction, s=", s);
+
+      // Find out whether the node is a receiver / sender / passive
+      bool receiver = my_rank % (2 * s) == 0 && my_rank + s < n_rank;
+      bool sender = my_rank % (2 * s) == s;
+
+      if (receiver) {
+        CUML_LOG_DEBUG("--> Receive labels (from %d)", my_rank + s);
+        comm.irecv(labelsTemp, N, my_rank + s, 0, &request);
+      } else if (sender) {
+        CUML_LOG_DEBUG("--> Send labels (from %d)", my_rank - s);
+        comm.isend(labels, N, my_rank - s, 0, &request);
+      }
+
+      try {
+        comm.waitall(1, &request);
+      } catch (raft::exception& e) {
+        CUML_LOG_DEBUG("Communication failure");
+      }
+
+      if (receiver) {
+        CUML_LOG_DEBUG("--> Merge labels");
+        ML::PUSH_RANGE("Trace::Dbscan::MergeLabels");
+        start_time = raft::curTimeMillis();
+        MergeLabels::run<Index_>(handle, labels, labelsTemp, core_pts,
+                                 workBuffer, m, N, 0, stream);
+        cur_time = raft::curTimeMillis();
+        ML::POP_RANGE();
+        // CUML_LOG_DEBUG("    |-> Took %ld ms", (cur_time - start_time));
+      }
+
+      s *= 2;
+    }
   }
 
+  /// TODO: optional minimalization step for border points
+
   // Final relabel
+  /// TODO: only rank 0
 
   ML::PUSH_RANGE("Trace::Dbscan::FinalRelabel");
   if (algoCcl == 2)

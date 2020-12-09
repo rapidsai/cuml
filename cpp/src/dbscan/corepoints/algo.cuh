@@ -32,9 +32,9 @@ namespace Algo {
 /**
  * Calculates the core point mask for the batch.
  */
-template <typename value_t, typename index_t = int>
-void launcher(const raft::handle_t &handle, Pack<value_t, index_t> data,
-              index_t startVertexId, index_t batchSize, cudaStream_t stream) {
+template <typename Index_ = int>
+void launcher(const raft::handle_t &handle, Pack<Index_> data,
+              Index_ startVertexId, Index_ batchSize, cudaStream_t stream) {
   auto execution_policy =
     ML::thrust_exec_policy(handle.get_device_allocator(), stream);
   auto counting = thrust::make_counting_iterator<int>(0);

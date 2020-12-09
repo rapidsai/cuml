@@ -20,7 +20,7 @@ namespace ML {
 namespace Dbscan {
 namespace CorePoints {
 
-template <typename Type, typename Index_>
+template <typename Index_>
 struct Pack {
   /** vertex degree array */
   const Index_ *vd;

@@ -17,22 +17,28 @@
 #pragma once
 
 #include <common/cumlHandle.hpp>
-#include "algo.cuh"
+#include "naive.cuh"
 #include "pack.h"
 
 namespace ML {
 namespace Dbscan {
-namespace CorePoints {
+namespace MergeLabels {
 
 /// TODO: docs
 template <typename Index_ = int>
-void run(const raft::handle_t& handle, const Index_* vd, bool* mask,
-         Index_ minPts, Index_ startVertexId, Index_ batchSize,
+void run(const raft::handle_t& handle, Index_* labelsA, const Index_* labelsB,
+         const bool* mask, Index_* workBuffer, bool* m, Index_ N, int algo,
          cudaStream_t stream) {
-  Pack<Index_> data = {vd, mask, minPts};
-  Algo::launcher<Index_>(handle, data, startVertexId, batchSize, stream);
+  Pack<Index_> data = {labelsA, labelsB, mask, workBuffer, m, N};
+  switch (algo) {
+    case 0:
+      Naive::launcher<Index_>(handle, data, stream);
+      break;
+    default:
+      ASSERT(false, "Incorrect algo passed! '%d'", algo);
+  }
 }
 
-}  // namespace CorePoints
+}  // namespace MergeLabels
 }  // namespace Dbscan
 }  // namespace ML

@@ -667,91 +667,66 @@ void csr_adj_graph(const Index_ *row_ind, Index_ total_rows, Index_ nnz,
 
 struct WeakCCState {
  public:
-  bool *xa;
-  bool *fa;
   bool *m;
-  bool initialized;
 
-  WeakCCState(bool *xa, bool *fa, bool *m)
-    : xa(xa), fa(fa), m(m), initialized(false) {}
+  /// TODO: decide whether to remove the state / fix F1/F2 buffers
+
+  WeakCCState(bool *m) : m(m) {}
 };
 
 template <typename Index_, int TPB_X = 32, typename Lambda>
-__global__ void weak_cc_label_device(Index_ *labels, const Index_ *row_ind,
-                                     const Index_ *row_ind_ptr, Index_ nnz,
-                                     bool *fa, bool *xa, bool *m,
+__global__ void weak_cc_label_device(Index_ *__restrict__ labels,
+                                     const Index_ *__restrict__ row_ind,
+                                     const Index_ *__restrict__ row_ind_ptr,
+                                     Index_ nnz, bool *__restrict__ m,
                                      Index_ startVertexId, Index_ batchSize,
                                      Index_ N, Lambda filter_op) {
   Index_ tid = threadIdx.x + blockIdx.x * TPB_X;
   Index_ global_id = tid + startVertexId;
   if (tid < batchSize && global_id < N) {
-    if (fa[global_id]) {
-      fa[global_id] = false;
-      Index_ row_ind_val = row_ind[tid];
+    Index_ start = __ldg(row_ind + tid);
 
-      Index_ start = row_ind_val;
-      Index_ ci, cj;
-      bool ci_mod = false;
-      ci = labels[global_id];
-      bool ci_allow_prop = filter_op(global_id);
+    Index_ ci, cj;
+    bool ci_mod = false;
+    ci = labels[global_id];
+    bool ci_allow_prop = filter_op(global_id);
 
-      Index_ degree = get_stop_idx(tid, batchSize, nnz, row_ind) - row_ind_val;
-      for (Index_ j = 0; j < degree;
-           j++) {  // TODO: Can't this be calculated from the ex_scan?
-        Index_ j_ind = row_ind_ptr[start + j];
-        cj = labels[j_ind];
-        bool cj_allow_prop = filter_op(j_ind);
-        if (ci < cj && ci_allow_prop) {
-          if (sizeof(Index_) == 4)
-            atomicMin((int *)(labels + j_ind), ci);
-          else if (sizeof(Index_) == 8)
-            atomicMin((long long int *)(labels + j_ind), ci);
-          ///@todo see https://github.com/rapidsai/cuml/issues/2306.
-          // It may be worth it to use an atomic op here such as
-          // atomicLogicalOr(xa + j_ind, cj_allow_prop);
-          // Same can be done for m : atomicLogicalOr(m, cj_allow_prop);
-          // Both can be done below for xa[global_id] with ci_allow_prop, too.
-          xa[j_ind] = true;
-          m[0] = true;
-        } else if (ci > cj && cj_allow_prop) {
-          ci = cj;
-          ci_mod = true;
-        }
-      }
-      if (ci_mod) {
+    Index_ end = get_stop_idx(tid, batchSize, nnz, row_ind);
+    /// TODO: add one element to row_ind and avoid get_stop_idx
+    for (Index_ j = start; j < end; j++) {
+      Index_ j_ind = __ldg(row_ind_ptr + j);
+      cj = labels[j_ind];
+      bool cj_allow_prop = filter_op(j_ind);
+      if (ci < cj && ci_allow_prop) {
         if (sizeof(Index_) == 4)
-          atomicMin((int *)(labels + global_id), ci);
+          atomicMin((int *)(labels + j_ind), ci);
         else if (sizeof(Index_) == 8)
-          atomicMin((long long int *)(labels + global_id), ci);
-        xa[global_id] = true;
-        m[0] = true;
+          atomicMin((long long int *)(labels + j_ind), ci);
+        if (cj_allow_prop) *m = true;
+      } else if (ci > cj && cj_allow_prop) {
+        ci = cj;
+        ci_mod = true;
       }
+    }
+    if (ci_mod) {
+      if (sizeof(Index_) == 4)
+        atomicMin((int *)(labels + global_id), ci);
+      else if (sizeof(Index_) == 8)
+        atomicMin((long long int *)(labels + global_id), ci);
+      if (ci_allow_prop) *m = true;
     }
   }
 }
 
 template <typename Index_, int TPB_X = 32, typename Lambda>
-__global__ void weak_cc_init_label_kernel(Index_ *labels, Index_ startVertexId,
-                                          Index_ batchSize, Index_ MAX_LABEL,
-                                          Lambda filter_op) {
-  /** F1 and F2 in the paper correspond to fa and xa */
-  /** Cd in paper corresponds to db_cluster */
-  Index_ tid = threadIdx.x + blockIdx.x * TPB_X;
-  if (tid < batchSize) {
-    Index_ global_id = tid + startVertexId;
-    if (filter_op(global_id) && labels[global_id] == MAX_LABEL)
-      labels[global_id] = global_id + 1;
-  }
-}
-
-template <typename Index_, int TPB_X = 32>
-__global__ void weak_cc_init_all_kernel(Index_ *labels, bool *fa, bool *xa,
-                                        Index_ N, Index_ MAX_LABEL) {
+__global__ void weak_cc_init_all_kernel(Index_ *labels, Index_ N,
+                                        Index_ MAX_LABEL, Lambda filter_op) {
   Index_ tid = threadIdx.x + blockIdx.x * TPB_X;
   if (tid < N) {
-    labels[tid] = MAX_LABEL;
-    fa[tid] = true;
-    xa[tid] = false;
+    if (filter_op(tid))
+      labels[tid] = tid + 1;
+    else
+      labels[tid] = MAX_LABEL;
   }
 }
 
@@ -766,12 +741,11 @@ void weak_cc_label_batched(Index_ *labels, const Index_ *row_ind,
 
   bool host_m;
 
-  dim3 blocks(raft::ceildiv(batchSize, Index_(TPB_X)));
+  dim3 blocks(raft::ceildiv(N, Index_(TPB_X)));
   dim3 threads(TPB_X);
   Index_ MAX_LABEL = std::numeric_limits<Index_>::max();
-
-  weak_cc_init_label_kernel<Index_, TPB_X><<<blocks, threads, 0, stream>>>(
-    labels, startVertexId, batchSize, MAX_LABEL, filter_op);
+  weak_cc_init_all_kernel<Index_, TPB_X>
+    <<<blocks, threads, 0, stream>>>(labels, N, MAX_LABEL, filter_op);
   CUDA_CHECK(cudaPeekAtLastError());
 
   int n_iters = 0;
@@ -779,12 +753,9 @@ void weak_cc_label_batched(Index_ *labels, const Index_ *row_ind,
     CUDA_CHECK(cudaMemsetAsync(state->m, false, sizeof(bool), stream));
 
     weak_cc_label_device<Index_, TPB_X><<<blocks, threads, 0, stream>>>(
-      labels, row_ind, row_ind_ptr, nnz, state->fa, state->xa, state->m,
-      startVertexId, batchSize, N, filter_op);
+      labels, row_ind, row_ind_ptr, nnz, state->m, startVertexId, batchSize, N,
+      filter_op);
     CUDA_CHECK(cudaPeekAtLastError());
-
-    //** swapping F1 and F2
-    std::swap(state->fa, state->xa);
 
     //** Updating m *
     raft::update_host(&host_m, state->m, 1, stream);
@@ -825,17 +796,6 @@ void weak_cc_batched(Index_ *labels, const Index_ *row_ind,
                      const Index_ *row_ind_ptr, Index_ nnz, Index_ N,
                      Index_ startVertexId, Index_ batchSize, WeakCCState *state,
                      cudaStream_t stream, Lambda filter_op) {
-  dim3 blocks(raft::ceildiv(N, Index_(TPB_X)));
-  dim3 threads(TPB_X);
-
-  Index_ MAX_LABEL = std::numeric_limits<Index_>::max();
-  if (!state->initialized) {
-    weak_cc_init_all_kernel<Index_, TPB_X><<<blocks, threads, 0, stream>>>(
-      labels, state->fa, state->xa, N, MAX_LABEL);
-    CUDA_CHECK(cudaPeekAtLastError());
-    state->initialized = true;
-  }
-
   weak_cc_label_batched<Index_, TPB_X>(labels, row_ind, row_ind_ptr, nnz, N,
                                        state, startVertexId, batchSize, stream,
                                        filter_op);
@@ -904,11 +864,9 @@ template <typename Index_ = int, int TPB_X = 32,
 void weak_cc(Index_ *labels, const Index_ *row_ind, const Index_ *row_ind_ptr,
              Index_ nnz, Index_ N, std::shared_ptr<deviceAllocator> d_alloc,
              cudaStream_t stream, Lambda filter_op) {
-  device_buffer<bool> xa(d_alloc, stream, N);
-  device_buffer<bool> fa(d_alloc, stream, N);
   device_buffer<bool> m(d_alloc, stream, 1);
 
-  WeakCCState state(xa.data(), fa.data(), m.data());
+  WeakCCState state(m.data());
   weak_cc_batched<Index_, TPB_X>(labels, row_ind, row_ind_ptr, nnz, N, 0, N,
                                  stream, filter_op);
 }
@@ -939,10 +897,8 @@ template <typename Index_, int TPB_X = 32>
 void weak_cc(Index_ *labels, const Index_ *row_ind, const Index_ *row_ind_ptr,
              Index_ nnz, Index_ N, std::shared_ptr<deviceAllocator> d_alloc,
              cudaStream_t stream) {
-  device_buffer<bool> xa(d_alloc, stream, N);
-  device_buffer<bool> fa(d_alloc, stream, N);
   device_buffer<bool> m(d_alloc, stream, 1);
-  WeakCCState state(xa.data(), fa.data(), m.data());
+  WeakCCState state(m.data());
   weak_cc_batched<Index_, TPB_X>(labels, row_ind, row_ind_ptr, nnz, N, 0, N,
                                  stream, [](Index_) { return true; });
 }

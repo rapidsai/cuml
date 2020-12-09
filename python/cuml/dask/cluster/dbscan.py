@@ -47,12 +47,13 @@ class DBSCAN(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
     @staticmethod
     @mnmg_import
     def _func_fit(out_dtype):
-        def _func(sessionId, data, datatype, **kwargs):
+        def _func(sessionId, data, datatype, verbose, **kwargs):
             from cuml.cluster.dbscan_mg import DBSCANMG as cumlDBSCAN
             handle = worker_state(sessionId)["handle"]
 
             return cumlDBSCAN(handle=handle, output_type=datatype,
-                              **kwargs).fit(data, out_dtype=out_dtype)
+                              verbose=verbose, **kwargs
+                              ).fit(data, out_dtype=out_dtype)
         return _func
 
     @with_cupy_rmm # TODO: is the decorator needed?
@@ -71,14 +72,14 @@ class DBSCAN(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
         data = self.client.scatter(X, broadcast=True)
         self.datatype = 'cupy' # TODO: infer from input
 
-        comms = Comms(comms_p2p=False)
+        comms = Comms(comms_p2p=True)
         comms.init()
 
-        # TODO: figure out MNMG algorithm and implement it
         dbscan_fit = [self.client.submit(DBSCAN._func_fit(out_dtype),
                                          comms.sessionId,
                                          data,
                                          self.datatype,
+                                         self.verbose,
                                          **self.kwargs,
                                          workers=[worker],
                                          pure=False)

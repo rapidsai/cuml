@@ -306,10 +306,8 @@ TEST_P(WeakCCTest, Result) {
   raft::allocate(result, 9, true);
   raft::allocate(verify, 9);
 
-  device_buffer<bool> xa(alloc, stream, 6);
-  device_buffer<bool> fa(alloc, stream, 6);
   device_buffer<bool> m(alloc, stream, 1);
-  WeakCCState state(xa.data(), fa.data(), m.data());
+  WeakCCState state(m.data());
 
   /**
      * Run batch #1

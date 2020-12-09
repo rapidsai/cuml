@@ -16,23 +16,26 @@
 
 #pragma once
 
-#include <common/cumlHandle.hpp>
-#include "algo.cuh"
-#include "pack.h"
-
 namespace ML {
 namespace Dbscan {
-namespace CorePoints {
+namespace MergeLabels {
 
-/// TODO: docs
 template <typename Index_ = int>
-void run(const raft::handle_t& handle, const Index_* vd, bool* mask,
-         Index_ minPts, Index_ startVertexId, Index_ batchSize,
-         cudaStream_t stream) {
-  Pack<Index_> data = {vd, mask, minPts};
-  Algo::launcher<Index_>(handle, data, startVertexId, batchSize, stream);
-}
+struct Pack {
+  /** Label array A */
+  Index_* labelsA;
+  /** Label array B */
+  const Index_* labelsB;
+  /** Core point mask */
+  const bool* mask;
+  /** Work buffer */
+  Index_* workBuffer;
+  /** Flag for the while loop */
+  bool* m;
+  /** Number of points in the dataset */
+  Index_ N;
+};
 
-}  // namespace CorePoints
+}  // namespace MergeLabels
 }  // namespace Dbscan
 }  // namespace ML

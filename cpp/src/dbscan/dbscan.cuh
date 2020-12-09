@@ -28,6 +28,7 @@ namespace ML {
 // Default max mem set to a reasonable value for a 16gb card.
 static const size_t DEFAULT_MAX_MEM_MBYTES = 13e3;
 
+/// TODO: update with additional memory use
 template <typename Index_ = int>
 Index_ computeBatchCount(size_t &estimated_memory, Index_ n_rows,
                          Index_ n_owned_rows, size_t max_mbytes_per_batch = 0,
