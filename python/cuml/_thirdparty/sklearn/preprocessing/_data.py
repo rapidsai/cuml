@@ -39,8 +39,8 @@ from ....thirdparty_adapters.sparsefuncs_fast import \
      csr_polynomial_expansion)
 from ....common.import_utils import check_cupy8
 
-from cuml.common.array import CumlArray
-from cuml.common.array_sparse import SparseCumlArray
+from ....common.array import CumlArray
+from ....common.array_sparse import SparseCumlArray
 from ....common.array_descriptor import CumlArrayDescriptor
 
 

@@ -27,7 +27,7 @@ from ..utils.validation import FLOAT_DTYPES
 from ..utils.validation import _deprecate_positional_args
 from ....thirdparty_adapters import check_array, cuml_estimator
 from ....common.import_utils import check_cupy8
-from cuml.common.array_sparse import SparseCumlArray
+from ....common.array_sparse import SparseCumlArray
 from ....common.array_descriptor import CumlArrayDescriptor
 
 

@@ -26,7 +26,7 @@ from ..utils.validation import check_is_fitted
 from ..utils.validation import FLOAT_DTYPES
 from ..utils.validation import _deprecate_positional_args
 from ....common.import_utils import check_cupy8
-from cuml.common.array_sparse import SparseCumlArray
+from ....common.array_sparse import SparseCumlArray
 from ....common.array_descriptor import CumlArrayDescriptor
 
 
