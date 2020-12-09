@@ -304,11 +304,11 @@ def test_knn_graph(input_type, nrows, n_feats, p, k, metric, mode,
 
 
 @pytest.mark.parametrize("metric", ["l1"]) # "#valid_metrics(cuml_algo="sparse"))
-@pytest.mark.parametrize('nrows', [2000])
-@pytest.mark.parametrize('ncols', [500])
-@pytest.mark.parametrize('density', [0.4])
-@pytest.mark.parametrize('n_neighbors', [2])
-@pytest.mark.parametrize('batch_size_index', [20000])
+@pytest.mark.parametrize('nrows', [800000])
+@pytest.mark.parametrize('ncols', [1000])
+@pytest.mark.parametrize('density', [0.1])
+@pytest.mark.parametrize('n_neighbors', [100])
+@pytest.mark.parametrize('batch_size_index', [60000])
 @pytest.mark.parametrize('batch_size_query', [20000])
 def test_nearest_neighbors_sparse(nrows, ncols,
                                   density,
@@ -330,7 +330,7 @@ def test_nearest_neighbors_sparse(nrows, ncols,
     # print(str(pairwise_distances(a.get(), metric='l1')))
     #
     logger.set_level(logger.level_trace)
-    nn = cuKNN(metric="l1", n_neighbors=n_neighbors, algorithm="brute",
+    nn = cuKNN(metric="l2", n_neighbors=n_neighbors, algorithm="brute",
                output_type="numpy",
                verbose=logger.level_debug,
                algo_params={"batch_size_index": batch_size_index,
@@ -345,7 +345,7 @@ def test_nearest_neighbors_sparse(nrows, ncols,
     print("cuML took %s" % (time.time() - start))
     #
     sknn = skKNN(metric="l1", n_neighbors=n_neighbors,
-                 algorithm="brute", n_jobs=5)
+                 algorithm="brute", n_jobs=-1)
     sk_X = a.get()
     sknn.fit(sk_X)
 

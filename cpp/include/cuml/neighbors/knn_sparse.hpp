@@ -25,7 +25,8 @@
 namespace ML {
 namespace Sparse {
 
-constexpr int DEFAULT_BATCH_SIZE = 2 << 16;
+
+constexpr int DEFAULT_BATCH_SIZE = 1 << 16;
 
 void brute_force_knn(raft::handle_t &handle, const int *idx_indptr,
                      const int *idx_indices, const float *idx_data,

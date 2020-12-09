@@ -21,6 +21,8 @@
 #include <raft/cuda_utils.cuh>
 #include <sparse/csr.cuh>
 
+#include <sparse/selection.cuh>
+
 #include <limits.h>
 
 #include <cuml/distance/distance_type.h>
@@ -39,6 +41,27 @@
 
 #pragma once
 
+namespace faiss { namespace gpu {
+
+template <int NumThreads, typename K, typename V, int NumWarpQ,
+  bool Dir, typename Comp>
+struct FinalBlockMerge<32, NumThreads, K, V, NumWarpQ, Dir, Comp> {
+  static inline __device__ void merge(K* sharedK, V* sharedV) {
+    blockMerge<NumThreads, K, V, NumThreads / (kWarpSize * 2),
+      NumWarpQ, !Dir, Comp>(sharedK, sharedV);
+    blockMerge<NumThreads, K, V, NumThreads / (kWarpSize * 4),
+      NumWarpQ * 2, !Dir, Comp>(sharedK, sharedV);
+    blockMerge<NumThreads, K, V, NumThreads / (kWarpSize * 8),
+      NumWarpQ * 4, !Dir, Comp>(sharedK, sharedV);
+    blockMerge<NumThreads, K, V, NumThreads / (kWarpSize * 16),
+      NumWarpQ * 8, !Dir, Comp>(sharedK, sharedV);
+    // Final merge doesn't need to fully merge the second list
+    blockMerge<NumThreads, K, V, NumThreads / (kWarpSize * 32),
+      NumWarpQ * 16, !Dir, Comp, false>(sharedK, sharedV);
+  }
+};
+
+}}
 
 namespace MLCommon {
 namespace Sparse {
@@ -189,8 +212,7 @@ struct sparse_inner_functor {
  * @tparam buffer_size
  * @tparam rows_per_block
  */
-template <typename value_idx, typename value_t, int tpb, int buffer_size,
-          int rows_per_block>
+template <typename value_idx, typename value_t, int tpb, int buffer_size>
 struct BlockSemiring {
   __device__ inline BlockSemiring(int tid_, value_idx m_, value_idx n_,
                                   value_idx *shared_cols_,
@@ -217,8 +239,6 @@ struct BlockSemiring {
   __device__ inline void load_a(value_idx row, value_idx *indptrA,
                                 value_idx *indicesA, value_t *dataA) {
 
-    // TODO: Hide these latencies further w/ shared memory
-
     if(tid == 0) {
       offsets_a[0] = indptrA[row];
       offsets_a[1] = indptrA[row + 1];
@@ -242,8 +262,8 @@ struct BlockSemiring {
 
   __device__ inline void load_b(value_idx start_row, value_idx *indptrB,
                                 value_idx *indicesB, value_t *dataB) {
-    start_row_b = start_row * rows_per_block;
-    stop_row_b = min(start_row_b + rows_per_block - 1,
+    start_row_b = start_row * tpb;
+    stop_row_b = min(start_row_b + tpb - 1,
                      start_row_b + (n - start_row_b) - 1);
 
     row_b = start_row_b + tid;
@@ -251,7 +271,6 @@ struct BlockSemiring {
 
     for (int i = tid; i < n_rows; i += blockDim.x)
       row_count = indptrB[start_row_b + i + 1] - indptrB[start_row_b + i];
-
 
     if(tid == 0) {
       offsets_b[0] = indptrB[start_row_b];
@@ -308,10 +327,8 @@ struct BlockSemiring {
 
   __device__ inline bool isdone() { return done; }
 
-  __device__ inline void write(value_t *out) {
-    for (int i = tid; i < n_rows; i += blockDim.x) {
-      out[row_a * n + row_b] = cur_sum;
-    }
+  __device__ inline value_t get_sum() {
+    return cur_sum;
   }
 
   __device__ inline value_idx get_n_rows() { return n_rows; }
@@ -533,8 +550,8 @@ __global__ void adaptive_csr_spmv_semiring_kernel (
  * Optimized for large numbers of rows but small enough numbers of columns
  * that each thread can process their rows in parallel.
  */
-template <typename value_idx, typename value_t, int tpb, int buffer_size,
-          int max_chunk_size, int rows_per_block>
+
+template <typename value_idx, typename value_t, int tpb, int buffer_size>
 __global__ void classic_csr_semiring_spmv_kernel(
     value_idx *indptrA,
     value_idx *indicesA,
@@ -543,11 +560,13 @@ __global__ void classic_csr_semiring_spmv_kernel(
     value_idx *indicesB,
     value_t *dataB,
     value_idx m, value_idx n, value_t *out,
-    int n_blocks_per_row
-  ) {
+    int n_blocks_per_row,
+    int n_rows_per_block) {
   value_idx out_row = blockIdx.x / n_blocks_per_row;
   value_idx out_col_start = blockIdx.x % n_blocks_per_row;
   value_idx tid = threadIdx.x;
+
+  int k = 100;
 
   if (out_row > m || out_col_start > n_blocks_per_row) return;
 
@@ -559,79 +578,75 @@ __global__ void classic_csr_semiring_spmv_kernel(
 
   bool verbose = tid <= 3 && out_row < 3;
 
-  BlockSemiring<value_idx, value_t, tpb, buffer_size, rows_per_block> semiring(
+  constexpr int n_warps = tpb / 32;
+
+  __shared__ value_t smemK[n_warps * 32];
+  __shared__ value_idx smemV[n_warps * 32];
+
+  auto kInit = faiss::gpu::Limits<value_t>::getMax();
+  auto vInit = -1;
+
+  faiss::gpu::BlockSelect<value_t, value_idx, true, faiss::gpu::Comparator<value_t>,
+  32, 2, tpb>
+    heap(kInit, vInit, smemK, smemV, k);
+
+  BlockSemiring<value_idx, value_t, tpb, buffer_size> semiring(
     tid, m, n, shared_cols, shared_vals, indicesB, dataB,
     offsets_a, offsets_b, verbose);
 
   semiring.load_a(out_row, indptrA, indicesA, dataA);
-  semiring.load_b(out_col_start, indptrB, indicesB, dataB);
 
-  while (!semiring.isdone()) semiring.step();
-  semiring.write(out);
+  for(int i = 0; i < n_rows_per_block / blockDim.x; i+= blockDim.x) {
+    semiring.load_b(out_col_start+i, indptrB, indicesB, dataB);
+
+    while (!semiring.isdone()) semiring.step();
+
+    value_t sum = semiring.get_sum();
+    heap.add(semiring.get_sum(), tid+i);
+  }
+
+  heap.reduce();
+
+  for (int i = tid; i < k; i += tpb) {
+    out[out_row * k + i] = smemK[i];
+    out[out_row * k + i] = smemV[i];
+  }
 }
 
+/**
+ * Returns a warp-level mask with 1's for all the threads
+ * in the current warp that have the same key.
+ * @tparam G
+ * @param key
+ * @return
+ */
 template<typename G>
-__device__ __inline__ unsigned int get_peers(G key) {
-  uint peers=0;
+__device__ __inline__ unsigned int get_peer_group(G key) {
+  unsigned int peer_group = 0;
   bool is_peer;
 
   // in the beginning, all lanes are available
-  uint unclaimed=0xffffffff;
+  unsigned int unclaimed=0xffffffff;
 
   do {
     // fetch key of first unclaimed lane and compare with this key
     is_peer = (key == __shfl_sync(unclaimed, key, __ffs(unclaimed) - 1));
 
     // determine which lanes had a match
-    peers = __ballot_sync(unclaimed, is_peer);
+    peer_group = __ballot_sync(unclaimed, is_peer);
 
     // remove lanes with matching keys from the pool
-    unclaimed ^= peers;
+    unclaimed = unclaimed ^ peer_group;
 
     // quit if we had a match
   } while (!is_peer);
 
-  return peers;
+  return peer_group;
 }
 
-template <typename F>
-__device__ __inline__ F reduce_peers(int lane, unsigned int peers, F &x) {
-
-  // find the peer with lowest lane index
-  int first = __ffs(peers)-1;
-
-  // calculate own relative position among peers
-  int rel_pos = __popc(peers << (32 - lane));
-
-  // ignore peers with lower (or same) lane index
-  peers &= (0xfffffffe << lane);
-
-  while(__any_sync(peers, 1)) {
-    // find next-highest remaining peer
-    int next = __ffs(peers);
-
-    // __shfl() only works if both threads participate, so we always do.
-    F t = __shfl_sync(peers, x, next - 1);
-
-    // only add if there was anything to add
-    if (next) x += t;
-
-    // all lanes with their least significant index bit set are done
-    unsigned int done = rel_pos & 1;
-
-    // remove all peers that are already done
-    peers &= ~__ballot_sync(peers, done);
-
-    // abuse relative position as iteration counter
-    rel_pos >>= 1;
-  }
-
-  // distribute final result to all peers (optional)
-  F res = __shfl_sync(peers, x, first);
-
-  return res;
+__device__ __inline__ unsigned int get_lowest_peer(unsigned int peer_group) {
+  return __ffs(peer_group)-1;
 }
-
 
 /**
  * This implementation follows the load-balanced implementation. This is intended
@@ -659,37 +674,48 @@ __device__ __inline__ F reduce_peers(int lane, unsigned int peers, F &x) {
  * @param n
  * @param out
  */
-template<typename value_idx, typename value_t, int tpb, int buffer_size, int chunk_size>
-__global__ void balanced_coo_semiring_kernel(value_idx *indptrA, value_idx *indicesA,
-                                             value_t *dataA, value_idx *rowsB,
-                                             value_idx *indicesB, value_t *dataB, value_idx m,
-                                             value_idx n, value_idx dim, value_idx nnz_b, value_t *out,
-                                             int n_blocks_per_row) {
+template<typename value_idx, typename value_t, int tpb, int buffer_size>
+__global__ void balanced_coo_semiring_kernel(value_idx *indptrA,
+                                             value_idx *indicesA,
+                                             value_t *dataA,
+                                             value_idx *rowsB,
+                                             value_idx *indicesB,
+                                             value_t *dataB,
+                                             value_idx m,
+                                             value_idx n,
+                                             value_idx dim,
+                                             value_idx nnz_b,
+                                             value_t *out,
+                                             int n_blocks_per_row,
+                                             int chunk_size) {
+
+  typedef cub::WarpReduce<value_t> warp_reduce;
 
   value_idx cur_row_a = blockIdx.x / n_blocks_per_row;
   value_idx cur_chunk_offset = blockIdx.x % n_blocks_per_row;
-  value_idx ind_offset = cur_chunk_offset * chunk_size;
-  value_idx active_chunk_size = min(chunk_size, max(0, nnz_b - (ind_offset+chunk_size)));
 
-  value_idx tid = threadIdx.x;
+  // chunk starting offset
+  value_idx ind_offset = cur_chunk_offset * chunk_size * tpb;
 
-  // compute thread id relative to current warp
-  value_idx lane_id = tid % 32;
+  // how many total cols will be processed by this block (should be <= chunk_size * n_threads)
+  value_idx active_chunk_size = min(chunk_size*tpb, nnz_b - ind_offset);
+
+  int tid = threadIdx.x;
+
+  // compute id relative to current warp
+  unsigned int lane_id = tid&31;
   value_idx ind = ind_offset + threadIdx.x;
 
   if (cur_row_a > m || cur_chunk_offset > n_blocks_per_row) return;
   if (ind >= nnz_b) return;
 
-  if(cur_row_a == 0 && tid==0) {
-    printf("cur_row_a=%d, cur_chunk_offset=%d, ind_offset=%d, nnz_b=%d, active_chunk_size=%d", cur_row_a, cur_chunk_offset, ind_offset, nnz_b, active_chunk_size);
-  }
-
   __shared__ value_t A[buffer_size];
   __shared__ value_idx offsets_a[2];
+  __shared__ typename warp_reduce::TempStorage temp_storage;
 
   if(tid == 0) {
-
-    // todo: Use warp-level broadcast instead of shared memory
+    // todo: Investigate warp-level broadcast instead of shared memory
+    //   - will result in 32 reads, but they should be in parallel
     offsets_a[0] = indptrA[cur_row_a];
     offsets_a[1] = indptrA[cur_row_a +1];
   }
@@ -701,10 +727,10 @@ __global__ void balanced_coo_semiring_kernel(value_idx *indptrA, value_idx *indi
 
   // Create dense vector A and populate with 0s
   for(int i = threadIdx.x; i < dim; i += blockDim.x)
-    A[i] = 0;
+    A[i] = 0.0;
 
   // Convert current row vector in A to dense
-  for(int i = threadIdx.x; i < (start_offset_a - stop_offset_a)+1; i += blockDim.x) {
+  for(int i = tid; i < (stop_offset_a - start_offset_a)+1; i += blockDim.x) {
     value_idx ind_a = indicesA[start_offset_a+i];
     value_t val_a = dataA[start_offset_a+i];
     A[ind_a] = val_a;
@@ -712,37 +738,160 @@ __global__ void balanced_coo_semiring_kernel(value_idx *indptrA, value_idx *indi
 
   __syncthreads();
 
-  value_idx cur_row_b = rowsB[ind];
-  value_t c = A[ind] * dataB[indicesB[ind]];
+  value_idx cur_row_b = -1;
+  value_t c = 0.0;
 
-  for(int i = tid; i < active_chunk_size-blockDim.x; i+=blockDim.x) {
+  if(tid < active_chunk_size) {
+    cur_row_b = rowsB[ind];
+    value_idx col = indicesB[ind];
+    value_t v_a = A[col];
+    c = fabsf(v_a - dataB[ind]);
+  }
+
+  // loop through chunks in parallel, reducing when a new row is
+  // encountered by each thread
+  for(int i = tid; i < active_chunk_size; i+=blockDim.x) {
 
     value_idx ind_next = ind + blockDim.x;
-    value_idx next_row_b = rowsB[ind_next];
+    value_idx next_row_b = -1;
 
-    if(next_row_b != cur_row_b || next_row_b == -1) {
-      // reduce by key
-      unsigned int peers = get_peers(cur_row_b);
-      value_t v = reduce_peers(lane_id, peers, c);
+    if(i+blockDim.x < active_chunk_size)
+      next_row_b = rowsB[ind_next];
 
-      // find the peer with lowest lane index to write out
-      if(__ffs(peers)-1 == lane_id)
-        atomicAdd(out + (cur_row_a * n + cur_row_b), c);
+    if(next_row_b != cur_row_b) {
+
+      unsigned int peer_group = get_peer_group(cur_row_b);
+      bool is_leader = get_lowest_peer(peer_group) == lane_id;
+
+      value_t v = warp_reduce(temp_storage).HeadSegmentedSum(c, is_leader);
+
+      // thread with lowest lane id among peers writes out
+      if(is_leader && v != 0.0) {
+        atomicAdd(out + (cur_row_a * n + cur_row_b), v);
+      }
       c = 0.0;
     }
 
-    ind = ind_next;
-    c += A[ind] * dataB[indicesB[ind]];
-    cur_row_b = next_row_b;
+    if(next_row_b != -1) {
+      ind = ind_next;
+      value_idx col = indicesB[ind];
+      c += fabsf(A[col] - dataB[ind]);
+      cur_row_b = next_row_b;
+    }
+  }
+}
+
+
+template<typename value_idx, typename value_t, int tpb, int buffer_size>
+__global__ void balanced_coo_semiring_kernel2(value_idx *indptrA,
+                                              value_idx *indicesA,
+                                              value_t *dataA,
+                                              value_idx *rowsB,
+                                              value_idx *indicesB,
+                                              value_t *dataB,
+                                              value_idx m,
+                                              value_idx n,
+                                              value_idx dim,
+                                              value_idx nnz_b,
+                                              value_t *out,
+                                              int n_blocks_per_row,
+                                              int chunk_size) {
+
+  typedef cub::WarpReduce<value_t> warp_reduce;
+
+  value_idx cur_row_a = blockIdx.x / n_blocks_per_row;
+  value_idx cur_chunk_offset = blockIdx.x % n_blocks_per_row;
+
+  // chunk starting offset
+  value_idx ind_offset = cur_chunk_offset * chunk_size * tpb;
+
+  // how many total cols will be processed by this block (should be <= chunk_size * n_threads)
+  value_idx active_chunk_size = min(chunk_size*tpb, nnz_b - ind_offset);
+
+  int tid = threadIdx.x;
+
+  // compute id relative to current warp
+  unsigned int lane_id = tid&31;
+  value_idx ind = ind_offset + threadIdx.x;
+
+  if (cur_row_a > m || cur_chunk_offset > n_blocks_per_row) return;
+  if (ind >= nnz_b) return;
+
+  __shared__ value_t A[buffer_size];
+  __shared__ value_idx offsets_a[2];
+  __shared__ typename warp_reduce::TempStorage temp_storage;
+
+  if(tid == 0) {
+    // todo: Investigate warp-level broadcast instead of shared memory
+    //   - will result in 32 reads, but they should be in parallel
+    offsets_a[0] = indptrA[cur_row_a];
+    offsets_a[1] = indptrA[cur_row_a +1];
   }
 
-  // reduce by key
-  unsigned int peers = get_peers(cur_row_b);
-  value_t v = reduce_peers(lane_id, peers, c);
+  __syncthreads();
 
-  // find the peer with lowest lane index to write out
-  if(__ffs(peers)-1 == lane_id)
-    atomicAdd(out + (cur_row_a * n + cur_row_b), c);
+  value_idx start_offset_a = offsets_a[0];
+  value_idx stop_offset_a = offsets_a[1];
+
+  // Create dense vector A and populate with 0s
+  for(int i = threadIdx.x; i < dim; i += blockDim.x)
+    A[i] = 0.0;
+
+  // Convert current row vector in A to dense
+  for(int i = tid; i < (stop_offset_a - start_offset_a)+1; i += blockDim.x) {
+    value_idx ind_a = indicesA[start_offset_a+i];
+    value_t val_a = dataA[start_offset_a+i];
+    A[ind_a] = val_a;
+  }
+
+  __syncthreads();
+
+  value_idx cur_row_b = -1;
+  value_t c = 0.0;
+
+  if(tid < active_chunk_size) {
+    cur_row_b = rowsB[ind];
+    value_idx col = indicesB[ind];
+    value_t v_a = A[col];
+
+    c = v_a == 0.0 ? fabsf(v_a - dataB[ind]) : 0.0;
+  }
+
+  // loop through chunks in parallel, reducing when a new row is
+  // encountered by each thread
+  for(int i = tid; i < active_chunk_size; i+=blockDim.x) {
+
+    value_idx ind_next = ind + blockDim.x;
+    value_idx next_row_b = -1;
+
+    if(i+blockDim.x < active_chunk_size)
+      next_row_b = rowsB[ind_next];
+
+    if(next_row_b != cur_row_b) {
+
+      unsigned int peer_group = get_peer_group(cur_row_b);
+      bool is_leader = get_lowest_peer(peer_group) == lane_id;
+
+      value_t v = warp_reduce(temp_storage).HeadSegmentedSum(c, is_leader);
+
+      // here's where we're done w/ the current row, so now we need to go back
+      // through A and reduce all the
+
+      // thread with lowest lane id among peers writes out
+      if(is_leader && v != 0.0) {
+        atomicAdd(out + (cur_row_b * m + cur_row_a), v);
+      }
+      c = 0.0;
+    }
+
+    if(next_row_b != -1) {
+      ind = ind_next;
+      value_idx col = indicesB[ind];
+      value_t v_a = A[col];
+      c += v_a == 0.0 ? fabsf(v_a - dataB[ind]) : 0.0;
+      cur_row_b = next_row_b;
+    }
+  }
 }
 
 
@@ -1262,38 +1411,46 @@ __global__ void chunked_block_semiring(value_idx *indptrA, value_idx *indicesA,
 
 
 template <typename value_idx = int, typename value_t = float,
-          int max_buffer_size = 1000,  //
+          int max_buffer_size = 5000,  //
           int threads_per_block = 1024,
           typename reduce_f = auto(value_t, value_t)->value_t,
           typename accum_f = auto(value_t, value_t)->value_t>
 void distance_block_reduce(value_t *out_dists,
                            distances_config_t<value_idx, value_t> config_,
                            reduce_f reduce_func, accum_f accum_func) {
-  int n_warps_per_row = raft::ceildiv(config_.b_nrows, threads_per_block);
+
+  int n_chunks = 10000;
+  int n_rows_per_block = min(n_chunks * threads_per_block, config_.b_nrows);
+
+  int n_warps_per_row = raft::ceildiv(config_.b_nrows, n_rows_per_block);
   int n_blocks = config_.a_nrows * n_warps_per_row;
+
+  CUML_LOG_DEBUG("Classic block reduce");
 
   CUML_LOG_DEBUG("n_blocks: %d", n_blocks);
   CUML_LOG_DEBUG("n_warps_per_row: %d", n_warps_per_row);
 
   classic_csr_semiring_spmv_kernel<value_idx, value_t, threads_per_block,
-                              max_buffer_size, 256, threads_per_block>
+                              max_buffer_size>
     <<<n_blocks, threads_per_block, 0, config_.stream>>>(
       config_.a_indptr, config_.a_indices, config_.a_data, config_.b_indptr,
       config_.b_indices, config_.b_data, config_.a_nrows, config_.b_nrows,
-      out_dists, n_warps_per_row);
+      out_dists, n_warps_per_row, n_rows_per_block);
 };
 
 template <typename value_idx = int, typename value_t = float,
-  int max_buffer_size = 1000,  //
+  int max_buffer_size = 11000,  //
   int threads_per_block = 1024,
   typename reduce_f = auto(value_t, value_t)->value_t,
   typename accum_f = auto(value_t, value_t)->value_t>
 void distance_block_reduce2(value_t *out_dists,
                            distances_config_t<value_idx, value_t> config_,
                            reduce_f reduce_func, accum_f accum_func) {
-  constexpr int chunk_size = 5;
 
-  int n_warps_per_row = raft::ceildiv(config_.b_nrows, raft::ceildiv(chunk_size, threads_per_block));
+  int chunk_size = 500000;//config_.b_ncols;
+
+  int n_warps_per_row = raft::ceildiv(config_.b_nnz,
+                                      chunk_size * threads_per_block);
   int n_blocks = config_.a_nrows * n_warps_per_row;
 
   CUML_LOG_DEBUG("n_blocks: %d", n_blocks);
@@ -1303,18 +1460,18 @@ void distance_block_reduce2(value_t *out_dists,
   MLCommon::Sparse::csr_to_coo(config_.b_indptr, config_.b_nrows, rows_b.data(), config_.b_nnz, config_.stream);
 
   balanced_coo_semiring_kernel<value_idx, value_t, threads_per_block,
-    max_buffer_size, chunk_size>
+    max_buffer_size>
   <<<n_blocks, threads_per_block, 0, config_.stream>>>(
     config_.a_indptr, config_.a_indices, config_.a_data, rows_b.data(),
       config_.b_indices, config_.b_data, config_.a_nrows, config_.b_nrows,
-      config_.b_ncols, config_.b_nnz, out_dists, n_warps_per_row);
+      config_.b_ncols, config_.b_nnz, out_dists, n_warps_per_row, chunk_size);
 
-//  template<typename value_idx, typename value_t, int tpb, int buffer_size, int chunk_size>
-//  __global__ void balanced_coo_semiring_kernel(value_idx *indptrA, value_idx *indicesA,
-//                                               value_t *dataA, value_idx *rowsB,
-//                                               value_idx *indicesB, value_t *dataB, value_idx m,
-//                                               value_idx n, value_idx dim, value_t *out,
-//                                               int n_blocks_per_row)
+  n_warps_per_row = raft::ceildiv(config_.a_nnz,
+                                      chunk_size * threads_per_block);
+  n_blocks = config_.b_nrows * n_warps_per_row;
+
+  device_buffer<value_idx> rows_a(config_.allocator, config_.stream, config_.a_nnz);
+  MLCommon::Sparse::csr_to_coo(config_.a_indptr, config_.a_nrows, rows_a.data(), config_.a_nnz, config_.stream);
 };
 
 
@@ -1333,9 +1490,9 @@ class l1_distances_t : public distances_t<value_t> {
 
     CUDA_CHECK(cudaStreamSynchronize(config_.stream));
 
-    //    std::cout << raft::arr2Str(out_dists, config_.a_nrows * config_.b_nrows,
-    //                               "out_dists", config_.stream)
-    //              << std::endl;
+        std::cout << raft::arr2Str(out_dists, 25,
+                                   "out_dists", config_.stream)
+                  << std::endl;
   }
 
  private:
