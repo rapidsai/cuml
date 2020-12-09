@@ -13,7 +13,6 @@
 # limitations under the License.
 #
 
-import cuml
 import numpy as np
 import cupy as cp
 from cuml.common.input_utils import input_to_cupy_array
@@ -293,37 +292,6 @@ def cuml_estimator(cuml_class):
     cuml_class.__init__ = __init__
 
     return cuml_class
-
-
-def convert_to_output_type(ret_val, input_type):
-    if cp.sparse.issparse(ret_val):
-        ret_val = cuml.common.array_sparse.SparseCumlArray(
-            ret_val, convert_index=False)
-    else:
-        ret_val = cuml.common.input_utils.input_to_cuml_array(
-            ret_val, order="K").array
-
-    output_type = cuml.global_output_type
-    if (output_type is None or output_type == "mirror"
-            or output_type == "input"):
-        output_type = input_type
-
-    return ret_val.to_output(output_type=output_type)
-
-
-def cuml_function(function):
-    def inner(X, *args, **kwargs):
-        input_type = cuml.common.input_utils.determine_array_type(X)
-
-        ret_val = function(X, *args, **kwargs)
-
-        if isinstance(ret_val, (tuple, list)):
-            return list(map(lambda x: convert_to_output_type(x, input_type),
-                            ret_val))
-        else:
-            return convert_to_output_type(ret_val, input_type)
-
-    return inner
 
 
 def _get_mask(X, value_to_mask):

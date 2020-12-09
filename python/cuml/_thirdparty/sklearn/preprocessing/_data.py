@@ -24,7 +24,7 @@ import cupy as np
 from cupy import sparse
 
 from ..utils.skl_dependencies import BaseEstimator, TransformerMixin
-from ....thirdparty_adapters import check_array, cuml_estimator, cuml_function
+from ....thirdparty_adapters import check_array, cuml_estimator
 from ..utils.extmath import row_norms
 from ..utils.extmath import _incremental_mean_and_var
 from ..utils.validation import (check_is_fitted, FLOAT_DTYPES,
@@ -42,6 +42,8 @@ from ....common.import_utils import check_cupy8
 from ....common.array import CumlArray
 from ....common.array_sparse import SparseCumlArray
 from ....common.array_descriptor import CumlArrayDescriptor
+from ....internals import api_return_generic
+from ....common.memory_utils import using_output_type
 
 
 __all__ = [
@@ -80,7 +82,7 @@ def _handle_zeros_in_scale(scale, copy=True):
 
 
 @_deprecate_positional_args
-@cuml_function
+@api_return_generic(get_output_type=True)
 def scale(X, *, axis=0, with_mean=True, with_std=True, copy=True):
     """Standardize a dataset along any axis
 
@@ -431,7 +433,7 @@ class MinMaxScaler(TransformerMixin, BaseEstimator):
 
 
 @_deprecate_positional_args
-@cuml_function
+@api_return_generic(get_output_type=True)
 def minmax_scale(X, feature_range=(0, 1), *, axis=0, copy=True):
     """Transform features by scaling each feature to a given range.
 
@@ -484,16 +486,17 @@ def minmax_scale(X, feature_range=(0, 1), *, axis=0, copy=True):
     if original_ndim == 1:
         X = X.reshape(X.shape[0], 1)
 
-    s = MinMaxScaler(feature_range=feature_range, copy=copy)
-    if axis == 0:
-        X = s.fit_transform(X)
-    else:
-        X = s.fit_transform(X.T).T
+    with using_output_type('cupy'):
+        s = MinMaxScaler(feature_range=feature_range, copy=copy)
+        if axis == 0:
+            X = s.fit_transform(X)
+        else:
+            X = s.fit_transform(X.T).T
 
-    if original_ndim == 1:
-        X = X.ravel()
+        if original_ndim == 1:
+            X = X.ravel()
 
-    return X
+        return X
 
 
 @cuml_estimator
@@ -1047,7 +1050,7 @@ class MaxAbsScaler(TransformerMixin, BaseEstimator):
 
 @check_cupy8()
 @_deprecate_positional_args
-@cuml_function
+@api_return_generic(get_output_type=True)
 def maxabs_scale(X, *, axis=0, copy=True):
     """Scale each feature to the [-1, 1] range without breaking the sparsity.
 
@@ -1308,7 +1311,7 @@ class RobustScaler(TransformerMixin, BaseEstimator):
 
 
 @_deprecate_positional_args
-@cuml_function
+@api_return_generic(get_output_type=True)
 def robust_scale(X, *, axis=0, with_centering=True, with_scaling=True,
                  quantile_range=(25.0, 75.0), copy=True):
     """
@@ -1368,17 +1371,20 @@ def robust_scale(X, *, axis=0, with_centering=True, with_scaling=True,
     if original_ndim == 1:
         X = X.reshape(X.shape[0], 1)
 
-    s = RobustScaler(with_centering=with_centering, with_scaling=with_scaling,
-                     quantile_range=quantile_range, copy=copy)
-    if axis == 0:
-        X = s.fit_transform(X)
-    else:
-        X = s.fit_transform(X.T).T
+    with using_output_type("cupy"):
+        s = RobustScaler(with_centering=with_centering,
+                         with_scaling=with_scaling,
+                         quantile_range=quantile_range,
+                         copy=copy)
+        if axis == 0:
+            X = s.fit_transform(X)
+        else:
+            X = s.fit_transform(X.T).T
 
-    if original_ndim == 1:
-        X = X.ravel()
+        if original_ndim == 1:
+            X = X.ravel()
 
-    return X
+        return X
 
 
 @cuml_estimator
@@ -1670,7 +1676,7 @@ class PolynomialFeatures(TransformerMixin, BaseEstimator):
 
 @check_cupy8()
 @_deprecate_positional_args
-@cuml_function
+@api_return_generic(get_output_type=True)
 def normalize(X, norm='l2', *, axis=1, copy=True, return_norm=False):
     """Scale input vectors individually to unit norm (vector length).
 
@@ -1854,7 +1860,7 @@ class Normalizer(TransformerMixin, BaseEstimator):
 
 
 @_deprecate_positional_args
-@cuml_function
+@api_return_generic(get_output_type=True)
 def binarize(X, *, threshold=0.0, copy=True):
     """Boolean thresholding of array-like or sparse matrix
 
@@ -1985,7 +1991,7 @@ class Binarizer(TransformerMixin, BaseEstimator):
                 'stateless': True}
 
 
-@cuml_function
+@api_return_generic(get_output_type=True)
 def add_dummy_feature(X, value=1.0):
     """Augment dataset with an additional dummy feature.
 
@@ -2042,7 +2048,9 @@ def add_dummy_feature(X, value=1.0):
             return X
         else:
             klass = X.__class__
-            X = klass(add_dummy_feature(X.tocoo(), value))
+            with using_output_type('cupy'):
+                res = add_dummy_feature(X.tocoo(), value)
+            X = klass(res)
             return X
     else:
         X = np.hstack((np.full((n_samples, 1), value), X))
