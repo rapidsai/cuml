@@ -5,11 +5,11 @@
 ## Improvements
 
 ## Bug Fixes
+- PR #3279: Correct pure virtual declaration in manifold_inputs_t
 
 # cuML 0.17.0 (Date TBD)
 
 ## New Features
-- PR #3164: Expose silhouette score in Python
 - PR #3160: Least Angle Regression (experimental)
 - PR #2659: Add initial max inner product sparse knn
 - PR #2836: Refactor UMAP to accept sparse inputs
@@ -63,6 +63,8 @@
 - PR #3240: Minor doc updates
 
 ## Bug Fixes
+- PR #3164: Expose silhouette score in Python
+- PR #3258: Revert silhouette_score Python exposure due to memory issue
 - PR #3218: Specify dependency branches in conda dev environment to avoid pip resolver issue
 - PR #3196: Disable ascending=false path for sortColumnsPerRow
 - PR #3051: MNMG KNN Cl&Re fix + multiple improvements
@@ -101,13 +103,17 @@
 - PR #3182: Fix a bug in MSE metric calculation
 - PR #3187: Update docstring to document behavior of `bootstrap=False`
 - PR #3215: Add a missing `__syncthreads()`
+- PR #3246: Fix MNMG KNN doc (adding batch_size)
 - PR #3185: Add documentation for Distributed TFIDF Transformer
 - PR #3190: Fix Attribute error on ICPA #3183 and PCA input type
 - PR #3208: Fix EXITCODE override in notebook test script
+- PR #3250: Fixing label binarizer bug with multiple partitions
 - PR #3214: Correct flaky silhouette score test by setting atol
 - PR #3216: Ignore splits that do not satisfy constraints
 - PR #3239: Fix intermittent dask random forest failure
+- PR #3243: Avoid unnecessary split for degenerate case where all labels are identical
 - PR #3245: Rename `rows_sample` -> `max_samples` to be consistent with sklearn's RF
+- PR #3282: Add secondary test to kernel explainer pytests for stability in Volta
 
 # cuML 0.16.0 (23 Oct 2020)
 
