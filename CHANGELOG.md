@@ -6,6 +6,7 @@
 ## Improvements
 
 ## Bug Fixes
+- PR #3279: Correct pure virtual declaration in manifold_inputs_t
 
 # cuML 0.17.0 (Date TBD)
 
@@ -113,6 +114,7 @@
 - PR #3239: Fix intermittent dask random forest failure
 - PR #3243: Avoid unnecessary split for degenerate case where all labels are identical
 - PR #3245: Rename `rows_sample` -> `max_samples` to be consistent with sklearn's RF
+- PR #3282: Add secondary test to kernel explainer pytests for stability in Volta
 
 # cuML 0.16.0 (23 Oct 2020)
 
