@@ -1,4 +1,4 @@
-# cuML 0.17.0 (Date TBD)
+# cuML 0.17.0 (10 Dec 2020)
 
 ## New Features
 - PR #3160: Least Angle Regression (experimental)
