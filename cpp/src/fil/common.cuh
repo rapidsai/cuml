@@ -23,7 +23,7 @@
 #include <stdexcept>
 #include <string>
 
-#include <cuda_utils.cuh>
+#include <raft/cuda_utils.cuh>
 
 #include <cuml/fil/fil.h>
 
@@ -210,6 +210,7 @@ struct predict_params {
 
   // Other parameters.
   int max_shm;
+  int num_blocks;
 };
 
 // infer() calls the inference kernel with the parameters on the stream

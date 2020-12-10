@@ -16,9 +16,9 @@
 
 #pragma once
 
-#include <common/cudart_utils.h>
 #include <cuml/tsa/holtwinters_params.h>
-#include <linalg/transpose.h>
+#include <raft/cudart_utils.h>
+#include <raft/linalg/transpose.h>
 #include "internal/hw_decompose.cuh"
 #include "internal/hw_eval.cuh"
 #include "internal/hw_forecast.cuh"
@@ -36,7 +36,7 @@ void HWTranspose(const raft::handle_t &handle, Dtype *data_in, int m, int n,
   cudaStream_t stream = handle_impl.get_stream();
   cublasHandle_t cublas_h = handle_impl.get_cublas_handle();
 
-  MLCommon::LinAlg::transpose<Dtype>(data_in, data_out, n, m, cublas_h, stream);
+  raft::linalg::transpose<Dtype>(handle, data_in, data_out, n, m, stream);
 }
 
 void HoltWintersBufferSize(int n, int batch_size, int frequency, bool use_beta,

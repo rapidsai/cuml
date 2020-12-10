@@ -14,13 +14,13 @@
  * limitations under the License.
  */
 
-#include <common/cudart_utils.h>
 #include <gtest/gtest.h>
-#include <linalg/transpose.h>
+#include <raft/cudart_utils.h>
+#include <raft/linalg/transpose.h>
 #include <test_utils.h>
-#include <cuda_utils.cuh>
 #include <cuml/datasets/make_blobs.hpp>
 #include <cuml/ensemble/randomforest.hpp>
+#include <raft/cuda_utils.cuh>
 
 namespace ML {
 
@@ -31,21 +31,23 @@ struct RfInputs {
   int n_cols;
   int n_trees;
   float max_features;
-  float rows_sample;
+  float max_samples;
   int max_depth;
   int max_leaves;
   bool bootstrap;
   bool bootstrap_features;
   int n_bins;
   int split_algo;
-  int min_rows_per_node;
+  int min_samples_leaf;
+  int min_samples_split;
   float min_impurity_decrease;
   int n_streams;
   CRITERION split_criterion;
+  float min_expected_acc;
 };
 
 template <typename T>
-class RFBatchedTest : public ::testing::TestWithParam<RfInputs> {
+class RFBatchedClsTest : public ::testing::TestWithParam<RfInputs> {
  protected:
   void basicTest() {
     params = ::testing::TestWithParam<RfInputs>::GetParam();
@@ -53,12 +55,12 @@ class RFBatchedTest : public ::testing::TestWithParam<RfInputs> {
     DecisionTree::DecisionTreeParams tree_params;
     set_tree_params(tree_params, params.max_depth, params.max_leaves,
                     params.max_features, params.n_bins, params.split_algo,
-                    params.min_rows_per_node, params.min_impurity_decrease,
-                    params.bootstrap_features, params.split_criterion, false,
-                    true);
+                    params.min_samples_leaf, params.min_samples_split,
+                    params.min_impurity_decrease, params.bootstrap_features,
+                    params.split_criterion, false, true);
     RF_params rf_params;
     set_all_rf_params(rf_params, params.n_trees, params.bootstrap,
-                      params.rows_sample, -1, params.n_streams, tree_params);
+                      params.max_samples, -1, params.n_streams, tree_params);
 
     CUDA_CHECK(cudaStreamCreate(&stream));
     handle.reset(new raft::handle_t(rf_params.n_streams));
@@ -72,17 +74,13 @@ class RFBatchedTest : public ::testing::TestWithParam<RfInputs> {
       (int*)allocator->allocate(params.n_rows * sizeof(int), stream);
 
     Datasets::make_blobs(*handle, data, labels, params.n_rows, params.n_cols, 5,
-                         false, nullptr, nullptr, T(0.1), false, T(-1.0),
-                         T(1.0), 3536699ULL);
+                         false, nullptr, nullptr, T(0.1), false, T(-0.5),
+                         T(0.5), 3536699ULL);
 
     labels_h.resize(params.n_rows);
     raft::update_host(labels_h.data(), labels, params.n_rows, stream);
     preprocess_labels(params.n_rows, labels_h, labels_map);
     raft::update_device(labels, labels_h.data(), params.n_rows, stream);
-
-    T* data_h;
-    data_h = (T*)malloc(data_len * sizeof(T));
-    raft::update_host(data_h, data, data_len, stream);
 
     // Training part
     forest = new typename ML::RandomForestMetaData<T, int>;
@@ -95,8 +93,8 @@ class RFBatchedTest : public ::testing::TestWithParam<RfInputs> {
     T* data_row_major;
     data_row_major = (T*)allocator->allocate(data_len * sizeof(T), stream);
     cublasHandle_t cublas_h = handle->get_cublas_handle();
-    MLCommon::LinAlg::transpose(data, data_row_major, params.n_rows,
-                                params.n_cols, cublas_h, stream);
+    raft::linalg::transpose(*handle, data, data_row_major, params.n_rows,
+                            params.n_cols, stream);
 
     predict(*handle, forest, data_row_major, params.n_rows, params.n_cols,
             predicted_labels);
@@ -147,33 +145,33 @@ class RFBatchedTest : public ::testing::TestWithParam<RfInputs> {
 
 //-------------------------------------------------------------------------------------------------------------------------------------
 const std::vector<RfInputs> inputsf2_clf = {
-  {20000, 10, 25, 1.0f, 0.4f, 12, -1, true, false, 10,
-   SPLIT_ALGO::GLOBAL_QUANTILE, 2, 0.0, 2, CRITERION::GINI},
+  // Simple non-crash tests with small datasets
+  {100, 59, 1, 1.0f, 0.4f, 16, -1, true, false, 10, SPLIT_ALGO::GLOBAL_QUANTILE,
+   2, 2, 0.0, 2, CRITERION::GINI, 0.0f},
+  {101, 59, 2, 1.0f, 0.4f, 10, -1, true, false, 13, SPLIT_ALGO::GLOBAL_QUANTILE,
+   2, 2, 0.0, 2, CRITERION::GINI, 0.0f},
+  {100, 1, 2, 1.0f, 0.4f, 10, -1, true, false, 15, SPLIT_ALGO::GLOBAL_QUANTILE,
+   2, 2, 0.0, 2, CRITERION::GINI, 0.0f},
+  // Simple accuracy tests
+  {20000, 10, 25, 1.0f, 0.4f, 16, -1, true, false, 10,
+   SPLIT_ALGO::GLOBAL_QUANTILE, 2, 2, 0.0, 2, CRITERION::GINI},
   {20000, 10, 5, 1.0f, 0.4f, 14, -1, true, false, 10,
-   SPLIT_ALGO::GLOBAL_QUANTILE, 2, 0.0, 2, CRITERION::ENTROPY}};
+   SPLIT_ALGO::GLOBAL_QUANTILE, 2, 2, 0.0, 2, CRITERION::ENTROPY}};
 
-typedef RFBatchedTest<float> RFBatchedTestF;
-TEST_P(RFBatchedTestF, Fit) {
-  if (!params.bootstrap && (params.max_features == 1.0f)) {
-    ASSERT_TRUE(accuracy == 1.0f);
-  } else {
-    ASSERT_TRUE(accuracy >= 0.75f);  // Empirically derived accuracy range
-  }
+typedef RFBatchedClsTest<float> RFBatchedClsTestF;
+TEST_P(RFBatchedClsTestF, Fit) {
+  ASSERT_TRUE(accuracy >= params.min_expected_acc);
 }
 
-INSTANTIATE_TEST_CASE_P(RFBatchedTests, RFBatchedTestF,
+INSTANTIATE_TEST_CASE_P(RFBatchedClsTests, RFBatchedClsTestF,
                         ::testing::ValuesIn(inputsf2_clf));
 
-typedef RFBatchedTest<double> RFBatchedTestD;
-TEST_P(RFBatchedTestD, Fit) {
-  if (!params.bootstrap && (params.max_features == 1.0f)) {
-    ASSERT_TRUE(accuracy == 1.0f);
-  } else {
-    ASSERT_TRUE(accuracy >= 0.75f);  // Empirically derived accuracy range
-  }
+typedef RFBatchedClsTest<double> RFBatchedClsTestD;
+TEST_P(RFBatchedClsTestD, Fit) {
+  ASSERT_TRUE(accuracy >= params.min_expected_acc);
 }
 
-INSTANTIATE_TEST_CASE_P(RFBatchedTests, RFBatchedTestD,
+INSTANTIATE_TEST_CASE_P(RFBatchedClsTests, RFBatchedClsTestD,
                         ::testing::ValuesIn(inputsf2_clf));
 
 }  // end namespace ML

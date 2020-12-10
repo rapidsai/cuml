@@ -19,7 +19,7 @@ import numbers
 from collections.abc import Iterable
 import cupy as cp
 import numpy as np
-from cuml.common import with_cupy_rmm
+import cuml.internals
 from cuml.datasets.utils import _create_rs_generator
 
 
@@ -65,7 +65,7 @@ def _get_centers(rs, centers, center_box, n_samples, n_features, dtype):
     return centers, n_centers
 
 
-@with_cupy_rmm
+@cuml.internals.api_return_any()
 def make_blobs(n_samples=100, n_features=2, centers=None, cluster_std=1.0,
                center_box=(-10.0, 10.0), shuffle=True, random_state=None,
                return_centers=False, order='F', dtype='float32'):

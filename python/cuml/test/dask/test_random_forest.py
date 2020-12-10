@@ -268,7 +268,7 @@ def test_rf_classification_dask_fil_predict_proba(partitions_per_worker,
     cu_rf_mg.fit(X_train_df, y_train_df)
 
     fil_preds_proba = cu_rf_mg.predict_proba(X_test_df).compute()
-    fil_preds_proba = cp.asnumpy(fil_preds_proba.to_gpu_matrix())
+    fil_preds_proba = cp.asnumpy(fil_preds_proba.as_gpu_matrix())
     y_proba = np.zeros(np.shape(fil_preds_proba))
     y_proba[:, 1] = y_test
     y_proba[:, 0] = 1.0 - y_test
@@ -320,7 +320,7 @@ def test_rf_concatenation_dask(client, model_type):
 @pytest.mark.parametrize('model_type', ['classification', 'regression'])
 @pytest.mark.parametrize('ignore_empty_partitions', [True, False])
 def test_single_input(client, model_type, ignore_empty_partitions):
-    X, y = make_classification(n_samples=1)
+    X, y = make_classification(n_samples=1, n_classes=1)
     X = X.astype(np.float32)
     if model_type == 'classification':
         y = y.astype(np.int32)

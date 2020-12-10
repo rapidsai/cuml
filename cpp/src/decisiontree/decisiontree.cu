@@ -29,7 +29,9 @@ namespace DecisionTree {
  * @param[in] cfg_max_features: maximum number of features; default 1.0f
  * @param[in] cfg_n_bins: number of bins; default 8
  * @param[in] cfg_split_algo: split algorithm; default SPLIT_ALGO::HIST
- * @param[in] cfg_min_rows_per_node: min. rows per node; default 2
+ * @param[in] cfg_min_samples_leaf: min. rows in each leaf node; default 1
+ * @param[in] cfg_min_samples_split: min. rows needed to split an internal node;
+ *            default 2
  * @param[in] cfg_bootstrap_features: bootstrapping for features; default false
  * @param[in] cfg_split_criterion: split criterion; default CRITERION_END,
  *            i.e., GINI for classification or MSE for regression
@@ -40,18 +42,48 @@ namespace DecisionTree {
  */
 void set_tree_params(DecisionTreeParams &params, int cfg_max_depth,
                      int cfg_max_leaves, float cfg_max_features, int cfg_n_bins,
-                     int cfg_split_algo, int cfg_min_rows_per_node,
-                     float cfg_min_impurity_decrease,
+                     int cfg_split_algo, int cfg_min_samples_leaf,
+                     int cfg_min_samples_split, float cfg_min_impurity_decrease,
                      bool cfg_bootstrap_features, CRITERION cfg_split_criterion,
                      bool cfg_quantile_per_tree,
                      bool cfg_use_experimental_backend,
                      int cfg_max_batch_size) {
+  if (cfg_use_experimental_backend) {
+    if (cfg_split_algo != SPLIT_ALGO::GLOBAL_QUANTILE) {
+      CUML_LOG_WARN(
+        "Experimental backend does not yet support histogram split algorithm");
+      CUML_LOG_WARN(
+        "To use experimental backend set split_algo = 1 (GLOBAL_QUANTILE)");
+      cfg_use_experimental_backend = false;
+    }
+    if (cfg_max_features != 1.0) {
+      CUML_LOG_WARN(
+        "Experimental backend does not yet support feature sub-sampling");
+      CUML_LOG_WARN("To use experimental backend set max_features = 1.0");
+      cfg_use_experimental_backend = false;
+    }
+    if (cfg_quantile_per_tree) {
+      CUML_LOG_WARN(
+        "Experimental backend does not yet support per tree quantile "
+        "computation");
+      CUML_LOG_WARN(
+        "To use experimental backend set quantile_per_tree = false");
+      cfg_use_experimental_backend = false;
+    }
+    if (!cfg_use_experimental_backend) {
+      CUML_LOG_WARN(
+        "Not using the experimental backend due to above mentioned reason(s)");
+      CUML_LOG_WARN("Switching back to default backend");
+    }
+  }
+
   params.max_depth = cfg_max_depth;
   params.max_leaves = cfg_max_leaves;
   params.max_features = cfg_max_features;
   params.n_bins = cfg_n_bins;
   params.split_algo = cfg_split_algo;
-  params.min_rows_per_node = cfg_min_rows_per_node;
+  params.min_samples_leaf = cfg_min_samples_leaf;
+  params.min_samples_split = cfg_min_samples_split;
   params.bootstrap_features = cfg_bootstrap_features;
   params.split_criterion = cfg_split_criterion;
   params.quantile_per_tree = cfg_quantile_per_tree;
@@ -72,9 +104,12 @@ void validity_check(const DecisionTreeParams params) {
            (params.split_algo < SPLIT_ALGO::SPLIT_ALGO_END),
          "split_algo value %d outside permitted [0, %d) range",
          params.split_algo, SPLIT_ALGO::SPLIT_ALGO_END);
-  ASSERT((params.min_rows_per_node >= 2),
-         "Invalid min # rows per node value %d. Should be >= 2.",
-         params.min_rows_per_node);
+  ASSERT((params.min_samples_leaf >= 1),
+         "Invalid value for min_samples_leaf %d. Should be >= 1.",
+         params.min_samples_leaf);
+  ASSERT((params.min_samples_split >= 2),
+         "Invalid value for min_samples_split: %d. Should be >= 2.",
+         params.min_samples_split);
 }
 
 void print(const DecisionTreeParams params) {
@@ -83,7 +118,8 @@ void print(const DecisionTreeParams params) {
   CUML_LOG_DEBUG("max_features: %f", params.max_features);
   CUML_LOG_DEBUG("n_bins: %d", params.n_bins);
   CUML_LOG_DEBUG("split_algo: %d", params.split_algo);
-  CUML_LOG_DEBUG("min_rows_per_node: %d", params.min_rows_per_node);
+  CUML_LOG_DEBUG("min_samples_leaf: %d", params.min_samples_leaf);
+  CUML_LOG_DEBUG("min_samples_split: %d", params.min_samples_split);
   CUML_LOG_DEBUG("bootstrap_features: %d", params.bootstrap_features);
   CUML_LOG_DEBUG("split_criterion: %d", params.split_criterion);
   CUML_LOG_DEBUG("quantile_per_tree: %d", params.quantile_per_tree);

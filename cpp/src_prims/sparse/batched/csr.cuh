@@ -37,11 +37,11 @@
 #include <cuml/common/utils.hpp>
 #include <cuml/cuml.hpp>
 
-#include <common/cudart_utils.h>
+#include <raft/cudart_utils.h>
 #include <raft/linalg/cusolver_wrappers.h>
 #include <common/device_buffer.hpp>
 #include <linalg/batched/matrix.cuh>
-#include <matrix/matrix.cuh>
+#include <raft/matrix/matrix.cuh>
 
 namespace MLCommon {
 namespace Sparse {

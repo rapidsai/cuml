@@ -16,14 +16,14 @@
 
 #pragma once
 
-#include <common/cudart_utils.h>
+#include <raft/cudart_utils.h>
 #include <raft/linalg/cublas_wrappers.h>
-#include <cuda_utils.cuh>
-#include <linalg/add.cuh>
-#include <linalg/binary_op.cuh>
-#include <linalg/map_then_reduce.cuh>
-#include <linalg/matrix_vector_op.cuh>
-#include <stats/mean.cuh>
+#include <raft/cuda_utils.cuh>
+#include <raft/linalg/add.cuh>
+#include <raft/linalg/binary_op.cuh>
+#include <raft/linalg/map_then_reduce.cuh>
+#include <raft/linalg/matrix_vector_op.cuh>
+#include <raft/stats/mean.cuh>
 #include <vector>
 #include "simple_mat.cuh"
 

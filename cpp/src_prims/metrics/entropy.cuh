@@ -18,14 +18,14 @@
 * @brief Calculates the entropy for a labeling in nats.(ie, uses natural logarithm for the calculations)
 */
 
-#include <common/cudart_utils.h>
 #include <math.h>
+#include <raft/cudart_utils.h>
 #include <common/device_buffer.hpp>
 #include <cub/cub.cuh>
-#include <cuda_utils.cuh>
 #include <cuml/common/cuml_allocator.hpp>
-#include <linalg/divide.cuh>
-#include <linalg/map_then_reduce.cuh>
+#include <raft/cuda_utils.cuh>
+#include <raft/linalg/divide.cuh>
+#include <raft/linalg/map_then_reduce.cuh>
 
 namespace MLCommon {
 
@@ -117,8 +117,8 @@ double entropy(const T *clusterArray, const int size, const T lowerLabelRange,
               workspace, allocator, stream);
 
   //scalar dividing by size
-  MLCommon::LinAlg::divideScalar<double>(prob.data(), prob.data(), (double)size,
-                                         numUniqueClasses, stream);
+  raft::linalg::divideScalar<double>(prob.data(), prob.data(), (double)size,
+                                     numUniqueClasses, stream);
 
   //calculating the aggregate entropy
   raft::linalg::mapThenSumReduce<double, entropyOp>(
