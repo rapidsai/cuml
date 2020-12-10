@@ -110,18 +110,18 @@ def test_ivfflat_pred(nrows, ncols, n_neighbors, nlist):
     assert array_equal(labels, y)
 
 
-@pytest.mark.parametrize("nlist", [8])
-@pytest.mark.parametrize("M", [16, 32])
+@pytest.mark.parametrize("nlist", [6])
+@pytest.mark.parametrize("M", [16])
 @pytest.mark.parametrize("n_bits", [2, 4])
 @pytest.mark.parametrize("usePrecomputedTables", [False, True])
 @pytest.mark.parametrize("nrows", [1000, 4000])
-@pytest.mark.parametrize("ncols", [128, 512])
-@pytest.mark.parametrize("n_neighbors", [4, 12])
+@pytest.mark.parametrize("ncols", [128, 256])
+@pytest.mark.parametrize("n_neighbors", [4, 8])
 def test_ivfpq_pred(nrows, ncols, n_neighbors,
                     nlist, M, n_bits, usePrecomputedTables):
     algo_params = {
         'nlist': nlist,
-        'nprobe': nlist * 0.25,
+        'nprobe': int(nlist * 0.2),
         'M': M,
         'n_bits': n_bits,
         'usePrecomputedTables': usePrecomputedTables
