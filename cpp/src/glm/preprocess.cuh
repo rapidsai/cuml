@@ -16,16 +16,16 @@
 
 #pragma once
 
-#include <common/cudart_utils.h>
+#include <raft/cudart_utils.h>
 #include <common/cumlHandle.hpp>
 #include <common/device_buffer.hpp>
-#include <linalg/gemm.cuh>
-#include <linalg/norm.cuh>
-#include <matrix/math.cuh>
-#include <matrix/matrix.cuh>
-#include <stats/mean.cuh>
-#include <stats/mean_center.cuh>
-#include <stats/stddev.cuh>
+#include <raft/linalg/gemm.cuh>
+#include <raft/linalg/norm.cuh>
+#include <raft/matrix/math.cuh>
+#include <raft/matrix/matrix.cuh>
+#include <raft/stats/mean.cuh>
+#include <raft/stats/mean_center.cuh>
+#include <raft/stats/stddev.cuh>
 
 namespace ML {
 namespace GLM {
@@ -44,17 +44,17 @@ void preProcessData(const raft::handle_t &handle, math_t *input, int n_rows,
 
   if (fit_intercept) {
     raft::stats::mean(mu_input, input, n_cols, n_rows, false, false, stream);
-    MLCommon::Stats::meanCenter(input, input, mu_input, n_cols, n_rows, false,
-                                true, stream);
+    raft::stats::meanCenter(input, input, mu_input, n_cols, n_rows, false, true,
+                            stream);
 
     raft::stats::mean(mu_labels, labels, 1, n_rows, false, false, stream);
-    MLCommon::Stats::meanCenter(labels, labels, mu_labels, 1, n_rows, false,
-                                true, stream);
+    raft::stats::meanCenter(labels, labels, mu_labels, 1, n_rows, false, true,
+                            stream);
 
     if (normalize) {
-      LinAlg::colNorm(norm2_input, input, n_cols, n_rows, LinAlg::L2Norm, false,
-                      stream,
-                      [] __device__(math_t v) { return raft::mySqrt(v); });
+      raft::linalg::colNorm(
+        norm2_input, input, n_cols, n_rows, raft::linalg::L2Norm, false, stream,
+        [] __device__(math_t v) { return raft::mySqrt(v); });
       raft::matrix::matrixVectorBinaryDivSkipZero(
         input, norm2_input, n_rows, n_cols, false, true, stream, true);
     }
@@ -83,19 +83,19 @@ void postProcessData(const raft::handle_t &handle, math_t *input, int n_rows,
                                                 false, true, stream, true);
   }
 
-  LinAlg::gemm(mu_input, 1, n_cols, coef, d_intercept.data(), 1, 1, CUBLAS_OP_N,
-               CUBLAS_OP_N, cublas_handle, stream);
+  raft::linalg::gemm(handle, mu_input, 1, n_cols, coef, d_intercept.data(), 1,
+                     1, CUBLAS_OP_N, CUBLAS_OP_N, stream);
 
-  LinAlg::subtract(d_intercept.data(), mu_labels, d_intercept.data(), 1,
-                   stream);
+  raft::linalg::subtract(d_intercept.data(), mu_labels, d_intercept.data(), 1,
+                         stream);
   raft::update_host(intercept, d_intercept.data(), 1, stream);
 
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
-  MLCommon::Stats::meanAdd(input, input, mu_input, n_cols, n_rows, false, true,
-                           stream);
-  MLCommon::Stats::meanAdd(labels, labels, mu_labels, 1, n_rows, false, true,
-                           stream);
+  raft::stats::meanAdd(input, input, mu_input, n_cols, n_rows, false, true,
+                       stream);
+  raft::stats::meanAdd(labels, labels, mu_labels, 1, n_rows, false, true,
+                       stream);
 }
 
 };  // namespace GLM

@@ -16,18 +16,18 @@
 
 #pragma once
 
-#include <common/cudart_utils.h>
 #include <cuml/svm/svm_parameter.h>
 #include <linalg/init.h>
+#include <raft/cudart_utils.h>
 #include <cache/cache.cuh>
 #include <cache/cache_util.cuh>
 #include <common/cumlHandle.hpp>
 #include <common/host_buffer.hpp>
 #include <cub/cub.cuh>
-#include <cuda_utils.cuh>
-#include <linalg/gemm.cuh>
 #include <matrix/grammatrix.cuh>
-#include <matrix/matrix.cuh>
+#include <raft/cuda_utils.cuh>
+#include <raft/linalg/gemm.cuh>
+#include <raft/matrix/matrix.cuh>
 
 namespace ML {
 namespace SVM {
@@ -197,8 +197,8 @@ class KernelCache {
                              stream);  // cache stream
 
         // collect training vectors for kernel elements that needs to be calculated
-        MLCommon::Matrix::copyRows(x, n_rows, n_cols, x_ws.data(), ws_idx_new,
-                                   non_cached, stream, false);
+        raft::matrix::copyRows(x, n_rows, n_cols, x_ws.data(), ws_idx_new,
+                               non_cached, stream, false);
         math_t *tile_new = tile.data() + n_cached * n_rows;
         (*kernel)(x, n_rows, n_cols, x_ws.data(), non_cached, tile_new, stream);
         // We need AssignCacheIdx to be finished before calling StoreCols
@@ -208,8 +208,8 @@ class KernelCache {
     } else {
       if (n_unique > 0) {
         // collect all the feature vectors in the working set
-        MLCommon::Matrix::copyRows(x, n_rows, n_cols, x_ws.data(),
-                                   unique_idx.data(), n_unique, stream, false);
+        raft::matrix::copyRows(x, n_rows, n_cols, x_ws.data(),
+                               unique_idx.data(), n_unique, stream, false);
         (*kernel)(x, n_rows, n_cols, x_ws.data(), n_unique, tile.data(),
                   stream);
       }

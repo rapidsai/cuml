@@ -18,6 +18,7 @@ import pytest
 
 import cudf
 
+import cuml
 from cuml.neighbors import KNeighborsClassifier as cuKNN
 from sklearn.neighbors import KNeighborsClassifier as skKNN
 
@@ -224,10 +225,10 @@ def test_predict_non_gaussian(n_samples, n_features, n_neighbors, n_query):
     knn_cuml = cuKNN(n_neighbors=n_neighbors)
     knn_cuml.fit(X_device_train, y_device_train)
 
-    cuml_result = knn_cuml.predict(X_device_test)
+    with cuml.using_output_type("numpy"):
+        cuml_result = knn_cuml.predict(X_device_test)
 
-    assert np.array_equal(
-        np.asarray(cuml_result.to_gpu_array()), sk_result)
+        assert np.array_equal(cuml_result, sk_result)
 
 
 @pytest.mark.parametrize("n_classes", [2, 5])

@@ -14,8 +14,8 @@
 * limitations under the License.
 */
 
-#include <common/cudart_utils.h>
 #include <gtest/gtest.h>
+#include <raft/cudart_utils.h>
 #include <algorithm>
 #include <numeric>
 #include <selection/columnWiseSort.cuh>
@@ -25,14 +25,18 @@ namespace MLCommon {
 namespace Selection {
 
 template <typename T>
-std::vector<int> *sort_indexes(const std::vector<T> &v) {
+std::vector<int> *sort_indexes(const std::vector<T> &v, bool ascending) {
   // initialize original index locations
   std::vector<int> *idx = new std::vector<int>(v.size());
   std::iota((*idx).begin(), (*idx).end(), 0);
 
   // sort indexes based on comparing values in v
-  std::sort((*idx).begin(), (*idx).end(),
-            [&v](int i1, int i2) { return v[i1] < v[i2]; });
+  std::sort((*idx).begin(), (*idx).end(), [&v, ascending](int i1, int i2) {
+    if (ascending)
+      return v[i1] < v[i2];
+    else
+      return v[i1] > v[i2];
+  });
   return idx;
 }
 
@@ -42,6 +46,7 @@ struct columnSort {
   int n_row;
   int n_col;
   bool testKeys;
+  bool ascending;
 };
 
 template <typename T>
@@ -76,7 +81,7 @@ class ColumnSort : public ::testing::TestWithParam<columnSort<T>> {
     for (int i = 0; i < params.n_row; i++) {
       std::vector<T> tmp(vals.begin() + i * params.n_col,
                          vals.begin() + (i + 1) * params.n_col);
-      auto cpuOut = sort_indexes(tmp);
+      auto cpuOut = sort_indexes(tmp, params.ascending);
       std::copy((*cpuOut).begin(), (*cpuOut).end(),
                 cValGolden.begin() + i * params.n_col);
       delete cpuOut;
@@ -96,8 +101,17 @@ class ColumnSort : public ::testing::TestWithParam<columnSort<T>> {
 
     bool needWorkspace = false;
     size_t workspaceSize = 0;
-    sortColumnsPerRow(keyIn, valueOut, params.n_row, params.n_col,
-                      needWorkspace, NULL, workspaceSize, stream, keySorted);
+    if (!params.ascending) {
+      // Remove this branch once the implementation of descending sort is fixed.
+      EXPECT_THROW(sortColumnsPerRow(
+                     keyIn, valueOut, params.n_row, params.n_col, needWorkspace,
+                     NULL, workspaceSize, stream, keySorted, params.ascending),
+                   raft::exception);
+    } else {
+      sortColumnsPerRow(keyIn, valueOut, params.n_row, params.n_col,
+                        needWorkspace, NULL, workspaceSize, stream, keySorted,
+                        params.ascending);
+    }
     if (needWorkspace) {
       raft::allocate(workspacePtr, workspaceSize);
       sortColumnsPerRow(keyIn, valueOut, params.n_row, params.n_col,
@@ -127,19 +141,24 @@ class ColumnSort : public ::testing::TestWithParam<columnSort<T>> {
   char *workspacePtr = NULL;
 };
 
-const std::vector<columnSort<float>> inputsf1 = {{0.000001f, 503, 2000, false},
-                                                 {0.000001f, 503, 2000, true},
-                                                 {0.000001f, 113, 20000, true},
-                                                 {0.000001f, 5, 300000, true}};
+const std::vector<columnSort<float>> inputsf1 = {
+  {0.000001f, 503, 2000, false, false}, {0.000001f, 503, 2000, true, false},
+  {0.000001f, 113, 20000, true, false}, {0.000001f, 5, 300000, true, false},
+  {0.000001f, 503, 2000, false, true},  {0.000001f, 503, 2000, true, true},
+  {0.000001f, 113, 20000, true, true},  {0.000001f, 5, 300000, true, true}};
 
 typedef ColumnSort<float> ColumnSortF;
 TEST_P(ColumnSortF, Result) {
-  ASSERT_TRUE(devArrMatch(valueOut, goldenValOut, params.n_row * params.n_col,
-                          raft::CompareApprox<float>(params.tolerance)));
-  if (params.testKeys) {
-    ASSERT_TRUE(devArrMatch(keySorted, keySortGolden,
-                            params.n_row * params.n_col,
+  // Remove this condition once the implementation of of descending sort is
+  // fixed.
+  if (params.ascending) {
+    ASSERT_TRUE(devArrMatch(valueOut, goldenValOut, params.n_row * params.n_col,
                             raft::CompareApprox<float>(params.tolerance)));
+    if (params.testKeys) {
+      ASSERT_TRUE(devArrMatch(keySorted, keySortGolden,
+                              params.n_row * params.n_col,
+                              raft::CompareApprox<float>(params.tolerance)));
+    }
   }
 }
 

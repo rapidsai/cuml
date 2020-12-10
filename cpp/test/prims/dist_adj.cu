@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 
-#include <common/cudart_utils.h>
 #include <gtest/gtest.h>
-#include <cuda_utils.cuh>
+#include <raft/cudart_utils.h>
 #include <distance/distance.cuh>
-#include <random/rng.cuh>
+#include <raft/cuda_utils.cuh>
+#include <raft/random/rng.cuh>
 #include "test_utils.h"
 
 namespace MLCommon {
@@ -91,7 +91,7 @@ class DistanceAdjTest
     naiveDistanceAdj(dist_ref, x, y, m, n, k, threshold, isRowMajor);
     char *workspace = nullptr;
     size_t worksize =
-      getWorkspaceSize<ML::Distance::DistanceType::EucExpandedL2, DataType,
+      getWorkspaceSize<raft::distance::DistanceType::EucExpandedL2, DataType,
                        DataType, bool>(x, y, m, n, k);
     if (worksize != 0) {
       raft::allocate(workspace, worksize);
@@ -101,7 +101,7 @@ class DistanceAdjTest
     auto fin_op = [threshold] __device__(DataType d_val, int g_d_idx) {
       return d_val <= threshold;
     };
-    distance<ML::Distance::DistanceType::EucExpandedL2, DataType, DataType,
+    distance<raft::distance::DistanceType::EucExpandedL2, DataType, DataType,
              bool, OutputTile_t>(x, y, dist, m, n, k, workspace, worksize,
                                  fin_op, stream, isRowMajor);
     CUDA_CHECK(cudaStreamDestroy(stream));

@@ -21,15 +21,15 @@
 
 #include <common/device_buffer.hpp>
 
-#include <common/cudart_utils.h>
-#include <linalg/add.cuh>
-#include <linalg/binary_op.cuh>
-#include <linalg/eltwise.cuh>
-#include <linalg/multiply.cuh>
+#include <raft/cudart_utils.h>
 #include <linalg/power.cuh>
-#include <linalg/unary_op.cuh>
-#include <matrix/math.cuh>
-#include <stats/mean.cuh>
+#include <raft/linalg/add.cuh>
+#include <raft/linalg/binary_op.cuh>
+#include <raft/linalg/eltwise.cuh>
+#include <raft/linalg/multiply.cuh>
+#include <raft/linalg/unary_op.cuh>
+#include <raft/matrix/math.cuh>
+#include <raft/stats/mean.cuh>
 
 #include <cuda_runtime.h>
 
@@ -155,8 +155,8 @@ void optimize_params(T *input, int n_rows, const T *labels, T *coef,
     abLossGrads<T, TPB_X>(input, n_rows, labels, coef, grads.data(), params,
                           d_alloc, stream);
 
-    MLCommon::LinAlg::multiplyScalar(grads.data(), grads.data(), learning_rate,
-                                     2, stream);
+    raft::linalg::multiplyScalar(grads.data(), grads.data(), learning_rate, 2,
+                                 stream);
     raft::linalg::eltwiseSub(coef, coef, grads.data(), 2, stream);
 
     T *grads_h = (T *)malloc(2 * sizeof(T));
