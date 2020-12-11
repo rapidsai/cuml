@@ -109,7 +109,6 @@ void csr_to_dense(cusparseHandle_t handle, value_idx nrows, value_idx ncols,
   }
 }
 
-
-}; // end NAMESPACE convert
-}; // end NAMESPACE sparse
-}; // end NAMESPACE raft
+};  // end NAMESPACE convert
+};  // end NAMESPACE sparse
+};  // end NAMESPACE raft

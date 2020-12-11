@@ -36,8 +36,8 @@
 #include <algorithm>
 #include <iostream>
 
-#include <sparse/linalg/degree.cuh>
 #include <sparse/utils.h>
+#include <sparse/linalg/degree.cuh>
 
 namespace raft {
 namespace sparse {
@@ -166,7 +166,7 @@ void coo_remove_scalar(COO<T> *in, COO<T> *out, T scalar,
   CUDA_CHECK(cudaPeekAtLastError());
 
   linalg::coo_degree_scalar<TPB_X>(in->rows(), in->vals(), in->nnz, scalar,
-                           row_count_nz.data(), stream);
+                                   row_count_nz.data(), stream);
   CUDA_CHECK(cudaPeekAtLastError());
 
   thrust::device_ptr<int> d_row_count_nz =
@@ -183,7 +183,6 @@ void coo_remove_scalar(COO<T> *in, COO<T> *out, T scalar,
   CUDA_CHECK(cudaPeekAtLastError());
 }
 
-
 /**
  * @brief Removes zeros from a COO formatted sparse matrix.
  *
@@ -199,9 +198,6 @@ void coo_remove_zeros(COO<T> *in, COO<T> *out,
   coo_remove_scalar<TPB_X, T>(in, out, T(0.0), d_alloc, stream);
 }
 
-
-
-
-};  // end NAMESPACE linalg
+};  // namespace op
 };  // end NAMESPACE sparse
 };  // end NAMESPACE raft

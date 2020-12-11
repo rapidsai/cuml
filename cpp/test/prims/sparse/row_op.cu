@@ -35,7 +35,6 @@ struct SparseRowOpInputs {
   unsigned long long int seed;
 };
 
-
 template <typename T>
 class SparseRowOpTest : public ::testing::TestWithParam<SparseRowOpInputs<T>> {
  protected:
@@ -70,10 +69,10 @@ TEST_P(CSRRowOpTest, Result) {
 
   op::csr_row_op<int, 32>(
     ex_scan, 4, 10,
-  [result] __device__(int row, int start_idx, int stop_idx) {
-    for (int i = start_idx; i < stop_idx; i++) result[i] = row;
-  },
-  stream);
+    [result] __device__(int row, int start_idx, int stop_idx) {
+      for (int i = start_idx; i < stop_idx; i++) result[i] = row;
+    },
+    stream);
 
   ASSERT_TRUE(
     raft::devArrMatch<float>(verify, result, 10, raft::Compare<float>()));
@@ -85,7 +84,8 @@ TEST_P(CSRRowOpTest, Result) {
   CUDA_CHECK(cudaFree(result));
 }
 
-INSTANTIATE_TEST_CASE_P(SparseRowOpTest, CSRRowOpTest, ::testing::ValuesIn(inputsf));
+INSTANTIATE_TEST_CASE_P(SparseRowOpTest, CSRRowOpTest,
+                        ::testing::ValuesIn(inputsf));
 
 }  // namespace sparse
 }  // namespace raft

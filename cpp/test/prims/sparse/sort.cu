@@ -32,7 +32,6 @@ struct SparseSortInput {
   unsigned long long int seed;
 };
 
-
 template <typename T>
 class SparseSortTest : public ::testing::TestWithParam<SparseSortInput<T>> {
  protected:
@@ -45,7 +44,6 @@ class SparseSortTest : public ::testing::TestWithParam<SparseSortInput<T>> {
 };
 
 const std::vector<SparseSortInput<float>> inputsf = {{5, 10, 5, 1234ULL}};
-
 
 typedef SparseSortTest<float> COOSort;
 TEST_P(COOSort, Result) {
@@ -82,7 +80,7 @@ TEST_P(COOSort, Result) {
   raft::update_device(verify, verify_h, params.nnz, stream);
 
   op::coo_sort(params.m, params.n, params.nnz, in_rows, in_cols, in_vals, alloc,
-           stream);
+               stream);
 
   ASSERT_TRUE(
     raft::devArrMatch<int>(verify, in_rows, params.nnz, raft::Compare<int>()));
@@ -97,8 +95,6 @@ TEST_P(COOSort, Result) {
   CUDA_CHECK(cudaFree(verify));
   CUDA_CHECK(cudaStreamDestroy(stream));
 }
-
-
 
 INSTANTIATE_TEST_CASE_P(SparseSortTest, COOSort, ::testing::ValuesIn(inputsf));
 

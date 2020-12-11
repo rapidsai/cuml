@@ -62,9 +62,6 @@ void iota_fill(value_idx *indices, value_idx nrows, value_idx ncols,
   iota_fill_block_kernel<<<nrows, blockdim, 0, stream>>>(indices, ncols);
 }
 
-
-
-
 template <typename T>
 __device__ int get_stop_idx(T row, T m, T nnz, const T *ind) {
   int stop_idx = 0;

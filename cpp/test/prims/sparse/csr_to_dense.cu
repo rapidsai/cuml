@@ -85,8 +85,8 @@ class CSRToDenseTest
 
     ML::Logger::get().setLevel(CUML_LEVEL_INFO);
 
-    convert::csr_to_dense(handle, params.nrows, params.ncols, indptr, indices, data,
-                 params.nrows, out, stream, true);
+    convert::csr_to_dense(handle, params.nrows, params.ncols, indptr, indices,
+                          data, params.nrows, out, stream, true);
 
     CUDA_CHECK(cudaStreamSynchronize(stream));
     CUSPARSE_CHECK(cusparseDestroy(handle));

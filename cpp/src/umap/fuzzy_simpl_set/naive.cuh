@@ -23,10 +23,10 @@
 #include <raft/cudart_utils.h>
 #include <raft/cuda_utils.cuh>
 
+#include <sparse/op/sort.h>
 #include <raft/stats/mean.cuh>
 #include <sparse/coo.cuh>
 #include <sparse/linalg/symmetrize.cuh>
-#include <sparse/op/sort.h>
 
 #include <cuda_runtime.h>
 

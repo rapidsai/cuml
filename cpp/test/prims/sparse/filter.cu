@@ -19,9 +19,9 @@
 #include <raft/random/rng.cuh>
 #include "test_utils.h"
 
+#include <sparse/op/sort.h>
 #include <sparse/coo.cuh>
 #include <sparse/op/filter.cuh>
-#include <sparse/op/sort.h>
 
 #include <iostream>
 
@@ -34,9 +34,9 @@ struct SparseFilterInputs {
   unsigned long long int seed;
 };
 
-
 template <typename T>
-class SparseFilterTests : public ::testing::TestWithParam<SparseFilterInputs<T>> {
+class SparseFilterTests
+  : public ::testing::TestWithParam<SparseFilterInputs<T>> {
  protected:
   void SetUp() override {}
 
@@ -114,7 +114,8 @@ TEST_P(COORemoveZeros, Result) {
   delete[] in_h_vals;
 }
 
-INSTANTIATE_TEST_CASE_P(SparseFilterTests, COORemoveZeros, ::testing::ValuesIn(inputsf));
+INSTANTIATE_TEST_CASE_P(SparseFilterTests, COORemoveZeros,
+                        ::testing::ValuesIn(inputsf));
 
 }  // namespace sparse
 }  // namespace raft

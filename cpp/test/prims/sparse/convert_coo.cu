@@ -36,9 +36,9 @@ struct SparseConvertCOOInputs {
   unsigned long long int seed;
 };
 
-
 template <typename T>
-class SparseConvertCOOTest : public ::testing::TestWithParam<SparseConvertCOOInputs<T>> {
+class SparseConvertCOOTest
+  : public ::testing::TestWithParam<SparseConvertCOOInputs<T>> {
  protected:
   void SetUp() override {}
 
@@ -48,7 +48,8 @@ class SparseConvertCOOTest : public ::testing::TestWithParam<SparseConvertCOOInp
   SparseConvertCOOInputs<T> params;
 };
 
-const std::vector<SparseConvertCOOInputs<float>> inputsf = {{5, 10, 5, 1234ULL}};
+const std::vector<SparseConvertCOOInputs<float>> inputsf = {
+  {5, 10, 5, 1234ULL}};
 
 typedef SparseConvertCOOTest<float> CSRToCOO;
 TEST_P(CSRToCOO, Result) {
@@ -83,7 +84,8 @@ TEST_P(CSRToCOO, Result) {
   cudaStreamDestroy(stream);
 }
 
-INSTANTIATE_TEST_CASE_P(SparseConvertCOOTest, CSRToCOO, ::testing::ValuesIn(inputsf));
+INSTANTIATE_TEST_CASE_P(SparseConvertCOOTest, CSRToCOO,
+                        ::testing::ValuesIn(inputsf));
 
 }  // namespace sparse
 }  // namespace raft

@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-
 #pragma once
 
 #include <algorithm>
@@ -24,6 +23,5 @@ namespace sparse {
 
 static const float MIN_FLOAT = std::numeric_limits<float>::min();
 
-
 };
-};
+};  // namespace raft

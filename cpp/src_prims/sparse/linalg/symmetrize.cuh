@@ -34,9 +34,9 @@
 #include <algorithm>
 #include <iostream>
 
-#include <sparse/coo.cuh>
-#include <sparse/convert/csr.cuh>
 #include <sparse/utils.h>
+#include <sparse/convert/csr.cuh>
+#include <sparse/coo.cuh>
 
 namespace raft {
 namespace sparse {
@@ -107,10 +107,6 @@ __global__ void coo_symmetrize_kernel(int *row_ind, int *rows, int *cols,
     }
   }
 }
-
-
-
-
 
 /**
  * @brief takes a COO matrix which may not be symmetric and symmetrizes
@@ -297,8 +293,6 @@ void from_knn_symmetrize_matrix(
   CUDA_CHECK(cudaPeekAtLastError());
 }
 
-
-
-}; // end NAMESPACE linalg
-}; // end NAMESPACE sparse
-}; // end NAMESPACE raft
+};  // end NAMESPACE linalg
+};  // end NAMESPACE sparse
+};  // end NAMESPACE raft

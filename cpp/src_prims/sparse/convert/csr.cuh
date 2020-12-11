@@ -32,10 +32,10 @@
 #include <algorithm>
 #include <iostream>
 
+#include <sparse/utils.h>
 #include <sparse/coo.cuh>
 #include <sparse/linalg/degree.cuh>
 #include <sparse/op/row_op.cuh>
-#include <sparse/utils.h>
 
 namespace raft {
 namespace sparse {
@@ -80,7 +80,7 @@ void coo2csr(cusparseHandle_t handle, const int *srcRows, const int *srcCols,
  * @param fused_op: the fused operation
  */
 template <typename Index_, int TPB_X = 32,
-  typename Lambda = auto(Index_, Index_, Index_)->void>
+          typename Lambda = auto(Index_, Index_, Index_)->void>
 void csr_adj_graph_batched(const Index_ *row_ind, Index_ total_rows, Index_ nnz,
                            Index_ batchSize, const bool *adj,
                            Index_ *row_ind_ptr, cudaStream_t stream,
@@ -88,22 +88,22 @@ void csr_adj_graph_batched(const Index_ *row_ind, Index_ total_rows, Index_ nnz,
   op::csr_row_op<Index_, TPB_X>(
     row_ind, batchSize, nnz,
     [fused_op, adj, total_rows, row_ind_ptr, batchSize, nnz] __device__(
-    Index_ row, Index_ start_idx, Index_ stop_idx) {
-    fused_op(row, start_idx, stop_idx);
-    Index_ k = 0;
-    for (Index_ i = 0; i < total_rows; i++) {
-      // @todo: uncoalesced mem accesses!
-      if (adj[batchSize * i + row]) {
-        row_ind_ptr[start_idx + k] = i;
-        k += 1;
+      Index_ row, Index_ start_idx, Index_ stop_idx) {
+      fused_op(row, start_idx, stop_idx);
+      Index_ k = 0;
+      for (Index_ i = 0; i < total_rows; i++) {
+        // @todo: uncoalesced mem accesses!
+        if (adj[batchSize * i + row]) {
+          row_ind_ptr[start_idx + k] = i;
+          k += 1;
+        }
       }
-    }
-  },
-  stream);
+    },
+    stream);
 }
 
 template <typename Index_, int TPB_X = 32,
-  typename Lambda = auto(Index_, Index_, Index_)->void>
+          typename Lambda = auto(Index_, Index_, Index_)->void>
 void csr_adj_graph_batched(const Index_ *row_ind, Index_ total_rows, Index_ nnz,
                            Index_ batchSize, const bool *adj,
                            Index_ *row_ind_ptr, cudaStream_t stream) {
@@ -126,7 +126,7 @@ void csr_adj_graph_batched(const Index_ *row_ind, Index_ total_rows, Index_ nnz,
  * @param fused_op the fused operation
  */
 template <typename Index_, int TPB_X = 32,
-  typename Lambda = auto(Index_, Index_, Index_)->void>
+          typename Lambda = auto(Index_, Index_, Index_)->void>
 void csr_adj_graph(const Index_ *row_ind, Index_ total_rows, Index_ nnz,
                    const bool *adj, Index_ *row_ind_ptr, cudaStream_t stream,
                    Lambda fused_op) {
@@ -178,9 +178,6 @@ void sorted_coo_to_csr(COO<T> *coo, int *row_ind,
                     stream);
 }
 
-
-
-
-}; // end NAMESPACE convert
-}; // end NAMESPACE sparse
-}; // end NAMESPACE raft
+};  // end NAMESPACE convert
+};  // end NAMESPACE sparse
+};  // end NAMESPACE raft

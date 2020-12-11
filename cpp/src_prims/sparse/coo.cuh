@@ -256,8 +256,5 @@ class COO {
   }
 };
 
-
-
-
 };  // namespace sparse
 };  // namespace raft

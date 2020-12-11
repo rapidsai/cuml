@@ -19,8 +19,8 @@
 #include <raft/random/rng.cuh>
 #include "test_utils.h"
 
-#include <sparse/coo.cuh>
 #include <sparse/convert/csr.cuh>
+#include <sparse/coo.cuh>
 
 #include <iostream>
 
@@ -34,13 +34,14 @@ struct SparseConvertCSRInputs {
 };
 
 template <typename T>
-::std::ostream &operator<<(::std::ostream &os, const SparseConvertCSRInputs<T> &dims) {
+::std::ostream &operator<<(::std::ostream &os,
+                           const SparseConvertCSRInputs<T> &dims) {
   return os;
 }
 
-
 template <typename T>
-class SparseConvertCSRTest : public ::testing::TestWithParam<SparseConvertCSRInputs<T>> {
+class SparseConvertCSRTest
+  : public ::testing::TestWithParam<SparseConvertCSRInputs<T>> {
  protected:
   void SetUp() override {}
 
@@ -50,7 +51,8 @@ class SparseConvertCSRTest : public ::testing::TestWithParam<SparseConvertCSRInp
   SparseConvertCSRInputs<T> params;
 };
 
-const std::vector<SparseConvertCSRInputs<float>> inputsf = {{5, 10, 5, 1234ULL}};
+const std::vector<SparseConvertCSRInputs<float>> inputsf = {
+  {5, 10, 5, 1234ULL}};
 
 typedef SparseConvertCSRTest<float> SortedCOOToCSR;
 TEST_P(SortedCOOToCSR, Result) {
@@ -109,7 +111,8 @@ TEST_P(AdjGraphTest, Result) {
   raft::update_device(adj, *&adj_h, 18, stream);
   raft::update_device(verify, *&verify_h, 9, stream);
 
-  convert::csr_adj_graph_batched<int, 32>(row_ind, 6, 9, 3, adj, result, stream);
+  convert::csr_adj_graph_batched<int, 32>(row_ind, 6, 9, 3, adj, result,
+                                          stream);
 
   ASSERT_TRUE(raft::devArrMatch<int>(verify, result, 9, raft::Compare<int>()));
 
@@ -121,9 +124,10 @@ TEST_P(AdjGraphTest, Result) {
   CUDA_CHECK(cudaFree(result));
 }
 
-INSTANTIATE_TEST_CASE_P(SparseConvertCSRTest, SortedCOOToCSR, ::testing::ValuesIn(inputsf));
-INSTANTIATE_TEST_CASE_P(SparseConvertCSRTest, AdjGraphTest, ::testing::ValuesIn(inputsf));
-
+INSTANTIATE_TEST_CASE_P(SparseConvertCSRTest, SortedCOOToCSR,
+                        ::testing::ValuesIn(inputsf));
+INSTANTIATE_TEST_CASE_P(SparseConvertCSRTest, AdjGraphTest,
+                        ::testing::ValuesIn(inputsf));
 
 }  // namespace sparse
 }  // namespace raft

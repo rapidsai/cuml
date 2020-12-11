@@ -14,11 +14,10 @@
  * limitations under the License.
  */
 
-
 #include <gtest/gtest.h>
 
-#include <sparse/linalg/add.cuh>
 #include <sparse/csr.cuh>
+#include <sparse/linalg/add.cuh>
 
 #include <raft/cudart_utils.h>
 #include <raft/random/rng.cuh>
@@ -35,7 +34,6 @@ struct SparseAddInputs {
   int m, n, nnz;
   unsigned long long int seed;
 };
-
 
 template <typename T>
 class SparseAddTest : public ::testing::TestWithParam<SparseAddInputs<T>> {
@@ -92,18 +90,18 @@ TEST_P(CSRSum, Result) {
   int *result_ind;
   raft::allocate(result_ind, 4);
 
-  int nnz = linalg::csr_add_calc_inds<float, 32>(ex_scan, ind_ptr_a, in_vals_a, 10,
-                                         ex_scan, ind_ptr_b, in_vals_b, 10, 4,
-                                         result_ind, alloc, stream);
+  int nnz = linalg::csr_add_calc_inds<float, 32>(
+    ex_scan, ind_ptr_a, in_vals_a, 10, ex_scan, ind_ptr_b, in_vals_b, 10, 4,
+    result_ind, alloc, stream);
 
   int *result_indptr;
   float *result_val;
   raft::allocate(result_indptr, nnz);
   raft::allocate(result_val, nnz);
 
-  linalg::csr_add_finalize<float, 32>(ex_scan, ind_ptr_a, in_vals_a, 10, ex_scan,
-                              ind_ptr_b, in_vals_b, 10, 4, result_ind,
-                              result_indptr, result_val, stream);
+  linalg::csr_add_finalize<float, 32>(
+    ex_scan, ind_ptr_a, in_vals_a, 10, ex_scan, ind_ptr_b, in_vals_b, 10, 4,
+    result_ind, result_indptr, result_val, stream);
 
   ASSERT_TRUE(nnz == 14);
 

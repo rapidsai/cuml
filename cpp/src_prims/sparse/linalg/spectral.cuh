@@ -20,15 +20,14 @@
 #include <cuml/common/cuml_allocator.hpp>
 #include <raft/cuda_utils.cuh>
 #include <selection/knn.cuh>
-#include <sparse/coo.cuh>
 #include <sparse/convert/csr.cuh>
+#include <sparse/coo.cuh>
 
 #include <raft/spectral/partition.hpp>
 
 namespace raft {
 namespace sparse {
 namespace spectral {
-
 
 template <typename T>
 void fit_embedding(cusparseHandle_t handle, int *rows, int *cols, T *vals,
@@ -38,8 +37,8 @@ void fit_embedding(cusparseHandle_t handle, int *rows, int *cols, T *vals,
   MLCommon::device_buffer<int> src_offsets(d_alloc, stream, n + 1);
   MLCommon::device_buffer<int> dst_cols(d_alloc, stream, nnz);
   MLCommon::device_buffer<T> dst_vals(d_alloc, stream, nnz);
-  convert::coo2csr(handle, rows, cols, vals, nnz, n, src_offsets.data(), dst_cols.data(),
-          dst_vals.data(), d_alloc, stream);
+  convert::coo2csr(handle, rows, cols, vals, nnz, n, src_offsets.data(),
+                   dst_cols.data(), dst_vals.data(), d_alloc, stream);
 
   MLCommon::device_buffer<T> eigVals(d_alloc, stream, n_components + 1);
   MLCommon::device_buffer<T> eigVecs(d_alloc, stream, n * (n_components + 1));

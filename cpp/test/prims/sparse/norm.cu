@@ -16,10 +16,10 @@
 
 #include <gtest/gtest.h>
 
-#include <sparse/linalg/norm.cuh>
-#include <sparse/csr.cuh>
 #include <raft/cudart_utils.h>
 #include <raft/random/rng.cuh>
+#include <sparse/csr.cuh>
+#include <sparse/linalg/norm.cuh>
 #include "test_utils.h"
 
 #include <iostream>
@@ -33,7 +33,6 @@ struct SparseNormInputs {
   int m, n, nnz;
   unsigned long long int seed;
 };
-
 
 template <typename T>
 class SparseNormTest : public ::testing::TestWithParam<SparseNormInputs<T>> {
@@ -70,7 +69,8 @@ TEST_P(CSRRowNormalizeMax, Result) {
   raft::update_device(in_vals, *&in_vals_h, 10, stream);
   raft::update_device(verify, *&verify_h, 10, stream);
 
-  linalg::csr_row_normalize_max<32, float>(ex_scan, in_vals, 10, 4, result, stream);
+  linalg::csr_row_normalize_max<32, float>(ex_scan, in_vals, 10, 4, result,
+                                           stream);
 
   ASSERT_TRUE(
     raft::devArrMatch<float>(verify, result, 10, raft::Compare<float>()));

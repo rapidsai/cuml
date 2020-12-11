@@ -23,7 +23,6 @@
 #include <selection/knn.cuh>
 #include <sparse/coo.cuh>
 #include <sparse/csr.cuh>
-#include <sparse/op/slice.h>
 #include <sparse/distance/distance.cuh>
 #include <sparse/selection/selection.cuh>
 
@@ -80,8 +79,8 @@ struct csr_batcher_t {
   value_idx get_batch_csr_indptr_nnz(value_idx *batch_indptr,
                                      cudaStream_t stream) {
     op::csr_row_slice_indptr(batch_start_, batch_stop_, csr_indptr_,
-                                       batch_indptr, &batch_csr_start_offset_,
-                                       &batch_csr_stop_offset_, stream);
+                             batch_indptr, &batch_csr_start_offset_,
+                             &batch_csr_stop_offset_, stream);
 
     CUML_LOG_DEBUG("Computed batch offsets. stop_offset=%d, start_offset=%d",
                    batch_csr_stop_offset_, batch_csr_start_offset_);
@@ -91,9 +90,9 @@ struct csr_batcher_t {
 
   void get_batch_csr_indices_data(value_idx *csr_indices, value_t *csr_data,
                                   cudaStream_t stream) {
-    op::csr_row_slice_populate(
-      batch_csr_start_offset_, batch_csr_stop_offset_, csr_indices_, csr_data_,
-      csr_indices, csr_data, stream);
+    op::csr_row_slice_populate(batch_csr_start_offset_, batch_csr_stop_offset_,
+                               csr_indices_, csr_data_, csr_indices, csr_data,
+                               stream);
   }
 
   value_idx batch_rows() const { return batch_rows_; }

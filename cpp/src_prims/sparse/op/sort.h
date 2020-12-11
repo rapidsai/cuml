@@ -34,8 +34,8 @@
 #include <algorithm>
 #include <iostream>
 
-#include <sparse/coo.cuh>
 #include <sparse/utils.h>
+#include <sparse/coo.cuh>
 
 namespace raft {
 namespace sparse {
@@ -101,6 +101,6 @@ void coo_sort(COO<T> *const in,
   coo_sort<T>(in->n_rows, in->n_cols, in->nnz, in->rows(), in->cols(),
               in->vals(), d_alloc, stream);
 }
-};  // end NAMESPACE linalg
+};  // namespace op
 };  // end NAMESPACE sparse
 };  // end NAMESPACE raft

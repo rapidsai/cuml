@@ -33,9 +33,9 @@ struct SparseSymmetrizeInput {
   unsigned long long int seed;
 };
 
-
 template <typename T>
-class SparseSymmetrizeTest : public ::testing::TestWithParam<SparseSymmetrizeInput<T>> {
+class SparseSymmetrizeTest
+  : public ::testing::TestWithParam<SparseSymmetrizeInput<T>> {
  protected:
   void SetUp() override {}
 
@@ -46,7 +46,6 @@ class SparseSymmetrizeTest : public ::testing::TestWithParam<SparseSymmetrizeInp
 };
 
 const std::vector<SparseSymmetrizeInput<float>> inputsf = {{5, 10, 5, 1234ULL}};
-
 
 typedef SparseSymmetrizeTest<float> COOSymmetrize;
 TEST_P(COOSymmetrize, Result) {
@@ -105,9 +104,8 @@ TEST_P(COOSymmetrize, Result) {
   delete[] exp_vals_h;
 }
 
-
-
-INSTANTIATE_TEST_CASE_P(SparseSymmetrizeTest, COOSymmetrize, ::testing::ValuesIn(inputsf));
+INSTANTIATE_TEST_CASE_P(SparseSymmetrizeTest, COOSymmetrize,
+                        ::testing::ValuesIn(inputsf));
 
 }  // namespace sparse
 }  // namespace raft

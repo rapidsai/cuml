@@ -32,9 +32,9 @@
 #include <algorithm>
 #include <iostream>
 
-#include <sparse/coo.cuh>
 #include <sparse/constants.h>
 #include <sparse/utils.h>
+#include <sparse/coo.cuh>
 
 namespace raft {
 namespace sparse {
@@ -66,8 +66,7 @@ __global__ void coo_degree_kernel(const int *rows, int nnz, int *results) {
  * @param stream: cuda stream to use
  */
 template <int TPB_X>
-void coo_degree(const int *rows, int nnz, int *results,
-                cudaStream_t stream) {
+void coo_degree(const int *rows, int nnz, int *results, cudaStream_t stream) {
   dim3 grid_rc(raft::ceildiv(nnz, TPB_X), 1, 1);
   dim3 blk_rc(TPB_X, 1, 1);
 
@@ -89,7 +88,7 @@ void coo_degree(COO<T> *in, int *results, cudaStream_t stream) {
   dim3 blk_rc(TPB_X, 1, 1);
 
   coo_degree_kernel<TPB_X>
-  <<<grid_rc, blk_rc, 0, stream>>>(in->rows(), in->nnz, results);
+    <<<grid_rc, blk_rc, 0, stream>>>(in->rows(), in->nnz, results);
   CUDA_CHECK(cudaGetLastError());
 }
 
@@ -149,7 +148,7 @@ void coo_degree_scalar(const int *rows, const T *vals, int nnz, T scalar,
   dim3 blk_rc(TPB_X, 1, 1);
 
   coo_degree_scalar_kernel<TPB_X, T>
-  <<<grid_rc, blk_rc, 0, stream>>>(rows, vals, nnz, scalar, results);
+    <<<grid_rc, blk_rc, 0, stream>>>(rows, vals, nnz, scalar, results);
   CUDA_CHECK(cudaGetLastError());
 }
 
@@ -170,7 +169,7 @@ void coo_degree_nz(const int *rows, const T *vals, int nnz, int *results,
   dim3 blk_rc(TPB_X, 1, 1);
 
   coo_degree_nz_kernel<TPB_X, T>
-  <<<grid_rc, blk_rc, 0, stream>>>(rows, vals, nnz, results);
+    <<<grid_rc, blk_rc, 0, stream>>>(rows, vals, nnz, results);
   CUDA_CHECK(cudaGetLastError());
 }
 
@@ -188,11 +187,9 @@ void coo_degree_nz(COO<T> *in, int *results, cudaStream_t stream) {
   dim3 blk_rc(TPB_X, 1, 1);
 
   coo_degree_nz_kernel<TPB_X, T>
-  <<<grid_rc, blk_rc, 0, stream>>>(in->rows(), in->vals(), in->nnz, results);
+    <<<grid_rc, blk_rc, 0, stream>>>(in->rows(), in->vals(), in->nnz, results);
   CUDA_CHECK(cudaGetLastError());
 }
-
-
 
 };  // end NAMESPACE linalg
 };  // end NAMESPACE sparse

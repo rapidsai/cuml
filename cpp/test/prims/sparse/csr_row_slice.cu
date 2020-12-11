@@ -19,8 +19,8 @@
 #include <common/device_buffer.hpp>
 
 #include <gtest/gtest.h>
-#include <sparse/op/slice.h>
 #include <raft/sparse/cusparse_wrappers.h>
+#include <sparse/op/slice.h>
 #include <test_utils.h>
 #include <sparse/csr.cuh>
 

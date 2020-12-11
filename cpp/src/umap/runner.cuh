@@ -37,11 +37,10 @@
 #include <thrust/system/cuda/execution_policy.h>
 
 #include <sparse/op/sort.h>
-#include <sparse/coo.cuh>
 #include <sparse/convert/csr.cuh>
+#include <sparse/coo.cuh>
 #include <sparse/linalg/norm.cuh>
 #include <sparse/op/filter.cuh>
-#include <sparse/op/sort.h>
 
 #include <raft/cuda_utils.cuh>
 
@@ -140,8 +139,8 @@ void _fit(const raft::handle_t &handle, const umap_inputs &inputs,
    * Remove zeros from simplicial set
    */
   COO<value_t> cgraph_coo(d_alloc, stream);
-  op::coo_remove_zeros<TPB_X, value_t>(&rgraph_coo, &cgraph_coo,
-                                                 d_alloc, stream);
+  op::coo_remove_zeros<TPB_X, value_t>(&rgraph_coo, &cgraph_coo, d_alloc,
+                                       stream);
   ML::POP_RANGE();
 
   /**
@@ -225,8 +224,7 @@ void _fit_supervised(const raft::handle_t &handle, const umap_inputs &inputs,
     &tmp_coo, params, d_alloc, stream);
   CUDA_CHECK(cudaPeekAtLastError());
 
-  op::coo_remove_zeros<TPB_X, value_t>(&tmp_coo, &rgraph_coo, d_alloc,
-                                                 stream);
+  op::coo_remove_zeros<TPB_X, value_t>(&tmp_coo, &rgraph_coo, d_alloc, stream);
 
   COO<value_t> final_coo(d_alloc, stream);
 
@@ -254,8 +252,7 @@ void _fit_supervised(const raft::handle_t &handle, const umap_inputs &inputs,
   op::coo_sort<value_t>(&final_coo, d_alloc, stream);
 
   COO<value_t> ocoo(d_alloc, stream);
-  op::coo_remove_zeros<TPB_X, value_t>(&final_coo, &ocoo, d_alloc,
-                                                 stream);
+  op::coo_remove_zeros<TPB_X, value_t>(&final_coo, &ocoo, d_alloc, stream);
   ML::POP_RANGE();
 
   /**
@@ -391,9 +388,9 @@ void _transform(const raft::handle_t &handle, const umap_inputs &inputs,
 
   CUML_LOG_DEBUG("Performing L1 normalization");
 
-  linalg::csr_row_normalize_l1<TPB_X, value_t>(
-    row_ind.data(), graph_coo.vals(), graph_coo.nnz, graph_coo.n_rows,
-    vals_normed.data(), stream);
+  linalg::csr_row_normalize_l1<TPB_X, value_t>(row_ind.data(), graph_coo.vals(),
+                                               graph_coo.nnz, graph_coo.n_rows,
+                                               vals_normed.data(), stream);
 
   init_transform<TPB_X, value_t><<<grid_n, blk, 0, stream>>>(
     graph_coo.cols(), vals_normed.data(), graph_coo.n_rows, embedding,
@@ -441,8 +438,7 @@ void _transform(const raft::handle_t &handle, const umap_inputs &inputs,
    * Remove zeros
    */
   COO<value_t> comp_coo(d_alloc, stream);
-  op::coo_remove_zeros<TPB_X, value_t>(&graph_coo, &comp_coo, d_alloc,
-                                                 stream);
+  op::coo_remove_zeros<TPB_X, value_t>(&graph_coo, &comp_coo, d_alloc, stream);
 
   ML::PUSH_RANGE("umap::optimization");
   CUML_LOG_DEBUG("Computing # of epochs for training each sample");

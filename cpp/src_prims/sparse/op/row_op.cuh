@@ -63,21 +63,17 @@ __global__ void csr_row_op_kernel(const T *row_ind, T n_rows, T nnz,
  * @param stream cuda stream to use
  */
 template <typename Index_, int TPB_X = 32,
-  typename Lambda = auto(Index_, Index_, Index_)->void>
+          typename Lambda = auto(Index_, Index_, Index_)->void>
 void csr_row_op(const Index_ *row_ind, Index_ n_rows, Index_ nnz, Lambda op,
                 cudaStream_t stream) {
   dim3 grid(raft::ceildiv(n_rows, Index_(TPB_X)), 1, 1);
   dim3 blk(TPB_X, 1, 1);
   csr_row_op_kernel<Index_, TPB_X>
-  <<<grid, blk, 0, stream>>>(row_ind, n_rows, nnz, op);
+    <<<grid, blk, 0, stream>>>(row_ind, n_rows, nnz, op);
 
   CUDA_CHECK(cudaPeekAtLastError());
 }
 
-
-
-}; // end NAMESPACE linalg
-}; // end NAMESPACE sparse
-}; // end NAMESPACE raft
-
-
+};  // namespace op
+};  // end NAMESPACE sparse
+};  // end NAMESPACE raft

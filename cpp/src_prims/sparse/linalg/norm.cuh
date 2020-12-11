@@ -41,7 +41,6 @@ namespace raft {
 namespace sparse {
 namespace linalg {
 
-
 template <int TPB_X, typename T>
 __global__ void csr_row_normalize_l1_kernel(
   // @TODO: This can be done much more parallel by

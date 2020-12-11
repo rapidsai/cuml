@@ -18,18 +18,18 @@
 
 #include <cuml/common/logger.hpp>
 
+#include <cusparse_v2.h>
 #include <raft/cudart_utils.h>
 #include <raft/sparse/cusparse_wrappers.h>
 #include <raft/cuda_utils.cuh>
-#include <cusparse_v2.h>
 
 #include <label/classlabels.cuh>
 
 #include <thrust/device_ptr.h>
 #include <thrust/scan.h>
 
-#include <stdio.h>
 #include <cuda_runtime.h>
+#include <stdio.h>
 
 #include <algorithm>
 #include <iostream>
@@ -70,8 +70,8 @@ void csr_row_slice_indptr(value_idx start_row, value_idx stop_row,
 
   raft::linalg::unaryOp<value_idx>(
     indptr_out, indptr_out, (stop_row + 2) - start_row,
-  [s_offset] __device__(value_idx input) { return input - s_offset; },
-  stream);
+    [s_offset] __device__(value_idx input) { return input - s_offset; },
+    stream);
 }
 
 /**
@@ -96,6 +96,6 @@ void csr_row_slice_populate(value_idx start_offset, value_idx stop_offset,
   raft::copy(data_out, data + start_offset, stop_offset - start_offset, stream);
 }
 
-}; // end NAMESPACE linalg
-}; // end NAMESPACE sparse
-}; // end NAMESPACE raft
+};  // namespace op
+};  // end NAMESPACE sparse
+};  // end NAMESPACE raft

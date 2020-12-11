@@ -23,13 +23,12 @@
 
 #include <common/device_buffer.hpp>
 
-
-#include <sparse/csr.cuh>
-#include <sparse/convert/csr.cuh>
-#include <sparse/convert/coo.cuh>
-#include <sparse/convert/dense.cuh>
 #include <sparse/linalg/transpose.h>
 #include <sparse/utils.h>
+#include <sparse/convert/coo.cuh>
+#include <sparse/convert/csr.cuh>
+#include <sparse/convert/dense.cuh>
+#include <sparse/csr.cuh>
 
 #include <cuml/common/cuml_allocator.hpp>
 #include <cuml/neighbors/knn.hpp>
@@ -132,10 +131,10 @@ class ip_distances_t : public distances_t<value_t> {
      * It would be nice if there was a gemm that could do
      * (sparse, sparse)->dense natively.
      */
-    convert::csr_to_dense(
-      config_.handle, config_.a_nrows, config_.b_nrows, out_batch_indptr.data(),
-      out_batch_indices.data(), out_batch_data.data(), config_.a_nrows,
-      out_distances, config_.stream, true);
+    convert::csr_to_dense(config_.handle, config_.a_nrows, config_.b_nrows,
+                          out_batch_indptr.data(), out_batch_indices.data(),
+                          out_batch_data.data(), config_.a_nrows, out_distances,
+                          config_.stream, true);
   }
 
   value_idx *trans_indptr() { return csc_indptr.data(); }
@@ -210,10 +209,10 @@ class ip_distances_t : public distances_t<value_t> {
     csc_indices.resize(config_.b_nnz, config_.stream);
     csc_data.resize(config_.b_nnz, config_.stream);
 
-    linalg::csr_transpose(
-      config_.handle, config_.b_indptr, config_.b_indices, config_.b_data,
-      csc_indptr.data(), csc_indices.data(), csc_data.data(), config_.b_nrows,
-      config_.b_ncols, config_.b_nnz, config_.allocator, config_.stream);
+    linalg::csr_transpose(config_.handle, config_.b_indptr, config_.b_indices,
+                          config_.b_data, csc_indptr.data(), csc_indices.data(),
+                          csc_data.data(), config_.b_nrows, config_.b_ncols,
+                          config_.b_nnz, config_.allocator, config_.stream);
   }
 
   value_t alpha;
@@ -321,8 +320,8 @@ class l2_distances_t : public distances_t<value_t> {
     CUML_LOG_DEBUG("Computing COO row index array");
     MLCommon::device_buffer<value_idx> search_coo_rows(
       config_.allocator, config_.stream, config_.a_nnz);
-    convert::csr_to_coo(config_.a_indptr, config_.a_nrows, search_coo_rows.data(),
-               config_.a_nnz, config_.stream);
+    convert::csr_to_coo(config_.a_indptr, config_.a_nrows,
+                        search_coo_rows.data(), config_.a_nnz, config_.stream);
 
     CUML_LOG_DEBUG("Done.");
 

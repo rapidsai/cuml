@@ -174,8 +174,8 @@ size_t csr_add_calc_inds(const int *a_ind, const int *a_indptr, const T *a_val,
     cudaMemsetAsync(row_counts.data(), 0, (m + 1) * sizeof(int), stream));
 
   csr_add_calc_row_counts_kernel<T, TPB_X>
-  <<<grid, blk, 0, stream>>>(a_ind, a_indptr, a_val, nnz1, b_ind, b_indptr,
-                             b_val, nnz2, m, row_counts.data());
+    <<<grid, blk, 0, stream>>>(a_ind, a_indptr, a_val, nnz1, b_ind, b_indptr,
+                               b_val, nnz2, m, row_counts.data());
 
   int cnnz = 0;
   raft::update_host(&cnnz, row_counts.data() + m, 1, stream);
@@ -217,15 +217,11 @@ void csr_add_finalize(const int *a_ind, const int *a_indptr, const T *a_val,
   dim3 blk(TPB_X, 1, 1);
 
   csr_add_kernel<T, TPB_X>
-  <<<grid, blk, 0, stream>>>(a_ind, a_indptr, a_val, nnz1, b_ind, b_indptr,
-                             b_val, nnz2, m, c_ind, c_indptr, c_val);
+    <<<grid, blk, 0, stream>>>(a_ind, a_indptr, a_val, nnz1, b_ind, b_indptr,
+                               b_val, nnz2, m, c_ind, c_indptr, c_val);
   CUDA_CHECK(cudaPeekAtLastError());
 }
 
-
-
-}; // end NAMESPACE linalg
-}; // end NAMESPACE sparse
-}; // end NAMESPACE raft
-
-
+};  // end NAMESPACE linalg
+};  // end NAMESPACE sparse
+};  // end NAMESPACE raft

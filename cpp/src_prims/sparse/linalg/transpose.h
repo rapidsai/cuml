@@ -85,7 +85,6 @@ void csr_transpose(cusparseHandle_t handle, const value_idx *csr_indptr,
     convert_csc_workspace.data(), stream));
 }
 
-
-}; // end NAMESPACE linalg
-}; // end NAMESPACE sparse
-}; // end NAMESPACE raft
+};  // end NAMESPACE linalg
+};  // end NAMESPACE sparse
+};  // end NAMESPACE raft

@@ -101,8 +101,8 @@ void symmetrize_perplexity(float *P, long *indices, const int n, const int k,
   raft::linalg::scalarMultiply(P, P, div, n * k, stream);
 
   // Symmetrize to form P + P.T
-  raft::sparse::linalg::from_knn_symmetrize_matrix(indices, P, n, k, COO_Matrix, stream,
-                                           handle.get_device_allocator());
+  raft::sparse::linalg::from_knn_symmetrize_matrix(
+    indices, P, n, k, COO_Matrix, stream, handle.get_device_allocator());
 }
 
 }  // namespace TSNE

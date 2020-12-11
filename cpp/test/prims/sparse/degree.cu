@@ -32,9 +32,9 @@ struct SparseDegreeInputs {
   unsigned long long int seed;
 };
 
-
 template <typename T>
-class SparseDegreeTests : public ::testing::TestWithParam<SparseDegreeInputs<T>> {
+class SparseDegreeTests
+  : public ::testing::TestWithParam<SparseDegreeInputs<T>> {
  protected:
   void SetUp() override {}
 
@@ -101,9 +101,10 @@ TEST_P(COODegreeNonzero, Result) {
   CUDA_CHECK(cudaStreamDestroy(stream));
 }
 
-
-INSTANTIATE_TEST_CASE_P(SparseDegreeTests, COODegree, ::testing::ValuesIn(inputsf));
-INSTANTIATE_TEST_CASE_P(SparseDegreeTests, COODegreeNonzero, ::testing::ValuesIn(inputsf));
+INSTANTIATE_TEST_CASE_P(SparseDegreeTests, COODegree,
+                        ::testing::ValuesIn(inputsf));
+INSTANTIATE_TEST_CASE_P(SparseDegreeTests, COODegreeNonzero,
+                        ::testing::ValuesIn(inputsf));
 
 }  // namespace sparse
 }  // namespace raft

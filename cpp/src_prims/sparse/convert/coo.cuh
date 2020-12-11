@@ -31,8 +31,8 @@
 #include <algorithm>
 #include <iostream>
 
-#include <sparse/coo.cuh>
 #include <sparse/utils.h>
+#include <sparse/coo.cuh>
 
 namespace raft {
 namespace sparse {
@@ -66,11 +66,10 @@ void csr_to_coo(const value_idx *row_ind, value_idx m, value_idx *coo_rows,
   dim3 blk(TPB_X, 1, 1);
 
   csr_to_coo_kernel<value_idx, TPB_X>
-  <<<grid, blk, 0, stream>>>(row_ind, m, coo_rows, nnz);
+    <<<grid, blk, 0, stream>>>(row_ind, m, coo_rows, nnz);
 
   CUDA_CHECK(cudaGetLastError());
 }
-
 
 template <int TPB_X, typename T>
 __global__ void from_knn_graph_kernel(const long *knn_indices,
@@ -85,7 +84,6 @@ __global__ void from_knn_graph_kernel(const long *knn_indices,
     }
   }
 }
-
 
 /**
  * @brief Converts a knn graph, defined by index and distance matrices,
@@ -105,7 +103,7 @@ void from_knn(const long *knn_indices, const T *knn_dists, int m, int k,
   dim3 grid(raft::ceildiv(m, 32), 1, 1);
   dim3 blk(32, 1, 1);
   from_knn_graph_kernel<32, T>
-  <<<grid, blk>>>(knn_indices, knn_dists, m, k, rows, cols, vals);
+    <<<grid, blk>>>(knn_indices, knn_dists, m, k, rows, cols, vals);
   CUDA_CHECK(cudaGetLastError());
 }
 
@@ -127,8 +125,6 @@ void from_knn(const long *knn_indices, const T *knn_dists, int m, int k,
   from_knn(knn_indices, knn_dists, m, k, out->rows(), out->cols(), out->vals());
 }
 
-
-
-}; // end NAMESPACE convert
-}; // end NAMESPACE sparse
-}; // end NAMESPACE raft
+};  // end NAMESPACE convert
+};  // end NAMESPACE sparse
+};  // end NAMESPACE raft

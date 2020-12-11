@@ -44,7 +44,6 @@ namespace raft {
 namespace sparse {
 namespace selection {
 
-
 template <typename K, typename IndexType, bool select_min, int warp_q,
           int thread_q, int tpb>
 __global__ void select_k_kernel(K *inK, IndexType *inV, size_t n_rows,
