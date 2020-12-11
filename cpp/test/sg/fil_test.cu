@@ -29,6 +29,8 @@
 #include <raft/random/rng.cuh>
 #include <utility>
 
+#include "../../src/fil/internal.cuh"
+
 #define TL_CPP_CHECK(call) ASSERT(int(call) >= 0, "treelite call error")
 
 namespace ML {

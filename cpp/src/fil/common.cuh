@@ -24,8 +24,9 @@
 #include <string>
 
 #include <raft/cuda_utils.cuh>
-
 #include <cuml/fil/fil.h>
+
+#include "internal.cuh"
 
 namespace ML {
 namespace fil {
