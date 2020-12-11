@@ -115,6 +115,7 @@ def test_components_exception():
     with pytest.raises(ValueError):
         TSNE(n_components=3)
 
+
 @pytest.mark.parametrize('input_type', ['cupy', 'scipy'])
 def test_umap_transform_on_digits_sparse(input_type):
 
@@ -127,9 +128,6 @@ def test_umap_transform_on_digits_sparse(input_type):
         sp_prefix = cupyx.scipy.sparse
     else:
         sp_prefix = scipy.sparse
-
-    data = sp_prefix.csr_matrix(
-        scipy.sparse.csr_matrix(digits.data[digits_selection]))
 
     fitter = TSNE(2, n_neighbors=15,
                   random_state=1,
