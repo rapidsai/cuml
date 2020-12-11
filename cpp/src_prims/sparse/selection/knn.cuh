@@ -14,31 +14,25 @@
  * limitations under the License.
  */
 
-#include <matrix/reverse.cuh>
-#include <raft/matrix/matrix.cuh>
-
+#include <raft/cudart_utils.h>
+#include <raft/linalg/distance_type.h>
+#include <raft/sparse/cusparse_wrappers.h>
+#include <raft/cuda_utils.cuh>
 #include <raft/linalg/unary_op.cuh>
+#include <raft/matrix/matrix.cuh>
+#include <raft/mr/device/buffer.hpp>
 
 #include <sparse/op/slice.h>
+#include <sparse/utils.h>
 #include <selection/knn.cuh>
 #include <sparse/coo.cuh>
 #include <sparse/csr.cuh>
 #include <sparse/distance/distance.cuh>
 #include <sparse/selection/selection.cuh>
 
-#include <raft/linalg/distance_type.h>
-
-#include <raft/cudart_utils.h>
-#include <common/device_buffer.hpp>
 #include <cuml/common/cuml_allocator.hpp>
 
-#include <raft/cuda_utils.cuh>
-
-#include <raft/sparse/cusparse_wrappers.h>
-
 #include <cusparse_v2.h>
-
-#include <sparse/utils.h>
 
 #pragma once
 
@@ -180,25 +174,26 @@ class sparse_knn_t {
       CUML_LOG_DEBUG("Slicing query CSR for batch. rows=%d out of %d",
                      query_batcher.batch_rows(), n_query_rows);
 
-      MLCommon::device_buffer<value_idx> query_batch_indptr(
+      raft::mr::device::buffer<value_idx> query_batch_indptr(
         allocator, stream, query_batcher.batch_rows() + 1);
 
       value_idx n_query_batch_nnz = query_batcher.get_batch_csr_indptr_nnz(
         query_batch_indptr.data(), stream);
 
-      MLCommon::device_buffer<value_idx> query_batch_indices(allocator, stream,
-                                                             n_query_batch_nnz);
-      MLCommon::device_buffer<value_t> query_batch_data(allocator, stream,
-                                                        n_query_batch_nnz);
+      raft::mr::device::buffer<value_idx> query_batch_indices(
+        allocator, stream, n_query_batch_nnz);
+      raft::mr::device::buffer<value_t> query_batch_data(allocator, stream,
+                                                         n_query_batch_nnz);
 
       query_batcher.get_batch_csr_indices_data(query_batch_indices.data(),
                                                query_batch_data.data(), stream);
 
       // A 3-partition temporary merge space to scale the batching. 2 parts for subsequent
       // batches and 1 space for the results of the merge, which get copied back to the top
-      MLCommon::device_buffer<value_idx> merge_buffer_indices(allocator, stream,
-                                                              0);
-      MLCommon::device_buffer<value_t> merge_buffer_dists(allocator, stream, 0);
+      raft::mr::device::buffer<value_idx> merge_buffer_indices(allocator,
+                                                               stream, 0);
+      raft::mr::device::buffer<value_t> merge_buffer_dists(allocator, stream,
+                                                           0);
 
       value_t *dists_merge_buffer_ptr;
       value_idx *indices_merge_buffer_ptr;
@@ -219,11 +214,11 @@ class sparse_knn_t {
             */
         CUML_LOG_DEBUG("Slicing index CSR for batch. rows=%d out of %d",
                        idx_batcher.batch_rows(), n_idx_rows);
-        MLCommon::device_buffer<value_idx> idx_batch_indptr(
+        raft::mr::device::buffer<value_idx> idx_batch_indptr(
           allocator, stream, idx_batcher.batch_rows() + 1);
-        MLCommon::device_buffer<value_idx> idx_batch_indices(allocator, stream,
-                                                             0);
-        MLCommon::device_buffer<value_t> idx_batch_data(allocator, stream, 0);
+        raft::mr::device::buffer<value_idx> idx_batch_indices(allocator, stream,
+                                                              0);
+        raft::mr::device::buffer<value_t> idx_batch_data(allocator, stream, 0);
 
         value_idx idx_batch_nnz =
           idx_batcher.get_batch_csr_indptr_nnz(idx_batch_indptr.data(), stream);
@@ -239,8 +234,8 @@ class sparse_knn_t {
            */
         value_idx dense_size =
           idx_batcher.batch_rows() * query_batcher.batch_rows();
-        MLCommon::device_buffer<value_t> batch_dists(allocator, stream,
-                                                     dense_size);
+        raft::mr::device::buffer<value_t> batch_dists(allocator, stream,
+                                                      dense_size);
 
         compute_distances(idx_batcher, query_batcher, idx_batch_nnz,
                           n_query_batch_nnz, idx_batch_indptr.data(),
@@ -253,8 +248,8 @@ class sparse_knn_t {
         idx_batch_data.release(stream);
 
         // Build batch indices array
-        MLCommon::device_buffer<value_idx> batch_indices(allocator, stream,
-                                                         batch_dists.size());
+        raft::mr::device::buffer<value_idx> batch_indices(allocator, stream,
+                                                          batch_dists.size());
 
         // populate batch indices array
         value_idx batch_rows = query_batcher.batch_rows(),
@@ -350,8 +345,8 @@ class sparse_knn_t {
     id_ranges.push_back(0);
     id_ranges.push_back(idx_batcher.batch_start());
 
-    MLCommon::device_buffer<value_idx> trans(allocator, stream,
-                                             id_ranges.size());
+    raft::mr::device::buffer<value_idx> trans(allocator, stream,
+                                              id_ranges.size());
     raft::update_device(trans.data(), id_ranges.data(), id_ranges.size(),
                         stream);
 

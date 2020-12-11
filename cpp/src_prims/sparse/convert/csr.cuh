@@ -19,9 +19,11 @@
 #include <cuml/common/logger.hpp>
 
 #include <cusparse_v2.h>
+
 #include <raft/cudart_utils.h>
 #include <raft/sparse/cusparse_wrappers.h>
 #include <raft/cuda_utils.cuh>
+#include <raft/mr/device/buffer.hpp>
 
 #include <thrust/device_ptr.h>
 #include <thrust/scan.h>
@@ -46,15 +48,15 @@ void coo2csr(cusparseHandle_t handle, const int *srcRows, const int *srcCols,
              const T *srcVals, int nnz, int m, int *dst_offsets, int *dstCols,
              T *dstVals, std::shared_ptr<MLCommon::deviceAllocator> d_alloc,
              cudaStream_t stream) {
-  MLCommon::device_buffer<int> dstRows(d_alloc, stream, nnz);
+  raft::mr::device::buffer<int> dstRows(d_alloc, stream, nnz);
   CUDA_CHECK(cudaMemcpyAsync(dstRows.data(), srcRows, sizeof(int) * nnz,
                              cudaMemcpyDeviceToDevice, stream));
   CUDA_CHECK(cudaMemcpyAsync(dstCols, srcCols, sizeof(int) * nnz,
                              cudaMemcpyDeviceToDevice, stream));
   auto buffSize = raft::sparse::cusparsecoosort_bufferSizeExt(
     handle, m, m, nnz, srcRows, srcCols, stream);
-  MLCommon::device_buffer<char> pBuffer(d_alloc, stream, buffSize);
-  MLCommon::device_buffer<int> P(d_alloc, stream, nnz);
+  raft::mr::device::buffer<char> pBuffer(d_alloc, stream, buffSize);
+  raft::mr::device::buffer<int> P(d_alloc, stream, nnz);
   CUSPARSE_CHECK(cusparseCreateIdentityPermutation(handle, nnz, P.data()));
   raft::sparse::cusparsecoosortByRow(handle, m, m, nnz, dstRows.data(), dstCols,
                                      P.data(), pBuffer.data(), stream);
@@ -148,7 +150,7 @@ template <typename T>
 void sorted_coo_to_csr(const T *rows, int nnz, T *row_ind, int m,
                        std::shared_ptr<MLCommon::deviceAllocator> d_alloc,
                        cudaStream_t stream) {
-  MLCommon::device_buffer<T> row_counts(d_alloc, stream, m);
+  raft::mr::device::buffer<T> row_counts(d_alloc, stream, m);
 
   CUDA_CHECK(cudaMemsetAsync(row_counts.data(), 0, m * sizeof(T), stream));
 

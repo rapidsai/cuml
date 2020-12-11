@@ -19,11 +19,11 @@
 #include <cuml/common/logger.hpp>
 
 #include <cusparse_v2.h>
+
 #include <raft/cudart_utils.h>
 #include <raft/sparse/cusparse_wrappers.h>
 #include <raft/cuda_utils.cuh>
-
-#include <label/classlabels.cuh>
+#include <raft/mr/device/buffer.hpp>
 
 #include <thrust/device_ptr.h>
 #include <thrust/scan.h>
@@ -75,7 +75,7 @@ void csr_transpose(cusparseHandle_t handle, const value_idx *csr_indptr,
 
   CUML_LOG_DEBUG("Transpose workspace size: %d", convert_csc_workspace_size);
 
-  MLCommon::device_buffer<char> convert_csc_workspace(
+  raft::mr::device::buffer<char> convert_csc_workspace(
     allocator, stream, convert_csc_workspace_size);
 
   CUSPARSE_CHECK(raft::sparse::cusparsecsr2csc(

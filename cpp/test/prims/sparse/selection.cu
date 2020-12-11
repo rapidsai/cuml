@@ -86,8 +86,6 @@ class SparseSelectionTest
       new raft::mr::device::default_allocator);
     CUDA_CHECK(cudaStreamCreate(&stream));
 
-    ML::Logger::get().setLevel(CUML_LEVEL_INFO);
-
     n_rows = params.n_rows;
     n_cols = params.n_cols;
     k = params.k;

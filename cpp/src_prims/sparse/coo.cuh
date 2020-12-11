@@ -15,11 +15,11 @@
  */
 
 #include <cuml/common/cuml_allocator.hpp>
-#include "csr.cuh"
 
+#include <raft/cudart_utils.h>
 #include <raft/sparse/cusparse_wrappers.h>
-
-#include <common/device_buffer.hpp>
+#include <raft/cuda_utils.cuh>
+#include <raft/mr/device/buffer.hpp>
 
 #include <cusparse_v2.h>
 
@@ -28,9 +28,6 @@
 #include <thrust/scan.h>
 
 #include <cuda_runtime.h>
-#include <raft/cudart_utils.h>
-#include <raft/cuda_utils.cuh>
-
 #include <iostream>
 #define restrict __restrict__
 
@@ -60,9 +57,9 @@ namespace sparse {
 template <typename T, typename Index_Type = int>
 class COO {
  protected:
-  MLCommon::device_buffer<Index_Type> rows_arr;
-  MLCommon::device_buffer<Index_Type> cols_arr;
-  MLCommon::device_buffer<T> vals_arr;
+  raft::mr::device::buffer<Index_Type> rows_arr;
+  raft::mr::device::buffer<Index_Type> cols_arr;
+  raft::mr::device::buffer<T> vals_arr;
 
  public:
   Index_Type nnz;
@@ -89,9 +86,9 @@ class COO {
     * @param n_rows: number of rows in the dense matrix
     * @param n_cols: number of cols in the dense matrix
     */
-  COO(MLCommon::device_buffer<Index_Type> &rows,
-      MLCommon::device_buffer<Index_Type> &cols,
-      MLCommon::device_buffer<T> &vals, Index_Type nnz, Index_Type n_rows = 0,
+  COO(raft::mr::device::buffer<Index_Type> &rows,
+      raft::mr::device::buffer<Index_Type> &cols,
+      raft::mr::device::buffer<T> &vals, Index_Type nnz, Index_Type n_rows = 0,
       Index_Type n_cols = 0)
     : rows_arr(rows),
       cols_arr(cols),

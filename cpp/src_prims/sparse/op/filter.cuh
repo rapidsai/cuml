@@ -19,13 +19,11 @@
 #include <cuml/common/logger.hpp>
 
 #include <cusparse_v2.h>
-#include <raft/cudart_utils.h>
-#include <sparse/coo.cuh>
 
+#include <raft/cudart_utils.h>
 #include <raft/sparse/cusparse_wrappers.h>
 #include <raft/cuda_utils.cuh>
-
-#include <label/classlabels.cuh>
+#include <raft/mr/device/buffer.hpp>
 
 #include <thrust/device_ptr.h>
 #include <thrust/scan.h>
@@ -37,6 +35,7 @@
 #include <iostream>
 
 #include <sparse/utils.h>
+#include <sparse/coo.cuh>
 #include <sparse/linalg/degree.cuh>
 
 namespace raft {
@@ -112,8 +111,8 @@ void coo_remove_scalar(const int *rows, const int *cols, const T *vals, int nnz,
                        int *cur_cnnz, T scalar, int n,
                        std::shared_ptr<MLCommon::deviceAllocator> d_alloc,
                        cudaStream_t stream) {
-  MLCommon::device_buffer<int> ex_scan(d_alloc, stream, n);
-  MLCommon::device_buffer<int> cur_ex_scan(d_alloc, stream, n);
+  raft::mr::device::buffer<int> ex_scan(d_alloc, stream, n);
+  raft::mr::device::buffer<int> cur_ex_scan(d_alloc, stream, n);
 
   CUDA_CHECK(cudaMemsetAsync(ex_scan.data(), 0, n * sizeof(int), stream));
   CUDA_CHECK(cudaMemsetAsync(cur_ex_scan.data(), 0, n * sizeof(int), stream));
@@ -154,8 +153,8 @@ template <int TPB_X, typename T>
 void coo_remove_scalar(COO<T> *in, COO<T> *out, T scalar,
                        std::shared_ptr<MLCommon::deviceAllocator> d_alloc,
                        cudaStream_t stream) {
-  MLCommon::device_buffer<int> row_count_nz(d_alloc, stream, in->n_rows);
-  MLCommon::device_buffer<int> row_count(d_alloc, stream, in->n_rows);
+  raft::mr::device::buffer<int> row_count_nz(d_alloc, stream, in->n_rows);
+  raft::mr::device::buffer<int> row_count(d_alloc, stream, in->n_rows);
 
   CUDA_CHECK(
     cudaMemsetAsync(row_count_nz.data(), 0, in->n_rows * sizeof(int), stream));

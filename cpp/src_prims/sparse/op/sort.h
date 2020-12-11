@@ -19,11 +19,11 @@
 #include <cuml/common/logger.hpp>
 
 #include <cusparse_v2.h>
+
 #include <raft/cudart_utils.h>
 #include <raft/sparse/cusparse_wrappers.h>
 #include <raft/cuda_utils.cuh>
-
-#include <label/classlabels.cuh>
+#include <raft/mr/device/buffer.hpp>
 
 #include <thrust/device_ptr.h>
 #include <thrust/scan.h>
@@ -67,15 +67,15 @@ void coo_sort(int m, int n, int nnz, int *rows, int *cols, T *vals,
   CUSPARSE_CHECK(cusparseXcoosort_bufferSizeExt(handle, m, n, nnz, rows, cols,
                                                 &pBufferSizeInBytes));
 
-  MLCommon::device_buffer<int> d_P(d_alloc, stream, nnz);
-  MLCommon::device_buffer<char> pBuffer(d_alloc, stream, pBufferSizeInBytes);
+  raft::mr::device::buffer<int> d_P(d_alloc, stream, nnz);
+  raft::mr::device::buffer<char> pBuffer(d_alloc, stream, pBufferSizeInBytes);
 
   CUSPARSE_CHECK(cusparseCreateIdentityPermutation(handle, nnz, d_P.data()));
 
   CUSPARSE_CHECK(cusparseXcoosortByRow(handle, m, n, nnz, rows, cols,
                                        d_P.data(), pBuffer.data()));
 
-  MLCommon::device_buffer<T> vals_sorted(d_alloc, stream, nnz);
+  raft::mr::device::buffer<T> vals_sorted(d_alloc, stream, nnz);
 
   CUSPARSE_CHECK(raft::sparse::cusparsegthr<T>(
     handle, nnz, vals, vals_sorted.data(), d_P.data(), stream));

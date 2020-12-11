@@ -15,15 +15,17 @@
  */
 
 #include <raft/cudart_utils.h>
+
 #include <raft/sparse/cusparse_wrappers.h>
+#include <raft/cuda_utils.cuh>
+#include <raft/mr/device/buffer.hpp>
+#include <raft/spectral/partition.hpp>
+
 #include <common/device_buffer.hpp>
 #include <cuml/common/cuml_allocator.hpp>
-#include <raft/cuda_utils.cuh>
 #include <selection/knn.cuh>
 #include <sparse/convert/csr.cuh>
 #include <sparse/coo.cuh>
-
-#include <raft/spectral/partition.hpp>
 
 namespace raft {
 namespace sparse {
@@ -34,15 +36,15 @@ void fit_embedding(cusparseHandle_t handle, int *rows, int *cols, T *vals,
                    int nnz, int n, int n_components, T *out,
                    std::shared_ptr<MLCommon::deviceAllocator> d_alloc,
                    cudaStream_t stream) {
-  MLCommon::device_buffer<int> src_offsets(d_alloc, stream, n + 1);
-  MLCommon::device_buffer<int> dst_cols(d_alloc, stream, nnz);
-  MLCommon::device_buffer<T> dst_vals(d_alloc, stream, nnz);
+  raft::mr::device::buffer<int> src_offsets(d_alloc, stream, n + 1);
+  raft::mr::device::buffer<int> dst_cols(d_alloc, stream, nnz);
+  raft::mr::device::buffer<T> dst_vals(d_alloc, stream, nnz);
   convert::coo2csr(handle, rows, cols, vals, nnz, n, src_offsets.data(),
                    dst_cols.data(), dst_vals.data(), d_alloc, stream);
 
-  MLCommon::device_buffer<T> eigVals(d_alloc, stream, n_components + 1);
-  MLCommon::device_buffer<T> eigVecs(d_alloc, stream, n * (n_components + 1));
-  MLCommon::device_buffer<int> labels(d_alloc, stream, n);
+  raft::mr::device::buffer<T> eigVals(d_alloc, stream, n_components + 1);
+  raft::mr::device::buffer<T> eigVecs(d_alloc, stream, n * (n_components + 1));
+  raft::mr::device::buffer<int> labels(d_alloc, stream, n);
 
   CUDA_CHECK(cudaStreamSynchronize(stream));
   //raft spectral clustering:

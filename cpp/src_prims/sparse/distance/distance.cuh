@@ -17,9 +17,11 @@
 #pragma once
 
 #include <raft/cudart_utils.h>
+
 #include <raft/linalg/distance_type.h>
 #include <raft/sparse/cusparse_wrappers.h>
 #include <raft/cuda_utils.cuh>
+#include <raft/mr/device/buffer.hpp>
 
 #include <common/device_buffer.hpp>
 
@@ -110,12 +112,12 @@ class ip_distances_t : public distances_t<value_t> {
 	   */
 
     CUML_LOG_DEBUG("Compute() inside inner-product d");
-    MLCommon::device_buffer<value_idx> out_batch_indptr(
+    raft::mr::device::buffer<value_idx> out_batch_indptr(
       config_.allocator, config_.stream, config_.a_nrows + 1);
-    MLCommon::device_buffer<value_idx> out_batch_indices(config_.allocator,
-                                                         config_.stream, 0);
-    MLCommon::device_buffer<value_t> out_batch_data(config_.allocator,
-                                                    config_.stream, 0);
+    raft::mr::device::buffer<value_idx> out_batch_indices(config_.allocator,
+                                                          config_.stream, 0);
+    raft::mr::device::buffer<value_t> out_batch_data(config_.allocator,
+                                                     config_.stream, 0);
 
     value_idx out_batch_nnz = get_nnz(out_batch_indptr.data());
 
@@ -222,10 +224,10 @@ class ip_distances_t : public distances_t<value_t> {
   cusparseMatDescr_t matC;
   cusparseMatDescr_t matD;
   cusparsePointerMode_t orig_ptr_mode;
-  MLCommon::device_buffer<char> workspace;
-  MLCommon::device_buffer<value_idx> csc_indptr;
-  MLCommon::device_buffer<value_idx> csc_indices;
-  MLCommon::device_buffer<value_t> csc_data;
+  raft::mr::device::buffer<char> workspace;
+  raft::mr::device::buffer<value_idx> csc_indptr;
+  raft::mr::device::buffer<value_idx> csc_indices;
+  raft::mr::device::buffer<value_t> csc_data;
   distances_config_t<value_idx, value_t> config_;
 };
 
@@ -283,8 +285,8 @@ void compute_l2(value_t *out, const value_idx *Q_coo_rows,
                 cusparseHandle_t handle,
                 std::shared_ptr<MLCommon::deviceAllocator> alloc,
                 cudaStream_t stream) {
-  MLCommon::device_buffer<value_t> Q_sq_norms(alloc, stream, m);
-  MLCommon::device_buffer<value_t> R_sq_norms(alloc, stream, n);
+  raft::mr::device::buffer<value_t> Q_sq_norms(alloc, stream, m);
+  raft::mr::device::buffer<value_t> R_sq_norms(alloc, stream, n);
   CUDA_CHECK(
     cudaMemsetAsync(Q_sq_norms.data(), 0, Q_sq_norms.size() * sizeof(value_t)));
   CUDA_CHECK(
@@ -318,7 +320,7 @@ class l2_distances_t : public distances_t<value_t> {
     value_t *b_data = ip_dists.trans_data();
 
     CUML_LOG_DEBUG("Computing COO row index array");
-    MLCommon::device_buffer<value_idx> search_coo_rows(
+    raft::mr::device::buffer<value_idx> search_coo_rows(
       config_.allocator, config_.stream, config_.a_nnz);
     convert::csr_to_coo(config_.a_indptr, config_.a_nrows,
                         search_coo_rows.data(), config_.a_nnz, config_.stream);
@@ -337,7 +339,7 @@ class l2_distances_t : public distances_t<value_t> {
 
  private:
   distances_config_t<value_idx, value_t> config_;
-  MLCommon::device_buffer<char> workspace;
+  raft::mr::device::buffer<char> workspace;
   ip_distances_t<value_idx, value_t> ip_dists;
 };
 
