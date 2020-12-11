@@ -15,9 +15,11 @@
  */
 
 #include <cuml/manifold/tsne.h>
+#include <cuml/manifold/common.hpp>
 #include <raft/cudart_utils.h>
 #include <common/device_buffer.hpp>
 #include <cuml/common/logger.hpp>
+#include <rmm/device_uvector.hpp>
 #include "distances.cuh"
 #include "exact_kernels.cuh"
 #include "utils.cuh"
@@ -27,8 +29,8 @@
 
 namespace ML {
 
-void TSNE_fit(const raft::handle_t &handle, const float *X, float *Y,
-              const int n, const int p, const int dim, int n_neighbors,
+template <typename tsne_input, typename knn_value_idx, typename knn_value_t>
+void _fit(const raft::handle_t &handle, tsne_input &input, const int dim, int n_neighbors,
               const float theta, const float epssq, float perplexity,
               const int perplexity_max_iter, const float perplexity_tol,
               const float early_exaggeration, const int exaggeration_iter,
@@ -38,8 +40,11 @@ void TSNE_fit(const raft::handle_t &handle, const float *X, float *Y,
               const float post_momentum, const long long random_state,
               int verbosity, const bool initialize_embeddings,
               bool barnes_hut) {
-  ASSERT(n > 0 && p > 0 && dim > 0 && n_neighbors > 0 && X != NULL && Y != NULL,
-         "Wrong input args");
+
+  auto n = input.n;
+  auto p = input.d;
+  auto *Y = input.y;
+
   ML::Logger::get().setLevel(verbosity);
   if (dim > 2 and barnes_hut) {
     barnes_hut = false;
@@ -73,41 +78,52 @@ void TSNE_fit(const raft::handle_t &handle, const float *X, float *Y,
   //---------------------------------------------------
   // Get distances
   CUML_LOG_DEBUG("Getting distances.");
-  MLCommon::device_buffer<float> distances(d_alloc, stream, n * n_neighbors);
-  MLCommon::device_buffer<long> indices(d_alloc, stream, n * n_neighbors);
-  TSNE::get_distances(X, n, p, indices.data(), distances.data(), n_neighbors,
-                      d_alloc, stream);
-  //---------------------------------------------------
-  END_TIMER(DistancesTime);
 
-  START_TIMER;
-  //---------------------------------------------------
-  // Normalize distances
-  CUML_LOG_DEBUG("Now normalizing distances so exp(D) doesn't explode.");
-  TSNE::normalize_distances(n, distances.data(), n_neighbors, stream);
-  //---------------------------------------------------
-  END_TIMER(NormalizeTime);
-
-  START_TIMER;
-  //---------------------------------------------------
-  // Optimal perplexity
-  CUML_LOG_DEBUG("Searching for optimal perplexity via bisection search.");
-  MLCommon::device_buffer<float> P(d_alloc, stream, n * n_neighbors);
-  TSNE::perplexity_search(distances.data(), P.data(), perplexity,
-                          perplexity_max_iter, perplexity_tol, n, n_neighbors,
-                          handle);
-  distances.release(stream);
-  //---------------------------------------------------
-  END_TIMER(PerplexityTime);
-
-  START_TIMER;
-  //---------------------------------------------------
-  // Convert data to COO layout
   MLCommon::Sparse::COO<float> COO_Matrix(d_alloc, stream);
-  TSNE::symmetrize_perplexity(P.data(), indices.data(), n, n_neighbors,
-                              early_exaggeration, &COO_Matrix, stream, handle);
-  P.release(stream);
-  indices.release(stream);
+
+  // artificial scope for safe destruction of indices/distances buffers
+  {
+    rmm::device_uvector<knn_value_idx> indices(0, stream);
+    rmm::device_uvector<knn_value_t> distances(0, stream);
+
+    if (input.alloc_knn_graph()) {
+      indices = rmm::device_uvector<knn_value_idx>(n * n_neighbors, stream);
+      distances = rmm::device_uvector<knn_value_t>(n * n_neighbors, stream);
+    }
+
+    TSNE::get_distances(handle, input, indices.data(), distances.data(), n_neighbors,
+                        stream);
+    //---------------------------------------------------
+    END_TIMER(DistancesTime);
+
+    START_TIMER;
+    //---------------------------------------------------
+    // Normalize distances
+    CUML_LOG_DEBUG("Now normalizing distances so exp(D) doesn't explode.");
+    TSNE::normalize_distances(n, distances.data(), n_neighbors, stream);
+    //---------------------------------------------------
+    END_TIMER(NormalizeTime);
+
+    START_TIMER;
+    //---------------------------------------------------
+    // Optimal perplexity
+    CUML_LOG_DEBUG("Searching for optimal perplexity via bisection search.");
+    MLCommon::device_buffer<float> P(d_alloc, stream, n * n_neighbors);
+    TSNE::perplexity_search(distances.data(), P.data(), perplexity,
+                            perplexity_max_iter, perplexity_tol, n, n_neighbors,
+                            handle);
+
+    //---------------------------------------------------
+    END_TIMER(PerplexityTime);
+
+    START_TIMER;
+    //---------------------------------------------------
+    // Convert data to COO layout
+    TSNE::symmetrize_perplexity(P.data(), indices.data(), n, n_neighbors,
+                                early_exaggeration, &COO_Matrix, stream, handle);
+    P.release(stream);
+  }
+
   const int NNZ = COO_Matrix.nnz;
   float *VAL = COO_Matrix.vals();
   const int *COL = COO_Matrix.cols();
@@ -127,6 +143,46 @@ void TSNE_fit(const raft::handle_t &handle, const float *X, float *Y,
                      post_learning_rate, max_iter, min_grad_norm, pre_momentum,
                      post_momentum, random_state, initialize_embeddings);
   }
+}
+
+void TSNE_fit(const raft::handle_t &handle, float *X, float *Y,
+  int n, int p, const int dim, int n_neighbors,
+  const float theta, const float epssq, float perplexity,
+  const int perplexity_max_iter, const float perplexity_tol,
+  const float early_exaggeration, const int exaggeration_iter,
+  const float min_gain, const float pre_learning_rate,
+  const float post_learning_rate, const int max_iter,
+  const float min_grad_norm, const float pre_momentum,
+  const float post_momentum, const long long random_state,
+  int verbosity, const bool initialize_embeddings,
+  bool barnes_hut) {
+    ASSERT(n > 0 && p > 0 && dim > 0 && n_neighbors > 0 && X != NULL && Y != NULL,
+      "Wrong input args");
+
+    manifold_dense_inputs_t<float> input(X, Y, n, p);
+    _fit< manifold_dense_inputs_t<float>, knn_indices_dense_t, float >(handle, input, dim, n_neighbors, theta, epssq, perplexity, perplexity_max_iter, perplexity_tol,
+         early_exaggeration, exaggeration_iter, min_gain, pre_learning_rate, post_learning_rate,
+        max_iter, min_grad_norm, pre_momentum, post_momentum, random_state, verbosity, initialize_embeddings, barnes_hut);
+}
+
+void TSNE_fit_sparse(const raft::handle_t &handle, int *indptr, int *indices, float *data, float *Y,
+  int nnz, int n, int p, const int dim, int n_neighbors,
+  const float theta, const float epssq, float perplexity,
+  const int perplexity_max_iter, const float perplexity_tol,
+  const float early_exaggeration, const int exaggeration_iter,
+  const float min_gain, const float pre_learning_rate,
+  const float post_learning_rate, const int max_iter,
+  const float min_grad_norm, const float pre_momentum,
+  const float post_momentum, const long long random_state,
+  int verbosity, const bool initialize_embeddings,
+  bool barnes_hut) {
+    ASSERT(n > 0 && p > 0 && dim > 0 && n_neighbors > 0 && indptr != NULL && indices != NULL && data != NULL && Y != NULL,
+      "Wrong input args");
+
+    manifold_sparse_inputs_t<int, float> input(indptr, indices, data, Y, nnz, n, p);
+    _fit< manifold_sparse_inputs_t<int, float>, knn_indices_sparse_t, float >(handle, input, dim, n_neighbors, theta, epssq, perplexity, perplexity_max_iter, perplexity_tol,
+      early_exaggeration, exaggeration_iter, min_gain, pre_learning_rate, post_learning_rate,
+     max_iter, min_grad_norm, pre_momentum, post_momentum, random_state, verbosity, initialize_embeddings, barnes_hut);
 }
 
 }  // namespace ML

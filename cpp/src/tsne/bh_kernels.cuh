@@ -75,7 +75,7 @@ __global__ void Find_Normalization(float *restrict Z_norm, const float N) {
 /**
  * Figures the bounding boxes for every point in the embedding.
  */
-__global__ __launch_bounds__(THREADS1, FACTOR1) void BoundingBoxKernel(
+__global__ __launch_bounds__(THREADS1, 2) void BoundingBoxKernel(
   int *restrict startd, int *restrict childd, float *restrict massd,
   float *restrict posxd, float *restrict posyd, float *restrict maxxd,
   float *restrict maxyd, float *restrict minxd, float *restrict minyd,
@@ -174,7 +174,7 @@ __global__ __launch_bounds__(1024, 1) void ClearKernel1(int *restrict childd,
  * See: https://iss.oden.utexas.edu/Publications/Papers/burtscher11.pdf
  */
 __global__ __launch_bounds__(
-  THREADS2, FACTOR2) void TreeBuildingKernel(/* int *restrict errd, */
+  THREADS2, 2) void TreeBuildingKernel(/* int *restrict errd, */
                                              int *restrict childd,
                                              const float *restrict posxd,
                                              const float *restrict posyd,
@@ -508,7 +508,7 @@ __global__ __launch_bounds__(THREADS4, FACTOR4) void SortKernel(
  */
 __global__ __launch_bounds__(
   THREADS5,
-  FACTOR5) void RepulsionKernel(/* int *restrict errd, */
+  1) void RepulsionKernel(/* int *restrict errd, */
                                 const float theta,
                                 const float
                                   epssqd,  // correction for zero distance
@@ -664,7 +664,7 @@ __global__ void attractive_kernel_bh(
 /**
  * Apply gradient updates.
  */
-__global__ __launch_bounds__(THREADS6, FACTOR6) void IntegrationKernel(
+__global__ __launch_bounds__(THREADS6, 1) void IntegrationKernel(
   const float eta, const float momentum, const float exaggeration,
   float *restrict Y1, float *restrict Y2, const float *restrict attract1,
   const float *restrict attract2, const float *restrict repel1,
