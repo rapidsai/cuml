@@ -67,7 +67,8 @@ __global__ void fast_intersection_kernel(int *rows, int *cols, T *vals, int nnz,
 }
 
 template <typename T, int TPB_X>
-void reset_local_connectivity(raft::sparse::COO<T> *in_coo, raft::sparse::COO<T> *out_coo,
+void reset_local_connectivity(raft::sparse::COO<T> *in_coo,
+                              raft::sparse::COO<T> *out_coo,
                               std::shared_ptr<deviceAllocator> d_alloc,
                               cudaStream_t stream  // size = nnz*2
 ) {
@@ -101,11 +102,9 @@ void reset_local_connectivity(raft::sparse::COO<T> *in_coo, raft::sparse::COO<T>
  * data.
  */
 template <typename value_t, int TPB_X>
-void categorical_simplicial_set_intersection(raft::sparse::COO<value_t> *graph_coo,
-                                             value_t *target,
-                                             cudaStream_t stream,
-                                             float far_dist = 5.0,
-                                             float unknown_dist = 1.0) {
+void categorical_simplicial_set_intersection(
+  raft::sparse::COO<value_t> *graph_coo, value_t *target, cudaStream_t stream,
+  float far_dist = 5.0, float unknown_dist = 1.0) {
   dim3 grid(raft::ceildiv(graph_coo->nnz, TPB_X), 1, 1);
   dim3 blk(TPB_X, 1, 1);
   fast_intersection_kernel<TPB_X, value_t><<<grid, blk, 0, stream>>>(
@@ -167,8 +166,9 @@ __global__ void sset_intersection_kernel(
  */
 template <typename T, int TPB_X>
 void general_simplicial_set_intersection(
-  int *row1_ind, raft::sparse::COO<T> *in1, int *row2_ind, raft::sparse::COO<T> *in2, raft::sparse::COO<T> *result,
-  float weight, std::shared_ptr<deviceAllocator> d_alloc, cudaStream_t stream) {
+  int *row1_ind, raft::sparse::COO<T> *in1, int *row2_ind,
+  raft::sparse::COO<T> *in2, raft::sparse::COO<T> *result, float weight,
+  std::shared_ptr<deviceAllocator> d_alloc, cudaStream_t stream) {
   MLCommon::device_buffer<int> result_ind(d_alloc, stream, in1->n_rows);
   CUDA_CHECK(
     cudaMemsetAsync(result_ind.data(), 0, in1->n_rows * sizeof(int), stream));
@@ -216,7 +216,8 @@ void general_simplicial_set_intersection(
 
 template <int TPB_X, typename T>
 void perform_categorical_intersection(T *y, raft::sparse::COO<T> *rgraph_coo,
-                                      raft::sparse::COO<T> *final_coo, UMAPParams *params,
+                                      raft::sparse::COO<T> *final_coo,
+                                      UMAPParams *params,
                                       std::shared_ptr<deviceAllocator> d_alloc,
                                       cudaStream_t stream) {
   float far_dist = 1.0e12;  // target weight
@@ -238,8 +239,8 @@ void perform_categorical_intersection(T *y, raft::sparse::COO<T> *rgraph_coo,
 template <int TPB_X, typename value_idx, typename value_t>
 void perform_general_intersection(const raft::handle_t &handle, value_t *y,
                                   raft::sparse::COO<value_t> *rgraph_coo,
-                                  raft::sparse::COO<value_t> *final_coo, UMAPParams *params,
-                                  cudaStream_t stream) {
+                                  raft::sparse::COO<value_t> *final_coo,
+                                  UMAPParams *params, cudaStream_t stream) {
   auto d_alloc = handle.get_device_allocator();
 
   /**
