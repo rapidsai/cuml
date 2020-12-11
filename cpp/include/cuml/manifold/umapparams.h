@@ -16,13 +16,10 @@
 
 #pragma once
 
-#include <internals/internals.h>
+#include <cuml/common/callback.hpp>
 #include <cuml/common/logger.hpp>
-#include <string>
 
 namespace ML {
-
-using namespace ML::Internals;
 
 class UMAPParams {
  public:
@@ -157,7 +154,7 @@ class UMAPParams {
 
   int optim_batch_size = 0;
 
-  GraphBasedDimRedCallback* callback = nullptr;
+  Internals::GraphBasedDimRedCallback* callback = nullptr;
 };
 
 }  // namespace ML

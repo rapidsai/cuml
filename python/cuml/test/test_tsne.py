@@ -19,7 +19,7 @@ import pytest
 from cuml.manifold import TSNE
 from cuml.test.utils import stress_param
 
-from sklearn.datasets.samples_generator import make_blobs
+from sklearn.datasets import make_blobs
 from sklearn.manifold.t_sne import trustworthiness
 from sklearn import datasets
 

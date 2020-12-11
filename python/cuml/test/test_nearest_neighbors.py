@@ -21,7 +21,9 @@ from cuml.test.utils import array_equal, unit_param, quality_param, \
 from cuml.neighbors import NearestNeighbors as cuKNN
 
 from sklearn.neighbors import NearestNeighbors as skKNN
-from sklearn.datasets.samples_generator import make_blobs
+from sklearn.datasets import make_blobs
+
+from cuml.common import logger
 
 from cuml.common import logger
 

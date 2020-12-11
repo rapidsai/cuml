@@ -80,11 +80,11 @@ class RandomForestRegressor(BaseRandomForestModel, DelayedPredictionMixin,
         Control bootstrapping.
         If set, each tree in the forest is built
         on a bootstrapped sample with replacement.
-        If false, sampling without replacement is done.
+        If False, the whole dataset is used to build each tree.
     bootstrap_features : boolean (default = False)
         Control bootstrapping for features.
         If features are drawn with or without replacement
-    rows_sample : float (default = 1.0)
+    max_samples : float (default = 1.0)
         Ratio of dataset rows used while fitting each tree.
     max_depth : int (default = -1)
         Maximum tree depth. Unlimited (i.e, until leaves are pure), if -1.
@@ -101,10 +101,18 @@ class RandomForestRegressor(BaseRandomForestModel, DelayedPredictionMixin,
         If None, then max_features=n_features which is 1.0.
     n_bins : int (default = 8)
         Number of bins used by the split algorithm.
-    min_rows_per_node : int or float (default = 2)
-        The minimum number of samples (rows) needed to split a node.
-        If int then number of sample rows
-        If float the min_rows_per_sample*n_rows
+    min_samples_leaf : int or float (default = 1)
+        The minimum number of samples (rows) in each leaf node.
+        If int, then min_samples_leaf represents the minimum number.
+        If float, then min_samples_leaf represents a fraction and
+        ceil(min_samples_leaf * n_rows) is the minimum number of samples
+        for each leaf node.
+    min_samples_split : int or float (default = 2)
+        The minimum number of samples required to split an internal node.
+        If int, then min_samples_split represents the minimum number.
+        If float, then min_samples_split represents a fraction and
+        ceil(min_samples_split * n_rows) is the minimum number of samples
+        for each split.
     accuracy_metric : string (default = 'r2')
         Decides the metric used to evaluate the performance of the model.
         In the 0.16 release, the default scoring metric was changed

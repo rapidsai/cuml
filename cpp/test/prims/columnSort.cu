@@ -101,8 +101,17 @@ class ColumnSort : public ::testing::TestWithParam<columnSort<T>> {
 
     bool needWorkspace = false;
     size_t workspaceSize = 0;
-    sortColumnsPerRow(keyIn, valueOut, params.n_row, params.n_col,
-                      needWorkspace, NULL, workspaceSize, stream, keySorted);
+    if (!params.ascending) {
+      // Remove this branch once the implementation of descending sort is fixed.
+      EXPECT_THROW(sortColumnsPerRow(
+                     keyIn, valueOut, params.n_row, params.n_col, needWorkspace,
+                     NULL, workspaceSize, stream, keySorted, params.ascending),
+                   raft::exception);
+    } else {
+      sortColumnsPerRow(keyIn, valueOut, params.n_row, params.n_col,
+                        needWorkspace, NULL, workspaceSize, stream, keySorted,
+                        params.ascending);
+    }
     if (needWorkspace) {
       raft::allocate(workspacePtr, workspaceSize);
       sortColumnsPerRow(keyIn, valueOut, params.n_row, params.n_col,
@@ -140,12 +149,16 @@ const std::vector<columnSort<float>> inputsf1 = {
 
 typedef ColumnSort<float> ColumnSortF;
 TEST_P(ColumnSortF, Result) {
-  ASSERT_TRUE(devArrMatch(valueOut, goldenValOut, params.n_row * params.n_col,
-                          raft::CompareApprox<float>(params.tolerance)));
-  if (params.testKeys) {
-    ASSERT_TRUE(devArrMatch(keySorted, keySortGolden,
-                            params.n_row * params.n_col,
+  // Remove this condition once the implementation of of descending sort is
+  // fixed.
+  if (params.ascending) {
+    ASSERT_TRUE(devArrMatch(valueOut, goldenValOut, params.n_row * params.n_col,
                             raft::CompareApprox<float>(params.tolerance)));
+    if (params.testKeys) {
+      ASSERT_TRUE(devArrMatch(keySorted, keySortGolden,
+                              params.n_row * params.n_col,
+                              raft::CompareApprox<float>(params.tolerance)));
+    }
   }
 }
 

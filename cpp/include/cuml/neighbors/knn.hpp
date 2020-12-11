@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <cuml/common/logger.hpp>
 #include <cuml/cuml.hpp>
 
 namespace ML {

@@ -433,7 +433,7 @@ class PCA(Base):
         if cupyx.scipy.sparse.issparse(X):
             return self._sparse_fit(X)
         elif scipy.sparse.issparse(X):
-            X = sparse_scipy_to_cp(X)
+            X = sparse_scipy_to_cp(X, dtype=None)
             return self._sparse_fit(X)
 
         X_m, self.n_rows, self.n_cols, self.dtype = \
@@ -521,13 +521,14 @@ class PCA(Base):
             cp.multiply(self.components_,
                         (1 / cp.sqrt(self.n_rows - 1)), out=self.components_)
             cp.multiply(self.components_,
-                        self.singular_values_, out=self.components_)
+                        self.singular_values_.reshape((-1, 1)),
+                        out=self.components_)
 
         X_inv = cp.dot(X, self.components_)
         cp.add(X_inv, self.mean_, out=X_inv)
 
         if self.whiten:
-            self.components_ /= self.singular_values_
+            self.components_ /= self.singular_values_.reshape((-1, 1))
             self.components_ *= cp.sqrt(self.n_rows - 1)
 
         if return_sparse:
@@ -558,7 +559,7 @@ class PCA(Base):
                                                   return_sparse=return_sparse,
                                                   sparse_tol=sparse_tol)
         elif scipy.sparse.issparse(X):
-            X = sparse_scipy_to_cp(X)
+            X = sparse_scipy_to_cp(X, dtype=None)
             return self._sparse_inverse_transform(X,
                                                   return_sparse=return_sparse,
                                                   sparse_tol=sparse_tol)
@@ -627,13 +628,13 @@ class PCA(Base):
 
             if self.whiten:
                 self.components_ *= cp.sqrt(self.n_rows - 1)
-                self.components_ /= self.singular_values_
+                self.components_ /= self.singular_values_.reshape((-1, 1))
 
             X = X - self.mean_
             X_transformed = X.dot(self.components_.T)
 
             if self.whiten:
-                self.components_ *= self.singular_values_
+                self.components_ *= self.singular_values_.reshape((-1, 1))
                 self.components_ *= (1 / cp.sqrt(self.n_rows - 1))
 
         return X_transformed
@@ -655,7 +656,7 @@ class PCA(Base):
         if cupyx.scipy.sparse.issparse(X):
             return self._sparse_transform(X)
         elif scipy.sparse.issparse(X):
-            X = sparse_scipy_to_cp(X)
+            X = sparse_scipy_to_cp(X, dtype=None)
             return self._sparse_transform(X)
         elif self._sparse_model:
             X, _, _, _ = \
@@ -728,3 +729,10 @@ class PCA(Base):
     def __setstate__(self, state):
         self.__dict__.update(state)
         self.handle = Handle()
+
+    def _more_tags(self):
+        return {
+            'preferred_input_order': 'F',
+            'X_types_gpu': ['2darray', 'sparse'],
+            'X_types': ['2darray', 'sparse']
+        }

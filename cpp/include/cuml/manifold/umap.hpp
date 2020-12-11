@@ -16,8 +16,7 @@
 
 #pragma once
 
-#include <common/cumlHandle.hpp>
-#include <cuml/neighbors/knn.hpp>
+#include <cuml/cuml.hpp>
 #include "umapparams.h"
 
 namespace ML {
