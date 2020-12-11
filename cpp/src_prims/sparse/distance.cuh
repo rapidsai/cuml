@@ -342,6 +342,9 @@ void pairwiseDistance(value_t *out,
     case ML::Distance::DistanceType::EucUnexpandedL1:
       l1_distances_t<value_idx, value_t>(input_config).compute(out);
       break;
+    case ML::Distance::DistanceType::EucUnexpandedL2:
+      l2_unexpanded_distances_t<value_idx, value_t>(input_config).compute(out);
+      break;
     case ML::Distance::DistanceType::ChebyChev:
       chebychev_distances_t<value_idx, value_t>(input_config).compute(out);
       break;

@@ -43,5 +43,42 @@ inline int block_dim(value_idx ncols) {
 
   return blockdim;
 }
+
+/**
+ * Returns a warp-level mask with 1's for all the threads
+ * in the current warp that have the same key.
+ * @tparam G
+ * @param key
+ * @return
+ */
+template<typename G>
+__device__ __inline__ unsigned int get_peer_group(G key) {
+  unsigned int peer_group = 0;
+  bool is_peer;
+
+  // in the beginning, all lanes are available
+  unsigned int unclaimed=0xffffffff;
+
+  do {
+    // fetch key of first unclaimed lane and compare with this key
+    is_peer = (key == __shfl_sync(unclaimed, key, __ffs(unclaimed) - 1));
+
+    // determine which lanes had a match
+    peer_group = __ballot_sync(unclaimed, is_peer);
+
+    // remove lanes with matching keys from the pool
+    unclaimed = unclaimed ^ peer_group;
+
+    // quit if we had a match
+  } while (!is_peer);
+
+  return peer_group;
+}
+
+__device__ __inline__ unsigned int get_lowest_peer(unsigned int peer_group) {
+  return __ffs(peer_group)-1;
+}
+
+
 };  // namespace Sparse
 };  // namespace MLCommon
