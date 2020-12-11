@@ -139,7 +139,7 @@ void TSNE_fit(const raft::handle_t &handle, float *X, float *Y,
  * approach is available in their article t-SNE-CUDA: GPU-Accelerated t-SNE and
  * its Applications to Modern Data (https://arxiv.org/abs/1807.11824).
  */
-void TSNE_fit_sparse(const raft::handle_t &handle, int *indptr, int *indices, float *data, float *Y,
+void TSNE_fit_sparse(const raft::handle_t &handle, int *indptr, int *indices, float *data, float *Y, int nnz,
               int n, int p, const int dim = 2,
               int n_neighbors = 1023, const float theta = 0.5f,
               const float epssq = 0.0025, float perplexity = 50.0f,
