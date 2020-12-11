@@ -18,7 +18,7 @@ import pytest
 
 from cuml.manifold import TSNE
 from cuml.test.utils import stress_param
-from cuml.neighbors import NearestNeighbors as cuKNNd
+from cuml.neighbors import NearestNeighbors as cuKNN
 
 from sklearn.neighbors import NearestNeighbors as skKNN
 from sklearn.datasets import make_blobs

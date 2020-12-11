@@ -28,8 +28,9 @@
 namespace ML {
 
 void TSNE_fit(const raft::handle_t &handle, const float *X, float *Y,
-              const int n, const int p, const int dim, int n_neighbors,
-              const float theta, const float epssq, float perplexity,
+              const int n, const int p, int64_t *knn_indices, float *knn_dists,
+              const int dim, int n_neighbors, const float theta,
+              const float epssq, float perplexity,
               const int perplexity_max_iter, const float perplexity_tol,
               const float early_exaggeration, const int exaggeration_iter,
               const float min_gain, const float pre_learning_rate,
@@ -73,10 +74,21 @@ void TSNE_fit(const raft::handle_t &handle, const float *X, float *Y,
   //---------------------------------------------------
   // Get distances
   CUML_LOG_DEBUG("Getting distances.");
-  MLCommon::device_buffer<float> distances(d_alloc, stream, n * n_neighbors);
-  MLCommon::device_buffer<long> indices(d_alloc, stream, n * n_neighbors);
-  TSNE::get_distances(X, n, p, indices.data(), distances.data(), n_neighbors,
-                      d_alloc, stream);
+  MLCommon::device_buffer<int64_t> *knn_indices_b = nullptr;
+  MLCommon::device_buffer<float> *knn_dists_b = nullptr;
+
+  if (!knn_indices || !knn_dists) {
+    ASSERT(!knn_indices && !knn_dists,
+           "Either both or none of the KNN parameters should be provided");
+    knn_indices_b =
+      new MLCommon::device_buffer<int64_t>(d_alloc, stream, n * n_neighbors);
+    knn_dists_b =
+      new MLCommon::device_buffer<float>(d_alloc, stream, n * n_neighbors);
+    knn_indices = knn_indices_b->data();
+    knn_dists = knn_dists_b->data();
+    TSNE::get_distances(X, n, p, knn_indices, knn_dists, n_neighbors, d_alloc,
+                        stream);
+  }
   //---------------------------------------------------
   END_TIMER(DistancesTime);
 
@@ -84,7 +96,7 @@ void TSNE_fit(const raft::handle_t &handle, const float *X, float *Y,
   //---------------------------------------------------
   // Normalize distances
   CUML_LOG_DEBUG("Now normalizing distances so exp(D) doesn't explode.");
-  TSNE::normalize_distances(n, distances.data(), n_neighbors, stream);
+  TSNE::normalize_distances(n, knn_dists, n_neighbors, stream);
   //---------------------------------------------------
   END_TIMER(NormalizeTime);
 
@@ -93,10 +105,8 @@ void TSNE_fit(const raft::handle_t &handle, const float *X, float *Y,
   // Optimal perplexity
   CUML_LOG_DEBUG("Searching for optimal perplexity via bisection search.");
   MLCommon::device_buffer<float> P(d_alloc, stream, n * n_neighbors);
-  TSNE::perplexity_search(distances.data(), P.data(), perplexity,
-                          perplexity_max_iter, perplexity_tol, n, n_neighbors,
-                          handle);
-  distances.release(stream);
+  TSNE::perplexity_search(knn_dists, P.data(), perplexity, perplexity_max_iter,
+                          perplexity_tol, n, n_neighbors, handle);
   //---------------------------------------------------
   END_TIMER(PerplexityTime);
 
@@ -107,7 +117,8 @@ void TSNE_fit(const raft::handle_t &handle, const float *X, float *Y,
   TSNE::symmetrize_perplexity(P.data(), indices.data(), n, n_neighbors,
                               early_exaggeration, &COO_Matrix, stream, handle);
   P.release(stream);
-  indices.release(stream);
+  if (knn_indices_b) delete knn_indices_b;
+  if (knn_dists_b) delete knn_dists_b;
   const int NNZ = COO_Matrix.nnz;
   float *VAL = COO_Matrix.vals();
   const int *COL = COO_Matrix.cols();
