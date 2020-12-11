@@ -21,7 +21,7 @@
 #include <gtest/gtest.h>
 #include <raft/sparse/cusparse_wrappers.h>
 #include <test_utils.h>
-#include <sparse/csr.cuh>
+#include <sparse/linalg/transpose.h>
 
 namespace MLCommon {
 namespace Sparse {
@@ -99,7 +99,7 @@ class CSRTransposeTest
 
     ML::Logger::get().setLevel(CUML_LEVEL_INFO);
 
-    csr_transpose(handle, indptr, indices, data, out_indptr, out_indices,
+    raft::sparse::linalg::csr_transpose(handle, indptr, indices, data, out_indptr, out_indices,
                   out_data, params.nrows, params.ncols, params.nnz, alloc,
                   stream);
 

@@ -19,7 +19,9 @@
 
 #include <test_utils.h>
 #include <cuml/common/logger.hpp>
-#include <sparse/selection.cuh>
+
+#include <sparse/utils.h>
+#include <sparse/selection/selection.cuh>
 
 namespace MLCommon {
 namespace Sparse {
@@ -60,7 +62,7 @@ class SparseSelectionTest
     update_device(dists, dists_h.data(), dists_h.size(), stream);
 
     allocate(inds, n_rows * n_cols);
-    raft::sparse::selection::iota_fill(inds, n_rows, n_cols, stream);
+    iota_fill(inds, n_rows, n_cols, stream);
 
     std::vector<value_t> out_dists_ref_h = params.out_dists_ref_h;
     std::vector<value_idx> out_indices_ref_h = params.out_indices_ref_h;

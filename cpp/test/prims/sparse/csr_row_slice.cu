@@ -19,6 +19,7 @@
 #include <common/device_buffer.hpp>
 
 #include <gtest/gtest.h>
+#include <sparse/op/slice.h>
 #include <raft/sparse/cusparse_wrappers.h>
 #include <test_utils.h>
 #include <sparse/csr.cuh>
@@ -100,11 +101,11 @@ class CSRRowSliceTest
     int csr_start_offset;
     int csr_stop_offset;
 
-    MLCommon::Sparse::csr_row_slice_indptr(
+    raft::sparse::op::csr_row_slice_indptr(
       params.start_row, params.stop_row, indptr, out_indptr, &csr_start_offset,
       &csr_stop_offset, stream);
 
-    MLCommon::Sparse::csr_row_slice_populate(csr_start_offset, csr_stop_offset,
+    raft::sparse::op::csr_row_slice_populate(csr_start_offset, csr_stop_offset,
                                              indices, data, out_indices,
                                              out_data, stream);
 

@@ -21,7 +21,7 @@
 #include <gtest/gtest.h>
 #include <raft/sparse/cusparse_wrappers.h>
 #include <test_utils.h>
-#include <sparse/csr.cuh>
+#include <sparse/convert/dense.cuh>
 
 namespace MLCommon {
 namespace Sparse {
@@ -85,7 +85,7 @@ class CSRToDenseTest
 
     ML::Logger::get().setLevel(CUML_LEVEL_INFO);
 
-    csr_to_dense(handle, params.nrows, params.ncols, indptr, indices, data,
+    convert::csr_to_dense(handle, params.nrows, params.ncols, indptr, indices, data,
                  params.nrows, out, stream, true);
 
     CUDA_CHECK(cudaStreamSynchronize(stream));

@@ -31,6 +31,8 @@
 #include <string>
 #include "optimize_batch_kernel.cuh"
 
+#include <sparse/op/filter.cuh>
+
 #pragma once
 
 namespace UMAPAlgo {
@@ -229,7 +231,7 @@ void launcher(int m, int n, raft::sparse::COO<T> *in, UMAPParams *params,
     stream);
 
   raft::sparse::COO<T> out(d_alloc, stream);
-  raft::sparse::coo_remove_zeros<TPB_X, T>(in, &out, d_alloc, stream);
+  raft::sparse::op::coo_remove_zeros<TPB_X, T>(in, &out, d_alloc, stream);
 
   MLCommon::device_buffer<T> epochs_per_sample(d_alloc, stream, out.nnz);
   CUDA_CHECK(

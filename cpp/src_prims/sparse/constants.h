@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,21 +14,16 @@
  * limitations under the License.
  */
 
+
 #pragma once
 
-namespace raft {
+#include <algorithm>
 
+namespace raft {
 namespace sparse {
 
-template <typename T>
-struct COOInputs {
-  int m, n, nnz;
-  unsigned long long int seed;
-};
+static const float MIN_FLOAT = std::numeric_limits<float>::min();
 
-template <typename T>
-::std::ostream &operator<<(::std::ostream &os, const COOInputs<T> &dims) {
-  return os;
-}
-}  // namespace sparse
-}  // namespace raft
+
+};
+};

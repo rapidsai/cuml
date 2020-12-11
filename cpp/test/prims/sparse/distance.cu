@@ -24,7 +24,7 @@
 
 #include <common/device_buffer.hpp>
 
-#include <sparse/distance.cuh>
+#include <sparse/distance/distance.cuh>
 
 #include <test_utils.h>
 

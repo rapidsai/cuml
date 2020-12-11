@@ -22,7 +22,7 @@
 #include <selection/knn.cuh>
 #include <sparse/coo.cuh>
 #include <sparse/csr.cuh>
-#include <sparse/distance.cuh>
+#include <sparse/distance/distance.cuh>
 
 #include <faiss/gpu/GpuDistance.h>
 #include <faiss/gpu/GpuIndexFlat.h>
@@ -44,23 +44,6 @@ namespace raft {
 namespace sparse {
 namespace selection {
 
-template <typename value_idx>
-__global__ void iota_fill_warp_kernel(value_idx *indices, value_idx ncols) {
-  int row = blockIdx.x;
-  int tid = threadIdx.x;
-
-  for (int i = tid; i < ncols; i += blockDim.x) {
-    indices[row * ncols + i] = i;
-  }
-}
-
-template <typename value_idx>
-void iota_fill(value_idx *indices, value_idx nrows, value_idx ncols,
-               cudaStream_t stream) {
-  int blockdim = block_dim(ncols);
-
-  iota_fill_warp_kernel<<<nrows, blockdim, 0, stream>>>(indices, ncols);
-}
 
 template <typename K, typename IndexType, bool select_min, int warp_q,
           int thread_q, int tpb>

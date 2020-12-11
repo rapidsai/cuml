@@ -25,6 +25,8 @@
 
 #include <raft/stats/mean.cuh>
 #include <sparse/coo.cuh>
+#include <sparse/linalg/symmetrize.cuh>
+#include <sparse/op/sort.h>
 
 #include <cuda_runtime.h>
 
@@ -329,7 +331,7 @@ void launcher(int n, const value_idx *knn_indices, const float *knn_dists,
    * one via a fuzzy union. (Symmetrize knn graph).
    */
   float set_op_mix_ratio = params->set_op_mix_ratio;
-  raft::sparse::coo_symmetrize<TPB_X, value_t>(
+  raft::sparse::linalg::coo_symmetrize<TPB_X, value_t>(
     &in, out,
     [set_op_mix_ratio] __device__(int row, int col, value_t result,
                                   value_t transpose) {
@@ -340,7 +342,7 @@ void launcher(int n, const value_idx *knn_indices, const float *knn_dists,
     },
     d_alloc, stream);
 
-  raft::sparse::coo_sort<value_t>(out, d_alloc, stream);
+  raft::sparse::op::coo_sort<value_t>(out, d_alloc, stream);
 }
 }  // namespace Naive
 }  // namespace FuzzySimplSet

@@ -22,7 +22,7 @@
 #include <raft/sparse/cusparse_wrappers.h>
 #include <test_utils.h>
 #include <cuml/common/logger.hpp>
-#include <sparse/knn.cuh>
+#include <sparse/selection/knn.cuh>
 
 namespace MLCommon {
 namespace Sparse {

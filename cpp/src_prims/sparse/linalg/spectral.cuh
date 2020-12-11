@@ -20,7 +20,8 @@
 #include <cuml/common/cuml_allocator.hpp>
 #include <raft/cuda_utils.cuh>
 #include <selection/knn.cuh>
-#include "coo.cuh"
+#include <sparse/coo.cuh>
+#include <sparse/convert/csr.cuh>
 
 #include <raft/spectral/partition.hpp>
 
@@ -28,28 +29,6 @@ namespace raft {
 namespace sparse {
 namespace spectral {
 
-template <typename T>
-void coo2csr(cusparseHandle_t handle, const int *srcRows, const int *srcCols,
-             const T *srcVals, int nnz, int m, int *dst_offsets, int *dstCols,
-             T *dstVals, std::shared_ptr<MLCommon::deviceAllocator> d_alloc,
-             cudaStream_t stream) {
-  MLCommon::device_buffer<int> dstRows(d_alloc, stream, nnz);
-  CUDA_CHECK(cudaMemcpyAsync(dstRows.data(), srcRows, sizeof(int) * nnz,
-                             cudaMemcpyDeviceToDevice, stream));
-  CUDA_CHECK(cudaMemcpyAsync(dstCols, srcCols, sizeof(int) * nnz,
-                             cudaMemcpyDeviceToDevice, stream));
-  auto buffSize = raft::sparse::cusparsecoosort_bufferSizeExt(
-    handle, m, m, nnz, srcRows, srcCols, stream);
-  MLCommon::device_buffer<char> pBuffer(d_alloc, stream, buffSize);
-  MLCommon::device_buffer<int> P(d_alloc, stream, nnz);
-  CUSPARSE_CHECK(cusparseCreateIdentityPermutation(handle, nnz, P.data()));
-  raft::sparse::cusparsecoosortByRow(handle, m, m, nnz, dstRows.data(), dstCols,
-                                     P.data(), pBuffer.data(), stream);
-  raft::sparse::cusparsegthr(handle, nnz, srcVals, dstVals, P.data(), stream);
-  raft::sparse::cusparsecoo2csr(handle, dstRows.data(), nnz, m, dst_offsets,
-                                stream);
-  CUDA_CHECK(cudaDeviceSynchronize());
-}
 
 template <typename T>
 void fit_embedding(cusparseHandle_t handle, int *rows, int *cols, T *vals,
@@ -59,7 +38,7 @@ void fit_embedding(cusparseHandle_t handle, int *rows, int *cols, T *vals,
   MLCommon::device_buffer<int> src_offsets(d_alloc, stream, n + 1);
   MLCommon::device_buffer<int> dst_cols(d_alloc, stream, nnz);
   MLCommon::device_buffer<T> dst_vals(d_alloc, stream, nnz);
-  coo2csr(handle, rows, cols, vals, nnz, n, src_offsets.data(), dst_cols.data(),
+  convert::coo2csr(handle, rows, cols, vals, nnz, n, src_offsets.data(), dst_cols.data(),
           dst_vals.data(), d_alloc, stream);
 
   MLCommon::device_buffer<T> eigVals(d_alloc, stream, n_components + 1);

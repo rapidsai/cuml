@@ -20,6 +20,7 @@
 #include <raft/linalg/eltwise.cuh>
 #include <selection/knn.cuh>
 #include <sparse/coo.cuh>
+#include <sparse/linalg/symmetrize.cuh>
 
 namespace ML {
 namespace TSNE {
@@ -100,7 +101,7 @@ void symmetrize_perplexity(float *P, long *indices, const int n, const int k,
   raft::linalg::scalarMultiply(P, P, div, n * k, stream);
 
   // Symmetrize to form P + P.T
-  raft::sparse::from_knn_symmetrize_matrix(indices, P, n, k, COO_Matrix, stream,
+  raft::sparse::linalg::from_knn_symmetrize_matrix(indices, P, n, k, COO_Matrix, stream,
                                            handle.get_device_allocator());
 }
 

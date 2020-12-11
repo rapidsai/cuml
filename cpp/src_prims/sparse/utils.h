@@ -43,5 +43,38 @@ inline int block_dim(value_idx ncols) {
 
   return blockdim;
 }
+
+template <typename value_idx>
+__global__ void iota_fill_block_kernel(value_idx *indices, value_idx ncols) {
+  int row = blockIdx.x;
+  int tid = threadIdx.x;
+
+  for (int i = tid; i < ncols; i += blockDim.x) {
+    indices[row * ncols + i] = i;
+  }
+}
+
+template <typename value_idx>
+void iota_fill(value_idx *indices, value_idx nrows, value_idx ncols,
+               cudaStream_t stream) {
+  int blockdim = block_dim(ncols);
+
+  iota_fill_block_kernel<<<nrows, blockdim, 0, stream>>>(indices, ncols);
+}
+
+
+
+
+template <typename T>
+__device__ int get_stop_idx(T row, T m, T nnz, const T *ind) {
+  int stop_idx = 0;
+  if (row < (m - 1))
+    stop_idx = ind[row + 1];
+  else
+    stop_idx = nnz;
+
+  return stop_idx;
+}
+
 };  // namespace sparse
 };  // namespace raft

@@ -35,7 +35,11 @@
 #include <thrust/system/cuda/execution_policy.h>
 
 #include <sparse/coo.cuh>
-#include <sparse/csr.cuh>
+#include <sparse/convert/csr.cuh>
+#include <sparse/linalg/add.cuh>
+#include <sparse/linalg/norm.cuh>
+#include <sparse/linalg/symmetrize.cuh>
+#include <sparse/op/filter.cuh>
 
 #include <raft/cuda_utils.cuh>
 
@@ -71,15 +75,15 @@ void reset_local_connectivity(COO<T> *in_coo, COO<T> *out_coo,
 ) {
   MLCommon::device_buffer<int> row_ind(d_alloc, stream, in_coo->n_rows);
 
-  raft::sparse::sorted_coo_to_csr(in_coo, row_ind.data(), d_alloc, stream);
+  raft::sparse::convert::sorted_coo_to_csr(in_coo, row_ind.data(), d_alloc, stream);
 
   // Perform l_inf normalization
-  raft::sparse::csr_row_normalize_max<TPB_X, T>(row_ind.data(), in_coo->vals(),
+  raft::sparse::linalg::csr_row_normalize_max<TPB_X, T>(row_ind.data(), in_coo->vals(),
                                                 in_coo->nnz, in_coo->n_rows,
                                                 in_coo->vals(), stream);
   CUDA_CHECK(cudaPeekAtLastError());
 
-  raft::sparse::coo_symmetrize<TPB_X, T>(
+  raft::sparse::linalg::coo_symmetrize<TPB_X, T>(
     in_coo, out_coo,
     [] __device__(int row, int col, T result, T transpose) {
       T prod_matrix = result * transpose;
@@ -170,7 +174,7 @@ void general_simplicial_set_intersection(
   CUDA_CHECK(
     cudaMemsetAsync(result_ind.data(), 0, in1->n_rows * sizeof(int), stream));
 
-  int result_nnz = raft::sparse::csr_add_calc_inds<float, 32>(
+  int result_nnz = raft::sparse::linalg::csr_add_calc_inds<float, 32>(
     row1_ind, in1->cols(), in1->vals(), in1->nnz, row2_ind, in2->cols(),
     in2->vals(), in2->nnz, in1->n_rows, result_ind.data(), d_alloc, stream);
 
@@ -179,13 +183,13 @@ void general_simplicial_set_intersection(
   /**
    * Element-wise sum of two simplicial sets
    */
-  raft::sparse::csr_add_finalize<float, 32>(
+  raft::sparse::linalg::csr_add_finalize<float, 32>(
     row1_ind, in1->cols(), in1->vals(), in1->nnz, row2_ind, in2->cols(),
     in2->vals(), in2->nnz, in1->n_rows, result_ind.data(), result->cols(),
     result->vals(), stream);
 
   //@todo: Write a wrapper function for this
-  raft::sparse::csr_to_coo<int, TPB_X>(result_ind.data(), result->n_rows,
+  raft::sparse::convert::csr_to_coo<int, TPB_X>(result_ind.data(), result->n_rows,
                                        result->rows(), result->nnz, stream);
 
   thrust::device_ptr<const T> d_ptr1 = thrust::device_pointer_cast(in1->vals());
@@ -224,7 +228,7 @@ void perform_categorical_intersection(T *y, COO<T> *rgraph_coo,
                                                     far_dist);
 
   COO<T> comp_coo(d_alloc, stream);
-  coo_remove_zeros<TPB_X, T>(rgraph_coo, &comp_coo, d_alloc, stream);
+  raft::sparse::op::coo_remove_zeros<TPB_X, T>(rgraph_coo, &comp_coo, d_alloc, stream);
 
   reset_local_connectivity<T, TPB_X>(&comp_coo, final_coo, d_alloc, stream);
 
@@ -298,11 +302,11 @@ void perform_general_intersection(const raft::handle_t &handle, value_t *y,
                              ygraph_coo.n_rows * sizeof(int), stream));
 
   COO<value_t> cygraph_coo(d_alloc, stream);
-  coo_remove_zeros<TPB_X, value_t>(&ygraph_coo, &cygraph_coo, d_alloc, stream);
+  raft::sparse::op::coo_remove_zeros<TPB_X, value_t>(&ygraph_coo, &cygraph_coo, d_alloc, stream);
 
-  raft::sparse::sorted_coo_to_csr(&cygraph_coo, yrow_ind.data(), d_alloc,
+  raft::sparse::convert::sorted_coo_to_csr(&cygraph_coo, yrow_ind.data(), d_alloc,
                                   stream);
-  raft::sparse::sorted_coo_to_csr(rgraph_coo, xrow_ind.data(), d_alloc, stream);
+  raft::sparse::convert::sorted_coo_to_csr(rgraph_coo, xrow_ind.data(), d_alloc, stream);
 
   COO<value_t> result_coo(d_alloc, stream);
   general_simplicial_set_intersection<value_t, TPB_X>(
@@ -313,7 +317,7 @@ void perform_general_intersection(const raft::handle_t &handle, value_t *y,
    * Remove zeros
    */
   COO<value_t> out(d_alloc, stream);
-  coo_remove_zeros<TPB_X, value_t>(&result_coo, &out, d_alloc, stream);
+  raft::sparse::op::coo_remove_zeros<TPB_X, value_t>(&result_coo, &out, d_alloc, stream);
 
   reset_local_connectivity<value_t, TPB_X>(&out, final_coo, d_alloc, stream);
 

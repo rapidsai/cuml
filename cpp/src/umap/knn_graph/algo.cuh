@@ -20,7 +20,7 @@
 #include <iostream>
 #include <raft/linalg/unary_op.cuh>
 #include <selection/knn.cuh>
-#include <sparse/knn.cuh>
+#include <sparse/selection/knn.cuh>
 
 #include <raft/cudart_utils.h>
 

@@ -19,11 +19,13 @@
 
 #include <raft/linalg/unary_op.cuh>
 
+#include <sparse/op/slice.h>
 #include <selection/knn.cuh>
 #include <sparse/coo.cuh>
 #include <sparse/csr.cuh>
-#include <sparse/distance.cuh>
-#include <sparse/selection.cuh>
+#include <sparse/op/slice.h>
+#include <sparse/distance/distance.cuh>
+#include <sparse/selection/selection.cuh>
 
 #include <raft/linalg/distance_type.h>
 
@@ -77,7 +79,7 @@ struct csr_batcher_t {
 
   value_idx get_batch_csr_indptr_nnz(value_idx *batch_indptr,
                                      cudaStream_t stream) {
-    raft::sparse::csr_row_slice_indptr(batch_start_, batch_stop_, csr_indptr_,
+    op::csr_row_slice_indptr(batch_start_, batch_stop_, csr_indptr_,
                                        batch_indptr, &batch_csr_start_offset_,
                                        &batch_csr_stop_offset_, stream);
 
@@ -89,7 +91,7 @@ struct csr_batcher_t {
 
   void get_batch_csr_indices_data(value_idx *csr_indices, value_t *csr_data,
                                   cudaStream_t stream) {
-    raft::sparse::csr_row_slice_populate(
+    op::csr_row_slice_populate(
       batch_csr_start_offset_, batch_csr_stop_offset_, csr_indices_, csr_data_,
       csr_indices, csr_data, stream);
   }
