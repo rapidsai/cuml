@@ -21,7 +21,6 @@ from cuml.test.utils import stress_param
 from cuml.neighbors import NearestNeighbors as cuKNN
 
 from sklearn.neighbors import NearestNeighbors as skKNN
-from sklearn.datasets.samples_generator import make_blobs
 from sklearn.datasets import make_blobs
 from sklearn.manifold.t_sne import trustworthiness
 from sklearn import datasets
@@ -173,6 +172,7 @@ def test_tsne_knn_graph_used(name, type_knn_graph):
     trust_garbage = trustworthiness(X, Y)
     print("Trust = ", trust_garbage)
     assert (trust_normal - trust_garbage) > 0.15
+
 
 def test_components_exception():
     with pytest.raises(ValueError):

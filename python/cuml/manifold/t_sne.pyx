@@ -470,11 +470,13 @@ class TSNE(Base):
                                                        low-dimensional space.',
                                        'shape': '(n_samples, n_components)'})
     @cuml.internals.api_base_return_array_skipall
-    def fit_transform(self, X, convert_dtype=True, knn_graph=None) -> CumlArray:
+    def fit_transform(self, X, convert_dtype=True,
+                      knn_graph=None) -> CumlArray:
         """
         Fit X into an embedded space and return that transformed output.
         """
-        return self.fit(X, convert_dtype=convert_dtype, knn_graph=knn_graph)._transform(X)
+        return self.fit(X, convert_dtype=convert_dtype,
+                        knn_graph=knn_graph)._transform(X)
 
     def _transform(self, X) -> CumlArray:
         """
