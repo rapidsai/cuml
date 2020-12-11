@@ -15,6 +15,8 @@
 
 import numpy as np
 import pytest
+import scipy
+import cupyx
 
 from cuml.manifold import TSNE
 from cuml.test.utils import stress_param
@@ -112,3 +114,35 @@ def test_tsne_large(nrows, ncols):
 def test_components_exception():
     with pytest.raises(ValueError):
         TSNE(n_components=3)
+
+@pytest.mark.parametrize('input_type', ['cupy', 'scipy'])
+def test_umap_transform_on_digits_sparse(input_type):
+
+    digits = datasets.load_digits()
+
+    digits_selection = np.random.RandomState(42).choice(
+        [True, False], 1797, replace=True, p=[0.60, 0.40])
+
+    if input_type == 'cupy':
+        sp_prefix = cupyx.scipy.sparse
+    else:
+        sp_prefix = scipy.sparse
+
+    data = sp_prefix.csr_matrix(
+        scipy.sparse.csr_matrix(digits.data[digits_selection]))
+
+    fitter = TSNE(2, n_neighbors=15,
+                  random_state=1,
+                  learning_rate=500,
+                  angle=0.8)
+
+    new_data = sp_prefix.csr_matrix(
+        scipy.sparse.csr_matrix(digits.data[~digits_selection]))
+
+    embedding = fitter.fit_transform(new_data, convert_dtype=True)
+
+    if input_type == 'cupy':
+        embedding = embedding.get()
+
+    trust = trustworthiness(digits.data[~digits_selection], embedding, 15)
+    assert trust >= 0.85
