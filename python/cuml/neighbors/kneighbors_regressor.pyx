@@ -231,3 +231,9 @@ class KNeighborsRegressor(NearestNeighbors, RegressorMixin):
 
     def get_param_names(self):
         return super().get_param_names() + ["weights"]
+
+    def _more_tags(self):
+        return {
+            # fit and predict require conflicting memory layouts
+            'preferred_input_order': 'F'
+        }
