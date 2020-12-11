@@ -357,6 +357,8 @@ class TSNE(Base):
         self.pre_learning_rate = learning_rate
         self.post_learning_rate = learning_rate * 2
 
+        self.sparse_fit = False
+
     @generate_docstring(convert_dtype_cast='np.float32')
     def fit(self, X, convert_dtype=True) -> "TSNE":
         """
