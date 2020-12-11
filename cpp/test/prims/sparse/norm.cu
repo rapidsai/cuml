@@ -20,7 +20,7 @@
 #include <raft/random/rng.cuh>
 #include <sparse/csr.cuh>
 #include <sparse/linalg/norm.cuh>
-#include "test_utils.h"
+#include <test_utils.h>
 
 #include <iostream>
 #include <limits>

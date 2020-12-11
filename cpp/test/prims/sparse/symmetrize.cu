@@ -17,7 +17,7 @@
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
 #include <raft/random/rng.cuh>
-#include "test_utils.h"
+#include <test_utils.h>
 
 #include <sparse/coo.cuh>
 #include <sparse/linalg/symmetrize.cuh>
