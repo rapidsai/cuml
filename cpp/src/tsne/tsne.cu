@@ -114,7 +114,7 @@ void TSNE_fit(const raft::handle_t &handle, const float *X, float *Y,
   //---------------------------------------------------
   // Convert data to COO layout
   raft::sparse::COO<float> COO_Matrix(d_alloc, stream);
-  TSNE::symmetrize_perplexity(P.data(), knn_indices.data(), n, n_neighbors,
+  TSNE::symmetrize_perplexity(P.data(), knn_indices, n, n_neighbors,
                               early_exaggeration, &COO_Matrix, stream, handle);
   P.release(stream);
   if (knn_indices_b) delete knn_indices_b;
