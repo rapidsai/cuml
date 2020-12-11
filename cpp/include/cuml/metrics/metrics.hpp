@@ -95,7 +95,7 @@ double rand_index(const raft::handle_t &handle, double *y, double *y_hat,
 */
 double silhouette_score(const raft::handle_t &handle, double *y, int nRows,
                         int nCols, int *labels, int nLabels, double *silScores,
-                        int metric);
+                        raft::distance::DistanceType metric);
 /**
 * Calculates the "adjusted rand index"
 *
