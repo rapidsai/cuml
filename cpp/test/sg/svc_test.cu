@@ -1295,7 +1295,7 @@ class SvrTest : public ::testing::Test {
          {2, 3}         //y
        },
        smoOutput2<math_t>{
-         2, {-0.8, 0.8}, 1.3, {0.8}, {1, 2, 5, 5}, {0, 1}, {2.1, 2.9}}},
+         2, {-0.8, 0.8}, 1.3, {0.8, 0.0}, {1, 2, 5, 5}, {0, 1}, {2.1, 2.9}}},
 
       {SvrInput<math_t>{
          svmParameter{1, 0, 100, 10, 1e-6, CUML_LEVEL_INFO, 0.1, EPSILON_SVR},
