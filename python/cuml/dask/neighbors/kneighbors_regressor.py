@@ -39,6 +39,27 @@ class KNeighborsRegressor(NearestNeighbors):
     K-Nearest Neighbors Regressor is an instance-based learning technique,
     that keeps training samples around for prediction, rather than trying
     to learn a generalizable set of model parameters.
+
+    Parameters
+    ----------
+    n_neighbors : int (default=5)
+        Default number of neighbors to query
+    batch_size: int (optional, default 2000000)
+        Maximum number of query rows processed at once. This parameter can
+        greatly affect the throughput of the algorithm. The optimal setting
+        of this value will vary for different layouts and index to query
+        ratios, but it will require `batch_size * n_features * 4` bytes of
+        additional memory on each worker hosting index partitions.
+    handle : cuml.Handle
+        Specifies the cuml.handle that holds internal CUDA state for
+        computations in this model. Most importantly, this specifies the CUDA
+        stream that will be used for the model's computations, so users can
+        run different models concurrently in different streams by creating
+        handles in several streams.
+        If it is None, a new one is created.
+    verbose : int or boolean, default=False
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        See :ref:`verbosity-levels` for more info.
     """
     def __init__(self, client=None, streams_per_handle=0,
                  verbose=False, **kwargs):
@@ -186,24 +207,9 @@ class KNeighborsRegressor(NearestNeighbors):
                                               knn_reg_res,
                                               getter_func=_custom_getter(0))
 
-        out_i_futures = flatten_grouped_results(self.client,
-                                                query_parts_to_ranks,
-                                                knn_reg_res,
-                                                getter_func=_custom_getter(1))
-
-        out_d_futures = flatten_grouped_results(self.client,
-                                                query_parts_to_ranks,
-                                                knn_reg_res,
-                                                getter_func=_custom_getter(2))
-
         comms.destroy()
 
-        out = to_output(out_futures, self.datatype).squeeze()
-
-        out_i = to_output(out_i_futures, self.datatype)  # noqa: F841
-        out_d = to_output(out_d_futures, self.datatype)  # noqa: F841
-
-        return out
+        return to_output(out_futures, self.datatype).squeeze()
 
     def score(self, X, y):
         """

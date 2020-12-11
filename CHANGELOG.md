@@ -1,12 +1,20 @@
+# cuML 0.18.0 (Date TBD)
+
+## New Features
+
+## Improvements
+
+## Bug Fixes
+- PR #3279: Correct pure virtual declaration in manifold_inputs_t
+
 # cuML 0.17.0 (Date TBD)
 
 ## New Features
-- PR #3164: Expose silhouette score in Python
-- PR #3214: Correct flaky silhouette score test by setting atol
+- PR #3160: Least Angle Regression (experimental)
 - PR #2659: Add initial max inner product sparse knn
 - PR #3092: Multiclass meta estimator wrappers and multiclass SVC
 - PR #2836: Refactor UMAP to accept sparse inputs
-- PR #3186: Add gain to RF JSON dump
+- PR #3126: Experimental versions of GPU accelerated Kernel and Permutation SHAP
 
 ## Improvements
 - PR #3077: Improve runtime for test_kmeans
@@ -20,6 +28,7 @@
 - PR #2956: Follow cuML array conventions in ARIMA and remove redundancy
 - PR #3000: Pin cmake policies to cmake 3.17 version, bump project version to 0.17
 - PR #3083: Improving test_make_blobs testing time
+- PR #3223: Increase default SVM kernel cache to 2000 MiB
 - PR #2906: Moving `linalg` decomp to RAFT namespaces
 - PR #2988: FIL: use tree-per-class reduction for GROVE_PER_CLASS_FEW_CLASSES
 - PR #2996: Removing the max_depth restriction for switching to the batched backend
@@ -34,7 +43,7 @@
 - PR #3115: Speeding up MNMG UMAP testing
 - PR #3112: Speed test_array
 - PR #3111: Adding Cython to Code Coverage
-- PR #3129:  Update notebooks README
+- PR #3129: Update notebooks README
 - PR #3002: Update flake8 Config To With Per File Settings
 - PR #3135: Add QuasiNewton tests
 - PR #3040: Improved Array Conversion with CumlArrayDescriptor and Decorators
@@ -47,8 +56,17 @@
 - PR #3155: Eliminate unnecessary warnings from random projection test
 - PR #3176: Add probabilistic SVM tests with various input array types
 - PR #3180: FIL: `blocks_per_sm` support in Python
+- PR #3186: Add gain to RF JSON dump
+- PR #3219: Update CI to use XGBoost 1.3.0 RCs
+- PR #3221: Update contributing doc for label support
+- PR #3177: Make Multinomial Naive Bayes inherit from `ClassifierMixin` and use it for score
+- PR #3241: Updating RAFT to latest
+- PR #3240: Minor doc updates
 
 ## Bug Fixes
+- PR #3164: Expose silhouette score in Python
+- PR #3258: Revert silhouette_score Python exposure due to memory issue
+- PR #3218: Specify dependency branches in conda dev environment to avoid pip resolver issue
 - PR #3196: Disable ascending=false path for sortColumnsPerRow
 - PR #3051: MNMG KNN Cl&Re fix + multiple improvements
 - PR #3179: Remove unused metrics.cu file
@@ -81,11 +99,22 @@
 - PR #3152: Fix access to attributes of individual NB objects in dask NB
 - PR #3156: Force local conda artifact install
 - PR #3162: Removing accidentally checked in debug file
+- PR #3191: Fix __repr__ function for preprocessing models
 - PR #3175: Fix gtest pinned cmake version for build from source option
 - PR #3182: Fix a bug in MSE metric calculation
+- PR #3187: Update docstring to document behavior of `bootstrap=False`
+- PR #3215: Add a missing `__syncthreads()`
+- PR #3246: Fix MNMG KNN doc (adding batch_size)
+- PR #3185: Add documentation for Distributed TFIDF Transformer
 - PR #3190: Fix Attribute error on ICPA #3183 and PCA input type
 - PR #3208: Fix EXITCODE override in notebook test script
-
+- PR #3250: Fixing label binarizer bug with multiple partitions
+- PR #3214: Correct flaky silhouette score test by setting atol
+- PR #3216: Ignore splits that do not satisfy constraints
+- PR #3239: Fix intermittent dask random forest failure
+- PR #3243: Avoid unnecessary split for degenerate case where all labels are identical
+- PR #3245: Rename `rows_sample` -> `max_samples` to be consistent with sklearn's RF
+- PR #3282: Add secondary test to kernel explainer pytests for stability in Volta
 
 # cuML 0.16.0 (23 Oct 2020)
 

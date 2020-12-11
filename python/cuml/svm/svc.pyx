@@ -157,11 +157,10 @@ class SVC(SVMBase, ClassifierMixin):
         sigmoid
     tol : float (default = 1e-3)
         Tolerance for stopping criterion.
-    cache_size : float (default = 200.0)
-        Size of the kernel cache during training in MiB. The default is a
-        conservative value, increase it to improve the training time, at
-        the cost of higher memory footprint. After training the kernel
-        cache is deallocated.
+    cache_size : float (default = 1024.0)
+        Size of the kernel cache during training in MiB. Increase it to improve
+        the training time, at the cost of higher memory footprint. After
+        training the kernel cache is deallocated.
         During prediction, we also need a temporary space to store kernel
         matrix elements (this can be signifficant if n_support is large).
         The cache_size variable sets an upper limit to the prediction
@@ -244,7 +243,7 @@ class SVC(SVMBase, ClassifierMixin):
     """
 
     def __init__(self, handle=None, C=1, kernel='rbf', degree=3,
-                 gamma='scale', coef0=0.0, tol=1e-3, cache_size=200.0,
+                 gamma='scale', coef0=0.0, tol=1e-3, cache_size=1024.0,
                  max_iter=-1, nochange_steps=1000, verbose=False,
                  output_type=None, probability=False, random_state=None,
                  class_weight=None, multiclass_strategy='ovo'):

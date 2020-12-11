@@ -27,12 +27,9 @@ import cudf
 from cuml.ensemble import RandomForestClassifier as curfc
 from cuml.metrics.cluster import adjusted_rand_score as cu_ars
 from cuml.metrics import accuracy_score as cu_acc_score
-from cuml.metrics.cluster import silhouette_score as cu_silhouette_score
-from cuml.metrics.cluster import silhouette_samples as cu_silhouette_samples
 from cuml.test.utils import get_handle, get_pattern, array_equal, \
     unit_param, quality_param, stress_param, generate_random_labels, \
     score_labeling_with_handle
-from cupy.testing import assert_allclose
 
 from numba import cuda
 from numpy.testing import assert_almost_equal
@@ -44,8 +41,6 @@ from sklearn.metrics.cluster import adjusted_rand_score as sk_ars
 from sklearn.metrics.cluster import homogeneity_score as sk_homogeneity_score
 from sklearn.metrics.cluster import completeness_score as sk_completeness_score
 from sklearn.metrics.cluster import mutual_info_score as sk_mutual_info_score
-from sklearn.metrics.cluster import silhouette_score as sk_silhouette_score
-from sklearn.metrics.cluster import silhouette_samples as sk_silhouette_samples
 from sklearn.preprocessing import StandardScaler
 
 from cuml.metrics.cluster import entropy
@@ -225,26 +220,6 @@ def test_rand_index_score(name, nrows):
     cu_score_using_sk = sk_ars(y, cp.asnumpy(cu_y_pred))
 
     assert array_equal(cu_score, cu_score_using_sk)
-
-
-@pytest.mark.parametrize('metric', (
-    'cityblock', 'cosine', 'euclidean', 'l1', 'sqeuclidean'
-))
-def test_silhouette_score(metric, labeled_clusters):
-    X, labels = labeled_clusters
-    cuml_score = cu_silhouette_score(X, labels, metric=metric)
-    sk_score = sk_silhouette_score(X, labels, metric=metric)
-    assert_almost_equal(cuml_score, sk_score)
-
-
-@pytest.mark.parametrize('metric', (
-    'cityblock', 'cosine', 'euclidean', 'l1', 'sqeuclidean'
-))
-def test_silhouette_samples(metric, labeled_clusters):
-    X, labels = labeled_clusters
-    cuml_scores = cu_silhouette_samples(X, labels, metric=metric)
-    sk_scores = sk_silhouette_samples(X, labels, metric=metric)
-    assert_allclose(cuml_scores, sk_scores, rtol=1e-2, atol=1e-5)
 
 
 def score_homogeneity(ground_truth, predictions, use_handle):

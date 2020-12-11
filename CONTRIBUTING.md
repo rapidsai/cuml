@@ -41,9 +41,20 @@ into three categories:
 ### A note related to our CI process
 After you have started a PR (refer to step 6 in the previous section), every time you do a `git push <yourRemote> <pr-branch>`, it triggers a new CI run on all the commits thus far. Even though GPUCI has mechanisms to deal with this to a certain extent, if you keep `push`ing too frequently, it might just clog our GPUCI servers and slow down every PR and conda package generation! So, please be mindful of this and try not to do many frequent pushes.
 
-To quantify this, the average check in our CI takes between 25 and 32 minutes on our servers. The GPUCI infrastructure has limited resources, so if the servers get overwhelmed, every current active PR will not be able to correctly schedule CI.
+To quantify this, the average check in our CI takes between 80 and 90 minutes on our servers. The GPUCI infrastructure has limited resources, so if the servers get overwhelmed, every current active PR will not be able to correctly schedule CI.
 
 Remember, if you are unsure about anything, don't hesitate to comment on issues and ask for clarifications!
+
+### Managing PR labels
+
+Each PR must be labeled according to whether it is a "breaking" or "non-breaking" change (using Github labels). This is used to highlight changes that users should know about when upgrading.
+
+For cuML, a "breaking" change is one that modifies the public, non-experimental, Python API in a
+non-backward-compatible way. The C++ API does not have an expectation of backward compatibility at this
+time, so changes to it are not typically considered breaking. Backward-compatible API changes to the Python
+API (such as adding a new keyword argument to a function) do not need to be labeled.
+
+Additional labels must be applied to indicate whether the change is a feature, improvement, bugfix, or documentation change. See the shared RAPIDS documentation for these labels: https://github.com/rapidsai/kb/issues/42.
 
 ### Seasoned developers
 

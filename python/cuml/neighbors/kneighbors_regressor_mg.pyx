@@ -67,9 +67,8 @@ class KNeighborsRegressorMG(KNeighborsMG):
     that keeps training samples around for prediction, rather than trying
     to learn a generalizable set of model parameters.
     """
-    def __init__(self, batch_size=1024, **kwargs):
+    def __init__(self, **kwargs):
         super(KNeighborsRegressorMG, self).__init__(**kwargs)
-        self.batch_size = batch_size
 
     @cuml.internals.api_base_return_generic_skipall
     def predict(
