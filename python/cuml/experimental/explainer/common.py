@@ -148,7 +148,6 @@ def get_link_fn_from_str_or_fn(link):
 
 # temporary function while explainers adopt decorators and cumlarray descriptor
 def output_list_shap_values(X, dimensions, output_type):
-    print(type(X))
     if output_type == 'cupy':
         if dimensions == 1:
             return X[0]
