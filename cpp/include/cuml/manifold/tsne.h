@@ -30,6 +30,8 @@ namespace ML {
  * @param[out] Y                   The final embedding.
  * @param[in]  n                   Number of rows in data X.
  * @param[in]  p                   Number of columns in data X.
+ * @param[in]  knn_indices         Array containing nearest neighors indices.
+ * @param[in]  knn_dists           Array containing nearest neighors distances.
  * @param[in]  dim                 Number of output dimensions for embeddings Y.
  * @param[in]  n_neighbors         Number of nearest neighbors used.
  * @param[in]  theta               Float between 0 and 1. Tradeoff for speed (0)
@@ -72,10 +74,10 @@ namespace ML {
  * its Applications to Modern Data (https://arxiv.org/abs/1807.11824).
  */
 void TSNE_fit(const raft::handle_t &handle, const float *X, float *Y,
-              const int n, const int p, const int dim = 2,
-              int n_neighbors = 1023, const float theta = 0.5f,
-              const float epssq = 0.0025, float perplexity = 50.0f,
-              const int perplexity_max_iter = 100,
+              const int n, const int p, int64_t *knn_indices, float *knn_dists,
+              const int dim = 2, int n_neighbors = 1023,
+              const float theta = 0.5f, const float epssq = 0.0025,
+              float perplexity = 50.0f, const int perplexity_max_iter = 100,
               const float perplexity_tol = 1e-5,
               const float early_exaggeration = 12.0f,
               const int exaggeration_iter = 250, const float min_gain = 0.01f,

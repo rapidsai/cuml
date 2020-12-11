@@ -53,7 +53,7 @@ gpuci_conda_retry install -c conda-forge -c rapidsai -c rapidsai-nightly -c nvid
       "dask-cudf=${MINOR_VERSION}" \
       "dask-cuda=${MINOR_VERSION}" \
       "ucx-py=${MINOR_VERSION}" \
-      "xgboost=1.2.0dev.rapidsai${MINOR_VERSION}" \
+      "xgboost=1.3.0dev.rapidsai${MINOR_VERSION}" \
       "rapids-build-env=${MINOR_VERSION}.*" \
       "rapids-notebook-env=${MINOR_VERSION}.*" \
       "rapids-doc-env=${MINOR_VERSION}.*"
@@ -70,8 +70,8 @@ fi
 
 gpuci_logger "Install the master version of dask and distributed"
 set -x
-pip install "git+https://github.com/dask/distributed.git" --upgrade --no-deps
-pip install "git+https://github.com/dask/dask.git" --upgrade --no-deps
+pip install "git+https://github.com/dask/distributed.git@master" --upgrade --no-deps
+pip install "git+https://github.com/dask/dask.git@master" --upgrade --no-deps
 set +x
 
 gpuci_logger "Check compiler versions"
@@ -110,9 +110,6 @@ if [[ -z "$PROJECT_FLASH" || "$PROJECT_FLASH" == "0" ]]; then
     ################################################################################
     # TEST - Run GoogleTest and py.tests for libcuml and cuML
     ################################################################################
-    set +e -Eo pipefail
-    EXITCODE=0
-    trap "EXITCODE=1" ERR
     
     if hasArg --skip-tests; then
         gpuci_logger "Skipping Tests"
@@ -139,6 +136,9 @@ if [[ -z "$PROJECT_FLASH" || "$PROJECT_FLASH" == "0" ]]; then
     ################################################################################
     # TEST - Run notebook tests
     ################################################################################
+    set +e -Eo pipefail
+    EXITCODE=0
+    trap "EXITCODE=1" ERR
 
     gpuci_logger "Notebook tests"
     ${WORKSPACE}/ci/gpu/test-notebooks.sh 2>&1 | tee nbtest.log
@@ -239,6 +239,10 @@ else
     unset LIBCUML_BUILD_DIR
     $WORKSPACE/build.sh cppdocs -v
 
+fi
+
+if [ -n "\${CODECOV_TOKEN}" ]; then
+    codecov -t \$CODECOV_TOKEN
 fi
 
 return ${EXITCODE}
