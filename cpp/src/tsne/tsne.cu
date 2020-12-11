@@ -27,8 +27,8 @@
 
 namespace ML {
 
-void TSNE_fit(const raft::handle_t &handle, const float *X, float *Y, const int n,
-              const int p, int64_t *knn_indices, float *knn_dists,
+void TSNE_fit(const raft::handle_t &handle, const float *X, float *Y,
+              const int n, const int p, int64_t *knn_indices, float *knn_dists,
               const int dim, int n_neighbors, const float theta,
               const float epssq, float perplexity,
               const int perplexity_max_iter, const float perplexity_tol,
@@ -105,9 +105,8 @@ void TSNE_fit(const raft::handle_t &handle, const float *X, float *Y, const int 
   // Optimal perplexity
   CUML_LOG_DEBUG("Searching for optimal perplexity via bisection search.");
   MLCommon::device_buffer<float> P(d_alloc, stream, n * n_neighbors);
-  TSNE::perplexity_search(
-    knn_dists, P.data(), perplexity, perplexity_max_iter, perplexity_tol, n,
-    n_neighbors, handle);
+  TSNE::perplexity_search(knn_dists, P.data(), perplexity, perplexity_max_iter,
+                          perplexity_tol, n, n_neighbors, handle);
   //---------------------------------------------------
   END_TIMER(PerplexityTime);
 
