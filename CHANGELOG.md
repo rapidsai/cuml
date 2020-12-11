@@ -1,4 +1,13 @@
-# cuML 0.17.0 (10 Dec 2020)
+# cuML 0.18.0 (Date TBD)
+
+## New Features
+
+## Improvements
+
+## Bug Fixes
+- PR #3279: Correct pure virtual declaration in manifold_inputs_t
+
+# cuML 0.17.0 (Date TBD)
 
 ## New Features
 - PR #3160: Least Angle Regression (experimental)
