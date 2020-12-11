@@ -51,8 +51,6 @@ namespace Supervised {
 
 using namespace ML;
 
-using namespace raft::sparse;
-
 template <int TPB_X, typename T>
 __global__ void fast_intersection_kernel(int *rows, int *cols, T *vals, int nnz,
                                          T *target, float unknown_dist = 1.0,
@@ -69,7 +67,7 @@ __global__ void fast_intersection_kernel(int *rows, int *cols, T *vals, int nnz,
 }
 
 template <typename T, int TPB_X>
-void reset_local_connectivity(COO<T> *in_coo, COO<T> *out_coo,
+void reset_local_connectivity(raft::sparse::COO<T> *in_coo, raft::sparse::COO<T> *out_coo,
                               std::shared_ptr<deviceAllocator> d_alloc,
                               cudaStream_t stream  // size = nnz*2
 ) {
@@ -103,7 +101,7 @@ void reset_local_connectivity(COO<T> *in_coo, COO<T> *out_coo,
  * data.
  */
 template <typename value_t, int TPB_X>
-void categorical_simplicial_set_intersection(COO<value_t> *graph_coo,
+void categorical_simplicial_set_intersection(raft::sparse::COO<value_t> *graph_coo,
                                              value_t *target,
                                              cudaStream_t stream,
                                              float far_dist = 5.0,
@@ -169,7 +167,7 @@ __global__ void sset_intersection_kernel(
  */
 template <typename T, int TPB_X>
 void general_simplicial_set_intersection(
-  int *row1_ind, COO<T> *in1, int *row2_ind, COO<T> *in2, COO<T> *result,
+  int *row1_ind, raft::sparse::COO<T> *in1, int *row2_ind, raft::sparse::COO<T> *in2, raft::sparse::COO<T> *result,
   float weight, std::shared_ptr<deviceAllocator> d_alloc, cudaStream_t stream) {
   MLCommon::device_buffer<int> result_ind(d_alloc, stream, in1->n_rows);
   CUDA_CHECK(
@@ -217,8 +215,8 @@ void general_simplicial_set_intersection(
 }
 
 template <int TPB_X, typename T>
-void perform_categorical_intersection(T *y, COO<T> *rgraph_coo,
-                                      COO<T> *final_coo, UMAPParams *params,
+void perform_categorical_intersection(T *y, raft::sparse::COO<T> *rgraph_coo,
+                                      raft::sparse::COO<T> *final_coo, UMAPParams *params,
                                       std::shared_ptr<deviceAllocator> d_alloc,
                                       cudaStream_t stream) {
   float far_dist = 1.0e12;  // target weight
@@ -228,7 +226,7 @@ void perform_categorical_intersection(T *y, COO<T> *rgraph_coo,
   categorical_simplicial_set_intersection<T, TPB_X>(rgraph_coo, y, stream,
                                                     far_dist);
 
-  COO<T> comp_coo(d_alloc, stream);
+  raft::sparse::COO<T> comp_coo(d_alloc, stream);
   raft::sparse::op::coo_remove_zeros<TPB_X, T>(rgraph_coo, &comp_coo, d_alloc,
                                                stream);
 
@@ -239,8 +237,8 @@ void perform_categorical_intersection(T *y, COO<T> *rgraph_coo,
 
 template <int TPB_X, typename value_idx, typename value_t>
 void perform_general_intersection(const raft::handle_t &handle, value_t *y,
-                                  COO<value_t> *rgraph_coo,
-                                  COO<value_t> *final_coo, UMAPParams *params,
+                                  raft::sparse::COO<value_t> *rgraph_coo,
+                                  raft::sparse::COO<value_t> *final_coo, UMAPParams *params,
                                   cudaStream_t stream) {
   auto d_alloc = handle.get_device_allocator();
 
@@ -278,7 +276,7 @@ void perform_general_intersection(const raft::handle_t &handle, value_t *y,
   /**
    * Compute fuzzy simplicial set
    */
-  COO<value_t> ygraph_coo(d_alloc, stream);
+  raft::sparse::COO<value_t> ygraph_coo(d_alloc, stream);
 
   FuzzySimplSet::run<TPB_X, value_idx, value_t>(
     rgraph_coo->n_rows, y_knn_indices.data(), y_knn_dists.data(),
@@ -303,7 +301,7 @@ void perform_general_intersection(const raft::handle_t &handle, value_t *y,
   CUDA_CHECK(cudaMemsetAsync(yrow_ind.data(), 0,
                              ygraph_coo.n_rows * sizeof(int), stream));
 
-  COO<value_t> cygraph_coo(d_alloc, stream);
+  raft::sparse::COO<value_t> cygraph_coo(d_alloc, stream);
   raft::sparse::op::coo_remove_zeros<TPB_X, value_t>(&ygraph_coo, &cygraph_coo,
                                                      d_alloc, stream);
 
@@ -312,7 +310,7 @@ void perform_general_intersection(const raft::handle_t &handle, value_t *y,
   raft::sparse::convert::sorted_coo_to_csr(rgraph_coo, xrow_ind.data(), d_alloc,
                                            stream);
 
-  COO<value_t> result_coo(d_alloc, stream);
+  raft::sparse::COO<value_t> result_coo(d_alloc, stream);
   general_simplicial_set_intersection<value_t, TPB_X>(
     xrow_ind.data(), rgraph_coo, yrow_ind.data(), &cygraph_coo, &result_coo,
     params->target_weights, d_alloc, stream);
@@ -320,7 +318,7 @@ void perform_general_intersection(const raft::handle_t &handle, value_t *y,
   /**
    * Remove zeros
    */
-  COO<value_t> out(d_alloc, stream);
+  raft::sparse::COO<value_t> out(d_alloc, stream);
   raft::sparse::op::coo_remove_zeros<TPB_X, value_t>(&result_coo, &out, d_alloc,
                                                      stream);
 

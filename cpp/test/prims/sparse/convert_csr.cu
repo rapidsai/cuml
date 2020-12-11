@@ -19,6 +19,7 @@
 #include <test_utils.h>
 #include <raft/random/rng.cuh>
 
+#include <raft/mr/device/allocator.hpp>
 #include <sparse/convert/csr.cuh>
 #include <sparse/coo.cuh>
 
@@ -58,7 +59,7 @@ typedef SparseConvertCSRTest<float> SortedCOOToCSR;
 TEST_P(SortedCOOToCSR, Result) {
   cudaStream_t stream;
   cudaStreamCreate(&stream);
-  std::shared_ptr<MLCommon::deviceAllocator> alloc(
+  std::shared_ptr<raft::mr::device::allocator> alloc(
     new raft::mr::device::default_allocator);
 
   int nnz = 8;

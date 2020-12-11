@@ -23,6 +23,7 @@
 #include <raft/cudart_utils.h>
 #include <raft/sparse/cusparse_wrappers.h>
 #include <raft/cuda_utils.cuh>
+#include <raft/mr/device/allocator.hpp>
 #include <raft/mr/device/buffer.hpp>
 
 #include <thrust/device_ptr.h>
@@ -46,7 +47,7 @@ namespace convert {
 template <typename T>
 void coo2csr(cusparseHandle_t handle, const int *srcRows, const int *srcCols,
              const T *srcVals, int nnz, int m, int *dst_offsets, int *dstCols,
-             T *dstVals, std::shared_ptr<MLCommon::deviceAllocator> d_alloc,
+             T *dstVals, std::shared_ptr<raft::mr::device::allocator> d_alloc,
              cudaStream_t stream) {
   raft::mr::device::buffer<int> dstRows(d_alloc, stream, nnz);
   CUDA_CHECK(cudaMemcpyAsync(dstRows.data(), srcRows, sizeof(int) * nnz,
@@ -148,7 +149,7 @@ void csr_adj_graph(const Index_ *row_ind, Index_ total_rows, Index_ nnz,
  */
 template <typename T>
 void sorted_coo_to_csr(const T *rows, int nnz, T *row_ind, int m,
-                       std::shared_ptr<MLCommon::deviceAllocator> d_alloc,
+                       std::shared_ptr<raft::mr::device::allocator> d_alloc,
                        cudaStream_t stream) {
   raft::mr::device::buffer<T> row_counts(d_alloc, stream, m);
 
@@ -174,7 +175,7 @@ void sorted_coo_to_csr(const T *rows, int nnz, T *row_ind, int m,
  */
 template <typename T>
 void sorted_coo_to_csr(COO<T> *coo, int *row_ind,
-                       std::shared_ptr<MLCommon::deviceAllocator> d_alloc,
+                       std::shared_ptr<raft::mr::device::allocator> d_alloc,
                        cudaStream_t stream) {
   sorted_coo_to_csr(coo->rows(), coo->nnz, row_ind, coo->n_rows, d_alloc,
                     stream);

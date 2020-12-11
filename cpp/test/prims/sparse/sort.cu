@@ -20,6 +20,7 @@
 #include <raft/random/rng.cuh>
 
 #include <sparse/op/sort.h>
+#include <raft/mr/device/allocator.hpp>
 
 #include <iostream>
 
@@ -54,7 +55,7 @@ TEST_P(COOSort, Result) {
   raft::random::Rng r(params.seed);
   cudaStream_t stream;
   CUDA_CHECK(cudaStreamCreate(&stream));
-  std::shared_ptr<MLCommon::deviceAllocator> alloc(
+  std::shared_ptr<raft::mr::device::allocator> alloc(
     new raft::mr::device::default_allocator);
 
   raft::allocate(in_vals, params.nnz);

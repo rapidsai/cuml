@@ -20,6 +20,7 @@
 #include <raft/random/rng.cuh>
 
 #include <sparse/op/sort.h>
+#include <raft/mr/device/allocator.hpp>
 #include <sparse/coo.cuh>
 #include <sparse/op/filter.cuh>
 
@@ -52,7 +53,7 @@ typedef SparseFilterTests<float> COORemoveZeros;
 TEST_P(COORemoveZeros, Result) {
   cudaStream_t stream;
   cudaStreamCreate(&stream);
-  std::shared_ptr<MLCommon::deviceAllocator> alloc(
+  std::shared_ptr<raft::mr::device::allocator> alloc(
     new raft::mr::device::default_allocator);
   params = ::testing::TestWithParam<SparseFilterInputs<float>>::GetParam();
 
