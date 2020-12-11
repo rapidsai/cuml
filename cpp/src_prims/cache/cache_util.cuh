@@ -49,10 +49,10 @@ __global__ void get_vecs(const math_t *cache, int n_vec, const int *cache_idx,
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
   int row = tid % n_vec;  // row idx
   if (tid < n_vec * n) {
-    int out_col = tid / n_vec;  // col idx
-    int cache_col = cache_idx[out_col];
+    size_t out_col = tid / n_vec;  // col idx
+    size_t cache_col = cache_idx[out_col];
     if (cache_idx[out_col] >= 0) {
-      if (row + out_col * n_vec < n_vec * n) {
+      if (row + out_col * n_vec < (size_t)n_vec * n) {
         out[tid] = cache[row + cache_col * n_vec];
       }
     }
@@ -99,7 +99,8 @@ __global__ void store_vecs(const math_t *tile, int n_tile, int n_vec,
     // We ignore negative values. The rest of the checks should be fulfilled
     // if the cache is used properly
     if (cache_col >= 0 && cache_col < n_cache_vecs && data_col < n_tile) {
-      cache[row + cache_col * n_vec] = tile[row + data_col * n_vec];
+      cache[row + (size_t)cache_col * n_vec] =
+        tile[row + (size_t)data_col * n_vec];
     }
   }
 }
