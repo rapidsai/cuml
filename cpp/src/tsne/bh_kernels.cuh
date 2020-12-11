@@ -174,14 +174,13 @@ __global__ __launch_bounds__(1024, 1) void ClearKernel1(int *restrict childd,
  * See: https://iss.oden.utexas.edu/Publications/Papers/burtscher11.pdf
  */
 __global__ __launch_bounds__(
-  THREADS2, 2) void TreeBuildingKernel(/* int *restrict errd, */
-                                             int *restrict childd,
-                                             const float *restrict posxd,
-                                             const float *restrict posyd,
-                                             const int NNODES, const int N,
-                                             int *restrict maxdepthd,
-                                             int *restrict bottomd,
-                                             const float *restrict radiusd) {
+  THREADS2,
+  2) void TreeBuildingKernel(/* int *restrict errd, */
+                             int *restrict childd, const float *restrict posxd,
+                             const float *restrict posyd, const int NNODES,
+                             const int N, int *restrict maxdepthd,
+                             int *restrict bottomd,
+                             const float *restrict radiusd) {
   int j, depth;
   float x, y, r;
   float px, py;
@@ -509,20 +508,17 @@ __global__ __launch_bounds__(THREADS4, FACTOR4) void SortKernel(
 __global__ __launch_bounds__(
   THREADS5,
   1) void RepulsionKernel(/* int *restrict errd, */
-                                const float theta,
-                                const float
-                                  epssqd,  // correction for zero distance
-                                const int *restrict sortd,
-                                const int *restrict childd,
-                                const float *restrict massd,
-                                const float *restrict posxd,
-                                const float *restrict posyd,
-                                float *restrict velxd, float *restrict velyd,
-                                float *restrict Z_norm,
-                                const float theta_squared, const int NNODES,
-                                const int FOUR_NNODES, const int N,
-                                const float *restrict radiusd_squared,
-                                const int *restrict maxdepthd) {
+                          const float theta,
+                          const float epssqd,  // correction for zero distance
+                          const int *restrict sortd, const int *restrict childd,
+                          const float *restrict massd,
+                          const float *restrict posxd,
+                          const float *restrict posyd, float *restrict velxd,
+                          float *restrict velyd, float *restrict Z_norm,
+                          const float theta_squared, const int NNODES,
+                          const int FOUR_NNODES, const int N,
+                          const float *restrict radiusd_squared,
+                          const int *restrict maxdepthd) {
   // Return if max depth is too deep
   // Not possible since I limited it to 32
   // if (maxdepthd[0] > 32)

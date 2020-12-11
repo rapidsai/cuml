@@ -71,11 +71,10 @@ namespace ML {
  * approach is available in their article t-SNE-CUDA: GPU-Accelerated t-SNE and
  * its Applications to Modern Data (https://arxiv.org/abs/1807.11824).
  */
-void TSNE_fit(const raft::handle_t &handle, float *X, float *Y,
-              int n, int p, const int dim = 2,
-              int n_neighbors = 1023, const float theta = 0.5f,
-              const float epssq = 0.0025, float perplexity = 50.0f,
-              const int perplexity_max_iter = 100,
+void TSNE_fit(const raft::handle_t &handle, float *X, float *Y, int n, int p,
+              const int dim = 2, int n_neighbors = 1023,
+              const float theta = 0.5f, const float epssq = 0.0025,
+              float perplexity = 50.0f, const int perplexity_max_iter = 100,
               const float perplexity_tol = 1e-5,
               const float early_exaggeration = 12.0f,
               const int exaggeration_iter = 250, const float min_gain = 0.01f,
@@ -139,20 +138,18 @@ void TSNE_fit(const raft::handle_t &handle, float *X, float *Y,
  * approach is available in their article t-SNE-CUDA: GPU-Accelerated t-SNE and
  * its Applications to Modern Data (https://arxiv.org/abs/1807.11824).
  */
-void TSNE_fit_sparse(const raft::handle_t &handle, int *indptr, int *indices, float *data, float *Y, int nnz,
-              int n, int p, const int dim = 2,
-              int n_neighbors = 1023, const float theta = 0.5f,
-              const float epssq = 0.0025, float perplexity = 50.0f,
-              const int perplexity_max_iter = 100,
-              const float perplexity_tol = 1e-5,
-              const float early_exaggeration = 12.0f,
-              const int exaggeration_iter = 250, const float min_gain = 0.01f,
-              const float pre_learning_rate = 200.0f,
-              const float post_learning_rate = 500.0f,
-              const int max_iter = 1000, const float min_grad_norm = 1e-7,
-              const float pre_momentum = 0.5, const float post_momentum = 0.8,
-              const long long random_state = -1,
-              int verbosity = CUML_LEVEL_INFO,
-              const bool initialize_embeddings = true, bool barnes_hut = true);
+void TSNE_fit_sparse(
+  const raft::handle_t &handle, int *indptr, int *indices, float *data,
+  float *Y, int nnz, int n, int p, const int dim = 2, int n_neighbors = 1023,
+  const float theta = 0.5f, const float epssq = 0.0025,
+  float perplexity = 50.0f, const int perplexity_max_iter = 100,
+  const float perplexity_tol = 1e-5, const float early_exaggeration = 12.0f,
+  const int exaggeration_iter = 250, const float min_gain = 0.01f,
+  const float pre_learning_rate = 200.0f,
+  const float post_learning_rate = 500.0f, const int max_iter = 1000,
+  const float min_grad_norm = 1e-7, const float pre_momentum = 0.5,
+  const float post_momentum = 0.8, const long long random_state = -1,
+  int verbosity = CUML_LEVEL_INFO, const bool initialize_embeddings = true,
+  bool barnes_hut = true);
 
 }  // namespace ML

@@ -921,7 +921,8 @@ __global__ static void symmetric_sum(int *restrict edges,
  * @param stream: Input cuda stream
  * @param d_alloc device allocator for temporary buffers
  */
-template <typename math_t, int TPB_X = 32, int TPB_Y = 32, typename value_idx = long>
+template <typename math_t, int TPB_X = 32, int TPB_Y = 32,
+          typename value_idx = long>
 void from_knn_symmetrize_matrix(const value_idx *restrict knn_indices,
                                 const math_t *restrict knn_dists, const int n,
                                 const int k, COO<math_t> *out,

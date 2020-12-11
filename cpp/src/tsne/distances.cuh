@@ -17,11 +17,11 @@
 #pragma once
 
 #include <raft/cudart_utils.h>
+#include <cuml/neighbors/knn_sparse.hpp>
 #include <raft/linalg/eltwise.cuh>
 #include <selection/knn.cuh>
-#include <sparse/knn.cuh>
 #include <sparse/coo.cuh>
-#include <cuml/neighbors/knn_sparse.hpp>
+#include <sparse/knn.cuh>
 
 namespace ML {
 namespace TSNE {
@@ -36,13 +36,14 @@ namespace TSNE {
  * @param[in] stream: The GPU stream.
  */
 template <typename tsne_input, typename knn_value_idx, typename knn_value_t>
-void get_distances(const raft::handle_t &handle, tsne_input &input, knn_value_idx *indices,
-  knn_value_t *distances, const int n_neighbors,
-  cudaStream_t stream);
+void get_distances(const raft::handle_t &handle, tsne_input &input,
+                   knn_value_idx *indices, knn_value_t *distances,
+                   const int n_neighbors, cudaStream_t stream);
 
 // dense
 template <>
-void get_distances(const raft::handle_t &handle, manifold_dense_inputs_t<float> &input, long *indices,
+void get_distances(const raft::handle_t &handle,
+                   manifold_dense_inputs_t<float> &input, long *indices,
                    float *distances, const int n_neighbors,
                    cudaStream_t stream) {
   // TODO: for TSNE transform first fit some points then transform with 1/(1+d^2)
@@ -59,23 +60,22 @@ void get_distances(const raft::handle_t &handle, manifold_dense_inputs_t<float> 
                      cudaStream_t userStream,
  */
 
-  MLCommon::Selection::brute_force_knn(input_vec, sizes_vec, input.d,
-                                       input.X, input.n, indices,
-                                       distances, n_neighbors, handle.get_device_allocator(), stream);
+  MLCommon::Selection::brute_force_knn(input_vec, sizes_vec, input.d, input.X,
+                                       input.n, indices, distances, n_neighbors,
+                                       handle.get_device_allocator(), stream);
 }
 
 // sparse
 template <>
-void get_distances(const raft::handle_t &handle, manifold_sparse_inputs_t<int, float> &input, int *indices,
-                   float *distances, int n_neighbors,
-                   cudaStream_t stream) {
+void get_distances(const raft::handle_t &handle,
+                   manifold_sparse_inputs_t<int, float> &input, int *indices,
+                   float *distances, int n_neighbors, cudaStream_t stream) {
   MLCommon::Sparse::Selection::brute_force_knn(
-    input.indptr, input.indices, input.data, input.nnz, input.n,
-    input.d, input.indptr, input.indices, input.data, input.nnz,
-    input.n, input.d, indices, distances, n_neighbors,
-    handle.get_cusparse_handle(), handle.get_device_allocator(), stream,
-    ML::Sparse::DEFAULT_BATCH_SIZE, ML::Sparse::DEFAULT_BATCH_SIZE,
-    ML::MetricType::METRIC_L2);
+    input.indptr, input.indices, input.data, input.nnz, input.n, input.d,
+    input.indptr, input.indices, input.data, input.nnz, input.n, input.d,
+    indices, distances, n_neighbors, handle.get_cusparse_handle(),
+    handle.get_device_allocator(), stream, ML::Sparse::DEFAULT_BATCH_SIZE,
+    ML::Sparse::DEFAULT_BATCH_SIZE, ML::MetricType::METRIC_L2);
 }
 
 /**
@@ -112,8 +112,8 @@ void normalize_distances(const int n, float *distances, const int n_neighbors,
  * @param[in] handle: The GPU handle.
  */
 template <typename knn_value_idx>
-void symmetrize_perplexity(float *P, knn_value_idx *indices, const int n, const int k,
-                           const float exaggeration,
+void symmetrize_perplexity(float *P, knn_value_idx *indices, const int n,
+                           const int k, const float exaggeration,
                            MLCommon::Sparse::COO<float> *COO_Matrix,
                            cudaStream_t stream, const raft::handle_t &handle) {
   // Perform (P + P.T) / P_sum * early_exaggeration
