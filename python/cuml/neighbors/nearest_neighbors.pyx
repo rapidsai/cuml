@@ -343,12 +343,14 @@ class NearestNeighbors(Base):
                                                       else None))
 
         cdef handle_t* handle_ = <handle_t*><uintptr_t> self.handle.getHandle()
-        cdef knnIndex* knn_index = <knnIndex*> 0
         cdef knnIndexParam* algo_params = <knnIndexParam*> 0
-        if self.algorithm not in ['brute', 'sparse']:
+        if self.algorithm in ['ivfflat', 'ivfpq', 'ivfsq']:
+            if not is_dense(X):
+                raise ValueError("Approximate Nearest Neigbors methods "
+                                 "require dense data")
+
             additional_info = {'n_samples': self.n_rows,
                                'n_features': n_cols}
-
             knn_index = new knnIndex()
             self.knn_index = <uintptr_t> knn_index
             algo_params = <knnIndexParam*><uintptr_t> \
@@ -367,6 +369,8 @@ class NearestNeighbors(Base):
             self.handle.sync()
 
             destroy_algo_params(<uintptr_t>algo_params)
+
+            del self.X_m
 
         self.n_indices = 1
         return self
@@ -498,7 +502,7 @@ class NearestNeighbors(Base):
                 or n_neighbors <= 0:
             raise ValueError("k or n_neighbors must be a positive integers")
 
-        if n_neighbors > self.X_m.shape[0]:
+        if n_neighbors > self.n_rows:
             raise ValueError("n_neighbors must be <= number of "
                              "samples in index")
 
@@ -510,11 +514,11 @@ class NearestNeighbors(Base):
             raise ValueError("Dimensions of X need to match dimensions of "
                              "indices (%d)" % self.n_dims)
 
-        if isinstance(self.X_m, CumlArray):
+        if hasattr(self, 'X_m') and isinstance(self.X_m, SparseCumlArray):
+            D_ndarr, I_ndarr = self._kneighbors_sparse(X, n_neighbors)
+        else:
             D_ndarr, I_ndarr = self._kneighbors_dense(X, n_neighbors,
                                                       convert_dtype)
-        elif isinstance(self.X_m, SparseCumlArray):
-            D_ndarr, I_ndarr = self._kneighbors_sparse(X, n_neighbors)
 
         self.handle.sync()
 
@@ -538,7 +542,7 @@ class NearestNeighbors(Base):
 
     def _kneighbors_dense(self, X, n_neighbors, convert_dtype=None):
 
-        if isinstance(self.X_m, CumlArray) and not is_dense(X):
+        if not is_dense(X):
             raise ValueError("A NearestNeighbors model trained on dense "
                              "data requires dense input to kneighbors()")
 
@@ -558,25 +562,21 @@ class NearestNeighbors(Base):
         cdef uintptr_t I_ptr = I_ndarr.ptr
         cdef uintptr_t D_ptr = D_ndarr.ptr
 
+        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
         cdef vector[float*] *inputs = new vector[float*]()
         cdef vector[int] *sizes = new vector[int]()
-
-        cdef uintptr_t idx_ptr = self.X_m.ptr
-        inputs.push_back(<float*>idx_ptr)
-        sizes.push_back(<int>self.X_m.shape[0])
-
-        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
-        cdef uintptr_t x_ctype_st = X_m.ptr
-
         cdef knnIndex* knn_index = <knnIndex*> 0
 
         if self.algorithm == 'brute':
+            inputs.push_back(<float*><uintptr_t>self.X_m.ptr)
+            sizes.push_back(<int>self.X_m.shape[0])
+
             brute_force_knn(
                 handle_[0],
                 deref(inputs),
                 deref(sizes),
                 <int>self.n_dims,
-                <float*>x_ctype_st,
+                <float*><uintptr_t>X_m.ptr,
                 <int>N,
                 <int64_t*>I_ptr,
                 <float*>D_ptr,
@@ -744,6 +744,11 @@ class NearestNeighbors(Base):
         if knn_index:
             del knn_index
 
+    def _more_tags(self):
+        return {
+            'preferred_input_order': 'C'
+        }
+
 
 @cuml.internals.api_return_sparse_array()
 def kneighbors_graph(X=None, n_neighbors=5, mode='connectivity', verbose=False,
@@ -843,8 +848,3 @@ def kneighbors_graph(X=None, n_neighbors=5, mode='connectivity', verbose=False,
             query = X.X_m
 
     return X.kneighbors_graph(X=query, n_neighbors=n_neighbors, mode=mode)
-
-    def _more_tags(self):
-        return {
-            'preferred_input_order': 'F'
-        }

@@ -35,6 +35,7 @@ from scipy.sparse import isspmatrix_csr
 import sklearn
 import cuml
 from cuml.common import has_scipy
+import gc
 
 
 def predict(neigh_ind, _y, n_neighbors):
@@ -58,7 +59,7 @@ def valid_metrics(algo="brute", cuml_algo=None):
 @pytest.mark.parametrize("ncols", [128, 1024])
 @pytest.mark.parametrize("n_neighbors", [10, 50])
 @pytest.mark.parametrize("n_clusters", [2, 10])
-@pytest.mark.parametrize("algo", ["ivfpq"])
+@pytest.mark.parametrize("algo", ["brute", "ivfflat", "ivfpq", "ivfsq"])
 def test_neighborhood_predictions(nrows, ncols, n_neighbors, n_clusters,
                                   datatype, algo):
     if not has_scipy():
@@ -75,6 +76,8 @@ def test_neighborhood_predictions(nrows, ncols, n_neighbors, n_clusters,
     knn_cu.fit(X)
     neigh_ind = knn_cu.kneighbors(X, n_neighbors=n_neighbors,
                                   return_distance=False)
+    del knn_cu
+    gc.collect()
 
     if datatype == "dataframe":
         assert isinstance(neigh_ind, cudf.DataFrame)
@@ -88,9 +91,9 @@ def test_neighborhood_predictions(nrows, ncols, n_neighbors, n_clusters,
 
 
 @pytest.mark.parametrize("nlist", [4, 8])
-@pytest.mark.parametrize("nrows", [1000, 10000])
+@pytest.mark.parametrize("nrows", [10000])
 @pytest.mark.parametrize("ncols", [128, 512])
-@pytest.mark.parametrize("n_neighbors", [8, 20])
+@pytest.mark.parametrize("n_neighbors", [8, 16])
 def test_ivfflat_pred(nrows, ncols, n_neighbors, nlist):
     algo_params = {
         'nlist': nlist,
@@ -104,19 +107,21 @@ def test_ivfflat_pred(nrows, ncols, n_neighbors, nlist):
     knn_cu.fit(X)
     neigh_ind = knn_cu.kneighbors(X, n_neighbors=n_neighbors,
                                   return_distance=False)
+    del knn_cu
+    gc.collect()
 
     labels, probs = predict(neigh_ind, y, n_neighbors)
 
     assert array_equal(labels, y)
 
 
-@pytest.mark.parametrize("nlist", [6])
-@pytest.mark.parametrize("M", [16])
+@pytest.mark.parametrize("nlist", [8])
+@pytest.mark.parametrize("M", [16, 32])
 @pytest.mark.parametrize("n_bits", [2, 4])
 @pytest.mark.parametrize("usePrecomputedTables", [False, True])
-@pytest.mark.parametrize("nrows", [1000, 4000])
-@pytest.mark.parametrize("ncols", [128, 256])
-@pytest.mark.parametrize("n_neighbors", [4, 8])
+@pytest.mark.parametrize("nrows", [4000])
+@pytest.mark.parametrize("ncols", [128, 512])
+@pytest.mark.parametrize("n_neighbors", [8])
 def test_ivfpq_pred(nrows, ncols, n_neighbors,
                     nlist, M, n_bits, usePrecomputedTables):
     algo_params = {
@@ -134,18 +139,20 @@ def test_ivfpq_pred(nrows, ncols, n_neighbors,
     knn_cu.fit(X)
     neigh_ind = knn_cu.kneighbors(X, n_neighbors=n_neighbors,
                                   return_distance=False)
+    del knn_cu
+    gc.collect()
 
     labels, probs = predict(neigh_ind, y, n_neighbors)
 
     assert array_equal(labels, y)
 
 
-@pytest.mark.parametrize("nlist", [4, 8])
+@pytest.mark.parametrize("nlist", [4])
 @pytest.mark.parametrize("qtype", ['QT_4bit', 'QT_8bit', 'QT_fp16'])
 @pytest.mark.parametrize("encodeResidual", [False, True])
-@pytest.mark.parametrize("nrows", [1000, 10000])
+@pytest.mark.parametrize("nrows", [10000])
 @pytest.mark.parametrize("ncols", [128, 512])
-@pytest.mark.parametrize("n_neighbors", [8, 20])
+@pytest.mark.parametrize("n_neighbors", [8])
 def test_ivfsq_pred(nrows, ncols, n_neighbors, nlist, qtype, encodeResidual):
     algo_params = {
         'nlist': nlist,
@@ -161,6 +168,8 @@ def test_ivfsq_pred(nrows, ncols, n_neighbors, nlist, qtype, encodeResidual):
     knn_cu.fit(X)
     neigh_ind = knn_cu.kneighbors(X, n_neighbors=n_neighbors,
                                   return_distance=False)
+    del knn_cu
+    gc.collect()
 
     labels, probs = predict(neigh_ind, y, n_neighbors)
 
