@@ -118,8 +118,7 @@ class TSNETest : public ::testing::Test {
     // Allocate memory
     device_buffer<float> X_d(handle.get_device_allocator(), handle.get_stream(),
                              n * p);
-    raft::update_device(X_d.data(), digits.data(), n * p,
-                           handle.get_stream());
+    raft::update_device(X_d.data(), digits.data(), n * p, handle.get_stream());
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 
     device_buffer<float> Y_d(handle.get_device_allocator(), handle.get_stream(),
@@ -150,8 +149,7 @@ class TSNETest : public ::testing::Test {
     float *embeddings_h = (float *)malloc(sizeof(float) * n * 2);
     assert(embeddings_h != NULL);
 
-    raft::update_host(&embeddings_h[0], Y_d.data(), n * 2,
-                         handle.get_stream());
+    raft::update_host(&embeddings_h[0], Y_d.data(), n * 2, handle.get_stream());
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 
     // Transpose the data
@@ -164,7 +162,7 @@ class TSNETest : public ::testing::Test {
 
     // Move transposed embeddings back to device, as trustworthiness requires C contiguous format
     raft::update_device(Y_d.data(), C_contiguous_embedding, n * 2,
-                           handle.get_stream());
+                        handle.get_stream());
 
     // Test trustworthiness
     knn_score_bh =
@@ -178,8 +176,7 @@ class TSNETest : public ::testing::Test {
              knn_dists.data(), 2, 90, 0.5, 0.0025, 50, 100, 1e-5, 12, 250, 0.01,
              200, 500, 1000, 1e-7, 0.5, 0.8, -1, CUML_LEVEL_INFO, false, false);
 
-    raft::update_host(&embeddings_h[0], Y_d.data(), n * 2,
-                         handle.get_stream());
+    raft::update_host(&embeddings_h[0], Y_d.data(), n * 2, handle.get_stream());
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 
     // Move embeddings to host.
@@ -192,7 +189,7 @@ class TSNETest : public ::testing::Test {
 
     // Move transposed embeddings back to device, as trustworthiness requires C contiguous format
     raft::update_device(Y_d.data(), C_contiguous_embedding, n * 2,
-                           handle.get_stream());
+                        handle.get_stream());
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 
     // Test trustworthiness
