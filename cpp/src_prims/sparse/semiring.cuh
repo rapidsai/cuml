@@ -334,6 +334,8 @@ __global__ void classic_csr_semiring_spmv_kernel(
  *    a segmented reduction is performed across the warps and then across the block and the final value written out
  *    to host memory.
  *
+ * Reference: https://www.icl.utk.edu/files/publications/2020/icl-utk-1421-2020.pdf
+ *
  * @tparam value_idx
  * @tparam value_t
  * @tparam tpb
