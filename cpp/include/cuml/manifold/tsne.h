@@ -91,10 +91,11 @@ void TSNE_fit(const raft::handle_t &handle, float *X, float *Y, int n, int p,
  *       or brute force O(N^2).
  *
  * @param[in]  handle              The GPU handle.
- * @param[in]  indptr              indptr of CSR dataset
- * @param[in]  indices             indices of CSR dataset
- * @param[in]  data                data of CSR dataset
+ * @param[in]  indptr              indptr of CSR dataset.
+ * @param[in]  indices             indices of CSR dataset.
+ * @param[in]  data                data of CSR dataset.
  * @param[out] Y                   The final embedding.
+ * @param[in]  nnz                 The number of non-zero entries in the CSR.
  * @param[in]  n                   Number of rows in data X.
  * @param[in]  p                   Number of columns in data X.
  * @param[in]  dim                 Number of output dimensions for embeddings Y.
