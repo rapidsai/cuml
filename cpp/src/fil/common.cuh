@@ -23,8 +23,8 @@
 #include <stdexcept>
 #include <string>
 
-#include <raft/cuda_utils.cuh>
 #include <cuml/fil/fil.h>
+#include <raft/cuda_utils.cuh>
 
 #include "internal.cuh"
 
