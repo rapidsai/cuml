@@ -440,7 +440,7 @@ class TSNE(Base):
                             <int*><uintptr_t> self.X_m.indices.ptr,
                             <float*><uintptr_t> self.X_m.data.ptr,
                             <float*> embed_ptr,
-                            <int> self.X_m.nnz, 
+                            <int> self.X_m.nnz,
                             <int> n,
                             <int> p,
                             <int> self.n_components,
