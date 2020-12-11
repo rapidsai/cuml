@@ -23,6 +23,7 @@
 #include <raft/cudart_utils.h>
 #include <raft/sparse/cusparse_wrappers.h>
 #include <raft/cuda_utils.cuh>
+#include <raft/mr/device/allocator.hpp>
 #include <raft/mr/device/buffer.hpp>
 
 #include <thrust/device_ptr.h>
@@ -109,7 +110,7 @@ template <int TPB_X, typename T>
 void coo_remove_scalar(const int *rows, const int *cols, const T *vals, int nnz,
                        int *crows, int *ccols, T *cvals, int *cnnz,
                        int *cur_cnnz, T scalar, int n,
-                       std::shared_ptr<MLCommon::deviceAllocator> d_alloc,
+                       std::shared_ptr<raft::mr::device::allocator> d_alloc,
                        cudaStream_t stream) {
   raft::mr::device::buffer<int> ex_scan(d_alloc, stream, n);
   raft::mr::device::buffer<int> cur_ex_scan(d_alloc, stream, n);
@@ -151,7 +152,7 @@ void coo_remove_scalar(const int *rows, const int *cols, const T *vals, int nnz,
  */
 template <int TPB_X, typename T>
 void coo_remove_scalar(COO<T> *in, COO<T> *out, T scalar,
-                       std::shared_ptr<MLCommon::deviceAllocator> d_alloc,
+                       std::shared_ptr<raft::mr::device::allocator> d_alloc,
                        cudaStream_t stream) {
   raft::mr::device::buffer<int> row_count_nz(d_alloc, stream, in->n_rows);
   raft::mr::device::buffer<int> row_count(d_alloc, stream, in->n_rows);
@@ -192,7 +193,7 @@ void coo_remove_scalar(COO<T> *in, COO<T> *out, T scalar,
  */
 template <int TPB_X, typename T>
 void coo_remove_zeros(COO<T> *in, COO<T> *out,
-                      std::shared_ptr<MLCommon::deviceAllocator> d_alloc,
+                      std::shared_ptr<raft::mr::device::allocator> d_alloc,
                       cudaStream_t stream) {
   coo_remove_scalar<TPB_X, T>(in, out, T(0.0), d_alloc, stream);
 }

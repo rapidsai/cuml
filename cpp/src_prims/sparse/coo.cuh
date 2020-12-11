@@ -14,11 +14,10 @@
  * limitations under the License.
  */
 
-#include <cuml/common/cuml_allocator.hpp>
-
 #include <raft/cudart_utils.h>
 #include <raft/sparse/cusparse_wrappers.h>
 #include <raft/cuda_utils.cuh>
+#include <raft/mr/device/allocator.hpp>
 #include <raft/mr/device/buffer.hpp>
 
 #include <cusparse_v2.h>
@@ -70,7 +69,7 @@ class COO {
     * @param d_alloc: the device allocator to use for the underlying buffers
     * @param stream: CUDA stream to use
     */
-  COO(std::shared_ptr<MLCommon::deviceAllocator> d_alloc, cudaStream_t stream)
+  COO(std::shared_ptr<raft::mr::device::allocator> d_alloc, cudaStream_t stream)
     : rows_arr(d_alloc, stream, 0),
       cols_arr(d_alloc, stream, 0),
       vals_arr(d_alloc, stream, 0),
@@ -105,7 +104,7 @@ class COO {
     * @param n_cols: number of cols in the dense matrix
     * @param init: initialize arrays with zeros
     */
-  COO(std::shared_ptr<MLCommon::deviceAllocator> d_alloc, cudaStream_t stream,
+  COO(std::shared_ptr<raft::mr::device::allocator> d_alloc, cudaStream_t stream,
       Index_Type nnz, Index_Type n_rows = 0, Index_Type n_cols = 0,
       bool init = true)
     : rows_arr(d_alloc, stream, nnz),

@@ -22,6 +22,7 @@
 #include <raft/cudart_utils.h>
 #include <raft/sparse/cusparse_wrappers.h>
 #include <raft/cuda_utils.cuh>
+#include <raft/mr/device/allocator.hpp>
 
 #include <label/classlabels.cuh>
 
@@ -275,7 +276,7 @@ template <typename Index_ = int, int TPB_X = 32,
           typename Lambda = auto(Index_)->bool>
 void weak_cc(Index_ *labels, const Index_ *row_ind, const Index_ *row_ind_ptr,
              Index_ nnz, Index_ N,
-             std::shared_ptr<MLCommon::deviceAllocator> d_alloc,
+             std::shared_ptr<raft::mr::device::allocator> d_alloc,
              cudaStream_t stream, Lambda filter_op) {
   MLCommon::device_buffer<bool> xa(d_alloc, stream, N);
   MLCommon::device_buffer<bool> fa(d_alloc, stream, N);
@@ -311,7 +312,7 @@ void weak_cc(Index_ *labels, const Index_ *row_ind, const Index_ *row_ind_ptr,
 template <typename Index_, int TPB_X = 32>
 void weak_cc(Index_ *labels, const Index_ *row_ind, const Index_ *row_ind_ptr,
              Index_ nnz, Index_ N,
-             std::shared_ptr<MLCommon::deviceAllocator> d_alloc,
+             std::shared_ptr<raft::mr::device::allocator> d_alloc,
              cudaStream_t stream) {
   MLCommon::device_buffer<bool> xa(d_alloc, stream, N);
   MLCommon::device_buffer<bool> fa(d_alloc, stream, N);

@@ -35,8 +35,6 @@
 #include <faiss/gpu/utils/Limits.cuh>
 #include <faiss/gpu/utils/Select.cuh>
 
-#include <common/device_buffer.hpp>
-
 #include <cusparse_v2.h>
 
 namespace raft {

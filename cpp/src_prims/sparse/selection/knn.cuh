@@ -20,6 +20,7 @@
 #include <raft/cuda_utils.cuh>
 #include <raft/linalg/unary_op.cuh>
 #include <raft/matrix/matrix.cuh>
+#include <raft/mr/device/allocator.hpp>
 #include <raft/mr/device/buffer.hpp>
 
 #include <sparse/op/slice.h>
@@ -121,7 +122,7 @@ class sparse_knn_t {
                size_t queryNNZ_, int n_query_rows_, int n_query_cols_,
                value_idx *output_indices_, value_t *output_dists_, int k_,
                cusparseHandle_t cusparseHandle_,
-               std::shared_ptr<MLCommon::deviceAllocator> allocator_,
+               std::shared_ptr<raft::mr::device::allocator> allocator_,
                cudaStream_t stream_,
                size_t batch_size_index_ = 2 << 14,  // approx 1M
                size_t batch_size_query_ = 2 << 14,
@@ -453,7 +454,7 @@ class sparse_knn_t {
 
   cusparseHandle_t cusparseHandle;
 
-  std::shared_ptr<MLCommon::deviceAllocator> allocator;
+  std::shared_ptr<raft::mr::device::allocator> allocator;
 
   cudaStream_t stream;
 };
@@ -492,7 +493,7 @@ void brute_force_knn(const value_idx *idxIndptr, const value_idx *idxIndices,
                      size_t queryNNZ, int n_query_rows, int n_query_cols,
                      value_idx *output_indices, value_t *output_dists, int k,
                      cusparseHandle_t cusparseHandle,
-                     std::shared_ptr<MLCommon::deviceAllocator> allocator,
+                     std::shared_ptr<raft::mr::device::allocator> allocator,
                      cudaStream_t stream,
                      size_t batch_size_index = 2 << 14,  // approx 1M
                      size_t batch_size_query = 2 << 14,

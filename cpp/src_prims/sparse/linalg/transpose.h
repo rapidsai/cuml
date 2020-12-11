@@ -23,6 +23,7 @@
 #include <raft/cudart_utils.h>
 #include <raft/sparse/cusparse_wrappers.h>
 #include <raft/cuda_utils.cuh>
+#include <raft/mr/device/allocator.hpp>
 #include <raft/mr/device/buffer.hpp>
 
 #include <thrust/device_ptr.h>
@@ -63,7 +64,7 @@ void csr_transpose(cusparseHandle_t handle, const value_idx *csr_indptr,
                    value_idx *csc_indptr, value_idx *csc_indices,
                    value_t *csc_data, value_idx csr_nrows, value_idx csr_ncols,
                    value_idx nnz,
-                   std::shared_ptr<MLCommon::deviceAllocator> allocator,
+                   std::shared_ptr<raft::mr::device::allocator> allocator,
                    cudaStream_t stream) {
   size_t convert_csc_workspace_size = 0;
 

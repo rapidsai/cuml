@@ -18,10 +18,10 @@
 
 #include <raft/sparse/cusparse_wrappers.h>
 #include <raft/cuda_utils.cuh>
+#include <raft/mr/device/allocator.hpp>
 #include <raft/mr/device/buffer.hpp>
 #include <raft/spectral/partition.hpp>
 
-#include <common/device_buffer.hpp>
 #include <cuml/common/cuml_allocator.hpp>
 #include <selection/knn.cuh>
 #include <sparse/convert/csr.cuh>
@@ -34,7 +34,7 @@ namespace spectral {
 template <typename T>
 void fit_embedding(cusparseHandle_t handle, int *rows, int *cols, T *vals,
                    int nnz, int n, int n_components, T *out,
-                   std::shared_ptr<MLCommon::deviceAllocator> d_alloc,
+                   std::shared_ptr<raft::mr::device::allocator> d_alloc,
                    cudaStream_t stream) {
   raft::mr::device::buffer<int> src_offsets(d_alloc, stream, n + 1);
   raft::mr::device::buffer<int> dst_cols(d_alloc, stream, nnz);

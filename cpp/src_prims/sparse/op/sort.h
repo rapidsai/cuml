@@ -23,6 +23,7 @@
 #include <raft/cudart_utils.h>
 #include <raft/sparse/cusparse_wrappers.h>
 #include <raft/cuda_utils.cuh>
+#include <raft/mr/device/allocator.hpp>
 #include <raft/mr/device/buffer.hpp>
 
 #include <thrust/device_ptr.h>
@@ -56,7 +57,7 @@ namespace op {
  */
 template <typename T>
 void coo_sort(int m, int n, int nnz, int *rows, int *cols, T *vals,
-              std::shared_ptr<MLCommon::deviceAllocator> d_alloc,
+              std::shared_ptr<raft::mr::device::allocator> d_alloc,
               cudaStream_t stream) {
   cusparseHandle_t handle = NULL;
 
@@ -96,7 +97,7 @@ void coo_sort(int m, int n, int nnz, int *rows, int *cols, T *vals,
  */
 template <typename T>
 void coo_sort(COO<T> *const in,
-              std::shared_ptr<MLCommon::deviceAllocator> d_alloc,
+              std::shared_ptr<raft::mr::device::allocator> d_alloc,
               cudaStream_t stream) {
   coo_sort<T>(in->n_rows, in->n_cols, in->nnz, in->rows(), in->cols(),
               in->vals(), d_alloc, stream);

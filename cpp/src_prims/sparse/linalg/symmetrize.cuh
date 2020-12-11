@@ -23,6 +23,7 @@
 #include <raft/cudart_utils.h>
 #include <raft/sparse/cusparse_wrappers.h>
 #include <raft/cuda_utils.cuh>
+#include <raft/mr/device/allocator.hpp>
 #include <raft/mr/device/buffer.hpp>
 
 #include <label/classlabels.cuh>
@@ -124,7 +125,7 @@ __global__ void coo_symmetrize_kernel(int *row_ind, int *rows, int *cols,
 template <int TPB_X, typename T, typename Lambda>
 void coo_symmetrize(COO<T> *in, COO<T> *out,
                     Lambda reduction_op,  // two-argument reducer
-                    std::shared_ptr<MLCommon::deviceAllocator> d_alloc,
+                    std::shared_ptr<raft::mr::device::allocator> d_alloc,
                     cudaStream_t stream) {
   dim3 grid(raft::ceildiv(in->n_rows, TPB_X), 1, 1);
   dim3 blk(TPB_X, 1, 1);
@@ -248,7 +249,7 @@ template <typename math_t, int TPB_X = 32, int TPB_Y = 32>
 void from_knn_symmetrize_matrix(
   const long *restrict knn_indices, const math_t *restrict knn_dists,
   const int n, const int k, COO<math_t> *out, cudaStream_t stream,
-  std::shared_ptr<MLCommon::deviceAllocator> d_alloc) {
+  std::shared_ptr<raft::mr::device::allocator> d_alloc) {
   // (1) Find how much space needed in each row
   // We look through all datapoints and increment the count for each row.
   const dim3 threadsPerBlock(TPB_X, TPB_Y);

@@ -21,6 +21,7 @@
 #include <raft/linalg/distance_type.h>
 #include <raft/sparse/cusparse_wrappers.h>
 #include <raft/cuda_utils.cuh>
+#include <raft/mr/device/allocator.hpp>
 #include <raft/mr/device/buffer.hpp>
 
 #include <common/device_buffer.hpp>
@@ -61,7 +62,7 @@ struct distances_config_t {
 
   cusparseHandle_t handle;
 
-  std::shared_ptr<MLCommon::deviceAllocator> allocator;
+  std::shared_ptr<raft::mr::device::allocator> allocator;
   cudaStream_t stream;
 };
 
@@ -283,7 +284,7 @@ void compute_l2(value_t *out, const value_idx *Q_coo_rows,
                 const value_idx *R_coo_rows, const value_t *R_data,
                 value_idx R_nnz, value_idx m, value_idx n,
                 cusparseHandle_t handle,
-                std::shared_ptr<MLCommon::deviceAllocator> alloc,
+                std::shared_ptr<raft::mr::device::allocator> alloc,
                 cudaStream_t stream) {
   raft::mr::device::buffer<value_t> Q_sq_norms(alloc, stream, m);
   raft::mr::device::buffer<value_t> R_sq_norms(alloc, stream, n);
