@@ -831,8 +831,8 @@ void coo_symmetrize(COO<T> *in, COO<T> *out,
  * @param row_sizes: Input empty row sum 1 array(n)
  * @param row_sizes2: Input empty row sum 2 array(n) for faster reduction
  */
-template <typename math_t, typename value_idx>
-__global__ static void symmetric_find_size(const math_t *restrict data,
+template <typename value_idx, typename value_t>
+__global__ static void symmetric_find_size(const value_t *restrict data,
                                            const value_idx *restrict indices,
                                            const int n, const int k,
                                            int *restrict row_sizes,
@@ -879,11 +879,11 @@ __global__ static void reduce_find_size(const int n, const int k,
  * @param n: Number of rows
  * @param k: Number of n_neighbors
  */
-template <typename math_t, typename value_idx>
+template <typename value_idx, typename value_t>
 __global__ static void symmetric_sum(int *restrict edges,
-                                     const math_t *restrict data,
+                                     const value_t *restrict data,
                                      const value_idx *restrict indices,
-                                     math_t *restrict VAL, int *restrict COL,
+                                     value_t *restrict VAL, int *restrict COL,
                                      int *restrict ROW, const int n,
                                      const int k) {
   const int row = blockIdx.x * blockDim.x + threadIdx.x;  // for every row
@@ -921,11 +921,10 @@ __global__ static void symmetric_sum(int *restrict edges,
  * @param stream: Input cuda stream
  * @param d_alloc device allocator for temporary buffers
  */
-template <typename math_t, int TPB_X = 32, int TPB_Y = 32,
-          typename value_idx = long>
+template <typename value_idx, typename value_t, int TPB_X = 32, int TPB_Y = 32>
 void from_knn_symmetrize_matrix(const value_idx *restrict knn_indices,
-                                const math_t *restrict knn_dists, const int n,
-                                const int k, COO<math_t> *out,
+                                const value_t *restrict knn_dists, const int n,
+                                const int k, COO<value_t> *out,
                                 cudaStream_t stream,
                                 std::shared_ptr<deviceAllocator> d_alloc) {
   // (1) Find how much space needed in each row

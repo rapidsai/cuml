@@ -121,7 +121,7 @@ void symmetrize_perplexity(float *P, knn_value_idx *indices, const int n,
   raft::linalg::scalarMultiply(P, P, div, n * k, stream);
 
   // Symmetrize to form P + P.T
-  MLCommon::Sparse::from_knn_symmetrize_matrix<float, 32, 32, knn_value_idx>(
+  MLCommon::Sparse::from_knn_symmetrize_matrix(
     indices, P, n, k, COO_Matrix, stream, handle.get_device_allocator());
 }
 
