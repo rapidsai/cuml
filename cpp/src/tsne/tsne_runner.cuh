@@ -28,11 +28,12 @@
 
 namespace ML {
 
-template <typename tsne_input, typename knn_value_idx, typename knn_value_t>
+template <typename tsne_input, typename value_idx, typename value_t>
 class TSNE_runner {
  public:
-  TSNE_runner(const raft::handle_t &handle_, tsne_input &input_, const int dim_,
-              int n_neighbors_, const float theta_, const float epssq_,
+  TSNE_runner(const raft::handle_t &handle_, tsne_input &input_,
+              knn_graph<value_idx, value_t> &k_graph_, const int dim_,
+              const float theta_, const float epssq_,
               float perplexity_, const int perplexity_max_iter_,
               const float perplexity_tol_, const float early_exaggeration_,
               const int exaggeration_iter_, const float min_gain_,
@@ -43,8 +44,8 @@ class TSNE_runner {
               const bool initialize_embeddings_, bool barnes_hut_)
     : handle(handle_),
       input(input_),
+      k_graph(k_graph_),
       dim(dim_),
-      n_neighbors(n_neighbors_),
       theta(theta_),
       epssq(epssq_),
       perplexity(perplexity_),
@@ -67,6 +68,7 @@ class TSNE_runner {
     this->n = input.n;
     this->p = input.d;
     this->Y = input.y;
+    this->n_neighbors = k_graph.n_neighbors;
 
     ML::Logger::get().setLevel(verbosity);
     if (dim > 2 and barnes_hut) {
@@ -129,16 +131,22 @@ class TSNE_runner {
 
     auto stream = handle.get_stream();
 
-    rmm::device_uvector<knn_value_idx> indices(0, stream);
-    rmm::device_uvector<knn_value_t> distances(0, stream);
+    rmm::device_uvector<value_idx> indices(0, stream);
+    rmm::device_uvector<value_t> distances(0, stream);
 
-    if (input.alloc_knn_graph()) {
-      indices = rmm::device_uvector<knn_value_idx>(n * n_neighbors, stream);
-      distances = rmm::device_uvector<knn_value_t>(n * n_neighbors, stream);
+    if (!k_graph.knn_indices || !k_graph.knn_dists) {
+      ASSERT(!k_graph.knn_indices && !k_graph.knn_dists,
+        "Either both or none of the KNN parameters should be provided");
+
+      indices = rmm::device_uvector<value_idx>(n * n_neighbors, stream);
+      distances = rmm::device_uvector<value_t>(n * n_neighbors, stream);
+
+      k_graph.knn_indices = indices.data();
+      k_graph.knn_dists = distances.data();
+
+      TSNE::get_distances<value_idx, value_t>(handle, input, k_graph, stream);
     }
 
-    TSNE::get_distances(handle, input, indices.data(), distances.data(),
-                        n_neighbors, stream);
     //---------------------------------------------------
     END_TIMER(DistancesTime);
 
@@ -146,7 +154,7 @@ class TSNE_runner {
     //---------------------------------------------------
     // Normalize distances
     CUML_LOG_DEBUG("Now normalizing distances so exp(D) doesn't explode.");
-    TSNE::normalize_distances(n, distances.data(), n_neighbors, stream);
+    TSNE::normalize_distances(n, k_graph.knn_dists, n_neighbors, stream);
     //---------------------------------------------------
     END_TIMER(NormalizeTime);
 
@@ -155,7 +163,7 @@ class TSNE_runner {
     // Optimal perplexity
     CUML_LOG_DEBUG("Searching for optimal perplexity via bisection search.");
     rmm::device_uvector<float> P(n * n_neighbors, stream);
-    TSNE::perplexity_search(distances.data(), P.data(), perplexity,
+    TSNE::perplexity_search(k_graph.knn_dists, P.data(), perplexity,
                             perplexity_max_iter, perplexity_tol, n, n_neighbors,
                             handle);
 
@@ -165,7 +173,7 @@ class TSNE_runner {
     START_TIMER;
     //---------------------------------------------------
     // Convert data to COO layout
-    TSNE::symmetrize_perplexity(P.data(), indices.data(), n, n_neighbors,
+    TSNE::symmetrize_perplexity(P.data(), k_graph.knn_indices, n, n_neighbors,
                                 early_exaggeration, &COO_Matrix, stream,
                                 handle);
     END_TIMER(SymmetrizeTime);
@@ -173,6 +181,7 @@ class TSNE_runner {
 
   const raft::handle_t &handle;
   tsne_input &input;
+  knn_graph<value_idx, value_t> &k_graph;
   const int dim;
   int n_neighbors;
   const float theta;

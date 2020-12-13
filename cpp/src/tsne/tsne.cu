@@ -19,9 +19,10 @@
 
 namespace ML {
 
-template <typename tsne_input, typename knn_value_idx, typename knn_value_t>
-void _fit(const raft::handle_t &handle, tsne_input &input, const int dim,
-          int n_neighbors, const float theta, const float epssq,
+template <typename tsne_input, typename value_idx, typename value_t>
+void _fit(const raft::handle_t &handle, tsne_input &input, 
+          knn_graph<value_idx, value_t> &k_graph, const int dim,
+          const float theta, const float epssq,
           float perplexity, const int perplexity_max_iter,
           const float perplexity_tol, const float early_exaggeration,
           const int exaggeration_iter, const float min_gain,
@@ -30,8 +31,8 @@ void _fit(const raft::handle_t &handle, tsne_input &input, const int dim,
           const float pre_momentum, const float post_momentum,
           const long long random_state, int verbosity,
           const bool initialize_embeddings, bool barnes_hut) {
-  TSNE_runner<tsne_input, knn_value_idx, knn_value_t> runner(
-    handle, input, dim, n_neighbors, theta, epssq, perplexity,
+  TSNE_runner<tsne_input, value_idx, value_t> runner(
+    handle, input, k_graph, dim, theta, epssq, perplexity,
     perplexity_max_iter, perplexity_tol, early_exaggeration, exaggeration_iter,
     min_gain, pre_learning_rate, post_learning_rate, max_iter, min_grad_norm,
     pre_momentum, post_momentum, random_state, verbosity, initialize_embeddings,
@@ -41,6 +42,7 @@ void _fit(const raft::handle_t &handle, tsne_input &input, const int dim,
 }
 
 void TSNE_fit(const raft::handle_t &handle, float *X, float *Y, int n, int p,
+              int64_t *knn_indices, float *knn_dists,
               const int dim, int n_neighbors, const float theta,
               const float epssq, float perplexity,
               const int perplexity_max_iter, const float perplexity_tol,
@@ -55,8 +57,10 @@ void TSNE_fit(const raft::handle_t &handle, float *X, float *Y, int n, int p,
          "Wrong input args");
 
   manifold_dense_inputs_t<float> input(X, Y, n, p);
+  knn_graph<int64_t, float> k_graph(n, n_neighbors, knn_indices, knn_dists);
+
   _fit<manifold_dense_inputs_t<float>, knn_indices_dense_t, float>(
-    handle, input, dim, n_neighbors, theta, epssq, perplexity,
+    handle, input, k_graph, dim, theta, epssq, perplexity,
     perplexity_max_iter, perplexity_tol, early_exaggeration, exaggeration_iter,
     min_gain, pre_learning_rate, post_learning_rate, max_iter, min_grad_norm,
     pre_momentum, post_momentum, random_state, verbosity, initialize_embeddings,
@@ -65,6 +69,7 @@ void TSNE_fit(const raft::handle_t &handle, float *X, float *Y, int n, int p,
 
 void TSNE_fit_sparse(const raft::handle_t &handle, int *indptr, int *indices,
                      float *data, float *Y, int nnz, int n, int p,
+                     int *knn_indices, float *knn_dists,
                      const int dim, int n_neighbors, const float theta,
                      const float epssq, float perplexity,
                      const int perplexity_max_iter, const float perplexity_tol,
@@ -82,8 +87,10 @@ void TSNE_fit_sparse(const raft::handle_t &handle, int *indptr, int *indices,
 
   manifold_sparse_inputs_t<int, float> input(indptr, indices, data, Y, nnz, n,
                                              p);
+  knn_graph<int, float> k_graph(n, n_neighbors, knn_indices, knn_dists);
+
   _fit<manifold_sparse_inputs_t<int, float>, knn_indices_sparse_t, float>(
-    handle, input, dim, n_neighbors, theta, epssq, perplexity,
+    handle, input, k_graph, dim, theta, epssq, perplexity,
     perplexity_max_iter, perplexity_tol, early_exaggeration, exaggeration_iter,
     min_gain, pre_learning_rate, post_learning_rate, max_iter, min_grad_norm,
     pre_momentum, post_momentum, random_state, verbosity, initialize_embeddings,
