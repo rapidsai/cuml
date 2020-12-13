@@ -101,6 +101,8 @@ void TSNE_fit(const raft::handle_t &handle, float *X, float *Y, int n, int p,
  * @param[in]  nnz                 The number of non-zero entries in the CSR.
  * @param[in]  n                   Number of rows in data X.
  * @param[in]  p                   Number of columns in data X.
+ * @param[in]  knn_indices         Array containing nearest neighors indices.
+ * @param[in]  knn_dists           Array containing nearest neighors distances.
  * @param[in]  dim                 Number of output dimensions for embeddings Y.
  * @param[in]  n_neighbors         Number of nearest neighbors used.
  * @param[in]  theta               Float between 0 and 1. Tradeoff for speed (0)
