@@ -211,6 +211,7 @@ def test_tsne_transform_on_digits_sparse(input_type):
     trust = trustworthiness(digits.data[~digits_selection], embedding, 15)
     assert trust >= 0.85
 
+
 @pytest.mark.parametrize('type_knn_graph', ['sklearn', 'cuml'])
 @pytest.mark.parametrize('input_type', ['cupy', 'scipy'])
 def test_tsne_knn_parameters_sparse(type_knn_graph, input_type):
@@ -223,7 +224,7 @@ def test_tsne_knn_parameters_sparse(type_knn_graph, input_type):
 
     digits_selection = np.random.RandomState(42).choice(
         [True, False], 1797, replace=True, p=[0.60, 0.40])
-    
+
     selected_digits = digits.data[~digits_selection]
 
     neigh.fit(selected_digits)

@@ -135,12 +135,13 @@ class TSNETest : public ::testing::Test {
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 
     manifold_dense_inputs_t<float> input(X_d.data(), Y_d.data(), n, p);
-    knn_graph<int64_t, float> k_graph(n, 90, knn_indices.data(), knn_dists.data());
+    knn_graph<int64_t, float> k_graph(n, 90, knn_indices.data(),
+                                      knn_dists.data());
 
-    TSNE::get_distances<int64_t, float>(handle, input, k_graph, handle.get_stream());
+    TSNE::get_distances<int64_t, float>(handle, input, k_graph,
+                                        handle.get_stream());
 
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
-
 
     // Test Barnes Hut
     TSNE_fit(handle, X_d.data(), Y_d.data(), n, p, knn_indices.data(),

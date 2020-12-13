@@ -33,15 +33,15 @@ class TSNE_runner {
  public:
   TSNE_runner(const raft::handle_t &handle_, tsne_input &input_,
               knn_graph<value_idx, value_t> &k_graph_, const int dim_,
-              const float theta_, const float epssq_,
-              float perplexity_, const int perplexity_max_iter_,
-              const float perplexity_tol_, const float early_exaggeration_,
-              const int exaggeration_iter_, const float min_gain_,
-              const float pre_learning_rate_, const float post_learning_rate_,
-              const int max_iter_, const float min_grad_norm_,
-              const float pre_momentum_, const float post_momentum_,
-              const long long random_state_, int verbosity_,
-              const bool initialize_embeddings_, bool barnes_hut_)
+              const float theta_, const float epssq_, float perplexity_,
+              const int perplexity_max_iter_, const float perplexity_tol_,
+              const float early_exaggeration_, const int exaggeration_iter_,
+              const float min_gain_, const float pre_learning_rate_,
+              const float post_learning_rate_, const int max_iter_,
+              const float min_grad_norm_, const float pre_momentum_,
+              const float post_momentum_, const long long random_state_,
+              int verbosity_, const bool initialize_embeddings_,
+              bool barnes_hut_)
     : handle(handle_),
       input(input_),
       k_graph(k_graph_),
@@ -136,7 +136,7 @@ class TSNE_runner {
 
     if (!k_graph.knn_indices || !k_graph.knn_dists) {
       ASSERT(!k_graph.knn_indices && !k_graph.knn_dists,
-        "Either both or none of the KNN parameters should be provided");
+             "Either both or none of the KNN parameters should be provided");
 
       indices = rmm::device_uvector<value_idx>(n * n_neighbors, stream);
       distances = rmm::device_uvector<value_t>(n * n_neighbors, stream);
