@@ -16,8 +16,6 @@
 
 #pragma once
 
-#include <cuml/common/logger.hpp>
-
 #include <cusparse_v2.h>
 
 #include <raft/cudart_utils.h>
@@ -25,8 +23,6 @@
 #include <raft/cuda_utils.cuh>
 #include <raft/mr/device/allocator.hpp>
 #include <raft/mr/device/buffer.hpp>
-
-#include <label/classlabels.cuh>
 
 #include <thrust/device_ptr.h>
 #include <thrust/scan.h>

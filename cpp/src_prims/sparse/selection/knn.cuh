@@ -31,8 +31,6 @@
 #include <sparse/distance/distance.cuh>
 #include <sparse/selection/selection.cuh>
 
-#include <cuml/common/cuml_allocator.hpp>
-
 #include <cusparse_v2.h>
 
 #pragma once
@@ -66,7 +64,7 @@ struct csr_batcher_t {
 
     batch_rows_ = (batch_stop_ - batch_start_) + 1;
 
-    CUML_LOG_DEBUG(
+    printf(
       "Setting batch. batch_start=%d, batch_stop=%d, batch_rows=%d",
       batch_start_, batch_stop_, batch_rows_);
   }
@@ -77,7 +75,7 @@ struct csr_batcher_t {
                              batch_indptr, &batch_csr_start_offset_,
                              &batch_csr_stop_offset_, stream);
 
-    CUML_LOG_DEBUG("Computed batch offsets. stop_offset=%d, start_offset=%d",
+    printf("Computed batch offsets. stop_offset=%d, start_offset=%d",
                    batch_csr_stop_offset_, batch_csr_start_offset_);
 
     return batch_csr_stop_offset_ - batch_csr_start_offset_;
@@ -155,7 +153,7 @@ class sparse_knn_t {
   void run() {
     using namespace raft::sparse;
 
-    CUML_LOG_DEBUG("n_query_rows=%d, n_idx_rows=%d", n_query_rows, n_idx_rows);
+    printf("n_query_rows=%d, n_idx_rows=%d", n_query_rows, n_idx_rows);
     int n_batches_query = raft::ceildiv((size_t)n_query_rows, batch_size_query);
     csr_batcher_t<value_idx, value_t> query_batcher(
       batch_size_query, n_query_rows, queryIndptr, queryIndices, queryData);
@@ -166,13 +164,13 @@ class sparse_knn_t {
       /**
             * Compute index batch info
             */
-      CUML_LOG_DEBUG("Beginning index batch %d", i);
+      printf("Beginning index batch %d", i);
       query_batcher.set_batch(i);
 
       /**
             * Slice CSR to rows in batch
             */
-      CUML_LOG_DEBUG("Slicing query CSR for batch. rows=%d out of %d",
+      printf("Slicing query CSR for batch. rows=%d out of %d",
                      query_batcher.batch_rows(), n_query_rows);
 
       raft::mr::device::buffer<value_idx> query_batch_indptr(
@@ -204,7 +202,7 @@ class sparse_knn_t {
         batch_size_index, n_idx_rows, idxIndptr, idxIndices, idxData);
 
       for (int j = 0; j < n_batches_idx; j++) {
-        CUML_LOG_DEBUG("Beginning query batch %d", j);
+        printf("Beginning query batch %d", j);
         idx_batcher.set_batch(j);
 
         merge_buffer_indices.resize(query_batcher.batch_rows() * k * 3, stream);
@@ -213,7 +211,7 @@ class sparse_knn_t {
         /**
               * Slice CSR to rows in batch
             */
-        CUML_LOG_DEBUG("Slicing index CSR for batch. rows=%d out of %d",
+        printf("Slicing index CSR for batch. rows=%d out of %d",
                        idx_batcher.batch_rows(), n_idx_rows);
         raft::mr::device::buffer<value_idx> idx_batch_indptr(
           allocator, stream, idx_batcher.batch_rows() + 1);
@@ -261,7 +259,7 @@ class sparse_knn_t {
         /**
              * Perform k-selection on batch & merge with other k-selections
              */
-        CUML_LOG_DEBUG("Performing k-selection");
+        printf("Performing k-selection");
         size_t merge_buffer_offset = batch_rows * k;
         dists_merge_buffer_ptr =
           merge_buffer_dists.data() + merge_buffer_offset;
@@ -290,7 +288,7 @@ class sparse_knn_t {
                         indices_merge_buffer_tmp_ptr);
         }
 
-        CUML_LOG_DEBUG("Performing copy async");
+        printf("Performing copy async");
 
         // copy merged output back into merge buffer partition for next iteration
         raft::copy_async<value_idx>(merge_buffer_indices.data(),
@@ -300,7 +298,7 @@ class sparse_knn_t {
                                   dists_merge_buffer_tmp_ptr, batch_rows * k,
                                   stream);
 
-        CUML_LOG_DEBUG("Done.");
+        printf("Done.");
       }
 
       // Copy final merged batch to output array
@@ -351,7 +349,7 @@ class sparse_knn_t {
     raft::update_device(trans.data(), id_ranges.data(), id_ranges.size(),
                         stream);
 
-    CUML_LOG_DEBUG("Running merge parts");
+    printf("Running merge parts");
 
     // combine merge buffers only if there's more than 1 partition to combine
     MLCommon::Selection::knn_merge_parts(
@@ -411,7 +409,7 @@ class sparse_knn_t {
     /**
        * Compute distances
        */
-    CUML_LOG_DEBUG("Computing pairwise distances for batch");
+    printf("Computing pairwise distances for batch");
     raft::sparse::distance::distances_config_t<value_idx, value_t> dist_config;
     dist_config.b_nrows = idx_batcher.batch_rows();
     dist_config.b_ncols = n_idx_cols;

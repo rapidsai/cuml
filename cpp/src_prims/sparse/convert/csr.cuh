@@ -16,8 +16,6 @@
 
 #pragma once
 
-#include <cuml/common/logger.hpp>
-
 #include <cusparse_v2.h>
 
 #include <raft/cudart_utils.h>

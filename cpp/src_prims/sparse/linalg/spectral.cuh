@@ -22,7 +22,6 @@
 #include <raft/mr/device/buffer.hpp>
 #include <raft/spectral/partition.hpp>
 
-#include <cuml/common/cuml_allocator.hpp>
 #include <selection/knn.cuh>
 #include <sparse/convert/csr.cuh>
 #include <sparse/coo.cuh>

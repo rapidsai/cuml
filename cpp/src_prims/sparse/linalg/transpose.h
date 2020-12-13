@@ -16,8 +16,6 @@
 
 #pragma once
 
-#include <cuml/common/logger.hpp>
-
 #include <cusparse_v2.h>
 
 #include <raft/cudart_utils.h>
@@ -73,8 +71,6 @@ void csr_transpose(cusparseHandle_t handle, const value_idx *csr_indptr,
     csc_data, csc_indptr, csc_indices, CUSPARSE_ACTION_NUMERIC,
     CUSPARSE_INDEX_BASE_ZERO, CUSPARSE_CSR2CSC_ALG1,
     &convert_csc_workspace_size, stream));
-
-  CUML_LOG_DEBUG("Transpose workspace size: %d", convert_csc_workspace_size);
 
   raft::mr::device::buffer<char> convert_csc_workspace(
     allocator, stream, convert_csc_workspace_size);

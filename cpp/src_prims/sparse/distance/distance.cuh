@@ -24,17 +24,12 @@
 #include <raft/mr/device/allocator.hpp>
 #include <raft/mr/device/buffer.hpp>
 
-#include <common/device_buffer.hpp>
-
 #include <sparse/linalg/transpose.h>
 #include <sparse/utils.h>
 #include <sparse/convert/coo.cuh>
 #include <sparse/convert/csr.cuh>
 #include <sparse/convert/dense.cuh>
 #include <sparse/csr.cuh>
-
-#include <cuml/common/cuml_allocator.hpp>
-#include <cuml/neighbors/knn.hpp>
 
 #include <cusparse_v2.h>
 
@@ -69,7 +64,7 @@ struct distances_config_t {
 template <typename value_t>
 class distances_t {
  public:
-  virtual void compute(value_t *out) { CUML_LOG_DEBUG("INside base"); }
+  virtual void compute(value_t *out) {}
   virtual ~distances_t() = default;
 };
 
@@ -112,7 +107,6 @@ class ip_distances_t : public distances_t<value_t> {
 	   * Compute pairwise distances and return dense matrix in column-major format
 	   */
 
-    CUML_LOG_DEBUG("Compute() inside inner-product d");
     raft::mr::device::buffer<value_idx> out_batch_indptr(
       config_.allocator, config_.stream, config_.a_nrows + 1);
     raft::mr::device::buffer<value_idx> out_batch_indices(config_.allocator,
@@ -205,9 +199,6 @@ class ip_distances_t : public distances_t<value_t> {
     /**
      * Transpose index array into csc
      */
-    CUML_LOG_DEBUG("Transposing index CSR. rows=%d, cols=%d, nnz=%d",
-                   config_.b_nrows, config_.b_ncols, config_.b_nnz);
-
     csc_indptr.resize(config_.b_ncols + 1, config_.stream);
     csc_indices.resize(config_.b_nnz, config_.stream);
     csc_data.resize(config_.b_nnz, config_.stream);
@@ -314,26 +305,19 @@ class l2_distances_t : public distances_t<value_t> {
       ip_dists(config) {}
 
   void compute(value_t *out_dists) {
-    CUML_LOG_DEBUG("Computing inner products");
     ip_dists.compute(out_dists);
 
     value_idx *b_indices = ip_dists.trans_indices();
     value_t *b_data = ip_dists.trans_data();
 
-    CUML_LOG_DEBUG("Computing COO row index array");
     raft::mr::device::buffer<value_idx> search_coo_rows(
       config_.allocator, config_.stream, config_.a_nnz);
     convert::csr_to_coo(config_.a_indptr, config_.a_nrows,
                         search_coo_rows.data(), config_.a_nnz, config_.stream);
-
-    CUML_LOG_DEBUG("Done.");
-
-    CUML_LOG_DEBUG("Computing L2");
     compute_l2(out_dists, search_coo_rows.data(), config_.a_data, config_.a_nnz,
                b_indices, b_data, config_.b_nnz, config_.a_nrows,
                config_.b_nrows, config_.handle, config_.allocator,
                config_.stream);
-    CUML_LOG_DEBUG("Done.");
   }
 
   ~l2_distances_t() = default;
@@ -362,8 +346,6 @@ template <typename value_idx = int, typename value_t = float>
 void pairwiseDistance(value_t *out,
                       distances_config_t<value_idx, value_t> input_config,
                       raft::distance::DistanceType metric) {
-  CUML_LOG_DEBUG("Running sparse pairwise distances with metric=%d", metric);
-
   switch (metric) {
     case raft::distance::DistanceType::EucExpandedL2:
       // EucExpandedL2
