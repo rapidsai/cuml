@@ -423,7 +423,8 @@ class NearestNeighbors(Base):
         X=None,
         n_neighbors=None,
         return_distance=True,
-        convert_dtype=True
+        convert_dtype=True,
+        two_pass_precision=False
     ) -> typing.Union[CumlArray, typing.Tuple[CumlArray, CumlArray]]:
         """
         Query the GPU index for the k nearest neighbors of column vectors in X.
@@ -443,6 +444,24 @@ class NearestNeighbors(Base):
             When set to True, the kneighbors method will automatically
             convert the inputs to np.float32.
 
+        two_pass_precision : bool, optional (default = False)
+            When set to True, a slow second pass will be used to improve the
+            precision of results returned for searches using L2-derived
+            metrics. FAISS uses the Euclidean distance decomposition trick to
+            compute distances in this case, which may result in numerical
+            errors for certain data. In particular, when several samples
+            are close to the query sample (relative to typical inter-sample
+            distances), numerical instability may cause the computed distance
+            between the query and itself to be sufficiently non-zero that it is
+            no longer returned as the first result. If this flag is set to
+            true, distances to the query vectors will be recomputed with high
+            precision for all retrieved samples, and the results will be
+            resorted accordingly. Note that for large values of k or large
+            numbers of query vectors, this correction becomes impractical in
+            terms of both runtime and memory. It should be used with care and
+            only when strictly necessary (when precise results are critical and
+            samples may be tightly clustered).
+
         Returns
         -------
         distances : {}
@@ -453,10 +472,12 @@ class NearestNeighbors(Base):
             The indices of the k-nearest neighbors for each column vector in X
         """
 
-        return self._kneighbors(X, n_neighbors, return_distance, convert_dtype)
+        return self._kneighbors(X, n_neighbors, return_distance, convert_dtype,
+                                two_pass_precision=two_pass_precision)
 
     def _kneighbors(self, X=None, n_neighbors=None, return_distance=True,
-                    convert_dtype=True, _output_type=None):
+                    convert_dtype=True, _output_type=None,
+                    two_pass_precision=False):
         """
         Query the GPU index for the k nearest neighbors of column vectors in X.
 
@@ -481,6 +502,24 @@ class NearestNeighbors(Base):
         _output_cumlarray : bool, optional (default = False)
             When set to True, the class self.output_type is overwritten
             and this method returns the output as a cumlarray
+
+        two_pass_precision : bool, optional (default = False)
+            When set to True, a slow second pass will be used to improve the
+            precision of results returned for searches using L2-derived
+            metrics. FAISS uses the Euclidean distance decomposition trick to
+            compute distances in this case, which may result in numerical
+            errors for certain data. In particular, when several samples
+            are close to the query sample (relative to typical inter-sample
+            distances), numerical instability may cause the computed distance
+            between the query and itself to be sufficiently non-zero that it is
+            no longer returned as the first result. If this flag is set to
+            true, distances to the query vectors will be recomputed with high
+            precision for all retrieved samples, and the results will be
+            resorted accordingly. Note that for large values of k or large
+            numbers of query vectors, this correction becomes impractical in
+            terms of both runtime and memory. It should be used with care and
+            only when strictly necessary (when precise results are critical and
+            samples may be tightly clustered).
 
         Returns
         -------
@@ -524,6 +563,34 @@ class NearestNeighbors(Base):
 
         out_type = _output_type \
             if _output_type is not None else self._get_output_type(X)
+
+        if two_pass_precision:
+            metric, expanded = self._build_metric_type(self.metric)
+            euclidean_approximation = (
+                metric == MetricType.METRIC_L2 or
+                (metric == MetricType.METRIC_Lp and self.p == 2)
+            )
+
+            if euclidean_approximation:
+                X = cuml.common.input_to_cuml_array(X).array.to_output('cupy')
+                I_cparr = I_ndarr.to_output('cupy')
+
+                precise_dists = cp.linalg.norm(
+                    X[I_cparr] - X[:, cp.newaxis, :],
+                    axis=2
+                )
+                if expanded:
+                    precise_dists = precise_dists * precise_dists
+
+                correct_order = cp.argsort(precise_dists)
+
+                D_cparr = cp.take_along_axis(precise_dists,
+                                             correct_order,
+                                             axis=0)
+                I_cpdarr = cp.take_along_axis(I_cparr, correct_order, axis=0)
+
+                D_ndarr = cuml.common.input_to_cuml_array(D_cparr).array
+                I_ndarr = cuml.common.input_to_cuml_array(I_ndarr).array
 
         I_ndarr = I_ndarr.to_output(out_type)
         D_ndarr = D_ndarr.to_output(out_type)
