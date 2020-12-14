@@ -53,7 +53,7 @@ TEST_P(CSRSum, Result) {
   cudaStream_t stream;
   cudaStreamCreate(&stream);
 
-  std::shared_ptr<MLCommon::deviceAllocator> alloc(
+  std::shared_ptr<raft::mr::device::allocator> alloc(
     new raft::mr::device::default_allocator);
 
   int *ex_scan, *ind_ptr_a, *ind_ptr_b, *verify_indptr;

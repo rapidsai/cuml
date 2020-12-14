@@ -23,8 +23,8 @@
 #include <sparse/linalg/transpose.h>
 #include <test_utils.h>
 
-namespace MLCommon {
-namespace Sparse {
+namespace raft {
+namespace sparse {
 
 using namespace raft;
 using namespace raft::sparse;
@@ -90,7 +90,7 @@ class CSRTransposeTest
   void SetUp() override {
     params = ::testing::TestWithParam<
       CSRTransposeInputs<value_idx, value_t>>::GetParam();
-    std::shared_ptr<deviceAllocator> alloc(
+    std::shared_ptr<raft::mr::device::allocator> alloc(
       new raft::mr::device::default_allocator);
     CUDA_CHECK(cudaStreamCreate(&stream));
     CUSPARSE_CHECK(cusparseCreate(&handle));
@@ -168,5 +168,5 @@ TEST_P(CSRTransposeTestF, Result) { compare(); }
 INSTANTIATE_TEST_CASE_P(CSRTransposeTest, CSRTransposeTestF,
                         ::testing::ValuesIn(inputs_i32_f));
 
-};  // end namespace Sparse
-};  // end namespace MLCommon
+};  // end namespace sparse
+};  // end namespace raft

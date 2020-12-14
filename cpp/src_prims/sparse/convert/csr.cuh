@@ -44,15 +44,9 @@ namespace sparse {
 namespace convert {
 
 template <typename value_t>
-void coo_to_csr(const raft::handle_t & handle,
-             const int *srcRows,
-             const int *srcCols,
-             const value_t *srcVals,
-             int nnz,
-             int m,
-             int *dst_offsets,
-             int *dstCols, value_t *dstVals) {
-
+void coo_to_csr(const raft::handle_t &handle, const int *srcRows,
+                const int *srcCols, const value_t *srcVals, int nnz, int m,
+                int *dst_offsets, int *dstCols, value_t *dstVals) {
   auto stream = handle.get_stream();
   auto cusparseHandle = handle.get_cusparse_handle();
   auto d_alloc = handle.get_device_allocator();
@@ -65,12 +59,14 @@ void coo_to_csr(const raft::handle_t & handle,
     cusparseHandle, m, m, nnz, srcRows, srcCols, stream);
   raft::mr::device::buffer<char> pBuffer(d_alloc, stream, buffSize);
   raft::mr::device::buffer<int> P(d_alloc, stream, nnz);
-  CUSPARSE_CHECK(cusparseCreateIdentityPermutation(cusparseHandle, nnz, P.data()));
-  raft::sparse::cusparsecoosortByRow(cusparseHandle, m, m, nnz, dstRows.data(), dstCols,
-                                     P.data(), pBuffer.data(), stream);
-  raft::sparse::cusparsegthr(cusparseHandle, nnz, srcVals, dstVals, P.data(), stream);
-  raft::sparse::cusparsecoo2csr(cusparseHandle, dstRows.data(), nnz, m, dst_offsets,
-                                stream);
+  CUSPARSE_CHECK(
+    cusparseCreateIdentityPermutation(cusparseHandle, nnz, P.data()));
+  raft::sparse::cusparsecoosortByRow(cusparseHandle, m, m, nnz, dstRows.data(),
+                                     dstCols, P.data(), pBuffer.data(), stream);
+  raft::sparse::cusparsegthr(cusparseHandle, nnz, srcVals, dstVals, P.data(),
+                             stream);
+  raft::sparse::cusparsecoo2csr(cusparseHandle, dstRows.data(), nnz, m,
+                                dst_offsets, stream);
   CUDA_CHECK(cudaDeviceSynchronize());
 }
 

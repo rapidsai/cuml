@@ -23,9 +23,9 @@
 #include <sparse/utils.h>
 #include <sparse/selection/selection.cuh>
 
-namespace MLCommon {
-namespace Sparse {
-namespace Selection {
+namespace raft {
+namespace sparse {
+namespace selection {
 
 using namespace raft;
 using namespace raft::sparse;
@@ -82,7 +82,7 @@ class SparseSelectionTest
   void SetUp() override {
     params = ::testing::TestWithParam<
       SparseSelectionInputs<value_idx, value_t>>::GetParam();
-    std::shared_ptr<deviceAllocator> alloc(
+    std::shared_ptr<raft::mr::device::allocator> alloc(
       new raft::mr::device::default_allocator);
     CUDA_CHECK(cudaStreamCreate(&stream));
 
@@ -153,6 +153,6 @@ TEST_P(SparseSelectionTestF, Result) { compare(); }
 INSTANTIATE_TEST_CASE_P(SparseSelectionTest, SparseSelectionTestF,
                         ::testing::ValuesIn(inputs_i32_f));
 
-};  // end namespace Selection
-};  // end namespace Sparse
-};  // end namespace MLCommon
+};  // end namespace selection
+};  // end namespace sparse
+};  // end namespace raft

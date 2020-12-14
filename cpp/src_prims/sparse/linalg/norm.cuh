@@ -27,10 +27,9 @@
 #include <cuda_runtime.h>
 #include <stdio.h>
 
-#include <algorithm>
 #include <iostream>
+#include <limits>
 
-#include <sparse/constants.h>
 #include <sparse/utils.h>
 
 namespace raft {
@@ -123,14 +122,14 @@ __global__ void csr_row_normalize_max_kernel(
     } else
       stop_idx = nnz;
 
-    T max = MIN_FLOAT;
+    T max = std::numeric_limits<float>::min();
     for (int j = start_idx; j < stop_idx; j++) {
       if (vals[j] > max) max = vals[j];
     }
 
     // divide nonzeros in current row by max
     for (int j = start_idx; j < stop_idx; j++) {
-      if (max != 0.0 && max > MIN_FLOAT) {
+      if (max != 0.0 && max > std::numeric_limits<float>::min()) {
         T val = vals[j];
         result[j] = val / max;
       } else {
@@ -156,8 +155,7 @@ void csr_row_normalize_max(const int *ia,  // csr row ind array (sorted by row)
                            const T *vals,
                            int nnz,  // array of values and number of non-zeros
                            int m,    // num total rows in csr
-                           T *result,
-                           cudaStream_t stream) {
+                           T *result, cudaStream_t stream) {
   dim3 grid(raft::ceildiv(m, TPB_X), 1, 1);
   dim3 blk(TPB_X, 1, 1);
 

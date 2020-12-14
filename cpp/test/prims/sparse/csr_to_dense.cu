@@ -16,15 +16,16 @@
 
 #include <cusparse_v2.h>
 #include <raft/cudart_utils.h>
-#include <common/device_buffer.hpp>
+#include <raft/mr/device/allocator.hpp>
+#include <raft/mr/device/buffer.hpp>
 
 #include <gtest/gtest.h>
 #include <raft/sparse/cusparse_wrappers.h>
 #include <test_utils.h>
 #include <sparse/convert/dense.cuh>
 
-namespace MLCommon {
-namespace Sparse {
+namespace raft {
+namespace sparse {
 
 using namespace raft;
 using namespace raft::sparse;
@@ -76,14 +77,12 @@ class CSRToDenseTest
   void SetUp() override {
     params = ::testing::TestWithParam<
       CSRToDenseInputs<value_idx, value_t>>::GetParam();
-    std::shared_ptr<deviceAllocator> alloc(
+    std::shared_ptr<raft::mr::device::allocator> alloc(
       new raft::mr::device::default_allocator);
     CUDA_CHECK(cudaStreamCreate(&stream));
     CUSPARSE_CHECK(cusparseCreate(&handle));
 
     make_data();
-
-    ML::Logger::get().setLevel(CUML_LEVEL_INFO);
 
     convert::csr_to_dense(handle, params.nrows, params.ncols, indptr, indices,
                           data, params.nrows, out, stream, true);
@@ -137,5 +136,5 @@ TEST_P(CSRToDenseTestF, Result) { compare(); }
 INSTANTIATE_TEST_CASE_P(CSRToDenseTest, CSRToDenseTestF,
                         ::testing::ValuesIn(inputs_i32_f));
 
-};  // end namespace Sparse
-};  // end namespace MLCommon
+};  // end namespace sparse
+};  // end namespace raft

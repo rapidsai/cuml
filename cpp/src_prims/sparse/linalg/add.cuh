@@ -168,7 +168,7 @@ size_t csr_add_calc_inds(const int *a_ind, const int *a_indptr, const T *a_val,
   dim3 grid(raft::ceildiv(m, TPB_X), 1, 1);
   dim3 blk(TPB_X, 1, 1);
 
-  MLCommon::device_buffer<int> row_counts(d_alloc, stream, m + 1);
+  raft::mr::device::buffer<int> row_counts(d_alloc, stream, m + 1);
   CUDA_CHECK(
     cudaMemsetAsync(row_counts.data(), 0, (m + 1) * sizeof(int), stream));
 

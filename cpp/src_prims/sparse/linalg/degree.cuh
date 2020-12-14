@@ -27,10 +27,6 @@
 #include <cuda_runtime.h>
 #include <stdio.h>
 
-#include <algorithm>
-#include <iostream>
-
-#include <sparse/constants.h>
 #include <sparse/utils.h>
 #include <sparse/coo.cuh>
 

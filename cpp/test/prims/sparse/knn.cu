@@ -16,17 +16,18 @@
 
 #include <cusparse_v2.h>
 #include <gtest/gtest.h>
-#include <raft/cudart_utils.h>
-#include <common/device_buffer.hpp>
 
-#include <raft/sparse/cusparse_wrappers.h>
 #include <test_utils.h>
-#include <cuml/common/logger.hpp>
 #include <sparse/selection/knn.cuh>
 
-namespace MLCommon {
-namespace Sparse {
-namespace Selection {
+#include <raft/cudart_utils.h>
+#include <raft/sparse/cusparse_wrappers.h>
+#include <raft/mr/device/allocator.hpp>
+#include <raft/mr/device/buffer.hpp>
+
+namespace raft {
+namespace sparse {
+namespace selection {
 
 using namespace raft;
 using namespace raft::sparse;
@@ -91,7 +92,7 @@ class SparseKNNTest
   void SetUp() override {
     params =
       ::testing::TestWithParam<SparseKNNInputs<value_idx, value_t>>::GetParam();
-    std::shared_ptr<deviceAllocator> alloc(
+    std::shared_ptr<raft::mr::device::allocator> alloc(
       new raft::mr::device::default_allocator);
     CUDA_CHECK(cudaStreamCreate(&stream));
 
@@ -170,6 +171,6 @@ TEST_P(KNNTestF, Result) { compare(); }
 INSTANTIATE_TEST_CASE_P(SparseKNNTest, KNNTestF,
                         ::testing::ValuesIn(inputs_i32_f));
 
-};  // end namespace Selection
-};  // end namespace Sparse
-};  // end namespace MLCommon
+};  // end namespace selection
+};  // end namespace sparse
+};  // end namespace raft

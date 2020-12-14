@@ -63,29 +63,22 @@ struct csr_batcher_t {
       batch_stop_ = total_rows_ - 1;  // zero-based indexing
 
     batch_rows_ = (batch_stop_ - batch_start_) + 1;
-
-    printf(
-      "Setting batch. batch_start=%d, batch_stop=%d, batch_rows=%d",
-      batch_start_, batch_stop_, batch_rows_);
   }
 
   value_idx get_batch_csr_indptr_nnz(value_idx *batch_indptr,
                                      cudaStream_t stream) {
-    op::csr_row_slice_indptr(batch_start_, batch_stop_, csr_indptr_,
-                             batch_indptr, &batch_csr_start_offset_,
-                             &batch_csr_stop_offset_, stream);
-
-    printf("Computed batch offsets. stop_offset=%d, start_offset=%d",
-                   batch_csr_stop_offset_, batch_csr_start_offset_);
+    raft::sparse::op::csr_row_slice_indptr(
+      batch_start_, batch_stop_, csr_indptr_, batch_indptr,
+      &batch_csr_start_offset_, &batch_csr_stop_offset_, stream);
 
     return batch_csr_stop_offset_ - batch_csr_start_offset_;
   }
 
   void get_batch_csr_indices_data(value_idx *csr_indices, value_t *csr_data,
                                   cudaStream_t stream) {
-    op::csr_row_slice_populate(batch_csr_start_offset_, batch_csr_stop_offset_,
-                               csr_indices_, csr_data_, csr_indices, csr_data,
-                               stream);
+    raft::sparse::op::csr_row_slice_populate(
+      batch_csr_start_offset_, batch_csr_stop_offset_, csr_indices_, csr_data_,
+      csr_indices, csr_data, stream);
   }
 
   value_idx batch_rows() const { return batch_rows_; }
@@ -153,7 +146,6 @@ class sparse_knn_t {
   void run() {
     using namespace raft::sparse;
 
-    printf("n_query_rows=%d, n_idx_rows=%d", n_query_rows, n_idx_rows);
     int n_batches_query = raft::ceildiv((size_t)n_query_rows, batch_size_query);
     csr_batcher_t<value_idx, value_t> query_batcher(
       batch_size_query, n_query_rows, queryIndptr, queryIndices, queryData);
@@ -162,16 +154,13 @@ class sparse_knn_t {
 
     for (int i = 0; i < n_batches_query; i++) {
       /**
-            * Compute index batch info
-            */
-      printf("Beginning index batch %d", i);
+        * Compute index batch info
+        */
       query_batcher.set_batch(i);
 
       /**
-            * Slice CSR to rows in batch
-            */
-      printf("Slicing query CSR for batch. rows=%d out of %d",
-                     query_batcher.batch_rows(), n_query_rows);
+        * Slice CSR to rows in batch
+        */
 
       raft::mr::device::buffer<value_idx> query_batch_indptr(
         allocator, stream, query_batcher.batch_rows() + 1);
@@ -202,17 +191,14 @@ class sparse_knn_t {
         batch_size_index, n_idx_rows, idxIndptr, idxIndices, idxData);
 
       for (int j = 0; j < n_batches_idx; j++) {
-        printf("Beginning query batch %d", j);
         idx_batcher.set_batch(j);
 
         merge_buffer_indices.resize(query_batcher.batch_rows() * k * 3, stream);
         merge_buffer_dists.resize(query_batcher.batch_rows() * k * 3, stream);
 
         /**
-              * Slice CSR to rows in batch
-            */
-        printf("Slicing index CSR for batch. rows=%d out of %d",
-                       idx_batcher.batch_rows(), n_idx_rows);
+          * Slice CSR to rows in batch
+        */
         raft::mr::device::buffer<value_idx> idx_batch_indptr(
           allocator, stream, idx_batcher.batch_rows() + 1);
         raft::mr::device::buffer<value_idx> idx_batch_indices(allocator, stream,
@@ -229,8 +215,8 @@ class sparse_knn_t {
                                                idx_batch_data.data(), stream);
 
         /**
-           * Compute distances
-           */
+         * Compute distances
+         */
         value_idx dense_size =
           idx_batcher.batch_rows() * query_batcher.batch_rows();
         raft::mr::device::buffer<value_t> batch_dists(allocator, stream,
@@ -257,9 +243,8 @@ class sparse_knn_t {
         iota_fill(batch_indices.data(), batch_rows, batch_cols, stream);
 
         /**
-             * Perform k-selection on batch & merge with other k-selections
-             */
-        printf("Performing k-selection");
+         * Perform k-selection on batch & merge with other k-selections
+         */
         size_t merge_buffer_offset = batch_rows * k;
         dists_merge_buffer_ptr =
           merge_buffer_dists.data() + merge_buffer_offset;
@@ -288,8 +273,6 @@ class sparse_knn_t {
                         indices_merge_buffer_tmp_ptr);
         }
 
-        printf("Performing copy async");
-
         // copy merged output back into merge buffer partition for next iteration
         raft::copy_async<value_idx>(merge_buffer_indices.data(),
                                     indices_merge_buffer_tmp_ptr,
@@ -297,8 +280,6 @@ class sparse_knn_t {
         raft::copy_async<value_t>(merge_buffer_dists.data(),
                                   dists_merge_buffer_tmp_ptr, batch_rows * k,
                                   stream);
-
-        printf("Done.");
       }
 
       // Copy final merged batch to output array
@@ -348,8 +329,6 @@ class sparse_knn_t {
                                               id_ranges.size());
     raft::update_device(trans.data(), id_ranges.data(), id_ranges.size(),
                         stream);
-
-    printf("Running merge parts");
 
     // combine merge buffers only if there's more than 1 partition to combine
     MLCommon::Selection::knn_merge_parts(
@@ -407,9 +386,8 @@ class sparse_knn_t {
                          value_idx *query_batch_indices,
                          value_t *query_batch_data, value_t *batch_dists) {
     /**
-       * Compute distances
-       */
-    printf("Computing pairwise distances for batch");
+     * Compute distances
+     */
     raft::sparse::distance::distances_config_t<value_idx, value_t> dist_config;
     dist_config.b_nrows = idx_batcher.batch_rows();
     dist_config.b_ncols = n_idx_cols;
