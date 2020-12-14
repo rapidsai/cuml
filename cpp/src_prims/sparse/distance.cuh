@@ -24,11 +24,13 @@
 #include <raft/linalg/distance_type.h>
 #include <raft/sparse/cusparse_wrappers.h>
 #include <raft/cuda_utils.cuh>
+#include <raft/cudart_utils.h>
 
 #include <common/device_buffer.hpp>
 
-#include <sparse/utils.h>
 #include <sparse/csr.cuh>
+#include <sparse/spmv.cuh>
+#include <sparse/utils.h>
 
 #include <cuml/common/cuml_allocator.hpp>
 #include <cuml/neighbors/knn.hpp>
@@ -41,17 +43,31 @@ namespace MLCommon {
 namespace Sparse {
 namespace Distance {
 
+
+
+template<typename value_idx, typename value_t>
+class ip_trans_getters_t: public distances_t<value_t> {
+
+ public:
+  virtual value_t *trans_data() = 0;
+
+  virtual value_idx *trans_indices() = 0;
+
+  virtual ~ip_trans_getters_t() = default;
+
+};
+
 /**
  * Simple inner product distance with sparse matrix multiply
  */
-template <typename value_idx = int, typename value_t = float>
-class ip_distances_t : public distances_t<value_t> {
+template <typename value_idx, typename value_t>
+class ip_distances_gemm_t : public ip_trans_getters_t<value_idx, value_t> {
  public:
   /**
    * Computes simple sparse inner product distances as sum(x_y * y_k)
    * @param[in] config specifies inputs, outputs, and sizes
    */
-  explicit ip_distances_t(distances_config_t<value_idx, value_t> config)
+  explicit ip_distances_gemm_t(distances_config_t<value_idx, value_t> config)
     : config_(config),
       workspace(config.allocator, config.stream, 0),
       csc_indptr(config.allocator, config.stream, 0),
@@ -107,13 +123,13 @@ class ip_distances_t : public distances_t<value_t> {
                  config_.stream, true);
   }
 
-  value_idx *trans_indptr() { return csc_indptr.data(); }
+  virtual value_idx *trans_indptr() { return csc_indptr.data(); }
 
-  value_idx *trans_indices() { return csc_indices.data(); }
+  virtual value_idx *trans_indices() { return csc_indices.data(); }
 
   value_t *trans_data() { return csc_data.data(); }
 
-  ~ip_distances_t() {
+  ~ip_distances_gemm_t() {
     CUSPARSE_CHECK_NO_THROW(cusparseDestroyMatDescr(matA));
     CUSPARSE_CHECK_NO_THROW(cusparseDestroyMatDescr(matB));
     CUSPARSE_CHECK_NO_THROW(cusparseDestroyMatDescr(matC));
@@ -198,6 +214,86 @@ class ip_distances_t : public distances_t<value_t> {
   device_buffer<value_t> csc_data;
   distances_config_t<value_idx, value_t> config_;
 };
+
+template <typename value_idx, typename value_t>
+class ip_distances_spmv_t : public ip_trans_getters_t<value_idx, value_t> {
+ public:
+  /**
+   * Computes simple sparse inner product distances as sum(x_y * y_k)
+   * @param[in] config specifies inputs, outputs, and sizes
+   */
+  ip_distances_spmv_t(distances_config_t<value_idx, value_t> config)
+    : config_(config), coo_rows_b(config.allocator, config.stream, config.b_nnz) {
+    MLCommon::Sparse::csr_to_coo(config_.b_indptr, config_.b_nrows, coo_rows_b.data(),
+                                 config_.b_nnz, config_.stream);
+  }
+
+  /**
+   * Performs pairwise distance computation and computes output distances
+   * @param out_distances dense output matrix (size a_nrows * b_nrows)
+   */
+  void compute(value_t *out_distances) {
+    /**
+	   * Compute pairwise distances and return dense matrix in column-major format
+	   */
+    balanced_coo_pairwise_spmv<value_idx, value_t>
+      (out_distances, config_, coo_rows_b.data());
+  }
+
+  value_idx *trans_indices() { return coo_rows_b.data(); }
+
+  value_t *trans_data() { return config_.b_data; }
+
+  ~ip_distances_spmv_t() = default;
+
+ private:
+  distances_config_t<value_idx, value_t> config_;
+  device_buffer<value_idx> coo_rows_b;
+};
+
+template <typename value_idx = int, typename value_t = float>
+class ip_distances_t : public distances_t<value_t> {
+ public:
+  /**
+   * Computes simple sparse inner product distances as sum(x_y * y_k)
+   * @param[in] config specifies inputs, outputs, and sizes
+   */
+  explicit ip_distances_t(distances_config_t<value_idx, value_t> config)
+    : config_(config) {
+    int smem = raft::getSharedMemPerBlock();
+
+    if(config_.a_ncols < 11000) {
+      internal_ip_dist = std::unique_ptr<ip_trans_getters_t<value_idx, value_t>>(new ip_distances_spmv_t<value_idx, value_t>(config_));
+    } else {
+      internal_ip_dist (new ip_distances_gemm_t<value_idx, value_t>(config_));
+    }
+
+  }
+
+  /**
+   * Performs pairwise distance computation and computes output distances
+   * @param out_distances dense output matrix (size a_nrows * b_nrows)
+   */
+  void compute(value_t *out_distances) {
+    /**
+	   * Compute pairwise distances and return dense matrix in column-major format
+	   */
+
+    internal_ip_dist->compute(out_distances);
+
+  }
+
+  virtual value_idx *trans_indices() const  { return internal_ip_dist->trans_indices(); }
+
+  virtual value_t *trans_data() const { return internal_ip_dist->trans_data(); }
+
+ private:
+  distances_config_t<value_idx, value_t> config_;
+  std::unique_ptr<ip_trans_getters_t<value_idx, value_t>> internal_ip_dist;
+};
+
+
+
 
 template <typename value_idx, typename value_t>
 __global__ void compute_sq_norm_kernel(value_t *out, const value_idx *coo_rows,

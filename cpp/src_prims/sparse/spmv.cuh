@@ -14,6 +14,9 @@
  * limitations under the License.
  */
 
+
+#pragma once
+
 #include <raft/cudart_utils.h>
 #include <sparse/utils.h>
 #include <common/device_buffer.hpp>
@@ -39,35 +42,9 @@
 
 #include <sparse/distance_api.h>
 
-#pragma once
-
-namespace faiss { namespace gpu {
-
-template <int NumThreads, typename K, typename V, int NumWarpQ,
-  bool Dir, typename Comp>
-struct FinalBlockMerge<32, NumThreads, K, V, NumWarpQ, Dir, Comp> {
-  static inline __device__ void merge(K* sharedK, V* sharedV) {
-    blockMerge<NumThreads, K, V, NumThreads / (kWarpSize * 2),
-      NumWarpQ, !Dir, Comp>(sharedK, sharedV);
-    blockMerge<NumThreads, K, V, NumThreads / (kWarpSize * 4),
-      NumWarpQ * 2, !Dir, Comp>(sharedK, sharedV);
-    blockMerge<NumThreads, K, V, NumThreads / (kWarpSize * 8),
-      NumWarpQ * 4, !Dir, Comp>(sharedK, sharedV);
-    blockMerge<NumThreads, K, V, NumThreads / (kWarpSize * 16),
-      NumWarpQ * 8, !Dir, Comp>(sharedK, sharedV);
-    // Final merge doesn't need to fully merge the second list
-    blockMerge<NumThreads, K, V, NumThreads / (kWarpSize * 32),
-      NumWarpQ * 16, !Dir, Comp, false>(sharedK, sharedV);
-  }
-};
-
-}}
-
 namespace MLCommon {
 namespace Sparse {
 namespace Distance {
-
-const int MAX_INT = std::numeric_limits<int>::max();
 
 /**
  * This implementation follows the load-balanced implementation. This is intended
@@ -205,6 +182,13 @@ __global__ void balanced_coo_spmv_kernel(value_idx *indptrA,
   }
 }
 
+template<typename value_idx, typename value_t, typename tpb>
+inline int balanced_coo_spmv_compute_smem() {
+  // compute max shared mem to use
+  return  raft::getSharedMemPerBlock() -
+             (2 * sizeof(value_idx)) -
+              (tpb * sizeof(value_t));
+}
 
 /**
  * Performs generalized SPMV. Each vector of A is loaded
@@ -221,13 +205,12 @@ __global__ void balanced_coo_spmv_kernel(value_idx *indptrA,
  * @param reduce_func
  * @param accum_func
  */
-template <typename value_idx = int, typename value_t = float,
-  int max_buffer_size = 11000,
-  int threads_per_block = 1024>
-void balanced_coo_pairwise_spmv(value_t *out_dists,
-                                distances_config_t<value_idx, value_t> config_) {
-
-  int chunk_size = 500000;
+template <typename value_idx, typename value_t,
+  int threads_per_block = 1024,
+  int chunk_size = 500000>
+inline void balanced_coo_pairwise_spmv(value_t *out_dists,
+                                distances_config_t<value_idx, value_t> config_,
+                                value_idx *coo_rows_b) {
 
   int n_warps_per_row =
     raft::ceildiv(config_.b_nnz, chunk_size * threads_per_block);
@@ -236,15 +219,10 @@ void balanced_coo_pairwise_spmv(value_t *out_dists,
   CUML_LOG_DEBUG("n_blocks: %d", n_blocks);
   CUML_LOG_DEBUG("n_warps_per_row: %d", n_warps_per_row);
 
-  device_buffer<value_idx> rows_b(config_.allocator, config_.stream,
-                                  config_.b_nnz);
-  MLCommon::Sparse::csr_to_coo(config_.b_indptr, config_.b_nrows, rows_b.data(),
-                               config_.b_nnz, config_.stream);
 
-  balanced_coo_spmv_kernel<value_idx, value_t, threads_per_block,
-    max_buffer_size>
+  balanced_coo_spmv_kernel<value_idx, value_t, threads_per_block, 11000>
   <<<n_blocks, threads_per_block, 0, config_.stream>>>(
-    config_.a_indptr, config_.a_indices, config_.a_data, rows_b.data(),
+    config_.a_indptr, config_.a_indices, config_.a_data, coo_rows_b,
     config_.b_indices, config_.b_data, config_.a_nrows, config_.b_nrows,
     config_.b_ncols, config_.b_nnz, out_dists, n_warps_per_row, chunk_size);
 };
