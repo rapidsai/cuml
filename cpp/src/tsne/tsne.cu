@@ -21,7 +21,7 @@ namespace ML {
 
 template <typename tsne_input, typename value_idx, typename value_t>
 void _fit(const raft::handle_t &handle, tsne_input &input,
-          knn_graph<value_idx, value_t> &k_graph, const int dim,
+          knn_graph<value_idx, value_t> &k_graph, const value_idx dim,
           const value_t theta, const value_t epssq, value_t perplexity,
           const int perplexity_max_iter, const value_t perplexity_tol,
           const value_t early_exaggeration, const int exaggeration_iter,

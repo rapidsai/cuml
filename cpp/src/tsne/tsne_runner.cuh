@@ -32,7 +32,7 @@ template <typename tsne_input, typename value_idx, typename value_t>
 class TSNE_runner {
  public:
   TSNE_runner(const raft::handle_t &handle_, tsne_input &input_,
-              knn_graph<value_idx, value_t> &k_graph_, const int dim_,
+              knn_graph<value_idx, value_t> &k_graph_, const value_idx dim_,
               const float theta_, const float epssq_, float perplexity_,
               const int perplexity_max_iter_, const float perplexity_tol_,
               const float early_exaggeration_, const int exaggeration_iter_,
@@ -100,10 +100,10 @@ class TSNE_runner {
   void run() {
     distance_and_perplexity();
 
-    // const auto NNZ = COO_Matrix.nnz;
-    // auto *VAL = COO_Matrix.vals();
-    // const auto *COL = COO_Matrix.cols();
-    // const auto *ROW = COO_Matrix.rows();
+    const auto NNZ = COO_Matrix.nnz;
+    auto *VAL = COO_Matrix.vals();
+    const auto *COL = COO_Matrix.cols();
+    const auto *ROW = COO_Matrix.rows();
     //---------------------------------------------------
 
     // if (barnes_hut) {
@@ -113,11 +113,11 @@ class TSNE_runner {
     //                    min_grad_norm, pre_momentum, post_momentum, random_state,
     //                    initialize_embeddings);
     // } else {
-    //   TSNE::Exact_TSNE(VAL, COL, ROW, NNZ, handle, Y, n, dim,
-    //                    early_exaggeration, exaggeration_iter, min_gain,
-    //                    pre_learning_rate, post_learning_rate, max_iter,
-    //                    min_grad_norm, pre_momentum, post_momentum, random_state,
-    //                    initialize_embeddings);
+      TSNE::Exact_TSNE(VAL, COL, ROW, NNZ, handle, Y, n, dim,
+                       early_exaggeration, exaggeration_iter, min_gain,
+                       pre_learning_rate, post_learning_rate, max_iter,
+                       min_grad_norm, pre_momentum, post_momentum, random_state,
+                       initialize_embeddings);
     // }
   }
 
@@ -182,7 +182,7 @@ class TSNE_runner {
   const raft::handle_t &handle;
   tsne_input &input;
   knn_graph<value_idx, value_t> &k_graph;
-  const int dim;
+  const value_idx dim;
   int n_neighbors;
   const value_t theta;
   const value_t epssq;

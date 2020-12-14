@@ -46,14 +46,15 @@ namespace TSNE {
  * @param[in] random_state: Set this to -1 for pure random intializations or >= 0 for reproducible outputs.
  * @param[in] initialize_embeddings: Whether to overwrite the current Y vector with random noise.
  */
-void Exact_TSNE(float *VAL, const int *COL, const int *ROW, const int NNZ,
-                const raft::handle_t &handle, float *Y, const int n,
-                const int dim, const float early_exaggeration = 12.0f,
-                const int exaggeration_iter = 250, const float min_gain = 0.01f,
-                const float pre_learning_rate = 200.0f,
-                const float post_learning_rate = 500.0f,
-                const int max_iter = 1000, const float min_grad_norm = 1e-7,
-                const float pre_momentum = 0.5, const float post_momentum = 0.8,
+template <typename value_idx, typename value_t>
+void Exact_TSNE(value_t *VAL, const value_idx *COL, const value_idx *ROW, const value_idx NNZ,
+                const raft::handle_t &handle, value_t *Y, const value_idx n,
+                const value_idx dim, const value_t early_exaggeration = 12.0f,
+                const int exaggeration_iter = 250, const value_t min_gain = 0.01f,
+                const value_t pre_learning_rate = 200.0f,
+                const value_t post_learning_rate = 500.0f,
+                const int max_iter = 1000, const value_t min_grad_norm = 1e-7,
+                const value_t pre_momentum = 0.5, const value_t post_momentum = 0.8,
                 const long long random_state = -1,
                 const bool initialize_embeddings = true) {
   auto d_alloc = handle.get_device_allocator();
@@ -65,34 +66,34 @@ void Exact_TSNE(float *VAL, const int *COL, const int *ROW, const int NNZ,
   // Allocate space
   //---------------------------------------------------
   CUML_LOG_DEBUG("Now allocating memory for TSNE.");
-  MLCommon::device_buffer<float> norm(d_alloc, stream, n);
-  MLCommon::device_buffer<float> Z_sum(d_alloc, stream, 2 * n);
-  MLCommon::device_buffer<float> means(d_alloc, stream, dim);
+  MLCommon::device_buffer<value_t> norm(d_alloc, stream, n);
+  MLCommon::device_buffer<value_t> Z_sum(d_alloc, stream, 2 * n);
+  MLCommon::device_buffer<value_t> means(d_alloc, stream, dim);
 
-  MLCommon::device_buffer<float> attract(d_alloc, stream, n * dim);
-  MLCommon::device_buffer<float> repel(d_alloc, stream, n * dim);
+  MLCommon::device_buffer<value_t> attract(d_alloc, stream, n * dim);
+  MLCommon::device_buffer<value_t> repel(d_alloc, stream, n * dim);
 
-  MLCommon::device_buffer<float> velocity(d_alloc, stream, n * dim);
+  MLCommon::device_buffer<value_t> velocity(d_alloc, stream, n * dim);
   CUDA_CHECK(cudaMemsetAsync(
     velocity.data(), 0, velocity.size() * sizeof(*velocity.data()), stream));
 
-  MLCommon::device_buffer<float> gains(d_alloc, stream, n * dim);
-  thrust::device_ptr<float> begin = thrust::device_pointer_cast(gains.data());
+  MLCommon::device_buffer<value_t> gains(d_alloc, stream, n * dim);
+  thrust::device_ptr<value_t> begin = thrust::device_pointer_cast(gains.data());
   thrust::fill(thrust::cuda::par.on(stream), begin, begin + n * dim, 1.0f);
 
-  MLCommon::device_buffer<float> gradient(d_alloc, stream, n * dim);
+  MLCommon::device_buffer<value_t> gradient(d_alloc, stream, n * dim);
   //---------------------------------------------------
 
   // Calculate degrees of freedom
   //---------------------------------------------------
-  const float degrees_of_freedom = fmaxf(dim - 1, 1);
-  const float df_power = -(degrees_of_freedom + 1.0f) / 2.0f;
-  const float recp_df = 1.0f / degrees_of_freedom;
-  const float C = 2.0f * (degrees_of_freedom + 1.0f) / degrees_of_freedom;
+  const value_t degrees_of_freedom = fmaxf(dim - 1, 1);
+  const value_t df_power = -(degrees_of_freedom + 1.0f) / 2.0f;
+  const value_t recp_df = 1.0f / degrees_of_freedom;
+  const value_t C = 2.0f * (degrees_of_freedom + 1.0f) / degrees_of_freedom;
 
   CUML_LOG_DEBUG("Start gradient updates!");
-  float momentum = pre_momentum;
-  float learning_rate = pre_learning_rate;
+  value_t momentum = pre_momentum;
+  value_t learning_rate = pre_learning_rate;
   bool check_convergence = false;
 
   for (int iter = 0; iter < max_iter; iter++) {
@@ -101,7 +102,7 @@ void Exact_TSNE(float *VAL, const int *COL, const int *ROW, const int NNZ,
     if (iter == exaggeration_iter) {
       momentum = post_momentum;
       // Divide perplexities
-      const float div = 1.0f / early_exaggeration;
+      const value_t div = 1.0f / early_exaggeration;
       raft::linalg::scalarMultiply(VAL, VAL, div, NNZ, stream);
       learning_rate = post_learning_rate;
     }
@@ -119,7 +120,7 @@ void Exact_TSNE(float *VAL, const int *COL, const int *ROW, const int NNZ,
                              df_power, recp_df, stream);
 
     // Apply / integrate forces
-    const float gradient_norm = TSNE::apply_forces(
+    const value_t gradient_norm = TSNE::apply_forces(
       Y, velocity.data(), attract.data(), repel.data(), means.data(),
       gains.data(), Z, learning_rate, C, momentum, dim, n, min_gain,
       gradient.data(), check_convergence, stream);
