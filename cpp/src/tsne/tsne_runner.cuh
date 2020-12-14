@@ -144,7 +144,7 @@ class TSNE_runner {
       k_graph.knn_indices = indices.data();
       k_graph.knn_dists = distances.data();
 
-      TSNE::get_distances<value_idx, value_t>(handle, input, k_graph, stream);
+      TSNE::get_distances(handle, input, k_graph, stream);
     }
 
     //---------------------------------------------------

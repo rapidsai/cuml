@@ -25,6 +25,8 @@
 
 #include <cuml/manifold/common.hpp>
 
+#include <raft/error.hpp>
+
 namespace ML {
 namespace TSNE {
 
@@ -37,16 +39,15 @@ namespace TSNE {
  * @param[in] d_alloc: device allocator
  * @param[in] stream: The GPU stream.
  */
-// template <typename tsne_input, typename knn_value_idx, typename knn_value_t>
-// void get_distances(const raft::handle_t &handle, tsne_input &input,
-//                    knn_value_idx *indices, knn_value_t *distances,
-//                    const int n_neighbors, cudaStream_t stream);
+template <typename tsne_input, typename value_idx, typename value_t>
+void get_distances(const raft::handle_t &handle, tsne_input &input,
+                   knn_graph<value_idx, value_t> &k_graph, cudaStream_t stream);
 
-// dense
-template <typename value_idx, typename value_t>
+// dense, int64 indices
+template <>
 void get_distances(const raft::handle_t &handle,
                    manifold_dense_inputs_t<float> &input,
-                   knn_graph<value_idx, value_t> &k_graph,
+                   knn_graph<int64_t, float> &k_graph,
                    cudaStream_t stream) {
   // TODO: for TSNE transform first fit some points then transform with 1/(1+d^2)
   // #861
@@ -68,11 +69,20 @@ void get_distances(const raft::handle_t &handle,
                                        handle.get_device_allocator(), stream);
 }
 
-// sparse
-template <typename value_idx, typename value_t>
+// dense, int32 indices
+template <>
+void get_distances(const raft::handle_t &handle,
+                   manifold_dense_inputs_t<float> &input,
+                   knn_graph<int, float> &k_graph,
+                   cudaStream_t stream) {
+  throw raft::exception("Dense TSNE does not support 32-bit integer indices yet.");
+}
+
+// sparse, int32
+template <>
 void get_distances(const raft::handle_t &handle,
                    manifold_sparse_inputs_t<int, float> &input,
-                   knn_graph<value_idx, value_t> &k_graph,
+                   knn_graph<int, float> &k_graph,
                    cudaStream_t stream) {
   MLCommon::Sparse::Selection::brute_force_knn(
     input.indptr, input.indices, input.data, input.nnz, input.n, input.d,
@@ -81,6 +91,15 @@ void get_distances(const raft::handle_t &handle,
     handle.get_cusparse_handle(), handle.get_device_allocator(), stream,
     ML::Sparse::DEFAULT_BATCH_SIZE, ML::Sparse::DEFAULT_BATCH_SIZE,
     ML::MetricType::METRIC_L2);
+}
+
+// sparse, int64
+template <>
+void get_distances(const raft::handle_t &handle,
+                   manifold_sparse_inputs_t<int64_t, float> &input,
+                   knn_graph<int64_t, float> &k_graph,
+                   cudaStream_t stream) {
+  throw raft::exception("Sparse TSNE does not support 32-bit integer indices yet.");
 }
 
 /**
