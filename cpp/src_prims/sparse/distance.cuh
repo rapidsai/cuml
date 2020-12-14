@@ -19,7 +19,7 @@
 #include <limits.h>
 #include <raft/cudart_utils.h>
 #include <sparse/distance_api.h>
-#include <sparse/semiring.cuh>
+//#include <sparse/semiring.cuh>
 
 #include <raft/linalg/distance_type.h>
 #include <raft/sparse/cusparse_wrappers.h>
@@ -339,18 +339,18 @@ void pairwiseDistance(value_t *out,
       // InnerProduct
       ip_distances_t<value_idx, value_t>(input_config).compute(out);
       break;
-    case ML::Distance::DistanceType::EucUnexpandedL1:
-      l1_distances_t<value_idx, value_t>(input_config).compute(out);
-      break;
-    case ML::Distance::DistanceType::EucUnexpandedL2:
-      l2_unexpanded_distances_t<value_idx, value_t>(input_config).compute(out);
-      break;
-    case ML::Distance::DistanceType::ChebyChev:
-      chebychev_distances_t<value_idx, value_t>(input_config).compute(out);
-      break;
-    case ML::Distance::DistanceType::Canberra:
-      canberra_distances_t<value_idx, value_t>(input_config).compute(out);
-      break;
+//    case ML::Distance::DistanceType::EucUnexpandedL1:
+//      l1_distances_t<value_idx, value_t>(input_config).compute(out);
+//      break;
+//    case ML::Distance::DistanceType::EucUnexpandedL2:
+//      l2_unexpanded_distances_t<value_idx, value_t>(input_config).compute(out);
+//      break;
+//    case ML::Distance::DistanceType::ChebyChev:
+//      chebychev_distances_t<value_idx, value_t>(input_config).compute(out);
+//      break;
+//    case ML::Distance::DistanceType::Canberra:
+//      canberra_distances_t<value_idx, value_t>(input_config).compute(out);
+//      break;
     default:
       THROW("Unsupported metric: %d", metric);
   }

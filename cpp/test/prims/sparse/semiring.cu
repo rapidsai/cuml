@@ -83,6 +83,8 @@ class SparseDistanceSemiringTest
 
     CUSPARSE_CHECK(cusparseCreate(&cusparseHandle));
 
+
+    std::cout << "Making data" << std::endl;
     make_data();
 
     Distance::distances_config_t<value_idx, value_t> dist_config;
@@ -106,13 +108,17 @@ class SparseDistanceSemiringTest
 
     allocate(out_dists, out_size);
 
-    ML::Logger::get().setLevel(CUML_LEVEL_INFO);
+    ML::Logger::get().setLevel(CUML_LEVEL_DEBUG);
+
+    std::cout << "Running dists" << std::endl;
+
 
     l1_distances_t<value_idx, value_t> l1_dists(dist_config);
 
     l1_dists.compute(out_dists);
 
     CUDA_CHECK(cudaStreamSynchronize(stream));
+    std::cout << "Done." << std::endl;
   }
 
   void TearDown() override {

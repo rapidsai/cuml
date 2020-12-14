@@ -141,7 +141,7 @@ struct BlockSemiring {
     stop_row_b = min(start_row_b + tpb,
                      n - start_row_b);
 
-    n_rows = (stop_row_b - start_row_b) + 1;
+    n_rows = (stop_row_b - start_row_b);
 
     for (int i = tid; i < n_rows; i += tpb) {
       row_b = start_row_b + tid;
@@ -158,12 +158,13 @@ struct BlockSemiring {
       bool local_idx_in_bounds = local_idx < local_idx_stop && row_count > 0;
 
       value_idx l = (local_idx_in_bounds) * chunk_cols[local_idx] + (!local_idx_in_bounds)*(-1);
-      value_t lv = (local_idx_in_bounds) * chunk_vals[local_idx] + (!local_idx_in_bounds)*(-1);
+      value_t lv = (local_idx_in_bounds) * chunk_vals[local_idx] + (!local_idx_in_bounds)*(0.0);
 
       bool shared_idx_in_bounds = shared_idx < shared_size;
 
       value_idx r = (shared_idx_in_bounds) * shared_cols[shared_idx] + (!shared_idx_in_bounds)*(-1);
       value_t rv = (shared_idx_in_bounds) * shared_vals[shared_idx] + (!shared_idx_in_bounds)*(0.0);
+//
 
       bool run_l = ((l <= r && l != -1) || (l != -1 && r == -1));
       local_idx += 1 * run_l;
@@ -192,8 +193,9 @@ struct BlockSemiring {
   }
 
   __device__ inline void write(value_t *out) {
-    for (int i = tid; i < n_rows; i += blockDim.x)
+    for (int i = tid; i < n_rows; i += blockDim.x) {
       out[row_a * n + row_b] = cur_sum;
+    }
   }
 
 
@@ -274,8 +276,6 @@ __global__ void classic_csr_semiring_spmv_kernel(
   value_idx out_row = blockIdx.x / n_blocks_per_row;
   value_idx out_col_start = blockIdx.x % n_blocks_per_row;
   value_idx tid = threadIdx.x;
-//
-//  int k = 100;
 
   if (out_row > m || out_col_start > n_blocks_per_row) return;
 
@@ -286,18 +286,6 @@ __global__ void classic_csr_semiring_spmv_kernel(
 
   bool verbose = tid <= 3 && out_row < 3;
 
-//  constexpr int n_warps = tpb / 32;
-//
-//  __shared__ value_t smemK[n_warps * 32];
-//  __shared__ value_idx smemV[n_warps * 32];
-//
-//  auto kInit = faiss::gpu::Limits<value_t>::getMax();
-//  auto vInit = -1;
-//
-//  faiss::gpu::BlockSelect<value_t, value_idx, true, faiss::gpu::Comparator<value_t>,
-//  32, 2, tpb>
-//    heap(kInit, vInit, smemK, smemV, k);
-//
   BlockSemiring<value_idx, value_t, tpb, buffer_size> semiring(
     tid, m, n, shared_cols, shared_vals, indicesB, dataB,
     offsets_a, verbose);
@@ -308,20 +296,57 @@ __global__ void classic_csr_semiring_spmv_kernel(
   for(int i = 0; i < n_rows_per_block; i+= blockDim.x) {
     semiring.load_b(out_col_start + i, indptrB);
 
-    while (!semiring.isdone())
+    do {
       semiring.step(reduce_func, accum_func);
+    } while(!semiring.isdone());
 
     semiring.write(out);
-//    heap.add(semiring.get_sum(), tid+i);
   }
 
-//  heap.reduce();
-//
-//  for (int i = tid; i < k; i += tpb) {
-//    out[out_row * k + i] = smemK[i];
-//    out[out_row * k + i] = smemV[i];
-//  }
 }
+
+
+/**
+ * Perform generalized SPMV. Each vector of A is loaded into
+ * shared memory and each row of B parallelized over threads.
+ * @tparam value_idx
+ * @tparam value_t
+ * @tparam max_buffer_size
+ * @tparam threads_per_block
+ * @tparam reduce_f
+ * @tparam accum_f
+ * @param out_dists
+ * @param config_
+ * @param reduce_func
+ * @param accum_func
+ */
+template <typename value_idx = int,
+          typename value_t = float,
+          int max_buffer_size = 5000,
+          int threads_per_block = 1024,
+          typename reduce_f = auto(value_t, value_t)->value_t,
+          typename accum_f = auto(value_t, value_t)->value_t>
+void generalized_csr_pairwise_semiring(value_t *out_dists,
+                          distances_config_t<value_idx, value_t> config_,
+                          reduce_f reduce_func, accum_f accum_func) {
+  int n_chunks = 1;
+  int n_rows_per_block = min(n_chunks * threads_per_block, config_.b_nrows);
+  int n_warps_per_row = raft::ceildiv(config_.b_nrows, n_rows_per_block);
+  int n_blocks = config_.a_nrows * n_warps_per_row;
+
+  CUML_LOG_DEBUG("Classic block reduce");
+
+  CUML_LOG_DEBUG("n_blocks: %d", n_blocks);
+  CUML_LOG_DEBUG("n_warps_per_row: %d", n_warps_per_row);
+
+  classic_csr_semiring_spmv_kernel<value_idx, value_t, threads_per_block,
+                              max_buffer_size, reduce_f, accum_f>
+    <<<n_blocks, threads_per_block, 0, config_.stream>>>(
+      config_.a_indptr, config_.a_indices, config_.a_data, config_.b_indptr,
+      config_.b_indices, config_.b_data, config_.a_nrows, config_.b_nrows,
+      out_dists, n_warps_per_row, n_rows_per_block,
+      reduce_func, accum_func);
+};
 
 /**
  * This implementation follows the load-balanced implementation. This is intended
@@ -355,24 +380,20 @@ template<
   typename value_idx,
   typename value_t,
   int tpb,
-  int buffer_size,
-  typename reduce_f = auto(value_t, value_t)->value_t,
-  typename accum_f = auto(value_t, value_t)->value_t>
-__global__ void balanced_coo_semiring_kernel(value_idx *indptrA,
-                                             value_idx *indicesA,
-                                             value_t *dataA,
-                                             value_idx *rowsB,
-                                             value_idx *indicesB,
-                                             value_t *dataB,
-                                             value_idx m,
-                                             value_idx n,
-                                             value_idx dim,
-                                             value_idx nnz_b,
-                                             value_t *out,
-                                             int n_blocks_per_row,
-                                             int chunk_size,
-                                             reduce_f reduce_func,
-                                             accum_f accum_func) {
+  int buffer_size>
+__global__ void balanced_coo_spmv_kernel(value_idx *indptrA,
+                                         value_idx *indicesA,
+                                         value_t *dataA,
+                                         value_idx *rowsB,
+                                         value_idx *indicesB,
+                                         value_t *dataB,
+                                         value_idx m,
+                                         value_idx n,
+                                         value_idx dim,
+                                         value_idx nnz_b,
+                                         value_t *out,
+                                         int n_blocks_per_row,
+                                         int chunk_size) {
 
   typedef cub::WarpReduce<value_t> warp_reduce;
 
@@ -399,8 +420,6 @@ __global__ void balanced_coo_semiring_kernel(value_idx *indptrA,
   __shared__ typename warp_reduce::TempStorage temp_storage;
 
   if(tid == 0) {
-    // todo: Investigate warp-level broadcast instead of shared memory
-    //   - will result in 32 reads, but they should be in parallel
     offsets_a[0] = indptrA[cur_row_a];
     offsets_a[1] = indptrA[cur_row_a +1];
   }
@@ -429,8 +448,7 @@ __global__ void balanced_coo_semiring_kernel(value_idx *indptrA,
   if(tid < active_chunk_size) {
     cur_row_b = rowsB[ind];
     value_idx col = indicesB[ind];
-    value_t v_a = A[col];
-    c = reduce_func(v_a, dataB[ind]);
+    c = A[col] * dataB[ind];
   }
 
   // loop through chunks in parallel, reducing when a new row is
@@ -448,13 +466,10 @@ __global__ void balanced_coo_semiring_kernel(value_idx *indptrA,
       unsigned int peer_group = get_peer_group(cur_row_b);
       bool is_leader = get_lowest_peer(peer_group) == lane_id;
 
-      // TODO: Make reduce func compatible w/ thrust using operator()
       value_t v = warp_reduce(temp_storage).HeadSegmentedSum(c, is_leader);
 
       // thread with lowest lane id among peers writes out
       if(is_leader && v != 0.0) {
-
-        // TODO Provide function to swap atomic for max/add
         atomicAdd(out + (cur_row_a * n + cur_row_b), v);
       }
       c = 0.0;
@@ -463,54 +478,12 @@ __global__ void balanced_coo_semiring_kernel(value_idx *indptrA,
     if(next_row_b != -1) {
       ind = ind_next;
       value_idx col = indicesB[ind];
-      c += reduce_func(A[col], dataB[ind]);
+      c += A[col] * dataB[ind];
       cur_row_b = next_row_b;
     }
   }
 }
 
-/**
- * Perform generalized SPMV. Each vector of A is loaded into
- * shared memory and each row of B parallelized over threads.
- * @tparam value_idx
- * @tparam value_t
- * @tparam max_buffer_size
- * @tparam threads_per_block
- * @tparam reduce_f
- * @tparam accum_f
- * @param out_dists
- * @param config_
- * @param reduce_func
- * @param accum_func
- */
-template <typename value_idx = int,
-          typename value_t = float,
-          int max_buffer_size = 5000,
-          int threads_per_block = 1024,
-          typename reduce_f = auto(value_t, value_t)->value_t,
-          typename accum_f = auto(value_t, value_t)->value_t>
-void classic_generalized_spmv(value_t *out_dists,
-                           distances_config_t<value_idx, value_t> config_,
-                           reduce_f reduce_func, accum_f accum_func) {
-
-  int n_chunks = 1;
-  int n_rows_per_block = min(n_chunks * threads_per_block, config_.b_nrows);
-  int n_warps_per_row = raft::ceildiv(config_.b_nrows, n_rows_per_block);
-  int n_blocks = config_.a_nrows * n_warps_per_row;
-
-  CUML_LOG_DEBUG("Classic block reduce");
-
-  CUML_LOG_DEBUG("n_blocks: %d", n_blocks);
-  CUML_LOG_DEBUG("n_warps_per_row: %d", n_warps_per_row);
-
-  classic_csr_semiring_spmv_kernel<value_idx, value_t, threads_per_block,
-                              max_buffer_size, reduce_f, accum_f>
-    <<<n_blocks, threads_per_block, 0, config_.stream>>>(
-      config_.a_indptr, config_.a_indices, config_.a_data, config_.b_indptr,
-      config_.b_indices, config_.b_data, config_.a_nrows, config_.b_nrows,
-      out_dists, n_warps_per_row, n_rows_per_block,
-      reduce_func, accum_func);
-};
 
 /**
  * Performs generalized SPMV. Each vector of A is loaded
@@ -529,12 +502,9 @@ void classic_generalized_spmv(value_t *out_dists,
  */
 template <typename value_idx = int, typename value_t = float,
   int max_buffer_size = 11000,
-  int threads_per_block = 1024,
-  typename reduce_f = auto(value_t, value_t)->value_t,
-  typename accum_f = auto(value_t, value_t)->value_t>
-void balanced_generalized_spmv(value_t *out_dists,
-                           distances_config_t<value_idx, value_t> config_,
-                           reduce_f reduce_func, accum_f accum_func) {
+  int threads_per_block = 1024>
+void balanced_coo_pairwise_spmv(value_t *out_dists,
+                       distances_config_t<value_idx, value_t> config_) {
 
   int chunk_size = 500000;
 
@@ -550,51 +520,13 @@ void balanced_generalized_spmv(value_t *out_dists,
   MLCommon::Sparse::csr_to_coo(config_.b_indptr, config_.b_nrows, rows_b.data(),
                                config_.b_nnz, config_.stream);
 
-  balanced_coo_semiring_kernel<value_idx, value_t, threads_per_block,
-                               max_buffer_size, reduce_f, accum_f>
+  balanced_coo_spmv_kernel<value_idx, value_t, threads_per_block,
+                               max_buffer_size>
     <<<n_blocks, threads_per_block, 0, config_.stream>>>(
       config_.a_indptr, config_.a_indices, config_.a_data, rows_b.data(),
       config_.b_indices, config_.b_data, config_.a_nrows, config_.b_nrows,
-      config_.b_ncols, config_.b_nnz, out_dists, n_warps_per_row, chunk_size,
-      reduce_func, accum_func);
-
-  // TODO: Need to create new COO (and free old one?)
-  balanced_coo_semiring_kernel<value_idx, value_t, threads_per_block,
-    max_buffer_size, reduce_f, accum_f>
-  <<<n_blocks, threads_per_block, 0, config_.stream>>>(
-    config_.a_indptr, config_.a_indices, config_.a_data, rows_b.data(),
-    config_.b_indices, config_.b_data, config_.a_nrows, config_.b_nrows,
-    config_.b_ncols, config_.b_nnz, out_dists, n_warps_per_row, chunk_size,
-    reduce_func, accum_func);
+      config_.b_ncols, config_.b_nnz, out_dists, n_warps_per_row, chunk_size);
 };
-
-
-/**
- * Entry point for generalized SPMV
- * @tparam value_idx
- * @tparam value_t
- * @tparam reduce_f
- * @tparam accum_f
- * @param out_dists
- * @param config_
- * @param reduce_func
- * @param accum_func
- */
-template <typename value_idx = int, typename value_t = float,
-  typename reduce_f = auto(value_t, value_t)->value_t,
-  typename accum_f = auto(value_t, value_t)->value_t>
-void generalized_spmv(value_t *out_dists,
-                      distances_config_t<value_idx, value_t> config_,
-                      reduce_f reduce_func, accum_f accum_func) {
-
-  if(config_.b_ncols <= 11000) {  // TODO: Infer this from cuda rt
-    // TODO: Chunk over cols
-    balanced_generalized_spmv(out_dists, config_, reduce_func, accum_func);
-  } else {
-    classic_generalized_spmv(out_dists, config_, reduce_func, accum_func);
-  }
-}
-
 
 template <typename value_idx = int, typename value_t = float>
 class l1_distances_t : public distances_t<value_t> {
@@ -604,7 +536,7 @@ class l1_distances_t : public distances_t<value_t> {
 
   void compute(value_t *out_dists) {
     CUML_LOG_DEBUG("Running l1 dists");
-    generalized_spmv<value_idx, value_t>(
+    generalized_csr_pairwise_semiring<value_idx, value_t>(
       out_dists, config_,
       [] __host__ __device__  (value_t a, value_t b) { return fabsf(a-b); },
       [] __host__ __device__  (value_t a, value_t b) { return a+b; });
@@ -612,7 +544,9 @@ class l1_distances_t : public distances_t<value_t> {
     // TODO: Remove
     CUDA_CHECK(cudaStreamSynchronize(config_.stream));
 
-        std::cout << raft::arr2Str(out_dists, 25,
+    std::cout << "Done. printing" << std::endl;
+
+        std::cout << raft::arr2Str(out_dists, 16,
                                    "out_dists", config_.stream)
                   << std::endl;
   }
@@ -628,7 +562,7 @@ class l2_unexpanded_distances_t : public distances_t<value_t> {
     : config_(config) {}
 
   void compute(value_t *out_dists) {
-    generalized_spmv<value_idx, value_t>(
+    generalized_csr_pairwise_semiring<value_idx, value_t>(
       out_dists, config_,
         [] __host__ __device__  (value_t a, value_t b) { return (a - b) * (a - b); },
         [] __host__ __device__  (value_t a, value_t b) { return a+b; });
@@ -645,7 +579,7 @@ class chebychev_distances_t : public distances_t<value_t> {
     : config_(config) {}
 
   void compute(value_t *out_dists) {
-    generalized_spmv<value_idx, value_t>(
+    generalized_csr_pairwise_semiring<value_idx, value_t>(
       out_dists, config_,
       [] __host__ __device__  (value_t a, value_t b) { return fabsf(a - b); },
       [] __host__ __device__  (value_t a, value_t b) { return fmaxf(a, b); });
@@ -662,7 +596,7 @@ class canberra_distances_t : public distances_t<value_t> {
     : config_(config) {}
 
   void compute(value_t *out_dists) {
-    generalized_spmv<value_idx, value_t>(
+    generalized_csr_pairwise_semiring<value_idx, value_t>(
       out_dists, config_,
       [] __device__(value_t a, value_t b) {
         return fabsf(a - b) / (fabsf(a) + fabsf(b));
@@ -681,7 +615,7 @@ class minkowski_distances_t : public distances_t<value_t> {
     : config_(config), p(p_) {}
 
   void compute(value_t *out_dists) {
-    generalized_spmv<value_idx, value_t>(
+    generalized_csr_pairwise_semiring<value_idx, value_t>(
       out_dists, config_,
       [=] __device__(value_t a, value_t b) {
         return fpowf(a-b, p);
