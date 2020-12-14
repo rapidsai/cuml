@@ -21,6 +21,7 @@
 #include <raft/cudart_utils.h>
 #include <raft/sparse/cusparse_wrappers.h>
 #include <raft/cuda_utils.cuh>
+#include <raft/handle.hpp>
 #include <raft/mr/device/allocator.hpp>
 #include <raft/mr/device/buffer.hpp>
 
@@ -42,25 +43,33 @@ namespace raft {
 namespace sparse {
 namespace convert {
 
-template <typename T>
-void coo2csr(cusparseHandle_t handle, const int *srcRows, const int *srcCols,
-             const T *srcVals, int nnz, int m, int *dst_offsets, int *dstCols,
-             T *dstVals, std::shared_ptr<raft::mr::device::allocator> d_alloc,
-             cudaStream_t stream) {
+template <typename value_t>
+void coo_to_csr(const raft::handle_t & handle,
+             const int *srcRows,
+             const int *srcCols,
+             const value_t *srcVals,
+             int nnz,
+             int m,
+             int *dst_offsets,
+             int *dstCols, value_t *dstVals) {
+
+  auto stream = handle.get_stream();
+  auto cusparseHandle = handle.get_cusparse_handle();
+  auto d_alloc = handle.get_device_allocator();
   raft::mr::device::buffer<int> dstRows(d_alloc, stream, nnz);
   CUDA_CHECK(cudaMemcpyAsync(dstRows.data(), srcRows, sizeof(int) * nnz,
                              cudaMemcpyDeviceToDevice, stream));
   CUDA_CHECK(cudaMemcpyAsync(dstCols, srcCols, sizeof(int) * nnz,
                              cudaMemcpyDeviceToDevice, stream));
   auto buffSize = raft::sparse::cusparsecoosort_bufferSizeExt(
-    handle, m, m, nnz, srcRows, srcCols, stream);
+    cusparseHandle, m, m, nnz, srcRows, srcCols, stream);
   raft::mr::device::buffer<char> pBuffer(d_alloc, stream, buffSize);
   raft::mr::device::buffer<int> P(d_alloc, stream, nnz);
-  CUSPARSE_CHECK(cusparseCreateIdentityPermutation(handle, nnz, P.data()));
-  raft::sparse::cusparsecoosortByRow(handle, m, m, nnz, dstRows.data(), dstCols,
+  CUSPARSE_CHECK(cusparseCreateIdentityPermutation(cusparseHandle, nnz, P.data()));
+  raft::sparse::cusparsecoosortByRow(cusparseHandle, m, m, nnz, dstRows.data(), dstCols,
                                      P.data(), pBuffer.data(), stream);
-  raft::sparse::cusparsegthr(handle, nnz, srcVals, dstVals, P.data(), stream);
-  raft::sparse::cusparsecoo2csr(handle, dstRows.data(), nnz, m, dst_offsets,
+  raft::sparse::cusparsegthr(cusparseHandle, nnz, srcVals, dstVals, P.data(), stream);
+  raft::sparse::cusparsecoo2csr(cusparseHandle, dstRows.data(), nnz, m, dst_offsets,
                                 stream);
   CUDA_CHECK(cudaDeviceSynchronize());
 }

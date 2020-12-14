@@ -69,60 +69,6 @@ void csr_to_coo(const value_idx *row_ind, value_idx m, value_idx *coo_rows,
   CUDA_CHECK(cudaGetLastError());
 }
 
-template <int TPB_X, typename T>
-__global__ void from_knn_graph_kernel(const long *knn_indices,
-                                      const T *knn_dists, int m, int k,
-                                      int *rows, int *cols, T *vals) {
-  int row = (blockIdx.x * TPB_X) + threadIdx.x;
-  if (row < m) {
-    for (int i = 0; i < k; i++) {
-      rows[row * k + i] = row;
-      cols[row * k + i] = knn_indices[row * k + i];
-      vals[row * k + i] = knn_dists[row * k + i];
-    }
-  }
-}
-
-/**
- * @brief Converts a knn graph, defined by index and distance matrices,
- * into COO format.
- *
- * @param knn_indices: knn index array
- * @param knn_dists: knn distance array
- * @param m: number of vertices in graph
- * @param k: number of nearest neighbors
- * @param rows: output COO row array
- * @param cols: output COO col array
- * @param vals: output COO val array
- */
-template <typename T>
-void from_knn(const long *knn_indices, const T *knn_dists, int m, int k,
-              int *rows, int *cols, T *vals) {
-  dim3 grid(raft::ceildiv(m, 32), 1, 1);
-  dim3 blk(32, 1, 1);
-  from_knn_graph_kernel<32, T>
-    <<<grid, blk>>>(knn_indices, knn_dists, m, k, rows, cols, vals);
-  CUDA_CHECK(cudaGetLastError());
-}
-
-/**
- * Converts a knn graph, defined by index and distance matrices,
- * into COO format.
- * @param knn_indices: KNN index array (size m * k)
- * @param knn_dists: KNN dist array (size m * k)
- * @param m: number of vertices in graph
- * @param k: number of nearest neighbors
- * @param out: The output COO graph from the KNN matrices
- * @param stream: CUDA stream to use
- */
-template <typename T>
-void from_knn(const long *knn_indices, const T *knn_dists, int m, int k,
-              COO<T> *out, cudaStream_t stream) {
-  out->allocate(m * k, m, m, true, stream);
-
-  from_knn(knn_indices, knn_dists, m, k, out->rows(), out->cols(), out->vals());
-}
-
 };  // end NAMESPACE convert
 };  // end NAMESPACE sparse
 };  // end NAMESPACE raft
