@@ -170,7 +170,7 @@ class COO {
   /**
     * @brief Send human-readable state information to output stream
     */
-  friend std::ostream &operator<<(std::ostream &out, const COO<T> &c) {
+  friend std::ostream &operator<<(std::ostream &out, const COO<T, Index_Type> &c) {
     if (c.validate_size() && c.validate_mem()) {
       cudaStream_t stream;
       CUDA_CHECK(cudaStreamCreateWithFlags(&stream, cudaStreamNonBlocking));
@@ -837,11 +837,11 @@ __global__ static void symmetric_find_size(const value_t *restrict data,
                                            const int n, const int k,
                                            int *restrict row_sizes,
                                            int *restrict row_sizes2) {
-  const int row = blockIdx.x * blockDim.x + threadIdx.x;  // for every row
-  const int j = blockIdx.y * blockDim.y + threadIdx.y;  // for every item in row
+  const auto row = blockIdx.x * blockDim.x + threadIdx.x;  // for every row
+  const auto j = blockIdx.y * blockDim.y + threadIdx.y;  // for every item in row
   if (row >= n || j >= k) return;
 
-  const int col = indices[row * k + j];
+  const auto col = indices[row * k + j];
   if (j % 2)
     raft::myAtomicAdd(&row_sizes[col], 1);
   else
@@ -883,16 +883,16 @@ template <typename value_idx, typename value_t>
 __global__ static void symmetric_sum(int *restrict edges,
                                      const value_t *restrict data,
                                      const value_idx *restrict indices,
-                                     value_t *restrict VAL, int *restrict COL,
-                                     int *restrict ROW, const int n,
+                                     value_t *restrict VAL, value_idx *restrict COL,
+                                     value_idx *restrict ROW, const int n,
                                      const int k) {
-  const int row = blockIdx.x * blockDim.x + threadIdx.x;  // for every row
-  const int j = blockIdx.y * blockDim.y + threadIdx.y;  // for every item in row
+  const auto row = blockIdx.x * blockDim.x + threadIdx.x;  // for every row
+  const auto j = blockIdx.y * blockDim.y + threadIdx.y;  // for every item in row
   if (row >= n || j >= k) return;
 
-  const int col = indices[row * k + j];
-  const int original = atomicAdd(&edges[row], 1);
-  const int transpose = atomicAdd(&edges[col], 1);
+  const auto col = indices[row * k + j];
+  const auto original = atomicAdd(&edges[row], 1);
+  const auto transpose = atomicAdd(&edges[col], 1);
 
   VAL[transpose] = VAL[original] = data[row * k + j];
   // Notice swapped ROW, COL since transpose
@@ -924,7 +924,7 @@ __global__ static void symmetric_sum(int *restrict edges,
 template <typename value_idx, typename value_t, int TPB_X = 32, int TPB_Y = 32>
 void from_knn_symmetrize_matrix(const value_idx *restrict knn_indices,
                                 const value_t *restrict knn_dists, const int n,
-                                const int k, COO<value_t> *out,
+                                const int k, COO<value_t, value_idx> *out,
                                 cudaStream_t stream,
                                 std::shared_ptr<deviceAllocator> d_alloc) {
   // (1) Find how much space needed in each row

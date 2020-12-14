@@ -100,25 +100,25 @@ class TSNE_runner {
   void run() {
     distance_and_perplexity();
 
-    const int NNZ = COO_Matrix.nnz;
-    float *VAL = COO_Matrix.vals();
-    const int *COL = COO_Matrix.cols();
-    const int *ROW = COO_Matrix.rows();
+    // const auto NNZ = COO_Matrix.nnz;
+    // auto *VAL = COO_Matrix.vals();
+    // const auto *COL = COO_Matrix.cols();
+    // const auto *ROW = COO_Matrix.rows();
     //---------------------------------------------------
 
-    if (barnes_hut) {
-      TSNE::Barnes_Hut(VAL, COL, ROW, NNZ, handle, Y, n, theta, epssq,
-                       early_exaggeration, exaggeration_iter, min_gain,
-                       pre_learning_rate, post_learning_rate, max_iter,
-                       min_grad_norm, pre_momentum, post_momentum, random_state,
-                       initialize_embeddings);
-    } else {
-      TSNE::Exact_TSNE(VAL, COL, ROW, NNZ, handle, Y, n, dim,
-                       early_exaggeration, exaggeration_iter, min_gain,
-                       pre_learning_rate, post_learning_rate, max_iter,
-                       min_grad_norm, pre_momentum, post_momentum, random_state,
-                       initialize_embeddings);
-    }
+    // if (barnes_hut) {
+    //   TSNE::Barnes_Hut(VAL, COL, ROW, NNZ, handle, Y, n, theta, epssq,
+    //                    early_exaggeration, exaggeration_iter, min_gain,
+    //                    pre_learning_rate, post_learning_rate, max_iter,
+    //                    min_grad_norm, pre_momentum, post_momentum, random_state,
+    //                    initialize_embeddings);
+    // } else {
+    //   TSNE::Exact_TSNE(VAL, COL, ROW, NNZ, handle, Y, n, dim,
+    //                    early_exaggeration, exaggeration_iter, min_gain,
+    //                    pre_learning_rate, post_learning_rate, max_iter,
+    //                    min_grad_norm, pre_momentum, post_momentum, random_state,
+    //                    initialize_embeddings);
+    // }
   }
 
  private:
@@ -184,28 +184,28 @@ class TSNE_runner {
   knn_graph<value_idx, value_t> &k_graph;
   const int dim;
   int n_neighbors;
-  const float theta;
-  const float epssq;
-  float perplexity;
+  const value_t theta;
+  const value_t epssq;
+  value_t perplexity;
   const int perplexity_max_iter;
-  const float perplexity_tol;
-  const float early_exaggeration;
+  const value_t perplexity_tol;
+  const value_t early_exaggeration;
   const int exaggeration_iter;
-  const float min_gain;
-  const float pre_learning_rate;
-  const float post_learning_rate;
+  const value_t min_gain;
+  const value_t pre_learning_rate;
+  const value_t post_learning_rate;
   const int max_iter;
-  const float min_grad_norm;
-  const float pre_momentum;
-  const float post_momentum;
+  const value_t min_grad_norm;
+  const value_t pre_momentum;
+  const value_t post_momentum;
   const long long random_state;
   int verbosity;
   const bool initialize_embeddings;
   bool barnes_hut;
 
-  MLCommon::Sparse::COO<float> COO_Matrix;
-  int n, p;
-  float *Y;
+  MLCommon::Sparse::COO<value_t, value_idx> COO_Matrix;
+  value_idx n, p;
+  value_t *Y;
 };
 
 }  // namespace ML

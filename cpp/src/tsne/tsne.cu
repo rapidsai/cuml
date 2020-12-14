@@ -22,13 +22,13 @@ namespace ML {
 template <typename tsne_input, typename value_idx, typename value_t>
 void _fit(const raft::handle_t &handle, tsne_input &input,
           knn_graph<value_idx, value_t> &k_graph, const int dim,
-          const float theta, const float epssq, float perplexity,
-          const int perplexity_max_iter, const float perplexity_tol,
-          const float early_exaggeration, const int exaggeration_iter,
-          const float min_gain, const float pre_learning_rate,
-          const float post_learning_rate, const int max_iter,
-          const float min_grad_norm, const float pre_momentum,
-          const float post_momentum, const long long random_state,
+          const value_t theta, const value_t epssq, value_t perplexity,
+          const int perplexity_max_iter, const value_t perplexity_tol,
+          const value_t early_exaggeration, const int exaggeration_iter,
+          const value_t min_gain, const value_t pre_learning_rate,
+          const value_t post_learning_rate, const int max_iter,
+          const value_t min_grad_norm, const value_t pre_momentum,
+          const value_t post_momentum, const long long random_state,
           int verbosity, const bool initialize_embeddings, bool barnes_hut) {
   TSNE_runner<tsne_input, value_idx, value_t> runner(
     handle, input, k_graph, dim, theta, epssq, perplexity, perplexity_max_iter,
