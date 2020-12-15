@@ -57,6 +57,7 @@ if(BUILD_CUML_TESTS)
     sg/kmeans_test.cu
     sg/knn_test.cu
     sg/lars_test.cu
+    sg/linkage_test.cu
     sg/logger.cpp
     sg/nvtx_test.cpp
     sg/ols.cu
@@ -169,7 +170,7 @@ if(BUILD_PRIMS_TESTS)
     prims/knn_regression.cu
     prims/knn.cu
     prims/kselection.cu
-    prims/label.cu
+          prims/label.cu
     prims/linearReg.cu
     prims/log.cu
     prims/logisticReg.cu
