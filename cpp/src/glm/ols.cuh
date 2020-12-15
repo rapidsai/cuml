@@ -104,24 +104,25 @@ void olsFit(const raft::handle_t &handle, math_t *input, int n_rows, int n_cols,
  * @param input         device pointer to feature matrix n_rows x n_cols
  * @param n_rows        number of rows of the feature matrix
  * @param n_cols        number of columns of the feature matrix
- * @param coef          weights of the model
+ * @param coef          coefficients of the model
  * @param intercept     bias term of the model
  * @param preds         device pointer to store predictions of size n_rows
  * @param stream        cuda stream
  */
 template <typename math_t>
-void olsPredict(const raft::handle_t &handle, const math_t *input, int n_rows,
-                int n_cols, const math_t *coef, math_t intercept, math_t *preds,
-                cudaStream_t stream) {
-  ASSERT(n_cols > 0, "olsPredict: number of columns cannot be less than one");
-  ASSERT(n_rows > 0, "olsPredict: number of rows cannot be less than one");
+void gemmPredict(const raft::handle_t &handle, const math_t *input, int n_rows,
+                 int n_cols, const math_t *coef, math_t intercept,
+                 math_t *preds, cudaStream_t stream) {
+  ASSERT(n_cols > 0, "gemmPredict: number of columns cannot be less than one");
+  ASSERT(n_rows > 0, "gemmPredict: number of rows cannot be less than one");
 
   math_t alpha = math_t(1);
   math_t beta = math_t(0);
   raft::linalg::gemm(handle, input, n_rows, n_cols, coef, preds, n_rows, 1,
                      CUBLAS_OP_N, CUBLAS_OP_N, alpha, beta, stream);
 
-  raft::linalg::addScalar(preds, preds, intercept, n_rows, stream);
+  if (intercept != math_t(0))
+    raft::linalg::addScalar(preds, preds, intercept, n_rows, stream);
 }
 
 };  // namespace GLM
