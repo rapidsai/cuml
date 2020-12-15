@@ -201,7 +201,7 @@ def test_pca_inverse_transform(datatype, input_type,
 
 
 @pytest.mark.parametrize('nrows', [4000, 8000])
-@pytest.mark.parametrize('ncols', [5000, 10000])
+@pytest.mark.parametrize('ncols', [5000, stress_param(20000)])
 @pytest.mark.parametrize('whiten', [True, False])
 @pytest.mark.parametrize('return_sparse', [True, False])
 @pytest.mark.parametrize('cupy_input', [True, False])

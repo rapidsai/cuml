@@ -23,6 +23,14 @@ from sklearn.feature_extraction.text import CountVectorizer
 def pytest_configure(config):
     cp.cuda.set_allocator(None)
 
+    import rmm
+
+    # TEMP: Set the max memory pool that is used to 4.95 GiB for 1/7 A100
+    rmm.mr.set_current_device_resource(
+        rmm.mr.PoolMemoryResource(rmm.mr.get_current_device_resource(),
+                                  None,
+                                  int(4.95 * (1 << 30))))
+
 
 @pytest.fixture(scope="module")
 def nlp_20news():
