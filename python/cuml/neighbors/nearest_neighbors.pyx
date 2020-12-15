@@ -582,15 +582,15 @@ class NearestNeighbors(Base):
                 if expanded:
                     precise_dists = precise_dists * precise_dists
 
-                correct_order = cp.argsort(precise_dists)
+                correct_order = cp.argsort(precise_dists, axis=1)
 
                 D_cparr = cp.take_along_axis(precise_dists,
                                              correct_order,
-                                             axis=0)
-                I_cpdarr = cp.take_along_axis(I_cparr, correct_order, axis=0)
+                                             axis=1)
+                I_cparr = cp.take_along_axis(I_cparr, correct_order, axis=1)
 
                 D_ndarr = cuml.common.input_to_cuml_array(D_cparr).array
-                I_ndarr = cuml.common.input_to_cuml_array(I_ndarr).array
+                I_ndarr = cuml.common.input_to_cuml_array(I_cparr).array
 
         I_ndarr = I_ndarr.to_output(out_type)
         D_ndarr = D_ndarr.to_output(out_type)
