@@ -25,11 +25,16 @@ def pytest_configure(config):
 
     import rmm
 
+    max_pool_size = int(4.95 * (1 << 30))
+
+    # Align down to 256 (required by RMM)
+    max_pool_size = max_pool_size & ~(256 - 1)
+
     # TEMP: Set the max memory pool that is used to 4.95 GiB for 1/7 A100
-    rmm.mr.set_current_device_resource(
-        rmm.mr.PoolMemoryResource(rmm.mr.get_current_device_resource(),
-                                  None,
-                                  int(4.95 * (1 << 30))))
+    rmm.reinitialize(pool_allocator=True,
+                     managed_memory=True,
+                     initial_pool_size=max_pool_size // 2,
+                     maximum_pool_size=max_pool_size)
 
 
 @pytest.fixture(scope="module")
