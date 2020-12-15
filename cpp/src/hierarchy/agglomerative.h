@@ -16,6 +16,8 @@
 
 #pragma once
 
+#include <cuml/common/logger.hpp>
+
 #include <cuml/cuml_api.h>
 #include <raft/cudart_utils.h>
 #include <common/cumlHandle.hpp>
@@ -99,11 +101,13 @@ void label_hierarchy_host(const raft::handle_t &handle,
 
   value_idx n_edges = nnz;
 
+  CUML_LOG_INFO("Copying to host");
+
   std::vector<value_idx> mst_src_h(n_edges);
   std::vector<value_idx> mst_dst_h(n_edges);
   std::vector<value_t> mst_weights_h(n_edges);
 
-  std::vector<value_idx> children_h(n_edges);
+  std::vector<value_idx> children_h(n_edges*2);
   std::vector<value_t> out_delta_h(n_edges);
   std::vector<value_idx> out_size_h(n_edges);
 
@@ -117,21 +121,32 @@ void label_hierarchy_host(const raft::handle_t &handle,
 
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
+  CUML_LOG_INFO("Labeling");
+
   value_idx a, aa, b, bb;
   value_t delta;
 
   value_idx N = nnz + 1;
 
+  CUML_LOG_INFO("Creating union find");
+
   UnionFind<value_idx, value_t> U(N);
 
+  CUML_LOG_INFO("Done.");
+
   for (int i = 0; i < n_edges; i++) {
+
     a = mst_src_h.data()[i];
     b = mst_dst_h.data()[i];
 
     delta = mst_weights_h.data()[i];
 
+    printf("a=%d, b=%d, delta=%f\n", a, b, delta);
+
     aa = U.find(a);
     bb = U.find(b);
+
+    printf("a=%d, b=%d, delta=%f, aa=%d, bb=%d", a, b, delta, aa, bb);
 
     int children_idx = i * 2;
 
@@ -142,6 +157,8 @@ void label_hierarchy_host(const raft::handle_t &handle,
 
     U.perform_union(aa, bb);
   }
+
+  CUML_LOG_INFO("Copying back to device");
 
   raft::update_device(children, children_h.data(), n_edges, stream);
   raft::update_device(out_delta, out_delta_h.data(), n_edges, stream);

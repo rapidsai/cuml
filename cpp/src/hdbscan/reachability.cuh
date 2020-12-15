@@ -18,6 +18,7 @@
 
 #include <cuml/cuml_api.h>
 #include <raft/cudart_utils.h>
+#include <raft/cuda_utils.cuh>
 #include <common/cumlHandle.hpp>
 
 #include <raft/mr/device/buffer.hpp>

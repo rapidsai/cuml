@@ -16,9 +16,10 @@
 
 #pragma once
 
+#include <cuml/common/logger.hpp>
+
 #include <cuml/cuml_api.h>
 #include <common/cumlHandle.hpp>
-
 
 #include <raft/mr/device/buffer.hpp>
 
@@ -40,6 +41,8 @@ void _single_linkage(const raft::handle_t &handle,
   auto stream = handle.get_stream();
   auto d_alloc = handle.get_device_allocator();
 
+  CUML_LOG_INFO("Running pairwise distances");
+
   /**
    * Construct pairwise distances
    */
@@ -51,6 +54,8 @@ void _single_linkage(const raft::handle_t &handle,
   MLCommon::Distance::pairwise_distance<value_t, size_t>(X, X, pw_dists.data(),
                                                          m, m, n, workspace, metric, stream);
 
+
+  CUML_LOG_INFO("Constructing MST");
   /**
    * Construct MST sorted by weights
    */
@@ -65,6 +70,9 @@ void _single_linkage(const raft::handle_t &handle,
                                             mst_cols.data(),
                                             mst_data.data());
   pw_dists.release();
+
+
+  CUML_LOG_INFO("Perform labeling");
 
   /**
    * Perform hierarchical labeling
