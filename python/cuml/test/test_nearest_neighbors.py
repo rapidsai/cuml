@@ -86,7 +86,6 @@ def test_self_neighboring(datatype, metric_p, nrows):
     X, y = make_blobs(n_samples=nrows, centers=n_clusters,
                       n_features=ncols, random_state=0)
 
-
     if datatype == "dataframe":
         X = cudf.DataFrame(X)
 
