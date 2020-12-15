@@ -25,8 +25,6 @@ from sklearn.datasets import make_blobs
 
 from cuml.common import logger
 
-from cuml.common import logger
-
 import cupy as cp
 import cupyx
 import cudf

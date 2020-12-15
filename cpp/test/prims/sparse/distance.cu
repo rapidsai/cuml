@@ -110,7 +110,7 @@ class SparseDistanceTest
 
     allocate(out_dists, out_size);
 
-    ML::Logger::get().setLevel(CUML_LEVEL_INFO);
+    ML::Logger::get().setLevel(CUML_LEVEL_DEBUG);
 
     pairwiseDistance(out_dists, dist_config, params.metric);
 
@@ -127,6 +127,8 @@ class SparseDistanceTest
   }
 
   void compare() {
+    raft::print_device_vector("expected: ", out_dists_ref, 16, std::cout);
+    raft::print_device_vector("out_dists: ", out_dists, 16, std::cout);
     ASSERT_TRUE(devArrMatch(out_dists_ref, out_dists, 16, Compare<value_t>()));
   }
 
@@ -176,11 +178,10 @@ const std::vector<SparseDistanceInputs<int, float>> inputs_i32_f = {
    {5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0,
     5.0},
    raft::distance::DistanceType::InnerProduct},
-  {5,
-   {0, 4, 8, 12, 16},
-   {0, 1, 2, 3, 0, 1, 2, 3, 0, 1, 2, 3, 0, 1, 2, 3},  // indices
-   {1.0f, 3.0f, 1.0f, 5.0f, 50.0f, 28.0f, 16.0f, 2.0f, 1.0f, 3.0f, 1.0f, 5.0f,
-    50.0f, 28.0f, 16.0f, 2.0f},
+  {2,
+   {0, 2, 4, 6, 8},
+   {0, 1, 0, 1, 0, 1, 0, 1},  // indices
+   {1.0f, 3.0f, 1.0f, 5.0f, 50.0f, 28.0f, 16.0f, 2.0f},
    {
      // dense output
      0.0,
@@ -200,7 +201,7 @@ const std::vector<SparseDistanceInputs<int, float>> inputs_i32_f = {
      1832.0,
      0.0,
    },
-   raft::distance::DistanceType::EucUnexpandedL1}};
+   raft::distance::DistanceType::EucUnexpandedL2}};
 
 typedef SparseDistanceTest<int, float> SparseDistanceTestF;
 TEST_P(SparseDistanceTestF, Result) { compare(); }
