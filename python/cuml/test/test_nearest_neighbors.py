@@ -389,7 +389,7 @@ def test_knn_graph(input_type, nrows, n_feats, p, k, metric, mode,
         assert isspmatrix_csr(sparse_cu)
 
 
-@pytest.mark.parametrize("metric", ["l1"]) # "#valid_metrics(cuml_algo="sparse"))
+@pytest.mark.parametrize("metric", ["l1", "l2"])
 @pytest.mark.parametrize('nrows', [5])
 @pytest.mark.parametrize('ncols', [5])
 @pytest.mark.parametrize('density', [0.4])
@@ -409,14 +409,13 @@ def test_nearest_neighbors_sparse(nrows, ncols,
     a = cp.sparse.random(nrows, ncols, format='csr', density=density,
                          random_state=32)
 
-    print("Data created: indptr=%s, indices=%s, data=%s" % (a.indptr, a.indices, a.data))
+    print(str(a.indptr))
+    print(str(a.data))
 
-    from sklearn.metrics import pairwise_distances
+    print(str(a.get().dot(a.get().T).todense()))
 
-    print(str(pairwise_distances(a.get(), metric='l1')))
-    #
     logger.set_level(logger.level_trace)
-    nn = cuKNN(metric="l1", n_neighbors=n_neighbors, algorithm="brute",
+    nn = cuKNN(metric=metric, n_neighbors=n_neighbors, algorithm="brute",
                output_type="numpy",
                verbose=logger.level_debug,
                algo_params={"batch_size_index": batch_size_index,

@@ -146,6 +146,10 @@ class l2_distances_t : public distances_t<value_t> {
                config_.b_nrows, config_.handle, config_.allocator,
                config_.stream);
     CUML_LOG_DEBUG("Done.");
+
+    std::cout << raft::arr2Str(out_dists, 16, "out_dists", config_.stream)
+              << std::endl;
+
   }
 
   ~l2_distances_t() = default;

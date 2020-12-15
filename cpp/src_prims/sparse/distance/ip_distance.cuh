@@ -280,6 +280,11 @@ class ip_distances_t : public distances_t<value_t> {
 	   * Compute pairwise distances and return dense matrix in column-major format
 	   */
     internal_ip_dist->compute(out_distances);
+
+
+    std::cout << raft::arr2Str(out_distances, 16, "out_dists", config_.stream)
+              << std::endl;
+
   }
 
   virtual value_idx *trans_indices() const {

@@ -46,15 +46,17 @@ namespace Sparse {
 namespace Distance {
 
 /**
- * This implementation follows the load-balanced implementation. This is intended
- * to be scheduled n_chunks_b times for each row of a.
+ * This implementation follows the load-balanced implementation.
+ * This is intended to be scheduled n_chunks_b times for each row of a.
  *
  * The steps are as follows:
  *
- * 1. Load row from A into dense vector in shared memory. This can be chunked if necessary.
- * 2. Threads of block all step through chunks of B in parallel. When a new row is encountered in row_indices_b,
- *    a segmented reduction is performed across the warps and then across the block and the final value written out
- *    to host memory.
+ * 1. Load row from A into dense vector in shared memory.
+ *    This can be chunked in the future if necessary.
+ * 2. Threads of block all step through chunks of B in parallel.
+ *    When a new row is encountered in row_indices_b, a segmented
+ *    reduction is performed across the warps and then across the
+ *    block and the final value written out to host memory.
  *
  * Reference: https://www.icl.utk.edu/files/publications/2020/icl-utk-1421-2020.pdf
  *
@@ -131,6 +133,8 @@ __global__ void balanced_coo_spmv_kernel(
     cur_row_b = rowsB[ind];
     value_idx col = indicesB[ind];
     c = A[col] * dataB[ind];
+    printf("adding: cur_row_a=%d, cur_row_b=%d, tid=%d, c=%f\n",
+           cur_row_a, cur_row_b, tid, c);
   }
 
   // loop through chunks in parallel, reducing when a new row is
@@ -150,6 +154,8 @@ __global__ void balanced_coo_spmv_kernel(
       // thread with lowest lane id among peers writes out
       if (is_leader && v != 0.0) {
         atomicAdd(out + (cur_row_a * n + cur_row_b), v);
+        printf("writing: cur_row_a=%d, cur_row_b=%d, tid=%d, v=%f, c=%f\n",
+               cur_row_a, cur_row_b, tid, v, c);
       }
       c = 0.0;
     }
@@ -159,6 +165,8 @@ __global__ void balanced_coo_spmv_kernel(
       value_idx col = indicesB[ind];
       c += A[col] * dataB[ind];
       cur_row_b = next_row_b;
+      printf("adding: cur_row_a=%d, cur_row_b=%d, tid=%d, c=%f\n",
+             cur_row_a, cur_row_b, tid, c);
     }
   }
 }
@@ -185,11 +193,17 @@ inline int balanced_coo_spmv_compute_smem() {
  * @param reduce_func
  * @param accum_func
  */
-template <typename value_idx, typename value_t, int threads_per_block = 1024,
+template <typename value_idx,
+          typename value_t,
+          int threads_per_block = 1024,
           int chunk_size = 500000>
 inline void balanced_coo_pairwise_spmv(
   value_t *out_dists, distances_config_t<value_idx, value_t> config_,
   value_idx *coo_rows_b) {
+
+  CUDA_CHECK(cudaMemsetAsync(out_dists, 0,
+                             config_.a_nrows*config_.b_nrows*sizeof(value_t),
+                             config_.stream));
   int n_warps_per_row =
     raft::ceildiv(config_.b_nnz, chunk_size * threads_per_block);
   int n_blocks = config_.a_nrows * n_warps_per_row;
