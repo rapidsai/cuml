@@ -21,10 +21,10 @@
 #include <sparse/distance/common.h>
 //#include <sparse/semiring.cuh>
 
+#include <raft/cudart_utils.h>
 #include <raft/linalg/distance_type.h>
 #include <raft/sparse/cusparse_wrappers.h>
 #include <raft/cuda_utils.cuh>
-#include <raft/cudart_utils.h>
 
 #include <common/device_buffer.hpp>
 
@@ -44,8 +44,6 @@
 namespace MLCommon {
 namespace Sparse {
 namespace Distance {
-
-
 
 template <typename value_idx, typename value_t>
 __global__ void compute_sq_norm_kernel(value_t *out, const value_idx *coo_rows,

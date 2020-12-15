@@ -83,7 +83,6 @@ class SparseDistanceSemiringTest
 
     CUSPARSE_CHECK(cusparseCreate(&cusparseHandle));
 
-
     std::cout << "Making data" << std::endl;
     make_data();
 
@@ -111,7 +110,6 @@ class SparseDistanceSemiringTest
     ML::Logger::get().setLevel(CUML_LEVEL_DEBUG);
 
     std::cout << "Running dists" << std::endl;
-
 
     l1_distances_t<value_idx, value_t> l1_dists(dist_config);
 

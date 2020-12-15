@@ -51,13 +51,13 @@ inline int block_dim(value_idx ncols) {
  * @param key
  * @return
  */
-template<typename G>
+template <typename G>
 __device__ __inline__ unsigned int get_peer_group(G key) {
   unsigned int peer_group = 0;
   bool is_peer;
 
   // in the beginning, all lanes are available
-  unsigned int unclaimed=0xffffffff;
+  unsigned int unclaimed = 0xffffffff;
 
   do {
     // fetch key of first unclaimed lane and compare with this key
@@ -76,9 +76,8 @@ __device__ __inline__ unsigned int get_peer_group(G key) {
 }
 
 __device__ __inline__ unsigned int get_lowest_peer(unsigned int peer_group) {
-  return __ffs(peer_group)-1;
+  return __ffs(peer_group) - 1;
 }
-
 
 };  // namespace Sparse
 };  // namespace MLCommon

@@ -20,10 +20,10 @@
 #include <raft/cudart_utils.h>
 #include <sparse/distance/common.h>
 
+#include <raft/cudart_utils.h>
 #include <raft/linalg/distance_type.h>
 #include <raft/sparse/cusparse_wrappers.h>
 #include <raft/cuda_utils.cuh>
-#include <raft/cudart_utils.h>
 
 #include <common/device_buffer.hpp>
 
@@ -43,16 +43,14 @@ namespace MLCommon {
 namespace Sparse {
 namespace Distance {
 
-template<typename value_idx, typename value_t>
-class ip_trans_getters_t: public distances_t<value_t> {
-
+template <typename value_idx, typename value_t>
+class ip_trans_getters_t : public distances_t<value_t> {
  public:
   virtual value_t *trans_data() = 0;
 
   virtual value_idx *trans_indices() = 0;
 
   virtual ~ip_trans_getters_t() = default;
-
 };
 
 /**
@@ -221,9 +219,11 @@ class ip_distances_spmv_t : public ip_trans_getters_t<value_idx, value_t> {
    * @param[in] config specifies inputs, outputs, and sizes
    */
   ip_distances_spmv_t(distances_config_t<value_idx, value_t> config)
-    : config_(config), coo_rows_b(config.allocator, config.stream, config.b_nnz) {
-    MLCommon::Sparse::csr_to_coo(config_.b_indptr, config_.b_nrows, coo_rows_b.data(),
-                                 config_.b_nnz, config_.stream);
+    : config_(config),
+      coo_rows_b(config.allocator, config.stream, config.b_nnz) {
+    MLCommon::Sparse::csr_to_coo(config_.b_indptr, config_.b_nrows,
+                                 coo_rows_b.data(), config_.b_nnz,
+                                 config_.stream);
   }
 
   /**
@@ -234,8 +234,8 @@ class ip_distances_spmv_t : public ip_trans_getters_t<value_idx, value_t> {
     /**
 	   * Compute pairwise distances and return dense matrix in column-major format
 	   */
-    balanced_coo_pairwise_spmv<value_idx, value_t>
-      (out_distances, config_, coo_rows_b.data());
+    balanced_coo_pairwise_spmv<value_idx, value_t>(out_distances, config_,
+                                                   coo_rows_b.data());
   }
 
   value_idx *trans_indices() { return coo_rows_b.data(); }
@@ -260,12 +260,14 @@ class ip_distances_t : public distances_t<value_t> {
     : config_(config) {
     int smem = raft::getSharedMemPerBlock();
 
-    if(config_.a_ncols < 11000) {
-      internal_ip_dist = std::unique_ptr<ip_trans_getters_t<value_idx, value_t>>(
-        new ip_distances_spmv_t<value_idx, value_t>(config_));
+    if (config_.a_ncols < 11000) {
+      internal_ip_dist =
+        std::unique_ptr<ip_trans_getters_t<value_idx, value_t>>(
+          new ip_distances_spmv_t<value_idx, value_t>(config_));
     } else {
-      internal_ip_dist = std::unique_ptr<ip_trans_getters_t<value_idx, value_t>>(
-        new ip_distances_gemm_t<value_idx, value_t>(config_));
+      internal_ip_dist =
+        std::unique_ptr<ip_trans_getters_t<value_idx, value_t>>(
+          new ip_distances_gemm_t<value_idx, value_t>(config_));
     }
   }
 
@@ -280,11 +282,11 @@ class ip_distances_t : public distances_t<value_t> {
     internal_ip_dist->compute(out_distances);
   }
 
-  virtual value_idx *trans_indices() const  {
-    return internal_ip_dist->trans_indices(); }
+  virtual value_idx *trans_indices() const {
+    return internal_ip_dist->trans_indices();
+  }
 
-  virtual value_t *trans_data() const {
-    return internal_ip_dist->trans_data(); }
+  virtual value_t *trans_data() const { return internal_ip_dist->trans_data(); }
 
  private:
   distances_config_t<value_idx, value_t> config_;

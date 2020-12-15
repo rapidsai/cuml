@@ -238,7 +238,8 @@ class sparse_knn_t {
           idx_batcher.batch_rows() * query_batcher.batch_rows();
         device_buffer<value_t> batch_dists(allocator, stream, dense_size);
 
-        CUDA_CHECK(cudaMemset(batch_dists.data(), 0, batch_dists.size() * sizeof(value_t)));
+        CUDA_CHECK(cudaMemset(batch_dists.data(), 0,
+                              batch_dists.size() * sizeof(value_t)));
 
         compute_distances(idx_batcher, query_batcher, idx_batch_nnz,
                           n_query_batch_nnz, idx_batch_indptr.data(),

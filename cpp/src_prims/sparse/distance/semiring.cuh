@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-
 #pragma once
 
 #include <raft/cudart_utils.h>
@@ -42,27 +41,29 @@
 
 #include <sparse/distance/common.h>
 
-namespace faiss { namespace gpu {
+namespace faiss {
+namespace gpu {
 
-template <int NumThreads, typename K, typename V, int NumWarpQ,
-  bool Dir, typename Comp>
+template <int NumThreads, typename K, typename V, int NumWarpQ, bool Dir,
+          typename Comp>
 struct FinalBlockMerge<32, NumThreads, K, V, NumWarpQ, Dir, Comp> {
-  static inline __device__ void merge(K* sharedK, V* sharedV) {
-    blockMerge<NumThreads, K, V, NumThreads / (kWarpSize * 2),
-      NumWarpQ, !Dir, Comp>(sharedK, sharedV);
-    blockMerge<NumThreads, K, V, NumThreads / (kWarpSize * 4),
-      NumWarpQ * 2, !Dir, Comp>(sharedK, sharedV);
-    blockMerge<NumThreads, K, V, NumThreads / (kWarpSize * 8),
-      NumWarpQ * 4, !Dir, Comp>(sharedK, sharedV);
-    blockMerge<NumThreads, K, V, NumThreads / (kWarpSize * 16),
-      NumWarpQ * 8, !Dir, Comp>(sharedK, sharedV);
+  static inline __device__ void merge(K *sharedK, V *sharedV) {
+    blockMerge<NumThreads, K, V, NumThreads / (kWarpSize * 2), NumWarpQ, !Dir,
+               Comp>(sharedK, sharedV);
+    blockMerge<NumThreads, K, V, NumThreads / (kWarpSize * 4), NumWarpQ * 2,
+               !Dir, Comp>(sharedK, sharedV);
+    blockMerge<NumThreads, K, V, NumThreads / (kWarpSize * 8), NumWarpQ * 4,
+               !Dir, Comp>(sharedK, sharedV);
+    blockMerge<NumThreads, K, V, NumThreads / (kWarpSize * 16), NumWarpQ * 8,
+               !Dir, Comp>(sharedK, sharedV);
     // Final merge doesn't need to fully merge the second list
-    blockMerge<NumThreads, K, V, NumThreads / (kWarpSize * 32),
-      NumWarpQ * 16, !Dir, Comp, false>(sharedK, sharedV);
+    blockMerge<NumThreads, K, V, NumThreads / (kWarpSize * 32), NumWarpQ * 16,
+               !Dir, Comp, false>(sharedK, sharedV);
   }
 };
 
-}}
+}  // namespace gpu
+}  // namespace faiss
 
 namespace MLCommon {
 namespace Sparse {
@@ -80,19 +81,14 @@ const int MAX_INT = std::numeric_limits<int>::max();
  * @tparam buffer_size
  * @tparam rows_per_block
  */
-template <
-  typename value_idx,
-  typename value_t,
-  int tpb,
-  int buffer_size,
-  typename reduce_f = auto(value_t, value_t)->value_t,
-  typename accum_f = auto(value_t, value_t)->value_t>
+template <typename value_idx, typename value_t, int tpb, int buffer_size,
+          typename reduce_f = auto(value_t, value_t)->value_t,
+          typename accum_f = auto(value_t, value_t)->value_t>
 struct BlockSemiring {
   __device__ inline BlockSemiring(int tid_, value_idx m_, value_idx n_,
                                   value_idx *shared_cols_,
                                   value_t *shared_vals_, value_idx *chunk_cols_,
-                                  value_t *chunk_vals_,
-                                  value_idx *offsets_a_,
+                                  value_t *chunk_vals_, value_idx *offsets_a_,
                                   bool verbose_)
     : tid(tid_),
       m(m_),
@@ -110,8 +106,7 @@ struct BlockSemiring {
 
   __device__ inline void load_a(value_idx row, value_idx *indptrA,
                                 value_idx *indicesA, value_t *dataA) {
-
-    if(tid == 0) {
+    if (tid == 0) {
       offsets_a[0] = indptrA[row];
       offsets_a[1] = indptrA[row + 1];
     }
@@ -133,14 +128,12 @@ struct BlockSemiring {
   }
 
   __device__ inline void load_b(value_idx start_row, value_idx *indptrB) {
-
     done = false;
     shared_idx = 0;
     cur_sum = 0.0;
 
     start_row_b = start_row;
-    stop_row_b = min(start_row_b + tpb,
-                     n - start_row_b);
+    stop_row_b = min(start_row_b + tpb, n - start_row_b);
 
     n_rows = (stop_row_b - start_row_b);
 
@@ -154,17 +147,20 @@ struct BlockSemiring {
   }
 
   __device__ inline void step(reduce_f reduce_func, accum_f accum_func) {
-
     if (tid < n_rows) {
       bool local_idx_in_bounds = local_idx < local_idx_stop && row_count > 0;
 
-      value_idx l = (local_idx_in_bounds) * chunk_cols[local_idx] + (!local_idx_in_bounds)*(-1);
-      value_t lv = (local_idx_in_bounds) * chunk_vals[local_idx] + (!local_idx_in_bounds)*(0.0);
+      value_idx l = (local_idx_in_bounds)*chunk_cols[local_idx] +
+                    (!local_idx_in_bounds) * (-1);
+      value_t lv = (local_idx_in_bounds)*chunk_vals[local_idx] +
+                   (!local_idx_in_bounds) * (0.0);
 
       bool shared_idx_in_bounds = shared_idx < shared_size;
 
-      value_idx r = (shared_idx_in_bounds) * shared_cols[shared_idx] + (!shared_idx_in_bounds)*(-1);
-      value_t rv = (shared_idx_in_bounds) * shared_vals[shared_idx] + (!shared_idx_in_bounds)*(0.0);
+      value_idx r = (shared_idx_in_bounds)*shared_cols[shared_idx] +
+                    (!shared_idx_in_bounds) * (-1);
+      value_t rv = (shared_idx_in_bounds)*shared_vals[shared_idx] +
+                   (!shared_idx_in_bounds) * (0.0);
 
       bool run_l = ((l <= r && l != -1) || (l != -1 && r == -1));
       local_idx += 1 * run_l;
@@ -188,16 +184,13 @@ struct BlockSemiring {
 
   __device__ inline bool isdone() { return done; }
 
-  __device__ inline value_t get_sum() {
-    return cur_sum;
-  }
+  __device__ inline value_t get_sum() { return cur_sum; }
 
   __device__ inline void write(value_t *out) {
     for (int i = tid; i < n_rows; i += blockDim.x) {
       out[row_a * n + row_b] = cur_sum;
     }
   }
-
 
   __device__ inline value_idx get_n_rows() { return n_rows; }
 
@@ -253,26 +246,14 @@ struct BlockSemiring {
  * that each thread can process their rows in parallel.
  */
 
-template <
-  typename value_idx,
-  typename value_t,
-  int tpb,
-  int buffer_size,
-  typename reduce_f = auto(value_t, value_t)->value_t,
-  typename accum_f = auto(value_t, value_t)->value_t>
+template <typename value_idx, typename value_t, int tpb, int buffer_size,
+          typename reduce_f = auto(value_t, value_t)->value_t,
+          typename accum_f = auto(value_t, value_t)->value_t>
 __global__ void classic_csr_semiring_spmv_kernel(
-    value_idx *indptrA,
-    value_idx *indicesA,
-    value_t *dataA,
-    value_idx *indptrB,
-    value_idx *indicesB,
-    value_t *dataB,
-    value_idx m, value_idx n, value_t *out,
-    int n_blocks_per_row,
-    int n_rows_per_block,
-    reduce_f reduce_func,
-    accum_f accum_func) {
-
+  value_idx *indptrA, value_idx *indicesA, value_t *dataA, value_idx *indptrB,
+  value_idx *indicesB, value_t *dataB, value_idx m, value_idx n, value_t *out,
+  int n_blocks_per_row, int n_rows_per_block, reduce_f reduce_func,
+  accum_f accum_func) {
   value_idx out_row = blockIdx.x / n_blocks_per_row;
   value_idx out_col_start = blockIdx.x % n_blocks_per_row;
   value_idx tid = threadIdx.x;
@@ -287,24 +268,21 @@ __global__ void classic_csr_semiring_spmv_kernel(
   bool verbose = tid <= 3 && out_row < 3;
 
   BlockSemiring<value_idx, value_t, tpb, buffer_size> semiring(
-    tid, m, n, shared_cols, shared_vals, indicesB, dataB,
-    offsets_a, verbose);
+    tid, m, n, shared_cols, shared_vals, indicesB, dataB, offsets_a, verbose);
 
   semiring.load_a(out_row, indptrA, indicesA, dataA);
 
   // for each batch, parallel the resulting rows across threads
-  for(int i = 0; i < n_rows_per_block; i+= blockDim.x) {
+  for (int i = 0; i < n_rows_per_block; i += blockDim.x) {
     semiring.load_b(out_col_start + i, indptrB);
 
     do {
       semiring.step(reduce_func, accum_func);
-    } while(!semiring.isdone());
+    } while (!semiring.isdone());
 
     semiring.write(out);
   }
-
 }
-
 
 /**
  * Perform generalized SPMV. Each vector of A is loaded into
@@ -320,15 +298,13 @@ __global__ void classic_csr_semiring_spmv_kernel(
  * @param reduce_func
  * @param accum_func
  */
-template <typename value_idx = int,
-          typename value_t = float,
-          int max_buffer_size = 5000,
-          int threads_per_block = 1024,
+template <typename value_idx = int, typename value_t = float,
+          int max_buffer_size = 5000, int threads_per_block = 1024,
           typename reduce_f = auto(value_t, value_t)->value_t,
           typename accum_f = auto(value_t, value_t)->value_t>
-void generalized_csr_pairwise_semiring(value_t *out_dists,
-                          distances_config_t<value_idx, value_t> config_,
-                          reduce_f reduce_func, accum_f accum_func) {
+void generalized_csr_pairwise_semiring(
+  value_t *out_dists, distances_config_t<value_idx, value_t> config_,
+  reduce_f reduce_func, accum_f accum_func) {
   int n_chunks = 1;
   int n_rows_per_block = min(n_chunks * threads_per_block, config_.b_nrows);
   int n_warps_per_row = raft::ceildiv(config_.b_nrows, n_rows_per_block);
@@ -340,12 +316,11 @@ void generalized_csr_pairwise_semiring(value_t *out_dists,
   CUML_LOG_DEBUG("n_warps_per_row: %d", n_warps_per_row);
 
   classic_csr_semiring_spmv_kernel<value_idx, value_t, threads_per_block,
-                              max_buffer_size, reduce_f, accum_f>
+                                   max_buffer_size, reduce_f, accum_f>
     <<<n_blocks, threads_per_block, 0, config_.stream>>>(
       config_.a_indptr, config_.a_indices, config_.a_data, config_.b_indptr,
       config_.b_indices, config_.b_data, config_.a_nrows, config_.b_nrows,
-      out_dists, n_warps_per_row, n_rows_per_block,
-      reduce_func, accum_func);
+      out_dists, n_warps_per_row, n_rows_per_block, reduce_func, accum_func);
 };
 
 template <typename value_idx = int, typename value_t = float>
@@ -358,17 +333,16 @@ class l1_distances_t : public distances_t<value_t> {
     CUML_LOG_DEBUG("Running l1 dists");
     generalized_csr_pairwise_semiring<value_idx, value_t>(
       out_dists, config_,
-      [] __host__ __device__  (value_t a, value_t b) { return fabsf(a-b); },
-      [] __host__ __device__  (value_t a, value_t b) { return a+b; });
+      [] __host__ __device__(value_t a, value_t b) { return fabsf(a - b); },
+      [] __host__ __device__(value_t a, value_t b) { return a + b; });
 
     // TODO: Remove
     CUDA_CHECK(cudaStreamSynchronize(config_.stream));
 
     std::cout << "Done. printing" << std::endl;
 
-        std::cout << raft::arr2Str(out_dists, 16,
-                                   "out_dists", config_.stream)
-                  << std::endl;
+    std::cout << raft::arr2Str(out_dists, 16, "out_dists", config_.stream)
+              << std::endl;
   }
 
  private:
@@ -384,8 +358,10 @@ class l2_unexpanded_distances_t : public distances_t<value_t> {
   void compute(value_t *out_dists) {
     generalized_csr_pairwise_semiring<value_idx, value_t>(
       out_dists, config_,
-        [] __host__ __device__  (value_t a, value_t b) { return (a - b) * (a - b); },
-        [] __host__ __device__  (value_t a, value_t b) { return a+b; });
+      [] __host__ __device__(value_t a, value_t b) {
+        return (a - b) * (a - b);
+      },
+      [] __host__ __device__(value_t a, value_t b) { return a + b; });
   }
 
  private:
@@ -401,8 +377,8 @@ class chebychev_distances_t : public distances_t<value_t> {
   void compute(value_t *out_dists) {
     generalized_csr_pairwise_semiring<value_idx, value_t>(
       out_dists, config_,
-      [] __host__ __device__  (value_t a, value_t b) { return fabsf(a - b); },
-      [] __host__ __device__  (value_t a, value_t b) { return fmaxf(a, b); });
+      [] __host__ __device__(value_t a, value_t b) { return fabsf(a - b); },
+      [] __host__ __device__(value_t a, value_t b) { return fmaxf(a, b); });
   }
 
  private:
@@ -420,7 +396,8 @@ class canberra_distances_t : public distances_t<value_t> {
       out_dists, config_,
       [] __device__(value_t a, value_t b) {
         return fabsf(a - b) / (fabsf(a) + fabsf(b));
-      }, [] __host__ __device__  (value_t a, value_t b) { return a+b; });
+      },
+      [] __host__ __device__(value_t a, value_t b) { return a + b; });
   }
 
  private:
@@ -437,18 +414,14 @@ class minkowski_distances_t : public distances_t<value_t> {
   void compute(value_t *out_dists) {
     generalized_csr_pairwise_semiring<value_idx, value_t>(
       out_dists, config_,
-      [=] __device__(value_t a, value_t b) {
-        return fpowf(a-b, p);
-      }, [] __host__ __device__  (value_t a, value_t b) {
-        return a+b; });
+      [=] __device__(value_t a, value_t b) { return fpowf(a - b, p); },
+      [] __host__ __device__(value_t a, value_t b) { return a + b; });
   }
 
  private:
   distances_config_t<value_idx, value_t> config_;
   value_t p;
 };
-
-
 
 }  // namespace Distance
 }  // namespace Sparse

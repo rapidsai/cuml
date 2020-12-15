@@ -34,7 +34,7 @@ struct distances_config_t {
 template <typename value_t>
 class distances_t {
  public:
-  virtual void compute(value_t *out) { }
+  virtual void compute(value_t *out) {}
   virtual ~distances_t() = default;
 };
 

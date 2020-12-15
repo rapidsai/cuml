@@ -20,10 +20,10 @@
 #include <raft/cudart_utils.h>
 #include <sparse/distance/common.h>
 
+#include <raft/cudart_utils.h>
 #include <raft/linalg/distance_type.h>
 #include <raft/sparse/cusparse_wrappers.h>
 #include <raft/cuda_utils.cuh>
-#include <raft/cudart_utils.h>
 
 #include <common/device_buffer.hpp>
 
@@ -45,8 +45,6 @@ namespace MLCommon {
 namespace Sparse {
 namespace Distance {
 
-
-
 /**
  * Compute pairwise distances between A and B, using the provided
  * input configuration and distance function.
@@ -65,7 +63,6 @@ template <typename value_idx = int, typename value_t = float>
 void pairwiseDistance(value_t *out,
                       distances_config_t<value_idx, value_t> input_config,
                       raft::distance::DistanceType metric) {
-
   CUML_LOG_DEBUG("Running sparse pairwise distances with metric=%d", metric);
 
   switch (metric) {
