@@ -39,10 +39,10 @@ from libc.stdlib cimport calloc, malloc, free
 cdef extern from "cuml/neighbors/knn_mg.hpp" namespace \
         "ML::KNN::opg":
 
-    cdef void brute_force_knn(
+    cdef void knn(
         handle_t &handle,
-        vector[int64Data_t*] &out_I,
-        vector[floatData_t*] &out_D,
+        vector[int64Data_t*] *out_I,
+        vector[floatData_t*] *out_D,
         vector[floatData_t*] &idx_data,
         PartDescriptor &idx_desc,
         vector[floatData_t*] &query_data,
@@ -121,10 +121,10 @@ class NearestNeighborsMG(NearestNeighbors):
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
         is_verbose = logger.should_log_for(logger.level_debug)
-        brute_force_knn(
+        knn(
             handle_[0],
-            deref(<vector[int64Data_t*]*><uintptr_t>result['indices']),
-            deref(<vector[floatData_t*]*><uintptr_t>result['distances']),
+            <vector[int64Data_t*]*><uintptr_t>result['indices'],
+            <vector[floatData_t*]*><uintptr_t>result['distances'],
             deref(<vector[floatData_t*]*><uintptr_t>
                   input['index']['local_parts']),
             deref(<PartDescriptor*><uintptr_t>input['index']['desc']),

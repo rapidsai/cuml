@@ -340,8 +340,6 @@ void reduce(raft::handle_t &handle, std::vector<Matrix::Data<T> *> *out,
                                     (total_n_processed * n_unique_classes));
     }
   } else {
-    outputs =
-      out->at(local_parts_completed)->ptr + (n_outputs * total_n_processed);
     indices = out_I->at(local_parts_completed)->ptr + batch_offset;
     distances = out_D->at(local_parts_completed)->ptr + batch_offset;
   }
@@ -350,15 +348,17 @@ void reduce(raft::handle_t &handle, std::vector<Matrix::Data<T> *> *out,
                                        indices, cur_batch_size, idxRanks.size(),
                                        k, stream, trans.data());
 
-  device_buffer<T> merged_outputs_b(alloc, stream,
-                                    n_outputs * cur_batch_size * k);
-  T *merged_outputs = merged_outputs_b.data();
-  merge_labels(merged_outputs, indices, res.data(), res_I.data(),
-               cur_batch_size, k, n_outputs, index_desc, alloc, stream);
-
-  perform_local_operation<T>(outputs, indices, merged_outputs, cur_batch_size,
-                             k, n_outputs, handle, probas_only,
-                             &probas_with_offsets, uniq_labels, n_unique);
+  if (res.size() > 0) {
+    outputs =
+      out->at(local_parts_completed)->ptr + (n_outputs * total_n_processed);
+    device_buffer<T> merged_outputs_b(alloc, stream,
+                                      n_outputs * cur_batch_size * k);
+    merge_labels(merged_outputs_b.data(), indices, res.data(), res_I.data(),
+                 cur_batch_size, k, n_outputs, index_desc, alloc, stream);
+    perform_local_operation<T>(
+      outputs, indices, merged_outputs_b.data(), cur_batch_size, k, n_outputs,
+      handle, probas_only, &probas_with_offsets, uniq_labels, n_unique);
+  }
 
   if (probas_only) {
     delete indices_b;
@@ -462,10 +462,12 @@ void exchange_results(device_buffer<T> &res, device_buffer<int64_t> &res_I,
                requests.data() + request_idx);
     ++request_idx;
 
-    for (size_t o = 0; o < n_outputs; o++) {
-      comm.isend(res.data() + (o * batch_elms), batch_elms, part_rank, 0,
-                 requests.data() + request_idx);
-      ++request_idx;
+    if (res.size() > 0) {
+      for (size_t o = 0; o < n_outputs; o++) {
+        comm.isend(res.data() + (o * batch_elms), batch_elms, part_rank, 0,
+                   requests.data() + request_idx);
+        ++request_idx;
+      }
     }
   } else {
     bool part_rank_is_idx = idxRanks.find(part_rank) != idxRanks.end();
@@ -657,7 +659,7 @@ void opg_knn(raft::handle_t &handle, std::vector<Matrix::Data<T> *> *out,
 
         size_t batch_knn_elms = k * cur_batch_size;
 
-        res.resize(batch_knn_elms * n_outputs, stream);
+        if (out) res.resize(batch_knn_elms * n_outputs, stream);
         res_I.resize(batch_knn_elms, stream);
         res_D.resize(batch_knn_elms, stream);
 
@@ -675,10 +677,12 @@ void opg_knn(raft::handle_t &handle, std::vector<Matrix::Data<T> *> *out,
                           handle.get_device_allocator(), cur_batch_size, k,
                           cur_query_ptr, rowMajorIndex, rowMajorQuery);
 
-        copy_label_outputs_from_index_parts(
-          res.data(), res_I.data(), y, (size_t)cur_batch_size, (int)k,
-          (int)n_outputs, my_rank, idx_desc, handle.get_device_allocator(),
-          stream);
+        if (out) {
+          copy_label_outputs_from_index_parts(
+            res.data(), res_I.data(), y, (size_t)cur_batch_size, (int)k,
+            (int)n_outputs, my_rank, idx_desc, handle.get_device_allocator(),
+            stream);
+        }
 
         // Synchronize before sending
         CUDA_CHECK(cudaStreamSynchronize(stream));
