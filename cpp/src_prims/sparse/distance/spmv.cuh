@@ -40,7 +40,7 @@
 #include <cub/block/block_radix_sort.cuh>
 #include <cub/block/block_store.cuh>
 
-#include <sparse/distance_api.h>
+#include <sparse/distance/common.h>
 
 namespace MLCommon {
 namespace Sparse {
@@ -182,12 +182,10 @@ __global__ void balanced_coo_spmv_kernel(value_idx *indptrA,
   }
 }
 
-template<typename value_idx, typename value_t, typename tpb>
+template<typename value_idx, typename value_t, int tpb = 1024>
 inline int balanced_coo_spmv_compute_smem() {
   // compute max shared mem to use
-  return  raft::getSharedMemPerBlock() -
-             (2 * sizeof(value_idx)) -
-              (tpb * sizeof(value_t));
+  return  raft::getSharedMemPerBlock() - (2 * sizeof(value_idx)) - (tpb * sizeof(value_t));
 }
 
 /**

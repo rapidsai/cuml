@@ -21,8 +21,8 @@
 #include <gtest/gtest.h>
 #include <raft/sparse/cusparse_wrappers.h>
 #include <test_utils.h>
-#include <sparse/distance.cuh>
-#include <sparse/semiring.cuh>
+#include <sparse/distance/distance.cuh>
+#include <sparse/distance/semiring.cuh>
 
 namespace MLCommon {
 namespace Sparse {

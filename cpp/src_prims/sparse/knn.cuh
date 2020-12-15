@@ -22,7 +22,7 @@
 #include <selection/knn.cuh>
 #include <sparse/coo.cuh>
 #include <sparse/csr.cuh>
-#include <sparse/distance.cuh>
+#include <sparse/distance/distance.cuh>
 #include <sparse/selection.cuh>
 
 #include <raft/linalg/distance_type.h>

@@ -1,5 +1,5 @@
-#include <cusparse_v2.h>
 #include <cuml/common/cuml_allocator.hpp>
+#include "../../../../../../../../usr/local/cuda/include/cusparse_v2.h"
 
 #pragma once
 
@@ -34,7 +34,7 @@ struct distances_config_t {
 template <typename value_t>
 class distances_t {
  public:
-  virtual void compute(value_t *out) { CUML_LOG_DEBUG("INside base"); }
+  virtual void compute(value_t *out) { }
   virtual ~distances_t() = default;
 };
 

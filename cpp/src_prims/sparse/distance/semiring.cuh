@@ -40,7 +40,7 @@
 #include <cub/block/block_radix_sort.cuh>
 #include <cub/block/block_store.cuh>
 
-#include <sparse/distance_api.h>
+#include <sparse/distance/common.h>
 
 namespace faiss { namespace gpu {
 

@@ -18,8 +18,7 @@
 
 #include <limits.h>
 #include <raft/cudart_utils.h>
-#include <sparse/distance_api.h>
-//#include <sparse/semiring.cuh>
+#include <sparse/distance/common.h>
 
 #include <raft/linalg/distance_type.h>
 #include <raft/sparse/cusparse_wrappers.h>
@@ -28,9 +27,10 @@
 
 #include <common/device_buffer.hpp>
 
-#include <sparse/csr.cuh>
-#include <sparse/spmv.cuh>
+#include <sparse/distance/common.h>
 #include <sparse/utils.h>
+#include <sparse/csr.cuh>
+#include <sparse/distance/spmv.cuh>
 
 #include <cuml/common/cuml_allocator.hpp>
 #include <cuml/neighbors/knn.hpp>
@@ -42,8 +42,6 @@
 namespace MLCommon {
 namespace Sparse {
 namespace Distance {
-
-
 
 template<typename value_idx, typename value_t>
 class ip_trans_getters_t: public distances_t<value_t> {
@@ -263,11 +261,12 @@ class ip_distances_t : public distances_t<value_t> {
     int smem = raft::getSharedMemPerBlock();
 
     if(config_.a_ncols < 11000) {
-      internal_ip_dist = std::unique_ptr<ip_trans_getters_t<value_idx, value_t>>(new ip_distances_spmv_t<value_idx, value_t>(config_));
+      internal_ip_dist = std::unique_ptr<ip_trans_getters_t<value_idx, value_t>>(
+        new ip_distances_spmv_t<value_idx, value_t>(config_));
     } else {
-      internal_ip_dist (new ip_distances_gemm_t<value_idx, value_t>(config_));
+      internal_ip_dist = std::unique_ptr<ip_trans_getters_t<value_idx, value_t>>(
+        new ip_distances_gemm_t<value_idx, value_t>(config_));
     }
-
   }
 
   /**
@@ -278,180 +277,19 @@ class ip_distances_t : public distances_t<value_t> {
     /**
 	   * Compute pairwise distances and return dense matrix in column-major format
 	   */
-
     internal_ip_dist->compute(out_distances);
-
   }
 
-  virtual value_idx *trans_indices() const  { return internal_ip_dist->trans_indices(); }
+  virtual value_idx *trans_indices() const  {
+    return internal_ip_dist->trans_indices(); }
 
-  virtual value_t *trans_data() const { return internal_ip_dist->trans_data(); }
+  virtual value_t *trans_data() const {
+    return internal_ip_dist->trans_data(); }
 
  private:
   distances_config_t<value_idx, value_t> config_;
   std::unique_ptr<ip_trans_getters_t<value_idx, value_t>> internal_ip_dist;
 };
-
-
-
-
-template <typename value_idx, typename value_t>
-__global__ void compute_sq_norm_kernel(value_t *out, const value_idx *coo_rows,
-                                       const value_t *data, value_idx nnz) {
-  int i = blockIdx.x * blockDim.x + threadIdx.x;
-  if (i < nnz) {
-    atomicAdd(&out[coo_rows[i]], data[i] * data[i]);
-  }
-}
-
-template <typename value_idx, typename value_t>
-__global__ void compute_euclidean_warp_kernel(value_t *C,
-                                              const value_t *Q_sq_norms,
-                                              const value_t *R_sq_norms,
-                                              value_idx n_cols) {
-  value_idx i = blockIdx.x;
-  value_idx tid = threadIdx.x;
-
-  __shared__ value_t q_norm;
-
-  if (tid == 0) {
-    q_norm = Q_sq_norms[i];
-  }
-
-  __syncthreads();
-
-  for (int j = tid; j < n_cols; j += blockDim.x) {
-    value_t r_norm = R_sq_norms[j];
-    value_t dot = C[i * n_cols + j];
-
-    value_t val = q_norm + r_norm - 2.0 * dot;
-    if (fabsf(val) < 0.0001) val = 0.0;
-
-    C[i * n_cols + j] = val;
-  }
-}
-
-template <typename value_idx, typename value_t>
-void compute_euclidean(value_t *C, const value_t *Q_sq_norms,
-                       const value_t *R_sq_norms, value_idx n_rows,
-                       value_idx n_cols, cudaStream_t stream) {
-  int blockdim = block_dim(n_cols);
-
-  compute_euclidean_warp_kernel<<<n_rows, blockdim, 0, stream>>>(
-    C, Q_sq_norms, R_sq_norms, n_cols);
-}
-
-template <typename value_idx, typename value_t, int tpb = 256>
-void compute_l2(value_t *out, const value_idx *Q_coo_rows,
-                const value_t *Q_data, value_idx Q_nnz,
-                const value_idx *R_coo_rows, const value_t *R_data,
-                value_idx R_nnz, value_idx m, value_idx n,
-                cusparseHandle_t handle, std::shared_ptr<deviceAllocator> alloc,
-                cudaStream_t stream) {
-  device_buffer<value_t> Q_sq_norms(alloc, stream, m);
-  device_buffer<value_t> R_sq_norms(alloc, stream, n);
-  CUDA_CHECK(
-    cudaMemsetAsync(Q_sq_norms.data(), 0, Q_sq_norms.size() * sizeof(value_t)));
-  CUDA_CHECK(
-    cudaMemsetAsync(R_sq_norms.data(), 0, R_sq_norms.size() * sizeof(value_t)));
-
-  compute_sq_norm_kernel<<<raft::ceildiv(Q_nnz, tpb), tpb, 0, stream>>>(
-    Q_sq_norms.data(), Q_coo_rows, Q_data, Q_nnz);
-  compute_sq_norm_kernel<<<raft::ceildiv(R_nnz, tpb), tpb, 0, stream>>>(
-    R_sq_norms.data(), R_coo_rows, R_data, R_nnz);
-
-  compute_euclidean(out, Q_sq_norms.data(), R_sq_norms.data(), m, n, stream);
-}
-
-/**
- * L2 distance using the expanded form: sum(x_k)^2 + sum(y_k)^2 - 2 * sum(x_k * y_k)
- * The expanded form is more efficient for sparse data.
- */
-template <typename value_idx = int, typename value_t = float>
-class l2_distances_t : public distances_t<value_t> {
- public:
-  explicit l2_distances_t(distances_config_t<value_idx, value_t> config)
-    : config_(config),
-      workspace(config.allocator, config.stream, 0),
-      ip_dists(config) {}
-
-  void compute(value_t *out_dists) {
-    CUML_LOG_DEBUG("Computing inner products");
-    ip_dists.compute(out_dists);
-
-    value_idx *b_indices = ip_dists.trans_indices();
-    value_t *b_data = ip_dists.trans_data();
-
-    CUML_LOG_DEBUG("Computing COO row index array");
-    device_buffer<value_idx> search_coo_rows(config_.allocator, config_.stream,
-                                             config_.a_nnz);
-    csr_to_coo(config_.a_indptr, config_.a_nrows, search_coo_rows.data(),
-               config_.a_nnz, config_.stream);
-
-    CUML_LOG_DEBUG("Done.");
-
-    CUML_LOG_DEBUG("Computing L2");
-    compute_l2(out_dists, search_coo_rows.data(), config_.a_data, config_.a_nnz,
-               b_indices, b_data, config_.b_nnz, config_.a_nrows,
-               config_.b_nrows, config_.handle, config_.allocator,
-               config_.stream);
-    CUML_LOG_DEBUG("Done.");
-  }
-
-  ~l2_distances_t() = default;
-
- private:
-  distances_config_t<value_idx, value_t> config_;
-  device_buffer<char> workspace;
-  ip_distances_t<value_idx, value_t> ip_dists;
-};
-
-/**
- * Compute pairwise distances between A and B, using the provided
- * input configuration and distance function.
- *
- * @tparam value_idx index type
- * @tparam value_t value type
- * @param[out] out dense output array (size A.nrows * B.nrows)
- * @param[in] input_config input argument configuration
- * @param[in] metric distance metric to use
- */
-template class ip_distances_t<int, float>;
-template class l2_distances_t<int, float>;
-template class distances_config_t<int, float>;
-
-template <typename value_idx = int, typename value_t = float>
-void pairwiseDistance(value_t *out,
-                      distances_config_t<value_idx, value_t> input_config,
-                      raft::distance::DistanceType metric) {
-  CUML_LOG_DEBUG("Running sparse pairwise distances with metric=%d", metric);
-
-  switch (metric) {
-    case raft::distance::DistanceType::EucExpandedL2:
-      // EucExpandedL2
-      l2_distances_t<value_idx, value_t>(input_config).compute(out);
-      break;
-    case raft::distance::DistanceType::InnerProduct:
-      // InnerProduct
-      ip_distances_t<value_idx, value_t>(input_config).compute(out);
-      break;
-//    case ML::Distance::DistanceType::EucUnexpandedL1:
-//      l1_distances_t<value_idx, value_t>(input_config).compute(out);
-//      break;
-//    case ML::Distance::DistanceType::EucUnexpandedL2:
-//      l2_unexpanded_distances_t<value_idx, value_t>(input_config).compute(out);
-//      break;
-//    case ML::Distance::DistanceType::ChebyChev:
-//      chebychev_distances_t<value_idx, value_t>(input_config).compute(out);
-//      break;
-//    case ML::Distance::DistanceType::Canberra:
-//      canberra_distances_t<value_idx, value_t>(input_config).compute(out);
-//      break;
-    default:
-      THROW("Unsupported metric: %d", metric);
-  }
-}
-
 };  // END namespace Distance
 };  // END namespace Sparse
 };  // END namespace MLCommon
