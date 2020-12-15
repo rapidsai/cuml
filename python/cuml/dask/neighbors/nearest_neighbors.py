@@ -106,14 +106,13 @@ class NearestNeighbors(BaseEstimator):
         return cumlNN(handle=handle, **kwargs)
 
     @staticmethod
-    def _func_kneighbors(model, local_idx_parts, idx_m, n, idx_parts_to_ranks,
-                         local_query_parts, query_m, query_parts_to_ranks,
-                         rank, k):
-
+    def _func_kneighbors(model, data, data_parts_to_ranks, data_nrows,
+                         query, query_parts_to_ranks, query_nrows,
+                         ncols, rank, n_neighbors, convert_dtype):
         return model.kneighbors(
-            local_idx_parts, idx_m, n, idx_parts_to_ranks,
-            local_query_parts, query_m, query_parts_to_ranks,
-            rank, k
+            data, data_parts_to_ranks, data_nrows, query,
+            query_parts_to_ranks, query_nrows, ncols, rank,
+            n_neighbors, convert_dtype
         )
 
     @staticmethod
@@ -202,15 +201,16 @@ class NearestNeighbors(BaseEstimator):
                         nn_models[worker],
                         index_handler.worker_to_parts[worker] if
                         worker in index_handler.workers else [],
-                        index_handler.total_rows,
-                        self.n_cols,
                         idx_parts_to_ranks,
+                        index_handler.total_rows,
                         query_handler.worker_to_parts[worker] if
                         worker in query_handler.workers else [],
-                        query_handler.total_rows,
                         query_parts_to_ranks,
+                        query_handler.total_rows,
+                        self.n_cols,
                         worker_info[worker]["rank"],
                         n_neighbors,
+                        False,
                         key="%s-%s" % (key, idx),
                         workers=[worker]))
                        for idx, worker in enumerate(comms.worker_addresses)])

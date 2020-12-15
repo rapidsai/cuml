@@ -17,25 +17,21 @@
 # distutils: language = c++
 
 import typing
-
-import numpy as np
-
-import cuml.internals
 from cuml.common.array import CumlArray
+import cuml.common.logger as logger
+from cuml.internals import api_base_return_generic_skipall
+
+from cuml.neighbors.nearest_neighbors_mg import NearestNeighborsMG
+
 from cuml.raft.common.handle cimport handle_t
-from cuml.common import input_to_cuml_array
 from cuml.common.opg_data_utils_mg cimport *
-from cuml.common.opg_data_utils_mg import _build_part_inputs
 
-import rmm
-from libc.stdlib cimport calloc, malloc, free
-from cython.operator cimport dereference as deref
-from libc.stdint cimport uintptr_t
 from libcpp cimport bool
-from libcpp.memory cimport shared_ptr
+from libcpp.vector cimport vector
+from libc.stdint cimport uintptr_t
+from cython.operator cimport dereference as deref
+from libc.stdlib cimport free
 
-from cuml.neighbors.kneighbors_mg import KNeighborsMG
-from cudf.core import DataFrame as cudfDataFrame
 
 cdef extern from "cuml/neighbors/knn_mg.hpp" namespace \
         "ML::KNN::opg":
@@ -59,7 +55,7 @@ cdef extern from "cuml/neighbors/knn_mg.hpp" namespace \
     ) except +
 
 
-class KNeighborsRegressorMG(KNeighborsMG):
+class KNeighborsRegressorMG(NearestNeighborsMG):
     """
     Multi-node Multi-GPU K-Nearest Neighbors Regressor Model.
 
@@ -70,12 +66,12 @@ class KNeighborsRegressorMG(KNeighborsMG):
     def __init__(self, **kwargs):
         super(KNeighborsRegressorMG, self).__init__(**kwargs)
 
-    @cuml.internals.api_base_return_generic_skipall
+    @api_base_return_generic_skipall
     def predict(
         self,
-        data,
-        data_parts_to_ranks,
-        data_nrows,
+        index,
+        index_parts_to_ranks,
+        index_nrows,
         query,
         query_parts_to_ranks,
         query_nrows,
@@ -93,9 +89,9 @@ class KNeighborsRegressorMG(KNeighborsMG):
 
         Parameters
         ----------
-        data: [__cuda_array_interface__] of local index and labels partitions
-        data_parts_to_ranks: mappings of data partitions to ranks
-        data_nrows: number of total data rows
+        index: [__cuda_array_interface__] of local index and labels partitions
+        index_parts_to_ranks: mappings of index partitions to ranks
+        index_nrows: number of total index rows
         query: [__cuda_array_interface__] of local query partitions
         query_parts_to_ranks: mappings of query partitions to ranks
         query_nrows: number of total query rows
@@ -108,54 +104,55 @@ class KNeighborsRegressorMG(KNeighborsMG):
         -------
         predictions : outputs, indices, distances
         """
-        self.get_out_type(data, query)
+        self.get_out_type(index, query)
 
-        input = self.gen_local_input(data, data_parts_to_ranks, data_nrows,
+        input = self.gen_local_input(index, index_parts_to_ranks, index_nrows,
                                      query, query_parts_to_ranks, query_nrows,
                                      ncols, rank, convert_dtype)
 
-        output = self.gen_local_output(data, convert_dtype, dtype='float32')
+        labels = self.gen_local_labels(index, convert_dtype, dtype='float32')
 
         query_cais = input['cais']['query']
         local_query_rows = list(map(lambda x: x.shape[0], query_cais))
-        result = self.alloc_local_output(local_query_rows)
+        result = self.alloc_local_output(local_query_rows, self.n_neighbors)
 
         cdef vector[floatData_t*] *out_result_local_parts \
             = new vector[floatData_t*]()
         output_cais = []
         for n_rows in local_query_rows:
             o_cai = CumlArray.zeros(shape=(n_rows, n_outputs),
-                                    order="C", dtype=np.float32)
+                                    order="C", dtype='float32')
             output_cais.append(o_cai)
             out_result_local_parts.push_back(new floatData_t(
                 <float*><uintptr_t>o_cai.ptr, n_rows * n_outputs))
 
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
+        is_verbose = logger.should_log_for(logger.level_debug)
         knn_regress(
             handle_[0],
             out_result_local_parts,
             <vector[int64Data_t*]*><uintptr_t>result['indices'],
             <vector[floatData_t*]*><uintptr_t>result['distances'],
             deref(<vector[floatData_t*]*><uintptr_t>
-                  input['data']['local_parts']),
-            deref(<PartDescriptor*><uintptr_t>input['data']['desc']),
+                  input['index']['local_parts']),
+            deref(<PartDescriptor*><uintptr_t>input['index']['desc']),
             deref(<vector[floatData_t*]*><uintptr_t>
                   input['query']['local_parts']),
             deref(<PartDescriptor*><uintptr_t>input['query']['desc']),
-            deref(<vector[float_ptr_vector]*><uintptr_t>output['outputs']),
+            deref(<vector[float_ptr_vector]*><uintptr_t>labels['labels']),
             <bool>False,  # column-major index
             <bool>False,  # column-major query
             <int>self.n_neighbors,
             <int>n_outputs,
             <size_t>self.batch_size,
-            <bool>self.verbose
+            <bool>is_verbose
         )
 
         self.handle.sync()
 
         self.free_mem(input, result)
-        free(<void*><uintptr_t>output['outputs'])
+        free(<void*><uintptr_t>labels['labels'])
 
         for i in range(out_result_local_parts.size()):
             free(<void*>out_result_local_parts.at(i))
