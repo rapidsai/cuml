@@ -33,7 +33,8 @@ template <typename value_idx, typename value_t>
 __global__ void sigmas_kernel(const value_t *restrict distances,
                               value_t *restrict P, const value_t perplexity,
                               const value_t desired_entropy, const int epochs,
-                              const value_t tol, const value_idx n, const int k) {
+                              const value_t tol, const value_idx n,
+                              const int k) {
   // For every item in row
   const auto i = (blockIdx.x * blockDim.x) + threadIdx.x;
   if (i >= n) return;
@@ -86,8 +87,9 @@ __global__ void sigmas_kernel(const value_t *restrict distances,
 template <typename value_idx, typename value_t>
 __global__ void sigmas_kernel_2d(const value_t *restrict distances,
                                  value_t *restrict P, const value_t perplexity,
-                                 const value_t desired_entropy, const int epochs,
-                                 const value_t tol, const value_idx n) {
+                                 const value_t desired_entropy,
+                                 const int epochs, const value_t tol,
+                                 const value_idx n) {
   // For every item in row
   const auto i = (blockIdx.x * blockDim.x) + threadIdx.x;
   if (i >= n) return;
@@ -141,10 +143,10 @@ void perplexity_search(const value_t *restrict distances, value_t *restrict P,
   cudaStream_t stream = handle.get_stream();
 
   if (dim == 2)
-    sigmas_kernel_2d<<<raft::ceildiv(n, (value_idx) 1024), 1024, 0, stream>>>(
+    sigmas_kernel_2d<<<raft::ceildiv(n, (value_idx)1024), 1024, 0, stream>>>(
       distances, P, perplexity, desired_entropy, epochs, tol, n);
   else
-    sigmas_kernel<<<raft::ceildiv(n, (value_idx) 1024), 1024, 0, stream>>>(
+    sigmas_kernel<<<raft::ceildiv(n, (value_idx)1024), 1024, 0, stream>>>(
       distances, P, perplexity, desired_entropy, epochs, tol, n, dim);
   CUDA_CHECK(cudaPeekAtLastError());
   cudaStreamSynchronize(stream);
@@ -155,9 +157,10 @@ void perplexity_search(const value_t *restrict distances, value_t *restrict P,
     Uses only nearest neighbors         */
 template <typename value_idx, typename value_t>
 __global__ void attractive_kernel(
-  const value_t *restrict VAL, const value_idx *restrict COL, const value_idx *restrict ROW,
-  const value_t *restrict Y, const value_t *restrict norm, value_t *restrict attract,
-  const value_idx NNZ, const value_idx n, const value_idx dim,
+  const value_t *restrict VAL, const value_idx *restrict COL,
+  const value_idx *restrict ROW, const value_t *restrict Y,
+  const value_t *restrict norm, value_t *restrict attract, const value_idx NNZ,
+  const value_idx n, const value_idx dim,
   const value_t df_power,  // -(df + 1)/2)
   const value_t recp_df)   // 1 / df
 {
@@ -187,10 +190,10 @@ __global__ void attractive_kernel(
     up many calculations up             */
 template <typename value_idx, typename value_t>
 __global__ void attractive_kernel_2d(
-  const value_t *restrict VAL, const value_idx *restrict COL, const value_idx *restrict ROW,
-  const value_t *restrict Y1, const value_t *restrict Y2,
-  const value_t *restrict norm, value_t *restrict attract1,
-  value_t *restrict attract2, const value_idx NNZ) {
+  const value_t *restrict VAL, const value_idx *restrict COL,
+  const value_idx *restrict ROW, const value_t *restrict Y1,
+  const value_t *restrict Y2, const value_t *restrict norm,
+  value_t *restrict attract1, value_t *restrict attract2, const value_idx NNZ) {
   const auto index = (blockIdx.x * blockDim.x) + threadIdx.x;
   if (index >= NNZ) return;
   const auto i = ROW[index], j = COL[index];
@@ -212,10 +215,12 @@ __global__ void attractive_kernel_2d(
 
 /****************************************/
 template <typename value_idx, typename value_t>
-void attractive_forces(const value_t *restrict VAL, const value_idx *restrict COL,
+void attractive_forces(const value_t *restrict VAL,
+                       const value_idx *restrict COL,
                        const value_idx *restrict ROW, const value_t *restrict Y,
                        const value_t *restrict norm, value_t *restrict attract,
-                       const value_idx NNZ, const value_idx n, const value_idx dim,
+                       const value_idx NNZ, const value_idx n,
+                       const value_idx dim,
                        const value_t df_power,  // -(df + 1)/2)
                        const value_t recp_df,   // 1 / df
                        cudaStream_t stream) {
@@ -225,13 +230,14 @@ void attractive_forces(const value_t *restrict VAL, const value_idx *restrict CO
   // #863
   // For general embedding dimensions
   if (dim != 2) {
-    attractive_kernel<<<raft::ceildiv(NNZ, (value_idx) 1024), 1024, 0, stream>>>(
+    attractive_kernel<<<raft::ceildiv(NNZ, (value_idx)1024), 1024, 0, stream>>>(
       VAL, COL, ROW, Y, norm, attract, NNZ, n, dim, df_power, recp_df);
   }
   // For special case dim == 2
   else {
-    attractive_kernel_2d<<<raft::ceildiv(NNZ, (value_idx) 1024), 1024, 0, stream>>>(
-      VAL, COL, ROW, Y, Y + n, norm, attract, attract + n, NNZ);
+    attractive_kernel_2d<<<raft::ceildiv(NNZ, (value_idx)1024), 1024, 0,
+                           stream>>>(VAL, COL, ROW, Y, Y + n, norm, attract,
+                                     attract + n, NNZ);
   }
   CUDA_CHECK(cudaPeekAtLastError());
 }
@@ -241,10 +247,12 @@ void attractive_forces(const value_t *restrict VAL, const value_idx *restrict CO
     time where many of the math ops are
     made considerably faster.           */
 template <typename value_idx, typename value_t>
-__global__ void repulsive_kernel(const value_t *restrict Y, value_t *restrict repel,
+__global__ void repulsive_kernel(const value_t *restrict Y,
+                                 value_t *restrict repel,
                                  const value_t *restrict norm,
-                                 value_t *restrict Z_sum1, value_t *restrict Z_sum2,
-                                 const value_idx n, const value_idx dim,
+                                 value_t *restrict Z_sum1,
+                                 value_t *restrict Z_sum2, const value_idx n,
+                                 const value_idx dim,
                                  const value_t df_power,  // -(df + 1)/2)
                                  const value_t recp_df)   // 1 / df
 {
@@ -282,8 +290,9 @@ __global__ void repulsive_kernel(const value_t *restrict Y, value_t *restrict re
     since calculations are streamlined. */
 template <typename value_idx, typename value_t>
 __global__ void repulsive_kernel_2d(
-  const value_t *restrict Y1, const value_t *restrict Y2, value_t *restrict repel1,
-  value_t *restrict repel2, const value_t *restrict norm, value_t *restrict Z_sum1,
+  const value_t *restrict Y1, const value_t *restrict Y2,
+  value_t *restrict repel1, value_t *restrict repel2,
+  const value_t *restrict norm, value_t *restrict Z_sum1,
   value_t *restrict Z_sum2, const value_idx n) {
   const auto j =
     (blockIdx.x * blockDim.x) + threadIdx.x;  // for every item in row
@@ -318,15 +327,16 @@ __global__ void repulsive_kernel_2d(
 /****************************************/
 template <typename value_idx, typename value_t, int TPB_X = 32, int TPB_Y = 32>
 value_t repulsive_forces(const value_t *restrict Y, value_t *restrict repel,
-                       const value_t *restrict norm, value_t *restrict Z_sum,
-                       const value_idx n, const value_idx dim,
-                       const value_t df_power,  // -(df + 1)/2)
-                       const value_t recp_df, cudaStream_t stream) {
+                         const value_t *restrict norm, value_t *restrict Z_sum,
+                         const value_idx n, const value_idx dim,
+                         const value_t df_power,  // -(df + 1)/2)
+                         const value_t recp_df, cudaStream_t stream) {
   CUDA_CHECK(cudaMemsetAsync(Z_sum, 0, sizeof(value_t) * 2 * n, stream));
   CUDA_CHECK(cudaMemsetAsync(repel, 0, sizeof(value_t) * n * dim, stream));
 
   const dim3 threadsPerBlock(TPB_X, TPB_Y);
-  const dim3 numBlocks(raft::ceildiv(n, (value_idx) TPB_X), raft::ceildiv(n, (value_idx) TPB_Y));
+  const dim3 numBlocks(raft::ceildiv(n, (value_idx)TPB_X),
+                       raft::ceildiv(n, (value_idx)TPB_Y));
 
   // For general embedding dimensions
   if (dim != 2) {
@@ -342,10 +352,12 @@ value_t repulsive_forces(const value_t *restrict Y, value_t *restrict repel,
 
   // Find sum(Z_sum)
   thrust::device_ptr<value_t> begin = thrust::device_pointer_cast(Z_sum);
-  value_t Z = thrust::reduce(thrust::cuda::par.on(stream), begin, begin + 2 * n);
+  value_t Z =
+    thrust::reduce(thrust::cuda::par.on(stream), begin, begin + 2 * n);
   return 1.0f /
          (2.0f *
-          (Z + (value_t)n));  // Notice + n since diagonal of repulsion sums to n
+          (Z +
+           (value_t)n));  // Notice + n since diagonal of repulsion sums to n
 }
 
 /****************************************/
@@ -354,8 +366,9 @@ value_t repulsive_forces(const value_t *restrict Y, value_t *restrict repel,
     for output stability                */
 template <typename value_idx, typename value_t>
 __global__ void apply_kernel(
-  value_t *restrict Y, value_t *restrict velocity, const value_t *restrict attract,
-  const value_t *restrict repel, value_t *restrict means, value_t *restrict gains,
+  value_t *restrict Y, value_t *restrict velocity,
+  const value_t *restrict attract, const value_t *restrict repel,
+  value_t *restrict means, value_t *restrict gains,
   const value_t Z,  // sum(Q)
   const value_t learning_rate,
   const value_t C,  // constant from T-Dist Degrees of Freedom
@@ -389,19 +402,21 @@ __global__ void apply_kernel(
 /****************************************/
 template <typename value_idx, typename value_t, int TPB_X = 32, int TPB_Y = 32>
 value_t apply_forces(value_t *restrict Y, value_t *restrict velocity,
-                   const value_t *restrict attract, const value_t *restrict repel,
-                   value_t *restrict means, value_t *restrict gains,
-                   const value_t Z,  // sum(Q)
-                   const value_t learning_rate,
-                   const value_t C,  // constant from T-dist
-                   const value_t momentum, const value_idx dim, const value_idx n,
-                   const value_t min_gain, value_t *restrict gradient,
-                   const bool check_convergence, cudaStream_t stream) {
+                     const value_t *restrict attract,
+                     const value_t *restrict repel, value_t *restrict means,
+                     value_t *restrict gains,
+                     const value_t Z,  // sum(Q)
+                     const value_t learning_rate,
+                     const value_t C,  // constant from T-dist
+                     const value_t momentum, const value_idx dim,
+                     const value_idx n, const value_t min_gain,
+                     value_t *restrict gradient, const bool check_convergence,
+                     cudaStream_t stream) {
   //cudaMemset(means, 0, sizeof(float) * dim);
   if (check_convergence)
     CUDA_CHECK(cudaMemsetAsync(gradient, 0, sizeof(value_t) * n * dim, stream));
 
-  apply_kernel<<<raft::ceildiv(n * dim, (value_idx) 1024), 1024, 0, stream>>>(
+  apply_kernel<<<raft::ceildiv(n * dim, (value_idx)1024), 1024, 0, stream>>>(
     Y, velocity, attract, repel, means, gains, Z, learning_rate, C, momentum,
     n * dim, n, min_gain, gradient, check_convergence);
   CUDA_CHECK(cudaPeekAtLastError());

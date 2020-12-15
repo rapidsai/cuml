@@ -47,8 +47,7 @@ void get_distances(const raft::handle_t &handle, tsne_input &input,
 template <>
 void get_distances(const raft::handle_t &handle,
                    manifold_dense_inputs_t<float> &input,
-                   knn_graph<int64_t, float> &k_graph,
-                   cudaStream_t stream) {
+                   knn_graph<int64_t, float> &k_graph, cudaStream_t stream) {
   // TODO: for TSNE transform first fit some points then transform with 1/(1+d^2)
   // #861
 
@@ -73,17 +72,16 @@ void get_distances(const raft::handle_t &handle,
 template <>
 void get_distances(const raft::handle_t &handle,
                    manifold_dense_inputs_t<float> &input,
-                   knn_graph<int, float> &k_graph,
-                   cudaStream_t stream) {
-  throw raft::exception("Dense TSNE does not support 32-bit integer indices yet.");
+                   knn_graph<int, float> &k_graph, cudaStream_t stream) {
+  throw raft::exception(
+    "Dense TSNE does not support 32-bit integer indices yet.");
 }
 
 // sparse, int32
 template <>
 void get_distances(const raft::handle_t &handle,
                    manifold_sparse_inputs_t<int, float> &input,
-                   knn_graph<int, float> &k_graph,
-                   cudaStream_t stream) {
+                   knn_graph<int, float> &k_graph, cudaStream_t stream) {
   MLCommon::Sparse::Selection::brute_force_knn(
     input.indptr, input.indices, input.data, input.nnz, input.n, input.d,
     input.indptr, input.indices, input.data, input.nnz, input.n, input.d,
@@ -97,9 +95,9 @@ void get_distances(const raft::handle_t &handle,
 template <>
 void get_distances(const raft::handle_t &handle,
                    manifold_sparse_inputs_t<int64_t, float> &input,
-                   knn_graph<int64_t, float> &k_graph,
-                   cudaStream_t stream) {
-  throw raft::exception("Sparse TSNE does not support 32-bit integer indices yet.");
+                   knn_graph<int64_t, float> &k_graph, cudaStream_t stream) {
+  throw raft::exception(
+    "Sparse TSNE does not support 32-bit integer indices yet.");
 }
 
 /**
@@ -111,12 +109,12 @@ void get_distances(const raft::handle_t &handle,
  * @param[in] stream: The GPU stream.
  */
 template <typename value_idx, typename value_t>
-void normalize_distances(const value_idx n, value_t *distances, const int n_neighbors,
-                         cudaStream_t stream) {
+void normalize_distances(const value_idx n, value_t *distances,
+                         const int n_neighbors, cudaStream_t stream) {
   // Now D / max(abs(D)) to allow exp(D) to not explode
   thrust::device_ptr<value_t> begin = thrust::device_pointer_cast(distances);
   value_t maxNorm = *thrust::max_element(thrust::cuda::par.on(stream), begin,
-                                       begin + n * n_neighbors);
+                                         begin + n * n_neighbors);
   if (maxNorm == 0.0f) maxNorm = 1.0f;
 
   // Divide distances inplace by max
@@ -137,10 +135,11 @@ void normalize_distances(const value_idx n, value_t *distances, const int n_neig
  * @param[in] handle: The GPU handle.
  */
 template <typename value_idx, typename value_t, int TPB_X = 32>
-void symmetrize_perplexity(float *P, value_idx *indices, const value_idx n,
-                           const int k, const value_t exaggeration,
-                           MLCommon::Sparse::COO<value_t, value_idx> *COO_Matrix,
-                           cudaStream_t stream, const raft::handle_t &handle) {
+void symmetrize_perplexity(
+  float *P, value_idx *indices, const value_idx n, const int k,
+  const value_t exaggeration,
+  MLCommon::Sparse::COO<value_t, value_idx> *COO_Matrix, cudaStream_t stream,
+  const raft::handle_t &handle) {
   // Perform (P + P.T) / P_sum * early_exaggeration
   const value_t div = exaggeration / (2.0f * n);
   raft::linalg::scalarMultiply(P, P, div, n * k, stream);

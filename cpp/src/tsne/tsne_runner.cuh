@@ -106,19 +106,19 @@ class TSNE_runner {
     const auto *ROW = COO_Matrix.rows();
     //---------------------------------------------------
 
-    // if (barnes_hut) {
-    //   TSNE::Barnes_Hut(VAL, COL, ROW, NNZ, handle, Y, n, theta, epssq,
-    //                    early_exaggeration, exaggeration_iter, min_gain,
-    //                    pre_learning_rate, post_learning_rate, max_iter,
-    //                    min_grad_norm, pre_momentum, post_momentum, random_state,
-    //                    initialize_embeddings);
-    // } else {
+    if (barnes_hut) {
+      TSNE::Barnes_Hut(VAL, COL, ROW, NNZ, handle, Y, n, theta, epssq,
+                       early_exaggeration, exaggeration_iter, min_gain,
+                       pre_learning_rate, post_learning_rate, max_iter,
+                       min_grad_norm, pre_momentum, post_momentum, random_state,
+                       initialize_embeddings);
+    } else {
       TSNE::Exact_TSNE(VAL, COL, ROW, NNZ, handle, Y, n, dim,
                        early_exaggeration, exaggeration_iter, min_gain,
                        pre_learning_rate, post_learning_rate, max_iter,
                        min_grad_norm, pre_momentum, post_momentum, random_state,
                        initialize_embeddings);
-    // }
+    }
   }
 
  private:

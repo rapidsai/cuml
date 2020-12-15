@@ -138,8 +138,7 @@ class TSNETest : public ::testing::Test {
     knn_graph<int64_t, float> k_graph(n, 90, knn_indices.data(),
                                       knn_dists.data());
 
-    TSNE::get_distances(handle, input, k_graph,
-                                        handle.get_stream());
+    TSNE::get_distances(handle, input, k_graph, handle.get_stream());
 
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 
