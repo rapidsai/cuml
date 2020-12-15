@@ -41,27 +41,35 @@ void _single_linkage(const raft::handle_t &handle,
   auto stream = handle.get_stream();
   auto d_alloc = handle.get_device_allocator();
 
+  raft::print_device_vector("X: ", X, m*n, std::cout);
+
+
   CUML_LOG_INFO("Running pairwise distances");
+
+  raft::mr::device::buffer<value_t> pw_dists(d_alloc, stream, m*m);
+  raft::mr::device::buffer<char> workspace(d_alloc, stream, 0);
+  raft::mr::device::buffer<value_idx> mst_rows(d_alloc, stream, m-1);
+  raft::mr::device::buffer<value_idx> mst_cols(d_alloc, stream, m-1);
+  raft::mr::device::buffer<value_t> mst_data(d_alloc, stream, m-1);
 
   /**
    * Construct pairwise distances
    */
-  raft::mr::device::buffer<value_t> pw_dists(d_alloc, stream, m*m);
-  raft::mr::device::buffer<char> workspace(d_alloc, stream, 0);
 
   // @TODO: This is super expensive. Future versions need to eliminate
   //   the pairwise distance matrix, use KNN, or an MST based on the KNN graph
   MLCommon::Distance::pairwise_distance<value_t, size_t>(X, X, pw_dists.data(),
-                                                         m, m, n, workspace, metric, stream);
+                                                         m, m, n, workspace,
+                                                         metric, stream);
+
+  CUDA_CHECK(cudaStreamSynchronize(stream));
+  raft::print_device_vector("data: ", pw_dists.data(), 2, std::cout);
 
 
   CUML_LOG_INFO("Constructing MST");
   /**
    * Construct MST sorted by weights
    */
-  raft::mr::device::buffer<value_idx> mst_rows(d_alloc, stream, m-1);
-  raft::mr::device::buffer<value_idx> mst_cols(d_alloc, stream, m-1);
-  raft::mr::device::buffer<value_t> mst_data(d_alloc, stream, m-1);
 
   MST::build_sorted_mst<value_idx, value_t>(handle,
                                             pw_dists.data(),
