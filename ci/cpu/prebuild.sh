@@ -13,3 +13,6 @@ if [[ -z "$PROJECT_FLASH" || "$PROJECT_FLASH" == "0" ]]; then
     export BUILD_LIBCUML=1
     export BUILD_CUML=1
 fi
+
+# list tags
+git tag
