@@ -72,21 +72,30 @@ def test_pca_fit(datatype, input_type, name, use_handle):
 
 @pytest.mark.parametrize('n_samples', [200])
 @pytest.mark.parametrize('n_features', [100, 300])
-def test_pca_defaults(n_samples, n_features):
-    X, Y = make_multilabel_classification(n_samples=n_samples,
-                                          n_features=n_features,
-                                          n_classes=2,
-                                          n_labels=1,
-                                          random_state=1)
+@pytest.mark.parametrize('sparse', [True, False])
+def test_pca_defaults(n_samples, n_features, sparse):
+    if sparse:
+        X = cupyx.scipy.sparse.random(nrows, ncols, density=0.03, dtype=cp.float32,
+                                      random_state=10)
+    else:
+        X, Y = make_multilabel_classification(n_samples=n_samples,
+                                            n_features=n_features,
+                                            n_classes=2,
+                                            n_labels=1,
+                                            random_state=1)
     skpca = skPCA()
     skpca.fit(X)
+    skresult = skpca.transform(X)
 
     cupca = cuPCA()
     cupca.fit(X)
+    curesult = cupca.transform(X)
     cupca.handle.sync()
 
     assert skpca.svd_solver == cupca.svd_solver
     assert cupca.components_.shape[0] == skpca.components_.shape[0]
+    assert cupca.shape == skpca.shape
+    assert cupca == skpca
 
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
