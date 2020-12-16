@@ -23,8 +23,8 @@
 #include <raft/mr/device/buffer.hpp>
 #include <raft/sparse/mst/mst.cuh>
 
-#include <thrust/sort.h>
 #include <thrust/execution_policy.h>
+#include <thrust/sort.h>
 
 #include <distance/distance.cuh>
 
@@ -33,7 +33,6 @@
 namespace ML {
 namespace HDBSCAN {
 namespace Condense {
-
 
 template <typename value_idx, typename value_t>
 void bfs_from_hierarchy() {}
@@ -46,8 +45,6 @@ void condense(value_idx *tree_src, value_idx *tree_dst, value_t *tree_delta,
   value_idx n_points = root / 2 + 1;
   value_idx next_label = n_points + 1;
 }
-
-
 
 };  // end namespace Condense
 };  // end namespace HDBSCAN

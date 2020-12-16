@@ -89,13 +89,9 @@ struct UnionFind {
  * @param[out] out_size cluster sizes of output
  */
 template <typename value_idx, typename value_t>
-void label_hierarchy_host(const raft::handle_t &handle,
-                          const value_idx *rows,
-                          const value_idx *cols,
-                          const value_t *data,
-                          size_t nnz,
-                          value_idx *children,
-                          value_t *out_delta,
+void label_hierarchy_host(const raft::handle_t &handle, const value_idx *rows,
+                          const value_idx *cols, const value_t *data,
+                          size_t nnz, value_idx *children, value_t *out_delta,
                           value_idx *out_size) {
   auto stream = handle.get_stream();
 
@@ -107,7 +103,7 @@ void label_hierarchy_host(const raft::handle_t &handle,
   std::vector<value_idx> mst_dst_h(n_edges);
   std::vector<value_t> mst_weights_h(n_edges);
 
-  std::vector<value_idx> children_h(n_edges*2);
+  std::vector<value_idx> children_h(n_edges * 2);
   std::vector<value_t> out_delta_h(n_edges);
   std::vector<value_idx> out_size_h(n_edges);
 
@@ -115,7 +111,7 @@ void label_hierarchy_host(const raft::handle_t &handle,
   raft::update_host(mst_dst_h.data(), cols, n_edges, stream);
   raft::update_host(mst_weights_h.data(), data, n_edges, stream);
 
-  raft::update_host(children_h.data(), children, n_edges*2, stream);
+  raft::update_host(children_h.data(), children, n_edges * 2, stream);
   raft::update_host(out_delta_h.data(), out_delta, n_edges, stream);
   raft::update_host(out_size_h.data(), out_size, n_edges, stream);
 
@@ -135,7 +131,6 @@ void label_hierarchy_host(const raft::handle_t &handle,
   CUML_LOG_INFO("Done.");
 
   for (int i = 0; i < n_edges; i++) {
-
     a = mst_src_h.data()[i];
     b = mst_dst_h.data()[i];
 
@@ -151,7 +146,7 @@ void label_hierarchy_host(const raft::handle_t &handle,
     int children_idx = i * 2;
 
     children_h[children_idx] = aa;
-    children_h[children_idx+1] = bb;
+    children_h[children_idx + 1] = bb;
     out_delta_h[i] = delta;
     out_size_h[i] = U.size[aa] + U.size[b];
 
@@ -200,14 +195,10 @@ void label_hierarchy_host(const raft::handle_t &handle,
  * @param[in] k_folds number of folds for parallelizing label step
  */
 template <typename value_idx, typename value_t>
-void label_hierarchy_device(const raft::handle_t &handle,
-                            const value_idx *rows,
-                            const value_idx *cols,
-                            const value_t *data,
-                            value_idx nnz,
-                            value_idx *children,
-                            value_t *out_delta,
-                            value_idx *out_size,
+void label_hierarchy_device(const raft::handle_t &handle, const value_idx *rows,
+                            const value_idx *cols, const value_t *data,
+                            value_idx nnz, value_idx *children,
+                            value_t *out_delta, value_idx *out_size,
                             value_idx k_folds) {
   ASSERT(k_folds < nnz / 2, "k_folds must be < n_edges / 2");
   /**
@@ -216,7 +207,6 @@ void label_hierarchy_device(const raft::handle_t &handle,
    */
 
   // 1. Generate ranges for the overlapping subsets
-
 
   // 2. Run union-find in parallel for each pair of folds
 

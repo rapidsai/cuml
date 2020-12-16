@@ -23,12 +23,9 @@
 
 namespace ML {
 
-enum LinkageDistance {
-  PAIRWISE = 0,
-  KNN_GRAPH = 1
-};
+enum LinkageDistance { PAIRWISE = 0, KNN_GRAPH = 1 };
 
-template<typename value_idx, typename value_t>
+template <typename value_idx, typename value_t>
 struct linkage_output {
   value_idx m;
   value_idx n_clusters;
@@ -38,10 +35,10 @@ struct linkage_output {
 
   value_idx *labels;  // size: m
 
-  value_idx *children; // size: (m-1, 2)
+  value_idx *children;  // size: (m-1, 2)
 };
 
-struct linkage_output_float : public linkage_output<int, float>{};
+struct linkage_output_float : public linkage_output<int, float> {};
 
 /**
  * @defgroup HdbscanCpp C++ implementation of Dbscan algo
@@ -55,13 +52,9 @@ struct linkage_output_float : public linkage_output<int, float>{};
  * @param[in] metric
  * @param[out] out
  */
-void single_linkage(const raft::handle_t &handle,
-                    const float *X,
-                    size_t m,
-                    size_t n,
-                    raft::distance::DistanceType metric,
-                    LinkageDistance dist_type,
-                    linkage_output<int, float> *out,
+void single_linkage(const raft::handle_t &handle, const float *X, size_t m,
+                    size_t n, raft::distance::DistanceType metric,
+                    LinkageDistance dist_type, linkage_output<int, float> *out,
                     int c = 5);
 
 /** @} */

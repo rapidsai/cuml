@@ -25,9 +25,8 @@
 #include <cuml/datasets/make_blobs.hpp>
 #include <cuml/metrics/metrics.hpp>
 
-
-#include <raft/linalg/distance_type.h>
 #include <raft/linalg/cublas_wrappers.h>
+#include <raft/linalg/distance_type.h>
 #include <raft/linalg/transpose.h>
 
 #include <test_utils.h>
@@ -83,19 +82,15 @@ class LinkageTest : public ::testing::TestWithParam<LinkageInputs<T, IdxT>> {
 
     ML::linkage_output<IdxT, T> out_arrs;
 
-    device_buffer<IdxT> out_children(handle.get_device_allocator(), handle.get_stream(),
-                                  (params.n_row - 1) * 2);
+    device_buffer<IdxT> out_children(handle.get_device_allocator(),
+                                     handle.get_stream(),
+                                     (params.n_row - 1) * 2);
     out_arrs.children = out_children.data();
     out_arrs.labels = l.data();
 
-    ML::single_linkage(handle,
-                       out.data(),
-                       params.n_row,
-                       params.n_col,
+    ML::single_linkage(handle, out.data(), params.n_row, params.n_col,
                        raft::distance::DistanceType::EucUnexpandedL2,
-                       LinkageDistance::PAIRWISE,
-                       &out_arrs);
-
+                       LinkageDistance::PAIRWISE, &out_arrs);
 
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 
@@ -126,7 +121,7 @@ class LinkageTest : public ::testing::TestWithParam<LinkageInputs<T, IdxT>> {
 };
 
 const std::vector<LinkageInputs<float, int>> inputsf2 = {
-  {500, 16, 5, 0.01,  1234ULL},
+  {500, 16, 5, 0.01, 1234ULL},
   {1000, 1000, 10, 0.01, 1234ULL},
   {20000, 10000, 10, 0.01, 1234ULL},
   {20000, 100, 5000, 0.01, 1234ULL}};

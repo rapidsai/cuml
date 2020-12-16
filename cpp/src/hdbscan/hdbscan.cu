@@ -14,36 +14,23 @@
  * limitations under the License.
  */
 
-#include <cuml/cluster/hdbscan.hpp>
 #include <cuml/cuml_api.h>
 #include <common/cumlHandle.hpp>
+#include <cuml/cluster/hdbscan.hpp>
 
-#include "hdbscan/runner.h"
+#include <hdbscan/runner.h>
 
 namespace ML {
 
 template <typename value_idx = int64_t, typename value_t = float>
-void hdbscan(const raft::handle_t &handle, value_t *X,
-             size_t m,
-             size_t n,
-             raft::distance::DistanceType metric,
-             int k,
-             int min_pts,
-             float alpha,
-             hdbscan_output<value_idx, value_t> *out) {
-
+void hdbscan(const raft::handle_t &handle, value_t *X, size_t m, size_t n,
+             raft::distance::DistanceType metric, int k, int min_pts,
+             float alpha, hdbscan_output<value_idx, value_t> *out) {
   HDBSCAN::_fit<value_idx, value_t>(handle, X, m, n, metric, k, min_pts, alpha);
 }
 
+void hdbscan(const raft::handle_t &handle, const float *X, size_t m, size_t n,
+             raft::distance::DistanceType metric, int k, int min_pts,
+             float alpha, hdbscan_output<int, float> *out);
 
-void hdbscan(const raft::handle_t &handle,
-             const float *X,
-             size_t m,
-             size_t n,
-             raft::distance::DistanceType metric,
-             int k,
-             int min_pts,
-             float alpha,
-             hdbscan_output<int, float> *out);
-
-}; // end namespace ML
+};  // end namespace ML

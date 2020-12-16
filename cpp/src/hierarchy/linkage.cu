@@ -18,21 +18,16 @@
 #include <common/cumlHandle.hpp>
 
 #include <cuml/cluster/linkage.hpp>
-#include "hierarchy/runner.cuh"
+#include <hierarchy/runner.cuh>
 
 namespace ML {
 
-void single_linkage(const raft::handle_t &handle,
-                    const float *X,
-                    size_t m,
-                    size_t n,
-                    raft::distance::DistanceType metric,
-                    LinkageDistance dist_type,
-                    linkage_output<int, float> *out,
+void single_linkage(const raft::handle_t &handle, const float *X, size_t m,
+                    size_t n, raft::distance::DistanceType metric,
+                    LinkageDistance dist_type, linkage_output<int, float> *out,
                     int c) {
-
-  Linkage::_single_linkage<int, float>(handle, X, m, n, metric, dist_type, out, c);
+  Linkage::_single_linkage<int, float>(handle, X, m, n, metric, dist_type, out,
+                                       c);
 }
 
-
-}; // end namespace ML
+};  // end namespace ML

@@ -310,8 +310,8 @@ void coo_sort(int m, int n, int nnz, int *rows, int *cols, T *vals,
 template <typename T>
 void coo_sort(COO<T> *inout, std::shared_ptr<deviceAllocator> d_alloc,
               cudaStream_t stream) {
-  coo_sort<T>(inout->n_rows, inout->n_cols, inout->nnz, inout->rows(), inout->cols(),
-              inout->vals(), d_alloc, stream);
+  coo_sort<T>(inout->n_rows, inout->n_cols, inout->nnz, inout->rows(),
+              inout->cols(), inout->vals(), d_alloc, stream);
 }
 
 template <int TPB_X, typename T>
@@ -370,16 +370,16 @@ __global__ void coo_remove_scalar_kernel(const int *rows, const int *cols,
  * @param results array to place results
  */
 template <int TPB_X, typename value_idx = int>
-__global__ void coo_row_count_kernel(const value_idx *rows, size_t nnz, value_idx *results) {
+__global__ void coo_row_count_kernel(const value_idx *rows, size_t nnz,
+                                     value_idx *results) {
   int row = (blockIdx.x * TPB_X) + threadIdx.x;
   if (row < nnz) {
+    if (sizeof(value_idx) == 4)
+      raft::myAtomicAdd((int *)results + rows[row], 1);
 
-    if(sizeof(value_idx) == 4)
-        raft::myAtomicAdd((int*)results + rows[row], 1);
-
-    else if(sizeof(value_idx) == 8) {
+    else if (sizeof(value_idx) == 8) {
       unsigned long long incr = 1;
-      raft::myAtomicAdd((unsigned long long*)results + rows[row], incr);
+      raft::myAtomicAdd((unsigned long long *)results + rows[row], incr);
     }
   }
 }
@@ -725,23 +725,19 @@ void sorted_coo_to_csr(COO<T> *coo, value_idx *row_ind,
                        std::shared_ptr<deviceAllocator> d_alloc,
                        cudaStream_t stream) {
   sorted_coo_to_csr<value_idx>(coo->rows(), (size_t)coo->nnz, row_ind,
-                       (size_t)coo->n_rows, d_alloc, stream);
+                               (size_t)coo->n_rows, d_alloc, stream);
 }
 
-template <typename value_idx, typename T, typename Lambda, int TPB_X=1024>
+template <typename value_idx, typename T, typename Lambda, int TPB_X = 1024>
 __global__ void coo_symmetrize_kernel(const value_idx *row_ind,
                                       const value_idx *rows,
-                                      const value_idx *cols,
-                                      const T *vals,
-                                      value_idx *orows,
-                                      value_idx *ocols,
-                                      T *ovals,
-                                      size_t n,
-                                      size_t cnnz,
+                                      const value_idx *cols, const T *vals,
+                                      value_idx *orows, value_idx *ocols,
+                                      T *ovals, size_t n, size_t cnnz,
                                       Lambda reduction_op) {
   int row = (blockIdx.x * TPB_X) + threadIdx.x;
 
-  if(row >= n) return;
+  if (row >= n) return;
 
   int start_idx = row_ind[row];  // each thread processes one row
   int stop_idx = MLCommon::Sparse::get_stop_idx(row, n, cnnz, row_ind);
@@ -814,7 +810,7 @@ __global__ void coo_symmetrize_kernel(const value_idx *row_ind,
  * @param d_alloc device allocator for temporary buffers
  * @param stream: cuda stream to use
  */
-template <typename T, typename Lambda, int tpb=1024>
+template <typename T, typename Lambda, int tpb = 1024>
 void coo_symmetrize(COO<T> *in, COO<T> *out,
                     Lambda reduction_op,  // two-argument reducer
                     std::shared_ptr<deviceAllocator> d_alloc,
@@ -828,14 +824,14 @@ void coo_symmetrize(COO<T> *in, COO<T> *out,
 
   sorted_coo_to_csr(in, in_row_ind.data(), d_alloc, stream);
 
-  out->allocate(in->nnz * 2, (size_t)in->n_rows, (size_t)in->n_cols, true, stream);
+  out->allocate(in->nnz * 2, (size_t)in->n_rows, (size_t)in->n_cols, true,
+                stream);
 
   coo_symmetrize_kernel<int, T><<<grid, blk, 0, stream>>>(
     in_row_ind.data(), in->rows(), in->cols(), in->vals(), out->rows(),
     out->cols(), out->vals(), in->n_rows, in->nnz, reduction_op);
   CUDA_CHECK(cudaPeekAtLastError());
 }
-
 
 /**
  * @brief takes edge list arrays which may not be symmetric and symmetrizes
@@ -856,15 +852,11 @@ void coo_symmetrize(COO<T> *in, COO<T> *out,
  * @param[out] out: Output symmetrized COO matrix
  * @param[in] reduction_op: a custom reduction function
  */
-template <typename value_idx, typename value_t, typename Lambda, int tpb=1024>
-void coo_symmetrize(const raft::handle_t &handle,
-                    const value_idx *rows,
-                    const value_idx *cols,
-                    const value_t *data,
-                    size_t n_rows, size_t n_cols, size_t nnz,
-                    COO<value_t> *out,
+template <typename value_idx, typename value_t, typename Lambda, int tpb = 1024>
+void coo_symmetrize(const raft::handle_t &handle, const value_idx *rows,
+                    const value_idx *cols, const value_t *data, size_t n_rows,
+                    size_t n_cols, size_t nnz, COO<value_t> *out,
                     Lambda reduction_op) {
-
   auto d_alloc = handle.get_device_allocator();
   auto stream = handle.get_stream();
 
@@ -882,8 +874,8 @@ void coo_symmetrize(const raft::handle_t &handle,
   // There will be zeros in places where the original graph already
   // contained the transposed value. These will need to be removed
   coo_symmetrize_kernel<value_idx, value_t><<<grid, blk, 0, stream>>>(
-    in_row_ind.data(), rows, cols, data, out->rows(),
-    out->cols(), out->vals(), n_rows, nnz, reduction_op);
+    in_row_ind.data(), rows, cols, data, out->rows(), out->cols(), out->vals(),
+    n_rows, nnz, reduction_op);
   CUDA_CHECK(cudaPeekAtLastError());
 }
 

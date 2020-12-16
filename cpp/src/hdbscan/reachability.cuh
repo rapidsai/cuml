@@ -18,21 +18,20 @@
 
 #include <cuml/cuml_api.h>
 #include <raft/cudart_utils.h>
-#include <raft/cuda_utils.cuh>
 #include <common/cumlHandle.hpp>
+#include <raft/cuda_utils.cuh>
 
 #include <raft/mr/device/buffer.hpp>
 
-#include <distance/distance.cuh>
 #include <cuml/neighbors/knn.hpp>
+#include <distance/distance.cuh>
 
 namespace ML {
 namespace HDBSCAN {
 namespace Reachability {
 
 template <typename value_t>
-__global__ void core_distances_kernel(value_t *knn_dists,
-                                      int min_pts,
+__global__ void core_distances_kernel(value_t *knn_dists, int min_pts,
                                       value_t *out) {
   int row = blockIdx.x * blockDim.x + threadIdx.x;
   out[row] = knn_dists[row + min_pts];
@@ -60,10 +59,8 @@ void core_distances(value_t *knn_dists, int min_pts, size_t n, value_t *out,
 
 template <typename value_idx, typename value_t>
 __global__ void mutual_reachability_kernel(value_t *pw_dists,
-                                           value_t *core_dists,
-                                           size_t m,
-                                           size_t n,
-                                           value_t *out) {
+                                           value_t *core_dists, size_t m,
+                                           size_t n, value_t *out) {
   int idx = blockIdx.x * blockDim.x + threadIdx.x;
   int row = idx / n;
   int col = idx % n;
@@ -81,9 +78,7 @@ __global__ void mutual_reachability_kernel(value_t *pw_dists,
 }
 
 template <typename value_idx, typename value_t, int tpb = 1024>
-void mutual_reachability(value_t *pw_dists,
-                         value_t *core_dists,
-                         size_t m,
+void mutual_reachability(value_t *pw_dists, value_t *core_dists, size_t m,
                          cudaStream_t stream) {
   int blocks = raft::ceildiv(m * m, (size_t)tpb);
 
@@ -110,13 +105,9 @@ void mutual_reachability(value_t *pw_dists,
  */
 template <typename value_idx, typename value_t>
 void pairwise_mutual_reachability_graph(const raft::handle_t &handle,
-                                        const value_t *X,
-                                        size_t m,
-                                        size_t n,
+                                        const value_t *X, size_t m, size_t n,
                                         raft::distance::DistanceType metric,
-                                        int min_pts,
-                                        int k,
-                                        value_t *pw_dists) {
+                                        int min_pts, int k, value_t *pw_dists) {
   auto d_alloc = handle.get_device_allocator();
   auto stream = handle.get_stream();
 

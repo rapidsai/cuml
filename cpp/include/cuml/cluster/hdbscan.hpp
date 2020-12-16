@@ -23,24 +23,23 @@
 
 namespace ML {
 
-template<typename value_idx, typename value_t>
+template <typename value_idx, typename value_t>
 struct hdbscan_output {
-
   value_idx m;
-  value_idx *labels;      // size: m
-  value_t *probabilities; // size: m
+  value_idx *labels;       // size: m
+  value_t *probabilities;  // size: m
 
   value_idx *mst_src;  // size: m-1
   value_idx *mst_dst;  // size: m-1
   value_t *mst_data;   // size: m-1
 
-  value_idx *linakage_parents; // size: m
-  value_idx *linkage_children; // size: m
-  value_idx *linkage_deltas;   // size: m
-  value_idx *linkage_sizes;    // size: m
+  value_idx *linakage_parents;  // size: m
+  value_idx *linkage_children;  // size: m
+  value_idx *linkage_deltas;    // size: m
+  value_idx *linkage_sizes;     // size: m
 };
 
-struct hdbscan_output_float : public hdbscan_output<int, float>{};
+struct hdbscan_output_float : public hdbscan_output<int, float> {};
 
 /**
  * @defgroup HdbscanCpp C++ implementation of Dbscan algo
@@ -57,15 +56,9 @@ struct hdbscan_output_float : public hdbscan_output<int, float>{};
  * @param[in] alpha
  * @param[out] out
  */
-void hdbscan(const raft::handle_t &handle,
-             const float *X,
-             int m,
-             int n,
-             raft::distance::DistanceType metric,
-             int k,
-             int min_pts,
-             float alpha,
-             hdbscan_output<int, float> *out);
+void hdbscan(const raft::handle_t &handle, const float *X, int m, int n,
+             raft::distance::DistanceType metric, int k, int min_pts,
+             float alpha, hdbscan_output<int, float> *out);
 
 /** @} */
 
