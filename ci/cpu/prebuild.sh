@@ -13,3 +13,6 @@ if [[ -z "$PROJECT_FLASH" || "$PROJECT_FLASH" == "0" ]]; then
     export BUILD_LIBCUML=1
     export BUILD_CUML=1
 fi
+
+# remove "branch-*-latest" tag to keep conda from using that tag
+git -d ${SOURCE_BRANCH}-latest
