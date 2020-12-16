@@ -47,7 +47,7 @@ def make_classification(n_samples=100, n_features=20, n_informative=2,
                         n_clusters_per_class=2, weights=None, flip_y=0.01,
                         class_sep=1.0, hypercube=True, shift=0.0, scale=1.0,
                         shuffle=True, random_state=None, order='F',
-                        dtype='float32', _centroids=None,
+                        dtype='float32', output_type='cupy', _centroids=None,
                         _informative_covariance=None,
                         _redundant_covariance=None,
                         _repeated_indices=None):
@@ -162,6 +162,8 @@ def make_classification(n_samples=100, n_features=20, n_informative=2,
         The order of the generated samples
     dtype : str, optional (default='float32')
         Dtype of the generated samples
+    output_type: {'cudf', 'cupy', 'numpy'}
+        Type of the returned dataset
     _centroids: array of centroids of shape (n_clusters, n_informative)
     _informative_covariance: array for covariance between informative features
         of shape (n_clusters, n_informative, n_informative)
@@ -204,6 +206,9 @@ def make_classification(n_samples=100, n_features=20, n_informative=2,
            selection benchmark", 2003.
 
     """
+    # Check for deprecated `output_type`. Set manually if specified
+    if (output_type is not None):
+        cuml.internals.set_api_output_type(output_type)
     generator = _create_rs_generator(random_state)
     np_seed = int(generator.randint(n_samples, size=1))
     np.random.seed(np_seed)

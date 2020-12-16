@@ -68,7 +68,8 @@ def _get_centers(rs, centers, center_box, n_samples, n_features, dtype):
 @cuml.internals.api_return_any()
 def make_blobs(n_samples=100, n_features=2, centers=None, cluster_std=1.0,
                center_box=(-10.0, 10.0), shuffle=True, random_state=None,
-               return_centers=False, order='F', dtype='float32'):
+               return_centers=False, order='F', dtype='float32',
+               output_type='cupy'):
     """Generate isotropic Gaussian blobs for clustering.
 
     Parameters
@@ -102,6 +103,8 @@ def make_blobs(n_samples=100, n_features=2, centers=None, cluster_std=1.0,
         The order of the generated samples
     dtype : str, optional (default='float32')
         Dtype of the generated samples
+    output_type: {'cudf', 'cupy', 'numpy'}
+        Type of the returned dataset
 
     Returns
     -------
@@ -133,6 +136,9 @@ def make_blobs(n_samples=100, n_features=2, centers=None, cluster_std=1.0,
     --------
     make_classification: a more intricate variant
     """
+    # Check for deprecated `output_type`. Set manually if specified
+    if (output_type is not None):
+        cuml.internals.set_api_output_type(output_type)
     generator = _create_rs_generator(random_state=random_state)
 
     centers, n_centers = _get_centers(generator, centers, center_box,

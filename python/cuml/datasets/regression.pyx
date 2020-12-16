@@ -86,7 +86,8 @@ def make_regression(
     coef=False,
     random_state=None,
     dtype='single',
-    handle=None
+    handle=None,
+    output_type='cupy'
 ) -> typing.Union[typing.Tuple[CumlArray, CumlArray],
                   typing.Tuple[CumlArray, CumlArray, CumlArray]]:
     """Generate a random regression problem.
@@ -150,6 +151,8 @@ def make_regression(
         or 'double'.
     handle: cuml.Handle
         If it is None, a new one is created just for this function call
+    output_type: {'cudf', 'cupy', 'numpy'}
+        Type of the returned dataset
 
     Returns
     -------
@@ -167,7 +170,10 @@ def make_regression(
     # Set the default output type to "cupy". This will be ignored if the user
     # has set `cuml.global_output_type`. Only necessary for array generation
     # methods that do not take an array as input
-    cuml.internals.set_api_output_type("cupy")
+    if (output_type is not None):
+        cuml.internals.set_api_output_type(output_type)
+    else:
+        cuml.internals.set_api_output_type("cupy")
 
     if dtype not in ['single', 'float', 'double', np.float32, np.float64]:
         raise TypeError("dtype must be either 'float' or 'double'")
