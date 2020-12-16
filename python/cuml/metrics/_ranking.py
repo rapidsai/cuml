@@ -120,7 +120,6 @@ def precision_recall_curve(
 def average_precision_score(y_true, y_score):
     """
     Compute average precision (AP) from prediction scores.
-    
     .. note:: this implementation can only be used with binary classification.
 
     Parameters
