@@ -49,6 +49,19 @@ void brute_force_knn(const raft::handle_t &handle, std::vector<float *> &input,
     metric, metric_arg, expanded);
 }
 
+void approx_knn_build_index(raft::handle_t &handle, ML::knnIndex *index,
+                            ML::knnIndexParam *params, int D,
+                            ML::MetricType metric, float metricArg,
+                            float *index_items, int n) {
+  MLCommon::Selection::approx_knn_build_index(
+    index, params, D, metric, metricArg, index_items, n, handle.get_stream());
+}
+
+void approx_knn_search(ML::knnIndex *index, int n, const float *x, int k,
+                       float *distances, int64_t *labels) {
+  MLCommon::Selection::approx_knn_search(index, n, x, k, distances, labels);
+}
+
 void knn_classify(raft::handle_t &handle, int *out, int64_t *knn_indices,
                   std::vector<int *> &y, size_t n_index_rows,
                   size_t n_query_rows, int k) {

@@ -16,6 +16,9 @@
 
 #pragma once
 
+#include <faiss/gpu/GpuIndex.h>
+#include <faiss/gpu/StandardGpuResources.h>
+#include <common/cumlHandle.hpp>
 #include <cuml/common/logger.hpp>
 #include <cuml/cuml.hpp>
 
@@ -36,24 +39,66 @@ enum MetricType {
   METRIC_Correlation
 };
 
+struct knnIndex {
+  faiss::gpu::StandardGpuResources *gpu_res;
+  faiss::gpu::GpuIndex *index;
+  int device;
+  ~knnIndex() {
+    delete gpu_res;
+    delete index;
+  }
+};
+
+typedef enum {
+  QT_8bit,
+  QT_4bit,
+  QT_8bit_uniform,
+  QT_4bit_uniform,
+  QT_fp16,
+  QT_8bit_direct,
+  QT_6bit
+} QuantizerType;
+
+struct knnIndexParam {
+  virtual ~knnIndexParam() {}
+};
+
+struct IVFParam : knnIndexParam {
+  int nlist;
+  int nprobe;
+};
+
+struct IVFFlatParam : IVFParam {};
+
+struct IVFPQParam : IVFParam {
+  int M;
+  int n_bits;
+  bool usePrecomputedTables;
+};
+
+struct IVFSQParam : IVFParam {
+  QuantizerType qtype;
+  bool encodeResidual;
+};
+
 /**
-   * @brief Flat C++ API function to perform a brute force knn on
-   * a series of input arrays and combine the results into a single
-   * output array for indexes and distances.
-   *
-   * @param[in] handle the cuml handle to use
-   * @param[in] input vector of pointers to the input arrays
-   * @param[in] sizes vector of sizes of input arrays
-   * @param[in] D the dimensionality of the arrays
-   * @param[in] search_items array of items to search of dimensionality D
-   * @param[in] n number of rows in search_items
-   * @param[out] res_I the resulting index array of size n * k
-   * @param[out] res_D the resulting distance array of size n * k
-   * @param[in] k the number of nearest neighbors to return
-   * @param[in] rowMajorIndex are the index arrays in row-major order?
-   * @param[in] rowMajorQuery are the query arrays in row-major order?
-   * @param[in] metric distance metric to use. Euclidean (L2) is used by
-   * 			   default
+ * @brief Flat C++ API function to perform a brute force knn on
+ * a series of input arrays and combine the results into a single
+ * output array for indexes and distances.
+ *
+ * @param[in] handle the cuml handle to use
+ * @param[in] input vector of pointers to the input arrays
+ * @param[in] sizes vector of sizes of input arrays
+ * @param[in] D the dimensionality of the arrays
+ * @param[in] search_items array of items to search of dimensionality D
+ * @param[in] n number of rows in search_items
+ * @param[out] res_I the resulting index array of size n * k
+ * @param[out] res_D the resulting distance array of size n * k
+ * @param[in] k the number of nearest neighbors to return
+ * @param[in] rowMajorIndex are the index arrays in row-major order?
+ * @param[in] rowMajorQuery are the query arrays in row-major order?
+ * @param[in] metric distance metric to use. Euclidean (L2) is used by
+ * 			   default
  * @param[in] metric_arg the value of `p` for Minkowski (l-p) distances. This
  * 					 is ignored if the metric_type is not Minkowski.
  * @param[in] expanded should lp-based distances be returned in their expanded
@@ -65,6 +110,14 @@ void brute_force_knn(const raft::handle_t &handle, std::vector<float *> &input,
                      bool rowMajorIndex = false, bool rowMajorQuery = false,
                      MetricType metric = MetricType::METRIC_L2,
                      float metric_arg = 2.0f, bool expanded = false);
+
+void approx_knn_build_index(raft::handle_t &handle, ML::knnIndex *index,
+                            ML::knnIndexParam *params, int D,
+                            ML::MetricType metric, float metricArg,
+                            float *index_items, int n);
+
+void approx_knn_search(ML::knnIndex *index, int n, const float *x, int k,
+                       float *distances, int64_t *labels);
 
 /**
  * @brief Flat C++ API function to perform a knn classification using a
