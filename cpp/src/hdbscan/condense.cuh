@@ -35,6 +35,19 @@ namespace HDBSCAN {
 namespace Condense {
 
 
+template <typename value_idx, typename value_t>
+void bfs_from_hierarchy() {}
+
+template <typename value_idx, typename value_t>
+void condense(value_idx *tree_src, value_idx *tree_dst, value_t *tree_delta,
+              value_idx *tree_size, value_idx m) {
+  value_idx root = 2 * m;
+
+  value_idx n_points = root / 2 + 1;
+  value_idx next_label = n_points + 1;
+}
+
+
 
 };  // end namespace Condense
 };  // end namespace HDBSCAN

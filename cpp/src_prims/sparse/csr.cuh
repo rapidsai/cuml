@@ -338,7 +338,7 @@ void csr_row_normalize_max(const int *ia,  // csr row ind array (sorted by row)
 }
 
 template <typename T>
-__device__ int get_stop_idx(T row, T m, T nnz, const T *ind) {
+__device__ int get_stop_idx(T row, size_t m, size_t nnz, const T *ind) {
   int stop_idx = 0;
   if (row < (m - 1))
     stop_idx = ind[row + 1];

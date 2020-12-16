@@ -32,7 +32,7 @@
 
 namespace ML {
 
-void brute_force_knn(raft::handle_t &handle, std::vector<float *> &input,
+void brute_force_knn(const raft::handle_t &handle, std::vector<float *> &input,
                      std::vector<int> &sizes, int D, float *search_items, int n,
                      int64_t *res_I, float *res_D, int k, bool rowMajorIndex,
                      bool rowMajorQuery, MetricType metric, float metric_arg,

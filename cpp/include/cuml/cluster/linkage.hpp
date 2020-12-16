@@ -23,6 +23,11 @@
 
 namespace ML {
 
+enum LinkageDistance {
+  PAIRWISE = 0,
+  KNN_GRAPH = 1
+};
+
 template<typename value_idx, typename value_t>
 struct linkage_output {
   value_idx m;
@@ -55,7 +60,9 @@ void single_linkage(const raft::handle_t &handle,
                     size_t m,
                     size_t n,
                     raft::distance::DistanceType metric,
-                    linkage_output<int, float> *out);
+                    LinkageDistance dist_type,
+                    linkage_output<int, float> *out,
+                    int c = 5);
 
 /** @} */
 

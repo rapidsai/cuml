@@ -52,7 +52,7 @@ struct LinkageInputs {
 };
 
 template <typename T, typename IdxT>
-::std::ostream &operator<<(::std::o1stream &os,
+::std::ostream &operator<<(::std::ostream &os,
                            const LinkageInputs<T, IdxT> &dims) {
   return os;
 }
@@ -93,6 +93,7 @@ class LinkageTest : public ::testing::TestWithParam<LinkageInputs<T, IdxT>> {
                        params.n_row,
                        params.n_col,
                        raft::distance::DistanceType::EucUnexpandedL2,
+                       LinkageDistance::PAIRWISE,
                        &out_arrs);
 
 

@@ -102,7 +102,7 @@ TEST_P(COOSymmetrize, Result) {
 
   COO<float> out(alloc, stream);
 
-  coo_symmetrize<32, float>(
+  coo_symmetrize<float>(
     &in, &out,
     [] __device__(int row, int col, float val, float trans) {
       return val + trans;

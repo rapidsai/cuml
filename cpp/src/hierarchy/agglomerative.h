@@ -217,23 +217,12 @@ void label_hierarchy_device(const raft::handle_t &handle,
 
   // 1. Generate ranges for the overlapping subsets
 
+
   // 2. Run union-find in parallel for each pair of folds
 
   // 3. Sort individual label hierarchies
 
   // 4. Merge label hierarchies together
-}
-
-template <typename value_idx, typename value_t>
-void bfs_from_hierarchy() {}
-
-template <typename value_idx, typename value_t>
-void condense(value_idx *tree_src, value_idx *tree_dst, value_t *tree_delta,
-              value_idx *tree_size, value_idx m) {
-  value_idx root = 2 * m;
-
-  value_idx n_points = root / 2 + 1;
-  value_idx next_label = n_points + 1;
 }
 
 };  // end namespace Agglomerative

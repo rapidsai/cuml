@@ -34,20 +34,6 @@ namespace ML {
 namespace Linkage {
 namespace MST {
 
-/**
- * Fills indices array of pairwise distance array
- * @tparam value_idx
- * @param indices
- * @param m
- */
-template<typename value_idx>
-__global__ void fill_indices(value_idx *indices,
-                             size_t m) {
-  int tid = (blockIdx.x * blockDim.x) + threadIdx.x;
-  value_idx v = tid / m;
-  indices[tid] = v;
-}
-
 
 /**
  * Sorts a COO by its weight
@@ -86,6 +72,8 @@ void sort_coo_by_data(value_idx *rows, value_idx *cols, value_t *data,
  */
 template <typename value_idx, typename value_t>
 void build_sorted_mst(const raft::handle_t &handle,
+                      const value_idx *indptr,
+                      const value_idx *indices,
                       const value_t *pw_dists,
                       size_t m,
                       value_idx *mst_src,
@@ -95,32 +83,13 @@ void build_sorted_mst(const raft::handle_t &handle,
   auto d_alloc = handle.get_device_allocator();
   auto stream = handle.get_stream();
 
-  raft::mr::device::buffer<value_idx> indptr(d_alloc, stream, m+1);
-  raft::mr::device::buffer<value_idx> indices(d_alloc, stream, m * m);
   raft::mr::device::buffer<value_idx> color(d_alloc, stream, m * m);
-
-  int blocks = raft::ceildiv((int)(m*m), 1024);
-  fill_indices<value_idx><<<blocks, 1024, 0, stream>>>(indices.data(), m);
-
-  thrust::device_ptr<value_idx> t_rows = thrust::device_pointer_cast(indptr.data());
-  thrust::sequence(thrust::cuda::par.on(stream), indptr.data(), indptr.data()+m, 0, (int)m);
-
-  CUDA_CHECK(cudaStreamSynchronize(stream));
-
-  value_idx v = m*m; // TODO: No good.
-  raft::update_device(indptr.data()+m, &v, 1, stream);
-
-  raft::print_device_vector("indptr: ", indptr.data(), m+1, std::cout);
-  raft::print_device_vector("indices: ", indices.data(), m*2, std::cout);
-  raft::print_device_vector("data: ", pw_dists, m, std::cout);
-
-  CUML_LOG_INFO("Building MST");
 
   auto mst_coo =
     raft::mst::mst<value_idx, value_idx, value_t>(
       handle,
-      indptr.data(),
-      indices.data(),
+      indptr,
+      indices,
       pw_dists,
       (value_idx)m,
       (value_idx)m * (value_idx)m,
@@ -131,18 +100,19 @@ void build_sorted_mst(const raft::handle_t &handle,
 
   printf("n_edges: %d\n", mst_coo.n_edges);
 
-  raft::print_device_vector("mst_src: ", mst_coo.src.data(), m-1, std::cout);
-  raft::print_device_vector("mst_dst: ", mst_coo.dst.data(), m-1, std::cout);
+  raft::print_device_vector("mst_src: ", mst_coo.src.data(), 10,  std::cout);
+  raft::print_device_vector("mst_dst: ", mst_coo.dst.data(), 10, std::cout);
 
   CUML_LOG_INFO("Sorting MST");
 
   sort_coo_by_data(mst_coo.src.data(), mst_coo.dst.data(), mst_coo.weights.data(),
                    mst_coo.n_edges, stream);
 
-  // Would be nice if we could pass these directly into the MST
+  // TODO: be nice if we could pass these directly into the MST (would also follow RAII)
   raft::copy_async(mst_src, mst_coo.src.data(), mst_coo.n_edges, stream);
   raft::copy_async(mst_dst, mst_coo.dst.data(), mst_coo.n_edges, stream);
-  raft::copy_async(mst_weight, mst_coo.weights.data(), mst_coo.n_edges, stream);
+  raft::copy_async(mst_weight, mst_coo.weights.data(), mst_coo.n_edges,
+                   stream);
 
   CUML_LOG_INFO("DONE");
 }

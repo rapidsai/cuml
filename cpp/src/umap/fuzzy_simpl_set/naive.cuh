@@ -329,7 +329,7 @@ void launcher(int n, const value_idx *knn_indices, const float *knn_dists,
    * one via a fuzzy union. (Symmetrize knn graph).
    */
   float set_op_mix_ratio = params->set_op_mix_ratio;
-  MLCommon::Sparse::coo_symmetrize<TPB_X, value_t>(
+  MLCommon::Sparse::coo_symmetrize<value_t>(
     &in, out,
     [set_op_mix_ratio] __device__(int row, int col, value_t result,
                                   value_t transpose) {

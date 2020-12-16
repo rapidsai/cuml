@@ -79,7 +79,7 @@ void reset_local_connectivity(COO<T> *in_coo, COO<T> *out_coo,
     stream);
   CUDA_CHECK(cudaPeekAtLastError());
 
-  MLCommon::Sparse::coo_symmetrize<TPB_X, T>(
+  MLCommon::Sparse::coo_symmetrize<T>(
     in_coo, out_coo,
     [] __device__(int row, int col, T result, T transpose) {
       T prod_matrix = result * transpose;
