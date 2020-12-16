@@ -725,7 +725,7 @@ def test_average_precision_score_at_limits():
     y_pred = np.array([0., 0.5, 1.], dtype=np.float)
 
     err_msg = ("average_precision_score cannot be used when "
-               "only one class present in y_true. ROC AUC score "
+               "only one class present in y_true. Average precision score "
                "is not defined in that case.")
 
     with pytest.raises(ValueError, match=err_msg):

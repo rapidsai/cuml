@@ -165,8 +165,8 @@ def _binary_average_precision_score(y_true, y_score):
 
     if cp.unique(y_true).shape[0] == 1:
         raise ValueError("average_precision_score cannot be used when "
-                         "only one class present in y_true. Average precision score "
-                         "is not defined in that case.")
+                         "only one class present in y_true. Average precision "
+                         "score is not defined in that case.")
 
     precision, recall, thresholds = precision_recall_curve(y_true, y_score)
     return -cp.sum(cp.diff(recall) * cp.array(precision)[:-1])
