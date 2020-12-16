@@ -50,11 +50,11 @@ __global__ void __launch_bounds__(TPB_X)
         // min(ra, rb) would be sufficient but this speeds up convergence
         Index_ rmin = R[min(ra, rb)];
         if (sizeof(Index_) == 4) {
-          atomicMin((int*)(R + ra), rmin);
-          atomicMin((int*)(R + rb), rmin);
+          atomicMin((int*)(R + la), rmin);
+          atomicMin((int*)(R + lb), rmin);
         } else if (sizeof(Index_) == 8) {
-          atomicMin((long long int*)(R + ra), rmin);
-          atomicMin((long long int*)(R + rb), rmin);
+          atomicMin((long long int*)(R + la), rmin);
+          atomicMin((long long int*)(R + lb), rmin);
         }
       }
     }
