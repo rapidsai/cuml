@@ -24,16 +24,10 @@
 #include <raft/matrix/math.cuh>
 #include <raft/matrix/matrix.cuh>
 #include "sign.cuh"
+#include "penalty_type.cuh"
 
 namespace MLCommon {
 namespace Functions {
-
-enum penalty {
-  NONE,
-  L1,
-  L2,
-  ELASTICNET,
-};
 
 template <typename math_t>
 void lasso(math_t *out, const math_t *coef, const int len, const math_t alpha,

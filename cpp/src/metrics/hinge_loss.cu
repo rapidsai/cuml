@@ -29,7 +29,7 @@ void hinge_loss(const raft::handle_t &handle, math_t *input, int n_rows,
   return MLCommon::Metrics::hinge_loss(
     input, n_rows, n_cols, labels, coef, loss, pen, alpha, l1_ratio,
     handle.get_device_allocator(),
-    handle.get_stream(), metric);
+    handle.get_stream());
 }
 }  // namespace Metrics
 }  // namespace ML
