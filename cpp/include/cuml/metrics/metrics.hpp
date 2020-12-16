@@ -292,5 +292,10 @@ void pairwise_distance(const raft::handle_t &handle, const float *x,
                        raft::distance::DistanceType metric,
                        bool isRowMajor = true);
 
+void hinge_loss(const raft::handle_t &handle, math_t *input, int n_rows,
+               int n_cols, const math_t *labels, const math_t *coef,
+               math_t *loss, penalty pen, math_t alpha, math_t l1_ratio,
+               cudaStream_t stream);
+
 }  // namespace Metrics
 }  // namespace ML
