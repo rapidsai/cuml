@@ -84,6 +84,8 @@ void build_sorted_mst(const raft::handle_t &handle, const value_idx *indptr,
 
   raft::mr::device::buffer<value_idx> color(d_alloc, stream, m * m);
 
+  CUML_LOG_INFO("Calling MST Primitive");
+
   auto mst_coo = raft::mst::mst<value_idx, value_idx, value_t>(
     handle, indptr, indices, pw_dists, (value_idx)m,
     (value_idx)m * (value_idx)m, color.data(), stream);

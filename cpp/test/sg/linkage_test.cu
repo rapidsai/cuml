@@ -96,7 +96,7 @@ class LinkageTest : public ::testing::TestWithParam<LinkageInputs<T, IdxT>> {
 
     ML::single_linkage(handle, out.data(), params.n_row, params.n_col,
                        raft::distance::DistanceType::EucExpandedL2, dist_type,
-                       &out_arrs);
+                       &out_arrs, 1);
 
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 
@@ -127,7 +127,7 @@ class LinkageTest : public ::testing::TestWithParam<LinkageInputs<T, IdxT>> {
 };
 
 const std::vector<LinkageInputs<float, int>> inputsf2 = {
-  {500, 16, 5, 0.01, true, 1234ULL},
+  {25000, 16, 5, 0.01, true, 1234ULL},
   //  {1000, 1000, 10, 0.01, false, 1234ULL},
   //  {20000, 10000, 10, 0.01, false, 1234ULL},
   //  {20000, 100, 5000, 0.01, false, 1234ULL}

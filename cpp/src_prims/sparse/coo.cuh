@@ -293,9 +293,7 @@ void coo_sort(int m, int n, int nnz, int *rows, int *cols, T *vals,
   CUSPARSE_CHECK(raft::sparse::cusparsegthr<T>(
     handle, nnz, vals, vals_sorted.data(), d_P.data(), stream));
 
-  CUDA_CHECK(cudaStreamSynchronize(stream));
-
-  raft::copy(vals, vals_sorted.data(), nnz, stream);
+  raft::copy_async(vals, vals_sorted.data(), nnz, stream);
 
   CUSPARSE_CHECK(cusparseDestroy(handle));
 }
