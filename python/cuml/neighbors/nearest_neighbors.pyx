@@ -458,8 +458,8 @@ class NearestNeighbors(Base):
             query is not returned as the nearest neighbor to itself.  If this
             flag is set to true, distances to the query vectors will be
             recomputed with high precision for all retrieved samples, and the
-            results will be re-sorted accordingly. Note that for large values of
-            k or large numbers of query vectors, this correction becomes
+            results will be re-sorted accordingly. Note that for large values
+            of k or large numbers of query vectors, this correction becomes
             impractical in terms of both runtime and memory. It should be used
             with care and only when strictly necessary (when precise results
             are critical and samples may be tightly clustered).
@@ -518,8 +518,8 @@ class NearestNeighbors(Base):
             query is not returned as the nearest neighbor to itself.  If this
             flag is set to true, distances to the query vectors will be
             recomputed with high precision for all retrieved samples, and the
-            results will be re-sorted accordingly. Note that for large values of
-            k or large numbers of query vectors, this correction becomes
+            results will be re-sorted accordingly. Note that for large values
+            of k or large numbers of query vectors, this correction becomes
             impractical in terms of both runtime and memory. It should be used
             with care and only when strictly necessary (when precise results
             are critical and samples may be tightly clustered).
