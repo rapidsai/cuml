@@ -315,7 +315,9 @@ void build_treelite_forest(ModelHandle* model,
   // num_output_group is #class for multiclass classification which is the same as task_category
   int num_output_group = task_category > 2 ? task_category : 1;
   TREELITE_CHECK(TreeliteCreateModelBuilder(
-    num_features, num_output_group, random_forest_flag, &model_builder));
+    num_features, num_output_group, random_forest_flag,
+    DecisionTree::TreeliteType<T>::value, DecisionTree::TreeliteType<L>::value,
+    &model_builder));
 
   if (task_category > 2) {
     // Multi-class classification
@@ -327,7 +329,9 @@ void build_treelite_forest(ModelHandle* model,
     DecisionTree::TreeMetaDataNode<T, L>* tree_ptr = &forest->trees[i];
     TreeBuilderHandle tree_builder;
 
-    TREELITE_CHECK(TreeliteCreateTreeBuilder(&tree_builder));
+    TREELITE_CHECK(TreeliteCreateTreeBuilder(
+      DecisionTree::TreeliteType<T>::value,
+      DecisionTree::TreeliteType<L>::value, &tree_builder));
     if (tree_ptr->sparsetree.size() != 0) {
       DecisionTree::build_treelite_tree<T, L>(tree_builder, tree_ptr,
                                               num_output_group);
@@ -349,8 +353,9 @@ void build_treelite_forest(ModelHandle* model,
  * @param[in] tree_from_concatenated_forest: Tree info from the concatenated forest.
  * @param[in] tree_from_individual_forest: Tree info from the forest present in each worker.
  */
-void compare_trees(tl::Tree& tree_from_concatenated_forest,
-                   tl::Tree& tree_from_individual_forest) {
+template <class T, class L>
+void compare_trees(tl::Tree<T, L>& tree_from_concatenated_forest,
+                   tl::Tree<T, L>& tree_from_individual_forest) {
   ASSERT(tree_from_concatenated_forest.num_nodes ==
            tree_from_individual_forest.num_nodes,
          "Error! Mismatch the number of nodes present in a tree in the "
@@ -417,23 +422,37 @@ void compare_concat_forest_to_subforests(
     tl::Model& model = *(tl::Model*)(treelite_handles[forest_idx]);
 
     ASSERT(
+      concat_model.GetThresholdType() == model.GetThresholdType(),
+      "Error! Concatenated forest does not have the same threshold type as "
+      "the individual forests");
+    ASSERT(
+      concat_model.GetLeafOutputType() == model.GetLeafOutputType(),
+      "Error! Concatenated forest does not have the same leaf output type as "
+      "the individual forests");
+    ASSERT(
       concat_model.num_feature == model.num_feature,
       "Error! number of features mismatch between concatenated forest and the"
-      " individual forests ");
-    ASSERT(concat_model.num_output_group == model.num_output_group,
-           "Error! number of output group mismatch between concatenated forest "
-           "and the"
-           " individual forests ");
-    ASSERT(concat_model.random_forest_flag == model.random_forest_flag,
-           "Error! random forest flag value mismatch between concatenated "
-           "forest and the"
-           " individual forests ");
+      " individual forests");
+    ASSERT(concat_model.task_param.num_class == model.task_param.num_class,
+           "Error! number of classes mismatch between concatenated forest "
+           "and the individual forests ");
+    ASSERT(concat_model.average_tree_output == model.average_tree_output,
+           "Error! average_tree_output flag value mismatch between "
+           "concatenated forest and the individual forests");
 
-    for (int indiv_trees = 0; indiv_trees < model.trees.size(); indiv_trees++) {
-      compare_trees(concat_model.trees[concat_mod_tree_num + indiv_trees],
-                    model.trees[indiv_trees]);
-    }
-    concat_mod_tree_num = concat_mod_tree_num + model.trees.size();
+    model.Dispatch([&concat_mod_tree_num, &concat_model](
+                     auto& model_inner) {
+      // model_inner is of the concrete type tl::ModelImpl<T, L>
+      using model_type = std::remove_reference_t<decltype(model_inner)>;
+      auto& concat_model_inner = dynamic_cast<model_type&>(concat_model);
+      for (int indiv_trees = 0; indiv_trees < model_inner.trees.size();
+           indiv_trees++) {
+        compare_trees(
+          concat_model_inner.trees[concat_mod_tree_num + indiv_trees],
+          model_inner.trees[indiv_trees]);
+      }
+      concat_mod_tree_num = concat_mod_tree_num + model_inner.trees.size();
+    });
   }
 }
 
@@ -447,17 +466,25 @@ void compare_concat_forest_to_subforests(
  */
 ModelHandle concatenate_trees(std::vector<ModelHandle> treelite_handles) {
   tl::Model& first_model = *(tl::Model*)treelite_handles[0];
-  tl::Model* concat_model = new tl::Model;
-  for (int forest_idx = 0; forest_idx < treelite_handles.size(); forest_idx++) {
-    tl::Model& model = *(tl::Model*)treelite_handles[forest_idx];
-    for (const tl::Tree& tree : model.trees) {
-      concat_model->trees.push_back(tree.Clone());
+  tl::Model* concat_model = first_model.Dispatch([&treelite_handles](
+                                                 auto& first_model_inner) {
+    // first_model_inner is of the concrete type tl::ModelImpl<T, L>
+    using model_type = std::remove_reference_t<decltype(first_model_inner)>;
+    auto* concat_model = new model_type();
+    for (int forest_idx = 0; forest_idx < treelite_handles.size();
+         forest_idx++) {
+      tl::Model& model = *(tl::Model*)treelite_handles[forest_idx];
+      auto& model_inner = dynamic_cast<model_type&>(model);
+      for (const auto& tree : model_inner.trees) {
+        concat_model->trees.push_back(tree.Clone());
+      }
     }
-  }
-  concat_model->num_feature = first_model.num_feature;
-  concat_model->num_output_group = first_model.num_output_group;
-  concat_model->random_forest_flag = first_model.random_forest_flag;
-  concat_model->param = first_model.param;
+    concat_model->num_feature = first_model_inner.num_feature;
+    concat_model->task_param = first_model_inner.task_param;
+    concat_model->average_tree_output = first_model_inner.average_tree_output;
+    concat_model->param = first_model_inner.param;
+    return static_cast<tl::Model*>(concat_model);
+  });
   return concat_model;
 }
 

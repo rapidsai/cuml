@@ -18,6 +18,7 @@
 #define omp_get_thread_num() 0
 #endif
 #include <decisiontree/memory.h>
+#include <decisiontree/treelite_util.h>
 #include <decisiontree/quantile/quantile.h>
 #include <raft/cudart_utils.h>
 #include <cuml/common/logger.hpp>

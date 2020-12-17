@@ -29,6 +29,7 @@
 #include "levelalgo/levelfunc_regressor.cuh"
 #include "levelalgo/metric.cuh"
 #include "memory.cuh"
+#include "treelite_util.h"
 #include "quantile/quantile.cuh"
 
 namespace ML {
@@ -174,17 +175,27 @@ void build_treelite_tree(TreeBuilderHandle tree_builder,
           TreeliteTreeBuilderCreateNode(tree_builder, node_id + 2));
 
         // Set node from current level as numerical node. Children IDs known.
+        ValueHandle threshold;
+        TREELITE_CHECK(TreeliteTreeBuilderCreateValue(
+          &q_node.node.quesval, TreeliteType<T>::value, &threshold));
         TREELITE_CHECK(TreeliteTreeBuilderSetNumericalTestNode(
           tree_builder, q_node.unique_node_id, q_node.node.colid,
-          "<=", q_node.node.quesval, 1, node_id + 1, node_id + 2));
+          "<=", threshold, 1, node_id + 1, node_id + 2));
+        TREELITE_CHECK(TreeliteTreeBuilderDeleteValue(threshold));
 
         node_id += 2;
       } else {
         if (num_output_group == 1) {
+          ValueHandle leaf_value;
+          TREELITE_CHECK(TreeliteTreeBuilderCreateValue(
+            &leaf_value, TreeliteType<L>::value, &leaf_value));
           TREELITE_CHECK(TreeliteTreeBuilderSetLeafNode(
-            tree_builder, q_node.unique_node_id, q_node.node.prediction));
+            tree_builder, q_node.unique_node_id, leaf_value));
+          TREELITE_CHECK(TreeliteTreeBuilderDeleteValue(leaf_value));
         } else {
           std::vector<float> leaf_vector(num_output_group);
+          std::vector<ValueHandle> leaf_vector_handle(
+            num_output_group, nullptr);
           for (int j = 0; j < num_output_group; j++) {
             if (q_node.node.prediction == j) {
               leaf_vector[j] = 1;
@@ -192,10 +203,20 @@ void build_treelite_tree(TreeBuilderHandle tree_builder,
               leaf_vector[j] = 0;
             }
           }
+          for (int j = 0; j < num_output_group; j++) {
+            TREELITE_CHECK(TreeliteTreeBuilderCreateValue(
+              &leaf_vector[j], TreeliteType<float>::value,
+              &leaf_vector_handle[i]));
+          }
           TREELITE_CHECK(TreeliteTreeBuilderSetLeafVectorNode(
-            tree_builder, q_node.unique_node_id, leaf_vector.data(),
+            tree_builder, q_node.unique_node_id, leaf_vector_handle.data(),
             num_output_group));
+          for (int j = 0; j < num_output_group; j++) {
+            TREELITE_CHECK(TreeliteTreeBuilderDeleteValue(
+              leaf_vector_handle[i]));
+          }
           leaf_vector.clear();
+          leaf_vector_handle.clear();
         }
       }
     }

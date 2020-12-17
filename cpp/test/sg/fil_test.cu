@@ -512,12 +512,13 @@ class TreeliteFilTest : public BaseFilTest {
         case fil::leaf_algo_t::FLOAT_UNARY_BINARY:
         case fil::leaf_algo_t::GROVE_PER_CLASS:
           // default is fil::FLOAT_UNARY_BINARY
-          builder->SetLeafNode(key, output.f);
+          builder->SetLeafNode(key, tlf::Value::Create(output.f));
           break;
         case fil::leaf_algo_t::CATEGORICAL_LEAF:
-          std::vector<tl::tl_float> vec(ps.num_classes);
-          for (int i = 0; i < ps.num_classes; ++i)
-            vec[i] = i == output.idx ? 1.0f : 0.0f;
+          std::vector<tlf::Value> vec(ps.num_classes);
+          for (int i = 0; i < ps.num_classes; ++i) {
+            vec[i] = tlf::Value::Create(i == output.idx ? 1.0f : 0.0f);
+          }
           builder->SetLeafVectorNode(key, vec);
       }
     } else {
@@ -545,8 +546,9 @@ class TreeliteFilTest : public BaseFilTest {
       }
       int left_key = node_to_treelite(builder, pkey, root, left);
       int right_key = node_to_treelite(builder, pkey, root, right);
-      builder->SetNumericalTestNode(key, feature, ps.op, threshold,
-                                    default_left, left_key, right_key);
+      builder->SetNumericalTestNode(key, feature, ps.op,
+                                    tlf::Value::Create(threshold), default_left,
+                                    left_key, right_key);
     }
     return key;
   }
@@ -557,7 +559,8 @@ class TreeliteFilTest : public BaseFilTest {
     int treelite_num_classes =
       ps.leaf_algo == fil::leaf_algo_t::FLOAT_UNARY_BINARY ? 1 : ps.num_classes;
     std::unique_ptr<tlf::ModelBuilder> model_builder(new tlf::ModelBuilder(
-      ps.num_cols, treelite_num_classes, random_forest_flag));
+      ps.num_cols, treelite_num_classes, random_forest_flag,
+      tl::TypeInfo::kFloat32, tl::TypeInfo::kFloat32));
 
     // prediction transform
     if ((ps.output & fil::output_t::SIGMOID) != 0) {
@@ -578,7 +581,8 @@ class TreeliteFilTest : public BaseFilTest {
 
     // build the trees
     for (int i_tree = 0; i_tree < ps.num_trees; ++i_tree) {
-      tlf::TreeBuilder* tree_builder = new tlf::TreeBuilder();
+      tlf::TreeBuilder* tree_builder = new tlf::TreeBuilder(
+        tl::TypeInfo::kFloat32, tl::TypeInfo::kFloat32);
       int key_counter = 0;
       int root = i_tree * tree_num_nodes();
       int root_key = node_to_treelite(tree_builder, &key_counter, root, root);
@@ -588,8 +592,7 @@ class TreeliteFilTest : public BaseFilTest {
     }
 
     // commit the model
-    std::unique_ptr<tl::Model> model(new tl::Model);
-    model_builder->CommitModel(model.get());
+    std::unique_ptr<tl::Model> model = model_builder->CommitModel();
 
     // init FIL forest with the model
     fil::treelite_params_t params;

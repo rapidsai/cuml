@@ -45,18 +45,13 @@ cdef extern from "treelite/c_api.h":
     ctypedef void* ModelHandle
     cdef int TreeliteLoadXGBoostModel(const char* filename,
                                       ModelHandle* out) except +
-    cdef int TreeliteLoadXGBoostModelFromMemoryBuffer(const void* buf,
-                                                      size_t len,
-                                                      ModelHandle* out) \
-        except +
+    cdef int TreeliteLoadXGBoostJSON(const char* filename,
+                                     ModelHandle* out) except +
     cdef int TreeliteFreeModel(ModelHandle handle) except +
     cdef int TreeliteQueryNumTree(ModelHandle handle, size_t* out) except +
     cdef int TreeliteQueryNumFeature(ModelHandle handle, size_t* out) except +
-    cdef int TreeliteQueryNumOutputGroups(ModelHandle handle,
-                                          size_t* out) except +
+    cdef int TreeliteQueryNumClass(ModelHandle handle, size_t* out) except +
     cdef int TreeliteLoadLightGBMModel(const char* filename,
-                                       ModelHandle* out) except +
-    cdef int TreeliteLoadProtobufModel(const char* filename,
                                        ModelHandle* out) except +
     cdef const char* TreeliteGetLastError()
 
@@ -133,6 +128,11 @@ cdef class TreeliteModel():
             if res < 0:
                 err = TreeliteGetLastError()
                 raise RuntimeError("Failed to load %s (%s)" % (filename, err))
+        elif model_type == "xgboost_json":
+            res = TreeliteLoadXGBoostJSON(filename_bytes, &handle)
+            if res < 0:
+                err = TreeliteGetLastError()
+                raise RuntimeError("Failed to load %s (%s)" % (filename, err))
         elif model_type == "lightgbm":
             logger.warn("Treelite currently does not support float64 model"
                         " parameters. Accuracy may degrade slightly relative"
@@ -201,7 +201,7 @@ cdef class ForestInference_impl():
 
     cdef object handle
     cdef forest_t forest_data
-    cdef size_t num_output_groups
+    cdef size_t num_class
     cdef bool output_class
 
     def __cinit__(self,
@@ -284,10 +284,10 @@ cdef class ForestInference_impl():
         if preds is None:
             shape = (n_rows, )
             if predict_proba:
-                if self.num_output_groups <= 2:
+                if self.num_class <= 2:
                     shape += (2,)
                 else:
-                    shape += (self.num_output_groups,)
+                    shape += (self.num_class,)
             preds = CumlArray.empty(shape=shape, dtype=np.float32, order='C')
         elif (not isinstance(preds, cudf.Series) and
               not rmm.is_cuda_array(preds)):
@@ -337,8 +337,8 @@ cdef class ForestInference_impl():
                       &self.forest_data,
                       <ModelHandle> model_ptr,
                       &treelite_params)
-        TreeliteQueryNumOutputGroups(<ModelHandle> model_ptr,
-                                     & self.num_output_groups)
+        TreeliteQueryNumClass(<ModelHandle> model_ptr,
+                              & self.num_class)
         return self
 
     def load_from_treelite_model(self,
@@ -348,8 +348,8 @@ cdef class ForestInference_impl():
                                  float threshold,
                                  str storage_type,
                                  int blocks_per_sm):
-        TreeliteQueryNumOutputGroups(<ModelHandle> model.handle,
-                                     & self.num_output_groups)
+        TreeliteQueryNumClass(<ModelHandle> model.handle,
+                              & self.num_class)
         return self.load_from_treelite_model_handle(<uintptr_t>model.handle,
                                                     output_class, algo,
                                                     threshold, storage_type,
@@ -380,8 +380,8 @@ cdef class ForestInference_impl():
                       &self.forest_data,
                       <ModelHandle> model_ptr,
                       &treelite_params)
-        TreeliteQueryNumOutputGroups(<ModelHandle> model_ptr,
-                                     &self.num_output_groups)
+        TreeliteQueryNumClass(<ModelHandle> model_ptr,
+                              &self.num_class)
         return self
 
     def __dealloc__(self):
