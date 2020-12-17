@@ -91,7 +91,6 @@ class ip_distances_gemm_t : public ip_trans_getters_t<value_idx, value_t> {
     /**
 	   * Compute pairwise distances and return dense matrix in column-major format
 	   */
-
     CUML_LOG_DEBUG("Compute() inside inner-product d");
     device_buffer<value_idx> out_batch_indptr(config_.allocator, config_.stream,
                                               config_.a_nrows + 1);
@@ -107,12 +106,6 @@ class ip_distances_gemm_t : public ip_trans_getters_t<value_idx, value_t> {
     compute_gemm(out_batch_indptr.data(), out_batch_indices.data(),
                  out_batch_data.data());
 
-    /**
-     * Convert output to dense
-     * TODO: This is wasteful of memory and adds additional latency.
-     * It would be nice if there was a gemm that could do
-     * (sparse, sparse)->dense natively.
-     */
     csr_to_dense(config_.handle, config_.a_nrows, config_.b_nrows,
                  out_batch_indptr.data(), out_batch_indices.data(),
                  out_batch_data.data(), config_.a_nrows, out_distances,
@@ -260,6 +253,7 @@ class ip_distances_t : public distances_t<value_t> {
     : config_(config) {
     int smem = raft::getSharedMemPerBlock();
 
+    // @TODO Don't hardcode this value
     if (config_.a_ncols < 11000) {
       internal_ip_dist =
         std::unique_ptr<ip_trans_getters_t<value_idx, value_t>>(
@@ -280,11 +274,6 @@ class ip_distances_t : public distances_t<value_t> {
 	   * Compute pairwise distances and return dense matrix in column-major format
 	   */
     internal_ip_dist->compute(out_distances);
-
-
-    std::cout << raft::arr2Str(out_distances, 16, "out_dists", config_.stream)
-              << std::endl;
-
   }
 
   virtual value_idx *trans_indices() const {

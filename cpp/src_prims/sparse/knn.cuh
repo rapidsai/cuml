@@ -262,8 +262,8 @@ class sparse_knn_t {
         iota_fill(batch_indices.data(), batch_rows, batch_cols, stream);
 
         /**
-             * Perform k-selection on batch & merge with other k-selections
-             */
+         * Perform k-selection on batch & merge with other k-selections
+         */
         CUML_LOG_DEBUG("Performing k-selection");
         size_t merge_buffer_offset = batch_rows * k;
         dists_merge_buffer_ptr =
@@ -316,6 +316,11 @@ class sparse_knn_t {
 
       rows_processed += query_batcher.batch_rows();
     }
+
+    CUDA_CHECK(cudaStreamSynchronize(stream));
+
+    std::cout << raft::arr2Str(output_dists, 25, "out_dists", stream)
+              << std::endl;
   }
 
   void perform_postprocessing(value_t *dists, size_t batch_rows) {
@@ -398,6 +403,12 @@ class sparse_knn_t {
       case ML::MetricType::METRIC_L1:
         pw_metric = raft::distance::DistanceType::EucUnexpandedL1;
         break;
+      case ML::MetricType::METRIC_Canberra:
+        pw_metric = raft::distance::DistanceType::Canberra;
+        break;
+      case ML::MetricType::METRIC_Linf:
+        pw_metric = raft::distance::DistanceType::Chebyshev;
+        break;
       default:
         THROW("MetricType not supported: %d", metric);
     }
@@ -414,8 +425,8 @@ class sparse_knn_t {
                          value_idx *query_batch_indices,
                          value_t *query_batch_data, value_t *batch_dists) {
     /**
-       * Compute distances
-       */
+     * Compute distances
+     */
     CUML_LOG_DEBUG("Computing pairwise distances for batch");
     MLCommon::Sparse::Distance::distances_config_t<value_idx, value_t>
       dist_config;

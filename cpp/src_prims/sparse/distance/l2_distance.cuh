@@ -58,40 +58,36 @@ template <typename value_idx, typename value_t>
 __global__ void compute_euclidean_warp_kernel(value_t *C,
                                               const value_t *Q_sq_norms,
                                               const value_t *R_sq_norms,
+                                              value_idx n_rows,
                                               value_idx n_cols) {
-  value_idx i = blockIdx.x;
-  value_idx tid = threadIdx.x;
+  value_idx tid = blockDim.x * blockIdx.x + threadIdx.x;
+  value_idx i = tid / n_cols;
+  value_idx j = tid % n_cols;
 
-  __shared__ value_t q_norm;
+  if (i >= n_rows || j >= n_cols) return;
 
-  if (tid == 0) {
-    q_norm = Q_sq_norms[i];
-  }
+  value_t q_norm = Q_sq_norms[i];
+  value_t r_norm = R_sq_norms[j];
+  value_t dot = C[i * n_cols + j];
 
-  __syncthreads();
+  value_t val = -2.0 * dot + q_norm + r_norm;
 
-  for (int j = tid; j < n_cols; j += blockDim.x) {
-    value_t r_norm = R_sq_norms[j];
-    value_t dot = C[i * n_cols + j];
+  // correct for small instabilities
+  if (fabsf(val) < 0.0001) val = 0.0;
 
-    value_t val = q_norm + r_norm - 2.0 * dot;
-    if (fabsf(val) < 0.0001) val = 0.0;
-
-    C[i * n_cols + j] = val;
-  }
+  C[i * n_cols + j] = val;
 }
 
-template <typename value_idx, typename value_t>
+template <typename value_idx, typename value_t, int tpb = 1024>
 void compute_euclidean(value_t *C, const value_t *Q_sq_norms,
                        const value_t *R_sq_norms, value_idx n_rows,
                        value_idx n_cols, cudaStream_t stream) {
-  int blockdim = block_dim(n_cols);
-
-  compute_euclidean_warp_kernel<<<n_rows, blockdim, 0, stream>>>(
-    C, Q_sq_norms, R_sq_norms, n_cols);
+  int blocks = raft::ceildiv(n_rows * n_cols, tpb);
+  compute_euclidean_warp_kernel<<<blocks, tpb, 0, stream>>>(
+    C, Q_sq_norms, R_sq_norms, n_rows, n_cols);
 }
 
-template <typename value_idx, typename value_t, int tpb = 256>
+template <typename value_idx, typename value_t, int tpb = 1024>
 void compute_l2(value_t *out, const value_idx *Q_coo_rows,
                 const value_t *Q_data, value_idx Q_nnz,
                 const value_idx *R_coo_rows, const value_t *R_data,
@@ -146,10 +142,6 @@ class l2_distances_t : public distances_t<value_t> {
                config_.b_nrows, config_.handle, config_.allocator,
                config_.stream);
     CUML_LOG_DEBUG("Done.");
-
-    std::cout << raft::arr2Str(out_dists, 16, "out_dists", config_.stream)
-              << std::endl;
-
   }
 
   ~l2_distances_t() = default;

@@ -31,8 +31,7 @@
 #include <sparse/csr.cuh>
 #include <sparse/distance/ip_distance.cuh>
 #include <sparse/distance/l2_distance.cuh>
-#include <sparse/distance/semiring.cuh>
-#include <sparse/distance/spmv.cuh>
+#include <sparse/distance/lp_distance.cuh>
 
 #include <cuml/common/cuml_allocator.hpp>
 #include <cuml/neighbors/knn.hpp>
@@ -54,6 +53,7 @@ namespace Distance {
  * @param[out] out dense output array (size A.nrows * B.nrows)
  * @param[in] input_config input argument configuration
  * @param[in] metric distance metric to use
+ * @param[in] metric argument (currently only relevant for Minkowski)
  */
 template class ip_distances_t<int, float>;
 template class l2_distances_t<int, float>;
@@ -62,12 +62,12 @@ template class distances_config_t<int, float>;
 template <typename value_idx = int, typename value_t = float>
 void pairwiseDistance(value_t *out,
                       distances_config_t<value_idx, value_t> input_config,
-                      raft::distance::DistanceType metric) {
+                      raft::distance::DistanceType metric, float p = 0.0) {
   CUML_LOG_DEBUG("Running sparse pairwise distances with metric=%d", metric);
 
   switch (metric) {
     case raft::distance::DistanceType::EucExpandedL2:
-      // EucExpandedL2
+      // Expanded Euclidean in the form
       l2_distances_t<value_idx, value_t>(input_config).compute(out);
       break;
     case raft::distance::DistanceType::InnerProduct:
@@ -80,11 +80,14 @@ void pairwiseDistance(value_t *out,
     case ML::Distance::DistanceType::EucUnexpandedL2:
       l2_unexpanded_distances_t<value_idx, value_t>(input_config).compute(out);
       break;
-    case ML::Distance::DistanceType::ChebyChev:
+    case ML::Distance::DistanceType::Chebyshev:
       chebychev_distances_t<value_idx, value_t>(input_config).compute(out);
       break;
     case ML::Distance::DistanceType::Canberra:
       canberra_distances_t<value_idx, value_t>(input_config).compute(out);
+      break;
+    case ML::Distance::DistanceType::Minkowski:
+      minkowski_distances_t<value_idx, value_t>(input_config, p).compute(out);
       break;
     default:
       THROW("Unsupported metric: %d", metric);

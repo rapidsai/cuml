@@ -390,10 +390,10 @@ def test_knn_graph(input_type, nrows, n_feats, p, k, metric, mode,
 
 
 @pytest.mark.parametrize("metric", ["l1", "l2"])
-@pytest.mark.parametrize('nrows', [5])
-@pytest.mark.parametrize('ncols', [5])
+@pytest.mark.parametrize('nrows', [1028])
+@pytest.mark.parametrize('ncols', [100])
 @pytest.mark.parametrize('density', [0.4])
-@pytest.mark.parametrize('n_neighbors', [2])
+@pytest.mark.parametrize('n_neighbors', [5])
 @pytest.mark.parametrize('batch_size_index', [60000])
 @pytest.mark.parametrize('batch_size_query', [20000])
 def test_nearest_neighbors_sparse(nrows, ncols,
@@ -408,11 +408,8 @@ def test_nearest_neighbors_sparse(nrows, ncols,
 
     a = cp.sparse.random(nrows, ncols, format='csr', density=density,
                          random_state=32)
-
-    print(str(a.indptr))
-    print(str(a.data))
-
-    print(str(a.get().dot(a.get().T).todense()))
+    b = cp.sparse.random(nrows, ncols, format='csr', density=density,
+                         random_state=33)
 
     logger.set_level(logger.level_trace)
     nn = cuKNN(metric=metric, n_neighbors=n_neighbors, algorithm="brute",
@@ -425,18 +422,18 @@ def test_nearest_neighbors_sparse(nrows, ncols,
     import time
 
     start = time.time()
-    cuD, cuI = nn.kneighbors(a)
-    # print("cuD: %s, cuI: %s" % (cuD, cuI))
+    cuD, cuI = nn.kneighbors(b)
     print("cuML took %s" % (time.time() - start))
-    #
-    sknn = skKNN(metric="l1", n_neighbors=n_neighbors,
+
+    print(str(cuD))
+    sknn = skKNN(metric=metric, n_neighbors=n_neighbors,
                  algorithm="brute", n_jobs=-1)
     sk_X = a.get()
     sknn.fit(sk_X)
 
     start = time.time()
-    skD, skI = sknn.kneighbors(sk_X)
+    skD, skI = sknn.kneighbors(b.get())
     print("sk took %s" % (time.time() - start))
-    #
+
     cp.testing.assert_allclose(cuD, skD, atol=1e-3, rtol=1e-3)
     cp.testing.assert_allclose(cuI, skI, atol=1e-4, rtol=1e-4)

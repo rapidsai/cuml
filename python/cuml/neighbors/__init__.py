@@ -32,7 +32,9 @@ VALID_METRICS = {
         "cosine", "correlation",
         "inner_product", "sqeuclidean"
     ]),
-    "sparse": set(["euclidean", "l2", "inner_product"]),
+    "sparse": set(["euclidean", "l2", "inner_product",
+                   "l1", "cityblock", "manhattan", "taxicab",
+                   "canberra", "linf", "chebyshev"]),
     "ivfflat": set(["l2", "euclidean"]),
     "ivfpq": set(["l2", "euclidean"]),
     "ivfsq": set(["l2", "euclidean"])

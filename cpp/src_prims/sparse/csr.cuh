@@ -47,6 +47,7 @@ __global__ void csr_to_dense_block_per_row_kernel(int n_cols,
                                                   const int *csrRowPtr,
                                                   const int *csrColInd,
                                                   value_t *a) {
+  // @TODO: Fill block w/ multiple warps.
   int row = blockIdx.x;
   int tid = threadIdx.x;
 
