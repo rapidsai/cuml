@@ -156,7 +156,7 @@ __global__ void csr_add_kernel(const int *a_ind, const int *a_indptr,
  * @param nnz2: size of right hand index_ptr and val arrays
  * @param m: size of output array (number of rows in final matrix)
  * @param out_ind: output row_ind array
- * @param d_alloc: deviceAllocator to use for temp memory
+ * @param d_alloc: device allocator to use for temp memory
  * @param stream: cuda stream to use
  */
 template <typename T, int TPB_X = 32>

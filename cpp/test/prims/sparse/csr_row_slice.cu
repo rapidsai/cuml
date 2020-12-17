@@ -16,13 +16,15 @@
 
 #include <cusparse_v2.h>
 #include <raft/cudart_utils.h>
-#include <common/device_buffer.hpp>
 
 #include <gtest/gtest.h>
 #include <raft/sparse/cusparse_wrappers.h>
+#include <raft/mr/device/allocator.hpp>
+#include <raft/mr/device/buffer.hpp>
+
 #include <sparse/op/slice.h>
+
 #include <test_utils.h>
-#include <sparse/csr.cuh>
 
 namespace raft {
 namespace sparse {
@@ -95,8 +97,6 @@ class CSRRowSliceTest
     CUDA_CHECK(cudaStreamCreate(&stream));
 
     make_data();
-
-    ML::Logger::get().setLevel(CUML_LEVEL_INFO);
 
     int csr_start_offset;
     int csr_stop_offset;

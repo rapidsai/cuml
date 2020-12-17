@@ -98,8 +98,6 @@ class SparseKNNTest
 
     CUSPARSE_CHECK(cusparseCreate(&cusparseHandle));
 
-    ML::Logger::get().setLevel(CUML_LEVEL_INFO);
-
     n_rows = params.indptr_h.size() - 1;
     nnz = params.indices_h.size();
     k = params.k;

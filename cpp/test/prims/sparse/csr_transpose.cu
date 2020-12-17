@@ -15,12 +15,16 @@
  */
 
 #include <cusparse_v2.h>
-#include <raft/cudart_utils.h>
-#include <common/device_buffer.hpp>
 
 #include <gtest/gtest.h>
+
+#include <raft/cudart_utils.h>
 #include <raft/sparse/cusparse_wrappers.h>
+#include <raft/mr/device/allocator.hpp>
+#include <raft/mr/device/buffer.hpp>
+
 #include <sparse/linalg/transpose.h>
+
 #include <test_utils.h>
 
 namespace raft {
@@ -96,8 +100,6 @@ class CSRTransposeTest
     CUSPARSE_CHECK(cusparseCreate(&handle));
 
     make_data();
-
-    ML::Logger::get().setLevel(CUML_LEVEL_INFO);
 
     raft::sparse::linalg::csr_transpose(
       handle, indptr, indices, data, out_indptr, out_indices, out_data,
