@@ -33,6 +33,7 @@ from cuml.common.array_sparse import SparseCumlArray
 from cuml.common.doc_utils import generate_docstring
 from cuml.common.doc_utils import insert_into_docstring
 from cuml.common.import_utils import has_scipy
+from cuml.common.input_utils import input_to_cupy_array
 from cuml.common import input_to_cuml_array
 from cuml.neighbors.ann cimport *
 from cuml.common.sparse_utils import is_sparse
@@ -452,15 +453,16 @@ class NearestNeighbors(Base):
             errors for certain data. In particular, when several samples
             are close to the query sample (relative to typical inter-sample
             distances), numerical instability may cause the computed distance
-            between the query and itself to be sufficiently non-zero that it is
-            no longer returned as the first result. If this flag is set to
-            true, distances to the query vectors will be recomputed with high
-            precision for all retrieved samples, and the results will be
-            resorted accordingly. Note that for large values of k or large
-            numbers of query vectors, this correction becomes impractical in
-            terms of both runtime and memory. It should be used with care and
-            only when strictly necessary (when precise results are critical and
-            samples may be tightly clustered).
+            between the query and itself to be larger than the computed
+            distance between the query and another sample. As a result, the
+            query is not returned as the nearest neighbor to itself.  If this
+            flag is set to true, distances to the query vectors will be
+            recomputed with high precision for all retrieved samples, and the
+            results will be re-sorted accordingly. Note that for large values of
+            k or large numbers of query vectors, this correction becomes
+            impractical in terms of both runtime and memory. It should be used
+            with care and only when strictly necessary (when precise results
+            are critical and samples may be tightly clustered).
 
         Returns
         -------
@@ -511,15 +513,16 @@ class NearestNeighbors(Base):
             errors for certain data. In particular, when several samples
             are close to the query sample (relative to typical inter-sample
             distances), numerical instability may cause the computed distance
-            between the query and itself to be sufficiently non-zero that it is
-            no longer returned as the first result. If this flag is set to
-            true, distances to the query vectors will be recomputed with high
-            precision for all retrieved samples, and the results will be
-            resorted accordingly. Note that for large values of k or large
-            numbers of query vectors, this correction becomes impractical in
-            terms of both runtime and memory. It should be used with care and
-            only when strictly necessary (when precise results are critical and
-            samples may be tightly clustered).
+            between the query and itself to be larger than the computed
+            distance between the query and another sample. As a result, the
+            query is not returned as the nearest neighbor to itself.  If this
+            flag is set to true, distances to the query vectors will be
+            recomputed with high precision for all retrieved samples, and the
+            results will be re-sorted accordingly. Note that for large values of
+            k or large numbers of query vectors, this correction becomes
+            impractical in terms of both runtime and memory. It should be used
+            with care and only when strictly necessary (when precise results
+            are critical and samples may be tightly clustered).
 
         Returns
         -------
@@ -566,25 +569,27 @@ class NearestNeighbors(Base):
 
         if two_pass_precision:
             metric, expanded = self._build_metric_type(self.metric)
-            euclidean_approximation = (
+            metric_is_l2_based = (
                 metric == MetricType.METRIC_L2 or
                 (metric == MetricType.METRIC_Lp and self.p == 2)
             )
 
-            if euclidean_approximation:
-                X = cuml.common.input_to_cuml_array(X).array.to_output('cupy')
+            # FAISS employs imprecise distance algorithm only for L2-based
+            # metrics
+            if metric_is_l2_based:
+                X = input_to_cupy_array(X).array
                 I_cparr = I_ndarr.to_output('cupy')
 
-                precise_dists = cp.linalg.norm(
+                precise_distances = cp.linalg.norm(
                     X[I_cparr] - X[:, cp.newaxis, :],
                     axis=2
                 )
                 if expanded:
-                    precise_dists = precise_dists * precise_dists
+                    precise_distances = precise_distances * precise_distances
 
-                correct_order = cp.argsort(precise_dists, axis=1)
+                correct_order = cp.argsort(precise_distances, axis=1)
 
-                D_cparr = cp.take_along_axis(precise_dists,
+                D_cparr = cp.take_along_axis(precise_distances,
                                              correct_order,
                                              axis=1)
                 I_cparr = cp.take_along_axis(I_cparr, correct_order, axis=1)
