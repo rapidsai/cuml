@@ -102,7 +102,8 @@ void symmetrize_perplexity(float *P, int64_t *indices, const int n, const int k,
 
   // Symmetrize to form P + P.T
   MLCommon::Sparse::from_knn_symmetrize_matrix(
-    indices, P, n, k, COO_Matrix, stream, handle.get_device_allocator());
+    indices, P, n, k, COO_Matrix, stream, handle.get_device_allocator(),
+    [] __device__(int *e, float v) { return atomicAdd(e, v); });
 }
 
 }  // namespace TSNE

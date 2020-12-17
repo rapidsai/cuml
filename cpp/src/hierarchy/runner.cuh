@@ -50,6 +50,7 @@ void get_distance_graph(const raft::handle_t &handle, const value_t *X,
   switch (dist_type) {
     case LinkageDistance::PAIRWISE:
 
+      CUML_LOG_INFO("Building complete distance graph");
       indices.resize(m * m, stream);
       data.resize(m * m, stream);
 
@@ -60,14 +61,13 @@ void get_distance_graph(const raft::handle_t &handle, const value_t *X,
     case LinkageDistance::KNN_GRAPH:
 
     {
+      CUML_LOG_INFO("Building KNN graph");
       int k = Distance::build_k(m, c);
 
       // knn graph is symmetric
       MLCommon::Sparse::COO<value_t, value_idx> knn_graph_coo(d_alloc, stream);
 
       Distance::knn_graph(handle, X, m, n, metric, knn_graph_coo, c);
-
-      MLCommon::Sparse::coo_sort(&knn_graph_coo, d_alloc, stream);
 
       indices.resize(knn_graph_coo.nnz, stream);
       data.resize(knn_graph_coo.nnz, stream);
@@ -114,20 +114,15 @@ void _single_linkage(const raft::handle_t &handle, const value_t *X, size_t m,
   raft::mr::device::buffer<value_idx> mst_cols(d_alloc, stream, 0);
   raft::mr::device::buffer<value_t> mst_data(d_alloc, stream, 0);
 
-  CUDA_CHECK(cudaStreamSynchronize(stream));
-
-  raft::print_device_vector("indptr: ", indptr.data(), 50, std::cout);
-  raft::print_device_vector("indices: ", indices.data(), 50, std::cout);
-  raft::print_device_vector("data: ", pw_dists.data(), 50, std::cout);
-
   CUML_LOG_INFO("Constructing MST");
 
   /**
    * 2. Construct MST, sorted by weights
    */
-  MST::build_sorted_mst<value_idx, value_t>(
-    handle, indptr.data(), indices.data(), pw_dists.data(), m, mst_rows.data(),
-    mst_cols.data(), mst_data.data());
+  MST::build_sorted_mst<value_idx, value_t>(handle, indptr.data(),
+                                            indices.data(), pw_dists.data(), m,
+                                            mst_rows, mst_cols, mst_data);
+
   pw_dists.release();
 
   CUML_LOG_INFO("Perform labeling");
@@ -135,15 +130,17 @@ void _single_linkage(const raft::handle_t &handle, const value_t *X, size_t m,
   /**
    * Perform hierarchical labeling
    */
-  size_t n_edges = m - 1;
+  size_t n_edges = mst_rows.size();
 
-  raft::mr::device::buffer<value_t> out_delta(d_alloc, stream, n_edges);
-  raft::mr::device::buffer<value_idx> out_size(d_alloc, stream, n_edges);
+  raft::mr::device::buffer<value_idx> children(d_alloc, stream, 0);
+  raft::mr::device::buffer<value_t> out_delta(d_alloc, stream, 0);
+  raft::mr::device::buffer<value_idx> out_size(d_alloc, stream, 0);
 
-  // @TODO: Label in parallel on device
   Linkage::Label::Agglomerative::label_hierarchy_host<value_idx, value_t>(
     handle, mst_rows.data(), mst_cols.data(), mst_data.data(), n_edges,
-    out->children, out_delta.data(), out_size.data());
+    children, out_delta, out_size);
+
+  CUML_LOG_INFO("Done executing linkage.");
 }
 
 };  // end namespace Linkage

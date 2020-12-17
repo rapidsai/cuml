@@ -149,10 +149,10 @@ void conv_indices(in_t *inds, out_t *out, size_t size, cudaStream_t stream) {
  * @param data
  * @param c
  */
-template <typename value_idx = int64_t, typename value_t = float>
+template <typename value_idx = int, typename value_t = float>
 void knn_graph(const raft::handle_t &handle, const value_t *X, size_t m,
                size_t n, raft::distance::DistanceType metric,
-               MLCommon::Sparse::COO<value_t, value_idx> &out, int c = 4) {
+               MLCommon::Sparse::COO<value_t, value_idx> &out, int c = 15) {
   int k = build_k(m, c);
 
   auto d_alloc = handle.get_device_allocator();
@@ -165,7 +165,7 @@ void knn_graph(const raft::handle_t &handle, const value_t *X, size_t m,
   raft::mr::device::buffer<value_t> data(d_alloc, stream, m * k);
 
   int blocks = raft::ceildiv(nnz, (size_t)1024);
-  fill_indices<value_idx><<<blocks, 1024, 0, stream>>>(rows.data(), m);
+  fill_indices<value_idx><<<blocks, 1024, 0, stream>>>(rows.data(), k);
 
   std::vector<value_t *> inputs;
   inputs.push_back(const_cast<value_t *>(X));
@@ -182,22 +182,20 @@ void knn_graph(const raft::handle_t &handle, const value_t *X, size_t m,
                       int64_indices.data(), data.data(), k, true, true,
                       ml_metric);
 
-  conv_indices(int64_indices.data(), indices.data(), int64_indices.size(),
-               stream);
+  CUDA_CHECK(cudaStreamSynchronize(stream));
 
-  MLCommon::Sparse::coo_symmetrize<value_idx, value_t>(
-    handle, rows.data(), indices.data(), data.data(), m, m, (size_t)(m * k),
-    &out,
-    [] __device__(value_idx row, value_idx col, value_t result,
-                  value_t transpose) {
-      // take max in the case of non-symmetric
-      // metrics
-      return fmaxf(result, transpose);
-    });
+  MLCommon::Sparse::from_knn_symmetrize_matrix(
+    int64_indices.data(), data.data(), (int)m, k, &out, stream,
+    handle.get_device_allocator(),
+    [] __device__(value_idx * e, value_t v) { return atomicAdd(e, v); });
+  //
+  //  MLCommon::Sparse::coo_sort(&out, d_alloc, stream);
 
-  MLCommon::Sparse::COO<value_t> comp_coo(d_alloc, stream);
-  MLCommon::Sparse::coo_remove_zeros<1024, value_t>(&out, &comp_coo, d_alloc,
-                                                    stream);
+  CUDA_CHECK(cudaStreamSynchronize(stream));
+
+  raft::print_device_vector("rows: ", out.rows(), 50, std::cout);
+  raft::print_device_vector("indices: ", out.cols(), 50, std::cout);
+  raft::print_device_vector<value_t>("data: ", out.vals(), 50, std::cout);
 }
 
 };  // namespace Distance

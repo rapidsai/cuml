@@ -30,19 +30,22 @@ namespace Label {
 namespace Agglomerative {
 
 template <typename value_idx, typename value_t>
-struct UnionFind {
-  value_idx *parent_arr;
-  value_idx *size_arr;
+class UnionFind {
+ public:
   value_idx next_label;
   value_idx *parent;
   value_idx *size;
 
-  UnionFind(value_idx N_) {
-    parent = new value_idx[2 * N_ - 1];
-    next_label = N_;
-    size = new value_idx[2 * N_ - 1];
+  value_idx n_indices;
 
-    for (int i = 0; i < 2 * N_ - 1; i++) {
+  UnionFind(value_idx N_) {
+    n_indices = 2 * N_ - 1;
+    parent = new value_idx[n_indices];
+    size = new value_idx[n_indices];
+
+    next_label = N_;
+
+    for (int i = 0; i < n_indices; i++) {
       parent[i] = -1;
       size[i] = i < N_ ? 1 : 0;
     }
@@ -55,10 +58,12 @@ struct UnionFind {
     while (parent[n] != -1) n = parent[n];
 
     while (parent[p] != n) {
-      p = parent[p];
-      parent[p] = n;
-    }
+      value_idx ind = p == -1 ? n_indices - 1 : p;
+      p = parent[ind];
 
+      ind = p == -1 ? n_indices - 1 : p;
+      parent[ind] = n;
+    }
     return n;
   }
 
@@ -69,6 +74,11 @@ struct UnionFind {
 
     size[next_label] = size[m] + size[n];
     next_label += 1;
+  }
+
+  ~UnionFind() {
+    delete[] parent;
+    delete[] size;
   }
 };
 
@@ -91,13 +101,18 @@ struct UnionFind {
 template <typename value_idx, typename value_t>
 void label_hierarchy_host(const raft::handle_t &handle, const value_idx *rows,
                           const value_idx *cols, const value_t *data,
-                          size_t nnz, value_idx *children, value_t *out_delta,
-                          value_idx *out_size) {
+                          size_t nnz,
+                          raft::mr::device::buffer<value_idx> &children,
+                          raft::mr::device::buffer<value_t> &out_delta,
+                          raft::mr::device::buffer<value_idx> &out_size) {
+  auto d_alloc = handle.get_device_allocator();
   auto stream = handle.get_stream();
 
   value_idx n_edges = nnz;
 
-  CUML_LOG_INFO("Copying to host");
+  children.resize(n_edges * 2, stream);
+  out_delta.resize(n_edges, stream);
+  out_size.resize(n_edges, stream);
 
   std::vector<value_idx> mst_src_h(n_edges);
   std::vector<value_idx> mst_dst_h(n_edges);
@@ -107,13 +122,11 @@ void label_hierarchy_host(const raft::handle_t &handle, const value_idx *rows,
   std::vector<value_t> out_delta_h(n_edges);
   std::vector<value_idx> out_size_h(n_edges);
 
+  CUML_LOG_INFO("Copying to host");
+
   raft::update_host(mst_src_h.data(), rows, n_edges, stream);
   raft::update_host(mst_dst_h.data(), cols, n_edges, stream);
   raft::update_host(mst_weights_h.data(), data, n_edges, stream);
-
-  raft::update_host(children_h.data(), children, n_edges * 2, stream);
-  raft::update_host(out_delta_h.data(), out_delta, n_edges, stream);
-  raft::update_host(out_size_h.data(), out_size, n_edges, stream);
 
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
@@ -122,26 +135,20 @@ void label_hierarchy_host(const raft::handle_t &handle, const value_idx *rows,
   value_idx a, aa, b, bb;
   value_t delta;
 
-  value_idx N = nnz + 1;
-
   CUML_LOG_INFO("Creating union find");
 
-  UnionFind<value_idx, value_t> U(N);
+  UnionFind<value_idx, value_t> U(nnz + 1);
 
   CUML_LOG_INFO("Done.");
 
-  for (int i = 0; i < n_edges; i++) {
+  for (int i = 0; i < nnz; i++) {
     a = mst_src_h.data()[i];
     b = mst_dst_h.data()[i];
 
     delta = mst_weights_h.data()[i];
 
-    printf("a=%d, b=%d, delta=%f\n", a, b, delta);
-
     aa = U.find(a);
     bb = U.find(b);
-
-    printf("a=%d, b=%d, delta=%f, aa=%d, bb=%d", a, b, delta, aa, bb);
 
     int children_idx = i * 2;
 
@@ -155,9 +162,13 @@ void label_hierarchy_host(const raft::handle_t &handle, const value_idx *rows,
 
   CUML_LOG_INFO("Copying back to device");
 
-  raft::update_device(children, children_h.data(), n_edges, stream);
-  raft::update_device(out_delta, out_delta_h.data(), n_edges, stream);
-  raft::update_device(out_size, out_size_h.data(), n_edges, stream);
+  raft::update_device(children.data(), children_h.data(), n_edges * 2, stream);
+  raft::update_device(out_delta.data(), out_delta_h.data(), n_edges, stream);
+  raft::update_device(out_size.data(), out_size_h.data(), n_edges, stream);
+
+  CUDA_CHECK(cudaStreamSynchronize(stream));
+
+  CUML_LOG_INFO("Done copying back to device.");
 }
 
 /**

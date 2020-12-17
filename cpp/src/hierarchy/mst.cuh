@@ -53,8 +53,12 @@ void sort_coo_by_data(value_idx *rows, value_idx *cols, value_t *data,
 
   auto first = thrust::make_zip_iterator(thrust::make_tuple(t_rows, t_cols));
 
+  CUML_LOG_INFO("Performing sort by key");
+
   thrust::sort_by_key(thrust::cuda::par.on(stream), t_data, t_data + nnz,
                       first);
+
+  CUML_LOG_INFO("DONE!");
 }
 
 /**
@@ -72,8 +76,9 @@ void sort_coo_by_data(value_idx *rows, value_idx *cols, value_t *data,
 template <typename value_idx, typename value_t>
 void build_sorted_mst(const raft::handle_t &handle, const value_idx *indptr,
                       const value_idx *indices, const value_t *pw_dists,
-                      size_t m, value_idx *mst_src, value_idx *mst_dst,
-                      value_t *mst_weight) {
+                      size_t m, raft::mr::device::buffer<value_idx> &mst_src,
+                      raft::mr::device::buffer<value_idx> &mst_dst,
+                      raft::mr::device::buffer<value_t> &mst_weight) {
   auto d_alloc = handle.get_device_allocator();
   auto stream = handle.get_stream();
 
@@ -95,10 +100,17 @@ void build_sorted_mst(const raft::handle_t &handle, const value_idx *indptr,
   sort_coo_by_data(mst_coo.src.data(), mst_coo.dst.data(),
                    mst_coo.weights.data(), mst_coo.n_edges, stream);
 
+  CUML_LOG_INFO("Copying sorted MST To Output");
+
   // TODO: be nice if we could pass these directly into the MST (would also follow RAII)
-  raft::copy_async(mst_src, mst_coo.src.data(), mst_coo.n_edges, stream);
-  raft::copy_async(mst_dst, mst_coo.dst.data(), mst_coo.n_edges, stream);
-  raft::copy_async(mst_weight, mst_coo.weights.data(), mst_coo.n_edges, stream);
+  mst_src.resize(mst_coo.n_edges, stream);
+  mst_dst.resize(mst_coo.n_edges, stream);
+  mst_weight.resize(mst_coo.n_edges, stream);
+
+  raft::copy_async(mst_src.data(), mst_coo.src.data(), mst_coo.n_edges, stream);
+  raft::copy_async(mst_dst.data(), mst_coo.dst.data(), mst_coo.n_edges, stream);
+  raft::copy_async(mst_weight.data(), mst_coo.weights.data(), mst_coo.n_edges,
+                   stream);
 
   CUML_LOG_INFO("DONE");
 }

@@ -737,63 +737,63 @@ __global__ void coo_symmetrize_kernel(const value_idx *row_ind,
                                       Lambda reduction_op) {
   int row = (blockIdx.x * TPB_X) + threadIdx.x;
 
-  if (row >= n) return;
+  if (row < n) {
+    int start_idx = row_ind[row];  // each thread processes one row
+    int stop_idx = MLCommon::Sparse::get_stop_idx(row, n, cnnz, row_ind);
 
-  int start_idx = row_ind[row];  // each thread processes one row
-  int stop_idx = MLCommon::Sparse::get_stop_idx(row, n, cnnz, row_ind);
+    int row_nnz = 0;
+    int out_start_idx = start_idx * 2;
 
-  int row_nnz = 0;
-  int out_start_idx = start_idx * 2;
+    // TODO: Can parallelize this loop across warp
+    for (int idx = 0; idx < stop_idx - start_idx; idx++) {
+      int cur_row = rows[idx + start_idx];
+      int cur_col = cols[idx + start_idx];
+      T cur_val = vals[idx + start_idx];
 
-  // TODO: Can parallelize this loop across warp
-  for (int idx = 0; idx < stop_idx - start_idx; idx++) {
-    int cur_row = rows[idx + start_idx];
-    int cur_col = cols[idx + start_idx];
-    T cur_val = vals[idx + start_idx];
+      int lookup_row = cur_col;
+      int t_start = row_ind[lookup_row];  // Start at
+      int t_stop = MLCommon::Sparse::get_stop_idx(lookup_row, n, cnnz, row_ind);
 
-    int lookup_row = cur_col;
-    int t_start = row_ind[lookup_row];  // Start at
-    int t_stop = MLCommon::Sparse::get_stop_idx(lookup_row, n, cnnz, row_ind);
+      T transpose = 0.0;
 
-    T transpose = 0.0;
-
-    bool found_match = false;
-    for (int t_idx = t_start; t_idx < t_stop; t_idx++) {
-      // If we find a match, let's get out of the loop. We won't
-      // need to modify the transposed value, since that will be
-      // done in a different thread.
-      if (cols[t_idx] == cur_row && rows[t_idx] == cur_col) {
-        // If it exists already, set transposed value to existing value
-        transpose = vals[t_idx];
-        found_match = true;
-        break;
+      bool found_match = false;
+      for (int t_idx = t_start; t_idx < t_stop; t_idx++) {
+        // If we find a match, let's get out of the loop. We won't
+        // need to modify the transposed value, since that will be
+        // done in a different thread.
+        if (cols[t_idx] == cur_row && rows[t_idx] == cur_col) {
+          // If it exists already, set transposed value to existing value
+          transpose = vals[t_idx];
+          found_match = true;
+          break;
+        }
       }
-    }
 
-    // Custom reduction op on value and its transpose, which enables
-    // specialized weighting.
-    // If only simple X+X.T is desired, this op can just sum
-    // the two values.
-    T res = reduction_op(cur_row, cur_col, cur_val, transpose);
+      // Custom reduction op on value and its transpose, which enables
+      // specialized weighting.
+      // If only simple X+X.T is desired, this op can just sum
+      // the two values.
+      T res = reduction_op(cur_row, cur_col, cur_val, transpose);
 
-    // if we didn't find an exact match, we need to add
-    // the computed res into our current matrix to guarantee
-    // symmetry.
-    // Note that if we did find a match, we don't need to
-    // compute `res` on it here because it will be computed
-    // in a different thread.
-    if (!found_match && vals[idx] != 0.0) {
-      orows[out_start_idx + row_nnz] = cur_col;
-      ocols[out_start_idx + row_nnz] = cur_row;
-      ovals[out_start_idx + row_nnz] = res;
-      ++row_nnz;
-    }
+      // if we didn't find an exact match, we need to add
+      // the computed res into our current matrix to guarantee
+      // symmetry.
+      // Note that if we did find a match, we don't need to
+      // compute `res` on it here because it will be computed
+      // in a different thread.
+      if (!found_match && vals[idx] != 0.0) {
+        orows[out_start_idx + row_nnz] = cur_col;
+        ocols[out_start_idx + row_nnz] = cur_row;
+        ovals[out_start_idx + row_nnz] = res;
+        ++row_nnz;
+      }
 
-    if (res != 0.0) {
-      orows[out_start_idx + row_nnz] = cur_row;
-      ocols[out_start_idx + row_nnz] = cur_col;
-      ovals[out_start_idx + row_nnz] = res;
-      ++row_nnz;
+      if (res != 0.0) {
+        orows[out_start_idx + row_nnz] = cur_row;
+        ocols[out_start_idx + row_nnz] = cur_col;
+        ovals[out_start_idx + row_nnz] = res;
+        ++row_nnz;
+      }
     }
   }
 }
@@ -938,20 +938,18 @@ __global__ static void reduce_find_size(const int n, const int k,
  * @param n: Number of rows
  * @param k: Number of n_neighbors
  */
-template <typename math_t>
-__global__ static void symmetric_sum(int *restrict edges,
-                                     const math_t *restrict data,
-                                     const long *restrict indices,
-                                     math_t *restrict VAL, int *restrict COL,
-                                     int *restrict ROW, const int n,
-                                     const int k) {
+template <typename math_t, typename value_idx = int, typename Lambda>
+__global__ static void symmetric_sum(
+  value_idx *restrict edges, const math_t *restrict data,
+  const long *restrict indices, math_t *restrict VAL, value_idx *restrict COL,
+  value_idx *restrict ROW, const int n, const int k, Lambda op) {
   const int row = blockIdx.x * blockDim.x + threadIdx.x;  // for every row
   const int j = blockIdx.y * blockDim.y + threadIdx.y;  // for every item in row
   if (row >= n || j >= k) return;
 
-  const int col = indices[row * k + j];
-  const int original = atomicAdd(&edges[row], 1);
-  const int transpose = atomicAdd(&edges[col], 1);
+  const value_idx col = indices[row * k + j];
+  const value_idx original = op(&edges[row], 1);
+  const value_idx transpose = op(&edges[col], 1);
 
   VAL[transpose] = VAL[original] = data[row * k + j];
   // Notice swapped ROW, COL since transpose
@@ -980,23 +978,27 @@ __global__ static void symmetric_sum(int *restrict edges,
  * @param stream: Input cuda stream
  * @param d_alloc device allocator for temporary buffers
  */
-template <typename math_t, int TPB_X = 32, int TPB_Y = 32>
+template <typename math_t, typename Lambda, typename value_idx = int,
+          int TPB_X = 32, int TPB_Y = 32>
 void from_knn_symmetrize_matrix(const long *restrict knn_indices,
                                 const math_t *restrict knn_dists, const int n,
-                                const int k, COO<math_t> *out,
+                                const int k, COO<math_t, value_idx> *out,
                                 cudaStream_t stream,
-                                std::shared_ptr<deviceAllocator> d_alloc) {
+                                std::shared_ptr<deviceAllocator> d_alloc,
+                                Lambda op) {
   // (1) Find how much space needed in each row
   // We look through all datapoints and increment the count for each row.
   const dim3 threadsPerBlock(TPB_X, TPB_Y);
   const dim3 numBlocks(raft::ceildiv(n, TPB_X), raft::ceildiv(k, TPB_Y));
 
   // Notice n+1 since we can reuse these arrays for transpose_edges, original_edges in step (4)
-  device_buffer<int> row_sizes(d_alloc, stream, n);
-  CUDA_CHECK(cudaMemsetAsync(row_sizes.data(), 0, sizeof(int) * n, stream));
+  device_buffer<value_idx> row_sizes(d_alloc, stream, n);
+  CUDA_CHECK(
+    cudaMemsetAsync(row_sizes.data(), 0, sizeof(value_idx) * n, stream));
 
-  device_buffer<int> row_sizes2(d_alloc, stream, n);
-  CUDA_CHECK(cudaMemsetAsync(row_sizes2.data(), 0, sizeof(int) * n, stream));
+  device_buffer<value_idx> row_sizes2(d_alloc, stream, n);
+  CUDA_CHECK(
+    cudaMemsetAsync(row_sizes2.data(), 0, sizeof(value_idx) * n, stream));
 
   symmetric_find_size<<<numBlocks, threadsPerBlock, 0, stream>>>(
     knn_dists, knn_indices, n, k, row_sizes.data(), row_sizes2.data());
@@ -1018,8 +1020,8 @@ void from_knn_symmetrize_matrix(const long *restrict knn_indices,
   // are calculated as the cumulative rolling sum of the previous rows.
   // Notice reusing old row_sizes2 memory
   int *edges = row_sizes2.data();
-  thrust::device_ptr<int> __edges = thrust::device_pointer_cast(edges);
-  thrust::device_ptr<int> __row_sizes =
+  thrust::device_ptr<value_idx> __edges = thrust::device_pointer_cast(edges);
+  thrust::device_ptr<value_idx> __row_sizes =
     thrust::device_pointer_cast(row_sizes.data());
 
   // Rolling cumulative sum
@@ -1028,7 +1030,8 @@ void from_knn_symmetrize_matrix(const long *restrict knn_indices,
 
   // (5) Perform final data + data.T operation in tandem with memcpying
   symmetric_sum<<<numBlocks, threadsPerBlock, 0, stream>>>(
-    edges, knn_dists, knn_indices, out->vals(), out->cols(), out->rows(), n, k);
+    edges, knn_dists, knn_indices, out->vals(), out->cols(), out->rows(), n, k,
+    op);
   CUDA_CHECK(cudaPeekAtLastError());
 }
 
