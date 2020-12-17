@@ -136,7 +136,6 @@ def make_blobs(n_samples=100, n_features=2, centers=None, cluster_std=1.0,
     --------
     make_classification: a more intricate variant
     """
-    # Check for deprecated `output_type`. Set manually if specified
     if (output_type is not None):
         cuml.internals.set_api_output_type(output_type)
     generator = _create_rs_generator(random_state=random_state)

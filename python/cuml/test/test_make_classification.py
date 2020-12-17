@@ -18,10 +18,16 @@ import pytest
 from functools import partial
 import numpy as np
 import cupy as cp
+import cudf
 
 from cuml.datasets.classification import make_classification
 from cuml.test.utils import array_equal
 
+output_array = {
+    'cudf': cudf.core.dataframe.DataFrame,
+    'cupy': cp.core.core.ndarray,
+    'numpy': np.ndarray
+}
 
 @pytest.mark.parametrize('n_samples', [500, 1000])
 @pytest.mark.parametrize('n_features', [50, 100])
@@ -31,20 +37,23 @@ from cuml.test.utils import array_equal
 @pytest.mark.parametrize('n_informative', [7, 20])
 @pytest.mark.parametrize('random_state', [None, 1234])
 @pytest.mark.parametrize('order', ['C', 'F'])
+@pytest.mark.parametrize('output_type', ['cudf', 'cupy', 'numpy'])
 def test_make_classification(n_samples, n_features, hypercube, n_classes,
                              n_clusters_per_class, n_informative,
-                             random_state, order):
+                             random_state, order, output_type):
 
     X, y = make_classification(n_samples=n_samples, n_features=n_features,
                                n_classes=n_classes, hypercube=hypercube,
                                n_clusters_per_class=n_clusters_per_class,
                                n_informative=n_informative,
-                               random_state=random_state, order=order)
+                               random_state=random_state, order=order,
+                               output_type=output_type)
 
     assert X.shape == (n_samples, n_features)
     import cupy as cp
     assert len(cp.unique(y)) == n_classes
     assert y.shape == (n_samples, )
+    assert type(out) == output_array[output_type]
     if order == 'F':
         assert X.flags['F_CONTIGUOUS']
     elif order == 'C':

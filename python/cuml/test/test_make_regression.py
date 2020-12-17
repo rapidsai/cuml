@@ -19,6 +19,9 @@
 
 import cuml
 import pytest
+import cudf
+import numpy as np
+import cupy as cp
 
 
 # Testing parameters
@@ -34,7 +37,12 @@ effective_rank = [None, 6]
 random_state = [None, 1234]
 bias = [-4.0]
 noise = [3.5]
-
+output_type = ['cudf', 'cupy', 'numpy']
+output_array = {
+    'cudf': cudf.core.dataframe.DataFrame,
+    'cupy': cp.core.core.ndarray,
+    'numpy': np.ndarray
+}
 
 @pytest.mark.parametrize('dtype', dtype)
 @pytest.mark.parametrize('n_samples', n_samples)
@@ -47,10 +55,11 @@ noise = [3.5]
 @pytest.mark.parametrize('random_state', random_state)
 @pytest.mark.parametrize('bias', bias)
 @pytest.mark.parametrize('noise', noise)
+@pytest.mark.parametrize('output_type', output_type)
 def test_make_regression(dtype, n_samples, n_features,
                          n_informative, n_targets, shuffle, coef,
                          effective_rank, random_state, bias,
-                         noise):
+                         noise, output_type):
 
     result = cuml.make_regression(n_samples=n_samples, n_features=n_features,
                                   n_informative=n_informative,
@@ -58,7 +67,7 @@ def test_make_regression(dtype, n_samples, n_features,
                                   effective_rank=effective_rank, noise=noise,
                                   shuffle=shuffle,
                                   coef=coef, random_state=random_state,
-                                  dtype=dtype)
+                                  dtype=dtype, output_type=output_type)
 
     if coef:
         out, values, coefs = result
@@ -66,7 +75,12 @@ def test_make_regression(dtype, n_samples, n_features,
         out, values = result
 
     assert out.shape == (n_samples, n_features), "out shape mismatch"
-    assert values.shape == (n_samples, n_targets), "values shape mismatch"
-
-    if coef:
-        assert coefs.shape == (n_features, n_targets), "coefs shape mismatch"
+    assert type(out) == output_array[output_type], "output type mismatch"
+    if output_type == 'cudf' and n_targets == 1:
+        assert values.shape == (n_samples, ), "values shape mismatch"
+        if coef:
+            assert coefs.shape == (n_features, ), "coefs shape mismatch"
+    else:
+        assert values.shape == (n_samples, n_targets), "values shape mismatch"
+        if coef:
+            assert coefs.shape == (n_features, n_targets), "coefs shape mismatch"

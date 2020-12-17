@@ -16,7 +16,8 @@
 import cuml
 import pytest
 import cupy as cp
-
+import cudf
+import numpy as np
 
 # Testing parameters for scalar parameter tests
 
@@ -60,6 +61,13 @@ random_state = [
     9
 ]
 
+output_type = ['cudf', 'cupy', 'numpy']
+
+output_array = {
+    'cudf': cudf.core.dataframe.DataFrame,
+    'cupy': cp.core.core.ndarray,
+    'numpy': np.ndarray
+}
 
 @pytest.mark.parametrize('dtype', dtype)
 @pytest.mark.parametrize('n_samples', n_samples)
@@ -70,18 +78,20 @@ random_state = [
 @pytest.mark.parametrize('shuffle', shuffle)
 @pytest.mark.parametrize('random_state', random_state)
 @pytest.mark.parametrize('order', ['F', 'C'])
+@pytest.mark.parametrize('output_type', output_type)
 def test_make_blobs_scalar_parameters(dtype, n_samples, n_features, centers,
                                       cluster_std, center_box, shuffle,
-                                      random_state, order):
+                                      random_state, order, output_type):
 
     out, labels = cuml.make_blobs(dtype=dtype, n_samples=n_samples,
                                   n_features=n_features, centers=centers,
                                   cluster_std=0.001,
                                   center_box=center_box, shuffle=shuffle,
-                                  random_state=random_state, order=order)
+                                  random_state=random_state, order=order, output_type=output_type)
 
     assert out.shape == (n_samples, n_features), "out shape mismatch"
     assert labels.shape == (n_samples,), "labels shape mismatch"
+    assert type(out) == output_array[output_type], "output type mismatch"
 
     if order == 'F':
         assert out.flags['F_CONTIGUOUS']

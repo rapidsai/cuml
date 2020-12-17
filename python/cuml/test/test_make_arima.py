@@ -15,6 +15,9 @@
 
 import cuml
 import pytest
+import cudf
+import cupy as cp
+import numpy as np
 
 
 # Note: this test is not really strict, it only checks that the function
@@ -30,6 +33,12 @@ random_state = [None, 1234]
 order = [(3, 0, 0, 0, 0, 0, 0, 1),
          (0, 1, 2, 0, 0, 0, 0, 1),
          (1, 1, 1, 2, 1, 0, 12, 0)]
+output_type = ['cudf', 'cupy', 'numpy']
+output_array = {
+    'cudf': cudf.core.dataframe.DataFrame,
+    'cupy': cp.core.core.ndarray,
+    'numpy': np.ndarray
+}
 
 
 @pytest.mark.parametrize('dtype', dtype)
@@ -37,12 +46,15 @@ order = [(3, 0, 0, 0, 0, 0, 0, 1),
 @pytest.mark.parametrize('n_obs', n_obs)
 @pytest.mark.parametrize('random_state', random_state)
 @pytest.mark.parametrize('order', order)
-def test_make_arima(dtype, batch_size, n_obs, random_state, order):
+@pytest.mark.parametrize('output_type', output_type)
+def test_make_arima(dtype, batch_size, n_obs, random_state, order, output_type):
     p, d, q, P, D, Q, s, k = order
 
     out = cuml.make_arima(batch_size, n_obs,
                           (p, d, q), (P, D, Q, s), k,
                           random_state=random_state,
-                          dtype=dtype)
+                          dtype=dtype,
+                          output_type=output_type)
 
     assert out.shape == (n_obs, batch_size), "out shape mismatch"
+    assert type(out) == output_array[output_type]
