@@ -59,13 +59,14 @@ def cython_precision_score(labels_true, labels_pred, handle=None) -> float:
 
   y_true, n_rows, _, dtype = input_to_cuml_array(
     labels_true,
-    # check_dtype=[cp.int32, cp.int64],
+    order='K',
     check_cols=1,
     deepcopy=True  # deepcopy because we call make_monotonic inplace below
   )
 
   y_pred, _, _, _ = input_to_cuml_array(
     labels_pred,
+    order='K',
     check_dtype=dtype,
     check_rows=n_rows,
     check_cols=1,

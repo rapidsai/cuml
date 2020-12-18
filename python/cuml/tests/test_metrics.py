@@ -777,8 +777,14 @@ def test_roc_auc_score_at_limits():
 
 @pytest.mark.parametrize('dtype', [np.int32, np.int64])
 def test_precision_score(dtype):
-  y_true = np.array([0, 1, 0, 1], dtype=dtype)
-  y_pred = np.array([0, 0, 1, 1], dtype=dtype)
+  y_true, _, _, _ = generate_random_labels(
+        lambda rng: rng.randint(0, 2, 4).astype(dtype))
+
+  y_pred, _, _, _ = generate_random_labels(
+        lambda rng: rng.randint(0, 2, 4).astype(dtype))
+
+  # y_true = np.array([0, 1, 0, 1], dtype=dtype)
+  # y_pred = np.array([0, 0, 1, 1], dtype=dtype)
   precision = precision_score(y_true, y_pred)
   sklearn_precision = sklearn_precision_score(y_true, y_pred)
   assert_almost_equal(precision, sklearn_precision)
