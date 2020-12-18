@@ -146,21 +146,15 @@ def average_precision_score(y_true, y_score):
     >>> y_scores = np.array([0.1, 0.4, 0.35, 0.8])
     >>> print(average_precision_score(y_true, y_scores))
     0.83
-
     """
-    y_true, n_rows, n_cols, ytype = \
-        input_to_cupy_array(y_true, check_dtype=[np.int32, np.int64,
-                                                 np.float32, np.float64])
+    # y_true, n_rows, n_cols, ytype = \
+    #     input_to_cupy_array(y_true, check_dtype=[np.int32, np.int64,
+    #                                              np.float32, np.float64])
 
-    y_score, _, _, _ = \
-        input_to_cupy_array(y_score, check_dtype=[np.int32, np.int64,
-                                                  np.float32, np.float64],
-                            check_rows=n_rows, check_cols=n_cols)
-    return _binary_average_precision_score(y_true, y_score)
-
-
-def _binary_average_precision_score(y_true, y_score):
-    """Compute binary average_precision_score using cupy"""
+    # y_score, _, _, _ = \
+    #     input_to_cupy_array(y_score, check_dtype=[np.int32, np.int64,
+    #                                              np.float32, np.float64],
+    #                         check_rows=n_rows, check_cols=n_cols)
 
     if cp.unique(y_true).shape[0] == 1:
         raise ValueError("average_precision_score cannot be used when "
@@ -169,7 +163,6 @@ def _binary_average_precision_score(y_true, y_score):
 
     precision, recall, thresholds = precision_recall_curve(y_true, y_score)
     return -cp.sum(cp.diff(recall) * cp.array(precision)[:-1])
-
 
 @cuml.internals.api_return_any()
 def roc_auc_score(y_true, y_score):
