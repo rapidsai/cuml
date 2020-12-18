@@ -311,13 +311,19 @@ void build_treelite_forest(ModelHandle* model,
   // The value should be set to 0 if the model is gradient boosted trees.
   int random_forest_flag = 1;
   ModelBuilderHandle model_builder;
-  // num_output_group is 1 for binary classification and regression
-  // num_output_group is #class for multiclass classification which is the same as task_category
-  int num_output_group = task_category > 2 ? task_category : 1;
+  // num_class is 1 for binary classification and regression
+  // num_class is #class for multiclass classification which is the same as task_category
+  int num_class = task_category > 2 ? task_category : 1;
+
+  const char* leaf_type = DecisionTree::TreeliteType<L>::value;
+  if (std::is_same<L, int>::value) {
+    // Treelite codegen doesn't yet support integer leaf output
+    leaf_type = DecisionTree::TreeliteType<float>::value;
+  }
+
   TREELITE_CHECK(TreeliteCreateModelBuilder(
-    num_features, num_output_group, random_forest_flag,
-    DecisionTree::TreeliteType<T>::value, DecisionTree::TreeliteType<L>::value,
-    &model_builder));
+    num_features, num_class, random_forest_flag,
+    DecisionTree::TreeliteType<T>::value, leaf_type, &model_builder));
 
   if (task_category > 2) {
     // Multi-class classification
@@ -330,11 +336,10 @@ void build_treelite_forest(ModelHandle* model,
     TreeBuilderHandle tree_builder;
 
     TREELITE_CHECK(TreeliteCreateTreeBuilder(
-      DecisionTree::TreeliteType<T>::value,
-      DecisionTree::TreeliteType<L>::value, &tree_builder));
+      DecisionTree::TreeliteType<T>::value, leaf_type, &tree_builder));
     if (tree_ptr->sparsetree.size() != 0) {
       DecisionTree::build_treelite_tree<T, L>(tree_builder, tree_ptr,
-                                              num_output_group);
+                                              num_class);
 
       // The third argument -1 means append to the end of the tree list.
       TREELITE_CHECK(
@@ -470,7 +475,9 @@ ModelHandle concatenate_trees(std::vector<ModelHandle> treelite_handles) {
                                                  auto& first_model_inner) {
     // first_model_inner is of the concrete type tl::ModelImpl<T, L>
     using model_type = std::remove_reference_t<decltype(first_model_inner)>;
-    auto* concat_model = new model_type();
+    auto* concat_model = dynamic_cast<model_type*>(
+      tl::Model::Create(first_model_inner.GetThresholdType(),
+                        first_model_inner.GetLeafOutputType()).release());
     for (int forest_idx = 0; forest_idx < treelite_handles.size();
          forest_idx++) {
       tl::Model& model = *(tl::Model*)treelite_handles[forest_idx];
