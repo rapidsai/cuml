@@ -62,32 +62,92 @@ union val_t {
   int idx;
 };
 
-/** dense_node_t is a node in a densely-stored forest */
-struct dense_node_t {
+/** base_node contains common implementation details for dense and sparse nodes */
+struct base_node {
+  /** val is either the threshold (for inner nodes, always float)
+      or the tree prediction (for leaf nodes) */
   val_t val;
+  /** bits encode various information about the node, with the exact nature of
+      this information depending on the node type; it includes e.g. whether the
+      node is a leaf or inner node, and for inner nodes, additional information,
+      e.g. the default direction, feature id or child index */
   int bits;
+  static const int FID_MASK = (1 << 30) - 1;
+  static const int DEF_LEFT_MASK = 1 << 30;
+  static const int IS_LEAF_MASK = 1 << 31;
+  template <class o_t>
+  __host__ __device__ o_t output() const {
+    return val;
+  }
+  __host__ __device__ float thresh() const { return val.f; }
+  __host__ __device__ int fid() const { return bits & FID_MASK; }
+  __host__ __device__ bool def_left() const { return bits & DEF_LEFT_MASK; }
+  __host__ __device__ bool is_leaf() const { return bits & IS_LEAF_MASK; }
+  __host__ __device__ base_node() : val({.f = 0}), bits(0){};
+  base_node(val_t output, float thresh, int fid, bool def_left, bool is_leaf) {
+    bits = (fid & FID_MASK) | (def_left ? DEF_LEFT_MASK : 0) |
+           (is_leaf ? IS_LEAF_MASK : 0);
+    if (is_leaf)
+      val = output;
+    else
+      val.f = thresh;
+  }
 };
 
-/** sparse_node16_extra_data is what's missing from a dense node to store
-    a sparse node, that is, extra indexing information due to compressing
-    a sparse tree. */
-struct sparse_node16_extra_data {
+/** dense_node is a single node of a dense forest */
+struct alignas(8) dense_node : base_node {
+  dense_node() = default;
+  dense_node(val_t output, float thresh, int fid, bool def_left, bool is_leaf)
+    : base_node(output, thresh, fid, def_left, is_leaf) {}
+  /** index of the left child, where curr is the index of the current node */
+  __host__ __device__ int left(int curr) const { return 2 * curr + 1; }
+};
+
+/** sparse_node16 is a 16-byte node in a sparse forest */
+struct alignas(16) sparse_node16 : base_node {
   int left_idx;
   int dummy;  // make alignment explicit and reserve for future use
+  __host__ __device__ sparse_node16() : left_idx(0), dummy(0) {}
+  sparse_node16(val_t output, float thresh, int fid, bool def_left,
+                bool is_leaf, int left_index)
+    : base_node(output, thresh, fid, def_left, is_leaf),
+      left_idx(left_index),
+      dummy(0) {}
+  __host__ __device__ int left_index() const { return left_idx; }
+  /** index of the left child, where curr is the index of the current node */
+  __host__ __device__ int left(int curr) const { return left_idx; }
 };
 
-/** sparse_node16_t is a 16-byte node in a sparsely-stored forest */
-struct sparse_node16_t : dense_node_t, sparse_node16_extra_data {
-  sparse_node16_t() = default;
-  sparse_node16_t(dense_node_t dn, sparse_node16_extra_data ed)
-    : dense_node_t(dn), sparse_node16_extra_data(ed) {}
-};
-
-/** sparse_node8_t is a node of reduced size (8 bytes)
-    in a sparsely-stored forest */
-struct sparse_node8_t : dense_node_t {
-  sparse_node8_t() = default;
-  sparse_node8_t(dense_node_t dn) : dense_node_t(dn) {}
+/** sparse_node8 is a node of reduced size (8 bytes) in a sparse forest */
+struct alignas(8) sparse_node8 : base_node {
+  static const int FID_NUM_BITS = 14;
+  static const int FID_MASK = (1 << FID_NUM_BITS) - 1;
+  static const int LEFT_OFFSET = FID_NUM_BITS;
+  static const int LEFT_NUM_BITS = 16;
+  static const int LEFT_MASK = ((1 << LEFT_NUM_BITS) - 1) << LEFT_OFFSET;
+  static const int DEF_LEFT_OFFSET = LEFT_OFFSET + LEFT_NUM_BITS;
+  static const int DEF_LEFT_MASK = 1 << DEF_LEFT_OFFSET;
+  static const int IS_LEAF_OFFSET = 31;
+  static const int IS_LEAF_MASK = 1 << IS_LEAF_OFFSET;
+  __host__ __device__ int fid() const { return bits & FID_MASK; }
+  __host__ __device__ bool def_left() const { return bits & DEF_LEFT_MASK; }
+  __host__ __device__ bool is_leaf() const { return bits & IS_LEAF_MASK; }
+  __host__ __device__ int left_index() const {
+    return (bits & LEFT_MASK) >> LEFT_OFFSET;
+  }
+  sparse_node8() = default;
+  sparse_node8(val_t output, float thresh, int fid, bool def_left, bool is_leaf,
+               int left_index) {
+    if (is_leaf)
+      val = output;
+    else
+      val.f = thresh;
+    bits = fid | left_index << LEFT_OFFSET |
+           (def_left ? 1 : 0) << DEF_LEFT_OFFSET |
+           (is_leaf ? 1 : 0) << IS_LEAF_OFFSET;
+  }
+  /** index of the left child, where curr is the index of the current node */
+  __host__ __device__ int left(int curr) const { return left_index(); }
 };
 
 /** leaf_algo_t describes what the leaves in a FIL forest store (predict)
@@ -140,22 +200,6 @@ struct leaf_output_t<leaf_algo_t::GROVE_PER_CLASS_MANY_CLASSES> {
   typedef float T;
 };
 
-/** node_init initializes node from paramters */
-void node_init(dense_node_t* n, val_t output, float thresh, int fid,
-               bool def_left, bool is_leaf);
-void node_init(sparse_node16_t* node, val_t output, float thresh, int fid,
-               bool def_left, bool is_leaf, int left_index);
-void node_init(sparse_node8_t* node, val_t output, float thresh, int fid,
-               bool def_left, bool is_leaf, int left_index);
-
-/** node_decode extracts individual members from node */
-void node_decode(const dense_node_t* node, val_t* output, float* thresh,
-                 int* fid, bool* def_left, bool* is_leaf);
-void node_decode(const sparse_node16_t* node, val_t* output, float* thresh,
-                 int* fid, bool* def_left, bool* is_leaf, int* left_index);
-void node_decode(const sparse_node8_t* node, val_t* output, float* thresh,
-                 int* fid, bool* def_left, bool* is_leaf, int* left_index);
-
 /** forest_params_t are the trees to initialize the predictor */
 struct forest_params_t {
   // total number of nodes; ignored for dense forests
@@ -196,30 +240,22 @@ struct forest_params_t {
       (2**(params->depth + 1) - 1) * params->ntrees
  *  @param params pointer to parameters used to initialize the forest
  */
-void init_dense(const raft::handle_t& h, forest_t* pf,
-                const dense_node_t* nodes, const forest_params_t* params);
+void init_dense(const raft::handle_t& h, forest_t* pf, const dense_node* nodes,
+                const forest_params_t* params);
 
 /** init_sparse uses params, trees and nodes to initialize the sparse forest
- *  with 16-byte nodes stored in pf
+ *  with sparse nodes stored in pf
+ *  @tparam fil_node_t node type to use with the sparse forest;
+ *    must be sparse_node16 or sparse_node8
  *  @param h cuML handle used by this function
  *  @param pf pointer to where to store the newly created forest
  *  @param trees indices of tree roots in the nodes arrray, of length params->ntrees
  *  @param nodes nodes for the forest, of length params->num_nodes
  *  @param params pointer to parameters used to initialize the forest
  */
+template <typename fil_node_t>
 void init_sparse(const raft::handle_t& h, forest_t* pf, const int* trees,
-                 const sparse_node16_t* nodes, const forest_params_t* params);
-
-/** init_sparse uses params, trees and nodes to initialize the sparse forest
- *  with 8-byte nodes stored in pf
- *  @param h cuML handle used by this function
- *  @param pf pointer to where to store the newly created forest
- *  @param trees indices of tree roots in the nodes arrray, of length params->ntrees
- *  @param nodes nodes for the forest, of length params->num_nodes
- *  @param params pointer to parameters used to initialize the forest
- */
-void init_sparse(const raft::handle_t& h, forest_t* pf, const int* trees,
-                 const sparse_node8_t* nodes, const forest_params_t* params);
+                 const fil_node_t* nodes, const forest_params_t* params);
 
 }  // namespace fil
 }  // namespace ML
