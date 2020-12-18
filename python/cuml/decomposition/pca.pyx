@@ -428,6 +428,8 @@ class PCA(Base):
                 ' n_components argument defauts to using'
                 ' min(n_samples, n_features) rather than 1'
             )
+            n_rows = X.shape[0]
+            n_cols = X.shape[1]
             self.n_components_ = min(n_rows, n_cols)
         else:
             self.n_components_ = self.n_components
