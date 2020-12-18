@@ -66,8 +66,25 @@ void knn_regress(raft::handle_t &handle,
                  std::vector<std::vector<float *>> &y, bool rowMajorIndex,
                  bool rowMajorQuery, int k, int n_outputs, size_t batch_size,
                  bool verbose) {
-  opg_knn(handle, out, out_I, out_D, idx_data, idx_desc, query_data, query_desc,
-          y, rowMajorIndex, rowMajorQuery, k, n_outputs, batch_size, verbose);
+  opg_knn_param params;
+  params.knn_op = knn_operation::regression;
+  params.out.f = out;
+  params.out_I = out_I;
+  params.out_D = out_D;
+  params.idx_data = &idx_data;
+  params.idx_desc = &idx_desc;
+  params.query_data = &query_data;
+  params.query_desc = &query_desc;
+  params.y.f = &y;
+  params.rowMajorIndex = rowMajorIndex;
+  params.rowMajorQuery = rowMajorQuery;
+  params.k = k;
+  params.n_outputs = n_outputs;
+  params.batch_size = batch_size;
+  params.verbose = verbose;
+
+  cuda_utils cutils(handle);
+  opg_knn(params, cutils);
 }
 };  // namespace opg
 };  // namespace KNN

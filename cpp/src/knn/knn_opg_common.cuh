@@ -68,69 +68,114 @@ namespace opg {
 
 namespace knn_common {
 
-template <typename T>
-void opg_knn(raft::handle_t &handle, std::vector<Matrix::Data<T> *> *out,
-             std::vector<Matrix::Data<int64_t> *> *out_I,
-             std::vector<Matrix::floatData_t *> *out_D,
-             std::vector<Matrix::floatData_t *> &idx_data,
-             Matrix::PartDescriptor &idx_desc,
-             std::vector<Matrix::floatData_t *> &query_data,
-             Matrix::PartDescriptor &query_desc,
-             std::vector<std::vector<T *>> &y, bool rowMajorIndex,
-             bool rowMajorQuery, int k, int n_outputs, size_t batch_size,
-             bool verbose, std::vector<std::vector<float *>> *probas = nullptr,
-             std::vector<int *> *uniq_labels = nullptr,
-             std::vector<int> *n_unique = nullptr, bool probas_only = false);
+enum knn_operation { knn, classification, class_proba, regression };
 
-template <typename T>
-void reduce(raft::handle_t &handle, std::vector<Matrix::Data<T> *> *out,
-            std::vector<Matrix::Data<int64_t> *> *out_I,
-            std::vector<Matrix::floatData_t *> *out_D, device_buffer<T> &res,
-            device_buffer<int64_t> &res_I, device_buffer<float> &res_D,
-            Matrix::PartDescriptor &index_desc, size_t cur_batch_size, int k,
-            int n_outputs, int local_parts_completed, int cur_batch,
-            size_t total_n_processed, std::set<int> idxRanks, int my_rank,
-            bool probas_only = false,
-            std::vector<std::vector<float *>> *probas = nullptr,
-            std::vector<int *> *uniq_labels = nullptr,
-            std::vector<int> *n_unique = nullptr);
+struct opg_knn_param {
+  knn_operation knn_op;
+  std::vector<Matrix::Data<int64_t> *> *out_I = nullptr;
+  std::vector<Matrix::floatData_t *> *out_D = nullptr;
+  std::vector<Matrix::floatData_t *> *idx_data = nullptr;
+  Matrix::PartDescriptor *idx_desc = nullptr;
+  std::vector<Matrix::floatData_t *> *query_data = nullptr;
+  Matrix::PartDescriptor *query_desc = nullptr;
+  bool rowMajorIndex;
+  bool rowMajorQuery;
+  size_t k = 0;
+  int n_outputs = 0;
+  size_t batch_size = 0;
+  bool verbose;
+  std::vector<std::vector<float *>> *probas = nullptr;
+  std::vector<int *> *uniq_labels = nullptr;
+  std::vector<int> *n_unique = nullptr;
 
-void broadcast_query(float *query, size_t batch_input_elms, int part_rank,
-                     std::set<int> idxRanks, const raft::comms::comms_t &comm,
-                     cudaStream_t stream);
+  union labels_data {
+    std::vector<std::vector<int *>> *i;
+    std::vector<std::vector<float *>> *f;
+  };
 
-template <typename T>
-void exchange_results(device_buffer<T> &res, device_buffer<int64_t> &res_I,
-                      device_buffer<float> &res_D,
-                      const raft::comms::comms_t &comm, int part_rank,
-                      std::set<int> idxRanks, cudaStream_t stream,
-                      size_t cur_batch_size, int k, int n_outputs,
+  union outputs_data {
+    std::vector<Matrix::Data<int> *> *i;
+    std::vector<Matrix::Data<float> *> *f;
+  };
+
+  outputs_data out;
+  labels_data y;
+};
+
+struct cuda_utils {
+  cuda_utils(raft::handle_t &handle) {
+    this->alloc = handle.get_device_allocator();
+    this->stream = handle.get_stream();
+    this->comm = &(handle.get_comms());  //communicator_ is a private attribute
+    this->n_internal_streams = handle.get_num_internal_streams();
+    this->internal_streams_.resize(this->n_internal_streams);
+    for (int i = 0; i < this->n_internal_streams; i++) {
+      internal_streams_[i] = handle.get_internal_stream(i);
+    }
+    this->internal_streams = internal_streams_.data();
+  };
+  std::shared_ptr<deviceAllocator> alloc;
+  cudaStream_t stream;
+  const raft::comms::comms_t *comm;
+  cudaStream_t *internal_streams;
+  std::vector<cudaStream_t> internal_streams_;
+  int n_internal_streams;
+};
+
+struct opg_knn_utils {
+  opg_knn_utils(opg_knn_param &params, cuda_utils &cutils) {
+    this->my_rank = cutils.comm->get_rank();
+    this->idxRanks = params.idx_desc->uniqueRanks();
+    this->idxPartsToRanks = params.idx_desc->partsToRanks;
+    this->local_idx_parts =
+      params.idx_desc->blocksOwnedBy(cutils.comm->get_rank());
+    this->queryPartsToRanks = params.query_desc->partsToRanks;
+
+    this->res_I = new device_buffer<int64_t>(cutils.alloc, cutils.stream);
+    this->res_D = new device_buffer<float>(cutils.alloc, cutils.stream);
+    this->res = new device_buffer<char32_t>(cutils.alloc, cutils.stream);
+  };
+
+  ~opg_knn_utils() {
+    delete res_I;
+    delete res_D;
+    delete res;
+  };
+
+  int my_rank;
+  std::set<int> idxRanks;
+  std::vector<Matrix::RankSizePair *> idxPartsToRanks;
+  std::vector<Matrix::RankSizePair *> local_idx_parts;
+  std::vector<Matrix::RankSizePair *> queryPartsToRanks;
+
+  device_buffer<int64_t> *res_I;
+  device_buffer<float> *res_D;
+  device_buffer<char32_t> *res;
+};
+
+void opg_knn(opg_knn_param &params, cuda_utils &cutils);
+
+void broadcast_query(opg_knn_utils &utils, cuda_utils &cutils, float *query,
+                     size_t batch_input_elms, int part_rank);
+
+void perform_local_knn(opg_knn_param &params, opg_knn_utils &utils,
+                       cuda_utils &cutils, size_t cur_batch_size,
+                       float *cur_query_ptr);
+
+void perform_local_operation(opg_knn_param &params, opg_knn_utils &utils,
+                             cuda_utils &cutils, char32_t *out,
+                             int64_t *knn_indices, char32_t *labels,
+                             size_t cur_batch_size,
+                             std::vector<float *> &probas_with_offsets);
+
+void exchange_results(opg_knn_param &params, opg_knn_utils &utils,
+                      cuda_utils &cutils, int part_rank, size_t cur_batch_size,
                       int local_parts_completed);
 
-void perform_local_knn(int64_t *res_I, float *res_D,
-                       std::vector<Matrix::floatData_t *> &idx_data,
-                       Matrix::PartDescriptor &idx_desc,
-                       std::vector<Matrix::RankSizePair *> &local_idx_parts,
-                       std::vector<size_t> &start_indices, cudaStream_t stream,
-                       cudaStream_t *internal_streams, int n_internal_streams,
-                       std::shared_ptr<deviceAllocator> allocator,
-                       size_t cur_batch_size, int k, float *cur_query_ptr,
-                       bool rowMajorIndex, bool rowMajorQuery);
+void reduce(opg_knn_param &params, opg_knn_utils &utils, cuda_utils &cutils,
+            size_t cur_batch_size, int local_parts_completed, int cur_batch,
+            size_t total_n_processed);
 
-template <typename T>
-void perform_local_operation(T *out, int64_t *knn_indices, T *labels,
-                             size_t cur_batch_size, int k, int n_outputs,
-                             raft::handle_t &h, bool probas_only = false,
-                             std::vector<float *> *probas = nullptr,
-                             std::vector<int *> *uniq_labels = nullptr,
-                             std::vector<int> *n_unique = nullptr);
-
-template <typename T>
-void copy_outputs(T *out, int64_t *knn_indices,
-                  std::vector<std::vector<T *>> &y, size_t cur_batch_size,
-                  int k, int n_outputs, int n_features, int my_rank,
-                  std::vector<Matrix::RankSizePair *> &idxPartsToRanks,
-                  std::shared_ptr<deviceAllocator> alloc, cudaStream_t stream);
 };  // namespace knn_common
 };  // namespace opg
 };  // namespace KNN
