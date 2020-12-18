@@ -27,8 +27,6 @@
 
 #include <limits.h>
 
-#include <cuml/distance/distance_type.h>
-
 #include <nvfunctional>
 
 #include <cusparse_v2.h>
@@ -60,7 +58,7 @@ struct BlockSemiring {
                                   value_idx *shared_cols_,
                                   value_t *shared_vals_, value_idx *chunk_cols_,
                                   value_t *chunk_vals_, value_idx *offsets_a_,
-                                  bool verbose_, value_t p = 1.0)
+                                  value_t p = 1.0)
     : tid(tid_),
       p(p),
       m(m_),
@@ -72,7 +70,6 @@ struct BlockSemiring {
       offsets_a(offsets_a_),
       done(false),
       shared_idx(0),
-      verbose(verbose_),
       row_count(0),
       cur_sum(0.0) {}
 
@@ -87,15 +84,16 @@ struct BlockSemiring {
     start_offset_a = offsets_a[0];
     stop_offset_a = offsets_a[1];
 
+    shared_size = stop_offset_a - start_offset_a;
+
     // Coalesce reads of row from matrix A into shared memory
-    for (int i = tid; i < stop_offset_a - start_offset_a; i += blockDim.x) {
+    for (int i = tid; i < shared_size; i += blockDim.x) {
       shared_cols[i] = indicesA[start_offset_a + i];
       shared_vals[i] = dataA[start_offset_a + i];
     }
 
     __syncthreads();
 
-    shared_size = stop_offset_a - start_offset_a;
     row_a = row;
   }
 
@@ -105,7 +103,7 @@ struct BlockSemiring {
     cur_sum = 0.0;
 
     start_row_b = start_row;
-    stop_row_b = min(start_row_b + tpb, n - start_row_b);
+    stop_row_b = min(start_row_b + tpb, start_row_b + (n - start_row_b));
 
     n_rows = (stop_row_b - start_row_b);
 
@@ -159,11 +157,6 @@ struct BlockSemiring {
   __device__ inline void write(value_t *out) {
     for (int i = tid; i < n_rows; i += blockDim.x) {
       out[row_a * n + row_b] = cur_sum;
-
-      if (row_a == 0)
-        printf(
-          "bid=%d, tid=%d, cur_row_a=%d, cur_row_b=%d, cur_sum=%f, idx=%d\n",
-          blockIdx.x, threadIdx.x, row_a, row_b, cur_sum, (row_a * n + row_b));
     }
   }
 
@@ -207,8 +200,6 @@ struct BlockSemiring {
   value_t *shared_vals;
   value_idx *chunk_cols;
   value_t *chunk_vals;
-
-  bool verbose;
 };
 
 /**
@@ -225,25 +216,24 @@ __global__ void classic_csr_semiring_spmv_kernel(
   accum_f accum_func, value_t p = 1.0) {
   value_idx out_row = blockIdx.x / n_blocks_per_row;
   value_idx out_col_start = blockIdx.x % n_blocks_per_row;
+
+  value_idx row_b_start = out_col_start * n_rows_per_block;
   value_idx tid = threadIdx.x;
 
-  if (out_row > m || out_col_start > n_blocks_per_row) return;
+  if (out_row > m || row_b_start > n) return;
 
   __shared__ value_idx shared_cols[buffer_size];
   __shared__ value_t shared_vals[buffer_size];
   __shared__ value_idx offsets_a[2];
 
-  bool verbose = tid <= 3 && out_row < 3;
-
   BlockSemiring<value_idx, value_t, tpb, buffer_size> semiring(
-    tid, m, n, shared_cols, shared_vals, indicesB, dataB, offsets_a, verbose,
-    p);
+    tid, m, n, shared_cols, shared_vals, indicesB, dataB, offsets_a, p);
 
   semiring.load_a(out_row, indptrA, indicesA, dataA);
 
   // for each batch, parallel the resulting rows across threads
   for (int i = 0; i < n_rows_per_block; i += blockDim.x) {
-    semiring.load_b(out_col_start + i, indptrB);
+    semiring.load_b(row_b_start + i, indptrB);
     do {
       semiring.step(reduce_func, accum_func);
     } while (!semiring.isdone());
@@ -271,7 +261,7 @@ template <typename value_idx = int, typename value_t = float,
           typename reduce_f = auto(value_t, value_t)->value_t,
           typename accum_f = auto(value_t, value_t)->value_t>
 void generalized_csr_pairwise_semiring(
-  value_t *out_dists, distances_config_t<value_idx, value_t> config_,
+  value_t *out_dists, distances_config_t<value_idx, value_t> &config_,
   reduce_f reduce_func, accum_f accum_func, value_t p = 1.0) {
   int n_chunks = 1;
   int n_rows_per_block = min(n_chunks * threads_per_block, config_.b_nrows);

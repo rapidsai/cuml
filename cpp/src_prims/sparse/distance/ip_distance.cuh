@@ -63,7 +63,8 @@ class ip_distances_gemm_t : public ip_trans_getters_t<value_idx, value_t> {
    * Computes simple sparse inner product distances as sum(x_y * y_k)
    * @param[in] config specifies inputs, outputs, and sizes
    */
-  explicit ip_distances_gemm_t(distances_config_t<value_idx, value_t> config)
+  explicit ip_distances_gemm_t(
+    const distances_config_t<value_idx, value_t> &config)
     : config_(config),
       workspace(config.allocator, config.stream, 0),
       csc_indptr(config.allocator, config.stream, 0),
@@ -211,7 +212,7 @@ class ip_distances_spmv_t : public ip_trans_getters_t<value_idx, value_t> {
    * Computes simple sparse inner product distances as sum(x_y * y_k)
    * @param[in] config specifies inputs, outputs, and sizes
    */
-  ip_distances_spmv_t(distances_config_t<value_idx, value_t> config)
+  ip_distances_spmv_t(const distances_config_t<value_idx, value_t> &config)
     : config_(config),
       coo_rows_b(config.allocator, config.stream, config.b_nnz) {
     MLCommon::Sparse::csr_to_coo(config_.b_indptr, config_.b_nrows,
@@ -249,7 +250,7 @@ class ip_distances_t : public distances_t<value_t> {
    * Computes simple sparse inner product distances as sum(x_y * y_k)
    * @param[in] config specifies inputs, outputs, and sizes
    */
-  explicit ip_distances_t(distances_config_t<value_idx, value_t> config)
+  explicit ip_distances_t(const distances_config_t<value_idx, value_t> &config)
     : config_(config) {
     int smem = raft::getSharedMemPerBlock();
 

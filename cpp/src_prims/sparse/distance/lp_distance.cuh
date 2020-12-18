@@ -47,7 +47,7 @@ namespace Distance {
 template <typename value_idx = int, typename value_t = float>
 class l1_distances_t : public distances_t<value_t> {
  public:
-  l1_distances_t(distances_config_t<value_idx, value_t> config)
+  l1_distances_t(const distances_config_t<value_idx, value_t> &config)
     : config_(config) {}
 
   void compute(value_t *out_dists) {
@@ -58,11 +58,6 @@ class l1_distances_t : public distances_t<value_t> {
         return fabsf(a - b);
       },
       [] __host__ __device__(value_t a, value_t b) { return a + b; });
-
-    CUDA_CHECK(cudaStreamSynchronize(config_.stream));
-
-    std::cout << raft::arr2Str(out_dists, 10, "out_dists", config_.stream)
-              << std::endl;
   }
 
  private:
@@ -72,7 +67,8 @@ class l1_distances_t : public distances_t<value_t> {
 template <typename value_idx = int, typename value_t = float>
 class l2_unexpanded_distances_t : public distances_t<value_t> {
  public:
-  l2_unexpanded_distances_t(distances_config_t<value_idx, value_t> config)
+  l2_unexpanded_distances_t(
+    const distances_config_t<value_idx, value_t> &config)
     : config_(config) {}
 
   void compute(value_t *out_dists) {
@@ -89,9 +85,10 @@ class l2_unexpanded_distances_t : public distances_t<value_t> {
 };
 
 template <typename value_idx = int, typename value_t = float>
-class chebychev_distances_t : public distances_t<value_t> {
+class chebyshev_distances_t : public distances_t<value_t> {
  public:
-  explicit chebychev_distances_t(distances_config_t<value_idx, value_t> config)
+  explicit chebyshev_distances_t(
+    const distances_config_t<value_idx, value_t> &config)
     : config_(config) {}
 
   void compute(value_t *out_dists) {
@@ -110,7 +107,8 @@ class chebychev_distances_t : public distances_t<value_t> {
 template <typename value_idx = int, typename value_t = float>
 class canberra_distances_t : public distances_t<value_t> {
  public:
-  explicit canberra_distances_t(distances_config_t<value_idx, value_t> config)
+  explicit canberra_distances_t(
+    const distances_config_t<value_idx, value_t> &config)
     : config_(config) {}
 
   void compute(value_t *out_dists) {
@@ -129,8 +127,8 @@ class canberra_distances_t : public distances_t<value_t> {
 template <typename value_idx = int, typename value_t = float>
 class minkowski_distances_t : public distances_t<value_t> {
  public:
-  explicit minkowski_distances_t(distances_config_t<value_idx, value_t> config,
-                                 value_t p_)
+  explicit minkowski_distances_t(
+    const distances_config_t<value_idx, value_t> &config, value_t p_)
     : config_(config), p(p_) {}
 
   void compute(value_t *out_dists) {

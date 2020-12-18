@@ -60,9 +60,9 @@ template class l2_distances_t<int, float>;
 template class distances_config_t<int, float>;
 
 template <typename value_idx = int, typename value_t = float>
-void pairwiseDistance(value_t *out,
-                      distances_config_t<value_idx, value_t> input_config,
-                      raft::distance::DistanceType metric, float p = 0.0) {
+void pairwiseDistance(
+  value_t *out, const distances_config_t<value_idx, value_t> &input_config,
+  raft::distance::DistanceType metric, float p = 0.0) {
   CUML_LOG_DEBUG("Running sparse pairwise distances with metric=%d", metric);
 
   switch (metric) {
@@ -74,19 +74,19 @@ void pairwiseDistance(value_t *out,
       // InnerProduct
       ip_distances_t<value_idx, value_t>(input_config).compute(out);
       break;
-    case ML::Distance::DistanceType::EucUnexpandedL1:
+    case raft::distance::DistanceType::EucUnexpandedL1:
       l1_distances_t<value_idx, value_t>(input_config).compute(out);
       break;
-    case ML::Distance::DistanceType::EucUnexpandedL2:
+    case raft::distance::DistanceType::EucUnexpandedL2:
       l2_unexpanded_distances_t<value_idx, value_t>(input_config).compute(out);
       break;
-    case ML::Distance::DistanceType::Chebyshev:
-      chebychev_distances_t<value_idx, value_t>(input_config).compute(out);
+    case raft::distance::DistanceType::Chebyshev:
+      chebyshev_distances_t<value_idx, value_t>(input_config).compute(out);
       break;
-    case ML::Distance::DistanceType::Canberra:
+    case raft::distance::DistanceType::Canberra:
       canberra_distances_t<value_idx, value_t>(input_config).compute(out);
       break;
-    case ML::Distance::DistanceType::Minkowski:
+    case raft::distance::DistanceType::Minkowski:
       minkowski_distances_t<value_idx, value_t>(input_config, p).compute(out);
       break;
     default:

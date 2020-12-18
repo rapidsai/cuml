@@ -316,11 +316,6 @@ class sparse_knn_t {
 
       rows_processed += query_batcher.batch_rows();
     }
-
-    CUDA_CHECK(cudaStreamSynchronize(stream));
-
-    std::cout << raft::arr2Str(output_dists, 25, "out_dists", stream)
-              << std::endl;
   }
 
   void perform_postprocessing(value_t *dists, size_t batch_rows) {

@@ -390,9 +390,9 @@ def test_knn_graph(input_type, nrows, n_feats, p, k, metric, mode,
 
 
 @pytest.mark.parametrize("metric", ["l1", "l2"])
-@pytest.mark.parametrize('nrows', [1028])
-@pytest.mark.parametrize('ncols', [100])
-@pytest.mark.parametrize('density', [0.4])
+@pytest.mark.parametrize('nrows', [100000])
+@pytest.mark.parametrize('ncols', [1000])
+@pytest.mark.parametrize('density', [0.04])
 @pytest.mark.parametrize('n_neighbors', [5])
 @pytest.mark.parametrize('batch_size_index', [60000])
 @pytest.mark.parametrize('batch_size_query', [20000])

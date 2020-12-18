@@ -27,7 +27,6 @@
 
 #include <limits.h>
 
-#include <cuml/distance/distance_type.h>
 #include <cuml/neighbors/knn.hpp>
 
 #include <nvfunctional>
