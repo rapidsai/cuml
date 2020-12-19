@@ -243,8 +243,28 @@ __global__ void classic_csr_semiring_spmv_kernel(
 }
 
 /**
- * Perform generalized SPMV. Each vector of A is loaded into
- * shared memory and each row of B parallelized over threads.
+ * Perform generalized sparse-matrix-sparse-vector multiply in
+ * semiring algebra by allowing the reduction (product) and
+ * accumulation (sum) functions to be swapped out for custom
+ * functions. This approach saves the most memory as it can
+ * work directly on a CSR w/o the need for conversion to another
+ * sparse format, does not require any transposition, nor loading
+ * any vectors in dense form. The major drawback to this kernel
+ * is that the the memory access pattern dominates performance,
+ * making it very slow.
+ *
+ * Each vector of A is loaded into shared memory and each row of B
+ * parallelized over threads. While vector A can be coalesced into
+ * shared memory, the rows from vector B cannot, and thus this
+ * kernel remains almost entirely global memory bound.
+ *
+ * TODO: Some potential things to try for future optimizations:
+ *  - Always iterating for n_cols so that each warp is iterating
+ *    a uniform number of times.
+ *  - Computing an argsort() of B based on the number of columns
+ *    in each row to attempt to load balance the warps naturally
+ *  - Finding a way to coalesce the reads
+ *
  * @tparam value_idx
  * @tparam value_t
  * @tparam max_buffer_size
@@ -257,7 +277,7 @@ __global__ void classic_csr_semiring_spmv_kernel(
  * @param accum_func
  */
 template <typename value_idx = int, typename value_t = float,
-          int max_buffer_size = 5000, int threads_per_block = 1024,
+          int max_buffer_size = 5000, int threads_per_block = 32,
           typename reduce_f = auto(value_t, value_t)->value_t,
           typename accum_f = auto(value_t, value_t)->value_t>
 void generalized_csr_pairwise_semiring(

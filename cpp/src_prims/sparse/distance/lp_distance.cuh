@@ -52,12 +52,28 @@ class l1_distances_t : public distances_t<value_t> {
 
   void compute(value_t *out_dists) {
     CUML_LOG_DEBUG("Running l1 dists");
-    generalized_csr_pairwise_semiring<value_idx, value_t>(
-      out_dists, config_,
-      [] __host__ __device__(value_t a, value_t b, value_t p) {
-        return fabsf(a - b);
-      },
-      [] __host__ __device__(value_t a, value_t b) { return a + b; });
+    raft::mr::device::buffer<value_idx> coo_rows(
+      config_.allocator, config_.stream, max(config_.b_nnz, config_.a_nnz));
+
+    MLCommon::Sparse::csr_to_coo(config_.b_indptr, config_.b_nrows,
+                                 coo_rows.data(), config_.b_nnz,
+                                 config_.stream);
+
+    balanced_coo_pairwise_spmv<value_idx, value_t>(
+      out_dists, config_, coo_rows.data(),
+      [] __device__(value_t a, value_t b) { return fabsf(a - b); },
+      [] __device__(value_t a, value_t b) { return a + b; },
+      [] __device__(value_t * out, value_t c) { atomicAdd(out, c); });
+
+    MLCommon::Sparse::csr_to_coo(config_.a_indptr, config_.a_nrows,
+                                 coo_rows.data(), config_.a_nnz,
+                                 config_.stream);
+
+    balanced_coo_pairwise_spmv_rev<value_idx, value_t>(
+      out_dists, config_, coo_rows.data(),
+      [] __device__(value_t a, value_t b) { return fabsf(a - b); },
+      [] __device__(value_t a, value_t b) { return a + b; },
+      [] __device__(value_t * out, value_t c) { atomicAdd(out, c); });
   }
 
  private:
