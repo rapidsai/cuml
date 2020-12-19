@@ -236,9 +236,10 @@ void fit(const raft::handle_t &handle, const KMeansParams &params,
   thrust::transform(
     thrust_exec_policy, minClusterAndDistance.begin(),
     minClusterAndDistance.end(), weight.data(), minClusterAndDistance.begin(),
-    [=] __device__(const cub::KeyValuePair<IndexT, DataT> &kvp, DataT &wt) {
+    [=] __device__(const cub::KeyValuePair<IndexT, DataT> kvp, DataT wt) {
       cub::KeyValuePair<IndexT, DataT> res;
       res.value = kvp.value * wt;
+      res.key = kvp.key;
       return res;
     });
 
@@ -690,9 +691,10 @@ void predict(const raft::handle_t &handle, const KMeansParams &params,
   thrust::transform(
     thrust_exec_policy, minClusterAndDistance.begin(),
     minClusterAndDistance.end(), weight.data(), minClusterAndDistance.begin(),
-    [=] __device__(const cub::KeyValuePair<IndexT, DataT> &kvp, DataT &wt) {
+    [=] __device__(const cub::KeyValuePair<IndexT, DataT> kvp, DataT wt) {
       cub::KeyValuePair<IndexT, DataT> res;
       res.value = kvp.value * wt;
+      res.key = kvp.key;
       return res;
     });
 
@@ -711,10 +713,9 @@ void predict(const raft::handle_t &handle, const KMeansParams &params,
 
   labelsRawData.resize(n_samples, stream);
 
-  auto labels = std::move(Tensor<IndexT, 1>(labelsRawData.data(), {n_samples}));
   thrust::transform(
     thrust_exec_policy, minClusterAndDistance.begin(),
-    minClusterAndDistance.end(), labels.begin(),
+    minClusterAndDistance.end(), labelsRawData.data(),
     [=] __device__(cub::KeyValuePair<IndexT, DataT> pair) { return pair.key; });
 
   handle.get_device_allocator()->deallocate(
