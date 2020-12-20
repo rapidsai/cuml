@@ -234,7 +234,7 @@ class sparse_knn_t {
         /**
            * Compute distances
            */
-        value_idx dense_size =
+        size_t dense_size =
           idx_batcher.batch_rows() * query_batcher.batch_rows();
         device_buffer<value_t> batch_dists(allocator, stream, dense_size);
 
