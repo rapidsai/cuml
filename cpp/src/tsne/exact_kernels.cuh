@@ -33,8 +33,7 @@ template <typename value_idx, typename value_t>
 __global__ void sigmas_kernel(const value_t *restrict distances,
                               value_t *restrict P, const float perplexity,
                               const float desired_entropy, const int epochs,
-                              const float tol, const value_idx n,
-                              const int k) {
+                              const float tol, const value_idx n, const int k) {
   // For every item in row
   const auto i = (blockIdx.x * blockDim.x) + threadIdx.x;
   if (i >= n) return;
@@ -87,9 +86,8 @@ __global__ void sigmas_kernel(const value_t *restrict distances,
 template <typename value_idx, typename value_t>
 __global__ void sigmas_kernel_2d(const value_t *restrict distances,
                                  value_t *restrict P, const float perplexity,
-                                 const float desired_entropy,
-                                 const int epochs, const float tol,
-                                 const value_idx n) {
+                                 const float desired_entropy, const int epochs,
+                                 const float tol, const value_idx n) {
   // For every item in row
   const auto i = (blockIdx.x * blockDim.x) + threadIdx.x;
   if (i >= n) return;

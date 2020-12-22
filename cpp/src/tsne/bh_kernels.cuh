@@ -185,14 +185,13 @@ __global__ __launch_bounds__(1024,
 template <typename value_idx, typename value_t>
 __global__ __launch_bounds__(
   THREADS2) void TreeBuildingKernel(/* int *restrict errd, */
-                                       value_idx *restrict childd,
-                                       const value_t *restrict posxd,
-                                       const value_t *restrict posyd,
-                                       const value_idx NNODES,
-                                       const value_idx N,
-                                       value_idx *restrict maxdepthd,
-                                       value_idx *restrict bottomd,
-                                       const value_t *restrict radiusd) {
+                                    value_idx *restrict childd,
+                                    const value_t *restrict posxd,
+                                    const value_t *restrict posyd,
+                                    const value_idx NNODES, const value_idx N,
+                                    value_idx *restrict maxdepthd,
+                                    value_idx *restrict bottomd,
+                                    const value_t *restrict radiusd) {
   value_idx j, depth;
   value_t x, y, r;
   value_t px, py;
