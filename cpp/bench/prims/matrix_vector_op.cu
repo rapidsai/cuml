@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include <linalg/matrix_vector_op.cuh>
+#include <raft/linalg/matrix_vector_op.cuh>
 #include "../common/ml_benchmark.hpp"
 
 namespace MLCommon {

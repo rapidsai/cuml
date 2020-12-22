@@ -18,8 +18,8 @@
 #include <sparse/csr.cuh>
 #include "csr.h"
 
-#include <common/cudart_utils.h>
-#include <random/rng.cuh>
+#include <raft/cudart_utils.h>
+#include <raft/random/rng.cuh>
 #include "test_utils.h"
 
 #include <iostream>
@@ -59,7 +59,7 @@ TEST_P(CSRToCOO, Result) {
   raft::update_device(ex_scan, ex_scan_h, 4, stream);
   raft::update_device(verify, verify_h, 10, stream);
 
-  csr_to_coo<32>(ex_scan, 4, result, 10, stream);
+  csr_to_coo<int, 32>(ex_scan, 4, result, 10, stream);
 
   ASSERT_TRUE(
     raft::devArrMatch<int>(verify, result, 10, raft::Compare<float>(), stream));

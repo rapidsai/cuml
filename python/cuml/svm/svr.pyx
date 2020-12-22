@@ -137,11 +137,10 @@ class SVR(SVMBase, RegressorMixin):
         epsilon parameter of the epsiron-SVR model. There is no penalty
         associated to points that are predicted within the epsilon-tube
         around the target values.
-    cache_size : float (default = 200 MiB)
-        Size of the kernel cache during training in MiB. The default is a
-        conservative value, increase it to improve the training time, at
-        the cost of higher memory footprint. After training the kernel
-        cache is deallocated.
+    cache_size : float (default = 1024.0)
+        Size of the kernel cache during training in MiB. Increase it to improve
+        the training time, at the cost of higher memory footprint. After
+        training the kernel cache is deallocated.
         During prediction, we also need a temporary space to store kernel
         matrix elements (this can be signifficant if n_support is large).
         The cache_size variable sets an upper limit to the prediction
@@ -226,7 +225,7 @@ class SVR(SVMBase, RegressorMixin):
     """
     def __init__(self, handle=None, C=1, kernel='rbf', degree=3,
                  gamma='scale', coef0=0.0, tol=1e-3, epsilon=0.1,
-                 cache_size=200.0, max_iter=-1, nochange_steps=1000,
+                 cache_size=1024.0, max_iter=-1, nochange_steps=1000,
                  verbose=False, output_type=None):
         super(SVR, self).__init__(handle, C, kernel, degree, gamma, coef0, tol,
                                   cache_size, max_iter, nochange_steps,
@@ -234,12 +233,11 @@ class SVR(SVMBase, RegressorMixin):
         self.svmType = EPSILON_SVR
 
     @generate_docstring()
-    def fit(self, X, y, sample_weight=None, convert_dtype=True):
+    def fit(self, X, y, sample_weight=None, convert_dtype=True) -> "SVR":
         """
         Fit the model with X and y.
 
         """
-        self._set_base_attributes(output_type=X, n_features=X)
         cdef uintptr_t X_ptr, y_ptr
 
         X_m, self.n_rows, self.n_cols, self.dtype = \
@@ -263,7 +261,7 @@ class SVR(SVMBase, RegressorMixin):
             sample_weight_ptr = sample_weight_m.ptr
 
         self._dealloc()  # delete any previously fitted model
-        self._coef_ = None
+        self.coef_ = None
 
         cdef KernelParams _kernel_params = self._get_kernel_params(X_m)
         cdef svmParameter param = self._get_svm_params()
@@ -299,7 +297,7 @@ class SVR(SVMBase, RegressorMixin):
                                        'type': 'dense',
                                        'description': 'Predicted values',
                                        'shape': '(n_samples, 1)'})
-    def predict(self, X, convert_dtype=True):
+    def predict(self, X, convert_dtype=True) -> CumlArray:
         """
         Predicts the values for X.
 

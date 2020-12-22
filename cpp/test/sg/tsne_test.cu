@@ -14,14 +14,13 @@
  * limitations under the License.
  */
 
-#include <common/cudart_utils.h>
 #include <cuml/manifold/tsne.h>
 #include <datasets/digits.h>
 #include <gtest/gtest.h>
+#include <raft/cudart_utils.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <common/device_buffer.hpp>
-#include <cuda_utils.cuh>
 #include <cuml/common/cuml_allocator.hpp>
 #include <cuml/common/logger.hpp>
 #include <iostream>
@@ -76,7 +75,7 @@ class TSNETest : public ::testing::Test {
     // Test trustworthiness
     score_bh =
       trustworthiness_score<float,
-                            ML::Distance::DistanceType::EucUnexpandedL2Sqrt>(
+                            raft::distance::DistanceType::EucUnexpandedL2Sqrt>(
         X_d.data(), Y_d.data(), n, p, 2, 5, handle.get_device_allocator(),
         handle.get_stream());
 
@@ -104,7 +103,7 @@ class TSNETest : public ::testing::Test {
     // Test trustworthiness
     score_exact =
       trustworthiness_score<float,
-                            ML::Distance::DistanceType::EucUnexpandedL2Sqrt>(
+                            raft::distance::DistanceType::EucUnexpandedL2Sqrt>(
         X_d.data(), Y_d.data(), n, p, 2, 5, handle.get_device_allocator(),
         handle.get_stream());
 

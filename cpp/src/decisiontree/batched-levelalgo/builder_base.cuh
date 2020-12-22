@@ -21,8 +21,8 @@
 #include <common/device_buffer.hpp>
 #include <common/grid_sync.cuh>
 #include <common/host_buffer.hpp>
-#include <cuda_utils.cuh>
 #include <cuml/tree/decisiontree.hpp>
+#include <raft/cuda_utils.cuh>
 #include "input.cuh"
 #include "kernels.cuh"
 #include "node.cuh"
@@ -165,7 +165,7 @@ struct Builder {
       maxNodes = 8191;
     }
 
-    if (isRegression() && params.split_criterion == CRITERION::MAE) {
+    if (isRegression()) {
       dim3 grid(n_blks_for_rows, n_col_blks, max_batch);
       block_sync_size = MLCommon::GridSync::computeWorkspaceSize(
         grid, MLCommon::SyncType::ACROSS_X, false);
@@ -337,9 +337,9 @@ struct Builder {
     nodeSplitKernel<DataT, LabelT, IdxT, typename Traits::DevTraits,
                     Traits::TPB_SPLIT>
       <<<batchSize, Traits::TPB_SPLIT, smemSize, s>>>(
-        params.max_depth, params.min_rows_per_node, params.max_leaves,
-        params.min_impurity_decrease, input, curr_nodes, next_nodes, n_nodes,
-        splits, n_leaves, h_total_nodes, n_depth);
+        params.max_depth, params.min_samples_leaf, params.min_samples_split,
+        params.max_leaves, params.min_impurity_decrease, input, curr_nodes,
+        next_nodes, n_nodes, splits, n_leaves, h_total_nodes, n_depth);
     CUDA_CHECK(cudaGetLastError());
     // copy the updated (due to leaf creation) and newly created child nodes
     raft::update_host(h_n_nodes, n_nodes, 1, s);
@@ -394,10 +394,15 @@ struct ClsTraits {
     dim3 grid(b.n_blks_for_rows, colBlks, batchSize);
     size_t smemSize = sizeof(int) * binSize + sizeof(DataT) * nbins;
     smemSize += sizeof(int);
+
+    // Extra room for alignment (see alignPointer in computeSplitClassificationKernel)
+    smemSize += 2 * sizeof(DataT) + 1 * sizeof(int);
+
     CUDA_CHECK(cudaMemsetAsync(b.hist, 0, sizeof(int) * b.nHistBins, s));
     computeSplitClassificationKernel<DataT, LabelT, IdxT, TPB_DEFAULT>
       <<<grid, TPB_DEFAULT, smemSize, s>>>(
-        b.hist, b.params.n_bins, b.params.max_depth, b.params.min_rows_per_node,
+        b.hist, b.params.n_bins, b.params.max_depth, b.params.min_samples_split,
+        b.params.min_samples_leaf, b.params.min_impurity_decrease,
         b.params.max_leaves, b.input, b.curr_nodes, col, b.done_count, b.mutex,
         b.n_leaves, b.splits, splitType);
   }
@@ -451,27 +456,31 @@ struct RegTraits {
   static void computeSplit(Builder<RegTraits<DataT, IdxT>>& b, IdxT col,
                            IdxT batchSize, CRITERION splitType,
                            cudaStream_t s) {
-    auto n_col_blks = b.n_blks_for_cols;
+    auto n_col_blks = std::min(b.n_blks_for_cols, b.input.nSampledCols - col);
+
     dim3 grid(b.n_blks_for_rows, n_col_blks, batchSize);
     auto nbins = b.params.n_bins;
     size_t smemSize = 7 * nbins * sizeof(DataT) + nbins * sizeof(int);
     smemSize += sizeof(int);
+
+    // Room for alignment in worst case (see alignPointer in
+    // computeSplitRegressionKernel)
+    smemSize += 5 * sizeof(DataT) + 2 * sizeof(int);
+
     CUDA_CHECK(
       cudaMemsetAsync(b.pred, 0, sizeof(DataT) * b.nPredCounts * 2, s));
-    if (splitType == CRITERION::MAE) {
-      CUDA_CHECK(
-        cudaMemsetAsync(b.pred2, 0, sizeof(DataT) * b.nPredCounts * 2, s));
-      CUDA_CHECK(
-        cudaMemsetAsync(b.pred2P, 0, sizeof(DataT) * b.nPredCounts, s));
-    }
+    CUDA_CHECK(
+      cudaMemsetAsync(b.pred2, 0, sizeof(DataT) * b.nPredCounts * 2, s));
+    CUDA_CHECK(cudaMemsetAsync(b.pred2P, 0, sizeof(DataT) * b.nPredCounts, s));
     CUDA_CHECK(
       cudaMemsetAsync(b.pred_count, 0, sizeof(IdxT) * b.nPredCounts, s));
     computeSplitRegressionKernel<DataT, DataT, IdxT, TPB_DEFAULT>
       <<<grid, TPB_DEFAULT, smemSize, s>>>(
         b.pred, b.pred2, b.pred2P, b.pred_count, b.params.n_bins,
-        b.params.max_depth, b.params.min_rows_per_node, b.params.max_leaves,
-        b.input, b.curr_nodes, col, b.done_count, b.mutex, b.n_leaves, b.splits,
-        b.block_sync, splitType);
+        b.params.max_depth, b.params.min_samples_split,
+        b.params.min_samples_leaf, b.params.min_impurity_decrease,
+        b.params.max_leaves, b.input, b.curr_nodes, col, b.done_count, b.mutex,
+        b.n_leaves, b.splits, b.block_sync, splitType);
   }
 
   /**

@@ -18,12 +18,14 @@ Refer to the section on thread safety in [C++ DEVELOPER_GUIDE.md](../cpp/DEVELOP
 1. Make sure that this algo has been implemented in the C++ side. Refer to [C++ DEVELOPER_GUIDE.md](../cpp/DEVELOPER_GUIDE.md) for guidelines on developing in C++.
 2. Refer to the [next section](DEVELOPER_GUIDE.md#creating-python-wrapper-class-for-an-existing-ml-algo) for the remaining steps.
 
-## Creating python wrapper class for an existing ML algo
+## Creating python estimator wrapper class
 1. Create a corresponding algoName.pyx file inside `python/cuml` folder.
 2. Ensure that the folder structure inside here reflects that of sklearn's. Example, `pca.pyx` should be kept inside the `decomposition` sub-folder of `python/cuml`.
 .  Match the corresponding scikit-learn's interface as closely as possible. Refer to their [developer guide](https://scikit-learn.org/stable/developers/contributing.html#apis-of-scikit-learn-objects) on API design of sklearn objects for details.
 3. Always make sure to have your class inherit from `cuml.Base` class as your parent/ancestor.
 4. Ensure that the estimator's output fields follow the 'underscore on both sides' convention explained in the documentation of `cuml.Base`. This allows it to support configurable output types.
+
+For an in-depth guide to creating estimators, see the [Estimator Guide](ESTIMATOR_GUIDE.md)
 
 ## Error handling
 If you are trying to call into cuda runtime APIs inside `cuml.cuda`, in case of any errors, they'll raise a `cuml.cuda.CudaRuntimeError`. For example:

@@ -10,14 +10,12 @@ TOPLEVEL_NB_FOLDERS=$(find . -name *.ipynb |cut -d'/' -f2|sort -u)
 # Add notebooks that should be skipped here
 # (space-separated list of filenames without paths)
 
-# TODO: (MDD) Temporarily adding forest_inference_demo.ipynb since xgboost is broken in 0.17
-#       Remove once xgboost is working again.
-SKIPNBS="cuml_benchmarks.ipynb forest_inference_demo.ipynb"
+SKIPNBS="cuml_benchmarks.ipynb"
 
 ## Check env
 env
 
-EXITCODE=0
+NOTEBOOKS_EXITCODE=0
 
 # Always run nbtest in all TOPLEVEL_NB_FOLDERS, set EXITCODE to failure
 # if any run fails
@@ -38,7 +36,7 @@ for nb in $(find . -name "*.ipynb"); do
     else
         nvidia-smi
         ${NBTEST} ${nbBasename}
-        EXITCODE=$((EXITCODE | $?))
+        NOTEBOOKS_EXITCODE=$((NOTEBOOKS_EXITCODE | $?))
         rm -rf ${LIBCUDF_KERNEL_CACHE_PATH}/*
     fi
 done
@@ -46,4 +44,4 @@ done
 
 nvidia-smi
 
-exit ${EXITCODE}
+exit ${NOTEBOOKS_EXITCODE}

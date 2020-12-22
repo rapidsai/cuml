@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 
-#include <common/cudart_utils.h>
 #include <gtest/gtest.h>
+#include <raft/cudart_utils.h>
 #include <iostream>
 #include <metrics/scores.cuh>
-#include <random/rng.cuh>
+#include <raft/random/rng.cuh>
 #include <vector>
 #include "test_utils.h"
 
