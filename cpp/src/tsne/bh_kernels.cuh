@@ -82,7 +82,7 @@ __global__ void Find_Normalization(value_t *restrict Z_norm,
  * Figures the bounding boxes for every point in the embedding.
  */
 template <typename value_idx, typename value_t>
-__global__ __launch_bounds__(THREADS1, 2) void BoundingBoxKernel(
+__global__ __launch_bounds__(THREADS1) void BoundingBoxKernel(
   value_idx *restrict startd, value_idx *restrict childd,
   value_t *restrict massd, value_t *restrict posxd, value_t *restrict posyd,
   value_t *restrict maxxd, value_t *restrict maxyd, value_t *restrict minxd,
@@ -184,7 +184,7 @@ __global__ __launch_bounds__(1024,
  */
 template <typename value_idx, typename value_t>
 __global__ __launch_bounds__(
-  THREADS2, 2) void TreeBuildingKernel(/* int *restrict errd, */
+  THREADS2) void TreeBuildingKernel(/* int *restrict errd, */
                                        value_idx *restrict childd,
                                        const value_t *restrict posxd,
                                        const value_t *restrict posyd,
