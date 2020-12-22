@@ -97,7 +97,7 @@ void get_distances(const raft::handle_t &handle,
                    manifold_sparse_inputs_t<int64_t, float> &input,
                    knn_graph<int64_t, float> &k_graph, cudaStream_t stream) {
   throw raft::exception(
-    "Sparse TSNE does not support 32-bit integer indices yet.");
+    "Sparse TSNE does not support 64-bit integer indices yet.");
 }
 
 /**

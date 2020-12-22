@@ -31,9 +31,9 @@ namespace TSNE {
     each row in the dataset             */
 template <typename value_idx, typename value_t>
 __global__ void sigmas_kernel(const value_t *restrict distances,
-                              value_t *restrict P, const value_t perplexity,
-                              const value_t desired_entropy, const int epochs,
-                              const value_t tol, const value_idx n,
+                              value_t *restrict P, const float perplexity,
+                              const float desired_entropy, const int epochs,
+                              const float tol, const value_idx n,
                               const int k) {
   // For every item in row
   const auto i = (blockIdx.x * blockDim.x) + threadIdx.x;
@@ -86,9 +86,9 @@ __global__ void sigmas_kernel(const value_t *restrict distances,
     each row in the dataset             */
 template <typename value_idx, typename value_t>
 __global__ void sigmas_kernel_2d(const value_t *restrict distances,
-                                 value_t *restrict P, const value_t perplexity,
-                                 const value_t desired_entropy,
-                                 const int epochs, const value_t tol,
+                                 value_t *restrict P, const float perplexity,
+                                 const float desired_entropy,
+                                 const int epochs, const float tol,
                                  const value_idx n) {
   // For every item in row
   const auto i = (blockIdx.x * blockDim.x) + threadIdx.x;
@@ -135,10 +135,10 @@ __global__ void sigmas_kernel_2d(const value_t *restrict distances,
 /****************************************/
 template <typename value_idx, typename value_t>
 void perplexity_search(const value_t *restrict distances, value_t *restrict P,
-                       const value_t perplexity, const int epochs,
-                       const value_t tol, const value_idx n, const int dim,
+                       const float perplexity, const int epochs,
+                       const float tol, const value_idx n, const int dim,
                        const raft::handle_t &handle) {
-  const value_t desired_entropy = logf(perplexity);
+  const float desired_entropy = logf(perplexity);
   auto d_alloc = handle.get_device_allocator();
   cudaStream_t stream = handle.get_stream();
 
@@ -161,8 +161,8 @@ __global__ void attractive_kernel(
   const value_idx *restrict ROW, const value_t *restrict Y,
   const value_t *restrict norm, value_t *restrict attract, const value_idx NNZ,
   const value_idx n, const value_idx dim,
-  const value_t df_power,  // -(df + 1)/2)
-  const value_t recp_df)   // 1 / df
+  const float df_power,  // -(df + 1)/2)
+  const float recp_df)   // 1 / df
 {
   const auto index = (blockIdx.x * blockDim.x) + threadIdx.x;
   if (index >= NNZ) return;
@@ -221,8 +221,8 @@ void attractive_forces(const value_t *restrict VAL,
                        const value_t *restrict norm, value_t *restrict attract,
                        const value_idx NNZ, const value_idx n,
                        const value_idx dim,
-                       const value_t df_power,  // -(df + 1)/2)
-                       const value_t recp_df,   // 1 / df
+                       const float df_power,  // -(df + 1)/2)
+                       const float recp_df,   // 1 / df
                        cudaStream_t stream) {
   CUDA_CHECK(cudaMemsetAsync(attract, 0, sizeof(value_t) * n * dim, stream));
 
@@ -369,12 +369,12 @@ __global__ void apply_kernel(
   value_t *restrict Y, value_t *restrict velocity,
   const value_t *restrict attract, const value_t *restrict repel,
   value_t *restrict means, value_t *restrict gains,
-  const value_t Z,  // sum(Q)
-  const value_t learning_rate,
-  const value_t C,  // constant from T-Dist Degrees of Freedom
-  const value_t momentum,
+  const float Z,  // sum(Q)
+  const float learning_rate,
+  const float C,  // constant from T-Dist Degrees of Freedom
+  const float momentum,
   const value_idx SIZE,  // SIZE = n*dim
-  const value_idx n, const value_t min_gain, value_t *restrict gradient,
+  const value_idx n, const float min_gain, value_t *restrict gradient,
   const bool check_convergence) {
   const auto index = (blockIdx.x * blockDim.x) + threadIdx.x;
   if (index >= SIZE) return;
@@ -405,11 +405,11 @@ value_t apply_forces(value_t *restrict Y, value_t *restrict velocity,
                      const value_t *restrict attract,
                      const value_t *restrict repel, value_t *restrict means,
                      value_t *restrict gains,
-                     const value_t Z,  // sum(Q)
-                     const value_t learning_rate,
-                     const value_t C,  // constant from T-dist
-                     const value_t momentum, const value_idx dim,
-                     const value_idx n, const value_t min_gain,
+                     const float Z,  // sum(Q)
+                     const float learning_rate,
+                     const float C,  // constant from T-dist
+                     const float momentum, const value_idx dim,
+                     const value_idx n, const float min_gain,
                      value_t *restrict gradient, const bool check_convergence,
                      cudaStream_t stream) {
   //cudaMemset(means, 0, sizeof(float) * dim);
@@ -422,7 +422,7 @@ value_t apply_forces(value_t *restrict Y, value_t *restrict velocity,
   CUDA_CHECK(cudaPeekAtLastError());
 
   // Find sum of gradient norms
-  value_t gradient_norm = INFINITY;
+  float gradient_norm = INFINITY;
   if (check_convergence) {
     thrust::device_ptr<value_t> begin = thrust::device_pointer_cast(gradient);
     gradient_norm = sqrtf(

@@ -52,12 +52,12 @@ template <typename value_idx, typename value_t>
 void Barnes_Hut(
   value_t *VAL, const value_idx *COL, const value_idx *ROW, const value_idx NNZ,
   const raft::handle_t &handle, value_t *Y, const value_idx n,
-  const value_t theta = 0.5f, const value_t epssq = 0.0025,
-  const value_t early_exaggeration = 12.0f, const int exaggeration_iter = 250,
-  const value_t min_gain = 0.01f, const value_t pre_learning_rate = 200.0f,
-  const value_t post_learning_rate = 500.0f, const int max_iter = 1000,
-  const value_t min_grad_norm = 1e-7, const value_t pre_momentum = 0.5,
-  const value_t post_momentum = 0.8, const long long random_state = -1,
+  const float theta = 0.5f, const float epssq = 0.0025,
+  const float early_exaggeration = 12.0f, const int exaggeration_iter = 250,
+  const float min_gain = 0.01f, const float pre_learning_rate = 200.0f,
+  const float post_learning_rate = 500.0f, const int max_iter = 1000,
+  const float min_grad_norm = 1e-7, const float pre_momentum = 0.5,
+  const float post_momentum = 0.8, const long long random_state = -1,
   const bool initialize_embeddings = true) {
   auto d_alloc = handle.get_device_allocator();
   cudaStream_t stream = handle.get_stream();
@@ -87,7 +87,7 @@ void Barnes_Hut(
 
   const value_idx FOUR_NNODES = 4 * nnodes;
   const value_idx FOUR_N = 4 * n;
-  const value_t theta_squared = theta * theta;
+  const float theta_squared = theta * theta;
   const value_idx NNODES = nnodes;
 
   // Actual allocations

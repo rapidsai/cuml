@@ -525,8 +525,8 @@ template <typename value_idx, typename value_t>
 __global__ __launch_bounds__(
   THREADS5,
   1) void RepulsionKernel(/* int *restrict errd, */
-                          const value_t theta,
-                          const value_t epssqd,  // correction for zero distance
+                          const float theta,
+                          const float epssqd,  // correction for zero distance
                           const value_idx *restrict sortd,
                           const value_idx *restrict childd,
                           const value_t *restrict massd,
@@ -683,7 +683,7 @@ __global__ void attractive_kernel_bh(
  */
 template <typename value_idx, typename value_t>
 __global__ __launch_bounds__(THREADS6, 1) void IntegrationKernel(
-  const value_t eta, const value_t momentum, const value_t exaggeration,
+  const float eta, const float momentum, const float exaggeration,
   value_t *restrict Y1, value_t *restrict Y2, const value_t *restrict attract1,
   const value_t *restrict attract2, const value_t *restrict repel1,
   const value_t *restrict repel2, value_t *restrict gains1,
