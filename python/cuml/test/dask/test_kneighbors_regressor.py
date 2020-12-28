@@ -70,51 +70,33 @@ def dataset(request):
         if len(new_x) >= request.param['n_samples']:
             break
     X = X[new_x]
-    noise = np.random.normal(0, 1.2, X.shape)
+    noise = np.random.normal(0, 5., X.shape)
     X += noise
     y = np.array(new_y, dtype=np.float32)
 
-    return train_test_split(X, y, test_size=0.1)
+    return train_test_split(X, y, test_size=0.3)
 
 
-def exact_match(output1, output2):
-    l1, i1, d1 = output1
-    l2, i2, d2 = output2
-    l2 = l2.squeeze()
-
+def exact_match(l_outputs, d_outputs):
     # Check shapes
-    assert l1.shape == l2.shape
-    assert i1.shape == i2.shape
-    assert d1.shape == d2.shape
+    assert l_outputs.shape == d_outputs.shape
 
-    # Distances should match
-    d1 = np.round(d1, 4)
-    d2 = np.round(d2, 4)
-    assert np.mean(d1 == d2) > 0.98
-
-    # Indices should match
-    correct_queries = (i1 == i2).all(axis=1)
-    assert np.mean(correct_queries) > 0.95
-
-    # Labels should match
-    correct_queries = (l1 == l2).all(axis=1)
+    # Predictions should match
+    correct_queries = (l_outputs == d_outputs).all(axis=1)
     assert np.mean(correct_queries) > 0.95
 
 
 @pytest.mark.parametrize("datatype", ['dask_array', 'dask_cudf'])
-@pytest.mark.parametrize("n_neighbors", [1, 3, 8])
-@pytest.mark.parametrize("n_parts", [2, 4, 12])
-@pytest.mark.parametrize("batch_size", [128, 1024])
-def test_predict_and_score(dataset, datatype, n_neighbors,
-                           n_parts, batch_size, client):
+@pytest.mark.parametrize("parameters", [(1, 3, 256),
+                                        (8, 8, 256),
+                                        (9, 3, 128)])
+def test_predict_and_score(dataset, datatype, parameters, client):
+    n_neighbors, n_parts, batch_size = parameters
     X_train, X_test, y_train, y_test = dataset
-    np_y_test = y_test
 
     l_model = lKNNReg(n_neighbors=n_neighbors)
     l_model.fit(X_train, y_train)
-    l_distances, l_indices = l_model.kneighbors(X_test)
     l_outputs = l_model.predict(X_test)
-    local_out = (l_outputs, l_indices, l_distances)
     handmade_local_score = r2_score(y_test, l_outputs)
     handmade_local_score = round(float(handmade_local_score), 3)
 
@@ -132,27 +114,15 @@ def test_predict_and_score(dataset, datatype, n_neighbors,
     d_model = dKNNReg(client=client, n_neighbors=n_neighbors,
                       batch_size=batch_size)
     d_model.fit(X_train, y_train)
-    d_outputs, d_indices, d_distances = \
-        d_model.predict(X_test, convert_dtype=True)
-    distributed_out = da.compute(d_outputs, d_indices, d_distances)
-    if datatype == 'dask_array':
-        distributed_score = d_model.score(X_test, y_test)
-        distributed_score = round(float(distributed_score), 3)
+    d_outputs = d_model.predict(X_test, convert_dtype=True)
+    d_outputs = d_outputs.compute()
 
-    if datatype == 'dask_cudf':
-        distributed_out = list(map(lambda o: o.as_matrix()
-                                   if isinstance(o, DataFrame)
-                                   else o.to_array()[..., np.newaxis],
-                                   distributed_out))
+    d_outputs = d_outputs.as_matrix() \
+        if isinstance(d_outputs, DataFrame) \
+        else d_outputs
 
-    exact_match(local_out, distributed_out)
+    exact_match(l_outputs, d_outputs)
 
-    if datatype == 'dask_array':
-        assert distributed_score == pytest.approx(handmade_local_score,
-                                                  abs=1e-2)
-    else:
-        y_pred = distributed_out[0]
-        handmade_distributed_score = float(r2_score(np_y_test, y_pred))
-        handmade_distributed_score = round(handmade_distributed_score, 3)
-        assert handmade_distributed_score == pytest.approx(
-            handmade_local_score, abs=1e-2)
+    distributed_score = d_model.score(X_test, y_test)
+    distributed_score = round(float(distributed_score), 3)
+    assert distributed_score == pytest.approx(handmade_local_score, abs=1e-2)

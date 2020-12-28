@@ -24,12 +24,13 @@ import cuml.common.logger as logger
 
 from cuml import ForestInference
 from cuml.common.array import CumlArray
+import cuml.internals
 
 from cuml.common.base import RegressorMixin
 from cuml.common.doc_utils import generate_docstring
 from cuml.common.doc_utils import insert_into_docstring
 from cuml.raft.common.handle import Handle
-from cuml.common import input_to_cuml_array, rmm_cupy_ary
+from cuml.common import input_to_cuml_array
 
 from cuml.ensemble.randomforest_common import BaseRandomForestModel
 from cuml.ensemble.randomforest_common import _obtain_fil_model
@@ -137,7 +138,8 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
         X = np.asarray([[0,10],[0,20],[0,30],[0,40]], dtype=np.float32)
         y = np.asarray([0.0,1.0,2.0,3.0], dtype=np.float32)
         cuml_model = curfc(max_features=1.0, n_bins=8,
-                            split_algo=0, min_rows_per_node=2,
+                            split_algo=0, min_samples_leaf=1,
+                            min_samples_split=2,
                             n_estimators=40, accuracy_metric='r2')
         cuml_model.fit(X,y)
         cuml_score = cuml_model.score(X,y)
@@ -167,11 +169,11 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
         Control bootstrapping.
         If True, each tree in the forest is built
         on a bootstrapped sample with replacement.
-        If False, sampling without replacement is done.
+        If False, the whole dataset is used to build each tree.
     bootstrap_features : boolean (default = False)
         Control bootstrapping for features.
         If features are drawn with or without replacement
-    rows_sample : float (default = 1.0)
+    max_samples : float (default = 1.0)
         Ratio of dataset rows used while fitting each tree.
     max_depth : int (default = 16)
         Maximum tree depth. Unlimited (i.e, until leaves are pure),
@@ -191,10 +193,18 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
         If 'log2' then max_features=log2(n_features)/n_features.
     n_bins : int (default = 8)
         Number of bins used by the split algorithm.
-    min_rows_per_node : int or float (default = 2)
-        The minimum number of samples (rows) needed to split a node.
-        If int then number of sample rows
-        If float the min_rows_per_sample*n_rows
+    min_samples_leaf : int or float (default = 1)
+        The minimum number of samples (rows) in each leaf node.
+        If int, then min_samples_leaf represents the minimum number.
+        If float, then min_samples_leaf represents a fraction and
+        ceil(min_samples_leaf * n_rows) is the minimum number of samples
+        for each leaf node.
+    min_samples_split : int or float (default = 2)
+        The minimum number of samples required to split an internal node.
+        If int, then min_samples_split represents the minimum number.
+        If float, then min_samples_split represents a fraction and
+        ceil(min_samples_split * n_rows) is the minimum number of samples
+        for each split.
     min_impurity_decrease : float (default = 0.0)
         The minimum decrease in impurity required for node to be split
     accuracy_metric : string (default = 'r2')
@@ -221,9 +231,13 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
         Seed for the random number generator. Unseeded by default. Does not
         currently fully guarantee the exact same results.
     seed : int (default = None)
-        Deprecated in favor of `random_state`.
         Seed for the random number generator. Unseeded by default. Does not
         currently fully guarantee the exact same results.
+
+        .. deprecated:: 0.16
+           Parameter `seed` is deprecated and will be removed in 0.17. Please
+           use `random_state` instead
+
     handle : cuml.Handle
         Specifies the cuml.handle that holds internal CUDA state for
         computations in this model. Most importantly, this specifies the CUDA
@@ -399,6 +413,7 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
                                  fil_sparse_format=fil_sparse_format)
 
     @generate_docstring()
+    @cuml.internals.api_base_return_any_skipall
     def fit(self, X, y, convert_dtype=True):
         """
         Perform Random Forest Regression on the input data
@@ -431,12 +446,13 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
                                      <float> max_feature_val,
                                      <int> self.n_bins,
                                      <int> self.split_algo,
-                                     <int> self.min_rows_per_node,
+                                     <int> self.min_samples_leaf,
+                                     <int> self.min_samples_split,
                                      <float> self.min_impurity_decrease,
                                      <bool> self.bootstrap_features,
                                      <bool> self.bootstrap,
                                      <int> self.n_estimators,
-                                     <float> self.rows_sample,
+                                     <float> self.max_samples,
                                      <int> seed_val,
                                      <CRITERION> self.split_criterion,
                                      <bool> self.quantile_per_tree,
@@ -471,8 +487,7 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
         del y_m
         return self
 
-    def _predict_model_on_cpu(self, X, convert_dtype):
-        out_type = self._get_output_type(X)
+    def _predict_model_on_cpu(self, X, convert_dtype) -> CumlArray:
         cdef uintptr_t X_ptr
         X_m, n_rows, n_cols, dtype = \
             input_to_cuml_array(X, order='C',
@@ -517,13 +532,13 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
         self.handle.sync()
         # synchronous w/o a stream
         del(X_m)
-        return preds.to_output(out_type)
+        return preds
 
     @insert_into_docstring(parameters=[('dense', '(n_samples, n_features)')],
                            return_values=[('dense', '(n_samples, 1)')])
     def predict(self, X, predict_model="GPU",
                 algo='auto', convert_dtype=True,
-                fil_sparse_format='auto'):
+                fil_sparse_format='auto') -> CumlArray:
         """
         Predicts the labels for X.
 
@@ -739,5 +754,11 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
             <RandomForestMetaData[double, double]*><uintptr_t> self.rf_forest64
 
         if self.dtype == np.float64:
-            return dump_rf_as_json(rf_forest64)
-        return dump_rf_as_json(rf_forest)
+            return dump_rf_as_json(rf_forest64).decode('utf-8')
+        return dump_rf_as_json(rf_forest).decode('utf-8')
+
+    def _more_tags(self):
+        return {
+            # fit and predict require conflicting memory layouts
+            'preferred_input_order': None
+        }

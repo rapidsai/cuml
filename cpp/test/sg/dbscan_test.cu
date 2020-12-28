@@ -87,7 +87,7 @@ class DbscanTest : public ::testing::TestWithParam<DbscanInputs<T, IdxT>> {
 
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 
-    score = adjustedRandIndex(handle, labels_ref, labels, params.n_row);
+    score = adjusted_rand_index(handle, labels_ref, labels, params.n_row);
 
     if (score < 1.0) {
       auto str = raft::arr2Str(labels_ref, params.n_row, "labels_ref",
@@ -202,7 +202,7 @@ class Dbscan2DSimple : public ::testing::TestWithParam<DBScan2DArrayInputs<T>> {
 
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 
-    score = adjustedRandIndex(handle, labels_ref, labels, (int)params.n_out);
+    score = adjusted_rand_index(handle, labels_ref, labels, (int)params.n_out);
 
     if (score < 1.0) {
       auto str = raft::arr2Str(labels_ref, params.n_out, "labels_ref",

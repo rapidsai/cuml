@@ -47,12 +47,14 @@ from cuml.linear_model.ridge import Ridge
 from cuml.manifold.t_sne import TSNE
 from cuml.manifold.umap import UMAP
 from cuml.metrics.accuracy import accuracy_score
-from cuml.metrics.cluster.adjustedrandindex import adjusted_rand_score
+from cuml.metrics.cluster.adjusted_rand_index import adjusted_rand_score
 from cuml.metrics.regression import r2_score
 
 from cuml.naive_bayes.naive_bayes import MultinomialNB
 
 from cuml.neighbors.nearest_neighbors import NearestNeighbors
+from cuml.neighbors.kneighbors_classifier import KNeighborsClassifier
+from cuml.neighbors.kneighbors_regressor import KNeighborsRegressor
 
 from cuml.preprocessing.LabelEncoder import LabelEncoder
 from cuml.preprocessing.model_selection import train_test_split
@@ -74,21 +76,20 @@ from cuml.tsa.auto_arima import AutoARIMA
 from cuml.tsa.holtwinters import ExponentialSmoothing
 
 from cuml.common.pointer_utils import device_of_gpu_matrix
+from cuml.common.memory_utils import set_global_output_type, using_output_type
 
 # RAFT
 
 from cuml.raft import raft_include_test
 
+# Import verion. Remove at end of file
+from ._version import get_versions
+
 
 # Output type configuration
 
-global_output_type = 'input'
-
-from cuml.common.memory_utils import set_global_output_type, using_output_type
+global_output_type = None
 
 # Version configuration
-
-from ._version import get_versions
 __version__ = get_versions()['version']
 del get_versions
-

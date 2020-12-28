@@ -302,7 +302,7 @@ class RBFKernel : public GramMatrixBase<math_t> {
     auto fin_op = [gain] __device__(math_t d_val, int idx) {
       return exp(-gain * d_val);
     };
-    Distance::distance<ML::Distance::DistanceType::EucUnexpandedL2, math_t,
+    Distance::distance<raft::distance::DistanceType::EucUnexpandedL2, math_t,
                        math_t, math_t, OutputTile_t>(
       const_cast<math_t *>(x1), const_cast<math_t *>(x2), out, n1, n2, n_cols,
       NULL, 0, fin_op, stream, false);

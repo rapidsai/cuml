@@ -243,18 +243,20 @@ void computeClusterCost(const raft::handle_t &handle,
 // calculate pairwise distance between 'dataset[n x d]' and 'centroids[k x d]',
 // result will be stored in 'pairwiseDistance[n x k]'
 template <typename DataT, typename IndexT>
-void pairwiseDistance(const raft::handle_t &handle, Tensor<DataT, 2, IndexT> &X,
-                      Tensor<DataT, 2, IndexT> &centroids,
-                      Tensor<DataT, 2, IndexT> &pairwiseDistance,
-                      MLCommon::device_buffer<char> &workspace,
-                      ML::Distance::DistanceType metric, cudaStream_t stream) {
+void pairwise_distance(const raft::handle_t &handle,
+                       Tensor<DataT, 2, IndexT> &X,
+                       Tensor<DataT, 2, IndexT> &centroids,
+                       Tensor<DataT, 2, IndexT> &pairwiseDistance,
+                       MLCommon::device_buffer<char> &workspace,
+                       raft::distance::DistanceType metric,
+                       cudaStream_t stream) {
   auto n_samples = X.getSize(0);
   auto n_features = X.getSize(1);
   auto n_clusters = centroids.getSize(0);
 
   ASSERT(X.getSize(1) == centroids.getSize(1),
          "# features in dataset and centroids are different (must be same)");
-  MLCommon::Distance::pairwiseDistance<DataT, IndexT>(
+  MLCommon::Distance::pairwise_distance<DataT, IndexT>(
     X.data(), centroids.data(), pairwiseDistance.data(), n_samples, n_clusters,
     n_features, workspace, metric, stream);
 }
@@ -269,7 +271,7 @@ void minClusterAndDistance(
   Tensor<cub::KeyValuePair<IndexT, DataT>, 1, IndexT> &minClusterAndDistance,
   Tensor<DataT, 1, IndexT> &L2NormX,
   MLCommon::device_buffer<DataT> &L2NormBuf_OR_DistBuf,
-  MLCommon::device_buffer<char> &workspace, ML::Distance::DistanceType metric,
+  MLCommon::device_buffer<char> &workspace, raft::distance::DistanceType metric,
   cudaStream_t stream) {
   auto n_samples = X.getSize(0);
   auto n_features = X.getSize(1);
@@ -278,8 +280,8 @@ void minClusterAndDistance(
   auto centroidsBatchSize =
     kmeans::detail::getCentroidsBatchSize(params, n_clusters);
 
-  if (metric == ML::Distance::DistanceType::EucExpandedL2 ||
-      metric == ML::Distance::DistanceType::EucExpandedL2Sqrt) {
+  if (metric == raft::distance::DistanceType::EucExpandedL2 ||
+      metric == raft::distance::DistanceType::EucExpandedL2Sqrt) {
     L2NormBuf_OR_DistBuf.resize(n_clusters, stream);
     raft::linalg::rowNorm(L2NormBuf_OR_DistBuf.data(), centroids.data(),
                           centroids.getSize(1), centroids.getSize(0),
@@ -328,8 +330,8 @@ void minClusterAndDistance(
       auto centroidsView =
         centroids.template view<2>({nc, n_features}, {cIdx, 0});
 
-      if (metric == ML::Distance::DistanceType::EucExpandedL2 ||
-          metric == ML::Distance::DistanceType::EucExpandedL2Sqrt) {
+      if (metric == raft::distance::DistanceType::EucExpandedL2 ||
+          metric == raft::distance::DistanceType::EucExpandedL2Sqrt) {
         auto centroidsNormView = centroidsNorm.template view<1>({nc}, {cIdx});
         workspace.resize((sizeof(int)) * ns, stream);
 
@@ -340,7 +342,8 @@ void minClusterAndDistance(
           minClusterAndDistanceView.data(), datasetView.data(),
           centroidsView.data(), L2NormXView.data(), centroidsNormView.data(),
           ns, nc, n_features, (void *)workspace.data(), redOp,
-          (metric == ML::Distance::DistanceType::EucExpandedL2) ? false : true,
+          (metric == raft::distance::DistanceType::EucExpandedL2) ? false
+                                                                  : true,
           false, stream);
       } else {
         // pairwiseDistanceView [ns x nc] - view representing the pairwise
@@ -350,9 +353,9 @@ void minClusterAndDistance(
 
         // calculate pairwise distance between current tile of cluster centroids
         // and input dataset
-        kmeans::detail::pairwiseDistance(handle, datasetView, centroidsView,
-                                         pairwiseDistanceView, workspace,
-                                         metric, stream);
+        kmeans::detail::pairwise_distance(handle, datasetView, centroidsView,
+                                          pairwiseDistanceView, workspace,
+                                          metric, stream);
 
         // argmin reduction returning <index, value> pair
         // calculates the closest centroid and the distance to the closest
@@ -387,7 +390,7 @@ void minClusterDistance(const raft::handle_t &handle,
                         Tensor<DataT, 1, IndexT> &L2NormX,
                         MLCommon::device_buffer<DataT> &L2NormBuf_OR_DistBuf,
                         MLCommon::device_buffer<char> &workspace,
-                        ML::Distance::DistanceType metric,
+                        raft::distance::DistanceType metric,
                         cudaStream_t stream) {
   auto n_samples = X.getSize(0);
   auto n_features = X.getSize(1);
@@ -397,8 +400,8 @@ void minClusterDistance(const raft::handle_t &handle,
   auto centroidsBatchSize =
     kmeans::detail::getCentroidsBatchSize(params, n_clusters);
 
-  if (metric == ML::Distance::DistanceType::EucExpandedL2 ||
-      metric == ML::Distance::DistanceType::EucExpandedL2Sqrt) {
+  if (metric == raft::distance::DistanceType::EucExpandedL2 ||
+      metric == raft::distance::DistanceType::EucExpandedL2Sqrt) {
     L2NormBuf_OR_DistBuf.resize(n_clusters, stream);
     raft::linalg::rowNorm(L2NormBuf_OR_DistBuf.data(), centroids.data(),
                           centroids.getSize(1), centroids.getSize(0),
@@ -445,8 +448,8 @@ void minClusterDistance(const raft::handle_t &handle,
       auto centroidsView =
         centroids.template view<2>({nc, n_features}, {cIdx, 0});
 
-      if (metric == ML::Distance::DistanceType::EucExpandedL2 ||
-          metric == ML::Distance::DistanceType::EucExpandedL2Sqrt) {
+      if (metric == raft::distance::DistanceType::EucExpandedL2 ||
+          metric == raft::distance::DistanceType::EucExpandedL2Sqrt) {
         auto centroidsNormView = centroidsNorm.template view<1>({nc}, {cIdx});
         workspace.resize((sizeof(int)) * ns, stream);
 
@@ -455,7 +458,8 @@ void minClusterDistance(const raft::handle_t &handle,
           minClusterDistanceView.data(), datasetView.data(),
           centroidsView.data(), L2NormXView.data(), centroidsNormView.data(),
           ns, nc, n_features, (void *)workspace.data(), redOp,
-          (metric == ML::Distance::DistanceType::EucExpandedL2) ? false : true,
+          (metric == raft::distance::DistanceType::EucExpandedL2) ? false
+                                                                  : true,
           false, stream);
       } else {
         // pairwiseDistanceView [ns x nc] - view representing the pairwise
@@ -465,9 +469,9 @@ void minClusterDistance(const raft::handle_t &handle,
 
         // calculate pairwise distance between current tile of cluster centroids
         // and input dataset
-        kmeans::detail::pairwiseDistance(handle, datasetView, centroidsView,
-                                         pairwiseDistanceView, workspace,
-                                         metric, stream);
+        kmeans::detail::pairwise_distance(handle, datasetView, centroidsView,
+                                          pairwiseDistanceView, workspace,
+                                          metric, stream);
 
         raft::linalg::coalescedReduction(
           minClusterDistanceView.data(), pairwiseDistanceView.data(),
@@ -529,7 +533,7 @@ void countSamplesInCluster(
   const raft::handle_t &handle, const KMeansParams &params,
   Tensor<DataT, 2, IndexT> &X, Tensor<DataT, 1, IndexT> &L2NormX,
   Tensor<DataT, 2, IndexT> &centroids, MLCommon::device_buffer<char> &workspace,
-  ML::Distance::DistanceType metric,
+  raft::distance::DistanceType metric,
   Tensor<DataT, 1, IndexT> &sampleCountInCluster, cudaStream_t stream) {
   auto n_samples = X.getSize(0);
   auto n_features = X.getSize(1);
@@ -578,14 +582,14 @@ void countSamplesInCluster(
  * Scalable kmeans++ pseudocode
  * 1: C = sample a point uniformly at random from X
  * 2: while |C| < k
- * 3:   Sample x in X with probability p_x = d^2(x, C) / phi_X (C) 
+ * 3:   Sample x in X with probability p_x = d^2(x, C) / phi_X (C)
  * 4:   C = C U {x}
  * 5: end for
  */
 template <typename DataT, typename IndexT>
 void kmeansPlusPlus(const raft::handle_t &handle, const KMeansParams &params,
                     Tensor<DataT, 2, IndexT> &X,
-                    ML::Distance::DistanceType metric,
+                    raft::distance::DistanceType metric,
                     MLCommon::device_buffer<char> &workspace,
                     MLCommon::device_buffer<DataT> &centroidsRawData,
                     cudaStream_t stream) {
@@ -631,8 +635,8 @@ void kmeansPlusPlus(const raft::handle_t &handle, const KMeansParams &params,
   // L2 norm of X: ||c||^2
   Tensor<DataT, 1> L2NormX({n_samples}, handle.get_device_allocator(), stream);
 
-  if (metric == ML::Distance::DistanceType::EucExpandedL2 ||
-      metric == ML::Distance::DistanceType::EucExpandedL2Sqrt) {
+  if (metric == raft::distance::DistanceType::EucExpandedL2 ||
+      metric == raft::distance::DistanceType::EucExpandedL2Sqrt) {
     raft::linalg::rowNorm(L2NormX.data(), X.data(), X.getSize(1), X.getSize(0),
                           raft::linalg::L2Norm, true, stream);
   }
@@ -688,8 +692,8 @@ void kmeansPlusPlus(const raft::handle_t &handle, const KMeansParams &params,
     // Output - pwd [n_trails x n_samples]
     auto pwd = std::move(
       Tensor<DataT, 2, IndexT>(distBuffer.data(), {n_trials, n_samples}));
-    kmeans::detail::pairwiseDistance(handle, centroidCandidates, X, pwd,
-                                     workspace, metric, stream);
+    kmeans::detail::pairwise_distance(handle, centroidCandidates, X, pwd,
+                                      workspace, metric, stream);
 
     // Update nearest cluster distance for each centroid candidate
     // Note pwd and minDistBuf points to same buffer which currently holds pairwise distance values.

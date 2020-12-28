@@ -26,7 +26,7 @@ struct Params {
   int m, n, k;
 };  // struct Params
 
-template <typename T, ML::Distance::DistanceType DType>
+template <typename T, raft::distance::DistanceType DType>
 struct Distance : public Fixture {
   Distance(const std::string& name, const Params& p)
     : Fixture(name, std::shared_ptr<deviceAllocator>(

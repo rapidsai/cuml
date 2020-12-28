@@ -21,7 +21,6 @@ import numpy as np
 import warnings
 
 from cuml.common.memory_utils import _strides_to_order
-from cuml.common.memory_utils import rmm_cupy_ary
 from numba import cuda
 from typing import Union
 
@@ -246,8 +245,12 @@ def train_test_split(X,
     random_state : int, CuPy RandomState or NumPy RandomState optional
         If shuffle is true, seeds the generator. Unseeded by default
     seed: random_state : int, CuPy RandomState or NumPy RandomState optional
-        Deprecated in favor of `random_state`.
         If shuffle is true, seeds the generator. Unseeded by default
+
+        .. deprecated:: 0.11
+           Parameter `seed` is deprecated and will be removed in 0.17. Please
+           use `random_state` instead
+
     stratify: bool, optional
         Whether to stratify the input data based on class labels.
         None by default
@@ -397,11 +400,11 @@ def train_test_split(X,
     if shuffle:
         # Shuffle the data
         if random_state is None or isinstance(random_state, int):
-            idxs = rmm_cupy_ary(cp.arange, X.shape[0])
+            idxs = cp.arange(X.shape[0])
             random_state = cp.random.RandomState(seed=random_state)
 
         elif isinstance(random_state, cp.random.RandomState):
-            idxs = rmm_cupy_ary(cp.arange, X.shape[0])
+            idxs = cp.arange(X.shape[0])
 
         elif isinstance(random_state, np.random.RandomState):
             idxs = np.arange(X.shape[0])
