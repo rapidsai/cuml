@@ -24,13 +24,15 @@ from cuml.experimental.preprocessing import \
     PolynomialFeatures as cuPolynomialFeatures, \
     SimpleImputer as cuSimpleImputer, \
     RobustScaler as cuRobustScaler, \
-    KBinsDiscretizer as cuKBinsDiscretizer
+    KBinsDiscretizer as cuKBinsDiscretizer 
 from cuml.experimental.preprocessing import scale as cu_scale, \
                             minmax_scale as cu_minmax_scale, \
                             normalize as cu_normalize, \
                             add_dummy_feature as cu_add_dummy_feature, \
                             binarize as cu_binarize, \
                             robust_scale as cu_robust_scale
+from cuml.preprocessing.model_selection import \
+        train_test_split as cu_train_test_split
 from sklearn.preprocessing import StandardScaler as skStandardScaler, \
                                   MinMaxScaler as skMinMaxScaler, \
                                   MaxAbsScaler as skMaxAbsScaler, \
@@ -46,6 +48,8 @@ from sklearn.preprocessing import scale as sk_scale, \
                                   robust_scale as sk_robust_scale
 from sklearn.impute import SimpleImputer as skSimpleImputer
 from sklearn.preprocessing import KBinsDiscretizer as skKBinsDiscretizer
+from sklearn.model_selection import train_test_split as sk_train_test_split
+
 
 from cuml.thirdparty_adapters.sparsefuncs_fast import \
     csr_mean_variance_axis0, \
@@ -62,6 +66,7 @@ from cuml.test.test_preproc_utils import \
 from cuml.test.test_preproc_utils import assert_allclose
 from cuml.common.import_utils import check_cupy8
 
+import cudf
 import numpy as np
 import cupy as cp
 
@@ -675,6 +680,22 @@ def test_inplace_csr_row_normalize_l2(sparse_clf_dataset):  # noqa: F811
 
     assert_allclose(X, X_np)
 
+
+
+@pytest.mark.parametrize("n", [0, 3, 25, 100])
+@pytest.mark.parametrize("split_size", [0, 0.2, 0.5, 0.7, 0.9])
+def test_train_test_split(n, split_size):
+    cdf = cudf.DataFrame({'x': range(n), 
+		'y': [0, 1] * (n // 2) + [1] * (n % 2)})
+    pdf = cdf.to_pandas()
+    X_train, X_test, y_train, y_test = \
+            cu_train_test_split(cdf['x'], cdf['y'], train_size=split_size)
+
+    train_size = cp.floor(n * split_size)
+    assert X_train.shape[0] == train_size 
+    assert X_test.shape[0] == n - train_size 
+    assert y_train.shape[0] == train_size 
+    assert y_test.shape[0] == n - train_size
 
 def test__repr__():
     assert cuStandardScaler().__repr__() == 'StandardScaler()'
