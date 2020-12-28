@@ -686,7 +686,7 @@ def test_inplace_csr_row_normalize_l2(sparse_clf_dataset):  # noqa: F811
 @pytest.mark.parametrize("split_size", [0, 0.2, 0.5, 0.7, 0.9])
 def test_train_test_split(n, split_size):
     cdf = cudf.DataFrame({'x': range(n), 
-		'y': [0, 1] * (n // 2) + [1] * (n % 2)})
+            'y': [0, 1] * (n // 2) + [1] * (n % 2)})
     pdf = cdf.to_pandas()
     X_train, X_test, y_train, y_test = \
             cu_train_test_split(cdf['x'], cdf['y'], train_size=split_size)
