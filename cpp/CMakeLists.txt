@@ -18,7 +18,7 @@ set (CMAKE_FIND_NO_INSTALL_PREFIX TRUE FORCE)
 
 cmake_minimum_required(VERSION 3.14...3.17 FATAL_ERROR)
 
-project(CUML VERSION 0.17.0 LANGUAGES C CXX CUDA)
+project(cuML VERSION 0.18.0 LANGUAGES C CXX CUDA)
 
 ##############################################################################
 # - build type ---------------------------------------------------------------
@@ -395,12 +395,15 @@ if(BUILD_CUML_CPP_LIBRARY)
     src/datasets/make_regression.cu
     src/dbscan/dbscan.cu
     src/decisiontree/decisiontree.cu
+    src/explainer/kernel_shap.cu
+    src/explainer/permutation_shap.cu
     src/fil/fil.cu
     src/fil/infer.cu
     src/glm/glm.cu
     src/holtwinters/holtwinters.cu
     src/kmeans/kmeans.cu
     src/knn/knn.cu
+    src/knn/knn_sparse.cu
     src/metrics/accuracy_score.cu
     src/metrics/adjusted_rand_index.cu
     src/metrics/completeness_score.cu
@@ -417,6 +420,7 @@ if(BUILD_CUML_CPP_LIBRARY)
     src/pca/pca.cu
     src/randomforest/randomforest.cu
     src/random_projection/rproj.cu
+    src/solver/lars.cu
     src/solver/solver.cu
     src/spectral/spectral.cu
     src/svm/svc.cu

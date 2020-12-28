@@ -21,12 +21,11 @@ import cupy.prof
 import cupyx
 from cuml.common import CumlArray
 from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.common.base import Base
+from cuml.common.base import Base, ClassifierMixin
 from cuml.common.doc_utils import generate_docstring
 from cuml.common.import_utils import has_scipy
 from cuml.common.input_utils import input_to_cuml_array, input_to_cupy_array
 from cuml.common.kernel_utils import cuda_kernel_factory
-from cuml.metrics import accuracy_score
 from cuml.prims.label import check_labels, invert_labels, make_monotonic
 
 
@@ -107,7 +106,7 @@ def count_features_dense_kernel(float_dtype, int_dtype):
                                "count_features_dense")
 
 
-class MultinomialNB(Base):
+class MultinomialNB(Base, ClassifierMixin):
     """
     Naive Bayes classifier for multinomial models
 
@@ -455,30 +454,6 @@ class MultinomialNB(Base):
         """
         result = cp.exp(self.predict_log_proba(X))
         return result
-
-    @generate_docstring(
-        X='dense_sparse',
-        return_values={
-            'name':
-                'score',
-            'type':
-                'float',
-            'description':
-                'Mean accuracy of self.predict(X) with respect to y.'
-        })
-    def score(self, X, y, sample_weight=None) -> float:
-        """
-        Return the mean accuracy on the given test data and labels.
-
-        In multi-label classification, this is the subset accuracy which is a
-        harsh metric since you require for each sample that each label set be
-        correctly predicted.
-
-        Currently, sample weight is ignored
-
-        """
-        y_hat = self.predict(X)
-        return accuracy_score(y_hat, cp.asarray(y, dtype=y.dtype))
 
     def _init_counters(self, n_effective_classes, n_features, dtype):
         self.class_count_ = cp.zeros(n_effective_classes,

@@ -49,11 +49,14 @@ if(BUILD_CUML_TESTS)
     sg/cd_test.cu
     sg/dbscan_test.cu
     sg/decisiontree_batchedlevel_algo.cu
+    sg/decisiontree_batchedlevel_unittest.cu
     sg/fil_test.cu
+    sg/multi_sum_test.cu
     sg/handle_test.cu
     sg/holtwinters_test.cu
     sg/kmeans_test.cu
     sg/knn_test.cu
+    sg/lars_test.cu
     sg/logger.cpp
     sg/nvtx_test.cpp
     sg/ols.cu
@@ -68,11 +71,13 @@ if(BUILD_CUML_TESTS)
     sg/ridge.cu
     sg/rproj_test.cu
     sg/sgd.cu
+    sg/shap_kernel.cu
     sg/svc_test.cu
     sg/trustworthiness_test.cu
     sg/tsne_test.cu
     sg/tsvd_test.cu
-    sg/umap_parametrizable_test.cu)
+    sg/umap_parametrizable_test.cu
+    )
 
   add_dependencies(ml cutlass)
 
@@ -185,6 +190,12 @@ if(BUILD_PRIMS_TESTS)
     prims/score.cu
     prims/seive.cu
     prims/sigmoid.cu
+    prims/sparse/csr_row_slice.cu
+    prims/sparse/csr_to_dense.cu
+    prims/sparse/csr_transpose.cu
+    prims/sparse/distance.cu
+    prims/sparse/knn.cu
+    prims/sparse/selection.cu
     prims/silhouette_score.cu
     prims/sqrt.cu
     prims/ternary_op.cu

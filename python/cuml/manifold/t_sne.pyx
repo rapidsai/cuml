@@ -35,10 +35,12 @@ import cuml.common.logger as logger
 from cuml.common.array import CumlArray
 from cuml.common.doc_utils import generate_docstring
 from cuml.common import input_to_cuml_array
+from cuml.common.sparsefuncs import extract_knn_graph
 import rmm
 
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t
+from libc.stdint cimport int64_t
 from libcpp.memory cimport shared_ptr
 
 cimport cuml.common.cuda
@@ -50,6 +52,8 @@ cdef extern from "cuml/manifold/tsne.h" namespace "ML" nogil:
         float *Y,
         const int n,
         const int p,
+        int64_t * knn_indices,
+        float * knn_dists,
         const int dim,
         int n_neighbors,
         const float theta,
@@ -326,9 +330,32 @@ class TSNE(Base):
         self.post_learning_rate = learning_rate * 2
 
     @generate_docstring(convert_dtype_cast='np.float32')
-    def fit(self, X, convert_dtype=True) -> "TSNE":
+    def fit(self, X, convert_dtype=True, knn_graph=None) -> "TSNE":
         """
         Fit X into an embedded space.
+
+        Parameters
+        -----------
+        X : array-like (device or host) shape = (n_samples, n_features)
+            X contains a sample per row.
+        convert_dtype : bool, optional (default = True)
+            When set to True, the fit method will automatically
+            convert the inputs to np.float32.
+        knn_graph : sparse array-like (device or host)
+            shape=(n_samples, n_samples)
+            A sparse array containing the k-nearest neighbors of X,
+            where the columns are the nearest neighbor indices
+            for each row and the values are their distances.
+            Users using the knn_graph parameter provide t-SNE
+            with their own run of the KNN algorithm. This allows the user
+            to pick a custom distance function (sometimes useful
+            on certain datasets) whereas t-SNE uses euclidean by default.
+            The custom distance function should match the metric used
+            to train t-SNE embeedings. Storing and reusing a knn_graph
+            will also provide a speedup to the t-SNE algorithm
+            when performing a grid search.
+            Acceptable formats: sparse SciPy ndarray, CuPy device ndarray,
+            CSR/COO preferred other formats will go through conversion to CSR
 
         """
         cdef int n, p
@@ -355,6 +382,12 @@ class TSNE(Base):
             warnings.warn("Perplexity = {} should be less than the "
                           "# of datapoints = {}.".format(self.perplexity, n))
             self.perplexity = n
+
+        (knn_indices_m, knn_indices_ctype), (knn_dists_m, knn_dists_ctype) =\
+            extract_knn_graph(knn_graph, convert_dtype)
+
+        cdef uintptr_t knn_indices_raw = knn_indices_ctype or 0
+        cdef uintptr_t knn_dists_raw = knn_dists_ctype or 0
 
         # Prepare output embeddings
         Y = CumlArray.zeros(
@@ -396,6 +429,8 @@ class TSNE(Base):
                  <float*> embed_ptr,
                  <int> n,
                  <int> p,
+                 <int64_t*> knn_indices_raw,
+                 <float*> knn_dists_raw,
                  <int> self.n_components,
                  <int> self.n_neighbors,
                  <float> self.angle,
@@ -427,18 +462,21 @@ class TSNE(Base):
             self.embedding_ = None
 
     @generate_docstring(convert_dtype_cast='np.float32',
+                        skip_parameters_heading=True,
                         return_values={'name': 'X_new',
                                        'type': 'dense',
                                        'description': 'Embedding of the \
-                                                       training data in \
+                                                       data in \
                                                        low-dimensional space.',
                                        'shape': '(n_samples, n_components)'})
     @cuml.internals.api_base_return_array_skipall
-    def fit_transform(self, X, convert_dtype=True) -> CumlArray:
+    def fit_transform(self, X, convert_dtype=True,
+                      knn_graph=None) -> CumlArray:
         """
         Fit X into an embedded space and return that transformed output.
         """
-        return self.fit(X, convert_dtype=convert_dtype)._transform(X)
+        return self.fit(X, convert_dtype=convert_dtype,
+                        knn_graph=knn_graph)._transform(X)
 
     def _transform(self, X) -> CumlArray:
         """
@@ -485,3 +523,8 @@ class TSNE(Base):
             "pre_momentum",
             "post_momentum",
         ]
+
+    def _more_tags(self):
+        return {
+            'preferred_input_order': 'C'
+        }

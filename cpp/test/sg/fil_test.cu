@@ -29,6 +29,8 @@
 #include <raft/random/rng.cuh>
 #include <utility>
 
+#include "../../src/fil/internal.cuh"
+
 #define TL_CPP_CHECK(call) ASSERT(int(call) >= 0, "treelite call error")
 
 namespace ML {
@@ -52,6 +54,7 @@ struct FilTestParams {
   float threshold = 0.0f;
   float global_bias = 0.0f;
   // runtime parameters
+  int blocks_per_sm = 0;
   algo_t algo = algo_t::NAIVE;
   int seed = 42;
   float tolerance = 2e-3f;
@@ -90,7 +93,8 @@ std::ostream& operator<<(std::ostream& os, const FilTestParams& ps) {
      << ", nan_prob = " << ps.nan_prob << ", depth = " << ps.depth
      << ", num_trees = " << ps.num_trees << ", leaf_prob = " << ps.leaf_prob
      << ", output = " << output2str(ps.output)
-     << ", threshold = " << ps.threshold << ", algo = " << ps.algo
+     << ", threshold = " << ps.threshold
+     << ", blocks_per_sm = " << ps.blocks_per_sm << ", algo = " << ps.algo
      << ", seed = " << ps.seed << ", tolerance = " << ps.tolerance
      << ", op = " << tl::OpName(ps.op) << ", global_bias = " << ps.global_bias
      << ", leaf_algo = " << ps.leaf_algo
@@ -204,8 +208,8 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
         default:
           ASSERT(false, "internal error: invalid ps.leaf_algo");
       }
-      fil::node_init(&nodes[i], w, thresholds_h[i], fids_h[i], def_lefts_h[i],
-                     is_leafs_h[i]);
+      nodes[i] = fil::dense_node(w, thresholds_h[i], fids_h[i], def_lefts_h[i],
+                                 is_leafs_h[i]);
     }
 
     // clean up
@@ -361,18 +365,14 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
                                   stream));
   }
 
-  fil::val_t infer_one_tree(fil::dense_node_t* root, float* data) {
+  fil::val_t infer_one_tree(fil::dense_node* root, float* data) {
     int curr = 0;
-    float threshold = 0.0f;
     fil::val_t output{.f = 0.0f};
-    int fid = 0;
-    bool def_left = false, is_leaf = false;
     for (;;) {
-      fil::node_decode(&root[curr], &output, &threshold, &fid, &def_left,
-                       &is_leaf);
-      if (is_leaf) break;
-      float val = data[fid];
-      bool cond = isnan(val) ? !def_left : val >= threshold;
+      const fil::dense_node& node = root[curr];
+      if (node.is_leaf()) return node.base_node::output<val_t>();
+      float val = data[node.fid()];
+      bool cond = isnan(val) ? !node.def_left() : val >= node.thresh();
       curr = (curr << 1) + 1 + (cond ? 1 : 0);
     }
     return output;
@@ -393,7 +393,7 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
   std::vector<float> data_h;
 
   // forest data
-  std::vector<fil::dense_node_t> nodes;
+  std::vector<fil::dense_node> nodes;
 
   // parameters
   cudaStream_t stream;
@@ -415,6 +415,7 @@ class PredictDenseFilTest : public BaseFilTest {
     fil_ps.global_bias = ps.global_bias;
     fil_ps.leaf_algo = ps.leaf_algo;
     fil_ps.num_classes = ps.num_classes;
+    fil_ps.blocks_per_sm = ps.blocks_per_sm;
 
     fil::init_dense(handle, pforest, nodes.data(), &fil_ps);
   }
@@ -423,18 +424,14 @@ class PredictDenseFilTest : public BaseFilTest {
 template <typename fil_node_t>
 class BasePredictSparseFilTest : public BaseFilTest {
  protected:
-  void dense2sparse_node(const fil::dense_node_t* dense_root, int i_dense,
+  void dense2sparse_node(const fil::dense_node* dense_root, int i_dense,
                          int i_sparse_root, int i_sparse) {
-    float threshold;
-    fil::val_t output;
-    int feature;
-    bool def_left, is_leaf;
-    fil::node_decode(&dense_root[i_dense], &output, &threshold, &feature,
-                     &def_left, &is_leaf);
-    if (is_leaf) {
+    const fil::dense_node& node = dense_root[i_dense];
+    if (node.is_leaf()) {
       // leaf sparse node
-      node_init(&sparse_nodes[i_sparse], output, threshold, feature, def_left,
-                is_leaf, 0);
+      sparse_nodes[i_sparse] =
+        fil_node_t(node.base_node::output<val_t>(), node.thresh(), node.fid(),
+                   node.def_left(), node.is_leaf(), 0);
       return;
     }
     // inner sparse node
@@ -442,14 +439,15 @@ class BasePredictSparseFilTest : public BaseFilTest {
     int left_index = sparse_nodes.size();
     sparse_nodes.push_back(fil_node_t());
     sparse_nodes.push_back(fil_node_t());
-    node_init(&sparse_nodes[i_sparse], output, threshold, feature, def_left,
-              is_leaf, left_index - i_sparse_root);
+    sparse_nodes[i_sparse] =
+      fil_node_t(node.base_node::output<val_t>(), node.thresh(), node.fid(),
+                 node.def_left(), node.is_leaf(), left_index - i_sparse_root);
     dense2sparse_node(dense_root, 2 * i_dense + 1, i_sparse_root, left_index);
     dense2sparse_node(dense_root, 2 * i_dense + 2, i_sparse_root,
                       left_index + 1);
   }
 
-  void dense2sparse_tree(const fil::dense_node_t* dense_root) {
+  void dense2sparse_tree(const fil::dense_node* dense_root) {
     int i_sparse_root = sparse_nodes.size();
     sparse_nodes.push_back(fil_node_t());
     dense2sparse_node(dense_root, 0, i_sparse_root, i_sparse_root);
@@ -473,6 +471,7 @@ class BasePredictSparseFilTest : public BaseFilTest {
     fil_params.global_bias = ps.global_bias;
     fil_params.leaf_algo = ps.leaf_algo;
     fil_params.num_classes = ps.num_classes;
+    fil_params.blocks_per_sm = ps.blocks_per_sm;
 
     dense2sparse();
     fil_params.num_nodes = sparse_nodes.size();
@@ -483,8 +482,8 @@ class BasePredictSparseFilTest : public BaseFilTest {
   std::vector<int> trees;
 };
 
-typedef BasePredictSparseFilTest<fil::sparse_node16_t> PredictSparse16FilTest;
-typedef BasePredictSparseFilTest<fil::sparse_node8_t> PredictSparse8FilTest;
+typedef BasePredictSparseFilTest<fil::sparse_node16> PredictSparse16FilTest;
+typedef BasePredictSparseFilTest<fil::sparse_node8> PredictSparse8FilTest;
 
 class TreeliteFilTest : public BaseFilTest {
  protected:
@@ -495,28 +494,27 @@ class TreeliteFilTest : public BaseFilTest {
                        int node) {
     int key = (*pkey)++;
     builder->CreateNode(key);
-    int feature;
-    float threshold;
-    fil::val_t output;
-    bool is_leaf, default_left;
-    fil::node_decode(&nodes[node], &output, &threshold, &feature, &default_left,
-                     &is_leaf);
-    if (is_leaf) {
+    const fil::dense_node& dense_node = nodes[node];
+    if (dense_node.is_leaf()) {
       switch (ps.leaf_algo) {
         case fil::leaf_algo_t::FLOAT_UNARY_BINARY:
         case fil::leaf_algo_t::GROVE_PER_CLASS:
           // default is fil::FLOAT_UNARY_BINARY
-          builder->SetLeafNode(key, output.f);
+          builder->SetLeafNode(key, dense_node.base_node::output<val_t>().f);
           break;
         case fil::leaf_algo_t::CATEGORICAL_LEAF:
           std::vector<tl::tl_float> vec(ps.num_classes);
-          for (int i = 0; i < ps.num_classes; ++i)
-            vec[i] = i == output.idx ? 1.0f : 0.0f;
+          for (int i = 0; i < ps.num_classes; ++i) {
+            vec[i] =
+              i == dense_node.base_node::output<val_t>().idx ? 1.0f : 0.0f;
+          }
           builder->SetLeafVectorNode(key, vec);
       }
     } else {
       int left = root + 2 * (node - root) + 1;
       int right = root + 2 * (node - root) + 2;
+      float threshold = dense_node.thresh();
+      bool default_left = dense_node.def_left();
       switch (ps.op) {
         case tl::Operator::kLT:
           break;
@@ -539,7 +537,7 @@ class TreeliteFilTest : public BaseFilTest {
       }
       int left_key = node_to_treelite(builder, pkey, root, left);
       int right_key = node_to_treelite(builder, pkey, root, right);
-      builder->SetNumericalTestNode(key, feature, ps.op, threshold,
+      builder->SetNumericalTestNode(key, dense_node.fid(), ps.op, threshold,
                                     default_left, left_key, right_key);
     }
     return key;
@@ -591,6 +589,7 @@ class TreeliteFilTest : public BaseFilTest {
     params.threshold = ps.threshold;
     params.output_class = (ps.output & fil::output_t::CLASS) != 0;
     params.storage_type = storage_type;
+    params.blocks_per_sm = ps.blocks_per_sm;
     fil::from_treelite(handle, pforest, (ModelHandle)model.get(), &params);
     CUDA_CHECK(cudaStreamSynchronize(stream));
   }
@@ -694,6 +693,20 @@ std::vector<FilTestParams> predict_dense_inputs = {
                   leaf_algo = GROVE_PER_CLASS, num_classes = 4),
   FIL_TEST_PARAMS(num_trees = 52, output = AVG, global_bias = 0.5,
                   leaf_algo = GROVE_PER_CLASS, num_classes = 4),
+  FIL_TEST_PARAMS(blocks_per_sm = 1),
+  FIL_TEST_PARAMS(blocks_per_sm = 4),
+  FIL_TEST_PARAMS(num_classes = 3, blocks_per_sm = 1,
+                  leaf_algo = CATEGORICAL_LEAF),
+  FIL_TEST_PARAMS(num_classes = 3, blocks_per_sm = 4,
+                  leaf_algo = CATEGORICAL_LEAF),
+  FIL_TEST_PARAMS(num_classes = 5, blocks_per_sm = 1,
+                  leaf_algo = GROVE_PER_CLASS),
+  FIL_TEST_PARAMS(num_classes = 5, blocks_per_sm = 4,
+                  leaf_algo = GROVE_PER_CLASS),
+  FIL_TEST_PARAMS(leaf_algo = GROVE_PER_CLASS, blocks_per_sm = 1,
+                  num_trees = 512, num_classes = 512),
+  FIL_TEST_PARAMS(leaf_algo = GROVE_PER_CLASS, blocks_per_sm = 4,
+                  num_trees = 512, num_classes = 512),
 };
 
 TEST_P(PredictDenseFilTest, Predict) { compare(); }
@@ -732,6 +745,7 @@ std::vector<FilTestParams> predict_sparse_inputs = {
 
 TEST_P(PredictSparse16FilTest, Predict) { compare(); }
 
+// Temporarily disabled, see https://github.com/rapidsai/cuml/issues/3205
 INSTANTIATE_TEST_CASE_P(FilTests, PredictSparse16FilTest,
                         testing::ValuesIn(predict_sparse_inputs));
 
@@ -885,5 +899,4 @@ TEST_P(TreeliteThrowSparse8FilTest, Import) { check(); }
 
 INSTANTIATE_TEST_CASE_P(FilTests, TreeliteThrowSparse8FilTest,
                         testing::ValuesIn(import_throw_sparse8_inputs));
-
 }  // namespace ML

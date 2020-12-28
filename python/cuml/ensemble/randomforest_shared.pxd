@@ -51,7 +51,8 @@ cdef extern from "cuml/tree/decisiontree.hpp" namespace "ML::DecisionTree":
         float max_features
         int n_bins
         int split_algo
-        int min_rows_per_node
+        int min_samples_leaf
+        int min_samples_split
         bool bootstrap_features
         bool quantile_per_tree
         CRITERION split_criterion
@@ -76,7 +77,7 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
     cdef struct RF_params:
         int n_trees
         bool bootstrap
-        float rows_sample
+        float max_samples
         int seed
         pass
 
@@ -104,6 +105,7 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
     cdef RF_params set_rf_class_obj(int,
                                     int,
                                     float,
+                                    int,
                                     int,
                                     int,
                                     int,

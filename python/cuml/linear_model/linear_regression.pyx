@@ -32,6 +32,7 @@ from cuml.common.array import CumlArray
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.base import Base, RegressorMixin
 from cuml.common.doc_utils import generate_docstring
+from cuml.linear_model.base import LinearPredictMixin
 from cuml.raft.common.handle cimport handle_t
 from cuml.common import input_to_cuml_array
 
@@ -57,24 +58,8 @@ cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM":
                      bool fit_intercept,
                      bool normalize, int algo) except +
 
-    cdef void olsPredict(handle_t& handle,
-                         const float *input,
-                         int n_rows,
-                         int n_cols,
-                         const float *coef,
-                         float intercept,
-                         float *preds) except +
 
-    cdef void olsPredict(handle_t& handle,
-                         const double *input,
-                         int n_rows,
-                         int n_cols,
-                         const double *coef,
-                         double intercept,
-                         double *preds) except +
-
-
-class LinearRegression(Base, RegressorMixin):
+class LinearRegression(Base, RegressorMixin, LinearPredictMixin):
 
     """
     LinearRegression is a simple machine learning model where the response y is
@@ -302,53 +287,11 @@ class LinearRegression(Base, RegressorMixin):
 
         return self
 
-    @generate_docstring(return_values={'name': 'preds',
-                                       'type': 'dense',
-                                       'description': 'Predicted values',
-                                       'shape': '(n_samples, 1)'})
-    def predict(self, X, convert_dtype=True) -> CumlArray:
-        """
-        Predicts `y` values for `X`.
-
-        """
-        cdef uintptr_t X_ptr
-        X_m, n_rows, n_cols, dtype = \
-            input_to_cuml_array(X, check_dtype=self.dtype,
-                                convert_to_dtype=(self.dtype if convert_dtype
-                                                  else None),
-                                check_cols=self.n_cols)
-        X_ptr = X_m.ptr
-
-        cdef uintptr_t coef_ptr = self.coef_.ptr
-
-        preds = CumlArray.zeros(n_rows, dtype=dtype)
-        cdef uintptr_t preds_ptr = preds.ptr
-
-        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
-
-        if dtype.type == np.float32:
-            olsPredict(handle_[0],
-                       <float*>X_ptr,
-                       <int>n_rows,
-                       <int>n_cols,
-                       <float*>coef_ptr,
-                       <float>self.intercept_,
-                       <float*>preds_ptr)
-        else:
-            olsPredict(handle_[0],
-                       <double*>X_ptr,
-                       <int>n_rows,
-                       <int>n_cols,
-                       <double*>coef_ptr,
-                       <double>self.intercept_,
-                       <double*>preds_ptr)
-
-        self.handle.sync()
-
-        del(X_m)
-
-        return preds
-
     def get_param_names(self):
         return super().get_param_names() + \
             ['algorithm', 'fit_intercept', 'normalize']
+
+    def _more_tags(self):
+        return {
+            'preferred_input_order': 'F'
+        }

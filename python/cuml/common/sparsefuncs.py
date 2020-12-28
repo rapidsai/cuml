@@ -14,10 +14,16 @@
 # limitations under the License.
 #
 import math
+import numpy as np
 import cupy as cp
 import cupyx
+from cuml.common.input_utils import input_to_cuml_array
+from cuml.common.memory_utils import with_cupy_rmm
+from cuml.common.import_utils import has_scipy
 import cuml.internals
 from cuml.common.kernel_utils import cuda_kernel_factory
+from cupy.sparse import csr_matrix as cp_csr_matrix,\
+    coo_matrix as cp_coo_matrix, csc_matrix as cp_csc_matrix
 
 
 def _map_l1_norm_kernel(dtype):
@@ -167,3 +173,58 @@ def _insert_zeros(ary, zero_indices):
 
     new_ary[data_mask] = ary
     return new_ary
+
+
+@with_cupy_rmm
+def extract_knn_graph(knn_graph, convert_dtype=True):
+    """
+    Converts KNN graph from CSR, COO and CSC formats into separate
+    distance and indice arrays. Input can be a cupy sparse graph (device)
+    or a numpy sparse graph (host).
+    """
+    if has_scipy():
+        from scipy.sparse import csr_matrix, coo_matrix, csc_matrix
+    else:
+        from cuml.common.import_utils import DummyClass
+        csr_matrix = DummyClass
+        coo_matrix = DummyClass
+        csc_matrix = DummyClass
+
+    if isinstance(knn_graph, (csc_matrix, cp_csc_matrix)):
+        knn_graph = cp.sparse.csr_matrix(knn_graph)
+        n_samples = knn_graph.shape[0]
+        reordering = knn_graph.data.reshape((n_samples, -1))
+        reordering = reordering.argsort()
+        n_neighbors = reordering.shape[1]
+        reordering += (cp.arange(n_samples) * n_neighbors)[:, np.newaxis]
+        reordering = reordering.flatten()
+        knn_graph.indices = knn_graph.indices[reordering]
+        knn_graph.data = knn_graph.data[reordering]
+
+    knn_indices = None
+    if isinstance(knn_graph, (csr_matrix, cp_csr_matrix)):
+        knn_indices = knn_graph.indices
+    elif isinstance(knn_graph, (coo_matrix, cp_coo_matrix)):
+        knn_indices = knn_graph.col
+
+    if knn_indices is not None:
+        knn_dists = knn_graph.data
+        knn_indices_m, _, _, _ = \
+            input_to_cuml_array(knn_indices, order='C',
+                                deepcopy=True,
+                                check_dtype=np.int64,
+                                convert_to_dtype=(np.int64
+                                                  if convert_dtype
+                                                  else None))
+
+        knn_dists_m, _, _, _ = \
+            input_to_cuml_array(knn_dists, order='C',
+                                deepcopy=True,
+                                check_dtype=np.float32,
+                                convert_to_dtype=(np.float32
+                                                  if convert_dtype
+                                                  else None))
+
+        return (knn_indices_m, knn_indices_m.ptr),\
+            (knn_dists_m, knn_dists_m.ptr)
+    return (None, None), (None, None)
