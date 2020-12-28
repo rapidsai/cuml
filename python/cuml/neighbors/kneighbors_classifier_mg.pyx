@@ -90,34 +90,39 @@ class KNeighborsClassifierMG(NearestNeighborsMG):
 
         Parameters
         ----------
-        index: [__cuda_array_interface__] of local index and labels partitions
+        index: [__cuda_array_interface__] of local index partitions
         index_parts_to_ranks: mappings of index partitions to ranks
-        index_nrows: number of total index rows
+        index_nrows: number of index rows
         query: [__cuda_array_interface__] of local query partitions
         query_parts_to_ranks: mappings of query partitions to ranks
-        query_nrows: number of total query rows
-        uniq_labels: array of labels of a column
+        query_nrows: number of query rows
+        uniq_labels: array of arrays of possible labels for columns
         n_unique: array with number of possible labels for each columns
         ncols: number of columns
-        rank: int rank of current worker
+        rank: rank of current worker
+        n_neighbors: number of nearest neighbors to query
         convert_dtype: since only float32 inputs are supported, should
                the input be automatically converted?
 
         Returns
         -------
-        predictions : labels, indices, distances
+        predictions : labels
         """
+        # Detect type
         self.get_out_type(index, query)
 
+        # Build input arrays and descriptors for native code interfacing
         input = self.gen_local_input(index, index_parts_to_ranks, index_nrows,
                                      query, query_parts_to_ranks, query_nrows,
                                      ncols, rank, convert_dtype)
 
+        # Build input labels arrays and descriptors for native code interfacing
         labels = self.gen_local_labels(index, convert_dtype, 'int32')
 
         query_cais = input['cais']['query']
         local_query_rows = list(map(lambda x: x.shape[0], query_cais))
 
+        # Build uniq_labels_vec vector for native code interfacing
         uniq_labels_d, _, _, _ = \
             input_to_cuml_array(uniq_labels, order='C', check_dtype='int32',
                                 convert_to_dtype='int32')
@@ -127,6 +132,7 @@ class KNeighborsClassifierMG(NearestNeighborsMG):
             uniq_labels_vec.push_back(<int*>ptr)
             ptr += <int>uniq_labels_d.shape[1]
 
+        # Build n_unique_vec vector for native code interfacing
         cdef vector[int] *n_unique_vec = \
             new vector[int]()
         for uniq_label in n_unique:
@@ -134,6 +140,7 @@ class KNeighborsClassifierMG(NearestNeighborsMG):
 
         n_outputs = len(n_unique)
 
+        # Build labels output array for native code interfacing
         cdef vector[intData_t*] *out_result_local_parts \
             = new vector[intData_t*]()
         output_cais = []
@@ -170,12 +177,11 @@ class KNeighborsClassifierMG(NearestNeighborsMG):
 
         self.handle.sync()
 
+        # Release memory
         self.free_mem(input)
         free(<void*><uintptr_t>labels['labels'])
-
         self._free_unique(<uintptr_t>uniq_labels_vec,
                           <uintptr_t>n_unique_vec)
-
         for i in range(out_result_local_parts.size()):
             free(<void*>out_result_local_parts.at(i))
         free(<void*><uintptr_t>out_result_local_parts)
@@ -211,14 +217,18 @@ class KNeighborsClassifierMG(NearestNeighborsMG):
         -------
         predictions : labels, indices, distances
         """
+        # Detect type
         self.get_out_type(index, query)
 
+        # Build input arrays and descriptors for native code interfacing
         input = self.gen_local_input(index, index_parts_to_ranks, index_nrows,
                                      query, query_parts_to_ranks, query_nrows,
                                      ncols, rank, convert_dtype)
 
+        # Build input labels arrays and descriptors for native code interfacing
         labels = self.gen_local_labels(index, convert_dtype, dtype='int32')
 
+        # Build uniq_labels_vec vector for native code interfacing
         uniq_labels_d, _, _, _ = \
             input_to_cuml_array(uniq_labels, order='C', check_dtype='int32',
                                 convert_to_dtype='int32')
@@ -228,6 +238,7 @@ class KNeighborsClassifierMG(NearestNeighborsMG):
             uniq_labels_vec.push_back(<int*>ptr)
             ptr += <int>uniq_labels_d.shape[1]
 
+        # Build n_unique_vec vector for native code interfacing
         cdef vector[int] *n_unique_vec = \
             new vector[int]()
         for uniq_label in n_unique:
@@ -242,6 +253,7 @@ class KNeighborsClassifierMG(NearestNeighborsMG):
 
         n_outputs = len(n_unique)
 
+        # Build probas output array for native code interfacing
         proba_cais = [[] for i in range(n_outputs)]
         for query_idx, n_rows in enumerate(local_query_rows):
             for target_idx, n_classes in enumerate(n_unique):
@@ -253,8 +265,9 @@ class KNeighborsClassifierMG(NearestNeighborsMG):
                                                            p_cai.ptr)
 
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
-
         is_verbose = logger.should_log_for(logger.level_debug)
+
+        # Launch distributed operations
         knn_classify(
             handle_[0],
             <vector[intData_t*]*>0,
@@ -275,22 +288,16 @@ class KNeighborsClassifierMG(NearestNeighborsMG):
             <size_t>self.batch_size,
             <bool>is_verbose
         )
-
         self.handle.sync()
 
+        # Release memory
         self.free_mem(input)
         free(<void*><uintptr_t>labels['labels'])
-
         self._free_unique(<uintptr_t>uniq_labels_vec,
                           <uintptr_t>n_unique_vec)
-
         free(<void*><uintptr_t>probas_local_parts)
 
-        probas_out = []
-        for i in range(n_outputs):
-            probas_out.append(proba_cais[i])
-
-        return tuple(probas_out)
+        return tuple(proba_cais)
 
     @staticmethod
     def _free_unique(uniq_labels, n_unique):

@@ -90,37 +90,43 @@ class NearestNeighborsMG(NearestNeighbors):
 
         Parameters
         ----------
-        indices: [__cuda_array_interface__] of local index partitions
-        index_m: number of total index rows
-        n: number of columns
-        index_partsToRanks: mappings of index partitions to ranks
-        queries: [__cuda_array_interface__] of local query partitions
-        query_m: number of total query rows
-        query_partsToRanks: mappings of query partitions to ranks
-        rank: int rank of current worker
-        n_neighbors: int number of nearest neighbors to query
+        index: [__cuda_array_interface__] of local index partitions
+        index_parts_to_ranks: mappings of index partitions to ranks
+        index_nrows: number of index rows
+        query: [__cuda_array_interface__] of local query partitions
+        query_parts_to_ranks: mappings of query partitions to ranks
+        query_nrows: number of query rows
+        ncols: number of columns
+        rank: rank of current worker
+        n_neighbors: number of nearest neighbors to query
         convert_dtype: since only float32 inputs are supported, should
                the input be automatically converted?
 
         Returns
         -------
-        output indices, output distances
+        predictions : indices and distances
         """
+        # Detect type
         self.get_out_type(index, query)
+
         self.n_neighbors = self.n_neighbors if n_neighbors is None \
             else n_neighbors
 
+        # Build input arrays and descriptors for native code interfacing
         input = self.gen_local_input(index, index_parts_to_ranks, index_nrows,
                                      query, query_parts_to_ranks, query_nrows,
                                      ncols, rank, convert_dtype)
 
         query_cais = input['cais']['query']
         local_query_rows = list(map(lambda x: x.shape[0], query_cais))
+
+        # Build indices and distances outputs for native code interfacing
         result = self.alloc_local_output(local_query_rows, self.n_neighbors)
 
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
-
         is_verbose = logger.should_log_for(logger.level_debug)
+
+        # Launch distributed operations
         knn(
             handle_[0],
             <vector[int64Data_t*]*><uintptr_t>result['indices'],
@@ -137,9 +143,9 @@ class NearestNeighborsMG(NearestNeighbors):
             <size_t>self.batch_size,
             <bool>is_verbose
         )
-
         self.handle.sync()
 
+        # Release memory
         self.free_mem(input, result)
 
         return result['cais']['indices'], result['cais']['distances']

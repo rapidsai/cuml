@@ -86,6 +86,9 @@ class KNeighborsClassifier(NearestNeighbors):
             DistributedDataHandler.create(data=[X, y],
                                           client=self.client)
 
+        # Compute set of possible labels for each output column -> uniq_labels
+        # Count possible labels for each columns -> n_unique
+
         uniq_labels = []
         if self.data_handler.datatype == 'cupy':
             if y.ndim == 1:

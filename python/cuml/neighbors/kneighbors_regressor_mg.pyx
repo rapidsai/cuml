@@ -85,14 +85,15 @@ class KNeighborsRegressorMG(NearestNeighborsMG):
 
         Parameters
         ----------
-        index: [__cuda_array_interface__] of local index and labels partitions
+        index: [__cuda_array_interface__] of local index partitions
         index_parts_to_ranks: mappings of index partitions to ranks
-        index_nrows: number of total index rows
+        index_nrows: number of index rows
         query: [__cuda_array_interface__] of local query partitions
         query_parts_to_ranks: mappings of query partitions to ranks
-        query_nrows: number of total query rows
+        query_nrows: number of query rows
         ncols: number of columns
-        rank: int rank of current worker
+        n_outputs: number of outputs columns
+        rank: rank of current worker
         convert_dtype: since only float32 inputs are supported, should
                the input be automatically converted?
 
@@ -100,17 +101,21 @@ class KNeighborsRegressorMG(NearestNeighborsMG):
         -------
         predictions : labels
         """
+        # Detect type
         self.get_out_type(index, query)
 
+        # Build input arrays and descriptors for native code interfacing
         input = self.gen_local_input(index, index_parts_to_ranks, index_nrows,
                                      query, query_parts_to_ranks, query_nrows,
                                      ncols, rank, convert_dtype)
 
+        # Build input labels arrays and descriptors for native code interfacing
         labels = self.gen_local_labels(index, convert_dtype, dtype='float32')
 
         query_cais = input['cais']['query']
         local_query_rows = list(map(lambda x: x.shape[0], query_cais))
 
+        # Build labels output array for native code interfacing
         cdef vector[floatData_t*] *out_result_local_parts \
             = new vector[floatData_t*]()
         output_cais = []
@@ -122,8 +127,9 @@ class KNeighborsRegressorMG(NearestNeighborsMG):
                 <float*><uintptr_t>o_cai.ptr, n_rows * n_outputs))
 
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
-
         is_verbose = logger.should_log_for(logger.level_debug)
+
+        # Launch distributed operations
         knn_regress(
             handle_[0],
             out_result_local_parts,
@@ -141,12 +147,11 @@ class KNeighborsRegressorMG(NearestNeighborsMG):
             <size_t>self.batch_size,
             <bool>is_verbose
         )
-
         self.handle.sync()
 
+        # Release memory
         self.free_mem(input)
         free(<void*><uintptr_t>labels['labels'])
-
         for i in range(out_result_local_parts.size()):
             free(<void*>out_result_local_parts.at(i))
         free(<void*><uintptr_t>out_result_local_parts)
