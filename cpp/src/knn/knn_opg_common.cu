@@ -299,14 +299,6 @@ void reduce(opg_knn_param &params, opg_knn_utils &utils, cuda_utils &cutils,
   } else {
     indices = params.out_I->at(local_parts_completed)->ptr + batch_offset;
     distances = params.out_D->at(local_parts_completed)->ptr + batch_offset;
-
-    if (params.knn_op == knn_operation::regression) {
-      outputs = (char32_t *)params.out.f->at(local_parts_completed)->ptr +
-                (params.n_outputs * total_n_processed);
-    } else {
-      outputs = (char32_t *)params.out.i->at(local_parts_completed)->ptr +
-                (params.n_outputs * total_n_processed);
-    }
   }
 
   MLCommon::Selection::knn_merge_parts(utils.res_D->data(), utils.res_I->data(),
@@ -317,6 +309,14 @@ void reduce(opg_knn_param &params, opg_knn_utils &utils, cuda_utils &cutils,
   CUDA_CHECK(cudaPeekAtLastError());
 
   if (params.knn_op != knn_operation::knn) {
+    if (params.knn_op == knn_operation::classification) {
+      outputs = (char32_t *)params.out.i->at(local_parts_completed)->ptr +
+                (params.n_outputs * total_n_processed);
+    } else {
+      outputs = (char32_t *)params.out.f->at(local_parts_completed)->ptr +
+                (params.n_outputs * total_n_processed);
+    }
+
     device_buffer<char32_t> merged_outputs_b(
       cutils.alloc, cutils.stream,
       params.n_outputs * cur_batch_size * params.k);
