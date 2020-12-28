@@ -43,10 +43,10 @@ class BatchedLevelAlgoUnitTestFixture {
   using NodeT = Node<DataT, LabelT, IdxT>;
   using Traits = RegTraits<DataT, IdxT>;
 
-  constexpr static int n_bins = 5;
-  constexpr static IdxT n_row = 5;
-  constexpr static IdxT n_col = 2;
-  constexpr static IdxT max_batch = 8;
+  const int n_bins = 5;
+  const IdxT n_row = 5;
+  const IdxT n_col = 2;
+  const IdxT max_batch = 8;
 
   void SetUp() {
     params.max_depth = 2;

@@ -40,11 +40,33 @@ def _func_get_i(f, idx):
 class NearestNeighbors(BaseEstimator):
     """
     Multi-node Multi-GPU NearestNeighbors Model.
+
+    Parameters
+    ----------
+    n_neighbors : int (default=5)
+        Default number of neighbors to query
+    batch_size: int (optional, default 2000000)
+        Maximum number of query rows processed at once. This parameter can
+        greatly affect the throughput of the algorithm. The optimal setting
+        of this value will vary for different layouts index to query ratios,
+        but it will require `batch_size * n_features * 4` bytes of additional
+        memory on each worker hosting index partitions.
+    handle : cuml.Handle
+        Specifies the cuml.handle that holds internal CUDA state for
+        computations in this model. Most importantly, this specifies the CUDA
+        stream that will be used for the model's computations, so users can
+        run different models concurrently in different streams by creating
+        handles in several streams.
+        If it is None, a new one is created.
+    verbose : int or boolean, default=False
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        See :ref:`verbosity-levels` for more info.
+
     """
-    def __init__(self, client=None, streams_per_handle=0, **kwargs):
+    def __init__(self, client=None, streams_per_handle=0,
+                 **kwargs):
         super(NearestNeighbors, self).__init__(client=client,
                                                **kwargs)
-
         self.streams_per_handle = streams_per_handle
 
     def fit(self, X):
