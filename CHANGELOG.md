@@ -6,7 +6,6 @@
 
 ## Bug Fixes
 - PR #3279: Correct pure virtual declaration in manifold_inputs_t
-- PR #3321: k-means bug fix in debug build
 
 # cuML 0.17.0 (Date TBD)
 
