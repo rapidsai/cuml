@@ -26,12 +26,6 @@ import dask.array as da
 from uuid import uuid1
 
 
-def _custom_getter(o):
-    def func_get(f, idx):
-        return f[o][idx]
-    return func_get
-
-
 class KNeighborsRegressor(NearestNeighbors):
     """
     Multi-node Multi-GPU K-Nearest Neighbors Regressor Model.
@@ -204,8 +198,7 @@ class KNeighborsRegressor(NearestNeighbors):
         """
         out_futures = flatten_grouped_results(self.client,
                                               query_parts_to_ranks,
-                                              knn_reg_res,
-                                              getter_func=_custom_getter(0))
+                                              knn_reg_res)
 
         comms.destroy()
 

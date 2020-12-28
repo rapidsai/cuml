@@ -39,8 +39,6 @@ cdef extern from "cuml/neighbors/knn_mg.hpp" namespace \
     cdef void knn_regress(
         handle_t &handle,
         vector[floatData_t*] *out,
-        vector[int64Data_t*] *out_I,
-        vector[floatData_t*] *out_D,
         vector[floatData_t*] &idx_data,
         PartDescriptor &idx_desc,
         vector[floatData_t*] &query_data,
@@ -79,9 +77,7 @@ class KNeighborsRegressorMG(NearestNeighborsMG):
         n_outputs,
         rank,
         convert_dtype
-    ) -> typing.Tuple[typing.List[CumlArray],
-                      typing.List[CumlArray],
-                      typing.List[CumlArray]]:
+    ) -> typing.List[CumlArray]:
         """
         Predict outputs for a query from previously stored index
         and index labels.
@@ -102,7 +98,7 @@ class KNeighborsRegressorMG(NearestNeighborsMG):
 
         Returns
         -------
-        predictions : outputs, indices, distances
+        predictions : labels
         """
         self.get_out_type(index, query)
 
@@ -114,7 +110,6 @@ class KNeighborsRegressorMG(NearestNeighborsMG):
 
         query_cais = input['cais']['query']
         local_query_rows = list(map(lambda x: x.shape[0], query_cais))
-        result = self.alloc_local_output(local_query_rows, self.n_neighbors)
 
         cdef vector[floatData_t*] *out_result_local_parts \
             = new vector[floatData_t*]()
@@ -132,8 +127,6 @@ class KNeighborsRegressorMG(NearestNeighborsMG):
         knn_regress(
             handle_[0],
             out_result_local_parts,
-            <vector[int64Data_t*]*><uintptr_t>result['indices'],
-            <vector[floatData_t*]*><uintptr_t>result['distances'],
             deref(<vector[floatData_t*]*><uintptr_t>
                   input['index']['local_parts']),
             deref(<PartDescriptor*><uintptr_t>input['index']['desc']),
@@ -151,13 +144,11 @@ class KNeighborsRegressorMG(NearestNeighborsMG):
 
         self.handle.sync()
 
-        self.free_mem(input, result)
+        self.free_mem(input)
         free(<void*><uintptr_t>labels['labels'])
 
         for i in range(out_result_local_parts.size()):
             free(<void*>out_result_local_parts.at(i))
         free(<void*><uintptr_t>out_result_local_parts)
 
-        return output_cais, \
-            result['cais']['indices'], \
-            result['cais']['distances']
+        return output_cais

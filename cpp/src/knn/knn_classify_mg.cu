@@ -56,8 +56,6 @@ namespace opg {
 using namespace knn_common;
 
 void knn_classify(raft::handle_t &handle, std::vector<Matrix::Data<int> *> *out,
-                  std::vector<Matrix::Data<int64_t> *> *out_I,
-                  std::vector<Matrix::floatData_t *> *out_D,
                   std::vector<std::vector<float *>> *probas,
                   std::vector<Matrix::floatData_t *> &idx_data,
                   Matrix::PartDescriptor &idx_desc,
@@ -71,8 +69,6 @@ void knn_classify(raft::handle_t &handle, std::vector<Matrix::Data<int> *> *out,
   params.knn_op =
     probas_only ? knn_operation::class_proba : knn_operation::classification;
   params.out.i = out;
-  params.out_I = out_I;
-  params.out_D = out_D;
   params.probas = probas;
   params.idx_data = &idx_data;
   params.idx_desc = &idx_desc;

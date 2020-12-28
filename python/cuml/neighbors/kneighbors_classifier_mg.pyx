@@ -40,8 +40,6 @@ cdef extern from "cuml/neighbors/knn_mg.hpp" namespace \
     cdef void knn_classify(
         handle_t &handle,
         vector[intData_t*] *out,
-        vector[int64Data_t*] *out_I,
-        vector[floatData_t*] *out_D,
         vector[float_ptr_vector] *probas,
         vector[floatData_t*] &idx_data,
         PartDescriptor &idx_desc,
@@ -84,9 +82,7 @@ class KNeighborsClassifierMG(NearestNeighborsMG):
         ncols,
         rank,
         convert_dtype
-    ) -> typing.Tuple[typing.List[CumlArray],
-                      typing.List[CumlArray],
-                      typing.List[CumlArray]]:
+    ) -> typing.List[CumlArray]:
         """
         Predict labels for a query from previously stored index
         and index labels.
@@ -121,7 +117,6 @@ class KNeighborsClassifierMG(NearestNeighborsMG):
 
         query_cais = input['cais']['query']
         local_query_rows = list(map(lambda x: x.shape[0], query_cais))
-        result = self.alloc_local_output(local_query_rows, self.n_neighbors)
 
         uniq_labels_d, _, _, _ = \
             input_to_cuml_array(uniq_labels, order='C', check_dtype='int32',
@@ -155,8 +150,6 @@ class KNeighborsClassifierMG(NearestNeighborsMG):
         knn_classify(
             handle_[0],
             out_result_local_parts,
-            <vector[int64Data_t*]*><uintptr_t>result['indices'],
-            <vector[floatData_t*]*><uintptr_t>result['distances'],
             <vector[float_ptr_vector]*>0,
             deref(<vector[floatData_t*]*><uintptr_t>
                   input['index']['local_parts']),
@@ -177,7 +170,7 @@ class KNeighborsClassifierMG(NearestNeighborsMG):
 
         self.handle.sync()
 
-        self.free_mem(input, result)
+        self.free_mem(input)
         free(<void*><uintptr_t>labels['labels'])
 
         self._free_unique(<uintptr_t>uniq_labels_vec,
@@ -187,9 +180,7 @@ class KNeighborsClassifierMG(NearestNeighborsMG):
             free(<void*>out_result_local_parts.at(i))
         free(<void*><uintptr_t>out_result_local_parts)
 
-        return output_cais, \
-            result['cais']['indices'], \
-            result['cais']['distances']
+        return output_cais
 
     @api_base_return_generic_skipall
     def predict_proba(self, index, index_parts_to_ranks, index_nrows,
@@ -267,8 +258,6 @@ class KNeighborsClassifierMG(NearestNeighborsMG):
         knn_classify(
             handle_[0],
             <vector[intData_t*]*>0,
-            <vector[int64Data_t*]*>0,
-            <vector[floatData_t*]*>0,
             probas_local_parts,
             deref(<vector[floatData_t*]*><uintptr_t>
                   input['index']['local_parts']),

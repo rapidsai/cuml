@@ -28,12 +28,6 @@ from uuid import uuid1
 import numpy as np
 
 
-def _custom_getter(o):
-    def func_get(f, idx):
-        return f[o][idx]
-    return func_get
-
-
 class KNeighborsClassifier(NearestNeighbors):
     """
     Multi-node Multi-GPU K-Nearest Neighbors Classifier Model.
@@ -237,8 +231,7 @@ class KNeighborsClassifier(NearestNeighbors):
         """
         out_futures = flatten_grouped_results(self.client,
                                               query_parts_to_ranks,
-                                              knn_clf_res,
-                                              getter_func=_custom_getter(0))
+                                              knn_clf_res)
         comms.destroy()
 
         return to_output(out_futures, self.datatype).squeeze()
@@ -359,6 +352,11 @@ class KNeighborsClassifier(NearestNeighbors):
         wait_and_raise_from_futures(list(knn_prob_res.values()))
 
         n_outputs = len(self.n_unique)
+
+        def _custom_getter(o):
+            def func_get(f, idx):
+                return f[o][idx]
+            return func_get
 
         """
         Gather resulting partitions and return result

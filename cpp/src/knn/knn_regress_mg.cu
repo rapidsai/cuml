@@ -57,8 +57,6 @@ using namespace knn_common;
 
 void knn_regress(raft::handle_t &handle,
                  std::vector<Matrix::Data<float> *> *out,
-                 std::vector<Matrix::Data<int64_t> *> *out_I,
-                 std::vector<Matrix::floatData_t *> *out_D,
                  std::vector<Matrix::floatData_t *> &idx_data,
                  Matrix::PartDescriptor &idx_desc,
                  std::vector<Matrix::floatData_t *> &query_data,
@@ -69,8 +67,6 @@ void knn_regress(raft::handle_t &handle,
   opg_knn_param params;
   params.knn_op = knn_operation::regression;
   params.out.f = out;
-  params.out_I = out_I;
-  params.out_D = out_D;
   params.idx_data = &idx_data;
   params.idx_desc = &idx_desc;
   params.query_data = &query_data;

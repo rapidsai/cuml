@@ -498,18 +498,19 @@ void reduce(opg_knn_param &params, opg_knn_utils &utils, cuda_utils &cutils,
   device_buffer<float> *distances_b;
   std::vector<float *> probas_with_offsets;
 
-  if (params.knn_op == knn_operation::class_proba) {
-    /**
-      * Setup arrays for a class-proba operation
-      * indices and distances buffers will be deleted
-      */
+  if (params.knn_op == knn_operation::knn) {
+    indices = params.out_I->at(part_idx)->ptr + batch_offset;
+    distances = params.out_D->at(part_idx)->ptr + batch_offset;
+  } else {
     indices_b = new device_buffer<int64_t>(cutils.alloc, cutils.stream,
                                            batch_size * params.k);
     distances_b = new device_buffer<float>(cutils.alloc, cutils.stream,
                                            batch_size * params.k);
     indices = indices_b->data();
     distances = distances_b->data();
+  }
 
+  if (params.knn_op == knn_operation::class_proba) {
     std::vector<float *> &probas_part = params.probas->at(part_idx);
     for (int i = 0; i < params.n_outputs; i++) {
       float *ptr = probas_part[i];
@@ -518,11 +519,6 @@ void reduce(opg_knn_param &params, opg_knn_utils &utils, cuda_utils &cutils,
                                     (processed_in_part * n_unique_classes));
     }
   } else {
-    // For KNN
-    indices = params.out_I->at(part_idx)->ptr + batch_offset;
-    distances = params.out_D->at(part_idx)->ptr + batch_offset;
-
-    // For KNN classification and regression
     if (params.knn_op == knn_operation::classification) {
       outputs = (char32_t *)params.out.i->at(part_idx)->ptr +
                 (params.n_outputs * processed_in_part);

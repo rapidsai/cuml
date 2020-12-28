@@ -61,10 +61,6 @@ void knn(raft::handle_t &handle, std::vector<Matrix::Data<int64_t> *> *out_I,
  * @param[in] handle the raft::handle_t to use for managing resources
  * @param[out] out vector of output labels partitions. size should match the
  *        number of local input partitions.
- * @param[out] out_I vector of output index partitions. size should match the
- *        number of local input partitions.
- * @param[out] out_D vector of output distance partitions. size should match
- *        the number of local input partitions.
  * @param[in] probas (optional) pointer to a vector containing arrays of probabilities
  * @param[in] idx_data vector of local indices to query
  * @param[in] idx_desc describes how the index partitions are distributed
@@ -85,8 +81,6 @@ void knn(raft::handle_t &handle, std::vector<Matrix::Data<int64_t> *> *out_I,
  * @param[in] verbose print extra logging info
  */
 void knn_classify(raft::handle_t &handle, std::vector<Matrix::Data<int> *> *out,
-                  std::vector<Matrix::Data<int64_t> *> *out_I,
-                  std::vector<Matrix::floatData_t *> *out_D,
                   std::vector<std::vector<float *>> *probas,
                   std::vector<Matrix::floatData_t *> &idx_data,
                   Matrix::PartDescriptor &idx_desc,
@@ -103,10 +97,6 @@ void knn_classify(raft::handle_t &handle, std::vector<Matrix::Data<int> *> *out,
  * @param[in] handle the raft::handle_t to use for managing resources
  * @param[out] out vector of output partitions. size should match the
  *        number of local input partitions.
- * @param[out] out_I vector of output index partitions. size should match the
- *        number of local input partitions.
- * @param[out] out_D vector of output distance partitions. size should match
- *        the number of local input partitions.
  * @param[in] idx_data vector of local indices to query
  * @param[in] idx_desc describes how the index partitions are distributed
  *        across the ranks.
@@ -125,8 +115,6 @@ void knn_classify(raft::handle_t &handle, std::vector<Matrix::Data<int> *> *out,
  */
 void knn_regress(raft::handle_t &handle,
                  std::vector<Matrix::Data<float> *> *out,
-                 std::vector<Matrix::Data<int64_t> *> *out_I,
-                 std::vector<Matrix::floatData_t *> *out_D,
                  std::vector<Matrix::floatData_t *> &idx_data,
                  Matrix::PartDescriptor &idx_desc,
                  std::vector<Matrix::floatData_t *> &query_data,
