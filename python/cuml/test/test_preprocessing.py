@@ -62,7 +62,6 @@ from cuml.test.test_preproc_utils import \
 from cuml.test.test_preproc_utils import assert_allclose
 from cuml.common.import_utils import check_cupy8
 
-import cudf
 import numpy as np
 import cupy as cp
 
