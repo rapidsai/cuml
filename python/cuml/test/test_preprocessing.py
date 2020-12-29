@@ -31,8 +31,6 @@ from cuml.experimental.preprocessing import scale as cu_scale, \
                             add_dummy_feature as cu_add_dummy_feature, \
                             binarize as cu_binarize, \
                             robust_scale as cu_robust_scale
-from cuml.model_selection import \
-        train_test_split as cu_train_test_split
 from sklearn.preprocessing import StandardScaler as skStandardScaler, \
                                   MinMaxScaler as skMinMaxScaler, \
                                   MaxAbsScaler as skMaxAbsScaler, \
@@ -677,23 +675,6 @@ def test_inplace_csr_row_normalize_l2(sparse_clf_dataset):  # noqa: F811
     X_np = sk_normalize(X_np, norm='l2', axis=1)
 
     assert_allclose(X, X_np)
-
-
-
-@pytest.mark.parametrize("n", [0, 3, 25, 100])
-@pytest.mark.parametrize("split_size", [0, 0.2, 0.5, 0.7, 0.9])
-def test_train_test_split(n, split_size):
-    cdf = cudf.DataFrame({'x': range(n), 
-            'y': [0, 1] * (n // 2) + [1] * (n % 2)})
-
-    X_train, X_test, y_train, y_test = \
-            cu_train_test_split(cdf['x'], cdf['y'], train_size=split_size)
-
-    train_size = cp.floor(n * split_size)
-    assert X_train.shape[0] == train_size 
-    assert X_test.shape[0] == n - train_size 
-    assert y_train.shape[0] == train_size 
-    assert y_test.shape[0] == n - train_size
 
 
 def test__repr__():
