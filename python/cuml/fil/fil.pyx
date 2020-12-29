@@ -195,7 +195,7 @@ cdef extern from "cuml/fil/fil.h" namespace "ML::fil":
     cdef forest_t from_treelite(handle_t& handle,
                                 forest_t*,
                                 ModelHandle,
-                                treelite_params_t*)
+                                treelite_params_t*) except +
 
 cdef class ForestInference_impl():
 
