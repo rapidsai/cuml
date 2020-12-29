@@ -31,7 +31,7 @@ from cuml.experimental.preprocessing import scale as cu_scale, \
                             add_dummy_feature as cu_add_dummy_feature, \
                             binarize as cu_binarize, \
                             robust_scale as cu_robust_scale
-from cuml.preprocessing.model_selection import \
+from cuml.model_selection import \
         train_test_split as cu_train_test_split
 from sklearn.preprocessing import StandardScaler as skStandardScaler, \
                                   MinMaxScaler as skMinMaxScaler, \
