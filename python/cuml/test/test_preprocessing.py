@@ -48,8 +48,6 @@ from sklearn.preprocessing import scale as sk_scale, \
                                   robust_scale as sk_robust_scale
 from sklearn.impute import SimpleImputer as skSimpleImputer
 from sklearn.preprocessing import KBinsDiscretizer as skKBinsDiscretizer
-from sklearn.model_selection import train_test_split as sk_train_test_split
-
 
 from cuml.thirdparty_adapters.sparsefuncs_fast import \
     csr_mean_variance_axis0, \
@@ -687,7 +685,7 @@ def test_inplace_csr_row_normalize_l2(sparse_clf_dataset):  # noqa: F811
 def test_train_test_split(n, split_size):
     cdf = cudf.DataFrame({'x': range(n), 
             'y': [0, 1] * (n // 2) + [1] * (n % 2)})
-    pdf = cdf.to_pandas()
+
     X_train, X_test, y_train, y_test = \
             cu_train_test_split(cdf['x'], cdf['y'], train_size=split_size)
 
@@ -696,6 +694,7 @@ def test_train_test_split(n, split_size):
     assert X_test.shape[0] == n - train_size 
     assert y_train.shape[0] == train_size 
     assert y_test.shape[0] == n - train_size
+
 
 def test__repr__():
     assert cuStandardScaler().__repr__() == 'StandardScaler()'
