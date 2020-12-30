@@ -24,7 +24,7 @@ from cuml.experimental.preprocessing import \
     PolynomialFeatures as cuPolynomialFeatures, \
     SimpleImputer as cuSimpleImputer, \
     RobustScaler as cuRobustScaler, \
-    KBinsDiscretizer as cuKBinsDiscretizer 
+    KBinsDiscretizer as cuKBinsDiscretizer
 from cuml.experimental.preprocessing import scale as cu_scale, \
                             minmax_scale as cu_minmax_scale, \
                             normalize as cu_normalize, \
