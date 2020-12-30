@@ -3,23 +3,23 @@
 # Labels culled from https://github.com/rapidsai/cuml/labels
 
 Cython / Python:
-  - python/
-  - notebooks/
+  - python/**
+  - notebooks/**
   
 libcuml:
-  - cpp/
+  - cpp/**
 
 CMake:
   - **/CMakeLists.txt
-  - **/cmake/
+  - **/cmake/**
   
 cuml (Java):
-  - java/
+  - java/**
   
 Ops:
-  - .github/
-  - /ci/
-  - conda/
+  - .github/**
+  - /ci/**
+  - conda/**
   - **/Dockerfile
   - **/.dockerignore
-  - docker/
+  - docker/**
