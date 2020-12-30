@@ -212,14 +212,14 @@ void build_treelite_tree(TreeBuilderHandle tree_builder,
           for (int j = 0; j < num_class; j++) {
             TREELITE_CHECK(TreeliteTreeBuilderCreateValue(
               &leaf_vector[j], TreeliteType<float>::value,
-              &leaf_vector_handle[i]));
+              &leaf_vector_handle[j]));
           }
           TREELITE_CHECK(TreeliteTreeBuilderSetLeafVectorNode(
             tree_builder, q_node.unique_node_id, leaf_vector_handle.data(),
             num_class));
           for (int j = 0; j < num_class; j++) {
             TREELITE_CHECK(TreeliteTreeBuilderDeleteValue(
-              leaf_vector_handle[i]));
+              leaf_vector_handle[j]));
           }
           leaf_vector.clear();
           leaf_vector_handle.clear();
