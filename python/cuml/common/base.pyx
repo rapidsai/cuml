@@ -25,6 +25,7 @@ import cuml.internals
 import cuml.raft.common.handle
 from cuml.common.doc_utils import generate_docstring
 import cuml.common.input_utils
+from copy import deepcopy
 
 
 # tag system based on experimental tag system from Scikit-learn >=0.21
@@ -379,7 +380,7 @@ class Base(metaclass=cuml.internals.BaseMetaClass):
     def _get_tags(self):
         # method and code based on scikit-learn 0.21 _get_tags functionality:
         # https://scikit-learn.org/stable/developers/develop.html#estimator-tags
-        collected_tags = _default_tags
+        collected_tags = deepcopy(_default_tags)
         for cl in reversed(inspect.getmro(self.__class__)):
             if hasattr(cl, '_more_tags') and cl != Base:
                 more_tags = cl._more_tags(self)
