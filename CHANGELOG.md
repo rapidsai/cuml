@@ -62,6 +62,7 @@
 - PR #3177: Make Multinomial Naive Bayes inherit from `ClassifierMixin` and use it for score
 - PR #3241: Updating RAFT to latest
 - PR #3240: Minor doc updates
+- PR #3275: Return confusion matrix as int unless float weights are used
 
 ## Bug Fixes
 - PR #3164: Expose silhouette score in Python
