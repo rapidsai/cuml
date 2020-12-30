@@ -445,8 +445,7 @@ void compare_concat_forest_to_subforests(
            "Error! average_tree_output flag value mismatch between "
            "concatenated forest and the individual forests");
 
-    model.Dispatch([&concat_mod_tree_num, &concat_model](
-                     auto& model_inner) {
+    model.Dispatch([&concat_mod_tree_num, &concat_model](auto& model_inner) {
       // model_inner is of the concrete type tl::ModelImpl<T, L>
       using model_type = std::remove_reference_t<decltype(model_inner)>;
       auto& concat_model_inner = dynamic_cast<model_type&>(concat_model);
@@ -471,27 +470,28 @@ void compare_concat_forest_to_subforests(
  */
 ModelHandle concatenate_trees(std::vector<ModelHandle> treelite_handles) {
   tl::Model& first_model = *(tl::Model*)treelite_handles[0];
-  tl::Model* concat_model = first_model.Dispatch([&treelite_handles](
-                                                 auto& first_model_inner) {
-    // first_model_inner is of the concrete type tl::ModelImpl<T, L>
-    using model_type = std::remove_reference_t<decltype(first_model_inner)>;
-    auto* concat_model = dynamic_cast<model_type*>(
-      tl::Model::Create(first_model_inner.GetThresholdType(),
-                        first_model_inner.GetLeafOutputType()).release());
-    for (int forest_idx = 0; forest_idx < treelite_handles.size();
-         forest_idx++) {
-      tl::Model& model = *(tl::Model*)treelite_handles[forest_idx];
-      auto& model_inner = dynamic_cast<model_type&>(model);
-      for (const auto& tree : model_inner.trees) {
-        concat_model->trees.push_back(tree.Clone());
+  tl::Model* concat_model =
+    first_model.Dispatch([&treelite_handles](auto& first_model_inner) {
+      // first_model_inner is of the concrete type tl::ModelImpl<T, L>
+      using model_type = std::remove_reference_t<decltype(first_model_inner)>;
+      auto* concat_model = dynamic_cast<model_type*>(
+        tl::Model::Create(first_model_inner.GetThresholdType(),
+                          first_model_inner.GetLeafOutputType())
+          .release());
+      for (int forest_idx = 0; forest_idx < treelite_handles.size();
+           forest_idx++) {
+        tl::Model& model = *(tl::Model*)treelite_handles[forest_idx];
+        auto& model_inner = dynamic_cast<model_type&>(model);
+        for (const auto& tree : model_inner.trees) {
+          concat_model->trees.push_back(tree.Clone());
+        }
       }
-    }
-    concat_model->num_feature = first_model_inner.num_feature;
-    concat_model->task_param = first_model_inner.task_param;
-    concat_model->average_tree_output = first_model_inner.average_tree_output;
-    concat_model->param = first_model_inner.param;
-    return static_cast<tl::Model*>(concat_model);
-  });
+      concat_model->num_feature = first_model_inner.num_feature;
+      concat_model->task_param = first_model_inner.task_param;
+      concat_model->average_tree_output = first_model_inner.average_tree_output;
+      concat_model->param = first_model_inner.param;
+      return static_cast<tl::Model*>(concat_model);
+    });
   return concat_model;
 }
 

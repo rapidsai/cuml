@@ -138,8 +138,8 @@ class RfTreeliteTestCommon : public ::testing::TestWithParam<RfInputs<T>> {
     size_t treelite_predicted_labels_size;
 
     TREELITE_CHECK(TreelitePredictorPredictBatch(
-      predictor, dmat, verbose, pred_margin,
-      treelite_predicted_labels.data(), &treelite_predicted_labels_size));
+      predictor, dmat, verbose, pred_margin, treelite_predicted_labels.data(),
+      &treelite_predicted_labels_size));
 
     TREELITE_CHECK(TreeliteDMatrixFree(dmat));
     TREELITE_CHECK(TreelitePredictorFree(predictor));

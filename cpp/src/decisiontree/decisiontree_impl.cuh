@@ -29,8 +29,8 @@
 #include "levelalgo/levelfunc_regressor.cuh"
 #include "levelalgo/metric.cuh"
 #include "memory.cuh"
-#include "treelite_util.h"
 #include "quantile/quantile.cuh"
+#include "treelite_util.h"
 
 namespace ML {
 
@@ -218,8 +218,8 @@ void build_treelite_tree(TreeBuilderHandle tree_builder,
             tree_builder, q_node.unique_node_id, leaf_vector_handle.data(),
             num_class));
           for (int j = 0; j < num_class; j++) {
-            TREELITE_CHECK(TreeliteTreeBuilderDeleteValue(
-              leaf_vector_handle[j]));
+            TREELITE_CHECK(
+              TreeliteTreeBuilderDeleteValue(leaf_vector_handle[j]));
           }
           leaf_vector.clear();
           leaf_vector_handle.clear();
@@ -557,8 +557,7 @@ template void build_treelite_tree<float, float>(
   DecisionTree::TreeMetaDataNode<float, float> *tree_ptr, int num_class);
 template void build_treelite_tree<double, double>(
   TreeBuilderHandle tree_builder,
-  DecisionTree::TreeMetaDataNode<double, double> *tree_ptr,
-  int num_class);
+  DecisionTree::TreeMetaDataNode<double, double> *tree_ptr, int num_class);
 }  //End namespace DecisionTree
 
 }  //End namespace ML

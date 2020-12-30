@@ -501,8 +501,7 @@ class TreeliteFilTest : public BaseFilTest {
         case fil::leaf_algo_t::GROVE_PER_CLASS:
           // default is fil::FLOAT_UNARY_BINARY
           builder->SetLeafNode(
-            key,
-            tlf::Value::Create(dense_node.base_node::output<val_t>().f));
+            key, tlf::Value::Create(dense_node.base_node::output<val_t>().f));
           break;
         case fil::leaf_algo_t::CATEGORICAL_LEAF:
           std::vector<tlf::Value> vec(ps.num_classes);
@@ -574,8 +573,8 @@ class TreeliteFilTest : public BaseFilTest {
 
     // build the trees
     for (int i_tree = 0; i_tree < ps.num_trees; ++i_tree) {
-      tlf::TreeBuilder* tree_builder = new tlf::TreeBuilder(
-        tl::TypeInfo::kFloat32, tl::TypeInfo::kFloat32);
+      tlf::TreeBuilder* tree_builder =
+        new tlf::TreeBuilder(tl::TypeInfo::kFloat32, tl::TypeInfo::kFloat32);
       int key_counter = 0;
       int root = i_tree * tree_num_nodes();
       int root_key = node_to_treelite(tree_builder, &key_counter, root, root);

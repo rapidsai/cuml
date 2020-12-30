@@ -490,8 +490,7 @@ int find_class_label_from_one_hot(L* vector, int len) {
 }
 
 template <typename fil_node_t, typename T, typename L>
-void tl2fil_leaf_payload(fil_node_t* fil_node,
-                         const tl::Tree<T, L>& tl_tree,
+void tl2fil_leaf_payload(fil_node_t* fil_node, const tl::Tree<T, L>& tl_tree,
                          int tl_node_id, const forest_params_t& forest_params) {
   auto vec = tl_tree.LeafVector(tl_node_id);
   switch (forest_params.leaf_algo) {
@@ -544,8 +543,7 @@ void tree2fil_dense(std::vector<dense_node>* pnodes, int root,
 }
 
 template <typename fil_node_t, typename T, typename L>
-int tree2fil_sparse(std::vector<fil_node_t>* pnodes,
-                    const tl::Tree<T, L>& tree,
+int tree2fil_sparse(std::vector<fil_node_t>* pnodes, const tl::Tree<T, L>& tree,
                     const forest_params_t& forest_params) {
   typedef std::pair<int, int> pair_t;
   std::stack<pair_t> stack;
@@ -697,8 +695,8 @@ void tl2fil_dense(std::vector<dense_node>* pnodes, forest_params_t* params,
   int num_nodes = forest_num_nodes(params->num_trees, params->depth);
   pnodes->resize(num_nodes, dense_node());
   for (int i = 0; i < model.trees.size(); ++i) {
-    tree2fil_dense(pnodes, i * tree_num_nodes(params->depth),
-                   model.trees[i], *params);
+    tree2fil_dense(pnodes, i * tree_num_nodes(params->depth), model.trees[i],
+                   *params);
   }
 }
 
@@ -801,11 +799,12 @@ void from_treelite(const raft::handle_t& handle, forest_t* pforest,
   // Display appropriate warnings when float64 values are being casted into
   // float32, as FIL only supports inferencing with float32 for the time being
   if (std::is_same<T, double>::value || std::is_same<L, double>::value) {
-    CUML_LOG_WARN("The tree ensemble model contains float64 values. Since FIL "
-                  "currently only supports inferencing with float32 values, "
-                  "all thresholds and leaf values will be converted from "
-                  "float64 to float32. This may lead to inaccurate "
-                  "prediction.");
+    CUML_LOG_WARN(
+      "The tree ensemble model contains float64 values. Since FIL "
+      "currently only supports inferencing with float32 values, "
+      "all thresholds and leaf values will be converted from "
+      "float64 to float32. This may lead to inaccurate "
+      "prediction.");
   }
 
   storage_type_t storage_type = tl_params->storage_type;

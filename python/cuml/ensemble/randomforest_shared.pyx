@@ -33,7 +33,7 @@ cdef extern from "treelite/tree.h" namespace "treelite":
     cdef cppclass Model:
         vector[PyBufferFrame] GetPyBuffer() except +
         @staticmethod
-        unique_ptr[Model] CreateFromPyBuffer(vector[PyBufferFrame] frames) except +
+        unique_ptr[Model] CreateFromPyBuffer(vector[PyBufferFrame]) except +
 
 cdef extern from "Python.h":
     Py_buffer* PyMemoryView_GET_BUFFER(PyObject* mview)
