@@ -261,7 +261,7 @@ def train_test_split(X,
     .. code-block:: python
 
         import cudf
-        from cuml.preprocessing.model_selection import train_test_split
+        from cuml.model_selection import train_test_split
 
         # Generate some sample data
         df = cudf.DataFrame({'x': range(10),

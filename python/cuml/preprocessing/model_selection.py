@@ -15,10 +15,11 @@
 #
 import warnings
 
+from cuml.model_selection._split import _stratify_split
+from cuml.model_selection._split import _approximate_mode
 from cuml.model_selection._split import train_test_split 
 
 
-warnings.warn("Importing from cuml.preprocessing.model_selection is "
-              "deprecated and will be removed in 0.18. Instead, please "
-              "import from cuml.model_selection",
+warnings.warn("cuml.preprocessing.model_selection is deprecated and will "
+              "be removed in v0.18. Use cuml.model_selection instead.",
               DeprecationWarning)
