@@ -35,7 +35,7 @@ namespace ML {
 void brute_force_knn(raft::handle_t &handle, std::vector<float *> &input,
                      std::vector<int> &sizes, int D, float *search_items, int n,
                      int64_t *res_I, float *res_D, int k, bool rowMajorIndex,
-                     bool rowMajorQuery, MetricType metric, float metric_arg,
+                     bool rowMajorQuery, raft::distance::DistanceType metric, float metric_arg,
                      bool expanded) {
   ASSERT(input.size() == sizes.size(),
          "input and sizes vectors must be the same size");
@@ -51,7 +51,7 @@ void brute_force_knn(raft::handle_t &handle, std::vector<float *> &input,
 
 void approx_knn_build_index(raft::handle_t &handle, ML::knnIndex *index,
                             ML::knnIndexParam *params, int D,
-                            ML::MetricType metric, float metricArg,
+                            raft::distance::DistanceType metric, float metricArg,
                             float *index_items, int n) {
   MLCommon::Selection::approx_knn_build_index(
     index, params, D, metric, metricArg, index_items, n, handle.get_stream());
@@ -151,7 +151,7 @@ extern "C" cumlError_t knn_search(const cumlHandle_t handle, float **input,
         input_vec, sizes_vec, D, search_items, n, res_I, res_D, k,
         handle_ptr->get_device_allocator(), handle_ptr->get_stream(),
         int_streams.data(), handle_ptr->get_num_internal_streams(),
-        rowMajorIndex, rowMajorQuery, nullptr, (ML::MetricType)metric_type,
+        rowMajorIndex, rowMajorQuery, nullptr, (raft::distance::DistanceType)metric_type,
         metric_arg, expanded);
     } catch (...) {
       status = CUML_ERROR_UNKNOWN;

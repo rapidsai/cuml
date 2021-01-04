@@ -37,6 +37,8 @@
 #include <thrust/device_vector.h>
 #include <thrust/iterator/transform_iterator.h>
 
+#include <raft/linalg/distance_type.h>
+
 #include <selection/processing.cuh>
 
 #include <common/device_buffer.hpp>
@@ -186,14 +188,26 @@ inline void knn_merge_parts(value_t *inK, value_idx *inV, value_t *outK,
       inK, inV, outK, outV, n_samples, n_parts, k, stream, translations);
 }
 
-inline faiss::MetricType build_faiss_metric(ML::MetricType metric) {
+inline faiss::MetricType build_faiss_metric(raft::distance::DistanceType metric) {
   switch (metric) {
-    case ML::MetricType::METRIC_Cosine:
+    case raft::distance::DistanceType::EucExpandedCosine:
       return faiss::MetricType::METRIC_INNER_PRODUCT;
-    case ML::MetricType::METRIC_Correlation:
+    case raft::distance::DistanceType::Correlation:
       return faiss::MetricType::METRIC_INNER_PRODUCT;
+    case raft::distance::DistanceType::EucExpandedL2:
+      return faiss::MetricType::METRIC_L2;
+    case raft::distance::DistanceType::EucUnexpandedL2:
+      return faiss::MetricType::METRIC_L2;
+    case raft::distance::DistanceType::EucUnexpandedL1:
+      return faiss::MetricType::METRIC_L1;
+    case raft::distance::DistanceType::InnerProduct:
+      return faiss::MetricType::METRIC_INNER_PRODUCT;
+    case raft::distance::DistanceType::ChebyChev:
+      return faiss::MetricType::METRIC_Linf;
+    case raft::distance::DistanceType::Canberra:
+      return faiss::MetricType::METRIC_Canberra;
     default:
-      return (faiss::MetricType)metric;
+      return (faiss::MetricType)-1;
   }
 }
 
@@ -219,7 +233,7 @@ inline faiss::ScalarQuantizer::QuantizerType build_faiss_qtype(
 
 template <typename IntType = int>
 void approx_knn_ivfflat_build_index(ML::knnIndex *index, ML::IVFParam *params,
-                                    IntType D, ML::MetricType metric,
+                                    IntType D, raft::distance::DistanceType metric,
                                     IntType n) {
   faiss::gpu::GpuIndexIVFFlatConfig config;
   config.device = index->device;
@@ -232,7 +246,7 @@ void approx_knn_ivfflat_build_index(ML::knnIndex *index, ML::IVFParam *params,
 
 template <typename IntType = int>
 void approx_knn_ivfpq_build_index(ML::knnIndex *index, ML::IVFPQParam *params,
-                                  IntType D, ML::MetricType metric, IntType n) {
+                                  IntType D, raft::distance::DistanceType metric, IntType n) {
   faiss::gpu::GpuIndexIVFPQConfig config;
   config.device = index->device;
   config.usePrecomputedTables = params->usePrecomputedTables;
@@ -246,7 +260,7 @@ void approx_knn_ivfpq_build_index(ML::knnIndex *index, ML::IVFPQParam *params,
 
 template <typename IntType = int>
 void approx_knn_ivfsq_build_index(ML::knnIndex *index, ML::IVFSQParam *params,
-                                  IntType D, ML::MetricType metric, IntType n) {
+                                  IntType D, raft::distance::DistanceType metric, IntType n) {
   faiss::gpu::GpuIndexIVFScalarQuantizerConfig config;
   config.device = index->device;
   faiss::MetricType faiss_metric = build_faiss_metric(metric);
@@ -262,7 +276,7 @@ void approx_knn_ivfsq_build_index(ML::knnIndex *index, ML::IVFSQParam *params,
 
 template <typename IntType = int>
 void approx_knn_build_index(ML::knnIndex *index, ML::knnIndexParam *params,
-                            IntType D, ML::MetricType metric, float metricArg,
+                            IntType D, raft::distance::DistanceType metric, float metricArg,
                             float *index_items, IntType n,
                             cudaStream_t userStream) {
   int device;
@@ -342,7 +356,7 @@ void brute_force_knn(std::vector<float *> &input, std::vector<int> &sizes,
                      int n_int_streams = 0, bool rowMajorIndex = true,
                      bool rowMajorQuery = true,
                      std::vector<int64_t> *translations = nullptr,
-                     ML::MetricType metric = ML::MetricType::METRIC_L2,
+                     raft::distance::DistanceType metric = raft::distance::DistanceType::EucUnexpandedL2,
                      float metricArg = 0, bool expanded_form = false) {
   ASSERT(input.size() == sizes.size(),
          "input and sizes vectors should be the same size");

@@ -21,6 +21,7 @@
 #include <cusparse_v2.h>
 
 #include <cuml/neighbors/knn.hpp>
+#include <raft/linalg/distance_type.h>
 
 namespace ML {
 namespace Sparse {
@@ -36,7 +37,7 @@ void brute_force_knn(raft::handle_t &handle, const int *idx_indptr,
                      float *output_dists, int k,
                      size_t batch_size_index = DEFAULT_BATCH_SIZE,
                      size_t batch_size_query = DEFAULT_BATCH_SIZE,
-                     ML::MetricType metric = ML::MetricType::METRIC_L2,
+                     raft::distance::DistanceType metric = raft::distance::DistanceType::EucUnexpandedL2 ,
                      float metricArg = 0, bool expanded_form = false);
 };  // end namespace Sparse
 };  // end namespace ML

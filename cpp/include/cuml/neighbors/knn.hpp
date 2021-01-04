@@ -21,9 +21,10 @@
 #include <common/cumlHandle.hpp>
 #include <cuml/common/logger.hpp>
 #include <cuml/cuml.hpp>
+#include <raft/linalg/distance_type.h>
 
 namespace ML {
-
+/*
 enum MetricType {
   METRIC_INNER_PRODUCT = 0,
   METRIC_L2,
@@ -38,7 +39,7 @@ enum MetricType {
   METRIC_Cosine = 100,
   METRIC_Correlation
 };
-
+*/
 struct knnIndex {
   faiss::gpu::StandardGpuResources *gpu_res;
   faiss::gpu::GpuIndex *index;
@@ -108,12 +109,12 @@ void brute_force_knn(raft::handle_t &handle, std::vector<float *> &input,
                      std::vector<int> &sizes, int D, float *search_items, int n,
                      int64_t *res_I, float *res_D, int k,
                      bool rowMajorIndex = false, bool rowMajorQuery = false,
-                     MetricType metric = MetricType::METRIC_L2,
+                     raft::distance::DistanceType metric = raft::distance::DistanceType::EucUnexpandedL2,
                      float metric_arg = 2.0f, bool expanded = false);
 
 void approx_knn_build_index(raft::handle_t &handle, ML::knnIndex *index,
                             ML::knnIndexParam *params, int D,
-                            ML::MetricType metric, float metricArg,
+                            raft::distance::DistanceType metric, float metricArg,
                             float *index_items, int n);
 
 void approx_knn_search(ML::knnIndex *index, int n, const float *x, int k,
