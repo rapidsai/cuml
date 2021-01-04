@@ -102,15 +102,13 @@ struct IVFSQParam : IVFParam {
  * 			   default
  * @param[in] metric_arg the value of `p` for Minkowski (l-p) distances. This
  * 					 is ignored if the metric_type is not Minkowski.
- * @param[in] expanded should lp-based distances be returned in their expanded
- * 					 form (e.g., without raising to the 1/p power).
  */
 void brute_force_knn(raft::handle_t &handle, std::vector<float *> &input,
                      std::vector<int> &sizes, int D, float *search_items, int n,
                      int64_t *res_I, float *res_D, int k,
                      bool rowMajorIndex = false, bool rowMajorQuery = false,
                      raft::distance::DistanceType metric = raft::distance::DistanceType::EucUnexpandedL2,
-                     float metric_arg = 2.0f, bool expanded = false);
+                     float metric_arg = 2.0f);
 
 void approx_knn_build_index(raft::handle_t &handle, ML::knnIndex *index,
                             ML::knnIndexParam *params, int D,

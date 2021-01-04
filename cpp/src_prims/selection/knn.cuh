@@ -192,8 +192,8 @@ inline faiss::MetricType build_faiss_metric(raft::distance::DistanceType metric)
   switch (metric) {
     case raft::distance::DistanceType::EucExpandedCosine:
       return faiss::MetricType::METRIC_INNER_PRODUCT;
-    case raft::distance::DistanceType::Correlation:
-      return faiss::MetricType::METRIC_INNER_PRODUCT;
+    //case raft::distance::DistanceType::Correlation:
+    //  return faiss::MetricType::METRIC_INNER_PRODUCT;
     case raft::distance::DistanceType::EucExpandedL2:
       return faiss::MetricType::METRIC_L2;
     case raft::distance::DistanceType::EucUnexpandedL2:
@@ -202,12 +202,12 @@ inline faiss::MetricType build_faiss_metric(raft::distance::DistanceType metric)
       return faiss::MetricType::METRIC_L1;
     case raft::distance::DistanceType::InnerProduct:
       return faiss::MetricType::METRIC_INNER_PRODUCT;
-    case raft::distance::DistanceType::ChebyChev:
-      return faiss::MetricType::METRIC_Linf;
-    case raft::distance::DistanceType::Canberra:
-      return faiss::MetricType::METRIC_Canberra;
+    //case raft::distance::DistanceType::ChebyChev:
+    //  return faiss::MetricType::METRIC_Linf;
+    //case raft::distance::DistanceType::Canberra:
+    //  return faiss::MetricType::METRIC_Canberra;
     default:
-      return (faiss::MetricType)-1;
+      THROW("MetricType not supported: %d", metric);
   }
 }
 
@@ -344,7 +344,6 @@ void approx_knn_search(ML::knnIndex *index, IntType n, const float *x,
  *        non-contiguous partitions
  * @param[in] metric corresponds to the FAISS::metricType enum (default is euclidean)
  * @param[in] metricArg metric argument to use. Corresponds to the p arg for lp norm
- * @param[in] expanded_form whether or not lp variants should be reduced w/ lp-root
  */
 template <typename IntType = int>
 void brute_force_knn(std::vector<float *> &input, std::vector<int> &sizes,
@@ -356,12 +355,17 @@ void brute_force_knn(std::vector<float *> &input, std::vector<int> &sizes,
                      int n_int_streams = 0, bool rowMajorIndex = true,
                      bool rowMajorQuery = true,
                      std::vector<int64_t> *translations = nullptr,
-                     raft::distance::DistanceType metric = raft::distance::DistanceType::EucUnexpandedL2,
-                     float metricArg = 0, bool expanded_form = false) {
+                     raft::distance::DistanceType metric = raft::distance::DistanceType::EucExpandedL2,
+                     float metricArg = 0) {
   ASSERT(input.size() == sizes.size(),
          "input and sizes vectors should be the same size");
 
   faiss::MetricType m = build_faiss_metric(metric);
+  bool expanded_form = false;
+  if (metric == raft::distance::DistanceType::EucExpandedL2 ||
+      metric == raft::distance::DistanceType::EucExpandedL2Sqrt ||
+      metric == raft::distance::DistanceType::EucExpandedCosine)
+    expanded_form = true;
 
   std::vector<int64_t> *id_ranges;
   if (translations == nullptr) {

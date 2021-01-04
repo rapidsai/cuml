@@ -172,10 +172,10 @@ inline std::unique_ptr<MetricProcessor<math_t>> create_processor(
                                              allocator);
       break;
 
-    case raft::distance::DistanceType::Correlation:
-      mp = new CorrelationMetricProcessor<math_t>(n, D, k, rowMajorQuery,
-                                                  userStream, allocator);
-      break;
+    //case raft::distance::DistanceType::Correlation:
+    //  mp = new CorrelationMetricProcessor<math_t>(n, D, k, rowMajorQuery,
+    //                                              userStream, allocator);
+    //  break;
     default:
       mp = new DefaultMetricProcessor<math_t>();
   }
