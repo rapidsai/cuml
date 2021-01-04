@@ -1,5 +1,22 @@
 # Configuration file for Python coverage tests
 [run]
-include = cuml/*
+# include = cuml/*
 omit = cuml/test/*
 plugins = Cython.Coverage
+parallel = true
+source = cuml
+
+[report]
+# Regexes for lines to exclude from consideration
+exclude_lines =
+    # Don't complain about missing debug-only code:
+    def __repr__
+    if self\.debug
+
+    # Don't complain if tests don't hit defensive assertion code:
+    raise AssertionError
+    raise NotImplementedError
+
+    # Don't complain if non-runnable code isn't run:
+    if 0:
+    if False:
