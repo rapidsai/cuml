@@ -216,6 +216,12 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
         """
         return self._print_detailed()
 
+    def dump_as_json(self):
+        """
+        Dump (export) the Random Forest model as a JSON string
+        """
+        return self._dump_as_json()
+
     def fit(self, X, y, convert_dtype=False):
         """
         Fit the input data with a Random Forest classifier
