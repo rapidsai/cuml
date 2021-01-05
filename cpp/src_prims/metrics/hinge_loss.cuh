@@ -20,23 +20,26 @@
 #include <distance/distance.cuh>
 #include <raft/cuda_utils.cuh>
 #include <raft/linalg/binary_op.cuh>
+#include <cuml/metrics/penalty_type.hpp>
+#include "functions/hinge.cuh"
+
 
 namespace MLCommon {
 namespace Metrics {
 
 template <typename math_t>
-void hinge_loss(const raft::handle_t &handle, math_t *input, int n_rows,
+double hinge_loss(const raft::handle_t &handle, math_t *input, int n_rows,
                int n_cols, const math_t *labels, const math_t *coef,
-               math_t *loss, penalty pen, math_t alpha, math_t l1_ratio,
-               cudaStream_t stream)  {
-  //Allocate workspace
-  MLCommon::device_buffer<char> workspace(allocator, stream, 1);
+               MLCommon::Functions::penalty pen,
+               math_t alpha, math_t l1_ratio)  {
 
+  double loss;
   //Call the distance function
   Functions::hingeLoss(
-  handle.get_device_allocator(),
-    input, n_rows, n_cols, labels, coef, loss, pen, alpha, l1_ratio,
+  handle,
+    input, n_rows, n_cols, labels, coef, &loss, pen, alpha, l1_ratio,
     handle.get_stream());
+  return loss;
 }
 
 };  // namespace Metrics

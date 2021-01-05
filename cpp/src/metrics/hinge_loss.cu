@@ -18,18 +18,16 @@
 #include <raft/linalg/distance_type.h>
 #include <cuml/metrics/metrics.hpp>
 #include <metrics/hinge_loss.cuh>
+#include <cuml/metrics/penalty_type.hpp>
 
 namespace ML {
 
 namespace Metrics {
-void hinge_loss(const raft::handle_t &handle, math_t *input, int n_rows,
-               int n_cols, const math_t *labels, const math_t *coef,
-               math_t *loss, penalty pen, math_t alpha, math_t l1_ratio,
-               cudaStream_t stream) {
+double hinge_loss(const raft::handle_t &handle, double *input, int n_rows,
+               int n_cols, const double *labels, const double *coef,
+                  MLCommon::Functions::penalty pen, double alpha, double l1_ratio) {
   return MLCommon::Metrics::hinge_loss(
-    input, n_rows, n_cols, labels, coef, loss, pen, alpha, l1_ratio,
-    handle.get_device_allocator(),
-    handle.get_stream());
+    handle, input, n_rows, n_cols, labels, coef, pen, alpha, l1_ratio);
 }
 }  // namespace Metrics
 }  // namespace ML

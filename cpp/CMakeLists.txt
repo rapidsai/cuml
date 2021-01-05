@@ -415,6 +415,7 @@ if(BUILD_CUML_CPP_LIBRARY)
     src/metrics/r2_score.cu
     src/metrics/rand_index.cu
     src/metrics/silhouette_score.cu
+    src/metrics/hinge_loss.cu
     src/metrics/trustworthiness.cu
     src/metrics/v_measure.cu
     src/pca/pca.cu

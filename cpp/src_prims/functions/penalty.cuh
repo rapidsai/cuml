@@ -24,7 +24,7 @@
 #include <raft/matrix/math.cuh>
 #include <raft/matrix/matrix.cuh>
 #include "sign.cuh"
-#include "penalty_type.cuh"
+#include <cuml/metrics/penalty_type.hpp>
 
 namespace MLCommon {
 namespace Functions {
