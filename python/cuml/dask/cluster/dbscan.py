@@ -47,12 +47,11 @@ class DBSCAN(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
     @staticmethod
     @mnmg_import
     def _func_fit(out_dtype):
-        def _func(sessionId, data, datatype, verbose, **kwargs):
+        def _func(sessionId, data, verbose, **kwargs):
             from cuml.cluster.dbscan_mg import DBSCANMG as cumlDBSCAN
             handle = worker_state(sessionId)["handle"]
 
-            return cumlDBSCAN(handle=handle, output_type=datatype,
-                              verbose=verbose, **kwargs
+            return cumlDBSCAN(handle=handle, verbose=verbose, **kwargs
                               ).fit(data, out_dtype=out_dtype)
         return _func
 
@@ -65,12 +64,12 @@ class DBSCAN(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
         ----------
         X : Dask cuDF DataFrame or CuPy backed Dask Array
             Training data to cluster.
+            TODO: fix this docstring
         out_dtype: dtype Determines the precision of the output labels array.
             default: "int32". Valid values are { "int32", np.int32,
             "int64", np.int64}.
         """
         data = self.client.scatter(X, broadcast=True)
-        self.datatype = 'cupy' # TODO: infer from input
 
         comms = Comms(comms_p2p=True)
         comms.init()
@@ -78,7 +77,6 @@ class DBSCAN(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
         dbscan_fit = [self.client.submit(DBSCAN._func_fit(out_dtype),
                                          comms.sessionId,
                                          data,
-                                         self.datatype,
                                          self.verbose,
                                          **self.kwargs,
                                          workers=[worker],
@@ -93,10 +91,24 @@ class DBSCAN(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
 
         return self
 
-    def fit_predict(self, X, out_dtype="int32", delayed=True):
-        # TODO: implement
-        pass
-    
-    def predict(self, X, out_dtype="int32", delayed=True):
-        # TODO: implement
-        pass
+    def fit_predict(self, X, out_dtype="int32"):
+        """
+        Performs clustering on X and returns cluster labels.
+
+        Parameters
+        ----------
+        X : Dask cuDF DataFrame or CuPy backed Dask Array
+            Data to predict
+        TODO: fix this docstring
+
+        Returns
+        -------
+        result: Dask cuDF DataFrame or CuPy backed Dask Array
+            Distributed object containing predictions
+
+        """
+        self.fit(X, out_dtype)
+        return self.get_combined_model().labels_
+
+    def get_param_names(self):
+        return list(self.kwargs.keys())

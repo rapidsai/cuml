@@ -193,7 +193,7 @@ size_t run(const raft::handle_t& handle, Type_f* x, Index_ N, Index_ D,
     // Array with the size of the contribution of each worker
     Index_ rows_per_rank = raft::ceildiv<Index_>(N, n_rank);
     std::vector<size_t> recvcounts = std::vector<size_t>(n_rank, rows_per_rank);
-    recvcounts[n_rank - 1] = n_rank % rows_per_rank;
+    recvcounts[n_rank - 1] = N % rows_per_rank;
 
     // Array with the displacement of each part
     std::vector<size_t> displs = std::vector<size_t>(n_rank);
@@ -291,16 +291,6 @@ size_t run(const raft::handle_t& handle, Type_f* x, Index_ N, Index_ D,
   }
 
   // Combine the results in the multi-node multi-GPU case
-
-  // if (opg) {
-  //   // Temporary: naive merge
-  //   const auto& comm = handle.get_comms();
-  //   comm.allreduce(labels, labels, N, raft::comms::op_t::MIN, stream);
-  //   ASSERT(
-  //     comm.sync_stream(stream) == raft::comms::status_t::SUCCESS,
-  //     "An error occurred in the distributed operation. This can result from "
-  //     "a failed rank");
-  // }
 
   if (opg) {
     const auto& comm = handle.get_comms();
