@@ -71,14 +71,16 @@ void unexpanded_lp_distances(
                                  config_.stream);
 
     balanced_coo_pairwise_generalized_spmv<value_idx, value_t>(
-      out_dists, config_, coo_rows.data(), reduce_func, accum_func, write_func, metric_arg);
+      out_dists, config_, coo_rows.data(), reduce_func, accum_func, write_func,
+      metric_arg);
 
     MLCommon::Sparse::csr_to_coo(config_.a_indptr, config_.a_nrows,
                                  coo_rows.data(), config_.a_nnz,
                                  config_.stream);
 
     balanced_coo_pairwise_generalized_spmv_rev<value_idx, value_t>(
-      out_dists, config_, coo_rows.data(), reduce_func, accum_func, write_func, metric_arg);
+      out_dists, config_, coo_rows.data(), reduce_func, accum_func, write_func,
+      metric_arg);
   } else {
     generalized_csr_pairwise_semiring<value_idx, value_t>(
       out_dists, config_, reduce_func, accum_func, metric_arg);
@@ -144,7 +146,9 @@ class linf_unexpanded_distances_t : public distances_t<value_t> {
   void compute(value_t *out_dists) {
     unexpanded_lp_distances<value_idx, value_t>(
       out_dists, config_,
-      [] __host__ __device__(value_t a, value_t b, float p) { return fabsf(a - b); },
+      [] __host__ __device__(value_t a, value_t b, float p) {
+        return fabsf(a - b);
+      },
       [] __host__ __device__(value_t a, value_t b) { return fmaxf(a, b); },
       [] __host__ __device__(value_t * a, value_t b) { atomicMax(a, b); });
   }
@@ -184,9 +188,7 @@ class lp_unexpanded_distances_t : public distances_t<value_t> {
   void compute(value_t *out_dists) {
     unexpanded_lp_distances<value_idx, value_t>(
       out_dists, config_,
-      [] __device__(value_t a, value_t b, float p) {
-        return powf(a - b, p);
-      },
+      [] __device__(value_t a, value_t b, float p) { return powf(a - b, p); },
       [] __host__ __device__(value_t a, value_t b) { return a + b; },
       [] __host__ __device__(value_t * a, value_t b) { atomicAdd(a, b); });
   }

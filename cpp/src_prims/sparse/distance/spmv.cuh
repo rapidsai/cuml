@@ -44,12 +44,12 @@ namespace MLCommon {
 namespace Sparse {
 namespace Distance {
 
-template<typename value_t, typename LambdaOp>
+template <typename value_t, typename LambdaOp>
 struct ReductionOp {
+  __host__ __device__ __forceinline__ ReductionOp(LambdaOp op_) : op(op_) {}
 
-  __host__ __device__ __forceinline__ ReductionOp(LambdaOp op_): op(op_){}
-
-  __host__ __device__ __forceinline__ value_t operator()(value_t &a, value_t &b) {
+  __host__ __device__ __forceinline__ value_t operator()(value_t &a,
+                                                         value_t &b) {
     return op(a, b);
   }
 
@@ -174,7 +174,6 @@ __global__ void balanced_coo_generalized_spmv_kernel(
       unsigned int peer_group = get_peer_group(cur_row_b);
       bool is_leader = get_lowest_peer(peer_group) == lane_id;
 
-
       value_t v = warp_red.HeadSegmentedReduce(c, is_leader, reduce);
 
       // thread with lowest lane id among peers writes out
@@ -191,7 +190,8 @@ __global__ void balanced_coo_generalized_spmv_kernel(
       value_idx col = indicesB[ind];
       value_t a_col = get_func(A, col);
       bool should_store = (!rev || a_col == 0.0);
-      c = accum_func(c, should_store * reduce_func(a_col, dataB[ind], metric_arg));
+      c = accum_func(c,
+                     should_store * reduce_func(a_col, dataB[ind], metric_arg));
       cur_row_b = next_row_b;
     }
   }

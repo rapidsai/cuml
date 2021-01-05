@@ -46,8 +46,10 @@ namespace Distance {
 
 // @TODO: Move this into sparse prims (coo_norm)
 template <typename value_idx, typename value_t>
-__global__ void compute_binary_row_norm_kernel(value_t *out, const value_idx *coo_rows,
-                                        const value_t *data, value_idx nnz) {
+__global__ void compute_binary_row_norm_kernel(value_t *out,
+                                               const value_idx *coo_rows,
+                                               const value_t *data,
+                                               value_idx nnz) {
   value_idx i = blockDim.x * blockIdx.x + threadIdx.x;
   if (i < nnz) {
     atomicAdd(&out[coo_rows[i]], data[i] > 0.0);
@@ -55,11 +57,10 @@ __global__ void compute_binary_row_norm_kernel(value_t *out, const value_idx *co
 }
 
 template <typename value_idx, typename value_t>
-__global__ void compute_jaccard_warp_kernel(value_t *C,
-                                              const value_t *Q_norms,
-                                              const value_t *R_norms,
-                                              value_idx n_rows,
-                                              value_idx n_cols) {
+__global__ void compute_jaccard_warp_kernel(value_t *C, const value_t *Q_norms,
+                                            const value_t *R_norms,
+                                            value_idx n_rows,
+                                            value_idx n_cols) {
   value_idx tid = blockDim.x * blockIdx.x + threadIdx.x;
   value_idx i = tid / n_cols;
   value_idx j = tid % n_cols;
@@ -75,21 +76,21 @@ __global__ void compute_jaccard_warp_kernel(value_t *C,
 }
 
 template <typename value_idx, typename value_t, int tpb = 1024>
-void compute_jaccard(value_t *C, const value_t *Q_norms,
-                       const value_t *R_norms, value_idx n_rows,
-                       value_idx n_cols, cudaStream_t stream) {
+void compute_jaccard(value_t *C, const value_t *Q_norms, const value_t *R_norms,
+                     value_idx n_rows, value_idx n_cols, cudaStream_t stream) {
   int blocks = raft::ceildiv(n_rows * n_cols, tpb);
-  compute_jaccard_warp_kernel<<<blocks, tpb, 0, stream>>>(
-    C, Q_norms, R_norms, n_rows, n_cols);
+  compute_jaccard_warp_kernel<<<blocks, tpb, 0, stream>>>(C, Q_norms, R_norms,
+                                                          n_rows, n_cols);
 }
 
 template <typename value_idx, typename value_t, int tpb = 1024>
 void compute_jaccard_distance(value_t *out, const value_idx *Q_coo_rows,
-                const value_t *Q_data, value_idx Q_nnz,
-                const value_idx *R_coo_rows, const value_t *R_data,
-                value_idx R_nnz, value_idx m, value_idx n,
-                cusparseHandle_t handle, std::shared_ptr<deviceAllocator> alloc,
-                cudaStream_t stream) {
+                              const value_t *Q_data, value_idx Q_nnz,
+                              const value_idx *R_coo_rows,
+                              const value_t *R_data, value_idx R_nnz,
+                              value_idx m, value_idx n, cusparseHandle_t handle,
+                              std::shared_ptr<deviceAllocator> alloc,
+                              cudaStream_t stream) {
   device_buffer<value_t> Q_norms(alloc, stream, m);
   device_buffer<value_t> R_norms(alloc, stream, n);
   CUDA_CHECK(
@@ -134,10 +135,10 @@ class jaccard_expanded_distances_t : public distances_t<value_t> {
     CUML_LOG_DEBUG("Done.");
 
     CUML_LOG_DEBUG("Computing Jaccard");
-    compute_jaccard_distance(out_dists, search_coo_rows.data(), config_.a_data, config_.a_nnz,
-               b_indices, b_data, config_.b_nnz, config_.a_nrows,
-               config_.b_nrows, config_.handle, config_.allocator,
-               config_.stream);
+    compute_jaccard_distance(out_dists, search_coo_rows.data(), config_.a_data,
+                             config_.a_nnz, b_indices, b_data, config_.b_nnz,
+                             config_.a_nrows, config_.b_nrows, config_.handle,
+                             config_.allocator, config_.stream);
     CUML_LOG_DEBUG("Done.");
   }
 

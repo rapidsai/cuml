@@ -160,7 +160,8 @@ struct BlockSemiring {
       value_t right_side = rv * run_r;
 
       // Apply semiring "sum" & "product" functions locally
-      cur_sum = accum_func(cur_sum, reduce_func(left_side, right_side, metric_arg));
+      cur_sum =
+        accum_func(cur_sum, reduce_func(left_side, right_side, metric_arg));
 
       // finished when all items in chunk have been
       // processed
@@ -317,7 +318,8 @@ void generalized_csr_pairwise_semiring(
     <<<n_blocks, threads_per_block, 0, config_.stream>>>(
       config_.a_indptr, config_.a_indices, config_.a_data, config_.b_indptr,
       config_.b_indices, config_.b_data, config_.a_nrows, config_.b_nrows,
-      out_dists, n_blocks_per_row, n_rows_per_block, reduce_func, accum_func, metric_arg);
+      out_dists, n_blocks_per_row, n_rows_per_block, reduce_func, accum_func,
+      metric_arg);
 };
 
 }  // namespace Distance

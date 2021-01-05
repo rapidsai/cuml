@@ -457,7 +457,8 @@ class sparse_knn_t {
     dist_config.allocator = allocator;
     dist_config.stream = stream;
 
-    Distance::pairwiseDistance(batch_dists, dist_config, get_pw_metric(), metricArg);
+    Distance::pairwiseDistance(batch_dists, dist_config, get_pw_metric(),
+                               metricArg);
   }
 
   const value_idx *idxIndptr, *idxIndices, *queryIndptr, *queryIndices;

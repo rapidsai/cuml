@@ -22,9 +22,9 @@
 
 #include <raft/cudart_utils.h>
 #include <raft/linalg/distance_type.h>
-#include <raft/linalg/unary_op.cuh>
 #include <raft/sparse/cusparse_wrappers.h>
 #include <raft/cuda_utils.cuh>
+#include <raft/linalg/unary_op.cuh>
 
 #include <common/device_buffer.hpp>
 
@@ -57,12 +57,9 @@ __global__ void compute_row_norm_kernel(value_t *out, const value_idx *coo_rows,
 }
 
 template <typename value_idx, typename value_t, typename expansion_f>
-__global__ void compute_euclidean_warp_kernel(value_t *C,
-                                              const value_t *Q_sq_norms,
-                                              const value_t *R_sq_norms,
-                                              value_idx n_rows,
-                                              value_idx n_cols,
-                                              expansion_f expansion_func) {
+__global__ void compute_euclidean_warp_kernel(
+  value_t *C, const value_t *Q_sq_norms, const value_t *R_sq_norms,
+  value_idx n_rows, value_idx n_cols, expansion_f expansion_func) {
   value_idx tid = blockDim.x * blockIdx.x + threadIdx.x;
   value_idx i = tid / n_cols;
   value_idx j = tid % n_cols;
@@ -82,7 +79,8 @@ __global__ void compute_euclidean_warp_kernel(value_t *C,
   C[i * n_cols + j] = val;
 }
 
-template <typename value_idx, typename value_t, int tpb = 1024, typename expansion_f>
+template <typename value_idx, typename value_t, int tpb = 1024,
+          typename expansion_f>
 void compute_euclidean(value_t *C, const value_t *Q_sq_norms,
                        const value_t *R_sq_norms, value_idx n_rows,
                        value_idx n_cols, cudaStream_t stream,
@@ -92,14 +90,14 @@ void compute_euclidean(value_t *C, const value_t *Q_sq_norms,
     C, Q_sq_norms, R_sq_norms, n_rows, n_cols, expansion_func);
 }
 
-template <typename value_idx, typename value_t, int tpb = 1024, typename expansion_f>
+template <typename value_idx, typename value_t, int tpb = 1024,
+          typename expansion_f>
 void compute_l2(value_t *out, const value_idx *Q_coo_rows,
                 const value_t *Q_data, value_idx Q_nnz,
                 const value_idx *R_coo_rows, const value_t *R_data,
                 value_idx R_nnz, value_idx m, value_idx n,
                 cusparseHandle_t handle, std::shared_ptr<deviceAllocator> alloc,
-                cudaStream_t stream,
-                expansion_f expansion_func) {
+                cudaStream_t stream, expansion_f expansion_func) {
   device_buffer<value_t> Q_sq_norms(alloc, stream, m);
   device_buffer<value_t> R_sq_norms(alloc, stream, n);
   CUDA_CHECK(
@@ -112,7 +110,8 @@ void compute_l2(value_t *out, const value_idx *Q_coo_rows,
   compute_row_norm_kernel<<<raft::ceildiv(R_nnz, tpb), tpb, 0, stream>>>(
     R_sq_norms.data(), R_coo_rows, R_data, R_nnz);
 
-  compute_euclidean(out, Q_sq_norms.data(), R_sq_norms.data(), m, n, stream, expansion_func);
+  compute_euclidean(out, Q_sq_norms.data(), R_sq_norms.data(), m, n, stream,
+                    expansion_func);
 }
 
 /**
@@ -144,13 +143,13 @@ class l2_expanded_distances_t : public distances_t<value_t> {
     CUML_LOG_DEBUG("Done.");
 
     CUML_LOG_DEBUG("Computing L2");
-    compute_l2(out_dists, search_coo_rows.data(), config_.a_data, config_.a_nnz,
-               b_indices, b_data, config_.b_nnz, config_.a_nrows,
-               config_.b_nrows, config_.handle, config_.allocator,
-               config_.stream, [] __device__ __host__ (value_t dot, value_t q_norm, value_t r_norm) {
-                 return -2 * dot + q_norm + r_norm;
-
-               });
+    compute_l2(
+      out_dists, search_coo_rows.data(), config_.a_data, config_.a_nnz,
+      b_indices, b_data, config_.b_nnz, config_.a_nrows, config_.b_nrows,
+      config_.handle, config_.allocator, config_.stream,
+      [] __device__ __host__(value_t dot, value_t q_norm, value_t r_norm) {
+        return -2 * dot + q_norm + r_norm;
+      });
     CUML_LOG_DEBUG("Done.");
   }
 
@@ -191,14 +190,15 @@ class cosine_expanded_distances_t : public distances_t<value_t> {
     CUML_LOG_DEBUG("Done.");
 
     CUML_LOG_DEBUG("Computing L2");
-    compute_l2(out_dists, search_coo_rows.data(), config_.a_data, config_.a_nnz,
-               b_indices, b_data, config_.b_nnz, config_.a_nrows,
-               config_.b_nrows, config_.handle, config_.allocator,
-               config_.stream, [] __device__ __host__ (value_t dot, value_t q_norm, value_t r_norm) {
-                 value_t q_normalized = sqrt(q_norm);
-                 value_t r_normalized = sqrt(r_norm);
-                 value_t cos = dot / (q_normalized * r_normalized);
-                 return 1 - cos;
+    compute_l2(
+      out_dists, search_coo_rows.data(), config_.a_data, config_.a_nnz,
+      b_indices, b_data, config_.b_nnz, config_.a_nrows, config_.b_nrows,
+      config_.handle, config_.allocator, config_.stream,
+      [] __device__ __host__(value_t dot, value_t q_norm, value_t r_norm) {
+        value_t q_normalized = sqrt(q_norm);
+        value_t r_normalized = sqrt(r_norm);
+        value_t cos = dot / (q_normalized * r_normalized);
+        return 1 - cos;
       });
     CUML_LOG_DEBUG("Done.");
   }
@@ -225,7 +225,6 @@ class hellinger_expanded_distances_t : public distances_t<value_t> {
       l2_dists(config) {}
 
   void compute(value_t *out_dists) {
-
     CUML_LOG_DEBUG("Computing Hellinger Distance");
 
     // First sqrt A and B
@@ -241,10 +240,12 @@ class hellinger_expanded_distances_t : public distances_t<value_t> {
     // Revert sqrt of A and B
     raft::linalg::unaryOp<value_t>(
       config_.a_data, config_.a_data, config_.a_nnz,
-      [=] __device__(value_t input) { return powf(input, 2.0); }, config_.stream);
+      [=] __device__(value_t input) { return powf(input, 2.0); },
+      config_.stream);
     raft::linalg::unaryOp<value_t>(
       config_.b_data, config_.b_data, config_.b_nnz,
-      [=] __device__(value_t input) { return powf(input, 2.0); }, config_.stream);
+      [=] __device__(value_t input) { return powf(input, 2.0); },
+      config_.stream);
 
     CUML_LOG_DEBUG("Done.");
   }
@@ -256,8 +257,6 @@ class hellinger_expanded_distances_t : public distances_t<value_t> {
   device_buffer<char> workspace;
   l2_expanded_distances_t<value_idx, value_t> l2_dists;
 };
-
-
 
 };  // END namespace Distance
 };  // END namespace Sparse
