@@ -56,7 +56,7 @@ namespace Distance {
  * @param[in] metric argument (currently only relevant for Minkowski)
  */
 template class ip_distances_t<int, float>;
-template class l2_distances_t<int, float>;
+template class l2_exanded_distances_t<int, float>;
 template class distances_config_t<int, float>;
 
 template <typename value_idx = int, typename value_t = float>
@@ -68,26 +68,29 @@ void pairwiseDistance(
   switch (metric) {
     case raft::distance::DistanceType::EucExpandedL2:
       // Expanded Euclidean in the form
-      l2_distances_t<value_idx, value_t>(input_config).compute(out);
+      l2_exanded_distances_t<value_idx, value_t>(input_config).compute(out);
       break;
     case raft::distance::DistanceType::InnerProduct:
       // InnerProduct
       ip_distances_t<value_idx, value_t>(input_config).compute(out);
       break;
     case raft::distance::DistanceType::EucUnexpandedL1:
-      l1_distances_t<value_idx, value_t>(input_config).compute(out);
+      l1_unexpanded_distances_t<value_idx, value_t>(input_config).compute(out);
       break;
     case raft::distance::DistanceType::EucUnexpandedL2:
       l2_unexpanded_distances_t<value_idx, value_t>(input_config).compute(out);
       break;
-    case raft::distance::DistanceType::Chebyshev:
-      chebyshev_distances_t<value_idx, value_t>(input_config).compute(out);
+    case raft::distance::DistanceType::EucUnexpandedLinf:
+      linf_unexpanded_distances_t<value_idx, value_t>(input_config)
+        .compute(out);
       break;
-    case raft::distance::DistanceType::Canberra:
-      canberra_distances_t<value_idx, value_t>(input_config).compute(out);
+    case raft::distance::DistanceType::EucUnexpandedCanberra:
+      canberra_unexpanded_distances_t<value_idx, value_t>(input_config)
+        .compute(out);
       break;
-    case raft::distance::DistanceType::Minkowski:
-      minkowski_distances_t<value_idx, value_t>(input_config, p).compute(out);
+    case raft::distance::DistanceType::EucUnexpandedLp:
+      lp_unexpanded_distances_t<value_idx, value_t>(input_config, p)
+        .compute(out);
       break;
     default:
       THROW("Unsupported metric: %d", metric);

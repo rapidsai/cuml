@@ -19,12 +19,12 @@
 #include <limits.h>
 #include <raft/cudart_utils.h>
 #include <sparse/distance/common.h>
-//#include <sparse/semiring.cuh>
 
 #include <raft/cudart_utils.h>
 #include <raft/linalg/distance_type.h>
 #include <raft/sparse/cusparse_wrappers.h>
 #include <raft/cuda_utils.cuh>
+#include <raft/device_atomics.cuh>
 
 #include <common/device_buffer.hpp>
 
@@ -44,14 +44,24 @@ namespace MLCommon {
 namespace Sparse {
 namespace Distance {
 
-template <typename value_idx = int, typename value_t = float>
-class l1_distances_t : public distances_t<value_t> {
- public:
-  l1_distances_t(const distances_config_t<value_idx, value_t> &config)
-    : config_(config) {}
+template <typename value_idx = int, typename value_t = float,
+          typename reduce_f = auto(value_t, value_t)->value_t,
+          typename accum_f = auto(value_t, value_t)->value_t,
+          typename write_f = auto(value_t *, value_t)->void>
+void unexpanded_lp_distances(
+  value_t *out_dists, const distances_config_t<value_idx, value_t> &config_,
+  reduce_f reduce_func, accum_f accum_func, write_f write_func) {
+  /**
+ * @TODO: Main logic here:
+ *
+ *  - if n_cols < available smem, just use dense conversion for rows of A
+ *  - if n_cols > available smem but max nnz < available smem, use hashing
+ *    (not yet available)
+ *  - if n_cols > available smem & max_nnz > available smem,
+ *              use batching + hashing only for those large cols
+ */
 
-  void compute(value_t *out_dists) {
-    CUML_LOG_DEBUG("Running l1 dists");
+  if (config_.a_ncols < balanced_coo_spmv_compute_smem<value_idx, value_t>()) {
     raft::mr::device::buffer<value_idx> coo_rows(
       config_.allocator, config_.stream, max(config_.b_nnz, config_.a_nnz));
 
@@ -59,21 +69,43 @@ class l1_distances_t : public distances_t<value_t> {
                                  coo_rows.data(), config_.b_nnz,
                                  config_.stream);
 
-    balanced_coo_pairwise_spmv<value_idx, value_t>(
-      out_dists, config_, coo_rows.data(),
-      [] __device__(value_t a, value_t b) { return fabsf(a - b); },
-      [] __device__(value_t a, value_t b) { return a + b; },
-      [] __device__(value_t * out, value_t c) { atomicAdd(out, c); });
+    balanced_coo_pairwise_generalized_spmv<value_idx, value_t>(
+      out_dists, config_, coo_rows.data(), reduce_func, accum_func, write_func);
 
     MLCommon::Sparse::csr_to_coo(config_.a_indptr, config_.a_nrows,
                                  coo_rows.data(), config_.a_nnz,
                                  config_.stream);
 
-    balanced_coo_pairwise_spmv_rev<value_idx, value_t>(
-      out_dists, config_, coo_rows.data(),
+    balanced_coo_pairwise_generalized_spmv_rev<value_idx, value_t>(
+      out_dists, config_, coo_rows.data(), reduce_func, accum_func, write_func);
+  } else {
+    generalized_csr_pairwise_semiring<value_idx, value_t>(
+      out_dists, config_, reduce_func, accum_func);
+  }
+}
+
+/**
+ * Computes L1 distances for sparse input. This does not have
+ * an equivalent expanded form, so it is only executed in
+ * an unexpanded form.
+ * @tparam value_idx
+ * @tparam value_t
+ */
+template <typename value_idx = int, typename value_t = float>
+class l1_unexpanded_distances_t : public distances_t<value_t> {
+ public:
+  l1_unexpanded_distances_t(
+    const distances_config_t<value_idx, value_t> &config)
+    : config_(config) {}
+
+  void compute(value_t *out_dists) {
+    CUML_LOG_DEBUG("Running l1 dists");
+
+    unexpanded_lp_distances<value_idx, value_t>(
+      out_dists, config_,
       [] __device__(value_t a, value_t b) { return fabsf(a - b); },
       [] __device__(value_t a, value_t b) { return a + b; },
-      [] __device__(value_t * out, value_t c) { atomicAdd(out, c); });
+      [] __device__(value_t * a, value_t b) { atomicAdd(a, b); });
   }
 
  private:
@@ -88,12 +120,13 @@ class l2_unexpanded_distances_t : public distances_t<value_t> {
     : config_(config) {}
 
   void compute(value_t *out_dists) {
-    generalized_csr_pairwise_semiring<value_idx, value_t>(
+    unexpanded_lp_distances<value_idx, value_t>(
       out_dists, config_,
-      [] __host__ __device__(value_t a, value_t b, value_t p) {
+      [] __host__ __device__(value_t a, value_t b) {
         return (a - b) * (a - b);
       },
-      [] __host__ __device__(value_t a, value_t b) { return a + b; });
+      [] __host__ __device__(value_t a, value_t b) { return a + b; },
+      [] __host__ __device__(value_t * a, value_t b) { atomicAdd(a, b); });
   }
 
  private:
@@ -101,19 +134,18 @@ class l2_unexpanded_distances_t : public distances_t<value_t> {
 };
 
 template <typename value_idx = int, typename value_t = float>
-class chebyshev_distances_t : public distances_t<value_t> {
+class linf_unexpanded_distances_t : public distances_t<value_t> {
  public:
-  explicit chebyshev_distances_t(
+  explicit linf_unexpanded_distances_t(
     const distances_config_t<value_idx, value_t> &config)
     : config_(config) {}
 
   void compute(value_t *out_dists) {
-    generalized_csr_pairwise_semiring<value_idx, value_t>(
+    unexpanded_lp_distances<value_idx, value_t>(
       out_dists, config_,
-      [] __host__ __device__(value_t a, value_t b, value_t p) {
-        return fabsf(a - b);
-      },
-      [] __host__ __device__(value_t a, value_t b) { return fmaxf(a, b); });
+      [] __host__ __device__(value_t a, value_t b) { return fabsf(a - b); },
+      [] __host__ __device__(value_t a, value_t b) { return fmaxf(a, b); },
+      [] __host__ __device__(value_t * a, value_t b) { atomicMax(a, b); });
   }
 
  private:
@@ -121,19 +153,20 @@ class chebyshev_distances_t : public distances_t<value_t> {
 };
 
 template <typename value_idx = int, typename value_t = float>
-class canberra_distances_t : public distances_t<value_t> {
+class canberra_unexpanded_distances_t : public distances_t<value_t> {
  public:
-  explicit canberra_distances_t(
+  explicit canberra_unexpanded_distances_t(
     const distances_config_t<value_idx, value_t> &config)
     : config_(config) {}
 
   void compute(value_t *out_dists) {
-    generalized_csr_pairwise_semiring<value_idx, value_t>(
+    unexpanded_lp_distances<value_idx, value_t>(
       out_dists, config_,
-      [] __device__(value_t a, value_t b, value_t p) {
+      [] __device__(value_t a, value_t b) {
         return fabsf(a - b) / (fabsf(a) + fabsf(b));
       },
-      [] __host__ __device__(value_t a, value_t b) { return a + b; });
+      [] __host__ __device__(value_t a, value_t b) { return a + b; },
+      [] __host__ __device__(value_t * a, value_t b) { atomicAdd(a, b); });
   }
 
  private:
@@ -141,19 +174,18 @@ class canberra_distances_t : public distances_t<value_t> {
 };
 
 template <typename value_idx = int, typename value_t = float>
-class minkowski_distances_t : public distances_t<value_t> {
+class lp_unexpanded_distances_t : public distances_t<value_t> {
  public:
-  explicit minkowski_distances_t(
+  explicit lp_unexpanded_distances_t(
     const distances_config_t<value_idx, value_t> &config, value_t p_)
     : config_(config), p(p_) {}
 
   void compute(value_t *out_dists) {
-    generalized_csr_pairwise_semiring<value_idx, value_t>(
+    unexpanded_lp_distances<value_idx, value_t>(
       out_dists, config_,
-      [] __device__(value_t a, value_t b, value_t p) {
-        return __powf(a - b, p);
-      },
-      [] __host__ __device__(value_t a, value_t b) { return a + b; }, p);
+      [=] __device__(value_t a, value_t b) { return __powf(a - b, p); },
+      [] __host__ __device__(value_t a, value_t b) { return a + b; },
+      [] __host__ __device__(value_t * a, value_t b) { atomicAdd(a, b); });
   }
 
  private:

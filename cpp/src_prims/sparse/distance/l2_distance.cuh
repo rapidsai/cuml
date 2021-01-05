@@ -47,12 +47,12 @@ namespace Distance {
 
 // @TODO: Move this into sparse prims (coo_norm)
 template <typename value_idx, typename value_t>
-__global__ void compute_sq_row_norm_kernel(value_t *out,
-                                           const value_idx *coo_rows,
-                                           const value_t *data, value_idx nnz) {
+__global__ void compute_row_norm_kernel(value_t *out, const value_idx *coo_rows,
+                                        const value_t *data, value_idx nnz,
+                                        float p = 2.0) {
   value_idx i = blockDim.x * blockIdx.x + threadIdx.x;
   if (i < nnz) {
-    atomicAdd(&out[coo_rows[i]], data[i] * data[i]);
+    atomicAdd(&out[coo_rows[i]], __powf(data[i], p));
   }
 }
 
@@ -103,9 +103,9 @@ void compute_l2(value_t *out, const value_idx *Q_coo_rows,
   CUDA_CHECK(
     cudaMemsetAsync(R_sq_norms.data(), 0, R_sq_norms.size() * sizeof(value_t)));
 
-  compute_sq_row_norm_kernel<<<raft::ceildiv(Q_nnz, tpb), tpb, 0, stream>>>(
+  compute_row_norm_kernel<<<raft::ceildiv(Q_nnz, tpb), tpb, 0, stream>>>(
     Q_sq_norms.data(), Q_coo_rows, Q_data, Q_nnz);
-  compute_sq_row_norm_kernel<<<raft::ceildiv(R_nnz, tpb), tpb, 0, stream>>>(
+  compute_row_norm_kernel<<<raft::ceildiv(R_nnz, tpb), tpb, 0, stream>>>(
     R_sq_norms.data(), R_coo_rows, R_data, R_nnz);
 
   compute_euclidean(out, Q_sq_norms.data(), R_sq_norms.data(), m, n, stream);
@@ -116,9 +116,10 @@ void compute_l2(value_t *out, const value_idx *Q_coo_rows,
  * The expanded form is more efficient for sparse data.
  */
 template <typename value_idx = int, typename value_t = float>
-class l2_distances_t : public distances_t<value_t> {
+class l2_exanded_distances_t : public distances_t<value_t> {
  public:
-  explicit l2_distances_t(const distances_config_t<value_idx, value_t> &config)
+  explicit l2_exanded_distances_t(
+    const distances_config_t<value_idx, value_t> &config)
     : config_(config),
       workspace(config.allocator, config.stream, 0),
       ip_dists(config) {}
@@ -146,7 +147,7 @@ class l2_distances_t : public distances_t<value_t> {
     CUML_LOG_DEBUG("Done.");
   }
 
-  ~l2_distances_t() = default;
+  ~l2_exanded_distances_t() = default;
 
  private:
   distances_config_t<value_idx, value_t> config_;

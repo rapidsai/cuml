@@ -51,14 +51,12 @@ namespace Distance {
  * @tparam rows_per_block
  */
 template <typename value_idx, typename value_t, int tpb, int buffer_size,
-          typename reduce_f = auto(value_t, value_t, value_t)->value_t,
-          typename accum_f = auto(value_t, value_t)->value_t>
+          typename reduce_f, typename accum_f>
 struct BlockSemiring {
   __device__ inline BlockSemiring(int tid_, value_idx m_, value_idx n_,
                                   value_idx *shared_cols_,
                                   value_t *shared_vals_, value_idx *chunk_cols_,
-                                  value_t *chunk_vals_, value_idx *offsets_a_,
-                                  value_t p = 1.0)
+                                  value_t *chunk_vals_, value_idx *offsets_a_)
     : tid(tid_),
       p(p),
       m(m_),
@@ -141,7 +139,7 @@ struct BlockSemiring {
       value_t right_side = rv * run_r;
 
       // Apply semiring "sum" & "product" functions locally
-      cur_sum = accum_func(cur_sum, reduce_func(left_side, right_side, p));
+      cur_sum = accum_func(cur_sum, reduce_func(left_side, right_side));
 
       // finished when all items in chunk have been
       // processed
@@ -207,13 +205,12 @@ struct BlockSemiring {
  * that each thread can process their rows in parallel.
  */
 template <typename value_idx, typename value_t, int tpb, int buffer_size,
-          typename reduce_f = auto(value_t, value_t)->value_t,
-          typename accum_f = auto(value_t, value_t)->value_t>
+          typename reduce_f, typename accum_f>
 __global__ void classic_csr_semiring_spmv_kernel(
   value_idx *indptrA, value_idx *indicesA, value_t *dataA, value_idx *indptrB,
   value_idx *indicesB, value_t *dataB, value_idx m, value_idx n, value_t *out,
   int n_blocks_per_row, int n_rows_per_block, reduce_f reduce_func,
-  accum_f accum_func, value_t p = 1.0) {
+  accum_f accum_func) {
   value_idx out_row = blockIdx.x / n_blocks_per_row;
   value_idx out_col_start = blockIdx.x % n_blocks_per_row;
 
@@ -226,8 +223,8 @@ __global__ void classic_csr_semiring_spmv_kernel(
   __shared__ value_t shared_vals[buffer_size];
   __shared__ value_idx offsets_a[2];
 
-  BlockSemiring<value_idx, value_t, tpb, buffer_size> semiring(
-    tid, m, n, shared_cols, shared_vals, indicesB, dataB, offsets_a, p);
+  BlockSemiring<value_idx, value_t, tpb, buffer_size, reduce_f, accum_f>
+    semiring(tid, m, n, shared_cols, shared_vals, indicesB, dataB, offsets_a);
 
   semiring.load_a(out_row, indptrA, indicesA, dataA);
 
@@ -278,11 +275,10 @@ __global__ void classic_csr_semiring_spmv_kernel(
  */
 template <typename value_idx = int, typename value_t = float,
           int max_buffer_size = 5000, int threads_per_block = 32,
-          typename reduce_f = auto(value_t, value_t)->value_t,
-          typename accum_f = auto(value_t, value_t)->value_t>
+          typename reduce_f, typename accum_f>
 void generalized_csr_pairwise_semiring(
-  value_t *out_dists, distances_config_t<value_idx, value_t> &config_,
-  reduce_f reduce_func, accum_f accum_func, value_t p = 1.0) {
+  value_t *out_dists, const distances_config_t<value_idx, value_t> &config_,
+  reduce_f reduce_func, accum_f accum_func) {
   int n_chunks = 1;
   int n_rows_per_block = min(n_chunks * threads_per_block, config_.b_nrows);
   int n_blocks_per_row = raft::ceildiv(config_.b_nrows, n_rows_per_block);

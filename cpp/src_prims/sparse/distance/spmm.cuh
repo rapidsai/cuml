@@ -123,8 +123,8 @@ __global__ void csr_spgemm_kernel(value_t* C, const value_idx* A_csrRowPtr,
 
 /**
  * Perform generalized sparse-matrix-sparse-matrix-multiply
- * in semiring algebra by allowing the reduction (product)
- * and accumulation (sum) functions to be swapped out for
+ * in semiring algebra by allowing the reduction (e.g. product())
+ * and accumulation (e.g. sum()) functions to be swapped out for
  * custom functions. This approach utilizes the most memory
  * as it requires B to be transposed, however, it is able
  * to work directly on the CSR format and outputs directly

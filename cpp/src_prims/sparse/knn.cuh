@@ -399,10 +399,10 @@ class sparse_knn_t {
         pw_metric = raft::distance::DistanceType::EucUnexpandedL1;
         break;
       case ML::MetricType::METRIC_Canberra:
-        pw_metric = raft::distance::DistanceType::Canberra;
+        pw_metric = raft::distance::DistanceType::EucUnexpandedCanberra;
         break;
       case ML::MetricType::METRIC_Linf:
-        pw_metric = raft::distance::DistanceType::Chebyshev;
+        pw_metric = raft::distance::DistanceType::EucUnexpandedLinf;
         break;
       default:
         THROW("MetricType not supported: %d", metric);

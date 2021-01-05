@@ -45,9 +45,9 @@ namespace Sparse {
 namespace Distance {
 
 /**
- * This implementation follows the load-balanced implementation.
+ * Load-balanced parse-matrix-sparse-matrix multiplication (SPMM) kernel with
+ * sparse-matrix-sparse-vector multiplication layout (SPMV).
  * This is intended to be scheduled n_chunks_b times for each row of a.
- *
  * The steps are as follows:
  *
  * 1. Load row from A into dense vector in shared memory.
@@ -75,13 +75,9 @@ namespace Distance {
  * @param out
  */
 template <typename value_idx, typename value_t, int tpb, int buffer_size,
-          typename kv_t, typename init_f = auto(kv_t *, value_idx)->void,
-          typename put_f = auto(kv_t *, value_idx, value_t)->void,
-          typename get_f = auto(kv_t *, value_idx)->value_t,
-          typename reduce_f = auto(value_t, value_t)->value_t,
-          typename accum_f = auto(value_t, value_t)->value_t,
-          typename write_f = auto(value_t *, value_t)->void>
-__global__ void balanced_coo_spmv_kernel(
+          typename kv_t, typename init_f, typename put_f, typename get_f,
+          typename reduce_f, typename accum_f, typename write_f>
+__global__ void balanced_coo_generalized_spmv_kernel(
   value_idx *indptrA, value_idx *indicesA, value_t *dataA, value_idx *rowsB,
   value_idx *indicesB, value_t *dataB, value_idx m, value_idx n, value_idx dim,
   value_idx nnz_b, value_t *out, int n_blocks_per_row, int chunk_size, bool rev,
@@ -111,6 +107,7 @@ __global__ void balanced_coo_spmv_kernel(
   __shared__ kv_t A[buffer_size];
   __shared__ value_idx offsets_a[2];
   __shared__ typename warp_reduce::TempStorage temp_storage[8];
+  //  __shared__ value_idx max_hash_table_iters[1];
 
   if (tid == 0) {
     offsets_a[0] = indptrA[cur_row_a];
@@ -123,7 +120,9 @@ __global__ void balanced_coo_spmv_kernel(
   value_idx stop_offset_a = offsets_a[1];
 
   // Create dense vector A and populate with 0s
-  for (int i = threadIdx.x; i < dim; i += blockDim.x) init_func(A, i);
+  if (tid == 0) memset(A, init_func(), buffer_size * sizeof(kv_t));
+
+  __syncthreads();
 
   // Convert current row vector in A to dense
   for (int i = tid; i < (stop_offset_a - start_offset_a); i += blockDim.x) {
@@ -190,9 +189,10 @@ inline int balanced_coo_spmv_compute_smem() {
 }
 
 /**
- * Performs generalized SPMV. Each vector of A is loaded
- * into shared memory in dense form and the columns of B
- * load balanced over threads.
+ * Performs generalized sparse-matrix-sparse-matrix multiplication via a
+ * sparse-matrix-sparse-vector layout. Each vector of A is loaded
+ * into shared memory in dense form and the non-zeros of B
+ * load balanced across the threads of each block.
  * @tparam value_idx
  * @tparam value_t
  * @tparam max_buffer_size
@@ -205,12 +205,10 @@ inline int balanced_coo_spmv_compute_smem() {
  * @param accum_func
  */
 template <typename value_idx, typename value_t, int threads_per_block = 1024,
-          int chunk_size = 500000,
-          typename reduce_f = auto(value_t, value_t)->value_t,
-          typename accum_f = auto(value_t, value_t)->value_t,
-          typename write_f = auto(value_t *, value_t)->void>
-inline void balanced_coo_pairwise_spmv(
-  value_t *out_dists, distances_config_t<value_idx, value_t> &config_,
+          int chunk_size = 500000, typename reduce_f, typename accum_f,
+          typename write_f>
+inline void balanced_coo_pairwise_generalized_spmv(
+  value_t *out_dists, const distances_config_t<value_idx, value_t> &config_,
   value_idx *coo_rows_b, reduce_f reduce_func, accum_f accum_func,
   write_f write_func) {
   CUDA_CHECK(cudaMemsetAsync(
@@ -226,29 +224,43 @@ inline void balanced_coo_pairwise_spmv(
   // @TODO: Compute this.
   constexpr int smem = 11000;
 
-  balanced_coo_spmv_kernel<value_idx, value_t, threads_per_block, smem, value_t>
+  balanced_coo_generalized_spmv_kernel<value_idx, value_t, threads_per_block,
+                                       smem, value_t>
     <<<n_blocks, threads_per_block, 0, config_.stream>>>(
       config_.a_indptr, config_.a_indices, config_.a_data, coo_rows_b,
       config_.b_indices, config_.b_data, config_.a_nrows, config_.b_nrows,
       config_.b_ncols, config_.b_nnz, out_dists, n_warps_per_row, chunk_size,
-      false, [] __device__(value_t * cache, value_idx k) { cache[k] = 0.0; },
+      false, [] __device__() { return 0.0; },
       [] __device__(value_t * cache, value_idx k, value_t v) { cache[k] = v; },
       [] __device__(value_t * cache, value_idx k) { return cache[k]; },
       reduce_func, accum_func, write_func);
 };
 
+/**
+ * Used for computing distances where the reduction (e.g. product()) function performs
+ * an implicit union (reduce(x, 0) = x) to capture the difference A-B. This is
+ * necessary because the SPMV kernel will only compute the intersection & B-A.
+ * @tparam value_idx
+ * @tparam value_t
+ * @tparam max_buffer_size
+ * @tparam threads_per_block
+ * @tparam reduce_f
+ * @tparam accum_f
+ * @param out_dists
+ * @param config_
+ * @param reduce_func
+ * @param accum_func
+ */
 template <typename value_idx, typename value_t, int threads_per_block = 1024,
-          int chunk_size = 500000,
-          typename reduce_f = auto(value_t, value_t)->value_t,
-          typename accum_f = auto(value_t, value_t)->value_t,
-          typename write_f = auto(value_t *, value_t)->void>
-inline void balanced_coo_pairwise_spmv_rev(
-  value_t *out_dists, distances_config_t<value_idx, value_t> &config_,
+          int chunk_size = 500000, typename reduce_f, typename accum_f,
+          typename write_f>
+inline void balanced_coo_pairwise_generalized_spmv_rev(
+  value_t *out_dists, const distances_config_t<value_idx, value_t> &config_,
   value_idx *coo_rows_a, reduce_f reduce_func, accum_f accum_func,
   write_f write_func) {
   int n_warps_per_row =
-    raft::ceildiv(config_.b_nnz, chunk_size * threads_per_block);
-  int n_blocks = config_.a_nrows * n_warps_per_row;
+    raft::ceildiv(config_.a_nnz, chunk_size * threads_per_block);
+  int n_blocks = config_.b_nrows * n_warps_per_row;
 
   CUML_LOG_DEBUG("n_blocks: %d", n_blocks);
   CUML_LOG_DEBUG("n_warps_per_row: %d", n_warps_per_row);
@@ -256,100 +268,160 @@ inline void balanced_coo_pairwise_spmv_rev(
   // @TODO: Compute this.
   constexpr int smem = 11000;
 
-  balanced_coo_spmv_kernel<value_idx, value_t, threads_per_block, smem, value_t>
+  balanced_coo_generalized_spmv_kernel<value_idx, value_t, threads_per_block,
+                                       smem, value_t>
     <<<n_blocks, threads_per_block, 0, config_.stream>>>(
       config_.b_indptr, config_.b_indices, config_.b_data, coo_rows_a,
       config_.a_indices, config_.a_data, config_.b_nrows, config_.a_nrows,
       config_.a_ncols, config_.a_nnz, out_dists, n_warps_per_row, chunk_size,
-      true, [] __device__(value_t * cache, value_idx k) { cache[k] = 0.0; },
+      true, [] __device__() { return 0.0; },
       [] __device__(value_t * cache, value_idx k, value_t v) { cache[k] = v; },
       [] __device__(value_t * cache, value_idx k) { return cache[k]; },
       reduce_func, accum_func, write_func);
 };
 
-template <typename value_idx, typename value_t>
-struct KeyValue {
-  value_idx key;
-  value_t value;
-};
-
-const int kEmpty = 0xffffffff;
-
-// 32 bit Murmur3 hash
-
-template <typename value_idx>
-__device__ value_idx hash(value_idx k, uint32_t capacity) {
-  k ^= k >> 16;
-  k *= 0x85ebca6b;
-  k ^= k >> 13;
-  k *= 0xc2b2ae35;
-  k ^= k >> 16;
-  return k & (capacity - 1);
-}
-
-template <typename value_idx, typename value_t>
-__device__ void gpu_hashtable_insert(KeyValue<value_idx, value_t> *hashtable,
-                                     value_idx key, value_t value,
-                                     uint32_t capacity) {
-  uint32_t slot = hash<value_idx>(key, capacity);
-
-  while (true) {
-    value_idx prev = atomicCAS(&hashtable[slot].key, kEmpty, key);
-    if (prev == kEmpty || prev == key) {
-      hashtable[slot].value = value;
-      break;
-    }
-    slot = (slot + 1) & (capacity - 1);
-  }
-}
-
-template <typename value_idx, typename value_t>
-__device__ value_t gpu_hashtable_lookup(KeyValue<value_idx, value_t> *hashtable,
-                                        value_idx key, uint32_t capacity) {
-  value_idx slot = hash(key, capacity);
-
-  while (true) {
-    if (hashtable[slot].key == key) {
-      return hashtable[slot].value;
-    }
-    if (hashtable[slot].key == kEmpty) {
-      return kEmpty;
-    }
-    slot = (slot + 1) & (capacity - 1);
-  }
-}
-
-template <typename value_idx, typename value_t, int threads_per_block = 1024,
-          int chunk_size = 500000>
-inline void balanced_coo_pairwise_spmv_hashtable(
-  value_t *out_dists, distances_config_t<value_idx, value_t> &config_,
-  value_idx *coo_rows_b) {
-  CUDA_CHECK(cudaMemsetAsync(
-    out_dists, 0, config_.a_nrows * config_.b_nrows * sizeof(value_t),
-    config_.stream));
-  int n_warps_per_row =
-    raft::ceildiv(config_.b_nnz, chunk_size * threads_per_block);
-  int n_blocks = config_.a_nrows * n_warps_per_row;
-
-  CUML_LOG_DEBUG("n_blocks: %d", n_blocks);
-  CUML_LOG_DEBUG("n_warps_per_row: %d", n_warps_per_row);
-
-  // @TODO: Don't hardcode shared memory
-  constexpr int smem = 5000;
-
-  balanced_coo_spmv_kernel<value_idx, value_t, threads_per_block, smem,
-                           KeyValue<value_idx, value_t>>
-    <<<n_blocks, threads_per_block, 0, config_.stream>>>(
-      config_.a_indptr, config_.a_indices, config_.a_data, coo_rows_b,
-      config_.b_indices, config_.b_data, config_.a_nrows, config_.b_nrows,
-      config_.b_ncols, config_.b_nnz, out_dists, n_warps_per_row, chunk_size,
-      [] __device__(KeyValue<value_idx, value_t> * cache, value_idx k) {},
-      [] __device__(KeyValue<value_idx, value_t> * cache, value_idx k,
-                    value_t v) { gpu_hashtable_insert(cache, k, v, smem); },
-      [] __device__(KeyValue<value_idx, value_t> * cache, value_idx k) {
-        return gpu_hashtable_lookup(cache, k, smem);
-      });
-};
+//template <typename value_idx, typename value_t>
+//struct KeyValue {
+//  value_idx key;
+//  value_t value;
+//};
+//
+//const int kEmpty = 0xffffffff;
+//
+//// 32 bit Murmur3 hash
+//
+//inline __device__ uint32_t hash(uint32_t k, uint32_t capacity) {
+//  k ^= k >> 16;
+//  k *= 0x85ebca6b;
+//  k ^= k >> 13;
+//  k *= 0xc2b2ae35;
+//  k ^= k >> 16;
+//  return k & (capacity - 1);
+//}
+//
+//template <typename value_idx, typename value_t>
+//__device__ void gpu_hashtable_insert(KeyValue<value_idx, value_t> *hashtable,
+//                                     value_idx key, value_t value,
+//                                     uint32_t capacity) {
+//  uint32_t slot = hash((uint32_t)key, capacity);
+//
+//  int n_iter = 0;
+//  while (true) {
+//    value_idx prev = atomicCAS(&hashtable[slot].key, kEmpty, key);
+//
+//    if (prev == kEmpty || prev == key) {
+//      hashtable[slot].value = value;
+//      break;
+//    }
+//
+//    slot = (slot + 1) & (capacity - 1);
+//
+//    // @TODO: Perform a max-reduction on this value
+//    ++n_iter;
+//  }
+//}
+//
+//template <typename value_idx, typename value_t>
+//__device__ value_t gpu_hashtable_lookup(KeyValue<value_idx, value_t> *hashtable,
+//                                        value_idx key, uint32_t capacity) {
+//  uint32_t slot = hash((uint32_t)key, capacity);
+//
+//  int n_iter = 0;
+//
+//  // @TODO: Use data to set this threshold.
+//  while (n_iter < 3) {
+//    if (hashtable[slot].key == key) {
+//      return hashtable[slot].value;
+//    }
+//    if (hashtable[slot].key == kEmpty) {
+//      return 0.0;
+//    }
+//
+//    if(n_iter > 1000)
+//      printf("Hash table lookup failed: bid=%d, tid=%d, slot=%d, key=%d, prev=%d, n_it=%d\n",
+//             blockIdx.x, threadIdx.x, slot, key, n_iter);
+//
+//    slot = (slot + 1) & (capacity - 1);
+//    ++n_iter;
+//  }
+//
+//  return 0.0;
+//}
+//
+//template <typename value_idx, typename value_t, int threads_per_block = 1024,
+//          int chunk_size = 500000,
+//  typename reduce_f,
+//  typename accum_f,
+//  typename write_f>
+//inline void balanced_coo_pairwise_spmv_hashtable(
+//  value_t *out_dists, const distances_config_t<value_idx, value_t> &config_,
+//  value_idx *coo_rows_b, reduce_f reduce_func, accum_f accum_func,
+//  write_f write_func) {
+//  CUDA_CHECK(cudaMemsetAsync(
+//    out_dists, 0, config_.a_nrows * config_.b_nrows * sizeof(value_t),
+//    config_.stream));
+//  int n_warps_per_row =
+//    raft::ceildiv(config_.b_nnz, chunk_size * threads_per_block);
+//  int n_blocks = config_.a_nrows * n_warps_per_row;
+//
+//  CUML_LOG_DEBUG("n_blocks: %d", n_blocks);
+//  CUML_LOG_DEBUG("n_warps_per_row: %d", n_warps_per_row);
+//
+//  // @TODO: Don't hardcode shared memory
+//  constexpr int smem = 4096;
+//
+//  balanced_coo_generalized_spmv_kernel<value_idx, value_t, threads_per_block,
+//                                       smem, KeyValue<value_idx, value_t>>
+//    <<<n_blocks, threads_per_block, 0, config_.stream>>>(
+//      config_.a_indptr, config_.a_indices, config_.a_data, coo_rows_b,
+//      config_.b_indices, config_.b_data, config_.a_nrows, config_.b_nrows,
+//      config_.b_ncols, config_.b_nnz, out_dists, n_warps_per_row, chunk_size,
+//      false, [] __device__() { return kEmpty; },
+//
+//      [] __device__(KeyValue<value_idx, value_t> * cache, value_idx k,
+//                    value_t v) { gpu_hashtable_insert(cache, k, v, smem); },
+//      [] __device__(KeyValue<value_idx, value_t> * cache, value_idx k) {
+//        return gpu_hashtable_lookup(cache, k, smem);
+//      },
+//      reduce_func, accum_func, write_func);
+//};
+//
+//
+//template <typename value_idx, typename value_t, int threads_per_block = 1024,
+//  int chunk_size = 500000,
+//  typename reduce_f,
+//  typename accum_f,
+//  typename write_f>
+//inline void balanced_coo_pairwise_spmv_hashtable_rev (
+//  value_t *out_dists, const distances_config_t<value_idx, value_t> &config_,
+//  value_idx *coo_rows_a, reduce_f reduce_func, accum_f accum_func,
+//  write_f write_func) {
+//
+//  int n_warps_per_row =
+//    raft::ceildiv(config_.a_nnz, chunk_size * threads_per_block);
+//  int n_blocks = config_.b_nrows * n_warps_per_row;
+//
+//  CUML_LOG_DEBUG("n_blocks: %d", n_blocks);
+//  CUML_LOG_DEBUG("n_warps_per_row: %d", n_warps_per_row);
+//
+//  // @TODO: Don't hardcode shared memory
+//  constexpr int smem = 4096;
+//
+//  balanced_coo_generalized_spmv_kernel<value_idx, value_t, threads_per_block,
+//                                       smem, KeyValue<value_idx, value_t>>
+//    <<<n_blocks, threads_per_block, 0, config_.stream>>>(
+//      config_.b_indptr, config_.b_indices, config_.b_data, coo_rows_a,
+//      config_.a_indices, config_.a_data, config_.b_nrows, config_.a_nrows,
+//      config_.a_ncols, config_.a_nnz, out_dists, n_warps_per_row, chunk_size,
+//      true, [] __device__() { return kEmpty; },
+//
+//      [] __device__(KeyValue<value_idx, value_t> * cache, value_idx k,
+//                    value_t v) { gpu_hashtable_insert(cache, k, v, smem); },
+//      [] __device__(KeyValue<value_idx, value_t> * cache, value_idx k) {
+//        return gpu_hashtable_lookup(cache, k, smem);
+//      },
+//      reduce_func, accum_func, write_func);
+//};
 
 }  // namespace Distance
 }  // namespace Sparse

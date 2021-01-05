@@ -111,7 +111,7 @@ class SparseDistanceSemiringTest
 
     std::cout << "Running dists" << std::endl;
 
-    l1_distances_t<value_idx, value_t> l1_dists(dist_config);
+    l1_unexpanded_distances_t<value_idx, value_t> l1_dists(dist_config);
 
     l1_dists.compute(out_dists);
 
