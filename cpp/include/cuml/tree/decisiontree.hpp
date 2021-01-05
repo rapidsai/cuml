@@ -145,23 +145,32 @@ struct TreeMetaDataNode {
 };
 
 /**
- * @brief Print high-level tree information.
+ * @brief Obtain high-level tree information.
  * @tparam T: data type for input data (float or double).
  * @tparam L: data type for labels (int type for classification, T type for regression).
  * @param[in] tree: CPU pointer to TreeMetaDataNode
+ * @return High-level tree information as string
  */
 template <class T, class L>
-void print_tree_summary(const TreeMetaDataNode<T, L> *tree);
+std::string print_tree_summary(const TreeMetaDataNode<T, L> *tree);
 
 /**
- * @brief Print detailed tree information.
+ * @brief Obtain detailed tree information.
  * @tparam T: data type for input data (float or double).
  * @tparam L: data type for labels (int type for classification, T type for regression).
  * @param[in] tree: CPU pointer to TreeMetaDataNode
+ * @return Detailed tree information as string
  */
 template <class T, class L>
-void print_tree(const TreeMetaDataNode<T, L> *tree);
+std::string print_tree(const TreeMetaDataNode<T, L> *tree);
 
+/**
+ * @brief Export tree as a JSON string
+ * @tparam T: data type for input data (float or double).
+ * @tparam L: data type for labels (int type for classification, T type for regression).
+ * @param[in] tree: CPU pointer to TreeMetaDataNode
+ * @return Tree structure as JSON stsring
+ */
 template <class T, class L>
 std::string dump_tree_as_json(const TreeMetaDataNode<T, L> *tree);
 

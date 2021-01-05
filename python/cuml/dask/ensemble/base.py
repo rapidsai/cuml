@@ -217,9 +217,8 @@ class BaseRandomForestModel(object):
                     workers=[w],
                 )
             )
-
-            wait_and_raise_from_futures(futures)
-        return self
+        all_dump = self.client.gather(futures, errors='raise')
+        return '\n'.join(all_dump)
 
     def _print_detailed(self):
         """
@@ -234,8 +233,8 @@ class BaseRandomForestModel(object):
                     workers=[w],
                 )
             )
-            wait_and_raise_from_futures(futures)
-        return self
+        all_dump = self.client.gather(futures, errors='raise')
+        return '\n'.join(all_dump)
 
 
 def _func_fit(model, input_data, convert_dtype):
@@ -245,11 +244,11 @@ def _func_fit(model, input_data, convert_dtype):
 
 
 def _print_summary_func(model):
-    model.print_summary()
+    return model.print_summary()
 
 
 def _print_detailed_func(model):
-    model.print_detailed()
+    return model.print_detailed()
 
 
 def _func_get_params(model, deep):

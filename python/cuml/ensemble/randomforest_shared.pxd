@@ -98,8 +98,8 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
     #
     # Text representation of random forest
     #
-    cdef void print_rf_summary[T, L](RandomForestMetaData[T, L]*) except +
-    cdef void print_rf_detailed[T, L](RandomForestMetaData[T, L]*) except +
+    cdef string print_rf_summary[T, L](RandomForestMetaData[T, L]*) except +
+    cdef string print_rf_detailed[T, L](RandomForestMetaData[T, L]*) except +
     cdef string dump_rf_as_json[T, L](RandomForestMetaData[T, L]*) except +
 
     cdef RF_params set_rf_class_obj(int,

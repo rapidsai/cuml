@@ -926,9 +926,9 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
             <RandomForestMetaData[double, int]*><uintptr_t> self.rf_forest64
 
         if self.dtype == np.float64:
-            print_rf_summary(rf_forest64)
+            return print_rf_summary(rf_forest64).decode('utf-8')
         else:
-            print_rf_summary(rf_forest)
+            return print_rf_summary(rf_forest).decode('utf-8')
 
     def print_detailed(self):
         """
@@ -942,9 +942,9 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
             <RandomForestMetaData[double, int]*><uintptr_t> self.rf_forest64
 
         if self.dtype == np.float64:
-            print_rf_detailed(rf_forest64)
+            return print_rf_detailed(rf_forest64).decode('utf-8')
         else:
-            print_rf_detailed(rf_forest)
+            return print_rf_detailed(rf_forest).decode('utf-8')
 
     def dump_as_json(self):
         """
