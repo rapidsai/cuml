@@ -58,9 +58,9 @@ void print(const SparseTreeNode<T, L> &node, std::ostream &os) {
 }
 
 template <class T, class L>
-std::string print_node(const std::string &prefix,
-                       const std::vector<SparseTreeNode<T, L>> &sparsetree,
-                       int idx, bool isLeft) {
+std::string get_node_text(const std::string &prefix,
+                          const std::vector<SparseTreeNode<T, L>> &sparsetree,
+                          int idx, bool isLeft) {
   const SparseTreeNode<T, L> &node = sparsetree[idx];
 
   std::ostringstream oss;
@@ -76,11 +76,11 @@ std::string print_node(const std::string &prefix,
   if ((node.colid != -1)) {
     // enter the next tree level - left and right branch
     oss << "\n"
-        << print_node(prefix + (isLeft ? "│   " : "    "), sparsetree,
-                      node.left_child_id, true)
+        << get_node_text(prefix + (isLeft ? "│   " : "    "), sparsetree,
+                         node.left_child_id, true)
         << "\n"
-        << print_node(prefix + (isLeft ? "│   " : "    "), sparsetree,
-                      node.left_child_id + 1, false);
+        << get_node_text(prefix + (isLeft ? "│   " : "    "), sparsetree,
+                         node.left_child_id + 1, false);
   }
   return oss.str();
 }
@@ -240,7 +240,7 @@ template <typename T, typename L>
 void DecisionTreeBase<T, L>::print(
   const std::vector<SparseTreeNode<T, L>> &sparsetree) const {
   DecisionTreeBase<T, L>::print_tree_summary();
-  print_node<T, L>("", sparsetree, 0, false);
+  get_node_text<T, L>("", sparsetree, 0, false);
 }
 
 /**

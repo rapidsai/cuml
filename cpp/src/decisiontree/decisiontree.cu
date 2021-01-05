@@ -130,7 +130,7 @@ void print(const DecisionTreeParams params) {
 }
 
 template <class T, class L>
-std::string print_tree_summary(const TreeMetaDataNode<T, L> *tree) {
+std::string get_tree_summary_text(const TreeMetaDataNode<T, L> *tree) {
   std::ostringstream oss;
   oss << " Decision Tree depth --> " << tree->depth_counter
       << " and n_leaves --> " << tree->leaf_counter << "\n"
@@ -144,9 +144,9 @@ std::string print_tree_summary(const TreeMetaDataNode<T, L> *tree) {
 }
 
 template <class T, class L>
-std::string print_tree(const TreeMetaDataNode<T, L> *tree) {
-  std::string summary = print_tree_summary<T, L>(tree);
-  return summary + "\n" + print_node<T, L>("", tree->sparsetree, 0, false);
+std::string get_tree_text(const TreeMetaDataNode<T, L> *tree) {
+  std::string summary = get_tree_summary_text<T, L>(tree);
+  return summary + "\n" + get_node_text<T, L>("", tree->sparsetree, 0, false);
 }
 
 template <class T, class L>
@@ -247,19 +247,19 @@ void decisionTreeRegressorPredict(const raft::handle_t &handle,
 }
 
 // Functions' specializations
-template std::string print_tree_summary<float, int>(
+template std::string get_tree_summary_text<float, int>(
   const TreeClassifierF *tree);
-template std::string print_tree_summary<double, int>(
+template std::string get_tree_summary_text<double, int>(
   const TreeClassifierD *tree);
-template std::string print_tree_summary<float, float>(
+template std::string get_tree_summary_text<float, float>(
   const TreeRegressorF *tree);
-template std::string print_tree_summary<double, double>(
+template std::string get_tree_summary_text<double, double>(
   const TreeRegressorD *tree);
 
-template std::string print_tree<float, int>(const TreeClassifierF *tree);
-template std::string print_tree<double, int>(const TreeClassifierD *tree);
-template std::string print_tree<float, float>(const TreeRegressorF *tree);
-template std::string print_tree<double, double>(const TreeRegressorD *tree);
+template std::string get_tree_text<float, int>(const TreeClassifierF *tree);
+template std::string get_tree_text<double, int>(const TreeClassifierD *tree);
+template std::string get_tree_text<float, float>(const TreeRegressorF *tree);
+template std::string get_tree_text<double, double>(const TreeRegressorD *tree);
 
 template std::string dump_tree_as_json<float, int>(const TreeClassifierF *tree);
 template std::string dump_tree_as_json<double, int>(

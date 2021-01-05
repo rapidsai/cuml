@@ -45,9 +45,9 @@ template <class T, class L>
 void print(const SparseTreeNode<T, L> &node, std::ostream &os);
 
 template <class T, class L>
-std::string print_node(const std::string &prefix,
-                       const std::vector<SparseTreeNode<T, L>> &sparsetree,
-                       int idx, bool isLeft);
+std::string get_node_text(const std::string &prefix,
+                          const std::vector<SparseTreeNode<T, L>> &sparsetree,
+                          int idx, bool isLeft);
 
 template <class T, class L>
 std::string dump_node_as_json(

@@ -152,7 +152,7 @@ struct TreeMetaDataNode {
  * @return High-level tree information as string
  */
 template <class T, class L>
-std::string print_tree_summary(const TreeMetaDataNode<T, L> *tree);
+std::string get_tree_summary_text(const TreeMetaDataNode<T, L> *tree);
 
 /**
  * @brief Obtain detailed tree information.
@@ -162,7 +162,7 @@ std::string print_tree_summary(const TreeMetaDataNode<T, L> *tree);
  * @return Detailed tree information as string
  */
 template <class T, class L>
-std::string print_tree(const TreeMetaDataNode<T, L> *tree);
+std::string get_tree_text(const TreeMetaDataNode<T, L> *tree);
 
 /**
  * @brief Export tree as a JSON string

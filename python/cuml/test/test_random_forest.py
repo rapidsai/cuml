@@ -759,9 +759,9 @@ def test_rf_printing(capfd, n_estimators, detailed_printing):
     cuml_model.fit(X, y)
 
     if detailed_printing:
-        cuml_model.print_detailed()
+        cuml_model.get_detailed_text()
     else:
-        cuml_model.print_summary()
+        cuml_model.get_summary_text()
 
     # Read the captured output
     printed_output = capfd.readouterr().out
