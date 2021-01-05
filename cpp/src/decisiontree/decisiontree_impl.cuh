@@ -77,7 +77,8 @@ std::string print_node(const std::string &prefix,
     // enter the next tree level - left and right branch
     oss << "\n"
         << print_node(prefix + (isLeft ? "│   " : "    "), sparsetree,
-                      node.left_child_id, true) << "\n"
+                      node.left_child_id, true)
+        << "\n"
         << print_node(prefix + (isLeft ? "│   " : "    "), sparsetree,
                       node.left_child_id + 1, false);
   }

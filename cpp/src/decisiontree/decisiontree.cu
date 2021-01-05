@@ -135,8 +135,10 @@ std::string print_tree_summary(const TreeMetaDataNode<T, L> *tree) {
   oss << " Decision Tree depth --> " << tree->depth_counter
       << " and n_leaves --> " << tree->leaf_counter << "\n"
       << " Tree Fitting - Overall time --> "
-      << (tree->prepare_time + tree->train_time) << " s" << "\n"
-      << "   - preparing for fit time: " << tree->prepare_time << " s" << "\n"
+      << (tree->prepare_time + tree->train_time) << " s"
+      << "\n"
+      << "   - preparing for fit time: " << tree->prepare_time << " s"
+      << "\n"
       << "   - tree growing time: " << tree->train_time << " s";
   return oss.str();
 }
