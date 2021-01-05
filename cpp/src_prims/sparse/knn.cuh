@@ -404,6 +404,18 @@ class sparse_knn_t {
       case ML::MetricType::METRIC_Linf:
         pw_metric = raft::distance::DistanceType::EucUnexpandedLinf;
         break;
+      case ML::MetricType::METRIC_Lp:
+        pw_metric = raft::distance::DistanceType::EucUnexpandedLp;
+        break;
+      case ML::MetricType::METRIC_Jaccard:
+        pw_metric = raft::distance::DistanceType::EucExpandedJaccard;
+        break;
+      case ML::MetricType::METRIC_Cosine:
+        pw_metric = raft::distance::DistanceType::EucExpandedCosine;
+        break;
+      case ML::MetricType::METRIC_Hellinger:
+        pw_metric = raft::distance::DistanceType::EucExpandedHellinger;
+        break;
       default:
         THROW("MetricType not supported: %d", metric);
     }
@@ -445,7 +457,7 @@ class sparse_knn_t {
     dist_config.allocator = allocator;
     dist_config.stream = stream;
 
-    Distance::pairwiseDistance(batch_dists, dist_config, get_pw_metric());
+    Distance::pairwiseDistance(batch_dists, dist_config, get_pw_metric(), metricArg);
   }
 
   const value_idx *idxIndptr, *idxIndices, *queryIndptr, *queryIndices;

@@ -230,7 +230,7 @@ class ip_distances_spmv_t : public ip_trans_getters_t<value_idx, value_t> {
 	   */
     balanced_coo_pairwise_generalized_spmv<value_idx, value_t>(
       out_distances, config_, coo_rows_b.data(),
-      [] __device__(value_t a, value_t b) { return a * b; },
+      [] __device__(value_t a, value_t b, float p) { return a * b; },
       [] __device__(value_t a, value_t b) { return a + b; },
       [] __device__(value_t * out, value_t c) { atomicAdd(out, c); });
   }

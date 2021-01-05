@@ -29,6 +29,7 @@
 
 #include <sparse/utils.h>
 #include <sparse/csr.cuh>
+#include <sparse/distance/bin_distance.cuh>
 #include <sparse/distance/ip_distance.cuh>
 #include <sparse/distance/l2_distance.cuh>
 #include <sparse/distance/lp_distance.cuh>
@@ -56,7 +57,7 @@ namespace Distance {
  * @param[in] metric argument (currently only relevant for Minkowski)
  */
 template class ip_distances_t<int, float>;
-template class l2_exanded_distances_t<int, float>;
+template class l2_expanded_distances_t<int, float>;
 template class distances_config_t<int, float>;
 
 template <typename value_idx = int, typename value_t = float>
@@ -68,7 +69,7 @@ void pairwiseDistance(
   switch (metric) {
     case raft::distance::DistanceType::EucExpandedL2:
       // Expanded Euclidean in the form
-      l2_exanded_distances_t<value_idx, value_t>(input_config).compute(out);
+      l2_expanded_distances_t<value_idx, value_t>(input_config).compute(out);
       break;
     case raft::distance::DistanceType::InnerProduct:
       // InnerProduct
@@ -90,6 +91,18 @@ void pairwiseDistance(
       break;
     case raft::distance::DistanceType::EucUnexpandedLp:
       lp_unexpanded_distances_t<value_idx, value_t>(input_config, p)
+        .compute(out);
+      break;
+    case raft::distance::DistanceType::EucExpandedJaccard:
+      jaccard_expanded_distances_t<value_idx, value_t>(input_config)
+        .compute(out);
+      break;
+    case raft::distance::DistanceType::EucExpandedCosine:
+      cosine_expanded_distances_t<value_idx, value_t>(input_config)
+        .compute(out);
+      break;
+    case raft::distance::DistanceType::EucExpandedHellinger:
+      hellinger_expanded_distances_t<value_idx, value_t>(input_config)
         .compute(out);
       break;
     default:

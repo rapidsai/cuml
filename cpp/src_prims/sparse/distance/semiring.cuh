@@ -56,7 +56,8 @@ struct BlockSemiring {
   __device__ inline BlockSemiring(int tid_, value_idx m_, value_idx n_,
                                   value_idx *shared_cols_,
                                   value_t *shared_vals_, value_idx *chunk_cols_,
-                                  value_t *chunk_vals_, value_idx *offsets_a_)
+                                  value_t *chunk_vals_, value_idx *offsets_a_,
+                                  const float metric_arg_ = 2.0)
     : tid(tid_),
       p(p),
       m(m_),
@@ -67,10 +68,18 @@ struct BlockSemiring {
       chunk_vals(chunk_vals_),
       offsets_a(offsets_a_),
       done(false),
+      metric_arg(metric_arg_),
       shared_idx(0),
       row_count(0),
       cur_sum(0.0) {}
 
+  /**
+   * Load columns for a single row of A into shared memory
+   * @param row
+   * @param indptrA
+   * @param indicesA
+   * @param dataA
+   */
   __device__ inline void load_a(value_idx row, value_idx *indptrA,
                                 value_idx *indicesA, value_t *dataA) {
     if (tid == 0) {
@@ -95,6 +104,11 @@ struct BlockSemiring {
     row_a = row;
   }
 
+  /**
+   * Prepare index & offsets for looping through rows of B
+   * @param start_row
+   * @param indptrB
+   */
   __device__ inline void load_b(value_idx start_row, value_idx *indptrB) {
     done = false;
     shared_idx = 0;
@@ -114,6 +128,13 @@ struct BlockSemiring {
     }
   }
 
+  /**
+   * Perform single single column intersection/union for A & B
+   * based on the row of A mapped to shared memory and the row
+   * of B mapped to current thread.
+   * @param reduce_func
+   * @param accum_func
+   */
   __device__ inline void step(reduce_f reduce_func, accum_f accum_func) {
     if (tid < n_rows) {
       bool local_idx_in_bounds = local_idx < local_idx_stop && row_count > 0;
@@ -139,7 +160,7 @@ struct BlockSemiring {
       value_t right_side = rv * run_r;
 
       // Apply semiring "sum" & "product" functions locally
-      cur_sum = accum_func(cur_sum, reduce_func(left_side, right_side));
+      cur_sum = accum_func(cur_sum, reduce_func(left_side, right_side, metric_arg));
 
       // finished when all items in chunk have been
       // processed
@@ -177,6 +198,8 @@ struct BlockSemiring {
 
   value_idx n_entries;
 
+  float metric_arg;
+
   value_idx m;
   value_idx n;
   value_idx start_offset_a;
@@ -210,7 +233,7 @@ __global__ void classic_csr_semiring_spmv_kernel(
   value_idx *indptrA, value_idx *indicesA, value_t *dataA, value_idx *indptrB,
   value_idx *indicesB, value_t *dataB, value_idx m, value_idx n, value_t *out,
   int n_blocks_per_row, int n_rows_per_block, reduce_f reduce_func,
-  accum_f accum_func) {
+  accum_f accum_func, const float metricArg = 2.0) {
   value_idx out_row = blockIdx.x / n_blocks_per_row;
   value_idx out_col_start = blockIdx.x % n_blocks_per_row;
 
@@ -247,7 +270,7 @@ __global__ void classic_csr_semiring_spmv_kernel(
  * work directly on a CSR w/o the need for conversion to another
  * sparse format, does not require any transposition, nor loading
  * any vectors in dense form. The major drawback to this kernel
- * is that the the memory access pattern dominates performance,
+ * is that the non-uniform memory access pattern dominates performance,
  * making it very slow.
  *
  * Each vector of A is loaded into shared memory and each row of B
@@ -278,7 +301,7 @@ template <typename value_idx = int, typename value_t = float,
           typename reduce_f, typename accum_f>
 void generalized_csr_pairwise_semiring(
   value_t *out_dists, const distances_config_t<value_idx, value_t> &config_,
-  reduce_f reduce_func, accum_f accum_func) {
+  reduce_f reduce_func, accum_f accum_func, const float metric_arg = 2.0) {
   int n_chunks = 1;
   int n_rows_per_block = min(n_chunks * threads_per_block, config_.b_nrows);
   int n_blocks_per_row = raft::ceildiv(config_.b_nrows, n_rows_per_block);
@@ -294,7 +317,7 @@ void generalized_csr_pairwise_semiring(
     <<<n_blocks, threads_per_block, 0, config_.stream>>>(
       config_.a_indptr, config_.a_indices, config_.a_data, config_.b_indptr,
       config_.b_indices, config_.b_data, config_.a_nrows, config_.b_nrows,
-      out_dists, n_blocks_per_row, n_rows_per_block, reduce_func, accum_func);
+      out_dists, n_blocks_per_row, n_rows_per_block, reduce_func, accum_func, metric_arg);
 };
 
 }  // namespace Distance

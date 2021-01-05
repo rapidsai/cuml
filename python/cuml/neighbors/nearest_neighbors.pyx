@@ -74,7 +74,9 @@ cdef extern from "cuml/neighbors/knn.hpp" namespace "ML":
         METRIC_JensenShannon,
 
         METRIC_Cosine = 100,
-        METRIC_Correlation
+        METRIC_Correlation,
+        METRIC_Jaccard,
+        METRIC_Hellinger
 
     cdef cppclass knnIndex:
         pass
@@ -304,11 +306,6 @@ class NearestNeighbors(Base):
                                                verbose=verbose,
                                                output_type=output_type)
 
-        if metric not in cuml.neighbors.VALID_METRICS[algorithm]:
-            raise ValueError("Metric %s is not valid. "
-                             "Use sorted(cuml.neighbors.VALID_METRICS[%s]) "
-                             "to get valid options." % (metric, algorithm))
-
         self.n_neighbors = n_neighbors
         self.n_indices = 0
         self.metric = metric
@@ -331,16 +328,25 @@ class NearestNeighbors(Base):
         self.n_dims = X.shape[1]
 
         if is_sparse(X):
+
+            valid_metrics = cuml.neighbors.VALID_METRICS_SPARSE
             self.X_m = SparseCumlArray(X, convert_to_dtype=cp.float32,
                                        convert_format=False)
             self.n_rows = self.X_m.shape[0]
 
         else:
+
+            valid_metrics = cuml.neighbors.VALID_METRICS
             self.X_m, self.n_rows, n_cols, dtype = \
                 input_to_cuml_array(X, order='C', check_dtype=np.float32,
                                     convert_to_dtype=(np.float32
                                                       if convert_dtype
                                                       else None))
+
+        if self.metric not in valid_metrics[self.algorithm]:
+            raise ValueError("Metric %s is not valid. "
+                             "Use sorted(cuml.neighbors.VALID_METRICS[%s]) "
+                             "to get valid options." % (self.metric, self.algorithm))
 
         cdef handle_t* handle_ = <handle_t*><uintptr_t> self.handle.getHandle()
         cdef knnIndexParam* algo_params = <knnIndexParam*> 0
@@ -409,6 +415,10 @@ class NearestNeighbors(Base):
             m = MetricType.METRIC_Correlation
         elif metric == "inner_product":
             m = MetricType.METRIC_INNER_PRODUCT
+        elif metric == "jaccard":
+            m = MetricType.METRIC_Jaccard
+        elif metric == "hellinger":
+            m = MetricType.METRIC_Hellinger
         else:
             raise ValueError("Metric %s is not supported" % metric)
 

@@ -44,8 +44,21 @@ namespace MLCommon {
 namespace Sparse {
 namespace Distance {
 
+template<typename value_t, typename LambdaOp>
+struct ReductionOp {
+
+  __host__ __device__ __forceinline__ ReductionOp(LambdaOp op_): op(op_){}
+
+  __host__ __device__ __forceinline__ value_t operator()(value_t &a, value_t &b) {
+    return op(a, b);
+  }
+
+ private:
+  LambdaOp op;
+};
+
 /**
- * Load-balanced parse-matrix-sparse-matrix multiplication (SPMM) kernel with
+ * Load-balanced sparse-matrix-sparse-matrix multiplication (SPMM) kernel with
  * sparse-matrix-sparse-vector multiplication layout (SPMV).
  * This is intended to be scheduled n_chunks_b times for each row of a.
  * The steps are as follows:
@@ -82,7 +95,7 @@ __global__ void balanced_coo_generalized_spmv_kernel(
   value_idx *indicesB, value_t *dataB, value_idx m, value_idx n, value_idx dim,
   value_idx nnz_b, value_t *out, int n_blocks_per_row, int chunk_size, bool rev,
   init_f init_func, put_f put_func, get_f get_func, reduce_f reduce_func,
-  accum_f accum_func, write_f write_func) {
+  accum_f accum_func, write_f write_func, const float metric_arg = 2.0) {
   typedef cub::WarpReduce<value_t> warp_reduce;
 
   value_idx cur_row_a = blockIdx.x / n_blocks_per_row;
@@ -103,6 +116,8 @@ __global__ void balanced_coo_generalized_spmv_kernel(
 
   if (cur_row_a > m || cur_chunk_offset > n_blocks_per_row) return;
   if (ind >= nnz_b) return;
+
+  ReductionOp<value_t, accum_f> reduce(accum_func);
 
   __shared__ kv_t A[buffer_size];
   __shared__ value_idx offsets_a[2];
@@ -144,7 +159,7 @@ __global__ void balanced_coo_generalized_spmv_kernel(
     value_idx col = indicesB[ind];
     value_t a_col = get_func(A, col);
     bool should_store = (!rev || a_col == 0.0);
-    c = should_store * reduce_func(a_col, dataB[ind]);
+    c = should_store * reduce_func(a_col, dataB[ind], metric_arg);
   }
 
   // loop through chunks in parallel, reducing when a new row is
@@ -159,7 +174,8 @@ __global__ void balanced_coo_generalized_spmv_kernel(
       unsigned int peer_group = get_peer_group(cur_row_b);
       bool is_leader = get_lowest_peer(peer_group) == lane_id;
 
-      value_t v = warp_red.HeadSegmentedSum(c, is_leader);
+
+      value_t v = warp_red.HeadSegmentedReduce(c, is_leader, reduce);
 
       // thread with lowest lane id among peers writes out
       if (is_leader && v != 0.0) {
@@ -175,7 +191,7 @@ __global__ void balanced_coo_generalized_spmv_kernel(
       value_idx col = indicesB[ind];
       value_t a_col = get_func(A, col);
       bool should_store = (!rev || a_col == 0.0);
-      c = accum_func(c, should_store * reduce_func(a_col, dataB[ind]));
+      c = accum_func(c, should_store * reduce_func(a_col, dataB[ind], metric_arg));
       cur_row_b = next_row_b;
     }
   }
@@ -210,7 +226,7 @@ template <typename value_idx, typename value_t, int threads_per_block = 1024,
 inline void balanced_coo_pairwise_generalized_spmv(
   value_t *out_dists, const distances_config_t<value_idx, value_t> &config_,
   value_idx *coo_rows_b, reduce_f reduce_func, accum_f accum_func,
-  write_f write_func) {
+  write_f write_func, const float metric_arg = 2.0) {
   CUDA_CHECK(cudaMemsetAsync(
     out_dists, 0, config_.a_nrows * config_.b_nrows * sizeof(value_t),
     config_.stream));
@@ -233,7 +249,7 @@ inline void balanced_coo_pairwise_generalized_spmv(
       false, [] __device__() { return 0.0; },
       [] __device__(value_t * cache, value_idx k, value_t v) { cache[k] = v; },
       [] __device__(value_t * cache, value_idx k) { return cache[k]; },
-      reduce_func, accum_func, write_func);
+      reduce_func, accum_func, write_func, metric_arg);
 };
 
 /**
@@ -257,7 +273,7 @@ template <typename value_idx, typename value_t, int threads_per_block = 1024,
 inline void balanced_coo_pairwise_generalized_spmv_rev(
   value_t *out_dists, const distances_config_t<value_idx, value_t> &config_,
   value_idx *coo_rows_a, reduce_f reduce_func, accum_f accum_func,
-  write_f write_func) {
+  write_f write_func, const float metric_arg = 2.0) {
   int n_warps_per_row =
     raft::ceildiv(config_.a_nnz, chunk_size * threads_per_block);
   int n_blocks = config_.b_nrows * n_warps_per_row;
@@ -277,7 +293,7 @@ inline void balanced_coo_pairwise_generalized_spmv_rev(
       true, [] __device__() { return 0.0; },
       [] __device__(value_t * cache, value_idx k, value_t v) { cache[k] = v; },
       [] __device__(value_t * cache, value_idx k) { return cache[k]; },
-      reduce_func, accum_func, write_func);
+      reduce_func, accum_func, write_func, metric_arg);
 };
 
 //template <typename value_idx, typename value_t>

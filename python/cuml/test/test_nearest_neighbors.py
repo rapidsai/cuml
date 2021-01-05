@@ -54,6 +54,14 @@ def valid_metrics(algo="brute", cuml_algo=None):
     return [value for value in cuml_metrics if value in sklearn_metrics]
 
 
+def valid_metrics_sparse(algo="brute", cuml_algo=None):
+    cuml_algo = algo if cuml_algo is None else cuml_algo
+    cuml_metrics = cuml.neighbors.VALID_METRICS_SPARSE[cuml_algo]
+    sklearn_metrics = set(sklearn.neighbors.VALID_METRICS_SPARSE[algo])
+    sklearn_metrics.update(sklearn.neighbors.VALID_METRICS[algo])
+    return [value for value in cuml_metrics if value in sklearn_metrics]
+
+
 @pytest.mark.parametrize("datatype", ["dataframe", "numpy"])
 @pytest.mark.parametrize("nrows", [500, 1000, 10000])
 @pytest.mark.parametrize("ncols", [128, 1024])
@@ -389,10 +397,10 @@ def test_knn_graph(input_type, nrows, n_feats, p, k, metric, mode,
         assert isspmatrix_csr(sparse_cu)
 
 
-@pytest.mark.parametrize("metric", ["l1", "l2"])
-@pytest.mark.parametrize('nrows', [50000])
-@pytest.mark.parametrize('ncols', [1000])
-@pytest.mark.parametrize('density', [0.09])
+@pytest.mark.parametrize("metric", valid_metrics_sparse())
+@pytest.mark.parametrize('nrows', [100])
+@pytest.mark.parametrize('ncols', [100])
+@pytest.mark.parametrize('density', [0.5])
 @pytest.mark.parametrize('n_neighbors', [5])
 @pytest.mark.parametrize('batch_size_index', [40000])
 @pytest.mark.parametrize('batch_size_query', [50000])
@@ -411,10 +419,14 @@ def test_nearest_neighbors_sparse(nrows, ncols,
     b = cp.sparse.random(nrows, ncols, format='csr', density=density,
                          random_state=33)
 
+    if metric == 'jaccard':
+        a = a.astype('bool').astype('float32')
+        b = b.astype('bool').astype('float32')
+
     print(str(cp.diff(a.indptr).max()))
 
     logger.set_level(logger.level_trace)
-    nn = cuKNN(metric=metric, n_neighbors=n_neighbors, algorithm="brute",
+    nn = cuKNN(metric=metric, p=2.0, n_neighbors=n_neighbors, algorithm="brute",
                output_type="numpy",
                verbose=logger.level_debug,
                algo_params={"batch_size_index": batch_size_index,
@@ -428,7 +440,12 @@ def test_nearest_neighbors_sparse(nrows, ncols,
     print("cuML took %s" % (time.time() - start))
 
     print(str(cuD))
-    sknn = skKNN(metric=metric, n_neighbors=n_neighbors,
+
+    if metric not in sklearn.neighbors.VALID_METRICS_SPARSE['brute']:
+        a = a.todense()
+        b = b.todense()
+
+    sknn = skKNN(metric=metric, p=2.0, n_neighbors=n_neighbors,
                  algorithm="brute", n_jobs=-1)
     sk_X = a.get()
     sknn.fit(sk_X)
@@ -437,5 +454,12 @@ def test_nearest_neighbors_sparse(nrows, ncols,
     skD, skI = sknn.kneighbors(b.get())
     print("sk took %s" % (time.time() - start))
 
+    print(str(cuD))
+    print(str(skD))
+
     cp.testing.assert_allclose(cuD, skD, atol=1e-3, rtol=1e-3)
-    cp.testing.assert_allclose(cuI, skI, atol=1e-4, rtol=1e-4)
+
+    # Jaccard & Chebyshev have a high potential for mismatched indices
+    # due to duplicate distances. We can ignore the indices in this case.
+    if metric not in ['jaccard', 'chebyshev']:
+        cp.testing.assert_allclose(cuI, skI, atol=1e-4, rtol=1e-4)
