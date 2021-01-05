@@ -149,7 +149,9 @@ class SparseCumlArray():
             if output_dtype is None else output_dtype
 
         if output_type not in ['cupy', 'scipy']:
-            raise ValueError("Unsupported output_type: %s" % output_dtype)
+            # raise ValueError("Unsupported output_type: %s" % output_type)
+            # Default if output_type doesn't support sparse arrays
+            output_type = 'cupy'
 
         cuml_arr_output_type = 'numpy' \
             if output_type in ('scipy', 'numpy') else 'cupy'

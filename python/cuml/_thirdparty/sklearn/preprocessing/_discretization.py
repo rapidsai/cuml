@@ -29,20 +29,11 @@ from ....thirdparty_adapters import check_array
 from ....common.import_utils import check_cupy8
 from ....common.array_sparse import SparseCumlArray
 from ....common.array_descriptor import CumlArrayDescriptor
+from ....common.memory_utils import using_output_type
 
 
 def digitize(x, bins):
-    # With right = Flase and bins in increasing order
-    out = np.full(shape=x.shape, fill_value=0, dtype=np.int32)
-    for i in range(1, len(bins)):
-        bool_arr = np.logical_and(bins[i-1] <= x, x < bins[i])
-        matched = np.where(bool_arr)
-        out[matched] = i
-
-    bool_arr = x >= bins[-1]
-    matched = np.where(bool_arr)
-    out[matched] = len(bins)
-    return out
+    return np.searchsorted(bins, x, side='left')
 
 
 class KBinsDiscretizer(TransformerMixin, BaseEstimator):
@@ -221,8 +212,11 @@ class KBinsDiscretizer(TransformerMixin, BaseEstimator):
                 init = (uniform_edges[1:] + uniform_edges[:-1])[:, None] * 0.5
 
                 # 1D k-means procedure
-                km = KMeans(n_clusters=n_bins[jj], init=init, n_init=1)
-                centers = km.fit(column[:, None]).cluster_centers_[:, 0]
+                km = KMeans(n_clusters=n_bins[jj], init=init, n_init=1,
+                            output_type='cupy')
+                km = km.fit(column[:, None])
+                with using_output_type('cupy'):
+                    centers = km.cluster_centers_[:, 0]
                 # Must sort, centers may be unsorted even with sorted init
                 centers.sort()
                 bin_edges[jj] = (centers[1:] + centers[:-1]) * 0.5
@@ -244,7 +238,7 @@ class KBinsDiscretizer(TransformerMixin, BaseEstimator):
         if 'onehot' in self.encode:
             self._encoder = OneHotEncoder(
                 categories=np.array([np.arange(i) for i in self.n_bins_]),
-                sparse=self.encode == 'onehot')
+                sparse=self.encode == 'onehot', output_type='cupy')
             # Fit the OneHotEncoder with toy datasets
             # so that it's ready for use after the KBinsDiscretizer is fitted
             self._encoder.fit(np.zeros((1, len(self.n_bins_)), dtype=int))
@@ -325,10 +319,7 @@ class KBinsDiscretizer(TransformerMixin, BaseEstimator):
             return Xt
 
         Xt = self._encoder.transform(Xt)
-        if self.encode == 'onehot':
-            return Xt
-        else:
-            return Xt
+        return Xt
 
     def inverse_transform(self, Xt) -> SparseCumlArray:
         """
@@ -349,9 +340,8 @@ class KBinsDiscretizer(TransformerMixin, BaseEstimator):
         """
         check_is_fitted(self)
 
-        sparse_input = hasattr(Xt, 'format')
         if 'onehot' in self.encode:
-            Xt = check_array(Xt, accept_sparse='coo', copy=True)
+            Xt = check_array(Xt, accept_sparse=['csr', 'coo'], copy=True)
             Xt = self._encoder.inverse_transform(Xt)
 
         Xinv = check_array(Xt, copy=True, dtype=FLOAT_DTYPES)
@@ -366,12 +356,7 @@ class KBinsDiscretizer(TransformerMixin, BaseEstimator):
             idxs = np.asnumpy(Xinv[:, jj])
             Xinv[:, jj] = bin_centers[idxs.astype(np.int32)]
 
-        if not sparse_input:
-            # Dense input -> Dense output in correct format
-            return Xinv
-        else:
-            # Sparse input -> Dense CuPy output
-            return Xinv
+        return Xinv
 
         def _more_tags(self):
             return {'X_types_gpu': ['2darray', 'sparse'],
