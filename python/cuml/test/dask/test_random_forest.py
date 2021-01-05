@@ -355,7 +355,7 @@ def test_single_input(client, model_type, ignore_empty_partitions):
 
 @pytest.mark.parametrize('n_estimators', [5, 10, 20])
 @pytest.mark.parametrize('detailed_text', [True, False])
-def test_rf_get_text(client, n_estimators, detailed_text)
+def test_rf_get_text(client, n_estimators, detailed_text):
     X, y = make_classification(n_samples=500, n_features=10,
                                n_clusters_per_class=1, n_informative=5,
                                random_state=94929, n_classes=2)
@@ -364,7 +364,8 @@ def test_rf_get_text(client, n_estimators, detailed_text)
     y = y.astype(np.int32)
     X, y = _prep_training_data(client, X, y, partitions_per_worker=2)
 
-    cu_rf_mg = cuRFC_mg(n_bins=1, ignore_empty_partitions=True)
+    cu_rf_mg = cuRFC_mg(n_estimators=n_estimators,
+                        ignore_empty_partitions=True)
     cu_rf_mg.fit(X, y)
 
     if detailed_text:
