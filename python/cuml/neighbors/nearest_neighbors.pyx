@@ -346,7 +346,8 @@ class NearestNeighbors(Base):
         if self.metric not in valid_metrics[self.algorithm]:
             raise ValueError("Metric %s is not valid. "
                              "Use sorted(cuml.neighbors.VALID_METRICS[%s]) "
-                             "to get valid options." % (self.metric, self.algorithm))
+                             "to get valid options." %
+                             (self.metric, self.algorithm))
 
         cdef handle_t* handle_ = <handle_t*><uintptr_t> self.handle.getHandle()
         cdef knnIndexParam* algo_params = <knnIndexParam*> 0

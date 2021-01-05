@@ -426,8 +426,8 @@ def test_nearest_neighbors_sparse(nrows, ncols,
     print(str(cp.diff(a.indptr).max()))
 
     logger.set_level(logger.level_trace)
-    nn = cuKNN(metric=metric, p=2.0, n_neighbors=n_neighbors, algorithm="brute",
-               output_type="numpy",
+    nn = cuKNN(metric=metric, p=2.0, n_neighbors=n_neighbors,
+               algorithm="brute", output_type="numpy",
                verbose=logger.level_debug,
                algo_params={"batch_size_index": batch_size_index,
                             "batch_size_query": batch_size_query})
