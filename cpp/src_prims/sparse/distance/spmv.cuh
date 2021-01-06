@@ -138,7 +138,7 @@ __global__ void balanced_coo_generalized_spmv_kernel(
   if (tid < active_chunk_size) {
     cur_row_b = rowsB[ind];
     value_t a_col = A[indicesB[ind]];
-    if(!rev || a_col != 0.0) c = reduce_func(a_col, dataB[ind]);
+    if(!rev || a_col == 0.0) c = reduce_func(a_col, dataB[ind]);
   }
 
   // loop through chunks in parallel, reducing when a new row is
@@ -153,7 +153,7 @@ __global__ void balanced_coo_generalized_spmv_kernel(
       unsigned int peer_group = get_peer_group(cur_row_b);
       bool is_leader = get_lowest_peer(peer_group) == lane_id;
 
-      value_t v = warp_red.HeadSegmentedReduce(c, is_leader, reduce_func);
+      value_t v = warp_red.HeadSegmentedReduce(c, is_leader, accum_func);
 
       // thread with lowest lane id among peers writes out
       if (is_leader && v != 0.0) {
@@ -167,7 +167,7 @@ __global__ void balanced_coo_generalized_spmv_kernel(
     if (next_row_b != -1) {
       ind = ind_next;
       value_t a_col = A[indicesB[ind]];
-      if(!rev || 0.0) c = accum_func(c, reduce_func(a_col, dataB[ind]));
+      if(!rev || a_col == 0.0) c = accum_func(c, reduce_func(a_col, dataB[ind]));
       cur_row_b = next_row_b;
     }
   }

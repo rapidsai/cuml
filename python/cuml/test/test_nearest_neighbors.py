@@ -172,6 +172,7 @@ def test_ivfsq_pred(nrows, ncols, n_neighbors, nlist, qtype, encodeResidual):
     X, y = make_blobs(n_samples=nrows, centers=5,
                       n_features=ncols, random_state=0)
 
+    logger.set_level(logger.level_debug)
     knn_cu = cuKNN(algorithm="ivfsq", algo_params=algo_params)
     knn_cu.fit(X)
     neigh_ind = knn_cu.kneighbors(X, n_neighbors=n_neighbors,
@@ -396,9 +397,9 @@ def test_knn_graph(input_type, nrows, n_feats, p, k, metric, mode,
     else:
         assert isspmatrix_csr(sparse_cu)
 
-@pytest.mark.parametrize("metric", ['linf'])
-@pytest.mark.parametrize('nrows', [50000])
-@pytest.mark.parametrize('ncols', [10000])
+@pytest.mark.parametrize("metric", ['l1'])
+@pytest.mark.parametrize('nrows', [100])
+@pytest.mark.parametrize('ncols', [100])
 @pytest.mark.parametrize('density', [0.4])
 @pytest.mark.parametrize('n_neighbors', [4])
 @pytest.mark.parametrize('batch_size_index', [40000])
@@ -433,7 +434,7 @@ def test_nearest_neighbors_sparse(nrows, ncols,
     import time
 
     start = time.time()
-    cuD, cuI = nn.kneighbors(a)
+    cuD, cuI = nn.kneighbors(b)
     print("cuML took %s" % (time.time() - start))
 
     if metric not in sklearn.neighbors.VALID_METRICS_SPARSE['brute']:
