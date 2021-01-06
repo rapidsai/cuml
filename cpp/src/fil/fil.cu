@@ -800,11 +800,9 @@ void from_treelite(const raft::handle_t& handle, forest_t* pforest,
   // float32, as FIL only supports inferencing with float32 for the time being
   if (std::is_same<T, double>::value || std::is_same<L, double>::value) {
     CUML_LOG_WARN(
-      "The tree ensemble model contains float64 values. Since FIL "
-      "currently only supports inferencing with float32 values, "
-      "all thresholds and leaf values will be converted from "
-      "float64 to float32. This may lead to inaccurate "
-      "prediction.");
+      "Casting all thresholds and leaf values to float32, as FIL currently "
+      "doesn't support inferencing models with float64 values. "
+      "This may lead to predictions with reduced accuracy.");
   }
 
   storage_type_t storage_type = tl_params->storage_type;
