@@ -22,8 +22,10 @@ from sklearn.decomposition import IncrementalPCA as skIPCA
 
 from cuml.datasets import make_blobs
 from cuml.experimental.decomposition import IncrementalPCA as cuIPCA
+from cuml.experimental.decomposition.incremental_pca import _svd_flip
 
 from cuml.test.utils import array_equal
+from cuml.common.exceptions import NotFittedError
 
 
 @pytest.mark.parametrize(
@@ -109,3 +111,35 @@ def test_partial_fit(nrows, ncols, n_components, density,
 
     assert array_equal(cu_inv, sk_inv,
                        5e-5, with_sign=True)
+
+
+def test_exceptions():
+    X = cupyx.scipy.sparse.eye(10)
+    ipca = cuIPCA()
+    with pytest.raises(TypeError):
+        ipca.partial_fit(X)
+
+    X = X.toarray()
+    with pytest.raises(NotFittedError):
+        ipca.transform(X)
+
+    with pytest.raises(NotFittedError):
+        ipca.inverse_transform(X)
+
+    with pytest.raises(ValueError):
+        cuIPCA(n_components=8).fit(X[:5])
+
+    with pytest.raises(ValueError):
+        cuIPCA(n_components=8).fit(X[:, :5])
+
+
+def test_svd_flip():
+    x = cp.array(range(-10, 80)).reshape((9, 10))
+    u, s, v = cp.linalg.svd(x, full_matrices=False)
+    u_true, v_true = _svd_flip(u, v, u_based_decision=True)
+    reco_true = cp.dot(u_true * s, v_true)
+    u_false, v_false = _svd_flip(u, v, u_based_decision=False)
+    reco_false = cp.dot(u_false * s, v_false)
+
+    assert array_equal(reco_true, x)
+    assert array_equal(reco_false, x)
