@@ -91,7 +91,7 @@ class BaseRandomForestModel(object):
             )
         return n_estimators_per_worker
 
-    def _fit(self, model, dataset, convert_dtype):
+    def _fit(self, model, dataset, convert_dtype, broadcast):
         data = DistributedDataHandler.create(dataset, client=self.client)
         self.active_workers = data.workers
         self.datatype = data.datatype
@@ -108,7 +108,9 @@ class BaseRandomForestModel(object):
         else:
             self.num_classes = \
                 len(dask.array.unique(labels).compute())
-        labels = self.client.persist(dataset[1])
+
+        full_data = list(map(lambda x: x[1], data.gpu_futures))
+
         futures = list()
         for idx, (worker, worker_data) in \
                 enumerate(data.worker_to_parts.items()):
@@ -116,7 +118,7 @@ class BaseRandomForestModel(object):
                 self.client.submit(
                     _func_fit,
                     model[worker],
-                    worker_data,
+                    full_data if broadcast else worker_data,
                     convert_dtype,
                     workers=[worker],
                     pure=False)

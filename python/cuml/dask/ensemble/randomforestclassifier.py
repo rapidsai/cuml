@@ -216,7 +216,7 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
         """
         return self._print_detailed()
 
-    def fit(self, X, y, convert_dtype=False):
+    def fit(self, X, y, convert_dtype=False, broadcast=False):
         """
         Fit the input data with a Random Forest classifier
 
@@ -261,12 +261,18 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
             When set to True, the fit method will, when necessary, convert
             y to be of dtype int32. This will increase memory used for
             the method.
+        broadcast : bool, optional (default = False)
+            When set to True, the whole dataset is broadcasted
+            to train the workers, otherwise each worker
+            is trained on its partition
+
         """
         self.num_classes = len(y.unique())
         self._set_internal_model(None)
         self._fit(model=self.rfs,
                   dataset=(X, y),
-                  convert_dtype=convert_dtype)
+                  convert_dtype=convert_dtype,
+                  broadcast=broadcast)
         return self
 
     def predict(self, X, output_class=True, algo='auto', threshold=0.5,
