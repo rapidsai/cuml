@@ -212,7 +212,7 @@ class cosine_expanded_distances_t : public distances_t<value_t> {
 };
 
 /**
- * Cosine distance using the expanded form: 1 - ( sum(x_k * y_k) / (sqrt(sum(x_k)^2) * sqrt(sum(y_k)^2)))
+ * Hellinger distance using the expanded L2 form: L2(sqrt(a), sqrt(b)) / sqrt(2)
  * The expanded form is more efficient for sparse data.
  */
 template <typename value_idx = int, typename value_t = float>
@@ -245,6 +245,15 @@ class hellinger_expanded_distances_t : public distances_t<value_t> {
     raft::linalg::unaryOp<value_t>(
       config_.b_data, config_.b_data, config_.b_nnz,
       [=] __device__(value_t input) { return powf(input, 2.0); },
+      config_.stream);
+
+    // Divide dists by sqrt(2)
+
+    value_t sqrt_2 = 1 / sqrt(2);
+
+    raft::linalg::unaryOp<value_t>(
+      out_dists, out_dists, config_.a_nrows * config_.b_nrows,
+      [=] __device__(value_t input) { return input * sqrt_2; },
       config_.stream);
 
     CUML_LOG_DEBUG("Done.");

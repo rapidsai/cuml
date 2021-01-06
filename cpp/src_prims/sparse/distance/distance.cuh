@@ -81,19 +81,19 @@ void pairwiseDistance(
     case raft::distance::DistanceType::EucUnexpandedL2:
       l2_unexpanded_distances_t<value_idx, value_t>(input_config).compute(out);
       break;
-    case raft::distance::DistanceType::EucUnexpandedLinf:
+    case raft::distance::DistanceType::UnexpandedLinf:
       linf_unexpanded_distances_t<value_idx, value_t>(input_config)
         .compute(out);
       break;
-    case raft::distance::DistanceType::EucUnexpandedCanberra:
+    case raft::distance::DistanceType::UnexpandedCanberra:
       canberra_unexpanded_distances_t<value_idx, value_t>(input_config)
         .compute(out);
       break;
-    case raft::distance::DistanceType::EucUnexpandedLp:
+    case raft::distance::DistanceType::UnexpandedLp:
       lp_unexpanded_distances_t<value_idx, value_t>(input_config, p)
         .compute(out);
       break;
-    case raft::distance::DistanceType::EucExpandedJaccard:
+    case raft::distance::DistanceType::ExpandedJaccard:
       jaccard_expanded_distances_t<value_idx, value_t>(input_config)
         .compute(out);
       break;
@@ -101,7 +101,7 @@ void pairwiseDistance(
       cosine_expanded_distances_t<value_idx, value_t>(input_config)
         .compute(out);
       break;
-    case raft::distance::DistanceType::EucExpandedHellinger:
+    case raft::distance::DistanceType::ExpandedHellinger:
       hellinger_expanded_distances_t<value_idx, value_t>(input_config)
         .compute(out);
       break;
