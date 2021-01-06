@@ -253,8 +253,7 @@ class hellinger_expanded_distances_t : public distances_t<value_t> {
 
     raft::linalg::unaryOp<value_t>(
       out_dists, out_dists, config_.a_nrows * config_.b_nrows,
-      [=] __device__(value_t input) { return input * sqrt_2; },
-      config_.stream);
+      [=] __device__(value_t input) { return input * sqrt_2; }, config_.stream);
 
     CUML_LOG_DEBUG("Done.");
   }
