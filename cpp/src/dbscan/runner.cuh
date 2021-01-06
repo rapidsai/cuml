@@ -92,6 +92,16 @@ size_t run(const raft::handle_t& handle, Type_f* x, Index_ N, Index_ D,
   const size_t align = 256;
   size_t batchSize = raft::ceildiv<size_t>(n_owned_rows, nBatches);
 
+  int my_rank, n_rank;
+  if (opg) {
+    const auto& comm = handle.get_comms();
+    my_rank = comm.get_rank();
+    n_rank = comm.get_size();
+  } else {
+    my_rank = 0;
+    n_rank = 1;
+  }
+
   /// TODO: unify naming convention? Check if there is a cuML conv for the case
 
   /**
@@ -188,12 +198,11 @@ size_t run(const raft::handle_t& handle, Type_f* x, Index_ N, Index_ D,
   // 2. Exchange with the other workers
   if (opg) {
     const auto& comm = handle.get_comms();
-    int n_rank = comm.get_size();
 
     // Array with the size of the contribution of each worker
     Index_ rows_per_rank = raft::ceildiv<Index_>(N, n_rank);
     std::vector<size_t> recvcounts = std::vector<size_t>(n_rank, rows_per_rank);
-    recvcounts[n_rank - 1] = N % rows_per_rank;
+    recvcounts[n_rank - 1] = N - (n_rank - 1) * rows_per_rank;
 
     // Array with the displacement of each part
     std::vector<size_t> displs = std::vector<size_t>(n_rank);
@@ -208,21 +217,6 @@ size_t run(const raft::handle_t& handle, Type_f* x, Index_ N, Index_ D,
       "An error occurred in the distributed operation. This can result from "
       "a failed rank");
   }
-
-  // CUDA_CHECK(cudaStreamSynchronize(stream));
-
-  // std::ostringstream oss;
-  // MLCommon::host_buffer<bool> host_mask(handle.get_host_allocator(), stream,
-  //                                       batchSize * N);
-  // bool* h_mask = host_mask.data();
-  // raft::update_host(h_mask, core_pts, N, stream);
-  // CUDA_CHECK(cudaStreamSynchronize(stream));
-  // for (int i = 0; i < N; i++) oss << h_mask[i] << " ";
-  // CUML_LOG_DEBUG(oss.str().c_str());
-  /// TODO: cleanup
-
-  /// TODO: two arrays for labels, use accumulator in first iteration and
-  /// temporary buffer in subsequent iterations
 
   // Compute the labelling for the owned part of the graph
   MLCommon::Sparse::WeakCCState state(m);
@@ -294,8 +288,6 @@ size_t run(const raft::handle_t& handle, Type_f* x, Index_ N, Index_ D,
 
   if (opg) {
     const auto& comm = handle.get_comms();
-    int my_rank = comm.get_rank();
-    int n_rank = comm.get_size();
     raft::comms::request_t request;
 
     int s = 1;
@@ -349,7 +341,6 @@ size_t run(const raft::handle_t& handle, Type_f* x, Index_ N, Index_ D,
   ML::POP_RANGE();
 
   // Calculate the core_sample_indices only if an array was passed in
-  /// TODO: MNMG version
   if (core_sample_indices != nullptr) {
     ML::PUSH_RANGE("Trace::Dbscan::CoreSampleIndices");
 

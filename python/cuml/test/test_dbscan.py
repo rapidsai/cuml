@@ -19,18 +19,12 @@ import pytest
 from cuml.test.utils import get_handle
 from cuml import DBSCAN as cuDBSCAN
 from cuml.test.utils import get_pattern, unit_param, \
-    quality_param, stress_param, array_equal
+    quality_param, stress_param, array_equal, assert_dbscan_equal
 
 from sklearn.cluster import DBSCAN as skDBSCAN
 from sklearn.datasets import make_blobs
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import adjusted_rand_score
-
-dataset_names = ['noisy_moons', 'varied', 'aniso', 'blobs',
-                 'noisy_circles', 'no_structure']
-# TODO: not used, remove/comment?
-
-# TODO: take into account non-minimality of non-core points!
 
 
 @pytest.mark.parametrize('max_mbytes_per_batch', [1e9, 5e9])
@@ -55,17 +49,24 @@ def test_dbscan(datatype, use_handle, nrows, ncols,
 
     handle, stream = get_handle(use_handle)
 
-    cudbscan = cuDBSCAN(handle=handle, eps=1, min_samples=2,
+    eps = 1
+    cuml_dbscan = cuDBSCAN(handle=handle, eps=eps, min_samples=2,
                         max_mbytes_per_batch=max_mbytes_per_batch,
-                        output_type='numpy', calc_core_sample_indices=False)
+                        output_type='numpy')
 
-    cu_labels = cudbscan.fit_predict(X, out_dtype=out_dtype)
+    cu_labels = cuml_dbscan.fit_predict(X, out_dtype=out_dtype)
 
     if nrows < 500000:
-        skdbscan = skDBSCAN(eps=1, min_samples=2, algorithm="brute")
-        sk_labels = skdbscan.fit_predict(X)
-        score = adjusted_rand_score(cu_labels, sk_labels)
-        assert score == 1
+        sk_dbscan = skDBSCAN(eps=1, min_samples=2, algorithm="brute")
+        sk_labels = sk_dbscan.fit_predict(X)
+
+        # Check the core points are equal
+        assert array_equal(cuml_dbscan.core_sample_indices_,
+                           sk_dbscan.core_sample_indices_)
+
+        # Check the labels are correct
+        assert_dbscan_equal(sk_labels, cu_labels, X,
+                            cuml_dbscan.core_sample_indices_, eps)
 
     if out_dtype == "int32" or out_dtype == np.int32:
         assert cu_labels.dtype == np.int32
@@ -96,19 +97,21 @@ def test_dbscan_sklearn_comparison(name, nrows, eps):
 
     X = StandardScaler().fit_transform(X)
 
-    cuml_dbscan = cuDBSCAN(eps=params['eps'], min_samples=5,
+    cuml_dbscan = cuDBSCAN(eps=eps, min_samples=5,
                            output_type='numpy')
-    cu_y_pred = cuml_dbscan.fit_predict(X)
+    cu_labels = cuml_dbscan.fit_predict(X)
 
     if nrows < 500000:
-        dbscan = skDBSCAN(eps=params['eps'], min_samples=5)
-        sk_y_pred = dbscan.fit_predict(X)
-        score = adjusted_rand_score(sk_y_pred, cu_y_pred)
-        assert(score == 1.0)
+        sk_dbscan = skDBSCAN(eps=eps, min_samples=5)
+        sk_labels = sk_dbscan.fit_predict(X)
 
         # Check the core points are equal
-        array_equal(cuml_dbscan.core_sample_indices_,
-                    dbscan.core_sample_indices_)
+        assert array_equal(cuml_dbscan.core_sample_indices_,
+                           sk_dbscan.core_sample_indices_)
+
+        # Check the labels are correct
+        assert_dbscan_equal(sk_labels, cu_labels, X,
+                            cuml_dbscan.core_sample_indices_, eps)
 
 
 @pytest.mark.parametrize("name", [
@@ -131,21 +134,26 @@ def test_dbscan_default(name):
     X = StandardScaler().fit_transform(X)
 
     cuml_dbscan = cuDBSCAN(output_type='numpy')
-    cu_y_pred = cuml_dbscan.fit_predict(X)
+    cu_labels = cuml_dbscan.fit_predict(X)
 
-    dbscan = skDBSCAN(eps=params['eps'], min_samples=5)
-    sk_y_pred = dbscan.fit_predict(X)
+    sk_dbscan = skDBSCAN(eps=params['eps'], min_samples=5)
+    sk_labels = sk_dbscan.fit_predict(X)
 
-    score = adjusted_rand_score(sk_y_pred, cu_y_pred)
-    assert(score == 1.0)
+    # Check the core points are equal
+    assert array_equal(cuml_dbscan.core_sample_indices_,
+                       sk_dbscan.core_sample_indices_)
+
+    # Check the labels are correct
+    assert_dbscan_equal(sk_labels, cu_labels, X,
+                        cuml_dbscan.core_sample_indices_, params['eps'])
 
 
 @pytest.mark.xfail(strict=True, raises=ValueError)
 def test_dbscan_out_dtype_fails_invalid_input():
     X, _ = make_blobs(n_samples=500)
 
-    cudbscan = cuDBSCAN(output_type='numpy')
-    cudbscan.fit_predict(X, out_dtype="bad_input")
+    cuml_dbscan = cuDBSCAN(output_type='numpy')
+    cuml_dbscan.fit_predict(X, out_dtype="bad_input")
 
 
 def test_core_point_prop1():
@@ -169,14 +177,19 @@ def test_core_point_prop1():
         [3, 0],
         [4, 0]
     ], dtype=np.float32)
-    cudbscan = cuDBSCAN(**params)
-    cu_y_pred = cudbscan.fit_predict(X)
+    cuml_dbscan = cuDBSCAN(**params)
+    cu_labels = cuml_dbscan.fit_predict(X)
 
-    dbscan = skDBSCAN(**params)
-    sk_y_pred = dbscan.fit_predict(X)
+    sk_dbscan = skDBSCAN(**params)
+    sk_labels = sk_dbscan.fit_predict(X)
 
-    score = adjusted_rand_score(sk_y_pred, cu_y_pred)
-    assert(score == 1.0)
+    # Check the core points are equal
+    assert array_equal(cuml_dbscan.core_sample_indices_,
+                       sk_dbscan.core_sample_indices_)
+
+    # Check the labels are correct
+    assert_dbscan_equal(sk_labels, cu_labels, X,
+                        cuml_dbscan.core_sample_indices_, params['eps'])
 
 
 def test_core_point_prop2():
@@ -202,14 +215,19 @@ def test_core_point_prop2():
         [4, -1],
         [5, 0]
     ], dtype=np.float32)
-    cudbscan = cuDBSCAN(**params)
-    cu_y_pred = cudbscan.fit_predict(X)
+    cuml_dbscan = cuDBSCAN(**params)
+    cu_labels = cuml_dbscan.fit_predict(X)
 
-    dbscan = skDBSCAN(**params)
-    sk_y_pred = dbscan.fit_predict(X)
+    sk_dbscan = skDBSCAN(**params)
+    sk_labels = sk_dbscan.fit_predict(X)
 
-    score = adjusted_rand_score(sk_y_pred, cu_y_pred)
-    assert(score == 1.0)
+    # Check the core points are equal
+    assert array_equal(cuml_dbscan.core_sample_indices_,
+                       sk_dbscan.core_sample_indices_)
+
+    # Check the labels are correct
+    assert_dbscan_equal(sk_labels, cu_labels, X,
+                        cuml_dbscan.core_sample_indices_, params['eps'])
 
 
 def test_core_point_prop3():
@@ -241,14 +259,19 @@ def test_core_point_prop3():
         [5, 0],
         [2, 0]
     ], dtype=np.float32)
-    cudbscan = cuDBSCAN(**params)
-    cu_y_pred = cudbscan.fit_predict(X)
+    cuml_dbscan = cuDBSCAN(**params)
+    cu_labels = cuml_dbscan.fit_predict(X)
 
-    dbscan = skDBSCAN(**params)
-    sk_y_pred = dbscan.fit_predict(X)
+    sk_dbscan = skDBSCAN(**params)
+    sk_labels = sk_dbscan.fit_predict(X)
 
-    score = adjusted_rand_score(sk_y_pred[:-1], cu_y_pred[:-1])
-    assert(score == 1.0)
+    # Check the core points are equal
+    assert array_equal(cuml_dbscan.core_sample_indices_,
+                       sk_dbscan.core_sample_indices_)
+
+    # Check the labels are correct
+    assert_dbscan_equal(sk_labels, cu_labels, X,
+                        cuml_dbscan.core_sample_indices_, params['eps'])
 
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
@@ -260,15 +283,21 @@ def test_dbscan_propagation(datatype, use_handle, out_dtype):
     X = X.astype(datatype)
 
     handle, stream = get_handle(use_handle)
-    cuml_dbscan = cuDBSCAN(handle=handle, eps=0.5, min_samples=5,
+    eps = 0.5
+    cuml_dbscan = cuDBSCAN(handle=handle, eps=eps, min_samples=5,
                            output_type='numpy')
-    cu_y_pred = cuml_dbscan.fit_predict(X, out_dtype=out_dtype)
+    cu_labels = cuml_dbscan.fit_predict(X, out_dtype=out_dtype)
 
-    dbscan = skDBSCAN(eps=0.5, min_samples=5)
-    sk_y_pred = dbscan.fit_predict(X)
+    sk_dbscan = skDBSCAN(eps=eps, min_samples=5)
+    sk_labels = sk_dbscan.fit_predict(X)
 
-    score = adjusted_rand_score(sk_y_pred, cu_y_pred)
-    assert(score == 1.0)
+    # Check the core points are equal
+    assert array_equal(cuml_dbscan.core_sample_indices_,
+                       sk_dbscan.core_sample_indices_)
+
+    # Check the labels are correct
+    assert_dbscan_equal(sk_labels, cu_labels, X,
+                        cuml_dbscan.core_sample_indices_, eps)
 
 
 def test_dbscan_no_calc_core_point_indices():
@@ -284,13 +313,7 @@ def test_dbscan_no_calc_core_point_indices():
     # Set calc_core_sample_indices=False
     cuml_dbscan = cuDBSCAN(eps=params['eps'], min_samples=5,
                            output_type='numpy', calc_core_sample_indices=False)
-    cu_y_pred = cuml_dbscan.fit_predict(X)
-
-    dbscan = skDBSCAN(**params)
-    sk_y_pred = dbscan.fit_predict(X)
-
-    score = adjusted_rand_score(sk_y_pred[:-1], cu_y_pred[:-1])
-    assert(score == 1.0)
+    cu_labels = cuml_dbscan.fit_predict(X)
 
     # Make sure we are None
     assert(cuml_dbscan.core_sample_indices_ is None)

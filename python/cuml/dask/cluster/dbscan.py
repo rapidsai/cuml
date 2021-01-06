@@ -13,6 +13,8 @@
 # limitations under the License.
 #
 
+import numpy as np
+
 from cuml.dask.common.base import BaseEstimator
 from cuml.dask.common.base import DelayedPredictionMixin
 from cuml.dask.common.base import DelayedTransformMixin
@@ -69,6 +71,11 @@ class DBSCAN(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
             default: "int32". Valid values are { "int32", np.int32,
             "int64", np.int64}.
         """
+        if out_dtype not in ["int32", np.int32, "int64", np.int64]:
+            raise ValueError("Invalid value for out_dtype. "
+                             "Valid values are {'int32', 'int64', "
+                             "np.int32, np.int64}")
+
         data = self.client.scatter(X, broadcast=True)
 
         comms = Comms(comms_p2p=True)
