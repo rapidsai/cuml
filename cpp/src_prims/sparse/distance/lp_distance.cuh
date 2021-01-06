@@ -48,6 +48,7 @@ template <typename value_idx = int, typename value_t = float,
           typename reduce_f = auto(value_t, value_t)->value_t,
           typename accum_f = auto(value_t, value_t)->value_t,
           typename write_f = auto(value_t *, value_t)->void>
+
 void unexpanded_lp_distances(
   value_t *out_dists, const distances_config_t<value_idx, value_t> &config_,
   reduce_f reduce_func, accum_f accum_func, write_f write_func,
@@ -191,6 +192,12 @@ class lp_unexpanded_distances_t : public distances_t<value_t> {
       [] __device__(value_t a, value_t b, float p) { return powf(a - b, p); },
       [] __host__ __device__(value_t a, value_t b) { return a + b; },
       [] __host__ __device__(value_t * a, value_t b) { atomicAdd(a, b); });
+
+    float pow = 1.0 / p;
+    raft::linalg::unaryOp<value_t>(
+      out_dists, out_dists, config_.a_nrows * config_.b_nrows,
+      [=] __device__(value_t input) { return powf(input, pow); },
+      config_.stream);
   }
 
  private:

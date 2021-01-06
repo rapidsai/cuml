@@ -320,14 +320,11 @@ class sparse_knn_t {
 
   void perform_postprocessing(value_t *dists, size_t batch_rows) {
     // Perform necessary post-processing
-    if ((metric == ML::MetricType::METRIC_L2 ||
-         metric == ML::MetricType::METRIC_Lp) &&
-        !expanded_form) {
+    if (metric == ML::MetricType::METRIC_L2 && !expanded_form) {
       /**
         * post-processing
         */
       value_t p = 0.5;  // standard l2
-      if (metric == ML::MetricType::METRIC_Lp) p = 1.0 / metricArg;
       raft::linalg::unaryOp<value_t>(
         dists, dists, batch_rows * k,
         [p] __device__(value_t input) {

@@ -398,10 +398,10 @@ def test_knn_graph(input_type, nrows, n_feats, p, k, metric, mode,
 
 
 @pytest.mark.parametrize("metric", valid_metrics_sparse())
-@pytest.mark.parametrize('nrows', [100])
-@pytest.mark.parametrize('ncols', [100])
+@pytest.mark.parametrize('nrows', [10])
+@pytest.mark.parametrize('ncols', [10])
 @pytest.mark.parametrize('density', [0.5])
-@pytest.mark.parametrize('n_neighbors', [5])
+@pytest.mark.parametrize('n_neighbors', [4])
 @pytest.mark.parametrize('batch_size_index', [40000])
 @pytest.mark.parametrize('batch_size_query', [50000])
 def test_nearest_neighbors_sparse(nrows, ncols,
@@ -423,9 +423,6 @@ def test_nearest_neighbors_sparse(nrows, ncols,
         a = a.astype('bool').astype('float32')
         b = b.astype('bool').astype('float32')
 
-    print(str(cp.diff(a.indptr).max()))
-
-    logger.set_level(logger.level_trace)
     nn = cuKNN(metric=metric, p=2.0, n_neighbors=n_neighbors,
                algorithm="brute", output_type="numpy",
                verbose=logger.level_debug,
@@ -439,8 +436,6 @@ def test_nearest_neighbors_sparse(nrows, ncols,
     cuD, cuI = nn.kneighbors(b)
     print("cuML took %s" % (time.time() - start))
 
-    print(str(cuD))
-
     if metric not in sklearn.neighbors.VALID_METRICS_SPARSE['brute']:
         a = a.todense()
         b = b.todense()
@@ -453,9 +448,6 @@ def test_nearest_neighbors_sparse(nrows, ncols,
     start = time.time()
     skD, skI = sknn.kneighbors(b.get())
     print("sk took %s" % (time.time() - start))
-
-    print(str(cuD))
-    print(str(skD))
 
     cp.testing.assert_allclose(cuD, skD, atol=1e-3, rtol=1e-3)
 
