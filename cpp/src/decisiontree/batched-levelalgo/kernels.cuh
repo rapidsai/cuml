@@ -347,8 +347,112 @@ DI IdxT selectFeature(IdxT treeid, IdxT nodeid, IdxT k, uint64_t seed, IdxT N) {
         watch_for = i;
     }
   }
-  return int(watch_for);
+  return IdxT(watch_for);
 }
+
+DI uint32_t kiss99(uint32_t z, uint32_t w, uint32_t jsr, uint32_t jcong) {
+    uint32_t MWC;
+    z = 36969*(z&65535) + (z >> 16);
+    w = 18000*(w&65535) + (w >> 16);
+    MWC = ((z << 16) + w);
+    jsr ^= (jsr << 17);
+    jsr ^= (jsr >> 13);
+    jsr ^= (jsr << 5);
+    jcong = 69069*jcong + 1234567;
+    return ((MWC ^ jcong) + jsr);
+}
+
+template <typename IdxT>
+DI IdxT selectFeature2(IdxT treeid, IdxT nodeid, IdxT k, uint64_t seed, IdxT N) {
+
+  // typedef cub::BlockScan<int, TPB> BlockScanT;
+  // __shared__ typename BlockScanT::TempStorage temp;
+
+  __shared__ int total_count;
+  int trial_count;
+  uint32_t toss;
+  int cnt;
+  trial_count = 0;
+  while(1) {
+    if(threadIdx.x == 0) {
+      total_count = 0;
+    }
+    __syncthreads();
+
+    cnt = 0;
+    for(int i = threadIdx.x; i < N; i += blockDim.x) {
+      toss = kiss99(uint32_t(treeid), uint32_t(nodeid), uint32_t(seed >> 32) ^ trial_count, 
+                    uint32_t(seed) ^ i);
+      toss = toss % N;
+      if(toss < N/2) {
+        cnt++;
+      }
+    }
+    atomicAdd(&total_count, cnt);
+    __syncthreads();
+    if(total_count >= N/2) {
+      break;
+    }
+    trial_count++;
+  }
+
+  return ;
+}
+
+const uint32_t fnv1a32_prime = uint32_t(16777619);
+const uint32_t fnv1a32_basis = uint32_t(2166136261);
+
+DI uint32_t fnv1a32(uint32_t hash, uint32_t txt)
+{
+    hash ^= (txt >> 0) & 0xFF;
+    hash *= fnv1a32_prime;
+    hash ^= (txt >> 8) & 0xFF;
+    hash *= fnv1a32_prime;
+    hash ^= (txt >> 16) & 0xFF;
+    hash *= fnv1a32_prime;
+    hash ^= (txt >> 24) & 0xFF;
+    hash *= fnv1a32_prime;
+    return hash;
+}
+
+template <typename IdxT>
+DI IdxT selectFeature3(IdxT treeid, IdxT nodeid, IdxT k, uint64_t seed, IdxT N) {
+   __shared__ int blksum;
+  uint32_t pivote;
+  int cnt = 0;
+
+  if (threadIdx.x == 0) {
+    blksum = 0;
+  }
+  pivote = fnv1a32_basis;
+  pivote = fnv1a32(pivote, uint32_t(k));
+  pivote = fnv1a32(pivote, uint32_t(treeid));
+  pivote = fnv1a32(pivote, uint32_t(nodeid));
+  pivote = fnv1a32(pivote, uint32_t(seed >> 32));
+  pivote = fnv1a32(pivote, uint32_t(seed));
+
+  uint32_t j;
+  for(int i = threadIdx.x; i < N; i += blockDim.x) {
+    if(i == k) continue;
+    j = fnv1a32_basis;
+    j = fnv1a32(j, uint32_t(i));
+    j = fnv1a32(j, uint32_t(treeid));
+    j = fnv1a32(j, uint32_t(nodeid));
+    j = fnv1a32(j, uint32_t(seed >> 32));
+    j = fnv1a32(j, uint32_t(seed));
+
+    if(j < pivote) 
+      cnt++;
+    else if (j == pivote && i < k)
+      cnt++;
+  }
+  __syncthreads();
+  if(cnt > 0)
+    atomicAdd(&blksum, cnt);
+  __syncthreads();
+  return blksum;
+}
+
 
 template <typename DataT, typename LabelT, typename IdxT, int TPB>
 __global__ void computeSplitClassificationKernel(
@@ -374,9 +478,27 @@ __global__ void computeSplitClassificationKernel(
   auto* sDone = alignPointer<int>(sbins + nbins);
   IdxT stride = blockDim.x * gridDim.x;
   IdxT tid = threadIdx.x + blockIdx.x * blockDim.x;
+
+  // Approach 0
   // auto col = input.colids[colStart + blockIdx.y];
-  int colIndex = blockIdx.y;
+ 
+  // Approach 1
+  int colIndex = colStart + blockIdx.y;
   auto col = selectFeature(treeid, int(node.info.unique_id), colIndex, seed, input.N);
+
+  // Approach 2
+  // int colIndex = colStart + blockIdx.y;
+  // auto col = selectFeature2(treeid, int(node.info.unique_id), colIndex, seed, input.N);
+
+  // Approach 3
+  // int colIndex = colStart + blockIdx.y;
+  // auto col = selectFeature3(treeid, int(node.info.unique_id), colIndex, seed, input.N);
+
+
+  // if(tid == 0 && node.info.unique_id == NODE_TO_PRINT) {
+  //   // printf("%d <-> %d, ", blockIdx.y, col);
+  //   printf("%d, ", col);
+  // }
 
   for (IdxT i = threadIdx.x; i < len; i += blockDim.x) shist[i] = 0;
   for (IdxT b = threadIdx.x; b < nbins; b += blockDim.x)
@@ -385,9 +507,9 @@ __global__ void computeSplitClassificationKernel(
 // #if defined(RF_PRINT_DEVICE_DEBUG_MSGS)
   // if(node.info.unique_id == NODE_TO_PRINT /*&& col == COL_TO_PRINT*/) {
     if(tid == 0) {
-      printf("treeid = %.3d, unique_id = %.3d, colIndex = %.3d, seed = %.10lu,"
-             "N = %.3d, col = %.3d\n", treeid, int(node.info.unique_id), colIndex,
-              seed, input.N, col);
+      // printf("treeid = %.3d, unique_id = %.3d, colIndex = %.3d, seed = %.10lu,"
+      //        "N = %.3d, col = %.3d\n", treeid, int(node.info.unique_id), colIndex,
+      //         seed, input.N, col);
 
       // printf("treeid = %d, nodeid = %d, k = %d, seed = %lu, N = %d watch_for = %d\n",
         // treeid, nid, colIndex, seed, input.N, col);

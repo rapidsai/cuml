@@ -49,7 +49,7 @@ void grow_tree(std::shared_ptr<MLCommon::deviceAllocator> d_allocator,
                cudaStream_t stream, 
                std::vector<SparseTreeNode<DataT, LabelT>>& sparsetree,
                IdxT& num_leaves, IdxT& depth) {
-  // ML::Logger::get().setLevel(CUML_LEVEL_DEBUG);
+  ML::Logger::get().setLevel(CUML_LEVEL_DEBUG);
   if (ML::Logger::get().shouldLogFor(CUML_LEVEL_DEBUG)) {
     std::stringstream ss1;
     ss1 << std::endl << "grow_tree entry ";

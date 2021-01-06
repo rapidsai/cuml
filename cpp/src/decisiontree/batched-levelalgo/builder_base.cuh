@@ -265,8 +265,10 @@ struct Builder {
     init(h_nodes, s);
     printf("Training tree %d with random seed %" PRIu64 "\n", treeid, seed);
     while (true) {
+      printf("000 Calling doSplit() for %d nodes in range [%d %d]\n", node_end - node_start, node_start, node_end);
       IdxT new_nodes = doSplit(h_nodes, s);
       h_total_nodes += new_nodes;
+      // printf("Created %d new nodes by doSplit. total nodes = %d\n", new_nodes, h_total_nodes);
       if (new_nodes == 0 && isOver()) break;
       updateNodeRange();
     }
@@ -332,31 +334,41 @@ struct Builder {
     CUDA_CHECK(cudaMemsetAsync(n_nodes, 0, sizeof(IdxT), s));
     initSplit<DataT, IdxT, Traits::TPB_DEFAULT>(splits, batchSize, s);
 
-    if (ML::Logger::get().shouldLogFor(CUML_LEVEL_DEBUG)) {
-      CUDA_CHECK(cudaStreamSynchronize(s));
-      for(int i = node_start; i < node_end; i++) {
-        if(NODE_TO_PRINT == h_nodes[i].info.unique_id) {
-          CUML_LOG_DEBUG("Current batch size = %d, from = %d, to = %d", batchSize,
-                         node_start, node_end);
-          CUML_LOG_DEBUG("Prining initialized split for node %d", NODE_TO_PRINT);
-          printSplits(splits + i - node_start, 1, s);
-          CUML_LOG_DEBUG(
-            "Samples considered for this split: from = %d, count = %d\n",
-            h_nodes[i].start, h_nodes[i].count);
-          CUDA_CHECK(cudaDeviceSynchronize());
-        }
-      }
-    }
     for(int i = 0; i < batchSize; i++) {
       h_nodes[node_start + i].info.unique_id = i + node_start;
     }
+
+    if (ML::Logger::get().shouldLogFor(CUML_LEVEL_DEBUG)) {
+      CUDA_CHECK(cudaStreamSynchronize(s));
+        for(int i = node_start; i < node_end; i++) {
+          if(NODE_TO_PRINT == h_nodes[i].info.unique_id) {
+            printf("Current batch size = %d, from = %d, to = %d", batchSize,
+                           node_start, node_end);
+            printf("Prining initialized split for node %d", NODE_TO_PRINT);
+            printSplits(splits + i - node_start, 1, s);
+            CUML_LOG_DEBUG(
+              "Samples considered for this split: from = %d, count = %d\n",
+              h_nodes[i].start, h_nodes[i].count);
+            CUDA_CHECK(cudaDeviceSynchronize());
+          }
+      }
+    }
+
     // get the current set of nodes to be worked upon
     raft::update_device(curr_nodes, h_nodes.data() + node_start, batchSize, s);
     // iterate through a batch of columns (to reduce the memory pressure) and
     // compute the best split at the end
     auto n_col_blks = n_blks_for_cols;
     for (IdxT c = 0; c < input.nSampledCols; c += n_col_blks) {
-      Traits::computeSplit(*this, c, batchSize, params.split_criterion, s);
+    // if (ML::Logger::get().shouldLogFor(CUML_LEVEL_DEBUG)) {
+    //   CUDA_CHECK(cudaStreamSynchronize(s));
+    //   for(int i = node_start; i < node_end; i++) {
+    //       if(NODE_TO_PRINT == h_nodes[i].info.unique_id) {
+    //         printf("Considering columns from %d to %d\n", c, c + n_col_blks);
+    //       }
+    //     }
+    //   }
+      Traits::computeSplit(*this, c, batchSize, params.split_criterion, s, h_nodes);
       CUDA_CHECK(cudaGetLastError());
     }
     if (ML::Logger::get().shouldLogFor(CUML_LEVEL_DEBUG)) {
@@ -424,7 +436,7 @@ struct ClsTraits {
    */
   static void computeSplit(Builder<ClsTraits<DataT, LabelT, IdxT>>& b, IdxT col,
                            IdxT batchSize, CRITERION splitType,
-                           cudaStream_t s) {
+                           cudaStream_t s, std::vector<Node<DataT, LabelT, IdxT>>& h_nodes) {
     auto nbins = b.params.n_bins;
     auto nclasses = b.input.nclasses;
     auto binSize = nbins * 2 * nclasses;
@@ -438,21 +450,24 @@ struct ClsTraits {
 
     CUDA_CHECK(cudaMemsetAsync(b.hist, 0, sizeof(int) * b.nHistBins, s));
 
-    // if (ML::Logger::get().shouldLogFor(CUML_LEVEL_DEBUG)) {
-    //   CUDA_CHECK(cudaStreamSynchronize(s));
-    //   for(int i = b.node_start; i < b.node_end; i++) {
-    //     if(NODE_TO_PRINT == h_nodes[i].info.unique_id) {
-    //       CUML_LOG_DEBUG(
-    //         "Launching compute split classification kernel with block rows = %d columns = %d, nodes in z-direction %d", 
-    //         grid.x, grid.y, grid.z);
-    //     }
-    //   }
-    // }
+    if (ML::Logger::get().shouldLogFor(CUML_LEVEL_DEBUG)) {
+      CUDA_CHECK(cudaStreamSynchronize(s));
+      for(int i = b.node_start; i < b.node_end; i++) {
+        if(NODE_TO_PRINT == h_nodes[i].info.unique_id) {
+          printf(
+            "Launching compute split classification kernel with block"
+            "rows = %d columns = %d, nodes in z-direction %d\n", 
+            grid.x, grid.y, grid.z);
+          printf("Considering columns from %d to %d\n", col, col+colBlks);
+        }
+      }
+    }
     computeSplitClassificationKernel<DataT, LabelT, IdxT, TPB_DEFAULT>
       <<<grid, TPB_DEFAULT, smemSize, s>>>(
         b.hist, b.params.n_bins, b.params.max_depth, b.params.min_samples_split,
         b.params.max_leaves, b.input, b.curr_nodes, col, b.done_count, b.mutex,
         b.n_leaves, b.splits, splitType, b.treeid, b.seed);
+    CUDA_CHECK(cudaDeviceSynchronize());
   }
 
   /**
@@ -503,7 +518,7 @@ struct RegTraits {
    */
   static void computeSplit(Builder<RegTraits<DataT, IdxT>>& b, IdxT col,
                            IdxT batchSize, CRITERION splitType,
-                           cudaStream_t s) {
+                           cudaStream_t s, std::vector<Node<DataT, LabelT, IdxT>>& h_nodes) {
     auto n_col_blks = std::min(b.n_blks_for_cols, b.input.nSampledCols - col);
 
     dim3 grid(b.n_blks_for_rows, n_col_blks, batchSize);
