@@ -396,11 +396,10 @@ def test_knn_graph(input_type, nrows, n_feats, p, k, metric, mode,
     else:
         assert isspmatrix_csr(sparse_cu)
 
-
-@pytest.mark.parametrize("metric", valid_metrics_sparse())
-@pytest.mark.parametrize('nrows', [10])
-@pytest.mark.parametrize('ncols', [10])
-@pytest.mark.parametrize('density', [0.5])
+@pytest.mark.parametrize("metric", ['linf'])
+@pytest.mark.parametrize('nrows', [50000])
+@pytest.mark.parametrize('ncols', [10000])
+@pytest.mark.parametrize('density', [0.4])
 @pytest.mark.parametrize('n_neighbors', [4])
 @pytest.mark.parametrize('batch_size_index', [40000])
 @pytest.mark.parametrize('batch_size_query', [50000])
@@ -417,12 +416,13 @@ def test_nearest_neighbors_sparse(nrows, ncols,
     a = cp.sparse.random(nrows, ncols, format='csr', density=density,
                          random_state=32)
     b = cp.sparse.random(nrows, ncols, format='csr', density=density,
-                         random_state=33)
+                         random_state=34)
 
     if metric == 'jaccard':
         a = a.astype('bool').astype('float32')
         b = b.astype('bool').astype('float32')
 
+    logger.set_level(logger.level_debug)
     nn = cuKNN(metric=metric, p=2.0, n_neighbors=n_neighbors,
                algorithm="brute", output_type="numpy",
                verbose=logger.level_debug,
@@ -433,7 +433,7 @@ def test_nearest_neighbors_sparse(nrows, ncols,
     import time
 
     start = time.time()
-    cuD, cuI = nn.kneighbors(b)
+    cuD, cuI = nn.kneighbors(a)
     print("cuML took %s" % (time.time() - start))
 
     if metric not in sklearn.neighbors.VALID_METRICS_SPARSE['brute']:

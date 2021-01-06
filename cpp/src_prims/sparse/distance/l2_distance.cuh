@@ -52,7 +52,7 @@ __global__ void compute_row_norm_kernel(value_t *out, const value_idx *coo_rows,
                                         float norm = 2.0) {
   value_idx i = blockDim.x * blockIdx.x + threadIdx.x;
   if (i < nnz) {
-    atomicAdd(&out[coo_rows[i]], powf(data[i], norm));
+    atomicAdd(&out[coo_rows[i]], __powf(data[i], norm));
   }
 }
 
@@ -240,11 +240,11 @@ class hellinger_expanded_distances_t : public distances_t<value_t> {
     // Revert sqrt of A and B
     raft::linalg::unaryOp<value_t>(
       config_.a_data, config_.a_data, config_.a_nnz,
-      [=] __device__(value_t input) { return powf(input, 2.0); },
+      [=] __device__(value_t input) { return __powf(input, 2.0); },
       config_.stream);
     raft::linalg::unaryOp<value_t>(
       config_.b_data, config_.b_data, config_.b_nnz,
-      [=] __device__(value_t input) { return powf(input, 2.0); },
+      [=] __device__(value_t input) { return __powf(input, 2.0); },
       config_.stream);
 
     // Divide dists by sqrt(2)

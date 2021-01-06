@@ -26,7 +26,7 @@
 namespace ML {
 namespace UMAP {
 
-static const int TPB_X = raft::WarpSize;
+static const int TPB_X = 256;
 
 // Dense transform
 void transform(const raft::handle_t &handle, float *X, int n, int d,

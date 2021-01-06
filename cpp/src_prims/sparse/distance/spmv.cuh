@@ -25,6 +25,8 @@
 
 #include <sparse/selection.cuh>
 
+#include <raft/device_atomics.cuh>
+
 #include <limits.h>
 
 #include <cuml/neighbors/knn.hpp>
@@ -43,19 +45,6 @@
 namespace MLCommon {
 namespace Sparse {
 namespace Distance {
-
-template <typename value_t, typename LambdaOp>
-struct ReductionOp {
-  __host__ __device__ __forceinline__ ReductionOp(LambdaOp op_) : op(op_) {}
-
-  __host__ __device__ __forceinline__ value_t operator()(value_t &a,
-                                                         value_t &b) {
-    return op(a, b);
-  }
-
- private:
-  LambdaOp op;
-};
 
 /**
  * Load-balanced sparse-matrix-sparse-matrix multiplication (SPMM) kernel with
@@ -87,15 +76,15 @@ struct ReductionOp {
  * @param n
  * @param out
  */
-template <typename value_idx, typename value_t, int tpb, int buffer_size,
+template <typename value_idx, typename value_t, int tpb, int buffer_size, bool rev,
           typename kv_t, typename init_f, typename put_f, typename get_f,
           typename reduce_f, typename accum_f, typename write_f>
 __global__ void balanced_coo_generalized_spmv_kernel(
   value_idx *indptrA, value_idx *indicesA, value_t *dataA, value_idx *rowsB,
   value_idx *indicesB, value_t *dataB, value_idx m, value_idx n, value_idx dim,
-  value_idx nnz_b, value_t *out, int n_blocks_per_row, int chunk_size, bool rev,
+  value_idx nnz_b, value_t *out, int n_blocks_per_row, int chunk_size,
   init_f init_func, put_f put_func, get_f get_func, reduce_f reduce_func,
-  accum_f accum_func, write_f write_func, const float metric_arg = 2.0) {
+  accum_f accum_func, write_f write_func) {
   typedef cub::WarpReduce<value_t> warp_reduce;
 
   value_idx cur_row_a = blockIdx.x / n_blocks_per_row;
@@ -117,12 +106,9 @@ __global__ void balanced_coo_generalized_spmv_kernel(
   if (cur_row_a > m || cur_chunk_offset > n_blocks_per_row) return;
   if (ind >= nnz_b) return;
 
-  ReductionOp<value_t, accum_f> reduce(accum_func);
-
   __shared__ kv_t A[buffer_size];
   __shared__ value_idx offsets_a[2];
   __shared__ typename warp_reduce::TempStorage temp_storage[8];
-  //  __shared__ value_idx max_hash_table_iters[1];
 
   if (tid == 0) {
     offsets_a[0] = indptrA[cur_row_a];
@@ -135,16 +121,11 @@ __global__ void balanced_coo_generalized_spmv_kernel(
   value_idx stop_offset_a = offsets_a[1];
 
   // Create dense vector A and populate with 0s
-  if (tid == 0) memset(A, init_func(), buffer_size * sizeof(kv_t));
-
-  __syncthreads();
+  if (tid == 0) memset(A, 0, buffer_size * sizeof(kv_t));
 
   // Convert current row vector in A to dense
   for (int i = tid; i < (stop_offset_a - start_offset_a); i += blockDim.x) {
-    value_idx ind_a = indicesA[start_offset_a + i];
-    value_t val_a = dataA[start_offset_a + i];
-
-    put_func(A, ind_a, val_a);
+    A[indicesA[start_offset_a + i]] = dataA[start_offset_a + i];
   }
 
   __syncthreads();
@@ -156,10 +137,8 @@ __global__ void balanced_coo_generalized_spmv_kernel(
 
   if (tid < active_chunk_size) {
     cur_row_b = rowsB[ind];
-    value_idx col = indicesB[ind];
-    value_t a_col = get_func(A, col);
-    bool should_store = (!rev || a_col == 0.0);
-    c = should_store * reduce_func(a_col, dataB[ind], metric_arg);
+    value_t a_col = A[indicesB[ind]];
+    if(!rev || a_col != 0.0) c = reduce_func(a_col, dataB[ind]);
   }
 
   // loop through chunks in parallel, reducing when a new row is
@@ -174,12 +153,12 @@ __global__ void balanced_coo_generalized_spmv_kernel(
       unsigned int peer_group = get_peer_group(cur_row_b);
       bool is_leader = get_lowest_peer(peer_group) == lane_id;
 
-      value_t v = warp_red.HeadSegmentedReduce(c, is_leader, reduce);
+      value_t v = warp_red.HeadSegmentedReduce(c, is_leader, reduce_func);
 
       // thread with lowest lane id among peers writes out
       if (is_leader && v != 0.0) {
-        value_idx idx =
-          !rev ? cur_row_a * n + cur_row_b : cur_row_b * m + cur_row_a;
+        value_idx idx = !rev ? cur_row_a * n + cur_row_b :
+                        cur_row_b * m + cur_row_a;
         write_func(out + idx, v);
       }
       c = 0.0;
@@ -187,11 +166,8 @@ __global__ void balanced_coo_generalized_spmv_kernel(
 
     if (next_row_b != -1) {
       ind = ind_next;
-      value_idx col = indicesB[ind];
-      value_t a_col = get_func(A, col);
-      bool should_store = (!rev || a_col == 0.0);
-      c = accum_func(c,
-                     should_store * reduce_func(a_col, dataB[ind], metric_arg));
+      value_t a_col = A[indicesB[ind]];
+      if(!rev || 0.0) c = accum_func(c, reduce_func(a_col, dataB[ind]));
       cur_row_b = next_row_b;
     }
   }
@@ -241,15 +217,15 @@ inline void balanced_coo_pairwise_generalized_spmv(
   constexpr int smem = 11000;
 
   balanced_coo_generalized_spmv_kernel<value_idx, value_t, threads_per_block,
-                                       smem, value_t>
+                                       smem, false, value_t>
     <<<n_blocks, threads_per_block, 0, config_.stream>>>(
       config_.a_indptr, config_.a_indices, config_.a_data, coo_rows_b,
       config_.b_indices, config_.b_data, config_.a_nrows, config_.b_nrows,
       config_.b_ncols, config_.b_nnz, out_dists, n_warps_per_row, chunk_size,
-      false, [] __device__() { return 0.0; },
+      [] __device__() { return 0.0; },
       [] __device__(value_t * cache, value_idx k, value_t v) { cache[k] = v; },
       [] __device__(value_t * cache, value_idx k) { return cache[k]; },
-      reduce_func, accum_func, write_func, metric_arg);
+      reduce_func, accum_func, write_func);
 };
 
 /**
@@ -285,15 +261,15 @@ inline void balanced_coo_pairwise_generalized_spmv_rev(
   constexpr int smem = 11000;
 
   balanced_coo_generalized_spmv_kernel<value_idx, value_t, threads_per_block,
-                                       smem, value_t>
+                                       smem, true, value_t>
     <<<n_blocks, threads_per_block, 0, config_.stream>>>(
       config_.b_indptr, config_.b_indices, config_.b_data, coo_rows_a,
       config_.a_indices, config_.a_data, config_.b_nrows, config_.a_nrows,
       config_.a_ncols, config_.a_nnz, out_dists, n_warps_per_row, chunk_size,
-      true, [] __device__() { return 0.0; },
+      [] __device__() { return 0.0; },
       [] __device__(value_t * cache, value_idx k, value_t v) { cache[k] = v; },
       [] __device__(value_t * cache, value_idx k) { return cache[k]; },
-      reduce_func, accum_func, write_func, metric_arg);
+      reduce_func, accum_func, write_func);
 };
 }  // namespace Distance
 }  // namespace Sparse

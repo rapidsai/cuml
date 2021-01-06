@@ -139,17 +139,13 @@ struct BlockSemiring {
     if (tid < n_rows) {
       bool local_idx_in_bounds = local_idx < local_idx_stop && row_count > 0;
 
-      value_idx l = (local_idx_in_bounds)*chunk_cols[local_idx] +
-                    (!local_idx_in_bounds) * (-1);
-      value_t lv = (local_idx_in_bounds)*chunk_vals[local_idx] +
-                   (!local_idx_in_bounds) * (0.0);
+      value_idx l = local_idx_in_bounds ? chunk_cols[local_idx] : -1;
+      value_t lv = local_idx_in_bounds ? chunk_vals[local_idx] : 0.0;
 
       bool shared_idx_in_bounds = shared_idx < shared_size;
 
-      value_idx r = (shared_idx_in_bounds)*shared_cols[shared_idx] +
-                    (!shared_idx_in_bounds) * (-1);
-      value_t rv = (shared_idx_in_bounds)*shared_vals[shared_idx] +
-                   (!shared_idx_in_bounds) * (0.0);
+      value_idx r = shared_idx_in_bounds ? shared_cols[shared_idx] : -1;
+      value_t rv = shared_idx_in_bounds ? shared_vals[shared_idx] : 0.0;
 
       bool run_l = ((l <= r && l != -1) || (l != -1 && r == -1));
       local_idx += 1 * run_l;
@@ -161,7 +157,7 @@ struct BlockSemiring {
 
       // Apply semiring "sum" & "product" functions locally
       cur_sum =
-        accum_func(cur_sum, reduce_func(left_side, right_side, metric_arg));
+        accum_func(cur_sum, reduce_func(left_side, right_side));
 
       // finished when all items in chunk have been
       // processed
