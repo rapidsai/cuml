@@ -15,9 +15,9 @@
 #
 import warnings
 
-from cuml.model_selection._split import _stratify_split
-from cuml.model_selection._split import _approximate_mode
-from cuml.model_selection._split import train_test_split 
+from cuml.model_selection._split import _stratify_split  # noqa: F401
+from cuml.model_selection._split import _approximate_mode  # noqa: F401
+from cuml.model_selection._split import train_test_split  # noqa: F401
 
 
 warnings.warn("cuml.preprocessing.model_selection is deprecated and will "
