@@ -248,7 +248,7 @@ def test_one_query_partition(client):
 
     X_train, _ = make_blobs(n_samples=4000,
                             n_features=16,
-                            n_parts=4)
+                            n_parts=8)
 
     X_test, _ = make_blobs(n_samples=200,
                            n_features=16,
