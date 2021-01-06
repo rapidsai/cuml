@@ -74,10 +74,12 @@ def test_rf_classification_multi_class(partitions_per_worker, cluster):
 
     # Use CUDA_VISIBLE_DEVICES to control the number of workers
     c = Client(cluster)
+    workers = list(c.scheduler_info()['workers'].keys())
+    n_workers = len(workers)
 
     try:
 
-        X, y = make_classification(n_samples=10000, n_features=20,
+        X, y = make_classification(n_samples=n_workers * 3000, n_features=20,
                                    n_clusters_per_class=1, n_informative=10,
                                    random_state=123, n_classes=15)
 
@@ -85,7 +87,7 @@ def test_rf_classification_multi_class(partitions_per_worker, cluster):
         y = y.astype(np.int32)
 
         X_train, X_test, y_train, y_test = \
-            train_test_split(X, y, test_size=1000, random_state=123)
+            train_test_split(X, y, test_size=n_workers * 200, random_state=123)
 
         cu_rf_params = {
             'n_estimators': 25,
@@ -120,16 +122,18 @@ def test_rf_classification_multi_class(partitions_per_worker, cluster):
 @pytest.mark.parametrize('partitions_per_worker', [5])
 def test_rf_regression_dask_fil(partitions_per_worker,
                                 dtype, client):
+    n_workers = len(list(client.scheduler_info()['workers'].keys()))
+
     # Use CUDA_VISIBLE_DEVICES to control the number of workers
-    X, y = make_regression(n_samples=10000, n_features=20,
+    X, y = make_regression(n_samples=n_workers * 4000, n_features=20,
                            n_informative=10, random_state=123)
 
     X = X.astype(dtype)
     y = y.astype(dtype)
 
-    X_train, X_test, y_train, y_test = train_test_split(X, y,
-                                                        test_size=1000,
-                                                        random_state=123)
+    X_train, X_test, y_train, y_test = \
+        train_test_split(X, y, test_size=n_workers * 100,
+                         random_state=123)
 
     if dtype == np.float64:
         pytest.xfail(reason=" Dask RF does not support np.float64 data")
@@ -169,8 +173,9 @@ def test_rf_regression_dask_fil(partitions_per_worker,
 @pytest.mark.parametrize('output_class', [True, False])
 def test_rf_classification_dask_array(partitions_per_worker, client,
                                       output_class):
+    n_workers = len(list(client.scheduler_info()['workers'].keys()))
 
-    X, y = make_classification(n_samples=10000, n_features=30,
+    X, y = make_classification(n_samples=n_workers * 2000, n_features=30,
                                n_clusters_per_class=1, n_informative=20,
                                random_state=123, n_classes=2)
 
@@ -178,7 +183,7 @@ def test_rf_classification_dask_array(partitions_per_worker, client,
     y = y.astype(np.int32)
 
     X_train, X_test, y_train, y_test = \
-        train_test_split(X, y, test_size=1000)
+        train_test_split(X, y, test_size=n_workers * 400)
 
     cu_rf_params = {
         'n_estimators': 25,
@@ -203,15 +208,17 @@ def test_rf_classification_dask_array(partitions_per_worker, client,
 
 @pytest.mark.parametrize('partitions_per_worker', [5])
 def test_rf_regression_dask_cpu(partitions_per_worker, client):
-    X, y = make_regression(n_samples=10000, n_features=20,
+    n_workers = len(list(client.scheduler_info()['workers'].keys()))
+
+    X, y = make_regression(n_samples=n_workers * 2000, n_features=20,
                            n_informative=10, random_state=123)
 
     X = X.astype(np.float32)
     y = y.astype(np.float32)
 
-    X_train, X_test, y_train, y_test = train_test_split(X, y,
-                                                        test_size=1000,
-                                                        random_state=123)
+    X_train, X_test, y_train, y_test = \
+        train_test_split(X, y, test_size=n_workers * 400,
+                         random_state=123)
 
     cu_rf_params = {
         'n_estimators': 50,
@@ -246,7 +253,9 @@ def test_rf_regression_dask_cpu(partitions_per_worker, client):
 @pytest.mark.parametrize('partitions_per_worker', [5])
 def test_rf_classification_dask_fil_predict_proba(partitions_per_worker,
                                                   client):
-    X, y = make_classification(n_samples=1000, n_features=30,
+    n_workers = len(list(client.scheduler_info()['workers'].keys()))
+
+    X, y = make_classification(n_samples=n_workers * 2700, n_features=30,
                                n_clusters_per_class=1, n_informative=20,
                                random_state=123, n_classes=2)
 
@@ -287,8 +296,10 @@ def test_rf_classification_dask_fil_predict_proba(partitions_per_worker,
 
 @pytest.mark.parametrize('model_type', ['classification', 'regression'])
 def test_rf_concatenation_dask(client, model_type):
+    n_workers = len(list(client.scheduler_info()['workers'].keys()))
+
     from cuml.fil.fil import TreeliteModel
-    X, y = make_classification(n_samples=1000, n_features=30,
+    X, y = make_classification(n_samples=n_workers * 200, n_features=30,
                                random_state=123, n_classes=2)
 
     X = X.astype(np.float32)
