@@ -19,6 +19,7 @@
 #include <cuml/neighbors/knn_sparse.hpp>
 #include <iostream>
 #include <raft/linalg/unary_op.cuh>
+#include <raft/linalg/distance_type.cuh>
 #include <selection/knn.cuh>
 #include <sparse/selection/knn.cuh>
 
@@ -91,7 +92,7 @@ void launcher(const raft::handle_t &handle,
     inputsB.n, inputsB.d, out.knn_indices, out.knn_dists, n_neighbors,
     handle.get_cusparse_handle(), d_alloc, stream,
     ML::Sparse::DEFAULT_BATCH_SIZE, ML::Sparse::DEFAULT_BATCH_SIZE,
-    ML::MetricType::METRIC_L2);
+    raft::distance::DistanceType::EucUnexpandedL2);
 }
 
 template <>
