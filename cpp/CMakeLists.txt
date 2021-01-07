@@ -431,6 +431,7 @@ if(BUILD_CUML_CPP_LIBRARY)
     src/tsne/tsne.cu
     src/tsvd/tsvd.cu
     src/umap/umap.cu)
+  add_library(cuml::cuml++ ALIAS ${CUML_CPP_TARGET})
 
   # mnmg components
 
@@ -490,6 +491,7 @@ if(BUILD_CUML_C_LIBRARY)
     src/glm/glm_api.cpp
     src/holtwinters/holtwinters_api.cpp
     src/svm/svm_api.cpp)
+  add_library(cuml::cuml ALIAS ${CUML_C_TARGET})
 
   target_include_directories(${CUML_C_TARGET}
     PRIVATE ${CUML_INCLUDE_DIRECTORIES})
@@ -514,12 +516,32 @@ endif(BUILD_CUML_EXAMPLES)
 ##############################################################################
 # - install targets ----------------------------------------------------------
 
+include(GNUInstallDirs)
+set(INSTALL_CONFIGDIR ${CMAKE_INSTALL_LIBDIR}/cmake/cuml)
+
 install(TARGETS ${CUML_CPP_TARGET}
                 ${CUML_C_TARGET}
-        DESTINATION lib)
+        DESTINATION lib
+        EXPORT cuml-targets)
 
-install(DIRECTORY ${CUML_INCLUDE_DIR}/cuml DESTINATION include)
+install(DIRECTORY ${cuML_INCLUDE_DIR}/cuml DESTINATION include)
 install(DIRECTORY ${RAFT_DIR}/cpp/include/ DESTINATION include/cuml)
+
+include(CMakePackageConfigHelpers)
+configure_package_config_file(cmake/cuml-config.cmake.in ${cuML_BINARY_DIR}/cuml-config.cmake
+                              INSTALL_DESTINATION ${INSTALL_CONFIGDIR})
+
+write_basic_package_version_file(${cuML_BINARY_DIR}/cuml-config-version.cmake
+                                 COMPATIBILITY SameMinorVersion)
+
+install(
+  EXPORT cuml-targets
+  FILE cuml-targets.cmake
+  NAMESPACE cuml::
+  DESTINATION ${INSTALL_CONFIGDIR})
+
+install(FILES ${cuML_BINARY_DIR}/cuml-config.cmake ${cuML_BINARY_DIR}/cuml-config-version.cmake
+              ${cuML_SOURCE_DIR}/cmake/install/FindThrust.cmake DESTINATION ${INSTALL_CONFIGDIR})
 
 ##############################################################################
 # - build benchmark executable -----------------------------------------------

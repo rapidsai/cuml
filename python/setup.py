@@ -23,226 +23,228 @@ import warnings
 from pprint import pprint
 from pathlib import Path
 
+from skbuild import setup
+
 from setuptools import find_packages
-from setuptools import setup
-from setuptools.extension import Extension
-from distutils.sysconfig import get_python_lib
-from distutils.command.build import build as _build
+# from setuptools import setup
+# from setuptools.extension import Extension
+# from distutils.sysconfig import get_python_lib
+# from distutils.command.build import build as _build
 
-import numpy
+# import numpy
 
-from setuputils import clean_folder
-from setuputils import get_environment_option
-from setuputils import get_cli_option
-from setuputils import use_raft_package
+# from setuputils import clean_folder
+# from setuputils import get_environment_option
+# from setuputils import get_cli_option
+# from setuputils import use_raft_package
 
 import versioneer
-from cython_build_ext import cython_build_ext
+# from cython_build_ext import cython_build_ext
 
-install_requires = ['numba', 'cython']
+# install_requires = ['numba', 'cython']
 
-##############################################################################
-# - Print of build options used by setup.py  --------------------------------
+# ##############################################################################
+# # - Print of build options used by setup.py  --------------------------------
 
-cuda_home = get_environment_option("CUDA_HOME")
-libcuml_path = get_environment_option('CUML_BUILD_PATH')
-raft_path = get_environment_option('RAFT_PATH')
+# cuda_home = get_environment_option("CUDA_HOME")
+# libcuml_path = get_environment_option('CUML_BUILD_PATH')
+# raft_path = get_environment_option('RAFT_PATH')
 
-clean_artifacts = get_cli_option('clean')
+# clean_artifacts = get_cli_option('clean')
 
-##############################################################################
-# - Dependencies include and lib folder setup --------------------------------
+# ##############################################################################
+# # - Dependencies include and lib folder setup --------------------------------
 
-if not cuda_home:
-    nvcc_path = shutil.which('nvcc')
-    if (not nvcc_path):
-        raise FileNotFoundError("nvcc not found.")
+# if not cuda_home:
+#     nvcc_path = shutil.which('nvcc')
+#     if (not nvcc_path):
+#         raise FileNotFoundError("nvcc not found.")
 
-    cuda_home = str(Path(nvcc_path).parent.parent)
-    print("-- Using nvcc to detect CUDA, found at " + str(cuda_home))
+#     cuda_home = str(Path(nvcc_path).parent.parent)
+#     print("-- Using nvcc to detect CUDA, found at " + str(cuda_home))
 
-cuda_include_dir = os.path.join(cuda_home, "include")
-cuda_lib_dir = os.path.join(cuda_home, "lib64")
+# cuda_include_dir = os.path.join(cuda_home, "include")
+# cuda_lib_dir = os.path.join(cuda_home, "lib64")
 
-##############################################################################
-# - Clean target -------------------------------------------------------------
+# ##############################################################################
+# # - Clean target -------------------------------------------------------------
 
-if clean_artifacts:
-    print("-- Cleaning all Python and Cython build artifacts...")
+# if clean_artifacts:
+#     print("-- Cleaning all Python and Cython build artifacts...")
 
-    # Reset these paths since they may be deleted below
-    treelite_path = False
-    libcuml_path = False
+#     # Reset these paths since they may be deleted below
+#     treelite_path = False
+#     libcuml_path = False
 
-    try:
-        setup_file_path = str(Path(__file__).parent.absolute())
-        shutil.rmtree(setup_file_path + '/.pytest_cache', ignore_errors=True)
-        shutil.rmtree(setup_file_path + '/_external_repositories',
-                      ignore_errors=True)
-        shutil.rmtree(setup_file_path + '/cuml.egg-info', ignore_errors=True)
-        shutil.rmtree(setup_file_path + '/__pycache__', ignore_errors=True)
+#     try:
+#         setup_file_path = str(Path(__file__).parent.absolute())
+#         shutil.rmtree(setup_file_path + '/.pytest_cache', ignore_errors=True)
+#         shutil.rmtree(setup_file_path + '/_external_repositories',
+#                       ignore_errors=True)
+#         shutil.rmtree(setup_file_path + '/cuml.egg-info', ignore_errors=True)
+#         shutil.rmtree(setup_file_path + '/__pycache__', ignore_errors=True)
 
-        os.remove(setup_file_path + '/cuml/raft')
+#         os.remove(setup_file_path + '/cuml/raft')
 
-        clean_folder(setup_file_path + '/cuml')
-        shutil.rmtree(setup_file_path + '/build')
+#         clean_folder(setup_file_path + '/cuml')
+#         shutil.rmtree(setup_file_path + '/build')
 
-    except IOError:
-        pass
+#     except IOError:
+#         pass
 
-    # need to terminate script so cythonizing doesn't get triggered after
-    # cleanup unintendedly
-    sys.argv.remove("clean")
+#     # need to terminate script so cythonizing doesn't get triggered after
+#     # cleanup unintendedly
+#     sys.argv.remove("clean")
 
-    if "--all" in sys.argv:
-        sys.argv.remove("--all")
+#     if "--all" in sys.argv:
+#         sys.argv.remove("--all")
 
-    if len(sys.argv) == 1:
-        sys.exit(0)
+#     if len(sys.argv) == 1:
+#         sys.exit(0)
 
-##############################################################################
-# - Cloning RAFT and dependencies if needed ----------------------------------
+# ##############################################################################
+# # - Cloning RAFT and dependencies if needed ----------------------------------
 
-# Use RAFT repository in cuml.raft
+# # Use RAFT repository in cuml.raft
 
-raft_include_dir = use_raft_package(raft_path, libcuml_path)
+# raft_include_dir = use_raft_package(raft_path, libcuml_path)
 
-if "--multigpu" in sys.argv:
-    warnings.warn("Flag --multigpu is deprecated. By default cuML is"
-                  "built with multi GPU support. To disable it use the flag"
-                  "--singlegpu")
-    sys.argv.remove('--multigpu')
+# if "--multigpu" in sys.argv:
+#     warnings.warn("Flag --multigpu is deprecated. By default cuML is"
+#                   "built with multi GPU support. To disable it use the flag"
+#                   "--singlegpu")
+#     sys.argv.remove('--multigpu')
 
-if not libcuml_path:
-    libcuml_path = '../cpp/build/'
+# if not libcuml_path:
+#     libcuml_path = '../cpp/build/'
 
-##############################################################################
-# - Cython extensions build and parameters -----------------------------------
-#
-# We create custom build steps for both `build` and `build_ext` for several
-#   reasons:
-# 1) Custom `build_ext` is needed to set `cython_build_ext.cython_exclude` when
-#    `--singlegpu=True`
-# 2) Custom `build` is needed to exclude pacakges and directories when
-#    `--singlegpu=True`
-# 3) These cannot be combined because `build` is used by both `build_ext` and
-#    `install` commands and it would be difficult to set
-#    `cython_build_ext.cython_exclude` from `cuml_build` since the property
-#    exists on a different command.
-#
-# Using custom commands also allows combining commands at the command line. For
-# example, the following will all work as expected:
-# `python setup.py clean --all build --singlegpu build_ext --inplace`
-# `python setup.py clean --all build --singlegpu install --record=record.txt`
-# `python setup.py build_ext --debug --singlegpu`
-
-
-class cuml_build(_build):
-
-    def initialize_options(self):
-
-        self.singlegpu = False
-        super().initialize_options()
-
-    def finalize_options(self):
-
-        # distutils plain build command override cannot be done just setting
-        # user_options and boolean options like build_ext below. Distribution
-        # object has all the args used by the user, we can check that.
-        self.singlegpu = '--singlegpu' in self.distribution.script_args
-
-        libs = ['cuda', 'cuml++']
-
-        include_dirs = [
-            '../cpp/src',
-            '../cpp/include',
-            '../cpp/src_prims',
-            raft_include_dir,
-            cuda_include_dir,
-            numpy.get_include(),
-            os.path.dirname(sysconfig.get_path("include"))
-        ]
-
-        python_exc_list = []
-
-        if (self.singlegpu):
-            python_exc_list = ["*.dask", "*.dask.*"]
-        else:
-            libs.append('cumlprims')
-            libs.append('nccl')
-
-            sys_include = os.path.dirname(sysconfig.get_path("include"))
-            include_dirs.append("%s/cumlprims" % sys_include)
-
-        # Find packages now that --singlegpu has been determined
-        self.distribution.packages = find_packages(include=['cuml', 'cuml.*'],
-                                                   exclude=python_exc_list)
-
-        # Build the extensions list
-        extensions = [
-            Extension("*",
-                      sources=["cuml/**/*.pyx"],
-                      include_dirs=include_dirs,
-                      library_dirs=[get_python_lib(), libcuml_path],
-                      runtime_library_dirs=[
-                          cuda_lib_dir, os.path.join(os.sys.prefix, "lib")
-                      ],
-                      libraries=libs,
-                      language='c++',
-                      extra_compile_args=['-std=c++14'])
-        ]
-
-        self.distribution.ext_modules = extensions
-
-        super().finalize_options()
+# ##############################################################################
+# # - Cython extensions build and parameters -----------------------------------
+# #
+# # We create custom build steps for both `build` and `build_ext` for several
+# #   reasons:
+# # 1) Custom `build_ext` is needed to set `cython_build_ext.cython_exclude` when
+# #    `--singlegpu=True`
+# # 2) Custom `build` is needed to exclude pacakges and directories when
+# #    `--singlegpu=True`
+# # 3) These cannot be combined because `build` is used by both `build_ext` and
+# #    `install` commands and it would be difficult to set
+# #    `cython_build_ext.cython_exclude` from `cuml_build` since the property
+# #    exists on a different command.
+# #
+# # Using custom commands also allows combining commands at the command line. For
+# # example, the following will all work as expected:
+# # `python setup.py clean --all build --singlegpu build_ext --inplace`
+# # `python setup.py clean --all build --singlegpu install --record=record.txt`
+# # `python setup.py build_ext --debug --singlegpu`
 
 
-# This custom build_ext is only responsible for setting cython_exclude when
-# --singlegpu is specified
-class cuml_build_ext(cython_build_ext, object):
-    user_options = [
-        ("singlegpu", None, "Specifies whether to include multi-gpu or not"),
-    ] + cython_build_ext.user_options
+# class cuml_build(_build):
 
-    boolean_options = ["singlegpu"] + cython_build_ext.boolean_options
+#     def initialize_options(self):
 
-    def initialize_options(self):
+#         self.singlegpu = False
+#         super().initialize_options()
 
-        self.singlegpu = None
+#     def finalize_options(self):
 
-        super().initialize_options()
+#         # distutils plain build command override cannot be done just setting
+#         # user_options and boolean options like build_ext below. Distribution
+#         # object has all the args used by the user, we can check that.
+#         self.singlegpu = '--singlegpu' in self.distribution.script_args
 
-    def finalize_options(self):
+#         libs = ['cuda', 'cuml++']
 
-        # Ensure the base build class options get set so we can use singlegpu
-        self.set_undefined_options(
-            'build',
-            ('singlegpu', 'singlegpu'),
-        )
+#         include_dirs = [
+#             '../cpp/src',
+#             '../cpp/include',
+#             '../cpp/src_prims',
+#             raft_include_dir,
+#             cuda_include_dir,
+#             numpy.get_include(),
+#             os.path.dirname(sysconfig.get_path("include"))
+#         ]
 
-        # Exclude multigpu components that use libcumlprims if
-        # --singlegpu is used
-        if (self.singlegpu):
-            cython_exc_list = glob.glob('cuml/*/*_mg.pyx')
-            cython_exc_list = cython_exc_list + glob.glob('cuml/*/*_mg.pxd')
-            cython_exc_list.append('cuml/raft/dask/common/nccl.pyx')
-            cython_exc_list.append('cuml/raft/dask/common/comms_utils.pyx')
+#         python_exc_list = []
 
-            print('--singlegpu: excluding the following Cython components:')
-            pprint(cython_exc_list)
+#         if (self.singlegpu):
+#             python_exc_list = ["*.dask", "*.dask.*"]
+#         else:
+#             libs.append('cumlprims')
+#             libs.append('nccl')
 
-            # Append to base excludes
-            self.cython_exclude = cython_exc_list + \
-                (self.cython_exclude or [])
+#             sys_include = os.path.dirname(sysconfig.get_path("include"))
+#             include_dirs.append("%s/cumlprims" % sys_include)
 
-        super().finalize_options()
+#         # Find packages now that --singlegpu has been determined
+#         self.distribution.packages = find_packages(include=['cuml', 'cuml.*'],
+#                                                    exclude=python_exc_list)
+
+#         # Build the extensions list
+#         extensions = [
+#             Extension("*",
+#                       sources=["cuml/**/*.pyx"],
+#                       include_dirs=include_dirs,
+#                       library_dirs=[get_python_lib(), libcuml_path],
+#                       runtime_library_dirs=[
+#                           cuda_lib_dir, os.path.join(os.sys.prefix, "lib")
+#                       ],
+#                       libraries=libs,
+#                       language='c++',
+#                       extra_compile_args=['-std=c++14'])
+#         ]
+
+#         self.distribution.ext_modules = extensions
+
+#         super().finalize_options()
 
 
-# Specify the custom build class
-cmdclass = dict()
-cmdclass.update(versioneer.get_cmdclass())
-cmdclass["build"] = cuml_build
-cmdclass["build_ext"] = cuml_build_ext
+# # This custom build_ext is only responsible for setting cython_exclude when
+# # --singlegpu is specified
+# class cuml_build_ext(cython_build_ext, object):
+#     user_options = [
+#         ("singlegpu", None, "Specifies whether to include multi-gpu or not"),
+#     ] + cython_build_ext.user_options
+
+#     boolean_options = ["singlegpu"] + cython_build_ext.boolean_options
+
+#     def initialize_options(self):
+
+#         self.singlegpu = None
+
+#         super().initialize_options()
+
+#     def finalize_options(self):
+
+#         # Ensure the base build class options get set so we can use singlegpu
+#         self.set_undefined_options(
+#             'build',
+#             ('singlegpu', 'singlegpu'),
+#         )
+
+#         # Exclude multigpu components that use libcumlprims if
+#         # --singlegpu is used
+#         if (self.singlegpu):
+#             cython_exc_list = glob.glob('cuml/*/*_mg.pyx')
+#             cython_exc_list = cython_exc_list + glob.glob('cuml/*/*_mg.pxd')
+#             cython_exc_list.append('cuml/raft/dask/common/nccl.pyx')
+#             cython_exc_list.append('cuml/raft/dask/common/comms_utils.pyx')
+
+#             print('--singlegpu: excluding the following Cython components:')
+#             pprint(cython_exc_list)
+
+#             # Append to base excludes
+#             self.cython_exclude = cython_exc_list + \
+#                 (self.cython_exclude or [])
+
+#         super().finalize_options()
+
+
+# # Specify the custom build class
+# cmdclass = dict()
+# cmdclass.update(versioneer.get_cmdclass())
+# cmdclass["build"] = cuml_build
+# cmdclass["build_ext"] = cuml_build_ext
 
 ##############################################################################
 # - Python package generation ------------------------------------------------
@@ -258,7 +260,8 @@ setup(name='cuml',
       ],
       author="NVIDIA Corporation",
       setup_requires=['cython'],
-      install_requires=install_requires,
+    #   install_requires=install_requires,
+      packages=find_packages(include=['cuml', 'cuml.*']),
       license="Apache",
-      cmdclass=cmdclass,
+      cmdclass=versioneer.get_cmdclass(),
       zip_safe=False)
