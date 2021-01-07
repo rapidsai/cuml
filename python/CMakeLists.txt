@@ -32,9 +32,12 @@ find_package(CUDAToolkit REQUIRED)
 # TODO (kk): Do some basic validation to ensure the parent is as expected
 find_package(cuML ${cuml_version})
 if(NOT cuML_FOUND)
+  message(WARNING "Could not file cuML")
   set(BUILD_TESTS OFF)
   set(BUILD_BENCHMARKS OFF)
   add_subdirectory(../cpp cuml-cpp)
+else(NOT cuML_FOUND)
+  message(WARNING "Found cuML in install DIR")
 endif(NOT cuML_FOUND)
 
 add_subdirectory(cuml/cluster)
