@@ -735,8 +735,8 @@ def test_multiple_fits_regression(column_info, nrows, n_estimators, n_bins):
 
 
 @pytest.mark.parametrize('n_estimators', [5, 10, 20])
-@pytest.mark.parametrize('detailed_printing', [True, False])
-def test_rf_printing(capfd, n_estimators, detailed_printing):
+@pytest.mark.parametrize('detailed_text', [True, False])
+def test_rf_get_text(n_estimators, detailed_text):
 
     X, y = make_classification(n_samples=500, n_features=10,
                                n_clusters_per_class=1, n_informative=5,
@@ -758,20 +758,17 @@ def test_rf_printing(capfd, n_estimators, detailed_printing):
     # Train model on the data
     cuml_model.fit(X, y)
 
-    if detailed_printing:
-        cuml_model.print_detailed()
+    if detailed_text:
+        text_output = cuml_model.get_detailed_text()
     else:
-        cuml_model.print_summary()
-
-    # Read the captured output
-    printed_output = capfd.readouterr().out
+        text_output = cuml_model.get_summary_text()
 
     # Test 1: Output is non-zero
-    assert '' != printed_output
+    assert '' != text_output
 
     # Count the number of trees printed
     tree_count = 0
-    for line in printed_output.split('\n'):
+    for line in text_output.split('\n'):
         if line.strip().startswith('Tree #'):
             tree_count += 1
 
