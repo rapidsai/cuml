@@ -136,7 +136,7 @@ For additional details on the technologies behind cuML, as well as a broader ove
 
 Please consider citing this when using cuML in a project. You can use the citation BibTeX:
 
-```
+```bibtex
 @article{raschka2020machine,
   title={Machine Learning in Python: Main developments and technology trends in data science, machine learning, and artificial intelligence},
   author={Raschka, Sebastian and Patterson, Joshua and Nolet, Corey},
