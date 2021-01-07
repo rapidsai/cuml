@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.
+ * Copyright (c) 2020-21, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,6 +28,12 @@ HDI float p_reproduce(const param& p) {
     p.p_point_mutation;
   auto ret = 1.f - sum;
   return fmaxf(0.f, fminf(ret, 1.f));
+}
+
+HDI int max_programs(const param& p) {
+  // in the worst case every generation's top program ends up reproducing,
+  // thereby adding another program into the population
+  return p.population_size + p.generations;
 }
 
 }  // namespace detail

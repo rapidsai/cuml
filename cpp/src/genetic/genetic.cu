@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.
+ * Copyright (c) 2020-21, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,6 +20,10 @@ namespace genetic {
 
 float param::p_reproduce() const {
   return detail::p_reproduce(*this);
+}
+
+int param::max_programs() const {
+  return detail::max_programs(*this);
 }
 
 }  // namespace genetic
