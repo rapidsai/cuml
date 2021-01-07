@@ -57,7 +57,7 @@ std::string dump_node_as_json(
 template <class T, class L>
 void build_treelite_tree(TreeBuilderHandle tree_builder,
                          DecisionTree::TreeMetaDataNode<T, L> *tree_ptr,
-                         int num_output_group);
+                         int num_class);
 
 struct DataInfo {
   unsigned int NLocalrows;
