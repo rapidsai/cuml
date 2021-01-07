@@ -76,9 +76,9 @@ namespace Distance {
  * @param n
  * @param out
  */
-template <typename value_idx, typename value_t, int tpb, int buffer_size, bool rev,
-          typename kv_t, typename init_f, typename put_f, typename get_f,
-          typename reduce_f, typename accum_f, typename write_f>
+template <typename value_idx, typename value_t, int tpb, int buffer_size,
+          bool rev, typename kv_t, typename init_f, typename put_f,
+          typename get_f, typename reduce_f, typename accum_f, typename write_f>
 __global__ void balanced_coo_generalized_spmv_kernel(
   value_idx *indptrA, value_idx *indicesA, value_t *dataA, value_idx *rowsB,
   value_idx *indicesB, value_t *dataB, value_idx m, value_idx n, value_idx dim,
@@ -138,7 +138,7 @@ __global__ void balanced_coo_generalized_spmv_kernel(
   if (tid < active_chunk_size) {
     cur_row_b = rowsB[ind];
     value_t a_col = A[indicesB[ind]];
-    if(!rev || a_col == 0.0) c = reduce_func(a_col, dataB[ind]);
+    if (!rev || a_col == 0.0) c = reduce_func(a_col, dataB[ind]);
   }
 
   // loop through chunks in parallel, reducing when a new row is
@@ -157,8 +157,8 @@ __global__ void balanced_coo_generalized_spmv_kernel(
 
       // thread with lowest lane id among peers writes out
       if (is_leader && v != 0.0) {
-        value_idx idx = !rev ? cur_row_a * n + cur_row_b :
-                        cur_row_b * m + cur_row_a;
+        value_idx idx =
+          !rev ? cur_row_a * n + cur_row_b : cur_row_b * m + cur_row_a;
         write_func(out + idx, v);
       }
       c = 0.0;
@@ -167,7 +167,8 @@ __global__ void balanced_coo_generalized_spmv_kernel(
     if (next_row_b != -1) {
       ind = ind_next;
       value_t a_col = A[indicesB[ind]];
-      if(!rev || a_col == 0.0) c = accum_func(c, reduce_func(a_col, dataB[ind]));
+      if (!rev || a_col == 0.0)
+        c = accum_func(c, reduce_func(a_col, dataB[ind]));
       cur_row_b = next_row_b;
     }
   }

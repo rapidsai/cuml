@@ -398,8 +398,8 @@ def test_knn_graph(input_type, nrows, n_feats, p, k, metric, mode,
         assert isspmatrix_csr(sparse_cu)
 
 @pytest.mark.parametrize("metric", ['l1'])
-@pytest.mark.parametrize('nrows', [100])
-@pytest.mark.parametrize('ncols', [100])
+@pytest.mark.parametrize('nrows', [50000])
+@pytest.mark.parametrize('ncols', [10000])
 @pytest.mark.parametrize('density', [0.4])
 @pytest.mark.parametrize('n_neighbors', [4])
 @pytest.mark.parametrize('batch_size_index', [40000])

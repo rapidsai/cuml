@@ -44,8 +44,8 @@ namespace MLCommon {
 namespace Sparse {
 namespace Distance {
 
-template <typename value_idx = int, typename value_t = float,
-          typename reduce_f, typename accum_f, typename write_f>
+template <typename value_idx = int, typename value_t = float, typename reduce_f,
+          typename accum_f, typename write_f>
 
 void unexpanded_lp_distances(
   value_t *out_dists, const distances_config_t<value_idx, value_t> &config_,
@@ -60,7 +60,6 @@ void unexpanded_lp_distances(
  *  - if n_cols > available smem & max_nnz > available smem,
  *              use batching + hashing only for those large cols
  */
-
 
   if (config_.a_ncols < 11000) {
     raft::mr::device::buffer<value_idx> coo_rows(
@@ -105,9 +104,8 @@ class l1_unexpanded_distances_t : public distances_t<value_t> {
   void compute(value_t *out_dists) {
     CUML_LOG_DEBUG("Running l1 dists");
 
-    unexpanded_lp_distances<value_idx, value_t>(
-      out_dists, config_,
-      AbsDiff(), Sum(), AtomicAdd());
+    unexpanded_lp_distances<value_idx, value_t>(out_dists, config_, AbsDiff(),
+                                                Sum(), AtomicAdd());
   }
 
  private:
@@ -122,9 +120,8 @@ class l2_unexpanded_distances_t : public distances_t<value_t> {
     : config_(config) {}
 
   void compute(value_t *out_dists) {
-    unexpanded_lp_distances<value_idx, value_t>(
-      out_dists, config_,
-      SqDiff(), Sum(), AtomicAdd());
+    unexpanded_lp_distances<value_idx, value_t>(out_dists, config_, SqDiff(),
+                                                Sum(), AtomicAdd());
   }
 
  private:
@@ -139,9 +136,8 @@ class linf_unexpanded_distances_t : public distances_t<value_t> {
     : config_(config) {}
 
   void compute(value_t *out_dists) {
-    unexpanded_lp_distances<value_idx, value_t>(
-      out_dists, config_,
-      AbsDiff(), Max(), AtomicMax());
+    unexpanded_lp_distances<value_idx, value_t>(out_dists, config_, AbsDiff(),
+                                                Max(), AtomicMax());
   }
 
  private:
@@ -176,9 +172,8 @@ class lp_unexpanded_distances_t : public distances_t<value_t> {
     : config_(config), p(p_) {}
 
   void compute(value_t *out_dists) {
-    unexpanded_lp_distances<value_idx, value_t>(
-      out_dists, config_,
-      PDiff(p), Sum(), AtomicAdd());
+    unexpanded_lp_distances<value_idx, value_t>(out_dists, config_, PDiff(p),
+                                                Sum(), AtomicAdd());
 
     float pow = 1.0 / p;
     raft::linalg::unaryOp<value_t>(

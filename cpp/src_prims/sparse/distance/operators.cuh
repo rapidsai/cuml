@@ -22,49 +22,37 @@ namespace MLCommon {
 namespace Sparse {
 namespace Distance {
 
-
 struct Sum {
-
   template <typename value_t>
-  __host__ __device__ __forceinline__ value_t operator()(value_t a,
-                                                         value_t b) {
+  __host__ __device__ __forceinline__ value_t operator()(value_t a, value_t b) {
     return a + b;
   }
 };
 
 struct SqDiff {
-
   template <typename value_t>
-  __host__ __device__ __forceinline__ value_t operator()(value_t a,
-                                                         value_t b) {
+  __host__ __device__ __forceinline__ value_t operator()(value_t a, value_t b) {
     return (a - b) * (a - b);
   }
 };
 
-
 struct PDiff {
-
   float p;
 
-  PDiff(float p_): p(p_){}
+  PDiff(float p_) : p(p_) {}
 
   template <typename value_t>
-  __host__ __device__ __forceinline__ value_t operator()(value_t a,
-                                                         value_t b) {
-    return __powf(a-b, p);
+  __host__ __device__ __forceinline__ value_t operator()(value_t a, value_t b) {
+    return __powf(a - b, p);
   }
 };
 
-
 struct Max {
-
   template <typename value_t>
-  __host__ __device__ __forceinline__ value_t operator()(value_t a,
-                                                         value_t b) {
+  __host__ __device__ __forceinline__ value_t operator()(value_t a, value_t b) {
     return fmaxf(a, b);
   }
 };
-
 
 struct AtomicAdd {
   template <typename value_t>
@@ -82,20 +70,16 @@ struct AtomicMax {
   }
 };
 
-
 struct Product {
   template <typename value_t>
-  __host__ __device__ __forceinline__ value_t operator()(value_t a,
-                                                         value_t b) {
+  __host__ __device__ __forceinline__ value_t operator()(value_t a, value_t b) {
     return a * b;
   }
 };
 
-
 struct AbsDiff {
   template <typename value_t>
-  __host__ __device__ __forceinline__ value_t operator()(value_t a,
-                                                         value_t b) {
+  __host__ __device__ __forceinline__ value_t operator()(value_t a, value_t b) {
     return fabsf(a - b);
   }
 };

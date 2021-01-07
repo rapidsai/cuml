@@ -230,8 +230,7 @@ class ip_distances_spmv_t : public ip_trans_getters_t<value_idx, value_t> {
 	   * Compute pairwise distances and return dense matrix in row-major format
 	   */
     balanced_coo_pairwise_generalized_spmv<value_idx, value_t>(
-      out_distances, config_, coo_rows_b.data(),
-      Product(), Sum(), AtomicAdd());
+      out_distances, config_, coo_rows_b.data(), Product(), Sum(), AtomicAdd());
   }
 
   value_idx *trans_indices() { return coo_rows_b.data(); }

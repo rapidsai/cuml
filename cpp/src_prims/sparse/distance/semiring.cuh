@@ -156,8 +156,7 @@ struct BlockSemiring {
       value_t right_side = rv * run_r;
 
       // Apply semiring "sum" & "product" functions locally
-      cur_sum =
-        accum_func(cur_sum, reduce_func(left_side, right_side));
+      cur_sum = accum_func(cur_sum, reduce_func(left_side, right_side));
 
       // finished when all items in chunk have been
       // processed
@@ -294,7 +293,7 @@ __global__ void classic_csr_semiring_spmv_kernel(
  * @param accum_func
  */
 template <typename value_idx = int, typename value_t = float,
-          int max_buffer_size = 5000, int threads_per_block = 32,
+          int max_buffer_size = 5000, int threads_per_block = 1024,
           typename reduce_f, typename accum_f>
 void generalized_csr_pairwise_semiring(
   value_t *out_dists, const distances_config_t<value_idx, value_t> &config_,
