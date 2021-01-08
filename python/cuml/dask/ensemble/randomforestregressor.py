@@ -16,11 +16,15 @@
 
 import warnings
 
+import numpy as np
+
 from cuml.dask.common.base import DelayedPredictionMixin
 from cuml.ensemble import RandomForestRegressor as cuRFR
 from cuml.dask.ensemble.base import \
     BaseRandomForestModel
 from cuml.dask.common.base import BaseEstimator
+
+import dask
 
 
 class RandomForestRegressor(BaseRandomForestModel, DelayedPredictionMixin,
@@ -272,7 +276,7 @@ class RandomForestRegressor(BaseRandomForestModel, DelayedPredictionMixin,
 
     def predict(self, X, predict_model="GPU", algo='auto',
                 convert_dtype=True, fil_sparse_format='auto',
-                delayed=True):
+                delayed=True, broadcast=False):
         """
         Predicts the regressor outputs for X.
 
@@ -333,6 +337,14 @@ class RandomForestRegressor(BaseRandomForestModel, DelayedPredictionMixin,
         delayed : bool (default = True)
             Whether to do a lazy prediction (and return Delayed objects) or an
             eagerly executed one.
+        broadcast : bool (default = False)
+            Usually the trees are merged in a single model for the workers
+            to perform inference. Then each worker receives its portion of
+            the work. When set to True, the step performing the merge of
+            the trees is skipped. Instead the workers infer the whole dataset
+            from trees at disposal, the results are reduced on the client.
+            May be advantageous when the model is larger than the data
+            used for inference.
 
         Returns
         -------
@@ -343,13 +355,43 @@ class RandomForestRegressor(BaseRandomForestModel, DelayedPredictionMixin,
             preds = self.predict_model_on_cpu(X, convert_dtype=convert_dtype)
 
         else:
-            preds = \
-                self._predict_using_fil(X,
-                                        algo=algo,
-                                        convert_dtype=convert_dtype,
-                                        fil_sparse_format=fil_sparse_format,
-                                        delayed=delayed)
+            if broadcast:
+                preds = \
+                    self.partial_inference(
+                        X,
+                        algo=algo,
+                        convert_dtype=convert_dtype,
+                        fil_sparse_format=fil_sparse_format,
+                        delayed=delayed
+                    )
+            else:
+                preds = \
+                    self._predict_using_fil(
+                        X,
+                        algo=algo,
+                        convert_dtype=convert_dtype,
+                        fil_sparse_format=fil_sparse_format,
+                        delayed=delayed
+                    )
         return preds
+
+    def partial_inference(self, X, delayed, **kwargs):
+        partial_infs = \
+            self._partial_inference(X=X,
+                                    delayed=delayed,
+                                    **kwargs)
+
+        def reduce(partial_infs):
+            preds = dask.array.apply_along_axis(
+                    lambda x: np.array([x.mean()], dtype=np.float32),
+                    1, partial_infs)
+            return preds
+
+        delayed_res = dask.delayed(reduce)(partial_infs)
+        if delayed:
+            return delayed_res
+        else:
+            return delayed_res.persist()
 
     def predict_using_fil(self, X, delayed, **kwargs):
         if self._get_internal_model() is None:

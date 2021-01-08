@@ -310,11 +310,12 @@ def test_rf_concatenation_dask(client, model_type):
     cu_rf_mg.fit(X_df, y_df)
     res1 = cu_rf_mg.predict(X_df)
     res1.compute()
-    local_tl = TreeliteModel.from_treelite_model_handle(
-        cu_rf_mg.internal_model._obtain_treelite_handle(),
-        take_handle_ownership=False)
+    if cu_rf_mg.internal_model:
+        local_tl = TreeliteModel.from_treelite_model_handle(
+            cu_rf_mg.internal_model._obtain_treelite_handle(),
+            take_handle_ownership=False)
 
-    assert local_tl.num_trees == n_estimators
+        assert local_tl.num_trees == n_estimators
 
 
 @pytest.mark.parametrize('model_type', ['classification', 'regression'])

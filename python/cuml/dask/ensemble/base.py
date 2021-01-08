@@ -18,6 +18,7 @@ import math
 import numpy as np
 import warnings
 
+import cuml
 from cuml.dask.common.input_utils import DistributedDataHandler, \
     concatenate
 from cuml.dask.common.utils import get_client, wait_and_raise_from_futures
@@ -169,6 +170,26 @@ class BaseRandomForestModel(object):
             TreeliteModel.free_treelite_model(tl_handle)
         return model
 
+    def _partial_inference(self, X, delayed, **kwargs):
+        data = DistributedDataHandler.create(X, client=self.client)
+        self.datatype = data.datatype
+        full_data = list(map(lambda x: x[1], data.gpu_futures))
+
+        partial_infs = list()
+        for worker in self.active_workers:
+            partial_infs.append(
+                self.client.submit(
+                    _func_predict,
+                    self.rfs[worker],
+                    full_data,
+                    **kwargs,
+                    workers=[worker],
+                    pure=False)
+            )
+        partial_infs = dask.delayed(dask.array.concatenate)(
+            partial_infs, axis=1, allow_unknown_chunksizes=True)
+        return partial_infs
+
     def _predict_using_fil(self, X, delayed, **kwargs):
         if self._get_internal_model() is None:
             self._set_internal_model(self._concat_treelite_models())
@@ -244,6 +265,13 @@ def _func_fit(model, input_data, convert_dtype):
     X = concatenate([item[0] for item in input_data])
     y = concatenate([item[1] for item in input_data])
     return model.fit(X, y, convert_dtype)
+
+
+def _func_predict(model, input_data, **kwargs):
+    X = concatenate(input_data)
+    with cuml.using_output_type("numpy"):
+        prediction = model.predict(X, **kwargs)
+        return np.expand_dims(prediction, axis=1)
 
 
 def _print_summary_func(model):
