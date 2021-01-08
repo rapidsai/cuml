@@ -66,8 +66,9 @@ void pairwiseDistance(
   raft::distance::DistanceType metric, float p = 0.0) {
   CUML_LOG_DEBUG("Running sparse pairwise distances with metric=%d", metric);
 
+  // TODO: Can instantiate these w/ a template
   switch (metric) {
-    case raft::distance::DistanceType::EucExpandedL2:
+    case raft::distance::DistanceType::L2Expanded:
       // Expanded Euclidean in the form
       l2_expanded_distances_t<value_idx, value_t>(input_config).compute(out);
       break;
@@ -75,33 +76,33 @@ void pairwiseDistance(
       // InnerProduct
       ip_distances_t<value_idx, value_t>(input_config).compute(out);
       break;
-    case raft::distance::DistanceType::EucUnexpandedL1:
+    case raft::distance::DistanceType::L1:
       l1_unexpanded_distances_t<value_idx, value_t>(input_config).compute(out);
       break;
-    case raft::distance::DistanceType::EucUnexpandedL2:
+    case raft::distance::DistanceType::L2Unexpanded:
       l2_unexpanded_distances_t<value_idx, value_t>(input_config).compute(out);
       break;
-    case raft::distance::DistanceType::UnexpandedLinf:
+    case raft::distance::DistanceType::Linf:
       linf_unexpanded_distances_t<value_idx, value_t>(input_config)
         .compute(out);
       break;
-    case raft::distance::DistanceType::UnexpandedCanberra:
+    case raft::distance::DistanceType::Canberra:
       canberra_unexpanded_distances_t<value_idx, value_t>(input_config)
         .compute(out);
       break;
-    case raft::distance::DistanceType::UnexpandedLp:
+    case raft::distance::DistanceType::LpUnexpanded:
       lp_unexpanded_distances_t<value_idx, value_t>(input_config, p)
         .compute(out);
       break;
-    case raft::distance::DistanceType::ExpandedJaccard:
+    case raft::distance::DistanceType::JaccardExpanded:
       jaccard_expanded_distances_t<value_idx, value_t>(input_config)
         .compute(out);
       break;
-    case raft::distance::DistanceType::EucExpandedCosine:
+    case raft::distance::DistanceType::CosineExpanded:
       cosine_expanded_distances_t<value_idx, value_t>(input_config)
         .compute(out);
       break;
-    case raft::distance::DistanceType::ExpandedHellinger:
+    case raft::distance::DistanceType::HellingerExpanded:
       hellinger_expanded_distances_t<value_idx, value_t>(input_config)
         .compute(out);
       break;

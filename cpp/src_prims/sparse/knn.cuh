@@ -393,25 +393,25 @@ class sparse_knn_t {
         pw_metric = raft::distance::DistanceType::L2Expanded;
         break;
       case ML::MetricType::METRIC_L1:
-        pw_metric = raft::distance::DistanceType::EucUnexpandedL1;
+        pw_metric = raft::distance::DistanceType::L1;
         break;
       case ML::MetricType::METRIC_Canberra:
-        pw_metric = raft::distance::DistanceType::UnexpandedCanberra;
+        pw_metric = raft::distance::DistanceType::Canberra;
         break;
       case ML::MetricType::METRIC_Linf:
-        pw_metric = raft::distance::DistanceType::UnexpandedLinf;
+        pw_metric = raft::distance::DistanceType::Linf;
         break;
       case ML::MetricType::METRIC_Lp:
-        pw_metric = raft::distance::DistanceType::UnexpandedLp;
+        pw_metric = raft::distance::DistanceType::LpUnexpanded;
         break;
       case ML::MetricType::METRIC_Jaccard:
-        pw_metric = raft::distance::DistanceType::ExpandedJaccard;
+        pw_metric = raft::distance::DistanceType::JaccardExpanded;
         break;
       case ML::MetricType::METRIC_Cosine:
-        pw_metric = raft::distance::DistanceType::EucExpandedCosine;
+        pw_metric = raft::distance::DistanceType::CosineExpanded;
         break;
       case ML::MetricType::METRIC_Hellinger:
-        pw_metric = raft::distance::DistanceType::ExpandedHellinger;
+        pw_metric = raft::distance::DistanceType::HellingerExpanded;
         break;
       default:
         THROW("MetricType not supported: %d", metric);

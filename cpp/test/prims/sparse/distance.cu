@@ -207,7 +207,7 @@ const std::vector<SparseDistanceInputs<int, float>> inputs_i32_f = {
      1832.0,
      0.0,
    },
-   raft::distance::DistanceType::EucUnexpandedL2},
+   raft::distance::DistanceType::L2Unexpanded},
 
   {10,
    {0, 5, 11, 15, 20, 27, 32, 36, 43, 47, 50},
@@ -237,7 +237,7 @@ const std::vector<SparseDistanceInputs<int, float>> inputs_i32_f = {
     0.67676228, 0.24558392, 0.76064776, 0.51360432, 0.,         1.,
     0.76978799, 0.78021386, 1.,         0.84923694, 0.73155632, 0.99166225,
     0.61547536, 0.68185144, 1.,         0.},
-   raft::distance::DistanceType::EucExpandedCosine},
+   raft::distance::DistanceType::CosineExpanded},
 
   {10,
    {0, 5, 11, 15, 20, 27, 32, 36, 43, 47, 50},
@@ -347,7 +347,7 @@ const std::vector<SparseDistanceInputs<int, float>> inputs_i32_f = {
     0.75,
     1.0,
     0.0},
-   raft::distance::DistanceType::ExpandedJaccard},
+   raft::distance::DistanceType::JaccardExpanded},
 
   {10,
    {0, 5, 11, 15, 20, 27, 32, 36, 43, 47, 50},
@@ -460,7 +460,7 @@ const std::vector<SparseDistanceInputs<int, float>> inputs_i32_f = {
     6.903282911791188,
     7.0,
     0.0},
-   raft::distance::DistanceType::UnexpandedCanberra},
+   raft::distance::DistanceType::Canberra},
 
   {10,
    {0, 5, 11, 15, 20, 27, 32, 36, 43, 47, 50},
@@ -573,7 +573,7 @@ const std::vector<SparseDistanceInputs<int, float>> inputs_i32_f = {
     1.0083692448135637,
     1.3661374102525012,
     0.0},
-   raft::distance::DistanceType::UnexpandedLp,
+   raft::distance::DistanceType::LpUnexpanded,
    2.0},
 
   {10,
@@ -687,7 +687,7 @@ const std::vector<SparseDistanceInputs<int, float>> inputs_i32_f = {
     0.5079750812968089,
     0.8429599432532096,
     0.0},
-   raft::distance::DistanceType::UnexpandedLinf}};
+   raft::distance::DistanceType::Linf}};
 
 typedef SparseDistanceTest<int, float> SparseDistanceTestF;
 TEST_P(SparseDistanceTestF, Result) { compare(); }
