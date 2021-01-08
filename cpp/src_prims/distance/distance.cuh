@@ -292,7 +292,7 @@ void pairwise_distance(const Type *x, const Type *y, Type *dist, Index_ m,
       break;
     case raft::distance::DistanceType::L2Unexpanded:
       pairwise_distance_impl<Type, Index_,
-                             raft::distance::DistanceType::L2cUnexpanded>(
+                             raft::distance::DistanceType::L2Unexpanded>(
         x, y, dist, m, n, k, workspace, stream, isRowMajor);
       break;
     case raft::distance::DistanceType::L2SqrtUnexpanded:
