@@ -185,11 +185,11 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
         Control bootstrapping.
         If True, each tree in the forest is built
         on a bootstrapped sample with replacement.
-        If False, sampling without replacement is done.
+        If False, the whole dataset is used to build each tree.
     bootstrap_features : boolean (default = False)
         Control bootstrapping for features.
         If features are drawn with or without replacement
-    rows_sample : float (default = 1.0)
+    max_samples : float (default = 1.0)
         Ratio of dataset rows used while fitting each tree.
     max_depth : int (default = 16)
         Maximum tree depth. Unlimited (i.e, until leaves are pure),
@@ -208,10 +208,18 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
         If 'log2' then max_features=log2(n_features)/n_features.
     n_bins : int (default = 8)
         Number of bins used by the split algorithm.
-    min_rows_per_node : int or float (default = 2)
-        The minimum number of samples (rows) needed to split a node.
-        If int then number of sample rows.
-        If float the min_rows_per_sample*n_rows
+    min_samples_leaf : int or float (default = 1)
+        The minimum number of samples (rows) in each leaf node.
+        If int, then min_samples_leaf represents the minimum number.
+        If float, then min_samples_leaf represents a fraction and
+        ceil(min_samples_leaf * n_rows) is the minimum number of samples
+        for each leaf node.
+    min_samples_split : int or float (default = 2)
+        The minimum number of samples required to split an internal node.
+        If int, then min_samples_split represents the minimum number.
+        If float, then min_samples_split represents a fraction and
+        ceil(min_samples_split * n_rows) is the minimum number of samples
+        for each split.
     min_impurity_decrease : float (default = 0.0)
         Minimum decrease in impurity requried for
         node to be spilt.
@@ -458,12 +466,13 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
                                      <float> max_feature_val,
                                      <int> self.n_bins,
                                      <int> self.split_algo,
-                                     <int> self.min_rows_per_node,
+                                     <int> self.min_samples_leaf,
+                                     <int> self.min_samples_split,
                                      <float> self.min_impurity_decrease,
                                      <bool> self.bootstrap_features,
                                      <bool> self.bootstrap,
                                      <int> self.n_estimators,
-                                     <float> self.rows_sample,
+                                     <float> self.max_samples,
                                      <int> seed_val,
                                      <CRITERION> self.split_criterion,
                                      <bool> self.quantile_per_tree,
@@ -906,25 +915,9 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
         del(preds_m)
         return self.stats['accuracy']
 
-    def print_summary(self):
+    def get_summary_text(self):
         """
-        Prints the summary of the forest used to train and test the model
-        """
-        cdef RandomForestMetaData[float, int] *rf_forest = \
-            <RandomForestMetaData[float, int]*><uintptr_t> self.rf_forest
-
-        cdef RandomForestMetaData[double, int] *rf_forest64 = \
-            <RandomForestMetaData[double, int]*><uintptr_t> self.rf_forest64
-
-        if self.dtype == np.float64:
-            print_rf_summary(rf_forest64)
-        else:
-            print_rf_summary(rf_forest)
-
-    def print_detailed(self):
-        """
-        Prints the detailed information about the forest used to
-        train and test the Random Forest model
+        Obtain the text summary of the random forest model
         """
         cdef RandomForestMetaData[float, int] *rf_forest = \
             <RandomForestMetaData[float, int]*><uintptr_t> self.rf_forest
@@ -933,9 +926,24 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
             <RandomForestMetaData[double, int]*><uintptr_t> self.rf_forest64
 
         if self.dtype == np.float64:
-            print_rf_detailed(rf_forest64)
+            return get_rf_summary_text(rf_forest64).decode('utf-8')
         else:
-            print_rf_detailed(rf_forest)
+            return get_rf_summary_text(rf_forest).decode('utf-8')
+
+    def get_detailed_text(self):
+        """
+        Obtain the detailed information for the random forest model, as text
+        """
+        cdef RandomForestMetaData[float, int] *rf_forest = \
+            <RandomForestMetaData[float, int]*><uintptr_t> self.rf_forest
+
+        cdef RandomForestMetaData[double, int] *rf_forest64 = \
+            <RandomForestMetaData[double, int]*><uintptr_t> self.rf_forest64
+
+        if self.dtype == np.float64:
+            return get_rf_detailed_text(rf_forest64).decode('utf-8')
+        else:
+            return get_rf_detailed_text(rf_forest).decode('utf-8')
 
     def dump_as_json(self):
         """
@@ -950,3 +958,9 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
         if self.dtype == np.float64:
             return dump_rf_as_json(rf_forest64).decode('utf-8')
         return dump_rf_as_json(rf_forest).decode('utf-8')
+
+    def _more_tags(self):
+        return {
+            # fit and predict require conflicting memory layouts
+            'preferred_input_order': None
+        }

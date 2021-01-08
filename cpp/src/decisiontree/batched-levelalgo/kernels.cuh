@@ -16,7 +16,9 @@
 
 #pragma once
 
+#include <cuml/tree/algo_helper.h>
 #include <common/grid_sync.cuh>
+#include <cub/cub.cuh>
 #include <raft/cuda_utils.cuh>
 #include "input.cuh"
 #include "metrics.cuh"
@@ -139,7 +141,8 @@ struct RegDeviceTraits {
  *
  * @param[in] myDepth           depth of this node
  * @param[in] max_depth maximum possible tree depth
- * @param[in] min_rows_per_node min number of samples needed to split the node
+ * @param[in] min_samples_split min number of samples needed to split an
+ *                              internal node
  * @param[in] max_leaves        max leaf nodes per tree (it's a soft constraint)
  * @param[in] n_leaves          number of leaves in the tree already
  * @param[in] nSamples          number of samples belonging to this node
@@ -147,11 +150,11 @@ struct RegDeviceTraits {
  * @return true if the current node is to be declared as a leaf, else false
  */
 template <typename DataT, typename IdxT>
-DI bool leafBasedOnParams(IdxT myDepth, IdxT max_depth, IdxT min_rows_per_node,
+DI bool leafBasedOnParams(IdxT myDepth, IdxT max_depth, IdxT min_samples_split,
                           IdxT max_leaves, const IdxT* n_leaves,
                           IdxT nSamples) {
   if (myDepth >= max_depth) return true;
-  if (nSamples < min_rows_per_node) return true;
+  if (nSamples < min_samples_split) return true;
   if (max_leaves != -1) {
     if (*n_leaves >= max_leaves) return true;
   }
@@ -226,8 +229,9 @@ DI void partitionSamples(const Input<DataT, LabelT, IdxT>& input,
 
 template <typename DataT, typename LabelT, typename IdxT, typename DevTraits,
           int TPB>
-__global__ void nodeSplitKernel(IdxT max_depth, IdxT min_rows_per_node,
-                                IdxT max_leaves, DataT min_impurity_decrease,
+__global__ void nodeSplitKernel(IdxT max_depth, IdxT min_samples_leaf,
+                                IdxT min_samples_split, IdxT max_leaves,
+                                DataT min_impurity_decrease,
                                 Input<DataT, LabelT, IdxT> input,
                                 volatile Node<DataT, LabelT, IdxT>* curr_nodes,
                                 volatile Node<DataT, LabelT, IdxT>* next_nodes,
@@ -237,11 +241,14 @@ __global__ void nodeSplitKernel(IdxT max_depth, IdxT min_rows_per_node,
   extern __shared__ char smem[];
   IdxT nid = blockIdx.x;
   volatile auto* node = curr_nodes + nid;
-  auto range_start = node->start, range_len = node->count;
+  auto range_start = node->start, n_samples = node->count;
   auto isLeaf = leafBasedOnParams<DataT, IdxT>(
-    node->depth, max_depth, min_rows_per_node, max_leaves, n_leaves, range_len);
-  if (isLeaf || splits[nid].best_metric_val <= min_impurity_decrease) {
-    DevTraits::computePrediction(range_start, range_len, input, node, n_leaves,
+    node->depth, max_depth, min_samples_split, max_leaves, n_leaves, n_samples);
+  auto split = splits[nid];
+  if (isLeaf || split.best_metric_val <= min_impurity_decrease ||
+      split.nLeft < min_samples_leaf ||
+      (n_samples - split.nLeft) < min_samples_leaf) {
+    DevTraits::computePrediction(range_start, n_samples, input, node, n_leaves,
                                  smem);
     return;
   }
@@ -259,17 +266,17 @@ __device__ OutT* alignPointer(InT input) {
 
 template <typename DataT, typename LabelT, typename IdxT, int TPB>
 __global__ void computeSplitClassificationKernel(
-  int* hist, IdxT nbins, IdxT max_depth, IdxT min_rows_per_node,
-  IdxT max_leaves, Input<DataT, LabelT, IdxT> input,
-  const Node<DataT, LabelT, IdxT>* nodes, IdxT colStart, int* done_count,
-  int* mutex, const IdxT* n_leaves, Split<DataT, IdxT>* splits,
-  CRITERION splitType) {
+  int* hist, IdxT nbins, IdxT max_depth, IdxT min_samples_split,
+  IdxT min_samples_leaf, DataT min_impurity_decrease, IdxT max_leaves,
+  Input<DataT, LabelT, IdxT> input, const Node<DataT, LabelT, IdxT>* nodes,
+  IdxT colStart, int* done_count, int* mutex, const IdxT* n_leaves,
+  Split<DataT, IdxT>* splits, CRITERION splitType) {
   extern __shared__ char smem[];
   IdxT nid = blockIdx.z;
   auto node = nodes[nid];
   auto range_start = node.start;
   auto range_len = node.count;
-  if (leafBasedOnParams<DataT, IdxT>(node.depth, max_depth, min_rows_per_node,
+  if (leafBasedOnParams<DataT, IdxT>(node.depth, max_depth, min_samples_split,
                                      max_leaves, n_leaves, range_len)) {
     return;
   }
@@ -319,9 +326,11 @@ __global__ void computeSplitClassificationKernel(
   sp.init();
   __syncthreads();
   if (splitType == CRITERION::GINI) {
-    giniGain<DataT, IdxT>(shist, sbins, sp, col, range_len, nbins, nclasses);
+    giniGain<DataT, IdxT>(shist, sbins, sp, col, range_len, nbins, nclasses,
+                          min_samples_leaf, min_impurity_decrease);
   } else {
-    entropyGain<DataT, IdxT>(shist, sbins, sp, col, range_len, nbins, nclasses);
+    entropyGain<DataT, IdxT>(shist, sbins, sp, col, range_len, nbins, nclasses,
+                             min_samples_leaf, min_impurity_decrease);
   }
   __syncthreads();
   sp.evalBestSplit(smem, splits + nid, mutex + nid);
@@ -330,7 +339,8 @@ __global__ void computeSplitClassificationKernel(
 template <typename DataT, typename LabelT, typename IdxT, int TPB>
 __global__ void computeSplitRegressionKernel(
   DataT* pred, DataT* pred2, DataT* pred2P, IdxT* count, IdxT nbins,
-  IdxT max_depth, IdxT min_rows_per_node, IdxT max_leaves,
+  IdxT max_depth, IdxT min_samples_split, IdxT min_samples_leaf,
+  DataT min_impurity_decrease, IdxT max_leaves,
   Input<DataT, LabelT, IdxT> input, const Node<DataT, LabelT, IdxT>* nodes,
   IdxT colStart, int* done_count, int* mutex, const IdxT* n_leaves,
   Split<DataT, IdxT>* splits, void* workspace, CRITERION splitType) {
@@ -339,7 +349,7 @@ __global__ void computeSplitRegressionKernel(
   auto node = nodes[nid];
   auto range_start = node.start;
   auto range_len = node.count;
-  if (leafBasedOnParams<DataT, IdxT>(node.depth, max_depth, min_rows_per_node,
+  if (leafBasedOnParams<DataT, IdxT>(node.depth, max_depth, min_samples_split,
                                      max_leaves, n_leaves, range_len)) {
     return;
   }
@@ -348,8 +358,6 @@ __global__ void computeSplitRegressionKernel(
   auto* spred = alignPointer<DataT>(smem);
   auto* scount = alignPointer<int>(spred + len);
   auto* sbins = alignPointer<DataT>(scount + nbins);
-
-  // used only for MAE criterion
   auto* spred2 = alignPointer<DataT>(sbins + nbins);
   auto* spred2P = alignPointer<DataT>(spred2 + len);
   auto* spredP = alignPointer<DataT>(spred2P + nbins);
@@ -362,8 +370,6 @@ __global__ void computeSplitRegressionKernel(
   }
   for (IdxT i = threadIdx.x; i < nbins; i += blockDim.x) {
     scount[i] = 0;
-    // printf("indexing from sbins: %p  to %p, sizeof: %d (spred: %p)\n", sbins,
-    //        &sbins[i], (int)sizeof(DataT*), spred);
     sbins[i] = input.quantiles[col * nbins + i];
   }
   __syncthreads();
@@ -393,35 +399,37 @@ __global__ void computeSplitRegressionKernel(
   }
   __threadfence();  // for commit guarantee
   __syncthreads();
-  // for MAE computation, we'd need a 2nd pass over data :(
+
+  /* Make a second pass over the data to compute gain */
+  // Wait until all blockIdx.x's are done
+  MLCommon::GridSync gs(workspace, MLCommon::SyncType::ACROSS_X, false);
+  gs.sync();
+  // now, compute the mean value to be used for metric update
+  for (IdxT i = threadIdx.x; i < nbins; i += blockDim.x) {
+    scount[i] = count[gcOffset + i];
+    spred2P[i] = DataT(0.0);
+  }
+  for (IdxT i = threadIdx.x; i < len; i += blockDim.x) {
+    spred[i] = pred[gOffset + i];
+    spred2[i] = DataT(0.0);
+  }
+  __syncthreads();
+  for (IdxT i = threadIdx.x; i < nbins; i += blockDim.x) {
+    spredP[i] = spred[i] + spred[i + nbins];
+  }
+  __syncthreads();
+  auto invlen = DataT(1.0) / range_len;
+  for (IdxT i = threadIdx.x; i < nbins; i += blockDim.x) {
+    auto cnt_l = DataT(scount[i]);
+    auto cnt_r = DataT(range_len - scount[i]);
+    spred[i] /= cnt_l;
+    spred[i + nbins] /= cnt_r;
+    spredP[i] *= invlen;
+  }
+  __syncthreads();
+
+  // 2nd pass over data to compute partial metric across blockIdx.x's
   if (splitType == CRITERION::MAE) {
-    // wait until all blockIdx.x's are done
-    MLCommon::GridSync gs(workspace, MLCommon::SyncType::ACROSS_X, false);
-    gs.sync();
-    // now, compute the mean value to be used for MAE update
-    for (IdxT i = threadIdx.x; i < nbins; i += blockDim.x) {
-      scount[i] = count[gcOffset + i];
-      spred2P[i] = DataT(0.0);
-    }
-    for (IdxT i = threadIdx.x; i < len; i += blockDim.x) {
-      spred[i] = pred[gOffset + i];
-      spred2[i] = DataT(0.0);
-    }
-    __syncthreads();
-    for (IdxT i = threadIdx.x; i < nbins; i += blockDim.x) {
-      spredP[i] = spred[i] + spred[i + nbins];
-    }
-    __syncthreads();
-    auto invlen = DataT(1.0) / range_len;
-    for (IdxT i = threadIdx.x; i < nbins; i += blockDim.x) {
-      auto cnt_l = DataT(scount[i]);
-      auto cnt_r = DataT(range_len - scount[i]);
-      spred[i] /= cnt_l;
-      spred[i + nbins] /= cnt_r;
-      spredP[i] *= invlen;
-    }
-    __syncthreads();
-    // 2nd pass over data to compute partial MAE's across blockIdx.x's
     for (auto i = range_start + tid; i < end; i += stride) {
       auto row = input.rowids[i];
       auto d = input.data[row + coloffset];
@@ -434,17 +442,31 @@ __global__ void computeSplitRegressionKernel(
         atomicAdd(spred2P + b, raft::myAbs(label - spredP[b]));
       }
     }
-    __syncthreads();
-    // update the corresponding global location
-    for (IdxT i = threadIdx.x; i < nbins; i += blockDim.x) {
-      atomicAdd(pred2P + gcOffset + i, spred2P[i]);
+  } else {
+    for (auto i = range_start + tid; i < end; i += stride) {
+      auto row = input.rowids[i];
+      auto d = input.data[row + coloffset];
+      auto label = input.labels[row];
+      for (IdxT b = 0; b < nbins; ++b) {
+        auto isRight = d > sbins[b];  // no divergence
+        auto offset = isRight * nbins + b;
+        auto diff = label - (isRight ? spred[nbins + b] : spred[b]);
+        auto diff2 = label - spredP[b];
+        atomicAdd(spred2 + offset, (diff * diff));
+        atomicAdd(spred2P + b, (diff2 * diff2));
+      }
     }
-    for (IdxT i = threadIdx.x; i < len; i += blockDim.x) {
-      atomicAdd(pred2 + gOffset + i, spred2[i]);
-    }
-    __threadfence();  // for commit guarantee
-    __syncthreads();
   }
+  __syncthreads();
+  // update the corresponding global location
+  for (IdxT i = threadIdx.x; i < nbins; i += blockDim.x) {
+    atomicAdd(pred2P + gcOffset + i, spred2P[i]);
+  }
+  for (IdxT i = threadIdx.x; i < len; i += blockDim.x) {
+    atomicAdd(pred2 + gOffset + i, spred2[i]);
+  }
+  __threadfence();  // for commit guarantee
+  __syncthreads();
   // last threadblock will go ahead and compute the best split
   bool last = true;
   if (gridDim.x > 1) {
@@ -456,25 +478,15 @@ __global__ void computeSplitRegressionKernel(
   // last block computes the final gain
   Split<DataT, IdxT> sp;
   sp.init();
-  if (splitType == CRITERION::MSE) {
-    for (IdxT i = threadIdx.x; i < len; i += blockDim.x) {
-      spred[i] = pred[gOffset + i];
-    }
-    for (IdxT i = threadIdx.x; i < nbins; i += blockDim.x) {
-      scount[i] = count[gcOffset + i];
-    }
-    __syncthreads();
-    mseGain(spred, scount, sbins, sp, col, range_len, nbins);
-  } else {
-    for (IdxT i = threadIdx.x; i < len; i += blockDim.x) {
-      spred2[i] = pred2[gOffset + i];
-    }
-    for (IdxT i = threadIdx.x; i < nbins; i += blockDim.x) {
-      spred2P[i] = pred2P[gcOffset + i];
-    }
-    __syncthreads();
-    maeGain(spred2, spred2P, scount, sbins, sp, col, range_len, nbins);
+  for (IdxT i = threadIdx.x; i < len; i += blockDim.x) {
+    spred2[i] = pred2[gOffset + i];
   }
+  for (IdxT i = threadIdx.x; i < nbins; i += blockDim.x) {
+    spred2P[i] = pred2P[gcOffset + i];
+  }
+  __syncthreads();
+  regressionMetricGain(spred2, spred2P, scount, sbins, sp, col, range_len,
+                       nbins, min_samples_leaf, min_impurity_decrease);
   __syncthreads();
   sp.evalBestSplit(smem, splits + nid, mutex + nid);
 }

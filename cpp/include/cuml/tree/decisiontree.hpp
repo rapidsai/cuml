@@ -46,9 +46,13 @@ struct DecisionTreeParams {
    */
   int split_algo;
   /**
-   * The minimum number of samples (rows) needed to split a node.
+   * The minimum number of samples (rows) in each leaf node.
    */
-  int min_rows_per_node;
+  int min_samples_leaf;
+  /**
+   * The minimum number of samples (rows) needed to split an internal node.
+   */
+  int min_samples_split;
   /**
    * Control bootstrapping for features. If features are drawn with or without replacement
    */
@@ -90,7 +94,9 @@ struct DecisionTreeParams {
  * @param[in] cfg_max_features: maximum number of features; default 1.0f
  * @param[in] cfg_n_bins: number of bins; default 8
  * @param[in] cfg_split_algo: split algorithm; default SPLIT_ALGO::HIST
- * @param[in] cfg_min_rows_per_node: min. rows per node; default 2
+ * @param[in] cfg_min_samples_leaf: min. rows in each leaf node; default 1
+ * @param[in] cfg_min_samples_split: min. rows needed to split an internal node;
+ *            default 2
  * @param[in] cfg_min_impurity_decrease: split a node only if its reduction in
  *                                       impurity is more than this value
  * @param[in] cfg_bootstrap_features: bootstrapping for features; default false
@@ -107,7 +113,8 @@ struct DecisionTreeParams {
 void set_tree_params(DecisionTreeParams &params, int cfg_max_depth = -1,
                      int cfg_max_leaves = -1, float cfg_max_features = 1.0f,
                      int cfg_n_bins = 8, int cfg_split_algo = SPLIT_ALGO::HIST,
-                     int cfg_min_rows_per_node = 2,
+                     int cfg_min_samples_leaf = 1,
+                     int cfg_min_samples_split = 2,
                      float cfg_min_impurity_decrease = 0.0f,
                      bool cfg_bootstrap_features = false,
                      CRITERION cfg_split_criterion = CRITERION_END,
@@ -138,23 +145,32 @@ struct TreeMetaDataNode {
 };
 
 /**
- * @brief Print high-level tree information.
+ * @brief Obtain high-level tree information.
  * @tparam T: data type for input data (float or double).
  * @tparam L: data type for labels (int type for classification, T type for regression).
  * @param[in] tree: CPU pointer to TreeMetaDataNode
+ * @return High-level tree information as string
  */
 template <class T, class L>
-void print_tree_summary(const TreeMetaDataNode<T, L> *tree);
+std::string get_tree_summary_text(const TreeMetaDataNode<T, L> *tree);
 
 /**
- * @brief Print detailed tree information.
+ * @brief Obtain detailed tree information.
  * @tparam T: data type for input data (float or double).
  * @tparam L: data type for labels (int type for classification, T type for regression).
  * @param[in] tree: CPU pointer to TreeMetaDataNode
+ * @return Detailed tree information as string
  */
 template <class T, class L>
-void print_tree(const TreeMetaDataNode<T, L> *tree);
+std::string get_tree_text(const TreeMetaDataNode<T, L> *tree);
 
+/**
+ * @brief Export tree as a JSON string
+ * @tparam T: data type for input data (float or double).
+ * @tparam L: data type for labels (int type for classification, T type for regression).
+ * @param[in] tree: CPU pointer to TreeMetaDataNode
+ * @return Tree structure as JSON stsring
+ */
 template <class T, class L>
 std::string dump_tree_as_json(const TreeMetaDataNode<T, L> *tree);
 

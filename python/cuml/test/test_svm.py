@@ -19,6 +19,7 @@ from numba import cuda
 
 import cuml
 import cuml.svm as cu_svm
+from cuml.common import input_to_cuml_array
 from cuml.test.utils import unit_param, quality_param, stress_param
 
 from sklearn import svm
@@ -330,7 +331,13 @@ def compare_probabilistic_svm(svc1, svc2, X_test, y_test, tol=1e-3,
     assert brier1 - brier2 <= brier_tol
 
 
-def test_svm_skl_cmp_predict_proba(n_rows=10000, n_cols=20):
+# Probabilisic SVM uses scikit-learn's CalibratedClassifierCV, and therefore
+# the input array is converted to numpy under the hood. We explicitly test for
+# all supported input types, to avoid errors like
+# https://github.com/rapidsai/cuml/issues/3090
+@pytest.mark.parametrize('in_type', ['numpy', 'numba', 'cudf', 'cupy',
+                                     'pandas', 'cuml'])
+def test_svm_skl_cmp_predict_proba(in_type, n_rows=10000, n_cols=20):
     params = {'kernel': 'rbf', 'C': 1, 'tol': 1e-3, 'gamma': 'scale',
               'probability': True}
     X, y = make_classification(n_samples=n_rows, n_features=n_cols,
@@ -338,8 +345,12 @@ def test_svm_skl_cmp_predict_proba(n_rows=10000, n_cols=20):
                                random_state=137)
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.8,
                                                         random_state=42)
+
+    X_m = input_to_cuml_array(X_train).array
+    y_m = input_to_cuml_array(y_train).array
+
     cuSVC = cu_svm.SVC(**params)
-    cuSVC.fit(X_train, y_train)
+    cuSVC.fit(X_m.to_output(in_type), y_m.to_output(in_type))
     sklSVC = svm.SVC(**params)
     sklSVC.fit(X_train, y_train)
     compare_probabilistic_svm(cuSVC, sklSVC, X_test, y_test, 1e-3, 1e-2)

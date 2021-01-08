@@ -22,7 +22,7 @@ from cuml.test.utils import get_pattern, unit_param, \
     quality_param, stress_param, array_equal
 
 from sklearn.cluster import DBSCAN as skDBSCAN
-from sklearn.datasets.samples_generator import make_blobs
+from sklearn.datasets import make_blobs
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import adjusted_rand_score
 

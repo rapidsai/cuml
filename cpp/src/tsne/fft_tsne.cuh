@@ -33,8 +33,69 @@
 #include "fft_kernels.cuh"
 #include "utils.cuh"
 
+
 namespace ML {
 namespace TSNE {
+
+
+template<typename T>
+cufftResult CUFFTAPI cufft_MakePlanMany(cufftHandle plan,
+                                        T rank,
+                                        T *n,
+                                        T *inembed, T istride, T idist,
+                                        T *onembed, T ostride, T odist,
+                                        cufftType type,
+                                        T batch,
+                                        size_t *workSize);
+
+cufftResult CUFFTAPI cufft_MakePlanMany(cufftHandle plan,
+                                        int rank,
+                                        int64_t *n,
+                                        int64_t *inembed,
+                                        int64_t istride,
+                                        int64_t idist,
+                                        int64_t *onembed,
+                                        int64_t ostride,
+                                        int64_t odist,
+                                        cufftType type,
+                                        int64_t batch,
+                                        size_t *workSize) {
+  return cufftMakePlanMany64(plan, rank,
+                             reinterpret_cast<long long int *>(n),
+                             reinterpret_cast<long long int *>(inembed),
+                             static_cast<long long int>(istride),
+                             static_cast<long long int >(idist),
+                             reinterpret_cast<long long int *>(onembed),
+                             static_cast<long long int >(ostride),
+                             static_cast<long long int>(odist),
+                             type,
+                             static_cast<long long int>(batch), workSize);
+
+}
+cufftResult CUFFTAPI cufft_MakePlanMany(cufftHandle plan,
+                                        int rank,
+                                        int *n,
+                                        int *inembed, int istride, int idist,
+                                        int *onembed, int ostride, int odist,
+                                        cufftType type,
+                                        int batch,
+                                        size_t *workSize) {
+  return cufftMakePlanMany(plan,
+                           rank,
+                           n,
+                           inembed,
+                           istride,
+                           idist,
+                           onembed,
+                           ostride,
+                           odist,
+                           type,
+                           batch,
+                           workSize);
+
+}
+
+
 
 /**
  * @brief Fast Dimensionality reduction via TSNE using the Barnes Hut O(NlogN) approximation.
@@ -57,8 +118,9 @@ namespace TSNE {
  * @param[in] random_state: Set this to -1 for random intializations or >= 0 to see the PRNG.
  * @param[in] initialize_embeddings: Whether to overwrite the current Y vector with random noise.
  */
-void FFT_TSNE(float *VAL, const int *COL, const int *ROW, const int NNZ,
-              const raft::handle_t &handle, float *Y, const int n,
+template <typename value_idx, typename value_t>
+void FFT_TSNE(value_t *VAL, const value_idx *COL, const value_idx *ROW, const value_idx NNZ,
+              const raft::handle_t &handle, value_t *Y, const value_idx n,
               const float early_exaggeration, const float late_exaggeration,
               const int exaggeration_iter, const float pre_learning_rate,
               const float post_learning_rate, const int max_iter,
@@ -79,11 +141,11 @@ void FFT_TSNE(float *VAL, const int *COL, const int *ROW, const int NNZ,
       ? 2
       : dev_major_version == 5 ? 1 : dev_major_version == 3 ? 2 : 3;
 
-  constexpr int n_interpolation_points = 3;
-  constexpr int min_num_intervals = 50;
+  constexpr value_idx n_interpolation_points = 3;
+  constexpr value_idx min_num_intervals = 50;
   // The number of "charges" or s+2 sums i.e. number of kernel sums
-  constexpr int n_terms = 4;
-  int n_boxes_per_dim = min_num_intervals;
+  constexpr value_idx n_terms = 4;
+  value_idx n_boxes_per_dim = min_num_intervals;
 
   // FFTW is faster on numbers that can be written as 2^a 3^b 5^c 7^d 11^e 13^f
   // where e+f is either 0 or 1, and the other exponents are arbitrary
@@ -92,81 +154,81 @@ void FFT_TSNE(float *VAL, const int *COL, const int *ROW, const int NNZ,
                                      120, 130, 140, 150, 175, 200};
   if (n_boxes_per_dim < allowed_n_boxes_per_dim[19]) {
     // Round up to nearest grid point
-    int chosen_i = 0;
+    value_idx chosen_i = 0;
     while (allowed_n_boxes_per_dim[chosen_i] < n_boxes_per_dim) chosen_i++;
     n_boxes_per_dim = allowed_n_boxes_per_dim[chosen_i];
   }
 
-  int n_total_boxes = n_boxes_per_dim * n_boxes_per_dim;
-  int total_interpolation_points =
+  value_idx n_total_boxes = n_boxes_per_dim * n_boxes_per_dim;
+  value_idx total_interpolation_points =
     n_total_boxes * n_interpolation_points * n_interpolation_points;
-  int n_fft_coeffs_half = n_interpolation_points * n_boxes_per_dim;
-  int n_fft_coeffs = 2 * n_interpolation_points * n_boxes_per_dim;
-  int n_interpolation_points_1d = n_interpolation_points * n_boxes_per_dim;
+  value_idx n_fft_coeffs_half = n_interpolation_points * n_boxes_per_dim;
+  value_idx n_fft_coeffs = 2 * n_interpolation_points * n_boxes_per_dim;
+  value_idx n_interpolation_points_1d = n_interpolation_points * n_boxes_per_dim;
 
 #define DB(type, name, size) \
   MLCommon::device_buffer<type> name(d_alloc, stream, size)
 
-  DB(float, repulsive_forces_device, n * 2);
+  DB(value_t, repulsive_forces_device, n * 2);
   MLCommon::LinAlg::zero(repulsive_forces_device.data(),
                          repulsive_forces_device.size(), stream);
-  DB(float, attractive_forces_device, n * 2);
-  DB(float, gains_device, n * 2);
+  DB(value_t, attractive_forces_device, n * 2);
+  DB(value_t, gains_device, n * 2);
   auto gains_device_thrust = thrust::device_pointer_cast(gains_device.data());
   thrust::fill(thrust::cuda::par.on(stream), gains_device_thrust,
                gains_device_thrust + n * 2, 1.0f);
-  DB(float, old_forces_device, n * 2);
+  DB(value_t, old_forces_device, n * 2);
   MLCommon::LinAlg::zero(old_forces_device.data(), old_forces_device.size(),
                          stream);
-  DB(float, normalization_vec_device, n);
-  DB(int, point_box_idx_device, n);
-  DB(float, x_in_box_device, n);
-  DB(float, y_in_box_device, n);
-  DB(float, y_tilde_values, total_interpolation_points *n_terms);
-  DB(float, x_interpolated_values_device, n *n_interpolation_points);
-  DB(float, y_interpolated_values_device, n *n_interpolation_points);
-  DB(float, potentialsQij_device, n *n_terms);
-  DB(float, w_coefficients_device, total_interpolation_points *n_terms);
-  DB(float, all_interpolated_values_device,
+  DB(value_t, normalization_vec_device, n);
+  DB(value_idx, point_box_idx_device, n);
+  DB(value_t, x_in_box_device, n);
+  DB(value_t, y_in_box_device, n);
+  DB(value_t, y_tilde_values, total_interpolation_points *n_terms);
+  DB(value_t, x_interpolated_values_device, n *n_interpolation_points);
+  DB(value_t, y_interpolated_values_device, n *n_interpolation_points);
+  DB(value_t, potentialsQij_device, n *n_terms);
+  DB(value_t, w_coefficients_device, total_interpolation_points *n_terms);
+  DB(value_t, all_interpolated_values_device,
      n_terms *n_interpolation_points *n_interpolation_points *n);
-  DB(float, output_values,
+  DB(value_t, output_values,
      n_terms *n_interpolation_points *n_interpolation_points *n);
-  DB(int, all_interpolated_indices,
+  DB(value_t, all_interpolated_indices,
      n_terms *n_interpolation_points *n_interpolation_points *n);
-  DB(int, output_indices,
+  DB(value_t, output_indices,
      n_terms *n_interpolation_points *n_interpolation_points *n);
-  DB(float, chargesQij_device, n *n_terms);
-  DB(float, box_lower_bounds_device, 2 * n_total_boxes);
-  DB(float, kernel_tilde_device, n_fft_coeffs *n_fft_coeffs);
+  DB(value_t, chargesQij_device, n *n_terms);
+  DB(value_t, box_lower_bounds_device, 2 * n_total_boxes);
+  DB(value_t, kernel_tilde_device, n_fft_coeffs *n_fft_coeffs);
   DB(cufftComplex, fft_kernel_tilde_device,
      2 * n_interpolation_points_1d * 2 * n_interpolation_points_1d);
-  DB(float, fft_input, n_terms *n_fft_coeffs *n_fft_coeffs);
+  DB(value_t, fft_input, n_terms *n_fft_coeffs *n_fft_coeffs);
   DB(cufftComplex, fft_w_coefficients,
      n_terms * n_fft_coeffs * (n_fft_coeffs / 2 + 1));
-  DB(float, fft_output, n_terms *n_fft_coeffs *n_fft_coeffs);
-  DB(float, sum_d, 1);
+  DB(value_t, fft_output, n_terms *n_fft_coeffs *n_fft_coeffs);
+  DB(value_t, sum_d, 1);
 
-  float h = 1.0f / n_interpolation_points;
-  float y_tilde_spacings[n_interpolation_points];
+  value_t h = 1.0f / n_interpolation_points;
+  value_t y_tilde_spacings[n_interpolation_points];
   y_tilde_spacings[0] = h / 2;
-  for (int i = 1; i < n_interpolation_points; i++) {
+  for (value_idx i = 1; i < n_interpolation_points; i++) {
     y_tilde_spacings[i] = y_tilde_spacings[i - 1] + h;
   }
   float denominator[n_interpolation_points];
-  for (int i = 0; i < n_interpolation_points; i++) {
+  for (value_idx i = 0; i < n_interpolation_points; i++) {
     denominator[i] = 1;
-    for (int j = 0; j < n_interpolation_points; j++) {
+    for (value_idx j = 0; j < n_interpolation_points; j++) {
       if (i != j) {
         denominator[i] *= y_tilde_spacings[i] - y_tilde_spacings[j];
       }
     }
   }
 
-  DB(float, y_tilde_spacings_device, n_interpolation_points);
+  DB(value_t, y_tilde_spacings_device, n_interpolation_points);
   CUDA_CHECK(cudaMemcpyAsync(y_tilde_spacings_device.data(), y_tilde_spacings,
                              n_interpolation_points * sizeof(*y_tilde_spacings),
                              cudaMemcpyHostToDevice, stream));
-  DB(float, denominator_device, n_interpolation_points);
+  DB(value_t, denominator_device, n_interpolation_points);
   CUDA_CHECK(cudaMemcpyAsync(denominator_device.data(), denominator,
                              n_interpolation_points * sizeof(*denominator),
                              cudaMemcpyHostToDevice, stream));
@@ -177,13 +239,13 @@ void FFT_TSNE(float *VAL, const int *COL, const int *ROW, const int NNZ,
   raft::CuFFTHandle plan_idft;
 
   size_t work_size, work_size_dft, work_size_idft;
-  int fft_dimensions[2] = {n_fft_coeffs, n_fft_coeffs};
+  value_idx fft_dimensions[2] = {n_fft_coeffs, n_fft_coeffs};
   CUFFT_TRY(cufftMakePlan2d(plan_kernel_tilde, fft_dimensions[0],
                             fft_dimensions[1], CUFFT_R2C, &work_size));
-  CUFFT_TRY(cufftMakePlanMany(
+  CUFFT_TRY(cufft_MakePlanMany(
     plan_dft, 2, fft_dimensions, NULL, 1, n_fft_coeffs * n_fft_coeffs, NULL, 1,
     n_fft_coeffs * (n_fft_coeffs / 2 + 1), CUFFT_R2C, n_terms, &work_size_dft));
-  CUFFT_TRY(cufftMakePlanMany(plan_idft, 2, fft_dimensions, NULL, 1,
+  CUFFT_TRY(cufft_MakePlanMany(plan_idft, 2, fft_dimensions, NULL, 1,
                               n_fft_coeffs * (n_fft_coeffs / 2 + 1), NULL, 1,
                               n_fft_coeffs * n_fft_coeffs, CUFFT_C2R, n_terms,
                               &work_size_idft));
@@ -192,9 +254,9 @@ void FFT_TSNE(float *VAL, const int *COL, const int *ROW, const int NNZ,
     random_vector(Y, -0.0001f, 0.0001f, n * 2, stream, random_state);
   }
 
-  float momentum = pre_momentum;
-  float learning_rate = pre_learning_rate;
-  float exaggeration = early_exaggeration;
+  value_t momentum = pre_momentum;
+  value_t learning_rate = pre_learning_rate;
+  value_t exaggeration = early_exaggeration;
 
   for (int iter = 0; iter < max_iter; iter++) {
     MLCommon::LinAlg::zero(w_coefficients_device.data(),
@@ -213,7 +275,7 @@ void FFT_TSNE(float *VAL, const int *COL, const int *ROW, const int NNZ,
 
     {  // Compute charges Q_ij
       const int num_threads = 1024;
-      const int num_blocks = raft::ceildiv(n, num_threads);
+      const int num_blocks = raft::ceildiv(n, (value_idx)num_threads);
       FFT::compute_chargesQij<<<num_blocks, num_threads, 0, stream>>>(
         chargesQij_device.data(), Y, Y + n, n, n_terms);
       CUDA_CHECK(cudaPeekAtLastError());
@@ -222,17 +284,17 @@ void FFT_TSNE(float *VAL, const int *COL, const int *ROW, const int NNZ,
     auto y_thrust = thrust::device_pointer_cast(Y);
     auto minimax_iter = thrust::minmax_element(thrust::cuda::par.on(stream),
                                                y_thrust, y_thrust + n * 2);
-    float min_coord = *minimax_iter.first;
-    float max_coord = *minimax_iter.second;
-    float box_width =
-      (max_coord - min_coord) / static_cast<float>(n_boxes_per_dim);
+    value_t min_coord = *minimax_iter.first;
+    value_t max_coord = *minimax_iter.second;
+    value_t box_width =
+      (max_coord - min_coord) / static_cast<value_t>(n_boxes_per_dim);
 
     //// Precompute FFT
 
     {  // Left and right bounds of each box, first the lower bounds in the x
       // direction, then in the y direction
       const int num_threads = 32;
-      const int num_blocks = raft::ceildiv(n_total_boxes, num_threads);
+      const int num_blocks = raft::ceildiv(n_total_boxes, (value_idx)num_threads);
       FFT::compute_bounds<<<num_blocks, num_threads, 0, stream>>>(
         box_lower_bounds_device.data(), box_width, min_coord, min_coord,
         n_boxes_per_dim, n_total_boxes);
@@ -242,10 +304,10 @@ void FFT_TSNE(float *VAL, const int *COL, const int *ROW, const int NNZ,
     {  // Evaluate the kernel at the interpolation nodes and form the embedded
       // generating kernel vector for a circulant matrix.
       // Coordinates of all the equispaced interpolation points
-      float h = box_width / n_interpolation_points;
+      value_t h = box_width / n_interpolation_points;
       const int num_threads = 32;
       const int num_blocks = raft::ceildiv(
-        n_interpolation_points_1d * n_interpolation_points_1d, num_threads);
+        n_interpolation_points_1d * n_interpolation_points_1d, (value_idx)num_threads);
       FFT::compute_kernel_tilde<<<num_blocks, num_threads, 0, stream>>>(
         kernel_tilde_device.data(), min_coord, min_coord, h,
         n_interpolation_points_1d, n_fft_coeffs);
@@ -262,7 +324,7 @@ void FFT_TSNE(float *VAL, const int *COL, const int *ROW, const int NNZ,
     {
       const int num_threads = 128;
 
-      int num_blocks = raft::ceildiv(n, num_threads);
+      int num_blocks = raft::ceildiv(n, (value_idx) num_threads);
       FFT::compute_point_box_idx<<<num_blocks, num_threads, 0, stream>>>(
         point_box_idx_device.data(), x_in_box_device.data(),
         y_in_box_device.data(), Y, Y + n, box_lower_bounds_device.data(),
@@ -274,7 +336,7 @@ void FFT_TSNE(float *VAL, const int *COL, const int *ROW, const int NNZ,
 
       // Compute the interpolated values at each real point with each Lagrange
       // polynomial in the `x` direction
-      num_blocks = raft::ceildiv(n * n_interpolation_points, num_threads);
+      num_blocks = raft::ceildiv(n * n_interpolation_points, (value_idx)num_threads);
       FFT::interpolate_device<<<num_blocks, num_threads, 0, stream>>>(
         x_interpolated_values_device.data(), x_in_box_device.data(),
         y_tilde_spacings_device.data(), denominator_device.data(),
@@ -290,7 +352,7 @@ void FFT_TSNE(float *VAL, const int *COL, const int *ROW, const int NNZ,
 
       num_blocks = raft::ceildiv(
         n_terms * n_interpolation_points * n_interpolation_points * n,
-        num_threads);
+        (value_idx)num_threads);
       FFT::compute_interpolated_indices<<<num_blocks, num_threads, 0, stream>>>(
         w_coefficients_device.data(), point_box_idx_device.data(),
         chargesQij_device.data(), x_interpolated_values_device.data(),
@@ -301,7 +363,7 @@ void FFT_TSNE(float *VAL, const int *COL, const int *ROW, const int NNZ,
       // Step 2: Compute the values v_{m, n} at the equispaced nodes, multiply
       // the kernel matrix with the coefficients w
       num_blocks = raft::ceildiv(
-        n_terms * n_fft_coeffs_half * n_fft_coeffs_half, num_threads);
+        n_terms * n_fft_coeffs_half * n_fft_coeffs_half, (value_idx)num_threads);
       FFT::copy_to_fft_input<<<num_blocks, num_threads, 0, stream>>>(
         fft_input.data(), w_coefficients_device.data(), n_fft_coeffs,
         n_fft_coeffs_half, n_terms);
@@ -315,9 +377,9 @@ void FFT_TSNE(float *VAL, const int *COL, const int *ROW, const int NNZ,
       // Take the broadcasted Hadamard product of a complex matrix and a complex
       // vector.
       {
-        const int nn = n_fft_coeffs * (n_fft_coeffs / 2 + 1);
+        const value_idx nn = n_fft_coeffs * (n_fft_coeffs / 2 + 1);
         const int num_threads = 32;
-        const int num_blocks = raft::ceildiv(nn * n_terms, num_threads);
+        const int num_blocks = raft::ceildiv(nn * n_terms, (value_idx)num_threads);
         FFT::broadcast_column_vector<<<num_blocks, num_threads, 0, stream>>>(
           fft_w_coefficients.data(), fft_kernel_tilde_device.data(), nn,
           n_terms);
@@ -335,8 +397,8 @@ void FFT_TSNE(float *VAL, const int *COL, const int *ROW, const int NNZ,
       // Step 3: Compute the potentials \tilde{\phi}
       num_blocks = raft::ceildiv(
         n_terms * n_interpolation_points * n_interpolation_points * n,
-        num_threads);
-      FFT::compute_potential_indices<n_terms, n_interpolation_points>
+        (value_idx)num_threads);
+      FFT::compute_potential_indices<value_idx, value_t, n_terms, n_interpolation_points>
         <<<num_blocks, num_threads, 0, stream>>>(
           potentialsQij_device.data(), point_box_idx_device.data(),
           y_tilde_values.data(), x_interpolated_values_device.data(),
@@ -344,28 +406,28 @@ void FFT_TSNE(float *VAL, const int *COL, const int *ROW, const int NNZ,
       CUDA_CHECK(cudaPeekAtLastError());
     }
 
-    float normalization;
+    value_t normalization;
     {  // Compute repulsive forces
       // Make the negative term, or F_rep in the equation 3 of the paper.
       const int num_threads = 1024;
-      const int num_blocks = raft::ceildiv(n, num_threads);
+      const int num_blocks = raft::ceildiv(n, (value_idx)num_threads);
       FFT::
         compute_repulsive_forces_kernel<<<num_blocks, num_threads, 0, stream>>>(
           repulsive_forces_device.data(), normalization_vec_device.data(), Y,
           Y + n, potentialsQij_device.data(), n, n_terms);
       CUDA_CHECK(cudaPeekAtLastError());
 
-      raft::stats::sum(sum_d.data(), normalization_vec_device.data(), 1, n,
+      raft::stats::sum(sum_d.data(), normalization_vec_device.data(), (value_idx)1, n,
                        true, stream);
-      float sumQ;
-      CUDA_CHECK(cudaMemcpyAsync(&sumQ, sum_d.data(), sizeof(float),
+      value_t sumQ;
+      CUDA_CHECK(cudaMemcpyAsync(&sumQ, sum_d.data(), sizeof(value_t),
                                  cudaMemcpyDeviceToHost, stream));
       normalization = sumQ - n;
     }
 
     {  // Compute attractive forces
       const int num_threads = 1024;
-      const int num_blocks = raft::ceildiv(NNZ, num_threads);
+      const int num_blocks = raft::ceildiv(NNZ, (value_idx)num_threads);
       FFT::compute_Pij_x_Qij_kernel<<<num_blocks, num_threads, 0, stream>>>(
         attractive_forces_device.data(), VAL, ROW, COL, Y, n, NNZ);
       CUDA_CHECK(cudaPeekAtLastError());

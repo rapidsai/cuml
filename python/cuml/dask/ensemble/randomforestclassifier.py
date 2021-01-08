@@ -42,8 +42,8 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
         and predict are all consistent
      * Training data comes in the form of cuDF dataframes or Dask Arrays \
         distributed so that each worker has at least one partition.
-     * The print_summary and print_detailed functions print the \
-        information of the forest on the worker.
+     * The get_summary_text and get_detailed_text functions provides the \
+        text representation of the forest on the worker.
 
     Future versions of the API will support more flexible data
     distribution and additional input types.
@@ -87,11 +87,11 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
         Control bootstrapping.
         If set, each tree in the forest is built
         on a bootstrapped sample with replacement.
-        If false, sampling without replacement is done.
+        If False, the whole dataset is used to build each tree.
     bootstrap_features : boolean (default = False)
         Control bootstrapping for features.
         If features are drawn with or without replacement
-    rows_sample : float (default = 1.0)
+    max_samples : float (default = 1.0)
         Ratio of dataset rows used while fitting each tree.
     max_depth : int (default = -1)
         Maximum tree depth. Unlimited (i.e, until leaves are pure), if -1.
@@ -102,8 +102,18 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
         per node split.
     n_bins : int (default = 8)
         Number of bins used by the split algorithm.
-    min_rows_per_node : int (default = 2)
-        The minimum number of samples (rows) needed to split a node.
+    min_samples_leaf : int or float (default = 1)
+        The minimum number of samples (rows) in each leaf node.
+        If int, then min_samples_leaf represents the minimum number.
+        If float, then min_samples_leaf represents a fraction and
+        ceil(min_samples_leaf * n_rows) is the minimum number of samples
+        for each leaf node.
+    min_samples_split : int or float (default = 2)
+        The minimum number of samples required to split an internal node.
+        If int, then min_samples_split represents the minimum number.
+        If float, then min_samples_split represents a fraction and
+        ceil(min_samples_split * n_rows) is the minimum number of samples
+        for each split.
     quantile_per_tree : boolean (default = False)
         Whether quantile is computed for individual RF trees.
         Only relevant for GLOBAL_QUANTILE split_algo.
@@ -190,21 +200,17 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
     def _predict_model_on_cpu(model, X, convert_dtype):
         return model._predict_get_all(X, convert_dtype)
 
-    def print_summary(self):
+    def get_summary_text(self):
         """
-        Print the summary of the forest used to train the model
-        on each worker. This information is displayed on the
-        individual workers and not the client.
+        Obtain the text summary of the random forest model
         """
-        return self._print_summary()
+        return self._get_summary_text()
 
-    def print_detailed(self):
+    def get_detailed_text(self):
         """
-        Print detailed information of the forest used to train
-        the model on each worker. This information is displayed on the
-        workers and not the client.
+        Obtain the detailed information for the random forest model, as text
         """
-        return self._print_detailed()
+        return self._get_detailed_text()
 
     def fit(self, X, y, convert_dtype=False):
         """
