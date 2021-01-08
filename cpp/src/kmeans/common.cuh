@@ -342,8 +342,7 @@ void minClusterAndDistance(
           minClusterAndDistanceView.data(), datasetView.data(),
           centroidsView.data(), L2NormXView.data(), centroidsNormView.data(),
           ns, nc, n_features, (void *)workspace.data(), redOp,
-          (metric == raft::distance::DistanceType::L2Expanded) ? false
-                                                                  : true,
+          (metric == raft::distance::DistanceType::L2Expanded) ? false : true,
           false, stream);
       } else {
         // pairwiseDistanceView [ns x nc] - view representing the pairwise
@@ -458,8 +457,7 @@ void minClusterDistance(const raft::handle_t &handle,
           minClusterDistanceView.data(), datasetView.data(),
           centroidsView.data(), L2NormXView.data(), centroidsNormView.data(),
           ns, nc, n_features, (void *)workspace.data(), redOp,
-          (metric == raft::distance::DistanceType::L2Expanded) ? false
-                                                                  : true,
+          (metric == raft::distance::DistanceType::L2Expanded) ? false : true,
           false, stream);
       } else {
         // pairwiseDistanceView [ns x nc] - view representing the pairwise
