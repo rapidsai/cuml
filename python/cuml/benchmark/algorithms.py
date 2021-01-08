@@ -193,7 +193,7 @@ def _labels_to_int_hook(data):
 
 def _treelite_format_hook(data):
     """Helper function converting data into treelite format"""
-    return treelite_runtime.Batch.from_npy2d(data[0]), data[1]
+    return treelite_runtime.DMatrix(data[0]), data[1]
 
 
 def all_algorithms():

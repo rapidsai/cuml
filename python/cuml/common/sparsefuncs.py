@@ -176,7 +176,7 @@ def _insert_zeros(ary, zero_indices):
 
 
 @with_cupy_rmm
-def extract_knn_graph(knn_graph, convert_dtype=True):
+def extract_knn_graph(knn_graph, convert_dtype=True, sparse=False):
     """
     Converts KNN graph from CSR, COO and CSC formats into separate
     distance and indice arrays. Input can be a cupy sparse graph (device)
@@ -208,14 +208,16 @@ def extract_knn_graph(knn_graph, convert_dtype=True):
         knn_indices = knn_graph.col
 
     if knn_indices is not None:
+        convert_to_dtype = None
+        if convert_dtype:
+            convert_to_dtype = np.int32 if sparse else np.int64
+
         knn_dists = knn_graph.data
         knn_indices_m, _, _, _ = \
             input_to_cuml_array(knn_indices, order='C',
                                 deepcopy=True,
-                                check_dtype=np.int64,
-                                convert_to_dtype=(np.int64
-                                                  if convert_dtype
-                                                  else None))
+                                check_dtype=(np.int64, np.int32),
+                                convert_to_dtype=convert_to_dtype)
 
         knn_dists_m, _, _, _ = \
             input_to_cuml_array(knn_dists, order='C',

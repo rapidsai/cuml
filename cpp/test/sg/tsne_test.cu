@@ -134,8 +134,11 @@ class TSNETest : public ::testing::Test {
 
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 
-    TSNE::get_distances(X_d.data(), n, p, knn_indices.data(), knn_dists.data(),
-                        90, handle.get_device_allocator(), handle.get_stream());
+    manifold_dense_inputs_t<float> input(X_d.data(), Y_d.data(), n, p);
+    knn_graph<int64_t, float> k_graph(n, 90, knn_indices.data(),
+                                      knn_dists.data());
+
+    TSNE::get_distances(handle, input, k_graph, handle.get_stream());
 
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 

@@ -434,3 +434,36 @@ def test_dump_json(client, estimator_type, max_depth, n_estimators):
             pred.append(predict_with_json_rf_regressor(json_obj, row))
         pred = np.array(pred, dtype=np.float32)
         np.testing.assert_almost_equal(pred, expected_pred, decimal=6)
+
+
+@pytest.mark.parametrize('n_estimators', [5, 10, 20])
+@pytest.mark.parametrize('detailed_text', [True, False])
+def test_rf_get_text(client, n_estimators, detailed_text):
+    X, y = make_classification(n_samples=500, n_features=10,
+                               n_clusters_per_class=1, n_informative=5,
+                               random_state=94929, n_classes=2)
+
+    X = X.astype(np.float32)
+    y = y.astype(np.int32)
+    X, y = _prep_training_data(client, X, y, partitions_per_worker=2)
+
+    cu_rf_mg = cuRFC_mg(n_estimators=n_estimators,
+                        ignore_empty_partitions=True)
+    cu_rf_mg.fit(X, y)
+
+    if detailed_text:
+        text_output = cu_rf_mg.get_detailed_text()
+    else:
+        text_output = cu_rf_mg.get_summary_text()
+
+    # Test 1. Output is non-zero
+    assert '' != text_output
+
+    # Count the number of trees printed
+    tree_count = 0
+    for line in text_output.split('\n'):
+        if line.strip().startswith('Tree #'):
+            tree_count += 1
+
+    # Test 2. Correct number of trees are printed
+    assert n_estimators == tree_count
