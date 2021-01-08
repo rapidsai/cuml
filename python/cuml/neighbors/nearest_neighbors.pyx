@@ -95,8 +95,7 @@ cdef extern from "cuml/neighbors/knn.hpp" namespace "ML":
         bool rowMajorIndex,
         bool rowMajorQuery,
         DistanceType metric,
-        float metric_arg,
-        bool expanded
+        float metric_arg
     ) except +
 
     void approx_knn_build_index(
@@ -139,8 +138,7 @@ cdef extern from "cuml/neighbors/knn_sparse.hpp" namespace "ML::Sparse":
                          size_t batch_size_index,
                          size_t batch_size_query,
                          DistanceType metric,
-                         float metricArg,
-                         bool expanded_form) except +
+                         float metricArg) except +
 
 
 class NearestNeighbors(Base):
@@ -660,8 +658,7 @@ class NearestNeighbors(Base):
                 True,
                 <DistanceType>metric,
                 # minkowski order is currently the only metric argument.
-                <float>self.p,
-                <bool>expanded
+                <float>self.p
             )
         else:
             knn_index = <knnIndex*><uintptr_t> self.knn_index
@@ -736,8 +733,7 @@ class NearestNeighbors(Base):
                         <size_t>batch_size_index,
                         <size_t>batch_size_query,
                         <DistanceType> metric,
-                        <float>self.p,
-                        <bool> expanded)
+                        <float>self.p)
 
         return D_ndarr, I_ndarr
 

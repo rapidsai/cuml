@@ -19,7 +19,7 @@
 #include <cuml/neighbors/knn_sparse.hpp>
 #include <iostream>
 #include <raft/linalg/unary_op.cuh>
-#include <raft/linalg/distance_type.cuh>
+#include <raft/linalg/distance_type.h>
 #include <selection/knn.cuh>
 #include <sparse/selection/knn.cuh>
 
