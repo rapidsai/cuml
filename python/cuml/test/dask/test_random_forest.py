@@ -352,3 +352,53 @@ def test_single_input(client, model_type, ignore_empty_partitions):
     else:
         with pytest.raises(ValueError):
             cu_rf_mg.fit(X, y)
+
+
+@pytest.mark.parametrize('model_type', ['classification', 'regression'])
+@pytest.mark.parametrize('fit_broadcast', [True, False])
+@pytest.mark.parametrize('transform_broadcast', [True, False])
+def test_rf_broadcast(model_type, fit_broadcast, transform_broadcast, client):
+    # Use CUDA_VISIBLE_DEVICES to control the number of workers
+    workers = list(client.scheduler_info()['workers'].keys())
+    n_workers = len(workers)
+
+    if model_type == 'classification':
+        X, y = make_classification(n_samples=n_workers * 1000,
+                                   n_features=20, n_informative=15,
+                                   n_classes=4, n_clusters_per_class=1,
+                                   random_state=123)
+        y = y.astype(np.int32)
+    else:
+        X, y = make_regression(n_samples=n_workers * 1000, n_features=20,
+                               n_informative=10, random_state=123)
+        y = y.astype(np.float32)
+    X = X.astype(np.float32)
+
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y,
+        test_size=n_workers * 100,
+        random_state=123)
+
+    X_train_df, y_train_df = _prep_training_data(client, X_train, y_train, 1)
+    X_test_dask_array = from_array(X_test)
+
+    if model_type == 'classification':
+        cuml_mod = cuRFC_mg(n_estimators=25, max_depth=13, n_bins=15)
+        cuml_mod.fit(X_train_df, y_train_df, broadcast=fit_broadcast)
+        cuml_mod_predict = cuml_mod.predict(X_test_dask_array,
+                                            output_class=True,
+                                            broadcast=transform_broadcast)
+
+        cuml_mod_predict = cuml_mod_predict.compute()
+        acc_score = accuracy_score(cuml_mod_predict, y_test, normalize=True)
+        assert acc_score > 0.7
+
+    else:
+        cuml_mod = cuRFR_mg(n_estimators=50, max_depth=16, n_bins=16)
+        cuml_mod.fit(X_train_df, y_train_df, broadcast=fit_broadcast)
+        cuml_mod_predict = cuml_mod.predict(X_test_dask_array,
+                                            broadcast=transform_broadcast)
+
+        cuml_mod_predict = cp.asnumpy(cp.array(cuml_mod_predict.compute()))
+        acc_score = r2_score(cuml_mod_predict, y_test)
+        assert acc_score >= 0.55
