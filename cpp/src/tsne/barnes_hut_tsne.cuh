@@ -172,7 +172,7 @@ void Barnes_Hut(value_t *VAL, const value_idx *COL, const value_idx *ROW,
 
   value_t momentum = pre_momentum;
   value_t learning_rate = pre_learning_rate;
-  value_t exaggeration = early_exaggeration;
+  //  value_t exaggeration = early_exaggeration;
 
   for (int iter = 0; iter < max_iter; iter++) {
     CUDA_CHECK(cudaMemsetAsync(static_cast<void *>(rep_forces.data()), 0,
@@ -195,7 +195,9 @@ void Barnes_Hut(value_t *VAL, const value_idx *COL, const value_idx *ROW,
       raft::linalg::scalarMultiply(VAL, VAL, div, NNZ, stream);
 
       learning_rate = post_learning_rate;
-      exaggeration = late_exaggeration;
+
+      // TODO: Is this necessary?
+      //      exaggeration = late_exaggeration;
     }
 
     START_TIMER;
@@ -273,10 +275,11 @@ void Barnes_Hut(value_t *VAL, const value_idx *COL, const value_idx *ROW,
 
     START_TIMER;
     BH::IntegrationKernel<<<blocks * FACTOR6, THREADS6, 0, stream>>>(
-      learning_rate, momentum, exaggeration, YY.data(), YY.data() + nnodes + 1,
-      attr_forces.data(), attr_forces.data() + n, rep_forces.data(),
-      rep_forces.data() + nnodes + 1, gains_bh.data(), gains_bh.data() + n,
-      old_forces.data(), old_forces.data() + n, Z_norm.data(), n);
+      learning_rate, momentum, early_exaggeration, YY.data(),
+      YY.data() + nnodes + 1, attr_forces.data(), attr_forces.data() + n,
+      rep_forces.data(), rep_forces.data() + nnodes + 1, gains_bh.data(),
+      gains_bh.data() + n, old_forces.data(), old_forces.data() + n,
+      Z_norm.data(), n);
     CUDA_CHECK(cudaPeekAtLastError());
 
     END_TIMER(IntegrationKernel_time);
