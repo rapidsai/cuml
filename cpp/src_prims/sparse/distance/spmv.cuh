@@ -113,15 +113,15 @@ __global__ void balanced_coo_generalized_spmv_kernel(
   if (tid == 0) {
     offsets_a[0] = indptrA[cur_row_a];
     offsets_a[1] = indptrA[cur_row_a + 1];
+
+    // Create dense vector A and populate with 0s
+    memset(A, 0, buffer_size * sizeof(kv_t));
   }
 
   __syncthreads();
 
   value_idx start_offset_a = offsets_a[0];
   value_idx stop_offset_a = offsets_a[1];
-
-  // Create dense vector A and populate with 0s
-  if (tid == 0) memset(A, 0, buffer_size * sizeof(kv_t));
 
   // Convert current row vector in A to dense
   for (int i = tid; i < (stop_offset_a - start_offset_a); i += blockDim.x) {

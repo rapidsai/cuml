@@ -397,11 +397,11 @@ def test_knn_graph(input_type, nrows, n_feats, p, k, metric, mode,
     else:
         assert isspmatrix_csr(sparse_cu)
 
-@pytest.mark.parametrize("metric", ['l1'])
-@pytest.mark.parametrize('nrows', [50000])
-@pytest.mark.parametrize('ncols', [10000])
-@pytest.mark.parametrize('density', [0.4])
-@pytest.mark.parametrize('n_neighbors', [4])
+@pytest.mark.parametrize("metric", ['chebyshev'])
+@pytest.mark.parametrize('nrows', [500000])
+@pytest.mark.parametrize('ncols', [1000])
+@pytest.mark.parametrize('density', [0.001])
+@pytest.mark.parametrize('n_neighbors', [100])
 @pytest.mark.parametrize('batch_size_index', [40000])
 @pytest.mark.parametrize('batch_size_query', [50000])
 def test_nearest_neighbors_sparse(nrows, ncols,
@@ -415,9 +415,9 @@ def test_nearest_neighbors_sparse(nrows, ncols,
         return
 
     a = cp.sparse.random(nrows, ncols, format='csr', density=density,
-                         random_state=32)
+                         random_state=35)
     b = cp.sparse.random(nrows, ncols, format='csr', density=density,
-                         random_state=34)
+                         random_state=38)
 
     if metric == 'jaccard':
         a = a.astype('bool').astype('float32')
