@@ -204,38 +204,37 @@ class BaseRandomForestModel(object):
         wait_and_raise_from_futures(model_params)
         return self
 
-    def _print_summary(self):
+    def _get_summary_text(self):
         """
-        Print the summary of the forest used to train and test the model.
-        """
-        futures = list()
-        for n, w in enumerate(self.workers):
-            futures.append(
-                self.client.submit(
-                    _print_summary_func,
-                    self.rfs[w],
-                    workers=[w],
-                )
-            )
-
-            wait_and_raise_from_futures(futures)
-        return self
-
-    def _print_detailed(self):
-        """
-        Print the summary of the forest used to train and test the model.
+        Obtain the summary of the forest as text
         """
         futures = list()
         for n, w in enumerate(self.workers):
             futures.append(
                 self.client.submit(
-                    _print_detailed_func,
+                    _get_summary_text_func,
                     self.rfs[w],
                     workers=[w],
                 )
             )
-            wait_and_raise_from_futures(futures)
-        return self
+        all_dump = self.client.gather(futures, errors='raise')
+        return '\n'.join(all_dump)
+
+    def _get_detailed_text(self):
+        """
+        Obtain the detailed information of the forest as text
+        """
+        futures = list()
+        for n, w in enumerate(self.workers):
+            futures.append(
+                self.client.submit(
+                    _get_detailed_text_func,
+                    self.rfs[w],
+                    workers=[w],
+                )
+            )
+        all_dump = self.client.gather(futures, errors='raise')
+        return '\n'.join(all_dump)
 
 
 def _func_fit(model, input_data, convert_dtype):
@@ -244,12 +243,12 @@ def _func_fit(model, input_data, convert_dtype):
     return model.fit(X, y, convert_dtype)
 
 
-def _print_summary_func(model):
-    model.print_summary()
+def _get_summary_text_func(model):
+    return model.get_summary_text()
 
 
-def _print_detailed_func(model):
-    model.print_detailed()
+def _get_detailed_text_func(model):
+    return model.get_detailed_text()
 
 
 def _func_get_params(model, deep):

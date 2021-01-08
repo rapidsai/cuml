@@ -390,7 +390,7 @@ class sparse_knn_t {
         pw_metric = raft::distance::DistanceType::InnerProduct;
         break;
       case ML::MetricType::METRIC_L2:
-        pw_metric = raft::distance::DistanceType::EucExpandedL2;
+        pw_metric = raft::distance::DistanceType::L2Expanded;
         break;
       case ML::MetricType::METRIC_L1:
         pw_metric = raft::distance::DistanceType::EucUnexpandedL1;
