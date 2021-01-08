@@ -370,12 +370,9 @@ __global__ void apply_kernel(
   const float Z,  // sum(Q)
   const float learning_rate,
   const float C,  // constant from T-Dist Degrees of Freedom
-  const float exaggeration,
-  const float momentum,
+  const float exaggeration, const float momentum,
   const value_idx SIZE,  // SIZE = n*dim
-  const value_idx n,
-  const float min_gain,
-  value_t *restrict gradient,
+  const value_idx n, const float min_gain, value_t *restrict gradient,
   const bool check_convergence) {
   const auto index = (blockIdx.x * blockDim.x) + threadIdx.x;
   if (index >= SIZE) return;
@@ -409,18 +406,17 @@ value_t apply_forces(value_t *restrict Y, value_t *restrict velocity,
                      const float Z,  // sum(Q)
                      const float learning_rate,
                      const float C,  // constant from T-dist
-                     const float exaggeration,
-                     const float momentum, const value_idx dim,
-                     const value_idx n, const float min_gain,
-                     value_t *restrict gradient, const bool check_convergence,
-                     cudaStream_t stream) {
+                     const float exaggeration, const float momentum,
+                     const value_idx dim, const value_idx n,
+                     const float min_gain, value_t *restrict gradient,
+                     const bool check_convergence, cudaStream_t stream) {
   //cudaMemset(means, 0, sizeof(float) * dim);
   if (check_convergence)
     CUDA_CHECK(cudaMemsetAsync(gradient, 0, sizeof(value_t) * n * dim, stream));
 
   apply_kernel<<<raft::ceildiv(n * dim, (value_idx)1024), 1024, 0, stream>>>(
-    Y, velocity, attract, repel, means, gains, Z, learning_rate, C,  exaggeration, momentum,
-    n * dim, n, min_gain, gradient, check_convergence);
+    Y, velocity, attract, repel, means, gains, Z, learning_rate, C,
+    exaggeration, momentum, n * dim, n, min_gain, gradient, check_convergence);
   CUDA_CHECK(cudaPeekAtLastError());
 
   // Find sum of gradient norms

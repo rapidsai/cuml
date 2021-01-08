@@ -49,9 +49,6 @@ namespace TSNE {
  * @param[in] random_state: Set this to -1 for pure random intializations or >= 0 for reproducible outputs.
  */
 
-
-
-
 template <typename value_idx, typename value_t>
 void Barnes_Hut(value_t *VAL, const value_idx *COL, const value_idx *ROW,
                 const value_idx NNZ, const raft::handle_t &handle, value_t *Y,
@@ -153,14 +150,14 @@ void Barnes_Hut(value_t *VAL, const value_idx *COL, const value_idx *ROW,
   //---------------------------------------------------
   CUDA_CHECK(cudaFuncSetCacheConfig(BH::BoundingBoxKernel<value_idx, value_t>,
                                     cudaFuncCachePreferShared));
-  CUDA_CHECK(cudaFuncSetCacheConfig(
-    BH::TreeBuildingKernel<value_idx, value_t>, cudaFuncCachePreferL1));
-  CUDA_CHECK(cudaFuncSetCacheConfig(BH::ClearKernel1<value_idx>,
+  CUDA_CHECK(cudaFuncSetCacheConfig(BH::TreeBuildingKernel<value_idx, value_t>,
                                     cudaFuncCachePreferL1));
+  CUDA_CHECK(
+    cudaFuncSetCacheConfig(BH::ClearKernel1<value_idx>, cudaFuncCachePreferL1));
   CUDA_CHECK(cudaFuncSetCacheConfig(BH::ClearKernel2<value_idx, value_t>,
                                     cudaFuncCachePreferL1));
-  CUDA_CHECK(cudaFuncSetCacheConfig(
-    BH::SummarizationKernel<value_idx, value_t>, cudaFuncCachePreferShared));
+  CUDA_CHECK(cudaFuncSetCacheConfig(BH::SummarizationKernel<value_idx, value_t>,
+                                    cudaFuncCachePreferShared));
   CUDA_CHECK(
     cudaFuncSetCacheConfig(BH::SortKernel<value_idx>, cudaFuncCachePreferL1));
   CUDA_CHECK(cudaFuncSetCacheConfig(BH::RepulsionKernel<value_idx, value_t>,
@@ -267,7 +264,8 @@ void Barnes_Hut(value_t *VAL, const value_idx *COL, const value_idx *ROW,
     START_TIMER;
     // TODO: Calculate Kullback-Leibler divergence
     // For general embedding dimensions
-    BH::attractive_kernel_bh<<<raft::ceildiv(NNZ, (value_idx)1024), 1024, 0, stream>>>(
+    BH::attractive_kernel_bh<<<raft::ceildiv(NNZ, (value_idx)1024), 1024, 0,
+                               stream>>>(
       VAL, COL, ROW, YY.data(), YY.data() + nnodes + 1, attr_forces.data(),
       attr_forces.data() + n, NNZ);
     CUDA_CHECK(cudaPeekAtLastError());

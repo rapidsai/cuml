@@ -35,16 +35,13 @@ using namespace ML;
 
 class TSNETest : public ::testing::Test {
  protected:
-
-  void assert_score(double score, char* test) {
-
+  void assert_score(double score, char *test) {
     printf(test);
     if (score < 0.98) printf("score = %f\n", score);
     ASSERT_TRUE(0.98 < score);
   }
 
   double runTest(TSNE_ALGORITHM algo, bool knn = false) {
-
     raft::handle_t handle;
 
     // Allocate memory
@@ -66,40 +63,39 @@ class TSNETest : public ::testing::Test {
     knn_graph<int64_t, float> k_graph(n, 90, knn_indices.data(),
                                       knn_dists.data());
 
-    if(knn)
-      TSNE::get_distances(handle, input, k_graph, handle.get_stream());
+    if (knn) TSNE::get_distances(handle, input, k_graph, handle.get_stream());
 
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 
     // Test Exact TSNE
     TSNE_fit(handle,
-             X_d.data(),  // X
-             Y_d.data(),  // embeddings
-             n,           // n_pts
-             p,           // n_ftr
-             knn ? knn_indices.data() : NULL,        // knn_indices
-             knn ? knn_dists.data() : NULL,        // knn_dists
-             2,           // n_components
-             90,          // k
-             0.5,         // theta
-             0.0025,      // epssq
-             50,          // perplexity
-             100,         // perplex_max_iter
-             1e-5,        // perplex_tol
-             12,          // early_exagg
-             1.0,        // late_exagg
-             250,         // exagg_iter
-             0.01,        // min_gain
-             200,         // pre_learn_rate
-             500,         // post_learn_rate
-             1000,        // max_iter
-             1e-7,        // min_grad_norm
-             0.5,         // pre_momentum
-             0.8,         // post_momentum
-             -1,          // rand_state
-             CUML_LEVEL_DEBUG, // verbosity
-             true,       // init
-             algo);       // algo
+             X_d.data(),                       // X
+             Y_d.data(),                       // embeddings
+             n,                                // n_pts
+             p,                                // n_ftr
+             knn ? knn_indices.data() : NULL,  // knn_indices
+             knn ? knn_dists.data() : NULL,    // knn_dists
+             2,                                // n_components
+             90,                               // k
+             0.5,                              // theta
+             0.0025,                           // epssq
+             50,                               // perplexity
+             100,                              // perplex_max_iter
+             1e-5,                             // perplex_tol
+             12,                               // early_exagg
+             1.0,                              // late_exagg
+             250,                              // exagg_iter
+             0.01,                             // min_gain
+             200,                              // pre_learn_rate
+             500,                              // post_learn_rate
+             1000,                             // max_iter
+             1e-7,                             // min_grad_norm
+             0.5,                              // pre_momentum
+             0.8,                              // post_momentum
+             -1,                               // rand_state
+             CUML_LEVEL_DEBUG,                 // verbosity
+             true,                             // init
+             algo);                            // algo
 
     float *embeddings_h = (float *)malloc(sizeof(float) * n * 2);
     assert(embeddings_h != NULL);
@@ -126,7 +122,7 @@ class TSNETest : public ::testing::Test {
     // Test trustworthiness
     double score =
       trustworthiness_score<float,
-        raft::distance::DistanceType::EucUnexpandedL2Sqrt>(
+                            raft::distance::DistanceType::EucUnexpandedL2Sqrt>(
         X_d.data(), Y_d.data(), n, p, 2, 5, handle.get_device_allocator(),
         handle.get_stream());
 
@@ -149,9 +145,7 @@ class TSNETest : public ::testing::Test {
     knn_score_fft = runTest(TSNE_ALGORITHM::FFT, true);
   }
 
-  void SetUp() override {
-    basicTest();
-  }
+  void SetUp() override { basicTest(); }
 
   void TearDown() override {}
 

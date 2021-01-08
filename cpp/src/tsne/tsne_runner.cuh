@@ -23,9 +23,9 @@
 #include "exact_kernels.cuh"
 #include "utils.cuh"
 
-#include "fft_tsne.cuh"
 #include "barnes_hut_tsne.cuh"
 #include "exact_tsne.cuh"
+#include "fft_tsne.cuh"
 
 namespace ML {
 
@@ -37,13 +37,12 @@ class TSNE_runner {
               const float theta_, const float epssq_, float perplexity_,
               const int perplexity_max_iter_, const float perplexity_tol_,
               const float early_exaggeration_, const float late_exaggeration_,
-              const int exaggeration_iter_,
-              const float min_gain_, const float pre_learning_rate_,
-              const float post_learning_rate_, const int max_iter_,
-              const float min_grad_norm_, const float pre_momentum_,
-              const float post_momentum_, const long long random_state_,
-              int verbosity_, const bool initialize_embeddings_,
-              TSNE_ALGORITHM algorithm_)
+              const int exaggeration_iter_, const float min_gain_,
+              const float pre_learning_rate_, const float post_learning_rate_,
+              const int max_iter_, const float min_grad_norm_,
+              const float pre_momentum_, const float post_momentum_,
+              const long long random_state_, int verbosity_,
+              const bool initialize_embeddings_, TSNE_ALGORITHM algorithm_)
     : handle(handle_),
       input(input_),
       k_graph(k_graph_),
@@ -77,7 +76,8 @@ class TSNE_runner {
     if (dim > 2 and algorithm != TSNE_ALGORITHM::EXACT) {
       algorithm = TSNE_ALGORITHM::EXACT;
       CUML_LOG_WARN(
-        "Barnes Hut and FFT only work for dim == 2. Switching to exact solution.");
+        "Barnes Hut and FFT only work for dim == 2. Switching to exact "
+        "solution.");
     }
     if (n_neighbors > n) n_neighbors = n;
     if (n_neighbors > 1023) {
@@ -111,24 +111,25 @@ class TSNE_runner {
 
     switch (algorithm) {
       case TSNE_ALGORITHM::BARNES_HUT:
-        TSNE::Barnes_Hut(VAL, COL, ROW, NNZ, handle, Y, n, theta, epssq,
-                         early_exaggeration, late_exaggeration, exaggeration_iter,
-                         min_gain, pre_learning_rate, post_learning_rate,
-                         max_iter, min_grad_norm, pre_momentum, post_momentum,
-                         random_state, initialize_embeddings);
+        TSNE::Barnes_Hut(
+          VAL, COL, ROW, NNZ, handle, Y, n, theta, epssq, early_exaggeration,
+          late_exaggeration, exaggeration_iter, min_gain, pre_learning_rate,
+          post_learning_rate, max_iter, min_grad_norm, pre_momentum,
+          post_momentum, random_state, initialize_embeddings);
         break;
       case TSNE_ALGORITHM::FFT:
         TSNE::FFT_TSNE(VAL, COL, ROW, NNZ, handle, Y, n, early_exaggeration,
                        late_exaggeration, exaggeration_iter, pre_learning_rate,
-                       post_learning_rate, max_iter, min_grad_norm, pre_momentum,
-                       post_momentum, random_state, initialize_embeddings);
+                       post_learning_rate, max_iter, min_grad_norm,
+                       pre_momentum, post_momentum, random_state,
+                       initialize_embeddings);
         break;
       case TSNE_ALGORITHM::EXACT:
-        TSNE::Exact_TSNE(VAL, COL, ROW, NNZ, handle, Y, n, dim,
-                         early_exaggeration, late_exaggeration, exaggeration_iter,
-                         min_gain, pre_learning_rate, post_learning_rate,
-                         max_iter, min_grad_norm, pre_momentum, post_momentum,
-                         random_state, initialize_embeddings);
+        TSNE::Exact_TSNE(
+          VAL, COL, ROW, NNZ, handle, Y, n, dim, early_exaggeration,
+          late_exaggeration, exaggeration_iter, min_gain, pre_learning_rate,
+          post_learning_rate, max_iter, min_grad_norm, pre_momentum,
+          post_momentum, random_state, initialize_embeddings);
         break;
     }
   }

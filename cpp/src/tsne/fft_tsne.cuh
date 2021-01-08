@@ -33,69 +33,38 @@
 #include "fft_kernels.cuh"
 #include "utils.cuh"
 
-
 namespace ML {
 namespace TSNE {
 
-
-template<typename T>
-cufftResult CUFFTAPI cufft_MakePlanMany(cufftHandle plan,
-                                        T rank,
-                                        T *n,
+template <typename T>
+cufftResult CUFFTAPI cufft_MakePlanMany(cufftHandle plan, T rank, T *n,
                                         T *inembed, T istride, T idist,
                                         T *onembed, T ostride, T odist,
-                                        cufftType type,
-                                        T batch,
+                                        cufftType type, T batch,
                                         size_t *workSize);
 
-cufftResult CUFFTAPI cufft_MakePlanMany(cufftHandle plan,
-                                        int rank,
-                                        int64_t *n,
-                                        int64_t *inembed,
-                                        int64_t istride,
-                                        int64_t idist,
-                                        int64_t *onembed,
-                                        int64_t ostride,
-                                        int64_t odist,
-                                        cufftType type,
-                                        int64_t batch,
+cufftResult CUFFTAPI cufft_MakePlanMany(cufftHandle plan, int rank, int64_t *n,
+                                        int64_t *inembed, int64_t istride,
+                                        int64_t idist, int64_t *onembed,
+                                        int64_t ostride, int64_t odist,
+                                        cufftType type, int64_t batch,
                                         size_t *workSize) {
-  return cufftMakePlanMany64(plan, rank,
-                             reinterpret_cast<long long int *>(n),
-                             reinterpret_cast<long long int *>(inembed),
-                             static_cast<long long int>(istride),
-                             static_cast<long long int >(idist),
-                             reinterpret_cast<long long int *>(onembed),
-                             static_cast<long long int >(ostride),
-                             static_cast<long long int>(odist),
-                             type,
-                             static_cast<long long int>(batch), workSize);
-
+  return cufftMakePlanMany64(
+    plan, rank, reinterpret_cast<long long int *>(n),
+    reinterpret_cast<long long int *>(inembed),
+    static_cast<long long int>(istride), static_cast<long long int>(idist),
+    reinterpret_cast<long long int *>(onembed),
+    static_cast<long long int>(ostride), static_cast<long long int>(odist),
+    type, static_cast<long long int>(batch), workSize);
 }
-cufftResult CUFFTAPI cufft_MakePlanMany(cufftHandle plan,
-                                        int rank,
-                                        int *n,
+cufftResult CUFFTAPI cufft_MakePlanMany(cufftHandle plan, int rank, int *n,
                                         int *inembed, int istride, int idist,
                                         int *onembed, int ostride, int odist,
-                                        cufftType type,
-                                        int batch,
+                                        cufftType type, int batch,
                                         size_t *workSize) {
-  return cufftMakePlanMany(plan,
-                           rank,
-                           n,
-                           inembed,
-                           istride,
-                           idist,
-                           onembed,
-                           ostride,
-                           odist,
-                           type,
-                           batch,
-                           workSize);
-
+  return cufftMakePlanMany(plan, rank, n, inembed, istride, idist, onembed,
+                           ostride, odist, type, batch, workSize);
 }
-
-
 
 /**
  * @brief Fast Dimensionality reduction via TSNE using the Barnes Hut O(NlogN) approximation.
@@ -119,14 +88,14 @@ cufftResult CUFFTAPI cufft_MakePlanMany(cufftHandle plan,
  * @param[in] initialize_embeddings: Whether to overwrite the current Y vector with random noise.
  */
 template <typename value_idx, typename value_t>
-void FFT_TSNE(value_t *VAL, const value_idx *COL, const value_idx *ROW, const value_idx NNZ,
-              const raft::handle_t &handle, value_t *Y, const value_idx n,
-              const float early_exaggeration, const float late_exaggeration,
-              const int exaggeration_iter, const float pre_learning_rate,
-              const float post_learning_rate, const int max_iter,
-              const float min_grad_norm, const float pre_momentum,
-              const float post_momentum, const long long random_state,
-              const bool initialize_embeddings) {
+void FFT_TSNE(value_t *VAL, const value_idx *COL, const value_idx *ROW,
+              const value_idx NNZ, const raft::handle_t &handle, value_t *Y,
+              const value_idx n, const float early_exaggeration,
+              const float late_exaggeration, const int exaggeration_iter,
+              const float pre_learning_rate, const float post_learning_rate,
+              const int max_iter, const float min_grad_norm,
+              const float pre_momentum, const float post_momentum,
+              const long long random_state, const bool initialize_embeddings) {
   auto d_alloc = handle.get_device_allocator();
   auto stream = handle.get_stream();
 
@@ -164,7 +133,8 @@ void FFT_TSNE(value_t *VAL, const value_idx *COL, const value_idx *ROW, const va
     n_total_boxes * n_interpolation_points * n_interpolation_points;
   value_idx n_fft_coeffs_half = n_interpolation_points * n_boxes_per_dim;
   value_idx n_fft_coeffs = 2 * n_interpolation_points * n_boxes_per_dim;
-  value_idx n_interpolation_points_1d = n_interpolation_points * n_boxes_per_dim;
+  value_idx n_interpolation_points_1d =
+    n_interpolation_points * n_boxes_per_dim;
 
 #define DB(type, name, size) \
   MLCommon::device_buffer<type> name(d_alloc, stream, size)
@@ -184,28 +154,28 @@ void FFT_TSNE(value_t *VAL, const value_idx *COL, const value_idx *ROW, const va
   DB(value_idx, point_box_idx_device, n);
   DB(value_t, x_in_box_device, n);
   DB(value_t, y_in_box_device, n);
-  DB(value_t, y_tilde_values, total_interpolation_points *n_terms);
-  DB(value_t, x_interpolated_values_device, n *n_interpolation_points);
-  DB(value_t, y_interpolated_values_device, n *n_interpolation_points);
-  DB(value_t, potentialsQij_device, n *n_terms);
-  DB(value_t, w_coefficients_device, total_interpolation_points *n_terms);
+  DB(value_t, y_tilde_values, total_interpolation_points * n_terms);
+  DB(value_t, x_interpolated_values_device, n * n_interpolation_points);
+  DB(value_t, y_interpolated_values_device, n * n_interpolation_points);
+  DB(value_t, potentialsQij_device, n * n_terms);
+  DB(value_t, w_coefficients_device, total_interpolation_points * n_terms);
   DB(value_t, all_interpolated_values_device,
-     n_terms *n_interpolation_points *n_interpolation_points *n);
+     n_terms * n_interpolation_points * n_interpolation_points * n);
   DB(value_t, output_values,
-     n_terms *n_interpolation_points *n_interpolation_points *n);
+     n_terms * n_interpolation_points * n_interpolation_points * n);
   DB(value_t, all_interpolated_indices,
-     n_terms *n_interpolation_points *n_interpolation_points *n);
+     n_terms * n_interpolation_points * n_interpolation_points * n);
   DB(value_t, output_indices,
-     n_terms *n_interpolation_points *n_interpolation_points *n);
-  DB(value_t, chargesQij_device, n *n_terms);
+     n_terms * n_interpolation_points * n_interpolation_points * n);
+  DB(value_t, chargesQij_device, n * n_terms);
   DB(value_t, box_lower_bounds_device, 2 * n_total_boxes);
-  DB(value_t, kernel_tilde_device, n_fft_coeffs *n_fft_coeffs);
+  DB(value_t, kernel_tilde_device, n_fft_coeffs * n_fft_coeffs);
   DB(cufftComplex, fft_kernel_tilde_device,
      2 * n_interpolation_points_1d * 2 * n_interpolation_points_1d);
-  DB(value_t, fft_input, n_terms *n_fft_coeffs *n_fft_coeffs);
+  DB(value_t, fft_input, n_terms * n_fft_coeffs * n_fft_coeffs);
   DB(cufftComplex, fft_w_coefficients,
      n_terms * n_fft_coeffs * (n_fft_coeffs / 2 + 1));
-  DB(value_t, fft_output, n_terms *n_fft_coeffs *n_fft_coeffs);
+  DB(value_t, fft_output, n_terms * n_fft_coeffs * n_fft_coeffs);
   DB(value_t, sum_d, 1);
 
   value_t h = 1.0f / n_interpolation_points;
@@ -246,9 +216,9 @@ void FFT_TSNE(value_t *VAL, const value_idx *COL, const value_idx *ROW, const va
     plan_dft, 2, fft_dimensions, NULL, 1, n_fft_coeffs * n_fft_coeffs, NULL, 1,
     n_fft_coeffs * (n_fft_coeffs / 2 + 1), CUFFT_R2C, n_terms, &work_size_dft));
   CUFFT_TRY(cufft_MakePlanMany(plan_idft, 2, fft_dimensions, NULL, 1,
-                              n_fft_coeffs * (n_fft_coeffs / 2 + 1), NULL, 1,
-                              n_fft_coeffs * n_fft_coeffs, CUFFT_C2R, n_terms,
-                              &work_size_idft));
+                               n_fft_coeffs * (n_fft_coeffs / 2 + 1), NULL, 1,
+                               n_fft_coeffs * n_fft_coeffs, CUFFT_C2R, n_terms,
+                               &work_size_idft));
 
   if (initialize_embeddings) {
     random_vector(Y, -0.0001f, 0.0001f, n * 2, stream, random_state);
@@ -294,7 +264,8 @@ void FFT_TSNE(value_t *VAL, const value_idx *COL, const value_idx *ROW, const va
     {  // Left and right bounds of each box, first the lower bounds in the x
       // direction, then in the y direction
       const int num_threads = 32;
-      const int num_blocks = raft::ceildiv(n_total_boxes, (value_idx)num_threads);
+      const int num_blocks =
+        raft::ceildiv(n_total_boxes, (value_idx)num_threads);
       FFT::compute_bounds<<<num_blocks, num_threads, 0, stream>>>(
         box_lower_bounds_device.data(), box_width, min_coord, min_coord,
         n_boxes_per_dim, n_total_boxes);
@@ -306,8 +277,9 @@ void FFT_TSNE(value_t *VAL, const value_idx *COL, const value_idx *ROW, const va
       // Coordinates of all the equispaced interpolation points
       value_t h = box_width / n_interpolation_points;
       const int num_threads = 32;
-      const int num_blocks = raft::ceildiv(
-        n_interpolation_points_1d * n_interpolation_points_1d, (value_idx)num_threads);
+      const int num_blocks =
+        raft::ceildiv(n_interpolation_points_1d * n_interpolation_points_1d,
+                      (value_idx)num_threads);
       FFT::compute_kernel_tilde<<<num_blocks, num_threads, 0, stream>>>(
         kernel_tilde_device.data(), min_coord, min_coord, h,
         n_interpolation_points_1d, n_fft_coeffs);
@@ -324,7 +296,7 @@ void FFT_TSNE(value_t *VAL, const value_idx *COL, const value_idx *ROW, const va
     {
       const int num_threads = 128;
 
-      int num_blocks = raft::ceildiv(n, (value_idx) num_threads);
+      int num_blocks = raft::ceildiv(n, (value_idx)num_threads);
       FFT::compute_point_box_idx<<<num_blocks, num_threads, 0, stream>>>(
         point_box_idx_device.data(), x_in_box_device.data(),
         y_in_box_device.data(), Y, Y + n, box_lower_bounds_device.data(),
@@ -336,7 +308,8 @@ void FFT_TSNE(value_t *VAL, const value_idx *COL, const value_idx *ROW, const va
 
       // Compute the interpolated values at each real point with each Lagrange
       // polynomial in the `x` direction
-      num_blocks = raft::ceildiv(n * n_interpolation_points, (value_idx)num_threads);
+      num_blocks =
+        raft::ceildiv(n * n_interpolation_points, (value_idx)num_threads);
       FFT::interpolate_device<<<num_blocks, num_threads, 0, stream>>>(
         x_interpolated_values_device.data(), x_in_box_device.data(),
         y_tilde_spacings_device.data(), denominator_device.data(),
@@ -362,8 +335,9 @@ void FFT_TSNE(value_t *VAL, const value_idx *COL, const value_idx *ROW, const va
 
       // Step 2: Compute the values v_{m, n} at the equispaced nodes, multiply
       // the kernel matrix with the coefficients w
-      num_blocks = raft::ceildiv(
-        n_terms * n_fft_coeffs_half * n_fft_coeffs_half, (value_idx)num_threads);
+      num_blocks =
+        raft::ceildiv(n_terms * n_fft_coeffs_half * n_fft_coeffs_half,
+                      (value_idx)num_threads);
       FFT::copy_to_fft_input<<<num_blocks, num_threads, 0, stream>>>(
         fft_input.data(), w_coefficients_device.data(), n_fft_coeffs,
         n_fft_coeffs_half, n_terms);
@@ -379,7 +353,8 @@ void FFT_TSNE(value_t *VAL, const value_idx *COL, const value_idx *ROW, const va
       {
         const value_idx nn = n_fft_coeffs * (n_fft_coeffs / 2 + 1);
         const int num_threads = 32;
-        const int num_blocks = raft::ceildiv(nn * n_terms, (value_idx)num_threads);
+        const int num_blocks =
+          raft::ceildiv(nn * n_terms, (value_idx)num_threads);
         FFT::broadcast_column_vector<<<num_blocks, num_threads, 0, stream>>>(
           fft_w_coefficients.data(), fft_kernel_tilde_device.data(), nn,
           n_terms);
@@ -398,7 +373,8 @@ void FFT_TSNE(value_t *VAL, const value_idx *COL, const value_idx *ROW, const va
       num_blocks = raft::ceildiv(
         n_terms * n_interpolation_points * n_interpolation_points * n,
         (value_idx)num_threads);
-      FFT::compute_potential_indices<value_idx, value_t, n_terms, n_interpolation_points>
+      FFT::compute_potential_indices<value_idx, value_t, n_terms,
+                                     n_interpolation_points>
         <<<num_blocks, num_threads, 0, stream>>>(
           potentialsQij_device.data(), point_box_idx_device.data(),
           y_tilde_values.data(), x_interpolated_values_device.data(),
@@ -417,8 +393,8 @@ void FFT_TSNE(value_t *VAL, const value_idx *COL, const value_idx *ROW, const va
           Y + n, potentialsQij_device.data(), n, n_terms);
       CUDA_CHECK(cudaPeekAtLastError());
 
-      raft::stats::sum(sum_d.data(), normalization_vec_device.data(), (value_idx)1, n,
-                       true, stream);
+      raft::stats::sum(sum_d.data(), normalization_vec_device.data(),
+                       (value_idx)1, n, true, stream);
       value_t sumQ;
       CUDA_CHECK(cudaMemcpyAsync(&sumQ, sum_d.data(), sizeof(value_t),
                                  cudaMemcpyDeviceToHost, stream));
