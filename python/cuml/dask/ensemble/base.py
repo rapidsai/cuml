@@ -237,15 +237,15 @@ class BaseRandomForestModel(object):
         all_dump = self.client.gather(futures, errors='raise')
         return '\n'.join(all_dump)
 
-    def _dump_as_json(self):
+    def _get_json(self):
         """
-        Dump (export) the Random Forest model as a JSON string
+        Export the Random Forest model as a JSON string
         """
         dump = list()
         for n, w in enumerate(self.workers):
             dump.append(
                 self.client.submit(
-                    _dump_as_json_func,
+                    _get_json_func,
                     self.rfs[w],
                     workers=[w],
                 )
@@ -272,8 +272,8 @@ def _get_detailed_text_func(model):
     return model.get_detailed_text()
 
 
-def _dump_as_json_func(model):
-    return model.dump_as_json()
+def _get_json_func(model):
+    return model.get_json()
 
 
 def _func_get_params(model, deep):

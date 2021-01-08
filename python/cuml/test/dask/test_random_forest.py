@@ -357,7 +357,7 @@ def test_single_input(client, model_type, ignore_empty_partitions):
 @pytest.mark.parametrize('max_depth', [1, 2, 3, 5, 10, 15, 20])
 @pytest.mark.parametrize('n_estimators', [5, 10, 20])
 @pytest.mark.parametrize('estimator_type', ['regression', 'classification'])
-def test_dump_json(client, estimator_type, max_depth, n_estimators):
+def test_rf_get_json(client, estimator_type, max_depth, n_estimators):
     X, y = make_classification(n_samples=350, n_features=20,
                                n_clusters_per_class=1, n_informative=10,
                                random_state=123, n_classes=2)
@@ -380,7 +380,7 @@ def test_dump_json(client, estimator_type, max_depth, n_estimators):
         assert False
     X_dask, y_dask = _prep_training_data(client, X, y, partitions_per_worker=2)
     cu_rf_mg.fit(X_dask, y_dask)
-    json_out = cu_rf_mg.dump_as_json()
+    json_out = cu_rf_mg.get_json()
     json_obj = json.loads(json_out)
 
     # Test 1: Output is non-zero

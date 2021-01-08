@@ -264,14 +264,14 @@ std::string _get_rf_text(const RandomForestMetaData<T, L>* forest,
 }
 
 template <class T, class L>
-std::string _dump_rf_as_json(const RandomForestMetaData<T, L>* forest) {
+std::string _get_rf_json(const RandomForestMetaData<T, L>* forest) {
   if (!forest || !forest->trees) {
     return "[]";
   }
   std::ostringstream oss;
   oss << "[\n";
   for (int i = 0; i < forest->rf_params.n_trees; i++) {
-    oss << DecisionTree::dump_tree_as_json<T, L>(&(forest->trees[i]));
+    oss << DecisionTree::get_tree_json<T, L>(&(forest->trees[i]));
     if (i < forest->rf_params.n_trees - 1) {
       oss << ",\n";
     }
@@ -303,8 +303,8 @@ std::string get_rf_detailed_text(const RandomForestMetaData<T, L>* forest) {
 }
 
 template <class T, class L>
-std::string dump_rf_as_json(const RandomForestMetaData<T, L>* forest) {
-  return _dump_rf_as_json(forest);
+std::string get_rf_json(const RandomForestMetaData<T, L>* forest) {
+  return _get_rf_json(forest);
 }
 
 template <class T, class L>
@@ -802,13 +802,13 @@ template std::string get_rf_detailed_text<float, float>(
 template std::string get_rf_detailed_text<double, double>(
   const RandomForestRegressorD* forest);
 
-template std::string dump_rf_as_json<float, int>(
+template std::string get_rf_json<float, int>(
   const RandomForestClassifierF* forest);
-template std::string dump_rf_as_json<double, int>(
+template std::string get_rf_json<double, int>(
   const RandomForestClassifierD* forest);
-template std::string dump_rf_as_json<float, float>(
+template std::string get_rf_json<float, float>(
   const RandomForestRegressorF* forest);
-template std::string dump_rf_as_json<double, double>(
+template std::string get_rf_json<double, double>(
   const RandomForestRegressorD* forest);
 
 template void null_trees_ptr<float, int>(RandomForestClassifierF*& forest);

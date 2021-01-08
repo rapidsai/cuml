@@ -212,11 +212,11 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
         """
         return self._get_detailed_text()
 
-    def dump_as_json(self):
+    def get_json(self):
         """
-        Dump (export) the Random Forest model as a JSON string
+        Export the Random Forest model as a JSON string
         """
-        return self._dump_as_json()
+        return self._get_json()
 
     def fit(self, X, y, convert_dtype=False):
         """
