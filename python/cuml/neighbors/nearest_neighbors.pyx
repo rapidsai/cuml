@@ -63,19 +63,21 @@ if has_scipy():
 
 cdef extern from "cuml/neighbors/knn.hpp" namespace "ML":
 
-    enum MetricType:
-        METRIC_INNER_PRODUCT = 0,
-        METRIC_L2,
-        METRIC_L1,
-        METRIC_Linf,
-        METRIC_Lp,
-
-        METRIC_Canberra = 20,
-        METRIC_BrayCurtis,
-        METRIC_JensenShannon,
-
-        METRIC_Cosine = 100,
-        METRIC_Correlation
+    enum DistanceType:
+        EucExpandedL2 = 0,
+        EucExpandedL2Sqrt = 1,
+        EucExpandedCosine = 2,
+        EucUnexpandedL1 = 3,
+        EucUnexpandedL2 = 4,
+        EucUnexpandedL2Sqrt = 5,
+        InnerProduct = 6,
+        ChebyChev = 7,
+        Canberra = 8,
+        Minkowski = 9,
+        Correlation = 10,
+        Jaccard = 11,
+        Hellinger = 12,
+        Haversine = 13
 
     cdef cppclass knnIndex:
         pass
@@ -92,7 +94,7 @@ cdef extern from "cuml/neighbors/knn.hpp" namespace "ML":
         int k,
         bool rowMajorIndex,
         bool rowMajorQuery,
-        MetricType metric,
+        DistanceType metric,
         float metric_arg,
         bool expanded
     ) except +
@@ -102,7 +104,7 @@ cdef extern from "cuml/neighbors/knn.hpp" namespace "ML":
         knnIndex* index,
         knnIndexParam* params,
         int D,
-        MetricType metric,
+        DistanceType metric,
         float metricArg,
         float *search_items,
         int n
@@ -136,7 +138,7 @@ cdef extern from "cuml/neighbors/knn_sparse.hpp" namespace "ML::Sparse":
                          int k,
                          size_t batch_size_index,
                          size_t batch_size_query,
-                         MetricType metric,
+                         DistanceType metric,
                          float metricArg,
                          bool expanded_form) except +
 
@@ -363,7 +365,7 @@ class NearestNeighbors(Base):
                                    <knnIndex*>knn_index,
                                    <knnIndexParam*>algo_params,
                                    <int>n_cols,
-                                   <MetricType>metric,
+                                   <DistanceType>metric,
                                    <float>self.p,
                                    <float*><uintptr_t>self.X_m.ptr,
                                    <int>self.n_rows)
@@ -387,29 +389,29 @@ class NearestNeighbors(Base):
         expanded = False
 
         if metric == "euclidean" or metric == "l2":
-            m = MetricType.METRIC_L2
+            m = DistanceType.EucUnexpandedL2
         elif metric == "sqeuclidean":
-            m = MetricType.METRIC_L2
+            m = DistanceType.EucExpandedL2Sqrt
             expanded = True
         elif metric == "cityblock" or metric == "l1"\
                 or metric == "manhattan" or metric == 'taxicab':
-            m = MetricType.METRIC_L1
-        elif metric == "braycurtis":
-            m = MetricType.METRIC_BrayCurtis
+            m = DistanceType.EucUnexpandedL1
+        #elif metric == "braycurtis":
+        #    m = DistanceType.METRIC_BrayCurtis
         elif metric == "canberra":
-            m = MetricType.METRIC_Canberra
+            m = DistanceType.Canberra
         elif metric == "minkowski" or metric == "lp":
-            m = MetricType.METRIC_Lp
+            m = DistanceType.Minkowski
         elif metric == "chebyshev" or metric == "linf":
-            m = MetricType.METRIC_Linf
-        elif metric == "jensenshannon":
-            m = MetricType.METRIC_JensenShannon
+            m = DistanceType.ChebyChev
+        #elif metric == "jensenshannon":
+        #    m = DistanceType.METRIC_JensenShannon
         elif metric == "cosine":
-            m = MetricType.METRIC_Cosine
+            m = DistanceType.EucExpandedCosine
         elif metric == "correlation":
-            m = MetricType.METRIC_Correlation
+            m = DistanceType.Correlation
         elif metric == "inner_product":
-            m = MetricType.METRIC_INNER_PRODUCT
+            m = DistanceType.InnerProduct
         else:
             raise ValueError("Metric %s is not supported" % metric)
 
@@ -656,7 +658,7 @@ class NearestNeighbors(Base):
                 <int>n_neighbors,
                 True,
                 True,
-                <MetricType>metric,
+                <DistanceType>metric,
                 # minkowski order is currently the only metric argument.
                 <float>self.p,
                 <bool>expanded
@@ -733,7 +735,7 @@ class NearestNeighbors(Base):
                         n_neighbors,
                         <size_t>batch_size_index,
                         <size_t>batch_size_query,
-                        <MetricType> metric,
+                        <DistanceType> metric,
                         <float>self.p,
                         <bool> expanded)
 
