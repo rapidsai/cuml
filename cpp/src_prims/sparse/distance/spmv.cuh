@@ -203,7 +203,7 @@ template <typename value_idx, typename value_t, int threads_per_block = 1024,
 inline void balanced_coo_pairwise_generalized_spmv(
   value_t *out_dists, const distances_config_t<value_idx, value_t> &config_,
   value_idx *coo_rows_b, reduce_f reduce_func, accum_f accum_func,
-  write_f write_func, const float metric_arg = 2.0) {
+  write_f write_func) {
   CUDA_CHECK(cudaMemsetAsync(
     out_dists, 0, config_.a_nrows * config_.b_nrows * sizeof(value_t),
     config_.stream));
@@ -250,7 +250,7 @@ template <typename value_idx, typename value_t, int threads_per_block = 1024,
 inline void balanced_coo_pairwise_generalized_spmv_rev(
   value_t *out_dists, const distances_config_t<value_idx, value_t> &config_,
   value_idx *coo_rows_a, reduce_f reduce_func, accum_f accum_func,
-  write_f write_func, const float metric_arg = 2.0) {
+  write_f write_func) {
   int n_warps_per_row =
     raft::ceildiv(config_.a_nnz, chunk_size * threads_per_block);
   int n_blocks = config_.b_nrows * n_warps_per_row;

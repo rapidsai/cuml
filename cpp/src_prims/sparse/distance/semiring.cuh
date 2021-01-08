@@ -56,8 +56,7 @@ struct BlockSemiring {
   __device__ inline BlockSemiring(int tid_, value_idx m_, value_idx n_,
                                   value_idx *shared_cols_,
                                   value_t *shared_vals_, value_idx *chunk_cols_,
-                                  value_t *chunk_vals_, value_idx *offsets_a_,
-                                  const float metric_arg_ = 2.0)
+                                  value_t *chunk_vals_, value_idx *offsets_a_)
     : tid(tid_),
       p(p),
       m(m_),
@@ -68,7 +67,6 @@ struct BlockSemiring {
       chunk_vals(chunk_vals_),
       offsets_a(offsets_a_),
       done(false),
-      metric_arg(metric_arg_),
       shared_idx(0),
       row_count(0),
       cur_sum(0.0) {}
@@ -194,8 +192,6 @@ struct BlockSemiring {
 
   value_idx n_entries;
 
-  float metric_arg;
-
   value_idx m;
   value_idx n;
   value_idx start_offset_a;
@@ -229,7 +225,7 @@ __global__ void classic_csr_semiring_spmv_kernel(
   value_idx *indptrA, value_idx *indicesA, value_t *dataA, value_idx *indptrB,
   value_idx *indicesB, value_t *dataB, value_idx m, value_idx n, value_t *out,
   int n_blocks_per_row, int n_rows_per_block, reduce_f reduce_func,
-  accum_f accum_func, const float metricArg = 2.0) {
+  accum_f accum_func) {
   value_idx out_row = blockIdx.x / n_blocks_per_row;
   value_idx out_col_start = blockIdx.x % n_blocks_per_row;
 
@@ -297,7 +293,7 @@ template <typename value_idx = int, typename value_t = float,
           typename reduce_f, typename accum_f>
 void generalized_csr_pairwise_semiring(
   value_t *out_dists, const distances_config_t<value_idx, value_t> &config_,
-  reduce_f reduce_func, accum_f accum_func, const float metric_arg = 2.0) {
+  reduce_f reduce_func, accum_f accum_func) {
   int n_chunks = 1;
   int n_rows_per_block = min(n_chunks * threads_per_block, config_.b_nrows);
   int n_blocks_per_row = raft::ceildiv(config_.b_nrows, n_rows_per_block);
@@ -313,8 +309,7 @@ void generalized_csr_pairwise_semiring(
     <<<n_blocks, threads_per_block, 0, config_.stream>>>(
       config_.a_indptr, config_.a_indices, config_.a_data, config_.b_indptr,
       config_.b_indices, config_.b_data, config_.a_nrows, config_.b_nrows,
-      out_dists, n_blocks_per_row, n_rows_per_block, reduce_func, accum_func,
-      metric_arg);
+      out_dists, n_blocks_per_row, n_rows_per_block, reduce_func, accum_func);
 };
 
 }  // namespace Distance

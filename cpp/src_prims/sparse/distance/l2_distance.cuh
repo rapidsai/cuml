@@ -249,7 +249,7 @@ class hellinger_expanded_distances_t : public distances_t<value_t> {
 
     // Divide dists by sqrt(2)
 
-    value_t sqrt_2 = 1 / sqrt(2);
+    value_t sqrt_2 = 1.0 / sqrt(2.0);
 
     raft::linalg::unaryOp<value_t>(
       out_dists, out_dists, config_.a_nrows * config_.b_nrows,
