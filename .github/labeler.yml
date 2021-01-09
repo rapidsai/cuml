@@ -1,25 +1,25 @@
 # https://github.com/actions/labeler#common-examples
-# Adapted from https://github.com/rapidsai/cudf/blob/main/.github/CODEOWNERS
+# Adapted from https://github.com/rapidsai/cuml/blob/main/.github/CODEOWNERS
 # Labels culled from https://github.com/rapidsai/cuml/labels
 
 Cython / Python:
-  - python/**
-  - notebooks/**
+  - 'python/**'
+  - 'notebooks/**'
   
 libcuml:
-  - cpp/**
+  - 'cpp/**'
 
 CMake:
-  - **/CMakeLists.txt
-  - **/cmake/**
+  - '**/CMakeLists.txt'
+  - '**/cmake/**'
   
 cuml (Java):
-  - java/**
+  - 'java/**'
   
 Ops:
-  - .github/**
-  - /ci/**
-  - conda/**
-  - **/Dockerfile
-  - **/.dockerignore
-  - docker/**
+  - '.github/**'
+  - 'ci/**'
+  - 'conda/**'
+  - '**/Dockerfile'
+  - '**/.dockerignore'
+  - 'docker/**'
