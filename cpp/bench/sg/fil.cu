@@ -143,12 +143,13 @@ std::vector<Params> getInputs() {
     .shuffle = false,
     .seed = 12345ULL};
 
-  set_rf_params(p.rf,  // Output RF parameters
-                1,  // n_trees, just a placeholder value, anyway changed below
-                true,  // bootstrap
-                1.f,   // rows_sample
-                uint64_t(1234),  // seed
-                8);    // n_streams
+  set_rf_params(p.rf,    // Output RF parameters
+                1,       // n_trees, just a placeholder value,
+                         //   anyway changed below
+                true,    // bootstrap
+                1.f,     // rows_sample
+                1234ULL, // seed
+                8);      // n_streams
 
   set_tree_params(p.rf.tree_params,    // Output tree parameters
                   10,                  // max_depth, just a placeholder value,
