@@ -54,7 +54,6 @@ void grow_tree(std::shared_ptr<MLCommon::deviceAllocator> d_allocator,
   builder.workspaceSize(d_wsize, h_wsize, treeid, seed, params, data, labels, nrows, ncols,
                         n_sampled_rows, IdxT(params.max_features * ncols),
                         rowids, colids, unique_labels, quantiles);
-
   MLCommon::device_buffer<char> d_buff(d_allocator, stream, d_wsize);
   MLCommon::host_buffer<char> h_buff(h_allocator, stream, h_wsize);
 

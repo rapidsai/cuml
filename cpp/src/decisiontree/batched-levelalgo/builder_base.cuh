@@ -62,7 +62,7 @@ struct Builder {
 
   /** Tree index */
   IdxT treeid;
-  /** Random number seed */
+  /** Seed used for randomization */
   uint64_t seed;
   /** number of nodes created in the current batch */
   IdxT* n_nodes;
@@ -334,7 +334,6 @@ struct Builder {
     for(int i = 0; i < batchSize; i++) {
       h_nodes[node_start + i].info.unique_id = i + node_start;
     }
-
     // get the current set of nodes to be worked upon
     raft::update_device(curr_nodes, h_nodes.data() + node_start, batchSize, s);
     // iterate through a batch of columns (to reduce the memory pressure) and
