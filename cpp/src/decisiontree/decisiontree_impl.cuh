@@ -49,11 +49,13 @@ namespace DecisionTree {
 template <class T, class L>
 void print(const SparseTreeNode<T, L> &node, std::ostream &os) {
   if (node.colid == -1) {
-    os << "(leaf, " << node.prediction << ", " << node.best_metric_val
+    os << "(leaf, " << "prediction: " << node.prediction
+       <<", best_metric_val: " << node.best_metric_val
        << ", UID: " << node.unique_id << ")";
   } else {
-    os << "(" << node.colid << ", " << node.quesval << ", "
-       << node.best_metric_val << ", UID: " << node.unique_id << ")";
+    os << "(" << "colid: " << node.colid << ", quesval: " << node.quesval
+       << ", best_metric_val: " << node.best_metric_val
+       << ", UID: " << node.unique_id << ")";
   }
   return;
 }

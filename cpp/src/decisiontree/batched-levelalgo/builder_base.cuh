@@ -341,10 +341,9 @@ struct Builder {
     // compute the best split at the end
     auto n_col_blks = n_blks_for_cols;
     for (IdxT c = 0; c < input.nSampledCols; c += n_col_blks) {
-      Traits::computeSplit(*this, c, batchSize, params.split_criterion, s, h_nodes);
+      Traits::computeSplit(*this, c, batchSize, params.split_criterion, s);
       CUDA_CHECK(cudaGetLastError());
     }
-
     // create child nodes (or make the current ones leaf)
     auto smemSize = Traits::nodeSplitSmemSize(*this);
     nodeSplitKernel<DataT, LabelT, IdxT, typename Traits::DevTraits,
@@ -412,13 +411,11 @@ struct ClsTraits {
     smemSize += 2 * sizeof(DataT) + 1 * sizeof(int);
 
     CUDA_CHECK(cudaMemsetAsync(b.hist, 0, sizeof(int) * b.nHistBins, s));
-
     computeSplitClassificationKernel<DataT, LabelT, IdxT, TPB_DEFAULT>
       <<<grid, TPB_DEFAULT, smemSize, s>>>(
         b.hist, b.params.n_bins, b.params.max_depth, b.params.min_samples_split,
         b.params.max_leaves, b.input, b.curr_nodes, col, b.done_count, b.mutex,
         b.n_leaves, b.splits, splitType, b.treeid, b.seed);
-    CUDA_CHECK(cudaDeviceSynchronize());
   }
 
   /**

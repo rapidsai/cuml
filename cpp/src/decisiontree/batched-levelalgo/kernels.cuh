@@ -354,7 +354,6 @@ __global__ void computeSplitClassificationKernel(
   for (IdxT b = threadIdx.x; b < nbins; b += blockDim.x)
     sbins[b] = input.quantiles[col * nbins + b];
   __syncthreads();
-
   auto coloffset = col * input.M;
   // compute class histogram for all bins for all classes in shared mem
   for (auto i = range_start + tid; i < end; i += stride) {
@@ -435,7 +434,7 @@ __global__ void computeSplitRegressionKernel(
   }
   for (IdxT i = threadIdx.x; i < nbins; i += blockDim.x) {
     scount[i] = 0;
-      sbins[i] = input.quantiles[col * nbins + i];
+    sbins[i] = input.quantiles[col * nbins + i];
   }
   __syncthreads();
   auto coloffset = col * input.M;
