@@ -43,7 +43,5 @@ struct Input {
   const DataT* quantiles;
 };
 
-#define NODE_TO_PRINT 2
-#define COL_TO_PRINT 3
 }  // namespace DecisionTree
 }  // namespace ML

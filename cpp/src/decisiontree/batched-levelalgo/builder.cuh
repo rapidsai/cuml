@@ -49,31 +49,11 @@ void grow_tree(std::shared_ptr<MLCommon::deviceAllocator> d_allocator,
                cudaStream_t stream, 
                std::vector<SparseTreeNode<DataT, LabelT>>& sparsetree,
                IdxT& num_leaves, IdxT& depth) {
-  ML::Logger::get().setLevel(CUML_LEVEL_DEBUG);
-  if (ML::Logger::get().shouldLogFor(CUML_LEVEL_DEBUG)) {
-    std::stringstream ss1;
-    ss1 << std::endl << "grow_tree entry ";
-    ss1 << "ncols = " << ncols << ", ";
-    ss1 << "nrows = " << nrows << ", ";
-    ss1 << "n_sampled_rows = " << n_sampled_rows << ", ";
-    ss1 << "n_bins = " << params.n_bins << ", ";
-    ss1 << "unique_labels = " << unique_labels << std::endl;
-    CUML_LOG_DEBUG(ss1.str().c_str());
-
-  }
-
   Builder<Traits> builder;
   size_t d_wsize, h_wsize;
   builder.workspaceSize(d_wsize, h_wsize, treeid, seed, params, data, labels, nrows, ncols,
                         n_sampled_rows, IdxT(params.max_features * ncols),
                         rowids, colids, unique_labels, quantiles);
-  if (ML::Logger::get().shouldLogFor(CUML_LEVEL_DEBUG)) {
-    std::stringstream ss1;
-    ss1 << std::endl;
-    ss1 << "device buffer size (bytes) = " << d_wsize << std::endl;
-    ss1 << "host size (bytes) = " << h_wsize << std::endl;
-    CUML_LOG_DEBUG(ss1.str().c_str());
-  }
 
   MLCommon::device_buffer<char> d_buff(d_allocator, stream, d_wsize);
   MLCommon::host_buffer<char> h_buff(h_allocator, stream, h_wsize);
