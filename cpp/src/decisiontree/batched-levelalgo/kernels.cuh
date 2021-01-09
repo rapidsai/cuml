@@ -264,6 +264,8 @@ __device__ OutT* alignPointer(InT input) {
     raft::alignTo(reinterpret_cast<size_t>(input), sizeof(OutT)));
 }
 
+// 32-bit FNV1a hash
+// Reference: http://www.isthe.com/chongo/tech/comp/fnv/index.html
 const uint32_t fnv1a32_prime = uint32_t(16777619);
 const uint32_t fnv1a32_basis = uint32_t(2166136261);
 
@@ -280,35 +282,45 @@ DI uint32_t fnv1a32(uint32_t hash, uint32_t txt)
     return hash;
 }
 
+/**
+ * @brief For a given values of (treeid, nodeid, seed), this function generates
+ *        a unique permutation of [0, N - 1] values and returns 'k'th entry in
+ *        from the permutation.
+ * @return The 'k'th value from the permutation
+ * @note This function does not allocated any temporary buffer, all the
+ *       necessary values are recomputed.
+ */
 template <typename IdxT>
-DI IdxT selectFeatures(IdxT treeid, IdxT nodeid, IdxT k, uint64_t seed, IdxT N) {
+DI IdxT select(IdxT k, IdxT treeid, uint32_t nodeid, uint64_t seed, IdxT N) {
    __shared__ int blksum;
-  uint32_t pivote;
+  uint32_t pivote_hash;
   int cnt = 0;
 
   if (threadIdx.x == 0) {
     blksum = 0;
   }
-  pivote = fnv1a32_basis;
-  pivote = fnv1a32(pivote, uint32_t(k));
-  pivote = fnv1a32(pivote, uint32_t(treeid));
-  pivote = fnv1a32(pivote, uint32_t(nodeid));
-  pivote = fnv1a32(pivote, uint32_t(seed >> 32));
-  pivote = fnv1a32(pivote, uint32_t(seed));
+  // Compute hash for the 'k'th index and use it as pivote for sorting
+  pivote_hash = fnv1a32_basis;
+  pivote_hash = fnv1a32(pivote_hash, uint32_t(k));
+  pivote_hash = fnv1a32(pivote_hash, uint32_t(treeid));
+  pivote_hash = fnv1a32(pivote_hash, uint32_t(nodeid));
+  pivote_hash = fnv1a32(pivote_hash, uint32_t(seed >> 32));
+  pivote_hash = fnv1a32(pivote_hash, uint32_t(seed));
 
-  uint32_t j;
+  // Compute hash for rest of the indices and count instances where i_hash is less than pivote_hash
+  uint32_t i_hash;
   for(int i = threadIdx.x; i < N; i += blockDim.x) {
-    if(i == k) continue;
-    j = fnv1a32_basis;
-    j = fnv1a32(j, uint32_t(i));
-    j = fnv1a32(j, uint32_t(treeid));
-    j = fnv1a32(j, uint32_t(nodeid));
-    j = fnv1a32(j, uint32_t(seed >> 32));
-    j = fnv1a32(j, uint32_t(seed));
+    if(i == k) continue; // Skip since k is the pivote index
+    i_hash = fnv1a32_basis;
+    i_hash = fnv1a32(i_hash, uint32_t(i));
+    i_hash = fnv1a32(i_hash, uint32_t(treeid));
+    i_hash = fnv1a32(i_hash, uint32_t(nodeid));
+    i_hash = fnv1a32(i_hash, uint32_t(seed >> 32));
+    i_hash = fnv1a32(i_hash, uint32_t(seed));
 
-    if(j < pivote) 
+    if(i_hash < pivote_hash)
       cnt++;
-    else if (j == pivote && i < k)
+    else if (i_hash == pivote_hash && i < k)
       cnt++;
   }
   __syncthreads();
@@ -347,7 +359,7 @@ __global__ void computeSplitClassificationKernel(
   // auto col = input.colids[colStart + blockIdx.y];
  
   int colIndex = colStart + blockIdx.y;
-  auto col = selectFeatures(treeid, int(node.info.unique_id), colIndex, seed, input.N);
+  auto col = select(colIndex, treeid, node.info.unique_id, seed, input.N);
 
 
   for (IdxT i = threadIdx.x; i < len; i += blockDim.x) shist[i] = 0;
@@ -428,7 +440,7 @@ __global__ void computeSplitRegressionKernel(
   // auto col = input.colids[colStart + blockIdx.y];
  
   int colIndex = colStart + blockIdx.y;
-  auto col = selectFeatures(treeid, int(node.info.unique_id), colIndex, seed, input.N);
+  auto col = select(colIndex, treeid, node.info.unique_id, seed, input.N);
   for (IdxT i = threadIdx.x; i < len; i += blockDim.x) {
     spred[i] = DataT(0.0);
   }
