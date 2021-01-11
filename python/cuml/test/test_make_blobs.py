@@ -16,7 +16,9 @@
 import cuml
 import pytest
 import cupy as cp
-
+import cudf
+import numpy as np
+import numba.cuda
 
 # Testing parameters for scalar parameter tests
 
@@ -94,3 +96,30 @@ def test_make_blobs_scalar_parameters(dtype, n_samples, n_features, centers,
     elif centers <= n_samples:
         assert cp.unique(labels).shape == (centers,), \
             "unexpected number of clusters"
+
+
+test_output_types = {
+    None: cp.ndarray,  # Default is cupy if None is used
+    'numpy': np.ndarray,
+    'cupy': cp.ndarray,
+    'numba': numba.cuda.devicearray.DeviceNDArrayBase,
+    'cudf': (cudf.DataFrame, cudf.Series)
+}
+
+
+@pytest.mark.parametrize("input_type", test_output_types.keys())
+def test_output_type(input_type: str):
+
+    # Set the output type and ensure its respected by the function
+    with cuml.using_output_type(input_type):
+        X, y = cuml.make_blobs(n_samples=10,
+                               centers=3,
+                               n_features=2,
+                               random_state=0)
+
+        if (isinstance(test_output_types[input_type], tuple)):
+            assert (isinstance(X, test_output_types[input_type][0]))
+            assert (isinstance(y, test_output_types[input_type][1]))
+        else:
+            assert (isinstance(X, test_output_types[input_type]))
+            assert (isinstance(y, test_output_types[input_type]))
