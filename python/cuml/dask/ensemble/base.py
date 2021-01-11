@@ -14,6 +14,7 @@
 #
 
 import dask
+import json
 import math
 import numpy as np
 import warnings
@@ -236,6 +237,26 @@ class BaseRandomForestModel(object):
         all_dump = self.client.gather(futures, errors='raise')
         return '\n'.join(all_dump)
 
+    def _get_json(self):
+        """
+        Export the Random Forest model as a JSON string
+        """
+        dump = list()
+        for n, w in enumerate(self.workers):
+            dump.append(
+                self.client.submit(
+                    _get_json_func,
+                    self.rfs[w],
+                    workers=[w],
+                )
+            )
+        all_dump = self.client.gather(dump, errors='raise')
+        combined_dump = []
+        for e in all_dump:
+            obj = json.loads(e)
+            combined_dump.extend(obj)
+        return json.dumps(combined_dump)
+
 
 def _func_fit(model, input_data, convert_dtype):
     X = concatenate([item[0] for item in input_data])
@@ -249,6 +270,10 @@ def _get_summary_text_func(model):
 
 def _get_detailed_text_func(model):
     return model.get_detailed_text()
+
+
+def _get_json_func(model):
+    return model.get_json()
 
 
 def _func_get_params(model, deep):

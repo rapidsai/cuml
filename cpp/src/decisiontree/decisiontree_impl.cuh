@@ -101,9 +101,9 @@ std::string to_string_high_precision(T x) {
 }
 
 template <class T, class L>
-std::string dump_node_as_json(
-  const std::string &prefix,
-  const std::vector<SparseTreeNode<T, L>> &sparsetree, int idx) {
+std::string get_node_json(const std::string &prefix,
+                          const std::vector<SparseTreeNode<T, L>> &sparsetree,
+                          int idx) {
   const SparseTreeNode<T, L> &node = sparsetree[idx];
 
   std::ostringstream oss;
@@ -115,9 +115,8 @@ std::string dump_node_as_json(
         << ", \"yes\": " << node.left_child_id
         << ", \"no\": " << (node.left_child_id + 1) << ", \"children\": [\n";
     // enter the next tree level - left and right branch
-    oss << dump_node_as_json(prefix + "  ", sparsetree, node.left_child_id)
-        << ",\n"
-        << dump_node_as_json(prefix + "  ", sparsetree, node.left_child_id + 1)
+    oss << get_node_json(prefix + "  ", sparsetree, node.left_child_id) << ",\n"
+        << get_node_json(prefix + "  ", sparsetree, node.left_child_id + 1)
         << "\n"
         << prefix << "]}";
   } else {
