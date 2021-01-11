@@ -88,7 +88,7 @@ repo](https://github.com/rapidsai/notebooks-contrib).
 | **Clustering** |  Density-Based Spatial Clustering of Applications with Noise (DBSCAN) | |
 |  | K-Means | Multi-node multi-GPU via Dask |
 | **Dimensionality Reduction** | Principal Components Analysis (PCA) | Multi-node multi-GPU via Dask|
-| | Incremental PCA | Experimental |
+| | Incremental PCA | |
 | | Truncated Singular Value Decomposition (tSVD) | Multi-node multi-GPU via Dask |
 | | Uniform Manifold Approximation and Projection (UMAP) | Multi-node multi-GPU Inference via Dask |
 | | Random Projection | |

@@ -712,25 +712,9 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
         del(preds_m)
         return stats
 
-    def print_summary(self):
+    def get_summary_text(self):
         """
-        Prints the summary of the forest used to train and test the model
-        """
-        cdef RandomForestMetaData[float, float] *rf_forest = \
-            <RandomForestMetaData[float, float]*><uintptr_t> self.rf_forest
-
-        cdef RandomForestMetaData[double, double] *rf_forest64 = \
-            <RandomForestMetaData[double, double]*><uintptr_t> self.rf_forest64
-
-        if self.dtype == np.float64:
-            print_rf_summary(rf_forest64)
-        else:
-            print_rf_summary(rf_forest)
-
-    def print_detailed(self):
-        """
-        Prints the detailed information about the forest used to
-        train and test the Random Forest model
+        Obtain the text summary of the random forest model
         """
         cdef RandomForestMetaData[float, float] *rf_forest = \
             <RandomForestMetaData[float, float]*><uintptr_t> self.rf_forest
@@ -739,9 +723,24 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
             <RandomForestMetaData[double, double]*><uintptr_t> self.rf_forest64
 
         if self.dtype == np.float64:
-            print_rf_detailed(rf_forest64)
+            return get_rf_summary_text(rf_forest64).decode('utf-8')
         else:
-            print_rf_detailed(rf_forest)
+            return get_rf_summary_text(rf_forest).decode('utf-8')
+
+    def get_detailed_text(self):
+        """
+        Obtain the detailed information for the random forest model, as text
+        """
+        cdef RandomForestMetaData[float, float] *rf_forest = \
+            <RandomForestMetaData[float, float]*><uintptr_t> self.rf_forest
+
+        cdef RandomForestMetaData[double, double] *rf_forest64 = \
+            <RandomForestMetaData[double, double]*><uintptr_t> self.rf_forest64
+
+        if self.dtype == np.float64:
+            return get_rf_detailed_text(rf_forest64).decode('utf-8')
+        else:
+            return get_rf_detailed_text(rf_forest).decode('utf-8')
 
     def dump_as_json(self):
         """

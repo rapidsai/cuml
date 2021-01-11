@@ -179,7 +179,7 @@ DataT silhouette_score(DataT *X_in, int nRows, int nCols, LabelT *labels,
                        std::shared_ptr<MLCommon::deviceAllocator> allocator,
                        cudaStream_t stream,
                        raft::distance::DistanceType metric =
-                         raft::distance::DistanceType::EucUnexpandedL2) {
+                         raft::distance::DistanceType::L2Unexpanded) {
   ASSERT(nLabels >= 2 && nLabels <= (nRows - 1),
          "silhouette Score not defined for the given number of labels!");
 
