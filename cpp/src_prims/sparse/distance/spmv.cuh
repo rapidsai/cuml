@@ -92,8 +92,7 @@ __global__ void balanced_coo_generalized_spmv_kernel(
 
   // chunk starting offset
   value_idx ind_offset = cur_chunk_offset * chunk_size * tpb;
-
-  // how many total cols will be processed by this block (should be <= chunk_size * n_threads)
+Are   // how many total cols will be processed by this block (should be <= chunk_size * n_threads)
   value_idx active_chunk_size = min(chunk_size * tpb, nnz_b - ind_offset);
 
   int tid = threadIdx.x;
