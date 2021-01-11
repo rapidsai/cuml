@@ -91,23 +91,23 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
     cdef string dump_rf_as_json[T, L](RandomForestMetaData[T, L]*) except +
 
     cdef RF_params set_rf_params(int,
-                                    int,
-                                    float,
-                                    int,
-                                    int,
-                                    int,
-                                    int,
-                                    float,
-                                    bool,
-                                    bool,
-                                    int,
-                                    float,
-                                    int,
-                                    CRITERION,
-                                    bool,
-                                    int,
-                                    bool,
-                                    int) except +
+                                 int,
+                                 float,
+                                 int,
+                                 int,
+                                 int,
+                                 int,
+                                 float,
+                                 bool,
+                                 bool,
+                                 int,
+                                 float,
+                                 int,
+                                 CRITERION,
+                                 bool,
+                                 int,
+                                 bool,
+                                 int) except +
 
     cdef vector[unsigned char] save_model(ModelHandle)
 
