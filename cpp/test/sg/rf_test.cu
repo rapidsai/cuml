@@ -56,15 +56,13 @@ class RfClassifierTest : public ::testing::TestWithParam<RfInputs<T>> {
   void basicTest() {
     params = ::testing::TestWithParam<RfInputs<T>>::GetParam();
 
-    DecisionTree::DecisionTreeParams tree_params;
-    set_tree_params(tree_params, params.max_depth, params.max_leaves,
+    RF_params rf_params;
+    rf_params = set_rf_params(params.max_depth, params.max_leaves,
                     params.max_features, params.n_bins, params.split_algo,
                     params.min_samples_leaf, params.min_samples_split,
                     params.min_impurity_decrease, params.bootstrap_features,
-                    params.split_criterion, false);
-    RF_params rf_params;
-    set_all_rf_params(rf_params, params.n_trees, params.bootstrap,
-                      params.max_samples, -1, params.n_streams, tree_params);
+                    params.bootstrap, params.n_trees, params.max_samples, -1,
+                    params.split_criterion, false, params.n_streams, false, 128);
     //print(rf_params);
 
     //--------------------------------------------------------
@@ -159,15 +157,13 @@ class RfRegressorTest : public ::testing::TestWithParam<RfInputs<T>> {
   void basicTest() {
     params = ::testing::TestWithParam<RfInputs<T>>::GetParam();
 
-    DecisionTree::DecisionTreeParams tree_params;
-    set_tree_params(tree_params, params.max_depth, params.max_leaves,
+    RF_params rf_params;
+    rf_params = set_rf_params(params.max_depth, params.max_leaves,
                     params.max_features, params.n_bins, params.split_algo,
                     params.min_samples_leaf, params.min_samples_split,
                     params.min_impurity_decrease, params.bootstrap_features,
-                    params.split_criterion, false);
-    RF_params rf_params;
-    set_all_rf_params(rf_params, params.n_trees, params.bootstrap,
-                      params.max_samples, -1, params.n_streams, tree_params);
+                    params.bootstrap, params.n_trees, params.max_samples, -1,
+                    params.split_criterion, false, params.n_streams, false, 128);
     //print(rf_params);
 
     //--------------------------------------------------------

@@ -461,7 +461,7 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
         else:
             seed_val = <uintptr_t>self.random_state
 
-        rf_params = set_rf_class_obj(<int> self.max_depth,
+        rf_params = set_rf_params(<int> self.max_depth,
                                      <int> self.max_leaves,
                                      <float> max_feature_val,
                                      <int> self.n_bins,
