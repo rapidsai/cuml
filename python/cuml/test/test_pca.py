@@ -26,6 +26,7 @@ from sklearn import datasets
 from sklearn.datasets import make_multilabel_classification
 from sklearn.decomposition import PCA as skPCA
 from sklearn.datasets import make_blobs
+from cuml.common.exceptions import NotFittedError
 
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
@@ -201,7 +202,7 @@ def test_pca_inverse_transform(datatype, input_type,
 
 
 @pytest.mark.parametrize('nrows', [4000, 8000])
-@pytest.mark.parametrize('ncols', [5000, 10000])
+@pytest.mark.parametrize('ncols', [5000, stress_param(20000)])
 @pytest.mark.parametrize('whiten', [True, False])
 @pytest.mark.parametrize('return_sparse', [True, False])
 @pytest.mark.parametrize('cupy_input', [True, False])
@@ -233,3 +234,13 @@ def test_sparse_pca_inputs(nrows, ncols, whiten, return_sparse, cupy_input):
             assert isinstance(i_sparse, cp.core.ndarray)
 
         assert array_equal(i_sparse, X.todense(), 1e-1, with_sign=True)
+
+
+def test_exceptions():
+    with pytest.raises(NotFittedError):
+        X = cp.random.random((10, 10))
+        cuPCA().transform(X)
+
+    with pytest.raises(NotFittedError):
+        X = cp.random.random((10, 10))
+        cuPCA().inverse_transform(X)

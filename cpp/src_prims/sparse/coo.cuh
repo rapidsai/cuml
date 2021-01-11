@@ -30,6 +30,7 @@
 #include <cuda_runtime.h>
 #include <raft/cudart_utils.h>
 #include <raft/cuda_utils.cuh>
+#include <raft/device_atomics.cuh>
 
 #include <iostream>
 #define restrict __restrict__
@@ -170,7 +171,8 @@ class COO {
   /**
     * @brief Send human-readable state information to output stream
     */
-  friend std::ostream &operator<<(std::ostream &out, const COO<T> &c) {
+  friend std::ostream &operator<<(std::ostream &out,
+                                  const COO<T, Index_Type> &c) {
     if (c.validate_size() && c.validate_mem()) {
       cudaStream_t stream;
       CUDA_CHECK(cudaStreamCreateWithFlags(&stream, cudaStreamNonBlocking));
@@ -888,21 +890,22 @@ void coo_symmetrize(const raft::handle_t &handle, const value_idx *rows,
  * @param row_sizes: Input empty row sum 1 array(n)
  * @param row_sizes2: Input empty row sum 2 array(n) for faster reduction
  */
-template <typename math_t>
-__global__ static void symmetric_find_size(const math_t *restrict data,
-                                           const long *restrict indices,
-                                           const int n, const int k,
-                                           int *restrict row_sizes,
-                                           int *restrict row_sizes2) {
-  const int row = blockIdx.x * blockDim.x + threadIdx.x;  // for every row
-  const int j = blockIdx.y * blockDim.y + threadIdx.y;  // for every item in row
+template <typename value_idx, typename value_t>
+__global__ static void symmetric_find_size(const value_t *restrict data,
+                                           const value_idx *restrict indices,
+                                           const value_idx n, const int k,
+                                           value_idx *restrict row_sizes,
+                                           value_idx *restrict row_sizes2) {
+  const auto row = blockIdx.x * blockDim.x + threadIdx.x;  // for every row
+  const auto j =
+    blockIdx.y * blockDim.y + threadIdx.y;  // for every item in row
   if (row >= n || j >= k) return;
 
-  const int col = indices[row * k + j];
+  const auto col = indices[row * k + j];
   if (j % 2)
-    raft::myAtomicAdd(&row_sizes[col], 1);
+    atomicAdd(&row_sizes[col], (value_idx)1);
   else
-    raft::myAtomicAdd(&row_sizes2[col], 1);
+    atomicAdd(&row_sizes2[col], (value_idx)1);
 }
 
 /**
@@ -914,10 +917,11 @@ __global__ static void symmetric_find_size(const math_t *restrict data,
  * @param row_sizes: Input row sum 1 array(n)
  * @param row_sizes2: Input row sum 2 array(n) for faster reduction
  */
-__global__ static void reduce_find_size(const int n, const int k,
-                                        int *restrict row_sizes,
-                                        const int *restrict row_sizes2) {
-  const int i = (blockIdx.x * blockDim.x) + threadIdx.x;
+template <typename value_idx>
+__global__ static void reduce_find_size(const value_idx n, const int k,
+                                        value_idx *restrict row_sizes,
+                                        const value_idx *restrict row_sizes2) {
+  const auto i = (blockIdx.x * blockDim.x) + threadIdx.x;
   if (i >= n) return;
   row_sizes[i] += (row_sizes2[i] + k);
 }
@@ -936,18 +940,22 @@ __global__ static void reduce_find_size(const int n, const int k,
  * @param n: Number of rows
  * @param k: Number of n_neighbors
  */
-template <typename math_t, typename value_idx = int, typename Lambda>
-__global__ static void symmetric_sum(
-  value_idx *restrict edges, const math_t *restrict data,
-  const long *restrict indices, math_t *restrict VAL, value_idx *restrict COL,
-  value_idx *restrict ROW, const int n, const int k, Lambda op) {
-  const int row = blockIdx.x * blockDim.x + threadIdx.x;  // for every row
-  const int j = blockIdx.y * blockDim.y + threadIdx.y;  // for every item in row
+template <typename value_idx, typename value_t>
+__global__ static void symmetric_sum(value_idx *restrict edges,
+                                     const value_t *restrict data,
+                                     const value_idx *restrict indices,
+                                     value_t *restrict VAL,
+                                     value_idx *restrict COL,
+                                     value_idx *restrict ROW, const value_idx n,
+                                     const int k) {
+  const auto row = blockIdx.x * blockDim.x + threadIdx.x;  // for every row
+  const auto j =
+    blockIdx.y * blockDim.y + threadIdx.y;  // for every item in row
   if (row >= n || j >= k) return;
 
-  const value_idx col = indices[row * k + j];
-  const value_idx original = op(&edges[row], 1);
-  const value_idx transpose = op(&edges[col], 1);
+  const auto col = indices[row * k + j];
+  const auto original = atomicAdd(&edges[row], (value_idx)1);
+  const auto transpose = atomicAdd(&edges[col], (value_idx)1);
 
   VAL[transpose] = VAL[original] = data[row * k + j];
   // Notice swapped ROW, COL since transpose
@@ -976,18 +984,18 @@ __global__ static void symmetric_sum(
  * @param stream: Input cuda stream
  * @param d_alloc device allocator for temporary buffers
  */
-template <typename math_t, typename Lambda, typename value_idx = int,
-          int TPB_X = 32, int TPB_Y = 32>
-void from_knn_symmetrize_matrix(const long *restrict knn_indices,
-                                const math_t *restrict knn_dists, const int n,
-                                const int k, COO<math_t, value_idx> *out,
+template <typename value_idx, typename value_t, int TPB_X = 32, int TPB_Y = 32>
+void from_knn_symmetrize_matrix(const value_idx *restrict knn_indices,
+                                const value_t *restrict knn_dists,
+                                const value_idx n, const int k,
+                                COO<value_t, value_idx> *out,
                                 cudaStream_t stream,
-                                std::shared_ptr<deviceAllocator> d_alloc,
-                                Lambda op) {
+                                std::shared_ptr<deviceAllocator> d_alloc) {
   // (1) Find how much space needed in each row
   // We look through all datapoints and increment the count for each row.
   const dim3 threadsPerBlock(TPB_X, TPB_Y);
-  const dim3 numBlocks(raft::ceildiv(n, TPB_X), raft::ceildiv(k, TPB_Y));
+  const dim3 numBlocks(raft::ceildiv(n, (value_idx)TPB_X),
+                       raft::ceildiv(k, TPB_Y));
 
   // Notice n+1 since we can reuse these arrays for transpose_edges, original_edges in step (4)
   device_buffer<value_idx> row_sizes(d_alloc, stream, n);
@@ -1002,13 +1010,13 @@ void from_knn_symmetrize_matrix(const long *restrict knn_indices,
     knn_dists, knn_indices, n, k, row_sizes.data(), row_sizes2.data());
   CUDA_CHECK(cudaPeekAtLastError());
 
-  reduce_find_size<<<raft::ceildiv(n, 1024), 1024, 0, stream>>>(
+  reduce_find_size<<<raft::ceildiv(n, (value_idx)1024), 1024, 0, stream>>>(
     n, k, row_sizes.data(), row_sizes2.data());
   CUDA_CHECK(cudaPeekAtLastError());
 
   // (2) Compute final space needed (n*k + sum(row_sizes)) == 2*n*k
   // Notice we don't do any merging and leave the result as 2*NNZ
-  const int NNZ = 2 * n * k;
+  const auto NNZ = 2 * n * k;
 
   // (3) Allocate new space
   out->allocate(NNZ, n, n, true, stream);
@@ -1017,7 +1025,7 @@ void from_knn_symmetrize_matrix(const long *restrict knn_indices,
   // This mirrors CSR matrix's row Pointer, were maximum bounds for each row
   // are calculated as the cumulative rolling sum of the previous rows.
   // Notice reusing old row_sizes2 memory
-  int *edges = row_sizes2.data();
+  value_idx *edges = row_sizes2.data();
   thrust::device_ptr<value_idx> __edges = thrust::device_pointer_cast(edges);
   thrust::device_ptr<value_idx> __row_sizes =
     thrust::device_pointer_cast(row_sizes.data());
@@ -1028,8 +1036,7 @@ void from_knn_symmetrize_matrix(const long *restrict knn_indices,
 
   // (5) Perform final data + data.T operation in tandem with memcpying
   symmetric_sum<<<numBlocks, threadsPerBlock, 0, stream>>>(
-    edges, knn_dists, knn_indices, out->vals(), out->cols(), out->rows(), n, k,
-    op);
+    edges, knn_dists, knn_indices, out->vals(), out->cols(), out->rows(), n, k);
   CUDA_CHECK(cudaPeekAtLastError());
 }
 

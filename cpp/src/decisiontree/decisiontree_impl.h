@@ -45,9 +45,9 @@ template <class T, class L>
 void print(const SparseTreeNode<T, L> &node, std::ostream &os);
 
 template <class T, class L>
-void print_node(const std::string &prefix,
-                const std::vector<SparseTreeNode<T, L>> &sparsetree, int idx,
-                bool isLeft);
+std::string get_node_text(const std::string &prefix,
+                          const std::vector<SparseTreeNode<T, L>> &sparsetree,
+                          int idx, bool isLeft);
 
 template <class T, class L>
 std::string dump_node_as_json(
@@ -57,7 +57,7 @@ std::string dump_node_as_json(
 template <class T, class L>
 void build_treelite_tree(TreeBuilderHandle tree_builder,
                          DecisionTree::TreeMetaDataNode<T, L> *tree_ptr,
-                         int num_output_group);
+                         int num_class);
 
 struct DataInfo {
   unsigned int NLocalrows;
