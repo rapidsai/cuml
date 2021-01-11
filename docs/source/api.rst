@@ -320,6 +320,11 @@ Principal Component Analysis
 .. autoclass:: cuml.PCA
     :members:
 
+Incremental PCA
+-------------
+.. autoclass:: cuml.IncrementalPCA
+   :members:
+
 Truncated SVD
 --------------
 
@@ -491,11 +496,6 @@ Experimental
 .. note:: Due to the nature of this module, it is not imported by default by
     the root `cuml` package. Each `experimental` submodule must be imported
     separately.
-
-Decomposition
--------------
-.. autoclass:: cuml.experimental.decomposition.IncrementalPCA
-   :members:
 
 Preprocessing
 -------------
