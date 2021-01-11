@@ -53,6 +53,7 @@ void launcher(const raft::handle_t& handle, Pack<Index_> data, Index_ batchSize,
       }
     }
   }
+  /// TODO: why is this row-major and the other algo col-major?!
   host_ex_scan[0] = Index_(0);
   for (Index_ i = 1; i < batchSize; i++)
     host_ex_scan[i] = host_ex_scan[i - 1] + host_vd[i - 1];

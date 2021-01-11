@@ -39,7 +39,7 @@ static const int TPB_X = 256;
 
 /**
  * Takes vertex degree array (vd) and CSR row_ind array (ex_scan) to produce the
- * CSR row_ind_ptr array (adj_graph) and filters into a core_pts array based on min_pts.
+ * CSR row_ind_ptr array (adj_graph)
  */
 template <typename Index_ = int>
 void launcher(const raft::handle_t &handle, Pack<Index_> data, Index_ batchSize,
