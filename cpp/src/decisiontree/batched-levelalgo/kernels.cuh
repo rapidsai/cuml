@@ -356,11 +356,14 @@ __global__ void computeSplitClassificationKernel(
   IdxT stride = blockDim.x * gridDim.x;
   IdxT tid = threadIdx.x + blockIdx.x * blockDim.x;
 
-  // auto col = input.colids[colStart + blockIdx.y];
- 
-  int colIndex = colStart + blockIdx.y;
-  auto col = select(colIndex, treeid, node.info.unique_id, seed, input.N);
-
+  IdxT col;
+  if(input.nSampledCols == input.N) {
+    col = input.colids[colStart + blockIdx.y];
+  }
+  else {
+    int colIndex = colStart + blockIdx.y;
+    col = select(colIndex, treeid, node.info.unique_id, seed, input.N);
+  }
 
   for (IdxT i = threadIdx.x; i < len; i += blockDim.x) shist[i] = 0;
   for (IdxT b = threadIdx.x; b < nbins; b += blockDim.x)
@@ -437,10 +440,14 @@ __global__ void computeSplitRegressionKernel(
   auto* sDone = alignPointer<int>(spredP + nbins);
   IdxT stride = blockDim.x * gridDim.x;
   IdxT tid = threadIdx.x + blockIdx.x * blockDim.x;
-  // auto col = input.colids[colStart + blockIdx.y];
- 
-  int colIndex = colStart + blockIdx.y;
-  auto col = select(colIndex, treeid, node.info.unique_id, seed, input.N);
+  IdxT col;
+  if(input.nSampledCols == input.N) {
+    col = input.colids[colStart + blockIdx.y];
+  }
+  else {
+    int colIndex = colStart + blockIdx.y;
+    col = select(colIndex, treeid, node.info.unique_id, seed, input.N);
+  }
   for (IdxT i = threadIdx.x; i < len; i += blockDim.x) {
     spred[i] = DataT(0.0);
   }
