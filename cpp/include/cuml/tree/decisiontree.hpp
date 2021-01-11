@@ -172,7 +172,7 @@ std::string get_tree_text(const TreeMetaDataNode<T, L> *tree);
  * @return Tree structure as JSON stsring
  */
 template <class T, class L>
-std::string dump_tree_as_json(const TreeMetaDataNode<T, L> *tree);
+std::string get_tree_json(const TreeMetaDataNode<T, L> *tree);
 
 // ----------------------------- Classification ----------------------------------- //
 
