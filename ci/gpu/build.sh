@@ -241,8 +241,9 @@ else
 
 fi
 
-if [ -n "\${CODECOV_TOKEN}" ]; then
-    codecov -v -t \$CODECOV_TOKEN
+if [ -n "${CODECOV_TOKEN}" ]; then
+    bash <(curl -s https://codecov.io/bash) -v -F python -f ${WORKSPACE}/python/cuml/cuml-coverage.xml
+    bash <(curl -s https://codecov.io/bash) -v -F python,dask -f ${WORKSPACE}/python/cuml/cuml-dask-coverage.xml
 fi
 
 return ${EXITCODE}
