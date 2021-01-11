@@ -605,13 +605,12 @@ RF_metrics score(const raft::handle_t& user_handle,
 }
 
 RF_params set_rf_params(int max_depth, int max_leaves, float max_features,
-                           int n_bins, int split_algo, int min_samples_leaf,
-                           int min_samples_split, float min_impurity_decrease,
-                           bool bootstrap_features, bool bootstrap, int n_trees,
-                           float max_samples, int seed,
-                           CRITERION split_criterion, bool quantile_per_tree,
-                           int cfg_n_streams, bool use_experimental_backend,
-                           int max_batch_size) {
+                        int n_bins, int split_algo, int min_samples_leaf,
+                        int min_samples_split, float min_impurity_decrease,
+                        bool bootstrap_features, bool bootstrap, int n_trees,
+                        float max_samples, int seed, CRITERION split_criterion,
+                        bool quantile_per_tree, int cfg_n_streams,
+                        bool use_experimental_backend, int max_batch_size) {
   DecisionTree::DecisionTreeParams tree_params;
   DecisionTree::set_tree_params(
     tree_params, max_depth, max_leaves, max_features, n_bins, split_algo,
@@ -624,7 +623,7 @@ RF_params set_rf_params(int max_depth, int max_leaves, float max_features,
   rf_params.max_samples = max_samples;
   rf_params.seed = seed;
   rf_params.n_streams = min(cfg_n_streams, omp_get_max_threads());
-  if(n_trees < rf_params.n_streams) rf_params.n_streams = n_trees;
+  if (n_trees < rf_params.n_streams) rf_params.n_streams = n_trees;
   DecisionTree::set_tree_params(rf_params.tree_params);
   rf_params.tree_params = tree_params;
   return rf_params;

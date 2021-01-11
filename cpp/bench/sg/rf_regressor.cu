@@ -85,25 +85,25 @@ std::vector<RegParams> getInputs() {
     .noise = 1.0,
     .seed = 12345ULL};
 
-    p.rf = set_rf_params(10,                 /*max_depth */
-                           (1 << 20),           /* max_leaves */
-                           0.3,                  /* max_features */
-                           32,                  /* n_bins */
-                           1,                   /* split_algo */
-                           3,                   /* min_samples_leaf */
-                           3,                   /* min_samples_split */
-                           0.0f,                /* min_impurity_decrease */
-                           true,                /* bootstrap_features */
-                           true,                /* bootstrap */
-                           500,                 /* n_trees */
-                           1.f,                  /* max_samples */
-                           1234,                /* seed */
-                           ML::CRITERION::MSE,  /* split_criterion */
-                           false,               /* quantile_per_tree */
-                           8,                   /* n_streams */
-                           false,               /* use_experimental_backend */
-                           128                  /* max_batch_size */
-                           );
+  p.rf = set_rf_params(10,                 /*max_depth */
+                       (1 << 20),          /* max_leaves */
+                       0.3,                /* max_features */
+                       32,                 /* n_bins */
+                       1,                  /* split_algo */
+                       3,                  /* min_samples_leaf */
+                       3,                  /* min_samples_split */
+                       0.0f,               /* min_impurity_decrease */
+                       true,               /* bootstrap_features */
+                       true,               /* bootstrap */
+                       500,                /* n_trees */
+                       1.f,                /* max_samples */
+                       1234,               /* seed */
+                       ML::CRITERION::MSE, /* split_criterion */
+                       false,              /* quantile_per_tree */
+                       8,                  /* n_streams */
+                       false,              /* use_experimental_backend */
+                       128                 /* max_batch_size */
+  );
   std::vector<DimInfo> dim_info = {{500000, 500, 400}};
   for (auto& di : dim_info) {
     // Let's run Bosch only for float type

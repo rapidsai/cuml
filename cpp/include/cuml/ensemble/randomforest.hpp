@@ -181,13 +181,12 @@ RF_metrics score(const raft::handle_t& user_handle,
                  int verbosity = CUML_LEVEL_INFO);
 
 RF_params set_rf_params(int max_depth, int max_leaves, float max_features,
-                           int n_bins, int split_algo, int min_samples_leaf,
-                           int min_samples_split, float min_impurity_decrease,
-                           bool bootstrap_features, bool bootstrap, int n_trees,
-                           float max_samples, int seed,
-                           CRITERION split_criterion, bool quantile_per_tree,
-                           int cfg_n_streams, bool use_experimental_backend,
-                           int max_batch_size);
+                        int n_bins, int split_algo, int min_samples_leaf,
+                        int min_samples_split, float min_impurity_decrease,
+                        bool bootstrap_features, bool bootstrap, int n_trees,
+                        float max_samples, int seed, CRITERION split_criterion,
+                        bool quantile_per_tree, int cfg_n_streams,
+                        bool use_experimental_backend, int max_batch_size);
 
 // ----------------------------- Regression ----------------------------------- //
 
