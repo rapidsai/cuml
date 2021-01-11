@@ -580,12 +580,13 @@ class NearestNeighbors(Base):
                 X = input_to_cupy_array(X).array
                 I_cparr = I_ndarr.to_output('cupy')
 
-                precise_distances = cp.linalg.norm(
-                    X[I_cparr] - X[:, cp.newaxis, :],
-                    axis=2
-                )
+                self_diff = X[I_cparr] - X[:, cp.newaxis, :]
                 if expanded:
-                    precise_distances = precise_distances * precise_distances
+                    precise_distances = cp.sum(
+                        self_diff * self_diff, axis=2
+                    )
+                else:
+                    precise_distances = cp.linalg.norm(self_diff, axis=2)
 
                 correct_order = cp.argsort(precise_distances, axis=1)
 
