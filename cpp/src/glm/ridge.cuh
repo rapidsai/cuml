@@ -29,6 +29,7 @@
 #include <raft/stats/mean_center.cuh>
 #include <raft/stats/stddev.cuh>
 #include <raft/stats/sum.cuh>
+#include <rmm/device_uvector.hpp>
 #include "preprocess.cuh"
 
 namespace ML {
@@ -45,7 +46,7 @@ void ridgeSolve(const raft::handle_t &handle, math_t *S, math_t *V, math_t *U,
 
   // Implements this: w = V * inv(S^2 + λ*I) * S * U^T * b
   rmm::device_uvector<math_t> S_nnz_vector(n_cols, stream);
-  math_t *S_nnz = S_nnz_vector.data()
+  math_t *S_nnz = S_nnz_vector.data();
   math_t alp = math_t(1);
   math_t beta = math_t(0);
   math_t thres = math_t(1e-10);
@@ -155,17 +156,17 @@ void ridgeFit(const raft::handle_t &handle, math_t *input, int n_rows,
   ASSERT(n_rows > 1, "ridgeFit: number of rows cannot be less than two");
 
   math_t *mu_input, *norm2_input, *mu_labels;
-  rmm::device_uvector<math_t> mu_input_vector((0, stream);
+  rmm::device_uvector<math_t> mu_input_vector(0, stream);
   rmm::device_uvector<math_t> norm2_input_vector(0, stream);
   rmm::device_uvector<math_t> mu_labels_vector(0, stream);
 
   if (fit_intercept) {
-    mu_input_vector = rmm::device_uvector<math_t>(n_cols, stream)
-    mu_labels_vector = rmm::device_uvector<math_t>(1, stream)
+    mu_input_vector = rmm::device_uvector<math_t>(n_cols, stream);
+    mu_labels_vector = rmm::device_uvector<math_t>(1, stream);
     mu_input = mu_input_vector.data();
     mu_labels = mu_labels_vector.data();
     if (normalize) {
-      norm2_input_vector = rmm::device_uvector<math_t>(n_cols, stream)
+      norm2_input_vector = rmm::device_uvector<math_t>(n_cols, stream);
       norm2_input = norm2_input_vector.data();
     }
     preProcessData(handle, input, n_rows, n_cols, labels, intercept, mu_input,
