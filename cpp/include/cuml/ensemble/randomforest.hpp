@@ -135,7 +135,7 @@ template <class T, class L>
 std::string get_rf_detailed_text(const RandomForestMetaData<T, L>* forest);
 
 template <class T, class L>
-std::string dump_rf_as_json(const RandomForestMetaData<T, L>* forest);
+std::string get_rf_json(const RandomForestMetaData<T, L>* forest);
 
 template <class T, class L>
 void build_treelite_forest(ModelHandle* model,
