@@ -190,13 +190,13 @@ class silhouetteScoreTest
 
 //setting test parameter values
 const std::vector<silhouetteScoreParam> inputs = {
-  {4, 2, 3, raft::distance::DistanceType::EucExpandedL2, 0.00001},
-  {4, 2, 2, raft::distance::DistanceType::EucUnexpandedL2Sqrt, 0.00001},
-  {8, 8, 3, raft::distance::DistanceType::EucUnexpandedL2, 0.00001},
-  {11, 2, 5, raft::distance::DistanceType::EucExpandedL2, 0.00001},
-  {40, 2, 8, raft::distance::DistanceType::EucExpandedL2, 0.00001},
-  {12, 7, 3, raft::distance::DistanceType::EucExpandedCosine, 0.00001},
-  {7, 5, 5, raft::distance::DistanceType::EucUnexpandedL1, 0.00001}};
+  {4, 2, 3, raft::distance::DistanceType::L2Expanded, 0.00001},
+  {4, 2, 2, raft::distance::DistanceType::L2SqrtUnexpanded, 0.00001},
+  {8, 8, 3, raft::distance::DistanceType::L2Unexpanded, 0.00001},
+  {11, 2, 5, raft::distance::DistanceType::L2Expanded, 0.00001},
+  {40, 2, 8, raft::distance::DistanceType::L2Expanded, 0.00001},
+  {12, 7, 3, raft::distance::DistanceType::CosineExpanded, 0.00001},
+  {7, 5, 5, raft::distance::DistanceType::L1, 0.00001}};
 
 //writing the test suite
 typedef silhouetteScoreTest<int, double> silhouetteScoreTestClass;

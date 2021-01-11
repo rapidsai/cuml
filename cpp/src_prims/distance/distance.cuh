@@ -42,8 +42,8 @@ struct DistanceImpl {
 
 template <typename InType, typename AccType, typename OutType,
           typename OutputTile_, typename FinalLambda, typename Index_>
-struct DistanceImpl<raft::distance::DistanceType::EucExpandedL2, InType,
-                    AccType, OutType, OutputTile_, FinalLambda, Index_> {
+struct DistanceImpl<raft::distance::DistanceType::L2Expanded, InType, AccType,
+                    OutType, OutputTile_, FinalLambda, Index_> {
   void run(const InType *x, const InType *y, OutType *dist, Index_ m, Index_ n,
            Index_ k, void *workspace, size_t worksize, FinalLambda fin_op,
            cudaStream_t stream, bool isRowMajor) {
@@ -55,7 +55,7 @@ struct DistanceImpl<raft::distance::DistanceType::EucExpandedL2, InType,
 
 template <typename InType, typename AccType, typename OutType,
           typename OutputTile_, typename FinalLambda, typename Index_>
-struct DistanceImpl<raft::distance::DistanceType::EucExpandedL2Sqrt, InType,
+struct DistanceImpl<raft::distance::DistanceType::L2SqrtExpanded, InType,
                     AccType, OutType, OutputTile_, FinalLambda, Index_> {
   void run(const InType *x, const InType *y, OutType *dist, Index_ m, Index_ n,
            Index_ k, void *workspace, size_t worksize, FinalLambda fin_op,
@@ -68,7 +68,7 @@ struct DistanceImpl<raft::distance::DistanceType::EucExpandedL2Sqrt, InType,
 
 template <typename InType, typename AccType, typename OutType,
           typename OutputTile_, typename FinalLambda, typename Index_>
-struct DistanceImpl<raft::distance::DistanceType::EucExpandedCosine, InType,
+struct DistanceImpl<raft::distance::DistanceType::CosineExpanded, InType,
                     AccType, OutType, OutputTile_, FinalLambda, Index_> {
   void run(const InType *x, const InType *y, OutType *dist, Index_ m, Index_ n,
            Index_ k, void *workspace, size_t worksize, FinalLambda fin_op,
@@ -81,8 +81,8 @@ struct DistanceImpl<raft::distance::DistanceType::EucExpandedCosine, InType,
 
 template <typename InType, typename AccType, typename OutType,
           typename OutputTile_, typename FinalLambda, typename Index_>
-struct DistanceImpl<raft::distance::DistanceType::EucUnexpandedL2, InType,
-                    AccType, OutType, OutputTile_, FinalLambda, Index_> {
+struct DistanceImpl<raft::distance::DistanceType::L2Unexpanded, InType, AccType,
+                    OutType, OutputTile_, FinalLambda, Index_> {
   void run(const InType *x, const InType *y, OutType *dist, Index_ m, Index_ n,
            Index_ k, void *workspace, size_t worksize, FinalLambda fin_op,
            cudaStream_t stream, bool isRowMajor) {
@@ -93,7 +93,7 @@ struct DistanceImpl<raft::distance::DistanceType::EucUnexpandedL2, InType,
 
 template <typename InType, typename AccType, typename OutType,
           typename OutputTile_, typename FinalLambda, typename Index_>
-struct DistanceImpl<raft::distance::DistanceType::EucUnexpandedL2Sqrt, InType,
+struct DistanceImpl<raft::distance::DistanceType::L2SqrtUnexpanded, InType,
                     AccType, OutType, OutputTile_, FinalLambda, Index_> {
   void run(const InType *x, const InType *y, OutType *dist, Index_ m, Index_ n,
            Index_ k, void *workspace, size_t worksize, FinalLambda fin_op,
@@ -105,8 +105,8 @@ struct DistanceImpl<raft::distance::DistanceType::EucUnexpandedL2Sqrt, InType,
 
 template <typename InType, typename AccType, typename OutType,
           typename OutputTile_, typename FinalLambda, typename Index_>
-struct DistanceImpl<raft::distance::DistanceType::EucUnexpandedL1, InType,
-                    AccType, OutType, OutputTile_, FinalLambda, Index_> {
+struct DistanceImpl<raft::distance::DistanceType::L1, InType, AccType, OutType,
+                    OutputTile_, FinalLambda, Index_> {
   void run(const InType *x, const InType *y, OutType *dist, Index_ m, Index_ n,
            Index_ k, void *workspace, size_t worksize, FinalLambda fin_op,
            cudaStream_t stream, bool isRowMajor) {
@@ -139,7 +139,7 @@ size_t getWorkspaceSize(const InType *x, const InType *y, Index_ m, Index_ n,
                         Index_ k) {
   size_t worksize = 0;
   constexpr bool is_allocated =
-    distanceType <= raft::distance::DistanceType::EucExpandedCosine;
+    distanceType <= raft::distance::DistanceType::CosineExpanded;
   if (is_allocated) {
     worksize += m * sizeof(AccType);
     if (x != y) worksize += n * sizeof(AccType);
@@ -271,34 +271,33 @@ void pairwise_distance(const Type *x, const Type *y, Type *dist, Index_ m,
                        raft::distance::DistanceType metric, cudaStream_t stream,
                        bool isRowMajor = true) {
   switch (metric) {
-    case raft::distance::DistanceType::EucExpandedL2:
+    case raft::distance::DistanceType::L2Expanded:
       pairwise_distance_impl<Type, Index_,
-                             raft::distance::DistanceType::EucExpandedL2>(
+                             raft::distance::DistanceType::L2Expanded>(
         x, y, dist, m, n, k, workspace, stream, isRowMajor);
       break;
-    case raft::distance::DistanceType::EucExpandedL2Sqrt:
+    case raft::distance::DistanceType::L2SqrtExpanded:
       pairwise_distance_impl<Type, Index_,
-                             raft::distance::DistanceType::EucExpandedL2Sqrt>(
+                             raft::distance::DistanceType::L2SqrtExpanded>(
         x, y, dist, m, n, k, workspace, stream, isRowMajor);
       break;
-    case raft::distance::DistanceType::EucExpandedCosine:
+    case raft::distance::DistanceType::CosineExpanded:
       pairwise_distance_impl<Type, Index_,
-                             raft::distance::DistanceType::EucExpandedCosine>(
+                             raft::distance::DistanceType::CosineExpanded>(
         x, y, dist, m, n, k, workspace, stream, isRowMajor);
       break;
-    case raft::distance::DistanceType::EucUnexpandedL1:
-      pairwise_distance_impl<Type, Index_,
-                             raft::distance::DistanceType::EucUnexpandedL1>(
+    case raft::distance::DistanceType::L1:
+      pairwise_distance_impl<Type, Index_, raft::distance::DistanceType::L1>(
         x, y, dist, m, n, k, workspace, stream, isRowMajor);
       break;
-    case raft::distance::DistanceType::EucUnexpandedL2:
+    case raft::distance::DistanceType::L2Unexpanded:
       pairwise_distance_impl<Type, Index_,
-                             raft::distance::DistanceType::EucUnexpandedL2>(
+                             raft::distance::DistanceType::L2Unexpanded>(
         x, y, dist, m, n, k, workspace, stream, isRowMajor);
       break;
-    case raft::distance::DistanceType::EucUnexpandedL2Sqrt:
+    case raft::distance::DistanceType::L2SqrtUnexpanded:
       pairwise_distance_impl<Type, Index_,
-                             raft::distance::DistanceType::EucUnexpandedL2Sqrt>(
+                             raft::distance::DistanceType::L2SqrtUnexpanded>(
         x, y, dist, m, n, k, workspace, stream, isRowMajor);
       break;
     default:

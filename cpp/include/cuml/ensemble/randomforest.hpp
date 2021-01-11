@@ -123,10 +123,10 @@ template <class T, class L>
 void delete_rf_metadata(RandomForestMetaData<T, L>* forest);
 
 template <class T, class L>
-void print_rf_summary(const RandomForestMetaData<T, L>* forest);
+std::string get_rf_summary_text(const RandomForestMetaData<T, L>* forest);
 
 template <class T, class L>
-void print_rf_detailed(const RandomForestMetaData<T, L>* forest);
+std::string get_rf_detailed_text(const RandomForestMetaData<T, L>* forest);
 
 template <class T, class L>
 std::string dump_rf_as_json(const RandomForestMetaData<T, L>* forest);
