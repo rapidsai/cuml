@@ -20,7 +20,7 @@ import numpy as np
 
 import cuml.internals
 from cuml.common.array import CumlArray
-from cuml.raft.common.handle cimport handle_t
+from raft.common.handle cimport handle_t
 from cuml.common import input_to_cuml_array
 from cuml.common.opg_data_utils_mg cimport *
 from cuml.common.opg_data_utils_mg import _build_part_inputs

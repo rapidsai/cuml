@@ -16,9 +16,13 @@
 
 set (CMAKE_FIND_NO_INSTALL_PREFIX TRUE FORCE)
 
-cmake_minimum_required(VERSION 3.14...3.17 FATAL_ERROR)
+cmake_minimum_required(VERSION 3.18...3.18 FATAL_ERROR)
 
-project(cuML VERSION 0.18.0 LANGUAGES C CXX CUDA)
+project(CUML VERSION 0.18.0 LANGUAGES C CXX CUDA)
+
+#Make sure that custom modules like FindRMM are found
+list(INSERT CMAKE_MODULE_PATH 0 ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
+message(STATUS "Adding ${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
 ##############################################################################
 # - build type ---------------------------------------------------------------
@@ -223,8 +227,8 @@ endif()
 ##############################################################################
 # - External Dependencies-----------------------------------------------------
 
-set(CUML_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include CACHE STRING
-  "Path to cuml include directories")
+# set(CUML_INCLUDE_DIR $<INSTALL_INTERFACE:include> $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include> CACHE STRING
+#   "Path to cuml include directories")
 
 ##############################################################################
 # - Compiler Options  --------------------------------------------------------
@@ -303,13 +307,16 @@ endif()
 message("-- Building for GPU_ARCHS = ${GPU_ARCHS}")
 
 foreach(arch ${GPU_ARCHS})
-  set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -gencode arch=compute_${arch},code=sm_${arch}")
+  # set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -gencode arch=compute_${arch},code=sm_${arch}")
   set(FAISS_GPU_ARCHS "${FAISS_GPU_ARCHS} -gencode arch=compute_${arch},code=sm_${arch}")
 endforeach()
 
-list(GET GPU_ARCHS -1 ptx)
-set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -gencode arch=compute_${ptx},code=compute_${ptx}")
-set(FAISS_GPU_ARCHS "${FAISS_GPU_ARCHS} -gencode arch=compute_${ptx},code=compute_${ptx}")
+# list(GET GPU_ARCHS -1 ptx)
+# set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -gencode arch=compute_${ptx},code=compute_${ptx}")
+# set(FAISS_GPU_ARCHS "${FAISS_GPU_ARCHS} -gencode arch=compute_${ptx},code=compute_${ptx}")
+
+# Clear any existing value in CMAKE_CUDA_ARCHITECTURES
+set(CMAKE_CUDA_ARCHITECTURES "${GPU_ARCHS}")
 
 set(CMAKE_CUDA_FLAGS
   "${CMAKE_CUDA_FLAGS} -Xcudafe --diag_suppress=unrecognized_gcc_pragma")
@@ -331,7 +338,7 @@ set(CUML_INCLUDE_DIRECTORIES
   ${CUTLASS_DIR}/src/cutlass
   ${SPDLOG_DIR}/src/spdlog/include
   ${FAISS_INCLUDE_DIRS}
-  ${RAFT_DIR}/cpp/include
+  # ${RAFT_DIR}/cpp/include
   ${RMM_INCLUDE_DIRS})
 
 if(NOT CUB_IS_PART_OF_CTK)
@@ -380,10 +387,10 @@ endif(ENABLE_CUMLPRIMS_MG)
 # - build libcuml++ shared library -------------------------------------------
 
 if(BUILD_CUML_CPP_LIBRARY)
-  set(CUML_CPP_TARGET "cuml++")
+  # set(CUML_CPP_TARGET "cuml++")
 
   # single GPU components
-  add_library(${CUML_CPP_TARGET} SHARED
+  add_library(cuml++ SHARED
     src/arima/batched_arima.cu
     src/arima/batched_kalman.cu
     src/common/cumlHandle.cpp
@@ -431,12 +438,12 @@ if(BUILD_CUML_CPP_LIBRARY)
     src/tsne/tsne.cu
     src/tsvd/tsvd.cu
     src/umap/umap.cu)
-  add_library(cuml::cuml++ ALIAS ${CUML_CPP_TARGET})
+  add_library(cuml::cuml++ ALIAS cuml++)
 
   # mnmg components
 
   if(NOT SINGLEGPU)
-    target_sources(${CUML_CPP_TARGET}
+    target_sources(cuml++
       PRIVATE
         src/glm/ols_mg.cu
         src/glm/preprocess_mg.cu
@@ -457,25 +464,59 @@ if(BUILD_CUML_CPP_LIBRARY)
     set(CUML_PUBLIC_LINK_LIBRARIES ${CUML_PUBLIC_LINK_LIBRARIES} ${OpenMP_CXX_LIB_NAMES} Threads::Threads)
   endif(OPENMP_FOUND)
 
-  if(NVTX)
-    set(CUML_PUBLIC_LINK_LIBRARIES ${CUML_PUBLIC_LINK_LIBRARIES} nvToolsExt)
-    link_directories(${CUDA_TOOLKIT_ROOT_DIR}/lib64)
-  endif(NVTX)
+  # if(NVTX)
+  #   set(CUML_PUBLIC_LINK_LIBRARIES ${CUML_PUBLIC_LINK_LIBRARIES} nvToolsExt)
+  #   link_directories(${CUDA_TOOLKIT_ROOT_DIR}/lib64)
+  # endif(NVTX)
 
-  target_include_directories(${CUML_CPP_TARGET}
-    PRIVATE ${CUML_INCLUDE_DIRECTORIES})
+  message(STATUS "raft: ${raft_INCLUDE_DIR}")
 
-  target_link_libraries(${CUML_CPP_TARGET}
+  target_include_directories(cuml++
+    PUBLIC 
+      $<INSTALL_INTERFACE:include>
+      $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+      $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>
+      $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src_prims>
+      ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}
+      $<BUILD_INTERFACE:${raft_INCLUDE_DIR}>
+      $<BUILD_INTERFACE:${CUTLASS_DIR}/src/cutlass>
+      $<BUILD_INTERFACE:$<$<BOOL:ENABLE_CUMLPRIMS_MG>:${cumlprims_mg_INCLUDE_DIRS}>>
+    PRIVATE 
+      ${CMAKE_CURRENT_SOURCE_DIR}/test/prims
+      ${SPDLOG_DIR}/src/spdlog/include
+      ${FAISS_INCLUDE_DIRS}
+      # ${RMM_INCLUDE_DIRS}
+
+      $<$<NOT:$<BOOL:CUB_IS_PART_OF_CTK>>:${CUB_DIR}/src/cub>
+      $<$<OR:$<BOOL:BUILD_CUML_STD_COMMS>,$<BOOL:BUILD_CUML_MPI_COMMS>>:${NCCL_INCLUDE_DIRS}>
+      $<$<BOOL:BUILD_CUML_MPI_COMMS>:${MPI_CXX_INCLUDE_PATH}>
+  )
+
+  target_link_libraries(cuml++
     PUBLIC
-      ${CUML_PUBLIC_LINK_LIBRARIES}
+      CUDA::cublas
+      CUDA::curand
+      CUDA::cusolver
+      CUDA::cudart
+      CUDA::cusparse
+      "$<$<BOOL:OPENMP_FOUND>:${OpenMP_CXX_LIB_NAMES}>" # Must be in quotes to use list in generator expression!!
+      $<$<BOOL:OPENMP_FOUND>:Threads::Threads>
+      $<$<BOOL:NVTX>:CUDA::nvToolsExt>
+      RMM::RMM
+      # raft::raft
     PRIVATE
-      ${CUML_PRIVATE_LINK_LIBRARIES}
+      FAISS::FAISS
+      treelite::treelite
+      treelite::treelite_runtime
+      $<$<OR:$<BOOL:BUILD_CUML_STD_COMMS>,$<BOOL:BUILD_CUML_MPI_COMMS>>:NCCL::NCCL>
+      $<$<BOOL:BUILD_CUML_MPI_COMMS>:${MPI_CXX_LIBRARIES}>
+      $<$<BOOL:ENABLE_CUMLPRIMS_MG>:cumlprims_mg::cumlprims_mg>
   )
   # If we export the libdmlc symbols, they can lead to weird crashes with other
   # libraries that use libdmlc. This just hides the symbols internally.
-  target_link_options(${CUML_CPP_TARGET} PRIVATE "-Wl,--exclude-libs,libdmlc.a")
+  target_link_options(cuml++ PRIVATE "-Wl,--exclude-libs,libdmlc.a")
   # same as above, but for protobuf library
-  target_link_options(${CUML_CPP_TARGET} PRIVATE "-Wl,--exclude-libs,libprotobuf.a")
+  target_link_options(cuml++ PRIVATE "-Wl,--exclude-libs,libprotobuf.a")
 
 endif(BUILD_CUML_CPP_LIBRARY)
 
@@ -483,20 +524,20 @@ endif(BUILD_CUML_CPP_LIBRARY)
 # - build libcuml C shared library -------------------------------------------
 
 if(BUILD_CUML_C_LIBRARY)
-  set(CUML_C_TARGET "cuml")
+  # set(CUML_C_TARGET "cuml")
 
-  add_library(${CUML_C_TARGET} SHARED
+  add_library(cuml SHARED
     src/common/cuml_api.cpp
     src/dbscan/dbscan_api.cpp
     src/glm/glm_api.cpp
     src/holtwinters/holtwinters_api.cpp
     src/svm/svm_api.cpp)
-  add_library(cuml::cuml ALIAS ${CUML_C_TARGET})
+  add_library(cuml::cuml ALIAS cuml)
 
-  target_include_directories(${CUML_C_TARGET}
-    PRIVATE ${CUML_INCLUDE_DIRECTORIES})
+  # target_include_directories(cuml
+  #   PRIVATE ${CUML_INCLUDE_DIRECTORIES})
 
-  target_link_libraries(${CUML_C_TARGET} PUBLIC ${CUML_CPP_TARGET})
+  target_link_libraries(cuml PUBLIC cuml++)
 endif(BUILD_CUML_C_LIBRARY)
 
 ##############################################################################
@@ -519,19 +560,20 @@ endif(BUILD_CUML_EXAMPLES)
 include(GNUInstallDirs)
 set(INSTALL_CONFIGDIR ${CMAKE_INSTALL_LIBDIR}/cmake/cuml)
 
-install(TARGETS ${CUML_CPP_TARGET}
-                ${CUML_C_TARGET}
-        DESTINATION lib
-        EXPORT cuml-targets)
+install(TARGETS cuml++ cuml
+        EXPORT cuml-targets
+        DESTINATION ${CMAKE_INSTALL_LIBDIR})
 
-install(DIRECTORY ${cuML_INCLUDE_DIR}/cuml DESTINATION include)
-install(DIRECTORY ${RAFT_DIR}/cpp/include/ DESTINATION include/cuml)
+install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/include/cuml DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+install(DIRECTORY ${raft_INCLUDE_DIR} DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/cuml)
 
 include(CMakePackageConfigHelpers)
-configure_package_config_file(cmake/cuml-config.cmake.in ${cuML_BINARY_DIR}/cuml-config.cmake
+configure_package_config_file(${CMAKE_CURRENT_LIST_DIR}/cmake/cuml-config.cmake.in
+                              ${CMAKE_CURRENT_BINARY_DIR}/cuml-config.cmake
                               INSTALL_DESTINATION ${INSTALL_CONFIGDIR})
 
-write_basic_package_version_file(${cuML_BINARY_DIR}/cuml-config-version.cmake
+write_basic_package_version_file(${CMAKE_CURRENT_BINARY_DIR}/cuml-config-version.cmake
+                                 VERSION ${PROJECT_VERSION}
                                  COMPATIBILITY SameMinorVersion)
 
 install(
@@ -540,8 +582,27 @@ install(
   NAMESPACE cuml::
   DESTINATION ${INSTALL_CONFIGDIR})
 
-install(FILES ${cuML_BINARY_DIR}/cuml-config.cmake ${cuML_BINARY_DIR}/cuml-config-version.cmake
-              ${cuML_SOURCE_DIR}/cmake/install/FindThrust.cmake DESTINATION ${INSTALL_CONFIGDIR})
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/cuml-config.cmake 
+              ${CMAKE_CURRENT_BINARY_DIR}/cuml-config-version.cmake
+              ${CMAKE_CURRENT_LIST_DIR}/cmake/FindRMM.cmake
+        DESTINATION ${INSTALL_CONFIGDIR})
+
+##############################################################################
+# - export targets -----------------------------------------------------------
+
+
+# Export any Cmake modules
+# configure_file(${CMAKE_CURRENT_LIST_DIR}/cmake/FindRapidJSON.cmake
+#     ${CMAKE_CURRENT_BINARY_DIR}/FindRapidJSON.cmake
+#     COPYONLY)
+
+# Export targets
+export(EXPORT cuml-targets
+    FILE ${CMAKE_CURRENT_BINARY_DIR}/cuml-targets.cmake
+    NAMESPACE cuml::)
+
+#Register package in user's package registry
+export(PACKAGE cuml)
 
 ##############################################################################
 # - build benchmark executable -----------------------------------------------

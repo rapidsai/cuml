@@ -40,7 +40,7 @@ from cuml.common.sparse_utils import is_dense
 
 from cython.operator cimport dereference as deref
 
-from cuml.raft.common.handle cimport handle_t
+from raft.common.handle cimport handle_t
 
 from libcpp cimport bool
 from libcpp.memory cimport shared_ptr

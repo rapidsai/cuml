@@ -12,5 +12,6 @@
 # the License.
 # =============================================================================
 
-# Add all of the pyx files in this directory
-add_cuml_python_libraries("*.pyx")
+# Add the subdirectories
+add_subdirectory(explainer)
+add_subdirectory(linear_model)

@@ -25,10 +25,10 @@ from libc.stdlib cimport calloc, malloc, free
 from libcpp.vector cimport vector
 from libcpp.string cimport string
 
-from cuml.raft.common.handle import Handle
+from raft.common.handle import Handle
 from cuml import ForestInference
 from cuml.common.base import Base
-from cuml.raft.common.handle cimport handle_t
+from raft.common.handle cimport handle_t
 cimport cuml.common.cuda
 
 cdef extern from "treelite/c_api.h":

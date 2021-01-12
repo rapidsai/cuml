@@ -14,41 +14,118 @@
 # limitations under the License.
 #=============================================================================
 
+list(INSERT CMAKE_MODULE_PATH 0 ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
+message(STATUS "Adding ${CMAKE_CURRENT_SOURCE_DIR}/cmake")
+
 include(ExternalProject)
+include(FetchContent)
+include(FindPackageHandleStandardArgs)
+
+set(FETCHCONTENT_QUIET off)
+# get_filename_component(fc_base "../fc_base"
+#                        REALPATH BASE_DIR "${CMAKE_BINARY_DIR}")
+# set(FETCHCONTENT_BASE_DIR ${fc_base})
+##############################################################################
+# - RMM ----------------------------------------------------------------------
+
+# find_package(PkgConfig)
+# pkg_check_modules(PC_RMM QUIET RMM)
+
+# find_path(RMM_INCLUDE_DIR "RMM"
+#     HINTS
+#       "$ENV{RMM_ROOT}/include"
+#       "$ENV{CONDA_PREFIX}/include/RMM"
+#       "$ENV{CONDA_PREFIX}/include"
+#     PATHS
+#       ${PC_RMM_INCLUDE_DIRS})
+
+# set(RMM_VERSION ${PC_RMM_VERSION})
+
+# mark_as_advanced(RMM_FOUND RMM_INCLUDE_DIR RMM_VERSION)
+
+# include(FindPackageHandleStandardArgs)
+# find_package_handle_standard_args(RMM
+#     REQUIRED_VARS RMM_INCLUDE_DIR
+#     VERSION_VAR RMM_VERSION
+# )
+
+# if(RMM_FOUND)
+#     set(RMM_INCLUDE_DIRS ${RMM_INCLUDE_DIR})
+# endif()
+
+# if(RMM_FOUND AND NOT TARGET RMM::RMM)
+#     add_library(RMM::RMM INTERFACE IMPORTED)
+#     set_target_properties(RMM::RMM PROPERTIES
+#         INTERFACE_INCLUDE_DIRECTORIES "${RMM_INCLUDE_DIR}"
+#     )
+# endif()
+
+# message(STATUS "RMM: RMM_INCLUDE_DIRS set to ${RMM_INCLUDE_DIRS}")
+
+find_package(RMM REQUIRED MODULE)
 
 ##############################################################################
 # - raft - (header only) -----------------------------------------------------
 
 # Only cloned if RAFT_PATH env variable is not defined
 
+FetchContent_Declare(raft
+  GIT_REPOSITORY    https://github.com/rapidsai/raft.git
+  GIT_TAG           f75d7b437bf1da3df749108161b8a0505fb6b7b3
+  SOURCE_DIR        $ENV{RAFT_PATH}
+  )
+
+FetchContent_MakeAvailable(raft)
+
 if(DEFINED ENV{RAFT_PATH})
   message(STATUS "RAFT_PATH environment variable detected.")
   message(STATUS "RAFT_DIR set to $ENV{RAFT_PATH}")
   set(RAFT_DIR "$ENV{RAFT_PATH}")
 
-  ExternalProject_Add(raft
-    DOWNLOAD_COMMAND  ""
-    SOURCE_DIR        ${RAFT_DIR}
-    CONFIGURE_COMMAND ""
-    BUILD_COMMAND     ""
-    INSTALL_COMMAND   "")
+  # ExternalProject_Add(raft
+  #   DOWNLOAD_COMMAND  ""
+  #   SOURCE_DIR        $ENV{RAFT_PATH}
+  #   CONFIGURE_COMMAND ""
+  #   BUILD_COMMAND     ""
+  #   INSTALL_COMMAND   "")
+
+  # set(raft_INCLUDE_DIR ${FETCHCONTENT_SOURCE_DIR_RAFT}/cpp/include)
 
 else(DEFINED ENV{RAFT_PATH})
   message(STATUS "RAFT_PATH environment variable NOT detected, cloning RAFT")
   set(RAFT_DIR ${CMAKE_CURRENT_BINARY_DIR}/raft CACHE STRING "Path to RAFT repo")
 
-  ExternalProject_Add(raft
-    GIT_REPOSITORY    https://github.com/rapidsai/raft.git
-    GIT_TAG           f75d7b437bf1da3df749108161b8a0505fb6b7b3
-    PREFIX            ${RAFT_DIR}
-    CONFIGURE_COMMAND ""
-    BUILD_COMMAND     ""
-    INSTALL_COMMAND   "")
+  # ExternalProject_Add(raft
+  #   GIT_REPOSITORY    https://github.com/rapidsai/raft.git
+  #   GIT_TAG           f75d7b437bf1da3df749108161b8a0505fb6b7b3
+  #   PREFIX            ${RAFT_DIR}
+  #   CONFIGURE_COMMAND ""
+  #   BUILD_COMMAND     ""
+  #   INSTALL_COMMAND   "")
 
   # Redefining RAFT_DIR so it coincides with the one inferred by env variable.
-  set(RAFT_DIR ${RAFT_DIR}/src/raft/)
+  # set(raft_INCLUDE_DIR ${FETCHCONTENT_SOURCE_DIR_RAFT}/src/raft/cpp/include)
 endif(DEFINED ENV{RAFT_PATH})
 
+FetchContent_GetProperties(raft)
+
+set(raft_INCLUDE_DIR ${raft_SOURCE_DIR}/cpp/include)
+set(raft_INCLUDE_DIR ${raft_SOURCE_DIR}/cpp/include PARENT_SCOPE)
+
+# TODO: Potentially add sections from https://pabloariasal.github.io/2018/02/19/its-time-to-do-cmake-right/#if-you-want-it-done-right-do-it-yourself
+if(NOT TARGET raft::raft)
+  add_library(raft::raft INTERFACE IMPORTED)
+  target_include_directories(raft::raft INTERFACE ${raft_INCLUDE_DIR})
+  # set_target_properties(raft::raft PROPERTIES
+  #   INTERFACE_INCLUDE_DIRECTORIES "${raft_SOURCE_DIR}/cpp/include")
+
+  # add_dependencies(raft::raft raft)
+
+  # install(DIRECTORY ${raft_INCLUDE_DIR} DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/cuml)
+
+endif(NOT TARGET raft::raft)
+
+message(STATUS "raft_INCLUDE_DIR set to ${raft_INCLUDE_DIR}")
 
 ##############################################################################
 # - cumlprims (binary dependency) --------------------------------------------
@@ -76,17 +153,6 @@ if(ENABLE_CUMLPRIMS_MG)
 
 endif(ENABLE_CUMLPRIMS_MG)
 
-
-##############################################################################
-# - RMM ----------------------------------------------------------------------
-
-find_path(RMM_INCLUDE_DIRS "rmm"
-    HINTS
-    "$ENV{RMM_ROOT}/include"
-    "$ENV{CONDA_PREFIX}/include/rmm"
-    "$ENV{CONDA_PREFIX}/include")
-
-message(STATUS "RMM: RMM_INCLUDE_DIRS set to ${RMM_INCLUDE_DIRS}")
 
 ##############################################################################
 # - NCCL ---------------------------------------------------------------------
@@ -258,9 +324,9 @@ set_property(TARGET benchmarklib PROPERTY
 # TODO: Change to using build.sh and make targets instead of this
 
 if(CUB_IS_PART_OF_CTK)
-  add_dependencies(cutlass raft)
+  # add_dependencies(cutlass raft)
 else()
-  add_dependencies(cub raft)
+  # add_dependencies(cub raft)
   add_dependencies(cutlass cub)
 endif(CUB_IS_PART_OF_CTK)
 add_dependencies(spdlog cutlass)

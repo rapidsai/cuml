@@ -14,3 +14,6 @@
 
 # Add all of the pyx files in this directory
 add_cuml_python_libraries("*.pyx")
+
+# Also add the cluster sub dir
+add_subdirectory(cluster)

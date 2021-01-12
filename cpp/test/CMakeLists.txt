@@ -15,22 +15,18 @@
 #=============================================================================
 
 set(CUML_TEST_INCLUDE_DIRS
-  ${CUML_INCLUDE_DIRECTORIES}
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/prims>
+  ${raft_INCLUDE_DIR}
   ${GTEST_INCLUDE_DIRS}/include
   ${TREELITE_DIR}/runtime/native/include)
 
 set(CUML_TEST_LINK_LIBRARIES
-  ${CUML_CPP_TARGET}
+  cuml++
   FAISS::FAISS
   GTest::GTest
   GTest::Main
   treelite::treelite
   treelite::treelite_runtime
-  ${CUDA_cublas_LIBRARY}
-  ${CUDA_curand_LIBRARY}
-  ${CUDA_cusolver_LIBRARY}
-  ${CUDA_CUDART_LIBRARY}
-  ${CUDA_cusparse_LIBRARY}
   )
 
 set(PRIMS_TEST_LINK_LIBRARIES
@@ -209,6 +205,7 @@ if(BUILD_PRIMS_TESTS)
   add_dependencies(prims cutlass)
 
   target_link_libraries(prims
+    cuml++
   	GTest::GTest
   	GTest::Main
   	FAISS::FAISS

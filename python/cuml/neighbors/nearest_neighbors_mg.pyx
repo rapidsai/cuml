@@ -32,7 +32,7 @@ import cuml.internals
 
 from cython.operator cimport dereference as deref
 
-from cuml.raft.common.handle cimport handle_t
+from raft.common.handle cimport handle_t
 from cuml.common.opg_data_utils_mg import _build_part_inputs
 import cuml.common.logger as logger
 
