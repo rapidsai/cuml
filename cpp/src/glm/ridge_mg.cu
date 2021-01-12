@@ -29,6 +29,7 @@
 #include <raft/linalg/gemm.cuh>
 #include <raft/matrix/math.cuh>
 #include <raft/matrix/matrix.cuh>
+#include <rmm/device_uvector.hpp>
 
 using namespace MLCommon;
 
@@ -58,7 +59,8 @@ void ridgeSolve(const raft::handle_t &handle, T *S, T *V,
 
   // TO-DO: Update to use `device_buffer` here
   // Tracking issue: https://github.com/rapidsai/cuml/issues/2524
-  raft::allocate(S_nnz, UDesc.N, true);
+  rmm::device_uvector<T> S_nnz_vector(UDesc.N, stream);
+  S_nnz = S_nnz_vector.data();
   raft::copy(S_nnz, S, UDesc.N, streams[0]);
   raft::matrix::power(S_nnz, UDesc.N, streams[0]);
   raft::linalg::addScalar(S_nnz, S_nnz, alpha[0], UDesc.N, streams[0]);
@@ -75,8 +77,6 @@ void ridgeSolve(const raft::handle_t &handle, T *S, T *V,
 
   raft::linalg::gemm(handle, V, UDesc.N, UDesc.N, S_nnz, w, UDesc.N, 1,
                      CUBLAS_OP_N, CUBLAS_OP_N, alp, beta, streams[0]);
-
-  CUDA_CHECK(cudaFree(S_nnz));
 }
 
 template <typename T>
