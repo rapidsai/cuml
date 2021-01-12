@@ -40,11 +40,11 @@ void _single_linkage(const raft::handle_t &handle, const value_t *X, size_t m,
                      size_t n, raft::distance::DistanceType metric,
                      LinkageDistance dist_type,
                      linkage_output<value_idx, value_t> *out, int c,
-                     int n_clusters = 5) {
+                     int n_clusters = 2) {
   auto stream = handle.get_stream();
   auto d_alloc = handle.get_device_allocator();
 
-  raft::print_device_vector("X: ", X, 5, std::cout);
+  raft::print_device_vector("X: ", X, min(size_t(5), m * n), std::cout);
 
   CUML_LOG_INFO("Running distances");
 

@@ -157,7 +157,8 @@ void label_hierarchy_host(const raft::handle_t &handle, const value_idx *rows,
 
     int children_idx = i * 2;
 
-    printf("i=%d, children_idx=%d, aa=%d, bb=%d\n", i, children_idx, aa, bb);
+    printf("i=%d, children_idx=%d, a=%d, b=%d, aa=%d, bb=%d\n", i, children_idx,
+           a, b, aa, bb);
 
     children_h[children_idx] = aa;
     children_h[children_idx + 1] = bb;
@@ -166,6 +167,13 @@ void label_hierarchy_host(const raft::handle_t &handle, const value_idx *rows,
 
     U.perform_union(aa, bb);
   }
+
+  printf("parents: [");
+  for (int i = 0; i < nnz; i++) {
+    printf("%d, ", U.parent[i]);
+  }
+
+  printf("]\n");
 
   CUML_LOG_INFO("Copying back to device");
 
@@ -236,6 +244,20 @@ void label_hierarchy_device(const raft::handle_t &handle, const value_idx *rows,
   // 4. Merge label hierarchies together
 }
 
+template <typename value_idx>
+__global__ void write_parents_kernel(const value_idx *children,
+                                     value_idx *parents, size_t n_leaves) {
+  int tid = blockDim.x * blockIdx.x + threadIdx.x;
+  if (tid < (n_leaves - 1) * 2) {
+    value_idx level = tid / 2;
+    value_idx child = children[tid];
+
+    printf("tid=%d, parent=%d, child=%d\n", tid, level, child);
+
+    parents[child] = level;
+  }
+}
+
 /**
  * Instead of propagating a label from roots to children,
  * the children each iterate up the tree until they find
@@ -253,31 +275,21 @@ __global__ void propagate_labels(const value_idx *children,
                                  value_idx *labels) {
   int tid = blockDim.x * blockIdx.x + threadIdx.x;
 
-  if (tid < (n_leaves - 1) * 2) {
+  if (tid < ((n_leaves - 1) * 2) - 1) {
     value_idx node = children[tid];
-    value_idx cur_parent = parents[node];
+    value_idx children_idx = tid / 2;
+    value_idx cur_parent = node;
+
     value_idx label = labels[cur_parent];
 
     while (label == -1) {
-      cur_parent = parents[cur_parent];
+      cur_parent = children_idx + n_leaves;
+      children_idx = parents[cur_parent];
+
       label = labels[cur_parent];
     }
 
     labels[node] = label;
-  }
-}
-
-template <typename value_idx>
-__global__ void write_parents_kernel(const value_idx *children,
-                                     value_idx *parents, size_t n_leaves) {
-  int tid = blockDim.x * blockIdx.x + threadIdx.x;
-  if (tid < (n_leaves - 1) * 2) {
-    value_idx parent = tid / 2;
-    value_idx child = children[tid];
-
-    printf("tid=%d, parent=%d, child=%d\n", tid, parent, child);
-
-    parents[child] = parent;
   }
 }
 
@@ -311,11 +323,11 @@ void extract_clusters(const raft::handle_t &handle,
  *        out for each of the children
  */
 
+  CUML_LOG_INFO("Performing write_parents_kernel");
+
   CUDA_CHECK(cudaStreamSynchronize(stream));
   raft::mr::device::buffer<value_idx> parents(handle.get_device_allocator(),
                                               stream, n_leaves * 2);
-
-  CUML_LOG_INFO("Performing write_parents_kernel");
 
   int n_blocks = raft::ceildiv((n_leaves - 1) * 2, (size_t)1024);
   write_parents_kernel<<<n_blocks, 1024, 0, stream>>>(children.data(),
@@ -330,14 +342,14 @@ void extract_clusters(const raft::handle_t &handle,
    */
 
   raft::mr::device::buffer<value_idx> label_roots(handle.get_device_allocator(),
-                                                  stream, n_clusters * 2);
+                                                  stream, (n_clusters - 1) * 2);
 
   raft::print_device_vector("children: ", children.data(), children.size(),
                             std::cout);
 
-  value_idx children_cpy_start = children.size() - (n_clusters * 2);
+  value_idx children_cpy_start = children.size() - ((n_clusters - 1) * 2);
   raft::copy_async(label_roots.data(), children.data() + children_cpy_start,
-                   n_clusters * 2, stream);
+                   (n_clusters - 1) * 2, stream);
 
   thrust::device_ptr<value_idx> t_label_roots =
     thrust::device_pointer_cast(label_roots.data());
@@ -345,7 +357,8 @@ void extract_clusters(const raft::handle_t &handle,
   CUML_LOG_INFO("Performing sort");
 
   thrust::sort(thrust::cuda::par.on(stream), t_label_roots,
-               t_label_roots + (n_clusters * 2));
+               t_label_roots + ((n_clusters - 1) * 2),
+               thrust::greater<value_idx>());
 
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
@@ -364,8 +377,8 @@ void extract_clusters(const raft::handle_t &handle,
   thrust::counting_iterator<uint> first(0);
   thrust::counting_iterator<uint> last = first + tmp_labels.size();
 
-  auto z_iter =
-    thrust::make_zip_iterator(thrust::make_tuple(first, t_label_roots));
+  auto z_iter = thrust::make_zip_iterator(thrust::make_tuple(
+    first, t_label_roots + (label_roots.size() - n_clusters)));
 
   thrust::for_each(z_iter, z_iter + n_clusters,
                    init_label_roots<value_idx>(tmp_labels.data()));

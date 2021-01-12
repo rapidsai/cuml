@@ -45,10 +45,14 @@ template <typename T, typename IdxT>
 struct LinkageInputs {
   IdxT n_row;
   IdxT n_col;
-  IdxT n_centers;
-  T cluster_std;
+
+  std::vector<T> data;
+
+  std::vector<IdxT> expected_labels;
+
+  int n_clusters;
+
   bool use_knn;
-  unsigned long long int seed;
 };
 
 template <typename T, typename IdxT>
@@ -65,19 +69,18 @@ class LinkageTest : public ::testing::TestWithParam<LinkageInputs<T, IdxT>> {
 
     params = ::testing::TestWithParam<LinkageInputs<T, IdxT>>::GetParam();
 
-    device_buffer<T> out(handle.get_device_allocator(), handle.get_stream(),
-                         params.n_row * params.n_col);
+    device_buffer<T> data(handle.get_device_allocator(), handle.get_stream(),
+                          params.n_row * params.n_col);
     device_buffer<IdxT> l(handle.get_device_allocator(), handle.get_stream(),
                           params.n_row);
-
-    make_blobs(handle, out.data(), l.data(), params.n_row, params.n_col,
-               params.n_centers, true, nullptr, nullptr, params.cluster_std,
-               true, -10.0f, 10.0f, params.seed);
 
     raft::allocate(labels, params.n_row);
     raft::allocate(labels_ref, params.n_row);
 
-    raft::copy(labels_ref, l.data(), params.n_row, handle.get_stream());
+    raft::copy(data.data(), params.data.data(), data.size(),
+               handle.get_stream());
+    raft::copy(labels_ref, params.expected_labels.data(), params.n_row,
+               handle.get_stream());
 
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 
@@ -94,7 +97,7 @@ class LinkageTest : public ::testing::TestWithParam<LinkageInputs<T, IdxT>> {
 
     CUML_LOG_INFO("Dist_type: %d", dist_type);
 
-    ML::single_linkage(handle, out.data(), params.n_row, params.n_col,
+    ML::single_linkage(handle, data.data(), params.n_row, params.n_col,
                        raft::distance::DistanceType::L2Expanded, dist_type,
                        &out_arrs, 1);
 
@@ -115,11 +118,64 @@ class LinkageTest : public ::testing::TestWithParam<LinkageInputs<T, IdxT>> {
   double score;
 };
 
+/**
+ *
+ * mst: [[3.         1.         0.47451804]
+ [8.         6.         0.47528009]
+ [1.         7.         0.47946792]
+ [0.         9.         0.53807401]
+ [7.         4.         0.54156098]
+ [9.         3.         0.59827752]
+ [4.         2.         0.6234549 ]
+ [2.         8.         0.62997891]
+ [6.         5.         0.63858579]]
+
+ * [[0.21390334, 0.50261639, 0.91036676, 0.59166485, 0.71162682],
+       [0.10248392, 0.77782677, 0.43772379, 0.4035871 , 0.32827965],
+       [0.47544681, 0.59862974, 0.12319357, 0.06239463, 0.28200272],
+       [0.1345717 , 0.50498218, 0.5113505 , 0.16233086, 0.62165332],
+       [0.42281548, 0.933117  , 0.41386077, 0.23264562, 0.73325968],
+       [0.37537541, 0.70719873, 0.14522645, 0.73279625, 0.9126674 ],
+       [0.84854131, 0.28890216, 0.85267903, 0.74703138, 0.83842071],
+       [0.34942792, 0.27864171, 0.70911132, 0.21338564, 0.32035554],
+       [0.73788331, 0.46926692, 0.57570162, 0.42559178, 0.87120209],
+       [0.22734951, 0.01847905, 0.75549396, 0.76166195, 0.66613745]]
+
+children [[ 3  1]
+ [ 8  6]
+ [10  7]
+ [ 0  9]
+ [12  4]
+ [13 14]
+ [15  2]
+ [16 11]
+ [17  5]]
+
+ nodes: [-18]
+nodes: [-17, -5]
+nodes: [-16, -5, -11]
+nodes: [-15, -5, -11, -2]
+nodes: [-14, -13, -11, -2, -5]
+labels: [1 0 3 0 0 4 2 0 2 1]
+
+
+ */
+
 const std::vector<LinkageInputs<float, int>> inputsf2 = {
-  {10, 16, 3, 0.01, true, 1234ULL},
-  //  {1000, 1000, 10, 0.01, false, 1234ULL},
-  //  {20000, 10000, 10, 0.01, false, 1234ULL},
-  //  {20000, 100, 5000, 0.01, false, 1234ULL}
+  {10,
+   5,
+   {0.21390334, 0.50261639, 0.91036676, 0.59166485, 0.71162682, 0.10248392,
+    0.77782677, 0.43772379, 0.4035871,  0.3282796,  0.47544681, 0.59862974,
+    0.12319357, 0.06239463, 0.28200272, 0.1345717,  0.50498218, 0.5113505,
+    0.16233086, 0.62165332, 0.42281548, 0.933117,   0.41386077, 0.23264562,
+    0.73325968, 0.37537541, 0.70719873, 0.14522645, 0.73279625, 0.9126674,
+    0.84854131, 0.28890216, 0.85267903, 0.74703138, 0.83842071, 0.34942792,
+    0.27864171, 0.70911132, 0.21338564, 0.32035554, 0.73788331, 0.46926692,
+    0.57570162, 0.42559178, 0.87120209, 0.22734951, 0.01847905, 0.75549396,
+    0.76166195, 0.66613745},
+   {1, 0, 3, 0, 0, 4, 2, 0, 2, 1},
+   5,
+   true},
 };
 
 typedef LinkageTest<float, int> LinkageTestF_Int;
