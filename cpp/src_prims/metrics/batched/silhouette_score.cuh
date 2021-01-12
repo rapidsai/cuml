@@ -146,12 +146,32 @@ void compute_chunked_a_b(const raft::handle_t &handle, value_t *a, value_t *b,
     dist_rows, dist_cols);
 }
 
+template <typename value_t>
+struct sil_functor {
+  __host__ __device__ bool operator()(
+    const thrust::tuple<value_t, value_t>& t) {
+      auto a = thrust::get<0>(t);
+      auto b = thrust::get<0>(t);
+
+      if (a == 0 && b == 0 || a == b)
+        return 0;
+      else if (a > b)
+        return (b - a) / a;
+      else
+        return (b - a) / b;
+    }
+};
+
 template <typename value_t, typename value_idx, typename label_idx>
 value_t silhouette_score(const raft::handle_t &handle, value_t *X,
                          value_idx n_rows, value_idx n_cols, label_idx *y,
                          label_idx n_labels, value_t *scores, value_idx chunk,
                          raft::distance::DistanceType metric =
                            raft::distance::DistanceType::EucUnexpandedL2) {
+
+  ASSERT(n_labels >= 2 && n_labels <= (n_rows - 1),
+         "silhouette Score not defined for the given number of labels!");
+
   rmm::device_uvector<value_idx> cluster_counts =
     get_cluster_counts(handle, y, n_rows, n_labels);
 
@@ -168,10 +188,11 @@ value_t silhouette_score(const raft::handle_t &handle, value_t *X,
   b_ptr = b.data();
 
   // since a and silhouette score per sample are same size, reusing
-  if (scores != nullptr) {
-    a_ptr = scores;
-  } else {
+  if (scores == nullptr || scores == NULL) {
     a.resize(n_rows, stream);
+    scores = a_ptr;
+  } else {
+    a_ptr = scores;
   }
 
   thrust::fill(policy, a_ptr, a_ptr + n_rows, 0);
@@ -220,7 +241,15 @@ value_t silhouette_score(const raft::handle_t &handle, value_t *X,
     true, stream, false, raft::Nop<value_t>(),
     MLCommon::Metrics::MinOp<value_t>());
 
-  //calculating the silhouette score per sample using the d_aArray and d_bArray
+  raft::print_device_vector("A: ", a_ptr, n_rows, std::cout);
+  raft::print_device_vector("B: ", b_ptr, n_rows, std::cout);
+
+  // auto a_b_start = thrust::make_zip_iterator(thrust::make_tuple(a_ptr, b_ptr));
+  // auto a_b_end = thrust::make_zip_iterator(thrust::make_tuple(a_ptr + n_rows, b_ptr + n_rows));
+
+  // thrust::transform(policy, a_b_start, a_b_end, a_ptr, sil_functor<value_t>());
+
+  // calculating the silhouette score per sample using the d_aArray and d_bArray
   raft::linalg::binaryOp<value_t, MLCommon::Metrics::SilOp<value_t>, value_t,
                          value_idx>(
     a_ptr, a_ptr, b_ptr, n_rows, MLCommon::Metrics::SilOp<value_t>(), stream);

@@ -46,7 +46,7 @@ double silhouette_score(const raft::handle_t &handle, double *X, int n_rows,
   return MLCommon::Metrics::Batched::silhouette_score<double, int, int>(
     handle, X, n_rows, n_cols, y, n_labels, scores, chunk, metric);
 }
-}  // namespace Batched
 
+}  // namespace Batched
 }  // namespace Metrics
 }  // namespace ML

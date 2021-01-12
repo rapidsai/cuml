@@ -97,6 +97,7 @@ double silhouette_score(const raft::handle_t &handle, double *y, int nRows,
                         int nCols, int *labels, int nLabels, double *silScores,
                         raft::distance::DistanceType metric);
 
+namespace Batched {
 /**
 * Calculates Batched "Silhouette Score" by tiling the pairwise distance matrix to remove use of quadratic memory
 *
@@ -122,6 +123,8 @@ float silhouette_score(const raft::handle_t &handle, float *X, int n_rows,
 double silhouette_score(const raft::handle_t &handle, double *X, int n_rows,
                         int n_cols, int *y, int n_labels, double *scores,
                         int chunk, raft::distance::DistanceType metric);
+
+} // namespace Batched
 /**
 * Calculates the "adjusted rand index"
 *

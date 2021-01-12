@@ -236,6 +236,15 @@ def test_silhouette_score(metric, labeled_clusters):
     sk_score = sk_silhouette_score(X, labels, metric=metric)
     assert_almost_equal(cuml_score, sk_score)
 
+@pytest.mark.parametrize('metric', (
+    'cityblock', 'cosine', 'euclidean', 'l1', 'sqeuclidean'
+))
+def test_silhouette_score_batched(metric, labeled_clusters):
+    X, labels = labeled_clusters
+    cuml_score = cu_silhouette_score(X, labels, metric=metric,
+                                     chunksize=X.shape[0] / 10)
+    sk_score = sk_silhouette_score(X, labels, metric=metric)
+    assert_almost_equal(cuml_score, sk_score)
 
 @pytest.mark.parametrize('metric', (
     'cityblock', 'cosine', 'euclidean', 'l1', 'sqeuclidean'
