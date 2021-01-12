@@ -147,7 +147,7 @@ std::vector<Params> getInputs() {
                 1,       // n_trees, just a placeholder value,
                          //   anyway changed below
                 true,    // bootstrap
-                1.f,     // rows_sample
+                1.f,     // max_samples
                 1234ULL, // seed
                 8);      // n_streams
 
