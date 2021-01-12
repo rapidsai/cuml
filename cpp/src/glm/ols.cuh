@@ -18,7 +18,6 @@
 
 #include <raft/linalg/gemv.h>
 #include <common/cumlHandle.hpp>
-#include <common/device_buffer.hpp>
 #include <linalg/lstsq.cuh>
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/norm.cuh>
@@ -29,6 +28,7 @@
 #include <raft/stats/mean_center.cuh>
 #include <raft/stats/stddev.cuh>
 #include <raft/stats/sum.cuh>
+#include <rmm/device_uvector.hpp>
 #include "preprocess.cuh"
 
 namespace ML {
@@ -56,14 +56,13 @@ void olsFit(const raft::handle_t &handle, math_t *input, int n_rows, int n_cols,
             bool normalize, cudaStream_t stream, int algo = 0) {
   auto cublas_handle = handle.get_cublas_handle();
   auto cusolver_handle = handle.get_cusolver_dn_handle();
-  auto allocator = handle.get_device_allocator();
 
   ASSERT(n_cols > 0, "olsFit: number of columns cannot be less than one");
   ASSERT(n_rows > 1, "olsFit: number of rows cannot be less than two");
 
-  device_buffer<math_t> mu_input(allocator, stream);
-  device_buffer<math_t> norm2_input(allocator, stream);
-  device_buffer<math_t> mu_labels(allocator, stream);
+  rmm::device_uvector<math_t> mu_input(0, stream);
+  rmm::device_uvector<math_t> norm2_input(0, stream);
+  rmm::device_uvector<math_t> mu_labels(0, stream);
 
   if (fit_intercept) {
     mu_input.resize(n_cols, stream);

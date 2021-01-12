@@ -16,7 +16,6 @@
 
 #include <raft/cudart_utils.h>
 #include <common/cumlHandle.hpp>
-#include <cuml/common/cuml_allocator.hpp>
 #include <cuml/linear_model/preprocess_mg.hpp>
 #include <cuml/linear_model/ridge_mg.hpp>
 #include <opg/linalg/mv_aTb.hpp>
@@ -46,7 +45,6 @@ void ridgeSolve(const raft::handle_t &handle, T *S, T *V,
   auto cublasH = handle.get_cublas_handle();
   auto cusolverH = handle.get_cusolver_dn_handle();
   const auto &comm = handle.get_comms();
-  const auto allocator = handle.get_device_allocator();
 
   // Implements this: w = V * inv(S^2 + λ*I) * S * U^T * b
   T *S_nnz;
@@ -56,7 +54,7 @@ void ridgeSolve(const raft::handle_t &handle, T *S, T *V,
 
   raft::matrix::setSmallValuesZero(S, UDesc.N, streams[0], thres);
 
-  rmm::device_uvector<T> S_nnz_vector(UDesc.N, stream);
+  rmm::device_uvector<T> S_nnz_vector(UDesc.N, streams[0]);
   S_nnz = S_nnz_vector.data();
   raft::copy(S_nnz, S, UDesc.N, streams[0]);
   raft::matrix::power(S_nnz, UDesc.N, streams[0]);
@@ -85,7 +83,6 @@ void ridgeEig(raft::handle_t &handle, const std::vector<Matrix::Data<T> *> &A,
   const auto &comm = handle.get_comms();
   const cublasHandle_t cublas_handle = handle.get_cublas_handle();
   const cusolverDnHandle_t cusolver_handle = handle.get_cusolver_dn_handle();
-  const auto allocator = handle.get_device_allocator();
 
   int rank = comm.get_rank();
 
@@ -131,8 +128,6 @@ void fit_impl(raft::handle_t &handle,
               std::vector<Matrix::Data<T> *> &labels, T *alpha, int n_alpha,
               T *coef, T *intercept, bool fit_intercept, bool normalize,
               int algo, cudaStream_t *streams, int n_streams, bool verbose) {
-  const auto allocator = handle.get_device_allocator();
-
   rmm::device_uvector<T> mu_input(0, streams[0]);
   rmm::device_uvector<T> norm2_input(0, streams[0]);
   rmm::device_uvector<T> mu_labels(0, streams[0]);
