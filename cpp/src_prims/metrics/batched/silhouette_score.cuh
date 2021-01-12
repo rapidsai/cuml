@@ -44,7 +44,6 @@ void fill_b_kernel(value_t *b, label_idx *y, value_idx n_rows, label_idx n_label
 
     auto row_cluster = y[idx];
 
-    // auto row_cluster_count = cluster_counts[idx];
     auto col_cluster_count = cluster_counts[idy];
 
     // b for own cluster should be max value
