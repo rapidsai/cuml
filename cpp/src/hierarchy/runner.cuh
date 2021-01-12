@@ -39,8 +39,8 @@ template <typename value_idx, typename value_t>
 void _single_linkage(const raft::handle_t &handle, const value_t *X, size_t m,
                      size_t n, raft::distance::DistanceType metric,
                      LinkageDistance dist_type,
-                     linkage_output<value_idx, value_t> *out,
-                     int c, int n_clusters = 5) {
+                     linkage_output<value_idx, value_t> *out, int c,
+                     int n_clusters = 5) {
   auto stream = handle.get_stream();
   auto d_alloc = handle.get_device_allocator();
 
@@ -55,8 +55,8 @@ void _single_linkage(const raft::handle_t &handle, const value_t *X, size_t m,
   /**
    * 1. Construct distance graph
    */
-  Distance::get_distance_graph(handle, X, m, n, metric, dist_type, indptr, indices,
-                     pw_dists, c);
+  Distance::get_distance_graph(handle, X, m, n, metric, dist_type, indptr,
+                               indices, pw_dists, c);
 
   raft::mr::device::buffer<value_idx> mst_rows(d_alloc, stream, 0);
   raft::mr::device::buffer<value_idx> mst_cols(d_alloc, stream, 0);
@@ -82,7 +82,7 @@ void _single_linkage(const raft::handle_t &handle, const value_t *X, size_t m,
    */
   size_t n_edges = mst_rows.size();
 
-  raft::mr::device::buffer<value_idx> children(d_alloc, stream, n_edges*2);
+  raft::mr::device::buffer<value_idx> children(d_alloc, stream, n_edges * 2);
   raft::mr::device::buffer<value_t> out_delta(d_alloc, stream, n_edges);
   raft::mr::device::buffer<value_idx> out_size(d_alloc, stream, n_edges);
 
@@ -92,7 +92,8 @@ void _single_linkage(const raft::handle_t &handle, const value_t *X, size_t m,
 
   raft::mr::device::buffer<value_idx> labels(d_alloc, stream, m);
 
-  Label::Agglomerative::extract_clusters(handle, labels, children, n_clusters, m);
+  Label::Agglomerative::extract_clusters(handle, labels, children, n_clusters,
+                                         m);
 
   CUML_LOG_INFO("Done executing linkage.");
 }

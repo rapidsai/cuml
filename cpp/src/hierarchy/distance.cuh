@@ -18,9 +18,9 @@
 
 #include <cuml/common/logger.hpp>
 
-#include <common/allocatorAdapter.hpp>
 #include <cuml/cuml_api.h>
 #include <raft/cudart_utils.h>
+#include <common/allocatorAdapter.hpp>
 #include <raft/cuda_utils.cuh>
 
 #include <sparse/coo.cuh>
@@ -40,8 +40,8 @@
 
 #include <thrust/device_ptr.h>
 #include <thrust/execution_policy.h>
-#include <thrust/sort.h>
 #include <thrust/scan.h>
+#include <thrust/sort.h>
 
 namespace ML {
 namespace Linkage {
@@ -128,7 +128,7 @@ ML::MetricType raft_distance_to_ml(raft::distance::DistanceType metric) {
 template <typename in_t, typename out_t>
 __global__ void conv_indices_kernel(in_t *inds, out_t *out, size_t nnz) {
   size_t tid = blockDim.x * blockIdx.x + threadIdx.x;
-  if(tid > nnz) return;
+  if (tid > nnz) return;
   out_t v = inds[tid];
   out[tid] = v;
 }
@@ -138,7 +138,6 @@ void conv_indices(in_t *inds, out_t *out, size_t size, cudaStream_t stream) {
   int blocks = raft::ceildiv(size, (size_t)tpb);
   conv_indices_kernel<<<blocks, tpb, 0, stream>>>(inds, out, size);
 }
-
 
 /**
  * Constructs a (symmetrized) knn graph
@@ -191,13 +190,13 @@ void knn_graph(const raft::handle_t &handle, const value_t *X, size_t m,
 
   raft::print_device_vector("knn dists: ", data.data(), nnz, std::cout);
 
-
   // convert from current knn's 64-bit to 32-bit.
   conv_indices(int64_indices.data(), indices.data(), nnz, stream);
 
   raft::print_device_vector("knn dists: ", data.data(), nnz, std::cout);
 
-  raft::sparse::linalg::symmetrize(handle, rows.data(), indices.data(), data.data(), m, k, nnz, out);
+  raft::sparse::linalg::symmetrize(handle, rows.data(), indices.data(),
+                                   data.data(), m, k, nnz, out);
 
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
@@ -252,13 +251,12 @@ void get_distance_graph(const raft::handle_t &handle, const value_t *X,
                        stream);
     }
 
-      break;
+    break;
 
     default:
       throw raft::exception("Unsupported linkage distance");
   }
 }
-
 
 };  // namespace Distance
 };  // end namespace Linkage

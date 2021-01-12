@@ -99,7 +99,6 @@ class LinkageTest : public ::testing::TestWithParam<LinkageInputs<T, IdxT>> {
                        &out_arrs, 1);
 
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
-
   }
 
   void SetUp() override { basicTest(); }

@@ -94,8 +94,10 @@ void build_sorted_mst(const raft::handle_t &handle, const value_idx *indptr,
 
   printf("n_edges: %d\n", mst_coo.n_edges);
 
-  raft::print_device_vector("mst_src: ", mst_coo.src.data(), mst_coo.src.size(), std::cout);
-  raft::print_device_vector("mst_dst: ", mst_coo.dst.data(), mst_coo.dst.size(), std::cout);
+  raft::print_device_vector("mst_src: ", mst_coo.src.data(), mst_coo.src.size(),
+                            std::cout);
+  raft::print_device_vector("mst_dst: ", mst_coo.dst.data(), mst_coo.dst.size(),
+                            std::cout);
 
   CUML_LOG_INFO("Sorting MST");
 

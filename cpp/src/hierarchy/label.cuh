@@ -20,16 +20,14 @@
 
 #include <cuml/cuml_api.h>
 #include <raft/cudart_utils.h>
-#include <raft/cuda_utils.cuh>
 #include <common/cumlHandle.hpp>
+#include <raft/cuda_utils.cuh>
 
 #include <raft/mr/device/buffer.hpp>
-
 
 #include <thrust/device_ptr.h>
 #include <thrust/execution_policy.h>
 #include <thrust/sort.h>
-
 
 namespace ML {
 namespace Linkage {
@@ -177,7 +175,8 @@ void label_hierarchy_host(const raft::handle_t &handle, const value_idx *rows,
 
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
-  raft::print_device_vector("children: ", children.data(), children.size(), std::cout);
+  raft::print_device_vector("children: ", children.data(), children.size(),
+                            std::cout);
 
   CUML_LOG_INFO("Done copying back to device.");
 }
@@ -237,7 +236,6 @@ void label_hierarchy_device(const raft::handle_t &handle, const value_idx *rows,
   // 4. Merge label hierarchies together
 }
 
-
 /**
  * Instead of propagating a label from roots to children,
  * the children each iterate up the tree until they find
@@ -249,15 +247,13 @@ void label_hierarchy_device(const raft::handle_t &handle, const value_idx *rows,
  * @param n_leaves
  * @param labels
  */
-template<typename value_idx>
+template <typename value_idx>
 __global__ void propagate_labels(const value_idx *children,
-                                 const value_idx *parents,
-                                 size_t n_leaves,
+                                 const value_idx *parents, size_t n_leaves,
                                  value_idx *labels) {
-
   int tid = blockDim.x * blockIdx.x + threadIdx.x;
 
-  if(tid < (n_leaves -1) * 2) {
+  if (tid < (n_leaves - 1) * 2) {
     value_idx node = children[tid];
     value_idx cur_parent = parents[node];
     value_idx label = labels[cur_parent];
@@ -271,13 +267,11 @@ __global__ void propagate_labels(const value_idx *children,
   }
 }
 
-template<typename value_idx>
+template <typename value_idx>
 __global__ void write_parents_kernel(const value_idx *children,
-                             value_idx *parents,
-                             size_t n_leaves) {
-
+                                     value_idx *parents, size_t n_leaves) {
   int tid = blockDim.x * blockIdx.x + threadIdx.x;
-  if(tid < (n_leaves - 1) * 2) {
+  if (tid < (n_leaves - 1) * 2) {
     value_idx parent = tid / 2;
     value_idx child = children[tid];
 
@@ -287,14 +281,12 @@ __global__ void write_parents_kernel(const value_idx *children,
   }
 }
 
-template<typename value_idx>
+template <typename value_idx>
 struct init_label_roots {
+  init_label_roots(value_idx *labels_) : labels(labels_) {}
 
-  init_label_roots(value_idx *labels_): labels(labels_){}
-
-  template<typename Tuple>
-  __host__ __device__
-  void operator()(Tuple t) {
+  template <typename Tuple>
+  __host__ __device__ void operator()(Tuple t) {
     labels[thrust::get<1>(t)] = thrust::get<0>(t);
   }
 
@@ -306,9 +298,7 @@ template <typename value_idx>
 void extract_clusters(const raft::handle_t &handle,
                       raft::mr::device::buffer<value_idx> &labels,
                       const raft::mr::device::buffer<value_idx> &children,
-                      value_idx n_clusters,
-                      size_t n_leaves) {
-
+                      value_idx n_clusters, size_t n_leaves) {
   auto d_alloc = handle.get_device_allocator();
   auto stream = handle.get_stream();
 
@@ -321,7 +311,6 @@ void extract_clusters(const raft::handle_t &handle,
  *        out for each of the children
  */
 
-
   CUDA_CHECK(cudaStreamSynchronize(stream));
   raft::mr::device::buffer<value_idx> parents(handle.get_device_allocator(),
                                               stream, n_leaves * 2);
@@ -330,8 +319,7 @@ void extract_clusters(const raft::handle_t &handle,
 
   int n_blocks = raft::ceildiv((n_leaves - 1) * 2, (size_t)1024);
   write_parents_kernel<<<n_blocks, 1024, 0, stream>>>(children.data(),
-                                                      parents.data(),
-                                                      n_leaves);
+                                                      parents.data(), n_leaves);
   /**
    * Step 1: Find label roots:
    *
@@ -342,43 +330,45 @@ void extract_clusters(const raft::handle_t &handle,
    */
 
   raft::mr::device::buffer<value_idx> label_roots(handle.get_device_allocator(),
-                                                   stream, n_clusters*2);
+                                                  stream, n_clusters * 2);
 
-  raft::print_device_vector("children: ", children.data(), children.size(), std::cout);
+  raft::print_device_vector("children: ", children.data(), children.size(),
+                            std::cout);
 
   value_idx children_cpy_start = children.size() - (n_clusters * 2);
-  raft::copy_async(label_roots.data(), children.data() + children_cpy_start, n_clusters * 2, stream);
+  raft::copy_async(label_roots.data(), children.data() + children_cpy_start,
+                   n_clusters * 2, stream);
 
-  thrust::device_ptr<value_idx> t_label_roots = thrust::device_pointer_cast(label_roots.data());
+  thrust::device_ptr<value_idx> t_label_roots =
+    thrust::device_pointer_cast(label_roots.data());
 
   CUML_LOG_INFO("Performing sort");
 
-  thrust::sort(thrust::cuda::par.on(stream), t_label_roots, t_label_roots + (n_clusters * 2));
+  thrust::sort(thrust::cuda::par.on(stream), t_label_roots,
+               t_label_roots + (n_clusters * 2));
 
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
-  raft::print_device_vector("label roots: ", label_roots.data(),label_roots.size(), std::cout);
+  raft::print_device_vector("label roots: ", label_roots.data(),
+                            label_roots.size(), std::cout);
 
   raft::mr::device::buffer<value_idx> tmp_labels(handle.get_device_allocator(),
                                                  stream, (n_leaves - 1) * 2);
 
   // Init labels to -1
-  thrust::device_ptr<value_idx> t_labels = thrust::device_pointer_cast(tmp_labels.data());
-  thrust::fill(t_labels, t_labels + ((n_leaves -1) * 2), -1);
+  thrust::device_ptr<value_idx> t_labels =
+    thrust::device_pointer_cast(tmp_labels.data());
+  thrust::fill(t_labels, t_labels + ((n_leaves - 1) * 2), -1);
 
   // Write labels for cluster roots to "labels"
   thrust::counting_iterator<uint> first(0);
   thrust::counting_iterator<uint> last = first + tmp_labels.size();
 
-  auto z_iter = thrust::make_zip_iterator(
-    thrust::make_tuple(first, t_label_roots)
-  );
+  auto z_iter =
+    thrust::make_zip_iterator(thrust::make_tuple(first, t_label_roots));
 
-  thrust::for_each(
-    z_iter,
-    z_iter + n_clusters,
-    init_label_roots<value_idx>(tmp_labels.data())
-  );
+  thrust::for_each(z_iter, z_iter + n_clusters,
+                   init_label_roots<value_idx>(tmp_labels.data()));
 
   /**
    * Step2: Propagate labels all the way down the tree
@@ -387,23 +377,23 @@ void extract_clusters(const raft::handle_t &handle,
    *        label is >-1
    */
 
-  raft::print_device_vector("labels: ", tmp_labels.data(),tmp_labels.size(), std::cout);
+  raft::print_device_vector("labels: ", tmp_labels.data(), tmp_labels.size(),
+                            std::cout);
 
   CUML_LOG_INFO("Propagating labels down tree");
-  propagate_labels<<<n_blocks, 1024, 0, stream>>>(children.data(), parents.data(),
-                                                  n_leaves, tmp_labels.data());
+  propagate_labels<<<n_blocks, 1024, 0, stream>>>(
+    children.data(), parents.data(), n_leaves, tmp_labels.data());
 
   // copy tmp labels to actual labels
   raft::copy_async(labels.data(), tmp_labels.data(), n_leaves, stream);
 
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
-  raft::print_device_vector("labels: ", labels.data(),labels.size(), std::cout);
+  raft::print_device_vector("labels: ", labels.data(), labels.size(),
+                            std::cout);
 
   CUML_LOG_INFO("Done extracting clusters.");
-
 }
-
 
 };  // end namespace Agglomerative
 };  // end namespace Label
