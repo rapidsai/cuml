@@ -122,7 +122,6 @@ def checkCopyright(f, update_current_year):
     return errs
 
 
-
 def getAllFilesUnderDir(root, pathFilter=None):
     retList = []
     for (dirpath, dirnames, filenames) in os.walk(root):
