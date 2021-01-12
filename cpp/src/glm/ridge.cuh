@@ -85,9 +85,9 @@ void ridgeSVD(const raft::handle_t &handle, math_t *A, int n_rows, int n_cols,
   int U_len = n_rows * n_cols;
   int V_len = n_cols * n_cols;
 
-  rmm::device_uvector<math_t> S_vector(U_len, stream);
+  rmm::device_uvector<math_t> S_vector(n_cols, stream);
   rmm::device_uvector<math_t> V_vector(V_len, stream);
-  rmm::device_uvector<math_t> U_vector(n_cols, stream);
+  rmm::device_uvector<math_t> U_vector(U_len, stream);
   S = S_vector.data();
   V = V_vector.data();
   U = U_vector.data();
@@ -114,9 +114,9 @@ void ridgeEig(const raft::handle_t &handle, math_t *A, int n_rows, int n_cols,
   int U_len = n_rows * n_cols;
   int V_len = n_cols * n_cols;
 
-  rmm::device_uvector<math_t> S_vector(U_len, stream);
+  rmm::device_uvector<math_t> S_vector(n_cols, stream);
   rmm::device_uvector<math_t> V_vector(V_len, stream);
-  rmm::device_uvector<math_t> U_vector(n_cols, stream);
+  rmm::device_uvector<math_t> U_vector(U_len, stream);
   S = S_vector.data();
   V = V_vector.data();
   U = U_vector.data();
