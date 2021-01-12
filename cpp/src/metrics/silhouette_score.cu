@@ -17,8 +17,8 @@
 
 #include <raft/linalg/distance_type.h>
 #include <cuml/metrics/metrics.hpp>
-#include <metrics/silhouette_score.cuh>
 #include <metrics/batched/silhouette_score.cuh>
+#include <metrics/silhouette_score.cuh>
 
 namespace ML {
 
@@ -34,19 +34,19 @@ double silhouette_score(const raft::handle_t &handle, double *y, int nRows,
 namespace Batched {
 
 float silhouette_score(const raft::handle_t &handle, float *X, int n_rows,
-    int n_cols, int *y, int n_labels, float *scores, int chunk,
-    raft::distance::DistanceType metric) {
-      return MLCommon::Metrics::Batched::silhouette_score<float, int, int>(handle,
-      X, n_rows, n_cols, y, n_labels, scores, chunk, metric);
+                       int n_cols, int *y, int n_labels, float *scores,
+                       int chunk, raft::distance::DistanceType metric) {
+  return MLCommon::Metrics::Batched::silhouette_score<float, int, int>(
+    handle, X, n_rows, n_cols, y, n_labels, scores, chunk, metric);
 }
 
 double silhouette_score(const raft::handle_t &handle, double *X, int n_rows,
-    int n_cols, int *y, int n_labels, double *scores, int chunk,
-    raft::distance::DistanceType metric) {
-      return MLCommon::Metrics::Batched::silhouette_score<double, int, int>(handle,
-      X, n_rows, n_cols, y, n_labels, scores, chunk, metric);
+                        int n_cols, int *y, int n_labels, double *scores,
+                        int chunk, raft::distance::DistanceType metric) {
+  return MLCommon::Metrics::Batched::silhouette_score<double, int, int>(
+    handle, X, n_rows, n_cols, y, n_labels, scores, chunk, metric);
 }
-}// namespace Batched
+}  // namespace Batched
 
 }  // namespace Metrics
 }  // namespace ML

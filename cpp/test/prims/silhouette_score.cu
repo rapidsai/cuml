@@ -19,8 +19,8 @@
 #include <algorithm>
 #include <cuml/common/cuml_allocator.hpp>
 #include <iostream>
-#include <metrics/silhouette_score.cuh>
 #include <metrics/batched/silhouette_score.cuh>
+#include <metrics/silhouette_score.cuh>
 #include <random>
 #include "test_utils.h"
 
@@ -174,10 +174,9 @@ class silhouetteScoreTest
       d_X, nRows, nCols, d_labels, nLabels, sampleSilScore, allocator, stream,
       params.metric);
 
-    batchedSilhouetteScore = Batched::silhouette_score(handle,
-      d_X, nRows, nCols, d_labels, nLabels, sampleSilScore, chunk,
-      params.metric);
-
+    batchedSilhouetteScore =
+      Batched::silhouette_score(handle, d_X, nRows, nCols, d_labels, nLabels,
+                                sampleSilScore, chunk, params.metric);
   }
 
   //the destructor
@@ -213,8 +212,7 @@ const std::vector<silhouetteScoreParam> inputs = {
   {11, 2, 5, raft::distance::DistanceType::EucExpandedL2, 3, 0.00001},
   {40, 2, 8, raft::distance::DistanceType::EucExpandedL2, 10, 0.00001},
   {12, 7, 3, raft::distance::DistanceType::EucExpandedCosine, 8, 0.00001},
-  {7, 5, 5, raft::distance::DistanceType::EucUnexpandedL1, 2, 0.00001}
-};
+  {7, 5, 5, raft::distance::DistanceType::EucUnexpandedL1, 2, 0.00001}};
 
 //writing the test suite
 typedef silhouetteScoreTest<int, double> silhouetteScoreTestClass;
