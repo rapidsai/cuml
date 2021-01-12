@@ -29,7 +29,7 @@
 #include <sparse/coo.cuh>
 
 #include <hierarchy/agglomerative.cuh>
-#include <hierarchy/distance.cuh>
+#include <hierarchy/connectivities.cuh>
 #include <hierarchy/mst.cuh>
 
 namespace ML {
@@ -44,10 +44,6 @@ void _single_linkage(const raft::handle_t &handle, const value_t *X, size_t m,
   auto stream = handle.get_stream();
   auto d_alloc = handle.get_device_allocator();
 
-  raft::print_device_vector("X: ", X, min(size_t(5), m * n), std::cout);
-
-  CUML_LOG_INFO("Running distances");
-
   raft::mr::device::buffer<value_idx> indptr(d_alloc, stream, 0);
   raft::mr::device::buffer<value_idx> indices(d_alloc, stream, 0);
   raft::mr::device::buffer<value_t> pw_dists(d_alloc, stream, 0);
@@ -61,11 +57,6 @@ void _single_linkage(const raft::handle_t &handle, const value_t *X, size_t m,
   raft::mr::device::buffer<value_idx> mst_rows(d_alloc, stream, 0);
   raft::mr::device::buffer<value_idx> mst_cols(d_alloc, stream, 0);
   raft::mr::device::buffer<value_t> mst_data(d_alloc, stream, 0);
-
-  CUML_LOG_INFO("edges: %d", indices.size());
-
-  CUML_LOG_INFO("Constructing MST");
-
   /**
    * 2. Construct MST, sorted by weights
    */
@@ -74,8 +65,6 @@ void _single_linkage(const raft::handle_t &handle, const value_t *X, size_t m,
                                             mst_rows, mst_cols, mst_data);
 
   pw_dists.release();
-
-  CUML_LOG_INFO("Perform labeling");
 
   /**
    * Perform hierarchical labeling
@@ -86,14 +75,13 @@ void _single_linkage(const raft::handle_t &handle, const value_t *X, size_t m,
   raft::mr::device::buffer<value_t> out_delta(d_alloc, stream, n_edges);
   raft::mr::device::buffer<value_idx> out_size(d_alloc, stream, n_edges);
 
-  Label::Agglomerative::label_hierarchy_host<value_idx, value_t>(
+  // Create dendrogram
+  Label::Agglomerative::build_dendrogram_host<value_idx, value_t>(
     handle, mst_rows.data(), mst_cols.data(), mst_data.data(), n_edges,
     children, out_delta, out_size);
 
-  Label::Agglomerative::extract_clusters(handle, out->labels, children,
+  Label::Agglomerative::extract_flattened_clusters(handle, out->labels, children,
                                          n_clusters, m);
-
-  CUML_LOG_INFO("Done executing linkage.");
 }
 
 };  // end namespace Linkage

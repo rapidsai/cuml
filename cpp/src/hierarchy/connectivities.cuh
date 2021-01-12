@@ -206,7 +206,6 @@ void get_distance_graph(const raft::handle_t &handle, const value_t *X,
   switch (dist_type) {
     case LinkageDistance::PAIRWISE:
 
-      CUML_LOG_INFO("Building complete distance graph");
       indices.resize(m * m, stream);
       data.resize(m * m, stream);
 
@@ -217,9 +216,6 @@ void get_distance_graph(const raft::handle_t &handle, const value_t *X,
     case LinkageDistance::KNN_GRAPH:
 
     {
-      CUML_LOG_INFO("Building KNN graph");
-      int k = Distance::build_k(m, c);
-
       // knn graph is symmetric
       MLCommon::Sparse::COO<value_t, value_idx> knn_graph_coo(d_alloc, stream);
 

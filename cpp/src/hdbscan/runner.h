@@ -65,7 +65,7 @@ void _fit(const raft::handle_t &handle, value_t *X, value_idx m, value_idx n,
   raft::mr::device::buffer<value_t> out_delta(d_alloc, stream, n_edges);
   raft::mr::device::buffer<value_idx> out_size(d_alloc, stream, n_edges);
 
-  Linkage::Label::Agglomerative::label_hierarchy_host(
+  Linkage::Label::Agglomerative::build_dendrogram_host(
     mst_rows.data(), mst_cols.data(), mst_data.data(), n_edges, out_src.data(),
     out_dst.data(), out_delta.data(), out_size.data());
 
