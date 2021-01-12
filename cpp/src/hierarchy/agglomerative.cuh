@@ -105,11 +105,11 @@ class UnionFind {
  */
 template <typename value_idx, typename value_t>
 void build_dendrogram_host(const raft::handle_t &handle, const value_idx *rows,
-                          const value_idx *cols, const value_t *data,
-                          size_t nnz,
-                          raft::mr::device::buffer<value_idx> &children,
-                          raft::mr::device::buffer<value_t> &out_delta,
-                          raft::mr::device::buffer<value_idx> &out_size) {
+                           const value_idx *cols, const value_t *data,
+                           size_t nnz,
+                           raft::mr::device::buffer<value_idx> &children,
+                           raft::mr::device::buffer<value_t> &out_delta,
+                           raft::mr::device::buffer<value_idx> &out_size) {
   auto d_alloc = handle.get_device_allocator();
   auto stream = handle.get_stream();
 
@@ -197,11 +197,11 @@ void build_dendrogram_host(const raft::handle_t &handle, const value_idx *rows,
  * @param[in] k_folds number of folds for parallelizing label step
  */
 template <typename value_idx, typename value_t>
-void build_dendrogram_device(const raft::handle_t &handle, const value_idx *rows,
-                            const value_idx *cols, const value_t *data,
-                            value_idx nnz, value_idx *children,
-                            value_t *out_delta, value_idx *out_size,
-                            value_idx k_folds) {
+void build_dendrogram_device(const raft::handle_t &handle,
+                             const value_idx *rows, const value_idx *cols,
+                             const value_t *data, value_idx nnz,
+                             value_idx *children, value_t *out_delta,
+                             value_idx *out_size, value_idx k_folds) {
   ASSERT(k_folds < nnz / 2, "k_folds must be < n_edges / 2");
   /**
    * divide (sorted) mst coo into overlapping subsets. Easiest way to do this is to
@@ -289,9 +289,10 @@ struct init_label_roots {
  * @param n_leaves
  */
 template <typename value_idx>
-void extract_flattened_clusters(const raft::handle_t &handle, value_idx *labels,
-                                const raft::mr::device::buffer<value_idx> &children,
-                                value_idx n_clusters, size_t n_leaves) {
+void extract_flattened_clusters(
+  const raft::handle_t &handle, value_idx *labels,
+  const raft::mr::device::buffer<value_idx> &children, value_idx n_clusters,
+  size_t n_leaves) {
   auto d_alloc = handle.get_device_allocator();
   auto stream = handle.get_stream();
 

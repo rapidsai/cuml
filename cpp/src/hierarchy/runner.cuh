@@ -80,8 +80,8 @@ void _single_linkage(const raft::handle_t &handle, const value_t *X, size_t m,
     handle, mst_rows.data(), mst_cols.data(), mst_data.data(), n_edges,
     children, out_delta, out_size);
 
-  Label::Agglomerative::extract_flattened_clusters(handle, out->labels, children,
-                                         n_clusters, m);
+  Label::Agglomerative::extract_flattened_clusters(handle, out->labels,
+                                                   children, n_clusters, m);
 }
 
 };  // end namespace Linkage
