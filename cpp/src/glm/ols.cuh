@@ -56,6 +56,7 @@ void olsFit(const raft::handle_t &handle, math_t *input, int n_rows, int n_cols,
             bool normalize, cudaStream_t stream, int algo = 0) {
   auto cublas_handle = handle.get_cublas_handle();
   auto cusolver_handle = handle.get_cusolver_dn_handle();
+  auto allocator = handle.get_device_allocator();
 
   ASSERT(n_cols > 0, "olsFit: number of columns cannot be less than one");
   ASSERT(n_rows > 1, "olsFit: number of rows cannot be less than two");

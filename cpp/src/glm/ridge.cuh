@@ -66,7 +66,6 @@ void ridgeSolve(const raft::handle_t &handle, math_t *S, math_t *V, math_t *U,
 
   raft::linalg::gemm(handle, V, n_cols, n_cols, S_nnz, w, n_cols, 1,
                      CUBLAS_OP_N, CUBLAS_OP_N, alp, beta, stream);
-
 }
 
 template <typename math_t>
@@ -95,7 +94,6 @@ void ridgeSVD(const raft::handle_t &handle, math_t *A, int n_rows, int n_cols,
   raft::linalg::svdQR(handle, A, n_rows, n_cols, S, U, V, true, true, true,
                       stream);
   ridgeSolve(handle, S, V, U, n_rows, n_cols, b, alpha, n_alpha, w, stream);
-
 }
 
 template <typename math_t>
@@ -124,7 +122,6 @@ void ridgeEig(const raft::handle_t &handle, math_t *A, int n_rows, int n_cols,
   raft::linalg::svdEig(handle, A, n_rows, n_cols, S, U, V, true, stream);
 
   ridgeSolve(handle, S, V, U, n_rows, n_cols, b, alpha, n_alpha, w, stream);
-
 }
 
 /**
