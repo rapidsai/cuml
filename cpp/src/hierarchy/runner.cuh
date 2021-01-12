@@ -28,8 +28,8 @@
 #include <distance/distance.cuh>
 #include <sparse/coo.cuh>
 
-#include <hierarchy/agglomerative.h>
 #include <hierarchy/distance.cuh>
+#include <hierarchy/label.cuh>
 #include <hierarchy/mst.cuh>
 
 namespace ML {
@@ -39,7 +39,8 @@ template <typename value_idx, typename value_t>
 void _single_linkage(const raft::handle_t &handle, const value_t *X, size_t m,
                      size_t n, raft::distance::DistanceType metric,
                      LinkageDistance dist_type,
-                     linkage_output<value_idx, value_t> *out, int c) {
+                     linkage_output<value_idx, value_t> *out,
+                     int c, int n_clusters = 5) {
   auto stream = handle.get_stream();
   auto d_alloc = handle.get_device_allocator();
 
@@ -81,13 +82,17 @@ void _single_linkage(const raft::handle_t &handle, const value_t *X, size_t m,
    */
   size_t n_edges = mst_rows.size();
 
-  raft::mr::device::buffer<value_idx> children(d_alloc, stream, 0);
-  raft::mr::device::buffer<value_t> out_delta(d_alloc, stream, 0);
-  raft::mr::device::buffer<value_idx> out_size(d_alloc, stream, 0);
+  raft::mr::device::buffer<value_idx> children(d_alloc, stream, n_edges*2);
+  raft::mr::device::buffer<value_t> out_delta(d_alloc, stream, n_edges);
+  raft::mr::device::buffer<value_idx> out_size(d_alloc, stream, n_edges);
 
   Label::Agglomerative::label_hierarchy_host<value_idx, value_t>(
     handle, mst_rows.data(), mst_cols.data(), mst_data.data(), n_edges,
     children, out_delta, out_size);
+
+  raft::mr::device::buffer<value_idx> labels(d_alloc, stream, m);
+
+  Label::Agglomerative::extract_clusters(handle, labels, children, n_clusters, m);
 
   CUML_LOG_INFO("Done executing linkage.");
 }

@@ -95,21 +95,11 @@ class LinkageTest : public ::testing::TestWithParam<LinkageInputs<T, IdxT>> {
     CUML_LOG_INFO("Dist_type: %d", dist_type);
 
     ML::single_linkage(handle, out.data(), params.n_row, params.n_col,
-                       raft::distance::DistanceType::EucExpandedL2, dist_type,
+                       raft::distance::DistanceType::L2Expanded, dist_type,
                        &out_arrs, 1);
 
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 
-    //    score = adjusted_rand_index(handle, labels_ref, labels, params.n_row);
-    //
-    //    if (score < 1.0) {
-    //      auto str = raft::arr2Str(labels_ref, params.n_row, "labels_ref",
-    //                               handle.get_stream());
-    //      CUML_LOG_DEBUG("y: %s", str.c_str());
-    //      str = raft::arr2Str(labels, params.n_row, "labels", handle.get_stream());
-    //      CUML_LOG_DEBUG("y_hat: %s", str.c_str());
-    //      CUML_LOG_DEBUG("Score = %lf", score);
-    //    }
   }
 
   void SetUp() override { basicTest(); }
@@ -127,7 +117,7 @@ class LinkageTest : public ::testing::TestWithParam<LinkageInputs<T, IdxT>> {
 };
 
 const std::vector<LinkageInputs<float, int>> inputsf2 = {
-  {25000, 16, 5, 0.01, true, 1234ULL},
+  {10, 16, 3, 0.01, true, 1234ULL},
   //  {1000, 1000, 10, 0.01, false, 1234ULL},
   //  {20000, 10000, 10, 0.01, false, 1234ULL},
   //  {20000, 100, 5000, 0.01, false, 1234ULL}

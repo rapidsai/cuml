@@ -105,7 +105,7 @@ template <typename value_idx>
 value_idx build_k(value_idx n_samples, int c) {
   // from "kNN-MST-Agglomerative: A fast & scalable graph-based data clustering
   // approach on GPU"
-  return floor(logf(n_samples)) + c;
+  return min(n_samples, (value_idx)floor(logf(n_samples)) + c);
 }
 
 // TODO: This will go away once KNN is using raft's distance type
@@ -126,8 +126,9 @@ ML::MetricType raft_distance_to_ml(raft::distance::DistanceType metric) {
 }
 
 template <typename in_t, typename out_t>
-__global__ void conv_indices_kernel(in_t *inds, out_t *out) {
-  int tid = blockDim.x * blockIdx.x + threadIdx.x;
+__global__ void conv_indices_kernel(in_t *inds, out_t *out, size_t nnz) {
+  size_t tid = blockDim.x * blockIdx.x + threadIdx.x;
+  if(tid > nnz) return;
   out_t v = inds[tid];
   out[tid] = v;
 }
@@ -135,7 +136,7 @@ __global__ void conv_indices_kernel(in_t *inds, out_t *out) {
 template <typename in_t, typename out_t, int tpb = 1024>
 void conv_indices(in_t *inds, out_t *out, size_t size, cudaStream_t stream) {
   int blocks = raft::ceildiv(size, (size_t)tpb);
-  conv_indices_kernel<<<blocks, tpb, 0, stream>>>(inds, out);
+  conv_indices_kernel<<<blocks, tpb, 0, stream>>>(inds, out, size);
 }
 
 
@@ -164,9 +165,9 @@ void knn_graph(const raft::handle_t &handle, const value_t *X, size_t m,
 
   size_t nnz = m * k;
 
-  raft::mr::device::buffer<value_idx> rows(d_alloc, stream, m * k);
-  raft::mr::device::buffer<value_idx> indices(d_alloc, stream, m * k);
-  raft::mr::device::buffer<value_t> data(d_alloc, stream, m * k);
+  raft::mr::device::buffer<value_idx> rows(d_alloc, stream, nnz);
+  raft::mr::device::buffer<value_idx> indices(d_alloc, stream, nnz);
+  raft::mr::device::buffer<value_t> data(d_alloc, stream, nnz);
 
   int blocks = raft::ceildiv(nnz, (size_t)1024);
   fill_indices<value_idx><<<blocks, 1024, 0, stream>>>(rows.data(), k);
@@ -179,7 +180,7 @@ void knn_graph(const raft::handle_t &handle, const value_t *X, size_t m,
 
   // This is temporary. Once faiss is updated, we should be able to
   // pass value_idx through to knn.
-  raft::mr::device::buffer<int64_t> int64_indices(d_alloc, stream, m * k);
+  raft::mr::device::buffer<int64_t> int64_indices(d_alloc, stream, nnz);
 
   ML::MetricType ml_metric = raft_distance_to_ml(metric);
   ML::brute_force_knn(handle, inputs, sizes, n, const_cast<value_t *>(X), m,
@@ -188,8 +189,13 @@ void knn_graph(const raft::handle_t &handle, const value_t *X, size_t m,
 
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
+  raft::print_device_vector("knn dists: ", data.data(), nnz, std::cout);
+
+
   // convert from current knn's 64-bit to 32-bit.
-  conv_indices(int64_indices.data(), indices.data(), m*k, stream);
+  conv_indices(int64_indices.data(), indices.data(), nnz, stream);
+
+  raft::print_device_vector("knn dists: ", data.data(), nnz, std::cout);
 
   raft::sparse::linalg::symmetrize(handle, rows.data(), indices.data(), data.data(), m, k, nnz, out);
 

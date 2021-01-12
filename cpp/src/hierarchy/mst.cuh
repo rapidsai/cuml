@@ -94,8 +94,8 @@ void build_sorted_mst(const raft::handle_t &handle, const value_idx *indptr,
 
   printf("n_edges: %d\n", mst_coo.n_edges);
 
-  raft::print_device_vector("mst_src: ", mst_coo.src.data(), 10, std::cout);
-  raft::print_device_vector("mst_dst: ", mst_coo.dst.data(), 10, std::cout);
+  raft::print_device_vector("mst_src: ", mst_coo.src.data(), mst_coo.src.size(), std::cout);
+  raft::print_device_vector("mst_dst: ", mst_coo.dst.data(), mst_coo.dst.size(), std::cout);
 
   CUML_LOG_INFO("Sorting MST");
 
@@ -104,7 +104,7 @@ void build_sorted_mst(const raft::handle_t &handle, const value_idx *indptr,
 
   CUML_LOG_INFO("Copying sorted MST To Output");
 
-  // TODO: be nice if we could pass these directly into the MST (would also follow RAII)
+  // TODO: be nice if we could pass these directly into the MST
   mst_src.resize(mst_coo.n_edges, stream);
   mst_dst.resize(mst_coo.n_edges, stream);
   mst_weight.resize(mst_coo.n_edges, stream);
