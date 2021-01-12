@@ -67,8 +67,6 @@ class DtBaseTest : public ::testing::TestWithParam<DtTestParams> {
     allocator->deallocate(tmp, sizeof(T) * inparams.M * inparams.N, stream);
     rowids = (I*)allocator->allocate(sizeof(I) * inparams.M, stream);
     MLCommon::iota(rowids, 0, 1, inparams.M, stream);
-    colids = (I*)allocator->allocate(sizeof(I) * inparams.N, stream);
-    MLCommon::iota(colids, 0, 1, inparams.N, stream);
     quantiles =
       (T*)allocator->allocate(sizeof(T) * inparams.nbins * inparams.N, stream);
 
@@ -86,7 +84,6 @@ class DtBaseTest : public ::testing::TestWithParam<DtTestParams> {
     allocator->deallocate(data, sizeof(T) * inparams.M * inparams.N, stream);
     allocator->deallocate(labels, sizeof(L) * inparams.M, stream);
     allocator->deallocate(rowids, sizeof(int) * inparams.M, stream);
-    allocator->deallocate(colids, sizeof(int) * inparams.N, stream);
     allocator->deallocate(quantiles, sizeof(T) * inparams.nbins * inparams.N,
                           stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
@@ -98,7 +95,7 @@ class DtBaseTest : public ::testing::TestWithParam<DtTestParams> {
   std::shared_ptr<raft::handle_t> handle;
   T *data, *quantiles;
   L* labels;
-  I *rowids, *colids;
+  I *rowids;
   DecisionTreeParams params;
   DtTestParams inparams;
   std::vector<SparseTreeNode<T, L>> sparsetree;
@@ -130,7 +127,7 @@ TEST_P(DtClsTestF, Test) {
   int num_leaves, depth;
   grow_tree<float, int, int>(
     handle->get_device_allocator(), handle->get_host_allocator(), data, 1, 0,
-    inparams.N, inparams.M, labels, quantiles, rowids, colids, inparams.M,
+    inparams.N, inparams.M, labels, quantiles, rowids, inparams.M,
     inparams.nclasses, params, stream, sparsetree, num_leaves, depth);
   // this is a "well behaved" dataset!
   ASSERT_EQ(depth, 1);
@@ -164,7 +161,7 @@ TEST_P(DtRegTestF, Test) {
   int num_leaves, depth;
   grow_tree<float, int>(
     handle->get_device_allocator(), handle->get_host_allocator(), data, 1, 0,
-    inparams.N, inparams.M, labels, quantiles, rowids, colids, inparams.M, 0,
+    inparams.N, inparams.M, labels, quantiles, rowids, inparams.M, 0,
     params, stream, sparsetree, num_leaves, depth);
   // goes all the way to max-depth
   ASSERT_EQ(depth, inparams.max_depth);

@@ -358,7 +358,7 @@ __global__ void computeSplitClassificationKernel(
 
   IdxT col;
   if(input.nSampledCols == input.N) {
-    col = input.colids[colStart + blockIdx.y];
+    col = colStart + blockIdx.y;
   }
   else {
     int colIndex = colStart + blockIdx.y;
@@ -442,7 +442,7 @@ __global__ void computeSplitRegressionKernel(
   IdxT tid = threadIdx.x + blockIdx.x * blockDim.x;
   IdxT col;
   if(input.nSampledCols == input.N) {
-    col = input.colids[colStart + blockIdx.y];
+    col = colStart + blockIdx.y;
   }
   else {
     int colIndex = colStart + blockIdx.y;

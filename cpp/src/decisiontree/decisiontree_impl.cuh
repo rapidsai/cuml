@@ -292,12 +292,9 @@ void DecisionTreeBase<T, L>::plant(
       CUML_LOG_WARN("Using experimental backend for growing trees\n");
     }
     T *quantiles = tempmem->d_quantile->data();
-    int *colids = (int *)tempmem->device_allocator->allocate(
-      sizeof(int) * ncols, tempmem->stream);
-    MLCommon::iota(colids, 0, 1, ncols, tempmem->stream);
     grow_tree(tempmem->device_allocator, tempmem->host_allocator, data, treeid,
               seed, ncols, nrows, labels, quantiles, (int *)rowids,
-              (int *)colids, n_sampled_rows, unique_labels, tree_params,
+              n_sampled_rows, unique_labels, tree_params,
               tempmem->stream, sparsetree, this->leaf_counter,
               this->depth_counter);
   } else {

@@ -141,7 +141,7 @@ struct Builder {
                      const DecisionTreeParams& p, const DataT* data,
                      const LabelT* labels, IdxT totalRows, IdxT totalCols,
                      IdxT sampledRows, IdxT sampledCols, IdxT* rowids,
-                     IdxT* colids, IdxT nclasses, const DataT* quantiles) {
+                     IdxT nclasses, const DataT* quantiles) {
     ASSERT(quantiles != nullptr,
            "Currently quantiles need to be computed before this call!");
     params = p;
@@ -155,7 +155,6 @@ struct Builder {
     input.nSampledRows = sampledRows;
     input.nSampledCols = sampledCols;
     input.rowids = rowids;
-    input.colids = colids;
     input.nclasses = nclasses;
     input.quantiles = quantiles;
     auto max_batch = params.max_batch_size;
