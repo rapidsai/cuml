@@ -88,8 +88,6 @@ void pairwise_distances(const raft::handle_t &handle, const value_t *X,
   thrust::device_ptr<value_idx> t_rows = thrust::device_pointer_cast(indptr);
   thrust::sequence(thrust::cuda::par.on(stream), indptr, indptr + m, 0, (int)m);
 
-  CUDA_CHECK(cudaStreamSynchronize(stream));
-
   value_idx v = m * m;  // TODO: No good.
   raft::update_device(indptr + m, &v, 1, stream);
 
@@ -186,23 +184,11 @@ void knn_graph(const raft::handle_t &handle, const value_t *X, size_t m,
                       int64_indices.data(), data.data(), k, true, true,
                       ml_metric);
 
-  CUDA_CHECK(cudaStreamSynchronize(stream));
-
-  raft::print_device_vector("knn dists: ", data.data(), nnz, std::cout);
-
   // convert from current knn's 64-bit to 32-bit.
   conv_indices(int64_indices.data(), indices.data(), nnz, stream);
 
-  raft::print_device_vector("knn dists: ", data.data(), nnz, std::cout);
-
   raft::sparse::linalg::symmetrize(handle, rows.data(), indices.data(),
                                    data.data(), m, k, nnz, out);
-
-  CUDA_CHECK(cudaStreamSynchronize(stream));
-
-  raft::print_device_vector("rows: ", out.rows(), out.nnz, std::cout);
-  raft::print_device_vector("indices: ", out.cols(), out.nnz, std::cout);
-  raft::print_device_vector<value_t>("data: ", out.vals(), out.nnz, std::cout);
 }
 
 template <typename value_idx, typename value_t>

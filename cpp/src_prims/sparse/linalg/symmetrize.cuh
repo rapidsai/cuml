@@ -48,7 +48,7 @@ __global__ void compute_duplicates_diffs(const value_idx *rows,
                                          const value_idx *cols, value_idx *diff,
                                          size_t nnz) {
   size_t tid = blockDim.x * blockIdx.x + threadIdx.x;
-  if (tid == 0 || tid > nnz) return;
+  if (tid >= nnz) return;
 
   value_idx d = 1;
   if (tid == 0 || (rows[tid - 1] == rows[tid] && cols[tid - 1] == cols[tid]))
@@ -63,12 +63,12 @@ __global__ void reduce_duplicates_kernel(
   value_t *out_vals, size_t nnz) {
   size_t tid = blockDim.x * blockIdx.x + threadIdx.x;
 
-  if (tid > nnz) return;
-
-  value_idx idx = index[tid];
-  atomicMax(out_vals + idx, src_vals[tid]);
-  out_rows[idx] = src_rows[tid];
-  out_cols[idx] = src_cols[tid];
+  if (tid < nnz) {
+    value_idx idx = index[tid];
+    atomicMax(&out_vals[idx], src_vals[tid]);
+    out_rows[idx] = src_rows[tid];
+    out_cols[idx] = src_cols[tid];
+  }
 }
 
 /**
@@ -82,8 +82,6 @@ void symmetrize(const raft::handle_t &handle, const value_idx *rows,
   auto stream = handle.get_stream();
 
   CUML_LOG_INFO("Starting symmetrize");
-
-  raft::print_device_vector("knn dists: ", vals, nnz, std::cout);
 
   // copy rows to cols and cols to rows
   raft::mr::device::buffer<value_idx> symm_rows(d_alloc, stream, nnz * 2);
