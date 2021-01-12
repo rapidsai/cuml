@@ -60,7 +60,7 @@ struct manifold_inputs_t {
 
   manifold_inputs_t(T *y_, int n_, int d_) : y(y_), n(n_), d(d_) {}
 
-  virtual bool alloc_knn_graph() const;
+  virtual bool alloc_knn_graph() const = 0;
 };
 
 /**

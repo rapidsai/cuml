@@ -15,6 +15,7 @@
  */
 
 #include <decisiontree/decisiontree_impl.h>
+#include <decisiontree/treelite_util.h>
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
 #include <raft/linalg/gemv.h>
@@ -42,7 +43,7 @@ struct RfInputs {
   int n_cols;
   int n_trees;
   float max_features;
-  float rows_sample;
+  float max_samples;
   int n_inference_rows;
   int max_depth;
   int max_leaves;
@@ -122,26 +123,25 @@ class RfTreeliteTestCommon : public ::testing::TestWithParam<RfInputs<T>> {
     TREELITE_CHECK(
       TreelitePredictorLoad(lib_path.c_str(), worker_thread, &predictor));
 
-    DenseBatchHandle dense_batch;
-    // Current RF dosen't seem to support missing value, put NaN to be safe.
-    float missing_value = std::numeric_limits<double>::quiet_NaN();
-    TREELITE_CHECK(TreeliteAssembleDenseBatch(
-      inference_data_h.data(), missing_value, params.n_inference_rows,
-      params.n_cols, &dense_batch));
+    DMatrixHandle dmat;
+    // Current RF doesn't seem to support missing value, put NaN to be safe.
+    T missing_value = std::numeric_limits<T>::quiet_NaN();
+    TREELITE_CHECK(TreeliteDMatrixCreateFromMat(
+      inference_data_h.data(), ML::DecisionTree::TreeliteType<T>::value,
+      params.n_inference_rows, params.n_cols, &missing_value, &dmat));
 
     // Use dense batch so batch_sparse is 0.
     // pred_margin = true means to produce raw margins rather than transformed probability.
-    int batch_sparse = 0;
     bool pred_margin = false;
     // Allocate larger array for treelite predicted label with using multi-class classification to avoid seg faults.
     // Altough later we only use first params.n_inference_rows elements.
     size_t treelite_predicted_labels_size;
 
     TREELITE_CHECK(TreelitePredictorPredictBatch(
-      predictor, dense_batch, batch_sparse, verbose, pred_margin,
-      treelite_predicted_labels.data(), &treelite_predicted_labels_size));
+      predictor, dmat, verbose, pred_margin, treelite_predicted_labels.data(),
+      &treelite_predicted_labels_size));
 
-    TREELITE_CHECK(TreeliteDeleteDenseBatch(dense_batch));
+    TREELITE_CHECK(TreeliteDMatrixFree(dmat));
     TREELITE_CHECK(TreelitePredictorFree(predictor));
     TREELITE_CHECK(TreeliteFreeModel(concatenated_forest_handle));
     TREELITE_CHECK(TreeliteFreeModel(treelite_indiv_handles[0]));
@@ -190,7 +190,7 @@ class RfTreeliteTestCommon : public ::testing::TestWithParam<RfInputs<T>> {
                     params.min_impurity_decrease, params.bootstrap_features,
                     params.split_criterion, false);
     set_all_rf_params(rf_params, params.n_trees, params.bootstrap,
-                      params.rows_sample, 0, params.n_streams, tree_params);
+                      params.max_samples, 0, params.n_streams, tree_params);
     handle.reset(new raft::handle_t(rf_params.n_streams));
 
     data_len = params.n_rows * params.n_cols;

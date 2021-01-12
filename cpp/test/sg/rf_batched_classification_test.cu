@@ -31,7 +31,7 @@ struct RfInputs {
   int n_cols;
   int n_trees;
   float max_features;
-  float rows_sample;
+  float max_samples;
   int max_depth;
   int max_leaves;
   bool bootstrap;
@@ -60,7 +60,7 @@ class RFBatchedClsTest : public ::testing::TestWithParam<RfInputs> {
                     params.split_criterion, false, true);
     RF_params rf_params;
     set_all_rf_params(rf_params, params.n_trees, params.bootstrap,
-                      params.rows_sample, 0, params.n_streams, tree_params);
+                      params.max_samples, 0, params.n_streams, tree_params);
 
     CUDA_CHECK(cudaStreamCreate(&stream));
     handle.reset(new raft::handle_t(rf_params.n_streams));

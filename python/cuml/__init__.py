@@ -28,6 +28,7 @@ from cuml.datasets.classification import make_classification
 
 from cuml.decomposition.pca import PCA
 from cuml.decomposition.tsvd import TruncatedSVD
+from cuml.decomposition.incremental_pca import IncrementalPCA
 
 from cuml.fil.fil import ForestInference
 
@@ -53,6 +54,8 @@ from cuml.metrics.regression import r2_score
 from cuml.naive_bayes.naive_bayes import MultinomialNB
 
 from cuml.neighbors.nearest_neighbors import NearestNeighbors
+from cuml.neighbors.kneighbors_classifier import KNeighborsClassifier
+from cuml.neighbors.kneighbors_regressor import KNeighborsRegressor
 
 from cuml.preprocessing.LabelEncoder import LabelEncoder
 from cuml.preprocessing.model_selection import train_test_split

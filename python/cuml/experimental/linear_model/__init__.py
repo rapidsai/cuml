@@ -14,4 +14,4 @@
 # limitations under the License.
 #
 
-from cuml.experimental.decomposition.incremental_pca import IncrementalPCA
+from cuml.experimental.linear_model.lars import Lars

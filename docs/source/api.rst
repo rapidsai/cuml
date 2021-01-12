@@ -104,6 +104,11 @@ Feature Extraction (Single-GPU)
   .. autoclass:: cuml.feature_extraction.text.TfidfVectorizer
     :members:
 
+Feature Extraction (Dask-based Multi-GPU)
+-----------------------------------------
+  .. autoclass:: cuml.dask.feature_extraction.text.TfidfTransformer
+    :members:
+
 Dataset Generation (Single-GPU)
 -------------------------------
   .. glossary::
@@ -164,7 +169,7 @@ Metrics (clustering and trustworthiness)
 
   .. automodule:: cuml.metrics.cluster.homogeneity_score
     :members:
-
+       
   .. automodule:: cuml.metrics.cluster.completeness_score
     :members:
 
@@ -314,6 +319,11 @@ Principal Component Analysis
 
 .. autoclass:: cuml.PCA
     :members:
+
+Incremental PCA
+-------------
+.. autoclass:: cuml.IncrementalPCA
+   :members:
 
 Truncated SVD
 --------------
@@ -487,11 +497,6 @@ Experimental
     the root `cuml` package. Each `experimental` submodule must be imported
     separately.
 
-Decomposition
--------------
-.. autoclass:: cuml.experimental.decomposition.IncrementalPCA
-   :members:
-
 Preprocessing
 -------------
 .. automodule:: cuml.experimental.preprocessing
@@ -499,3 +504,12 @@ Preprocessing
       Normalizer, RobustScaler, SimpleImputer, StandardScaler,
       add_dummy_feature, binarize, minmax_scale, normalize,
       PolynomialFeatures, robust_scale, scale
+
+
+Model Explanation (SHAP)
+------------------------
+.. autoclass:: cuml.experimental.explainer.KernelExplainer
+   :members:
+
+.. autoclass:: cuml.experimental.explainer.PermutationExplainer
+   :members:

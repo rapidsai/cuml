@@ -60,7 +60,7 @@ struct RF_params {
    * Control bootstrapping.
    * If bootstrapping is set to true, bootstrapped samples are used for building
    * each tree. Bootstrapped sampling is done by randomly drawing
-   * round(rows_sample * n_samples) number of samples with replacement. More on
+   * round(max_samples * n_samples) number of samples with replacement. More on
    * bootstrapping:
    *     https://en.wikipedia.org/wiki/Bootstrap_aggregating
    * If boostrapping is set to false, whole dataset is used to build each
@@ -70,7 +70,7 @@ struct RF_params {
   /**
    * Ratio of dataset rows used while fitting each tree.
    */
-  float rows_sample;
+  float max_samples;
   /**
    * Decision tree training hyper parameter struct.
    */
@@ -88,10 +88,10 @@ struct RF_params {
 };
 
 void set_rf_params(RF_params& params, int cfg_n_trees = 1,
-                   bool cfg_bootstrap = true, float cfg_rows_sample = 1.0f,
+                   bool cfg_bootstrap = true, float cfg_max_samples = 1.0f,
                    uint64_t cfg_seed = 0, int cfg_n_streams = 8);
 void set_all_rf_params(RF_params& params, int cfg_n_trees, bool cfg_bootstrap,
-                       float cfg_rows_sample, uint64_t cfg_seed, int cfg_n_streams,
+                       float cfg_max_samples, uint64_t cfg_seed, int cfg_n_streams,
                        DecisionTree::DecisionTreeParams cfg_tree_params);
 void validity_check(const RF_params rf_params);
 void print(const RF_params rf_params);
@@ -129,13 +129,13 @@ template <class T, class L>
 void delete_rf_metadata(RandomForestMetaData<T, L>* forest);
 
 template <class T, class L>
-void print_rf_summary(const RandomForestMetaData<T, L>* forest);
+std::string get_rf_summary_text(const RandomForestMetaData<T, L>* forest);
 
 template <class T, class L>
-void print_rf_detailed(const RandomForestMetaData<T, L>* forest);
+std::string get_rf_detailed_text(const RandomForestMetaData<T, L>* forest);
 
 template <class T, class L>
-std::string dump_rf_as_json(const RandomForestMetaData<T, L>* forest);
+std::string get_rf_json(const RandomForestMetaData<T, L>* forest);
 
 template <class T, class L>
 void build_treelite_forest(ModelHandle* model,
@@ -190,7 +190,7 @@ RF_params set_rf_class_obj(int max_depth, int max_leaves, float max_features,
                            int n_bins, int split_algo, int min_samples_leaf,
                            int min_samples_split, float min_impurity_decrease,
                            bool bootstrap_features, bool bootstrap, int n_trees,
-                           float rows_sample, uint64_t seed,
+                           float max_samples, uint64_t seed,
                            CRITERION split_criterion, bool quantile_per_tree,
                            int cfg_n_streams, bool use_experimental_backend,
                            int max_batch_size);

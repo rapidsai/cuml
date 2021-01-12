@@ -26,9 +26,12 @@ def pytest_configure(config):
 
 @pytest.fixture(scope="module")
 def nlp_20news():
-    twenty_train = fetch_20newsgroups(subset='train',
-                                      shuffle=True,
-                                      random_state=42)
+    try:
+        twenty_train = fetch_20newsgroups(subset='train',
+                                          shuffle=True,
+                                          random_state=42)
+    except IOError:
+        pytest.xfail(reason="Error fetching 20 newsgroup dataset")
 
     count_vect = CountVectorizer()
     X = count_vect.fit_transform(twenty_train.data)
