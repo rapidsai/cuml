@@ -22,7 +22,7 @@
 
 #include <raft/mr/device/buffer.hpp>
 
-#include <hierarchy/label.cuh>
+#include <hierarchy/agglomerative.cuh>
 #include <hierarchy/mst.cuh>
 #include "reachability.cuh"
 

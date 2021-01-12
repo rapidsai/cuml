@@ -28,8 +28,8 @@
 #include <distance/distance.cuh>
 #include <sparse/coo.cuh>
 
+#include <hierarchy/agglomerative.cuh>
 #include <hierarchy/distance.cuh>
-#include <hierarchy/label.cuh>
 #include <hierarchy/mst.cuh>
 
 namespace ML {
@@ -40,7 +40,7 @@ void _single_linkage(const raft::handle_t &handle, const value_t *X, size_t m,
                      size_t n, raft::distance::DistanceType metric,
                      LinkageDistance dist_type,
                      linkage_output<value_idx, value_t> *out, int c,
-                     int n_clusters = 2) {
+                     int n_clusters) {
   auto stream = handle.get_stream();
   auto d_alloc = handle.get_device_allocator();
 
@@ -90,10 +90,8 @@ void _single_linkage(const raft::handle_t &handle, const value_t *X, size_t m,
     handle, mst_rows.data(), mst_cols.data(), mst_data.data(), n_edges,
     children, out_delta, out_size);
 
-  raft::mr::device::buffer<value_idx> labels(d_alloc, stream, m);
-
-  Label::Agglomerative::extract_clusters(handle, labels, children, n_clusters,
-                                         m);
+  Label::Agglomerative::extract_clusters(handle, out->labels, children,
+                                         n_clusters, m);
 
   CUML_LOG_INFO("Done executing linkage.");
 }

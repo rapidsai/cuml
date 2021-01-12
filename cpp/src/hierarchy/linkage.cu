@@ -25,9 +25,9 @@ namespace ML {
 void single_linkage(const raft::handle_t &handle, const float *X, size_t m,
                     size_t n, raft::distance::DistanceType metric,
                     LinkageDistance dist_type, linkage_output<int, float> *out,
-                    int c) {
+                    int c, int n_clusters) {
   Linkage::_single_linkage<int, float>(handle, X, m, n, metric, dist_type, out,
-                                       c);
+                                       c, n_clusters);
 }
 
 };  // end namespace ML

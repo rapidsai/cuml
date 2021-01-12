@@ -55,7 +55,7 @@ struct linkage_output_float : public linkage_output<int, float> {};
 void single_linkage(const raft::handle_t &handle, const float *X, size_t m,
                     size_t n, raft::distance::DistanceType metric,
                     LinkageDistance dist_type, linkage_output<int, float> *out,
-                    int c = 15);
+                    int c = 15, int n_clusters = 5);
 
 /** @} */
 

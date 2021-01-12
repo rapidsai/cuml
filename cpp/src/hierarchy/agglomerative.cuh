@@ -307,8 +307,7 @@ struct init_label_roots {
 };
 
 template <typename value_idx>
-void extract_clusters(const raft::handle_t &handle,
-                      raft::mr::device::buffer<value_idx> &labels,
+void extract_clusters(const raft::handle_t &handle, value_idx *labels,
                       const raft::mr::device::buffer<value_idx> &children,
                       value_idx n_clusters, size_t n_leaves) {
   auto d_alloc = handle.get_device_allocator();
@@ -398,12 +397,11 @@ void extract_clusters(const raft::handle_t &handle,
     children.data(), parents.data(), n_leaves, tmp_labels.data());
 
   // copy tmp labels to actual labels
-  raft::copy_async(labels.data(), tmp_labels.data(), n_leaves, stream);
+  raft::copy_async(labels, tmp_labels.data(), n_leaves, stream);
 
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
-  raft::print_device_vector("labels: ", labels.data(), labels.size(),
-                            std::cout);
+  raft::print_device_vector("labels: ", labels, n_leaves, std::cout);
 
   CUML_LOG_INFO("Done extracting clusters.");
 }
