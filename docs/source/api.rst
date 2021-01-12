@@ -169,6 +169,9 @@ Metrics (clustering and trustworthiness)
 
   .. automodule:: cuml.metrics.cluster.homogeneity_score
     :members:
+
+  .. automodule:: cuml.metrics.cluster.silhouette_score
+    :members:
        
   .. automodule:: cuml.metrics.cluster.completeness_score
     :members:
