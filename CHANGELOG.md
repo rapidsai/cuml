@@ -1,6 +1,7 @@
 # cuML 0.18.0 (Date TBD)
 
 ## New Features
+- PR #3364: Enable feature sampling for the experimental backend of Random Forest
 
 ## Improvements
 
