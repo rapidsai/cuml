@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+#pragma once
+
 #include <math.h>
 #include <raft/cudart_utils.h>
 #include <raft/linalg/distance_type.h>
@@ -237,6 +239,8 @@ DataT silhouette_score(DataT *X_in, int nRows, int nCols, LabelT *labels,
   populateAKernel<<<numBlocks, numThreadsPerBlock, 0, stream>>>(
     sampleToClusterSumOfDistances.data(), binCountArray.data(), d_aArray.data(),
     labels, nRows, nLabels, std::numeric_limits<DataT>::max());
+
+  // raft::print_device_vector("Full A: ", d_aArray.data(), nRows, std::cout);
 
   //elementwise dividing by bincounts
   device_buffer<DataT> averageDistanceBetweenSampleAndCluster(allocator, stream,
