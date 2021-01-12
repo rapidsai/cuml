@@ -144,8 +144,7 @@ class DecisionTreeClassifier : public DecisionTreeBase<T, int> {
            const int nrows, const int *labels, unsigned int *rowids,
            const int n_sampled_rows, const int unique_labels,
            TreeMetaDataNode<T, int> *&tree, DecisionTreeParams tree_parameters,
-           uint64_t seed,
-           std::shared_ptr<TemporaryMemory<T, int>> in_tempmem);
+           uint64_t seed, std::shared_ptr<TemporaryMemory<T, int>> in_tempmem);
 
  private:
   void grow_deep_tree(const T *data, const int *labels, unsigned int *rowids,

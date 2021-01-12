@@ -85,12 +85,12 @@ std::vector<RegParams> getInputs() {
     .noise = 1.0,
     .seed = 12345ULL};
 
-  set_rf_params(p.rf,    // Output RF parameters
-                500,     // n_trees
-                true,    // bootstrap
-                1.f,     // max_samples
-                1234ULL, // seed
-                8);      // n_streams
+  set_rf_params(p.rf,     // Output RF parameters
+                500,      // n_trees
+                true,     // bootstrap
+                1.f,      // max_samples
+                1234ULL,  // seed
+                8);       // n_streams
 
   set_tree_params(p.rf.tree_params,  // Output tree parameters
                   10,                // max_depth, just a place holder value,

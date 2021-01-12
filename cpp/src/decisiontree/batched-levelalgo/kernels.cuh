@@ -269,17 +269,16 @@ __device__ OutT* alignPointer(InT input) {
 const uint32_t fnv1a32_prime = uint32_t(16777619);
 const uint32_t fnv1a32_basis = uint32_t(2166136261);
 
-DI uint32_t fnv1a32(uint32_t hash, uint32_t txt)
-{
-    hash ^= (txt >> 0) & 0xFF;
-    hash *= fnv1a32_prime;
-    hash ^= (txt >> 8) & 0xFF;
-    hash *= fnv1a32_prime;
-    hash ^= (txt >> 16) & 0xFF;
-    hash *= fnv1a32_prime;
-    hash ^= (txt >> 24) & 0xFF;
-    hash *= fnv1a32_prime;
-    return hash;
+DI uint32_t fnv1a32(uint32_t hash, uint32_t txt) {
+  hash ^= (txt >> 0) & 0xFF;
+  hash *= fnv1a32_prime;
+  hash ^= (txt >> 8) & 0xFF;
+  hash *= fnv1a32_prime;
+  hash ^= (txt >> 16) & 0xFF;
+  hash *= fnv1a32_prime;
+  hash ^= (txt >> 24) & 0xFF;
+  hash *= fnv1a32_prime;
+  return hash;
 }
 
 /**
@@ -292,7 +291,7 @@ DI uint32_t fnv1a32(uint32_t hash, uint32_t txt)
  */
 template <typename IdxT>
 DI IdxT select(IdxT k, IdxT treeid, uint32_t nodeid, uint64_t seed, IdxT N) {
-   __shared__ int blksum;
+  __shared__ int blksum;
   uint32_t pivote_hash;
   int cnt = 0;
 
@@ -309,8 +308,8 @@ DI IdxT select(IdxT k, IdxT treeid, uint32_t nodeid, uint64_t seed, IdxT N) {
 
   // Compute hash for rest of the indices and count instances where i_hash is less than pivote_hash
   uint32_t i_hash;
-  for(int i = threadIdx.x; i < N; i += blockDim.x) {
-    if(i == k) continue; // Skip since k is the pivote index
+  for (int i = threadIdx.x; i < N; i += blockDim.x) {
+    if (i == k) continue;  // Skip since k is the pivote index
     i_hash = fnv1a32_basis;
     i_hash = fnv1a32(i_hash, uint32_t(i));
     i_hash = fnv1a32(i_hash, uint32_t(treeid));
@@ -318,18 +317,16 @@ DI IdxT select(IdxT k, IdxT treeid, uint32_t nodeid, uint64_t seed, IdxT N) {
     i_hash = fnv1a32(i_hash, uint32_t(seed >> 32));
     i_hash = fnv1a32(i_hash, uint32_t(seed));
 
-    if(i_hash < pivote_hash)
+    if (i_hash < pivote_hash)
       cnt++;
     else if (i_hash == pivote_hash && i < k)
       cnt++;
   }
   __syncthreads();
-  if(cnt > 0)
-    atomicAdd(&blksum, cnt);
+  if (cnt > 0) atomicAdd(&blksum, cnt);
   __syncthreads();
   return blksum;
 }
-
 
 template <typename DataT, typename LabelT, typename IdxT, int TPB>
 __global__ void computeSplitClassificationKernel(
@@ -357,10 +354,9 @@ __global__ void computeSplitClassificationKernel(
   IdxT tid = threadIdx.x + blockIdx.x * blockDim.x;
 
   IdxT col;
-  if(input.nSampledCols == input.N) {
+  if (input.nSampledCols == input.N) {
     col = colStart + blockIdx.y;
-  }
-  else {
+  } else {
     int colIndex = colStart + blockIdx.y;
     col = select(colIndex, treeid, node.info.unique_id, seed, input.N);
   }
@@ -442,10 +438,9 @@ __global__ void computeSplitRegressionKernel(
   IdxT stride = blockDim.x * gridDim.x;
   IdxT tid = threadIdx.x + blockIdx.x * blockDim.x;
   IdxT col;
-  if(input.nSampledCols == input.N) {
+  if (input.nSampledCols == input.N) {
     col = colStart + blockIdx.y;
-  }
-  else {
+  } else {
     int colIndex = colStart + blockIdx.y;
     col = select(colIndex, treeid, node.info.unique_id, seed, input.N);
   }

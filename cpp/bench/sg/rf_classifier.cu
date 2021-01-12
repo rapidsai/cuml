@@ -83,12 +83,12 @@ std::vector<Params> getInputs() {
              10.0,         // center_box_max
              2152953ULL};  //seed
 
-  set_rf_params(p.rf,    // Output RF parameters
-                500,     // n_trees
-                true,    // bootstrap
-                1.f,     // max_samples
-                1234ULL, // seed
-                8);      // n_streams
+  set_rf_params(p.rf,     // Output RF parameters
+                500,      // n_trees
+                true,     // bootstrap
+                1.f,      // max_samples
+                1234ULL,  // seed
+                8);       // n_streams
 
   set_tree_params(p.rf.tree_params,  // Output tree parameters
                   10,                // max_depth, this is anyway changed below

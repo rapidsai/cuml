@@ -159,7 +159,8 @@ void postprocess_labels(int n_rows, std::vector<int>& labels,
  * @param[in] cfg_n_streams: No of parallel CUDA for training forest
  */
 void set_rf_params(RF_params& params, int cfg_n_trees, bool cfg_bootstrap,
-                   float cfg_max_samples, uint64_t cfg_seed, int cfg_n_streams) {
+                   float cfg_max_samples, uint64_t cfg_seed,
+                   int cfg_n_streams) {
   params.n_trees = cfg_n_trees;
   params.bootstrap = cfg_bootstrap;
   params.max_samples = cfg_max_samples;
@@ -183,7 +184,8 @@ void set_rf_params(RF_params& params, int cfg_n_trees, bool cfg_bootstrap,
  * @param[in] cfg_tree_params: tree parameters
  */
 void set_all_rf_params(RF_params& params, int cfg_n_trees, bool cfg_bootstrap,
-                       float cfg_max_samples, uint64_t cfg_seed, int cfg_n_streams,
+                       float cfg_max_samples, uint64_t cfg_seed,
+                       int cfg_n_streams,
                        DecisionTree::DecisionTreeParams cfg_tree_params) {
   params.n_trees = cfg_n_trees;
   params.bootstrap = cfg_bootstrap;

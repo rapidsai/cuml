@@ -137,11 +137,11 @@ struct Builder {
    *                        be computed fresh. [on device] [col-major]
    *                        [dim = nbins x sampledCols]
    */
-  void workspaceSize(size_t& d_wsize, size_t& h_wsize, IdxT treeid, uint64_t seed,
-                     const DecisionTreeParams& p, const DataT* data,
-                     const LabelT* labels, IdxT totalRows, IdxT totalCols,
-                     IdxT sampledRows, IdxT sampledCols, IdxT* rowids,
-                     IdxT nclasses, const DataT* quantiles) {
+  void workspaceSize(size_t& d_wsize, size_t& h_wsize, IdxT treeid,
+                     uint64_t seed, const DecisionTreeParams& p,
+                     const DataT* data, const LabelT* labels, IdxT totalRows,
+                     IdxT totalCols, IdxT sampledRows, IdxT sampledCols,
+                     IdxT* rowids, IdxT nclasses, const DataT* quantiles) {
     ASSERT(quantiles != nullptr,
            "Currently quantiles need to be computed before this call!");
     params = p;
@@ -330,7 +330,7 @@ struct Builder {
     CUDA_CHECK(cudaMemsetAsync(n_nodes, 0, sizeof(IdxT), s));
     initSplit<DataT, IdxT, Traits::TPB_DEFAULT>(splits, batchSize, s);
 
-    for(int i = 0; i < batchSize; i++) {
+    for (int i = 0; i < batchSize; i++) {
       h_nodes[node_start + i].info.unique_id = i + node_start;
     }
     // get the current set of nodes to be worked upon

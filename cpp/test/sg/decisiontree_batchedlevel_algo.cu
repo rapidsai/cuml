@@ -95,7 +95,7 @@ class DtBaseTest : public ::testing::TestWithParam<DtTestParams> {
   std::shared_ptr<raft::handle_t> handle;
   T *data, *quantiles;
   L* labels;
-  I *rowids;
+  I* rowids;
   DecisionTreeParams params;
   DtTestParams inparams;
   std::vector<SparseTreeNode<T, L>> sparsetree;
@@ -159,10 +159,10 @@ typedef DtRegressorTest<float> DtRegTestF;
 ///@todo: add checks
 TEST_P(DtRegTestF, Test) {
   int num_leaves, depth;
-  grow_tree<float, int>(
-    handle->get_device_allocator(), handle->get_host_allocator(), data, 1, 0,
-    inparams.N, inparams.M, labels, quantiles, rowids, inparams.M, 0,
-    params, stream, sparsetree, num_leaves, depth);
+  grow_tree<float, int>(handle->get_device_allocator(),
+                        handle->get_host_allocator(), data, 1, 0, inparams.N,
+                        inparams.M, labels, quantiles, rowids, inparams.M, 0,
+                        params, stream, sparsetree, num_leaves, depth);
   // goes all the way to max-depth
   ASSERT_EQ(depth, inparams.max_depth);
 }

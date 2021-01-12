@@ -50,11 +50,13 @@ namespace DecisionTree {
 template <class T, class L>
 void print(const SparseTreeNode<T, L> &node, std::ostream &os) {
   if (node.colid == -1) {
-    os << "(leaf, " << "prediction: " << node.prediction
-       <<", best_metric_val: " << node.best_metric_val
+    os << "(leaf, "
+       << "prediction: " << node.prediction
+       << ", best_metric_val: " << node.best_metric_val
        << ", UID: " << node.unique_id << ")";
   } else {
-    os << "(" << "colid: " << node.colid << ", quesval: " << node.quesval
+    os << "("
+       << "colid: " << node.colid << ", quesval: " << node.quesval
        << ", best_metric_val: " << node.best_metric_val
        << ", UID: " << node.unique_id << ")";
   }
@@ -326,9 +328,8 @@ void DecisionTreeBase<T, L>::plant(
     T *quantiles = tempmem->d_quantile->data();
     grow_tree(tempmem->device_allocator, tempmem->host_allocator, data, treeid,
               seed, ncols, nrows, labels, quantiles, (int *)rowids,
-              n_sampled_rows, unique_labels, tree_params,
-              tempmem->stream, sparsetree, this->leaf_counter,
-              this->depth_counter);
+              n_sampled_rows, unique_labels, tree_params, tempmem->stream,
+              sparsetree, this->leaf_counter, this->depth_counter);
   } else {
     grow_deep_tree(data, labels, rowids, n_sampled_rows, ncols,
                    tree_params.max_features, dinfo.NLocalrows, sparsetree,
@@ -485,8 +486,7 @@ void DecisionTreeRegressor<T>::fit(
   const raft::handle_t &handle, const T *data, const int ncols, const int nrows,
   const T *labels, unsigned int *rowids, const int n_sampled_rows,
   TreeMetaDataNode<T, T> *&tree, DecisionTreeParams tree_parameters,
-  uint64_t seed,
-  std::shared_ptr<TemporaryMemory<T, T>> in_tempmem) {
+  uint64_t seed, std::shared_ptr<TemporaryMemory<T, T>> in_tempmem) {
   this->tree_params = tree_parameters;
   this->base_fit(handle.get_device_allocator(), handle.get_host_allocator(),
                  handle.get_stream(), data, ncols, nrows, labels, rowids,
@@ -502,8 +502,7 @@ void DecisionTreeRegressor<T>::fit(
   const cudaStream_t stream_in, const T *data, const int ncols, const int nrows,
   const T *labels, unsigned int *rowids, const int n_sampled_rows,
   TreeMetaDataNode<T, T> *&tree, DecisionTreeParams tree_parameters,
-  uint64_t seed,
-  std::shared_ptr<TemporaryMemory<T, T>> in_tempmem) {
+  uint64_t seed, std::shared_ptr<TemporaryMemory<T, T>> in_tempmem) {
   this->tree_params = tree_parameters;
   this->base_fit(device_allocator_in, host_allocator_in, stream_in, data, ncols,
                  nrows, labels, rowids, n_sampled_rows, 1, tree->sparsetree,

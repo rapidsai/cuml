@@ -91,7 +91,8 @@ void set_rf_params(RF_params& params, int cfg_n_trees = 1,
                    bool cfg_bootstrap = true, float cfg_max_samples = 1.0f,
                    uint64_t cfg_seed = 0, int cfg_n_streams = 8);
 void set_all_rf_params(RF_params& params, int cfg_n_trees, bool cfg_bootstrap,
-                       float cfg_max_samples, uint64_t cfg_seed, int cfg_n_streams,
+                       float cfg_max_samples, uint64_t cfg_seed,
+                       int cfg_n_streams,
                        DecisionTree::DecisionTreeParams cfg_tree_params);
 void validity_check(const RF_params rf_params);
 void print(const RF_params rf_params);

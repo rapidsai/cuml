@@ -229,7 +229,7 @@ void rfClassifier<T>::fit(const raft::handle_t& user_handle, const T* input,
     tree_ptr->treeid = i;
     trees[i].fit(handle.get_device_allocator(), handle.get_host_allocator(),
                  tempmem[stream_id]->stream, input, n_cols, n_rows, labels,
-                 rowids, n_sampled_rows, n_unique_labels, tree_ptr, 
+                 rowids, n_sampled_rows, n_unique_labels, tree_ptr,
                  this->rf_params.tree_params, this->rf_params.seed,
                  tempmem[stream_id]);
   }
