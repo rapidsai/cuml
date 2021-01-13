@@ -129,7 +129,6 @@ void symmetrize(const raft::handle_t &handle, const value_idx *rows,
                              stream>>>(
     symm_rows.data(), symm_cols.data(), symm_vals.data(), ex_scan.data() + 1,
     out.rows(), out.cols(), out.vals(), nnz * 2);
-
 }
 
 };  // end namespace linalg
