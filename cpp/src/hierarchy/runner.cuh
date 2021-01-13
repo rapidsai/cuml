@@ -41,6 +41,9 @@ void _single_linkage(const raft::handle_t &handle, const value_t *X, size_t m,
                      LinkageDistance dist_type,
                      linkage_output<value_idx, value_t> *out, int c,
                      int n_clusters) {
+  ASSERT(n_clusters <= m,
+         "n_clusters must be less than or equal to the number of data points");
+
   auto stream = handle.get_stream();
   auto d_alloc = handle.get_device_allocator();
 
@@ -82,6 +85,8 @@ void _single_linkage(const raft::handle_t &handle, const value_t *X, size_t m,
 
   Label::Agglomerative::extract_flattened_clusters(handle, out->labels,
                                                    children, n_clusters, m);
+
+  raft::print_device_vector<value_idx>("labels: ", out->labels, m, std::cout);
 }
 
 };  // end namespace Linkage
