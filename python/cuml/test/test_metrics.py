@@ -246,7 +246,7 @@ def test_silhouette_score_batched(metric, chunk_divider, labeled_clusters):
 def test_silhouette_samples_batched(metric, chunk_divider, labeled_clusters):
     X, labels = labeled_clusters
     cuml_scores = cu_silhouette_samples(X, labels, metric=metric,
-                                        chunksize=int(X.shape[0]/
+                                        chunksize=int(X.shape[0] /
                                                       chunk_divider))
     sk_scores = sk_silhouette_samples(X, labels, metric=metric)
     assert_allclose(cuml_scores, sk_scores, rtol=1e-2, atol=1e-5)
