@@ -92,7 +92,7 @@ __global__ void balanced_coo_generalized_spmv_kernel(
 
   // chunk starting offset
   value_idx ind_offset = cur_chunk_offset * chunk_size * tpb;
-Are   // how many total cols will be processed by this block (should be <= chunk_size * n_threads)
+  // how many total cols will be processed by this block (should be <= chunk_size * n_threads)
   value_idx active_chunk_size = min(chunk_size * tpb, nnz_b - ind_offset);
 
   int tid = threadIdx.x;
@@ -107,7 +107,7 @@ Are   // how many total cols will be processed by this block (should be <= chunk
 
   __shared__ kv_t A[buffer_size];
   __shared__ value_idx offsets_a[2];
-  __shared__ typename warp_reduce::TempStorage temp_storage[8];
+  __shared__ typename warp_reduce::TempStorage temp_storage[32];
 
   if (tid == 0) {
     offsets_a[0] = indptrA[cur_row_a];
