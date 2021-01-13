@@ -38,10 +38,8 @@ template <typename value_idx, typename value_t>
 void bfs_from_hierarchy(const std::vector<value_idx> &src,
                         const std::vector<value_idx> &dst,
                         const std::vector<value_t> &delta,
-                        const std::vector<value_idx> &size,
-                        value_idx bfs_root,
+                        const std::vector<value_idx> &size, value_idx bfs_root,
                         std::vector<value_idx> &result) {
-
   std::vector<value_idx> to_process;
   to_process.push_back(bfs_root);
 
@@ -53,42 +51,29 @@ void bfs_from_hierarchy(const std::vector<value_idx> &src,
   max_node = 2 * dim;
   num_points = max_node - dim + 1;
 
-  while(to_process.size() > 0) {
+  while (to_process.size() > 0) {
     result.insert(result.end(), to_process.begin(), to_process.end());
 
-    to_process.erase(std::remove_if(std::begin(to_process),
-                                    std::end(to_process),
-                                    [&] (const auto& elem) {
-                                      return elem >= num_points;
-                                    }));
+    to_process.erase(
+      std::remove_if(std::begin(to_process), std::end(to_process),
+                     [&](const auto &elem) { return elem >= num_points; }));
 
     std::for_each(to_process.begin(), to_process.end(),
-                  [&] (const auto& elem) { return elem - num_points; });
+                  [&](const auto &elem) { return elem - num_points; });
 
-    if(to_process.size() > 0) {
-
-
+    if (to_process.size() > 0) {
       // TODO: Get all items from to_process
       // and pull back children from
     }
 
-
-
-
-      to_process = hierarchy[to_process,
-      :2].flatten().astype(np.intp).tolist()
+    to_process = hierarchy [to_process, :2].flatten().astype(np.intp).tolist()
   }
   return result
-
 }
 
 template <typename value_idx, typename value_t>
-void condense_host(value_idx *tree_src,
-                   value_idx *tree_dst,
-                   value_t *tree_delta,
-                   value_idx *tree_size,
-                   value_idx m) {
-
+void condense_host(value_idx *tree_src, value_idx *tree_dst,
+                   value_t *tree_delta, value_idx *tree_size, value_idx m) {
   value_idx root = 2 * m;
 
   value_idx num_points = root / 2 + 1;
@@ -102,7 +87,7 @@ void condense_host(value_idx *tree_src,
 
   std::vector<value_t> children;
 
-  value_idx relabel[root+1];
+  value_idx relabel[root + 1];
   relabel[root] = num_points;
 
   bool ignore[m];
@@ -117,9 +102,8 @@ void condense_host(value_idx *tree_src,
 
   bfs_from_hierarchy(hierarchy, root, node_list);
 
-  std::for_each(node_list.begin(), node_list.end(), [&] (const auto& elem) {}) {
+  std::for_each(node_list.begin(), node_list.end(), [&](const auto &elem) {}) {
     if (!ignore[node] && node >= num_points) {
-
       children = hierarchy[node - num_points]
       left = <np.intp_t> children[0]
       right = <np.intp_t> children[1]
@@ -177,18 +161,13 @@ void condense_host(value_idx *tree_src,
       result_list.append((relabel[node], sub_node,
         lambda_value, 1))
       ignore[sub_node] = True
-
     }
   });
 
-  return np.array(result_list, dtype=[('parent', np.intp),
-    ('child', np.intp),
-    ('lambda_val', float),
-    ('child_size', np.intp)])
-
-
-
-
+  return np.array(result_list, dtype = [
+    ('parent', np.intp), ('child', np.intp), ('lambda_val', float),
+    ('child_size', np.intp)
+  ])
 }
 
 };  // end namespace Condense
