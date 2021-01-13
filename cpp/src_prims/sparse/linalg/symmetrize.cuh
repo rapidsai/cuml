@@ -98,26 +98,34 @@ void symmetrize(const raft::handle_t &handle, const value_idx *rows,
   MLCommon::Sparse::coo_sort(m, n, nnz * 2, symm_rows.data(), symm_cols.data(),
                              symm_vals.data(), d_alloc, stream);
 
+  CUDA_CHECK(cudaStreamSynchronize(stream));
+  CUDA_CHECK(cudaGetLastError());
+
   // compute diffs & take exclusive scan
-  raft::mr::device::buffer<value_idx> diff(d_alloc, stream, nnz * 2);
+  raft::mr::device::buffer<value_idx> diff(d_alloc, stream, (nnz * 2) + 1);
+
+  CUDA_CHECK(cudaMemsetAsync(diff.data(), 0,
+                             ((nnz * 2) + 1) * sizeof(value_idx), stream));
 
   compute_duplicates_diffs<<<raft::ceildiv(nnz * 2, (size_t)1024), 1024, 0,
                              stream>>>(symm_rows.data(), symm_cols.data(),
                                        diff.data(), nnz * 2);
 
-  raft::mr::device::buffer<value_idx> ex_scan(d_alloc, stream, nnz * 2 + 1);
+  CUDA_CHECK(cudaStreamSynchronize(stream));
+  CUDA_CHECK(cudaGetLastError());
 
   thrust::device_ptr<value_idx> dev = thrust::device_pointer_cast(diff.data());
-  thrust::device_ptr<value_idx> dev_ex_scan =
-    thrust::device_pointer_cast(ex_scan.data());
 
   ML::thrustAllocatorAdapter alloc(d_alloc, stream);
   thrust::exclusive_scan(thrust::cuda::par(alloc).on(stream), dev,
-                         dev + (nnz * 2 + 1), dev_ex_scan);
+                         dev + diff.size(), dev);
+
+  CUDA_CHECK(cudaStreamSynchronize(stream));
+  CUDA_CHECK(cudaGetLastError());
 
   // compute final size
   value_idx size = 0;
-  raft::update_host(&size, ex_scan.data() + (nnz * 2), 1, stream);
+  raft::update_host(&size, diff.data() + (diff.size() - 1), 1, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
   size++;
@@ -127,7 +135,7 @@ void symmetrize(const raft::handle_t &handle, const value_idx *rows,
   // perform reduce
   reduce_duplicates_kernel<<<raft::ceildiv(nnz * 2, (size_t)1024), 1024, 0,
                              stream>>>(
-    symm_rows.data(), symm_cols.data(), symm_vals.data(), ex_scan.data() + 1,
+    symm_rows.data(), symm_cols.data(), symm_vals.data(), diff.data() + 1,
     out.rows(), out.cols(), out.vals(), nnz * 2);
 }
 

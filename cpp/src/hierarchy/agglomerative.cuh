@@ -218,8 +218,8 @@ void build_dendrogram_device(const raft::handle_t &handle,
 }
 
 template <typename value_idx>
-__global__ void write_parents_kernel(const value_idx *children,
-                                     value_idx *parents, size_t n_leaves) {
+__global__ void write_levels_kernel(const value_idx *children,
+                                    value_idx *parents, size_t n_leaves) {
   int tid = blockDim.x * blockIdx.x + threadIdx.x;
   if (tid < (n_leaves - 1) * 2) {
     value_idx level = tid / 2;
@@ -240,25 +240,35 @@ __global__ void write_parents_kernel(const value_idx *children,
  * @param labels
  */
 template <typename value_idx>
-__global__ void propagate_labels(const value_idx *children,
-                                 const value_idx *parents, size_t n_leaves,
-                                 value_idx *labels) {
+__global__ void inherit_labels(const value_idx *children,
+                               const value_idx *levels, size_t n_leaves,
+                               value_idx *labels, int cut_level) {
   int tid = blockDim.x * blockIdx.x + threadIdx.x;
 
   if (tid < ((n_leaves - 1) * 2) - 1) {
     value_idx node = children[tid];
-    value_idx children_idx = tid / 2;
+
+    value_idx cur_level = tid / 2;
+
+    /**
+     * Any roots above the cut level should be ignored.
+     * Any leaves at the cut level should already be labeled
+     */
+    if (cur_level > cut_level) return;
+
     value_idx cur_parent = node;
 
     value_idx label = labels[cur_parent];
 
     while (label == -1) {
-      cur_parent = children_idx + n_leaves;
-      children_idx = parents[cur_parent];
+      cur_parent = cur_level + n_leaves;
+
+      cur_level = levels[cur_parent];
 
       label = labels[cur_parent];
     }
 
+    printf("tid=%d, node=%d, label=%d\n", tid, node, label);
     labels[node] = label;
   }
 }
@@ -297,19 +307,19 @@ void extract_flattened_clusters(
   auto stream = handle.get_stream();
 
   /**
-   * Compute parents for each node
+   * Compute levels for each node
    *
-   *     1. Initialize "parents" array of size n_leaves * 2
+   *     1. Initialize "levels" array of size n_leaves * 2
    *
    *     2. For each entry in children, write parent
    *        out for each of the children
    */
-  raft::mr::device::buffer<value_idx> parents(handle.get_device_allocator(),
-                                              stream, n_leaves * 2);
+  raft::mr::device::buffer<value_idx> levels(handle.get_device_allocator(),
+                                             stream, n_leaves * 2);
 
   int n_blocks = raft::ceildiv((n_leaves - 1) * 2, (size_t)1024);
-  write_parents_kernel<<<n_blocks, 1024, 0, stream>>>(children.data(),
-                                                      parents.data(), n_leaves);
+  write_levels_kernel<<<n_blocks, 1024, 0, stream>>>(children.data(),
+                                                     levels.data(), n_leaves);
   /**
    * Step 1: Find label roots:
    *
@@ -353,11 +363,17 @@ void extract_flattened_clusters(
   /**
    * Step 2: Propagate labels by having children iterate through their parents
    *     1. Initialize labels to -1
-   *     2. For each element in parents array, propagate until parent's
+   *     2. For each element in levels array, propagate until parent's
    *        label is !=-1
    */
-  propagate_labels<<<n_blocks, 1024, 0, stream>>>(
-    children.data(), parents.data(), n_leaves, tmp_labels.data());
+
+  CUDA_CHECK(cudaStreamSynchronize(stream));
+  CUDA_CHECK(cudaGetLastError());
+
+  value_idx cut_level = (children.size() / 2) - (n_clusters - 1);
+
+  inherit_labels<<<n_blocks, 1024, 0, stream>>>(
+    children.data(), levels.data(), n_leaves, tmp_labels.data(), cut_level);
 
   // copy tmp labels to actual labels
   raft::copy_async(labels, tmp_labels.data(), n_leaves, stream);

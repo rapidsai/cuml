@@ -54,8 +54,9 @@ namespace Distance {
  * @param m
  */
 template <typename value_idx>
-__global__ void fill_indices(value_idx *indices, size_t m) {
+__global__ void fill_indices(value_idx *indices, size_t m, size_t nnz) {
   int tid = (blockIdx.x * blockDim.x) + threadIdx.x;
+  if (tid >= nnz) return;
   value_idx v = tid / m;
   indices[tid] = v;
 }
@@ -83,7 +84,7 @@ void pairwise_distances(const raft::handle_t &handle, const value_t *X,
   size_t nnz = m * m;
 
   int blocks = raft::ceildiv(nnz, (size_t)1024);
-  fill_indices<value_idx><<<blocks, 1024, 0, stream>>>(indices, m);
+  fill_indices<value_idx><<<blocks, 1024, 0, stream>>>(indices, m, nnz);
 
   thrust::device_ptr<value_idx> t_rows = thrust::device_pointer_cast(indptr);
   thrust::sequence(thrust::cuda::par.on(stream), indptr, indptr + m, 0, (int)m);
@@ -126,7 +127,7 @@ ML::MetricType raft_distance_to_ml(raft::distance::DistanceType metric) {
 template <typename in_t, typename out_t>
 __global__ void conv_indices_kernel(in_t *inds, out_t *out, size_t nnz) {
   size_t tid = blockDim.x * blockIdx.x + threadIdx.x;
-  if (tid > nnz) return;
+  if (tid >= nnz) return;
   out_t v = inds[tid];
   out[tid] = v;
 }
@@ -167,7 +168,7 @@ void knn_graph(const raft::handle_t &handle, const value_t *X, size_t m,
   raft::mr::device::buffer<value_t> data(d_alloc, stream, nnz);
 
   int blocks = raft::ceildiv(nnz, (size_t)1024);
-  fill_indices<value_idx><<<blocks, 1024, 0, stream>>>(rows.data(), k);
+  fill_indices<value_idx><<<blocks, 1024, 0, stream>>>(rows.data(), k, nnz);
 
   std::vector<value_t *> inputs;
   inputs.push_back(const_cast<value_t *>(X));
@@ -189,6 +190,9 @@ void knn_graph(const raft::handle_t &handle, const value_t *X, size_t m,
 
   raft::sparse::linalg::symmetrize(handle, rows.data(), indices.data(),
                                    data.data(), m, k, nnz, out);
+
+  CUDA_CHECK(cudaStreamSynchronize(stream));
+  CUDA_CHECK(cudaGetLastError());
 }
 
 template <typename value_idx, typename value_t>
@@ -231,6 +235,9 @@ void get_distance_graph(const raft::handle_t &handle, const value_t *X,
                        stream);
       raft::copy_async(data.data(), knn_graph_coo.vals(), knn_graph_coo.nnz,
                        stream);
+
+      CUDA_CHECK(cudaStreamSynchronize(stream));
+      CUDA_CHECK(cudaGetLastError());
     }
 
     break;

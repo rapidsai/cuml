@@ -60,9 +60,9 @@ void _single_linkage(const raft::handle_t &handle, const value_t *X, size_t m,
   /**
    * 2. Construct MST, sorted by weights
    */
-  MST::build_sorted_mst<value_idx, value_t>(handle, indptr.data(),
-                                            indices.data(), pw_dists.data(), m,
-                                            mst_rows, mst_cols, mst_data);
+  MST::build_sorted_mst<value_idx, value_t>(
+    handle, indptr.data(), indices.data(), pw_dists.data(), m, mst_rows,
+    mst_cols, mst_data, indices.size());
 
   pw_dists.release();
 
