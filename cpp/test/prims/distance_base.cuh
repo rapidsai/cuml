@@ -39,8 +39,8 @@ __global__ void naiveDistanceKernel(DataType *dist, const DataType *x,
     auto diff = x[xidx] - y[yidx];
     acc += diff * diff;
   }
-  if (type == raft::distance::DistanceType::EucExpandedL2Sqrt ||
-      type == raft::distance::DistanceType::EucUnexpandedL2Sqrt)
+  if (type == raft::distance::DistanceType::L2SqrtExpanded ||
+      type == raft::distance::DistanceType::L2SqrtUnexpanded)
     acc = raft::mySqrt(acc);
   int outidx = isRowMajor ? midx * n + nidx : midx + m * nidx;
   dist[outidx] = acc;
@@ -109,18 +109,18 @@ void naiveDistance(DataType *dist, const DataType *x, const DataType *y, int m,
   dim3 nblks(raft::ceildiv(m, (int)TPB.x), raft::ceildiv(n, (int)TPB.y), 1);
 
   switch (type) {
-    case raft::distance::DistanceType::EucUnexpandedL1:
+    case raft::distance::DistanceType::L1:
       naiveL1DistanceKernel<DataType>
         <<<nblks, TPB>>>(dist, x, y, m, n, k, isRowMajor);
       break;
-    case raft::distance::DistanceType::EucUnexpandedL2Sqrt:
-    case raft::distance::DistanceType::EucUnexpandedL2:
-    case raft::distance::DistanceType::EucExpandedL2Sqrt:
-    case raft::distance::DistanceType::EucExpandedL2:
+    case raft::distance::DistanceType::L2SqrtUnexpanded:
+    case raft::distance::DistanceType::L2Unexpanded:
+    case raft::distance::DistanceType::L2SqrtExpanded:
+    case raft::distance::DistanceType::L2Expanded:
       naiveDistanceKernel<DataType>
         <<<nblks, TPB>>>(dist, x, y, m, n, k, type, isRowMajor);
       break;
-    case raft::distance::DistanceType::EucExpandedCosine:
+    case raft::distance::DistanceType::CosineExpanded:
       naiveCosineDistanceKernel<DataType>
         <<<nblks, TPB>>>(dist, x, y, m, n, k, isRowMajor);
       break;

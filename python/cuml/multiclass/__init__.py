@@ -1,4 +1,3 @@
-#
 # Copyright (c) 2020, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,4 +13,6 @@
 # limitations under the License.
 #
 
-from cuml.experimental.decomposition.incremental_pca import IncrementalPCA
+from cuml.multiclass.multiclass import OneVsOneClassifier
+from cuml.multiclass.multiclass import OneVsRestClassifier
+from cuml.multiclass.multiclass import MulticlassClassifier

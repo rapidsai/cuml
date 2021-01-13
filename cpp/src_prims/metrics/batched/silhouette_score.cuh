@@ -167,7 +167,7 @@ value_t silhouette_score(const raft::handle_t &handle, value_t *X,
                          value_idx n_rows, value_idx n_cols, label_idx *y,
                          label_idx n_labels, value_t *scores, value_idx chunk,
                          raft::distance::DistanceType metric =
-                           raft::distance::DistanceType::EucUnexpandedL2) {
+                           raft::distance::DistanceType::L2Unexpanded) {
 
   ASSERT(n_labels >= 2 && n_labels <= (n_rows - 1),
          "silhouette Score not defined for the given number of labels!");
@@ -184,13 +184,12 @@ value_t silhouette_score(const raft::handle_t &handle, value_t *X,
   rmm::device_uvector<value_t> a(0, stream);
   rmm::device_uvector<value_t> b(b_size, stream);
 
-  a_ptr = a.data();
   b_ptr = b.data();
 
   // since a and silhouette score per sample are same size, reusing
   if (scores == nullptr || scores == NULL) {
     a.resize(n_rows, stream);
-    scores = a_ptr;
+    a_ptr = a.data();
   } else {
     a_ptr = scores;
   }
@@ -241,8 +240,8 @@ value_t silhouette_score(const raft::handle_t &handle, value_t *X,
     true, stream, false, raft::Nop<value_t>(),
     MLCommon::Metrics::MinOp<value_t>());
 
-  raft::print_device_vector("A: ", a_ptr, n_rows, std::cout);
-  raft::print_device_vector("B: ", b_ptr, n_rows, std::cout);
+  // raft::print_device_vector("A: ", a_ptr, n_rows, std::cout);
+  // raft::print_device_vector("B: ", b_ptr, n_rows, std::cout);
 
   // auto a_b_start = thrust::make_zip_iterator(thrust::make_tuple(a_ptr, b_ptr));
   // auto a_b_end = thrust::make_zip_iterator(thrust::make_tuple(a_ptr + n_rows, b_ptr + n_rows));

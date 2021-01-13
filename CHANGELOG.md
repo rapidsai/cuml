@@ -13,6 +13,7 @@
 - PR #3164: Expose silhouette score in Python
 - PR #3160: Least Angle Regression (experimental)
 - PR #2659: Add initial max inner product sparse knn
+- PR #3092: Multiclass meta estimator wrappers and multiclass SVC
 - PR #2836: Refactor UMAP to accept sparse inputs
 - PR #3126: Experimental versions of GPU accelerated Kernel and Permutation SHAP
 

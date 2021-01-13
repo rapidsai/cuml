@@ -206,13 +206,13 @@ class silhouetteScoreTest
 
 //setting test parameter values
 const std::vector<silhouetteScoreParam> inputs = {
-  {4, 2, 3, raft::distance::DistanceType::EucExpandedL2, 4, 0.00001},
-  {4, 2, 2, raft::distance::DistanceType::EucUnexpandedL2Sqrt, 2, 0.00001},
-  {8, 8, 3, raft::distance::DistanceType::EucUnexpandedL2, 4, 0.00001},
-  {11, 2, 5, raft::distance::DistanceType::EucExpandedL2, 3, 0.00001},
-  {40, 2, 8, raft::distance::DistanceType::EucExpandedL2, 10, 0.00001},
-  {12, 7, 3, raft::distance::DistanceType::EucExpandedCosine, 8, 0.00001},
-  {7, 5, 5, raft::distance::DistanceType::EucUnexpandedL1, 2, 0.00001}};
+  {4, 2, 3, raft::distance::DistanceType::L2Expanded, 4, 0.00001},
+  {4, 2, 2, raft::distance::DistanceType::L2SqrtUnexpanded, 2, 0.00001},
+  {8, 8, 3, raft::distance::DistanceType::L2Unexpanded, 4, 0.00001},
+  {11, 2, 5, raft::distance::DistanceType::L2Expanded, 3, 0.00001},
+  {40, 2, 8, raft::distance::DistanceType::L2Expanded, 10, 0.00001},
+  {12, 7, 3, raft::distance::DistanceType::CosineExpanded, 8, 0.00001},
+  {7, 5, 5, raft::distance::DistanceType::L1, 2, 0.00001}};
 
 //writing the test suite
 typedef silhouetteScoreTest<int, double> silhouetteScoreTestClass;

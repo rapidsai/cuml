@@ -28,6 +28,7 @@ from cuml.datasets.classification import make_classification
 
 from cuml.decomposition.pca import PCA
 from cuml.decomposition.tsvd import TruncatedSVD
+from cuml.decomposition.incremental_pca import IncrementalPCA
 
 from cuml.fil.fil import ForestInference
 

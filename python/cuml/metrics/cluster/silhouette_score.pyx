@@ -82,18 +82,13 @@ def _silhouette_coeff(
     handle = Handle() if handle is None else handle
     cdef handle_t *handle_ = <handle_t*> <size_t> handle.getHandle()
 
-    X_convert_dtype = None
-    X_dtype_check = None
-    if chunksize:
-        X_dtype_check = [np.float32, np.float64]
-    else:
-        X_convert_dtype = np.float64
+    if chunksize is None:
+        chunksize = X.shape[0]
 
     data, n_rows, n_cols, dtype = input_to_cuml_array(
         X,
         order='C',
-        check_dtype=X_dtype_check,
-        convert_to_dtype=X_convert_dtype
+        check_dtype=[np.float32, np.float64],
     )
 
     labels, _, _, _ = input_to_cuml_array(
@@ -217,7 +212,7 @@ def cython_silhouette_samples(
         If it is None, a new one is created.
     """
 
-    sil_scores = cp.empty((X.shape[0],), dtype='float64')
+    sil_scores = cp.empty((X.shape[0],), dtype=X.dtype)
 
     _silhouette_coeff(
         X, labels, chunksize=chunksize, metric=metric, sil_scores=sil_scores,
