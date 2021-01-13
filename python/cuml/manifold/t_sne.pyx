@@ -25,6 +25,7 @@ import numpy as np
 import inspect
 import pandas as pd
 import warnings
+import cupy
 
 import cuml.internals
 from cuml.common.array_descriptor import CumlArrayDescriptor
@@ -33,6 +34,8 @@ from raft.common.handle cimport handle_t
 import cuml.common.logger as logger
 
 from cuml.common.array import CumlArray
+from cuml.common.array_sparse import SparseCumlArray
+from cuml.common.sparse_utils import is_sparse
 from cuml.common.doc_utils import generate_docstring
 from cuml.common import input_to_cuml_array
 from cuml.common.sparsefuncs import extract_knn_graph
@@ -47,13 +50,45 @@ cimport cuml.common.cuda
 
 cdef extern from "cuml/manifold/tsne.h" namespace "ML" nogil:
     cdef void TSNE_fit(
-        const handle_t &handle,
-        const float *X,
+        handle_t &handle,
+        float *X,
         float *Y,
-        const int n,
-        const int p,
-        int64_t * knn_indices,
-        float * knn_dists,
+        int n,
+        int p,
+        int64_t* knn_indices,
+        float* knn_dists,
+        const int dim,
+        int n_neighbors,
+        const float theta,
+        const float epssq,
+        float perplexity,
+        const int perplexity_max_iter,
+        const float perplexity_tol,
+        const float early_exaggeration,
+        const int exaggeration_iter,
+        const float min_gain,
+        const float pre_learning_rate,
+        const float post_learning_rate,
+        const int max_iter,
+        const float min_grad_norm,
+        const float pre_momentum,
+        const float post_momentum,
+        const long long random_state,
+        int verbosity,
+        const bool initialize_embeddings,
+        bool barnes_hut) except +
+
+    cdef void TSNE_fit_sparse(
+        const handle_t &handle,
+        int *indptr,
+        int *indices,
+        float *data,
+        float *Y,
+        int nnz,
+        int n,
+        int p,
+        int* knn_indices,
+        float* knn_dists,
         const int dim,
         int n_neighbors,
         const float theta,
@@ -329,6 +364,8 @@ class TSNE(Base):
         self.pre_learning_rate = learning_rate
         self.post_learning_rate = learning_rate * 2
 
+        self.sparse_fit = False
+
     @generate_docstring(convert_dtype_cast='np.float32')
     def fit(self, X, convert_dtype=True, knn_graph=None) -> "TSNE":
         """
@@ -366,12 +403,20 @@ class TSNE(Base):
         if len(X.shape) != 2:
             raise ValueError("data should be two dimensional")
 
-        cdef uintptr_t X_ptr
-        X_m, n, p, dtype = \
-            input_to_cuml_array(X, order='C', check_dtype=np.float32,
-                                convert_to_dtype=(np.float32 if convert_dtype
-                                                  else None))
-        X_ptr = X_m.ptr
+        if is_sparse(X):
+
+            self.X_m = SparseCumlArray(X, convert_to_dtype=cupy.float32,
+                                       convert_format=False)
+            n, p = self.X_m.shape
+            self.sparse_fit = True
+
+        # Handle dense inputs
+        else:
+            self.X_m, n, p, _ = \
+                input_to_cuml_array(X, order='C', check_dtype=np.float32,
+                                    convert_to_dtype=(np.float32
+                                                      if convert_dtype
+                                                      else None))
 
         if n <= 1:
             raise ValueError("There needs to be more than 1 sample to build "
@@ -384,7 +429,7 @@ class TSNE(Base):
             self.perplexity = n
 
         (knn_indices_m, knn_indices_ctype), (knn_dists_m, knn_dists_ctype) =\
-            extract_knn_graph(knn_graph, convert_dtype)
+            extract_knn_graph(knn_graph, convert_dtype, self.sparse_fit)
 
         cdef uintptr_t knn_indices_raw = knn_indices_ctype or 0
         cdef uintptr_t knn_dists_raw = knn_dists_ctype or 0
@@ -424,33 +469,65 @@ class TSNE(Base):
         if self.random_state is not None:
             seed = self.random_state
 
-        TSNE_fit(handle_[0],
-                 <float*> X_ptr,
-                 <float*> embed_ptr,
-                 <int> n,
-                 <int> p,
-                 <int64_t*> knn_indices_raw,
-                 <float*> knn_dists_raw,
-                 <int> self.n_components,
-                 <int> self.n_neighbors,
-                 <float> self.angle,
-                 <float> self.epssq,
-                 <float> self.perplexity,
-                 <int> self.perplexity_max_iter,
-                 <float> self.perplexity_tol,
-                 <float> self.early_exaggeration,
-                 <int> self.exaggeration_iter,
-                 <float> self.min_gain,
-                 <float> self.pre_learning_rate,
-                 <float> self.post_learning_rate,
-                 <int> self.n_iter,
-                 <float> self.min_grad_norm,
-                 <float> self.pre_momentum,
-                 <float> self.post_momentum,
-                 <long long> seed,
-                 <int> self.verbose,
-                 <bool> True,
-                 <bool> (self.method == 'barnes_hut'))
+        if self.sparse_fit:
+            TSNE_fit_sparse(handle_[0],
+                            <int*><uintptr_t> self.X_m.indptr.ptr,
+                            <int*><uintptr_t> self.X_m.indices.ptr,
+                            <float*><uintptr_t> self.X_m.data.ptr,
+                            <float*> embed_ptr,
+                            <int> self.X_m.nnz,
+                            <int> n,
+                            <int> p,
+                            <int*> knn_indices_raw,
+                            <float*> knn_dists_raw,
+                            <int> self.n_components,
+                            <int> self.n_neighbors,
+                            <float> self.angle,
+                            <float> self.epssq,
+                            <float> self.perplexity,
+                            <int> self.perplexity_max_iter,
+                            <float> self.perplexity_tol,
+                            <float> self.early_exaggeration,
+                            <int> self.exaggeration_iter,
+                            <float> self.min_gain,
+                            <float> self.pre_learning_rate,
+                            <float> self.post_learning_rate,
+                            <int> self.n_iter,
+                            <float> self.min_grad_norm,
+                            <float> self.pre_momentum,
+                            <float> self.post_momentum,
+                            <long long> seed,
+                            <int> self.verbose,
+                            <bool> True,
+                            <bool> (self.method == 'barnes_hut'))
+        else:
+            TSNE_fit(handle_[0],
+                     <float*><uintptr_t> self.X_m.ptr,
+                     <float*> embed_ptr,
+                     <int> n,
+                     <int> p,
+                     <int64_t*> knn_indices_raw,
+                     <float*> knn_dists_raw,
+                     <int> self.n_components,
+                     <int> self.n_neighbors,
+                     <float> self.angle,
+                     <float> self.epssq,
+                     <float> self.perplexity,
+                     <int> self.perplexity_max_iter,
+                     <float> self.perplexity_tol,
+                     <float> self.early_exaggeration,
+                     <int> self.exaggeration_iter,
+                     <float> self.min_gain,
+                     <float> self.pre_learning_rate,
+                     <float> self.post_learning_rate,
+                     <int> self.n_iter,
+                     <float> self.min_grad_norm,
+                     <float> self.pre_momentum,
+                     <float> self.post_momentum,
+                     <long long> seed,
+                     <int> self.verbose,
+                     <bool> True,
+                     <bool> (self.method == 'barnes_hut'))
 
         # Clean up memory
         self.embedding_ = Y

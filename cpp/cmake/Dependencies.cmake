@@ -71,7 +71,7 @@ find_package(RMM REQUIRED MODULE)
 
 FetchContent_Declare(raft
   GIT_REPOSITORY    https://github.com/rapidsai/raft.git
-  GIT_TAG           f75d7b437bf1da3df749108161b8a0505fb6b7b3
+  GIT_TAG           9161d7a238aca859453d8517bd7ad92cbd902f6a
   SOURCE_DIR        $ENV{RAFT_PATH}
   )
 
@@ -97,7 +97,7 @@ else(DEFINED ENV{RAFT_PATH})
 
   # ExternalProject_Add(raft
   #   GIT_REPOSITORY    https://github.com/rapidsai/raft.git
-  #   GIT_TAG           f75d7b437bf1da3df749108161b8a0505fb6b7b3
+  #   GIT_TAG           9161d7a238aca859453d8517bd7ad92cbd902f6a
   #   PREFIX            ${RAFT_DIR}
   #   CONFIGURE_COMMAND ""
   #   BUILD_COMMAND     ""
@@ -251,7 +251,7 @@ endif(BUILD_STATIC_FAISS)
 ##############################################################################
 # - treelite build -----------------------------------------------------------
 
-find_package(Treelite 0.93 REQUIRED)
+find_package(Treelite 1.0.0 REQUIRED)
 
 ##############################################################################
 # - googletest build -----------------------------------------------------------

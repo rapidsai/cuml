@@ -57,38 +57,38 @@ def _determine_metric(metric_str):
 
     # Available options in scikit-learn and their pairs. See
     # sklearn.metrics.pairwise.PAIRWISE_DISTANCE_FUNCTIONS:
-    # 'cityblock': EucUnexpandedL1
-    # 'cosine': EucExpandedCosine
-    # 'euclidean': EucUnexpandedL2Sqrt
+    # 'cityblock': L1
+    # 'cosine': CosineExpanded
+    # 'euclidean': L2SqrtUnexpanded
     # 'haversine': N/A
-    # 'l2': EucUnexpandedL2Sqrt
-    # 'l1': EucUnexpandedL1
-    # 'manhattan': EucUnexpandedL1
+    # 'l2': L2SqrtUnexpanded
+    # 'l1': L1
+    # 'manhattan': L1
     # 'nan_euclidean': N/A
-    # 'sqeuclidean': EucUnexpandedL2
+    # 'sqeuclidean': L2Unexpanded
     # Note: many are duplicates following this:
     # https://github.com/scikit-learn/scikit-learn/blob/master/sklearn/metrics/pairwise.py#L1321
 
     if metric_str == 'cityblock':
-        return DistanceType.EucUnexpandedL1
+        return DistanceType.L1
     elif metric_str == 'cosine':
-        return DistanceType.EucExpandedCosine
+        return DistanceType.CosineExpanded
     elif metric_str == 'euclidean':
-        return DistanceType.EucUnexpandedL2Sqrt
+        return DistanceType.L2SqrtUnexpanded
     elif metric_str == 'haversine':
         raise ValueError(" The metric: '{}', is not supported at this time."
                          .format(metric_str))
     elif metric_str == 'l2':
-        return DistanceType.EucUnexpandedL2Sqrt
+        return DistanceType.L2SqrtUnexpanded
     elif metric_str == 'l1':
-        return DistanceType.EucUnexpandedL1
+        return DistanceType.L1
     elif metric_str == 'manhattan':
-        return DistanceType.EucUnexpandedL1
+        return DistanceType.L1
     elif metric_str == 'nan_euclidean':
         raise ValueError(" The metric: '{}', is not supported at this time."
                          .format(metric_str))
     elif metric_str == 'sqeuclidean':
-        return DistanceType.EucUnexpandedL2
+        return DistanceType.L2Unexpanded
     else:
         raise ValueError("Unknown metric: {}".format(metric_str))
 

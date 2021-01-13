@@ -234,6 +234,18 @@ Mini Batch SGD Regressor
 .. autoclass:: cuml.MBSGDRegressor
     :members:
 
+Multiclass Classification
+-------------------------
+
+.. autoclass:: cuml.multiclass.MulticlassClassifier
+    :members:
+
+.. autoclass:: cuml.multiclass.OneVsOneClassifier
+    :members:
+
+.. autoclass:: cuml.multiclass.OneVsRestClassifier
+    :members:
+
 Mutinomial Naive Bayes
 ----------------------
 
@@ -319,6 +331,11 @@ Principal Component Analysis
 
 .. autoclass:: cuml.PCA
     :members:
+
+Incremental PCA
+-------------
+.. autoclass:: cuml.IncrementalPCA
+   :members:
 
 Truncated SVD
 --------------
@@ -491,11 +508,6 @@ Experimental
 .. note:: Due to the nature of this module, it is not imported by default by
     the root `cuml` package. Each `experimental` submodule must be imported
     separately.
-
-Decomposition
--------------
-.. autoclass:: cuml.experimental.decomposition.IncrementalPCA
-   :members:
 
 Preprocessing
 -------------
