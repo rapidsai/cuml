@@ -50,7 +50,8 @@ cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics::Batched":
 
 
 def _silhouette_coeff(
-        X, labels, metric='euclidean', sil_scores=None, chunksize=None, handle=None):
+        X, labels, metric='euclidean', sil_scores=None, chunksize=None,
+        handle=None):
     """Function wrapped by silhouette_score and silhouette_samples to compute
     silhouette coefficients
 
@@ -70,7 +71,7 @@ def _silhouette_coeff(
     chunksize : integer (default = None)
         An integer, 1 <= chunksize <= n_rows to tile the pairwise distance
         matrix computations, so as to reduce the quadratic memory usage of
-        having the entire pairwise distance matrix in GPU memory. 
+        having the entire pairwise distance matrix in GPU memory.
     handle : cuml.Handle
         Specifies the cuml.handle that holds internal CUDA state for
         computations in this model. Most importantly, this specifies the CUDA
@@ -161,7 +162,7 @@ def cython_silhouette_score(
     chunksize : integer (default = None)
         An integer, 1 <= chunksize <= n_rows to tile the pairwise distance
         matrix computations, so as to reduce the quadratic memory usage of
-        having the entire pairwise distance matrix in GPU memory. 
+        having the entire pairwise distance matrix in GPU memory.
     handle : cuml.Handle
         Specifies the cuml.handle that holds internal CUDA state for
         computations in this model. Most importantly, this specifies the CUDA
@@ -202,7 +203,7 @@ def cython_silhouette_samples(
     chunksize : integer (default = None)
         An integer, 1 <= chunksize <= n_rows to tile the pairwise distance
         matrix computations, so as to reduce the quadratic memory usage of
-        having the entire pairwise distance matrix in GPU memory. 
+        having the entire pairwise distance matrix in GPU memory.
     handle : cuml.Handle
         Specifies the cuml.handle that holds internal CUDA state for
         computations in this model. Most importantly, this specifies the CUDA
