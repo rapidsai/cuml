@@ -239,15 +239,7 @@ value_t silhouette_score(const raft::handle_t &handle, value_t *X,
     true, stream, false, raft::Nop<value_t>(),
     MLCommon::Metrics::MinOp<value_t>());
 
-  // raft::print_device_vector("A: ", a_ptr, n_rows, std::cout);
-  // raft::print_device_vector("B: ", b_ptr, n_rows, std::cout);
-
-  // auto a_b_start = thrust::make_zip_iterator(thrust::make_tuple(a_ptr, b_ptr));
-  // auto a_b_end = thrust::make_zip_iterator(thrust::make_tuple(a_ptr + n_rows, b_ptr + n_rows));
-
-  // thrust::transform(policy, a_b_start, a_b_end, a_ptr, sil_functor<value_t>());
-
-  // calculating the silhouette score per sample using the d_aArray and d_bArray
+  // calculating the silhouette score per sample
   raft::linalg::binaryOp<value_t, MLCommon::Metrics::SilOp<value_t>, value_t,
                          value_idx>(
     a_ptr, a_ptr, b_ptr, n_rows, MLCommon::Metrics::SilOp<value_t>(), stream);
