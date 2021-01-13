@@ -128,7 +128,7 @@ if [[ -z "$PROJECT_FLASH" || "$PROJECT_FLASH" == "0" ]]; then
     gpuci_logger "Python pytest for cuml"
     cd $WORKSPACE/python
 
-    pytest --cache-clear --basetemp=${WORKSPACE}/cuml-cuda-tmp --junitxml=${WORKSPACE}/junit-cuml.xml -v -s -m "not memleak" --durations=50 --timeout=300 --ignore=cuml/test/dask --ignore=cuml/raft --cov-config=.coveragerc --cov=cuml --cov-report=xml:${WORKSPACE}/python/cuml/cuml-coverage.xml --cov-report term
+    pytest --cache-clear --basetemp=${WORKSPACE}/cuml-cuda-tmp --junitxml=${WORKSPACE}/junit-cuml.xml -v -s -m "not memleak" --durations=50 --timeout=300 --ignore=cuml/test/dask --ignore=cuml/raft --ignore=cuml/test/test_nearest_neighbors.py --cov-config=.coveragerc --cov=cuml --cov-report=xml:${WORKSPACE}/python/cuml/cuml-coverage.xml --cov-report term
 
     timeout 7200 sh -c "pytest cuml/test/dask --cache-clear --basetemp=${WORKSPACE}/cuml-mg-cuda-tmp --junitxml=${WORKSPACE}/junit-cuml-mg.xml -v -s -m 'not memleak' --durations=50 --timeout=300 --cov-config=.coveragerc --cov=cuml --cov-report=xml:${WORKSPACE}/python/cuml/cuml-dask-coverage.xml --cov-report term"
 
@@ -198,7 +198,7 @@ else
     gpuci_logger "Python pytest for cuml"
     cd $WORKSPACE/python
 
-    pytest --cache-clear --basetemp=${WORKSPACE}/cuml-cuda-tmp --junitxml=${WORKSPACE}/junit-cuml.xml -v -s -m "not memleak" --durations=50 --timeout=300 --ignore=cuml/test/dask --ignore=cuml/raft --cov-config=.coveragerc --cov=cuml --cov-report=xml:${WORKSPACE}/python/cuml/cuml-coverage.xml --cov-report term
+    pytest --cache-clear --basetemp=${WORKSPACE}/cuml-cuda-tmp --junitxml=${WORKSPACE}/junit-cuml.xml -v -s -m "not memleak" --durations=50 --timeout=300 --ignore=cuml/test/dask --ignore=cuml/raft --ignore=cuml/test/test_nearest_neighbors.py --cov-config=.coveragerc --cov=cuml --cov-report=xml:${WORKSPACE}/python/cuml/cuml-coverage.xml --cov-report term
 
     timeout 7200 sh -c "pytest cuml/test/dask --cache-clear --basetemp=${WORKSPACE}/cuml-mg-cuda-tmp --junitxml=${WORKSPACE}/junit-cuml-mg.xml -v -s -m 'not memleak' --durations=50 --timeout=300 --cov-config=.coveragerc --cov=cuml --cov-report=xml:${WORKSPACE}/python/cuml/cuml-dask-coverage.xml --cov-report term"
 
@@ -242,8 +242,24 @@ else
 fi
 
 if [ -n "${CODECOV_TOKEN}" ]; then
-    bash <(curl -s https://codecov.io/bash) -v -F python -f ${WORKSPACE}/python/cuml/cuml-coverage.xml
-    bash <(curl -s https://codecov.io/bash) -v -F python,dask -f ${WORKSPACE}/python/cuml/cuml-dask-coverage.xml
+
+    gpuci_logger "Uploading Code Coverage to codecov.io"
+
+    set -x
+
+    PARENT_COMMIT_ID=`git merge-base origin/$TARGET_BRANCH HEAD~1`
+
+    echo "Parent Commit ID: $PARENT_COMMIT_ID"
+
+    # Base tags to apply
+    CODECOV_TAGS="$OS,$PYTHON,$CUDA"
+
+    # TEMP: Set PARENT_COMMIT_ID since codecov does a bad job of this
+    # Codecov recommends using this notation for jenkins
+    curl -s https://codecov.io/bash | bash -s -- -F ${CODECOV_TAGS},python -f ${WORKSPACE}/python/cuml/cuml-coverage.xml -N "${PARENT_COMMIT_ID}"
+    curl -s https://codecov.io/bash | bash -s -- -F ${CODECOV_TAGS},python,dask -f ${WORKSPACE}/python/cuml/cuml-dask-coverage.xml -N "${PARENT_COMMIT_ID}"
+
+    set +x
 fi
 
 return ${EXITCODE}
