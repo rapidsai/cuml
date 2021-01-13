@@ -149,17 +149,17 @@ void compute_chunked_a_b(const raft::handle_t &handle, value_t *a, value_t *b,
 template <typename value_t>
 struct sil_functor {
   __host__ __device__ bool operator()(
-    const thrust::tuple<value_t, value_t>& t) {
-      auto a = thrust::get<0>(t);
-      auto b = thrust::get<0>(t);
+    const thrust::tuple<value_t, value_t> &t) {
+    auto a = thrust::get<0>(t);
+    auto b = thrust::get<0>(t);
 
-      if (a == 0 && b == 0 || a == b)
-        return 0;
-      else if (a > b)
-        return (b - a) / a;
-      else
-        return (b - a) / b;
-    }
+    if (a == 0 && b == 0 || a == b)
+      return 0;
+    else if (a > b)
+      return (b - a) / a;
+    else
+      return (b - a) / b;
+  }
 };
 
 template <typename value_t, typename value_idx, typename label_idx>
@@ -168,7 +168,6 @@ value_t silhouette_score(const raft::handle_t &handle, value_t *X,
                          label_idx n_labels, value_t *scores, value_idx chunk,
                          raft::distance::DistanceType metric =
                            raft::distance::DistanceType::L2Unexpanded) {
-
   ASSERT(n_labels >= 2 && n_labels <= (n_rows - 1),
          "silhouette Score not defined for the given number of labels!");
 

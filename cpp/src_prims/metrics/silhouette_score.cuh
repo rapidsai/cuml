@@ -240,8 +240,6 @@ DataT silhouette_score(DataT *X_in, int nRows, int nCols, LabelT *labels,
     sampleToClusterSumOfDistances.data(), binCountArray.data(), d_aArray.data(),
     labels, nRows, nLabels, std::numeric_limits<DataT>::max());
 
-  // raft::print_device_vector("Full A: ", d_aArray.data(), nRows, std::cout);
-
   //elementwise dividing by bincounts
   device_buffer<DataT> averageDistanceBetweenSampleAndCluster(allocator, stream,
                                                               nRows * nLabels);

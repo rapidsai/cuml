@@ -124,7 +124,7 @@ double silhouette_score(const raft::handle_t &handle, double *X, int n_rows,
                         int n_cols, int *y, int n_labels, double *scores,
                         int chunk, raft::distance::DistanceType metric);
 
-} // namespace Batched
+}  // namespace Batched
 /**
 * Calculates the "adjusted rand index"
 *
