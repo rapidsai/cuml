@@ -23,6 +23,7 @@
 #include <raft/linalg/norm.cuh>
 #include <raft/matrix/math.cuh>
 #include <raft/matrix/matrix.cuh>
+#include <rmm/device_uvector.hpp>
 #include "sign.cuh"
 
 namespace MLCommon {
@@ -67,34 +68,26 @@ template <typename math_t>
 void elasticnet(math_t *out, const math_t *coef, const int len,
                 const math_t alpha, const math_t l1_ratio,
                 cudaStream_t stream) {
-  math_t *out_lasso = NULL;
-  raft::allocate(out_lasso, 1);
+  rmm::device_uvector<math_t> out_lasso_vector(1, stream);
+  math_t *out_lasso = out_lasso_vector.data();
 
   ridge(out, coef, len, alpha * (math_t(1) - l1_ratio), stream);
   lasso(out_lasso, coef, len, alpha * l1_ratio, stream);
 
   raft::linalg::add(out, out, out_lasso, 1, stream);
-
-  if (out_lasso != NULL) {
-    CUDA_CHECK(cudaFree(out_lasso));
-  }
 }
 
 template <typename math_t>
 void elasticnetGrad(math_t *grad, const math_t *coef, const int len,
                     const math_t alpha, const math_t l1_ratio,
                     cudaStream_t stream) {
-  math_t *grad_lasso = NULL;
-  raft::allocate(grad_lasso, len);
+  rmm::device_uvector<math_t> grad_lasso_vector(len, stream);
+  math_t *grad_lasso = out_lasso_vector.data();
 
   ridgeGrad(grad, coef, len, alpha * (math_t(1) - l1_ratio), stream);
   lassoGrad(grad_lasso, coef, len, alpha * l1_ratio, stream);
 
   raft::linalg::add(grad, grad, grad_lasso, len, stream);
-
-  if (grad_lasso != NULL) {
-    CUDA_CHECK(cudaFree(grad_lasso));
-  }
 }
 
 };  // namespace Functions
