@@ -18,7 +18,7 @@ import numpy as np
 import cupy as cp
 
 from cuml.solvers import QN as cuQN
-from cuml.preprocessing.model_selection import train_test_split
+from cuml.model_selection import train_test_split
 from cuml.datasets.classification import make_classification
 from cuml.metrics import accuracy_score
 
