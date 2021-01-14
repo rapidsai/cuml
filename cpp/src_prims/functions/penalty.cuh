@@ -81,7 +81,7 @@ template <typename math_t>
 void elasticnetGrad(math_t *grad, const math_t *coef, const int len,
                     const math_t alpha, const math_t l1_ratio,
                     cudaStream_t stream) {
-  rmm::device_uvector<math_t> grad_lasso_vector(len, stream);
+  rmm::device_uvector<math_t> out_lasso_vector(len, stream);
   math_t *grad_lasso = out_lasso_vector.data();
 
   ridgeGrad(grad, coef, len, alpha * (math_t(1) - l1_ratio), stream);
