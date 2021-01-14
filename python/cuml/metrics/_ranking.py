@@ -117,6 +117,54 @@ def precision_recall_curve(
 
 
 @cuml.internals.api_return_any()
+def average_precision_score(y_true, y_score):
+    """
+    Compute average precision (AP) from prediction scores.
+    .. note:: this implementation can only be used with binary classification.
+
+    Parameters
+    ----------
+    y_true : array-like of shape (n_samples,)
+        True labels. The binary cases
+        expect labels with shape (n_samples,)
+    y_score : array-like of shape (n_samples,)
+        Target scores. In the binary cases, these can be either
+        probability estimates or non-thresholded decision values (as returned
+        by `decision_function` on some classifiers). The binary
+        case expects a shape (n_samples,), and the scores must be the scores of
+        the class with the greater label.
+
+    Returns
+    -------
+        average_precision : float
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from cuml.metrics import average_precision_score
+    >>> y_true = np.array([0, 0, 1, 1])
+    >>> y_scores = np.array([0.1, 0.4, 0.35, 0.8])
+    >>> print(average_precision_score(y_true, y_scores))
+    0.83
+    """
+    # y_true, n_rows, n_cols, ytype = \
+    #     input_to_cupy_array(y_true, check_dtype=[np.int32, np.int64,
+    #                                              np.float32, np.float64])
+
+    # y_score, _, _, _ = \
+    #     input_to_cupy_array(y_score, check_dtype=[np.int32, np.int64,
+    #                                              np.float32, np.float64],
+    #                         check_rows=n_rows, check_cols=n_cols)
+
+    if cp.unique(y_true).shape[0] == 1:
+        raise ValueError("average_precision_score cannot be used when "
+                         "only one class present in y_true. Average precision "
+                         "score is not defined in that case.")
+
+    precision, recall, thresholds = precision_recall_curve(y_true, y_score)
+    return -cp.sum(cp.diff(recall) * cp.array(precision)[:-1])
+
+@cuml.internals.api_return_any()
 def roc_auc_score(y_true, y_score):
     """
     Compute Area Under the Receiver Operating Characteristic Curve (ROC AUC)
