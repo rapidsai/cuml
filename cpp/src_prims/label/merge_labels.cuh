@@ -16,17 +16,14 @@
 
 #pragma once
 
-#include <cuda_runtime.h>
 #include <math.h>
-#include <common/cumlHandle.hpp>
-#include <common/device_buffer.hpp>
 
-#include "pack.h"
+#include <linalg/init.h>
+#include <raft/cudart_utils.h>
+#include <raft/cuda_utils.cuh>
 
-namespace ML {
-namespace Dbscan {
-namespace MergeLabels {
-namespace Naive {
+namespace MLCommon {
+namespace Label {
 
 /** Note: this is one possible implementation. For an additional cost we can
  *  build the graph with edges E={(A[i], B[i]) | M[i]=1} and make this step
@@ -78,45 +75,36 @@ __global__ void __launch_bounds__(TPB_X)
   }
 }
 
-/**
- * TODO: docs
+/** TODO: docs
  */
 template <typename Index_ = int, int TPB_X = 32>
-void launcher(const raft::handle_t& handle, Pack<Index_> data,
-              cudaStream_t stream) {
-  auto execution_policy =
-    ML::thrust_exec_policy(handle.get_device_allocator(), stream);
-  dim3 blocks(raft::ceildiv(data.N, Index_(TPB_X)));
+void merge_labels(Index_* labelsA, const Index_* labelsB, const bool* mask,
+                  Index_* R, bool* m, Index_ N, cudaStream_t stream) {
+  dim3 blocks(raft::ceildiv(N, Index_(TPB_X)));
   dim3 threads(TPB_X);
   Index_ MAX_LABEL = std::numeric_limits<Index_>::max();
 
-  Index_* R = data.workBuffer;
-
   // Initialize R
-  auto counting = thrust::make_counting_iterator<int>(0);
-  thrust::for_each(execution_policy->on(stream), counting, counting + data.N,
-                   [=] __device__(int idx) { R[idx] = idx; });
+  MLCommon::LinAlg::range(R, N, stream);
 
   // Connected components in the label equivalence graph
   bool host_m;
   do {
-    CUDA_CHECK(cudaMemsetAsync(data.m, false, sizeof(bool), stream));
+    CUDA_CHECK(cudaMemsetAsync(m, false, sizeof(bool), stream));
 
-    propagate_label_kernel<Index_, TPB_X><<<blocks, threads, 0, stream>>>(
-      data.labelsA, data.labelsB, R, data.mask, data.m, data.N);
+    propagate_label_kernel<Index_, TPB_X>
+      <<<blocks, threads, 0, stream>>>(labelsA, labelsB, R, mask, m, N);
     CUDA_CHECK(cudaPeekAtLastError());
 
-    raft::update_host(&host_m, data.m, 1, stream);
+    raft::update_host(&host_m, m, 1, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
   } while (host_m);
 
   // Re-assign minimum equivalent label
-  reassign_label_kernel<Index_, TPB_X><<<blocks, threads, 0, stream>>>(
-    data.labelsA, data.labelsB, R, data.N, MAX_LABEL);
+  reassign_label_kernel<Index_, TPB_X>
+    <<<blocks, threads, 0, stream>>>(labelsA, labelsB, R, N, MAX_LABEL);
   CUDA_CHECK(cudaPeekAtLastError());
 }
 
-}  // namespace Naive
-}  // namespace MergeLabels
-}  // namespace Dbscan
-}  // namespace ML
+};  // namespace Label
+};  // end namespace MLCommon

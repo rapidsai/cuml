@@ -176,6 +176,7 @@ if(BUILD_PRIMS_TESTS)
     prims/make_arima.cu
     prims/make_blobs.cu
     prims/make_regression.cu
+    prims/merge_labels.cu
     prims/minmax.cu
     prims/mvg.cu
     prims/mutual_info_score.cu

@@ -16,29 +16,29 @@
 
 #pragma once
 
+#include <cuda_runtime.h>
 #include <common/cumlHandle.hpp>
-#include "algo.cuh"
+#include <label/merge_labels.cuh>
+
 #include "pack.h"
 
 namespace ML {
 namespace Dbscan {
 namespace MergeLabels {
+namespace Algo {
 
-/// TODO: docs
-template <typename Index_ = int>
-void run(const raft::handle_t& handle, Index_* labelsA, const Index_* labelsB,
-         const bool* mask, Index_* workBuffer, bool* m, Index_ N, int algo,
-         cudaStream_t stream) {
-  Pack<Index_> data = {labelsA, labelsB, mask, workBuffer, m, N};
-  switch (algo) {
-    case 0:
-      Algo::launcher<Index_>(handle, data, stream);
-      break;
-    default:
-      ASSERT(false, "Incorrect algo passed! '%d'", algo);
-  }
+/**
+ * TODO: docs
+ */
+template <typename Index_ = int, int TPB_X = 32>
+void launcher(const raft::handle_t& handle, Pack<Index_> data,
+              cudaStream_t stream) {
+  MLCommon::Label::merge_labels(handle.get_device_allocator(), data.labelsA,
+                                data.labelsB, data.mask, data.workBuffer,
+                                data.m, data.N, stream);
 }
 
+}  // namespace Algo
 }  // namespace MergeLabels
 }  // namespace Dbscan
 }  // namespace ML
