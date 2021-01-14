@@ -27,6 +27,8 @@
 #include <thrust/scan.h>
 
 #include <cuda_runtime.h>
+#include <raft/device_atomics.cuh>
+
 #include <iostream>
 #define restrict __restrict__
 
@@ -167,7 +169,8 @@ class COO {
   /**
     * @brief Send human-readable state information to output stream
     */
-  friend std::ostream &operator<<(std::ostream &out, const COO<T> &c) {
+  friend std::ostream &operator<<(std::ostream &out,
+                                  const COO<T, Index_Type> &c) {
     if (c.validate_size() && c.validate_mem()) {
       cudaStream_t stream;
       CUDA_CHECK(cudaStreamCreateWithFlags(&stream, cudaStreamNonBlocking));

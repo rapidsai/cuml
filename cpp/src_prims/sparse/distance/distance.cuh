@@ -347,7 +347,7 @@ void pairwiseDistance(value_t *out,
                       distances_config_t<value_idx, value_t> input_config,
                       raft::distance::DistanceType metric) {
   switch (metric) {
-    case raft::distance::DistanceType::EucExpandedL2:
+    case raft::distance::DistanceType::L2Expanded:
       // EucExpandedL2
       l2_distances_t<value_idx, value_t>(input_config).compute(out);
       break;

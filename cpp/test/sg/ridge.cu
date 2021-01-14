@@ -17,6 +17,7 @@
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
 #include <test_utils.h>
+#include <glm/ols.cuh>
 #include <glm/ridge.cuh>
 #include <raft/cuda_utils.cuh>
 
@@ -92,8 +93,8 @@ class RidgeTest : public ::testing::TestWithParam<RidgeInputs<T>> {
     ridgeFit(handle, data, params.n_row, params.n_col, labels, &alpha, 1, coef,
              &intercept, false, false, stream, params.algo);
 
-    ridgePredict(handle, pred_data, params.n_row_2, params.n_col, coef,
-                 intercept, pred, stream);
+    gemmPredict(handle, pred_data, params.n_row_2, params.n_col, coef,
+                intercept, pred, stream);
 
     raft::update_device(data, data_h, len, stream);
     raft::update_device(labels, labels_h, params.n_row, stream);
@@ -102,8 +103,8 @@ class RidgeTest : public ::testing::TestWithParam<RidgeInputs<T>> {
     ridgeFit(handle, data, params.n_row, params.n_col, labels, &alpha, 1, coef2,
              &intercept2, true, false, stream, params.algo);
 
-    ridgePredict(handle, pred_data, params.n_row_2, params.n_col, coef2,
-                 intercept2, pred2, stream);
+    gemmPredict(handle, pred_data, params.n_row_2, params.n_col, coef2,
+                intercept2, pred2, stream);
 
     raft::update_device(data, data_h, len, stream);
     raft::update_device(labels, labels_h, params.n_row, stream);
@@ -112,8 +113,8 @@ class RidgeTest : public ::testing::TestWithParam<RidgeInputs<T>> {
     ridgeFit(handle, data, params.n_row, params.n_col, labels, &alpha, 1, coef3,
              &intercept3, true, true, stream, params.algo);
 
-    ridgePredict(handle, pred_data, params.n_row_2, params.n_col, coef3,
-                 intercept3, pred3, stream);
+    gemmPredict(handle, pred_data, params.n_row_2, params.n_col, coef3,
+                intercept3, pred3, stream);
   }
 
   void basicTest2() {

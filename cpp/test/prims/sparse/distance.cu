@@ -166,7 +166,7 @@ const std::vector<SparseDistanceInputs<int, float>> inputs_i32_f = {
      1832.0,
      0.0,
    },
-   raft::distance::DistanceType::EucExpandedL2},
+   raft::distance::DistanceType::L2Expanded},
   {2,
    {0, 2, 4, 6, 8},
    {0, 1, 0, 1, 0, 1, 0, 1},
