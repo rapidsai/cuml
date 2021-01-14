@@ -31,7 +31,7 @@
 #include <sparse/distance/common.h>
 #include <sparse/utils.h>
 #include <sparse/csr.cuh>
-#include <sparse/distance/spmv.cuh>
+#include <sparse/distance/coo_spmv.cuh>
 
 #include <cuml/common/cuml_allocator.hpp>
 #include <cuml/neighbors/knn.hpp>
@@ -63,6 +63,9 @@ class ip_distances_gemm_t : public ip_trans_getters_t<value_idx, value_t> {
   /**
    * Computes simple sparse inner product distances as sum(x_y * y_k)
    * @param[in] config specifies inputs, outputs, and sizes
+   *
+   * TODO: Remove this once we have a semiring SPGEMM
+   * Ref: https://github.com/rapidsai/cuml/issues/3371
    */
   explicit ip_distances_gemm_t(
     const distances_config_t<value_idx, value_t> &config)

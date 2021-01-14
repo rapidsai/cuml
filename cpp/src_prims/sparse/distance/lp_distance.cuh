@@ -32,7 +32,7 @@
 #include <sparse/csr.cuh>
 
 #include <sparse/distance/common.h>
-#include <sparse/distance/semiring.cuh>
+#include <sparse/distance/csr_spmv.cuh>
 
 #include <cuml/common/cuml_allocator.hpp>
 
@@ -58,11 +58,13 @@ void unexpanded_lp_distances(
  *    (not yet available)
  *  - if n_cols > available smem & max_nnz > available smem,
  *              use batching + hashing only for those large cols
+ *  Ref: https://github.com/rapidsai/cuml/issues/3371
  */
 
   if (config_.a_ncols < max_cols_per_block<value_idx, value_t, tpb>()) {
     // TODO: Use n_cols to set shared memory and threads per block
     // for max occupancy.
+    // Ref: https://github.com/rapidsai/cuml/issues/3371
 
     raft::mr::device::buffer<value_idx> coo_rows(
       config_.allocator, config_.stream, max(config_.b_nnz, config_.a_nnz));
@@ -83,6 +85,7 @@ void unexpanded_lp_distances(
 
   } else {
     // TODO: Find max nnz and set smem based on this value.
+    // Ref: https://github.com/rapidsai/cuml/issues/3371
     generalized_csr_pairwise_semiring<value_idx, value_t, tpb>(
       out_dists, config_, reduce_func, accum_func);
   }

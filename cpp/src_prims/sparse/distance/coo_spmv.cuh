@@ -61,20 +61,37 @@ namespace Distance {
  *
  * Reference: https://www.icl.utk.edu/files/publications/2020/icl-utk-1421-2020.pdf
  *
- * @tparam value_idx
- * @tparam value_t
- * @tparam tpb
- * @tparam buffer_size
- * @tparam chunk_size
- * @param indptrA
- * @param indicesA
- * @param dataA
- * @param rowsB
- * @param indicesB
- * @param dataB
- * @param m
- * @param n
- * @param out
+ * @tparam value_idx index type
+ * @tparam value_t value type
+ * @tparam tpb threads per block configured on launch
+ * @tparam rev if this is true, the reduce/accumulate functions are only
+ *         executed when A[col] == 0.0. when executed before/after !rev
+ *         and A & B are reversed, this allows the full symmetric difference
+ *         and intersection to be computed.
+ * @tparam kv_t data type stored in shared mem cache
+ * @tparam reduce_f reduce function type (semiring product() function).
+ *                  accepts two arguments of value_t and returns a value_t
+ * @tparam accum_f accumulation function type (semiring sum() function).
+ *                 accepts two arguments of value_t and returns a value_t
+ * @tparam write_f function to write value out. this should be atomic and
+ *                 mirror the operation of the accumulate function.
+ * @param[in] indptrA column pointer array for A
+ * @param[in] indicesA column indices array for A
+ * @param[in] dataA data array for A
+ * @param[in] rowsB coo row array for B
+ * @param[in] indicesB column indices array for B
+ * @param[in] dataB data array for B
+ * @param[in] m number of rows in A
+ * @param[in] n number of rows in B
+ * @param[in] dim number of features
+ * @param[in] nnz_b number of nonzeros in B
+ * @param[out] out array of size m*n
+ * @param[in] n_blocks_per_row number of blocks of B per row of A
+ * @param[in] chunk_size number of nnz for B to use for each row of A
+ * @param[in] buffer_size amount of smem to use for each row of A
+ * @param[in] reduce_func semiring product() function
+ * @param[in] accum_func semiring sum() function
+ * @param[in] write_func atomic semiring sum() function
  */
 template <typename value_idx, typename value_t, int tpb, bool rev,
           typename kv_t, typename reduce_f, typename accum_f, typename write_f>
@@ -179,10 +196,7 @@ __global__ void balanced_coo_generalized_spmv_kernel(
  * Computes the maximum number of columns that can be stored
  * in shared memory in dense form with the given block size
  * and precision.
- * @tparam value_idx
- * @tparam value_t
- * @tparam tpb
- * @return
+ * @return the maximum number of columns that can be stored in smem
  */
 template <typename value_idx, typename value_t, int tpb = 1024>
 inline int max_cols_per_block() {
@@ -197,16 +211,19 @@ inline int max_cols_per_block() {
  * sparse-matrix-sparse-vector layout. Each vector of A is loaded
  * into shared memory in dense form and the non-zeros of B
  * load balanced across the threads of each block.
- * @tparam value_idx
- * @tparam value_t
- * @tparam max_buffer_size
- * @tparam threads_per_block
- * @tparam reduce_f
- * @tparam accum_f
- * @param out_dists
- * @param config_
- * @param reduce_func
- * @param accum_func
+ * @tparam value_idx index type
+ * @tparam value_t value type
+ * @tparam threads_per_block block size
+ * @tparam chunk_size number of nonzeros of B to process for each row of A
+ * @tparam reduce_f semiring product() function
+ * @tparam accum_f semiring sum() function
+ * @tparam write_f atomic semiring sum() function
+ * @param[out] out_dists dense array of out distances of size m * n
+ * @param[in] config_ distance config object
+ * @param[in] coo_rows_b coo row array for B
+ * @param[in] reduce_func semiring product() function
+ * @param[in] accum_func semiring sum() function
+ * @param[in] write_func atomic semiring sum() function
  */
 template <typename value_idx, typename value_t, int threads_per_block = 1024,
           int chunk_size = 500000, typename reduce_f, typename accum_f,
@@ -244,16 +261,19 @@ inline void balanced_coo_pairwise_generalized_spmv(
  * Used for computing distances where the reduction (e.g. product()) function performs
  * an implicit union (reduce(x, 0) = x) to capture the difference A-B. This is
  * necessary because the SPMV kernel will only compute the intersection & B-A.
- * @tparam value_idx
- * @tparam value_t
- * @tparam max_buffer_size
- * @tparam threads_per_block
- * @tparam reduce_f
- * @tparam accum_f
- * @param out_dists
- * @param config_
- * @param reduce_func
- * @param accum_func
+ * @tparam value_idx index type
+ * @tparam value_t value type
+ * @tparam threads_per_block block size
+ * @tparam chunk_size number of nonzeros of B to process for each row of A
+ * @tparam reduce_f semiring product() function
+ * @tparam accum_f semiring sum() function
+ * @tparam write_f atomic semiring sum() function
+ * @param[out] out_dists dense array of out distances of size m * n
+ * @param[in] config_ distance config object
+ * @param[in] coo_rows_a coo row array for A
+ * @param[in] reduce_func semiring product() function
+ * @param[in] accum_func semiring sum() function
+ * @param[in] write_func atomic semiring sum() function
  */
 template <typename value_idx, typename value_t, int threads_per_block = 1024,
           int chunk_size = 500000, typename reduce_f, typename accum_f,

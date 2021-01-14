@@ -687,7 +687,34 @@ const std::vector<SparseDistanceInputs<int, float>> inputs_i32_f = {
     0.5079750812968089,
     0.8429599432532096,
     0.0},
-   raft::distance::DistanceType::Linf}};
+   raft::distance::DistanceType::Linf},
+
+  {4,
+   {0, 1, 1, 2, 4},
+   {3, 2, 0, 1},  // indices
+   {0.99296, 0.42180, 0.11687, 0.305869},
+   {
+     // dense output
+     0.0,
+     0.99296,
+     1.41476,
+     1.415707,
+     0.99296,
+     0.0,
+     0.42180,
+     0.42274,
+     1.41476,
+     0.42180,
+     0.0,
+     0.84454,
+     1.41570,
+     0.42274,
+     0.84454,
+     0.0,
+   },
+   raft::distance::DistanceType::L1}
+
+};
 
 typedef SparseDistanceTest<int, float> SparseDistanceTestF;
 TEST_P(SparseDistanceTestF, Result) { compare(); }

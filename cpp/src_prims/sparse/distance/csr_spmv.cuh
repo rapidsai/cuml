@@ -218,6 +218,25 @@ struct BlockSemiring {
 /**
  * Optimized for large numbers of rows but small enough numbers of columns
  * that each thread can process their rows in parallel.
+ * @tparam value_idx index type
+ * @tparam value_t value type
+ * @tparam tpb block size
+ * @tparam reduce_f semiring product() function
+ * @tparam accum_f semiring sum() function
+ * @param[in] indptrA csr column index pointer array for A
+ * @param[in] indicesA csr column indices array for A
+ * @param[in] dataA csr data array for A
+ * @param[in] indptrB csr column index pointer array for B
+ * @param[in] indicesB csr column indices array for B
+ * @param[in] dataB csr data array for B
+ * @param[in] m number of rows in A
+ * @param[in] n number of rows in B
+ * @param[out] out dense output array of size m * n
+ * @param[in] n_blocks_per_row number of blocks of B scheduled per row of A
+ * @param[in] n_rows_per_block number of rows of A scheduled per block of B
+ * @param[in] buffer_size number of nonzeros to store in smem
+ * @param[in] reduce_func semiring product() function
+ * @param[in] accum_func semiring sum() function
  */
 template <typename value_idx, typename value_t, int tpb, typename reduce_f,
           typename accum_f>
@@ -259,9 +278,7 @@ __global__ void classic_csr_semiring_spmv_kernel(
 /**
  * Compute the maximum number of nonzeros that can be stored in shared
  * memory per block with the given index and value precision
- * @tparam value_idx
- * @tparam value_t
- * @return
+ * @return max nnz that can be stored in smem per block
  */
 template <typename value_idx, typename value_t>
 inline value_idx max_nnz_per_block() {
@@ -293,16 +310,17 @@ inline value_idx max_nnz_per_block() {
  *    in each row to attempt to load balance the warps naturally
  *  - Finding a way to coalesce the reads
  *
- * @tparam value_idx
- * @tparam value_t
- * @tparam max_buffer_size
- * @tparam threads_per_block
- * @tparam reduce_f
- * @tparam accum_f
- * @param out_dists
- * @param config_
- * @param reduce_func
- * @param accum_func
+ *  Ref: https://github.com/rapidsai/cuml/issues/3371
+ *
+ * @tparam value_idx index type
+ * @tparam value_t value type
+ * @tparam threads_per_block block size
+ * @tparam reduce_f semiring product() function
+ * @tparam accum_f semiring sum() function
+ * @param[out] out_dists dense array of output distances size m * n
+ * @param[in] config_ distance config object
+ * @param[in] reduce_func semiring product() function
+ * @param[in] accum_func semiring sum() function
  */
 template <typename value_idx = int, typename value_t = float,
           int threads_per_block = 1024, typename reduce_f, typename accum_f>
