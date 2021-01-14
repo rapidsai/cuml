@@ -253,10 +253,7 @@ class ip_distances_t : public distances_t<value_t> {
    */
   explicit ip_distances_t(const distances_config_t<value_idx, value_t> &config)
     : config_(config) {
-    int smem = raft::getSharedMemPerBlock();
-
-    // @TODO Don't hardcode this value
-    if (config_.a_ncols < 11000) {
+    if (config_.a_ncols < max_cols_per_block<value_idx, value_t>()) {
       internal_ip_dist =
         std::unique_ptr<ip_trans_getters_t<value_idx, value_t>>(
           new ip_distances_spmv_t<value_idx, value_t>(config_));
@@ -288,6 +285,20 @@ class ip_distances_t : public distances_t<value_t> {
   distances_config_t<value_idx, value_t> config_;
   std::unique_ptr<ip_trans_getters_t<value_idx, value_t>> internal_ip_dist;
 };
+
+/**
+ * Compute pairwise distances between A and B, using the provided
+ * input configuration and distance function.
+ *
+ * @tparam value_idx index type
+ * @tparam value_t value type
+ * @param[out] out dense output array (size A.nrows * B.nrows)
+ * @param[in] input_config input argument configuration
+ * @param[in] metric distance metric to use
+ */
+template class ip_distances_t<int, float>;
+template class distances_config_t<int, float>;
+
 };  // END namespace Distance
 };  // END namespace Sparse
 };  // END namespace MLCommon

@@ -77,14 +77,13 @@ namespace Distance {
  * @param out
  */
 template <typename value_idx, typename value_t, int tpb, bool rev,
-          typename kv_t, typename init_f, typename put_f, typename get_f,
-          typename reduce_f, typename accum_f, typename write_f>
+          typename kv_t, typename reduce_f, typename accum_f, typename write_f>
 __global__ void balanced_coo_generalized_spmv_kernel(
   value_idx *indptrA, value_idx *indicesA, value_t *dataA, value_idx *rowsB,
   value_idx *indicesB, value_t *dataB, value_idx m, value_idx n, value_idx dim,
   value_idx nnz_b, value_t *out, int n_blocks_per_row, int chunk_size,
-  int buffer_size, init_f init_func, put_f put_func, get_f get_func,
-  reduce_f reduce_func, accum_f accum_func, write_f write_func) {
+  int buffer_size, reduce_f reduce_func, accum_f accum_func,
+  write_f write_func) {
   typedef cub::WarpReduce<value_t> warp_reduce;
 
   value_idx cur_row_a = blockIdx.x / n_blocks_per_row;
@@ -234,14 +233,11 @@ inline void balanced_coo_pairwise_generalized_spmv(
   balanced_coo_generalized_spmv_kernel<value_idx, value_t, threads_per_block,
                                        false, value_t>
     <<<n_blocks, threads_per_block, raft::getSharedMemPerBlock(),
-       config_.stream>>>(
-      config_.a_indptr, config_.a_indices, config_.a_data, coo_rows_b,
-      config_.b_indices, config_.b_data, config_.a_nrows, config_.b_nrows,
-      config_.b_ncols, config_.b_nnz, out_dists, n_warps_per_row, chunk_size,
-      smem_buffer_size, [] __device__() { return 0.0; },
-      [] __device__(value_t * cache, value_idx k, value_t v) { cache[k] = v; },
-      [] __device__(value_t * cache, value_idx k) { return cache[k]; },
-      reduce_func, accum_func, write_func);
+       config_.stream>>>(config_.a_indptr, config_.a_indices, config_.a_data,
+                         coo_rows_b, config_.b_indices, config_.b_data,
+                         config_.a_nrows, config_.b_nrows, config_.b_ncols,
+                         config_.b_nnz, out_dists, n_warps_per_row, chunk_size,
+                         smem_buffer_size, reduce_func, accum_func, write_func);
 };
 
 /**
@@ -279,14 +275,11 @@ inline void balanced_coo_pairwise_generalized_spmv_rev(
   balanced_coo_generalized_spmv_kernel<value_idx, value_t, threads_per_block,
                                        true, value_t>
     <<<n_blocks, threads_per_block, raft::getSharedMemPerBlock(),
-       config_.stream>>>(
-      config_.b_indptr, config_.b_indices, config_.b_data, coo_rows_a,
-      config_.a_indices, config_.a_data, config_.b_nrows, config_.a_nrows,
-      config_.a_ncols, config_.a_nnz, out_dists, n_warps_per_row, chunk_size,
-      smem_buffer_size, [] __device__() { return 0.0; },
-      [] __device__(value_t * cache, value_idx k, value_t v) { cache[k] = v; },
-      [] __device__(value_t * cache, value_idx k) { return cache[k]; },
-      reduce_func, accum_func, write_func);
+       config_.stream>>>(config_.b_indptr, config_.b_indices, config_.b_data,
+                         coo_rows_a, config_.a_indices, config_.a_data,
+                         config_.b_nrows, config_.a_nrows, config_.a_ncols,
+                         config_.a_nnz, out_dists, n_warps_per_row, chunk_size,
+                         smem_buffer_size, reduce_func, accum_func, write_func);
 };
 }  // namespace Distance
 }  // namespace Sparse

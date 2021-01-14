@@ -56,9 +56,7 @@ namespace Distance {
  * @param[in] metric distance metric to use
  * @param[in] metric argument (currently only relevant for Minkowski)
  */
-template class ip_distances_t<int, float>;
 template class l2_expanded_distances_t<int, float>;
-template class distances_config_t<int, float>;
 
 template <typename value_idx = int, typename value_t = float>
 void pairwiseDistance(
@@ -66,7 +64,6 @@ void pairwiseDistance(
   raft::distance::DistanceType metric, float p = 0.0) {
   CUML_LOG_DEBUG("Running sparse pairwise distances with metric=%d", metric);
 
-  // TODO: Can instantiate these w/ a template
   switch (metric) {
     case raft::distance::DistanceType::L2Expanded:
       // Expanded Euclidean in the form
