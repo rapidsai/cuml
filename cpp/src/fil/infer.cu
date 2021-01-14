@@ -69,7 +69,7 @@ struct ArgMax {
 
 template <int NITEMS, typename output_type, typename tree_type>
 __device__ __forceinline__ vec<NITEMS, output_type> infer_one_tree(
-  tree_type tree, float* sdata, int cols) {
+  tree_type tree, const float* input, int cols) {
   int curr[NITEMS];
   int mask = (1 << NITEMS) - 1;  // all active
   for (int j = 0; j < NITEMS; ++j) curr[j] = 0;
@@ -81,7 +81,7 @@ __device__ __forceinline__ vec<NITEMS, output_type> infer_one_tree(
         mask &= ~(1 << j);
         continue;
       }
-      float val = sdata[j * cols + n.fid()];
+      float val = input[j * cols + n.fid()];
       bool cond = isnan(val) ? !n.def_left() : val >= n.thresh();
       curr[j] = n.left(curr[j]) + cond;
     }
@@ -98,14 +98,13 @@ __device__ __forceinline__ vec<NITEMS, output_type> infer_one_tree(
 }
 
 template <typename output_type, typename tree_type>
-__device__ __forceinline__ vec<1, output_type> infer_one_tree(tree_type tree,
-                                                              float* sdata,
-                                                              int cols) {
+__device__ __forceinline__ vec<1, output_type> infer_one_tree(
+  tree_type tree, const float* input, int cols) {
   int curr = 0;
   for (;;) {
     auto n = tree[curr];
     if (n.is_leaf()) break;
-    float val = sdata[n.fid()];
+    float val = input[n.fid()];
     bool cond = isnan(val) ? !n.def_left() : val >= n.thresh();
     curr = n.left(curr) + cond;
   }
@@ -155,7 +154,7 @@ struct tree_aggregator_t {
   the finalization of forest inference kernel, when infer_k output
   value is computed.
   num_classes is used for other template parameters */
-  static size_t smem_finalize_footprint(int num_classes) {
+  static size_t smem_finalize_footprint(predict_params params) {
     return sizeof(typename BlockReduceHost<NITEMS>::TempStorage);
   }
 
@@ -167,9 +166,10 @@ struct tree_aggregator_t {
 
   /** 
   num_classes is used for other template parameters */
-  __device__ __forceinline__ tree_aggregator_t(int num_classes,
-                                               void* shared_workspace, size_t)
-    : tmp_storage(shared_workspace) {}
+  __device__ __forceinline__ tree_aggregator_t(predict_params params,
+                                               void* accumulate_workspace,
+                                               void* finalize_workspace)
+    : tmp_storage(finalize_workspace) {}
 
   __device__ __forceinline__ void accumulate(
     vec<NITEMS, float> single_tree_prediction, int tree) {
@@ -197,8 +197,12 @@ struct finalize_block {
     : tmp_storage(tmp_storage_), num_classes(num_classes_) {}
 
   template <int NITEMS>
-  static size_t smem_footprint() {
+  static __host__ __device__ size_t smem_footprint() {
+#ifdef __CUDA_ARCH__
+    return sizeof(typename BlockReduceBestClass<NITEMS>::TempStorage);
+#else
     return sizeof(typename BlockReduceHostBestClass<NITEMS>::TempStorage);
+#endif
   }
 
   template <int NITEMS>
@@ -220,18 +224,19 @@ template <int NITEMS>
 struct tree_aggregator_t<NITEMS, GROVE_PER_CLASS_FEW_CLASSES> : finalize_block {
   vec<NITEMS, float> acc;
 
-  static size_t smem_finalize_footprint(int num_classes) {
+  static size_t smem_finalize_footprint(predict_params params) {
     size_t phase1 =
-      (FIL_TPB - FIL_TPB % num_classes) * sizeof(vec<NITEMS, float>);
+      (FIL_TPB - FIL_TPB % params.num_classes) * sizeof(vec<NITEMS, float>);
     size_t phase2 = finalize_block::smem_footprint<NITEMS>();
     return std::max(phase1, phase2);
   }
 
   static size_t smem_accumulate_footprint(int num_classes) { return 0; }
 
-  __device__ __forceinline__ tree_aggregator_t(int num_classes_,
-                                               void* shared_workspace, size_t)
-    : finalize_block(shared_workspace, num_classes_) {}
+  __device__ __forceinline__ tree_aggregator_t(predict_params params,
+                                               void* accumulate_workspace,
+                                               void* finalize_workspace)
+    : finalize_block(finalize_workspace, params.num_classes) {}
 
   __device__ __forceinline__ void accumulate(
     vec<NITEMS, float> single_tree_prediction, int tree) {
@@ -254,27 +259,41 @@ struct tree_aggregator_t<NITEMS, GROVE_PER_CLASS_FEW_CLASSES> : finalize_block {
 };
 
 template <int NITEMS>
+__host__ __device__ size_t cols_shmem_size(predict_params params) {
+  return params.cols_in_shmem ? params.num_cols * NITEMS * sizeof(float) : 0;
+}
+
+template <int NITEMS>
 struct tree_aggregator_t<NITEMS, GROVE_PER_CLASS_MANY_CLASSES>
   : finalize_block {
   vec<NITEMS, float> acc;
   vec<NITEMS, float>* per_class_margin;
 
-  static size_t smem_finalize_footprint(int num_classes) {
-    size_t phase1 = num_classes * sizeof(vec<NITEMS, float>);
-    size_t phase2 = finalize_block::smem_footprint<NITEMS>();
+  static size_t smem_finalize_footprint(predict_params params) {
+    size_t phase1 = cols_shmem_size<NITEMS>(params) +
+                    smem_accumulate_footprint(params.num_classes);
+    size_t phase2 =
+      finalize_block::smem_footprint<NITEMS>() > cols_shmem_size<NITEMS>(params)
+        ? cols_shmem_size<NITEMS>(params) +
+            finalize_block::smem_footprint<NITEMS>()
+        : finalize_block::smem_footprint<NITEMS>();
     return std::max(phase1, phase2);
   }
 
-  static size_t smem_accumulate_footprint(int num_classes) {
+  static __host__ __device__ size_t smem_accumulate_footprint(int num_classes) {
     return num_classes * sizeof(vec<NITEMS, float>);
   }
 
-  __device__ __forceinline__ tree_aggregator_t(int num_classes_,
-                                               void* shared_workspace,
-                                               size_t data_row_size)
-    : finalize_block(shared_workspace, num_classes_),
-      per_class_margin(
-        (vec<NITEMS, float>*)((char*)shared_workspace + data_row_size)) {
+  __device__ __forceinline__ tree_aggregator_t(predict_params params,
+                                               void* accumulate_workspace,
+                                               void* finalize_workspace)
+    : finalize_block(finalize_block::smem_footprint<NITEMS>() >
+                         cols_shmem_size<NITEMS>(params)
+                       ? (char*)accumulate_workspace +
+                           smem_accumulate_footprint(params.num_classes)
+                       : finalize_workspace,
+                     params.num_classes),
+      per_class_margin((vec<NITEMS, float>*)accumulate_workspace) {
     for (int c = threadIdx.x; c < num_classes; c += blockDim.x)
       per_class_margin[c] = vec<NITEMS, float>();  // initialize to 0.0f
     // __syncthreads() is called in infer_k
@@ -308,18 +327,18 @@ struct tree_aggregator_t<NITEMS, CATEGORICAL_LEAF> {
   int* votes;
   int num_classes;
 
-  static size_t smem_finalize_footprint(int num_classes) {
-    return sizeof(int) * num_classes * NITEMS;
+  static size_t smem_finalize_footprint(predict_params params) {
+    return smem_accumulate_footprint(params.num_classes) +
+           cols_shmem_size<NITEMS>(params);
   }
   static size_t smem_accumulate_footprint(int num_classes) {
-    return smem_finalize_footprint(num_classes);
+    return sizeof(int) * num_classes * NITEMS;
   }
 
-  __device__ __forceinline__ tree_aggregator_t(int num_classes_,
-                                               void* shared_workspace,
-                                               size_t data_row_size)
-    : num_classes(num_classes_),
-      votes((int*)(data_row_size + (char*)shared_workspace)) {
+  __device__ __forceinline__ tree_aggregator_t(predict_params params,
+                                               void* accumulate_workspace,
+                                               void* finalize_workspace)
+    : num_classes(params.num_classes), votes((int*)accumulate_workspace) {
     for (int c = threadIdx.x; c < num_classes; c += FIL_TPB * NITEMS)
 #pragma unroll
       for (int item = 0; item < NITEMS; ++item) votes[c * NITEMS + item] = 0;
@@ -379,19 +398,21 @@ __global__ void infer_k(storage_type forest, predict_params params) {
   float* sdata = (float*)smem;
   for (size_t block_row0 = blockIdx.x * NITEMS; block_row0 < params.num_rows;
        block_row0 += NITEMS * gridDim.x) {
-    // cache the row for all threads to reuse
-    for (size_t j = 0; j < NITEMS; ++j) {
-      size_t row = block_row0 + j;
+    if (params.cols_in_shmem) {
+      // cache the row for all threads to reuse
+      for (size_t j = 0; j < NITEMS; ++j) {
+        size_t row = block_row0 + j;
 #pragma unroll
-      for (int col = threadIdx.x; col < params.num_cols; col += blockDim.x) {
-        sdata[j * params.num_cols + col] =
-          row < params.num_rows ? params.data[row * params.num_cols + col]
-                                : 0.0f;
+        for (int col = threadIdx.x; col < params.num_cols; col += blockDim.x) {
+          sdata[j * params.num_cols + col] =
+            row < params.num_rows ? params.data[row * params.num_cols + col]
+                                  : 0.0f;
+        }
       }
     }
 
     tree_aggregator_t<NITEMS, leaf_algo> acc(
-      params.num_classes, sdata, params.num_cols * NITEMS * sizeof(float));
+      params, (char*)sdata + cols_shmem_size<NITEMS>(params), sdata);
 
     __syncthreads();  // for both row cache init and acc init
 
@@ -404,7 +425,8 @@ __global__ void infer_k(storage_type forest, predict_params params) {
       */
       if (j < forest.num_trees()) {
         acc.accumulate(infer_one_tree<NITEMS, leaf_output_t<leaf_algo>::T>(
-                         forest[j], sdata, params.num_cols),
+                         forest[j], params.cols_in_shmem ? sdata : params.data,
+                         params.num_cols),
                        j);
       }
       if (leaf_algo == GROVE_PER_CLASS_MANY_CLASSES) __syncthreads();
@@ -419,65 +441,48 @@ __global__ void infer_k(storage_type forest, predict_params params) {
 template <int NITEMS, leaf_algo_t leaf_algo>
 size_t get_smem_footprint(predict_params params) {
   size_t finalize_footprint =
-    tree_aggregator_t<NITEMS, leaf_algo>::smem_finalize_footprint(
-      params.num_classes);
+    tree_aggregator_t<NITEMS, leaf_algo>::smem_finalize_footprint(params);
   size_t accumulate_footprint =
-    sizeof(float) * params.num_cols * NITEMS +
     tree_aggregator_t<NITEMS, leaf_algo>::smem_accumulate_footprint(
-      params.num_classes);
+      params.num_classes) +
+    cols_shmem_size<NITEMS>(params);
 
   return std::max(accumulate_footprint, finalize_footprint);
+}
+
+template <leaf_algo_t leaf_algo, int NITEMS>
+void try_nitems(int* num_items, size_t* shm_sz, predict_params params) {
+  size_t peak_footprint = get_smem_footprint<NITEMS, leaf_algo>(params);
+  if (peak_footprint <= params.max_shm) {
+    *num_items = NITEMS;
+    *shm_sz = peak_footprint;
+  }
 }
 
 template <leaf_algo_t leaf_algo, typename storage_type>
 void infer_k_launcher(storage_type forest, predict_params params,
                       cudaStream_t stream, int blockdim_x) {
-  const int MAX_BATCH_ITEMS = 4;
-  params.max_items =
-    params.algo == algo_t::BATCH_TREE_REORG ? MAX_BATCH_ITEMS : 1;
-
+  // TODO(levsnv): move this to forest init()
   /** searching for the most items per block while respecting the shared
   * memory limits creates a full linear programming problem.
   * solving it in a single equation looks less tractable than this */
+  params.cols_in_shmem = true;
   int num_items = 0;
-  size_t shm_sz = 0;
-  for (int nitems = 1; nitems <= params.max_items; ++nitems) {
-    size_t peak_footprint;
-    switch (nitems) {
-      case 1:
-        peak_footprint = get_smem_footprint<1, leaf_algo>(params);
-        break;
-      case 2:
-        peak_footprint = get_smem_footprint<2, leaf_algo>(params);
-        break;
-      case 3:
-        peak_footprint = get_smem_footprint<3, leaf_algo>(params);
-        break;
-      case 4:
-        peak_footprint = get_smem_footprint<4, leaf_algo>(params);
-        break;
-      default:
-        ASSERT(false, "internal error: nitems > 4");
-    }
-    // for data row
-    if (peak_footprint <= params.max_shm) {
-      num_items = nitems;
-      shm_sz = peak_footprint;
-    }
-  }
+  size_t shm_sz;
+  try_nitems<leaf_algo, 1>(&num_items, &shm_sz, params);
   if (num_items == 0) {
-    int given_num_cols = params.num_cols;
-    // starting with maximum that might fit in shared memory, in case
-    // given_num_cols is a random large int
-    params.num_cols = params.max_shm / sizeof(float);
-    // since we're crashing, this will not take too long
-    while (params.num_cols > 0 &&
-           get_smem_footprint<1, leaf_algo>(params) > params.max_shm) {
-      --params.num_cols;
-    }
-    ASSERT(false, "p.num_cols == %d: too many features, only %d allowed",
-           given_num_cols, params.num_cols);
+    params.cols_in_shmem = false;
+    try_nitems<leaf_algo, 1>(&num_items, &shm_sz, params);
+    try_nitems<leaf_algo, 2>(&num_items, &shm_sz, params);
+    try_nitems<leaf_algo, 3>(&num_items, &shm_sz, params);
+    try_nitems<leaf_algo, 4>(&num_items, &shm_sz, params);
+    ASSERT(num_items != 0, "FIL out of shared memory. >>5'000 classes?");
+  } else if (params.algo == algo_t::BATCH_TREE_REORG) {
+    try_nitems<leaf_algo, 2>(&num_items, &shm_sz, params);
+    try_nitems<leaf_algo, 3>(&num_items, &shm_sz, params);
+    try_nitems<leaf_algo, 4>(&num_items, &shm_sz, params);
   }
+
   params.num_blocks = params.num_blocks != 0
                         ? params.num_blocks
                         : raft::ceildiv(int(params.num_rows), num_items);

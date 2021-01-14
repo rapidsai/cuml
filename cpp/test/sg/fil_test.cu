@@ -664,6 +664,7 @@ std::vector<FilTestParams> predict_dense_inputs = {
   FIL_TEST_PARAMS(output = SIGMOID_CLASS, algo = BATCH_TREE_REORG,
                   num_classes = 2),
   FIL_TEST_PARAMS(output = AVG),
+  // 10
   FIL_TEST_PARAMS(output = AVG, algo = TREE_REORG),
   FIL_TEST_PARAMS(output = AVG, algo = BATCH_TREE_REORG),
   FIL_TEST_PARAMS(output = AVG_CLASS, num_classes = 2),
@@ -675,6 +676,7 @@ std::vector<FilTestParams> predict_dense_inputs = {
   FIL_TEST_PARAMS(output = AVG_CLASS, threshold = 1.0, global_bias = 0.5,
                   algo = TREE_REORG, num_classes = 2),
   FIL_TEST_PARAMS(output = SIGMOID, algo = ALGO_AUTO),
+  // 20
   FIL_TEST_PARAMS(output = AVG_CLASS, algo = BATCH_TREE_REORG,
                   leaf_algo = CATEGORICAL_LEAF, num_classes = 5),
   FIL_TEST_PARAMS(output = AVG_CLASS, num_classes = 2),
@@ -694,6 +696,7 @@ std::vector<FilTestParams> predict_dense_inputs = {
                   num_classes = 7),
   FIL_TEST_PARAMS(num_trees = 52, global_bias = 0.5, algo = TREE_REORG,
                   leaf_algo = GROVE_PER_CLASS, num_classes = 4),
+  // 30
   FIL_TEST_PARAMS(num_trees = 52, output = AVG, global_bias = 0.5,
                   leaf_algo = GROVE_PER_CLASS, num_classes = 4),
   FIL_TEST_PARAMS(blocks_per_sm = 1),
@@ -710,6 +713,15 @@ std::vector<FilTestParams> predict_dense_inputs = {
                   num_trees = 512, num_classes = 512),
   FIL_TEST_PARAMS(leaf_algo = GROVE_PER_CLASS, blocks_per_sm = 4,
                   num_trees = 512, num_classes = 512),
+  FIL_TEST_PARAMS(num_cols = 100'000, depth = 0, num_trees = 1,
+                  leaf_algo = FLOAT_UNARY_BINARY),
+  // 40
+  FIL_TEST_PARAMS(num_cols = 100'000, depth = 0, num_trees = 3,
+                  leaf_algo = GROVE_PER_CLASS, num_classes = 3),
+  FIL_TEST_PARAMS(num_cols = 100'000, depth = 0, num_trees = FIL_TPB + 1,
+                  leaf_algo = GROVE_PER_CLASS, num_classes = FIL_TPB + 1),
+  FIL_TEST_PARAMS(num_cols = 100'000, depth = 0, num_trees = 1,
+                  leaf_algo = CATEGORICAL_LEAF, num_classes = 3),
 };
 
 TEST_P(PredictDenseFilTest, Predict) { compare(); }

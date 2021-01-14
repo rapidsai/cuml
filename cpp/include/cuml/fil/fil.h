@@ -29,6 +29,9 @@ namespace fil {
  *  and the threshold/weight type.
  */
 
+/// FIL_TPB is the number of threads per block to use with FIL kernels
+const int FIL_TPB = 256;
+
 /** Inference algorithm to use. */
 enum algo_t {
   /** choose the algorithm automatically; currently chooses NAIVE for sparse forests 
