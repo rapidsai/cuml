@@ -209,3 +209,13 @@ def test_score(x_dtype, y_dtype, nlp_20news):
     THRES = 1e-4
 
     assert sk_score - THRES <= cuml_score <= sk_score + THRES
+
+
+def test_incorrect_dtype_raises_value_error(nlp_20news):
+    X, y = nlp_20news
+
+    cu_X = sparse_scipy_to_cp(X, np.float32).astype(np.float32)
+    cu_y = y.astype(np.float32)
+
+    with pytest.raises(TypeError):
+        MultinomialNB().fit(cu_X, cu_y)

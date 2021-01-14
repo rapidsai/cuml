@@ -260,9 +260,10 @@ class MultinomialNB(Base, ClassifierMixin):
             X = cupyx.scipy.sparse.coo_matrix((data, (rows, cols)),
                                               shape=X.shape)
         else:
-            X = input_to_cupy_array(X, order='K').array
+            X = input_to_cupy_array(X, order='K',
+                                    check_dtype=[cp.float32, cp.float64]).array
 
-        y = input_to_cupy_array(y).array
+        y = input_to_cupy_array(y, check_dtype=[cp.int32, cp.int64]).array
 
         Y, label_classes = make_monotonic(y, copy=True)
 
@@ -373,7 +374,8 @@ class MultinomialNB(Base, ClassifierMixin):
             X = cupyx.scipy.sparse.coo_matrix((data, (rows, cols)),
                                               shape=X.shape)
         else:
-            X = input_to_cupy_array(X, order='K').array
+            X = input_to_cupy_array(X, order='K',
+                                    check_dtype=[cp.float32, cp.float64]).array
 
         jll = self._joint_log_likelihood(X)
         indices = cp.argmax(jll, axis=1).astype(self.classes_.dtype)
@@ -413,7 +415,8 @@ class MultinomialNB(Base, ClassifierMixin):
             X = cupyx.scipy.sparse.coo_matrix((data, (rows, cols)),
                                               shape=X.shape)
         else:
-            X = input_to_cupy_array(X, order='K').array
+            X = input_to_cupy_array(X, order='K',
+                                    check_dtype=[cp.float32, cp.float64]).array
 
         jll = self._joint_log_likelihood(X)
 
