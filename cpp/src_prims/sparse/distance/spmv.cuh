@@ -104,12 +104,12 @@ __global__ void balanced_coo_generalized_spmv_kernel(
   if (cur_row_a > m || cur_chunk_offset > n_blocks_per_row) return;
   if (ind >= nnz_b) return;
 
-  __shared__
-    typename warp_reduce::TempStorage temp_storage[tpb / raft::warp_size()];
   extern __shared__ char smem[];
 
   value_idx *offsets_a = (value_idx *)smem;
   kv_t *A = (kv_t *)(smem + (2 * sizeof(value_idx)));
+  typename warp_reduce::TempStorage *temp_storage =
+    (typename warp_reduce::TempStorage *)(A + buffer_size);
 
   if (tid == 0) {
     offsets_a[0] = indptrA[cur_row_a];
@@ -134,7 +134,7 @@ __global__ void balanced_coo_generalized_spmv_kernel(
   value_idx cur_row_b = -1;
   value_t c = 0.0;
 
-  auto warp_red = warp_reduce(temp_storage[warp_id]);
+  auto warp_red = warp_reduce(*(temp_storage + warp_id));
 
   if (tid < active_chunk_size) {
     cur_row_b = rowsB[ind];
