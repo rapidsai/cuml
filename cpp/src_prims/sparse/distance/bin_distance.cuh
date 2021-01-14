@@ -107,8 +107,8 @@ void compute_jaccard_distance(value_t *out, const value_idx *Q_coo_rows,
 }
 
 /**
- * L2 distance using the expanded form: sum(x_k)^2 + sum(y_k)^2 - 2 * sum(x_k * y_k)
- * The expanded form is more efficient for sparse data.
+ * Jaccard distance using the expanded form:
+ * 1 - (sum(x_k * y_k) / ((sum(x_k) + sum(y_k)) - sum(x_k * y_k))
  */
 template <typename value_idx = int, typename value_t = float>
 class jaccard_expanded_distances_t : public distances_t<value_t> {

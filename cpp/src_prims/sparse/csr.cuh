@@ -372,7 +372,6 @@ __global__ void csr_to_coo_kernel(const value_idx *row_ind, value_idx m,
 template <typename value_idx = int, int TPB_X = 32>
 void csr_to_coo(const value_idx *row_ind, value_idx m, value_idx *coo_rows,
                 value_idx nnz, cudaStream_t stream) {
-  // @TODO: Use cusparse for this.
   dim3 grid(raft::ceildiv(m, (value_idx)TPB_X), 1, 1);
   dim3 blk(TPB_X, 1, 1);
 
