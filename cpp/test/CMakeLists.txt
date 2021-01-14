@@ -170,7 +170,7 @@ if(BUILD_PRIMS_TESTS)
     prims/knn_regression.cu
     prims/knn.cu
     prims/kselection.cu
-          prims/agglomerative.cu
+    prims/agglomerative.cu
     prims/linearReg.cu
     prims/log.cu
     prims/logisticReg.cu
@@ -194,7 +194,7 @@ if(BUILD_PRIMS_TESTS)
     prims/sparse/csr_row_slice.cu
     prims/sparse/csr_to_dense.cu
     prims/sparse/csr_transpose.cu
-          prims/sparse/connectivities.cu
+    prims/sparse/connectivities.cu
     prims/sparse/knn.cu
     prims/sparse/selection.cu
     prims/silhouette_score.cu
