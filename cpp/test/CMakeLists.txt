@@ -21,7 +21,7 @@ set(CUML_TEST_INCLUDE_DIRS
   ${TREELITE_DIR}/runtime/native/include)
 
 set(CUML_TEST_LINK_LIBRARIES
-  cuml++
+  libcuml++
   FAISS::FAISS
   GTest::GTest
   GTest::Main
@@ -205,7 +205,7 @@ if(BUILD_PRIMS_TESTS)
   add_dependencies(prims cutlass)
 
   target_link_libraries(prims
-    cuml++
+    libcuml++
   	GTest::GTest
   	GTest::Main
   	FAISS::FAISS

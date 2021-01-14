@@ -390,7 +390,7 @@ if(BUILD_CUML_CPP_LIBRARY)
   # set(CUML_CPP_TARGET "cuml++")
 
   # single GPU components
-  add_library(cuml++ SHARED
+  add_library(libcuml++ SHARED
     src/arima/batched_arima.cu
     src/arima/batched_kalman.cu
     src/common/cumlHandle.cpp
@@ -438,12 +438,15 @@ if(BUILD_CUML_CPP_LIBRARY)
     src/tsne/tsne.cu
     src/tsvd/tsvd.cu
     src/umap/umap.cu)
-  add_library(cuml::cuml++ ALIAS cuml++)
+  add_library(CUML::libcuml++ ALIAS libcuml++)
+
+  # Remove lib from the library name
+  set_target_properties(libcuml++ PROPERTIES PREFIX "")
 
   # mnmg components
 
   if(NOT SINGLEGPU)
-    target_sources(cuml++
+    target_sources(libcuml++
       PRIVATE
         src/glm/ols_mg.cu
         src/glm/preprocess_mg.cu
@@ -471,7 +474,7 @@ if(BUILD_CUML_CPP_LIBRARY)
 
   message(STATUS "raft: ${raft_INCLUDE_DIR}")
 
-  target_include_directories(cuml++
+  target_include_directories(libcuml++
     PUBLIC 
       $<INSTALL_INTERFACE:include>
       $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
@@ -492,15 +495,15 @@ if(BUILD_CUML_CPP_LIBRARY)
       $<$<BOOL:BUILD_CUML_MPI_COMMS>:${MPI_CXX_INCLUDE_PATH}>
   )
 
-  target_link_libraries(cuml++
+  target_link_libraries(libcuml++
     PUBLIC
       CUDA::cublas
       CUDA::curand
       CUDA::cusolver
       CUDA::cudart
       CUDA::cusparse
-      "$<$<BOOL:OPENMP_FOUND>:${OpenMP_CXX_LIB_NAMES}>" # Must be in quotes to use list in generator expression!!
-      $<$<BOOL:OPENMP_FOUND>:Threads::Threads>
+      # "$<$<BOOL:OPENMP_FOUND>:${OpenMP_gomp_LIBRARY};${OpenMP_pthread_LIBRARY}>" # Must be in quotes to use list in generator expression!!
+      $<$<BOOL:OPENMP_FOUND>:OpenMP::OpenMP_CXX>
       $<$<BOOL:NVTX>:CUDA::nvToolsExt>
       RMM::RMM
       # raft::raft
@@ -514,9 +517,9 @@ if(BUILD_CUML_CPP_LIBRARY)
   )
   # If we export the libdmlc symbols, they can lead to weird crashes with other
   # libraries that use libdmlc. This just hides the symbols internally.
-  target_link_options(cuml++ PRIVATE "-Wl,--exclude-libs,libdmlc.a")
+  target_link_options(libcuml++ PRIVATE "-Wl,--exclude-libs,libdmlc.a")
   # same as above, but for protobuf library
-  target_link_options(cuml++ PRIVATE "-Wl,--exclude-libs,libprotobuf.a")
+  target_link_options(libcuml++ PRIVATE "-Wl,--exclude-libs,libprotobuf.a")
 
 endif(BUILD_CUML_CPP_LIBRARY)
 
@@ -526,18 +529,21 @@ endif(BUILD_CUML_CPP_LIBRARY)
 if(BUILD_CUML_C_LIBRARY)
   # set(CUML_C_TARGET "cuml")
 
-  add_library(cuml SHARED
+  add_library(libcuml SHARED
     src/common/cuml_api.cpp
     src/dbscan/dbscan_api.cpp
     src/glm/glm_api.cpp
     src/holtwinters/holtwinters_api.cpp
     src/svm/svm_api.cpp)
-  add_library(cuml::cuml ALIAS cuml)
+  add_library(CUML::libcuml ALIAS libcuml)
+
+  # Remove lib from the library name
+  set_target_properties(libcuml PROPERTIES PREFIX "")
 
   # target_include_directories(cuml
   #   PRIVATE ${CUML_INCLUDE_DIRECTORIES})
 
-  target_link_libraries(cuml PUBLIC cuml++)
+  target_link_libraries(libcuml PUBLIC libcuml++)
 endif(BUILD_CUML_C_LIBRARY)
 
 ##############################################################################
@@ -560,7 +566,7 @@ endif(BUILD_CUML_EXAMPLES)
 include(GNUInstallDirs)
 set(INSTALL_CONFIGDIR ${CMAKE_INSTALL_LIBDIR}/cmake/cuml)
 
-install(TARGETS cuml++ cuml
+install(TARGETS libcuml++ libcuml
         EXPORT cuml-targets
         DESTINATION ${CMAKE_INSTALL_LIBDIR})
 
@@ -579,7 +585,7 @@ write_basic_package_version_file(${CMAKE_CURRENT_BINARY_DIR}/cuml-config-version
 install(
   EXPORT cuml-targets
   FILE cuml-targets.cmake
-  NAMESPACE cuml::
+  NAMESPACE CUML::
   DESTINATION ${INSTALL_CONFIGDIR})
 
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/cuml-config.cmake 
@@ -599,10 +605,10 @@ install(FILES ${CMAKE_CURRENT_BINARY_DIR}/cuml-config.cmake
 # Export targets
 export(EXPORT cuml-targets
     FILE ${CMAKE_CURRENT_BINARY_DIR}/cuml-targets.cmake
-    NAMESPACE cuml::)
+    NAMESPACE CUML::)
 
 #Register package in user's package registry
-export(PACKAGE cuml)
+export(PACKAGE CUML)
 
 ##############################################################################
 # - build benchmark executable -----------------------------------------------

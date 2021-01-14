@@ -37,7 +37,7 @@ if(BUILD_CUML_BENCH)
     )
 
   target_link_libraries(sg_benchmark
-    cuml++
+    libcuml++
     benchmarklib)
 
   target_include_directories(sg_benchmark
@@ -71,7 +71,7 @@ if(BUILD_CUML_PRIMS_BENCH)
   endif(NOT CUB_IS_PART_OF_CTK)
   add_dependencies(prims_benchmark spdlog)
 
-  target_link_libraries(prims_benchmark cuml++ benchmarklib)
+  target_link_libraries(prims_benchmark libcuml++ benchmarklib)
 
   target_include_directories(prims_benchmark
     PRIVATE 
