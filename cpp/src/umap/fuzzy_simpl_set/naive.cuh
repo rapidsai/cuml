@@ -278,7 +278,7 @@ void smooth_knn_dist(int n, const value_idx *knn_indices,
  * @param stream cuda stream to use for device operations
  */
 template <int TPB_X, typename value_idx, typename value_t>
-void launcher(int n, const value_idx *knn_indices, const float *knn_dists,
+void launcher(int n, const value_idx *knn_indices, const value_t *knn_dists,
               int n_neighbors, raft::sparse::COO<value_t> *out,
               UMAPParams *params, std::shared_ptr<deviceAllocator> d_alloc,
               cudaStream_t stream) {

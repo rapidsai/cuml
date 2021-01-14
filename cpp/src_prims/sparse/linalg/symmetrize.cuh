@@ -43,6 +43,8 @@ namespace raft {
 namespace sparse {
 namespace linalg {
 
+// TODO: value_idx param needs to be used for this once FAISS is updated to use float32
+// for indices so that the index types can be uniform
 template <int TPB_X, typename T, typename Lambda>
 __global__ void coo_symmetrize_kernel(int *row_ind, int *rows, int *cols,
                                       T *vals, int *orows, int *ocols, T *ovals,
@@ -211,13 +213,14 @@ __global__ static void symmetric_sum(value_idx *restrict edges,
                                      value_idx *restrict COL,
                                      value_idx *restrict ROW, const value_idx n,
                                      const int k) {
-  const int row = blockIdx.x * blockDim.x + threadIdx.x;  // for every row
-  const int j = blockIdx.y * blockDim.y + threadIdx.y;  // for every item in row
+  const auto row = blockIdx.x * blockDim.x + threadIdx.x;  // for every row
+  const auto j =
+    blockIdx.y * blockDim.y + threadIdx.y;  // for every item in row
   if (row >= n || j >= k) return;
 
-  const int col = indices[row * k + j];
-  const int original = atomicAdd(&edges[row], value_idx(1));
-  const int transpose = atomicAdd(&edges[col], value_idx(1));
+  const auto col = indices[row * k + j];
+  const auto original = atomicAdd(&edges[row], value_idx(1));
+  const auto transpose = atomicAdd(&edges[col], value_idx(1));
 
   VAL[transpose] = VAL[original] = data[row * k + j];
   // Notice swapped ROW, COL since transpose
