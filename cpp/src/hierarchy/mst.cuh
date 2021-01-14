@@ -79,7 +79,7 @@ void build_sorted_mst(const raft::handle_t &handle, const value_idx *indptr,
   auto d_alloc = handle.get_device_allocator();
   auto stream = handle.get_stream();
 
-  raft::mr::device::buffer<value_idx> color(d_alloc, stream, m * m);
+  raft::mr::device::buffer<value_idx> color(d_alloc, stream, m-1);
 
   CUDA_CHECK(cudaStreamSynchronize(stream));
   CUDA_CHECK(cudaGetLastError());

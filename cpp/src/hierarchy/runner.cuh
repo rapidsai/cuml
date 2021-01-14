@@ -47,6 +47,9 @@ void _single_linkage(const raft::handle_t &handle, const value_t *X, size_t m,
   auto stream = handle.get_stream();
   auto d_alloc = handle.get_device_allocator();
 
+
+  CUML_LOG_DEBUG("Starting");
+
   raft::mr::device::buffer<value_idx> indptr(d_alloc, stream, 0);
   raft::mr::device::buffer<value_idx> indices(d_alloc, stream, 0);
   raft::mr::device::buffer<value_t> pw_dists(d_alloc, stream, 0);
@@ -54,12 +57,20 @@ void _single_linkage(const raft::handle_t &handle, const value_t *X, size_t m,
   /**
    * 1. Construct distance graph
    */
+
+  CUML_LOG_DEBUG("Calling distance_graph");
+
   Distance::get_distance_graph(handle, X, m, n, metric, dist_type, indptr,
                                indices, pw_dists, c);
+
+  CUML_LOG_DEBUG("Done.");
 
   raft::mr::device::buffer<value_idx> mst_rows(d_alloc, stream, 0);
   raft::mr::device::buffer<value_idx> mst_cols(d_alloc, stream, 0);
   raft::mr::device::buffer<value_t> mst_data(d_alloc, stream, 0);
+
+  CUML_LOG_DEBUG("Constructing MST");
+
   /**
    * 2. Construct MST, sorted by weights
    */
@@ -69,24 +80,33 @@ void _single_linkage(const raft::handle_t &handle, const value_t *X, size_t m,
 
   pw_dists.release();
 
+  CUML_LOG_DEBUG("Done.");
+
   /**
    * Perform hierarchical labeling
    */
+
+
   size_t n_edges = mst_rows.size();
 
   raft::mr::device::buffer<value_idx> children(d_alloc, stream, n_edges * 2);
   raft::mr::device::buffer<value_t> out_delta(d_alloc, stream, n_edges);
   raft::mr::device::buffer<value_idx> out_size(d_alloc, stream, n_edges);
 
+  CUML_LOG_DEBUG("Creating dendrogram");
+
   // Create dendrogram
   Label::Agglomerative::build_dendrogram_host<value_idx, value_t>(
     handle, mst_rows.data(), mst_cols.data(), mst_data.data(), n_edges,
     children, out_delta, out_size);
 
+  CUML_LOG_DEBUG("Flattening clusters");
   Label::Agglomerative::extract_flattened_clusters(handle, out->labels,
                                                    children, n_clusters, m);
 
   raft::print_device_vector<value_idx>("labels: ", out->labels, m, std::cout);
+
+  CUML_LOG_DEBUG("Done.");
 }
 
 };  // end namespace Linkage
