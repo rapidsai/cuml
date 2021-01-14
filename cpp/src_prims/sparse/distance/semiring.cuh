@@ -50,8 +50,8 @@ namespace Distance {
  * @tparam buffer_size
  * @tparam rows_per_block
  */
-template <typename value_idx, typename value_t, int tpb, int buffer_size,
-          typename reduce_f, typename accum_f>
+template <typename value_idx, typename value_t, int tpb, typename reduce_f,
+          typename accum_f>
 struct BlockSemiring {
   __device__ inline BlockSemiring(int tid_, value_idx m_, value_idx n_,
                                   value_idx *shared_cols_,
@@ -219,13 +219,13 @@ struct BlockSemiring {
  * Optimized for large numbers of rows but small enough numbers of columns
  * that each thread can process their rows in parallel.
  */
-template <typename value_idx, typename value_t, int tpb, int buffer_size,
-          typename reduce_f, typename accum_f>
+template <typename value_idx, typename value_t, int tpb, typename reduce_f,
+          typename accum_f>
 __global__ void classic_csr_semiring_spmv_kernel(
   value_idx *indptrA, value_idx *indicesA, value_t *dataA, value_idx *indptrB,
   value_idx *indicesB, value_t *dataB, value_idx m, value_idx n, value_t *out,
-  int n_blocks_per_row, int n_rows_per_block, reduce_f reduce_func,
-  accum_f accum_func) {
+  int n_blocks_per_row, int n_rows_per_block, int buffer_size,
+  reduce_f reduce_func, accum_f accum_func) {
   value_idx out_row = blockIdx.x / n_blocks_per_row;
   value_idx out_col_start = blockIdx.x % n_blocks_per_row;
 
@@ -234,12 +234,14 @@ __global__ void classic_csr_semiring_spmv_kernel(
 
   if (out_row > m || row_b_start > n) return;
 
-  __shared__ value_idx shared_cols[buffer_size];
-  __shared__ value_t shared_vals[buffer_size];
-  __shared__ value_idx offsets_a[2];
+  extern __shared__ char smem[];
 
-  BlockSemiring<value_idx, value_t, tpb, buffer_size, reduce_f, accum_f>
-    semiring(tid, m, n, shared_cols, shared_vals, indicesB, dataB, offsets_a);
+  value_idx *offsets_a = (value_idx *)smem;
+  value_idx *shared_cols = offsets_a + 2;
+  value_t *shared_vals = (value_t *)(shared_cols + buffer_size);
+
+  BlockSemiring<value_idx, value_t, tpb, reduce_f, accum_f> semiring(
+    tid, m, n, shared_cols, shared_vals, indicesB, dataB, offsets_a);
 
   semiring.load_a(out_row, indptrA, indicesA, dataA);
 
@@ -252,6 +254,20 @@ __global__ void classic_csr_semiring_spmv_kernel(
 
     semiring.write(out);
   }
+}
+
+/**
+ * Compute the maximum number of nonzeros that can be stored in shared
+ * memory per block with the given index and value precision
+ * @tparam value_idx
+ * @tparam value_t
+ * @return
+ */
+template <typename value_idx, typename value_t>
+inline value_idx max_nnz_per_block() {
+  // compute max shared mem to use
+  return (raft::getSharedMemPerBlock() - (2 * sizeof(value_idx))) /
+         (sizeof(value_t) + sizeof(value_idx));
 }
 
 /**
@@ -289,8 +305,7 @@ __global__ void classic_csr_semiring_spmv_kernel(
  * @param accum_func
  */
 template <typename value_idx = int, typename value_t = float,
-          int max_buffer_size = 5000, int threads_per_block = 1024,
-          typename reduce_f, typename accum_f>
+          int threads_per_block = 1024, typename reduce_f, typename accum_f>
 void generalized_csr_pairwise_semiring(
   value_t *out_dists, const distances_config_t<value_idx, value_t> &config_,
   reduce_f reduce_func, accum_f accum_func) {
@@ -299,17 +314,22 @@ void generalized_csr_pairwise_semiring(
   int n_blocks_per_row = raft::ceildiv(config_.b_nrows, n_rows_per_block);
   int n_blocks = config_.a_nrows * n_blocks_per_row;
 
+  int smem_buffer_size = max_nnz_per_block<value_idx, value_t>();
+
   CUML_LOG_DEBUG("Classic block reduce");
 
   CUML_LOG_DEBUG("n_blocks: %d", n_blocks);
   CUML_LOG_DEBUG("n_blocks_per_row: %d", n_blocks_per_row);
+  CUML_LOG_DEBUG("smem_buffer_size: %d", smem_buffer_size);
 
   classic_csr_semiring_spmv_kernel<value_idx, value_t, threads_per_block,
-                                   max_buffer_size, reduce_f, accum_f>
-    <<<n_blocks, threads_per_block, 0, config_.stream>>>(
-      config_.a_indptr, config_.a_indices, config_.a_data, config_.b_indptr,
-      config_.b_indices, config_.b_data, config_.a_nrows, config_.b_nrows,
-      out_dists, n_blocks_per_row, n_rows_per_block, reduce_func, accum_func);
+                                   reduce_f, accum_f>
+    <<<n_blocks, threads_per_block, raft::getSharedMemPerBlock(),
+       config_.stream>>>(config_.a_indptr, config_.a_indices, config_.a_data,
+                         config_.b_indptr, config_.b_indices, config_.b_data,
+                         config_.a_nrows, config_.b_nrows, out_dists,
+                         n_blocks_per_row, n_rows_per_block, smem_buffer_size,
+                         reduce_func, accum_func);
 };
 
 }  // namespace Distance

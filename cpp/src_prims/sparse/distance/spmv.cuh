@@ -76,15 +76,15 @@ namespace Distance {
  * @param n
  * @param out
  */
-template <typename value_idx, typename value_t, int tpb, int buffer_size,
-          bool rev, typename kv_t, typename init_f, typename put_f,
-          typename get_f, typename reduce_f, typename accum_f, typename write_f>
+template <typename value_idx, typename value_t, int tpb, bool rev,
+          typename kv_t, typename init_f, typename put_f, typename get_f,
+          typename reduce_f, typename accum_f, typename write_f>
 __global__ void balanced_coo_generalized_spmv_kernel(
   value_idx *indptrA, value_idx *indicesA, value_t *dataA, value_idx *rowsB,
   value_idx *indicesB, value_t *dataB, value_idx m, value_idx n, value_idx dim,
   value_idx nnz_b, value_t *out, int n_blocks_per_row, int chunk_size,
-  init_f init_func, put_f put_func, get_f get_func, reduce_f reduce_func,
-  accum_f accum_func, write_f write_func) {
+  int buffer_size, init_f init_func, put_f put_func, get_f get_func,
+  reduce_f reduce_func, accum_f accum_func, write_f write_func) {
   typedef cub::WarpReduce<value_t> warp_reduce;
 
   value_idx cur_row_a = blockIdx.x / n_blocks_per_row;
@@ -96,18 +96,21 @@ __global__ void balanced_coo_generalized_spmv_kernel(
   value_idx active_chunk_size = min(chunk_size * tpb, nnz_b - ind_offset);
 
   int tid = threadIdx.x;
-  int warp_id = tid / 32;
+  int warp_id = tid / raft::warp_size();
 
   // compute id relative to current warp
-  unsigned int lane_id = tid & 31;
+  unsigned int lane_id = tid & (raft::warp_size() - 1);
   value_idx ind = ind_offset + threadIdx.x;
 
   if (cur_row_a > m || cur_chunk_offset > n_blocks_per_row) return;
   if (ind >= nnz_b) return;
 
-  __shared__ kv_t A[buffer_size];
-  __shared__ value_idx offsets_a[2];
-  __shared__ typename warp_reduce::TempStorage temp_storage[32];
+  __shared__
+    typename warp_reduce::TempStorage temp_storage[tpb / raft::warp_size()];
+  extern __shared__ char smem[];
+
+  value_idx *offsets_a = (value_idx *)smem;
+  kv_t *A = (kv_t *)(smem + (2 * sizeof(value_idx)));
 
   if (tid == 0) {
     offsets_a[0] = indptrA[cur_row_a];
@@ -173,11 +176,21 @@ __global__ void balanced_coo_generalized_spmv_kernel(
   }
 }
 
+/**
+ * Computes the maximum number of columns that can be stored
+ * in shared memory in dense form with the given block size
+ * and precision.
+ * @tparam value_idx
+ * @tparam value_t
+ * @tparam tpb
+ * @return
+ */
 template <typename value_idx, typename value_t, int tpb = 1024>
-inline int balanced_coo_spmv_compute_smem() {
+inline int max_cols_per_block() {
   // compute max shared mem to use
-  return raft::getSharedMemPerBlock() - (2 * sizeof(value_idx)) -
-         (tpb * sizeof(value_t));
+  return (raft::getSharedMemPerBlock() - (2 * sizeof(value_idx)) -
+          ((tpb / raft::warp_size()) * sizeof(value_t))) /
+         sizeof(value_t);
 }
 
 /**
@@ -210,19 +223,22 @@ inline void balanced_coo_pairwise_generalized_spmv(
     raft::ceildiv(config_.b_nnz, chunk_size * threads_per_block);
   int n_blocks = config_.a_nrows * n_warps_per_row;
 
+  int smem_buffer_size =
+    max_cols_per_block<value_idx, value_t, threads_per_block>();
+
   CUML_LOG_DEBUG("n_blocks: %d", n_blocks);
   CUML_LOG_DEBUG("n_warps_per_row: %d", n_warps_per_row);
-
-  // @TODO: Compute this.
-  constexpr int smem = 11000;
+  CUML_LOG_DEBUG("smem_per_block: %d", raft::getSharedMemPerBlock());
+  CUML_LOG_DEBUG("max_cols_per_block: %d", smem_buffer_size);
 
   balanced_coo_generalized_spmv_kernel<value_idx, value_t, threads_per_block,
-                                       smem, false, value_t>
-    <<<n_blocks, threads_per_block, 0, config_.stream>>>(
+                                       false, value_t>
+    <<<n_blocks, threads_per_block, raft::getSharedMemPerBlock(),
+       config_.stream>>>(
       config_.a_indptr, config_.a_indices, config_.a_data, coo_rows_b,
       config_.b_indices, config_.b_data, config_.a_nrows, config_.b_nrows,
       config_.b_ncols, config_.b_nnz, out_dists, n_warps_per_row, chunk_size,
-      [] __device__() { return 0.0; },
+      smem_buffer_size, [] __device__() { return 0.0; },
       [] __device__(value_t * cache, value_idx k, value_t v) { cache[k] = v; },
       [] __device__(value_t * cache, value_idx k) { return cache[k]; },
       reduce_func, accum_func, write_func);
@@ -257,16 +273,17 @@ inline void balanced_coo_pairwise_generalized_spmv_rev(
   CUML_LOG_DEBUG("n_blocks: %d", n_blocks);
   CUML_LOG_DEBUG("n_warps_per_row: %d", n_warps_per_row);
 
-  // @TODO: Compute this.
-  constexpr int smem = 11000;
+  int smem_buffer_size =
+    max_cols_per_block<value_idx, value_t, threads_per_block>();
 
   balanced_coo_generalized_spmv_kernel<value_idx, value_t, threads_per_block,
-                                       smem, true, value_t>
-    <<<n_blocks, threads_per_block, 0, config_.stream>>>(
+                                       true, value_t>
+    <<<n_blocks, threads_per_block, raft::getSharedMemPerBlock(),
+       config_.stream>>>(
       config_.b_indptr, config_.b_indices, config_.b_data, coo_rows_a,
       config_.a_indices, config_.a_data, config_.b_nrows, config_.a_nrows,
       config_.a_ncols, config_.a_nnz, out_dists, n_warps_per_row, chunk_size,
-      [] __device__() { return 0.0; },
+      smem_buffer_size, [] __device__() { return 0.0; },
       [] __device__(value_t * cache, value_idx k, value_t v) { cache[k] = v; },
       [] __device__(value_t * cache, value_idx k) { return cache[k]; },
       reduce_func, accum_func, write_func);

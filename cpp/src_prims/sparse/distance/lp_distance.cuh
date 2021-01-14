@@ -44,8 +44,8 @@ namespace MLCommon {
 namespace Sparse {
 namespace Distance {
 
-template <typename value_idx = int, typename value_t = float, typename reduce_f,
-          typename accum_f, typename write_f>
+template <typename value_idx = int, typename value_t = float, int tpb = 1024,
+          typename reduce_f, typename accum_f, typename write_f>
 
 void unexpanded_lp_distances(
   value_t *out_dists, const distances_config_t<value_idx, value_t> &config_,
@@ -60,7 +60,10 @@ void unexpanded_lp_distances(
  *              use batching + hashing only for those large cols
  */
 
-  if (config_.a_ncols < 11000) {
+  if (config_.a_ncols < max_cols_per_block<value_idx, value_t, tpb>()) {
+    // TODO: Use n_cols to set shared memory and threads per block
+    // for max occupancy.
+
     raft::mr::device::buffer<value_idx> coo_rows(
       config_.allocator, config_.stream, max(config_.b_nnz, config_.a_nnz));
 
@@ -68,18 +71,19 @@ void unexpanded_lp_distances(
                                  coo_rows.data(), config_.b_nnz,
                                  config_.stream);
 
-    balanced_coo_pairwise_generalized_spmv<value_idx, value_t>(
+    balanced_coo_pairwise_generalized_spmv<value_idx, value_t, tpb>(
       out_dists, config_, coo_rows.data(), reduce_func, accum_func, write_func);
 
     MLCommon::Sparse::csr_to_coo(config_.a_indptr, config_.a_nrows,
                                  coo_rows.data(), config_.a_nnz,
                                  config_.stream);
 
-    balanced_coo_pairwise_generalized_spmv_rev<value_idx, value_t>(
+    balanced_coo_pairwise_generalized_spmv_rev<value_idx, value_t, tpb>(
       out_dists, config_, coo_rows.data(), reduce_func, accum_func, write_func);
 
   } else {
-    generalized_csr_pairwise_semiring<value_idx, value_t>(
+    // TODO: Find max nnz and set smem based on this value.
+    generalized_csr_pairwise_semiring<value_idx, value_t, tpb>(
       out_dists, config_, reduce_func, accum_func);
   }
 }
