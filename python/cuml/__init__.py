@@ -28,6 +28,7 @@ from cuml.datasets.classification import make_classification
 
 from cuml.decomposition.pca import PCA
 from cuml.decomposition.tsvd import TruncatedSVD
+from cuml.decomposition.incremental_pca import IncrementalPCA
 
 from cuml.fil.fil import ForestInference
 
@@ -49,6 +50,7 @@ from cuml.manifold.umap import UMAP
 from cuml.metrics.accuracy import accuracy_score
 from cuml.metrics.cluster.adjusted_rand_index import adjusted_rand_score
 from cuml.metrics.regression import r2_score
+from cuml.model_selection import train_test_split
 
 from cuml.naive_bayes.naive_bayes import MultinomialNB
 
@@ -57,7 +59,6 @@ from cuml.neighbors.kneighbors_classifier import KNeighborsClassifier
 from cuml.neighbors.kneighbors_regressor import KNeighborsRegressor
 
 from cuml.preprocessing.LabelEncoder import LabelEncoder
-from cuml.preprocessing.model_selection import train_test_split
 
 from cuml.random_projection.random_projection import GaussianRandomProjection
 from cuml.random_projection.random_projection import SparseRandomProjection
