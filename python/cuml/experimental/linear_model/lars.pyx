@@ -38,7 +38,7 @@ from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.base import Base, RegressorMixin
 from cuml.common.doc_utils import generate_docstring
 from cuml.common.exceptions import NotFittedError
-from cuml.raft.common.handle cimport handle_t
+from raft.common.handle cimport handle_t
 
 cdef extern from "cuml/solvers/lars.hpp" namespace "ML::Solver::Lars":
 

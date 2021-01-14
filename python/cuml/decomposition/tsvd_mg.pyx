@@ -29,7 +29,7 @@ from cython.operator cimport dereference as deref
 
 import cuml.internals
 from cuml.common.base import Base
-from cuml.raft.common.handle cimport handle_t
+from raft.common.handle cimport handle_t
 from cuml.decomposition.utils cimport *
 import cuml.common.opg_data_utils_mg as opg
 from cuml.common.opg_data_utils_mg cimport *

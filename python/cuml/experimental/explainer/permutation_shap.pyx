@@ -33,7 +33,7 @@ from cuml.experimental.explainer.common import output_list_shap_values
 from numba import cuda
 from pandas import DataFrame as pd_df
 
-from cuml.raft.common.handle cimport handle_t
+from raft.common.handle cimport handle_t
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t
 

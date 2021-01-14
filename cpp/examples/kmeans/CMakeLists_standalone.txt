@@ -37,4 +37,4 @@ add_executable(kmeans_example kmeans_example.cpp)
 # Need to set linker language to CUDA to link the CUDA Runtime
 set_target_properties(kmeans_example PROPERTIES LINKER_LANGUAGE "CUDA")
 # Link cuml
-target_link_libraries(kmeans_example cuml++)
+target_link_libraries(kmeans_example libcuml++)
