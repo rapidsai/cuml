@@ -69,7 +69,7 @@ class ip_distances_gemm_t : public ip_trans_getters_t<value_idx, value_t> {
    */
   explicit ip_distances_gemm_t(
     const distances_config_t<value_idx, value_t> &config)
-    : config_(config),
+    : config_(&config),
       workspace(config.allocator, config.stream, 0),
       csc_indptr(config.allocator, config.stream, 0),
       csc_indices(config.allocator, config.stream, 0),
@@ -97,24 +97,25 @@ class ip_distances_gemm_t : public ip_trans_getters_t<value_idx, value_t> {
 	   * Compute pairwise distances and return dense matrix in column-major format
 	   */
     CUML_LOG_DEBUG("Compute() inside inner-product d");
-    device_buffer<value_idx> out_batch_indptr(config_.allocator, config_.stream,
-                                              config_.a_nrows + 1);
-    device_buffer<value_idx> out_batch_indices(config_.allocator,
-                                               config_.stream, 0);
-    device_buffer<value_t> out_batch_data(config_.allocator, config_.stream, 0);
+    device_buffer<value_idx> out_batch_indptr(
+      config_->allocator, config_->stream, config_->a_nrows + 1);
+    device_buffer<value_idx> out_batch_indices(config_->allocator,
+                                               config_->stream, 0);
+    device_buffer<value_t> out_batch_data(config_->allocator, config_->stream,
+                                          0);
 
     value_idx out_batch_nnz = get_nnz(out_batch_indptr.data());
 
-    out_batch_indices.resize(out_batch_nnz, config_.stream);
-    out_batch_data.resize(out_batch_nnz, config_.stream);
+    out_batch_indices.resize(out_batch_nnz, config_->stream);
+    out_batch_data.resize(out_batch_nnz, config_->stream);
 
     compute_gemm(out_batch_indptr.data(), out_batch_indices.data(),
                  out_batch_data.data());
 
-    csr_to_dense(config_.handle, config_.a_nrows, config_.b_nrows,
+    csr_to_dense(config_->handle, config_->a_nrows, config_->b_nrows,
                  out_batch_indptr.data(), out_batch_indices.data(),
-                 out_batch_data.data(), config_.a_nrows, out_distances,
-                 config_.stream, true);
+                 out_batch_data.data(), config_->a_nrows, out_distances,
+                 config_->stream, true);
   }
 
   virtual value_idx *trans_indptr() { return csc_indptr.data(); }
@@ -130,7 +131,7 @@ class ip_distances_gemm_t : public ip_trans_getters_t<value_idx, value_t> {
     CUSPARSE_CHECK_NO_THROW(cusparseDestroyMatDescr(matD));
 
     CUSPARSE_CHECK_NO_THROW(
-      cusparseSetPointerMode(config_.handle, orig_ptr_mode));
+      cusparseSetPointerMode(config_->handle, orig_ptr_mode));
   }
 
  private:
@@ -141,41 +142,41 @@ class ip_distances_gemm_t : public ip_trans_getters_t<value_idx, value_t> {
   }
 
   value_idx get_nnz(value_idx *csr_out_indptr) {
-    value_idx m = config_.a_nrows, n = config_.b_nrows, k = config_.a_ncols;
+    value_idx m = config_->a_nrows, n = config_->b_nrows, k = config_->a_ncols;
 
     transpose_b();
 
     size_t workspace_size;
 
     CUSPARSE_CHECK(raft::sparse::cusparsecsrgemm2_buffersizeext<value_t>(
-      config_.handle, m, n, k, &alpha, NULL, matA, config_.a_nnz,
-      config_.a_indptr, config_.a_indices, matB, config_.b_nnz,
+      config_->handle, m, n, k, &alpha, NULL, matA, config_->a_nnz,
+      config_->a_indptr, config_->a_indices, matB, config_->b_nnz,
       csc_indptr.data(), csc_indices.data(), matD, 0, NULL, NULL, info,
-      &workspace_size, config_.stream));
+      &workspace_size, config_->stream));
 
-    workspace.resize(workspace_size, config_.stream);
+    workspace.resize(workspace_size, config_->stream);
 
     value_idx out_nnz = 0;
 
     CUSPARSE_CHECK(raft::sparse::cusparsecsrgemm2nnz(
-      config_.handle, m, n, k, matA, config_.a_nnz, config_.a_indptr,
-      config_.a_indices, matB, config_.b_nnz, csc_indptr.data(),
+      config_->handle, m, n, k, matA, config_->a_nnz, config_->a_indptr,
+      config_->a_indices, matB, config_->b_nnz, csc_indptr.data(),
       csc_indices.data(), matD, 0, NULL, NULL, matC, csr_out_indptr, &out_nnz,
-      info, workspace.data(), config_.stream));
+      info, workspace.data(), config_->stream));
 
     return out_nnz;
   }
 
   void compute_gemm(const value_idx *csr_out_indptr, value_idx *csr_out_indices,
                     value_t *csr_out_data) {
-    value_idx m = config_.a_nrows, n = config_.b_nrows, k = config_.a_ncols;
+    value_idx m = config_->a_nrows, n = config_->b_nrows, k = config_->a_ncols;
 
     CUSPARSE_CHECK(raft::sparse::cusparsecsrgemm2<value_t>(
-      config_.handle, m, n, k, &alpha, matA, config_.a_nnz, config_.a_data,
-      config_.a_indptr, config_.a_indices, matB, config_.b_nnz, csc_data.data(),
-      csc_indptr.data(), csc_indices.data(), NULL, matD, 0, NULL, NULL, NULL,
-      matC, csr_out_data, csr_out_indptr, csr_out_indices, info,
-      workspace.data(), config_.stream));
+      config_->handle, m, n, k, &alpha, matA, config_->a_nnz, config_->a_data,
+      config_->a_indptr, config_->a_indices, matB, config_->b_nnz,
+      csc_data.data(), csc_indptr.data(), csc_indices.data(), NULL, matD, 0,
+      NULL, NULL, NULL, matC, csr_out_data, csr_out_indptr, csr_out_indices,
+      info, workspace.data(), config_->stream));
   }
 
   void transpose_b() {
@@ -183,16 +184,16 @@ class ip_distances_gemm_t : public ip_trans_getters_t<value_idx, value_t> {
      * Transpose index array into csc
      */
     CUML_LOG_DEBUG("Transposing index CSR. rows=%d, cols=%d, nnz=%d",
-                   config_.b_nrows, config_.b_ncols, config_.b_nnz);
+                   config_->b_nrows, config_->b_ncols, config_->b_nnz);
 
-    csc_indptr.resize(config_.b_ncols + 1, config_.stream);
-    csc_indices.resize(config_.b_nnz, config_.stream);
-    csc_data.resize(config_.b_nnz, config_.stream);
+    csc_indptr.resize(config_->b_ncols + 1, config_->stream);
+    csc_indices.resize(config_->b_nnz, config_->stream);
+    csc_data.resize(config_->b_nnz, config_->stream);
 
-    csr_transpose(config_.handle, config_.b_indptr, config_.b_indices,
-                  config_.b_data, csc_indptr.data(), csc_indices.data(),
-                  csc_data.data(), config_.b_nrows, config_.b_ncols,
-                  config_.b_nnz, config_.allocator, config_.stream);
+    csr_transpose(config_->handle, config_->b_indptr, config_->b_indices,
+                  config_->b_data, csc_indptr.data(), csc_indices.data(),
+                  csc_data.data(), config_->b_nrows, config_->b_ncols,
+                  config_->b_nnz, config_->allocator, config_->stream);
   }
 
   value_t alpha;
@@ -206,7 +207,7 @@ class ip_distances_gemm_t : public ip_trans_getters_t<value_idx, value_t> {
   device_buffer<value_idx> csc_indptr;
   device_buffer<value_idx> csc_indices;
   device_buffer<value_t> csc_data;
-  distances_config_t<value_idx, value_t> config_;
+  const distances_config_t<value_idx, value_t> *config_;
 };
 
 template <typename value_idx, typename value_t>
@@ -217,11 +218,11 @@ class ip_distances_spmv_t : public ip_trans_getters_t<value_idx, value_t> {
    * @param[in] config specifies inputs, outputs, and sizes
    */
   ip_distances_spmv_t(const distances_config_t<value_idx, value_t> &config)
-    : config_(config),
+    : config_(&config),
       coo_rows_b(config.allocator, config.stream, config.b_nnz) {
-    MLCommon::Sparse::csr_to_coo(config_.b_indptr, config_.b_nrows,
-                                 coo_rows_b.data(), config_.b_nnz,
-                                 config_.stream);
+    MLCommon::Sparse::csr_to_coo(config_->b_indptr, config_->b_nrows,
+                                 coo_rows_b.data(), config_->b_nnz,
+                                 config_->stream);
   }
 
   /**
@@ -233,17 +234,18 @@ class ip_distances_spmv_t : public ip_trans_getters_t<value_idx, value_t> {
 	   * Compute pairwise distances and return dense matrix in row-major format
 	   */
     balanced_coo_pairwise_generalized_spmv<value_idx, value_t>(
-      out_distances, config_, coo_rows_b.data(), Product(), Sum(), AtomicAdd());
+      out_distances, *config_, coo_rows_b.data(), Product(), Sum(),
+      AtomicAdd());
   }
 
   value_idx *trans_indices() { return coo_rows_b.data(); }
 
-  value_t *trans_data() { return config_.b_data; }
+  value_t *trans_data() { return config_->b_data; }
 
   ~ip_distances_spmv_t() = default;
 
  private:
-  distances_config_t<value_idx, value_t> config_;
+  const distances_config_t<value_idx, value_t> *config_;
   device_buffer<value_idx> coo_rows_b;
 };
 
@@ -255,15 +257,13 @@ class ip_distances_t : public distances_t<value_t> {
    * @param[in] config specifies inputs, outputs, and sizes
    */
   explicit ip_distances_t(const distances_config_t<value_idx, value_t> &config)
-    : config_(config) {
-    if (config_.a_ncols < max_cols_per_block<value_idx, value_t>()) {
+    : config_(&config) {
+    if (config_->a_ncols < max_cols_per_block<value_idx, value_t>()) {
       internal_ip_dist =
-        std::unique_ptr<ip_trans_getters_t<value_idx, value_t>>(
-          new ip_distances_spmv_t<value_idx, value_t>(config_));
+        std::make_unique<ip_distances_spmv_t<value_idx, value_t>>(*config_);
     } else {
       internal_ip_dist =
-        std::unique_ptr<ip_trans_getters_t<value_idx, value_t>>(
-          new ip_distances_gemm_t<value_idx, value_t>(config_));
+        std::make_unique<ip_distances_gemm_t<value_idx, value_t>>(*config_);
     }
   }
 
@@ -285,7 +285,7 @@ class ip_distances_t : public distances_t<value_t> {
   virtual value_t *trans_data() const { return internal_ip_dist->trans_data(); }
 
  private:
-  distances_config_t<value_idx, value_t> config_;
+  const distances_config_t<value_idx, value_t> *config_;
   std::unique_ptr<ip_trans_getters_t<value_idx, value_t>> internal_ip_dist;
 };
 

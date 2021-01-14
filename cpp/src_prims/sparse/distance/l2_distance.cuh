@@ -123,7 +123,7 @@ class l2_expanded_distances_t : public distances_t<value_t> {
  public:
   explicit l2_expanded_distances_t(
     const distances_config_t<value_idx, value_t> &config)
-    : config_(config),
+    : config_(&config),
       workspace(config.allocator, config.stream, 0),
       ip_dists(config) {}
 
@@ -135,18 +135,18 @@ class l2_expanded_distances_t : public distances_t<value_t> {
     value_t *b_data = ip_dists.trans_data();
 
     CUML_LOG_DEBUG("Computing COO row index array");
-    device_buffer<value_idx> search_coo_rows(config_.allocator, config_.stream,
-                                             config_.a_nnz);
-    csr_to_coo(config_.a_indptr, config_.a_nrows, search_coo_rows.data(),
-               config_.a_nnz, config_.stream);
+    device_buffer<value_idx> search_coo_rows(config_->allocator,
+                                             config_->stream, config_->a_nnz);
+    csr_to_coo(config_->a_indptr, config_->a_nrows, search_coo_rows.data(),
+               config_->a_nnz, config_->stream);
 
     CUML_LOG_DEBUG("Done.");
 
     CUML_LOG_DEBUG("Computing L2");
     compute_l2(
-      out_dists, search_coo_rows.data(), config_.a_data, config_.a_nnz,
-      b_indices, b_data, config_.b_nnz, config_.a_nrows, config_.b_nrows,
-      config_.handle, config_.allocator, config_.stream,
+      out_dists, search_coo_rows.data(), config_->a_data, config_->a_nnz,
+      b_indices, b_data, config_->b_nnz, config_->a_nrows, config_->b_nrows,
+      config_->handle, config_->allocator, config_->stream,
       [] __device__ __host__(value_t dot, value_t q_norm, value_t r_norm) {
         return -2 * dot + q_norm + r_norm;
       });
@@ -156,7 +156,7 @@ class l2_expanded_distances_t : public distances_t<value_t> {
   ~l2_expanded_distances_t() = default;
 
  private:
-  distances_config_t<value_idx, value_t> config_;
+  const distances_config_t<value_idx, value_t> *config_;
   device_buffer<char> workspace;
   ip_distances_t<value_idx, value_t> ip_dists;
 };
@@ -170,7 +170,7 @@ class cosine_expanded_distances_t : public distances_t<value_t> {
  public:
   explicit cosine_expanded_distances_t(
     const distances_config_t<value_idx, value_t> &config)
-    : config_(config),
+    : config_(&config),
       workspace(config.allocator, config.stream, 0),
       ip_dists(config) {}
 
@@ -182,18 +182,18 @@ class cosine_expanded_distances_t : public distances_t<value_t> {
     value_t *b_data = ip_dists.trans_data();
 
     CUML_LOG_DEBUG("Computing COO row index array");
-    device_buffer<value_idx> search_coo_rows(config_.allocator, config_.stream,
-                                             config_.a_nnz);
-    csr_to_coo(config_.a_indptr, config_.a_nrows, search_coo_rows.data(),
-               config_.a_nnz, config_.stream);
+    device_buffer<value_idx> search_coo_rows(config_->allocator,
+                                             config_->stream, config_->a_nnz);
+    csr_to_coo(config_->a_indptr, config_->a_nrows, search_coo_rows.data(),
+               config_->a_nnz, config_->stream);
 
     CUML_LOG_DEBUG("Done.");
 
     CUML_LOG_DEBUG("Computing L2");
     compute_l2(
-      out_dists, search_coo_rows.data(), config_.a_data, config_.a_nnz,
-      b_indices, b_data, config_.b_nnz, config_.a_nrows, config_.b_nrows,
-      config_.handle, config_.allocator, config_.stream,
+      out_dists, search_coo_rows.data(), config_->a_data, config_->a_nnz,
+      b_indices, b_data, config_->b_nnz, config_->a_nrows, config_->b_nrows,
+      config_->handle, config_->allocator, config_->stream,
       [] __device__ __host__(value_t dot, value_t q_norm, value_t r_norm) {
         value_t q_normalized = sqrt(q_norm);
         value_t r_normalized = sqrt(r_norm);
@@ -206,7 +206,7 @@ class cosine_expanded_distances_t : public distances_t<value_t> {
   ~cosine_expanded_distances_t() = default;
 
  private:
-  distances_config_t<value_idx, value_t> config_;
+  const distances_config_t<value_idx, value_t> *config_;
   device_buffer<char> workspace;
   ip_distances_t<value_idx, value_t> ip_dists;
 };
@@ -220,7 +220,7 @@ class hellinger_expanded_distances_t : public distances_t<value_t> {
  public:
   explicit hellinger_expanded_distances_t(
     const distances_config_t<value_idx, value_t> &config)
-    : config_(config),
+    : config_(&config),
       workspace(config.allocator, config.stream, 0),
       l2_dists(config) {}
 
@@ -229,31 +229,32 @@ class hellinger_expanded_distances_t : public distances_t<value_t> {
 
     // First sqrt A and B
     raft::linalg::unaryOp<value_t>(
-      config_.a_data, config_.a_data, config_.a_nnz,
-      [=] __device__(value_t input) { return sqrt(input); }, config_.stream);
+      config_->a_data, config_->a_data, config_->a_nnz,
+      [=] __device__(value_t input) { return sqrt(input); }, config_->stream);
     raft::linalg::unaryOp<value_t>(
-      config_.b_data, config_.b_data, config_.b_nnz,
-      [=] __device__(value_t input) { return sqrt(input); }, config_.stream);
+      config_->b_data, config_->b_data, config_->b_nnz,
+      [=] __device__(value_t input) { return sqrt(input); }, config_->stream);
 
     l2_dists.compute(out_dists);
 
     // Revert sqrt of A and B
     raft::linalg::unaryOp<value_t>(
-      config_.a_data, config_.a_data, config_.a_nnz,
+      config_->a_data, config_->a_data, config_->a_nnz,
       [=] __device__(value_t input) { return __powf(input, 2.0); },
-      config_.stream);
+      config_->stream);
     raft::linalg::unaryOp<value_t>(
-      config_.b_data, config_.b_data, config_.b_nnz,
+      config_->b_data, config_->b_data, config_->b_nnz,
       [=] __device__(value_t input) { return __powf(input, 2.0); },
-      config_.stream);
+      config_->stream);
 
     // Divide dists by sqrt(2)
 
     value_t sqrt_2 = 1.0 / sqrt(2.0);
 
     raft::linalg::unaryOp<value_t>(
-      out_dists, out_dists, config_.a_nrows * config_.b_nrows,
-      [=] __device__(value_t input) { return input * sqrt_2; }, config_.stream);
+      out_dists, out_dists, config_->a_nrows * config_->b_nrows,
+      [=] __device__(value_t input) { return input * sqrt_2; },
+      config_->stream);
 
     CUML_LOG_DEBUG("Done.");
   }
@@ -261,7 +262,7 @@ class hellinger_expanded_distances_t : public distances_t<value_t> {
   ~hellinger_expanded_distances_t() = default;
 
  private:
-  distances_config_t<value_idx, value_t> config_;
+  const distances_config_t<value_idx, value_t> *config_;
   device_buffer<char> workspace;
   l2_expanded_distances_t<value_idx, value_t> l2_dists;
 };

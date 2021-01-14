@@ -48,7 +48,7 @@ template <typename value_idx = int, typename value_t = float, int tpb = 1024,
           typename reduce_f, typename accum_f, typename write_f>
 
 void unexpanded_lp_distances(
-  value_t *out_dists, const distances_config_t<value_idx, value_t> &config_,
+  value_t *out_dists, const distances_config_t<value_idx, value_t> *config_,
   reduce_f reduce_func, accum_f accum_func, write_f write_func) {
   /**
  * @TODO: Main logic here:
@@ -61,33 +61,35 @@ void unexpanded_lp_distances(
  *  Ref: https://github.com/rapidsai/cuml/issues/3371
  */
 
-  if (config_.a_ncols < max_cols_per_block<value_idx, value_t, tpb>()) {
+  if (config_->a_ncols < max_cols_per_block<value_idx, value_t, tpb>()) {
     // TODO: Use n_cols to set shared memory and threads per block
     // for max occupancy.
     // Ref: https://github.com/rapidsai/cuml/issues/3371
 
     raft::mr::device::buffer<value_idx> coo_rows(
-      config_.allocator, config_.stream, max(config_.b_nnz, config_.a_nnz));
+      config_->allocator, config_->stream, max(config_->b_nnz, config_->a_nnz));
 
-    MLCommon::Sparse::csr_to_coo(config_.b_indptr, config_.b_nrows,
-                                 coo_rows.data(), config_.b_nnz,
-                                 config_.stream);
+    MLCommon::Sparse::csr_to_coo(config_->b_indptr, config_->b_nrows,
+                                 coo_rows.data(), config_->b_nnz,
+                                 config_->stream);
 
     balanced_coo_pairwise_generalized_spmv<value_idx, value_t, tpb>(
-      out_dists, config_, coo_rows.data(), reduce_func, accum_func, write_func);
+      out_dists, *config_, coo_rows.data(), reduce_func, accum_func,
+      write_func);
 
-    MLCommon::Sparse::csr_to_coo(config_.a_indptr, config_.a_nrows,
-                                 coo_rows.data(), config_.a_nnz,
-                                 config_.stream);
+    MLCommon::Sparse::csr_to_coo(config_->a_indptr, config_->a_nrows,
+                                 coo_rows.data(), config_->a_nnz,
+                                 config_->stream);
 
     balanced_coo_pairwise_generalized_spmv_rev<value_idx, value_t, tpb>(
-      out_dists, config_, coo_rows.data(), reduce_func, accum_func, write_func);
+      out_dists, *config_, coo_rows.data(), reduce_func, accum_func,
+      write_func);
 
   } else {
     // TODO: Find max nnz and set smem based on this value.
     // Ref: https://github.com/rapidsai/cuml/issues/3371
     generalized_csr_pairwise_semiring<value_idx, value_t, tpb>(
-      out_dists, config_, reduce_func, accum_func);
+      out_dists, *config_, reduce_func, accum_func);
   }
 }
 
@@ -103,7 +105,7 @@ class l1_unexpanded_distances_t : public distances_t<value_t> {
  public:
   l1_unexpanded_distances_t(
     const distances_config_t<value_idx, value_t> &config)
-    : config_(config) {}
+    : config_(&config) {}
 
   void compute(value_t *out_dists) {
     CUML_LOG_DEBUG("Running l1 dists");
@@ -113,7 +115,7 @@ class l1_unexpanded_distances_t : public distances_t<value_t> {
   }
 
  private:
-  distances_config_t<value_idx, value_t> config_;
+  const distances_config_t<value_idx, value_t> *config_;
 };
 
 template <typename value_idx = int, typename value_t = float>
@@ -121,7 +123,7 @@ class l2_unexpanded_distances_t : public distances_t<value_t> {
  public:
   l2_unexpanded_distances_t(
     const distances_config_t<value_idx, value_t> &config)
-    : config_(config) {}
+    : config_(&config) {}
 
   void compute(value_t *out_dists) {
     unexpanded_lp_distances<value_idx, value_t>(out_dists, config_, SqDiff(),
@@ -129,7 +131,7 @@ class l2_unexpanded_distances_t : public distances_t<value_t> {
   }
 
  private:
-  distances_config_t<value_idx, value_t> config_;
+  const distances_config_t<value_idx, value_t> *config_;
 };
 
 template <typename value_idx = int, typename value_t = float>
@@ -137,7 +139,7 @@ class linf_unexpanded_distances_t : public distances_t<value_t> {
  public:
   explicit linf_unexpanded_distances_t(
     const distances_config_t<value_idx, value_t> &config)
-    : config_(config) {}
+    : config_(&config) {}
 
   void compute(value_t *out_dists) {
     unexpanded_lp_distances<value_idx, value_t>(out_dists, config_, AbsDiff(),
@@ -145,7 +147,7 @@ class linf_unexpanded_distances_t : public distances_t<value_t> {
   }
 
  private:
-  distances_config_t<value_idx, value_t> config_;
+  const distances_config_t<value_idx, value_t> *config_;
 };
 
 template <typename value_idx = int, typename value_t = float>
@@ -153,7 +155,7 @@ class canberra_unexpanded_distances_t : public distances_t<value_t> {
  public:
   explicit canberra_unexpanded_distances_t(
     const distances_config_t<value_idx, value_t> &config)
-    : config_(config) {}
+    : config_(&config) {}
 
   void compute(value_t *out_dists) {
     unexpanded_lp_distances<value_idx, value_t>(
@@ -165,7 +167,7 @@ class canberra_unexpanded_distances_t : public distances_t<value_t> {
   }
 
  private:
-  distances_config_t<value_idx, value_t> config_;
+  const distances_config_t<value_idx, value_t> *config_;
 };
 
 template <typename value_idx = int, typename value_t = float>
@@ -173,7 +175,7 @@ class lp_unexpanded_distances_t : public distances_t<value_t> {
  public:
   explicit lp_unexpanded_distances_t(
     const distances_config_t<value_idx, value_t> &config, value_t p_)
-    : config_(config), p(p_) {}
+    : config_(&config), p(p_) {}
 
   void compute(value_t *out_dists) {
     unexpanded_lp_distances<value_idx, value_t>(out_dists, config_, PDiff(p),
@@ -181,13 +183,13 @@ class lp_unexpanded_distances_t : public distances_t<value_t> {
 
     float pow = 1.0f / p;
     raft::linalg::unaryOp<value_t>(
-      out_dists, out_dists, config_.a_nrows * config_.b_nrows,
+      out_dists, out_dists, config_->a_nrows * config_->b_nrows,
       [=] __device__(value_t input) { return powf(input, pow); },
-      config_.stream);
+      config_->stream);
   }
 
  private:
-  distances_config_t<value_idx, value_t> config_;
+  const distances_config_t<value_idx, value_t> *config_;
   value_t p;
 };
 
