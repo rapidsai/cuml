@@ -67,7 +67,7 @@ template <typename T2>
 DI T2 repulsive_grad(T2 dist_squared, T2 gamma, UMAPParams params) {
   auto grad_coeff = T2(2.0) * gamma * params.b;
   grad_coeff /= (T2(0.001) + dist_squared) *
-                (params.a * __powf(dist_squared, params.b) + T2(1.0));
+                (params.a * powf(dist_squared, params.b) + T2(1.0));
   return grad_coeff;
 }
 
@@ -77,8 +77,8 @@ DI T2 repulsive_grad(T2 dist_squared, T2 gamma, UMAPParams params) {
 template <typename T2>
 DI T2 attractive_grad(T2 dist_squared, UMAPParams params) {
   auto grad_coeff =
-    T2(-2.0) * params.a * params.b * __powf(dist_squared, params.b - T2(1.0));
-  grad_coeff /= params.a * __powf(dist_squared, params.b) + T2(1.0);
+    T2(-2.0) * params.a * params.b * powf(dist_squared, params.b - T2(1.0));
+  grad_coeff /= params.a * powf(dist_squared, params.b) + T2(1.0);
   return grad_coeff;
 }
 
