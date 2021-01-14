@@ -164,6 +164,7 @@ def average_precision_score(y_true, y_score):
     precision, recall, thresholds = precision_recall_curve(y_true, y_score)
     return -cp.sum(cp.diff(recall) * cp.array(precision)[:-1])
 
+
 @cuml.internals.api_return_any()
 def roc_auc_score(y_true, y_score):
     """
