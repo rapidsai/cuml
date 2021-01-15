@@ -230,19 +230,20 @@ class MultinomialNB(Base, ClassifierMixin):
 
     @generate_docstring(X='dense_sparse')
     @cp.prof.TimeRangeDecorator(message="fit()", color_id=0)
-    def fit(self, X, y, sample_weight=None) -> "MultinomialNB":
+    def fit(self, X, y, sample_weight=None, convert_dtype=True) -> "MultinomialNB":
         """
         Fit Naive Bayes classifier according to X, y
 
         """
-        return self.partial_fit(X, y, sample_weight)
+        return self.partial_fit(X, y, sample_weight, convert_dtype=convert_dtype)
 
     @cp.prof.TimeRangeDecorator(message="fit()", color_id=0)
     def _partial_fit(self,
                      X,
                      y,
                      sample_weight=None,
-                     _classes=None) -> "MultinomialNB":
+                     _classes=None,
+                     convert_dtype=True) -> "MultinomialNB":
 
         if has_scipy():
             from scipy.sparse import isspmatrix as scipy_sparse_isspmatrix
@@ -262,15 +263,24 @@ class MultinomialNB(Base, ClassifierMixin):
         else:
             X = input_to_cupy_array(X, order='K',
                                     check_dtype=[cp.float32, cp.float64]).array
-
-        y = input_to_cupy_array(y, check_dtype=[cp.int32, cp.int64]).array
+        expected_y_dtype = cp.int32 if X.dtype == cp.float32 else cp.int64
+        y = input_to_cupy_array(y,
+                                convert_to_dtype=(expected_y_dtype
+                                                  if convert_dtype
+                                                  else False),
+                                check_dtype=expected_y_dtype).array
 
         Y, label_classes = make_monotonic(y, copy=True)
 
         if not self.fit_called_:
             self.fit_called_ = True
             if _classes is not None:
-                _classes, *_ = input_to_cuml_array(_classes, order='K')
+                _classes, *_ = input_to_cuml_array(_classes,
+                                                   order='K',
+                                                   convert_to_dtype=(
+                                                       expected_y_dtype
+                                                       if convert_dtype
+                                                       else False))
                 check_labels(Y, _classes)
                 self.classes_ = _classes
             else:
@@ -303,7 +313,8 @@ class MultinomialNB(Base, ClassifierMixin):
                     X,
                     y,
                     classes=None,
-                    sample_weight=None) -> "MultinomialNB":
+                    sample_weight=None,
+                    convert_dtype=True) -> "MultinomialNB":
         """
         Incremental fit on a batch of samples.
 
@@ -325,7 +336,8 @@ class MultinomialNB(Base, ClassifierMixin):
             Training vectors, where n_samples is the number of samples and
             n_features is the number of features
 
-        y : array-like of shape (n_samples) Target values.
+        y : array-like of int32 or int64, shape (n_samples) Target values.
+
         classes : array-like of shape (n_classes)
                   List of all the classes that can possibly appear in the y
                   vector. Must be provided at the first call to partial_fit,
@@ -334,6 +346,9 @@ class MultinomialNB(Base, ClassifierMixin):
         sample_weight : array-like of shape (n_samples)
                         Weights applied to individual samples (1. for
                         unweighted). Currently sample weight is ignored
+
+        convert_dtype : bool
+                        If True, convert y to the appropriate dtype (int)
 
         Returns
         -------

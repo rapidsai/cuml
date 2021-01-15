@@ -86,7 +86,8 @@ def test_basic_fit_predict_dense_numpy(x_dtype, y_dtype, nlp_20news):
 
 
 @pytest.mark.parametrize("x_dtype", [cp.float32, cp.float64])
-@pytest.mark.parametrize("y_dtype", [cp.int32, cp.int64])
+@pytest.mark.parametrize("y_dtype", [cp.int32, cp.int64,
+                                     cp.float32, cp.float64])
 def test_partial_fit(x_dtype, y_dtype, nlp_20news):
     chunk_size = 500
 
@@ -211,11 +212,3 @@ def test_score(x_dtype, y_dtype, nlp_20news):
     assert sk_score - THRES <= cuml_score <= sk_score + THRES
 
 
-def test_incorrect_dtype_raises_value_error(nlp_20news):
-    X, y = nlp_20news
-
-    cu_X = sparse_scipy_to_cp(X, np.float32).astype(np.float32)
-    cu_y = y.astype(np.float32)
-
-    with pytest.raises(TypeError):
-        MultinomialNB().fit(cu_X, cu_y)
