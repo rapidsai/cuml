@@ -77,7 +77,7 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
     cdef struct RF_params:
         int n_trees
         bool bootstrap
-        float rows_sample
+        float max_samples
         int seed
         pass
 
@@ -98,9 +98,10 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
     #
     # Text representation of random forest
     #
-    cdef void print_rf_summary[T, L](RandomForestMetaData[T, L]*) except +
-    cdef void print_rf_detailed[T, L](RandomForestMetaData[T, L]*) except +
-    cdef string dump_rf_as_json[T, L](RandomForestMetaData[T, L]*) except +
+    cdef string get_rf_summary_text[T, L](RandomForestMetaData[T, L]*) except +
+    cdef string get_rf_detailed_text[T, L](RandomForestMetaData[T, L]*
+                                           ) except +
+    cdef string get_rf_json[T, L](RandomForestMetaData[T, L]*) except +
 
     cdef RF_params set_rf_class_obj(int,
                                     int,

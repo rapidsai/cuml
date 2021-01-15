@@ -13,10 +13,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+import random
 from itertools import chain, permutations
 from functools import partial
 
 import cuml
+import cuml.common.logger as logger
 import cupy as cp
 import numpy as np
 import pytest
@@ -32,7 +34,7 @@ from cuml.test.utils import get_handle, get_pattern, array_equal, \
 from numba import cuda
 from numpy.testing import assert_almost_equal
 
-from sklearn.datasets import make_classification
+from sklearn.datasets import make_classification, make_blobs
 from sklearn.metrics import accuracy_score as sk_acc_score
 from sklearn.metrics import log_loss as sklearn_log_loss
 from sklearn.metrics.cluster import adjusted_rand_score as sk_ars
@@ -62,6 +64,39 @@ from sklearn.metrics import precision_recall_curve \
 
 from cuml.metrics import pairwise_distances, PAIRWISE_DISTANCE_METRICS
 from sklearn.metrics import pairwise_distances as sklearn_pairwise_distances
+
+
+@pytest.fixture(scope='module')
+def random_state():
+    random_state = random.randint(0, 1e6)
+    with logger.set_level(logger.level_debug):
+        logger.debug("Random seed: {}".format(random_state))
+    return random_state
+
+
+@pytest.fixture(
+    scope='module',
+    params=(
+        {'n_clusters': 2, 'n_features': 2, 'label_type': 'int64',
+            'data_type': 'float32'},
+        {'n_clusters': 5, 'n_features': 1000, 'label_type': 'int32',
+            'data_type': 'float64'}
+    )
+)
+def labeled_clusters(request, random_state):
+    data, labels = make_blobs(
+        n_samples=1000,
+        n_features=request.param['n_features'],
+        random_state=random_state,
+        centers=request.param['n_clusters'],
+        center_box=(-1, 1),
+        cluster_std=1.5  # Allow some cluster overlap
+    )
+
+    return (
+        data.astype(request.param['data_type']),
+        labels.astype(request.param['label_type'])
+    )
 
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])

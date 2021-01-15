@@ -39,7 +39,7 @@ else(DEFINED ENV{RAFT_PATH})
 
   ExternalProject_Add(raft
     GIT_REPOSITORY    https://github.com/rapidsai/raft.git
-    GIT_TAG           eebd0e306624b419168b2cd5cd7aa44ebaec51f1
+    GIT_TAG           9161d7a238aca859453d8517bd7ad92cbd902f6a
     PREFIX            ${RAFT_DIR}
     CONFIGURE_COMMAND ""
     BUILD_COMMAND     ""
@@ -185,7 +185,7 @@ endif(BUILD_STATIC_FAISS)
 ##############################################################################
 # - treelite build -----------------------------------------------------------
 
-find_package(Treelite 0.93 REQUIRED)
+find_package(Treelite 1.0.0 REQUIRED)
 
 ##############################################################################
 # - googletest build -----------------------------------------------------------
@@ -199,7 +199,7 @@ if(BUILD_GTEST)
 	include(ExternalProject)
 	ExternalProject_Add(googletest
 	  GIT_REPOSITORY    https://github.com/google/googletest.git
-	  GIT_TAG           6ce9b98f541b8bcd84c5c5b3483f29a933c4aefb
+	  GIT_TAG           release-1.10.0
 	  PREFIX            ${GTEST_DIR}
 	  CMAKE_ARGS        -DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>
 	                    -DBUILD_SHARED_LIBS=OFF

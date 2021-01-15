@@ -556,7 +556,6 @@ def test_robust_scale_sparse(sparse_clf_dataset,  # noqa: F811
 @pytest.mark.parametrize("n_bins", [5, 20])
 @pytest.mark.parametrize("encode", ['ordinal', 'onehot-dense', 'onehot'])
 @pytest.mark.parametrize("strategy", ['uniform', 'quantile', 'kmeans'])
-@pytest.mark.xfail(strict=False)
 def test_kbinsdiscretizer(blobs_dataset, n_bins,  # noqa: F811
                           encode, strategy):
     X_np, X = blobs_dataset
@@ -675,3 +674,15 @@ def test_inplace_csr_row_normalize_l2(sparse_clf_dataset):  # noqa: F811
     X_np = sk_normalize(X_np, norm='l2', axis=1)
 
     assert_allclose(X, X_np)
+
+
+def test__repr__():
+    assert cuStandardScaler().__repr__() == 'StandardScaler()'
+    assert cuMinMaxScaler().__repr__() == 'MinMaxScaler()'
+    assert cuMaxAbsScaler().__repr__() == 'MaxAbsScaler()'
+    assert cuNormalizer().__repr__() == 'Normalizer()'
+    assert cuBinarizer().__repr__() == 'Binarizer()'
+    assert cuPolynomialFeatures().__repr__() == 'PolynomialFeatures()'
+    assert cuSimpleImputer().__repr__() == 'SimpleImputer()'
+    assert cuRobustScaler().__repr__() == 'RobustScaler()'
+    assert cuKBinsDiscretizer().__repr__() == 'KBinsDiscretizer()'

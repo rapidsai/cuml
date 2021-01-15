@@ -16,6 +16,7 @@
 
 #include <math.h>
 #include <raft/cudart_utils.h>
+#include <raft/linalg/distance_type.h>
 #include <algorithm>
 #include <common/device_buffer.hpp>
 #include <cub/cub.cuh>
@@ -176,7 +177,9 @@ template <typename DataT, typename LabelT>
 DataT silhouette_score(DataT *X_in, int nRows, int nCols, LabelT *labels,
                        int nLabels, DataT *silhouette_scorePerSample,
                        std::shared_ptr<MLCommon::deviceAllocator> allocator,
-                       cudaStream_t stream, int metric = 4) {
+                       cudaStream_t stream,
+                       raft::distance::DistanceType metric =
+                         raft::distance::DistanceType::L2Unexpanded) {
   ASSERT(nLabels >= 2 && nLabels <= (nRows - 1),
          "silhouette Score not defined for the given number of labels!");
 

@@ -31,7 +31,7 @@ struct RfInputs {
   int n_cols;
   int n_trees;
   float max_features;
-  float rows_sample;
+  float max_samples;
   int max_depth;
   int max_leaves;
   bool bootstrap;
@@ -75,7 +75,7 @@ class RfClassifierDepthTest : public ::testing::TestWithParam<int> {
                     params.split_criterion, false);
     RF_params rf_params;
     set_all_rf_params(rf_params, params.n_trees, params.bootstrap,
-                      params.rows_sample, -1, params.n_streams, tree_params);
+                      params.max_samples, -1, params.n_streams, tree_params);
 
     int data_len = params.n_rows * params.n_cols;
     raft::allocate(data, data_len);
@@ -169,7 +169,7 @@ class RfRegressorDepthTest : public ::testing::TestWithParam<int> {
                     params.split_criterion, false);
     RF_params rf_params;
     set_all_rf_params(rf_params, params.n_trees, params.bootstrap,
-                      params.rows_sample, -1, params.n_streams, tree_params);
+                      params.max_samples, -1, params.n_streams, tree_params);
 
     int data_len = params.n_rows * params.n_cols;
     raft::allocate(data, data_len);
