@@ -24,6 +24,7 @@
 #include <algorithm>
 #include <cmath>
 #include <limits>
+#include <numeric>
 #include <stack>
 #include <utility>
 
@@ -543,12 +544,11 @@ void tree2fil_dense(std::vector<dense_node>* pnodes, int root,
 }
 
 template <typename fil_node_t, typename T, typename L>
-int tree2fil_sparse(std::vector<fil_node_t>* pnodes, const tl::Tree<T, L>& tree,
+int tree2fil_sparse(std::vector<fil_node_t>* pnodes, int root, const tl::Tree<T, L>& tree,
                     const forest_params_t& forest_params) {
   typedef std::pair<int, int> pair_t;
   std::stack<pair_t> stack;
-  int root = pnodes->size();
-  pnodes->push_back(fil_node_t());
+  int built_index = root + 1;
   stack.push(pair_t(tree_root(tree), 0));
   while (!stack.empty()) {
     const pair_t& top = stack.top();
@@ -572,9 +572,8 @@ int tree2fil_sparse(std::vector<fil_node_t>* pnodes, const tl::Tree<T, L>& tree,
       // reserve space for child nodes
       // left is the offset of the left child node relative to the tree root
       // in the array of all nodes of the FIL sparse forest
-      int left = pnodes->size() - root;
-      pnodes->push_back(fil_node_t());
-      pnodes->push_back(fil_node_t());
+      int left = built_index - root;
+      built_index += 2;
       (*pnodes)[root + cur] =
         fil_node_t(val_t{.f = 0}, threshold, tree.SplitIndex(node_id),
                    default_left, false, left);
@@ -751,11 +750,26 @@ void tl2fil_sparse(std::vector<int>* ptrees, std::vector<fil_node_t>* pnodes,
   tl2fil_common(params, model, tl_params);
   tl2fil_sparse_check_t<fil_node_t>::check(model);
 
-  // convert the nodes
-  for (int i = 0; i < model.trees.size(); ++i) {
-    int root = tree2fil_sparse(pnodes, model.trees[i], *params);
-    ptrees->push_back(root);
+  size_t num_trees = model.trees.size();
+
+  ptrees->reserve(num_trees);
+  ptrees->push_back(0);
+  for (size_t i=0; i < num_trees - 1; ++i) {
+      ptrees->push_back(model.trees[i].num_nodes + (*ptrees)[i]);
   }
+  size_t total_nodes = ptrees->back() + model.trees.back().num_nodes;
+
+  pnodes->reserve(total_nodes);
+  for (size_t i = 0; i < total_nodes; ++i) {
+    // TODO
+    pnodes->emplace_back();
+  }
+
+  // convert the nodes
+  for (int i=0; i < num_trees; ++i) {
+    tree2fil_sparse(pnodes, (*ptrees)[i], model.trees[i], *params);
+  }
+
   params->num_nodes = pnodes->size();
 }
 
