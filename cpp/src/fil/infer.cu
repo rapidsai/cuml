@@ -227,44 +227,6 @@ struct tree_aggregator_t {
   }
 };
 
-template <typename T>
-class StridedIt
-  : public thrust::iterator_adaptor<StridedIt<T>, T, thrust::use_default,
-                                    thrust::bidirectional_device_iterator_tag> {
- public:
-  typedef thrust::iterator_adaptor<StridedIt<T>, T, thrust::use_default,
-                                   thrust::bidirectional_device_iterator_tag>
-    super_t;
-
-  explicit __device__ StridedIt(T p_, int stride_)
-    : super_t(p_), begin(p_), stride(stride_) {}
-  friend class thrust::iterator_core_access;
-  using typename super_t::value_type;
-
-  __device__ bool operator==(StridedIt<T> other) const {
-    return ref() == other.ref();
-  }
-  __device__ bool operator>(StridedIt<T> other) const {
-    return ref() > other.ref();
-  }
-  __device__ bool operator!=(StridedIt<T> other) const {
-    return !(*this == other);
-  }
-  __device__ bool operator>=(StridedIt<T> other) const {
-    return !(other > *this);
-  }
-  __device__ bool operator<=(StridedIt<T> other) const {
-    return !(*this > other);
-  }
-  __device__ bool operator<(StridedIt<T> other) const { return other > *this; }
-
- private:
-  const T begin;
-  int stride;
-  __device__ T ref() const { return begin + (this->base() - begin) * stride; }
-  __device__ typename super_t::reference dereference() const { return *ref(); }
-};
-
 // caller must ensure `value` has been read by all threads before
 // block_allreduce, so that the location tmp_storage is safe to use
 template <typename T, typename BinaryOp>
@@ -296,28 +258,19 @@ __device__ __forceinline__ auto allreduce_shmem(Iterator begin, Iterator end,
 template <typename Iterator>
 __device__ __forceinline__ void write_best_class_in_block(
   Iterator begin, Iterator end, void* tmp_storage, float* out, int num_rows) {
+  // reduce per-class candidate margins to one best class candidate
+  // per thread (for each of the NITEMS rows)
+  vec<NITEMS, best_margin_label> best({-1, -INFINITY}); // TODO: check if omitting keeps correct behavior
+
+  for (int c = threadIdx.x; c < end - begin; c += blockDim.x)
+    best = ArgMax()(best, to_vec(c, begin[c]));
   // find best class per block (for each of the NITEMS rows)
-  auto best = allreduce_shmem(begin, end, vectorized(ArgMax()), tmp_storage);
+  best = block_reduce(best, vectorized(ArgMax()), tmp_storage);
   // write it out to global memory
   if (threadIdx.x > 0) return;
 #pragma unroll
-  for (int row = 0; row < num_rows; ++row) {
-    if (row < num_rows) out[row] = best[row].key;
-  }
+  for (int row = 0; row < num_rows; ++row) out[row] = best[row].key;
 }
-
-template <typename T>
-struct StridedItArray {
-  T v;
-  int size;
-  __device__ StridedItArray(T v_, int size_) : v(v_), size(size_) {}
-  explicit __device__ StridedItArray(void* v_, int size_)
-    : v((T)v_), size(size_) {}
-
-  typedef StridedIt<T> iterator;
-  __device__ iterator begin() { return iterator(v + threadIdx.x, blockDim.x); }
-  __device__ iterator end() { return iterator(v + size, blockDim.x); }
-};
 
 /// needed for softmax
 __device__ float shifted_exp(float margin, float max) {
@@ -332,30 +285,29 @@ __device__ __forceinline__ void block_softmax(Iterator begin, Iterator end,
   typedef typename std::iterator_traits<Iterator>::value_type value_type;
   value_type max = allreduce_shmem(begin, end, vectorized(Max()), tmp_storage);
 
-  for (Iterator it = begin; it < end; ++it)
+  for (Iterator it = begin + threadIdx.x; it < end; it += blockDim.x)
     *it = vectorized(shifted_exp)(*it, max);
   // sum of exponents
   value_type soe = allreduce_shmem(begin, end, vectorized(Sum()), tmp_storage);
   // softmax phase 2: normalization
-  for (Iterator it = begin; it < end; ++it) *it /= soe;
+  for (Iterator it = begin + threadIdx.x; it < end; it += blockDim.x) *it /= soe;
 }
 
 // tmp_storage may overlap shared memory addressed by begin..end
 template <typename Iterator>
 __device__ __forceinline__ void normalize_softmax_and_write(
   Iterator begin, Iterator end, output_t transform, int num_trees,
-  void* tmp_storage, int num_classes, float* out, int num_rows) {
+  void* tmp_storage, float* out, int num_rows) {
   if ((transform & output_t::AVG) != 0) {
-    for (Iterator it = begin; it < end; ++it) *it /= num_trees;
+    for (Iterator it = begin + threadIdx.x; it < end; it += blockDim.x) *it /= num_trees;
   }
   if ((transform & output_t::SOFTMAX) != 0)
     block_softmax(begin, end, tmp_storage);
-    // write result to global memory
-#pragma unroll
+  // write result to global memory
+  #pragma unroll
   for (int row = 0; row < num_rows; ++row) {
-    StridedItArray<float*> out_a(out + num_classes * row, num_classes);
-    auto out = out_a.begin();
-    for (Iterator in = begin; in < end;) *out++ = (*in++)[row];
+    for (int c = threadIdx.x; c < end - begin; c += blockDim.x)
+      out[c + row * (end - begin)] = begin[c][row];
   }
 }
 
@@ -395,20 +347,15 @@ struct tree_aggregator_t<NITEMS, GROVE_PER_CLASS_FEW_CLASSES> {
     per_thread[threadIdx.x] = acc;
     __syncthreads();
     acc = multi_sum<6>(per_thread, num_classes, blockDim.x / num_classes);
+    if(threadIdx.x < num_classes) per_thread[threadIdx.x] = acc;
+    __syncthreads();       // per_thread needs to be fully populated
 
     if (num_outputs == 1) {  // will output class
-      __syncthreads();       // free up per_thread[] margin
-      StridedItArray<vec<NITEMS, best_margin_label>*> to_reduce(tmp_storage,
-                                                                num_classes);
-      if (to_reduce.begin() < to_reduce.end())
-        *to_reduce.begin() = to_vec(threadIdx.x, acc);
-      write_best_class_in_block(to_reduce.begin(), to_reduce.end(), tmp_storage,
+      write_best_class_in_block(per_thread, per_thread + num_classes, tmp_storage,
                                 out, num_rows);
     } else {  // output softmax-ed margin
-      StridedItArray<vec<NITEMS, float>*> to_reduce(tmp_storage, num_classes);
-      if (to_reduce.begin() < to_reduce.end()) *to_reduce.begin() = acc;
-      normalize_softmax_and_write(to_reduce.begin(), to_reduce.end(), transform,
-                                  num_trees, tmp_storage, num_classes, out,
+      normalize_softmax_and_write(per_thread, per_thread + num_classes, transform,
+                                  num_trees, tmp_storage, out,
                                   num_rows);
     }
   }
@@ -421,7 +368,6 @@ struct tree_aggregator_t<NITEMS, GROVE_PER_CLASS_MANY_CLASSES> {
   vec<NITEMS, float>* per_class_value;
   void* tmp_storage;
   int num_classes;
-  StridedItArray<vec<NITEMS, float>*> per_class_a;
 
   static size_t smem_finalize_footprint(size_t data_row_size, int num_classes,
                                         bool predict_proba) {
@@ -442,10 +388,8 @@ struct tree_aggregator_t<NITEMS, GROVE_PER_CLASS_MANY_CLASSES> {
     : per_class_value(
         (vec<NITEMS, float>*)((char*)shared_workspace + data_row_size)),
       tmp_storage(shared_workspace),
-      num_classes(num_classes_),
-      per_class_a(per_class_value, num_classes_) {
-    for (StridedIt<vec<NITEMS, float>*> it = per_class_a.begin();
-         it < per_class_a.end(); ++it)
+      num_classes(num_classes_) {
+    for (Iterator it = begin + threadIdx.x; it < end; it += blockDim.x)
       *it = vec<NITEMS, float>(0);
     // __syncthreads() is called in infer_k
   }
@@ -463,24 +407,12 @@ struct tree_aggregator_t<NITEMS, GROVE_PER_CLASS_MANY_CLASSES> {
     if (num_outputs == 1) {  // will output class
       // reduce per-class candidate margins to one best class candidate
       // per thread (for each of the NITEMS rows)
-      thrust::counting_iterator<int> idxbegin(0);
-      auto zip = thrust::make_zip_iterator(
-        thrust::make_tuple(idxbegin, per_class_value));
-
-      auto to_candidate =
-        [] __device__(const thrust::tuple<int, vec<NITEMS, float>>& it) {
-          using thrust::get;
-          return to_vec(get<0>(it), get<1>(it));
-        };
-      auto candidates = thrust::make_transform_iterator(zip, to_candidate);
-      StridedItArray<decltype(candidates)> strided_c(candidates, num_classes);
-
-      write_best_class_in_block(strided_c.begin(), strided_c.end(), tmp_storage,
+      write_best_class_in_block(per_class_value, per_class_value + num_classes, tmp_storage,
                                 out, num_rows);
-    } else {  // will output softmax-ed margins
-      normalize_softmax_and_write(per_class_a.begin(), per_class_a.end(),
+    } else {  // output softmax-ed margin
+      normalize_softmax_and_write(per_class_value, per_class_value + num_classes,
                                   transform, num_trees, tmp_storage,
-                                  num_classes, out, num_rows);
+                                  out, num_rows);
     }
   }
 };
