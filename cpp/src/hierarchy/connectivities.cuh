@@ -43,6 +43,8 @@
 #include <thrust/scan.h>
 #include <thrust/sort.h>
 
+#include <limits>
+
 namespace ML {
 namespace Linkage {
 namespace Distance {
@@ -60,6 +62,15 @@ __global__ void fill_indices(value_idx *indices, size_t m, size_t nnz) {
   value_idx v = tid / m;
   indices[tid] = v;
 }
+
+template <typename value_idx>
+__global__ void fill_indices2(value_idx *indices, size_t m, size_t nnz) {
+  int tid = (blockIdx.x * blockDim.x) + threadIdx.x;
+  if (tid >= nnz) return;
+  value_idx v = tid % m;
+  indices[tid] = v;
+}
+
 
 /**
  * Compute connected CSR of pairwise distances
@@ -81,23 +92,23 @@ void pairwise_distances(const raft::handle_t &handle, const value_t *X,
   auto d_alloc = handle.get_device_allocator();
   auto stream = handle.get_stream();
 
-  size_t nnz = m * m;
+  value_idx nnz = m * m;
 
-  int blocks = raft::ceildiv(nnz, (size_t)1024);
-  fill_indices<value_idx><<<blocks, 1024, 0, stream>>>(indices, m, nnz);
+  int blocks = raft::ceildiv(nnz, (value_idx)256);
+  fill_indices2<value_idx><<<blocks, 256, 0, stream>>>(indices, m, nnz);
 
   thrust::device_ptr<value_idx> t_rows = thrust::device_pointer_cast(indptr);
   thrust::sequence(thrust::cuda::par.on(stream), indptr, indptr + m, 0, (int)m);
 
-  value_idx v = m * m;  // TODO: No good.
-  raft::update_device(indptr + m, &v, 1, stream);
+  raft::update_device(indptr + m, &nnz, 1, stream);
 
   raft::mr::device::buffer<char> workspace(d_alloc, stream, 0);
 
-  // @TODO: This is super expensive. Future versions need to eliminate
-  //   the pairwise distance matrix, use KNN, or an MST based on the KNN graph
-  MLCommon::Distance::pairwise_distance<value_t, size_t>(
+  MLCommon::Distance::pairwise_distance<value_t, value_idx>(
     X, X, data, m, m, n, workspace, metric, stream);
+
+  CUDA_CHECK(cudaStreamSynchronize(stream));
+  CUDA_CHECK(cudaGetLastError());
 }
 
 template <typename value_idx>
@@ -132,7 +143,7 @@ __global__ void conv_indices_kernel(in_t *inds, out_t *out, size_t nnz) {
   out[tid] = v;
 }
 
-template <typename in_t, typename out_t, int tpb = 1024>
+template <typename in_t, typename out_t, int tpb = 256>
 void conv_indices(in_t *inds, out_t *out, size_t size, cudaStream_t stream) {
   int blocks = raft::ceildiv(size, (size_t)tpb);
   conv_indices_kernel<<<blocks, tpb, 0, stream>>>(inds, out, size);
@@ -167,8 +178,8 @@ void knn_graph(const raft::handle_t &handle, const value_t *X, size_t m,
   raft::mr::device::buffer<value_idx> indices(d_alloc, stream, nnz);
   raft::mr::device::buffer<value_t> data(d_alloc, stream, nnz);
 
-  int blocks = raft::ceildiv(nnz, (size_t)1024);
-  fill_indices<value_idx><<<blocks, 1024, 0, stream>>>(rows.data(), k, nnz);
+  int blocks = raft::ceildiv(nnz, (size_t)256);
+  fill_indices<value_idx><<<blocks, 256, 0, stream>>>(rows.data(), k, nnz);
 
   std::vector<value_t *> inputs;
   inputs.push_back(const_cast<value_t *>(X));
@@ -245,6 +256,16 @@ void get_distance_graph(const raft::handle_t &handle, const value_t *X,
     default:
       throw raft::exception("Unsupported linkage distance");
   }
+
+
+  raft::linalg::unaryOp<value_t>(
+    data.data(), data.data(), data.size(),
+    [] __device__(value_t input) {
+      if(input == 0) return std::numeric_limits<value_t>::max();
+      else return input;
+    },
+    stream);
+
 }
 
 };  // namespace Distance

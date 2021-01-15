@@ -104,7 +104,10 @@ void _single_linkage(const raft::handle_t &handle, const value_t *X, size_t m,
   Label::Agglomerative::extract_flattened_clusters(handle, out->labels,
                                                    children, n_clusters, m);
 
-  raft::print_device_vector<value_idx>("labels: ", out->labels, m, std::cout);
+  CUDA_CHECK(cudaStreamSynchronize(stream));
+  CUDA_CHECK(cudaGetLastError());
+
+//  raft::print_device_vector<value_idx>("labels: ", out->labels, m, std::cout);
 
   CUML_LOG_DEBUG("Done.");
 }

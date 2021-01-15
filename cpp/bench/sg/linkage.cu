@@ -55,7 +55,7 @@ class Linkage : public BlobsFixture<D> {
                               this->params.nrows, this->params.ncols,
                              raft::distance::DistanceType::L2Expanded,
                               ML::LinkageDistance::KNN_GRAPH,
-                              &out_arrs, 15, 5);
+                              &out_arrs, 15, 500);
     });
   }
 
@@ -85,14 +85,15 @@ std::vector<Params> getInputs() {
   p.blobs.center_box_max = 10.0;
   p.blobs.seed = 12345ULL;
   std::vector<std::pair<int, int>> rowcols = {
-    {160000, 64}, {320000, 64}, {640000, 64}, {80000, 500}, {160000, 2000},
+    {6000000, 300}//, {320000, 64}, {640000, 64}, {80000, 500}, {160000, 2000},
   };
   for (auto& rc : rowcols) {
     p.data.nrows = rc.first;
     p.data.ncols = rc.second;
-    for (auto nclass : std::vector<int>({8, 16, 32}))
+    for (auto nclass : std::vector<int>({1})) {
       p.data.nclasses = nclass;
       out.push_back(p);
+    }
   }
   return out;
 }

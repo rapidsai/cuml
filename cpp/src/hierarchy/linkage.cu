@@ -30,4 +30,5 @@ void single_linkage(const raft::handle_t &handle, const float *X, size_t m,
                                        c, n_clusters);
 }
 
+
 };  // end namespace ML
