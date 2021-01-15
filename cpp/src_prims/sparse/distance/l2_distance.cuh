@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.
+ * Copyright (c) 2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -44,6 +44,8 @@
 namespace MLCommon {
 namespace Sparse {
 namespace Distance {
+
+static const float sqrt_2 = 1.0 / sqrt(2);
 
 // @TODO: Move this into sparse prims (coo_norm)
 template <typename value_idx, typename value_t>
@@ -140,8 +142,6 @@ class l2_expanded_distances_t : public distances_t<value_t> {
     csr_to_coo(config_->a_indptr, config_->a_nrows, search_coo_rows.data(),
                config_->a_nnz, config_->stream);
 
-    CUML_LOG_DEBUG("Done.");
-
     CUML_LOG_DEBUG("Computing L2");
     compute_l2(
       out_dists, search_coo_rows.data(), config_->a_data, config_->a_nnz,
@@ -150,7 +150,6 @@ class l2_expanded_distances_t : public distances_t<value_t> {
       [] __device__ __host__(value_t dot, value_t q_norm, value_t r_norm) {
         return -2 * dot + q_norm + r_norm;
       });
-    CUML_LOG_DEBUG("Done.");
   }
 
   ~l2_expanded_distances_t() = default;
@@ -187,8 +186,6 @@ class cosine_expanded_distances_t : public distances_t<value_t> {
     csr_to_coo(config_->a_indptr, config_->a_nrows, search_coo_rows.data(),
                config_->a_nnz, config_->stream);
 
-    CUML_LOG_DEBUG("Done.");
-
     CUML_LOG_DEBUG("Computing L2");
     compute_l2(
       out_dists, search_coo_rows.data(), config_->a_data, config_->a_nnz,
@@ -200,7 +197,6 @@ class cosine_expanded_distances_t : public distances_t<value_t> {
         value_t cos = dot / (q_normalized * r_normalized);
         return 1 - cos;
       });
-    CUML_LOG_DEBUG("Done.");
   }
 
   ~cosine_expanded_distances_t() = default;
@@ -249,14 +245,10 @@ class hellinger_expanded_distances_t : public distances_t<value_t> {
 
     // Divide dists by sqrt(2)
 
-    value_t sqrt_2 = 1.0 / sqrt(2.0);
-
+    value_t s_2 = sqrt_2;
     raft::linalg::unaryOp<value_t>(
       out_dists, out_dists, config_->a_nrows * config_->b_nrows,
-      [=] __device__(value_t input) { return input * sqrt_2; },
-      config_->stream);
-
-    CUML_LOG_DEBUG("Done.");
+      [=] __device__(value_t input) { return input * s_2; }, config_->stream);
   }
 
   ~hellinger_expanded_distances_t() = default;

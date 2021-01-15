@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.
+ * Copyright (c) 2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -115,7 +115,7 @@ class jaccard_expanded_distances_t : public distances_t<value_t> {
  public:
   explicit jaccard_expanded_distances_t(
     const distances_config_t<value_idx, value_t> &config)
-    : config_(config),
+    : config_(&config),
       workspace(config.allocator, config.stream, 0),
       ip_dists(config) {}
 
@@ -127,25 +127,22 @@ class jaccard_expanded_distances_t : public distances_t<value_t> {
     value_t *b_data = ip_dists.trans_data();
 
     CUML_LOG_DEBUG("Computing COO row index array");
-    device_buffer<value_idx> search_coo_rows(config_.allocator, config_.stream,
-                                             config_.a_nnz);
-    csr_to_coo(config_.a_indptr, config_.a_nrows, search_coo_rows.data(),
-               config_.a_nnz, config_.stream);
-
-    CUML_LOG_DEBUG("Done.");
+    device_buffer<value_idx> search_coo_rows(config_->allocator,
+                                             config_->stream, config_->a_nnz);
+    csr_to_coo(config_->a_indptr, config_->a_nrows, search_coo_rows.data(),
+               config_->a_nnz, config_->stream);
 
     CUML_LOG_DEBUG("Computing Jaccard");
-    compute_jaccard_distance(out_dists, search_coo_rows.data(), config_.a_data,
-                             config_.a_nnz, b_indices, b_data, config_.b_nnz,
-                             config_.a_nrows, config_.b_nrows, config_.handle,
-                             config_.allocator, config_.stream);
-    CUML_LOG_DEBUG("Done.");
+    compute_jaccard_distance(
+      out_dists, search_coo_rows.data(), config_->a_data, config_->a_nnz,
+      b_indices, b_data, config_->b_nnz, config_->a_nrows, config_->b_nrows,
+      config_->handle, config_->allocator, config_->stream);
   }
 
   ~jaccard_expanded_distances_t() = default;
 
  private:
-  distances_config_t<value_idx, value_t> config_;
+  const distances_config_t<value_idx, value_t> *config_;
   device_buffer<char> workspace;
   ip_distances_t<value_idx, value_t> ip_dists;
 };

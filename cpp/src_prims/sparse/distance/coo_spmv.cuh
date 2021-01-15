@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.
+ * Copyright (c) 2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -200,7 +200,7 @@ __global__ void balanced_coo_generalized_spmv_kernel(
  */
 template <typename value_idx, typename value_t, int tpb = 1024>
 inline int max_cols_per_block() {
-  // compute max shared mem to use
+  // max cols = (total smem available - offsets for A - cub reduction smem)
   return (raft::getSharedMemPerBlock() - (2 * sizeof(value_idx)) -
           ((tpb / raft::warp_size()) * sizeof(value_t))) /
          sizeof(value_t);
@@ -235,15 +235,15 @@ inline void balanced_coo_pairwise_generalized_spmv(
   CUDA_CHECK(cudaMemsetAsync(
     out_dists, 0, config_.a_nrows * config_.b_nrows * sizeof(value_t),
     config_.stream));
-  int n_warps_per_row =
+  int n_blocks_per_row =
     raft::ceildiv(config_.b_nnz, chunk_size * threads_per_block);
-  int n_blocks = config_.a_nrows * n_warps_per_row;
+  int n_blocks = config_.a_nrows * n_blocks_per_row;
 
   int smem_buffer_size =
     max_cols_per_block<value_idx, value_t, threads_per_block>();
 
   CUML_LOG_DEBUG("n_blocks: %d", n_blocks);
-  CUML_LOG_DEBUG("n_warps_per_row: %d", n_warps_per_row);
+  CUML_LOG_DEBUG("n_warps_per_row: %d", n_blocks_per_row);
   CUML_LOG_DEBUG("smem_per_block: %d", raft::getSharedMemPerBlock());
   CUML_LOG_DEBUG("max_cols_per_block: %d", smem_buffer_size);
 
@@ -253,7 +253,7 @@ inline void balanced_coo_pairwise_generalized_spmv(
        config_.stream>>>(config_.a_indptr, config_.a_indices, config_.a_data,
                          coo_rows_b, config_.b_indices, config_.b_data,
                          config_.a_nrows, config_.b_nrows, config_.b_ncols,
-                         config_.b_nnz, out_dists, n_warps_per_row, chunk_size,
+                         config_.b_nnz, out_dists, n_blocks_per_row, chunk_size,
                          smem_buffer_size, reduce_func, accum_func, write_func);
 };
 
@@ -265,6 +265,8 @@ inline void balanced_coo_pairwise_generalized_spmv(
  * @tparam value_t value type
  * @tparam threads_per_block block size
  * @tparam chunk_size number of nonzeros of B to process for each row of A
+ *         this value was found through profiling and represents a reasonable
+ *         setting for both large and small densities
  * @tparam reduce_f semiring product() function
  * @tparam accum_f semiring sum() function
  * @tparam write_f atomic semiring sum() function
@@ -282,12 +284,12 @@ inline void balanced_coo_pairwise_generalized_spmv_rev(
   value_t *out_dists, const distances_config_t<value_idx, value_t> &config_,
   value_idx *coo_rows_a, reduce_f reduce_func, accum_f accum_func,
   write_f write_func) {
-  int n_warps_per_row =
+  int n_blocks_per_row =
     raft::ceildiv(config_.a_nnz, chunk_size * threads_per_block);
-  int n_blocks = config_.b_nrows * n_warps_per_row;
+  int n_blocks = config_.b_nrows * n_blocks_per_row;
 
   CUML_LOG_DEBUG("n_blocks: %d", n_blocks);
-  CUML_LOG_DEBUG("n_warps_per_row: %d", n_warps_per_row);
+  CUML_LOG_DEBUG("n_blocks_per_row: %d", n_blocks_per_row);
 
   int smem_buffer_size =
     max_cols_per_block<value_idx, value_t, threads_per_block>();
@@ -298,7 +300,7 @@ inline void balanced_coo_pairwise_generalized_spmv_rev(
        config_.stream>>>(config_.b_indptr, config_.b_indices, config_.b_data,
                          coo_rows_a, config_.a_indices, config_.a_data,
                          config_.b_nrows, config_.a_nrows, config_.a_ncols,
-                         config_.a_nnz, out_dists, n_warps_per_row, chunk_size,
+                         config_.a_nnz, out_dists, n_blocks_per_row, chunk_size,
                          smem_buffer_size, reduce_func, accum_func, write_func);
 };
 }  // namespace Distance

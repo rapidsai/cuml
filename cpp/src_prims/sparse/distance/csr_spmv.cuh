@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.
+ * Copyright (c) 2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -282,7 +282,8 @@ __global__ void classic_csr_semiring_spmv_kernel(
  */
 template <typename value_idx, typename value_t>
 inline value_idx max_nnz_per_block() {
-  // compute max shared mem to use
+  // max nnz = total smem - offsets for A
+  // (division because we need to store cols & vals separately
   return (raft::getSharedMemPerBlock() - (2 * sizeof(value_idx))) /
          (sizeof(value_t) + sizeof(value_idx));
 }
