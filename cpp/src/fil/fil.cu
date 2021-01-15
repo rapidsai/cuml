@@ -544,7 +544,8 @@ void tree2fil_dense(std::vector<dense_node>* pnodes, int root,
 }
 
 template <typename fil_node_t, typename T, typename L>
-int tree2fil_sparse(fil_node_t* const pnodes, const int root, const tl::Tree<T, L>& tree,
+int tree2fil_sparse(fil_node_t* const pnodes, const int root,
+                    const tl::Tree<T, L>& tree,
                     const forest_params_t& forest_params) {
   typedef std::pair<int, int> pair_t;
   std::stack<pair_t> stack;
@@ -754,8 +755,8 @@ void tl2fil_sparse(std::vector<int>* ptrees, std::vector<fil_node_t>* pnodes,
 
   ptrees->reserve(num_trees);
   ptrees->push_back(0);
-  for (size_t i=0; i < num_trees - 1; ++i) {
-      ptrees->push_back(model.trees[i].num_nodes + (*ptrees)[i]);
+  for (size_t i = 0; i < num_trees - 1; ++i) {
+    ptrees->push_back(model.trees[i].num_nodes + (*ptrees)[i]);
   }
   size_t total_nodes = ptrees->back() + model.trees.back().num_nodes;
 
@@ -768,8 +769,9 @@ void tl2fil_sparse(std::vector<int>* ptrees, std::vector<fil_node_t>* pnodes,
   // convert the nodes
   fil_node_t* front = pnodes->data();
 #pragma omp parallel for num_threads(16)
-  for (int i=0; i < num_trees; ++i) {
-    tree2fil_sparse(front + (*ptrees)[i], (*ptrees)[i], model.trees[i], *params);
+  for (int i = 0; i < num_trees; ++i) {
+    tree2fil_sparse(front + (*ptrees)[i], (*ptrees)[i], model.trees[i],
+                    *params);
   }
 
   params->num_nodes = pnodes->size();
