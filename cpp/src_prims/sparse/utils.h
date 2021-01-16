@@ -16,8 +16,8 @@
 
 #pragma once
 
-namespace MLCommon {
-namespace Sparse {
+namespace raft {
+namespace sparse {
 
 /**
  * Quantizes ncols to a valid blockdim, which is
@@ -79,5 +79,34 @@ __device__ __inline__ unsigned int get_lowest_peer(unsigned int peer_group) {
   return __ffs(peer_group) - 1;
 }
 
-};  // namespace Sparse
-};  // namespace MLCommon
+template <typename value_idx>
+__global__ void iota_fill_block_kernel(value_idx *indices, value_idx ncols) {
+  int row = blockIdx.x;
+  int tid = threadIdx.x;
+
+  for (int i = tid; i < ncols; i += blockDim.x) {
+    indices[row * ncols + i] = i;
+  }
+}
+
+template <typename value_idx>
+void iota_fill(value_idx *indices, value_idx nrows, value_idx ncols,
+               cudaStream_t stream) {
+  int blockdim = block_dim(ncols);
+
+  iota_fill_block_kernel<<<nrows, blockdim, 0, stream>>>(indices, ncols);
+}
+
+template <typename T>
+__device__ int get_stop_idx(T row, T m, T nnz, const T *ind) {
+  int stop_idx = 0;
+  if (row < (m - 1))
+    stop_idx = ind[row + 1];
+  else
+    stop_idx = nnz;
+
+  return stop_idx;
+}
+
+};  // namespace sparse
+};  // namespace raft

@@ -20,13 +20,14 @@
 #include <raft/cudart_utils.h>
 #include <sparse/distance/common.h>
 
+#include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
 #include <raft/linalg/distance_type.h>
-#include <raft/sparse/cusparse_wrappers.h>
-#include <raft/cuda_utils.cuh>
 #include <raft/linalg/unary_op.cuh>
+#include <raft/sparse/cusparse_wrappers.h>
 
-#include <common/device_buffer.hpp>
+#include <raft/mr/device/allocator.hpp>
+#include <raft/mr/device/buffer.hpp>
 
 #include <sparse/utils.h>
 #include <sparse/csr.cuh>
@@ -34,16 +35,13 @@
 #include <sparse/distance/common.h>
 #include <sparse/distance/ip_distance.cuh>
 
-#include <cuml/common/cuml_allocator.hpp>
 #include <cuml/neighbors/knn.hpp>
 
 #include <nvfunctional>
 
-#include <cusparse_v2.h>
-
-namespace MLCommon {
-namespace Sparse {
-namespace Distance {
+namespace raft {
+namespace sparse {
+namespace distance {
 
 static const float sqrt_2 = 1.0 / sqrt(2);
 
@@ -98,10 +96,10 @@ void compute_l2(value_t *out, const value_idx *Q_coo_rows,
                 const value_t *Q_data, value_idx Q_nnz,
                 const value_idx *R_coo_rows, const value_t *R_data,
                 value_idx R_nnz, value_idx m, value_idx n,
-                cusparseHandle_t handle, std::shared_ptr<deviceAllocator> alloc,
+                cusparseHandle_t handle, std::shared_ptr<raft::mr::device::allocator> alloc,
                 cudaStream_t stream, expansion_f expansion_func) {
-  device_buffer<value_t> Q_sq_norms(alloc, stream, m);
-  device_buffer<value_t> R_sq_norms(alloc, stream, n);
+  raft::mr::device::buffer<value_t> Q_sq_norms(alloc, stream, m);
+  raft::mr::device::buffer<value_t> R_sq_norms(alloc, stream, n);
   CUDA_CHECK(
     cudaMemsetAsync(Q_sq_norms.data(), 0, Q_sq_norms.size() * sizeof(value_t)));
   CUDA_CHECK(
@@ -137,9 +135,9 @@ class l2_expanded_distances_t : public distances_t<value_t> {
     value_t *b_data = ip_dists.trans_data();
 
     CUML_LOG_DEBUG("Computing COO row index array");
-    device_buffer<value_idx> search_coo_rows(config_->allocator,
+    raft::mr::device::buffer<value_idx> search_coo_rows(config_->allocator,
                                              config_->stream, config_->a_nnz);
-    csr_to_coo(config_->a_indptr, config_->a_nrows, search_coo_rows.data(),
+    raft::sparse::convert::csr_to_coo(config_->a_indptr, config_->a_nrows, search_coo_rows.data(),
                config_->a_nnz, config_->stream);
 
     CUML_LOG_DEBUG("Computing L2");
@@ -156,7 +154,7 @@ class l2_expanded_distances_t : public distances_t<value_t> {
 
  private:
   const distances_config_t<value_idx, value_t> *config_;
-  device_buffer<char> workspace;
+  raft::mr::device::buffer<char> workspace;
   ip_distances_t<value_idx, value_t> ip_dists;
 };
 
@@ -181,9 +179,9 @@ class cosine_expanded_distances_t : public distances_t<value_t> {
     value_t *b_data = ip_dists.trans_data();
 
     CUML_LOG_DEBUG("Computing COO row index array");
-    device_buffer<value_idx> search_coo_rows(config_->allocator,
+    raft::mr::device::buffer<value_idx> search_coo_rows(config_->allocator,
                                              config_->stream, config_->a_nnz);
-    csr_to_coo(config_->a_indptr, config_->a_nrows, search_coo_rows.data(),
+    raft::sparse::convert::csr_to_coo(config_->a_indptr, config_->a_nrows, search_coo_rows.data(),
                config_->a_nnz, config_->stream);
 
     CUML_LOG_DEBUG("Computing L2");
@@ -203,7 +201,7 @@ class cosine_expanded_distances_t : public distances_t<value_t> {
 
  private:
   const distances_config_t<value_idx, value_t> *config_;
-  device_buffer<char> workspace;
+  raft::mr::device::buffer<char> workspace;
   ip_distances_t<value_idx, value_t> ip_dists;
 };
 
@@ -244,7 +242,6 @@ class hellinger_expanded_distances_t : public distances_t<value_t> {
       config_->stream);
 
     // Divide dists by sqrt(2)
-
     value_t s_2 = sqrt_2;
     raft::linalg::unaryOp<value_t>(
       out_dists, out_dists, config_->a_nrows * config_->b_nrows,
@@ -255,10 +252,10 @@ class hellinger_expanded_distances_t : public distances_t<value_t> {
 
  private:
   const distances_config_t<value_idx, value_t> *config_;
-  device_buffer<char> workspace;
+  raft::mr::device::buffer<char> workspace;
   l2_expanded_distances_t<value_idx, value_t> l2_dists;
 };
 
-};  // END namespace Distance
-};  // END namespace Sparse
-};  // END namespace MLCommon
+};  // END namespace distance
+};  // END namespace sparse
+};  // END namespace raft

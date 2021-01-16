@@ -18,9 +18,9 @@
 
 #include <raft/device_atomics.cuh>
 
-namespace MLCommon {
-namespace Sparse {
-namespace Distance {
+namespace raft {
+namespace sparse {
+namespace distance {
 
 struct Sum {
   template <typename value_t>
@@ -83,6 +83,6 @@ struct AbsDiff {
     return fabsf(a - b);
   }
 };
-}  // namespace Distance
-}  // namespace Sparse
-};  // namespace MLCommon
+}  // namespace distance
+}  // namespace sparse
+};  // namespace raft

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,34 +16,31 @@
 
 #pragma once
 
-#include <limits.h>
 #include <raft/cudart_utils.h>
-#include <sparse/distance/common.h>
 
-#include <raft/cudart_utils.h>
 #include <raft/linalg/distance_type.h>
 #include <raft/sparse/cusparse_wrappers.h>
 #include <raft/cuda_utils.cuh>
+#include <raft/mr/device/allocator.hpp>
+#include <raft/mr/device/buffer.hpp>
 
-#include <common/device_buffer.hpp>
-
+#include <sparse/linalg/transpose.h>
 #include <sparse/utils.h>
+#include <sparse/convert/coo.cuh>
+#include <sparse/convert/csr.cuh>
+#include <sparse/convert/dense.cuh>
 #include <sparse/csr.cuh>
+
 #include <sparse/distance/bin_distance.cuh>
 #include <sparse/distance/ip_distance.cuh>
 #include <sparse/distance/l2_distance.cuh>
 #include <sparse/distance/lp_distance.cuh>
 
-#include <cuml/common/cuml_allocator.hpp>
-#include <cuml/neighbors/knn.hpp>
-
-#include <nvfunctional>
-
 #include <cusparse_v2.h>
 
-namespace MLCommon {
-namespace Sparse {
-namespace Distance {
+namespace raft {
+namespace sparse {
+namespace distance {
 
 /**
  * Compute pairwise distances between A and B, using the provided
@@ -54,60 +51,49 @@ namespace Distance {
  * @param[out] out dense output array (size A.nrows * B.nrows)
  * @param[in] input_config input argument configuration
  * @param[in] metric distance metric to use
- * @param[in] metric argument (currently only relevant for Minkowski)
  */
-template class l2_expanded_distances_t<int, float>;
-
 template <typename value_idx = int, typename value_t = float>
-void pairwiseDistance(
-  value_t *out, const distances_config_t<value_idx, value_t> &input_config,
-  raft::distance::DistanceType metric, float p = 0.0) {
-  CUML_LOG_DEBUG("Running sparse pairwise distances with metric=%d", metric);
-
+void pairwiseDistance(value_t *out,
+                      distances_config_t<value_idx, value_t> input_config,
+                      raft::distance::DistanceType metric,
+                      float metric_arg) {
   switch (metric) {
     case raft::distance::DistanceType::L2Expanded:
-      // Expanded Euclidean in the form
       l2_expanded_distances_t<value_idx, value_t>(input_config).compute(out);
       break;
     case raft::distance::DistanceType::InnerProduct:
-      // InnerProduct
       ip_distances_t<value_idx, value_t>(input_config).compute(out);
-      break;
-    case raft::distance::DistanceType::L1:
-      l1_unexpanded_distances_t<value_idx, value_t>(input_config).compute(out);
       break;
     case raft::distance::DistanceType::L2Unexpanded:
       l2_unexpanded_distances_t<value_idx, value_t>(input_config).compute(out);
       break;
-    case raft::distance::DistanceType::Linf:
-      linf_unexpanded_distances_t<value_idx, value_t>(input_config)
-        .compute(out);
-      break;
-    case raft::distance::DistanceType::Canberra:
-      canberra_unexpanded_distances_t<value_idx, value_t>(input_config)
-        .compute(out);
+    case raft::distance::DistanceType::L1:
+      l1_unexpanded_distances_t<value_idx, value_t>(input_config).compute(out);
       break;
     case raft::distance::DistanceType::LpUnexpanded:
-      lp_unexpanded_distances_t<value_idx, value_t>(input_config, p)
-        .compute(out);
+      lp_unexpanded_distances_t<value_idx, value_t>(input_config, metric_arg).compute(out);
+      break;
+    case raft::distance::DistanceType::Linf:
+      linf_unexpanded_distances_t<value_idx, value_t>(input_config).compute(out);
+      break;
+    case raft::distance::DistanceType::Canberra:
+      canberra_unexpanded_distances_t<value_idx, value_t>(input_config).compute(out);
       break;
     case raft::distance::DistanceType::JaccardExpanded:
-      jaccard_expanded_distances_t<value_idx, value_t>(input_config)
-        .compute(out);
+      jaccard_expanded_distances_t<value_idx, value_t>(input_config).compute(out);
       break;
     case raft::distance::DistanceType::CosineExpanded:
-      cosine_expanded_distances_t<value_idx, value_t>(input_config)
-        .compute(out);
+      cosine_expanded_distances_t<value_idx, value_t>(input_config).compute(out);
       break;
     case raft::distance::DistanceType::HellingerExpanded:
-      hellinger_expanded_distances_t<value_idx, value_t>(input_config)
-        .compute(out);
+      hellinger_expanded_distances_t<value_idx, value_t>(input_config).compute(out);
       break;
+
     default:
-      THROW("Unsupported metric: %d", metric);
+      THROW("Unsupported distance: %d", metric);
   }
 }
 
-};  // END namespace Distance
-};  // END namespace Sparse
-};  // END namespace MLCommon
+};  // namespace distance
+};  // namespace sparse
+};  // namespace raft

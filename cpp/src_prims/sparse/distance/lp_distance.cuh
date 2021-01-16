@@ -17,32 +17,28 @@
 #pragma once
 
 #include <limits.h>
-#include <raft/cudart_utils.h>
-#include <sparse/distance/common.h>
-#include <sparse/distance/operators.cuh>
 
+#include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
 #include <raft/linalg/distance_type.h>
 #include <raft/sparse/cusparse_wrappers.h>
-#include <raft/cuda_utils.cuh>
 
-#include <common/device_buffer.hpp>
+#include <raft/mr/device/allocator.hpp>
+#include <raft/mr/device/buffer.hpp>
 
 #include <sparse/utils.h>
 #include <sparse/csr.cuh>
 
+#include <sparse/convert/coo.cuh>
 #include <sparse/distance/common.h>
 #include <sparse/distance/csr_spmv.cuh>
-
-#include <cuml/common/cuml_allocator.hpp>
+#include <sparse/distance/operators.cuh>
 
 #include <nvfunctional>
 
-#include <cusparse_v2.h>
-
-namespace MLCommon {
-namespace Sparse {
-namespace Distance {
+namespace raft {
+namespace sparse {
+namespace distance {
 
 template <typename value_idx = int, typename value_t = float, int tpb = 1024,
           typename reduce_f, typename accum_f, typename write_f>
@@ -69,7 +65,7 @@ void unexpanded_lp_distances(
     raft::mr::device::buffer<value_idx> coo_rows(
       config_->allocator, config_->stream, max(config_->b_nnz, config_->a_nnz));
 
-    MLCommon::Sparse::csr_to_coo(config_->b_indptr, config_->b_nrows,
+    raft::sparse::convert::csr_to_coo(config_->b_indptr, config_->b_nrows,
                                  coo_rows.data(), config_->b_nnz,
                                  config_->stream);
 
@@ -77,7 +73,7 @@ void unexpanded_lp_distances(
       out_dists, *config_, coo_rows.data(), reduce_func, accum_func,
       write_func);
 
-    MLCommon::Sparse::csr_to_coo(config_->a_indptr, config_->a_nrows,
+    raft::sparse::convert::csr_to_coo(config_->a_indptr, config_->a_nrows,
                                  coo_rows.data(), config_->a_nnz,
                                  config_->stream);
 
@@ -193,6 +189,6 @@ class lp_unexpanded_distances_t : public distances_t<value_t> {
   value_t p;
 };
 
-};  // END namespace Distance
-};  // END namespace Sparse
-};  // END namespace MLCommon
+};  // END namespace distance
+};  // END namespace sparse
+};  // END namespace raft

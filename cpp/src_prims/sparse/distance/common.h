@@ -17,11 +17,11 @@
 #pragma once
 
 #include <cusparse_v2.h>
-#include <cuml/common/cuml_allocator.hpp>
+#include <raft/mr/device/allocator.hpp>
 
-namespace MLCommon {
-namespace Sparse {
-namespace Distance {
+namespace raft {
+namespace sparse {
+namespace distance {
 
 template <typename value_idx, typename value_t>
 struct distances_config_t {
@@ -43,7 +43,7 @@ struct distances_config_t {
 
   cusparseHandle_t handle;
 
-  std::shared_ptr<deviceAllocator> allocator;
+  std::shared_ptr<raft::mr::device::allocator> allocator;
   cudaStream_t stream;
 };
 
@@ -54,6 +54,6 @@ class distances_t {
   virtual ~distances_t() = default;
 };
 
-};  // namespace Distance
-}  // namespace Sparse
-};  // namespace MLCommon
+};  // namespace distance
+}  // namespace sparse
+};  // namespace raft

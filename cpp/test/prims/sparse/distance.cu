@@ -21,18 +21,18 @@
 #include <raft/cudart_utils.h>
 #include <raft/linalg/distance_type.h>
 #include <raft/sparse/cusparse_wrappers.h>
-
-#include <common/device_buffer.hpp>
+#include <raft/mr/device/allocator.hpp>
 
 #include <sparse/distance/distance.cuh>
 
 #include <test_utils.h>
 
-namespace MLCommon {
-namespace Sparse {
-namespace Selection {
+namespace raft {
+namespace sparse {
+namespace distance {
 
 using namespace raft;
+using namespace raft::sparse;
 
 template <typename value_idx, typename value_t>
 struct SparseDistanceInputs {
@@ -83,7 +83,7 @@ class SparseDistanceTest
   void SetUp() override {
     params = ::testing::TestWithParam<
       SparseDistanceInputs<value_idx, value_t>>::GetParam();
-    std::shared_ptr<deviceAllocator> alloc(
+    std::shared_ptr<raft::mr::device::allocator> alloc(
       new raft::mr::device::default_allocator);
     CUDA_CHECK(cudaStreamCreate(&stream));
 
@@ -91,7 +91,7 @@ class SparseDistanceTest
 
     make_data();
 
-    Distance::distances_config_t<value_idx, value_t> dist_config;
+    raft::sparse::distance::distances_config_t<value_idx, value_t> dist_config;
     dist_config.b_nrows = params.indptr_h.size() - 1;
     dist_config.b_ncols = params.n_cols;
     dist_config.b_nnz = params.indices_h.size();
@@ -721,6 +721,6 @@ TEST_P(SparseDistanceTestF, Result) { compare(); }
 INSTANTIATE_TEST_CASE_P(SparseDistanceTests, SparseDistanceTestF,
                         ::testing::ValuesIn(inputs_i32_f));
 
-};  // end namespace Selection
-};  // end namespace Sparse
-};  // end namespace MLCommon
+};  // end namespace selection
+};  // end namespace sparse
+};  // end namespace raft

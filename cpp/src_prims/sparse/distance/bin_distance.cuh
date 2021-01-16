@@ -17,32 +17,24 @@
 #pragma once
 
 #include <limits.h>
-#include <raft/cudart_utils.h>
-#include <sparse/distance/common.h>
 
+#include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
 #include <raft/linalg/distance_type.h>
 #include <raft/sparse/cusparse_wrappers.h>
-#include <raft/cuda_utils.cuh>
 
-#include <common/device_buffer.hpp>
-
-#include <sparse/utils.h>
-#include <sparse/csr.cuh>
+#include <raft/mr/device/allocator.hpp>
+#include <raft/mr/device/buffer.hpp>
 
 #include <sparse/distance/common.h>
 #include <sparse/distance/ip_distance.cuh>
-
-#include <cuml/common/cuml_allocator.hpp>
-#include <cuml/neighbors/knn.hpp>
+#include <sparse/utils.h>
 
 #include <nvfunctional>
 
-#include <cusparse_v2.h>
-
-namespace MLCommon {
-namespace Sparse {
-namespace Distance {
+namespace raft {
+namespace sparse {
+namespace distance {
 
 // @TODO: Move this into sparse prims (coo_norm)
 template <typename value_idx, typename value_t>
@@ -52,6 +44,10 @@ __global__ void compute_binary_row_norm_kernel(value_t *out,
                                                value_idx nnz) {
   value_idx i = blockDim.x * blockIdx.x + threadIdx.x;
   if (i < nnz) {
+    // We do conditional here only because it's
+    // possible there could be some stray zeros in
+    // the sparse structure and removing them would be
+    // more expensive.
     atomicAdd(&out[coo_rows[i]], data[i] > 0.0);
   }
 }
@@ -89,10 +85,10 @@ void compute_jaccard_distance(value_t *out, const value_idx *Q_coo_rows,
                               const value_idx *R_coo_rows,
                               const value_t *R_data, value_idx R_nnz,
                               value_idx m, value_idx n, cusparseHandle_t handle,
-                              std::shared_ptr<deviceAllocator> alloc,
+                              std::shared_ptr<raft::mr::device::allocator> alloc,
                               cudaStream_t stream) {
-  device_buffer<value_t> Q_norms(alloc, stream, m);
-  device_buffer<value_t> R_norms(alloc, stream, n);
+  raft::mr::device::buffer<value_t> Q_norms(alloc, stream, m);
+  raft::mr::device::buffer<value_t> R_norms(alloc, stream, n);
   CUDA_CHECK(
     cudaMemsetAsync(Q_norms.data(), 0, Q_norms.size() * sizeof(value_t)));
   CUDA_CHECK(
@@ -127,9 +123,9 @@ class jaccard_expanded_distances_t : public distances_t<value_t> {
     value_t *b_data = ip_dists.trans_data();
 
     CUML_LOG_DEBUG("Computing COO row index array");
-    device_buffer<value_idx> search_coo_rows(config_->allocator,
+    raft::mr::device::buffer<value_idx> search_coo_rows(config_->allocator,
                                              config_->stream, config_->a_nnz);
-    csr_to_coo(config_->a_indptr, config_->a_nrows, search_coo_rows.data(),
+    raft::sparse::convert::csr_to_coo(config_->a_indptr, config_->a_nrows, search_coo_rows.data(),
                config_->a_nnz, config_->stream);
 
     CUML_LOG_DEBUG("Computing Jaccard");
@@ -143,9 +139,9 @@ class jaccard_expanded_distances_t : public distances_t<value_t> {
 
  private:
   const distances_config_t<value_idx, value_t> *config_;
-  device_buffer<char> workspace;
+  raft::mr::device::buffer<char> workspace;
   ip_distances_t<value_idx, value_t> ip_dists;
 };
-};  // END namespace Distance
-};  // END namespace Sparse
-};  // END namespace MLCommon
+};  // END namespace distance
+};  // END namespace sparse
+};  // END namespace raft

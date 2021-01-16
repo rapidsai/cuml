@@ -16,31 +16,28 @@
 
 #pragma once
 
-#include <raft/cudart_utils.h>
-#include <sparse/utils.h>
-#include <common/device_buffer.hpp>
-#include <cuml/common/cuml_allocator.hpp>
 #include <raft/cuda_utils.cuh>
-#include <sparse/csr.cuh>
+#include <raft/cudart_utils.h>
+#include <raft/mr/device/allocator.hpp>
+#include <raft/mr/device/buffer.hpp>
+#include <raft/sparse/cusparse_wrappers.h>
 
-#include <sparse/selection.cuh>
+#include <sparse/csr.cuh>
+#include <sparse/distance/common.h>
+#include <sparse/utils.h>
 
 #include <limits.h>
 
 #include <nvfunctional>
 
-#include <cusparse_v2.h>
-#include <raft/sparse/cusparse_wrappers.h>
-
 #include <cub/block/block_load.cuh>
 #include <cub/block/block_radix_sort.cuh>
 #include <cub/block/block_store.cuh>
 
-#include <sparse/distance/common.h>
 
-namespace MLCommon {
-namespace Sparse {
-namespace Distance {
+namespace raft {
+namespace sparse {
+namespace distance {
 
 /**
  * Semiring which schedules each row of B in a different thread.
