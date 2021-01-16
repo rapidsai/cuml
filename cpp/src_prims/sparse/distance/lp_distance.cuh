@@ -18,10 +18,10 @@
 
 #include <limits.h>
 
-#include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
 #include <raft/linalg/distance_type.h>
 #include <raft/sparse/cusparse_wrappers.h>
+#include <raft/cuda_utils.cuh>
 
 #include <raft/mr/device/allocator.hpp>
 #include <raft/mr/device/buffer.hpp>
@@ -29,8 +29,8 @@
 #include <sparse/utils.h>
 #include <sparse/csr.cuh>
 
-#include <sparse/convert/coo.cuh>
 #include <sparse/distance/common.h>
+#include <sparse/convert/coo.cuh>
 #include <sparse/distance/csr_spmv.cuh>
 #include <sparse/distance/operators.cuh>
 
@@ -66,16 +66,16 @@ void unexpanded_lp_distances(
       config_->allocator, config_->stream, max(config_->b_nnz, config_->a_nnz));
 
     raft::sparse::convert::csr_to_coo(config_->b_indptr, config_->b_nrows,
-                                 coo_rows.data(), config_->b_nnz,
-                                 config_->stream);
+                                      coo_rows.data(), config_->b_nnz,
+                                      config_->stream);
 
     balanced_coo_pairwise_generalized_spmv<value_idx, value_t, tpb>(
       out_dists, *config_, coo_rows.data(), reduce_func, accum_func,
       write_func);
 
     raft::sparse::convert::csr_to_coo(config_->a_indptr, config_->a_nrows,
-                                 coo_rows.data(), config_->a_nnz,
-                                 config_->stream);
+                                      coo_rows.data(), config_->a_nnz,
+                                      config_->stream);
 
     balanced_coo_pairwise_generalized_spmv_rev<value_idx, value_t, tpb>(
       out_dists, *config_, coo_rows.data(), reduce_func, accum_func,

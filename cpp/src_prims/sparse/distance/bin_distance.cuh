@@ -18,17 +18,17 @@
 
 #include <limits.h>
 
-#include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
 #include <raft/linalg/distance_type.h>
 #include <raft/sparse/cusparse_wrappers.h>
+#include <raft/cuda_utils.cuh>
 
 #include <raft/mr/device/allocator.hpp>
 #include <raft/mr/device/buffer.hpp>
 
 #include <sparse/distance/common.h>
-#include <sparse/distance/ip_distance.cuh>
 #include <sparse/utils.h>
+#include <sparse/distance/ip_distance.cuh>
 
 #include <nvfunctional>
 
@@ -80,13 +80,11 @@ void compute_jaccard(value_t *C, const value_t *Q_norms, const value_t *R_norms,
 }
 
 template <typename value_idx, typename value_t, int tpb = 1024>
-void compute_jaccard_distance(value_t *out, const value_idx *Q_coo_rows,
-                              const value_t *Q_data, value_idx Q_nnz,
-                              const value_idx *R_coo_rows,
-                              const value_t *R_data, value_idx R_nnz,
-                              value_idx m, value_idx n, cusparseHandle_t handle,
-                              std::shared_ptr<raft::mr::device::allocator> alloc,
-                              cudaStream_t stream) {
+void compute_jaccard_distance(
+  value_t *out, const value_idx *Q_coo_rows, const value_t *Q_data,
+  value_idx Q_nnz, const value_idx *R_coo_rows, const value_t *R_data,
+  value_idx R_nnz, value_idx m, value_idx n, cusparseHandle_t handle,
+  std::shared_ptr<raft::mr::device::allocator> alloc, cudaStream_t stream) {
   raft::mr::device::buffer<value_t> Q_norms(alloc, stream, m);
   raft::mr::device::buffer<value_t> R_norms(alloc, stream, n);
   CUDA_CHECK(
@@ -123,10 +121,11 @@ class jaccard_expanded_distances_t : public distances_t<value_t> {
     value_t *b_data = ip_dists.trans_data();
 
     CUML_LOG_DEBUG("Computing COO row index array");
-    raft::mr::device::buffer<value_idx> search_coo_rows(config_->allocator,
-                                             config_->stream, config_->a_nnz);
-    raft::sparse::convert::csr_to_coo(config_->a_indptr, config_->a_nrows, search_coo_rows.data(),
-               config_->a_nnz, config_->stream);
+    raft::mr::device::buffer<value_idx> search_coo_rows(
+      config_->allocator, config_->stream, config_->a_nnz);
+    raft::sparse::convert::csr_to_coo(config_->a_indptr, config_->a_nrows,
+                                      search_coo_rows.data(), config_->a_nnz,
+                                      config_->stream);
 
     CUML_LOG_DEBUG("Computing Jaccard");
     compute_jaccard_distance(

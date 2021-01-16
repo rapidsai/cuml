@@ -55,8 +55,7 @@ namespace distance {
 template <typename value_idx = int, typename value_t = float>
 void pairwiseDistance(value_t *out,
                       distances_config_t<value_idx, value_t> input_config,
-                      raft::distance::DistanceType metric,
-                      float metric_arg) {
+                      raft::distance::DistanceType metric, float metric_arg) {
   switch (metric) {
     case raft::distance::DistanceType::L2Expanded:
       l2_expanded_distances_t<value_idx, value_t>(input_config).compute(out);
@@ -71,22 +70,28 @@ void pairwiseDistance(value_t *out,
       l1_unexpanded_distances_t<value_idx, value_t>(input_config).compute(out);
       break;
     case raft::distance::DistanceType::LpUnexpanded:
-      lp_unexpanded_distances_t<value_idx, value_t>(input_config, metric_arg).compute(out);
+      lp_unexpanded_distances_t<value_idx, value_t>(input_config, metric_arg)
+        .compute(out);
       break;
     case raft::distance::DistanceType::Linf:
-      linf_unexpanded_distances_t<value_idx, value_t>(input_config).compute(out);
+      linf_unexpanded_distances_t<value_idx, value_t>(input_config)
+        .compute(out);
       break;
     case raft::distance::DistanceType::Canberra:
-      canberra_unexpanded_distances_t<value_idx, value_t>(input_config).compute(out);
+      canberra_unexpanded_distances_t<value_idx, value_t>(input_config)
+        .compute(out);
       break;
     case raft::distance::DistanceType::JaccardExpanded:
-      jaccard_expanded_distances_t<value_idx, value_t>(input_config).compute(out);
+      jaccard_expanded_distances_t<value_idx, value_t>(input_config)
+        .compute(out);
       break;
     case raft::distance::DistanceType::CosineExpanded:
-      cosine_expanded_distances_t<value_idx, value_t>(input_config).compute(out);
+      cosine_expanded_distances_t<value_idx, value_t>(input_config)
+        .compute(out);
       break;
     case raft::distance::DistanceType::HellingerExpanded:
-      hellinger_expanded_distances_t<value_idx, value_t>(input_config).compute(out);
+      hellinger_expanded_distances_t<value_idx, value_t>(input_config)
+        .compute(out);
       break;
 
     default:

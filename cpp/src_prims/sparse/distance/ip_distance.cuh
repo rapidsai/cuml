@@ -17,21 +17,21 @@
 #pragma once
 
 #include <limits.h>
-#include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
 #include <raft/linalg/distance_type.h>
 #include <raft/sparse/cusparse_wrappers.h>
+#include <raft/cuda_utils.cuh>
 
 #include <raft/mr/device/allocator.hpp>
 #include <raft/mr/device/buffer.hpp>
 
-#include <sparse/convert/csr.cuh>
-#include <sparse/convert/dense.cuh>
-#include <sparse/distance/operators.cuh>
 #include <sparse/distance/common.h>
-#include <sparse/distance/coo_spmv.cuh>
 #include <sparse/linalg/transpose.h>
 #include <sparse/utils.h>
+#include <sparse/convert/csr.cuh>
+#include <sparse/convert/dense.cuh>
+#include <sparse/distance/coo_spmv.cuh>
+#include <sparse/distance/operators.cuh>
 
 #include <nvfunctional>
 
@@ -97,9 +97,9 @@ class ip_distances_gemm_t : public ip_trans_getters_t<value_idx, value_t> {
     raft::mr::device::buffer<value_idx> out_batch_indptr(
       config_->allocator, config_->stream, config_->a_nrows + 1);
     raft::mr::device::buffer<value_idx> out_batch_indices(config_->allocator,
-                                               config_->stream, 0);
-    raft::mr::device::buffer<value_t> out_batch_data(config_->allocator, config_->stream,
-                                          0);
+                                                          config_->stream, 0);
+    raft::mr::device::buffer<value_t> out_batch_data(config_->allocator,
+                                                     config_->stream, 0);
 
     value_idx out_batch_nnz = get_nnz(out_batch_indptr.data());
 
@@ -109,10 +109,10 @@ class ip_distances_gemm_t : public ip_trans_getters_t<value_idx, value_t> {
     compute_gemm(out_batch_indptr.data(), out_batch_indices.data(),
                  out_batch_data.data());
 
-    raft::sparse::convert::csr_to_dense(config_->handle, config_->a_nrows, config_->b_nrows,
-                 out_batch_indptr.data(), out_batch_indices.data(),
-                 out_batch_data.data(), config_->a_nrows, out_distances,
-                 config_->stream, true);
+    raft::sparse::convert::csr_to_dense(
+      config_->handle, config_->a_nrows, config_->b_nrows,
+      out_batch_indptr.data(), out_batch_indices.data(), out_batch_data.data(),
+      config_->a_nrows, out_distances, config_->stream, true);
   }
 
   virtual value_idx *trans_indptr() { return csc_indptr.data(); }
@@ -187,10 +187,10 @@ class ip_distances_gemm_t : public ip_trans_getters_t<value_idx, value_t> {
     csc_indices.resize(config_->b_nnz, config_->stream);
     csc_data.resize(config_->b_nnz, config_->stream);
 
-    raft::sparse::linalg::csr_transpose(config_->handle, config_->b_indptr, config_->b_indices,
-                  config_->b_data, csc_indptr.data(), csc_indices.data(),
-                  csc_data.data(), config_->b_nrows, config_->b_ncols,
-                  config_->b_nnz, config_->allocator, config_->stream);
+    raft::sparse::linalg::csr_transpose(
+      config_->handle, config_->b_indptr, config_->b_indices, config_->b_data,
+      csc_indptr.data(), csc_indices.data(), csc_data.data(), config_->b_nrows,
+      config_->b_ncols, config_->b_nnz, config_->allocator, config_->stream);
   }
 
   value_t alpha;
@@ -218,8 +218,8 @@ class ip_distances_spmv_t : public ip_trans_getters_t<value_idx, value_t> {
     : config_(&config),
       coo_rows_b(config.allocator, config.stream, config.b_nnz) {
     raft::sparse::convert::csr_to_coo(config_->b_indptr, config_->b_nrows,
-                                 coo_rows_b.data(), config_->b_nnz,
-                                 config_->stream);
+                                      coo_rows_b.data(), config_->b_nnz,
+                                      config_->stream);
   }
 
   /**

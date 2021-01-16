@@ -17,15 +17,15 @@
 #pragma once
 
 #include <raft/cudart_utils.h>
+#include <raft/sparse/cusparse_wrappers.h>
 #include <raft/cuda_utils.cuh>
 #include <raft/device_atomics.cuh>
 #include <raft/mr/device/allocator.hpp>
 #include <raft/mr/device/buffer.hpp>
-#include <raft/sparse/cusparse_wrappers.h>
 
-#include <sparse/csr.cuh>
 #include <sparse/distance/common.h>
 #include <sparse/utils.h>
+#include <sparse/csr.cuh>
 
 #include <limits.h>
 
@@ -36,7 +36,6 @@
 #include <cub/block/block_load.cuh>
 #include <cub/block/block_radix_sort.cuh>
 #include <cub/block/block_store.cuh>
-
 
 namespace raft {
 namespace sparse {
@@ -299,6 +298,6 @@ inline void balanced_coo_pairwise_generalized_spmv_rev(
                          config_.a_nnz, out_dists, n_blocks_per_row, chunk_size,
                          smem_buffer_size, reduce_func, accum_func, write_func);
 };
-}  // namespace Distance
-}  // namespace Sparse
-};  // namespace MLCommon
+}  // namespace distance
+}  // namespace sparse
+};  // namespace raft

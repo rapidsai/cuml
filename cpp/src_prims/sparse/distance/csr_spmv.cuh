@@ -16,15 +16,15 @@
 
 #pragma once
 
-#include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
+#include <raft/sparse/cusparse_wrappers.h>
+#include <raft/cuda_utils.cuh>
 #include <raft/mr/device/allocator.hpp>
 #include <raft/mr/device/buffer.hpp>
-#include <raft/sparse/cusparse_wrappers.h>
 
-#include <sparse/csr.cuh>
 #include <sparse/distance/common.h>
 #include <sparse/utils.h>
+#include <sparse/csr.cuh>
 
 #include <limits.h>
 
@@ -33,7 +33,6 @@
 #include <cub/block/block_load.cuh>
 #include <cub/block/block_radix_sort.cuh>
 #include <cub/block/block_store.cuh>
-
 
 namespace raft {
 namespace sparse {
@@ -348,6 +347,6 @@ void generalized_csr_pairwise_semiring(
                          reduce_func, accum_func);
 };
 
-}  // namespace Distance
-}  // namespace Sparse
-};  // namespace MLCommon
+}  // namespace distance
+}  // namespace sparse
+};  // namespace raft

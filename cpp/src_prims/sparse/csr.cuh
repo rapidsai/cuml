@@ -194,7 +194,8 @@ void weak_cc_label_batched(Index_ *labels, const Index_ *row_ind,
  * @param filter_op an optional filtering function to determine which points
  * should get considered for labeling. It gets global indexes (not batch-wide!)
  */
-template <typename Index_, int TPB_X = 256, typename Lambda = auto(Index_)->bool>
+template <typename Index_, int TPB_X = 256,
+          typename Lambda = auto(Index_)->bool>
 void weak_cc_batched(Index_ *labels, const Index_ *row_ind,
                      const Index_ *row_ind_ptr, Index_ nnz, Index_ N,
                      Index_ startVertexId, Index_ batchSize, WeakCCState *state,

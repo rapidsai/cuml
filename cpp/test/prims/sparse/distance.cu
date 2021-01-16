@@ -721,6 +721,6 @@ TEST_P(SparseDistanceTestF, Result) { compare(); }
 INSTANTIATE_TEST_CASE_P(SparseDistanceTests, SparseDistanceTestF,
                         ::testing::ValuesIn(inputs_i32_f));
 
-};  // end namespace selection
+};  // namespace distance
 };  // end namespace sparse
 };  // end namespace raft
