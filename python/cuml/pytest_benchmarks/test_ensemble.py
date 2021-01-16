@@ -79,38 +79,6 @@ def dg_train_and_test( data ):
     return nudata
 
 #
-# ADABoostRegressor
-#
-
-adaboostregressor = AlgorithmPair( cpu_class=SVR, 
-                                   cuml_class=AdaBoostRegressor,
-                                   cuml_args={ 'base_estimator':SVR(),
-                                               'n_estimators':10,
-                                               'random_state':12},
-                                   cpu_args={},
-                                   shared_args={},
-                                   name="BoostedSVR",
-                                   accepts_labels=False,
-                                   cpu_data_prep_hook=dg_train_and_test,
-                                   cuml_data_prep_hook=dg_train_and_test,
-                                   accuracy_function=None,
-                                   bench_func=fit_and_score,
-                                   setup_cpu_func=None,
-                                   setup_cuml_func=None )
-
-
-@pytest.mark.skipif(not has_pytest_benchmark(),
-                    reason='pytest-benchmark missing')
-@pytest.mark.parametrize('n_samples', [500, 50000])
-@pytest.mark.parametrize('n_features', [5, 50])
-def test_ensemble_boost_svr(benchmark, n_samples, n_features):
-    _ensemble_benchmark_algo(benchmark, adaboostregressor, 
-                             datagen=make_regression,
-                             n_samples=n_samples, n_features=n_features,
-                             data_kwargs={'random_state':12, 'noise':100})
-
-
-#
 # Voting Classifier
 #
 
