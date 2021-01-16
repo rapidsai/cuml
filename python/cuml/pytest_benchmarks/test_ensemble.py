@@ -44,17 +44,20 @@ def _ensemble_benchmark_algo( benchmark,
                               n_estimators=10,
                               input_type='numpy',
                               data_kwargs={},
-                              algo_args={}):
+                              algo_type='gpu'):
     """Execute the benchmark for cpu and gpu, return the Xspeedup as cpu/gpu"""
     algo = algorithm_pair
     #pack data in an extra tuple because AlgorithmPair wants to pop specific members from data
     #TODO: figure out how to make the abstraction more flexible so that this hack is unnecessary
     #      search here for date[0][n] subscripts those are referencing this nested element
+    #TODO: figure out why cuml.benchmark.datagen builders always causes error: "ValueError: Unknown label type: 'continuous'"
     data = (datagen( n_samples=n_samples, n_features=n_features, n_informative=n_features, 
                       **data_kwargs ), None)
     
-    benchmark(algo.run_cuml, data, **algo_args)
-    #benchmark(algo.run_cpu, data, **algo_args)
+    if algo_type=='cpu':
+        benchmark(algo.run_cpu, data)
+    else:
+        benchmark(algo.run_cuml, data)
 
 
 def fit_and_score( clf, data, *argc, **kwargs ):
@@ -133,11 +136,13 @@ votingclassifier = AlgorithmPair( cpu_class=VotingClassifier,
                     reason='pytest-benchmark missing')
 @pytest.mark.parametrize('n_samples', [500, 50000])
 @pytest.mark.parametrize('n_features', [5, 50])
-def test_ensemble_voting_classifier(benchmark, n_samples, n_features):
-    _ensemble_benchmark_algo(benchmark, votingclassifier,
+@pytest.mark.parametrize('algotype', ['gpu', 'cpu'])
+def test_ensemble_voting_classifier(gpubenchmark, n_samples, n_features, algotype):
+    _ensemble_benchmark_algo(gpubenchmark, votingclassifier,
                              datagen=make_classification,
                              n_samples=n_samples, n_features=n_features,
-                             data_kwargs={'n_redundant':0, 'class_sep':0.75, 'n_classes':2})
+                             data_kwargs={'n_redundant':0, 'class_sep':0.75, 'n_classes':2},
+                             algo_type=algotype)
 
 #
 # Stacking Classifier
@@ -165,11 +170,13 @@ stackingclassifier = AlgorithmPair( cpu_class=StackingClassifier,
                     reason='pytest-benchmark missing')
 @pytest.mark.parametrize('n_samples', [500, 50000])
 @pytest.mark.parametrize('n_features', [5, 50])
-def test_ensemble_stacking_classifier(benchmark, n_samples, n_features):
+@pytest.mark.parametrize('algotype', ['gpu', 'cpu'])
+def test_ensemble_stacking_classifier(benchmark, n_samples, n_features, algotype):
     _ensemble_benchmark_algo(benchmark, stackingclassifier,
                              datagen=make_classification,
                              n_samples=n_samples, n_features=n_features,
-                             data_kwargs={'n_redundant':0, 'class_sep':0.75, 'n_classes':2})
+                             data_kwargs={'n_redundant':0, 'class_sep':0.75, 'n_classes':2},
+                             algo_type=algotype)
 
 
 #
@@ -195,11 +202,13 @@ baggingregressor =  AlgorithmPair( cpu_class=BaggingRegressor,
                     reason='pytest-benchmark missing')
 @pytest.mark.parametrize('n_samples', [500, 250000])
 @pytest.mark.parametrize('n_features', [5, 20])
-def test_ensemble_bagging_regressor(benchmark, n_samples, n_features):
+@pytest.mark.parametrize('algotype', ['gpu', 'cpu'])
+def test_ensemble_bagging_regressor(benchmark, n_samples, n_features, algotype):
     _ensemble_benchmark_algo(benchmark, baggingregressor,
                              datagen=make_regression,
                              n_samples=n_samples, n_features=n_features,
-                             data_kwargs={'random_state':12, 'noise':200})
+                             data_kwargs={'random_state':12, 'noise':200},
+                             algo_type=algotype)
 
 
 #
@@ -224,9 +233,11 @@ boostedregressor =  AlgorithmPair( cpu_class=AdaBoostRegressor,
                     reason='pytest-benchmark missing')
 @pytest.mark.parametrize('n_samples', [50, 20000])
 @pytest.mark.parametrize('n_features', [1, 10])
-def test_ensemble_boosted_regressor(benchmark, n_samples, n_features):
+@pytest.mark.parametrize('algotype', ['gpu', 'cpu'])
+def test_ensemble_boosted_regressor(benchmark, n_samples, n_features, algotype):
     _ensemble_benchmark_algo(benchmark, boostedregressor,
                              datagen=make_regression,
                              n_samples=n_samples, n_features=n_features,
-                             data_kwargs={'random_state':12, 'noise':200})
+                             data_kwargs={'random_state':12, 'noise':200},
+                             algo_type=algotype)
 
