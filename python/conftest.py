@@ -48,11 +48,19 @@ def pytest_addoption(parser):
         help=("Runs tests marked with 'unit'. These are the quickest tests "
               "that are focused on accuracy and correctness."))
 
+    group.addoption(
+        "--run_integration",
+        action="store_true",
+        default=False,
+        help=("Runs tests marked with 'integration'. These are potetially long "
+              "running tests which may require additional dependencies. Additional"
+              "dependencies should be described in a skip if missing reason."))
 
 def pytest_collection_modifyitems(config, items):
 
     should_run_quality = config.getoption("--run_quality")
     should_run_stress = config.getoption("--run_stress")
+    should_run_integration = config.getoption("--run_integration")
 
     # Run unit is implied if no --run_XXX is set
     should_run_unit = config.getoption("--run_unit") or not (
@@ -79,3 +87,10 @@ def pytest_collection_modifyitems(config, items):
         for item in items:
             if "stress" in item.keywords:
                 item.add_marker(skip_stress)
+
+    if not should_run_integration:
+        skip_integration = pytest.mark.skip(
+            reason="Integration tests run with --run_integration flag.")
+        for item in items:
+            if "integration" in item.keywords:
+                item.add_marker(skip_integration)

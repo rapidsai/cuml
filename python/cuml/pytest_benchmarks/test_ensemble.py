@@ -18,6 +18,7 @@ using pytest benchmarks and rapids-pytest-benchmark extension
 Requires pytest-benchmark and rapids-pytest-benchmark which are not currently installed by default.
 """
 
+from cuml.test.utils import unit_param, stress_param
 from cuml.benchmark.algorithms import AlgorithmPair
 from cuml.common.import_utils import has_pytest_benchmark
 
@@ -131,10 +132,10 @@ votingclassifier = AlgorithmPair( cpu_class=VotingClassifier,
                                   setup_cpu_func=None,
                                   setup_cuml_func=None )
 
-
+@pytest.mark.integration
 @pytest.mark.skipif(not has_pytest_benchmark(),
                     reason='pytest-benchmark missing')
-@pytest.mark.parametrize('n_samples', [500, 50000])
+@pytest.mark.parametrize('n_samples', [unit_param(500), stress_param(50000)])
 @pytest.mark.parametrize('n_features', [5, 50])
 @pytest.mark.parametrize('algotype', ['gpu', 'cpu'])
 def test_ensemble_voting_classifier(gpubenchmark, n_samples, n_features, algotype):
@@ -165,10 +166,10 @@ stackingclassifier = AlgorithmPair( cpu_class=StackingClassifier,
                                     setup_cpu_func=None,
                                     setup_cuml_func=None )
 
-
+@pytest.mark.integration
 @pytest.mark.skipif(not has_pytest_benchmark(),
                     reason='pytest-benchmark missing')
-@pytest.mark.parametrize('n_samples', [500, 50000])
+@pytest.mark.parametrize('n_samples', [unit_param(500), stress_param(50000)])
 @pytest.mark.parametrize('n_features', [5, 50])
 @pytest.mark.parametrize('algotype', ['gpu', 'cpu'])
 def test_ensemble_stacking_classifier(benchmark, n_samples, n_features, algotype):
@@ -198,9 +199,10 @@ baggingregressor =  AlgorithmPair( cpu_class=BaggingRegressor,
                                    setup_cuml_func=None )
 
 
+@pytest.mark.integration
 @pytest.mark.skipif(not has_pytest_benchmark(),
                     reason='pytest-benchmark missing')
-@pytest.mark.parametrize('n_samples', [500, 250000])
+@pytest.mark.parametrize('n_samples', [unit_param(500), stress_param(250000)])
 @pytest.mark.parametrize('n_features', [5, 20])
 @pytest.mark.parametrize('algotype', ['gpu', 'cpu'])
 def test_ensemble_bagging_regressor(benchmark, n_samples, n_features, algotype):
@@ -229,9 +231,10 @@ boostedregressor =  AlgorithmPair( cpu_class=AdaBoostRegressor,
                                    setup_cuml_func=None )
 
 
+@pytest.mark.integration
 @pytest.mark.skipif(not has_pytest_benchmark(),
                     reason='pytest-benchmark missing')
-@pytest.mark.parametrize('n_samples', [50, 20000])
+@pytest.mark.parametrize('n_samples', [unit_param(50), stress_param(20000)])
 @pytest.mark.parametrize('n_features', [1, 10])
 @pytest.mark.parametrize('algotype', ['gpu', 'cpu'])
 def test_ensemble_boosted_regressor(benchmark, n_samples, n_features, algotype):
