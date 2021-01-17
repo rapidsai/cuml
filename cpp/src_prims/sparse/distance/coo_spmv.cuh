@@ -118,7 +118,7 @@ __global__ void balanced_coo_generalized_spmv_kernel(
   extern __shared__ char smem[];
 
   value_idx *offsets_a = (value_idx *)smem;
-  kv_t *A = (kv_t *)(smem + (2 * sizeof(value_idx)));
+  kv_t *A = (kv_t *)(offsets_a + 2);
   typename warp_reduce::TempStorage *temp_storage =
     (typename warp_reduce::TempStorage *)(A + dim);
 
@@ -205,7 +205,7 @@ inline int smem_per_block(int n_cols) {
   int max_cols = max_cols_per_block<value_idx, value_t, tpb>();
   ASSERT(n_cols <= max_cols, "COO SPMV Requires max dimensionality of %d",
          max_cols);
-  return (n_cols * sizeof(n_cols)) + (2 * sizeof(value_idx)) +
+  return (n_cols * sizeof(value_t)) + (2 * sizeof(value_idx)) +
          ((tpb / raft::warp_size()) * sizeof(value_t));
 }
 
@@ -253,7 +253,7 @@ inline void balanced_coo_pairwise_generalized_spmv(
 
   balanced_coo_generalized_spmv_kernel<value_idx, value_t, threads_per_block,
                                        false, value_t>
-    <<<n_blocks, threads_per_block, config_.a_ncols, config_.stream>>>(
+    <<<n_blocks, threads_per_block, smem, config_.stream>>>(
       config_.a_indptr, config_.a_indices, config_.a_data, coo_rows_b,
       config_.b_indices, config_.b_data, config_.a_nrows, config_.b_nrows,
       config_.b_ncols, config_.b_nnz, out_dists, n_blocks_per_row, chunk_size,
