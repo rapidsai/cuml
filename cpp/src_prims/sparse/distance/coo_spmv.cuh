@@ -94,8 +94,7 @@ __global__ void balanced_coo_generalized_spmv_kernel(
   value_idx *indptrA, value_idx *indicesA, value_t *dataA, value_idx *rowsB,
   value_idx *indicesB, value_t *dataB, value_idx m, value_idx n, value_idx dim,
   value_idx nnz_b, value_t *out, int n_blocks_per_row, int chunk_size,
-  int buffer_size, reduce_f reduce_func, accum_f accum_func,
-  write_f write_func) {
+  reduce_f reduce_func, accum_f accum_func, write_f write_func) {
   typedef cub::WarpReduce<value_t> warp_reduce;
 
   value_idx cur_row_a = blockIdx.x / n_blocks_per_row;
@@ -121,14 +120,14 @@ __global__ void balanced_coo_generalized_spmv_kernel(
   value_idx *offsets_a = (value_idx *)smem;
   kv_t *A = (kv_t *)(smem + (2 * sizeof(value_idx)));
   typename warp_reduce::TempStorage *temp_storage =
-    (typename warp_reduce::TempStorage *)(A + buffer_size);
+    (typename warp_reduce::TempStorage *)(A + dim);
 
   if (tid == 0) {
     offsets_a[0] = indptrA[cur_row_a];
     offsets_a[1] = indptrA[cur_row_a + 1];
 
     // Create dense vector A and populate with 0s
-    memset(A, 0, buffer_size * sizeof(kv_t));
+    memset(A, 0, dim * sizeof(kv_t));
   }
 
   __syncthreads();
@@ -201,6 +200,15 @@ inline int max_cols_per_block() {
          sizeof(value_t);
 }
 
+template <typename value_idx, typename value_t, int tpb = 1024>
+inline int smem_per_block(int n_cols) {
+  int max_cols = max_cols_per_block<value_idx, value_t, tpb>();
+  ASSERT(max_cols <= n_cols, "COO SPMV Requires max dimensionality of %d",
+         max_cols);
+  return (n_cols * sizeof(n_cols)) + (2 * sizeof(value_idx)) +
+         ((tpb / raft::warp_size()) * sizeof(value_t));
+}
+
 /**
  * Performs generalized sparse-matrix-sparse-matrix multiplication via a
  * sparse-matrix-sparse-vector layout. Each vector of A is loaded
@@ -210,6 +218,8 @@ inline int max_cols_per_block() {
  * @tparam value_t value type
  * @tparam threads_per_block block size
  * @tparam chunk_size number of nonzeros of B to process for each row of A
+ *         this value was found through profiling and represents a reasonable
+ *         setting for both large and small densities
  * @tparam reduce_f semiring product() function
  * @tparam accum_f semiring sum() function
  * @tparam write_f atomic semiring sum() function
@@ -234,22 +244,20 @@ inline void balanced_coo_pairwise_generalized_spmv(
     raft::ceildiv(config_.b_nnz, chunk_size * threads_per_block);
   int n_blocks = config_.a_nrows * n_blocks_per_row;
 
-  int smem_buffer_size =
-    max_cols_per_block<value_idx, value_t, threads_per_block>();
+  int smem =
+    smem_per_block<value_idx, value_t, threads_per_block>(config_.a_ncols);
 
   CUML_LOG_DEBUG("n_blocks: %d", n_blocks);
   CUML_LOG_DEBUG("n_warps_per_row: %d", n_blocks_per_row);
-  CUML_LOG_DEBUG("smem_per_block: %d", raft::getSharedMemPerBlock());
-  CUML_LOG_DEBUG("max_cols_per_block: %d", smem_buffer_size);
+  CUML_LOG_DEBUG("smem_per_block: %d", smem);
 
   balanced_coo_generalized_spmv_kernel<value_idx, value_t, threads_per_block,
                                        false, value_t>
-    <<<n_blocks, threads_per_block, raft::getSharedMemPerBlock(),
-       config_.stream>>>(config_.a_indptr, config_.a_indices, config_.a_data,
-                         coo_rows_b, config_.b_indices, config_.b_data,
-                         config_.a_nrows, config_.b_nrows, config_.b_ncols,
-                         config_.b_nnz, out_dists, n_blocks_per_row, chunk_size,
-                         smem_buffer_size, reduce_func, accum_func, write_func);
+    <<<n_blocks, threads_per_block, config_.a_ncols, config_.stream>>>(
+      config_.a_indptr, config_.a_indices, config_.a_data, coo_rows_b,
+      config_.b_indices, config_.b_data, config_.a_nrows, config_.b_nrows,
+      config_.b_ncols, config_.b_nnz, out_dists, n_blocks_per_row, chunk_size,
+      reduce_func, accum_func, write_func);
 };
 
 /**
@@ -283,20 +291,20 @@ inline void balanced_coo_pairwise_generalized_spmv_rev(
     raft::ceildiv(config_.a_nnz, chunk_size * threads_per_block);
   int n_blocks = config_.b_nrows * n_blocks_per_row;
 
-  CUML_LOG_DEBUG("n_blocks: %d", n_blocks);
-  CUML_LOG_DEBUG("n_blocks_per_row: %d", n_blocks_per_row);
+  int smem =
+    smem_per_block<value_idx, value_t, threads_per_block>(config_.a_ncols);
 
-  int smem_buffer_size =
-    max_cols_per_block<value_idx, value_t, threads_per_block>();
+  CUML_LOG_DEBUG("n_blocks: %d", n_blocks);
+  CUML_LOG_DEBUG("n_warps_per_row: %d", n_blocks_per_row);
+  CUML_LOG_DEBUG("smem_per_block: %d", smem);
 
   balanced_coo_generalized_spmv_kernel<value_idx, value_t, threads_per_block,
                                        true, value_t>
-    <<<n_blocks, threads_per_block, raft::getSharedMemPerBlock(),
-       config_.stream>>>(config_.b_indptr, config_.b_indices, config_.b_data,
-                         coo_rows_a, config_.a_indices, config_.a_data,
-                         config_.b_nrows, config_.a_nrows, config_.a_ncols,
-                         config_.a_nnz, out_dists, n_blocks_per_row, chunk_size,
-                         smem_buffer_size, reduce_func, accum_func, write_func);
+    <<<n_blocks, threads_per_block, smem, config_.stream>>>(
+      config_.b_indptr, config_.b_indices, config_.b_data, coo_rows_a,
+      config_.a_indices, config_.a_data, config_.b_nrows, config_.a_nrows,
+      config_.a_ncols, config_.a_nnz, out_dists, n_blocks_per_row, chunk_size,
+      reduce_func, accum_func, write_func);
 };
 }  // namespace distance
 }  // namespace sparse

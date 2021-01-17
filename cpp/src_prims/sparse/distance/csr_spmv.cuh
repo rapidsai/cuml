@@ -279,7 +279,7 @@ __global__ void classic_csr_semiring_spmv_kernel(
 template <typename value_idx, typename value_t>
 inline value_idx max_nnz_per_block() {
   // max nnz = total smem - offsets for A
-  // (division because we need to store cols & vals separately
+  // (division because we need to store cols & vals separately)
   return (raft::getSharedMemPerBlock() - (2 * sizeof(value_idx))) /
          (sizeof(value_t) + sizeof(value_idx));
 }
@@ -330,6 +330,8 @@ void generalized_csr_pairwise_semiring(
   int n_blocks = config_.a_nrows * n_blocks_per_row;
 
   int smem_buffer_size = max_nnz_per_block<value_idx, value_t>();
+
+  //TODO: Compute max degree and set smem accordingly
 
   CUML_LOG_DEBUG("Classic block reduce");
 
