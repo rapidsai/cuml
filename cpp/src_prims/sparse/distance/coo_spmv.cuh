@@ -203,7 +203,7 @@ inline int max_cols_per_block() {
 template <typename value_idx, typename value_t, int tpb = 1024>
 inline int smem_per_block(int n_cols) {
   int max_cols = max_cols_per_block<value_idx, value_t, tpb>();
-  ASSERT(max_cols <= n_cols, "COO SPMV Requires max dimensionality of %d",
+  ASSERT(n_cols <= max_cols, "COO SPMV Requires max dimensionality of %d",
          max_cols);
   return (n_cols * sizeof(n_cols)) + (2 * sizeof(value_idx)) +
          ((tpb / raft::warp_size()) * sizeof(value_t));
