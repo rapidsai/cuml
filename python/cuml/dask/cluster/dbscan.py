@@ -35,10 +35,50 @@ class DBSCAN(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
     """
     Multi-Node Multi-GPU implementation of DBSCAN.
 
-    For more information on this implementation, refer to the
-    documentation for single-GPU DBSCAN.
+    The whole dataset is copied to all the workers but the work is then
+    divided by giving "ownership" of a subset to each worker: each worker
+    computes a clustering by considering the relationships between those
+    points and the rest of the dataset, and partial results are merged at
+    the end to obtain the final clustering.
 
-    TODO: complete docs
+    Parameters
+    ----------
+    handle : cuml.Handle
+        Specifies the cuml.handle that holds internal CUDA state for
+        computations in this model. Most importantly, this specifies the CUDA
+        stream that will be used for the model's computations, so users can
+        run different models concurrently in different streams by creating
+        handles in several streams.
+        If it is None, a new one is created.
+    min_samples : int (default = 5)
+        The number of samples in a neighborhood such that this group can be
+        considered as an important core point (including the point itself).
+    verbose : int or boolean, default=False
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        See :ref:`verbosity-levels` for more info.
+    max_mbytes_per_batch : (optional) int64
+        Calculate batch size using no more than this number of megabytes for
+        the pairwise distance computation. This enables the trade-off between
+        runtime and memory usage for making the N^2 pairwise distance
+        computations more tractable for large numbers of samples.
+        If you are experiencing out of memory errors when running DBSCAN, you
+        can set this value based on the memory size of your device.
+        Note: this option does not set the maximum total memory used in the
+        DBSCAN computation and so this value will not be able to be set to
+        the total memory available on the device.
+    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
+        Variable to control output type of the results and attributes of
+        the estimator. If None, it'll inherit the output type set at the
+        module level, `cuml.global_output_type`.
+        See :ref:`output-data-type-configuration` for more info.
+    calc_core_sample_indices : (optional) boolean (default = True)
+        Indicates whether the indices of the core samples should be calculated.
+        The the attribute `core_sample_indices_` will not be used, setting this
+        to False will avoid unnecessary kernel launches
+
+    Notes
+    ------
+    For additional docs, see the documentation of the single-GPU model
     """
 
     def __init__(self, client=None, verbose=False, **kwargs):
@@ -57,16 +97,18 @@ class DBSCAN(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
                               ).fit(data, out_dtype=out_dtype)
         return _func
 
-    @with_cupy_rmm # TODO: is the decorator needed?
+    @with_cupy_rmm
     def fit(self, X, out_dtype="int32"):
         """
         Fit a multi-node multi-GPU DBSCAN model
 
         Parameters
         ----------
-        X : Dask cuDF DataFrame or CuPy backed Dask Array
-            Training data to cluster.
-            TODO: fix this docstring
+        X : array-like (device or host)
+            Dense matrix containing floats or doubles.
+            Acceptable formats: CUDA array interface compliant objects like
+            CuPy, cuDF DataFrame/Series, NumPy ndarray and Pandas
+            DataFrame/Series.
         out_dtype: dtype Determines the precision of the output labels array.
             default: "int32". Valid values are { "int32", np.int32,
             "int64", np.int64}.
@@ -104,15 +146,18 @@ class DBSCAN(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
 
         Parameters
         ----------
-        X : Dask cuDF DataFrame or CuPy backed Dask Array
-            Data to predict
-        TODO: fix this docstring
-
+        X : array-like (device or host)
+            Dense matrix containing floats or doubles.
+            Acceptable formats: CUDA array interface compliant objects like
+            CuPy, cuDF DataFrame/Series, NumPy ndarray and Pandas
+            DataFrame/Series.
+        out_dtype: dtype Determines the precision of the output labels array.
+            default: "int32". Valid values are { "int32", np.int32,
+            "int64", np.int64}.
         Returns
         -------
-        result: Dask cuDF DataFrame or CuPy backed Dask Array
-            Distributed object containing predictions
-
+        labels: array-like (device or host)
+            Integer array of labels
         """
         self.fit(X, out_dtype)
         return self.get_combined_model().labels_
