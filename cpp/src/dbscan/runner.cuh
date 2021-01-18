@@ -219,7 +219,7 @@ size_t run(const raft::handle_t& handle, Type_f* x, Index_ N, Index_ D,
   }
 
   // Compute the labelling for the owned part of the graph
-  MLCommon::Sparse::WeakCCState state(m);
+  raft::sparse::WeakCCState state(m);
   MLCommon::device_buffer<Index_> adj_graph(handle.get_device_allocator(),
                                             stream);
 
@@ -262,7 +262,7 @@ size_t run(const raft::handle_t& handle, Type_f* x, Index_ N, Index_ D,
     CUML_LOG_DEBUG("--> Computing connected components");
     ML::PUSH_RANGE("Trace::Dbscan::WeakCC");
     start_time = raft::curTimeMillis();
-    MLCommon::Sparse::weak_cc_batched<Index_, 1024>(
+    raft::sparse::weak_cc_batched<Index_, 1024>(
       i == 0 ? labels : labelsTemp, ex_scan, adj_graph.data(), curradjlen, N,
       startVertexId, nPoints, &state, stream,
       [core_pts, N] __device__(Index_ global_id) {

@@ -24,7 +24,7 @@
 #include "../common.cuh"
 #include "pack.h"
 
-#include <sparse/csr.cuh>
+#include <sparse/convert/csr.cuh>
 
 using namespace thrust;
 
@@ -51,7 +51,7 @@ void launcher(const raft::handle_t &handle, Pack<Index_> data, Index_ batchSize,
   exclusive_scan(thrust::cuda::par(alloc).on(stream), dev_vd,
                  dev_vd + batchSize, dev_ex_scan);
 
-  MLCommon::Sparse::csr_adj_graph_batched<Index_, TPB_X>(
+  raft::sparse::convert::csr_adj_graph_batched<Index_, TPB_X>(
     data.ex_scan, data.N, data.adjnnz, batchSize, data.adj, data.adj_graph,
     stream);
 

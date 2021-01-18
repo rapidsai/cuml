@@ -155,7 +155,7 @@ class IncrementalPCA(PCA):
 
     .. code-block:: python
 
-        >>> from cuml.experimental.decomposition import IncrementalPCA
+        >>> from cuml.decomposition import IncrementalPCA
         >>> import cupy as cp
         >>> import cupyx
         >>>
