@@ -28,9 +28,8 @@ namespace ML {
 // Default max mem set to a reasonable value for a 16gb card.
 static const size_t DEFAULT_MAX_MEM_MBYTES = 13e3;
 
-/// TODO: update with additional memory use
 template <typename Index_ = int>
-Index_ computeBatchCount(size_t &estimated_memory, Index_ n_rows,
+Index_ computeBatch_size(size_t &estimated_memory, Index_ n_rows,
                          Index_ n_owned_rows, size_t max_mbytes_per_batch = 0,
                          Index_ neigh_per_row = 0) {
   // In real applications, it's unlikely that the sparse adjacency matrix
@@ -41,14 +40,20 @@ Index_ computeBatchCount(size_t &estimated_memory, Index_ n_rows,
 
   if (neigh_per_row <= 0) neigh_per_row = n_rows;
 
-  // we'll estimate the memory consumption per row.
-  // First the dense adjacency matrix
-  size_t estimated_memory_per_row = n_rows * sizeof(bool);
-  // sparse adjacency matrix
-  estimated_memory_per_row += neigh_per_row * sizeof(Index_);
-  // core points and two indicator variables
-  estimated_memory_per_row += 3 * sizeof(bool);
-  // the rest will be so small that it should fit into what we have left over
+  /* Memory needed per batch row:
+   *  - Dense adj matrix: n_rows (bool)
+   *  - Sparse adj matrix: neigh_per_row (Index_)
+   *  - Vertex degrees: 1 (Index_)
+   *  - Ex scan: 1 (Index_)
+   */
+  size_t est_mem_per_row =
+    n_rows * sizeof(bool) + (neigh_per_row + 2) * sizeof(Index_);
+  /* Memory needed regardless of the batch size:
+   *  - Temporary labels: n_rows (Index_)
+   *  - Core point mask: n_rows (bool)
+   */
+  size_t est_mem_fixed = n_rows * (sizeof(Index_) + sizeof(bool));
+  // The rest will be so small that it should fit into what we have left over
   // from the over-estimation of the sparse adjacency matrix
 
   if (max_mbytes_per_batch <= 0) {
@@ -59,36 +64,36 @@ Index_ computeBatchCount(size_t &estimated_memory, Index_ n_rows,
     max_mbytes_per_batch = DEFAULT_MAX_MEM_MBYTES;
   }
 
-  Index_ nBatches = (Index_)raft::ceildiv<size_t>(
-    estimated_memory_per_row * n_owned_rows, max_mbytes_per_batch * 1000000);
+  // Batch size determined based on available memory
+  Index_ batch_size =
+    (max_mbytes_per_batch * 1000000 - est_mem_fixed) / est_mem_per_row;
+
+  // Limit batch size to number of owned rows
+  batch_size = std::min(n_owned_rows, batch_size);
+
+  // To avoid overflow, we need: batch_size <= MAX_LABEL / n_rows (floor div)
   Index_ MAX_LABEL = std::numeric_limits<Index_>::max();
-  // to avoid overflow, we need: batch_size <= MAX_LABEL / n_rows (floor div)
-  // -> num_batches >= raft::ceildiv(n_rows / (MAX_LABEL / n_rows))
-  Index_ nBatchesPrec = raft::ceildiv(n_owned_rows, MAX_LABEL / n_rows);
-  // at some point, if nBatchesPrec is larger than nBatches
-  // (or larger by a given factor) and we know that there are clear
-  // performance benefits of using a smaller number of batches,
-  // we should probably warn the user.
-  // In the latest benchmarks, it seems like using int64 indexing and batches
-  // that are much larger than 2.10^9 points (the limit for int32), doesn't
-  // actually improve performance, even when using >16.10^9 points per batch.
-  // Much larger batches than 16.10^9 do not currently fit on GPU architectures
-  // if (sizeof(Index_) > sizeof(int) &&
-  //     (size_t)n_rows * raft::ceildiv<Index_>(n_rows, nBatches) <
-  //       std::numeric_limits<int>::max()) {
-  //   CUML_LOG_WARN(
-  //     "You are using an index type of size (%d bytes) but a smaller index "
-  //     "type (%d bytes) would be sufficient. Consider using the smaller "
-  //     "index type for better performance.",
-  //     (int)sizeof(Index_), (int)sizeof(int));
-  // }
-  /// TODO: cleanup
-  if (nBatchesPrec > nBatches) {
-    nBatches = nBatchesPrec;
+  if (batch_size > MAX_LABEL / n_rows) {
+    Index_ new_batch_size = MAX_LABEL / n_rows;
+    CUML_LOG_WARN(
+      "Batch size limited by the chosen integer type (%d bytes). %d -> %d. "
+      "Using the larger integer type might result in better performance",
+      (int)sizeof(Index_), (int)batch_size, (int)new_batch_size);
+    batch_size = new_batch_size;
   }
-  Index_ n_rows_per_batch = raft::ceildiv<Index_>(n_owned_rows, nBatches);
-  estimated_memory = n_rows_per_batch * estimated_memory_per_row;
-  return max((Index_)1, nBatches);
+
+  // Warn when a smaller index type could be used
+  if (sizeof(Index_) > sizeof(int) &&
+      batch_size < std::numeric_limits<int>::max() / n_rows) {
+    CUML_LOG_WARN(
+      "You are using an index type of size (%d bytes) but a smaller index "
+      "type (%d bytes) would be sufficient. Using the smaller integer type "
+      "might result in better performance.",
+      (int)sizeof(Index_), (int)sizeof(int));
+  }
+
+  estimated_memory = batch_size * est_mem_per_row + est_mem_fixed;
+  return batch_size;
 }
 
 template <typename T, typename Index_ = int, bool opg = false>
@@ -125,17 +130,16 @@ void dbscanFitImpl(const raft::handle_t &handle, T *input, Index_ n_rows,
 
   ///@todo: Query device for remaining memory
   size_t estimated_memory;
-  Index_ n_batches = computeBatchCount<Index_>(
+  Index_ batch_size = computeBatch_size<Index_>(
     estimated_memory, n_rows, n_owned_rows, max_mbytes_per_batch);
 
-  if (n_batches > 1) {
-    CUML_LOG_DEBUG("Running batched training on %ld batches w/ %lf MB",
-                   (unsigned long)n_batches, (double)estimated_memory * 1e-6);
-  }
+  CUML_LOG_DEBUG(
+    "Running batched training (batch size: %ld, estimated: %lf MB)",
+    (unsigned long)batch_size, (double)estimated_memory * 1e-6);
 
   size_t workspaceSize = Dbscan::run<T, Index_, opg>(
     handle, input, n_rows, n_cols, start_row, n_owned_rows, eps, min_pts,
-    labels, core_sample_indices, algoVd, algoAdj, algoCcl, NULL, n_batches,
+    labels, core_sample_indices, algoVd, algoAdj, algoCcl, NULL, batch_size,
     stream);
 
   CUML_LOG_DEBUG("Workspace size: %lf MB", (double)workspaceSize * 1e-6);
@@ -145,7 +149,7 @@ void dbscanFitImpl(const raft::handle_t &handle, T *input, Index_ n_rows,
   Dbscan::run<T, Index_, opg>(handle, input, n_rows, n_cols, start_row,
                               n_owned_rows, eps, min_pts, labels,
                               core_sample_indices, algoVd, algoAdj, algoCcl,
-                              workspace.data(), n_batches, stream);
+                              workspace.data(), batch_size, stream);
   ML::POP_RANGE();
 }
 

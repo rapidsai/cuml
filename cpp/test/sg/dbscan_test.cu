@@ -40,6 +40,11 @@ using namespace Datasets;
 using namespace Metrics;
 using namespace std;
 
+// Note: false negatives are theoretically possible, given that border
+// points are ambiguous.
+// If test failures are observed, these tests might need to be re-written
+// (cf how the Python tests work).
+
 template <typename T, typename IdxT>
 struct DbscanInputs {
   IdxT n_row;

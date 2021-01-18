@@ -30,11 +30,12 @@ namespace Algo {
 /**
  * TODO: docs
  */
-template <typename Index_ = int, int TPB_X = 32>
+template <typename Index_ = int, int TPB_X = 256>
 void launcher(const raft::handle_t& handle, Pack<Index_> data,
               cudaStream_t stream) {
-  MLCommon::Label::merge_labels(data.labelsA, data.labelsB, data.mask,
-                                data.workBuffer, data.m, data.N, stream);
+  MLCommon::Label::merge_labels<Index_, TPB_X>(data.labelsA, data.labelsB,
+                                               data.mask, data.workBuffer,
+                                               data.m, data.N, stream);
 }
 
 }  // namespace Algo

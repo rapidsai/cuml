@@ -28,7 +28,7 @@ namespace Label {
 /** Note: this is one possible implementation. For an additional cost we can
  *  build the graph with edges E={(A[i], B[i]) | M[i]=1} and make this step
  *  faster */
-template <typename Index_, int TPB_X = 32>
+template <typename Index_, int TPB_X = 256>
 __global__ void __launch_bounds__(TPB_X)
   propagate_label_kernel(const Index_* __restrict__ labelsA,
                          const Index_* __restrict__ labelsB,
@@ -58,7 +58,7 @@ __global__ void __launch_bounds__(TPB_X)
   }
 }
 
-template <typename Index_, int TPB_X = 32>
+template <typename Index_, int TPB_X = 256>
 __global__ void __launch_bounds__(TPB_X)
   reassign_label_kernel(Index_* __restrict__ labelsA,
                         const Index_* __restrict__ labelsB,
@@ -77,7 +77,7 @@ __global__ void __launch_bounds__(TPB_X)
 
 /** TODO: docs
  */
-template <typename Index_ = int, int TPB_X = 32>
+template <typename Index_ = int, int TPB_X = 256>
 void merge_labels(Index_* labelsA, const Index_* labelsB, const bool* mask,
                   Index_* R, bool* m, Index_ N, cudaStream_t stream) {
   dim3 blocks(raft::ceildiv(N, Index_(TPB_X)));

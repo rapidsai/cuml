@@ -26,7 +26,7 @@ from sklearn.metrics import adjusted_rand_score
 
 
 @pytest.mark.mg
-@pytest.mark.parametrize('max_mbytes_per_batch', [1e9, 5e9])
+@pytest.mark.parametrize('max_mbytes_per_batch', [1e3, None])
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
 @pytest.mark.parametrize('nrows', [unit_param(500), quality_param(5000),
                          stress_param(500000)])

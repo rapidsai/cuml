@@ -88,9 +88,10 @@ template <typename Type_f, typename Index_ = int, bool opg = false>
 size_t run(const raft::handle_t& handle, Type_f* x, Index_ N, Index_ D,
            Index_ start_row, Index_ n_owned_rows, Type_f eps, Index_ minPts,
            Index_* labels, Index_* core_sample_indices, int algoVd, int algoAdj,
-           int algoCcl, void* workspace, Index_ nBatches, cudaStream_t stream) {
+           int algoCcl, void* workspace, Index_ batch_size,
+           cudaStream_t stream) {
   const size_t align = 256;
-  size_t batchSize = raft::ceildiv<size_t>(n_owned_rows, nBatches);
+  Index_ nBatches = raft::ceildiv<Index_>(n_owned_rows, batch_size);
 
   int my_rank, n_rank;
   if (opg) {
@@ -106,31 +107,31 @@ size_t run(const raft::handle_t& handle, Type_f* x, Index_ N, Index_ D,
 
   /**
    * Note on coupling between data types:
-   * - adjacency graph has a worst case size of N * batchSize elements. Thus,
+   * - adjacency graph has a worst case size of N * batch_size elements. Thus,
    * if N is very close to being greater than the maximum 32-bit IdxType type used, a
    * 64-bit IdxType should probably be used instead.
    * - exclusive scan is the CSR row index for the adjacency graph and its values have a
-   * risk of overflowing when N * batchSize becomes larger what can be stored in IdxType
+   * risk of overflowing when N * batch_size becomes larger what can be stored in IdxType
    * - the vertex degree array has a worst case of each element having all other
    * elements in their neighborhood, so any IdxType can be safely used, so long as N doesn't
    * overflow.
    */
-  size_t adjSize = raft::alignTo<size_t>(sizeof(bool) * N * batchSize, align);
+  size_t adjSize = raft::alignTo<size_t>(sizeof(bool) * N * batch_size, align);
   size_t corePtsSize = raft::alignTo<size_t>(sizeof(bool) * N, align);
   size_t mSize = raft::alignTo<size_t>(sizeof(bool), align);
   size_t vdSize =
-    raft::alignTo<size_t>(sizeof(Index_) * (batchSize + 1), align);
-  size_t exScanSize = raft::alignTo<size_t>(sizeof(Index_) * batchSize, align);
+    raft::alignTo<size_t>(sizeof(Index_) * (batch_size + 1), align);
+  size_t exScanSize = raft::alignTo<size_t>(sizeof(Index_) * batch_size, align);
   size_t labelsSize = raft::alignTo<size_t>(sizeof(Index_) * N, align);
 
   Index_ MAX_LABEL = std::numeric_limits<Index_>::max();
 
   ASSERT(
-    N * batchSize < MAX_LABEL,
+    N * batch_size < MAX_LABEL,
     "An overflow occurred with the current choice of precision "
     "and the number of samples. (Max allowed batch size is %ld, but was %ld). "
     "Consider using double precision for the output labels.",
-    (unsigned long)(MAX_LABEL / N), (unsigned long)batchSize);
+    (unsigned long)(MAX_LABEL / N), (unsigned long)batch_size);
 
   if (workspace == NULL) {
     auto size =
@@ -166,8 +167,8 @@ size_t run(const raft::handle_t& handle, Type_f* x, Index_ N, Index_ D,
   // 1. Compute the part owned by this worker (reversed order of batches to
   // keep the batch 0 in memory)
   for (int i = nBatches - 1; i >= 0; i--) {
-    Index_ startVertexId = start_row + i * batchSize;
-    Index_ nPoints = min(size_t(n_owned_rows - i * batchSize), batchSize);
+    Index_ startVertexId = start_row + i * batch_size;
+    Index_ nPoints = min(n_owned_rows - i * batch_size, batch_size);
     if (nPoints <= 0) break;
     /// TODO: can this happen? If yes, is the rest of the code correct?
 
@@ -224,8 +225,8 @@ size_t run(const raft::handle_t& handle, Type_f* x, Index_ N, Index_ D,
                                             stream);
 
   for (int i = 0; i < nBatches; i++) {
-    Index_ startVertexId = start_row + i * batchSize;
-    Index_ nPoints = min(size_t(n_owned_rows - i * batchSize), batchSize);
+    Index_ startVertexId = start_row + i * batch_size;
+    Index_ nPoints = min(n_owned_rows - i * batch_size, batch_size);
     if (nPoints <= 0) break;
 
     CUML_LOG_DEBUG("- Batch %d / %ld (%ld samples)", i + 1,
