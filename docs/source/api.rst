@@ -409,6 +409,12 @@ ARIMA
 Multi-Node, Multi-GPU Algorithms
 ================================
 
+DBSCAN Clustering
+--------------------
+
+.. autoclass:: cuml.dask.cluster.DBSCAN
+    :members:
+
 K-Means Clustering
 --------------------
 

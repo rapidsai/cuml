@@ -14,4 +14,5 @@
 # limitations under the License.
 #
 
+from cuml.dask.cluster.dbscan import DBSCAN
 from cuml.dask.cluster.kmeans import KMeans
