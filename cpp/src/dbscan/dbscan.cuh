@@ -103,9 +103,9 @@ void dbscanFitImpl(const raft::handle_t &handle, T *input, Index_ n_rows,
                    cudaStream_t stream, int verbosity) {
   ML::PUSH_RANGE("ML::Dbscan::Fit");
   ML::Logger::get().setLevel(verbosity);
-  int algoVd = 1;
-  int algoAdj = 1;
-  int algoCcl = 2;
+  int algo_vd = 1;
+  int algo_adj = 1;
+  int algo_ccl = 2;
 
   int my_rank, n_rank;
   Index_ start_row, n_owned_rows;
@@ -128,7 +128,7 @@ void dbscanFitImpl(const raft::handle_t &handle, T *input, Index_ n_rows,
   CUML_LOG_DEBUG("#%d owns %ld rows", (int)my_rank,
                  (unsigned long)n_owned_rows);
 
-  ///@todo: Query device for remaining memory
+  /// TODO: Query device for remaining memory
   size_t estimated_memory;
   Index_ batch_size = computeBatch_size<Index_>(
     estimated_memory, n_rows, n_owned_rows, max_mbytes_per_batch);
@@ -139,7 +139,7 @@ void dbscanFitImpl(const raft::handle_t &handle, T *input, Index_ n_rows,
 
   size_t workspaceSize = Dbscan::run<T, Index_, opg>(
     handle, input, n_rows, n_cols, start_row, n_owned_rows, eps, min_pts,
-    labels, core_sample_indices, algoVd, algoAdj, algoCcl, NULL, batch_size,
+    labels, core_sample_indices, algo_vd, algo_adj, algo_ccl, NULL, batch_size,
     stream);
 
   CUML_LOG_DEBUG("Workspace size: %lf MB", (double)workspaceSize * 1e-6);
@@ -148,7 +148,7 @@ void dbscanFitImpl(const raft::handle_t &handle, T *input, Index_ n_rows,
                                           workspaceSize);
   Dbscan::run<T, Index_, opg>(handle, input, n_rows, n_cols, start_row,
                               n_owned_rows, eps, min_pts, labels,
-                              core_sample_indices, algoVd, algoAdj, algoCcl,
+                              core_sample_indices, algo_vd, algo_adj, algo_ccl,
                               workspace.data(), batch_size, stream);
   ML::POP_RANGE();
 }

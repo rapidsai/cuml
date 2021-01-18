@@ -23,13 +23,13 @@ namespace MergeLabels {
 template <typename Index_ = int>
 struct Pack {
   /** Label array A */
-  Index_* labelsA;
+  Index_* labels_a;
   /** Label array B */
-  const Index_* labelsB;
+  const Index_* labels_b;
   /** Core point mask */
   const bool* mask;
   /** Work buffer */
-  Index_* workBuffer;
+  Index_* work_buffer;
   /** Flag for the while loop */
   bool* m;
   /** Number of points in the dataset */

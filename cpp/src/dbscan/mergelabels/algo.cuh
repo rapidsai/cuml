@@ -28,13 +28,13 @@ namespace MergeLabels {
 namespace Algo {
 
 /**
- * TODO: docs
+ * Launches the label merging computation
  */
 template <typename Index_ = int, int TPB_X = 256>
 void launcher(const raft::handle_t& handle, Pack<Index_> data,
               cudaStream_t stream) {
-  MLCommon::Label::merge_labels<Index_, TPB_X>(data.labelsA, data.labelsB,
-                                               data.mask, data.workBuffer,
+  MLCommon::Label::merge_labels<Index_, TPB_X>(data.labels_a, data.labels_b,
+                                               data.mask, data.work_buffer,
                                                data.m, data.N, stream);
 }
 

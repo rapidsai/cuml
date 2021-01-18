@@ -31,7 +31,7 @@ struct Pack {
   /** the adjacency matrix */
   bool *adj;
   /** input dataset */
-  Type *x;
+  const Type *x;
   /** epsilon neighborhood thresholding param */
   Type eps;
   /** number of points in the dataset */

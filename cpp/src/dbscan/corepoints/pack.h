@@ -27,7 +27,7 @@ struct Pack {
   /** core point mask */
   bool *mask;
   /** core points criterion */
-  Index_ minPts;
+  Index_ min_pts;
 };
 
 }  // namespace CorePoints

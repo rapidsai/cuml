@@ -28,10 +28,7 @@
 #include "mergelabels/runner.cuh"
 #include "vertexdeg/runner.cuh"
 
-#include <sys/time.h>
 #include <cuml/common/logger.hpp>
-
-#include <sstream>  // TODO: remove
 
 namespace ML {
 namespace Dbscan {
@@ -71,27 +68,36 @@ void final_relabel(Index_* db_cluster, Index_ N, cudaStream_t stream,
 }
 
 /**
+ * Run the DBSCAN algorithm (common code for single-GPU and multi-GPU)
  * @tparam opg Whether we are running in a multi-node multi-GPU context
- * @param N number of points
- * @param D dimensionality of the points
- * @param eps epsilon neighborhood criterion
- * @param minPts core points criterion
- * @param labels the output labels (should be of size N)
- * @param ....
- * @param temp temporary global memory buffer used to store intermediate computations
- *             If this is a null pointer, then this function will return the workspace size needed.
- *             It is the responsibility of the user to cudaMalloc and cudaFree this buffer!
- * @param stream the cudaStream where to launch the kernels
- * @return in case the temp buffer is null, this returns the size needed.
+ * @param[in]  handle       raft handle
+ * @param[in]  x            Input data (N*D row-major device array)
+ * @param[in]  N            Number of points
+ * @param[in]  D            Dimensionality of the points
+ * @param[in]  start_row    Index of the offset for this node
+ * @param[in]  n_owned_rows Number of rows (points) owned by this node
+ * @param[in]  eps          Epsilon neighborhood criterion
+ * @param[in]  min_pts      Core points criterion
+ * @param[out] labels       Output labels (device array of length N)
+ * @param[out] core_indices If not nullptr, the indices of core points are written in this array
+ * @param[in]  algo_vd      Algorithm used for the vertex degrees
+ * @param[in]  algo_adj     Algorithm used for the adjacency graph
+ * @param[in]  algo_ccl     Algorithm used for the final relabel
+ * @param[in]  workspace    Temporary global memory buffer used to store intermediate computations
+ *                          If nullptr, then this function will return the workspace size needed.
+ *                          It is the responsibility of the user to allocate and free this buffer!
+ * @param[in]  batch_size   Batch size
+ * @param[in]  stream       The CUDA stream where to launch the kernels
+ * @return In case the workspace pointer is null, this returns the size needed.
  */
 template <typename Type_f, typename Index_ = int, bool opg = false>
-size_t run(const raft::handle_t& handle, Type_f* x, Index_ N, Index_ D,
-           Index_ start_row, Index_ n_owned_rows, Type_f eps, Index_ minPts,
-           Index_* labels, Index_* core_sample_indices, int algoVd, int algoAdj,
-           int algoCcl, void* workspace, Index_ batch_size,
+size_t run(const raft::handle_t& handle, const Type_f* x, Index_ N, Index_ D,
+           Index_ start_row, Index_ n_owned_rows, Type_f eps, Index_ min_pts,
+           Index_* labels, Index_* core_indices, int algo_vd, int algo_adj,
+           int algo_ccl, void* workspace, Index_ batch_size,
            cudaStream_t stream) {
   const size_t align = 256;
-  Index_ nBatches = raft::ceildiv<Index_>(n_owned_rows, batch_size);
+  Index_ n_batches = raft::ceildiv<Index_>(n_owned_rows, batch_size);
 
   int my_rank, n_rank;
   if (opg) {
@@ -102,8 +108,6 @@ size_t run(const raft::handle_t& handle, Type_f* x, Index_ N, Index_ D,
     my_rank = 0;
     n_rank = 1;
   }
-
-  /// TODO: unify naming convention? Check if there is a cuML conv for the case
 
   /**
    * Note on coupling between data types:
@@ -116,13 +120,14 @@ size_t run(const raft::handle_t& handle, Type_f* x, Index_ N, Index_ D,
    * elements in their neighborhood, so any IdxType can be safely used, so long as N doesn't
    * overflow.
    */
-  size_t adjSize = raft::alignTo<size_t>(sizeof(bool) * N * batch_size, align);
-  size_t corePtsSize = raft::alignTo<size_t>(sizeof(bool) * N, align);
-  size_t mSize = raft::alignTo<size_t>(sizeof(bool), align);
-  size_t vdSize =
+  size_t adj_size = raft::alignTo<size_t>(sizeof(bool) * N * batch_size, align);
+  size_t core_pts_size = raft::alignTo<size_t>(sizeof(bool) * N, align);
+  size_t m_size = raft::alignTo<size_t>(sizeof(bool), align);
+  size_t vd_size =
     raft::alignTo<size_t>(sizeof(Index_) * (batch_size + 1), align);
-  size_t exScanSize = raft::alignTo<size_t>(sizeof(Index_) * batch_size, align);
-  size_t labelsSize = raft::alignTo<size_t>(sizeof(Index_) * N, align);
+  size_t ex_scan_size =
+    raft::alignTo<size_t>(sizeof(Index_) * batch_size, align);
+  size_t labels_size = raft::alignTo<size_t>(sizeof(Index_) * N, align);
 
   Index_ MAX_LABEL = std::numeric_limits<Index_>::max();
 
@@ -134,8 +139,8 @@ size_t run(const raft::handle_t& handle, Type_f* x, Index_ N, Index_ D,
     (unsigned long)(MAX_LABEL / N), (unsigned long)batch_size);
 
   if (workspace == NULL) {
-    auto size =
-      adjSize + corePtsSize + mSize + vdSize + exScanSize + 2 * labelsSize;
+    auto size = adj_size + core_pts_size + m_size + vd_size + ex_scan_size +
+                2 * labels_size;
     return size;
   }
 
@@ -145,56 +150,41 @@ size_t run(const raft::handle_t& handle, Type_f* x, Index_ N, Index_ D,
   Index_ curradjlen = 0;
   char* temp = (char*)workspace;
   bool* adj = (bool*)temp;
-  temp += adjSize;
+  temp += adj_size;
   bool* core_pts = (bool*)temp;
-  temp += corePtsSize;
+  temp += core_pts_size;
   bool* m = (bool*)temp;
-  temp += mSize;
+  temp += m_size;
   Index_* vd = (Index_*)temp;
-  temp += vdSize;
+  temp += vd_size;
   Index_* ex_scan = (Index_*)temp;
-  temp += exScanSize;
-  Index_* labelsTemp = (Index_*)temp;
-  temp += labelsSize;
-  Index_* workBuffer = (Index_*)temp;
-  temp += labelsSize;
-
-  int64_t start_time, cur_time;
-
-  /// TODO: do logs and timings make sense for asynchronous operations?
+  temp += ex_scan_size;
+  Index_* labels_temp = (Index_*)temp;
+  temp += labels_size;
+  Index_* work_buffer = (Index_*)temp;
+  temp += labels_size;
 
   // Compute the mask
   // 1. Compute the part owned by this worker (reversed order of batches to
   // keep the batch 0 in memory)
-  for (int i = nBatches - 1; i >= 0; i--) {
-    Index_ startVertexId = start_row + i * batch_size;
-    Index_ nPoints = min(n_owned_rows - i * batch_size, batch_size);
-    if (nPoints <= 0) break;
-    /// TODO: can this happen? If yes, is the rest of the code correct?
+  for (int i = n_batches - 1; i >= 0; i--) {
+    Index_ start_vertex_id = start_row + i * batch_size;
+    Index_ n_points = min(n_owned_rows - i * batch_size, batch_size);
 
     CUML_LOG_DEBUG("- Batch %d / %ld (%ld samples)", i + 1,
-                   (unsigned long)nBatches, (unsigned long)nPoints);
+                   (unsigned long)n_batches, (unsigned long)n_points);
 
     CUML_LOG_DEBUG("--> Computing vertex degrees");
     ML::PUSH_RANGE("Trace::Dbscan::VertexDeg");
-    start_time = raft::curTimeMillis();
-    VertexDeg::run<Type_f, Index_>(handle, adj, vd, x, eps, N, D, algoVd,
-                                   startVertexId, nPoints, stream);
-    // raft::update_host(&curradjlen, vd + nPoints, 1, stream);
-    // CUDA_CHECK(cudaStreamSynchronize(stream));
-    cur_time = raft::curTimeMillis();
+    VertexDeg::run<Type_f, Index_>(handle, adj, vd, x, eps, N, D, algo_vd,
+                                   start_vertex_id, n_points, stream);
     ML::POP_RANGE();
-    // CUML_LOG_DEBUG("    |-> Took %ld ms", (cur_time - start_time));
 
     CUML_LOG_DEBUG("--> Computing core point mask");
     ML::PUSH_RANGE("Trace::Dbscan::CorePoints");
-    start_time = raft::curTimeMillis();
-    CorePoints::run<Index_>(handle, vd, core_pts, minPts, startVertexId,
-                            nPoints, stream);
-    // CUDA_CHECK(cudaStreamSynchronize(stream));
-    cur_time = raft::curTimeMillis();
+    CorePoints::run<Index_>(handle, vd, core_pts, min_pts, start_vertex_id,
+                            n_points, stream);
     ML::POP_RANGE();
-    // CUML_LOG_DEBUG("    |-> Took %ld ms", (cur_time - start_time));
   }
   // 2. Exchange with the other workers
   if (opg) {
@@ -212,7 +202,6 @@ size_t run(const raft::handle_t& handle, Type_f* x, Index_ N, Index_ D,
     // All-gather operation with variable contribution length
     comm.allgatherv<char>((char*)core_pts + start_row, (char*)core_pts,
                           recvcounts.data(), displs.data(), stream);
-    /// TODO: is it ok to use char datatype for bool?
     ASSERT(
       comm.sync_stream(stream) == raft::comms::status_t::SUCCESS,
       "An error occurred in the distributed operation. This can result from "
@@ -224,64 +213,52 @@ size_t run(const raft::handle_t& handle, Type_f* x, Index_ N, Index_ D,
   MLCommon::device_buffer<Index_> adj_graph(handle.get_device_allocator(),
                                             stream);
 
-  for (int i = 0; i < nBatches; i++) {
-    Index_ startVertexId = start_row + i * batch_size;
-    Index_ nPoints = min(n_owned_rows - i * batch_size, batch_size);
-    if (nPoints <= 0) break;
+  for (int i = 0; i < n_batches; i++) {
+    Index_ start_vertex_id = start_row + i * batch_size;
+    Index_ n_points = min(n_owned_rows - i * batch_size, batch_size);
+    if (n_points <= 0) break;
 
     CUML_LOG_DEBUG("- Batch %d / %ld (%ld samples)", i + 1,
-                   (unsigned long)nBatches, (unsigned long)nPoints);
+                   (unsigned long)n_batches, (unsigned long)n_points);
 
     // i==0 -> adj and vd for batch 0 already in memory
     if (i > 0) {
       CUML_LOG_DEBUG("--> Computing vertex degrees");
       ML::PUSH_RANGE("Trace::Dbscan::VertexDeg");
-      start_time = raft::curTimeMillis();
-      VertexDeg::run<Type_f, Index_>(handle, adj, vd, x, eps, N, D, algoVd,
-                                     startVertexId, nPoints, stream);
-      cur_time = raft::curTimeMillis();
+      VertexDeg::run<Type_f, Index_>(handle, adj, vd, x, eps, N, D, algo_vd,
+                                     start_vertex_id, n_points, stream);
       ML::POP_RANGE();
-      // CUML_LOG_DEBUG("    |-> Took %ld ms", (cur_time - start_time));
     }
-    raft::update_host(&curradjlen, vd + nPoints, 1, stream);
+    raft::update_host(&curradjlen, vd + n_points, 1, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
 
     CUML_LOG_DEBUG("--> Computing adjacency graph of size %ld samples.",
                    (unsigned long)curradjlen);
     ML::PUSH_RANGE("Trace::Dbscan::AdjGraph");
-    start_time = raft::curTimeMillis();
     if (curradjlen > maxadjlen || adj_graph.data() == NULL) {
       maxadjlen = curradjlen;
       adj_graph.resize(maxadjlen, stream);
     }
     AdjGraph::run<Index_>(handle, adj, vd, adj_graph.data(), curradjlen,
-                          ex_scan, N, algoAdj, nPoints, stream);
-    cur_time = raft::curTimeMillis();
+                          ex_scan, N, algo_adj, n_points, stream);
     ML::POP_RANGE();
-    // CUML_LOG_DEBUG("    |-> Took %ld ms.", (cur_time - start_time));
 
     CUML_LOG_DEBUG("--> Computing connected components");
     ML::PUSH_RANGE("Trace::Dbscan::WeakCC");
-    start_time = raft::curTimeMillis();
     raft::sparse::weak_cc_batched<Index_, 1024>(
-      i == 0 ? labels : labelsTemp, ex_scan, adj_graph.data(), curradjlen, N,
-      startVertexId, nPoints, &state, stream,
+      i == 0 ? labels : labels_temp, ex_scan, adj_graph.data(), curradjlen, N,
+      start_vertex_id, n_points, &state, stream,
       [core_pts, N] __device__(Index_ global_id) {
         return global_id < N ? __ldg((char*)core_pts + global_id) : 0;
       });
-    cur_time = raft::curTimeMillis();
     ML::POP_RANGE();
-    // CUML_LOG_DEBUG("    |-> Took %ld ms.", (cur_time - start_time));
 
     if (i > 0) {
       CUML_LOG_DEBUG("--> Accumulating labels");
       ML::PUSH_RANGE("Trace::Dbscan::MergeLabels");
-      start_time = raft::curTimeMillis();
-      MergeLabels::run<Index_>(handle, labels, labelsTemp, core_pts, workBuffer,
-                               m, N, 0, stream);
-      cur_time = raft::curTimeMillis();
+      MergeLabels::run<Index_>(handle, labels, labels_temp, core_pts,
+                               work_buffer, m, N, 0, stream);
       ML::POP_RANGE();
-      // CUML_LOG_DEBUG("    |-> Took %ld ms", (cur_time - start_time));
     }
   }
 
@@ -301,7 +278,7 @@ size_t run(const raft::handle_t& handle, Type_f* x, Index_ N, Index_ D,
 
       if (receiver) {
         CUML_LOG_DEBUG("--> Receive labels (from %d)", my_rank + s);
-        comm.irecv(labelsTemp, N, my_rank + s, 0, &request);
+        comm.irecv(labels_temp, N, my_rank + s, 0, &request);
       } else if (sender) {
         CUML_LOG_DEBUG("--> Send labels (from %d)", my_rank - s);
         comm.isend(labels, N, my_rank - s, 0, &request);
@@ -316,12 +293,9 @@ size_t run(const raft::handle_t& handle, Type_f* x, Index_ N, Index_ D,
       if (receiver) {
         CUML_LOG_DEBUG("--> Merge labels");
         ML::PUSH_RANGE("Trace::Dbscan::MergeLabels");
-        start_time = raft::curTimeMillis();
-        MergeLabels::run<Index_>(handle, labels, labelsTemp, core_pts,
-                                 workBuffer, m, N, 0, stream);
-        cur_time = raft::curTimeMillis();
+        MergeLabels::run<Index_>(handle, labels, labels_temp, core_pts,
+                                 work_buffer, m, N, 0, stream);
         ML::POP_RANGE();
-        // CUML_LOG_DEBUG("    |-> Took %ld ms", (cur_time - start_time));
       }
 
       s *= 2;
@@ -331,42 +305,42 @@ size_t run(const raft::handle_t& handle, Type_f* x, Index_ N, Index_ D,
   /// TODO: optional minimalization step for border points
 
   // Final relabel
-  /// TODO: only rank 0
-
-  ML::PUSH_RANGE("Trace::Dbscan::FinalRelabel");
-  if (algoCcl == 2)
-    final_relabel(labels, N, stream, handle.get_device_allocator());
-  size_t nblks = raft::ceildiv<size_t>(N, TPB);
-  relabelForSkl<Index_><<<nblks, TPB, 0, stream>>>(labels, N, MAX_LABEL);
-  CUDA_CHECK(cudaPeekAtLastError());
-  ML::POP_RANGE();
-
-  // Calculate the core_sample_indices only if an array was passed in
-  if (core_sample_indices != nullptr) {
-    ML::PUSH_RANGE("Trace::Dbscan::CoreSampleIndices");
-
-    // Create the execution policy
-    ML::thrustAllocatorAdapter alloc(handle.get_device_allocator(), stream);
-    auto thrust_exec_policy = thrust::cuda::par(alloc).on(stream);
-
-    // Get wrappers for the device ptrs
-    thrust::device_ptr<bool> dev_core_pts =
-      thrust::device_pointer_cast(core_pts);
-    thrust::device_ptr<Index_> dev_core_sample_indices =
-      thrust::device_pointer_cast(core_sample_indices);
-
-    // First fill the core_sample_indices with -1 which will be used if core_point_count < N
-    thrust::fill_n(thrust_exec_policy, dev_core_sample_indices, N, (Index_)-1);
-
-    auto index_iterator = thrust::counting_iterator<int>(0);
-
-    //Perform stream reduction on the core points. The core_pts acts as the stencil and we use thrust::counting_iterator to return the index
-    auto core_point_count = thrust::copy_if(
-      thrust_exec_policy, index_iterator, index_iterator + N, dev_core_pts,
-      dev_core_sample_indices,
-      [=] __device__(const bool is_core_point) { return is_core_point; });
-
+  if (my_rank == 0) {
+    ML::PUSH_RANGE("Trace::Dbscan::FinalRelabel");
+    if (algo_ccl == 2)
+      final_relabel(labels, N, stream, handle.get_device_allocator());
+    size_t nblks = raft::ceildiv<size_t>(N, TPB);
+    relabelForSkl<Index_><<<nblks, TPB, 0, stream>>>(labels, N, MAX_LABEL);
+    CUDA_CHECK(cudaPeekAtLastError());
     ML::POP_RANGE();
+
+    // Calculate the core_indices only if an array was passed in
+    if (core_indices != nullptr) {
+      ML::PUSH_RANGE("Trace::Dbscan::CoreSampleIndices");
+
+      // Create the execution policy
+      ML::thrustAllocatorAdapter alloc(handle.get_device_allocator(), stream);
+      auto thrust_exec_policy = thrust::cuda::par(alloc).on(stream);
+
+      // Get wrappers for the device ptrs
+      thrust::device_ptr<bool> dev_core_pts =
+        thrust::device_pointer_cast(core_pts);
+      thrust::device_ptr<Index_> dev_core_indices =
+        thrust::device_pointer_cast(core_indices);
+
+      // First fill the core_indices with -1 which will be used if core_point_count < N
+      thrust::fill_n(thrust_exec_policy, dev_core_indices, N, (Index_)-1);
+
+      auto index_iterator = thrust::counting_iterator<int>(0);
+
+      //Perform stream reduction on the core points. The core_pts acts as the stencil and we use thrust::counting_iterator to return the index
+      auto core_point_count = thrust::copy_if(
+        thrust_exec_policy, index_iterator, index_iterator + N, dev_core_pts,
+        dev_core_indices,
+        [=] __device__(const bool is_core_point) { return is_core_point; });
+
+      ML::POP_RANGE();
+    }
   }
 
   CUML_LOG_DEBUG("Done.");

@@ -43,9 +43,6 @@ namespace sparse {
 struct WeakCCState {
  public:
   bool *m;
-
-  /// TODO: decide whether to remove the state / fix F1/F2 buffers
-
   WeakCCState(bool *m) : m(m) {}
 };
 
