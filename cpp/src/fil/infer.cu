@@ -14,10 +14,6 @@
  * limitations under the License.
  */
 
-#include <thrust/iterator/counting_iterator.h>
-#include <thrust/iterator/iterator_adaptor.h>
-#include <thrust/iterator/transform_iterator.h>
-#include <thrust/iterator/zip_iterator.h>
 #include <algorithm>
 #include <cmath>
 
@@ -247,7 +243,7 @@ __device__ __forceinline__ auto allreduce_shmem(Iterator begin, Iterator end,
                                                 BinaryOp op,
                                                 void* tmp_storage) {
   typename std::iterator_traits<Iterator>::value_type thread_partial;
-  for (Iterator it = begin; it < end; ++it)
+  for (Iterator it = begin + threadIdx.x; it < end; it += blockDim.x)
     thread_partial = op(thread_partial, *it);
   __syncthreads();  // free shared memory begin..end
   auto res = block_allreduce(thread_partial, op, tmp_storage);
@@ -256,14 +252,13 @@ __device__ __forceinline__ auto allreduce_shmem(Iterator begin, Iterator end,
 
 // tmp_storage may overlap shared memory addressed by begin..end
 template <typename Iterator>
-__device__ __forceinline__ void write_best_class_in_block(
+__device__ __forceinline__ void write_best_class(
   Iterator begin, Iterator end, void* tmp_storage, float* out, int num_rows) {
   // reduce per-class candidate margins to one best class candidate
   // per thread (for each of the NITEMS rows)
-  vec<NITEMS, best_margin_label> best({-1, -INFINITY}); // TODO: check if omitting keeps correct behavior
-
+  auto best = to_vec(0, *begin);
   for (int c = threadIdx.x; c < end - begin; c += blockDim.x)
-    best = ArgMax()(best, to_vec(c, begin[c]));
+    best = vectorized(ArgMax())(best, to_vec(c, begin[c]));
   // find best class per block (for each of the NITEMS rows)
   best = block_reduce(best, vectorized(ArgMax()), tmp_storage);
   // write it out to global memory
@@ -290,7 +285,8 @@ __device__ __forceinline__ void block_softmax(Iterator begin, Iterator end,
   // sum of exponents
   value_type soe = allreduce_shmem(begin, end, vectorized(Sum()), tmp_storage);
   // softmax phase 2: normalization
-  for (Iterator it = begin + threadIdx.x; it < end; it += blockDim.x) *it /= soe;
+  for (Iterator it = begin + threadIdx.x; it < end; it += blockDim.x)
+    *it /= soe;
 }
 
 // tmp_storage may overlap shared memory addressed by begin..end
@@ -299,15 +295,30 @@ __device__ __forceinline__ void normalize_softmax_and_write(
   Iterator begin, Iterator end, output_t transform, int num_trees,
   void* tmp_storage, float* out, int num_rows) {
   if ((transform & output_t::AVG) != 0) {
-    for (Iterator it = begin + threadIdx.x; it < end; it += blockDim.x) *it /= num_trees;
+    for (Iterator it = begin + threadIdx.x; it < end; it += blockDim.x)
+      *it /= num_trees;
   }
   if ((transform & output_t::SOFTMAX) != 0)
     block_softmax(begin, end, tmp_storage);
-  // write result to global memory
-  #pragma unroll
+// write result to global memory
+#pragma unroll
   for (int row = 0; row < num_rows; ++row) {
     for (int c = threadIdx.x; c < end - begin; c += blockDim.x)
-      out[c + row * (end - begin)] = begin[c][row];
+      out[row * (end - begin) + c] = begin[c][row];
+  }
+}
+
+// tmp_storage may overlap shared memory addressed by begin..end
+template <typename Iterator>
+__device__ __forceinline__ void class_margins_to_gmem(
+  Iterator begin, Iterator end, output_t transform, int num_trees,
+  void* tmp_storage, float* out, int num_rows, int num_outputs) {
+  if (num_outputs == 1) {  // will output class
+    // reduce per-class candidate margins to one best class candidate
+    // per thread (for each of the NITEMS rows)
+    write_best_class(begin, end, tmp_storage, out, num_rows);
+  } else {  // output softmax-ed margin
+    normalize_softmax_and_write(begin, end, transform, num_trees, tmp_storage, out, num_rows);
   }
 }
 
@@ -347,17 +358,11 @@ struct tree_aggregator_t<NITEMS, GROVE_PER_CLASS_FEW_CLASSES> {
     per_thread[threadIdx.x] = acc;
     __syncthreads();
     acc = multi_sum<6>(per_thread, num_classes, blockDim.x / num_classes);
-    if(threadIdx.x < num_classes) per_thread[threadIdx.x] = acc;
-    __syncthreads();       // per_thread needs to be fully populated
+    if (threadIdx.x < num_classes) per_thread[threadIdx.x] = acc;
+    __syncthreads();  // per_thread needs to be fully populated
 
-    if (num_outputs == 1) {  // will output class
-      write_best_class_in_block(per_thread, per_thread + num_classes, tmp_storage,
-                                out, num_rows);
-    } else {  // output softmax-ed margin
-      normalize_softmax_and_write(per_thread, per_thread + num_classes, transform,
-                                  num_trees, tmp_storage, out,
-                                  num_rows);
-    }
+    class_margins_to_gmem(per_thread, per_thread + num_classes,
+                          transform, num_trees, tmp_storage, out, num_rows, num_outputs);
   }
 };
 
@@ -389,8 +394,8 @@ struct tree_aggregator_t<NITEMS, GROVE_PER_CLASS_MANY_CLASSES> {
         (vec<NITEMS, float>*)((char*)shared_workspace + data_row_size)),
       tmp_storage(shared_workspace),
       num_classes(num_classes_) {
-    for (Iterator it = begin + threadIdx.x; it < end; it += blockDim.x)
-      *it = vec<NITEMS, float>(0);
+    for (int c = threadIdx.x; c < num_classes; c += blockDim.x)
+      per_class_value[c] = vec<NITEMS, float>(0);
     // __syncthreads() is called in infer_k
   }
 
@@ -404,16 +409,8 @@ struct tree_aggregator_t<NITEMS, GROVE_PER_CLASS_MANY_CLASSES> {
   __device__ __forceinline__ void finalize(float* out, int num_rows,
                                            int num_outputs, output_t transform,
                                            int num_trees) {
-    if (num_outputs == 1) {  // will output class
-      // reduce per-class candidate margins to one best class candidate
-      // per thread (for each of the NITEMS rows)
-      write_best_class_in_block(per_class_value, per_class_value + num_classes, tmp_storage,
-                                out, num_rows);
-    } else {  // output softmax-ed margin
-      normalize_softmax_and_write(per_class_value, per_class_value + num_classes,
-                                  transform, num_trees, tmp_storage,
-                                  out, num_rows);
-    }
+    class_margins_to_gmem(per_class_value, per_class_value + num_classes,
+                          transform, num_trees, tmp_storage, out, num_rows, num_outputs);
   }
 };
 

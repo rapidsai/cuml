@@ -48,9 +48,20 @@ enum output_t {
   /** output class label: either apply threshold to the output of the previous stage (for binary classification),
       or select the class with the most votes to get the class label (for multi-class classification).  */
   CLASS = 0x100,
+  /** softmax: apply softmax to class margins when predicting probability 
+      in multiclass classification. Softmax is made robust by subtracting max
+      from margins before applying. */
+  SOFTMAX = 0x1000,
   SIGMOID_CLASS = SIGMOID | CLASS,
   AVG_CLASS = AVG | CLASS,
   AVG_SIGMOID_CLASS = AVG | SIGMOID | CLASS,
+  AVG_SOFTMAX = AVG | SOFTMAX,
+  AVG_SIGMOID_SOFTMAX = AVG | SIGMOID | SOFTMAX,
+  AVG_CLASS_SOFTMAX = AVG | CLASS | SOFTMAX,
+  SIGMOID_SOFTMAX = SIGMOID | SOFTMAX,
+  SIGMOID_CLASS_SOFTMAX = SIGMOID | CLASS | SOFTMAX,
+  AVG_SIGMOID_CLASS_SOFTMAX = AVG | SIGMOID | CLASS | SOFTMAX,
+  ALL_SET = AVG_SIGMOID_CLASS_SOFTMAX
 };
 
 /** val_t is the payload within a FIL leaf */
