@@ -21,6 +21,20 @@ import cudf
 
 
 def cython_hinge_loss(y_true, pred_decision, labels=None):
+    if not hasattr(y_true, "__cuda_array_interface__") :
+        raise TypeError("y_true needs to be either a cuDF Series or \
+                        a cuda_array_interface compliant array.")
+
+    if not hasattr(pred_decision, "__cuda_array_interface__"):
+        raise TypeError("y needs to be either a cuDF Series or \
+                        a cuda_array_interface compliant array.")
+
+    if y_true.shape[0] != pred_decision.shape[0]:
+        raise ValueError("y_true and pred_decision must have the same shape"
+                         "(found {} and {})".format(
+                             y_true.shape[0],
+                             pred_decision.shape[0]))
+    
     y_true_unique = cp.unique(labels.values if labels is not None else y_true)
     
     if y_true_unique.size > 2:
