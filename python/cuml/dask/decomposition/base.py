@@ -14,7 +14,7 @@
 #
 
 from cuml.dask.common import raise_exception_from_futures
-from cuml.raft.dask.common.comms import worker_state
+from cuml.raft.dask.common.comms import get_raft_comm_state
 from cuml.raft.dask.common.comms import Comms
 
 from cuml.dask.common.input_utils import to_output
@@ -118,5 +118,5 @@ class DecompositionSyncFitMixin(object):
 
     @staticmethod
     def _create_model(sessionId, model_func, datatype, **kwargs):
-        handle = worker_state(sessionId)["handle"]
+        handle = get_raft_comm_state(sessionId)["handle"]
         return model_func(handle, datatype, **kwargs)
