@@ -230,12 +230,13 @@ class MultinomialNB(Base, ClassifierMixin):
 
     @generate_docstring(X='dense_sparse')
     @cp.prof.TimeRangeDecorator(message="fit()", color_id=0)
-    def fit(self, X, y, sample_weight=None, convert_dtype=True) -> "MultinomialNB":
+    def fit(self, X, y,
+            sample_weight=None, convert_dtype=True) -> "MultinomialNB":
         """
         Fit Naive Bayes classifier according to X, y
-
         """
-        return self.partial_fit(X, y, sample_weight, convert_dtype=convert_dtype)
+        return self.partial_fit(X, y, sample_weight,
+                                convert_dtype=convert_dtype)
 
     @cp.prof.TimeRangeDecorator(message="fit()", color_id=0)
     def _partial_fit(self,

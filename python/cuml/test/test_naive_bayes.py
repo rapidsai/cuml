@@ -210,5 +210,3 @@ def test_score(x_dtype, y_dtype, nlp_20news):
     THRES = 1e-4
 
     assert sk_score - THRES <= cuml_score <= sk_score + THRES
-
-
