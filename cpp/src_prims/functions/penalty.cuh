@@ -35,7 +35,6 @@ enum penalty {
   ELASTICNET,
 };
 
-
 template <typename math_t>
 void lasso(math_t *out, const math_t *coef, const int len, const math_t alpha,
            cudaStream_t stream) {
