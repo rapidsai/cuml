@@ -18,7 +18,6 @@
 
 #include <raft/linalg/distance_type.h>
 #include <cuml/cuml.hpp>
-#include <cuml/metrics/penalty_type.hpp>
 
 namespace ML {
 
@@ -293,8 +292,5 @@ void pairwise_distance(const raft::handle_t &handle, const float *x,
                        raft::distance::DistanceType metric,
                        bool isRowMajor = true);
 
-double hinge_loss(const raft::handle_t &handle, double *input, int n_rows,
-               int n_cols, const double *labels, const double *coef,
-                  MLCommon::Functions::penalty pen, double alpha, double l1_ratio);
 }  // namespace Metrics
 }  // namespace ML

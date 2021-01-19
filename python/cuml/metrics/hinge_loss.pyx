@@ -16,75 +16,43 @@
 
 import cupy as cp
 import numpy as np
-
-from libc.stdint cimport uintptr_t
-
-from cuml.common import input_to_cuml_array
-from cuml.metrics.pairwise_distances import _determine_metric
-from cuml.raft.common.handle cimport handle_t
-from cuml.raft.common.handle import Handle
-from cuml.metrics.distance_type cimport DistanceType
-from cuml.metrics.penalty_type cimport penalty as PenaltyType
+from cuml.preprocessing import LabelEncoder, LabelBinarizer
+import cudf
 
 
-cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics":
-    double hinge_loss(const handle_t &handle,
-                    double *input,
-                    int n_rows,
-                    int n_cols,
-                    const double *labels,
-                    const double *coef,
-                    PenaltyType pen,
-                    double alpha,
-                    double l1_ratio) except +
-
-def _determine_penalty(penalty_str):
-
-    if penalty_str == 'none':
-        return PenaltyType.PenaltyNone
-    elif penalty_str == 'L1':
-        return PenaltyType.PenaltyL1
-    elif penalty_str == 'L2':
-        return PenaltyType.PenaltyL2
-    elif penalty_str == 'elasticnet':
-        return PenaltyType.PenaltyElasticNet
-    else:
-        raise ValueError(" The metric: '{}', is not supported at this time."
-                         .format(penalty_str))
-   
-        
-def cython_hinge_loss(
-        X, labels, coef, penalty_str, alpha, l1_ratio, handle=None):
-    """
-    """
-    handle = Handle() if handle is None else handle
-    cdef handle_t *handle_ = <handle_t*> <size_t> handle.getHandle()
-
-    data, n_rows, n_cols, _ = input_to_cuml_array(
-        X,
-        order='C',
-        convert_to_dtype=np.float64
-    )
-
-    labels, _, _, _ = input_to_cuml_array(
-        labels,
-        order='C',
-        convert_to_dtype=np.float64
-    )
+def hinge_loss(y_true, pred_decision, labels=None):
+    y_true_unique = cp.unique(labels.values if labels is not None else y_true)
     
-    coef, _, _, _ = input_to_cuml_array(
-        labels,
-        order='C',
-        convert_to_dtype=np.float64
-    )
+    if y_true_unique.size > 2:
+        if (labels is None and pred_decision.ndim > 1 and
+                (cp.size(y_true_unique) != pred_decision.shape[1])):
+            raise ValueError("Please include all labels in y_true "
+                             "or pass labels as third argument")
+        if labels is None:
+            labels = y_true_unique
+        le = LabelEncoder()
+        le.fit(labels)
+        y_true = le.transform(y_true)
+        mask = cp.ones_like(pred_decision, dtype=bool)
+        mask[cp.arange(y_true.shape[0]), y_true.values] = False
+        margin = pred_decision[~mask]
+        margin -= cp.max(pred_decision[mask].reshape(y_true.shape[0], -1),
+                         axis=1)
+    else:
+        # Handles binary class case
+        # this code assumes that positive and negative labels
+        # are encoded as +1 and -1 respectively
+        pred_decision = cp.ravel(pred_decision)
 
-    penalty = _determine_penalty(penalty_str)
-    return hinge_loss(handle_[0],
-                      <double*> <uintptr_t> data.ptr,
-                      n_rows,
-                      n_cols,
-                      <double*> <uintptr_t> labels.ptr,
-                      <double*> <uintptr_t> coef.ptr,
-                      penalty,
-                      alpha,
-                      l1_ratio)
+        lbin = LabelBinarizer(neg_label=-1)
+        y_true = lbin.fit_transform(y_true)[:, 0]
+
+        try:
+            margin = y_true * pred_decision
+        except TypeError:
+            raise TypeError("pred_decision should be an array of floats.")
+
+    losses = 1 - margin
+    # The hinge_loss doesn't penalize good enough predictions.
+    cp.clip(losses, 0, None, out=losses)
+    return cp.average(losses)
