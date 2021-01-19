@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020, NVIDIA CORPORATION.
+# Copyright (c) 2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,7 +20,7 @@ from cuml.preprocessing import LabelEncoder, LabelBinarizer
 import cudf
 
 
-def hinge_loss(y_true, pred_decision, labels=None):
+def cython_hinge_loss(y_true, pred_decision, labels=None):
     y_true_unique = cp.unique(labels.values if labels is not None else y_true)
     
     if y_true_unique.size > 2:

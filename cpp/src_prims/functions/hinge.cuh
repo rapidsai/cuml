@@ -32,8 +32,6 @@
 #include <raft/stats/mean.cuh>
 #include <raft/stats/sum.cuh>
 #include "penalty.cuh"
-#include <cuml/metrics/penalty_type.hpp>
-
 
 namespace MLCommon {
 namespace Functions {
@@ -117,7 +115,7 @@ void hingeLossGrads(const raft::handle_t &handle, math_t *input, int n_rows,
 template <typename math_t>
 void hingeLoss(const raft::handle_t &handle, math_t *input, int n_rows,
                int n_cols, const math_t *labels, const math_t *coef,
-               math_t *loss, MLCommon::Functions::penalty pen, math_t alpha, math_t l1_ratio,
+               math_t *loss, penalty pen, math_t alpha, math_t l1_ratio,
                cudaStream_t stream) {
   std::shared_ptr<raft::mr::device::allocator> allocator =
     handle.get_device_allocator();
