@@ -107,15 +107,15 @@ namespace Batched {
 * and the nearest cluster that the sample is not a part of. Note that Silhouette Coefficient
 * is only defined if number of labels is 2 <= n_labels <= n_samples - 1.
 *
-* @param handle: raft::handle_t
-* @param X: Array of data samples with dimensions (n_rows x n_cols)
-* @param n_rows: number of data samples
-* @param n_cols: number of features
-* @param y: Array containing labels for every data sample (1 x n_rows)
-* @param n_labels: number of Labels
-* @param metric: the numerical value that maps to the type of distance metric to be used in the calculations
-* @param chunk: the row-wise chunk size on which the pairwise distance matrix is tiled
-* @param scores: Array that is optionally taken in as input if required to be populated with the silhouette score for every sample (1 x nRows), else nullptr is passed
+* @param[in] handle: raft::handle_t
+* @param[in] X: Array of data samples with dimensions (n_rows x n_cols)
+* @param[in] n_rows: number of data samples
+* @param[in] n_cols: number of features
+* @param[in] y: Array containing labels for every data sample (1 x n_rows)
+* @param[in] n_labels: number of Labels
+* @param[in] metric: the numerical value that maps to the type of distance metric to be used in the calculations
+* @param[in] chunk: the row-wise chunk size on which the pairwise distance matrix is tiled
+* @param[out] scores: Array that is optionally taken in as input if required to be populated with the silhouette score for every sample (1 x nRows), else nullptr is passed
 */
 float silhouette_score(const raft::handle_t &handle, float *X, int n_rows,
                        int n_cols, int *y, int n_labels, float *scores,

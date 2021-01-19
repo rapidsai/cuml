@@ -32,6 +32,12 @@ namespace Batched {
 
 namespace detail {
 
+/** 
+ * This kernel initializes matrix b (n_rows * n_labels)
+ * For each label that the corresponding row is not a part of is initialized as 0
+ * If the corresponding row is the only sample in its label, again 0
+ * Only if the there are > 1 samples in the label, row is initialized to max
+*/
 template <typename value_t, typename value_idx, typename label_idx>
 __global__ void fill_b_kernel(value_t *b, label_idx *y, value_idx n_rows,
                               label_idx n_labels, value_idx *cluster_counts) {
@@ -61,6 +67,13 @@ __global__ void fill_b_kernel(value_t *b, label_idx *y, value_idx n_rows,
   }
 }
 
+/**
+ * This kernel does an elementwise sweep of chunked pairwise distance matrix
+ * By knowing the offsets of the chunked pairwise distance matrix in the
+ * global pairwise distance matrix, we are able to calculate
+ * intermediate values of a and b for the rows and columns present in the
+ * current chunked pairwise distance matrix. 
+*/
 template <typename value_t, typename value_idx, typename label_idx>
 __global__ void compute_chunked_a_b_kernel(
   value_t *a, value_t *b, value_idx row_offset, value_idx col_offset,
@@ -145,22 +158,6 @@ void compute_chunked_a_b(const raft::handle_t &handle, value_t *a, value_t *b,
     a, b, row_offset, col_offset, y, n_labels, cluster_counts, distances,
     dist_rows, dist_cols);
 }
-
-template <typename value_t>
-struct sil_functor {
-  __host__ __device__ bool operator()(
-    const thrust::tuple<value_t, value_t> &t) {
-    auto a = thrust::get<0>(t);
-    auto b = thrust::get<0>(t);
-
-    if (a == 0 && b == 0 || a == b)
-      return 0;
-    else if (a > b)
-      return (b - a) / a;
-    else
-      return (b - a) / b;
-  }
-};
 
 template <typename value_t, typename value_idx, typename label_idx>
 value_t silhouette_score(const raft::handle_t &handle, value_t *X,

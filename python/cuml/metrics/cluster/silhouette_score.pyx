@@ -72,6 +72,9 @@ def _silhouette_coeff(
         An integer, 1 <= chunksize <= n_rows to tile the pairwise distance
         matrix computations, so as to reduce the quadratic memory usage of
         having the entire pairwise distance matrix in GPU memory.
+        If None, chunksize will automically be set to 40000, which through
+        experiments has proved to be a safe number for the computation
+        to run on a GPU with 16 GB VRAM.
     handle : cuml.Handle
         Specifies the cuml.handle that holds internal CUDA state for
         computations in this model. Most importantly, this specifies the CUDA
@@ -84,7 +87,7 @@ def _silhouette_coeff(
     cdef handle_t *handle_ = <handle_t*> <size_t> handle.getHandle()
 
     if chunksize is None:
-        chunksize = X.shape[0]
+        chunksize = 40000
 
     data, n_rows, n_cols, dtype = input_to_cuml_array(
         X,
@@ -163,6 +166,9 @@ def cython_silhouette_score(
         An integer, 1 <= chunksize <= n_rows to tile the pairwise distance
         matrix computations, so as to reduce the quadratic memory usage of
         having the entire pairwise distance matrix in GPU memory.
+        If None, chunksize will automically be set to 40000, which through
+        experiments has proved to be a safe number for the computation
+        to run on a GPU with 16 GB VRAM.
     handle : cuml.Handle
         Specifies the cuml.handle that holds internal CUDA state for
         computations in this model. Most importantly, this specifies the CUDA
@@ -204,6 +210,9 @@ def cython_silhouette_samples(
         An integer, 1 <= chunksize <= n_rows to tile the pairwise distance
         matrix computations, so as to reduce the quadratic memory usage of
         having the entire pairwise distance matrix in GPU memory.
+        If None, chunksize will automically be set to 40000, which through
+        experiments has proved to be a safe number for the computation
+        to run on a GPU with 16 GB VRAM.
     handle : cuml.Handle
         Specifies the cuml.handle that holds internal CUDA state for
         computations in this model. Most importantly, this specifies the CUDA
