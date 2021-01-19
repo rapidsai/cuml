@@ -255,7 +255,7 @@ def test_rf_classification_dask_fil_predict_proba(partitions_per_worker,
                                                   client):
     n_workers = len(client.scheduler_info()['workers'])
 
-    X, y = make_classification(n_samples=n_workers * 2700, n_features=30,
+    X, y = make_classification(n_samples=n_workers * 1500, n_features=30,
                                n_clusters_per_class=1, n_informative=20,
                                random_state=123, n_classes=2)
 
@@ -263,7 +263,7 @@ def test_rf_classification_dask_fil_predict_proba(partitions_per_worker,
     y = y.astype(np.int32)
 
     X_train, X_test, y_train, y_test = \
-        train_test_split(X, y, test_size=100, random_state=123)
+        train_test_split(X, y, test_size=n_workers * 150, random_state=123)
 
     cu_rf_params = {'n_bins': 16, 'n_streams': 1,
                     'n_estimators': 40, 'max_depth': 16
