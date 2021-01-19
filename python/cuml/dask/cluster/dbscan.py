@@ -27,6 +27,7 @@ from cuml.dask.common.utils import wait_and_raise_from_futures
 
 from cuml.common.memory_utils import with_cupy_rmm
 
+
 class DBSCAN(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
     """
     Multi-Node Multi-GPU implementation of DBSCAN.
