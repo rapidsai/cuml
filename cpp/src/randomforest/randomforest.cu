@@ -239,35 +239,39 @@ void delete_rf_metadata(RandomForestMetaData<T, L>* forest) {
 }
 
 template <class T, class L>
-void _print_rf(const RandomForestMetaData<T, L>* forest, bool summary) {
+std::string _get_rf_text(const RandomForestMetaData<T, L>* forest,
+                         bool summary) {
   ML::PatternSetter _("%v");
   if (!forest || !forest->trees) {
-    CUML_LOG_INFO("Empty forest");
+    return "Empty forest";
   } else {
-    CUML_LOG_INFO("Forest has %d trees, max_depth %d, and max_leaves %d",
-                  forest->rf_params.n_trees,
-                  forest->rf_params.tree_params.max_depth,
-                  forest->rf_params.tree_params.max_leaves);
+    std::ostringstream oss;
+    oss << "Forest has " << forest->rf_params.n_trees << " trees, "
+        << "max_depth " << forest->rf_params.tree_params.max_depth
+        << ", and max_leaves " << forest->rf_params.tree_params.max_leaves
+        << "\n";
     for (int i = 0; i < forest->rf_params.n_trees; i++) {
-      CUML_LOG_INFO("Tree #%d", i);
+      oss << "Tree #" << i << "\n";
       if (summary) {
-        DecisionTree::print_tree_summary<T, L>(&(forest->trees[i]));
+        oss << DecisionTree::get_tree_summary_text<T, L>(&(forest->trees[i]))
+            << "\n";
       } else {
-        DecisionTree::print_tree<T, L>(&(forest->trees[i]));
+        oss << DecisionTree::get_tree_text<T, L>(&(forest->trees[i])) << "\n";
       }
     }
+    return oss.str();
   }
 }
 
 template <class T, class L>
-std::string _dump_rf_as_json(const RandomForestMetaData<T, L>* forest) {
+std::string _get_rf_json(const RandomForestMetaData<T, L>* forest) {
   if (!forest || !forest->trees) {
     return "[]";
   }
   std::ostringstream oss;
   oss << "[\n";
   for (int i = 0; i < forest->rf_params.n_trees; i++) {
-    oss << DecisionTree::dump_tree_as_json<T, L>(&(forest->trees[i]));
+    oss << DecisionTree::get_tree_json<T, L>(&(forest->trees[i]));
     if (i < forest->rf_params.n_trees - 1) {
       oss << ",\n";
     }
@@ -283,8 +287,8 @@ std::string _dump_rf_as_json(const RandomForestMetaData<T, L>* forest) {
  * @param[in] forest: CPU pointer to RandomForestMetaData struct.
  */
 template <class T, class L>
-void print_rf_summary(const RandomForestMetaData<T, L>* forest) {
-  _print_rf(forest, true);
+std::string get_rf_summary_text(const RandomForestMetaData<T, L>* forest) {
+  return _get_rf_text(forest, true);
 }
 
 /**
@@ -294,13 +298,13 @@ void print_rf_summary(const RandomForestMetaData<T, L>* forest) {
  * @param[in] forest: CPU pointer to RandomForestMetaData struct.
  */
 template <class T, class L>
-void print_rf_detailed(const RandomForestMetaData<T, L>* forest) {
-  _print_rf(forest, false);
+std::string get_rf_detailed_text(const RandomForestMetaData<T, L>* forest) {
+  return _get_rf_text(forest, false);
 }
 
 template <class T, class L>
-std::string dump_rf_as_json(const RandomForestMetaData<T, L>* forest) {
-  return _dump_rf_as_json(forest);
+std::string get_rf_json(const RandomForestMetaData<T, L>* forest) {
+  return _get_rf_json(forest);
 }
 
 template <class T, class L>
@@ -311,11 +315,19 @@ void build_treelite_forest(ModelHandle* model,
   // The value should be set to 0 if the model is gradient boosted trees.
   int random_forest_flag = 1;
   ModelBuilderHandle model_builder;
-  // num_output_group is 1 for binary classification and regression
-  // num_output_group is #class for multiclass classification which is the same as task_category
-  int num_output_group = task_category > 2 ? task_category : 1;
+  // num_class is 1 for binary classification and regression
+  // num_class is #class for multiclass classification which is the same as task_category
+  int num_class = task_category > 2 ? task_category : 1;
+
+  const char* leaf_type = DecisionTree::TreeliteType<L>::value;
+  if (std::is_same<L, int>::value) {
+    // Treelite codegen doesn't yet support integer leaf output
+    leaf_type = DecisionTree::TreeliteType<float>::value;
+  }
+
   TREELITE_CHECK(TreeliteCreateModelBuilder(
-    num_features, num_output_group, random_forest_flag, &model_builder));
+    num_features, num_class, random_forest_flag,
+    DecisionTree::TreeliteType<T>::value, leaf_type, &model_builder));
 
   if (task_category > 2) {
     // Multi-class classification
@@ -327,10 +339,11 @@ void build_treelite_forest(ModelHandle* model,
     DecisionTree::TreeMetaDataNode<T, L>* tree_ptr = &forest->trees[i];
     TreeBuilderHandle tree_builder;
 
-    TREELITE_CHECK(TreeliteCreateTreeBuilder(&tree_builder));
+    TREELITE_CHECK(TreeliteCreateTreeBuilder(
+      DecisionTree::TreeliteType<T>::value, leaf_type, &tree_builder));
     if (tree_ptr->sparsetree.size() != 0) {
       DecisionTree::build_treelite_tree<T, L>(tree_builder, tree_ptr,
-                                              num_output_group);
+                                              num_class);
 
       // The third argument -1 means append to the end of the tree list.
       TREELITE_CHECK(
@@ -349,8 +362,9 @@ void build_treelite_forest(ModelHandle* model,
  * @param[in] tree_from_concatenated_forest: Tree info from the concatenated forest.
  * @param[in] tree_from_individual_forest: Tree info from the forest present in each worker.
  */
-void compare_trees(tl::Tree& tree_from_concatenated_forest,
-                   tl::Tree& tree_from_individual_forest) {
+template <class T, class L>
+void compare_trees(tl::Tree<T, L>& tree_from_concatenated_forest,
+                   tl::Tree<T, L>& tree_from_individual_forest) {
   ASSERT(tree_from_concatenated_forest.num_nodes ==
            tree_from_individual_forest.num_nodes,
          "Error! Mismatch the number of nodes present in a tree in the "
@@ -417,23 +431,36 @@ void compare_concat_forest_to_subforests(
     tl::Model& model = *(tl::Model*)(treelite_handles[forest_idx]);
 
     ASSERT(
+      concat_model.GetThresholdType() == model.GetThresholdType(),
+      "Error! Concatenated forest does not have the same threshold type as "
+      "the individual forests");
+    ASSERT(
+      concat_model.GetLeafOutputType() == model.GetLeafOutputType(),
+      "Error! Concatenated forest does not have the same leaf output type as "
+      "the individual forests");
+    ASSERT(
       concat_model.num_feature == model.num_feature,
       "Error! number of features mismatch between concatenated forest and the"
-      " individual forests ");
-    ASSERT(concat_model.num_output_group == model.num_output_group,
-           "Error! number of output group mismatch between concatenated forest "
-           "and the"
-           " individual forests ");
-    ASSERT(concat_model.random_forest_flag == model.random_forest_flag,
-           "Error! random forest flag value mismatch between concatenated "
-           "forest and the"
-           " individual forests ");
+      " individual forests");
+    ASSERT(concat_model.task_param.num_class == model.task_param.num_class,
+           "Error! number of classes mismatch between concatenated forest "
+           "and the individual forests ");
+    ASSERT(concat_model.average_tree_output == model.average_tree_output,
+           "Error! average_tree_output flag value mismatch between "
+           "concatenated forest and the individual forests");
 
-    for (int indiv_trees = 0; indiv_trees < model.trees.size(); indiv_trees++) {
-      compare_trees(concat_model.trees[concat_mod_tree_num + indiv_trees],
-                    model.trees[indiv_trees]);
-    }
-    concat_mod_tree_num = concat_mod_tree_num + model.trees.size();
+    model.Dispatch([&concat_mod_tree_num, &concat_model](auto& model_inner) {
+      // model_inner is of the concrete type tl::ModelImpl<T, L>
+      using model_type = std::remove_reference_t<decltype(model_inner)>;
+      auto& concat_model_inner = dynamic_cast<model_type&>(concat_model);
+      for (int indiv_trees = 0; indiv_trees < model_inner.trees.size();
+           indiv_trees++) {
+        compare_trees(
+          concat_model_inner.trees[concat_mod_tree_num + indiv_trees],
+          model_inner.trees[indiv_trees]);
+      }
+      concat_mod_tree_num = concat_mod_tree_num + model_inner.trees.size();
+    });
   }
 }
 
@@ -447,17 +474,28 @@ void compare_concat_forest_to_subforests(
  */
 ModelHandle concatenate_trees(std::vector<ModelHandle> treelite_handles) {
   tl::Model& first_model = *(tl::Model*)treelite_handles[0];
-  tl::Model* concat_model = new tl::Model;
-  for (int forest_idx = 0; forest_idx < treelite_handles.size(); forest_idx++) {
-    tl::Model& model = *(tl::Model*)treelite_handles[forest_idx];
-    for (const tl::Tree& tree : model.trees) {
-      concat_model->trees.push_back(tree.Clone());
-    }
-  }
-  concat_model->num_feature = first_model.num_feature;
-  concat_model->num_output_group = first_model.num_output_group;
-  concat_model->random_forest_flag = first_model.random_forest_flag;
-  concat_model->param = first_model.param;
+  tl::Model* concat_model =
+    first_model.Dispatch([&treelite_handles](auto& first_model_inner) {
+      // first_model_inner is of the concrete type tl::ModelImpl<T, L>
+      using model_type = std::remove_reference_t<decltype(first_model_inner)>;
+      auto* concat_model = dynamic_cast<model_type*>(
+        tl::Model::Create(first_model_inner.GetThresholdType(),
+                          first_model_inner.GetLeafOutputType())
+          .release());
+      for (int forest_idx = 0; forest_idx < treelite_handles.size();
+           forest_idx++) {
+        tl::Model& model = *(tl::Model*)treelite_handles[forest_idx];
+        auto& model_inner = dynamic_cast<model_type&>(model);
+        for (const auto& tree : model_inner.trees) {
+          concat_model->trees.push_back(tree.Clone());
+        }
+      }
+      concat_model->num_feature = first_model_inner.num_feature;
+      concat_model->task_param = first_model_inner.task_param;
+      concat_model->average_tree_output = first_model_inner.average_tree_output;
+      concat_model->param = first_model_inner.param;
+      return static_cast<tl::Model*>(concat_model);
+    });
   return concat_model;
 }
 
@@ -746,31 +784,31 @@ RF_metrics score(const raft::handle_t& user_handle,
 /** @} */
 
 // Functions' specializations
-template void print_rf_summary<float, int>(
+template std::string get_rf_summary_text<float, int>(
   const RandomForestClassifierF* forest);
-template void print_rf_summary<double, int>(
+template std::string get_rf_summary_text<double, int>(
   const RandomForestClassifierD* forest);
-template void print_rf_summary<float, float>(
+template std::string get_rf_summary_text<float, float>(
   const RandomForestRegressorF* forest);
-template void print_rf_summary<double, double>(
+template std::string get_rf_summary_text<double, double>(
   const RandomForestRegressorD* forest);
 
-template void print_rf_detailed<float, int>(
+template std::string get_rf_detailed_text<float, int>(
   const RandomForestClassifierF* forest);
-template void print_rf_detailed<double, int>(
+template std::string get_rf_detailed_text<double, int>(
   const RandomForestClassifierD* forest);
-template void print_rf_detailed<float, float>(
+template std::string get_rf_detailed_text<float, float>(
   const RandomForestRegressorF* forest);
-template void print_rf_detailed<double, double>(
+template std::string get_rf_detailed_text<double, double>(
   const RandomForestRegressorD* forest);
 
-template std::string dump_rf_as_json<float, int>(
+template std::string get_rf_json<float, int>(
   const RandomForestClassifierF* forest);
-template std::string dump_rf_as_json<double, int>(
+template std::string get_rf_json<double, int>(
   const RandomForestClassifierD* forest);
-template std::string dump_rf_as_json<float, float>(
+template std::string get_rf_json<float, float>(
   const RandomForestRegressorF* forest);
-template std::string dump_rf_as_json<double, double>(
+template std::string get_rf_json<double, double>(
   const RandomForestRegressorD* forest);
 
 template void null_trees_ptr<float, int>(RandomForestClassifierF*& forest);

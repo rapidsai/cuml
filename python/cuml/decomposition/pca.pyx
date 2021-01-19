@@ -46,6 +46,7 @@ from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common import using_output_type
 from cuml.prims.stats import cov
 from cuml.common.input_utils import sparse_scipy_to_cp
+from cuml.common.exceptions import NotFittedError
 
 
 cdef extern from "cuml/decomposition/pca.hpp" namespace "ML":
@@ -554,6 +555,7 @@ class PCA(Base):
 
         """
 
+        self._check_is_fitted('components_')
         if cupyx.scipy.sparse.issparse(X):
             return self._sparse_inverse_transform(X,
                                                   return_sparse=return_sparse,
@@ -653,6 +655,7 @@ class PCA(Base):
 
         """
 
+        self._check_is_fitted('components_')
         if cupyx.scipy.sparse.issparse(X):
             return self._sparse_transform(X)
         elif scipy.sparse.issparse(X):
@@ -737,3 +740,9 @@ class PCA(Base):
             'X_types_gpu': ['2darray', 'sparse'],
             'X_types': ['2darray', 'sparse']
         }
+
+    def _check_is_fitted(self, attr):
+        if not hasattr(self, attr) or (getattr(self, attr) is None):
+            msg = ("This instance is not fitted yet. Call 'fit' "
+                   "with appropriate arguments before using this estimator.")
+            raise NotFittedError(msg)

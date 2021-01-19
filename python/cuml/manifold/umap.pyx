@@ -30,6 +30,7 @@ import cupyx
 
 import numba.cuda as cuda
 
+from cuml.common.sparsefuncs import extract_knn_graph
 from cupyx.scipy.sparse import csr_matrix as cp_csr_matrix,\
     coo_matrix as cp_coo_matrix, csc_matrix as cp_csc_matrix
 
@@ -605,7 +606,7 @@ class UMAP(Base):
                              "build nearest the neighbors graph")
 
         (knn_indices_m, knn_indices_ctype), (knn_dists_m, knn_dists_ctype) =\
-            self._extract_knn_graph(knn_graph, convert_dtype)
+            extract_knn_graph(knn_graph, convert_dtype)
 
         cdef uintptr_t knn_indices_raw = knn_indices_ctype or 0
         cdef uintptr_t knn_dists_raw = knn_dists_ctype or 0
@@ -803,7 +804,7 @@ class UMAP(Base):
         cdef uintptr_t xformed_ptr = embedding.ptr
 
         (knn_indices_m, knn_indices_ctype), (knn_dists_m, knn_dists_ctype) =\
-            self._extract_knn_graph(knn_graph, convert_dtype)
+            extract_knn_graph(knn_graph, convert_dtype)
 
         cdef uintptr_t knn_indices_raw = knn_indices_ctype or 0
         cdef uintptr_t knn_dists_raw = knn_dists_ctype or 0
