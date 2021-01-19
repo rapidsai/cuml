@@ -78,6 +78,7 @@ cdef extern from "cuml/cluster/dbscan_mg.hpp" \
                   size_t max_mbytes_per_batch,
                   int verbosity) except +
 
+
 class DBSCANMG(DBSCAN):
     """
     A Multi-Node Multi-GPU implementation of DBSCAN
@@ -90,7 +91,7 @@ class DBSCANMG(DBSCAN):
 
     def __init__(self, **kwargs):
         super(DBSCANMG, self).__init__(**kwargs)
-    
+
     @generate_docstring(skip_parameters_heading=True)
     def fit(self, X, out_dtype="int32"):
         """
@@ -131,50 +132,50 @@ class DBSCANMG(DBSCAN):
         if self.dtype == np.float32:
             if out_dtype == "int32" or out_dtype is np.int32:
                 fit(handle_[0],
-                          <float*>input_ptr,
-                          <int> n_rows,
-                          <int> n_cols,
-                          <float> self.eps,
-                          <int> self.min_samples,
-                          <int*> labels_ptr,
-                          <int*> core_sample_indices_ptr,
-                          <size_t>self.max_mbytes_per_batch,
-                          <int> self.verbose)
+                    <float*>input_ptr,
+                    <int> n_rows,
+                    <int> n_cols,
+                    <float> self.eps,
+                    <int> self.min_samples,
+                    <int*> labels_ptr,
+                    <int*> core_sample_indices_ptr,
+                    <size_t>self.max_mbytes_per_batch,
+                    <int> self.verbose)
             else:
                 fit(handle_[0],
-                          <float*>input_ptr,
-                          <int64_t> n_rows,
-                          <int64_t> n_cols,
-                          <float> self.eps,
-                          <int> self.min_samples,
-                          <int64_t*> labels_ptr,
-                          <int64_t*> core_sample_indices_ptr,
-                          <size_t>self.max_mbytes_per_batch,
-                          <int> self.verbose)
+                    <float*>input_ptr,
+                    <int64_t> n_rows,
+                    <int64_t> n_cols,
+                    <float> self.eps,
+                    <int> self.min_samples,
+                    <int64_t*> labels_ptr,
+                    <int64_t*> core_sample_indices_ptr,
+                    <size_t>self.max_mbytes_per_batch,
+                    <int> self.verbose)
 
         else:
             if out_dtype == "int32" or out_dtype is np.int32:
                 fit(handle_[0],
-                          <double*>input_ptr,
-                          <int> n_rows,
-                          <int> n_cols,
-                          <double> self.eps,
-                          <int> self.min_samples,
-                          <int*> labels_ptr,
-                          <int*> core_sample_indices_ptr,
-                          <size_t> self.max_mbytes_per_batch,
-                          <int> self.verbose)
+                    <double*>input_ptr,
+                    <int> n_rows,
+                    <int> n_cols,
+                    <double> self.eps,
+                    <int> self.min_samples,
+                    <int*> labels_ptr,
+                    <int*> core_sample_indices_ptr,
+                    <size_t> self.max_mbytes_per_batch,
+                    <int> self.verbose)
             else:
                 fit(handle_[0],
-                          <double*>input_ptr,
-                          <int64_t> n_rows,
-                          <int64_t> n_cols,
-                          <double> self.eps,
-                          <int> self.min_samples,
-                          <int64_t*> labels_ptr,
-                          <int64_t*> core_sample_indices_ptr,
-                          <size_t> self.max_mbytes_per_batch,
-                          <int> self.verbose)
+                    <double*>input_ptr,
+                    <int64_t> n_rows,
+                    <int64_t> n_cols,
+                    <double> self.eps,
+                    <int> self.min_samples,
+                    <int64_t*> labels_ptr,
+                    <int64_t*> core_sample_indices_ptr,
+                    <size_t> self.max_mbytes_per_batch,
+                    <int> self.verbose)
 
         # make sure that the `dbscanFit` is complete before the following
         # delete call happens

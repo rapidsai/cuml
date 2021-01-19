@@ -24,7 +24,6 @@ from cuml.test.utils import get_pattern, unit_param, \
 from sklearn.cluster import DBSCAN as skDBSCAN
 from sklearn.datasets import make_blobs
 from sklearn.preprocessing import StandardScaler
-from sklearn.metrics import adjusted_rand_score
 
 
 @pytest.mark.parametrize('max_mbytes_per_batch', [1e3, None])
@@ -51,8 +50,8 @@ def test_dbscan(datatype, use_handle, nrows, ncols,
 
     eps = 1
     cuml_dbscan = cuDBSCAN(handle=handle, eps=eps, min_samples=2,
-                        max_mbytes_per_batch=max_mbytes_per_batch,
-                        output_type='numpy')
+                           max_mbytes_per_batch=max_mbytes_per_batch,
+                           output_type='numpy')
 
     cu_labels = cuml_dbscan.fit_predict(X, out_dtype=out_dtype)
 
@@ -313,7 +312,7 @@ def test_dbscan_no_calc_core_point_indices():
     # Set calc_core_sample_indices=False
     cuml_dbscan = cuDBSCAN(eps=params['eps'], min_samples=5,
                            output_type='numpy', calc_core_sample_indices=False)
-    cu_labels = cuml_dbscan.fit_predict(X)
+    cuml_dbscan.fit_predict(X)
 
     # Make sure we are None
     assert(cuml_dbscan.core_sample_indices_ is None)

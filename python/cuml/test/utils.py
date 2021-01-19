@@ -139,7 +139,9 @@ def assert_dbscan_equal(ref, actual, X, core_indices, eps):
     core_set = set(core_indices)
     N, _ = X.shape
     eps2 = eps**2
-    sqnorm = lambda x: np.inner(x, x)
+
+    def sqnorm(x):
+        return np.inner(x, x)
 
     for i in range(N):
         la, lb = ref[i], actual[i]
