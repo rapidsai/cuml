@@ -56,32 +56,6 @@ _default_tags = {
 }
 
 
-class class_and_instance_method:
-    """
-    Decorator for dynamic and static _get_tags
-    """
-
-    def __init__(self, _class, _instance=None):
-        self._class = _class
-        self._instance = _instance
-
-    def instance_method(self, _instance):
-        """
-        Factory to create a class_and_instance_method instance method with
-        the existing class associated.
-        """
-        return class_and_instance_method(self._class, _instance)
-
-    def __get__(self, _instance, _class):
-        # if the caller had no instance (i.e. it was a class) or there is no
-        # instance associated we the method we return the class call
-        if _instance is None or self._instance is None:
-            return self._class.__get__(_class, None)
-
-        # otherwise return instance call
-        return self._instance.__get__(_instance, _class)
-
-
 class Base(metaclass=cuml.internals.BaseMetaClass):
     """
     Base class for all the ML algos. It handles some of the common operations
@@ -206,6 +180,7 @@ class Base(metaclass=cuml.internals.BaseMetaClass):
         base.handle.sync()
         del base  # optional!
     """
+
     def __init__(self,
                  handle=None,
                  verbose=False,
@@ -403,7 +378,7 @@ class Base(metaclass=cuml.internals.BaseMetaClass):
         else:
             self.n_features_in_ = X.shape[1]
 
-    @class_and_instance_method
+    @cuml.internals._tags_class_and_instance
     def _get_tags(cls):
         # method and code based on scikit-learn 0.21 _get_tags functionality:
         # https://scikit-learn.org/stable/developers/develop.html#estimator-tags
@@ -419,88 +394,16 @@ class Base(metaclass=cuml.internals.BaseMetaClass):
     @_get_tags.instance_method
     def _get_tags(self):
         collected_tags = _default_tags
+        dynamic_tags = {}
         for cl in reversed(inspect.getmro(self.__class__)):
             if hasattr(cl, '_more_static_tags'):
                 more_tags = cl._more_static_tags()
                 collected_tags.update(more_tags)
             if hasattr(cl, '_more_tags'):
                 more_tags = self._more_tags()
-                collected_tags.update(more_tags)
+                dynamic_tags.update(more_tags)
+        collected_tags.update(dynamic_tags)
         return collected_tags
-
-
-class RegressorMixin:
-    """Mixin class for regression estimators in cuML"""
-
-    _estimator_type = "regressor"
-
-    @generate_docstring(
-        return_values={
-            'name': 'score',
-            'type': 'float',
-            'description': 'R^2 of self.predict(X) '
-                           'wrt. y.'
-        })
-    @cuml.internals.api_base_return_any_skipall
-    def score(self, X, y, **kwargs):
-        """
-        Scoring function for regression estimators
-
-        Returns the coefficient of determination R^2 of the prediction.
-
-        """
-        from cuml.metrics.regression import r2_score
-
-        if hasattr(self, 'handle'):
-            handle = self.handle
-        else:
-            handle = None
-
-        preds = self.predict(X, **kwargs)
-        return r2_score(y, preds, handle=handle)
-
-    @staticmethod
-    def _more_static_tags():
-        return {
-            'requires_y': True
-        }
-
-
-class ClassifierMixin:
-    """Mixin class for classifier estimators in cuML"""
-
-    _estimator_type = "classifier"
-
-    @generate_docstring(
-        return_values={
-            'name':
-                'score',
-            'type':
-                'float',
-            'description': ('Accuracy of self.predict(X) wrt. y '
-                            '(fraction where y == pred_y)')
-        })
-    @cuml.internals.api_base_return_any_skipall
-    def score(self, X, y, **kwargs):
-        """
-        Scoring function for classifier estimators based on mean accuracy.
-
-        """
-        from cuml.metrics.accuracy import accuracy_score
-
-        if hasattr(self, 'handle'):
-            handle = self.handle
-        else:
-            handle = None
-
-        preds = self.predict(X, **kwargs)
-        return accuracy_score(y, preds, handle=handle)
-
-    @staticmethod
-    def _more_static_tags():
-        return {
-            'requires_y': True
-        }
 
 
 # Internal, non class owned helper functions
