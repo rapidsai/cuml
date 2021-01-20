@@ -20,20 +20,41 @@ from cuml.preprocessing import LabelEncoder, LabelBinarizer
 import cudf
 
 
-def cython_hinge_loss(y_true, pred_decision, labels=None):
-    if not hasattr(y_true, "__cuda_array_interface__") :
+def cython_hinge_loss(y_true, pred_decision, labels=None, sample_weights=None):
+
+    if not hasattr(y_true, "__cuda_array_interface__"):
         raise TypeError("y_true needs to be either a cuDF Series or \
                         a cuda_array_interface compliant array.")
 
-    if not hasattr(pred_decision, "__cuda_array_interface__"):
-        raise TypeError("y needs to be either a cuDF Series or \
+    if not hasattr(pred_decision, "__cuda_array_interface__") and not \
+    isinstance(pred_decision, cudf.DataFrame):
+        raise TypeError("pred_decision needs to be either a cuDF DataFrame or \
                         a cuda_array_interface compliant array.")
 
     if y_true.shape[0] != pred_decision.shape[0]:
-        raise ValueError("y_true and pred_decision must have the same shape"
+        raise ValueError("y_true and pred_decision must have the same number of rows"
                          "(found {} and {})".format(
                              y_true.shape[0],
                              pred_decision.shape[0]))
+
+    if sample_weights and sample_weights.shape[0] != y_true.shape[0]:
+        raise ValueError("y_true and sample_weights must have the same number of rows"
+                         "(found {} and {})".format(
+                             y_true.shape[0],
+                             sample_weights.shape[0]))
+
+    y_cudf = isinstance(y_true, cudf.Series)
+    pred_cudf = isinstance (pred_decision, cudf.DataFrame)
+
+    if not y_cudf:
+        y_true = cudf.Series(y_true)
+    
+    if pred_cudf:
+        pred_decision = pred_decision.values
+
+    if len(y_true.shape) != 1:
+        raise ValueError("y_true should be 1d array got shape {} instead"
+                         .format(y_true.shape))
     
     y_true_unique = cp.unique(labels.values if labels is not None else y_true)
     
@@ -69,4 +90,4 @@ def cython_hinge_loss(y_true, pred_decision, labels=None):
     losses = 1 - margin
     # The hinge_loss doesn't penalize good enough predictions.
     cp.clip(losses, 0, None, out=losses)
-    return cp.average(losses)
+    return cp.average(losses, weights=sample_weights)
