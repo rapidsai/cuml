@@ -8,6 +8,12 @@ set -e
 NUMARGS=$#
 ARGS=$*
 
+# Temp code to determine remotes and refs of git
+gpuci_logger "Git Info"
+git status
+git remote -v
+git show-ref
+
 # Arg parsing function
 function hasArg {
     (( ${NUMARGS} != 0 )) && (echo " ${ARGS} " | grep -q " $1 ")
@@ -249,21 +255,21 @@ if [ -n "${CODECOV_TOKEN}" ]; then
 
     gpuci_logger "Uploading Code Coverage to codecov.io"
 
-    set -x
+    set -xv
 
     PARENT_COMMIT_ID=`git merge-base origin/$TARGET_BRANCH HEAD~1`
 
     echo "Parent Commit ID: $PARENT_COMMIT_ID"
 
     # Base tags to apply
-    CODECOV_TAGS="$OS,$PYTHON,$CUDA"
+    CODECOV_TAGS="${OS},python${PYTHON},cuda${CUDA}"
 
     # TEMP: Set PARENT_COMMIT_ID since codecov does a bad job of this
     # Codecov recommends using this notation for jenkins
-    curl -s https://codecov.io/bash | bash -s -- -F ${CODECOV_TAGS},python -f ${WORKSPACE}/python/cuml/cuml-coverage.xml -N "${PARENT_COMMIT_ID}"
-    curl -s https://codecov.io/bash | bash -s -- -F ${CODECOV_TAGS},python,dask -f ${WORKSPACE}/python/cuml/cuml-dask-coverage.xml -N "${PARENT_COMMIT_ID}"
+    curl -s https://codecov.io/bash | bash -s -- -F ${CODECOV_TAGS} -f ${WORKSPACE}/python/cuml/cuml-coverage.xml -N "${PARENT_COMMIT_ID}"
+    curl -s https://codecov.io/bash | bash -s -- -F ${CODECOV_TAGS},dask -f ${WORKSPACE}/python/cuml/cuml-dask-coverage.xml -N "${PARENT_COMMIT_ID}"
 
-    set +x
+    set +xv
 fi
 
 return ${EXITCODE}
