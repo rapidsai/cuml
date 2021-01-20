@@ -206,6 +206,23 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
         """
         return self._get_summary_text()
 
+    def get_combined_model(self):
+        """
+        Return single-GPU model for serialization.
+
+        Returns
+        -------
+
+        model : Trained single-GPU model or None if the model has not
+               yet been trained.
+        """
+
+        # set internal model if it hasn't been accessed before
+        if self._get_internal_model() is None:
+            self._set_internal_model(self._concat_treelite_models())
+
+        return BaseEstimator.get_combined_model(self)
+
     def get_detailed_text(self):
         """
         Obtain the detailed information for the random forest model, as text
