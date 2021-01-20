@@ -14,7 +14,10 @@
 # limitations under the License.
 #
 
-from cuml.internals.base_helpers import BaseMetaClass
+from cuml.internals.base_helpers import (
+    BaseMetaClass,
+    _tags_class_and_instance
+)
 from cuml.internals.api_decorators import (
     api_base_fit_transform,
     api_base_return_any_skipall,

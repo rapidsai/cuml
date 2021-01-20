@@ -34,6 +34,7 @@ from cuml.raft.common.handle cimport handle_t
 from cuml.decomposition.utils cimport *
 from cuml.common import input_to_cuml_array
 from cuml.common.array_descriptor import CumlArrayDescriptor
+from cuml.common.mixins import FMajorInputTagMixin
 
 from cython.operator cimport dereference as deref
 
@@ -100,7 +101,8 @@ class Solver(IntEnum):
     COV_EIG_JACOBI = <underlying_type_t_solver> solver.COV_EIG_JACOBI
 
 
-class TruncatedSVD(Base):
+class TruncatedSVD(Base,
+                   FMajorInputTagMixin):
     """
     TruncatedSVD is used to compute the top K singular values and vectors of a
     large matrix X. It is much faster when n_components is small, such as in
@@ -476,9 +478,3 @@ class TruncatedSVD(Base):
     def get_param_names(self):
         return super().get_param_names() + \
             ["algorithm", "n_components", "n_iter", "random_state", "tol"]
-
-    @staticmethod
-    def _more_static_tags():
-        return {
-            'preferred_input_order': 'F'
-        }

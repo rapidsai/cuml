@@ -32,6 +32,7 @@ from cuml.raft.common.handle cimport handle_t
 from cuml.common import input_to_cuml_array
 from cuml.common import using_output_type
 from cuml.common.array_descriptor import CumlArrayDescriptor
+from cuml.common.mixins import CMajorInputTagMixin
 
 from collections import defaultdict
 
@@ -82,7 +83,8 @@ cdef extern from "cuml/cluster/dbscan.hpp" namespace "ML":
                         int verbosity) except +
 
 
-class DBSCAN(Base):
+class DBSCAN(Base,
+             CMajorInputTagMixin):
     """
     DBSCAN is a very powerful yet fast clustering technique that finds clusters
     where data is concentrated. This allows DBSCAN to generalize to many
@@ -346,9 +348,3 @@ class DBSCAN(Base):
             "max_mbytes_per_batch",
             "calc_core_sample_indices",
         ]
-
-    @staticmethod
-    def _more_static_tags():
-        return {
-            'preferred_input_order': 'C'
-        }

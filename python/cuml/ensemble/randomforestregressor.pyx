@@ -26,7 +26,7 @@ from cuml import ForestInference
 from cuml.common.array import CumlArray
 import cuml.internals
 
-from cuml.common.base import RegressorMixin
+from cuml.common.mixins import RegressorMixin
 from cuml.common.doc_utils import generate_docstring
 from cuml.common.doc_utils import insert_into_docstring
 from cuml.raft.common.handle import Handle
@@ -104,7 +104,8 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
                           int) except +
 
 
-class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
+class RandomForestRegressor(BaseRandomForestModel,
+                            RegressorMixin):
 
     """
     Implements a Random Forest regressor model which fits multiple decision
@@ -755,10 +756,3 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
         if self.dtype == np.float64:
             return get_rf_json(rf_forest64).decode('utf-8')
         return get_rf_json(rf_forest).decode('utf-8')
-
-    @staticmethod
-    def _more_static_tags():
-        return {
-            # fit and predict require conflicting memory layouts
-            'preferred_input_order': None
-        }

@@ -18,12 +18,16 @@
 
 import cuml.internals
 from cuml.common.array import CumlArray
-from cuml.common.base import Base, ClassifierMixin
+from cuml.common.base import Base
+from cuml.common.mixins import ClassifierMixin
 from cuml.common.doc_utils import generate_docstring
+from cuml.common.mixins import FMajorInputTagMixin
 from cuml.solvers import SGD
 
 
-class MBSGDClassifier(Base, ClassifierMixin):
+class MBSGDClassifier(Base,
+                      ClassifierMixin,
+                      FMajorInputTagMixin):
     """
     Linear models (linear SVM, logistic regression, or linear regression)
     fitted by minimizing a regularized empirical loss with mini-batch SGD.
@@ -219,9 +223,3 @@ class MBSGDClassifier(Base, ClassifierMixin):
             "batch_size",
             "n_iter_no_change",
         ]
-
-    @staticmethod
-    def _more_static_tags():
-        return {
-            'preferred_input_order': 'F'
-        }

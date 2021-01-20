@@ -33,6 +33,7 @@ from cuml.common.exceptions import NotFittedError
 from cuml.raft.common.handle cimport handle_t
 from cuml.common import input_to_cuml_array
 from cuml.common import using_output_type
+from cuml.common.mixins import FMajorInputTagMixin
 from libcpp cimport bool
 
 cdef extern from "cuml/matrix/kernelparams.h" namespace "MLCommon::Matrix":
@@ -96,7 +97,8 @@ cdef extern from "cuml/svm/svc.hpp" namespace "ML::SVM":
                                      svmModel[math_t] &m) except +
 
 
-class SVMBase(Base):
+class SVMBase(Base,
+              FMajorInputTagMixin):
     """
     Base class for Support Vector Machines
 
@@ -582,9 +584,3 @@ class SVMBase(Base):
         self.__dict__.update(state)
         self._model = self._get_svm_model()
         self._freeSvmBuffers = False
-
-    @staticmethod
-    def _more_static_tags():
-        return {
-            'preferred_input_order': 'F'
-        }

@@ -31,7 +31,7 @@ from cuml.common.base import Base
 from cuml.common.doc_utils import generate_docstring
 from cuml.raft.common.handle cimport handle_t
 from cuml.common.input_utils import input_to_cuml_array
-from cuml.common.memory_utils import with_cupy_rmm
+from cuml.common.mixins import FMajorInputTagMixin
 
 
 cdef extern from "cuml/solvers/solver.hpp" namespace "ML::Solver":
@@ -87,7 +87,8 @@ cdef extern from "cuml/solvers/solver.hpp" namespace "ML::Solver":
                         int loss) except +
 
 
-class CD(Base):
+class CD(Base,
+         FMajorInputTagMixin):
     """
     Coordinate Descent (CD) is a very common optimization algorithm that
     minimizes along coordinate directions to find the minimum of a function.
@@ -349,9 +350,3 @@ class CD(Base):
             "tol",
             "shuffle",
         ]
-
-    @staticmethod
-    def _more_static_tags():
-        return {
-            'preferred_input_order': 'F'
-        }

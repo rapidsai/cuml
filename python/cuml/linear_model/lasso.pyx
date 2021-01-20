@@ -17,12 +17,17 @@
 # distutils: language = c++
 
 from cuml.solvers import CD
-from cuml.common.base import Base, RegressorMixin
+from cuml.common.base import Base
+from cuml.common.mixins import RegressorMixin
 from cuml.common.doc_utils import generate_docstring
+from cuml.common.mixins import FMajorInputTagMixin
 from cuml.linear_model.base import LinearPredictMixin
 
 
-class Lasso(Base, RegressorMixin, LinearPredictMixin):
+class Lasso(Base,
+            LinearPredictMixin,
+            RegressorMixin,
+            FMajorInputTagMixin):
 
     """
     Lasso extends LinearRegression by providing L1 regularization on the

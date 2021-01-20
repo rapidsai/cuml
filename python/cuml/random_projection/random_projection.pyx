@@ -27,6 +27,7 @@ from cuml.common.array import CumlArray
 from cuml.common.base import Base
 from cuml.raft.common.handle cimport *
 from cuml.common import input_to_cuml_array
+from cuml.common.mixins import FMajorInputTagMixin
 
 cdef extern from * nogil:
     ctypedef void* _Stream "cudaStream_t"
@@ -324,7 +325,9 @@ cdef class BaseRandomProjection():
         return self.fit(X).transform(X, convert_dtype)
 
 
-class GaussianRandomProjection(Base, BaseRandomProjection):
+class GaussianRandomProjection(Base,
+                               BaseRandomProjection,
+                               FMajorInputTagMixin):
     """
     Gaussian Random Projection method derivated from BaseRandomProjection
     class.
@@ -448,7 +451,9 @@ class GaussianRandomProjection(Base, BaseRandomProjection):
         ]
 
 
-class SparseRandomProjection(Base, BaseRandomProjection):
+class SparseRandomProjection(Base,
+                             BaseRandomProjection,
+                             FMajorInputTagMixin):
     """
     Sparse Random Projection method derivated from BaseRandomProjection class.
 
@@ -589,9 +594,3 @@ class SparseRandomProjection(Base, BaseRandomProjection):
             "dense_output",
             "random_state"
         ]
-
-    @staticmethod
-    def _more_static_tags():
-        return {
-            'preferred_input_order': 'F'
-        }

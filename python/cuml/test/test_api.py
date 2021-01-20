@@ -79,8 +79,8 @@ tags = {
 
 
 class dummy_estimator(Base):
-    def __init__(self):
-        super(dummy_estimator).__init__()
+    def __init__(self, handle=None):
+        super(dummy_estimator).__init__(handle=handle)
         self.po = 'dynamic'
 
     @staticmethod

@@ -18,12 +18,16 @@
 
 import cuml.internals
 from cuml.common.array import CumlArray
-from cuml.common.base import Base, RegressorMixin
+from cuml.common.base import Base
+from cuml.common.mixins import RegressorMixin
 from cuml.common.doc_utils import generate_docstring
+from cuml.common.mixins import FMajorInputTagMixin
 from cuml.solvers import SGD
 
 
-class MBSGDRegressor(Base, RegressorMixin):
+class MBSGDRegressor(Base,
+                     RegressorMixin,
+                     FMajorInputTagMixin):
     """
     Linear regression model fitted by minimizing a
     regularized empirical loss with mini-batch SGD.
@@ -213,9 +217,3 @@ class MBSGDRegressor(Base, RegressorMixin):
             "batch_size",
             "n_iter_no_change",
         ]
-
-    @staticmethod
-    def _more_static_tags():
-        return {
-            'preferred_input_order': 'F'
-        }

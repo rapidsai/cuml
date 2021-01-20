@@ -34,7 +34,8 @@ from cuml.common.array import CumlArray
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
 from cuml.raft.common.handle cimport handle_t
-from cuml.common import input_to_cuml_array, with_cupy_rmm
+from cuml.common import input_to_cuml_array
+from cuml.common.mixins import FMajorInputTagMixin
 
 cdef extern from "cuml/solvers/solver.hpp" namespace "ML::Solver":
 
@@ -117,7 +118,8 @@ cdef extern from "cuml/solvers/solver.hpp" namespace "ML::Solver":
                                     int loss) except +
 
 
-class SGD(Base):
+class SGD(Base,
+          FMajorInputTagMixin):
     """
     Stochastic Gradient Descent is a very common machine learning algorithm
     where one optimizes some cost function via gradient steps. This makes SGD
@@ -507,9 +509,3 @@ class SGD(Base):
             "batch_size",
             "n_iter_no_change",
         ]
-
-    @staticmethod
-    def _more_static_tags():
-        return {
-            'preferred_input_order': 'F'
-        }

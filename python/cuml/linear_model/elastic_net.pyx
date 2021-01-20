@@ -17,13 +17,18 @@
 # distutils: language = c++
 
 from cuml.solvers import CD
-from cuml.common.base import Base, RegressorMixin
+from cuml.common.base import Base
+from cuml.common.mixins import RegressorMixin
 from cuml.common.doc_utils import generate_docstring
 from cuml.common.array_descriptor import CumlArrayDescriptor
+from cuml.common.mixins import FMajorInputTagMixin
 from cuml.linear_model.base import LinearPredictMixin
 
 
-class ElasticNet(Base, RegressorMixin, LinearPredictMixin):
+class ElasticNet(Base,
+                 LinearPredictMixin,
+                 RegressorMixin,
+                 FMajorInputTagMixin):
 
     """
     ElasticNet extends LinearRegression with combined L1 and L2 regularizations
@@ -227,9 +232,3 @@ class ElasticNet(Base, RegressorMixin, LinearPredictMixin):
             "tol",
             "selection",
         ]
-
-    @staticmethod
-    def _more_static_tags():
-        return {
-            'preferred_input_order': 'F'
-        }

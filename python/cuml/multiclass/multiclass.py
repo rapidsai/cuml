@@ -17,7 +17,8 @@ import cuml.internals
 import sklearn.multiclass
 
 from cuml.common.array import CumlArray
-from cuml.common.base import Base, ClassifierMixin
+from cuml.common.base import Base
+from cuml.common.mixins import ClassifierMixin
 from cuml.common.doc_utils import generate_docstring
 from cuml.common import input_to_host_array
 

@@ -29,7 +29,7 @@ from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
 from cuml.raft.common.handle cimport handle_t
 from cuml.common import input_to_cuml_array
-from cuml.common import with_cupy_rmm
+from cuml.common.mixins import FMajorInputTagMixin
 from cuml.metrics import accuracy_score
 
 
@@ -120,7 +120,8 @@ cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM":
                    double *preds) except +
 
 
-class QN(Base):
+class QN(Base,
+         FMajorInputTagMixin):
     """
     Quasi-Newton methods are used to either find zeroes or local maxima
     and minima of functions, and used by this class to optimize a cost

@@ -35,6 +35,7 @@ from cuml.common.array import CumlArray
 from cuml.common.base import Base
 from cuml.raft.common.handle cimport handle_t
 from cuml.common import input_to_cuml_array, logger
+from cuml.common.mixins import CMajorInputTagMixin
 
 import treelite
 import treelite.sklearn as tl_skl
@@ -391,7 +392,8 @@ cdef class ForestInference_impl():
             free(handle_[0], self.forest_data)
 
 
-class ForestInference(Base):
+class ForestInference(Base,
+                      CMajorInputTagMixin):
     """
     ForestInference provides GPU-accelerated inference (prediction)
     for random forest and boosted decision tree models.
@@ -797,9 +799,3 @@ class ForestInference(Base):
                                               blocks_per_sm)
         # DO NOT RETURN self._impl here!!
         return self
-
-    @staticmethod
-    def _more_static_tags():
-        return {
-            'preferred_input_order': 'C'
-        }

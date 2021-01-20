@@ -33,6 +33,7 @@ from cuml.common.array_sparse import SparseCumlArray
 from cuml.common.doc_utils import generate_docstring
 from cuml.common.doc_utils import insert_into_docstring
 from cuml.common.import_utils import has_scipy
+from cuml.common.mixins import FMajorInputTagMixin
 from cuml.common import input_to_cuml_array
 from cuml.neighbors.ann cimport *
 from cuml.common.sparse_utils import is_sparse
@@ -140,7 +141,8 @@ cdef extern from "cuml/neighbors/knn_sparse.hpp" namespace "ML::Sparse":
                          bool expanded_form) except +
 
 
-class NearestNeighbors(Base):
+class NearestNeighbors(Base,
+                       FMajorInputTagMixin):
     """
     NearestNeighbors is an queries neighborhoods from a given set of
     datapoints. Currently, cuML supports k-NN queries, which define
@@ -848,9 +850,3 @@ def kneighbors_graph(X=None, n_neighbors=5, mode='connectivity', verbose=False,
             query = X.X_m
 
     return X.kneighbors_graph(X=query, n_neighbors=n_neighbors, mode=mode)
-
-    @staticmethod
-    def _more_static_tags():
-        return {
-            'preferred_input_order': 'F'
-        }

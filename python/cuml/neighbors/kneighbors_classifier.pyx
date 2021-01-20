@@ -24,8 +24,9 @@ import cuml.internals
 from cuml.common.array import CumlArray
 from cuml.common import input_to_cuml_array
 from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.common.base import ClassifierMixin
+from cuml.common.mixins import ClassifierMixin
 from cuml.common.doc_utils import generate_docstring
+from cuml.common.mixins import FMajorInputTagMixin
 
 import numpy as np
 import cupy as cp
@@ -75,7 +76,9 @@ cdef extern from "cuml/neighbors/knn.hpp" namespace "ML":
     ) except +
 
 
-class KNeighborsClassifier(NearestNeighbors, ClassifierMixin):
+class KNeighborsClassifier(NearestNeighbors,
+                           ClassifierMixin,
+                           FMajorInputTagMixin):
     """
     K-Nearest Neighbors Classifier is an instance-based learning technique,
     that keeps training samples around for prediction, rather than trying
@@ -305,10 +308,3 @@ class KNeighborsClassifier(NearestNeighbors, ClassifierMixin):
 
     def get_param_names(self):
         return super().get_param_names() + ["weights"]
-
-    @staticmethod
-    def _more_static_tags():
-        return {
-            # fit and predict require conflicting memory layouts
-            'preferred_input_order': 'F'
-        }
