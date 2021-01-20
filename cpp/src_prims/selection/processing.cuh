@@ -167,15 +167,15 @@ inline std::unique_ptr<MetricProcessor<math_t>> create_processor(
   MetricProcessor<math_t> *mp = nullptr;
 
   switch (metric) {
-    case raft::distance::DistanceType::EucExpandedCosine:
+    case raft::distance::DistanceType::CosineExpanded:
       mp = new CosineMetricProcessor<math_t>(n, D, k, rowMajorQuery, userStream,
                                              allocator);
       break;
 
-    //case raft::distance::DistanceType::Correlation:
-    //  mp = new CorrelationMetricProcessor<math_t>(n, D, k, rowMajorQuery,
-    //                                              userStream, allocator);
-    //  break;
+    case raft::distance::DistanceType::CorrelationExpanded:
+      mp = new CorrelationMetricProcessor<math_t>(n, D, k, rowMajorQuery,
+                                                  userStream, allocator);
+      break;
     default:
       mp = new DefaultMetricProcessor<math_t>();
   }
