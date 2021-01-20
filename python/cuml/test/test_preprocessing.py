@@ -15,16 +15,17 @@
 
 import pytest
 
-from ..experimental.preprocessing import StandardScaler as cuStandardScaler, \
-                            MinMaxScaler as cuMinMaxScaler, \
-                            MaxAbsScaler as cuMaxAbsScaler, \
-                            Normalizer as cuNormalizer, \
-                            Binarizer as cuBinarizer, \
-                            PolynomialFeatures as cuPolynomialFeatures, \
-                            SimpleImputer as cuSimpleImputer, \
-                            RobustScaler as cuRobustScaler, \
-                            KBinsDiscretizer as cuKBinsDiscretizer
-from ..experimental.preprocessing import scale as cu_scale, \
+from cuml.experimental.preprocessing import \
+    StandardScaler as cuStandardScaler, \
+    MinMaxScaler as cuMinMaxScaler, \
+    MaxAbsScaler as cuMaxAbsScaler, \
+    Normalizer as cuNormalizer, \
+    Binarizer as cuBinarizer, \
+    PolynomialFeatures as cuPolynomialFeatures, \
+    SimpleImputer as cuSimpleImputer, \
+    RobustScaler as cuRobustScaler, \
+    KBinsDiscretizer as cuKBinsDiscretizer
+from cuml.experimental.preprocessing import scale as cu_scale, \
                             minmax_scale as cu_minmax_scale, \
                             normalize as cu_normalize, \
                             add_dummy_feature as cu_add_dummy_feature, \
@@ -46,18 +47,20 @@ from sklearn.preprocessing import scale as sk_scale, \
 from sklearn.impute import SimpleImputer as skSimpleImputer
 from sklearn.preprocessing import KBinsDiscretizer as skKBinsDiscretizer
 
-from ..thirdparty_adapters.sparsefuncs_fast import csr_mean_variance_axis0, \
-                                                csc_mean_variance_axis0, \
-                                                _csc_mean_variance_axis0, \
-                                                inplace_csr_row_normalize_l1, \
-                                                inplace_csr_row_normalize_l2
+from cuml.thirdparty_adapters.sparsefuncs_fast import \
+    csr_mean_variance_axis0, \
+    csc_mean_variance_axis0, \
+    _csc_mean_variance_axis0, \
+    inplace_csr_row_normalize_l1, \
+    inplace_csr_row_normalize_l2
 
-from .test_preproc_utils import clf_dataset, int_dataset, blobs_dataset, \
-                                sparse_clf_dataset, \
-                                sparse_blobs_dataset, \
-                                sparse_int_dataset  # noqa: F401
-from .test_preproc_utils import assert_allclose
-from ..common.import_utils import check_cupy8
+from cuml.test.test_preproc_utils import \
+    clf_dataset, int_dataset, blobs_dataset, \
+    sparse_clf_dataset, \
+    sparse_blobs_dataset, \
+    sparse_int_dataset  # noqa: F401
+from cuml.test.test_preproc_utils import assert_allclose
+from cuml.common.import_utils import check_cupy8
 
 import numpy as np
 import cupy as cp
@@ -553,7 +556,6 @@ def test_robust_scale_sparse(sparse_clf_dataset,  # noqa: F811
 @pytest.mark.parametrize("n_bins", [5, 20])
 @pytest.mark.parametrize("encode", ['ordinal', 'onehot-dense', 'onehot'])
 @pytest.mark.parametrize("strategy", ['uniform', 'quantile', 'kmeans'])
-@pytest.mark.xfail(strict=False)
 def test_kbinsdiscretizer(blobs_dataset, n_bins,  # noqa: F811
                           encode, strategy):
     X_np, X = blobs_dataset
@@ -672,3 +674,15 @@ def test_inplace_csr_row_normalize_l2(sparse_clf_dataset):  # noqa: F811
     X_np = sk_normalize(X_np, norm='l2', axis=1)
 
     assert_allclose(X, X_np)
+
+
+def test__repr__():
+    assert cuStandardScaler().__repr__() == 'StandardScaler()'
+    assert cuMinMaxScaler().__repr__() == 'MinMaxScaler()'
+    assert cuMaxAbsScaler().__repr__() == 'MaxAbsScaler()'
+    assert cuNormalizer().__repr__() == 'Normalizer()'
+    assert cuBinarizer().__repr__() == 'Binarizer()'
+    assert cuPolynomialFeatures().__repr__() == 'PolynomialFeatures()'
+    assert cuSimpleImputer().__repr__() == 'SimpleImputer()'
+    assert cuRobustScaler().__repr__() == 'RobustScaler()'
+    assert cuKBinsDiscretizer().__repr__() == 'KBinsDiscretizer()'

@@ -29,8 +29,6 @@ from cuml.raft.common.handle import Handle
 from cuml import ForestInference
 from cuml.common.base import Base
 from cuml.raft.common.handle cimport handle_t
-from cuml.common import get_cudf_column_ptr, get_dev_array_ptr, \
-    input_to_dev_array, zeros
 cimport cuml.common.cuda
 
 cdef extern from "treelite/c_api.h":
@@ -53,7 +51,8 @@ cdef extern from "cuml/tree/decisiontree.hpp" namespace "ML::DecisionTree":
         float max_features
         int n_bins
         int split_algo
-        int min_rows_per_node
+        int min_samples_leaf
+        int min_samples_split
         bool bootstrap_features
         bool quantile_per_tree
         CRITERION split_criterion
@@ -78,7 +77,7 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
     cdef struct RF_params:
         int n_trees
         bool bootstrap
-        float rows_sample
+        float max_samples
         int seed
         pass
 
@@ -99,13 +98,15 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
     #
     # Text representation of random forest
     #
-    cdef void print_rf_summary[T, L](RandomForestMetaData[T, L]*) except +
-    cdef void print_rf_detailed[T, L](RandomForestMetaData[T, L]*) except +
-    cdef string dump_rf_as_json[T, L](RandomForestMetaData[T, L]*) except +
+    cdef string get_rf_summary_text[T, L](RandomForestMetaData[T, L]*) except +
+    cdef string get_rf_detailed_text[T, L](RandomForestMetaData[T, L]*
+                                           ) except +
+    cdef string get_rf_json[T, L](RandomForestMetaData[T, L]*) except +
 
     cdef RF_params set_rf_class_obj(int,
                                     int,
                                     float,
+                                    int,
                                     int,
                                     int,
                                     int,

@@ -160,7 +160,7 @@ cudaError_t layoutSortOffset(T *in, T value, int n_times, cudaStream_t stream) {
 
 /**
  * @brief sort columns within each row of row-major input matrix and return sorted indexes
- * modelled as key-value sort with key being input matrix and value being index of values 
+ * modelled as key-value sort with key being input matrix and value being index of values
  * @param in: input matrix
  * @param out: output value(index) matrix
  * @param n_rows: number rows of input matrix

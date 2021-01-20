@@ -15,18 +15,18 @@
 #
 import cupyx as cpx
 import numpy as np
-
 from cuml.common.import_utils import has_scipy
-from cuml.common.input_utils import input_to_cuml_array
+from cuml.common.memory_utils import class_with_cupy_rmm
 from cuml.common.logger import debug
-from cuml.common.memory_utils import with_cupy_rmm
 
+import cuml.common
 
 if has_scipy():
     import scipy.sparse
 
 
-class SparseCumlArray:
+@class_with_cupy_rmm()
+class SparseCumlArray():
     """
     SparseCumlArray abstracts sparse array allocations. This will
     accept either a Scipy or Cupy sparse array and construct CumlArrays
@@ -69,7 +69,6 @@ class SparseCumlArray:
         Number of nonzeros in underlying arrays
     """
 
-    @with_cupy_rmm
     def __init__(self, data=None,
                  convert_to_dtype=False,
                  convert_index=np.int32,
@@ -105,15 +104,15 @@ class SparseCumlArray:
         # Note: Only 32-bit indexing is supported currently.
         # In CUDA11, Cusparse provides 64-bit function calls
         # but these are not yet used in RAFT/Cuml
-        self.indptr, _, _, _ = input_to_cuml_array(
+        self.indptr, _, _, _ = cuml.common.input_to_cuml_array(
             data.indptr, check_dtype=convert_index,
             convert_to_dtype=convert_index)
 
-        self.indices, _, _, _ = input_to_cuml_array(
+        self.indices, _, _, _ = cuml.common.input_to_cuml_array(
             data.indices, check_dtype=convert_index,
             convert_to_dtype=convert_index)
 
-        self.data, _, _, _ = input_to_cuml_array(
+        self.data, _, _, _ = cuml.common.input_to_cuml_array(
             data.data, check_dtype=data.dtype,
             convert_to_dtype=convert_to_dtype)
 
@@ -121,7 +120,6 @@ class SparseCumlArray:
         self.dtype = self.data.dtype
         self.nnz = data.nnz
 
-    @with_cupy_rmm
     def to_output(self, output_type='cupy',
                   output_format=None,
                   output_dtype=None):
@@ -135,6 +133,7 @@ class SparseCumlArray:
 
             - 'cupy' - to cupy array
             - 'scipy' - to scipy (host) array
+            - 'numpy' - to scipy (host) array
 
         output_format : string, optional { 'coo', 'csc' }
             Optionally convert the output to the specified format.
@@ -142,13 +141,18 @@ class SparseCumlArray:
             Optionally cast the array to a specified dtype, creating
             a copy if necessary.
         """
+        # Treat numpy and scipy as the same
+        if (output_type == "numpy"):
+            output_type = "scipy"
+
         output_dtype = self.data.dtype \
             if output_dtype is None else output_dtype
 
         if output_type not in ['cupy', 'scipy']:
             raise ValueError("Unsupported output_type: %s" % output_dtype)
 
-        cuml_arr_output_type = 'numpy' if output_type == 'scipy' else 'cupy'
+        cuml_arr_output_type = 'numpy' \
+            if output_type in ('scipy', 'numpy') else 'cupy'
 
         data = self.data.to_output(cuml_arr_output_type, output_dtype)
         indices = self.indices.to_output(cuml_arr_output_type)

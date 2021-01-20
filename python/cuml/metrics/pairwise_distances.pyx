@@ -16,34 +16,27 @@
 
 # distutils: language = c++
 
+import warnings
+
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t
 from cuml.raft.common.handle cimport handle_t
 from cuml.raft.common.handle import Handle
 import cupy as cp
 import numpy as np
+import cuml.internals
 from cuml.common.base import _determine_stateless_output_type
-from cuml.common import (get_cudf_column_ptr, get_dev_array_ptr,
-                         input_to_cuml_array, CumlArray, logger, with_cupy_rmm)
+from cuml.common import (input_to_cuml_array, CumlArray, logger)
 from cuml.metrics.cluster.utils import prepare_cluster_metric_inputs
-
-cdef extern from "cuml/distance/distance_type.h" namespace "ML::Distance":
-
-    cdef enum DistanceType:
-        EucExpandedL2 "ML::Distance::DistanceType::EucExpandedL2"
-        EucExpandedL2Sqrt "ML::Distance::DistanceType::EucExpandedL2Sqrt"
-        EucExpandedCosine "ML::Distance::DistanceType::EucExpandedCosine"
-        EucUnexpandedL1 "ML::Distance::DistanceType::EucUnexpandedL1"
-        EucUnexpandedL2 "ML::Distance::DistanceType::EucUnexpandedL2"
-        EucUnexpandedL2Sqrt "ML::Distance::DistanceType::EucUnexpandedL2Sqrt"
+from cuml.metrics.distance_type cimport DistanceType
 
 cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics":
-    void pairwiseDistance(const handle_t &handle, const double *x,
-                          const double *y, double *dist, int m, int n, int k,
-                          DistanceType metric, bool isRowMajor) except +
-    void pairwiseDistance(const handle_t &handle, const float *x,
-                          const float *y, float *dist, int m, int n, int k,
-                          DistanceType metric, bool isRowMajor) except +
+    void pairwise_distance(const handle_t &handle, const double *x,
+                           const double *y, double *dist, int m, int n, int k,
+                           DistanceType metric, bool isRowMajor) except +
+    void pairwise_distance(const handle_t &handle, const float *x,
+                           const float *y, float *dist, int m, int n, int k,
+                           DistanceType metric, bool isRowMajor) except +
 
 
 """
@@ -64,43 +57,43 @@ def _determine_metric(metric_str):
 
     # Available options in scikit-learn and their pairs. See
     # sklearn.metrics.pairwise.PAIRWISE_DISTANCE_FUNCTIONS:
-    # 'cityblock': EucUnexpandedL1
-    # 'cosine': EucExpandedCosine
-    # 'euclidean': EucUnexpandedL2Sqrt
+    # 'cityblock': L1
+    # 'cosine': CosineExpanded
+    # 'euclidean': L2SqrtUnexpanded
     # 'haversine': N/A
-    # 'l2': EucUnexpandedL2Sqrt
-    # 'l1': EucUnexpandedL1
-    # 'manhattan': EucUnexpandedL1
+    # 'l2': L2SqrtUnexpanded
+    # 'l1': L1
+    # 'manhattan': L1
     # 'nan_euclidean': N/A
-    # 'sqeuclidean': EucUnexpandedL2
+    # 'sqeuclidean': L2Unexpanded
     # Note: many are duplicates following this:
     # https://github.com/scikit-learn/scikit-learn/blob/master/sklearn/metrics/pairwise.py#L1321
 
     if metric_str == 'cityblock':
-        return DistanceType.EucUnexpandedL1
+        return DistanceType.L1
     elif metric_str == 'cosine':
-        return DistanceType.EucExpandedCosine
+        return DistanceType.CosineExpanded
     elif metric_str == 'euclidean':
-        return DistanceType.EucUnexpandedL2Sqrt
+        return DistanceType.L2SqrtUnexpanded
     elif metric_str == 'haversine':
         raise ValueError(" The metric: '{}', is not supported at this time."
                          .format(metric_str))
     elif metric_str == 'l2':
-        return DistanceType.EucUnexpandedL2Sqrt
+        return DistanceType.L2SqrtUnexpanded
     elif metric_str == 'l1':
-        return DistanceType.EucUnexpandedL1
+        return DistanceType.L1
     elif metric_str == 'manhattan':
-        return DistanceType.EucUnexpandedL1
+        return DistanceType.L1
     elif metric_str == 'nan_euclidean':
         raise ValueError(" The metric: '{}', is not supported at this time."
                          .format(metric_str))
     elif metric_str == 'sqeuclidean':
-        return DistanceType.EucUnexpandedL2
+        return DistanceType.L2Unexpanded
     else:
         raise ValueError("Unknown metric: {}".format(metric_str))
 
 
-@with_cupy_rmm
+@cuml.internals.api_return_array(get_output_type=True)
 def pairwise_distances(X, Y=None, metric="euclidean", handle=None,
                        convert_dtype=True, output_type=None, **kwds):
     """
@@ -148,6 +141,12 @@ def pairwise_distances(X, Y=None, metric="euclidean", handle=None,
         module level, `cuml.global_output_type`.
         See :ref:`output-data-type-configuration` for more info.
 
+        .. deprecated:: 0.17
+           `output_type` is deprecated in 0.17 and will be removed in 0.18.
+           Please use the module level output type control,
+           `cuml.global_output_type`.
+           See :ref:`output-data-type-configuration` for more info.
+
     Returns
     -------
     D : array [n_samples_x, n_samples_x] or [n_samples_x, n_samples_y]
@@ -183,11 +182,17 @@ def pairwise_distances(X, Y=None, metric="euclidean", handle=None,
             [12., 10.]])
     """
 
+    # Check for deprecated `output_type` and warn. Set manually if specified
+    if (output_type is not None):
+        warnings.warn("Using the `output_type` argument is deprecated and "
+                      "will be removed in 0.18. Please specify the output "
+                      "type using `cuml.using_output_type()` instead",
+                      DeprecationWarning)
+
+        cuml.internals.set_api_output_type(output_type)
+
     handle = Handle() if handle is None else handle
     cdef handle_t *handle_ = <handle_t*> <size_t> handle.getHandle()
-
-    # Determine the input type to convert to when returning
-    output_type = _determine_stateless_output_type(output_type, X)
 
     # Get the input arrays, preserve order and type where possible
     X_m, n_samples_x, n_features_x, dtype_x = \
@@ -245,32 +250,32 @@ def pairwise_distances(X, Y=None, metric="euclidean", handle=None,
 
     # Now execute the functions
     if (dtype_x == np.float32):
-        pairwiseDistance(handle_[0],
-                         <float*> d_X_ptr,
-                         <float*> d_Y_ptr,
-                         <float*> d_dest_ptr,
-                         <int> n_samples_x,
-                         <int> n_samples_y,
-                         <int> n_features_x,
-                         <DistanceType> metric_val,
-                         <bool> is_row_major)
+        pairwise_distance(handle_[0],
+                          <float*> d_X_ptr,
+                          <float*> d_Y_ptr,
+                          <float*> d_dest_ptr,
+                          <int> n_samples_x,
+                          <int> n_samples_y,
+                          <int> n_features_x,
+                          <DistanceType> metric_val,
+                          <bool> is_row_major)
     elif (dtype_x == np.float64):
-        pairwiseDistance(handle_[0],
-                         <double*> d_X_ptr,
-                         <double*> d_Y_ptr,
-                         <double*> d_dest_ptr,
-                         <int> n_samples_x,
-                         <int> n_samples_y,
-                         <int> n_features_x,
-                         <DistanceType> metric_val,
-                         <bool> is_row_major)
+        pairwise_distance(handle_[0],
+                          <double*> d_X_ptr,
+                          <double*> d_Y_ptr,
+                          <double*> d_dest_ptr,
+                          <int> n_samples_x,
+                          <int> n_samples_y,
+                          <int> n_features_x,
+                          <DistanceType> metric_val,
+                          <bool> is_row_major)
     else:
         raise NotImplementedError("Unsupported dtype: {}".format(dtype_x))
 
-    # Sync on the stream before exiting. pairwiseDistance does not sync.
+    # Sync on the stream before exiting. pairwise_distance does not sync.
     handle.sync()
 
     del X_m
     del Y_m
 
-    return dest_m.to_output(output_type)
+    return dest_m

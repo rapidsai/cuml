@@ -29,7 +29,9 @@ namespace DecisionTree {
  * @param[in] cfg_max_features: maximum number of features; default 1.0f
  * @param[in] cfg_n_bins: number of bins; default 8
  * @param[in] cfg_split_algo: split algorithm; default SPLIT_ALGO::HIST
- * @param[in] cfg_min_rows_per_node: min. rows per node; default 2
+ * @param[in] cfg_min_samples_leaf: min. rows in each leaf node; default 1
+ * @param[in] cfg_min_samples_split: min. rows needed to split an internal node;
+ *            default 2
  * @param[in] cfg_bootstrap_features: bootstrapping for features; default false
  * @param[in] cfg_split_criterion: split criterion; default CRITERION_END,
  *            i.e., GINI for classification or MSE for regression
@@ -40,8 +42,8 @@ namespace DecisionTree {
  */
 void set_tree_params(DecisionTreeParams &params, int cfg_max_depth,
                      int cfg_max_leaves, float cfg_max_features, int cfg_n_bins,
-                     int cfg_split_algo, int cfg_min_rows_per_node,
-                     float cfg_min_impurity_decrease,
+                     int cfg_split_algo, int cfg_min_samples_leaf,
+                     int cfg_min_samples_split, float cfg_min_impurity_decrease,
                      bool cfg_bootstrap_features, CRITERION cfg_split_criterion,
                      bool cfg_quantile_per_tree,
                      bool cfg_use_experimental_backend,
@@ -80,7 +82,8 @@ void set_tree_params(DecisionTreeParams &params, int cfg_max_depth,
   params.max_features = cfg_max_features;
   params.n_bins = cfg_n_bins;
   params.split_algo = cfg_split_algo;
-  params.min_rows_per_node = cfg_min_rows_per_node;
+  params.min_samples_leaf = cfg_min_samples_leaf;
+  params.min_samples_split = cfg_min_samples_split;
   params.bootstrap_features = cfg_bootstrap_features;
   params.split_criterion = cfg_split_criterion;
   params.quantile_per_tree = cfg_quantile_per_tree;
@@ -101,9 +104,12 @@ void validity_check(const DecisionTreeParams params) {
            (params.split_algo < SPLIT_ALGO::SPLIT_ALGO_END),
          "split_algo value %d outside permitted [0, %d) range",
          params.split_algo, SPLIT_ALGO::SPLIT_ALGO_END);
-  ASSERT((params.min_rows_per_node >= 2),
-         "Invalid min # rows per node value %d. Should be >= 2.",
-         params.min_rows_per_node);
+  ASSERT((params.min_samples_leaf >= 1),
+         "Invalid value for min_samples_leaf %d. Should be >= 1.",
+         params.min_samples_leaf);
+  ASSERT((params.min_samples_split >= 2),
+         "Invalid value for min_samples_split: %d. Should be >= 2.",
+         params.min_samples_split);
 }
 
 void print(const DecisionTreeParams params) {
@@ -112,7 +118,8 @@ void print(const DecisionTreeParams params) {
   CUML_LOG_DEBUG("max_features: %f", params.max_features);
   CUML_LOG_DEBUG("n_bins: %d", params.n_bins);
   CUML_LOG_DEBUG("split_algo: %d", params.split_algo);
-  CUML_LOG_DEBUG("min_rows_per_node: %d", params.min_rows_per_node);
+  CUML_LOG_DEBUG("min_samples_leaf: %d", params.min_samples_leaf);
+  CUML_LOG_DEBUG("min_samples_split: %d", params.min_samples_split);
   CUML_LOG_DEBUG("bootstrap_features: %d", params.bootstrap_features);
   CUML_LOG_DEBUG("split_criterion: %d", params.split_criterion);
   CUML_LOG_DEBUG("quantile_per_tree: %d", params.quantile_per_tree);
@@ -123,25 +130,29 @@ void print(const DecisionTreeParams params) {
 }
 
 template <class T, class L>
-void print_tree_summary(const TreeMetaDataNode<T, L> *tree) {
-  CUML_LOG_INFO(" Decision Tree depth --> %d and n_leaves --> %d",
-                tree->depth_counter, tree->leaf_counter);
-  CUML_LOG_INFO(" Tree Fitting - Overall time --> %lf s",
-                tree->prepare_time + tree->train_time);
-  CUML_LOG_INFO("   - preparing for fit time: %lf s", tree->prepare_time);
-  CUML_LOG_INFO("   - tree growing time: %lf s", tree->train_time);
-}
-
-template <class T, class L>
-void print_tree(const TreeMetaDataNode<T, L> *tree) {
-  print_tree_summary<T, L>(tree);
-  print_node<T, L>("", tree->sparsetree, 0, false);
-}
-
-template <class T, class L>
-std::string dump_tree_as_json(const TreeMetaDataNode<T, L> *tree) {
+std::string get_tree_summary_text(const TreeMetaDataNode<T, L> *tree) {
   std::ostringstream oss;
-  return dump_node_as_json("", tree->sparsetree, 0);
+  oss << " Decision Tree depth --> " << tree->depth_counter
+      << " and n_leaves --> " << tree->leaf_counter << "\n"
+      << " Tree Fitting - Overall time --> "
+      << (tree->prepare_time + tree->train_time) << " s"
+      << "\n"
+      << "   - preparing for fit time: " << tree->prepare_time << " s"
+      << "\n"
+      << "   - tree growing time: " << tree->train_time << " s";
+  return oss.str();
+}
+
+template <class T, class L>
+std::string get_tree_text(const TreeMetaDataNode<T, L> *tree) {
+  std::string summary = get_tree_summary_text<T, L>(tree);
+  return summary + "\n" + get_node_text<T, L>("", tree->sparsetree, 0, false);
+}
+
+template <class T, class L>
+std::string get_tree_json(const TreeMetaDataNode<T, L> *tree) {
+  std::ostringstream oss;
+  return get_node_json("", tree->sparsetree, 0);
 }
 
 void decisionTreeClassifierFit(const raft::handle_t &handle,
@@ -236,23 +247,24 @@ void decisionTreeRegressorPredict(const raft::handle_t &handle,
 }
 
 // Functions' specializations
-template void print_tree_summary<float, int>(const TreeClassifierF *tree);
-template void print_tree_summary<double, int>(const TreeClassifierD *tree);
-template void print_tree_summary<float, float>(const TreeRegressorF *tree);
-template void print_tree_summary<double, double>(const TreeRegressorD *tree);
-
-template void print_tree<float, int>(const TreeClassifierF *tree);
-template void print_tree<double, int>(const TreeClassifierD *tree);
-template void print_tree<float, float>(const TreeRegressorF *tree);
-template void print_tree<double, double>(const TreeRegressorD *tree);
-
-template std::string dump_tree_as_json<float, int>(const TreeClassifierF *tree);
-template std::string dump_tree_as_json<double, int>(
+template std::string get_tree_summary_text<float, int>(
+  const TreeClassifierF *tree);
+template std::string get_tree_summary_text<double, int>(
   const TreeClassifierD *tree);
-template std::string dump_tree_as_json<float, float>(
+template std::string get_tree_summary_text<float, float>(
   const TreeRegressorF *tree);
-template std::string dump_tree_as_json<double, double>(
+template std::string get_tree_summary_text<double, double>(
   const TreeRegressorD *tree);
+
+template std::string get_tree_text<float, int>(const TreeClassifierF *tree);
+template std::string get_tree_text<double, int>(const TreeClassifierD *tree);
+template std::string get_tree_text<float, float>(const TreeRegressorF *tree);
+template std::string get_tree_text<double, double>(const TreeRegressorD *tree);
+
+template std::string get_tree_json<float, int>(const TreeClassifierF *tree);
+template std::string get_tree_json<double, int>(const TreeClassifierD *tree);
+template std::string get_tree_json<float, float>(const TreeRegressorF *tree);
+template std::string get_tree_json<double, double>(const TreeRegressorD *tree);
 
 }  // End namespace DecisionTree
 }  //End namespace ML

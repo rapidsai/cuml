@@ -17,6 +17,8 @@ enum DistanceType : unsigned short {
   EucUnexpandedL2 = 4,
   /** same as above, but inside the epilogue, perform square root operation */
   EucUnexpandedL2Sqrt = 5,
+  /** simple inner product */
+  InnerProduct = 6
 };
 
 };  // end namespace Distance

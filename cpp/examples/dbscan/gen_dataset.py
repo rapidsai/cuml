@@ -15,7 +15,7 @@
 # limitations under the License.
 #
 import argparse
-from sklearn.datasets.samples_generator import make_blobs
+from sklearn.datasets import make_blobs
 
 parser = argparse.ArgumentParser('gen_dataset.py ')
 

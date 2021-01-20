@@ -24,11 +24,15 @@
 
 #include <faiss/gpu/GpuDistance.h>
 #include <faiss/gpu/GpuIndexFlat.h>
+#include <faiss/gpu/GpuIndexIVFFlat.h>
+#include <faiss/gpu/GpuIndexIVFPQ.h>
+#include <faiss/gpu/GpuIndexIVFScalarQuantizer.h>
 #include <faiss/gpu/GpuResources.h>
 #include <faiss/gpu/StandardGpuResources.h>
 #include <faiss/utils/Heap.h>
 #include <faiss/gpu/utils/Limits.cuh>
 #include <faiss/gpu/utils/Select.cuh>
+#include <faiss/gpu/utils/Tensor.cuh>
 
 #include <thrust/device_vector.h>
 #include <thrust/iterator/transform_iterator.h>
@@ -40,6 +44,7 @@
 #include <cuml/neighbors/knn.hpp>
 
 #include <iostream>
+#include <set>
 
 namespace MLCommon {
 namespace Selection {
@@ -55,21 +60,24 @@ inline __device__ T get_lbls(const T *labels, const int64_t *knn_indices,
   }
 }
 
-template <int warp_q, int thread_q, int tpb>
-__global__ void knn_merge_parts_kernel(float *inK, int64_t *inV, float *outK,
-                                       int64_t *outV, size_t n_samples,
-                                       int n_parts, float initK, int64_t initV,
-                                       int k, int64_t *translations) {
+template <typename value_idx = int64_t, typename value_t = float, int warp_q,
+          int thread_q, int tpb>
+__global__ void knn_merge_parts_kernel(value_t *inK, value_idx *inV,
+                                       value_t *outK, value_idx *outV,
+                                       size_t n_samples, int n_parts,
+                                       value_t initK, value_idx initV, int k,
+                                       value_idx *translations) {
   constexpr int kNumWarps = tpb / faiss::gpu::kWarpSize;
 
-  __shared__ float smemK[kNumWarps * warp_q];
-  __shared__ int64_t smemV[kNumWarps * warp_q];
+  __shared__ value_t smemK[kNumWarps * warp_q];
+  __shared__ value_idx smemV[kNumWarps * warp_q];
 
   /**
    * Uses shared memory
    */
-  faiss::gpu::BlockSelect<float, int64_t, false, faiss::gpu::Comparator<float>,
-                          warp_q, thread_q, tpb>
+  faiss::gpu::BlockSelect<value_t, value_idx, false,
+                          faiss::gpu::Comparator<value_t>, warp_q, thread_q,
+                          tpb>
     heap(initK, initV, smemK, smemV, k);
 
   // Grid is exactly sized to rows available
@@ -84,11 +92,11 @@ __global__ void knn_merge_parts_kernel(float *inK, int64_t *inV, float *outK,
 
   int col = i % k;
 
-  float *inKStart = inK + (row_idx + col);
-  int64_t *inVStart = inV + (row_idx + col);
+  value_t *inKStart = inK + (row_idx + col);
+  value_idx *inVStart = inV + (row_idx + col);
 
   int limit = faiss::gpu::utils::roundDown(total_k, faiss::gpu::kWarpSize);
-  int64_t translation = 0;
+  value_idx translation = 0;
 
   for (; i < limit; i += tpb) {
     translation = translations[part];
@@ -117,19 +125,20 @@ __global__ void knn_merge_parts_kernel(float *inK, int64_t *inV, float *outK,
   }
 }
 
-template <int warp_q, int thread_q>
-inline void knn_merge_parts_impl(float *inK, int64_t *inV, float *outK,
-                                 int64_t *outV, size_t n_samples, int n_parts,
+template <typename value_idx = int64_t, typename value_t = float, int warp_q,
+          int thread_q>
+inline void knn_merge_parts_impl(value_t *inK, value_idx *inV, value_t *outK,
+                                 value_idx *outV, size_t n_samples, int n_parts,
                                  int k, cudaStream_t stream,
-                                 int64_t *translations) {
+                                 value_idx *translations) {
   auto grid = dim3(n_samples);
 
   constexpr int n_threads = (warp_q <= 1024) ? 128 : 64;
   auto block = dim3(n_threads);
 
-  auto kInit = faiss::gpu::Limits<float>::getMax();
+  auto kInit = faiss::gpu::Limits<value_t>::getMax();
   auto vInit = -1;
-  knn_merge_parts_kernel<warp_q, thread_q, n_threads>
+  knn_merge_parts_kernel<value_idx, value_t, warp_q, thread_q, n_threads>
     <<<grid, block, 0, stream>>>(inK, inV, outK, outV, n_samples, n_parts,
                                  kInit, vInit, k, translations);
   CUDA_CHECK(cudaPeekAtLastError());
@@ -149,30 +158,32 @@ inline void knn_merge_parts_impl(float *inK, int64_t *inV, float *outK,
  * @param stream CUDA stream to use
  * @param translations mapping of index offsets for each partition
  */
-inline void knn_merge_parts(float *inK, int64_t *inV, float *outK,
-                            int64_t *outV, size_t n_samples, int n_parts, int k,
-                            cudaStream_t stream, int64_t *translations) {
+template <typename value_idx = int64_t, typename value_t = float>
+inline void knn_merge_parts(value_t *inK, value_idx *inV, value_t *outK,
+                            value_idx *outV, size_t n_samples, int n_parts,
+                            int k, cudaStream_t stream,
+                            value_idx *translations) {
   if (k == 1)
-    knn_merge_parts_impl<1, 1>(inK, inV, outK, outV, n_samples, n_parts, k,
-                               stream, translations);
+    knn_merge_parts_impl<value_idx, value_t, 1, 1>(
+      inK, inV, outK, outV, n_samples, n_parts, k, stream, translations);
   else if (k <= 32)
-    knn_merge_parts_impl<32, 2>(inK, inV, outK, outV, n_samples, n_parts, k,
-                                stream, translations);
+    knn_merge_parts_impl<value_idx, value_t, 32, 2>(
+      inK, inV, outK, outV, n_samples, n_parts, k, stream, translations);
   else if (k <= 64)
-    knn_merge_parts_impl<64, 3>(inK, inV, outK, outV, n_samples, n_parts, k,
-                                stream, translations);
+    knn_merge_parts_impl<value_idx, value_t, 64, 3>(
+      inK, inV, outK, outV, n_samples, n_parts, k, stream, translations);
   else if (k <= 128)
-    knn_merge_parts_impl<128, 3>(inK, inV, outK, outV, n_samples, n_parts, k,
-                                 stream, translations);
+    knn_merge_parts_impl<value_idx, value_t, 128, 3>(
+      inK, inV, outK, outV, n_samples, n_parts, k, stream, translations);
   else if (k <= 256)
-    knn_merge_parts_impl<256, 4>(inK, inV, outK, outV, n_samples, n_parts, k,
-                                 stream, translations);
+    knn_merge_parts_impl<value_idx, value_t, 256, 4>(
+      inK, inV, outK, outV, n_samples, n_parts, k, stream, translations);
   else if (k <= 512)
-    knn_merge_parts_impl<512, 8>(inK, inV, outK, outV, n_samples, n_parts, k,
-                                 stream, translations);
+    knn_merge_parts_impl<value_idx, value_t, 512, 8>(
+      inK, inV, outK, outV, n_samples, n_parts, k, stream, translations);
   else if (k <= 1024)
-    knn_merge_parts_impl<1024, 8>(inK, inV, outK, outV, n_samples, n_parts, k,
-                                  stream, translations);
+    knn_merge_parts_impl<value_idx, value_t, 1024, 8>(
+      inK, inV, outK, outV, n_samples, n_parts, k, stream, translations);
 }
 
 inline faiss::MetricType build_faiss_metric(ML::MetricType metric) {
@@ -186,32 +197,141 @@ inline faiss::MetricType build_faiss_metric(ML::MetricType metric) {
   }
 }
 
+inline faiss::ScalarQuantizer::QuantizerType build_faiss_qtype(
+  ML::QuantizerType qtype) {
+  switch (qtype) {
+    case ML::QuantizerType::QT_8bit:
+      return faiss::ScalarQuantizer::QuantizerType::QT_8bit;
+    case ML::QuantizerType::QT_8bit_uniform:
+      return faiss::ScalarQuantizer::QuantizerType::QT_8bit_uniform;
+    case ML::QuantizerType::QT_4bit_uniform:
+      return faiss::ScalarQuantizer::QuantizerType::QT_4bit_uniform;
+    case ML::QuantizerType::QT_fp16:
+      return faiss::ScalarQuantizer::QuantizerType::QT_fp16;
+    case ML::QuantizerType::QT_8bit_direct:
+      return faiss::ScalarQuantizer::QuantizerType::QT_8bit_direct;
+    case ML::QuantizerType::QT_6bit:
+      return faiss::ScalarQuantizer::QuantizerType::QT_6bit;
+    default:
+      return (faiss::ScalarQuantizer::QuantizerType)qtype;
+  }
+}
+
+template <typename IntType = int>
+void approx_knn_ivfflat_build_index(ML::knnIndex *index, ML::IVFParam *params,
+                                    IntType D, ML::MetricType metric,
+                                    IntType n) {
+  faiss::gpu::GpuIndexIVFFlatConfig config;
+  config.device = index->device;
+  faiss::MetricType faiss_metric = build_faiss_metric(metric);
+  faiss::gpu::GpuIndexIVFFlat *faiss_index = new faiss::gpu::GpuIndexIVFFlat(
+    index->gpu_res, D, params->nlist, faiss_metric, config);
+  faiss_index->setNumProbes(params->nprobe);
+  index->index = faiss_index;
+}
+
+template <typename IntType = int>
+void approx_knn_ivfpq_build_index(ML::knnIndex *index, ML::IVFPQParam *params,
+                                  IntType D, ML::MetricType metric, IntType n) {
+  faiss::gpu::GpuIndexIVFPQConfig config;
+  config.device = index->device;
+  config.usePrecomputedTables = params->usePrecomputedTables;
+  faiss::MetricType faiss_metric = build_faiss_metric(metric);
+  faiss::gpu::GpuIndexIVFPQ *faiss_index =
+    new faiss::gpu::GpuIndexIVFPQ(index->gpu_res, D, params->nlist, params->M,
+                                  params->n_bits, faiss_metric, config);
+  faiss_index->setNumProbes(params->nprobe);
+  index->index = faiss_index;
+}
+
+template <typename IntType = int>
+void approx_knn_ivfsq_build_index(ML::knnIndex *index, ML::IVFSQParam *params,
+                                  IntType D, ML::MetricType metric, IntType n) {
+  faiss::gpu::GpuIndexIVFScalarQuantizerConfig config;
+  config.device = index->device;
+  faiss::MetricType faiss_metric = build_faiss_metric(metric);
+  faiss::ScalarQuantizer::QuantizerType faiss_qtype =
+    build_faiss_qtype(params->qtype);
+  faiss::gpu::GpuIndexIVFScalarQuantizer *faiss_index =
+    new faiss::gpu::GpuIndexIVFScalarQuantizer(index->gpu_res, D, params->nlist,
+                                               faiss_qtype, faiss_metric,
+                                               params->encodeResidual);
+  faiss_index->setNumProbes(params->nprobe);
+  index->index = faiss_index;
+}
+
+template <typename IntType = int>
+void approx_knn_build_index(ML::knnIndex *index, ML::knnIndexParam *params,
+                            IntType D, ML::MetricType metric, float metricArg,
+                            float *index_items, IntType n,
+                            cudaStream_t userStream) {
+  int device;
+  CUDA_CHECK(cudaGetDevice(&device));
+
+  faiss::gpu::StandardGpuResources *gpu_res =
+    new faiss::gpu::StandardGpuResources();
+  gpu_res->noTempMemory();
+  gpu_res->setCudaMallocWarning(false);
+  gpu_res->setDefaultStream(device, userStream);
+  index->gpu_res = gpu_res;
+  index->device = device;
+  index->index = nullptr;
+
+  if (dynamic_cast<ML::IVFFlatParam *>(params)) {
+    ML::IVFFlatParam *IVFFlat_param = dynamic_cast<ML::IVFFlatParam *>(params);
+    approx_knn_ivfflat_build_index(index, IVFFlat_param, D, metric, n);
+    std::vector<float> h_index_items(n * D);
+    raft::update_host(h_index_items.data(), index_items, h_index_items.size(),
+                      userStream);
+    index->index->train(n, h_index_items.data());
+    index->index->add(n, h_index_items.data());
+    return;
+  } else if (dynamic_cast<ML::IVFPQParam *>(params)) {
+    ML::IVFPQParam *IVFPQ_param = dynamic_cast<ML::IVFPQParam *>(params);
+    approx_knn_ivfpq_build_index(index, IVFPQ_param, D, metric, n);
+  } else if (dynamic_cast<ML::IVFSQParam *>(params)) {
+    ML::IVFSQParam *IVFSQ_param = dynamic_cast<ML::IVFSQParam *>(params);
+    approx_knn_ivfsq_build_index(index, IVFSQ_param, D, metric, n);
+  } else {
+    ASSERT(index->index, "KNN index could not be initialized");
+  }
+
+  index->index->train(n, index_items);
+  index->index->add(n, index_items);
+}
+
+template <typename IntType = int>
+void approx_knn_search(ML::knnIndex *index, IntType n, const float *x,
+                       IntType k, float *distances, int64_t *labels) {
+  index->index->search(n, x, k, distances, labels);
+}
+
 /**
-   * Search the kNN for the k-nearest neighbors of a set of query vectors
-   * @param[in] input vector of device device memory array pointers to search
-   * @param[in] sizes vector of memory sizes for each device array pointer in input
-   * @param[in] D number of cols in input and search_items
-   * @param[in] search_items set of vectors to query for neighbors
-   * @param[in] n        number of items in search_items
-   * @param[out] res_I    pointer to device memory for returning k nearest indices
-   * @param[out] res_D    pointer to device memory for returning k nearest distances
-   * @param[in] k        number of neighbors to query
-   * @param[in] allocator the device memory allocator to use for temporary scratch memory
-   * @param[in] userStream the main cuda stream to use
-   * @param[in] internalStreams optional when n_params > 0, the index partitions can be
-   *        queried in parallel using these streams. Note that n_int_streams also
-   *        has to be > 0 for these to be used and their cardinality does not need
-   *        to correspond to n_parts.
-   * @param[in] n_int_streams size of internalStreams. When this is <= 0, only the
-   *        user stream will be used.
-   * @param[in] rowMajorIndex are the index arrays in row-major layout?
-   * @param[in] rowMajorQuery are the query array in row-major layout?
-   * @param[in] translations translation ids for indices when index rows represent
-   *        non-contiguous partitions
-   * @param[in] metric corresponds to the FAISS::metricType enum (default is euclidean)
-   * @param[in] metricArg metric argument to use. Corresponds to the p arg for lp norm
-   * @param[in] expanded_form whether or not lp variants should be reduced w/ lp-root
-   */
+ * Search the kNN for the k-nearest neighbors of a set of query vectors
+ * @param[in] input vector of device device memory array pointers to search
+ * @param[in] sizes vector of memory sizes for each device array pointer in input
+ * @param[in] D number of cols in input and search_items
+ * @param[in] search_items set of vectors to query for neighbors
+ * @param[in] n        number of items in search_items
+ * @param[out] res_I    pointer to device memory for returning k nearest indices
+ * @param[out] res_D    pointer to device memory for returning k nearest distances
+ * @param[in] k        number of neighbors to query
+ * @param[in] allocator the device memory allocator to use for temporary scratch memory
+ * @param[in] userStream the main cuda stream to use
+ * @param[in] internalStreams optional when n_params > 0, the index partitions can be
+ *        queried in parallel using these streams. Note that n_int_streams also
+ *        has to be > 0 for these to be used and their cardinality does not need
+ *        to correspond to n_parts.
+ * @param[in] n_int_streams size of internalStreams. When this is <= 0, only the
+ *        user stream will be used.
+ * @param[in] rowMajorIndex are the index arrays in row-major layout?
+ * @param[in] rowMajorQuery are the query array in row-major layout?
+ * @param[in] translations translation ids for indices when index rows represent
+ *        non-contiguous partitions
+ * @param[in] metric corresponds to the FAISS::metricType enum (default is euclidean)
+ * @param[in] metricArg metric argument to use. Corresponds to the p arg for lp norm
+ * @param[in] expanded_form whether or not lp variants should be reduced w/ lp-root
+ */
 template <typename IntType = int>
 void brute_force_knn(std::vector<float *> &input, std::vector<int> &sizes,
                      IntType D, float *search_items, IntType n, int64_t *res_I,
@@ -471,7 +591,8 @@ void class_probs(std::vector<float *> &out, const int64_t *knn_indices,
      * Build array of class probability arrays from
      * knn_indices and labels
      */
-    device_buffer<int> y_normalized(allocator, stream, n_index_rows);
+    device_buffer<int> y_normalized(allocator, stream,
+                                    n_index_rows + n_unique_labels);
 
     /*
      * Appending the array of unique labels to the original labels array

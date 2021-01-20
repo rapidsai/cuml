@@ -18,7 +18,7 @@ set (CMAKE_FIND_NO_INSTALL_PREFIX TRUE FORCE)
 
 cmake_minimum_required(VERSION 3.14...3.17 FATAL_ERROR)
 
-project(CUML VERSION 0.17.0 LANGUAGES C CXX CUDA)
+project(cuML VERSION 0.18.0 LANGUAGES C CXX CUDA)
 
 ##############################################################################
 # - build type ---------------------------------------------------------------
@@ -249,7 +249,7 @@ if(OPENMP_FOUND)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
 endif(OPENMP_FOUND)
 
-set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --expt-extended-lambda")
+set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --expt-extended-lambda --expt-relaxed-constexpr")
 
 if(${CMAKE_VERSION} VERSION_LESS "3.17.0")
   set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --std=c++14")
@@ -395,6 +395,8 @@ if(BUILD_CUML_CPP_LIBRARY)
     src/datasets/make_regression.cu
     src/dbscan/dbscan.cu
     src/decisiontree/decisiontree.cu
+    src/explainer/kernel_shap.cu
+    src/explainer/permutation_shap.cu
     src/fil/fil.cu
     src/fil/infer.cu
     src/glm/glm.cu
@@ -403,11 +405,24 @@ if(BUILD_CUML_CPP_LIBRARY)
     src/holtwinters/holtwinters.cu
     src/kmeans/kmeans.cu
     src/knn/knn.cu
-    src/metrics/metrics.cu
+    src/knn/knn_sparse.cu
+    src/metrics/accuracy_score.cu
+    src/metrics/adjusted_rand_index.cu
+    src/metrics/completeness_score.cu
+    src/metrics/entropy.cu
+    src/metrics/homogeneity_score.cu
+    src/metrics/kl_divergence.cu
+    src/metrics/mutual_info_score.cu
+    src/metrics/pairwise_distance.cu
+    src/metrics/r2_score.cu
+    src/metrics/rand_index.cu
+    src/metrics/silhouette_score.cu
     src/metrics/trustworthiness.cu
+    src/metrics/v_measure.cu
     src/pca/pca.cu
     src/randomforest/randomforest.cu
     src/random_projection/rproj.cu
+    src/solver/lars.cu
     src/solver/solver.cu
     src/spectral/spectral.cu
     src/svm/svc.cu

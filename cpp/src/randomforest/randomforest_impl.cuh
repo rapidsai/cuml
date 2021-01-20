@@ -19,6 +19,7 @@
 #endif
 #include <decisiontree/memory.h>
 #include <decisiontree/quantile/quantile.h>
+#include <decisiontree/treelite_util.h>
 #include <raft/cudart_utils.h>
 #include <cuml/common/logger.hpp>
 #include <metrics/scores.cuh>
@@ -157,13 +158,13 @@ void rfClassifier<T>::fit(const raft::handle_t& user_handle, const T* input,
   const raft::handle_t& handle = user_handle;
   int n_sampled_rows = 0;
   if (this->rf_params.bootstrap) {
-    n_sampled_rows = std::round(this->rf_params.rows_sample * n_rows);
+    n_sampled_rows = std::round(this->rf_params.max_samples * n_rows);
   } else {
-    if (this->rf_params.rows_sample != 1.0) {
+    if (this->rf_params.max_samples != 1.0) {
       CUML_LOG_WARN(
-        "If bootstrap sampling is disabled, rows_sample value is ignored and "
+        "If bootstrap sampling is disabled, max_samples value is ignored and "
         "whole dataset is used for building each tree");
-      this->rf_params.rows_sample = 1.0;
+      this->rf_params.max_samples = 1.0;
     }
     n_sampled_rows = n_rows;
   }
@@ -436,11 +437,11 @@ void rfRegressor<T>::fit(const raft::handle_t& user_handle, const T* input,
   const raft::handle_t& handle = user_handle;
   int n_sampled_rows = 0;
   if (this->rf_params.bootstrap) {
-    n_sampled_rows = this->rf_params.rows_sample * n_rows;
+    n_sampled_rows = this->rf_params.max_samples * n_rows;
   } else {
-    if (this->rf_params.rows_sample != 1.0) {
+    if (this->rf_params.max_samples != 1.0) {
       CUML_LOG_WARN(
-        "If bootstrap sampling is disabled, rows_sample value is ignored and "
+        "If bootstrap sampling is disabled, max_samples value is ignored and "
         "whole dataset is used for building each tree");
     }
     n_sampled_rows = n_rows;

@@ -90,9 +90,8 @@ class DistanceAdjTest
 
     naiveDistanceAdj(dist_ref, x, y, m, n, k, threshold, isRowMajor);
     char *workspace = nullptr;
-    size_t worksize =
-      getWorkspaceSize<ML::Distance::DistanceType::EucExpandedL2, DataType,
-                       DataType, bool>(x, y, m, n, k);
+    size_t worksize = getWorkspaceSize<raft::distance::DistanceType::L2Expanded,
+                                       DataType, DataType, bool>(x, y, m, n, k);
     if (worksize != 0) {
       raft::allocate(workspace, worksize);
     }
@@ -101,9 +100,9 @@ class DistanceAdjTest
     auto fin_op = [threshold] __device__(DataType d_val, int g_d_idx) {
       return d_val <= threshold;
     };
-    distance<ML::Distance::DistanceType::EucExpandedL2, DataType, DataType,
-             bool, OutputTile_t>(x, y, dist, m, n, k, workspace, worksize,
-                                 fin_op, stream, isRowMajor);
+    distance<raft::distance::DistanceType::L2Expanded, DataType, DataType, bool,
+             OutputTile_t>(x, y, dist, m, n, k, workspace, worksize, fin_op,
+                           stream, isRowMajor);
     CUDA_CHECK(cudaStreamDestroy(stream));
     CUDA_CHECK(cudaFree(workspace));
   }
