@@ -107,7 +107,7 @@ void brute_force_knn(raft::handle_t &handle, std::vector<float *> &input,
                      std::vector<int> &sizes, int D, float *search_items, int n,
                      int64_t *res_I, float *res_D, int k,
                      bool rowMajorIndex = false, bool rowMajorQuery = false,
-                     raft::distance::DistanceType metric = raft::distance::DistanceType::EucUnexpandedL2,
+                     raft::distance::DistanceType metric = raft::distance::DistanceType::L2Unexpanded,
                      float metric_arg = 2.0f);
 
 void approx_knn_build_index(raft::handle_t &handle, ML::knnIndex *index,

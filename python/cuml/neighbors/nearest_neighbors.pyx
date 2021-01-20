@@ -64,19 +64,19 @@ if has_scipy():
 cdef extern from "cuml/neighbors/knn.hpp" namespace "ML":
 
     enum DistanceType:
-        EucExpandedL2 = 0,
-        EucExpandedL2Sqrt = 1,
-        EucExpandedCosine = 2,
-        EucUnexpandedL1 = 3,
-        EucUnexpandedL2 = 4,
-        EucUnexpandedL2Sqrt = 5,
+        L2Expanded = 0,
+        L2SqrtExpanded = 1,
+        CosineExpanded = 2,
+        L1 = 3,
+        L2Unexpanded = 4,
+        L2SqrtUnexpanded = 5,
         InnerProduct = 6,
-        ChebyChev = 7,
+        Linf = 7,
         Canberra = 8,
-        Minkowski = 9,
-        Correlation = 10,
-        Jaccard = 11,
-        Hellinger = 12,
+        LpUnexpanded = 9,
+        CorrelationExpanded = 10,
+        JaccardExpanded = 11,
+        HellingerExpanded = 12,
         Haversine = 13
 
     cdef cppclass knnIndex:
@@ -387,25 +387,25 @@ class NearestNeighbors(Base):
         expanded = False
 
         if metric == "euclidean" or metric == "l2":
-            m = DistanceType.EucUnexpandedL2
+            m = DistanceType.L2Unexpanded
         elif metric == "sqeuclidean":
-            m = DistanceType.EucExpandedL2Sqrt
+            m = DistanceType.L2SqrtExpanded
             expanded = True
         elif metric == "cityblock" or metric == "l1"\
                 or metric == "manhattan" or metric == 'taxicab':
-            m = DistanceType.EucUnexpandedL1
+            m = DistanceType.L1
         #elif metric == "braycurtis":
         #    m = DistanceType.METRIC_BrayCurtis
         elif metric == "canberra":
             m = DistanceType.Canberra
         elif metric == "minkowski" or metric == "lp":
-            m = DistanceType.Minkowski
+            m = DistanceType.LpUnexpanded
         elif metric == "chebyshev" or metric == "linf":
-            m = DistanceType.ChebyChev
+            m = DistanceType.Linf
         #elif metric == "jensenshannon":
         #    m = DistanceType.METRIC_JensenShannon
         elif metric == "cosine":
-            m = DistanceType.EucExpandedCosine
+            m = DistanceType.CosineExpanded
         elif metric == "correlation":
             m = DistanceType.Correlation
         elif metric == "inner_product":

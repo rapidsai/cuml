@@ -127,7 +127,7 @@ class sparse_knn_t {
                cudaStream_t stream_,
                size_t batch_size_index_ = 2 << 14,  // approx 1M
                size_t batch_size_query_ = 2 << 14,
-               raft::distance::DistanceType metric_ = raft::distance::DistanceType::EucUnexpandedL2,
+               raft::distance::DistanceType metric_ = raft::distance::DistanceType::L2Unexpanded,
                float metricArg_ = 0)
     : idxIndptr(idxIndptr_),
       idxIndices(idxIndices_),
@@ -151,9 +151,9 @@ class sparse_knn_t {
       batch_size_query(batch_size_query_),
       metric(metric_),
       metricArg(metricArg_) {
-      if (metric == raft::distance::DistanceType::EucExpandedL2 ||
-          metric == raft::distance::DistanceType::EucExpandedL2Sqrt ||
-          metric == raft::distance::DistanceType::EucExpandedCosine)
+      if (metric == raft::distance::DistanceType::L2Expanded ||
+          metric == raft::distance::DistanceType::L2ExpandedSqrt ||
+          metric == raft::distance::DistanceType::CosineExpanded)
         expanded_form = true;
       else
         expanded_form = false;
@@ -312,14 +312,14 @@ class sparse_knn_t {
 
   void perform_postprocessing(value_t *dists, size_t batch_rows) {
     // Perform necessary post-processing
-    if ((metric == raft::distance::DistanceType::EucExpandedL2 ||
-         metric == raft::distance::DistanceType::Minkowski) &&
+    if ((metric == raft::distance::DistanceType::L2Expanded ||
+         metric == raft::distance::DistanceType::LpUnexpanded) &&
         !expanded_form) {
       /**
         * post-processing
         */
       value_t p = 0.5;  // standard l2
-      if (metric == raft::distance::DistanceType::Minkowski) p = 1.0 / metricArg;
+      if (metric == raft::distance::DistanceType::LpUnexpanded) p = 1.0 / metricArg;
       raft::linalg::unaryOp<value_t>(
         dists, dists, batch_rows * k,
         [p] __device__(value_t input) {
@@ -383,8 +383,8 @@ class sparse_knn_t {
       case raft::distance::DistanceType::InnerProduct:
         pw_metric = raft::distance::DistanceType::InnerProduct;
         break;
-      case raft::distance::DistanceType::EucExpandedL2:
-        pw_metric = raft::distance::DistanceType::EucExpandedL2;
+      case raft::distance::DistanceType::L2Expanded:
+        pw_metric = raft::distance::DistanceType::L2Expanded;
         break;
       default:
         THROW("DistanceType not supported: %d", metric);
@@ -488,7 +488,7 @@ void brute_force_knn(const value_idx *idxIndptr, const value_idx *idxIndices,
                      cudaStream_t stream,
                      size_t batch_size_index = 2 << 14,  // approx 1M
                      size_t batch_size_query = 2 << 14,
-                     raft::distance::DistanceType metric = raft::distance::DistanceType::EucUnexpandedL2,
+                     raft::distance::DistanceType metric = raft::distance::DistanceType::L2Unexpanded,
                      float metricArg = 0) {
   sparse_knn_t<value_idx, value_t>(
     idxIndptr, idxIndices, idxData, idxNNZ, n_idx_rows, n_idx_cols, queryIndptr,

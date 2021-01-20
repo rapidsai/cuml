@@ -190,22 +190,32 @@ inline void knn_merge_parts(value_t *inK, value_idx *inV, value_t *outK,
 
 inline faiss::MetricType build_faiss_metric(raft::distance::DistanceType metric) {
   switch (metric) {
-    case raft::distance::DistanceType::EucExpandedCosine:
+    case raft::distance::DistanceType::CosineExpanded:
       return faiss::MetricType::METRIC_INNER_PRODUCT;
-    //case raft::distance::DistanceType::Correlation:
-    //  return faiss::MetricType::METRIC_INNER_PRODUCT;
-    case raft::distance::DistanceType::EucExpandedL2:
+    case raft::distance::DistanceType::CorrelationExpanded:
+      return faiss::MetricType::METRIC_INNER_PRODUCT;
+    case raft::distance::DistanceType::L2Expanded:
       return faiss::MetricType::METRIC_L2;
-    case raft::distance::DistanceType::EucUnexpandedL2:
+    case raft::distance::DistanceType::L2Unexpanded:
       return faiss::MetricType::METRIC_L2;
-    case raft::distance::DistanceType::EucUnexpandedL1:
+    case raft::distance::DistanceType::L2SqrtExpanded:
+      return faiss::MetricType::METRIC_L2;
+    case raft::distance::DistanceType::L2SqrtUnexpanded:
+      return faiss::MetricType::METRIC_L2;
+    case raft::distance::DistanceType::L1:
       return faiss::MetricType::METRIC_L1;
     case raft::distance::DistanceType::InnerProduct:
       return faiss::MetricType::METRIC_INNER_PRODUCT;
-    //case raft::distance::DistanceType::ChebyChev:
-    //  return faiss::MetricType::METRIC_Linf;
-    //case raft::distance::DistanceType::Canberra:
-    //  return faiss::MetricType::METRIC_Canberra;
+    case raft::distance::DistanceType::LpUnexpanded:
+      return faiss::MetricType::METRIC_Lp;
+    case raft::distance::DistanceType::Linf:
+      return faiss::MetricType::METRIC_Linf;
+    case raft::distance::DistanceType::Canberra:
+      return faiss::MetricType::METRIC_Canberra;
+    /*case raft::distance::DistanceType::BrayCurtis:
+      return faiss::MetricType::METRIC_BrayCurtis;
+    case raft::distance::DistanceType::JensenShannon:
+      return faiss::MetricType::METRIC_JensenShannon;*/
     default:
       THROW("MetricType not supported: %d", metric);
   }
@@ -355,16 +365,16 @@ void brute_force_knn(std::vector<float *> &input, std::vector<int> &sizes,
                      int n_int_streams = 0, bool rowMajorIndex = true,
                      bool rowMajorQuery = true,
                      std::vector<int64_t> *translations = nullptr,
-                     raft::distance::DistanceType metric = raft::distance::DistanceType::EucExpandedL2,
+                     raft::distance::DistanceType metric = raft::distance::DistanceType::L2Expanded,
                      float metricArg = 0) {
   ASSERT(input.size() == sizes.size(),
          "input and sizes vectors should be the same size");
 
   faiss::MetricType m = build_faiss_metric(metric);
   bool expanded_form = false;
-  if (metric == raft::distance::DistanceType::EucExpandedL2 ||
-      metric == raft::distance::DistanceType::EucExpandedL2Sqrt ||
-      metric == raft::distance::DistanceType::EucExpandedCosine)
+  if (metric == raft::distance::DistanceType::L2Expanded ||
+      metric == raft::distance::DistanceType::L2SqrtExpanded ||
+      metric == raft::distance::DistanceType::CosineExpanded)
     expanded_form = true;
 
   std::vector<int64_t> *id_ranges;
