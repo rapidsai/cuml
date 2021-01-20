@@ -16,6 +16,7 @@
 
 /** @file fil.cu implements forest inference */
 
+#include <omp.h>
 #include <thrust/device_ptr.h>
 #include <thrust/device_vector.h>
 #include <thrust/host_vector.h>
@@ -434,7 +435,10 @@ inline int max_depth(const tl::Tree<T, L>& tree) {
 template <typename T, typename L>
 int max_depth(const tl::ModelImpl<T, L>& model) {
   int depth = 0;
-  for (const auto& tree : model.trees) {
+  const auto& trees = model.trees;
+#pragma omp parallel for reduction(max : depth)
+  for (size_t i = 0; i < trees.size(); ++i) {
+    const auto& tree = trees[i];
     depth = std::max(depth, max_depth(tree));
   }
   return depth;
@@ -768,7 +772,7 @@ void tl2fil_sparse(std::vector<int>* ptrees, std::vector<fil_node_t>* pnodes,
 
   // convert the nodes
   fil_node_t* front = pnodes->data();
-#pragma omp parallel for num_threads(16)
+#pragma omp parallel for
   for (int i = 0; i < num_trees; ++i) {
     tree2fil_sparse(front + (*ptrees)[i], (*ptrees)[i], model.trees[i],
                     *params);
