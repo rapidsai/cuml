@@ -92,6 +92,7 @@ class ClassifierMixin:
             'requires_y': True
         }
 
+
 class FMajorInputTagMixin:
 
     @staticmethod
@@ -108,6 +109,7 @@ class CMajorInputTagMixin:
         return {
             'preferred_input_order': 'C'
         }
+
 
 class SparseInputTagMixin:
 
