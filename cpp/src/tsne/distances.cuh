@@ -21,7 +21,8 @@
 #include <raft/linalg/eltwise.cuh>
 #include <selection/knn.cuh>
 #include <sparse/coo.cuh>
-#include <sparse/knn.cuh>
+#include <sparse/linalg/symmetrize.cuh>
+#include <sparse/selection/knn.cuh>
 
 #include <cuml/manifold/common.hpp>
 
@@ -82,7 +83,7 @@ template <>
 void get_distances(const raft::handle_t &handle,
                    manifold_sparse_inputs_t<int, float> &input,
                    knn_graph<int, float> &k_graph, cudaStream_t stream) {
-  MLCommon::Sparse::Selection::brute_force_knn(
+  raft::sparse::selection::brute_force_knn(
     input.indptr, input.indices, input.data, input.nnz, input.n, input.d,
     input.indptr, input.indices, input.data, input.nnz, input.n, input.d,
     k_graph.knn_indices, k_graph.knn_dists, k_graph.n_neighbors,
@@ -135,17 +136,16 @@ void normalize_distances(const value_idx n, value_t *distances,
  * @param[in] handle: The GPU handle.
  */
 template <typename value_idx, typename value_t, int TPB_X = 32>
-void symmetrize_perplexity(
-  float *P, value_idx *indices, const value_idx n, const int k,
-  const value_t exaggeration,
-  MLCommon::Sparse::COO<value_t, value_idx> *COO_Matrix, cudaStream_t stream,
-  const raft::handle_t &handle) {
+void symmetrize_perplexity(float *P, value_idx *indices, const value_idx n,
+                           const int k, const value_t exaggeration,
+                           raft::sparse::COO<value_t, value_idx> *COO_Matrix,
+                           cudaStream_t stream, const raft::handle_t &handle) {
   // Perform (P + P.T) / P_sum * early_exaggeration
   const value_t div = exaggeration / (2.0f * n);
   raft::linalg::scalarMultiply(P, P, div, n * k, stream);
 
   // Symmetrize to form P + P.T
-  MLCommon::Sparse::from_knn_symmetrize_matrix(
+  raft::sparse::linalg::from_knn_symmetrize_matrix<value_idx, value_t>(
     indices, P, n, k, COO_Matrix, stream, handle.get_device_allocator());
 }
 
