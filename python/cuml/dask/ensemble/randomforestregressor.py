@@ -16,8 +16,6 @@
 
 import warnings
 
-import numpy as np
-
 from cuml.dask.common.base import DelayedPredictionMixin
 from cuml.ensemble import RandomForestRegressor as cuRFR
 from cuml.dask.ensemble.base import \
@@ -380,14 +378,12 @@ class RandomForestRegressor(BaseRandomForestModel, DelayedPredictionMixin,
     def partial_inference(self, X, delayed, **kwargs):
         partial_infs = \
             self._partial_inference(X=X,
+                                    op_type='regression',
                                     delayed=delayed,
                                     **kwargs)
 
         def reduce(partial_infs):
-            preds = dask.array.apply_along_axis(
-                    lambda x: np.array([x.mean()], dtype=np.float32),
-                    1, partial_infs)
-            return preds
+            return partial_infs.mean(axis=1).compute()
 
         delayed_res = dask.delayed(reduce)(partial_infs)
         if delayed:

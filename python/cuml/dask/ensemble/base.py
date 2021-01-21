@@ -174,17 +174,20 @@ class BaseRandomForestModel(object):
             TreeliteModel.free_treelite_model(tl_handle)
         return model
 
-    def _partial_inference(self, X, delayed, **kwargs):
+    def _partial_inference(self, X, op_type, delayed, **kwargs):
         data = DistributedDataHandler.create(X, client=self.client)
-        full_data = list(map(lambda x: x[1], data.gpu_futures))
+        combined_data = list(map(lambda x: x[1], data.gpu_futures))
+
+        func = _func_predict_partial if op_type == 'regression' \
+            else _func_predict_proba_partial
 
         partial_infs = list()
         for worker in self.active_workers:
             partial_infs.append(
                 self.client.submit(
-                    _func_predict_partial,
+                    func,
                     self.rfs[worker],
-                    full_data,
+                    combined_data,
                     **kwargs,
                     workers=[worker],
                     pure=False)
@@ -199,7 +202,9 @@ class BaseRandomForestModel(object):
         data = DistributedDataHandler.create(X, client=self.client)
         if self._get_internal_model() is None:
             self._set_internal_model(self._concat_treelite_models())
-        return self._predict(X, delayed=delayed, **kwargs)
+        return self._predict(X, delayed=delayed,
+                             output_collection_type=data.datatype,
+                             **kwargs)
 
     def _get_params(self, deep):
         model_params = list()
@@ -297,6 +302,18 @@ def _func_predict_partial(model, input_data, **kwargs):
     X = concatenate(input_data)
     with using_output_type('cupy'):
         prediction = model.predict(X, **kwargs)
+        return cp.expand_dims(prediction, axis=1)
+
+
+def _func_predict_proba_partial(model, input_data, **kwargs):
+    """
+    Whole dataset inference with part of the model (trees at disposal locally).
+    Transfer dataset instead of model. Interesting when model is larger
+    than dataset.
+    """
+    X = concatenate(input_data)
+    with using_output_type('cupy'):
+        prediction = model.predict_proba(X, **kwargs)
         return cp.expand_dims(prediction, axis=1)
 
 

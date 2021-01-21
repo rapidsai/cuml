@@ -271,7 +271,8 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
             is trained on its partition
 
         """
-        self.num_classes = len(y.unique())
+        self.unique_classes = y.unique().compute()
+        self.num_classes = len(self.unique_classes)
         self._set_internal_model(None)
         self._fit(model=self.rfs,
                   dataset=(X, y),
@@ -398,22 +399,17 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
     def partial_inference(self, X, delayed, **kwargs):
         partial_infs = \
             self._partial_inference(X=X,
+                                    op_type='classification',
                                     delayed=delayed,
                                     **kwargs)
 
-        def _vote(x):
-            values, counts = np.unique(x, return_counts=True)
-            index = np.argmax(counts)
-            return values[index]
+        def reduce(partial_infs, unique_classes):
+            votes = partial_infs.mean(axis=1).compute()
+            votes = votes.argmax(axis=1)
+            return unique_classes[votes]
 
-        def reduce(partial_infs):
-            partial_infs = partial_infs.astype(np.int64)
-            preds = dask.array.apply_along_axis(
-                lambda x: np.array([_vote(x)], dtype=np.int64),
-                1, partial_infs)
-            return preds
-
-        delayed_res = dask.delayed(reduce)(partial_infs)
+        delayed_res = dask.delayed(reduce)(partial_infs,
+                                           self.unique_classes)
         if delayed:
             return delayed_res
         else:
@@ -552,8 +548,9 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
         if self._get_internal_model() is None:
             self._set_internal_model(self._concat_treelite_models())
         data = DistributedDataHandler.create(X, client=self.client)
-        self.datatype = data.datatype
-        return self._predict_proba(X, delayed, **kwargs)
+        return self._predict_proba(X, delayed,
+                                   output_collection_type=data.datatype,
+                                   **kwargs)
 
     def get_params(self, deep=True):
         """

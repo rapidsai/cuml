@@ -513,22 +513,26 @@ def test_rf_broadcast(model_type, fit_broadcast, transform_broadcast, client):
     X_test_dask_array = from_array(X_test)
 
     if model_type == 'classification':
-        cuml_mod = cuRFC_mg(n_estimators=25, max_depth=13, n_bins=15)
+        cuml_mod = cuRFC_mg(n_estimators=25, max_depth=13, n_bins=15,
+                            ignore_empty_partitions=True)
         cuml_mod.fit(X_train_df, y_train_df, broadcast_data=fit_broadcast)
         cuml_mod_predict = cuml_mod.predict(X_test_dask_array,
                                             output_class=True,
                                             broadcast_data=transform_broadcast)
 
         cuml_mod_predict = cuml_mod_predict.compute()
+        cuml_mod_predict = cp.asnumpy(cuml_mod_predict)
         acc_score = accuracy_score(cuml_mod_predict, y_test, normalize=True)
-        assert acc_score > 0.7
+        assert acc_score > 0.76
 
     else:
-        cuml_mod = cuRFR_mg(n_estimators=50, max_depth=16, n_bins=16)
+        cuml_mod = cuRFR_mg(n_estimators=50, max_depth=16, n_bins=16,
+                            ignore_empty_partitions=True)
         cuml_mod.fit(X_train_df, y_train_df, broadcast_data=fit_broadcast)
         cuml_mod_predict = cuml_mod.predict(X_test_dask_array,
                                             broadcast_data=transform_broadcast)
 
         cuml_mod_predict = cuml_mod_predict.compute()
+        cuml_mod_predict = cp.asnumpy(cuml_mod_predict)
         acc_score = r2_score(cuml_mod_predict, y_test)
         assert acc_score >= 0.55
