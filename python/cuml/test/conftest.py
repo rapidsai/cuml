@@ -20,6 +20,7 @@ from sklearn.datasets import fetch_20newsgroups
 from sklearn.feature_extraction.text import CountVectorizer
 import zlib
 
+
 def pytest_configure(config):
     cp.cuda.set_allocator(None)
 
