@@ -81,7 +81,7 @@ def test_model_multiple_chunks(client):
     # https://github.com/rapidsai/cuml/issues/3150
     X = cp.array([[0, 0, 0, 1], [1, 0, 0, 1], [1, 0, 0, 0]])
 
-    X = dask.array.from_array(X, chunks=((1, 1, 1), -1)).astype(cp.int32)
+    X = dask.array.from_array(X, chunks=((1, 1, 1), -1)).astype(cp.float32)
     y = dask.array.from_array([1, 0, 0], asarray=False,
                               fancy=False, chunks=(1)).astype(cp.int32)
 
