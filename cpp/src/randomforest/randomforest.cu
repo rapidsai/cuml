@@ -349,6 +349,7 @@ void build_treelite_forest(ModelHandle* model,
                                               num_class);
 
       // The third argument -1 means append to the end of the tree list.
+#pragma omp critical
       TREELITE_CHECK(
         TreeliteModelBuilderInsertTree(model_builder, tree_builder, -1));
     }
