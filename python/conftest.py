@@ -57,6 +57,7 @@ def pytest_addoption(parser):
               "Additional dependencies should be described in a skip if "
               "missing reason."))
 
+
 def pytest_collection_modifyitems(config, items):
 
     should_run_quality = config.getoption("--run_quality")
