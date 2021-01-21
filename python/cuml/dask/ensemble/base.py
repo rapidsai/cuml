@@ -286,6 +286,26 @@ class BaseRandomForestModel(object):
             combined_dump.extend(obj)
         return json.dumps(combined_dump)
 
+    def apply_reduction(self, reduce, partial_infs, datatype,
+                        delayed):
+        def back_to_dask(array, datatype):
+            res = array.compute()
+            if datatype == 'daskArray':
+                return dask.array.from_array(res, asarray=False)
+            else:
+                return dask.dataframe.from_array(res)
+
+        unique_classes = None if not hasattr(self, 'unique_classes') \
+            else self.unique_classes
+        delayed_local_array = dask.delayed(reduce)(partial_infs,
+                                                   unique_classes)
+        delayed_res = back_to_dask(delayed_local_array, datatype)
+
+        if delayed:
+            return delayed_res
+        else:
+            return delayed_res.persist()
+
 
 def _func_fit(model, input_data, convert_dtype):
     X = concatenate([item[0] for item in input_data])

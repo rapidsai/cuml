@@ -17,6 +17,7 @@
 import warnings
 
 import numpy as np
+import cupy as cp
 
 from cuml.dask.common.base import BaseEstimator
 from cuml.ensemble import RandomForestClassifier as cuRFC
@@ -271,7 +272,7 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
             is trained on its partition
 
         """
-        self.unique_classes = y.unique().compute()
+        self.unique_classes = cp.asarray(y.unique().compute())
         self.num_classes = len(self.unique_classes)
         self._set_internal_model(None)
         self._fit(model=self.rfs,
@@ -408,12 +409,10 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
             votes = votes.argmax(axis=1)
             return unique_classes[votes]
 
-        delayed_res = dask.delayed(reduce)(partial_infs,
-                                           self.unique_classes)
-        if delayed:
-            return delayed_res
-        else:
-            return delayed_res.persist()
+        datatype = 'daskArray' if isinstance(X, dask.array.Array) \
+            else 'daskDataframe'
+
+        return self.apply_reduction(reduce, partial_infs, datatype, delayed)
 
     def predict_using_fil(self, X, delayed, **kwargs):
         if self._get_internal_model() is None:

@@ -382,14 +382,13 @@ class RandomForestRegressor(BaseRandomForestModel, DelayedPredictionMixin,
                                     delayed=delayed,
                                     **kwargs)
 
-        def reduce(partial_infs):
+        def reduce(partial_infs, unique_classes=None):
             return partial_infs.mean(axis=1).compute()
 
-        delayed_res = dask.delayed(reduce)(partial_infs)
-        if delayed:
-            return delayed_res
-        else:
-            return delayed_res.persist()
+        datatype = 'daskArray' if isinstance(X, dask.array.Array) \
+            else 'daskDataframe'
+
+        return self.apply_reduction(reduce, partial_infs, datatype, delayed)
 
     def predict_using_fil(self, X, delayed, **kwargs):
         if self._get_internal_model() is None:
