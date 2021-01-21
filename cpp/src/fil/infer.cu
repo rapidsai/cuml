@@ -483,7 +483,6 @@ void infer_k_launcher(storage_type forest, predict_params params,
     try_nitems<leaf_algo, 3>(&num_items, &shm_sz, params);
     try_nitems<leaf_algo, 4>(&num_items, &shm_sz, params);
   }
-
   params.num_blocks = params.num_blocks != 0
                         ? params.num_blocks
                         : raft::ceildiv(int(params.num_rows), num_items);

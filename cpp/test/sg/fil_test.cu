@@ -115,7 +115,6 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
   void setup_helper() {
     // setup
     ps = testing::TestWithParam<FilTestParams>::GetParam();
-    std::cout << ps << std::endl;
     CUDA_CHECK(cudaStreamCreate(&stream));
     handle.set_stream(stream);
 
