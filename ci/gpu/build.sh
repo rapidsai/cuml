@@ -8,12 +8,6 @@ set -e
 NUMARGS=$#
 ARGS=$*
 
-# Temp code to determine remotes and refs of git
-gpuci_logger "Git Info"
-git status
-git remote -v
-git show-ref
-
 # Arg parsing function
 function hasArg {
     (( ${NUMARGS} != 0 )) && (echo " ${ARGS} " | grep -q " $1 ")
@@ -39,6 +33,12 @@ export MINOR_VERSION=`echo $GIT_DESCRIBE_TAG | grep -o -E '([0-9]+\.[0-9]+)'`
 ################################################################################
 # SETUP - Check environment
 ################################################################################
+
+# Temp code to determine remotes and refs of git
+gpuci_logger "Git Info"
+git status
+git remote -v
+git show-ref
 
 gpuci_logger "Check environment"
 env
