@@ -79,21 +79,17 @@ void ridgeSVD(const raft::handle_t &handle, math_t *A, int n_rows, int n_cols,
   ASSERT(n_cols > 0, "ridgeSVD: number of columns cannot be less than one");
   ASSERT(n_rows > 1, "ridgeSVD: number of rows cannot be less than two");
 
-  math_t *S, *V, *U;
-
   int U_len = n_rows * n_cols;
   int V_len = n_cols * n_cols;
 
-  rmm::device_uvector<math_t> S_vector(n_cols, stream);
-  rmm::device_uvector<math_t> V_vector(V_len, stream);
-  rmm::device_uvector<math_t> U_vector(U_len, stream);
-  S = S_vector.data();
-  V = V_vector.data();
-  U = U_vector.data();
+  rmm::device_uvector<math_t> S(n_cols, stream);
+  rmm::device_uvector<math_t> V(V_len, stream);
+  rmm::device_uvector<math_t> U(U_len, stream);
 
-  raft::linalg::svdQR(handle, A, n_rows, n_cols, S, U, V, true, true, true,
-                      stream);
-  ridgeSolve(handle, S, V, U, n_rows, n_cols, b, alpha, n_alpha, w, stream);
+  raft::linalg::svdQR(handle, A, n_rows, n_cols, S.data(), U.data(),
+                      V.data(), true, true, true, stream);
+  ridgeSolve(handle, S.data(), V.data(), U.data(), n_rows, n_cols, b,
+             alpha, n_alpha, w, stream);
 }
 
 template <typename math_t>
@@ -107,21 +103,18 @@ void ridgeEig(const raft::handle_t &handle, math_t *A, int n_rows, int n_cols,
   ASSERT(n_cols > 1, "ridgeEig: number of columns cannot be less than two");
   ASSERT(n_rows > 1, "ridgeEig: number of rows cannot be less than two");
 
-  math_t *S, *V, *U;
-
   int U_len = n_rows * n_cols;
   int V_len = n_cols * n_cols;
 
-  rmm::device_uvector<math_t> S_vector(n_cols, stream);
-  rmm::device_uvector<math_t> V_vector(V_len, stream);
-  rmm::device_uvector<math_t> U_vector(U_len, stream);
-  S = S_vector.data();
-  V = V_vector.data();
-  U = U_vector.data();
+  rmm::device_uvector<math_t> S(n_cols, stream);
+  rmm::device_uvector<math_t> V(V_len, stream);
+  rmm::device_uvector<math_t> U(U_len, stream);
 
-  raft::linalg::svdEig(handle, A, n_rows, n_cols, S, U, V, true, stream);
+  raft::linalg::svdEig(handle, A, n_rows, n_cols, S.data(), U.data(),
+                       V.data(), true, stream);
 
-  ridgeSolve(handle, S, V, U, n_rows, n_cols, b, alpha, n_alpha, w, stream);
+  ridgeSolve(handle, S.data(), V.data(), U.data(), n_rows, n_cols,
+             b, alpha, n_alpha, w, stream);
 }
 
 /**
@@ -152,22 +145,18 @@ void ridgeFit(const raft::handle_t &handle, math_t *input, int n_rows,
   ASSERT(n_cols > 0, "ridgeFit: number of columns cannot be less than one");
   ASSERT(n_rows > 1, "ridgeFit: number of rows cannot be less than two");
 
-  math_t *mu_input, *norm2_input, *mu_labels;
-  rmm::device_uvector<math_t> mu_input_vector(0, stream);
-  rmm::device_uvector<math_t> norm2_input_vector(0, stream);
-  rmm::device_uvector<math_t> mu_labels_vector(0, stream);
+  rmm::device_uvector<math_t> mu_input(0, stream);
+  rmm::device_uvector<math_t> norm2_input(0, stream);
+  rmm::device_uvector<math_t> mu_labels(0, stream);
 
   if (fit_intercept) {
-    mu_input_vector = rmm::device_uvector<math_t>(n_cols, stream);
-    mu_labels_vector = rmm::device_uvector<math_t>(1, stream);
-    mu_input = mu_input_vector.data();
-    mu_labels = mu_labels_vector.data();
+    mu_input = rmm::device_uvector<math_t>(n_cols, stream);
+    mu_labels = rmm::device_uvector<math_t>(1, stream);
     if (normalize) {
-      norm2_input_vector = rmm::device_uvector<math_t>(n_cols, stream);
-      norm2_input = norm2_input_vector.data();
+      norm2_input = rmm::device_uvector<math_t>(n_cols, stream);
     }
-    preProcessData(handle, input, n_rows, n_cols, labels, intercept, mu_input,
-                   mu_labels, norm2_input, fit_intercept, normalize, stream);
+    preProcessData(handle, input, n_rows, n_cols, labels, intercept, mu_input.data(),
+                   mu_labels.data(), norm2_input.data(), fit_intercept, normalize, stream);
   }
 
   if (algo == 0 || n_cols == 1) {
@@ -184,8 +173,8 @@ void ridgeFit(const raft::handle_t &handle, math_t *input, int n_rows,
 
   if (fit_intercept) {
     postProcessData(handle, input, n_rows, n_cols, labels, coef, intercept,
-                    mu_input, mu_labels, norm2_input, fit_intercept, normalize,
-                    stream);
+                    mu_input.data(), mu_labels.data(), norm2_input.data(),
+                    fit_intercept, normalize, stream);
   } else {
     *intercept = math_t(0);
   }
