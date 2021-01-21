@@ -335,7 +335,7 @@ void build_treelite_forest(ModelHandle* model,
       model_builder, "pred_transform", "max_index"));
   }
 
-#pragma omp parallel for num_threads(forest->rf_params.n_streams)
+#pragma omp parallel for
   for (int i = 0; i < forest->rf_params.n_trees; i++) {
     DecisionTree::TreeMetaDataNode<T, L>* tree_ptr = &forest->trees[i];
     TreeBuilderHandle tree_builder;
