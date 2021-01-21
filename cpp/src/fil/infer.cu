@@ -287,10 +287,11 @@ struct tree_aggregator_t<NITEMS, GROVE_PER_CLASS_MANY_CLASSES>
   __device__ __forceinline__ tree_aggregator_t(predict_params params,
                                                void* accumulate_workspace,
                                                void* finalize_workspace)
+    // if finalize_block fits into cols_shmem_size, overlap, since one is used
+    // only during "finalize" stage, and another - only during "accumulate" stage.
     : finalize_block(finalize_block::smem_footprint<NITEMS>() >
                          cols_shmem_size<NITEMS>(params)
-                       ? (char*)accumulate_workspace +
-                           smem_accumulate_footprint(params.num_classes)
+                       ? accumulate_workspace
                        : finalize_workspace,
                      params.num_classes),
       per_class_margin((vec<NITEMS, float>*)accumulate_workspace) {
