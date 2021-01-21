@@ -23,7 +23,8 @@ from cuml.common.import_utils import has_pytest_benchmark
 import pytest
 
 from sklearn.datasets import make_regression, make_classification
-from sklearn.ensemble import AdaBoostRegressor, VotingClassifier, StackingClassifier, BaggingRegressor
+from sklearn.ensemble import AdaBoostRegressor, VotingClassifier
+from sklearn.ensemble import StackingClassifier, BaggingRegressor
 from sklearn.linear_model import LogisticRegression
 from sklearn.neighbors import KNeighborsRegressor
 from sklearn.svm import SVR, SVC

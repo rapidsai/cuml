@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020, NVIDIA CORPORATION.
+# Copyright (c) 2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -52,9 +52,10 @@ def pytest_addoption(parser):
         "--run_integration",
         action="store_true",
         default=False,
-        help=("Runs tests marked with 'integration'. These are potetially long "
-              "running tests which may require additional dependencies. Additional"
-              "dependencies should be described in a skip if missing reason."))
+        help=("Runs tests marked with 'integration'. Potentially long "
+              "running tests which may require additional dependencies. "
+              "Additional dependencies should be described in a skip if "
+              "missing reason."))
 
 def pytest_collection_modifyitems(config, items):
 
