@@ -749,32 +749,36 @@ struct tl2fil_sparse_check_t<sparse_node8> {
 // uses treelite model with additional tl_params to initialize FIL params,
 // trees (stored in *ptrees) and sparse nodes (stored in *pnodes)
 template <typename fil_node_t, typename T, typename L>
-std::unique_ptr<fil_node_t[]> tl2fil_sparse(std::vector<int>& trees,
-                                          forest_params_t* params,
-                                          const tl::ModelImpl<T, L>& model,
-                                          const treelite_params_t* tl_params) {
+void tl2fil_sparse(std::vector<int>* ptrees, std::vector<fil_node_t>* pnodes,
+                   forest_params_t* params, const tl::ModelImpl<T, L>& model,
+                   const treelite_params_t* tl_params) {
   tl2fil_common(params, model, tl_params);
   tl2fil_sparse_check_t<fil_node_t>::check(model);
 
   size_t num_trees = model.trees.size();
-  trees.reserve(num_trees);
 
-  trees.push_back(0);
+  ptrees->reserve(num_trees);
+  ptrees->push_back(0);
   for (size_t i = 0; i < num_trees - 1; ++i) {
-    trees.push_back(model.trees[i].num_nodes + trees[i]);
+    ptrees->push_back(model.trees[i].num_nodes + (*ptrees)[i]);
   }
-  params->num_nodes = trees.back() + model.trees.back().num_nodes;
+  size_t total_nodes = ptrees->back() + model.trees.back().num_nodes;
 
-  auto nodes = std::make_unique<fil_node_t[]>(params->num_nodes);
+  pnodes->reserve(total_nodes);
+  for (size_t i = 0; i < total_nodes; ++i) {
+    // TODO
+    pnodes->emplace_back();
+  }
 
   // convert the nodes
-  fil_node_t* front = nodes.get();
+  fil_node_t* front = pnodes->data();
 #pragma omp parallel for
   for (int i = 0; i < num_trees; ++i) {
-    tree2fil_sparse(front + trees[i], trees[i], model.trees[i], *params);
+    tree2fil_sparse(front + (*ptrees)[i], (*ptrees)[i], model.trees[i],
+                    *params);
   }
 
-  return nodes;
+  params->num_nodes = pnodes->size();
 }
 
 void init_dense(const raft::handle_t& h, forest_t* pf, const dense_node* nodes,
@@ -843,7 +847,6 @@ void from_treelite(const raft::handle_t& handle, forest_t* pforest,
   }
 
   forest_params_t params;
-
   switch (storage_type) {
     case storage_type_t::DENSE: {
       std::vector<dense_node> nodes;
@@ -856,26 +859,23 @@ void from_treelite(const raft::handle_t& handle, forest_t* pforest,
     }
     case storage_type_t::SPARSE: {
       std::vector<int> trees;
-      auto nodes = tl2fil_sparse<sparse_node16, T, L>(
-        trees, &params, model, tl_params);
-      init_sparse(handle, pforest, trees.data(), nodes.get(), &params);
+      std::vector<sparse_node16> nodes;
+      tl2fil_sparse(&trees, &nodes, &params, model, tl_params);
+      init_sparse(handle, pforest, trees.data(), nodes.data(), &params);
       CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
       break;
     }
     case storage_type_t::SPARSE8: {
       std::vector<int> trees;
-      auto nodes = tl2fil_sparse<sparse_node8, T, L>(
-        trees, &params, model, tl_params);
-      init_sparse(handle, pforest, trees.data(), nodes.get(), &params);
+      std::vector<sparse_node8> nodes;
+      tl2fil_sparse(&trees, &nodes, &params, model, tl_params);
+      init_sparse(handle, pforest, trees.data(), nodes.data(), &params);
       CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
       break;
     }
     default:
       ASSERT(false, "tl_params->sparse must be one of AUTO, DENSE or SPARSE");
   }
-
-
-
 }
 
 void from_treelite(const raft::handle_t& handle, forest_t* pforest,
