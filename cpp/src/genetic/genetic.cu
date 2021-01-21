@@ -18,13 +18,9 @@
 namespace cuml {
 namespace genetic {
 
-float param::p_reproduce() const {
-  return detail::p_reproduce(*this);
-}
+float param::p_reproduce() const { return detail::p_reproduce(*this); }
 
-int param::max_programs() const {
-  return detail::max_programs(*this);
-}
+int param::max_programs() const { return detail::max_programs(*this); }
 
 }  // namespace genetic
 }  // namespace cuml

@@ -25,7 +25,7 @@ namespace detail {
 
 HDI float p_reproduce(const param& p) {
   auto sum = p.p_crossover + p.p_subtree_mutation + p.p_hoist_mutation +
-    p.p_point_mutation;
+             p.p_point_mutation;
   auto ret = 1.f - sum;
   return fmaxf(0.f, fminf(ret, 1.f));
 }

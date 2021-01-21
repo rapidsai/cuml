@@ -22,21 +22,17 @@ namespace genetic {
 
 const int node::kInvalidFeatureId = -1;
 
-node::node(node::type ft): t(ft) {
+node::node(node::type ft) : t(ft) {
   ASSERT(is_nonterminal(),
          "node: ctor with `type` argument expects functions type only!");
   u.fid = kInvalidFeatureId;
 }
 
-node::node(int fid): t(node::type::variable) {
-  u.fid = fid;
-}
+node::node(int fid) : t(node::type::variable) { u.fid = fid; }
 
-node::node(float val): t(node::type::constant) {
-  u.val = val;
-}
+node::node(float val) : t(node::type::constant) { u.val = val; }
 
-node::node(const node& src): t(src.t), u(src.u) {}
+node::node(const node& src) : t(src.t), u(src.u) {}
 
 node& node::operator=(const node& src) {
   t = src.t;
@@ -44,19 +40,14 @@ node& node::operator=(const node& src) {
   return *this;
 }
 
-bool node::is_terminal() const {
-  return detail::is_terminal(t);
-}
+bool node::is_terminal() const { return detail::is_terminal(t); }
 
-bool node::is_nonterminal() const {
-  return detail::is_nonterminal(t);
-}
+bool node::is_nonterminal() const { return detail::is_nonterminal(t); }
 
-int node::arity() const {
-  return detail::arity(t);
-}
+int node::arity() const { return detail::arity(t); }
 
-#define CASE(str, val)  if (#val == str) return node::type::val
+#define CASE(str, val) \
+  if (#val == str) return node::type::val
 node::type node::from_str(const std::string& ntype) {
   CASE(ntype, variable);
   CASE(ntype, constant);

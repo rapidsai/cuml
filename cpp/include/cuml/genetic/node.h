@@ -36,7 +36,6 @@ namespace genetic {
  * @endcode
  */
 struct node {
-
   /**
    * @brief All possible types of nodes. For simplicity, all the terminal and
    *        non-terminal types are clubbed together
