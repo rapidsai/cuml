@@ -222,7 +222,7 @@ class RandomForestRegressor(BaseRandomForestModel, DelayedPredictionMixin,
         """
         return self._get_json()
 
-    def fit(self, X, y, convert_dtype=False, broadcast=False):
+    def fit(self, X, y, convert_dtype=False, broadcast_data=False):
         """
         Fit the input data with a Random Forest regression model
 
@@ -263,7 +263,7 @@ class RandomForestRegressor(BaseRandomForestModel, DelayedPredictionMixin,
             When set to True, the fit method will, when necessary, convert
             y to be the same data type as X if they differ. This will increase
             memory used for the method.
-        broadcast : bool, optional (default = False)
+        broadcast_data : bool, optional (default = False)
             When set to True, the whole dataset is broadcasted
             to train the workers, otherwise each worker
             is trained on its partition
@@ -273,12 +273,12 @@ class RandomForestRegressor(BaseRandomForestModel, DelayedPredictionMixin,
         self._fit(model=self.rfs,
                   dataset=(X, y),
                   convert_dtype=convert_dtype,
-                  broadcast=broadcast)
+                  broadcast_data=broadcast_data)
         return self
 
     def predict(self, X, predict_model="GPU", algo='auto',
                 convert_dtype=True, fil_sparse_format='auto',
-                delayed=True, broadcast=False):
+                delayed=True, broadcast_data=False):
         """
         Predicts the regressor outputs for X.
 
@@ -339,7 +339,7 @@ class RandomForestRegressor(BaseRandomForestModel, DelayedPredictionMixin,
         delayed : bool (default = True)
             Whether to do a lazy prediction (and return Delayed objects) or an
             eagerly executed one.
-        broadcast : bool (default = False)
+        broadcast_data : bool (default = False)
             Usually the trees are merged in a single model for the workers
             to perform inference. Then each worker receives its portion of
             the work. When set to True, the step performing the merge of
@@ -357,7 +357,7 @@ class RandomForestRegressor(BaseRandomForestModel, DelayedPredictionMixin,
             preds = self.predict_model_on_cpu(X, convert_dtype=convert_dtype)
 
         else:
-            if broadcast:
+            if broadcast_data:
                 preds = \
                     self.partial_inference(
                         X,

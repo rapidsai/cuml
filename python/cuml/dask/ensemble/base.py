@@ -17,9 +17,11 @@ import dask
 import json
 import math
 import numpy as np
+import cupy as cp
 import warnings
 
-import cuml
+from cuml import using_output_type
+
 from cuml.dask.common.input_utils import DistributedDataHandler, \
     concatenate
 from cuml.dask.common.utils import get_client, wait_and_raise_from_futures
@@ -93,7 +95,7 @@ class BaseRandomForestModel(object):
             )
         return n_estimators_per_worker
 
-    def _fit(self, model, dataset, convert_dtype, broadcast):
+    def _fit(self, model, dataset, convert_dtype, broadcast_data):
         data = DistributedDataHandler.create(dataset, client=self.client)
         self.active_workers = data.workers
         self.datatype = data.datatype
@@ -111,7 +113,8 @@ class BaseRandomForestModel(object):
             self.num_classes = \
                 len(dask.array.unique(labels).compute())
 
-        full_data = list(map(lambda x: x[1], data.gpu_futures))
+        combined_data = list(map(lambda x: x[1], data.gpu_futures)) \
+            if broadcast_data else None
 
         futures = list()
         for idx, (worker, worker_data) in \
@@ -120,7 +123,7 @@ class BaseRandomForestModel(object):
                 self.client.submit(
                     _func_fit,
                     model[worker],
-                    full_data if broadcast else worker_data,
+                    combined_data if broadcast_data else worker_data,
                     convert_dtype,
                     workers=[worker],
                     pure=False)
@@ -173,14 +176,13 @@ class BaseRandomForestModel(object):
 
     def _partial_inference(self, X, delayed, **kwargs):
         data = DistributedDataHandler.create(X, client=self.client)
-        self.datatype = data.datatype
         full_data = list(map(lambda x: x[1], data.gpu_futures))
 
         partial_infs = list()
         for worker in self.active_workers:
             partial_infs.append(
                 self.client.submit(
-                    _func_predict,
+                    _func_predict_partial,
                     self.rfs[worker],
                     full_data,
                     **kwargs,
@@ -195,7 +197,6 @@ class BaseRandomForestModel(object):
         if self._get_internal_model() is None:
             self._set_internal_model(self._concat_treelite_models())
         data = DistributedDataHandler.create(X, client=self.client)
-        self.datatype = data.datatype
         if self._get_internal_model() is None:
             self._set_internal_model(self._concat_treelite_models())
         return self._predict(X, delayed=delayed, **kwargs)
@@ -287,15 +288,16 @@ def _func_fit(model, input_data, convert_dtype):
     return model.fit(X, y, convert_dtype)
 
 
-def _func_predict(model, input_data, **kwargs):
+def _func_predict_partial(model, input_data, **kwargs):
+    """
+    Whole dataset inference with part of the model (trees at disposal locally).
+    Transfer dataset instead of model. Interesting when model is larger
+    than dataset.
+    """
     X = concatenate(input_data)
-    with cuml.using_output_type("numpy"):
+    with using_output_type('cupy'):
         prediction = model.predict(X, **kwargs)
-        return np.expand_dims(prediction, axis=1)
-
-
-def _print_summary_func(model):
-    model.print_summary()
+        return cp.expand_dims(prediction, axis=1)
 
 
 def _get_summary_text_func(model):
