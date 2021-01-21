@@ -44,8 +44,8 @@ struct knnIndex {
   faiss::gpu::GpuIndex *index;
   int device;
   ~knnIndex() {
-    delete gpu_res;
     delete index;
+    delete gpu_res;
   }
 };
 
