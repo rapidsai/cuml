@@ -764,11 +764,7 @@ void tl2fil_sparse(std::vector<int>* ptrees, std::vector<fil_node_t>* pnodes,
   }
   size_t total_nodes = ptrees->back() + model.trees.back().num_nodes;
 
-  pnodes->reserve(total_nodes);
-  for (size_t i = 0; i < total_nodes; ++i) {
-    // TODO
-    pnodes->emplace_back();
-  }
+  pnodes->resize(total_nodes);
 
   // convert the nodes
   fil_node_t* front = pnodes->data();
