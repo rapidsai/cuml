@@ -234,6 +234,18 @@ Mini Batch SGD Regressor
 .. autoclass:: cuml.MBSGDRegressor
     :members:
 
+Multiclass Classification
+-------------------------
+
+.. autoclass:: cuml.multiclass.MulticlassClassifier
+    :members:
+
+.. autoclass:: cuml.multiclass.OneVsOneClassifier
+    :members:
+
+.. autoclass:: cuml.multiclass.OneVsRestClassifier
+    :members:
+
 Mutinomial Naive Bayes
 ----------------------
 
