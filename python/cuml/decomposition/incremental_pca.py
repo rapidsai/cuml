@@ -155,7 +155,7 @@ class IncrementalPCA(PCA):
 
     .. code-block:: python
 
-        >>> from cuml.experimental.decomposition import IncrementalPCA
+        >>> from cuml.decomposition import IncrementalPCA
         >>> import cupy as cp
         >>> import cupyx
         >>>
@@ -627,7 +627,7 @@ def _svd_flip(u, v, u_based_decision=True):
     if u_based_decision:
         # columns of u, rows of v
         max_abs_cols = cp.argmax(cp.abs(u), axis=0)
-        signs = cp.sign(u[max_abs_cols, range(u.shape[1])])
+        signs = cp.sign(u[max_abs_cols, list(range(u.shape[1]))])
         u *= signs
         v *= signs[:, cp.newaxis]
     else:

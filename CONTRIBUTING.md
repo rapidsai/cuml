@@ -84,18 +84,17 @@ For all development, your changes should be pushed into a branch (created using 
 
 A few days before releasing version `x.y` the code of the current development branch (`branch-x.y`) will be frozen and a new branch, 'branch-x+1.y' will be created to continue development.
 
-### Steps for feature development
+### Branch naming
 
-1. Create a new branch based on `branch-x.y` named following the format `<type>-<name>`, where:
-    - Type: 
-        - fea - For if the branch is for a new feature(s)
-        - enh - For if the branch is an enhancement of an existing feature(s)
-        - bug - For if the branch is for fixing a bug(s) or regression(s)
-    - Name: 
-        - A name to convey what is being worked on
-        - Please use dashes or underscores between words as opposed to spaces.
-
-2. Add a line to the `CHANGELOG.md` file (located in the repository root folder) with a one line description of the functionality implemented in the Pull Request. Please put the line in the adequate section: New Feature, Improvement or Bug Fix. The cuML repository CI requires this change before a pull request can be merged.
+Branches used to create PRs should have a name of the form `<type>-<name>`
+which conforms to the following conventions:
+- Type: 
+    - fea - For if the branch is for a new feature(s)
+    - enh - For if the branch is an enhancement of an existing feature(s)
+    - bug - For if the branch is for fixing a bug(s) or regression(s)
+- Name: 
+    - A name to convey what is being worked on
+    - Please use dashes or underscores between words as opposed to spaces.
 
 ### Building and Testing on a gpuCI image locally
 

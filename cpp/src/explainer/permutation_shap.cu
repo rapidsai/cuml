@@ -34,8 +34,8 @@ __global__ void _fused_tile_scatter_pe(DataT* dataset, const DataT* background,
 
     if (row_major) {
       row = tid / ncols;
-      col = tid % ncols;
-      start = (idx[col] + 1) * nrows_background;
+      col = idx[tid % ncols];
+      start = ((tid % ncols) + 1) * nrows_background;
       end = start + sc_size * nrows_background;
 
       if ((start <= row && row < end)) {

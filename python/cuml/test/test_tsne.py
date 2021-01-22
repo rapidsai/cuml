@@ -15,6 +15,8 @@
 
 import numpy as np
 import pytest
+import scipy
+import cupyx
 
 from cuml.manifold import TSNE
 from cuml.test.utils import stress_param
@@ -32,12 +34,12 @@ dataset_names = ['digits', 'boston', 'iris', 'breast_cancer',
                  'diabetes']
 
 
-def check_embedding(X, Y):
+def check_embedding(X, Y, score=0.76):
     """Compares TSNE embedding trustworthiness, NAN and verbosity"""
     nans = np.sum(np.isnan(Y))
     trust = trustworthiness(X, Y)
     print("Trust = ", trust)
-    assert trust > 0.76
+    assert trust > score
     assert nans == 0
 
 
@@ -177,3 +179,82 @@ def test_tsne_knn_graph_used(name, type_knn_graph):
 def test_components_exception():
     with pytest.raises(ValueError):
         TSNE(n_components=3)
+
+
+@pytest.mark.parametrize('input_type', ['cupy', 'scipy'])
+def test_tsne_transform_on_digits_sparse(input_type):
+
+    datasets
+    digits = datasets.load_digits()
+
+    digits_selection = np.random.RandomState(42).choice(
+        [True, False], 1797, replace=True, p=[0.60, 0.40])
+
+    if input_type == 'cupy':
+        sp_prefix = cupyx.scipy.sparse
+    else:
+        sp_prefix = scipy.sparse
+
+    fitter = TSNE(2, n_neighbors=15,
+                  random_state=1,
+                  learning_rate=500,
+                  angle=0.8)
+
+    new_data = sp_prefix.csr_matrix(
+        scipy.sparse.csr_matrix(digits.data[~digits_selection]))
+
+    embedding = fitter.fit_transform(new_data, convert_dtype=True)
+
+    if input_type == 'cupy':
+        embedding = embedding.get()
+
+    trust = trustworthiness(digits.data[~digits_selection], embedding, 15)
+    assert trust >= 0.85
+
+
+@pytest.mark.parametrize('type_knn_graph', ['sklearn', 'cuml'])
+@pytest.mark.parametrize('input_type', ['cupy', 'scipy'])
+def test_tsne_knn_parameters_sparse(type_knn_graph, input_type):
+
+    datasets
+    digits = datasets.load_digits()
+
+    neigh = skKNN(n_neighbors=90) if type_knn_graph == 'sklearn' \
+        else cuKNN(n_neighbors=90)
+
+    digits_selection = np.random.RandomState(42).choice(
+        [True, False], 1797, replace=True, p=[0.60, 0.40])
+
+    selected_digits = digits.data[~digits_selection]
+
+    neigh.fit(selected_digits)
+    knn_graph = neigh.kneighbors_graph(selected_digits, mode="distance")
+
+    if input_type == 'cupy':
+        sp_prefix = cupyx.scipy.sparse
+    else:
+        sp_prefix = scipy.sparse
+
+    tsne = TSNE(2, n_neighbors=15,
+                random_state=1,
+                learning_rate=500,
+                angle=0.8)
+
+    new_data = sp_prefix.csr_matrix(
+        scipy.sparse.csr_matrix(selected_digits))
+
+    Y = tsne.fit_transform(new_data, True, knn_graph)
+    if input_type == 'cupy':
+        Y = Y.get()
+    check_embedding(selected_digits, Y, 0.85)
+
+    Y = tsne.fit_transform(new_data, True, knn_graph.tocoo())
+    if input_type == 'cupy':
+        Y = Y.get()
+    check_embedding(selected_digits, Y, 0.85)
+
+    Y = tsne.fit_transform(new_data, True, knn_graph.tocsc())
+    if input_type == 'cupy':
+        Y = Y.get()
+    check_embedding(selected_digits, Y, 0.85)
+    del Y

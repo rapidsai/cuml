@@ -42,8 +42,8 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
         and predict are all consistent
      * Training data comes in the form of cuDF dataframes or Dask Arrays \
         distributed so that each worker has at least one partition.
-     * The print_summary and print_detailed functions print the \
-        information of the forest on the worker.
+     * The get_summary_text and get_detailed_text functions provides the \
+        text representation of the forest on the worker.
 
     Future versions of the API will support more flexible data
     distribution and additional input types.
@@ -200,21 +200,23 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
     def _predict_model_on_cpu(model, X, convert_dtype):
         return model._predict_get_all(X, convert_dtype)
 
-    def print_summary(self):
+    def get_summary_text(self):
         """
-        Print the summary of the forest used to train the model
-        on each worker. This information is displayed on the
-        individual workers and not the client.
+        Obtain the text summary of the random forest model
         """
-        return self._print_summary()
+        return self._get_summary_text()
 
-    def print_detailed(self):
+    def get_detailed_text(self):
         """
-        Print detailed information of the forest used to train
-        the model on each worker. This information is displayed on the
-        workers and not the client.
+        Obtain the detailed information for the random forest model, as text
         """
-        return self._print_detailed()
+        return self._get_detailed_text()
+
+    def get_json(self):
+        """
+        Export the Random Forest model as a JSON string
+        """
+        return self._get_json()
 
     def fit(self, X, y, convert_dtype=False):
         """
