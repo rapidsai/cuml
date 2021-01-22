@@ -17,6 +17,8 @@
 #pragma once
 
 #include <limits.h>
+#include <cmath>
+
 #include <raft/cudart_utils.h>
 #include <sparse/distance/common.h>
 
@@ -42,8 +44,6 @@
 namespace raft {
 namespace sparse {
 namespace distance {
-
-static const float sqrt_2 = 1.0 / sqrt(2);
 
 // @TODO: Move this into sparse prims (coo_norm)
 template <typename value_idx, typename value_t>
@@ -245,10 +245,9 @@ class hellinger_expanded_distances_t : public distances_t<value_t> {
       config_->stream);
 
     // Divide dists by sqrt(2)
-    value_t s_2 = sqrt_2;
     raft::linalg::unaryOp<value_t>(
       out_dists, out_dists, config_->a_nrows * config_->b_nrows,
-      [=] __device__(value_t input) { return input * s_2; }, config_->stream);
+      [=] __device__(value_t input) { return input * M_SQRT1_2; }, config_->stream);
   }
 
   ~hellinger_expanded_distances_t() = default;
