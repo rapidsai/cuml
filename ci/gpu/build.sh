@@ -62,10 +62,6 @@ gpuci_conda_retry install -c conda-forge -c rapidsai -c rapidsai-nightly -c nvid
 # gpuci_conda_retry remove --force rapids-build-env rapids-notebook-env
 # gpuci_conda_retry install -y "your-pkg=1.0.0"
 
-# TEMP: Workaround until this issue is resolved: https://github.com/rapidsai/ucx-py/issues/668
-gpuci_conda_retry remove --force rapids-build-env rapids-notebook-env
-gpuci_conda_retry install -y "ucx=1.8"
-
 gpuci_logger "Install contextvars if needed"
 py_ver=$(python -c "import sys; print('.'.join(map(str, sys.version_info[:2])))")
 if [ "$py_ver" == "3.6" ];then
@@ -249,11 +245,7 @@ if [ -n "${CODECOV_TOKEN}" ]; then
 
     gpuci_logger "Uploading Code Coverage to codecov.io"
 
-    set -xv
-
-    PARENT_COMMIT_ID=`git merge-base refs/remotes/origin/$TARGET_BRANCH HEAD~1`
-
-    echo "Parent Commit ID: $PARENT_COMMIT_ID"
+    PARENT_COMMIT_ID=`git merge-base refs/remotes/origin/$TARGET_BRANCH refs/remotes/origin/pr/$PR_ID/head`
 
     # Base tags to apply
     CODECOV_TAGS="${OS},python${PYTHON},cuda${CUDA}"
@@ -263,7 +255,6 @@ if [ -n "${CODECOV_TOKEN}" ]; then
     curl -s https://codecov.io/bash | bash -s -- -F ${CODECOV_TAGS} -f ${WORKSPACE}/python/cuml/cuml-coverage.xml -N "${PARENT_COMMIT_ID}"
     curl -s https://codecov.io/bash | bash -s -- -F ${CODECOV_TAGS},dask -f ${WORKSPACE}/python/cuml/cuml-dask-coverage.xml -N "${PARENT_COMMIT_ID}"
 
-    set +xv
 fi
 
 return ${EXITCODE}

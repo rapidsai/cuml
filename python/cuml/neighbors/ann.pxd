@@ -20,8 +20,6 @@
 from libc.stdint cimport uintptr_t
 from libcpp cimport bool
 
-# cimport cuml.common.cuda
-
 
 cdef extern from "cuml/neighbors/knn.hpp" namespace "ML":
     cdef cppclass knnIndexParam:

@@ -20,7 +20,6 @@
 from libc.stdint cimport uintptr_t
 from libcpp cimport bool
 
-# cimport cuml.common.cuda
 
 cdef check_algo_params(algo, params):
     def check_param_list(params, param_list):
