@@ -18,7 +18,7 @@
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
 #include <common/cumlHandle.hpp>
-#include <common/device_buffer.hpp>
+#include <cuml/common/device_buffer.hpp>
 #include <common/host_buffer.hpp>
 #include <iostream>
 #include <matrix/grammatrix.cuh>

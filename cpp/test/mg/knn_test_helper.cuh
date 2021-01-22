@@ -26,7 +26,6 @@
 #include <linalg/reduce_rows_by_key.cuh>
 #include <selection/knn.cuh>
 
-#include <common/device_buffer.hpp>
 #include <cuml/common/cuml_allocator.hpp>
 
 #include <common/cumlHandle.hpp>

@@ -204,7 +204,11 @@ set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_BINARY_DIR}/cmake)
 
 # todo: change for FindCUDAToolkit when CMake 3.17 is the minimum required
 # https://github.com/rapidsai/cuml/issues/2194
-find_package(CUDA 10.0 REQUIRED)
+# find_package(CUDA 10.0 REQUIRED)
+find_package(CUDAToolkit 10.0 REQUIRED)
+
+# Set the -isystem flag to not have an '=' sign to allow parsing of compiler commands
+set(CMAKE_INCLUDE_SYSTEM_FLAG_CUDA "-isystem")
 
 if (NOT DISABLE_OPENMP OR NOT ${DISABLE_OPENMP})
   find_package(OpenMP)
@@ -324,15 +328,19 @@ include(cmake/Dependencies.cmake)
 
 set(CUML_INCLUDE_DIRECTORIES
   ${CUML_INCLUDE_DIR}
-  ${CMAKE_CURRENT_SOURCE_DIR}/src
-  ${CMAKE_CURRENT_SOURCE_DIR}/src_prims
-  ${CMAKE_CURRENT_SOURCE_DIR}/test/prims
+  # ${CMAKE_CURRENT_SOURCE_DIR}/src
+  # ${CMAKE_CURRENT_SOURCE_DIR}/src_prims
+  # ${CMAKE_CURRENT_SOURCE_DIR}/test/prims
   ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}
   ${CUTLASS_DIR}/src/cutlass
   ${SPDLOG_DIR}/src/spdlog/include
   ${FAISS_INCLUDE_DIRS}
   ${RAFT_DIR}/cpp/include
   ${RMM_INCLUDE_DIRS})
+
+set(CUML_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src)
+set(CUML_SRC_PRIMS_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src_prims)
+set(CUML_TEST_PRIMS_DIR ${CMAKE_CURRENT_SOURCE_DIR}/test/prims)
 
 if(NOT CUB_IS_PART_OF_CTK)
   list(APPEND CUML_INCLUDE_DIRECTORIES ${CUB_DIR}/src/cub)
@@ -462,7 +470,11 @@ if(BUILD_CUML_CPP_LIBRARY)
   endif(NVTX)
 
   target_include_directories(${CUML_CPP_TARGET}
-    PRIVATE ${CUML_INCLUDE_DIRECTORIES})
+    PUBLIC
+      ${CUML_INCLUDE_DIRECTORIES}
+    PRIVATE
+      ${CUML_SRC_DIR}
+      ${CUML_SRC_PRIMS_DIR})
 
   target_link_libraries(${CUML_CPP_TARGET}
     PUBLIC
@@ -489,10 +501,15 @@ if(BUILD_CUML_C_LIBRARY)
     src/dbscan/dbscan_api.cpp
     src/glm/glm_api.cpp
     src/holtwinters/holtwinters_api.cpp
-    src/svm/svm_api.cpp)
+    src/knn/knn_api.cpp
+    src/svm/svm_api.cpp
+  )
 
   target_include_directories(${CUML_C_TARGET}
-    PRIVATE ${CUML_INCLUDE_DIRECTORIES})
+    PRIVATE 
+      ${CUML_SRC_DIR}
+      ${CUML_SRC_PRIMS_DIR}
+      ${CUML_TEST_PRIMS_DIR})
 
   target_link_libraries(${CUML_C_TARGET} PUBLIC ${CUML_CPP_TARGET})
 endif(BUILD_CUML_C_LIBRARY)

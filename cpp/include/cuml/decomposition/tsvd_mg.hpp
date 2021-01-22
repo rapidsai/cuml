@@ -20,8 +20,6 @@
 #include <opg/matrix/part_descriptor.hpp>
 #include "tsvd.hpp"
 
-#include <common/cumlHandle.hpp>
-
 namespace ML {
 namespace TSVD {
 namespace opg {

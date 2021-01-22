@@ -16,7 +16,6 @@
 
 #pragma once
 
-#include <common/cumlHandle.hpp>
 #include <cuml/common/cuml_allocator.hpp>
 #include <opg/matrix/data.hpp>
 #include <opg/matrix/part_descriptor.hpp>

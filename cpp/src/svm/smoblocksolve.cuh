@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-/**@file smoblocksolve.h  contains implementation of the blocke SMO solver
+/**@file smoblocksolve.cuh  contains implementation of the blocke SMO solver
 */
 #pragma once
 

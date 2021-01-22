@@ -15,7 +15,7 @@
 #=============================================================================
 
 set(CUML_TEST_INCLUDE_DIRS
-  ${CUML_INCLUDE_DIRECTORIES}
+  # ${CUML_INCLUDE_DIRECTORIES}
   ${GTEST_INCLUDE_DIRS}/include
   ${TREELITE_DIR}/runtime/native/include)
 
@@ -81,7 +81,12 @@ if(BUILD_CUML_TESTS)
 
   add_dependencies(ml cutlass)
 
-  target_include_directories(ml PRIVATE ${CUML_TEST_INCLUDE_DIRS})
+  target_include_directories(ml
+    PRIVATE
+      ${CUML_TEST_INCLUDE_DIRS}
+      ${CUML_SRC_DIR}
+      ${CUML_SRC_PRIMS_DIR}
+      ${CUML_TEST_PRIMS_DIR})
 
   target_link_libraries(ml ${CUML_TEST_LINK_LIBRARIES})
 
@@ -107,7 +112,13 @@ if(BUILD_CUML_MG_TESTS)
         ${MPI_CXX_INCLUDE_PATH}
         ${cumlprims_mg_INCLUDE_DIRS})
 
-    target_include_directories(ml_mg PUBLIC ${CUML_TEST_INCLUDE_DIRS})
+    target_include_directories(ml_mg
+      PUBLIC
+        ${CUML_TEST_INCLUDE_DIRS}
+      PRIVATE
+        ${CUML_SRC_DIR}
+        ${CUML_SRC_PRIMS_DIR}
+        ${CUML_TEST_PRIMS_DIR})
 
     set(CUML_TEST_LINK_LIBRARIES
     	${CUML_TEST_LINK_LIBRARIES}
@@ -201,14 +212,20 @@ if(BUILD_PRIMS_TESTS)
     prims/ternary_op.cu
     prims/trustworthiness.cu
     prims/v_measure.cu
-    prims/weighted_mean.cu
-    ../src/common/logger.cpp)  # because prims is header only!
+    prims/weighted_mean.cu)
 
-  target_include_directories(prims PRIVATE ${CUML_TEST_INCLUDE_DIRS})
+  target_include_directories(prims
+    PRIVATE
+      ${CUML_TEST_INCLUDE_DIRS}
+    PUBLIC
+      ${CUML_SRC_DIR}
+      ${CUML_SRC_PRIMS_DIR}
+      ${CUML_TEST_PRIMS_DIR})
 
   add_dependencies(prims cutlass)
 
   target_link_libraries(prims
+    ${CUML_CPP_TARGET}
   	GTest::GTest
   	GTest::Main
   	FAISS::FAISS

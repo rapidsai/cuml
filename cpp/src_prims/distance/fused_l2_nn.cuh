@@ -22,13 +22,13 @@
 #include <linalg/contractions.cuh>
 #include <raft/cuda_utils.cuh>
 
+namespace MLCommon {
+namespace Distance {
+
 #if (ENABLE_MEMCPY_ASYNC == 1)
 #include <cuda_pipeline.h>
 using namespace nvcuda::experimental;
 #endif
-
-namespace MLCommon {
-namespace Distance {
 
 template <typename LabelT, typename DataT>
 struct KVPMinReduce {

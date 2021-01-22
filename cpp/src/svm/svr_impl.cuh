@@ -16,7 +16,7 @@
 
 #pragma once
 
-/** @file svr_impl.h
+/** @file svr_impl.cuh
  * @brief Implementation of the stateless C++ functions to fit an SVM regressor.
  */
 
@@ -30,7 +30,6 @@
 #include <thrust/device_ptr.h>
 #include <thrust/iterator/counting_iterator.h>
 #include <common/cumlHandle.hpp>
-#include <common/device_buffer.hpp>
 #include <label/classlabels.cuh>
 #include <matrix/kernelfactory.cuh>
 #include <raft/linalg/unary_op.cuh>

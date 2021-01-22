@@ -21,7 +21,7 @@
 #include <raft/sparse/cusparse_wrappers.h>
 #include <raft/cuda_utils.cuh>
 
-#include <common/device_buffer.hpp>
+#include <cuml/common/device_buffer.hpp>
 
 #include <sparse/utils.h>
 #include <sparse/csr.cuh>

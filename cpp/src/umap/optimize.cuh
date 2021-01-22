@@ -19,7 +19,7 @@
 #include <cuml/manifold/umapparams.h>
 #include <cuml/common/logger.hpp>
 
-#include <common/device_buffer.hpp>
+#include <cuml/common/device_buffer.hpp>
 
 #include <raft/cudart_utils.h>
 #include <linalg/power.cuh>

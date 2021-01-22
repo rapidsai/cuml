@@ -16,7 +16,6 @@
 
 #pragma once
 
-#include <common/device_buffer.hpp>
 #include <cub/cub.cuh>
 #include <raft/cuda_utils.cuh>
 #include <selection/kselection.cuh>

@@ -22,7 +22,6 @@
 #include <raft/linalg/distance_type.h>
 #include <raft/sparse/cusparse_wrappers.h>
 
-#include <common/device_buffer.hpp>
 
 #include <sparse/distance.cuh>
 

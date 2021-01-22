@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include <common/cumlHandle.hpp>
+#include <raft/handle.hpp>
 
 namespace ML {
 namespace Solver {

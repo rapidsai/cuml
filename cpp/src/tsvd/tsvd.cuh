@@ -23,7 +23,7 @@
 #include <thrust/execution_policy.h>
 #include <common/allocatorAdapter.hpp>
 #include <common/cumlHandle.hpp>
-#include <common/device_buffer.hpp>
+#include <cuml/common/device_buffer.hpp>
 #include <cuml/decomposition/params.hpp>
 #include <linalg/rsvd.cuh>
 #include <raft/cuda_utils.cuh>

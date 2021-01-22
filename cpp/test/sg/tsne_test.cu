@@ -20,7 +20,7 @@
 #include <raft/cudart_utils.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <common/device_buffer.hpp>
+#include <cuml/common/device_buffer.hpp>
 #include <cuml/common/cuml_allocator.hpp>
 #include <cuml/common/logger.hpp>
 #include <iostream>

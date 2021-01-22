@@ -16,7 +16,7 @@
 
 #pragma once
 
-/** @file svc_impl.h
+/** @file svc_impl.cuh
  * @brief Implementation of the stateless C++ functions to fit an SVM
  * classifier, and predict with it.
  */
@@ -31,7 +31,7 @@
 #include <thrust/device_ptr.h>
 #include <thrust/iterator/counting_iterator.h>
 #include <common/cumlHandle.hpp>
-#include <common/device_buffer.hpp>
+#include <cuml/common/device_buffer.hpp>
 #include <label/classlabels.cuh>
 #include <matrix/kernelfactory.cuh>
 #include <raft/linalg/unary_op.cuh>

@@ -33,7 +33,6 @@
 #include <faiss/gpu/utils/Select.cuh>
 
 #include <raft/cudart_utils.h>
-#include <common/device_buffer.hpp>
 #include <raft/cuda_utils.cuh>
 
 #include <raft/sparse/cusparse_wrappers.h>

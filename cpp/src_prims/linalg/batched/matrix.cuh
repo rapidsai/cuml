@@ -29,7 +29,7 @@
 #include <thrust/iterator/counting_iterator.h>
 
 #include <raft/cudart_utils.h>
-#include <common/device_buffer.hpp>
+#include <cuml/common/device_buffer.hpp>
 #include <common/fast_int_div.cuh>
 #include <cuml/common/utils.hpp>
 #include <cuml/cuml.hpp>

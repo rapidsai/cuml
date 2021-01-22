@@ -40,7 +40,7 @@
 #include "workingset.cuh"
 #include "ws_util.cuh"
 
-#include <common/device_buffer.hpp>
+#include <cuml/common/device_buffer.hpp>
 #include "results.cuh"
 
 namespace ML {

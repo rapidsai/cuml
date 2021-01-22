@@ -20,8 +20,6 @@
 #include <opg/matrix/part_descriptor.hpp>
 #include "glm.hpp"
 
-#include <common/cumlHandle.hpp>
-
 namespace ML {
 namespace Ridge {
 namespace opg {

@@ -25,7 +25,7 @@
 
 #include <cuml/neighbors/knn.hpp>
 
-#include <common/device_buffer.hpp>
+#include <cuml/common/device_buffer.hpp>
 #include <cuml/datasets/make_blobs.hpp>
 
 namespace ML {

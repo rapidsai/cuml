@@ -15,7 +15,7 @@
  */
 
 #pragma once
-#include <common/device_buffer.hpp>
+#include <cuml/common/device_buffer.hpp>
 #include <raft/matrix/math.cuh>
 #include "glm_base.cuh"
 #include "glm_linear.cuh"

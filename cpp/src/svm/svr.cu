@@ -17,7 +17,6 @@
 #include <iostream>
 
 #include <raft/linalg/cublas_wrappers.h>
-#include <common/device_buffer.hpp>
 #include <cuml/svm/svc.hpp>
 #include <label/classlabels.cuh>
 #include <matrix/kernelfactory.cuh>

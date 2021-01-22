@@ -19,7 +19,7 @@
 
 #include <raft/sparse/cusparse_wrappers.h>
 
-#include <common/device_buffer.hpp>
+#include <cuml/common/device_buffer.hpp>
 
 #include <cusparse_v2.h>
 

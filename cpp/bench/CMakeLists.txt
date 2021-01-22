@@ -36,13 +36,16 @@ if(BUILD_CUML_BENCH)
     sg/fil.cu
     )
 
-  target_link_libraries(sg_benchmark
+  target_link_libraries(sg_benchmark PUBLIC
     ${CUML_CPP_TARGET}
     benchmarklib)
 
   target_include_directories(sg_benchmark
-    PRIVATE ${GBENCH_DIR}/include
-    ${CUML_INCLUDE_DIRECTORIES})
+    PRIVATE 
+      ${GBENCH_DIR}/include
+      ${CUML_SRC_DIR}
+      ${CUML_SRC_PRIMS_DIR}
+      ${CUML_TEST_PRIMS_DIR})
 endif(BUILD_CUML_BENCH)
 
 ##############################################################################
@@ -64,17 +67,19 @@ if(BUILD_CUML_PRIMS_BENCH)
     prims/matrix_vector_op.cu
     prims/permute.cu
     prims/reduce.cu
-    prims/rng.cu
-    ../src/common/logger.cpp)  # because prims is header only!
+    prims/rng.cu)  # because prims is header only!
 
   if(NOT CUB_IS_PART_OF_CTK)
     add_dependencies(prims_benchmark cub)
   endif(NOT CUB_IS_PART_OF_CTK)
   add_dependencies(prims_benchmark spdlog)
 
-  target_link_libraries(prims_benchmark ${CUDA_cublas_LIBRARY} benchmarklib)
+  target_link_libraries(prims_benchmark ${CUDA_cublas_LIBRARY} benchmarklib ${CUML_CPP_TARGET})
 
   target_include_directories(prims_benchmark
-    PRIVATE ${GBENCH_DIR}/include
-    ${CUML_INCLUDE_DIRECTORIES})
+    PRIVATE 
+      ${GBENCH_DIR}/include
+      ${CUML_SRC_DIR}
+      ${CUML_SRC_PRIMS_DIR}
+      ${CUML_TEST_PRIMS_DIR})
 endif(BUILD_CUML_PRIMS_BENCH)

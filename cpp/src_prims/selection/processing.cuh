@@ -24,7 +24,7 @@
 #include <raft/stats/mean.cuh>
 #include <raft/stats/mean_center.cuh>
 
-#include <common/device_buffer.hpp>
+#include <cuml/common/device_buffer.hpp>
 
 #include <cuml/common/cuml_allocator.hpp>
 

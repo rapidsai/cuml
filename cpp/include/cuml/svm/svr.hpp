@@ -18,7 +18,6 @@
 
 #include <cublas_v2.h>
 #include <cuml/matrix/kernelparams.h>
-#include <common/cumlHandle.hpp>
 #include "svm_model.h"
 #include "svm_parameter.h"
 

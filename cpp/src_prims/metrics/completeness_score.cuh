@@ -22,7 +22,6 @@
 
 #pragma once
 
-#include <common/device_buffer.hpp>
 #include <cuml/common/cuml_allocator.hpp>
 #include "entropy.cuh"
 #include "mutual_info_score.cuh"

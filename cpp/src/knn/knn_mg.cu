@@ -16,10 +16,11 @@
 
 #include <cuml/neighbors/knn_mg.hpp>
 #include <selection/knn.cuh>
+#include "knn_opg_common.cuh"
 
 #include <common/cumlHandle.hpp>
 
-#include <common/device_buffer.hpp>
+#include <cuml/common/device_buffer.hpp>
 #include <cuml/common/cuml_allocator.hpp>
 #include <raft/comms/comms.hpp>
 
@@ -53,36 +54,36 @@ void reduce(Matrix::Data<int64_t> *&out_I, Matrix::floatData_t *&out_D,
     cur_batch_size, idxRanks.size(), k, stream, trans.data());
 }
 
-void perform_local_knn(int64_t *res_I, float *res_D,
-                       std::vector<Matrix::floatData_t *> &idx_data,
-                       Matrix::PartDescriptor &idx_desc,
-                       std::vector<Matrix::RankSizePair *> &local_idx_parts,
-                       std::vector<size_t> &start_indices, cudaStream_t stream,
-                       cudaStream_t *internal_streams, int n_internal_streams,
-                       std::shared_ptr<deviceAllocator> allocator,
-                       size_t cur_batch_size, int k, float *cur_query_ptr,
-                       bool rowMajorIndex, bool rowMajorQuery) {
-  std::vector<float *> ptrs(idx_data.size());
-  std::vector<int> sizes(idx_data.size());
+// void perform_local_knn(int64_t *res_I, float *res_D,
+//                        std::vector<Matrix::floatData_t *> &idx_data,
+//                        Matrix::PartDescriptor &idx_desc,
+//                        std::vector<Matrix::RankSizePair *> &local_idx_parts,
+//                        std::vector<size_t> &start_indices, cudaStream_t stream,
+//                        cudaStream_t *internal_streams, int n_internal_streams,
+//                        std::shared_ptr<deviceAllocator> allocator,
+//                        size_t cur_batch_size, int k, float *cur_query_ptr,
+//                        bool rowMajorIndex, bool rowMajorQuery) {
+//   std::vector<float *> ptrs(idx_data.size());
+//   std::vector<int> sizes(idx_data.size());
 
-  for (int cur_idx = 0; cur_idx < idx_data.size(); cur_idx++) {
-    ptrs[cur_idx] = idx_data[cur_idx]->ptr;
-    sizes[cur_idx] = local_idx_parts[cur_idx]->size;
-  }
+//   for (int cur_idx = 0; cur_idx < idx_data.size(); cur_idx++) {
+//     ptrs[cur_idx] = idx_data[cur_idx]->ptr;
+//     sizes[cur_idx] = local_idx_parts[cur_idx]->size;
+//   }
 
-  // PartDescriptor uses size_t while FAISS uses int64_t
-  // so we need to do a quick conversion.
-  std::vector<int64_t> start_indices_long;
-  for (size_t start_index : start_indices)
-    start_indices_long.push_back((int64_t)start_index);
+//   // PartDescriptor uses size_t while FAISS uses int64_t
+//   // so we need to do a quick conversion.
+//   std::vector<int64_t> start_indices_long;
+//   for (size_t start_index : start_indices)
+//     start_indices_long.push_back((int64_t)start_index);
 
-  // ID ranges need to be offset by each local partition's
-  // starting indices.
-  MLCommon::Selection::brute_force_knn(
-    ptrs, sizes, (int)idx_desc.N, cur_query_ptr, (int)cur_batch_size, res_I,
-    res_D, k, allocator, stream, internal_streams, n_internal_streams,
-    rowMajorIndex, rowMajorQuery, &start_indices_long);
-}
+//   // ID ranges need to be offset by each local partition's
+//   // starting indices.
+//   MLCommon::Selection::brute_force_knn(
+//     ptrs, sizes, (int)idx_desc.N, cur_query_ptr, (int)cur_batch_size, res_I,
+//     res_D, k, allocator, stream, internal_streams, n_internal_streams,
+//     rowMajorIndex, rowMajorQuery, &start_indices_long);
+// }
 
 void broadcast_query(float *query, size_t batch_input_elms, int part_rank,
                      std::set<int> idxRanks, const raft::comms::comms_t &comm,
@@ -314,7 +315,7 @@ void brute_force_knn(raft::handle_t &handle,
           int_streams[i] = handle.get_internal_stream(i);
         }
 
-        perform_local_knn(res_I.data(), res_D.data(), idx_data, idx_desc,
+        knn_common::perform_local_knn(res_I.data(), res_D.data(), idx_data, idx_desc,
                           local_idx_parts, start_indices, stream, &*int_streams,
                           handle.get_num_internal_streams(),
                           handle.get_device_allocator(), cur_batch_size, k,

@@ -21,7 +21,7 @@
 #include <raft/cudart_utils.h>
 #include <raft/linalg/cublas_wrappers.h>
 #include <common/cumlHandle.hpp>
-#include <common/device_buffer.hpp>
+#include <cuml/common/device_buffer.hpp>
 #include <linalg/ternary_op.cuh>
 #include <raft/cuda_utils.cuh>
 #include <raft/linalg/binary_op.cuh>

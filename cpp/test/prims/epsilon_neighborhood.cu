@@ -16,7 +16,6 @@
 
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
-#include <common/device_buffer.hpp>
 #include <distance/epsilon_neighborhood.cuh>
 #include <random/make_blobs.cuh>
 #include "test_utils.h"

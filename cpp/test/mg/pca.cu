@@ -18,7 +18,7 @@
 #include <raft/cudart_utils.h>
 #include <raft/linalg/cublas_wrappers.h>
 #include <test_utils.h>
-#include <common/device_buffer.hpp>
+#include <cuml/common/device_buffer.hpp>
 #include <cuml/common/logger.hpp>
 #include <cuml/decomposition/pca_mg.hpp>
 #include <opg/linalg/gemm.hpp>

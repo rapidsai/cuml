@@ -25,7 +25,7 @@
 #include <thrust/iterator/zip_iterator.h>
 #include <thrust/transform.h>
 #include <common/cumlHandle.hpp>
-#include <common/device_buffer.hpp>
+#include <cuml/common/device_buffer.hpp>
 #include <cub/cub.cuh>
 #include <cuml/common/logger.hpp>
 #include <cuml/datasets/make_blobs.hpp>

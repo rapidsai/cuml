@@ -21,7 +21,6 @@
 #include <raft/linalg/cublas_wrappers.h>
 #include <raft/linalg/cusolver_wrappers.h>
 #include <common/cumlHandle.hpp>
-#include <common/device_buffer.hpp>
 #include <cuml/common/cuml_allocator.hpp>
 #include <iostream>
 #include <raft/linalg/eltwise.cuh>

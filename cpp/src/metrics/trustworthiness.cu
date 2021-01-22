@@ -23,13 +23,14 @@ namespace Metrics {
 
 /**
         * @brief Compute the trustworthiness score
-        * @input param X: Data in original dimension
-        * @input param X_embedded: Data in target dimension (embedding)
-        * @input param n: Number of samples
-        * @input param m: Number of features in high/original dimension
-        * @input param d: Number of features in low/embedded dimension
-        * @input param n_neighbors: Number of neighbors considered by trustworthiness score
-        * @input tparam distance_type: Distance type to consider
+        * @param X[in]: Data in original dimension
+        * @param X_embedded[in]: Data in target dimension (embedding)
+        * @param n[in]: Number of samples
+        * @param m[in]: Number of features in high/original dimension
+        * @param d[in]: Number of features in low/embedded dimension
+        * @param n_neighbors[in]: Number of neighbors considered by 
+        *   trustworthiness score
+        * @tparam distance_type: Distance type to consider
         * @return Trustworthiness score
         */
 template <typename math_t, raft::distance::DistanceType distance_type>

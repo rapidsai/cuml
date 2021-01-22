@@ -18,7 +18,7 @@
 
 #include <raft/cudart_utils.h>
 #include <common/cumlHandle.hpp>
-#include <common/device_buffer.hpp>
+#include <cuml/common/device_buffer.hpp>
 #include <raft/linalg/gemm.cuh>
 #include <raft/linalg/norm.cuh>
 #include <raft/matrix/math.cuh>

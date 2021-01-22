@@ -47,20 +47,21 @@
 * Users Notice.
 */
 
-#include <cuml/neighbors/knn_mg.hpp>
-#include <selection/knn.cuh>
+#include "knn_opg_common.cuh"
+// #include <cuml/neighbors/knn_mg.hpp>
+// #include <selection/knn.cuh>
 
-#include <common/cumlHandle.hpp>
+// #include <common/cumlHandle.hpp>
 
-#include <common/device_buffer.hpp>
-#include <cuml/common/cuml_allocator.hpp>
-#include <cuml/common/logger.hpp>
-#include <raft/comms/comms.hpp>
+// // #include <cuml/common/device_buffer.hpp>
+// // #include <cuml/common/cuml_allocator.hpp>
+// #include <cuml/common/logger.hpp>
+// #include <raft/comms/comms.hpp>
 
-#include <set>
+// #include <set>
 
-#include <raft/cudart_utils.h>
-#include <raft/cuda_utils.cuh>
+// #include <raft/cudart_utils.h>
+// #include <raft/cuda_utils.cuh>
 
 namespace ML {
 namespace KNN {
@@ -271,10 +272,10 @@ void launch_local_operation<float>(
 template <typename T>
 void perform_local_operation(T *out, int64_t *knn_indices, T *labels,
                              size_t cur_batch_size, int k, int n_outputs,
-                             raft::handle_t &h, bool probas_only = false,
-                             std::vector<float *> *probas = nullptr,
-                             std::vector<int *> *uniq_labels = nullptr,
-                             std::vector<int> *n_unique = nullptr) {
+                             raft::handle_t &h, bool probas_only,
+                             std::vector<float *> *probas,
+                             std::vector<int *> *uniq_labels,
+                             std::vector<int> *n_unique) {
   size_t n_labels = cur_batch_size * k;
 
   std::vector<T *> y(n_outputs);
@@ -372,7 +373,7 @@ void perform_local_knn(int64_t *res_I, float *res_D,
                        std::vector<Matrix::RankSizePair *> &local_idx_parts,
                        std::vector<size_t> &start_indices, cudaStream_t stream,
                        cudaStream_t *internal_streams, int n_internal_streams,
-                       std::shared_ptr<deviceAllocator> allocator,
+                       std::shared_ptr<raft::mr::device::allocator> allocator,
                        size_t cur_batch_size, int k, float *cur_query_ptr,
                        bool rowMajorIndex, bool rowMajorQuery) {
   std::vector<float *> ptrs(idx_data.size());
@@ -553,9 +554,9 @@ void opg_knn(raft::handle_t &handle, std::vector<Matrix::Data<T> *> *out,
              Matrix::PartDescriptor &query_desc,
              std::vector<std::vector<T *>> &y, bool rowMajorIndex,
              bool rowMajorQuery, int k, int n_outputs, size_t batch_size,
-             bool verbose, std::vector<std::vector<float *>> *probas = nullptr,
-             std::vector<int *> *uniq_labels = nullptr,
-             std::vector<int> *n_unique = nullptr, bool probas_only = false) {
+             bool verbose, std::vector<std::vector<float *>> *probas,
+             std::vector<int *> *uniq_labels,
+             std::vector<int> *n_unique, bool probas_only) {
   ASSERT(k <= 1024, "k must be <= 1024");
   ASSERT(batch_size > 0, "max_batch_size must be > 0");
   ASSERT(k < idx_desc.M, "k must be less than the total number of query rows");

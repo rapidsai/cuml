@@ -15,7 +15,7 @@
  */
 
 #include <common/cumlHandle.hpp>
-#include <common/device_buffer.hpp>
+#include <cuml/common/device_buffer.hpp>
 #include <cuml/common/cuml_allocator.hpp>
 #include <cuml/linear_model/ols_mg.hpp>
 #include <cuml/linear_model/preprocess_mg.hpp>

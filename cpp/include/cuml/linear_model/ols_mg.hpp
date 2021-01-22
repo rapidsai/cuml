@@ -20,8 +20,6 @@
 #include <opg/matrix/data.hpp>
 #include <opg/matrix/part_descriptor.hpp>
 
-#include <common/cumlHandle.hpp>
-
 namespace ML {
 namespace OLS {
 namespace opg {

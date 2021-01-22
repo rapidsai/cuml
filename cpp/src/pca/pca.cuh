@@ -19,7 +19,7 @@
 #include <raft/linalg/cublas_wrappers.h>
 #include <raft/linalg/transpose.h>
 #include <common/cumlHandle.hpp>
-#include <common/device_buffer.hpp>
+#include <cuml/common/device_buffer.hpp>
 #include <cuml/cuml.hpp>
 #include <cuml/decomposition/params.hpp>
 #include <raft/cuda_utils.cuh>

@@ -500,7 +500,7 @@ ModelHandle concatenate_trees(std::vector<ModelHandle> treelite_handles) {
 }
 
 /**
- * @defgroup Random Forest Classification - Fit function
+ * @defgroup RandomForestClassificationFit Random Forest Classification - Fit function
  * @brief Build (i.e., fit, train) random forest classifier for input data.
  * @param[in] user_handle: raft::handle_t
  * @param[in,out] forest: CPU pointer to RandomForestMetaData object. User allocated.
@@ -549,7 +549,7 @@ void fit(const raft::handle_t& user_handle, RandomForestClassifierD*& forest,
 /** @} */
 
 /**
- * @defgroup Random Forest Classification - Predict function
+ * @defgroup RandomForestClassificationPredict Random Forest Classification - Predict function
  * @brief Predict target feature for input data; n-ary classification for
      single feature supported.
  * @param[in] user_handle: raft::handle_t.
@@ -584,7 +584,7 @@ void predict(const raft::handle_t& user_handle,
 /** @} */
 
 /**
- * @defgroup Random Forest Classification - Predict function
+ * @addtogroup RandomForestClassificationPredict
  * @brief Predict target feature for input data; n-ary classification for
      single feature supported.
  * @param[in] user_handle: raft::handle_t.
@@ -619,7 +619,7 @@ void predictGetAll(const raft::handle_t& user_handle,
 /** @} */
 
 /**
- * @defgroup Random Forest Classification - Score function
+ * @defgroup RandomForestClassificationScore Random Forest Classification - Score function
  * @brief Compare predicted features validate against ref_labels.
  * @param[in] user_handle: raft::handle_t.
  * @param[in] forest: CPU pointer to RandomForestMetaData object.
@@ -672,7 +672,7 @@ RF_params set_rf_class_obj(int max_depth, int max_leaves, float max_features,
 /** @} */
 
 /**
- * @defgroup Random Forest Regression - Fit function
+ * @defgroup RandomForestRegressorFit Random Forest Regression - Fit function
  * @brief Build (i.e., fit, train) random forest regressor for input data.
  * @param[in] user_handle: raft::handle_t
  * @param[in,out] forest: CPU pointer to RandomForestMetaData object. User allocated.
@@ -716,7 +716,7 @@ void fit(const raft::handle_t& user_handle, RandomForestRegressorD*& forest,
 /** @} */
 
 /**
- * @defgroup Random Forest Regression - Predict function
+ * @defgroup RandomForestRegressorPredict Random Forest Regression - Predict function
  * @brief Predict target feature for input data; regression for single feature supported.
  * @param[in] user_handle: raft::handle_t.
  * @param[in] forest: CPU pointer to RandomForestMetaData object.
@@ -750,7 +750,7 @@ void predict(const raft::handle_t& user_handle,
 /** @} */
 
 /**
- * @defgroup Random Forest Regression - Score function
+ * @defgroup RandomForestRegressorScore Random Forest Regression - Score function
  * @brief Predict target feature for input data and validate against ref_labels.
  * @param[in] user_handle: raft::handle_t.
  * @param[in] forest: CPU pointer to RandomForestMetaData object.

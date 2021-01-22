@@ -39,7 +39,7 @@
 
 #include <selection/processing.cuh>
 
-#include <common/device_buffer.hpp>
+#include <cuml/common/device_buffer.hpp>
 #include <cuml/common/cuml_allocator.hpp>
 #include <cuml/neighbors/knn.hpp>
 

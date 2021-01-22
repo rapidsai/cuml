@@ -17,7 +17,7 @@
 #pragma once
 
 #include <cuml/manifold/umapparams.h>
-#include <common/device_buffer.hpp>
+#include <cuml/common/device_buffer.hpp>
 
 #include <sparse/coo.cuh>
 

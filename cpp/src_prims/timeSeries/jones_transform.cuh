@@ -23,7 +23,6 @@
 
 #include <math.h>
 #include <raft/cudart_utils.h>
-#include <common/device_buffer.hpp>
 #include <cuml/common/cuml_allocator.hpp>
 #include <raft/cuda_utils.cuh>
 #include <raft/linalg/unary_op.cuh>

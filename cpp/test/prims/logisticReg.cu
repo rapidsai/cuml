@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <cuml/common/cuml_allocator.hpp>
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
 #include <functions/logisticReg.cuh>
