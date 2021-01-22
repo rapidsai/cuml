@@ -14,15 +14,12 @@
  * limitations under the License.
  */
 
-#include <cuml/manifold/umapparams.h>
-#include <raft/random/rng.cuh>
-
 #pragma once
 
+#include <cuml/manifold/umapparams.h>
+#include <raft/random/rng.cuh>
 namespace UMAPAlgo {
-
 namespace InitEmbed {
-
 namespace RandomInit {
 
 using namespace ML;

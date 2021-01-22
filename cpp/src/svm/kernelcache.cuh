@@ -22,7 +22,6 @@
 #include <cache/cache.cuh>
 #include <cache/cache_util.cuh>
 #include <common/cumlHandle.hpp>
-#include <common/host_buffer.hpp>
 #include <cub/cub.cuh>
 #include <matrix/grammatrix.cuh>
 #include <raft/cuda_utils.cuh>

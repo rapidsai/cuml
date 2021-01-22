@@ -20,7 +20,8 @@
 #include <iterator>
 
 #include <gtest/gtest.h>
-#include <common/host_buffer.hpp>
+#include <cuml/common/cuml_allocator.hpp>
+#include <cuml/common/host_buffer.hpp>
 
 namespace MLCommon {
 

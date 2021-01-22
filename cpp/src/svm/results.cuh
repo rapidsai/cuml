@@ -26,7 +26,6 @@
 #include <raft/cudart_utils.h>
 #include <common/cumlHandle.hpp>
 #include <cuml/common/device_buffer.hpp>
-#include <common/host_buffer.hpp>
 #include <cub/device/device_select.cuh>
 #include <cuml/common/cuml_allocator.hpp>
 #include <raft/linalg/add.cuh>

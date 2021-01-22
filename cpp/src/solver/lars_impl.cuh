@@ -33,7 +33,7 @@
 #include <common/allocatorAdapter.hpp>
 #include <common/cumlHandle.hpp>
 #include <cuml/common/device_buffer.hpp>
-#include <common/host_buffer.hpp>
+#include <cuml/common/host_buffer.hpp>
 #include <cub/cub.cuh>
 #include <cuml/common/logger.hpp>
 #include <raft/cuda_utils.cuh>
