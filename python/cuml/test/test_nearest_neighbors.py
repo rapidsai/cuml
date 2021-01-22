@@ -21,7 +21,7 @@ from cuml.test.utils import array_equal, unit_param, quality_param, \
 from cuml.neighbors import NearestNeighbors as cuKNN
 
 from sklearn.neighbors import NearestNeighbors as skKNN
-from cuml.datasets import make_blobs
+from sklearn.datasets import make_blobs
 
 from cuml.common import logger
 
@@ -262,7 +262,7 @@ def test_return_dists():
 
 @pytest.mark.parametrize('input_type', ['dataframe', 'ndarray'])
 @pytest.mark.parametrize('nrows', [unit_param(500), quality_param(5000),
-                         stress_param(10000)])
+                         stress_param(5000)])
 @pytest.mark.parametrize('n_feats', [unit_param(3), quality_param(100),
                          stress_param(1000)])
 @pytest.mark.parametrize('k', [unit_param(3), quality_param(30),
@@ -277,8 +277,8 @@ def test_knn_separate_index_search(input_type, nrows, n_feats, k, metric):
 
     p = 5  # Testing 5-norm of the minkowski metric only
     knn_sk = skKNN(metric=metric, p=p)  # Testing
-    knn_sk.fit(X_index.get())
-    D_sk, I_sk = knn_sk.kneighbors(X_search.get(), k)
+    knn_sk.fit(X_index)
+    D_sk, I_sk = knn_sk.kneighbors(X_search, k)
 
     X_orig = X_index
 
@@ -296,10 +296,6 @@ def test_knn_separate_index_search(input_type, nrows, n_feats, k, metric):
         D_cuml_arr = D_cuml.as_gpu_matrix().copy_to_host()
         I_cuml_arr = I_cuml.as_gpu_matrix().copy_to_host()
     else:
-        if isinstance(D_cuml, cp.core.core.ndarray):
-            D_cuml = D_cuml.get()
-        if isinstance(I_cuml, cp.core.core.ndarray):
-            I_cuml = I_cuml.get()
         assert isinstance(D_cuml, np.ndarray)
         assert isinstance(I_cuml, np.ndarray)
         D_cuml_arr = D_cuml
@@ -307,7 +303,7 @@ def test_knn_separate_index_search(input_type, nrows, n_feats, k, metric):
 
     with cuml.using_output_type("numpy"):
         # Assert the cuml model was properly reverted
-        np.testing.assert_allclose(knn_cu.X_m, X_orig.get(),
+        np.testing.assert_allclose(knn_cu.X_m, X_orig,
                                    atol=1e-3, rtol=1e-3)
 
     if metric == 'braycurtis':
@@ -324,7 +320,7 @@ def test_knn_separate_index_search(input_type, nrows, n_feats, k, metric):
 
 @pytest.mark.parametrize('input_type', ['dataframe', 'ndarray'])
 @pytest.mark.parametrize('nrows', [unit_param(500), quality_param(5000),
-                         stress_param(10000)])
+                         stress_param(5000)])
 @pytest.mark.parametrize('n_feats', [unit_param(3), quality_param(100),
                          stress_param(1000)])
 @pytest.mark.parametrize('k', [unit_param(3), quality_param(30),
@@ -336,7 +332,7 @@ def test_knn_x_none(input_type, nrows, n_feats, k, metric):
 
     p = 5  # Testing 5-norm of the minkowski metric only
     knn_sk = skKNN(metric=metric, p=p)  # Testing
-    knn_sk.fit(X.get())
+    knn_sk.fit(X)
     D_sk, I_sk = knn_sk.kneighbors(X=None, n_neighbors=k)
 
     X_orig = X
@@ -384,7 +380,7 @@ def test_knn_fit_twice():
 
 @pytest.mark.parametrize('input_type', ['ndarray'])
 @pytest.mark.parametrize('nrows', [unit_param(500), quality_param(5000),
-                         stress_param(10000)])
+                         stress_param(5000)])
 @pytest.mark.parametrize('n_feats', [unit_param(20), quality_param(100),
                          stress_param(1000)])
 def test_nn_downcast_fails(input_type, nrows, n_feats):
@@ -425,13 +421,13 @@ def test_knn_graph(input_type, nrows, n_feats, p, k, metric, mode,
                       n_features=n_feats, random_state=0)
 
     if as_instance:
-        sparse_sk = sklearn.neighbors.kneighbors_graph(X.get(), k, mode,
+        sparse_sk = sklearn.neighbors.kneighbors_graph(X, k, mode,
                                                        metric=metric, p=p,
                                                        include_self='auto')
     else:
         knn_sk = skKNN(metric=metric, p=p)
-        knn_sk.fit(X.get())
-        sparse_sk = knn_sk.kneighbors_graph(X.get(), k, mode)
+        knn_sk.fit(X)
+        sparse_sk = knn_sk.kneighbors_graph(X, k, mode)
 
     if input_type == "dataframe":
         X = cudf.DataFrame(X)
@@ -488,7 +484,7 @@ def test_nearest_neighbors_sparse(nrows, ncols,
 
     sknn = skKNN(metric=metric, n_neighbors=n_neighbors,
                  algorithm="brute", n_jobs=-1)
-    sk_X = a.get()
+    sk_X = a
     sknn.fit(sk_X)
 
     skD, skI = sknn.kneighbors(sk_X)
