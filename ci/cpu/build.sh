@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright (c) 2018, NVIDIA CORPORATION.
+# Copyright (c) 2018-2021, NVIDIA CORPORATION.
 ##############################################
 # cuML CPU conda build script for CI         # 
 ##############################################
@@ -30,6 +30,20 @@ fi
 ################################################################################
 # SETUP - Check environment
 ################################################################################
+
+# Temp code to determine remotes and refs of git
+gpuci_logger "Git Info"
+
+git show-ref
+git --no-pager log -n 5
+git merge-base refs/remotes/origin/$TARGET_BRANCH HEAD~3
+git merge-base refs/remotes/origin/$TARGET_BRANCH HEAD~2
+git merge-base refs/remotes/origin/$TARGET_BRANCH HEAD~1
+git merge-base refs/remotes/origin/$TARGET_BRANCH HEAD
+git merge-base refs/remotes/origin/$TARGET_BRANCH refs/remotes/origin/pr/3338/head
+git merge-base refs/remotes/origin/$TARGET_BRANCH refs/remotes/origin/pr/3338/merge
+
+git merge-base refs/remotes/origin/branch-0.18 refs/remotes/origin/pr/3338/head
 
 gpuci_logger "Check environment variables"
 env

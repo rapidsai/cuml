@@ -3,3 +3,5 @@ coverage:
   status:
     project: off
     patch: off
+comment:
+  behavior: new

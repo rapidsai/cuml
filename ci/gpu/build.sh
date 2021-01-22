@@ -34,6 +34,20 @@ export MINOR_VERSION=`echo $GIT_DESCRIBE_TAG | grep -o -E '([0-9]+\.[0-9]+)'`
 # SETUP - Check environment
 ################################################################################
 
+# Temp code to determine remotes and refs of git
+gpuci_logger "Git Info"
+
+git show-ref
+git --no-pager log -n 5
+git merge-base refs/remotes/origin/$TARGET_BRANCH HEAD~3
+git merge-base refs/remotes/origin/$TARGET_BRANCH HEAD~2
+git merge-base refs/remotes/origin/$TARGET_BRANCH HEAD~1
+git merge-base refs/remotes/origin/$TARGET_BRANCH HEAD
+git merge-base refs/remotes/origin/$TARGET_BRANCH refs/remotes/origin/pr/3338/head
+git merge-base refs/remotes/origin/$TARGET_BRANCH refs/remotes/origin/pr/3338/merge
+
+git merge-base refs/remotes/origin/branch-0.18 refs/remotes/origin/pr/3338/head
+
 gpuci_logger "Check environment"
 env
 
@@ -245,15 +259,17 @@ if [ -n "${CODECOV_TOKEN}" ]; then
 
     gpuci_logger "Uploading Code Coverage to codecov.io"
 
-    PARENT_COMMIT_ID=`git merge-base refs/remotes/origin/$TARGET_BRANCH refs/remotes/origin/pr/$PR_ID/head`
+    # TEMP: Manually set commit ID for base
+    # PARENT_COMMIT_ID=`git merge-base refs/remotes/origin/$TARGET_BRANCH refs/remotes/origin/pr/$PR_ID/head`
+    PARENT_COMMIT_ID=`29f7d08e92b0b9be18c23bfb46520de811979353`
 
     # Base tags to apply
     CODECOV_TAGS="${OS},python${PYTHON},cuda${CUDA}"
 
     # TEMP: Use `codecov` binary instead of bash to see if upload works
     # Codecov recommends using this notation for jenkins
-    codecov -F ${CODECOV_TAGS} -f ${WORKSPACE}/python/cuml/cuml-coverage.xml -N "${PARENT_COMMIT_ID}"
-    codecov -F ${CODECOV_TAGS},dask -f ${WORKSPACE}/python/cuml/cuml-dask-coverage.xml -N "${PARENT_COMMIT_ID}"
+    curl -s https://codecov.io/bash | bash -s -- -c -F non-dask -f ${WORKSPACE}/python/cuml/cuml-coverage.xml -n "$CODECOV_TAGS,non-dask" -N "${PARENT_COMMIT_ID}"
+    curl -s https://codecov.io/bash | bash -s -- -c -F dask -f ${WORKSPACE}/python/cuml/cuml-dask-coverage.xml -n "$CODECOV_TAGS,dask" -N "${PARENT_COMMIT_ID}"
 fi
 
 return ${EXITCODE}
