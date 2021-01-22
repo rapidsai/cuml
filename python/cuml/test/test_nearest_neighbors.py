@@ -391,7 +391,7 @@ def test_nn_downcast_fails(input_type, nrows, n_feats):
     from sklearn.datasets import make_blobs as skmb
 
     X, y = skmb(n_samples=nrows,
-                      n_features=n_feats, random_state=0)
+                n_features=n_feats, random_state=0)
 
     knn_cu = cuKNN()
     if input_type == 'dataframe':
