@@ -200,6 +200,7 @@ typedef TreeMetaDataNode<double, int> TreeClassifierD;
  * @param[in] n_unique_labels: number of unique label values. Number of
  *                             categories of classification.
  * @param[in] tree_params: Decision Tree training hyper parameter struct.
+ * @param[in] seed: Controls the randomness in tree fitting/growing algorithm.
  * @{
  */
 void decisionTreeClassifierFit(const raft::handle_t &handle,
@@ -270,6 +271,7 @@ typedef TreeMetaDataNode<double, double> TreeRegressorD;
  * @param[in] n_sampled_rows: number of training samples, after sampling. If using decision
  *   tree directly over the whole dataset: n_sampled_rows = nrows
  * @param[in] tree_params: Decision Tree training hyper parameter struct.
+ * @param[in] seed: Controls the randomness in tree fitting/growing algorithm.
  * @{
  */
 void decisionTreeRegressorFit(const raft::handle_t &handle,
