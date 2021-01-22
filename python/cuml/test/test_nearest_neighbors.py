@@ -484,7 +484,7 @@ def test_nearest_neighbors_sparse(nrows, ncols,
 
     sknn = skKNN(metric=metric, n_neighbors=n_neighbors,
                  algorithm="brute", n_jobs=-1)
-    sk_X = a
+    sk_X = a.get()
     sknn.fit(sk_X)
 
     skD, skI = sknn.kneighbors(sk_X)
