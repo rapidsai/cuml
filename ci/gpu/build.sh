@@ -58,6 +58,8 @@ gpuci_conda_retry install -c conda-forge -c rapidsai -c rapidsai-nightly -c nvid
       "rapids-notebook-env=${MINOR_VERSION}.*" \
       "rapids-doc-env=${MINOR_VERSION}.*"
 
+gpuci_conda_retry install -c conda-forge -c rapidsai -c rapidsai-nightly -c nvidia treelite=1.0.0
+
 # https://docs.rapids.ai/maintainers/depmgmt/
 # gpuci_conda_retry remove --force rapids-build-env rapids-notebook-env
 # gpuci_conda_retry install -y "your-pkg=1.0.0"
