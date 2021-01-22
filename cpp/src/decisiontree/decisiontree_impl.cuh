@@ -23,6 +23,7 @@
 #include <queue>
 #include <random>
 #include <type_traits>
+#include <treelite/tree.h>
 #include "batched-levelalgo/builder.cuh"
 #include "decisiontree_impl.h"
 #include "levelalgo/levelfunc_classifier.cuh"
@@ -143,90 +144,54 @@ struct Node_ID_info {
 };
 
 template <class T, class L>
-void build_treelite_tree(TreeBuilderHandle tree_builder,
-                         DecisionTree::TreeMetaDataNode<T, L> *tree_ptr,
+tl::Tree<T, T> build_treelite_tree(DecisionTree::TreeMetaDataNode<T, L> *tree_ptr,
                          int num_class) {
-  int node_id = 0;
-  TREELITE_CHECK(TreeliteTreeBuilderCreateNode(tree_builder, node_id));
+  tl::Tree<T, T> tl_tree;
+  tl_tree.Init();
+
 
   std::queue<Node_ID_info<T, L>> cur_level_queue;
   std::queue<Node_ID_info<T, L>> next_level_queue;
 
   cur_level_queue.push(Node_ID_info<T, L>(tree_ptr->sparsetree[0], 0));
-  node_id = -1;
 
   while (!cur_level_queue.empty()) {
     int cur_level_size = cur_level_queue.size();
-    node_id += cur_level_size;
 
     for (int i = 0; i < cur_level_size; i++) {
       Node_ID_info<T, L> q_node = cur_level_queue.front();
       cur_level_queue.pop();
 
       bool is_leaf_node = q_node.node.colid == -1;
+      int node_id = q_node.unique_node_id;
 
       if (!is_leaf_node) {
+        tl_tree.AddChilds(node_id);
+
         // Push left child to next_level queue.
         next_level_queue.push(Node_ID_info<T, L>(
-          tree_ptr->sparsetree[q_node.node.left_child_id], node_id + 1));
-        TREELITE_CHECK(
-          TreeliteTreeBuilderCreateNode(tree_builder, node_id + 1));
+          tree_ptr->sparsetree[q_node.node.left_child_id],
+          tl_tree.LeftChild(node_id)
+        ));
 
         // Push right child to next_level deque.
         next_level_queue.push(Node_ID_info<T, L>(
-          tree_ptr->sparsetree[q_node.node.left_child_id + 1], node_id + 2));
-        TREELITE_CHECK(
-          TreeliteTreeBuilderCreateNode(tree_builder, node_id + 2));
+          tree_ptr->sparsetree[q_node.node.left_child_id + 1],
+          tl_tree.RightChild(node_id)
+        ));
 
         // Set node from current level as numerical node. Children IDs known.
-        ValueHandle threshold;
-        TREELITE_CHECK(TreeliteTreeBuilderCreateValue(
-          &q_node.node.quesval, TreeliteType<T>::value, &threshold));
-        TREELITE_CHECK(TreeliteTreeBuilderSetNumericalTestNode(
-          tree_builder, q_node.unique_node_id, q_node.node.colid,
-          "<=", threshold, 1, node_id + 1, node_id + 2));
-        TREELITE_CHECK(TreeliteTreeBuilderDeleteValue(threshold));
+        tl_tree.SetNumericalSplit(node_id, q_node.node.colid,
+                                  q_node.node.quesval, true,
+                                  tl::Operator::kLE);
 
-        node_id += 2;
       } else {
         if (num_class == 1) {
-          ValueHandle leaf_value;
-          if (std::is_same<L, int>::value) {
-            // Integer output is not yet supported in Treelite codegen
-            float prediction = static_cast<float>(q_node.node.prediction);
-            TREELITE_CHECK(TreeliteTreeBuilderCreateValue(
-              &prediction, TreeliteType<float>::value, &leaf_value));
-          } else {
-            TREELITE_CHECK(TreeliteTreeBuilderCreateValue(
-              &q_node.node.prediction, TreeliteType<L>::value, &leaf_value));
-          }
-          TREELITE_CHECK(TreeliteTreeBuilderSetLeafNode(
-            tree_builder, q_node.unique_node_id, leaf_value));
-          TREELITE_CHECK(TreeliteTreeBuilderDeleteValue(leaf_value));
+          tl_tree.SetLeaf(node_id, static_cast<T>(q_node.node.prediction));
         } else {
-          std::vector<float> leaf_vector(num_class);
-          std::vector<ValueHandle> leaf_vector_handle(num_class, nullptr);
-          for (int j = 0; j < num_class; j++) {
-            if (q_node.node.prediction == j) {
-              leaf_vector[j] = 1;
-            } else {
-              leaf_vector[j] = 0;
-            }
-          }
-          for (int j = 0; j < num_class; j++) {
-            TREELITE_CHECK(TreeliteTreeBuilderCreateValue(
-              &leaf_vector[j], TreeliteType<float>::value,
-              &leaf_vector_handle[j]));
-          }
-          TREELITE_CHECK(TreeliteTreeBuilderSetLeafVectorNode(
-            tree_builder, q_node.unique_node_id, leaf_vector_handle.data(),
-            num_class));
-          for (int j = 0; j < num_class; j++) {
-            TREELITE_CHECK(
-              TreeliteTreeBuilderDeleteValue(leaf_vector_handle[j]));
-          }
-          leaf_vector.clear();
-          leaf_vector_handle.clear();
+          std::vector<T> leaf_vector(num_class, 0);
+          leaf_vector[q_node.node.prediction] = 1;
+          tl_tree.SetLeafVector(node_id, leaf_vector);
         }
       }
     }
@@ -234,7 +199,7 @@ void build_treelite_tree(TreeBuilderHandle tree_builder,
     // The cur_level_queue is empty here, as all the elements are already poped out.
     cur_level_queue.swap(next_level_queue);
   }
-  TREELITE_CHECK(TreeliteTreeBuilderSetRootNode(tree_builder, 0));
+  return tl_tree;
 }
 
 /**
@@ -550,17 +515,13 @@ template class DecisionTreeClassifier<double>;
 template class DecisionTreeRegressor<float>;
 template class DecisionTreeRegressor<double>;
 
-template void build_treelite_tree<float, int>(
-  TreeBuilderHandle tree_builder,
+template tl::Tree<float, float> build_treelite_tree<float, int>(
   DecisionTree::TreeMetaDataNode<float, int> *tree_ptr, int num_class);
-template void build_treelite_tree<double, int>(
-  TreeBuilderHandle tree_builder,
+template tl::Tree<double, double> build_treelite_tree<double, int>(
   DecisionTree::TreeMetaDataNode<double, int> *tree_ptr, int num_class);
-template void build_treelite_tree<float, float>(
-  TreeBuilderHandle tree_builder,
+template tl::Tree<float, float> build_treelite_tree<float, float>(
   DecisionTree::TreeMetaDataNode<float, float> *tree_ptr, int num_class);
-template void build_treelite_tree<double, double>(
-  TreeBuilderHandle tree_builder,
+template tl::Tree<double, double> build_treelite_tree<double, double>(
   DecisionTree::TreeMetaDataNode<double, double> *tree_ptr, int num_class);
 }  //End namespace DecisionTree
 

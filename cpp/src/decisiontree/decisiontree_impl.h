@@ -18,6 +18,7 @@
 #include <common/Timer.h>
 #include <cuml/tree/algo_helper.h>
 #include <treelite/c_api.h>
+#include <treelite/tree.h>
 #include <algorithm>
 #include <climits>
 #include <common/cumlHandle.hpp>
@@ -37,6 +38,8 @@
 
 namespace ML {
 
+namespace tl = treelite;
+
 bool is_dev_ptr(const void *p);
 
 namespace DecisionTree {
@@ -55,9 +58,8 @@ std::string get_node_json(const std::string &prefix,
                           int idx);
 
 template <class T, class L>
-void build_treelite_tree(TreeBuilderHandle tree_builder,
-                         DecisionTree::TreeMetaDataNode<T, L> *tree_ptr,
-                         int num_class);
+tl::Tree<T, T> build_treelite_tree(
+  DecisionTree::TreeMetaDataNode<T, L> *tree_ptr, int num_class);
 
 struct DataInfo {
   unsigned int NLocalrows;
