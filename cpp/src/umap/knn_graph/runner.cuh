@@ -15,7 +15,7 @@
  */
 
 #include <cuml/manifold/common.hpp>
-#include <umap/knn_graph/algo.cuh>
+#include "algo.cuh"
 
 #pragma once
 

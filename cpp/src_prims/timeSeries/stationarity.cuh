@@ -40,7 +40,7 @@
 #include <raft/linalg/matrix_vector_op.cuh>
 #include <raft/linalg/reduce.cuh>
 #include <raft/stats/mean.cuh>
-#include <timeSeries/arima_helpers.cuh>
+#include "arima_helpers.cuh"
 
 namespace MLCommon {
 

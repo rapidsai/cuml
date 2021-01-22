@@ -34,7 +34,7 @@
 #include <algorithm>
 #include <iostream>
 
-#include <sparse/utils.h>
+#include "utils.h"
 
 namespace MLCommon {
 namespace Sparse {

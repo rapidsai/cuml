@@ -37,7 +37,7 @@
 #include <thrust/device_vector.h>
 #include <thrust/iterator/transform_iterator.h>
 
-#include <selection/processing.cuh>
+#include "processing.cuh"
 
 #include <cuml/common/device_buffer.hpp>
 #include <cuml/common/cuml_allocator.hpp>

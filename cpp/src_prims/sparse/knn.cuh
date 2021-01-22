@@ -20,10 +20,10 @@
 #include <raft/linalg/unary_op.cuh>
 
 #include <selection/knn.cuh>
-#include <sparse/coo.cuh>
-#include <sparse/csr.cuh>
-#include <sparse/distance.cuh>
-#include <sparse/selection.cuh>
+#include "coo.cuh"
+#include "csr.cuh"
+#include "distance.cuh"
+#include "selection.cuh"
 
 #include <raft/linalg/distance_type.h>
 
@@ -37,7 +37,7 @@
 
 #include <cusparse_v2.h>
 
-#include <sparse/utils.h>
+#include "utils.h"
 
 #pragma once
 

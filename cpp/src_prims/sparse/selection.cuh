@@ -20,9 +20,9 @@
 #include <raft/matrix/matrix.cuh>
 
 #include <selection/knn.cuh>
-#include <sparse/coo.cuh>
-#include <sparse/csr.cuh>
-#include <sparse/distance.cuh>
+#include "coo.cuh"
+#include "csr.cuh"
+#include "distance.cuh"
 
 #include <faiss/gpu/GpuDistance.h>
 #include <faiss/gpu/GpuIndexFlat.h>
