@@ -157,7 +157,8 @@ class canberra_unexpanded_distances_t : public distances_t<value_t> {
     unexpanded_lp_distances<value_idx, value_t>(
       out_dists, config_,
       [] __device__(value_t a, value_t b) {
-        return fabsf(a - b) / (fabsf(a) + fabsf(b));
+        value_t d = fabsf(a) + fabsf(b);
+        return ((d != 0) * fabsf(a - b)) / (d + (d == 0));
       },
       Sum(), AtomicAdd());
   }
