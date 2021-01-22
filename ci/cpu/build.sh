@@ -31,6 +31,13 @@ fi
 # SETUP - Check environment
 ################################################################################
 
+# Temp code to determine remotes and refs of git
+gpuci_logger "Git Info"
+git merge-base refs/remotes/origin/$TARGET_BRANCH HEAD~1
+git merge-base refs/remotes/origin/$TARGET_BRANCH HEAD
+git merge-base refs/remotes/origin/$TARGET_BRANCH refs/remotes/origin/pr/3338/head
+git merge-base refs/remotes/origin/$TARGET_BRANCH refs/remotes/origin/pr/3338/merge
+
 gpuci_logger "Check environment variables"
 env
 

@@ -34,12 +34,6 @@ export MINOR_VERSION=`echo $GIT_DESCRIBE_TAG | grep -o -E '([0-9]+\.[0-9]+)'`
 # SETUP - Check environment
 ################################################################################
 
-# Temp code to determine remotes and refs of git
-gpuci_logger "Git Info"
-git status
-git remote -v
-git show-ref
-
 gpuci_logger "Check environment"
 env
 
@@ -257,7 +251,7 @@ if [ -n "${CODECOV_TOKEN}" ]; then
 
     set -xv
 
-    PARENT_COMMIT_ID=`git merge-base origin/$TARGET_BRANCH HEAD~1`
+    PARENT_COMMIT_ID=`git merge-base refs/remotes/origin/$TARGET_BRANCH HEAD~1`
 
     echo "Parent Commit ID: $PARENT_COMMIT_ID"
 
