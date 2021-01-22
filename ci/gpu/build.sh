@@ -250,11 +250,10 @@ if [ -n "${CODECOV_TOKEN}" ]; then
     # Base tags to apply
     CODECOV_TAGS="${OS},python${PYTHON},cuda${CUDA}"
 
-    # TEMP: Set PARENT_COMMIT_ID since codecov does a bad job of this
+    # TEMP: Use `codecov` binary instead of bash to see if upload works
     # Codecov recommends using this notation for jenkins
-    curl -s https://codecov.io/bash | bash -s -- -F ${CODECOV_TAGS} -f ${WORKSPACE}/python/cuml/cuml-coverage.xml -N "${PARENT_COMMIT_ID}"
-    curl -s https://codecov.io/bash | bash -s -- -F ${CODECOV_TAGS},dask -f ${WORKSPACE}/python/cuml/cuml-dask-coverage.xml -N "${PARENT_COMMIT_ID}"
-
+    codecov -F ${CODECOV_TAGS} -f ${WORKSPACE}/python/cuml/cuml-coverage.xml -N "${PARENT_COMMIT_ID}"
+    codecov -F ${CODECOV_TAGS},dask -f ${WORKSPACE}/python/cuml/cuml-dask-coverage.xml -N "${PARENT_COMMIT_ID}"
 fi
 
 return ${EXITCODE}
