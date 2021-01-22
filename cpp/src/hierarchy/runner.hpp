@@ -21,6 +21,7 @@
 #include <cuml/cuml_api.h>
 #include <common/cumlHandle.hpp>
 
+#include <raft/cudart_utils.h>
 #include <raft/mr/device/buffer.hpp>
 
 #include <cuml/cluster/linkage.hpp>
@@ -35,10 +36,12 @@
 namespace ML {
 namespace Linkage {
 
-template <typename value_idx, typename value_t>
+
+static const size_t EMPTY = 0;
+
+template <typename value_idx, typename value_t, LinkageDistance dist_type = LinkageDistance::PAIRWISE>
 void _single_linkage(const raft::handle_t &handle, const value_t *X, size_t m,
                      size_t n, raft::distance::DistanceType metric,
-                     LinkageDistance dist_type,
                      linkage_output<value_idx, value_t> *out, int c,
                      int n_clusters) {
   ASSERT(n_clusters <= m,
@@ -47,27 +50,33 @@ void _single_linkage(const raft::handle_t &handle, const value_t *X, size_t m,
   auto stream = handle.get_stream();
   auto d_alloc = handle.get_device_allocator();
 
-
   CUML_LOG_DEBUG("Starting");
 
-  raft::mr::device::buffer<value_idx> indptr(d_alloc, stream, 0);
-  raft::mr::device::buffer<value_idx> indices(d_alloc, stream, 0);
-  raft::mr::device::buffer<value_t> pw_dists(d_alloc, stream, 0);
+  uint32_t pw_graph_start = raft::curTimeMillis();
+
+  raft::mr::device::buffer<value_idx> indptr(d_alloc, stream, EMPTY);
+  raft::mr::device::buffer<value_idx> indices(d_alloc, stream, EMPTY);
+  raft::mr::device::buffer<value_t> pw_dists(d_alloc, stream, EMPTY);
 
   /**
    * 1. Construct distance graph
    */
-
   CUML_LOG_DEBUG("Calling distance_graph");
 
-  Distance::get_distance_graph(handle, X, m, n, metric, dist_type, indptr,
+  Distance::get_distance_graph<value_idx, value_t, dist_type>(handle, X, m, n, metric, indptr,
                                indices, pw_dists, c);
+
+  CUDA_CHECK(cudaStreamSynchronize(stream));
+
+  printf("pw_graph_time: %dms\n", raft::curTimeMillis() - pw_graph_start);
 
   CUML_LOG_DEBUG("Done.");
 
-  raft::mr::device::buffer<value_idx> mst_rows(d_alloc, stream, 0);
-  raft::mr::device::buffer<value_idx> mst_cols(d_alloc, stream, 0);
-  raft::mr::device::buffer<value_t> mst_data(d_alloc, stream, 0);
+  uint32_t mst_start = raft::curTimeMillis();
+
+  raft::mr::device::buffer<value_idx> mst_rows(d_alloc, stream, EMPTY);
+  raft::mr::device::buffer<value_idx> mst_cols(d_alloc, stream, EMPTY);
+  raft::mr::device::buffer<value_t> mst_data(d_alloc, stream, EMPTY);
 
   CUML_LOG_DEBUG("Constructing MST");
 
@@ -80,13 +89,14 @@ void _single_linkage(const raft::handle_t &handle, const value_t *X, size_t m,
 
   pw_dists.release();
 
+  CUDA_CHECK(cudaStreamSynchronize(stream));
+  printf("mst_time: %dms\n", raft::curTimeMillis() - mst_start);
+
   CUML_LOG_DEBUG("Done.");
 
   /**
    * Perform hierarchical labeling
    */
-
-
   size_t n_edges = mst_rows.size();
 
   raft::mr::device::buffer<value_idx> children(d_alloc, stream, n_edges * 2);
@@ -95,19 +105,31 @@ void _single_linkage(const raft::handle_t &handle, const value_t *X, size_t m,
 
   CUML_LOG_DEBUG("Creating dendrogram");
 
+  uint32_t relabel_start = raft::curTimeMillis();
+
   // Create dendrogram
   Label::Agglomerative::build_dendrogram_host<value_idx, value_t>(
     handle, mst_rows.data(), mst_cols.data(), mst_data.data(), n_edges,
     children, out_delta, out_size);
 
+  CUDA_CHECK(cudaStreamSynchronize(stream));
+
+  printf("relabel_time: %dms\n", raft::curTimeMillis() - relabel_start);
+
   CUML_LOG_DEBUG("Flattening clusters");
+
+  uint32_t extract_start = raft::curTimeMillis();
+
   Label::Agglomerative::extract_flattened_clusters(handle, out->labels,
                                                    children, n_clusters, m);
 
   CUDA_CHECK(cudaStreamSynchronize(stream));
-  CUDA_CHECK(cudaGetLastError());
 
-//  raft::print_device_vector<value_idx>("labels: ", out->labels, m, std::cout);
+  printf("extract_time: %dms\n", raft::curTimeMillis() - extract_start);
+
+  printf("Total linkage time: %dms\n", raft::curTimeMillis() - mst_start);
+
+  raft::print_device_vector<value_idx>("labels: ", out->labels, 500, std::cout);
 
   CUML_LOG_DEBUG("Done.");
 }

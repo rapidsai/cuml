@@ -38,12 +38,15 @@ struct linkage_output {
   value_idx *children;  // size: (m-1, 2)
 };
 
-struct linkage_output_float : public linkage_output<int, float> {};
+struct linkage_output_int_float : public linkage_output<int, float> {};
+struct linkage_output__int64_float : public linkage_output<int64_t, float> {};
 
 /**
  * @defgroup HdbscanCpp C++ implementation of Dbscan algo
  * @brief Fits an HDBSCAN model on an input feature matrix and outputs the labels,
  *        dendrogram, and minimum spanning tree.
+ *  TODO: Use a separate type to represent number of edges so we can scale up
+ *  number of edges without having to use 64-bit ints for vertices.
 
  * @param[in] handle
  * @param[in] X
@@ -52,11 +55,21 @@ struct linkage_output_float : public linkage_output<int, float> {};
  * @param[in] metric
  * @param[out] out
  */
-void single_linkage(const raft::handle_t &handle, const float *X, size_t m,
+void single_linkage_pairwise(const raft::handle_t &handle, const float *X, size_t m,
                     size_t n, raft::distance::DistanceType metric,
-                    LinkageDistance dist_type, linkage_output<int, float> *out,
+                             linkage_output<int, float> *out,
                     int c = 15, int n_clusters = 5);
+
+void single_linkage_neighbors(const raft::handle_t &handle, const float *X, size_t m,
+                              size_t n, raft::distance::DistanceType metric,
+                              linkage_output<int, float> *out,
+                              int c = 15, int n_clusters = 5);
+
+void single_linkage_pairwise(const raft::handle_t &handle, const float *X, size_t m,
+                             size_t n, raft::distance::DistanceType metric,
+                             linkage_output<int64_t, float> *out,
+                             int c = 15, int n_clusters = 5);
 
 /** @} */
 
-}  // namespace ML
+};  // namespace ML

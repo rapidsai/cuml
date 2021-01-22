@@ -49,6 +49,16 @@ namespace ML {
 namespace Linkage {
 namespace Distance {
 
+template <LinkageDistance dist_type, typename value_idx, typename value_t>
+struct distance_graph_impl {
+  void run(const raft::handle_t &handle, const value_t *X, size_t m, size_t n,
+           raft::distance::DistanceType metric,
+           raft::mr::device::buffer<value_idx> &indptr,
+           raft::mr::device::buffer<value_idx> &indices,
+           raft::mr::device::buffer<value_t> &data, int c);
+};
+
+
 /**
  * Fills indices array of pairwise distance array
  * @tparam value_idx
@@ -57,7 +67,7 @@ namespace Distance {
  */
 template <typename value_idx>
 __global__ void fill_indices(value_idx *indices, size_t m, size_t nnz) {
-  int tid = (blockIdx.x * blockDim.x) + threadIdx.x;
+  value_idx tid = (blockIdx.x * blockDim.x) + threadIdx.x;
   if (tid >= nnz) return;
   value_idx v = tid / m;
   indices[tid] = v;
@@ -65,7 +75,7 @@ __global__ void fill_indices(value_idx *indices, size_t m, size_t nnz) {
 
 template <typename value_idx>
 __global__ void fill_indices2(value_idx *indices, size_t m, size_t nnz) {
-  int tid = (blockIdx.x * blockDim.x) + threadIdx.x;
+  value_idx tid = (blockIdx.x * blockDim.x) + threadIdx.x;
   if (tid >= nnz) return;
   value_idx v = tid % m;
   indices[tid] = v;
@@ -94,7 +104,7 @@ void pairwise_distances(const raft::handle_t &handle, const value_t *X,
 
   value_idx nnz = m * m;
 
-  int blocks = raft::ceildiv(nnz, (value_idx)256);
+  value_idx blocks = raft::ceildiv(nnz, (value_idx)256);
   fill_indices2<value_idx><<<blocks, 256, 0, stream>>>(indices, m, nnz);
 
   thrust::device_ptr<value_idx> t_rows = thrust::device_pointer_cast(indptr);
@@ -102,13 +112,10 @@ void pairwise_distances(const raft::handle_t &handle, const value_t *X,
 
   raft::update_device(indptr + m, &nnz, 1, stream);
 
-  raft::mr::device::buffer<char> workspace(d_alloc, stream, 0);
+  raft::mr::device::buffer<char> workspace(d_alloc, stream, (size_t)0);
 
   MLCommon::Distance::pairwise_distance<value_t, value_idx>(
     X, X, data, m, m, n, workspace, metric, stream);
-
-  CUDA_CHECK(cudaStreamSynchronize(stream));
-  CUDA_CHECK(cudaGetLastError());
 }
 
 template <typename value_idx>
@@ -145,7 +152,7 @@ __global__ void conv_indices_kernel(in_t *inds, out_t *out, size_t nnz) {
 
 template <typename in_t, typename out_t, int tpb = 256>
 void conv_indices(in_t *inds, out_t *out, size_t size, cudaStream_t stream) {
-  int blocks = raft::ceildiv(size, (size_t)tpb);
+  size_t blocks = raft::ceildiv(size, (size_t)tpb);
   conv_indices_kernel<<<blocks, tpb, 0, stream>>>(inds, out, size);
 }
 
@@ -178,7 +185,7 @@ void knn_graph(const raft::handle_t &handle, const value_t *X, size_t m,
   raft::mr::device::buffer<value_idx> indices(d_alloc, stream, nnz);
   raft::mr::device::buffer<value_t> data(d_alloc, stream, nnz);
 
-  int blocks = raft::ceildiv(nnz, (size_t)256);
+  size_t blocks = raft::ceildiv(nnz, (size_t)256);
   fill_indices<value_idx><<<blocks, 256, 0, stream>>>(rows.data(), k, nnz);
 
   std::vector<value_t *> inputs;
@@ -191,10 +198,17 @@ void knn_graph(const raft::handle_t &handle, const value_t *X, size_t m,
   // pass value_idx through to knn.
   raft::mr::device::buffer<int64_t> int64_indices(d_alloc, stream, nnz);
 
+  uint32_t knn_start = raft::curTimeMillis();
   ML::MetricType ml_metric = raft_distance_to_ml(metric);
   ML::brute_force_knn(handle, inputs, sizes, n, const_cast<value_t *>(X), m,
                       int64_indices.data(), data.data(), k, true, true,
                       ml_metric);
+
+  CUDA_CHECK(cudaStreamSynchronize(stream));
+
+  printf("knn_time: %dms\n", raft::curTimeMillis() - knn_start);
+
+  uint32_t symm_start = raft::curTimeMillis();
 
   // convert from current knn's 64-bit to 32-bit.
   conv_indices(int64_indices.data(), indices.data(), nnz, stream);
@@ -204,60 +218,87 @@ void knn_graph(const raft::handle_t &handle, const value_t *X, size_t m,
 
   CUDA_CHECK(cudaStreamSynchronize(stream));
   CUDA_CHECK(cudaGetLastError());
+
+  printf("symm_time: %dms\n", raft::curTimeMillis() - symm_start);
 }
 
+
+/**
+ * Connectivities specialization for pairwise distances
+ * @tparam value_idx
+ * @tparam value_t
+ */
 template <typename value_idx, typename value_t>
+struct distance_graph_impl<LinkageDistance::PAIRWISE, value_idx, value_t> {
+  void run(const raft::handle_t &handle, const value_t *X,
+           size_t m, size_t n, raft::distance::DistanceType metric,
+           raft::mr::device::buffer<value_idx> &indptr,
+           raft::mr::device::buffer<value_idx> &indices,
+           raft::mr::device::buffer<value_t> &data, int c) {
+
+    auto d_alloc = handle.get_device_allocator();
+    auto stream = handle.get_stream();
+
+    size_t nnz = m * m;
+
+    indices.resize(nnz, stream);
+    data.resize(nnz, stream);
+
+    Distance::pairwise_distances(handle, X, m, n, metric, indptr.data(),
+                                 indices.data(), data.data());
+  }
+};
+
+
+/**
+ * Connectivities specialization to build a knn graph
+ * @tparam value_idx
+ * @tparam value_t
+ */
+template <typename value_idx, typename value_t>
+struct distance_graph_impl<LinkageDistance::KNN_GRAPH, value_idx, value_t> {
+  void run(const raft::handle_t &handle, const value_t *X,
+           size_t m, size_t n, raft::distance::DistanceType metric,
+           raft::mr::device::buffer<value_idx> &indptr,
+           raft::mr::device::buffer<value_idx> &indices,
+           raft::mr::device::buffer<value_t> &data, int c) {
+
+    auto d_alloc = handle.get_device_allocator();
+    auto stream = handle.get_stream();
+
+    // Need to symmetrize knn into undirected graph
+    MLCommon::Sparse::COO<value_t, value_idx> knn_graph_coo(d_alloc, stream);
+
+    Distance::knn_graph(handle, X, m, n, metric, knn_graph_coo, c);
+
+    indices.resize(knn_graph_coo.nnz, stream);
+    data.resize(knn_graph_coo.nnz, stream);
+
+    MLCommon::Sparse::sorted_coo_to_csr(&knn_graph_coo, indptr.data(),
+                                        d_alloc, stream);
+
+    raft::copy_async(indices.data(), knn_graph_coo.cols(), knn_graph_coo.nnz,
+                     stream);
+    raft::copy_async(data.data(), knn_graph_coo.vals(), knn_graph_coo.nnz,
+                     stream);
+  }
+};
+
+template <typename value_idx, typename value_t, LinkageDistance dist_type>
 void get_distance_graph(const raft::handle_t &handle, const value_t *X,
                         size_t m, size_t n, raft::distance::DistanceType metric,
-                        LinkageDistance dist_type,
                         raft::mr::device::buffer<value_idx> &indptr,
                         raft::mr::device::buffer<value_idx> &indices,
                         raft::mr::device::buffer<value_t> &data, int c) {
-  auto d_alloc = handle.get_device_allocator();
   auto stream = handle.get_stream();
 
   indptr.resize(m + 1, stream);
 
-  switch (dist_type) {
-    case LinkageDistance::PAIRWISE:
+  distance_graph_impl<dist_type, value_idx, value_t> dist_graph;
+  dist_graph.run(handle, X, m, n, metric, indptr, indices, data, c);
 
-      indices.resize(m * m, stream);
-      data.resize(m * m, stream);
-
-      Distance::pairwise_distances(handle, X, m, n, metric, indptr.data(),
-                                   indices.data(), data.data());
-      break;
-
-    case LinkageDistance::KNN_GRAPH:
-
-    {
-      // knn graph is symmetric
-      MLCommon::Sparse::COO<value_t, value_idx> knn_graph_coo(d_alloc, stream);
-
-      Distance::knn_graph(handle, X, m, n, metric, knn_graph_coo, c);
-
-      indices.resize(knn_graph_coo.nnz, stream);
-      data.resize(knn_graph_coo.nnz, stream);
-
-      MLCommon::Sparse::sorted_coo_to_csr(&knn_graph_coo, indptr.data(),
-                                          d_alloc, stream);
-
-      raft::copy_async(indices.data(), knn_graph_coo.cols(), knn_graph_coo.nnz,
-                       stream);
-      raft::copy_async(data.data(), knn_graph_coo.vals(), knn_graph_coo.nnz,
-                       stream);
-
-      CUDA_CHECK(cudaStreamSynchronize(stream));
-      CUDA_CHECK(cudaGetLastError());
-    }
-
-    break;
-
-    default:
-      throw raft::exception("Unsupported linkage distance");
-  }
-
-
+  // a little adjustment for distances of 0.
+  // TODO: This will only need to be done when src_v==dst_v
   raft::linalg::unaryOp<value_t>(
     data.data(), data.data(), data.size(),
     [] __device__(value_t input) {
@@ -265,7 +306,6 @@ void get_distance_graph(const raft::handle_t &handle, const value_t *X,
       else return input;
     },
     stream);
-
 }
 
 };  // namespace Distance

@@ -75,25 +75,19 @@ void build_sorted_mst(const raft::handle_t &handle, const value_idx *indptr,
                       size_t m, raft::mr::device::buffer<value_idx> &mst_src,
                       raft::mr::device::buffer<value_idx> &mst_dst,
                       raft::mr::device::buffer<value_t> &mst_weight,
-                      const value_idx nnz) {
+                      const size_t nnz) {
   auto d_alloc = handle.get_device_allocator();
   auto stream = handle.get_stream();
 
-  raft::mr::device::buffer<value_idx> color(d_alloc, stream, m-1);
-
-  CUDA_CHECK(cudaStreamSynchronize(stream));
-  CUDA_CHECK(cudaGetLastError());
+  raft::mr::device::buffer<value_idx> color(d_alloc, stream, (size_t)m-1);
 
   CUML_LOG_INFO("Building MST");
 
-  printf("nnz: %d", nnz);
+  printf("nnz: %ld", nnz);
 
   auto mst_coo = raft::mst::mst<value_idx, value_idx, value_t>(
     handle, indptr, indices, pw_dists, (value_idx)m, nnz, color.data(), stream);
 
-  CUDA_CHECK(cudaStreamSynchronize(stream));
-  CUDA_CHECK(cudaGetLastError());
-  CUML_LOG_INFO("Done.");
   sort_coo_by_data(mst_coo.src.data(), mst_coo.dst.data(),
                    mst_coo.weights.data(), mst_coo.n_edges, stream);
 
@@ -107,10 +101,6 @@ void build_sorted_mst(const raft::handle_t &handle, const value_idx *indptr,
   raft::copy_async(mst_weight.data(), mst_coo.weights.data(), mst_coo.n_edges,
                    stream);
 
-//  raft::print_device_vector("src", mst_coo.src.data(), mst_coo.src.size(), std::cout);
-//  raft::print_device_vector("dst", mst_coo.dst.data(), mst_coo.dst.size(), std::cout);
-//  raft::print_device_vector("weights", mst_coo.weights.data(), mst_coo.weights.size(), std::cout);
-//  raft::print_device_vector("colors", color.data(), color.size(), std::cout);
   printf("mst size: %d\n", mst_coo.src.size());
 }
 

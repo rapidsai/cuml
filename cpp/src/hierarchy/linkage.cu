@@ -18,15 +18,29 @@
 #include <common/cumlHandle.hpp>
 
 #include <cuml/cluster/linkage.hpp>
-#include <hierarchy/runner.cuh>
+#include <hierarchy/runner.hpp>
 
 namespace ML {
 
-void single_linkage(const raft::handle_t &handle, const float *X, size_t m,
-                    size_t n, raft::distance::DistanceType metric,
-                    LinkageDistance dist_type, linkage_output<int, float> *out,
+void single_linkage_pairwise(const raft::handle_t &handle, const float *X, size_t m,
+                    size_t n, raft::distance::DistanceType metric, linkage_output<int, float> *out,
                     int c, int n_clusters) {
-  Linkage::_single_linkage<int, float>(handle, X, m, n, metric, dist_type, out,
+  Linkage::_single_linkage<int, float, LinkageDistance::PAIRWISE>(handle, X, m, n, metric, out,
+                                       c, n_clusters);
+}
+
+void single_linkage_neighbors(const raft::handle_t &handle, const float *X, size_t m,
+                             size_t n, raft::distance::DistanceType metric, linkage_output<int, float> *out,
+                             int c, int n_clusters) {
+  Linkage::_single_linkage<int, float, LinkageDistance::KNN_GRAPH>(handle, X, m, n, metric, out,
+                                                                  c, n_clusters);
+}
+
+
+void single_linkage_pairwise(const raft::handle_t &handle, const float *X, size_t m,
+                    size_t n, raft::distance::DistanceType metric, linkage_output<int64_t, float> *out,
+                    int c, int n_clusters) {
+  Linkage::_single_linkage<int64_t, float, LinkageDistance::PAIRWISE>(handle, X, m, n, metric, out,
                                        c, n_clusters);
 }
 

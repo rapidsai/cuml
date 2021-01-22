@@ -432,7 +432,13 @@ void brute_force_knn(std::vector<float *> &input, std::vector<int> &sizes,
      * we will not reap the benefits of the pool allocator for
      * avoiding device-wide synchronizations from cudaMalloc/cudaFree
      */
+
+    uint32_t knn_start = raft::curTimeMillis();
     bfKnn(&gpu_res, args);
+
+    CUDA_CHECK(cudaStreamSynchronize(stream));
+
+    printf("bfknn_time: %dms\n", raft::curTimeMillis() - knn_start);
 
     CUDA_CHECK(cudaPeekAtLastError());
   }
