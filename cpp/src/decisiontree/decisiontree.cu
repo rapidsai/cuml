@@ -150,9 +150,9 @@ std::string get_tree_text(const TreeMetaDataNode<T, L> *tree) {
 }
 
 template <class T, class L>
-std::string dump_tree_as_json(const TreeMetaDataNode<T, L> *tree) {
+std::string get_tree_json(const TreeMetaDataNode<T, L> *tree) {
   std::ostringstream oss;
-  return dump_node_as_json("", tree->sparsetree, 0);
+  return get_node_json("", tree->sparsetree, 0);
 }
 
 void decisionTreeClassifierFit(const raft::handle_t &handle,
@@ -261,13 +261,10 @@ template std::string get_tree_text<double, int>(const TreeClassifierD *tree);
 template std::string get_tree_text<float, float>(const TreeRegressorF *tree);
 template std::string get_tree_text<double, double>(const TreeRegressorD *tree);
 
-template std::string dump_tree_as_json<float, int>(const TreeClassifierF *tree);
-template std::string dump_tree_as_json<double, int>(
-  const TreeClassifierD *tree);
-template std::string dump_tree_as_json<float, float>(
-  const TreeRegressorF *tree);
-template std::string dump_tree_as_json<double, double>(
-  const TreeRegressorD *tree);
+template std::string get_tree_json<float, int>(const TreeClassifierF *tree);
+template std::string get_tree_json<double, int>(const TreeClassifierD *tree);
+template std::string get_tree_json<float, float>(const TreeRegressorF *tree);
+template std::string get_tree_json<double, double>(const TreeRegressorD *tree);
 
 }  // End namespace DecisionTree
 }  //End namespace ML

@@ -212,6 +212,12 @@ class RandomForestRegressor(BaseRandomForestModel, DelayedPredictionMixin,
         """
         return self._get_detailed_text()
 
+    def get_json(self):
+        """
+        Export the Random Forest model as a JSON string
+        """
+        return self._get_json()
+
     def fit(self, X, y, convert_dtype=False):
         """
         Fit the input data with a Random Forest regression model
