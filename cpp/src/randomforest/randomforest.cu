@@ -339,11 +339,12 @@ void build_treelite_forest(ModelHandle* model_handle,
   model->SetTreeLimit(forest->rf_params.n_trees);
 
   for (int i = 0; i < forest->rf_params.n_trees; i++) {
-    DecisionTree::TreeMetaDataNode<T, L>* tree_ptr = &forest->trees[i];
+    DecisionTree::TreeMetaDataNode<T, L>& rf_tree = forest->trees[i];
 
-    if (tree_ptr->sparsetree.size() != 0) {
-      model->trees[i] = DecisionTree::build_treelite_tree<T, L>(tree_ptr,
-                                                                num_class);
+    if (rf_tree.sparsetree.size() != 0) {
+      model->trees[i] = DecisionTree::build_treelite_tree<T, L>(
+        rf_tree, num_class
+      );
     }
   }
 

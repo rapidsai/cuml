@@ -144,8 +144,8 @@ struct Node_ID_info {
 };
 
 template <class T, class L>
-tl::Tree<T, T> build_treelite_tree(DecisionTree::TreeMetaDataNode<T, L> *tree_ptr,
-                         int num_class) {
+tl::Tree<T, T> build_treelite_tree(
+    const DecisionTree::TreeMetaDataNode<T, L>& rf_tree, unsigned int num_class) {
   tl::Tree<T, T> tl_tree;
   tl_tree.Init();
 
@@ -153,7 +153,7 @@ tl::Tree<T, T> build_treelite_tree(DecisionTree::TreeMetaDataNode<T, L> *tree_pt
   std::queue<Node_ID_info<T, L>> cur_level_queue;
   std::queue<Node_ID_info<T, L>> next_level_queue;
 
-  cur_level_queue.push(Node_ID_info<T, L>(tree_ptr->sparsetree[0], 0));
+  cur_level_queue.push(Node_ID_info<T, L>(rf_tree.sparsetree[0], 0));
 
   while (!cur_level_queue.empty()) {
     int cur_level_size = cur_level_queue.size();
@@ -170,13 +170,13 @@ tl::Tree<T, T> build_treelite_tree(DecisionTree::TreeMetaDataNode<T, L> *tree_pt
 
         // Push left child to next_level queue.
         next_level_queue.push(Node_ID_info<T, L>(
-          tree_ptr->sparsetree[q_node.node.left_child_id],
+          rf_tree.sparsetree[q_node.node.left_child_id],
           tl_tree.LeftChild(node_id)
         ));
 
         // Push right child to next_level deque.
         next_level_queue.push(Node_ID_info<T, L>(
-          tree_ptr->sparsetree[q_node.node.left_child_id + 1],
+          rf_tree.sparsetree[q_node.node.left_child_id + 1],
           tl_tree.RightChild(node_id)
         ));
 
@@ -516,13 +516,14 @@ template class DecisionTreeRegressor<float>;
 template class DecisionTreeRegressor<double>;
 
 template tl::Tree<float, float> build_treelite_tree<float, int>(
-  DecisionTree::TreeMetaDataNode<float, int> *tree_ptr, int num_class);
+  const DecisionTree::TreeMetaDataNode<float, int>& rf_tree, unsigned int num_class);
 template tl::Tree<double, double> build_treelite_tree<double, int>(
-  DecisionTree::TreeMetaDataNode<double, int> *tree_ptr, int num_class);
+  const DecisionTree::TreeMetaDataNode<double, int>& rf_tree, unsigned int num_class);
 template tl::Tree<float, float> build_treelite_tree<float, float>(
-  DecisionTree::TreeMetaDataNode<float, float> *tree_ptr, int num_class);
+  const DecisionTree::TreeMetaDataNode<float, float>& rf_tree, unsigned int num_class);
 template tl::Tree<double, double> build_treelite_tree<double, double>(
-  DecisionTree::TreeMetaDataNode<double, double> *tree_ptr, int num_class);
+  const DecisionTree::TreeMetaDataNode<double, double>& rf_tree, unsigned int
+  num_class);
 }  //End namespace DecisionTree
 
 }  //End namespace ML
