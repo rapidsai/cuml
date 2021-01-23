@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+#pragma once
+
 #include <matrix/reverse.cuh>
 #include <raft/matrix/matrix.cuh>
 
@@ -38,8 +40,6 @@
 #include <cusparse_v2.h>
 
 #include "utils.h"
-
-#pragma once
 
 namespace MLCommon {
 namespace Sparse {

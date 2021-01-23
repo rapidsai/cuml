@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+#pragma once
+
 #include <cuml/common/cuml_allocator.hpp>
 #include "csr.cuh"
 
@@ -34,8 +36,6 @@
 
 #include <iostream>
 #define restrict __restrict__
-
-#pragma once
 
 namespace MLCommon {
 namespace Sparse {

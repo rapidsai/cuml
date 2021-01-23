@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
+#pragma once
+
 #include <cuml/manifold/umapparams.h>
 #include "algo.cuh"
 
 #include <sparse/coo.cuh>
-
-#pragma once
 
 namespace UMAPAlgo {
 

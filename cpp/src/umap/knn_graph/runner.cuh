@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
+#pragma once
+
 #include <cuml/manifold/common.hpp>
 #include "algo.cuh"
-
-#pragma once
 
 namespace UMAPAlgo {
 
