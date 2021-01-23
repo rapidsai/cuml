@@ -249,7 +249,7 @@ def test_silhouette_samples_batched(metric, chunk_divider, labeled_clusters):
                                         chunksize=int(X.shape[0] /
                                                       chunk_divider))
     sk_scores = sk_silhouette_samples(X, labels, metric=metric)
-    # assert_allclose(cuml_scores, sk_scores, rtol=1e-1, atol=1e-2)
+
     cu_trunc = cp.around(cuml_scores, decimals=3)
     sk_trunc = cp.around(sk_scores, decimals=3)
 
