@@ -25,7 +25,6 @@
 #include <cuml/common/cuml_allocator.hpp>
 #include <raft/comms/mpi_comms.hpp>
 
-#include <common/cumlHandle.hpp>
 
 #include <raft/cuda_utils.cuh>
 

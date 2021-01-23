@@ -20,7 +20,6 @@
 #include <mpi.h>
 #include <raft/cuda_utils.cuh>
 
-#include <common/cumlHandle.hpp>
 
 namespace MLCommon {
 namespace Test {

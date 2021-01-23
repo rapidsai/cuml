@@ -18,7 +18,6 @@
 #include <selection/knn.cuh>
 #include "knn_opg_common.cuh"
 
-#include <common/cumlHandle.hpp>
 
 #include <cuml/common/device_buffer.hpp>
 #include <cuml/common/cuml_allocator.hpp>

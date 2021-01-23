@@ -30,7 +30,6 @@
 #include <thrust/copy.h>
 #include <thrust/device_ptr.h>
 #include <thrust/iterator/counting_iterator.h>
-#include <common/cumlHandle.hpp>
 #include <cuml/common/device_buffer.hpp>
 #include <label/classlabels.cuh>
 #include <matrix/kernelfactory.cuh>

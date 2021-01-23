@@ -17,7 +17,6 @@
 #pragma once
 
 #include <cuml/tree/flatnode.h>
-#include <common/cumlHandle.hpp>
 #include <common/grid_sync.cuh>
 #include <cuml/tree/decisiontree.hpp>
 #include <raft/cuda_utils.cuh>

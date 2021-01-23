@@ -22,7 +22,6 @@
 #include <thrust/device_vector.h>
 #include <thrust/execution_policy.h>
 #include <common/allocatorAdapter.hpp>
-#include <common/cumlHandle.hpp>
 #include <cuml/common/device_buffer.hpp>
 #include <cuml/decomposition/params.hpp>
 #include <linalg/rsvd.cuh>

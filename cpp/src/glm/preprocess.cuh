@@ -17,7 +17,6 @@
 #pragma once
 
 #include <raft/cudart_utils.h>
-#include <common/cumlHandle.hpp>
 #include <cuml/common/device_buffer.hpp>
 #include <raft/linalg/gemm.cuh>
 #include <raft/linalg/norm.cuh>

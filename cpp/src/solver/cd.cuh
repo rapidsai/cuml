@@ -18,7 +18,6 @@
 
 #include <raft/cudart_utils.h>
 #include <raft/linalg/cublas_wrappers.h>
-#include <common/cumlHandle.hpp>
 #include <cuml/common/device_buffer.hpp>
 #include <cuml/solvers/params.hpp>
 #include <functions/linearReg.cuh>

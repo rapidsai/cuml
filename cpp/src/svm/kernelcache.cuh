@@ -21,7 +21,6 @@
 #include <raft/cudart_utils.h>
 #include <cache/cache.cuh>
 #include <cache/cache_util.cuh>
-#include <common/cumlHandle.hpp>
 #include <cub/cub.cuh>
 #include <matrix/grammatrix.cuh>
 #include <raft/cuda_utils.cuh>

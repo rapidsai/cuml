@@ -15,7 +15,6 @@
  */
 #include <cuml/cuml_api.h>
 #include <raft/cudart_utils.h>
-#include <common/cumlHandle.hpp>
 #include <cuml/cluster/dbscan.hpp>
 #include "dbscan.cuh"
 #include "runner.cuh"

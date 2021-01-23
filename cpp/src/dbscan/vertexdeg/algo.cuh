@@ -18,7 +18,6 @@
 
 #include <cuda_runtime.h>
 #include <math.h>
-#include <common/cumlHandle.hpp>
 #include <distance/epsilon_neighborhood.cuh>
 
 #include "pack.h"

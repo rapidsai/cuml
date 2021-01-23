@@ -22,7 +22,6 @@
 #include <raft/cudart_utils.h>
 #include <thrust/device_ptr.h>
 #include <thrust/iterator/permutation_iterator.h>
-#include <common/cumlHandle.hpp>
 #include <cuml/common/device_buffer.hpp>
 #include <cub/cub.cuh>
 #include <raft/cuda_utils.cuh>

@@ -16,7 +16,6 @@
 
 #pragma once
 
-#include <common/cumlHandle.hpp>
 #include <cuml/cuml.hpp>
 #include <raft/cuda_utils.cuh>
 

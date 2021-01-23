@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include <common/cumlHandle.hpp>
+#include <raft/handle.hpp>
 #include <distance/distance.cuh>
 
 namespace ML {

@@ -14,8 +14,7 @@
  * limitations under the License.
  */
 
-// #include <common/cumlHandle.hpp>
-
+// 
 #include <cuml/common/logger.hpp>
 #include <cuml/neighbors/knn.hpp>
 

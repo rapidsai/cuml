@@ -29,7 +29,6 @@
 #include <cuml/matrix/kernelparams.h>
 #include <raft/linalg/cublas_wrappers.h>
 #include <raft/linalg/gemv.h>
-#include <common/cumlHandle.hpp>
 #include <cuml/common/logger.hpp>
 #include <matrix/grammatrix.cuh>
 #include <matrix/kernelfactory.cuh>

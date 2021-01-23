@@ -17,7 +17,6 @@
 #pragma once
 
 #include <raft/linalg/gemv.h>
-#include <common/cumlHandle.hpp>
 #include <cuml/common/device_buffer.hpp>
 #include <linalg/lstsq.cuh>
 #include <raft/linalg/add.cuh>

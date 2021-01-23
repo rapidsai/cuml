@@ -29,7 +29,6 @@
 #include <cuml/tsa/batched_kalman.hpp>
 
 #include <raft/cudart_utils.h>
-#include <common/cumlHandle.hpp>
 #include <cuml/common/device_buffer.hpp>
 #include <common/nvtx.hpp>
 #include <linalg/batched/matrix.cuh>

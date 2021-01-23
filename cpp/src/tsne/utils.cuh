@@ -21,7 +21,6 @@
 #include <stdbool.h>
 #include <stdio.h>
 
-#include <common/cumlHandle.hpp>
 #include <cuml/common/logger.hpp>
 #include <raft/linalg/norm.cuh>
 

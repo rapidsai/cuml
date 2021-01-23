@@ -18,7 +18,6 @@
 
 #include <raft/cudart_utils.h>
 #include <raft/linalg/transpose.h>
-#include <common/cumlHandle.hpp>
 #include <cuml/cuml.hpp>
 #include <cuml/datasets/make_blobs.hpp>
 #include <fstream>

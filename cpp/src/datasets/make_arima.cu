@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-#include <common/cumlHandle.hpp>
 #include <cuml/datasets/make_arima.hpp>
 #include <random/make_arima.cuh>
 
