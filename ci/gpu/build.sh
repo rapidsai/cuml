@@ -260,8 +260,9 @@ if [ -n "${CODECOV_TOKEN}" ]; then
     gpuci_logger "Uploading Code Coverage to codecov.io"
 
     # TEMP: Manually set commit ID for base
-    # PARENT_COMMIT_ID=`git merge-base refs/remotes/origin/$TARGET_BRANCH refs/remotes/origin/pr/$PR_ID/head`
-    PARENT_COMMIT_ID=`29f7d08e92b0b9be18c23bfb46520de811979353`
+    PARENT_COMMIT_ID=`git merge-base refs/remotes/origin/$TARGET_BRANCH refs/remotes/origin/pr/$PR_ID/head`
+    echo "PARENT_COMMIT_ID: ${PARENT_COMMIT_ID}"
+    PARENT_COMMIT_ID="29f7d08e92b0b9be18c23bfb46520de811979353"
 
     # Base tags to apply
     CODECOV_TAGS="${OS},python${PYTHON},cuda${CUDA}"
