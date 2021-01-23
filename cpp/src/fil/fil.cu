@@ -759,7 +759,7 @@ void tl2fil_sparse(std::vector<int>* ptrees, std::vector<fil_node_t>* pnodes,
   ptrees->reserve(num_trees);
   ptrees->push_back(0);
   for (size_t i = 0; i < num_trees - 1; ++i) {
-    ptrees->push_back(model.trees[i].num_nodes + (*ptrees)[i]);
+    ptrees->push_back(model.trees[i].num_nodes + ptrees->back());
   }
   size_t total_nodes = ptrees->back() + model.trees.back().num_nodes;
 
