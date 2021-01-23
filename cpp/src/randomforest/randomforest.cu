@@ -626,7 +626,6 @@ RF_params set_rf_params(int max_depth, int max_leaves, float max_features,
   rf_params.seed = seed;
   rf_params.n_streams = min(cfg_n_streams, omp_get_max_threads());
   if (n_trees < rf_params.n_streams) rf_params.n_streams = n_trees;
-  DecisionTree::set_tree_params(rf_params.tree_params);
   rf_params.tree_params = tree_params;
   return rf_params;
 }

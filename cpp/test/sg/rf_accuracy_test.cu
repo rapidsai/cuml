@@ -81,7 +81,6 @@ class RFClassifierAccuracyTest : public ::testing::TestWithParam<RFInputs> {
 
  private:
   void setRFParams() {
-    //DecisionTree::DecisionTreeParams tree_params;
     auto algo = SPLIT_ALGO::GLOBAL_QUANTILE;
     auto sc = CRITERION::CRITERION_END;
 
