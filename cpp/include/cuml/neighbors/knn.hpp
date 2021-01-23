@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -44,8 +44,8 @@ struct knnIndex {
   faiss::gpu::GpuIndex *index;
   int device;
   ~knnIndex() {
-    delete gpu_res;
     delete index;
+    delete gpu_res;
   }
 };
 

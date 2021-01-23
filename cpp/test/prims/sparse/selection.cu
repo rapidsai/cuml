@@ -19,13 +19,16 @@
 
 #include <test_utils.h>
 #include <cuml/common/logger.hpp>
-#include <sparse/selection.cuh>
 
-namespace MLCommon {
-namespace Sparse {
-namespace Selection {
+#include <sparse/utils.h>
+#include <sparse/selection/selection.cuh>
+
+namespace raft {
+namespace sparse {
+namespace selection {
 
 using namespace raft;
+using namespace raft::sparse;
 
 template <typename value_idx, typename value_t>
 struct SparseSelectionInputs {
@@ -79,11 +82,9 @@ class SparseSelectionTest
   void SetUp() override {
     params = ::testing::TestWithParam<
       SparseSelectionInputs<value_idx, value_t>>::GetParam();
-    std::shared_ptr<deviceAllocator> alloc(
+    std::shared_ptr<raft::mr::device::allocator> alloc(
       new raft::mr::device::default_allocator);
     CUDA_CHECK(cudaStreamCreate(&stream));
-
-    ML::Logger::get().setLevel(CUML_LEVEL_INFO);
 
     n_rows = params.n_rows;
     n_cols = params.n_cols;
@@ -91,8 +92,9 @@ class SparseSelectionTest
 
     make_data();
 
-    select_k(dists, inds, n_rows, n_cols, out_dists, out_indices,
-             params.select_min, k, stream);
+    raft::sparse::selection::select_k(dists, inds, n_rows, n_cols, out_dists,
+                                      out_indices, params.select_min, k,
+                                      stream);
 
     CUDA_CHECK(cudaStreamSynchronize(stream));
   }
@@ -151,6 +153,6 @@ TEST_P(SparseSelectionTestF, Result) { compare(); }
 INSTANTIATE_TEST_CASE_P(SparseSelectionTest, SparseSelectionTestF,
                         ::testing::ValuesIn(inputs_i32_f));
 
-};  // end namespace Selection
-};  // end namespace Sparse
-};  // end namespace MLCommon
+};  // end namespace selection
+};  // end namespace sparse
+};  // end namespace raft
