@@ -32,7 +32,6 @@ from cuml.metrics.cluster import silhouette_samples as cu_silhouette_samples
 from cuml.test.utils import get_handle, get_pattern, array_equal, \
     unit_param, quality_param, stress_param, generate_random_labels, \
     score_labeling_with_handle
-from cupy.testing import assert_allclose
 
 from numba import cuda
 from numpy.testing import assert_almost_equal
@@ -262,7 +261,7 @@ def test_silhouette_samples_batched(metric, chunk_divider, labeled_clusters):
 
     # different elements should not differ more than 1e-1
     tolerance_diff = cp.absolute(cu_trunc[diff] - sk_trunc[diff]) > 1e-1
-    diff_change = cp.all(tolerance_diff) 
+    diff_change = cp.all(tolerance_diff)
     if len(diff_change.shape) > 0:
         assert False
 
