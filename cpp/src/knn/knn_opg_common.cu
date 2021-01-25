@@ -171,15 +171,11 @@ void opg_knn(opg_knn_param &params, cuda_utils &cutils) {
 
         // Perform a local KNN search
         perform_local_knn(params, utils, cutils, cur_query_ptr, cur_batch_size);
-        CUDA_CHECK(cudaStreamSynchronize(cutils.stream));
-        CUDA_CHECK(cudaPeekAtLastError());
 
         if (params.knn_op != knn_operation::knn) {
           // Get the right labels for indices obtained after a KNN merge
           copy_label_outputs_from_index_parts(params, utils, cutils,
                                               cur_batch_size);
-          CUDA_CHECK(cudaStreamSynchronize(cutils.stream));
-          CUDA_CHECK(cudaPeekAtLastError());
         }
       }
 
@@ -205,8 +201,6 @@ void opg_knn(opg_knn_param &params, cuda_utils &cutils) {
         // Reduce all local results to a global result for a given query batch
         reduce(params, utils, cutils, local_parts_completed, total_n_processed,
                cur_batch_size);
-        CUDA_CHECK(cudaStreamSynchronize(cutils.stream));
-        CUDA_CHECK(cudaPeekAtLastError());
 
         CUML_LOG_DEBUG("Rank %d: Finished Reduce", utils.my_rank);
       }
@@ -350,6 +344,8 @@ void copy_label_outputs_from_index_parts(opg_knn_param &params,
         utils.res->data() + (o * n_labels), utils.res_I->data(), parts_d.data(),
         offsets_d.data(), batch_size, n_parts, n_labels);
   }
+  CUDA_CHECK(cudaStreamSynchronize(cutils.stream));
+  CUDA_CHECK(cudaPeekAtLastError());
 }
 
 /**
