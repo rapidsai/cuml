@@ -14,16 +14,16 @@
  * limitations under the License.
  */
 
+#include <cuml/tree/flatnode.h>
 #include <decisiontree/quantile/quantile.h>
 #include <raft/cudart_utils.h>
+#include <treelite/tree.h>
 #include <common/iota.cuh>
 #include <cuml/common/logger.hpp>
-#include <cuml/tree/flatnode.h>
 #include <iomanip>
 #include <locale>
 #include <random>
 #include <type_traits>
-#include <treelite/tree.h>
 #include "batched-levelalgo/builder.cuh"
 #include "decisiontree_impl.h"
 #include "levelalgo/levelfunc_classifier.cuh"
@@ -136,13 +136,11 @@ std::ostream &operator<<(std::ostream &os, const SparseTreeNode<T, L> &node) {
 
 template <class T, class L>
 tl::Tree<T, T> build_treelite_tree(
-    const DecisionTree::TreeMetaDataNode<T, L>& rf_tree,
-    unsigned int num_class,
-    std::vector<Node_ID_info<T, L>>& cur_level_queue,
-    std::vector<Node_ID_info<T, L>>& next_level_queue) {
+  const DecisionTree::TreeMetaDataNode<T, L> &rf_tree, unsigned int num_class,
+  std::vector<Node_ID_info<T, L>> &cur_level_queue,
+  std::vector<Node_ID_info<T, L>> &next_level_queue) {
   tl::Tree<T, T> tl_tree;
   tl_tree.Init();
-
 
   // Track head and tail of bounded "queues" (implemented as vectors for
   // performance)
@@ -157,8 +155,8 @@ tl::Tree<T, T> build_treelite_tree(
 
   while (cur_front != cur_end) {
     size_t cur_level_size = cur_end - cur_front;
-    next_level_queue.resize(std::max(2*cur_level_size,
-                                     next_level_queue.size()));
+    next_level_queue.resize(
+      std::max(2 * cur_level_size, next_level_queue.size()));
 
     for (size_t i = 0; i < cur_level_size; ++i) {
       Node_ID_info<T, L> q_node = cur_level_queue[cur_front];
@@ -171,17 +169,15 @@ tl::Tree<T, T> build_treelite_tree(
         tl_tree.AddChilds(node_id);
 
         // Push left child to next_level queue.
-        next_level_queue[next_end] = Node_ID_info<T, L>(
-          rf_tree.sparsetree[q_node.node->left_child_id],
-          tl_tree.LeftChild(node_id)
-        );
+        next_level_queue[next_end] =
+          Node_ID_info<T, L>(rf_tree.sparsetree[q_node.node->left_child_id],
+                             tl_tree.LeftChild(node_id));
         ++next_end;
 
         // Push right child to next_level queue.
-        next_level_queue[next_end] = Node_ID_info<T, L>(
-          rf_tree.sparsetree[q_node.node->left_child_id + 1],
-          tl_tree.RightChild(node_id)
-        );
+        next_level_queue[next_end] =
+          Node_ID_info<T, L>(rf_tree.sparsetree[q_node.node->left_child_id + 1],
+                             tl_tree.RightChild(node_id));
         ++next_end;
 
         // Set node from current level as numerical node. Children IDs known.
@@ -523,29 +519,25 @@ template class DecisionTreeRegressor<float>;
 template class DecisionTreeRegressor<double>;
 
 template tl::Tree<float, float> build_treelite_tree<float, int>(
-  const DecisionTree::TreeMetaDataNode<float, int>& rf_tree,
+  const DecisionTree::TreeMetaDataNode<float, int> &rf_tree,
   unsigned int num_class,
-  std::vector<Node_ID_info<float, int>>& working_queue_1,
-  std::vector<Node_ID_info<float, int>>& working_queue_2
-);
+  std::vector<Node_ID_info<float, int>> &working_queue_1,
+  std::vector<Node_ID_info<float, int>> &working_queue_2);
 template tl::Tree<double, double> build_treelite_tree<double, int>(
-  const DecisionTree::TreeMetaDataNode<double, int>& rf_tree,
+  const DecisionTree::TreeMetaDataNode<double, int> &rf_tree,
   unsigned int num_class,
-  std::vector<Node_ID_info<double, int>>& working_queue_1,
-  std::vector<Node_ID_info<double, int>>& working_queue_2
-);
+  std::vector<Node_ID_info<double, int>> &working_queue_1,
+  std::vector<Node_ID_info<double, int>> &working_queue_2);
 template tl::Tree<float, float> build_treelite_tree<float, float>(
-  const DecisionTree::TreeMetaDataNode<float, float>& rf_tree,
+  const DecisionTree::TreeMetaDataNode<float, float> &rf_tree,
   unsigned int num_class,
-  std::vector<Node_ID_info<float, float>>& working_queue_1,
-  std::vector<Node_ID_info<float, float>>& working_queue_2
-);
+  std::vector<Node_ID_info<float, float>> &working_queue_1,
+  std::vector<Node_ID_info<float, float>> &working_queue_2);
 template tl::Tree<double, double> build_treelite_tree<double, double>(
-  const DecisionTree::TreeMetaDataNode<double, double>& rf_tree,
+  const DecisionTree::TreeMetaDataNode<double, double> &rf_tree,
   unsigned int num_class,
-  std::vector<Node_ID_info<double, double>>& working_queue_1,
-  std::vector<Node_ID_info<double, double>>& working_queue_2
-);
+  std::vector<Node_ID_info<double, double>> &working_queue_1,
+  std::vector<Node_ID_info<double, double>> &working_queue_2);
 }  //End namespace DecisionTree
 
 }  //End namespace ML

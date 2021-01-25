@@ -18,15 +18,15 @@
 #else
 #define omp_get_max_threads() 1
 #endif
-#include <raft/error.hpp>
+#include <cuml/tree/flatnode.h>
 #include <treelite/c_api.h>
 #include <treelite/tree.h>
 #include <cstdio>
 #include <cuml/common/logger.hpp>
 #include <cuml/ensemble/randomforest.hpp>
-#include <cuml/tree/flatnode.h>
 #include <fstream>
 #include <iostream>
+#include <raft/error.hpp>
 #include <string>
 #include <vector>
 
@@ -314,8 +314,8 @@ void build_treelite_forest(ModelHandle* model_handle,
                            const RandomForestMetaData<T, L>* forest,
                            int num_features, int task_category) {
   auto parent_model = tl::Model::Create<T, T>();
-  tl::ModelImpl<T, T> * model = dynamic_cast<tl::ModelImpl<T, T>*>(
-    parent_model.get());
+  tl::ModelImpl<T, T>* model =
+    dynamic_cast<tl::ModelImpl<T, T>*>(parent_model.get());
   if (model == nullptr) {
     throw raft::exception("Invalid downcast to Treelite ModelImpl");
   }
@@ -326,13 +326,13 @@ void build_treelite_forest(ModelHandle* model_handle,
     num_class = task_category;
     model->task_type = tl::TaskType::kMultiClfProbDistLeaf;
     model->task_param = tl::TaskParameter{tl::TaskParameter::OutputType::kFloat,
-                                         false, num_class, num_class};
+                                          false, num_class, num_class};
   } else {
     // Binary classification or regression
     num_class = 1;
     model->task_type = tl::TaskType::kBinaryClfRegr;
     model->task_param = tl::TaskParameter{tl::TaskParameter::OutputType::kFloat,
-                                         false, num_class, 1};
+                                          false, num_class, 1};
   }
 
   model->num_feature = num_features;
@@ -347,8 +347,7 @@ void build_treelite_forest(ModelHandle* model_handle,
 
     if (rf_tree.sparsetree.size() != 0) {
       model->trees[i] = DecisionTree::build_treelite_tree<T, L>(
-        rf_tree, num_class, working_queue_1, working_queue_2
-      );
+        rf_tree, num_class, working_queue_1, working_queue_2);
     }
   }
 
