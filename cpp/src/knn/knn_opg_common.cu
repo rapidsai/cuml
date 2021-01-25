@@ -492,20 +492,19 @@ void reduce(opg_knn_param &params, opg_knn_utils &utils, cuda_utils &cutils,
   int64_t *indices = nullptr;
   float *distances = nullptr;
 
-  device_buffer<int64_t> *indices_b;
-  device_buffer<float> *distances_b;
+  device_buffer<int64_t> indices_b(cutils.alloc, cutils.stream);
+  device_buffer<float> distances_b(cutils.alloc, cutils.stream);
+
   std::vector<float *> probas_with_offsets;
 
   if (params.knn_op == knn_operation::knn) {
     indices = params.out_I->at(part_idx)->ptr + batch_offset;
     distances = params.out_D->at(part_idx)->ptr + batch_offset;
   } else {
-    indices_b = new device_buffer<int64_t>(cutils.alloc, cutils.stream,
-                                           batch_size * params.k);
-    distances_b = new device_buffer<float>(cutils.alloc, cutils.stream,
-                                           batch_size * params.k);
-    indices = indices_b->data();
-    distances = distances_b->data();
+    indices_b.resize(batch_size * params.k);
+    distances_b.resize(batch_size * params.k);
+    indices = indices_b.data();
+    distances = distances_b.data();
   }
 
   if (params.knn_op == knn_operation::class_proba) {
@@ -539,19 +538,13 @@ void reduce(opg_knn_param &params, opg_knn_utils &utils, cuda_utils &cutils,
     // Get the right labels for indices obtained after local KNN searches
     merge_labels(params, utils, cutils, merged_outputs_b.data(), indices,
                  utils.res->data(), utils.res_I->data(), batch_size);
-    CUDA_CHECK(cudaStreamSynchronize(cutils.stream));
-    CUDA_CHECK(cudaPeekAtLastError());
 
     // Perform final classification, regression or class-proba operation
     perform_local_operation(params, utils, cutils, outputs, probas_with_offsets,
                             merged_outputs_b.data(), batch_size);
+
     CUDA_CHECK(cudaStreamSynchronize(cutils.stream));
     CUDA_CHECK(cudaPeekAtLastError());
-  }
-
-  if (params.knn_op == knn_operation::class_proba) {
-    delete indices_b;
-    delete distances_b;
   }
 }
 
@@ -648,34 +641,40 @@ void perform_local_operation(opg_knn_param &params, opg_knn_utils &utils,
                              char32_t *labels, size_t batch_size) {
   size_t n_labels = batch_size * params.k;
 
-  if (params.knn_op == knn_operation::regression) {  // Regression
-    std::vector<float *> y(params.n_outputs);
-    for (int o = 0; o < params.n_outputs; o++) {
-      y[o] = reinterpret_cast<float *>(labels) + (o * n_labels);
-    }
-    MLCommon::Selection::knn_regress<float, 32, true>(
-      reinterpret_cast<float *>(outputs), nullptr, y, n_labels, batch_size,
-      params.k, cutils.stream, cutils.internal_streams.data(),
-      cutils.internal_streams.size());
-  } else {
-    std::vector<int *> y(params.n_outputs);
-    for (int o = 0; o < params.n_outputs; o++) {
-      y[o] = reinterpret_cast<int *>(labels) + (o * n_labels);
-    }
-    if (params.knn_op ==
-        knn_operation::class_proba) {  // Class-probas operation
-      MLCommon::Selection::class_probs<32, true>(
-        probas_with_offsets, nullptr, y, n_labels, batch_size, params.k,
-        *(params.uniq_labels), *(params.n_unique), cutils.alloc, cutils.stream,
-        cutils.internal_streams.data(), cutils.internal_streams.size());
-    } else if (params.knn_op ==
-               knn_operation::classification) {  // Classification
+  std::vector<float *> x(params.n_outputs);
+  std::vector<int *> y(params.n_outputs);
+
+  switch (params.knn_op) {
+    case knn_operation::regression:
+      for (int o = 0; o < params.n_outputs; o++) {
+        x[o] = reinterpret_cast<float *>(labels) + (o * n_labels);
+      }
+      MLCommon::Selection::knn_regress<float, 32, true>(
+        reinterpret_cast<float *>(outputs), nullptr, x, n_labels, batch_size,
+        params.k, cutils.stream, cutils.internal_streams.data(),
+        cutils.internal_streams.size());
+      break;
+    case knn_operation::classification:
+      for (int o = 0; o < params.n_outputs; o++) {
+        y[o] = reinterpret_cast<int *>(labels) + (o * n_labels);
+      }
       MLCommon::Selection::knn_classify<32, true>(
         reinterpret_cast<int *>(outputs), nullptr, y, n_labels, batch_size,
         params.k, *(params.uniq_labels), *(params.n_unique), cutils.alloc,
         cutils.stream, cutils.internal_streams.data(),
         cutils.internal_streams.size());
-    }
+      break;
+    case knn_operation::class_proba:
+      for (int o = 0; o < params.n_outputs; o++) {
+        y[o] = reinterpret_cast<int *>(labels) + (o * n_labels);
+      }
+      MLCommon::Selection::class_probs<32, true>(
+        probas_with_offsets, nullptr, y, n_labels, batch_size, params.k,
+        *(params.uniq_labels), *(params.n_unique), cutils.alloc, cutils.stream,
+        cutils.internal_streams.data(), cutils.internal_streams.size());
+      break;
+    default:
+      CUML_LOG_DEBUG("FAILURE!");
   }
 }
 
