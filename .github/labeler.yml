@@ -6,20 +6,19 @@ Cython / Python:
   - 'python/**'
   - 'notebooks/**'
   
-libcuml:
+cpp:
   - 'cpp/**'
 
 CMake:
   - '**/CMakeLists.txt'
   - '**/cmake/**'
-  
-cuml (Java):
-  - 'java/**'
+
+ci:
+  - 'ci/**'
+
+conda:
+  - 'conda/**'
   
 Ops:
   - '.github/**'
-  - 'ci/**'
-  - 'conda/**'
-  - '**/Dockerfile'
-  - '**/.dockerignore'
-  - 'docker/**'
+
