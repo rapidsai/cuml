@@ -61,8 +61,8 @@ std::string get_node_json(const std::string &prefix,
 template <class T, class L>
 tl::Tree<T, T> build_treelite_tree(
   const DecisionTree::TreeMetaDataNode<T, L> &rf_tree, unsigned int num_class,
-  std::vector<Node_ID_info<T, L>> &cur_level_queue,
-  std::vector<Node_ID_info<T, L>> &next_level_queue);
+  std::vector<Node_ID_info<T, L>> &working_queue_1,
+  std::vector<Node_ID_info<T, L>> &working_queue_2);
 
 struct DataInfo {
   unsigned int NLocalrows;

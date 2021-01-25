@@ -524,26 +524,26 @@ template class DecisionTreeRegressor<double>;
 template tl::Tree<float, float> build_treelite_tree<float, int>(
   const DecisionTree::TreeMetaDataNode<float, int>& rf_tree,
   unsigned int num_class,
-  std::vector<Node_ID_info<float, int>>& cur_level_queue,
-  std::vector<Node_ID_info<float, int>>& next_level_queue
+  std::vector<Node_ID_info<float, int>>& working_queue_1,
+  std::vector<Node_ID_info<float, int>>& working_queue_2
 );
 template tl::Tree<double, double> build_treelite_tree<double, int>(
   const DecisionTree::TreeMetaDataNode<double, int>& rf_tree,
   unsigned int num_class,
-  std::vector<Node_ID_info<double, int>>& cur_level_queue,
-  std::vector<Node_ID_info<double, int>>& next_level_queue
+  std::vector<Node_ID_info<double, int>>& working_queue_1,
+  std::vector<Node_ID_info<double, int>>& working_queue_2
 );
 template tl::Tree<float, float> build_treelite_tree<float, float>(
   const DecisionTree::TreeMetaDataNode<float, float>& rf_tree,
   unsigned int num_class,
-  std::vector<Node_ID_info<float, float>>& cur_level_queue,
-  std::vector<Node_ID_info<float, float>>& next_level_queue
+  std::vector<Node_ID_info<float, float>>& working_queue_1,
+  std::vector<Node_ID_info<float, float>>& working_queue_2
 );
 template tl::Tree<double, double> build_treelite_tree<double, double>(
   const DecisionTree::TreeMetaDataNode<double, double>& rf_tree,
   unsigned int num_class,
-  std::vector<Node_ID_info<double, double>>& cur_level_queue,
-  std::vector<Node_ID_info<double, double>>& next_level_queue
+  std::vector<Node_ID_info<double, double>>& working_queue_1,
+  std::vector<Node_ID_info<double, double>>& working_queue_2
 );
 }  //End namespace DecisionTree
 
