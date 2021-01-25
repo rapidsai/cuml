@@ -136,11 +136,12 @@ std::ostream &operator<<(std::ostream &os, const SparseTreeNode<T, L> &node) {
 
 template <typename T, typename L>
 struct Node_ID_info {
-  const SparseTreeNode<T, L> &node;
+  const SparseTreeNode<T, L>* node;
   int unique_node_id;
 
+  Node_ID_info() : node(nullptr), unique_node_id(-1) {}
   Node_ID_info(const SparseTreeNode<T, L> &cfg_node, int cfg_unique_node_id)
-    : node(cfg_node), unique_node_id(cfg_unique_node_id) {}
+    : node(&cfg_node), unique_node_id(cfg_unique_node_id) {}
 };
 
 template <class T, class L>
@@ -150,47 +151,59 @@ tl::Tree<T, T> build_treelite_tree(
   tl_tree.Init();
 
 
-  std::queue<Node_ID_info<T, L>> cur_level_queue;
-  std::queue<Node_ID_info<T, L>> next_level_queue;
+  // std::queue<Node_ID_info<T, L>> cur_level_queue;
+  std::vector<Node_ID_info<T, L>> cur_level_queue;
+  size_t cur_front = 0;
+  size_t cur_end = 0;
+  // std::queue<Node_ID_info<T, L>> next_level_queue;
+  std::vector<Node_ID_info<T, L>> next_level_queue;
+  size_t next_front = 0;
+  size_t next_end = 0;
 
-  cur_level_queue.push(Node_ID_info<T, L>(rf_tree.sparsetree[0], 0));
+  // cur_level_queue.push(Node_ID_info<T, L>(rf_tree.sparsetree[0], 0));
+  cur_level_queue.push_back(Node_ID_info<T, L>(rf_tree.sparsetree[0], 0));
+  ++cur_end;
 
-  while (!cur_level_queue.empty()) {
-    int cur_level_size = cur_level_queue.size();
+  while (cur_front != cur_end) {
+    // int cur_level_size = cur_level_queue.size();
+    size_t cur_level_size = cur_end - cur_front;
+    next_level_queue.resize(2*cur_level_size);
 
-    for (int i = 0; i < cur_level_size; i++) {
-      Node_ID_info<T, L> q_node = cur_level_queue.front();
-      cur_level_queue.pop();
+    for (size_t i = 0; i < cur_level_size; ++i) {
+      Node_ID_info<T, L> q_node = cur_level_queue[cur_front];
+      ++cur_front;
 
-      bool is_leaf_node = q_node.node.colid == -1;
+      bool is_leaf_node = q_node.node->colid == -1;
       int node_id = q_node.unique_node_id;
 
       if (!is_leaf_node) {
         tl_tree.AddChilds(node_id);
 
         // Push left child to next_level queue.
-        next_level_queue.push(Node_ID_info<T, L>(
-          rf_tree.sparsetree[q_node.node.left_child_id],
+        next_level_queue[next_end] = Node_ID_info<T, L>(
+          rf_tree.sparsetree[q_node.node->left_child_id],
           tl_tree.LeftChild(node_id)
-        ));
+        );
+        ++next_end;
 
         // Push right child to next_level deque.
-        next_level_queue.push(Node_ID_info<T, L>(
-          rf_tree.sparsetree[q_node.node.left_child_id + 1],
+        next_level_queue[next_end] = Node_ID_info<T, L>(
+          rf_tree.sparsetree[q_node.node->left_child_id + 1],
           tl_tree.RightChild(node_id)
-        ));
+        );
+        ++next_end;
 
         // Set node from current level as numerical node. Children IDs known.
-        tl_tree.SetNumericalSplit(node_id, q_node.node.colid,
-                                  q_node.node.quesval, true,
+        tl_tree.SetNumericalSplit(node_id, q_node.node->colid,
+                                  q_node.node->quesval, true,
                                   tl::Operator::kLE);
 
       } else {
         if (num_class == 1) {
-          tl_tree.SetLeaf(node_id, static_cast<T>(q_node.node.prediction));
+          tl_tree.SetLeaf(node_id, static_cast<T>(q_node.node->prediction));
         } else {
           std::vector<T> leaf_vector(num_class, 0);
-          leaf_vector[q_node.node.prediction] = 1;
+          leaf_vector[q_node.node->prediction] = 1;
           tl_tree.SetLeafVector(node_id, leaf_vector);
         }
       }
@@ -198,6 +211,10 @@ tl::Tree<T, T> build_treelite_tree(
 
     // The cur_level_queue is empty here, as all the elements are already poped out.
     cur_level_queue.swap(next_level_queue);
+    cur_front = next_front;
+    cur_end = next_end;
+    next_front = 0;
+    next_end = 0;
   }
   return tl_tree;
 }
