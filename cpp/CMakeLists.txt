@@ -204,8 +204,8 @@ set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_BINARY_DIR}/cmake)
 
 # todo: change for FindCUDAToolkit when CMake 3.17 is the minimum required
 # https://github.com/rapidsai/cuml/issues/2194
-# find_package(CUDA 10.0 REQUIRED)
-find_package(CUDAToolkit 10.0 REQUIRED)
+find_package(CUDA 10.0 REQUIRED)
+# find_package(CUDAToolkit 10.0 REQUIRED)
 
 # Set the -isystem flag to not have an '=' sign to allow parsing of compiler commands
 set(CMAKE_INCLUDE_SYSTEM_FLAG_CUDA "-isystem")
