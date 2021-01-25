@@ -24,9 +24,9 @@
 
 #include <linalg/init.h>
 #include <raft/cudart_utils.h>
-#include <cuml/common/device_buffer.hpp>
 #include <cub/device/device_select.cuh>
 #include <cuml/common/cuml_allocator.hpp>
+#include <cuml/common/device_buffer.hpp>
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/binary_op.cuh>
 #include <raft/linalg/map_then_reduce.cuh>

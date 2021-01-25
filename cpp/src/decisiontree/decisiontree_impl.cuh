@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-#include "quantile/quantile.h"
 #include <raft/cudart_utils.h>
 #include <common/iota.cuh>
 #include <cuml/common/logger.hpp>
@@ -30,6 +29,7 @@
 #include "levelalgo/metric.cuh"
 #include "memory.cuh"
 #include "quantile/quantile.cuh"
+#include "quantile/quantile.h"
 #include "treelite_util.h"
 
 namespace ML {

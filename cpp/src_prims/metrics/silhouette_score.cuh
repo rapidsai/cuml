@@ -18,9 +18,9 @@
 #include <raft/cudart_utils.h>
 #include <raft/linalg/distance_type.h>
 #include <algorithm>
-#include <cuml/common/device_buffer.hpp>
 #include <cub/cub.cuh>
 #include <cuml/common/cuml_allocator.hpp>
+#include <cuml/common/device_buffer.hpp>
 #include <distance/distance.cuh>
 #include <iostream>
 #include <linalg/reduce_cols_by_key.cuh>

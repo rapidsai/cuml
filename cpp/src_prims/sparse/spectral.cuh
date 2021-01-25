@@ -16,8 +16,8 @@
 
 #include <raft/cudart_utils.h>
 #include <raft/sparse/cusparse_wrappers.h>
-#include <cuml/common/device_buffer.hpp>
 #include <cuml/common/cuml_allocator.hpp>
+#include <cuml/common/device_buffer.hpp>
 #include <raft/cuda_utils.cuh>
 #include <selection/knn.cuh>
 #include "coo.cuh"

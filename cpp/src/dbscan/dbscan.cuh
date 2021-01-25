@@ -16,8 +16,8 @@
 
 #pragma once
 
-#include <cuml/common/device_buffer.hpp>
 #include <common/nvtx.hpp>
+#include <cuml/common/device_buffer.hpp>
 #include <cuml/common/logger.hpp>
 #include "runner.cuh"
 

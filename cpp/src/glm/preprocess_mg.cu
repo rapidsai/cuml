@@ -15,8 +15,8 @@
  */
 
 #include <raft/cudart_utils.h>
-#include <cuml/common/device_buffer.hpp>
 #include <cuml/common/cuml_allocator.hpp>
+#include <cuml/common/device_buffer.hpp>
 #include <cuml/linear_model/preprocess_mg.hpp>
 #include <opg/linalg/norm.hpp>
 #include <opg/matrix/math.hpp>

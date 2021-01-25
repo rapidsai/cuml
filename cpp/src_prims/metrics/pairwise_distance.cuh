@@ -15,8 +15,8 @@
  */
 
 #include <raft/cudart_utils.h>
-#include <cuml/common/device_buffer.hpp>
 #include <cuml/common/cuml_allocator.hpp>
+#include <cuml/common/device_buffer.hpp>
 #include <distance/distance.cuh>
 #include <raft/cuda_utils.cuh>
 #include <raft/linalg/binary_op.cuh>

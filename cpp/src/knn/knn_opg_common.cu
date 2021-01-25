@@ -48,19 +48,6 @@
 */
 
 #include "knn_opg_common.cuh"
-// #include <cuml/neighbors/knn_mg.hpp>
-// #include <selection/knn.cuh>
-
-// 
-// // #include <cuml/common/device_buffer.hpp>
-// // #include <cuml/common/cuml_allocator.hpp>
-// #include <cuml/common/logger.hpp>
-// #include <raft/comms/comms.hpp>
-
-// #include <set>
-
-// #include <raft/cudart_utils.h>
-// #include <raft/cuda_utils.cuh>
 
 namespace ML {
 namespace KNN {
@@ -554,8 +541,8 @@ void opg_knn(raft::handle_t &handle, std::vector<Matrix::Data<T> *> *out,
              std::vector<std::vector<T *>> &y, bool rowMajorIndex,
              bool rowMajorQuery, int k, int n_outputs, size_t batch_size,
              bool verbose, std::vector<std::vector<float *>> *probas,
-             std::vector<int *> *uniq_labels,
-             std::vector<int> *n_unique, bool probas_only) {
+             std::vector<int *> *uniq_labels, std::vector<int> *n_unique,
+             bool probas_only) {
   ASSERT(k <= 1024, "k must be <= 1024");
   ASSERT(batch_size > 0, "max_batch_size must be > 0");
   ASSERT(k < idx_desc.M, "k must be less than the total number of query rows");

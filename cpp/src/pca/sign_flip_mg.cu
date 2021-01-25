@@ -17,8 +17,8 @@
 #include <thrust/device_vector.h>
 #include <thrust/execution_policy.h>
 #include <common/allocatorAdapter.hpp>
-#include <cuml/common/device_buffer.hpp>
 #include <cuml/common/cuml_allocator.hpp>
+#include <cuml/common/device_buffer.hpp>
 #include <cuml/decomposition/sign_flip_mg.hpp>
 #include <raft/comms/comms.hpp>
 #include <raft/cuda_utils.cuh>

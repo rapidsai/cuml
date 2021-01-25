@@ -29,8 +29,8 @@
 #include <cuml/tsa/batched_kalman.hpp>
 
 #include <raft/cudart_utils.h>
-#include <cuml/common/device_buffer.hpp>
 #include <common/nvtx.hpp>
+#include <cuml/common/device_buffer.hpp>
 #include <linalg/batched/matrix.cuh>
 #include <metrics/batched/information_criterion.cuh>
 #include <raft/cuda_utils.cuh>

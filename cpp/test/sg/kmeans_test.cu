@@ -21,9 +21,9 @@
 #include <vector>
 
 #include <thrust/fill.h>
-#include <cuml/common/device_buffer.hpp>
 #include <cuml/cluster/kmeans.hpp>
 #include <cuml/common/cuml_allocator.hpp>
+#include <cuml/common/device_buffer.hpp>
 #include <cuml/common/logger.hpp>
 #include <cuml/cuml.hpp>
 #include <cuml/datasets/make_blobs.hpp>

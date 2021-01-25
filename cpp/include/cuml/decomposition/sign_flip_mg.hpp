@@ -16,9 +16,9 @@
 
 #pragma once
 
-#include <raft/handle.hpp>
 #include <opg/matrix/data.hpp>
 #include <opg/matrix/part_descriptor.hpp>
+#include <raft/handle.hpp>
 
 namespace ML {
 namespace PCA {

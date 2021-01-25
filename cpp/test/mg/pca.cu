@@ -27,7 +27,6 @@
 #include <raft/matrix/matrix.cuh>
 #include "test_opg_utils.h"
 
-
 #include <raft/comms/mpi_comms.hpp>
 
 namespace MLCommon {

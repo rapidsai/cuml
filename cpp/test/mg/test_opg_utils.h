@@ -20,7 +20,6 @@
 #include <mpi.h>
 #include <raft/cuda_utils.cuh>
 
-
 namespace MLCommon {
 namespace Test {
 namespace opg {

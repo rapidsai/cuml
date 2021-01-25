@@ -23,8 +23,6 @@
 #include "random_algo.cuh"
 #include "spectral_algo.cuh"
 
-
-
 namespace UMAPAlgo {
 
 namespace InitEmbed {

@@ -28,7 +28,6 @@
 
 #include <cuml/common/cuml_allocator.hpp>
 
-
 #include <raft/cuda_utils.cuh>
 
 namespace ML {

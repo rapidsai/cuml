@@ -18,9 +18,8 @@
 #include <selection/knn.cuh>
 #include "knn_opg_common.cuh"
 
-
-#include <cuml/common/device_buffer.hpp>
 #include <cuml/common/cuml_allocator.hpp>
+#include <cuml/common/device_buffer.hpp>
 #include <raft/comms/comms.hpp>
 
 #include <set>
@@ -314,11 +313,11 @@ void brute_force_knn(raft::handle_t &handle,
           int_streams[i] = handle.get_internal_stream(i);
         }
 
-        knn_common::perform_local_knn(res_I.data(), res_D.data(), idx_data, idx_desc,
-                          local_idx_parts, start_indices, stream, &*int_streams,
-                          handle.get_num_internal_streams(),
-                          handle.get_device_allocator(), cur_batch_size, k,
-                          cur_query_ptr, rowMajorIndex, rowMajorQuery);
+        knn_common::perform_local_knn(
+          res_I.data(), res_D.data(), idx_data, idx_desc, local_idx_parts,
+          start_indices, stream, &*int_streams,
+          handle.get_num_internal_streams(), handle.get_device_allocator(),
+          cur_batch_size, k, cur_query_ptr, rowMajorIndex, rowMajorQuery);
 
         // Synchronize before sending
         CUDA_CHECK(cudaStreamSynchronize(stream));

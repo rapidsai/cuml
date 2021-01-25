@@ -31,9 +31,9 @@
 #include <thrust/sort.h>
 #include <cache/cache_util.cuh>
 #include <common/allocatorAdapter.hpp>
+#include <cub/cub.cuh>
 #include <cuml/common/device_buffer.hpp>
 #include <cuml/common/host_buffer.hpp>
-#include <cub/cub.cuh>
 #include <cuml/common/logger.hpp>
 #include <raft/cuda_utils.cuh>
 #include <raft/linalg/binary_op.cuh>

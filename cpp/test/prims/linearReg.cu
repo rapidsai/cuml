@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-#include <cuml/common/cuml_allocator.hpp>
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
+#include <cuml/common/cuml_allocator.hpp>
 #include <functions/linearReg.cuh>
 #include <raft/random/rng.cuh>
 #include "test_utils.h"

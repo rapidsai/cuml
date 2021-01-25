@@ -16,8 +16,8 @@
 
 #pragma once
 
-#include <raft/handle.hpp>
 #include <distance/distance.cuh>
+#include <raft/handle.hpp>
 
 namespace ML {
 namespace Metrics {

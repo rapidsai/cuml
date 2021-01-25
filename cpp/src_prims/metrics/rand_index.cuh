@@ -44,9 +44,9 @@
 
 #include <math.h>
 #include <raft/cudart_utils.h>
-#include <cuml/common/device_buffer.hpp>
 #include <cub/cub.cuh>
 #include <cuml/common/cuml_allocator.hpp>
+#include <cuml/common/device_buffer.hpp>
 #include <raft/cuda_utils.cuh>
 
 namespace MLCommon {

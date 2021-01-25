@@ -17,9 +17,9 @@
 #pragma once
 
 #include <raft/cudart_utils.h>
-#include <cuml/common/device_buffer.hpp>
 #include <cub/cub.cuh>
 #include <cuml/common/cuml_allocator.hpp>
+#include <cuml/common/device_buffer.hpp>
 #include <memory>
 #include <raft/cuda_utils.cuh>
 #include <raft/linalg/eltwise.cuh>

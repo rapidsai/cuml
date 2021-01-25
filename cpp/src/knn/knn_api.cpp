@@ -72,7 +72,6 @@ cumlError_t knn_search(const cumlHandle_t handle, float **input, int *sizes,
   if (status == CUML_SUCCESS) {
     try {
       ML::brute_force_knn(*handle_ptr, input_vec, sizes_vec, D, search_items, n,
-      
                           res_I, res_D, k, rowMajorIndex, rowMajorQuery,
                           (ML::MetricType)metric_type, metric_arg, expanded);
     } catch (...) {

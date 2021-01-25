@@ -17,9 +17,9 @@
 #pragma once
 
 #include <raft/cudart_utils.h>
+#include <cub/cub.cuh>
 #include <cuml/common/cuml_allocator.hpp>
 #include <cuml/common/device_buffer.hpp>
-#include <cub/cub.cuh>
 #include <cuml/common/logger.hpp>
 #include <raft/cuda_utils.cuh>
 #include "cache_util.cuh"

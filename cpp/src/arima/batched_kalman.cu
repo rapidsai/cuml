@@ -21,9 +21,9 @@
 #include <thrust/iterator/counting_iterator.h>
 #include <cub/cub.cuh>
 
+#include <cuml/common/device_buffer.hpp>
 #include <cuml/cuml.hpp>
 #include <cuml/tsa/batched_kalman.hpp>
-#include <cuml/common/device_buffer.hpp>
 
 #include <raft/cudart_utils.h>
 #include <raft/linalg/cublas_wrappers.h>

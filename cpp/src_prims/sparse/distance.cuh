@@ -23,8 +23,8 @@
 
 #include <cuml/common/device_buffer.hpp>
 
-#include "utils.h"
 #include "csr.cuh"
+#include "utils.h"
 
 #include <cuml/common/cuml_allocator.hpp>
 #include <cuml/neighbors/knn.hpp>

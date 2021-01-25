@@ -16,8 +16,8 @@
 
 #include <raft/cudart_utils.h>
 #include <raft/linalg/transpose.h>
-#include <cuml/common/device_buffer.hpp>
 #include <cuml/common/cuml_allocator.hpp>
+#include <cuml/common/device_buffer.hpp>
 #include <cuml/decomposition/pca.hpp>
 #include <cuml/decomposition/pca_mg.hpp>
 #include <cuml/decomposition/sign_flip_mg.hpp>

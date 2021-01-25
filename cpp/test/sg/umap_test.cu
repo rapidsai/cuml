@@ -21,8 +21,8 @@
 #include <cuml/manifold/umapparams.h>
 #include <datasets/digits.h>
 #include <raft/cudart_utils.h>
-#include <cuml/common/device_buffer.hpp>
 #include <cuml/common/cuml_allocator.hpp>
+#include <cuml/common/device_buffer.hpp>
 #include <cuml/common/logger.hpp>
 #include <cuml/cuml.hpp>
 #include <cuml/neighbors/knn.hpp>

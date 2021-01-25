@@ -18,13 +18,13 @@
 #include <iostream>
 #include <vector>
 
-#include <raft/handle.hpp>
 #include <raft/cudart_utils.h>
 #include <raft/linalg/cublas_wrappers.h>
 #include <cuml/common/cuml_allocator.hpp>
 #include <cuml/common/device_buffer.hpp>
 #include <linalg/ternary_op.cuh>
 #include <raft/cuda_utils.cuh>
+#include <raft/handle.hpp>
 #include <raft/linalg/binary_op.cuh>
 #include <raft/linalg/map_then_reduce.cuh>
 #include <raft/linalg/norm.cuh>
@@ -325,8 +325,8 @@ struct SimpleMatOwning : SimpleMat<T> {
 
   SimpleMatOwning() = delete;
 
-  SimpleMatOwning(std::shared_ptr<MLCommon::deviceAllocator> allocator, int m, int n,
-                  cudaStream_t stream, STORAGE_ORDER order = COL_MAJOR)
+  SimpleMatOwning(std::shared_ptr<MLCommon::deviceAllocator> allocator, int m,
+                  int n, cudaStream_t stream, STORAGE_ORDER order = COL_MAJOR)
     : Super(order), buf(allocator, stream, m * n) {
     Super::reset(buf.data(), m, n);
   }
