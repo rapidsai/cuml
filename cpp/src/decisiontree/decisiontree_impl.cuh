@@ -167,7 +167,8 @@ tl::Tree<T, T> build_treelite_tree(
   while (cur_front != cur_end) {
     // int cur_level_size = cur_level_queue.size();
     size_t cur_level_size = cur_end - cur_front;
-    next_level_queue.resize(2*cur_level_size);
+    next_level_queue.resize(std::max(2*cur_level_size,
+                                     next_level_queue.size()));
 
     for (size_t i = 0; i < cur_level_size; ++i) {
       Node_ID_info<T, L> q_node = cur_level_queue[cur_front];
