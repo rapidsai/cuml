@@ -443,24 +443,13 @@ def test_rf_get_json(client, estimator_type, max_depth, n_estimators):
 def test_rf_get_combined_model_right_aftter_fit(client, estimator_type):
     max_depth = 3
     n_estimators = 5
-    X, y = make_classification(
-        n_samples=350,
-        n_features=20,
-        n_clusters_per_class=1,
-        n_informative=10,
-        random_state=123,
-        n_classes=2
-    )
+    X, y = make_classification()
     X = X.astype(np.float32)
     if estimator_type == 'classification':
         cu_rf_mg = cuRFC_mg(
             max_features=1.0,
             max_samples=1.0,
             n_bins=16,
-            split_algo=0,
-            split_criterion=0,
-            min_samples_leaf=2,
-            seed=23707,
             n_streams=1,
             n_estimators=n_estimators,
             max_leaves=-1,
@@ -472,9 +461,6 @@ def test_rf_get_combined_model_right_aftter_fit(client, estimator_type):
             max_features=1.0,
             max_samples=1.0,
             n_bins=16,
-            split_algo=0,
-            min_samples_leaf=2,
-            seed=23707,
             n_streams=1,
             n_estimators=n_estimators,
             max_leaves=-1,
