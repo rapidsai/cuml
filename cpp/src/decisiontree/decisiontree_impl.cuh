@@ -144,6 +144,8 @@ tl::Tree<T, T> build_treelite_tree(
   tl_tree.Init();
 
 
+  // Track head and tail of bounded "queues" (implemented as vectors for
+  // performance)
   size_t cur_front = 0;
   size_t cur_end = 0;
   size_t next_front = 0;
@@ -175,7 +177,7 @@ tl::Tree<T, T> build_treelite_tree(
         );
         ++next_end;
 
-        // Push right child to next_level deque.
+        // Push right child to next_level queue.
         next_level_queue[next_end] = Node_ID_info<T, L>(
           rf_tree.sparsetree[q_node.node->left_child_id + 1],
           tl_tree.RightChild(node_id)
@@ -198,7 +200,6 @@ tl::Tree<T, T> build_treelite_tree(
       }
     }
 
-    // The cur_level_queue is empty here, as all the elements are already poped out.
     cur_level_queue.swap(next_level_queue);
     cur_front = next_front;
     cur_end = next_end;
