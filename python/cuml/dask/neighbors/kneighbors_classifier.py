@@ -125,19 +125,19 @@ class KNeighborsClassifier(NearestNeighbors):
         return cumlKNN(handle=handle, **kwargs)
 
     @staticmethod
-    def _func_predict(model, data, data_parts_to_ranks, data_nrows,
+    def _func_predict(model, index, index_parts_to_ranks, index_nrows,
                       query, query_parts_to_ranks, query_nrows,
                       uniq_labels, n_unique, ncols, rank, convert_dtype,
                       probas_only):
         if probas_only:
             return model.predict_proba(
-                data, data_parts_to_ranks, data_nrows,
+                index, index_parts_to_ranks, index_nrows,
                 query, query_parts_to_ranks, query_nrows,
                 uniq_labels, n_unique, ncols, rank, convert_dtype
             )
         else:
             return model.predict(
-                data, data_parts_to_ranks, data_nrows,
+                index, index_parts_to_ranks, index_nrows,
                 query, query_parts_to_ranks, query_nrows,
                 uniq_labels, n_unique, ncols, rank, convert_dtype
             )

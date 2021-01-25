@@ -119,7 +119,8 @@ void opg_knn(opg_knn_param &params, cuda_utils &cutils) {
       device_buffer<float> tmp_batch_buf(cutils.alloc, cutils.stream, 0);
       // current partition's owner rank broadcasts
       if (part_rank == utils.my_rank) {
-        Matrix::Data<float> *data = (*params.query_data)[local_parts_completed];
+        Matrix::Data<float> *data =
+          params.query_data->at(local_parts_completed);
 
         // If query is column major and total_batches > 0, create a
         // temporary buffer for the batch so that we can stack rows.
@@ -257,7 +258,7 @@ void perform_local_knn(opg_knn_param &params, opg_knn_utils &utils,
   std::vector<int> sizes(params.idx_data->size());
 
   for (int cur_idx = 0; cur_idx < params.idx_data->size(); cur_idx++) {
-    ptrs[cur_idx] = (*params.idx_data)[cur_idx]->ptr;
+    ptrs[cur_idx] = params.idx_data->at(cur_idx)->ptr;
     sizes[cur_idx] = utils.local_idx_parts[cur_idx]->size;
   }
 
@@ -335,11 +336,11 @@ void copy_label_outputs_from_index_parts(opg_knn_param &params,
   for (int o = 0; o < params.n_outputs; o++) {
     if (params.knn_op == knn_operation::regression) {
       for (int p = 0; p < n_parts; p++) {
-        parts_h[p] = (char32_t *)((*params.y.f)[p][o]);
+        parts_h[p] = (char32_t *)(params.y.f->at(p)[o]);
       }
     } else {
       for (int p = 0; p < n_parts; p++) {
-        parts_h[p] = (char32_t *)((*params.y.i)[p][o]);
+        parts_h[p] = (char32_t *)(params.y.i->at(p)[o]);
       }
     }
     raft::update_device(parts_d.data(), parts_h.data(), n_parts, cutils.stream);
@@ -462,12 +463,13 @@ void exchange_results(opg_knn_param &params, opg_knn_utils &utils,
                                requests.data() + request_idx);
             ++request_idx;
           }
-          ++num_received;
         }
-      } else if (part_rank_is_idx) {
+      }
+      if (rank != utils.my_rank || part_rank_is_idx) {
         /**
-          * Prevents overwriting data when the owner of currently
-          * processed query partition has itself some index partition(s)
+          * Increase index for each new reception
+          * Also increase index when the worker doing a reduce operation
+          * has some index data (previously copied at right location).
           */
         ++num_received;
       }

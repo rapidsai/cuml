@@ -99,11 +99,11 @@ class KNeighborsRegressor(NearestNeighbors):
         return cumlKNN(handle=handle, **kwargs)
 
     @staticmethod
-    def _func_predict(model, data, data_parts_to_ranks, data_nrows,
+    def _func_predict(model, index, index_parts_to_ranks, index_nrows,
                       query, query_parts_to_ranks, query_nrows,
                       ncols, rank, n_output, convert_dtype):
         return model.predict(
-            data, data_parts_to_ranks, data_nrows,
+            index, index_parts_to_ranks, index_nrows,
             query, query_parts_to_ranks, query_nrows,
             ncols, rank, n_output, convert_dtype
         )

@@ -27,16 +27,6 @@ from cuml.dask.common.input_utils import DistributedDataHandler
 from uuid import uuid1
 
 
-def _func_get_d(f, idx):
-    i, d = f
-    return d[idx]
-
-
-def _func_get_i(f, idx):
-    i, d = f
-    return i[idx]
-
-
 class NearestNeighbors(BaseEstimator):
     """
     Multi-node Multi-GPU NearestNeighbors Model.
@@ -106,11 +96,11 @@ class NearestNeighbors(BaseEstimator):
         return cumlNN(handle=handle, **kwargs)
 
     @staticmethod
-    def _func_kneighbors(model, data, data_parts_to_ranks, data_nrows,
+    def _func_kneighbors(model, index, index_parts_to_ranks, index_nrows,
                          query, query_parts_to_ranks, query_nrows,
                          ncols, rank, n_neighbors, convert_dtype):
         return model.kneighbors(
-            data, data_parts_to_ranks, data_nrows, query,
+            index, index_parts_to_ranks, index_nrows, query,
             query_parts_to_ranks, query_nrows, ncols, rank,
             n_neighbors, convert_dtype
         )
@@ -217,18 +207,23 @@ class NearestNeighbors(BaseEstimator):
 
         wait_and_raise_from_futures(list(nn_fit.values()))
 
+        def _custom_getter(o):
+            def func_get(f, idx):
+                return f[o][idx]
+            return func_get
+
         """
         Gather resulting partitions and return dask_cudfs
         """
         out_d_futures = flatten_grouped_results(self.client,
                                                 query_parts_to_ranks,
                                                 nn_fit,
-                                                getter_func=_func_get_d)
+                                                getter_func=_custom_getter(0))
 
         out_i_futures = flatten_grouped_results(self.client,
                                                 query_parts_to_ranks,
                                                 nn_fit,
-                                                getter_func=_func_get_i)
+                                                getter_func=_custom_getter(1))
 
         return nn_fit, out_d_futures, out_i_futures
 
