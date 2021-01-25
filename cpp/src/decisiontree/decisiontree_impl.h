@@ -17,6 +17,7 @@
 #pragma once
 #include <common/Timer.h>
 #include <cuml/tree/algo_helper.h>
+#include <cuml/tree/flatnode.h>
 #include <treelite/c_api.h>
 #include <treelite/tree.h>
 #include <algorithm>
@@ -59,7 +60,9 @@ std::string get_node_json(const std::string &prefix,
 
 template <class T, class L>
 tl::Tree<T, T> build_treelite_tree(
-  const DecisionTree::TreeMetaDataNode<T, L> &rf_tree, unsigned int num_class);
+  const DecisionTree::TreeMetaDataNode<T, L> &rf_tree, unsigned int num_class,
+  std::vector<Node_ID_info<T, L>> &cur_level_queue,
+  std::vector<Node_ID_info<T, L>> &next_level_queue);
 
 struct DataInfo {
   unsigned int NLocalrows;

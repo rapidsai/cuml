@@ -32,3 +32,13 @@ struct SparseTreeNode {
   DataT best_metric_val;
   IdxT left_child_id = IdxT(-1);
 };
+
+template <typename T, typename L>
+struct Node_ID_info {
+  const SparseTreeNode<T, L>* node;
+  int unique_node_id;
+
+  Node_ID_info() : node(nullptr), unique_node_id(-1) {}
+  Node_ID_info(const SparseTreeNode<T, L>& cfg_node, int cfg_unique_node_id)
+    : node(&cfg_node), unique_node_id(cfg_unique_node_id) {}
+};

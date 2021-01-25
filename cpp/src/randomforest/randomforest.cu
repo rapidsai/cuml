@@ -24,6 +24,7 @@
 #include <cstdio>
 #include <cuml/common/logger.hpp>
 #include <cuml/ensemble/randomforest.hpp>
+#include <cuml/tree/flatnode.h>
 #include <fstream>
 #include <iostream>
 #include <string>
@@ -338,12 +339,15 @@ void build_treelite_forest(ModelHandle* model_handle,
   model->average_tree_output = true;
   model->SetTreeLimit(forest->rf_params.n_trees);
 
+  std::vector<Node_ID_info<T, L>> cur_level_queue;
+  std::vector<Node_ID_info<T, L>> next_level_queue;
+
   for (int i = 0; i < forest->rf_params.n_trees; i++) {
     DecisionTree::TreeMetaDataNode<T, L>& rf_tree = forest->trees[i];
 
     if (rf_tree.sparsetree.size() != 0) {
       model->trees[i] = DecisionTree::build_treelite_tree<T, L>(
-        rf_tree, num_class
+        rf_tree, num_class, cur_level_queue, next_level_queue
       );
     }
   }

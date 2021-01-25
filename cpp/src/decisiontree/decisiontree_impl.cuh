@@ -18,9 +18,9 @@
 #include <raft/cudart_utils.h>
 #include <common/iota.cuh>
 #include <cuml/common/logger.hpp>
+#include <cuml/tree/flatnode.h>
 #include <iomanip>
 #include <locale>
-#include <queue>
 #include <random>
 #include <type_traits>
 #include <treelite/tree.h>
@@ -134,38 +134,26 @@ std::ostream &operator<<(std::ostream &os, const SparseTreeNode<T, L> &node) {
   return os;
 }
 
-template <typename T, typename L>
-struct Node_ID_info {
-  const SparseTreeNode<T, L>* node;
-  int unique_node_id;
-
-  Node_ID_info() : node(nullptr), unique_node_id(-1) {}
-  Node_ID_info(const SparseTreeNode<T, L> &cfg_node, int cfg_unique_node_id)
-    : node(&cfg_node), unique_node_id(cfg_unique_node_id) {}
-};
-
 template <class T, class L>
 tl::Tree<T, T> build_treelite_tree(
-    const DecisionTree::TreeMetaDataNode<T, L>& rf_tree, unsigned int num_class) {
+    const DecisionTree::TreeMetaDataNode<T, L>& rf_tree,
+    unsigned int num_class,
+    std::vector<Node_ID_info<T, L>>& cur_level_queue,
+    std::vector<Node_ID_info<T, L>>& next_level_queue) {
   tl::Tree<T, T> tl_tree;
   tl_tree.Init();
 
 
-  // std::queue<Node_ID_info<T, L>> cur_level_queue;
-  std::vector<Node_ID_info<T, L>> cur_level_queue;
   size_t cur_front = 0;
   size_t cur_end = 0;
-  // std::queue<Node_ID_info<T, L>> next_level_queue;
-  std::vector<Node_ID_info<T, L>> next_level_queue;
   size_t next_front = 0;
   size_t next_end = 0;
 
-  // cur_level_queue.push(Node_ID_info<T, L>(rf_tree.sparsetree[0], 0));
-  cur_level_queue.push_back(Node_ID_info<T, L>(rf_tree.sparsetree[0], 0));
+  cur_level_queue.resize(std::max<size_t>(cur_level_queue.size(), 1));
+  cur_level_queue[0] = Node_ID_info<T, L>(rf_tree.sparsetree[0], 0);
   ++cur_end;
 
   while (cur_front != cur_end) {
-    // int cur_level_size = cur_level_queue.size();
     size_t cur_level_size = cur_end - cur_front;
     next_level_queue.resize(std::max(2*cur_level_size,
                                      next_level_queue.size()));
@@ -534,14 +522,29 @@ template class DecisionTreeRegressor<float>;
 template class DecisionTreeRegressor<double>;
 
 template tl::Tree<float, float> build_treelite_tree<float, int>(
-  const DecisionTree::TreeMetaDataNode<float, int>& rf_tree, unsigned int num_class);
+  const DecisionTree::TreeMetaDataNode<float, int>& rf_tree,
+  unsigned int num_class,
+  std::vector<Node_ID_info<float, int>>& cur_level_queue,
+  std::vector<Node_ID_info<float, int>>& next_level_queue
+);
 template tl::Tree<double, double> build_treelite_tree<double, int>(
-  const DecisionTree::TreeMetaDataNode<double, int>& rf_tree, unsigned int num_class);
+  const DecisionTree::TreeMetaDataNode<double, int>& rf_tree,
+  unsigned int num_class,
+  std::vector<Node_ID_info<double, int>>& cur_level_queue,
+  std::vector<Node_ID_info<double, int>>& next_level_queue
+);
 template tl::Tree<float, float> build_treelite_tree<float, float>(
-  const DecisionTree::TreeMetaDataNode<float, float>& rf_tree, unsigned int num_class);
+  const DecisionTree::TreeMetaDataNode<float, float>& rf_tree,
+  unsigned int num_class,
+  std::vector<Node_ID_info<float, float>>& cur_level_queue,
+  std::vector<Node_ID_info<float, float>>& next_level_queue
+);
 template tl::Tree<double, double> build_treelite_tree<double, double>(
-  const DecisionTree::TreeMetaDataNode<double, double>& rf_tree, unsigned int
-  num_class);
+  const DecisionTree::TreeMetaDataNode<double, double>& rf_tree,
+  unsigned int num_class,
+  std::vector<Node_ID_info<double, double>>& cur_level_queue,
+  std::vector<Node_ID_info<double, double>>& next_level_queue
+);
 }  //End namespace DecisionTree
 
 }  //End namespace ML
