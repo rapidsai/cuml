@@ -11,7 +11,7 @@ CMake:
   - '**/cmake/**'
 
 cpp:
-  - 'ci/**'
+  - 'cpp/**'
 
 ci:
   - 'ci/**'
@@ -20,7 +20,7 @@ conda:
   - 'conda/**'
 
 github: 
-  - 'conda/**'
+  - 'github/**'
   
 docker:
   - '**/Dockerfile'
