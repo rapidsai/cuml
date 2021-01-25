@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -342,6 +342,7 @@ void build_treelite_forest(ModelHandle* model_handle,
   std::vector<Node_ID_info<T, L>> working_queue_1;
   std::vector<Node_ID_info<T, L>> working_queue_2;
 
+#pragma omp parallel for private(working_queue_1, working_queue_2)
   for (int i = 0; i < forest->rf_params.n_trees; i++) {
     DecisionTree::TreeMetaDataNode<T, L>& rf_tree = forest->trees[i];
 
