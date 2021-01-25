@@ -86,10 +86,10 @@ void ridgeSVD(const raft::handle_t &handle, math_t *A, int n_rows, int n_cols,
   rmm::device_uvector<math_t> V(V_len, stream);
   rmm::device_uvector<math_t> U(U_len, stream);
 
-  raft::linalg::svdQR(handle, A, n_rows, n_cols, S.data(), U.data(),
-                      V.data(), true, true, true, stream);
-  ridgeSolve(handle, S.data(), V.data(), U.data(), n_rows, n_cols, b,
-             alpha, n_alpha, w, stream);
+  raft::linalg::svdQR(handle, A, n_rows, n_cols, S.data(), U.data(), V.data(),
+                      true, true, true, stream);
+  ridgeSolve(handle, S.data(), V.data(), U.data(), n_rows, n_cols, b, alpha,
+             n_alpha, w, stream);
 }
 
 template <typename math_t>
