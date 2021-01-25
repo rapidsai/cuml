@@ -34,6 +34,7 @@ from cuml.test.utils import get_handle, get_pattern, array_equal, \
 from numba import cuda
 from numpy.testing import assert_almost_equal
 
+from sklearn.metrics import hinge_loss as sk_hinge
 from sklearn.datasets import make_classification, make_blobs
 from sklearn.metrics import accuracy_score as sk_acc_score
 from sklearn.metrics import log_loss as sklearn_log_loss
@@ -43,7 +44,10 @@ from sklearn.metrics.cluster import completeness_score as sk_completeness_score
 from sklearn.metrics.cluster import mutual_info_score as sk_mutual_info_score
 from sklearn.preprocessing import StandardScaler
 
+from cuml import LogisticRegression as cu_log
+from cuml.metrics import hinge_loss as cuml_hinge
 from cuml.metrics.cluster import entropy
+from cuml.model_selection import train_test_split
 from cuml.metrics.regression import mean_squared_error, \
     mean_squared_log_error, mean_absolute_error
 from sklearn.metrics import mean_squared_error as sklearn_mse
@@ -1036,3 +1040,47 @@ def test_pairwise_distances_output_types(input_type, output_type, use_global):
             assert isinstance(S, np.ndarray)
         elif output_type == "cupy":
             assert isinstance(S, cp.core.core.ndarray)
+
+
+@pytest.mark.parametrize('nrows', [unit_param(30), quality_param(5000),
+                         stress_param(500000)])
+@pytest.mark.parametrize('ncols', [unit_param(10), quality_param(100),
+                         stress_param(200)])
+@pytest.mark.parametrize('n_info', [unit_param(7), quality_param(50),
+                         stress_param(100)])
+@pytest.mark.parametrize('datatype', [np.float32])
+@pytest.mark.parametrize("input_type", ["cudf", "cupy"])
+def test_hinge_loss(input_type, nrows, ncols, n_info, datatype):
+    train_rows = np.int32(nrows*0.8)
+    X, y = make_classification(n_samples=nrows, n_features=ncols,
+                               n_clusters_per_class=1, n_informative=n_info,
+                               random_state=123, n_classes=5)
+
+    if input_type == "cudf":
+        X = cudf.DataFrame(X)
+        y = cudf.Series(y)
+    elif input_type == "cupy":
+        X = cp.asarray(X)
+        y = cp.asarray(y)
+
+    X_train, X_test, y_train, y_test = train_test_split(X,
+                                                        y,
+                                                        train_size=train_rows,
+                                                        shuffle=True)
+    cuml_model = cu_log()
+    cuml_model.fit(X_train, y_train)
+    cu_predict_decision = cuml_model.decision_function(X_test)
+    cu_loss = cuml_hinge(y_test, cu_predict_decision.T, labels=cp.unique(y))
+    if input_type == "cudf":
+        y_test = y_test.to_array()
+        y = y.to_array()
+        cu_predict_decision = cp.asnumpy(cu_predict_decision.values)
+    elif input_type == "cupy":
+        y = cp.asnumpy(y)
+        y_test = cp.asnumpy(y_test)
+        cu_predict_decision = cp.asnumpy(cu_predict_decision)
+
+    cu_loss_using_sk = sk_hinge(y_test, cu_predict_decision.T,
+                                labels=np.unique(y))
+    # compare the accuracy of the two models
+    cp.testing.assert_array_almost_equal(cu_loss, cu_loss_using_sk)

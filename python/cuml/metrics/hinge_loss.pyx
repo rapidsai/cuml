@@ -15,49 +15,73 @@
 #
 
 import cupy as cp
-import numpy as np
 from cuml.preprocessing import LabelEncoder, LabelBinarizer
 import cudf
 
 
 def cython_hinge_loss(y_true, pred_decision, labels=None, sample_weights=None):
+    """
+    Calculates non-regularized hinge loss. Adapted from scikit-learn hinge loss
 
+    Parameters
+    ----------
+    y_true: cuDF Series or cuPy array of shape (n_samples,)
+            True labels, consisting of labels for the classes.
+            In binary classification, the positive label must be
+            greater than negative class
+
+    pred_decision: cuDF DataFrame or cuPy array of shape (n_samples,) or
+                   (n_samples, n_classes)
+                   Predicted decisions, as output by decision_function (floats)
+
+    labels: cuDF Series or cuPy array, default=None
+            In multiclass problems, this must include all class labels.
+
+    sample_weight: cupy array of shape (n_samples,), default=None
+                   Sample weights to be used for computing the average
+
+    Returns
+    -------
+    loss : float.
+           The average hinge loss.
+    """
+
+    # Check types of the inputs
     if not hasattr(y_true, "__cuda_array_interface__"):
         raise TypeError("y_true needs to be either a cuDF Series or \
                         a cuda_array_interface compliant array.")
 
     if not hasattr(pred_decision, "__cuda_array_interface__") and not \
-    isinstance(pred_decision, cudf.DataFrame):
+       isinstance(pred_decision, cudf.DataFrame):
         raise TypeError("pred_decision needs to be either a cuDF DataFrame or \
                         a cuda_array_interface compliant array.")
 
     if y_true.shape[0] != pred_decision.shape[0]:
-        raise ValueError("y_true and pred_decision must have the same number of rows"
-                         "(found {} and {})".format(
+        raise ValueError("y_true and pred_decision must have the same"
+                         " number of rows(found {} and {})".format(
                              y_true.shape[0],
                              pred_decision.shape[0]))
 
     if sample_weights and sample_weights.shape[0] != y_true.shape[0]:
-        raise ValueError("y_true and sample_weights must have the same number of rows"
-                         "(found {} and {})".format(
+        raise ValueError("y_true and sample_weights must have the same "
+                         "number of rows (found {} and {})".format(
                              y_true.shape[0],
                              sample_weights.shape[0]))
 
     y_cudf = isinstance(y_true, cudf.Series)
-    pred_cudf = isinstance (pred_decision, cudf.DataFrame)
+    labels_cudf = isinstance(labels, cudf.Series)
+
+    if not labels_cudf:
+        labels = cudf.Series(labels)
 
     if not y_cudf:
         y_true = cudf.Series(y_true)
-    
-    if pred_cudf:
-        pred_decision = pred_decision.values
 
     if len(y_true.shape) != 1:
         raise ValueError("y_true should be 1d array got shape {} instead"
                          .format(y_true.shape))
-    
-    y_true_unique = cp.unique(labels.values if labels is not None else y_true)
-    
+    y_true_unique = cp.unique(labels if labels is not None else y_true)
+
     if y_true_unique.size > 2:
         if (labels is None and pred_decision.ndim > 1 and
                 (cp.size(y_true_unique) != pred_decision.shape[1])):
@@ -68,6 +92,9 @@ def cython_hinge_loss(y_true, pred_decision, labels=None, sample_weights=None):
         le = LabelEncoder()
         le.fit(labels)
         y_true = le.transform(y_true)
+        if isinstance(pred_decision, cudf.DataFrame):
+            pred_decision = pred_decision.values
+
         mask = cp.ones_like(pred_decision, dtype=bool)
         mask[cp.arange(y_true.shape[0]), y_true.values] = False
         margin = pred_decision[~mask]
