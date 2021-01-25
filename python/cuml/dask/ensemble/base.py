@@ -272,7 +272,18 @@ class BaseRandomForestModel(object):
         if self._get_internal_model() is None:
             self._set_internal_model(self._concat_treelite_models())
 
-        return BaseEstimator.get_combined_model(self)
+        internal_model = self._check_internal_model(self._get_internal_model())
+
+        if isinstance(self.internal_model, Iterable):
+            # This function needs to return a single instance of cuml.Base,
+            # even if the class is just a composite.
+            raise ValueError("Expected a single instance of cuml.Base "
+                             "but got %s instead." % type(self.internal_model))
+
+        elif isinstance(self.internal_model, Future):
+            internal_model = self.internal_model.result()
+
+        return internal_model
 
 
 def _func_fit(model, input_data, convert_dtype):
