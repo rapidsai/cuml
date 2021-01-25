@@ -16,6 +16,9 @@
 
 #pragma once
 
+#include <cuml/common/device_buffer.hpp>
+#include <cuml/common/host_buffer.hpp>
+
 #include "builder_base.cuh"
 
 namespace ML {
