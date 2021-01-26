@@ -208,7 +208,7 @@ find_package(CUDA 10.0 REQUIRED)
 # find_package(CUDAToolkit 10.0 REQUIRED)
 
 # Set the -isystem flag to not have an '=' sign to allow parsing of compiler commands
-set(CMAKE_INCLUDE_SYSTEM_FLAG_CUDA "-isystem")
+set(CMAKE_INCLUDE_SYSTEM_FLAG_CUDA "-isystem ")
 
 if (NOT DISABLE_OPENMP OR NOT ${DISABLE_OPENMP})
   find_package(OpenMP)
@@ -508,8 +508,7 @@ if(BUILD_CUML_C_LIBRARY)
   target_include_directories(${CUML_C_TARGET}
     PRIVATE 
       ${CUML_SRC_DIR}
-      ${CUML_SRC_PRIMS_DIR}
-      ${CUML_TEST_PRIMS_DIR})
+  )
 
   target_link_libraries(${CUML_C_TARGET} PUBLIC ${CUML_CPP_TARGET})
 endif(BUILD_CUML_C_LIBRARY)

@@ -16,7 +16,6 @@
 
 #include <cuml/fil/fil.h>
 #include <cuml/tree/algo_helper.h>
-#include <decisiontree/decisiontree_impl.h>
 #include <treelite/c_api.h>
 #include <treelite/tree.h>
 #include <cuml/common/logger.hpp>

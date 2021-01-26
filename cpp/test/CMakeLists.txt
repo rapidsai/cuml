@@ -83,13 +83,12 @@ if(BUILD_CUML_TESTS)
 
   target_include_directories(ml
     PRIVATE
-      ${CUML_TEST_INCLUDE_DIRS}
       ${CUML_SRC_DIR}
       ${CUML_SRC_PRIMS_DIR}
-      ${CUML_TEST_PRIMS_DIR})
+      ${CUML_TEST_PRIMS_DIR}
+  )
 
-  target_link_libraries(ml 
-    ${CUML_CPP_TARGET})
+  target_link_libraries(ml ${CUML_TEST_LINK_LIBRARIES})
 
 endif(BUILD_CUML_TESTS)
 
@@ -114,8 +113,6 @@ if(BUILD_CUML_MG_TESTS)
         ${cumlprims_mg_INCLUDE_DIRS})
 
     target_include_directories(ml_mg
-      PUBLIC
-        ${CUML_TEST_INCLUDE_DIRS}
       PRIVATE
         ${CUML_SRC_DIR}
         ${CUML_SRC_PRIMS_DIR}
@@ -217,11 +214,9 @@ if(BUILD_PRIMS_TESTS)
 
   target_include_directories(prims
     PRIVATE
-      ${CUML_TEST_INCLUDE_DIRS}
-    PUBLIC
-      ${CUML_SRC_DIR}
       ${CUML_SRC_PRIMS_DIR}
-      ${CUML_TEST_PRIMS_DIR})
+      ${CUML_TEST_PRIMS_DIR}
+  )
 
   add_dependencies(prims cutlass)
 
