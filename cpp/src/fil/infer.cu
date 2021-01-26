@@ -252,8 +252,9 @@ __device__ __forceinline__ auto allreduce_shmem(Iterator begin, Iterator end,
 
 // tmp_storage may overlap shared memory addressed by begin..end
 template <typename Iterator>
-__device__ __forceinline__ void write_best_class(
-  Iterator begin, Iterator end, void* tmp_storage, float* out, int num_rows) {
+__device__ __forceinline__ void write_best_class(Iterator begin, Iterator end,
+                                                 void* tmp_storage, float* out,
+                                                 int num_rows) {
   // reduce per-class candidate margins to one best class candidate
   // per thread (for each of the NITEMS rows)
   auto best = to_vec(0, *begin);
@@ -318,7 +319,8 @@ __device__ __forceinline__ void class_margins_to_gmem(
     // per thread (for each of the NITEMS rows)
     write_best_class(begin, end, tmp_storage, out, num_rows);
   } else {  // output softmax-ed margin
-    normalize_softmax_and_write(begin, end, transform, num_trees, tmp_storage, out, num_rows);
+    normalize_softmax_and_write(begin, end, transform, num_trees, tmp_storage,
+                                out, num_rows);
   }
 }
 
@@ -361,8 +363,8 @@ struct tree_aggregator_t<NITEMS, GROVE_PER_CLASS_FEW_CLASSES> {
     if (threadIdx.x < num_classes) per_thread[threadIdx.x] = acc;
     __syncthreads();  // per_thread needs to be fully populated
 
-    class_margins_to_gmem(per_thread, per_thread + num_classes,
-                          transform, num_trees, tmp_storage, out, num_rows, num_outputs);
+    class_margins_to_gmem(per_thread, per_thread + num_classes, transform,
+                          num_trees, tmp_storage, out, num_rows, num_outputs);
   }
 };
 
@@ -410,7 +412,8 @@ struct tree_aggregator_t<NITEMS, GROVE_PER_CLASS_MANY_CLASSES> {
                                            int num_outputs, output_t transform,
                                            int num_trees) {
     class_margins_to_gmem(per_class_value, per_class_value + num_classes,
-                          transform, num_trees, tmp_storage, out, num_rows, num_outputs);
+                          transform, num_trees, tmp_storage, out, num_rows,
+                          num_outputs);
   }
 };
 
