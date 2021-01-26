@@ -208,7 +208,7 @@ class cosine_expanded_distances_t : public distances_t<value_t> {
 };
 
 /**
- * Hellinger distance using the expanded L2 form: L2(sqrt(a), sqrt(b)) / sqrt(2)
+ * Hellinger distance using the expanded form: sqrt(1 - sum(sqrt(x_k) * sqrt(y_k)))
  * The expanded form is more efficient for sparse data.
  */
 template <typename value_idx = int, typename value_t = float>
@@ -218,7 +218,7 @@ class hellinger_expanded_distances_t : public distances_t<value_t> {
     const distances_config_t<value_idx, value_t> &config)
     : config_(&config),
       workspace(config.allocator, config.stream, 0),
-      l2_dists(config) {}
+      ip_dists(config) {}
 
   void compute(value_t *out_dists) {
     CUML_LOG_DEBUG("Computing Hellinger Distance");
@@ -228,20 +228,20 @@ class hellinger_expanded_distances_t : public distances_t<value_t> {
       config_->a_data, config_->a_data, config_->a_nnz,
       [=] __device__(value_t input) { return sqrt(input); }, config_->stream);
 
-    if(config_->a_data != config_->b_data) {
+    if (config_->a_data != config_->b_data) {
       raft::linalg::unaryOp<value_t>(
         config_->b_data, config_->b_data, config_->b_nnz,
         [=] __device__(value_t input) { return sqrt(input); }, config_->stream);
     }
 
-    l2_dists.compute(out_dists);
+    ip_dists.compute(out_dists);
 
     // Revert sqrt of A and B
     raft::linalg::unaryOp<value_t>(
       config_->a_data, config_->a_data, config_->a_nnz,
       [=] __device__(value_t input) { return powf(input, 2); },
       config_->stream);
-    if(config_->a_data != config_->b_data) {
+    if (config_->a_data != config_->b_data) {
       raft::linalg::unaryOp<value_t>(
         config_->b_data, config_->b_data, config_->b_nnz,
         [=] __device__(value_t input) { return powf(input, 2); },
@@ -251,7 +251,7 @@ class hellinger_expanded_distances_t : public distances_t<value_t> {
     // Divide dists by sqrt(2)
     raft::linalg::unaryOp<value_t>(
       out_dists, out_dists, config_->a_nrows * config_->b_nrows,
-      [=] __device__(value_t input) { return input * M_SQRT1_2; },
+      [=] __device__(value_t input) { return sqrt(1 - input); },
       config_->stream);
   }
 
@@ -260,7 +260,7 @@ class hellinger_expanded_distances_t : public distances_t<value_t> {
  private:
   const distances_config_t<value_idx, value_t> *config_;
   raft::mr::device::buffer<char> workspace;
-  l2_expanded_distances_t<value_idx, value_t> l2_dists;
+  ip_distances_t<value_idx, value_t> ip_dists;
 };
 
 };  // END namespace distance
