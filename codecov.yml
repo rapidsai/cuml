@@ -1,7 +1,19 @@
 #Configuration File for CodeCov
 coverage:
   status:
-    project: off
+    project:
+      default:
+        flags:
+          - non-dask
+          - dask
+        informational: true
     patch: off
 comment:
   behavior: new
+flags:
+  non-dask:
+    paths:
+      - "!python/cuml/dask/"
+  dask:
+    paths:
+      - "python/cuml/dask/"
