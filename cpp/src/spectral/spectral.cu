@@ -17,7 +17,7 @@
 #include <cuml/cuml.hpp>
 #include <sparse/coo.cuh>
 
-#include <sparse/spectral.cuh>
+#include <sparse/linalg/spectral.cuh>
 
 namespace ML {
 
@@ -38,10 +38,8 @@ namespace Spectral {
    */
 void fit_embedding(const raft::handle_t &handle, int *rows, int *cols,
                    float *vals, int nnz, int n, int n_components, float *out) {
-  const auto &impl = handle;
-  MLCommon::Spectral::fit_embedding(
-    impl.get_cusparse_handle(), rows, cols, vals, nnz, n, n_components, out,
-    handle.get_device_allocator(), handle.get_stream());
+  raft::sparse::spectral::fit_embedding(handle, rows, cols, vals, nnz, n,
+                                        n_components, out);
 }
 }  // namespace Spectral
 }  // namespace ML

@@ -173,7 +173,7 @@ class SVMBase(Base):
         Device array of support vectors
     dual_coef_ : float, shape = [1, n_support]
         Device array of coefficients for support vectors
-    intercept_ : int
+    intercept_ : float
         The constant in the decision function
     fit_status_ : int
         0 if SVM is correctly fitted
@@ -202,7 +202,7 @@ class SVMBase(Base):
     dual_coef_ = CumlArrayDescriptor()
     support_ = CumlArrayDescriptor()
     support_vectors_ = CumlArrayDescriptor()
-    intercept_ = CumlArrayDescriptor()
+    _intercept_ = CumlArrayDescriptor()
     _internal_coef_ = CumlArrayDescriptor()
     _unique_labels_ = CumlArrayDescriptor()
 
@@ -233,7 +233,7 @@ class SVMBase(Base):
         self.dual_coef_ = None
         self.support_ = None
         self.support_vectors_ = None
-        self.intercept_ = None
+        self._intercept_ = None
         self.n_support_ = None
 
         self._c_kernel = self._get_c_kernel(kernel)
@@ -333,6 +333,15 @@ class SVMBase(Base):
     def coef_(self, value):
         self._internal_coef_ = value
 
+    @property
+    @cuml.internals.api_base_return_array_skipall
+    def intercept_(self):
+        return self._intercept_
+
+    @intercept_.setter
+    def intercept_(self, value):
+        self._intercept_ = value
+
     def _get_kernel_params(self, X=None):
         """ Wrap the kernel parameters in a KernelParams obtect """
         cdef KernelParams _kernel_params
@@ -372,15 +381,15 @@ class SVMBase(Base):
             model_f = new svmModel[float]()
             model_f.n_support = self.n_support_
             model_f.n_cols = self.n_cols
-            model_f.b = self.intercept_.item()
+            model_f.b = self._intercept_.item()
             model_f.dual_coefs = \
                 <float*><size_t>self.dual_coef_.ptr
             model_f.x_support = \
                 <float*><uintptr_t>self.support_vectors_.ptr
             model_f.support_idx = \
                 <int*><uintptr_t>self.support_.ptr
-            model_f.n_classes = self._n_classes
-            if self._n_classes > 0:
+            model_f.n_classes = self.n_classes_
+            if self.n_classes_ > 0:
                 model_f.unique_labels = \
                     <float*><uintptr_t>self._unique_labels_.ptr
             else:
@@ -390,15 +399,15 @@ class SVMBase(Base):
             model_d = new svmModel[double]()
             model_d.n_support = self.n_support_
             model_d.n_cols = self.n_cols
-            model_d.b = self.intercept_.item()
+            model_d.b = self._intercept_.item()
             model_d.dual_coefs = \
                 <double*><size_t>self.dual_coef_.ptr
             model_d.x_support = \
                 <double*><uintptr_t>self.support_vectors_.ptr
             model_d.support_idx = \
                 <int*><uintptr_t>self.support_.ptr
-            model_d.n_classes = self._n_classes
-            if self._n_classes > 0:
+            model_d.n_classes = self.n_classes_
+            if self.n_classes_ > 0:
                 model_d.unique_labels = \
                     <double*><uintptr_t>self._unique_labels_.ptr
             else:
@@ -420,7 +429,7 @@ class SVMBase(Base):
             if model_f.n_support == 0:
                 self._fit_status_ = 1  # incorrect fit
                 return
-            self.intercept_ = CumlArray.full(1, model_f.b, np.float32)
+            self._intercept_ = CumlArray.full(1, model_f.b, np.float32)
             self.n_support_ = model_f.n_support
 
             self.dual_coef_ = CumlArray(
@@ -440,11 +449,11 @@ class SVMBase(Base):
                 shape=(self.n_support_, self.n_cols),
                 dtype=self.dtype,
                 order='F')
-            self._n_classes = model_f.n_classes
-            if self._n_classes > 0:
+            self.n_classes_ = model_f.n_classes
+            if self.n_classes_ > 0:
                 self._unique_labels_ = CumlArray(
                     data=<uintptr_t>model_f.unique_labels,
-                    shape=(self._n_classes,),
+                    shape=(self.n_classes_,),
                     dtype=self.dtype,
                     order='F')
             else:
@@ -454,7 +463,7 @@ class SVMBase(Base):
             if model_d.n_support == 0:
                 self._fit_status_ = 1  # incorrect fit
                 return
-            self.intercept_ = CumlArray.full(1, model_d.b, np.float64)
+            self._intercept_ = CumlArray.full(1, model_d.b, np.float64)
             self.n_support_ = model_d.n_support
 
             self.dual_coef_ = CumlArray(
@@ -474,11 +483,11 @@ class SVMBase(Base):
                 shape=(self.n_support_, self.n_cols),
                 dtype=self.dtype,
                 order='F')
-            self._n_classes = model_d.n_classes
-            if self._n_classes > 0:
+            self.n_classes_ = model_d.n_classes
+            if self.n_classes_ > 0:
                 self._unique_labels_ = CumlArray(
                     data=<uintptr_t>model_d.unique_labels,
-                    shape=(self._n_classes,),
+                    shape=(self.n_classes_,),
                     dtype=self.dtype,
                     order='F')
             else:
