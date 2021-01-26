@@ -19,6 +19,9 @@ import math
 import numpy as np
 import warnings
 
+from collections.abc import Iterable
+from dask.distributed import Future
+
 from cuml.dask.common.input_utils import DistributedDataHandler, \
     concatenate
 from cuml.dask.common.utils import get_client, wait_and_raise_from_futures
