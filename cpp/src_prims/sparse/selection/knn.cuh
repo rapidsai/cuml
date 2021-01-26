@@ -152,7 +152,7 @@ class sparse_knn_t {
       metric(metric_),
       metricArg(metricArg_) {
       if (metric == raft::distance::DistanceType::L2Expanded ||
-          metric == raft::distance::DistanceType::L2ExpandedSqrt ||
+          metric == raft::distance::DistanceType::L2SqrtExpanded ||
           metric == raft::distance::DistanceType::CosineExpanded)
         expanded_form = true;
       else
