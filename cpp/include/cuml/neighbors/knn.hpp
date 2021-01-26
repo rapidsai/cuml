@@ -46,6 +46,10 @@ struct knnIndex {
   ~knnIndex() {
     delete index;
     delete gpu_res;
+
+    // to check that destructor is not called twice
+    index = nullptr;
+    gpu_res = nullptr;
   }
 };
 

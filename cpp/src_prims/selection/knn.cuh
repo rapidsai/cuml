@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -270,7 +270,8 @@ void approx_knn_build_index(ML::knnIndex *index, ML::knnIndexParam *params,
 
   faiss::gpu::StandardGpuResources *gpu_res =
     new faiss::gpu::StandardGpuResources();
-  gpu_res->noTempMemory();
+  //gpu_res->noTempMemory();
+  gpu_res->setTempMemory(3000000000);
   gpu_res->setCudaMallocWarning(false);
   gpu_res->setDefaultStream(device, userStream);
   index->gpu_res = gpu_res;
