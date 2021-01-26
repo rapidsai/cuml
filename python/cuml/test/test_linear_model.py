@@ -29,6 +29,7 @@ from cuml.test.utils import (
     quality_param,
     stress_param,
 )
+import rmm
 
 import sklearn
 from sklearn.datasets import make_regression, make_classification
@@ -119,6 +120,18 @@ def test_linear_regression_model(datatype, algorithm, nrows, column_info):
         skols_predict = skols.predict(X_test)
 
         assert array_equal(skols_predict, cuols_predict, 1e-1, with_sign=True)
+
+
+@pytest.mark.skipif(
+    rmm._cuda.gpu.runtimeGetVersion() < 10020,
+    reason='svd solver does not support more than 46340 rows or columns for'
+           ' CUDA<10.2 and other solvers do not support single-column input'
+)
+def test_linear_regression_single_column():
+    '''Test that linear regression can be run on single column with more than
+    46340 rows (a limitation on CUDA <10.2)'''
+    model = cuLinearRegression()
+    model.fit(cp.random.rand(46341), cp.random.rand(46341))
 
 
 @pytest.mark.parametrize("datatype", [np.float32, np.float64])
