@@ -48,11 +48,10 @@ namespace distance {
 // @TODO: Move this into sparse prims (coo_norm)
 template <typename value_idx, typename value_t>
 __global__ void compute_row_norm_kernel(value_t *out, const value_idx *coo_rows,
-                                        const value_t *data, value_idx nnz,
-                                        float norm = 2.0) {
+                                        const value_t *data, value_idx nnz) {
   value_idx i = blockDim.x * blockIdx.x + threadIdx.x;
   if (i < nnz) {
-    atomicAdd(&out[coo_rows[i]], __powf(data[i], norm));
+    atomicAdd(&out[coo_rows[i]], data[i] * data[i]);
   }
 }
 
@@ -228,21 +227,26 @@ class hellinger_expanded_distances_t : public distances_t<value_t> {
     raft::linalg::unaryOp<value_t>(
       config_->a_data, config_->a_data, config_->a_nnz,
       [=] __device__(value_t input) { return sqrt(input); }, config_->stream);
-    raft::linalg::unaryOp<value_t>(
-      config_->b_data, config_->b_data, config_->b_nnz,
-      [=] __device__(value_t input) { return sqrt(input); }, config_->stream);
+
+    if(config_->a_data != config_->b_data) {
+      raft::linalg::unaryOp<value_t>(
+        config_->b_data, config_->b_data, config_->b_nnz,
+        [=] __device__(value_t input) { return sqrt(input); }, config_->stream);
+    }
 
     l2_dists.compute(out_dists);
 
     // Revert sqrt of A and B
     raft::linalg::unaryOp<value_t>(
       config_->a_data, config_->a_data, config_->a_nnz,
-      [=] __device__(value_t input) { return __powf(input, 2.0); },
+      [=] __device__(value_t input) { return powf(input, 2); },
       config_->stream);
-    raft::linalg::unaryOp<value_t>(
-      config_->b_data, config_->b_data, config_->b_nnz,
-      [=] __device__(value_t input) { return __powf(input, 2.0); },
-      config_->stream);
+    if(config_->a_data != config_->b_data) {
+      raft::linalg::unaryOp<value_t>(
+        config_->b_data, config_->b_data, config_->b_nnz,
+        [=] __device__(value_t input) { return powf(input, 2); },
+        config_->stream);
+    }
 
     // Divide dists by sqrt(2)
     raft::linalg::unaryOp<value_t>(

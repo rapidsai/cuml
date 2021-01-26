@@ -399,18 +399,17 @@ def test_knn_graph(input_type, nrows, n_feats, p, k, metric, mode,
 
 
 @pytest.mark.parametrize("metric", valid_metrics_sparse())
-@pytest.mark.parametrize('nrows', [100])
-@pytest.mark.parametrize('ncols', [100])
-@pytest.mark.parametrize('density', [0.4])
+@pytest.mark.parametrize('shape', [(100, 100, 0.4), (100, 15000, 0.04)])
 @pytest.mark.parametrize('n_neighbors', [4])
 @pytest.mark.parametrize('batch_size_index', [40000])
 @pytest.mark.parametrize('batch_size_query', [50000])
-def test_nearest_neighbors_sparse(nrows, ncols,
-                                  density,
+def test_nearest_neighbors_sparse(shape,
                                   metric,
                                   n_neighbors,
                                   batch_size_index,
                                   batch_size_query):
+
+    nrows, ncols, density = shape
 
     if nrows == 1 and n_neighbors > 1:
         return
