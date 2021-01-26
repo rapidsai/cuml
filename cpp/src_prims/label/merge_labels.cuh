@@ -17,6 +17,7 @@
 #pragma once
 
 #include <math.h>
+#include <limits>
 
 #include <linalg/init.h>
 #include <raft/cudart_utils.h>

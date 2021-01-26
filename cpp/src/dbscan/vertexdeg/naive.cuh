@@ -62,6 +62,7 @@ __global__ void vertex_degree_kernel(Pack<Type, Index_> data,
   }
   Index_ res = (sum <= eps2);
   adj[row * N + col] = res;
+  /// TODO: change layout or remove; cf #3414
 
   if (sizeof(Index_) == 4) {
     raft::myAtomicAdd((int *)(vd + row), (int)res);

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,22 +23,6 @@ namespace ML {
 
 void dbscanFit(const raft::handle_t &handle, float *input, int n_rows,
                int n_cols, float eps, int min_pts, int *labels,
-               size_t max_bytes_per_batch, int verbosity) {
-  dbscanFitImpl<float, int>(handle, input, n_rows, n_cols, eps, min_pts, labels,
-                            nullptr, max_bytes_per_batch, handle.get_stream(),
-                            verbosity);
-}
-
-void dbscanFit(const raft::handle_t &handle, double *input, int n_rows,
-               int n_cols, double eps, int min_pts, int *labels,
-               size_t max_bytes_per_batch, int verbosity) {
-  dbscanFitImpl<double, int>(handle, input, n_rows, n_cols, eps, min_pts,
-                             labels, nullptr, max_bytes_per_batch,
-                             handle.get_stream(), verbosity);
-}
-
-void dbscanFit(const raft::handle_t &handle, float *input, int n_rows,
-               int n_cols, float eps, int min_pts, int *labels,
                int *core_sample_indices, size_t max_bytes_per_batch,
                int verbosity) {
   dbscanFitImpl<float, int>(handle, input, n_rows, n_cols, eps, min_pts, labels,
@@ -53,22 +37,6 @@ void dbscanFit(const raft::handle_t &handle, double *input, int n_rows,
   dbscanFitImpl<double, int>(handle, input, n_rows, n_cols, eps, min_pts,
                              labels, core_sample_indices, max_bytes_per_batch,
                              handle.get_stream(), verbosity);
-}
-
-void dbscanFit(const raft::handle_t &handle, float *input, int64_t n_rows,
-               int64_t n_cols, float eps, int min_pts, int64_t *labels,
-               size_t max_bytes_per_batch, int verbosity) {
-  dbscanFitImpl<float, int64_t>(handle, input, n_rows, n_cols, eps, min_pts,
-                                labels, nullptr, max_bytes_per_batch,
-                                handle.get_stream(), verbosity);
-}
-
-void dbscanFit(const raft::handle_t &handle, double *input, int64_t n_rows,
-               int64_t n_cols, double eps, int min_pts, int64_t *labels,
-               size_t max_bytes_per_batch, int verbosity) {
-  dbscanFitImpl<double, int64_t>(handle, input, n_rows, n_cols, eps, min_pts,
-                                 labels, nullptr, max_bytes_per_batch,
-                                 handle.get_stream(), verbosity);
 }
 
 void dbscanFit(const raft::handle_t &handle, float *input, int64_t n_rows,

@@ -40,19 +40,14 @@ class DBSCAN(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
 
     Parameters
     ----------
-    handle : cuml.Handle
-        Specifies the cuml.handle that holds internal CUDA state for
-        computations in this model. Most importantly, this specifies the CUDA
-        stream that will be used for the model's computations, so users can
-        run different models concurrently in different streams by creating
-        handles in several streams.
-        If it is None, a new one is created.
-    min_samples : int (default = 5)
-        The number of samples in a neighborhood such that this group can be
-        considered as an important core point (including the point itself).
+    client : dask.distributed.Client
+        Dask client to use
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
+    min_samples : int (default = 5)
+        The number of samples in a neighborhood such that this group can be
+        considered as an important core point (including the point itself).
     max_mbytes_per_batch : (optional) int64
         Calculate batch size using no more than this number of megabytes for
         the pairwise distance computation. This enables the trade-off between
@@ -75,7 +70,7 @@ class DBSCAN(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
 
     Notes
     ------
-    For additional docs, see the documentation of the single-GPU model
+    For additional docs, see the documentation of the single-GPU DBSCAN model
     """
 
     def __init__(self, client=None, verbose=False, **kwargs):

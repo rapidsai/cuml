@@ -29,9 +29,9 @@ namespace ML {
 static const size_t DEFAULT_MAX_MEM_MBYTES = 13e3;
 
 template <typename Index_ = int>
-Index_ computeBatch_size(size_t &estimated_memory, Index_ n_rows,
-                         Index_ n_owned_rows, size_t max_mbytes_per_batch = 0,
-                         Index_ neigh_per_row = 0) {
+Index_ compute_batch_size(size_t &estimated_memory, Index_ n_rows,
+                          Index_ n_owned_rows, size_t max_mbytes_per_batch = 0,
+                          Index_ neigh_per_row = 0) {
   // In real applications, it's unlikely that the sparse adjacency matrix
   // comes even close to the worst-case memory usage, because if epsilon
   // is so large that all points are connected to 10% or even more of other
@@ -130,7 +130,7 @@ void dbscanFitImpl(const raft::handle_t &handle, T *input, Index_ n_rows,
 
   /// TODO: Query device for remaining memory
   size_t estimated_memory;
-  Index_ batch_size = computeBatch_size<Index_>(
+  Index_ batch_size = compute_batch_size<Index_>(
     estimated_memory, n_rows, n_owned_rows, max_mbytes_per_batch);
 
   CUML_LOG_DEBUG(

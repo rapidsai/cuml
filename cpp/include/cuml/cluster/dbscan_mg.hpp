@@ -41,7 +41,7 @@ namespace opg {
  * @param[in] max_bytes_per_batch the maximum number of megabytes to be used for
  *            each batch of the pairwise distance calculation. This enables the
  *            trade off between memory usage and algorithm execution time.
- * @param[in] verbosity: verbosity level for logging messages during execution
+ * @param[in] verbosity verbosity level for logging messages during execution
  * @{
  */
 

@@ -21,8 +21,6 @@
 #include <cuml/common/cuml_allocator.hpp>
 #include "test_utils.h"
 
-// #include <iostream>
-// #include <limits>
 #include <vector>
 
 namespace MLCommon {

@@ -17,8 +17,6 @@
 #pragma once
 
 #include <common/cumlHandle.hpp>
-#include "algo.cuh"
-#include "pack.h"
 
 namespace ML {
 namespace Dbscan {
@@ -38,8 +36,13 @@ template <typename Index_ = int>
 void run(const raft::handle_t& handle, const Index_* vd, bool* mask,
          Index_ min_pts, Index_ start_vertex_id, Index_ batch_size,
          cudaStream_t stream) {
-  Pack<Index_> data = {vd, mask, min_pts};
-  Algo::launcher<Index_>(handle, data, start_vertex_id, batch_size, stream);
+  auto execution_policy =
+    ML::thrust_exec_policy(handle.get_device_allocator(), stream);
+  auto counting = thrust::make_counting_iterator<Index_>(0);
+  thrust::for_each(execution_policy->on(stream), counting,
+                   counting + batch_size, [=] __device__(Index_ idx) {
+                     mask[idx + start_vertex_id] = vd[idx] >= min_pts;
+                   });
 }
 
 }  // namespace CorePoints

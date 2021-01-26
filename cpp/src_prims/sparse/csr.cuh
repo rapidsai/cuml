@@ -51,11 +51,11 @@ __global__ void weak_cc_label_device(Index_ *__restrict__ labels,
                                      const Index_ *__restrict__ row_ind,
                                      const Index_ *__restrict__ row_ind_ptr,
                                      Index_ nnz, bool *__restrict__ m,
-                                     Index_ startVertexId, Index_ batchSize,
+                                     Index_ start_vertex_id, Index_ batch_size,
                                      Index_ N, Lambda filter_op) {
   Index_ tid = threadIdx.x + blockIdx.x * TPB_X;
-  Index_ global_id = tid + startVertexId;
-  if (tid < batchSize && global_id < N) {
+  Index_ global_id = tid + start_vertex_id;
+  if (tid < batch_size && global_id < N) {
     Index_ start = __ldg(row_ind + tid);
 
     Index_ ci, cj;
@@ -63,7 +63,7 @@ __global__ void weak_cc_label_device(Index_ *__restrict__ labels,
     ci = labels[global_id];
     bool ci_allow_prop = filter_op(global_id);
 
-    Index_ end = get_stop_idx(tid, batchSize, nnz, row_ind);
+    Index_ end = get_stop_idx(tid, batch_size, nnz, row_ind);
     /// TODO: add one element to row_ind and avoid get_stop_idx
     for (Index_ j = start; j < end; j++) {
       Index_ j_ind = __ldg(row_ind_ptr + j);
@@ -105,8 +105,8 @@ __global__ void weak_cc_init_all_kernel(Index_ *labels, Index_ N,
 template <typename Index_, int TPB_X = 32, typename Lambda>
 void weak_cc_label_batched(Index_ *labels, const Index_ *row_ind,
                            const Index_ *row_ind_ptr, Index_ nnz, Index_ N,
-                           WeakCCState *state, Index_ startVertexId,
-                           Index_ batchSize, cudaStream_t stream,
+                           WeakCCState *state, Index_ start_vertex_id,
+                           Index_ batch_size, cudaStream_t stream,
                            Lambda filter_op) {
   ASSERT(sizeof(Index_) == 4 || sizeof(Index_) == 8,
          "Index_ should be 4 or 8 bytes");
@@ -125,8 +125,8 @@ void weak_cc_label_batched(Index_ *labels, const Index_ *row_ind,
     CUDA_CHECK(cudaMemsetAsync(state->m, false, sizeof(bool), stream));
 
     weak_cc_label_device<Index_, TPB_X><<<blocks, threads, 0, stream>>>(
-      labels, row_ind, row_ind_ptr, nnz, state->m, startVertexId, batchSize, N,
-      filter_op);
+      labels, row_ind, row_ind_ptr, nnz, state->m, start_vertex_id, batch_size,
+      N, filter_op);
     CUDA_CHECK(cudaPeekAtLastError());
 
     //** Updating m *
@@ -156,8 +156,8 @@ void weak_cc_label_batched(Index_ *labels, const Index_ *row_ind,
  * @param row_ind_ptr the row index pointer of the CSR array
  * @param nnz the size of row_ind_ptr array
  * @param N number of vertices
- * @param startVertexId the starting vertex index for the current batch
- * @param batchSize number of vertices for current batch
+ * @param start_vertex_id the starting vertex index for the current batch
+ * @param batch_size number of vertices for current batch
  * @param state instance of inter-batch state management
  * @param stream the cuda stream to use
  * @param filter_op an optional filtering function to determine which points
@@ -166,11 +166,12 @@ void weak_cc_label_batched(Index_ *labels, const Index_ *row_ind,
 template <typename Index_, int TPB_X = 32, typename Lambda = auto(Index_)->bool>
 void weak_cc_batched(Index_ *labels, const Index_ *row_ind,
                      const Index_ *row_ind_ptr, Index_ nnz, Index_ N,
-                     Index_ startVertexId, Index_ batchSize, WeakCCState *state,
-                     cudaStream_t stream, Lambda filter_op) {
+                     Index_ start_vertex_id, Index_ batch_size,
+                     WeakCCState *state, cudaStream_t stream,
+                     Lambda filter_op) {
   weak_cc_label_batched<Index_, TPB_X>(labels, row_ind, row_ind_ptr, nnz, N,
-                                       state, startVertexId, batchSize, stream,
-                                       filter_op);
+                                       state, start_vertex_id, batch_size,
+                                       stream, filter_op);
 }
 
 /**
@@ -192,18 +193,18 @@ void weak_cc_batched(Index_ *labels, const Index_ *row_ind,
  * @param row_ind_ptr the row index pointer of the CSR array
  * @param nnz the size of row_ind_ptr array
  * @param N number of vertices
- * @param startVertexId the starting vertex index for the current batch
- * @param batchSize number of vertices for current batch
+ * @param start_vertex_id the starting vertex index for the current batch
+ * @param batch_size number of vertices for current batch
  * @param state instance of inter-batch state management
  * @param stream the cuda stream to use
  */
 template <typename Index_, int TPB_X = 32>
 void weak_cc_batched(Index_ *labels, const Index_ *row_ind,
                      const Index_ *row_ind_ptr, Index_ nnz, Index_ N,
-                     Index_ startVertexId, Index_ batchSize, WeakCCState *state,
-                     cudaStream_t stream) {
-  weak_cc_batched(labels, row_ind, row_ind_ptr, nnz, N, startVertexId,
-                  batchSize, state, stream,
+                     Index_ start_vertex_id, Index_ batch_size,
+                     WeakCCState *state, cudaStream_t stream) {
+  weak_cc_batched(labels, row_ind, row_ind_ptr, nnz, N, start_vertex_id,
+                  batch_size, state, stream,
                   [] __device__(Index_ tid) { return true; });
 }
 

@@ -163,25 +163,6 @@ def assert_dbscan_equal(ref, actual, X, core_indices, eps):
             assert found, ("Border point not connected to cluster at #{}: "
                            "{} (reference: {})".format(i, lb, la))
 
-    # for i in range(N):
-    #     la, lb = ref[i], actual[i]
-
-    #     if i in core_set or la == -1:  # core or noise
-    #         if la != lb:
-    #             return False
-    #     else:  # border point
-    #         found = False
-    #         for j in range(N):
-    #             # Check if j is a core point with the same label
-    #             if j in core_set and lb == actual[j]:
-    #                 # Check if j is a neighbor of i
-    #                 if sqnorm(X[i] - X[j]) <= eps2:
-    #                     found = True
-    #                     break
-    #         if not found:
-    #             return False
-    # return True
-
     # Note: we can also do it in a rand score fashion by checking that pairs
     # correspond in both label arrays for core points, if we need to drop the
     # requirement of minimality for core points

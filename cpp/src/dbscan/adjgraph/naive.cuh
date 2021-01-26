@@ -47,13 +47,13 @@ void launcher(const raft::handle_t& handle, Pack<Index_> data,
                                                stream, adjgraph_size);
   for (Index_ i = 0; i < batch_size; i++) {
     for (Index_ j = 0; j < N; j++) {
+      /// TODO: change layout or remove; cf #3414
       if (host_adj[i * N + j]) {
         host_adj_graph[k] = j;
         k = k + 1;
       }
     }
   }
-  /// TODO: the layout here is incorrect. Remove this file or fix
   host_ex_scan[0] = Index_(0);
   for (Index_ i = 1; i < batch_size; i++)
     host_ex_scan[i] = host_ex_scan[i - 1] + host_vd[i - 1];

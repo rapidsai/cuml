@@ -331,7 +331,7 @@ size_t run(const raft::handle_t& handle, const Type_f* x, Index_ N, Index_ D,
       // First fill the core_indices with -1 which will be used if core_point_count < N
       thrust::fill_n(thrust_exec_policy, dev_core_indices, N, (Index_)-1);
 
-      auto index_iterator = thrust::counting_iterator<int>(0);
+      auto index_iterator = thrust::counting_iterator<Index_>(0);
 
       //Perform stream reduction on the core points. The core_pts acts as the stencil and we use thrust::counting_iterator to return the index
       auto core_point_count = thrust::copy_if(
