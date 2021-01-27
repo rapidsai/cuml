@@ -82,7 +82,7 @@ class UMAPTest : public ::testing::Test {
 
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 
-    xformed_score = trustworthiness_score<float, EucUnexpandedL2Sqrt>(
+    xformed_score = trustworthiness_score<float, L2SqrtUnexpanded>(
       handle, X_d.data(), xformed.data(), n_samples, n_features,
       umap_params->n_components, umap_params->n_neighbors);
   }
@@ -117,7 +117,7 @@ class UMAPTest : public ::testing::Test {
 
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 
-    fit_score = trustworthiness_score<float, EucUnexpandedL2Sqrt>(
+    fit_score = trustworthiness_score<float, L2SqrtUnexpanded>(
       handle, X_d.data(), embeddings.data(), n_samples, n_features,
       umap_params->n_components, umap_params->n_neighbors);
   }
@@ -154,7 +154,7 @@ class UMAPTest : public ::testing::Test {
 
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 
-    supervised_score = trustworthiness_score<float, EucUnexpandedL2Sqrt>(
+    supervised_score = trustworthiness_score<float, L2SqrtUnexpanded>(
       handle, X_d.data(), embeddings.data(), n_samples, n_features,
       umap_params->n_components, umap_params->n_neighbors);
   }
@@ -213,7 +213,7 @@ class UMAPTest : public ::testing::Test {
 
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 
-    fit_with_knn_score = trustworthiness_score<float, EucUnexpandedL2Sqrt>(
+    fit_with_knn_score = trustworthiness_score<float, L2SqrtUnexpanded>(
       handle, X_d.data(), embeddings.data(), n_samples, n_features,
       umap_params->n_components, umap_params->n_neighbors);
   }
