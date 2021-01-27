@@ -58,6 +58,7 @@
 #include <cuml/common/logger.hpp>
 #include <raft/comms/comms.hpp>
 
+#include <memory>
 #include <set>
 
 #include <raft/cudart_utils.h>
@@ -144,25 +145,18 @@ struct cuda_utils {
  * A structure to store utilities for distributed KNN operations
  */
 template <typename in_t, typename ind_t, typename dist_t, typename out_t>
-struct opg_knn_utils {
-  opg_knn_utils(opg_knn_param<in_t, ind_t, dist_t, out_t> &params,
-                cuda_utils &cutils) {
+struct opg_knn_work {
+  opg_knn_work(opg_knn_param<in_t, ind_t, dist_t, out_t> &params,
+               cuda_utils &cutils)
+    : res_D(cutils.alloc, cutils.stream),
+      res_I(cutils.alloc, cutils.stream),
+      res(cutils.alloc, cutils.stream) {
     this->my_rank = cutils.comm->get_rank();
     this->idxRanks = params.idx_desc->uniqueRanks();
     this->idxPartsToRanks = params.idx_desc->partsToRanks;
     this->local_idx_parts =
       params.idx_desc->blocksOwnedBy(cutils.comm->get_rank());
     this->queryPartsToRanks = params.query_desc->partsToRanks;
-
-    this->res_I = new device_buffer<ind_t>(cutils.alloc, cutils.stream);
-    this->res_D = new device_buffer<dist_t>(cutils.alloc, cutils.stream);
-    this->res = new device_buffer<out_t>(cutils.alloc, cutils.stream);
-  };
-
-  ~opg_knn_utils() {
-    delete res_I;
-    delete res_D;
-    delete res;
   };
 
   int my_rank;            /**< Rank of this worker */
@@ -174,11 +168,11 @@ struct opg_knn_utils {
   std::vector<Matrix::RankSizePair *>
     queryPartsToRanks; /**< Query parts to rank */
 
-  device_buffer<ind_t> *res_I; /**< Temporary allocation to exchange indices */
   device_buffer<dist_t>
-    *res_D; /**< Temporary allocation to exchange distances */
+    res_D;                    /**< Temporary allocation to exchange distances */
+  device_buffer<ind_t> res_I; /**< Temporary allocation to exchange indices */
   device_buffer<out_t>
-    *res; /**< Temporary allocation to exchange outputs (cl&re) */
+    res; /**< Temporary allocation to exchange outputs (cl&re) */
 };
 
 /*!
@@ -189,13 +183,13 @@ struct opg_knn_utils {
 template <typename in_t, typename ind_t, typename dist_t, typename out_t>
 void opg_knn(opg_knn_param<in_t, ind_t, dist_t, out_t> &params,
              cuda_utils &cutils) {
-  opg_knn_utils<in_t, ind_t, dist_t, out_t> utils(params, cutils);
+  opg_knn_work<in_t, ind_t, dist_t, out_t> work(params, cutils);
 
   ASSERT(params.k <= 1024, "k must be <= 1024");
   ASSERT(params.batch_size > 0, "max_batch_size must be > 0");
   ASSERT(params.k < params.idx_desc->M,
          "k must be less than the total number of query rows");
-  for (Matrix::RankSizePair *rsp : utils.idxPartsToRanks) {
+  for (Matrix::RankSizePair *rsp : work.idxPartsToRanks) {
     ASSERT(rsp->size >= params.k,
            "k must be <= the number of rows in the smallest index partition.");
   }
@@ -204,7 +198,7 @@ void opg_knn(opg_knn_param<in_t, ind_t, dist_t, out_t> &params,
   // Loop through query parts for all ranks
   for (int i = 0; i < params.query_desc->totalBlocks();
        i++) {  // For each query partitions
-    Matrix::RankSizePair *partition = utils.queryPartsToRanks[i];
+    Matrix::RankSizePair *partition = work.queryPartsToRanks[i];
     int part_rank = partition->rank;
     size_t part_n_rows = partition->size;
 
@@ -219,13 +213,13 @@ void opg_knn(opg_knn_param<in_t, ind_t, dist_t, out_t> &params,
       if (cur_batch == total_batches - 1)
         cur_batch_size = part_n_rows - (cur_batch * params.batch_size);
 
-      if (utils.my_rank == part_rank)
-        CUML_LOG_DEBUG("Root Rank is %d", utils.my_rank);
+      if (work.my_rank == part_rank)
+        CUML_LOG_DEBUG("Root Rank is %d", work.my_rank);
 
       /**
         * Root broadcasts batch to all other ranks
         */
-      CUML_LOG_DEBUG("Rank %d: Performing Broadcast", utils.my_rank);
+      CUML_LOG_DEBUG("Rank %d: Performing Broadcast", work.my_rank);
 
       device_buffer<in_t> part_data(cutils.alloc, cutils.stream, 0);
 
@@ -236,7 +230,7 @@ void opg_knn(opg_knn_param<in_t, ind_t, dist_t, out_t> &params,
 
       device_buffer<in_t> tmp_batch_buf(cutils.alloc, cutils.stream, 0);
       // current partition's owner rank broadcasts
-      if (part_rank == utils.my_rank) {
+      if (part_rank == work.my_rank) {
         Matrix::Data<in_t> *data = params.query_data->at(local_parts_completed);
 
         // If query is column major and total_batches > 0, create a
@@ -256,47 +250,47 @@ void opg_knn(opg_knn_param<in_t, ind_t, dist_t, out_t> &params,
         }
 
         // all other (index) ranks receive
-      } else if (utils.idxRanks.find(utils.my_rank) != utils.idxRanks.end()) {
+      } else if (work.idxRanks.find(work.my_rank) != work.idxRanks.end()) {
         part_data.resize(batch_input_elms, cutils.stream);
         cur_query_ptr = part_data.data();
       }
 
       bool my_rank_is_idx =
-        utils.idxRanks.find(utils.my_rank) != utils.idxRanks.end();
+        work.idxRanks.find(work.my_rank) != work.idxRanks.end();
 
       /**
         * Send query to index partitions
         */
-      if (utils.my_rank == part_rank || my_rank_is_idx)
-        broadcast_query(utils, cutils, part_rank, cur_query_ptr,
+      if (work.my_rank == part_rank || my_rank_is_idx)
+        broadcast_query(work, cutils, part_rank, cur_query_ptr,
                         batch_input_elms);
 
       if (my_rank_is_idx) {
         /**
           * All index ranks perform local KNN
           */
-        CUML_LOG_DEBUG("Rank %d: Performing Local KNN", utils.my_rank);
+        CUML_LOG_DEBUG("Rank %d: Performing Local KNN", work.my_rank);
 
         size_t batch_knn_elms = params.k * cur_batch_size;
 
         if (params.knn_op != knn_operation::knn) {
           // No labels for KNN only operation
-          utils.res->resize(batch_knn_elms * params.n_outputs, cutils.stream);
+          work.res.resize(batch_knn_elms * params.n_outputs, cutils.stream);
         }
-        utils.res_I->resize(batch_knn_elms, cutils.stream);
-        utils.res_D->resize(batch_knn_elms, cutils.stream);
+        work.res_I.resize(batch_knn_elms, cutils.stream);
+        work.res_D.resize(batch_knn_elms, cutils.stream);
 
         // Perform a local KNN search
-        perform_local_knn(params, utils, cutils, cur_query_ptr, cur_batch_size);
+        perform_local_knn(params, work, cutils, cur_query_ptr, cur_batch_size);
 
         if (params.knn_op != knn_operation::knn) {
           // Get the right labels for indices obtained after a KNN merge
-          copy_label_outputs_from_index_parts(params, utils, cutils,
+          copy_label_outputs_from_index_parts(params, work, cutils,
                                               cur_batch_size);
         }
       }
 
-      if (part_rank == utils.my_rank || my_rank_is_idx) {
+      if (part_rank == work.my_rank || my_rank_is_idx) {
         /**
           * Ranks exchange results.
           * Each rank having index partition(s) sends
@@ -305,27 +299,27 @@ void opg_knn(opg_knn_param<in_t, ind_t, dist_t, out_t> &params,
           * receives and performs a reduce even if it has
           * no index partition (part_rank == my_rank)
           */
-        CUML_LOG_DEBUG("Rank %d: Exchanging results", utils.my_rank);
-        exchange_results(params, utils, cutils, part_rank, cur_batch_size);
+        CUML_LOG_DEBUG("Rank %d: Exchanging results", work.my_rank);
+        exchange_results(params, work, cutils, part_rank, cur_batch_size);
       }
 
       /**
         * Root rank performs local reduce
         */
-      if (part_rank == utils.my_rank) {
-        CUML_LOG_DEBUG("Rank %d: Performing Reduce", utils.my_rank);
+      if (part_rank == work.my_rank) {
+        CUML_LOG_DEBUG("Rank %d: Performing Reduce", work.my_rank);
 
         // Reduce all local results to a global result for a given query batch
-        reduce(params, utils, cutils, local_parts_completed, total_n_processed,
+        reduce(params, work, cutils, local_parts_completed, total_n_processed,
                cur_batch_size);
 
-        CUML_LOG_DEBUG("Rank %d: Finished Reduce", utils.my_rank);
+        CUML_LOG_DEBUG("Rank %d: Finished Reduce", work.my_rank);
       }
 
       total_n_processed += cur_batch_size;
     }
 
-    if (utils.my_rank == part_rank) local_parts_completed++;
+    if (work.my_rank == part_rank) local_parts_completed++;
   }
 };
 
@@ -338,21 +332,21 @@ void opg_knn(opg_knn_param<in_t, ind_t, dist_t, out_t> &params,
  @param[in] broadcast_size Size of broadcast
  */
 template <typename in_t, typename ind_t, typename dist_t, typename out_t>
-void broadcast_query(opg_knn_utils<in_t, ind_t, dist_t, out_t> &utils,
+void broadcast_query(opg_knn_work<in_t, ind_t, dist_t, out_t> &work,
                      cuda_utils &cutils, int part_rank, in_t *broadcast,
                      size_t broadcast_size) {
   int request_idx = 0;
   std::vector<raft::comms::request_t> requests;
-  if (part_rank == utils.my_rank) {  // Either broadcast to other workers
-    int idx_rank_size = utils.idxRanks.size();
-    if (utils.idxRanks.find(utils.my_rank) != utils.idxRanks.end()) {
+  if (part_rank == work.my_rank) {  // Either broadcast to other workers
+    int idx_rank_size = work.idxRanks.size();
+    if (work.idxRanks.find(work.my_rank) != work.idxRanks.end()) {
       --idx_rank_size;
     }
 
     requests.resize(idx_rank_size);
 
-    for (int rank : utils.idxRanks) {
-      if (rank != utils.my_rank) {
+    for (int rank : work.idxRanks) {
+      if (rank != work.my_rank) {
         cutils.comm->isend(broadcast, broadcast_size, rank, 0,
                            requests.data() + request_idx);
         ++request_idx;
@@ -376,26 +370,26 @@ void broadcast_query(opg_knn_utils<in_t, ind_t, dist_t, out_t> &utils,
 /*!
  Perform a local KNN search for a given query batch
  @param[in] params Parameters for distrbuted KNN operation
- @param[in] utils Utilities for distributed KNN
+ @param[in] work Current work for distributed KNN
  @param[in] cutils Utilities for CUDA and RAFT comms
  @param[in] query Pointer to query
  @param[in] query_size Size of query
  */
 template <typename in_t, typename ind_t, typename dist_t, typename out_t>
 void perform_local_knn(opg_knn_param<in_t, ind_t, dist_t, out_t> &params,
-                       opg_knn_utils<in_t, ind_t, dist_t, out_t> &utils,
+                       opg_knn_work<in_t, ind_t, dist_t, out_t> &work,
                        cuda_utils &cutils, in_t *query, size_t query_size) {
   std::vector<in_t *> ptrs(params.idx_data->size());
   std::vector<int> sizes(params.idx_data->size());
 
   for (int cur_idx = 0; cur_idx < params.idx_data->size(); cur_idx++) {
     ptrs[cur_idx] = params.idx_data->at(cur_idx)->ptr;
-    sizes[cur_idx] = utils.local_idx_parts[cur_idx]->size;
+    sizes[cur_idx] = work.local_idx_parts[cur_idx]->size;
   }
 
   // Offset nearest neighbor index matrix by partition indices
   std::vector<size_t> start_indices =
-    params.idx_desc->startIndices(utils.my_rank);
+    params.idx_desc->startIndices(work.my_rank);
   // PartDescriptor uses size_t while FAISS uses int64_t
   // so we need to do a quick conversion.
   std::vector<int64_t> start_indices_long;
@@ -405,8 +399,8 @@ void perform_local_knn(opg_knn_param<in_t, ind_t, dist_t, out_t> &params,
   // ID ranges need to be offset by each local partition's
   // starting indices.
   MLCommon::Selection::brute_force_knn(
-    ptrs, sizes, params.idx_desc->N, query, query_size, utils.res_I->data(),
-    utils.res_D->data(), params.k, cutils.alloc, cutils.stream,
+    ptrs, sizes, params.idx_desc->N, query, query_size, work.res_I.data(),
+    work.res_D.data(), params.k, cutils.alloc, cutils.stream,
     cutils.internal_streams.data(), cutils.internal_streams.size(),
     params.rowMajorIndex, params.rowMajorQuery, &start_indices_long);
   CUDA_CHECK(cudaStreamSynchronize(cutils.stream));
@@ -443,14 +437,14 @@ __global__ void copy_label_outputs_from_index_parts_kernel(
 /*!
  Get the right labels for indices obtained after a KNN merge
  @param[in] params Parameters for distrbuted KNN operation
- @param[in] utils Utilities for distributed KNN
+ @param[in] work Current work for distributed KNN
  @param[in] cutils Utilities for CUDA and RAFT comms
  @param[in] batch_size Batch size
  */
 template <typename in_t, typename ind_t, typename dist_t, typename out_t>
 void copy_label_outputs_from_index_parts(
   opg_knn_param<in_t, ind_t, dist_t, out_t> &params,
-  opg_knn_utils<in_t, ind_t, dist_t, out_t> &utils, cuda_utils &cutils,
+  opg_knn_work<in_t, ind_t, dist_t, out_t> &work, cuda_utils &cutils,
   size_t batch_size) {
   const int TPB_X = 256;
   int n_labels = batch_size * params.k;
@@ -459,8 +453,8 @@ void copy_label_outputs_from_index_parts(
 
   uint64_t offset = 0;
   std::vector<uint64_t> offsets_h;
-  for (auto &rsp : utils.idxPartsToRanks) {
-    if (rsp->rank == utils.my_rank) {
+  for (auto &rsp : work.idxPartsToRanks) {
+    if (rsp->rank == work.my_rank) {
       offsets_h.push_back(offset);
     }
     offset += rsp->size;
@@ -480,7 +474,7 @@ void copy_label_outputs_from_index_parts(
 
     copy_label_outputs_from_index_parts_kernel<TPB_X, ind_t, out_t>
       <<<grid, blk, 0, cutils.stream>>>(
-        utils.res->data() + (o * n_labels), utils.res_I->data(), parts_d.data(),
+        work.res.data() + (o * n_labels), work.res_I.data(), parts_d.data(),
         offsets_d.data(), batch_size, n_parts, n_labels);
   }
   CUDA_CHECK(cudaStreamSynchronize(cutils.stream));
@@ -492,33 +486,33 @@ void copy_label_outputs_from_index_parts(
  All non-root index ranks send the results for the current
  query batch to the root rank for the batch.
  @param[in] params Parameters for distrbuted KNN operation
- @param[in] utils Utilities for distributed KNN
+ @param[in] work Current work for distributed KNN
  @param[in] cutils Utilities for CUDA and RAFT comms
  @param[in] part_rank Rank of currently processed query batch
  @param[in] batch_size Batch size
  */
 template <typename in_t, typename ind_t, typename dist_t, typename out_t>
 void exchange_results(opg_knn_param<in_t, ind_t, dist_t, out_t> &params,
-                      opg_knn_utils<in_t, ind_t, dist_t, out_t> &utils,
+                      opg_knn_work<in_t, ind_t, dist_t, out_t> &work,
                       cuda_utils &cutils, int part_rank, size_t batch_size) {
   size_t batch_elms = batch_size * params.k;
 
   int request_idx = 0;
   std::vector<raft::comms::request_t> requests;
-  if (part_rank != utils.my_rank) {  // Either send local KNN results
+  if (part_rank != work.my_rank) {  // Either send local KNN results
     requests.resize(2);
-    cutils.comm->isend(utils.res_I->data(), batch_elms, part_rank, 0,
+    cutils.comm->isend(work.res_I.data(), batch_elms, part_rank, 0,
                        requests.data() + request_idx);
     ++request_idx;
 
-    cutils.comm->isend(utils.res_D->data(), batch_elms, part_rank, 0,
+    cutils.comm->isend(work.res_D.data(), batch_elms, part_rank, 0,
                        requests.data() + request_idx);
     ++request_idx;
 
     if (params.knn_op != knn_operation::knn) {
       requests.resize(2 + params.n_outputs);
       for (size_t o = 0; o < params.n_outputs; o++) {
-        cutils.comm->isend(utils.res->data() + (o * batch_elms), batch_elms,
+        cutils.comm->isend(work.res.data() + (o * batch_elms), batch_elms,
                            part_rank, 0, requests.data() + request_idx);
         ++request_idx;
       }
@@ -526,17 +520,17 @@ void exchange_results(opg_knn_param<in_t, ind_t, dist_t, out_t> &params,
   } else {  // Or, as the owner of currently processed query batch,
             // receive results from other workers for reduce
     bool part_rank_is_idx =
-      utils.idxRanks.find(part_rank) != utils.idxRanks.end();
-    size_t idx_rank_size = utils.idxRanks.size();
+      work.idxRanks.find(part_rank) != work.idxRanks.end();
+    size_t idx_rank_size = work.idxRanks.size();
 
     // if root rank is an index, it will already have
     // query data, so no need to receive from it.
-    utils.res_I->resize(batch_elms * idx_rank_size, cutils.stream);
-    utils.res_D->resize(batch_elms * idx_rank_size, cutils.stream);
+    work.res_I.resize(batch_elms * idx_rank_size, cutils.stream);
+    work.res_D.resize(batch_elms * idx_rank_size, cutils.stream);
 
     if (params.knn_op != knn_operation::knn) {
-      utils.res->resize(batch_elms * params.n_outputs * idx_rank_size,
-                        cutils.stream);
+      work.res.resize(batch_elms * params.n_outputs * idx_rank_size,
+                      cutils.stream);
     }
 
     if (part_rank_is_idx) {
@@ -547,26 +541,26 @@ void exchange_results(opg_knn_param<in_t, ind_t, dist_t, out_t> &params,
        */
       --idx_rank_size;
       int i = 0;
-      for (int rank : utils.idxRanks) {
-        if (rank == utils.my_rank) {
+      for (int rank : work.idxRanks) {
+        if (rank == work.my_rank) {
           size_t batch_offset = batch_elms * i;
 
           // Indices and distances are stored in rank order
-          raft::copy_async(utils.res_I->data() + batch_offset,
-                           utils.res_I->data(), batch_elms, cutils.stream);
-          raft::copy_async(utils.res_D->data() + batch_offset,
-                           utils.res_D->data(), batch_elms, cutils.stream);
+          raft::copy_async(work.res_I.data() + batch_offset, work.res_I.data(),
+                           batch_elms, cutils.stream);
+          raft::copy_async(work.res_D.data() + batch_offset, work.res_D.data(),
+                           batch_elms, cutils.stream);
 
           if (params.knn_op != knn_operation::knn) {
             device_buffer<out_t> tmp_res(cutils.alloc, cutils.stream,
                                          params.n_outputs * batch_elms);
-            raft::copy_async(tmp_res.data(), utils.res->data(), tmp_res.size(),
+            raft::copy_async(tmp_res.data(), work.res.data(), tmp_res.size(),
                              cutils.stream);
 
             for (int o = 0; o < params.n_outputs; ++o) {
               // Outputs are stored in target order and then in rank order
               raft::copy_async(
-                utils.res->data() + (o * utils.idxRanks.size() * batch_elms) +
+                work.res.data() + (o * work.idxRanks.size() * batch_elms) +
                   batch_offset,
                 tmp_res.data() + (o * batch_elms), batch_elms, cutils.stream);
             }
@@ -584,30 +578,30 @@ void exchange_results(opg_knn_param<in_t, ind_t, dist_t, out_t> &params,
     requests.resize(request_size);
 
     int num_received = 0;
-    for (int rank : utils.idxRanks) {
-      if (rank != utils.my_rank) {
+    for (int rank : work.idxRanks) {
+      if (rank != work.my_rank) {
         size_t batch_offset = batch_elms * num_received;
 
         // Indices and distances are stored in rank order
-        cutils.comm->irecv(utils.res_I->data() + batch_offset, batch_elms, rank,
+        cutils.comm->irecv(work.res_I.data() + batch_offset, batch_elms, rank,
                            0, requests.data() + request_idx);
         ++request_idx;
-        cutils.comm->irecv(utils.res_D->data() + batch_offset, batch_elms, rank,
+        cutils.comm->irecv(work.res_D.data() + batch_offset, batch_elms, rank,
                            0, requests.data() + request_idx);
         ++request_idx;
 
         if (params.knn_op != knn_operation::knn) {
           for (size_t o = 0; o < params.n_outputs; o++) {
             // Outputs are stored in target order and then in rank order
-            out_t *r = utils.res->data() +
-                       (o * utils.idxRanks.size() * batch_elms) + batch_offset;
+            out_t *r = work.res.data() +
+                       (o * work.idxRanks.size() * batch_elms) + batch_offset;
             cutils.comm->irecv(r, batch_elms, rank, 0,
                                requests.data() + request_idx);
             ++request_idx;
           }
         }
       }
-      if (rank != utils.my_rank || part_rank_is_idx) {
+      if (rank != work.my_rank || part_rank_is_idx) {
         /**
           * Increase index for each new reception
           * Also increase index when the worker doing a reduce operation
@@ -628,7 +622,7 @@ void exchange_results(opg_knn_param<in_t, ind_t, dist_t, out_t> &params,
 /*!
  Reduce all local results to a global result for a given query batch
  @param[in] params Parameters for distrbuted KNN operation
- @param[in] utils Utilities for distributed KNN
+ @param[in] work Current work for distributed KNN
  @param[in] cutils Utilities for CUDA and RAFT comms
  @param[in] part_idx Partition index of query batch
  @param[in] processed_in_part Number of queries already processed in part (serves as offset)
@@ -636,13 +630,11 @@ void exchange_results(opg_knn_param<in_t, ind_t, dist_t, out_t> &params,
  */
 template <typename in_t, typename ind_t, typename dist_t, typename out_t>
 void reduce(opg_knn_param<in_t, ind_t, dist_t, out_t> &params,
-            opg_knn_utils<in_t, ind_t, dist_t, out_t> &utils,
-            cuda_utils &cutils, int part_idx, size_t processed_in_part,
-            size_t batch_size) {
-  device_buffer<ind_t> trans(cutils.alloc, cutils.stream,
-                             utils.idxRanks.size());
+            opg_knn_work<in_t, ind_t, dist_t, out_t> &work, cuda_utils &cutils,
+            int part_idx, size_t processed_in_part, size_t batch_size) {
+  device_buffer<ind_t> trans(cutils.alloc, cutils.stream, work.idxRanks.size());
   CUDA_CHECK(cudaMemsetAsync(
-    trans.data(), 0, utils.idxRanks.size() * sizeof(ind_t), cutils.stream));
+    trans.data(), 0, work.idxRanks.size() * sizeof(ind_t), cutils.stream));
 
   size_t batch_offset = processed_in_part * params.k;
 
@@ -664,8 +656,8 @@ void reduce(opg_knn_param<in_t, ind_t, dist_t, out_t> &params,
 
   // Merge all KNN local results
   MLCommon::Selection::knn_merge_parts(
-    utils.res_D->data(), utils.res_I->data(), distances, indices, batch_size,
-    utils.idxRanks.size(), params.k, cutils.stream, trans.data());
+    work.res_D.data(), work.res_I.data(), distances, indices, batch_size,
+    work.idxRanks.size(), params.k, cutils.stream, trans.data());
   CUDA_CHECK(cudaStreamSynchronize(cutils.stream));
   CUDA_CHECK(cudaPeekAtLastError());
 
@@ -673,8 +665,8 @@ void reduce(opg_knn_param<in_t, ind_t, dist_t, out_t> &params,
     device_buffer<out_t> merged_outputs_b(
       cutils.alloc, cutils.stream, params.n_outputs * batch_size * params.k);
     // Get the right labels for indices obtained after local KNN searches
-    merge_labels(params, utils, cutils, merged_outputs_b.data(), indices,
-                 utils.res->data(), utils.res_I->data(), batch_size);
+    merge_labels(params, work, cutils, merged_outputs_b.data(), indices,
+                 work.res.data(), work.res_I.data(), batch_size);
 
     out_t *outputs = nullptr;
     std::vector<float *> probas_with_offsets;
@@ -693,7 +685,7 @@ void reduce(opg_knn_param<in_t, ind_t, dist_t, out_t> &params,
     }
 
     // Perform final classification, regression or class-proba operation
-    perform_local_operation(params, utils, cutils, outputs, probas_with_offsets,
+    perform_local_operation(params, work, cutils, outputs, probas_with_offsets,
                             merged_outputs_b.data(), batch_size);
 
     CUDA_CHECK(cudaStreamSynchronize(cutils.stream));
@@ -750,7 +742,7 @@ __global__ void merge_labels_kernel(out_t *outputs, dist_t *knn_indices,
 /*!
  Get the right labels for indices obtained after local KNN searches
  @param[in] params Parameters for distrbuted KNN operation
- @param[in] utils Utilities for distributed KNN
+ @param[in] work Current work for distributed KNN
  @param[in] cutils Utilities for CUDA and RAFT comms
  @param[out] output KNN outputs output array
  @param[out] knn_indices KNN class-probas output array (class-proba only)
@@ -758,9 +750,9 @@ __global__ void merge_labels_kernel(out_t *outputs, dist_t *knn_indices,
  @param[in] unmerged_knn_indices Batch size
  @param[in] batch_size Batch size
  */
-template <typename opg_knn_param_t, typename opg_knn_utils_t, typename ind_t,
+template <typename opg_knn_param_t, typename opg_knn_work_t, typename ind_t,
           typename out_t>
-void merge_labels(opg_knn_param_t &params, opg_knn_utils_t &utils,
+void merge_labels(opg_knn_param_t &params, opg_knn_work_t &work,
                   cuda_utils &cutils, out_t *output, ind_t *knn_indices,
                   out_t *unmerged_outputs, ind_t *unmerged_knn_indices,
                   int batch_size) {
@@ -771,7 +763,7 @@ void merge_labels(opg_knn_param_t &params, opg_knn_utils_t &utils,
 
   int offset = 0;
   std::vector<uint64_t> offsets_h;
-  for (auto &rsp : utils.idxPartsToRanks) {
+  for (auto &rsp : work.idxPartsToRanks) {
     offsets_h.push_back(offset);
     offset += rsp->size;
   }
@@ -781,9 +773,9 @@ void merge_labels(opg_knn_param_t &params, opg_knn_utils_t &utils,
                       cutils.stream);
 
   std::vector<int> parts_to_ranks_h;
-  for (auto &rsp : utils.idxPartsToRanks) {
+  for (auto &rsp : work.idxPartsToRanks) {
     int i = 0;
-    for (int rank : utils.idxRanks) {
+    for (int rank : work.idxRanks) {
       if (rank == rsp->rank) {
         parts_to_ranks_h.push_back(i);
       }
@@ -798,13 +790,13 @@ void merge_labels(opg_knn_param_t &params, opg_knn_utils_t &utils,
   merge_labels_kernel<TPB_X><<<grid, blk, 0, cutils.stream>>>(
     output, knn_indices, unmerged_outputs, unmerged_knn_indices,
     offsets_d.data(), parts_to_ranks_d.data(), params.k, params.n_outputs,
-    n_labels, utils.idxPartsToRanks.size(), utils.idxRanks.size());
+    n_labels, work.idxPartsToRanks.size(), work.idxRanks.size());
 }
 
 /*!
  Perform final classification, regression or class-proba operation for a given query batch
  @param[in] params Parameters for distrbuted KNN operation
- @param[in] utils Utilities for distributed KNN
+ @param[in] work Current work for distributed KNN
  @param[in] cutils Utilities for CUDA and RAFT comms
  @param[out] outputs KNN outputs output array
  @param[out] probas_with_offsets KNN class-probas output array (class-proba only)
@@ -815,7 +807,7 @@ template <typename in_t, typename ind_t, typename dist_t, typename out_t,
           typename std::enable_if<std::is_floating_point<out_t>::value>::type
             * = nullptr>
 void perform_local_operation(opg_knn_param<in_t, ind_t, dist_t, out_t> &params,
-                             opg_knn_utils<in_t, ind_t, dist_t, out_t> &utils,
+                             opg_knn_work<in_t, ind_t, dist_t, out_t> &work,
                              cuda_utils &cutils, out_t *outputs,
                              std::vector<float *> &probas_with_offsets,
                              out_t *labels, size_t batch_size) {
@@ -833,7 +825,7 @@ void perform_local_operation(opg_knn_param<in_t, ind_t, dist_t, out_t> &params,
 /*!
  Perform final classification, regression or class-proba operation for a given query batch
  @param[in] params Parameters for distrbuted KNN operation
- @param[in] utils Utilities for distributed KNN
+ @param[in] work Current work for distributed KNN
  @param[in] cutils Utilities for CUDA and RAFT comms
  @param[out] outputs KNN outputs output array
  @param[out] probas_with_offsets KNN class-probas output array (class-proba only)
@@ -844,7 +836,7 @@ template <
   typename in_t, typename ind_t, typename dist_t, typename out_t,
   typename std::enable_if<std::is_integral<out_t>::value>::type * = nullptr>
 void perform_local_operation(opg_knn_param<in_t, ind_t, dist_t, out_t> &params,
-                             opg_knn_utils<in_t, ind_t, dist_t, out_t> &utils,
+                             opg_knn_work<in_t, ind_t, dist_t, out_t> &work,
                              cuda_utils &cutils, out_t *outputs,
                              std::vector<float *> &probas_with_offsets,
                              out_t *labels, size_t batch_size) {
