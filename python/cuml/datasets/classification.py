@@ -204,6 +204,8 @@ def make_classification(n_samples=100, n_features=20, n_informative=2,
            selection benchmark", 2003.
 
     """
+    cuml.internals.set_api_output_type("cupy")
+
     generator = _create_rs_generator(random_state)
     np_seed = int(generator.randint(n_samples, size=1))
     np.random.seed(np_seed)
