@@ -30,10 +30,11 @@ from cuml.datasets import (
 
 
 TEST_OUTPUT_TYPES = (
-    (None, cp.ndarray),  # Default is cupy if None is used
-    ('numpy', np.ndarray),
-    ('cupy', cp.ndarray),
-    ('numba', numba.cuda.devicearray.DeviceNDArrayBase),
+    (None, (cp.ndarray, cp.ndarray)),  # Default is cupy if None is used
+    ('numpy', (np.ndarray, np.ndarray)),
+    ('cupy', (cp.ndarray, cp.ndarray)),
+    ('numba', (numba.cuda.devicearray.DeviceNDArrayBase,
+               numba.cuda.devicearray.DeviceNDArrayBase)),
     ('cudf', (cudf.DataFrame, cudf.Series))
 )
 
@@ -44,35 +45,25 @@ GENERATORS = (
 
 @pytest.mark.parametrize('generator', GENERATORS)
 @pytest.mark.parametrize(
-    'output_str,output_type', TEST_OUTPUT_TYPES
+    'output_str,output_types', TEST_OUTPUT_TYPES
 )
-def test_xy_output_type(generator, output_str, output_type):
+def test_xy_output_type(generator, output_str, output_types):
 
     # Set the output type and ensure data of that type is generated
     with cuml.using_output_type(output_str):
         data = generator(n_samples=10, random_state=0)
 
-    try:
-        data_and_type = zip(data, output_type)
-    except TypeError:
-        data_and_type = zip(data, (output_type, output_type))
-
-    for data, type_ in data_and_type:
+    for data, type_ in zip(data, output_types):
         assert isinstance(data, type_)
 
 
 @pytest.mark.parametrize(
-    'output_str,output_type', TEST_OUTPUT_TYPES
+    'output_str,output_types', TEST_OUTPUT_TYPES
 )
-def test_time_series_label_output_type(output_str, output_type):
+def test_time_series_label_output_type(output_str, output_types):
 
     # Set the output type and ensure data of that type is generated
     with cuml.using_output_type(output_str):
         data = make_arima(n_obs=10, random_state=0)[0]
 
-    try:
-        type_ = output_type[1]
-    except TypeError:
-        type_ = output_type
-
-    assert isinstance(data, type_)
+    assert isinstance(data, output_types[1])
