@@ -102,55 +102,16 @@ __global__ void weak_cc_init_all_kernel(Index_ *labels, Index_ N,
   }
 }
 
-template <typename Index_, int TPB_X = 32, typename Lambda>
-void weak_cc_label_batched(Index_ *labels, const Index_ *row_ind,
-                           const Index_ *row_ind_ptr, Index_ nnz, Index_ N,
-                           WeakCCState *state, Index_ start_vertex_id,
-                           Index_ batch_size, cudaStream_t stream,
-                           Lambda filter_op) {
-  ASSERT(sizeof(Index_) == 4 || sizeof(Index_) == 8,
-         "Index_ should be 4 or 8 bytes");
-
-  bool host_m;
-
-  dim3 blocks(raft::ceildiv(N, Index_(TPB_X)));
-  dim3 threads(TPB_X);
-  Index_ MAX_LABEL = std::numeric_limits<Index_>::max();
-  weak_cc_init_all_kernel<Index_, TPB_X>
-    <<<blocks, threads, 0, stream>>>(labels, N, MAX_LABEL, filter_op);
-  CUDA_CHECK(cudaPeekAtLastError());
-
-  int n_iters = 0;
-  do {
-    CUDA_CHECK(cudaMemsetAsync(state->m, false, sizeof(bool), stream));
-
-    weak_cc_label_device<Index_, TPB_X><<<blocks, threads, 0, stream>>>(
-      labels, row_ind, row_ind_ptr, nnz, state->m, start_vertex_id, batch_size,
-      N, filter_op);
-    CUDA_CHECK(cudaPeekAtLastError());
-
-    //** Updating m *
-    raft::update_host(&host_m, state->m, 1, stream);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
-
-    n_iters++;
-  } while (host_m);
-}
-
 /**
- * @brief Compute weakly connected components. Note that the resulting labels
- * may not be taken from a monotonically increasing set (eg. numbers may be
- * skipped). The MLCommon::Label package contains a primitive `make_monotonic`,
- * which will make a monotonically increasing set of labels.
+ * @brief Partial calculation of the weakly connected components in the
+ * context of a batched algorithm: the labels are computed wrt the sub-graph
+ * represented by the given CSR matrix of dimensions batch_size * N.
+ * Note that this overwrites the labels array and it is the responsibility of
+ * the caller to combine the results from different batches
+ * (cf label/merge_labels.cuh)
  *
- * This implementation comes from [1] and solves component labeling problem in
- * parallel on CSR-indexes based upon the vertex degree and adjacency graph.
- *
- * [1] Hawick, K.A et al, 2010. "Parallel graph component labelling with GPUs and CUDA"
- *
- * @tparam Type the numeric type of non-floating point elements
+ * @tparam Index_ the numeric type of non-floating point elements
  * @tparam TPB_X the threads to use per block when configuring the kernel
- * @tparam Lambda the type of an optional filter function (int)->bool
  * @param labels an array for the output labels
  * @param row_ind the compressed row index of the CSR array
  * @param row_ind_ptr the row index pointer of the CSR array
@@ -169,25 +130,45 @@ void weak_cc_batched(Index_ *labels, const Index_ *row_ind,
                      Index_ start_vertex_id, Index_ batch_size,
                      WeakCCState *state, cudaStream_t stream,
                      Lambda filter_op) {
-  weak_cc_label_batched<Index_, TPB_X>(labels, row_ind, row_ind_ptr, nnz, N,
-                                       state, start_vertex_id, batch_size,
-                                       stream, filter_op);
+  ASSERT(sizeof(Index_) == 4 || sizeof(Index_) == 8,
+         "Index_ should be 4 or 8 bytes");
+
+  bool host_m;
+
+  Index_ MAX_LABEL = std::numeric_limits<Index_>::max();
+  weak_cc_init_all_kernel<Index_, TPB_X>
+    <<<raft::ceildiv(N, Index_(TPB_X)), TPB_X, 0, stream>>>(
+      labels, N, MAX_LABEL, filter_op);
+  CUDA_CHECK(cudaPeekAtLastError());
+
+  int n_iters = 0;
+  do {
+    CUDA_CHECK(cudaMemsetAsync(state->m, false, sizeof(bool), stream));
+
+    weak_cc_label_device<Index_, TPB_X>
+      <<<raft::ceildiv(batch_size, Index_(TPB_X)), TPB_X, 0, stream>>>(
+        labels, row_ind, row_ind_ptr, nnz, state->m, start_vertex_id,
+        batch_size, N, filter_op);
+    CUDA_CHECK(cudaPeekAtLastError());
+
+    //** Updating m *
+    raft::update_host(&host_m, state->m, 1, stream);
+    CUDA_CHECK(cudaStreamSynchronize(stream));
+
+    n_iters++;
+  } while (host_m);
 }
 
 /**
- * @brief Compute weakly connected components. Note that the resulting labels
- * may not be taken from a monotonically increasing set (eg. numbers may be
- * skipped). The MLCommon::Label package contains a primitive `make_monotonic`,
- * which will make a monotonically increasing set of labels.
+ * @brief Partial calculation of the weakly connected components in the
+ * context of a batched algorithm: the labels are computed wrt the sub-graph
+ * represented by the given CSR matrix of dimensions batch_size * N.
+ * Note that this overwrites the labels array and it is the responsibility of
+ * the caller to combine the results from different batches
+ * (cf label/merge_labels.cuh)
  *
- * This implementation comes from [1] and solves component labeling problem in
- * parallel on CSR-indexes based upon the vertex degree and adjacency graph.
- *
- * [1] Hawick, K.A et al, 2010. "Parallel graph component labelling with GPUs and CUDA"
- *
- * @tparam Type the numeric type of non-floating point elements
+ * @tparam Index_ the numeric type of non-floating point elements
  * @tparam TPB_X the threads to use per block when configuring the kernel
- * @tparam Lambda the type of an optional filter function (int)->bool
  * @param labels an array for the output labels
  * @param row_ind the compressed row index of the CSR array
  * @param row_ind_ptr the row index pointer of the CSR array
