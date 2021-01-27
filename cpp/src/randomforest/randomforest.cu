@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -335,6 +335,7 @@ void build_treelite_forest(ModelHandle* model,
       model_builder, "pred_transform", "max_index"));
   }
 
+#pragma omp parallel for
   for (int i = 0; i < forest->rf_params.n_trees; i++) {
     DecisionTree::TreeMetaDataNode<T, L>* tree_ptr = &forest->trees[i];
     TreeBuilderHandle tree_builder;
@@ -346,6 +347,7 @@ void build_treelite_forest(ModelHandle* model,
                                               num_class);
 
       // The third argument -1 means append to the end of the tree list.
+#pragma omp critical
       TREELITE_CHECK(
         TreeliteModelBuilderInsertTree(model_builder, tree_builder, -1));
     }

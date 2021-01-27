@@ -40,7 +40,7 @@ using namespace ML;
  */
 template <int TPB_X, typename value_idx, typename T>
 void run(int n, const value_idx *knn_indices, const T *knn_dists,
-         int n_neighbors, MLCommon::Sparse::COO<T> *coo, UMAPParams *params,
+         int n_neighbors, raft::sparse::COO<T> *coo, UMAPParams *params,
          std::shared_ptr<deviceAllocator> alloc, cudaStream_t stream,
          int algorithm = 0) {
   switch (algorithm) {

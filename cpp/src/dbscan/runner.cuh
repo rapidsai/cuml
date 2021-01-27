@@ -139,7 +139,7 @@ size_t run(const raft::handle_t& handle, Type_f* x, Index_ N, Index_ D,
   temp += exScanSize;
 
   // Running VertexDeg
-  MLCommon::Sparse::WeakCCState state(xa, fa, m);
+  raft::sparse::WeakCCState state(xa, fa, m);
   MLCommon::device_buffer<Index_> adj_graph(handle.get_device_allocator(),
                                             stream);
 
@@ -189,7 +189,7 @@ size_t run(const raft::handle_t& handle, Type_f* x, Index_ N, Index_ D,
     CUML_LOG_DEBUG("--> Computing connected components");
 
     start_time = raft::curTimeMillis();
-    MLCommon::Sparse::weak_cc_batched<Index_, 1024>(
+    raft::sparse::weak_cc_batched<Index_, 1024>(
       labels, ex_scan, adj_graph.data(), curradjlen, N, startVertexId, nPoints,
       &state, stream,
       [core_pts, startVertexId, nPoints] __device__(Index_ global_id) {

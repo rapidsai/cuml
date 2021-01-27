@@ -17,23 +17,25 @@
 #pragma once
 
 #include <raft/cudart_utils.h>
+
 #include <raft/linalg/distance_type.h>
 #include <raft/sparse/cusparse_wrappers.h>
 #include <raft/cuda_utils.cuh>
+#include <raft/mr/device/allocator.hpp>
+#include <raft/mr/device/buffer.hpp>
 
-#include <cuml/common/device_buffer.hpp>
-
-#include "csr.cuh"
-#include "utils.h"
-
-#include <cuml/common/cuml_allocator.hpp>
-#include <cuml/neighbors/knn.hpp>
+#include <sparse/linalg/transpose.h>
+#include <sparse/utils.h>
+#include <sparse/convert/coo.cuh>
+#include <sparse/convert/csr.cuh>
+#include <sparse/convert/dense.cuh>
+#include <sparse/csr.cuh>
 
 #include <cusparse_v2.h>
 
-namespace MLCommon {
-namespace Sparse {
-namespace Distance {
+namespace raft {
+namespace sparse {
+namespace distance {
 
 template <typename value_idx, typename value_t>
 struct distances_config_t {
@@ -55,14 +57,14 @@ struct distances_config_t {
 
   cusparseHandle_t handle;
 
-  std::shared_ptr<deviceAllocator> allocator;
+  std::shared_ptr<raft::mr::device::allocator> allocator;
   cudaStream_t stream;
 };
 
 template <typename value_t>
 class distances_t {
  public:
-  virtual void compute(value_t *out) { CUML_LOG_DEBUG("INside base"); }
+  virtual void compute(value_t *out) {}
   virtual ~distances_t() = default;
 };
 
@@ -105,12 +107,12 @@ class ip_distances_t : public distances_t<value_t> {
 	   * Compute pairwise distances and return dense matrix in column-major format
 	   */
 
-    CUML_LOG_DEBUG("Compute() inside inner-product d");
-    device_buffer<value_idx> out_batch_indptr(config_.allocator, config_.stream,
-                                              config_.a_nrows + 1);
-    device_buffer<value_idx> out_batch_indices(config_.allocator,
-                                               config_.stream, 0);
-    device_buffer<value_t> out_batch_data(config_.allocator, config_.stream, 0);
+    raft::mr::device::buffer<value_idx> out_batch_indptr(
+      config_.allocator, config_.stream, config_.a_nrows + 1);
+    raft::mr::device::buffer<value_idx> out_batch_indices(config_.allocator,
+                                                          config_.stream, 0);
+    raft::mr::device::buffer<value_t> out_batch_data(config_.allocator,
+                                                     config_.stream, 0);
 
     value_idx out_batch_nnz = get_nnz(out_batch_indptr.data());
 
@@ -126,10 +128,10 @@ class ip_distances_t : public distances_t<value_t> {
      * It would be nice if there was a gemm that could do
      * (sparse, sparse)->dense natively.
      */
-    csr_to_dense(config_.handle, config_.a_nrows, config_.b_nrows,
-                 out_batch_indptr.data(), out_batch_indices.data(),
-                 out_batch_data.data(), config_.a_nrows, out_distances,
-                 config_.stream, true);
+    convert::csr_to_dense(config_.handle, config_.a_nrows, config_.b_nrows,
+                          out_batch_indptr.data(), out_batch_indices.data(),
+                          out_batch_data.data(), config_.a_nrows, out_distances,
+                          config_.stream, true);
   }
 
   value_idx *trans_indptr() { return csc_indptr.data(); }
@@ -197,17 +199,14 @@ class ip_distances_t : public distances_t<value_t> {
     /**
      * Transpose index array into csc
      */
-    CUML_LOG_DEBUG("Transposing index CSR. rows=%d, cols=%d, nnz=%d",
-                   config_.b_nrows, config_.b_ncols, config_.b_nnz);
-
     csc_indptr.resize(config_.b_ncols + 1, config_.stream);
     csc_indices.resize(config_.b_nnz, config_.stream);
     csc_data.resize(config_.b_nnz, config_.stream);
 
-    csr_transpose(config_.handle, config_.b_indptr, config_.b_indices,
-                  config_.b_data, csc_indptr.data(), csc_indices.data(),
-                  csc_data.data(), config_.b_nrows, config_.b_ncols,
-                  config_.b_nnz, config_.allocator, config_.stream);
+    linalg::csr_transpose(config_.handle, config_.b_indptr, config_.b_indices,
+                          config_.b_data, csc_indptr.data(), csc_indices.data(),
+                          csc_data.data(), config_.b_nrows, config_.b_ncols,
+                          config_.b_nnz, config_.allocator, config_.stream);
   }
 
   value_t alpha;
@@ -217,10 +216,10 @@ class ip_distances_t : public distances_t<value_t> {
   cusparseMatDescr_t matC;
   cusparseMatDescr_t matD;
   cusparsePointerMode_t orig_ptr_mode;
-  device_buffer<char> workspace;
-  device_buffer<value_idx> csc_indptr;
-  device_buffer<value_idx> csc_indices;
-  device_buffer<value_t> csc_data;
+  raft::mr::device::buffer<char> workspace;
+  raft::mr::device::buffer<value_idx> csc_indptr;
+  raft::mr::device::buffer<value_idx> csc_indices;
+  raft::mr::device::buffer<value_t> csc_data;
   distances_config_t<value_idx, value_t> config_;
 };
 
@@ -275,10 +274,11 @@ void compute_l2(value_t *out, const value_idx *Q_coo_rows,
                 const value_t *Q_data, value_idx Q_nnz,
                 const value_idx *R_coo_rows, const value_t *R_data,
                 value_idx R_nnz, value_idx m, value_idx n,
-                cusparseHandle_t handle, std::shared_ptr<deviceAllocator> alloc,
+                cusparseHandle_t handle,
+                std::shared_ptr<raft::mr::device::allocator> alloc,
                 cudaStream_t stream) {
-  device_buffer<value_t> Q_sq_norms(alloc, stream, m);
-  device_buffer<value_t> R_sq_norms(alloc, stream, n);
+  raft::mr::device::buffer<value_t> Q_sq_norms(alloc, stream, m);
+  raft::mr::device::buffer<value_t> R_sq_norms(alloc, stream, n);
   CUDA_CHECK(
     cudaMemsetAsync(Q_sq_norms.data(), 0, Q_sq_norms.size() * sizeof(value_t)));
   CUDA_CHECK(
@@ -305,33 +305,26 @@ class l2_distances_t : public distances_t<value_t> {
       ip_dists(config) {}
 
   void compute(value_t *out_dists) {
-    CUML_LOG_DEBUG("Computing inner products");
     ip_dists.compute(out_dists);
 
     value_idx *b_indices = ip_dists.trans_indices();
     value_t *b_data = ip_dists.trans_data();
 
-    CUML_LOG_DEBUG("Computing COO row index array");
-    device_buffer<value_idx> search_coo_rows(config_.allocator, config_.stream,
-                                             config_.a_nnz);
-    csr_to_coo(config_.a_indptr, config_.a_nrows, search_coo_rows.data(),
-               config_.a_nnz, config_.stream);
-
-    CUML_LOG_DEBUG("Done.");
-
-    CUML_LOG_DEBUG("Computing L2");
+    raft::mr::device::buffer<value_idx> search_coo_rows(
+      config_.allocator, config_.stream, config_.a_nnz);
+    convert::csr_to_coo(config_.a_indptr, config_.a_nrows,
+                        search_coo_rows.data(), config_.a_nnz, config_.stream);
     compute_l2(out_dists, search_coo_rows.data(), config_.a_data, config_.a_nnz,
                b_indices, b_data, config_.b_nnz, config_.a_nrows,
                config_.b_nrows, config_.handle, config_.allocator,
                config_.stream);
-    CUML_LOG_DEBUG("Done.");
   }
 
   ~l2_distances_t() = default;
 
  private:
   distances_config_t<value_idx, value_t> config_;
-  device_buffer<char> workspace;
+  raft::mr::device::buffer<char> workspace;
   ip_distances_t<value_idx, value_t> ip_dists;
 };
 
@@ -353,8 +346,6 @@ template <typename value_idx = int, typename value_t = float>
 void pairwiseDistance(value_t *out,
                       distances_config_t<value_idx, value_t> input_config,
                       raft::distance::DistanceType metric) {
-  CUML_LOG_DEBUG("Running sparse pairwise distances with metric=%d", metric);
-
   switch (metric) {
     case raft::distance::DistanceType::L2Expanded:
       // EucExpandedL2
@@ -369,6 +360,6 @@ void pairwiseDistance(value_t *out,
   }
 }
 
-};  // END namespace Distance
-};  // END namespace Sparse
-};  // END namespace MLCommon
+};  // namespace distance
+};  // namespace sparse
+};  // namespace raft

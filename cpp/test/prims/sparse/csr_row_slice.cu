@@ -19,13 +19,18 @@
 
 #include <gtest/gtest.h>
 #include <raft/sparse/cusparse_wrappers.h>
-#include <test_utils.h>
-#include <sparse/csr.cuh>
+#include <raft/mr/device/allocator.hpp>
+#include <raft/mr/device/buffer.hpp>
 
-namespace MLCommon {
-namespace Sparse {
+#include <sparse/op/slice.h>
+
+#include <test_utils.h>
+
+namespace raft {
+namespace sparse {
 
 using namespace raft;
+using namespace raft::sparse;
 
 template <typename value_idx, typename value_t>
 struct CSRRowSliceInputs {
@@ -87,22 +92,20 @@ class CSRRowSliceTest
   void SetUp() override {
     params = ::testing::TestWithParam<
       CSRRowSliceInputs<value_idx, value_t>>::GetParam();
-    std::shared_ptr<deviceAllocator> alloc(
+    std::shared_ptr<raft::mr::device::allocator> alloc(
       new raft::mr::device::default_allocator);
     CUDA_CHECK(cudaStreamCreate(&stream));
 
     make_data();
 
-    ML::Logger::get().setLevel(CUML_LEVEL_INFO);
-
     int csr_start_offset;
     int csr_stop_offset;
 
-    MLCommon::Sparse::csr_row_slice_indptr(
+    raft::sparse::op::csr_row_slice_indptr(
       params.start_row, params.stop_row, indptr, out_indptr, &csr_start_offset,
       &csr_stop_offset, stream);
 
-    MLCommon::Sparse::csr_row_slice_populate(csr_start_offset, csr_stop_offset,
+    raft::sparse::op::csr_row_slice_populate(csr_start_offset, csr_stop_offset,
                                              indices, data, out_indices,
                                              out_data, stream);
 
@@ -177,5 +180,5 @@ TEST_P(CSRRowSliceTestF, Result) { compare(); }
 INSTANTIATE_TEST_CASE_P(CSRRowSliceTest, CSRRowSliceTestF,
                         ::testing::ValuesIn(inputs_i32_f));
 
-};  // end namespace Sparse
-};  // end namespace MLCommon
+};  // end namespace sparse
+};  // end namespace raft

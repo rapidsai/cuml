@@ -43,8 +43,7 @@ using namespace ML;
 template <typename value_idx, typename T>
 void launcher(const raft::handle_t &handle, int n, int d,
               const value_idx *knn_indices, const T *knn_dists,
-              MLCommon::Sparse::COO<float> *coo, UMAPParams *params,
-              T *embedding) {
+              raft::sparse::COO<float> *coo, UMAPParams *params, T *embedding) {
   cudaStream_t stream = handle.get_stream();
 
   ASSERT(n > params->n_components,

@@ -15,17 +15,23 @@
  */
 
 #include <cusparse_v2.h>
-#include <raft/cudart_utils.h>
 
 #include <gtest/gtest.h>
-#include <raft/sparse/cusparse_wrappers.h>
-#include <test_utils.h>
-#include <sparse/csr.cuh>
 
-namespace MLCommon {
-namespace Sparse {
+#include <raft/cudart_utils.h>
+#include <raft/sparse/cusparse_wrappers.h>
+#include <raft/mr/device/allocator.hpp>
+#include <raft/mr/device/buffer.hpp>
+
+#include <sparse/linalg/transpose.h>
+
+#include <test_utils.h>
+
+namespace raft {
+namespace sparse {
 
 using namespace raft;
+using namespace raft::sparse;
 
 template <typename value_idx, typename value_t>
 struct CSRTransposeInputs {
@@ -88,18 +94,16 @@ class CSRTransposeTest
   void SetUp() override {
     params = ::testing::TestWithParam<
       CSRTransposeInputs<value_idx, value_t>>::GetParam();
-    std::shared_ptr<deviceAllocator> alloc(
+    std::shared_ptr<raft::mr::device::allocator> alloc(
       new raft::mr::device::default_allocator);
     CUDA_CHECK(cudaStreamCreate(&stream));
     CUSPARSE_CHECK(cusparseCreate(&handle));
 
     make_data();
 
-    ML::Logger::get().setLevel(CUML_LEVEL_INFO);
-
-    csr_transpose(handle, indptr, indices, data, out_indptr, out_indices,
-                  out_data, params.nrows, params.ncols, params.nnz, alloc,
-                  stream);
+    raft::sparse::linalg::csr_transpose(
+      handle, indptr, indices, data, out_indptr, out_indices, out_data,
+      params.nrows, params.ncols, params.nnz, alloc, stream);
 
     CUDA_CHECK(cudaStreamSynchronize(stream));
     CUSPARSE_CHECK(cusparseDestroy(handle));
@@ -166,5 +170,5 @@ TEST_P(CSRTransposeTestF, Result) { compare(); }
 INSTANTIATE_TEST_CASE_P(CSRTransposeTest, CSRTransposeTestF,
                         ::testing::ValuesIn(inputs_i32_f));
 
-};  // end namespace Sparse
-};  // end namespace MLCommon
+};  // end namespace sparse
+};  // end namespace raft
