@@ -316,25 +316,21 @@ void build_treelite_forest(ModelHandle* model_handle,
   auto parent_model = tl::Model::Create<T, T>();
   tl::ModelImpl<T, T>* model =
     dynamic_cast<tl::ModelImpl<T, T>*>(parent_model.get());
-  if (model == nullptr) {
-    throw raft::exception("Invalid downcast to Treelite ModelImpl");
-  }
+  ASSERT(model != nullptr, "Invalid downcast to tl::ModelImpl")
 
   unsigned int num_class;
   if (task_category > 2) {
     // Multi-class classification
     num_class = task_category;
     model->task_type = tl::TaskType::kMultiClfProbDistLeaf;
-    model->task_param = tl::TaskParameter{tl::TaskParameter::OutputType::kFloat,
-                                          false, num_class, num_class};
   } else {
     // Binary classification or regression
     num_class = 1;
     model->task_type = tl::TaskType::kBinaryClfRegr;
-    model->task_param = tl::TaskParameter{tl::TaskParameter::OutputType::kFloat,
-                                          false, num_class, 1};
   }
 
+  model->task_param = tl::TaskParameter{tl::TaskParameter::OutputType::kFloat,
+                                        false, num_class, num_class};
   model->num_feature = num_features;
   model->average_tree_output = true;
   model->SetTreeLimit(forest->rf_params.n_trees);
