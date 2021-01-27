@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+#pragma once
+
 #include <raft/cudart_utils.h>
 #include <raft/sparse/cusparse_wrappers.h>
 #include <raft/cuda_utils.cuh>
@@ -31,8 +33,6 @@
 
 #include <iostream>
 #define restrict __restrict__
-
-#pragma once
 
 namespace raft {
 namespace sparse {

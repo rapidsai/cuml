@@ -32,7 +32,7 @@
 #include <algorithm>
 #include <iostream>
 
-#include <sparse/utils.h>
+#include "../utils.h"
 
 namespace raft {
 namespace sparse {

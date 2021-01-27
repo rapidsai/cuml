@@ -23,9 +23,9 @@
 #include <raft/cuda_utils.cuh>
 #include <raft/matrix/matrix.cuh>
 
-#include <sparse/coo.cuh>
-#include <sparse/csr.cuh>
-#include <sparse/distance/distance.cuh>
+#include "../coo.cuh"
+#include "../csr.cuh"
+#include "../distance/distance.cuh"
 
 #include <faiss/gpu/GpuDistance.h>
 #include <faiss/gpu/GpuIndexFlat.h>

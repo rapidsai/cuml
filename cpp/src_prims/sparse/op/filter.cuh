@@ -33,9 +33,9 @@
 #include <algorithm>
 #include <iostream>
 
-#include <sparse/utils.h>
-#include <sparse/coo.cuh>
-#include <sparse/linalg/degree.cuh>
+#include "../coo.cuh"
+#include "../linalg/degree.cuh"
+#include "../utils.h"
 
 namespace raft {
 namespace sparse {

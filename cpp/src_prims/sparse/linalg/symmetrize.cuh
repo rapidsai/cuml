@@ -35,9 +35,9 @@
 #include <algorithm>
 #include <iostream>
 
-#include <sparse/utils.h>
-#include <sparse/convert/csr.cuh>
-#include <sparse/coo.cuh>
+#include "../convert/csr.cuh"
+#include "../coo.cuh"
+#include "../utils.h"
 
 namespace raft {
 namespace sparse {

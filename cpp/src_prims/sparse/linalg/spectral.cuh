@@ -23,8 +23,8 @@
 #include <raft/spectral/partition.hpp>
 
 #include <selection/knn.cuh>
-#include <sparse/convert/csr.cuh>
-#include <sparse/coo.cuh>
+#include "../convert/csr.cuh"
+#include "../coo.cuh"
 
 namespace raft {
 namespace sparse {

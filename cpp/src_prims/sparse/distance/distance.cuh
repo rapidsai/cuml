@@ -24,12 +24,12 @@
 #include <raft/mr/device/allocator.hpp>
 #include <raft/mr/device/buffer.hpp>
 
-#include <sparse/linalg/transpose.h>
-#include <sparse/utils.h>
-#include <sparse/convert/coo.cuh>
-#include <sparse/convert/csr.cuh>
-#include <sparse/convert/dense.cuh>
-#include <sparse/csr.cuh>
+#include "../convert/coo.cuh"
+#include "../convert/csr.cuh"
+#include "../convert/dense.cuh"
+#include "../csr.cuh"
+#include "../linalg/transpose.h"
+#include "../utils.h"
 
 #include <cusparse_v2.h>
 

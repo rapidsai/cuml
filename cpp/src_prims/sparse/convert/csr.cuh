@@ -34,10 +34,10 @@
 #include <algorithm>
 #include <iostream>
 
-#include <sparse/utils.h>
-#include <sparse/coo.cuh>
-#include <sparse/linalg/degree.cuh>
-#include <sparse/op/row_op.cuh>
+#include "../coo.cuh"
+#include "../linalg/degree.cuh"
+#include "../op/row_op.cuh"
+#include "../utils.h"
 
 namespace raft {
 namespace sparse {
