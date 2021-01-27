@@ -123,7 +123,7 @@ def test_linear_regression_model(datatype, algorithm, nrows, column_info):
 
 
 @pytest.mark.skipif(
-    rmm._cuda.gpu.runtimeGetVersion() < 10020,
+    rmm._cuda.gpu.runtimeGetVersion() < 11000,
     reason='svd solver does not support more than 46340 rows or columns for'
            ' CUDA<10.2 and other solvers do not support single-column input'
 )
