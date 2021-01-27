@@ -28,8 +28,8 @@ cumlError_t cumlSpDbscanFit(cumlHandle_t handle, float *input, int n_rows,
   std::tie(handle_ptr, status) = ML::handleMap.lookupHandlePointer(handle);
   if (status == CUML_SUCCESS) {
     try {
-      ML::dbscanFit(*handle_ptr, input, n_rows, n_cols, eps, min_pts, labels,
-                    core_sample_indices, max_bytes_per_batch, verbosity);
+      ML::Dbscan::fit(*handle_ptr, input, n_rows, n_cols, eps, min_pts, labels,
+                      core_sample_indices, max_bytes_per_batch, verbosity);
     }
     //TODO: Implement this
     //catch (const MLCommon::Exception& e)
@@ -53,8 +53,8 @@ cumlError_t cumlDpDbscanFit(cumlHandle_t handle, double *input, int n_rows,
   std::tie(handle_ptr, status) = ML::handleMap.lookupHandlePointer(handle);
   if (status == CUML_SUCCESS) {
     try {
-      ML::dbscanFit(*handle_ptr, input, n_rows, n_cols, eps, min_pts, labels,
-                    core_sample_indices, max_bytes_per_batch, verbosity);
+      ML::Dbscan::fit(*handle_ptr, input, n_rows, n_cols, eps, min_pts, labels,
+                      core_sample_indices, max_bytes_per_batch, verbosity);
     }
     //TODO: Implement this
     //catch (const MLCommon::Exception& e)

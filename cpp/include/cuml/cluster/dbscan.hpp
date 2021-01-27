@@ -20,6 +20,7 @@
 #include <cuml/cuml.hpp>
 
 namespace ML {
+namespace Dbscan {
 
 /**
  * @defgroup DbscanCpp C++ implementation of Dbscan algo
@@ -40,27 +41,29 @@ namespace ML {
  *            each batch of the pairwise distance calculation. This enables the
  *            trade off between memory usage and algorithm execution time.
  * @param[in] verbosity verbosity level for logging messages during execution
+ * @param[in] opg whether we are running in a multi-node multi-GPU context
  * @{
  */
 
-void dbscanFit(const raft::handle_t &handle, float *input, int n_rows,
-               int n_cols, float eps, int min_pts, int *labels,
-               int *core_sample_indices = nullptr,
-               size_t max_bytes_per_batch = 0, int verbosity = CUML_LEVEL_INFO);
-void dbscanFit(const raft::handle_t &handle, double *input, int n_rows,
-               int n_cols, double eps, int min_pts, int *labels,
-               int *core_sample_indices = nullptr,
-               size_t max_bytes_per_batch = 0, int verbosity = CUML_LEVEL_INFO);
+void fit(const raft::handle_t &handle, float *input, int n_rows, int n_cols,
+         float eps, int min_pts, int *labels,
+         int *core_sample_indices = nullptr, size_t max_bytes_per_batch = 0,
+         int verbosity = CUML_LEVEL_INFO, bool opg = false);
+void fit(const raft::handle_t &handle, double *input, int n_rows, int n_cols,
+         double eps, int min_pts, int *labels,
+         int *core_sample_indices = nullptr, size_t max_bytes_per_batch = 0,
+         int verbosity = CUML_LEVEL_INFO, bool opg = false);
 
-void dbscanFit(const raft::handle_t &handle, float *input, int64_t n_rows,
-               int64_t n_cols, float eps, int min_pts, int64_t *labels,
-               int64_t *core_sample_indices = nullptr,
-               size_t max_bytes_per_batch = 0, int verbosity = CUML_LEVEL_INFO);
-void dbscanFit(const raft::handle_t &handle, double *input, int64_t n_rows,
-               int64_t n_cols, double eps, int min_pts, int64_t *labels,
-               int64_t *core_sample_indices = nullptr,
-               size_t max_bytes_per_batch = 0, int verbosity = CUML_LEVEL_INFO);
+void fit(const raft::handle_t &handle, float *input, int64_t n_rows,
+         int64_t n_cols, float eps, int min_pts, int64_t *labels,
+         int64_t *core_sample_indices = nullptr, size_t max_bytes_per_batch = 0,
+         int verbosity = CUML_LEVEL_INFO, bool opg = false);
+void fit(const raft::handle_t &handle, double *input, int64_t n_rows,
+         int64_t n_cols, double eps, int min_pts, int64_t *labels,
+         int64_t *core_sample_indices = nullptr, size_t max_bytes_per_batch = 0,
+         int verbosity = CUML_LEVEL_INFO, bool opg = false);
 
 /** @} */
 
+}  // namespace Dbscan
 }  // namespace ML

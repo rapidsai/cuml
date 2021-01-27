@@ -22,6 +22,7 @@ import ctypes
 import numpy as np
 import cupy as cp
 
+from libcpp cimport bool
 from libc.stdint cimport uintptr_t, int64_t
 
 from cuml.common.array import CumlArray
@@ -31,8 +32,8 @@ from cuml.common import input_to_cuml_array
 from cuml.common import using_output_type
 
 
-cdef extern from "cuml/cluster/dbscan_mg.hpp" \
-        namespace "ML::Dbscan::opg":
+cdef extern from "cuml/cluster/dbscan.hpp" \
+        namespace "ML::Dbscan":
 
     cdef void fit(handle_t& handle,
                   float *input,
@@ -43,7 +44,8 @@ cdef extern from "cuml/cluster/dbscan_mg.hpp" \
                   int *labels,
                   int *core_sample_indices,
                   size_t max_mbytes_per_batch,
-                  int verbosity) except +
+                  int verbosity,
+                  bool opg) except +
 
     cdef void fit(handle_t& handle,
                   double *input,
@@ -54,7 +56,8 @@ cdef extern from "cuml/cluster/dbscan_mg.hpp" \
                   int *labels,
                   int *core_sample_indices,
                   size_t max_mbytes_per_batch,
-                  int verbosity) except +
+                  int verbosity,
+                  bool opg) except +
 
     cdef void fit(handle_t& handle,
                   float *input,
@@ -65,7 +68,8 @@ cdef extern from "cuml/cluster/dbscan_mg.hpp" \
                   int64_t *labels,
                   int64_t *core_sample_indices,
                   size_t max_mbytes_per_batch,
-                  int verbosity) except +
+                  int verbosity,
+                  bool opg) except +
 
     cdef void fit(handle_t& handle,
                   double *input,
@@ -76,7 +80,8 @@ cdef extern from "cuml/cluster/dbscan_mg.hpp" \
                   int64_t *labels,
                   int64_t *core_sample_indices,
                   size_t max_mbytes_per_batch,
-                  int verbosity) except +
+                  int verbosity,
+                  bool opg) except +
 
 
 class DBSCANMG(DBSCAN):
@@ -140,7 +145,8 @@ class DBSCANMG(DBSCAN):
                     <int*> labels_ptr,
                     <int*> core_sample_indices_ptr,
                     <size_t>self.max_mbytes_per_batch,
-                    <int> self.verbose)
+                    <int> self.verbose,
+                    <bool> True)
             else:
                 fit(handle_[0],
                     <float*>input_ptr,
@@ -151,7 +157,8 @@ class DBSCANMG(DBSCAN):
                     <int64_t*> labels_ptr,
                     <int64_t*> core_sample_indices_ptr,
                     <size_t>self.max_mbytes_per_batch,
-                    <int> self.verbose)
+                    <int> self.verbose,
+                    <bool> True)
 
         else:
             if out_dtype == "int32" or out_dtype is np.int32:
@@ -164,7 +171,8 @@ class DBSCANMG(DBSCAN):
                     <int*> labels_ptr,
                     <int*> core_sample_indices_ptr,
                     <size_t> self.max_mbytes_per_batch,
-                    <int> self.verbose)
+                    <int> self.verbose,
+                    <bool> True)
             else:
                 fit(handle_[0],
                     <double*>input_ptr,
@@ -175,7 +183,8 @@ class DBSCANMG(DBSCAN):
                     <int64_t*> labels_ptr,
                     <int64_t*> core_sample_indices_ptr,
                     <size_t> self.max_mbytes_per_batch,
-                    <int> self.verbose)
+                    <int> self.verbose,
+                    <bool> True)
 
         # make sure that the `dbscanFit` is complete before the following
         # delete call happens
