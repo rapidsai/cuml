@@ -327,13 +327,12 @@ def gen_data(
         Fraction of the dataset to partition randomly into the test set.
         If this is 0.0, no test set will be created.
     """
-    with cuml.using_output_type('cupy'):
-        data = _data_generators[dataset_name](
-            int(n_samples / (1 - test_fraction)),
-            n_features,
-            random_state,
-            **kwargs
-        )
+    data = _data_generators[dataset_name](
+        int(n_samples / (1 - test_fraction)),
+        n_features,
+        random_state,
+        **kwargs
+    )
     if test_fraction != 0.0:
         if n_samples == 0:
             n_samples = int(data[0].shape[0] * (1 - test_fraction))
