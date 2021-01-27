@@ -55,6 +55,8 @@ namespace opg {
 
 using namespace knn_common;
 
+template struct KNN_RE_params<float, int64_t, float, float>;
+
 void knn_regress(raft::handle_t &handle,
                  std::vector<Matrix::Data<float> *> *out,
                  std::vector<Matrix::floatData_t *> &idx_data,
@@ -64,20 +66,9 @@ void knn_regress(raft::handle_t &handle,
                  std::vector<std::vector<float *>> &y, bool rowMajorIndex,
                  bool rowMajorQuery, int k, int n_outputs, size_t batch_size,
                  bool verbose) {
-  opg_knn_param<float, int64_t, float, float> params;
-  params.knn_op = knn_operation::regression;
-  params.out = out;
-  params.idx_data = &idx_data;
-  params.idx_desc = &idx_desc;
-  params.query_data = &query_data;
-  params.query_desc = &query_desc;
-  params.y = &y;
-  params.rowMajorIndex = rowMajorIndex;
-  params.rowMajorQuery = rowMajorQuery;
-  params.k = k;
-  params.n_outputs = n_outputs;
-  params.batch_size = batch_size;
-  params.verbose = verbose;
+  KNN_RE_params<float, int64_t, float, float> params(
+    knn_operation::regression, &idx_data, &idx_desc, &query_data, &query_desc,
+    rowMajorIndex, rowMajorQuery, k, batch_size, verbose, n_outputs, &y, out);
 
   cuda_utils cutils(handle);
   opg_knn(params, cutils);

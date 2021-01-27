@@ -87,11 +87,29 @@ enum knn_operation {
  */
 template <typename in_t, typename ind_t, typename dist_t, typename out_t>
 struct opg_knn_param {
+  opg_knn_param(knn_operation knn_op,
+                std::vector<Matrix::Data<in_t> *> *idx_data,
+                Matrix::PartDescriptor *idx_desc,
+                std::vector<Matrix::Data<in_t> *> *query_data,
+                Matrix::PartDescriptor *query_desc, bool rowMajorIndex,
+                bool rowMajorQuery, size_t k, size_t batch_size, bool verbose) {
+    this->knn_op = knn_op;
+    this->idx_data = idx_data;
+    this->idx_desc = idx_desc;
+    this->query_data = query_data;
+    this->query_desc = query_desc;
+    this->rowMajorIndex = rowMajorIndex;
+    this->rowMajorQuery = rowMajorQuery;
+    this->k = k;
+    this->batch_size = batch_size;
+    this->verbose = verbose;
+  }
+
   knn_operation knn_op; /**< Type of KNN distributed operation */
-  std::vector<Matrix::Data<ind_t> *> *out_I =
-    nullptr; /**< KNN indices output array */
   std::vector<Matrix::Data<dist_t> *> *out_D =
     nullptr; /**< KNN distances output array */
+  std::vector<Matrix::Data<ind_t> *> *out_I =
+    nullptr; /**< KNN indices output array */
   std::vector<Matrix::Data<in_t> *> *idx_data =
     nullptr; /**< Index input array */
   Matrix::PartDescriptor *idx_desc =
@@ -106,18 +124,77 @@ struct opg_knn_param {
   size_t batch_size = 0; /**< Batch size */
   bool verbose;          /**< verbose */
 
-  std::vector<std::vector<out_t *>> *y; /**< Labels input array (cl&re) */
   int n_outputs = 0; /**< Number of outputs per query (cl&re) */
+  std::vector<std::vector<out_t *>> *y; /**< Labels input array (cl&re) */
   std::vector<Matrix::Data<out_t> *>
     *out; /**< KNN outputs output array (cl&re) */
 
-  std::vector<out_t *> *uniq_labels =
-    nullptr; /**< Unique labels (classification) */
   std::vector<int> *n_unique =
     nullptr; /**< Number of unique labels (classification) */
-
+  std::vector<out_t *> *uniq_labels =
+    nullptr; /**< Unique labels (classification) */
   std::vector<std::vector<float *>> *probas =
     nullptr; /**< KNN classification probabilities output array (class-probas) */
+};
+
+template <typename in_t, typename ind_t, typename dist_t, typename out_t>
+struct KNN_params : public opg_knn_param<in_t, ind_t, dist_t, out_t> {
+  KNN_params(knn_operation knn_op, std::vector<Matrix::Data<in_t> *> *idx_data,
+             Matrix::PartDescriptor *idx_desc,
+             std::vector<Matrix::Data<in_t> *> *query_data,
+             Matrix::PartDescriptor *query_desc, bool rowMajorIndex,
+             bool rowMajorQuery, size_t k, size_t batch_size, bool verbose,
+             std::vector<Matrix::Data<dist_t> *> *out_D,
+             std::vector<Matrix::Data<ind_t> *> *out_I)
+    : opg_knn_param<in_t, ind_t, dist_t, out_t>(
+        knn_op, idx_data, idx_desc, query_data, query_desc, rowMajorIndex,
+        rowMajorQuery, k, batch_size, verbose) {
+    this->out_D = out_D;
+    this->out_I = out_I;
+  }
+};
+
+template <typename in_t, typename ind_t, typename dist_t, typename out_t>
+struct KNN_RE_params : public opg_knn_param<in_t, ind_t, dist_t, out_t> {
+  KNN_RE_params(knn_operation knn_op,
+                std::vector<Matrix::Data<in_t> *> *idx_data,
+                Matrix::PartDescriptor *idx_desc,
+                std::vector<Matrix::Data<in_t> *> *query_data,
+                Matrix::PartDescriptor *query_desc, bool rowMajorIndex,
+                bool rowMajorQuery, size_t k, size_t batch_size, bool verbose,
+                int n_outputs, std::vector<std::vector<out_t *>> *y,
+                std::vector<Matrix::Data<out_t> *> *out)
+    : opg_knn_param<in_t, ind_t, dist_t, out_t>(
+        knn_op, idx_data, idx_desc, query_data, query_desc, rowMajorIndex,
+        rowMajorQuery, k, batch_size, verbose) {
+    this->n_outputs = n_outputs;
+    this->y = y;
+    this->out = out;
+  }
+};
+
+template <typename in_t, typename ind_t, typename dist_t, typename out_t>
+struct KNN_CL_params : public opg_knn_param<in_t, ind_t, dist_t, out_t> {
+  KNN_CL_params(knn_operation knn_op,
+                std::vector<Matrix::Data<in_t> *> *idx_data,
+                Matrix::PartDescriptor *idx_desc,
+                std::vector<Matrix::Data<in_t> *> *query_data,
+                Matrix::PartDescriptor *query_desc, bool rowMajorIndex,
+                bool rowMajorQuery, size_t k, size_t batch_size, bool verbose,
+                int n_outputs, std::vector<std::vector<out_t *>> *y,
+                std::vector<int> *n_unique, std::vector<out_t *> *uniq_labels,
+                std::vector<Matrix::Data<out_t> *> *out,
+                std::vector<std::vector<float *>> *probas)
+    : opg_knn_param<in_t, ind_t, dist_t, out_t>(
+        knn_op, idx_data, idx_desc, query_data, query_desc, rowMajorIndex,
+        rowMajorQuery, k, batch_size, verbose) {
+    this->n_outputs = n_outputs;
+    this->y = y;
+    this->n_unique = n_unique;
+    this->uniq_labels = uniq_labels;
+    this->out = out;
+    this->probas = probas;
+  }
 };
 
 /**
@@ -133,7 +210,7 @@ struct cuda_utils {
     for (int i = 0; i < n_internal_streams; i++) {
       internal_streams[i] = handle.get_internal_stream(i);
     }
-  };
+  }
   std::shared_ptr<deviceAllocator> alloc; /**< RMM alloc */
   cudaStream_t stream;                    /**< CUDA user stream */
   const raft::comms::comms_t *comm;       /**< RAFT comms handle */
@@ -157,7 +234,7 @@ struct opg_knn_work {
     this->local_idx_parts =
       params.idx_desc->blocksOwnedBy(cutils.comm->get_rank());
     this->queryPartsToRanks = params.query_desc->partsToRanks;
-  };
+  }
 
   int my_rank;            /**< Rank of this worker */
   std::set<int> idxRanks; /**< Set of ranks having at least 1 index partition */
@@ -628,11 +705,13 @@ void exchange_results(opg_knn_param<in_t, ind_t, dist_t, out_t> &params,
  @param[in] processed_in_part Number of queries already processed in part (serves as offset)
  @param[in] batch_size Batch size
  */
-template <typename in_t, typename ind_t, typename dist_t, typename out_t, typename trans_t=int64_t>
+template <typename in_t, typename ind_t, typename dist_t, typename out_t,
+          typename trans_t = int64_t>
 void reduce(opg_knn_param<in_t, ind_t, dist_t, out_t> &params,
             opg_knn_work<in_t, ind_t, dist_t, out_t> &work, cuda_utils &cutils,
             int part_idx, size_t processed_in_part, size_t batch_size) {
-  device_buffer<trans_t> trans(cutils.alloc, cutils.stream, work.idxRanks.size());
+  device_buffer<trans_t> trans(cutils.alloc, cutils.stream,
+                               work.idxRanks.size());
   CUDA_CHECK(cudaMemsetAsync(
     trans.data(), 0, work.idxRanks.size() * sizeof(trans_t), cutils.stream));
 
