@@ -254,6 +254,12 @@ size_t run(const raft::handle_t& handle, const Type_f* x, Index_ N, Index_ D,
     ML::POP_RANGE();
 
     if (i > 0) {
+      // The labels_temp array contains the labelling for the neighborhood
+      // graph of the current batch. This needs to be merged with the labelling
+      // created by the previous batches.
+      // Using the labelling from the previous batches as initial value for
+      // weak_cc_batched and skipping the merge step would lead to incorrect
+      // results as described in #3094.
       CUML_LOG_DEBUG("--> Accumulating labels");
       ML::PUSH_RANGE("Trace::Dbscan::MergeLabels");
       MergeLabels::run<Index_>(handle, labels, labels_temp, core_pts,

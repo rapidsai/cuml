@@ -26,9 +26,10 @@
 namespace MLCommon {
 namespace Label {
 
-/** Note: this is one possible implementation. For an additional cost we can
- *  build the graph with edges E={(A[i], B[i]) | M[i]=1} and make this step
- *  faster */
+/** Note: this is one possible implementation where we represent the label
+ *  equivalence graph implicitly using labels_a, labels_b and mask.
+ *  For an additional cost we can build the graph with edges
+ *  E={(A[i], B[i]) | M[i]=1} and make this step faster */
 template <typename Index_, int TPB_X = 256>
 __global__ void __launch_bounds__(TPB_X)
   propagate_label_kernel(const Index_* __restrict__ labels_a,
@@ -77,11 +78,25 @@ __global__ void __launch_bounds__(TPB_X)
 }
 
 /**
- * Merge two label arrays in-place, according to a core mask
+ * @brief Merge two labellings in-place, according to a core mask
  *
- * The input arrays describe connected components. If a core point
- * is labelled i in A and j in B, i and j are equivalent labels and their
- * connected components are merged
+ * A labelling is a representation of disjoint sets (groups) where points that
+ * belong to the same group have the same label. It is assumed that group
+ * labels take values between 1 and N. Labels relate to points, i.e a label i+1
+ * means that you belong to the same group as the point i.
+ * The special value MAX_LABEL is used to mark points that are not labelled.
+ *
+ * The two label arrays A and B induce two sets of groups over points 0..N-1.
+ * If a point is labelled i in A and j in B and the mask is true for this
+ * point, then i and j are equivalent labels and their groups are merged by
+ * relabeling the elements of both groups to have the same label. The new label
+ * is the smaller one from the original labels.
+ * It is required that if the mask is true for a point, this point is labelled
+ * (i.e its label is different than the special value MAX_LABEL).
+ *
+ * One use case is finding connected components: the two input label arrays can
+ * represent the connected components of graphs G_A and G_B, and the output
+ * would be the connected components labels of G_A \union G_B.
  *
  * @param[inout] labels_a    First input, and output label array (in-place)
  * @param[in]    labels_b    Second input label array
@@ -98,10 +113,17 @@ void merge_labels(Index_* labels_a, const Index_* labels_b, const bool* mask,
   dim3 threads(TPB_X);
   Index_ MAX_LABEL = std::numeric_limits<Index_>::max();
 
-  // Initialize R
+  // Initialize R. R defines the relabeling rules; after merging the input
+  // arrays, label l will be reassigned as R[l-1]+1.
   MLCommon::LinAlg::range(R, N, stream);
 
-  // Connected components in the label equivalence graph
+  // We define the label equivalence graph: G = (V, E), where:
+  //  - V is the set of unique values from labels_a and labels_b
+  //  - E = {(labels_a[k], labels_b[k]) | mask[k] == true and k \in 0..n-1 }
+  // The edges connect groups from the two labellings. Only points with true
+  // mask can induce connection between groups.
+
+  // Step 1: compute connected components in the label equivalence graph
   bool host_m;
   do {
     CUDA_CHECK(cudaMemsetAsync(m, false, sizeof(bool), stream));
@@ -114,11 +136,11 @@ void merge_labels(Index_* labels_a, const Index_* labels_b, const bool* mask,
     CUDA_CHECK(cudaStreamSynchronize(stream));
   } while (host_m);
 
-  // Re-assign minimum equivalent label
+  // Step 2: re-assign minimum equivalent label
   reassign_label_kernel<Index_, TPB_X>
     <<<blocks, threads, 0, stream>>>(labels_a, labels_b, R, N, MAX_LABEL);
   CUDA_CHECK(cudaPeekAtLastError());
 }
 
 };  // namespace Label
-};  // end namespace MLCommon
+};  // namespace MLCommon
