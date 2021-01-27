@@ -110,11 +110,11 @@ void ridgeEig(const raft::handle_t &handle, math_t *A, int n_rows, int n_cols,
   rmm::device_uvector<math_t> V(V_len, stream);
   rmm::device_uvector<math_t> U(U_len, stream);
 
-  raft::linalg::svdEig(handle, A, n_rows, n_cols, S.data(), U.data(),
-                       V.data(), true, stream);
+  raft::linalg::svdEig(handle, A, n_rows, n_cols, S.data(), U.data(), V.data(),
+                       true, stream);
 
-  ridgeSolve(handle, S.data(), V.data(), U.data(), n_rows, n_cols,
-             b, alpha, n_alpha, w, stream);
+  ridgeSolve(handle, S.data(), V.data(), U.data(), n_rows, n_cols, b, alpha,
+             n_alpha, w, stream);
 }
 
 /**
@@ -155,8 +155,9 @@ void ridgeFit(const raft::handle_t &handle, math_t *input, int n_rows,
     if (normalize) {
       norm2_input = rmm::device_uvector<math_t>(n_cols, stream);
     }
-    preProcessData(handle, input, n_rows, n_cols, labels, intercept, mu_input.data(),
-                   mu_labels.data(), norm2_input.data(), fit_intercept, normalize, stream);
+    preProcessData(handle, input, n_rows, n_cols, labels, intercept,
+                   mu_input.data(), mu_labels.data(), norm2_input.data(),
+                   fit_intercept, normalize, stream);
   }
 
   if (algo == 0 || n_cols == 1) {
