@@ -20,7 +20,7 @@ from cuml.dask.common import parts_to_ranks
 from cuml.dask.common import flatten_grouped_results
 from cuml.dask.common.utils import raise_mg_import_exception
 from cuml.dask.common.utils import wait_and_raise_from_futures
-from cuml.raft.dask.common.comms import worker_state
+from cuml.raft.dask.common.comms import get_raft_comm_state
 from cuml.dask.neighbors import NearestNeighbors
 import dask.array as da
 from uuid import uuid1
@@ -95,7 +95,7 @@ class KNeighborsRegressor(NearestNeighbors):
         except ImportError:
             raise_mg_import_exception()
 
-        handle = worker_state(sessionId)["handle"]
+        handle = get_raft_comm_state(sessionId)["handle"]
         return cumlKNN(handle=handle, **kwargs)
 
     @staticmethod
