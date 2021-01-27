@@ -155,7 +155,7 @@ def test_rf_regression_dask_fil(partitions_per_worker,
     X_test_df = \
         dask_cudf.from_cudf(X_cudf_test, npartitions=n_partitions)
 
-    cuml_mod = cuRFR_mg(**cu_rf_params)
+    cuml_mod = cuRFR_mg(**cu_rf_params, ignore_empty_partitions=True)
     cuml_mod.fit(X_train_df, y_train_df)
 
     cuml_mod_predict = cuml_mod.predict(X_test_df)

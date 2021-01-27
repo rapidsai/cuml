@@ -404,8 +404,10 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
                                     delayed=delayed,
                                     **kwargs)
 
-        def reduce(partial_infs, unique_classes):
-            votes = partial_infs.mean(axis=1).compute()
+        def reduce(partial_infs, n_estimators_per_worker, unique_classes):
+            votes = dask.array.average(partial_infs, axis=1,
+                                       weights=n_estimators_per_worker)
+            votes = votes.compute()
             votes = votes.argmax(axis=1)
             return unique_classes[votes]
 
