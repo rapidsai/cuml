@@ -47,7 +47,8 @@ cdef extern from "cuml/cluster/dbscan.hpp" \
                   int *labels,
                   int *core_sample_indices,
                   size_t max_mbytes_per_batch,
-                  int verbosity) except +
+                  int verbosity,
+                  bool opg) except +
 
     cdef void fit(handle_t& handle,
                   double *input,
@@ -58,7 +59,8 @@ cdef extern from "cuml/cluster/dbscan.hpp" \
                   int *labels,
                   int *core_sample_indices,
                   size_t max_mbytes_per_batch,
-                  int verbosity) except +
+                  int verbosity,
+                  bool opg) except +
 
     cdef void fit(handle_t& handle,
                   float *input,
@@ -69,7 +71,8 @@ cdef extern from "cuml/cluster/dbscan.hpp" \
                   int64_t *labels,
                   int64_t *core_sample_indices,
                   size_t max_mbytes_per_batch,
-                  int verbosity) except +
+                  int verbosity,
+                  bool opg) except +
 
     cdef void fit(handle_t& handle,
                   double *input,
@@ -80,7 +83,8 @@ cdef extern from "cuml/cluster/dbscan.hpp" \
                   int64_t *labels,
                   int64_t *core_sample_indices,
                   size_t max_mbytes_per_batch,
-                  int verbosity) except +
+                  int verbosity,
+                  bool opg) except +
 
 
 class DBSCAN(Base):
@@ -212,7 +216,7 @@ class DBSCAN(Base):
             self.max_mbytes_per_batch = 0
 
     @generate_docstring(skip_parameters_heading=True)
-    def fit(self, X, out_dtype="int32") -> "DBSCAN":
+    def fit(self, X, out_dtype="int32", opg=False) -> "DBSCAN":
         """
         Perform DBSCAN clustering from features.
 
@@ -258,7 +262,8 @@ class DBSCAN(Base):
                     <int*> labels_ptr,
                     <int*> core_sample_indices_ptr,
                     <size_t>self.max_mbytes_per_batch,
-                    <int> self.verbose)
+                    <int> self.verbose,
+                    <bool> opg)
             else:
                 fit(handle_[0],
                     <float*>input_ptr,
@@ -269,7 +274,8 @@ class DBSCAN(Base):
                     <int64_t*> labels_ptr,
                     <int64_t*> core_sample_indices_ptr,
                     <size_t>self.max_mbytes_per_batch,
-                    <int> self.verbose)
+                    <int> self.verbose,
+                    <bool> opg)
 
         else:
             if out_dtype == "int32" or out_dtype is np.int32:
@@ -282,7 +288,8 @@ class DBSCAN(Base):
                     <int*> labels_ptr,
                     <int*> core_sample_indices_ptr,
                     <size_t> self.max_mbytes_per_batch,
-                    <int> self.verbose)
+                    <int> self.verbose,
+                    <bool> opg)
             else:
                 fit(handle_[0],
                     <double*>input_ptr,
@@ -293,9 +300,10 @@ class DBSCAN(Base):
                     <int64_t*> labels_ptr,
                     <int64_t*> core_sample_indices_ptr,
                     <size_t> self.max_mbytes_per_batch,
-                    <int> self.verbose)
+                    <int> self.verbose,
+                    <bool> opg)
 
-        # make sure that the `dbscanFit` is complete before the following
+        # make sure that the `fit` is complete before the following
         # delete call happens
         self.handle.sync()
         del(X_m)

@@ -82,11 +82,11 @@ class DBSCAN(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
     @mnmg_import
     def _func_fit(out_dtype):
         def _func(sessionId, data, verbose, **kwargs):
-            from cuml.cluster.dbscan_mg import DBSCANMG as cumlDBSCAN
+            from cuml.cluster.dbscan import DBSCAN as cumlDBSCAN
             handle = worker_state(sessionId)["handle"]
 
             return cumlDBSCAN(handle=handle, verbose=verbose, **kwargs
-                              ).fit(data, out_dtype=out_dtype)
+                              ).fit(data, out_dtype=out_dtype, opg=True)
         return _func
 
     @with_cupy_rmm
