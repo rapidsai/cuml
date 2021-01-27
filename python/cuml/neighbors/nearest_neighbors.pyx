@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2020, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -33,6 +33,7 @@ from cuml.common.array_sparse import SparseCumlArray
 from cuml.common.doc_utils import generate_docstring
 from cuml.common.doc_utils import insert_into_docstring
 from cuml.common.import_utils import has_scipy
+from cuml.common.input_utils import input_to_cupy_array
 from cuml.common import input_to_cuml_array
 from cuml.neighbors.ann cimport *
 from cuml.common.sparse_utils import is_sparse
@@ -423,7 +424,8 @@ class NearestNeighbors(Base):
         X=None,
         n_neighbors=None,
         return_distance=True,
-        convert_dtype=True
+        convert_dtype=True,
+        two_pass_precision=False
     ) -> typing.Union[CumlArray, typing.Tuple[CumlArray, CumlArray]]:
         """
         Query the GPU index for the k nearest neighbors of column vectors in X.
@@ -443,6 +445,25 @@ class NearestNeighbors(Base):
             When set to True, the kneighbors method will automatically
             convert the inputs to np.float32.
 
+        two_pass_precision : bool, optional (default = False)
+            When set to True, a slow second pass will be used to improve the
+            precision of results returned for searches using L2-derived
+            metrics. FAISS uses the Euclidean distance decomposition trick to
+            compute distances in this case, which may result in numerical
+            errors for certain data. In particular, when several samples
+            are close to the query sample (relative to typical inter-sample
+            distances), numerical instability may cause the computed distance
+            between the query and itself to be larger than the computed
+            distance between the query and another sample. As a result, the
+            query is not returned as the nearest neighbor to itself.  If this
+            flag is set to true, distances to the query vectors will be
+            recomputed with high precision for all retrieved samples, and the
+            results will be re-sorted accordingly. Note that for large values
+            of k or large numbers of query vectors, this correction becomes
+            impractical in terms of both runtime and memory. It should be used
+            with care and only when strictly necessary (when precise results
+            are critical and samples may be tightly clustered).
+
         Returns
         -------
         distances : {}
@@ -453,10 +474,12 @@ class NearestNeighbors(Base):
             The indices of the k-nearest neighbors for each column vector in X
         """
 
-        return self._kneighbors(X, n_neighbors, return_distance, convert_dtype)
+        return self._kneighbors(X, n_neighbors, return_distance, convert_dtype,
+                                two_pass_precision=two_pass_precision)
 
     def _kneighbors(self, X=None, n_neighbors=None, return_distance=True,
-                    convert_dtype=True, _output_type=None):
+                    convert_dtype=True, _output_type=None,
+                    two_pass_precision=False):
         """
         Query the GPU index for the k nearest neighbors of column vectors in X.
 
@@ -481,6 +504,25 @@ class NearestNeighbors(Base):
         _output_cumlarray : bool, optional (default = False)
             When set to True, the class self.output_type is overwritten
             and this method returns the output as a cumlarray
+
+        two_pass_precision : bool, optional (default = False)
+            When set to True, a slow second pass will be used to improve the
+            precision of results returned for searches using L2-derived
+            metrics. FAISS uses the Euclidean distance decomposition trick to
+            compute distances in this case, which may result in numerical
+            errors for certain data. In particular, when several samples
+            are close to the query sample (relative to typical inter-sample
+            distances), numerical instability may cause the computed distance
+            between the query and itself to be larger than the computed
+            distance between the query and another sample. As a result, the
+            query is not returned as the nearest neighbor to itself.  If this
+            flag is set to true, distances to the query vectors will be
+            recomputed with high precision for all retrieved samples, and the
+            results will be re-sorted accordingly. Note that for large values
+            of k or large numbers of query vectors, this correction becomes
+            impractical in terms of both runtime and memory. It should be used
+            with care and only when strictly necessary (when precise results
+            are critical and samples may be tightly clustered).
 
         Returns
         -------
@@ -524,6 +566,37 @@ class NearestNeighbors(Base):
 
         out_type = _output_type \
             if _output_type is not None else self._get_output_type(X)
+
+        if two_pass_precision:
+            metric, expanded = self._build_metric_type(self.metric)
+            metric_is_l2_based = (
+                metric == MetricType.METRIC_L2 or
+                (metric == MetricType.METRIC_Lp and self.p == 2)
+            )
+
+            # FAISS employs imprecise distance algorithm only for L2-based
+            # metrics
+            if metric_is_l2_based:
+                X = input_to_cupy_array(X).array
+                I_cparr = I_ndarr.to_output('cupy')
+
+                self_diff = X[I_cparr] - X[:, cp.newaxis, :]
+                if expanded:
+                    precise_distances = cp.sum(
+                        self_diff * self_diff, axis=2
+                    )
+                else:
+                    precise_distances = cp.linalg.norm(self_diff, axis=2)
+
+                correct_order = cp.argsort(precise_distances, axis=1)
+
+                D_cparr = cp.take_along_axis(precise_distances,
+                                             correct_order,
+                                             axis=1)
+                I_cparr = cp.take_along_axis(I_cparr, correct_order, axis=1)
+
+                D_ndarr = cuml.common.input_to_cuml_array(D_cparr).array
+                I_ndarr = cuml.common.input_to_cuml_array(I_cparr).array
 
         I_ndarr = I_ndarr.to_output(out_type)
         D_ndarr = D_ndarr.to_output(out_type)
