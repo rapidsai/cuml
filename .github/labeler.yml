@@ -6,7 +6,7 @@ Cython / Python:
   - 'python/**'
   - 'notebooks/**'
   
-cpp:
+CUDA/C++:
   - 'cpp/**'
 
 CMake:
