@@ -628,13 +628,13 @@ void exchange_results(opg_knn_param<in_t, ind_t, dist_t, out_t> &params,
  @param[in] processed_in_part Number of queries already processed in part (serves as offset)
  @param[in] batch_size Batch size
  */
-template <typename in_t, typename ind_t, typename dist_t, typename out_t>
+template <typename in_t, typename ind_t, typename dist_t, typename out_t, typename trans_t=int64_t>
 void reduce(opg_knn_param<in_t, ind_t, dist_t, out_t> &params,
             opg_knn_work<in_t, ind_t, dist_t, out_t> &work, cuda_utils &cutils,
             int part_idx, size_t processed_in_part, size_t batch_size) {
-  device_buffer<ind_t> trans(cutils.alloc, cutils.stream, work.idxRanks.size());
+  device_buffer<trans_t> trans(cutils.alloc, cutils.stream, work.idxRanks.size());
   CUDA_CHECK(cudaMemsetAsync(
-    trans.data(), 0, work.idxRanks.size() * sizeof(ind_t), cutils.stream));
+    trans.data(), 0, work.idxRanks.size() * sizeof(trans_t), cutils.stream));
 
   size_t batch_offset = processed_in_part * params.k;
 
