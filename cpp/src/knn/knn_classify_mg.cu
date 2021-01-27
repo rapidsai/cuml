@@ -65,16 +65,16 @@ void knn_classify(raft::handle_t &handle, std::vector<Matrix::Data<int> *> *out,
                   std::vector<int *> &uniq_labels, std::vector<int> &n_unique,
                   bool rowMajorIndex, bool rowMajorQuery, bool probas_only,
                   int k, size_t batch_size, bool verbose) {
-  opg_knn_param params;
+  opg_knn_param<float, int64_t, float, int> params;
   params.knn_op =
     probas_only ? knn_operation::class_proba : knn_operation::classification;
-  params.out.i = out;
+  params.out = out;
   params.probas = probas;
   params.idx_data = &idx_data;
   params.idx_desc = &idx_desc;
   params.query_data = &query_data;
   params.query_desc = &query_desc;
-  params.y.i = &y;
+  params.y = &y;
   params.uniq_labels = &uniq_labels;
   params.n_unique = &n_unique;
   params.rowMajorIndex = rowMajorIndex;

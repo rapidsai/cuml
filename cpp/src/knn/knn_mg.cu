@@ -62,7 +62,7 @@ void knn(raft::handle_t &handle, std::vector<Matrix::Data<int64_t> *> *out_I,
          std::vector<Matrix::floatData_t *> &query_data,
          Matrix::PartDescriptor &query_desc, bool rowMajorIndex,
          bool rowMajorQuery, int k, size_t batch_size, bool verbose) {
-  opg_knn_param params;
+  opg_knn_param<float, int64_t, float, int> params;
   params.knn_op = knn_operation::knn;
   params.out_I = out_I;
   params.out_D = out_D;

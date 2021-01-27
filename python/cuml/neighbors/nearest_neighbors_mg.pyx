@@ -148,7 +148,7 @@ class NearestNeighborsMG(NearestNeighbors):
         # Release memory
         self.free_mem(input, result)
 
-        return result['cais']['indices'], result['cais']['distances']
+        return result['cais']['distances'], result['cais']['indices']
 
     def get_out_type(self, index, query):
         if len(index) > 0:
