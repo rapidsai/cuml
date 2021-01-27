@@ -18,7 +18,9 @@
 #include <label/merge_labels.cuh>
 
 #include <raft/cudart_utils.h>
+#include <thrust/device_ptr.h>
 #include <cuml/common/cuml_allocator.hpp>
+#include <rmm/device_vector.hpp>
 #include "test_utils.h"
 
 #include <vector>
@@ -29,8 +31,8 @@ namespace Label {
 template <typename Index_>
 struct MergeLabelsInputs {
   Index_ N;
-  std::vector<Index_> labelsA;
-  std::vector<Index_> labelsB;
+  std::vector<Index_> labels_a;
+  std::vector<Index_> labels_b;
   std::vector<uint8_t> mask;  // to avoid std::vector<bool> optimization
   std::vector<Index_> expected;
 };
@@ -46,45 +48,47 @@ class MergeLabelsTest
     std::shared_ptr<deviceAllocator> alloc(
       new raft::mr::device::default_allocator);
 
-    raft::allocate(labelsA, params.N);
-    raft::allocate(labelsB, params.N);
-    raft::allocate(expected, params.N);
-    raft::allocate(R, params.N);
-    raft::allocate(mask, params.N);
-    raft::allocate(m, 1);
+    labels_a.resize(params.N);
+    labels_b.resize(params.N);
+    expected.resize(params.N);
+    R.resize(params.N);
+    mask.resize(params.N);
+    m.resize(1);
   }
 
   void Run() {
     params = ::testing::TestWithParam<MergeLabelsInputs<Index_>>::GetParam();
 
-    raft::update_device(labelsA, params.labelsA.data(), params.N, stream);
-    raft::update_device(labelsB, params.labelsB.data(), params.N, stream);
-    raft::update_device(expected, params.expected.data(), params.N, stream);
-    raft::update_device(mask, reinterpret_cast<bool *>(params.mask.data()),
-                        params.N, stream);
+    raft::update_device(thrust::raw_pointer_cast(labels_a.data()),
+                        params.labels_a.data(), params.N, stream);
+    raft::update_device(thrust::raw_pointer_cast(labels_b.data()),
+                        params.labels_b.data(), params.N, stream);
+    raft::update_device(thrust::raw_pointer_cast(expected.data()),
+                        params.expected.data(), params.N, stream);
+    raft::update_device(thrust::raw_pointer_cast(mask.data()),
+                        reinterpret_cast<bool *>(params.mask.data()), params.N,
+                        stream);
 
-    merge_labels(labelsA, labelsB, mask, R, m, params.N, stream);
+    merge_labels(thrust::raw_pointer_cast(labels_a.data()),
+                 thrust::raw_pointer_cast(labels_b.data()),
+                 thrust::raw_pointer_cast(mask.data()),
+                 thrust::raw_pointer_cast(R.data()),
+                 thrust::raw_pointer_cast(m.data()), params.N, stream);
 
     cudaStreamSynchronize(stream);
-    ASSERT_TRUE(raft::devArrMatch<Index_>(expected, labelsA, params.N,
-                                          raft::Compare<Index_>()));
+    ASSERT_TRUE(
+      raft::devArrMatch<Index_>(thrust::raw_pointer_cast(expected.data()),
+                                thrust::raw_pointer_cast(labels_a.data()),
+                                params.N, raft::Compare<Index_>()));
   }
 
-  void TearDown() override {
-    CUDA_CHECK(cudaFree(labelsA));
-    CUDA_CHECK(cudaFree(labelsB));
-    CUDA_CHECK(cudaFree(expected));
-    CUDA_CHECK(cudaFree(R));
-    CUDA_CHECK(cudaFree(mask));
-    CUDA_CHECK(cudaFree(m));
-    CUDA_CHECK(cudaStreamDestroy(stream));
-  }
+  void TearDown() override { CUDA_CHECK(cudaStreamDestroy(stream)); }
 
  protected:
   MergeLabelsInputs<Index_> params;
   cudaStream_t stream;
-  Index_ *labelsA, *labelsB, *expected, *R;
-  bool *mask, *m;
+  rmm::device_vector<Index_> labels_a, labels_b, expected, R;
+  rmm::device_vector<bool> mask, m;
 };
 
 using MergeLabelsTestI = MergeLabelsTest<int>;
