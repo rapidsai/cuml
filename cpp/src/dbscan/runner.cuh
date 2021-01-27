@@ -24,8 +24,10 @@
 #include <raft/cuda_utils.cuh>
 #include <sparse/csr.cuh>
 #include "adjgraph/runner.cuh"
-#include "corepoints/runner.cuh"
+#include "corepoints/compute.cuh"
+#include "corepoints/exchange.cuh"
 #include "mergelabels/runner.cuh"
+#include "mergelabels/tree_reduction.cuh"
 #include "vertexdeg/runner.cuh"
 
 #include <cuml/common/logger.hpp>
@@ -99,15 +101,12 @@ size_t run(const raft::handle_t& handle, const Type_f* x, Index_ N, Index_ D,
   const size_t align = 256;
   Index_ n_batches = raft::ceildiv<Index_>(n_owned_rows, batch_size);
 
-  int my_rank, n_rank;
+  int my_rank;
   if (opg) {
     const auto& comm = handle.get_comms();
     my_rank = comm.get_rank();
-    n_rank = comm.get_size();
-  } else {
+  } else
     my_rank = 0;
-    n_rank = 1;
-  }
 
   /**
    * Note on coupling between data types:
@@ -182,31 +181,12 @@ size_t run(const raft::handle_t& handle, const Type_f* x, Index_ N, Index_ D,
 
     CUML_LOG_DEBUG("--> Computing core point mask");
     ML::PUSH_RANGE("Trace::Dbscan::CorePoints");
-    CorePoints::run<Index_>(handle, vd, core_pts, min_pts, start_vertex_id,
-                            n_points, stream);
+    CorePoints::compute<Index_>(handle, vd, core_pts, min_pts, start_vertex_id,
+                                n_points, stream);
     ML::POP_RANGE();
   }
   // 2. Exchange with the other workers
-  if (opg) {
-    const auto& comm = handle.get_comms();
-
-    // Array with the size of the contribution of each worker
-    Index_ rows_per_rank = raft::ceildiv<Index_>(N, n_rank);
-    std::vector<size_t> recvcounts = std::vector<size_t>(n_rank, rows_per_rank);
-    recvcounts[n_rank - 1] = N - (n_rank - 1) * rows_per_rank;
-
-    // Array with the displacement of each part
-    std::vector<size_t> displs = std::vector<size_t>(n_rank);
-    for (int i = 0; i < n_rank; i++) displs[i] = i * rows_per_rank;
-
-    // All-gather operation with variable contribution length
-    comm.allgatherv<char>((char*)core_pts + start_row, (char*)core_pts,
-                          recvcounts.data(), displs.data(), stream);
-    ASSERT(
-      comm.sync_stream(stream) == raft::comms::status_t::SUCCESS,
-      "An error occurred in the distributed operation. This can result from "
-      "a failed rank");
-  }
+  if (opg) CorePoints::exchange(handle, core_pts, N, start_row, stream);
 
   // Compute the labelling for the owned part of the graph
   raft::sparse::WeakCCState state(m);
@@ -263,50 +243,15 @@ size_t run(const raft::handle_t& handle, const Type_f* x, Index_ N, Index_ D,
       CUML_LOG_DEBUG("--> Accumulating labels");
       ML::PUSH_RANGE("Trace::Dbscan::MergeLabels");
       MergeLabels::run<Index_>(handle, labels, labels_temp, core_pts,
-                               work_buffer, m, N, 0, stream);
+                               work_buffer, m, N, stream);
       ML::POP_RANGE();
     }
   }
 
   // Combine the results in the multi-node multi-GPU case
-
-  if (opg) {
-    const auto& comm = handle.get_comms();
-    raft::comms::request_t request;
-
-    int s = 1;
-    while (s < n_rank) {
-      CUML_LOG_DEBUG("Tree reduction, s=", s);
-
-      // Find out whether the node is a receiver / sender / passive
-      bool receiver = my_rank % (2 * s) == 0 && my_rank + s < n_rank;
-      bool sender = my_rank % (2 * s) == s;
-
-      if (receiver) {
-        CUML_LOG_DEBUG("--> Receive labels (from %d)", my_rank + s);
-        comm.irecv(labels_temp, N, my_rank + s, 0, &request);
-      } else if (sender) {
-        CUML_LOG_DEBUG("--> Send labels (from %d)", my_rank - s);
-        comm.isend(labels, N, my_rank - s, 0, &request);
-      }
-
-      try {
-        comm.waitall(1, &request);
-      } catch (raft::exception& e) {
-        CUML_LOG_DEBUG("Communication failure");
-      }
-
-      if (receiver) {
-        CUML_LOG_DEBUG("--> Merge labels");
-        ML::PUSH_RANGE("Trace::Dbscan::MergeLabels");
-        MergeLabels::run<Index_>(handle, labels, labels_temp, core_pts,
-                                 work_buffer, m, N, 0, stream);
-        ML::POP_RANGE();
-      }
-
-      s *= 2;
-    }
-  }
+  if (opg)
+    MergeLabels::tree_reduction(handle, labels, labels_temp, core_pts,
+                                work_buffer, m, N, stream);
 
   /// TODO: optional minimalization step for border points
 

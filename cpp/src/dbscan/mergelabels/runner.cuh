@@ -17,8 +17,7 @@
 #pragma once
 
 #include <common/cumlHandle.hpp>
-#include "algo.cuh"
-#include "pack.h"
+#include <label/merge_labels.cuh>
 
 namespace ML {
 namespace Dbscan {
@@ -33,21 +32,14 @@ namespace MergeLabels {
  * @param[in]    work_buffer Working buffer (for R)
  * @param[in]    m           Working flag
  * @param[in]    N           Number of points in the dataset
- * @param[in]    algo        Which algorithm to use
  * @param[in]    stream      CUDA stream
  */
-template <typename Index_ = int>
+template <typename Index_ = int, int TPB_X = 256>
 void run(const raft::handle_t& handle, Index_* labels_a, const Index_* labels_b,
-         const bool* mask, Index_* work_buffer, bool* m, Index_ N, int algo,
+         const bool* mask, Index_* work_buffer, bool* m, Index_ N,
          cudaStream_t stream) {
-  Pack<Index_> data = {labels_a, labels_b, mask, work_buffer, m, N};
-  switch (algo) {
-    case 0:
-      Algo::launcher<Index_>(handle, data, stream);
-      break;
-    default:
-      ASSERT(false, "Incorrect algo passed! '%d'", algo);
-  }
+  MLCommon::Label::merge_labels<Index_, TPB_X>(labels_a, labels_b, mask,
+                                               work_buffer, m, N, stream);
 }
 
 }  // namespace MergeLabels

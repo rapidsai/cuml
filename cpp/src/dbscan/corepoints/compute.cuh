@@ -33,9 +33,9 @@ namespace CorePoints {
  * @param[in]  stream          CUDA stream
  */
 template <typename Index_ = int>
-void run(const raft::handle_t& handle, const Index_* vd, bool* mask,
-         Index_ min_pts, Index_ start_vertex_id, Index_ batch_size,
-         cudaStream_t stream) {
+void compute(const raft::handle_t& handle, const Index_* vd, bool* mask,
+             Index_ min_pts, Index_ start_vertex_id, Index_ batch_size,
+             cudaStream_t stream) {
   auto execution_policy =
     ML::thrust_exec_policy(handle.get_device_allocator(), stream);
   auto counting = thrust::make_counting_iterator<Index_>(0);
