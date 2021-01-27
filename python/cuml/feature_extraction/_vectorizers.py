@@ -153,7 +153,8 @@ class _VectorizerMixin:
                 'ngram_count': tokens.str.len() - (ngram_size - 1)
             })
             del tokens
-            ngram_count = doc_id_df.groupby('doc_id', sort=True).sum()['ngram_count']
+            ngram_count = doc_id_df.groupby('doc_id',
+                                            sort=True).sum()['ngram_count']
             return ngram_sr, ngram_count, token_count
 
         if ngram_size == 1:
@@ -851,12 +852,14 @@ class HashingVectorizer(_VectorizerMixin):
             tokenized_df["value"] = ((tokenized_df["token"] >= 0) * 2) - 1
             tokenized_df["token"] = tokenized_df["token"].abs() %\
                 self.n_features
-            count_ser = tokenized_df.groupby(["doc_id", "token"], sort=True).value.sum()
+            count_ser = tokenized_df.groupby(["doc_id", "token"],
+                                             sort=True).value.sum()
             count_ser.name = "count"
         else:
             tokenized_df["token"] = tokenized_df["token"].abs() %\
                 self.n_features
-            count_ser = tokenized_df.groupby(["doc_id", "token"], sort=True).size()
+            count_ser = tokenized_df.groupby(["doc_id", "token"],
+                                             sort=True).size()
             count_ser.name = "count"
 
         count_df = count_ser.reset_index(drop=False)
