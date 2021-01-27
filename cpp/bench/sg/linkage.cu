@@ -50,7 +50,7 @@ class Linkage : public BlobsFixture<D> {
 
       printf("RUNNING!\n");
 
-      Logger::get().setLevel(CUML_LEVEL_DEBUG);
+      Logger::get().setLevel(CUML_LEVEL_WARN);
       ML::single_linkage_pairwise(*this->handle, this->data.X,
                               this->params.nrows, this->params.ncols,
                              raft::distance::DistanceType::L2Expanded,
@@ -84,7 +84,7 @@ std::vector<Params> getInputs() {
   p.blobs.center_box_max = 10.0;
   p.blobs.seed = 12345ULL;
   std::vector<std::pair<int, int>> rowcols = {
-    {35000, 128}//, {16384, 128}, { 12288, 128}, { 8192, 128}, { 4096, 128}
+    {35000, 128}, {16384, 128}, { 12288, 128}, { 8192, 128}, { 4096, 128},
   };
   for (auto& rc : rowcols) {
     p.data.nrows = rc.first;

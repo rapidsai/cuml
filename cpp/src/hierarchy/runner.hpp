@@ -128,8 +128,8 @@ void _single_linkage(const raft::handle_t &handle, const value_t *X, size_t m,
   printf("extract_time: %dms\n", raft::curTimeMillis() - extract_start);
 
   printf("Total linkage time: %dms\n", raft::curTimeMillis() - mst_start);
-
-  raft::print_device_vector<value_idx>("labels: ", out->labels, 500, std::cout);
+//
+//  raft::print_device_vector<value_idx>("labels: ", out->labels, 500, std::cout);
 
   CUML_LOG_DEBUG("Done.");
 }
