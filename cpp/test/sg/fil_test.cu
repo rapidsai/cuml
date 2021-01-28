@@ -88,24 +88,6 @@ std::string output2str(fil::output_t output) {
   return s;
 }
 
-std::string output2str(fil::leaf_algo_t leaf_algo) {
-  switch (leaf_algo) {
-    case FLOAT_UNARY_BINARY:
-      return "FLOAT_UNARY_BINARY";
-    case CATEGORICAL_LEAF:
-      return "CATEGORICAL_LEAF";
-    case GROVE_PER_CLASS:
-      return "GROVE_PER_CLASS";
-    case GROVE_PER_CLASS_FEW_CLASSES:
-      return "GROVE_PER_CLASS_FEW_CLASSES";
-    case GROVE_PER_CLASS_MANY_CLASSES:
-      return "GROVE_PER_CLASS_MANY_CLASSES";
-    default:
-      ASSERT(false, "internal error: printing unexpected leaf_algo_t %d",
-             leaf_algo);
-  }
-}
-
 std::ostream& operator<<(std::ostream& os, const FilTestParams& ps) {
   os << "num_rows = " << ps.num_rows << ", num_cols = " << ps.num_cols
      << ", nan_prob = " << ps.nan_prob << ", depth = " << ps.depth
@@ -115,7 +97,7 @@ std::ostream& operator<<(std::ostream& os, const FilTestParams& ps) {
      << ", blocks_per_sm = " << ps.blocks_per_sm << ", algo = " << ps.algo
      << ", seed = " << ps.seed << ", tolerance = " << ps.tolerance
      << ", op = " << tl::OpName(ps.op) << ", global_bias = " << ps.global_bias
-     << ", leaf_algo = " << output2str(ps.leaf_algo)
+     << ", leaf_algo = " << ps.leaf_algo
      << ", num_classes = " << ps.num_classes;
   return os;
 }
