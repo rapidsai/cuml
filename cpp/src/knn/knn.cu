@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -54,7 +54,8 @@ void approx_knn_build_index(raft::handle_t &handle, ML::knnIndex *index,
                             ML::MetricType metric, float metricArg,
                             float *index_items, int n) {
   MLCommon::Selection::approx_knn_build_index(
-    index, params, D, metric, metricArg, index_items, n, handle.get_stream());
+    index, params, D, metric, metricArg, index_items, n, handle.get_device(),
+    handle.get_stream());
 }
 
 void approx_knn_search(ML::knnIndex *index, int n, const float *x, int k,
