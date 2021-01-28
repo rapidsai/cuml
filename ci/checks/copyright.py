@@ -20,8 +20,7 @@ import io
 import os
 import sys
 
-SCRIPT_DIR = os.path.dirname(
-    os.path.realpath(os.path.join(os.getcwd(), os.path.expanduser(__file__))))
+SCRIPT_DIR = os.path.dirname(os.path.realpath(os.path.expanduser(__file__)))
 
 # Add the scripts dir for gitutils
 sys.path.append(os.path.normpath(os.path.join(SCRIPT_DIR,
@@ -41,9 +40,11 @@ FilesToCheck = [
 ]
 
 # this will break starting at year 10000, which is probably OK :)
-CheckSimple = re.compile(r"Copyright \(c\) (\d{4}), NVIDIA CORPORATION")
+CheckSimple = re.compile(
+    r"Copyright *(?:\(c\))? *(\d{4}),? *NVIDIA C(?:ORPORATION|orporation)")
 CheckDouble = re.compile(
-    r"Copyright \(c\) (\d{4})-(\d{4}), NVIDIA CORPORATION")
+    r"Copyright *(?:\(c\))? *(\d{4})-(\d{4}),? *NVIDIA C(?:ORPORATION|orporation)"  # noqa: E501
+)
 
 
 def checkThisFile(f):
