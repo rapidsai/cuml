@@ -1142,7 +1142,7 @@ TYPED_TEST(SmoSolverTest, MemoryLeak) {
   EXPECT_EQ(delta, 0);
 }
 
-TYPED_TEST(SmoSolverTest, DISABLE_MillionRows) {
+TYPED_TEST(SmoSolverTest, DISABLED_MillionRows) {
   // Stress test the kernel matrix calculation by calculating a kernel tile
   // with more the 2.8B elemnts. This would fail with int32 adressing. The test
   // is currently disabled because the memory usage might be prohibitive on CI
