@@ -316,7 +316,7 @@ void build_treelite_forest(ModelHandle* model_handle,
   auto parent_model = tl::Model::Create<T, T>();
   tl::ModelImpl<T, T>* model =
     dynamic_cast<tl::ModelImpl<T, T>*>(parent_model.get());
-  ASSERT(model != nullptr, "Invalid downcast to tl::ModelImpl")
+  ASSERT(model != nullptr, "Invalid downcast to tl::ModelImpl");
 
   unsigned int num_class;
   if (task_category > 2) {
