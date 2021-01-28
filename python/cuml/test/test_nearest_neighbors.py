@@ -266,7 +266,7 @@ def test_return_dists():
 
 @pytest.mark.parametrize('input_type', ['dataframe', 'ndarray'])
 @pytest.mark.parametrize('nrows', [unit_param(500), quality_param(5000),
-                         stress_param(5000)])
+                         stress_param(70000)])
 @pytest.mark.parametrize('n_feats', [unit_param(3), quality_param(100),
                          stress_param(1000)])
 @pytest.mark.parametrize('k', [unit_param(3), quality_param(30),
@@ -297,13 +297,13 @@ def test_knn_separate_index_search(input_type, nrows, n_feats, k, metric):
     if input_type == "dataframe":
         assert isinstance(D_cuml, cudf.DataFrame)
         assert isinstance(I_cuml, cudf.DataFrame)
-        D_cuml_arr = D_cuml.as_gpu_matrix().copy_to_host()
-        I_cuml_arr = I_cuml.as_gpu_matrix().copy_to_host()
+        D_cuml_np = D_cuml.as_gpu_matrix().copy_to_host()
+        I_cuml_np = I_cuml.as_gpu_matrix().copy_to_host()
     else:
         assert isinstance(D_cuml, cp.core.core.ndarray)
         assert isinstance(I_cuml, cp.core.core.ndarray)
-        D_cuml_arr = D_cuml.get()
-        I_cuml_arr = I_cuml.get()
+        D_cuml_np = D_cuml.get()
+        I_cuml_np = I_cuml.get()
 
     with cuml.using_output_type("numpy"):
         # Assert the cuml model was properly reverted
@@ -311,15 +311,15 @@ def test_knn_separate_index_search(input_type, nrows, n_feats, k, metric):
                                    atol=1e-3, rtol=1e-3)
 
     if metric == 'braycurtis':
-        diff = D_cuml_arr - D_sk
+        diff = D_cuml_np - D_sk
         # Braycurtis has a few differences, but this is computed by FAISS.
         # So long as the indices all match below, the small discrepancy
         # should be okay.
         assert len(diff[diff > 1e-2]) / X_search.shape[0] < 0.06
     else:
-        np.testing.assert_allclose(D_cuml_arr, D_sk, atol=1e-3,
+        np.testing.assert_allclose(D_cuml_np, D_sk, atol=1e-3,
                                    rtol=1e-3)
-    assert I_cuml_arr.all() == I_sk.all()
+    assert I_cuml_np.all() == I_sk.all()
 
 
 @pytest.mark.parametrize('input_type', ['dataframe', 'ndarray'])
