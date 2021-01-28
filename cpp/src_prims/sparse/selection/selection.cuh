@@ -16,13 +16,16 @@
 
 #pragma once
 
-#include <matrix/reverse.cuh>
+#include <selection/knn.cuh>
+
+#include <raft/cudart_utils.h>
+#include <raft/sparse/cusparse_wrappers.h>
+#include <raft/cuda_utils.cuh>
 #include <raft/matrix/matrix.cuh>
 
-#include <selection/knn.cuh>
 #include <sparse/coo.cuh>
 #include <sparse/csr.cuh>
-#include <sparse/distance.cuh>
+#include <sparse/distance/distance.cuh>
 
 #include <faiss/gpu/GpuDistance.h>
 #include <faiss/gpu/GpuIndexFlat.h>
@@ -32,35 +35,11 @@
 #include <faiss/gpu/utils/Limits.cuh>
 #include <faiss/gpu/utils/Select.cuh>
 
-#include <raft/cudart_utils.h>
-#include <common/device_buffer.hpp>
-#include <raft/cuda_utils.cuh>
-
-#include <raft/sparse/cusparse_wrappers.h>
-
 #include <cusparse_v2.h>
 
-namespace MLCommon {
-namespace Sparse {
-namespace Selection {
-
-template <typename value_idx>
-__global__ void iota_fill_warp_kernel(value_idx *indices, value_idx ncols) {
-  int row = blockIdx.x;
-  int tid = threadIdx.x;
-
-  for (int i = tid; i < ncols; i += blockDim.x) {
-    indices[row * ncols + i] = i;
-  }
-}
-
-template <typename value_idx>
-void iota_fill(value_idx *indices, value_idx nrows, value_idx ncols,
-               cudaStream_t stream) {
-  int blockdim = block_dim(ncols);
-
-  iota_fill_warp_kernel<<<nrows, blockdim, 0, stream>>>(indices, ncols);
-}
+namespace raft {
+namespace sparse {
+namespace selection {
 
 template <typename K, typename IndexType, bool select_min, int warp_q,
           int thread_q, int tpb>
@@ -175,6 +154,6 @@ inline void select_k(value_t *inK, value_idx *inV, size_t n_rows, size_t n_cols,
                                                outV, select_min, k, stream);
 }
 
-};  // END namespace Selection
-};  // END namespace Sparse
-};  // END namespace MLCommon
+};  // namespace selection
+};  // namespace sparse
+};  // namespace raft
