@@ -106,7 +106,9 @@ def test_self_neighboring(datatype, metric_p, nrows):
         neigh_ind = neigh_ind.as_gpu_matrix().copy_to_host()
         neigh_dist = neigh_dist.as_gpu_matrix().copy_to_host()
     else:
-        assert isinstance(neigh_ind, np.ndarray)
+        assert isinstance(neigh_ind, cp.core.core.ndarray)
+        neigh_ind = neigh_ind.get()
+        neigh_dist = neigh_dist.get()
 
     neigh_ind = neigh_ind[:, 0]
     neigh_dist = neigh_dist[:, 0]
