@@ -1,5 +1,5 @@
 /*
-* Copyright 1993-2020 NVIDIA Corporation.  All rights reserved.
+* Copyright (c) 1993-2021, NVIDIA CORPORATION.  All rights reserved.
 *
 * NOTICE TO LICENSEE:
 *
