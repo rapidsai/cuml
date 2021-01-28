@@ -175,7 +175,7 @@ struct BlockSemiring {
   __device__ inline bool isdone() { return done; }
 
   __device__ inline void write(value_t *out) {
-    if (threadIdx.x < n_rows) out[row_a * n + row_b] = cur_sum;
+    if (threadIdx.x < n_rows) out[(size_t)row_a * n + row_b] = cur_sum;
   }
 
  private:

@@ -407,8 +407,8 @@ def test_knn_graph(input_type, nrows, n_feats, p, k, metric, mode,
         assert isspmatrix_csr(sparse_cu)
 
 
-@pytest.mark.parametrize("metric", valid_metrics_sparse())
-@pytest.mark.parametrize('shape', [(100, 100, 0.4), (100, 15000, 0.04)])
+@pytest.mark.parametrize("metric", ["l2"])#valid_metrics_sparse())
+@pytest.mark.parametrize('shape', [(70000, 11000, 0.07), (100, 15000, 0.04)])
 @pytest.mark.parametrize('n_neighbors', [4])
 @pytest.mark.parametrize('batch_size_index', [40000])
 @pytest.mark.parametrize('batch_size_query', [40000])
@@ -432,7 +432,7 @@ def test_nearest_neighbors_sparse(shape,
         a = a.astype('bool').astype('float32')
         b = b.astype('bool').astype('float32')
 
-    logger.set_level(logger.level_info)
+    logger.set_level(logger.level_debug)
     nn = cuKNN(metric=metric, p=2.0, n_neighbors=n_neighbors,
                algorithm="brute", output_type="numpy",
                verbose=logger.level_debug,

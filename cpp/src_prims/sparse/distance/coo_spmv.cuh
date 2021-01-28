@@ -167,15 +167,16 @@ __global__ void balanced_coo_generalized_spmv_kernel(
 
     bool diff_rows = next_row_b != cur_row_b;
 
-    unsigned int peer_group = get_peer_group(cur_row_b, __activemask());
+    unsigned int mask = __ballot_sync(0xffffffff, i < active_chunk_size);
+    unsigned int peer_group = get_peer_group(cur_row_b, mask);
     bool is_leader = get_lowest_peer(peer_group) == lane_id;
     value_t v =
       warp_red.HeadSegmentedReduce(c * diff_rows, is_leader, accum_func);
     if (diff_rows) {
       // thread with lowest lane id among peers writes out
       if (is_leader && v != 0.0) {
-        value_idx idx =
-          !rev ? cur_row_a * n + cur_row_b : cur_row_b * m + cur_row_a;
+        size_t idx = !rev ? (size_t)cur_row_a * n + cur_row_b
+                          : (size_t)cur_row_b * m + cur_row_a;
         write_func(out + idx, v);
       }
       c = 0.0;
@@ -255,7 +256,7 @@ inline void balanced_coo_pairwise_generalized_spmv(
   value_idx *coo_rows_b, product_f product_func, accum_f accum_func,
   write_f write_func) {
   CUDA_CHECK(cudaMemsetAsync(
-    out_dists, 0, config_.a_nrows * config_.b_nrows * sizeof(value_t),
+    out_dists, 0, sizeof(value_t) * config_.a_nrows * config_.b_nrows,
     config_.stream));
   int n_blocks_per_row =
     raft::ceildiv(config_.b_nnz, chunk_size * threads_per_block);
