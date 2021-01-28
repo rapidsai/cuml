@@ -20,8 +20,7 @@
 
 #include <raft/cudart_utils.h>
 #include <raft/linalg/cublas_wrappers.h>
-#include <cuml/common/cuml_allocator.hpp>
-#include <cuml/common/device_buffer.hpp>
+#include <common/cumlHandle.hpp>
 #include <linalg/ternary_op.cuh>
 #include <raft/cuda_utils.cuh>
 #include <raft/handle.hpp>
@@ -29,6 +28,7 @@
 #include <raft/linalg/map_then_reduce.cuh>
 #include <raft/linalg/norm.cuh>
 #include <raft/linalg/unary_op.cuh>
+#include <rmm/device_uvector.hpp>
 
 namespace ML {
 
@@ -300,14 +300,14 @@ std::ostream &operator<<(std::ostream &os, const SimpleMat<T> &mat) {
 template <typename T>
 struct SimpleVecOwning : SimpleVec<T> {
   typedef SimpleVec<T> Super;
-  typedef MLCommon::device_buffer<T> Buffer;
+  typedef rmm::device_uvector<T> Buffer;
   Buffer buf;
 
   SimpleVecOwning() = delete;
 
   SimpleVecOwning(std::shared_ptr<MLCommon::deviceAllocator> allocator, int n,
                   cudaStream_t stream)
-    : Super(), buf(allocator, stream, n) {
+    : Super(), buf(n, stream) {
     Super::reset(buf.data(), n);
   }
 
@@ -317,7 +317,7 @@ struct SimpleVecOwning : SimpleVec<T> {
 template <typename T>
 struct SimpleMatOwning : SimpleMat<T> {
   typedef SimpleMat<T> Super;
-  typedef MLCommon::device_buffer<T> Buffer;
+  typedef rmm::device_uvector<T> Buffer;
   Buffer buf;
   using Super::m;
   using Super::n;
@@ -325,9 +325,9 @@ struct SimpleMatOwning : SimpleMat<T> {
 
   SimpleMatOwning() = delete;
 
-  SimpleMatOwning(std::shared_ptr<MLCommon::deviceAllocator> allocator, int m,
-                  int n, cudaStream_t stream, STORAGE_ORDER order = COL_MAJOR)
-    : Super(order), buf(allocator, stream, m * n) {
+  SimpleMatOwning(std::shared_ptr<MLCommon::deviceAllocator> allocator, int m, int n,
+                  cudaStream_t stream, STORAGE_ORDER order = COL_MAJOR)
+    : Super(order), buf(m * n, stream) {
     Super::reset(buf.data(), m, n);
   }
 
