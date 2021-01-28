@@ -326,8 +326,8 @@ def test_knn_separate_index_search(input_type, nrows, n_feats, k, metric):
 
 @pytest.mark.parametrize('input_type', ['dataframe', 'ndarray'])
 @pytest.mark.parametrize('nrows', [unit_param(500), quality_param(5000),
-                         stress_param(5000)])
-@pytest.mark.parametrize('n_feats', [unit_param(3), quality_param(100),
+                         stress_param(70000)])
+@pytest.mark.parametrize('n_feats', [unit_param(3), qu0ality_param(100),
                          stress_param(1000)])
 @pytest.mark.parametrize('k', [unit_param(3), quality_param(30),
                          stress_param(50)])
@@ -386,7 +386,7 @@ def test_knn_fit_twice():
 
 @pytest.mark.parametrize('input_type', ['ndarray'])
 @pytest.mark.parametrize('nrows', [unit_param(500), quality_param(5000),
-                         stress_param(5000)])
+                         stress_param(70000)])
 @pytest.mark.parametrize('n_feats', [unit_param(20), quality_param(100),
                          stress_param(1000)])
 def test_nn_downcast_fails(input_type, nrows, n_feats):
