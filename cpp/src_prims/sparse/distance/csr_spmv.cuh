@@ -392,19 +392,29 @@ void _generalized_csr_pairwise_smem_semiring(
 
 /**
  * Perform generalized sparse-matrix-sparse-vector multiply in
- * semiring algebra by allowing the reduction (product) and
- * accumulation (sum) functions to be swapped out for custom
- * functions. This approach saves the most memory as it can
+ * a semiring algebra by allowing the product and sum operations
+ * to be defined. This approach saves the most memory as it can
  * work directly on a CSR w/o the need for conversion to another
  * sparse format, does not require any transposition, nor loading
  * any vectors in dense form. The major drawback to this kernel
- * is that the non-uniform memory access pattern dominates performance,
- * making it very slow.
+ * is that the non-uniform memory access pattern dominates performance.
+ * When the shared memory option is used, bank conflicts also dominate
+ * performance, making it slower than other options but guaranteeing
+ * that the product() operation will be executed across every column
+ * in A and B.
  *
- * Each vector of A is loaded into shared memory and each row of B
- * parallelized over threads. While vector A can be coalesced into
- * shared memory, the rows from vector B cannot, and thus this
- * kernel remains almost entirely global memory bound.
+ * This is primarily useful when in cases where the product() operation
+ * is non-anniliating (e.g. product(x, 0) = x.
+ *
+ * There are two potential code paths for this primitive- if the largest
+ * degree of any row is small enough to fit in shared memory then shared
+ * memory is used to coalesce the reads from the vectors of A, otherwise
+ * no shared memory is used and all loads from A and B happen independently
+ * in separate threads.
+ *
+ * Iterators are maintained for the vectors from both A and B and each
+ * thread iterates to a maximum of |a|+|b| (which will happen only when
+ * the set of columns for vectors a and b are completely disjoint.
  *
  * TODO: Some potential things to try for future optimizations:
  *  - Always iterating for n_cols so that each warp is iterating
@@ -416,8 +426,6 @@ void _generalized_csr_pairwise_smem_semiring(
  *  Ref: https://github.com/rapidsai/cuml/issues/3371
  *
  * @tparam value_idx index type
- *
- *
  * @tparam value_t value type
  * @tparam product_f semiring product() function
  * @tparam accum_f semiring sum() function

@@ -440,11 +440,7 @@ def test_nearest_neighbors_sparse(shape,
                             "batch_size_query": batch_size_query})
     nn.fit(a)
 
-    import time
-
-    start = time.time()
     cuD, cuI = nn.kneighbors(b)
-    print("cuML took %s" % (time.time() - start))
 
     if metric not in sklearn.neighbors.VALID_METRICS_SPARSE['brute']:
         a = a.todense()
@@ -455,9 +451,7 @@ def test_nearest_neighbors_sparse(shape,
     sk_X = a.get()
     sknn.fit(sk_X)
 
-    start = time.time()
     skD, skI = sknn.kneighbors(b.get())
-    print("sk took %s" % (time.time() - start))
 
     cp.testing.assert_allclose(cuD, skD, atol=1e-3, rtol=1e-3)
 

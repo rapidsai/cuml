@@ -216,9 +216,20 @@ inline int smem_per_block(int n_cols) {
 
 /**
  * Performs generalized sparse-matrix-sparse-matrix multiplication via a
- * sparse-matrix-sparse-vector layout. Each vector of A is loaded
- * into shared memory in dense form and the non-zeros of B
- * load balanced across the threads of each block.
+ * sparse-matrix-sparse-vector layout `out=A*B` where generalized product()
+ * and sum() operations can be used in place of the standard sum and product:
+ *
+ * out_ij = sum_k(product(A_ik, B_ik)) The sum goes through values of
+ * k=0..n_cols-1 where B_kj is nonzero.
+ *
+ * The product and sum operations shall form a semiring algebra with the
+ * following properties:
+ * 1. {+, 0} is a commutative sum reduction monoid with identity element 0
+ * 2. {*, 1} is a product monoid with identity element 1
+ * 3. Multiplication by 0 annihilates x. e.g. product(x, 0) = 0
+ *
+ * Each vector of A is loaded into shared memory in dense form and the
+ * non-zeros of B load balanced across the threads of each block.
  * @tparam value_idx index type
  * @tparam value_t value type
  * @tparam threads_per_block block size
@@ -273,9 +284,25 @@ inline void balanced_coo_pairwise_generalized_spmv(
 };
 
 /**
- * Used for computing distances where the reduction (e.g. product()) function requires
- * an implicit union (reduce(x, 0) = x) to capture the difference A-B. This is
- * necessary because the SPMV kernel will only compute the intersection & B-A.
+ * Used for computing distances where the reduction (e.g. product()) function
+ * requires an implicit union (product(x, 0) = x) to capture the difference A-B.
+ * This is necessary in some applications because the standard semiring algebra
+ * endowed with the default multiplication product monoid will only
+ * compute the intersection & B-A.
+ *
+ * This particular function is meant to accompany the function
+ * `balanced_coo_pairwise_generalized_spmv` and executes the product operation
+ * on only those columns that exist in B and not A.
+ *
+ * The product and sum operations shall enable the computation of a
+ * non-annihilating semiring algebra with the following properties:
+ * 1. {+, 0} is a commutative sum reduction monoid with identity element 0
+ * 2. {*, 0} is a product monoid with identity element 0
+ * 3. Multiplication by 0 does not annihilate x. e.g. product(x, 0) = x
+ *
+ * Manattan distance sum(abs(x_k-y_k)) is a great example of when this type of
+ * execution pattern is necessary.
+ *
  * @tparam value_idx index type
  * @tparam value_t value type
  * @tparam threads_per_block block size
