@@ -215,17 +215,10 @@ class DBSCAN(Base):
         if self.max_mbytes_per_batch is None:
             self.max_mbytes_per_batch = 0
 
-    @generate_docstring(skip_parameters_heading=True)
-    def fit(self, X, out_dtype="int32", opg=False) -> "DBSCAN":
+    def _fit(self, X, out_dtype, opg) -> "DBSCAN":
         """
-        Perform DBSCAN clustering from features.
-
-        Parameters
-        ----------
-        out_dtype: dtype Determines the precision of the output labels array.
-            default: "int32". Valid values are { "int32", np.int32,
-            "int64", np.int64}.
-
+        Protected auxiliary function for `fit`. Takes an additional parameter
+        opg that is set to `False` for SG, `True` for OPG (multi-GPU)
         """
         if out_dtype not in ["int32", np.int32, "int64", np.int64]:
             raise ValueError("Invalid value for out_dtype. "
@@ -328,6 +321,20 @@ class DBSCAN(Base):
                         self.core_sample_indices_[:min_index]
 
         return self
+
+    @generate_docstring(skip_parameters_heading=True)
+    def fit(self, X, out_dtype="int32", opg=False) -> "DBSCAN":
+        """
+        Perform DBSCAN clustering from features.
+
+        Parameters
+        ----------
+        out_dtype: dtype Determines the precision of the output labels array.
+            default: "int32". Valid values are { "int32", np.int32,
+            "int64", np.int64}.
+
+        """
+        return self._fit(X, out_dtype, False)
 
     @generate_docstring(skip_parameters_heading=True,
                         return_values={'name': 'preds',
