@@ -205,9 +205,8 @@ set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_BINARY_DIR}/cmake)
 # todo: change for FindCUDAToolkit when CMake 3.17 is the minimum required
 # https://github.com/rapidsai/cuml/issues/2194
 find_package(CUDA 10.0 REQUIRED)
-# find_package(CUDAToolkit 10.0 REQUIRED)
 
-# Set the -isystem flag to not have an '=' sign to allow parsing of compiler commands
+# Set the -isystem flag to not have an '=' sign to allow parsing of compile_commands.json
 set(CMAKE_INCLUDE_SYSTEM_FLAG_CUDA "-isystem ")
 
 if (NOT DISABLE_OPENMP OR NOT ${DISABLE_OPENMP})
@@ -328,9 +327,6 @@ include(cmake/Dependencies.cmake)
 
 set(CUML_INCLUDE_DIRECTORIES
   ${CUML_INCLUDE_DIR}
-  # ${CMAKE_CURRENT_SOURCE_DIR}/src
-  # ${CMAKE_CURRENT_SOURCE_DIR}/src_prims
-  # ${CMAKE_CURRENT_SOURCE_DIR}/test/prims
   ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}
   ${CUTLASS_DIR}/src/cutlass
   ${SPDLOG_DIR}/src/spdlog/include
@@ -338,6 +334,7 @@ set(CUML_INCLUDE_DIRECTORIES
   ${RAFT_DIR}/cpp/include
   ${RMM_INCLUDE_DIRS})
 
+# These directories will be used by dependent targets
 set(CUML_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src)
 set(CUML_SRC_PRIMS_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src_prims)
 set(CUML_TEST_PRIMS_DIR ${CMAKE_CURRENT_SOURCE_DIR}/test/prims)

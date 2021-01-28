@@ -15,7 +15,6 @@
 #=============================================================================
 
 set(CUML_TEST_INCLUDE_DIRS
-  # ${CUML_INCLUDE_DIRECTORIES}
   ${GTEST_INCLUDE_DIRS}/include
   ${TREELITE_DIR}/runtime/native/include)
 
