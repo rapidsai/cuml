@@ -1,4 +1,4 @@
-# Copyright (c) 2020, NVIDIA CORPORATION.
+# Copyright (c) 2020-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -48,7 +48,7 @@ def array_equal(a, b, unit_tol=1e-4, total_tol=1e-4, with_sign=True):
 
     if not with_sign:
         a, b = np.abs(a), np.abs(b)
-    res = (np.sum(np.abs(a - b) > unit_tol)) / len(a) < total_tol
+    res = (np.sum(np.abs(a - b) > unit_tol)) / a.size < total_tol
     return res
 
 
