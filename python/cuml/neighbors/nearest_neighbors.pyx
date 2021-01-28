@@ -328,14 +328,12 @@ class NearestNeighbors(Base):
         self.n_dims = X.shape[1]
 
         if is_sparse(X):
-
             valid_metrics = cuml.neighbors.VALID_METRICS_SPARSE
             self.X_m = SparseCumlArray(X, convert_to_dtype=cp.float32,
                                        convert_format=False)
             self.n_rows = self.X_m.shape[0]
 
         else:
-
             valid_metrics = cuml.neighbors.VALID_METRICS
             self.X_m, self.n_rows, n_cols, dtype = \
                 input_to_cuml_array(X, order='C', check_dtype=np.float32,

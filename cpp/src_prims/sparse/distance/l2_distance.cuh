@@ -65,15 +65,13 @@ __global__ void compute_euclidean_warp_kernel(
 
   if (i >= n_rows || j >= n_cols) return;
 
-  value_t q_norm = Q_sq_norms[i];
-  value_t r_norm = R_sq_norms[j];
   value_t dot = C[i * n_cols + j];
 
   // e.g. Euclidean expansion func = -2.0 * dot + q_norm + r_norm
-  value_t val = expansion_func(dot, q_norm, r_norm);
+  value_t val = expansion_func(dot, Q_sq_norms[i], R_sq_norms[j]);
 
   // correct for small instabilities
-  if (fabsf(val) < 0.0001) val = 0.0;
+  if (fabs(val) < 0.0001) val = 0.0;
 
   C[i * n_cols + j] = val;
 }

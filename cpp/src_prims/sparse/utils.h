@@ -52,12 +52,10 @@ inline int block_dim(value_idx ncols) {
  * @return
  */
 template <typename G>
-__device__ __inline__ unsigned int get_peer_group(G key) {
+__device__ __inline__ unsigned int get_peer_group(
+  G key, unsigned int unclaimed = 0xffffffff) {
   unsigned int peer_group = 0;
   bool is_peer;
-
-  // in the beginning, all lanes are available
-  unsigned int unclaimed = 0xffffffff;
 
   do {
     // fetch key of first unclaimed lane and compare with this key

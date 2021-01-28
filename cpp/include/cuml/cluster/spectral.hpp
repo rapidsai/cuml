@@ -22,7 +22,7 @@ namespace ML {
 
 namespace Spectral {
 
-/**HD
+/**
    * Given a COO formatted (symmetric) knn graph, this function
    * computes the spectral embeddings (lowest n_components
    * eigenvectors), using Lanczos min cut algorithm.

@@ -48,7 +48,8 @@ namespace distance {
  * The steps are as follows:
  *
  * 1. Load row from A into dense vector in shared memory.
- *    This can be chunked in the future if necessary.
+ *    This can be further chunked in the future if necessary to support larger
+ *    column sizes.
  * 2. Threads of block all step through chunks of B in parallel.
  *    When a new row is encountered in row_indices_b, a segmented
  *    reduction is performed across the warps and then across the
@@ -64,12 +65,15 @@ namespace distance {
  *         and A & B are reversed, this allows the full symmetric difference
  *         and intersection to be computed.
  * @tparam kv_t data type stored in shared mem cache
- * @tparam reduce_f reduce function type (semiring product() function).
+ * @tparam product_f reduce function type (semiring product() function).
  *                  accepts two arguments of value_t and returns a value_t
  * @tparam accum_f accumulation function type (semiring sum() function).
  *                 accepts two arguments of value_t and returns a value_t
- * @tparam write_f function to write value out. this should be atomic and
- *                 mirror the operation of the accumulate function.
+ * @tparam write_f function to write value out. this should be mathematically
+ *                 equivalent to the accumulate function but implemented as
+ *                 an atomic operation on global memory. Accepts two arguments
+ *                 of value_t* and value_t and updates the value given by the
+ *                 pointer.
  * @param[in] indptrA column pointer array for A
  * @param[in] indicesA column indices array for A
  * @param[in] dataA data array for A
@@ -84,17 +88,17 @@ namespace distance {
  * @param[in] n_blocks_per_row number of blocks of B per row of A
  * @param[in] chunk_size number of nnz for B to use for each row of A
  * @param[in] buffer_size amount of smem to use for each row of A
- * @param[in] reduce_func semiring product() function
+ * @param[in] product_func semiring product() function
  * @param[in] accum_func semiring sum() function
  * @param[in] write_func atomic semiring sum() function
  */
 template <typename value_idx, typename value_t, int tpb, bool rev,
-          typename kv_t, typename reduce_f, typename accum_f, typename write_f>
+          typename kv_t, typename product_f, typename accum_f, typename write_f>
 __global__ void balanced_coo_generalized_spmv_kernel(
   value_idx *indptrA, value_idx *indicesA, value_t *dataA, value_idx *rowsB,
   value_idx *indicesB, value_t *dataB, value_idx m, value_idx n, value_idx dim,
   value_idx nnz_b, value_t *out, int n_blocks_per_row, int chunk_size,
-  reduce_f reduce_func, accum_f accum_func, write_f write_func) {
+  product_f product_func, accum_f accum_func, write_f write_func) {
   typedef cub::WarpReduce<value_t> warp_reduce;
 
   value_idx cur_row_a = blockIdx.x / n_blocks_per_row;
@@ -112,9 +116,6 @@ __global__ void balanced_coo_generalized_spmv_kernel(
   unsigned int lane_id = tid & (raft::warp_size() - 1);
   value_idx ind = ind_offset + threadIdx.x;
 
-  if (cur_row_a > m || cur_chunk_offset > n_blocks_per_row) return;
-  if (ind >= nnz_b) return;
-
   extern __shared__ char smem[];
 
   value_idx *offsets_a = (value_idx *)smem;
@@ -122,12 +123,12 @@ __global__ void balanced_coo_generalized_spmv_kernel(
   typename warp_reduce::TempStorage *temp_storage =
     (typename warp_reduce::TempStorage *)(A + dim);
 
+  // Create dense vector A and populate with 0s
+  for (int k = tid; k < dim; k += blockDim.x) A[k] = 0;
+
   if (tid == 0) {
     offsets_a[0] = indptrA[cur_row_a];
     offsets_a[1] = indptrA[cur_row_a + 1];
-
-    // Create dense vector A and populate with 0s
-    memset(A, 0, dim * sizeof(kv_t));
   }
 
   __syncthreads();
@@ -142,6 +143,9 @@ __global__ void balanced_coo_generalized_spmv_kernel(
 
   __syncthreads();
 
+  if (cur_row_a > m || cur_chunk_offset > n_blocks_per_row) return;
+  if (ind >= nnz_b) return;
+
   value_idx cur_row_b = -1;
   value_t c = 0.0;
 
@@ -150,7 +154,7 @@ __global__ void balanced_coo_generalized_spmv_kernel(
   if (tid < active_chunk_size) {
     cur_row_b = rowsB[ind];
     value_t a_col = A[indicesB[ind]];
-    if (!rev || a_col == 0.0) c = reduce_func(a_col, dataB[ind]);
+    if (!rev || a_col == 0.0) c = product_func(a_col, dataB[ind]);
   }
 
   // loop through chunks in parallel, reducing when a new row is
@@ -161,12 +165,13 @@ __global__ void balanced_coo_generalized_spmv_kernel(
 
     if (i + blockDim.x < active_chunk_size) next_row_b = rowsB[ind_next];
 
-    if (next_row_b != cur_row_b) {
-      unsigned int peer_group = get_peer_group(cur_row_b);
-      bool is_leader = get_lowest_peer(peer_group) == lane_id;
+    bool diff_rows = next_row_b != cur_row_b;
 
-      value_t v = warp_red.HeadSegmentedReduce(c, is_leader, accum_func);
-
+    unsigned int peer_group = get_peer_group(cur_row_b, __activemask());
+    bool is_leader = get_lowest_peer(peer_group) == lane_id;
+    value_t v =
+      warp_red.HeadSegmentedReduce(c * diff_rows, is_leader, accum_func);
+    if (diff_rows) {
       // thread with lowest lane id among peers writes out
       if (is_leader && v != 0.0) {
         value_idx idx =
@@ -180,7 +185,7 @@ __global__ void balanced_coo_generalized_spmv_kernel(
       ind = ind_next;
       value_t a_col = A[indicesB[ind]];
       if (!rev || a_col == 0.0)
-        c = accum_func(c, reduce_func(a_col, dataB[ind]));
+        c = accum_func(c, product_func(a_col, dataB[ind]));
       cur_row_b = next_row_b;
     }
   }
@@ -220,22 +225,23 @@ inline int smem_per_block(int n_cols) {
  * @tparam chunk_size number of nonzeros of B to process for each row of A
  *         this value was found through profiling and represents a reasonable
  *         setting for both large and small densities
- * @tparam reduce_f semiring product() function
+ * @tparam product_f semiring product() function
  * @tparam accum_f semiring sum() function
  * @tparam write_f atomic semiring sum() function
- * @param[out] out_dists dense array of out distances of size m * n
+ * @param[out] out_dists dense array of out distances of size m * n in row-major
+ *             format.
  * @param[in] config_ distance config object
  * @param[in] coo_rows_b coo row array for B
- * @param[in] reduce_func semiring product() function
+ * @param[in] product_func semiring product() function
  * @param[in] accum_func semiring sum() function
  * @param[in] write_func atomic semiring sum() function
  */
 template <typename value_idx, typename value_t, int threads_per_block = 1024,
-          int chunk_size = 500000, typename reduce_f, typename accum_f,
+          int chunk_size = 500000, typename product_f, typename accum_f,
           typename write_f>
 inline void balanced_coo_pairwise_generalized_spmv(
   value_t *out_dists, const distances_config_t<value_idx, value_t> &config_,
-  value_idx *coo_rows_b, reduce_f reduce_func, accum_f accum_func,
+  value_idx *coo_rows_b, product_f product_func, accum_f accum_func,
   write_f write_func) {
   CUDA_CHECK(cudaMemsetAsync(
     out_dists, 0, config_.a_nrows * config_.b_nrows * sizeof(value_t),
@@ -251,17 +257,23 @@ inline void balanced_coo_pairwise_generalized_spmv(
   CUML_LOG_DEBUG("n_warps_per_row: %d", n_blocks_per_row);
   CUML_LOG_DEBUG("smem_per_block: %d", smem);
 
+  CUDA_CHECK(cudaFuncSetCacheConfig(
+    balanced_coo_generalized_spmv_kernel<value_idx, value_t, threads_per_block,
+                                         false, value_t, product_f, accum_f,
+                                         write_f>,
+    cudaFuncCachePreferShared));
+
   balanced_coo_generalized_spmv_kernel<value_idx, value_t, threads_per_block,
                                        false, value_t>
     <<<n_blocks, threads_per_block, smem, config_.stream>>>(
       config_.a_indptr, config_.a_indices, config_.a_data, coo_rows_b,
       config_.b_indices, config_.b_data, config_.a_nrows, config_.b_nrows,
       config_.b_ncols, config_.b_nnz, out_dists, n_blocks_per_row, chunk_size,
-      reduce_func, accum_func, write_func);
+      product_func, accum_func, write_func);
 };
 
 /**
- * Used for computing distances where the reduction (e.g. product()) function performs
+ * Used for computing distances where the reduction (e.g. product()) function requires
  * an implicit union (reduce(x, 0) = x) to capture the difference A-B. This is
  * necessary because the SPMV kernel will only compute the intersection & B-A.
  * @tparam value_idx index type
@@ -270,22 +282,22 @@ inline void balanced_coo_pairwise_generalized_spmv(
  * @tparam chunk_size number of nonzeros of B to process for each row of A
  *         this value was found through profiling and represents a reasonable
  *         setting for both large and small densities
- * @tparam reduce_f semiring product() function
+ * @tparam product_f semiring product() function
  * @tparam accum_f semiring sum() function
  * @tparam write_f atomic semiring sum() function
  * @param[out] out_dists dense array of out distances of size m * n
  * @param[in] config_ distance config object
  * @param[in] coo_rows_a coo row array for A
- * @param[in] reduce_func semiring product() function
+ * @param[in] product_func semiring product() function
  * @param[in] accum_func semiring sum() function
  * @param[in] write_func atomic semiring sum() function
  */
 template <typename value_idx, typename value_t, int threads_per_block = 1024,
-          int chunk_size = 500000, typename reduce_f, typename accum_f,
+          int chunk_size = 500000, typename product_f, typename accum_f,
           typename write_f>
 inline void balanced_coo_pairwise_generalized_spmv_rev(
   value_t *out_dists, const distances_config_t<value_idx, value_t> &config_,
-  value_idx *coo_rows_a, reduce_f reduce_func, accum_f accum_func,
+  value_idx *coo_rows_a, product_f product_func, accum_f accum_func,
   write_f write_func) {
   int n_blocks_per_row =
     raft::ceildiv(config_.a_nnz, chunk_size * threads_per_block);
@@ -298,13 +310,19 @@ inline void balanced_coo_pairwise_generalized_spmv_rev(
   CUML_LOG_DEBUG("n_warps_per_row: %d", n_blocks_per_row);
   CUML_LOG_DEBUG("smem_per_block: %d", smem);
 
+  CUDA_CHECK(cudaFuncSetCacheConfig(
+    balanced_coo_generalized_spmv_kernel<value_idx, value_t, threads_per_block,
+                                         true, value_t, product_f, accum_f,
+                                         write_f>,
+    cudaFuncCachePreferShared));
+
   balanced_coo_generalized_spmv_kernel<value_idx, value_t, threads_per_block,
                                        true, value_t>
     <<<n_blocks, threads_per_block, smem, config_.stream>>>(
       config_.b_indptr, config_.b_indices, config_.b_data, coo_rows_a,
       config_.a_indices, config_.a_data, config_.b_nrows, config_.a_nrows,
       config_.a_ncols, config_.a_nnz, out_dists, n_blocks_per_row, chunk_size,
-      reduce_func, accum_func, write_func);
+      product_func, accum_func, write_func);
 };
 }  // namespace distance
 }  // namespace sparse

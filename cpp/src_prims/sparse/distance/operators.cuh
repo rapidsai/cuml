@@ -43,14 +43,14 @@ struct PDiff {
 
   template <typename value_t>
   __host__ __device__ __forceinline__ value_t operator()(value_t a, value_t b) {
-    return powf(a - b, p);
+    return pow(a - b, p);
   }
 };
 
 struct Max {
   template <typename value_t>
   __host__ __device__ __forceinline__ value_t operator()(value_t a, value_t b) {
-    return fmaxf(a, b);
+    return fmax(a, b);
   }
 };
 
@@ -80,7 +80,7 @@ struct Product {
 struct AbsDiff {
   template <typename value_t>
   __host__ __device__ __forceinline__ value_t operator()(value_t a, value_t b) {
-    return fabsf(a - b);
+    return fabs(a - b);
   }
 };
 }  // namespace distance

@@ -168,12 +168,20 @@ class ip_distances_gemm_t : public ip_trans_getters_t<value_idx, value_t> {
                     value_t *csr_out_data) {
     value_idx m = config_->a_nrows, n = config_->b_nrows, k = config_->a_ncols;
 
+    int start = raft::curTimeMillis();
+
+    CUDA_CHECK(cudaStreamSynchronize(config_->stream));
+
     CUSPARSE_CHECK(raft::sparse::cusparsecsrgemm2<value_t>(
       config_->handle, m, n, k, &alpha, matA, config_->a_nnz, config_->a_data,
       config_->a_indptr, config_->a_indices, matB, config_->b_nnz,
       csc_data.data(), csc_indptr.data(), csc_indices.data(), NULL, matD, 0,
       NULL, NULL, NULL, matC, csr_out_data, csr_out_indptr, csr_out_indices,
       info, workspace.data(), config_->stream));
+
+    CUDA_CHECK(cudaStreamSynchronize(config_->stream));
+
+    printf("CSR GEMM TOOK: %dms\n", raft::curTimeMillis() - start);
   }
 
   void transpose_b() {

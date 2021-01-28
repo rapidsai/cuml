@@ -46,21 +46,14 @@ namespace distance {
  * @tparam buffer_size
  * @tparam rows_per_block
  */
-template <typename value_idx, typename value_t, int tpb, typename reduce_f,
+template <typename value_idx, typename value_t, int tpb, typename product_f,
           typename accum_f>
 struct BlockSemiring {
-  __device__ inline BlockSemiring(int tid_, value_idx m_, value_idx n_,
-                                  value_idx *shared_cols_,
-                                  value_t *shared_vals_, value_idx *chunk_cols_,
-                                  value_t *chunk_vals_, value_idx *offsets_a_)
-    : tid(tid_),
-      p(p),
-      m(m_),
-      n(n_),
+  __device__ inline BlockSemiring(value_idx n_, value_idx *shared_cols_,
+                                  value_t *shared_vals_, value_idx *offsets_a_)
+    : n(n_),
       shared_cols(shared_cols_),
       shared_vals(shared_vals_),
-      chunk_cols(chunk_cols_),
-      chunk_vals(chunk_vals_),
       offsets_a(offsets_a_),
       done(false),
       shared_idx(0),
@@ -74,26 +67,42 @@ struct BlockSemiring {
    * @param indicesA
    * @param dataA
    */
-  __device__ inline void load_a(value_idx row, value_idx *indptrA,
-                                value_idx *indicesA, value_t *dataA) {
-    if (tid == 0) {
+  __device__ inline void load_a_shared(value_idx row, value_idx *indptrA,
+                                       value_idx *indicesA, value_t *dataA) {
+    if (threadIdx.x == 0) {
       offsets_a[0] = indptrA[row];
       offsets_a[1] = indptrA[row + 1];
     }
     __syncthreads();
 
-    start_offset_a = offsets_a[0];
-    stop_offset_a = offsets_a[1];
+    value_idx start_offset_a = offsets_a[0];
+    value_idx stop_offset_a = offsets_a[1];
 
     shared_size = stop_offset_a - start_offset_a;
 
     // Coalesce reads of row from matrix A into shared memory
-    for (int i = tid; i < shared_size; i += blockDim.x) {
+    for (int i = threadIdx.x; i < shared_size; i += blockDim.x) {
       shared_cols[i] = indicesA[start_offset_a + i];
       shared_vals[i] = dataA[start_offset_a + i];
     }
 
     __syncthreads();
+
+    row_a = row;
+  }
+
+  __device__ inline void load_a(value_idx row, value_idx *indptrA,
+                                value_idx *indicesA, value_t *dataA) {
+    offsets_a[0] = indptrA[row];
+    offsets_a[1] = indptrA[row + 1];
+
+    value_idx start_offset_a = offsets_a[0];
+    value_idx stop_offset_a = offsets_a[1];
+
+    shared_size = stop_offset_a - start_offset_a;
+
+    shared_cols = indicesA + start_offset_a;
+    shared_vals = dataA + start_offset_a;
 
     row_a = row;
   }
@@ -108,14 +117,15 @@ struct BlockSemiring {
     shared_idx = 0;
     cur_sum = 0.0;
 
-    start_row_b = start_row;
-    stop_row_b = min(start_row_b + tpb, start_row_b + (n - start_row_b));
+    value_idx start_row_b = start_row;
+    value_idx stop_row_b =
+      min(start_row_b + tpb, start_row_b + (n - start_row_b));
 
     n_rows = (stop_row_b - start_row_b);
 
-    for (int i = tid; i < n_rows; i += tpb) {
-      row_b = start_row_b + tid;
-      start_offset_b = indptrB[start_row_b + i];
+    for (int i = threadIdx.x; i < n_rows; i += tpb) {
+      row_b = start_row_b + threadIdx.x;
+      value_idx start_offset_b = indptrB[start_row_b + i];
       row_count = indptrB[start_row_b + i + 1] - start_offset_b;
       local_idx = start_offset_b;
       local_idx_stop = start_offset_b + row_count;
@@ -126,11 +136,12 @@ struct BlockSemiring {
    * Perform single single column intersection/union for A & B
    * based on the row of A mapped to shared memory and the row
    * of B mapped to current thread.
-   * @param reduce_func
+   * @param product_func
    * @param accum_func
    */
-  __device__ inline void step(reduce_f reduce_func, accum_f accum_func) {
-    if (tid < n_rows) {
+  __device__ inline void step(value_idx *chunk_cols, value_t *chunk_vals,
+                              product_f product_func, accum_f accum_func) {
+    if (threadIdx.x < n_rows) {
       bool local_idx_in_bounds = local_idx < local_idx_stop && row_count > 0;
 
       value_idx l = local_idx_in_bounds ? chunk_cols[local_idx] : -1;
@@ -150,7 +161,7 @@ struct BlockSemiring {
       value_t right_side = rv * run_r;
 
       // Apply semiring "sum" & "product" functions locally
-      cur_sum = accum_func(cur_sum, reduce_func(left_side, right_side));
+      cur_sum = accum_func(cur_sum, product_func(left_side, right_side));
 
       // finished when all items in chunk have been
       // processed
@@ -164,21 +175,15 @@ struct BlockSemiring {
   __device__ inline bool isdone() { return done; }
 
   __device__ inline void write(value_t *out) {
-    for (int i = tid; i < n_rows; i += blockDim.x) {
-      out[row_a * n + row_b] = cur_sum;
-    }
+    if (threadIdx.x < n_rows) out[row_a * n + row_b] = cur_sum;
   }
 
  private:
-  int tid;
-
   bool done;
 
   int shared_size;
 
   value_idx n_rows;
-
-  value_t p;
 
   value_idx local_idx;
   value_idx local_idx_stop;
@@ -186,20 +191,10 @@ struct BlockSemiring {
 
   value_t cur_sum;
 
-  value_idx n_entries;
-
-  value_idx m;
   value_idx n;
-  value_idx start_offset_a;
-  value_idx stop_offset_a;
 
   value_idx row_a;
   value_idx row_b;
-
-  value_idx start_offset_b;
-
-  value_idx start_row_b;
-  value_idx stop_row_b;
 
   value_idx *offsets_a;
 
@@ -207,8 +202,6 @@ struct BlockSemiring {
   value_idx row_count;
   value_idx *shared_cols;
   value_t *shared_vals;
-  value_idx *chunk_cols;
-  value_t *chunk_vals;
 };
 
 /**
@@ -217,7 +210,7 @@ struct BlockSemiring {
  * @tparam value_idx index type
  * @tparam value_t value type
  * @tparam tpb block size
- * @tparam reduce_f semiring product() function
+ * @tparam product_f semiring product() function
  * @tparam accum_f semiring sum() function
  * @param[in] indptrA csr column index pointer array for A
  * @param[in] indicesA csr column indices array for A
@@ -227,27 +220,24 @@ struct BlockSemiring {
  * @param[in] dataB csr data array for B
  * @param[in] m number of rows in A
  * @param[in] n number of rows in B
- * @param[out] out dense output array of size m * n
+ * @param[out] out dense output array of size m * n in row-major layout
  * @param[in] n_blocks_per_row number of blocks of B scheduled per row of A
  * @param[in] n_rows_per_block number of rows of A scheduled per block of B
  * @param[in] buffer_size number of nonzeros to store in smem
- * @param[in] reduce_func semiring product() function
+ * @param[in] product_func semiring product() function
  * @param[in] accum_func semiring sum() function
  */
-template <typename value_idx, typename value_t, int tpb, typename reduce_f,
+template <typename value_idx, typename value_t, int tpb, typename product_f,
           typename accum_f>
-__global__ void classic_csr_semiring_spmv_kernel(
+__global__ void classic_csr_semiring_spmv_smem_kernel(
   value_idx *indptrA, value_idx *indicesA, value_t *dataA, value_idx *indptrB,
   value_idx *indicesB, value_t *dataB, value_idx m, value_idx n, value_t *out,
   int n_blocks_per_row, int n_rows_per_block, int buffer_size,
-  reduce_f reduce_func, accum_f accum_func) {
+  product_f product_func, accum_f accum_func) {
   value_idx out_row = blockIdx.x / n_blocks_per_row;
   value_idx out_col_start = blockIdx.x % n_blocks_per_row;
 
   value_idx row_b_start = out_col_start * n_rows_per_block;
-  value_idx tid = threadIdx.x;
-
-  if (out_row > m || row_b_start > n) return;
 
   extern __shared__ char smem[];
 
@@ -255,19 +245,61 @@ __global__ void classic_csr_semiring_spmv_kernel(
   value_idx *shared_cols = offsets_a + 2;
   value_t *shared_vals = (value_t *)(shared_cols + buffer_size);
 
-  BlockSemiring<value_idx, value_t, tpb, reduce_f, accum_f> semiring(
-    tid, m, n, shared_cols, shared_vals, indicesB, dataB, offsets_a);
+  BlockSemiring<value_idx, value_t, tpb, product_f, accum_f> semiring(
+    n, shared_cols, shared_vals, offsets_a);
 
-  semiring.load_a(out_row, indptrA, indicesA, dataA);
+  semiring.load_a_shared(out_row, indptrA, indicesA, dataA);
+
+  if (out_row > m || row_b_start > n) return;
 
   // for each batch, parallel the resulting rows across threads
   for (int i = 0; i < n_rows_per_block; i += blockDim.x) {
     semiring.load_b(row_b_start + i, indptrB);
     do {
-      semiring.step(reduce_func, accum_func);
+      semiring.step(indicesB, dataB, product_func, accum_func);
     } while (!semiring.isdone());
 
     semiring.write(out);
+  }
+
+  if (threadIdx.x == 0 && out_row % 1000 == 0) {
+    printf("row_a=%d, tid=%d, done.\n", out_row, threadIdx.x);
+  }
+}
+
+template <typename value_idx, typename value_t, int tpb, typename product_f,
+          typename accum_f>
+__global__ void classic_csr_semiring_spmv_kernel(
+  value_idx *indptrA, value_idx *indicesA, value_t *dataA, value_idx *indptrB,
+  value_idx *indicesB, value_t *dataB, value_idx m, value_idx n, value_t *out,
+  int n_blocks_per_row, int n_rows_per_block, product_f product_func,
+  accum_f accum_func) {
+  value_idx out_row = blockIdx.x / n_blocks_per_row;
+  value_idx out_col_start = blockIdx.x % n_blocks_per_row;
+
+  value_idx row_b_start = out_col_start * n_rows_per_block;
+
+  value_idx offsets_a[2];
+
+  BlockSemiring<value_idx, value_t, tpb, product_f, accum_f> semiring(
+    n, indicesA, dataA, offsets_a);
+
+  semiring.load_a(out_row, indptrA, indicesA, dataA);
+
+  if (out_row > m || row_b_start > n) return;
+
+  // for each batch, parallel the resulting rows across threads
+  for (int i = 0; i < n_rows_per_block; i += blockDim.x) {
+    semiring.load_b(row_b_start + i, indptrB);
+    do {
+      semiring.step(indicesB, dataB, product_func, accum_func);
+    } while (!semiring.isdone());
+
+    semiring.write(out);
+  }
+
+  if (threadIdx.x == 0 && out_row % 1000 == 0) {
+    printf("row_a=%d, tid=%d, done.\n", out_row, threadIdx.x);
   }
 }
 
@@ -282,6 +314,80 @@ inline value_idx max_nnz_per_block() {
   // (division because we need to store cols & vals separately)
   return (raft::getSharedMemPerBlock() - (2 * sizeof(value_idx))) /
          (sizeof(value_t) + sizeof(value_idx));
+}
+
+template <typename value_idx>
+inline value_idx max_degree(
+  value_idx *indptr, value_idx n_rows,
+  std::shared_ptr<raft::mr::device::allocator> allocator, cudaStream_t stream) {
+  raft::mr::device::buffer<value_idx> diff(allocator, stream, n_rows);
+
+  thrust::device_ptr<value_idx> d_ptr_indptr =
+    thrust::device_pointer_cast(indptr);
+  thrust::device_ptr<value_idx> d_ptr_diff =
+    thrust::device_pointer_cast(diff.data());
+
+  thrust::adjacent_difference(d_ptr_indptr, d_ptr_indptr + n_rows, d_ptr_diff);
+
+  return *(thrust::max_element(thrust::cuda::par.on(stream), d_ptr_diff,
+                               d_ptr_diff + n_rows));
+}
+
+template <typename value_idx = int, typename value_t = float,
+          int threads_per_block = 64, typename product_f, typename accum_f>
+void _generalized_csr_pairwise_semiring(
+  value_t *out_dists, const distances_config_t<value_idx, value_t> &config_,
+  product_f product_func, accum_f accum_func) {
+  int n_chunks = 1;
+  int n_rows_per_block = min(n_chunks * threads_per_block, config_.b_nrows);
+  int n_blocks_per_row = raft::ceildiv(config_.b_nrows, n_rows_per_block);
+  int n_blocks = config_.a_nrows * n_blocks_per_row;
+
+  CUML_LOG_DEBUG("n_blocks: %d", n_blocks);
+  CUML_LOG_DEBUG("n_blocks_per_row: %d", n_blocks_per_row);
+
+  CUDA_CHECK(cudaFuncSetCacheConfig(
+    classic_csr_semiring_spmv_kernel<value_idx, value_t, threads_per_block,
+                                     product_f, accum_f>,
+    cudaFuncCachePreferL1));
+
+  classic_csr_semiring_spmv_kernel<value_idx, value_t, threads_per_block,
+                                   product_f, accum_f>
+    <<<n_blocks, threads_per_block, 0, config_.stream>>>(
+      config_.a_indptr, config_.a_indices, config_.a_data, config_.b_indptr,
+      config_.b_indices, config_.b_data, config_.a_nrows, config_.b_nrows,
+      out_dists, n_blocks_per_row, n_rows_per_block, product_func, accum_func);
+};
+
+template <typename value_idx = int, typename value_t = float,
+          int threads_per_block = 32, typename product_f, typename accum_f>
+void _generalized_csr_pairwise_smem_semiring(
+  value_t *out_dists, const distances_config_t<value_idx, value_t> &config_,
+  product_f product_func, accum_f accum_func, value_idx max_nnz) {
+  int n_chunks = 10000;
+  int n_rows_per_block = min(n_chunks * threads_per_block, config_.b_nrows);
+  int n_blocks_per_row = raft::ceildiv(config_.b_nrows, n_rows_per_block);
+  int n_blocks = config_.a_nrows * n_blocks_per_row;
+
+  // TODO: Figure out why performance is worse with smaller smem sizes
+  int smem_size = raft::getSharedMemPerBlock();
+
+  CUML_LOG_DEBUG("n_blocks: %d", n_blocks);
+  CUML_LOG_DEBUG("n_blocks_per_row: %d", n_blocks_per_row);
+  CUML_LOG_DEBUG("smem_size: %d", smem_size);
+
+  CUDA_CHECK(cudaFuncSetCacheConfig(
+    classic_csr_semiring_spmv_smem_kernel<value_idx, value_t, threads_per_block,
+                                          product_f, accum_f>,
+    cudaFuncCachePreferShared));
+
+  classic_csr_semiring_spmv_smem_kernel<value_idx, value_t, threads_per_block,
+                                        product_f, accum_f>
+    <<<n_blocks, threads_per_block, smem_size, config_.stream>>>(
+      config_.a_indptr, config_.a_indices, config_.a_data, config_.b_indptr,
+      config_.b_indices, config_.b_data, config_.a_nrows, config_.b_nrows,
+      out_dists, n_blocks_per_row, n_rows_per_block, max_nnz, product_func,
+      accum_func);
 }
 
 /**
@@ -310,43 +416,39 @@ inline value_idx max_nnz_per_block() {
  *  Ref: https://github.com/rapidsai/cuml/issues/3371
  *
  * @tparam value_idx index type
+ *
+ *
  * @tparam value_t value type
- * @tparam threads_per_block block size
- * @tparam reduce_f semiring product() function
+ * @tparam product_f semiring product() function
  * @tparam accum_f semiring sum() function
- * @param[out] out_dists dense array of output distances size m * n
+ * @param[out] out_dists dense array of output distances size m * n in row-major layout
  * @param[in] config_ distance config object
- * @param[in] reduce_func semiring product() function
+ * @param[in] product_func semiring product() function
  * @param[in] accum_func semiring sum() function
  */
 template <typename value_idx = int, typename value_t = float,
-          int threads_per_block = 1024, typename reduce_f, typename accum_f>
+          typename product_f, typename accum_f>
 void generalized_csr_pairwise_semiring(
   value_t *out_dists, const distances_config_t<value_idx, value_t> &config_,
-  reduce_f reduce_func, accum_f accum_func) {
-  int n_chunks = 1;
-  int n_rows_per_block = min(n_chunks * threads_per_block, config_.b_nrows);
-  int n_blocks_per_row = raft::ceildiv(config_.b_nrows, n_rows_per_block);
-  int n_blocks = config_.a_nrows * n_blocks_per_row;
-
-  int smem_buffer_size = max_nnz_per_block<value_idx, value_t>();
-
-  //TODO: Compute max degree and set smem accordingly
+  product_f product_func, accum_f accum_func) {
+  int nnz_upper_bound = max_nnz_per_block<value_idx, value_t>();
 
   CUML_LOG_DEBUG("Classic block reduce");
+  CUML_LOG_DEBUG("nnz_upper_bound: %d", nnz_upper_bound);
 
-  CUML_LOG_DEBUG("n_blocks: %d", n_blocks);
-  CUML_LOG_DEBUG("n_blocks_per_row: %d", n_blocks_per_row);
-  CUML_LOG_DEBUG("smem_buffer_size: %d", smem_buffer_size);
+  // max_nnz set from max(diff(indptrA))
+  value_idx max_nnz = max_degree<value_idx>(config_.a_indptr, config_.a_nrows,
+                                            config_.allocator, config_.stream);
 
-  classic_csr_semiring_spmv_kernel<value_idx, value_t, threads_per_block,
-                                   reduce_f, accum_f>
-    <<<n_blocks, threads_per_block, raft::getSharedMemPerBlock(),
-       config_.stream>>>(config_.a_indptr, config_.a_indices, config_.a_data,
-                         config_.b_indptr, config_.b_indices, config_.b_data,
-                         config_.a_nrows, config_.b_nrows, out_dists,
-                         n_blocks_per_row, n_rows_per_block, smem_buffer_size,
-                         reduce_func, accum_func);
+  if (max_nnz <= nnz_upper_bound)
+    // use smem
+    _generalized_csr_pairwise_smem_semiring<value_idx, value_t>(
+      out_dists, config_, product_func, accum_func, max_nnz);
+
+  else
+    // load each row of A separately
+    _generalized_csr_pairwise_semiring<value_idx, value_t>(
+      out_dists, config_, product_func, accum_func);
 };
 
 }  // namespace distance

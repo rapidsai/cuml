@@ -55,6 +55,15 @@ def valid_metrics(algo="brute", cuml_algo=None):
 
 
 def valid_metrics_sparse(algo="brute", cuml_algo=None):
+    """
+    The list of sparse prims in scikit-learn / scipy does not
+    include sparse inputs for all of the metrics we support in cuml
+    (even metrics which are implicitly sparse, such as jaccard and dice,
+    which accume boolean inputs). To maintain high test coverage for all
+    metrics supported by Scikit-learn, we take the union of both
+    dense and sparse metrics. This way, a sparse input can just be converted
+    to dense form for Scikit-learn.
+    """
     cuml_algo = algo if cuml_algo is None else cuml_algo
     cuml_metrics = cuml.neighbors.VALID_METRICS_SPARSE[cuml_algo]
     sklearn_metrics = set(sklearn.neighbors.VALID_METRICS_SPARSE[algo])
@@ -398,11 +407,11 @@ def test_knn_graph(input_type, nrows, n_feats, p, k, metric, mode,
         assert isspmatrix_csr(sparse_cu)
 
 
-@pytest.mark.parametrize("metric", valid_metrics_sparse())
-@pytest.mark.parametrize('shape', [(100, 100, 0.4), (100, 15000, 0.04)])
+@pytest.mark.parametrize("metric", ["l1"])#valid_metrics_sparse())
+@pytest.mark.parametrize('shape', [(5000, 1000, 0.4), (100, 15000, 0.04)])
 @pytest.mark.parametrize('n_neighbors', [4])
 @pytest.mark.parametrize('batch_size_index', [40000])
-@pytest.mark.parametrize('batch_size_query', [50000])
+@pytest.mark.parametrize('batch_size_query', [40000])
 def test_nearest_neighbors_sparse(shape,
                                   metric,
                                   n_neighbors,
@@ -423,7 +432,7 @@ def test_nearest_neighbors_sparse(shape,
         a = a.astype('bool').astype('float32')
         b = b.astype('bool').astype('float32')
 
-    logger.set_level(logger.level_debug)
+    logger.set_level(logger.level_info)
     nn = cuKNN(metric=metric, p=2.0, n_neighbors=n_neighbors,
                algorithm="brute", output_type="numpy",
                verbose=logger.level_debug,
