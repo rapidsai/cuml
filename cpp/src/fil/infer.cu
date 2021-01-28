@@ -451,6 +451,37 @@ size_t get_smem_footprint(shmem_size_params params) {
   return std::max(accumulate_footprint, finalize_footprint);
 }
 
+template <int NITEMS>
+size_t get_smem_footprint(shmem_size_params params, leaf_algo_t leaf_algo) {
+  switch (leaf_algo) {
+    case FLOAT_UNARY_BINARY:
+      return get_smem_footprint<NITEMS, FLOAT_UNARY_BINARY>(params);
+    case CATEGORICAL_LEAF:
+      return get_smem_footprint<NITEMS, CATEGORICAL_LEAF>(params);
+    case GROVE_PER_CLASS:
+      if (params.num_classes > FIL_TPB)
+        return get_smem_footprint<NITEMS, GROVE_PER_CLASS_MANY_CLASSES>(params);
+      return get_smem_footprint<NITEMS, GROVE_PER_CLASS_FEW_CLASSES>(params);
+    default:
+      ASSERT(false, "internal error: unexpected leaf_algo_t");
+  }
+}
+
+size_t get_smem_footprint(shmem_size_params params, leaf_algo_t leaf_algo) {
+  switch (params.n_items) {
+    case 1:
+      return get_smem_footprint<1>(params, leaf_algo);
+    case 2:
+      return get_smem_footprint<2>(params, leaf_algo);
+    case 3:
+      return get_smem_footprint<3>(params, leaf_algo);
+    case 4:
+      return get_smem_footprint<4>(params, leaf_algo);
+    default:
+      ASSERT(false, "internal error: nitems > 4");
+  }
+}
+
 template <leaf_algo_t leaf_algo, bool cols_in_shmem, typename storage_type>
 void infer_k_nitems_launcher(storage_type forest, predict_params params,
                              cudaStream_t stream, int blockdim_x) {

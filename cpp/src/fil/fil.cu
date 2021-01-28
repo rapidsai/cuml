@@ -70,13 +70,12 @@ __global__ void transform_k(float* preds, size_t n, output_t output,
 }
 
 struct forest {
-  template <leaf_algo_t leaf_algo, int NITEMS>
-  void try_nitems() {
-    size_t peak_footprint = get_smem_footprint<NITEMS, leaf_algo>(ssp_);
-    if (peak_footprint <= ssp_.max_shm) {
-      ssp_.n_items = NITEMS;
-      ssp_.shm_sz = peak_footprint;
-    }
+  void enumerate_n_items() {
+    for (ssp_.n_items = algo_ == algo_t::BATCH_TREE_REORG ? 4 : 1;
+         ssp_.n_items != 0 &&
+         ssp_.max_shm < (ssp_.shm_sz = get_smem_footprint(ssp_, leaf_algo_));
+         ssp_.n_items--)
+      ;
   }
 
   void init_n_items(int device) {
@@ -89,19 +88,14 @@ struct forest {
     /** searching for the most items per block while respecting the shared
     * memory limits creates a full linear programming problem.
     * solving it in a single equation looks less tractable than this */
+    ssp_.shm_sz = INT_MAX;
     ssp_.cols_in_shmem = true;
-    try_nitems<leaf_algo, 1>();
-    if (n_items == 0) {
+    enumerate_n_items();
+    if (ssp_.max_shm < ssp_.shm_sz) {
       ssp_.cols_in_shmem = false;
-      try_nitems<leaf_algo, 1>();
-      try_nitems<leaf_algo, 2>();
-      try_nitems<leaf_algo, 3>();
-      try_nitems<leaf_algo, 4>();
-      ASSERT(ssp_.n_items != 0, "FIL out of shared memory. >>5'000 classes?");
-    } else if (algo_ == algo_t::BATCH_TREE_REORG) {
-      try_nitems<leaf_algo, 2>();
-      try_nitems<leaf_algo, 3>();
-      try_nitems<leaf_algo, 4>();
+      enumerate_n_items();
+      ASSERT(ssp_.max_shm >= ssp_.shm_sz,
+             "FIL out of shared memory. >>5'000 classes?");
     }
   }
 
@@ -126,10 +120,11 @@ struct forest {
     threshold_ = params->threshold;
     global_bias_ = params->global_bias;
     leaf_algo_ = params->leaf_algo;
-    ssp_ = params->ssp;
+    ssp_.num_cols = params->num_cols;
+    ssp_.num_classes = params->num_classes;
 
     int device = h.get_device();
-    init_max_n_items(device);  // n_items takes priority over blocks_per_sm
+    init_n_items(device);  // n_items takes priority over blocks_per_sm
     init_fixed_block_count(device, params->blocks_per_sm);
   }
 

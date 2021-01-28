@@ -153,8 +153,7 @@ struct predict_params {
 template <typename storage_type>
 void infer(storage_type forest, predict_params params, cudaStream_t stream);
 
-template <int NITEMS, leaf_algo_t leaf_algo>
-size_t get_smem_footprint(shmem_size_params params);
+size_t get_smem_footprint(shmem_size_params params, leaf_algo_t leaf_algo);
 
 }  // namespace fil
 }  // namespace ML
