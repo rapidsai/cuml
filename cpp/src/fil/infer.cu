@@ -270,12 +270,10 @@ struct tree_aggregator_t<NITEMS, GROVE_PER_CLASS_MANY_CLASSES>
   vec<NITEMS, float>* per_class_margin;
 
   static size_t smem_finalize_footprint(shmem_size_params params) {
+    // phase1 here includes first half of finalize()
     size_t phase1 =
       cols_shmem_size(params) + smem_accumulate_footprint(params.num_classes);
-    size_t phase2 =
-      finalize_block::smem_footprint<NITEMS>() > cols_shmem_size(params)
-        ? cols_shmem_size(params) + finalize_block::smem_footprint<NITEMS>()
-        : finalize_block::smem_footprint<NITEMS>();
+    size_t phase2 = finalize_block::smem_footprint<NITEMS>();
     return std::max(phase1, phase2);
   }
 
@@ -286,13 +284,7 @@ struct tree_aggregator_t<NITEMS, GROVE_PER_CLASS_MANY_CLASSES>
   __device__ __forceinline__ tree_aggregator_t(predict_params params,
                                                void* accumulate_workspace,
                                                void* finalize_workspace)
-    // if finalize_block fits into cols_shmem_size, overlap, since one is used
-    // only during "finalize" stage, and another - only during "accumulate" stage.
-    : finalize_block(
-        finalize_block::smem_footprint<NITEMS>() > cols_shmem_size(params.ssp)
-          ? accumulate_workspace
-          : finalize_workspace,
-        params.ssp.num_classes),
+    : finalize_block(finalize_workspace, params.ssp.num_classes),
       per_class_margin((vec<NITEMS, float>*)accumulate_workspace) {
     for (int c = threadIdx.x; c < num_classes; c += blockDim.x)
       per_class_margin[c] = vec<NITEMS, float>();  // initialize to 0.0f
