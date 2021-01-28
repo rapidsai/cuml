@@ -88,6 +88,24 @@ std::string output2str(fil::output_t output) {
   return s;
 }
 
+std::string output2str(fil::leaf_algo_t leaf_algo) {
+  switch (leaf_algo) {
+    case FLOAT_UNARY_BINARY:
+      return "FLOAT_UNARY_BINARY";
+    case CATEGORICAL_LEAF:
+      return "CATEGORICAL_LEAF";
+    case GROVE_PER_CLASS:
+      return "GROVE_PER_CLASS";
+    case GROVE_PER_CLASS_FEW_CLASSES:
+      return "GROVE_PER_CLASS_FEW_CLASSES";
+    case GROVE_PER_CLASS_MANY_CLASSES:
+      return "GROVE_PER_CLASS_MANY_CLASSES";
+    default:
+      ASSERT(false, "internal error: printing unexpected leaf_algo_t %d",
+             leaf_algo);
+  }
+}
+
 std::ostream& operator<<(std::ostream& os, const FilTestParams& ps) {
   os << "num_rows = " << ps.num_rows << ", num_cols = " << ps.num_cols
      << ", nan_prob = " << ps.nan_prob << ", depth = " << ps.depth
@@ -97,7 +115,7 @@ std::ostream& operator<<(std::ostream& os, const FilTestParams& ps) {
      << ", blocks_per_sm = " << ps.blocks_per_sm << ", algo = " << ps.algo
      << ", seed = " << ps.seed << ", tolerance = " << ps.tolerance
      << ", op = " << tl::OpName(ps.op) << ", global_bias = " << ps.global_bias
-     << ", leaf_algo = " << ps.leaf_algo
+     << ", leaf_algo = " << output2str(ps.leaf_algo)
      << ", num_classes = " << ps.num_classes;
   return os;
 }
@@ -710,16 +728,15 @@ std::vector<FilTestParams> predict_dense_inputs = {
                   num_trees = 512, num_classes = 512),
   FIL_TEST_PARAMS(leaf_algo = GROVE_PER_CLASS, blocks_per_sm = 4,
                   num_trees = 512, num_classes = 512),
-  FIL_TEST_PARAMS(num_cols = 100'000, depth = 0, num_trees = 1,
+  FIL_TEST_PARAMS(num_cols = 100'000, depth = 1, num_trees = 1,
                   leaf_algo = FLOAT_UNARY_BINARY),
-  FIL_TEST_PARAMS(num_cols = 100'000, depth = 0, num_trees = 3,
-                  leaf_algo = GROVE_PER_CLASS, num_classes = 3, num_rows = 100),
-  FIL_TEST_PARAMS(num_cols = 100'000, depth = 0, num_trees = FIL_TPB + 1,
-                  leaf_algo = GROVE_PER_CLASS, num_classes = FIL_TPB + 1,
-                  num_rows = 100),
-  FIL_TEST_PARAMS(num_cols = 100'000, depth = 0, num_trees = 1,
-                  leaf_algo = CATEGORICAL_LEAF, num_classes = 3,
-                  num_rows = 100),
+  FIL_TEST_PARAMS(num_rows = 4, num_cols = 100'000, depth = 1, num_trees = 3,
+                  leaf_algo = GROVE_PER_CLASS, num_classes = 3),
+  FIL_TEST_PARAMS(num_rows = 4, num_cols = 100'000, depth = 1,
+                  num_trees = FIL_TPB + 1, leaf_algo = GROVE_PER_CLASS,
+                  num_classes = FIL_TPB + 1),
+  FIL_TEST_PARAMS(num_rows = 4, num_cols = 100'000, depth = 1, num_trees = 1,
+                  leaf_algo = CATEGORICAL_LEAF, num_classes = 3),
 };
 
 TEST_P(PredictDenseFilTest, Predict) { compare(); }

@@ -69,13 +69,13 @@ struct ArgMax {
 
 template <int NITEMS, typename output_type, typename tree_type>
 __device__ __forceinline__ vec<NITEMS, output_type> infer_one_tree(
-  tree_type tree, const float* input, int cols) {
+  tree_type tree, const float* input, int cols, int rows) {
   int curr[NITEMS];
   int mask = (1 << NITEMS) - 1;  // all active
   for (int j = 0; j < NITEMS; ++j) curr[j] = 0;
   do {
 #pragma unroll
-    for (int j = 0; j < NITEMS; ++j) {
+    for (int j = 0; j < rows; ++j) {
       auto n = tree[curr[j]];
       if (n.is_leaf()) {
         mask &= ~(1 << j);
@@ -99,7 +99,7 @@ __device__ __forceinline__ vec<NITEMS, output_type> infer_one_tree(
 
 template <typename output_type, typename tree_type>
 __device__ __forceinline__ vec<1, output_type> infer_one_tree(
-  tree_type tree, const float* input, int cols) {
+  tree_type tree, const float* input, int cols, int rows) {
   int curr = 0;
   for (;;) {
     auto n = tree[curr];
@@ -400,16 +400,18 @@ __global__ void infer_k(storage_type forest, predict_params params) {
   int num_cols = params.ssp.num_cols;
   for (size_t block_row0 = blockIdx.x * NITEMS; block_row0 < params.num_rows;
        block_row0 += NITEMS * gridDim.x) {
+    size_t num_input_rows = min((size_t)NITEMS, params.num_rows - block_row0);
+    const float* block_input = params.data + block_row0 * num_cols;
     if (cols_in_shmem) {
       // cache the row for all threads to reuse
-      for (size_t j = 0; j < NITEMS; ++j) {
-        size_t row = block_row0 + j;
+      size_t feature;
 #pragma unroll
-        for (int col = threadIdx.x; col < num_cols; col += blockDim.x) {
-          sdata[j * num_cols + col] =
-            row < params.num_rows ? params.data[row * num_cols + col] : 0.0f;
-        }
-      }
+      for (feature = threadIdx.x; feature < num_input_rows * num_cols;
+           feature += blockDim.x)
+        sdata[feature] = block_input[feature];
+#pragma unroll
+      for (; feature < NITEMS * num_cols; feature += blockDim.x)
+        sdata[feature] = 0.0f;
     }
 
     tree_aggregator_t<NITEMS, leaf_algo> acc(
@@ -425,15 +427,14 @@ __global__ void infer_k(storage_type forest, predict_params params) {
          and is made exact below.
       */
       if (j < forest.num_trees()) {
-        acc.accumulate(
-          infer_one_tree<NITEMS, leaf_output_t<leaf_algo>::T>(
-            forest[j], cols_in_shmem ? sdata : params.data, num_cols),
-          j);
+        acc.accumulate(infer_one_tree<NITEMS, leaf_output_t<leaf_algo>::T>(
+                         forest[j], cols_in_shmem ? sdata : block_input,
+                         num_cols, num_input_rows),
+                       j);
       }
       if (leaf_algo == GROVE_PER_CLASS_MANY_CLASSES) __syncthreads();
     }
-    acc.finalize(params.preds + params.num_outputs * block_row0,
-                 min((size_t)NITEMS, params.num_rows - block_row0),
+    acc.finalize(params.preds + params.num_outputs * block_row0, num_input_rows,
                  params.num_outputs);
     __syncthreads();  // free up acc's shared memory resources for next row set
   }

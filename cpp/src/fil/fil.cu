@@ -95,7 +95,8 @@ struct forest {
       ssp_.cols_in_shmem = false;
       enumerate_n_items();
       ASSERT(ssp_.max_shm >= ssp_.shm_sz,
-             "FIL out of shared memory. >>5'000 classes?");
+             "FIL out of shared memory. Perhaps the maximum number of \n"
+             "supported classes is exceeded? 5'000 would still be safe.");
     }
   }
 
