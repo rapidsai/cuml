@@ -246,12 +246,14 @@ if [ -n "${CODECOV_TOKEN}" ]; then
     gpuci_logger "Uploading Code Coverage to codecov.io"
 
     # Base tags to apply
-    CODECOV_BASE_NAME="${OS},python${PYTHON},cuda${CUDA}"
+    CODECOV_NAME="${OS},python${PYTHON},cuda${CUDA}"
 
-    # TEMP: Use `codecov` binary instead of bash to see if upload works
-    # Codecov recommends using this notation for jenkins
-    codecov -c -F non-dask -f ${WORKSPACE}/python/cuml/cuml-coverage.xml -n "$CODECOV_TAGS,non-dask"
-    codecov -c -F dask -f ${WORKSPACE}/python/cuml/cuml-dask-coverage.xml -n "$CODECOV_TAGS,dask"
+    # Directory containing reports
+    REPORT_DIR="${WORKSPACE}/python/cuml"
+
+    # Upload the two reports with separate flags. Delete the report on success to prevent further CI steps from re-uploading
+    codecov -F non-dask -f ${REPORT_DIR}/cuml-coverage.xml -n "$CODECOV_NAME,non-dask" && rm ${REPORT_DIR}/cuml-coverage.xml
+    codecov -F dask -f ${REPORT_DIR}/cuml-dask-coverage.xml -n "$CODECOV_NAME,dask" && rm ${REPORT_DIR}/cuml-dask-coverage.xml
 fi
 
 return ${EXITCODE}

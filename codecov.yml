@@ -1,12 +1,7 @@
 #Configuration File for CodeCov
 coverage:
   status:
-    project:
-      default:
-        flags:
-          - non-dask
-          - dask
-        informational: true
+    project: off
     patch: off
 comment:
   behavior: new
