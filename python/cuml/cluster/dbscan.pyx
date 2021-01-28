@@ -323,7 +323,7 @@ class DBSCAN(Base):
         return self
 
     @generate_docstring(skip_parameters_heading=True)
-    def fit(self, X, out_dtype="int32", opg=False) -> "DBSCAN":
+    def fit(self, X, out_dtype="int32") -> "DBSCAN":
         """
         Perform DBSCAN clustering from features.
 
