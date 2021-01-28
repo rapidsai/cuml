@@ -21,8 +21,8 @@ import cupyx
 from sklearn.decomposition import IncrementalPCA as skIPCA
 
 from cuml.datasets import make_blobs
-from cuml.experimental.decomposition import IncrementalPCA as cuIPCA
-from cuml.experimental.decomposition.incremental_pca import _svd_flip
+from cuml.decomposition import IncrementalPCA as cuIPCA
+from cuml.decomposition.incremental_pca import _svd_flip
 
 from cuml.test.utils import array_equal
 from cuml.common.exceptions import NotFittedError

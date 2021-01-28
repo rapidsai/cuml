@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -264,14 +264,14 @@ std::string _get_rf_text(const RandomForestMetaData<T, L>* forest,
 }
 
 template <class T, class L>
-std::string _dump_rf_as_json(const RandomForestMetaData<T, L>* forest) {
+std::string _get_rf_json(const RandomForestMetaData<T, L>* forest) {
   if (!forest || !forest->trees) {
     return "[]";
   }
   std::ostringstream oss;
   oss << "[\n";
   for (int i = 0; i < forest->rf_params.n_trees; i++) {
-    oss << DecisionTree::dump_tree_as_json<T, L>(&(forest->trees[i]));
+    oss << DecisionTree::get_tree_json<T, L>(&(forest->trees[i]));
     if (i < forest->rf_params.n_trees - 1) {
       oss << ",\n";
     }
@@ -303,8 +303,8 @@ std::string get_rf_detailed_text(const RandomForestMetaData<T, L>* forest) {
 }
 
 template <class T, class L>
-std::string dump_rf_as_json(const RandomForestMetaData<T, L>* forest) {
-  return _dump_rf_as_json(forest);
+std::string get_rf_json(const RandomForestMetaData<T, L>* forest) {
+  return _get_rf_json(forest);
 }
 
 template <class T, class L>
@@ -335,6 +335,7 @@ void build_treelite_forest(ModelHandle* model,
       model_builder, "pred_transform", "max_index"));
   }
 
+#pragma omp parallel for
   for (int i = 0; i < forest->rf_params.n_trees; i++) {
     DecisionTree::TreeMetaDataNode<T, L>* tree_ptr = &forest->trees[i];
     TreeBuilderHandle tree_builder;
@@ -346,6 +347,7 @@ void build_treelite_forest(ModelHandle* model,
                                               num_class);
 
       // The third argument -1 means append to the end of the tree list.
+#pragma omp critical
       TREELITE_CHECK(
         TreeliteModelBuilderInsertTree(model_builder, tree_builder, -1));
     }
@@ -802,13 +804,13 @@ template std::string get_rf_detailed_text<float, float>(
 template std::string get_rf_detailed_text<double, double>(
   const RandomForestRegressorD* forest);
 
-template std::string dump_rf_as_json<float, int>(
+template std::string get_rf_json<float, int>(
   const RandomForestClassifierF* forest);
-template std::string dump_rf_as_json<double, int>(
+template std::string get_rf_json<double, int>(
   const RandomForestClassifierD* forest);
-template std::string dump_rf_as_json<float, float>(
+template std::string get_rf_json<float, float>(
   const RandomForestRegressorF* forest);
-template std::string dump_rf_as_json<double, double>(
+template std::string get_rf_json<double, double>(
   const RandomForestRegressorD* forest);
 
 template void null_trees_ptr<float, int>(RandomForestClassifierF*& forest);

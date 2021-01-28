@@ -170,7 +170,7 @@ class TSNE(Base):
         Setting this can make repeated runs look more similar. Note, however,
         that this highly parallelized t-SNE implementation is not completely
         deterministic between runs, even with the same `random_state`.
-    method : str 'barnes_hut', 'fft' or 'exact' (default 'fft')
+    method : str 'barnes_hut', 'fft' or 'exact' (default 'barnes_hut')
         'barnes_hut' and 'fft' are fast approximations. 'exact' is more
         accurate but slower.
     angle : float (default 0.5)
@@ -254,7 +254,7 @@ class TSNE(Base):
                  init='random',
                  verbose=False,
                  random_state=None,
-                 method='fft',
+                 method='barnes_hut',
                  angle=0.5,
                  learning_rate_method='adaptive',
                  n_neighbors=90,
@@ -481,6 +481,11 @@ class TSNE(Base):
         if self.method == 'barnes_hut':
             algo = TSNE_ALGORITHM.BARNES_HUT
         elif self.method == 'fft':
+            warnings.warn("Method 'fft' is experimental and may be" +
+                          "unstable. If you find this implementation is not" +
+                          "behaving as intended, please consider using one" +
+                          "of the other methods, such as 'barnes_hut' or" +
+                          "'exact'")
             algo = TSNE_ALGORITHM.FFT
         elif self.method == 'exact':
             algo = TSNE_ALGORITHM.EXACT

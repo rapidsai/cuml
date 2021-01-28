@@ -223,7 +223,7 @@ class TSNE_runner {
   const bool initialize_embeddings;
   TSNE_ALGORITHM algorithm;
 
-  MLCommon::Sparse::COO<value_t, value_idx> COO_Matrix;
+  raft::sparse::COO<value_t, value_idx> COO_Matrix;
   value_idx n, p;
   value_t *Y;
 };

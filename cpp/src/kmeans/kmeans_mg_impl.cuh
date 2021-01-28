@@ -191,8 +191,8 @@ void initKMeansPlusPlus(const raft::handle_t &handle,
 
   // L2 norm of X: ||x||^2
   Tensor<DataT, 1> L2NormX({n_samples}, handle.get_device_allocator(), stream);
-  if (metric == raft::distance::DistanceType::EucExpandedL2 ||
-      metric == raft::distance::DistanceType::EucExpandedL2Sqrt) {
+  if (metric == raft::distance::DistanceType::L2Expanded ||
+      metric == raft::distance::DistanceType::L2SqrtExpanded) {
     raft::linalg::rowNorm(L2NormX.data(), X.data(), X.getSize(1), X.getSize(0),
                           raft::linalg::L2Norm, true, stream);
   }
@@ -412,8 +412,8 @@ void fit(const raft::handle_t &handle, const KMeansParams &params,
 
   // L2 norm of X: ||x||^2
   Tensor<DataT, 1> L2NormX({n_samples}, handle.get_device_allocator(), stream);
-  if (metric == raft::distance::DistanceType::EucExpandedL2 ||
-      metric == raft::distance::DistanceType::EucExpandedL2Sqrt) {
+  if (metric == raft::distance::DistanceType::L2Expanded ||
+      metric == raft::distance::DistanceType::L2SqrtExpanded) {
     raft::linalg::rowNorm(L2NormX.data(), X.data(), X.getSize(1), X.getSize(0),
                           raft::linalg::L2Norm, true, stream);
   }

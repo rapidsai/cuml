@@ -44,7 +44,8 @@ def check_embedding(X, Y, score=0.76):
 
 
 @pytest.mark.parametrize('name', dataset_names)
-def test_tsne(name):
+@pytest.mark.parametrize('method', ['barnes_hut', 'fft'])
+def test_tsne(name, method):
     """
     This tests how TSNE handles a lot of input data across time.
     (1) Numpy arrays are passed in
@@ -70,7 +71,7 @@ def test_tsne(name):
 
         # Again
         tsne = TSNE(2, random_state=i+2, verbose=logger.level_debug,
-                    learning_rate=2+i+2)
+                    learning_rate=2+i+2, method=method)
 
         # Reuse
         Y = tsne.fit_transform(X)
@@ -79,7 +80,8 @@ def test_tsne(name):
 
 
 @pytest.mark.parametrize('name', dataset_names)
-def test_tsne_default(name):
+@pytest.mark.parametrize('method', ['barnes_hut', 'fft'])
+def test_tsne_default(name, method):
 
     datasets
     X = eval("datasets.load_{}".format(name))().data
@@ -87,7 +89,7 @@ def test_tsne_default(name):
     for i in range(3):
         print("iteration = ", i)
 
-        tsne = TSNE()
+        tsne = TSNE(method=method)
         Y = tsne.fit_transform(X)
         check_embedding(X, Y)
         del Y
@@ -95,7 +97,8 @@ def test_tsne_default(name):
 
 @pytest.mark.parametrize('nrows', [stress_param(2400000)])
 @pytest.mark.parametrize('ncols', [stress_param(250)])
-def test_tsne_large(nrows, ncols):
+@pytest.mark.parametrize('method', ['barnes_hut', 'fft'])
+def test_tsne_large(nrows, ncols, method):
     """
     This tests how TSNE handles large input
     """
@@ -104,15 +107,17 @@ def test_tsne_large(nrows, ncols):
 
     X = X.astype(np.float32)
 
-    tsne = TSNE(random_state=0, exaggeration_iter=1, n_iter=2)
+    tsne = TSNE(random_state=0, exaggeration_iter=1, n_iter=2, method=method)
     Y = tsne.fit_transform(X)
     nans = np.sum(np.isnan(Y))
     assert nans == 0
 
 
+@pytest.mark.xfail
 @pytest.mark.parametrize('name', dataset_names)
 @pytest.mark.parametrize('type_knn_graph', ['sklearn', 'cuml'])
-def test_tsne_knn_parameters(name, type_knn_graph):
+@pytest.mark.parametrize('method', ['barnes_hut', 'fft'])
+def test_tsne_knn_parameters(name, type_knn_graph, method):
 
     datasets
     X = eval("datasets.load_{}".format(name))().data
@@ -125,7 +130,7 @@ def test_tsne_knn_parameters(name, type_knn_graph):
 
     for i in range(3):
         print("iteration = ", i)
-        tsne = TSNE()
+        tsne = TSNE(method=method)
         Y = tsne.fit_transform(X, True, knn_graph)
         check_embedding(X, Y)
 
@@ -139,7 +144,8 @@ def test_tsne_knn_parameters(name, type_knn_graph):
 
 @pytest.mark.parametrize('name', dataset_names)
 @pytest.mark.parametrize('type_knn_graph', ['sklearn', 'cuml'])
-def test_tsne_knn_graph_used(name, type_knn_graph):
+@pytest.mark.parametrize('method', ['barnes_hut', 'fft'])
+def test_tsne_knn_graph_used(name, type_knn_graph, method):
 
     datasets
     X = eval("datasets.load_{}".format(name))().data
@@ -149,7 +155,7 @@ def test_tsne_knn_graph_used(name, type_knn_graph):
 
     neigh.fit(X)
     knn_graph = neigh.kneighbors_graph(X, mode="distance")
-    tsne = TSNE()
+    tsne = TSNE(method=method)
 
     # Perform tsne with normal knn_graph
     Y = tsne.fit_transform(X, True, knn_graph)
@@ -182,7 +188,8 @@ def test_components_exception():
 
 
 @pytest.mark.parametrize('input_type', ['cupy', 'scipy'])
-def test_tsne_transform_on_digits_sparse(input_type):
+@pytest.mark.parametrize('method', ['barnes_hut', 'fft'])
+def test_tsne_transform_on_digits_sparse(input_type, method):
 
     datasets
     digits = datasets.load_digits()
@@ -198,7 +205,7 @@ def test_tsne_transform_on_digits_sparse(input_type):
     fitter = TSNE(2, n_neighbors=15,
                   random_state=1,
                   learning_rate=500,
-                  angle=0.8)
+                  angle=0.8, method=method)
 
     new_data = sp_prefix.csr_matrix(
         scipy.sparse.csr_matrix(digits.data[~digits_selection]))
@@ -214,7 +221,8 @@ def test_tsne_transform_on_digits_sparse(input_type):
 
 @pytest.mark.parametrize('type_knn_graph', ['sklearn', 'cuml'])
 @pytest.mark.parametrize('input_type', ['cupy', 'scipy'])
-def test_tsne_knn_parameters_sparse(type_knn_graph, input_type):
+@pytest.mark.parametrize('method', ['barnes_hut', 'fft'])
+def test_tsne_knn_parameters_sparse(type_knn_graph, input_type, method):
 
     datasets
     digits = datasets.load_digits()
@@ -238,7 +246,7 @@ def test_tsne_knn_parameters_sparse(type_knn_graph, input_type):
     tsne = TSNE(2, n_neighbors=15,
                 random_state=1,
                 learning_rate=500,
-                angle=0.8)
+                angle=0.8, method=method)
 
     new_data = sp_prefix.csr_matrix(
         scipy.sparse.csr_matrix(selected_digits))

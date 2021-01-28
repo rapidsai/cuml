@@ -16,9 +16,9 @@
 
 #pragma once
 
-namespace MLCommon {
+namespace raft {
 
-namespace Sparse {
+namespace sparse {
 
 template <typename T>
 struct CSRInputs {
@@ -30,5 +30,5 @@ template <typename T>
 ::std::ostream &operator<<(::std::ostream &os, const CSRInputs<T> &dims) {
   return os;
 }
-}  // namespace Sparse
-}  // namespace MLCommon
+}  // namespace sparse
+}  // namespace raft

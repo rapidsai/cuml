@@ -1,5 +1,5 @@
 
-# Copyright (c) 2019-2020, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,7 +15,7 @@
 #
 
 
-# Copyright (c) 2019-2020, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -34,6 +34,7 @@ import cudf
 import cupy as cp
 import dask_cudf
 import pytest
+import json
 
 import numpy as np
 import pandas as pd
@@ -351,6 +352,88 @@ def test_single_input(client, model_type, ignore_empty_partitions):
     else:
         with pytest.raises(ValueError):
             cu_rf_mg.fit(X, y)
+
+
+@pytest.mark.parametrize('max_depth', [1, 2, 3, 5, 10, 15, 20])
+@pytest.mark.parametrize('n_estimators', [5, 10, 20])
+@pytest.mark.parametrize('estimator_type', ['regression', 'classification'])
+def test_rf_get_json(client, estimator_type, max_depth, n_estimators):
+    X, y = make_classification(n_samples=350, n_features=20,
+                               n_clusters_per_class=1, n_informative=10,
+                               random_state=123, n_classes=2)
+    X = X.astype(np.float32)
+    if estimator_type == 'classification':
+        cu_rf_mg = cuRFC_mg(max_features=1.0, max_samples=1.0,
+                            n_bins=16, split_algo=0, split_criterion=0,
+                            min_samples_leaf=2, seed=23707, n_streams=1,
+                            n_estimators=n_estimators, max_leaves=-1,
+                            max_depth=max_depth)
+        y = y.astype(np.int32)
+    elif estimator_type == 'regression':
+        cu_rf_mg = cuRFR_mg(max_features=1.0, max_samples=1.0,
+                            n_bins=16, split_algo=0,
+                            min_samples_leaf=2, seed=23707, n_streams=1,
+                            n_estimators=n_estimators, max_leaves=-1,
+                            max_depth=max_depth)
+        y = y.astype(np.float32)
+    else:
+        assert False
+    X_dask, y_dask = _prep_training_data(client, X, y, partitions_per_worker=2)
+    cu_rf_mg.fit(X_dask, y_dask)
+    json_out = cu_rf_mg.get_json()
+    json_obj = json.loads(json_out)
+
+    # Test 1: Output is non-zero
+    assert '' != json_out
+
+    # Test 2: JSON object contains correct number of trees
+    assert isinstance(json_obj, list)
+    assert len(json_obj) == n_estimators
+
+    # Test 3: Traverse JSON trees and get the same predictions as cuML RF
+    def predict_with_json_tree(tree, x):
+        if 'children' not in tree:
+            assert 'leaf_value' in tree
+            return tree['leaf_value']
+        assert 'split_feature' in tree
+        assert 'split_threshold' in tree
+        assert 'yes' in tree
+        assert 'no' in tree
+        if x[tree['split_feature']] <= tree['split_threshold']:
+            return predict_with_json_tree(tree['children'][0], x)
+        return predict_with_json_tree(tree['children'][1], x)
+
+    def predict_with_json_rf_classifier(rf, x):
+        # Returns the class with the highest vote. If there is a tie, return
+        # the list of all classes with the highest vote.
+        vote = []
+        for tree in rf:
+            vote.append(predict_with_json_tree(tree, x))
+        vote = np.bincount(vote)
+        max_vote = np.max(vote)
+        majority_vote = np.nonzero(np.equal(vote, max_vote))[0]
+        return majority_vote
+
+    def predict_with_json_rf_regressor(rf, x):
+        pred = 0.
+        for tree in rf:
+            pred += predict_with_json_tree(tree, x)
+        return pred / len(rf)
+
+    if estimator_type == 'classification':
+        expected_pred = cu_rf_mg.predict(X_dask).astype(np.int32)
+        expected_pred = expected_pred.compute().to_array()
+        for idx, row in enumerate(X):
+            majority_vote = predict_with_json_rf_classifier(json_obj, row)
+            assert expected_pred[idx] in majority_vote
+    elif estimator_type == 'regression':
+        expected_pred = cu_rf_mg.predict(X_dask).astype(np.float32)
+        expected_pred = expected_pred.compute().to_array()
+        pred = []
+        for idx, row in enumerate(X):
+            pred.append(predict_with_json_rf_regressor(json_obj, row))
+        pred = np.array(pred, dtype=np.float32)
+        np.testing.assert_almost_equal(pred, expected_pred, decimal=6)
 
 
 @pytest.mark.parametrize('n_estimators', [5, 10, 20])

@@ -35,8 +35,8 @@ using namespace ML;
 
 class TSNETest : public ::testing::Test {
  protected:
-  void assert_score(double score, char *test) {
-    printf(test);
+  void assert_score(double score, const char *test) {
+    printf("%s", test);
     if (score < 0.98) printf("score = %f\n", score);
     ASSERT_TRUE(0.98 < score);
   }
@@ -122,7 +122,7 @@ class TSNETest : public ::testing::Test {
     // Test trustworthiness
     double score =
       trustworthiness_score<float,
-                            raft::distance::DistanceType::EucUnexpandedL2Sqrt>(
+                            raft::distance::DistanceType::L2SqrtUnexpanded>(
         X_d.data(), Y_d.data(), n, p, 2, 5, handle.get_device_allocator(),
         handle.get_stream());
 

@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2020, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,17 +15,17 @@
 
 import datetime
 import re
-import gitutils
 import argparse
 import io
 import os
-
+import gitutils
 
 FilesToCheck = [
     re.compile(r"[.](cmake|cpp|cu|cuh|h|hpp|sh|pxd|py|pyx)$"),
     re.compile(r"CMakeLists[.]txt$"),
     re.compile(r"CMakeLists_standalone[.]txt$"),
     re.compile(r"setup[.]cfg$"),
+    re.compile(r"[.]flake8[.]cython$"),
     re.compile(r"meta[.]yaml$")
 ]
 
@@ -36,7 +36,10 @@ CheckDouble = re.compile(
 
 
 def checkThisFile(f):
-    if gitutils.isFileEmpty(f):
+    # This check covers things like symlinks which point to files that DNE
+    if not(os.path.exists(f)):
+        return False
+    if gitutils and gitutils.isFileEmpty(f):
         return False
     for checker in FilesToCheck:
         if checker.search(f):
@@ -119,23 +122,49 @@ def checkCopyright(f, update_current_year):
     return errs
 
 
-def checkCopyrightForAll():
+def getAllFilesUnderDir(root, pathFilter=None):
+    retList = []
+    for (dirpath, dirnames, filenames) in os.walk(root):
+        for fn in filenames:
+            filePath = os.path.join(dirpath, fn)
+            if pathFilter(filePath):
+                retList.append(filePath)
+    return retList
+
+
+def checkCopyright_main():
     """
     Checks for copyright headers in all the modified files. In case of local
     repo, this script will just look for uncommitted files and in case of CI
     it compares between branches "$PR_TARGET_BRANCH" and "current-pr-branch"
     """
+    retVal = 0
+
     argparser = argparse.ArgumentParser(
         "Checks for a consistent copyright header in git's modified files")
     argparser.add_argument("--update-current-year", dest='update_current_year',
                            action="store_true", required=False, help="If set, "
                            "update the current year if a header is already "
                            "present and well formatted.")
-    args = argparser.parse_args()
-    files = gitutils.modifiedFiles(filter=checkThisFile)
+    argparser.add_argument("--git-modified-only", dest='git_modified_only',
+                           action="store_true", required=False, help="If set, "
+                           "only files seen as modified by git will be "
+                           "processed.")
+
+    (args, dirs) = argparser.parse_known_args()
+    if args.git_modified_only:
+        files = gitutils.modifiedFiles(pathFilter=checkThisFile)
+    else:
+        files = []
+        for d in [os.path.abspath(d) for d in dirs]:
+            if not(os.path.isdir(d)):
+                raise ValueError(f"{d} is not a directory.")
+            files += getAllFilesUnderDir(d, pathFilter=checkThisFile)
+
     errors = []
     for f in files:
         errors += checkCopyright(f, args.update_current_year)
+
     if len(errors) > 0:
         print("Copyright headers incomplete in some of the files!")
         for e in errors:
@@ -143,14 +172,17 @@ def checkCopyrightForAll():
         print("")
         n_fixable = sum(1 for e in errors if e[-1] is not None)
         path_parts = os.path.abspath(__file__).split(os.sep)
-        file_from_cuml = os.sep.join(path_parts[path_parts.index("ci"):])
+        file_from_repo = os.sep.join(path_parts[path_parts.index("ci"):])
         if n_fixable > 0:
             print("You can run {} --update-current-year to fix {} of these "
-                  "errors.\n".format(file_from_cuml, n_fixable))
-        raise Exception("Copyright check failed! Check above to know more.")
+                  "errors.\n".format(file_from_repo, n_fixable))
+        retVal = 1
     else:
         print("Copyright check passed")
 
+    return retVal
+
 
 if __name__ == "__main__":
-    checkCopyrightForAll()
+    import sys
+    sys.exit(checkCopyright_main())
