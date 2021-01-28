@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -42,6 +42,7 @@
 
 #include <cuml/common/logger.hpp>
 #include <raft/cuda_utils.cuh>
+#include <rmm/device_uvector.hpp>
 #include "qn_linesearch.cuh"
 #include "qn_util.cuh"
 #include "simple_mat.cuh"
@@ -339,8 +340,7 @@ inline int qn_minimize(const raft::handle_t &handle, SimpleVec<T> &x, T *fx,
   // TODO should the worksapce allocation happen outside?
   OPT_RETCODE ret;
   if (l1 == 0.0) {
-    MLCommon::device_buffer<T> tmp(handle.get_device_allocator(), stream,
-                                   lbfgs_workspace_size(opt_param, x.len));
+    rmm::device_uvector<T> tmp(lbfgs_workspace_size(opt_param, x.len), stream);
     SimpleVec<T> workspace(tmp.data(), tmp.size());
 
     ret = min_lbfgs(opt_param,
@@ -360,8 +360,7 @@ inline int qn_minimize(const raft::handle_t &handle, SimpleVec<T> &x, T *fx,
     // handling the term l1norm(x) * l1_pen explicitely, i.e.
     // it needs to evaluate f(x) and its gradient separately
 
-    MLCommon::device_buffer<T> tmp(handle.get_device_allocator(), stream,
-                                   owlqn_workspace_size(opt_param, x.len));
+    rmm::device_uvector<T> tmp(owlqn_workspace_size(opt_param, x.len), stream);
     SimpleVec<T> workspace(tmp.data(), tmp.size());
 
     ret = min_owlqn(opt_param,
