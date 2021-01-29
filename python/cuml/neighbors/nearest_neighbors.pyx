@@ -61,7 +61,7 @@ cimport cuml.common.cuda
 if has_scipy():
     import scipy.sparse
 
-cdef extern from "cuml/neighbors/knn.hpp" namespace "ML":
+cdef extern from "cuml/neighbors/knn.hpp" namespace "raft::distance":
 
     enum DistanceType:
         L2Expanded = 0,
@@ -78,6 +78,8 @@ cdef extern from "cuml/neighbors/knn.hpp" namespace "ML":
         JaccardExpanded = 11,
         HellingerExpanded = 12,
         Haversine = 13
+
+cdef extern from "cuml/neighbors/knn.hpp" namespace "ML":
 
     cdef cppclass knnIndex:
         pass
@@ -570,8 +572,9 @@ class NearestNeighbors(Base):
         if two_pass_precision:
             metric, expanded = self._build_metric_type(self.metric)
             metric_is_l2_based = (
-                metric == MetricType.METRIC_L2 or
-                (metric == MetricType.METRIC_Lp and self.p == 2)
+                metric == DistanceType.L2SqrtExpanded or
+                metric == DistanceType.L2Unexpanded or
+                (metric == DistanceType.LpUnexpanded and self.p == 2)
             )
 
             # FAISS employs imprecise distance algorithm only for L2-based
