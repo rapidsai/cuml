@@ -71,7 +71,7 @@ def experimental_test_and_log(cu_shap_values,
         print("golden_result_values")
         print(golden_result_values)
 
-    assert close_values or expected_sum
+    assert close_values
 
 
 ###############################################################################
@@ -82,7 +82,10 @@ def experimental_test_and_log(cu_shap_values,
 @pytest.mark.parametrize("model", [cuml.LinearRegression,
                                    cuml.KNeighborsRegressor,
                                    cuml.SVR])
-def test_exact_regression_datasets(exact_tests_dataset, model):
+@pytest.mark.parametrize("idx", np.arange(100))
+def test_exact_regression_datasets(exact_tests_dataset, model, idx):
+    # todo (dd): idx parameter is for repeating the test for a few CI runs
+    # will be removed before merging
     X_train, X_test, y_train, y_test = exact_tests_dataset
 
     mod = model().fit(X_train, y_train)
