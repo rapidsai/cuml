@@ -500,7 +500,7 @@ def test_rf_broadcast(model_type, fit_broadcast, transform_broadcast, client):
         y = y.astype(np.int32)
     else:
         X, y = make_regression(n_samples=n_workers * 1000, n_features=20,
-                               n_informative=10, random_state=123)
+                               n_informative=5, random_state=123)
         y = y.astype(np.float32)
     X = X.astype(np.float32)
 
@@ -523,7 +523,7 @@ def test_rf_broadcast(model_type, fit_broadcast, transform_broadcast, client):
         cuml_mod_predict = cuml_mod_predict.compute()
         cuml_mod_predict = cp.asnumpy(cuml_mod_predict)
         acc_score = accuracy_score(cuml_mod_predict, y_test, normalize=True)
-        assert acc_score > 0.76
+        assert acc_score >= 0.72
 
     else:
         cuml_mod = cuRFR_mg(n_estimators=50, max_depth=16, n_bins=16,
@@ -535,4 +535,4 @@ def test_rf_broadcast(model_type, fit_broadcast, transform_broadcast, client):
         cuml_mod_predict = cuml_mod_predict.compute()
         cuml_mod_predict = cp.asnumpy(cuml_mod_predict)
         acc_score = r2_score(cuml_mod_predict, y_test)
-        assert acc_score >= 0.55
+        assert acc_score >= 0.72
