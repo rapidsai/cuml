@@ -66,6 +66,32 @@ cufftResult CUFFTAPI cufft_MakePlanMany(cufftHandle plan, int rank, int *n,
                            ostride, odist, type, batch, workSize);
 }
 
+template <typename value_t, typename value_idx>
+std::pair<value_t, value_t> min_max(const value_t *Y, const value_idx &n, cudaStream_t stream) {
+  value_t min_h, max_h;
+
+  rmm::device_uvector<value_t> min_d(1, stream);
+  rmm::device_uvector<value_t> max_d(1, stream);
+
+  min_d.set_element(0, std::numeric_limits<value_t>::max(), stream);
+  max_d.set_element(0, std::numeric_limits<value_t>::min(), stream);
+
+  raft::update_host(&min_h, min_d.data(), 1, stream);
+  raft::update_host(&max_h, max_d.data(), 1, stream);
+
+  auto nthreads = 1024;
+  auto nblocks = raft::ceildiv(n, (value_idx) nthreads);
+
+  min_max_kernel<<<nblocks, nthreads, 0, stream>>>(Y, n, min_d.data(), max_d.data());
+
+  raft::update_host(&min_h, min_d.data(), 1, stream);
+  raft::update_host(&max_h, max_d.data(), 1, stream);
+
+  cudaStreamSynchronize(stream);
+
+  return std::make_pair(std::move(min_h), std::move(max_h));
+}
+
 /**
  * @brief Fast Dimensionality reduction via TSNE using the Barnes Hut O(NlogN) approximation.
  * @param[in] VAL: The values in the attractive forces COO matrix.
@@ -251,11 +277,10 @@ void FFT_TSNE(value_t *VAL, const value_idx *COL, const value_idx *ROW,
       CUDA_CHECK(cudaPeekAtLastError());
     }
 
-    auto y_thrust = thrust::device_pointer_cast(Y);
-    auto minimax_iter = thrust::minmax_element(thrust::cuda::par.on(stream),
-                                               y_thrust, y_thrust + n * 2);
-    value_t min_coord = *minimax_iter.first;
-    value_t max_coord = *minimax_iter.second;
+    auto minmax_pair = min_max(Y, n * 2, stream);
+    auto min_coord = minmax_pair.first;
+    auto max_coord = minmax_pair.second;
+
     value_t box_width =
       (max_coord - min_coord) / static_cast<value_t>(n_boxes_per_dim);
 

@@ -113,7 +113,6 @@ def test_tsne_large(nrows, ncols, method):
     assert nans == 0
 
 
-@pytest.mark.xfail
 @pytest.mark.parametrize('name', dataset_names)
 @pytest.mark.parametrize('type_knn_graph', ['sklearn', 'cuml'])
 @pytest.mark.parametrize('method', ['barnes_hut', 'fft'])

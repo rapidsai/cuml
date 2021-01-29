@@ -28,6 +28,10 @@
 
 #include <raft/error.hpp>
 
+#include "utils.cuh"
+
+#include <rmm/device_uvector.hpp>
+
 namespace ML {
 namespace TSNE {
 
@@ -113,9 +117,21 @@ template <typename value_idx, typename value_t>
 void normalize_distances(const value_idx n, value_t *distances,
                          const int n_neighbors, cudaStream_t stream) {
   // Now D / max(abs(D)) to allow exp(D) to not explode
-  thrust::device_ptr<value_t> begin = thrust::device_pointer_cast(distances);
-  value_t maxNorm = *thrust::max_element(thrust::cuda::par.on(stream), begin,
-                                         begin + n * n_neighbors);
+  auto nthreads = 1024;
+  auto nblocks = raft::ceildiv(n, (value_idx) nthreads);
+
+  rmm::device_uvector<value_t> min_d(1, stream);
+  rmm::device_uvector<value_t> max_d(1, stream);
+
+  max_d.set_element(0, std::numeric_limits<value_t>::min(), stream);
+
+  min_max_kernel<<<nblocks, nthreads, 0, stream>>>(distances, n, min_d.data(), max_d.data(), false);
+
+  value_t maxNorm;
+  raft::update_host(&maxNorm, max_d.data(), 1, stream);
+
+  cudaStreamSynchronize(stream);
+
   if (maxNorm == 0.0f) maxNorm = 1.0f;
 
   // Divide distances inplace by max

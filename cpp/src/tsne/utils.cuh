@@ -40,6 +40,8 @@
 #include <chrono>
 #include <iostream>
 
+#include <raft/device_atomics.cuh>
+
 /**
  * @brief Performs P + P.T.
  * @param[out] vector: The output vector you want to overwrite with randomness.
@@ -123,3 +125,50 @@ double SymmetrizeTime = 0, DistancesTime = 0, NormalizeTime = 0,
       attractive_time / total, IntegrationKernel_time,                        \
       IntegrationKernel_time / total, total * 100.0);                         \
   }
+
+template <typename value_t>
+struct min_op {
+  __device__ value_t operator() (const value_t &a, const value_t &b) {
+    return a < b ? a : b;
+  }
+};
+
+template <typename value_t>
+struct max_op {
+  __device__ value_t operator() (const value_t &a, const value_t &b) {
+    return a > b ? a : b;
+  }
+};
+
+template <typename value_t, typename value_idx, int TPB=1024>
+__global__ void min_max_kernel(const value_t *Y, const value_idx n, value_t *min, value_t *max, bool find_min=true) {
+
+  auto tid = threadIdx.x + blockDim.x * blockIdx.x;
+
+  typedef cub::BlockReduce<value_t, TPB> BlockReduce;
+  __shared__ typename BlockReduce::TempStorage temp_storage_min;
+  __shared__ typename BlockReduce::TempStorage temp_storage_max;
+
+  value_t thread_min, thread_max;
+  if (tid < n) {
+    if (find_min) thread_min = Y[tid];
+    thread_max = thread_min;
+  }
+  else {
+    if (find_min) thread_min = std::numeric_limits<value_t>::max();
+    thread_max = std::numeric_limits<value_t>::min();
+  }
+
+  value_t block_min, block_max;
+  if (find_min) block_min = BlockReduce(temp_storage_min).Reduce(thread_min, min_op<value_t>());
+  
+  block_max = BlockReduce(temp_storage_max).Reduce(thread_max, max_op<value_t>());
+
+  // results stored in first thread of block
+
+  if (threadIdx.x == 0) {
+    if (find_min) atomicMin(min, block_min);
+    atomicMax(max, block_max);
+  }
+
+}
