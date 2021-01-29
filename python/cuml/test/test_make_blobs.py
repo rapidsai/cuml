@@ -16,9 +16,6 @@
 import cuml
 import pytest
 import cupy as cp
-import cudf
-import numpy as np
-import numba.cuda
 
 # Testing parameters for scalar parameter tests
 
