@@ -86,9 +86,9 @@ struct forest {
     // TODO(canonizer): use >48KiB shared memory if available
     ssp_.max_shm = std::min(ssp_.max_shm, max_shm_std);
 
-    /** searching for the most items per block while respecting the shared
-    * memory limits creates a full linear programming problem.
-    * solving it in a single equation looks less tractable than this */
+    // searching for the most items per block while respecting the shared
+    // memory limits creates a full linear programming problem.
+    // solving it in a single equation looks less tractable than this
     ssp_.shm_sz = INT_MAX;
     ssp_.cols_in_shmem = true;
     enumerate_n_items();

@@ -394,7 +394,7 @@ __global__ void infer_k(storage_type forest, predict_params params) {
     const float* block_input = params.data + block_row0 * num_cols;
     if (cols_in_shmem) {
       // cache the row for all threads to reuse
-      size_t feature;
+      size_t feature = 0;
 #pragma unroll
       for (feature = threadIdx.x; feature < num_input_rows * num_cols;
            feature += blockDim.x)
@@ -470,7 +470,7 @@ size_t get_smem_footprint(shmem_size_params params, leaf_algo_t leaf_algo) {
     case 4:
       return get_smem_footprint<4>(params, leaf_algo);
     default:
-      ASSERT(false, "internal error: nitems > 4");
+      ASSERT(false, "internal error: n_items > 4");
   }
 }
 

@@ -124,8 +124,6 @@ struct shmem_size_params {
   int shm_sz;
 };
 
-template <leaf_algo_t leaf_algo, int NITEMS>
-void try_nitems(int* num_items, size_t* shm_sz, shmem_size_params params);
 
 // predict_params are parameters for prediction
 struct predict_params {
