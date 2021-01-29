@@ -29,7 +29,7 @@ else
 fi
 
 # Check for copyright headers in the files modified currently
-COPYRIGHT=`env PYTHONPATH=cpp/scripts python ci/checks/copyright.py --git-modified-only 2>&1`
+COPYRIGHT=`python ci/checks/copyright.py --git-modified-only 2>&1`
 CR_RETVAL=$?
 if [ "$RETVAL" = "0" ]; then
   RETVAL=$CR_RETVAL
