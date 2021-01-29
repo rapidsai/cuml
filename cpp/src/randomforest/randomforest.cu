@@ -327,6 +327,7 @@ void build_treelite_forest(ModelHandle* model_handle,
     // Binary classification or regression
     num_class = 1;
     model->task_type = tl::TaskType::kBinaryClfRegr;
+    model->param.pred_transform = "max_index";
   }
 
   model->task_param = tl::TaskParameter{tl::TaskParameter::OutputType::kFloat,
