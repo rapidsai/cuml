@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020, NVIDIA CORPORATION.
+# Copyright (c) 2020-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,13 +17,14 @@
 import cuml
 import cupy as cp
 import numpy as np
+import time
 
 from cudf import DataFrame as cu_df
 from cuml.common.array import CumlArray
 from cuml.common.import_utils import has_shap
 from cuml.common.input_utils import input_to_cupy_array
 from cuml.common.logger import warn
-from cuml.common.logger import info
+from cuml.common.logger import debug
 from cuml.experimental.explainer.base import SHAPBase
 from cuml.experimental.explainer.common import get_cai_ptr
 from cuml.experimental.explainer.common import get_dtype_from_model_func
@@ -57,16 +58,6 @@ cdef extern from "cuml/explainer/permutation_shap.hpp" namespace "ML":
         int n_rows,
         int n_cols,
         const double* row,
-        int* idx,
-        bool rowMajor) except +
-
-    void shap_main_effect_dataset "ML::Explainer::shap_main_effect_dataset"(
-        const handle_t& handle,
-        float* dataset,
-        const float* background,
-        int n_rows,
-        int n_cols,
-        const float* row,
         int* idx,
         bool rowMajor) except +
 
@@ -202,7 +193,7 @@ class PermutationExplainer(SHAPBase):
 
     def __init__(self,
                  model,
-                 masker,
+                 data,
                  masker_type='independent',
                  link='identity',
                  handle=None,
@@ -214,7 +205,7 @@ class PermutationExplainer(SHAPBase):
         super(PermutationExplainer, self).__init__(
             order='C',
             model=model,
-            background=masker,
+            background=data,
             link=link,
             verbose=verbose,
             random_state=random_state,
@@ -229,7 +220,7 @@ class PermutationExplainer(SHAPBase):
     def shap_values(self,
                     X,
                     npermutations=10,
-                    main_effects=False):
+                    testing=False):
         """
         Interface to estimate the SHAP values for a set of samples.
         Corresponds to the SHAP package's legacy interface, and is our main
@@ -249,55 +240,24 @@ class PermutationExplainer(SHAPBase):
         array or list
 
         """
-        return self._explain(X,
-                             npermutations=npermutations,
-                             main_effects=main_effects)
-
-    def _explain(self,
-                 X,
-                 npermutations=None,
-                 main_effects=False,
-                 testing=False):
-
-        X = input_to_cupy_array(X, order=self.order,
-                                convert_to_dtype=self.dtype)[0]
-
-        if X.ndim == 1:
-            X = X.reshape((1, self.M))
-
-        shap_values = []
-        for i in range(self.D):
-            shap_values.append(cp.zeros(X.shape, dtype=self.dtype))
-
-        # Allocate synthetic dataset array once for multiple explanations
-        if self._synth_data is None:
-            self._synth_data = cp.zeros(
-                shape=((2 * self.M * self.N + self.N), self.M),
-                dtype=self.dtype,
-                order=self.order
-            )
-
-        for idx, x in enumerate(X):
-            # use mutability of lists and cupy arrays to get all shap values
-            self._explain_single_observation(
-                shap_values,
-                x.reshape(1, self.M),
-                main_effects=main_effects,
-                npermutations=npermutations,
-                idx=idx,
-                testing=testing
-            )
-
-        return output_list_shap_values(shap_values, self.D, self.output_type)
+        self._reset_timers()
+        values = self._explain(X,
+                               synth_data_shape=(
+                                   (2 * self.M * self.N + self.N), self.M
+                               ),
+                               npermutations=npermutations,
+                               testing=testing)
+        debug(self._get_timers_str())
+        return output_list_shap_values(values, self.D, self.output_type)
 
     def _explain_single_observation(self,
                                     shap_values,
                                     row,
-                                    main_effects,
-                                    npermutations,
                                     idx,
-                                    testing):
-
+                                    npermutations=10,
+                                    testing=False):
+        if self.time_performance:
+            total_timer = time.time()
         inds = cp.arange(self.M, dtype=cp.int32)
 
         cdef handle_t* handle_ = \
@@ -340,9 +300,14 @@ class PermutationExplainer(SHAPBase):
             self.handle.sync()
 
             # evaluate model on combinations
+            if self.time_performance:
+                model_timer = time.time()
             y = model_func_call(X=self._synth_data,
                                 model_func=self.model,
                                 gpu_model=self.is_gpu_model)
+            if self.time_performance:
+                self.model_call_time = \
+                    self.model_call_time + (time.time() - model_timer)
 
             for i in range(self.D):
                 # reshape the results to coincide with each entry of the
@@ -361,7 +326,6 @@ class PermutationExplainer(SHAPBase):
                 shap_ptr = get_cai_ptr(shap_values[i][idx])
                 y_hat_ptr = get_cai_ptr(y_hat)
 
-                # aggregation of results calculation matches mainline SHAP
                 if self.dtype == cp.float32:
                     update_perm_shap_values(handle_[0],
                                             <float*> shap_ptr,
@@ -372,9 +336,12 @@ class PermutationExplainer(SHAPBase):
                     update_perm_shap_values(handle_[0],
                                             <double*> shap_ptr,
                                             <double*> y_hat_ptr,
-                                            <int> self.M,
+                                            <int> self. M,
                                             <int*> idx_ptr)
 
                 self.handle.sync()
 
         shap_values[0][idx] = shap_values[0][idx] / (2 * npermutations)
+
+        if self.time_performance:
+            self.total_time = self.total_time + (time.time() - total_timer)
