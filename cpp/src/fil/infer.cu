@@ -237,7 +237,7 @@ struct tree_aggregator_t<NITEMS, GROVE_PER_CLASS_FEW_CLASSES> : finalize_block {
   __device__ __forceinline__ tree_aggregator_t(predict_params params,
                                                void* accumulate_workspace,
                                                void* finalize_workspace)
-    : finalize_block(finalize_workspace, params.ssp.num_classes),
+    : finalize_block(finalize_workspace, params.num_classes),
       per_thread((vec<NITEMS, float>*)finalize_workspace) {}
 
   __device__ __forceinline__ void accumulate(
@@ -259,11 +259,6 @@ struct tree_aggregator_t<NITEMS, GROVE_PER_CLASS_FEW_CLASSES> : finalize_block {
   }
 };
 
-__host__ __device__ size_t cols_shmem_size(shmem_size_params params) {
-  return params.cols_in_shmem ? params.num_cols * params.n_items * sizeof(float)
-                              : 0;
-}
-
 template <int NITEMS>
 struct tree_aggregator_t<NITEMS, GROVE_PER_CLASS_MANY_CLASSES>
   : finalize_block {
@@ -282,7 +277,7 @@ struct tree_aggregator_t<NITEMS, GROVE_PER_CLASS_MANY_CLASSES>
   __device__ __forceinline__ tree_aggregator_t(predict_params params,
                                                void* accumulate_workspace,
                                                void* finalize_workspace)
-    : finalize_block(finalize_workspace, params.ssp.num_classes),
+    : finalize_block(finalize_workspace, params.num_classes),
       per_class_margin((vec<NITEMS, float>*)accumulate_workspace) {
     for (int c = threadIdx.x; c < num_classes; c += blockDim.x)
       per_class_margin[c] = vec<NITEMS, float>();  // initialize to 0.0f
@@ -328,7 +323,7 @@ struct tree_aggregator_t<NITEMS, CATEGORICAL_LEAF> {
   __device__ __forceinline__ tree_aggregator_t(predict_params params,
                                                void* accumulate_workspace,
                                                void* finalize_workspace)
-    : num_classes(params.ssp.num_classes), votes((int*)accumulate_workspace) {
+    : num_classes(params.num_classes), votes((int*)accumulate_workspace) {
     for (int c = threadIdx.x; c < num_classes; c += FIL_TPB * NITEMS)
 #pragma unroll
       for (int item = 0; item < NITEMS; ++item) votes[c * NITEMS + item] = 0;
@@ -387,7 +382,7 @@ template <int NITEMS, leaf_algo_t leaf_algo, bool cols_in_shmem,
 __global__ void infer_k(storage_type forest, predict_params params) {
   extern __shared__ char smem[];
   float* sdata = (float*)smem;
-  int num_cols = params.ssp.num_cols;
+  int num_cols = params.num_cols;
   for (size_t block_row0 = blockIdx.x * NITEMS; block_row0 < params.num_rows;
        block_row0 += NITEMS * gridDim.x) {
     size_t num_input_rows = min((size_t)NITEMS, params.num_rows - block_row0);
@@ -405,7 +400,7 @@ __global__ void infer_k(storage_type forest, predict_params params) {
     }
 
     tree_aggregator_t<NITEMS, leaf_algo> acc(
-      params, (char*)sdata + cols_shmem_size(params.ssp), sdata);
+      params, (char*)sdata + params.cols_shmem_size(), sdata);
 
     __syncthreads();  // for both row cache init and acc init
 
@@ -438,14 +433,14 @@ size_t get_smem_footprint(shmem_size_params params) {
   size_t accumulate_footprint =
     tree_aggregator_t<NITEMS, leaf_algo>::smem_accumulate_footprint(
       params.num_classes) +
-    cols_shmem_size(params);
+    params.cols_shmem_size();
 
   return std::max(accumulate_footprint, finalize_footprint);
 }
 
 template <int NITEMS>
-size_t get_smem_footprint(shmem_size_params params, leaf_algo_t leaf_algo) {
-  switch (leaf_algo) {
+size_t get_smem_footprint(shmem_size_params params) {
+  switch (params.leaf_algo) {
     case FLOAT_UNARY_BINARY:
       return get_smem_footprint<NITEMS, FLOAT_UNARY_BINARY>(params);
     case CATEGORICAL_LEAF:
@@ -459,16 +454,16 @@ size_t get_smem_footprint(shmem_size_params params, leaf_algo_t leaf_algo) {
   }
 }
 
-size_t get_smem_footprint(shmem_size_params params, leaf_algo_t leaf_algo) {
+size_t get_smem_footprint(shmem_size_params params) {
   switch (params.n_items) {
     case 1:
-      return get_smem_footprint<1>(params, leaf_algo);
+      return get_smem_footprint<1>(params);
     case 2:
-      return get_smem_footprint<2>(params, leaf_algo);
+      return get_smem_footprint<2>(params);
     case 3:
-      return get_smem_footprint<3>(params, leaf_algo);
+      return get_smem_footprint<3>(params);
     case 4:
-      return get_smem_footprint<4>(params, leaf_algo);
+      return get_smem_footprint<4>(params);
     default:
       ASSERT(false, "internal error: n_items > 4");
   }
@@ -476,27 +471,27 @@ size_t get_smem_footprint(shmem_size_params params, leaf_algo_t leaf_algo) {
 
 template <leaf_algo_t leaf_algo, bool cols_in_shmem, typename storage_type>
 void infer_k_nitems_launcher(storage_type forest, predict_params params,
-                             cudaStream_t stream, int blockdim_x) {
-  switch (params.ssp.n_items) {
+                             cudaStream_t stream, int block_dim_x) {
+  switch (params.n_items) {
     case 1:
       infer_k<1, leaf_algo, cols_in_shmem>
-        <<<params.num_blocks, blockdim_x, params.ssp.shm_sz, stream>>>(forest,
-                                                                       params);
+        <<<params.num_blocks, block_dim_x, params.shm_sz, stream>>>(forest,
+                                                                    params);
       break;
     case 2:
       infer_k<2, leaf_algo, cols_in_shmem>
-        <<<params.num_blocks, blockdim_x, params.ssp.shm_sz, stream>>>(forest,
-                                                                       params);
+        <<<params.num_blocks, block_dim_x, params.shm_sz, stream>>>(forest,
+                                                                    params);
       break;
     case 3:
       infer_k<3, leaf_algo, cols_in_shmem>
-        <<<params.num_blocks, blockdim_x, params.ssp.shm_sz, stream>>>(forest,
-                                                                       params);
+        <<<params.num_blocks, block_dim_x, params.shm_sz, stream>>>(forest,
+                                                                    params);
       break;
     case 4:
       infer_k<4, leaf_algo, cols_in_shmem>
-        <<<params.num_blocks, blockdim_x, params.ssp.shm_sz, stream>>>(forest,
-                                                                       params);
+        <<<params.num_blocks, block_dim_x, params.shm_sz, stream>>>(forest,
+                                                                    params);
       break;
     default:
       ASSERT(false, "internal error: nitems > 4");
@@ -507,11 +502,10 @@ void infer_k_nitems_launcher(storage_type forest, predict_params params,
 template <leaf_algo_t leaf_algo, typename storage_type>
 void infer_k_launcher(storage_type forest, predict_params params,
                       cudaStream_t stream, int blockdim_x) {
-  params.num_blocks =
-    params.num_blocks != 0
-      ? params.num_blocks
-      : raft::ceildiv(int(params.num_rows), params.ssp.n_items);
-  if (params.ssp.cols_in_shmem) {
+  params.num_blocks = params.num_blocks != 0
+                        ? params.num_blocks
+                        : raft::ceildiv(int(params.num_rows), params.n_items);
+  if (params.cols_in_shmem) {
     infer_k_nitems_launcher<leaf_algo, true>(forest, params, stream,
                                              blockdim_x);
   } else {
@@ -527,14 +521,14 @@ void infer(storage_type forest, predict_params params, cudaStream_t stream) {
       infer_k_launcher<FLOAT_UNARY_BINARY>(forest, params, stream, FIL_TPB);
       break;
     case GROVE_PER_CLASS:
-      if (params.ssp.num_classes > FIL_TPB) {
+      if (params.num_classes > FIL_TPB) {
         params.leaf_algo = GROVE_PER_CLASS_MANY_CLASSES;
         infer_k_launcher<GROVE_PER_CLASS_MANY_CLASSES>(forest, params, stream,
                                                        FIL_TPB);
       } else {
         params.leaf_algo = GROVE_PER_CLASS_FEW_CLASSES;
         infer_k_launcher<GROVE_PER_CLASS_FEW_CLASSES>(
-          forest, params, stream, FIL_TPB - FIL_TPB % params.ssp.num_classes);
+          forest, params, stream, FIL_TPB - FIL_TPB % params.num_classes);
       }
       break;
     case CATEGORICAL_LEAF:

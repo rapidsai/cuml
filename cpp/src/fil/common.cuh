@@ -108,34 +108,34 @@ typedef sparse_storage<sparse_node8> sparse_storage8;
 /// all model parameters mostly required to compute shared memory footprint,
 /// also the footprint itself
 struct shmem_size_params {
-  /// the most shared memory a kernel can request on the GPU in question
-  int max_shm;
   /// for class probabilities, this is the number of classes considered;
   /// num_classes is ignored otherwise
-  int num_classes;
-  /// how many columns an input row has
-  int num_cols;
-  /// are the input columns are prefetched into shared
-  /// memory before inferring the row in question
-  bool cols_in_shmem;
-  /// n_items is the most items per thread that fit into shared memory
-  int n_items;
-  /// shm_sz is the associated shared memory footprint
-  int shm_sz;
-};
-
-
-// predict_params are parameters for prediction
-struct predict_params {
-  // Model parameters.
-  shmem_size_params ssp;
-  algo_t algo;
-  int max_items;  // only set and used by infer()
-  // number of outputs for the forest per each data row
-  int num_outputs;
+  int num_classes = 1;
   // leaf_algo determines what the leaves store (predict) and how FIL
   // aggregates them into class margins/predicted class/regression answer
-  leaf_algo_t leaf_algo;
+  leaf_algo_t leaf_algo = leaf_algo_t::FLOAT_UNARY_BINARY;
+  /// how many columns an input row has
+  int num_cols = 0;
+  /// are the input columns are prefetched into shared
+  /// memory before inferring the row in question
+  bool cols_in_shmem = true;
+  /// n_items is the most items per thread that fit into shared memory
+  int n_items = 0;
+  /// shm_sz is the associated shared memory footprint
+  int shm_sz = INT_MAX;
+
+  __host__ __device__ size_t cols_shmem_size() {
+    return cols_in_shmem ? sizeof(float) * num_cols * n_items : 0;
+  }
+};
+
+// predict_params are parameters for prediction
+struct predict_params : shmem_size_params {
+  predict_params(shmem_size_params ssp) : shmem_size_params(ssp) {}
+  // Model parameters.
+  algo_t algo;
+  // number of outputs for the forest per each data row
+  int num_outputs;
 
   // Data parameters.
   float* preds;
@@ -151,7 +151,7 @@ struct predict_params {
 template <typename storage_type>
 void infer(storage_type forest, predict_params params, cudaStream_t stream);
 
-size_t get_smem_footprint(shmem_size_params params, leaf_algo_t leaf_algo);
+size_t get_smem_footprint(shmem_size_params params);
 
 }  // namespace fil
 }  // namespace ML
