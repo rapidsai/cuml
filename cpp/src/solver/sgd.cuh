@@ -16,10 +16,10 @@
 
 #pragma once
 
-#include <cuml/common/device_buffer.hpp>
 #include <raft/cudart_utils.h>
 #include <raft/linalg/cublas_wrappers.h>
 #include <raft/linalg/gemv.h>
+#include <cuml/common/device_buffer.hpp>
 #include <cuml/solvers/params.hpp>
 #include <functions/hinge.cuh>
 #include <functions/linearReg.cuh>
