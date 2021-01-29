@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020, NVIDIA CORPORATION.
+# Copyright (c) 2020-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,12 +14,15 @@
 # limitations under the License.
 #
 
+import cuml.common.logger as logger
 import cupy as cp
 import numpy as np
+import time
 
 from cuml.common.import_utils import has_shap
 from cuml.common.import_utils import has_sklearn
 from cuml.common.input_utils import input_to_cupy_array
+from cuml.common.logger import debug
 from cuml.common.logger import warn
 from cuml.experimental.explainer.base import SHAPBase
 from cuml.experimental.explainer.common import get_cai_ptr
@@ -248,7 +251,7 @@ class KernelExplainer(SHAPBase):
         self._weights = cp.ones(self.nsamples, dtype=self.dtype)
         self._weights[:self.nsamples_exact] = cp.array(weight)
 
-        self._synth_data = None
+        self._reset_timers()
 
     def shap_values(self,
                     X,
@@ -269,60 +272,34 @@ class KernelExplainer(SHAPBase):
 
         Returns
         -------
-        array or list
+        values: array or list
 
         """
-        return self._explain(X,
-                             l1_reg=l1_reg)
+        self._reset_timers()
+        values = self._explain(X,
+                               synth_data_shape=(self.N * self.nsamples,
+                                                 self.M),
+                               l1_reg=l1_reg)
 
-    def _explain(self,
-                 X,
-                 nsamples=None,
-                 l1_reg='auto'):
-        X = input_to_cupy_array(X, order='C', convert_to_dtype=self.dtype)[0]
-
-        if X.ndim == 1:
-            X = X.reshape((1, self.M))
-
-        # shap_values is a list so we can return a list in the case that
-        # model is a multidimensional-output function
-        shap_values = []
-
-        for i in range(self.D):
-            shap_values.append(cp.zeros(X.shape, dtype=self.dtype))
-
-        # Allocate synthetic dataset array once for multiple explanations
-        if self._synth_data is None:
-            self._synth_data = cp.zeros(
-                shape=(self.N * self.nsamples, self.M),
-                dtype=self.dtype,
-                order=self.order
-            )
-
-        # Explain each observation
-        for idx, x in enumerate(X):
-            # use mutability of lists and cupy arrays to get all shap values
-            self._explain_single_observation(
-                shap_values,
-                x.reshape(1, self.M),
-                l1_reg,
-                idx
-            )
-
-        del(self._synth_data)
-
-        return output_list_shap_values(shap_values, self.D, self.output_type)
+        debug(self._get_timers_str())
+        return output_list_shap_values(values, self.D, self.output_type)
 
     def _explain_single_observation(self,
                                     shap_values,
                                     row,
-                                    l1_reg,
-                                    idx):
+                                    idx,
+                                    l1_reg):
+        if self.time_performance:
+            total_timer = time.time()
         # Call the model to get the value f(row)
         fx = cp.array(
             model_func_call(X=row,
                             model_func=self.model,
                             gpu_model=self.is_gpu_model))
+
+        if self.time_performance:
+            self.model_call_time = \
+                self.model_call_time + (time.time() - total_timer)
 
         self._mask[self.nsamples_exact:self.nsamples] = \
             cp.zeros((self.nsamples_random, self.M), dtype=cp.float32)
@@ -391,14 +368,22 @@ class KernelExplainer(SHAPBase):
                 <int> maxsample,
                 <uint64_t> self.random_state)
 
-        # kept while in experimental phase. It is not needed for cuml
+        # kept while in experimental namespace. It is not needed for cuml
         # models, but for other GPU models it is
         self.handle.sync()
 
+        if self.time_performance:
+            model_timer = time.time()
         # evaluate model on combinations
         y = model_func_call(X=self._synth_data,
                             model_func=self.model,
                             gpu_model=self.is_gpu_model)
+
+        if self.time_performance:
+            self.model_call_time = \
+                self.model_call_time + (time.time() - model_timer)
+
+        l1_reg_time = 0
 
         for i in range(self.D):
             if self.D == 1:
@@ -423,6 +408,8 @@ class KernelExplainer(SHAPBase):
             nonzero_inds = None
             if ((self.ratio_evaluated < 0.2 and l1_reg == "auto") or
                     (self.ratio_evaluated < 1.0 and l1_reg != "auto")):
+                if self.time_performance:
+                    reg_timer = time.time()
                 nonzero_inds = _l1_regularization(self._mask,
                                                   y_hat,
                                                   self._weights,
@@ -430,11 +417,15 @@ class KernelExplainer(SHAPBase):
                                                   fx_param,
                                                   self.link_fn,
                                                   l1_reg)
-
+                if self.time_performance:
+                    self.l1_reg_time = \
+                        self.l1_reg_time + (time.time() - reg_timer)
                 # in case all indexes become zero
                 if nonzero_inds.shape == (0, ):
                     return None
 
+            if self.time_performance:
+                reg_timer = time.time()
             shap_values[i][idx, :-1] = _weighted_linear_regression(
                 self._mask,
                 y_hat,
@@ -454,6 +445,26 @@ class KernelExplainer(SHAPBase):
                 shap_values[i][idx, nonzero_inds[-1]] = \
                     (fx_param - exp_val_param) - cp.sum(
                         shap_values[i][idx, :-1])
+
+            if self.time_performance:
+                self.linear_model_time = \
+                    self.linear_model_time + (time.time() - reg_timer)
+
+        if self.time_performance:
+            self.total_time = self.total_time + (time.time() - total_timer)
+
+    def _reset_timers(self):
+        super()._reset_timers()
+        self.l1_reg_time = 0
+        self.linear_model_time = 0
+
+    def _get_timers_str(self):
+        res_str = super()._get_timers_str()
+        res_str += "Time spent in L1 regularization: {}".format(
+            self.l1_reg_time)
+        res_str += "Time spent in linear model calculation: {}".format(
+            self.linear_model_time)
+        return res_str
 
 
 def _get_number_of_exact_random_samples(ncols, nsamples):
