@@ -366,20 +366,16 @@ class TSNE(Base):
 
         self.sparse_fit = False
 
-    @generate_docstring(convert_dtype_cast='np.float32')
+    @generate_docstring(skip_parameters_heading=True,
+                        convert_dtype_cast='np.float32')
     def fit(self, X, convert_dtype=True, knn_graph=None) -> "TSNE":
         """
         Fit X into an embedded space.
 
         Parameters
         -----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-            X contains a sample per row.
-        convert_dtype : bool, optional (default = True)
-            When set to True, the fit method will automatically
-            convert the inputs to np.float32.
-        knn_graph : sparse array-like (device or host)
-            shape=(n_samples, n_samples)
+        knn_graph : sparse array-like (device or host), \
+                shape=(n_samples, n_samples)
             A sparse array containing the k-nearest neighbors of X,
             where the columns are the nearest neighbor indices
             for each row and the values are their distances.

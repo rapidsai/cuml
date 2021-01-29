@@ -75,10 +75,11 @@ class MulticlassClassifier(Base, ClassifierMixin):
 
     Attributes
     ----------
-    classes_ : float, shape (n_classes_)
+    classes_ : float, shape (`n_classes_`)
         Array of class labels.
     n_classes_ : int
         Number of classes.
+
     """
     def __init__(self,
                  estimator,
