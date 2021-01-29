@@ -126,6 +126,10 @@ def test_self_neighboring(datatype, metric_p, nrows):
 @pytest.mark.parametrize("algo", ["brute", "ivfflat", "ivfpq", "ivfsq"])
 def test_neighborhood_predictions(nrows, ncols, n_neighbors, n_clusters,
                                   datatype, algo):
+    if algo == "ivfpq":
+        pytest.xfail("""See Memory access error in IVFPQ :
+                        https://github.com/rapidsai/cuml/issues/3318""")
+
     if not has_scipy():
         pytest.skip('Skipping test_neighborhood_predictions because ' +
                     'Scipy is missing')
@@ -186,6 +190,9 @@ def test_ivfflat_pred(nrows, ncols, n_neighbors, nlist):
 @pytest.mark.parametrize("nrows", [4000])
 @pytest.mark.parametrize("ncols", [128, 512])
 @pytest.mark.parametrize("n_neighbors", [8])
+@pytest.mark.xfail
+#  See Memory access error in IVFPQ :
+#  https://github.com/rapidsai/cuml/issues/3318
 def test_ivfpq_pred(nrows, ncols, n_neighbors,
                     nlist, M, n_bits, usePrecomputedTables):
     algo_params = {
