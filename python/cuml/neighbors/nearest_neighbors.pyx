@@ -162,19 +162,21 @@ class NearestNeighbors(Base):
         handles in several streams.
         If it is None, a new one is created.
     algorithm : string (default='brute')
-        The query algorithm to use. Valid options are :
-        - 'brute' for brute-force, slow but produces exact results
-        - 'ivfflat' for inverted file, divide the dataset in partitions
-            and perform search on relevant partitions only
-        - 'ivfpq' for inverted file and product quantization,
-            same as inverted list, in addition the vectors are broken
-            in n_features/M sub-vectors that will be encoded thanks
-            to intermediary k-means clusterings. This encoding provide
-            partial information allowing faster distances calculations
-        - 'ivfsq' for inverted file and scalar quantization,
-            same as inverted list, in addition vectors components
-            are quantized into reduced binary representation allowing
-            faster distances calculations
+        The query algorithm to use. Valid options are:
+
+        - ``'brute'``: for brute-force, slow but produces exact results
+        - ``'ivfflat'``: for inverted file, divide the dataset in partitions
+          and perform search on relevant partitions only
+        - ``'ivfpq'``: for inverted file and product quantization,
+          same as inverted list, in addition the vectors are broken
+          in n_features/M sub-vectors that will be encoded thanks
+          to intermediary k-means clusterings. This encoding provide
+          partial information allowing faster distances calculations
+        - ``'ivfsq'``: for inverted file and scalar quantization,
+          same as inverted list, in addition vectors components
+          are quantized into reduced binary representation allowing
+          faster distances calculations
+
     metric : string (default='euclidean').
         Distance metric to use. Supported distances are ['l1, 'cityblock',
         'taxicab', 'manhattan', 'euclidean', 'l2', 'braycurtis', 'canberra',
@@ -187,33 +189,42 @@ class NearestNeighbors(Base):
         neighbors algorithms.
 
         When algorithm='brute' and inputs are sparse:
-            - batch_size_index : (int) number of rows in each batch of
+
+            - batch_size_index : (int) number of rows in each batch of \
                                  index array
-            - batch_size_query : (int) number of rows in each batch of
+            - batch_size_query : (int) number of rows in each batch of \
                                  query array
+
     metric_expanded : bool
         Can increase performance in Minkowski-based (Lp) metrics (for p > 1)
         by using the expanded form and not computing the n-th roots.
     algo_params : dict, optional (default = None) Used to configure the
         nearest neighbor algorithm to be used.
         If set to None, parameters will be generated automatically.
-        Parameters for algorithm 'ivfflat':
-            - nlist : (int) number of cells to partition dataset into
-            - nprobe : (int) at query time, number of cells used for search
-        Parameters for algorithm 'ivfpq':
-            - nlist : (int) number of cells to partition dataset into
-            - nprobe : (int) at query time, number of cells used for search
-            - M : (int) number of subquantizers
-            - n_bits : (int) bits allocated per subquantizer
+        Parameters for algorithm ``'ivfflat'``:
+
+            - nlist: (int) number of cells to partition dataset into
+            - nprobe: (int) at query time, number of cells used for search
+
+        Parameters for algorithm ``'ivfpq'``:
+
+            - nlist: (int) number of cells to partition dataset into
+            - nprobe: (int) at query time, number of cells used for search
+            - M: (int) number of subquantizers
+            - n_bits: (int) bits allocated per subquantizer
             - usePrecomputedTables : (bool) wether to use precomputed tables
-        Parameters for algorithm 'ivfsq':
-            - nlist : (int) number of cells to partition dataset into
-            - nprobe : (int) at query time, number of cells used for search
-            - qtype : (string) quantizer type (among QT_8bit, QT_4bit,
-                QT_8bit_uniform, QT_4bit_uniform, QT_fp16, QT_8bit_direct,
-                QT_6bit)
-            - encodeResidual : (bool) wether to encode residuals
-    metric_params : dict, optional (default = None) This is currently ignored.
+
+        Parameters for algorithm ``'ivfsq'``:
+
+            - nlist: (int) number of cells to partition dataset into
+            - nprobe: (int) at query time, number of cells used for search
+            - qtype: (string) quantizer type (among QT_8bit, QT_4bit,
+              QT_8bit_uniform, QT_4bit_uniform, QT_fp16, QT_8bit_direct,
+              QT_6bit)
+            - encodeResidual: (bool) wether to encode residuals
+
+    metric_params : dict, optional (default = None)
+        This is currently ignored.
 
     output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
         Variable to control output type of the results and attributes of
@@ -225,26 +236,26 @@ class NearestNeighbors(Base):
     --------
     .. code-block:: python
 
-      import cudf
-      from cuml.neighbors import NearestNeighbors
-      from cuml.datasets import make_blobs
+        import cudf
+        from cuml.neighbors import NearestNeighbors
+        from cuml.datasets import make_blobs
 
-      X, _ = make_blobs(n_samples=25, centers=5,
-                        n_features=10, random_state=42)
+        X, _ = make_blobs(n_samples=25, centers=5,
+                            n_features=10, random_state=42)
 
-      # build a cudf Dataframe
-      X_cudf = cudf.DataFrame(X)
+        # build a cudf Dataframe
+        X_cudf = cudf.DataFrame(X)
 
-      # fit model
-      model = NearestNeighbors(n_neighbors=3)
-      model.fit(X)
+        # fit model
+        model = NearestNeighbors(n_neighbors=3)
+        model.fit(X)
 
-      # get 3 nearest neighbors
-      distances, indices = model.kneighbors(X_cudf)
+        # get 3 nearest neighbors
+        distances, indices = model.kneighbors(X_cudf)
 
-      # print results
-      print(indices)
-      print(distances)
+        # print results
+        print(indices)
+        print(distances)
 
 
     Output:
@@ -286,6 +297,7 @@ class NearestNeighbors(Base):
 
     For additional docs, see `scikit-learn's NearestNeighbors
     <https://scikit-learn.org/stable/modules/generated/sklearn.neighbors.NearestNeighbors.html#sklearn.neighbors.NearestNeighbors>`_.
+
     """
 
     X_m = CumlArrayDescriptor()
