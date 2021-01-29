@@ -325,8 +325,8 @@ struct SimpleMatOwning : SimpleMat<T> {
 
   SimpleMatOwning() = delete;
 
-  SimpleMatOwning(std::shared_ptr<MLCommon::deviceAllocator> allocator, int m, int n,
-                  cudaStream_t stream, STORAGE_ORDER order = COL_MAJOR)
+  SimpleMatOwning(std::shared_ptr<MLCommon::deviceAllocator> allocator, int m,
+                  int n, cudaStream_t stream, STORAGE_ORDER order = COL_MAJOR)
     : Super(order), buf(m * n, stream) {
     Super::reset(buf.data(), m, n);
   }
