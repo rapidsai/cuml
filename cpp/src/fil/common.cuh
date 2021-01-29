@@ -127,6 +127,11 @@ struct shmem_size_params {
   __host__ __device__ size_t cols_shmem_size() {
     return cols_in_shmem ? sizeof(float) * num_cols * n_items : 0;
   }
+  void compute_smem_footprint();
+  template <int NITEMS>
+  size_t get_smem_footprint();
+  template <int NITEMS, leaf_algo_t leaf_algo>
+  size_t get_smem_footprint();
 };
 
 // predict_params are parameters for prediction
@@ -150,8 +155,6 @@ struct predict_params : shmem_size_params {
 // infer() calls the inference kernel with the parameters on the stream
 template <typename storage_type>
 void infer(storage_type forest, predict_params params, cudaStream_t stream);
-
-size_t get_smem_footprint(shmem_size_params params);
 
 }  // namespace fil
 }  // namespace ML

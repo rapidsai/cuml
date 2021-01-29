@@ -426,44 +426,47 @@ __global__ void infer_k(storage_type forest, predict_params params) {
 }
 
 template <int NITEMS, leaf_algo_t leaf_algo>
-size_t get_smem_footprint(shmem_size_params params) {
+size_t shmem_size_params::get_smem_footprint() {
   size_t finalize_footprint =
-    tree_aggregator_t<NITEMS, leaf_algo>::smem_finalize_footprint(
-      params.num_classes);
+    tree_aggregator_t<NITEMS, leaf_algo>::smem_finalize_footprint(num_classes);
   size_t accumulate_footprint =
     tree_aggregator_t<NITEMS, leaf_algo>::smem_accumulate_footprint(
-      params.num_classes) +
-    params.cols_shmem_size();
+      num_classes) +
+    cols_shmem_size();
 
   return std::max(accumulate_footprint, finalize_footprint);
 }
 
 template <int NITEMS>
-size_t get_smem_footprint(shmem_size_params params) {
-  switch (params.leaf_algo) {
+size_t shmem_size_params::get_smem_footprint() {
+  switch (leaf_algo) {
     case FLOAT_UNARY_BINARY:
-      return get_smem_footprint<NITEMS, FLOAT_UNARY_BINARY>(params);
+      return get_smem_footprint<NITEMS, FLOAT_UNARY_BINARY>();
     case CATEGORICAL_LEAF:
-      return get_smem_footprint<NITEMS, CATEGORICAL_LEAF>(params);
+      return get_smem_footprint<NITEMS, CATEGORICAL_LEAF>();
     case GROVE_PER_CLASS:
-      if (params.num_classes > FIL_TPB)
-        return get_smem_footprint<NITEMS, GROVE_PER_CLASS_MANY_CLASSES>(params);
-      return get_smem_footprint<NITEMS, GROVE_PER_CLASS_FEW_CLASSES>(params);
+      if (num_classes > FIL_TPB)
+        return get_smem_footprint<NITEMS, GROVE_PER_CLASS_MANY_CLASSES>();
+      return get_smem_footprint<NITEMS, GROVE_PER_CLASS_FEW_CLASSES>();
     default:
       ASSERT(false, "internal error: unexpected leaf_algo_t");
   }
 }
 
-size_t get_smem_footprint(shmem_size_params params) {
-  switch (params.n_items) {
+void shmem_size_params::compute_smem_footprint() {
+  switch (n_items) {
     case 1:
-      return get_smem_footprint<1>(params);
+      shm_sz = get_smem_footprint<1>();
+      break;
     case 2:
-      return get_smem_footprint<2>(params);
+      shm_sz = get_smem_footprint<2>();
+      break;
     case 3:
-      return get_smem_footprint<3>(params);
+      shm_sz = get_smem_footprint<3>();
+      break;
     case 4:
-      return get_smem_footprint<4>(params);
+      shm_sz = get_smem_footprint<4>();
+      break;
     default:
       ASSERT(false, "internal error: n_items > 4");
   }

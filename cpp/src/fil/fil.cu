@@ -89,7 +89,7 @@ struct forest {
       for (ssp.n_items = 1;
            ssp.n_items <= (algo_ == algo_t::BATCH_TREE_REORG ? 4 : 1);
            ++ssp.n_items) {
-        ssp.shm_sz = get_smem_footprint(ssp);
+        ssp.compute_smem_footprint();
         if (ssp.shm_sz < max_shm) ssp_ = ssp;
       }
     }
