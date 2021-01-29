@@ -121,12 +121,12 @@ struct BlockSemiring {
     value_idx stop_row_b =
       min(start_row_b + tpb, start_row_b + (n - start_row_b));
 
-    n_rows = (stop_row_b - start_row_b);
+    n_rows = stop_row_b - start_row_b;
 
-    for (int i = threadIdx.x; i < n_rows; i += tpb) {
+    if (threadIdx.x < n_rows) {
       row_b = start_row_b + threadIdx.x;
-      value_idx start_offset_b = indptrB[start_row_b + i];
-      row_count = indptrB[start_row_b + i + 1] - start_offset_b;
+      value_idx start_offset_b = indptrB[start_row_b + threadIdx.x];
+      row_count = indptrB[start_row_b + threadIdx.x + 1] - start_offset_b;
       local_idx = start_offset_b;
       local_idx_stop = start_offset_b + row_count;
     }
@@ -175,7 +175,9 @@ struct BlockSemiring {
   __device__ inline bool isdone() { return done; }
 
   __device__ inline void write(value_t *out) {
-    if (threadIdx.x < n_rows) out[(size_t)row_a * n + row_b] = cur_sum;
+    if (threadIdx.x < n_rows) {
+      out[(size_t)row_a * n + row_b] = cur_sum;
+    }
   }
 
  private:
@@ -261,10 +263,6 @@ __global__ void classic_csr_semiring_spmv_smem_kernel(
 
     semiring.write(out);
   }
-
-  if (threadIdx.x == 0 && out_row % 1000 == 0) {
-    printf("row_a=%d, tid=%d, done.\n", out_row, threadIdx.x);
-  }
 }
 
 template <typename value_idx, typename value_t, int tpb, typename product_f,
@@ -296,10 +294,6 @@ __global__ void classic_csr_semiring_spmv_kernel(
     } while (!semiring.isdone());
 
     semiring.write(out);
-  }
-
-  if (threadIdx.x == 0 && out_row % 1000 == 0) {
-    printf("row_a=%d, tid=%d, done.\n", out_row, threadIdx.x);
   }
 }
 
@@ -446,7 +440,8 @@ void generalized_csr_pairwise_semiring(
 
   // max_nnz set from max(diff(indptrA))
   value_idx max_nnz = max_degree<value_idx>(config_.a_indptr, config_.a_nrows,
-                                            config_.allocator, config_.stream);
+                                            config_.allocator, config_.stream) +
+                      1;
 
   if (max_nnz <= nnz_upper_bound)
     // use smem

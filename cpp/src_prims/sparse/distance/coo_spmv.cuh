@@ -151,6 +151,7 @@ __global__ void balanced_coo_generalized_spmv_kernel(
 
   auto warp_red = warp_reduce(*(temp_storage + warp_id));
 
+  // coalesced reads from B
   if (tid < active_chunk_size) {
     cur_row_b = rowsB[ind];
     value_t a_col = A[indicesB[ind]];
@@ -167,18 +168,22 @@ __global__ void balanced_coo_generalized_spmv_kernel(
 
     bool diff_rows = next_row_b != cur_row_b;
 
-    unsigned int mask = __ballot_sync(0xffffffff, i < active_chunk_size);
+    // grab the threads currently participating in loops.
+    // because any other threads should have returned already.
+    unsigned int mask = __ballot_sync(0xffffffff, true);
     unsigned int peer_group = __match_any_sync(mask, cur_row_b);
     bool is_leader = get_lowest_peer(peer_group) == lane_id;
-    value_t v = warp_red.HeadSegmentedReduce(c, is_leader, accum_func);
-    if (diff_rows) {
-      // thread with lowest lane id among peers writes out
-      if (is_leader && v != 0.0) {
-        size_t idx = !rev ? (size_t)cur_row_a * n + cur_row_b
-                          : (size_t)cur_row_b * m + cur_row_a;
-        write_func(out + idx, v);
-      }
-      c = 0.0;
+    value_t v =
+      warp_red.HeadSegmentedReduce(c * diff_rows, is_leader, accum_func);
+
+    c = !diff_rows * c;
+
+    // thread with lowest lane id among peers writes out
+    if (is_leader && v != 0.0) {
+      // this conditional should be uniform, since rev is constant
+      size_t idx = !rev ? (size_t)cur_row_a * n + cur_row_b
+                        : (size_t)cur_row_b * m + cur_row_a;
+      write_func(out + idx, v);
     }
 
     if (next_row_b != -1) {

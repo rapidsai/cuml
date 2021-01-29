@@ -190,9 +190,9 @@ class cosine_expanded_distances_t : public distances_t<value_t> {
       b_indices, b_data, config_->b_nnz, config_->a_nrows, config_->b_nrows,
       config_->handle, config_->allocator, config_->stream,
       [] __device__ __host__(value_t dot, value_t q_norm, value_t r_norm) {
-        value_t q_normalized = sqrt(q_norm);
-        value_t r_normalized = sqrt(r_norm);
-        value_t cos = dot / (q_normalized * r_normalized);
+        value_t norms = sqrt(q_norm) * sqrt(r_norm);
+        // deal with potential for 0 in denominator by forcing 0/1 instead
+        value_t cos = ((norms != 0) * dot) / ((norms == 0) + norms);
         return 1 - cos;
       });
   }
@@ -237,12 +237,11 @@ class hellinger_expanded_distances_t : public distances_t<value_t> {
     // Revert sqrt of A and B
     raft::linalg::unaryOp<value_t>(
       config_->a_data, config_->a_data, config_->a_nnz,
-      [=] __device__(value_t input) { return powf(input, 2); },
-      config_->stream);
+      [=] __device__(value_t input) { return pow(input, 2); }, config_->stream);
     if (config_->a_data != config_->b_data) {
       raft::linalg::unaryOp<value_t>(
         config_->b_data, config_->b_data, config_->b_nnz,
-        [=] __device__(value_t input) { return powf(input, 2); },
+        [=] __device__(value_t input) { return pow(input, 2); },
         config_->stream);
     }
 

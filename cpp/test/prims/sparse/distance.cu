@@ -112,7 +112,7 @@ class SparseDistanceTest
 
     allocate(out_dists, out_size);
 
-    ML::Logger::get().setLevel(CUML_LEVEL_INFO);
+    ML::Logger::get().setLevel(CUML_LEVEL_DEBUG);
 
     pairwiseDistance(out_dists, dist_config, params.metric, params.metric_arg);
 
@@ -129,18 +129,9 @@ class SparseDistanceTest
   }
 
   void compare() {
-    bool matches =
-      devArrMatch(out_dists_ref, out_dists, params.out_dists_ref_h.size(),
-                  CompareApprox<value_t>(1e-3));
-
-    if (!matches) {
-      raft::print_device_vector("expected: ", out_dists_ref,
-                                params.out_dists_ref_h.size(), std::cout);
-      raft::print_device_vector("out_dists: ", out_dists,
-                                params.out_dists_ref_h.size(), std::cout);
-    }
-
-    ASSERT_TRUE(matches);
+    ASSERT_TRUE(devArrMatch(out_dists_ref, out_dists,
+                            params.out_dists_ref_h.size(),
+                            CompareApprox<value_t>(1e-3)));
   }
 
  protected:

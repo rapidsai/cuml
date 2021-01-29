@@ -157,8 +157,11 @@ class canberra_unexpanded_distances_t : public distances_t<value_t> {
     unexpanded_lp_distances<value_idx, value_t>(
       out_dists, config_,
       [] __device__(value_t a, value_t b) {
-        value_t d = fabsf(a) + fabsf(b);
-        return ((d != 0) * fabsf(a - b)) / (d + (d == 0));
+        value_t d = fabs(a) + fabs(b);
+
+        // deal with potential for 0 in denominator by
+        // forcing 1/0 instead
+        return ((d != 0) * fabs(a - b)) / (d + (d == 0));
       },
       Sum(), AtomicAdd());
   }
@@ -178,10 +181,10 @@ class lp_unexpanded_distances_t : public distances_t<value_t> {
     unexpanded_lp_distances<value_idx, value_t>(out_dists, config_, PDiff(p),
                                                 Sum(), AtomicAdd());
 
-    float pow = 1.0f / p;
+    float one_over_p = 1.0f / p;
     raft::linalg::unaryOp<value_t>(
       out_dists, out_dists, config_->a_nrows * config_->b_nrows,
-      [=] __device__(value_t input) { return powf(input, pow); },
+      [=] __device__(value_t input) { return pow(input, one_over_p); },
       config_->stream);
   }
 

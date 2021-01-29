@@ -44,6 +44,8 @@ inline int block_dim(value_idx ncols) {
   return blockdim;
 }
 
+// add similar semantics for __match_any_sync pre-volta (SM_70)
+#if __CUDA_ARCH__ < 700
 /**
  * Returns a warp-level mask with 1's for all the threads
  * in the current warp that have the same key.
@@ -52,26 +54,26 @@ inline int block_dim(value_idx ncols) {
  * @return
  */
 template <typename G>
-__device__ __inline__ unsigned int get_peer_group(
-  G key, unsigned int unclaimed = 0xffffffff) {
+__device__ __inline__ unsigned int __match_any_sync(unsigned int mask, G key) {
   unsigned int peer_group = 0;
   bool is_peer;
 
   do {
     // fetch key of first unclaimed lane and compare with this key
-    is_peer = (key == __shfl_sync(unclaimed, key, __ffs(unclaimed) - 1));
+    is_peer = (key == __shfl_sync(mask, key, __ffs(mask) - 1));
 
     // determine which lanes had a match
-    peer_group = __ballot_sync(unclaimed, is_peer);
+    peer_group = __ballot_sync(mask, is_peer);
 
     // remove lanes with matching keys from the pool
-    unclaimed = unclaimed ^ peer_group;
+    mask = mask ^ peer_group;
 
     // quit if we had a match
   } while (!is_peer);
 
   return peer_group;
 }
+#endif
 
 __device__ __inline__ unsigned int get_lowest_peer(unsigned int peer_group) {
   return __ffs(peer_group) - 1;
