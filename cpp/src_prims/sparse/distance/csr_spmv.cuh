@@ -55,12 +55,12 @@ struct BlockSemiring {
   __device__ inline BlockSemiring(value_idx n_, value_idx *shared_cols_,
                                   value_t *shared_vals_, value_idx *offsets_a_)
     : n(n_),
-      shared_cols(shared_cols_),
-      shared_vals(shared_vals_),
+      a_cols(shared_cols_),
+      a_vals(shared_vals_),
       offsets_a(offsets_a_),
       done(false),
-      shared_idx(0),
-      row_count(0),
+      a_idx(0),
+      b_row_count(0),
       cur_sum(0.0) {}
 
   /**
@@ -81,12 +81,12 @@ struct BlockSemiring {
     value_idx start_offset_a = offsets_a[0];
     value_idx stop_offset_a = offsets_a[1];
 
-    shared_size = stop_offset_a - start_offset_a;
+    a_size = stop_offset_a - start_offset_a;
 
     // Coalesce reads of row from matrix A into shared memory
-    for (int i = threadIdx.x; i < shared_size; i += blockDim.x) {
-      shared_cols[i] = indicesA[start_offset_a + i];
-      shared_vals[i] = dataA[start_offset_a + i];
+    for (int i = threadIdx.x; i < a_size; i += blockDim.x) {
+      a_cols[i] = indicesA[start_offset_a + i];
+      a_vals[i] = dataA[start_offset_a + i];
     }
 
     __syncthreads();
@@ -95,7 +95,13 @@ struct BlockSemiring {
   }
 
   /**
-   * Sets the given array
+   * Sets the head for A's pointers so they can be
+   * iterated in each thread. This is used for the
+   * case when the maximum degree of any row in A
+   * is too large to fit into shared memory, so we
+   * default to increasing the size of the L1 cache
+   * and suffering the uncoalesced memory accesses
+   * for both A and B.
    * @param row
    * @param indptrA
    * @param indicesA
@@ -109,10 +115,10 @@ struct BlockSemiring {
     value_idx start_offset_a = offsets_a[0];
     value_idx stop_offset_a = offsets_a[1];
 
-    shared_size = stop_offset_a - start_offset_a;
+    a_size = stop_offset_a - start_offset_a;
 
-    shared_cols = indicesA + start_offset_a;
-    shared_vals = dataA + start_offset_a;
+    a_cols = indicesA + start_offset_a;
+    a_vals = dataA + start_offset_a;
 
     row_a = row;
   }
@@ -124,20 +130,20 @@ struct BlockSemiring {
    */
   __device__ inline void load_b(value_idx start_row, value_idx *indptrB) {
     done = false;
-    shared_idx = 0;
+    a_idx = 0;
     cur_sum = 0.0;
 
     value_idx start_row_b = start_row;
     value_idx stop_row_b = min(start_row_b + tpb, n);
 
-    n_rows = stop_row_b - start_row_b;
+    n_rows_b = stop_row_b - start_row_b;
 
-    if (threadIdx.x < n_rows) {
+    if (threadIdx.x < n_rows_b) {
       row_b = start_row_b + threadIdx.x;
       value_idx start_offset_b = indptrB[row_b];
-      row_count = indptrB[row_b + 1] - start_offset_b;
-      local_idx = start_offset_b;
-      local_idx_stop = start_offset_b + row_count;
+      b_row_count = indptrB[row_b + 1] - start_offset_b;
+      b_idx = start_offset_b;
+      b_idx_stop = start_offset_b + b_row_count;
     }
   }
 
@@ -148,33 +154,33 @@ struct BlockSemiring {
    * @param product_func
    * @param accum_func
    */
-  __device__ inline void step(value_idx *chunk_cols, value_t *chunk_vals,
+  __device__ inline void step(value_idx *b_cols, value_t *b_vals,
                               product_f product_func, accum_f accum_func) {
-    if (threadIdx.x < n_rows) {
-      bool local_idx_in_bounds = local_idx < local_idx_stop && row_count > 0;
+    if (threadIdx.x < n_rows_b) {
+      bool local_idx_in_bounds = b_idx < b_idx_stop && b_row_count > 0;
 
-      value_idx l = local_idx_in_bounds ? chunk_cols[local_idx] : -1;
-      value_t lv = local_idx_in_bounds ? chunk_vals[local_idx] : 0.0;
+      value_idx b = local_idx_in_bounds ? b_cols[b_idx] : -1;
+      value_t bv = local_idx_in_bounds ? b_vals[b_idx] : 0.0;
 
-      bool shared_idx_in_bounds = shared_idx < shared_size;
+      bool a_idx_in_bounds = a_idx < a_size;
 
-      value_idx r = shared_idx_in_bounds ? shared_cols[shared_idx] : -1;
-      value_t rv = shared_idx_in_bounds ? shared_vals[shared_idx] : 0.0;
+      value_idx a = a_idx_in_bounds ? a_cols[a_idx] : -1;
+      value_t av = a_idx_in_bounds ? a_vals[a_idx] : 0.0;
 
-      bool run_l = ((l <= r && l != -1) || (l != -1 && r == -1));
-      local_idx += 1 * run_l;
-      value_t left_side = lv * run_l;
+      bool run_b = ((b <= a && b != -1) || (b != -1 && a == -1));
+      b_idx += 1 * run_b;
+      value_t b_side = bv * run_b;
 
-      bool run_r = ((r <= l && r != -1) || (l == -1 && r != -1));
-      shared_idx += 1 * run_r;
-      value_t right_side = rv * run_r;
+      bool run_a = ((a <= b && a != -1) || (b == -1 && a != -1));
+      a_idx += 1 * run_a;
+      value_t a_side = av * run_a;
 
       // Apply semiring "sum" & "product" functions locally
-      cur_sum = accum_func(cur_sum, product_func(left_side, right_side));
+      cur_sum = accum_func(cur_sum, product_func(b_side, a_side));
 
       // finished when all items in chunk have been
       // processed
-      done = l == -1 && r == -1;
+      done = b == -1 && a == -1;
 
     } else {
       done = true;
@@ -184,7 +190,7 @@ struct BlockSemiring {
   __device__ inline bool isdone() { return done; }
 
   __device__ inline void write(value_t *out) {
-    if (threadIdx.x < n_rows) {
+    if (threadIdx.x < n_rows_b) {
       out[(size_t)row_a * n + row_b] = cur_sum;
     }
   }
@@ -192,13 +198,13 @@ struct BlockSemiring {
  private:
   bool done;
 
-  int shared_size;
+  int a_size;
 
-  value_idx n_rows;
+  value_idx n_rows_b;
 
-  value_idx local_idx;
-  value_idx local_idx_stop;
-  value_idx shared_idx;
+  value_idx b_idx;
+  value_idx b_idx_stop;
+  value_idx a_idx;
 
   value_t cur_sum;
 
@@ -210,9 +216,9 @@ struct BlockSemiring {
   value_idx *offsets_a;
 
   // shared memory
-  value_idx row_count;
-  value_idx *shared_cols;
-  value_t *shared_vals;
+  value_idx b_row_count;
+  value_idx *a_cols;
+  value_t *a_vals;
 };
 
 /**
@@ -253,11 +259,11 @@ __global__ void classic_csr_semiring_spmv_smem_kernel(
   extern __shared__ char smem[];
 
   value_idx *offsets_a = (value_idx *)smem;
-  value_idx *shared_cols = offsets_a + 2;
-  value_t *shared_vals = (value_t *)(shared_cols + buffer_size);
+  value_idx *a_cols = offsets_a + 2;
+  value_t *a_vals = (value_t *)(a_cols + buffer_size);
 
   BlockSemiring<value_idx, value_t, tpb, product_f, accum_f> semiring(
-    n, shared_cols, shared_vals, offsets_a);
+    n, a_cols, a_vals, offsets_a);
 
   semiring.load_a_shared(out_row, indptrA, indicesA, dataA);
 
@@ -333,7 +339,7 @@ __global__ void max_kernel(value_idx *out, value_idx *in, value_idx n) {
   __shared__ typename BlockReduce::TempStorage temp_storage;
 
   value_idx v = tid < n ? in[tid] - in[tid - 1] : 0;
-  value_idx agg = BlockReduce(temp_storage).Reduce(v, Max());
+  value_idx agg = BlockReduce(temp_storage).Reduce(v, cub::Max());
 
   if (threadIdx.x == 0) atomicMax(out, agg);
 }

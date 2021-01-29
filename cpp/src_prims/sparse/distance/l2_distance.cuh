@@ -132,8 +132,8 @@ class l2_expanded_distances_t : public distances_t<value_t> {
     CUML_LOG_DEBUG("Computing inner products");
     ip_dists.compute(out_dists);
 
-    value_idx *b_indices = ip_dists.trans_indices();
-    value_t *b_data = ip_dists.trans_data();
+    value_idx *b_indices = ip_dists.b_rows_coo();
+    value_t *b_data = ip_dists.b_data_coo();
 
     CUML_LOG_DEBUG("Computing COO row index array");
     raft::mr::device::buffer<value_idx> search_coo_rows(
@@ -177,8 +177,8 @@ class cosine_expanded_distances_t : public distances_t<value_t> {
     CUML_LOG_DEBUG("Computing inner products");
     ip_dists.compute(out_dists);
 
-    value_idx *b_indices = ip_dists.trans_indices();
-    value_t *b_data = ip_dists.trans_data();
+    value_idx *b_indices = ip_dists.b_rows_coo();
+    value_t *b_data = ip_dists.b_data_coo();
 
     CUML_LOG_DEBUG("Computing COO row index array");
     raft::mr::device::buffer<value_idx> search_coo_rows(
@@ -211,6 +211,11 @@ class cosine_expanded_distances_t : public distances_t<value_t> {
 /**
  * Hellinger distance using the expanded form: sqrt(1 - sum(sqrt(x_k) * sqrt(y_k)))
  * The expanded form is more efficient for sparse data.
+ *
+ * This distance computation modifies A and B by computing a sqrt
+ * and then performing a `pow(x, 2)` to convert it back. Because of this,
+ * it is possible that the values in A and B might differ slightly
+ * after this is invoked.
  */
 template <typename value_idx = int, typename value_t = float>
 class hellinger_expanded_distances_t : public distances_t<value_t> {
@@ -248,7 +253,6 @@ class hellinger_expanded_distances_t : public distances_t<value_t> {
         config_->stream);
     }
 
-    // Divide dists by sqrt(2)
     raft::linalg::unaryOp<value_t>(
       out_dists, out_dists, config_->a_nrows * config_->b_nrows,
       [=] __device__(value_t input) { return sqrt(1 - input); },

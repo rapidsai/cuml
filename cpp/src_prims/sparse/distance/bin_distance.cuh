@@ -121,8 +121,8 @@ class jaccard_expanded_distances_t : public distances_t<value_t> {
     CUML_LOG_DEBUG("Computing inner products");
     ip_dists.compute(out_dists);
 
-    value_idx *b_indices = ip_dists.trans_indices();
-    value_t *b_data = ip_dists.trans_data();
+    value_idx *b_indices = ip_dists.b_rows_coo();
+    value_t *b_data = ip_dists.b_data_coo();
 
     CUML_LOG_DEBUG("Computing COO row index array");
     raft::mr::device::buffer<value_idx> search_coo_rows(
@@ -167,8 +167,8 @@ class dice_expanded_distances_t : public distances_t<value_t> {
     CUML_LOG_DEBUG("Computing inner products");
     ip_dists.compute(out_dists);
 
-    value_idx *b_indices = ip_dists.trans_indices();
-    value_t *b_data = ip_dists.trans_data();
+    value_idx *b_indices = ip_dists.b_rows_coo();
+    value_t *b_data = ip_dists.b_data_coo();
 
     CUML_LOG_DEBUG("Computing COO row index array");
     raft::mr::device::buffer<value_idx> search_coo_rows(
