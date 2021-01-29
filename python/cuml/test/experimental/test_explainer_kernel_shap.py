@@ -62,8 +62,8 @@ def experimental_test_and_log(cu_shap_values,
         np.allclose(cu_shap_values, golden_result_values,
                     rtol=tolerance, atol=tolerance)
 
-    expected_sum = np.allclose(1.00, np.sum(cp.asnumpy(
-        cu_shap_values)) / (fx - expected), atol=1e-02)
+    # expected_sum = np.allclose(1.00, np.sum(cp.asnumpy(
+    #     cu_shap_values)) / (fx - expected), atol=1e-02)
 
     if not close_values:
         print("cu_shap_values: ")
