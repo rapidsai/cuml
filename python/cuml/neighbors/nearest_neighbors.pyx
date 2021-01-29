@@ -389,7 +389,8 @@ class NearestNeighbors(Base):
         expanded = False
 
         if metric == "euclidean" or metric == "l2":
-            m = DistanceType.L2Unexpanded
+            m = DistanceType.L2Expanded
+            expanded = True
         elif metric == "sqeuclidean":
             m = DistanceType.L2SqrtExpanded
             expanded = True
@@ -573,7 +574,7 @@ class NearestNeighbors(Base):
             metric, expanded = self._build_metric_type(self.metric)
             metric_is_l2_based = (
                 metric == DistanceType.L2SqrtExpanded or
-                metric == DistanceType.L2Unexpanded or
+                metric == DistanceType.L2Expanded or
                 (metric == DistanceType.LpUnexpanded and self.p == 2)
             )
 
