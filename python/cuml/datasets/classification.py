@@ -1,4 +1,4 @@
-# Copyright (c) 2020, NVIDIA CORPORATION.
+# Copyright (c) 2020-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -51,7 +51,8 @@ def make_classification(n_samples=100, n_features=20, n_informative=2,
                         _informative_covariance=None,
                         _redundant_covariance=None,
                         _repeated_indices=None):
-    """Generate a random n-class classification problem.
+    """
+    Generate a random n-class classification problem.
     This initially creates clusters of points normally distributed (std=1)
     about vertices of an ``n_informative``-dimensional hypercube with sides of
     length ``2*class_sep`` and assigns an equal number of clusters to each
@@ -179,7 +180,7 @@ def make_classification(n_samples=100, n_features=20, n_informative=2,
 
     Notes
     -----
-    The algorithm is adapted from Guyon [1] and was designed to generate
+    The algorithm is adapted from Guyon [1]_ and was designed to generate
     the "Madelon" dataset. How we optimized for GPUs:
 
         1. Firstly, we generate X from a standard univariate instead of zeros.
