@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -1178,7 +1178,6 @@ TYPED_TEST(SmoSolverTest, DISABLED_MillionRows) {
     SVC<TypeParam> svc(this->handle, p.C, p.tol, p.kernel_params, 0, max_iter,
                        50, CUML_LEVEL_DEBUG);
     svc.fit(x.data(), p.n_rows, p.n_cols, y.data());
-    std::cout << "N_sv " << svc.model.n_support << "\n";
     // predict on the same dataset
     svc.predict(x.data(), p.n_rows, p.n_cols, y_pred.data());
   }

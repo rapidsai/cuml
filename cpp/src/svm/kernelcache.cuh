@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -116,14 +116,14 @@ class KernelCache {
     ASSERT(kernel != nullptr, "Kernel pointer required for KernelCache!");
     stream = handle.get_stream();
 
-    size_t tile_size = (size_t)n_ws * n_rows;
+    size_t kernel_tile_size = (size_t)n_ws * n_rows;
     CUML_LOG_DEBUG("Allocating kernel tile, size: %zu MiB",
-                   tile_size * sizeof(math_t) / (1024 * 1024));
-    tile.resize(tile_size, handle.get_stream());
+                   kernel_tile_size * sizeof(math_t) / (1024 * 1024));
+    tile.resize(kernel_tile_size, handle.get_stream());
 
-    tile_size = (size_t)n_ws * n_cols;
-    CUML_LOG_DEBUG("Allocating x_ws, size: %zu KiB", tile_size / (1024));
-    x_ws.resize(tile_size, handle.get_stream());
+    size_t x_ws_tile_size = (size_t)n_ws * n_cols;
+    CUML_LOG_DEBUG("Allocating x_ws, size: %zu KiB", x_ws_tile_size / (1024));
+    x_ws.resize(x_ws_tile_size, handle.get_stream());
 
     // Default kernel_column_idx map for SVC
     MLCommon::LinAlg::range(k_col_idx.data(), n_ws, stream);

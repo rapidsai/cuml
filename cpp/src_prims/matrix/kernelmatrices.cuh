@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -114,9 +114,9 @@ class PolynomialKernel : public GramMatrixBase<math_t> {
   void applyKernel(math_t *inout, int ld, int rows, int cols,
                    cudaStream_t stream) {
     if (ld == cols)
-      polynomial_kernel_nopad<<<raft::ceildiv((size_t)rows * cols, (size_t)128), 128, 0,
-                                stream>>>(inout, rows * cols, exponent, gain,
-                                          offset);
+      polynomial_kernel_nopad<<<raft::ceildiv<size_t>((size_t)rows * cols, 128),
+                                128, 0, stream>>>(inout, rows * cols, exponent,
+                                                  gain, offset);
     else
       polynomial_kernel<<<dim3(raft::ceildiv(rows, 32), raft::ceildiv(cols, 4),
                                1),
@@ -184,8 +184,8 @@ class TanhKernel : public GramMatrixBase<math_t> {
   void applyKernel(math_t *inout, int ld, int rows, int cols,
                    cudaStream_t stream) {
     if (ld == cols)
-      tanh_kernel_nopad<<<raft::ceildiv(rows, 128) * cols, 128, 0, stream>>>(
-        inout, rows * cols, gain, offset);
+      tanh_kernel_nopad<<<raft::ceildiv<size_t>((size_t)rows * cols, 128), 128,
+                          0, stream>>>(inout, rows * cols, gain, offset);
     else
       tanh_kernel<<<dim3(raft::ceildiv(rows, 32), raft::ceildiv(cols, 4), 1),
                     dim3(32, 4, 1), 0, stream>>>(inout, ld, rows, cols, gain,
@@ -246,8 +246,8 @@ class RBFKernel : public GramMatrixBase<math_t> {
   void applyKernel(math_t *inout, int ld, int rows, int cols,
                    cudaStream_t stream) {
     if (ld == cols)
-      rbf_kernel_nopad<<<raft::ceildiv(rows, 128) * cols, 128, 0, stream>>>(
-        inout, rows * cols, gain);
+      rbf_kernel_nopad<<<raft::ceildiv<size_t>((size_t)rows * cols, 128), 128,
+                         0, stream>>>(inout, rows * cols, gain);
     else
       rbf_kernel<<<dim3(raft::ceildiv(rows, 32), raft::ceildiv(cols, 4), 1),
                    dim3(32, 4, 1), 0, stream>>>(inout, ld, rows, cols, gain);
