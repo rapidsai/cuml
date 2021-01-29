@@ -54,7 +54,9 @@ inline int block_dim(value_idx ncols) {
  * @return
  */
 template <typename G>
-__device__ __inline__ unsigned int __match_any_sync(unsigned int mask, G key) {
+__device__ __inline__ unsigned int __match_any_sync(unsigned int init_mask,
+                                                    G key) {
+  unsigned int mask = __ballot_sync(init_mask, true);
   unsigned int peer_group = 0;
   bool is_peer;
 

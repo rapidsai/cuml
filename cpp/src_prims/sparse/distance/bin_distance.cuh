@@ -38,10 +38,9 @@ namespace distance {
 
 // @TODO: Move this into sparse prims (coo_norm)
 template <typename value_idx, typename value_t>
-__global__ void compute_binary_row_norm_kernel(value_t *out,
-                                               const value_idx *coo_rows,
-                                               const value_t *data,
-                                               value_idx nnz) {
+__global__ void compute_binary_row_norm_kernel(
+  value_t *out, const value_idx *__restrict__ coo_rows,
+  const value_t *__restrict__ data, value_idx nnz) {
   value_idx i = blockDim.x * blockIdx.x + threadIdx.x;
   if (i < nnz) {
     // We do conditional here only because it's
@@ -53,8 +52,9 @@ __global__ void compute_binary_row_norm_kernel(value_t *out,
 }
 
 template <typename value_idx, typename value_t, typename expansion_f>
-__global__ void compute_binary_warp_kernel(value_t *C, const value_t *Q_norms,
-                                           const value_t *R_norms,
+__global__ void compute_binary_warp_kernel(value_t *__restrict__ C,
+                                           const value_t *__restrict__ Q_norms,
+                                           const value_t *__restrict__ R_norms,
                                            value_idx n_rows, value_idx n_cols,
                                            expansion_f expansion_func) {
   value_idx tid = blockDim.x * blockIdx.x + threadIdx.x;
@@ -65,8 +65,8 @@ __global__ void compute_binary_warp_kernel(value_t *C, const value_t *Q_norms,
 
   value_t q_norm = Q_norms[i];
   value_t r_norm = R_norms[j];
-  value_t dot = C[i * n_cols + j];
-  C[i * n_cols + j] = expansion_func(dot, q_norm, r_norm);
+  value_t dot = C[(size_t)i * n_cols + j];
+  C[(size_t)i * n_cols + j] = expansion_func(dot, q_norm, r_norm);
 }
 
 template <typename value_idx, typename value_t, typename expansion_f,
@@ -74,7 +74,7 @@ template <typename value_idx, typename value_t, typename expansion_f,
 void compute_binary(value_t *C, const value_t *Q_norms, const value_t *R_norms,
                     value_idx n_rows, value_idx n_cols,
                     expansion_f expansion_func, cudaStream_t stream) {
-  int blocks = raft::ceildiv(n_rows * n_cols, tpb);
+  int blocks = raft::ceildiv<size_t>((size_t)n_rows * n_cols, tpb);
   compute_binary_warp_kernel<<<blocks, tpb, 0, stream>>>(
     C, Q_norms, R_norms, n_rows, n_cols, expansion_func);
 }
@@ -151,7 +151,7 @@ class jaccard_expanded_distances_t : public distances_t<value_t> {
 };
 
 /**
- * Jaccard distance using the expanded form:
+ * Dice distance using the expanded form:
  * 1 - ((2 * sum(x_k * y_k)) / (sum(x_k)^2 + sum(y_k)^2))
  */
 template <typename value_idx = int, typename value_t = float>

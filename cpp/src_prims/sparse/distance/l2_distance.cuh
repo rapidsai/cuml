@@ -47,8 +47,10 @@ namespace distance {
 
 // @TODO: Move this into sparse prims (coo_norm)
 template <typename value_idx, typename value_t>
-__global__ void compute_row_norm_kernel(value_t *out, const value_idx *coo_rows,
-                                        const value_t *data, value_idx nnz) {
+__global__ void compute_row_norm_kernel(value_t *out,
+                                        const value_idx *__restrict__ coo_rows,
+                                        const value_t *__restrict__ data,
+                                        value_idx nnz) {
   value_idx i = blockDim.x * blockIdx.x + threadIdx.x;
   if (i < nnz) {
     atomicAdd(&out[coo_rows[i]], data[i] * data[i]);
@@ -57,15 +59,16 @@ __global__ void compute_row_norm_kernel(value_t *out, const value_idx *coo_rows,
 
 template <typename value_idx, typename value_t, typename expansion_f>
 __global__ void compute_euclidean_warp_kernel(
-  value_t *C, const value_t *Q_sq_norms, const value_t *R_sq_norms,
-  value_idx n_rows, value_idx n_cols, expansion_f expansion_func) {
+  value_t *__restrict__ C, const value_t *__restrict__ Q_sq_norms,
+  const value_t *__restrict__ R_sq_norms, value_idx n_rows, value_idx n_cols,
+  expansion_f expansion_func) {
   value_idx tid = blockDim.x * blockIdx.x + threadIdx.x;
   value_idx i = tid / n_cols;
   value_idx j = tid % n_cols;
 
   if (i >= n_rows || j >= n_cols) return;
 
-  value_t dot = C[i * n_cols + j];
+  value_t dot = C[(size_t)i * n_cols + j];
 
   // e.g. Euclidean expansion func = -2.0 * dot + q_norm + r_norm
   value_t val = expansion_func(dot, Q_sq_norms[i], R_sq_norms[j]);
@@ -73,7 +76,7 @@ __global__ void compute_euclidean_warp_kernel(
   // correct for small instabilities
   if (fabs(val) < 0.0001) val = 0.0;
 
-  C[i * n_cols + j] = val;
+  C[(size_t)i * n_cols + j] = val;
 }
 
 template <typename value_idx, typename value_t, int tpb = 1024,
@@ -82,7 +85,7 @@ void compute_euclidean(value_t *C, const value_t *Q_sq_norms,
                        const value_t *R_sq_norms, value_idx n_rows,
                        value_idx n_cols, cudaStream_t stream,
                        expansion_f expansion_func) {
-  int blocks = raft::ceildiv(n_rows * n_cols, tpb);
+  int blocks = raft::ceildiv<size_t>((size_t)n_rows * n_cols, tpb);
   compute_euclidean_warp_kernel<<<blocks, tpb, 0, stream>>>(
     C, Q_sq_norms, R_sq_norms, n_rows, n_cols, expansion_func);
 }
@@ -237,11 +240,11 @@ class hellinger_expanded_distances_t : public distances_t<value_t> {
     // Revert sqrt of A and B
     raft::linalg::unaryOp<value_t>(
       config_->a_data, config_->a_data, config_->a_nnz,
-      [=] __device__(value_t input) { return pow(input, 2); }, config_->stream);
+      [=] __device__(value_t input) { return input * input; }, config_->stream);
     if (config_->a_data != config_->b_data) {
       raft::linalg::unaryOp<value_t>(
         config_->b_data, config_->b_data, config_->b_nnz,
-        [=] __device__(value_t input) { return pow(input, 2); },
+        [=] __device__(value_t input) { return input * input; },
         config_->stream);
     }
 

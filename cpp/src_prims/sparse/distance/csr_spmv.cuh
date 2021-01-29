@@ -22,9 +22,12 @@
 #include <raft/mr/device/allocator.hpp>
 #include <raft/mr/device/buffer.hpp>
 
+#include <common/allocatorAdapter.hpp>
+
 #include <sparse/distance/common.h>
 #include <sparse/utils.h>
 #include <sparse/csr.cuh>
+#include <sparse/distance/operators.cuh>
 
 #include <limits.h>
 
@@ -91,6 +94,13 @@ struct BlockSemiring {
     row_a = row;
   }
 
+  /**
+   * Sets the given array
+   * @param row
+   * @param indptrA
+   * @param indicesA
+   * @param dataA
+   */
   __device__ inline void load_a(value_idx row, value_idx *indptrA,
                                 value_idx *indicesA, value_t *dataA) {
     offsets_a[0] = indptrA[row];
@@ -118,15 +128,14 @@ struct BlockSemiring {
     cur_sum = 0.0;
 
     value_idx start_row_b = start_row;
-    value_idx stop_row_b =
-      min(start_row_b + tpb, start_row_b + (n - start_row_b));
+    value_idx stop_row_b = min(start_row_b + tpb, n);
 
     n_rows = stop_row_b - start_row_b;
 
     if (threadIdx.x < n_rows) {
       row_b = start_row_b + threadIdx.x;
-      value_idx start_offset_b = indptrB[start_row_b + threadIdx.x];
-      row_count = indptrB[start_row_b + threadIdx.x + 1] - start_offset_b;
+      value_idx start_offset_b = indptrB[row_b];
+      row_count = indptrB[row_b + 1] - start_offset_b;
       local_idx = start_offset_b;
       local_idx_stop = start_offset_b + row_count;
     }
@@ -254,7 +263,7 @@ __global__ void classic_csr_semiring_spmv_smem_kernel(
 
   if (out_row > m || row_b_start > n) return;
 
-  // for each batch, parallel the resulting rows across threads
+  // for each batch, parallelize the resulting rows across threads
   for (int i = 0; i < n_rows_per_block; i += blockDim.x) {
     semiring.load_b(row_b_start + i, indptrB);
     do {
@@ -310,21 +319,47 @@ inline value_idx max_nnz_per_block() {
          (sizeof(value_t) + sizeof(value_idx));
 }
 
+/**
+ * @tparam value_idx
+ * @param out
+ * @param in
+ * @param n
+ */
+template <typename value_idx>
+__global__ void max_kernel(value_idx *out, value_idx *in, value_idx n) {
+  int tid = blockDim.x * blockIdx.x + threadIdx.x;
+
+  typedef cub::BlockReduce<value_idx, 256> BlockReduce;
+  __shared__ typename BlockReduce::TempStorage temp_storage;
+
+  value_idx v = tid < n ? in[tid] - in[tid - 1] : 0;
+  value_idx agg = BlockReduce(temp_storage).Reduce(v, cub::Max());
+
+  if (threadIdx.x == 0) atomicMax(out, agg);
+}
+
 template <typename value_idx>
 inline value_idx max_degree(
   value_idx *indptr, value_idx n_rows,
   std::shared_ptr<raft::mr::device::allocator> allocator, cudaStream_t stream) {
-  raft::mr::device::buffer<value_idx> diff(allocator, stream, n_rows);
+  raft::mr::device::buffer<value_idx> max_d(allocator, stream, 1);
+  CUDA_CHECK(cudaMemsetAsync(max_d.data(), 0, sizeof(value_idx), stream));
 
-  thrust::device_ptr<value_idx> d_ptr_indptr =
-    thrust::device_pointer_cast(indptr);
-  thrust::device_ptr<value_idx> d_ptr_diff =
-    thrust::device_pointer_cast(diff.data());
+  /**
+   * A custom max reduction is performed until https://github.com/rapidsai/cuml/issues/3431
+   * is fixed.
+   */
+  max_kernel<<<raft::ceildiv(n_rows, 256), 256, 0, stream>>>(
+    max_d.data(), indptr + 1, n_rows);
 
-  thrust::adjacent_difference(d_ptr_indptr, d_ptr_indptr + n_rows, d_ptr_diff);
+  value_idx max_h;
+  raft::update_host(&max_h, max_d.data(), 1, stream);
 
-  return *(thrust::max_element(thrust::cuda::par.on(stream), d_ptr_diff,
-                               d_ptr_diff + n_rows));
+  CUDA_CHECK(cudaStreamSynchronize(stream));
+
+  CUML_LOG_DEBUG("max nnz: %d", max_h);
+
+  return max_h;
 }
 
 template <typename value_idx = int, typename value_t = float,
