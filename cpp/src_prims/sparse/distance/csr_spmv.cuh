@@ -333,7 +333,7 @@ __global__ void max_kernel(value_idx *out, value_idx *in, value_idx n) {
   __shared__ typename BlockReduce::TempStorage temp_storage;
 
   value_idx v = tid < n ? in[tid] - in[tid - 1] : 0;
-  value_idx agg = BlockReduce(temp_storage).Reduce(v, cub::Max());
+  value_idx agg = BlockReduce(temp_storage).Reduce(v, Max());
 
   if (threadIdx.x == 0) atomicMax(out, agg);
 }
