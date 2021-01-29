@@ -168,10 +168,9 @@ __global__ void balanced_coo_generalized_spmv_kernel(
     bool diff_rows = next_row_b != cur_row_b;
 
     unsigned int mask = __ballot_sync(0xffffffff, i < active_chunk_size);
-    unsigned int peer_group = get_peer_group(cur_row_b, mask);
+    unsigned int peer_group = __match_any_sync(mask, cur_row_b);
     bool is_leader = get_lowest_peer(peer_group) == lane_id;
-    value_t v =
-      warp_red.HeadSegmentedReduce(c * diff_rows, is_leader, accum_func);
+    value_t v = warp_red.HeadSegmentedReduce(c, is_leader, accum_func);
     if (diff_rows) {
       // thread with lowest lane id among peers writes out
       if (is_leader && v != 0.0) {
