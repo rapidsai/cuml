@@ -21,9 +21,11 @@
 #include <raft/cudart_utils.h>
 #include <raft/linalg/distance_type.h>
 #include <raft/sparse/cusparse_wrappers.h>
+#include <raft/linalg/unary_op.cuh>
 #include <raft/mr/device/allocator.hpp>
 
-#include <sparse/distance/distance.cuh>
+#include <sparse/distance/csr_spmv.cuh>
+#include <sparse/distance/operators.cuh>
 
 #include <test_utils.h>
 
@@ -35,7 +37,7 @@ using namespace raft;
 using namespace raft::sparse;
 
 template <typename value_idx, typename value_t>
-struct SparseDistanceInputs {
+struct SparseDistanceCSRSPMVInputs {
   value_idx n_cols;
 
   std::vector<value_idx> indptr_h;
@@ -51,13 +53,64 @@ struct SparseDistanceInputs {
 
 template <typename value_idx, typename value_t>
 ::std::ostream &operator<<(
-  ::std::ostream &os, const SparseDistanceInputs<value_idx, value_t> &dims) {
+  ::std::ostream &os,
+  const SparseDistanceCSRSPMVInputs<value_idx, value_t> &dims) {
   return os;
 }
 
 template <typename value_idx, typename value_t>
-class SparseDistanceTest
-  : public ::testing::TestWithParam<SparseDistanceInputs<value_idx, value_t>> {
+class SparseDistanceCSRSPMVTest
+  : public ::testing::TestWithParam<
+      SparseDistanceCSRSPMVInputs<value_idx, value_t>> {
+ public:
+  template <typename reduce_f, typename accum_f>
+  void compute_dist(reduce_f reduce_func, accum_f accum_func) {
+    generalized_csr_pairwise_semiring<value_idx, value_t>(
+      out_dists, dist_config, reduce_func, accum_func);
+  }
+
+  void run_spmv() {
+    switch (params.metric) {
+      case raft::distance::DistanceType::InnerProduct:
+        CUML_LOG_DEBUG("Inner product");
+        compute_dist(Product(), Sum());
+        break;
+      case raft::distance::DistanceType::L2Unexpanded:
+        CUML_LOG_DEBUG("L2 Unexpanded");
+        compute_dist(SqDiff(), Sum());
+        break;
+      case raft::distance::DistanceType::Canberra:
+        CUML_LOG_DEBUG("Canberra");
+        compute_dist(
+          [] __device__(value_t a, value_t b) {
+            value_t d = fabsf(a) + fabsf(b);
+            return ((d != 0) * fabsf(a - b)) / (d + (d == 0));
+          },
+          Sum());
+        break;
+      case raft::distance::DistanceType::L1:
+        CUML_LOG_DEBUG("L1");
+        compute_dist(AbsDiff(), Sum());
+        break;
+      case raft::distance::DistanceType::Linf:
+        CUML_LOG_DEBUG("Linf");
+        compute_dist(AbsDiff(), Max());
+        break;
+      case raft::distance::DistanceType::LpUnexpanded: {
+        CUML_LOG_DEBUG("Lp Unexpanded");
+        compute_dist(PDiff(params.metric_arg), Sum());
+        float pow = 1.0f / params.metric_arg;
+        raft::linalg::unaryOp<value_t>(
+          out_dists, out_dists, dist_config.a_nrows * dist_config.b_nrows,
+          [=] __device__(value_t input) { return powf(input, pow); },
+          dist_config.stream);
+
+      } break;
+      default:
+        throw raft::exception("Unknown distance");
+    }
+  }
+
  protected:
   void make_data() {
     std::vector<value_idx> indptr_h = params.indptr_h;
@@ -82,7 +135,7 @@ class SparseDistanceTest
 
   void SetUp() override {
     params = ::testing::TestWithParam<
-      SparseDistanceInputs<value_idx, value_t>>::GetParam();
+      SparseDistanceCSRSPMVInputs<value_idx, value_t>>::GetParam();
     std::shared_ptr<raft::mr::device::allocator> alloc(
       new raft::mr::device::default_allocator);
     CUDA_CHECK(cudaStreamCreate(&stream));
@@ -91,7 +144,6 @@ class SparseDistanceTest
 
     make_data();
 
-    raft::sparse::distance::distances_config_t<value_idx, value_t> dist_config;
     dist_config.b_nrows = params.indptr_h.size() - 1;
     dist_config.b_ncols = params.n_cols;
     dist_config.b_nnz = params.indices_h.size();
@@ -114,7 +166,7 @@ class SparseDistanceTest
 
     ML::Logger::get().setLevel(CUML_LEVEL_DEBUG);
 
-    pairwiseDistance(out_dists, dist_config, params.metric, params.metric_arg);
+    run_spmv();
 
     CUDA_CHECK(cudaStreamSynchronize(stream));
   }
@@ -129,6 +181,10 @@ class SparseDistanceTest
   }
 
   void compare() {
+    raft::print_device_vector("expected: ", out_dists_ref,
+                              params.out_dists_ref_h.size(), std::cout);
+    raft::print_device_vector("out_dists: ", out_dists,
+                              params.out_dists_ref_h.size(), std::cout);
     ASSERT_TRUE(devArrMatch(out_dists_ref, out_dists,
                             params.out_dists_ref_h.size(),
                             CompareApprox<value_t>(1e-3)));
@@ -145,34 +201,12 @@ class SparseDistanceTest
   // output data
   value_t *out_dists, *out_dists_ref;
 
-  SparseDistanceInputs<value_idx, value_t> params;
+  raft::sparse::distance::distances_config_t<value_idx, value_t> dist_config;
+
+  SparseDistanceCSRSPMVInputs<value_idx, value_t> params;
 };
 
-const std::vector<SparseDistanceInputs<int, float>> inputs_i32_f = {
-  {2,
-   {0, 2, 4, 6, 8},
-   {0, 1, 0, 1, 0, 1, 0, 1},  // indices
-   {1.0f, 3.0f, 1.0f, 5.0f, 50.0f, 28.0f, 16.0f, 2.0f},
-   {
-     // dense output
-     0.0,
-     4.0,
-     3026.0,
-     226.0,
-     4.0,
-     0.0,
-     2930.0,
-     234.0,
-     3026.0,
-     2930.0,
-     0.0,
-     1832.0,
-     226.0,
-     234.0,
-     1832.0,
-     0.0,
-   },
-   raft::distance::DistanceType::L2Expanded},
+const std::vector<SparseDistanceCSRSPMVInputs<int, float>> inputs_i32_f = {
   {2,
    {0, 2, 4, 6, 8},
    {0, 1, 0, 1, 0, 1, 0, 1},
@@ -204,146 +238,6 @@ const std::vector<SparseDistanceInputs<int, float>> inputs_i32_f = {
      0.0,
    },
    raft::distance::DistanceType::L2Unexpanded},
-
-  {10,
-   {0, 5, 11, 15, 20, 27, 32, 36, 43, 47, 50},
-   {0, 1, 3, 6, 8, 0, 1, 2, 3, 5, 6, 1, 2, 4, 8, 0, 2,
-    3, 4, 7, 0, 1, 2, 3, 4, 6, 8, 0, 1, 2, 5, 7, 1, 5,
-    8, 9, 0, 1, 2, 5, 6, 8, 9, 2, 4, 5, 7, 0, 3, 9},  // indices
-   {0.5438, 0.2695, 0.4377, 0.7174, 0.9251, 0.7648, 0.3322, 0.7279, 0.4131,
-    0.5167, 0.8655, 0.0730, 0.0291, 0.9036, 0.7988, 0.5019, 0.7663, 0.2190,
-    0.8206, 0.3625, 0.0411, 0.3995, 0.5688, 0.7028, 0.8706, 0.3199, 0.4431,
-    0.0535, 0.2225, 0.8853, 0.1932, 0.3761, 0.3379, 0.1771, 0.2107, 0.228,
-    0.5279, 0.4885, 0.3495, 0.5079, 0.2325, 0.2331, 0.3018, 0.6231, 0.2645,
-    0.8429, 0.6625, 0.0797, 0.2724, 0.4218},
-   {0.,         0.39419924, 0.54823225, 0.79593037, 0.45658883, 0.93634219,
-    0.58146987, 0.44940102, 1.,         0.76978799, 0.39419924, 0.,
-    0.97577154, 0.48904013, 0.48300801, 0.45087445, 0.73323749, 0.21050481,
-    0.54847744, 0.78021386, 0.54823225, 0.97577154, 0.,         0.51413997,
-    0.31195441, 0.96546343, 0.67534399, 0.81665436, 0.8321819,  1.,
-    0.79593037, 0.48904013, 0.51413997, 0.,         0.28605559, 0.35772784,
-    1.,         0.60889396, 0.43324829, 0.84923694, 0.45658883, 0.48300801,
-    0.31195441, 0.28605559, 0.,         0.58623212, 0.6745457,  0.60287165,
-    0.67676228, 0.73155632, 0.93634219, 0.45087445, 0.96546343, 0.35772784,
-    0.58623212, 0.,         0.77917274, 0.48390993, 0.24558392, 0.99166225,
-    0.58146987, 0.73323749, 0.67534399, 1.,         0.6745457,  0.77917274,
-    0.,         0.27605686, 0.76064776, 0.61547536, 0.44940102, 0.21050481,
-    0.81665436, 0.60889396, 0.60287165, 0.48390993, 0.27605686, 0.,
-    0.51360432, 0.68185144, 1.,         0.54847744, 0.8321819,  0.43324829,
-    0.67676228, 0.24558392, 0.76064776, 0.51360432, 0.,         1.,
-    0.76978799, 0.78021386, 1.,         0.84923694, 0.73155632, 0.99166225,
-    0.61547536, 0.68185144, 1.,         0.},
-   raft::distance::DistanceType::CosineExpanded},
-
-  {10,
-   {0, 5, 11, 15, 20, 27, 32, 36, 43, 47, 50},
-   {0, 1, 3, 6, 8, 0, 1, 2, 3, 5, 6, 1, 2, 4, 8, 0, 2,
-    3, 4, 7, 0, 1, 2, 3, 4, 6, 8, 0, 1, 2, 5, 7, 1, 5,
-    8, 9, 0, 1, 2, 5, 6, 8, 9, 2, 4, 5, 7, 0, 3, 9},  // indices
-   {1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1.,
-    1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1.,
-    1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1.},
-   {0.0,
-    0.42857142857142855,
-    0.7142857142857143,
-    0.75,
-    0.2857142857142857,
-    0.75,
-    0.7142857142857143,
-    0.5,
-    1.0,
-    0.6666666666666666,
-    0.42857142857142855,
-    0.0,
-    0.75,
-    0.625,
-    0.375,
-    0.42857142857142855,
-    0.75,
-    0.375,
-    0.75,
-    0.7142857142857143,
-    0.7142857142857143,
-    0.75,
-    0.0,
-    0.7142857142857143,
-    0.42857142857142855,
-    0.7142857142857143,
-    0.6666666666666666,
-    0.625,
-    0.6666666666666666,
-    1.0,
-    0.75,
-    0.625,
-    0.7142857142857143,
-    0.0,
-    0.5,
-    0.5714285714285714,
-    1.0,
-    0.8,
-    0.5,
-    0.6666666666666666,
-    0.2857142857142857,
-    0.375,
-    0.42857142857142855,
-    0.5,
-    0.0,
-    0.6666666666666666,
-    0.7777777777777778,
-    0.4444444444444444,
-    0.7777777777777778,
-    0.75,
-    0.75,
-    0.42857142857142855,
-    0.7142857142857143,
-    0.5714285714285714,
-    0.6666666666666666,
-    0.0,
-    0.7142857142857143,
-    0.5,
-    0.5,
-    0.8571428571428571,
-    0.7142857142857143,
-    0.75,
-    0.6666666666666666,
-    1.0,
-    0.7777777777777778,
-    0.7142857142857143,
-    0.0,
-    0.42857142857142855,
-    0.8571428571428571,
-    0.8333333333333334,
-    0.5,
-    0.375,
-    0.625,
-    0.8,
-    0.4444444444444444,
-    0.5,
-    0.42857142857142855,
-    0.0,
-    0.7777777777777778,
-    0.75,
-    1.0,
-    0.75,
-    0.6666666666666666,
-    0.5,
-    0.7777777777777778,
-    0.5,
-    0.8571428571428571,
-    0.7777777777777778,
-    0.0,
-    1.0,
-    0.6666666666666666,
-    0.7142857142857143,
-    1.0,
-    0.6666666666666666,
-    0.75,
-    0.8571428571428571,
-    0.8333333333333334,
-    0.75,
-    1.0,
-    0.0},
-   raft::distance::DistanceType::JaccardExpanded},
 
   {10,
    {0, 5, 11, 15, 20, 27, 32, 36, 43, 47, 50},
@@ -708,51 +602,13 @@ const std::vector<SparseDistanceInputs<int, float>> inputs_i32_f = {
      0.84454,
      0.0,
    },
-   raft::distance::DistanceType::L1},
-  {10,
-   {0, 5, 8, 9, 15, 20, 26, 31, 34, 38, 45},
-   {0,  1, 5,  6,  9,  1, 4, 14, 7, 3, 4,  7, 9, 11, 14,
-    0,  3, 7,  8,  12, 0, 2, 5,  7, 8, 14, 4, 9, 10, 11,
-    13, 4, 10, 14, 5,  6, 8, 9,  0, 2, 3,  4, 6, 10, 11},
-   {0.13537497, 0.51440163, 0.17231936, 0.02417618, 0.15372786, 0.17760507,
-    0.73789274, 0.08450219, 1.,         0.20184723, 0.18036963, 0.12581403,
-    0.13867603, 0.24040536, 0.11288773, 0.00290246, 0.09120187, 0.31190555,
-    0.43245423, 0.16153588, 0.3233026,  0.05279589, 0.1387149,  0.05962761,
-    0.41751856, 0.00804045, 0.03262381, 0.27507131, 0.37245804, 0.16378881,
-    0.15605804, 0.3867739,  0.24908977, 0.36413632, 0.37643732, 0.28910679,
-    0.0198409,  0.31461499, 0.24412279, 0.08327667, 0.04444576, 0.05047969,
-    0.26190054, 0.2077349,  0.10803964},
-   {1.05367121e-08, 8.35309089e-01, 1.00000000e+00, 9.24116813e-01,
-    9.90039274e-01, 7.97613546e-01, 8.91271059e-01, 1.00000000e+00,
-    6.64669302e-01, 8.59439512e-01, 8.35309089e-01, 1.05367121e-08,
-    1.00000000e+00, 7.33151506e-01, 1.00000000e+00, 9.86880955e-01,
-    9.19154851e-01, 5.38849774e-01, 1.00000000e+00, 8.98332369e-01,
-    1.00000000e+00, 1.00000000e+00, 0.00000000e+00, 8.03303970e-01,
-    6.64465915e-01, 8.69374690e-01, 1.00000000e+00, 1.00000000e+00,
-    1.00000000e+00, 1.00000000e+00, 9.24116813e-01, 7.33151506e-01,
-    8.03303970e-01, 0.00000000e+00, 8.16225843e-01, 9.39818306e-01,
-    7.27700415e-01, 7.30155528e-01, 8.89451011e-01, 8.05419635e-01,
-    9.90039274e-01, 1.00000000e+00, 6.64465915e-01, 8.16225843e-01,
-    0.00000000e+00, 6.38804490e-01, 1.00000000e+00, 1.00000000e+00,
-    9.52559809e-01, 9.53789212e-01, 7.97613546e-01, 9.86880955e-01,
-    8.69374690e-01, 9.39818306e-01, 6.38804490e-01, 0.0,
-    1.00000000e+00, 9.72569112e-01, 8.24907516e-01, 8.07933016e-01,
-    8.91271059e-01, 9.19154851e-01, 1.00000000e+00, 7.27700415e-01,
-    1.00000000e+00, 1.00000000e+00, 0.00000000e+00, 7.63596268e-01,
-    8.40131263e-01, 7.40428532e-01, 1.00000000e+00, 5.38849774e-01,
-    1.00000000e+00, 7.30155528e-01, 1.00000000e+00, 9.72569112e-01,
-    7.63596268e-01, 0.00000000e+00, 1.00000000e+00, 7.95485011e-01,
-    6.64669302e-01, 1.00000000e+00, 1.00000000e+00, 8.89451011e-01,
-    9.52559809e-01, 8.24907516e-01, 8.40131263e-01, 1.00000000e+00,
-    0.00000000e+00, 8.51370877e-01, 8.59439512e-01, 8.98332369e-01,
-    1.00000000e+00, 8.05419635e-01, 9.53789212e-01, 8.07933016e-01,
-    7.40428532e-01, 7.95485011e-01, 8.51370877e-01, 1.49011612e-08},
-   // Dataset is L1 normalized into pdfs
-   raft::distance::DistanceType::HellingerExpanded}};
+   raft::distance::DistanceType::L1}
 
-typedef SparseDistanceTest<int, float> SparseDistanceTestF;
-TEST_P(SparseDistanceTestF, Result) { compare(); }
-INSTANTIATE_TEST_CASE_P(SparseDistanceTests, SparseDistanceTestF,
+};
+
+typedef SparseDistanceCSRSPMVTest<int, float> SparseDistanceCSRSPMVTestF;
+TEST_P(SparseDistanceCSRSPMVTestF, Result) { compare(); }
+INSTANTIATE_TEST_CASE_P(SparseDistanceCSRSPMVTests, SparseDistanceCSRSPMVTestF,
                         ::testing::ValuesIn(inputs_i32_f));
 
 };  // namespace distance

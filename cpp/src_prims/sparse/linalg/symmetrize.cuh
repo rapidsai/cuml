@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -45,7 +45,7 @@ namespace linalg {
 
 // TODO: value_idx param needs to be used for this once FAISS is updated to use float32
 // for indices so that the index types can be uniform
-template <int TPB_X, typename T, typename Lambda>
+template <int TPB_X = 128, typename T, typename Lambda>
 __global__ void coo_symmetrize_kernel(int *row_ind, int *rows, int *cols,
                                       T *vals, int *orows, int *ocols, T *ovals,
                                       int n, int cnnz, Lambda reduction_op) {
@@ -122,7 +122,7 @@ __global__ void coo_symmetrize_kernel(int *row_ind, int *rows, int *cols,
  * @param d_alloc device allocator for temporary buffers
  * @param stream: cuda stream to use
  */
-template <int TPB_X, typename T, typename Lambda>
+template <int TPB_X = 128, typename T, typename Lambda>
 void coo_symmetrize(COO<T> *in, COO<T> *out,
                     Lambda reduction_op,  // two-argument reducer
                     std::shared_ptr<raft::mr::device::allocator> d_alloc,
