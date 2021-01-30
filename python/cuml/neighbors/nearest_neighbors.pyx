@@ -77,7 +77,9 @@ cdef extern from "cuml/neighbors/knn.hpp" namespace "raft::distance":
         CorrelationExpanded = 10,
         JaccardExpanded = 11,
         HellingerExpanded = 12,
-        Haversine = 13
+        Haversine = 13,
+        BrayCurtis = 14,
+        JensenShannon = 15
 
 cdef extern from "cuml/neighbors/knn.hpp" namespace "ML":
 
@@ -397,20 +399,20 @@ class NearestNeighbors(Base):
         elif metric == "cityblock" or metric == "l1"\
                 or metric == "manhattan" or metric == 'taxicab':
             m = DistanceType.L1
-        #elif metric == "braycurtis":
-        #    m = DistanceType.METRIC_BrayCurtis
+        elif metric == "braycurtis":
+            m = DistanceType.BrayCurtis
         elif metric == "canberra":
             m = DistanceType.Canberra
         elif metric == "minkowski" or metric == "lp":
             m = DistanceType.LpUnexpanded
         elif metric == "chebyshev" or metric == "linf":
             m = DistanceType.Linf
-        #elif metric == "jensenshannon":
-        #    m = DistanceType.METRIC_JensenShannon
+        elif metric == "jensenshannon":
+            m = DistanceType.JensenShannon
         elif metric == "cosine":
             m = DistanceType.CosineExpanded
         elif metric == "correlation":
-            m = DistanceType.Correlation
+            m = DistanceType.CorrelationExpanded
         elif metric == "inner_product":
             m = DistanceType.InnerProduct
         else:
@@ -575,6 +577,8 @@ class NearestNeighbors(Base):
             metric_is_l2_based = (
                 metric == DistanceType.L2SqrtExpanded or
                 metric == DistanceType.L2Expanded or
+                metric == DistanceType.L2SqrtUnexpanded or
+                metric == DistanceType.L2Unexpanded or
                 (metric == DistanceType.LpUnexpanded and self.p == 2)
             )
 

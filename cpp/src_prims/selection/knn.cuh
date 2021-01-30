@@ -212,10 +212,10 @@ inline faiss::MetricType build_faiss_metric(raft::distance::DistanceType metric)
       return faiss::MetricType::METRIC_Linf;
     case raft::distance::DistanceType::Canberra:
       return faiss::MetricType::METRIC_Canberra;
-    /*case raft::distance::DistanceType::BrayCurtis:
+    case raft::distance::DistanceType::BrayCurtis:
       return faiss::MetricType::METRIC_BrayCurtis;
     case raft::distance::DistanceType::JensenShannon:
-      return faiss::MetricType::METRIC_JensenShannon;*/
+      return faiss::MetricType::METRIC_JensenShannon;
     default:
       THROW("MetricType not supported: %d", metric);
   }
