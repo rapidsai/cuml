@@ -69,21 +69,21 @@ struct ArgMax {
 
 template <int NITEMS, typename output_type, typename tree_type>
 __device__ __forceinline__ vec<NITEMS, output_type> infer_one_tree(
-  tree_type tree, const float* input, int cols, int rows) {
+  tree_type tree, const float* input, int cols, int n_rows) {
   int curr[NITEMS];
-  int mask = (1 << NITEMS) - 1;  // all active
+  // the first n_rows are active
+  int mask = ((1 << n_rows) - 1) << (NITEMS - n_rows);
   for (int j = 0; j < NITEMS; ++j) curr[j] = 0;
   do {
 #pragma unroll
-    for (int j = 0; j < rows; ++j) {
+    for (int j = 0; j < NITEMS; ++j) {
       auto n = tree[curr[j]];
-      if (n.is_leaf()) {
-        mask &= ~(1 << j);
-        continue;
+      mask &= ~(n.is_leaf() << j);
+      if (!n.is_leaf()) {
+        float val = input[j * cols + n.fid()];
+        bool cond = isnan(val) ? !n.def_left() : val >= n.thresh();
+        curr[j] = n.left(curr[j]) + cond;
       }
-      float val = input[j * cols + n.fid()];
-      bool cond = isnan(val) ? !n.def_left() : val >= n.thresh();
-      curr[j] = n.left(curr[j]) + cond;
     }
   } while (mask != 0);
   vec<NITEMS, output_type> out;
