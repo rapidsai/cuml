@@ -312,9 +312,8 @@ class sparse_knn_t {
 
   void perform_postprocessing(value_t *dists, size_t batch_rows) {
     // Perform necessary post-processing
-    if ((metric == raft::distance::DistanceType::L2Expanded ||
-         metric == raft::distance::DistanceType::LpUnexpanded) &&
-        !expanded_form) {
+    if (metric == raft::distance::DistanceType::L2Unexpanded ||
+        metric == raft::distance::DistanceType::LpUnexpanded) {
       /**
         * post-processing
         */
