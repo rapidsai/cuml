@@ -59,6 +59,23 @@ def valid_metrics(algo="brute", cuml_algo=None):
     return [value for value in cuml_metrics if value in sklearn_metrics]
 
 
+def valid_metrics_sparse(algo="brute", cuml_algo=None):
+    """
+    The list of sparse prims in scikit-learn / scipy does not
+    include sparse inputs for all of the metrics we support in cuml
+    (even metrics which are implicitly sparse, such as jaccard and dice,
+    which accume boolean inputs). To maintain high test coverage for all
+    metrics supported by Scikit-learn, we take the union of both
+    dense and sparse metrics. This way, a sparse input can just be converted
+    to dense form for Scikit-learn.
+    """
+    cuml_algo = algo if cuml_algo is None else cuml_algo
+    cuml_metrics = cuml.neighbors.VALID_METRICS_SPARSE[cuml_algo]
+    sklearn_metrics = set(sklearn.neighbors.VALID_METRICS_SPARSE[algo])
+    sklearn_metrics.update(sklearn.neighbors.VALID_METRICS[algo])
+    return [value for value in cuml_metrics if value in sklearn_metrics]
+
+
 def metric_p_combinations():
     for metric in valid_metrics():
         yield metric, 2
@@ -241,6 +258,7 @@ def test_ivfsq_pred(nrows, ncols, n_neighbors, nlist, qtype, encodeResidual):
     X, y = make_blobs(n_samples=nrows, centers=5,
                       n_features=ncols, random_state=0)
 
+    logger.set_level(logger.level_debug)
     knn_cu = cuKNN(algorithm="ivfsq", algo_params=algo_params)
     knn_cu.fit(X)
     neigh_ind = knn_cu.kneighbors(X, n_neighbors=n_neighbors,
@@ -468,41 +486,55 @@ def test_knn_graph(input_type, nrows, n_feats, p, k, metric, mode,
         assert isspmatrix_csr(sparse_cu)
 
 
-@pytest.mark.parametrize("metric", valid_metrics(cuml_algo="sparse"))
-@pytest.mark.parametrize('nrows', [1, 10, 35])
-@pytest.mark.parametrize('ncols', [10, 35])
-@pytest.mark.parametrize('density', [0.8])
-@pytest.mark.parametrize('n_neighbors', [1, 4])
-@pytest.mark.parametrize('batch_size_index', [10, 20000])
-@pytest.mark.parametrize('batch_size_query', [10, 20000])
-def test_nearest_neighbors_sparse(nrows, ncols,
-                                  density,
+@pytest.mark.parametrize("metric", valid_metrics_sparse())
+@pytest.mark.parametrize('shape', [(100, 100, 0.4), (100, 15000, 0.04)])
+@pytest.mark.parametrize('n_neighbors', [4])
+@pytest.mark.parametrize('batch_size_index', [40000])
+@pytest.mark.parametrize('batch_size_query', [40000])
+def test_nearest_neighbors_sparse(shape,
                                   metric,
                                   n_neighbors,
                                   batch_size_index,
                                   batch_size_query):
 
+    nrows, ncols, density = shape
+
     if nrows == 1 and n_neighbors > 1:
         return
 
     a = cp.sparse.random(nrows, ncols, format='csr', density=density,
-                         random_state=32)
+                         random_state=35)
+    b = cp.sparse.random(nrows, ncols, format='csr', density=density,
+                         random_state=38)
 
-    logger.set_level(logger.level_info)
-    nn = cuKNN(metric=metric, n_neighbors=n_neighbors, algorithm="brute",
+    if metric == 'jaccard':
+        a = a.astype('bool').astype('float32')
+        b = b.astype('bool').astype('float32')
+
+    logger.set_level(logger.level_debug)
+    nn = cuKNN(metric=metric, p=2.0, n_neighbors=n_neighbors,
+               algorithm="brute", output_type="numpy",
                verbose=logger.level_debug,
                algo_params={"batch_size_index": batch_size_index,
                             "batch_size_query": batch_size_query})
     nn.fit(a)
 
-    cuD, cuI = nn.kneighbors(a)
+    cuD, cuI = nn.kneighbors(b)
 
-    sknn = skKNN(metric=metric, n_neighbors=n_neighbors,
+    if metric not in sklearn.neighbors.VALID_METRICS_SPARSE['brute']:
+        a = a.todense()
+        b = b.todense()
+
+    sknn = skKNN(metric=metric, p=2.0, n_neighbors=n_neighbors,
                  algorithm="brute", n_jobs=-1)
     sk_X = a.get()
     sknn.fit(sk_X)
 
-    skD, skI = sknn.kneighbors(sk_X)
+    skD, skI = sknn.kneighbors(b.get())
 
-    cp.testing.assert_allclose(cuI, skI, atol=1e-4, rtol=1e-4)
     cp.testing.assert_allclose(cuD, skD, atol=1e-3, rtol=1e-3)
+
+    # Jaccard & Chebyshev have a high potential for mismatched indices
+    # due to duplicate distances. We can ignore the indices in this case.
+    if metric not in ['jaccard', 'chebyshev']:
+        cp.testing.assert_allclose(cuI, skI, atol=1e-4, rtol=1e-4)
