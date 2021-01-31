@@ -383,6 +383,7 @@ class sparse_knn_t {
         pw_metric = raft::distance::DistanceType::InnerProduct;
         break;
       case raft::distance::DistanceType::L2Expanded:
+      case raft::distance::DistanceType::L2Unexpanded:
         pw_metric = raft::distance::DistanceType::L2Expanded;
         break;
       default:

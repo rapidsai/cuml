@@ -391,10 +391,9 @@ class NearestNeighbors(Base):
         expanded = False
 
         if metric == "euclidean" or metric == "l2":
-            m = DistanceType.L2Expanded
-            expanded = True
+            m = DistanceType.L2Unexpanded
         elif metric == "sqeuclidean":
-            m = DistanceType.L2SqrtExpanded
+            m = DistanceType.L2Expanded
             expanded = True
         elif metric == "cityblock" or metric == "l1"\
                 or metric == "manhattan" or metric == 'taxicab':
