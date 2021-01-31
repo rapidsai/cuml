@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -231,12 +231,15 @@ class sparse_knn_t {
                                                idx_batch_data.data(), stream);
 
         /**
-         * Compute distances
-         */
-        value_idx dense_size =
+           * Compute distances
+           */
+        size_t dense_size =
           idx_batcher.batch_rows() * query_batcher.batch_rows();
         raft::mr::device::buffer<value_t> batch_dists(allocator, stream,
                                                       dense_size);
+
+        CUDA_CHECK(cudaMemset(batch_dists.data(), 0,
+                              batch_dists.size() * sizeof(value_t)));
 
         compute_distances(idx_batcher, query_batcher, idx_batch_nnz,
                           n_query_batch_nnz, idx_batch_indptr.data(),
@@ -312,13 +315,11 @@ class sparse_knn_t {
 
   void perform_postprocessing(value_t *dists, size_t batch_rows) {
     // Perform necessary post-processing
-    if (metric == raft::distance::DistanceType::L2Unexpanded ||
-        metric == raft::distance::DistanceType::LpUnexpanded) {
+    if (metric == raft::distance::DistanceType::L2Unexpanded) {
       /**
         * post-processing
         */
       value_t p = 0.5;  // standard l2
-      if (metric == raft::distance::DistanceType::LpUnexpanded) p = 1.0 / metricArg;
       raft::linalg::unaryOp<value_t>(
         dists, dists, batch_rows * k,
         [p] __device__(value_t input) {
@@ -379,12 +380,19 @@ class sparse_knn_t {
   raft::distance::DistanceType get_pw_metric() {
     raft::distance::DistanceType pw_metric;
     switch (metric) {
-      case raft::distance::DistanceType::InnerProduct:
-        pw_metric = raft::distance::DistanceType::InnerProduct;
-        break;
       case raft::distance::DistanceType::L2Expanded:
       case raft::distance::DistanceType::L2Unexpanded:
         pw_metric = raft::distance::DistanceType::L2Expanded;
+        break;
+      case raft::distance::DistanceType::InnerProduct:
+      case raft::distance::DistanceType::L1:
+      case raft::distance::DistanceType::Canberra:
+      case raft::distance::DistanceType::Linf:
+      case raft::distance::DistanceType::LpUnexpanded:
+      case raft::distance::DistanceType::JaccardExpanded:
+      case raft::distance::DistanceType::CosineExpanded:
+      case raft::distance::DistanceType::HellingerExpanded:
+        pw_metric = metric;
         break;
       default:
         THROW("DistanceType not supported: %d", metric);
@@ -404,6 +412,7 @@ class sparse_knn_t {
     /**
      * Compute distances
      */
+    CUML_LOG_DEBUG("Computing pairwise distances for batch");
     raft::sparse::distance::distances_config_t<value_idx, value_t> dist_config;
     dist_config.b_nrows = idx_batcher.batch_rows();
     dist_config.b_ncols = n_idx_cols;
@@ -426,7 +435,7 @@ class sparse_knn_t {
     dist_config.stream = stream;
 
     raft::sparse::distance::pairwiseDistance(batch_dists, dist_config,
-                                             get_pw_metric());
+                                             get_pw_metric(), metricArg);
   }
 
   const value_idx *idxIndptr, *idxIndices, *queryIndptr, *queryIndices;
