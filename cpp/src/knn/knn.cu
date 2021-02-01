@@ -151,8 +151,8 @@ extern "C" cumlError_t knn_search(const cumlHandle_t handle, float **input,
         input_vec, sizes_vec, D, search_items, n, res_I, res_D, k,
         handle_ptr->get_device_allocator(), handle_ptr->get_stream(),
         int_streams.data(), handle_ptr->get_num_internal_streams(),
-        rowMajorIndex, rowMajorQuery, nullptr, (raft::distance::DistanceType)metric_type,
-        metric_arg);
+        rowMajorIndex, rowMajorQuery, nullptr,
+        (raft::distance::DistanceType)metric_type, metric_arg);
     } catch (...) {
       status = CUML_ERROR_UNKNOWN;
     }
