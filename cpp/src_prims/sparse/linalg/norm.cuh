@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -36,7 +36,7 @@ namespace raft {
 namespace sparse {
 namespace linalg {
 
-template <int TPB_X, typename T>
+template <int TPB_X = 64, typename T>
 __global__ void csr_row_normalize_l1_kernel(
   // @TODO: This can be done much more parallel by
   // having threads in a warp compute the sum in parallel
@@ -84,7 +84,7 @@ __global__ void csr_row_normalize_l1_kernel(
  * @param result: l1 normalized data array
  * @param stream: cuda stream to use
  */
-template <int TPB_X = 32, typename T>
+template <int TPB_X = 64, typename T>
 void csr_row_normalize_l1(const int *ia,  // csr row ex_scan (sorted by row)
                           const T *vals,
                           int nnz,  // array of values and number of non-zeros
@@ -100,7 +100,7 @@ void csr_row_normalize_l1(const int *ia,  // csr row ex_scan (sorted by row)
   CUDA_CHECK(cudaGetLastError());
 }
 
-template <int TPB_X = 32, typename T>
+template <int TPB_X = 64, typename T>
 __global__ void csr_row_normalize_max_kernel(
   // @TODO: This can be done much more parallel by
   // having threads in a warp compute the sum in parallel
@@ -150,7 +150,7 @@ __global__ void csr_row_normalize_max_kernel(
  * @param stream: cuda stream to use
  */
 
-template <int TPB_X = 32, typename T>
+template <int TPB_X = 64, typename T>
 void csr_row_normalize_max(const int *ia,  // csr row ind array (sorted by row)
                            const T *vals,
                            int nnz,  // array of values and number of non-zeros
