@@ -1,4 +1,4 @@
-# Copyright (c) 2018, NVIDIA CORPORATION.
+# Copyright (c) 2021, NVIDIA CORPORATION.
 
 # Usage:
 #   conda build . -c defaults -c conda-forge -c nvidia -c rapidsai -c pytorch
@@ -37,7 +37,7 @@ requirements:
     - ucx-py {{ minor_version }}
     - libcumlprims {{ minor_version }}
     - lapack
-    - treelite=1.0.0rc1
+    - treelite=1.0.0
     - faiss-proc=*=cuda
     - gtest=1.10.0
     - libfaiss=1.6.3
@@ -47,7 +47,7 @@ requirements:
     - nccl>=2.5
     - ucx-py {{ minor_version }}
     - {{ pin_compatible('cudatoolkit', max_pin='x.x') }}
-    - treelite=1.0.0rc1
+    - treelite=1.0.0
     - faiss-proc=*=cuda
     - libfaiss=1.6.3
 
