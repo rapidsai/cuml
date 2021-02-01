@@ -182,7 +182,10 @@ texinfo_documents = [
 ]
 
 # Example configuration for intersphinx: refer to the Python standard library.
-intersphinx_mapping = {'https://docs.python.org/': None}
+intersphinx_mapping = {
+    "python": ('https://docs.python.org/', None),
+    "scipy": ('https://docs.scipy.org/doc/scipy/reference', None)
+}
 
 # Config numpydoc
 numpydoc_show_inherited_class_members = False
@@ -201,3 +204,8 @@ linkcode_resolve = make_linkcode_resolve(
     'cuml', 'https://github.com/rapidsai/'
     'cuml/blob/{revision}/python/'
     '{package}/{path}#L{lineno}')
+
+# Set the default role for interpreted code (anything surrounded in `single
+# backticks`) to be a python object. See
+# https://www.sphinx-doc.org/en/master/usage/configuration.html#confval-default_role
+default_role = "py:obj"
