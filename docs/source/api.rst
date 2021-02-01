@@ -2,6 +2,11 @@
 cuML API Reference
 ~~~~~~~~~~~~~~~~~~~
 
+.. role:: py(code)
+   :language: python
+   :class: highlight
+
+
 Module Configuration
 ====================
 

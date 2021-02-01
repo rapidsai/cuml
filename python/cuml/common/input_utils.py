@@ -85,8 +85,8 @@ def get_supported_input_type(X):
     -----
     To closely match the functionality of
     :func:`~cuml.common.input_utils.input_to_cuml_array`, this method will
-    return ``cupy.ndarray`` for any object supporting
-    `__cuda_array_interface__` and ``numpy.ndarray`` for any object supporting
+    return `cupy.ndarray` for any object supporting
+    `__cuda_array_interface__` and `numpy.ndarray` for any object supporting
     `__array_interface__`.
 
     Returns
