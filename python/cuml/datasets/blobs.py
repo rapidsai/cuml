@@ -69,19 +69,7 @@ def _get_centers(rs, centers, center_box, n_samples, n_features, dtype):
 def make_blobs(n_samples=100, n_features=2, centers=None, cluster_std=1.0,
                center_box=(-10.0, 10.0), shuffle=True, random_state=None,
                return_centers=False, order='F', dtype='float32'):
-    """Generate isotropic Gaussian blobs for clustering. :py:meth:`Queue.Queue.get()`
-
-    Other links: :py:obj:`cuml.datasets.make_blobs()`
-    Test: `cuml.datasets.make_blobs`
-    For example, you should use:
-
-        * `cuml.cuml.datasets.make_blobs` for references do objects (functions, classes, modules, etc.)
-        * :py:`import cupy as cp` for inline python code
-        * ``import cupy as cp`` for literal code
-
-    .. code-block:: python
-
-        import cupy as cp
+    """Generate isotropic Gaussian blobs for clustering.
 
     Parameters
     ----------
