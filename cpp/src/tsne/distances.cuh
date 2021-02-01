@@ -89,7 +89,7 @@ void get_distances(const raft::handle_t &handle,
     k_graph.knn_indices, k_graph.knn_dists, k_graph.n_neighbors,
     handle.get_cusparse_handle(), handle.get_device_allocator(), stream,
     ML::Sparse::DEFAULT_BATCH_SIZE, ML::Sparse::DEFAULT_BATCH_SIZE,
-    ML::MetricType::METRIC_L2);
+    raft::distance::DistanceType::L2Unexpanded);
 }
 
 // sparse, int64
