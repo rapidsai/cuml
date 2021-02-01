@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,13 +18,16 @@
 #else
 #define omp_get_max_threads() 1
 #endif
+#include <cuml/tree/flatnode.h>
 #include <treelite/c_api.h>
 #include <treelite/tree.h>
 #include <cstdio>
+#include <cstring>
 #include <cuml/common/logger.hpp>
 #include <cuml/ensemble/randomforest.hpp>
 #include <fstream>
 #include <iostream>
+#include <raft/error.hpp>
 #include <string>
 #include <vector>
 
@@ -308,51 +311,46 @@ std::string get_rf_json(const RandomForestMetaData<T, L>* forest) {
 }
 
 template <class T, class L>
-void build_treelite_forest(ModelHandle* model,
+void build_treelite_forest(ModelHandle* model_handle,
                            const RandomForestMetaData<T, L>* forest,
                            int num_features, int task_category) {
-  // Non-zero value here for random forest models.
-  // The value should be set to 0 if the model is gradient boosted trees.
-  int random_forest_flag = 1;
-  ModelBuilderHandle model_builder;
-  // num_class is 1 for binary classification and regression
-  // num_class is #class for multiclass classification which is the same as task_category
-  int num_class = task_category > 2 ? task_category : 1;
+  auto parent_model = tl::Model::Create<T, T>();
+  tl::ModelImpl<T, T>* model =
+    dynamic_cast<tl::ModelImpl<T, T>*>(parent_model.get());
+  ASSERT(model != nullptr, "Invalid downcast to tl::ModelImpl");
 
-  const char* leaf_type = DecisionTree::TreeliteType<L>::value;
-  if (std::is_same<L, int>::value) {
-    // Treelite codegen doesn't yet support integer leaf output
-    leaf_type = DecisionTree::TreeliteType<float>::value;
-  }
-
-  TREELITE_CHECK(TreeliteCreateModelBuilder(
-    num_features, num_class, random_forest_flag,
-    DecisionTree::TreeliteType<T>::value, leaf_type, &model_builder));
-
+  unsigned int num_class;
   if (task_category > 2) {
     // Multi-class classification
-    TREELITE_CHECK(TreeliteModelBuilderSetModelParam(
-      model_builder, "pred_transform", "max_index"));
+    num_class = task_category;
+    model->task_type = tl::TaskType::kMultiClfProbDistLeaf;
+    std::strcpy(model->param.pred_transform, "max_index");
+  } else {
+    // Binary classification or regression
+    num_class = 1;
+    model->task_type = tl::TaskType::kBinaryClfRegr;
   }
 
+  model->task_param = tl::TaskParameter{tl::TaskParameter::OutputType::kFloat,
+                                        false, num_class, num_class};
+  model->num_feature = num_features;
+  model->average_tree_output = true;
+  model->SetTreeLimit(forest->rf_params.n_trees);
+
+  std::vector<Node_ID_info<T, L>> working_queue_1;
+  std::vector<Node_ID_info<T, L>> working_queue_2;
+
+#pragma omp parallel for private(working_queue_1, working_queue_2)
   for (int i = 0; i < forest->rf_params.n_trees; i++) {
-    DecisionTree::TreeMetaDataNode<T, L>* tree_ptr = &forest->trees[i];
-    TreeBuilderHandle tree_builder;
+    DecisionTree::TreeMetaDataNode<T, L>& rf_tree = forest->trees[i];
 
-    TREELITE_CHECK(TreeliteCreateTreeBuilder(
-      DecisionTree::TreeliteType<T>::value, leaf_type, &tree_builder));
-    if (tree_ptr->sparsetree.size() != 0) {
-      DecisionTree::build_treelite_tree<T, L>(tree_builder, tree_ptr,
-                                              num_class);
-
-      // The third argument -1 means append to the end of the tree list.
-      TREELITE_CHECK(
-        TreeliteModelBuilderInsertTree(model_builder, tree_builder, -1));
+    if (rf_tree.sparsetree.size() != 0) {
+      model->trees[i] = DecisionTree::build_treelite_tree<T, L>(
+        rf_tree, num_class, working_queue_1, working_queue_2);
     }
   }
 
-  TREELITE_CHECK(TreeliteModelBuilderCommitModel(model_builder, model));
-  TREELITE_CHECK(TreeliteDeleteModelBuilder(model_builder));
+  *model_handle = static_cast<ModelHandle>(parent_model.release());
 }
 
 /**

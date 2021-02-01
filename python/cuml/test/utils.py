@@ -48,7 +48,7 @@ def array_equal(a, b, unit_tol=1e-4, total_tol=1e-4, with_sign=True):
 
     if not with_sign:
         a, b = np.abs(a), np.abs(b)
-    res = (np.sum(np.abs(a - b) > unit_tol)) / len(a) < total_tol
+    res = (np.sum(np.abs(a - b) > unit_tol)) / a.size < total_tol
     return res
 
 

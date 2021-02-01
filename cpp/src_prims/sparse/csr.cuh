@@ -46,7 +46,7 @@ struct WeakCCState {
   WeakCCState(bool *m) : m(m) {}
 };
 
-template <typename Index_, int TPB_X = 32, typename Lambda>
+template <typename Index_, int TPB_X = 256, typename Lambda>
 __global__ void weak_cc_label_device(Index_ *__restrict__ labels,
                                      const Index_ *__restrict__ row_ind,
                                      const Index_ *__restrict__ row_ind_ptr,
@@ -90,7 +90,7 @@ __global__ void weak_cc_label_device(Index_ *__restrict__ labels,
   }
 }
 
-template <typename Index_, int TPB_X = 32, typename Lambda>
+template <typename Index_, int TPB_X = 256, typename Lambda>
 __global__ void weak_cc_init_all_kernel(Index_ *labels, Index_ N,
                                         Index_ MAX_LABEL, Lambda filter_op) {
   Index_ tid = threadIdx.x + blockIdx.x * TPB_X;
@@ -100,7 +100,7 @@ __global__ void weak_cc_init_all_kernel(Index_ *labels, Index_ N,
     else
       labels[tid] = MAX_LABEL;
   }
-}
+}  // namespace sparse
 
 /**
  * @brief Partial calculation of the weakly connected components in the
@@ -124,7 +124,8 @@ __global__ void weak_cc_init_all_kernel(Index_ *labels, Index_ N,
  * @param filter_op an optional filtering function to determine which points
  * should get considered for labeling. It gets global indexes (not batch-wide!)
  */
-template <typename Index_, int TPB_X = 32, typename Lambda = auto(Index_)->bool>
+template <typename Index_, int TPB_X = 256,
+          typename Lambda = auto(Index_)->bool>
 void weak_cc_batched(Index_ *labels, const Index_ *row_ind,
                      const Index_ *row_ind_ptr, Index_ nnz, Index_ N,
                      Index_ start_vertex_id, Index_ batch_size,
@@ -179,7 +180,7 @@ void weak_cc_batched(Index_ *labels, const Index_ *row_ind,
  * @param state instance of inter-batch state management
  * @param stream the cuda stream to use
  */
-template <typename Index_, int TPB_X = 32>
+template <typename Index_, int TPB_X = 256>
 void weak_cc_batched(Index_ *labels, const Index_ *row_ind,
                      const Index_ *row_ind_ptr, Index_ nnz, Index_ N,
                      Index_ start_vertex_id, Index_ batch_size,
@@ -213,7 +214,7 @@ void weak_cc_batched(Index_ *labels, const Index_ *row_ind,
  * @param filter_op an optional filtering function to determine which points
  * should get considered for labeling. It gets global indexes (not batch-wide!)
  */
-template <typename Index_ = int, int TPB_X = 32,
+template <typename Index_ = int, int TPB_X = 256,
           typename Lambda = auto(Index_)->bool>
 void weak_cc(Index_ *labels, const Index_ *row_ind, const Index_ *row_ind_ptr,
              Index_ nnz, Index_ N,
@@ -248,7 +249,7 @@ void weak_cc(Index_ *labels, const Index_ *row_ind, const Index_ *row_ind_ptr,
  * @param d_alloc: deviceAllocator to use for temp memory
  * @param stream the cuda stream to use
  */
-template <typename Index_, int TPB_X = 32>
+template <typename Index_, int TPB_X = 256>
 void weak_cc(Index_ *labels, const Index_ *row_ind, const Index_ *row_ind_ptr,
              Index_ nnz, Index_ N,
              std::shared_ptr<raft::mr::device::allocator> d_alloc,
