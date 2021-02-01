@@ -304,9 +304,13 @@ __global__ void compute_Pij_x_Qij_kernel(value_t* __restrict__ attr_forces,
   value_t iy = points[num_points + i];
   value_t jx = points[j];
   value_t jy = points[num_points + j];
+
   value_t dx = ix - jx;
   value_t dy = iy - jy;
-  value_t pijqij = pij[TID] / (1 + dx * dx + dy * dy);
+
+  value_t denom = 1 + (dx * dx) + (dy * dy);
+
+  value_t pijqij = pij[TID] / denom;
   atomicAdd(attr_forces + i, pijqij * dx);
   atomicAdd(attr_forces + num_points + i, pijqij * dy);
 }

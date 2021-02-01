@@ -44,77 +44,6 @@ def check_embedding(X, Y, score=0.76):
 
 
 @pytest.mark.parametrize('name', dataset_names)
-@pytest.mark.parametrize('method', ['barnes_hut', 'fft'])
-def test_tsne(name, method):
-    """
-    This tests how TSNE handles a lot of input data across time.
-    (1) Numpy arrays are passed in
-    (2) Params are changed in the TSNE class
-    (3) The class gets re-used across time
-    (4) Trustworthiness is checked
-    (5) Tests NAN in TSNE output for learning rate explosions
-    (6) Tests verbosity
-    """
-    datasets
-    X = eval("datasets.load_{}".format(name))().data
-
-    for i in range(3):
-        print("iteration = ", i)
-
-        tsne = TSNE(2, random_state=i, verbose=False,
-                    learning_rate=2+i)
-
-        # Reuse
-        Y = tsne.fit_transform(X)
-        check_embedding(X, Y)
-        del Y
-
-        # Again
-        tsne = TSNE(2, random_state=i+2, verbose=logger.level_debug,
-                    learning_rate=2+i+2, method=method)
-
-        # Reuse
-        Y = tsne.fit_transform(X)
-        check_embedding(X, Y)
-        del Y
-
-
-@pytest.mark.parametrize('name', dataset_names)
-@pytest.mark.parametrize('method', ['barnes_hut', 'fft'])
-def test_tsne_default(name, method):
-
-    datasets
-    X = eval("datasets.load_{}".format(name))().data
-
-    for i in range(3):
-        print("iteration = ", i)
-
-        tsne = TSNE(method=method)
-        Y = tsne.fit_transform(X)
-        check_embedding(X, Y)
-        del Y
-
-
-@pytest.mark.parametrize('nrows', [stress_param(2400000)])
-@pytest.mark.parametrize('ncols', [stress_param(250)])
-@pytest.mark.parametrize('method', ['barnes_hut', 'fft'])
-def test_tsne_large(nrows, ncols, method):
-    """
-    This tests how TSNE handles large input
-    """
-    X, y = make_blobs(n_samples=nrows, centers=8,
-                      n_features=ncols, random_state=0)
-
-    X = X.astype(np.float32)
-
-    tsne = TSNE(random_state=0, exaggeration_iter=1, n_iter=2, method=method)
-    Y = tsne.fit_transform(X)
-    nans = np.sum(np.isnan(Y))
-    assert nans == 0
-
-
-@pytest.mark.xfail
-@pytest.mark.parametrize('name', dataset_names)
 @pytest.mark.parametrize('type_knn_graph', ['sklearn', 'cuml'])
 @pytest.mark.parametrize('method', ['barnes_hut', 'fft'])
 def test_tsne_knn_parameters(name, type_knn_graph, method):
@@ -126,17 +55,20 @@ def test_tsne_knn_parameters(name, type_knn_graph, method):
         else cuKNN(n_neighbors=90)
 
     neigh.fit(X)
-    knn_graph = neigh.kneighbors_graph(X, mode="distance")
+    knn_graph = neigh.kneighbors_graph(X, mode="distance").astype('float32')
 
     for i in range(3):
         print("iteration = ", i)
         tsne = TSNE(method=method)
+        print("Direct knn graph input")
         Y = tsne.fit_transform(X, True, knn_graph)
         check_embedding(X, Y)
 
+        print("KNN graph COO")
         Y = tsne.fit_transform(X, True, knn_graph.tocoo())
         check_embedding(X, Y)
 
+        print("KNN graph CSC")
         Y = tsne.fit_transform(X, True, knn_graph.tocsc())
         check_embedding(X, Y)
         del Y
@@ -144,7 +76,7 @@ def test_tsne_knn_parameters(name, type_knn_graph, method):
 
 @pytest.mark.parametrize('name', dataset_names)
 @pytest.mark.parametrize('type_knn_graph', ['sklearn', 'cuml'])
-@pytest.mark.parametrize('method', ['barnes_hut', 'fft'])
+@pytest.mark.parametrize('method', ['fft'])
 def test_tsne_knn_graph_used(name, type_knn_graph, method):
 
     datasets
@@ -182,13 +114,86 @@ def test_tsne_knn_graph_used(name, type_knn_graph, method):
     assert (trust_normal - trust_garbage) > 0.15
 
 
+
+
+@pytest.mark.parametrize('name', dataset_names)
+@pytest.mark.parametrize('method', ['fft'])
+def test_tsne(name, method):
+    """
+    This tests how TSNE handles a lot of input data across time.
+    (1) Numpy arrays are passed in
+    (2) Params are changed in the TSNE class
+    (3) The class gets re-used across time
+    (4) Trustworthiness is checked
+    (5) Tests NAN in TSNE output for learning rate explosions
+    (6) Tests verbosity
+    """
+    datasets
+    X = eval("datasets.load_{}".format(name))().data
+
+    for i in range(3):
+        print("iteration = ", i)
+
+        tsne = TSNE(2, random_state=i, verbose=False,
+                    learning_rate=2+i)
+
+        # Reuse
+        Y = tsne.fit_transform(X)
+        check_embedding(X, Y)
+        del Y
+
+        # Again
+        tsne = TSNE(2, random_state=i+2, verbose=logger.level_debug,
+                    learning_rate=2+i+2, method=method)
+
+        # Reuse
+        Y = tsne.fit_transform(X)
+        check_embedding(X, Y)
+        del Y
+
+
+@pytest.mark.parametrize('name', dataset_names)
+@pytest.mark.parametrize('method', ['fft'])
+def test_tsne_default(name, method):
+
+    datasets
+    X = eval("datasets.load_{}".format(name))().data
+
+    for i in range(3):
+        print("iteration = ", i)
+
+        tsne = TSNE(method=method)
+        Y = tsne.fit_transform(X)
+        check_embedding(X, Y)
+        del Y
+
+
+@pytest.mark.parametrize('nrows', [stress_param(2400000)])
+@pytest.mark.parametrize('ncols', [stress_param(250)])
+@pytest.mark.parametrize('method', ['fft'])
+def test_tsne_large(nrows, ncols, method):
+    """
+    This tests how TSNE handles large input
+    """
+    X, y = make_blobs(n_samples=nrows, centers=8,
+                      n_features=ncols, random_state=0)
+
+    X = X.astype(np.float32)
+
+    tsne = TSNE(random_state=0, exaggeration_iter=1, n_iter=2, method=method)
+    Y = tsne.fit_transform(X)
+    nans = np.sum(np.isnan(Y))
+    assert nans == 0
+
+
+
 def test_components_exception():
     with pytest.raises(ValueError):
         TSNE(n_components=3)
 
 
 @pytest.mark.parametrize('input_type', ['cupy', 'scipy'])
-@pytest.mark.parametrize('method', ['barnes_hut', 'fft'])
+@pytest.mark.parametrize('method', ['fft'])
 def test_tsne_transform_on_digits_sparse(input_type, method):
 
     datasets
@@ -221,7 +226,7 @@ def test_tsne_transform_on_digits_sparse(input_type, method):
 
 @pytest.mark.parametrize('type_knn_graph', ['sklearn', 'cuml'])
 @pytest.mark.parametrize('input_type', ['cupy', 'scipy'])
-@pytest.mark.parametrize('method', ['barnes_hut', 'fft'])
+@pytest.mark.parametrize('method', ['fft'])
 def test_tsne_knn_parameters_sparse(type_knn_graph, input_type, method):
 
     datasets

@@ -86,7 +86,9 @@ const char* getCufftErrStr(cufftResult status) {
 
 class CuFFTHandle {
  public:
-  CuFFTHandle() { CUFFT_TRY(cufftCreate(&handle)); }
+  CuFFTHandle(cudaStream_t stream) {
+    CUFFT_TRY(cufftCreate(&handle));
+    CUFFT_TRY(cufftSetStream(handle, stream));}
   ~CuFFTHandle() { cufftDestroy(handle); }
   operator cufftHandle() const { return handle; }
 

@@ -49,7 +49,16 @@
  * @param[in] stream: The GPU stream.
  * @param[in] seed: If seed == -1, then the output is pure randomness. If >= 0, then you can reproduce TSNE.
  */
-void random_vector(float *vector, const float minimum, const float maximum,
+struct isnan_test {
+
+    template<typename value_t>
+    __host__ __device__ bool operator()(const value_t a) const {
+      return isnan(a);
+    }
+};
+
+template<typename value_t = float>
+void random_vector(value_t *vector, const value_t minimum, const value_t maximum,
                    const int size, cudaStream_t stream, long long seed = -1) {
   if (seed <= 0) {
     // Get random seed based on time of day
@@ -58,8 +67,17 @@ void random_vector(float *vector, const float minimum, const float maximum,
     seed = tp.tv_sec * 1000 + tp.tv_usec;
   }
   raft::random::Rng random(seed);
-  random.uniform<float>(vector, size, minimum, maximum, stream);
-  CUDA_CHECK(cudaPeekAtLastError());
+  random.uniform<value_t>(vector, size, minimum, maximum, stream);
+
+
+  CUDA_CHECK(cudaStreamSynchronize(stream));
+  CUDA_CHECK(cudaGetLastError());
+
+  thrust::device_ptr<value_t> d_ptr = thrust::device_pointer_cast(vector);
+  bool h_result = thrust::transform_reduce(d_ptr, d_ptr+size, isnan_test(), 0, thrust::plus<bool>());
+
+  if(h_result)
+    printf("Y nan after random vector (inside random vector)? = %d\n",h_result);
 }
 
 long start, end;

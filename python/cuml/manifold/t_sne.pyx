@@ -559,11 +559,6 @@ class TSNE(Base):
         self.embedding_ = Y
         return self
 
-    def __del__(self):
-        if hasattr(self, 'embedding_'):
-            del self.embedding_
-            self.embedding_ = None
-
     @generate_docstring(convert_dtype_cast='np.float32',
                         skip_parameters_heading=True,
                         return_values={'name': 'X_new',
@@ -586,12 +581,7 @@ class TSNE(Base):
         Internal transform function to allow base wrappers default
         functionality to work
         """
-
-        data = self.embedding_
-
-        del self.embedding_
-
-        return data
+        return self.embedding_
 
     def __getstate__(self):
         state = self.__dict__.copy()
