@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,13 +21,13 @@
 #include <raft/cudart_utils.h>
 #include <raft/linalg/cublas_wrappers.h>
 #include <common/cumlHandle.hpp>
-#include <common/device_buffer.hpp>
 #include <linalg/ternary_op.cuh>
 #include <raft/cuda_utils.cuh>
 #include <raft/linalg/binary_op.cuh>
 #include <raft/linalg/map_then_reduce.cuh>
 #include <raft/linalg/norm.cuh>
 #include <raft/linalg/unary_op.cuh>
+#include <rmm/device_uvector.hpp>
 
 namespace ML {
 
@@ -299,14 +299,14 @@ std::ostream &operator<<(std::ostream &os, const SimpleMat<T> &mat) {
 template <typename T>
 struct SimpleVecOwning : SimpleVec<T> {
   typedef SimpleVec<T> Super;
-  typedef MLCommon::device_buffer<T> Buffer;
+  typedef rmm::device_uvector<T> Buffer;
   Buffer buf;
 
   SimpleVecOwning() = delete;
 
   SimpleVecOwning(std::shared_ptr<deviceAllocator> allocator, int n,
                   cudaStream_t stream)
-    : Super(), buf(allocator, stream, n) {
+    : Super(), buf(n, stream) {
     Super::reset(buf.data(), n);
   }
 
@@ -316,7 +316,7 @@ struct SimpleVecOwning : SimpleVec<T> {
 template <typename T>
 struct SimpleMatOwning : SimpleMat<T> {
   typedef SimpleMat<T> Super;
-  typedef MLCommon::device_buffer<T> Buffer;
+  typedef rmm::device_uvector<T> Buffer;
   Buffer buf;
   using Super::m;
   using Super::n;
@@ -326,7 +326,7 @@ struct SimpleMatOwning : SimpleMat<T> {
 
   SimpleMatOwning(std::shared_ptr<deviceAllocator> allocator, int m, int n,
                   cudaStream_t stream, STORAGE_ORDER order = COL_MAJOR)
-    : Super(order), buf(allocator, stream, m * n) {
+    : Super(order), buf(m * n, stream) {
     Super::reset(buf.data(), m, n);
   }
 
