@@ -21,7 +21,7 @@ from cuml.test.utils import array_equal, unit_param, quality_param, \
 from cuml.neighbors import NearestNeighbors as cuKNN
 
 from sklearn.neighbors import NearestNeighbors as skKNN
-from sklearn.datasets import make_blobs
+from cuml.datasets import make_blobs
 
 from cuml.common import logger
 
@@ -43,6 +43,10 @@ def predict(neigh_ind, _y, n_neighbors):
     import scipy.stats as stats
 
     neigh_ind = neigh_ind.astype(np.int32)
+    if isinstance(_y, cp.core.core.ndarray):
+        _y = _y.get()
+    if isinstance(neigh_ind, cp.core.core.ndarray):
+        neigh_ind = neigh_ind.get()
 
     ypred, count = stats.mode(_y[neigh_ind], axis=1)
     return ypred.ravel(), count.ravel() * 1.0 / n_neighbors
@@ -52,6 +56,23 @@ def valid_metrics(algo="brute", cuml_algo=None):
     cuml_algo = algo if cuml_algo is None else cuml_algo
     cuml_metrics = cuml.neighbors.VALID_METRICS[cuml_algo]
     sklearn_metrics = sklearn.neighbors.VALID_METRICS[algo]
+    return [value for value in cuml_metrics if value in sklearn_metrics]
+
+
+def valid_metrics_sparse(algo="brute", cuml_algo=None):
+    """
+    The list of sparse prims in scikit-learn / scipy does not
+    include sparse inputs for all of the metrics we support in cuml
+    (even metrics which are implicitly sparse, such as jaccard and dice,
+    which accume boolean inputs). To maintain high test coverage for all
+    metrics supported by Scikit-learn, we take the union of both
+    dense and sparse metrics. This way, a sparse input can just be converted
+    to dense form for Scikit-learn.
+    """
+    cuml_algo = algo if cuml_algo is None else cuml_algo
+    cuml_metrics = cuml.neighbors.VALID_METRICS_SPARSE[cuml_algo]
+    sklearn_metrics = set(sklearn.neighbors.VALID_METRICS_SPARSE[algo])
+    sklearn_metrics.update(sklearn.neighbors.VALID_METRICS[algo])
     return [value for value in cuml_metrics if value in sklearn_metrics]
 
 
@@ -102,7 +123,9 @@ def test_self_neighboring(datatype, metric_p, nrows):
         neigh_ind = neigh_ind.as_gpu_matrix().copy_to_host()
         neigh_dist = neigh_dist.as_gpu_matrix().copy_to_host()
     else:
-        assert isinstance(neigh_ind, np.ndarray)
+        assert isinstance(neigh_ind, cp.core.core.ndarray)
+        neigh_ind = neigh_ind.get()
+        neigh_dist = neigh_dist.get()
 
     neigh_ind = neigh_ind[:, 0]
     neigh_dist = neigh_dist[:, 0]
@@ -132,6 +155,10 @@ def test_self_neighboring(datatype, metric_p, nrows):
                           ("ivfsq", "numpy")])
 def test_neighborhood_predictions(nrows, ncols, n_neighbors, n_clusters,
                                   datatype, algo):
+    if algo == "ivfpq":
+        pytest.xfail("""See Memory access error in IVFPQ :
+                        https://github.com/rapidsai/cuml/issues/3318""")
+
     if not has_scipy():
         pytest.skip('Skipping test_neighborhood_predictions because ' +
                     'Scipy is missing')
@@ -153,7 +180,7 @@ def test_neighborhood_predictions(nrows, ncols, n_neighbors, n_clusters,
         assert isinstance(neigh_ind, cudf.DataFrame)
         neigh_ind = neigh_ind.as_gpu_matrix().copy_to_host()
     else:
-        assert isinstance(neigh_ind, np.ndarray)
+        assert isinstance(neigh_ind, cp.core.core.ndarray)
 
     labels, probs = predict(neigh_ind, y, n_neighbors)
 
@@ -193,6 +220,9 @@ def test_ivfflat_pred(nrows, ncols, n_neighbors, nlist):
 @pytest.mark.parametrize("nrows", [4000])
 @pytest.mark.parametrize("ncols", [128, 512])
 @pytest.mark.parametrize("n_neighbors", [8])
+@pytest.mark.xfail
+#  See Memory access error in IVFPQ :
+#  https://github.com/rapidsai/cuml/issues/3318
 def test_ivfpq_pred(nrows, ncols, n_neighbors,
                     nlist, M, n_bits, usePrecomputedTables):
     algo_params = {
@@ -233,6 +263,7 @@ def test_ivfsq_pred(qtype, encodeResidual, nrows, ncols, n_neighbors, nlist):
     X, y = make_blobs(n_samples=nrows, centers=5,
                       n_features=ncols, random_state=0)
 
+    logger.set_level(logger.level_debug)
     knn_cu = cuKNN(algorithm="ivfsq", algo_params=algo_params)
     knn_cu.fit(X)
     neigh_ind = knn_cu.kneighbors(X, n_neighbors=n_neighbors,
@@ -267,7 +298,7 @@ def test_return_dists():
 
 @pytest.mark.parametrize('input_type', ['dataframe', 'ndarray'])
 @pytest.mark.parametrize('nrows', [unit_param(500), quality_param(5000),
-                         stress_param(500000)])
+                         stress_param(70000)])
 @pytest.mark.parametrize('n_feats', [unit_param(3), stress_param(1000)])
 @pytest.mark.parametrize('k', [unit_param(3), stress_param(50)])
 @pytest.mark.parametrize("metric", valid_metrics())
@@ -280,8 +311,8 @@ def test_knn_separate_index_search(input_type, nrows, n_feats, k, metric):
 
     p = 5  # Testing 5-norm of the minkowski metric only
     knn_sk = skKNN(metric=metric, p=p)  # Testing
-    knn_sk.fit(X_index)
-    D_sk, I_sk = knn_sk.kneighbors(X_search, k)
+    knn_sk.fit(X_index.get())
+    D_sk, I_sk = knn_sk.kneighbors(X_search.get(), k)
 
     X_orig = X_index
 
@@ -296,33 +327,33 @@ def test_knn_separate_index_search(input_type, nrows, n_feats, k, metric):
     if input_type == "dataframe":
         assert isinstance(D_cuml, cudf.DataFrame)
         assert isinstance(I_cuml, cudf.DataFrame)
-        D_cuml_arr = D_cuml.as_gpu_matrix().copy_to_host()
-        I_cuml_arr = I_cuml.as_gpu_matrix().copy_to_host()
+        D_cuml_np = D_cuml.as_gpu_matrix().copy_to_host()
+        I_cuml_np = I_cuml.as_gpu_matrix().copy_to_host()
     else:
-        assert isinstance(D_cuml, np.ndarray)
-        assert isinstance(I_cuml, np.ndarray)
-        D_cuml_arr = D_cuml
-        I_cuml_arr = I_cuml
+        assert isinstance(D_cuml, cp.core.core.ndarray)
+        assert isinstance(I_cuml, cp.core.core.ndarray)
+        D_cuml_np = D_cuml.get()
+        I_cuml_np = I_cuml.get()
 
     with cuml.using_output_type("numpy"):
         # Assert the cuml model was properly reverted
-        np.testing.assert_allclose(knn_cu.X_m, X_orig,
+        np.testing.assert_allclose(knn_cu.X_m, X_orig.get(),
                                    atol=1e-3, rtol=1e-3)
 
     if metric == 'braycurtis':
-        diff = D_cuml_arr - D_sk
+        diff = D_cuml_np - D_sk
         # Braycurtis has a few differences, but this is computed by FAISS.
         # So long as the indices all match below, the small discrepancy
         # should be okay.
         assert len(diff[diff > 1e-2]) / X_search.shape[0] < 0.06
     else:
-        np.testing.assert_allclose(D_cuml_arr, D_sk, atol=1e-3,
+        np.testing.assert_allclose(D_cuml_np, D_sk, atol=1e-3,
                                    rtol=1e-3)
-    assert I_cuml_arr.all() == I_sk.all()
+    assert I_cuml_np.all() == I_sk.all()
 
 
 @pytest.mark.parametrize('input_type', ['dataframe', 'ndarray'])
-@pytest.mark.parametrize('nrows', [unit_param(500), stress_param(500000)])
+@pytest.mark.parametrize('nrows', [unit_param(500), stress_param(70000)])
 @pytest.mark.parametrize('n_feats', [unit_param(3), stress_param(1000)])
 @pytest.mark.parametrize('k', [unit_param(3), stress_param(50)])
 @pytest.mark.parametrize("metric", valid_metrics())
@@ -332,7 +363,7 @@ def test_knn_x_none(input_type, nrows, n_feats, k, metric):
 
     p = 5  # Testing 5-norm of the minkowski metric only
     knn_sk = skKNN(metric=metric, p=p)  # Testing
-    knn_sk.fit(X)
+    knn_sk.fit(X.get())
     D_sk, I_sk = knn_sk.kneighbors(X=None, n_neighbors=k)
 
     X_orig = X
@@ -379,11 +410,13 @@ def test_knn_fit_twice():
 
 
 @pytest.mark.parametrize('input_type', ['ndarray'])
-@pytest.mark.parametrize('nrows', [unit_param(500), stress_param(500000)])
+@pytest.mark.parametrize('nrows', [unit_param(500), stress_param(70000)])
 @pytest.mark.parametrize('n_feats', [unit_param(20), stress_param(1000)])
 def test_nn_downcast_fails(input_type, nrows, n_feats):
-    X, y = make_blobs(n_samples=nrows,
-                      n_features=n_feats, random_state=0)
+    from sklearn.datasets import make_blobs as skmb
+
+    X, y = skmb(n_samples=nrows,
+                n_features=n_feats, random_state=0)
 
     knn_cu = cuKNN()
     if input_type == 'dataframe':
@@ -418,13 +451,13 @@ def test_knn_graph(input_type, mode, output_type, as_instance,
                       n_features=n_feats, random_state=0)
 
     if as_instance:
-        sparse_sk = sklearn.neighbors.kneighbors_graph(X, k, mode,
+        sparse_sk = sklearn.neighbors.kneighbors_graph(X.get(), k, mode,
                                                        metric=metric, p=p,
                                                        include_self='auto')
     else:
         knn_sk = skKNN(metric=metric, p=p)
-        knn_sk.fit(X)
-        sparse_sk = knn_sk.kneighbors_graph(X, k, mode)
+        knn_sk.fit(X.get())
+        sparse_sk = knn_sk.kneighbors_graph(X.get(), k, mode)
 
     if input_type == "dataframe":
         X = cudf.DataFrame(X)
@@ -450,7 +483,7 @@ def test_knn_graph(input_type, mode, output_type, as_instance,
         assert isspmatrix_csr(sparse_cu)
 
 
-@pytest.mark.parametrize("metric", valid_metrics(cuml_algo="sparse"))
+@pytest.mark.parametrize("metric", valid_metrics_sparse())
 @pytest.mark.parametrize(
     'nrows,ncols,density,n_neighbors,batch_size_index,batch_size_query',
     [(1, 10, 0.8, 1, 10, 10),
@@ -464,28 +497,42 @@ def test_nearest_neighbors_sparse(metric,
                                   n_neighbors,
                                   batch_size_index,
                                   batch_size_query):
-
     if nrows == 1 and n_neighbors > 1:
         return
 
     a = cp.sparse.random(nrows, ncols, format='csr', density=density,
-                         random_state=32)
+                         random_state=35)
+    b = cp.sparse.random(nrows, ncols, format='csr', density=density,
+                         random_state=38)
 
-    logger.set_level(logger.level_info)
-    nn = cuKNN(metric=metric, n_neighbors=n_neighbors, algorithm="brute",
+    if metric == 'jaccard':
+        a = a.astype('bool').astype('float32')
+        b = b.astype('bool').astype('float32')
+
+    logger.set_level(logger.level_debug)
+    nn = cuKNN(metric=metric, p=2.0, n_neighbors=n_neighbors,
+               algorithm="brute", output_type="numpy",
                verbose=logger.level_debug,
                algo_params={"batch_size_index": batch_size_index,
                             "batch_size_query": batch_size_query})
     nn.fit(a)
 
-    cuD, cuI = nn.kneighbors(a)
+    cuD, cuI = nn.kneighbors(b)
 
-    sknn = skKNN(metric=metric, n_neighbors=n_neighbors,
+    if metric not in sklearn.neighbors.VALID_METRICS_SPARSE['brute']:
+        a = a.todense()
+        b = b.todense()
+
+    sknn = skKNN(metric=metric, p=2.0, n_neighbors=n_neighbors,
                  algorithm="brute", n_jobs=-1)
     sk_X = a.get()
     sknn.fit(sk_X)
 
-    skD, skI = sknn.kneighbors(sk_X)
+    skD, skI = sknn.kneighbors(b.get())
 
-    cp.testing.assert_allclose(cuI, skI, atol=1e-4, rtol=1e-4)
     cp.testing.assert_allclose(cuD, skD, atol=1e-3, rtol=1e-3)
+
+    # Jaccard & Chebyshev have a high potential for mismatched indices
+    # due to duplicate distances. We can ignore the indices in this case.
+    if metric not in ['jaccard', 'chebyshev']:
+        cp.testing.assert_allclose(cuI, skI, atol=1e-4, rtol=1e-4)

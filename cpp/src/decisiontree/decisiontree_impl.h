@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,7 +17,9 @@
 #pragma once
 #include <common/Timer.h>
 #include <cuml/tree/algo_helper.h>
+#include <cuml/tree/flatnode.h>
 #include <treelite/c_api.h>
+#include <treelite/tree.h>
 #include <algorithm>
 #include <climits>
 #include <common/cumlHandle.hpp>
@@ -37,6 +39,8 @@
 
 namespace ML {
 
+namespace tl = treelite;
+
 bool is_dev_ptr(const void *p);
 
 namespace DecisionTree {
@@ -55,9 +59,10 @@ std::string get_node_json(const std::string &prefix,
                           int idx);
 
 template <class T, class L>
-void build_treelite_tree(TreeBuilderHandle tree_builder,
-                         DecisionTree::TreeMetaDataNode<T, L> *tree_ptr,
-                         int num_class);
+tl::Tree<T, T> build_treelite_tree(
+  const DecisionTree::TreeMetaDataNode<T, L> &rf_tree, unsigned int num_class,
+  std::vector<Node_ID_info<T, L>> &working_queue_1,
+  std::vector<Node_ID_info<T, L>> &working_queue_2);
 
 struct DataInfo {
   unsigned int NLocalrows;
