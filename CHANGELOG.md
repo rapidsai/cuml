@@ -10,6 +10,7 @@
 # cuML 0.17.0 (Date TBD)
 
 ## New Features
+- PR #3164: Expose silhouette score in Python
 - PR #3160: Least Angle Regression (experimental)
 - PR #2659: Add initial max inner product sparse knn
 - PR #3092: Multiclass meta estimator wrappers and multiclass SVC
@@ -65,8 +66,6 @@
 - PR #3275: Return confusion matrix as int unless float weights are used
 
 ## Bug Fixes
-- PR #3164: Expose silhouette score in Python
-- PR #3258: Revert silhouette_score Python exposure due to memory issue
 - PR #3218: Specify dependency branches in conda dev environment to avoid pip resolver issue
 - PR #3196: Disable ascending=false path for sortColumnsPerRow
 - PR #3051: MNMG KNN Cl&Re fix + multiple improvements
