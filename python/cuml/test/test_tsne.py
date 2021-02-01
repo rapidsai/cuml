@@ -58,17 +58,11 @@ def test_tsne_knn_parameters(name, type_knn_graph, method):
     knn_graph = neigh.kneighbors_graph(X, mode="distance").astype('float32')
 
     for i in range(3):
-        print("iteration = ", i)
-        tsne = TSNE(method=method)
-        print("Direct knn graph input")
+        tsne = TSNE(random_state=1, method=method)
         Y = tsne.fit_transform(X, True, knn_graph)
         check_embedding(X, Y)
-
-        print("KNN graph COO")
         Y = tsne.fit_transform(X, True, knn_graph.tocoo())
         check_embedding(X, Y)
-
-        print("KNN graph CSC")
         Y = tsne.fit_transform(X, True, knn_graph.tocsc())
         check_embedding(X, Y)
         del Y
@@ -86,8 +80,8 @@ def test_tsne_knn_graph_used(name, type_knn_graph, method):
         else cuKNN(n_neighbors=90)
 
     neigh.fit(X)
-    knn_graph = neigh.kneighbors_graph(X, mode="distance")
-    tsne = TSNE(method=method)
+    knn_graph = neigh.kneighbors_graph(X, mode="distance").astype('float32')
+    tsne = TSNE(random_state=1, method=method)
 
     # Perform tsne with normal knn_graph
     Y = tsne.fit_transform(X, True, knn_graph)
@@ -95,7 +89,8 @@ def test_tsne_knn_graph_used(name, type_knn_graph, method):
     print("Trust = ", trust_normal)
 
     X_garbage = np.ones(X.shape)
-    knn_graph_garbage = neigh.kneighbors_graph(X_garbage, mode="distance")
+    knn_graph_garbage = neigh.kneighbors_graph(X_garbage, mode="distance")\
+        .astype('float32')
 
     # Perform tsne with garbage knn_graph
     Y = tsne.fit_transform(X, True, knn_graph_garbage)
@@ -112,8 +107,6 @@ def test_tsne_knn_graph_used(name, type_knn_graph, method):
     trust_garbage = trustworthiness(X, Y)
     print("Trust = ", trust_garbage)
     assert (trust_normal - trust_garbage) > 0.15
-
-
 
 
 @pytest.mark.parametrize('name', dataset_names)
@@ -134,8 +127,7 @@ def test_tsne(name, method):
     for i in range(3):
         print("iteration = ", i)
 
-        tsne = TSNE(2, random_state=i, verbose=False,
-                    learning_rate=2+i)
+        tsne = TSNE(2, random_state=i, verbose=False)
 
         # Reuse
         Y = tsne.fit_transform(X)
@@ -144,7 +136,7 @@ def test_tsne(name, method):
 
         # Again
         tsne = TSNE(2, random_state=i+2, verbose=logger.level_debug,
-                    learning_rate=2+i+2, method=method)
+                    method=method)
 
         # Reuse
         Y = tsne.fit_transform(X)
@@ -162,7 +154,7 @@ def test_tsne_default(name, method):
     for i in range(3):
         print("iteration = ", i)
 
-        tsne = TSNE(method=method)
+        tsne = TSNE(random_state=1, method=method)
         Y = tsne.fit_transform(X)
         check_embedding(X, Y)
         del Y
@@ -180,11 +172,10 @@ def test_tsne_large(nrows, ncols, method):
 
     X = X.astype(np.float32)
 
-    tsne = TSNE(random_state=0, exaggeration_iter=1, n_iter=2, method=method)
+    tsne = TSNE(random_state=1, exaggeration_iter=1, n_iter=2, method=method)
     Y = tsne.fit_transform(X)
     nans = np.sum(np.isnan(Y))
     assert nans == 0
-
 
 
 def test_components_exception():
@@ -213,7 +204,8 @@ def test_tsne_transform_on_digits_sparse(input_type, method):
                   angle=0.8, method=method)
 
     new_data = sp_prefix.csr_matrix(
-        scipy.sparse.csr_matrix(digits.data[~digits_selection]))
+        scipy.sparse.csr_matrix(digits.data[~digits_selection]))\
+        .astype('float32')
 
     embedding = fitter.fit_transform(new_data, convert_dtype=True)
 
@@ -241,7 +233,8 @@ def test_tsne_knn_parameters_sparse(type_knn_graph, input_type, method):
     selected_digits = digits.data[~digits_selection]
 
     neigh.fit(selected_digits)
-    knn_graph = neigh.kneighbors_graph(selected_digits, mode="distance")
+    knn_graph = neigh.kneighbors_graph(selected_digits, mode="distance")\
+        .astype('float32')
 
     if input_type == 'cupy':
         sp_prefix = cupyx.scipy.sparse
