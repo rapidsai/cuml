@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -34,8 +34,8 @@ void brute_force_knn(raft::handle_t &handle, const int *idx_indptr,
                      int n_query_rows, int n_query_cols, int *output_indices,
                      float *output_dists, int k,
                      size_t batch_size_index,  // approx 1M
-                     size_t batch_size_query, raft::distance::DistanceType metric,
-                     float metricArg) {
+                     size_t batch_size_query,
+                     raft::distance::DistanceType metric, float metricArg) {
   auto d_alloc = handle.get_device_allocator();
   cusparseHandle_t cusparse_handle = handle.get_cusparse_handle();
   cudaStream_t stream = handle.get_stream();

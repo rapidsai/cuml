@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -188,7 +188,8 @@ inline void knn_merge_parts(value_t *inK, value_idx *inV, value_t *outK,
       inK, inV, outK, outV, n_samples, n_parts, k, stream, translations);
 }
 
-inline faiss::MetricType build_faiss_metric(raft::distance::DistanceType metric) {
+inline faiss::MetricType build_faiss_metric(
+  raft::distance::DistanceType metric) {
   switch (metric) {
     case raft::distance::DistanceType::CosineExpanded:
       return faiss::MetricType::METRIC_INNER_PRODUCT;
@@ -243,7 +244,8 @@ inline faiss::ScalarQuantizer::QuantizerType build_faiss_qtype(
 
 template <typename IntType = int>
 void approx_knn_ivfflat_build_index(ML::knnIndex *index, ML::IVFParam *params,
-                                    IntType D, raft::distance::DistanceType metric,
+                                    IntType D,
+                                    raft::distance::DistanceType metric,
                                     IntType n) {
   faiss::gpu::GpuIndexIVFFlatConfig config;
   config.device = index->device;
@@ -256,7 +258,9 @@ void approx_knn_ivfflat_build_index(ML::knnIndex *index, ML::IVFParam *params,
 
 template <typename IntType = int>
 void approx_knn_ivfpq_build_index(ML::knnIndex *index, ML::IVFPQParam *params,
-                                  IntType D, raft::distance::DistanceType metric, IntType n) {
+                                  IntType D,
+                                  raft::distance::DistanceType metric,
+                                  IntType n) {
   faiss::gpu::GpuIndexIVFPQConfig config;
   config.device = index->device;
   config.usePrecomputedTables = params->usePrecomputedTables;
@@ -270,7 +274,9 @@ void approx_knn_ivfpq_build_index(ML::knnIndex *index, ML::IVFPQParam *params,
 
 template <typename IntType = int>
 void approx_knn_ivfsq_build_index(ML::knnIndex *index, ML::IVFSQParam *params,
-                                  IntType D, raft::distance::DistanceType metric, IntType n) {
+                                  IntType D,
+                                  raft::distance::DistanceType metric,
+                                  IntType n) {
   faiss::gpu::GpuIndexIVFScalarQuantizerConfig config;
   config.device = index->device;
   faiss::MetricType faiss_metric = build_faiss_metric(metric);
@@ -286,8 +292,8 @@ void approx_knn_ivfsq_build_index(ML::knnIndex *index, ML::IVFSQParam *params,
 
 template <typename IntType = int>
 void approx_knn_build_index(ML::knnIndex *index, ML::knnIndexParam *params,
-                            IntType D, raft::distance::DistanceType metric, float metricArg,
-                            float *index_items, IntType n,
+                            IntType D, raft::distance::DistanceType metric,
+                            float metricArg, float *index_items, IntType n,
                             cudaStream_t userStream) {
   int device;
   CUDA_CHECK(cudaGetDevice(&device));
@@ -365,7 +371,8 @@ void brute_force_knn(std::vector<float *> &input, std::vector<int> &sizes,
                      int n_int_streams = 0, bool rowMajorIndex = true,
                      bool rowMajorQuery = true,
                      std::vector<int64_t> *translations = nullptr,
-                     raft::distance::DistanceType metric = raft::distance::DistanceType::L2Expanded,
+                     raft::distance::DistanceType metric =
+                       raft::distance::DistanceType::L2Expanded,
                      float metricArg = 0) {
   ASSERT(input.size() == sizes.size(),
          "input and sizes vectors should be the same size");

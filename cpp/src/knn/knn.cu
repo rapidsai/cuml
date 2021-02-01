@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -35,7 +35,8 @@ namespace ML {
 void brute_force_knn(raft::handle_t &handle, std::vector<float *> &input,
                      std::vector<int> &sizes, int D, float *search_items, int n,
                      int64_t *res_I, float *res_D, int k, bool rowMajorIndex,
-                     bool rowMajorQuery, raft::distance::DistanceType metric, float metric_arg) {
+                     bool rowMajorQuery, raft::distance::DistanceType metric,
+                     float metric_arg) {
   ASSERT(input.size() == sizes.size(),
          "input and sizes vectors must be the same size");
 
@@ -50,8 +51,8 @@ void brute_force_knn(raft::handle_t &handle, std::vector<float *> &input,
 
 void approx_knn_build_index(raft::handle_t &handle, ML::knnIndex *index,
                             ML::knnIndexParam *params, int D,
-                            raft::distance::DistanceType metric, float metricArg,
-                            float *index_items, int n) {
+                            raft::distance::DistanceType metric,
+                            float metricArg, float *index_items, int n) {
   MLCommon::Selection::approx_knn_build_index(
     index, params, D, metric, metricArg, index_items, n, handle.get_stream());
 }

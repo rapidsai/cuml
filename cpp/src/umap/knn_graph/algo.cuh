@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,11 +15,11 @@
  */
 
 #include <cuml/manifold/umapparams.h>
+#include <raft/linalg/distance_type.h>
 #include <cuml/manifold/common.hpp>
 #include <cuml/neighbors/knn_sparse.hpp>
 #include <iostream>
 #include <raft/linalg/unary_op.cuh>
-#include <raft/linalg/distance_type.h>
 #include <selection/knn.cuh>
 #include <sparse/selection/knn.cuh>
 

@@ -430,9 +430,9 @@ class NearestNeighbors(Base):
         elif metric == "inner_product":
             m = DistanceType.InnerProduct
         elif metric == "jaccard":
-            m = MetricType.JaccardExpanded
+            m = DistanceType.JaccardExpanded
         elif metric == "hellinger":
-            m = MetricType.HellingerExpanded
+            m = DistanceType.HellingerExpanded
         else:
             raise ValueError("Metric %s is not supported" % metric)
 

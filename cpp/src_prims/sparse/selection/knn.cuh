@@ -37,9 +37,9 @@
 #include <common/device_buffer.hpp>
 #include <cuml/common/cuml_allocator.hpp>
 
-#include <raft/cuda_utils.cuh>
 #include <raft/linalg/distance_type.h>
 #include <raft/sparse/cusparse_wrappers.h>
+#include <raft/cuda_utils.cuh>
 
 #include <cusparse_v2.h>
 
@@ -127,7 +127,8 @@ class sparse_knn_t {
                cudaStream_t stream_,
                size_t batch_size_index_ = 2 << 14,  // approx 1M
                size_t batch_size_query_ = 2 << 14,
-               raft::distance::DistanceType metric_ = raft::distance::DistanceType::L2Unexpanded,
+               raft::distance::DistanceType metric_ =
+                 raft::distance::DistanceType::L2Unexpanded,
                float metricArg_ = 0)
     : idxIndptr(idxIndptr_),
       idxIndices(idxIndices_),
@@ -151,13 +152,13 @@ class sparse_knn_t {
       batch_size_query(batch_size_query_),
       metric(metric_),
       metricArg(metricArg_) {
-      if (metric == raft::distance::DistanceType::L2Expanded ||
-          metric == raft::distance::DistanceType::L2SqrtExpanded ||
-          metric == raft::distance::DistanceType::CosineExpanded)
-        expanded_form = true;
-      else
-        expanded_form = false;
-      }
+    if (metric == raft::distance::DistanceType::L2Expanded ||
+        metric == raft::distance::DistanceType::L2SqrtExpanded ||
+        metric == raft::distance::DistanceType::CosineExpanded)
+      expanded_form = true;
+    else
+      expanded_form = false;
+  }
 
   void run() {
     using namespace raft::sparse;
@@ -497,7 +498,8 @@ void brute_force_knn(const value_idx *idxIndptr, const value_idx *idxIndices,
                      cudaStream_t stream,
                      size_t batch_size_index = 2 << 14,  // approx 1M
                      size_t batch_size_query = 2 << 14,
-                     raft::distance::DistanceType metric = raft::distance::DistanceType::L2Unexpanded,
+                     raft::distance::DistanceType metric =
+                       raft::distance::DistanceType::L2Unexpanded,
                      float metricArg = 0) {
   sparse_knn_t<value_idx, value_t>(
     idxIndptr, idxIndices, idxData, idxNNZ, n_idx_rows, n_idx_cols, queryIndptr,
