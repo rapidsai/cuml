@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2020, NVIDIA CORPORATION.
+# Copyright (c) 2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -27,6 +27,8 @@ import cudf
 from cuml.ensemble import RandomForestClassifier as curfc
 from cuml.metrics.cluster import adjusted_rand_score as cu_ars
 from cuml.metrics import accuracy_score as cu_acc_score
+from cuml.metrics.cluster import silhouette_score as cu_silhouette_score
+from cuml.metrics.cluster import silhouette_samples as cu_silhouette_samples
 from cuml.test.utils import get_handle, get_pattern, array_equal, \
     unit_param, quality_param, stress_param, generate_random_labels, \
     score_labeling_with_handle
@@ -41,6 +43,8 @@ from sklearn.metrics.cluster import adjusted_rand_score as sk_ars
 from sklearn.metrics.cluster import homogeneity_score as sk_homogeneity_score
 from sklearn.metrics.cluster import completeness_score as sk_completeness_score
 from sklearn.metrics.cluster import mutual_info_score as sk_mutual_info_score
+from sklearn.metrics.cluster import silhouette_score as sk_silhouette_score
+from sklearn.metrics.cluster import silhouette_samples as sk_silhouette_samples
 from sklearn.preprocessing import StandardScaler
 
 from cuml.metrics.cluster import entropy
@@ -220,6 +224,46 @@ def test_rand_index_score(name, nrows):
     cu_score_using_sk = sk_ars(y, cp.asnumpy(cu_y_pred))
 
     assert array_equal(cu_score, cu_score_using_sk)
+
+
+@pytest.mark.parametrize('metric', (
+    'cityblock', 'cosine', 'euclidean', 'l1', 'sqeuclidean'
+))
+@pytest.mark.parametrize('chunk_divider', [1, 3, 5])
+def test_silhouette_score_batched(metric, chunk_divider, labeled_clusters):
+    X, labels = labeled_clusters
+    cuml_score = cu_silhouette_score(X, labels, metric=metric,
+                                     chunksize=int(X.shape[0]/chunk_divider))
+    sk_score = sk_silhouette_score(X, labels, metric=metric)
+    assert_almost_equal(cuml_score, sk_score, decimal=3)
+
+
+@pytest.mark.parametrize('metric', (
+    'cityblock', 'cosine', 'euclidean', 'l1', 'sqeuclidean'
+))
+@pytest.mark.parametrize('chunk_divider', [1, 3, 5])
+def test_silhouette_samples_batched(metric, chunk_divider, labeled_clusters):
+    X, labels = labeled_clusters
+    cuml_scores = cu_silhouette_samples(X, labels, metric=metric,
+                                        chunksize=int(X.shape[0] /
+                                                      chunk_divider))
+    sk_scores = sk_silhouette_samples(X, labels, metric=metric)
+
+    cu_trunc = cp.around(cuml_scores, decimals=3)
+    sk_trunc = cp.around(sk_scores, decimals=3)
+
+    diff = cp.absolute(cu_trunc - sk_trunc) > 0
+    over_diff = cp.all(diff)
+
+    # 0.5% elements allowed to be different
+    if len(over_diff.shape) > 0:
+        assert over_diff.shape[0] <= 0.005 * X.shape[0]
+
+    # different elements should not differ more than 1e-1
+    tolerance_diff = cp.absolute(cu_trunc[diff] - sk_trunc[diff]) > 1e-1
+    diff_change = cp.all(tolerance_diff)
+    if len(diff_change.shape) > 0:
+        assert False
 
 
 def score_homogeneity(ground_truth, predictions, use_handle):
