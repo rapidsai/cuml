@@ -267,8 +267,8 @@ void approx_knn_build_index(ML::knnIndex *index, ML::knnIndexParam *params,
                             cudaStream_t userStream) {
   faiss::gpu::StandardGpuResources *gpu_res =
     new faiss::gpu::StandardGpuResources();
-  gpu_res->setTempMemory(3000000000);
-  gpu_res->setCudaMallocWarning(true);
+  gpu_res->noTempMemory();
+  gpu_res->setCudaMallocWarning(false);
   gpu_res->setDefaultStream(dev_id, userStream);
   index->gpu_res = gpu_res;
   index->device = dev_id;
