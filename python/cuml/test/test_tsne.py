@@ -135,7 +135,9 @@ def test_tsne(name, method):
         del Y
 
         # Again
-        tsne = TSNE(2, random_state=i+2, verbose=logger.level_debug,
+        tsne = TSNE(n_components=2,
+                    random_state=i+2,
+                    verbose=logger.level_debug,
                     method=method)
 
         # Reuse
