@@ -1,13 +1,8 @@
-# cuML 0.18.0 (Date TBD)
+# 0.18.0
 
-## New Features
+Please see https://github.com/rapidsai/cuml/releases/tag/branch-0.18-latest for the latest changes to this development branch.
 
-## Improvements
-
-## Bug Fixes
-- PR #3279: Correct pure virtual declaration in manifold_inputs_t
-
-# cuML 0.17.0 (Date TBD)
+# cuML 0.17.0 (10 Dec 2020)
 
 ## New Features
 - PR #3164: Expose silhouette score in Python
