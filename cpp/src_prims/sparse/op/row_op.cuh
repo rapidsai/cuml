@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -37,7 +37,7 @@ namespace raft {
 namespace sparse {
 namespace op {
 
-template <typename T, int TPB_X = 32, typename Lambda = auto(T, T, T)->void>
+template <typename T, int TPB_X = 256, typename Lambda = auto(T, T, T)->void>
 __global__ void csr_row_op_kernel(const T *row_ind, T n_rows, T nnz,
                                   Lambda op) {
   T row = blockIdx.x * TPB_X + threadIdx.x;
@@ -59,7 +59,7 @@ __global__ void csr_row_op_kernel(const T *row_ind, T n_rows, T nnz,
  * @param op custom row operation functor accepting the row and beginning index.
  * @param stream cuda stream to use
  */
-template <typename Index_, int TPB_X = 32,
+template <typename Index_, int TPB_X = 256,
           typename Lambda = auto(Index_, Index_, Index_)->void>
 void csr_row_op(const Index_ *row_ind, Index_ n_rows, Index_ nnz, Lambda op,
                 cudaStream_t stream) {
