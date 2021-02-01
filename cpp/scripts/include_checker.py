@@ -28,8 +28,6 @@ import typing
 # file names could (in theory) contain simple white-space
 IncludeRegex = re.compile(r"(\s*#include\s*)([\"<])([\S ]+)([\">])")
 PragmaRegex = re.compile(r"^ *\#pragma\s+once *$")
-UsingNamespaceRegex = re.compile(r"^ *\#pragma\s+once *$")
-NamespaceRegex = re.compile(r"^ *\#pragma\s+once *$")
 
 
 def parse_args():
@@ -133,8 +131,7 @@ def rel_include_warnings(dir, src, line_num, inc_file,
         warn.append(Issue(False, w, src, line_num))
 
     if any(
-            reduce(operator.or_,
-                   [os.path.basename(p) == f for f in top_inc_dirs])
+            any([os.path.basename(p) == f for f in top_inc_dirs])
             for p in abs_inc_folders):
 
         w = "rel include going over %s folders" % ("/".join(
@@ -163,16 +160,18 @@ def check_includes_in(src, inplace, top_inc_dirs) -> typing.List[Issue]:
         lines = list(enumerate(file_obj))
 
     for line_number, line in lines:
+        line_num = line_number + 1
+
         match = IncludeRegex.search(line)
         if match is None:
             # Check to see if its a pragma once
-            if (not found_pragma_once):
+            if not found_pragma_once:
                 pragma_match = PragmaRegex.search(line)
 
-                if (pragma_match is not None):
+                if pragma_match is not None:
                     found_pragma_once = True
 
-                    if (include_count > 0):
+                    if include_count > 0:
                         issues.append(
                             Issue(
                                 True,
@@ -186,7 +185,6 @@ def check_includes_in(src, inplace, top_inc_dirs) -> typing.List[Issue]:
         val_type = match.group(2)  # " or <
         inc_file = match.group(3)
         full_path = os.path.join(dir, inc_file)
-        line_num = line_number + 1
 
         if val_type == "\"" and not os.path.isfile(full_path):
             new_line, n = IncludeRegex.subn(r"\1<\3>", line)
@@ -249,8 +247,7 @@ def check_includes_in(src, inplace, top_inc_dirs) -> typing.List[Issue]:
 
     if inplace and len(issues) > 0:
         had_fixes = False
-        # print("File: {}. Changing lines {}".format(
-        #     src, ', '.join(str(x[0]) for x in to_fix)))
+
         for issue in issues:
             if (issue.fixed_str is not None):
                 lines[issue.line - 1] = (lines[issue.line - 1][0],
