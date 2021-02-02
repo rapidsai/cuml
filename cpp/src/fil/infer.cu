@@ -294,11 +294,11 @@ __device__ __forceinline__ void block_softmax(Iterator begin, Iterator end,
 // tmp_storage may NOT overlap shared memory addressed by begin..end
 template <typename Iterator>
 __device__ __forceinline__ void normalize_softmax_and_write(
-  Iterator begin, Iterator end, output_t transform, int num_trees,
+  Iterator begin, Iterator end, output_t transform, int trees_per_class,
   void* tmp_storage, float* out, int num_rows) {
   if ((transform & output_t::AVG) != 0) {
     for (Iterator it = begin + threadIdx.x; it < end; it += blockDim.x)
-      *it /= num_trees;
+      *it /= trees_per_class;
   }
   if ((transform & output_t::SOFTMAX) != 0)
     block_softmax(begin, end, tmp_storage);
@@ -314,15 +314,15 @@ __device__ __forceinline__ void normalize_softmax_and_write(
 // in case num_outputs > 1
 template <typename Iterator>
 __device__ __forceinline__ void class_margins_to_gmem(
-  Iterator begin, Iterator end, output_t transform, int num_trees,
+  Iterator begin, Iterator end, output_t transform, int trees_per_class,
   void* tmp_storage, float* out, int num_rows, int num_outputs) {
   if (num_outputs == 1) {  // will output class
     // reduce per-class candidate margins to one best class candidate
     // per thread (for each of the NITEMS rows)
     write_best_class(begin, end, tmp_storage, out, num_rows);
   } else {  // output softmax-ed margin
-    normalize_softmax_and_write(begin, end, transform, num_trees, tmp_storage,
-                                out, num_rows);
+    normalize_softmax_and_write(begin, end, transform, trees_per_class,
+                                tmp_storage, out, num_rows);
   }
 }
 
@@ -418,8 +418,8 @@ struct tree_aggregator_t<NITEMS, GROVE_PER_CLASS_MANY_CLASSES> {
     void* storage =
       num_outputs > 1 ? per_class_value + num_classes : tmp_storage;
     class_margins_to_gmem(per_class_value, per_class_value + num_classes,
-                          transform, num_trees, storage, out, num_rows,
-                          num_outputs);
+                          transform, num_trees / num_classes, storage, out,
+                          num_rows, num_outputs);
   }
 };
 
