@@ -22,8 +22,6 @@
 #include <raft/mr/device/allocator.hpp>
 #include <raft/mr/device/buffer.hpp>
 
-#include <common/allocatorAdapter.hpp>
-
 #include <sparse/distance/common.h>
 #include <sparse/utils.h>
 #include <sparse/csr.cuh>
