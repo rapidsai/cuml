@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -60,6 +60,10 @@ struct Builder {
   /** size of block-sync workspace (regression + MAE only) */
   size_t block_sync_size;
 
+  /** Tree index */
+  IdxT treeid;
+  /** Seed used for randomization */
+  uint64_t seed;
   /** number of nodes created in the current batch */
   IdxT* n_nodes;
   /** class histograms (classification only) */
@@ -133,14 +137,16 @@ struct Builder {
    *                        be computed fresh. [on device] [col-major]
    *                        [dim = nbins x sampledCols]
    */
-  void workspaceSize(size_t& d_wsize, size_t& h_wsize,
-                     const DecisionTreeParams& p, const DataT* data,
-                     const LabelT* labels, IdxT totalRows, IdxT totalCols,
-                     IdxT sampledRows, IdxT sampledCols, IdxT* rowids,
-                     IdxT* colids, IdxT nclasses, const DataT* quantiles) {
+  void workspaceSize(size_t& d_wsize, size_t& h_wsize, IdxT treeid,
+                     uint64_t seed, const DecisionTreeParams& p,
+                     const DataT* data, const LabelT* labels, IdxT totalRows,
+                     IdxT totalCols, IdxT sampledRows, IdxT sampledCols,
+                     IdxT* rowids, IdxT nclasses, const DataT* quantiles) {
     ASSERT(quantiles != nullptr,
            "Currently quantiles need to be computed before this call!");
     params = p;
+    this->treeid = treeid;
+    this->seed = seed;
     n_blks_for_cols = std::min(sampledCols, n_blks_for_cols);
     input.data = data;
     input.labels = labels;
@@ -149,7 +155,6 @@ struct Builder {
     input.nSampledRows = sampledRows;
     input.nSampledCols = sampledCols;
     input.rowids = rowids;
-    input.colids = colids;
     input.nclasses = nclasses;
     input.quantiles = quantiles;
     auto max_batch = params.max_batch_size;
@@ -294,6 +299,7 @@ struct Builder {
     h_nodes[0].start = 0;
     h_nodes[0].count = input.nSampledRows;
     h_nodes[0].depth = 0;
+    h_nodes[0].info.unique_id = 0;
   }
 
   /** check whether any more nodes need to be processed or not */
@@ -323,6 +329,7 @@ struct Builder {
     // start fresh on the number of *new* nodes created in this batch
     CUDA_CHECK(cudaMemsetAsync(n_nodes, 0, sizeof(IdxT), s));
     initSplit<DataT, IdxT, Traits::TPB_DEFAULT>(splits, batchSize, s);
+
     // get the current set of nodes to be worked upon
     raft::update_device(curr_nodes, h_nodes.data() + node_start, batchSize, s);
     // iterate through a batch of columns (to reduce the memory pressure) and
@@ -404,7 +411,7 @@ struct ClsTraits {
         b.hist, b.params.n_bins, b.params.max_depth, b.params.min_samples_split,
         b.params.min_samples_leaf, b.params.min_impurity_decrease,
         b.params.max_leaves, b.input, b.curr_nodes, col, b.done_count, b.mutex,
-        b.n_leaves, b.splits, splitType);
+        b.n_leaves, b.splits, splitType, b.treeid, b.seed);
   }
 
   /**
@@ -480,7 +487,7 @@ struct RegTraits {
         b.params.max_depth, b.params.min_samples_split,
         b.params.min_samples_leaf, b.params.min_impurity_decrease,
         b.params.max_leaves, b.input, b.curr_nodes, col, b.done_count, b.mutex,
-        b.n_leaves, b.splits, b.block_sync, splitType);
+        b.n_leaves, b.splits, b.block_sync, splitType, b.treeid, b.seed);
   }
 
   /**
