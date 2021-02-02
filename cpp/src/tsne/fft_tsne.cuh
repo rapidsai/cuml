@@ -49,9 +49,7 @@ struct FunctionalSqrt {
   }
 };
 struct FunctionalSquare {
-  __host__ __device__ float operator()(const float &x) const {
-    return x * x;
-  }
+  __host__ __device__ float operator()(const float &x) const { return x * x; }
 };
 template <typename T>
 cufftResult CUFFTAPI cufft_MakePlanMany(cufftHandle plan, T rank, T *n,
@@ -462,25 +460,29 @@ void FFT_TSNE(value_t *VAL, const value_idx *COL, const value_idx *ROW,
       normalization, momentum, exaggeration, n);
     CUDA_CHECK(cudaPeekAtLastError());
 
+    auto att_forces_thrust =
+      thrust::device_pointer_cast(attractive_forces_device.data());
+    auto old_forces_thrust =
+      thrust::device_pointer_cast(old_forces_device.data());
 
-    auto att_forces_thrust = thrust::device_pointer_cast(attractive_forces_device.data());
-    auto old_forces_thrust = thrust::device_pointer_cast(old_forces_device.data());
+    thrust::transform(thrust::cuda::par.on(stream), old_forces_thrust,
+                      old_forces_thrust + n, att_forces_thrust,
+                      FunctionalSquare());
 
-    thrust::transform(thrust::cuda::par.on(stream), old_forces_thrust, old_forces_thrust+n,
-                      att_forces_thrust, FunctionalSquare());
+    thrust::transform(thrust::cuda::par.on(stream), att_forces_thrust,
+                      att_forces_thrust + n, att_forces_thrust + n,
+                      att_forces_thrust, thrust::plus<value_t>());
 
-    thrust::transform(thrust::cuda::par.on(stream), att_forces_thrust, att_forces_thrust+n,
-                      att_forces_thrust+n, att_forces_thrust,
-                      thrust::plus<value_t>());
+    thrust::transform(thrust::cuda::par.on(stream), att_forces_thrust,
+                      att_forces_thrust + attractive_forces_device.size(),
+                      att_forces_thrust, FunctionalSqrt());
 
-    thrust::transform(thrust::cuda::par.on(stream), att_forces_thrust, att_forces_thrust+attractive_forces_device.size(),
-                        att_forces_thrust, FunctionalSqrt());
-
-    value_t grad_norm = thrust::reduce(thrust::cuda::par.on(stream),
-                                       att_forces_thrust, att_forces_thrust + attractive_forces_device.size(),
-      0.0f, thrust::plus<value_t>()) / attractive_forces_device.size();
-    if (grad_norm <= min_grad_norm)
-      break;
+    value_t grad_norm =
+      thrust::reduce(thrust::cuda::par.on(stream), att_forces_thrust,
+                     att_forces_thrust + attractive_forces_device.size(), 0.0f,
+                     thrust::plus<value_t>()) /
+      attractive_forces_device.size();
+    if (grad_norm <= min_grad_norm) break;
   }
 
   CUFFT_TRY(cufftDestroy(plan_kernel_tilde));
