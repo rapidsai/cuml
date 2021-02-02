@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,16 +14,22 @@
  * limitations under the License.
  */
 
-#include <matrix/reverse.cuh>
-#include <raft/matrix/matrix.cuh>
-
+#include <raft/cudart_utils.h>
+#include <raft/linalg/distance_type.h>
+#include <raft/sparse/cusparse_wrappers.h>
+#include <raft/cuda_utils.cuh>
 #include <raft/linalg/unary_op.cuh>
+#include <raft/matrix/matrix.cuh>
+#include <raft/mr/device/allocator.hpp>
+#include <raft/mr/device/buffer.hpp>
 
+#include <sparse/op/slice.h>
+#include <sparse/utils.h>
 #include <selection/knn.cuh>
 #include <sparse/coo.cuh>
 #include <sparse/csr.cuh>
-#include <sparse/distance.cuh>
-#include <sparse/selection.cuh>
+#include <sparse/distance/distance.cuh>
+#include <sparse/selection/selection.cuh>
 
 #include <raft/linalg/distance_type.h>
 
@@ -37,13 +43,11 @@
 
 #include <cusparse_v2.h>
 
-#include <sparse/utils.h>
-
 #pragma once
 
-namespace MLCommon {
-namespace Sparse {
-namespace Selection {
+namespace raft {
+namespace sparse {
+namespace selection {
 
 template <typename value_idx, typename value_t>
 struct csr_batcher_t {
@@ -69,27 +73,20 @@ struct csr_batcher_t {
       batch_stop_ = total_rows_ - 1;  // zero-based indexing
 
     batch_rows_ = (batch_stop_ - batch_start_) + 1;
-
-    CUML_LOG_DEBUG(
-      "Setting batch. batch_start=%d, batch_stop=%d, batch_rows=%d",
-      batch_start_, batch_stop_, batch_rows_);
   }
 
   value_idx get_batch_csr_indptr_nnz(value_idx *batch_indptr,
                                      cudaStream_t stream) {
-    MLCommon::Sparse::csr_row_slice_indptr(
+    raft::sparse::op::csr_row_slice_indptr(
       batch_start_, batch_stop_, csr_indptr_, batch_indptr,
       &batch_csr_start_offset_, &batch_csr_stop_offset_, stream);
-
-    CUML_LOG_DEBUG("Computed batch offsets. stop_offset=%d, start_offset=%d",
-                   batch_csr_stop_offset_, batch_csr_start_offset_);
 
     return batch_csr_stop_offset_ - batch_csr_start_offset_;
   }
 
   void get_batch_csr_indices_data(value_idx *csr_indices, value_t *csr_data,
                                   cudaStream_t stream) {
-    MLCommon::Sparse::csr_row_slice_populate(
+    raft::sparse::op::csr_row_slice_populate(
       batch_csr_start_offset_, batch_csr_stop_offset_, csr_indices_, csr_data_,
       csr_indices, csr_data, stream);
   }
@@ -126,7 +123,7 @@ class sparse_knn_t {
                size_t queryNNZ_, int n_query_rows_, int n_query_cols_,
                value_idx *output_indices_, value_t *output_dists_, int k_,
                cusparseHandle_t cusparseHandle_,
-               std::shared_ptr<deviceAllocator> allocator_,
+               std::shared_ptr<raft::mr::device::allocator> allocator_,
                cudaStream_t stream_,
                size_t batch_size_index_ = 2 << 14,  // approx 1M
                size_t batch_size_query_ = 2 << 14,
@@ -159,7 +156,6 @@ class sparse_knn_t {
   void run() {
     using namespace raft::sparse;
 
-    CUML_LOG_DEBUG("n_query_rows=%d, n_idx_rows=%d", n_query_rows, n_idx_rows);
     int n_batches_query = raft::ceildiv((size_t)n_query_rows, batch_size_query);
     csr_batcher_t<value_idx, value_t> query_batcher(
       batch_size_query, n_query_rows, queryIndptr, queryIndices, queryData);
@@ -168,35 +164,34 @@ class sparse_knn_t {
 
     for (int i = 0; i < n_batches_query; i++) {
       /**
-            * Compute index batch info
-            */
-      CUML_LOG_DEBUG("Beginning index batch %d", i);
+        * Compute index batch info
+        */
       query_batcher.set_batch(i);
 
       /**
-            * Slice CSR to rows in batch
-            */
-      CUML_LOG_DEBUG("Slicing query CSR for batch. rows=%d out of %d",
-                     query_batcher.batch_rows(), n_query_rows);
+        * Slice CSR to rows in batch
+        */
 
-      device_buffer<value_idx> query_batch_indptr(
+      raft::mr::device::buffer<value_idx> query_batch_indptr(
         allocator, stream, query_batcher.batch_rows() + 1);
 
       value_idx n_query_batch_nnz = query_batcher.get_batch_csr_indptr_nnz(
         query_batch_indptr.data(), stream);
 
-      device_buffer<value_idx> query_batch_indices(allocator, stream,
-                                                   n_query_batch_nnz);
-      device_buffer<value_t> query_batch_data(allocator, stream,
-                                              n_query_batch_nnz);
+      raft::mr::device::buffer<value_idx> query_batch_indices(
+        allocator, stream, n_query_batch_nnz);
+      raft::mr::device::buffer<value_t> query_batch_data(allocator, stream,
+                                                         n_query_batch_nnz);
 
       query_batcher.get_batch_csr_indices_data(query_batch_indices.data(),
                                                query_batch_data.data(), stream);
 
       // A 3-partition temporary merge space to scale the batching. 2 parts for subsequent
       // batches and 1 space for the results of the merge, which get copied back to the top
-      device_buffer<value_idx> merge_buffer_indices(allocator, stream, 0);
-      device_buffer<value_t> merge_buffer_dists(allocator, stream, 0);
+      raft::mr::device::buffer<value_idx> merge_buffer_indices(allocator,
+                                                               stream, 0);
+      raft::mr::device::buffer<value_t> merge_buffer_dists(allocator, stream,
+                                                           0);
 
       value_t *dists_merge_buffer_ptr;
       value_idx *indices_merge_buffer_ptr;
@@ -206,21 +201,19 @@ class sparse_knn_t {
         batch_size_index, n_idx_rows, idxIndptr, idxIndices, idxData);
 
       for (int j = 0; j < n_batches_idx; j++) {
-        CUML_LOG_DEBUG("Beginning query batch %d", j);
         idx_batcher.set_batch(j);
 
         merge_buffer_indices.resize(query_batcher.batch_rows() * k * 3, stream);
         merge_buffer_dists.resize(query_batcher.batch_rows() * k * 3, stream);
 
         /**
-              * Slice CSR to rows in batch
-            */
-        CUML_LOG_DEBUG("Slicing index CSR for batch. rows=%d out of %d",
-                       idx_batcher.batch_rows(), n_idx_rows);
-        device_buffer<value_idx> idx_batch_indptr(allocator, stream,
-                                                  idx_batcher.batch_rows() + 1);
-        device_buffer<value_idx> idx_batch_indices(allocator, stream, 0);
-        device_buffer<value_t> idx_batch_data(allocator, stream, 0);
+          * Slice CSR to rows in batch
+        */
+        raft::mr::device::buffer<value_idx> idx_batch_indptr(
+          allocator, stream, idx_batcher.batch_rows() + 1);
+        raft::mr::device::buffer<value_idx> idx_batch_indices(allocator, stream,
+                                                              0);
+        raft::mr::device::buffer<value_t> idx_batch_data(allocator, stream, 0);
 
         value_idx idx_batch_nnz =
           idx_batcher.get_batch_csr_indptr_nnz(idx_batch_indptr.data(), stream);
@@ -234,9 +227,13 @@ class sparse_knn_t {
         /**
            * Compute distances
            */
-        value_idx dense_size =
+        size_t dense_size =
           idx_batcher.batch_rows() * query_batcher.batch_rows();
-        device_buffer<value_t> batch_dists(allocator, stream, dense_size);
+        raft::mr::device::buffer<value_t> batch_dists(allocator, stream,
+                                                      dense_size);
+
+        CUDA_CHECK(cudaMemset(batch_dists.data(), 0,
+                              batch_dists.size() * sizeof(value_t)));
 
         compute_distances(idx_batcher, query_batcher, idx_batch_nnz,
                           n_query_batch_nnz, idx_batch_indptr.data(),
@@ -249,8 +246,8 @@ class sparse_knn_t {
         idx_batch_data.release(stream);
 
         // Build batch indices array
-        device_buffer<value_idx> batch_indices(allocator, stream,
-                                               batch_dists.size());
+        raft::mr::device::buffer<value_idx> batch_indices(allocator, stream,
+                                                          batch_dists.size());
 
         // populate batch indices array
         value_idx batch_rows = query_batcher.batch_rows(),
@@ -259,9 +256,8 @@ class sparse_knn_t {
         iota_fill(batch_indices.data(), batch_rows, batch_cols, stream);
 
         /**
-             * Perform k-selection on batch & merge with other k-selections
-             */
-        CUML_LOG_DEBUG("Performing k-selection");
+         * Perform k-selection on batch & merge with other k-selections
+         */
         size_t merge_buffer_offset = batch_rows * k;
         dists_merge_buffer_ptr =
           merge_buffer_dists.data() + merge_buffer_offset;
@@ -290,8 +286,6 @@ class sparse_knn_t {
                         indices_merge_buffer_tmp_ptr);
         }
 
-        CUML_LOG_DEBUG("Performing copy async");
-
         // copy merged output back into merge buffer partition for next iteration
         raft::copy_async<value_idx>(merge_buffer_indices.data(),
                                     indices_merge_buffer_tmp_ptr,
@@ -299,8 +293,6 @@ class sparse_knn_t {
         raft::copy_async<value_t>(merge_buffer_dists.data(),
                                   dists_merge_buffer_tmp_ptr, batch_rows * k,
                                   stream);
-
-        CUML_LOG_DEBUG("Done.");
       }
 
       // Copy final merged batch to output array
@@ -317,14 +309,11 @@ class sparse_knn_t {
 
   void perform_postprocessing(value_t *dists, size_t batch_rows) {
     // Perform necessary post-processing
-    if ((metric == ML::MetricType::METRIC_L2 ||
-         metric == ML::MetricType::METRIC_Lp) &&
-        !expanded_form) {
+    if (metric == ML::MetricType::METRIC_L2 && !expanded_form) {
       /**
         * post-processing
         */
       value_t p = 0.5;  // standard l2
-      if (metric == ML::MetricType::METRIC_Lp) p = 1.0 / metricArg;
       raft::linalg::unaryOp<value_t>(
         dists, dists, batch_rows * k,
         [p] __device__(value_t input) {
@@ -346,11 +335,10 @@ class sparse_knn_t {
     id_ranges.push_back(0);
     id_ranges.push_back(idx_batcher.batch_start());
 
-    device_buffer<value_idx> trans(allocator, stream, id_ranges.size());
+    raft::mr::device::buffer<value_idx> trans(allocator, stream,
+                                              id_ranges.size());
     raft::update_device(trans.data(), id_ranges.data(), id_ranges.size(),
                         stream);
-
-    CUML_LOG_DEBUG("Running merge parts");
 
     // combine merge buffers only if there's more than 1 partition to combine
     MLCommon::Selection::knn_merge_parts(
@@ -392,6 +380,27 @@ class sparse_knn_t {
       case ML::MetricType::METRIC_L2:
         pw_metric = raft::distance::DistanceType::L2Expanded;
         break;
+      case ML::MetricType::METRIC_L1:
+        pw_metric = raft::distance::DistanceType::L1;
+        break;
+      case ML::MetricType::METRIC_Canberra:
+        pw_metric = raft::distance::DistanceType::Canberra;
+        break;
+      case ML::MetricType::METRIC_Linf:
+        pw_metric = raft::distance::DistanceType::Linf;
+        break;
+      case ML::MetricType::METRIC_Lp:
+        pw_metric = raft::distance::DistanceType::LpUnexpanded;
+        break;
+      case ML::MetricType::METRIC_Jaccard:
+        pw_metric = raft::distance::DistanceType::JaccardExpanded;
+        break;
+      case ML::MetricType::METRIC_Cosine:
+        pw_metric = raft::distance::DistanceType::CosineExpanded;
+        break;
+      case ML::MetricType::METRIC_Hellinger:
+        pw_metric = raft::distance::DistanceType::HellingerExpanded;
+        break;
       default:
         THROW("MetricType not supported: %d", metric);
     }
@@ -408,11 +417,10 @@ class sparse_knn_t {
                          value_idx *query_batch_indices,
                          value_t *query_batch_data, value_t *batch_dists) {
     /**
-       * Compute distances
-       */
+     * Compute distances
+     */
     CUML_LOG_DEBUG("Computing pairwise distances for batch");
-    MLCommon::Sparse::Distance::distances_config_t<value_idx, value_t>
-      dist_config;
+    raft::sparse::distance::distances_config_t<value_idx, value_t> dist_config;
     dist_config.b_nrows = idx_batcher.batch_rows();
     dist_config.b_ncols = n_idx_cols;
     dist_config.b_nnz = idx_batch_nnz;
@@ -433,7 +441,8 @@ class sparse_knn_t {
     dist_config.allocator = allocator;
     dist_config.stream = stream;
 
-    Distance::pairwiseDistance(batch_dists, dist_config, get_pw_metric());
+    raft::sparse::distance::pairwiseDistance(batch_dists, dist_config,
+                                             get_pw_metric(), metricArg);
   }
 
   const value_idx *idxIndptr, *idxIndices, *queryIndptr, *queryIndices;
@@ -453,7 +462,7 @@ class sparse_knn_t {
 
   cusparseHandle_t cusparseHandle;
 
-  std::shared_ptr<deviceAllocator> allocator;
+  std::shared_ptr<raft::mr::device::allocator> allocator;
 
   cudaStream_t stream;
 };
@@ -492,7 +501,7 @@ void brute_force_knn(const value_idx *idxIndptr, const value_idx *idxIndices,
                      size_t queryNNZ, int n_query_rows, int n_query_cols,
                      value_idx *output_indices, value_t *output_dists, int k,
                      cusparseHandle_t cusparseHandle,
-                     std::shared_ptr<deviceAllocator> allocator,
+                     std::shared_ptr<raft::mr::device::allocator> allocator,
                      cudaStream_t stream,
                      size_t batch_size_index = 2 << 14,  // approx 1M
                      size_t batch_size_query = 2 << 14,
@@ -506,6 +515,6 @@ void brute_force_knn(const value_idx *idxIndptr, const value_idx *idxIndices,
     .run();
 }
 
-};  // END namespace Selection
-};  // END namespace Sparse
-};  // END namespace MLCommon
+};  // namespace selection
+};  // namespace sparse
+};  // namespace raft

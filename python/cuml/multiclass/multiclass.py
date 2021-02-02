@@ -1,4 +1,4 @@
-# Copyright (c) 2020, NVIDIA CORPORATION.
+# Copyright (c) 2020-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -75,10 +75,11 @@ class MulticlassClassifier(Base, ClassifierMixin):
 
     Attributes
     ----------
-    classes_ : float, shape (n_classes_)
+    classes_ : float, shape (`n_classes_`)
         Array of class labels.
     n_classes_ : int
         Number of classes.
+
     """
     def __init__(self,
                  estimator,

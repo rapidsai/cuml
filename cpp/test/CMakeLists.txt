@@ -1,5 +1,5 @@
 #=============================================================================
-# Copyright (c) 2018-2020, NVIDIA CORPORATION.
+# Copyright (c) 2018-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -139,7 +139,6 @@ if(BUILD_PRIMS_TESTS)
     prims/columnSort.cu
     prims/completeness_score.cu
     prims/contingencyMatrix.cu
-    prims/coo.cu
     prims/cov.cu
     prims/csr.cu
     prims/cutlass_gemm.cu
@@ -176,6 +175,7 @@ if(BUILD_PRIMS_TESTS)
     prims/make_arima.cu
     prims/make_blobs.cu
     prims/make_regression.cu
+    prims/merge_labels.cu
     prims/minmax.cu
     prims/mvg.cu
     prims/mutual_info_score.cu
@@ -190,12 +190,23 @@ if(BUILD_PRIMS_TESTS)
     prims/score.cu
     prims/seive.cu
     prims/sigmoid.cu
+    prims/sparse/add.cu
+    prims/sparse/convert_coo.cu
+    prims/sparse/convert_csr.cu
     prims/sparse/csr_row_slice.cu
     prims/sparse/csr_to_dense.cu
     prims/sparse/csr_transpose.cu
+    prims/sparse/degree.cu
+    prims/sparse/dist_coo_spmv.cu
+    prims/sparse/dist_csr_spmv.cu
     prims/sparse/distance.cu
+    prims/sparse/filter.cu
     prims/sparse/knn.cu
+    prims/sparse/norm.cu
+    prims/sparse/row_op.cu
     prims/sparse/selection.cu
+    prims/sparse/sort.cu
+    prims/sparse/symmetrize.cu
     prims/silhouette_score.cu
     prims/sqrt.cu
     prims/ternary_op.cu
