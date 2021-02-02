@@ -21,7 +21,7 @@ from cuml.dask.common.base import DelayedTransformMixin
 from cuml.dask.common.base import mnmg_import
 
 from cuml.raft.dask.common.comms import Comms
-from cuml.raft.dask.common.comms import worker_state
+from cuml.raft.dask.common.comms import get_raft_comm_state
 
 from cuml.dask.common.utils import wait_and_raise_from_futures
 
@@ -83,7 +83,7 @@ class DBSCAN(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
     def _func_fit(out_dtype):
         def _func(sessionId, data, verbose, **kwargs):
             from cuml.cluster.dbscan_mg import DBSCANMG as cumlDBSCAN
-            handle = worker_state(sessionId)["handle"]
+            handle = get_raft_comm_state(sessionId)["handle"]
 
             return cumlDBSCAN(handle=handle, verbose=verbose, **kwargs
                               ).fit(data, out_dtype=out_dtype)
