@@ -45,31 +45,6 @@ def check_embedding(X, Y, score=0.76):
 
 @pytest.mark.parametrize('name', dataset_names)
 @pytest.mark.parametrize('type_knn_graph', ['sklearn', 'cuml'])
-@pytest.mark.parametrize('method', ['fft'])
-def test_tsne_knn_parameters(name, type_knn_graph, method):
-
-    datasets
-    X = eval("datasets.load_{}".format(name))().data
-
-    neigh = skKNN(n_neighbors=90) if type_knn_graph == 'sklearn' \
-        else cuKNN(n_neighbors=90)
-
-    neigh.fit(X)
-    knn_graph = neigh.kneighbors_graph(X, mode="distance").astype('float32')
-
-    for i in range(3):
-        tsne = TSNE(random_state=1, n_neighbors=90, method=method)
-        Y = tsne.fit_transform(X, True, knn_graph)
-        check_embedding(X, Y)
-        Y = tsne.fit_transform(X, True, knn_graph.tocoo())
-        check_embedding(X, Y)
-        Y = tsne.fit_transform(X, True, knn_graph.tocsc())
-        check_embedding(X, Y)
-        del Y
-
-
-@pytest.mark.parametrize('name', dataset_names)
-@pytest.mark.parametrize('type_knn_graph', ['sklearn', 'cuml'])
 @pytest.mark.parametrize('method', ['fft', 'barnes_hut'])
 def test_tsne_knn_graph_used(name, type_knn_graph, method):
 
@@ -81,7 +56,10 @@ def test_tsne_knn_graph_used(name, type_knn_graph, method):
 
     neigh.fit(X)
     knn_graph = neigh.kneighbors_graph(X, mode="distance").astype('float32')
-    tsne = TSNE(random_state=1, n_neighbors=90, method=method)
+    tsne = TSNE(random_state=1,
+                n_neighbors=90,
+                angle=0.8,
+                method=method)
 
     # Perform tsne with normal knn_graph
     Y = tsne.fit_transform(X, True, knn_graph)
@@ -110,6 +88,31 @@ def test_tsne_knn_graph_used(name, type_knn_graph, method):
 
 
 @pytest.mark.parametrize('name', dataset_names)
+@pytest.mark.parametrize('type_knn_graph', ['sklearn', 'cuml'])
+@pytest.mark.parametrize('method', ['fft', 'barnes_hut'])
+def test_tsne_knn_parameters(name, type_knn_graph, method):
+
+    datasets
+    X = eval("datasets.load_{}".format(name))().data
+
+    neigh = skKNN(n_neighbors=90) if type_knn_graph == 'sklearn' \
+        else cuKNN(n_neighbors=90)
+
+    neigh.fit(X)
+    knn_graph = neigh.kneighbors_graph(X, mode="distance").astype('float32')
+
+    for i in range(3):
+        tsne = TSNE(random_state=1, n_neighbors=90, method=method)
+        Y = tsne.fit_transform(X, True, knn_graph)
+        check_embedding(X, Y)
+        Y = tsne.fit_transform(X, True, knn_graph.tocoo())
+        check_embedding(X, Y)
+        Y = tsne.fit_transform(X, True, knn_graph.tocsc())
+        check_embedding(X, Y)
+        del Y
+
+
+@pytest.mark.parametrize('name', dataset_names)
 @pytest.mark.parametrize('method', ['fft', 'barnes_hut'])
 def test_tsne(name, method):
     """
@@ -127,7 +130,8 @@ def test_tsne(name, method):
     for i in range(3):
         print("iteration = ", i)
 
-        tsne = TSNE(2, random_state=i, verbose=False)
+        tsne = TSNE(n_components=2, random_state=i,
+                    n_neighbors=90, verbose=False)
 
         # Reuse
         Y = tsne.fit_transform(X)
@@ -247,7 +251,8 @@ def test_tsne_knn_parameters_sparse(type_knn_graph, input_type, method):
     else:
         sp_prefix = scipy.sparse
 
-    tsne = TSNE(n_components=2, random_state=1, method=method)
+    tsne = TSNE(n_components=2, n_neighbors=90,
+                random_state=1, method=method)
 
     new_data = sp_prefix.csr_matrix(
         scipy.sparse.csr_matrix(selected_digits))
