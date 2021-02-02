@@ -27,6 +27,7 @@
 
 using namespace thrust;
 
+namespace ML {
 namespace Dbscan {
 namespace AdjGraph {
 namespace Algo {
@@ -37,30 +38,21 @@ static const int TPB_X = 256;
 
 /**
  * Takes vertex degree array (vd) and CSR row_ind array (ex_scan) to produce the
- * CSR row_ind_ptr array (adj_graph) and filters into a core_pts array based on min_pts.
+ * CSR row_ind_ptr array (adj_graph)
  */
 template <typename Index_ = int>
-void launcher(const raft::handle_t &handle, Pack<Index_> data, Index_ batchSize,
-              cudaStream_t stream) {
+void launcher(const raft::handle_t &handle, Pack<Index_> data,
+              Index_ batch_size, cudaStream_t stream) {
   device_ptr<Index_> dev_vd = device_pointer_cast(data.vd);
   device_ptr<Index_> dev_ex_scan = device_pointer_cast(data.ex_scan);
 
   ML::thrustAllocatorAdapter alloc(handle.get_device_allocator(), stream);
   exclusive_scan(thrust::cuda::par(alloc).on(stream), dev_vd,
-                 dev_vd + batchSize, dev_ex_scan);
-
-  bool *core_pts = data.core_pts;
-  int minPts = data.minPts;
-  Index_ *vd = data.vd;
+                 dev_vd + batch_size, dev_ex_scan);
 
   raft::sparse::convert::csr_adj_graph_batched<Index_, TPB_X>(
-    data.ex_scan, data.N, data.adjnnz, batchSize, data.adj, data.adj_graph,
-    stream,
-    [core_pts, minPts, vd] __device__(Index_ row, Index_ start_idx,
-                                      Index_ stop_idx) {
-      // fuse the operation of core points construction
-      core_pts[row] = (vd[row] >= minPts);
-    });
+    data.ex_scan, data.N, data.adjnnz, batch_size, data.adj, data.adj_graph,
+    stream);
 
   CUDA_CHECK(cudaPeekAtLastError());
 }
@@ -68,3 +60,4 @@ void launcher(const raft::handle_t &handle, Pack<Index_> data, Index_ batchSize,
 }  // namespace Algo
 }  // namespace AdjGraph
 }  // namespace Dbscan
+}  // namespace ML
