@@ -223,31 +223,23 @@ struct tree_aggregator_t {
   }
 };
 
-// caller must ensure `value` has been read by all threads before
-// block_allreduce, so that the location tmp_storage is safe to use
-template <typename T, typename BinaryOp>
-__device__ __forceinline__ T block_allreduce(T value, BinaryOp op,
-                                             void* storage) {
-  T result = block_reduce(value, op, storage);
-  // broadcast sum to all threads
-  __syncthreads();  // free up tmp_storage
-  if (threadIdx.x == 0) *(T*)storage = result;
-  __syncthreads();
-  return *(T*)storage;
-}
-
 // tmp_storage may overlap shared memory addressed by begin..end
 // allreduce_shmem ensures no race conditions
 template <typename Iterator, typename BinaryOp>
 __device__ __forceinline__ auto allreduce_shmem(Iterator begin, Iterator end,
                                                 BinaryOp op,
                                                 void* tmp_storage) {
-  typename std::iterator_traits<Iterator>::value_type thread_partial;
+  typedef typename std::iterator_traits<Iterator>::value_type value_type;
+  value_type thread_partial;
   for (Iterator it = begin + threadIdx.x; it < end; it += blockDim.x)
     thread_partial = op(thread_partial, *it);
   __syncthreads();  // free shared memory begin..end
-  auto res = block_allreduce(thread_partial, op, tmp_storage);
-  return res;
+  auto res = block_reduce(thread_partial, op, tmp_storage);
+  // broadcast sum to all threads
+  __syncthreads();  // free up tmp_storage
+  if (threadIdx.x == 0) *(value_type*)tmp_storage = res;
+  __syncthreads();
+  return *(value_type*)tmp_storage;
 }
 
 // tmp_storage may overlap shared memory addressed by begin..end
