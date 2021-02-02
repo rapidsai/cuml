@@ -253,15 +253,6 @@ if(BUILD_CUML_C_LIBRARY)
     c_api/svm_api_test.c
   )
 
-  # target_compile_definitions(${CUML_C_TARGET}
-  #   PRIVATE
-  #     CUML_C_API)
-
-  # target_include_directories(${CUML_C_TARGET}
-  #   PRIVATE 
-  #     ${CUML_SRC_DIR}
-  # )
-
   target_link_libraries(${CUML_C_TEST_TARGET} PUBLIC ${CUML_C_TARGET})
 
 endif(BUILD_CUML_C_LIBRARY)

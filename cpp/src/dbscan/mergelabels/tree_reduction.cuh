@@ -16,7 +16,6 @@
 
 #pragma once
 
-#include <common/cumlHandle.hpp>
 #include "runner.cuh"
 
 namespace ML {

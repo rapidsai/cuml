@@ -18,20 +18,24 @@
 #else
 #define omp_get_max_threads() 1
 #endif
+
+#include <cuml/ensemble/randomforest.hpp>
+
 #include <cuml/tree/flatnode.h>
 #include <treelite/c_api.h>
 #include <treelite/tree.h>
-#include <cstdio>
-#include <cstring>
+
 #include <cuml/common/logger.hpp>
-#include <cuml/ensemble/randomforest.hpp>
-#include <fstream>
-#include <iostream>
 #include <raft/error.hpp>
-#include <string>
-#include <vector>
 
 #include "randomforest_impl.cuh"
+
+#include <cstdio>
+#include <cstring>
+#include <fstream>
+#include <iostream>
+#include <string>
+#include <vector>
 
 namespace ML {
 
