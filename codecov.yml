@@ -5,10 +5,4 @@ coverage:
     patch: off
 comment:
   behavior: new
-flags:
-  non-dask:
-    paths:
-      - "!python/cuml/dask/"
-  dask:
-    paths:
-      - "python/cuml/dask/"
+
