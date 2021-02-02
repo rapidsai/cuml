@@ -553,8 +553,9 @@ class MultinomialNB(Base, ClassifierMixin):
 
         Parameters
         ----------
-        X : cupy.ndarray or cupyx.scipy.sparse matrix of size
-                  (n_rows, n_features)
+        x_coo_rows : cupy.ndarray of size (nnz)
+        x_coo_cols : cupy.ndarray of size (nnz)
+        x_coo_data : cupy.ndarray of size (nnz)
         Y : cupy.array of monotonic class labels
         """
 
