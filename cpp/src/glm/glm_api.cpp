@@ -16,8 +16,8 @@
 
 #include <cuml/linear_model/glm_api.h>
 
+#include <common/cumlHandle.hpp>
 #include <cuml/linear_model/glm.hpp>
-#include "common/cumlHandle.hpp"
 
 extern "C" {
 

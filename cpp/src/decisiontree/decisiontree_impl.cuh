@@ -15,7 +15,6 @@
  */
 
 #include <cuml/tree/flatnode.h>
-#include <decisiontree/quantile/quantile.h>
 #include <raft/cudart_utils.h>
 #include <treelite/tree.h>
 #include <common/iota.cuh>
@@ -31,6 +30,7 @@
 #include "levelalgo/metric.cuh"
 #include "memory.cuh"
 #include "quantile/quantile.cuh"
+#include "quantile/quantile.h"
 #include "treelite_util.h"
 
 namespace ML {

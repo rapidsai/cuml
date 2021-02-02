@@ -20,7 +20,7 @@
 #include <cmath>
 
 #include <raft/cudart_utils.h>
-#include <sparse/distance/common.h>
+#include "common.h"
 
 #include <raft/cudart_utils.h>
 #include <raft/linalg/distance_type.h>
@@ -31,11 +31,11 @@
 #include <raft/mr/device/allocator.hpp>
 #include <raft/mr/device/buffer.hpp>
 
-#include <sparse/utils.h>
-#include <sparse/csr.cuh>
+#include "../csr.cuh"
+#include "../utils.h"
 
-#include <sparse/distance/common.h>
-#include <sparse/distance/ip_distance.cuh>
+#include "common.h"
+#include "ip_distance.cuh"
 
 #include <cuml/neighbors/knn.hpp>
 
