@@ -116,7 +116,6 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
   void setup_helper() {
     // setup
     ps = testing::TestWithParam<FilTestParams>::GetParam();
-    std::cout << ps << std::endl;
     CUDA_CHECK(cudaStreamCreate(&stream));
     handle.set_stream(stream);
 
@@ -261,7 +260,7 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
 
   void transform(float f, float& proba, float& output) {
     if ((ps.output & fil::output_t::AVG) != 0) {
-      if(ps.leaf_algo == fil::leaf_algo_t::GROVE_PER_CLASS)
+      if (ps.leaf_algo == fil::leaf_algo_t::GROVE_PER_CLASS)
         f /= (ps.num_trees / ps.num_classes);
       else
         f *= (1.0f / ps.num_trees);
@@ -680,7 +679,6 @@ std::vector<FilTestParams> predict_dense_inputs = {
   FIL_TEST_PARAMS(output = SIGMOID_CLASS, algo = BATCH_TREE_REORG,
                   num_classes = 2),
   FIL_TEST_PARAMS(output = AVG),
-  // 10
   FIL_TEST_PARAMS(output = AVG, algo = TREE_REORG),
   FIL_TEST_PARAMS(output = AVG, algo = BATCH_TREE_REORG),
   FIL_TEST_PARAMS(output = AVG_CLASS, num_classes = 2),
@@ -692,7 +690,6 @@ std::vector<FilTestParams> predict_dense_inputs = {
   FIL_TEST_PARAMS(output = AVG_CLASS, threshold = 1.0, global_bias = 0.5,
                   algo = TREE_REORG, num_classes = 2),
   FIL_TEST_PARAMS(output = SIGMOID, algo = ALGO_AUTO),
-  // 20
   FIL_TEST_PARAMS(output = AVG_CLASS, algo = BATCH_TREE_REORG,
                   leaf_algo = CATEGORICAL_LEAF, num_classes = 5),
   FIL_TEST_PARAMS(output = AVG_CLASS, num_classes = 2),
@@ -712,7 +709,6 @@ std::vector<FilTestParams> predict_dense_inputs = {
                   num_classes = 7),
   FIL_TEST_PARAMS(num_trees = 52, global_bias = 0.5, algo = TREE_REORG,
                   leaf_algo = GROVE_PER_CLASS, num_classes = 4),
-  // 30
   FIL_TEST_PARAMS(num_trees = 52, output = AVG, global_bias = 0.5,
                   leaf_algo = GROVE_PER_CLASS, num_classes = 4),
   FIL_TEST_PARAMS(blocks_per_sm = 1),
@@ -731,7 +727,6 @@ std::vector<FilTestParams> predict_dense_inputs = {
                   num_trees = 512, num_classes = 512),
   FIL_TEST_PARAMS(num_trees = 52, output = SOFTMAX, leaf_algo = GROVE_PER_CLASS,
                   num_classes = 4),
-  // 40
   FIL_TEST_PARAMS(num_trees = 52, output = AVG_SOFTMAX,
                   leaf_algo = GROVE_PER_CLASS, num_classes = 4),
 };

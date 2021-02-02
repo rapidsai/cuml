@@ -274,14 +274,14 @@ __device__ float shifted_exp(float margin, float max) {
   return expf(margin - max);
 }
 
-// tmp_storage may overlap shared memory addressed by begin..end
+// TODO: fix tmp_storage placement
+// tmp_storage may NOT overlap shared memory addressed by begin..end
 template <typename Iterator>
 __device__ __forceinline__ void block_softmax(Iterator begin, Iterator end,
                                               void* tmp_storage) {
   // subtract max before exponentiating for numerical stability
   typedef typename std::iterator_traits<Iterator>::value_type value_type;
   value_type max = allreduce_shmem(begin, end, vectorized(Max()), tmp_storage);
-
   for (Iterator it = begin + threadIdx.x; it < end; it += blockDim.x)
     *it = vectorized(shifted_exp)(*it, max);
   // sum of exponents
@@ -291,20 +291,17 @@ __device__ __forceinline__ void block_softmax(Iterator begin, Iterator end,
     *it /= soe;
 }
 
-// tmp_storage may overlap shared memory addressed by begin..end
+// tmp_storage may NOT overlap shared memory addressed by begin..end
 template <typename Iterator>
 __device__ __forceinline__ void normalize_softmax_and_write(
   Iterator begin, Iterator end, output_t transform, int num_trees,
   void* tmp_storage, float* out, int num_rows) {
   if ((transform & output_t::AVG) != 0) {
-    if (!threadIdx.x && !blockIdx.x) printf("averaging in kernel\n");
     for (Iterator it = begin + threadIdx.x; it < end; it += blockDim.x)
       *it /= num_trees;
   }
-  if ((transform & output_t::SOFTMAX) != 0) {
-    if (!threadIdx.x && !blockIdx.x) printf("softmax in kernel\n");
+  if ((transform & output_t::SOFTMAX) != 0)
     block_softmax(begin, end, tmp_storage);
-  }
 // write result to global memory
 #pragma unroll
   for (int row = 0; row < num_rows; ++row) {
@@ -313,7 +310,8 @@ __device__ __forceinline__ void normalize_softmax_and_write(
   }
 }
 
-// tmp_storage may overlap shared memory addressed by begin..end
+// tmp_storage may NOT overlap shared memory addressed by begin..end
+// in case num_outputs > 1
 template <typename Iterator>
 __device__ __forceinline__ void class_margins_to_gmem(
   Iterator begin, Iterator end, output_t transform, int num_trees,
@@ -341,7 +339,7 @@ struct tree_aggregator_t<NITEMS, GROVE_PER_CLASS_FEW_CLASSES> {
     size_t phase2 = predict_proba
                       ? block_reduce_footprint_host<NITEMS>()
                       : block_reduce_best_class_footprint_host<NITEMS>();
-    return std::max(phase1, phase2);
+    return predict_proba ? phase1 + phase2 : std::max(phase1, phase2);
   }
 
   static size_t smem_accumulate_footprint(int num_classes) { return 0; }
@@ -367,8 +365,9 @@ struct tree_aggregator_t<NITEMS, GROVE_PER_CLASS_FEW_CLASSES> {
     if (threadIdx.x < num_classes) per_thread[threadIdx.x] = acc;
     __syncthreads();  // per_thread needs to be fully populated
 
+    void* storage = num_outputs > 1 ? per_thread + num_classes : tmp_storage;
     class_margins_to_gmem(per_thread, per_thread + num_classes, transform,
-                          num_trees / num_classes, tmp_storage, out, num_rows,
+                          num_trees / num_classes, storage, out, num_rows,
                           num_outputs);
   }
 };
@@ -383,11 +382,11 @@ struct tree_aggregator_t<NITEMS, GROVE_PER_CLASS_MANY_CLASSES> {
 
   static size_t smem_finalize_footprint(size_t data_row_size, int num_classes,
                                         bool predict_proba) {
-    size_t phase1 = data_row_size + num_classes * sizeof(vec<NITEMS, float>);
-    return predict_proba
-             ? phase1 + block_reduce_footprint_host<NITEMS>()
-             : std::max(phase1,
-                        block_reduce_best_class_footprint_host<NITEMS>());
+    size_t phase1 = data_row_size + smem_accumulate_footprint(num_classes);
+    size_t phase2 = predict_proba
+                      ? block_reduce_footprint_host<NITEMS>()
+                      : block_reduce_best_class_footprint_host<NITEMS>();
+    return predict_proba ? phase1 + phase2 : std::max(phase1, phase2);
   }
 
   static size_t smem_accumulate_footprint(int num_classes) {
@@ -416,8 +415,10 @@ struct tree_aggregator_t<NITEMS, GROVE_PER_CLASS_MANY_CLASSES> {
   __device__ __forceinline__ void finalize(float* out, int num_rows,
                                            int num_outputs, output_t transform,
                                            int num_trees) {
+    void* storage =
+      num_outputs > 1 ? per_class_value + num_classes : tmp_storage;
     class_margins_to_gmem(per_class_value, per_class_value + num_classes,
-                          transform, num_trees / num_classes, tmp_storage, out,
+                          transform, num_trees / num_classes, storage, out,
                           num_rows, num_outputs);
   }
 };
