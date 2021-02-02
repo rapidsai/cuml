@@ -1,5 +1,5 @@
 
-# Copyright (c) 2019-2020, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,7 +15,7 @@
 #
 
 
-# Copyright (c) 2019-2020, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -42,6 +42,9 @@ import pandas as pd
 from cuml.dask.ensemble import RandomForestClassifier as cuRFC_mg
 from cuml.dask.ensemble import RandomForestRegressor as cuRFR_mg
 from cuml.dask.common import utils as dask_utils
+
+from cuml.ensemble import RandomForestClassifier as cuRFC_sg
+from cuml.ensemble import RandomForestRegressor as cuRFR_sg
 
 from dask.array import from_array
 from sklearn.datasets import make_regression, make_classification
@@ -434,6 +437,47 @@ def test_rf_get_json(client, estimator_type, max_depth, n_estimators):
             pred.append(predict_with_json_rf_regressor(json_obj, row))
         pred = np.array(pred, dtype=np.float32)
         np.testing.assert_almost_equal(pred, expected_pred, decimal=6)
+
+
+@pytest.mark.parametrize('estimator_type', ['regression', 'classification'])
+def test_rf_get_combined_model_right_aftter_fit(client, estimator_type):
+    max_depth = 3
+    n_estimators = 5
+    X, y = make_classification()
+    X = X.astype(np.float32)
+    if estimator_type == 'classification':
+        cu_rf_mg = cuRFC_mg(
+            max_features=1.0,
+            max_samples=1.0,
+            n_bins=16,
+            n_streams=1,
+            n_estimators=n_estimators,
+            max_leaves=-1,
+            max_depth=max_depth
+        )
+        y = y.astype(np.int32)
+    elif estimator_type == 'regression':
+        cu_rf_mg = cuRFR_mg(
+            max_features=1.0,
+            max_samples=1.0,
+            n_bins=16,
+            n_streams=1,
+            n_estimators=n_estimators,
+            max_leaves=-1,
+            max_depth=max_depth
+        )
+        y = y.astype(np.float32)
+    else:
+        assert False
+    X_dask, y_dask = _prep_training_data(client, X, y, partitions_per_worker=2)
+    cu_rf_mg.fit(X_dask, y_dask)
+    single_gpu_model = cu_rf_mg.get_combined_model()
+    if estimator_type == 'classification':
+        assert isinstance(single_gpu_model, cuRFC_sg)
+    elif estimator_type == 'regression':
+        assert isinstance(single_gpu_model, cuRFR_sg)
+    else:
+        assert False
 
 
 @pytest.mark.parametrize('n_estimators', [5, 10, 20])

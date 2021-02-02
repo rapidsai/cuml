@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -264,13 +264,78 @@ __device__ OutT* alignPointer(InT input) {
     raft::alignTo(reinterpret_cast<size_t>(input), sizeof(OutT)));
 }
 
+// 32-bit FNV1a hash
+// Reference: http://www.isthe.com/chongo/tech/comp/fnv/index.html
+const uint32_t fnv1a32_prime = uint32_t(16777619);
+const uint32_t fnv1a32_basis = uint32_t(2166136261);
+
+DI uint32_t fnv1a32(uint32_t hash, uint32_t txt) {
+  hash ^= (txt >> 0) & 0xFF;
+  hash *= fnv1a32_prime;
+  hash ^= (txt >> 8) & 0xFF;
+  hash *= fnv1a32_prime;
+  hash ^= (txt >> 16) & 0xFF;
+  hash *= fnv1a32_prime;
+  hash ^= (txt >> 24) & 0xFF;
+  hash *= fnv1a32_prime;
+  return hash;
+}
+
+/**
+ * @brief For a given values of (treeid, nodeid, seed), this function generates
+ *        a unique permutation of [0, N - 1] values and returns 'k'th entry in
+ *        from the permutation.
+ * @return The 'k'th value from the permutation
+ * @note This function does not allocated any temporary buffer, all the
+ *       necessary values are recomputed.
+ */
+template <typename IdxT>
+DI IdxT select(IdxT k, IdxT treeid, uint32_t nodeid, uint64_t seed, IdxT N) {
+  __shared__ int blksum;
+  uint32_t pivot_hash;
+  int cnt = 0;
+
+  if (threadIdx.x == 0) {
+    blksum = 0;
+  }
+  // Compute hash for the 'k'th index and use it as pivote for sorting
+  pivot_hash = fnv1a32_basis;
+  pivot_hash = fnv1a32(pivot_hash, uint32_t(k));
+  pivot_hash = fnv1a32(pivot_hash, uint32_t(treeid));
+  pivot_hash = fnv1a32(pivot_hash, uint32_t(nodeid));
+  pivot_hash = fnv1a32(pivot_hash, uint32_t(seed >> 32));
+  pivot_hash = fnv1a32(pivot_hash, uint32_t(seed));
+
+  // Compute hash for rest of the indices and count instances where i_hash is
+  // less than pivot_hash
+  uint32_t i_hash;
+  for (int i = threadIdx.x; i < N; i += blockDim.x) {
+    if (i == k) continue;  // Skip since k is the pivote index
+    i_hash = fnv1a32_basis;
+    i_hash = fnv1a32(i_hash, uint32_t(i));
+    i_hash = fnv1a32(i_hash, uint32_t(treeid));
+    i_hash = fnv1a32(i_hash, uint32_t(nodeid));
+    i_hash = fnv1a32(i_hash, uint32_t(seed >> 32));
+    i_hash = fnv1a32(i_hash, uint32_t(seed));
+
+    if (i_hash < pivot_hash)
+      cnt++;
+    else if (i_hash == pivot_hash && i < k)
+      cnt++;
+  }
+  __syncthreads();
+  if (cnt > 0) atomicAdd(&blksum, cnt);
+  __syncthreads();
+  return blksum;
+}
+
 template <typename DataT, typename LabelT, typename IdxT, int TPB>
 __global__ void computeSplitClassificationKernel(
   int* hist, IdxT nbins, IdxT max_depth, IdxT min_samples_split,
   IdxT min_samples_leaf, DataT min_impurity_decrease, IdxT max_leaves,
   Input<DataT, LabelT, IdxT> input, const Node<DataT, LabelT, IdxT>* nodes,
   IdxT colStart, int* done_count, int* mutex, const IdxT* n_leaves,
-  Split<DataT, IdxT>* splits, CRITERION splitType) {
+  Split<DataT, IdxT>* splits, CRITERION splitType, IdxT treeid, uint64_t seed) {
   extern __shared__ char smem[];
   IdxT nid = blockIdx.z;
   auto node = nodes[nid];
@@ -288,7 +353,15 @@ __global__ void computeSplitClassificationKernel(
   auto* sDone = alignPointer<int>(sbins + nbins);
   IdxT stride = blockDim.x * gridDim.x;
   IdxT tid = threadIdx.x + blockIdx.x * blockDim.x;
-  auto col = input.colids[colStart + blockIdx.y];
+
+  IdxT col;
+  if (input.nSampledCols == input.N) {
+    col = colStart + blockIdx.y;
+  } else {
+    int colIndex = colStart + blockIdx.y;
+    col = select(colIndex, treeid, node.info.unique_id, seed, input.N);
+  }
+
   for (IdxT i = threadIdx.x; i < len; i += blockDim.x) shist[i] = 0;
   for (IdxT b = threadIdx.x; b < nbins; b += blockDim.x)
     sbins[b] = input.quantiles[col * nbins + b];
@@ -343,7 +416,8 @@ __global__ void computeSplitRegressionKernel(
   DataT min_impurity_decrease, IdxT max_leaves,
   Input<DataT, LabelT, IdxT> input, const Node<DataT, LabelT, IdxT>* nodes,
   IdxT colStart, int* done_count, int* mutex, const IdxT* n_leaves,
-  Split<DataT, IdxT>* splits, void* workspace, CRITERION splitType) {
+  Split<DataT, IdxT>* splits, void* workspace, CRITERION splitType, IdxT treeid,
+  uint64_t seed) {
   extern __shared__ char smem[];
   IdxT nid = blockIdx.z;
   auto node = nodes[nid];
@@ -364,7 +438,13 @@ __global__ void computeSplitRegressionKernel(
   auto* sDone = alignPointer<int>(spredP + nbins);
   IdxT stride = blockDim.x * gridDim.x;
   IdxT tid = threadIdx.x + blockIdx.x * blockDim.x;
-  auto col = input.colids[colStart + blockIdx.y];
+  IdxT col;
+  if (input.nSampledCols == input.N) {
+    col = colStart + blockIdx.y;
+  } else {
+    int colIndex = colStart + blockIdx.y;
+    col = select(colIndex, treeid, node.info.unique_id, seed, input.N);
+  }
   for (IdxT i = threadIdx.x; i < len; i += blockDim.x) {
     spred[i] = DataT(0.0);
   }

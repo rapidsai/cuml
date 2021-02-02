@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,99 +29,146 @@
 namespace raft {
 namespace sparse {
 
-template <typename T>
-struct SparseAddInputs {
-  int m, n, nnz;
-  unsigned long long int seed;
+template <typename Type_f, typename Index_>
+struct CSRMatrixVal {
+  std::vector<Index_> row_ind;
+  std::vector<Index_> row_ind_ptr;
+  std::vector<Type_f> values;
 };
 
-template <typename T>
-class SparseAddTest : public ::testing::TestWithParam<SparseAddInputs<T>> {
- protected:
-  void SetUp() override {}
-
-  void TearDown() override {}
-
- protected:
-  SparseAddInputs<T> params;
+template <typename Type_f, typename Index_>
+struct CSRAddInputs {
+  CSRMatrixVal<Type_f, Index_> matrix_a;
+  CSRMatrixVal<Type_f, Index_> matrix_b;
+  CSRMatrixVal<Type_f, Index_> matrix_verify;
 };
 
-const std::vector<SparseAddInputs<float>> inputsf = {{5, 10, 5, 1234ULL}};
+template <typename Type_f, typename Index_>
+class CSRAddTest
+  : public ::testing::TestWithParam<CSRAddInputs<Type_f, Index_>> {
+ protected:
+  void SetUp() override {
+    params = ::testing::TestWithParam<CSRAddInputs<Type_f, Index_>>::GetParam();
+    n_rows = params.matrix_a.row_ind.size();
+    nnz_a = params.matrix_a.row_ind_ptr.size();
+    nnz_b = params.matrix_b.row_ind_ptr.size();
+    nnz_result = params.matrix_verify.row_ind_ptr.size();
 
-typedef SparseAddTest<float> CSRSum;
-TEST_P(CSRSum, Result) {
+    cudaStreamCreate(&stream);
+
+    raft::allocate(ind_a, n_rows);
+    raft::allocate(ind_ptr_a, nnz_a);
+    raft::allocate(values_a, nnz_a);
+
+    raft::allocate(ind_b, n_rows);
+    raft::allocate(ind_ptr_b, nnz_b);
+    raft::allocate(values_b, nnz_b);
+
+    raft::allocate(ind_verify, n_rows);
+    raft::allocate(ind_ptr_verify, nnz_result);
+    raft::allocate(values_verify, nnz_result);
+
+    raft::allocate(ind_result, n_rows);
+    raft::allocate(ind_ptr_result, nnz_result);
+    raft::allocate(values_result, nnz_result);
+  }
+
+  void Run() {
+    std::shared_ptr<MLCommon::deviceAllocator> alloc(
+      new raft::mr::device::default_allocator);
+
+    raft::update_device(ind_a, params.matrix_a.row_ind.data(), n_rows, stream);
+    raft::update_device(ind_ptr_a, params.matrix_a.row_ind_ptr.data(), nnz_a,
+                        stream);
+    raft::update_device(values_a, params.matrix_a.values.data(), nnz_a, stream);
+
+    raft::update_device(ind_b, params.matrix_b.row_ind.data(), n_rows, stream);
+    raft::update_device(ind_ptr_b, params.matrix_b.row_ind_ptr.data(), nnz_b,
+                        stream);
+    raft::update_device(values_b, params.matrix_b.values.data(), nnz_b, stream);
+
+    raft::update_device(ind_verify, params.matrix_verify.row_ind.data(), n_rows,
+                        stream);
+    raft::update_device(ind_ptr_verify, params.matrix_verify.row_ind_ptr.data(),
+                        nnz_result, stream);
+    raft::update_device(values_verify, params.matrix_verify.values.data(),
+                        nnz_result, stream);
+
+    Index_ nnz = linalg::csr_add_calc_inds<Type_f, 32>(
+      ind_a, ind_ptr_a, values_a, nnz_a, ind_b, ind_ptr_b, values_b, nnz_b,
+      n_rows, ind_result, alloc, stream);
+
+    ASSERT_TRUE(nnz == nnz_result);
+    ASSERT_TRUE(raft::devArrMatch<Index_>(ind_verify, ind_result, n_rows,
+                                          raft::Compare<Index_>()));
+
+    linalg::csr_add_finalize<Type_f, 32>(
+      ind_a, ind_ptr_a, values_a, nnz_a, ind_b, ind_ptr_b, values_b, nnz_b,
+      n_rows, ind_result, ind_ptr_result, values_result, stream);
+
+    ASSERT_TRUE(raft::devArrMatch<Index_>(ind_ptr_verify, ind_ptr_result, nnz,
+                                          raft::Compare<Index_>()));
+    ASSERT_TRUE(raft::devArrMatch<Type_f>(values_verify, values_result, nnz,
+                                          raft::Compare<Type_f>()));
+  }
+
+  void TearDown() override {
+    CUDA_CHECK(cudaFree(ind_a));
+    CUDA_CHECK(cudaFree(ind_b));
+    CUDA_CHECK(cudaFree(ind_result));
+    CUDA_CHECK(cudaFree(ind_ptr_a));
+    CUDA_CHECK(cudaFree(ind_ptr_b));
+    CUDA_CHECK(cudaFree(ind_ptr_verify));
+    CUDA_CHECK(cudaFree(ind_ptr_result));
+    CUDA_CHECK(cudaFree(values_a));
+    CUDA_CHECK(cudaFree(values_b));
+    CUDA_CHECK(cudaFree(values_verify));
+    CUDA_CHECK(cudaFree(values_result));
+    cudaStreamDestroy(stream);
+  }
+
+ protected:
+  CSRAddInputs<Type_f, Index_> params;
   cudaStream_t stream;
-  cudaStreamCreate(&stream);
+  Index_ n_rows, nnz_a, nnz_b, nnz_result;
+  Index_ *ind_a, *ind_b, *ind_verify, *ind_result, *ind_ptr_a, *ind_ptr_b,
+    *ind_ptr_verify, *ind_ptr_result;
+  Type_f *values_a, *values_b, *values_verify, *values_result;
+};
 
-  std::shared_ptr<raft::mr::device::allocator> alloc(
-    new raft::mr::device::default_allocator);
+using CSRAddTestF = CSRAddTest<float, int>;
+TEST_P(CSRAddTestF, Result) { Run(); }
 
-  int *ex_scan, *ind_ptr_a, *ind_ptr_b, *verify_indptr;
-  float *in_vals_a, *in_vals_b, *verify;
+using CSRAddTestD = CSRAddTest<double, int>;
+TEST_P(CSRAddTestD, Result) { Run(); }
 
-  int ex_scan_h[4] = {0, 4, 8, 9};
+const std::vector<CSRAddInputs<float, int>> csradd_inputs_f = {
+  {{{0, 4, 8, 9},
+    {1, 2, 3, 4, 1, 2, 3, 5, 0, 1},
+    {1.0, 1.0, 0.5, 0.5, 1.0, 1.0, 0.5, 0.5, 1.0, 1.0}},
+   {{0, 4, 8, 9},
+    {1, 2, 5, 4, 0, 2, 3, 5, 1, 0},
+    {1.0, 1.0, 0.5, 0.5, 1.0, 1.0, 0.5, 0.5, 1.0, 1.0}},
+   {{0, 5, 10, 12},
+    {1, 2, 3, 4, 5, 1, 2, 3, 5, 0, 0, 1, 1, 0},
+    {2.0, 2.0, 0.5, 1.0, 0.5, 1.0, 2.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0}}},
+};
+const std::vector<CSRAddInputs<double, int>> csradd_inputs_d = {
+  {{{0, 4, 8, 9},
+    {1, 2, 3, 4, 1, 2, 3, 5, 0, 1},
+    {1.0, 1.0, 0.5, 0.5, 1.0, 1.0, 0.5, 0.5, 1.0, 1.0}},
+   {{0, 4, 8, 9},
+    {1, 2, 5, 4, 0, 2, 3, 5, 1, 0},
+    {1.0, 1.0, 0.5, 0.5, 1.0, 1.0, 0.5, 0.5, 1.0, 1.0}},
+   {{0, 5, 10, 12},
+    {1, 2, 3, 4, 5, 1, 2, 3, 5, 0, 0, 1, 1, 0},
+    {2.0, 2.0, 0.5, 1.0, 0.5, 1.0, 2.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0}}},
+};
 
-  int indptr_a_h[10] = {1, 2, 3, 4, 1, 2, 3, 5, 0, 1};
-  int indptr_b_h[10] = {1, 2, 5, 4, 0, 2, 3, 5, 1, 0};
+INSTANTIATE_TEST_CASE_P(SparseAddTest, CSRAddTestF,
+                        ::testing::ValuesIn(csradd_inputs_f));
+INSTANTIATE_TEST_CASE_P(SparseAddTest, CSRAddTestD,
+                        ::testing::ValuesIn(csradd_inputs_d));
 
-  float in_vals_h[10] = {1.0, 1.0, 0.5, 0.5, 1.0, 1.0, 0.5, 0.5, 1.0, 1.0};
-
-  float verify_h[14] = {2.0, 2.0, 0.5, 1.0, 0.5, 1.0, 2.0,
-                        1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0};
-  int verify_indptr_h[14] = {1, 2, 3, 4, 5, 1, 2, 3, 5, 0, 0, 1, 1, 0};
-
-  raft::allocate(in_vals_a, 10);
-  raft::allocate(in_vals_b, 10);
-  raft::allocate(verify, 14);
-  raft::allocate(ex_scan, 4);
-  raft::allocate(verify_indptr, 14);
-
-  raft::allocate(ind_ptr_a, 10);
-  raft::allocate(ind_ptr_b, 10);
-
-  raft::update_device(ex_scan, *&ex_scan_h, 4, stream);
-  raft::update_device(in_vals_a, *&in_vals_h, 10, stream);
-  raft::update_device(in_vals_b, *&in_vals_h, 10, stream);
-  raft::update_device(verify, *&verify_h, 14, stream);
-  raft::update_device(verify_indptr, *&verify_indptr_h, 14, stream);
-  raft::update_device(ind_ptr_a, *&indptr_a_h, 10, stream);
-  raft::update_device(ind_ptr_b, *&indptr_b_h, 10, stream);
-
-  int *result_ind;
-  raft::allocate(result_ind, 4);
-
-  int nnz = linalg::csr_add_calc_inds<float, 32>(
-    ex_scan, ind_ptr_a, in_vals_a, 10, ex_scan, ind_ptr_b, in_vals_b, 10, 4,
-    result_ind, alloc, stream);
-
-  int *result_indptr;
-  float *result_val;
-  raft::allocate(result_indptr, nnz);
-  raft::allocate(result_val, nnz);
-
-  linalg::csr_add_finalize<float, 32>(
-    ex_scan, ind_ptr_a, in_vals_a, 10, ex_scan, ind_ptr_b, in_vals_b, 10, 4,
-    result_ind, result_indptr, result_val, stream);
-
-  ASSERT_TRUE(nnz == 14);
-
-  ASSERT_TRUE(
-    raft::devArrMatch<float>(verify, result_val, nnz, raft::Compare<float>()));
-  ASSERT_TRUE(raft::devArrMatch<int>(verify_indptr, result_indptr, nnz,
-                                     raft::Compare<int>()));
-
-  cudaStreamDestroy(stream);
-
-  CUDA_CHECK(cudaFree(ex_scan));
-  CUDA_CHECK(cudaFree(in_vals_a));
-  CUDA_CHECK(cudaFree(in_vals_b));
-  CUDA_CHECK(cudaFree(ind_ptr_a));
-  CUDA_CHECK(cudaFree(ind_ptr_b));
-  CUDA_CHECK(cudaFree(verify));
-  CUDA_CHECK(cudaFree(result_indptr));
-  CUDA_CHECK(cudaFree(result_val));
-}
-
-INSTANTIATE_TEST_CASE_P(SparseAddTest, CSRSum, ::testing::ValuesIn(inputsf));
 }  // namespace sparse
 }  // namespace raft
