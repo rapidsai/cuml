@@ -181,7 +181,7 @@ struct forest {
     // Simulating treelite order, which cancels out bias.
     // If non-proba prediction used, it still will not matter
     // for the same reason softmax will not.
-    float global_bias = ((ot & output_t::SOFTMAX) != 0) ? 0.0f : global_bias_;
+    float global_bias = (ot & output_t::SOFTMAX) != 0 ? 0.0f : global_bias_;
     bool complement_proba = false, do_transform;
 
     if (predict_proba) {
@@ -403,7 +403,7 @@ void check_params(const forest_params_t* params, bool dense) {
              "num_classes >= 2 is required for "
              "leaf_algo == CATEGORICAL_LEAF");
       ASSERT((params->output & output_t::SOFTMAX) == 0,
-             "softmax not implemented for leaf_algo == CATEGORICAL_LEAF");
+             "softmax not supported for leaf_algo == CATEGORICAL_LEAF");
       break;
     default:
       ASSERT(false,
@@ -413,7 +413,7 @@ void check_params(const forest_params_t* params, bool dense) {
   // output_t::RAW == 0, and doesn't have a separate flag
   if ((params->output & ~output_t::ALL_SET) != 0) {
     ASSERT(false,
-           "output should be a combination of RAW, AVG, SIGMOID and CLASS");
+           "output should be a combination of RAW, AVG, SIGMOID, CLASS and SOFTMAX");
   }
   ASSERT(
     (params->output & output_t::SIGMOID_SOFTMAX) != output_t::SIGMOID_SOFTMAX,

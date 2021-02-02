@@ -12,7 +12,6 @@ Please see https://github.com/rapidsai/cuml/releases/tag/branch-0.18-latest for 
 - PR #2836: Refactor UMAP to accept sparse inputs
 - PR #2894: predict_proba in FIL C++ for XGBoost-style multi-class models
 - PR #3126: Experimental versions of GPU accelerated Kernel and Permutation SHAP
->>>>>>> rapidsai/branch-0.18
 
 ## Improvements
 - PR #3077: Improve runtime for test_kmeans
