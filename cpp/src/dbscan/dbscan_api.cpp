@@ -15,6 +15,7 @@
  */
 
 #include <cuml/cluster/dbscan_api.h>
+
 #include <cuml/cuml_api.h>
 #include <common/cumlHandle.hpp>
 #include <cuml/cluster/dbscan.hpp>

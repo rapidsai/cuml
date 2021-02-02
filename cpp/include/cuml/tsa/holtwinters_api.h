@@ -17,9 +17,7 @@
 
 #include <cuml/cuml_api.h>
 
-#ifdef __cplusplus
 extern "C" {
-#endif
 
 enum cumlHoltWintersSeasonal_t { ADDITIVE, MULTIPLICATIVE };
 
@@ -134,7 +132,4 @@ cumlError_t cumlHoltWintersDp_forecast(cumlHandle_t handle, int n,
                                        double *season_ptr,
                                        double *forecast_ptr);
 /** @} */
-
-#ifdef __cplusplus
 }
-#endif

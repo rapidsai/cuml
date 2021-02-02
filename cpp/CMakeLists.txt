@@ -391,8 +391,6 @@ if(BUILD_CUML_CPP_LIBRARY)
   add_library(${CUML_CPP_TARGET} SHARED
     src/arima/batched_arima.cu
     src/arima/batched_kalman.cu
-    src/common/cumlHandle.cpp
-    src/common/cuml_api.cpp
     src/common/logger.cpp
     src/common/nvtx.cu
     src/datasets/make_arima.cu
@@ -494,6 +492,7 @@ if(BUILD_CUML_C_LIBRARY)
   set(CUML_C_TARGET "cuml")
 
   add_library(${CUML_C_TARGET} SHARED
+    src/common/cumlHandle.cpp
     src/common/cuml_api.cpp
     src/dbscan/dbscan_api.cpp
     src/glm/glm_api.cpp

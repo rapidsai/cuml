@@ -15,22 +15,13 @@
  */
 
 #include <cuml/neighbors/knn_api.h>
-#include <common/cumlHandle.hpp>
 
-// #include <cuml/common/logger.hpp>
+#include <common/cumlHandle.hpp>
 #include <cuml/neighbors/knn.hpp>
 
-// #include <ml_mg_utils.cuh>
-
-// #include <label/classlabels.cuh>
-// #include <selection/knn.cuh>
-
-// #include <cuda_runtime.h>
-// #include <raft/cuda_utils.cuh>
-
-// #include <sstream>
 #include <vector>
 
+extern "C" {
 namespace ML {
 
 /**
@@ -81,3 +72,4 @@ cumlError_t knn_search(const cumlHandle_t handle, float **input, int *sizes,
   return status;
 }
 };  // END NAMESPACE ML
+}

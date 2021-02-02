@@ -19,6 +19,8 @@
 #include <cuml/cuml_api.h>
 #include <cstdint>
 
+extern "C" {
+
 /**
  * @brief Flat C API function to perform a brute force knn on
  * a series of input arrays and combine the results into a single
@@ -49,3 +51,4 @@ cumlError_t knn_search(const cumlHandle_t handle, float **input, int *size,
                        int64_t *res_I, float *res_D, int k, bool rowMajorIndex,
                        bool rowMajorQuery, int metric_type = 0,
                        float metric_arg = 2.0f, bool expanded = 0);
+}

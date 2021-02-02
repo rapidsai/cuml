@@ -17,6 +17,8 @@
 
 #include <cuml/cuml_api.h>
 
+extern "C" {
+
 /**
  * @defgroup DbscanC C-wrapper to C++ implementation of Dbscan algo
  * @brief Fits a DBSCAN model on an input feature matrix and outputs the labels.
@@ -47,3 +49,4 @@ cumlError_t cumlDpDbscanFit(cumlHandle_t handle, double *input, int n_rows,
                             int *core_sample_indices,
                             size_t max_bytes_per_batch, int verbosity);
 /** @} */
+}

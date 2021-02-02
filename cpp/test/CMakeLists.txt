@@ -87,7 +87,7 @@ if(BUILD_CUML_TESTS)
       ${CUML_TEST_PRIMS_DIR}
   )
 
-  target_link_libraries(ml ${CUML_TEST_LINK_LIBRARIES})
+  target_link_libraries(ml ${CUML_TEST_LINK_LIBRARIES} ${CUML_C_TARGET})
 
 endif(BUILD_CUML_TESTS)
 

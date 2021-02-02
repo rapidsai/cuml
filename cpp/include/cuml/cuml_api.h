@@ -20,9 +20,7 @@
 
 #include <cuda_runtime_api.h>
 
-#ifdef __cplusplus
 extern "C" {
-#endif
 
 typedef int cumlHandle_t;
 
@@ -143,7 +141,4 @@ cumlError_t cumlSetHostAllocator(cumlHandle_t handle, cuml_allocate allocate_fn,
  * @return CUML_SUCCESS on success, @todo: add more error codes
  */
 cumlError_t cumlDestroy(cumlHandle_t handle);
-
-#ifdef __cplusplus
 }
-#endif

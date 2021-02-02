@@ -20,7 +20,7 @@
 
 #include <raft/cudart_utils.h>
 #include <raft/linalg/cublas_wrappers.h>
-#include <common/cumlHandle.hpp>
+#include <cuml/common/cuml_allocator.hpp>
 #include <linalg/ternary_op.cuh>
 #include <raft/cuda_utils.cuh>
 #include <raft/handle.hpp>

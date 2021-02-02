@@ -17,11 +17,9 @@
 
 #include <cuml/cuml_api.h>
 
-enum cumlSvmKernelType { LINEAR, POLYNOMIAL, RBF, TANH };
-
-#ifdef __cplusplus
 extern "C" {
-#endif
+
+enum cumlSvmKernelType { LINEAR, POLYNOMIAL, RBF, TANH };
 
 /**
  * @defgroup SVM C-wrapper to C++ implementation of Support Vector Machine
@@ -111,20 +109,17 @@ cumlError_t cumlDpSvcFit(cumlHandle_t handle, double *input, int n_rows,
  */
 cumlError_t cumlSpSvcPredict(cumlHandle_t handle, float *input, int n_rows,
                              int n_cols, cumlSvmKernelType kernel, int degree,
-                             float gamma, float coef0, int *n_support, float *b,
-                             float **dual_coefs, float **x_support,
-                             int *n_classes, float **unique_labels,
-                             float *preds, float buffer_size,
-                             int predict_class);
+                             float gamma, float coef0, int n_support, float b,
+                             float *dual_coefs, float *x_support, int n_classes,
+                             float *unique_labels, float *preds,
+                             float buffer_size, int predict_class);
 
 cumlError_t cumlDpSvcPredict(cumlHandle_t handle, double *input, int n_rows,
                              int n_cols, cumlSvmKernelType kernel, int degree,
-                             double gamma, double coef0, int *n_support,
-                             double *b, double **dual_coefs, double **x_support,
-                             int *n_classes, double **unique_labels,
+                             double gamma, double coef0, int n_support,
+                             double b, double *dual_coefs, double *x_support,
+                             int n_classes, double *unique_labels,
                              double *preds, double buffer_size,
                              int predict_class);
 /** @} */
-#ifdef __cplusplus
 }
-#endif
