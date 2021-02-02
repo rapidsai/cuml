@@ -555,7 +555,21 @@ def test_robust_scale_sparse(sparse_clf_dataset,  # noqa: F811
 @check_cupy8('pytest')
 @pytest.mark.parametrize("n_bins", [5, 20])
 @pytest.mark.parametrize("encode", ['ordinal', 'onehot-dense', 'onehot'])
-@pytest.mark.parametrize("strategy", ['uniform', 'quantile', 'kmeans'])
+@pytest.mark.parametrize("strategy", [
+    'uniform',
+    pytest.param('quantile', marks=pytest.mark.xfail(
+        strict=False,
+        reason='Bug in cupy.percentile'
+        ' (https://github.com/cupy/cupy/issues/4607)'
+    )),
+    'kmeans'
+])
+@pytest.mark.xfail(
+    condition=np.version.version < '1.20.0',
+    strict=False,
+    reason='Bug in numpy.percentile fixed by'
+    ' https://github.com/numpy/numpy/pull/16273'
+)
 def test_kbinsdiscretizer(blobs_dataset, n_bins,  # noqa: F811
                           encode, strategy):
     X_np, X = blobs_dataset
