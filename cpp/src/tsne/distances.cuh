@@ -118,7 +118,7 @@ void normalize_distances(const value_idx n, value_t *distances,
                          const int n_neighbors, cudaStream_t stream) {
   // Now D / max(abs(D)) to allow exp(D) to not explode
   auto nthreads = 1024;
-  auto nblocks = raft::ceildiv(n, (value_idx) nthreads);
+  auto nblocks = raft::ceildiv(n, (value_idx)nthreads);
 
   rmm::device_uvector<value_t> min_d(1, stream);
   rmm::device_uvector<value_t> max_d(1, stream);
@@ -126,7 +126,8 @@ void normalize_distances(const value_idx n, value_t *distances,
   max_d.set_element(0, std::numeric_limits<value_t>::min(), stream);
   min_d.set_element(0, std::numeric_limits<value_t>::max(), stream);
 
-  min_max_kernel<<<nblocks, nthreads, 0, stream>>>(distances, n, min_d.data(), max_d.data(), true);
+  min_max_kernel<<<nblocks, nthreads, 0, stream>>>(distances, n, min_d.data(),
+                                                   max_d.data(), true);
 
   value_t maxNorm;
   raft::update_host(&maxNorm, max_d.data(), 1, stream);

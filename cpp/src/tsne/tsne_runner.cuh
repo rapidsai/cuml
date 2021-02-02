@@ -111,12 +111,6 @@ class TSNE_runner {
 
     switch (algorithm) {
       case TSNE_ALGORITHM::BARNES_HUT:
-
-        TSNE::Barnes_Hut(VAL, COL, ROW, NNZ, handle, Y, n, theta, epssq,
-                         early_exaggeration, exaggeration_iter, min_gain,
-                         pre_learning_rate, post_learning_rate, max_iter,
-                         min_grad_norm, pre_momentum, post_momentum,
-                         random_state, initialize_embeddings);
         TSNE::Barnes_Hut(
           VAL, COL, ROW, NNZ, handle, Y, n, theta, epssq, early_exaggeration,
           late_exaggeration, exaggeration_iter, min_gain, pre_learning_rate,

@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -22,10 +22,7 @@ from cuml.metrics.cluster.completeness_score import \
 from cuml.metrics.cluster.mutual_info_score import \
    cython_mutual_info_score as mutual_info_score
 from cuml.metrics.cluster.entropy import cython_entropy as entropy
-
-# Temporarily disabled due to memory issue in C++ implementation. See
-# https://github.com/rapidsai/cuml/issues/3255
-# from cuml.metrics.cluster.silhouette_score import \
-#     cython_silhouette_score as silhouette_score
-# from cuml.metrics.cluster.silhouette_score import \
-#     cython_silhouette_samples as silhouette_samples
+from cuml.metrics.cluster.silhouette_score import \
+    cython_silhouette_score as silhouette_score
+from cuml.metrics.cluster.silhouette_score import \
+    cython_silhouette_samples as silhouette_samples
