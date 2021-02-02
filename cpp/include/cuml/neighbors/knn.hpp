@@ -35,7 +35,9 @@ enum MetricType {
   METRIC_JensenShannon,
 
   METRIC_Cosine = 100,
-  METRIC_Correlation
+  METRIC_Correlation,
+  METRIC_Jaccard,
+  METRIC_Hellinger
 };
 
 struct knnIndex {
