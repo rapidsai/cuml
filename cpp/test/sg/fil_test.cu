@@ -261,9 +261,9 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
   void transform(float f, float& proba, float& output) {
     if ((ps.output & fil::output_t::AVG) != 0) {
       if (ps.leaf_algo == fil::leaf_algo_t::GROVE_PER_CLASS)
-        f /= (ps.num_trees / ps.num_classes);
+        f /= ps.num_trees / ps.num_classes;
       else
-        f *= (1.0f / ps.num_trees);
+        f *= 1.0f / ps.num_trees;
     }
     f += ps.global_bias;
     if ((ps.output & fil::output_t::SIGMOID) != 0) {
