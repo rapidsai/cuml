@@ -175,7 +175,7 @@ class TSNE_runner {
     //---------------------------------------------------
     // Optimal perplexity
     CUML_LOG_DEBUG("Searching for optimal perplexity via bisection search.");
-    rmm::device_uvector<float> P(n * n_neighbors, stream);
+    rmm::device_uvector<value_t> P(n * n_neighbors, stream);
     TSNE::perplexity_search(k_graph.knn_dists, P.data(), perplexity,
                             perplexity_max_iter, perplexity_tol, n, n_neighbors,
                             handle);

@@ -45,7 +45,7 @@ def check_embedding(X, Y, score=0.76):
 
 @pytest.mark.parametrize('name', dataset_names)
 @pytest.mark.parametrize('type_knn_graph', ['sklearn', 'cuml'])
-@pytest.mark.parametrize('method', ['barnes_hut', 'fft'])
+@pytest.mark.parametrize('method', ['fft'])
 def test_tsne_knn_parameters(name, type_knn_graph, method):
 
     datasets
@@ -58,7 +58,7 @@ def test_tsne_knn_parameters(name, type_knn_graph, method):
     knn_graph = neigh.kneighbors_graph(X, mode="distance").astype('float32')
 
     for i in range(3):
-        tsne = TSNE(random_state=1, method=method)
+        tsne = TSNE(random_state=1, n_neighbors=90, method=method)
         Y = tsne.fit_transform(X, True, knn_graph)
         check_embedding(X, Y)
         Y = tsne.fit_transform(X, True, knn_graph.tocoo())
@@ -81,7 +81,7 @@ def test_tsne_knn_graph_used(name, type_knn_graph, method):
 
     neigh.fit(X)
     knn_graph = neigh.kneighbors_graph(X, mode="distance").astype('float32')
-    tsne = TSNE(random_state=1, method=method)
+    tsne = TSNE(random_state=1, n_neighbors=90, method=method)
 
     # Perform tsne with normal knn_graph
     Y = tsne.fit_transform(X, True, knn_graph)
@@ -137,6 +137,7 @@ def test_tsne(name, method):
         # Again
         tsne = TSNE(n_components=2,
                     random_state=i+2,
+                    n_neighbors=90,
                     verbose=logger.level_debug,
                     method=method)
 
@@ -157,7 +158,7 @@ def test_tsne_default(name, method):
         print("iteration = ", i)
 
         tsne = TSNE(random_state=1,
-                    n_neighbors=15,
+                    n_neighbors=90,
                     method=method)
         Y = tsne.fit_transform(X)
         check_embedding(X, Y)
@@ -176,7 +177,9 @@ def test_tsne_large(nrows, ncols, method):
 
     X = X.astype(np.float32)
 
-    tsne = TSNE(random_state=1, exaggeration_iter=1, n_iter=2, method=method)
+    tsne = TSNE(random_state=1, exaggeration_iter=1,
+                n_neighbors=90,
+                n_iter=2, method=method)
     Y = tsne.fit_transform(X)
     nans = np.sum(np.isnan(Y))
     assert nans == 0
@@ -202,7 +205,7 @@ def test_tsne_transform_on_digits_sparse(input_type, method):
     else:
         sp_prefix = scipy.sparse
 
-    fitter = TSNE(n_components=2, n_neighbors=15,
+    fitter = TSNE(n_components=2, n_neighbors=90,
                   random_state=1,
                   method=method)
 
@@ -244,10 +247,7 @@ def test_tsne_knn_parameters_sparse(type_knn_graph, input_type, method):
     else:
         sp_prefix = scipy.sparse
 
-    tsne = TSNE(2, n_neighbors=15,
-                random_state=1,
-                learning_rate=500,
-                angle=0.8, method=method)
+    tsne = TSNE(n_components=2, random_state=1, method=method)
 
     new_data = sp_prefix.csr_matrix(
         scipy.sparse.csr_matrix(selected_digits))

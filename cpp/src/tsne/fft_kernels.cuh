@@ -220,7 +220,7 @@ __global__ void copy_from_fft_output(
 template <typename value_idx, typename value_t, int n_terms,
           int n_interpolation_points>
 __global__ void compute_potential_indices(
-  float* __restrict__ potentialsQij, const value_idx* const point_box_indices,
+  value_t* __restrict__ potentialsQij, const value_idx* const point_box_indices,
   const value_t* const y_tilde_values,
   const value_t* const x_interpolated_values,
   const value_t* const y_interpolated_values, const value_idx N,
