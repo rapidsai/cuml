@@ -237,3 +237,30 @@ if(BUILD_PRIMS_TESTS)
     ${PRIMS_TEST_LINK_LIBRARIES})
 
 endif(BUILD_PRIMS_TESTS)
+
+##############################################################################
+# - build C-API test library -------------------------------------------------
+
+if(BUILD_CUML_C_LIBRARY)
+  set(CUML_C_TEST_TARGET "${CUML_C_TARGET}_test")
+
+  add_library(${CUML_C_TEST_TARGET} SHARED
+    c_api/dbscan_api_test.c
+    c_api/glm_api_test.c
+    c_api/holtwinters_api_test.c
+    c_api/knn_api_test.c
+    c_api/svm_api_test.c
+  )
+
+  # target_compile_definitions(${CUML_C_TARGET}
+  #   PRIVATE
+  #     CUML_C_API)
+
+  # target_include_directories(${CUML_C_TARGET}
+  #   PRIVATE 
+  #     ${CUML_SRC_DIR}
+  # )
+
+  target_link_libraries(${CUML_C_TEST_TARGET} PUBLIC ${CUML_C_TARGET})
+
+endif(BUILD_CUML_C_LIBRARY)

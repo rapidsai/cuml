@@ -504,11 +504,6 @@ if(BUILD_CUML_C_LIBRARY)
     src/holtwinters/holtwinters_api.cpp
     src/knn/knn_api.cpp
     src/svm/svm_api.cpp
-    src/dbscan/dbscan_api_test.c
-    src/glm/glm_api_test.c
-    src/holtwinters/holtwinters_api_test.c
-    src/knn/knn_api_test.c
-    src/svm/svm_api_test.c
   )
 
   target_compile_definitions(${CUML_C_TARGET}
