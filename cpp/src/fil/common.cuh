@@ -40,9 +40,6 @@ __host__ __device__ __forceinline__ int forest_num_nodes(int num_trees,
   return num_trees * tree_num_nodes(depth);
 }
 
-// FIL_TPB is the number of threads per block to use with FIL kernels
-const int FIL_TPB = 256;
-
 template <>
 __host__ __device__ __forceinline__ float base_node::output<float>() const {
   return val.f;

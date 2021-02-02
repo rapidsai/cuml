@@ -418,7 +418,7 @@ struct tree_aggregator_t<NITEMS, GROVE_PER_CLASS_MANY_CLASSES> {
     void* storage =
       num_outputs > 1 ? per_class_value + num_classes : tmp_storage;
     class_margins_to_gmem(per_class_value, per_class_value + num_classes,
-                          transform, num_trees, tmp_storage, out, num_rows,
+                          transform, num_trees, storage, out, num_rows,
                           num_outputs);
   }
 };
