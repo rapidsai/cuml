@@ -17,6 +17,8 @@
 import cupy as cp
 import dask.array
 
+import pytest
+
 from cuml.dask.naive_bayes import MultinomialNB
 from cuml.naive_bayes.naive_bayes import MultinomialNB as SGNB
 from cuml.test.dask.utils import load_text_corpus
@@ -76,12 +78,14 @@ def test_score(client):
     assert(accuracy_score(y_hat_local.get(), y_local) == score)
 
 
-def test_model_multiple_chunks(client):
+@pytest.mark.parametrize('dtype', [cp.float32, cp.float64,
+                                   cp.int32, cp.int64])
+def test_model_multiple_chunks(client, dtype):
     # tests naive_bayes with n_chunks being greater than one, related to issue
     # https://github.com/rapidsai/cuml/issues/3150
     X = cp.array([[0, 0, 0, 1], [1, 0, 0, 1], [1, 0, 0, 0]])
 
-    X = dask.array.from_array(X, chunks=((1, 1, 1), -1)).astype(cp.float32)
+    X = dask.array.from_array(X, chunks=((1, 1, 1), -1)).astype(dtype)
     y = dask.array.from_array([1, 0, 0], asarray=False,
                               fancy=False, chunks=(1)).astype(cp.int32)
 
