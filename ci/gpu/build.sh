@@ -251,9 +251,22 @@ if [ -n "${CODECOV_TOKEN}" ]; then
     # Directory containing reports
     REPORT_DIR="${WORKSPACE}/python/cuml"
 
-    # Upload the two reports with separate flags. Delete the report on success to prevent further CI steps from re-uploading
-    codecov -F non-dask -f ${REPORT_DIR}/cuml-coverage.xml -n "$CODECOV_NAME,non-dask" && rm ${REPORT_DIR}/cuml-coverage.xml
-    codecov -F dask -f ${REPORT_DIR}/cuml-dask-coverage.xml -n "$CODECOV_NAME,dask" && rm ${REPORT_DIR}/cuml-dask-coverage.xml
+    EXTRA_CODECOV_ARGS=""
+
+    # Save the OS PYTHON and CUDA flags
+    EXTRA_CODECOV_ARGS="${EXTRA_CODECOV_ARGS} --env OS,PYTHON,CUDA"
+
+    # If we have REPORT_HASH, use that instead. This fixes an issue where
+    # CodeCov uses a local merge commit created by Jenkins. Since this commit
+    # never gets pushed, it causes issues in Codecov
+    if [ -n "${REPORT_HASH}" ]; then
+        EXTRA_CODECOV_ARGS="${EXTRA_CODECOV_ARGS} --commit ${REPORT_HASH}"
+    fi
+
+    # Upload the two reports with separate flags. Delete the report on success
+    # to prevent further CI steps from re-uploading
+    codecov -F non-dask -f ${REPORT_DIR}/cuml-coverage.xml -n "$CODECOV_NAME,non-dask" ${EXTRA_CODECOV_ARGS} && rm ${REPORT_DIR}/cuml-coverage.xml
+    codecov -F dask -f ${REPORT_DIR}/cuml-dask-coverage.xml -n "$CODECOV_NAME,dask" ${EXTRA_CODECOV_ARGS} && rm ${REPORT_DIR}/cuml-dask-coverage.xml
 fi
 
 return ${EXITCODE}
