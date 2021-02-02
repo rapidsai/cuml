@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -143,12 +143,13 @@ std::vector<Params> getInputs() {
     .shuffle = false,
     .seed = 12345ULL};
 
-  set_rf_params(p.rf,  // Output RF parameters
-                1,  // n_trees, just a placeholder value, anyway changed below
-                true,  // bootstrap
-                1.f,   // max_samples
-                1234,  // seed
-                8);    // n_streams
+  set_rf_params(p.rf,     // Output RF parameters
+                1,        // n_trees, just a placeholder value,
+                          //   anyway changed below
+                true,     // bootstrap
+                1.f,      // max_samples
+                1234ULL,  // seed
+                8);       // n_streams
 
   set_tree_params(p.rf.tree_params,    // Output tree parameters
                   10,                  // max_depth, just a placeholder value,
