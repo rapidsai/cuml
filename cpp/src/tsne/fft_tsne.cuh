@@ -291,7 +291,7 @@ void FFT_TSNE(value_t *VAL, const value_idx *COL, const value_idx *ROW,
 
     // Compute charges Q_ij
     int num_blocks = raft::ceildiv(n, (value_idx)NTHREADS_1024);
-    FFT::compute_chargesQij<<<num_blocks, num_threads, 0, stream>>>(
+    FFT::compute_chargesQij<<<num_blocks, NTHREADS_1024, 0, stream>>>(
       chargesQij_device.data(), Y, Y + n, n, n_terms);
 
     if (iter == exaggeration_iter) {
@@ -320,7 +320,7 @@ void FFT_TSNE(value_t *VAL, const value_idx *COL, const value_idx *ROW,
     // Left and right bounds of each box, first the lower bounds in the x
     // direction, then in the y direction
     num_blocks = raft::ceildiv(n_total_boxes, (value_idx)NTHREADS_32);
-    FFT::compute_bounds<<<num_blocks, num_threads, 0, stream>>>(
+    FFT::compute_bounds<<<num_blocks, NTHREADS_32, 0, stream>>>(
       box_lower_bounds_device.data(), box_width, min_coord, min_coord,
       n_boxes_per_dim, n_total_boxes);
     CUDA_CHECK(cudaPeekAtLastError());
@@ -332,7 +332,7 @@ void FFT_TSNE(value_t *VAL, const value_idx *COL, const value_idx *ROW,
     num_blocks =
       raft::ceildiv(n_interpolation_points_1d * n_interpolation_points_1d,
                     (value_idx)NTHREADS_32);
-    FFT::compute_kernel_tilde<<<num_blocks, num_threads, 0, stream>>>(
+    FFT::compute_kernel_tilde<<<num_blocks, NTHREADS_32, 0, stream>>>(
       kernel_tilde_device.data(), min_coord, min_coord, h,
       n_interpolation_points_1d, n_fft_coeffs);
     CUDA_CHECK(cudaPeekAtLastError());
