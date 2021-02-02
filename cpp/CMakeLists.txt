@@ -442,7 +442,6 @@ if(BUILD_CUML_CPP_LIBRARY)
         src/glm/ridge_mg.cu
         src/kmeans/kmeans_mg.cu
         src/knn/knn_mg.cu
-        src/knn/knn_opg_common.cu
         src/knn/knn_classify_mg.cu
         src/knn/knn_regress_mg.cu
         src/pca/pca_mg.cu
