@@ -20,11 +20,24 @@
 
 #include <cuda_runtime_api.h>
 
+// Block inclusion of this header when compiling libcuml++.so. If this error is
+// shown during compilation, there is an issue with how the `#include` have
+// been set up. To debug the issue, run `./build.sh cppdocs` and open the page
+// 'cpp/build/html/cuml__api_8h.html' in a browser. This will show which files
+// directly and indirectly include this file. Only files ending in '*_api' or
+// 'cumlHandle' should include this header.
+#ifdef CUML_CPP_API
+#error \
+  "This header is only for the C-API and should not be included from the C++ API."
+#endif
+
+#ifdef __cplusplus
 extern "C" {
+#endif
 
 typedef int cumlHandle_t;
 
-typedef enum {
+typedef enum cumlError_t {
   CUML_SUCCESS,
   CUML_ERROR_UNKNOWN,
   CUML_INVALID_HANDLE
@@ -141,4 +154,7 @@ cumlError_t cumlSetHostAllocator(cumlHandle_t handle, cuml_allocate allocate_fn,
  * @return CUML_SUCCESS on success, @todo: add more error codes
  */
 cumlError_t cumlDestroy(cumlHandle_t handle);
+
+#ifdef __cplusplus
 }
+#endif

@@ -17,9 +17,12 @@
 #pragma once
 
 #include <cuml/cuml_api.h>
-#include <cstdint>
+#include <stdbool.h>
+#include <stdint.h>
 
+#ifdef __cplusplus
 extern "C" {
+#endif
 
 /**
  * @brief Flat C API function to perform a brute force knn on
@@ -47,8 +50,11 @@ extern "C" {
  * 					 form (e.g., without raising to the 1/p power).
  */
 cumlError_t knn_search(const cumlHandle_t handle, float **input, int *size,
-                       int n_params, int D, const float *search_items, int n,
+                       int n_params, int D, float *search_items, int n,
                        int64_t *res_I, float *res_D, int k, bool rowMajorIndex,
-                       bool rowMajorQuery, int metric_type = 0,
-                       float metric_arg = 2.0f, bool expanded = 0);
+                       bool rowMajorQuery, int metric_type, float metric_arg,
+                       bool expanded);
+
+#ifdef __cplusplus
 }
+#endif

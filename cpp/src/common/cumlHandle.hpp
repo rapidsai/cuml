@@ -16,23 +16,9 @@
 
 #pragma once
 
-#include <mutex>
-#include <unordered_map>
-#include <utility>
-#include <vector>
-
-#include <cublas_v2.h>
-#include <cusolverDn.h>
-#include <cusolverSp.h>
-#include <cusparse.h>
-
-#include <cuml/cuml.hpp>
-#include <raft/comms/comms.hpp>
-
 #include <cuml/cuml_api.h>
-#include <raft/handle.hpp>
-
 #include <cuml/common/cuml_allocator.hpp>
+#include <raft/handle.hpp>
 
 namespace ML {
 

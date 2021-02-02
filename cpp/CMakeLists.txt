@@ -464,6 +464,10 @@ if(BUILD_CUML_CPP_LIBRARY)
     link_directories(${CUDA_TOOLKIT_ROOT_DIR}/lib64)
   endif(NVTX)
 
+  target_compile_definitions(${CUML_CPP_TARGET}
+    PRIVATE
+      CUML_CPP_API)
+
   target_include_directories(${CUML_CPP_TARGET}
     PUBLIC
       ${CUML_INCLUDE_DIRECTORIES}
@@ -477,6 +481,7 @@ if(BUILD_CUML_CPP_LIBRARY)
     PRIVATE
       ${CUML_PRIVATE_LINK_LIBRARIES}
   )
+
   # If we export the libdmlc symbols, they can lead to weird crashes with other
   # libraries that use libdmlc. This just hides the symbols internally.
   target_link_options(${CUML_CPP_TARGET} PRIVATE "-Wl,--exclude-libs,libdmlc.a")
@@ -499,7 +504,16 @@ if(BUILD_CUML_C_LIBRARY)
     src/holtwinters/holtwinters_api.cpp
     src/knn/knn_api.cpp
     src/svm/svm_api.cpp
+    src/dbscan/dbscan_api_test.c
+    src/glm/glm_api_test.c
+    src/holtwinters/holtwinters_api_test.c
+    src/knn/knn_api_test.c
+    src/svm/svm_api_test.c
   )
+
+  target_compile_definitions(${CUML_C_TARGET}
+    PRIVATE
+      CUML_C_API)
 
   target_include_directories(${CUML_C_TARGET}
     PRIVATE 

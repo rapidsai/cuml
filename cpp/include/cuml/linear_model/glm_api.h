@@ -16,8 +16,11 @@
 #pragma once
 
 #include <cuml/cuml_api.h>
+#include <stdbool.h>
 
+#ifdef __cplusplus
 extern "C" {
+#endif
 
 cumlError_t cumlSpQnFit(cumlHandle_t cuml_handle, float *X, float *y, int N,
                         int D, int C, bool fit_intercept, float l1, float l2,
@@ -30,4 +33,7 @@ cumlError_t cumlDpQnFit(cumlHandle_t cuml_handle, double *X, double *y, int N,
                         int max_iter, double grad_tol, int linesearch_max_iter,
                         int lbfgs_memory, int verbosity, double *w0, double *f,
                         int *num_iters, bool X_col_major, int loss_type);
+
+#ifdef __cplusplus
 }
+#endif

@@ -17,9 +17,16 @@
 
 #include <cuml/cuml_api.h>
 
+#ifdef __cplusplus
 extern "C" {
+#endif
 
-enum cumlSvmKernelType { LINEAR, POLYNOMIAL, RBF, TANH };
+typedef enum cumlSvmKernelType {
+  LINEAR,
+  POLYNOMIAL,
+  RBF,
+  TANH
+} cumlSvmKernelType;
 
 /**
  * @defgroup SVM C-wrapper to C++ implementation of Support Vector Machine
@@ -122,4 +129,6 @@ cumlError_t cumlDpSvcPredict(cumlHandle_t handle, double *input, int n_rows,
                              double *preds, double buffer_size,
                              int predict_class);
 /** @} */
+#ifdef __cplusplus
 }
+#endif

@@ -20,6 +20,8 @@
 #include <common/cumlHandle.hpp>
 #include <cuml/cluster/dbscan.hpp>
 
+extern "C" {
+
 cumlError_t cumlSpDbscanFit(cumlHandle_t handle, float *input, int n_rows,
                             int n_cols, float eps, int min_pts, int *labels,
                             int *core_sample_indices,
@@ -68,4 +70,5 @@ cumlError_t cumlDpDbscanFit(cumlHandle_t handle, double *input, int n_rows,
     }
   }
   return status;
+}
 }

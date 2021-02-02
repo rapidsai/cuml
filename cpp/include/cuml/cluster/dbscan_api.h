@@ -17,7 +17,9 @@
 
 #include <cuml/cuml_api.h>
 
+#ifdef __cplusplus
 extern "C" {
+#endif
 
 /**
  * @defgroup DbscanC C-wrapper to C++ implementation of Dbscan algo
@@ -49,4 +51,7 @@ cumlError_t cumlDpDbscanFit(cumlHandle_t handle, double *input, int n_rows,
                             int *core_sample_indices,
                             size_t max_bytes_per_batch, int verbosity);
 /** @} */
+
+#ifdef __cplusplus
 }
+#endif
