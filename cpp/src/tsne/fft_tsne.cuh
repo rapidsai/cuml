@@ -255,13 +255,7 @@ void FFT_TSNE(value_t *VAL, const value_idx *COL, const value_idx *ROW,
   value_t exaggeration = early_exaggeration;
 
   for (int iter = 0; iter < max_iter; iter++) {
-    MLCommon::LinAlg::zero(w_coefficients_device.data(),
-                           w_coefficients_device.size(), stream);
-    MLCommon::LinAlg::zero(potentialsQij_device.data(),
-                           potentialsQij_device.size(), stream);
-    // TODO is this necessary inside the loop? IntegrationKernel zeros it.
-    MLCommon::LinAlg::zero(attractive_forces_device.data(),
-                           attractive_forces_device.size(), stream);
+
 
     if (iter == exaggeration_iter) {
       momentum = post_momentum;
@@ -276,6 +270,14 @@ void FFT_TSNE(value_t *VAL, const value_idx *COL, const value_idx *ROW,
         chargesQij_device.data(), Y, Y + n, n, n_terms);
       CUDA_CHECK(cudaPeekAtLastError());
     }
+
+    MLCommon::LinAlg::zero(w_coefficients_device.data(),
+                           w_coefficients_device.size(), stream);
+    MLCommon::LinAlg::zero(potentialsQij_device.data(),
+                           potentialsQij_device.size(), stream);
+    // TODO is this necessary inside the loop? IntegrationKernel zeros it.
+    MLCommon::LinAlg::zero(attractive_forces_device.data(),
+                           attractive_forces_device.size(), stream);
 
     auto minmax_pair = min_max(Y, n * 2, stream);
     auto min_coord = minmax_pair.first;

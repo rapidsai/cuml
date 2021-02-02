@@ -139,9 +139,9 @@ class TSNETest : public ::testing::Test {
 
     printf("KNN BH\n");
     knn_score_bh = runTest(TSNE_ALGORITHM::BARNES_HUT, true);
-    printf("EXACT\n");
+    printf("KNN EXACT\n");
     knn_score_exact = runTest(TSNE_ALGORITHM::EXACT, true);
-    printf("FFT\n");
+    printf("KNN FFT\n");
     knn_score_fft = runTest(TSNE_ALGORITHM::FFT, true);
   }
 

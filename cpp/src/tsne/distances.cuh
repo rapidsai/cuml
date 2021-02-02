@@ -124,8 +124,9 @@ void normalize_distances(const value_idx n, value_t *distances,
   rmm::device_uvector<value_t> max_d(1, stream);
 
   max_d.set_element(0, std::numeric_limits<value_t>::min(), stream);
+  min_d.set_element(0, std::numeric_limits<value_t>::max(), stream);
 
-  min_max_kernel<<<nblocks, nthreads, 0, stream>>>(distances, n, min_d.data(), max_d.data(), false);
+  min_max_kernel<<<nblocks, nthreads, 0, stream>>>(distances, n, min_d.data(), max_d.data(), true);
 
   value_t maxNorm;
   raft::update_host(&maxNorm, max_d.data(), 1, stream);
