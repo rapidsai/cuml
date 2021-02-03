@@ -130,19 +130,22 @@ class TSNETest : public ::testing::Test {
   }
 
   void basicTest() {
-    printf("BH\n");
-    score_bh = runTest(TSNE_ALGORITHM::BARNES_HUT);
-    printf("EXACT\n");
-    score_exact = runTest(TSNE_ALGORITHM::EXACT);
-    printf("FFT\n");
-    score_fft = runTest(TSNE_ALGORITHM::FFT);
 
-    printf("KNN BH\n");
-    knn_score_bh = runTest(TSNE_ALGORITHM::BARNES_HUT, true);
-    printf("KNN EXACT\n");
-    knn_score_exact = runTest(TSNE_ALGORITHM::EXACT, true);
-    printf("KNN FFT\n");
-    knn_score_fft = runTest(TSNE_ALGORITHM::FFT, true);
+    for(int i = 0; i < 5; i++) {
+      printf("BH\n");
+      score_bh = runTest(TSNE_ALGORITHM::BARNES_HUT);
+      printf("EXACT\n");
+      score_exact = runTest(TSNE_ALGORITHM::EXACT);
+      printf("FFT\n");
+      score_fft = runTest(TSNE_ALGORITHM::FFT);
+
+      printf("KNN BH\n");
+      knn_score_bh = runTest(TSNE_ALGORITHM::BARNES_HUT, true);
+      printf("KNN EXACT\n");
+      knn_score_exact = runTest(TSNE_ALGORITHM::EXACT, true);
+      printf("KNN FFT\n");
+      knn_score_fft = runTest(TSNE_ALGORITHM::FFT, true);
+    }
   }
 
   void SetUp() override { basicTest(); }
