@@ -23,7 +23,7 @@ from cuml.test.utils import stress_param
 from cuml.neighbors import NearestNeighbors as cuKNN
 
 from sklearn.datasets import make_blobs
-from cuml.metrics import trustworthiness
+from sklearn.manifold.t_sne import trustworthiness
 from sklearn import datasets
 
 
@@ -73,16 +73,16 @@ def test_tsne_knn_graph_used(dataset, type_knn_graph, method):
         knn_graph_garbage = cupyx.scipy.sparse.csr_matrix(knn_graph_garbage)
 
     # Perform tsne with garbage knn_graph
-    Y1 = tsne.fit_transform(X, True, knn_graph_garbage)
-    trust_garbage = trustworthiness(X, Y1, n_neighbors=DEFAULT_N_NEIGHBORS)
+    Y = tsne.fit_transform(X, True, knn_graph_garbage)
+    trust_garbage = trustworthiness(X, Y, n_neighbors=DEFAULT_N_NEIGHBORS)
     assert (trust_normal - trust_garbage) > 0.15
 
-    Y2 = tsne.fit_transform(X, True, knn_graph_garbage)
-    trust_garbage = trustworthiness(X, Y2, n_neighbors=DEFAULT_N_NEIGHBORS)
+    Y = tsne.fit_transform(X, True, knn_graph_garbage.tocoo())
+    trust_garbage = trustworthiness(X, Y, n_neighbors=DEFAULT_N_NEIGHBORS)
     assert (trust_normal - trust_garbage) > 0.15
 
-    Y3 = tsne.fit_transform(X, True, knn_graph_garbage)
-    trust_garbage = trustworthiness(X, Y3, n_neighbors=DEFAULT_N_NEIGHBORS)
+    Y = tsne.fit_transform(X, True, knn_graph_garbage.tocsc())
+    trust_garbage = trustworthiness(X, Y, n_neighbors=DEFAULT_N_NEIGHBORS)
     assert (trust_normal - trust_garbage) > 0.15
 
 
@@ -104,14 +104,14 @@ def test_tsne_knn_parameters(dataset, type_knn_graph, method):
                     n_neighbors=DEFAULT_N_NEIGHBORS,
                     learning_rate_method='none',
                     method=method)
-        embed1 = tsne.fit_transform(X, True, knn_graph)
-        validate_embedding(X, embed1)
+        embed = tsne.fit_transform(X, True, knn_graph)
+        validate_embedding(X, embed)
 
-        embed2 = tsne.fit_transform(X, True, knn_graph)
-        validate_embedding(X, embed2)
+        embed = tsne.fit_transform(X, True, knn_graph.tocoo())
+        validate_embedding(X, embed)
 
-        embed3 = tsne.fit_transform(X, True, knn_graph)
-        validate_embedding(X, embed3)
+        embed = tsne.fit_transform(X, True, knn_graph.tocsc())
+        validate_embedding(X, embed)
 
 
 @pytest.mark.parametrize('dataset', test_datasets.values())
@@ -135,8 +135,8 @@ def test_tsne(dataset, method):
                     learning_rate_method='none',
                     method=method)
 
-        Y1 = tsne.fit_transform(X)
-        validate_embedding(X, Y1)
+        Y = tsne.fit_transform(X)
+        validate_embedding(X, Y)
 
         # Again
         tsne = TSNE(n_components=2,
@@ -145,8 +145,8 @@ def test_tsne(dataset, method):
                     learning_rate_method='none',
                     method=method)
 
-        Y2 = tsne.fit_transform(X)
-        validate_embedding(X, Y2)
+        Y = tsne.fit_transform(X)
+        validate_embedding(X, Y)
 
 
 @pytest.mark.parametrize('dataset', test_datasets.values())
@@ -172,9 +172,7 @@ def test_tsne_large(nrows, ncols, method):
     X, y = make_blobs(n_samples=nrows,
                       centers=8,
                       n_features=ncols,
-                      random_state=1)
-
-    X = X.astype(np.float32)
+                      random_state=1).astype(np.float32)
 
     tsne = TSNE(random_state=1,
                 exaggeration_iter=1,
@@ -259,4 +257,3 @@ def test_tsne_knn_parameters_sparse(type_knn_graph, input_type, method):
     if input_type == 'cupy':
         Y = Y.get()
     validate_embedding(digits, Y, 0.85)
-    del Y

@@ -241,7 +241,8 @@ __global__ void compute_potential_indices(
   value_idx idx = (box_i * n_interpolation_points + interp_i) *
                     (n_boxes * n_interpolation_points) +
                   (box_j * n_interpolation_points) + interp_j;
-  // interpolated_values[TID] = x_interpolated_values[i + interp_i * N] * y_interpolated_values[i + interp_j * N] * y_tilde_values[idx * n_terms + current_term];
+  // interpolated_values[TID] = x_interpolated_values[i + interp_i * N] *
+  // y_interpolated_values[i + interp_j * N] * y_tilde_values[idx * n_terms + current_term];
   // interpolated_indices[TID] = i * n_terms + current_term;
   atomicAdd(potentialsQij + i * n_terms + current_term,
             x_interpolated_values[i + interp_i * N] *

@@ -156,7 +156,7 @@ class TSNE(Base):
         iterations, terminate t-SNE early.
     min_grad_norm : float (default 1e-07)
         The minimum gradient norm for when t-SNE will terminate early.
-        Used only in 'exact' algorithm.
+        Used in the 'exact' and 'fft' algorithms.
     metric : str 'euclidean' only (default 'euclidean')
         Currently only supports euclidean distance. Will support cosine in
         a future release.
