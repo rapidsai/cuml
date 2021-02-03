@@ -22,7 +22,6 @@ from cuml.manifold import TSNE
 from cuml.test.utils import stress_param
 from cuml.neighbors import NearestNeighbors as cuKNN
 
-from sklearn.neighbors import NearestNeighbors as skKNN
 from sklearn.datasets import make_blobs
 from cuml.metrics import trustworthiness
 from sklearn import datasets
@@ -78,11 +77,11 @@ def test_tsne_knn_graph_used(dataset, type_knn_graph, method):
     trust_garbage = trustworthiness(X, Y1, n_neighbors=DEFAULT_N_NEIGHBORS)
     assert (trust_normal - trust_garbage) > 0.15
 
-    Y2 = tsne.fit_transform(X, True, knn_graph_garbage.tocoo())
+    Y2 = tsne.fit_transform(X, True, knn_graph_garbage)
     trust_garbage = trustworthiness(X, Y2, n_neighbors=DEFAULT_N_NEIGHBORS)
     assert (trust_normal - trust_garbage) > 0.15
 
-    Y3 = tsne.fit_transform(X, True, knn_graph_garbage.tocsc())
+    Y3 = tsne.fit_transform(X, True, knn_graph_garbage)
     trust_garbage = trustworthiness(X, Y3, n_neighbors=DEFAULT_N_NEIGHBORS)
     assert (trust_normal - trust_garbage) > 0.15
 
@@ -103,14 +102,15 @@ def test_tsne_knn_parameters(dataset, type_knn_graph, method):
     for i in range(3):
         tsne = TSNE(random_state=1,
                     n_neighbors=DEFAULT_N_NEIGHBORS,
+                    learning_rate_method='none',
                     method=method)
         embed1 = tsne.fit_transform(X, True, knn_graph)
         validate_embedding(X, embed1)
 
-        embed2 = tsne.fit_transform(X, True, knn_graph.tocoo())
+        embed2 = tsne.fit_transform(X, True, knn_graph)
         validate_embedding(X, embed2)
 
-        embed3 = tsne.fit_transform(X, True, knn_graph.tocsc())
+        embed3 = tsne.fit_transform(X, True, knn_graph)
         validate_embedding(X, embed3)
 
 
@@ -132,19 +132,21 @@ def test_tsne(dataset, method):
         tsne = TSNE(n_components=2,
                     random_state=1,
                     n_neighbors=DEFAULT_N_NEIGHBORS,
+                    learning_rate_method='none',
                     method=method)
 
-        Y = tsne.fit_transform(X)
-        validate_embedding(X, Y)
+        Y1 = tsne.fit_transform(X)
+        validate_embedding(X, Y1)
 
         # Again
         tsne = TSNE(n_components=2,
                     random_state=1,
                     n_neighbors=DEFAULT_N_NEIGHBORS,
+                    learning_rate_method='none',
                     method=method)
 
-        Y = tsne.fit_transform(X)
-        validate_embedding(X, Y)
+        Y2 = tsne.fit_transform(X)
+        validate_embedding(X, Y2)
 
 
 @pytest.mark.parametrize('dataset', test_datasets.values())
@@ -155,11 +157,9 @@ def test_tsne_default(dataset, method):
 
     for i in range(3):
         tsne = TSNE(random_state=1,
-                    n_neighbors=DEFAULT_N_NEIGHBORS,
                     method=method)
         Y = tsne.fit_transform(X)
         validate_embedding(X, Y)
-        del Y
 
 
 @pytest.mark.parametrize('nrows', [stress_param(2400000)])
@@ -178,7 +178,6 @@ def test_tsne_large(nrows, ncols, method):
 
     tsne = TSNE(random_state=1,
                 exaggeration_iter=1,
-                n_neighbors=DEFAULT_N_NEIGHBORS,
                 n_iter=2, method=method)
     Y = tsne.fit_transform(X)
     nans = np.sum(np.isnan(Y))
@@ -194,7 +193,7 @@ def test_components_exception():
 @pytest.mark.parametrize('method', ['fft', 'barnes_hut'])
 def test_tsne_fit_transform_on_digits_sparse(input_type, method):
 
-    digits = datasets.load_digits()
+    digits = test_datasets['digits'].data
 
     if input_type == 'cupy':
         sp_prefix = cupyx.scipy.sparse
@@ -202,12 +201,11 @@ def test_tsne_fit_transform_on_digits_sparse(input_type, method):
         sp_prefix = scipy.sparse
 
     fitter = TSNE(n_components=2,
-                  n_neighbors=DEFAULT_N_NEIGHBORS,
                   random_state=1,
                   method=method)
 
     new_data = sp_prefix.csr_matrix(
-        scipy.sparse.csr_matrix(digits.data)).astype('float32')
+        scipy.sparse.csr_matrix(digits)).astype('float32')
 
     embedding = fitter.fit_transform(new_data, convert_dtype=True)
 
@@ -219,7 +217,7 @@ def test_tsne_fit_transform_on_digits_sparse(input_type, method):
     assert trust >= 0.85
 
 
-@pytest.mark.parametrize('type_knn_graph', ['cuml', 'sklean'])
+@pytest.mark.parametrize('type_knn_graph', ['cuml', 'sklearn'])
 @pytest.mark.parametrize('input_type', ['cupy', 'scipy'])
 @pytest.mark.parametrize('method', ['fft', 'barnes_hut'])
 def test_tsne_knn_parameters_sparse(type_knn_graph, input_type, method):
@@ -241,6 +239,7 @@ def test_tsne_knn_parameters_sparse(type_knn_graph, input_type, method):
     tsne = TSNE(n_components=2,
                 n_neighbors=DEFAULT_N_NEIGHBORS,
                 random_state=1,
+                learning_rate_method='none',
                 method=method)
 
     new_data = sp_prefix.csr_matrix(
