@@ -17,7 +17,6 @@ import numpy as np
 import pytest
 import scipy
 import cupyx
-import cupy as cp
 
 from cuml.manifold import TSNE
 from cuml.test.utils import stress_param
@@ -61,8 +60,6 @@ def test_tsne_knn_graph_used(dataset, type_knn_graph, method):
     tsne = TSNE(random_state=1,
                 n_neighbors=90,
                 method=method)
-
-    cp.cuda.Stream.null.synchronize()
 
     # Perform tsne with normal knn_graph
     Y = tsne.fit_transform(X, True, knn_graph)

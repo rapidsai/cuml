@@ -550,6 +550,8 @@ class TSNE(Base):
                      <bool> True,
                      algo)
 
+        self.handle.sync()
+
         # Clean up memory
         self.embedding_ = Y
         return self
