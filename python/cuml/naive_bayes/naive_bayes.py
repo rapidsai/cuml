@@ -106,6 +106,20 @@ def count_features_dense_kernel(float_dtype, int_dtype):
                                "count_features_dense")
 
 
+def _convert_x_sparse(X):
+    X = X.tocoo()
+
+    if X.dtype not in [cp.float32, cp.float64]:
+        raise ValueError("Only floating-point dtypes (float32 or "
+                         "float64) are supported for sparse inputs.")
+
+    rows = cp.asarray(X.row, dtype=X.row.dtype)
+    cols = cp.asarray(X.col, dtype=X.col.dtype)
+    data = cp.asarray(X.data, dtype=X.data.dtype)
+    return cupyx.scipy.sparse.coo_matrix((data, (rows, cols)),
+                                         shape=X.shape)
+
+
 class MultinomialNB(Base, ClassifierMixin):
     """
     Naive Bayes classifier for multinomial models
@@ -255,7 +269,7 @@ class MultinomialNB(Base, ClassifierMixin):
         # todo: use a sparse CumlArray style approach when ready
         # https://github.com/rapidsai/cuml/issues/2216
         if scipy_sparse_isspmatrix(X) or cupyx.scipy.sparse.isspmatrix(X):
-            X = self._convert_x_sparse(X)
+            X = _convert_x_sparse(X)
             # TODO: Expanded this since sparse kernel doesn't
             # actually require the scipy sparse container format.
         else:
@@ -340,19 +354,20 @@ class MultinomialNB(Base, ClassifierMixin):
             Training vectors, where n_samples is the number of samples and
             n_features is the number of features
 
-        y : array-like of int32 or int64, shape (n_samples) Target values.
+        y : array-like of int32 or int64, shape (n_samples)
+            Target values.
 
         classes : array-like of shape (n_classes)
-                  List of all the classes that can possibly appear in the y
-                  vector. Must be provided at the first call to partial_fit,
-                  can be omitted in subsequent calls.
+            List of all the classes that can possibly appear in the y
+            vector. Must be provided at the first call to partial_fit,
+            can be omitted in subsequent calls.
 
         sample_weight : array-like of shape (n_samples)
-                        Weights applied to individual samples (1. for
-                        unweighted). Currently sample weight is ignored
+            Weights applied to individual samples (1. for
+            unweighted). Currently sample weight is ignored
 
         convert_dtype : bool
-                        If True, convert y to the appropriate dtype (int)
+            If True, convert y to the appropriate dtype (int)
 
         Returns
         -------
@@ -451,20 +466,6 @@ class MultinomialNB(Base, ClassifierMixin):
         result = jll - log_prob_x.T
         return result
 
-    @staticmethod
-    def _convert_x_sparse(X):
-        X = X.tocoo()
-
-        if X.dtype not in [cp.float32, cp.float64]:
-            raise ValueError("Only floating-point dtypes (float32 or "
-                             "float64) are supported for sparse inputs.")
-
-        rows = cp.asarray(X.row, dtype=X.row.dtype)
-        cols = cp.asarray(X.col, dtype=X.col.dtype)
-        data = cp.asarray(X.data, dtype=X.data.dtype)
-        return cupyx.scipy.sparse.coo_matrix((data, (rows, cols)),
-                                             shape=X.shape)
-
     @generate_docstring(
         X='dense_sparse',
         return_values={
@@ -499,7 +500,7 @@ class MultinomialNB(Base, ClassifierMixin):
         Parameters
         ----------
         X : cupy.ndarray or cupyx.scipy.sparse matrix of size
-                  (n_rows, n_features)
+            (n_rows, n_features)
         Y : cupy.array of monotonic class labels
         """
 
