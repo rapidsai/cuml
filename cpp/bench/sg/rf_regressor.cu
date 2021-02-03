@@ -97,7 +97,7 @@ std::vector<RegParams> getInputs() {
                        true,               /* bootstrap */
                        500,                /* n_trees */
                        1.f,                /* max_samples */
-                       1234ULL,               /* seed */
+                       1234ULL,            /* seed */
                        ML::CRITERION::MSE, /* split_criterion */
                        false,              /* quantile_per_tree */
                        8,                  /* n_streams */
