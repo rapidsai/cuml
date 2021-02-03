@@ -406,7 +406,8 @@ class NearestNeighbors(Base):
         expanded = False
 
         if metric == "euclidean" or metric == "l2":
-            m = DistanceType.L2Unexpanded
+            m = DistanceType.L2SqrtExpanded
+            expanded = True
         elif metric == "sqeuclidean":
             m = DistanceType.L2Expanded
             expanded = True

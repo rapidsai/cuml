@@ -316,7 +316,8 @@ class sparse_knn_t {
 
   void perform_postprocessing(value_t *dists, size_t batch_rows) {
     // Perform necessary post-processing
-    if (metric == raft::distance::DistanceType::L2Unexpanded) {
+    if (metric == raft::distance::DistanceType::L2SqrtExpanded ||
+      metric == raft::distance::DistanceType::L2SqrtUnexpanded) {
       /**
         * post-processing
         */
@@ -383,8 +384,8 @@ class sparse_knn_t {
     switch (metric) {
       case raft::distance::DistanceType::L2Expanded:
       case raft::distance::DistanceType::L2Unexpanded:
-        pw_metric = raft::distance::DistanceType::L2Expanded;
-        break;
+      case raft::distance::DistanceType::L2SqrtExpanded:
+      case raft::distance::DistanceType::L2SqrtUnexpanded:
       case raft::distance::DistanceType::InnerProduct:
       case raft::distance::DistanceType::L1:
       case raft::distance::DistanceType::Canberra:
