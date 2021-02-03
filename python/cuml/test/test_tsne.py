@@ -230,7 +230,8 @@ def test_tsne_knn_parameters_sparse(type_knn_graph, input_type, method):
 
     digits = datasets.load_digits()
 
-    neigh = skKNN(n_neighbors=DEFAULT_N_NEIGHBORS) if type_knn_graph == 'sklearn' \
+    neigh = skKNN(n_neighbors=DEFAULT_N_NEIGHBORS) \
+        if type_knn_graph == 'sklearn' \
         else cuKNN(n_neighbors=DEFAULT_N_NEIGHBORS)
 
     digits_selection = np.random.RandomState(42).choice(
