@@ -27,13 +27,16 @@ from sklearn.datasets import make_blobs
 from cuml.metrics import trustworthiness
 from sklearn import datasets
 
+
+DEFAULT_N_NEIGHBORS = 25
+
 test_datasets = [datasets.load_digits(),
                  datasets.load_boston(),
                  datasets.load_breast_cancer(),
                  datasets.load_diabetes()]
 
 
-def check_embedding(X, Y, score=0.76, n_neighbors=90):
+def check_embedding(X, Y, score=0.76, n_neighbors=DEFAULT_N_NEIGHBORS):
     """Compares TSNE embedding trustworthiness, NAN and verbosity"""
     nans = np.sum(np.isnan(Y))
     trust = trustworthiness(X, Y, n_neighbors=n_neighbors)
@@ -48,19 +51,20 @@ def test_tsne_knn_graph_used(dataset, type_knn_graph, method):
 
     X = dataset.data
 
-    neigh = cuKNN(n_neighbors=90).fit(X)
+    neigh = cuKNN(n_neighbors=DEFAULT_N_NEIGHBORS).fit(X)
     knn_graph = neigh.kneighbors_graph(X, mode="distance").astype('float32')
 
     if type_knn_graph == 'cuml':
         knn_graph = cupyx.scipy.sparse.csr_matrix(knn_graph)
 
     tsne = TSNE(random_state=1,
-                n_neighbors=90,
-                method=method)
+                n_neighbors=DEFAULT_N_NEIGHBORS,
+                method=method,
+                learning_rate_method='none')
 
     # Perform tsne with normal knn_graph
     Y = tsne.fit_transform(X, True, knn_graph)
-    trust_normal = trustworthiness(X, Y, n_neighbors=90)
+    trust_normal = trustworthiness(X, Y, n_neighbors=DEFAULT_N_NEIGHBORS)
 
     X_garbage = np.ones(X.shape)
     knn_graph_garbage = neigh.kneighbors_graph(
@@ -71,15 +75,15 @@ def test_tsne_knn_graph_used(dataset, type_knn_graph, method):
 
     # Perform tsne with garbage knn_graph
     Y1 = tsne.fit_transform(X, True, knn_graph_garbage)
-    trust_garbage = trustworthiness(X, Y1, n_neighbors=90)
+    trust_garbage = trustworthiness(X, Y1, n_neighbors=DEFAULT_N_NEIGHBORS)
     assert (trust_normal - trust_garbage) > 0.15
 
     Y2 = tsne.fit_transform(X, True, knn_graph_garbage.tocoo())
-    trust_garbage = trustworthiness(X, Y2, n_neighbors=90)
+    trust_garbage = trustworthiness(X, Y2, n_neighbors=DEFAULT_N_NEIGHBORS)
     assert (trust_normal - trust_garbage) > 0.15
 
     Y3 = tsne.fit_transform(X, True, knn_graph_garbage.tocsc())
-    trust_garbage = trustworthiness(X, Y3, n_neighbors=90)
+    trust_garbage = trustworthiness(X, Y3, n_neighbors=DEFAULT_N_NEIGHBORS)
     assert (trust_normal - trust_garbage) > 0.15
 
 
@@ -90,7 +94,7 @@ def test_tsne_knn_parameters(dataset, type_knn_graph, method):
 
     X = dataset.data
 
-    neigh = cuKNN(n_neighbors=90).fit(X)
+    neigh = cuKNN(n_neighbors=DEFAULT_N_NEIGHBORS).fit(X)
     knn_graph = neigh.kneighbors_graph(X, mode="distance").astype('float32')
 
     if type_knn_graph == 'cuml':
@@ -98,7 +102,7 @@ def test_tsne_knn_parameters(dataset, type_knn_graph, method):
 
     for i in range(3):
         tsne = TSNE(random_state=1,
-                    n_neighbors=90,
+                    n_neighbors=DEFAULT_N_NEIGHBORS,
                     method=method)
         embed1 = tsne.fit_transform(X, True, knn_graph)
         check_embedding(X, embed1)
@@ -127,7 +131,7 @@ def test_tsne(dataset, method):
     for i in range(3):
         tsne = TSNE(n_components=2,
                     random_state=1,
-                    n_neighbors=90,
+                    n_neighbors=DEFAULT_N_NEIGHBORS,
                     method=method)
 
         Y = tsne.fit_transform(X)
@@ -136,7 +140,7 @@ def test_tsne(dataset, method):
         # Again
         tsne = TSNE(n_components=2,
                     random_state=1,
-                    n_neighbors=90,
+                    n_neighbors=DEFAULT_N_NEIGHBORS,
                     method=method)
 
         Y = tsne.fit_transform(X)
@@ -151,7 +155,7 @@ def test_tsne_default(dataset, method):
 
     for i in range(3):
         tsne = TSNE(random_state=1,
-                    n_neighbors=90,
+                    n_neighbors=DEFAULT_N_NEIGHBORS,
                     method=method)
         Y = tsne.fit_transform(X)
         check_embedding(X, Y)
@@ -174,7 +178,7 @@ def test_tsne_large(nrows, ncols, method):
 
     tsne = TSNE(random_state=1,
                 exaggeration_iter=1,
-                n_neighbors=90,
+                n_neighbors=DEFAULT_N_NEIGHBORS,
                 n_iter=2, method=method)
     Y = tsne.fit_transform(X)
     nans = np.sum(np.isnan(Y))
@@ -201,7 +205,7 @@ def test_tsne_transform_on_digits_sparse(input_type, method):
         sp_prefix = scipy.sparse
 
     fitter = TSNE(n_components=2,
-                  n_neighbors=90,
+                  n_neighbors=DEFAULT_N_NEIGHBORS,
                   random_state=1,
                   method=method)
 
@@ -226,8 +230,8 @@ def test_tsne_knn_parameters_sparse(type_knn_graph, input_type, method):
 
     digits = datasets.load_digits()
 
-    neigh = skKNN(n_neighbors=90) if type_knn_graph == 'sklearn' \
-        else cuKNN(n_neighbors=90)
+    neigh = skKNN(n_neighbors=DEFAULT_N_NEIGHBORS) if type_knn_graph == 'sklearn' \
+        else cuKNN(n_neighbors=DEFAULT_N_NEIGHBORS)
 
     digits_selection = np.random.RandomState(42).choice(
         [True, False], 1797, replace=True, p=[0.60, 0.40])
@@ -245,7 +249,7 @@ def test_tsne_knn_parameters_sparse(type_knn_graph, input_type, method):
         sp_prefix = scipy.sparse
 
     tsne = TSNE(n_components=2,
-                n_neighbors=90,
+                n_neighbors=DEFAULT_N_NEIGHBORS,
                 random_state=1,
                 method=method)
 
