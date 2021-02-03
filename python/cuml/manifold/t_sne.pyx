@@ -438,12 +438,12 @@ class TSNE(Base):
         cdef uintptr_t knn_dists_raw = knn_dists_ctype or 0
 
         # Prepare output embeddings
-        Y = CumlArray.zeros(
+        self.embedding_ = CumlArray.zeros(
             (n, self.n_components),
             order="F",
             dtype=np.float32)
 
-        cdef uintptr_t embed_ptr = Y.ptr
+        cdef uintptr_t embed_ptr = self.embedding_.ptr
 
         # Find best params if learning rate method is adaptive
         if self.learning_rate_method=='adaptive' and (self.method=="barnes_hut"
@@ -552,8 +552,6 @@ class TSNE(Base):
 
         self.handle.sync()
 
-        # Clean up memory
-        self.embedding_ = Y
         return self
 
     @generate_docstring(convert_dtype_cast='np.float32',
@@ -564,7 +562,7 @@ class TSNE(Base):
                                                        data in \
                                                        low-dimensional space.',
                                        'shape': '(n_samples, n_components)'})
-    @cuml.internals.api_base_return_array_skipall
+    @cuml.internals.api_base_fit_transform()
     def fit_transform(self, X, convert_dtype=True,
                       knn_graph=None) -> CumlArray:
         """
@@ -579,6 +577,10 @@ class TSNE(Base):
         functionality to work
         """
         return self.embedding_
+
+    def __del__(self):
+        if hasattr(self, "embedding_"):
+            del self.embedding_
 
     def __getstate__(self):
         state = self.__dict__.copy()

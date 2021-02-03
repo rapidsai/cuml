@@ -132,7 +132,7 @@ void normalize_distances(const value_idx n, value_t *distances,
   value_t maxNorm;
   raft::update_host(&maxNorm, max_d.data(), 1, stream);
 
-  cudaStreamSynchronize(stream);
+  CUDA_CHECK(cudaStreamSynchronize(stream));
 
   if (maxNorm == 0.0f) maxNorm = 1.0f;
 

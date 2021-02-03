@@ -24,39 +24,35 @@ from cuml.neighbors import NearestNeighbors as cuKNN
 
 from sklearn.neighbors import NearestNeighbors as skKNN
 from sklearn.datasets import make_blobs
-from sklearn.manifold.t_sne import trustworthiness
+from cuml.metrics import trustworthiness
 from sklearn import datasets
-
-import cuml.common.logger as logger
-
 
 test_datasets = [datasets.load_digits(),
                  datasets.load_boston(),
-                 datasets.load_iris(),
                  datasets.load_breast_cancer(),
                  datasets.load_diabetes()]
 
 
-def check_embedding(X, Y, score=0.76):
+def check_embedding(X, Y, score=0.76, n_neighbors=90):
     """Compares TSNE embedding trustworthiness, NAN and verbosity"""
     nans = np.sum(np.isnan(Y))
-    trust = trustworthiness(X, Y)
+    trust = trustworthiness(X, Y, n_neighbors=n_neighbors)
     assert trust > score
     assert nans == 0
 
 
 @pytest.mark.parametrize('dataset', test_datasets)
-@pytest.mark.parametrize('type_knn_graph', ['sklearn', 'cuml'])
+@pytest.mark.parametrize('type_knn_graph', ['cuml', 'sklearn'])
 @pytest.mark.parametrize('method', ['fft', 'barnes_hut'])
 def test_tsne_knn_graph_used(dataset, type_knn_graph, method):
 
     X = dataset.data
 
-    neigh = skKNN(n_neighbors=90) if type_knn_graph == 'sklearn' \
-        else cuKNN(n_neighbors=90)
-
-    neigh.fit(X)
+    neigh = cuKNN(n_neighbors=90).fit(X)
     knn_graph = neigh.kneighbors_graph(X, mode="distance").astype('float32')
+
+    if type_knn_graph == 'cuml':
+        knn_graph = cupyx.scipy.sparse.csr_matrix(knn_graph)
 
     tsne = TSNE(random_state=1,
                 n_neighbors=90,
@@ -64,49 +60,54 @@ def test_tsne_knn_graph_used(dataset, type_knn_graph, method):
 
     # Perform tsne with normal knn_graph
     Y = tsne.fit_transform(X, True, knn_graph)
-    trust_normal = trustworthiness(X, Y)
+    trust_normal = trustworthiness(X, Y, n_neighbors=90)
 
     X_garbage = np.ones(X.shape)
-    knn_graph_garbage = neigh.kneighbors_graph(X_garbage, mode="distance")\
-        .astype('float32')
+    knn_graph_garbage = neigh.kneighbors_graph(
+        X_garbage, mode="distance").astype('float32')
+
+    if type_knn_graph == 'cuml':
+        knn_graph_garbage = cupyx.scipy.sparse.csr_matrix(knn_graph_garbage)
 
     # Perform tsne with garbage knn_graph
-    Y = tsne.fit_transform(X, True, knn_graph_garbage)
-    trust_garbage = trustworthiness(X, Y)
+    Y1 = tsne.fit_transform(X, True, knn_graph_garbage)
+    trust_garbage = trustworthiness(X, Y1, n_neighbors=90)
     assert (trust_normal - trust_garbage) > 0.15
 
-    Y = tsne.fit_transform(X, True, knn_graph_garbage.tocoo())
-    trust_garbage = trustworthiness(X, Y)
+    Y2 = tsne.fit_transform(X, True, knn_graph_garbage.tocoo())
+    trust_garbage = trustworthiness(X, Y2, n_neighbors=90)
     assert (trust_normal - trust_garbage) > 0.15
 
-    Y = tsne.fit_transform(X, True, knn_graph_garbage.tocsc())
-    trust_garbage = trustworthiness(X, Y)
+    Y3 = tsne.fit_transform(X, True, knn_graph_garbage.tocsc())
+    trust_garbage = trustworthiness(X, Y3, n_neighbors=90)
     assert (trust_normal - trust_garbage) > 0.15
 
 
 @pytest.mark.parametrize('dataset', test_datasets)
-@pytest.mark.parametrize('type_knn_graph', ['sklearn', 'cuml'])
+@pytest.mark.parametrize('type_knn_graph', ['cuml', 'sklearn'])
 @pytest.mark.parametrize('method', ['fft', 'barnes_hut'])
 def test_tsne_knn_parameters(dataset, type_knn_graph, method):
 
     X = dataset.data
 
-    neigh = skKNN(n_neighbors=90) if type_knn_graph == 'sklearn' \
-        else cuKNN(n_neighbors=90)
-
-    neigh.fit(X)
+    neigh = cuKNN(n_neighbors=90).fit(X)
     knn_graph = neigh.kneighbors_graph(X, mode="distance").astype('float32')
+
+    if type_knn_graph == 'cuml':
+        knn_graph = cupyx.scipy.sparse.csr_matrix(knn_graph)
 
     for i in range(3):
         tsne = TSNE(random_state=1,
                     n_neighbors=90,
                     method=method)
-        Y = tsne.fit_transform(X, True, knn_graph)
-        check_embedding(X, Y)
-        Y = tsne.fit_transform(X, True, knn_graph.tocoo())
-        check_embedding(X, Y)
-        Y = tsne.fit_transform(X, True, knn_graph.tocsc())
-        check_embedding(X, Y)
+        embed1 = tsne.fit_transform(X, True, knn_graph)
+        check_embedding(X, embed1)
+
+        embed2 = tsne.fit_transform(X, True, knn_graph.tocoo())
+        check_embedding(X, embed2)
+
+        embed3 = tsne.fit_transform(X, True, knn_graph.tocsc())
+        check_embedding(X, embed3)
 
 
 @pytest.mark.parametrize('dataset', test_datasets)
@@ -127,9 +128,8 @@ def test_tsne(dataset, method):
         tsne = TSNE(n_components=2,
                     random_state=1,
                     n_neighbors=90,
-                    verbose=False)
+                    method=method)
 
-        # Reuse
         Y = tsne.fit_transform(X)
         check_embedding(X, Y)
 
@@ -137,10 +137,8 @@ def test_tsne(dataset, method):
         tsne = TSNE(n_components=2,
                     random_state=1,
                     n_neighbors=90,
-                    verbose=logger.level_info,
                     method=method)
 
-        # Reuse
         Y = tsne.fit_transform(X)
         check_embedding(X, Y)
 
@@ -157,6 +155,7 @@ def test_tsne_default(dataset, method):
                     method=method)
         Y = tsne.fit_transform(X)
         check_embedding(X, Y)
+        del Y
 
 
 @pytest.mark.parametrize('nrows', [stress_param(2400000)])
@@ -215,11 +214,12 @@ def test_tsne_transform_on_digits_sparse(input_type, method):
     if input_type == 'cupy':
         embedding = embedding.get()
 
-    trust = trustworthiness(digits.data[~digits_selection], embedding, 15)
+    trust = trustworthiness(digits.data[~digits_selection], embedding,
+                            n_neighbors=90)
     assert trust >= 0.85
 
 
-@pytest.mark.parametrize('type_knn_graph', ['sklearn', 'cuml'])
+@pytest.mark.parametrize('type_knn_graph', ['cuml'])
 @pytest.mark.parametrize('input_type', ['cupy', 'scipy'])
 @pytest.mark.parametrize('method', ['fft', 'barnes_hut'])
 def test_tsne_knn_parameters_sparse(type_knn_graph, input_type, method):
@@ -235,7 +235,8 @@ def test_tsne_knn_parameters_sparse(type_knn_graph, input_type, method):
     selected_digits = digits.data[~digits_selection]
 
     neigh.fit(selected_digits)
-    knn_graph = neigh.kneighbors_graph(selected_digits, mode="distance")\
+    knn_graph = neigh.kneighbors_graph(selected_digits,
+                                       mode="distance")\
         .astype('float32')
 
     if input_type == 'cupy':
