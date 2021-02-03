@@ -564,12 +564,6 @@ def test_robust_scale_sparse(sparse_clf_dataset,  # noqa: F811
     )),
     'kmeans'
 ])
-@pytest.mark.xfail(
-    condition=np.version.version < '1.20.0',
-    strict=False,
-    reason='Bug in numpy.percentile fixed by'
-    ' https://github.com/numpy/numpy/pull/16273'
-)
 def test_kbinsdiscretizer(blobs_dataset, n_bins,  # noqa: F811
                           encode, strategy):
     X_np, X = blobs_dataset
