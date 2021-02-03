@@ -537,4 +537,10 @@ def test_nearest_neighbors_sparse(shape,
     # Jaccard & Chebyshev have a high potential for mismatched indices
     # due to duplicate distances. We can ignore the indices in this case.
     if metric not in ['jaccard', 'chebyshev']:
-        cp.testing.assert_allclose(cuI, skI, atol=1e-4, rtol=1e-4)
+
+        # The actual neighbors returned in the presence of duplicate distances
+        # is non-deterministic. If we got to this point, the distances all
+        # match between cuml and sklearn. We set a reasonable threshold
+        # (.%5 in this case) to allow differences from non-determinism.
+        diffs = abs(cuI - skI)
+        assert (len(diffs[diffs > 0]) / len(np.ravel(skI))) <= 0.005
