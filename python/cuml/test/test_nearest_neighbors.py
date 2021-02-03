@@ -541,6 +541,6 @@ def test_nearest_neighbors_sparse(shape,
         # The actual neighbors returned in the presence of duplicate distances
         # is non-deterministic. If we got to this point, the distances all
         # match between cuml and sklearn. We set a reasonable threshold
-        # (.%5 in this case) to allow differences from non-determinism.
+        # (.5% in this case) to allow differences from non-determinism.
         diffs = abs(cuI - skI)
         assert (len(diffs[diffs > 0]) / len(np.ravel(skI))) <= 0.005
