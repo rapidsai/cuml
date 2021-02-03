@@ -57,6 +57,7 @@ def test_tsne_knn_graph_used(dataset, type_knn_graph, method):
 
     neigh.fit(X)
     knn_graph = neigh.kneighbors_graph(X, mode="distance").astype('float32')
+
     tsne = TSNE(random_state=1,
                 n_neighbors=90,
                 method=method)
