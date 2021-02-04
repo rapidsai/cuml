@@ -14,12 +14,16 @@
 # limitations under the License.
 #
 
-import cupy as cp
-from cuml.preprocessing import LabelEncoder, LabelBinarizer
 import cudf
+import cupy as cp
+from cuml.common.input_utils import determine_array_type
+from cuml.preprocessing import LabelEncoder, LabelBinarizer
 
-@cuml.internals.api_return_any()
-def cython_hinge_loss(y_true, pred_decision, labels=None, sample_weights=None):
+
+def cython_hinge_loss(y_true,
+                      pred_decision,
+                      labels=None,
+                      sample_weights=None) -> float:
     """
     Calculates non-regularized hinge loss. Adapted from scikit-learn hinge loss
 
@@ -46,15 +50,21 @@ def cython_hinge_loss(y_true, pred_decision, labels=None, sample_weights=None):
            The average hinge loss.
     """
 
-    # Check types of the inputs
-    if not hasattr(y_true, "__cuda_array_interface__"):
-        raise TypeError("y_true needs to be either a cuDF Series or \
-                        a cuda_array_interface compliant array.")
+    yt_type = determine_array_type(y_true)
+    pd_type = determine_array_type(pred_decision)
+    labels_type = determine_array_type(labels)
 
-    if not hasattr(pred_decision, "__cuda_array_interface__") and not \
-       isinstance(pred_decision, cudf.DataFrame):
+    if yt_type not in ['cupy', 'numba', 'cudf']:
+        raise TypeError("y_true needs to be either a cuDF Series or \
+                        a cuPy/numba array.")
+
+    if pd_type not in ['cupy', 'numba', 'cudf']:
         raise TypeError("pred_decision needs to be either a cuDF DataFrame or \
-                        a cuda_array_interface compliant array.")
+                        a cuPy/numba array.")
+
+    if labels_type not in ['cupy', 'numba', 'cudf']:
+        raise TypeError("y_true needs to be either a cuDF Series or \
+                        a cuPy/numba array.")
 
     if y_true.shape[0] != pred_decision.shape[0]:
         raise ValueError("y_true and pred_decision must have the same"
@@ -74,9 +84,6 @@ def cython_hinge_loss(y_true, pred_decision, labels=None, sample_weights=None):
     if not isinstance(y_true, cudf.Series):
         y_true = cudf.Series(y_true)
 
-    if len(y_true.shape) != 1:
-        raise ValueError("y_true should be 1d array got shape {} instead"
-                         .format(y_true.shape))
     y_true_unique = cp.unique(labels if labels is not None else y_true)
 
     if y_true_unique.size > 2:
