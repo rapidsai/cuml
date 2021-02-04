@@ -50,13 +50,15 @@ if(BUILD_CUML_TESTS)
     sg/decisiontree_batchedlevel_algo.cu
     sg/decisiontree_batchedlevel_unittest.cu
     sg/fil_test.cu
-    sg/multi_sum_test.cu
+    sg/genetic/node_test.cpp
+    sg/genetic/param_test.cu
     sg/handle_test.cu
     sg/holtwinters_test.cu
     sg/kmeans_test.cu
     sg/knn_test.cu
     sg/lars_test.cu
     sg/logger.cpp
+    sg/multi_sum_test.cu
     sg/nvtx_test.cpp
     sg/ols.cu
     sg/pca_test.cu
