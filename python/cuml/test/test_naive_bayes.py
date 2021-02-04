@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020, NVIDIA CORPORATION.
+# Copyright (c) 2020-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -60,7 +60,31 @@ def test_basic_fit_predict_sparse(x_dtype, y_dtype, nlp_20news):
     assert accuracy_score(y, y_hat) >= 0.924
 
 
-@pytest.mark.parametrize("x_dtype", [cp.float32, cp.float64])
+@pytest.mark.parametrize("x_dtype", [cp.int32, cp.int64])
+@pytest.mark.parametrize("y_dtype", [cp.int32, cp.int64])
+def test_sparse_integral_dtype_fails(x_dtype, y_dtype, nlp_20news):
+    X, y = nlp_20news
+
+    X = X.astype(x_dtype)
+    y = y.astype(y_dtype)
+
+    # Priming it seems to lower the end-to-end runtime
+    model = MultinomialNB()
+
+    with pytest.raises(ValueError):
+        model.fit(X, y)
+
+    X = X.astype(cp.float32)
+    model.fit(X, y)
+
+    X = X.astype(x_dtype)
+
+    with pytest.raises(ValueError):
+        model.predict(X)
+
+
+@pytest.mark.parametrize("x_dtype", [cp.float32, cp.float64,
+                                     cp.int32])
 @pytest.mark.parametrize("y_dtype", [cp.int32, cp.int64])
 def test_basic_fit_predict_dense_numpy(x_dtype, y_dtype, nlp_20news):
     """
@@ -68,14 +92,14 @@ def test_basic_fit_predict_dense_numpy(x_dtype, y_dtype, nlp_20news):
     """
     X, y = nlp_20news
 
-    X = sparse_scipy_to_cp(X, x_dtype).astype(x_dtype)
+    X = sparse_scipy_to_cp(X, cp.float32)
     y = y.astype(y_dtype)
 
     X = X.tocsr()[0:500].todense()
     y = y[:500]
 
     model = MultinomialNB()
-    model.fit(np.ascontiguousarray(cp.asnumpy(X)), y)
+    model.fit(np.ascontiguousarray(cp.asnumpy(X).astype(x_dtype)), y)
 
     y_hat = model.predict(X)
 
@@ -86,7 +110,8 @@ def test_basic_fit_predict_dense_numpy(x_dtype, y_dtype, nlp_20news):
 
 
 @pytest.mark.parametrize("x_dtype", [cp.float32, cp.float64])
-@pytest.mark.parametrize("y_dtype", [cp.int32, cp.int64])
+@pytest.mark.parametrize("y_dtype", [cp.int32,
+                                     cp.float32, cp.float64])
 def test_partial_fit(x_dtype, y_dtype, nlp_20news):
     chunk_size = 500
 
