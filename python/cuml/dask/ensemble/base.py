@@ -21,6 +21,8 @@ import cupy as cp
 import warnings
 
 from cuml import using_output_type
+from collections.abc import Iterable
+from dask.distributed import Future
 
 from cuml.dask.common.input_utils import DistributedDataHandler, \
     concatenate
@@ -286,8 +288,35 @@ class BaseRandomForestModel(object):
             combined_dump.extend(obj)
         return json.dumps(combined_dump)
 
-    def apply_reduction(self, reduce, partial_infs, datatype,
-                        delayed):
+    def get_combined_model(self):
+        """
+        Return single-GPU model for serialization.
+
+        Returns
+        -------
+
+        model : Trained single-GPU model or None if the model has not
+                yet been trained.
+        """
+
+        # set internal model if it hasn't been accessed before
+        if self._get_internal_model() is None:
+            self._set_internal_model(self._concat_treelite_models())
+
+        internal_model = self._check_internal_model(self._get_internal_model())
+
+        if isinstance(self.internal_model, Iterable):
+            # This function needs to return a single instance of cuml.Base,
+            # even if the class is just a composite.
+            raise ValueError("Expected a single instance of cuml.Base "
+                             "but got %s instead." % type(self.internal_model))
+
+        elif isinstance(self.internal_model, Future):
+            internal_model = self.internal_model.result()
+
+        return internal_model
+
+    def apply_reduction(self, reduce, partial_infs, datatype, delayed):
         def back_to_dask(array, datatype):
             res = array.compute()
             if datatype == 'daskArray':

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@
 #include <algorithm>
 #include <cuml/common/cuml_allocator.hpp>
 #include <iostream>
+#include <metrics/batched/silhouette_score.cuh>
 #include <metrics/silhouette_score.cuh>
 #include <random>
 #include "test_utils.h"
@@ -32,6 +33,7 @@ struct silhouetteScoreParam {
   int nCols;
   int nLabels;
   raft::distance::DistanceType metric;
+  int chunk;
   double tolerance;
 };
 
@@ -40,16 +42,7 @@ template <typename LabelT, typename DataT>
 class silhouetteScoreTest
   : public ::testing::TestWithParam<silhouetteScoreParam> {
  protected:
-  //the constructor
-  void SetUp() override {
-    //getting the parameters
-    params = ::testing::TestWithParam<silhouetteScoreParam>::GetParam();
-
-    nRows = params.nRows;
-    nCols = params.nCols;
-    nLabels = params.nLabels;
-    int nElements = nRows * nCols;
-
+  void host_silhouette_score() {
     //generating random value test input
     std::vector<double> h_X(nElements, 0.0);
     std::vector<int> h_labels(nRows, 0);
@@ -70,8 +63,6 @@ class silhouetteScoreTest
 
     raft::update_device(d_X, &h_X[0], (int)nElements, stream);
     raft::update_device(d_labels, &h_labels[0], (int)nElements, stream);
-    std::shared_ptr<MLCommon::deviceAllocator> allocator(
-      new raft::mr::device::default_allocator);
 
     //finding the distance matrix
 
@@ -161,11 +152,31 @@ class silhouetteScoreTest
     }
 
     truthSilhouetteScore /= nRows;
+  }
+
+  //the constructor
+  void SetUp() override {
+    //getting the parameters
+    params = ::testing::TestWithParam<silhouetteScoreParam>::GetParam();
+
+    nRows = params.nRows;
+    nCols = params.nCols;
+    nLabels = params.nLabels;
+    chunk = params.chunk;
+    nElements = nRows * nCols;
+
+    allocator = std::make_shared<raft::mr::device::default_allocator>();
+
+    host_silhouette_score();
 
     //calling the silhouette_score CUDA implementation
     computedSilhouetteScore = MLCommon::Metrics::silhouette_score(
       d_X, nRows, nCols, d_labels, nLabels, sampleSilScore, allocator, stream,
       params.metric);
+
+    batchedSilhouetteScore =
+      Batched::silhouette_score(handle, d_X, nRows, nCols, d_labels, nLabels,
+                                sampleSilScore, chunk, params.metric);
   }
 
   //the destructor
@@ -183,25 +194,31 @@ class silhouetteScoreTest
   LabelT *d_labels = nullptr;
   int nRows;
   int nCols;
+  int nElements;
   double truthSilhouetteScore = 0;
   double computedSilhouetteScore = 0;
+  double batchedSilhouetteScore = 0;
   cudaStream_t stream;
+  raft::handle_t handle;
+  int chunk;
+  std::shared_ptr<MLCommon::deviceAllocator> allocator;
 };
 
 //setting test parameter values
 const std::vector<silhouetteScoreParam> inputs = {
-  {4, 2, 3, raft::distance::DistanceType::L2Expanded, 0.00001},
-  {4, 2, 2, raft::distance::DistanceType::L2SqrtUnexpanded, 0.00001},
-  {8, 8, 3, raft::distance::DistanceType::L2Unexpanded, 0.00001},
-  {11, 2, 5, raft::distance::DistanceType::L2Expanded, 0.00001},
-  {40, 2, 8, raft::distance::DistanceType::L2Expanded, 0.00001},
-  {12, 7, 3, raft::distance::DistanceType::CosineExpanded, 0.00001},
-  {7, 5, 5, raft::distance::DistanceType::L1, 0.00001}};
+  {4, 2, 3, raft::distance::DistanceType::L2Expanded, 4, 0.00001},
+  {4, 2, 2, raft::distance::DistanceType::L2SqrtUnexpanded, 2, 0.00001},
+  {8, 8, 3, raft::distance::DistanceType::L2Unexpanded, 4, 0.00001},
+  {11, 2, 5, raft::distance::DistanceType::L2Expanded, 3, 0.00001},
+  {40, 2, 8, raft::distance::DistanceType::L2Expanded, 10, 0.00001},
+  {12, 7, 3, raft::distance::DistanceType::CosineExpanded, 8, 0.00001},
+  {7, 5, 5, raft::distance::DistanceType::L1, 2, 0.00001}};
 
 //writing the test suite
 typedef silhouetteScoreTest<int, double> silhouetteScoreTestClass;
 TEST_P(silhouetteScoreTestClass, Result) {
   ASSERT_NEAR(computedSilhouetteScore, truthSilhouetteScore, params.tolerance);
+  ASSERT_NEAR(batchedSilhouetteScore, truthSilhouetteScore, params.tolerance);
 }
 INSTANTIATE_TEST_CASE_P(silhouetteScore, silhouetteScoreTestClass,
                         ::testing::ValuesIn(inputs));

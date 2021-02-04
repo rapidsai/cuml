@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -39,7 +39,7 @@ namespace raft {
 namespace sparse {
 namespace linalg {
 
-template <typename T, int TPB_X = 32>
+template <typename T, int TPB_X = 128>
 __global__ void csr_add_calc_row_counts_kernel(
   const int *a_ind, const int *a_indptr, const T *a_val, int nnz1,
   const int *b_ind, const int *b_indptr, const T *b_val, int nnz2, int m,
@@ -93,7 +93,7 @@ __global__ void csr_add_calc_row_counts_kernel(
   }
 }
 
-template <typename T, int TPB_X = 32>
+template <typename T, int TPB_X = 128>
 __global__ void csr_add_kernel(const int *a_ind, const int *a_indptr,
                                const T *a_val, int nnz1, const int *b_ind,
                                const int *b_indptr, const T *b_val, int nnz2,
@@ -159,7 +159,7 @@ __global__ void csr_add_kernel(const int *a_ind, const int *a_indptr,
  * @param d_alloc: device allocator to use for temp memory
  * @param stream: cuda stream to use
  */
-template <typename T, int TPB_X = 32>
+template <typename T, int TPB_X = 128>
 size_t csr_add_calc_inds(const int *a_ind, const int *a_indptr, const T *a_val,
                          int nnz1, const int *b_ind, const int *b_indptr,
                          const T *b_val, int nnz2, int m, int *out_ind,
@@ -207,7 +207,7 @@ size_t csr_add_calc_inds(const int *a_ind, const int *a_indptr, const T *a_val,
  * @param c_val: output data array
  * @param stream: cuda stream to use
  */
-template <typename T, int TPB_X = 32>
+template <typename T, int TPB_X = 128>
 void csr_add_finalize(const int *a_ind, const int *a_indptr, const T *a_val,
                       int nnz1, const int *b_ind, const int *b_indptr,
                       const T *b_val, int nnz2, int m, int *c_ind,

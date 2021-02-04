@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -200,6 +200,7 @@ typedef TreeMetaDataNode<double, int> TreeClassifierD;
  * @param[in] n_unique_labels: number of unique label values. Number of
  *                             categories of classification.
  * @param[in] tree_params: Decision Tree training hyper parameter struct.
+ * @param[in] seed: Controls the randomness in tree fitting/growing algorithm.
  * @{
  */
 void decisionTreeClassifierFit(const raft::handle_t &handle,
@@ -207,13 +208,15 @@ void decisionTreeClassifierFit(const raft::handle_t &handle,
                                const int ncols, const int nrows, int *labels,
                                unsigned int *rowids, const int n_sampled_rows,
                                int unique_labels,
-                               DecisionTree::DecisionTreeParams tree_params);
+                               DecisionTree::DecisionTreeParams tree_params,
+                               uint64_t seed);
 void decisionTreeClassifierFit(const raft::handle_t &handle,
                                TreeClassifierD *&tree, double *data,
                                const int ncols, const int nrows, int *labels,
                                unsigned int *rowids, const int n_sampled_rows,
                                int unique_labels,
-                               DecisionTree::DecisionTreeParams tree_params);
+                               DecisionTree::DecisionTreeParams tree_params,
+                               uint64_t seed);
 /** @} */
 
 /**
@@ -268,18 +271,21 @@ typedef TreeMetaDataNode<double, double> TreeRegressorD;
  * @param[in] n_sampled_rows: number of training samples, after sampling. If using decision
  *   tree directly over the whole dataset: n_sampled_rows = nrows
  * @param[in] tree_params: Decision Tree training hyper parameter struct.
+ * @param[in] seed: Controls the randomness in tree fitting/growing algorithm.
  * @{
  */
 void decisionTreeRegressorFit(const raft::handle_t &handle,
                               TreeRegressorF *&tree, float *data,
                               const int ncols, const int nrows, float *labels,
                               unsigned int *rowids, const int n_sampled_rows,
-                              DecisionTree::DecisionTreeParams tree_params);
+                              DecisionTree::DecisionTreeParams tree_params,
+                              uint64_t seed);
 void decisionTreeRegressorFit(const raft::handle_t &handle,
                               TreeRegressorD *&tree, double *data,
                               const int ncols, const int nrows, double *labels,
                               unsigned int *rowids, const int n_sampled_rows,
-                              DecisionTree::DecisionTreeParams tree_params);
+                              DecisionTree::DecisionTreeParams tree_params,
+                              uint64_t seed);
 /** @} */
 
 /**
