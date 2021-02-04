@@ -401,7 +401,7 @@ class MultinomialNB(Base, ClassifierMixin):
         # todo: use a sparse CumlArray style approach when ready
         # https://github.com/rapidsai/cuml/issues/2216
         if scipy_sparse_isspmatrix(X) or cupyx.scipy.sparse.isspmatrix(X):
-            X = self._convert_x_sparse(X)
+            X = _convert_x_sparse(X)
         else:
             X = input_to_cupy_array(X, order='K',
                                     check_dtype=[cp.float32, cp.float64,
@@ -438,7 +438,7 @@ class MultinomialNB(Base, ClassifierMixin):
         # todo: use a sparse CumlArray style approach when ready
         # https://github.com/rapidsai/cuml/issues/2216
         if scipy_sparse_isspmatrix(X) or cupyx.scipy.sparse.isspmatrix(X):
-            X = self._convert_x_sparse(X)
+            X = _convert_x_sparse(X)
         else:
             X = input_to_cupy_array(X, order='K',
                                     check_dtype=[cp.float32,
