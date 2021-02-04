@@ -579,7 +579,9 @@ class TSNE(Base):
         return self.embedding_
 
     def __del__(self):
+
         if hasattr(self, "embedding_"):
+            print("Cleaning up: " + str(self.embedding_.__cuda_array_interface__))
             del self.embedding_
 
     def __getstate__(self):

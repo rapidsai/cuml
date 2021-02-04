@@ -308,6 +308,7 @@ void FFT_TSNE(value_t *VAL, const value_idx *COL, const value_idx *ROW,
     MLCommon::LinAlg::zero(attractive_forces_device.data(),
                            attractive_forces_device.size(), stream);
 
+    CUDA_CHECK(cudaStreamSynchronize(stream));
     auto minmax_pair = min_max(Y, n * 2, stream);
     auto min_coord = minmax_pair.first;
     auto max_coord = minmax_pair.second;
@@ -324,6 +325,10 @@ void FFT_TSNE(value_t *VAL, const value_idx *COL, const value_idx *ROW,
       box_lower_bounds_device.data(), box_width, min_coord, min_coord,
       n_boxes_per_dim, n_total_boxes);
     CUDA_CHECK(cudaPeekAtLastError());
+    CUDA_CHECK(cudaStreamSynchronize(stream));
+
+    if(iter == 999)
+      raft::print_device_vector("Y", Y, 15, std::cout);
 
     // Evaluate the kernel at the interpolation nodes and form the embedded
     // generating kernel vector for a circulant matrix.
@@ -336,11 +341,13 @@ void FFT_TSNE(value_t *VAL, const value_idx *COL, const value_idx *ROW,
       kernel_tilde_device.data(), min_coord, min_coord, h,
       n_interpolation_points_1d, n_fft_coeffs);
     CUDA_CHECK(cudaPeekAtLastError());
+    CUDA_CHECK(cudaStreamSynchronize(stream));
 
     // Precompute the FFT of the kernel generating matrix
     CUFFT_TRY(cufftExecR2C(plan_kernel_tilde, kernel_tilde_device.data(),
                            fft_kernel_tilde_device.data()));
 
+    CUDA_CHECK(cudaStreamSynchronize(stream));
     //// Run N-body FFT
     num_blocks = raft::ceildiv(n, (value_idx)NTHREADS_128);
     FFT::compute_point_box_idx<<<num_blocks, NTHREADS_128, 0, stream>>>(
@@ -348,6 +355,9 @@ void FFT_TSNE(value_t *VAL, const value_idx *COL, const value_idx *ROW,
       y_in_box_device.data(), Y, Y + n, box_lower_bounds_device.data(),
       min_coord, box_width, n_boxes_per_dim, n_total_boxes, n);
     CUDA_CHECK(cudaPeekAtLastError());
+    CUDA_CHECK(cudaStreamSynchronize(stream));
+
+    raft::print_device_vector("w_coefficients_device", w_coefficients_device.data(), min(15, (int)w_coefficients_device.size()), std::cout);
 
     // Step 1: Interpolate kernel using Lagrange polynomials and compute the w
     // coefficients.
@@ -361,6 +371,8 @@ void FFT_TSNE(value_t *VAL, const value_idx *COL, const value_idx *ROW,
       y_tilde_spacings_device.data(), denominator_device.data(),
       n_interpolation_points, n);
     CUDA_CHECK(cudaPeekAtLastError());
+    CUDA_CHECK(cudaStreamSynchronize(stream));
+
 
     // ...and in the `y` direction
     FFT::interpolate_device<<<num_blocks, NTHREADS_128, 0, stream>>>(
@@ -368,6 +380,9 @@ void FFT_TSNE(value_t *VAL, const value_idx *COL, const value_idx *ROW,
       y_tilde_spacings_device.data(), denominator_device.data(),
       n_interpolation_points, n);
     CUDA_CHECK(cudaPeekAtLastError());
+    CUDA_CHECK(cudaStreamSynchronize(stream));
+
+
 
     num_blocks = raft::ceildiv(
       n_terms * n_interpolation_points * n_interpolation_points * n,
@@ -379,6 +394,10 @@ void FFT_TSNE(value_t *VAL, const value_idx *COL, const value_idx *ROW,
       n_boxes_per_dim, n_terms);
     CUDA_CHECK(cudaPeekAtLastError());
 
+    CUDA_CHECK(cudaStreamSynchronize(stream));
+
+    raft::print_device_vector("w_coefficients_device", w_coefficients_device.data(), min(15, (int)w_coefficients_device.size()), std::cout);
+
     // Step 2: Compute the values v_{m, n} at the equispaced nodes, multiply
     // the kernel matrix with the coefficients w
     num_blocks = raft::ceildiv(n_terms * n_fft_coeffs_half * n_fft_coeffs_half,
@@ -388,11 +407,13 @@ void FFT_TSNE(value_t *VAL, const value_idx *COL, const value_idx *ROW,
       n_fft_coeffs_half, n_terms);
     CUDA_CHECK(cudaPeekAtLastError());
 
+    CUDA_CHECK(cudaStreamSynchronize(stream));
     // Compute fft values at interpolated nodes
     CUFFT_TRY(
       cufftExecR2C(plan_dft, fft_input.data(), fft_w_coefficients.data()));
     CUDA_CHECK(cudaPeekAtLastError());
 
+    CUDA_CHECK(cudaStreamSynchronize(stream));
     // Take the broadcasted Hadamard product of a complex matrix and a complex
     // vector.
     const value_idx nn = n_fft_coeffs * (n_fft_coeffs / 2 + 1);
@@ -400,6 +421,9 @@ void FFT_TSNE(value_t *VAL, const value_idx *COL, const value_idx *ROW,
     FFT::broadcast_column_vector<<<num_blocks, NTHREADS_32, 0, stream>>>(
       fft_w_coefficients.data(), fft_kernel_tilde_device.data(), nn, n_terms);
     CUDA_CHECK(cudaPeekAtLastError());
+    CUDA_CHECK(cudaStreamSynchronize(stream));
+
+    raft::print_device_vector("fft_input", fft_input.data(), min(15, (int)fft_input.size()), std::cout);
 
     // Invert the computed values at the interpolated nodes.
     CUFFT_TRY(
@@ -408,6 +432,9 @@ void FFT_TSNE(value_t *VAL, const value_idx *COL, const value_idx *ROW,
       y_tilde_values.data(), fft_output.data(), n_fft_coeffs, n_fft_coeffs_half,
       n_terms);
     CUDA_CHECK(cudaPeekAtLastError());
+    CUDA_CHECK(cudaStreamSynchronize(stream));
+
+    raft::print_device_vector("fft_output", fft_output.data(), min(15, (int)fft_output.size()), std::cout);
 
     // Step 3: Compute the potentials \tilde{\phi}
     num_blocks = raft::ceildiv(
@@ -421,6 +448,11 @@ void FFT_TSNE(value_t *VAL, const value_idx *COL, const value_idx *ROW,
         y_interpolated_values_device.data(), n, n_boxes_per_dim);
     CUDA_CHECK(cudaPeekAtLastError());
 
+    CUDA_CHECK(cudaStreamSynchronize(stream));
+
+
+    raft::print_device_vector("potentialsQij", potentialsQij_device.data(), 15, std::cout);
+
     value_t normalization;
     // Compute repulsive forces
     // Make the negative term, or F_rep in the equation 3 of the paper.
@@ -431,6 +463,7 @@ void FFT_TSNE(value_t *VAL, const value_idx *COL, const value_idx *ROW,
         Y + n, potentialsQij_device.data(), n, n_terms);
     CUDA_CHECK(cudaPeekAtLastError());
 
+    CUDA_CHECK(cudaStreamSynchronize(stream));
     auto norm_vec_thrust =
       thrust::device_pointer_cast(normalization_vec_device.data());
 
@@ -440,18 +473,30 @@ void FFT_TSNE(value_t *VAL, const value_idx *COL, const value_idx *ROW,
                      thrust::plus<value_t>());
     normalization = sumQ - n;
 
+    CUDA_CHECK(cudaStreamSynchronize(stream));
     // Compute attractive forces
     num_blocks = raft::ceildiv(NNZ, (value_idx)NTHREADS_1024);
     FFT::compute_Pij_x_Qij_kernel<<<num_blocks, NTHREADS_1024, 0, stream>>>(
       attractive_forces_device.data(), VAL, ROW, COL, Y, n, NNZ);
 
-    // Apply Forces
+
+    CUDA_CHECK(cudaStreamSynchronize(stream));    // Apply Forces
     num_blocks = mp_count * integration_kernel_factor;
+
     FFT::IntegrationKernel<<<num_blocks, NTHREADS_1024, 0, stream>>>(
       Y, attractive_forces_device.data(), repulsive_forces_device.data(),
       gains_device.data(), old_forces_device.data(), learning_rate,
       normalization, momentum, exaggeration, n);
     CUDA_CHECK(cudaPeekAtLastError());
+
+    CUDA_CHECK(cudaStreamSynchronize(stream));
+
+    h_result = thrust::transform_reduce(
+      thrust::cuda::par.on(stream), d_ptr, d_ptr + (n * 2), isnan_test(), 0,
+      thrust::plus<bool>());
+
+    ASSERT(!h_result, "Output embedding (Y) contains nan values (end)");
+
 
     auto att_forces_thrust =
       thrust::device_pointer_cast(attractive_forces_device.data());
@@ -475,9 +520,18 @@ void FFT_TSNE(value_t *VAL, const value_idx *COL, const value_idx *ROW,
                      att_forces_thrust + attractive_forces_device.size(), 0.0f,
                      thrust::plus<value_t>()) /
       attractive_forces_device.size();
-    if (grad_norm <= min_grad_norm) break;
+
+    CUDA_CHECK(cudaStreamSynchronize(stream));
+
+    if (grad_norm <= min_grad_norm) {
+      break;
+    }
+
+    if(iter == 999)
+      printf("grad_norm: %f\n", grad_norm);
   }
 
+  CUDA_CHECK(cudaStreamSynchronize(stream));
   CUFFT_TRY(cufftDestroy(plan_kernel_tilde));
   CUFFT_TRY(cufftDestroy(plan_dft));
   CUFFT_TRY(cufftDestroy(plan_idft));
