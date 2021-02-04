@@ -382,11 +382,12 @@ class RandomForestRegressor(BaseRandomForestModel, DelayedPredictionMixin,
                                     delayed=delayed,
                                     **kwargs)
 
-        def reduce(partial_infs, n_estimators_per_worker,
+        def reduce(partial_infs, workers_weights,
                    unique_classes=None):
-            res = dask.array.average(partial_infs, axis=1,
-                                     weights=n_estimators_per_worker)
-            return res.compute()
+            regressions = dask.array.average(partial_infs, axis=1,
+                                             weights=workers_weights)
+            merged_regressions = regressions.compute()
+            return merged_regressions
 
         datatype = 'daskArray' if isinstance(X, dask.array.Array) \
             else 'daskDataframe'

@@ -295,12 +295,12 @@ class BaseRandomForestModel(object):
             else:
                 return dask.dataframe.from_array(res)
 
-        n_trees = cp.array(self.n_estimators_per_worker)
-        n_trees = n_trees / n_trees.sum()
+        workers_weights = cp.array(self.n_estimators_per_worker)
+        workers_weights = workers_weights / workers_weights.sum()
         unique_classes = None if not hasattr(self, 'unique_classes') \
             else self.unique_classes
         delayed_local_array = dask.delayed(reduce)(partial_infs,
-                                                   n_trees,
+                                                   workers_weights,
                                                    unique_classes)
         delayed_res = back_to_dask(delayed_local_array, datatype)
 
