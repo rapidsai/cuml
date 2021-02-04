@@ -18,7 +18,7 @@ import cupy as cp
 from cuml.preprocessing import LabelEncoder, LabelBinarizer
 import cudf
 
-
+@cuml.internals.api_return_any()
 def cython_hinge_loss(y_true, pred_decision, labels=None, sample_weights=None):
     """
     Calculates non-regularized hinge loss. Adapted from scikit-learn hinge loss
