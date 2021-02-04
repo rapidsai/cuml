@@ -245,12 +245,10 @@ if [ -n "${CODECOV_TOKEN}" ]; then
 
     gpuci_logger "Uploading Code Coverage to codecov.io"
 
-    # Base tags to apply
-    CODECOV_NAME="${OS},python${PYTHON},cuda${CUDA}"
-
     # Directory containing reports
     REPORT_DIR="${WORKSPACE}/python/cuml"
 
+    # Codecov args needed by both calls
     EXTRA_CODECOV_ARGS=""
 
     # Save the OS PYTHON and CUDA flags
@@ -268,8 +266,8 @@ if [ -n "${CODECOV_TOKEN}" ]; then
 
     # Upload the two reports with separate flags. Delete the report on success
     # to prevent further CI steps from re-uploading
-    codecov -F non-dask -f ${REPORT_DIR}/cuml-coverage.xml -n "$CODECOV_NAME,non-dask" ${EXTRA_CODECOV_ARGS} && rm ${REPORT_DIR}/cuml-coverage.xml
-    codecov -F dask -f ${REPORT_DIR}/cuml-dask-coverage.xml -n "$CODECOV_NAME,dask" ${EXTRA_CODECOV_ARGS} && rm ${REPORT_DIR}/cuml-dask-coverage.xml
+    codecov -F non-dask -f ${REPORT_DIR}/cuml-coverage.xml ${EXTRA_CODECOV_ARGS} && rm ${REPORT_DIR}/cuml-coverage.xml
+    codecov -F dask -f ${REPORT_DIR}/cuml-dask-coverage.xml ${EXTRA_CODECOV_ARGS} && rm ${REPORT_DIR}/cuml-dask-coverage.xml
 fi
 
 return ${EXITCODE}
