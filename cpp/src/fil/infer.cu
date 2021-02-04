@@ -76,12 +76,10 @@ struct vec {
 };
 
 struct best_margin_label : cub::KeyValuePair<int, float> {
-  __host__ __device__
-    best_margin_label(cub::KeyValuePair<int, float> pair)
+  __host__ __device__ best_margin_label(cub::KeyValuePair<int, float> pair)
     : cub::KeyValuePair<int, float>(pair) {}
-  __host__ __device__
-    best_margin_label(int c = 0, float f = -INFINITY)
-    : cub::KeyValuePair<int, float>({c,f}) {}
+  __host__ __device__ best_margin_label(int c = 0, float f = -INFINITY)
+    : cub::KeyValuePair<int, float>({c, f}) {}
 };
 
 template <int NITEMS>
@@ -219,7 +217,7 @@ struct tree_aggregator_t {
     if (threadIdx.x > 0) return;
 #pragma unroll
     for (int row = 0; row < NITEMS; ++row)
-      if(row < num_rows) out[row * output_stride] = acc[row];
+      if (row < num_rows) out[row * output_stride] = acc[row];
   }
 };
 
@@ -260,8 +258,8 @@ __device__ __forceinline__ void write_best_class(Iterator begin, Iterator end,
   // write it out to global memory
   if (threadIdx.x > 0) return;
 #pragma unroll
-    for (int row = 0; row < best.NITEMS; ++row)
-      if(row < num_rows) out[row] = best[row].key;
+  for (int row = 0; row < best.NITEMS; ++row)
+    if (row < num_rows) out[row] = best[row].key;
 }
 
 /// needed for softmax
@@ -276,11 +274,13 @@ __device__ __forceinline__ void block_softmax(Iterator begin, Iterator end,
                                               void* tmp_storage) {
   // subtract max before exponentiating for numerical stability
   typedef typename std::iterator_traits<Iterator>::value_type value_type;
-  value_type max = allreduce_shmem(begin, end, vectorized(cub::Max()), tmp_storage);
+  value_type max =
+    allreduce_shmem(begin, end, vectorized(cub::Max()), tmp_storage);
   for (Iterator it = begin + threadIdx.x; it < end; it += blockDim.x)
     *it = vectorized(shifted_exp)(*it, max);
   // sum of exponents
-  value_type soe = allreduce_shmem(begin, end, vectorized(cub::Sum()), tmp_storage);
+  value_type soe =
+    allreduce_shmem(begin, end, vectorized(cub::Sum()), tmp_storage);
   // softmax phase 2: normalization
   for (Iterator it = begin + threadIdx.x; it < end; it += blockDim.x)
     *it /= soe;
@@ -302,7 +302,7 @@ __device__ __forceinline__ void normalize_softmax_and_write(
 #pragma unroll
   for (int row = 0; row < begin->NITEMS; ++row) {
     for (int c = threadIdx.x; c < end - begin; c += blockDim.x)
-      if(row < num_rows) out[row * (end - begin) + c] = begin[c][row];
+      if (row < num_rows) out[row * (end - begin) + c] = begin[c][row];
   }
 }
 
@@ -363,9 +363,9 @@ struct tree_aggregator_t<NITEMS, GROVE_PER_CLASS_FEW_CLASSES> {
     __syncthreads();  // per_thread needs to be fully populated
 
     void* storage = num_outputs > 1 ? per_thread + num_classes : tmp_storage;
-    class_margins_to_global_memory(per_thread, per_thread + num_classes, transform,
-                          num_trees / num_classes, storage, out, num_rows,
-                          num_outputs);
+    class_margins_to_global_memory(per_thread, per_thread + num_classes,
+                                   transform, num_trees / num_classes, storage,
+                                   out, num_rows, num_outputs);
   }
 };
 
@@ -414,9 +414,9 @@ struct tree_aggregator_t<NITEMS, GROVE_PER_CLASS_MANY_CLASSES> {
                                            int num_trees) {
     void* storage =
       num_outputs > 1 ? per_class_value + num_classes : tmp_storage;
-    class_margins_to_global_memory(per_class_value, per_class_value + num_classes,
-                          transform, num_trees / num_classes, storage, out,
-                          num_rows, num_outputs);
+    class_margins_to_global_memory(
+      per_class_value, per_class_value + num_classes, transform,
+      num_trees / num_classes, storage, out, num_rows, num_outputs);
   }
 };
 
