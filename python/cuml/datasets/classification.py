@@ -41,7 +41,7 @@ def _generate_hypercube(samples, dimensions, rng):
     return out
 
 
-@cuml.internals.api_return_any()
+@cuml.internals.api_return_generic()
 def make_classification(n_samples=100, n_features=20, n_informative=2,
                         n_redundant=2, n_repeated=0, n_classes=2,
                         n_clusters_per_class=2, weights=None, flip_y=0.01,
@@ -205,6 +205,8 @@ def make_classification(n_samples=100, n_features=20, n_informative=2,
            selection benchmark", 2003.
 
     """
+    cuml.internals.set_api_output_type("cupy")
+
     generator = _create_rs_generator(random_state)
     np_seed = int(generator.randint(n_samples, size=1))
     np.random.seed(np_seed)
