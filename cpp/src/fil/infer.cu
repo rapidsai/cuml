@@ -19,10 +19,6 @@
 
 #include <cuml/fil/multi_sum.cuh>
 #include "common.cuh"
-using cub::ArgMax;
-using cub::Max;
-using cub::Sum;
-using thrust::divides;
 
 namespace ML {
 namespace fil {
@@ -48,11 +44,12 @@ struct Vectorized {
 };
 template <typename BinaryOp>
 constexpr __host__ __device__ Vectorized<BinaryOp> vectorized(BinaryOp op) {
-  return Vectorized<BinaryOp>(op);
+  return op;
 }
 
 template <int N, typename T>
 struct vec {
+  static const int NITEMS = N;
   T data[N];
   explicit __host__ __device__ vec(T t) {
 #pragma unroll
@@ -63,14 +60,14 @@ struct vec {
   __host__ __device__ T operator[](int i) const { return data[i]; }
   friend __host__ __device__ vec<N, T> operator+(const vec<N, T>& a,
                                                  const vec<N, T>& b) {
-    return vectorized(Sum())(a, b);
+    return vectorized(cub::Sum())(a, b);
   }
   friend __host__ __device__ void operator+=(vec<N, T>& a, const vec<N, T>& b) {
     a = a + b;
   }
   template <typename Vec>
   friend __host__ __device__ vec<N, T> operator/(vec<N, T>& a, const Vec& b) {
-    return vectorized(divides<T>())(a, vec<N, T>(b));
+    return vectorized(thrust::divides<T>())(a, vec<N, T>(b));
   }
   template <typename Vec>
   friend __host__ __device__ void operator/=(vec<N, T>& a, const Vec& b) {
@@ -80,16 +77,19 @@ struct vec {
 
 struct best_margin_label : cub::KeyValuePair<int, float> {
   __host__ __device__
-  best_margin_label(cub::KeyValuePair<int, float> pair = {-1, -INFINITY})
+    best_margin_label(cub::KeyValuePair<int, float> pair)
     : cub::KeyValuePair<int, float>(pair) {}
+  __host__ __device__
+    best_margin_label(int c = 0, float f = -INFINITY)
+    : cub::KeyValuePair<int, float>({c,f}) {}
 };
 
 template <int NITEMS>
 __device__ __forceinline__ vec<NITEMS, best_margin_label> to_vec(
-  const int c, const vec<NITEMS, float> margin) {
+  int c, vec<NITEMS, float> margin) {
   vec<NITEMS, best_margin_label> ret;
 #pragma unroll
-  for (int i = 0; i < NITEMS; ++i) ret[i] = best_margin_label({c, margin[i]});
+  for (int i = 0; i < NITEMS; ++i) ret[i] = best_margin_label(c, margin[i]);
   return ret;
 }
 
@@ -215,15 +215,15 @@ struct tree_aggregator_t {
                                            int output_stride,
                                            output_t transform, int num_trees) {
     __syncthreads();
-    acc = block_reduce(acc, vectorized(Sum()), tmp_storage);
+    acc = block_reduce(acc, vectorized(cub::Sum()), tmp_storage);
     if (threadIdx.x > 0) return;
 #pragma unroll
-    for (int row = 0; row < num_rows; ++row)
-      out[row * output_stride] = acc[row];
+    for (int row = 0; row < NITEMS; ++row)
+      if(row < num_rows) out[row * output_stride] = acc[row];
   }
 };
 
-// tmp_storage may overlap shared memory addressed by begin..end
+// tmp_storage may overlap shared memory addressed by [begin, end)
 // allreduce_shmem ensures no race conditions
 template <typename Iterator, typename BinaryOp>
 __device__ __forceinline__ auto allreduce_shmem(Iterator begin, Iterator end,
@@ -233,7 +233,7 @@ __device__ __forceinline__ auto allreduce_shmem(Iterator begin, Iterator end,
   value_type thread_partial;
   for (Iterator it = begin + threadIdx.x; it < end; it += blockDim.x)
     thread_partial = op(thread_partial, *it);
-  __syncthreads();  // free shared memory begin..end
+  __syncthreads();  // free shared memory [begin, end)
   auto res = block_reduce(thread_partial, op, tmp_storage);
   // broadcast sum to all threads
   __syncthreads();  // free up tmp_storage
@@ -242,23 +242,26 @@ __device__ __forceinline__ auto allreduce_shmem(Iterator begin, Iterator end,
   return *(value_type*)tmp_storage;
 }
 
-// tmp_storage may overlap shared memory addressed by begin..end
+// *begin and *end shall be struct vec
+// tmp_storage may overlap shared memory addressed by [begin, end)
 template <typename Iterator>
 __device__ __forceinline__ void write_best_class(Iterator begin, Iterator end,
                                                  void* tmp_storage, float* out,
                                                  int num_rows) {
   // reduce per-class candidate margins to one best class candidate
   // per thread (for each of the NITEMS rows)
-  auto best = to_vec(0, *begin);
+  auto best = vec<begin->NITEMS, best_margin_label>();
   for (int c = threadIdx.x; c < end - begin; c += blockDim.x)
-    best = vectorized(ArgMax())(best, to_vec(c, begin[c]));
-  __syncthreads();  // begin..end may overlap tmp_storage
+    best = vectorized(cub::ArgMax())(best, to_vec(c, begin[c]));
+  // [begin, end) may overlap tmp_storage
+  __syncthreads();
   // find best class per block (for each of the NITEMS rows)
-  best = block_reduce(best, vectorized(ArgMax()), tmp_storage);
+  best = block_reduce(best, vectorized(cub::ArgMax()), tmp_storage);
   // write it out to global memory
   if (threadIdx.x > 0) return;
 #pragma unroll
-  for (int row = 0; row < num_rows; ++row) out[row] = best[row].key;
+    for (int row = 0; row < best.NITEMS; ++row)
+      if(row < num_rows) out[row] = best[row].key;
 }
 
 /// needed for softmax
@@ -266,24 +269,25 @@ __device__ float shifted_exp(float margin, float max) {
   return expf(margin - max);
 }
 
-// TODO: fix tmp_storage placement
-// tmp_storage may NOT overlap shared memory addressed by begin..end
+// *begin and *end shall be struct vec
+// tmp_storage may NOT overlap shared memory addressed by [begin, end)
 template <typename Iterator>
 __device__ __forceinline__ void block_softmax(Iterator begin, Iterator end,
                                               void* tmp_storage) {
   // subtract max before exponentiating for numerical stability
   typedef typename std::iterator_traits<Iterator>::value_type value_type;
-  value_type max = allreduce_shmem(begin, end, vectorized(Max()), tmp_storage);
+  value_type max = allreduce_shmem(begin, end, vectorized(cub::Max()), tmp_storage);
   for (Iterator it = begin + threadIdx.x; it < end; it += blockDim.x)
     *it = vectorized(shifted_exp)(*it, max);
   // sum of exponents
-  value_type soe = allreduce_shmem(begin, end, vectorized(Sum()), tmp_storage);
+  value_type soe = allreduce_shmem(begin, end, vectorized(cub::Sum()), tmp_storage);
   // softmax phase 2: normalization
   for (Iterator it = begin + threadIdx.x; it < end; it += blockDim.x)
     *it /= soe;
 }
 
-// tmp_storage may NOT overlap shared memory addressed by begin..end
+// *begin and *end shall be struct vec
+// tmp_storage may NOT overlap shared memory addressed by [begin, end)
 template <typename Iterator>
 __device__ __forceinline__ void normalize_softmax_and_write(
   Iterator begin, Iterator end, output_t transform, int trees_per_class,
@@ -296,16 +300,17 @@ __device__ __forceinline__ void normalize_softmax_and_write(
     block_softmax(begin, end, tmp_storage);
 // write result to global memory
 #pragma unroll
-  for (int row = 0; row < num_rows; ++row) {
+  for (int row = 0; row < begin->NITEMS; ++row) {
     for (int c = threadIdx.x; c < end - begin; c += blockDim.x)
-      out[row * (end - begin) + c] = begin[c][row];
+      if(row < num_rows) out[row * (end - begin) + c] = begin[c][row];
   }
 }
 
-// tmp_storage may NOT overlap shared memory addressed by begin..end
+// *begin and *end shall be struct vec
+// tmp_storage may NOT overlap shared memory addressed by [begin, end)
 // in case num_outputs > 1
 template <typename Iterator>
-__device__ __forceinline__ void class_margins_to_gmem(
+__device__ __forceinline__ void class_margins_to_global_memory(
   Iterator begin, Iterator end, output_t transform, int trees_per_class,
   void* tmp_storage, float* out, int num_rows, int num_outputs) {
   if (num_outputs == 1) {  // will output class
@@ -358,7 +363,7 @@ struct tree_aggregator_t<NITEMS, GROVE_PER_CLASS_FEW_CLASSES> {
     __syncthreads();  // per_thread needs to be fully populated
 
     void* storage = num_outputs > 1 ? per_thread + num_classes : tmp_storage;
-    class_margins_to_gmem(per_thread, per_thread + num_classes, transform,
+    class_margins_to_global_memory(per_thread, per_thread + num_classes, transform,
                           num_trees / num_classes, storage, out, num_rows,
                           num_outputs);
   }
@@ -409,7 +414,7 @@ struct tree_aggregator_t<NITEMS, GROVE_PER_CLASS_MANY_CLASSES> {
                                            int num_trees) {
     void* storage =
       num_outputs > 1 ? per_class_value + num_classes : tmp_storage;
-    class_margins_to_gmem(per_class_value, per_class_value + num_classes,
+    class_margins_to_global_memory(per_class_value, per_class_value + num_classes,
                           transform, num_trees / num_classes, storage, out,
                           num_rows, num_outputs);
   }

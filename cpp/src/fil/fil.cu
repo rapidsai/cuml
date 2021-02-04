@@ -410,13 +410,12 @@ void check_params(const forest_params_t* params, bool dense) {
              "leaf_algo must be FLOAT_UNARY_BINARY, CATEGORICAL_LEAF"
              " or GROVE_PER_CLASS");
   }
-  // output_t::RAW == 0, and doesn't have a separate flag
   if ((params->output & ~output_t::ALL_SET) != 0) {
     ASSERT(false,
            "output should be a combination of RAW, AVG, SIGMOID, CLASS and SOFTMAX");
   }
   ASSERT(
-    (params->output & output_t::SIGMOID_SOFTMAX) != output_t::SIGMOID_SOFTMAX,
+    ~params->output & (output_t::SIGMOID | output_t::SOFTMAX),
     "combining softmax and sigmoid is not supported");
   ASSERT(params->blocks_per_sm >= 0, "blocks_per_sm must be nonnegative");
 }
@@ -667,11 +666,10 @@ void tl2fil_common(forest_params_t* params, const tl::ModelImpl<T, L>& model,
       params->num_classes = static_cast<int>(model.task_param.num_class);
       ASSERT(tl_params->output_class,
              "output_class==true is required for multi-class models");
-      ASSERT(pred_transform == "sigmoid" ||
-               pred_transform == "identity_multiclass" ||
-               pred_transform == "max_index" || pred_transform == "softmax" ||
-               pred_transform == "multiclass_ova",
-             "only sigmoid, identity, max_index, multiclass_ova and softmax "
+      ASSERT(pred_transform == "identity_multiclass" ||
+             pred_transform == "max_index" || pred_transform == "softmax" ||
+             pred_transform == "multiclass_ova",
+             "only identity_multiclass, max_index, multiclass_ova and softmax "
              "values of pred_transform are supported for xgboost-style "
              "multi-class classification models.");
       // this function should not know how many threads per block will be used

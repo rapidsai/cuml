@@ -250,12 +250,12 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
 
   void apply_softmax(float* class_scores) {
     float max = *std::max_element(class_scores, &class_scores[ps.num_classes]);
-    for (float* f = class_scores; f < &class_scores[ps.num_classes]; ++f)
-      *f = expf(*f - max);
+    for (int i = 0; i < ps.num_classes; ++i)
+      class_scores[i] = expf(class_scores[i] - max);
     float sum =
       std::accumulate(class_scores, &class_scores[ps.num_classes], 0.0f);
-    for (float* f = class_scores; f < &class_scores[ps.num_classes]; ++f)
-      *f /= sum;
+    for (int i = 0; i < ps.num_classes; ++i)
+      class_scores[i] /= sum;
   }
 
   void transform(float f, float& proba, float& output) {
@@ -729,9 +729,9 @@ std::vector<FilTestParams> predict_dense_inputs = {
                   num_classes = 4),
   FIL_TEST_PARAMS(num_trees = 52, output = AVG_SOFTMAX,
                   leaf_algo = GROVE_PER_CLASS, num_classes = 4),
-  FIL_TEST_PARAMS(num_trees = FIL_TPB + 1, output = SOFTMAX,
+  FIL_TEST_PARAMS(num_trees = 3*(FIL_TPB + 1), output = SOFTMAX,
                   leaf_algo = GROVE_PER_CLASS, num_classes = FIL_TPB + 1),
-  FIL_TEST_PARAMS(num_trees = FIL_TPB + 1, output = AVG_SOFTMAX,
+  FIL_TEST_PARAMS(num_trees = 3*(FIL_TPB + 1), output = AVG_SOFTMAX,
                   leaf_algo = GROVE_PER_CLASS, num_classes = FIL_TPB + 1),
 };
 
