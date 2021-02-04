@@ -105,20 +105,42 @@ struct sparse_storage {
 typedef sparse_storage<sparse_node16> sparse_storage16;
 typedef sparse_storage<sparse_node8> sparse_storage8;
 
-// predict_params are parameters for prediction
-struct predict_params {
-  // Model parameters.
-  int num_cols;
-  algo_t algo;
-  int max_items;  // only set and used by infer()
-  // number of outputs for the forest per each data row
-  int num_outputs;
-  // for class probabilities, this is the number of classes considered
-  // ignored otherwise
-  int num_classes;
+/// all model parameters mostly required to compute shared memory footprint,
+/// also the footprint itself
+struct shmem_size_params {
+  /// for class probabilities, this is the number of classes considered;
+  /// num_classes is ignored otherwise
+  int num_classes = 1;
   // leaf_algo determines what the leaves store (predict) and how FIL
   // aggregates them into class margins/predicted class/regression answer
-  leaf_algo_t leaf_algo;
+  leaf_algo_t leaf_algo = leaf_algo_t::FLOAT_UNARY_BINARY;
+  /// how many columns an input row has
+  int num_cols = 0;
+  /// are the input columns are prefetched into shared
+  /// memory before inferring the row in question
+  bool cols_in_shmem = true;
+  /// n_items is the most items per thread that fit into shared memory
+  int n_items = 0;
+  /// shm_sz is the associated shared memory footprint
+  int shm_sz = INT_MAX;
+
+  __host__ __device__ size_t cols_shmem_size() {
+    return cols_in_shmem ? sizeof(float) * num_cols * n_items : 0;
+  }
+  void compute_smem_footprint();
+  template <int NITEMS>
+  size_t get_smem_footprint();
+  template <int NITEMS, leaf_algo_t leaf_algo>
+  size_t get_smem_footprint();
+};
+
+// predict_params are parameters for prediction
+struct predict_params : shmem_size_params {
+  predict_params(shmem_size_params ssp) : shmem_size_params(ssp) {}
+  // Model parameters.
+  algo_t algo;
+  // number of outputs for the forest per each data row
+  int num_outputs;
 
   // Data parameters.
   float* preds;
@@ -126,8 +148,6 @@ struct predict_params {
   // number of data rows (instances) to predict on
   size_t num_rows;
 
-  // Other parameters.
-  int max_shm;
   // to signal infer kernel to apply softmax and also average prior to that
   // for GROVE_PER_CLASS for predict_proba
   output_t transform;
