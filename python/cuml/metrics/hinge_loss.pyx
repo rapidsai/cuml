@@ -26,13 +26,13 @@ def cython_hinge_loss(y_true, pred_decision, labels=None, sample_weights=None):
     Parameters
     ----------
     y_true: cuDF Series or cuPy array of shape (n_samples,)
-            True labels, consisting of labels for the classes.
-            In binary classification, the positive label must be
-            greater than negative class
+    True labels, consisting of labels for the classes.
+    In binary classification, the positive label must be
+    greater than negative class
 
-    pred_decision: cuDF DataFrame or cuPy array of shape (n_samples,) or
-                   (n_samples, n_classes)
-                   Predicted decisions, as output by decision_function (floats)
+    pred_decision: cuDF DataFrame or cuPy array of shape (n_samples,) or \
+            (n_samples, n_classes)
+        Predicted decisions, as output by decision_function (floats)
 
     labels: cuDF Series or cuPy array, default=None
             In multiclass problems, this must include all class labels.
@@ -42,7 +42,7 @@ def cython_hinge_loss(y_true, pred_decision, labels=None, sample_weights=None):
 
     Returns
     -------
-    loss : float.
+    loss : float
            The average hinge loss.
     """
 
@@ -68,13 +68,10 @@ def cython_hinge_loss(y_true, pred_decision, labels=None, sample_weights=None):
                              y_true.shape[0],
                              sample_weights.shape[0]))
 
-    y_cudf = isinstance(y_true, cudf.Series)
-    labels_cudf = isinstance(labels, cudf.Series)
-
-    if not labels_cudf:
+    if not isinstance(labels, cudf.Series):
         labels = cudf.Series(labels)
 
-    if not y_cudf:
+    if not isinstance(y_true, cudf.Series):
         y_true = cudf.Series(y_true)
 
     if len(y_true.shape) != 1:
