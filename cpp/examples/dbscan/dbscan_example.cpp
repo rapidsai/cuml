@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -200,8 +200,8 @@ int main(int argc, char* argv[]) {
             << "eps - " << eps << std::endl
             << "max_bytes_per_batch - " << max_bytes_per_batch << std::endl;
 
-  ML::dbscanFit(handle, d_inputData, nRows, nCols, eps, minPts, d_labels,
-                nullptr, max_bytes_per_batch, false);
+  ML::Dbscan::fit(handle, d_inputData, nRows, nCols, eps, minPts, d_labels,
+                  nullptr, max_bytes_per_batch, false);
   CUDA_RT_CALL(cudaMemcpyAsync(h_labels.data(), d_labels, nRows * sizeof(int),
                                cudaMemcpyDeviceToHost, stream));
   CUDA_RT_CALL(cudaStreamSynchronize(stream));

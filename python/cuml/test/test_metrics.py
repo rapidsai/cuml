@@ -239,7 +239,7 @@ def test_silhouette_score_batched(metric, chunk_divider, labeled_clusters):
     cuml_score = cu_silhouette_score(X, labels, metric=metric,
                                      chunksize=int(X.shape[0]/chunk_divider))
     sk_score = sk_silhouette_score(X, labels, metric=metric)
-    assert_almost_equal(cuml_score, sk_score, decimal=3)
+    assert_almost_equal(cuml_score, sk_score, decimal=2)
 
 
 @pytest.mark.parametrize('metric', (

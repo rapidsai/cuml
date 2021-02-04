@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,6 +27,8 @@
 
 namespace raft {
 namespace sparse {
+
+/**************************** sorted COO to CSR ****************************/
 
 template <typename T>
 struct SparseConvertCSRInputs {
@@ -90,45 +92,89 @@ TEST_P(SortedCOOToCSR, Result) {
   CUDA_CHECK(cudaFree(out));
 }
 
-typedef SparseConvertCSRTest<float> AdjGraphTest;
-TEST_P(AdjGraphTest, Result) {
-  cudaStream_t stream;
-  cudaStreamCreate(&stream);
-
-  int *row_ind, *result, *verify;
-  bool *adj;
-
-  int row_ind_h[3] = {0, 3, 6};
-  bool adj_h[18] = {1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-
-  int verify_h[9] = {0, 1, 2, 0, 1, 2, 0, 1, 2};
-
-  raft::allocate(row_ind, 3);
-  raft::allocate(adj, 18);
-  raft::allocate(result, 9, true);
-  raft::allocate(verify, 9);
-
-  raft::update_device(row_ind, *&row_ind_h, 3, stream);
-  raft::update_device(adj, *&adj_h, 18, stream);
-  raft::update_device(verify, *&verify_h, 9, stream);
-
-  convert::csr_adj_graph_batched<int, 32>(row_ind, 6, 9, 3, adj, result,
-                                          stream);
-
-  ASSERT_TRUE(raft::devArrMatch<int>(verify, result, 9, raft::Compare<int>()));
-
-  cudaStreamDestroy(stream);
-
-  CUDA_CHECK(cudaFree(row_ind));
-  CUDA_CHECK(cudaFree(adj));
-  CUDA_CHECK(cudaFree(verify));
-  CUDA_CHECK(cudaFree(result));
-}
-
 INSTANTIATE_TEST_CASE_P(SparseConvertCSRTest, SortedCOOToCSR,
                         ::testing::ValuesIn(inputsf));
-INSTANTIATE_TEST_CASE_P(SparseConvertCSRTest, AdjGraphTest,
-                        ::testing::ValuesIn(inputsf));
+
+/******************************** adj graph ********************************/
+
+template <typename Index_>
+struct CSRAdjGraphInputs {
+  Index_ n_rows;
+  Index_ n_cols;
+  std::vector<Index_> row_ind;
+  std::vector<uint8_t> adj;  // To avoid vector<bool> optimization
+  std::vector<Index_> verify;
+};
+
+template <typename Index_>
+class CSRAdjGraphTest
+  : public ::testing::TestWithParam<CSRAdjGraphInputs<Index_>> {
+ protected:
+  void SetUp() override {
+    params = ::testing::TestWithParam<CSRAdjGraphInputs<Index_>>::GetParam();
+    cudaStreamCreate(&stream);
+    nnz = params.verify.size();
+
+    raft::allocate(row_ind, params.n_rows);
+    raft::allocate(adj, params.n_rows * params.n_cols);
+    raft::allocate(result, nnz, true);
+    raft::allocate(verify, nnz);
+  }
+
+  void Run() {
+    raft::update_device(row_ind, params.row_ind.data(), params.n_rows, stream);
+    raft::update_device(adj, reinterpret_cast<bool *>(params.adj.data()),
+                        params.n_rows * params.n_cols, stream);
+    raft::update_device(verify, params.verify.data(), nnz, stream);
+
+    convert::csr_adj_graph_batched<Index_, 32>(
+      row_ind, params.n_cols, nnz, params.n_rows, adj, result, stream);
+
+    ASSERT_TRUE(
+      raft::devArrMatch<Index_>(verify, result, nnz, raft::Compare<Index_>()));
+  }
+
+  void TearDown() override {
+    CUDA_CHECK(cudaFree(row_ind));
+    CUDA_CHECK(cudaFree(adj));
+    CUDA_CHECK(cudaFree(verify));
+    CUDA_CHECK(cudaFree(result));
+    cudaStreamDestroy(stream);
+  }
+
+ protected:
+  CSRAdjGraphInputs<Index_> params;
+  cudaStream_t stream;
+  Index_ nnz;
+  Index_ *row_ind, *result, *verify;
+  bool *adj;
+};
+
+using CSRAdjGraphTestI = CSRAdjGraphTest<int>;
+TEST_P(CSRAdjGraphTestI, Result) { Run(); }
+
+using CSRAdjGraphTestL = CSRAdjGraphTest<int64_t>;
+TEST_P(CSRAdjGraphTestL, Result) { Run(); }
+
+const std::vector<CSRAdjGraphInputs<int>> csradjgraph_inputs_i = {
+  {3,
+   6,
+   {0, 3, 6},
+   {1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+   {0, 1, 2, 0, 1, 2, 0, 1, 2}},
+};
+const std::vector<CSRAdjGraphInputs<int64_t>> csradjgraph_inputs_l = {
+  {3,
+   6,
+   {0, 3, 6},
+   {1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+   {0, 1, 2, 0, 1, 2, 0, 1, 2}},
+};
+
+INSTANTIATE_TEST_CASE_P(SparseConvertCSRTest, CSRAdjGraphTestI,
+                        ::testing::ValuesIn(csradjgraph_inputs_i));
+INSTANTIATE_TEST_CASE_P(SparseConvertCSRTest, CSRAdjGraphTestL,
+                        ::testing::ValuesIn(csradjgraph_inputs_l));
 
 }  // namespace sparse
 }  // namespace raft
