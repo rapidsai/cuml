@@ -73,7 +73,12 @@ if(BUILD_CUML_PRIMS_BENCH)
   endif(NOT CUB_IS_PART_OF_CTK)
   add_dependencies(prims_benchmark spdlog)
 
-  target_link_libraries(prims_benchmark ${CUDA_cublas_LIBRARY} benchmarklib ${CUML_CPP_TARGET})
+  target_link_libraries(prims_benchmark 
+    PUBLIC
+      ${CUDA_cublas_LIBRARY}
+      benchmarklib
+      ${CUML_CPP_TARGET}
+  )
 
   target_include_directories(prims_benchmark
     PRIVATE 
