@@ -57,8 +57,8 @@ cdef extern from "cuml/explainer/permutation_shap.hpp" namespace "ML":
         const handle_t& handle,
         float* dataset,
         const float* background,
-        int n_rows,
-        int n_cols,
+        int nrows,
+        int ncols,
         const float* row,
         int* idx,
         bool rowMajor) except +
@@ -67,8 +67,8 @@ cdef extern from "cuml/explainer/permutation_shap.hpp" namespace "ML":
             const handle_t& handle,
             double* dataset,
             const double* background,
-            int n_rows,
-            int n_cols,
+            int nrows,
+            int ncols,
             const double* row,
             int* idx,
             bool rowMajor) except +
@@ -190,7 +190,7 @@ class SHAPBase():
                 self.dtype = np.dtype(dtype)
             raise ValueError("dtype must be either np.float32 or np.float64")
 
-        self.background, self.N, self.M, _ = \
+        self.background, self.nrows, self.ncols, _ = \
             input_to_cupy_array(background, order=self.order,
                                 convert_to_dtype=self.dtype)
 
@@ -268,7 +268,7 @@ class SHAPBase():
                                 convert_to_dtype=self.dtype)[0]
 
         if X.ndim == 1:
-            X = X.reshape((1, self.M))
+            X = X.reshape((1, self.ncols))
 
         # shap_values is a list so we can return a list in the case that
         # model is a multidimensional-output function
@@ -291,7 +291,7 @@ class SHAPBase():
             # use mutability of lists and cupy arrays to get all shap values
             self._explain_single_observation(
                 shap_values=shap_values,
-                row=x.reshape(1, self.M),
+                row=x.reshape(1, self.ncols),
                 idx=idx,
                 **kwargs
             )
@@ -355,7 +355,7 @@ class SHAPBase():
             inds = cp.arange(len(self.masker), dtype=np.float32)
 
         masked_inputs = cp.empty(
-            shape=((self.n_rows * self.n_cols + self.n_rows), self.n_cols),
+            shape=((self.nrows * self.ncols + self.nrows), self.ncols),
             dtype=self.dtype,
             order=self.masker.order
         )
@@ -375,8 +375,8 @@ class SHAPBase():
             shap_main_effect_dataset(handle_[0],
                                      <float*> masked_ptr,
                                      <float*> bg_ptr,
-                                     <int> self.n_rows,
-                                     <int> self.n_cols,
+                                     <int> self.nrows,
+                                     <int> self.ncols,
                                      <float*> row_ptr,
                                      <int*> idx_ptr,
                                      <bool> row_major)
@@ -384,8 +384,8 @@ class SHAPBase():
             shap_main_effect_dataset(handle_[0],
                                      <double*> masked_ptr,
                                      <double*> bg_ptr,
-                                     <int> self.n_rows,
-                                     <int> self.n_cols,
+                                     <int> self.nrows,
+                                     <int> self.ncols,
                                      <double*> row_ptr,
                                      <int*> idx_ptr,
                                      <bool> row_major)

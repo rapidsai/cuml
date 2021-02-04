@@ -192,6 +192,7 @@ class PermutationExplainer(SHAPBase):
     """
 
     def __init__(self,
+                 *,
                  model,
                  data,
                  masker_type='independent',
@@ -220,7 +221,7 @@ class PermutationExplainer(SHAPBase):
     def shap_values(self,
                     X,
                     npermutations=10,
-                    testing=False):
+                    **kwargs):
         """
         Interface to estimate the SHAP values for a set of samples.
         Corresponds to the SHAP package's legacy interface, and is our main
@@ -243,10 +244,11 @@ class PermutationExplainer(SHAPBase):
         self._reset_timers()
         values = self._explain(X,
                                synth_data_shape=(
-                                   (2 * self.M * self.N + self.N), self.M
+                                   (2 * self.ncols * self.nrows + self.nrows),
+                                   self.ncols
                                ),
                                npermutations=npermutations,
-                               testing=testing)
+                               **kwargs)
         debug(self._get_timers_str())
         return output_list_shap_values(values, self.D, self.output_type)
 
@@ -256,9 +258,8 @@ class PermutationExplainer(SHAPBase):
                                     idx,
                                     npermutations=10,
                                     testing=False):
-        if self.time_performance:
-            total_timer = time.time()
-        inds = cp.arange(self.M, dtype=cp.int32)
+        total_timer = time.time()
+        inds = cp.arange(self.ncols, dtype=cp.int32)
 
         cdef handle_t* handle_ = \
             <handle_t*><size_t>self.handle.getHandle()
@@ -282,8 +283,8 @@ class PermutationExplainer(SHAPBase):
                 permutation_shap_dataset(handle_[0],
                                          <float*> ds_ptr,
                                          <float*> bg_ptr,
-                                         <int> self.N,
-                                         <int> self.M,
+                                         <int> self.nrows,
+                                         <int> self.ncols,
                                          <float*> row_ptr,
                                          <int*> idx_ptr,
                                          <bool> row_major)
@@ -291,8 +292,8 @@ class PermutationExplainer(SHAPBase):
                 permutation_shap_dataset(handle_[0],
                                          <double*> ds_ptr,
                                          <double*> bg_ptr,
-                                         <int> self.N,
-                                         <int> self.M,
+                                         <int> self.nrows,
+                                         <int> self.ncols,
                                          <double*> row_ptr,
                                          <int*> idx_ptr,
                                          <bool> row_major)
@@ -300,23 +301,21 @@ class PermutationExplainer(SHAPBase):
             self.handle.sync()
 
             # evaluate model on combinations
-            if self.time_performance:
-                model_timer = time.time()
+            model_timer = time.time()
             y = model_func_call(X=self._synth_data,
                                 model_func=self.model,
                                 gpu_model=self.is_gpu_model)
-            if self.time_performance:
-                self.model_call_time = \
+            self.model_call_time = \
                     self.model_call_time + (time.time() - model_timer)
 
             for i in range(self.D):
                 # reshape the results to coincide with each entry of the
                 # permutation
                 if self.D == 1:
-                    y_hat = y.reshape(2 * self.M + 1, len(self.background))
+                    y_hat = y.reshape(2 * self.ncols + 1, len(self.background))
 
                 else:
-                    y_hat = y[:, i].reshape(2 * self.M + 1,
+                    y_hat = y[:, i].reshape(2 * self.ncols + 1,
                                             len(self.background))
 
                 # we get the average of each entry
@@ -330,18 +329,17 @@ class PermutationExplainer(SHAPBase):
                     update_perm_shap_values(handle_[0],
                                             <float*> shap_ptr,
                                             <float*> y_hat_ptr,
-                                            <int> self.M,
+                                            <int> self.ncols,
                                             <int*> idx_ptr)
                 else:
                     update_perm_shap_values(handle_[0],
                                             <double*> shap_ptr,
                                             <double*> y_hat_ptr,
-                                            <int> self. M,
+                                            <int> self.ncols,
                                             <int*> idx_ptr)
 
                 self.handle.sync()
 
         shap_values[0][idx] = shap_values[0][idx] / (2 * npermutations)
 
-        if self.time_performance:
-            self.total_time = self.total_time + (time.time() - total_timer)
+        self.total_time = self.total_time + (time.time() - total_timer)

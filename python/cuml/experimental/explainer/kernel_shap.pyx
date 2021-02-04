@@ -219,8 +219,8 @@ class KernelExplainer(SHAPBase):
         max_samples = 2 ** 32
 
         # restricting maximum number of samples
-        if self.M <= 32:
-            max_samples = 2 ** self.M - 2
+        if self.ncols <= 32:
+            max_samples = 2 ** self.ncols - 2
 
             # if the user requested more samples than there are subsets in the
             # _powerset, we set nsamples to max_samples
@@ -232,20 +232,20 @@ class KernelExplainer(SHAPBase):
         self.ratio_evaluated = self.nsamples / max_samples
 
         self.nsamples_exact, self.nsamples_random, self.randind = \
-            _get_number_of_exact_random_samples(ncols=self.M,
+            _get_number_of_exact_random_samples(ncols=self.ncols,
                                                 nsamples=self.nsamples)
 
         # using numpy for powerset and shapley kernel weight calculations
         # cost is incurred only once, and generally we only generate
         # very few samples of the powerset if M is big.
-        mat, weight = _powerset(self.M, self.randind, self.nsamples_exact,
+        mat, weight = _powerset(self.ncols, self.randind, self.nsamples_exact,
                                 full_powerset=(self.nsamples_random == 0),
                                 dtype=self.dtype)
 
         # Store the mask and weights as device arrays
         # Mask dtype can be independent of Explainer dtype, since model
         # is not called on it.
-        self._mask = cp.zeros((self.nsamples, self.M), dtype=np.float32)
+        self._mask = cp.zeros((self.nsamples, self.ncols), dtype=np.float32)
         self._mask[:self.nsamples_exact] = cp.array(mat)
 
         self._weights = cp.ones(self.nsamples, dtype=self.dtype)
@@ -272,13 +272,13 @@ class KernelExplainer(SHAPBase):
 
         Returns
         -------
-        values: array or list
+        values : array or list
 
         """
         self._reset_timers()
         values = self._explain(X,
-                               synth_data_shape=(self.N * self.nsamples,
-                                                 self.M),
+                               synth_data_shape=(self.nrows * self.nsamples,
+                                                 self.ncols),
                                l1_reg=l1_reg)
 
         debug(self._get_timers_str())
@@ -289,27 +289,25 @@ class KernelExplainer(SHAPBase):
                                     row,
                                     idx,
                                     l1_reg):
-        if self.time_performance:
-            total_timer = time.time()
+        total_timer = time.time()
         # Call the model to get the value f(row)
         fx = cp.array(
             model_func_call(X=row,
                             model_func=self.model,
                             gpu_model=self.is_gpu_model))
 
-        if self.time_performance:
-            self.model_call_time = \
+        self.model_call_time = \
                 self.model_call_time + (time.time() - total_timer)
 
         self._mask[self.nsamples_exact:self.nsamples] = \
-            cp.zeros((self.nsamples_random, self.M), dtype=cp.float32)
+            cp.zeros((self.nsamples_random, self.ncols), dtype=cp.float32)
 
         # If we need sampled rows, then we call the function that generates
         # the samples array with how many samples each row will have
         # and its corresponding weight
         if self.nsamples_random > 0:
             samples, self._weights[self.nsamples_exact:self.nsamples] = \
-                _generate_nsamples_weights(self.M,
+                _generate_nsamples_weights(self.ncols,
                                            self.nsamples,
                                            self.nsamples_exact,
                                            int(self.nsamples_random / 2),
@@ -372,15 +370,13 @@ class KernelExplainer(SHAPBase):
         # models, but for other GPU models it is
         self.handle.sync()
 
-        if self.time_performance:
-            model_timer = time.time()
+        model_timer = time.time()
         # evaluate model on combinations
         y = model_func_call(X=self._synth_data,
                             model_func=self.model,
                             gpu_model=self.is_gpu_model)
 
-        if self.time_performance:
-            self.model_call_time = \
+        self.model_call_time = \
                 self.model_call_time + (time.time() - model_timer)
 
         l1_reg_time = 0
@@ -408,8 +404,7 @@ class KernelExplainer(SHAPBase):
             nonzero_inds = None
             if ((self.ratio_evaluated < 0.2 and l1_reg == "auto") or
                     (self.ratio_evaluated < 1.0 and l1_reg != "auto")):
-                if self.time_performance:
-                    reg_timer = time.time()
+                reg_timer = time.time()
                 nonzero_inds = _l1_regularization(self._mask,
                                                   y_hat,
                                                   self._weights,
@@ -417,15 +412,13 @@ class KernelExplainer(SHAPBase):
                                                   fx_param,
                                                   self.link_fn,
                                                   l1_reg)
-                if self.time_performance:
-                    self.l1_reg_time = \
+                self.l1_reg_time = \
                         self.l1_reg_time + (time.time() - reg_timer)
                 # in case all indexes become zero
                 if nonzero_inds.shape == (0, ):
                     return None
 
-            if self.time_performance:
-                reg_timer = time.time()
+            reg_timer = time.time()
             shap_values[i][idx, :-1] = _weighted_linear_regression(
                 self._mask,
                 y_hat,
@@ -446,12 +439,10 @@ class KernelExplainer(SHAPBase):
                     (fx_param - exp_val_param) - cp.sum(
                         shap_values[i][idx, :-1])
 
-            if self.time_performance:
-                self.linear_model_time = \
+            self.linear_model_time = \
                     self.linear_model_time + (time.time() - reg_timer)
 
-        if self.time_performance:
-            self.total_time = self.total_time + (time.time() - total_timer)
+        self.total_time = self.total_time + (time.time() - total_timer)
 
     def _reset_timers(self):
         super()._reset_timers()
@@ -477,7 +468,7 @@ def _get_number_of_exact_random_samples(ncols, nsamples):
     nsamples_exact = 0
     r = 0
 
-    # we check how many subsets of the _powerset of self.M we can fit
+    # we check how many subsets of the _powerset of self.ncols we can fit
     # in self.nsamples. This sets of the powerset are used  as indexes
     # to generate the mask matrix
     while cur_nsamples <= nsamples / 2:
