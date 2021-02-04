@@ -139,6 +139,11 @@ def test_fil_classification(n_rows, n_columns, num_rounds,
         xgb_proba = np.stack([1-xgb_preds, xgb_preds], axis=1)
         fil_proba = np.asarray(fm.predict_proba(X_validation))
         assert np.allclose(fil_proba, xgb_proba, 1e-3)
+    else:
+        xgb_proba = xgb_preds
+        fil_proba = np.asarray(fm.predict_proba(X_validation))
+        assert np.allclose(fil_proba, xgb_proba, 1e-3)
+      
 
 
 @pytest.mark.parametrize('n_rows', [unit_param(1000), quality_param(10000),

@@ -96,14 +96,14 @@ __device__ __forceinline__ vec<NITEMS, output_type> infer_one_tree(
   tree_type tree, const float* input, int cols, int n_rows) {
   int curr[NITEMS];
   // the first n_rows are active
-  int mask = ((1 << n_rows) - 1) << (NITEMS - n_rows);
+  int mask = (1 << n_rows) - 1;
   for (int j = 0; j < NITEMS; ++j) curr[j] = 0;
   do {
 #pragma unroll
     for (int j = 0; j < NITEMS; ++j) {
       auto n = tree[curr[j]];
       mask &= ~(n.is_leaf() << j);
-      if (!n.is_leaf()) {
+      if (mask & (1 << j)) {
         float val = input[j * cols + n.fid()];
         bool cond = isnan(val) ? !n.def_left() : val >= n.thresh();
         curr[j] = n.left(curr[j]) + cond;
@@ -205,7 +205,8 @@ struct tree_aggregator_t {
     : tmp_storage(finalize_workspace) {}
 
   __device__ __forceinline__ void accumulate(
-    vec<NITEMS, float> single_tree_prediction, int tree) {
+    vec<NITEMS, float> single_tree_prediction, int tree, int num_rows) {
+    for (int i = num_rows; i < NITEMS; ++i) acc[i] = 0.0f;
     acc += single_tree_prediction;
   }
 
@@ -326,9 +327,9 @@ __device__ __forceinline__ void class_margins_to_global_memory(
 template <int NITEMS>
 struct tree_aggregator_t<NITEMS, GROVE_PER_CLASS_FEW_CLASSES> {
   vec<NITEMS, float> acc;
-  void* tmp_storage;
   int num_classes;
   vec<NITEMS, float>* per_thread;
+  void* tmp_storage;
 
   static size_t smem_finalize_footprint(size_t data_row_size, int num_classes,
                                         bool predict_proba) {
@@ -345,11 +346,14 @@ struct tree_aggregator_t<NITEMS, GROVE_PER_CLASS_FEW_CLASSES> {
   __device__ __forceinline__ tree_aggregator_t(predict_params params,
                                                void* accumulate_workspace,
                                                void* finalize_workspace)
-    : tmp_storage(finalize_workspace), num_classes(num_classes_),
-      per_thread((vec<NITEMS, float>*)finalize_workspace) {}
+    : num_classes(params.num_classes),
+      per_thread((vec<NITEMS, float>*)finalize_workspace),
+      tmp_storage(params.predict_proba ? per_thread + num_classes
+                                       : finalize_workspace) {}
 
   __device__ __forceinline__ void accumulate(
-    vec<NITEMS, float> single_tree_prediction, int tree) {
+    vec<NITEMS, float> single_tree_prediction, int tree, int num_rows) {
+    for (int i = num_rows; i < NITEMS; ++i) acc[i] = 0.0f;
     acc += single_tree_prediction;
   }
 
@@ -364,10 +368,9 @@ struct tree_aggregator_t<NITEMS, GROVE_PER_CLASS_FEW_CLASSES> {
     if (threadIdx.x < num_classes) per_thread[threadIdx.x] = acc;
     __syncthreads();  // per_thread needs to be fully populated
 
-    void* storage = num_outputs > 1 ? per_thread + num_classes : tmp_storage;
     class_margins_to_global_memory(per_thread, per_thread + num_classes,
-                                   transform, num_trees / num_classes, storage,
-                                   out, num_rows, num_outputs);
+                                   transform, num_trees / num_classes,
+                                   tmp_storage, out, num_rows, num_outputs);
   }
 };
 
@@ -375,7 +378,7 @@ template <int NITEMS>
 struct tree_aggregator_t<NITEMS, GROVE_PER_CLASS_MANY_CLASSES> {
   vec<NITEMS, float> acc;
   /// at first, per class margin, then, possibly, different softmax partials
-  vec<NITEMS, float>* per_class_value;
+  vec<NITEMS, float>* per_class_margin;
   void* tmp_storage;
   int num_classes;
 
@@ -395,29 +398,29 @@ struct tree_aggregator_t<NITEMS, GROVE_PER_CLASS_MANY_CLASSES> {
   __device__ __forceinline__ tree_aggregator_t(predict_params params,
                                                void* accumulate_workspace,
                                                void* finalize_workspace)
-      : per_class_margin((vec<NITEMS, float>*)accumulate_workspace) {
-      tmp_storage(finalize_workspace),
-      num_classes(num_classes_) {
+    : per_class_margin((vec<NITEMS, float>*)accumulate_workspace),
+      tmp_storage(params.predict_proba ? per_class_margin + num_classes
+                                       : finalize_workspace),
+      num_classes(params.num_classes) {
     for (int c = threadIdx.x; c < num_classes; c += blockDim.x)
-      per_class_value[c] = vec<NITEMS, float>(0);
+      per_class_margin[c] = vec<NITEMS, float>(0);
     // __syncthreads() is called in infer_k
   }
 
   __device__ __forceinline__ void accumulate(
-    vec<NITEMS, float> single_tree_prediction, int tree) {
+    vec<NITEMS, float> single_tree_prediction, int tree, int num_rows) {
+    for (int i = num_rows; i < NITEMS; ++i) acc[i] = 0.0f;
     // since threads are assigned to consecutive classes, no need for atomics
-    per_class_value[tree % num_classes] += single_tree_prediction;
+    per_class_margin[tree % num_classes] += single_tree_prediction;
     // __syncthreads() is called in infer_k
   }
 
   __device__ __forceinline__ void finalize(float* out, int num_rows,
                                            int num_outputs, output_t transform,
                                            int num_trees) {
-    void* storage =
-      num_outputs > 1 ? per_class_value + num_classes : tmp_storage;
     class_margins_to_global_memory(
-      per_class_value, per_class_value + num_classes, transform,
-      num_trees / num_classes, storage, out, num_rows, num_outputs);
+      per_class_margin, per_class_margin + num_classes, transform,
+      num_trees / num_classes, tmp_storage, out, num_rows, num_outputs);
   }
 };
 
@@ -447,11 +450,13 @@ struct tree_aggregator_t<NITEMS, CATEGORICAL_LEAF> {
     // __syncthreads() is called in infer_k
   }
   __device__ __forceinline__ void accumulate(
-    vec<NITEMS, int> single_tree_prediction, int tree) {
+    vec<NITEMS, int> single_tree_prediction, int tree, int num_rows) {
 #pragma unroll
-    for (int item = 0; item < NITEMS; ++item)
-      raft::myAtomicAdd(votes + single_tree_prediction[item] * NITEMS + item,
-                        1);
+    for (int item = 0; item < NITEMS; ++item) {
+      if (item < num_rows)
+        raft::myAtomicAdd(votes + single_tree_prediction[item] * NITEMS + item,
+                          1);
+    }
   }
   // class probabilities or regression. for regression, num_classes
   // is just the number of outputs for each data instance
@@ -533,7 +538,7 @@ __global__ void infer_k(storage_type forest, predict_params params) {
         acc.accumulate(infer_one_tree<NITEMS, leaf_output_t<leaf_algo>::T>(
                          forest[j], cols_in_shmem ? sdata : block_input,
                          num_cols, num_input_rows),
-                       j);
+                       j, num_input_rows);
       }
       if (leaf_algo == GROVE_PER_CLASS_MANY_CLASSES) __syncthreads();
     }
@@ -547,7 +552,7 @@ template <int NITEMS, leaf_algo_t leaf_algo>
 size_t shmem_size_params::get_smem_footprint() {
   size_t finalize_footprint =
     tree_aggregator_t<NITEMS, leaf_algo>::smem_finalize_footprint(
-      cols_shmem_size(), num_classes, num_outputs == num_classes);
+      cols_shmem_size(), num_classes, predict_proba);
   size_t accumulate_footprint =
     tree_aggregator_t<NITEMS, leaf_algo>::smem_accumulate_footprint(
       num_classes) +

@@ -83,19 +83,23 @@ struct forest {
     // searching for the most items per block while respecting the shared
     // memory limits creates a full linear programming problem.
     // solving it in a single equation looks less tractable than this
-    shmem_size_params ssp = ssp_;
-    for (bool cols_in_shmem : {false, true}) {
-      ssp.cols_in_shmem = cols_in_shmem;
-      for (ssp.n_items = 1;
-           ssp.n_items <= (algo_ == algo_t::BATCH_TREE_REORG ? 4 : 1);
-           ++ssp.n_items) {
-        ssp.compute_smem_footprint();
-        if (ssp.shm_sz < max_shm) ssp_ = ssp;
+    for (bool predict_proba : {false, true}) {
+      shmem_size_params& ssp_ = predict_proba ? proba_ssp_ : class_ssp_;
+      ssp_.predict_proba = predict_proba;
+      shmem_size_params ssp = ssp_;
+      for (bool cols_in_shmem : {false, true}) {
+        ssp.cols_in_shmem = cols_in_shmem;
+        for (ssp.n_items = 1;
+             ssp.n_items <= (algo_ == algo_t::BATCH_TREE_REORG ? 4 : 1);
+             ++ssp.n_items) {
+          ssp.compute_smem_footprint();
+          if (ssp.shm_sz < max_shm) ssp_ = ssp;
+        }
       }
+      ASSERT(max_shm >= ssp_.shm_sz,
+             "FIL out of shared memory. Perhaps the maximum number of \n"
+             "supported classes is exceeded? 5'000 would still be safe.");
     }
-    ASSERT(max_shm >= ssp_.shm_sz,
-           "FIL out of shared memory. Perhaps the maximum number of \n"
-           "supported classes is exceeded? 5'000 would still be safe.");
   }
 
   void init_fixed_block_count(int device, int blocks_per_sm) {
@@ -118,9 +122,10 @@ struct forest {
     output_ = params->output;
     threshold_ = params->threshold;
     global_bias_ = params->global_bias;
-    ssp_.leaf_algo = params->leaf_algo;
-    ssp_.num_cols = params->num_cols;
-    ssp_.num_classes = params->num_classes;
+    proba_ssp_.leaf_algo = params->leaf_algo;
+    proba_ssp_.num_cols = params->num_cols;
+    proba_ssp_.num_classes = params->num_classes;
+    class_ssp_ = proba_ssp_;
 
     int device = h.get_device();
     init_n_items(device);  // n_items takes priority over blocks_per_sm
@@ -132,7 +137,7 @@ struct forest {
   void predict(const raft::handle_t& h, float* preds, const float* data,
                size_t num_rows, bool predict_proba) {
     // Initialize prediction parameters.
-    predict_params params(ssp_);
+    predict_params params(predict_proba ? proba_ssp_ : class_ssp_);
     params.algo = algo_;
     params.preds = preds;
     params.data = data;
@@ -201,7 +206,7 @@ struct forest {
       // no threshold on probabilities
       ot = output_t(ot & ~output_t::CLASS);
 
-      switch (ssp_.leaf_algo) {
+      switch (params.leaf_algo) {
         case leaf_algo_t::FLOAT_UNARY_BINARY:
           params.num_outputs = 2;
           complement_proba = true;
@@ -210,19 +215,19 @@ struct forest {
         case leaf_algo_t::GROVE_PER_CLASS:
           // for GROVE_PER_CLASS, averaging happens in infer_k
           ot = output_t(ot & ~output_t::AVG);
-          params.num_outputs = num_classes_;
+          params.num_outputs = params.num_classes;
           do_transform = ot != output_t::RAW && ot != output_t::SOFTMAX ||
                          global_bias != 0.0f;
           break;
         case leaf_algo_t::CATEGORICAL_LEAF:
-          params.num_outputs = ssp_.num_classes;
+          params.num_outputs = params.num_classes;
           do_transform = ot != output_t::RAW || global_bias_ != 0.0f;
           break;
         default:
           ASSERT(false, "internal error: invalid leaf_algo_");
       }
     } else {
-      if (ssp_.leaf_algo == leaf_algo_t::FLOAT_UNARY_BINARY) {
+      if (params.leaf_algo == leaf_algo_t::FLOAT_UNARY_BINARY) {
         do_transform = ot != output_t::RAW || global_bias_ != 0.0f;
       } else {
         // GROVE_PER_CLASS, CATEGORICAL_LEAF: moot since choosing best class and
@@ -257,7 +262,7 @@ struct forest {
   output_t output_ = output_t::RAW;
   float threshold_ = 0.5;
   float global_bias_ = 0;
-  shmem_size_params ssp_;
+  shmem_size_params class_ssp_, proba_ssp_;
   int fixed_block_count_ = 0;
 };
 
