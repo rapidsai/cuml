@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -77,8 +77,6 @@ class BatchedLevelAlgoUnitTestFixture {
       static_cast<LabelT*>(d_allocator->allocate(sizeof(LabelT) * n_row, 0));
     row_ids =
       static_cast<IdxT*>(d_allocator->allocate(sizeof(IdxT) * n_row, 0));
-    col_ids =
-      static_cast<IdxT*>(d_allocator->allocate(sizeof(IdxT) * n_col, 0));
 
     // Nodes that exist prior to the invocation of nodeSplitKernel()
     curr_nodes =
@@ -99,7 +97,6 @@ class BatchedLevelAlgoUnitTestFixture {
     raft::update_device(data, h_data.data(), n_row * n_col, 0);
     raft::update_device(labels, h_labels.data(), n_row, 0);
     MLCommon::iota(row_ids, 0, 1, n_row, 0);
-    MLCommon::iota(col_ids, 0, 1, n_col, 0);
 
     tempmem = std::make_shared<TemporaryMemory<DataT, LabelT>>(
       *raft_handle, cudaStream_t(0), n_row, n_col, 0, params);
@@ -117,7 +114,6 @@ class BatchedLevelAlgoUnitTestFixture {
     input.nSampledRows = n_row;
     input.nSampledCols = n_col;
     input.rowids = row_ids;
-    input.colids = col_ids;
     input.nclasses = 0;  // not applicable for regression
     input.quantiles = quantiles;
   }
@@ -127,7 +123,6 @@ class BatchedLevelAlgoUnitTestFixture {
     d_allocator->deallocate(data, sizeof(DataT) * n_row * n_col, 0);
     d_allocator->deallocate(labels, sizeof(LabelT) * n_row, 0);
     d_allocator->deallocate(row_ids, sizeof(IdxT) * n_row, 0);
-    d_allocator->deallocate(col_ids, sizeof(IdxT) * n_col, 0);
     d_allocator->deallocate(curr_nodes, sizeof(NodeT) * max_batch, 0);
     d_allocator->deallocate(new_nodes, sizeof(NodeT) * 2 * max_batch, 0);
     d_allocator->deallocate(n_new_nodes, sizeof(IdxT), 0);
@@ -157,7 +152,6 @@ class BatchedLevelAlgoUnitTestFixture {
   DataT* data;
   DataT* labels;
   IdxT* row_ids;
-  IdxT* col_ids;
 };
 
 class TestQuantiles : public ::testing::TestWithParam<NoOpParams>,
@@ -319,7 +313,9 @@ TEST_P(TestMetric, RegressionMetricGain) {
       pred, pred2, pred2P, pred_count, n_bins, params.max_depth,
       params.min_samples_split, params.min_samples_leaf,
       params.min_impurity_decrease, params.max_leaves, input, curr_nodes, 0,
-      done_count, mutex, n_new_leaves, splits, block_sync, split_criterion);
+      done_count, mutex, n_new_leaves, splits, block_sync, split_criterion, 0,
+      1234ULL);
+
   raft::update_host(h_splits.data(), splits, 1, 0);
   CUDA_CHECK(cudaGetLastError());
   CUDA_CHECK(cudaStreamSynchronize(0));

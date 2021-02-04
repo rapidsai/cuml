@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,13 +14,14 @@
  * limitations under the License.
  */
 
+#include <cuml/tree/flatnode.h>
 #include <decisiontree/quantile/quantile.h>
 #include <raft/cudart_utils.h>
+#include <treelite/tree.h>
 #include <common/iota.cuh>
 #include <cuml/common/logger.hpp>
 #include <iomanip>
 #include <locale>
-#include <queue>
 #include <random>
 #include <type_traits>
 #include "batched-levelalgo/builder.cuh"
@@ -50,10 +51,15 @@ namespace DecisionTree {
 template <class T, class L>
 void print(const SparseTreeNode<T, L> &node, std::ostream &os) {
   if (node.colid == -1) {
-    os << "(leaf, " << node.prediction << ", " << node.best_metric_val << ")";
+    os << "(leaf, "
+       << "prediction: " << node.prediction
+       << ", best_metric_val: " << node.best_metric_val
+       << ", UID: " << node.unique_id << ")";
   } else {
-    os << "(" << node.colid << ", " << node.quesval << ", "
-       << node.best_metric_val << ")";
+    os << "("
+       << "colid: " << node.colid << ", quesval: " << node.quesval
+       << ", best_metric_val: " << node.best_metric_val
+       << ", UID: " << node.unique_id << ")";
   }
   return;
 }
@@ -133,108 +139,75 @@ std::ostream &operator<<(std::ostream &os, const SparseTreeNode<T, L> &node) {
   return os;
 }
 
-template <typename T, typename L>
-struct Node_ID_info {
-  const SparseTreeNode<T, L> &node;
-  int unique_node_id;
-
-  Node_ID_info(const SparseTreeNode<T, L> &cfg_node, int cfg_unique_node_id)
-    : node(cfg_node), unique_node_id(cfg_unique_node_id) {}
-};
-
 template <class T, class L>
-void build_treelite_tree(TreeBuilderHandle tree_builder,
-                         DecisionTree::TreeMetaDataNode<T, L> *tree_ptr,
-                         int num_class) {
-  int node_id = 0;
-  TREELITE_CHECK(TreeliteTreeBuilderCreateNode(tree_builder, node_id));
+tl::Tree<T, T> build_treelite_tree(
+  const DecisionTree::TreeMetaDataNode<T, L> &rf_tree, unsigned int num_class,
+  std::vector<Node_ID_info<T, L>> &cur_level_queue,
+  std::vector<Node_ID_info<T, L>> &next_level_queue) {
+  tl::Tree<T, T> tl_tree;
+  tl_tree.Init();
 
-  std::queue<Node_ID_info<T, L>> cur_level_queue;
-  std::queue<Node_ID_info<T, L>> next_level_queue;
+  // Track head and tail of bounded "queues" (implemented as vectors for
+  // performance)
+  size_t cur_front = 0;
+  size_t cur_end = 0;
+  size_t next_front = 0;
+  size_t next_end = 0;
 
-  cur_level_queue.push(Node_ID_info<T, L>(tree_ptr->sparsetree[0], 0));
-  node_id = -1;
+  cur_level_queue.resize(std::max<size_t>(cur_level_queue.size(), 1));
+  cur_level_queue[0] = Node_ID_info<T, L>(rf_tree.sparsetree[0], 0);
+  ++cur_end;
 
-  while (!cur_level_queue.empty()) {
-    int cur_level_size = cur_level_queue.size();
-    node_id += cur_level_size;
+  while (cur_front != cur_end) {
+    size_t cur_level_size = cur_end - cur_front;
+    next_level_queue.resize(
+      std::max(2 * cur_level_size, next_level_queue.size()));
 
-    for (int i = 0; i < cur_level_size; i++) {
-      Node_ID_info<T, L> q_node = cur_level_queue.front();
-      cur_level_queue.pop();
+    for (size_t i = 0; i < cur_level_size; ++i) {
+      Node_ID_info<T, L> q_node = cur_level_queue[cur_front];
+      ++cur_front;
 
-      bool is_leaf_node = q_node.node.colid == -1;
+      bool is_leaf_node = q_node.node->colid == -1;
+      int node_id = q_node.unique_node_id;
 
       if (!is_leaf_node) {
-        // Push left child to next_level queue.
-        next_level_queue.push(Node_ID_info<T, L>(
-          tree_ptr->sparsetree[q_node.node.left_child_id], node_id + 1));
-        TREELITE_CHECK(
-          TreeliteTreeBuilderCreateNode(tree_builder, node_id + 1));
+        tl_tree.AddChilds(node_id);
 
-        // Push right child to next_level deque.
-        next_level_queue.push(Node_ID_info<T, L>(
-          tree_ptr->sparsetree[q_node.node.left_child_id + 1], node_id + 2));
-        TREELITE_CHECK(
-          TreeliteTreeBuilderCreateNode(tree_builder, node_id + 2));
+        // Push left child to next_level queue.
+        next_level_queue[next_end] =
+          Node_ID_info<T, L>(rf_tree.sparsetree[q_node.node->left_child_id],
+                             tl_tree.LeftChild(node_id));
+        ++next_end;
+
+        // Push right child to next_level queue.
+        next_level_queue[next_end] =
+          Node_ID_info<T, L>(rf_tree.sparsetree[q_node.node->left_child_id + 1],
+                             tl_tree.RightChild(node_id));
+        ++next_end;
 
         // Set node from current level as numerical node. Children IDs known.
-        ValueHandle threshold;
-        TREELITE_CHECK(TreeliteTreeBuilderCreateValue(
-          &q_node.node.quesval, TreeliteType<T>::value, &threshold));
-        TREELITE_CHECK(TreeliteTreeBuilderSetNumericalTestNode(
-          tree_builder, q_node.unique_node_id, q_node.node.colid,
-          "<=", threshold, 1, node_id + 1, node_id + 2));
-        TREELITE_CHECK(TreeliteTreeBuilderDeleteValue(threshold));
+        tl_tree.SetNumericalSplit(node_id, q_node.node->colid,
+                                  q_node.node->quesval, true,
+                                  tl::Operator::kLE);
 
-        node_id += 2;
       } else {
         if (num_class == 1) {
-          ValueHandle leaf_value;
-          if (std::is_same<L, int>::value) {
-            // Integer output is not yet supported in Treelite codegen
-            float prediction = static_cast<float>(q_node.node.prediction);
-            TREELITE_CHECK(TreeliteTreeBuilderCreateValue(
-              &prediction, TreeliteType<float>::value, &leaf_value));
-          } else {
-            TREELITE_CHECK(TreeliteTreeBuilderCreateValue(
-              &q_node.node.prediction, TreeliteType<L>::value, &leaf_value));
-          }
-          TREELITE_CHECK(TreeliteTreeBuilderSetLeafNode(
-            tree_builder, q_node.unique_node_id, leaf_value));
-          TREELITE_CHECK(TreeliteTreeBuilderDeleteValue(leaf_value));
+          tl_tree.SetLeaf(node_id, static_cast<T>(q_node.node->prediction));
         } else {
-          std::vector<float> leaf_vector(num_class);
-          std::vector<ValueHandle> leaf_vector_handle(num_class, nullptr);
-          for (int j = 0; j < num_class; j++) {
-            if (q_node.node.prediction == j) {
-              leaf_vector[j] = 1;
-            } else {
-              leaf_vector[j] = 0;
-            }
-          }
-          for (int j = 0; j < num_class; j++) {
-            TREELITE_CHECK(TreeliteTreeBuilderCreateValue(
-              &leaf_vector[j], TreeliteType<float>::value,
-              &leaf_vector_handle[j]));
-          }
-          TREELITE_CHECK(TreeliteTreeBuilderSetLeafVectorNode(
-            tree_builder, q_node.unique_node_id, leaf_vector_handle.data(),
-            num_class));
-          for (int j = 0; j < num_class; j++) {
-            TREELITE_CHECK(
-              TreeliteTreeBuilderDeleteValue(leaf_vector_handle[j]));
-          }
-          leaf_vector.clear();
-          leaf_vector_handle.clear();
+          std::vector<T> leaf_vector(num_class, 0);
+          leaf_vector[q_node.node->prediction] = 1;
+          tl_tree.SetLeafVector(node_id, leaf_vector);
         }
       }
     }
 
-    // The cur_level_queue is empty here, as all the elements are already poped out.
     cur_level_queue.swap(next_level_queue);
+    cur_front = next_front;
+    cur_end = next_end;
+    next_front = 0;
+    next_end = 0;
   }
-  TREELITE_CHECK(TreeliteTreeBuilderSetRootNode(tree_builder, 0));
+  return tl_tree;
 }
 
 /**
@@ -287,7 +260,8 @@ template <typename T, typename L>
 void DecisionTreeBase<T, L>::plant(
   std::vector<SparseTreeNode<T, L>> &sparsetree, const T *data, const int ncols,
   const int nrows, const L *labels, unsigned int *rowids,
-  const int n_sampled_rows, int unique_labels, const int treeid) {
+  const int n_sampled_rows, int unique_labels, const int treeid,
+  uint64_t seed) {
   dinfo.NLocalrows = nrows;
   dinfo.NGlobalrows = nrows;
   dinfo.Ncols = ncols;
@@ -320,11 +294,8 @@ void DecisionTreeBase<T, L>::plant(
       CUML_LOG_WARN("Using experimental backend for growing trees\n");
     }
     T *quantiles = tempmem->d_quantile->data();
-    int *colids = (int *)tempmem->device_allocator->allocate(
-      sizeof(int) * ncols, tempmem->stream);
-    MLCommon::iota(colids, 0, 1, ncols, tempmem->stream);
-    grow_tree(tempmem->device_allocator, tempmem->host_allocator, data, ncols,
-              nrows, labels, quantiles, (int *)rowids, (int *)colids,
+    grow_tree(tempmem->device_allocator, tempmem->host_allocator, data, treeid,
+              seed, ncols, nrows, labels, quantiles, (int *)rowids,
               n_sampled_rows, unique_labels, tree_params, tempmem->stream,
               sparsetree, this->leaf_counter, this->depth_counter);
   } else {
@@ -403,7 +374,7 @@ void DecisionTreeBase<T, L>::base_fit(
   const cudaStream_t stream_in, const T *data, const int ncols, const int nrows,
   const L *labels, unsigned int *rowids, const int n_sampled_rows,
   int unique_labels, std::vector<SparseTreeNode<T, L>> &sparsetree,
-  const int treeid, bool is_classifier,
+  const int treeid, uint64_t seed, bool is_classifier,
   std::shared_ptr<TemporaryMemory<T, L>> in_tempmem) {
   prepare_fit_timer.reset();
   const char *CRITERION_NAME[] = {"GINI", "ENTROPY", "MSE", "MAE", "END"};
@@ -440,7 +411,7 @@ void DecisionTreeBase<T, L>::base_fit(
   }
 
   plant(sparsetree, data, ncols, nrows, labels, rowids, n_sampled_rows,
-        unique_labels, treeid);
+        unique_labels, treeid, seed);
   if (in_tempmem == nullptr) {
     tempmem.reset();
   }
@@ -451,13 +422,13 @@ void DecisionTreeClassifier<T>::fit(
   const raft::handle_t &handle, const T *data, const int ncols, const int nrows,
   const int *labels, unsigned int *rowids, const int n_sampled_rows,
   const int unique_labels, TreeMetaDataNode<T, int> *&tree,
-  DecisionTreeParams tree_parameters,
+  DecisionTreeParams tree_parameters, uint64_t seed,
   std::shared_ptr<TemporaryMemory<T, int>> in_tempmem) {
   this->tree_params = tree_parameters;
   this->base_fit(handle.get_device_allocator(), handle.get_host_allocator(),
                  handle.get_stream(), data, ncols, nrows, labels, rowids,
                  n_sampled_rows, unique_labels, tree->sparsetree, tree->treeid,
-                 true, in_tempmem);
+                 seed, true, in_tempmem);
   this->set_metadata(tree);
 }
 
@@ -469,12 +440,12 @@ void DecisionTreeClassifier<T>::fit(
   const cudaStream_t stream_in, const T *data, const int ncols, const int nrows,
   const int *labels, unsigned int *rowids, const int n_sampled_rows,
   const int unique_labels, TreeMetaDataNode<T, int> *&tree,
-  DecisionTreeParams tree_parameters,
+  DecisionTreeParams tree_parameters, uint64_t seed,
   std::shared_ptr<TemporaryMemory<T, int>> in_tempmem) {
   this->tree_params = tree_parameters;
   this->base_fit(device_allocator_in, host_allocator_in, stream_in, data, ncols,
                  nrows, labels, rowids, n_sampled_rows, unique_labels,
-                 tree->sparsetree, tree->treeid, true, in_tempmem);
+                 tree->sparsetree, tree->treeid, seed, true, in_tempmem);
   this->set_metadata(tree);
 }
 
@@ -483,11 +454,11 @@ void DecisionTreeRegressor<T>::fit(
   const raft::handle_t &handle, const T *data, const int ncols, const int nrows,
   const T *labels, unsigned int *rowids, const int n_sampled_rows,
   TreeMetaDataNode<T, T> *&tree, DecisionTreeParams tree_parameters,
-  std::shared_ptr<TemporaryMemory<T, T>> in_tempmem) {
+  uint64_t seed, std::shared_ptr<TemporaryMemory<T, T>> in_tempmem) {
   this->tree_params = tree_parameters;
   this->base_fit(handle.get_device_allocator(), handle.get_host_allocator(),
                  handle.get_stream(), data, ncols, nrows, labels, rowids,
-                 n_sampled_rows, 1, tree->sparsetree, tree->treeid, false,
+                 n_sampled_rows, 1, tree->sparsetree, tree->treeid, seed, false,
                  in_tempmem);
   this->set_metadata(tree);
 }
@@ -499,11 +470,11 @@ void DecisionTreeRegressor<T>::fit(
   const cudaStream_t stream_in, const T *data, const int ncols, const int nrows,
   const T *labels, unsigned int *rowids, const int n_sampled_rows,
   TreeMetaDataNode<T, T> *&tree, DecisionTreeParams tree_parameters,
-  std::shared_ptr<TemporaryMemory<T, T>> in_tempmem) {
+  uint64_t seed, std::shared_ptr<TemporaryMemory<T, T>> in_tempmem) {
   this->tree_params = tree_parameters;
   this->base_fit(device_allocator_in, host_allocator_in, stream_in, data, ncols,
                  nrows, labels, rowids, n_sampled_rows, 1, tree->sparsetree,
-                 tree->treeid, false, in_tempmem);
+                 tree->treeid, seed, false, in_tempmem);
   this->set_metadata(tree);
 }
 
@@ -550,18 +521,26 @@ template class DecisionTreeClassifier<double>;
 template class DecisionTreeRegressor<float>;
 template class DecisionTreeRegressor<double>;
 
-template void build_treelite_tree<float, int>(
-  TreeBuilderHandle tree_builder,
-  DecisionTree::TreeMetaDataNode<float, int> *tree_ptr, int num_class);
-template void build_treelite_tree<double, int>(
-  TreeBuilderHandle tree_builder,
-  DecisionTree::TreeMetaDataNode<double, int> *tree_ptr, int num_class);
-template void build_treelite_tree<float, float>(
-  TreeBuilderHandle tree_builder,
-  DecisionTree::TreeMetaDataNode<float, float> *tree_ptr, int num_class);
-template void build_treelite_tree<double, double>(
-  TreeBuilderHandle tree_builder,
-  DecisionTree::TreeMetaDataNode<double, double> *tree_ptr, int num_class);
+template tl::Tree<float, float> build_treelite_tree<float, int>(
+  const DecisionTree::TreeMetaDataNode<float, int> &rf_tree,
+  unsigned int num_class,
+  std::vector<Node_ID_info<float, int>> &working_queue_1,
+  std::vector<Node_ID_info<float, int>> &working_queue_2);
+template tl::Tree<double, double> build_treelite_tree<double, int>(
+  const DecisionTree::TreeMetaDataNode<double, int> &rf_tree,
+  unsigned int num_class,
+  std::vector<Node_ID_info<double, int>> &working_queue_1,
+  std::vector<Node_ID_info<double, int>> &working_queue_2);
+template tl::Tree<float, float> build_treelite_tree<float, float>(
+  const DecisionTree::TreeMetaDataNode<float, float> &rf_tree,
+  unsigned int num_class,
+  std::vector<Node_ID_info<float, float>> &working_queue_1,
+  std::vector<Node_ID_info<float, float>> &working_queue_2);
+template tl::Tree<double, double> build_treelite_tree<double, double>(
+  const DecisionTree::TreeMetaDataNode<double, double> &rf_tree,
+  unsigned int num_class,
+  std::vector<Node_ID_info<double, double>> &working_queue_1,
+  std::vector<Node_ID_info<double, double>> &working_queue_2);
 }  //End namespace DecisionTree
 
 }  //End namespace ML
