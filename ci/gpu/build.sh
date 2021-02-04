@@ -263,6 +263,9 @@ if [ -n "${CODECOV_TOKEN}" ]; then
         EXTRA_CODECOV_ARGS="${EXTRA_CODECOV_ARGS} --commit ${REPORT_HASH}"
     fi
 
+    # Append the PR ID. This is needed when running the build inside docker
+    EXTRA_CODECOV_ARGS="${EXTRA_CODECOV_ARGS} --pr ${PR_ID}"
+
     # Upload the two reports with separate flags. Delete the report on success
     # to prevent further CI steps from re-uploading
     codecov -F non-dask -f ${REPORT_DIR}/cuml-coverage.xml -n "$CODECOV_NAME,non-dask" ${EXTRA_CODECOV_ARGS} && rm ${REPORT_DIR}/cuml-coverage.xml
