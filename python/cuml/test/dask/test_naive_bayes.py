@@ -79,7 +79,7 @@ def test_score(client):
 
 
 @pytest.mark.parametrize('dtype', [cp.float32, cp.float64,
-                                   cp.int32, cp.int64])
+                                   cp.int32])
 def test_model_multiple_chunks(client, dtype):
     # tests naive_bayes with n_chunks being greater than one, related to issue
     # https://github.com/rapidsai/cuml/issues/3150
