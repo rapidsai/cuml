@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,21 +14,13 @@
  * limitations under the License.
  */
 
-#pragma once
+#include "genetic.cuh"
+namespace cuml {
+namespace genetic {
 
-namespace raft {
+float param::p_reproduce() const { return detail::p_reproduce(*this); }
 
-namespace sparse {
+int param::max_programs() const { return detail::max_programs(*this); }
 
-template <typename T>
-struct CSRInputs {
-  int m, n, nnz;
-  unsigned long long int seed;
-};
-
-template <typename T>
-::std::ostream &operator<<(::std::ostream &os, const CSRInputs<T> &dims) {
-  return os;
-}
-}  // namespace sparse
-}  // namespace raft
+}  // namespace genetic
+}  // namespace cuml

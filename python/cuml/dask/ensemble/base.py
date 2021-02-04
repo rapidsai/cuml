@@ -19,6 +19,9 @@ import math
 import numpy as np
 import warnings
 
+from collections.abc import Iterable
+from dask.distributed import Future
+
 from cuml.dask.common.input_utils import DistributedDataHandler, \
     concatenate
 from cuml.dask.common.utils import get_client, wait_and_raise_from_futures
@@ -256,6 +259,34 @@ class BaseRandomForestModel(object):
             obj = json.loads(e)
             combined_dump.extend(obj)
         return json.dumps(combined_dump)
+
+    def get_combined_model(self):
+        """
+        Return single-GPU model for serialization.
+
+        Returns
+        -------
+
+        model : Trained single-GPU model or None if the model has not
+               yet been trained.
+        """
+
+        # set internal model if it hasn't been accessed before
+        if self._get_internal_model() is None:
+            self._set_internal_model(self._concat_treelite_models())
+
+        internal_model = self._check_internal_model(self._get_internal_model())
+
+        if isinstance(self.internal_model, Iterable):
+            # This function needs to return a single instance of cuml.Base,
+            # even if the class is just a composite.
+            raise ValueError("Expected a single instance of cuml.Base "
+                             "but got %s instead." % type(self.internal_model))
+
+        elif isinstance(self.internal_model, Future):
+            internal_model = self.internal_model.result()
+
+        return internal_model
 
 
 def _func_fit(model, input_data, convert_dtype):
