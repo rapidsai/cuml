@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-/** @file internal.h cuML-internal interface to Forest Inference Library. */
+/** @file internal.cuh cuML-internal interface to Forest Inference Library. */
 
 #pragma once
 
@@ -232,6 +232,9 @@ struct forest_params_t {
   // if zero, launches ceildiv(num_rows, NITEMS) blocks
   int blocks_per_sm;
 };
+
+/// FIL_TPB is the number of threads per block to use with FIL kernels
+const int FIL_TPB = 256;
 
 /** init_dense uses params and nodes to initialize the dense forest stored in pf
  *  @param h cuML handle used by this function

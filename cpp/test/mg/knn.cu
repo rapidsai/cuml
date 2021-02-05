@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,11 +21,9 @@
 #include "../prims/test_utils.h"
 #include "test_opg_utils.h"
 
-#include <common/device_buffer.hpp>
 #include <cuml/common/cuml_allocator.hpp>
+#include <cuml/common/device_buffer.hpp>
 #include <raft/comms/mpi_comms.hpp>
-
-#include <common/cumlHandle.hpp>
 
 #include <raft/cuda_utils.cuh>
 
