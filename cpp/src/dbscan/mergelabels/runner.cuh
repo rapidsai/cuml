@@ -16,7 +16,6 @@
 
 #pragma once
 
-#include <common/cumlHandle.hpp>
 #include <label/merge_labels.cuh>
 
 namespace ML {

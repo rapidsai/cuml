@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,6 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+#pragma once
 
 #include <raft/cudart_utils.h>
 #include <raft/sparse/cusparse_wrappers.h>
@@ -31,8 +33,6 @@
 
 #include <iostream>
 #define restrict __restrict__
-
-#pragma once
 
 namespace raft {
 namespace sparse {
