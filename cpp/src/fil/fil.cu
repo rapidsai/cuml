@@ -716,7 +716,7 @@ void tl2fil_common(forest_params_t* params, const tl::ModelImpl<T, L>& model,
   if (model.average_tree_output) {
     params->output = output_t(params->output | output_t::AVG);
   }
-  if (std::string(param.pred_transform) == "sigmoid") {
+  if (pred_transform == "sigmoid" || pred_transform == "multiclass_ova") {
     params->output = output_t(params->output | output_t::SIGMOID);
   }
   if (pred_transform == "softmax")

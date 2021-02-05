@@ -570,10 +570,15 @@ class TreeliteFilTest : public BaseFilTest {
 
     // prediction transform
     if ((ps.output & fil::output_t::SIGMOID) != 0) {
-      model_builder->SetModelParam("pred_transform", "sigmoid");
+      if (ps.num_classes > 2)
+        model_builder->SetModelParam("pred_transform", "multiclass_ova");
+      else
+        model_builder->SetModelParam("pred_transform", "sigmoid");
     } else if (ps.leaf_algo != fil::leaf_algo_t::FLOAT_UNARY_BINARY) {
       model_builder->SetModelParam("pred_transform", "max_index");
       ps.output = fil::output_t(ps.output | fil::output_t::CLASS);
+    } else if (ps.leaf_algo == GROVE_PER_CLASS) {
+      model_builder->SetModelParam("pred_transform", "identity_multiclass");
     } else {
       model_builder->SetModelParam("pred_transform", "identity");
     }
@@ -890,6 +895,8 @@ std::vector<FilTestParams> import_sparse_inputs = {
   FIL_TEST_PARAMS(output = CLASS, op = kLE, leaf_algo = GROVE_PER_CLASS,
                   num_classes = 5),
   FIL_TEST_PARAMS(num_trees = 51, output = CLASS, global_bias = 0.5,
+                  leaf_algo = GROVE_PER_CLASS, num_classes = 3),
+  FIL_TEST_PARAMS(num_trees = 51, output = SIGMOID_CLASS, global_bias = 0.5,
                   leaf_algo = GROVE_PER_CLASS, num_classes = 3),
 };
 
