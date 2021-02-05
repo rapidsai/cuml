@@ -1,4 +1,4 @@
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -73,21 +73,33 @@ def test_pca_fit(datatype, input_type, name, use_handle):
 
 @pytest.mark.parametrize('n_samples', [200])
 @pytest.mark.parametrize('n_features', [100, 300])
-def test_pca_defaults(n_samples, n_features):
-    X, Y = make_multilabel_classification(n_samples=n_samples,
-                                          n_features=n_features,
-                                          n_classes=2,
-                                          n_labels=1,
-                                          random_state=1)
-    skpca = skPCA()
-    skpca.fit(X)
-
+@pytest.mark.parametrize('sparse', [True, False])
+def test_pca_defaults(n_samples, n_features, sparse):
+    if sparse:
+        X = cupyx.scipy.sparse.random(n_samples, n_features,
+                                      density=0.03, dtype=cp.float32,
+                                      random_state=10)
+    else:
+        X, Y = make_multilabel_classification(n_samples=n_samples,
+                                              n_features=n_features,
+                                              n_classes=2,
+                                              n_labels=1,
+                                              random_state=1)
     cupca = cuPCA()
     cupca.fit(X)
+    curesult = cupca.transform(X)
     cupca.handle.sync()
+
+    if sparse:
+        X = X.toarray().get()
+    skpca = skPCA()
+    skpca.fit(X)
+    skresult = skpca.transform(X)
 
     assert skpca.svd_solver == cupca.svd_solver
     assert cupca.components_.shape[0] == skpca.components_.shape[0]
+    assert curesult.shape == skresult.shape
+    assert array_equal(curesult, skresult, 1e-3, with_sign=False)
 
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])

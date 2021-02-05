@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,97 +28,100 @@
 namespace raft {
 namespace sparse {
 
-template <typename T>
-struct SparseNormInputs {
-  int m, n, nnz;
-  unsigned long long int seed;
+enum NormalizeMethod { MAX, L1 };
+
+template <typename Type_f, typename Index_>
+struct CSRRowNormalizeInputs {
+  NormalizeMethod method;
+  std::vector<Index_> ex_scan;
+  std::vector<Type_f> in_vals;
+  std::vector<Type_f> verify;
 };
 
-template <typename T>
-class SparseNormTest : public ::testing::TestWithParam<SparseNormInputs<T>> {
+template <typename Type_f, typename Index_>
+class CSRRowNormalizeTest
+  : public ::testing::TestWithParam<CSRRowNormalizeInputs<Type_f, Index_>> {
  protected:
-  void SetUp() override {}
+  void SetUp() override {
+    params = ::testing::TestWithParam<
+      CSRRowNormalizeInputs<Type_f, Index_>>::GetParam();
+    cudaStreamCreate(&stream);
 
-  void TearDown() override {}
+    raft::allocate(in_vals, params.in_vals.size());
+    raft::allocate(verify, params.verify.size());
+    raft::allocate(ex_scan, params.ex_scan.size());
+    raft::allocate(result, params.verify.size(), true);
+  }
+
+  void Run() {
+    Index_ n_rows = params.ex_scan.size();
+    Index_ nnz = params.in_vals.size();
+
+    raft::update_device(ex_scan, params.ex_scan.data(), n_rows, stream);
+    raft::update_device(in_vals, params.in_vals.data(), nnz, stream);
+    raft::update_device(verify, params.verify.data(), nnz, stream);
+
+    switch (params.method) {
+      case MAX:
+        linalg::csr_row_normalize_max<32, Type_f>(ex_scan, in_vals, nnz, n_rows,
+                                                  result, stream);
+        break;
+      case L1:
+        linalg::csr_row_normalize_l1<32, Type_f>(ex_scan, in_vals, nnz, n_rows,
+                                                 result, stream);
+        break;
+    }
+
+    ASSERT_TRUE(
+      raft::devArrMatch<Type_f>(verify, result, nnz, raft::Compare<Type_f>()));
+  }
+
+  void TearDown() override {
+    CUDA_CHECK(cudaFree(ex_scan));
+    CUDA_CHECK(cudaFree(in_vals));
+    CUDA_CHECK(cudaFree(verify));
+    CUDA_CHECK(cudaFree(result));
+    cudaStreamDestroy(stream);
+  }
 
  protected:
-  SparseNormInputs<T> params;
-};
-
-const std::vector<SparseNormInputs<float>> inputsf = {{5, 10, 5, 1234ULL}};
-
-typedef SparseNormTest<float> CSRRowNormalizeMax;
-TEST_P(CSRRowNormalizeMax, Result) {
+  CSRRowNormalizeInputs<Type_f, Index_> params;
   cudaStream_t stream;
-  cudaStreamCreate(&stream);
+  Index_ *ex_scan;
+  Type_f *in_vals, *result, *verify;
+};
 
-  int *ex_scan;
-  float *in_vals, *result, *verify;
+using CSRRowNormalizeTestF = CSRRowNormalizeTest<float, int>;
+TEST_P(CSRRowNormalizeTestF, Result) { Run(); }
 
-  int ex_scan_h[4] = {0, 4, 8, 9};
-  float in_vals_h[10] = {5.0, 1.0, 0.0, 0.0, 10.0, 1.0, 0.0, 0.0, 1.0, 0.0};
+using CSRRowNormalizeTestD = CSRRowNormalizeTest<double, int>;
+TEST_P(CSRRowNormalizeTestD, Result) { Run(); }
 
-  float verify_h[10] = {1.0, 0.2, 0.0, 0.0, 1.0, 0.1, 0.0, 0.0, 1, 0.0};
+const std::vector<CSRRowNormalizeInputs<float, int>> csrnormalize_inputs_f = {
+  {MAX,
+   {0, 4, 8, 9},
+   {5.0, 1.0, 0.0, 0.0, 10.0, 1.0, 0.0, 0.0, 1.0, 0.0},
+   {1.0, 0.2, 0.0, 0.0, 1.0, 0.1, 0.0, 0.0, 1, 0.0}},
+  {L1,
+   {0, 4, 8, 9},
+   {1.0, 1.0, 0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 1.0, 0.0},
+   {0.5, 0.5, 0.0, 0.0, 0.5, 0.5, 0.0, 0.0, 1, 0.0}},
+};
+const std::vector<CSRRowNormalizeInputs<double, int>> csrnormalize_inputs_d = {
+  {MAX,
+   {0, 4, 8, 9},
+   {5.0, 1.0, 0.0, 0.0, 10.0, 1.0, 0.0, 0.0, 1.0, 0.0},
+   {1.0, 0.2, 0.0, 0.0, 1.0, 0.1, 0.0, 0.0, 1, 0.0}},
+  {L1,
+   {0, 4, 8, 9},
+   {1.0, 1.0, 0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 1.0, 0.0},
+   {0.5, 0.5, 0.0, 0.0, 0.5, 0.5, 0.0, 0.0, 1, 0.0}},
+};
 
-  raft::allocate(in_vals, 10);
-  raft::allocate(verify, 10);
-  raft::allocate(ex_scan, 4);
-  raft::allocate(result, 10, true);
-
-  raft::update_device(ex_scan, *&ex_scan_h, 4, stream);
-  raft::update_device(in_vals, *&in_vals_h, 10, stream);
-  raft::update_device(verify, *&verify_h, 10, stream);
-
-  linalg::csr_row_normalize_max<32, float>(ex_scan, in_vals, 10, 4, result,
-                                           stream);
-
-  ASSERT_TRUE(
-    raft::devArrMatch<float>(verify, result, 10, raft::Compare<float>()));
-
-  cudaStreamDestroy(stream);
-
-  CUDA_CHECK(cudaFree(ex_scan));
-  CUDA_CHECK(cudaFree(in_vals));
-  CUDA_CHECK(cudaFree(verify));
-  CUDA_CHECK(cudaFree(result));
-}
-
-typedef SparseNormTest<float> CSRRowNormalizeL1;
-TEST_P(CSRRowNormalizeL1, Result) {
-  int *ex_scan;
-  float *in_vals, *result, *verify;
-
-  int ex_scan_h[4] = {0, 4, 8, 9};
-  float in_vals_h[10] = {1.0, 1.0, 0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 1.0, 0.0};
-
-  float verify_h[10] = {0.5, 0.5, 0.0, 0.0, 0.5, 0.5, 0.0, 0.0, 1, 0.0};
-
-  raft::allocate(in_vals, 10);
-  raft::allocate(verify, 10);
-  raft::allocate(ex_scan, 4);
-  raft::allocate(result, 10, true);
-
-  raft::update_device(ex_scan, *&ex_scan_h, 4, 0);
-  raft::update_device(in_vals, *&in_vals_h, 10, 0);
-  raft::update_device(verify, *&verify_h, 10, 0);
-
-  linalg::csr_row_normalize_l1<32, float>(ex_scan, in_vals, 10, 4, result, 0);
-  cudaDeviceSynchronize();
-
-  ASSERT_TRUE(
-    raft::devArrMatch<float>(verify, result, 10, raft::Compare<float>()));
-
-  CUDA_CHECK(cudaFree(ex_scan));
-  CUDA_CHECK(cudaFree(in_vals));
-  CUDA_CHECK(cudaFree(verify));
-  CUDA_CHECK(cudaFree(result));
-}
-
-INSTANTIATE_TEST_CASE_P(SparseNormTest, CSRRowNormalizeMax,
-                        ::testing::ValuesIn(inputsf));
-
-INSTANTIATE_TEST_CASE_P(SparseNormTest, CSRRowNormalizeL1,
-                        ::testing::ValuesIn(inputsf));
+INSTANTIATE_TEST_CASE_P(SparseNormTest, CSRRowNormalizeTestF,
+                        ::testing::ValuesIn(csrnormalize_inputs_f));
+INSTANTIATE_TEST_CASE_P(SparseNormTest, CSRRowNormalizeTestD,
+                        ::testing::ValuesIn(csrnormalize_inputs_d));
 
 }  // namespace sparse
 }  // namespace raft

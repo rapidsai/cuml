@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,7 +16,9 @@
 
 #pragma once
 
-#include <cuml_api.h>
+#include <cuml/cuml_api.h>
+#include <stdbool.h>
+#include <stdint.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -48,10 +50,10 @@ extern "C" {
  * 					 form (e.g., without raising to the 1/p power).
  */
 cumlError_t knn_search(const cumlHandle_t handle, float **input, int *size,
-                       int n_params, int D, const float *search_items, int n,
+                       int n_params, int D, float *search_items, int n,
                        int64_t *res_I, float *res_D, int k, bool rowMajorIndex,
-                       bool rowMajorQuery, int metric_type = 0,
-                       float metric_arg = 2.0f, bool expanded = 0);
+                       bool rowMajorQuery, int metric_type, float metric_arg,
+                       bool expanded);
 
 #ifdef __cplusplus
 }

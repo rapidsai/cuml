@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -99,7 +99,7 @@ class RFClassifierAccuracyTest : public ::testing::TestWithParam<RFInputs> {
     set_all_rf_params(rfp, 1, /* n_trees */
                       true,   /* bootstrap */
                       1.0,    /* max_samples */
-                      -1,     /* seed */
+                      0,      /* seed */
                       1,      /* n_streams */
                       tree_params);
   }
