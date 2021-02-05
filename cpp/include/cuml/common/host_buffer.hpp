@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,28 +17,31 @@
 #pragma once
 
 #include <cuml/common/cuml_allocator.hpp>
-#include <raft/mr/device/buffer.hpp>
+#include <raft/mr/host/buffer.hpp>
 
 namespace MLCommon {
 
 /**
- * RAII object owning a contigous typed device buffer. The passed in allocator supports asynchronus allocation and
+ * RAII object owning a contigous typed host buffer. The passed in allocator supports asynchronus allocation and
  * deallocation so this can be used for temporary memory 
  * @code{.cpp}
  * template<typename T>
- * void foo( const raft::handle_t& h, ..., cudaStream_t stream )
+ * void foo( const raft::handle_t& h, const T* in_d , T* out_d, ..., cudaStream_t stream )
  * {
  *     ...
- *     device_buffer<T> temp( h.get_device_allocator(), stream, 0 )
+ *     host_buffer<T> temp( handle->get_host_allocator(), stream, 0 )
  *     
  *     temp.resize(n, stream);
- *     kernelA<<<grid,block,0,stream>>>(...,temp.data(),...);
- *     kernelB<<<grid,block,0,stream>>>(...,temp.data(),...);
+ *     cudaMemcpyAsync( temp.data(), in_d, temp.size()*sizeof(T), cudaMemcpyDeviceToHost );
+ *     ...
+ *     cudaMemcpyAsync( out_d, temp.data(), temp.size()*sizeof(T), cudaMemcpyHostToDevice );
  *     temp.release(stream);
  * }
  * @endcode
+ * @todo: Add missing doxygen documentation
  */
+
 template <typename T>
-using device_buffer = raft::mr::device::buffer<T>;
+using host_buffer = raft::mr::host::buffer<T>;
 
 }  // namespace MLCommon

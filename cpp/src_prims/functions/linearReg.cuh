@@ -18,7 +18,6 @@
 
 #include <raft/linalg/cublas_wrappers.h>
 #include <raft/linalg/transpose.h>
-#include <common/device_buffer.hpp>
 #include <raft/cuda_utils.cuh>
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/eltwise.cuh>
