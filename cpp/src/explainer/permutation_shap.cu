@@ -87,7 +87,7 @@ void permutation_shap_dataset_impl(const raft::handle_t& handle, DataT* dataset,
   const auto& handle_impl = handle;
   cudaStream_t stream = handle_impl.get_stream();
 
-  // we calculate the elemets of rows in the dataset and then multiply by 2 since
+  // we calculate the number of rows in the dataset and then multiply by 2 since
   // we are adding a forward and backward permutation (see docstring in header file)
   IdxT nrows_dataset = (2 * ncols * nrows_background + nrows_background);
 

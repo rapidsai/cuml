@@ -282,7 +282,8 @@ class KernelExplainer(SHAPBase):
                                l1_reg=l1_reg)
 
         debug(self._get_timers_str())
-        return output_list_shap_values(values, self.D, self.output_type)
+        return output_list_shap_values(values, self.model_dimensions,
+                                       self.output_type)
 
     def _explain_single_observation(self,
                                     shap_values,
@@ -297,7 +298,7 @@ class KernelExplainer(SHAPBase):
                             gpu_model=self.is_gpu_model))
 
         self.model_call_time = \
-                self.model_call_time + (time.time() - total_timer)
+            self.model_call_time + (time.time() - total_timer)
 
         self._mask[self.nsamples_exact:self.nsamples] = \
             cp.zeros((self.nsamples_random, self.ncols), dtype=cp.float32)
@@ -377,19 +378,19 @@ class KernelExplainer(SHAPBase):
                             gpu_model=self.is_gpu_model)
 
         self.model_call_time = \
-                self.model_call_time + (time.time() - model_timer)
+            self.model_call_time + (time.time() - model_timer)
 
         l1_reg_time = 0
 
-        for i in range(self.D):
-            if self.D == 1:
-                y_hat = y - self.expected_value
-                exp_val_param = self.expected_value
+        for i in range(self.model_dimensions):
+            if self.model_dimensions == 1:
+                y_hat = y - self._expected_value
+                exp_val_param = self._expected_value
                 fx_param = fx[0]
             else:
-                y_hat = y[:, i] - self.expected_value[i]
+                y_hat = y[:, i] - self._expected_value[i]
                 fx_param = fx[0][i]
-                exp_val_param = self.expected_value[i]
+                exp_val_param = self._expected_value[i]
 
             # get average of each combination of X
             y_hat = cp.mean(
@@ -413,7 +414,7 @@ class KernelExplainer(SHAPBase):
                                                   self.link_fn,
                                                   l1_reg)
                 self.l1_reg_time = \
-                        self.l1_reg_time + (time.time() - reg_timer)
+                    self.l1_reg_time + (time.time() - reg_timer)
                 # in case all indexes become zero
                 if nonzero_inds.shape == (0, ):
                     return None
@@ -440,7 +441,7 @@ class KernelExplainer(SHAPBase):
                         shap_values[i][idx, :-1])
 
             self.linear_model_time = \
-                    self.linear_model_time + (time.time() - reg_timer)
+                self.linear_model_time + (time.time() - reg_timer)
 
         self.total_time = self.total_time + (time.time() - total_timer)
 

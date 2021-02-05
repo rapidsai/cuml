@@ -250,7 +250,9 @@ class PermutationExplainer(SHAPBase):
                                npermutations=npermutations,
                                **kwargs)
         debug(self._get_timers_str())
-        return output_list_shap_values(values, self.D, self.output_type)
+        return output_list_shap_values(values,
+                                       self.model_dimensions,
+                                       self.output_type)
 
     def _explain_single_observation(self,
                                     shap_values,
@@ -306,12 +308,12 @@ class PermutationExplainer(SHAPBase):
                                 model_func=self.model,
                                 gpu_model=self.is_gpu_model)
             self.model_call_time = \
-                    self.model_call_time + (time.time() - model_timer)
+                self.model_call_time + (time.time() - model_timer)
 
-            for i in range(self.D):
+            for i in range(self.model_dimensions):
                 # reshape the results to coincide with each entry of the
                 # permutation
-                if self.D == 1:
+                if self.model_dimensions == 1:
                     y_hat = y.reshape(2 * self.ncols + 1, len(self.background))
 
                 else:

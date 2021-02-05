@@ -13,21 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-#
-# Copyright (c) 2020, NVIDIA CORPORATION.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-#
 
 import cudf
 import cuml.internals
@@ -176,7 +161,6 @@ class SHAPBase():
 
         # we are defaulting to numpy for now for compatibility
         if output_type is None:
-            # self.output_type = 'cupy' if self.is_gpu_model else 'numpy'
             self.output_type = 'numpy'
         else:
             self.output_type = output_type
@@ -186,9 +170,10 @@ class SHAPBase():
             self.dtype = get_dtype_from_model_func(func=model,
                                                    default=np.float32)
         else:
-            if dtype in [np.float32, np.float64]:
-                self.dtype = np.dtype(dtype)
-            raise ValueError("dtype must be either np.float32 or np.float64")
+            self.dtype = np.dtype(dtype)
+            if dtype not in [np.float32, np.float64]:
+                raise ValueError("dtype must be either np.float32 or "
+                                 "np.float64.")
 
         self.background, self.nrows, self.ncols, _ = \
             input_to_cupy_array(background, order=self.order,
@@ -204,7 +189,7 @@ class SHAPBase():
             self.feature_names = [None for _ in range(len(background))]
 
         # evaluate the model in background to get the expected_value
-        self.expected_value = self.link_fn(
+        self._expected_value = self.link_fn(
             cp.mean(
                 model_func_call(X=self.background,
                                 model_func=self.model,
@@ -213,13 +198,17 @@ class SHAPBase():
             )
         )
 
+        # public attribute saved as NumPy for compatibility with the legacy
+        # SHAP potting functions
+        self.expected_value = cp.asnumpy(self._expected_value)
+
         # D tells us the dimension of the model. For example, `predict_proba`
         # functions typically return n values for n classes as opposed to
         # 1 valued for a typical `predict`
-        if len(self.expected_value.shape) == 0:
-            self.D = 1
+        if len(self._expected_value.shape) == 0:
+            self.model_dimensions = 1
         else:
-            self.D = self.expected_value.shape[0]
+            self.model_dimensions = self._expected_value.shape[0]
 
         self._reset_timers()
 
@@ -244,9 +233,9 @@ class SHAPBase():
             Flag to control random behaviors used by some explainers for
             running pytests. Might be removed in a future version, meant only
             for testing code.
-        synth_data_shape: tuple (default: None)
+        synth_data_shape : tuple (default: None)
             Shape of temporary data needed by inheriting explainer.
-        free_synth_data: bool (default: True)
+        free_synth_data : bool (default: True)
             Whether to free temporary memory after the call. Useful in case a
             workflow requires multiple calls to shap_values with small data
             as opposed to fewer calls with bigger data.
@@ -274,7 +263,7 @@ class SHAPBase():
         # model is a multidimensional-output function
         shap_values = []
 
-        for i in range(self.D):
+        for i in range(self.model_dimensions):
             shap_values.append(cp.zeros(X.shape, dtype=self.dtype))
 
         # Allocate synthetic dataset array once for multiple explanations
@@ -329,7 +318,7 @@ class SHAPBase():
         for idx, x in enumerate(X):
             out.append(Explanation(
                 values=shap_values[idx],
-                base_values=self.expected_value,
+                base_values=self._expected_value,
                 data=x,
                 feature_names=self.feature_names,
                 main_effects=main_effect_values[idx]
@@ -392,7 +381,7 @@ class SHAPBase():
 
         self.handle.sync()
 
-        main_effects = model_func_call(masked_inputs) - self.expected_value
+        main_effects = model_func_call(masked_inputs) - self._expected_value
         return main_effects
 
     def _reset_timers(self):

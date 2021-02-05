@@ -62,8 +62,8 @@ def experimental_test_and_log(cu_shap_values,
         np.allclose(cu_shap_values, golden_result_values,
                     rtol=tolerance, atol=tolerance)
 
-    # expected_sum = np.allclose(1.00, np.sum(cp.asnumpy(
-    #     cu_shap_values)) / (fx - expected), atol=1e-02)
+    expected_sum = np.allclose(1.00, np.sum(cp.asnumpy(
+        cu_shap_values)) / (fx - expected), atol=1e-02)
 
     if not close_values:
         print("cu_shap_values: ")
@@ -71,8 +71,8 @@ def experimental_test_and_log(cu_shap_values,
         print("golden_result_values")
         print(golden_result_values)
 
+    assert expected_sum
     assert close_values
-
 
 ###############################################################################
 #                              End to end tests                               #
@@ -250,7 +250,7 @@ def test_kernel_gpu_cpu_shap(dtype, nfeatures, nbackground, model):
 
     cu_shap_values = cu_explainer.shap_values(X_test)
 
-    exp_v = cu_explainer.expected_value
+    exp_v = cu_explainer._expected_value
     fx = mod.predict(X_test)
     for test_idx in range(5):
         assert(np.sum(
