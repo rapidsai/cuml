@@ -17,7 +17,6 @@
 #pragma once
 
 #include <raft/linalg/gemv.h>
-#include <common/cumlHandle.hpp>
 #include <linalg/lstsq.cuh>
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/norm.cuh>

@@ -20,9 +20,10 @@
 
 #include <raft/cudart_utils.h>
 #include <raft/linalg/cublas_wrappers.h>
-#include <common/cumlHandle.hpp>
+#include <cuml/common/cuml_allocator.hpp>
 #include <linalg/ternary_op.cuh>
 #include <raft/cuda_utils.cuh>
+#include <raft/handle.hpp>
 #include <raft/linalg/binary_op.cuh>
 #include <raft/linalg/map_then_reduce.cuh>
 #include <raft/linalg/norm.cuh>
@@ -304,7 +305,7 @@ struct SimpleVecOwning : SimpleVec<T> {
 
   SimpleVecOwning() = delete;
 
-  SimpleVecOwning(std::shared_ptr<deviceAllocator> allocator, int n,
+  SimpleVecOwning(std::shared_ptr<MLCommon::deviceAllocator> allocator, int n,
                   cudaStream_t stream)
     : Super(), buf(n, stream) {
     Super::reset(buf.data(), n);
@@ -324,8 +325,8 @@ struct SimpleMatOwning : SimpleMat<T> {
 
   SimpleMatOwning() = delete;
 
-  SimpleMatOwning(std::shared_ptr<deviceAllocator> allocator, int m, int n,
-                  cudaStream_t stream, STORAGE_ORDER order = COL_MAJOR)
+  SimpleMatOwning(std::shared_ptr<MLCommon::deviceAllocator> allocator, int m,
+                  int n, cudaStream_t stream, STORAGE_ORDER order = COL_MAJOR)
     : Super(order), buf(m * n, stream) {
     Super::reset(buf.data(), m, n);
   }
