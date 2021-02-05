@@ -170,6 +170,7 @@ def checkCopyright_main():
     it compares between branches "$PR_TARGET_BRANCH" and "current-pr-branch"
     """
     retVal = 0
+    global ExemptFiles
 
     argparser = argparse.ArgumentParser(
         "Checks for a consistent copyright header in git's modified files")
