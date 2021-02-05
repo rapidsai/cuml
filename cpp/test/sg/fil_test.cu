@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -500,13 +500,14 @@ class TreeliteFilTest : public BaseFilTest {
         case fil::leaf_algo_t::FLOAT_UNARY_BINARY:
         case fil::leaf_algo_t::GROVE_PER_CLASS:
           // default is fil::FLOAT_UNARY_BINARY
-          builder->SetLeafNode(key, dense_node.base_node::output<val_t>().f);
+          builder->SetLeafNode(
+            key, tlf::Value::Create(dense_node.base_node::output<val_t>().f));
           break;
         case fil::leaf_algo_t::CATEGORICAL_LEAF:
-          std::vector<tl::tl_float> vec(ps.num_classes);
+          std::vector<tlf::Value> vec(ps.num_classes);
           for (int i = 0; i < ps.num_classes; ++i) {
-            vec[i] =
-              i == dense_node.base_node::output<val_t>().idx ? 1.0f : 0.0f;
+            vec[i] = tlf::Value::Create(
+              i == dense_node.base_node::output<val_t>().idx ? 1.0f : 0.0f);
           }
           builder->SetLeafVectorNode(key, vec);
       }
@@ -537,8 +538,9 @@ class TreeliteFilTest : public BaseFilTest {
       }
       int left_key = node_to_treelite(builder, pkey, root, left);
       int right_key = node_to_treelite(builder, pkey, root, right);
-      builder->SetNumericalTestNode(key, dense_node.fid(), ps.op, threshold,
-                                    default_left, left_key, right_key);
+      builder->SetNumericalTestNode(key, dense_node.fid(), ps.op,
+                                    tlf::Value::Create(threshold), default_left,
+                                    left_key, right_key);
     }
     return key;
   }
@@ -549,7 +551,8 @@ class TreeliteFilTest : public BaseFilTest {
     int treelite_num_classes =
       ps.leaf_algo == fil::leaf_algo_t::FLOAT_UNARY_BINARY ? 1 : ps.num_classes;
     std::unique_ptr<tlf::ModelBuilder> model_builder(new tlf::ModelBuilder(
-      ps.num_cols, treelite_num_classes, random_forest_flag));
+      ps.num_cols, treelite_num_classes, random_forest_flag,
+      tl::TypeInfo::kFloat32, tl::TypeInfo::kFloat32));
 
     // prediction transform
     if ((ps.output & fil::output_t::SIGMOID) != 0) {
@@ -570,7 +573,8 @@ class TreeliteFilTest : public BaseFilTest {
 
     // build the trees
     for (int i_tree = 0; i_tree < ps.num_trees; ++i_tree) {
-      tlf::TreeBuilder* tree_builder = new tlf::TreeBuilder();
+      tlf::TreeBuilder* tree_builder =
+        new tlf::TreeBuilder(tl::TypeInfo::kFloat32, tl::TypeInfo::kFloat32);
       int key_counter = 0;
       int root = i_tree * tree_num_nodes();
       int root_key = node_to_treelite(tree_builder, &key_counter, root, root);
@@ -580,8 +584,7 @@ class TreeliteFilTest : public BaseFilTest {
     }
 
     // commit the model
-    std::unique_ptr<tl::Model> model(new tl::Model);
-    model_builder->CommitModel(model.get());
+    std::unique_ptr<tl::Model> model = model_builder->CommitModel();
 
     // init FIL forest with the model
     fil::treelite_params_t params;
@@ -707,6 +710,17 @@ std::vector<FilTestParams> predict_dense_inputs = {
                   num_trees = 512, num_classes = 512),
   FIL_TEST_PARAMS(leaf_algo = GROVE_PER_CLASS, blocks_per_sm = 4,
                   num_trees = 512, num_classes = 512),
+  FIL_TEST_PARAMS(num_cols = 100'000, depth = 5, num_trees = 1,
+                  leaf_algo = FLOAT_UNARY_BINARY),
+  FIL_TEST_PARAMS(num_rows = 101, num_cols = 100'000, depth = 5, num_trees = 3,
+                  algo = BATCH_TREE_REORG, leaf_algo = GROVE_PER_CLASS,
+                  num_classes = 3),
+  FIL_TEST_PARAMS(num_rows = 102, num_cols = 100'000, depth = 5,
+                  num_trees = FIL_TPB + 1, algo = BATCH_TREE_REORG,
+                  leaf_algo = GROVE_PER_CLASS, num_classes = FIL_TPB + 1),
+  FIL_TEST_PARAMS(num_rows = 103, num_cols = 100'000, depth = 5, num_trees = 1,
+                  algo = BATCH_TREE_REORG, leaf_algo = CATEGORICAL_LEAF,
+                  num_classes = 3),
 };
 
 TEST_P(PredictDenseFilTest, Predict) { compare(); }

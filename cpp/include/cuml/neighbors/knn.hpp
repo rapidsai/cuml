@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,7 +18,6 @@
 
 #include <faiss/gpu/GpuIndex.h>
 #include <faiss/gpu/StandardGpuResources.h>
-#include <common/cumlHandle.hpp>
 #include <cuml/common/logger.hpp>
 #include <cuml/cuml.hpp>
 
@@ -36,7 +35,9 @@ enum MetricType {
   METRIC_JensenShannon,
 
   METRIC_Cosine = 100,
-  METRIC_Correlation
+  METRIC_Correlation,
+  METRIC_Jaccard,
+  METRIC_Hellinger
 };
 
 struct knnIndex {
@@ -44,8 +45,8 @@ struct knnIndex {
   faiss::gpu::GpuIndex *index;
   int device;
   ~knnIndex() {
-    delete gpu_res;
     delete index;
+    delete gpu_res;
   }
 };
 

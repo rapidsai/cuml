@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,13 +14,15 @@
  * limitations under the License.
  */
 
+#pragma once
+
 #include <math.h>
 #include <raft/cudart_utils.h>
 #include <raft/linalg/distance_type.h>
 #include <algorithm>
-#include <common/device_buffer.hpp>
 #include <cub/cub.cuh>
 #include <cuml/common/cuml_allocator.hpp>
+#include <cuml/common/device_buffer.hpp>
 #include <distance/distance.cuh>
 #include <iostream>
 #include <linalg/reduce_cols_by_key.cuh>
@@ -179,7 +181,7 @@ DataT silhouette_score(DataT *X_in, int nRows, int nCols, LabelT *labels,
                        std::shared_ptr<MLCommon::deviceAllocator> allocator,
                        cudaStream_t stream,
                        raft::distance::DistanceType metric =
-                         raft::distance::DistanceType::EucUnexpandedL2) {
+                         raft::distance::DistanceType::L2Unexpanded) {
   ASSERT(nLabels >= 2 && nLabels <= (nRows - 1),
          "silhouette Score not defined for the given number of labels!");
 

@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2018-2020, NVIDIA CORPORATION.
+# Copyright (c) 2018-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@ import cupy as cp
 import pytest
 from sklearn.datasets import fetch_20newsgroups
 from sklearn.feature_extraction.text import CountVectorizer
+import zlib
 
 
 def pytest_configure(config):
@@ -30,7 +31,7 @@ def nlp_20news():
         twenty_train = fetch_20newsgroups(subset='train',
                                           shuffle=True,
                                           random_state=42)
-    except IOError:
+    except (IOError, zlib.error):
         pytest.xfail(reason="Error fetching 20 newsgroup dataset")
 
     count_vect = CountVectorizer()

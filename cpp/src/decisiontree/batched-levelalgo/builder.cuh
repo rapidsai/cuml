@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,6 +15,9 @@
  */
 
 #pragma once
+
+#include <cuml/common/device_buffer.hpp>
+#include <cuml/common/host_buffer.hpp>
 
 #include "builder_base.cuh"
 
@@ -44,18 +47,19 @@ template <typename Traits, typename DataT = typename Traits::DataT,
           typename IdxT = typename Traits::IdxT>
 void grow_tree(std::shared_ptr<MLCommon::deviceAllocator> d_allocator,
                std::shared_ptr<MLCommon::hostAllocator> h_allocator,
-               const DataT* data, IdxT ncols, IdxT nrows, const LabelT* labels,
-               const DataT* quantiles, IdxT* rowids, IdxT* colids,
-               int n_sampled_rows, int unique_labels,
+               const DataT* data, IdxT treeid, uint64_t seed, IdxT ncols,
+               IdxT nrows, const LabelT* labels, const DataT* quantiles,
+               IdxT* rowids, int n_sampled_rows, int unique_labels,
                const DecisionTreeParams& params, cudaStream_t stream,
                std::vector<SparseTreeNode<DataT, LabelT>>& sparsetree,
                IdxT& num_leaves, IdxT& depth) {
   ML::PUSH_RANGE("DecisionTree::grow_tree in batched-levelalgo @builder.cuh");
   Builder<Traits> builder;
   size_t d_wsize, h_wsize;
-  builder.workspaceSize(d_wsize, h_wsize, params, data, labels, nrows, ncols,
-                        n_sampled_rows, IdxT(params.max_features * ncols),
-                        rowids, colids, unique_labels, quantiles);
+  builder.workspaceSize(d_wsize, h_wsize, treeid, seed, params, data, labels,
+                        nrows, ncols, n_sampled_rows,
+                        IdxT(params.max_features * ncols), rowids,
+                        unique_labels, quantiles);
   MLCommon::device_buffer<char> d_buff(d_allocator, stream, d_wsize);
   MLCommon::host_buffer<char> h_buff(h_allocator, stream, h_wsize);
 
@@ -104,29 +108,29 @@ void grow_tree(std::shared_ptr<MLCommon::deviceAllocator> d_allocator,
 template <typename DataT, typename LabelT, typename IdxT>
 void grow_tree(std::shared_ptr<MLCommon::deviceAllocator> d_allocator,
                std::shared_ptr<MLCommon::hostAllocator> h_allocator,
-               const DataT* data, IdxT ncols, IdxT nrows, const LabelT* labels,
-               const DataT* quantiles, IdxT* rowids, IdxT* colids,
-               int n_sampled_rows, int unique_labels,
+               const DataT* data, IdxT treeid, uint64_t seed, IdxT ncols,
+               IdxT nrows, const LabelT* labels, const DataT* quantiles,
+               IdxT* rowids, int n_sampled_rows, int unique_labels,
                const DecisionTreeParams& params, cudaStream_t stream,
                std::vector<SparseTreeNode<DataT, LabelT>>& sparsetree,
                IdxT& num_leaves, IdxT& depth) {
   typedef ClsTraits<DataT, LabelT, IdxT> Traits;
-  grow_tree<Traits>(d_allocator, h_allocator, data, ncols, nrows, labels,
-                    quantiles, rowids, colids, n_sampled_rows, unique_labels,
+  grow_tree<Traits>(d_allocator, h_allocator, data, treeid, seed, ncols, nrows,
+                    labels, quantiles, rowids, n_sampled_rows, unique_labels,
                     params, stream, sparsetree, num_leaves, depth);
 }
 template <typename DataT, typename IdxT>
 void grow_tree(std::shared_ptr<MLCommon::deviceAllocator> d_allocator,
                std::shared_ptr<MLCommon::hostAllocator> h_allocator,
-               const DataT* data, IdxT ncols, IdxT nrows, const DataT* labels,
-               const DataT* quantiles, IdxT* rowids, IdxT* colids,
-               int n_sampled_rows, int unique_labels,
+               const DataT* data, IdxT treeid, uint64_t seed, IdxT ncols,
+               IdxT nrows, const DataT* labels, const DataT* quantiles,
+               IdxT* rowids, int n_sampled_rows, int unique_labels,
                const DecisionTreeParams& params, cudaStream_t stream,
                std::vector<SparseTreeNode<DataT, DataT>>& sparsetree,
                IdxT& num_leaves, IdxT& depth) {
   typedef RegTraits<DataT, IdxT> Traits;
-  grow_tree<Traits>(d_allocator, h_allocator, data, ncols, nrows, labels,
-                    quantiles, rowids, colids, n_sampled_rows, unique_labels,
+  grow_tree<Traits>(d_allocator, h_allocator, data, treeid, seed, ncols, nrows,
+                    labels, quantiles, rowids, n_sampled_rows, unique_labels,
                     params, stream, sparsetree, num_leaves, depth);
 }
 /** @} */

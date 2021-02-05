@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,8 +14,9 @@
  * limitations under the License.
  */
 
-#include <cuml/tree/flatnode.h>
 #include <cuml/tree/decisiontree.hpp>
+
+#include <cuml/tree/flatnode.h>
 #include "decisiontree_impl.cuh"
 
 namespace ML {
@@ -54,12 +55,6 @@ void set_tree_params(DecisionTreeParams &params, int cfg_max_depth,
         "Experimental backend does not yet support histogram split algorithm");
       CUML_LOG_WARN(
         "To use experimental backend set split_algo = 1 (GLOBAL_QUANTILE)");
-      cfg_use_experimental_backend = false;
-    }
-    if (cfg_max_features != 1.0) {
-      CUML_LOG_WARN(
-        "Experimental backend does not yet support feature sub-sampling");
-      CUML_LOG_WARN("To use experimental backend set max_features = 1.0");
       cfg_use_experimental_backend = false;
     }
     if (cfg_quantile_per_tree) {
@@ -130,25 +125,29 @@ void print(const DecisionTreeParams params) {
 }
 
 template <class T, class L>
-void print_tree_summary(const TreeMetaDataNode<T, L> *tree) {
-  CUML_LOG_INFO(" Decision Tree depth --> %d and n_leaves --> %d",
-                tree->depth_counter, tree->leaf_counter);
-  CUML_LOG_INFO(" Tree Fitting - Overall time --> %lf s",
-                tree->prepare_time + tree->train_time);
-  CUML_LOG_INFO("   - preparing for fit time: %lf s", tree->prepare_time);
-  CUML_LOG_INFO("   - tree growing time: %lf s", tree->train_time);
-}
-
-template <class T, class L>
-void print_tree(const TreeMetaDataNode<T, L> *tree) {
-  print_tree_summary<T, L>(tree);
-  print_node<T, L>("", tree->sparsetree, 0, false);
-}
-
-template <class T, class L>
-std::string dump_tree_as_json(const TreeMetaDataNode<T, L> *tree) {
+std::string get_tree_summary_text(const TreeMetaDataNode<T, L> *tree) {
   std::ostringstream oss;
-  return dump_node_as_json("", tree->sparsetree, 0);
+  oss << " Decision Tree depth --> " << tree->depth_counter
+      << " and n_leaves --> " << tree->leaf_counter << "\n"
+      << " Tree Fitting - Overall time --> "
+      << (tree->prepare_time + tree->train_time) << " s"
+      << "\n"
+      << "   - preparing for fit time: " << tree->prepare_time << " s"
+      << "\n"
+      << "   - tree growing time: " << tree->train_time << " s";
+  return oss.str();
+}
+
+template <class T, class L>
+std::string get_tree_text(const TreeMetaDataNode<T, L> *tree) {
+  std::string summary = get_tree_summary_text<T, L>(tree);
+  return summary + "\n" + get_node_text<T, L>("", tree->sparsetree, 0, false);
+}
+
+template <class T, class L>
+std::string get_tree_json(const TreeMetaDataNode<T, L> *tree) {
+  std::ostringstream oss;
+  return get_node_json("", tree->sparsetree, 0);
 }
 
 void decisionTreeClassifierFit(const raft::handle_t &handle,
@@ -156,11 +155,12 @@ void decisionTreeClassifierFit(const raft::handle_t &handle,
                                const int ncols, const int nrows, int *labels,
                                unsigned int *rowids, const int n_sampled_rows,
                                int unique_labels,
-                               DecisionTree::DecisionTreeParams tree_params) {
+                               DecisionTree::DecisionTreeParams tree_params,
+                               uint64_t seed) {
   std::shared_ptr<DecisionTreeClassifier<float>> dt_classifier =
     std::make_shared<DecisionTreeClassifier<float>>();
   dt_classifier->fit(handle, data, ncols, nrows, labels, rowids, n_sampled_rows,
-                     unique_labels, tree, tree_params);
+                     unique_labels, tree, tree_params, seed);
 }
 
 void decisionTreeClassifierFit(const raft::handle_t &handle,
@@ -168,11 +168,12 @@ void decisionTreeClassifierFit(const raft::handle_t &handle,
                                const int ncols, const int nrows, int *labels,
                                unsigned int *rowids, const int n_sampled_rows,
                                int unique_labels,
-                               DecisionTree::DecisionTreeParams tree_params) {
+                               DecisionTree::DecisionTreeParams tree_params,
+                               uint64_t seed) {
   std::shared_ptr<DecisionTreeClassifier<double>> dt_classifier =
     std::make_shared<DecisionTreeClassifier<double>>();
   dt_classifier->fit(handle, data, ncols, nrows, labels, rowids, n_sampled_rows,
-                     unique_labels, tree, tree_params);
+                     unique_labels, tree, tree_params, seed);
 }
 
 void decisionTreeClassifierPredict(const raft::handle_t &handle,
@@ -203,22 +204,24 @@ void decisionTreeRegressorFit(const raft::handle_t &handle,
                               TreeRegressorF *&tree, float *data,
                               const int ncols, const int nrows, float *labels,
                               unsigned int *rowids, const int n_sampled_rows,
-                              DecisionTree::DecisionTreeParams tree_params) {
+                              DecisionTree::DecisionTreeParams tree_params,
+                              uint64_t seed) {
   std::shared_ptr<DecisionTreeRegressor<float>> dt_regressor =
     std::make_shared<DecisionTreeRegressor<float>>();
   dt_regressor->fit(handle, data, ncols, nrows, labels, rowids, n_sampled_rows,
-                    tree, tree_params);
+                    tree, tree_params, seed);
 }
 
 void decisionTreeRegressorFit(const raft::handle_t &handle,
                               TreeRegressorD *&tree, double *data,
                               const int ncols, const int nrows, double *labels,
                               unsigned int *rowids, const int n_sampled_rows,
-                              DecisionTree::DecisionTreeParams tree_params) {
+                              DecisionTree::DecisionTreeParams tree_params,
+                              uint64_t seed) {
   std::shared_ptr<DecisionTreeRegressor<double>> dt_regressor =
     std::make_shared<DecisionTreeRegressor<double>>();
   dt_regressor->fit(handle, data, ncols, nrows, labels, rowids, n_sampled_rows,
-                    tree, tree_params);
+                    tree, tree_params, seed);
 }
 
 void decisionTreeRegressorPredict(const raft::handle_t &handle,
@@ -243,23 +246,24 @@ void decisionTreeRegressorPredict(const raft::handle_t &handle,
 }
 
 // Functions' specializations
-template void print_tree_summary<float, int>(const TreeClassifierF *tree);
-template void print_tree_summary<double, int>(const TreeClassifierD *tree);
-template void print_tree_summary<float, float>(const TreeRegressorF *tree);
-template void print_tree_summary<double, double>(const TreeRegressorD *tree);
-
-template void print_tree<float, int>(const TreeClassifierF *tree);
-template void print_tree<double, int>(const TreeClassifierD *tree);
-template void print_tree<float, float>(const TreeRegressorF *tree);
-template void print_tree<double, double>(const TreeRegressorD *tree);
-
-template std::string dump_tree_as_json<float, int>(const TreeClassifierF *tree);
-template std::string dump_tree_as_json<double, int>(
+template std::string get_tree_summary_text<float, int>(
+  const TreeClassifierF *tree);
+template std::string get_tree_summary_text<double, int>(
   const TreeClassifierD *tree);
-template std::string dump_tree_as_json<float, float>(
+template std::string get_tree_summary_text<float, float>(
   const TreeRegressorF *tree);
-template std::string dump_tree_as_json<double, double>(
+template std::string get_tree_summary_text<double, double>(
   const TreeRegressorD *tree);
+
+template std::string get_tree_text<float, int>(const TreeClassifierF *tree);
+template std::string get_tree_text<double, int>(const TreeClassifierD *tree);
+template std::string get_tree_text<float, float>(const TreeRegressorF *tree);
+template std::string get_tree_text<double, double>(const TreeRegressorD *tree);
+
+template std::string get_tree_json<float, int>(const TreeClassifierF *tree);
+template std::string get_tree_json<double, int>(const TreeClassifierD *tree);
+template std::string get_tree_json<float, float>(const TreeRegressorF *tree);
+template std::string get_tree_json<double, double>(const TreeRegressorD *tree);
 
 }  // End namespace DecisionTree
 }  //End namespace ML

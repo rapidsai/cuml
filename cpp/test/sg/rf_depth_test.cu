@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -75,7 +75,7 @@ class RfClassifierDepthTest : public ::testing::TestWithParam<int> {
                     params.split_criterion, false);
     RF_params rf_params;
     set_all_rf_params(rf_params, params.n_trees, params.bootstrap,
-                      params.max_samples, -1, params.n_streams, tree_params);
+                      params.max_samples, 0, params.n_streams, tree_params);
 
     int data_len = params.n_rows * params.n_cols;
     raft::allocate(data, data_len);
@@ -169,7 +169,7 @@ class RfRegressorDepthTest : public ::testing::TestWithParam<int> {
                     params.split_criterion, false);
     RF_params rf_params;
     set_all_rf_params(rf_params, params.n_trees, params.bootstrap,
-                      params.max_samples, -1, params.n_streams, tree_params);
+                      params.max_samples, 0, params.n_streams, tree_params);
 
     int data_len = params.n_rows * params.n_cols;
     raft::allocate(data, data_len);
