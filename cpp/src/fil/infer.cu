@@ -17,6 +17,7 @@
 #include <algorithm>
 #include <cmath>
 
+#include <thrust/functional.h>
 #include <cuml/fil/multi_sum.cuh>
 #include "common.cuh"
 
