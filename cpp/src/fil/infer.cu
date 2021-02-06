@@ -72,14 +72,14 @@ __device__ __forceinline__ vec<NITEMS, output_type> infer_one_tree(
   tree_type tree, const float* input, int cols, int n_rows) {
   int curr[NITEMS];
   // the first n_rows are active
-  int mask = ((1 << n_rows) - 1) << (NITEMS - n_rows);
+  int mask = (1 << n_rows) - 1;
   for (int j = 0; j < NITEMS; ++j) curr[j] = 0;
   do {
 #pragma unroll
     for (int j = 0; j < NITEMS; ++j) {
       auto n = tree[curr[j]];
       mask &= ~(n.is_leaf() << j);
-      if (!n.is_leaf()) {
+      if (mask & (1 << j)) {
         float val = input[j * cols + n.fid()];
         bool cond = isnan(val) ? !n.def_left() : val >= n.thresh();
         curr[j] = n.left(curr[j]) + cond;
@@ -172,7 +172,8 @@ struct tree_aggregator_t {
     : tmp_storage(finalize_workspace) {}
 
   __device__ __forceinline__ void accumulate(
-    vec<NITEMS, float> single_tree_prediction, int tree) {
+    vec<NITEMS, float> single_tree_prediction, int tree, int num_rows) {
+    for (int i = num_rows; i < NITEMS; ++i) single_tree_prediction[i] = 0.0f;
     acc += single_tree_prediction;
   }
 
@@ -241,7 +242,8 @@ struct tree_aggregator_t<NITEMS, GROVE_PER_CLASS_FEW_CLASSES> : finalize_block {
       per_thread((vec<NITEMS, float>*)finalize_workspace) {}
 
   __device__ __forceinline__ void accumulate(
-    vec<NITEMS, float> single_tree_prediction, int tree) {
+    vec<NITEMS, float> single_tree_prediction, int tree, int num_rows) {
+    for (int i = num_rows; i < NITEMS; ++i) single_tree_prediction[i] = 0.0f;
     acc += single_tree_prediction;
   }
 
@@ -285,7 +287,8 @@ struct tree_aggregator_t<NITEMS, GROVE_PER_CLASS_MANY_CLASSES>
   }
 
   __device__ __forceinline__ void accumulate(
-    vec<NITEMS, float> single_tree_prediction, int tree) {
+    vec<NITEMS, float> single_tree_prediction, int tree, int num_rows) {
+    for (int i = num_rows; i < NITEMS; ++i) single_tree_prediction[i] = 0.0f;
     // since threads are assigned to consecutive classes, no need for atomics
     per_class_margin[tree % num_classes] += single_tree_prediction;
     // __syncthreads() is called in infer_k
@@ -330,11 +333,14 @@ struct tree_aggregator_t<NITEMS, CATEGORICAL_LEAF> {
     // __syncthreads() is called in infer_k
   }
   __device__ __forceinline__ void accumulate(
-    vec<NITEMS, int> single_tree_prediction, int tree) {
+    vec<NITEMS, int> single_tree_prediction, int tree, int num_rows) {
 #pragma unroll
-    for (int item = 0; item < NITEMS; ++item)
-      raft::myAtomicAdd(votes + single_tree_prediction[item] * NITEMS + item,
-                        1);
+    for (int item = 0; item < NITEMS; ++item) {
+      if (item < num_rows) {
+        raft::myAtomicAdd(votes + single_tree_prediction[item] * NITEMS + item,
+                          1);
+      }
+    }
   }
   // class probabilities or regression. for regression, num_classes
   // is just the number of outputs for each data instance
@@ -415,7 +421,7 @@ __global__ void infer_k(storage_type forest, predict_params params) {
         acc.accumulate(infer_one_tree<NITEMS, leaf_output_t<leaf_algo>::T>(
                          forest[j], cols_in_shmem ? sdata : block_input,
                          num_cols, num_input_rows),
-                       j);
+                       j, num_input_rows);
       }
       if (leaf_algo == GROVE_PER_CLASS_MANY_CLASSES) __syncthreads();
     }
