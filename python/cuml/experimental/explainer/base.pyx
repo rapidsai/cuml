@@ -23,6 +23,8 @@ import pandas
 import cuml.common.logger as logger
 from cuml.common.import_utils import has_shap
 from cuml.common.input_utils import input_to_cupy_array
+from cuml.common.input_utils import input_to_host_array
+from cuml.common.logger import debug
 from cuml.common.logger import warn
 from cuml.experimental.explainer.common import get_dtype_from_model_func
 from cuml.experimental.explainer.common import get_handle_from_cuml_model_func
@@ -202,22 +204,23 @@ class SHAPBase():
         # SHAP potting functions
         self.expected_value = cp.asnumpy(self._expected_value)
 
-        # D tells us the dimension of the model. For example, `predict_proba`
+        # Calculate the dimension of the model. For example, `predict_proba`
         # functions typically return n values for n classes as opposed to
         # 1 valued for a typical `predict`
         if len(self._expected_value.shape) == 0:
             self.model_dimensions = 1
+            self.expected_value = float(self.expected_value)
         else:
             self.model_dimensions = self._expected_value.shape[0]
 
         self._reset_timers()
 
-    @cuml.internals.api_return_generic()
     def _explain(self,
                  X,
                  testing=False,
                  synth_data_shape=None,
                  free_synth_data=True,
+                 return_as_list=True,
                  **kwargs):
         """
         Function that calls inheriting explainers _explain_single_observation
@@ -249,8 +252,7 @@ class SHAPBase():
             Aray with the shap values, using cuml.internals output type logic.
 
         """
-
-        cuml.internals.set_api_output_type("cupy")
+        self._reset_timers()
 
         X = input_to_cupy_array(X,
                                 order=self.order,
@@ -288,10 +290,18 @@ class SHAPBase():
         if free_synth_data and getattr(self, "synth_data", None) is not None:
             del(self._synth_data)
 
+        if return_as_list:
+            shap_values = output_list_shap_values(
+                X=shap_values,
+                dimensions=self.model_dimensions,
+                output_type=self.output_type
+            )
+
+        debug(self._get_timers_str())
+
         return shap_values
 
     def __call__(self,
-                 *,
                  X,
                  main_effects=False,
                  **kwargs):
@@ -309,20 +319,34 @@ class SHAPBase():
             from shap import Explanation
 
         shap_values = self.shap_values(X,
+                                       as_list=False,
                                        **kwargs)
+
+        # reshaping of arrays to match SHAP's behavior for building
+        # Explanation objects
+        if self.model_dimensions > 1:
+            shap_values == cp.asnumpy(cp.array(shap_values)).reshape(
+                len(X), X.shape[1], self.model_dimensions
+            )
+            base_values = np.tile(self.expected_value, (len(X), 1))
+        else:
+            shap_values = cp.asnumpy(shap_values[0])
+            base_values = np.tile(self.expected_value, len(X))
 
         if main_effects:
             main_effect_values = self.main_effects(X)
+        else:
+            main_effect_values = None
 
-        out = []
-        for idx, x in enumerate(X):
-            out.append(Explanation(
-                values=shap_values[idx],
-                base_values=self._expected_value,
-                data=x,
-                feature_names=self.feature_names,
-                main_effects=main_effect_values[idx]
-            ))
+        out = Explanation(
+            values=shap_values,
+            base_values=base_values,
+            data=input_to_host_array(X).array,
+            feature_names=self.feature_names,
+            main_effects=main_effect_values
+        )
+
+        return out
 
     def main_effects(self,
                      X):

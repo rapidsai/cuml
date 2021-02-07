@@ -23,14 +23,11 @@ from cudf import DataFrame as cu_df
 from cuml.common.array import CumlArray
 from cuml.common.import_utils import has_shap
 from cuml.common.input_utils import input_to_cupy_array
-from cuml.common.logger import warn
-from cuml.common.logger import debug
 from cuml.experimental.explainer.base import SHAPBase
 from cuml.experimental.explainer.common import get_cai_ptr
 from cuml.experimental.explainer.common import get_dtype_from_model_func
 from cuml.experimental.explainer.common import get_tag_from_model_func
 from cuml.experimental.explainer.common import model_func_call
-from cuml.experimental.explainer.common import output_list_shap_values
 from numba import cuda
 from pandas import DataFrame as pd_df
 
@@ -221,6 +218,7 @@ class PermutationExplainer(SHAPBase):
     def shap_values(self,
                     X,
                     npermutations=10,
+                    as_list=True,
                     **kwargs):
         """
         Interface to estimate the SHAP values for a set of samples.
@@ -235,24 +233,25 @@ class PermutationExplainer(SHAPBase):
             DataFrame/Series.
         npermutations : int (default = 10)
             The l1 regularization to use for feature selection.
+        as_list : bool (default = True)
+            Set to True to return a list of arrays for multi-dimensional
+            models (like predict_proba functions) to match the SHAP package
+            shap_values API behavior.
+            Set to False to return them as an array of arrays.
 
         Returns
         -------
         array or list
 
         """
-        self._reset_timers()
-        values = self._explain(X,
-                               synth_data_shape=(
-                                   (2 * self.ncols * self.nrows + self.nrows),
-                                   self.ncols
-                               ),
-                               npermutations=npermutations,
-                               **kwargs)
-        debug(self._get_timers_str())
-        return output_list_shap_values(values,
-                                       self.model_dimensions,
-                                       self.output_type)
+        return self._explain(X,
+                             synth_data_shape=(
+                                 (2 * self.ncols * self.nrows + self.nrows),
+                                 self.ncols
+                             ),
+                             npermutations=npermutations,
+                             return_as_list=as_list,
+                             **kwargs)
 
     def _explain_single_observation(self,
                                     shap_values,

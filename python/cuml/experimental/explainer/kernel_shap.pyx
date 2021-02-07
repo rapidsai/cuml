@@ -22,8 +22,6 @@ import time
 from cuml.common.import_utils import has_shap
 from cuml.common.import_utils import has_sklearn
 from cuml.common.input_utils import input_to_cupy_array
-from cuml.common.logger import debug
-from cuml.common.logger import warn
 from cuml.experimental.explainer.base import SHAPBase
 from cuml.experimental.explainer.common import get_cai_ptr
 from cuml.experimental.explainer.common import model_func_call
@@ -255,7 +253,8 @@ class KernelExplainer(SHAPBase):
 
     def shap_values(self,
                     X,
-                    l1_reg='auto'):
+                    l1_reg='auto',
+                    as_list=True):
         """
         Interface to estimate the SHAP values for a set of samples.
         Corresponds to the SHAP package's legacy interface, and is our main
@@ -269,21 +268,21 @@ class KernelExplainer(SHAPBase):
             DataFrame/Series.
         l1_reg : str (default: 'auto')
             The l1 regularization to use for feature selection.
+        as_list : bool (default = True)
+            Set to True to return a list of arrays for multi-dimensional
+            models (like predict_proba functions) to match the SHAP package
+            behavior. Set to False to return them as an array of arrays.
 
         Returns
         -------
         values : array or list
 
         """
-        self._reset_timers()
-        values = self._explain(X,
-                               synth_data_shape=(self.nrows * self.nsamples,
-                                                 self.ncols),
-                               l1_reg=l1_reg)
-
-        debug(self._get_timers_str())
-        return output_list_shap_values(values, self.model_dimensions,
-                                       self.output_type)
+        return self._explain(X,
+                             synth_data_shape=(self.nrows * self.nsamples,
+                                               self.ncols),
+                             return_as_list=as_list,
+                             l1_reg=l1_reg)
 
     def _explain_single_observation(self,
                                     shap_values,
