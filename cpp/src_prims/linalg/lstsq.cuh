@@ -51,6 +51,11 @@ void lstsq(const raft::handle_t &handle, math_t *A, int n_rows, int n_cols,
   rmm::device_uvector<math_t> S(n_cols, stream);
   rmm::device_uvector<math_t> V(V_len, stream);
   rmm::device_uvector<math_t> U(U_len, stream);
+
+  // we use a temporary vector to avoid doing re-using w in the last step, the
+  // gemv, which could cause a very sporadic race condition in Pascal and
+  // Turing GPUs that caused it to give the wrong results. Details:
+  // https://github.com/rapidsai/cuml/issues/1739
   rmm::device_uvector<math_t> tmp_vector(n_cols, stream);
 
   if (algo == 0 || n_cols == 1) {
