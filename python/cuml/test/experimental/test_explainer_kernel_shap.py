@@ -255,6 +255,34 @@ def test_kernel_gpu_cpu_shap(dtype, nfeatures, nbackground, model):
         # test to be flaky, better testing strategy in process.
         assert np.allclose(cu_shap_values, shap_values, rtol=1e-01, atol=1e-01)
 
+
+def test_kernel_housing_dataset(housing_dataset):
+    X, y, _ = housing_dataset
+
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=0.25, random_state=42
+    )
+
+    # making all float32 to use gpu predict on random forest
+    X_train = X_train.astype(np.float32)
+    X_test = X_test.astype(np.float32)
+    y_train = y_train.astype(np.float32)
+    y_test = y_test.astype(np.float32)
+
+    cumodel = cuml.RandomForestRegressor().fit(X_train, y_train)
+
+    explainer = cuml.experimental.explainer.KernelExplainer(
+        model=cumodel.predict,
+        data=X_train[:100],
+        output_type='numpy')
+
+    cu_shap_values = explainer.shap_values(X_test[:2])
+
+    assert np.allclose(cu_shap_values, housing_regression_result,
+                       rtol=1e-01, atol=1e-01)
+
+    assert True
+
 ###############################################################################
 #                        Single function unit tests                           #
 ###############################################################################
@@ -388,6 +416,11 @@ golden_classification_result = [
      0.00088981]
 ]
 
+housing_regression_result = np.array(
+    [[-0.7222878, 0.00888237, -0.07044561, -0.02764106, -0.01486777,
+      -0.19961227, -0.1367276, -0.11073875],
+     [-0.688218, 0.04260924, -0.12853414, 0.06109668, -0.01486243,
+      -0.0627693, -0.17290883, -0.02488524]], dtype=np.float32)
 
 cuml_skl_class_dict = {
     cuml.LinearRegression: sklearn.linear_model.LinearRegression,

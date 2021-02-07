@@ -249,4 +249,4 @@ def create_dummy_model(model):
 def dummy_func(x):
     if not isinstance(x, np.ndarray):
         raise TypeError("x must be a NumPy array")
-    return np.mean(x)
+    return np.mean(x, axis=1)
