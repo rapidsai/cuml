@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <raft/cudart_utils.h>
 #include <raft/linalg/cublas_wrappers.h>
 #include <raft/linalg/cusolver_wrappers.h>
 #include <raft/linalg/gemv.h>
@@ -31,7 +32,6 @@
 #include <raft/matrix/matrix.cuh>
 #include <raft/mr/device/buffer.hpp>
 #include <raft/random/rng.cuh>
-#include <raft/cudart_utils.h>
 #include <rmm/device_uvector.hpp>
 
 namespace MLCommon {
@@ -39,7 +39,7 @@ namespace LinAlg {
 
 template <typename math_t>
 void lstsq(const raft::handle_t &handle, math_t *A, int n_rows, int n_cols,
-              math_t *b, math_t *w, int algo, cudaStream_t stream) {
+           math_t *b, math_t *w, int algo, cudaStream_t stream) {
   cusolverDnHandle_t cusolverH = handle.get_cusolver_dn_handle();
   cublasHandle_t cublasH = handle.get_cublas_handle();
 
@@ -56,18 +56,19 @@ void lstsq(const raft::handle_t &handle, math_t *A, int n_rows, int n_cols,
   if (algo == 0 || n_cols == 1) {
     raft::linalg::svdQR(handle, A, n_rows, n_cols, S.data(), U.data(), V.data(),
                         true, true, true, stream);
-  } else if (algo == 1){
-    raft::linalg::svdEig(handle, A, n_rows, n_cols, S.data(), U.data(), V.data(),
-                         true, stream);
+  } else if (algo == 1) {
+    raft::linalg::svdEig(handle, A, n_rows, n_cols, S.data(), U.data(),
+                         V.data(), true, stream);
   }
 
-  raft::linalg::gemv(handle, U.data(), n_rows, n_cols, b, tmp_vector.data(), true, stream);
+  raft::linalg::gemv(handle, U.data(), n_rows, n_cols, b, tmp_vector.data(),
+                     true, stream);
 
-  raft::matrix::matrixVectorBinaryDivSkipZero(tmp_vector.data(), S.data(), 1, n_cols, false,
-                                              true, stream);
+  raft::matrix::matrixVectorBinaryDivSkipZero(tmp_vector.data(), S.data(), 1,
+                                              n_cols, false, true, stream);
 
-  raft::linalg::gemv(handle, V.data(), n_cols, n_cols, tmp_vector.data(), w, false, stream);
-
+  raft::linalg::gemv(handle, V.data(), n_cols, n_cols, tmp_vector.data(), w,
+                     false, stream);
 }
 
 template <typename math_t>
