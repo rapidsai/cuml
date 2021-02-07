@@ -245,7 +245,7 @@ class SHAPBase():
 
         Returns
         -------
-        shap_values: array
+        shap_values : array
             Aray with the shap values, using cuml.internals output type logic.
 
         """

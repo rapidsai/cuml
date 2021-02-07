@@ -56,14 +56,12 @@ def experimental_test_and_log(cu_shap_values,
                               fx,
                               expected,
                               tolerance=1e-02):
-    # while experimental we test the golden results but also fall back to
-    # testing the sum of the values to avoid instability in CI
     close_values = \
         np.allclose(cu_shap_values, golden_result_values,
                     rtol=tolerance, atol=tolerance)
 
     expected_sum = np.allclose(1.00, np.sum(cp.asnumpy(
-        cu_shap_values)) / (fx - expected), atol=1e-02)
+        cu_shap_values)) / (fx - expected), rtol=1e-01)
 
     if not close_values:
         print("cu_shap_values: ")
@@ -82,8 +80,7 @@ def experimental_test_and_log(cu_shap_values,
 @pytest.mark.parametrize("model", [cuml.LinearRegression,
                                    cuml.KNeighborsRegressor,
                                    cuml.SVR])
-@pytest.mark.parametrize("idx", np.arange(100))
-def test_exact_regression_datasets(exact_tests_dataset, model, idx):
+def test_exact_regression_datasets(exact_tests_dataset, model):
     # todo (dd): idx parameter is for repeating the test for a few CI runs
     # will be removed before merging
     X_train, X_test, y_train, y_test = exact_tests_dataset
@@ -139,10 +136,6 @@ def test_exact_classification_datasets():
 
     cu_shap_values = explainer.shap_values(X_test)
 
-    # assert np.allclose(cu_shap_values[0], golden_classification_result[0],
-    #                    rtol=1e-01, atol=1e-01)
-    # assert np.allclose(cu_shap_values[1], golden_classification_result[1],
-    #                    rtol=1e-01, atol=1e-01)
     experimental_test_and_log(cu_shap_values[0],
                               golden_classification_result[0],
                               float(mod.predict_proba(X_test)[0][0]),
@@ -167,10 +160,6 @@ def test_exact_classification_datasets():
     # a little looser to avoid false positives from comparisons like
     # 0.00348627 - 0.00247397. The loose tolerance still tests that the
     # distribution of the values matches.
-    # assert np.allclose(cu_shap_values[0], golden_classification_result[0],
-    #                    rtol=1e-01, atol=1e-01)
-    # assert np.allclose(cu_shap_values[1], golden_classification_result[1],
-    #                    rtol=1e-01, atol=1e-01)
     experimental_test_and_log(cu_shap_values[0],
                               golden_classification_result[0],
                               float(mod.predict_proba(X_test)[0][0]),
