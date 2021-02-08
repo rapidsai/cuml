@@ -78,10 +78,11 @@ def test_rf_classification_multi_class(partitions_per_worker, cluster):
 
     # Use CUDA_VISIBLE_DEVICES to control the number of workers
     c = Client(cluster)
+    n_workers = len(c.scheduler_info()['workers'])
 
     try:
 
-        X, y = make_classification(n_samples=10000, n_features=20,
+        X, y = make_classification(n_samples=n_workers * 5000, n_features=20,
                                    n_clusters_per_class=1, n_informative=10,
                                    random_state=123, n_classes=15)
 
@@ -89,7 +90,7 @@ def test_rf_classification_multi_class(partitions_per_worker, cluster):
         y = y.astype(np.int32)
 
         X_train, X_test, y_train, y_test = \
-            train_test_split(X, y, test_size=1000, random_state=123)
+            train_test_split(X, y, test_size=n_workers * 300, random_state=123)
 
         cu_rf_params = {
             'n_estimators': 25,
@@ -101,7 +102,7 @@ def test_rf_classification_multi_class(partitions_per_worker, cluster):
         X_train_df, y_train_df = _prep_training_data(c, X_train, y_train,
                                                      partitions_per_worker)
 
-        cuml_mod = cuRFC_mg(**cu_rf_params)
+        cuml_mod = cuRFC_mg(**cu_rf_params, ignore_empty_partitions=True)
         cuml_mod.fit(X_train_df, y_train_df)
         X_test_dask_array = from_array(X_test)
         cuml_preds_gpu = cuml_mod.predict(X_test_dask_array,
@@ -114,7 +115,7 @@ def test_rf_classification_multi_class(partitions_per_worker, cluster):
         # Refer to issue : https://github.com/rapidsai/cuml/issues/2806 for
         # more information on the threshold value.
 
-        assert acc_score_gpu >= 0.60
+        assert acc_score_gpu >= 0.55
 
     finally:
         c.close()
@@ -124,16 +125,18 @@ def test_rf_classification_multi_class(partitions_per_worker, cluster):
 @pytest.mark.parametrize('partitions_per_worker', [5])
 def test_rf_regression_dask_fil(partitions_per_worker,
                                 dtype, client):
+    n_workers = len(client.scheduler_info()['workers'])
+
     # Use CUDA_VISIBLE_DEVICES to control the number of workers
-    X, y = make_regression(n_samples=10000, n_features=20,
+    X, y = make_regression(n_samples=n_workers * 4000, n_features=20,
                            n_informative=10, random_state=123)
 
     X = X.astype(dtype)
     y = y.astype(dtype)
 
-    X_train, X_test, y_train, y_test = train_test_split(X, y,
-                                                        test_size=1000,
-                                                        random_state=123)
+    X_train, X_test, y_train, y_test = \
+        train_test_split(X, y, test_size=n_workers * 100,
+                         random_state=123)
 
     if dtype == np.float64:
         pytest.xfail(reason=" Dask RF does not support np.float64 data")
@@ -158,7 +161,7 @@ def test_rf_regression_dask_fil(partitions_per_worker,
     X_test_df = \
         dask_cudf.from_cudf(X_cudf_test, npartitions=n_partitions)
 
-    cuml_mod = cuRFR_mg(**cu_rf_params)
+    cuml_mod = cuRFR_mg(**cu_rf_params, ignore_empty_partitions=True)
     cuml_mod.fit(X_train_df, y_train_df)
 
     cuml_mod_predict = cuml_mod.predict(X_test_df)
@@ -173,8 +176,9 @@ def test_rf_regression_dask_fil(partitions_per_worker,
 @pytest.mark.parametrize('output_class', [True, False])
 def test_rf_classification_dask_array(partitions_per_worker, client,
                                       output_class):
+    n_workers = len(client.scheduler_info()['workers'])
 
-    X, y = make_classification(n_samples=10000, n_features=30,
+    X, y = make_classification(n_samples=n_workers * 2000, n_features=30,
                                n_clusters_per_class=1, n_informative=20,
                                random_state=123, n_classes=2)
 
@@ -182,7 +186,7 @@ def test_rf_classification_dask_array(partitions_per_worker, client,
     y = y.astype(np.int32)
 
     X_train, X_test, y_train, y_test = \
-        train_test_split(X, y, test_size=1000)
+        train_test_split(X, y, test_size=n_workers * 400)
 
     cu_rf_params = {
         'n_estimators': 25,
@@ -207,15 +211,17 @@ def test_rf_classification_dask_array(partitions_per_worker, client,
 
 @pytest.mark.parametrize('partitions_per_worker', [5])
 def test_rf_regression_dask_cpu(partitions_per_worker, client):
-    X, y = make_regression(n_samples=10000, n_features=20,
+    n_workers = len(client.scheduler_info()['workers'])
+
+    X, y = make_regression(n_samples=n_workers * 2000, n_features=20,
                            n_informative=10, random_state=123)
 
     X = X.astype(np.float32)
     y = y.astype(np.float32)
 
-    X_train, X_test, y_train, y_test = train_test_split(X, y,
-                                                        test_size=1000,
-                                                        random_state=123)
+    X_train, X_test, y_train, y_test = \
+        train_test_split(X, y, test_size=n_workers * 400,
+                         random_state=123)
 
     cu_rf_params = {
         'n_estimators': 50,
@@ -250,7 +256,9 @@ def test_rf_regression_dask_cpu(partitions_per_worker, client):
 @pytest.mark.parametrize('partitions_per_worker', [5])
 def test_rf_classification_dask_fil_predict_proba(partitions_per_worker,
                                                   client):
-    X, y = make_classification(n_samples=1000, n_features=30,
+    n_workers = len(client.scheduler_info()['workers'])
+
+    X, y = make_classification(n_samples=n_workers * 1500, n_features=30,
                                n_clusters_per_class=1, n_informative=20,
                                random_state=123, n_classes=2)
 
@@ -258,7 +266,7 @@ def test_rf_classification_dask_fil_predict_proba(partitions_per_worker,
     y = y.astype(np.int32)
 
     X_train, X_test, y_train, y_test = \
-        train_test_split(X, y, test_size=100, random_state=123)
+        train_test_split(X, y, test_size=n_workers * 150, random_state=123)
 
     cu_rf_params = {'n_bins': 16, 'n_streams': 1,
                     'n_estimators': 40, 'max_depth': 16
@@ -291,8 +299,10 @@ def test_rf_classification_dask_fil_predict_proba(partitions_per_worker,
 
 @pytest.mark.parametrize('model_type', ['classification', 'regression'])
 def test_rf_concatenation_dask(client, model_type):
+    n_workers = len(client.scheduler_info()['workers'])
+
     from cuml.fil.fil import TreeliteModel
-    X, y = make_classification(n_samples=1000, n_features=30,
+    X, y = make_classification(n_samples=n_workers * 200, n_features=30,
                                random_state=123, n_classes=2)
 
     X = X.astype(np.float32)
@@ -361,6 +371,11 @@ def test_single_input(client, model_type, ignore_empty_partitions):
 @pytest.mark.parametrize('n_estimators', [5, 10, 20])
 @pytest.mark.parametrize('estimator_type', ['regression', 'classification'])
 def test_rf_get_json(client, estimator_type, max_depth, n_estimators):
+    n_workers = len(client.scheduler_info()['workers'])
+    if n_estimators < n_workers:
+        err_msg = "n_estimators cannot be lower than number of dask workers"
+        pytest.xfail(err_msg)
+
     X, y = make_classification(n_samples=350, n_features=20,
                                n_clusters_per_class=1, n_informative=10,
                                random_state=123, n_classes=2)
@@ -483,6 +498,8 @@ def test_rf_get_combined_model_right_aftter_fit(client, estimator_type):
 @pytest.mark.parametrize('n_estimators', [5, 10, 20])
 @pytest.mark.parametrize('detailed_text', [True, False])
 def test_rf_get_text(client, n_estimators, detailed_text):
+    n_workers = len(client.scheduler_info()['workers'])
+
     X, y = make_classification(n_samples=500, n_features=10,
                                n_clusters_per_class=1, n_informative=5,
                                random_state=94929, n_classes=2)
@@ -490,6 +507,15 @@ def test_rf_get_text(client, n_estimators, detailed_text):
     X = X.astype(np.float32)
     y = y.astype(np.int32)
     X, y = _prep_training_data(client, X, y, partitions_per_worker=2)
+
+    if n_estimators >= n_workers:
+        cu_rf_mg = cuRFC_mg(n_estimators=n_estimators,
+                            ignore_empty_partitions=True)
+    else:
+        with pytest.raises(ValueError):
+            cu_rf_mg = cuRFC_mg(n_estimators=n_estimators,
+                                ignore_empty_partitions=True)
+        return
 
     cu_rf_mg = cuRFC_mg(n_estimators=n_estimators,
                         ignore_empty_partitions=True)
