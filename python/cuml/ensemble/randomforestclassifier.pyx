@@ -1,6 +1,6 @@
 
 #
-# Copyright (c) 2019-2020, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -42,7 +42,7 @@ from cython.operator cimport dereference as deref
 
 from libcpp cimport bool
 from libcpp.vector cimport vector
-from libc.stdint cimport uintptr_t
+from libc.stdint cimport uintptr_t, uint64_t
 from libc.stdlib cimport calloc, malloc, free
 
 from numba import cuda
@@ -230,7 +230,6 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
         If set to true and  following conditions are also met, experimental
          decision tree training implementation would be used:
             split_algo = 1 (GLOBAL_QUANTILE)
-            max_features = 1.0 (Feature sub-sampling disabled)
             quantile_per_tree = false (No per tree quantile computation)
     max_batch_size: int (default = 128)
         Maximum number of nodes that can be processed in a given batch. This is
@@ -473,7 +472,7 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
                                      <bool> self.bootstrap,
                                      <int> self.n_estimators,
                                      <float> self.max_samples,
-                                     <int> seed_val,
+                                     <uint64_t> seed_val,
                                      <CRITERION> self.split_criterion,
                                      <bool> self.quantile_per_tree,
                                      <int> self.n_streams,
