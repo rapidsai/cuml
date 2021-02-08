@@ -8,7 +8,9 @@ source = cuml
 [report]
 # Regexes for lines to exclude from consideration
 exclude_lines =
-    # Re-specify the `pragma: no cover` since it will be overridden by this option
+    # Re-specify the `pragma: no cover` since it will be overridden by this
+    # option. See the docs:
+    # https://coverage.readthedocs.io/en/coverage-5.0/excluding.html#advanced-exclusion
     pragma: no cover
 
     # Don't complain about missing debug-only code:
