@@ -152,12 +152,6 @@ class sparse_knn_t {
       batch_size_query(batch_size_query_),
       metric(metric_),
       metricArg(metricArg_) {
-    if (metric == raft::distance::DistanceType::L2Expanded ||
-        metric == raft::distance::DistanceType::L2SqrtExpanded ||
-        metric == raft::distance::DistanceType::CosineExpanded)
-      expanded_form = true;
-    else
-      expanded_form = false;
   }
 
   void run() {
@@ -275,8 +269,6 @@ class sparse_knn_t {
                             batch_indices.data(), dists_merge_buffer_ptr,
                             indices_merge_buffer_ptr);
 
-        perform_postprocessing(dists_merge_buffer_ptr, batch_rows);
-
         value_t *dists_merge_buffer_tmp_ptr = dists_merge_buffer_ptr;
         value_idx *indices_merge_buffer_tmp_ptr = indices_merge_buffer_ptr;
 
@@ -311,24 +303,6 @@ class sparse_knn_t {
                                 query_batcher.batch_rows() * k, stream);
 
       rows_processed += query_batcher.batch_rows();
-    }
-  }
-
-  void perform_postprocessing(value_t *dists, size_t batch_rows) {
-    // Perform necessary post-processing
-    if (metric == raft::distance::DistanceType::L2SqrtExpanded ||
-        metric == raft::distance::DistanceType::L2SqrtUnexpanded) {
-      /**
-        * post-processing
-        */
-      value_t p = 0.5;  // standard l2
-      raft::linalg::unaryOp<value_t>(
-        dists, dists, batch_rows * k,
-        [p] __device__(value_t input) {
-          int neg = input < 0 ? -1 : 1;
-          return powf(fabs(input), p) * neg;
-        },
-        stream);
     }
   }
 
@@ -450,8 +424,6 @@ class sparse_knn_t {
   raft::distance::DistanceType metric;
 
   float metricArg;
-
-  bool expanded_form;
 
   int n_idx_rows, n_idx_cols, n_query_rows, n_query_cols, k;
 

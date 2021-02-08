@@ -378,11 +378,6 @@ void brute_force_knn(std::vector<float *> &input, std::vector<int> &sizes,
          "input and sizes vectors should be the same size");
 
   faiss::MetricType m = build_faiss_metric(metric);
-  bool expanded_form = false;
-  if (metric == raft::distance::DistanceType::L2Expanded ||
-      metric == raft::distance::DistanceType::L2SqrtExpanded ||
-      metric == raft::distance::DistanceType::CosineExpanded)
-    expanded_form = true;
 
   std::vector<int64_t> *id_ranges;
   if (translations == nullptr) {
