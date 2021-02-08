@@ -18,20 +18,24 @@
 #else
 #define omp_get_max_threads() 1
 #endif
+
+#include <cuml/ensemble/randomforest.hpp>
+
 #include <cuml/tree/flatnode.h>
 #include <treelite/c_api.h>
 #include <treelite/tree.h>
-#include <cstdio>
-#include <cstring>
+
 #include <cuml/common/logger.hpp>
-#include <cuml/ensemble/randomforest.hpp>
-#include <fstream>
-#include <iostream>
 #include <raft/error.hpp>
-#include <string>
-#include <vector>
 
 #include "randomforest_impl.cuh"
+
+#include <cstdio>
+#include <cstring>
+#include <fstream>
+#include <iostream>
+#include <string>
+#include <vector>
 
 namespace ML {
 
@@ -162,7 +166,8 @@ void postprocess_labels(int n_rows, std::vector<int>& labels,
  * @param[in] cfg_n_streams: No of parallel CUDA for training forest
  */
 void set_rf_params(RF_params& params, int cfg_n_trees, bool cfg_bootstrap,
-                   float cfg_max_samples, int cfg_seed, int cfg_n_streams) {
+                   float cfg_max_samples, uint64_t cfg_seed,
+                   int cfg_n_streams) {
   params.n_trees = cfg_n_trees;
   params.bootstrap = cfg_bootstrap;
   params.max_samples = cfg_max_samples;
@@ -186,7 +191,8 @@ void set_rf_params(RF_params& params, int cfg_n_trees, bool cfg_bootstrap,
  * @param[in] cfg_tree_params: tree parameters
  */
 void set_all_rf_params(RF_params& params, int cfg_n_trees, bool cfg_bootstrap,
-                       float cfg_max_samples, int cfg_seed, int cfg_n_streams,
+                       float cfg_max_samples, uint64_t cfg_seed,
+                       int cfg_n_streams,
                        DecisionTree::DecisionTreeParams cfg_tree_params) {
   params.n_trees = cfg_n_trees;
   params.bootstrap = cfg_bootstrap;
@@ -498,7 +504,7 @@ ModelHandle concatenate_trees(std::vector<ModelHandle> treelite_handles) {
 }
 
 /**
- * @defgroup Random Forest Classification - Fit function
+ * @defgroup RandomForestClassificationFit Random Forest Classification - Fit function
  * @brief Build (i.e., fit, train) random forest classifier for input data.
  * @param[in] user_handle: raft::handle_t
  * @param[in,out] forest: CPU pointer to RandomForestMetaData object. User allocated.
@@ -547,7 +553,7 @@ void fit(const raft::handle_t& user_handle, RandomForestClassifierD*& forest,
 /** @} */
 
 /**
- * @defgroup Random Forest Classification - Predict function
+ * @defgroup RandomForestClassificationPredict Random Forest Classification - Predict function
  * @brief Predict target feature for input data; n-ary classification for
      single feature supported.
  * @param[in] user_handle: raft::handle_t.
@@ -582,7 +588,7 @@ void predict(const raft::handle_t& user_handle,
 /** @} */
 
 /**
- * @defgroup Random Forest Classification - Predict function
+ * @addtogroup RandomForestClassificationPredict
  * @brief Predict target feature for input data; n-ary classification for
      single feature supported.
  * @param[in] user_handle: raft::handle_t.
@@ -617,7 +623,7 @@ void predictGetAll(const raft::handle_t& user_handle,
 /** @} */
 
 /**
- * @defgroup Random Forest Classification - Score function
+ * @defgroup RandomForestClassificationScore Random Forest Classification - Score function
  * @brief Compare predicted features validate against ref_labels.
  * @param[in] user_handle: raft::handle_t.
  * @param[in] forest: CPU pointer to RandomForestMetaData object.
@@ -651,7 +657,7 @@ RF_params set_rf_class_obj(int max_depth, int max_leaves, float max_features,
                            int n_bins, int split_algo, int min_samples_leaf,
                            int min_samples_split, float min_impurity_decrease,
                            bool bootstrap_features, bool bootstrap, int n_trees,
-                           float max_samples, int seed,
+                           float max_samples, uint64_t seed,
                            CRITERION split_criterion, bool quantile_per_tree,
                            int cfg_n_streams, bool use_experimental_backend,
                            int max_batch_size) {
@@ -670,7 +676,7 @@ RF_params set_rf_class_obj(int max_depth, int max_leaves, float max_features,
 /** @} */
 
 /**
- * @defgroup Random Forest Regression - Fit function
+ * @defgroup RandomForestRegressorFit Random Forest Regression - Fit function
  * @brief Build (i.e., fit, train) random forest regressor for input data.
  * @param[in] user_handle: raft::handle_t
  * @param[in,out] forest: CPU pointer to RandomForestMetaData object. User allocated.
@@ -714,7 +720,7 @@ void fit(const raft::handle_t& user_handle, RandomForestRegressorD*& forest,
 /** @} */
 
 /**
- * @defgroup Random Forest Regression - Predict function
+ * @defgroup RandomForestRegressorPredict Random Forest Regression - Predict function
  * @brief Predict target feature for input data; regression for single feature supported.
  * @param[in] user_handle: raft::handle_t.
  * @param[in] forest: CPU pointer to RandomForestMetaData object.
@@ -748,7 +754,7 @@ void predict(const raft::handle_t& user_handle,
 /** @} */
 
 /**
- * @defgroup Random Forest Regression - Score function
+ * @defgroup RandomForestRegressorScore Random Forest Regression - Score function
  * @brief Predict target feature for input data and validate against ref_labels.
  * @param[in] user_handle: raft::handle_t.
  * @param[in] forest: CPU pointer to RandomForestMetaData object.

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -710,6 +710,17 @@ std::vector<FilTestParams> predict_dense_inputs = {
                   num_trees = 512, num_classes = 512),
   FIL_TEST_PARAMS(leaf_algo = GROVE_PER_CLASS, blocks_per_sm = 4,
                   num_trees = 512, num_classes = 512),
+  FIL_TEST_PARAMS(num_cols = 100'000, depth = 5, num_trees = 1,
+                  leaf_algo = FLOAT_UNARY_BINARY),
+  FIL_TEST_PARAMS(num_rows = 101, num_cols = 100'000, depth = 5, num_trees = 3,
+                  algo = BATCH_TREE_REORG, leaf_algo = GROVE_PER_CLASS,
+                  num_classes = 3),
+  FIL_TEST_PARAMS(num_rows = 102, num_cols = 100'000, depth = 5,
+                  num_trees = FIL_TPB + 1, algo = BATCH_TREE_REORG,
+                  leaf_algo = GROVE_PER_CLASS, num_classes = FIL_TPB + 1),
+  FIL_TEST_PARAMS(num_rows = 103, num_cols = 100'000, depth = 5, num_trees = 1,
+                  algo = BATCH_TREE_REORG, leaf_algo = CATEGORICAL_LEAF,
+                  num_classes = 3),
 };
 
 TEST_P(PredictDenseFilTest, Predict) { compare(); }

@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -342,15 +342,7 @@ class PCA(Base):
 
     def _build_params(self, n_rows, n_cols):
         cpdef paramsPCA *params = new paramsPCA()
-        if self.n_components is None:
-            logger.warn(
-                'Warning(`_build_params`): As of v0.16, PCA invoked without an'
-                ' n_components argument defauts to using'
-                ' min(n_samples, n_features) rather than 1'
-            )
-            params.n_components = min(n_rows, n_cols)
-        else:
-            params.n_components = self.n_components
+        params.n_components = self._n_components
         params.n_rows = n_rows
         params.n_cols = n_cols
         params.whiten = self.whiten
@@ -399,22 +391,22 @@ class PCA(Base):
 
         self.components_ = cp.flip(self.components_, axis=1)
 
-        self.components_ = self.components_.T[:self.n_components, :]
+        self.components_ = self.components_.T[:self._n_components, :]
 
         self.explained_variance_ratio_ = self.explained_variance_ / cp.sum(
             self.explained_variance_)
 
-        if self.n_components < min(self.n_rows, self.n_cols):
+        if self._n_components < min(self.n_rows, self.n_cols):
             self.noise_variance_ = \
-                self.explained_variance_[self.n_components:].mean()
+                self.explained_variance_[self._n_components:].mean()
         else:
             self.noise_variance_ = cp.array([0.0])
 
         self.explained_variance_ = \
-            self.explained_variance_[:self.n_components]
+            self.explained_variance_[:self._n_components]
 
         self.explained_variance_ratio_ = \
-            self.explained_variance_ratio_[:self.n_components]
+            self.explained_variance_ratio_[:self._n_components]
 
         # Truncating negative explained variance values to 0
         self.singular_values_ = \
@@ -431,6 +423,18 @@ class PCA(Base):
         Fit the model with X. y is currently ignored.
 
         """
+        if self.n_components is None:
+            logger.warn(
+                'Warning(`fit`): As of v0.16, PCA invoked without an'
+                ' n_components argument defauts to using'
+                ' min(n_samples, n_features) rather than 1'
+            )
+            n_rows = X.shape[0]
+            n_cols = X.shape[1]
+            self._n_components = min(n_rows, n_cols)
+        else:
+            self._n_components = self.n_components
+
         if cupyx.scipy.sparse.issparse(X):
             return self._sparse_fit(X)
         elif scipy.sparse.issparse(X):
@@ -583,7 +587,7 @@ class PCA(Base):
 
         # todo: check n_cols and dtype
         cpdef paramsPCA params
-        params.n_components = self.n_components
+        params.n_components = self._n_components
         params.n_rows = n_rows
         params.n_cols = self.n_cols
         params.whiten = self.whiten
@@ -677,7 +681,7 @@ class PCA(Base):
 
         # todo: check dtype
         cpdef paramsPCA params
-        params.n_components = self.n_components
+        params.n_components = self._n_components
         params.n_rows = n_rows
         params.n_cols = n_cols
         params.whiten = self.whiten
