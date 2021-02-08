@@ -61,7 +61,8 @@ void pairwiseDistance(value_t *out,
       l2_expanded_distances_t<value_idx, value_t>(input_config).compute(out);
       break;
     case raft::distance::DistanceType::L2SqrtExpanded:
-      l2_sqrt_expanded_distances_t<value_idx, value_t>(input_config).compute(out);
+      l2_sqrt_expanded_distances_t<value_idx, value_t>(input_config)
+        .compute(out);
       break;
     case raft::distance::DistanceType::InnerProduct:
       ip_distances_t<value_idx, value_t>(input_config).compute(out);

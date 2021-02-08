@@ -24,24 +24,6 @@
 #include <cuml/cuml.hpp>
 
 namespace ML {
-/*
-enum MetricType {
-  METRIC_INNER_PRODUCT = 0,
-  METRIC_L2,
-  METRIC_L1,
-  METRIC_Linf,
-  METRIC_Lp,
-
-  METRIC_Canberra = 20,
-  METRIC_BrayCurtis,
-  METRIC_JensenShannon,
-
-  METRIC_Cosine = 100,
-  METRIC_Correlation,
-  METRIC_Jaccard,
-  METRIC_Hellinger
-};
-*/
 struct knnIndex {
   faiss::gpu::StandardGpuResources *gpu_res;
   faiss::gpu::GpuIndex *index;

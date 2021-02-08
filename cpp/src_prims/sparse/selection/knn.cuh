@@ -151,8 +151,7 @@ class sparse_knn_t {
       batch_size_index(batch_size_index_),
       batch_size_query(batch_size_query_),
       metric(metric_),
-      metricArg(metricArg_) {
-  }
+      metricArg(metricArg_) {}
 
   void run() {
     using namespace raft::sparse;
