@@ -167,23 +167,23 @@ class l2_expanded_distances_t : public distances_t<value_t> {
 template <typename value_idx = int, typename value_t = float>
 class l2_sqrt_expanded_distances_t
   : public l2_expanded_distances_t<value_idx, value_t> {
-public:
+ public:
   explicit l2_sqrt_expanded_distances_t(
     const distances_config_t<value_idx, value_t> &config)
     : l2_expanded_distances_t<value_idx, value_t>(config) {}
 
   void compute(value_t *out_dists) override {
-  l2_expanded_distances_t<value_idx, value_t>::compute(out_dists);
-  CUML_LOG_DEBUG("Computing Sqrt");
-  // Sqrt Post-processing
-  value_t p = 0.5;  // standard l2
-  raft::linalg::unaryOp<value_t>(
-    out_dists, out_dists, this->config_->a_nrows * this->config_->b_nrows,
-    [p] __device__(value_t input) {
-      int neg = input < 0 ? -1 : 1;
-      return powf(fabs(input), p) * neg;
-    },
-    this->config_->stream);
+    l2_expanded_distances_t<value_idx, value_t>::compute(out_dists);
+    CUML_LOG_DEBUG("Computing Sqrt");
+    // Sqrt Post-processing
+    value_t p = 0.5;  // standard l2
+    raft::linalg::unaryOp<value_t>(
+      out_dists, out_dists, this->config_->a_nrows * this->config_->b_nrows,
+      [p] __device__(value_t input) {
+        int neg = input < 0 ? -1 : 1;
+        return powf(fabs(input), p) * neg;
+      },
+      this->config_->stream);
   }
 
   ~l2_sqrt_expanded_distances_t() = default;
