@@ -15,6 +15,8 @@
  */
 
 #include <cuml/cluster/linkage.hpp>
+#include <raft/sparse/hierarchy/common.h>
+#include <hierarchy/pw_dist_graph.cuh>
 #include <raft/linalg/distance_type.h>
 #include <cuml/common/logger.hpp>
 #include <cuml/cuml.hpp>
@@ -71,7 +73,7 @@ class Linkage : public BlobsFixture<D> {
  private:
   int *labels;
   int *out_children;
-  ML::linkage_output<int, D> out_arrs;
+  raft::hierarchy::linkage_output<int, D> out_arrs;
 };
 
 std::vector<Params> getInputs() {

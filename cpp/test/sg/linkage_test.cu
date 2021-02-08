@@ -20,9 +20,10 @@
 #include <vector>
 
 #include <cuml/cluster/linkage.hpp>
-#include <cuml/datasets/make_blobs.hpp>
 #include <cuml/common/cuml_allocator.hpp>
 #include <cuml/cuml.hpp>
+#include <cuml/datasets/make_blobs.hpp>
+#include <hierarchy/pw_dist_graph.cuh>
 
 #include <raft/linalg/distance_type.h>
 #include <raft/linalg/transpose.h>
@@ -67,45 +68,38 @@ class LinkageTest : public ::testing::TestWithParam<LinkageInputs<T, IdxT>> {
 
     params = ::testing::TestWithParam<LinkageInputs<T, IdxT>>::GetParam();
 
-
     device_buffer<T> data(handle.get_device_allocator(), handle.get_stream(),
-                          200000*128);
+                          params.n_row * params.n_col);
 
-    device_buffer<IdxT> y(handle.get_device_allocator(), handle.get_stream(),
-                          200000);
-
-    ML::Datasets::make_blobs(handle, data.data(), y.data(), 200000,
-                             128, 1, true, nullptr,
-                             nullptr, 1.f, true, -10.f, 10.f, 1234ULL);
-
-//
-//    // Allocate result labels and expected labels on device
-//    raft::allocate(labels, params.n_row);
-//    raft::allocate(labels_ref, params.n_row);
-//
-//    raft::copy(data.data(), params.data.data(), data.size(),
-//               handle.get_stream());
-//    raft::copy(labels_ref, params.expected_labels.data(), params.n_row,
-//               handle.get_stream());
+    //    // Allocate result labels and expected labels on device
+    raft::allocate(labels, params.n_row);
+    raft::allocate(labels_ref, params.n_row);
+    //
+    raft::copy(data.data(), params.data.data(), data.size(),
+               handle.get_stream());
+    raft::copy(labels_ref, params.expected_labels.data(), params.n_row,
+               handle.get_stream());
 
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 
-    ML::linkage_output<IdxT, T> out_arrs;
-    out_arrs.labels = y.data();
+    raft::hierarchy::linkage_output<IdxT, T> out_arrs;
+    out_arrs.labels = labels;
 
     device_buffer<IdxT> out_children(handle.get_device_allocator(),
                                      handle.get_stream(),
-                                     (200000 - 1) * 2);
+                                     (params.n_row - 1) * 2);
     out_arrs.children = out_children.data();
 
-    if(params.use_knn) {
-      ML::single_linkage_neighbors(handle, data.data(), 200000, 128,
-                                  raft::distance::DistanceType::L2Expanded,
-                                  &out_arrs, params.c, params.n_clusters);
-    } else {
-      ML::single_linkage_pairwise(handle, data.data(), params.n_row, params.n_col,
+    if (params.use_knn) {
+      ML::single_linkage_neighbors(handle, data.data(), params.n_row,
+                                   params.n_col,
                                    raft::distance::DistanceType::L2Expanded,
                                    &out_arrs, params.c, params.n_clusters);
+    } else {
+      ML::single_linkage_pairwise(handle, data.data(), params.n_row,
+                                  params.n_col,
+                                  raft::distance::DistanceType::L2Expanded,
+                                  &out_arrs, params.c, params.n_clusters);
     }
 
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
@@ -114,8 +108,8 @@ class LinkageTest : public ::testing::TestWithParam<LinkageInputs<T, IdxT>> {
   void SetUp() override { basicTest(); }
 
   void TearDown() override {
-//    CUDA_CHECK(cudaFree(labels));
-//    CUDA_CHECK(cudaFree(labels_ref));
+    //    CUDA_CHECK(cudaFree(labels));
+    //    CUDA_CHECK(cudaFree(labels_ref));
   }
 
  protected:
@@ -124,49 +118,6 @@ class LinkageTest : public ::testing::TestWithParam<LinkageInputs<T, IdxT>> {
 
   double score;
 };
-
-/**
- *
- * mst: [[3.         1.         0.47451804]
- [8.         6.         0.47528009]
- [1.         7.         0.47946792]
- [0.         9.         0.53807401]
- [7.         4.         0.54156098]
- [9.         3.         0.59827752]
- [4.         2.         0.6234549 ]
- [2.         8.         0.62997891]
- [6.         5.         0.63858579]]
-
- * [[0.21390334, 0.50261639, 0.91036676, 0.59166485, 0.71162682],
-       [0.10248392, 0.77782677, 0.43772379, 0.4035871 , 0.32827965],
-       [0.47544681, 0.59862974, 0.12319357, 0.06239463, 0.28200272],
-       [0.1345717 , 0.50498218, 0.5113505 , 0.16233086, 0.62165332],
-       [0.42281548, 0.933117  , 0.41386077, 0.23264562, 0.73325968],
-       [0.37537541, 0.70719873, 0.14522645, 0.73279625, 0.9126674 ],
-       [0.84854131, 0.28890216, 0.85267903, 0.74703138, 0.83842071],
-       [0.34942792, 0.27864171, 0.70911132, 0.21338564, 0.32035554],
-       [0.73788331, 0.46926692, 0.57570162, 0.42559178, 0.87120209],
-       [0.22734951, 0.01847905, 0.75549396, 0.76166195, 0.66613745]]
-
-children [[ 3  1]
- [ 8  6]
- [10  7]
- [ 0  9]
- [12  4]
- [13 14]
- [15  2]
- [16 11]
- [17  5]]
-
- nodes: [-18]
-nodes: [-17, -5]
-nodes: [-16, -5, -11]
-nodes: [-15, -5, -11, -2]
-nodes: [-14, -13, -11, -2, -5]
-labels: [1 0 3 0 0 4 2 0 2 1]
-
-
- */
 
 const std::vector<LinkageInputs<float, int>> inputsf2 = {
   // Test n_clusters == n_points
@@ -183,7 +134,7 @@ const std::vector<LinkageInputs<float, int>> inputsf2 = {
     0.76166195, 0.66613745},
    {9, 8, 7, 6, 5, 4, 3, 2, 1, 0},
    10,
-   true,
+   false,
    5},
   // Test outlier points
   {9,
@@ -192,7 +143,7 @@ const std::vector<LinkageInputs<float, int>> inputsf2 = {
     10, 50, 30, 5},
    {6, 0, 5, 0, 0, 4, 3, 2, 1},
    7,
-   true,
+   false,
    5},
 
   // Test n_clusters == (n_points / 2)
@@ -209,224 +160,8 @@ const std::vector<LinkageInputs<float, int>> inputsf2 = {
     0.76166195, 0.66613745},
    {1, 0, 4, 0, 0, 3, 2, 0, 2, 1},
    5,
-   true,
+   false,
    10},
-
-  /**
-   * children: [[ 69   2]
- [ 53  56]
- [ 10  96]
- [ 57  84]
- [ 29  83]
- [ 99 102]
- [101  64]
- [ 52  17]
- [106  44]
- [100  67]
- [ 93  74]
- [107 105]
- [ 76 108]
- [  6  98]
- [112  61]
- [ 45  43]
- [104   5]
- [114  77]
- [  0 116]
- [ 42 113]
- [ 70  78]
- [117  19]
- [  4 109]
- [ 21  49]
- [ 71  51]
- [ 28 123]
- [118 125]
- [126  81]
- [ 92  90]
- [122 110]
- [128  39]
- [127  22]
- [ 32  66]
- [ 15   3]
- [120  65]
- [131   9]
- [111  16]
- [ 75 134]
- [ 79 130]
- [ 26 136]
- [135  82]
- [137 124]
- [ 63  58]
- [139  95]
- [141 129]
- [140 121]
- [145  14]
- [146   8]
- [144  40]
- [147 133]
- [ 88  91]
- [132  59]
- [149  41]
- [152 119]
- [150  38]
- [153  18]
- [ 46 138]
- [155  85]
- [157  48]
- [ 97  94]
- [103 143]
- [158  86]
- [148  33]
- [160  34]
- [163  20]
- [154  37]
- [162  87]
- [161  68]
- [167 166]
- [168 156]
- [165 159]
- [169  31]
- [170  27]
- [171 172]
- [173 164]
- [174 151]
- [ 23  50]
- [175 142]
- [177 115]
- [178  30]
- [179  72]
- [180  11]
- [181 176]
- [182   7]
- [183  12]
- [184  35]
- [185  80]
- [186  54]
- [187  24]
- [188  47]
- [189  73]
- [190  60]
- [ 13  55]
- [191   1]
- [193 192]
- [194  62]
- [195  89]
- [196  25]
- [197  36]]
-children [[ 69   2]
- [ 53  56]
- [ 10  96]
- [ 57  84]
- [ 29  83]
- [ 99 102]
- [101  64]
- [ 52  17]
- [106  44]
- [100  67]
- [ 93  74]
- [107 105]
- [ 76 108]
- [  6  98]
- [112  61]
- [ 45  43]
- [104   5]
- [114  77]
- [  0 116]
- [ 42 113]
- [ 70  78]
- [117  19]
- [  4 109]
- [ 21  49]
- [ 71  51]
- [ 28 123]
- [118 125]
- [126  81]
- [ 92  90]
- [122 110]
- [128  39]
- [127  22]
- [ 32  66]
- [ 15   3]
- [120  65]
- [131   9]
- [111  16]
- [ 75 134]
- [ 79 130]
- [ 26 136]
- [135  82]
- [137 124]
- [ 63  58]
- [139  95]
- [141 129]
- [140 121]
- [145  14]
- [146   8]
- [144  40]
- [147 133]
- [ 88  91]
- [132  59]
- [149  41]
- [152 119]
- [150  38]
- [153  18]
- [ 46 138]
- [155  85]
- [157  48]
- [ 97  94]
- [103 143]
- [158  86]
- [148  33]
- [160  34]
- [163  20]
- [154  37]
- [162  87]
- [161  68]
- [167 166]
- [168 156]
- [165 159]
- [169  31]
- [170  27]
- [171 172]
- [173 164]
- [174 151]
- [ 23  50]
- [175 142]
- [177 115]
- [178  30]
- [179  72]
- [180  11]
- [181 176]
- [182   7]
- [183  12]
- [184  35]
- [185  80]
- [186  54]
- [187  24]
- [188  47]
- [189  73]
- [190  60]
- [ 13  55]
- [191   1]
- [193 192]
- [194  62]
- [195  89]
- [196  25]
- [197  36]]
-n_leaves: 100
-nodes: [-198]
-nodes: [-197, -36]
-nodes: [-196, -36, -25]
-nodes: [-195, -89, -25, -36]
-nodes: [-194, -89, -25, -36, -62]
-nodes: [-193, -89, -192, -36, -62, -25]
-nodes: [-192, -89, -191, -36, -62, -25, -1]
-nodes: [-191, -89, -55, -36, -62, -25, -1, -13]
-nodes: [-190, -89, -55, -60, -62, -25, -1, -13, -36]
-nodes: [-189, -89, -55, -60, -73, -25, -1, -13, -36, -62]
-labels: [0 6 0 0 0 0 0 0 0 0 0 0 0 7 0 0 0 0 0 0 0 0 0 0 0 5 0 0 0 0 0 0 0 0 0 0 8
- 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 2 0 0 0 0 3 0 9 0 0 0 0 0 0 0 0 0 0 4
- 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0 0 0 0 0 0 0 0 0 0]
-
-   */
 
   // Test n_points == 100
   {100,
@@ -772,13 +507,13 @@ labels: [0 6 0 0 0 0 0 0 0 0 0 0 0 7 0 0 0 0 0 0 0 0 0 0 0 5 0 0 0 0 0 0 0 0 0 0
     0, 0, 0, 0, 0, 5, 0, 0, 0, 0, 4, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0,
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
    10,
-   true,
+   false,
    5}};
 
 typedef LinkageTest<float, int> LinkageTestF_Int;
 TEST_P(LinkageTestF_Int, Result) {
-//  EXPECT_TRUE(
-//    raft::devArrMatch(labels, labels_ref, params.n_row, raft::Compare<int>()));
+  EXPECT_TRUE(
+    raft::devArrMatch(labels, labels_ref, params.n_row, raft::Compare<int>()));
 }
 
 INSTANTIATE_TEST_CASE_P(LinkageTests, LinkageTestF_Int,

@@ -24,6 +24,13 @@
 namespace ML {
 namespace TSNE {
 
+struct isnan_test {
+  template <typename value_t>
+  __host__ __device__ bool operator()(const value_t a) const {
+    return isnan(a);
+  }
+};
+
 /**
  * @brief Fast Dimensionality reduction via TSNE using the Barnes Hut O(NlogN) approximation.
  * @param[in] VAL: The values in the attractive forces COO matrix.
@@ -172,6 +179,7 @@ void Barnes_Hut(value_t *VAL, const value_idx *COL, const value_idx *ROW,
   value_t learning_rate = pre_learning_rate;
 
   for (int iter = 0; iter < max_iter; iter++) {
+    CUML_LOG_DEBUG("iter: %d", iter);
     CUDA_CHECK(cudaMemsetAsync(static_cast<void *>(rep_forces.data()), 0,
                                rep_forces.size() * sizeof(*rep_forces.data()),
                                stream));
@@ -223,6 +231,18 @@ void Barnes_Hut(value_t *VAL, const value_idx *COL, const value_idx *ROW,
 
     END_TIMER(ClearKernel2_time);
 
+    CUDA_CHECK(cudaStreamSynchronize(stream));
+
+    thrust::device_ptr<value_t> d_ptr = thrust::device_pointer_cast(YY.data());
+    bool h_result = thrust::transform_reduce(
+      thrust::cuda::par.on(stream), d_ptr, d_ptr + (n * 2), isnan_test(), 0,
+      thrust::plus<bool>());
+
+    ASSERT(!h_result,
+           "Output embedding (Y) contains nan values before summarization");
+
+    CUML_LOG_DEBUG("Calling summarizaton kernel");
+
     START_TIMER;
     TSNE::SummarizationKernel<<<blocks * FACTOR3, THREADS3, 0, stream>>>(
       countl.data(), childl.data(), massl.data(), YY.data(),
@@ -230,6 +250,10 @@ void Barnes_Hut(value_t *VAL, const value_idx *COL, const value_idx *ROW,
     CUDA_CHECK(cudaPeekAtLastError());
 
     END_TIMER(SummarizationKernel_time);
+
+    CUDA_CHECK(cudaStreamSynchronize(stream));
+
+    CUML_LOG_DEBUG("Done.");
 
     START_TIMER;
     TSNE::SortKernel<<<blocks * FACTOR4, THREADS4, 0, stream>>>(
@@ -264,6 +288,14 @@ void Barnes_Hut(value_t *VAL, const value_idx *COL, const value_idx *ROW,
       attr_forces.data() + n, NNZ);
     CUDA_CHECK(cudaPeekAtLastError());
     END_TIMER(attractive_time);
+
+    CUDA_CHECK(cudaStreamSynchronize(stream));
+
+    h_result = thrust::transform_reduce(thrust::cuda::par.on(stream), d_ptr,
+                                        d_ptr + (n * 2), isnan_test(), 0,
+                                        thrust::plus<bool>());
+
+    ASSERT(!h_result, "Output embedding (Y) contains nan values");
 
     START_TIMER;
     TSNE::IntegrationKernel<<<blocks * FACTOR6, THREADS6, 0, stream>>>(

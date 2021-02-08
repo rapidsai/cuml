@@ -22,8 +22,8 @@
 
 #include <raft/mr/device/buffer.hpp>
 
-#include <hierarchy/agglomerative.cuh>
-#include <hierarchy/mst.cuh>
+#include <raft/sparse/hierarchy/detail/agglomerative.cuh>
+#include <raft/sparse/hierarchy/detail/mst.cuh>
 #include "reachability.cuh"
 
 namespace ML {
@@ -52,8 +52,9 @@ void _fit(const raft::handle_t &handle, value_t *X, value_idx m, value_idx n,
   raft::mr::device::buffer<value_t> mst_cols(d_alloc, stream, m - 1);
   raft::mr::device::buffer<value_idx> mst_data(d_alloc, stream, m - 1);
 
-  Linkage::MST::build_sorted_mst(handle, pw_dists.data(), m, mst_rows.data(),
-                                 mst_cols.data(), mst_data.data());
+  raft::hierarchy::detail::build_sorted_mst(handle, pw_dists.data(), m,
+                                            mst_rows.data(), mst_cols.data(),
+                                            mst_data.data());
 
   /**
    * Perform hierarchical labeling
@@ -65,7 +66,7 @@ void _fit(const raft::handle_t &handle, value_t *X, value_idx m, value_idx n,
   raft::mr::device::buffer<value_t> out_delta(d_alloc, stream, n_edges);
   raft::mr::device::buffer<value_idx> out_size(d_alloc, stream, n_edges);
 
-  Linkage::Label::Agglomerative::build_dendrogram_host(
+  raft::hierarchy::detail::build_dendrogram_host(
     mst_rows.data(), mst_cols.data(), mst_data.data(), n_edges, out_src.data(),
     out_dst.data(), out_delta.data(), out_size.data());
 
