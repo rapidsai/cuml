@@ -8,6 +8,9 @@ source = cuml
 [report]
 # Regexes for lines to exclude from consideration
 exclude_lines =
+    # Re-specify the `pragma: no cover` since it will be overridden by this option
+    pragma: no cover
+
     # Don't complain about missing debug-only code:
     def __repr__
     if self\.debug
