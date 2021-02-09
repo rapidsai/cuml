@@ -1088,9 +1088,9 @@ def test_pairwise_distances_output_types(input_type, output_type, use_global):
 
 @pytest.mark.parametrize("input_type, nrows, ncols",
                          [
-                             unit_param((30, 10, 7)),
-                             quality_param((5000, 100, 50)),
-                             stress_param((500000, 200, 100))
+                             unit_param(30, 10, 7),
+                             quality_param(5000, 100, 50),
+                             stress_param(500000, 200, 100)
                          ])
 @pytest.mark.parametrize("input_type", ["cudf", "cupy"])
 def test_hinge_loss(input_type, nrows, ncols, n_info):
