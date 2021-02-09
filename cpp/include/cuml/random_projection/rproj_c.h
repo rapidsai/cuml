@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2019, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,12 +15,12 @@
  */
 
 #pragma once
-#include <common/cumlHandle.hpp>
-#include <common/device_buffer.hpp>
+
+#include <cuml/common/cuml_allocator.hpp>
+#include <cuml/common/device_buffer.hpp>
+#include <raft/handle.hpp>
 
 namespace ML {
-
-using namespace MLCommon;
 
 /**
      * @defgroup paramsRPROJ: structure holding parameters used by random projection model
@@ -61,12 +61,12 @@ struct rand_mat {
   ~rand_mat() { this->reset(); }
 
   // For dense matrices
-  device_buffer<math_t> dense_data;
+  MLCommon::device_buffer<math_t> dense_data;
 
   // For sparse CSC matrices
-  device_buffer<int> indices;
-  device_buffer<int> indptr;
-  device_buffer<math_t> sparse_data;
+  MLCommon::device_buffer<int> indices;
+  MLCommon::device_buffer<int> indptr;
+  MLCommon::device_buffer<math_t> sparse_data;
 
   cudaStream_t stream;
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,12 +16,16 @@
 #pragma once
 
 #include <cuml/cuml_api.h>
+#include <stdio.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-enum cumlHoltWintersSeasonal_t { ADDITIVE, MULTIPLICATIVE };
+typedef enum cumlHoltWintersSeasonal_t {
+  ADDITIVE,
+  MULTIPLICATIVE
+} cumlHoltWintersSeasonal_t;
 
 /**
              * @brief Provides buffer sizes for HoltWinters algorithm

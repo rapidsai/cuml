@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-#include <common/cumlHandle.hpp>
 #include <cuml/common/cuml_allocator.hpp>
 #include <cuml/linear_model/ols_mg.hpp>
 #include <cuml/linear_model/preprocess_mg.hpp>
