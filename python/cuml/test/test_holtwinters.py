@@ -72,6 +72,9 @@ def test_singlets_holtwinters(seasonal, h, datatype):
     train = airpassengers[:-h]
     test = airpassengers[-h:]
 
+    if seasonal == "multiplicative":
+        pytest.xfail("Statsmodels nan errors with gcc 9.3 (Issue #3384)")
+
     sm_hw = sm_ES(train, seasonal=seasonal,
                   seasonal_periods=12)
     sm_hw = sm_hw.fit()
@@ -97,6 +100,9 @@ def test_multits_holtwinters(seasonal, h, datatype):
     global airpassengers, co2
     airpassengers = np.asarray(airpassengers, dtype=datatype)
     co2 = np.asarray(co2, dtype=datatype)
+
+    if seasonal == "multiplicative":
+        pytest.xfail("Statsmodels nan errors with gcc 9.3 (Issue #3384)")
 
     air_train = airpassengers[:-h]
     air_test = airpassengers[-h:]

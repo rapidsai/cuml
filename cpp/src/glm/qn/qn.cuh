@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,8 +15,8 @@
  */
 
 #pragma once
-#include <common/device_buffer.hpp>
 #include <raft/matrix/math.cuh>
+#include <rmm/device_uvector.hpp>
 #include "glm_base.cuh"
 #include "glm_linear.cuh"
 #include "glm_logistic.cuh"
@@ -68,8 +68,7 @@ void qnFit(const raft::handle_t &handle, T *X, T *y, int N, int D, int C,
   STORAGE_ORDER ord = X_col_major ? COL_MAJOR : ROW_MAJOR;
   int C_len = (loss_type == 0) ? (C - 1) : C;
 
-  MLCommon::device_buffer<T> tmp(handle.get_device_allocator(), stream,
-                                 C_len * N);
+  rmm::device_uvector<T> tmp(C_len * N, stream);
   SimpleMat<T> z(tmp.data(), C_len, N);
 
   switch (loss_type) {
@@ -125,8 +124,7 @@ void qnPredict(const raft::handle_t &handle, T *Xptr, int N, int D, int C,
                bool fit_intercept, T *params, bool X_col_major, int loss_type,
                T *preds, cudaStream_t stream) {
   int C_len = (loss_type == 0) ? (C - 1) : C;
-  MLCommon::device_buffer<T> scores(handle.get_device_allocator(), stream,
-                                    C_len * N);
+  rmm::device_uvector<T> scores(C_len * N, stream);
   qnDecisionFunction<T>(handle, Xptr, N, D, C, fit_intercept, params,
                         X_col_major, loss_type, scores.data(), stream);
   SimpleMat<T> Z(scores.data(), C_len, N);
