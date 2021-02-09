@@ -34,12 +34,12 @@
 #include <thrust/scan.h>
 #include <thrust/system/cuda/execution_policy.h>
 
-#include <sparse/convert/csr.cuh>
-#include <sparse/coo.cuh>
-#include <sparse/linalg/add.cuh>
-#include <sparse/linalg/norm.cuh>
-#include <sparse/linalg/symmetrize.cuh>
-#include <sparse/op/filter.cuh>
+#include <raft/sparse/convert/csr.cuh>
+#include <raft/sparse/coo.cuh>
+#include <raft/sparse/linalg/add.cuh>
+#include <raft/sparse/linalg/norm.cuh>
+#include <raft/sparse/linalg/symmetrize.cuh>
+#include <raft/sparse/op/filter.cuh>
 
 #include <raft/cuda_utils.cuh>
 

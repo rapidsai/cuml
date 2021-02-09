@@ -22,7 +22,7 @@
 #include <common/nvtx.hpp>
 #include <label/classlabels.cuh>
 #include <raft/cuda_utils.cuh>
-#include <sparse/csr.cuh>
+#include <raft/sparse/csr.cuh>
 #include "adjgraph/runner.cuh"
 #include "corepoints/compute.cuh"
 #include "corepoints/exchange.cuh"

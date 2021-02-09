@@ -27,11 +27,11 @@
 #include <cstdlib>
 #include <cuml/common/logger.hpp>
 #include <raft/random/rng_impl.cuh>
-#include <sparse/coo.cuh>
+#include <raft/sparse/coo.cuh>
 #include <string>
 #include "optimize_batch_kernel.cuh"
 
-#include <sparse/op/filter.cuh>
+#include <raft/sparse/op/filter.cuh>
 
 #pragma once
 

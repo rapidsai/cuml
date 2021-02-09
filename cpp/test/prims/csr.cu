@@ -15,7 +15,7 @@
  */
 
 #include <gtest/gtest.h>
-#include <sparse/csr.cuh>
+#include <raft/sparse/csr.cuh>
 
 #include <raft/cudart_utils.h>
 #include <raft/random/rng.cuh>
@@ -66,7 +66,7 @@ class WeakCCTest : public ::testing::TestWithParam<WeakCCInputs<Index_>> {
     params = ::testing::TestWithParam<WeakCCInputs<Index_>>::GetParam();
 
     CUDA_CHECK(cudaStreamCreate(&stream));
-    std::shared_ptr<MLCommon::deviceAllocator> alloc(
+    std::shared_ptr<raft::mr::device::allocator> alloc(
       new raft::mr::device::default_allocator);
 
     Index_ row_ind_size = params.batches[0].row_ind.size();

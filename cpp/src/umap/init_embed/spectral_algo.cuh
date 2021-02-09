@@ -19,7 +19,7 @@
 #include <cuml/manifold/umapparams.h>
 #include <common/device_buffer.hpp>
 
-#include <sparse/coo.cuh>
+#include <raft/sparse/coo.cuh>
 
 #include <raft/linalg/add.cuh>
 
