@@ -255,22 +255,22 @@ if [ -n "${CODECOV_TOKEN}" ]; then
     EXTRA_CODECOV_ARGS=""
 
     # Save the OS PYTHON and CUDA flags
-    EXTRA_CODECOV_ARGS="${EXTRA_CODECOV_ARGS} --env OS,PYTHON,CUDA"
+    EXTRA_CODECOV_ARGS="${EXTRA_CODECOV_ARGS} -e OS,PYTHON,CUDA"
 
     # If we have REPORT_HASH, use that instead. This fixes an issue where
     # CodeCov uses a local merge commit created by Jenkins. Since this commit
     # never gets pushed, it causes issues in Codecov
     if [ -n "${REPORT_HASH}" ]; then
-        EXTRA_CODECOV_ARGS="${EXTRA_CODECOV_ARGS} --commit ${REPORT_HASH}"
+        EXTRA_CODECOV_ARGS="${EXTRA_CODECOV_ARGS} -C ${REPORT_HASH}"
     fi
 
     # Append the PR ID. This is needed when running the build inside docker
-    EXTRA_CODECOV_ARGS="${EXTRA_CODECOV_ARGS} --pr ${PR_ID}"
+    EXTRA_CODECOV_ARGS="${EXTRA_CODECOV_ARGS} -P ${PR_ID} -c"
 
     # Upload the two reports with separate flags. Delete the report on success
     # to prevent further CI steps from re-uploading
-    codecov -F non-dask -f ${REPORT_DIR}/cuml-coverage.xml -n "$CODECOV_NAME,non-dask" ${EXTRA_CODECOV_ARGS} && rm ${REPORT_DIR}/cuml-coverage.xml
-    codecov -F dask -f ${REPORT_DIR}/cuml-dask-coverage.xml -n "$CODECOV_NAME,dask" ${EXTRA_CODECOV_ARGS} && rm ${REPORT_DIR}/cuml-dask-coverage.xml
+    curl -s https://codecov.io/bash | bash -s -- -F non-dask -f ${REPORT_DIR}/cuml-coverage.xml -n "$CODECOV_NAME,non-dask" ${EXTRA_CODECOV_ARGS}
+    curl -s https://codecov.io/bash | bash -s -- -F dask -f ${REPORT_DIR}/cuml-dask-coverage.xml -n "$CODECOV_NAME,dask" ${EXTRA_CODECOV_ARGS}
 fi
 
 return ${EXITCODE}
