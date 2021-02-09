@@ -16,6 +16,8 @@
 
 #pragma once
 
+#include "hash_table.cuh"
+
 #include <raft/cudart_utils.h>
 #include <raft/sparse/cusparse_wrappers.h>
 #include <raft/cuda_utils.cuh>
@@ -35,6 +37,8 @@
 #include <cub/block/block_load.cuh>
 #include <cub/block/block_radix_sort.cuh>
 #include <cub/block/block_store.cuh>
+
+#include <rmm/exec_policy.hpp>
 
 namespace raft {
 namespace sparse {
@@ -115,15 +119,19 @@ __global__ void balanced_coo_generalized_spmv_kernel(
   unsigned int lane_id = tid & (raft::warp_size() - 1);
   value_idx ind = ind_offset + threadIdx.x;
 
-  extern __shared__ char smem[];
+  // extern __shared__ char smem[];
 
-  value_idx *offsets_a = (value_idx *)smem;
-  kv_t *A = (kv_t *)(offsets_a + 2);
-  typename warp_reduce::TempStorage *temp_storage =
-    (typename warp_reduce::TempStorage *)(A + dim);
+  // value_idx *offsets_a = (value_idx *)smem;
+  // kv_t *A = (kv_t *)(offsets_a + 2);
+  // typename warp_reduce::TempStorage *temp_storage =
+  //   (typename warp_reduce::TempStorage *)(A + dim);
+
+  __shared__ kv_t A[4000];
+  __shared__ value_idx offsets_a[2];
+  __shared__ typename warp_reduce::TempStorage temp_storage[tpb / 32];
 
   // Create dense vector A and populate with 0s
-  for (int k = tid; k < dim; k += blockDim.x) A[k] = 0;
+  for (int k = tid; k < dim; k += blockDim.x) A[k].key = kEmpty;
 
   if (tid == 0) {
     offsets_a[0] = indptrA[cur_row_a];
@@ -137,7 +145,8 @@ __global__ void balanced_coo_generalized_spmv_kernel(
 
   // Convert current row vector in A to dense
   for (int i = tid; i < (stop_offset_a - start_offset_a); i += blockDim.x) {
-    A[indicesA[start_offset_a + i]] = dataA[start_offset_a + i];
+    // A[indicesA[start_offset_a + i]] = dataA[start_offset_a + i];
+    gpu_hashtable_insert(A, indicesA[start_offset_a + i], dataA[start_offset_a + i], dim);
   }
 
   __syncthreads();
@@ -153,7 +162,8 @@ __global__ void balanced_coo_generalized_spmv_kernel(
   // coalesced reads from B
   if (tid < active_chunk_size) {
     cur_row_b = rowsB[ind];
-    value_t a_col = A[indicesB[ind]];
+    // value_t a_col = A[indicesB[ind]];
+    value_t a_col = gpu_hashtable_lookup(A, indicesB[ind], dim);
     if (!rev || a_col == 0.0) c = product_func(a_col, dataB[ind]);
   }
 
@@ -187,7 +197,7 @@ __global__ void balanced_coo_generalized_spmv_kernel(
 
     if (next_row_b != -1) {
       ind = ind_next;
-      value_t a_col = A[indicesB[ind]];
+      value_t a_col = gpu_hashtable_lookup(A, indicesB[ind], dim);;
       if (!rev || a_col == 0.0)
         c = accum_func(c, product_func(a_col, dataB[ind]));
       cur_row_b = next_row_b;
@@ -212,10 +222,15 @@ inline int max_cols_per_block() {
 template <typename value_idx, typename value_t, int tpb = 1024>
 inline int smem_per_block(int n_cols) {
   int max_cols = max_cols_per_block<value_idx, value_t, tpb>();
-  ASSERT(n_cols <= max_cols, "COO SPMV Requires max dimensionality of %d",
-         max_cols);
-  return (n_cols * sizeof(value_t)) + (2 * sizeof(value_idx)) +
-         ((tpb / raft::warp_size()) * sizeof(value_t));
+  // ASSERT(n_cols <= max_cols, "COO SPMV Requires max dimensionality of %d",
+  //        max_cols);
+  if (n_cols > max_cols) {
+    return -1;
+  }
+  else {
+    return (n_cols * sizeof(value_t)) + (2 * sizeof(value_idx)) +
+          ((tpb / raft::warp_size()) * sizeof(value_t));
+  }
 }
 
 /**
@@ -274,17 +289,75 @@ inline void balanced_coo_pairwise_generalized_spmv(
 
   CUDA_CHECK(cudaFuncSetCacheConfig(
     balanced_coo_generalized_spmv_kernel<value_idx, value_t, threads_per_block,
-                                         false, value_t, product_f, accum_f,
-                                         write_f>,
+                                        false, KeyValue<value_idx, value_t>, product_f, accum_f,
+                                        write_f>,
     cudaFuncCachePreferShared));
+  
+  smem = -1;
 
-  balanced_coo_generalized_spmv_kernel<value_idx, value_t, threads_per_block,
-                                       false, value_t>
-    <<<n_blocks, threads_per_block, smem, config_.stream>>>(
+  // if (smem == -1) {
+
+    // std::cout << "In hash table route" << std::endl;
+
+    // auto begin = thrust::make_zip_iterator(thrust::make_tuple(config_.a_indptr, config_.a_indptr + 1));
+    // auto end = thrust::make_zip_iterator(thrust::make_tuple(config_.a_indptr + config_.a_nrows - 1, config_.a_indptr + config_.a_nrows));
+
+    // auto diff_max_op = [] __device__ (const thrust::tuple<value_idx, value_idx> &d1, const thrust::tuple<value_idx, value_idx> &d2) {
+    //   auto diff1 = thrust::get<1>(d1) - thrust::get<0>(d1);
+    //   auto diff2 = thrust::get<1>(d2) - thrust::get<0>(d2);
+
+    //   return diff1 > diff2 ? diff1 : diff2;
+    // };
+
+    // auto policy = rmm::exec_policy(config_.stream);
+    // auto widest_a_row = thrust::reduce(policy, begin, end, -1, diff_max_op);
+    // // auto widest_a_row = thrust::reduce(thrust::parallel, begin, end, -1, diff_max_op);
+
+    // std::cout << "Widest Row: " << widest_a_row << std::endl;
+
+    // int wide_smem = smem_per_block<value_idx, value_t, threads_per_block>(widest_a_row);
+
+    // if (wide_smem == -1) {
+    //   std::cout << "Cannot fit in memory" << std::endl;
+    // }
+    
+    // // accounting for size of key in hash table
+    // wide_smem += raft::ceildiv(sizeof(value_idx) * wide_smem, sizeof(value_t));
+    // // working at 70% load
+    // smem = raft::ceildiv((float) wide_smem, 0.7f);
+
+    // std::cout << "smem requirement: " << smem << std::endl;
+
+    // if (smem > raft::getSharedMemPerBlock()) {
+    //   std::cout << "Cannot operate at 70% load" << std::endl;
+    // }
+
+    // int dim = raft::ceildiv((float) widest_a_row, 0.7f);
+
+    // std::cout << "Dim: " << dim << std::endl;
+
+    smem = 4096;
+    value_idx dim = 4000;
+
+    balanced_coo_generalized_spmv_kernel<value_idx, value_t, threads_per_block,
+                                      false, KeyValue<value_idx, value_t>>
+    <<<n_blocks, threads_per_block, 0, config_.stream>>>(
       config_.a_indptr, config_.a_indices, config_.a_data, coo_rows_b,
       config_.b_indices, config_.b_data, config_.a_nrows, config_.b_nrows,
-      config_.b_ncols, config_.b_nnz, out_dists, n_blocks_per_row, chunk_size,
+      dim, config_.b_nnz, out_dists, n_blocks_per_row, chunk_size,
       product_func, accum_func, write_func);
+    
+  // }
+  // else {
+
+  //   balanced_coo_generalized_spmv_kernel<value_idx, value_t, threads_per_block,
+  //                                       false, value_t>
+  //     <<<n_blocks, threads_per_block, smem, config_.stream>>>(
+  //       config_.a_indptr, config_.a_indices, config_.a_data, coo_rows_b,
+  //       config_.b_indices, config_.b_data, config_.a_nrows, config_.b_nrows,
+  //       config_.b_ncols, config_.b_nnz, out_dists, n_blocks_per_row, chunk_size,
+  //       product_func, accum_func, write_func);
+  // }
 };
 
 /**
@@ -343,17 +416,74 @@ inline void balanced_coo_pairwise_generalized_spmv_rev(
 
   CUDA_CHECK(cudaFuncSetCacheConfig(
     balanced_coo_generalized_spmv_kernel<value_idx, value_t, threads_per_block,
-                                         true, value_t, product_f, accum_f,
+                                         true, KeyValue<value_idx, value_t>, product_f, accum_f,
                                          write_f>,
     cudaFuncCachePreferShared));
 
-  balanced_coo_generalized_spmv_kernel<value_idx, value_t, threads_per_block,
-                                       true, value_t>
-    <<<n_blocks, threads_per_block, smem, config_.stream>>>(
+  // smem = -1;
+
+  // if (smem == -1) {
+
+    // std::cout << "In hash table route" << std::endl;
+
+    // auto begin = thrust::make_zip_iterator(thrust::make_tuple(config_.a_indptr, config_.a_indptr + 1));
+    // auto end = thrust::make_zip_iterator(thrust::make_tuple(config_.a_indptr + config_.a_nrows - 1, config_.a_indptr + config_.a_nrows));
+
+    // auto diff_max_op = [] __device__ (const thrust::tuple<value_idx, value_idx> &d1, const thrust::tuple<value_idx, value_idx> &d2) {
+    //   auto diff1 = thrust::get<1>(d1) - thrust::get<0>(d1);
+    //   auto diff2 = thrust::get<1>(d2) - thrust::get<0>(d2);
+
+    //   return diff1 > diff2 ? diff1 : diff2;
+    // };
+
+    // auto policy = rmm::exec_policy(config_.stream);
+    // auto widest_a_row = thrust::reduce(policy, begin, end, -1, diff_max_op);
+    // // auto widest_a_row = thrust::reduce(thrust::parallel, begin, end, -1, diff_max_op);
+
+    // std::cout << "Widest Row: " << widest_a_row << std::endl;
+
+    // int wide_smem = smem_per_block<value_idx, value_t, threads_per_block>(widest_a_row);
+
+    // if (wide_smem == -1) {
+    //   std::cout << "Cannot fit in memory" << std::endl;
+    // }
+    
+    // // accounting for size of key in hash table
+    // wide_smem += raft::ceildiv(sizeof(value_idx) * wide_smem, sizeof(value_t));
+    // // working at 70% load
+    // smem = raft::ceildiv((float) wide_smem, 0.7f);
+
+    // std::cout << "smem requirement: " << smem << std::endl;
+
+    // if (smem > raft::getSharedMemPerBlock()) {
+    //   std::cout << "Cannot operate at 70% load" << std::endl;
+    // }
+
+    // int dim = raft::ceildiv((float) widest_a_row, 0.7f);
+
+    // std::cout << "Dim: " << dim << std::endl;
+
+    smem = 4096;
+    value_idx dim = 4000;
+    //   balanced_coo_generalized_spmv_kernel<value_idx, value_t, threads_per_block,
+    //                                    true, KeyValue<value_idx, value_t>
+    // <<<n_blocks, threads_per_block, smem, config_.stream>>>(
+    //   config_.b_indptr, config_.b_indices, config_.b_data, coo_rows_a,
+    //   config_.a_indices, config_.a_data, config_.b_nrows, config_.a_nrows,
+    //   dim, config_.a_nnz, out_dists, n_blocks_per_row, chunk_size,
+    //   product_func, accum_func, write_func);
+
+    balanced_coo_generalized_spmv_kernel<value_idx, value_t, threads_per_block,
+                                      true, KeyValue<value_idx, value_t>>
+    <<<n_blocks, threads_per_block, 0, config_.stream>>>(
       config_.b_indptr, config_.b_indices, config_.b_data, coo_rows_a,
       config_.a_indices, config_.a_data, config_.b_nrows, config_.a_nrows,
-      config_.a_ncols, config_.a_nnz, out_dists, n_blocks_per_row, chunk_size,
+      dim, config_.a_nnz, out_dists, n_blocks_per_row, chunk_size,
       product_func, accum_func, write_func);
+    
+  // }
+  // else {
+  // }
 };
 }  // namespace distance
 }  // namespace sparse
