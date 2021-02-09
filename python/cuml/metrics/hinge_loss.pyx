@@ -20,7 +20,7 @@ from cuml.common.input_utils import determine_array_type
 from cuml.preprocessing import LabelEncoder, LabelBinarizer
 
 
-def cython_hinge_loss(y_true,
+def hinge_loss(y_true,
                       pred_decision,
                       labels=None,
                       sample_weights=None) -> float:
@@ -30,9 +30,9 @@ def cython_hinge_loss(y_true,
     Parameters
     ----------
     y_true: cuDF Series or cuPy array of shape (n_samples,)
-    True labels, consisting of labels for the classes.
-    In binary classification, the positive label must be
-    greater than negative class
+        True labels, consisting of labels for the classes.
+        In binary classification, the positive label must be
+        greater than negative class
 
     pred_decision: cuDF DataFrame or cuPy array of shape (n_samples,) or \
             (n_samples, n_classes)
@@ -63,7 +63,7 @@ def cython_hinge_loss(y_true,
                         a cuPy/numba array.")
 
     if labels_type not in ['cupy', 'numba', 'cudf']:
-        raise TypeError("y_true needs to be either a cuDF Series or \
+        raise TypeError("labels needs to be either a cuDF Series or \
                         a cuPy/numba array.")
 
     if y_true.shape[0] != pred_decision.shape[0]:
@@ -93,7 +93,7 @@ def cython_hinge_loss(y_true,
                              "or pass labels as third argument")
         if labels is None:
             labels = y_true_unique
-        le = LabelEncoder()
+        le = LabelEncoder(output_type="cudf")
         le.fit(labels)
         y_true = le.transform(y_true)
         if isinstance(pred_decision, cudf.DataFrame):
@@ -110,7 +110,7 @@ def cython_hinge_loss(y_true,
         # are encoded as +1 and -1 respectively
         pred_decision = cp.ravel(pred_decision)
 
-        lbin = LabelBinarizer(neg_label=-1)
+        lbin = LabelBinarizer(neg_label=-1, output_type="cudf")
         y_true = lbin.fit_transform(y_true)[:, 0]
 
         try:

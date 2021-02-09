@@ -1086,14 +1086,14 @@ def test_pairwise_distances_output_types(input_type, output_type, use_global):
             assert isinstance(S, cp.core.core.ndarray)
 
 
-@pytest.mark.parametrize("input_type, nrows, ncols",
+@pytest.mark.parametrize("nrows, ncols, n_info",
                          [
                              unit_param(30, 10, 7),
                              quality_param(5000, 100, 50),
                              stress_param(500000, 200, 100)
                          ])
 @pytest.mark.parametrize("input_type", ["cudf", "cupy"])
-def test_hinge_loss(input_type, nrows, ncols, n_info):
+def test_hinge_loss(nrows, ncols, n_info, input_type):
     train_rows = np.int32(nrows*0.8)
     X, y = make_classification(n_samples=nrows, n_features=ncols,
                                n_clusters_per_class=1, n_informative=n_info,
