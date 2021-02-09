@@ -352,30 +352,6 @@ class sparse_knn_t {
              out_indices, ascending, n_neighbors, stream);
   }
 
-  raft::distance::DistanceType get_pw_metric() {
-    raft::distance::DistanceType pw_metric;
-    switch (metric) {
-      case raft::distance::DistanceType::L2Expanded:
-      case raft::distance::DistanceType::L2Unexpanded:
-      case raft::distance::DistanceType::L2SqrtExpanded:
-      case raft::distance::DistanceType::L2SqrtUnexpanded:
-      case raft::distance::DistanceType::InnerProduct:
-      case raft::distance::DistanceType::L1:
-      case raft::distance::DistanceType::Canberra:
-      case raft::distance::DistanceType::Linf:
-      case raft::distance::DistanceType::LpUnexpanded:
-      case raft::distance::DistanceType::JaccardExpanded:
-      case raft::distance::DistanceType::CosineExpanded:
-      case raft::distance::DistanceType::HellingerExpanded:
-        pw_metric = metric;
-        break;
-      default:
-        THROW("DistanceType not supported: %d", metric);
-    }
-
-    return pw_metric;
-  }
-
   void compute_distances(csr_batcher_t<value_idx, value_t> &idx_batcher,
                          csr_batcher_t<value_idx, value_t> &query_batcher,
                          size_t idx_batch_nnz, size_t query_batch_nnz,
@@ -409,8 +385,12 @@ class sparse_knn_t {
     dist_config.allocator = allocator;
     dist_config.stream = stream;
 
-    raft::sparse::distance::pairwiseDistance(batch_dists, dist_config,
-                                             get_pw_metric(), metricArg);
+    if (raft::sparse::distance::supportedDistance.find(metric) ==
+        raft::sparse::distance::supportedDistance.end())
+      THROW("DistanceType not supported: %d", metric);
+
+    raft::sparse::distance::pairwiseDistance(batch_dists, dist_config, metric,
+                                             metricArg);
   }
 
   const value_idx *idxIndptr, *idxIndices, *queryIndptr, *queryIndices;

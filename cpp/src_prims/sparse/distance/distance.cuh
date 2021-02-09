@@ -17,6 +17,7 @@
 #pragma once
 
 #include <raft/cudart_utils.h>
+#include <unordered_set>
 
 #include <raft/linalg/distance_type.h>
 #include <raft/sparse/cusparse_wrappers.h>
@@ -41,6 +42,20 @@
 namespace raft {
 namespace sparse {
 namespace distance {
+
+static const std::unordered_set<raft::distance::DistanceType> supportedDistance{
+  raft::distance::DistanceType::L2Expanded,
+  raft::distance::DistanceType::L2Unexpanded,
+  raft::distance::DistanceType::L2SqrtExpanded,
+  raft::distance::DistanceType::L2SqrtUnexpanded,
+  raft::distance::DistanceType::InnerProduct,
+  raft::distance::DistanceType::L1,
+  raft::distance::DistanceType::Canberra,
+  raft::distance::DistanceType::Linf,
+  raft::distance::DistanceType::LpUnexpanded,
+  raft::distance::DistanceType::JaccardExpanded,
+  raft::distance::DistanceType::CosineExpanded,
+  raft::distance::DistanceType::HellingerExpanded};
 
 /**
  * Compute pairwise distances between A and B, using the provided
