@@ -14,20 +14,19 @@
  * limitations under the License.
  */
 
+#pragma once
+
+#include <raft/handle.hpp>
 #include <vector>
 
 #include <opg/matrix/data.hpp>
 #include <opg/matrix/part_descriptor.hpp>
 
-#include <common/cumlHandle.hpp>
-
-#pragma once
-
-using namespace MLCommon;
-
 namespace ML {
 namespace KNN {
 namespace opg {
+
+using namespace MLCommon;
 
 /**
  * Performs a multi-node multi-GPU KNN.

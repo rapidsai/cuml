@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-/** @file internal.h cuML-internal interface to Forest Inference Library. */
+/** @file internal.cuh cuML-internal interface to Forest Inference Library. */
 
 #pragma once
 
