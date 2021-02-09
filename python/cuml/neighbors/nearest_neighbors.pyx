@@ -38,6 +38,7 @@ from cuml.common import input_to_cuml_array
 from cuml.neighbors.ann cimport *
 from cuml.common.sparse_utils import is_sparse
 from cuml.common.sparse_utils import is_dense
+from cuml.metrics.distance_type cimport DistanceType
 
 from cython.operator cimport dereference as deref
 
@@ -60,26 +61,6 @@ cimport cuml.common.cuda
 
 if has_scipy():
     import scipy.sparse
-
-cdef extern from "cuml/neighbors/knn.hpp" namespace "raft::distance":
-
-    enum DistanceType:
-        L2Expanded = 0,
-        L2SqrtExpanded = 1,
-        CosineExpanded = 2,
-        L1 = 3,
-        L2Unexpanded = 4,
-        L2SqrtUnexpanded = 5,
-        InnerProduct = 6,
-        Linf = 7,
-        Canberra = 8,
-        LpUnexpanded = 9,
-        CorrelationExpanded = 10,
-        JaccardExpanded = 11,
-        HellingerExpanded = 12,
-        Haversine = 13,
-        BrayCurtis = 14,
-        JensenShannon = 15
 
 cdef extern from "cuml/neighbors/knn.hpp" namespace "ML":
 
@@ -376,7 +357,7 @@ class NearestNeighbors(Base):
             algo_params = <knnIndexParam*><uintptr_t> \
                 build_algo_params(self.algorithm, self.algo_params,
                                   additional_info)
-            metric, expanded = self._build_metric_type(self.metric)
+            metric = self._build_metric_type(self.metric)
 
             approx_knn_build_index(handle_[0],
                                    <knnIndex*>knn_index,
@@ -402,15 +383,10 @@ class NearestNeighbors(Base):
 
     @staticmethod
     def _build_metric_type(metric):
-
-        expanded = False
-
         if metric == "euclidean" or metric == "l2":
             m = DistanceType.L2SqrtExpanded
-            expanded = True
         elif metric == "sqeuclidean":
             m = DistanceType.L2Expanded
-            expanded = True
         elif metric == "cityblock" or metric == "l1"\
                 or metric == "manhattan" or metric == 'taxicab':
             m = DistanceType.L1
@@ -437,7 +413,7 @@ class NearestNeighbors(Base):
         else:
             raise ValueError("Metric %s is not supported" % metric)
 
-        return m, expanded
+        return m
 
     @insert_into_docstring(parameters=[('dense', '(n_samples, n_features)')],
                            return_values=[('dense', '(n_samples, n_features)'),
@@ -592,28 +568,23 @@ class NearestNeighbors(Base):
             if _output_type is not None else self._get_output_type(X)
 
         if two_pass_precision:
-            metric, expanded = self._build_metric_type(self.metric)
+            metric = self._build_metric_type(self.metric)
             metric_is_l2_based = (
                 metric == DistanceType.L2SqrtExpanded or
-                metric == DistanceType.L2Expanded or
-                metric == DistanceType.L2SqrtUnexpanded or
-                metric == DistanceType.L2Unexpanded or
-                (metric == DistanceType.LpUnexpanded and self.p == 2)
+                metric == DistanceType.L2Expanded
             )
 
             # FAISS employs imprecise distance algorithm only for L2-based
-            # metrics
+            # expanded metrics. This code correct numerical instabilities
+            # that could arise.
             if metric_is_l2_based:
                 X = input_to_cupy_array(X).array
                 I_cparr = I_ndarr.to_output('cupy')
 
                 self_diff = X[I_cparr] - X[:, cp.newaxis, :]
-                if expanded:
-                    precise_distances = cp.sum(
-                        self_diff * self_diff, axis=2
-                    )
-                else:
-                    precise_distances = cp.linalg.norm(self_diff, axis=2)
+                precise_distances = cp.sum(
+                    self_diff * self_diff, axis=2
+                )
 
                 correct_order = cp.argsort(precise_distances, axis=1)
 
@@ -646,7 +617,7 @@ class NearestNeighbors(Base):
             raise ValueError("A NearestNeighbors model trained on dense "
                              "data requires dense input to kneighbors()")
 
-        metric, expanded = self._build_metric_type(self.metric)
+        metric = self._build_metric_type(self.metric)
 
         X_m, N, _, dtype = \
             input_to_cuml_array(X, order='C', check_dtype=np.float32,
@@ -719,7 +690,7 @@ class NearestNeighbors(Base):
 
         X_m = SparseCumlArray(X, convert_to_dtype=cp.float32,
                               convert_format=False)
-        metric, expanded = self._build_metric_type(self.metric)
+        metric = self._build_metric_type(self.metric)
 
         cdef uintptr_t idx_indptr = self.X_m.indptr.ptr
         cdef uintptr_t idx_indices = self.X_m.indices.ptr
