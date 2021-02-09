@@ -17,10 +17,7 @@
 #pragma once
 
 #include <cuml/tree/flatnode.h>
-#include <common/cumlHandle.hpp>
-#include <common/device_buffer.hpp>
 #include <common/grid_sync.cuh>
-#include <common/host_buffer.hpp>
 #include <cuml/tree/decisiontree.hpp>
 #include <raft/cuda_utils.cuh>
 #include "input.cuh"
