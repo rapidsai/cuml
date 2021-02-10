@@ -18,7 +18,8 @@
 #define omp_get_thread_num() 0
 #endif
 #include <decisiontree/memory.h>
-#include <decisiontree/quantile/quantile.h>
+// #include <decisiontree/quantile/quantile.h>
+#include <decisiontree/quantile/quantile.cuh>
 #include <decisiontree/treelite_util.h>
 #include <raft/cudart_utils.h>
 #include <cuml/common/logger.hpp>
@@ -454,7 +455,7 @@ void rfRegressor<T>::fit(const raft::handle_t& user_handle, const T* input,
     "rf_params.n_streams (=%d) should be <= raft::handle_t.n_streams (=%d)",
     n_streams, handle.get_num_internal_streams());
 
-  cudaStream_t stream = user_handle.get_stream();
+  // cudaStream_t stream = user_handle.get_stream();
   // Select n_sampled_rows (with replacement) numbers from [0, n_rows) per tree.
   // selected_rows: randomly generated IDs for bootstrapped samples (w/ replacement); a device ptr.
   MLCommon::device_buffer<unsigned int>* selected_rows[n_streams];
@@ -470,6 +471,25 @@ void rfRegressor<T>::fit(const raft::handle_t& user_handle, const T* input,
       handle, handle.get_internal_stream(i), n_rows, n_cols, 1,
       this->rf_params.tree_params);
   }
+  T* d_quantiles_for_eb = nullptr;
+  T* temp_quantiles = nullptr;
+  int q_size = this->rf_params.tree_params.n_bins * n_cols * sizeof(T);
+  temp_quantiles = (T*) malloc(q_size);
+  CUDA_CHECK(cudaMalloc(&d_quantiles_for_eb, q_size));
+
+  DecisionTree::computeQuantiles(d_quantiles_for_eb, this->rf_params.tree_params.n_bins, input,
+  n_rows, n_cols, handle.get_device_allocator(), handle.get_host_allocator(), NULL);
+
+  CUDA_CHECK(cudaMemcpy(temp_quantiles, d_quantiles_for_eb, q_size,
+              cudaMemcpyDeviceToHost));
+  
+  printf("New quantiles:\n");
+  for(int j = 0; j < this->rf_params.tree_params.n_bins; j++) {
+    printf("%f, ", temp_quantiles[j]);
+  }
+  printf("\n");
+  
+
   //Preprocess once only per forest
   if ((this->rf_params.tree_params.split_algo == SPLIT_ALGO::GLOBAL_QUANTILE) &&
       !(this->rf_params.tree_params.quantile_per_tree)) {
@@ -485,6 +505,13 @@ void rfRegressor<T>::fit(const raft::handle_t& user_handle, const T* input,
              (void*)(tempmem[0]->h_quantile->data()),
              this->rf_params.tree_params.n_bins * n_cols * sizeof(T));
     }
+    CUDA_CHECK(cudaMemcpy(temp_quantiles, tempmem[0]->d_quantile->data(),
+                          q_size, cudaMemcpyDeviceToHost));
+    printf("Old quantiles:\n");
+    for(int j = 0; j < this->rf_params.tree_params.n_bins; j++) {
+      printf("%f, ", temp_quantiles[j]);
+    }
+    printf("\n");
   }
 
 #pragma omp parallel for num_threads(n_streams)
@@ -509,6 +536,12 @@ void rfRegressor<T>::fit(const raft::handle_t& user_handle, const T* input,
                  rowids, n_sampled_rows, tree_ptr, this->rf_params.tree_params,
                  this->rf_params.seed, tempmem[stream_id]);
   }
+  // printf("Old quantiles 2:\n");
+  // CUDA_CHECK(cudaMemcpy(temp_quantiles, tempmem[2]->d_quantile->data(), q_size, cudaMemcpyDeviceToHost));
+  // for(int j = 0; j < q_size / sizeof(T); j++) {
+  //   printf("%f, ", temp_quantiles[j]);
+  // }
+  // printf("\n");
   //Cleanup
   for (int i = 0; i < n_streams; i++) {
     auto s = tempmem[i]->stream;
