@@ -71,7 +71,8 @@ struct ArgMax {
     given by leaves for n_rows items. FULL_ITEMS indicates whether n_rows ==
     NITEMS, to allow the compiler to skip the conditional when unrolling the
     loop. */
-template <typename output_type, bool FULL_NITEMS, int NITEMS, typename tree_type>
+template <typename output_type, bool FULL_NITEMS, int NITEMS,
+          typename tree_type>
 __device__ __forceinline__ vec<NITEMS, output_type> tree_leaf_output(
   tree_type tree, int n_rows, int (&leaves)[NITEMS]) {
   vec<NITEMS, output_type> out(0);
