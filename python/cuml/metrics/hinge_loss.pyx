@@ -21,9 +21,9 @@ from cuml.preprocessing import LabelEncoder, LabelBinarizer
 
 
 def hinge_loss(y_true,
-                      pred_decision,
-                      labels=None,
-                      sample_weights=None) -> float:
+               pred_decision,
+               labels=None,
+               sample_weights=None) -> float:
     """
     Calculates non-regularized hinge loss. Adapted from scikit-learn hinge loss
 
@@ -108,10 +108,12 @@ def hinge_loss(y_true,
         # Handles binary class case
         # this code assumes that positive and negative labels
         # are encoded as +1 and -1 respectively
+        if isinstance(pred_decision, cudf.DataFrame):
+            pred_decision = pred_decision.values
         pred_decision = cp.ravel(pred_decision)
 
-        lbin = LabelBinarizer(neg_label=-1, output_type="cudf")
-        y_true = lbin.fit_transform(y_true)[:, 0]
+        lbin = LabelBinarizer(neg_label=-1, output_type="cupy")
+        y_true = lbin.fit_transform(y_true)[:, 1]
 
         try:
             margin = y_true * pred_decision
