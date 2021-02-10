@@ -18,7 +18,6 @@
 #define omp_get_thread_num() 0
 #endif
 #include <decisiontree/memory.h>
-// #include <decisiontree/quantile/quantile.h>
 #include <decisiontree/quantile/quantile.cuh>
 #include <decisiontree/treelite_util.h>
 #include <raft/cudart_utils.h>
@@ -455,7 +454,6 @@ void rfRegressor<T>::fit(const raft::handle_t& user_handle, const T* input,
     "rf_params.n_streams (=%d) should be <= raft::handle_t.n_streams (=%d)",
     n_streams, handle.get_num_internal_streams());
 
-  // cudaStream_t stream = user_handle.get_stream();
   // Select n_sampled_rows (with replacement) numbers from [0, n_rows) per tree.
   // selected_rows: randomly generated IDs for bootstrapped samples (w/ replacement); a device ptr.
   MLCommon::device_buffer<unsigned int>* selected_rows[n_streams];

@@ -30,7 +30,6 @@
 #include "levelalgo/levelfunc_regressor.cuh"
 #include "levelalgo/metric.cuh"
 #include "memory.cuh"
-// #include "quantile/quantile.cuh"
 #include "treelite_util.h"
 
 namespace ML {
