@@ -50,6 +50,7 @@ inline int block_dim(value_idx ncols) {
  * Returns a warp-level mask with 1's for all the threads
  * in the current warp that have the same key.
  * @tparam G
+ * @param init_mask
  * @param key
  * @return
  */

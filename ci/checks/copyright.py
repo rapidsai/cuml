@@ -38,6 +38,9 @@ FilesToCheck = [
     re.compile(r"[.]flake8[.]cython$"),
     re.compile(r"meta[.]yaml$")
 ]
+ExemptFiles = [
+    re.compile(r"_thirdparty")
+]
 
 # this will break starting at year 10000, which is probably OK :)
 CheckSimple = re.compile(
@@ -53,6 +56,9 @@ def checkThisFile(f):
         return False
     if gitutils and gitutils.isFileEmpty(f):
         return False
+    for exempt in ExemptFiles:
+        if exempt.search(f):
+            return False
     for checker in FilesToCheck:
         if checker.search(f):
             return True
