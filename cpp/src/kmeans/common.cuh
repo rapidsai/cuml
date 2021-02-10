@@ -76,14 +76,14 @@ struct FusedL2NNReduceOp {
   FusedL2NNReduceOp(LabelT _offset) : offset(_offset){};
 
   typedef typename cub::KeyValuePair<LabelT, DataT> KVP;
-  DI void operator()(KVP *out, const KVP &other) {
+  DI void operator()(LabelT rit, KVP *out, const KVP &other) {
     if (other.value < out->value) {
       out->key = offset + other.key;
       out->value = other.value;
     }
   }
 
-  DI void operator()(DataT *out, const KVP &other) {
+  DI void operator()(LabelT rit, DataT *out, const KVP &other) {
     if (other.value < *out) {
       *out = other.value;
     }

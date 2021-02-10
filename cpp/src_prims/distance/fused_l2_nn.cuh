@@ -34,7 +34,7 @@ template <typename LabelT, typename DataT>
 struct KVPMinReduce {
   typedef cub::KeyValuePair<LabelT, DataT> KVP;
 
-  DI KVP operator()(const KVP& a, const KVP& b) {
+  DI KVP operator()(LabelT rit, const KVP& a, const KVP& b) {
     return b.value < a.value ? b : a;
   }
 };  // KVPMinReduce
@@ -42,7 +42,7 @@ struct KVPMinReduce {
 template <typename LabelT, typename DataT>
 struct MinAndDistanceReduceOp {
   typedef typename cub::KeyValuePair<LabelT, DataT> KVP;
-  DI void operator()(KVP* out, const KVP& other) {
+  DI void operator()(LabelT rid, KVP* out, const KVP& other) {
     if (other.value < out->value) {
       out->key = other.key;
       out->value = other.value;
@@ -58,7 +58,7 @@ struct MinAndDistanceReduceOp {
 template <typename LabelT, typename DataT>
 struct MinReduceOp {
   typedef typename cub::KeyValuePair<LabelT, DataT> KVP;
-  DI void operator()(DataT* out, const KVP& other) {
+  DI void operator()(LabelT rid, DataT* out, const KVP& other) {
     if (other.value < *out) {
       *out = other.value;
     }
@@ -198,7 +198,7 @@ struct FusedL2NN : public BaseClass {
       for (int j = 0; j < P::AccColsPerTh; ++j) {
         auto tmpkey = this->acccolid + j * P::AccThCols + blockIdx.y * P::Nblk;
         cub::KeyValuePair<IdxT, DataT> tmp = {tmpkey, acc[i][j]};
-        if (tmpkey < this->n) val[i] = pairRedOp(tmp, val[i]);
+        if (tmpkey < this->n) val[i] = pairRedOp(i, tmp, val[i]);
       }
       __syncthreads();
 #pragma unroll
@@ -206,7 +206,7 @@ struct FusedL2NN : public BaseClass {
         auto tmpkey = raft::shfl(val[i].key, lid + j);
         auto tmpvalue = raft::shfl(val[i].value, lid + j);
         cub::KeyValuePair<IdxT, DataT> tmp = {tmpkey, tmpvalue};
-        val[i] = pairRedOp(tmp, val[i]);
+        val[i] = pairRedOp(i, tmp, val[i]);
       }
     }
     if (lid % P::AccThCols == 0) {
@@ -230,7 +230,7 @@ struct FusedL2NN : public BaseClass {
    *     while (atomicCAS(mutex + rid, 0, 1) == 1)
    *       ;
    *     __threadfence();
-   *     redOp(min + rid, val);
+   *     redOp(rid, min + rid, val);
    *     __threadfence();
    *     atomicCAS(mutex + rid, 1, 0);
    *   }
@@ -250,7 +250,7 @@ struct FusedL2NN : public BaseClass {
           while (atomicCAS(mutex + rid, 0, 1) == 1)
             ;
           __threadfence();
-          redOp(min + rid, val);
+          redOp(rid, min + rid, val);
           __threadfence();
           atomicCAS(mutex + rid, 1, 0);
         }
