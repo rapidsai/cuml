@@ -16,9 +16,9 @@
 
 set (CMAKE_FIND_NO_INSTALL_PREFIX TRUE FORCE)
 
-cmake_minimum_required(VERSION 3.14...3.17 FATAL_ERROR)
+cmake_minimum_required(VERSION 3.17...3.19 FATAL_ERROR)
 
-project(cuML VERSION 0.18.0 LANGUAGES C CXX CUDA)
+project(CUML VERSION 0.18.0 LANGUAGES C CXX)
 
 ##############################################################################
 # - build type ---------------------------------------------------------------
@@ -210,18 +210,11 @@ set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_BINARY_DIR}/cmake)
 
 # append additional directories to CMAKE_MODULE_PATH if we need other modules here
 
-# todo: change for FindCUDAToolkit when CMake 3.17 is the minimum required
-# https://github.com/rapidsai/cuml/issues/2194
-find_package(CUDA 10.0 REQUIRED)
-
-# Set the -isystem flag to not have an '=' sign to allow parsing of compile_commands.json
-set(CMAKE_INCLUDE_SYSTEM_FLAG_CUDA "-isystem ")
-
 if (NOT DISABLE_OPENMP OR NOT ${DISABLE_OPENMP})
   find_package(OpenMP)
-  if(OPENMP_FOUND)
+  if(OpenMP_FOUND)
     message(STATUS "OpenMP found in ${OPENMP_INCLUDE_DIRS}")
-  endif(OPENMP_FOUND)
+  endif(OpenMP_FOUND)
 endif(NOT DISABLE_OPENMP OR NOT ${DISABLE_OPENMP})
 
 if(NOT DEFINED BLAS_LIBRARIES)
@@ -238,97 +231,6 @@ set(CUML_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include CACHE STRING
   "Path to cuml include directories")
 
 ##############################################################################
-# - Compiler Options  --------------------------------------------------------
-
-set(CMAKE_CXX_STANDARD 14)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-
-if(CMAKE_CUDA_HOST_COMPILER)
-  # If CMAKE_CUDA_HOST_COMPILER is set to a nonempty string cmake was called with the environment variable CUDAHOSTCXX set or -DCMAKE_CUDA_HOST_COMPILER
-  if(NOT CMAKE_CUDA_HOST_COMPILER STREQUAL CMAKE_CXX_COMPILER)
-    message(WARNING "CMAKE_CUDA_HOST_COMPILER=${CMAKE_CUDA_HOST_COMPILER} and CMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER} are inconsistent!")
-  endif(NOT CMAKE_CUDA_HOST_COMPILER STREQUAL CMAKE_CXX_COMPILER)
-else()
-  # No attempt to set CMAKE_CUDA_HOST_COMPILER has been made. Make sure CMAKE_CXX_COMPILER is used as CUDA host compiler.
-  set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -ccbin ${CMAKE_CXX_COMPILER}")
-endif(CMAKE_CUDA_HOST_COMPILER)
-
-if(OPENMP_FOUND)
-  message(STATUS "Building with OpenMP support")
-  find_package(Threads REQUIRED)
-  set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -Xcompiler ${OpenMP_CXX_FLAGS}")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
-endif(OPENMP_FOUND)
-
-set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --expt-extended-lambda --expt-relaxed-constexpr")
-
-if(${CMAKE_VERSION} VERSION_LESS "3.17.0")
-  set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --std=c++14")
-endif(${CMAKE_VERSION} VERSION_LESS "3.17.0")
-
-if(LINE_INFO)
-  set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -lineinfo")
-endif(LINE_INFO)
-
-if(KERNEL_INFO)
-  set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -Xptxas=-v")
-endif(KERNEL_INFO)
-
-if(NVTX)
-  set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -DNVTX_ENABLED")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DNVTX_ENABLED")
-  set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS}")
-endif(NVTX)
-
-if(CMAKE_BUILD_TYPE MATCHES Debug)
-  set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -G -g")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g")
-endif()
-
-if("${GPU_ARCHS}" STREQUAL "")
-  include(cmake/EvalGpuArchs.cmake)
-  evaluate_gpu_archs(GPU_ARCHS)
-endif()
-
-
-# CUDA 11 onwards cub ships with CTK
-if((CUDA_VERSION_MAJOR EQUAL 11) OR (CUDA_VERSION_MAJOR GREATER 11))
-  set(CUB_IS_PART_OF_CTK ON)
-else()
-  set(CUB_IS_PART_OF_CTK OFF)
-endif()
-
-if("${GPU_ARCHS}" STREQUAL "ALL")
-  set(GPU_ARCHS "60")
-  if((CUDA_VERSION_MAJOR EQUAL 9) OR (CUDA_VERSION_MAJOR GREATER 9))
-    set(GPU_ARCHS "${GPU_ARCHS};70")
-  endif()
-  if((CUDA_VERSION_MAJOR EQUAL 10) OR (CUDA_VERSION_MAJOR GREATER 10))
-    set(GPU_ARCHS "${GPU_ARCHS};75")
-  endif()
-  if((CUDA_VERSION_MAJOR EQUAL 11) OR (CUDA_VERSION_MAJOR GREATER 11))
-    set(GPU_ARCHS "${GPU_ARCHS};80")
-  endif()
-endif()
-
-message("-- Building for GPU_ARCHS = ${GPU_ARCHS}")
-
-foreach(arch ${GPU_ARCHS})
-  set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -gencode arch=compute_${arch},code=sm_${arch}")
-  set(FAISS_GPU_ARCHS "${FAISS_GPU_ARCHS} ${arch}")
-endforeach()
-
-list(GET GPU_ARCHS -1 ptx)
-set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -gencode arch=compute_${ptx},code=compute_${ptx}")
-set(FAISS_GPU_ARCHS "${FAISS_GPU_ARCHS} ${ptx}")
-
-set(CMAKE_CUDA_FLAGS
-  "${CMAKE_CUDA_FLAGS} -Xcudafe --diag_suppress=unrecognized_gcc_pragma")
-
-# make sure we produce smallest binary size
-string(APPEND CMAKE_CUDA_FLAGS " -Xfatbin=-compress-all")
-
-##############################################################################
 # - dependencies -------------------------------------------------------------
 
 include(cmake/Dependencies.cmake)
@@ -338,7 +240,6 @@ include(cmake/Dependencies.cmake)
 
 set(CUML_INCLUDE_DIRECTORIES
   ${CUML_INCLUDE_DIR}
-  ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}
   ${SPDLOG_DIR}/src/spdlog/include
   ${FAISS_INCLUDE_DIRS}
   ${RAFT_DIR}/cpp/include
@@ -353,51 +254,11 @@ if(NOT CUB_IS_PART_OF_CTK)
   list(APPEND CUML_INCLUDE_DIRECTORIES ${CUB_DIR}/src/cub)
 endif(NOT CUB_IS_PART_OF_CTK)
 
-set(CUML_PUBLIC_LINK_LIBRARIES
-  ${CUDA_cublas_LIBRARY}
-  ${CUDA_cufft_LIBRARY}
-  ${CUDA_curand_LIBRARY}
-  ${CUDA_cusolver_LIBRARY}
-  ${CUDA_CUDART_LIBRARY}
-  ${CUDA_cusparse_LIBRARY})
-
-
-set(CUML_PRIVATE_LINK_LIBRARIES
-  FAISS::FAISS
-  treelite::treelite
-  treelite::treelite_runtime
-  )
-
-if(BUILD_STATIC_FAISS)
-  set(CUML_PRIVATE_LINK_LIBRARIES
-   ${CUML_PRIVATE_LINK_LIBRARIES}
-   ${BLAS_LIBRARIES}
-  )
-endif(BUILD_STATIC_FAISS)
-
-if(BUILD_CUML_STD_COMMS OR BUILD_CUML_MPI_COMMS)
-	list(APPEND CUML_INCLUDE_DIRECTORIES
-		${NCCL_INCLUDE_DIRS})
-
-	list(APPEND CUML_PRIVATE_LINK_LIBRARIES
-		NCCL::NCCL)
-endif(BUILD_CUML_STD_COMMS OR BUILD_CUML_MPI_COMMS)
-
-if(BUILD_CUML_MPI_COMMS)
-	list(APPEND CUML_INCLUDE_DIRECTORIES
-        ${MPI_CXX_INCLUDE_PATH})
-
-    list(APPEND CUML_PRIVATE_LINK_LIBRARIES
-         ${MPI_CXX_LIBRARIES})
-endif(BUILD_CUML_MPI_COMMS)
-
-if(ENABLE_CUMLPRIMS_MG)
-  list(APPEND CUML_INCLUDE_DIRECTORIES
-       ${cumlprims_mg_INCLUDE_DIRS})
-
-  list(APPEND CUML_PRIVATE_LINK_LIBRARIES
-       cumlprims_mg::cumlprims_mg)
-endif(ENABLE_CUMLPRIMS_MG)
+# set(CUML_PRIVATE_LINK_LIBRARIES
+#   FAISS::FAISS
+#   treelite::treelite
+#   treelite::treelite_runtime
+#   )
 
 ##############################################################################
 # - build libcuml++ shared library -------------------------------------------
@@ -457,7 +318,6 @@ if(BUILD_CUML_CPP_LIBRARY)
     src/umap/umap.cu)
 
   # mnmg components
-
   if(NOT SINGLEGPU)
     target_sources(${CUML_CPP_TARGET}
       PRIVATE
@@ -475,31 +335,74 @@ if(BUILD_CUML_CPP_LIBRARY)
     )
   endif(NOT SINGLEGPU)
 
-  if(OPENMP_FOUND)
-    set(CUML_PUBLIC_LINK_LIBRARIES ${CUML_PUBLIC_LINK_LIBRARIES} ${OpenMP_CXX_LIB_NAMES} Threads::Threads)
-  endif(OPENMP_FOUND)
+  # Add the alias
+  add_library(CUML::${CUML_CPP_TARGET} ALIAS ${CUML_CPP_TARGET})
 
-  if(NVTX)
-    set(CUML_PUBLIC_LINK_LIBRARIES ${CUML_PUBLIC_LINK_LIBRARIES} nvToolsExt)
-    link_directories(${CUDA_TOOLKIT_ROOT_DIR}/lib64)
-  endif(NVTX)
+  # if(OPENMP_FOUND)
+  #   set(CUML_PUBLIC_LINK_LIBRARIES ${CUML_PUBLIC_LINK_LIBRARIES} ${OpenMP_CXX_LIB_NAMES} Threads::Threads)
+  # endif(OPENMP_FOUND)
+
+  # if(NVTX)
+  #   set(CUML_PUBLIC_LINK_LIBRARIES ${CUML_PUBLIC_LINK_LIBRARIES} nvToolsExt)
+  #   link_directories(${CUDA_TOOLKIT_ROOT_DIR}/lib64)
+  # endif(NVTX)
 
   target_compile_definitions(${CUML_CPP_TARGET}
+    PUBLIC
+      $<$<BOOL:${NVTX}>:NVTX_ENABLED>
+      DISABLE_CUSPARSE_DEPRECATED
     PRIVATE
-      CUML_CPP_API)
+      CUML_CPP_API
+  )
+
+  target_compile_options(${CUML_CPP_TARGET}
+    PUBLIC
+      $<$<COMPILE_LANGUAGE:CUDA>:--expt-extended-lambda
+                                 --expt-relaxed-constexpr
+                                 -Xcudafe
+                                 --diag_suppress=unrecognized_gcc_pragma
+                                 -ccbin ${CMAKE_CXX_COMPILER}>
+
+    PRIVATE
+      $<$<AND:$<BOOL:${LINE_INFO}>,$<COMPILE_LANGUAGE:CUDA>>:-lineinfo>
+      $<$<AND:$<BOOL:${KERNEL_INFO}>,$<COMPILE_LANGUAGE:CUDA>>:-Xptxas=-v>
+  )
 
   target_include_directories(${CUML_CPP_TARGET}
     PUBLIC
-      ${CUML_INCLUDE_DIRECTORIES}
+      $<INSTALL_INTERFACE:include>
+      $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+      $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>
+      $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src_prims>
+      $<BUILD_INTERFACE:${RAFT_DIR}/cpp/include>
+      $<BUILD_INTERFACE:${CUTLASS_DIR}/src/cutlass>
+      $<BUILD_INTERFACE:$<$<BOOL:${ENABLE_CUMLPRIMS_MG}>:${cumlprims_mg_INCLUDE_DIRS}>>
     PRIVATE
       ${CUML_SRC_DIR}
-      ${CUML_SRC_PRIMS_DIR})
+      ${CUML_SRC_PRIMS_DIR}
+      ${RMM_INCLUDE_DIRS}
+      $<$<NOT:$<BOOL:${CUB_IS_PART_OF_CTK}>>:${CUB_DIR}/src/cub>
+      $<$<OR:$<BOOL:BUILD_CUML_STD_COMMS>,$<BOOL:BUILD_CUML_MPI_COMMS>>:${NCCL_INCLUDE_DIRS}>
+      $<$<BOOL:BUILD_CUML_MPI_COMMS>:${MPI_CXX_INCLUDE_PATH}>
+  )
 
   target_link_libraries(${CUML_CPP_TARGET}
     PUBLIC
-      ${CUML_PUBLIC_LINK_LIBRARIES}
+      CUDA::cublas
+      CUDA::curand
+      CUDA::cusolver
+      CUDA::cudart
+      CUDA::cusparse
+      RMM::RMM
+      $<$<BOOL:NVTX>:CUDA::nvToolsExt>
     PRIVATE
-      ${CUML_PRIVATE_LINK_LIBRARIES}
+      FAISS::FAISS
+      treelite::treelite
+      treelite::treelite_runtime
+      $<$<BOOL:OpenMP_FOUND>:OpenMP::OpenMP_CXX>
+      $<$<OR:$<BOOL:${BUILD_CUML_STD_COMMS}>,$<BOOL:${BUILD_CUML_MPI_COMMS}>>:NCCL::NCCL>
+      $<$<BOOL:${BUILD_CUML_MPI_COMMS}>:${MPI_CXX_LIBRARIES}>
+      $<$<BOOL:${ENABLE_CUMLPRIMS_MG}>:cumlprims_mg::cumlprims_mg>
   )
 
   # If we export the libdmlc symbols, they can lead to weird crashes with other
@@ -525,25 +428,34 @@ if(BUILD_CUML_C_LIBRARY)
     src/knn/knn_api.cpp
     src/svm/svm_api.cpp
   )
+  add_library(CUML::${CUML_C_TARGET} ALIAS ${CUML_C_TARGET})
 
-  target_compile_definitions(${CUML_C_TARGET}
-    PRIVATE
-      CUML_C_API)
+  # target_compile_definitions(${CUML_C_TARGET}
+  #   PRIVATE
+  #     CUML_C_API)
 
-  target_include_directories(${CUML_C_TARGET}
-    PRIVATE 
-      ${CUML_SRC_DIR}
+  # target_include_directories(${CUML_C_TARGET}
+  #   PRIVATE
+  #     ${CUML_SRC_DIR}
+  # )
+
+  target_link_libraries(${CUML_C_TARGET}
+    PUBLIC
+      ${CUML_CPP_TARGET}
   )
 
-  target_link_libraries(${CUML_C_TARGET} PUBLIC ${CUML_CPP_TARGET})
 endif(BUILD_CUML_C_LIBRARY)
 
 ##############################################################################
 # - build test executables ---------------------------------------------------
 
-if(BUILD_CUML_TESTS OR BUILD_CUML_MG_TESTS OR BUILD_PRIMS_TESTS)
+if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
+  include(CTest)
+endif()
+
+if((CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME OR CUML_BUILD_TESTING) AND BUILD_TESTING)
   add_subdirectory(test ${PROJECT_BINARY_DIR}/test)
-endif(BUILD_CUML_TESTS OR BUILD_CUML_MG_TESTS OR BUILD_PRIMS_TESTS)
+endif()
 
 ##############################################################################
 # - build examples ------------------------------------------------------------------------------
@@ -555,12 +467,58 @@ endif(BUILD_CUML_EXAMPLES)
 ##############################################################################
 # - install targets ----------------------------------------------------------
 
-install(TARGETS ${CUML_CPP_TARGET}
-                ${CUML_C_TARGET}
-        DESTINATION lib)
+include(GNUInstallDirs)
+set(INSTALL_CONFIGDIR ${CMAKE_INSTALL_LIBDIR}/cmake/cuml)
 
-install(DIRECTORY ${CUML_INCLUDE_DIR}/cuml DESTINATION include)
-install(DIRECTORY ${RAFT_DIR}/cpp/include/ DESTINATION include/cuml)
+install(TARGETS
+          ${CUML_CPP_TARGET}
+          ${CUML_C_TARGET}
+        EXPORT
+          cuml-targets
+        DESTINATION
+          ${CMAKE_INSTALL_LIBDIR}
+)
+
+# Copy the include and raft directories
+install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/include/cuml DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+install(DIRECTORY ${RAFT_INCLUDE_DIR} DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/cuml)
+
+include(CMakePackageConfigHelpers)
+configure_package_config_file(${CMAKE_CURRENT_LIST_DIR}/cmake/cuml-config.cmake.in
+                              ${CMAKE_CURRENT_BINARY_DIR}/cuml-config.cmake
+                              INSTALL_DESTINATION ${INSTALL_CONFIGDIR})
+
+write_basic_package_version_file(${CMAKE_CURRENT_BINARY_DIR}/cuml-config-version.cmake
+                                 VERSION ${PROJECT_VERSION}
+                                 COMPATIBILITY SameMinorVersion)
+
+install(
+  EXPORT cuml-targets
+  FILE cuml-targets.cmake
+  NAMESPACE CUML::
+  DESTINATION ${INSTALL_CONFIGDIR})
+
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/cuml-config.cmake
+              ${CMAKE_CURRENT_BINARY_DIR}/cuml-config-version.cmake
+              ${CMAKE_CURRENT_LIST_DIR}/cmake/FindRMM.cmake
+        DESTINATION ${INSTALL_CONFIGDIR})
+
+##############################################################################
+# - export targets -----------------------------------------------------------
+
+
+# Export any Cmake modules
+# configure_file(${CMAKE_CURRENT_LIST_DIR}/cmake/FindRapidJSON.cmake
+#     ${CMAKE_CURRENT_BINARY_DIR}/FindRapidJSON.cmake
+#     COPYONLY)
+
+# Export targets
+export(EXPORT cuml-targets
+    FILE ${CMAKE_CURRENT_BINARY_DIR}/cuml-targets.cmake
+    NAMESPACE CUML::)
+
+#Register package in user's package registry
+export(PACKAGE CUML)
 
 ##############################################################################
 # - build benchmark executable -----------------------------------------------

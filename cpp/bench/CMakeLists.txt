@@ -35,11 +35,13 @@ if(BUILD_CUML_BENCH)
     sg/svr.cu
     sg/umap.cu
     sg/fil.cu
-    )
+  )
 
   target_link_libraries(sg_benchmark
-    ${CUML_CPP_TARGET}
-    benchmarklib)
+    PUBLIC
+      ${CUML_CPP_TARGET}
+      benchmarklib
+  )
 
   target_include_directories(sg_benchmark
     PRIVATE 

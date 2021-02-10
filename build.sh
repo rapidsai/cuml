@@ -37,6 +37,7 @@ HELP="$0 [<target> ...] [<flag> ...]
    -v               - verbose build mode
    -g               - build for debug
    -n               - no install step
+   -h               - print this text
    --allgpuarch     - build for all supported GPU architectures
    --buildfaiss     - build faiss statically into libcuml
    --buildgtest     - build googletest library
@@ -46,7 +47,7 @@ HELP="$0 [<target> ...] [<flag> ...]
    --codecov        - Enable code coverage support by compiling with Cython linetracing
                       and profiling enabled (WARNING: Impacts performance)
    --ccache         - Use ccache to cache previous compilations
-   -h               - print this text
+   --cuda           - Set the CUDA version to use. Use the string 'auto' to automatically determine, the version number (i.e. '10.1', '11.0', etc.), or the full path to the CUDA installation
 
  default action (no args) is to build and install 'libcuml', 'cuml', and 'prims' targets only for the detected GPU arch
 
@@ -76,6 +77,7 @@ BUILD_DISABLE_DEPRECATION_WARNING=ON
 BUILD_CUML_STD_COMMS=ON
 BUILD_CPP_MG_TESTS=OFF
 BUILD_STATIC_FAISS=OFF
+CUDA="auto"
 
 # Set defaults for vars that may not have been defined externally
 #  FIXME: if INSTALL_PREFIX is not set, check PREFIX, then check
@@ -112,57 +114,128 @@ if hasArg -h || hasArg --help; then
     exit 0
 fi
 
-# Check for valid usage
-if (( ${NUMARGS} != 0 )); then
-    for a in ${ARGS}; do
-        if ! (echo " ${VALIDARGS} " | grep -q " ${a} "); then
-            echo "Invalid option: ${a}"
-            exit 1
-        fi
-    done
-fi
+# # Check for valid usage
+# if (( ${NUMARGS} != 0 )); then
+#     for a in ${ARGS}; do
+#         if ! (echo " ${VALIDARGS} " | grep -q " ${a} "); then
+#             echo "Invalid option: ${a}"
+#             exit 1
+#         fi
+#     done
+# fi
 
-# Process flags
-if hasArg -v; then
-    VERBOSE=1
-fi
-if hasArg -g; then
-    BUILD_TYPE=Debug
-fi
-if hasArg -n; then
-    INSTALL_TARGET=""
-fi
-if hasArg --allgpuarch; then
-    BUILD_ALL_GPU_ARCH=1
-fi
-if hasArg --singlegpu; then
-    CUML_EXTRA_PYTHON_ARGS="${CUML_EXTRA_PYTHON_ARGS} --singlegpu"
-    SINGLEGPU_CPP_FLAG=ON
-fi
-if hasArg cpp-mgtests; then
-    BUILD_CPP_MG_TESTS=ON
-fi
-if hasArg --buildfaiss; then
-    BUILD_STATIC_FAISS=ON
-fi
-if hasArg --buildgtest; then
-    BUILD_GTEST=ON
-fi
-if hasArg --nvtx; then
-    NVTX=ON
-fi
-if hasArg --show_depr_warn; then
-    BUILD_DISABLE_DEPRECATION_WARNING=OFF
-fi
-if hasArg --codecov; then
-    CUML_EXTRA_PYTHON_ARGS="${CUML_EXTRA_PYTHON_ARGS} --linetrace=1 --profile"
-fi
-if hasArg --ccache; then
-    CCACHE=ON
-fi
+# # Process flags
+# if hasArg -v; then
+#     VERBOSE=1
+# fi
+# if hasArg -g; then
+#     BUILD_TYPE=Debug
+# fi
+# if hasArg -n; then
+#     INSTALL_TARGET=""
+# fi
+# if hasArg --allgpuarch; then
+#     BUILD_ALL_GPU_ARCH=1
+# fi
+# if hasArg --singlegpu; then
+#     CUML_EXTRA_PYTHON_ARGS="${CUML_EXTRA_PYTHON_ARGS} --singlegpu"
+#     SINGLEGPU_CPP_FLAG=ON
+# fi
+# if hasArg cpp-mgtests; then
+#     BUILD_CPP_MG_TESTS=ON
+# fi
+
 if hasArg clean; then
     CLEAN=1
 fi
+
+
+# Long arguments
+LONG_ARGUMENT_LIST=(
+    "verbose"
+    "debug"
+    "no-install"
+    "allgpuarch"
+    "singlegpu"
+    "buildfaiss"
+    "buildgtest"
+    "nvtx"
+    "show_depr_warn"
+    "codecov"
+    "cuda:"
+)
+
+# Short arguments
+ARGUMENT_LIST=(
+    "v"
+    "g"
+    "n"
+)
+
+# read arguments
+opts=$(getopt \
+    --longoptions "$(printf "%s," "${LONG_ARGUMENT_LIST[@]}")" \
+    --name "$(basename "$0")" \
+    --options "$(printf "%s" "${ARGUMENT_LIST[@]}")" \
+    -- "$@"
+)
+
+if [ $? != 0 ] ; then echo "Terminating..." >&2 ; exit 1 ; fi
+
+eval set -- "$opts"
+
+while true; do
+    case "$1" in
+        h)
+            show_help
+            exit 0
+            ;;
+        -v | --verbose )
+            VERBOSE=true
+            ;;
+        -g | --debug )
+            BUILD_TYPE=Debug
+            ;;
+        -n | --no-install )
+            INSTALL_TARGET=""
+            ;;
+        --allgpuarch )
+            BUILD_ALL_GPU_ARCH=1
+            ;;
+        --singlegpu )
+            CUML_EXTRA_PYTHON_ARGS="${CUML_EXTRA_PYTHON_ARGS} --singlegpu"
+            SINGLEGPU_CPP_FLAG=ON
+            ;;
+        --buildfaiss )
+            BUILD_STATIC_FAISS=ON
+            ;;
+        --buildgtest )
+            BUILD_GTEST=ON
+            ;;
+        --nvtx )
+            NVTX=ON
+            ;;
+        --show_depr_warn )
+            BUILD_DISABLE_DEPRECATION_WARNING=OFF
+            ;;
+        --codecov )
+            CUML_EXTRA_PYTHON_ARGS="${CUML_EXTRA_PYTHON_ARGS} --linetrace=1 --profile"
+            ;;
+        --cuda )
+            shift
+            CUDA=$1
+            ;;
+        --ccache )
+            CCACHE=ON
+            ;;
+        --)
+            shift
+            break
+            ;;
+    esac
+    shift
+done
+
 
 # If clean given, run it prior to any other steps
 if (( ${CLEAN} == 1 )); then
@@ -182,6 +255,8 @@ if (( ${CLEAN} == 1 )); then
     cd ${REPODIR}
 fi
 
+# Before
+
 ################################################################################
 # Configure for building all C++ targets
 if completeBuild || hasArg libcuml || hasArg prims || hasArg bench || hasArg prims-bench || hasArg cppdocs || hasArg cpp-mgtests; then
@@ -191,6 +266,33 @@ if completeBuild || hasArg libcuml || hasArg prims || hasArg bench || hasArg pri
     else
         GPU_ARCH="-DGPU_ARCHS=ALL"
         echo "Building for *ALL* supported GPU architectures..."
+    fi
+
+    CUML_CUDA_ROOT=""
+
+    # Now, determine CUDA architecture
+    if [[ "${CUDA}" == "auto" ]]; then
+        # Need to decide if we are doing anything here
+        CUML_CUDA_ROOT="/usr/local/cuda"
+    elif [[ "${CUDA}" =~ ^[0-9]{1,2}\.?[0-9]?$ ]]; then
+        # Number form. Convert to ##.# form
+        major=`echo "$CUDA." | cut -d. -f1`
+        minor=`echo "$CUDA." | cut -d. -f2`
+        CUML_CUDA_ROOT="/usr/local/cuda-${major}.${minor:-0}"
+    else
+        CUML_CUDA_ROOT="${CUDA}"
+    fi
+
+    # Check for the existance of version.txt which CMake uses to identify CUDA
+    if [[ -e "${CUML_CUDA_ROOT}/version.txt" ]]; then
+        echo "Building cuML with $(cat "${CUML_CUDA_ROOT}/version.txt")"
+        export CUDAToolkit_ROOT="$CUML_CUDA_ROOT"
+    elif [[ -x "${CUML_CUDA_ROOT}/bin/nvcc" ]]; then
+        echo "Building cuML with CUDA Version $(${CUML_CUDA_ROOT}/bin/nvcc --version | sed -nr 's/^Cuda compilation tools.*V([0-9]{1,2}\.[0-9]\.[0-9]{0,2})$/\1/p')"
+        export CUDAToolkit_ROOT="$CUML_CUDA_ROOT"
+    else
+        echo "Invalid CUDA directory specified: ${CUML_CUDA_ROOT}"
+        exit -1
     fi
 
     mkdir -p ${LIBCUML_BUILD_DIR}

@@ -14,6 +14,31 @@
 # limitations under the License.
 #=============================================================================
 
+include(FetchContent)
+
+set(BUILD_GMOCK OFF CACHE INTERNAL "Enables/Disables building GMock")  # Forces the value
+
+FetchContent_Declare(
+  googletest
+  GIT_REPOSITORY https://github.com/google/googletest.git
+  GIT_TAG        release-1.10.0
+)
+
+FetchContent_MakeAvailable(googletest)
+
+add_library(GTest::GTest ALIAS gtest)
+add_library(GTest::Main ALIAS gtest_main)
+
+# set_property(TARGET GTest::GTest PROPERTY
+#   IMPORTED_LOCATION ${GTEST_DIR}/lib/libgtest.a)
+# set_property(TARGET GTest::Main PROPERTY
+#   IMPORTED_LOCATION ${GTEST_DIR}/lib/libgtest_main.a)
+
+# set(GTEST_INCLUDE_DIRS "${GTEST_DIR}")
+
+# add_dependencies(GTest::GTest googletest)
+# add_dependencies(GTest::Main googletest)
+
 set(CUML_TEST_INCLUDE_DIRS
   ${GTEST_INCLUDE_DIRS}/include
   ${TREELITE_DIR}/runtime/native/include)
@@ -25,19 +50,15 @@ set(CUML_TEST_LINK_LIBRARIES
   GTest::Main
   treelite::treelite
   treelite::treelite_runtime
-  ${CUDA_cublas_LIBRARY}
-  ${CUDA_curand_LIBRARY}
-  ${CUDA_cusolver_LIBRARY}
-  ${CUDA_CUDART_LIBRARY}
-  ${CUDA_cusparse_LIBRARY}
-  )
+)
 
-set(PRIMS_TEST_LINK_LIBRARIES
-  ${CUDA_cublas_LIBRARY}
-  ${CUDA_curand_LIBRARY}
-  ${CUDA_cusolver_LIBRARY}
-  ${CUDA_CUDART_LIBRARY}
-  ${CUDA_cusparse_LIBRARY})
+# set(PRIMS_TEST_LINK_LIBRARIES
+#   ${CUDA_cublas_LIBRARY}
+#   ${CUDA_curand_LIBRARY}
+#   ${CUDA_cusolver_LIBRARY}
+#   ${CUDA_CUDART_LIBRARY}
+#   ${CUDA_cusparse_LIBRARY}
+# )
 
 ##############################################################################
 # - build ml_test executable -------------------------------------------------
@@ -80,7 +101,7 @@ if(BUILD_CUML_TESTS)
     sg/tsne_test.cu
     sg/tsvd_test.cu
     sg/umap_parametrizable_test.cu
-    )
+  )
 
   target_include_directories(ml
     PRIVATE
@@ -89,7 +110,10 @@ if(BUILD_CUML_TESTS)
       ${CUML_TEST_PRIMS_DIR}
   )
 
-  target_link_libraries(ml ${CUML_TEST_LINK_LIBRARIES} ${CUML_C_TARGET})
+  target_link_libraries(ml
+    PRIVATE
+      ${CUML_TEST_LINK_LIBRARIES}
+      ${CUML_C_TARGET})
 
 endif(BUILD_CUML_TESTS)
 

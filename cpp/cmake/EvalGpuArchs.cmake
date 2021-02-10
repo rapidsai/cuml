@@ -48,12 +48,14 @@ int main(int argc, char** argv) {
 }
 ")
   execute_process(
-    COMMAND ${CUDA_NVCC_EXECUTABLE}
+    COMMAND
+      ${CUDAToolkit_NVCC_EXECUTABLE}
       -o ${eval_exe}
       --run
       ${eval_file}
     OUTPUT_VARIABLE __gpu_archs
-    OUTPUT_STRIP_TRAILING_WHITESPACE)
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+  )
   set(__gpu_archs_filtered "${__gpu_archs}")
   foreach(arch ${__gpu_archs})
     if (arch VERSION_LESS 60)
