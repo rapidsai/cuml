@@ -1,4 +1,12 @@
-# 0.18.0
+# cuML 0.19.0 (Date TBD)
+
+## New Features
+
+## Improvements
+
+## Bug Fixes
+
+# cuML 0.18.0 (Date TBD)
 
 Please see https://github.com/rapidsai/cuml/releases/tag/branch-0.18-latest for the latest changes to this development branch.
 
