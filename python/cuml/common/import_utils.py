@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -83,6 +83,14 @@ def has_pytest_benchmark():
     try:
         import pytest_benchmark  # NOQA
         return True
+    except ImportError:
+        return False
+
+
+def check_min_dask_version(version):
+    try:
+        import dask
+        return LooseVersion(dask.__version__) >= LooseVersion(version)
     except ImportError:
         return False
 

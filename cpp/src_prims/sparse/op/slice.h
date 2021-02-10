@@ -74,8 +74,8 @@ void csr_row_slice_indptr(value_idx start_row, value_idx stop_row,
 
 /**
  * Slice rows from a CSR, populate column and data arrays
- * @tparam[in] value_idx : data type of CSR index arrays
- * @tparam[in] value_t : data type of CSR data array
+ * @tparam value_idx : data type of CSR index arrays
+ * @tparam value_t : data type of CSR data array
  * @param[in] start_offset : beginning column offset to slice
  * @param[in] stop_offset : ending column offset to slice
  * @param[in] indices : column indices array from input CSR
