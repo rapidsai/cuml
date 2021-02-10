@@ -68,8 +68,8 @@ struct ArgMax {
 };
 
 template <typename output_type, bool FULL, int NITEMS, typename tree_type>
-__device__ __forceinline__ vec<NITEMS, output_type> tree_leaf_output
-(tree_type tree, int n_rows, int (&leaves)[NITEMS]) {
+__device__ __forceinline__ vec<NITEMS, output_type> tree_leaf_output(
+  tree_type tree, int n_rows, int (&leaves)[NITEMS]) {
   vec<NITEMS, output_type> out(0);
 #pragma unroll
   for (int j = 0; j < NITEMS; ++j) {
@@ -86,7 +86,6 @@ __device__ __forceinline__ vec<NITEMS, output_type> tree_leaf_output
 template <int NITEMS, typename output_type, typename tree_type>
 __device__ __forceinline__ vec<NITEMS, output_type> infer_one_tree(
   tree_type tree, const float* input, int cols, int n_rows) {
-
   // find the leaf nodes for each row
   int curr[NITEMS];
   // the first n_rows are active
