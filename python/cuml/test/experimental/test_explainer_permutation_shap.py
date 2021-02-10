@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020, NVIDIA CORPORATION.
+# Copyright (c) 2020-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -67,7 +67,7 @@ def test_regression_datasets(exact_tests_dataset, model):
 
     explainer = cuml.experimental.explainer.PermutationExplainer(
         model=mod.predict,
-        masker=X_train)
+        data=X_train)
 
     cu_shap_values = explainer.shap_values(X_test)
 
@@ -77,7 +77,7 @@ def test_regression_datasets(exact_tests_dataset, model):
 
     skmod = cuml_skl_class_dict[model]().fit(X_train, y_train)
 
-    explainer = cuml.experimental.explainer.KernelExplainer(
+    explainer = cuml.experimental.explainer.PermutationExplainer(
         model=skmod.predict,
         data=X_train)
 
@@ -106,7 +106,7 @@ def test_exact_classification_datasets():
 
     explainer = cuml.experimental.explainer.PermutationExplainer(
         model=mod.predict_proba,
-        masker=X_train)
+        data=X_train)
 
     cu_shap_values = explainer.shap_values(X_test)
 
@@ -121,7 +121,7 @@ def test_exact_classification_datasets():
 
     explainer = cuml.experimental.explainer.PermutationExplainer(
         model=mod.predict_proba,
-        masker=X_train)
+        data=X_train)
 
     skl_shap_values = explainer.shap_values(X_test)
 
@@ -157,7 +157,7 @@ def test_different_parameters(dtype, nfeatures, nbackground, model,
 
     cu_explainer = \
         cuml.experimental.explainer.PermutationExplainer(model=mod.predict,
-                                                         masker=X_train,
+                                                         data=X_train,
                                                          is_gpu_model=True)
 
     cu_shap_values = cu_explainer.shap_values(X_test,
@@ -185,12 +185,11 @@ def test_not_shuffled_explanation(exact_tests_dataset):
 
     explainer = cuml.experimental.explainer.PermutationExplainer(
         model=mod.predict,
-        masker=X_train)
+        data=X_train)
 
-    shap_values = explainer._explain(
+    shap_values = explainer.shap_values(
         X_test,
         npermutations=1,
-        main_effects=False,
         testing=True
     )
 
@@ -211,12 +210,11 @@ def test_permutation(exact_tests_dataset):
     X_foreground = np.ones((1, X_train.shape[1]))
     explainer = cuml.experimental.explainer.PermutationExplainer(
         model=mod.predict,
-        masker=X_background)
+        data=X_background)
 
-    shap_values = explainer._explain(
+    shap_values = explainer.shap_values(
         X_foreground,
         npermutations=5,
-        main_effects=False
     )
 
     assert np.allclose(mod.coef_, shap_values, rtol=1e-04, atol=1e-04)

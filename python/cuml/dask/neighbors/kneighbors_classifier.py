@@ -28,12 +28,6 @@ from uuid import uuid1
 import numpy as np
 
 
-def _custom_getter(o):
-    def func_get(f, idx):
-        return f[o][idx]
-    return func_get
-
-
 class KNeighborsClassifier(NearestNeighbors):
     """
     Multi-node Multi-GPU K-Nearest Neighbors Classifier Model.
@@ -92,6 +86,9 @@ class KNeighborsClassifier(NearestNeighbors):
             DistributedDataHandler.create(data=[X, y],
                                           client=self.client)
 
+        # Compute set of possible labels for each output column -> uniq_labels
+        # Count possible labels for each columns -> n_unique
+
         uniq_labels = []
         if self.data_handler.datatype == 'cupy':
             if y.ndim == 1:
@@ -128,19 +125,19 @@ class KNeighborsClassifier(NearestNeighbors):
         return cumlKNN(handle=handle, **kwargs)
 
     @staticmethod
-    def _func_predict(model, data, data_parts_to_ranks, data_nrows,
+    def _func_predict(model, index, index_parts_to_ranks, index_nrows,
                       query, query_parts_to_ranks, query_nrows,
                       uniq_labels, n_unique, ncols, rank, convert_dtype,
                       probas_only):
         if probas_only:
             return model.predict_proba(
-                data, data_parts_to_ranks, data_nrows,
+                index, index_parts_to_ranks, index_nrows,
                 query, query_parts_to_ranks, query_nrows,
                 uniq_labels, n_unique, ncols, rank, convert_dtype
             )
         else:
             return model.predict(
-                data, data_parts_to_ranks, data_nrows,
+                index, index_parts_to_ranks, index_nrows,
                 query, query_parts_to_ranks, query_nrows,
                 uniq_labels, n_unique, ncols, rank, convert_dtype
             )
@@ -237,8 +234,7 @@ class KNeighborsClassifier(NearestNeighbors):
         """
         out_futures = flatten_grouped_results(self.client,
                                               query_parts_to_ranks,
-                                              knn_clf_res,
-                                              getter_func=_custom_getter(0))
+                                              knn_clf_res)
         comms.destroy()
 
         return to_output(out_futures, self.datatype).squeeze()
@@ -359,6 +355,11 @@ class KNeighborsClassifier(NearestNeighbors):
         wait_and_raise_from_futures(list(knn_prob_res.values()))
 
         n_outputs = len(self.n_unique)
+
+        def _custom_getter(o):
+            def func_get(f, idx):
+                return f[o][idx]
+            return func_get
 
         """
         Gather resulting partitions and return result
