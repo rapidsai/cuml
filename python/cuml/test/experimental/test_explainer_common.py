@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020, NVIDIA CORPORATION.
+# Copyright (c) 2020-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -249,4 +249,4 @@ def create_dummy_model(model):
 def dummy_func(x):
     if not isinstance(x, np.ndarray):
         raise TypeError("x must be a NumPy array")
-    return np.mean(x)
+    return np.mean(x, axis=1)
