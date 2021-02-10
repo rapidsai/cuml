@@ -53,7 +53,7 @@ gpuci_conda_retry install -c conda-forge -c rapidsai -c rapidsai-nightly -c nvid
       "dask-cudf=${MINOR_VERSION}" \
       "dask-cuda=${MINOR_VERSION}" \
       "ucx-py=${MINOR_VERSION}" \
-      "xgboost=1.3.0dev.rapidsai${MINOR_VERSION}" \
+      "xgboost=1.3.3dev.rapidsai${MINOR_VERSION}" \
       "rapids-build-env=${MINOR_VERSION}.*" \
       "rapids-notebook-env=${MINOR_VERSION}.*" \
       "rapids-doc-env=${MINOR_VERSION}.*"
@@ -110,7 +110,7 @@ if [[ -z "$PROJECT_FLASH" || "$PROJECT_FLASH" == "0" ]]; then
     ################################################################################
     # TEST - Run GoogleTest and py.tests for libcuml and cuML
     ################################################################################
-    
+
     if hasArg --skip-tests; then
         gpuci_logger "Skipping Tests"
         exit 0
@@ -124,7 +124,7 @@ if [[ -z "$PROJECT_FLASH" || "$PROJECT_FLASH" == "0" ]]; then
     cd $WORKSPACE/cpp/build
     GTEST_OUTPUT="xml:${WORKSPACE}/test-results/libcuml_cpp/" ./test/ml
 
-    
+
     gpuci_logger "Python pytest for cuml"
     cd $WORKSPACE/python
 
@@ -165,7 +165,7 @@ else
     #Project Flash
     export LIBCUML_BUILD_DIR="$WORKSPACE/ci/artifacts/cuml/cpu/conda_work/cpp/build"
     export LD_LIBRARY_PATH="$LIBCUML_BUILD_DIR:$LD_LIBRARY_PATH"
-    
+
     if hasArg --skip-tests; then
         gpuci_logger "Skipping Tests"
         exit 0
@@ -191,7 +191,7 @@ else
     CONDA_FILE=${CONDA_FILE//-/=} #convert to conda install
     gpuci_logger "Installing $CONDA_FILE"
     conda install -c $WORKSPACE/ci/artifacts/cuml/cpu/conda-bld/ "$CONDA_FILE"
-        
+
     gpuci_logger "Building cuml"
     "$WORKSPACE/build.sh" -v cuml --codecov
 
@@ -205,7 +205,7 @@ else
     ################################################################################
     # TEST - Run notebook tests
     ################################################################################
-    
+
     gpuci_logger "Notebook tests"
     set +e -Eo pipefail
     EXITCODE=0
