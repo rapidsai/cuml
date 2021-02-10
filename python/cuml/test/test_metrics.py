@@ -1093,11 +1093,12 @@ def test_pairwise_distances_output_types(input_type, output_type, use_global):
                              stress_param(500000, 200, 100)
                          ])
 @pytest.mark.parametrize("input_type", ["cudf", "cupy"])
-def test_hinge_loss(nrows, ncols, n_info, input_type):
+@pytest.mark.parametrize("n_classes", [2, 5])
+def test_hinge_loss(nrows, ncols, n_info, input_type, n_classes):
     train_rows = np.int32(nrows*0.8)
     X, y = make_classification(n_samples=nrows, n_features=ncols,
                                n_clusters_per_class=1, n_informative=n_info,
-                               random_state=123, n_classes=5)
+                               random_state=123, n_classes=n_classes)
 
     if input_type == "cudf":
         X = cudf.DataFrame(X)
