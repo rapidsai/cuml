@@ -67,16 +67,21 @@ struct ArgMax {
   }
 };
 
-template <typename output_type, bool FULL, int NITEMS, typename tree_type>
+/** tree_leaf_output returns the leaf outputs from the tree with leaf indices
+    given by leaves for n_rows items. FULL_ITEMS indicates whether n_rows ==
+    NITEMS, to allow the compiler to skip the conditional when unrolling the
+    loop. */
+template <typename output_type, bool FULL_NITEMS, int NITEMS, typename tree_type>
 __device__ __forceinline__ vec<NITEMS, output_type> tree_leaf_output(
   tree_type tree, int n_rows, int (&leaves)[NITEMS]) {
   vec<NITEMS, output_type> out(0);
 #pragma unroll
   for (int j = 0; j < NITEMS; ++j) {
-    if (FULL || j < n_rows) {
-      /** dependent names are not considered templates by default,
-          unless it's a member of a current [template] instantiation.
-          alternatively, could have used .base_node::output<... */
+    if (FULL_NITEMS || j < n_rows) {
+      /** dependent names are not considered templates by default, unless it's a
+          member of a current [template] instantiation. As output<>() is a
+          member function inherited from the base class, template
+          output<output_type>() is required. */
       out[j] = tree[leaves[j]].template output<output_type>();
     }
   }
