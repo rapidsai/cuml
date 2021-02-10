@@ -37,7 +37,7 @@ endfunction()
 
 set(CUML_MIN_VERSION_raft "${CUML_VERSION_MAJOR}.${CUML_VERSION_MINOR}")
 
-find_and_configure_raft(VERSION ${CUML_MIN_VERSION_raft}
+find_and_configure_raft(VERSION    ${CUML_MIN_VERSION_raft}
                         PINNED_TAG 842af95285714104a8eee2d9a3794d264744e7e8
                         )
 
