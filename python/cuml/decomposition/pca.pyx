@@ -729,18 +729,6 @@ class PCA(Base,
             ["copy", "iterated_power", "n_components", "svd_solver", "tol",
                 "whiten", "random_state"]
 
-    def __getstate__(self):
-        state = self.__dict__.copy()
-        # Remove the unpicklable handle.
-        if 'handle' in state:
-            del state['handle']
-
-        return state
-
-    def __setstate__(self, state):
-        self.__dict__.update(state)
-        self.handle = Handle()
-
     def _check_is_fitted(self, attr):
         if not hasattr(self, attr) or (getattr(self, attr) is None):
             msg = ("This instance is not fitted yet. Call 'fit' "

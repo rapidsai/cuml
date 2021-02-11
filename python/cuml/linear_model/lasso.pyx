@@ -200,9 +200,3 @@ class Lasso(Base,
             "tol",
             "selection",
         ]
-
-    @staticmethod
-    def _more_static_tags():
-        return {
-            'preferred_input_order': 'F'
-        }

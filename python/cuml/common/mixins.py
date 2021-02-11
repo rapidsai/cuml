@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020, NVIDIA CORPORATION.
+# Copyright (c) 2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,8 +19,14 @@ import cuml.internals
 from cuml.common.doc_utils import generate_docstring
 
 
+###############################################################################
+#                          Estimator Type Mixins                              #
+###############################################################################
+
 class RegressorMixin:
-    """Mixin class for regression estimators in cuML"""
+    """
+    Mixin class for regression estimators in cuML
+    """
 
     _estimator_type = "regressor"
 
@@ -57,7 +63,9 @@ class RegressorMixin:
 
 
 class ClassifierMixin:
-    """Mixin class for classifier estimators in cuML"""
+    """
+    Mixin class for classifier estimators in cuML
+    """
 
     _estimator_type = "classifier"
 
@@ -93,7 +101,28 @@ class ClassifierMixin:
         }
 
 
+class ClusterMixin:
+    """
+    Mixin class for clustering estimators in cuML.
+    """
+
+    _estimator_type = "clusterer"
+
+    @staticmethod
+    def _more_static_tags():
+        return {
+            'requires_y': False
+        }
+
+
+###############################################################################
+#                              Input Mixins                                   #
+###############################################################################
+
 class FMajorInputTagMixin:
+    """
+    Mixin class for estimators that prefer inputs in F (column major) order.
+    """
 
     @staticmethod
     def _more_static_tags():
@@ -103,6 +132,9 @@ class FMajorInputTagMixin:
 
 
 class CMajorInputTagMixin:
+    """
+    Mixin class for estimators that prefer inputs in C (row major) order.
+    """
 
     @staticmethod
     def _more_static_tags():
@@ -112,10 +144,41 @@ class CMajorInputTagMixin:
 
 
 class SparseInputTagMixin:
+    """
+    Mixin class for estimators that can take (GPU and host) sparse inputs.
+    """
 
     @staticmethod
     def _more_static_tags():
         return {
             'X_types_gpu': ['2darray', 'sparse'],
             'X_types': ['2darray', 'sparse']
+        }
+
+
+class AllowNaNTagMixin:
+    """
+    Mixin class for estimators that allow NaNs in their inputs.
+    """
+
+    @staticmethod
+    def _more_static_tags():
+        return {
+            'allow_nan': True
+        }
+
+###############################################################################
+#                              Other Mixins                                   #
+###############################################################################
+
+
+class StatelessTagMixin:
+    """
+    Mixin class for estimators that are stateless.
+    """
+
+    @staticmethod
+    def _more_static_tags():
+        return {
+            'stateless': True
         }

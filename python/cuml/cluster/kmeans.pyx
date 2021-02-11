@@ -31,6 +31,7 @@ from cuml.common.array import CumlArray
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.base import Base
 from cuml.common.doc_utils import generate_docstring
+from cuml.common.mixins import ClusterMixin
 from cuml.common.mixins import CMajorInputTagMixin
 from cuml.common import input_to_cuml_array
 from cuml.cluster.kmeans_utils cimport *
@@ -100,6 +101,7 @@ cdef extern from "cuml/cluster/kmeans.hpp" namespace "ML::kmeans":
 
 
 class KMeans(Base,
+             ClusterMixin,
              CMajorInputTagMixin):
 
     """
@@ -624,9 +626,3 @@ class KMeans(Base,
             ['n_init', 'oversampling_factor', 'max_samples_per_batch',
                 'init', 'max_iter', 'n_clusters', 'random_state',
                 'tol']
-
-    @staticmethod
-    def _more_static_tags():
-        return {
-            'preferred_input_order': 'C'
-        }

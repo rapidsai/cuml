@@ -33,26 +33,26 @@ _default_tags = {
     # cuML specific tags
     'preferred_input_order': None,
     'X_types_gpu': ['2darray'],
-    'dynamic_tags': False,
 
     # Scikit-learn API standard tags
+    'allow_nan': False,
+    'binary_only': False,
+    'multilabel': False,
+    'multioutput': False,
+    'multioutput_only': False,
+    'no_validation': False,
     'non_deterministic': False,
+    'pairwise': False,
+    'poor_score': False,
+    'preserves_dtype': [],
+    'requires_fit': True,
     'requires_positive_X': False,
     'requires_positive_y': False,
-    'X_types': ['2darray'],
-    'poor_score': False,
-    'no_validation': False,
-    'multioutput': False,
-    'allow_nan': False,
+    'requires_y': False,
     'stateless': False,
-    'multilabel': False,
+    'X_types': ['2darray'],
     '_skip_test': False,
     '_xfail_checks': False,
-    'multioutput_only': False,
-    'binary_only': False,
-    'requires_fit': True,
-    'requires_y': False,
-    'pairwise': False,
 }
 
 
@@ -403,6 +403,12 @@ class Base(metaclass=cuml.internals.BaseMetaClass):
                 more_tags = self._more_tags()
                 dynamic_tags.update(more_tags)
         collected_tags.update(dynamic_tags)
+
+        # by default, our transform methods convert to self.dtype, but
+        # we need to check whether the tag has been defined already.
+        if hasattr(self, 'transform') and hasattr(self, 'dtype') and \
+                collected_tags['preserves_dtype'] == []:
+            collected_tags['preserves_dtype'] = [self.dtype]
         return collected_tags
 
 

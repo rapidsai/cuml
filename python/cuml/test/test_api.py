@@ -21,6 +21,7 @@ from cuml.test.utils import ClassEnumerator
 import numpy as np
 import cupy as cp
 
+from cuml.common.mixins import RegressorMixin
 from sklearn.datasets import make_classification
 
 
@@ -42,8 +43,8 @@ def func_positional_arg(func):
 @pytest.fixture(scope="session")
 def dataset():
     X, y = make_classification(100, 5, random_state=42)
-    X = X.astype(np.float32)
-    y = y.astype(np.float32)
+    X = X.astype(np.float64)
+    y = y.astype(np.float64)
     return X, y
 
 
@@ -78,20 +79,20 @@ tags = {
 }
 
 
-class dummy_estimator(Base):
+class dummy_regressor_estimator(Base,
+                                RegressorMixin):
     def __init__(self, handle=None):
-        super(dummy_estimator).__init__(handle=handle)
-        self.po = 'dynamic'
+        super().__init__(handle=handle)
 
     @staticmethod
     def _more_static_tags():
         return {
-            'preferred_input_order': 'static'
+            'X_types': ['categorical']
         }
 
     def _more_tags(self):
         return {
-            'preferred_input_order': self.po
+            'X_types': ['string']
         }
 
 
@@ -120,12 +121,14 @@ def test_get_tags(model):
 
 
 def test_dynamic_tags():
-    estimator = dummy_estimator()
+    estimator = dummy_regressor_estimator()
+    static_tags = dummy_regressor_estimator._get_tags()
+    assert static_tags['X_types'] == ['categorical']
+    assert estimator._get_tags()['X_types'] == ['string']
 
-    assert dummy_estimator._get_tags()['preferred_input_order'] == 'static'
-    assert dummy_estimator._get_tags()['dynamic_tags'] is True
-    assert estimator._get_tags()['preferred_input_order'] == 'dynamic'
-    assert estimator._get_tags()['dynamic_tags'] is True
+
+def test_estimator_type_attribute():
+    assert True
 
 
 @pytest.mark.parametrize("model_name", list(models.keys()))

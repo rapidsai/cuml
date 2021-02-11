@@ -147,7 +147,9 @@ class BaseMetaClass(type):
 
 class _tags_class_and_instance:
     """
-    Decorator for dynamic and static _get_tags
+    Decorator for Base class to allow for dynamic and static _get_tags.
+    In general, most methods are either dynamic or static, so this decorator
+    is only meant to be used in the Base estimator.
     """
 
     def __init__(self, _class, _instance=None):

@@ -32,6 +32,7 @@ from cuml.raft.common.handle cimport handle_t
 from cuml.common import input_to_cuml_array
 from cuml.common import using_output_type
 from cuml.common.array_descriptor import CumlArrayDescriptor
+from cuml.common.mixins import ClusterMixin
 from cuml.common.mixins import CMajorInputTagMixin
 
 from collections import defaultdict
@@ -89,6 +90,7 @@ cdef extern from "cuml/cluster/dbscan.hpp" \
 
 
 class DBSCAN(Base,
+             ClusterMixin,
              CMajorInputTagMixin):
     """
     DBSCAN is a very powerful yet fast clustering technique that finds clusters
