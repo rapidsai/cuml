@@ -30,7 +30,7 @@
 #include <iostream>
 #include <limits>
 
-#include <sparse/utils.h>
+#include "../utils.h"
 
 namespace raft {
 namespace sparse {

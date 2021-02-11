@@ -2,6 +2,11 @@
 cuML API Reference
 ~~~~~~~~~~~~~~~~~~~
 
+.. role:: py(code)
+   :language: python
+   :class: highlight
+
+
 Module Configuration
 ====================
 
@@ -412,6 +417,12 @@ ARIMA
 Multi-Node, Multi-GPU Algorithms
 ================================
 
+DBSCAN Clustering
+--------------------
+
+.. autoclass:: cuml.dask.cluster.DBSCAN
+    :members:
+
 K-Means Clustering
 --------------------
 
@@ -527,4 +538,9 @@ Model Explanation (SHAP)
    :members:
 
 .. autoclass:: cuml.experimental.explainer.PermutationExplainer
+   :members:
+
+Linear Models
+-------------
+.. autoclass:: cuml.experimental.linear_model.Lars
    :members:
