@@ -29,7 +29,6 @@ __device__ void gpu_hashtable_insert(KeyValue<value_idx, value_t> *hashtable,
 	
    if (prev == kEmpty || prev == key) {	
      hashtable[slot].value = value;	
-     printf("key added on iter: %d\n", n_iter);
      break;	
    }	
 	

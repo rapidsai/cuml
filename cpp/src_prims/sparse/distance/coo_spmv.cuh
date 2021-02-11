@@ -131,7 +131,7 @@ __global__ void balanced_coo_generalized_spmv_kernel(
   namespace cg   = cooperative_groups;
   using insert_map_type = typename cuco::static_map<value_idx, value_t, cuda::thread_scope_block>::device_mutable_view;
   __shared__ typename insert_map_type::slot_type A[4000];
-  auto insert_map = insert_map_type::make_from_uninitialized_slots(cg::this_thread_block(), &A[0], 4000, -1, -1);
+  auto insert_map = insert_map_type::make_from_uninitialized_slots(cg::this_thread_block(), &A[0], 4000, -1, 0);
 
   // __shared__ kv_t A[4000];
   __shared__ value_idx offsets_a[2];
@@ -155,19 +155,20 @@ __global__ void balanced_coo_generalized_spmv_kernel(
     // typename insert_map_type::value_type pair {indicesA[start_offset_a + i], dataA[start_offset_a + i]};
     // pair.first = indicesA[start_offset_a + i];
     // pair.second = dataA[start_offset_a + i];
-    printf("trying to insert, threadIdx.x: %d, blockIdx.x: %d, width: %d, ind: %d, a_col: %f\n", threadIdx.x, blockIdx.x, (stop_offset_a - start_offset_a), indicesA[start_offset_a + i], dataA[start_offset_a + i]);
+    // gpu_hashtable_insert(A, indicesA[start_offset_a + i], dataA[start_offset_a + i], dim);
+    // printf("trying to insert, threadIdx.x: %d, blockIdx.x: %d, width: %d, ind: %d, a_col: %f\n", threadIdx.x, blockIdx.x, (stop_offset_a - start_offset_a), indicesA[start_offset_a + i], dataA[start_offset_a + i]);
     auto success = insert_map.insert(thrust::make_pair(indicesA[start_offset_a + i], dataA[start_offset_a + i]));
-    printf("inserting, blockIdx.x: %d, ind: %d, a_col: %f, success: %d, \n", blockIdx.x, indicesA[start_offset_a + i], dataA[start_offset_a + i], success);
+    // if (!rev) printf("inserting, tid: %d, row_a: %d, a_index: %d, value: %f\n", tid, cur_row_a, indicesA[start_offset_a + i], dataA[start_offset_a + i]);
 
     // A[indicesA[start_offset_a + i]] = dataA[start_offset_a + i];
 
-    // gpu_hashtable_insert(A, indicesA[start_offset_a + i], dataA[start_offset_a + i], dim);
   }
 
-  cg::this_thread_block().sync();
+  __syncthreads();
+  // cg::this_thread_block().sync();
 
   using find_map_type = typename cuco::static_map<value_idx, value_t, cuda::thread_scope_block>::device_view;
-  auto find_map = find_map_type(&A[0], 4000, -1, -1);
+  auto find_map = find_map_type(&A[0], 4000, -1, 0);
 
   if (cur_row_a > m || cur_chunk_offset > n_blocks_per_row) return;
   if (ind >= nnz_b) return;
@@ -182,10 +183,15 @@ __global__ void balanced_coo_generalized_spmv_kernel(
     cur_row_b = rowsB[ind];
     // value_t a_col = A[indicesB[ind]];
     auto a_pair = find_map.find(indicesB[ind]);
-    value_t a_col = a_pair->second;
-    printf("finding, blockIdx.x: %d, ind: %d, a_col: %f\n", blockIdx.x, indicesB[ind], a_col);
+    value_t a_col = 0.0;
+    if (a_pair != find_map.end()) {
+      a_col = a_pair->second;
+    }
     // value_t a_col = gpu_hashtable_lookup(A, indicesB[ind], dim);
-    if (!rev || a_col == 0.0) c = product_func(a_col, dataB[ind]);
+    // if (!rev && a_col == 0.0) printf("finding, tid: %d, row_a: %d, row_b: %d, b_index: %d, value: %f\n", tid, cur_row_a, cur_row_b, indicesB[ind], a_col);
+    if (!rev || a_col == 0.0) {
+      c = product_func(a_col, dataB[ind]);
+    }
   }
 
   // loop through chunks in parallel, reducing when a new row is
@@ -219,8 +225,12 @@ __global__ void balanced_coo_generalized_spmv_kernel(
     if (next_row_b != -1) {
       ind = ind_next;
       auto a_pair = find_map.find(indicesB[ind]);
-      value_t a_col = a_pair->second;
+      value_t a_col = 0.0;
+      if (a_pair != find_map.end()) {
+        a_col = a_pair->second;
+      }
       // value_t a_col = gpu_hashtable_lookup(A, indicesB[ind], dim);
+      // if (!rev && a_col == 0.0) printf("finding, tid: %d, row_a: %d, row_b: %d, b_index: %d, value: %f\n", tid, cur_row_a, cur_row_b, indicesB[ind], a_col);
       if (!rev || a_col == 0.0)
         c = accum_func(c, product_func(a_col, dataB[ind]));
       cur_row_b = next_row_b;
