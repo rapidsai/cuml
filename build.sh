@@ -227,8 +227,6 @@ fi
 
 # If `./build.sh cuml` is called, don't build C/C++ components
 if completeBuild || hasArg libcuml || hasArg prims || hasArg bench || hasArg cpp-mgtests; then
-    # If there are no targets specified when calling build.sh, it will
-    # just call `make -j`. This avoids a lot of extra printing
     cd ${LIBCUML_BUILD_DIR}
     build_args="--target ${MAKE_TARGETS} ${INSTALL_TARGET}"
     if [ ! -z ${VERBOSE} ]
@@ -239,7 +237,6 @@ if completeBuild || hasArg libcuml || hasArg prims || hasArg bench || hasArg cpp
     then
       build_args="-j${PARALLEL_LEVEL} ${build_args}"
     fi
-    echo "cmake --build ${LIBCUML_BUILD_DIR} ${build_args}"
     cmake --build ${LIBCUML_BUILD_DIR} ${build_args}
 fi
 
