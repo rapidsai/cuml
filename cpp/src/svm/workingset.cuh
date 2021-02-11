@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,9 +22,8 @@
 #include <raft/cudart_utils.h>
 #include <thrust/device_ptr.h>
 #include <thrust/iterator/permutation_iterator.h>
-#include <common/cumlHandle.hpp>
-#include <common/device_buffer.hpp>
 #include <cub/cub.cuh>
+#include <cuml/common/device_buffer.hpp>
 #include <raft/cuda_utils.cuh>
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/unary_op.cuh>

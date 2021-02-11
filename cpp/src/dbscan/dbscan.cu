@@ -13,10 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include <cuml/cuml_api.h>
-#include <raft/cudart_utils.h>
-#include <common/cumlHandle.hpp>
+
 #include <cuml/cluster/dbscan.hpp>
+
+#include <raft/cudart_utils.h>
 #include "dbscan.cuh"
 
 namespace ML {

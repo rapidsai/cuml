@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,13 +21,12 @@
 #include <thrust/iterator/counting_iterator.h>
 #include <cub/cub.cuh>
 
+#include <cuml/common/device_buffer.hpp>
 #include <cuml/cuml.hpp>
 #include <cuml/tsa/batched_kalman.hpp>
 
 #include <raft/cudart_utils.h>
 #include <raft/linalg/cublas_wrappers.h>
-#include <common/cumlHandle.hpp>
-#include <common/device_buffer.hpp>
 #include <common/nvtx.hpp>
 #include <linalg/batched/matrix.cuh>
 #include <raft/cuda_utils.cuh>
