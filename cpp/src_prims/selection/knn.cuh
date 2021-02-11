@@ -38,11 +38,10 @@
 #include <thrust/iterator/transform_iterator.h>
 
 #include <raft/linalg/distance_type.h>
+#include "processing.cuh"
 
-#include <selection/processing.cuh>
-
-#include <common/device_buffer.hpp>
 #include <cuml/common/cuml_allocator.hpp>
+#include <cuml/common/device_buffer.hpp>
 #include <cuml/neighbors/knn.hpp>
 
 #include <iostream>

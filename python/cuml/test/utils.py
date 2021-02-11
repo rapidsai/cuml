@@ -129,6 +129,45 @@ def clusters_equal(a0, b0, n_clusters, tol=1e-4):
     return array_equal(a, b, total_tol=tol)
 
 
+def assert_dbscan_equal(ref, actual, X, core_indices, eps):
+    """
+    Utility function to compare two numpy label arrays.
+    The labels of core/noise points are expected to be equal, and the labels
+    of border points are verified by finding a neighboring core point with the
+    same label.
+    """
+    core_set = set(core_indices)
+    N, _ = X.shape
+    eps2 = eps**2
+
+    def sqnorm(x):
+        return np.inner(x, x)
+
+    for i in range(N):
+        la, lb = ref[i], actual[i]
+
+        if i in core_set:  # core point
+            assert la == lb, ("Core point mismatch at #{}: "
+                              "{} (expected {})".format(i, lb, la))
+        elif la == -1:  # noise point
+            assert lb == -1, "Noise mislabelled at #{}: {}".format(i, lb)
+        else:  # border point
+            found = False
+            for j in range(N):
+                # Check if j is a core point with the same label
+                if j in core_set and lb == actual[j]:
+                    # Check if j is a neighbor of i
+                    if sqnorm(X[i] - X[j]) <= eps2:
+                        found = True
+                        break
+            assert found, ("Border point not connected to cluster at #{}: "
+                           "{} (reference: {})".format(i, lb, la))
+
+    # Note: we can also do it in a rand score fashion by checking that pairs
+    # correspond in both label arrays for core points, if we need to drop the
+    # requirement of minimality for core points
+
+
 def get_handle(use_handle, n_streams=0):
     if not use_handle:
         return None, None

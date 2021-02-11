@@ -17,7 +17,6 @@
 #pragma once
 
 #include <raft/cudart_utils.h>
-#include <common/cumlHandle.hpp>
 #include <raft/linalg/gemm.cuh>
 #include <raft/linalg/norm.cuh>
 #include <raft/matrix/math.cuh>

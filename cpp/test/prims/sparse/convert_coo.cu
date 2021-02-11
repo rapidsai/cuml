@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,62 +30,69 @@
 namespace raft {
 namespace sparse {
 
-template <typename T>
-struct SparseConvertCOOInputs {
-  int m, n, nnz;
-  unsigned long long int seed;
+template <typename Index_>
+struct CSRtoCOOInputs {
+  std::vector<Index_> ex_scan;
+  std::vector<Index_> verify;
 };
 
-template <typename T>
-class SparseConvertCOOTest
-  : public ::testing::TestWithParam<SparseConvertCOOInputs<T>> {
+template <typename Index_>
+class CSRtoCOOTest : public ::testing::TestWithParam<CSRtoCOOInputs<Index_>> {
  protected:
-  void SetUp() override {}
+  void SetUp() override {
+    params = ::testing::TestWithParam<CSRtoCOOInputs<Index_>>::GetParam();
 
-  void TearDown() override {}
+    cudaStreamCreate(&stream);
+    raft::allocate(ex_scan, params.ex_scan.size());
+    raft::allocate(verify, params.verify.size());
+    raft::allocate(result, params.verify.size(), true);
+  }
+
+  void Run() {
+    Index_ n_rows = params.ex_scan.size();
+    Index_ nnz = params.verify.size();
+
+    raft::update_device(ex_scan, params.ex_scan.data(), n_rows, stream);
+    raft::update_device(verify, params.verify.data(), nnz, stream);
+
+    convert::csr_to_coo<Index_, 32>(ex_scan, n_rows, result, nnz, stream);
+
+    ASSERT_TRUE(raft::devArrMatch<Index_>(verify, result, nnz,
+                                          raft::Compare<float>(), stream));
+  }
+
+  void TearDown() override {
+    CUDA_CHECK(cudaFree(ex_scan));
+    CUDA_CHECK(cudaFree(verify));
+    CUDA_CHECK(cudaFree(result));
+    CUDA_CHECK(cudaStreamDestroy(stream));
+  }
 
  protected:
-  SparseConvertCOOInputs<T> params;
-};
-
-const std::vector<SparseConvertCOOInputs<float>> inputsf = {
-  {5, 10, 5, 1234ULL}};
-
-typedef SparseConvertCOOTest<float> CSRToCOO;
-TEST_P(CSRToCOO, Result) {
+  CSRtoCOOInputs<Index_> params;
   cudaStream_t stream;
-  cudaStreamCreate(&stream);
+  Index_ *ex_scan, *verify, *result;
+};
 
-  int *ex_scan;
-  int *result, *verify;
+using CSRtoCOOTestI = CSRtoCOOTest<int>;
+TEST_P(CSRtoCOOTestI, Result) { Run(); }
 
-  int *ex_scan_h = new int[4]{0, 4, 8, 9};
-  int *verify_h = new int[10]{0, 0, 0, 0, 1, 1, 1, 1, 2, 3};
+using CSRtoCOOTestL = CSRtoCOOTest<int64_t>;
+TEST_P(CSRtoCOOTestL, Result) { Run(); }
 
-  raft::allocate(verify, 10);
-  raft::allocate(ex_scan, 4);
-  raft::allocate(result, 10, true);
+const std::vector<CSRtoCOOInputs<int>> csrtocoo_inputs_32 = {
+  {{0, 0, 2, 2}, {1, 1, 3}},
+  {{0, 4, 8, 9}, {0, 0, 0, 0, 1, 1, 1, 1, 2, 3}},
+};
+const std::vector<CSRtoCOOInputs<int64_t>> csrtocoo_inputs_64 = {
+  {{0, 0, 2, 2}, {1, 1, 3}},
+  {{0, 4, 8, 9}, {0, 0, 0, 0, 1, 1, 1, 1, 2, 3}},
+};
 
-  raft::update_device(ex_scan, ex_scan_h, 4, stream);
-  raft::update_device(verify, verify_h, 10, stream);
-
-  convert::csr_to_coo<int, 32>(ex_scan, 4, result, 10, stream);
-
-  ASSERT_TRUE(
-    raft::devArrMatch<int>(verify, result, 10, raft::Compare<float>(), stream));
-
-  delete[] ex_scan_h;
-  delete[] verify_h;
-
-  CUDA_CHECK(cudaFree(ex_scan));
-  CUDA_CHECK(cudaFree(verify));
-  CUDA_CHECK(cudaFree(result));
-
-  cudaStreamDestroy(stream);
-}
-
-INSTANTIATE_TEST_CASE_P(SparseConvertCOOTest, CSRToCOO,
-                        ::testing::ValuesIn(inputsf));
+INSTANTIATE_TEST_CASE_P(SparseConvertCOOTest, CSRtoCOOTestI,
+                        ::testing::ValuesIn(csrtocoo_inputs_32));
+INSTANTIATE_TEST_CASE_P(SparseConvertCOOTest, CSRtoCOOTestL,
+                        ::testing::ValuesIn(csrtocoo_inputs_64));
 
 }  // namespace sparse
 }  // namespace raft

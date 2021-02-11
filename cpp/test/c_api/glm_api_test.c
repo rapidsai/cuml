@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,21 +14,15 @@
  * limitations under the License.
  */
 
-#pragma once
+#include <cuml/linear_model/glm_api.h>
 
-namespace raft {
+void test_glm() {
 
-namespace sparse {
+   cumlHandle_t handle = 0;
+   cumlError_t response = CUML_SUCCESS;
 
-template <typename T>
-struct CSRInputs {
-  int m, n, nnz;
-  unsigned long long int seed;
-};
+   response = cumlSpQnFit(handle, NULL, NULL, 0, 1, 2, false, 1.0f, 2.0f, 3, 3.0f, 4, 5, 6, NULL, NULL, NULL, true, 7);
 
-template <typename T>
-::std::ostream &operator<<(::std::ostream &os, const CSRInputs<T> &dims) {
-  return os;
+   response = cumlDpQnFit(handle, NULL, NULL, 0, 1, 2, false, 1.0f, 2.0f, 3, 3.0f, 4, 5, 6, NULL, NULL, NULL, true, 7);
+
 }
-}  // namespace sparse
-}  // namespace raft

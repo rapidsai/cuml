@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -148,7 +148,7 @@ void initSplit(Split<DataT, IdxT>* splits, IdxT len, cudaStream_t s) {
 template <typename DataT, typename IdxT, int TPB = 256>
 void printSplits(Split<DataT, IdxT>* splits, IdxT len, cudaStream_t s) {
   auto op = [] __device__(Split<DataT, IdxT> * ptr, IdxT idx) {
-    printf("quesval = %f, colid = %d, best_metric_val = %f, nLeft = %d\n",
+    printf("quesval = %e, colid = %d, best_metric_val = %e, nLeft = %d\n",
            ptr->quesval, ptr->colid, ptr->best_metric_val, ptr->nLeft);
   };
   raft::linalg::writeOnlyUnaryOp<Split<DataT, IdxT>, decltype(op), IdxT, TPB>(

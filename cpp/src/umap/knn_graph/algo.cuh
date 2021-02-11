@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+#pragma once
+
 #include <cuml/manifold/umapparams.h>
 #include <raft/linalg/distance_type.h>
 #include <cuml/manifold/common.hpp>
@@ -27,8 +29,6 @@
 
 #include <raft/sparse/cusparse_wrappers.h>
 #include <raft/error.hpp>
-
-#pragma once
 
 namespace UMAPAlgo {
 namespace kNNGraph {

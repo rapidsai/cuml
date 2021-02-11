@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,9 +28,9 @@
 #include <cub/device/device_scan.cuh>
 
 #include <raft/cudart_utils.h>
-#include <common/device_buffer.hpp>
 #include <common/fast_int_div.cuh>
 #include <cuml/common/cuml_allocator.hpp>
+#include <cuml/common/device_buffer.hpp>
 
 namespace ML {
 namespace TimeSeries {

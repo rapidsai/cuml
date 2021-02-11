@@ -1,15 +1,11 @@
-# cuML 0.18.0 (Date TBD)
+# 0.18.0
+
+Please see https://github.com/rapidsai/cuml/releases/tag/branch-0.18-latest for the latest changes to this development branch.
+
+# cuML 0.17.0 (10 Dec 2020)
 
 ## New Features
-
-## Improvements
-
-## Bug Fixes
-- PR #3279: Correct pure virtual declaration in manifold_inputs_t
-
-# cuML 0.17.0 (Date TBD)
-
-## New Features
+- PR #3164: Expose silhouette score in Python
 - PR #3160: Least Angle Regression (experimental)
 - PR #2659: Add initial max inner product sparse knn
 - PR #3092: Multiclass meta estimator wrappers and multiclass SVC
@@ -65,8 +61,6 @@
 - PR #3275: Return confusion matrix as int unless float weights are used
 
 ## Bug Fixes
-- PR #3164: Expose silhouette score in Python
-- PR #3258: Revert silhouette_score Python exposure due to memory issue
 - PR #3218: Specify dependency branches in conda dev environment to avoid pip resolver issue
 - PR #3196: Disable ascending=false path for sortColumnsPerRow
 - PR #3051: MNMG KNN Cl&Re fix + multiple improvements

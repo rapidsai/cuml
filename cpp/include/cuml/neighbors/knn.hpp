@@ -19,7 +19,6 @@
 #include <faiss/gpu/GpuIndex.h>
 #include <faiss/gpu/StandardGpuResources.h>
 #include <raft/linalg/distance_type.h>
-#include <common/cumlHandle.hpp>
 #include <cuml/common/logger.hpp>
 #include <cuml/cuml.hpp>
 
