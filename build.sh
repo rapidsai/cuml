@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright (c) 2019-2020, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 
 # cuml build script
 
@@ -227,15 +227,22 @@ fi
 
 # If `./build.sh cuml` is called, don't build C/C++ components
 if completeBuild || hasArg libcuml || hasArg prims || hasArg bench || hasArg cpp-mgtests; then
-    # If there are no targets specified when calling build.sh, it will
-    # just call `make -j`. This avoids a lot of extra printing
     cd ${LIBCUML_BUILD_DIR}
-    make -j${PARALLEL_LEVEL} ${MAKE_TARGETS} VERBOSE=${VERBOSE} ${INSTALL_TARGET}
+    build_args="--target ${MAKE_TARGETS} ${INSTALL_TARGET}"
+    if [ ! -z ${VERBOSE} ]
+    then
+      build_args="-v ${build_args}"
+    fi
+    if [ ! -z ${PARALLEL_LEVEL} ]
+    then
+      build_args="-j${PARALLEL_LEVEL} ${build_args}"
+    fi
+    cmake --build ${LIBCUML_BUILD_DIR} ${build_args}
 fi
 
 if hasArg cppdocs; then
     cd ${LIBCUML_BUILD_DIR}
-    make doc
+    cmake --build ${LIBCUML_BUILD_DIR} --target doc
 fi
 
 
@@ -250,6 +257,6 @@ if completeBuild || hasArg cuml || hasArg pydocs; then
 
     if hasArg pydocs; then
         cd ${REPODIR}/docs
-        make html
+        cmake --build ${LIBCUML_BUILD_DIR} --target html
     fi
 fi
