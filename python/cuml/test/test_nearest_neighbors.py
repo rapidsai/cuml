@@ -156,8 +156,10 @@ def test_self_neighboring(datatype, metric_p, nrows):
 def test_neighborhood_predictions(nrows, ncols, n_neighbors, n_clusters,
                                   datatype, algo):
     if algo == "ivfpq":
-        pytest.xfail("""See Memory access error in IVFPQ :
-                        https://github.com/rapidsai/cuml/issues/3318""")
+        pytest.xfail("Warning: IVFPQ might be unstable in this "
+                     "version of cuML. This is due to a known issue "
+                     "in the FAISS release that this cuML version "
+                     "is linked to. (see FAISS issue #1421)")
 
     if not has_scipy():
         pytest.skip('Skipping test_neighborhood_predictions because ' +
@@ -220,11 +222,14 @@ def test_ivfflat_pred(nrows, ncols, n_neighbors, nlist):
 @pytest.mark.parametrize("nrows", [4000])
 @pytest.mark.parametrize("ncols", [128, 512])
 @pytest.mark.parametrize("n_neighbors", [8])
-@pytest.mark.xfail
-#  See Memory access error in IVFPQ :
-#  https://github.com/rapidsai/cuml/issues/3318
 def test_ivfpq_pred(nrows, ncols, n_neighbors,
                     nlist, M, n_bits, usePrecomputedTables):
+
+    pytest.xfail("Warning: IVFPQ might be unstable in this "
+                 "version of cuML. This is due to a known issue "
+                 "in the FAISS release that this cuML version "
+                 "is linked to. (see FAISS issue #1421)")
+
     algo_params = {
         'nlist': nlist,
         'nprobe': int(nlist * 0.2),
