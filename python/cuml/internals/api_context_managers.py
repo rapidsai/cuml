@@ -53,10 +53,10 @@ def _using_mirror_output_type():
     """
     prev_output_type = cuml.global_output_type
     try:
-        cuml.global_output_type = "mirror"
+        cuml.global_settings.output_type = "mirror"
         yield prev_output_type
     finally:
-        cuml.global_output_type = prev_output_type
+        cuml.global_settings.output_type = prev_output_type
 
 
 global_output_type_data = threading.local()

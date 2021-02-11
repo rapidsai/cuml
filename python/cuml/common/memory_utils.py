@@ -419,7 +419,7 @@ def set_global_output_type(output_type):
         raise ValueError('Parameter output_type must be one of "numpy", '
                          '"cupy", cudf", "numba", "input" or None')
 
-    cuml.global_output_type = output_type
+    cuml.global_settings.output_type = output_type
 
 
 @contextlib.contextmanager
@@ -509,7 +509,7 @@ def using_output_type(output_type):
         set_global_output_type(output_type)
         yield prev_output_type
     finally:
-        cuml.global_output_type = prev_output_type
+        cuml.global_settings.output_type = prev_output_type
 
 
 @with_cupy_rmm

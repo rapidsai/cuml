@@ -37,6 +37,9 @@ from cuml.ensemble.randomforestregressor import RandomForestRegressor
 
 from cuml.fil import fil
 
+from cuml.internals.global_settings import (
+    GlobalSettings, _global_settings_data)
+
 from cuml.linear_model.elastic_net import ElasticNet
 from cuml.linear_model.lasso import Lasso
 from cuml.linear_model.linear_regression import LinearRegression
@@ -87,10 +90,22 @@ from cuml.raft import raft_include_test
 from ._version import get_versions
 
 
-# Output type configuration
-
-global_output_type = None
-
 # Version configuration
 __version__ = get_versions()['version']
 del get_versions
+
+
+def __getattr__(name):
+
+    try:
+        settings = _global_settings_data.settings
+    except AttributeError:
+        _global_settings_data.settings = GlobalSettings()
+        settings = _global_settings_data.settings
+
+    if name == 'global_settings':
+        return settings
+    if name == 'global_output_type':
+        return settings.output_type
+
+    raise AttributeError(f"module {__name__} has no attribute {name}")
