@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@
 #include <raft/cudart_utils.h>
 #include <raft/linalg/cublas_wrappers.h>
 #include <test_utils.h>
-#include <common/device_buffer.hpp>
+#include <cuml/common/device_buffer.hpp>
 #include <cuml/common/logger.hpp>
 #include <cuml/decomposition/pca_mg.hpp>
 #include <opg/linalg/gemm.hpp>
@@ -26,8 +26,6 @@
 #include <raft/cuda_utils.cuh>
 #include <raft/matrix/matrix.cuh>
 #include "test_opg_utils.h"
-
-#include <common/cumlHandle.hpp>
 
 #include <raft/comms/mpi_comms.hpp>
 

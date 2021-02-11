@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -77,7 +77,7 @@ struct RF_params {
   /**
    * random seed
    */
-  int seed;
+  uint64_t seed;
   /**
    * Number of concurrent GPU streams for parallel tree building.
    * Each stream is independently managed by CPU thread.
@@ -89,9 +89,10 @@ struct RF_params {
 
 void set_rf_params(RF_params& params, int cfg_n_trees = 1,
                    bool cfg_bootstrap = true, float cfg_max_samples = 1.0f,
-                   int cfg_seed = -1, int cfg_n_streams = 8);
+                   uint64_t cfg_seed = 0, int cfg_n_streams = 8);
 void set_all_rf_params(RF_params& params, int cfg_n_trees, bool cfg_bootstrap,
-                       float cfg_max_samples, int cfg_seed, int cfg_n_streams,
+                       float cfg_max_samples, uint64_t cfg_seed,
+                       int cfg_n_streams,
                        DecisionTree::DecisionTreeParams cfg_tree_params);
 void validity_check(const RF_params rf_params);
 void print(const RF_params rf_params);
@@ -190,7 +191,7 @@ RF_params set_rf_class_obj(int max_depth, int max_leaves, float max_features,
                            int n_bins, int split_algo, int min_samples_leaf,
                            int min_samples_split, float min_impurity_decrease,
                            bool bootstrap_features, bool bootstrap, int n_trees,
-                           float max_samples, int seed,
+                           float max_samples, uint64_t seed,
                            CRITERION split_criterion, bool quantile_per_tree,
                            int cfg_n_streams, bool use_experimental_backend,
                            int max_batch_size);
