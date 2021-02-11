@@ -49,6 +49,35 @@ else(DEFINED ENV{RAFT_PATH})
   set(RAFT_DIR ${RAFT_DIR}/src/raft/)
 endif(DEFINED ENV{RAFT_PATH})
 
+##############################################################################
+# - libcudacxx
+
+  set(CUDA_CXX_DIR ${CMAKE_CURRENT_BINARY_DIR}/libcudacxx CACHE STRING "Path to libcudacxx repo")
+
+  ExternalProject_Add(libcudacxx
+    GIT_REPOSITORY    https://github.com/NVIDIA/libcudacxx.git
+    GIT_TAG           main
+    PREFIX            ${CUDA_CXX_DIR}
+    CONFIGURE_COMMAND ""
+    BUILD_COMMAND     ""
+    INSTALL_COMMAND   "")
+
+    set(CUDA_CXX_DIR ${CUDA_CXX_DIR}/src/libcudacxx/)
+
+##############################################################################
+# - cucollections - (header only) -----------------------------------------------------
+
+  set(CUCO_DIR ${CMAKE_CURRENT_BINARY_DIR}/cuCollections CACHE STRING "Path to cuCollections repo")
+
+  ExternalProject_Add(cuCollections
+    GIT_REPOSITORY    https://github.com/divyegala/cuCollections.git
+    GIT_TAG           view-initialization-ctor
+    PREFIX            ${CUCO_DIR}
+    CONFIGURE_COMMAND ""
+    BUILD_COMMAND     ""
+    INSTALL_COMMAND   "")
+
+    set(CUCO_DIR ${CUCO_DIR}/src/cuCollections/)
 
 ##############################################################################
 # - cumlprims (binary dependency) --------------------------------------------
@@ -263,6 +292,8 @@ else()
   add_dependencies(cub raft)
   add_dependencies(cutlass cub)
 endif(CUB_IS_PART_OF_CTK)
+add_dependencies(cuCollections libcudacxx)
+add_dependencies(cutlass cuCollections)
 add_dependencies(spdlog cutlass)
 add_dependencies(GTest::GTest spdlog)
 add_dependencies(benchmark GTest::GTest)

@@ -332,6 +332,8 @@ set(CUML_INCLUDE_DIRECTORIES
   ${SPDLOG_DIR}/src/spdlog/include
   ${FAISS_INCLUDE_DIRS}
   ${RAFT_DIR}/cpp/include
+  ${CUDA_CXX_DIR}/include
+  ${CUCO_DIR}/include
   ${RMM_INCLUDE_DIRS})
 
 if(NOT CUB_IS_PART_OF_CTK)
