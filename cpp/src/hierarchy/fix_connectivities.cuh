@@ -23,6 +23,13 @@
 #include <raft/cudart_utils.h>
 #include <distance/fused_l2_nn.cuh>
 
+#include <thrust/device_ptr.h>
+#include <thrust/execution_policy.h>
+#include <thrust/sort.h>
+
+#include <cub/cub.cuh>
+
+
 
 namespace raft {
 namespace linkage {
@@ -86,17 +93,33 @@ void connect_components(value_idx *nn_indices,
                         cudaStream_t stream) {
 
   raft::mr::device::buffer<char> workspace(d_alloc, stream, n_rows);
-  raft::mr::device::buffer<char> x_norm(d_alloc, stream, n_rows);
+  raft::mr::device::buffer<value_t> x_norm(d_alloc, stream, n_rows);
 
   raft::linalg::rowNorm(x_norm.data(), X, n_cols, n_rows,
                         raft::linalg::L2Norm, true, stream);
 
-  auto red_op = FusedL2NNReduceOp<value_idx, value_t>(colors, nn_indices);
-  MLCommon::Distance::fusedL2NN(nn_dists, X, X, x_norm.data(), x_norm.data(),
+  raft::mr::device::buffer<value_idx> nn_colors(d_alloc, stream, n_rows);
+  raft::mr::device::buffer<cub::KeyValuePair<value_idx, value_t>> temp_inds_dists(d_alloc, stream, n_rows);
+
+  auto red_op = FusedL2NNReduceOp<value_idx, value_t>(colors, nn_colors);
+  MLCommon::Distance::fusedL2NN<value_t, cub::KeyValuePair<value_idx, value_t>,
+                                value_idx>(temp_inds_dists.data(), X, X,
+                                           x_norm.data(), x_norm.data(),
                                 n_rows, n_rows, n_cols, workspace.data(),
                                 red_op, true, true, stream);
 
-  // Reduce to n_unique colors per input color
+  // sort nn_colors by key w/ original colors
+  thrust::device_ptr<value_idx> t_colors = thrust::device_pointer_cast(colors);
+  thrust::device_ptr<value_idx> t_nn_colors = thrust::device_pointer_cast(nn_colors.data());
+  thrust::device_ptr<value_t> t_data = thrust::device_pointer_cast(temp_inds_dists.data());
+
+  auto first = thrust::make_zip_iterator(thrust::make_tuple(t_rows, t_cols));
+
+  thrust::sort_by_key(thrust::cuda::par.on(stream), t_data, t_data + nnz,
+                      first);
+}
+
+
 
 
 };  // end namespace linkage
