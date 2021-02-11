@@ -92,7 +92,7 @@ void launcher(const raft::handle_t &handle,
     inputsB.n, inputsB.d, out.knn_indices, out.knn_dists, n_neighbors,
     handle.get_cusparse_handle(), d_alloc, stream,
     ML::Sparse::DEFAULT_BATCH_SIZE, ML::Sparse::DEFAULT_BATCH_SIZE,
-    raft::distance::DistanceType::L2Unexpanded);
+    raft::distance::DistanceType::L2Expanded);
 }
 
 template <>
