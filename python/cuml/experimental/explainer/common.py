@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020, NVIDIA CORPORATION.
+# Copyright (c) 2020-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,6 +16,8 @@
 
 import cuml
 import cupy as cp
+
+from cuml.common.input_utils import input_to_cupy_array
 
 
 def get_tag_from_model_func(func, tag, default=None):
@@ -106,12 +108,13 @@ def model_func_call(X,
     Returns the results as CuPy arrays.
     """
     if gpu_model:
-        y = cp.asarray(model_func(X))
+        y = input_to_cupy_array(X=model_func(X),
+                                order='K').array
     else:
         try:
-            y = cp.array(model_func(
+            y = input_to_cupy_array(model_func(
                 cp.asnumpy(X)
-            ))
+            )).array
         except TypeError:
             raise TypeError('Explainer can only explain models that can '
                             'take GPU data or NumPy arrays as input.')
@@ -146,13 +149,15 @@ def get_link_fn_from_str_or_fn(link):
     return link_fn
 
 
-# temporary function while explainers adopt decorators and cumlarray descriptor
 def output_list_shap_values(X, dimensions, output_type):
     if output_type == 'cupy':
         if dimensions == 1:
             return X[0]
         else:
-            return X
+            res = []
+            for x in X:
+                res.append(x)
+            return res
     else:
         if dimensions == 1:
             return cp.asnumpy(X[0])

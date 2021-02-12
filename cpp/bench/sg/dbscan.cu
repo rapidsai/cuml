@@ -15,7 +15,7 @@
  */
 
 #include <cuml/cluster/dbscan.hpp>
-#include <cuml/cuml.hpp>
+
 #include <utility>
 #include "benchmark.cuh"
 

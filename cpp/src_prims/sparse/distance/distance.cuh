@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,17 +24,17 @@
 #include <raft/mr/device/allocator.hpp>
 #include <raft/mr/device/buffer.hpp>
 
-#include <sparse/linalg/transpose.h>
-#include <sparse/utils.h>
-#include <sparse/convert/coo.cuh>
-#include <sparse/convert/csr.cuh>
-#include <sparse/convert/dense.cuh>
-#include <sparse/csr.cuh>
+#include "../convert/coo.cuh"
+#include "../convert/csr.cuh"
+#include "../convert/dense.cuh"
+#include "../csr.cuh"
+#include "../linalg/transpose.h"
+#include "../utils.h"
 
-#include <sparse/distance/bin_distance.cuh>
-#include <sparse/distance/ip_distance.cuh>
-#include <sparse/distance/l2_distance.cuh>
-#include <sparse/distance/lp_distance.cuh>
+#include "bin_distance.cuh"
+#include "ip_distance.cuh"
+#include "l2_distance.cuh"
+#include "lp_distance.cuh"
 
 #include <cusparse_v2.h>
 

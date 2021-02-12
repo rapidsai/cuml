@@ -14,6 +14,11 @@
  * limitations under the License.
  */
 
+#pragma once
+
+#include <cuml/common/cuml_allocator.hpp>
+#include <cuml/common/device_buffer.hpp>
+
 #include <raft/cudart_utils.h>
 #include <raft/linalg/distance_type.h>
 #include <raft/sparse/cusparse_wrappers.h>
@@ -22,29 +27,17 @@
 #include <raft/matrix/matrix.cuh>
 #include <raft/mr/device/allocator.hpp>
 #include <raft/mr/device/buffer.hpp>
-
-#include <sparse/op/slice.h>
-#include <sparse/utils.h>
-#include <selection/knn.cuh>
-#include <sparse/coo.cuh>
-#include <sparse/csr.cuh>
-#include <sparse/distance/distance.cuh>
-#include <sparse/selection/selection.cuh>
-
-#include <raft/linalg/distance_type.h>
-
-#include <raft/cudart_utils.h>
-#include <common/device_buffer.hpp>
-#include <cuml/common/cuml_allocator.hpp>
-
-#include <raft/cuda_utils.cuh>
-
-#include <raft/sparse/cusparse_wrappers.h>
 #include <rmm/device_uvector.hpp>
 
-#include <cusparse_v2.h>
+#include <selection/knn.cuh>
+#include "../coo.cuh"
+#include "../csr.cuh"
+#include "../distance/distance.cuh"
+#include "../op/slice.h"
+#include "../utils.h"
+#include "selection.cuh"
 
-#pragma once
+#include <cusparse_v2.h>
 
 namespace raft {
 namespace sparse {
@@ -178,7 +171,7 @@ class sparse_knn_t {
 
       value_idx n_query_batch_nnz = query_batcher.get_batch_csr_indptr_nnz(
         query_batch_indptr.data(), stream);
-      
+
       rmm::device_uvector<value_idx> query_batch_indices(n_query_batch_nnz,
                                                          stream);
       rmm::device_uvector<value_t> query_batch_data(n_query_batch_nnz, stream);

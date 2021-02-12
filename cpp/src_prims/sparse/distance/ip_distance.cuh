@@ -25,13 +25,13 @@
 #include <raft/mr/device/allocator.hpp>
 #include <raft/mr/device/buffer.hpp>
 
-#include <sparse/distance/common.h>
-#include <sparse/linalg/transpose.h>
-#include <sparse/utils.h>
-#include <sparse/convert/csr.cuh>
-#include <sparse/convert/dense.cuh>
-#include <sparse/distance/coo_spmv.cuh>
-#include <sparse/distance/operators.cuh>
+#include "../convert/csr.cuh"
+#include "../convert/dense.cuh"
+#include "../linalg/transpose.h"
+#include "../utils.h"
+#include "common.h"
+#include "coo_spmv.cuh"
+#include "operators.cuh"
 
 #include <nvfunctional>
 
