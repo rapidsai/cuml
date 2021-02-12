@@ -230,10 +230,6 @@ class sparse_knn_t {
                           query_batch_indptr.data(), query_batch_indices.data(),
                           query_batch_data.data(), batch_dists.data());
 
-        idx_batch_indptr.release(stream);
-        idx_batch_indices.release(stream);
-        idx_batch_data.release(stream);
-
         // Build batch indices array
         rmm::device_uvector<value_idx> batch_indices(batch_dists.size(),
                                                      stream);
