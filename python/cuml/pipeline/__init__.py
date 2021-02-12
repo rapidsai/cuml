@@ -14,8 +14,7 @@
 # limitations under the License.
 #
 
-from cuml.model_selection._split import train_test_split
-from sklearn.model_selection import GridSearchCV
+from sklearn.pipeline import Pipeline
 
 
-__all__ = ['train_test_split', 'GridSearchCV']
+__all__ = ['Pipeline']
