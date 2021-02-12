@@ -212,7 +212,7 @@ void connect_components(raft::sparse::COO<value_t, value_idx> &out,
                 size_t nnz, raft::sparse::COO<value_t, value_idx> &out)
    */
    raft::sparse::linalg::symmetrize(
-    
+
     );
 
 
