@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+# pylint: disable=no-member
 
 from time import sleep
 
@@ -20,8 +21,11 @@ from dask import delayed
 
 import cuml
 from cuml import set_global_output_type, using_output_type
+from cuml.internals.global_settings import (
+    _GlobalSettingsData, GlobalSettings)
 
 test_output_types_str = ('numpy', 'numba', 'cupy', 'cudf')
+test_global_settings_data_obj = _GlobalSettingsData()
 
 
 def test_set_global_output_type():
@@ -57,6 +61,43 @@ def test_using_output_type():
     results = [
         delayed(check_correct_type)(index)
         for index in range(len(test_output_types_str))
+    ]
+
+    assert (delayed(all)(results)).compute()
+
+
+def test_global_settings_data():
+    """Ensure that GlobalSettingsData objects are properly initialized
+    per-thread"""
+    def check_initialized():
+        return (
+            test_global_settings_data_obj.shared_state['_output_type'] is None
+            and test_global_settings_data_obj.shared_state['root_cm'] is None
+        )
+
+    results = [
+        delayed(check_initialized)()
+        for _ in range(5)
+    ]
+
+    assert (delayed(all)(results)).compute()
+
+def test_global_settings():
+    """Ensure that GlobalSettings acts as a proper thread-local borg"""
+    def check_settings(index):
+        # Force a race condition
+        if index == 0:
+            sleep(0.1)
+        cuml.global_settings.index = index
+        sleep(0.5)
+        return (
+            cuml.global_settings.index == index
+            and cuml.global_settings.index == GlobalSettings().index
+        )
+
+    results = [
+        delayed(check_settings)(index)
+        for index in range(5)
     ]
 
     assert (delayed(all)(results)).compute()
