@@ -17,12 +17,16 @@
 
 from time import sleep
 
+import pytest
 from dask import delayed
 
 import cuml
 from cuml import set_global_output_type, using_output_type
 from cuml.internals.global_settings import (
-    _GlobalSettingsData, GlobalSettings)
+    _global_settings_data,
+    _GlobalSettingsData,
+    GlobalSettings
+)
 
 test_output_types_str = ('numpy', 'numba', 'cupy', 'cudf')
 test_global_settings_data_obj = _GlobalSettingsData()
@@ -69,15 +73,24 @@ def test_using_output_type():
 def test_global_settings_data():
     """Ensure that GlobalSettingsData objects are properly initialized
     per-thread"""
-    def check_initialized():
+    def check_initialized(index):
+        if index == 0:
+            sleep(0.1)
+
+        with pytest.raises(AttributeError):
+            _global_settings_data.testing_index  # pylint: disable=W0104
+        _global_settings_data.testing_index = index
+
+        sleep(0.5)
         return (
             test_global_settings_data_obj.shared_state['_output_type'] is None
             and test_global_settings_data_obj.shared_state['root_cm'] is None
+            and _global_settings_data.testing_index == index
         )
 
     results = [
-        delayed(check_initialized)()
-        for _ in range(5)
+        delayed(check_initialized)(index)
+        for index in range(5)
     ]
 
     assert (delayed(all)(results)).compute()
