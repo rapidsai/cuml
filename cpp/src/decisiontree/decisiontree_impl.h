@@ -139,7 +139,7 @@ class DecisionTreeClassifier : public DecisionTreeBase<T, int> {
            const int nrows, const int *labels, unsigned int *rowids,
            const int n_sampled_rows, const int unique_labels,
            TreeMetaDataNode<T, int> *&tree, DecisionTreeParams tree_parameters,
-           uint64_t seed,
+           uint64_t seed, T *d_quantiles,
            std::shared_ptr<TemporaryMemory<T, int>> in_tempmem = nullptr);
 
   //This fit fucntion does not take handle , used by RF
@@ -149,7 +149,8 @@ class DecisionTreeClassifier : public DecisionTreeBase<T, int> {
            const int nrows, const int *labels, unsigned int *rowids,
            const int n_sampled_rows, const int unique_labels,
            TreeMetaDataNode<T, int> *&tree, DecisionTreeParams tree_parameters,
-           uint64_t seed, std::shared_ptr<TemporaryMemory<T, int>> in_tempmem);
+           uint64_t seed, T *d_quantiles,
+           std::shared_ptr<TemporaryMemory<T, int>> in_tempmem);
 
  private:
   void grow_deep_tree(const T *data, const int *labels, unsigned int *rowids,
@@ -167,7 +168,7 @@ class DecisionTreeRegressor : public DecisionTreeBase<T, T> {
   void fit(const raft::handle_t &handle, const T *data, const int ncols,
            const int nrows, const T *labels, unsigned int *rowids,
            const int n_sampled_rows, TreeMetaDataNode<T, T> *&tree,
-           DecisionTreeParams tree_parameters, uint64_t seed,
+           DecisionTreeParams tree_parameters, uint64_t seed, T *d_quantiles,
            std::shared_ptr<TemporaryMemory<T, T>> in_tempmem = nullptr);
 
   //This fit function does not take handle. Used by RF
@@ -176,7 +177,7 @@ class DecisionTreeRegressor : public DecisionTreeBase<T, T> {
            const cudaStream_t stream_in, const T *data, const int ncols,
            const int nrows, const T *labels, unsigned int *rowids,
            const int n_sampled_rows, TreeMetaDataNode<T, T> *&tree,
-           DecisionTreeParams tree_parameters, uint64_t seed,
+           DecisionTreeParams tree_parameters, uint64_t seed, T *d_quantiles,
            std::shared_ptr<TemporaryMemory<T, T>> in_tempmem);
 
  private:

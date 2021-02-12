@@ -421,7 +421,7 @@ void DecisionTreeClassifier<T>::fit(
   const raft::handle_t &handle, const T *data, const int ncols, const int nrows,
   const int *labels, unsigned int *rowids, const int n_sampled_rows,
   const int unique_labels, TreeMetaDataNode<T, int> *&tree,
-  DecisionTreeParams tree_parameters, uint64_t seed,
+  DecisionTreeParams tree_parameters, uint64_t seed, T* d_quantiles,
   std::shared_ptr<TemporaryMemory<T, int>> in_tempmem) {
   this->tree_params = tree_parameters;
   this->base_fit(handle.get_device_allocator(), handle.get_host_allocator(),
@@ -439,7 +439,7 @@ void DecisionTreeClassifier<T>::fit(
   const cudaStream_t stream_in, const T *data, const int ncols, const int nrows,
   const int *labels, unsigned int *rowids, const int n_sampled_rows,
   const int unique_labels, TreeMetaDataNode<T, int> *&tree,
-  DecisionTreeParams tree_parameters, uint64_t seed,
+  DecisionTreeParams tree_parameters, uint64_t seed, T* d_quantiles,
   std::shared_ptr<TemporaryMemory<T, int>> in_tempmem) {
   this->tree_params = tree_parameters;
   this->base_fit(device_allocator_in, host_allocator_in, stream_in, data, ncols,
@@ -453,7 +453,8 @@ void DecisionTreeRegressor<T>::fit(
   const raft::handle_t &handle, const T *data, const int ncols, const int nrows,
   const T *labels, unsigned int *rowids, const int n_sampled_rows,
   TreeMetaDataNode<T, T> *&tree, DecisionTreeParams tree_parameters,
-  uint64_t seed, std::shared_ptr<TemporaryMemory<T, T>> in_tempmem) {
+  uint64_t seed, T* d_quantiles,
+  std::shared_ptr<TemporaryMemory<T, T>> in_tempmem) {
   this->tree_params = tree_parameters;
   this->base_fit(handle.get_device_allocator(), handle.get_host_allocator(),
                  handle.get_stream(), data, ncols, nrows, labels, rowids,
@@ -469,7 +470,8 @@ void DecisionTreeRegressor<T>::fit(
   const cudaStream_t stream_in, const T *data, const int ncols, const int nrows,
   const T *labels, unsigned int *rowids, const int n_sampled_rows,
   TreeMetaDataNode<T, T> *&tree, DecisionTreeParams tree_parameters,
-  uint64_t seed, std::shared_ptr<TemporaryMemory<T, T>> in_tempmem) {
+  uint64_t seed, T* d_quantiles, 
+  std::shared_ptr<TemporaryMemory<T, T>> in_tempmem) {
   this->tree_params = tree_parameters;
   this->base_fit(device_allocator_in, host_allocator_in, stream_in, data, ncols,
                  nrows, labels, rowids, n_sampled_rows, 1, tree->sparsetree,

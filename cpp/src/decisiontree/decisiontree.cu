@@ -158,8 +158,9 @@ void decisionTreeClassifierFit(const raft::handle_t &handle,
                                uint64_t seed) {
   std::shared_ptr<DecisionTreeClassifier<float>> dt_classifier =
     std::make_shared<DecisionTreeClassifier<float>>();
+  float* global_quantiles = nullptr
   dt_classifier->fit(handle, data, ncols, nrows, labels, rowids, n_sampled_rows,
-                     unique_labels, tree, tree_params, seed);
+                     unique_labels, tree, tree_params, seed, global_quantiles);
 }
 
 void decisionTreeClassifierFit(const raft::handle_t &handle,
@@ -171,8 +172,9 @@ void decisionTreeClassifierFit(const raft::handle_t &handle,
                                uint64_t seed) {
   std::shared_ptr<DecisionTreeClassifier<double>> dt_classifier =
     std::make_shared<DecisionTreeClassifier<double>>();
+  double *global_quantiles = nullptr
   dt_classifier->fit(handle, data, ncols, nrows, labels, rowids, n_sampled_rows,
-                     unique_labels, tree, tree_params, seed);
+                     unique_labels, tree, tree_params, seed, global_quantiles);
 }
 
 void decisionTreeClassifierPredict(const raft::handle_t &handle,
@@ -207,8 +209,9 @@ void decisionTreeRegressorFit(const raft::handle_t &handle,
                               uint64_t seed) {
   std::shared_ptr<DecisionTreeRegressor<float>> dt_regressor =
     std::make_shared<DecisionTreeRegressor<float>>();
+  float* global_quantiles = nullptr
   dt_regressor->fit(handle, data, ncols, nrows, labels, rowids, n_sampled_rows,
-                    tree, tree_params, seed);
+                    tree, tree_params, seed, global_quantiles);
 }
 
 void decisionTreeRegressorFit(const raft::handle_t &handle,
@@ -219,8 +222,9 @@ void decisionTreeRegressorFit(const raft::handle_t &handle,
                               uint64_t seed) {
   std::shared_ptr<DecisionTreeRegressor<double>> dt_regressor =
     std::make_shared<DecisionTreeRegressor<double>>();
+  double* global_quantiles = nullptr
   dt_regressor->fit(handle, data, ncols, nrows, labels, rowids, n_sampled_rows,
-                    tree, tree_params, seed);
+                    tree, tree_params, seed, global_quantiles);
 }
 
 void decisionTreeRegressorPredict(const raft::handle_t &handle,
