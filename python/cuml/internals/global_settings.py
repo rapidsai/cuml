@@ -1,6 +1,10 @@
 import threading
 
-class _GlobalSettingsData(threading.local):
+
+class _GlobalSettingsData(threading.local):  # pylint: disable=R0903
+    """Thread-local storage class with per-thread initialization of default
+    values for global settings"""
+
     def __init__(self):
         super().__init__()
         self.shared_state = {
