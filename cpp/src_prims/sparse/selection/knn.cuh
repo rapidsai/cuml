@@ -173,12 +173,14 @@ class sparse_knn_t {
         * Slice CSR to rows in batch
         */
 
-      rmm::device_uvector<value_idx> query_batch_indptr(query_batcher.batch_rows() + 1, stream);
+      rmm::device_uvector<value_idx> query_batch_indptr(
+        query_batcher.batch_rows() + 1, stream);
 
       value_idx n_query_batch_nnz = query_batcher.get_batch_csr_indptr_nnz(
         query_batch_indptr.data(), stream);
       
-      rmm::device_uvector<value_idx> query_batch_indices(n_query_batch_nnz, stream);
+      rmm::device_uvector<value_idx> query_batch_indices(n_query_batch_nnz,
+                                                         stream);
       rmm::device_uvector<value_t> query_batch_data(n_query_batch_nnz, stream);
 
       query_batcher.get_batch_csr_indices_data(query_batch_indices.data(),
@@ -205,7 +207,8 @@ class sparse_knn_t {
         /**
           * Slice CSR to rows in batch
         */
-        rmm::device_uvector<value_idx> idx_batch_indptr(idx_batcher.batch_rows() + 1, stream);
+        rmm::device_uvector<value_idx> idx_batch_indptr(
+          idx_batcher.batch_rows() + 1, stream);
         rmm::device_uvector<value_idx> idx_batch_indices(0, stream);
         rmm::device_uvector<value_t> idx_batch_data(0, stream);
 
@@ -239,7 +242,8 @@ class sparse_knn_t {
         idx_batch_data.release(stream);
 
         // Build batch indices array
-        rmm::device_uvector<value_idx> batch_indices(batch_dists.size(), stream);
+        rmm::device_uvector<value_idx> batch_indices(batch_dists.size(),
+                                                     stream);
 
         // populate batch indices array
         value_idx batch_rows = query_batcher.batch_rows(),
