@@ -95,6 +95,7 @@ def test_global_settings_data():
 
     assert (delayed(all)(results)).compute()
 
+
 def test_global_settings():
     """Ensure that GlobalSettings acts as a proper thread-local borg"""
     def check_settings(index):
