@@ -97,15 +97,13 @@ del get_versions
 
 def __getattr__(name):
 
-    try:
-        settings = _global_settings_data.settings
-    except AttributeError:
-        _global_settings_data.settings = GlobalSettings()
-        settings = _global_settings_data.settings
-
     if name == 'global_settings':
-        return settings
+        try:
+            return _global_settings_data.settings
+        except AttributeError:
+            _global_settings_data.settings = GlobalSettings()
+            return _global_settings_data.settings
     if name == 'global_output_type':
-        return settings.output_type
+        return __getattr__('global_settings').output_type
 
     raise AttributeError(f"module {__name__} has no attribute {name}")
