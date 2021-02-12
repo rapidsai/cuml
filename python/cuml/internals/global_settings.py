@@ -50,6 +50,11 @@ class GlobalSettings:
     changes. New global setting attributes can be added as properties to this
     object, and breakpoints or debugging statements can be added to a
     property's method to track when and how those properties change.
+
+    In general, cuML developers should simply access `cuml.global_settings`
+    rather than re-instantiating separate instances of this class in order to
+    avoid the overhead of re-instantiation, but using a separate instance
+    should not cause any logical errors.
     """
 
     def __init__(self):
