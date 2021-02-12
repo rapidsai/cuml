@@ -22,6 +22,7 @@ from dask import delayed
 
 import cuml
 from cuml import set_global_output_type, using_output_type
+from cuml.internals.api_context_managers import _using_mirror_output_type
 from cuml.internals.global_settings import (
     _global_settings_data,
     _GlobalSettingsData,
@@ -55,12 +56,36 @@ def test_using_output_type():
     """Ensure that using_output_type is thread-safe"""
     def check_correct_type(index):
         output_type = test_output_types_str[index]
+        # Force a race condition
+        if index == 0:
+            sleep(0.1)
         with using_output_type(output_type):
-            # Force a race condition
-            if index == 0:
-                sleep(0.1)
             sleep(0.5)
             return cuml.global_output_type == output_type
+
+    results = [
+        delayed(check_correct_type)(index)
+        for index in range(len(test_output_types_str))
+    ]
+
+    assert (delayed(all)(results)).compute()
+
+
+def test_using_mirror_output_type():
+    """Ensure that _using_mirror_output_type is thread-safe"""
+    def check_correct_type(index):
+        # Force a race condition
+        if index == 0:
+            sleep(0.1)
+        if index % 2 == 0:
+            with _using_mirror_output_type():
+                sleep(0.5)
+                return cuml.global_output_type == 'mirror'
+        else:
+            output_type = test_output_types_str[index]
+            with using_output_type(output_type):
+                sleep(0.5)
+                return cuml.global_output_type == output_type
 
     results = [
         delayed(check_correct_type)(index)
