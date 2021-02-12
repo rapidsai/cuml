@@ -15,7 +15,6 @@
 #
 
 import contextlib
-import threading
 import typing
 from collections import deque
 
@@ -59,20 +58,16 @@ def _using_mirror_output_type():
         cuml.global_settings.output_type = prev_output_type
 
 
-global_output_type_data = threading.local()
-global_output_type_data.root_cm = None
-
-
 def in_internal_api():
-    return global_output_type_data.root_cm is not None
+    return cuml.global_settings.root_cm is not None
 
 
 def set_api_output_type(output_type: str):
-    assert (global_output_type_data.root_cm is not None)
+    assert (cuml.global_settings.root_cm is not None)
 
     # Quick exit
     if (isinstance(output_type, str)):
-        global_output_type_data.root_cm.output_type = output_type
+        cuml.global_settings.root_cm.output_type = output_type
         return
 
     # Try to convert any array objects to their type
@@ -81,11 +76,11 @@ def set_api_output_type(output_type: str):
     # Ensure that this is an array-like object
     assert output_type is None or array_type is not None
 
-    global_output_type_data.root_cm.output_type = array_type
+    cuml.global_settings.root_cm.output_type = array_type
 
 
 def set_api_output_dtype(output_dtype):
-    assert (global_output_type_data.root_cm is not None)
+    assert (cuml.global_settings.root_cm is not None)
 
     # Try to convert any array objects to their type
     if (output_dtype is not None
@@ -95,7 +90,7 @@ def set_api_output_dtype(output_dtype):
 
         assert (output_dtype is not None)
 
-    global_output_type_data.root_cm.output_dtype = output_dtype
+    cuml.global_settings.root_cm.output_dtype = output_dtype
 
 
 class InternalAPIContext(contextlib.ExitStack):
@@ -103,7 +98,7 @@ class InternalAPIContext(contextlib.ExitStack):
         super().__init__()
 
         def cleanup():
-            global_output_type_data.root_cm = None
+            cuml.global_settings.root_cm = None
 
         self.callback(cleanup)
 
@@ -122,7 +117,7 @@ class InternalAPIContext(contextlib.ExitStack):
 
         self.call_stack = {}
 
-        global_output_type_data.root_cm = self
+        cuml.global_settings.root_cm = self
 
     @property
     def output_type(self):
@@ -170,16 +165,14 @@ class InternalAPIContext(contextlib.ExitStack):
 
 
 def get_internal_context() -> InternalAPIContext:
+    """Return the current "root" context manager used to control output type
+    for external API calls and minimize unnecessary internal output
+    conversions"""
 
-    # Dask workers can have a separate thread access the object requiring this
-    # check
-    if (not hasattr(global_output_type_data, "root_cm")):
-        global_output_type_data.root_cm = None
+    if (cuml.global_settings.root_cm is None):
+        cuml.global_settings.root_cm = InternalAPIContext()
 
-    if (global_output_type_data.root_cm is None):
-        return InternalAPIContext()
-
-    return global_output_type_data.root_cm
+    return cuml.global_settings.root_cm
 
 
 class ProcessEnter(object):
