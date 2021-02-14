@@ -97,29 +97,11 @@ __global__ void balanced_coo_generalized_spmv_kernel(strategy_t strategy,
 
   extern __shared__ char smem[];
 
-  // value_idx *offsets_a = (value_idx *)smem;
-  using smem_t = typename strategy_t::smem_type;
-  smem_t *A = (smem_t *)(smem);
+  typename strategy_t::smem_type A = (typename strategy_t::smem_type)(smem);
   typename warp_reduce::TempStorage *temp_storage =
     (typename warp_reduce::TempStorage *)(A + dim);
 
-  // namespace cg   = cooperative_groups;
-  // using insert_map_type = typename cuco::static_map<value_idx, value_t, cuda::thread_scope_block>::device_mutable_view;
-  // __shared__ typename insert_map_type::slot_type A[4000];
-  // auto insert_map = insert_map_type::make_from_uninitialized_slots(cg::this_thread_block(), &A[0], 4000, -1, 0);
-
-  // __shared__ kv_t A[4000];
-  // __shared__ value_idx offsets_a[2];
-  // __shared__ typename warp_reduce::TempStorage temp_storage[tpb / 32];
-
-  // Create dense vector A and populate with 0s
-  // for (int k = tid; k < dim; k += blockDim.x) A[k].key = kEmpty;
-  strategy.init_smem(A, dim);
-
-  // if (tid == 0) {
-  //   offsets_a[0] = indptrA[cur_row_a];
-  //   offsets_a[1] = indptrA[cur_row_a + 1];
-  // }
+  auto inserter = strategy.init_insert(A, dim);
 
   __syncthreads();
 
@@ -128,24 +110,12 @@ __global__ void balanced_coo_generalized_spmv_kernel(strategy_t strategy,
 
   // Convert current row vector in A to dense
   for (int i = tid; i < (stop_offset_a - start_offset_a); i += blockDim.x) {
-    // typename insert_map_type::value_type pair {indicesA[start_offset_a + i], dataA[start_offset_a + i]};
-    // pair.first = indicesA[start_offset_a + i];
-    // pair.second = dataA[start_offset_a + i];
-    // gpu_hashtable_insert(A, indicesA[start_offset_a + i], dataA[start_offset_a + i], dim);
-    // printf("trying to insert, threadIdx.x: %d, blockIdx.x: %d, width: %d, ind: %d, a_col: %f\n", threadIdx.x, blockIdx.x, (stop_offset_a - start_offset_a), indicesA[start_offset_a + i], dataA[start_offset_a + i]);
-    // auto success = insert_map.insert(thrust::make_pair(indicesA[start_offset_a + i], dataA[start_offset_a + i]));
-    // if (!rev) printf("inserting, tid: %d, row_a: %d, a_index: %d, value: %f\n", tid, cur_row_a, indicesA[start_offset_a + i], dataA[start_offset_a + i]);
-
-    strategy.insert(A, indicesA[start_offset_a + i], dataA[start_offset_a + i]);
-    // A[indicesA[start_offset_a + i]] = dataA[start_offset_a + i];
-
+    strategy.insert(inserter, indicesA[start_offset_a + i], dataA[start_offset_a + i]);
   }
 
   __syncthreads();
-  // cg::this_thread_block().sync();
 
-  // using find_map_type = typename cuco::static_map<value_idx, value_t, cuda::thread_scope_block>::device_view;
-  // auto find_map = find_map_type(&A[0], 4000, -1, 0);
+  auto finder = strategy.init_find(A);
 
   if (cur_row_a > m || cur_chunk_offset > n_blocks_per_row) return;
   if (ind >= nnz_b) return;
@@ -158,16 +128,9 @@ __global__ void balanced_coo_generalized_spmv_kernel(strategy_t strategy,
   // coalesced reads from B
   if (tid < active_chunk_size) {
     cur_row_b = rowsB[ind];
-    // value_t a_col = A[indicesB[ind]];
-    // auto a_pair = find_map.find(indicesB[ind]);
 
-    // value_t a_col = 0.0;
-    // if (a_pair != find_map.end()) {
-    //   a_col = a_pair->second;
-    // }
-    value_t a_col = strategy.find(A, indicesB[ind]);
-    // value_t a_col = gpu_hashtable_lookup(A, indicesB[ind], dim);
-    // if (!rev && a_col == 0.0) printf("finding, tid: %d, row_a: %d, row_b: %d, b_index: %d, value: %f\n", tid, cur_row_a, cur_row_b, indicesB[ind], a_col);
+    value_t a_col = strategy.find(finder, indicesB[ind]);
+
     if (!rev || a_col == 0.0) {
       c = product_func(a_col, dataB[ind]);
     }
@@ -203,14 +166,9 @@ __global__ void balanced_coo_generalized_spmv_kernel(strategy_t strategy,
 
     if (next_row_b != -1) {
       ind = ind_next;
-      // auto a_pair = find_map.find(indicesB[ind]);
-      // value_t a_col = 0.0;
-      // if (a_pair != find_map.end()) {
-      //   a_col = a_pair->second;
-      // }
-      value_t a_col = strategy.find(A, indicesB[ind]);
-      // value_t a_col = gpu_hashtable_lookup(A, indicesB[ind], dim);
-      // if (!rev && a_col == 0.0) printf("finding, tid: %d, row_a: %d, row_b: %d, b_index: %d, value: %f\n", tid, cur_row_a, cur_row_b, indicesB[ind], a_col);
+
+      value_t a_col = strategy.find(finder, indicesB[ind]);
+
       if (!rev || a_col == 0.0)
         c = accum_func(c, product_func(a_col, dataB[ind]));
       cur_row_b = next_row_b;
