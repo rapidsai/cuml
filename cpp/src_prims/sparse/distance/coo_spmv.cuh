@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include "hash_table.cuh"
+#include "coo_spmv_strategy.cuh"
 
 #include <raft/cudart_utils.h>
 #include <raft/sparse/cusparse_wrappers.h>
@@ -25,7 +25,6 @@
 #include <raft/mr/device/buffer.hpp>
 
 #include <sparse/distance/common.h>
-#include <sparse/utils.h>
 #include <sparse/csr.cuh>
 
 #include <limits.h>
@@ -34,13 +33,7 @@
 
 #include <cusparse_v2.h>
 
-#include <cub/block/block_load.cuh>
-#include <cub/block/block_radix_sort.cuh>
-#include <cub/block/block_store.cuh>
-
 #include <rmm/exec_policy.hpp>
-
-#include "coo_spmv_strategy.cuh"
 
 namespace raft {
 namespace sparse {
@@ -91,7 +84,7 @@ inline void balanced_coo_pairwise_generalized_spmv(
     config_.stream));
 
   auto smem = dense_smem_strategy<value_idx, value_t, threads_per_block>::smem_per_block(config_.a_ncols);
-  if (smem != -1) {
+  if (smem == -1) {
     dense_smem_strategy<value_idx, value_t, threads_per_block> strategy(config_, smem);
     strategy.dispatch(out_dists, coo_rows_b, product_func, accum_func, write_func, chunk_size);
   }

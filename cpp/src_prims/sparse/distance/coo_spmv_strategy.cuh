@@ -19,11 +19,59 @@
 #include "common.h"
 #include "coo_spmv_kernel.cuh"
 
+#include <cuml/common/logger.hpp>
+
 #include <cuco/static_map.cuh>
 
 namespace raft {
 namespace sparse {
 namespace distance {
+
+template <typename value_idx, typename value_t, int tpb>
+class coo_spmv_strategy {
+
+public:
+    coo_spmv_strategy(const distances_config_t<value_idx, value_t> &config_) :
+        config(config_) { }
+
+    template <typename strategy_t, typename product_f, typename accum_f, typename write_f>
+    void _dispatch_base(strategy_t &strategy, value_idx smem_dim, value_t *out_dists, value_idx *coo_rows_b, product_f product_func, accum_f accum_func, write_f write_func, int chunk_size) {
+        CUML_LOG_DEBUG("n_blocks: %d", n_blocks);
+        CUML_LOG_DEBUG("n_warps_per_row: %d", n_blocks_per_row);
+        CUML_LOG_DEBUG("smem_per_block: %d", smem);
+
+        CUDA_CHECK(cudaFuncSetCacheConfig(balanced_coo_generalized_spmv_kernel<strategy_t, value_idx, value_t, tpb,
+                                            false, product_f, accum_f,
+                                            write_f>,cudaFuncCachePreferShared));
+
+        balanced_coo_generalized_spmv_kernel<strategy_t, value_idx, value_t, tpb,
+                                    false><<<n_blocks, tpb, smem, config.stream>>>(strategy, config.a_indptr, config.a_indices, config.a_data, coo_rows_b,
+        config.b_indices, config.b_data, config.a_nrows, config.b_nrows,
+        smem_dim, config.b_nnz, out_dists, n_blocks_per_row, chunk_size,
+        product_func, accum_func, write_func);
+    }
+
+    template <typename strategy_t, typename product_f, typename accum_f, typename write_f>
+    void _dispatch_base_rev(strategy_t &strategy, value_idx smem_dim, value_t *out_dists, value_idx *coo_rows_a, product_f product_func, accum_f accum_func, write_f write_func, int chunk_size) {
+        CUML_LOG_DEBUG("n_blocks: %d", n_blocks);
+        CUML_LOG_DEBUG("n_warps_per_row: %d", n_blocks_per_row);
+        CUML_LOG_DEBUG("smem_per_block: %d", smem);
+
+        CUDA_CHECK(cudaFuncSetCacheConfig(balanced_coo_generalized_spmv_kernel<strategy_t, value_idx, value_t, tpb,
+                                            true, product_f, accum_f,
+                                            write_f>,cudaFuncCachePreferShared));
+
+        balanced_coo_generalized_spmv_kernel<strategy_t, value_idx, value_t, tpb,
+                                    true><<<n_blocks, tpb, smem, config.stream>>>(strategy, config.b_indptr, config.b_indices, config.b_data, coo_rows_a,
+        config.a_indices, config.a_data, config.b_nrows, config.a_nrows,
+        smem_dim, config.a_nnz, out_dists, n_blocks_per_row, chunk_size,
+        product_func, accum_func, write_func);
+    }
+
+protected:
+    int smem, n_blocks_per_row, n_blocks;
+    const distances_config_t<value_idx, value_t> &config;
+};
 
 /**
  * Computes the maximum number of columns that can be stored
@@ -40,7 +88,7 @@ inline int max_cols_per_block() {
 }
 
 template <typename value_idx, typename value_t, int tpb>
-class dense_smem_strategy {
+class dense_smem_strategy : public coo_spmv_strategy<value_idx, value_t, tpb> {
 
 public:
 
@@ -49,8 +97,9 @@ public:
     using find_type = smem_type;
 
     dense_smem_strategy(const distances_config_t<value_idx, value_t> &config_, int &smem_):
-        config(config_),
-        smem(smem_) { }
+        coo_spmv_strategy<value_idx, value_t, tpb>(config_) {
+            this->smem = smem_;
+        }
 
     inline static int smem_per_block(int n_cols) {
         int max_cols = max_cols_per_block<value_idx, value_t, tpb>();
@@ -63,42 +112,18 @@ public:
 
     template <typename product_f, typename accum_f, typename write_f>
     void dispatch(value_t *out_dists, value_idx *coo_rows_b, product_f product_func, accum_f accum_func, write_f write_func, int chunk_size) {
-        n_blocks_per_row = raft::ceildiv(config.b_nnz, chunk_size * tpb);
-        n_blocks = config.a_nrows * n_blocks_per_row;
+        this-> n_blocks_per_row = raft::ceildiv(this->config.b_nnz, chunk_size * tpb);
+        this->n_blocks = this->config.a_nrows * this->n_blocks_per_row;
 
-        CUML_LOG_DEBUG("n_blocks: %d", n_blocks);
-        CUML_LOG_DEBUG("n_warps_per_row: %d", n_blocks_per_row);
-        CUML_LOG_DEBUG("smem_per_block: %d", smem);
-
-        CUDA_CHECK(cudaFuncSetCacheConfig(balanced_coo_generalized_spmv_kernel<dense_smem_strategy, value_idx, value_t, tpb,
-                                            false, product_f, accum_f,
-                                            write_f>,cudaFuncCachePreferShared));
-
-        balanced_coo_generalized_spmv_kernel<dense_smem_strategy, value_idx, value_t, tpb,
-                                    false><<<n_blocks, tpb, smem, config.stream>>>( *this, config.a_indptr, config.a_indices, config.a_data, coo_rows_b,
-        config.b_indices, config.b_data, config.a_nrows, config.b_nrows,
-        config.b_ncols, config.b_nnz, out_dists, n_blocks_per_row, chunk_size,
-        product_func, accum_func, write_func);
+        this->_dispatch_base(*this, this->config.b_ncols, out_dists, coo_rows_b, product_func, accum_func, write_func, chunk_size);
     }
 
     template <typename product_f, typename accum_f, typename write_f>
     void dispatch_rev(value_t *out_dists, value_idx *coo_rows_a, product_f product_func, accum_f accum_func, write_f write_func, int chunk_size) {
-        n_blocks_per_row =  raft::ceildiv(config.a_nnz, chunk_size * tpb);
-        n_blocks = config.b_nrows * n_blocks_per_row;
+        this->n_blocks_per_row =  raft::ceildiv(this->config.a_nnz, chunk_size * tpb);
+        this->n_blocks = this->config.b_nrows * this->n_blocks_per_row;
 
-        CUML_LOG_DEBUG("n_blocks: %d", n_blocks);
-        CUML_LOG_DEBUG("n_warps_per_row: %d", n_blocks_per_row);
-        CUML_LOG_DEBUG("smem_per_block: %d", smem);
-
-        CUDA_CHECK(cudaFuncSetCacheConfig(balanced_coo_generalized_spmv_kernel<dense_smem_strategy, value_idx, value_t, tpb,
-                                            true, product_f, accum_f,
-                                            write_f>,cudaFuncCachePreferShared));
-
-        balanced_coo_generalized_spmv_kernel<dense_smem_strategy, value_idx, value_t, tpb,
-                                    true><<<n_blocks, tpb, smem, config.stream>>>( *this, config.b_indptr, config.b_indices, config.b_data, coo_rows_a,
-        config.a_indices, config.a_data, config.b_nrows, config.a_nrows,
-        config.a_ncols, config.a_nnz, out_dists, n_blocks_per_row, chunk_size,
-        product_func, accum_func, write_func);
+        this->_dispatch_base_rev(*this, this->config.a_ncols, out_dists, coo_rows_a, product_func, accum_func, write_func, chunk_size);
     }
 
     __device__ inline insert_type init_insert(smem_type cache, value_idx &cache_size) {
@@ -120,14 +145,10 @@ public:
         return cache[key];
     }
 
-private:
-    int &smem, n_blocks_per_row, n_blocks;
-    const distances_config_t<value_idx, value_t> &config;
-
 };
 
 template <typename value_idx, typename value_t, int tpb>
-class hash_strategy {
+class hash_strategy : public coo_spmv_strategy<value_idx, value_t, tpb>  {
 
 public:
 
@@ -137,46 +158,24 @@ public:
     using find_type = typename cuco::static_map<value_idx, value_t, cuda::thread_scope_block>::device_view;
 
     hash_strategy(const distances_config_t<value_idx, value_t> &config_):
-        config(config_) { }
+        coo_spmv_strategy<value_idx, value_t, tpb>(config_) { 
+            this->smem = raft::getSharedMemPerBlock();
+    }
 
     template <typename product_f, typename accum_f, typename write_f>
     void dispatch(value_t *out_dists, value_idx *coo_rows_b, product_f product_func, accum_f accum_func, write_f write_func, int chunk_size) {
-        n_blocks_per_row = raft::ceildiv(config.b_nnz, chunk_size * tpb);
-        n_blocks = config.a_nrows * n_blocks_per_row;
-
-        CUML_LOG_DEBUG("n_blocks: %d", n_blocks);
-        CUML_LOG_DEBUG("n_warps_per_row: %d", n_blocks_per_row);
-        CUML_LOG_DEBUG("smem_per_block: %d", smem);
-
-        CUDA_CHECK(cudaFuncSetCacheConfig(balanced_coo_generalized_spmv_kernel<hash_strategy, value_idx, value_t, tpb,
-                                            false, product_f, accum_f,
-                                            write_f>,cudaFuncCachePreferShared));
-
-        balanced_coo_generalized_spmv_kernel<hash_strategy, value_idx, value_t, tpb,
-                                    false><<<n_blocks, tpb, smem, config.stream>>>( *this, config.a_indptr, config.a_indices, config.a_data, coo_rows_b,
-        config.b_indices, config.b_data, config.a_nrows, config.b_nrows,
-        map_size(), config.b_nnz, out_dists, n_blocks_per_row, chunk_size,
-        product_func, accum_func, write_func);
+        this->n_blocks_per_row = raft::ceildiv(this->config.b_nnz, chunk_size * tpb);
+        this->n_blocks = this->config.a_nrows * this->n_blocks_per_row;
+    
+        this->_dispatch_base(*this, map_size(), out_dists, coo_rows_b, product_func, accum_func, write_func, chunk_size);
     }
 
     template <typename product_f, typename accum_f, typename write_f>
     void dispatch_rev(value_t *out_dists, value_idx *coo_rows_a, product_f product_func, accum_f accum_func, write_f write_func, int chunk_size) {
-        n_blocks_per_row =  raft::ceildiv(config.a_nnz, chunk_size * tpb);
-        n_blocks = config.b_nrows * n_blocks_per_row;
+        this->n_blocks_per_row =  raft::ceildiv(this->config.a_nnz, chunk_size * tpb);
+        this->n_blocks = this->config.b_nrows * this->n_blocks_per_row;
 
-        CUML_LOG_DEBUG("n_blocks: %d", n_blocks);
-        CUML_LOG_DEBUG("n_warps_per_row: %d", n_blocks_per_row);
-        CUML_LOG_DEBUG("smem_per_block: %d", smem);
-
-        CUDA_CHECK(cudaFuncSetCacheConfig(balanced_coo_generalized_spmv_kernel<hash_strategy, value_idx, value_t, tpb,
-                                            true, product_f, accum_f,
-                                            write_f>,cudaFuncCachePreferShared));
-
-        balanced_coo_generalized_spmv_kernel<hash_strategy, value_idx, value_t, tpb,
-                                    true><<<n_blocks, tpb, smem, config.stream>>>( *this, config.b_indptr, config.b_indices, config.b_data, coo_rows_a,
-        config.a_indices, config.a_data, config.b_nrows, config.a_nrows,
-        map_size(), config.a_nnz, out_dists, n_blocks_per_row, chunk_size,
-        product_func, accum_func, write_func);
+        this->_dispatch_base_rev(*this, map_size(), out_dists, coo_rows_a, product_func, accum_func, write_func, chunk_size);
     }
 
     __device__ inline insert_type init_insert(smem_type cache, value_idx &cache_size) {
@@ -202,19 +201,10 @@ public:
     }
 
 private:
-    int n_blocks_per_row, n_blocks;
-    const distances_config_t<value_idx, value_t> &config;
 
     __host__ __device__ constexpr int map_size() {
-        if (sizeof(value_idx) == 4 && sizeof(value_t) == 4) {
-            return 5000;
-        }
-        else {
-            return 2500;
-        }
+        return (46000 - ((tpb / raft::warp_size()) * sizeof(value_t))) / sizeof(typename insert_type::slot_type);
     }
-
-    const int smem = map_size() * sizeof(typename insert_type::slot_type);
 
 };
 
