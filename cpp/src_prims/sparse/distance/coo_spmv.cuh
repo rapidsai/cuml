@@ -83,16 +83,19 @@ inline void balanced_coo_pairwise_generalized_spmv(
     out_dists, 0, sizeof(value_t) * config_.a_nrows * config_.b_nrows,
     config_.stream));
 
-  auto smem = dense_smem_strategy<value_idx, value_t, threads_per_block>::smem_per_block(config_.a_ncols);
+  auto smem =
+    dense_smem_strategy<value_idx, value_t, threads_per_block>::smem_per_block(
+      config_.a_ncols);
   if (smem == -1) {
-    dense_smem_strategy<value_idx, value_t, threads_per_block> strategy(config_, smem);
-    strategy.dispatch(out_dists, coo_rows_b, product_func, accum_func, write_func, chunk_size);
-  }
-  else {
+    dense_smem_strategy<value_idx, value_t, threads_per_block> strategy(config_,
+                                                                        smem);
+    strategy.dispatch(out_dists, coo_rows_b, product_func, accum_func,
+                      write_func, chunk_size);
+  } else {
     hash_strategy<value_idx, value_t, threads_per_block> strategy(config_);
-    strategy.dispatch(out_dists, coo_rows_b, product_func, accum_func, write_func, chunk_size);
+    strategy.dispatch(out_dists, coo_rows_b, product_func, accum_func,
+                      write_func, chunk_size);
   }
-
 };
 
 /**
@@ -138,18 +141,20 @@ inline void balanced_coo_pairwise_generalized_spmv_rev(
   value_t *out_dists, const distances_config_t<value_idx, value_t> &config_,
   value_idx *coo_rows_a, product_f product_func, accum_f accum_func,
   write_f write_func) {
-
   // try dense first
-  auto smem = dense_smem_strategy<value_idx, value_t, threads_per_block>::smem_per_block(config_.a_ncols);
+  auto smem =
+    dense_smem_strategy<value_idx, value_t, threads_per_block>::smem_per_block(
+      config_.a_ncols);
   if (smem != -1) {
-    dense_smem_strategy<value_idx, value_t, threads_per_block> strategy(config_, smem);
-    strategy.dispatch_rev(out_dists, coo_rows_a, product_func, accum_func, write_func, chunk_size);
-  }
-  else {
+    dense_smem_strategy<value_idx, value_t, threads_per_block> strategy(config_,
+                                                                        smem);
+    strategy.dispatch_rev(out_dists, coo_rows_a, product_func, accum_func,
+                          write_func, chunk_size);
+  } else {
     hash_strategy<value_idx, value_t, threads_per_block> strategy(config_);
-    strategy.dispatch_rev(out_dists, coo_rows_a, product_func, accum_func, write_func, chunk_size);
+    strategy.dispatch_rev(out_dists, coo_rows_a, product_func, accum_func,
+                          write_func, chunk_size);
   }
-
 };
 
 }  // namespace distance
