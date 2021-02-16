@@ -98,31 +98,67 @@ __global__ void count_components_by_color(value_idx *out,
   // todo: shfl reduce to 0 & write out
 }
 
+/**
+ * colors_nn is not assumed to be sorted wrt colors_indptr
+ * so we need to perform atomic reductions in each thread.
+ * @tparam value_idx
+ * @tparam value_t
+ * @tparam reduction
+ * @param out_cols
+ * @param out_vals
+ * @param colors_indptr
+ * @param colors_nn
+ * @param idx_dists
+ * @param n_colors
+ */
 template<typename value_idx, typename value_t, typename reduction>
 __global__ void min_components_by_color(value_idx *out_cols,
-                                          value_idx *out_vals,
-                                          value_idx *colors_indptr,
-                                          value_idx *colors_nn,
-                                          cub::KeyValuePair<value_idx, value_t> *idx_dists,
-                                          value_idx n_colors) {
+                                        value_idx *out_vals,
+                                        value_idx *out_rows,
+                                        const value_idx *out_indptr,
+                                        const value_idx *colors_indptr,
+                                        const value_idx *colors_nn,
+                                        const value_idx *indices,
+                                        const cub::KeyValuePair<value_idx, value_t> *idx_dists,
+                                        const MLCommon::Distance::KVPMinReduce<value_idx, value_t> *redOp,
+                                        value_idx n_colors) {
 
   value_idx tid = blockDim.x * blockIdx.x + threadIdx.x;
   value_idx row = blockIdx.x;
 
-  __shared__ extern value_idx smem[];
+  __shared__ extern char smem[];
+
+  int* mutex = (int*)smem;
+
+  cub::KeyValuePair<value_idx, value_t> *min = (cub::KeyValuePair<value_idx, value_t>*)(mutex+n_colors);
+  value_idx *src_inds = (value_idx*)(min+n_colors);
 
   value_idx start_offset = colors_indptr[row];
   value_idx stop_offset = colors_indptr[row+1];
 
   for(value_idx i = tid; i < (stop_offset - start_offset); i+= blockDim.x) {
-    // todo: reduce by key
-    atomicMin(smem + colors_nn[i], idx_dists);
+    value_idx new_color = colors_nn[start_offset + i];
+
+    while (atomicCAS(mutex + new_color, 0, 1) == 1);
+    __threadfence();
+    auto kvp = idx_dists[start_offset+i];
+    bool m = kvp->value < min[new_color]->value;
+    if(m) {
+      src_inds[new_color] = indices[start_offset+i];
+      min[new_color] = kvp;
+    }
+    __threadfence();
+    atomicCAS(mutex + new_color, 1, 0);
   }
 
-  __syncthreads();
-
+  value_idx out_offset = out_indptr[row];
   for(value_idx i = tid; i < n_colors; i += blockDim.x) {
-    // write out
+    cub::KeyValuePair<value_idx, value_t> *min_color = min[i];
+    if(min_color->key > -1) {
+      out_rows[out_offset] = src_inds[i];
+      out_cols[out_offset] = min_color->key;
+      out_vals[out_offset] = min_color->value;
+    }
   }
 }
 
@@ -180,10 +216,10 @@ void connect_components(raft::sparse::COO<value_t, value_idx> &out,
 
   raft::mr::device::buffer<value_idx> colors_indptr(d_alloc, stream, n_components);
 
-  auto keys = thrust::make_zip_iterator(thrust::make_tuple(t_colors, t_nn_colors));
-  auto vals = thrust::make_zip_iterator(thrust::make_tuple(t_data, arg_sort));
+  auto keys = thrust::make_zip_iterator(thrust::make_tuple(t_colors));
+  auto vals = thrust::make_zip_iterator(thrust::make_tuple(t_data, arg_sort, t_nn_colors));
 
-  // get all the colors in contiguous locations so we can map them to warps
+  // get all the colors in contiguous locations so we can map them to warps.
   thrust::sort_by_key(thrust::cuda::par.on(stream), keys, keys + n_rows, vals);
 
   // create an indptr array for newly sorted colors
@@ -197,7 +233,10 @@ void connect_components(raft::sparse::COO<value_t, value_idx> &out,
   count_components_by_color<<<n_components, 256, n_components * sizeof(value_idx), stream>>>(
     color_neigh_degrees.data(), colors_indptr.data(), temp_inds_dists.data(), n_components);
 
-  // TODO: Sum color_neigh_degrees to find nnz
+  thrust::device_ptr<value_idx> t_color_neigh_degrees = thrust::device_pointer_cast(color_neigh_degrees.data());
+
+  value_idx nnz = thrust::reduce(thrust::cuda::par.on(stream), t_color_neigh_degrees,
+                                 t_color_neigh_degrees+color_neigh_degrees.size());
 
   // map each component to a separate warp, perform warp reduce by key to
   // find min for each component in output
@@ -211,9 +250,7 @@ void connect_components(raft::sparse::COO<value_t, value_idx> &out,
                 const value_idx *cols, const value_t *vals, size_t m, size_t n,
                 size_t nnz, raft::sparse::COO<value_t, value_idx> &out)
    */
-   raft::sparse::linalg::symmetrize(
-
-    );
+   raft::sparse::linalg::symmetrize();
 
 
 
