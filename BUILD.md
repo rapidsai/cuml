@@ -32,7 +32,7 @@ conda remove --force rapids-build-env rapids-notebook-env rapids-doc-env
 
 ### Recommended process
 
-As a convenience, a `build.sh` script is provided which can be used to execute the same build commands above.  Note that the libraries will be installed to the location set in `$INSTALL_PREFIX` if set (i.e. `export INSTALL_PREFIX=/install/path`), otherwise to `$CONDA_PREFIX`.
+As a convenience, a `build.sh` script is provided which can be used to execute the same build commands as below.  Note that the libraries will be installed to the location set in `$INSTALL_PREFIX` if set (i.e. `export INSTALL_PREFIX=/install/path`), otherwise to `$CONDA_PREFIX`.
 ```bash
 $ ./build.sh                           # build the cuML libraries, tests, and python package, then
                                        # install them to $INSTALL_PREFIX if set, otherwise $CONDA_PREFIX
