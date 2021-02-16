@@ -105,7 +105,7 @@ class DecisionTreeBase {
     const int nrows, const L *labels, unsigned int *rowids,
     const int n_sampled_rows, int unique_labels,
     std::vector<SparseTreeNode<T, L>> &sparsetree, const int treeid,
-    uint64_t seed, bool is_classifier,
+    uint64_t seed, bool is_classifier, T* d_global_quantiles,
     std::shared_ptr<TemporaryMemory<T, L>> in_tempmem);
 
  public:
