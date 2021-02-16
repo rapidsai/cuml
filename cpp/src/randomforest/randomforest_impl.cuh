@@ -203,16 +203,16 @@ void rfClassifier<T>::fit(const raft::handle_t& user_handle, const T* input,
   auto quantile_size = this->rf_params.tree_params.n_bins * n_cols * sizeof(T);
 
   //Preprocess once only per forest
-  if ((this->rf_params.tree_params.split_algo == SPLIT_ALGO::GLOBAL_QUANTILE) &&
-      !(this->rf_params.tree_params.quantile_per_tree)) {
-    if (this->rf_params.tree_params.use_experimental_backend) {
-      // Using batched backend
-      // allocate space for d_global_quantiles
-      d_global_quantiles = new MLCommon::device_buffer<T>(handle.get_device_allocator(), handle.get_stream(), quantile_size);
-      DecisionTree::computeQuantiles(d_global_quantiles->data(), this->rf_params.tree_params.n_bins, input, n_rows, n_cols,
-        handle.get_device_allocator(), handle.get_host_allocator(), handle.get_stream());
-      CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
+  if (this->rf_params.tree_params.use_experimental_backend) {
+    // Using batched backend
+    // allocate space for d_global_quantiles
+    d_global_quantiles = new MLCommon::device_buffer<T>(handle.get_device_allocator(), handle.get_stream(), quantile_size);
+    DecisionTree::computeQuantiles(d_global_quantiles->data(), this->rf_params.tree_params.n_bins, input, n_rows, n_cols,
+      handle.get_device_allocator(), handle.get_host_allocator(), handle.get_stream());
+    CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
     } else {
+    if ((this->rf_params.tree_params.split_algo == SPLIT_ALGO::GLOBAL_QUANTILE) &&
+       !(this->rf_params.tree_params.quantile_per_tree)) {
       // Using level (old) backend
       DecisionTree::preprocess_quantile(input, nullptr, n_rows, n_cols, n_rows,
                                       this->rf_params.tree_params.n_bins,
@@ -269,12 +269,16 @@ void rfClassifier<T>::fit(const raft::handle_t& user_handle, const T* input,
     auto s = tempmem[i]->stream;
     CUDA_CHECK(cudaStreamSynchronize(s));
     selected_rows[i]->release(s);
-    tempmem[i].reset();
     delete selected_rows[i];
+    if (!this->rf_params.tree_params.use_experimental_backend) {
+      tempmem[i].reset();
+    }
   }
-  d_global_quantiles->release(handle.get_stream());
-  delete d_global_quantiles;
-  CUDA_CHECK(cudaStreamSynchronize(user_handle.get_stream()));
+  if (this->rf_params.tree_params.use_experimental_backend) {
+    d_global_quantiles->release(handle.get_stream());
+    delete d_global_quantiles;
+  }
+  CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 }
 
 /**
@@ -515,16 +519,16 @@ void rfRegressor<T>::fit(const raft::handle_t& user_handle, const T* input,
   MLCommon::device_buffer<T>* d_global_quantiles = nullptr;
   auto quantile_size = this->rf_params.tree_params.n_bins * n_cols * sizeof(T);
   //Preprocess once only per forest
-  if ((this->rf_params.tree_params.split_algo == SPLIT_ALGO::GLOBAL_QUANTILE) &&
-      !(this->rf_params.tree_params.quantile_per_tree)) {
-    if (this->rf_params.tree_params.use_experimental_backend) {
-      // Using batched backend
-      // allocate space for d_global_quantiles
-      d_global_quantiles = new MLCommon::device_buffer<T>(handle.get_device_allocator(), handle.get_stream(), quantile_size);
-      DecisionTree::computeQuantiles(d_global_quantiles->data(), this->rf_params.tree_params.n_bins, input, n_rows, n_cols,
-        handle.get_device_allocator(), handle.get_host_allocator(), handle.get_stream());
-      CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
+  if (this->rf_params.tree_params.use_experimental_backend) {
+    // Using batched backend
+    // allocate space for d_global_quantiles
+    d_global_quantiles = new MLCommon::device_buffer<T>(handle.get_device_allocator(), handle.get_stream(), quantile_size);
+    DecisionTree::computeQuantiles(d_global_quantiles->data(), this->rf_params.tree_params.n_bins, input, n_rows, n_cols,
+      handle.get_device_allocator(), handle.get_host_allocator(), handle.get_stream());
+    CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
     } else {
+    if ((this->rf_params.tree_params.split_algo == SPLIT_ALGO::GLOBAL_QUANTILE) &&
+       !(this->rf_params.tree_params.quantile_per_tree)) {
       // Using level (old) backend
       DecisionTree::preprocess_quantile(input, nullptr, n_rows, n_cols, n_rows,
                                       this->rf_params.tree_params.n_bins,
@@ -578,11 +582,15 @@ void rfRegressor<T>::fit(const raft::handle_t& user_handle, const T* input,
     auto s = tempmem[i]->stream;
     CUDA_CHECK(cudaStreamSynchronize(s));
     selected_rows[i]->release(s);
-    tempmem[i].reset();
     delete selected_rows[i];
+    if (!this->rf_params.tree_params.use_experimental_backend) {
+      tempmem[i].reset();
+    }
   }
-  d_global_quantiles->release(handle.get_stream());
-  delete d_global_quantiles;
+  if (this->rf_params.tree_params.use_experimental_backend) {
+    d_global_quantiles->release(handle.get_stream());
+    delete d_global_quantiles;
+  }
   CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 }
 
