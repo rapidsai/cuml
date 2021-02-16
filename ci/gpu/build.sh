@@ -102,9 +102,6 @@ if [[ -z "$PROJECT_FLASH" || "$PROJECT_FLASH" == "0" ]]; then
 
     gpuci_logger "Resetting LD_LIBRARY_PATH"
 
-    export LD_LIBRARY_PATH=$LD_LIBRARY_PATH_CACHED
-    export LD_LIBRARY_PATH_CACHED=""
-
     cd $WORKSPACE
 
     ################################################################################
@@ -124,6 +121,8 @@ if [[ -z "$PROJECT_FLASH" || "$PROJECT_FLASH" == "0" ]]; then
     cd $WORKSPACE/cpp/build
     GTEST_OUTPUT="xml:${WORKSPACE}/test-results/libcuml_cpp/" ./test/ml
 
+    export LD_LIBRARY_PATH=$LD_LIBRARY_PATH_CACHED
+    export LD_LIBRARY_PATH_CACHED=""
 
     gpuci_logger "Python pytest for cuml"
     cd $WORKSPACE/python
