@@ -183,11 +183,5 @@ inline std::unique_ptr<MetricProcessor<math_t>> create_processor(
   return std::unique_ptr<MetricProcessor<math_t>>(mp);
 }
 
-// Currently only being used by floats
-template class MetricProcessor<float>;
-template class CosineMetricProcessor<float>;
-template class CorrelationMetricProcessor<float>;
-template class DefaultMetricProcessor<float>;
-
 };  // namespace Selection
 };  // namespace MLCommon

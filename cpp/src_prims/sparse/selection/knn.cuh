@@ -28,7 +28,7 @@
 #include <raft/mr/device/allocator.hpp>
 #include <raft/mr/device/buffer.hpp>
 
-#include <selection/knn.cuh>
+#include <specializations/prims/selection/knn.cuh>
 #include "../coo.cuh"
 #include "../csr.cuh"
 #include "../distance/distance.cuh"

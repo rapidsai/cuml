@@ -16,7 +16,7 @@
 
 #pragma once
 #include <cuml/neighbors/knn_mg.hpp>
-#include <selection/knn.cuh>
+#include <specializations/prims/selection/knn.cuh>
 
 #include <cuml/common/cuml_allocator.hpp>
 #include <cuml/common/device_buffer.hpp>

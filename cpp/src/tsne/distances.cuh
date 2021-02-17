@@ -19,7 +19,7 @@
 #include <raft/cudart_utils.h>
 #include <cuml/neighbors/knn_sparse.hpp>
 #include <raft/linalg/eltwise.cuh>
-#include <selection/knn.cuh>
+#include <specializations/prims/selection/knn.cuh>
 #include <sparse/coo.cuh>
 #include <sparse/linalg/symmetrize.cuh>
 #include <sparse/selection/knn.cuh>

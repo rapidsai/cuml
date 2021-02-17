@@ -20,7 +20,7 @@
 #include <ml_mg_utils.cuh>
 
 #include <label/classlabels.cuh>
-#include <selection/knn.cuh>
+#include <specializations/prims/selection/knn.cuh>
 
 #include <cuda_runtime.h>
 #include <raft/cuda_utils.cuh>

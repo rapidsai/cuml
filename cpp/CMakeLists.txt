@@ -389,6 +389,7 @@ if(BUILD_CUML_CPP_LIBRARY)
 
   # single GPU components
   add_library(${CUML_CPP_TARGET} SHARED
+    src/specializations/prims/selection/knn.cu
     src/arima/batched_arima.cu
     src/arima/batched_kalman.cu
     src/common/logger.cpp

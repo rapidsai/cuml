@@ -28,7 +28,7 @@
 
 #include <distance/distance.cuh>
 #include <selection/columnWiseSort.cuh>
-#include <selection/knn.cuh>
+#include <specializations/prims/selection/knn.cuh>
 
 #include <thrust/device_ptr.h>
 #include <thrust/reduce.h>

@@ -22,7 +22,7 @@
 #include <raft/mr/device/buffer.hpp>
 #include <raft/spectral/partition.hpp>
 
-#include <selection/knn.cuh>
+#include <specializations/prims/selection/knn.cuh>
 #include "../convert/csr.cuh"
 #include "../coo.cuh"
 

@@ -18,7 +18,7 @@
 #include <raft/cudart_utils.h>
 #include <iostream>
 #include <raft/cuda_utils.cuh>
-#include <selection/knn.cuh>
+#include <specializations/prims/selection/knn.cuh>
 #include <vector>
 #include "test_utils.h"
 

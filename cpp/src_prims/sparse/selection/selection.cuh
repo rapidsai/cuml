@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include <selection/knn.cuh>
+#include <specializations/prims/selection/knn.cuh>
 
 #include <raft/cudart_utils.h>
 #include <raft/sparse/cusparse_wrappers.h>

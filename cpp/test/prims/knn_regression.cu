@@ -22,7 +22,7 @@
 #include <raft/cuda_utils.cuh>
 #include <raft/linalg/reduce.cuh>
 #include <raft/random/rng.cuh>
-#include <selection/knn.cuh>
+#include <specializations/prims/selection/knn.cuh>
 #include <vector>
 #include "test_utils.h"
 

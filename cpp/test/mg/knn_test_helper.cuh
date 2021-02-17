@@ -24,7 +24,7 @@
 #include <raft/comms/mpi_comms.hpp>
 
 #include <linalg/reduce_rows_by_key.cuh>
-#include <selection/knn.cuh>
+#include <specializations/prims/selection/knn.cuh>
 
 #include <cuml/common/cuml_allocator.hpp>
 

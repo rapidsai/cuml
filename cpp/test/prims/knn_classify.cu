@@ -20,7 +20,7 @@
 #include <label/classlabels.cuh>
 #include <raft/cuda_utils.cuh>
 #include <random/make_blobs.cuh>
-#include <selection/knn.cuh>
+#include <specializations/prims/selection/knn.cuh>
 #include <vector>
 #include "test_utils.h"
 
