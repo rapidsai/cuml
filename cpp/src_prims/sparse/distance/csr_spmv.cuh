@@ -41,11 +41,12 @@ namespace distance {
 
 /**
  * Semiring which schedules each row of B in a different thread.
- * @tparam value_idx
- * @tparam value_t
- * @tparam tpb
- * @tparam buffer_size
- * @tparam rows_per_block
+ *
+ * @tparam     value_idx  { description }
+ * @tparam     value_t    { description }
+ * @tparam     tpb        { description }
+ * @tparam     product_f  { description }
+ * @tparam     accum_f    { description }
  */
 template <typename value_idx, typename value_t, int tpb, typename product_f,
           typename accum_f>
@@ -63,10 +64,11 @@ struct BlockSemiring {
 
   /**
    * Load columns for a single row of A into shared memory
-   * @param row
-   * @param indptrA
-   * @param indicesA
-   * @param dataA
+   *
+   * @param      row       The row
+   * @param      indptrA   The indptr a
+   * @param      indicesA  The indices a
+   * @param      dataA     The data a
    */
   __device__ inline void load_a_shared(value_idx row, value_idx *indptrA,
                                        value_idx *indicesA, value_t *dataA) {
@@ -93,17 +95,15 @@ struct BlockSemiring {
   }
 
   /**
-   * Sets the head for A's pointers so they can be
-   * iterated in each thread. This is used for the
-   * case when the maximum degree of any row in A
-   * is too large to fit into shared memory, so we
-   * default to increasing the size of the L1 cache
-   * and suffering the uncoalesced memory accesses
-   * for both A and B.
-   * @param row
-   * @param indptrA
-   * @param indicesA
-   * @param dataA
+   * Sets the head for A's pointers so they can be iterated in each thread. This
+   * is used for the case when the maximum degree of any row in A is too large
+   * to fit into shared memory, so we default to increasing the size of the L1
+   * cache and suffering the uncoalesced memory accesses for both A and B.
+   *
+   * @param      row       The row
+   * @param      indptrA   The indptr a
+   * @param      indicesA  The indices a
+   * @param      dataA     The data a
    */
   __device__ inline void load_a(value_idx row, value_idx *indptrA,
                                 value_idx *indicesA, value_t *dataA) {
@@ -123,8 +123,9 @@ struct BlockSemiring {
 
   /**
    * Prepare index & offsets for looping through rows of B
-   * @param start_row
-   * @param indptrB
+   *
+   * @param      start_row  The start row
+   * @param      indptrB    The indptr b
    */
   __device__ inline void load_b(value_idx start_row, value_idx *indptrB) {
     done = false;
@@ -146,11 +147,13 @@ struct BlockSemiring {
   }
 
   /**
-   * Perform single single column intersection/union for A & B
-   * based on the row of A mapped to shared memory and the row
-   * of B mapped to current thread.
-   * @param product_func
-   * @param accum_func
+   * Perform single single column intersection/union for A & B based on the row
+   * of A mapped to shared memory and the row of B mapped to current thread.
+   *
+   * @param      b_cols        The b cols
+   * @param      b_vals        The b vals
+   * @param      product_func  The product function
+   * @param      accum_func    The accum function
    */
   __device__ inline void step(value_idx *b_cols, value_t *b_vals,
                               product_f product_func, accum_f accum_func) {
@@ -220,27 +223,30 @@ struct BlockSemiring {
 };
 
 /**
- * Optimized for large numbers of rows but small enough numbers of columns
- * that each thread can process their rows in parallel.
- * @tparam value_idx index type
- * @tparam value_t value type
- * @tparam tpb block size
- * @tparam product_f semiring product() function
- * @tparam accum_f semiring sum() function
- * @param[in] indptrA csr column index pointer array for A
- * @param[in] indicesA csr column indices array for A
- * @param[in] dataA csr data array for A
- * @param[in] indptrB csr column index pointer array for B
- * @param[in] indicesB csr column indices array for B
- * @param[in] dataB csr data array for B
- * @param[in] m number of rows in A
- * @param[in] n number of rows in B
- * @param[out] out dense output array of size m * n in row-major layout
- * @param[in] n_blocks_per_row number of blocks of B scheduled per row of A
- * @param[in] n_rows_per_block number of rows of A scheduled per block of B
- * @param[in] buffer_size number of nonzeros to store in smem
- * @param[in] product_func semiring product() function
- * @param[in] accum_func semiring sum() function
+ * Optimized for large numbers of rows but small enough numbers of columns that
+ * each thread can process their rows in parallel.
+ *
+ * @param[in]  indptrA           csr column index pointer array for A
+ * @param[in]  indicesA          csr column indices array for A
+ * @param[in]  dataA             csr data array for A
+ * @param[in]  indptrB           csr column index pointer array for B
+ * @param[in]  indicesB          csr column indices array for B
+ * @param[in]  dataB             csr data array for B
+ * @param[in]  m                 number of rows in A
+ * @param[in]  n                 number of rows in B
+ * @param[out] out               dense output array of size m * n in row-major
+ *                               layout
+ * @param[in]  n_blocks_per_row  number of blocks of B scheduled per row of A
+ * @param[in]  n_rows_per_block  number of rows of A scheduled per block of B
+ * @param[in]  buffer_size       number of nonzeros to store in smem
+ * @param[in]  product_func      semiring product() function
+ * @param[in]  accum_func        semiring sum() function
+ *
+ * @tparam     value_idx         index type
+ * @tparam     value_t           value type
+ * @tparam     tpb               block size
+ * @tparam     product_f         semiring product() function
+ * @tparam     accum_f           semiring sum() function
  */
 template <typename value_idx, typename value_t, int tpb, typename product_f,
           typename accum_f>
@@ -311,9 +317,13 @@ __global__ void classic_csr_semiring_spmv_kernel(
 }
 
 /**
- * Compute the maximum number of nonzeros that can be stored in shared
- * memory per block with the given index and value precision
- * @return max nnz that can be stored in smem per block
+ * Compute the maximum number of nonzeros that can be stored in shared memory
+ * per block with the given index and value precision
+ *
+ * @tparam     value_idx  { description }
+ * @tparam     value_t    { description }
+ *
+ * @return     max nnz that can be stored in smem per block
  */
 template <typename value_idx, typename value_t>
 inline value_idx max_nnz_per_block() {
@@ -324,10 +334,13 @@ inline value_idx max_nnz_per_block() {
 }
 
 /**
- * @tparam value_idx
- * @param out
- * @param in
- * @param n
+ * @brief      { function_description }
+ *
+ * @param      out        The out
+ * @param      in         { parameter_description }
+ * @param      n          { parameter_description }
+ *
+ * @tparam     value_idx  { description }
  */
 template <typename value_idx>
 __global__ void max_kernel(value_idx *out, value_idx *in, value_idx n) {
@@ -350,8 +363,8 @@ inline value_idx max_degree(
   CUDA_CHECK(cudaMemsetAsync(max_d.data(), 0, sizeof(value_idx), stream));
 
   /**
-   * A custom max reduction is performed until https://github.com/rapidsai/cuml/issues/3431
-   * is fixed.
+   * A custom max reduction is performed until
+   * https://github.com/rapidsai/cuml/issues/3431 is fixed.
    */
   max_kernel<<<raft::ceildiv(n_rows, 256), 256, 0, stream>>>(
     max_d.data(), indptr + 1, n_rows);
@@ -424,48 +437,47 @@ void _generalized_csr_pairwise_smem_semiring(
 }
 
 /**
- * Perform generalized sparse-matrix-sparse-vector multiply in
- * a semiring algebra by allowing the product and sum operations
- * to be defined. This approach saves the most memory as it can
- * work directly on a CSR w/o the need for conversion to another
- * sparse format, does not require any transposition, nor loading
- * any vectors in dense form. The major drawback to this kernel
- * is that the non-uniform memory access pattern dominates performance.
- * When the shared memory option is used, bank conflicts also dominate
- * performance, making it slower than other options but guaranteeing
- * that the product() operation will be executed across every column
- * in A and B.
+ * Perform generalized sparse-matrix-sparse-vector multiply in a semiring
+ * algebra by allowing the product and sum operations to be defined. This
+ * approach saves the most memory as it can work directly on a CSR w/o the need
+ * for conversion to another sparse format, does not require any transposition,
+ * nor loading any vectors in dense form. The major drawback to this kernel is
+ * that the non-uniform memory access pattern dominates performance. When the
+ * shared memory option is used, bank conflicts also dominate performance,
+ * making it slower than other options but guaranteeing that the product()
+ * operation will be executed across every column in A and B.
  *
- * This is primarily useful when in cases where the product() operation
- * is non-anniliating (e.g. product(x, 0) = x.
+ * This is primarily useful when in cases where the product() operation is
+ * non-anniliating (e.g. product(x, 0) = x.
  *
- * There are two potential code paths for this primitive- if the largest
- * degree of any row is small enough to fit in shared memory then shared
- * memory is used to coalesce the reads from the vectors of A, otherwise
- * no shared memory is used and all loads from A and B happen independently
- * in separate threads.
+ * There are two potential code paths for this primitive- if the largest degree
+ * of any row is small enough to fit in shared memory then shared memory is used
+ * to coalesce the reads from the vectors of A, otherwise no shared memory is
+ * used and all loads from A and B happen independently in separate threads.
  *
- * Iterators are maintained for the vectors from both A and B and each
- * thread iterates to a maximum of |a|+|b| (which will happen only when
- * the set of columns for vectors a and b are completely disjoint.
+ * Iterators are maintained for the vectors from both A and B and each thread
+ * iterates to a maximum of |a|+|b| (which will happen only when the set of
+ * columns for vectors a and b are completely disjoint.
  *
  * TODO: Some potential things to try for future optimizations:
- *  - Always iterating for n_cols so that each warp is iterating
- *    a uniform number of times.
- *  - Computing an argsort() of B based on the number of columns
- *    in each row to attempt to load balance the warps naturally
+ *  - Always iterating for n_cols so that each warp is iterating a uniform
+ *    number of times.
+ *  - Computing an argsort() of B based on the number of columns in each row to
+ *    attempt to load balance the warps naturally
  *  - Finding a way to coalesce the reads
  *
- *  Ref: https://github.com/rapidsai/cuml/issues/3371
+ * Ref: https://github.com/rapidsai/cuml/issues/3371
  *
- * @tparam value_idx index type
- * @tparam value_t value type
- * @tparam product_f semiring product() function
- * @tparam accum_f semiring sum() function
- * @param[out] out_dists dense array of output distances size m * n in row-major layout
- * @param[in] config_ distance config object
- * @param[in] product_func semiring product() function
- * @param[in] accum_func semiring sum() function
+ * @param[out] out_dists     dense array of output distances size m * n in
+ *                           row-major layout
+ * @param[in]  config_       distance config object
+ * @param[in]  product_func  semiring product() function
+ * @param[in]  accum_func    semiring sum() function
+ *
+ * @tparam     value_idx     index type
+ * @tparam     value_t       value type
+ * @tparam     product_f     semiring product() function
+ * @tparam     accum_f       semiring sum() function
  */
 template <typename value_idx = int, typename value_t = float,
           typename product_f, typename accum_f>

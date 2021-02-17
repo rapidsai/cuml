@@ -43,14 +43,16 @@ namespace sparse {
 namespace distance {
 
 /**
- * Compute pairwise distances between A and B, using the provided
- * input configuration and distance function.
+ * Compute pairwise distances between A and B, using the provided input
+ * configuration and distance function.
  *
- * @tparam value_idx index type
- * @tparam value_t value type
- * @param[out] out dense output array (size A.nrows * B.nrows)
- * @param[in] input_config input argument configuration
- * @param[in] metric distance metric to use
+ * @param[out] out           dense output array (size A.nrows * B.nrows)
+ * @param[in]  input_config  input argument configuration
+ * @param[in]  metric        distance metric to use
+ * @param[in]  metric_arg    The metric argument
+ *
+ * @tparam     value_idx     index type
+ * @tparam     value_t       value type
  */
 template <typename value_idx = int, typename value_t = float>
 void pairwiseDistance(value_t *out,

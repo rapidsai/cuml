@@ -25,23 +25,22 @@ namespace ML {
  * An ARIMA specialized batched kalman filter to evaluate ARMA parameters and
  * provide the resulting prediction as well as loglikelihood fit.
  *
- * @param[in]  handle        cuML handle
- * @param[in]  d_ys_b        Batched time series
- *                           Shape (nobs, batch_size) (col-major, device)
- * @param[in]  nobs          Number of samples per time series
- * @param[in]  params        ARIMA parameters (device)
- * @param[in]  order         ARIMA hyper-parameters
- * @param[in]  batch_size    Number of series making up the batch
- * @param[out] d_loglike     Resulting log-likelihood (per series) (device)
- * @param[out] d_vs          Residual between the prediction and the
- *                           original series.
- *                           shape=(nobs-d-s*D, batch_size) (device)
- * @param[in]  fc_steps      Number of steps to forecast
- * @param[in]  d_fc          Array to store the forecast
- * @param[in]  level         Confidence level for prediction intervals. 0 to
- *                           skip the computation. Else 0 < level < 1
- * @param[out] d_lower       Lower limit of the prediction interval
- * @param[out] d_upper       Upper limit of the prediction interval
+ * @param[in]  handle     cuML handle
+ * @param[in]  d_ys_b     Batched time series Shape (nobs, batch_size)
+ *                        (col-major, device)
+ * @param[in]  nobs       Number of samples per time series
+ * @param[in]  params     ARIMA parameters (device)
+ * @param[in]  order      ARIMA hyper-parameters
+ * @param[in]  batch_size Number of series making up the batch
+ * @param[out] d_loglike  Resulting log-likelihood (per series) (device)
+ * @param[out] d_vs       Residual between the prediction and the original
+ *                        series. shape=(nobs-d-s*D, batch_size) (device)
+ * @param[in]  fc_steps   Number of steps to forecast
+ * @param[in]  d_fc       Array to store the forecast
+ * @param[in]  level      Confidence level for prediction intervals. 0 to skip
+ *                        the computation. Else 0 < level < 1
+ * @param[out] d_lower    Lower limit of the prediction interval
+ * @param[out] d_upper    Upper limit of the prediction interval
  */
 void batched_kalman_filter(raft::handle_t& handle, const double* d_ys_b,
                            int nobs, const ARIMAParams<double>& params,
@@ -53,17 +52,16 @@ void batched_kalman_filter(raft::handle_t& handle, const double* d_ys_b,
 
 /**
  * Convenience function for batched "jones transform" used in ARIMA to ensure
- * certain properties of the AR and MA parameters (takes host array and
- * returns host array)
+ * certain properties of the AR and MA parameters (takes host array and returns
+ * host array)
  *
  * @param[in]  handle     cuML handle
  * @param[in]  order      ARIMA hyper-parameters
  * @param[in]  batch_size Number of time series analyzed.
  * @param[in]  isInv      Do the inverse transform?
  * @param[in]  h_params   ARIMA parameters by batch (mu, ar, ma) (host)
- * @param[out] h_Tparams  Transformed ARIMA parameters
- *                        (expects pre-allocated array of size
- *                         (p+q)*batch_size) (host)
+ * @param[out] h_Tparams  Transformed ARIMA parameters (expects pre-allocated
+ *                        array of size (p+q)*batch_size) (host)
  */
 void batched_jones_transform(raft::handle_t& handle, const ARIMAOrder& order,
                              int batch_size, bool isInv, const double* h_params,

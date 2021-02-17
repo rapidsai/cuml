@@ -95,7 +95,8 @@ struct EpsUnexpL2SqNeighborhood : public BaseClass {
       for (int j = 0; j < P::AccColsPerTh; ++j) {
         auto yid = starty + j * P::AccThCols;
         auto is_neigh = acc[i][j] <= eps;
-        ///@todo: fix uncoalesced writes using shared mem
+        /**
+         * @todo       : fix uncoalesced writes using shared mem */
         if (xid < this->m && yid < this->n) {
           adj[xid * this->n + yid] = is_neigh;
           sums[j] += is_neigh;
@@ -184,21 +185,23 @@ void epsUnexpL2SqNeighImpl(bool* adj, IdxT* vd, const DataT* x, const DataT* y,
 }
 
 /**
- * @brief Computes epsilon neighborhood for the L2-Squared distance metric
+ * @brief      Computes epsilon neighborhood for the L2-Squared distance metric
  *
- * @tparam DataT   IO and math type
- * @tparam IdxT    Index type
+ * @param[out] adj     adjacency matrix [row-major] [on device] [dim = m x n]
+ * @param[out] vd      vertex degree array [on device] [len = m + 1] `vd + m`
+ *                     stores the total number of edges in the adjacency matrix.
+ *                     Pass a nullptr if you don't need this info.
+ * @param[in]  x       first matrix [row-major] [on device] [dim = m x k]
+ * @param[in]  y       second matrix [row-major] [on device] [dim = n x k]
+ * @param[in]  m       { parameter_description }
+ * @param[in]  n       { parameter_description }
+ * @param[in]  k       { parameter_description }
+ * @param[in]  eps     defines epsilon neighborhood radius (should be passed as
+ *                     squared as we compute L2-squared distance in this method)
+ * @param[in]  stream  cuda stream
  *
- * @param[out] adj    adjacency matrix [row-major] [on device] [dim = m x n]
- * @param[out] vd     vertex degree array [on device] [len = m + 1]
- *                    `vd + m` stores the total number of edges in the adjacency
- *                    matrix. Pass a nullptr if you don't need this info.
- * @param[in]  x      first matrix [row-major] [on device] [dim = m x k]
- * @param[in]  y      second matrix [row-major] [on device] [dim = n x k]
- * @param[in]  eps    defines epsilon neighborhood radius (should be passed as
- *                    squared as we compute L2-squared distance in this method)
- * @param[in]  fop    device lambda to do any other custom functions
- * @param[in]  stream cuda stream
+ * @tparam     DataT   IO and math type
+ * @tparam     IdxT    Index type
  */
 template <typename DataT, typename IdxT>
 void epsUnexpL2SqNeighborhood(bool* adj, IdxT* vd, const DataT* x,

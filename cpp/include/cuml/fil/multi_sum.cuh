@@ -13,27 +13,37 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 /** @file multi_sum.cuh */
+
 #pragma once
+
 #include <raft/cuda_utils.cuh>
+
 /**
- template parameters: data [T]ype, reduction [R]adix
- function parameters:
- @data[] holds one value per thread in shared memory
- @n_groups is the number of indendent reductions
- @n_values is the size of each individual reduction,
-   that is the number of values to be reduced to a single value
- function returns: one sum per thread, for @n_groups first threads.
- important: @data[] is "spoiled" during the process: at the end,
-   it will contain neither the initial nor the final values. the only valid
-   result is the one returned by the function. That makes it faster.
- other assumptions:
- data[n_groups * n_values - 1] is within range
- T::operator+= is defined, and the implied addition is associative.
- @data[] layout assumption:
- @data[] values are ordered such that the stride is 1 for values belonging
-   to the same group and @n_groups for values that are to be added together
-*/
+ * @brief      Multiple Sum
+ *
+ * @warning    `data` is "spoiled" during the process: at the end, it will
+ *             contain neither the initial nor the final values. the only valid
+ *             result is the one returned by the function. That makes it faster.
+ *
+ * @note       It's assumed that:
+ *              - `data[n_groups * n_values - 1]` is within range
+ *              - `T::operator+=` is defined
+ *              - The implied addition is associative.
+ *
+ * @param      data      Holds one value per thread in shared memory. Values
+ *                       are ordered such that the stride is 1 for values
+ *                       belonging to the same group and `n_groups` for values
+ *                       that are to be added together
+ * @param[in]  n_groups  The number of indendent reductions
+ * @param[in]  n_values  The size of each individual reduction
+ *
+ * @tparam     R         Radix Type
+ * @tparam     T         Data Type
+ *
+ * @return     One sum per thread, for `n_groups` first threads.
+ */
 template <int R = 5, typename T = float>
 __device__ T multi_sum(T* data, int n_groups, int n_values) {
   T acc = threadIdx.x < n_groups * n_values ? data[threadIdx.x] : T();

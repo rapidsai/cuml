@@ -22,25 +22,6 @@
 namespace ML {
 namespace DecisionTree {
 
-/**
- * @brief Set all DecisionTreeParams members.
- * @param[in,out] params: update with tree parameters
- * @param[in] cfg_max_depth: maximum tree depth; default -1
- * @param[in] cfg_max_leaves: maximum leaves; default -1
- * @param[in] cfg_max_features: maximum number of features; default 1.0f
- * @param[in] cfg_n_bins: number of bins; default 8
- * @param[in] cfg_split_algo: split algorithm; default SPLIT_ALGO::HIST
- * @param[in] cfg_min_samples_leaf: min. rows in each leaf node; default 1
- * @param[in] cfg_min_samples_split: min. rows needed to split an internal node;
- *            default 2
- * @param[in] cfg_bootstrap_features: bootstrapping for features; default false
- * @param[in] cfg_split_criterion: split criterion; default CRITERION_END,
- *            i.e., GINI for classification or MSE for regression
- * @param[in] cfg_quantile_per_tree: compute quantile per tree; default false
- * @param[in] cfg_use_experimental_backend: Switch to using experimental
-              backend; default false
- * @param[in] cfg_max_batch_size: batch size for experimental backend
- */
 void set_tree_params(DecisionTreeParams &params, int cfg_max_depth,
                      int cfg_max_leaves, float cfg_max_features, int cfg_n_bins,
                      int cfg_split_algo, int cfg_min_samples_leaf,

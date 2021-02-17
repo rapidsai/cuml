@@ -35,14 +35,15 @@ using namespace MLCommon;
  * The y array is assumed to store class labels. The unique values are selected
  * from this array.
  *
- * \tparam math_t numeric type of the arrays with class labels
- * \param [in] y device array of labels, size [n]
- * \param [in] n number of labels
- * \param [out] y_unique device array of unique labels, unallocated on entry,
- *   on exit it has size [n_unique]
- * \param [out] n_unique number of unique labels
- * \param [in] stream cuda stream
- * \param [in] allocator device allocator
+ * @param[in]  y          device array of labels, size [n]
+ * @param[in]  n          number of labels
+ * @param[out] y_unique   device array of unique labels, unallocated on entry,
+ *                        on exit it has size [n_unique]
+ * @param[out] n_unique   number of unique labels
+ * @param[in]  stream     cuda stream
+ * @param[in]  allocator  device allocator
+ *
+ * @tparam     math_t     numeric type of the arrays with class labels
  */
 template <typename math_t>
 void getUniqueLabels(math_t *y, size_t n, math_t **y_unique, int *n_unique,
@@ -77,20 +78,22 @@ void getUniqueLabels(math_t *y, size_t n, math_t **y_unique, int *n_unique,
 /**
  * Assign one versus rest labels.
  *
- * The output labels will have values +/-1:
- * y_out = (y == y_unique[idx]) ? +1 : -1;
+ * The output labels will have values +/-1: y_out = (y == y_unique[idx]) ? +1 :
+ * -1;
  *
  * The output type currently is set to math_t, but for SVM in principle we are
  * free to choose other type for y_out (it should represent +/-1, and it is used
  * in floating point arithmetics).
  *
- * \param [in] y device array if input labels, size [n]
- * \param [in] n number of labels
- * \param [in] y_unique device array of unique labels, size [n_classes]
- * \param [in] n_classes number of unique labels
- * \param [out] y_out device array of output labels
- * \param [in] idx index of unique label that should be labeled as 1
- * \param [in] stream cuda stream
+ * @param[in]  y          device array if input labels, size [n]
+ * @param[in]  n          number of labels
+ * @param[in]  y_unique   device array of unique labels, size [n_classes]
+ * @param[in]  n_classes  number of unique labels
+ * @param[out] y_out      device array of output labels
+ * @param[in]  idx        index of unique label that should be labeled as 1
+ * @param[in]  stream     cuda stream
+ *
+ * @tparam     math_t     { description }
  */
 template <typename math_t>
 void getOvrLabels(math_t *y, int n, math_t *y_unique, int n_classes,
@@ -127,24 +130,27 @@ __global__ void map_label_kernel(Type *map_ids, size_t N_labels, Type *in,
 }
 
 /**
-   * Maps an input array containing a series of numbers into a new array
-   * where numbers have been mapped to a monotonically increasing set
-   * of labels. This can be useful in machine learning algorithms, for instance,
-   * where a given set of labels is not taken from a monotonically increasing
-   * set. This can happen if they are filtered or if only a subset of the
-   * total labels are used in a dataset. This is also useful in graph algorithms
-   * where a set of vertices need to be labeled in a monotonically increasing
-   * order.
-   * @tparam Type the numeric type of the input and output arrays
-   * @tparam Lambda the type of an optional filter function, which determines
-   * which items in the array to map.
-   * @param out the output monotonic array
-   * @param in input label array
-   * @param N number of elements in the input array
-   * @param stream cuda stream to use
-   * @param filter_op an optional function for specifying which values
-   * should have monotonically increasing labels applied to them.
-   */
+ * Maps an input array containing a series of numbers into a new array where
+ * numbers have been mapped to a monotonically increasing set of labels. This
+ * can be useful in machine learning algorithms, for instance, where a given set
+ * of labels is not taken from a monotonically increasing set. This can happen
+ * if they are filtered or if only a subset of the total labels are used in a
+ * dataset. This is also useful in graph algorithms where a set of vertices need
+ * to be labeled in a monotonically increasing order.
+ *
+ * @param      out        the output monotonic array
+ * @param      in         input label array
+ * @param      N          number of elements in the input array
+ * @param      stream     cuda stream to use
+ * @param      filter_op  an optional function for specifying which values
+ *                        should have monotonically increasing labels applied to
+ *                        them.
+ * @param[in]  allocator  The allocator
+ *
+ * @tparam     Type       the numeric type of the input and output arrays
+ * @tparam     Lambda     the type of an optional filter function, which
+ *                        determines which items in the array to map.
+ */
 template <typename Type, typename Lambda>
 void make_monotonic(Type *out, Type *in, size_t N, cudaStream_t stream,
                     Lambda filter_op,
@@ -165,22 +171,24 @@ void make_monotonic(Type *out, Type *in, size_t N, cudaStream_t stream,
 }
 
 /**
-   * Maps an input array containing a series of numbers into a new array
-   * where numbers have been mapped to a monotonically increasing set
-   * of labels. This can be useful in machine learning algorithms, for instance,
-   * where a given set of labels is not taken from a monotonically increasing
-   * set. This can happen if they are filtered or if only a subset of the
-   * total labels are used in a dataset. This is also useful in graph algorithms
-   * where a set of vertices need to be labeled in a monotonically increasing
-   * order.
-   * @tparam Type the numeric type of the input and output arrays
-   * @tparam Lambda the type of an optional filter function, which determines
-   * which items in the array to map.
-   * @param out output label array with labels assigned monotonically
-   * @param in input label array
-   * @param N number of elements in the input array
-   * @param stream cuda stream to use
-   */
+ * Maps an input array containing a series of numbers into a new array where
+ * numbers have been mapped to a monotonically increasing set of labels. This
+ * can be useful in machine learning algorithms, for instance, where a given set
+ * of labels is not taken from a monotonically increasing set. This can happen
+ * if they are filtered or if only a subset of the total labels are used in a
+ * dataset. This is also useful in graph algorithms where a set of vertices need
+ * to be labeled in a monotonically increasing order.
+ *
+ * @param      out        output label array with labels assigned monotonically
+ * @param      in         input label array
+ * @param      N          number of elements in the input array
+ * @param      stream     cuda stream to use
+ * @param[in]  allocator  The allocator
+ *
+ * @tparam     Type       the numeric type of the input and output arrays
+ * @tparam     Lambda  the type of an optional filter function, which determines
+ *                     which items in the array to map.
+ */
 template <typename Type>
 void make_monotonic(Type *out, Type *in, size_t N, cudaStream_t stream,
                     std::shared_ptr<deviceAllocator> allocator) {

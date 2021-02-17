@@ -14,28 +14,15 @@
  * limitations under the License.
  */
 
-#include <cuml/cuml.hpp>
-#include <sparse/coo.cuh>
+#include <cuml/cluster/spectral.hpp>
 
+#include <sparse/coo.cuh>
 #include <sparse/linalg/spectral.cuh>
 
 namespace ML {
 
 namespace Spectral {
 
-/**
-   * Given a COO formatted (symmetric) knn graph, this function
-   * computes the spectral embeddings (lowest n_components
-   * eigenvectors), using Lanczos min cut algorithm.
-   * @param rows source vertices of knn graph (size nnz)
-   * @param cols destination vertices of knn graph (size nnz)
-   * @param vals edge weights connecting vertices of knn graph (size nnz)
-   * @param nnz size of rows/cols/vals
-   * @param n number of samples in X
-   * @param n_neighbors the number of neighbors to query for knn graph construction
-   * @param n_components the number of components to project the X into
-   * @param out output array for embedding (size n*n_comonents)
-   */
 void fit_embedding(const raft::handle_t &handle, int *rows, int *cols,
                    float *vals, int nnz, int n, int n_components, float *out) {
   raft::sparse::spectral::fit_embedding(handle, rows, cols, vals, nnz, n,

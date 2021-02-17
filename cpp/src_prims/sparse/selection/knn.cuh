@@ -156,15 +156,10 @@ class sparse_knn_t {
     size_t rows_processed = 0;
 
     for (int i = 0; i < n_batches_query; i++) {
-      /**
-        * Compute index batch info
-        */
+      // Compute index batch info
       query_batcher.set_batch(i);
 
-      /**
-        * Slice CSR to rows in batch
-        */
-
+      // Slice CSR to rows in batch
       raft::mr::device::buffer<value_idx> query_batch_indptr(
         allocator, stream, query_batcher.batch_rows() + 1);
 
@@ -199,9 +194,7 @@ class sparse_knn_t {
         merge_buffer_indices.resize(query_batcher.batch_rows() * k * 3, stream);
         merge_buffer_dists.resize(query_batcher.batch_rows() * k * 3, stream);
 
-        /**
-          * Slice CSR to rows in batch
-        */
+        // Slice CSR to rows in batch
         raft::mr::device::buffer<value_idx> idx_batch_indptr(
           allocator, stream, idx_batcher.batch_rows() + 1);
         raft::mr::device::buffer<value_idx> idx_batch_indices(allocator, stream,
@@ -217,9 +210,7 @@ class sparse_knn_t {
         idx_batcher.get_batch_csr_indices_data(idx_batch_indices.data(),
                                                idx_batch_data.data(), stream);
 
-        /**
-           * Compute distances
-           */
+        // Compute distances
         size_t dense_size =
           idx_batcher.batch_rows() * query_batcher.batch_rows();
         raft::mr::device::buffer<value_t> batch_dists(allocator, stream,
@@ -248,9 +239,7 @@ class sparse_knn_t {
 
         iota_fill(batch_indices.data(), batch_rows, batch_cols, stream);
 
-        /**
-         * Perform k-selection on batch & merge with other k-selections
-         */
+        // Perform k-selection on batch & merge with other k-selections
         size_t merge_buffer_offset = batch_rows * k;
         dists_merge_buffer_ptr =
           merge_buffer_dists.data() + merge_buffer_offset;
@@ -303,9 +292,7 @@ class sparse_knn_t {
   void perform_postprocessing(value_t *dists, size_t batch_rows) {
     // Perform necessary post-processing
     if (metric == ML::MetricType::METRIC_L2 && !expanded_form) {
-      /**
-        * post-processing
-        */
+      // post-processing
       value_t p = 0.5;  // standard l2
       raft::linalg::unaryOp<value_t>(
         dists, dists, batch_rows * k,
@@ -461,31 +448,49 @@ class sparse_knn_t {
 };
 
 /**
-   * Search the sparse kNN for the k-nearest neighbors of a set of sparse query vectors
-   * using some distance implementation
-   * @param[in] idxIndptr csr indptr of the index matrix (size n_idx_rows + 1)
-   * @param[in] idxIndices csr column indices array of the index matrix (size n_idx_nnz)
-   * @param[in] idxData csr data array of the index matrix (size idxNNZ)
-   * @param[in] idxNNA number of non-zeros for sparse index matrix
-   * @param[in] n_idx_rows number of data samples in index matrix
-   * @param[in] queryIndptr csr indptr of the query matrix (size n_query_rows + 1)
-   * @param[in] queryIndices csr indices array of the query matrix (size queryNNZ)
-   * @param[in] queryData csr data array of the query matrix (size queryNNZ)
-   * @param[in] queryNNZ number of non-zeros for sparse query matrix
-   * @param[in] n_query_rows number of data samples in query matrix
-   * @param[in] n_query_cols number of features in query matrix
-   * @param[out] output_indices dense matrix for output indices (size n_query_rows * k)
-   * @param[out] output_dists dense matrix for output distances (size n_query_rows * k)
-   * @param[in] k the number of neighbors to query
-   * @param[in] cusparseHandle the initialized cusparseHandle instance to use
-   * @param[in] allocator device allocator instance to use
-   * @param[in] stream CUDA stream to order operations with respect to
-   * @param[in] batch_size_index maximum number of rows to use from index matrix per batch
-   * @param[in] batch_size_query maximum number of rows to use from query matrix per batch
-   * @param[in] metric distance metric/measure to use
-   * @param[in] metricArg potential argument for metric (currently unused)
-   * @param[in] expanded_form whether or not Lp variants should be reduced by the pth-root
-   */
+ * Search the sparse kNN for the k-nearest neighbors of a set of sparse query
+ * vectors using some distance implementation
+ *
+ * @param[in]  idxIndptr         csr indptr of the index matrix (size n_idx_rows +
+ *                               1)
+ * @param[in]  idxIndices        csr column indices array of the index matrix
+ *                               (size n_idx_nnz)
+ * @param[in]  idxData           csr data array of the index matrix (size
+ *                               idxNNZ)
+ * @param[in]  idxNNZ            number of non-zeros for sparse index matrix
+ * @param[in]  n_idx_rows        number of data samples in index matrix
+ * @param[in]  n_idx_cols        The n index cols
+ * @param[in]  queryIndptr       csr indptr of the query matrix (size
+ *                               n_query_rows + 1)
+ * @param[in]  queryIndices      csr indices array of the query matrix (size
+ *                               queryNNZ)
+ * @param[in]  queryData         csr data array of the query matrix (size
+ *                               queryNNZ)
+ * @param[in]  queryNNZ          number of non-zeros for sparse query matrix
+ * @param[in]  n_query_rows      number of data samples in query matrix
+ * @param[in]  n_query_cols      number of features in query matrix
+ * @param[out] output_indices    dense matrix for output indices (size
+ *                               n_query_rows * k)
+ * @param[out] output_dists      dense matrix for output distances (size
+ *                               n_query_rows * k)
+ * @param[in]  k                 the number of neighbors to query
+ * @param[in]  cusparseHandle    the initialized cusparseHandle instance to use
+ * @param[in]  allocator         device allocator instance to use
+ * @param[in]  stream            CUDA stream to order operations with respect to
+ * @param[in]  batch_size_index  maximum number of rows to use from index matrix
+ *                               per batch
+ * @param[in]  batch_size_query  maximum number of rows to use from query matrix
+ *                               per batch
+ * @param[in]  metric            distance metric/measure to use
+ * @param[in]  metricArg         potential argument for metric (currently
+ *                               unused)
+ * @param[in]  expanded_form     whether or not Lp variants should be reduced by
+ *                               the pth-root
+ *
+ * @tparam     value_idx         { description }
+ * @tparam     value_t           { description }
+ * @tparam     TPB_X             { description }
+ */
 template <typename value_idx = int, typename value_t = float, int TPB_X = 32>
 void brute_force_knn(const value_idx *idxIndptr, const value_idx *idxIndices,
                      const value_t *idxData, size_t idxNNZ, int n_idx_rows,

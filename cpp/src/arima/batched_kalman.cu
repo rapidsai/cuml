@@ -36,7 +36,7 @@
 
 namespace ML {
 
-//! Thread-local Matrix-Vector multiplication.
+// Thread-local Matrix-Vector multiplication.
 template <int n>
 DI void Mv_l(const double* A, const double* v, double* out) {
   for (int i = 0; i < n; i++) {
@@ -60,7 +60,7 @@ DI void Mv_l(double alpha, const double* A, const double* v, double beta,
   }
 }
 
-//! Thread-local Matrix-Matrix multiplication.
+// Thread-local Matrix-Matrix multiplication.
 template <int n, bool aT = false, bool bT = false>
 DI void MM_l(const double* A, const double* B, double* out) {
   for (int i = 0; i < n; i++) {
@@ -80,7 +80,6 @@ DI void MM_l(const double* A, const double* B, double* out) {
  * Kalman loop kernel. Each thread computes kalman filter for a single series
  * and stores relevant matrices in registers.
  *
- * @tparam     r          Dimension of the state vector
  * @param[in]  ys         Batched time series
  * @param[in]  nobs       Number of observation per series
  * @param[in]  T          Batched transition matrix.            (r x r)
@@ -92,13 +91,15 @@ DI void MM_l(const double* A, const double* B, double* out) {
  * @param[in]  d_mu       Batched intercept                     (1)
  * @param[in]  batch_size Batch size
  * @param[out] vs         Batched residuals                     (nobs)
- * @param[out] Fs         Batched variance of prediction errors (nobs)    
+ * @param[out] Fs         Batched variance of prediction errors (nobs)
  * @param[out] sum_logFs  Batched sum of the logs of Fs         (1)
- * @param[in]  n_diff       d + s*D
+ * @param[in]  n_diff     d + s*D
  * @param[in]  fc_steps   Number of steps to forecast
  * @param[out] d_fc       Array to store the forecast
  * @param[in]  conf_int   Whether to compute confidence intervals
  * @param[in]  d_F_fc     Batched variance of forecast errors   (fc_steps)
+ *
+ * @tparam rd    Dimension of the state vector
  */
 template <int rd>
 __global__ void batched_kalman_loop_kernel(
@@ -272,25 +273,25 @@ __global__ void batched_kalman_loop_kernel(
 /**
  * Kalman loop for large matrices (r > 8).
  *
- * @param[in]  d_ys         Batched time series
- * @param[in]  nobs         Number of observation per series
- * @param[in]  T            Batched transition matrix.            (r x r)
- * @param[in]  T_sparse     Batched sparse matrix T               (r x r)
- * @param[in]  Z            Batched "design" vector               (1 x r)
- * @param[in]  RQR          Batched R*Q*R'                        (r x r)
- * @param[in]  P            Batched P                             (r x r)
- * @param[in]  alpha        Batched state vector                  (r x 1)
- * @param[in]  intercept    Do we fit an intercept?
- * @param[in]  d_mu         Batched intercept                     (1)
- * @param[in]  r            Dimension of the state vector
- * @param[out] d_vs         Batched residuals                     (nobs)
- * @param[out] d_Fs         Batched variance of prediction errors (nobs)    
- * @param[out] d_sum_logFs  Batched sum of the logs of Fs         (1)
- * @param[in]  n_diff         d + s*D
- * @param[in]  fc_steps     Number of steps to forecast
- * @param[out] d_fc         Array to store the forecast
- * @param[in]  conf_int     Whether to compute confidence intervals
- * @param[out] d_F_fc       Batched variance of forecast errors   (fc_steps)
+ * @param[in]  d_ys        Batched time series
+ * @param[in]  nobs        Number of observation per series
+ * @param[in]  T           Batched transition matrix.            (r x r)
+ * @param[in]  T_sparse    Batched sparse matrix T               (r x r)
+ * @param[in]  Z           Batched "design" vector               (1 x r)
+ * @param[in]  RQR         Batched R*Q*R'                        (r x r)
+ * @param[in]  P           Batched P                             (r x r)
+ * @param[in]  alpha       Batched state vector                  (r x 1)
+ * @param[in]  intercept   Do we fit an intercept?
+ * @param[in]  d_mu        Batched intercept                     (1)
+ * @param[in]  rd          { parameter_description }
+ * @param[out] d_vs        Batched residuals                     (nobs)
+ * @param[out] d_Fs        Batched variance of prediction errors (nobs)
+ * @param[out] d_sum_logFs Batched sum of the logs of Fs         (1)
+ * @param[in]  n_diff      d + s*D
+ * @param[in]  fc_steps    Number of steps to forecast
+ * @param[out] d_fc        Array to store the forecast
+ * @param[in]  conf_int    Whether to compute confidence intervals
+ * @param[out] d_F_fc      Batched variance of forecast errors   (fc_steps)
  */
 void _batched_kalman_loop_large(
   const double* d_ys, int nobs,
@@ -517,7 +518,7 @@ void _batched_kalman_loop_large(
   }
 }
 
-/// Wrapper around functions that execute the Kalman loop (for performance)
+// Wrapper around functions that execute the Kalman loop (for performance)
 void batched_kalman_loop(raft::handle_t& handle, const double* ys, int nobs,
                          const MLCommon::LinAlg::Batched::Matrix<double>& T,
                          const MLCommon::LinAlg::Batched::Matrix<double>& Z,
@@ -641,12 +642,12 @@ __global__ void batched_kalman_loglike_kernel(
 /**
  * Kernel to finalize the computation of confidence intervals
  *
- * @note: One block per batch member, one thread per forecast time step
+ * @note One block per batch member, one thread per forecast time step
  *
  * @param[in]    d_fc       Mean forecasts
  * @param[in]    d_sigma2   sum(v_t * v_t / F_t) / n_obs_diff
- * @param[inout] d_lower    Input: F_{n+t}
- *                          Output: lower bound of the confidence intervals
+ * @param[inout] d_lower    Input: F_{n+t} Output: lower bound of the confidence
+ *                          intervals
  * @param[out]   d_upper    Upper bound of the confidence intervals
  * @param[in]    fc_steps   Number of forecast steps
  * @param[in]    multiplier Coefficient associated with the confidence level
@@ -661,7 +662,7 @@ __global__ void confidence_intervals(const double* d_fc, const double* d_sigma2,
   d_upper[idx] = fc + margin;
 }
 
-/// Internal Kalman filter implementation that assumes data exists on GPU.
+// Internal Kalman filter implementation that assumes data exists on GPU.
 void _batched_kalman_filter(raft::handle_t& handle, const double* d_ys,
                             int nobs, const ARIMAOrder& order,
                             const MLCommon::LinAlg::Batched::Matrix<double>& Zb,
@@ -991,7 +992,7 @@ void batched_kalman_filter(raft::handle_t& handle, const double* d_ys, int nobs,
                                params.sma, batch_size, order, rd, Zb.raw_data(),
                                Rb.raw_data(), Tb.raw_data(), T_mask);
 
-  ////////////////////////////////////////////////////////////
+  //===========================================================================
   // Computation
 
   MLCommon::device_buffer<double> F_buffer(allocator, stream,

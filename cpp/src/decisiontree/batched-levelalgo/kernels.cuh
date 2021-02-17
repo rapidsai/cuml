@@ -58,8 +58,17 @@ struct ClsDeviceTraits {
 
  public:
   /**
-   * @note to be called by only one block from all participating blocks
-   *       'smem' must be atleast of size `sizeof(int) * input.nclasses`
+   * @note to be called by only one block from all participating blocks 'smem'
+   *       must be atleast of size `sizeof(int) * input.nclasses`
+   *
+   * @brief Calculates the prediction.
+   *
+   * @param[in] range_start The range start
+   * @param[in] range_len   The range length
+   * @param[in] input       The input
+   * @param     nodes       The nodes
+   * @param     n_leaves    The n leaves
+   * @param     smem        The smem
    */
   static DI void computePrediction(IdxT range_start, IdxT range_len,
                                    const Input<DataT, LabelT, IdxT>& input,
@@ -106,9 +115,18 @@ struct RegDeviceTraits {
   typedef _idx IdxT;
 
   /**
-   * @note to be called by only one block from all participating blocks
-   *       'smem' is not used, but kept for the sake of interface parity with
-   *       the corresponding method for classification
+   * @note to be called by only one block from all participating blocks 'smem'
+   *       is not used, but kept for the sake of interface parity with the
+   *       corresponding method for classification
+   *
+   * @brief Calculates the prediction.
+   *
+   * @param[in] range_start The range start
+   * @param[in] range_len   The range length
+   * @param[in] input       The input
+   * @param     nodes       The nodes
+   * @param     n_leaves    The n leaves
+   * @param     smem        The smem
    */
   static DI void computePrediction(IdxT range_start, IdxT range_len,
                                    const Input<DataT, LabelT, IdxT>& input,
@@ -140,12 +158,15 @@ struct RegDeviceTraits {
  *        based on the input hyper-params set by the user
  *
  * @param[in] myDepth           depth of this node
- * @param[in] max_depth maximum possible tree depth
+ * @param[in] max_depth         maximum possible tree depth
  * @param[in] min_samples_split min number of samples needed to split an
  *                              internal node
  * @param[in] max_leaves        max leaf nodes per tree (it's a soft constraint)
  * @param[in] n_leaves          number of leaves in the tree already
  * @param[in] nSamples          number of samples belonging to this node
+ *
+ * @tparam DataT { description }
+ * @tparam IdxT  { description }
  *
  * @return true if the current node is to be declared as a leaf, else false
  */
@@ -163,10 +184,22 @@ DI bool leafBasedOnParams(IdxT myDepth, IdxT max_depth, IdxT min_samples_split,
 
 /**
  * @brief Partition the samples to left/right nodes based on the best split
- * @return the position of the left child node in the nodes list. However, this
- *         value is valid only for threadIdx.x == 0.
- * @note this should be called by only one block from all participating blocks
- *       'smem' should be atleast of size `sizeof(IdxT) * TPB * 2`
+ * @note  this should be called by only one block from all participating blocks
+ *        'smem' should be atleast of size `sizeof(IdxT) * TPB * 2`
+ *
+ * @param[in] input       The input
+ * @param[in] splits      The splits
+ * @param     curr_nodes  The curr nodes
+ * @param     next_nodes  The next nodes
+ * @param     n_nodes     The n nodes
+ * @param     n_depth     The n depth
+ * @param[in] total_nodes The total nodes
+ * @param     smem        The smem
+ *
+ * @tparam DataT  { description }
+ * @tparam LabelT { description }
+ * @tparam IdxT   { description }
+ * @tparam TPB    { description }
  */
 template <typename DataT, typename LabelT, typename IdxT, int TPB>
 DI void partitionSamples(const Input<DataT, LabelT, IdxT>& input,
@@ -285,9 +318,18 @@ DI uint32_t fnv1a32(uint32_t hash, uint32_t txt) {
  * @brief For a given values of (treeid, nodeid, seed), this function generates
  *        a unique permutation of [0, N - 1] values and returns 'k'th entry in
  *        from the permutation.
+ *
+ * @param[in] k      { parameter_description }
+ * @param[in] treeid The treeid
+ * @param[in] nodeid The nodeid
+ * @param[in] seed   The seed
+ * @param[in] N      { parameter_description }
+ *
+ * @tparam IdxT  { description }
+ *
  * @return The 'k'th value from the permutation
- * @note This function does not allocated any temporary buffer, all the
- *       necessary values are recomputed.
+ * @note   This function does not allocated any temporary buffer, all the
+ *         necessary values are recomputed.
  */
 template <typename IdxT>
 DI IdxT select(IdxT k, IdxT treeid, uint32_t nodeid, uint64_t seed, IdxT N) {

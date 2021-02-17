@@ -258,16 +258,23 @@ void fit_impl(raft::handle_t &handle,
 
 /**
  * @brief performs MNMG fit operation for the ols
- * @input param handle: the internal cuml handle object
- * @input param rank_sizes: includes all the partition size information for the rank
- * @input param n_parts: number of partitions
- * @input param input: input data
- * @input param labels: labels data
- * @output param coef: learned regression coefficients
- * @output param intercept: intercept value
- * @input param fit_intercept: fit intercept or not
- * @input param normalize: normalize the data or not
- * @input param verbose
+ *
+ * @param[in]  handle        the internal cuml handle object
+ * @param[in]  input_data    input data
+ * @param      input_desc    The input description
+ * @param[in]  labels        labels data
+ * @param[out] coef          learned regression coefficients
+ * @param[out] intercept     intercept value
+ * @param[in]  fit_intercept fit intercept or not
+ * @param[in]  normalize     normalize the data or not
+ * @param[in]  epochs        The epochs
+ * @param[in]  alpha         The alpha
+ * @param[in]  l1_ratio      The l 1 ratio
+ * @param[in]  shuffle       The shuffle
+ * @param[in]  tol           The tolerance
+ * @param[in]  verbose       The verbose
+ *
+ * @tparam T     { description }
  */
 template <typename T>
 void fit_impl(raft::handle_t &handle,

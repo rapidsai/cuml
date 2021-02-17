@@ -109,15 +109,19 @@ void flip(T *input, int n_rows, int n_cols, T *max_vals,
 }
 
 /**
- * @brief sign flip for PCA and tSVD. This is used to stabilize the sign of column major eigen vectors
- * @input param handle: the internal cuml handle object
- * @input/output param input param input: input matrix that will be used to determine the sign.
- * @input param input_desc: MNMG description of the input
- * @input/output param  components: components matrix.
- * @input param n_components: number of columns of components matrix
- * @input param streams: cuda streams
- * @input param n_streams: number of streams
- * @{
+ * @brief sign flip for PCA and tSVD. This is used to stabilize the sign of
+ *        column major eigen vectors
+ *
+ * @param[in]    handle       the internal cuml handle object
+ * @param[inout] input        param input: input matrix that will be used to
+ *                            determine the sign.
+ * @param[in]    input_desc   MNMG description of the input
+ * @param[inout] components   components matrix.
+ * @param[in]    n_components number of columns of components matrix
+ * @param[in]    streams      cuda streams
+ * @param[in]    n_stream     number of streams
+ *
+ * @tparam T     { description }
  */
 template <typename T>
 void sign_flip_imp(raft::handle_t &handle,

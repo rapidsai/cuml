@@ -47,15 +47,15 @@ void unexpanded_lp_distances(
   value_t *out_dists, const distances_config_t<value_idx, value_t> *config_,
   product_f product_func, accum_f accum_func, write_f write_func) {
   /**
- * @TODO: Main logic here:
- *
- *  - if n_cols < available smem, just use dense conversion for rows of A
- *  - if n_cols > available smem but max nnz < available smem, use hashing
- *    (not yet available)
- *  - if n_cols > available smem & max_nnz > available smem,
- *              use batching + hashing only for those large cols
- *  Ref: https://github.com/rapidsai/cuml/issues/3371
- */
+   * TODO: Main logic here:
+   *
+   *  - if n_cols < available smem, just use dense conversion for rows of A
+   *  - if n_cols > available smem but max nnz < available smem, use hashing
+   *    (not yet available)
+   *  - if n_cols > available smem & max_nnz > available smem, use batching +
+   *    hashing only for those large cols Ref:
+   *    https://github.com/rapidsai/cuml/issues/3371
+   */
 
   if (config_->a_ncols < max_cols_per_block<value_idx, value_t>()) {
     // TODO: Use n_cols to set shared memory and threads per block
@@ -90,11 +90,11 @@ void unexpanded_lp_distances(
 }
 
 /**
- * Computes L1 distances for sparse input. This does not have
- * an equivalent expanded form, so it is only executed in
- * an unexpanded form.
- * @tparam value_idx
- * @tparam value_t
+ * Computes L1 distances for sparse input. This does not have an equivalent
+ * expanded form, so it is only executed in an unexpanded form.
+ *
+ * @tparam     value_idx  { description }
+ * @tparam     value_t    { description }
  */
 template <typename value_idx = int, typename value_t = float>
 class l1_unexpanded_distances_t : public distances_t<value_t> {

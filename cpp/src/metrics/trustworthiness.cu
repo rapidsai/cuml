@@ -22,17 +22,23 @@ namespace ML {
 namespace Metrics {
 
 /**
-        * @brief Compute the trustworthiness score
-        * @param X[in]: Data in original dimension
-        * @param X_embedded[in]: Data in target dimension (embedding)
-        * @param n[in]: Number of samples
-        * @param m[in]: Number of features in high/original dimension
-        * @param d[in]: Number of features in low/embedded dimension
-        * @param n_neighbors[in]: Number of neighbors considered by 
-        *   trustworthiness score
-        * @tparam distance_type: Distance type to consider
-        * @return Trustworthiness score
-        */
+ * @brief      Compute the trustworthiness score
+ *
+ * @param[in]  h              { parameter_description }
+ * @param      X              Data in original dimension
+ * @param      X_embedded     Data in target dimension (embedding)
+ * @param[in]  n              Number of samples
+ * @param[in]  m              Number of features in high/original dimension
+ * @param[in]  d              Number of features in low/embedded dimension
+ * @param      n_neighbors    Number of neighbors considered by trustworthiness
+ *                            score
+ * @param[in]  batchSize      The batch size
+ *
+ * @tparam     math_t         { description }
+ * @tparam     distance_type  Distance type to consider
+ *
+ * @return     Trustworthiness score
+ */
 template <typename math_t, raft::distance::DistanceType distance_type>
 double trustworthiness_score(const raft::handle_t& h, math_t* X,
                              math_t* X_embedded, int n, int m, int d,

@@ -212,8 +212,10 @@ tl::Tree<T, T> build_treelite_tree(
 
 /**
  * @brief Print high-level tree information.
- * @tparam T: data type for input data (float or double).
- * @tparam L: data type for labels (int type for classification, T type for regression).
+ *
+ * @tparam T     data type for input data (float or double).
+ * @tparam L     data type for labels (int type for classification, T type for
+ *               regression).
  */
 template <typename T, typename L>
 void DecisionTreeBase<T, L>::print_tree_summary() const {
@@ -231,9 +233,12 @@ void DecisionTreeBase<T, L>::print_tree_summary() const {
 
 /**
  * @brief Print detailed tree information.
- * @tparam T: data type for input data (float or double).
- * @tparam L: data type for labels (int type for classification, T type for regression).
- * @param[in] sparsetree: Sparse tree strcut
+ *
+ * @param[in] sparsetree Sparse tree strcut
+ *
+ * @tparam T     data type for input data (float or double).
+ * @tparam L     data type for labels (int type for classification, T type for
+ *               regression).
  */
 template <typename T, typename L>
 void DecisionTreeBase<T, L>::print(
@@ -243,18 +248,24 @@ void DecisionTreeBase<T, L>::print(
 }
 
 /**
- * @brief This function calls the relevant regression oir classification with input parameters.
- * @tparam T: datatype of input data (float ot double)
- * @tparam L: data type for labels (int type for classification, T type for regression).
- * @param[out] sparsetree: This will be the generated Decision Tree
- * @param[in] data: Input data
- * @param[in] ncols: Original number of columns in the dataset
- * @param[in] nrows: Original number of rows in dataset
- * @param[in] labels: Labels of input dataset
- * @param[in] rowids: List of selected rows for the tree building
- * @param[in] n_sampled_rows: Number of rows after subsampling
- * @param[in] unique_labels: Number of unique classes for calssification. Its set to 1 for regression
- * @param[in] treeid: Tree id in case of building multiple tree from RF.
+ * @brief This function calls the relevant regression oir classification with
+ *        input parameters.
+ *
+ * @param[out] sparsetree     This will be the generated Decision Tree
+ * @param[in]  data           Input data
+ * @param[in]  ncols          Original number of columns in the dataset
+ * @param[in]  nrows          Original number of rows in dataset
+ * @param[in]  labels         Labels of input dataset
+ * @param[in]  rowids         List of selected rows for the tree building
+ * @param[in]  n_sampled_rows Number of rows after subsampling
+ * @param[in]  unique_labels  Number of unique classes for calssification. Its
+ *                            set to 1 for regression
+ * @param[in]  treeid         Tree id in case of building multiple tree from RF.
+ * @param[in]  seed           The seed
+ *
+ * @tparam T     datatype of input data (float ot double)
+ * @tparam L     data type for labels (int type for classification, T type for
+ *               regression).
  */
 template <typename T, typename L>
 void DecisionTreeBase<T, L>::plant(

@@ -30,18 +30,18 @@ namespace ML {
  * arrays and combine the results into a single output array for indexes and
  * distances.
  *
- * @param[in] handle the cuml handle to use
- * @param[in] input an array of pointers to the input arrays
- * @param[in] sizes an array of sizes of input arrays
- * @param[in] n_params array size of input and sizes
- * @param[in] D the dimensionality of the arrays
- * @param[in] search_items array of items to search of dimensionality D
- * @param[in] n number of rows in search_items
- * @param[out] res_I the resulting index array of size n * k
- * @param[out] res_D the resulting distance array of size n * k
- * @param[in] k the number of nearest neighbors to return
- * @param[in] rowMajorIndex is the index array in row major layout?
- * @param[in] rowMajorQuery is the query array in row major layout?
+ * @param[in]  handle         the cuml handle to use
+ * @param[in]  input          an array of pointers to the input arrays
+ * @param[in]  sizes          an array of sizes of input arrays
+ * @param[in]  n_params       array size of input and sizes
+ * @param[in]  D              the dimensionality of the arrays
+ * @param[in]  search_items   array of items to search of dimensionality D
+ * @param[in]  n              number of rows in search_items
+ * @param[out] res_I          the resulting index array of size n * k
+ * @param[out] res_D          the resulting distance array of size n * k
+ * @param[in]  k              the number of nearest neighbors to return
+ * @param[in]  rowMajorIndex  is the index array in row major layout?
+ * @param[in]  rowMajorQuery  is the query array in row major layout?
  * @param[in] metric_type distance metric to use. Specify the metric using the
  *    integer value of the enum `ML::MetricType`.
  * @param[in] metric_arg the value of `p` for Minkowski (l-p) distances. This

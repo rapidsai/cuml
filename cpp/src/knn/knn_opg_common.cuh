@@ -41,14 +41,23 @@ namespace knn_common {
  * The enumeration of KNN distributed operations
  */
 enum knn_operation {
-  knn,            /**< Simple KNN */
-  classification, /**< KNN classification */
-  class_proba,    /**< KNN classification probabilities */
-  regression      /**< KNN regression */
+  knn,            /**
+                   * Simple KNN */
+  classification, /**
+                   * KNN classification */
+  class_proba,    /**
+                   * KNN classification probabilities */
+  regression      /**
+                   * KNN regression */
 };
 
 /**
  * A structure to store parameters for distributed KNN
+ *
+ * @tparam in_t   { description }
+ * @tparam ind_t  { description }
+ * @tparam dist_t { description }
+ * @tparam out_t  { description }
  */
 template <typename in_t, typename ind_t, typename dist_t, typename out_t>
 struct opg_knn_param {
@@ -70,36 +79,54 @@ struct opg_knn_param {
     this->verbose = verbose;
   }
 
-  knn_operation knn_op; /**< Type of KNN distributed operation */
+  knn_operation knn_op; /**
+                         * Type of KNN distributed operation */
   std::vector<Matrix::Data<dist_t> *> *out_D =
-    nullptr; /**< KNN distances output array */
+    nullptr; /**
+              * KNN distances output array */
   std::vector<Matrix::Data<ind_t> *> *out_I =
-    nullptr; /**< KNN indices output array */
+    nullptr; /**
+              * KNN indices output array */
   std::vector<Matrix::Data<in_t> *> *idx_data =
-    nullptr; /**< Index input array */
+    nullptr; /**
+              * Index input array */
   Matrix::PartDescriptor *idx_desc =
-    nullptr; /**< Descriptor for index input array */
+    nullptr; /**
+              * Descriptor for index input array */
   std::vector<Matrix::Data<in_t> *> *query_data =
-    nullptr; /**< Query input array */
+    nullptr; /**
+              * Query input array */
   Matrix::PartDescriptor *query_desc =
-    nullptr;             /**< Descriptor for query input array */
-  bool rowMajorIndex;    /**< Is index row major? */
-  bool rowMajorQuery;    /**< Is query row major? */
-  size_t k = 0;          /**< Number of nearest neighbors */
-  size_t batch_size = 0; /**< Batch size */
-  bool verbose;          /**< verbose */
+    nullptr;             /**
+                          * Descriptor for query input array */
+  bool rowMajorIndex;    /**
+                          * Is index row major? */
+  bool rowMajorQuery;    /**
+                          * Is query row major? */
+  size_t k = 0;          /**
+                          * Number of nearest neighbors */
+  size_t batch_size = 0; /**
+                          * Batch size */
+  bool verbose;          /**
+                          * verbose */
 
-  int n_outputs = 0; /**< Number of outputs per query (cl&re) */
-  std::vector<std::vector<out_t *>> *y; /**< Labels input array (cl&re) */
+  int n_outputs = 0; /**
+                      * Number of outputs per query (cl&re) */
+  std::vector<std::vector<out_t *>> *y; /**
+                                         * Labels input array (cl&re) */
   std::vector<Matrix::Data<out_t> *>
-    *out; /**< KNN outputs output array (cl&re) */
+    *out; /**
+           * KNN outputs output array (cl&re) */
 
   std::vector<int> *n_unique =
-    nullptr; /**< Number of unique labels (classification) */
+    nullptr; /**
+              * Number of unique labels (classification) */
   std::vector<out_t *> *uniq_labels =
-    nullptr; /**< Unique labels (classification) */
+    nullptr; /**
+              * Unique labels (classification) */
   std::vector<std::vector<float *>> *probas =
-    nullptr; /**< KNN classification probabilities output array (class-probas) */
+    nullptr; /**
+              * KNN classification probabilities output array (class-probas) */
 };
 
 template <typename in_t, typename ind_t, typename dist_t, typename out_t>
@@ -176,15 +203,24 @@ struct cuda_utils {
       internal_streams[i] = handle.get_internal_stream(i);
     }
   }
-  std::shared_ptr<deviceAllocator> alloc; /**< RMM alloc */
-  cudaStream_t stream;                    /**< CUDA user stream */
-  const raft::comms::comms_t *comm;       /**< RAFT comms handle */
+  std::shared_ptr<deviceAllocator> alloc; /**
+                                           * RMM alloc */
+  cudaStream_t stream;                    /**
+                                           * CUDA user stream */
+  const raft::comms::comms_t *comm;       /**
+                                           * RAFT comms handle */
   std::vector<cudaStream_t>
-    internal_streams; /**< Vector of CUDA internal streams */
+    internal_streams; /**
+                       * Vector of CUDA internal streams */
 };
 
 /**
  * A structure to store utilities for distributed KNN operations
+ *
+ * @tparam in_t   { description }
+ * @tparam ind_t  { description }
+ * @tparam dist_t { description }
+ * @tparam out_t  { description }
  */
 template <typename in_t, typename ind_t, typename dist_t, typename out_t>
 struct opg_knn_work {
@@ -201,26 +237,40 @@ struct opg_knn_work {
     this->queryPartsToRanks = params.query_desc->partsToRanks;
   }
 
-  int my_rank;            /**< Rank of this worker */
-  std::set<int> idxRanks; /**< Set of ranks having at least 1 index partition */
+  int my_rank;            /**
+                           * Rank of this worker */
+  std::set<int> idxRanks; /**
+                           * Set of ranks having at least 1 index partition */
   std::vector<Matrix::RankSizePair *>
-    idxPartsToRanks; /**< Index parts to rank */
+    idxPartsToRanks; /**
+                      * Index parts to rank */
   std::vector<Matrix::RankSizePair *>
-    local_idx_parts; /**< List of index parts stored locally */
+    local_idx_parts; /**
+                      * List of index parts stored locally */
   std::vector<Matrix::RankSizePair *>
-    queryPartsToRanks; /**< Query parts to rank */
+    queryPartsToRanks; /**
+                        * Query parts to rank */
 
   device_buffer<dist_t>
-    res_D;                    /**< Temporary allocation to exchange distances */
-  device_buffer<ind_t> res_I; /**< Temporary allocation to exchange indices */
+    res_D;                    /**
+                               * Temporary allocation to exchange distances */
+  device_buffer<ind_t> res_I; /**
+                               * Temporary allocation to exchange indices */
   device_buffer<out_t>
-    res; /**< Temporary allocation to exchange outputs (cl&re) */
+    res; /**
+          * Temporary allocation to exchange outputs (cl&re) */
 };
 
-/*!
- Main function, computes distributed KNN operation
- @param[in] params Parameters for distrbuted KNN operation
- @param[in] cutils Utilities for CUDA and RAFT comms
+/**
+ * ! Main function, computes distributed KNN operation
+ *
+ * @param[in] params Parameters for distrbuted KNN operation
+ * @param[in] cutils Utilities for CUDA and RAFT comms
+ *
+ * @tparam in_t   { description }
+ * @tparam ind_t  { description }
+ * @tparam dist_t { description }
+ * @tparam out_t  { description }
  */
 template <typename in_t, typename ind_t, typename dist_t, typename out_t>
 void opg_knn(opg_knn_param<in_t, ind_t, dist_t, out_t> &params,
@@ -259,8 +309,8 @@ void opg_knn(opg_knn_param<in_t, ind_t, dist_t, out_t> &params,
         CUML_LOG_DEBUG("Root Rank is %d", work.my_rank);
 
       /**
-        * Root broadcasts batch to all other ranks
-        */
+       * Root broadcasts batch to all other ranks
+       */
       CUML_LOG_DEBUG("Rank %d: Performing Broadcast", work.my_rank);
 
       device_buffer<in_t> part_data(cutils.alloc, cutils.stream, 0);
@@ -301,16 +351,16 @@ void opg_knn(opg_knn_param<in_t, ind_t, dist_t, out_t> &params,
         work.idxRanks.find(work.my_rank) != work.idxRanks.end();
 
       /**
-        * Send query to index partitions
-        */
+       * Send query to index partitions
+       */
       if (work.my_rank == part_rank || my_rank_is_idx)
         broadcast_query(work, cutils, part_rank, cur_query_ptr,
                         batch_input_elms);
 
       if (my_rank_is_idx) {
         /**
-          * All index ranks perform local KNN
-          */
+         * All index ranks perform local KNN
+         */
         CUML_LOG_DEBUG("Rank %d: Performing Local KNN", work.my_rank);
 
         size_t batch_knn_elms = params.k * cur_batch_size;
@@ -334,20 +384,18 @@ void opg_knn(opg_knn_param<in_t, ind_t, dist_t, out_t> &params,
 
       if (part_rank == work.my_rank || my_rank_is_idx) {
         /**
-          * Ranks exchange results.
-          * Each rank having index partition(s) sends
-          * its local results (my_rank_is_idx)
-          * Additionally the owner of currently processed query partition
-          * receives and performs a reduce even if it has
-          * no index partition (part_rank == my_rank)
-          */
+         * Ranks exchange results. Each rank having index partition(s) sends its
+         * local results (my_rank_is_idx) Additionally the owner of currently
+         * processed query partition receives and performs a reduce even if it
+         * has no index partition (part_rank == my_rank)
+         */
         CUML_LOG_DEBUG("Rank %d: Exchanging results", work.my_rank);
         exchange_results(params, work, cutils, part_rank, cur_batch_size);
       }
 
       /**
-        * Root rank performs local reduce
-        */
+       * Root rank performs local reduce
+       */
       if (part_rank == work.my_rank) {
         CUML_LOG_DEBUG("Rank %d: Performing Reduce", work.my_rank);
 
@@ -365,13 +413,19 @@ void opg_knn(opg_knn_param<in_t, ind_t, dist_t, out_t> &params,
   }
 };
 
-/*!
- Broadcast query batch accross all the workers
- @param[in] params Parameters for distrbuted KNN operation
- @param[in] cutils Utilities for CUDA and RAFT comms
- @param[in] part_rank Rank of currently processed query batch
- @param[in] broadcast Pointer to broadcast
- @param[in] broadcast_size Size of broadcast
+/**
+ * Broadcast query batch accross all the workers
+ *
+ * @param     work           The work
+ * @param[in] cutils         Utilities for CUDA and RAFT comms
+ * @param[in] part_rank      Rank of currently processed query batch
+ * @param[in] broadcast      Pointer to broadcast
+ * @param[in] broadcast_size Size of broadcast
+ *
+ * @tparam in_t   { description }
+ * @tparam ind_t  { description }
+ * @tparam dist_t { description }
+ * @tparam out_t  { description }
  */
 template <typename in_t, typename ind_t, typename dist_t, typename out_t>
 void broadcast_query(opg_knn_work<in_t, ind_t, dist_t, out_t> &work,
@@ -409,13 +463,19 @@ void broadcast_query(opg_knn_work<in_t, ind_t, dist_t, out_t> &work,
   }
 }
 
-/*!
- Perform a local KNN search for a given query batch
- @param[in] params Parameters for distrbuted KNN operation
- @param[in] work Current work for distributed KNN
- @param[in] cutils Utilities for CUDA and RAFT comms
- @param[in] query Pointer to query
- @param[in] query_size Size of query
+/**
+ * ! Perform a local KNN search for a given query batch
+ *
+ * @param[in] params     Parameters for distrbuted KNN operation
+ * @param[in] work       Current work for distributed KNN
+ * @param[in] cutils     Utilities for CUDA and RAFT comms
+ * @param[in] query      Pointer to query
+ * @param[in] query_size Size of query
+ *
+ * @tparam in_t   { description }
+ * @tparam ind_t  { description }
+ * @tparam dist_t { description }
+ * @tparam out_t  { description }
  */
 template <typename in_t, typename ind_t, typename dist_t, typename out_t>
 void perform_local_knn(opg_knn_param<in_t, ind_t, dist_t, out_t> &params,
@@ -450,16 +510,22 @@ void perform_local_knn(opg_knn_param<in_t, ind_t, dist_t, out_t> &params,
 }
 
 /**
- * This function copies the labels associated to the locally merged indices
- * from the index partitions to a merged array of labels
- * @param[out] out merged labels
- * @param[in] knn_indices merged indices
- * @param[in] parts unmerged labels in partitions
- * @param[in] offsets array splitting the partitions making it possible
- * to identify the origin partition of an nearest neighbor index
- * @param[in] cur_batch_size current batch size
- * @param[in] n_parts number of partitions
- * @param[in] n_labels number of labels to write (batch_size * n_outputs)
+ * This function copies the labels associated to the locally merged indices from
+ * the index partitions to a merged array of labels
+ *
+ * @param[out] out            merged labels
+ * @param[in]  knn_indices    merged indices
+ * @param[in]  parts          unmerged labels in partitions
+ * @param[in]  offsets        array splitting the partitions making it possible
+ *                            to identify the origin partition of an nearest
+ *                            neighbor index
+ * @param[in]  cur_batch_size current batch size
+ * @param[in]  n_parts        number of partitions
+ * @param[in]  n_labels       number of labels to write (batch_size * n_outputs)
+ *
+ * @tparam TPB_X { description }
+ * @tparam ind_t { description }
+ * @tparam out_t { description }
  */
 template <int TPB_X, typename ind_t, typename out_t>
 __global__ void copy_label_outputs_from_index_parts_kernel(
@@ -476,12 +542,18 @@ __global__ void copy_label_outputs_from_index_parts_kernel(
   out[i] = parts[part_idx][offset];
 }
 
-/*!
- Get the right labels for indices obtained after a KNN merge
- @param[in] params Parameters for distrbuted KNN operation
- @param[in] work Current work for distributed KNN
- @param[in] cutils Utilities for CUDA and RAFT comms
- @param[in] batch_size Batch size
+/**
+ * ! Get the right labels for indices obtained after a KNN merge
+ *
+ * @param[in] params     Parameters for distrbuted KNN operation
+ * @param[in] work       Current work for distributed KNN
+ * @param[in] cutils     Utilities for CUDA and RAFT comms
+ * @param[in] batch_size Batch size
+ *
+ * @tparam in_t   { description }
+ * @tparam ind_t  { description }
+ * @tparam dist_t { description }
+ * @tparam out_t  { description }
  */
 template <typename in_t, typename ind_t, typename dist_t, typename out_t>
 void copy_label_outputs_from_index_parts(
@@ -523,15 +595,21 @@ void copy_label_outputs_from_index_parts(
   CUDA_CHECK(cudaPeekAtLastError());
 }
 
-/*!
- Exchange results of local KNN search and operation for a given query batch
- All non-root index ranks send the results for the current
- query batch to the root rank for the batch.
- @param[in] params Parameters for distrbuted KNN operation
- @param[in] work Current work for distributed KNN
- @param[in] cutils Utilities for CUDA and RAFT comms
- @param[in] part_rank Rank of currently processed query batch
- @param[in] batch_size Batch size
+/**
+ * ! Exchange results of local KNN search and operation for a given query batch
+ * All non-root index ranks send the results for the current query batch to the
+ * root rank for the batch.
+ *
+ * @param[in] params     Parameters for distrbuted KNN operation
+ * @param[in] work       Current work for distributed KNN
+ * @param[in] cutils     Utilities for CUDA and RAFT comms
+ * @param[in] part_rank  Rank of currently processed query batch
+ * @param[in] batch_size Batch size
+ *
+ * @tparam in_t   { description }
+ * @tparam ind_t  { description }
+ * @tparam dist_t { description }
+ * @tparam out_t  { description }
  */
 template <typename in_t, typename ind_t, typename dist_t, typename out_t>
 void exchange_results(opg_knn_param<in_t, ind_t, dist_t, out_t> &params,
@@ -577,8 +655,7 @@ void exchange_results(opg_knn_param<in_t, ind_t, dist_t, out_t> &params,
 
     if (part_rank_is_idx) {
       /**
-       * If this worker (in charge of reduce),
-       * has some local results as well,
+       * If this worker (in charge of reduce), has some local results as well,
        * copy them at right location
        */
       --idx_rank_size;
@@ -645,10 +722,10 @@ void exchange_results(opg_knn_param<in_t, ind_t, dist_t, out_t> &params,
       }
       if (rank != work.my_rank || part_rank_is_idx) {
         /**
-          * Increase index for each new reception
-          * Also increase index when the worker doing a reduce operation
-          * has some index data (previously copied at right location).
-          */
+         * Increase index for each new reception Also increase index when the
+         * worker doing a reduce operation has some index data (previously
+         * copied at right location).
+         */
         ++num_received;
       }
     }
@@ -661,14 +738,22 @@ void exchange_results(opg_knn_param<in_t, ind_t, dist_t, out_t> &params,
   }
 }
 
-/*!
- Reduce all local results to a global result for a given query batch
- @param[in] params Parameters for distrbuted KNN operation
- @param[in] work Current work for distributed KNN
- @param[in] cutils Utilities for CUDA and RAFT comms
- @param[in] part_idx Partition index of query batch
- @param[in] processed_in_part Number of queries already processed in part (serves as offset)
- @param[in] batch_size Batch size
+/**
+ * ! Reduce all local results to a global result for a given query batch
+ *
+ * @param[in] params            Parameters for distrbuted KNN operation
+ * @param[in] work              Current work for distributed KNN
+ * @param[in] cutils            Utilities for CUDA and RAFT comms
+ * @param[in] part_idx          Partition index of query batch
+ * @param[in] processed_in_part Number of queries already processed in part
+ *                              (serves as offset)
+ * @param[in] batch_size        Batch size
+ *
+ * @tparam in_t    { description }
+ * @tparam ind_t   { description }
+ * @tparam dist_t  { description }
+ * @tparam out_t   { description }
+ * @tparam trans_t { description }
  */
 template <typename in_t, typename ind_t, typename dist_t, typename out_t,
           typename trans_t = int64_t>
@@ -738,22 +823,31 @@ void reduce(opg_knn_param<in_t, ind_t, dist_t, out_t> &params,
 }
 
 /**
- * This function copies the labels associated to the merged indices
- * from the unmerged to a merged (n_ranks times smaller) array of labels
- * @param[out] outputs merged labels
- * @param[in] knn_indices merged indices
- * @param[in] unmerged_outputs unmerged labels
- * @param[in] unmerged_knn_indices unmerged indices
- * @param[in] offsets array splitting the partitions making it possible
- * to identify the origin partition of an nearest neighbor index
- * @param[in] parts_to_ranks get rank index from index partition index,
- * informative to find positions as the unmerged arrays are built
- * so that ranks are in order (unlike partitions)
- * @param[in] nearest_neighbors number of nearest neighbors to look for in query
- * @param[in] n_outputs number of targets
- * @param[in] n_labels number of labels to write (batch_size * n_outputs)
- * @param[in] n_parts number of index partitions
- * @param[in] n_ranks number of index ranks
+ * This function copies the labels associated to the merged indices from the
+ * unmerged to a merged (n_ranks times smaller) array of labels
+ *
+ * @param[out] outputs              merged labels
+ * @param[in]  knn_indices          merged indices
+ * @param[in]  unmerged_outputs     unmerged labels
+ * @param[in]  unmerged_knn_indices unmerged indices
+ * @param[in]  offsets              array splitting the partitions making it
+ *                                  possible to identify the origin partition of
+ *                                  an nearest neighbor index
+ * @param[in]  parts_to_ranks       get rank index from index partition index,
+ *                                  informative to find positions as the
+ *                                  unmerged arrays are built so that ranks are
+ *                                  in order (unlike partitions)
+ * @param[in]  nearest_neighbors    number of nearest neighbors to look for in
+ *                                  query
+ * @param[in]  n_outputs            number of targets
+ * @param[in]  n_labels             number of labels to write (batch_size *
+ *                                  n_outputs)
+ * @param[in]  n_parts              number of index partitions
+ * @param[in]  n_ranks              number of index ranks
+ *
+ * @tparam TPB_X  { description }
+ * @tparam dist_t { description }
+ * @tparam out_t  { description }
  */
 template <int TPB_X, typename dist_t, typename out_t>
 __global__ void merge_labels_kernel(out_t *outputs, dist_t *knn_indices,
@@ -783,16 +877,23 @@ __global__ void merge_labels_kernel(out_t *outputs, dist_t *knn_indices,
   }
 }
 
-/*!
- Get the right labels for indices obtained after local KNN searches
- @param[in] params Parameters for distrbuted KNN operation
- @param[in] work Current work for distributed KNN
- @param[in] cutils Utilities for CUDA and RAFT comms
- @param[out] output KNN outputs output array
- @param[out] knn_indices KNN class-probas output array (class-proba only)
- @param[in] unmerged_outputs KNN labels input array
- @param[in] unmerged_knn_indices Batch size
- @param[in] batch_size Batch size
+/**
+ * ! Get the right labels for indices obtained after local KNN searches
+ *
+ * @param[in]  params               Parameters for distrbuted KNN operation
+ * @param[in]  work                 Current work for distributed KNN
+ * @param[in]  cutils               Utilities for CUDA and RAFT comms
+ * @param[out] output               KNN outputs output array
+ * @param[out] knn_indices          KNN class-probas output array (class-proba
+ *                                  only)
+ * @param[in]  unmerged_outputs     KNN labels input array
+ * @param[in]  unmerged_knn_indices Batch size
+ * @param[in]  batch_size           Batch size
+ *
+ * @tparam opg_knn_param_t { description }
+ * @tparam opg_knn_work_t  { description }
+ * @tparam ind_t           { description }
+ * @tparam out_t           { description }
  */
 template <typename opg_knn_param_t, typename opg_knn_work_t, typename ind_t,
           typename out_t>
@@ -837,15 +938,24 @@ void merge_labels(opg_knn_param_t &params, opg_knn_work_t &work,
     n_labels, work.idxPartsToRanks.size(), work.idxRanks.size());
 }
 
-/*!
- Perform final classification, regression or class-proba operation for a given query batch
- @param[in] params Parameters for distrbuted KNN operation
- @param[in] work Current work for distributed KNN
- @param[in] cutils Utilities for CUDA and RAFT comms
- @param[out] outputs KNN outputs output array
- @param[out] probas_with_offsets KNN class-probas output array (class-proba only)
- @param[in] labels KNN labels input array
- @param[in] batch_size Batch size
+/**
+ * ! Perform final classification, regression or class-proba operation for a
+ * given query batch
+ *
+ * @param[in]  params              Parameters for distrbuted KNN operation
+ * @param[in]  work                Current work for distributed KNN
+ * @param[in]  cutils              Utilities for CUDA and RAFT comms
+ * @param[out] outputs             KNN outputs output array
+ * @param[out] probas_with_offsets KNN class-probas output array (class-proba
+ *                                 only)
+ * @param[in]  labels              KNN labels input array
+ * @param[in]  batch_size          Batch size
+ *
+ * @tparam in_t      { description }
+ * @tparam ind_t     { description }
+ * @tparam dist_t    { description }
+ * @tparam out_t     { description }
+ * @tparam <unnamed> { description }
  */
 template <typename in_t, typename ind_t, typename dist_t, typename out_t,
           typename std::enable_if<std::is_floating_point<out_t>::value>::type
@@ -866,15 +976,24 @@ void perform_local_operation(opg_knn_param<in_t, ind_t, dist_t, out_t> &params,
     cutils.internal_streams.data(), cutils.internal_streams.size());
 }
 
-/*!
- Perform final classification, regression or class-proba operation for a given query batch
- @param[in] params Parameters for distrbuted KNN operation
- @param[in] work Current work for distributed KNN
- @param[in] cutils Utilities for CUDA and RAFT comms
- @param[out] outputs KNN outputs output array
- @param[out] probas_with_offsets KNN class-probas output array (class-proba only)
- @param[in] labels KNN labels input array
- @param[in] batch_size Batch size
+/**
+ * ! Perform final classification, regression or class-proba operation for a
+ * given query batch
+ *
+ * @param[in]  params              Parameters for distrbuted KNN operation
+ * @param[in]  work                Current work for distributed KNN
+ * @param[in]  cutils              Utilities for CUDA and RAFT comms
+ * @param[out] outputs             KNN outputs output array
+ * @param[out] probas_with_offsets KNN class-probas output array (class-proba
+ *                                 only)
+ * @param[in]  labels              KNN labels input array
+ * @param[in]  batch_size          Batch size
+ *
+ * @tparam in_t      { description }
+ * @tparam ind_t     { description }
+ * @tparam dist_t    { description }
+ * @tparam out_t     { description }
+ * @tparam <unnamed> { description }
  */
 template <
   typename in_t, typename ind_t, typename dist_t, typename out_t,

@@ -32,13 +32,17 @@ namespace ML {
 namespace TSNE {
 
 /**
- * @brief Uses FAISS's KNN to find the top n_neighbors. This speeds up the attractive forces.
- * @param[in] input: dense/sparse manifold input
- * @param[out] indices: The output indices from KNN.
- * @param[out] distances: The output sorted distances from KNN.
- * @param[in] n_neighbors: The number of nearest neighbors you want.
- * @param[in] d_alloc: device allocator
- * @param[in] stream: The GPU stream.
+ * @brief      Uses FAISS's KNN to find the top n_neighbors. This speeds up the
+ *             attractive forces.
+ *
+ * @param[in]  handle      The handle
+ * @param[in]  input       dense/sparse manifold input
+ * @param      k_graph     The k graph
+ * @param[in]  stream      The GPU stream.
+ *
+ * @tparam     tsne_input  { description }
+ * @tparam     value_idx   { description }
+ * @tparam     value_t     { description }
  */
 template <typename tsne_input, typename value_idx, typename value_t>
 void get_distances(const raft::handle_t &handle, tsne_input &input,
@@ -56,12 +60,10 @@ void get_distances(const raft::handle_t &handle,
   std::vector<int> sizes_vec = {input.n};
 
   /**
- * std::vector<float *> &input, std::vector<int> &sizes,
-                     IntType D, float *search_items, IntType n, int64_t *res_I,
-                     float *res_D, IntType k,
-                     std::shared_ptr<deviceAllocator> allocator,
-                     cudaStream_t userStream,
- */
+   *  * std::vector<float *> &input, std::vector<int> &sizes, IntType D, float
+   *    *search_items, IntType n, int64_t *res_I, float *res_D, IntType k,
+   *    std::shared_ptr<deviceAllocator> allocator, cudaStream_t userStream,
+   */
 
   MLCommon::Selection::brute_force_knn(input_vec, sizes_vec, input.d, input.X,
                                        input.n, k_graph.knn_indices,
@@ -102,12 +104,16 @@ void get_distances(const raft::handle_t &handle,
 }
 
 /**
- * @brief   Find the maximum element in the distances matrix, then divide all entries by this.
- *          This promotes exp(distances) to not explode.
- * @param[in] n: The number of rows in the data X.
- * @param[in] distances: The output sorted distances from KNN.
- * @param[in] n_neighbors: The number of nearest neighbors you want.
- * @param[in] stream: The GPU stream.
+ * @brief      Find the maximum element in the distances matrix, then divide all
+ *             entries by this. This promotes exp(distances) to not explode.
+ *
+ * @param[in]  n            The number of rows in the data X.
+ * @param[in]  distances    The output sorted distances from KNN.
+ * @param[in]  n_neighbors  The number of nearest neighbors you want.
+ * @param[in]  stream       The GPU stream.
+ *
+ * @tparam     value_idx    { description }
+ * @tparam     value_t      { description }
  */
 template <typename value_idx, typename value_t>
 void normalize_distances(const value_idx n, value_t *distances,
@@ -125,15 +131,21 @@ void normalize_distances(const value_idx n, value_t *distances,
 }
 
 /**
- * @brief Performs P + P.T.
- * @param[in] P: The perplexity matrix (n, k)
- * @param[in] indices: The input sorted indices from KNN.
- * @param[in] n: The number of rows in the data X.
- * @param[in] k: The number of nearest neighbors.
- * @param[in] exaggeration: How much early pressure you want the clusters in TSNE to spread out more.
- * @param[out] COO_Matrix: The final P + P.T output COO matrix.
- * @param[in] stream: The GPU stream.
- * @param[in] handle: The GPU handle.
+ * @brief      Performs P + P.T.
+ *
+ * @param[in]  P             The perplexity matrix (n, k)
+ * @param[in]  indices       The input sorted indices from KNN.
+ * @param[in]  n             The number of rows in the data X.
+ * @param[in]  k             The number of nearest neighbors.
+ * @param[in]  exaggeration  How much early pressure you want the clusters in
+ *                           TSNE to spread out more.
+ * @param[out] COO_Matrix    The final P + P.T output COO matrix.
+ * @param[in]  stream        The GPU stream.
+ * @param[in]  handle        The GPU handle.
+ *
+ * @tparam     value_idx     { description }
+ * @tparam     value_t       { description }
+ * @tparam     TPB_X         { description }
  */
 template <typename value_idx, typename value_t, int TPB_X = 32>
 void symmetrize_perplexity(float *P, value_idx *indices, const value_idx n,
