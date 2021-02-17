@@ -20,7 +20,7 @@
 #include <raft/sparse/cusparse_wrappers.h>
 #include <raft/cuda_utils.cuh>
 #include <raft/mr/device/allocator.hpp>
-#include <raft/mr/device/buffer.hpp>
+#include <specializations/raft/mr/device/buffer.hpp>
 
 #include "../csr.cuh"
 #include "../utils.h"

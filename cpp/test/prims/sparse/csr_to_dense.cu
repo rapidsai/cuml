@@ -17,7 +17,7 @@
 #include <cusparse_v2.h>
 #include <raft/cudart_utils.h>
 #include <raft/mr/device/allocator.hpp>
-#include <raft/mr/device/buffer.hpp>
+#include <specializations/raft/mr/device/buffer.hpp>
 
 #include <gtest/gtest.h>
 #include <raft/sparse/cusparse_wrappers.h>

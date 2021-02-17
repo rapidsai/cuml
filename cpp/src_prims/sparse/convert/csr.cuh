@@ -23,7 +23,7 @@
 #include <raft/cuda_utils.cuh>
 #include <raft/handle.hpp>
 #include <raft/mr/device/allocator.hpp>
-#include <raft/mr/device/buffer.hpp>
+#include <specializations/raft/mr/device/buffer.hpp>
 
 #include <thrust/device_ptr.h>
 #include <thrust/scan.h>

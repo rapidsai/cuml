@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include <raft/mr/device/buffer.hpp>
+#include <specializations/raft/mr/device/buffer.hpp>
 
 namespace MLCommon {
 

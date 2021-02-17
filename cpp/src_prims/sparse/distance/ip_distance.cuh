@@ -23,7 +23,7 @@
 #include <raft/cuda_utils.cuh>
 
 #include <raft/mr/device/allocator.hpp>
-#include <raft/mr/device/buffer.hpp>
+#include <specializations/raft/mr/device/buffer.hpp>
 
 #include "../convert/csr.cuh"
 #include "../convert/dense.cuh"

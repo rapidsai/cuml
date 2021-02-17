@@ -26,7 +26,7 @@
 #include <raft/linalg/unary_op.cuh>
 #include <raft/matrix/matrix.cuh>
 #include <raft/mr/device/allocator.hpp>
-#include <raft/mr/device/buffer.hpp>
+#include <specializations/raft/mr/device/buffer.hpp>
 
 #include <specializations/prims/selection/knn.cuh>
 #include "../coo.cuh"

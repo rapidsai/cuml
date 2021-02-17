@@ -32,7 +32,7 @@
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/qr.cuh>
 #include <raft/matrix/matrix.cuh>
-#include <raft/mr/device/buffer.hpp>
+#include <specializations/raft/mr/device/buffer.hpp>
 #include <raft/random/rng.cuh>
 #include "permute.cuh"
 

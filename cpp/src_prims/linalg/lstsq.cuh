@@ -30,7 +30,7 @@
 #include <raft/linalg/svd.cuh>
 #include <raft/matrix/math.cuh>
 #include <raft/matrix/matrix.cuh>
-#include <raft/mr/device/buffer.hpp>
+#include <specializations/raft/mr/device/buffer.hpp>
 #include <raft/random/rng.cuh>
 #include <rmm/device_uvector.hpp>
 
