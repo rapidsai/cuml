@@ -67,34 +67,55 @@ struct ArgMax {
   }
 };
 
+/** tree_leaf_output returns the leaf outputs from the tree with leaf indices
+    given by leaves for n_rows items. FULL_ITEMS indicates whether n_rows ==
+    NITEMS, to allow the compiler to skip the conditional when unrolling the
+    loop. */
+template <typename output_type, bool FULL_NITEMS, int NITEMS,
+          typename tree_type>
+__device__ __forceinline__ vec<NITEMS, output_type> tree_leaf_output(
+  tree_type tree, int n_rows, int (&leaves)[NITEMS]) {
+  vec<NITEMS, output_type> out(0);
+#pragma unroll
+  for (int j = 0; j < NITEMS; ++j) {
+    if (FULL_NITEMS || j < n_rows) {
+      /** dependent names are not considered templates by default, unless it's a
+          member of a current [template] instantiation. As output<>() is a
+          member function inherited from the base class, template
+          output<output_type>() is required. */
+      out[j] = tree[leaves[j]].template output<output_type>();
+    }
+  }
+  return out;
+}
+
 template <int NITEMS, typename output_type, typename tree_type>
 __device__ __forceinline__ vec<NITEMS, output_type> infer_one_tree(
   tree_type tree, const float* input, int cols, int n_rows) {
+  // find the leaf nodes for each row
   int curr[NITEMS];
   // the first n_rows are active
-  int mask = ((1 << n_rows) - 1) << (NITEMS - n_rows);
+  int mask = (1 << n_rows) - 1;
   for (int j = 0; j < NITEMS; ++j) curr[j] = 0;
   do {
 #pragma unroll
     for (int j = 0; j < NITEMS; ++j) {
       auto n = tree[curr[j]];
       mask &= ~(n.is_leaf() << j);
-      if (!n.is_leaf()) {
+      if ((mask & (1 << j)) != 0) {
         float val = input[j * cols + n.fid()];
         bool cond = isnan(val) ? !n.def_left() : val >= n.thresh();
         curr[j] = n.left(curr[j]) + cond;
       }
     }
   } while (mask != 0);
-  vec<NITEMS, output_type> out;
-#pragma unroll
-  for (int j = 0; j < NITEMS; ++j) {
-    /** dependent names are not considered templates by default,
-        unless it's a member of a current [template] instantiation.
-        alternatively, could have used .base_node::output<... */
-    out[j] = tree[curr[j]].template output<output_type>();
+
+  // get the output from the leaves
+  if (n_rows == NITEMS) {
+    return tree_leaf_output<output_type, true>(tree, n_rows, curr);
+  } else {
+    return tree_leaf_output<output_type, false>(tree, n_rows, curr);
   }
-  return out;
 }
 
 template <typename output_type, typename tree_type>

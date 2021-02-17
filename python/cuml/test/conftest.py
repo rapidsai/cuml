@@ -17,6 +17,7 @@
 import cupy as cp
 import pytest
 from sklearn.datasets import fetch_20newsgroups
+from sklearn.datasets import fetch_california_housing
 from sklearn.feature_extraction.text import CountVectorizer
 import zlib
 
@@ -39,3 +40,20 @@ def nlp_20news():
     Y = cp.array(twenty_train.target)
 
     return X, Y
+
+
+@pytest.fixture(scope="module")
+def housing_dataset():
+    try:
+        data = fetch_california_housing()
+
+    # failing to download has appeared as multiple varied errors in CI
+    except:  # noqa E722
+        pytest.xfail(reason="Error fetching housing dataset")
+
+    X = cp.array(data['data'])
+    y = cp.array(data['target'])
+
+    feature_names = data['feature_names']
+
+    return X, y, feature_names
