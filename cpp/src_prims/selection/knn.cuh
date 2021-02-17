@@ -271,7 +271,6 @@ void approx_knn_build_index(ML::knnIndex *index, ML::knnIndexParam *params,
   faiss::gpu::StandardGpuResources *gpu_res =
     new faiss::gpu::StandardGpuResources();
   gpu_res->noTempMemory();
-  gpu_res->setCudaMallocWarning(false);
   gpu_res->setDefaultStream(device, userStream);
   index->gpu_res = gpu_res;
   index->device = device;
@@ -410,7 +409,6 @@ void brute_force_knn(std::vector<float *> &input, std::vector<int> &sizes,
       raft::select_stream(userStream, internalStreams, n_int_streams, i);
 
     gpu_res.noTempMemory();
-    gpu_res.setCudaMallocWarning(false);
     gpu_res.setDefaultStream(device, stream);
 
     faiss::gpu::GpuDistanceParams args;
