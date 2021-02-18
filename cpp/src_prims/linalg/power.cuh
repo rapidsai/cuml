@@ -56,7 +56,7 @@ void powerScalar(math_t *out, const math_t *in, math_t scalar, IdxType len,
  *
  * @tparam math_t data-type upon which the math operation will be performed
  * @tparam IdxType Integer type used to for addressing
- * 
+ *
  * @{
  */
 template <typename math_t, typename IdxType = int>

@@ -118,7 +118,7 @@ void gemm(cublasOperation_t transA, cublasOperation_t transB, Index_ m,
  * @tparam EpilogueFunctor_       custom epilogue functor
  * @tparam OType  output data-type (for C and D matrices)
  * @tparam Index_ index type
- * 
+ *
  * @{
  */
 template <

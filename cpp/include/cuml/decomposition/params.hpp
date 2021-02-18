@@ -19,6 +19,7 @@
 namespace ML {
 
 /**
+ *
  * @param COV_EIG_DQ:     covariance of input will be used along with eigen
  *                        decomposition using divide and conquer method for
  *                        symmetric matrices

@@ -119,8 +119,6 @@ __global__ void store_vecs(const math_t *tile, int n_tile, int n_vec,
  * @param[in] key           The key
  * @param[in] n_cache_sets  The n cache sets
  * @param[in] associativity The associativity
- *
- * @return { description_of_the_return_value }
  */
 int DI hash(int key, int n_cache_sets, int associativity) {
   return key % n_cache_sets;
@@ -171,8 +169,8 @@ int DI arg_first_ge(const int *array, int n, int val) {
  * @param[in] val   the value we are searching for
  * @param[in] k     { parameter_description }
  *
- * @return the idx of the k-th occurance of val in array, or -1 if the value is
- *         not found.
+ * @return the idx of the k-th occurance of val in array, or -1 if the value is not
+ *         found.
  */
 int DI find_nth_occurrence(const int *array, int n, int val, int k) {
   int q = arg_first_ge(array, n, val);
@@ -185,19 +183,19 @@ int DI find_nth_occurrence(const int *array, int n, int val, int k) {
 }
 
 /**
- * @brief Rank the entries in a cache set according the time stamp, return the
- *        indices that would sort the time stamp in ascending order.
+ * Rank the entries in a cache set according the time stamp, return the
+ * indices that would sort the time stamp in ascending order.
  *
- *        Assume we have a single cache set with time stamps as: key
- *        (threadIdx.x):   0   1   2   3 val (time stamp):    8   6   7   5
+ * Assume we have a single cache set with time stamps as: key
+ * (threadIdx.x):   0   1   2   3 val (time stamp):    8   6   7   5
  *
- *        The corresponding sorted key-value pairs: key:    3   1   2   0 val:
- *        5   6   7   8 rank: 0th 1st 2nd 3rd
+ * The corresponding sorted key-value pairs: key:    3   1   2   0 val: 5
+ * 6   7   8 rank: 0th 1st 2nd 3rd
  *
- *        On return, the rank is assigned for each thread: threadIdx.x: 0   1
- *        2   3 rank:        3   1   2   0
+ * On return, the rank is assigned for each thread: threadIdx.x: 0   1 2
+ * 3 rank:        3   1   2   0
  *
- *        For multiple cache sets, launch one block per cache set.
+ * For multiple cache sets, launch one block per cache set.
  *
  * @param[in]  cache_time   time stamp of caching the data, size [associativity *
  *                          n_cache_sets]
@@ -239,15 +237,15 @@ DI void rank_set_entries(const int *cache_time, int n_cache_sets, int *rank) {
 }
 
 /**
- * @brief Assign cache location to a set of keys using LRU replacement policy.
+ * Assign cache location to a set of keys using LRU replacement policy.
  *
- *        The keys and the corresponding cache_set arrays shall be sorted
- *        according to cache_set in ascending order. One block should be
- *        launched for every cache set.
+ * The keys and the corresponding cache_set arrays shall be sorted
+ * according to cache_set in ascending order. One block should be
+ * launched for every cache set.
  *
- *        Each cache set is sorted according to time_stamp, and values from keys
- *        are filled in starting at the oldest time stamp. Enties that were
- *        accessed at the current time are not reassigned.
+ * Each cache set is sorted according to time_stamp, and values from keys
+ * are filled in starting at the oldest time stamp. Enties that were
+ * accessed at the current time are not reassigned.
  *
  * @param[in]    keys         that we want to cache size [n]
  * @param[in]    n            number of keys
@@ -312,19 +310,19 @@ __global__ void assign_cache_idx(const int *keys, int n, const int *cache_set,
   following non-template function */
 namespace {
 /**
- * @brief Get the cache indices for keys stored in the cache.
+ * Get the cache indices for keys stored in the cache.
  *
- *        For every key, we look up the corresponding cache position. If keys[k]
- *        is stored in the cache, then is_cached[k] is set to true, and
- *        cache_idx[k] stores the corresponding cache idx.
+ * For every key, we look up the corresponding cache position. If keys[k]
+ * is stored in the cache, then is_cached[k] is set to true, and
+ * cache_idx[k] stores the corresponding cache idx.
  *
- *        If keys[k] is not stored in the cache, then we assign a cache set to
- *        it. This  cache set is stored in cache_idx[k], and is_cached[k] is set
- *        to false. In this case AssignCacheIdx should be called, to get an
- *        assigned position within the cache set.
+ * If keys[k] is not stored in the cache, then we assign a cache set to
+ * it. This  cache set is stored in cache_idx[k], and is_cached[k] is set
+ * to false. In this case AssignCacheIdx should be called, to get an
+ * assigned position within the cache set.
  *
- *        Cache_time is assigned to the time input argument for all elements in
- *        idx.
+ * Cache_time is assigned to the time input argument for all elements in
+ * idx.
  *
  * @param[in]    keys          array of keys that we want to look up in the
  *                             cache, size [n]

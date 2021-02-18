@@ -58,8 +58,9 @@ struct ThreadDiffSquaredAdd {
     ScalarC, AccumulatorsPerThread::kH * AccumulatorsPerThread::kW, 16>
     Accumulators;
 
-  /// Ctor.
-  ///
+  //////////////////////////////////////////////////////////////////////////////
+  // Ctor.                                                                    //
+  //////////////////////////////////////////////////////////////////////////////
   CUTLASS_DEVICE ThreadDiffSquaredAdd() {}
 
   /// Multiply : d = (a-b)^2 + c.
@@ -117,8 +118,9 @@ struct ThreadL1NormAdd {
     ScalarC, AccumulatorsPerThread::kH * AccumulatorsPerThread::kW, 16>
     Accumulators;
 
-  /// Ctor.
-  ///
+  //////////////////////////////////////////////////////////////////////////////
+  // Ctor.                                                                    //
+  //////////////////////////////////////////////////////////////////////////////
   CUTLASS_DEVICE ThreadL1NormAdd() {}
 
   /// Multiply : d = |a-b| + c.

@@ -62,34 +62,36 @@ __global__ void mapColumnIndices(const int *ws, int n_ws, int n_rows,
 }  // end unnamed namespace
 
 /**
-* @brief Buffer to store a kernel tile
-*
-* We calculate the kernel matrix for the vectors in the working set.
-* For every vector x_i in the working set, we always calculate a full row of the
-* kernel matrix K(x_j, x_i), j=1..n_rows.
-*
-* A kernel tile stores all the kernel rows for the working set, i.e. K(x_j, x_i)
-* for all i in the working set, and j in 1..n_rows. For details about the kernel
-* tile layout, see KernelCache::GetTile
-*
-* The kernel values can be cached to avoid repeated calculation of the kernel
-* function.
-*/
+ * @brief Buffer to store a kernel tile
+ *
+ *        We calculate the kernel matrix for the vectors in the working set. For
+ *        every vector x_i in the working set, we always calculate a full row of
+ *        the kernel matrix K(x_j, x_i), j=1..n_rows.
+ *
+ *        A kernel tile stores all the kernel rows for the working set, i.e.
+ *        K(x_j, x_i) for all i in the working set, and j in 1..n_rows. For
+ *        details about the kernel tile layout, see KernelCache::GetTile
+ *
+ *        The kernel values can be cached to avoid repeated calculation of the
+ *        kernel function.
+ *
+ * @tparam math_t { description }
+ */
 template <typename math_t>
 class KernelCache {
  public:
   /**
    * Construct an object to manage kernel cache
    *
-   * @param handle reference to raft::handle_t implementation
-   * @param x device array of training vectors in column major format,
-   *   size [n_rows x n_cols]
-   * @param n_rows number of training vectors
-   * @param n_cols number of features
-   * @param n_ws size of working set
-   * @param kernel pointer to kernel (default linear)
+   * @param handle     reference to raft::handle_t implementation
+   * @param x          device array of training vectors in column major format,
+   *                   size [n_rows x n_cols]
+   * @param n_rows     number of training vectors
+   * @param n_cols     number of features
+   * @param n_ws       size of working set
+   * @param kernel     pointer to kernel (default linear)
    * @param cache_size (default 200 MiB)
-   * @param svmType is this SVR or SVC
+   * @param svmType    is this SVR or SVC
    */
   KernelCache(const raft::handle_t &handle, const math_t *x, int n_rows,
               int n_cols, int n_ws,
@@ -143,32 +145,35 @@ class KernelCache {
   /**
    * Get all the kernel matrix rows for the working set.
    *
-   * The kernel matrix is stored in column major format:
-   * kernel[row_id, col_id] = kernel[row_id + col_id * n_rows]
+   * The kernel matrix is stored in column major format: kernel[row_id, col_id]
+   * = kernel[row_id + col_id * n_rows]
    *
-   * For SVC:
-   * kernel is rectangular with size [n_rows * n_ws], so:
-   * \f[ row_id \in [0..n_rows-1], col_id \in [0..n_ws-1] \f]
+   * For SVC: kernel is rectangular with size [n_rows * n_ws], so:
+   * @f[ row_id \in [0..n_rows-1], col_id \in [0..n_ws-1]
+   * @f]
    *
    * The columns correspond to the vectors in the working set. For example:
-   * Let's assume thet the working set are vectors x_5, x_9, x_0, and x_4,
-   * then ws_idx = [5, 9, 0 ,4]. The second column of the kernel matrix,
-   * kernel[i + 1*n_rows] (\f[ i \in [0..n_rows-1] \f]), stores the kernel
-   * matrix values for the second vector in the working set: K(x_i, x_9).
+   * Let's assume thet the working set are vectors x_5, x_9, x_0, and x_4, then
+   * ws_idx = [5, 9, 0 ,4]. The second column of the kernel matrix, kernel[i +
+   * 1*n_rows] (\f[ i \in [0..n_rows-1]
+   * @f]), stores the kernel matrix values for the second vector in the working
+   * set: K(x_i, x_9).
    *
-   * For SVR:
-   * We doubled the set of training vector, assigning:
-   * \f[ x_{n_rows+i} = x_i for i \in [0..n_rows-1]. \f]
+   * For SVR: We doubled the set of training vector, assigning:
+   * @f[ x_{n_rows+i} = x_i for i \in [0..n_rows-1].
+   * @f]
    *
    * The kernel matrix values are the same for x_i and x_{i+n_rows}, therefore
-   * we store only kernel[row_id, col_id] for \f$ row_id \in [0..n_rows]. \f$
+   * we store only kernel[row_id, col_id] for
+   * @f$ row_id \in [0..n_rows].
+   * @f$
    *
-   * Similarly, it can happen that two elements in the working set have the
-   * same x vector. For example, if n_rows=10, then for ws = [5, 19, 15 0], the
-   * first and third vectors are the same (x_5==x_15), therefore the
-   * corresponding. columns in the kernel tile would be identical. We do not
-   * store these duplicate columns for the kernel matrix. The size of the
-   * kernel matrix is [n_rows * n_unique], where n_unique = 3 for our example.
+   * Similarly, it can happen that two elements in the working set have the same
+   * x vector. For example, if n_rows=10, then for ws = [5, 19, 15 0], the first
+   * and third vectors are the same (x_5==x_15), therefore the corresponding.
+   * columns in the kernel tile would be identical. We do not store these
+   * duplicate columns for the kernel matrix. The size of the kernel matrix is
+   * [n_rows * n_unique], where n_unique = 3 for our example.
    *
    * We map the working set indices to unique column indices using the k_col_idx
    * array. For the above example:  k_col_idx = [0, 1, 0, 2], i.e. the third vec
@@ -177,11 +182,12 @@ class KernelCache {
    *
    * The returned kernel tile array allocated/deallocated by KernelCache.
    *
-   * Note: when cache_size > 0, the workspace indices can be permuted during
-   * the call to GetTile. Use KernelCache::GetWsIndices to query the actual
-   * list of workspace indices.
+   * Note: when cache_size > 0, the workspace indices can be permuted during the
+   * call to GetTile. Use KernelCache::GetWsIndices to query the actual list of
+   * workspace indices.
    *
-   * @param [in] ws_idx indices of the working set
+   * @param[in] ws_idx indices of the working set
+   *
    * @return pointer to the kernel tile [ n_rows x n_unique] K(x_j, x_q)
    */
   math_t *GetTile(const int *ws_idx) {
@@ -226,28 +232,29 @@ class KernelCache {
     return tile.data();
   }
 
-  /** 
+  /**
    * Map workspace indices to kernel matrix indices.
    *
    * The kernel matrix is matrix of K[i+j*n_rows] = K(x_i, x_j), where
-   * \f[ i \in [0..n_rows-1], and j=[0..n_unique-1] \f]
+   * @f[ i \in [0..n_rows-1], and j=[0..n_unique-1]
+   * @f]
    *
    * The SmoBlockSolver needs to know where to find the kernel values that
-   * correspond to vectors in the working set. Vector ws[i] corresponds to column
-   * GetIdxMap()[i] in the kernel matrix.
+   * correspond to vectors in the working set. Vector ws[i] corresponds to
+   * column GetIdxMap()[i] in the kernel matrix.
    *
    * For SVC: GetIdxMap() == [0, 1, 2, ..., n_ws-1].
    *
-   * SVR Example: n_rows = 3, n_train = 6, n_ws=4, ws_idx = [5 0 2 3]
-   * Note that we have only two unique x vector in the training set:
-   * ws_idx % n_rows = [2 0 2 0]
+   * SVR Example: n_rows = 3, n_train = 6, n_ws=4, ws_idx = [5 0 2 3] Note that
+   * we have only two unique x vector in the training set: ws_idx % n_rows = [2
+   * 0 2 0]
    *
-   * To avoid redundant calculations, we just calculate the kernel values for the
-   * unique elements from the working set: unique_idx = [0 2] , n_unique = 2, so
-   * GetIdxMap() == [1 0 1 0].
+   * To avoid redundant calculations, we just calculate the kernel values for
+   * the unique elements from the working set: unique_idx = [0 2] , n_unique =
+   * 2, so GetIdxMap() == [1 0 1 0].
    *
    * @return device array of index map size [n_ws], the array is owned by
-   *   KernelCache
+   *         KernelCache
    */
   int *GetColIdxMap() {
     if (svmType == EPSILON_SVR) {
@@ -262,7 +269,9 @@ class KernelCache {
   /**
    * @brief Return the number of unique elements in the working set.
    *
-   *  This is equal with the number of columns in the kernel tile.
+   *        This is equal with the number of columns in the kernel tile.
+   *
+   * @return The unique size.
    */
   int GetUniqueSize() { return n_unique; }
 
@@ -278,17 +287,18 @@ class KernelCache {
       return ws_idx;
     }
   }
-  /** @brief Get the original training vector idx.
+  /**
+    * @brief Get the original training vector idx.
     *
-    * Only used for SVR (for SVC this is identity operation).
+    *        Only used for SVR (for SVC this is identity operation).
     *
-    * For SVR we have duplicate set of training vectors, we return the original
-    * idx, which is simply ws_idx % n_rows.
+    *        For SVR we have duplicate set of training vectors, we return the
+    *        original idx, which is simply ws_idx % n_rows.
     *
-    * @param [in] ws_idx array of working set indices, size [n_ws]
-    * @param [in] n_ws number of elements in the working set
-    * @param [out] vec_idx original training vector indices, size [n_ws]
-   */
+    * @param[in]  ws_idx  array of working set indices, size [n_ws]
+    * @param[in]  n_ws    number of elements in the working set
+    * @param[out] vec_idx original training vector indices, size [n_ws]
+    */
   void GetVecIndices(const int *ws_idx, int n_ws, int *vec_idx) {
     int n = n_rows;
     raft::linalg::unaryOp(
@@ -297,20 +307,20 @@ class KernelCache {
   }
 
  private:
-  const math_t *x;    //!< pointer to the training vectors
-  const int *ws_idx;  //!< pointer to the working set indices
+  const math_t *x;    //! < pointer to the training vectors
+  const int *ws_idx;  //! < pointer to the working set indices
 
   /// feature vectors in the current working set
   MLCommon::device_buffer<math_t> x_ws;
   /// cache position of a workspace vectors
   MLCommon::device_buffer<int> ws_cache_idx;
 
-  MLCommon::device_buffer<math_t> tile;  //!< Kernel matrix  tile
+  MLCommon::device_buffer<math_t> tile;  //! < Kernel matrix  tile
 
-  int n_rows;    //!< number of rows in x
-  int n_cols;    //!< number of columns in x
-  int n_ws;      //!< number of elements in the working set
-  int n_unique;  //!< number of unique x vectors in the working set
+  int n_rows;    //! < number of rows in x
+  int n_cols;    //! < number of columns in x
+  int n_ws;      //! < number of elements in the working set
+  int n_unique;  //! < number of unique x vectors in the working set
 
   cublasHandle_t cublas_handle;
 
@@ -318,13 +328,13 @@ class KernelCache {
 
   const raft::handle_t handle;
 
-  const int TPB = 256;  //!< threads per block for kernels launched
+  const int TPB = 256;  //! < threads per block for kernels launched
 
   MLCommon::Cache::Cache<math_t> cache;
 
   cudaStream_t stream;
   SvmType svmType;
-  MLCommon::device_buffer<int> unique_idx;  //!< Training vector indices
+  MLCommon::device_buffer<int> unique_idx;  //! < Training vector indices
   /// Column index map for the kernel tile
   MLCommon::device_buffer<int> k_col_idx;
 
@@ -338,9 +348,10 @@ class KernelCache {
    * The unique indices from the working set are stored in array unique_idx.
    * (For SVC this is just a copy of the working set. )
    *
-   * @param [in] ws_idx device array of working set indices, size [n_ws]
-   * @param [in] n_ws number of elements in the working set
-   * @param [out] n_unique unique elements in the working set
+   * @param[in]  ws_idx     device array of working set indices, size [n_ws]
+   * @param[in]  n_ws       number of elements in the working set
+   * @param      unique_idx The unique index
+   * @param[out] n_unique   unique elements in the working set
    */
   void GetUniqueIndices(const int *ws_idx, int n_ws, int *unique_idx,
                         int *n_unique) {

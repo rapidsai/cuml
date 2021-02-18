@@ -68,8 +68,9 @@ struct DistanceGlobalTileAATraits
 
   typedef typename Base::ImmediateOffsetStrides ImmediateOffsetStrides;
 
-  /// Computes the thread offset in (H, W) based on thread ID
-  ///
+  //////////////////////////////////////////////////////////////////////////////
+  // Computes the thread offset in (H, W) based on thread ID                  //
+  //////////////////////////////////////////////////////////////////////////////
   struct ThreadOffset {
     CUTLASS_HOST_DEVICE
     cutlass::Coord<4> operator()() const {
@@ -117,8 +118,9 @@ struct DistanceGlobalTileBBTraits
 
   typedef typename Base::ImmediateOffsetStrides ImmediateOffsetStrides;
 
-  /// Computes the thread offset in (H, W) based on thread ID
-  ///
+  //////////////////////////////////////////////////////////////////////////////
+  // Computes the thread offset in (H, W) based on thread ID                  //
+  //////////////////////////////////////////////////////////////////////////////
   struct ThreadOffset {
     CUTLASS_HOST_DEVICE
     cutlass::Coord<4> operator()() const {

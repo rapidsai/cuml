@@ -32,7 +32,7 @@ namespace LinAlg {
  *
  * @tparam math_t data-type upon which the math operation will be performed
  * @tparam IdxType Integer type used to for addressing
- * 
+ *
  * @{
  */
 template <typename math_t, typename IdxType = int>

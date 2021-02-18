@@ -44,7 +44,7 @@ namespace Random {
  * @param[in] stddev    The stddev
  *
  * @return The curand status.
- * 
+ *
  * @{
  */
 template <typename T>

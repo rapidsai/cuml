@@ -107,7 +107,7 @@ struct KernelPolicy {
  *
  * @tparam DataT   { description }
  * @tparam _veclen { description }
- * 
+ *
  * @{
  */
 template <typename DataT, int _veclen>

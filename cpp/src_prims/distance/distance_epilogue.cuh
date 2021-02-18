@@ -137,12 +137,14 @@ struct DistanceGemmEpilogue {
                                       Index n_)
     : params(params_), shared_storage(shared_storage_), m(m_), n(n_) {}
 
-  /// The memory fence for shared loads.
-  ///
+  //////////////////////////////////////////////////////////////////////////////
+  // The memory fence for shared loads.                                       //
+  //////////////////////////////////////////////////////////////////////////////
   CUTLASS_DEVICE void shared_load_fence() { __syncthreads(); }
 
-  /// The memory fence for shared stores.
-  ///
+  //////////////////////////////////////////////////////////////////////////////
+  // The memory fence for shared stores.                                      //
+  //////////////////////////////////////////////////////////////////////////////
   CUTLASS_DEVICE void shared_store_fence() { __syncthreads(); }
 
   /// The params.

@@ -114,7 +114,7 @@ void calEig(const raft::handle_t &handle, math_t *in, math_t *components,
  * @param stream      cuda stream
  *
  * @tparam math_t { description }
- * 
+ *
  * @{
  */
 template <typename math_t>

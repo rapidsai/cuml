@@ -67,10 +67,21 @@ struct ArgMax {
   }
 };
 
-/** tree_leaf_output returns the leaf outputs from the tree with leaf indices
-    given by leaves for n_rows items. FULL_ITEMS indicates whether n_rows ==
-    NITEMS, to allow the compiler to skip the conditional when unrolling the
-    loop. */
+/**
+ * tree_leaf_output returns the leaf outputs from the tree with leaf indices given
+ * by leaves for n_rows items. FULL_ITEMS indicates whether n_rows == NITEMS, to
+ * allow the compiler to skip the conditional when unrolling the loop.
+ *
+ * @param[in] tree   The tree
+ * @param[in] n_rows The n rows
+ * @param     leaves The leaves
+ *
+ * @tparam output_type { description }
+ * @tparam FULL_NITEMS { description }
+ * @tparam NITEMS      { description }
+ *
+ * @return { description_of_the_return_value }
+ */
 template <typename output_type, bool FULL_NITEMS, int NITEMS,
           typename tree_type>
 __device__ __forceinline__ vec<NITEMS, output_type> tree_leaf_output(
@@ -79,10 +90,10 @@ __device__ __forceinline__ vec<NITEMS, output_type> tree_leaf_output(
 #pragma unroll
   for (int j = 0; j < NITEMS; ++j) {
     if (FULL_NITEMS || j < n_rows) {
-      /** dependent names are not considered templates by default, unless it's a
-          member of a current [template] instantiation. As output<>() is a
-          member function inherited from the base class, template
-          output<output_type>() is required. */
+      /* dependent names are not considered templates by default, unless it's a
+       member of a current [template] instantiation. As output<>() is a member
+       function inherited from the base class, template output<output_type>() is
+       required. */
       out[j] = tree[leaves[j]].template output<output_type>();
     }
   }
@@ -141,19 +152,19 @@ using BlockReduce = typename cub::BlockReduce<vec<NITEMS, float>, FIL_TPB>;
 template <int NITEMS>
 using BlockReduceBestClass =
   typename cub::BlockReduce<vec<NITEMS, best_margin_label>, FIL_TPB>;
-/**
-The shared memory requirements for finalization stage may differ based
-on the set of PTX architectures the kernels were compiled for, as well as 
-the CUDA compute capability of the device chosen for computation.
+/*
+The shared memory requirements for finalization stage may differ based on the
+set of PTX architectures the kernels were compiled for, as well as the CUDA
+compute capability of the device chosen for computation.
 
-TODO (levsnv): run a test kernel during forest init to determine the compute capability
-chosen for the inference, for an accurate sizeof(BlockReduce::TempStorage),
-which is used in determining max NITEMS or max input data columns.
+TODO (levsnv): run a test kernel during forest init to determine the compute
+capability chosen for the inference, for an accurate
+sizeof(BlockReduce::TempStorage), which is used in determining max NITEMS or max
+input data columns.
 
-600 is the __CUDA_ARCH__ for Pascal (6.0) GPUs, which is not defined in
-host code.
-6.0 is the earliest compute capability supported by FIL and RAPIDS in general.
-See https://rapids.ai/start.html as well as cmake defaults.
+600 is the __CUDA_ARCH__ for Pascal (6.0) GPUs, which is not defined in host
+code. 6.0 is the earliest compute capability supported by FIL and RAPIDS in
+general. See https://rapids.ai/start.html as well as cmake defaults.
 */
 // values below are defaults as of this change.
 template <int NITEMS>
@@ -171,22 +182,37 @@ struct tree_aggregator_t {
   vec<NITEMS, float> acc;
   void* tmp_storage;
 
-  /** shared memory footprint of the accumulator during
-  the finalization of forest inference kernel, when infer_k output
-  value is computed.
-  num_classes is used for other template parameters */
+  /**
+   * shared memory footprint of the accumulator during the finalization of forest
+   * inference kernel, when infer_k output value is computed. num_classes is
+   * used for other template parameters
+   *
+   * @param[in] num_classes The number classes
+   *
+   * @return { description_of_the_return_value }
+   */
   static size_t smem_finalize_footprint(int num_classes) {
     return sizeof(typename BlockReduceHost<NITEMS>::TempStorage);
   }
 
-  /** shared memory footprint of the accumulator during
-  the accumulation of forest inference, when individual trees
-  are inferred and partial aggregates are accumulated.
-  num_classes is used for other template parameters */
+  /**
+   * shared memory footprint of the accumulator during the accumulation of forest
+   * inference, when individual trees are inferred and partial aggregates are
+   * accumulated. num_classes is used for other template parameters
+   *
+   * @param[in] num_classes The number classes
+   *
+   * @return { description_of_the_return_value }
+   */
   static size_t smem_accumulate_footprint(int num_classes) { return 0; }
 
-  /** 
-  num_classes is used for other template parameters */
+  /**
+   * num_classes is used for other template parameters
+   *
+   * @param[in] params               The parameters
+   * @param     accumulate_workspace The accumulate workspace
+   * @param     finalize_workspace   The finalize workspace
+   */
   __device__ __forceinline__ tree_aggregator_t(predict_params params,
                                                void* accumulate_workspace,
                                                void* finalize_workspace)

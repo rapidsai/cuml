@@ -72,9 +72,9 @@ std::string format(const char* fmt, ...);
 /**
  * The main Logging class for cuML library.
  *
- * This class acts as a thin wrapper over the underlying `spdlog`
- * interface. The design is done in this way in order to avoid us having
- * to also ship `spdlog` header files in our installation.
+ * This class acts as a thin wrapper over the underlying `spdlog` interface. The
+ * design is done in this way in order to avoid us having to also ship `spdlog`
+ * header files in our installation.
  *
  * @todo This currently only supports logging to stdout. Need to add support in
  *       future to add custom loggers as well [Issue #2046]
@@ -152,7 +152,7 @@ class Logger {
    *
    * @param[in] level     logging level of this message
    * @param[in] fmt       C-like format string, followed by respective params
-   * @param[in] ...       { parameter_description }
+   * @param[in] <unnamed> { parameter_description }
    */
   void log(int level, const char* fmt, ...);
 
@@ -180,7 +180,6 @@ class Logger {
  *   CUML_LOG_INFO("Test message\n");
  * }
  * @endcode
- * 
  */
 class PatternSetter {
  public:
@@ -192,8 +191,8 @@ class PatternSetter {
   PatternSetter(const std::string& pattern = "%v");
 
   /**
-   * This will restore the previous pattern that was active during the
-   * moment this object was created
+   * This will restore the previous pattern that was active during the moment
+   * this object was created
    */
   ~PatternSetter();
 
@@ -208,7 +207,7 @@ class PatternSetter {
  * @param ...   { parameter_description }
  *
  * @return { description_of_the_return_value }
- * 
+ *
  * @{
  */
 #if (CUML_ACTIVE_LEVEL >= CUML_LEVEL_TRACE)

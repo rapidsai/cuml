@@ -125,7 +125,7 @@ void grow_tree(std::shared_ptr<MLCommon::deviceAllocator> d_allocator,
  * @tparam DataT  data type
  * @tparam LabelT label type
  * @tparam IdxT  index type
- * 
+ *
  * @{
  */
 template <typename DataT, typename LabelT, typename IdxT>

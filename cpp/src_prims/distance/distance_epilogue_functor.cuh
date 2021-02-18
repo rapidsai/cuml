@@ -97,8 +97,9 @@ struct DistanceEpilogueFunctor {
   typedef cutlass::gemm::GemmGlobalIteratorCd<GlobalLoadTileBBTraits, int>
     GlobalLoadIteratorBB;
 
-  /// The parameters.
-  ///
+  //////////////////////////////////////////////////////////////////////////////
+  // The parameters.                                                          //
+  //////////////////////////////////////////////////////////////////////////////
   struct Params {
     /// sqrt on/off
     bool enable_sqrt;

@@ -39,7 +39,7 @@ namespace Batched {
  * @tparam VecLen number of elements
  * @tparam TPB   threads per block
  *
- * @return { description_of_the_return_value }
+ * @return The data t.
  */
 template <typename DataT, typename IdxT, int VecLen>
 DI DataT dotProduct(const DataT (&x)[VecLen], const DataT (&y)[VecLen],

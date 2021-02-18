@@ -86,19 +86,21 @@ class Results {
    * Collect the parameters found during training.
    *
    * After fitting, the non-zero dual coefs, the corresponding support vectors,
-   * and the constant b represent the parameters of the support vector classifier.
+   * and the constant b represent the parameters of the support vector
+   * classifier.
    *
-   * On entry the output arrays should not be allocated.
-   * All output arrays will be allocated on the device.
-   * Note that b is not an array but a host scalar.
+   * On entry the output arrays should not be allocated. All output arrays will
+   * be allocated on the device. Note that b is not an array but a host scalar.
    *
-   * @param [in] alpha dual coefficients, size [n_train]
-   * @param [in] f optimality indicator vector, size [n_train]
-   * @param [out] dual_coefs size [n_support]
-   * @param [out] n_support number of support vectors
-   * @param [out] idx the original training set indices of the support vectors, size [n_support]
-   * @param [out] x_support support vectors in column major format, size [n_support, n_cols]
-   * @param [out] b scalar constant in the decision function
+   * @param[in]  alpha      dual coefficients, size [n_train]
+   * @param[in]  f          optimality indicator vector, size [n_train]
+   * @param[out] dual_coefs size [n_support]
+   * @param[out] n_support  number of support vectors
+   * @param[out] idx        the original training set indices of the support
+   *                        vectors, size [n_support]
+   * @param[out] x_support  support vectors in column major format, size
+   *                        [n_support, n_cols]
+   * @param[out] b          scalar constant in the decision function
    */
   void Get(const math_t *alpha, const math_t *f, math_t **dual_coefs,
            int *n_support, int **idx, math_t **x_support, math_t *b) {
@@ -120,11 +122,12 @@ class Results {
   /**
    * Collect support vectors into a contiguous buffer
    *
-   * @param [in] idx indices of support vectors, size [n_support]
-   * @param [in] n_support number of support vectors
+   * @param[in] idx       indices of support vectors, size [n_support]
+   * @param[in] n_support number of support vectors
+   *
    * @return pointer to a newly allocated device buffer that stores the support
-   *   vectors, size [n_suppor*n_cols]
-  */
+   *         vectors, size [n_suppor*n_cols]
+   */
   math_t *CollectSupportVectors(const int *idx, int n_support) {
     math_t *x_support = (math_t *)allocator->allocate(
       n_support * n_cols * sizeof(math_t), stream);
@@ -138,18 +141,21 @@ class Results {
   /**
    * Combine alpha parameters and labels to get SVM coefficients.
    *
-   * The output coefficients are the values that can be used directly
-   * to calculate the decision function:
-   * \f[ f(\bm(x)) = \sum_{i=1}^{n_rows} coef_i K(\bm{x}_i,\bm{x}) + b. \f]
+   * The output coefficients are the values that can be used directly to
+   * calculate the decision function:
+   * @f[ f(\bm(x)) = \sum_{i=1}^{n_rows} coef_i K(\bm{x}_i,\bm{x}) + b.
+   * @f]
    *
    * Here coefs includes coefficients with zero value.
    *
-   * For a classifier, \f$ coef_i = y_i * \alpha_i (i \in [0..n-1])\f$,
-   * For a regressor \f$ coef_i = y_i * \alpha_i  + y_{i+n/2} * alpha_{i+n/2},
-   * (i \in [0..n/2-1]) \f$
+   * For a classifier,
+   * @f$ coef_i = y_i * \alpha_i (i \in [0..n-1])\f$, For a regressor
+   * @f$ coef_i = y_i * \alpha_i  + y_{i+n/2} * alpha_{i+n/2}, (i \in
+   * [0..n/2-1])
+   * @f$
    *
-   * @param [in] alpha device array of dual coefficients, size [n_train]
-   * @param [out] coef device array of SVM coefficients size [n_rows]
+   * @param[in]  alpha device array of dual coefficients, size [n_train]
+   * @param[out] coef  device array of SVM coefficients size [n_rows]
    */
   void CombineCoefs(const math_t *alpha, math_t *coef) {
     MLCommon::device_buffer<math_t> math_tmp(allocator, stream, n_train);
@@ -167,10 +173,10 @@ class Results {
 
   /** Return non zero dual coefficients.
    *
-   * @param [in] val_tmp device pointer with dual coefficients
-   * @param [out] dual_coefs device pointer of non-zero dual coefficiens,
-   *   unallocated on entry, on exit size [n_support]
-   * @param [out] n_support number of support vectors
+   * @param[in]  val_tmp    device pointer with dual coefficients
+   * @param[out] dual_coefs device pointer of non-zero dual coefficiens,
+   *                        unallocated on entry, on exit size [n_support]
+   * @param[out] n_support  number of support vectors
    */
   void GetDualCoefs(const math_t *val_tmp, math_t **dual_coefs,
                     int *n_support) {
@@ -185,11 +191,12 @@ class Results {
   }
 
   /**
-   * Flag support vectors and also collect their indices.
-   * Support vectors are the vectors where alpha > 0.
+   * Flag support vectors and also collect their indices. Support vectors are
+   * the vectors where alpha > 0.
    *
-   * @param [in] coef dual coefficients, size [n_rows]
-   * @param [in] n_support number of support vectors
+   * @param[in] coef      dual coefficients, size [n_rows]
+   * @param[in] n_support number of support vectors
+   *
    * @return indices of the support vectors, size [n_support]
    */
   int *GetSupportVectorIndices(const math_t *coef, int n_support) {
@@ -203,10 +210,11 @@ class Results {
   /**
    * Calculate the b constant in the decision function.
    *
-   * @param [in] alpha dual coefficients, size [n_rows]
-   * @param [in] f optimality indicator vector, size [n_rows]
+   * @param[in] alpha dual coefficients, size [n_rows]
+   * @param[in] f     optimality indicator vector, size [n_rows]
+   *
    * @return the value of b
- */
+   */
   math_t CalcB(const math_t *alpha, const math_t *f) {
     // We know that for an unbound support vector i, the decision function
     // (before taking the sign) has value F(x_i) = y_i, where
@@ -238,14 +246,17 @@ class Results {
   }
 
   /**
-  * @brief Select values for unbound support vectors (not bound by C).
-  * @tparam valType type of values that will be selected
-  * @param [in] alpha dual coefficients, size [n]
-  * @param [in] n number of dual coefficients
-  * @param [in] val values to filter, size [n]
-  * @param [out] out buffer size [n]
-  * @return number of selected elements
-  */
+   * @brief Select values for unbound support vectors (not bound by C).
+   *
+   * @param[in]  alpha dual coefficients, size [n]
+   * @param[in]  n     number of dual coefficients
+   * @param[in]  val   values to filter, size [n]
+   * @param[out] out   buffer size [n]
+   *
+   * @tparam valType type of values that will be selected
+   *
+   * @return number of selected elements
+   */
   template <typename valType>
   int SelectUnboundSV(const math_t *alpha, int n, const valType *val,
                       valType *out) {
@@ -267,13 +278,13 @@ class Results {
   const raft::handle_t &handle;
   cudaStream_t stream;
 
-  int n_rows;       //!< number of rows in the training vector matrix
-  int n_cols;       //!< number of features
-  const math_t *x;  //!< training vectors
-  const math_t *y;  //!< labels
-  const math_t *C;  //!< penalty parameter
-  SvmType svmType;  //!< SVM problem type: SVC or SVR
-  int n_train;  //!< number of training vectors (including duplicates for SVR)
+  int n_rows;       //! < number of rows in the training vector matrix
+  int n_cols;       //! < number of features
+  const math_t *x;  //! < training vectors
+  const math_t *y;  //! < labels
+  const math_t *C;  //! < penalty parameter
+  SvmType svmType;  //! < SVM problem type: SVC or SVR
+  int n_train;  //! < number of training vectors (including duplicates for SVR)
 
   const int TPB = 256;  // threads per block
   // Temporary variables used by cub in GetResults
@@ -311,15 +322,20 @@ class Results {
   }
 
   /**
-  * Filter values based on the corresponding alpha values.
-  * @tparam select_op lambda selection criteria
-  * @tparam valType type of values that will be selected
-  * @param [in] alpha dual coefficients, size [n]
-  * @param [in] n number of dual coefficients
-  * @param [in] val values to filter, size [n]
-  * @param [out] out buffer size [n]
-  * @return number of selected elements
-  */
+   * Filter values based on the corresponding alpha values.
+   *
+   * @param[in]  coef  The ratio
+   * @param[in]  n     number of dual coefficients
+   * @param[in]  val   values to filter, size [n]
+   * @param[in]  op    The operation
+   * @param[out] out   buffer size [n]
+   * @param[in] alpha dual coefficients, size [n]
+   *
+   * @tparam valType type of values that will be selected
+   * @tparam select_op lambda selection criteria
+   *
+   * @return number of selected elements
+   */
   template <typename select_op, typename valType>
   int SelectByCoef(const math_t *coef, int n, const valType *val, select_op op,
                    valType *out) {
@@ -335,10 +351,13 @@ class Results {
   }
 
   /** Select values from f, and do a min or max reduction on them.
-   * @param [in] alpha dual coefficients, size [n_train]
-   * @param [in] f optimality indicator vector, size [n_train]
-   * @param flag_op operation to flag values for selection (set_upper/lower)
-   * @param return the reduced value.
+   *
+   * @param[in] alpha   dual coefficients, size [n_train]
+   * @param[in] f       optimality indicator vector, size [n_train]
+   * @param[in] min     The minimum
+   * @param     flag_op operation to flag values for selection (set_upper/lower)
+   *
+   * @return the reduced value
    */
   math_t SelectReduce(const math_t *alpha, const math_t *f, bool min,
                       void (*flag_op)(bool *, int, const math_t *,

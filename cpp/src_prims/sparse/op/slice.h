@@ -39,15 +39,16 @@ namespace sparse {
 namespace op {
 
 /**
- * Slice consecutive rows from a CSR array and populate newly sliced indptr array
- * @tparam value_idx
- * @param[in] start_row : beginning row to slice
- * @param[in] stop_row : ending row to slice
- * @param[in] indptr : indptr of input CSR to slice
- * @param[out] indptr_out : output sliced indptr to populate
- * @param[in] start_offset : beginning column offset of input indptr
- * @param[in] stop_offset : ending column offset of input indptr
- * @param[in] stream : cuda stream for ordering events
+ * Slice consecutive rows from a CSR array and populate newly sliced indptr
+ * array
+ *
+ * @param[in]  start_row    : beginning row to slice
+ * @param[in]  stop_row     : ending row to slice
+ * @param[in]  indptr       : indptr of input CSR to slice
+ * @param[out] indptr_out   : output sliced indptr to populate
+ * @param[in]  start_offset : beginning column offset of input indptr
+ * @param[in]  stop_offset  : ending column offset of input indptr
+ * @param[in]  stream       : cuda stream for ordering events
  */
 template <typename value_idx>
 void csr_row_slice_indptr(value_idx start_row, value_idx stop_row,
@@ -74,15 +75,17 @@ void csr_row_slice_indptr(value_idx start_row, value_idx stop_row,
 
 /**
  * Slice rows from a CSR, populate column and data arrays
- * @tparam value_idx : data type of CSR index arrays
- * @tparam value_t : data type of CSR data array
- * @param[in] start_offset : beginning column offset to slice
- * @param[in] stop_offset : ending column offset to slice
- * @param[in] indices : column indices array from input CSR
- * @param[in] data : data array from input CSR
- * @param[out] indices_out : output column indices array
- * @param[out] data_out : output data array
- * @param[in] stream : cuda stream for ordering events
+ *
+ * @param[in]  start_offset beginning column offset to slice
+ * @param[in]  stop_offset  ending column offset to slice
+ * @param[in]  indices      column indices array from input CSR
+ * @param[in]  data         data array from input CSR
+ * @param[out] indices_out  output column indices array
+ * @param[out] data_out     output data array
+ * @param[in]  stream       cuda stream for ordering events
+ *
+ * @tparam value_t data type of CSR data array
+ * @tparam value_idx data type of CSR index arrays
  */
 template <typename value_idx, typename value_t>
 void csr_row_slice_populate(value_idx start_offset, value_idx stop_offset,

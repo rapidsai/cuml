@@ -110,7 +110,7 @@ struct node {
   explicit node(float val);
 
   /**
-   * @brief { function_description }
+   * @brief Constructs a new instance.
    *
    * @param[in] src   source node to be copied
    */

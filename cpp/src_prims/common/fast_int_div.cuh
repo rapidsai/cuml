@@ -53,7 +53,6 @@ struct FastIntDiv {
    *
    * @param other source object to be copied from
    *
-   * @return { description_of_the_return_value }
    *
    * @{
    */

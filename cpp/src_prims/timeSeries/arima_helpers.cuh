@@ -138,7 +138,7 @@ void prepare_data(DataT* d_out, const DataT* d_in, int batch_size, int n_obs,
  *
  * @tparam DataT { description }
  *
- * @return { description_of_the_return_value }
+ * @return The data t.
  */
 template <typename DataT>
 DI DataT _select_read(const DataT* src0, int size0, const DataT* src1,

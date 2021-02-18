@@ -116,8 +116,10 @@ struct param {
   float max_samples = 1.0f;
   /** list of feature names for generating syntax trees from the programs */
   std::vector<std::string> feature_names;
-  /// @todo : feature_names
-  /// @todo : verbose /** random seed used for RNG */
+  //////////////////////////////////////////////////////////////////////////////
+  // @todo : feature_names /                                                  //
+  // @todo : verbose /** random seed used for RNG */                          //
+  //////////////////////////////////////////////////////////////////////////////
   uint64_t random_state = 0ull;
 
   /** Computes the probability of 'reproduction'
