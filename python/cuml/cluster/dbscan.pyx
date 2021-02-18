@@ -95,6 +95,7 @@ class DBSCAN(Base):
     Examples
     --------
 
+    >>> # Both import methods supported
     >>> from cuml import DBSCAN
     >>> from cuml.cluster import DBSCAN
     >>>
@@ -109,7 +110,7 @@ class DBSCAN(Base):
     >>> dbscan_float = DBSCAN(eps = 1.0, min_samples = 1)
     >>> dbscan_float.fit(gdf_float)
     DBSCAN(eps=1.0, handle=<cuml.common.handle.Handle object at 0x7f3d34935f90>, min_samples=1, verbose=4, max_mbytes_per_batch=0, output_type='cudf', calc_core_sample_indices=True)  #noqa E501
-    >>> print(dbscan_float.labels_)
+    >>> dbscan_float.labels_
     0    0
     1    1
     2    2

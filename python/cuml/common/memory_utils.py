@@ -382,14 +382,13 @@ def set_global_output_type(output_type):
     >>> dbscan_float.fit(ary)
     DBSCAN(eps=1.0, handle=<cuml.common.handle.Handle object at 0x7fa892beb330>, min_samples=1, verbose=4, max_mbytes_per_batch=0, output_type='cudf', calc_core_sample_indices=True)  # noqa E501
     >>>
-    >>> print("cuML output type")
-    cuML output type
-    >>> print(dbscan_float.labels_)
+    >>> # cuML output type
+    >>> dbscan_float.labels_
     0    0
     1    1
     2    2
     dtype: int32
-    >>> print(type(dbscan_float.labels_))
+    >>> type(dbscan_float.labels_)
     <class 'cudf.core.series.Series'>
 
     Notes
@@ -483,11 +482,10 @@ def using_output_type(output_type):
     >>> dbscan_float2.fit(ary)
     DBSCAN(eps=1.0, handle=<cuml.common.handle.Handle object at 0x7f1ca74d4f30>, min_samples=1, verbose=4, max_mbytes_per_batch=0, output_type='cupy', calc_core_sample_indices=True)  # noqa E501
     >>>
-    >>> print("cuML default output")
-    cuML default output
-    >>> print(dbscan_float2.labels_)
+    >>> # cuML default output
+    >>> dbscan_float2.labels_
     [0 1 2]
-    >>> print(type(dbscan_float2.labels_))
+    >>> type(dbscan_float2.labels_)
     <class 'cupy.core.core.ndarray'>
 
     """
