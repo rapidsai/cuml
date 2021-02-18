@@ -159,17 +159,23 @@ cudaError_t layoutSortOffset(T *in, T value, int n_times, cudaStream_t stream) {
 }
 
 /**
- * @brief sort columns within each row of row-major input matrix and return sorted indexes
- * modelled as key-value sort with key being input matrix and value being index of values
- * @param in: input matrix
- * @param out: output value(index) matrix
- * @param n_rows: number rows of input matrix
- * @param n_cols: number columns of input matrix
- * @param bAllocWorkspace: check returned value, if true allocate workspace passed in workspaceSize
- * @param workspacePtr: pointer to workspace memory
- * @param workspaceSize: Size of workspace to be allocated
- * @param stream: cuda stream to execute prim on
- * @param sortedKeys: Optional, output matrix for sorted keys (input)
+ * @brief sort columns within each row of row-major input matrix and return
+ *        sorted indexes modelled as key-value sort with key being input matrix
+ *        and value being index of values
+ *
+ * @param in              input matrix
+ * @param out             output value(index) matrix
+ * @param n_rows          number rows of input matrix
+ * @param n_columns       number columns of input matrix
+ * @param bAllocWorkspace check returned value, if true allocate workspace
+ *                        passed in workspaceSize
+ * @param workspacePtr    pointer to workspace memory
+ * @param workspaceSize   Size of workspace to be allocated
+ * @param stream          cuda stream to execute prim on
+ * @param sortedKeys      Optional, output matrix for sorted keys (input)
+ *
+ * @tparam InType  { description }
+ * @tparam OutType { description }
  */
 template <typename InType, typename OutType>
 void sortColumnsPerRow(const InType *in, OutType *out, int n_rows,

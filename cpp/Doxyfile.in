@@ -814,8 +814,7 @@ RECURSIVE              = YES
 # run.
 
 # CUML: Ignore these files since they do not participate in the build process
-EXCLUDE                = @CMAKE_CURRENT_SOURCE_DIR@/src/tsne/cannylab/bh.cu \
-                         @CMAKE_CURRENT_SOURCE_DIR@/src_prims/selection/columnWiseSort.cuh
+EXCLUDE                = @CMAKE_CURRENT_SOURCE_DIR@/src/tsne/cannylab/bh.cu
 
 # The EXCLUDE_SYMLINKS tag can be used to select whether or not files or
 # directories that are symbolic links (a Unix file system feature) are excluded
