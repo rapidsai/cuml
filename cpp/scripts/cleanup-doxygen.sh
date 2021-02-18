@@ -1,4 +1,5 @@
 #!/bin/bash
+# Copyright (c) 2021, NVIDIA CORPORATION.
 
 # Run using output from build. i.e.
 # `./build.sh cppdocs > cppdocs.log && ./cpp/scripts/cleanup-doxygen.sh --log-file ./cppdocs.log`
