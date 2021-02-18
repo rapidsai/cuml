@@ -163,7 +163,6 @@ if(BUILD_STATIC_FAISS)
                         -DCUDAToolkit_ROOT=${CUDA_TOOLKIT_ROOT_DIR}
                         -DCUDA_ARCHITECTURES=${FAISS_GPU_ARCHS}
                         -DBLAS_LIBRARIES=${BLAS_LIBRARIES}
-                        -DLAPACK_LIBRARIES=${CONDA_PREFIX}/lib/liblapack.so
     PREFIX            ${FAISS_DIR}
     BUILD_COMMAND     make -C build -j${PARALLEL_LEVEL} VERBOSE=1
     BUILD_BYPRODUCTS  ${FAISS_DIR}/src/faiss/build/faiss/libfaiss.a
@@ -176,10 +175,7 @@ if(BUILD_STATIC_FAISS)
   add_library(FAISS::FAISS STATIC IMPORTED)
   set_property(TARGET FAISS::FAISS PROPERTY
     IMPORTED_LOCATION ${FAISS_DIR}/src/faiss/build/faiss/libfaiss.a)
-  # to account for the FAISS file reorg that happened recently after the current
-  # pinned commit, just change the following line to
-  # set(FAISS_INCLUDE_DIRS "${FAISS_DIR}/src/faiss")
-  set(FAISS_INCLUDE_DIRS "${FAISS_DIR}/src")
+  set(FAISS_INCLUDE_DIRS "${FAISS_DIR}/src/faiss")
 else()
   set(FAISS_INSTALL_DIR ENV{FAISS_ROOT})
   find_package(FAISS REQUIRED)
