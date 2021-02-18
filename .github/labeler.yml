@@ -6,20 +6,16 @@ Cython / Python:
   - 'python/**'
   - 'notebooks/**'
   
-libcuml:
+CUDA/C++:
   - 'cpp/**'
 
 CMake:
   - '**/CMakeLists.txt'
   - '**/cmake/**'
-  
-cuml (Java):
-  - 'java/**'
-  
-Ops:
-  - '.github/**'
+
+gpuCI:
   - 'ci/**'
+
+conda:
   - 'conda/**'
-  - '**/Dockerfile'
-  - '**/.dockerignore'
-  - 'docker/**'
+  
