@@ -1,9 +1,9 @@
 cdef extern from "raft/linalg/distance_type.h" namespace "raft::distance":
 
     ctypedef enum DistanceType:
-        EucExpandedL2 "raft::distance::DistanceType::EucExpandedL2"
-        EucExpandedL2Sqrt "raft::distance::DistanceType::EucExpandedL2Sqrt"
-        EucExpandedCosine "raft::distance::DistanceType::EucExpandedCosine"
-        EucUnexpandedL1 "raft::distance::DistanceType::EucUnexpandedL1"
-        EucUnexpandedL2 "raft::distance::DistanceType::EucUnexpandedL2"
-        EucUnexpandedL2Sqrt "raft::distance::DistanceType::EucUnexpandedL2Sqrt"
+        L2Expanded "raft::distance::DistanceType::L2Expanded"
+        L2SqrtExpanded "raft::distance::DistanceType::L2SqrtExpanded"
+        CosineExpanded "raft::distance::DistanceType::CosineExpanded"
+        L1 "raft::distance::DistanceType::L1"
+        L2Unexpanded "raft::distance::DistanceType::L2Unexpanded"
+        L2SqrtUnexpanded "raft::distance::DistanceType::L2SqrtUnexpanded"

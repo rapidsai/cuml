@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020 NVIDIA CORPORATION.
+ * Copyright (c) 2020-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,8 +19,6 @@
 #include <opg/matrix/data.hpp>
 #include <opg/matrix/part_descriptor.hpp>
 #include "glm.hpp"
-
-#include <common/cumlHandle.hpp>
 
 namespace ML {
 namespace Ridge {

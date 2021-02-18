@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020, NVIDIA CORPORATION.
+# Copyright (c) 2020-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,16 +20,10 @@ from cuml.dask.common import parts_to_ranks
 from cuml.dask.common import flatten_grouped_results
 from cuml.dask.common.utils import raise_mg_import_exception
 from cuml.dask.common.utils import wait_and_raise_from_futures
-from cuml.raft.dask.common.comms import worker_state
+from cuml.raft.dask.common.comms import get_raft_comm_state
 from cuml.dask.neighbors import NearestNeighbors
 import dask.array as da
 from uuid import uuid1
-
-
-def _custom_getter(o):
-    def func_get(f, idx):
-        return f[o][idx]
-    return func_get
 
 
 class KNeighborsRegressor(NearestNeighbors):
@@ -101,15 +95,15 @@ class KNeighborsRegressor(NearestNeighbors):
         except ImportError:
             raise_mg_import_exception()
 
-        handle = worker_state(sessionId)["handle"]
+        handle = get_raft_comm_state(sessionId)["handle"]
         return cumlKNN(handle=handle, **kwargs)
 
     @staticmethod
-    def _func_predict(model, data, data_parts_to_ranks, data_nrows,
+    def _func_predict(model, index, index_parts_to_ranks, index_nrows,
                       query, query_parts_to_ranks, query_nrows,
                       ncols, rank, n_output, convert_dtype):
         return model.predict(
-            data, data_parts_to_ranks, data_nrows,
+            index, index_parts_to_ranks, index_nrows,
             query, query_parts_to_ranks, query_nrows,
             ncols, rank, n_output, convert_dtype
         )
@@ -204,8 +198,7 @@ class KNeighborsRegressor(NearestNeighbors):
         """
         out_futures = flatten_grouped_results(self.client,
                                               query_parts_to_ranks,
-                                              knn_reg_res,
-                                              getter_func=_custom_getter(0))
+                                              knn_reg_res)
 
         comms.destroy()
 

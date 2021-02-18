@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,14 +14,14 @@
  * limitations under the License.
  */
 
+#pragma once
+
 #include <cuml/manifold/umapparams.h>
 
 #include <sparse/coo.cuh>
 
 #include "random_algo.cuh"
 #include "spectral_algo.cuh"
-
-#pragma once
 
 namespace UMAPAlgo {
 
@@ -32,7 +32,7 @@ using namespace ML;
 template <typename value_idx, typename T>
 void run(const raft::handle_t &handle, int n, int d,
          const value_idx *knn_indices, const T *knn_dists,
-         MLCommon::Sparse::COO<float> *coo, UMAPParams *params, T *embedding,
+         raft::sparse::COO<float> *coo, UMAPParams *params, T *embedding,
          cudaStream_t stream, int algo = 0) {
   switch (algo) {
     /**
