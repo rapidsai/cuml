@@ -79,53 +79,43 @@ struct opg_knn_param {
     this->verbose = verbose;
   }
 
-  knn_operation knn_op; /**
+  knn_operation knn_op;                                    /**
                          * Type of KNN distributed operation */
-  std::vector<Matrix::Data<dist_t> *> *out_D =
-    nullptr; /**
+  std::vector<Matrix::Data<dist_t> *> *out_D = nullptr;    /**
               * KNN distances output array */
-  std::vector<Matrix::Data<ind_t> *> *out_I =
-    nullptr; /**
+  std::vector<Matrix::Data<ind_t> *> *out_I = nullptr;     /**
               * KNN indices output array */
-  std::vector<Matrix::Data<in_t> *> *idx_data =
-    nullptr; /**
+  std::vector<Matrix::Data<in_t> *> *idx_data = nullptr;   /**
               * Index input array */
-  Matrix::PartDescriptor *idx_desc =
-    nullptr; /**
+  Matrix::PartDescriptor *idx_desc = nullptr;              /**
               * Descriptor for index input array */
-  std::vector<Matrix::Data<in_t> *> *query_data =
-    nullptr; /**
+  std::vector<Matrix::Data<in_t> *> *query_data = nullptr; /**
               * Query input array */
-  Matrix::PartDescriptor *query_desc =
-    nullptr;             /**
+  Matrix::PartDescriptor *query_desc = nullptr;            /**
                           * Descriptor for query input array */
-  bool rowMajorIndex;    /**
+  bool rowMajorIndex;                                      /**
                           * Is index row major? */
-  bool rowMajorQuery;    /**
+  bool rowMajorQuery;                                      /**
                           * Is query row major? */
-  size_t k = 0;          /**
+  size_t k = 0;                                            /**
                           * Number of nearest neighbors */
-  size_t batch_size = 0; /**
+  size_t batch_size = 0;                                   /**
                           * Batch size */
-  bool verbose;          /**
+  bool verbose;                                            /**
                           * verbose */
 
-  int n_outputs = 0; /**
+  int n_outputs = 0;                       /**
                       * Number of outputs per query (cl&re) */
-  std::vector<std::vector<out_t *>> *y; /**
+  std::vector<std::vector<out_t *>> *y;    /**
                                          * Labels input array (cl&re) */
-  std::vector<Matrix::Data<out_t> *>
-    *out; /**
+  std::vector<Matrix::Data<out_t> *> *out; /**
            * KNN outputs output array (cl&re) */
 
-  std::vector<int> *n_unique =
-    nullptr; /**
+  std::vector<int> *n_unique = nullptr;                /**
               * Number of unique labels (classification) */
-  std::vector<out_t *> *uniq_labels =
-    nullptr; /**
+  std::vector<out_t *> *uniq_labels = nullptr;         /**
               * Unique labels (classification) */
-  std::vector<std::vector<float *>> *probas =
-    nullptr; /**
+  std::vector<std::vector<float *>> *probas = nullptr; /**
               * KNN classification probabilities output array (class-probas) */
 };
 
@@ -203,14 +193,13 @@ struct cuda_utils {
       internal_streams[i] = handle.get_internal_stream(i);
     }
   }
-  std::shared_ptr<deviceAllocator> alloc; /**
+  std::shared_ptr<deviceAllocator> alloc;     /**
                                            * RMM alloc */
-  cudaStream_t stream;                    /**
+  cudaStream_t stream;                        /**
                                            * CUDA user stream */
-  const raft::comms::comms_t *comm;       /**
+  const raft::comms::comms_t *comm;           /**
                                            * RAFT comms handle */
-  std::vector<cudaStream_t>
-    internal_streams; /**
+  std::vector<cudaStream_t> internal_streams; /**
                        * Vector of CUDA internal streams */
 };
 
@@ -237,27 +226,22 @@ struct opg_knn_work {
     this->queryPartsToRanks = params.query_desc->partsToRanks;
   }
 
-  int my_rank;            /**
+  int my_rank;                                           /**
                            * Rank of this worker */
-  std::set<int> idxRanks; /**
+  std::set<int> idxRanks;                                /**
                            * Set of ranks having at least 1 index partition */
-  std::vector<Matrix::RankSizePair *>
-    idxPartsToRanks; /**
+  std::vector<Matrix::RankSizePair *> idxPartsToRanks;   /**
                       * Index parts to rank */
-  std::vector<Matrix::RankSizePair *>
-    local_idx_parts; /**
+  std::vector<Matrix::RankSizePair *> local_idx_parts;   /**
                       * List of index parts stored locally */
-  std::vector<Matrix::RankSizePair *>
-    queryPartsToRanks; /**
+  std::vector<Matrix::RankSizePair *> queryPartsToRanks; /**
                         * Query parts to rank */
 
-  device_buffer<dist_t>
-    res_D;                    /**
+  device_buffer<dist_t> res_D; /**
                                * Temporary allocation to exchange distances */
-  device_buffer<ind_t> res_I; /**
+  device_buffer<ind_t> res_I;  /**
                                * Temporary allocation to exchange indices */
-  device_buffer<out_t>
-    res; /**
+  device_buffer<out_t> res;    /**
           * Temporary allocation to exchange outputs (cl&re) */
 };
 

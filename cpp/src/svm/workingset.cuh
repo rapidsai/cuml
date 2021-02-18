@@ -299,8 +299,7 @@ class WorkingSet {
   cudaStream_t stream;
 
   bool firstcall = true;
-  int n_train =
-    0;  /**
+  int n_train = 0; /**
          * number of training vectors (including duplicates for SVR) */
   int n_rows = 0;  /**
                     * number of original training vectors (no duplicates) */
@@ -308,11 +307,11 @@ class WorkingSet {
 
   SvmType svmType;
 
-  int TPB = 256;  /**
+  int TPB = 256; /**
                    * < Threads per block for workspace selection kernels */
 
   // Buffers for the domain size [n_train]
-  MLCommon::device_buffer<int> f_idx;  /**
+  MLCommon::device_buffer<int> f_idx; /**
                                         * < Arrays used for sorting for sorting */
   MLCommon::device_buffer<int> f_idx_sorted;
   /**
@@ -325,7 +324,7 @@ class WorkingSet {
   MLCommon::device_buffer<bool> available_sorted;
 
   // working set buffers size [n_ws]
-  MLCommon::device_buffer<int> idx;  /**
+  MLCommon::device_buffer<int> idx; /**
                                       * < Indices of the worknig set */
   MLCommon::device_buffer<int> ws_idx_sorted;
   MLCommon::device_buffer<int> ws_idx_selected;

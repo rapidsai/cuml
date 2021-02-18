@@ -662,7 +662,6 @@ void updateCoef(const raft::handle_t& handle, idx_t max_iter, idx_t n_cols,
   }
 }
 
-
 template <typename math_t, typename idx_t>
 void larsFit(const raft::handle_t& handle, math_t* X, idx_t n_rows,
              idx_t n_cols, const math_t* y, math_t* beta, idx_t* active_idx,

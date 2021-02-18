@@ -470,7 +470,6 @@ void brute_force_knn(std::vector<float *> &input, std::vector<int> &sizes,
   if ((m == faiss::MetricType::METRIC_L2 ||
        m == faiss::MetricType::METRIC_Lp) &&
       !expanded_form) {
-
     // post-processing
     float p = 0.5;  // standard l2
     if (m == faiss::MetricType::METRIC_Lp) p = 1.0 / metricArg;
