@@ -1,6 +1,6 @@
 
 #
-# Copyright (c) 2019-2020, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -42,7 +42,7 @@ from cython.operator cimport dereference as deref
 
 from libcpp cimport bool
 from libcpp.vector cimport vector
-from libc.stdint cimport uintptr_t
+from libc.stdint cimport uintptr_t, uint64_t
 from libc.stdlib cimport calloc, malloc, free
 
 from numba import cuda
@@ -185,11 +185,11 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
         Control bootstrapping.
         If True, each tree in the forest is built
         on a bootstrapped sample with replacement.
-        If False, sampling without replacement is done.
+        If False, the whole dataset is used to build each tree.
     bootstrap_features : boolean (default = False)
         Control bootstrapping for features.
         If features are drawn with or without replacement
-    rows_sample : float (default = 1.0)
+    max_samples : float (default = 1.0)
         Ratio of dataset rows used while fitting each tree.
     max_depth : int (default = 16)
         Maximum tree depth. Unlimited (i.e, until leaves are pure),
@@ -230,7 +230,6 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
         If set to true and  following conditions are also met, experimental
          decision tree training implementation would be used:
             split_algo = 1 (GLOBAL_QUANTILE)
-            max_features = 1.0 (Feature sub-sampling disabled)
             quantile_per_tree = false (No per tree quantile computation)
     max_batch_size: int (default = 128)
         Maximum number of nodes that can be processed in a given batch. This is
@@ -472,8 +471,8 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
                                      <bool> self.bootstrap_features,
                                      <bool> self.bootstrap,
                                      <int> self.n_estimators,
-                                     <float> self.rows_sample,
-                                     <int> seed_val,
+                                     <float> self.max_samples,
+                                     <uint64_t> seed_val,
                                      <CRITERION> self.split_criterion,
                                      <bool> self.quantile_per_tree,
                                      <int> self.n_streams,
@@ -915,9 +914,9 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
         del(preds_m)
         return self.stats['accuracy']
 
-    def print_summary(self):
+    def get_summary_text(self):
         """
-        Prints the summary of the forest used to train and test the model
+        Obtain the text summary of the random forest model
         """
         cdef RandomForestMetaData[float, int] *rf_forest = \
             <RandomForestMetaData[float, int]*><uintptr_t> self.rf_forest
@@ -926,14 +925,13 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
             <RandomForestMetaData[double, int]*><uintptr_t> self.rf_forest64
 
         if self.dtype == np.float64:
-            print_rf_summary(rf_forest64)
+            return get_rf_summary_text(rf_forest64).decode('utf-8')
         else:
-            print_rf_summary(rf_forest)
+            return get_rf_summary_text(rf_forest).decode('utf-8')
 
-    def print_detailed(self):
+    def get_detailed_text(self):
         """
-        Prints the detailed information about the forest used to
-        train and test the Random Forest model
+        Obtain the detailed information for the random forest model, as text
         """
         cdef RandomForestMetaData[float, int] *rf_forest = \
             <RandomForestMetaData[float, int]*><uintptr_t> self.rf_forest
@@ -942,13 +940,13 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
             <RandomForestMetaData[double, int]*><uintptr_t> self.rf_forest64
 
         if self.dtype == np.float64:
-            print_rf_detailed(rf_forest64)
+            return get_rf_detailed_text(rf_forest64).decode('utf-8')
         else:
-            print_rf_detailed(rf_forest)
+            return get_rf_detailed_text(rf_forest).decode('utf-8')
 
-    def dump_as_json(self):
+    def get_json(self):
         """
-        Dump (export) the Random Forest model as a JSON string
+        Export the Random Forest model as a JSON string
         """
         cdef RandomForestMetaData[float, int] *rf_forest = \
             <RandomForestMetaData[float, int]*><uintptr_t> self.rf_forest
@@ -957,8 +955,8 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
             <RandomForestMetaData[double, int]*><uintptr_t> self.rf_forest64
 
         if self.dtype == np.float64:
-            return dump_rf_as_json(rf_forest64).decode('utf-8')
-        return dump_rf_as_json(rf_forest).decode('utf-8')
+            return get_rf_json(rf_forest64).decode('utf-8')
+        return get_rf_json(rf_forest).decode('utf-8')
 
     def _more_tags(self):
         return {

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,7 +16,7 @@
 #pragma once
 
 #include <raft/cudart_utils.h>
-#include <common/device_buffer.hpp>
+#include <cuml/common/device_buffer.hpp>
 #include <cuml/common/logger.hpp>
 #include "exact_kernels.cuh"
 #include "utils.cuh"
@@ -46,9 +46,11 @@ namespace TSNE {
  * @param[in] random_state: Set this to -1 for pure random intializations or >= 0 for reproducible outputs.
  * @param[in] initialize_embeddings: Whether to overwrite the current Y vector with random noise.
  */
-void Exact_TSNE(float *VAL, const int *COL, const int *ROW, const int NNZ,
-                const raft::handle_t &handle, float *Y, const int n,
-                const int dim, const float early_exaggeration = 12.0f,
+template <typename value_idx, typename value_t>
+void Exact_TSNE(value_t *VAL, const value_idx *COL, const value_idx *ROW,
+                const value_idx NNZ, const raft::handle_t &handle, value_t *Y,
+                const value_idx n, const value_idx dim,
+                const float early_exaggeration = 12.0f,
                 const int exaggeration_iter = 250, const float min_gain = 0.01f,
                 const float pre_learning_rate = 200.0f,
                 const float post_learning_rate = 500.0f,
@@ -65,22 +67,22 @@ void Exact_TSNE(float *VAL, const int *COL, const int *ROW, const int NNZ,
   // Allocate space
   //---------------------------------------------------
   CUML_LOG_DEBUG("Now allocating memory for TSNE.");
-  MLCommon::device_buffer<float> norm(d_alloc, stream, n);
-  MLCommon::device_buffer<float> Z_sum(d_alloc, stream, 2 * n);
-  MLCommon::device_buffer<float> means(d_alloc, stream, dim);
+  MLCommon::device_buffer<value_t> norm(d_alloc, stream, n);
+  MLCommon::device_buffer<value_t> Z_sum(d_alloc, stream, 2 * n);
+  MLCommon::device_buffer<value_t> means(d_alloc, stream, dim);
 
-  MLCommon::device_buffer<float> attract(d_alloc, stream, n * dim);
-  MLCommon::device_buffer<float> repel(d_alloc, stream, n * dim);
+  MLCommon::device_buffer<value_t> attract(d_alloc, stream, n * dim);
+  MLCommon::device_buffer<value_t> repel(d_alloc, stream, n * dim);
 
-  MLCommon::device_buffer<float> velocity(d_alloc, stream, n * dim);
+  MLCommon::device_buffer<value_t> velocity(d_alloc, stream, n * dim);
   CUDA_CHECK(cudaMemsetAsync(
     velocity.data(), 0, velocity.size() * sizeof(*velocity.data()), stream));
 
-  MLCommon::device_buffer<float> gains(d_alloc, stream, n * dim);
-  thrust::device_ptr<float> begin = thrust::device_pointer_cast(gains.data());
+  MLCommon::device_buffer<value_t> gains(d_alloc, stream, n * dim);
+  thrust::device_ptr<value_t> begin = thrust::device_pointer_cast(gains.data());
   thrust::fill(thrust::cuda::par.on(stream), begin, begin + n * dim, 1.0f);
 
-  MLCommon::device_buffer<float> gradient(d_alloc, stream, n * dim);
+  MLCommon::device_buffer<value_t> gradient(d_alloc, stream, n * dim);
   //---------------------------------------------------
 
   // Calculate degrees of freedom

@@ -18,7 +18,7 @@ import cupy as cp
 import numpy as np
 import pytest
 
-from cuml.preprocessing.model_selection import train_test_split
+from cuml.model_selection import train_test_split
 from cuml.datasets import make_classification
 from numba import cuda
 

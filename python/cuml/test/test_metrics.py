@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2020, NVIDIA CORPORATION.
+# Copyright (c) 2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -32,7 +32,6 @@ from cuml.metrics.cluster import silhouette_samples as cu_silhouette_samples
 from cuml.test.utils import get_handle, get_pattern, array_equal, \
     unit_param, quality_param, stress_param, generate_random_labels, \
     score_labeling_with_handle
-from cupy.testing import assert_allclose
 
 from numba import cuda
 from numpy.testing import assert_almost_equal
@@ -230,21 +229,41 @@ def test_rand_index_score(name, nrows):
 @pytest.mark.parametrize('metric', (
     'cityblock', 'cosine', 'euclidean', 'l1', 'sqeuclidean'
 ))
-def test_silhouette_score(metric, labeled_clusters):
+@pytest.mark.parametrize('chunk_divider', [1, 3, 5])
+def test_silhouette_score_batched(metric, chunk_divider, labeled_clusters):
     X, labels = labeled_clusters
-    cuml_score = cu_silhouette_score(X, labels, metric=metric)
+    cuml_score = cu_silhouette_score(X, labels, metric=metric,
+                                     chunksize=int(X.shape[0]/chunk_divider))
     sk_score = sk_silhouette_score(X, labels, metric=metric)
-    assert_almost_equal(cuml_score, sk_score)
+    assert_almost_equal(cuml_score, sk_score, decimal=2)
 
 
 @pytest.mark.parametrize('metric', (
     'cityblock', 'cosine', 'euclidean', 'l1', 'sqeuclidean'
 ))
-def test_silhouette_samples(metric, labeled_clusters):
+@pytest.mark.parametrize('chunk_divider', [1, 3, 5])
+def test_silhouette_samples_batched(metric, chunk_divider, labeled_clusters):
     X, labels = labeled_clusters
-    cuml_scores = cu_silhouette_samples(X, labels, metric=metric)
+    cuml_scores = cu_silhouette_samples(X, labels, metric=metric,
+                                        chunksize=int(X.shape[0] /
+                                                      chunk_divider))
     sk_scores = sk_silhouette_samples(X, labels, metric=metric)
-    assert_allclose(cuml_scores, sk_scores, rtol=1e-2, atol=1e-5)
+
+    cu_trunc = cp.around(cuml_scores, decimals=3)
+    sk_trunc = cp.around(sk_scores, decimals=3)
+
+    diff = cp.absolute(cu_trunc - sk_trunc) > 0
+    over_diff = cp.all(diff)
+
+    # 0.5% elements allowed to be different
+    if len(over_diff.shape) > 0:
+        assert over_diff.shape[0] <= 0.005 * X.shape[0]
+
+    # different elements should not differ more than 1e-1
+    tolerance_diff = cp.absolute(cu_trunc[diff] - sk_trunc[diff]) > 1e-1
+    diff_change = cp.all(tolerance_diff)
+    if len(diff_change.shape) > 0:
+        assert False
 
 
 def score_homogeneity(ground_truth, predictions, use_handle):

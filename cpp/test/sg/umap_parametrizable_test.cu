@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,8 +21,8 @@
 #include <cuml/manifold/umapparams.h>
 #include <datasets/digits.h>
 #include <raft/cudart_utils.h>
-#include <common/device_buffer.hpp>
 #include <cuml/common/cuml_allocator.hpp>
+#include <cuml/common/device_buffer.hpp>
 #include <cuml/cuml.hpp>
 #include <cuml/datasets/make_blobs.hpp>
 #include <cuml/manifold/umap.hpp>
@@ -201,7 +201,7 @@ class UMAPParametrizableTest : public ::testing::Test {
 
     double trustworthiness =
       trustworthiness_score<float,
-                            raft::distance::DistanceType::EucUnexpandedL2Sqrt>(
+                            raft::distance::DistanceType::L2SqrtUnexpanded>(
         handle, X, embedding_ptr, n_samples, n_features,
         umap_params.n_components, umap_params.n_neighbors);
 

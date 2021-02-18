@@ -1,5 +1,5 @@
 #=============================================================================
-# Copyright (c) 2020, NVIDIA CORPORATION.
+# Copyright (c) 2020-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -39,7 +39,7 @@ else(DEFINED ENV{RAFT_PATH})
 
   ExternalProject_Add(raft
     GIT_REPOSITORY    https://github.com/rapidsai/raft.git
-    GIT_TAG           7c107206f6afb686f4faaf2d282cc2c969e54a30
+    GIT_TAG           4a79adcb0c0e87964dcdc9b9122f242b5235b702
     PREFIX            ${RAFT_DIR}
     CONFIGURE_COMMAND ""
     BUILD_COMMAND     ""
@@ -185,7 +185,7 @@ endif(BUILD_STATIC_FAISS)
 ##############################################################################
 # - treelite build -----------------------------------------------------------
 
-find_package(Treelite 0.93 REQUIRED)
+find_package(Treelite 1.0.0 REQUIRED)
 
 ##############################################################################
 # - googletest build -----------------------------------------------------------

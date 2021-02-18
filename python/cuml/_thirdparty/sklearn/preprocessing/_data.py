@@ -253,7 +253,7 @@ class MinMaxScaler(TransformerMixin, BaseEstimator):
 
     Examples
     --------
-    >>> from cuml.preprocessing import MinMaxScaler
+    >>> from cuml.experimental.preprocessing import MinMaxScaler
     >>> data = [[-1, 2], [-0.5, 6], [0, 10], [1, 18]]
     >>> scaler = MinMaxScaler()
     >>> print(scaler.fit(data))
@@ -564,7 +564,7 @@ class StandardScaler(TransformerMixin, BaseEstimator):
 
     Examples
     --------
-    >>> from cuml.preprocessing import StandardScaler
+    >>> from cuml.experimental.preprocessing import StandardScaler
     >>> data = [[0, 0], [0, 0], [1, 1], [1, 1]]
     >>> scaler = StandardScaler()
     >>> print(scaler.fit(data))
@@ -873,7 +873,7 @@ class MaxAbsScaler(TransformerMixin, BaseEstimator):
 
     Examples
     --------
-    >>> from cuml.preprocessing import MaxAbsScaler
+    >>> from cuml.experimental.preprocessing import MaxAbsScaler
     >>> X = [[ 1., -1.,  2.],
     ...      [ 2.,  0.,  0.],
     ...      [ 0.,  1., -1.]]
@@ -1127,7 +1127,7 @@ class RobustScaler(TransformerMixin, BaseEstimator):
 
     Examples
     --------
-    >>> from cuml.preprocessing import RobustScaler
+    >>> from cuml.experimental.preprocessing import RobustScaler
     >>> X = [[ 1., -2.,  2.],
     ...      [ -2.,  1.,  3.],
     ...      [ 4.,  1., -2.]]
@@ -1375,7 +1375,7 @@ class PolynomialFeatures(TransformerMixin, BaseEstimator):
     Examples
     --------
     >>> import numpy as np
-    >>> from cuml.preprocessing import PolynomialFeatures
+    >>> from cuml.experimental.preprocessing import PolynomialFeatures
     >>> X = np.arange(6).reshape(3, 2)
     >>> X
     array([[0, 1],
@@ -1748,7 +1748,7 @@ class Normalizer(TransformerMixin, BaseEstimator):
 
     Examples
     --------
-    >>> from cuml.preprocessing import Normalizer
+    >>> from cuml.experimental.preprocessing import Normalizer
     >>> X = [[4, 1, 2, 2],
     ...      [1, 3, 9, 3],
     ...      [5, 7, 5, 1]]
@@ -1878,7 +1878,7 @@ class Binarizer(TransformerMixin, BaseEstimator):
 
     Examples
     --------
-    >>> from cuml.preprocessing import Binarizer
+    >>> from cuml.experimental.preprocessing import Binarizer
     >>> X = [[ 1., -1.,  2.],
     ...      [ 2.,  0.,  0.],
     ...      [ 0.,  1., -1.]]
@@ -2066,7 +2066,7 @@ def add_dummy_feature(X, value=1.0):
     Examples
     --------
 
-    >>> from cuml.preprocessing import add_dummy_feature
+    >>> from cuml.experimental.preprocessing import add_dummy_feature
     >>> add_dummy_feature([[0, 1], [1, 0]])
     array([[1., 0., 1.],
            [1., 1., 0.]])

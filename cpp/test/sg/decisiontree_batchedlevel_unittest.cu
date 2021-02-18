@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@
 #include <decisiontree/batched-levelalgo/builder_base.cuh>
 #include <decisiontree/batched-levelalgo/kernels.cuh>
 #include <decisiontree/quantile/quantile.cuh>
+#include <functional>
 
 namespace ML {
 namespace DecisionTree {
@@ -42,10 +43,10 @@ class BatchedLevelAlgoUnitTestFixture {
   using NodeT = Node<DataT, LabelT, IdxT>;
   using Traits = RegTraits<DataT, IdxT>;
 
-  constexpr static int n_bins = 5;
-  constexpr static IdxT n_row = 5;
-  constexpr static IdxT n_col = 2;
-  constexpr static IdxT max_batch = 8;
+  const int n_bins = 5;
+  const IdxT n_row = 5;
+  const IdxT n_col = 2;
+  const IdxT max_batch = 8;
 
   void SetUp() {
     params.max_depth = 2;
@@ -76,8 +77,6 @@ class BatchedLevelAlgoUnitTestFixture {
       static_cast<LabelT*>(d_allocator->allocate(sizeof(LabelT) * n_row, 0));
     row_ids =
       static_cast<IdxT*>(d_allocator->allocate(sizeof(IdxT) * n_row, 0));
-    col_ids =
-      static_cast<IdxT*>(d_allocator->allocate(sizeof(IdxT) * n_col, 0));
 
     // Nodes that exist prior to the invocation of nodeSplitKernel()
     curr_nodes =
@@ -98,7 +97,6 @@ class BatchedLevelAlgoUnitTestFixture {
     raft::update_device(data, h_data.data(), n_row * n_col, 0);
     raft::update_device(labels, h_labels.data(), n_row, 0);
     MLCommon::iota(row_ids, 0, 1, n_row, 0);
-    MLCommon::iota(col_ids, 0, 1, n_col, 0);
 
     tempmem = std::make_shared<TemporaryMemory<DataT, LabelT>>(
       *raft_handle, cudaStream_t(0), n_row, n_col, 0, params);
@@ -116,7 +114,6 @@ class BatchedLevelAlgoUnitTestFixture {
     input.nSampledRows = n_row;
     input.nSampledCols = n_col;
     input.rowids = row_ids;
-    input.colids = col_ids;
     input.nclasses = 0;  // not applicable for regression
     input.quantiles = quantiles;
   }
@@ -126,7 +123,6 @@ class BatchedLevelAlgoUnitTestFixture {
     d_allocator->deallocate(data, sizeof(DataT) * n_row * n_col, 0);
     d_allocator->deallocate(labels, sizeof(LabelT) * n_row, 0);
     d_allocator->deallocate(row_ids, sizeof(IdxT) * n_row, 0);
-    d_allocator->deallocate(col_ids, sizeof(IdxT) * n_col, 0);
     d_allocator->deallocate(curr_nodes, sizeof(NodeT) * max_batch, 0);
     d_allocator->deallocate(new_nodes, sizeof(NodeT) * 2 * max_batch, 0);
     d_allocator->deallocate(n_new_nodes, sizeof(IdxT), 0);
@@ -156,7 +152,6 @@ class BatchedLevelAlgoUnitTestFixture {
   DataT* data;
   DataT* labels;
   IdxT* row_ids;
-  IdxT* col_ids;
 };
 
 class TestQuantiles : public ::testing::TestWithParam<NoOpParams>,
@@ -176,7 +171,7 @@ class TestNodeSplitKernel
   void TearDown() override { BatchedLevelAlgoUnitTestFixture::TearDown(); }
 };
 
-class TestMetric : public ::testing::TestWithParam<NoOpParams>,
+class TestMetric : public ::testing::TestWithParam<CRITERION>,
                    protected BatchedLevelAlgoUnitTestFixture {
  protected:
   void SetUp() override { BatchedLevelAlgoUnitTestFixture::SetUp(); }
@@ -255,7 +250,7 @@ INSTANTIATE_TEST_SUITE_P(
   BatchedLevelAlgoUnitTest, TestNodeSplitKernel,
   ::testing::ValuesIn(min_samples_split_leaf_test_params));
 
-TEST_P(TestMetric, MSEGain) {
+TEST_P(TestMetric, RegressionMetricGain) {
   IdxT batchSize = 1;
   std::vector<NodeT> h_nodes{
     /* {
@@ -275,6 +270,9 @@ TEST_P(TestMetric, MSEGain) {
   smemSize += 5 * sizeof(DataT) + 2 * sizeof(int);
 
   IdxT nPredCounts = max_batch * n_bins * n_col_blks;
+  size_t block_sync_size = MLCommon::GridSync::computeWorkspaceSize(
+    dim3(n_blks_for_rows, n_col_blks, max_batch), MLCommon::SyncType::ACROSS_X,
+    false);
 
   auto d_allocator = raft_handle->get_device_allocator();
 
@@ -284,25 +282,40 @@ TEST_P(TestMetric, MSEGain) {
   // threadblock arrival count
   int* done_count = static_cast<int*>(
     d_allocator->allocate(sizeof(int) * max_batch * n_col_blks, 0));
+  // used for synching across blocks in a kernel
+  char* block_sync = static_cast<char*>(
+    d_allocator->allocate(sizeof(char) * block_sync_size, 0));
   DataT* pred = static_cast<DataT*>(
     d_allocator->allocate(2 * nPredCounts * sizeof(DataT), 0));
+  DataT* pred2 = static_cast<DataT*>(
+    d_allocator->allocate(2 * nPredCounts * sizeof(DataT), 0));
+  DataT* pred2P =
+    static_cast<DataT*>(d_allocator->allocate(nPredCounts * sizeof(DataT), 0));
   IdxT* pred_count =
     static_cast<IdxT*>(d_allocator->allocate(nPredCounts * sizeof(IdxT), 0));
   CUDA_CHECK(cudaMemsetAsync(mutex, 0, sizeof(int) * max_batch, 0));
   CUDA_CHECK(
     cudaMemsetAsync(done_count, 0, sizeof(int) * max_batch * n_col_blks, 0));
+  CUDA_CHECK(cudaMemsetAsync(block_sync, 0, sizeof(char) * block_sync_size, 0));
   CUDA_CHECK(cudaMemsetAsync(pred, 0, 2 * sizeof(DataT) * nPredCounts, 0));
+  CUDA_CHECK(cudaMemsetAsync(pred2, 0, sizeof(DataT) * nPredCounts * 2, 0));
+  CUDA_CHECK(cudaMemsetAsync(pred2P, 0, sizeof(DataT) * nPredCounts, 0));
   CUDA_CHECK(cudaMemsetAsync(pred_count, 0, nPredCounts * sizeof(IdxT), 0));
   CUDA_CHECK(cudaMemsetAsync(n_new_leaves, 0, sizeof(IdxT), 0));
   initSplit<DataT, IdxT, Traits::TPB_DEFAULT>(splits, batchSize, 0);
 
   std::vector<Traits::SplitT> h_splits(1);
 
+  CRITERION split_criterion = GetParam();
+
   computeSplitRegressionKernel<DataT, DataT, IdxT, 32>
     <<<grid, 32, smemSize, 0>>>(
-      pred, nullptr, nullptr, pred_count, n_bins, params.max_depth,
-      params.min_samples_split, params.max_leaves, input, curr_nodes, 0,
-      done_count, mutex, n_new_leaves, splits, nullptr, params.split_criterion);
+      pred, pred2, pred2P, pred_count, n_bins, params.max_depth,
+      params.min_samples_split, params.min_samples_leaf,
+      params.min_impurity_decrease, params.max_leaves, input, curr_nodes, 0,
+      done_count, mutex, n_new_leaves, splits, block_sync, split_criterion, 0,
+      1234ULL);
+
   raft::update_host(h_splits.data(), splits, 1, 0);
   CUDA_CHECK(cudaGetLastError());
   CUDA_CHECK(cudaStreamSynchronize(0));
@@ -318,10 +331,12 @@ TEST_P(TestMetric, MSEGain) {
   for (int row_id : {1, 2, 3}) {
     EXPECT_GT(h_data[0 * n_row + row_id], h_splits[0].quesval);
   }
-  // Verify that the gain (reduction in MSE) is computed correctly
-  {
-    auto mse = [](const std::vector<DataT>& y,
-                  const std::vector<IdxT>& idx) -> float {
+  // Verify that the gain (reduction in MSE / MAE) is computed correctly
+  std::function<float(const std::vector<DataT>&, const std::vector<IdxT>&)>
+    metric;
+  if (split_criterion == CRITERION::MSE) {
+    metric = [](const std::vector<DataT>& y,
+                const std::vector<IdxT>& idx) -> float {
       float y_mean = 0.0f;
       float mse = 0.0f;
       for (IdxT i : idx) {
@@ -333,16 +348,49 @@ TEST_P(TestMetric, MSEGain) {
       }
       return mse / idx.size();
     };
-    float gain = mse(h_labels, {0, 1, 2, 3, 4}) -
-                 2.0f / 5.0f * mse(h_labels, {0, 4}) -
-                 3.0f / 5.0f * mse(h_labels, {1, 2, 3});
-
-    EXPECT_FLOAT_EQ(h_splits[0].best_metric_val, gain);
+  } else {
+    EXPECT_EQ(split_criterion, CRITERION::MAE);
+    metric = [](const std::vector<DataT>& y,
+                const std::vector<IdxT>& idx) -> float {
+      float y_mean = 0.0f;
+      float mae = 0.0f;
+      for (IdxT i : idx) {
+        y_mean += y[i];
+      }
+      y_mean /= idx.size();
+      for (IdxT i : idx) {
+        mae += std::fabs(y[i] - y_mean);
+      }
+      return mae / idx.size();
+    };
   }
+  float expected_gain = metric(h_labels, {0, 1, 2, 3, 4}) -
+                        2.0f / 5.0f * metric(h_labels, {0, 4}) -
+                        3.0f / 5.0f * metric(h_labels, {1, 2, 3});
+
+  EXPECT_FLOAT_EQ(h_splits[0].best_metric_val, expected_gain);
+
+  d_allocator->deallocate(mutex, sizeof(int) * max_batch, 0);
+  d_allocator->deallocate(done_count, sizeof(int) * max_batch * n_col_blks, 0);
+  d_allocator->deallocate(block_sync, sizeof(char) * block_sync_size, 0);
+  d_allocator->deallocate(pred, 2 * nPredCounts * sizeof(DataT), 0);
+  d_allocator->deallocate(pred2, 2 * nPredCounts * sizeof(DataT), 0);
+  d_allocator->deallocate(pred2P, nPredCounts * sizeof(DataT), 0);
+  d_allocator->deallocate(pred_count, nPredCounts * sizeof(IdxT), 0);
 }
 
 INSTANTIATE_TEST_SUITE_P(BatchedLevelAlgoUnitTest, TestMetric,
-                         ::testing::Values(NoOpParams{}));
+                         ::testing::Values(CRITERION::MSE, CRITERION::MAE),
+                         [](const auto& info) {
+                           switch (info.param) {
+                             case CRITERION::MSE:
+                               return "MSE";
+                             case CRITERION::MAE:
+                               return "MAE";
+                             default:
+                               return "";
+                           }
+                         });
 
 }  // namespace DecisionTree
 }  // namespace ML

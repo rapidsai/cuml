@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,6 +24,9 @@
 
 #include <faiss/gpu/GpuDistance.h>
 #include <faiss/gpu/GpuIndexFlat.h>
+#include <faiss/gpu/GpuIndexIVFFlat.h>
+#include <faiss/gpu/GpuIndexIVFPQ.h>
+#include <faiss/gpu/GpuIndexIVFScalarQuantizer.h>
 #include <faiss/gpu/GpuResources.h>
 #include <faiss/gpu/StandardGpuResources.h>
 #include <faiss/utils/Heap.h>
@@ -34,13 +37,14 @@
 #include <thrust/device_vector.h>
 #include <thrust/iterator/transform_iterator.h>
 
-#include <selection/processing.cuh>
+#include "processing.cuh"
 
-#include <common/device_buffer.hpp>
 #include <cuml/common/cuml_allocator.hpp>
+#include <cuml/common/device_buffer.hpp>
 #include <cuml/neighbors/knn.hpp>
 
 #include <iostream>
+#include <set>
 
 namespace MLCommon {
 namespace Selection {
@@ -193,32 +197,141 @@ inline faiss::MetricType build_faiss_metric(ML::MetricType metric) {
   }
 }
 
+inline faiss::ScalarQuantizer::QuantizerType build_faiss_qtype(
+  ML::QuantizerType qtype) {
+  switch (qtype) {
+    case ML::QuantizerType::QT_8bit:
+      return faiss::ScalarQuantizer::QuantizerType::QT_8bit;
+    case ML::QuantizerType::QT_8bit_uniform:
+      return faiss::ScalarQuantizer::QuantizerType::QT_8bit_uniform;
+    case ML::QuantizerType::QT_4bit_uniform:
+      return faiss::ScalarQuantizer::QuantizerType::QT_4bit_uniform;
+    case ML::QuantizerType::QT_fp16:
+      return faiss::ScalarQuantizer::QuantizerType::QT_fp16;
+    case ML::QuantizerType::QT_8bit_direct:
+      return faiss::ScalarQuantizer::QuantizerType::QT_8bit_direct;
+    case ML::QuantizerType::QT_6bit:
+      return faiss::ScalarQuantizer::QuantizerType::QT_6bit;
+    default:
+      return (faiss::ScalarQuantizer::QuantizerType)qtype;
+  }
+}
+
+template <typename IntType = int>
+void approx_knn_ivfflat_build_index(ML::knnIndex *index, ML::IVFParam *params,
+                                    IntType D, ML::MetricType metric,
+                                    IntType n) {
+  faiss::gpu::GpuIndexIVFFlatConfig config;
+  config.device = index->device;
+  faiss::MetricType faiss_metric = build_faiss_metric(metric);
+  faiss::gpu::GpuIndexIVFFlat *faiss_index = new faiss::gpu::GpuIndexIVFFlat(
+    index->gpu_res, D, params->nlist, faiss_metric, config);
+  faiss_index->setNumProbes(params->nprobe);
+  index->index = faiss_index;
+}
+
+template <typename IntType = int>
+void approx_knn_ivfpq_build_index(ML::knnIndex *index, ML::IVFPQParam *params,
+                                  IntType D, ML::MetricType metric, IntType n) {
+  faiss::gpu::GpuIndexIVFPQConfig config;
+  config.device = index->device;
+  config.usePrecomputedTables = params->usePrecomputedTables;
+  faiss::MetricType faiss_metric = build_faiss_metric(metric);
+  faiss::gpu::GpuIndexIVFPQ *faiss_index =
+    new faiss::gpu::GpuIndexIVFPQ(index->gpu_res, D, params->nlist, params->M,
+                                  params->n_bits, faiss_metric, config);
+  faiss_index->setNumProbes(params->nprobe);
+  index->index = faiss_index;
+}
+
+template <typename IntType = int>
+void approx_knn_ivfsq_build_index(ML::knnIndex *index, ML::IVFSQParam *params,
+                                  IntType D, ML::MetricType metric, IntType n) {
+  faiss::gpu::GpuIndexIVFScalarQuantizerConfig config;
+  config.device = index->device;
+  faiss::MetricType faiss_metric = build_faiss_metric(metric);
+  faiss::ScalarQuantizer::QuantizerType faiss_qtype =
+    build_faiss_qtype(params->qtype);
+  faiss::gpu::GpuIndexIVFScalarQuantizer *faiss_index =
+    new faiss::gpu::GpuIndexIVFScalarQuantizer(index->gpu_res, D, params->nlist,
+                                               faiss_qtype, faiss_metric,
+                                               params->encodeResidual);
+  faiss_index->setNumProbes(params->nprobe);
+  index->index = faiss_index;
+}
+
+template <typename IntType = int>
+void approx_knn_build_index(ML::knnIndex *index, ML::knnIndexParam *params,
+                            IntType D, ML::MetricType metric, float metricArg,
+                            float *index_items, IntType n,
+                            cudaStream_t userStream) {
+  int device;
+  CUDA_CHECK(cudaGetDevice(&device));
+
+  faiss::gpu::StandardGpuResources *gpu_res =
+    new faiss::gpu::StandardGpuResources();
+  gpu_res->noTempMemory();
+  gpu_res->setCudaMallocWarning(false);
+  gpu_res->setDefaultStream(device, userStream);
+  index->gpu_res = gpu_res;
+  index->device = device;
+  index->index = nullptr;
+
+  if (dynamic_cast<ML::IVFFlatParam *>(params)) {
+    ML::IVFFlatParam *IVFFlat_param = dynamic_cast<ML::IVFFlatParam *>(params);
+    approx_knn_ivfflat_build_index(index, IVFFlat_param, D, metric, n);
+    std::vector<float> h_index_items(n * D);
+    raft::update_host(h_index_items.data(), index_items, h_index_items.size(),
+                      userStream);
+    index->index->train(n, h_index_items.data());
+    index->index->add(n, h_index_items.data());
+    return;
+  } else if (dynamic_cast<ML::IVFPQParam *>(params)) {
+    ML::IVFPQParam *IVFPQ_param = dynamic_cast<ML::IVFPQParam *>(params);
+    approx_knn_ivfpq_build_index(index, IVFPQ_param, D, metric, n);
+  } else if (dynamic_cast<ML::IVFSQParam *>(params)) {
+    ML::IVFSQParam *IVFSQ_param = dynamic_cast<ML::IVFSQParam *>(params);
+    approx_knn_ivfsq_build_index(index, IVFSQ_param, D, metric, n);
+  } else {
+    ASSERT(index->index, "KNN index could not be initialized");
+  }
+
+  index->index->train(n, index_items);
+  index->index->add(n, index_items);
+}
+
+template <typename IntType = int>
+void approx_knn_search(ML::knnIndex *index, IntType n, const float *x,
+                       IntType k, float *distances, int64_t *labels) {
+  index->index->search(n, x, k, distances, labels);
+}
+
 /**
-   * Search the kNN for the k-nearest neighbors of a set of query vectors
-   * @param[in] input vector of device device memory array pointers to search
-   * @param[in] sizes vector of memory sizes for each device array pointer in input
-   * @param[in] D number of cols in input and search_items
-   * @param[in] search_items set of vectors to query for neighbors
-   * @param[in] n        number of items in search_items
-   * @param[out] res_I    pointer to device memory for returning k nearest indices
-   * @param[out] res_D    pointer to device memory for returning k nearest distances
-   * @param[in] k        number of neighbors to query
-   * @param[in] allocator the device memory allocator to use for temporary scratch memory
-   * @param[in] userStream the main cuda stream to use
-   * @param[in] internalStreams optional when n_params > 0, the index partitions can be
-   *        queried in parallel using these streams. Note that n_int_streams also
-   *        has to be > 0 for these to be used and their cardinality does not need
-   *        to correspond to n_parts.
-   * @param[in] n_int_streams size of internalStreams. When this is <= 0, only the
-   *        user stream will be used.
-   * @param[in] rowMajorIndex are the index arrays in row-major layout?
-   * @param[in] rowMajorQuery are the query array in row-major layout?
-   * @param[in] translations translation ids for indices when index rows represent
-   *        non-contiguous partitions
-   * @param[in] metric corresponds to the FAISS::metricType enum (default is euclidean)
-   * @param[in] metricArg metric argument to use. Corresponds to the p arg for lp norm
-   * @param[in] expanded_form whether or not lp variants should be reduced w/ lp-root
-   */
+ * Search the kNN for the k-nearest neighbors of a set of query vectors
+ * @param[in] input vector of device device memory array pointers to search
+ * @param[in] sizes vector of memory sizes for each device array pointer in input
+ * @param[in] D number of cols in input and search_items
+ * @param[in] search_items set of vectors to query for neighbors
+ * @param[in] n        number of items in search_items
+ * @param[out] res_I    pointer to device memory for returning k nearest indices
+ * @param[out] res_D    pointer to device memory for returning k nearest distances
+ * @param[in] k        number of neighbors to query
+ * @param[in] allocator the device memory allocator to use for temporary scratch memory
+ * @param[in] userStream the main cuda stream to use
+ * @param[in] internalStreams optional when n_params > 0, the index partitions can be
+ *        queried in parallel using these streams. Note that n_int_streams also
+ *        has to be > 0 for these to be used and their cardinality does not need
+ *        to correspond to n_parts.
+ * @param[in] n_int_streams size of internalStreams. When this is <= 0, only the
+ *        user stream will be used.
+ * @param[in] rowMajorIndex are the index arrays in row-major layout?
+ * @param[in] rowMajorQuery are the query array in row-major layout?
+ * @param[in] translations translation ids for indices when index rows represent
+ *        non-contiguous partitions
+ * @param[in] metric corresponds to the FAISS::metricType enum (default is euclidean)
+ * @param[in] metricArg metric argument to use. Corresponds to the p arg for lp norm
+ * @param[in] expanded_form whether or not lp variants should be reduced w/ lp-root
+ */
 template <typename IntType = int>
 void brute_force_knn(std::vector<float *> &input, std::vector<int> &sizes,
                      IntType D, float *search_items, IntType n, int64_t *res_I,

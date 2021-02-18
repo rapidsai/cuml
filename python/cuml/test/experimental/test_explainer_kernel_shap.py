@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020, NVIDIA CORPORATION.
+# Copyright (c) 2020-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -51,6 +51,27 @@ def exact_tests_dataset():
     return X_train, X_test, y_train, y_test
 
 
+def experimental_test_and_log(cu_shap_values,
+                              golden_result_values,
+                              fx,
+                              expected,
+                              tolerance=1e-02):
+    close_values = \
+        np.allclose(cu_shap_values, golden_result_values,
+                    rtol=tolerance, atol=tolerance)
+
+    expected_sum = np.allclose(1.00, np.sum(cp.asnumpy(
+        cu_shap_values)) / (fx - expected), rtol=1e-01)
+
+    if not close_values:
+        print("cu_shap_values: ")
+        print(cu_shap_values)
+        print("golden_result_values")
+        print(golden_result_values)
+
+    assert expected_sum
+    assert close_values
+
 ###############################################################################
 #                              End to end tests                               #
 ###############################################################################
@@ -60,6 +81,8 @@ def exact_tests_dataset():
                                    cuml.KNeighborsRegressor,
                                    cuml.SVR])
 def test_exact_regression_datasets(exact_tests_dataset, model):
+    # todo (dd): idx parameter is for repeating the test for a few CI runs
+    # will be removed before merging
     X_train, X_test, y_train, y_test = exact_tests_dataset
 
     mod = model().fit(X_train, y_train)
@@ -69,8 +92,10 @@ def test_exact_regression_datasets(exact_tests_dataset, model):
         data=X_train)
 
     cu_shap_values = explainer.shap_values(X_test)
-    assert np.allclose(cu_shap_values, golden_regression_results[model],
-                       rtol=1e-02, atol=1e-02)
+    experimental_test_and_log(cu_shap_values,
+                              golden_regression_results[model],
+                              mod.predict(X_test),
+                              float(explainer.expected_value))
 
     skmod = cuml_skl_class_dict[model]().fit(X_train, y_train)
 
@@ -82,8 +107,10 @@ def test_exact_regression_datasets(exact_tests_dataset, model):
 
     # since the values were calculated with the cuml models, a little
     # looser tolerance in the comparison is expected
-    assert np.allclose(cu_shap_values, golden_regression_results[model],
-                       rtol=1e-02, atol=1e-02)
+    experimental_test_and_log(cu_shap_values,
+                              golden_regression_results[model],
+                              mod.predict(X_test),
+                              float(explainer.expected_value))
 
 
 def test_exact_classification_datasets():
@@ -109,10 +136,17 @@ def test_exact_classification_datasets():
 
     cu_shap_values = explainer.shap_values(X_test)
 
-    assert np.allclose(cu_shap_values[0], golden_classification_result[0],
-                       rtol=1e-01, atol=1e-01)
-    assert np.allclose(cu_shap_values[1], golden_classification_result[1],
-                       rtol=1e-01, atol=1e-01)
+    experimental_test_and_log(cu_shap_values[0],
+                              golden_classification_result[0],
+                              float(mod.predict_proba(X_test)[0][0]),
+                              float(explainer.expected_value[0]),
+                              tolerance=1e-01)
+
+    experimental_test_and_log(cu_shap_values[1],
+                              golden_classification_result[1],
+                              float(mod.predict_proba(X_test)[0][1]),
+                              float(explainer.expected_value[1]),
+                              tolerance=1e-01)
 
     mod = sklearn.svm.SVC(probability=True).fit(X_train, y_train)
 
@@ -126,10 +160,17 @@ def test_exact_classification_datasets():
     # a little looser to avoid false positives from comparisons like
     # 0.00348627 - 0.00247397. The loose tolerance still tests that the
     # distribution of the values matches.
-    assert np.allclose(cu_shap_values[0], golden_classification_result[0],
-                       rtol=1e-01, atol=1e-01)
-    assert np.allclose(cu_shap_values[1], golden_classification_result[1],
-                       rtol=1e-01, atol=1e-01)
+    experimental_test_and_log(cu_shap_values[0],
+                              golden_classification_result[0],
+                              float(mod.predict_proba(X_test)[0][0]),
+                              float(explainer.expected_value[0]),
+                              tolerance=1e-01)
+
+    experimental_test_and_log(cu_shap_values[1],
+                              golden_classification_result[1],
+                              float(mod.predict_proba(X_test)[0][1]),
+                              float(explainer.expected_value[1]),
+                              tolerance=1e-01)
 
 
 @pytest.mark.parametrize("dtype", [np.float32, np.float64])
@@ -198,7 +239,7 @@ def test_kernel_gpu_cpu_shap(dtype, nfeatures, nbackground, model):
 
     cu_shap_values = cu_explainer.shap_values(X_test)
 
-    exp_v = cu_explainer.expected_value
+    exp_v = cu_explainer._expected_value
     fx = mod.predict(X_test)
     for test_idx in range(5):
         assert(np.sum(
@@ -213,6 +254,34 @@ def test_kernel_gpu_cpu_shap(dtype, nfeatures, nbackground, model):
         # n_features, even among runs of the same explainer can cause this
         # test to be flaky, better testing strategy in process.
         assert np.allclose(cu_shap_values, shap_values, rtol=1e-01, atol=1e-01)
+
+
+def test_kernel_housing_dataset(housing_dataset):
+    X, y, _ = housing_dataset
+
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=0.25, random_state=42
+    )
+
+    # making all float32 to use gpu predict on random forest
+    X_train = X_train.astype(np.float32)
+    X_test = X_test.astype(np.float32)
+    y_train = y_train.astype(np.float32)
+    y_test = y_test.astype(np.float32)
+
+    cumodel = cuml.RandomForestRegressor().fit(X_train, y_train)
+
+    explainer = cuml.experimental.explainer.KernelExplainer(
+        model=cumodel.predict,
+        data=X_train[:100],
+        output_type='numpy')
+
+    cu_shap_values = explainer.shap_values(X_test[:2])
+
+    assert np.allclose(cu_shap_values, housing_regression_result,
+                       rtol=1e-01, atol=1e-01)
+
+    assert True
 
 ###############################################################################
 #                        Single function unit tests                           #
@@ -347,6 +416,11 @@ golden_classification_result = [
      0.00088981]
 ]
 
+housing_regression_result = np.array(
+    [[-0.7222878, 0.00888237, -0.07044561, -0.02764106, -0.01486777,
+      -0.19961227, -0.1367276, -0.11073875],
+     [-0.688218, 0.04260924, -0.12853414, 0.06109668, -0.01486243,
+      -0.0627693, -0.17290883, -0.02488524]], dtype=np.float32)
 
 cuml_skl_class_dict = {
     cuml.LinearRegression: sklearn.linear_model.LinearRegression,

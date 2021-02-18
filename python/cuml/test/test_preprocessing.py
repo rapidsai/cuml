@@ -1,4 +1,4 @@
-# Copyright (c) 2020, NVIDIA CORPORATION.
+# Copyright (c) 2020-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -555,8 +555,19 @@ def test_robust_scale_sparse(sparse_clf_dataset,  # noqa: F811
 @check_cupy8('pytest')
 @pytest.mark.parametrize("n_bins", [5, 20])
 @pytest.mark.parametrize("encode", ['ordinal', 'onehot-dense', 'onehot'])
-@pytest.mark.parametrize("strategy", ['uniform', 'quantile', 'kmeans'])
-@pytest.mark.xfail(strict=False)
+@pytest.mark.parametrize("strategy", [
+    pytest.param('uniform', marks=pytest.mark.xfail(
+        strict=False,
+        reason='Intermittent mismatch with sklearn'
+        ' (https://github.com/rapidsai/cuml/issues/3481)'
+    )),
+    pytest.param('quantile', marks=pytest.mark.xfail(
+        strict=False,
+        reason='Bug in cupy.percentile'
+        ' (https://github.com/cupy/cupy/issues/4607)'
+    )),
+    'kmeans'
+])
 def test_kbinsdiscretizer(blobs_dataset, n_bins,  # noqa: F811
                           encode, strategy):
     X_np, X = blobs_dataset
@@ -675,3 +686,15 @@ def test_inplace_csr_row_normalize_l2(sparse_clf_dataset):  # noqa: F811
     X_np = sk_normalize(X_np, norm='l2', axis=1)
 
     assert_allclose(X, X_np)
+
+
+def test__repr__():
+    assert cuStandardScaler().__repr__() == 'StandardScaler()'
+    assert cuMinMaxScaler().__repr__() == 'MinMaxScaler()'
+    assert cuMaxAbsScaler().__repr__() == 'MaxAbsScaler()'
+    assert cuNormalizer().__repr__() == 'Normalizer()'
+    assert cuBinarizer().__repr__() == 'Binarizer()'
+    assert cuPolynomialFeatures().__repr__() == 'PolynomialFeatures()'
+    assert cuSimpleImputer().__repr__() == 'SimpleImputer()'
+    assert cuRobustScaler().__repr__() == 'RobustScaler()'
+    assert cuKBinsDiscretizer().__repr__() == 'KBinsDiscretizer()'
