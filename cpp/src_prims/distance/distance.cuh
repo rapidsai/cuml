@@ -263,12 +263,13 @@ void distance(const InType *x, const InType *y, OutType *dist, Index_ m,
  * @param stream     cuda stream
  * @param isRowMajor whether the matrices are row-major or col-major
  *
- * @{
  * @param metric distance metric
  *
  * @tparam Type     input/accumulation/output data-type
  * @tparam DistType { description }
  * @tparam Index_ indexing type
+ * 
+ * @{
  */
 template <typename Type, typename Index_, raft::distance::DistanceType DistType>
 void pairwise_distance_impl(const Type *x, const Type *y, Type *dist, Index_ m,

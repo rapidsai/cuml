@@ -30,10 +30,10 @@ namespace LinAlg {
  * @param len    number of elements in the input buffer
  * @param stream cuda stream where to launch work
  *
- * @{
- *
  * @tparam math_t data-type upon which the math operation will be performed
  * @tparam IdxType Integer type used to for addressing
+ * 
+ * @{
  */
 template <typename math_t, typename IdxType = int>
 void sqrt(math_t *out, const math_t *in, IdxType len, cudaStream_t stream) {

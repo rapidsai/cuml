@@ -122,11 +122,11 @@ void grow_tree(std::shared_ptr<MLCommon::deviceAllocator> d_allocator,
  * @param[out] depth          max depth of the built tree
  * @param[in] colids sampled cols [on device] [len = params.max_features * ncols]
  *
- * @{
- *
  * @tparam DataT  data type
  * @tparam LabelT label type
  * @tparam IdxT  index type
+ * 
+ * @{
  */
 template <typename DataT, typename LabelT, typename IdxT>
 void grow_tree(std::shared_ptr<MLCommon::deviceAllocator> d_allocator,

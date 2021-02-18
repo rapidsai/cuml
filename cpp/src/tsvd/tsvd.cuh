@@ -113,9 +113,9 @@ void calEig(const raft::handle_t &handle, math_t *in, math_t *components,
  * @param allocator   device custom allocator object
  * @param stream      cuda stream
  *
- * @{
- *
  * @tparam math_t { description }
+ * 
+ * @{
  */
 template <typename math_t>
 void signFlip(math_t *input, int n_rows, int n_cols, math_t *components,

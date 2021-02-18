@@ -110,8 +110,6 @@ void gemm(cublasOperation_t transA, cublasOperation_t transB, Index_ m,
  * @param D      output matrix
  * @param stream cuda stream where to launch work
  *
- * @{
- *
  * @tparam IType                  input data-type (for A and B matrices)
  * @tparam AccType                accumulation data-type
  * @tparam OutputTile_            output tile size for the thread block
@@ -120,6 +118,8 @@ void gemm(cublasOperation_t transA, cublasOperation_t transB, Index_ m,
  * @tparam EpilogueFunctor_       custom epilogue functor
  * @tparam OType  output data-type (for C and D matrices)
  * @tparam Index_ index type
+ * 
+ * @{
  */
 template <
   typename IType, typename AccType, typename OType, typename OutputTile_,

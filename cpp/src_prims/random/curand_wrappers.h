@@ -37,8 +37,6 @@ namespace Random {
 /**
  * @defgroup normal curand normal random number generation operations
  *
- * @{
- *
  * @param[in] generator The generator
  * @param     outputPtr The output pointer
  * @param[in] n         { parameter_description }
@@ -46,6 +44,8 @@ namespace Random {
  * @param[in] stddev    The stddev
  *
  * @return The curand status.
+ * 
+ * @{
  */
 template <typename T>
 curandStatus_t curandGenerateNormal(curandGenerator_t generator, T *outputPtr,
