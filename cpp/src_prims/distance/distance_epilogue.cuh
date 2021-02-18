@@ -66,7 +66,8 @@ CUTLASS_HOST_DEVICE void extract_index_from_iterator(
 }  // end anonymous namespace
 
 /**
- * @brief Base Epilogue for distance metrics
+ * Base Epilogue for distance metrics
+ *
  * @tparam GemmEpilogueTraits_ the traits class to configure this epilogue
  */
 template <typename GemmEpilogueTraits_>
@@ -125,15 +126,23 @@ struct DistanceGemmEpilogue {
   typedef typename Functor::GlobalLoadIteratorBB GlobalLoadIteratorBB;
 
   /// Ctor.
+  ///
+  /// @param     params_         The parameters
+  /// @param     shared_storage_ The shared storage
+  /// @param[in] m_              { parameter_description }
+  /// @param[in] n_              { parameter_description }
+  ///
   CUTLASS_DEVICE DistanceGemmEpilogue(Params const &params_,
                                       SharedStorage &shared_storage_, Index m_,
                                       Index n_)
     : params(params_), shared_storage(shared_storage_), m(m_), n(n_) {}
 
   /// The memory fence for shared loads.
+  ///
   CUTLASS_DEVICE void shared_load_fence() { __syncthreads(); }
 
   /// The memory fence for shared stores.
+  ///
   CUTLASS_DEVICE void shared_store_fence() { __syncthreads(); }
 
   /// The params.
@@ -145,10 +154,11 @@ struct DistanceGemmEpilogue {
 };  // end struct DistanceGemmEpilogue
 
 /**
- * @brief Epilogue for Cosine and Expanded L2 distance,
- *  which accesses A^2 and B^2 in global memory,
- *  while passing the global index of C to its EpilogueFunctor
+ * Epilogue for Cosine and Expanded L2 distance, which accesses A^2 and B^2 in
+ * global memory, while passing the global index of C to its EpilogueFunctor
+ *
  * @tparam GemmEpilogueTraits_ the traits class to configure this epilogue
+ * @tparam BaseClass           { description }
  */
 template <typename GemmEpilogueTraits_,
           typename BaseClass = DistanceGemmEpilogue<GemmEpilogueTraits_>>
@@ -171,12 +181,23 @@ struct ExpandedDistanceGemmEpilogue : public BaseClass {
   using typename BaseClass::Traits;
 
   /// Ctor.
+  ///
+  /// @param     params_         The parameters
+  /// @param     shared_storage_ The shared storage
+  /// @param[in] m_              { parameter_description }
+  /// @param[in] n_              { parameter_description }
+  ///
   CUTLASS_DEVICE ExpandedDistanceGemmEpilogue(Params const &params_,
                                               SharedStorage &shared_storage_,
                                               Index m_, Index n_)
     : BaseClass(params_, shared_storage_, m_, n_) {}
 
   /// Execute the epilogue
+  ///
+  /// @param     block        The block
+  /// @param     accumulators The accumulators
+  /// @param[in] fin_op       The fin operation
+  ///
   template <typename FinalLambda>
   CUTLASS_DEVICE void epilogue(cutlass::Coord<3> const &block,
                                Accumulators &accumulators, FinalLambda fin_op) {
@@ -316,9 +337,11 @@ struct ExpandedDistanceGemmEpilogue : public BaseClass {
 };  // end struct ExpandedDistanceGemmEpilogue
 
 /**
- * @brief Epilogue for L1 and Unexpanded L2 distance,
- *  which passes the global index of C to its EpilogueFunctor
+ * Epilogue for L1 and Unexpanded L2 distance, which passes the global index of
+ * C to its EpilogueFunctor
+ *
  * @tparam GemmEpilogueTraits_ the traits class to configure this epilogue
+ * @tparam BaseClass           { description }
  */
 template <typename GemmEpilogueTraits_,
           typename BaseClass = DistanceGemmEpilogue<GemmEpilogueTraits_>>
@@ -341,12 +364,23 @@ struct UnexpandedDistanceGemmEpilogue : public BaseClass {
   using typename BaseClass::Traits;
 
   /// Ctor.
+  ///
+  /// @param     params_         The parameters
+  /// @param     shared_storage_ The shared storage
+  /// @param[in] m_              { parameter_description }
+  /// @param[in] n_              { parameter_description }
+  ///
   CUTLASS_DEVICE UnexpandedDistanceGemmEpilogue(Params const &params_,
                                                 SharedStorage &shared_storage_,
                                                 Index m_, Index n_)
     : BaseClass(params_, shared_storage_, m_, n_) {}
 
   /// Execute the epilogue
+  ///
+  /// @param     block        The block
+  /// @param     accumulators The accumulators
+  /// @param[in] fin_op       The fin operation
+  ///
   template <typename FinalLambda>
   CUTLASS_DEVICE void epilogue(cutlass::Coord<3> const &block,
                                Accumulators &accumulators, FinalLambda fin_op) {

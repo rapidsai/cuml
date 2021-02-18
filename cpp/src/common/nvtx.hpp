@@ -20,11 +20,13 @@ namespace ML {
 
 /**
  * @brief Push a named nvtx range
- * @param name range name
+ *
+ * @param name  range name
  */
 void PUSH_RANGE(const char *name);
 
-/** Pop the latest range */
+/** Pop the latest range
+ */
 void POP_RANGE();
 
 }  // end namespace ML

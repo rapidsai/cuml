@@ -26,7 +26,7 @@
 namespace ML {
 namespace TSNE {
 
-/****************************************/
+/** / */
 /* Finds the best Gaussian bandwidth for
     each row in the dataset             */
 template <typename value_idx, typename value_t>
@@ -80,7 +80,7 @@ __global__ void sigmas_kernel(const value_t *restrict distances,
   }
 }
 
-/****************************************/
+/** / */
 /* Finds the best Gaussian bandwith for
     each row in the dataset             */
 template <typename value_idx, typename value_t>
@@ -130,7 +130,20 @@ __global__ void sigmas_kernel_2d(const value_t *restrict distances,
   }
 }
 
-/****************************************/
+/** /
+
+@param[in] distances  The distances
+@param     P          { parameter_description }
+@param[in] perplexity The perplexity
+@param[in] epochs     The epochs
+@param[in] tol        The tolerance
+@param[in] n          { parameter_description }
+@param[in] dim        The dim
+@param[in] handle     The handle
+
+@tparam value_idx { description }
+@tparam value_t   { description }
+*/
 template <typename value_idx, typename value_t>
 void perplexity_search(const value_t *restrict distances, value_t *restrict P,
                        const float perplexity, const int epochs,
@@ -150,7 +163,7 @@ void perplexity_search(const value_t *restrict distances, value_t *restrict P,
   cudaStreamSynchronize(stream);
 }
 
-/****************************************/
+/** / */
 /* Compute attractive forces in O(uN) time.
     Uses only nearest neighbors         */
 template <typename value_idx, typename value_t>
@@ -183,7 +196,7 @@ __global__ void attractive_kernel(
     raft::myAtomicAdd(&attract[k * n + i], PQ * (Y[k * n + i] - Y[k * n + j]));
 }
 
-/****************************************/
+/** / */
 /* Special case when dim == 2. Can speed
     up many calculations up             */
 template <typename value_idx, typename value_t>
@@ -211,7 +224,24 @@ __global__ void attractive_kernel_2d(
   raft::myAtomicAdd(&attract2[i], PQ * (Y2[i] - Y2[j]));
 }
 
-/****************************************/
+/** /
+
+@param[in] VAL      The val
+@param[in] COL      The col
+@param[in] ROW      The row
+@param[in] Y        { parameter_description }
+@param[in] norm     The normalize
+@param     attract  The attract
+@param[in] NNZ      The nnz
+@param[in] n        { parameter_description }
+@param[in] dim      The dim
+@param[in] df_power The df power
+@param[in] recp_df  The recp df
+@param[in] stream   The stream
+
+@tparam value_idx { description }
+@tparam value_t   { description }
+*/
 template <typename value_idx, typename value_t>
 void attractive_forces(const value_t *restrict VAL,
                        const value_idx *restrict COL,
@@ -240,7 +270,7 @@ void attractive_forces(const value_t *restrict VAL,
   CUDA_CHECK(cudaPeekAtLastError());
 }
 
-/****************************************/
+/** / */
 /* Computes repulsive forces in pseudo-O(N^2)
     time where many of the math ops are
     made considerably faster.           */
@@ -283,7 +313,7 @@ __global__ void repulsive_kernel(const value_t *restrict Y,
     raft::myAtomicAdd(&Z_sum2[i], Q);
 }
 
-/****************************************/
+/** / */
 /* Special case when dim == 2. Much faster
     since calculations are streamlined. */
 template <typename value_idx, typename value_t>
@@ -322,7 +352,25 @@ __global__ void repulsive_kernel_2d(
     raft::myAtomicAdd(&Z_sum2[i], Q);
 }
 
-/****************************************/
+/** /
+
+@param[in] Y        { parameter_description }
+@param     repel    The repel
+@param[in] norm     The normalize
+@param     Z_sum    The z sum
+@param[in] n        { parameter_description }
+@param[in] dim      The dim
+@param[in] df_power The df power
+@param[in] recp_df  The recp df
+@param[in] stream   The stream
+
+@tparam value_idx { description }
+@tparam value_t   { description }
+@tparam TPB_X     { description }
+@tparam TPB_Y     { description }
+
+@return { description_of_the_return_value }
+*/
 template <typename value_idx, typename value_t, int TPB_X = 32, int TPB_Y = 32>
 value_t repulsive_forces(const value_t *restrict Y, value_t *restrict repel,
                          const value_t *restrict norm, value_t *restrict Z_sum,
@@ -358,7 +406,7 @@ value_t repulsive_forces(const value_t *restrict Y, value_t *restrict repel,
            (value_t)n));  // Notice + n since diagonal of repulsion sums to n
 }
 
-/****************************************/
+/** / */
 /* Applys or integrates all forces. Uses
     more gains and contrains the output
     for output stability                */
@@ -397,7 +445,32 @@ __global__ void apply_kernel(
   //raft::myAtomicAdd(&means[index / n], Y[index]);
 }
 
-/****************************************/
+/** /
+
+@param     Y                 { parameter_description }
+@param     velocity          The velocity
+@param[in] attract           The attract
+@param[in] repel             The repel
+@param     means             The means
+@param     gains             The gains
+@param[in] Z                 { parameter_description }
+@param[in] learning_rate     The learning rate
+@param[in] C                 { parameter_description }
+@param[in] momentum          The momentum
+@param[in] dim               The dim
+@param[in] n                 { parameter_description }
+@param[in] min_gain          The minimum gain
+@param     gradient          The gradient
+@param[in] check_convergence The check convergence
+@param[in] stream            The stream
+
+@tparam value_idx { description }
+@tparam value_t   { description }
+@tparam TPB_X     { description }
+@tparam TPB_Y     { description }
+
+@return { description_of_the_return_value }
+*/
 template <typename value_idx, typename value_t, int TPB_X = 32, int TPB_Y = 32>
 value_t apply_forces(value_t *restrict Y, value_t *restrict velocity,
                      const value_t *restrict attract,

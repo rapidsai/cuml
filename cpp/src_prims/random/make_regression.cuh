@@ -130,40 +130,39 @@ static __global__ void _gather2d_kernel(DataT* out, const DataT* in,
 }
 
 /**
- * @brief      GPU-equivalent of sklearn.datasets.make_regression as documented
- *             at:
- *             https://scikit-learn.org/stable/modules/generated/sklearn.datasets.make_regression.html
+ * @brief GPU-equivalent of sklearn.datasets.make_regression as documented at:
+ *        https://scikit-learn.org/stable/modules/generated/sklearn.datasets.make_regression.html
  *
- * @param[in]  handle          cuBLAS handle
- * @param[out] out             Row-major (samples, features) matrix to store the
- *                             problem data
- * @param[out] values          Row-major (samples, targets) matrix to store the
- *                             values for the regression problem
- * @param[in]  n_rows          Number of samples
- * @param[in]  n_cols          Number of features
- * @param[in]  n_informative   Number of informative features (non-zero
- *                             coefficients)
- * @param[in]  stream          CUDA stream
- * @param[out] coef            Row-major (features, targets) matrix to store the
- *                             coefficients used to generate the values for the
- *                             regression problem. If nullptr is given, nothing
- *                             will be written
- * @param[in]  n_targets       Number of targets (generated values per sample)
- * @param[in]  bias            A scalar that will be added to the values
- * @param[in]  effective_rank  The approximate rank of the data matrix (used to
- *                             create correlations in the data). -1 is the code
- *                             to use well-conditioned data
- * @param[in]  tail_strength   The relative importance of the fat noisy tail of
- *                             the singular values profile if effective_rank is
- *                             not -1
- * @param[in]  noise           Standard deviation of the gaussian noise applied
- *                             to the output
- * @param[in]  shuffle         Shuffle the samples and the features
- * @param[in]  seed            Seed for the random number generator
- * @param[in]  type            Random generator type
+ * @param[in]  handle         cuBLAS handle
+ * @param[out] out            Row-major (samples, features) matrix to store the
+ *                            problem data
+ * @param[out] values         Row-major (samples, targets) matrix to store the
+ *                            values for the regression problem
+ * @param[in]  n_rows         Number of samples
+ * @param[in]  n_cols         Number of features
+ * @param[in]  n_informative  Number of informative features (non-zero
+ *                            coefficients)
+ * @param[in]  stream         CUDA stream
+ * @param[out] coef           Row-major (features, targets) matrix to store the
+ *                            coefficients used to generate the values for the
+ *                            regression problem. If nullptr is given, nothing
+ *                            will be written
+ * @param[in]  n_targets      Number of targets (generated values per sample)
+ * @param[in]  bias           A scalar that will be added to the values
+ * @param[in]  effective_rank The approximate rank of the data matrix (used to
+ *                            create correlations in the data). -1 is the code
+ *                            to use well-conditioned data
+ * @param[in]  tail_strength  The relative importance of the fat noisy tail of
+ *                            the singular values profile if effective_rank is
+ *                            not -1
+ * @param[in]  noise          Standard deviation of the gaussian noise applied
+ *                            to the output
+ * @param[in]  shuffle        Shuffle the samples and the features
+ * @param[in]  seed           Seed for the random number generator
+ * @param[in]  type           Random generator type
  *
- * @tparam     DataT           Scalar type
- * @tparam     IdxT            Index type
+ * @tparam DataT Scalar type
+ * @tparam IdxT  Index type
  */
 template <typename DataT, typename IdxT>
 void make_regression(

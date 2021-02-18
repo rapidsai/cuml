@@ -24,14 +24,15 @@ namespace MLCommon {
 namespace Matrix {
 
 /**
- * Base class for general Gram matrices
- * A Gram matrix is the Hermitian matrix of inner probucts G_ik = <x_i, x_k>
- * Here, the  inner product is evaluated for all elements from vectors sets X1,
- * and X2.
+ * Base class for general Gram matrices A Gram matrix is the Hermitian matrix of
+ * inner probucts G_ik = <x_i, x_k> Here, the  inner product is evaluated for
+ * all elements from vectors sets X1, and X2.
  *
- * To be more precise, on exit the output buffer will store:
- * out[j+k*n1] = <x1_j, x2_k> where x1_j is the j-th vector from the x1 set
- * and x2_k is the k-th vector from the x2 set.
+ * To be more precise, on exit the output buffer will store: out[j+k*n1] =
+ * <x1_j, x2_k> where x1_j is the j-th vector from the x1 set and x2_k is the
+ * k-th vector from the x2 set.
+ *
+ * @tparam math_t { description }
  */
 template <typename math_t>
 class GramMatrixBase {
@@ -43,21 +44,21 @@ class GramMatrixBase {
   virtual ~GramMatrixBase(){};
 
   /** Convenience function to evaluate the Gram matrix for two vector sets.
-  *
-  * @param [in] x1 device array of vectors in column major format,
-  *  size [n1*n_cols]
-  * @param [in] n1 number vectors in x1
-  * @param [in] n_cols number of columns (features) in x1 and x2
-  * @param [in] x2 device array of vectors in column major format,
-  *   size [n2*n_cols]
-  * @param [in] n2 number vectors in x2
-  * @param [out] out device buffer to store the Gram matrix in column major
-  *   format, size [n1*n2]
-  * @param [in] stream cuda stream
-  * @param ld1 leading dimension of x1 (usually it is n1)
-  * @param ld2 leading dimension of x2 (usually it is n2)
-  * @param ld_out leading dimension of out (usually it is n1)
-  */
+   *
+   * @param[in]  x1     device array of vectors in column major format, size
+   *                    [n1*n_cols]
+   * @param[in]  n1     number vectors in x1
+   * @param[in]  n_cols number of columns (features) in x1 and x2
+   * @param[in]  x2     device array of vectors in column major format, size
+   *                    [n2*n_cols]
+   * @param[in]  n2     number vectors in x2
+   * @param[out] out    device buffer to store the Gram matrix in column major
+   *                    format, size [n1*n2]
+   * @param[in]  stream cuda stream
+   * @param      ld1    leading dimension of x1 (usually it is n1)
+   * @param      ld2    leading dimension of x2 (usually it is n2)
+   * @param      ld_out leading dimension of out (usually it is n1)
+   */
   virtual void operator()(const math_t *x1, int n1, int n_cols,
                           const math_t *x2, int n2, math_t *out,
                           cudaStream_t stream, int ld1 = 0, int ld2 = 0,
@@ -75,21 +76,21 @@ class GramMatrixBase {
   }
 
   /** Evaluate the Gram matrix for two vector sets using simple dot product.
-  *
-  * @param [in] x1 device array of vectors in column major format,
-  *  size [n1*n_cols]
-  * @param [in] n1 number vectors in x1
-  * @param [in] n_cols number of columns (features) in x1 and x2
-  * @param [in] x2 device array of vectors in column major format,
-  *   size [n2*n_cols]
-  * @param [in] n2 number vectors in x2
-  * @param [out] out device buffer to store the Gram matrix in column major
-  *   format, size [n1*n2]
-  * @param [in] stream cuda stream
-  * @param ld1 leading dimension of x1 (usually it is n1)
-  * @param ld2 leading dimension of x2 (usually it is n2)
-  * @param ld_out leading dimension of out (usually it is n1)
-  */
+   *
+   * @param[in]  x1     device array of vectors in column major format, size
+   *                    [n1*n_cols]
+   * @param[in]  n1     number vectors in x1
+   * @param[in]  n_cols number of columns (features) in x1 and x2
+   * @param[in]  x2     device array of vectors in column major format, size
+   *                    [n2*n_cols]
+   * @param[in]  n2     number vectors in x2
+   * @param[out] out    device buffer to store the Gram matrix in column major
+   *                    format, size [n1*n2]
+   * @param[in]  stream cuda stream
+   * @param      ld1    leading dimension of x1 (usually it is n1)
+   * @param      ld2    leading dimension of x2 (usually it is n2)
+   * @param      ld_out leading dimension of out (usually it is n1)
+   */
   virtual void evaluate(const math_t *x1, int n1, int n_cols, const math_t *x2,
                         int n2, math_t *out, cudaStream_t stream, int ld1,
                         int ld2, int ld_out) {
@@ -105,19 +106,19 @@ class GramMatrixBase {
    *
    * Can be used as a building block for more complex kernel functions.
    *
-   * @param [in] x1 device array of vectors in column major format,
-   *  size [n1*n_cols]
-   * @param [in] n1 number vectors in x1
-   * @param [in] n_cols number of colums (features) in x1 and x2
-   * @param [in] x2 device array of vectors in column major format,
-   *   size [n2*n_cols]
-   * @param [in] n2 number vectors in x2
-   * @param [out] out device buffer to store the Gram matrix in column major
-   *   format, size [n1*n2]
-   * @param [in] stream cuda stream
-   * @param ld1 leading dimension of x1 (usually it is n1)
-   * @param ld2 leading dimension of x2 (usually it is n2)
-   * @param ld_out leading dimension of out (usually it is n1)
+   * @param[in]  x1     device array of vectors in column major format, size
+   *                    [n1*n_cols]
+   * @param[in]  n1     number vectors in x1
+   * @param[in]  n_cols number of colums (features) in x1 and x2
+   * @param[in]  x2     device array of vectors in column major format, size
+   *                    [n2*n_cols]
+   * @param[in]  n2     number vectors in x2
+   * @param[out] out    device buffer to store the Gram matrix in column major
+   *                    format, size [n1*n2]
+   * @param[in]  stream cuda stream
+   * @param      ld1    leading dimension of x1 (usually it is n1)
+   * @param      ld2    leading dimension of x2 (usually it is n2)
+   * @param      ld_out leading dimension of out (usually it is n1)
    */
   void linear(const math_t *x1, int n1, int n_cols, const math_t *x2, int n2,
               math_t *out, cudaStream_t stream, int ld1, int ld2, int ld_out) {
@@ -132,19 +133,19 @@ class GramMatrixBase {
    *
    * Can be used as a building block for more complex kernel functions.
    *
-   * @param [in] x1 device array of vectors in column major format,
-   *  size [n1*n_cols]
-   * @param [in] n1 number vectors in x1
-   * @param [in] n_cols number of columns (features) in x1 and x2
-   * @param [in] x2 device array of vectors in column major format,
-   *   size [n2*n_cols]
-   * @param [in] n2 number vectors in x2
-   * @param [out] out device buffer to store the Gram matrix in column major
-   *   format, size [n1*n2]
-   * @param [in] stream cuda stream
-   * @param ld1 leading dimension of x1 (usually it is n1)
-   * @param ld2 leading dimension of x2 (usually it is n2)
-   * @param ld_out leading dimension of out (usually it is n1)
+   * @param[in]  x1     device array of vectors in column major format, size
+   *                    [n1*n_cols]
+   * @param[in]  n1     number vectors in x1
+   * @param[in]  n_cols number of columns (features) in x1 and x2
+   * @param[in]  x2     device array of vectors in column major format, size
+   *                    [n2*n_cols]
+   * @param[in]  n2     number vectors in x2
+   * @param[out] out    device buffer to store the Gram matrix in column major
+   *                    format, size [n1*n2]
+   * @param[in]  stream cuda stream
+   * @param      ld1    leading dimension of x1 (usually it is n1)
+   * @param      ld2    leading dimension of x2 (usually it is n2)
+   * @param      ld_out leading dimension of out (usually it is n1)
    */
   virtual void distance(const math_t *x1, int n1, int n_cols, const math_t *x2,
                         int n2, math_t *out, cudaStream_t stream, int ld1,

@@ -25,18 +25,25 @@
 // This file is a shameless amalgamation of independent works done by
 // Lars Nyland and Andy Adinets
 
-///@todo: add cub's histogram as another option
+////////////////////////////////////////////////////////////////////////////////
+// @todo : add cub's histogram as another option                              //
+////////////////////////////////////////////////////////////////////////////////
 
 namespace MLCommon {
 namespace Stats {
 
-/** Default mapper which just returns the value of the data itself */
+/** Default mapper which just returns the value of the data itself
+ *
+ * @tparam DataT { description }
+ * @tparam IdxT  { description }
+ */
 template <typename DataT, typename IdxT>
 struct IdentityBinner {
   DI int operator()(DataT val, IdxT row, IdxT col) { return int(val); }
 };
 
-/** Types of support histogram implementations */
+/** Types of support histogram implementations
+ */
 enum HistType {
   /** shared mem atomics but with bins to be 1b int's */
   HistTypeSmemBits1 = 1,
@@ -314,7 +321,22 @@ DI void flushHashTable(int2* ht, int hashSize, int* bins, int nbins, int col) {
 }
 #undef INVALID_KEY
 
-///@todo: honor VecLen template param
+////////////////////////////////////////////////////////////////////////////////
+// @todo : honor VecLen template param                                        //
+//                                                                            //
+// @brief { function_description }                                            //
+//                                                                            //
+// @param     bins      The bins                                              //
+// @param[in] data      The data                                              //
+// @param[in] nrows     The nrows                                             //
+// @param[in] nbins     The nbins                                             //
+// @param[in] binner    The binner                                            //
+// @param[in] hashSize  The hash size                                         //
+// @param[in] threshold The threshold                                         //
+//                                                                            //
+// @tparam DataT  { description }                                             //
+// @tparam VecLen { description }                                             //
+////////////////////////////////////////////////////////////////////////////////
 template <typename DataT, typename BinnerOp, typename IdxT, int VecLen>
 __global__ void smemHashHistKernel(int* bins, const DataT* data, IdxT nrows,
                                    IdxT nbins, BinnerOp binner, int hashSize,
@@ -478,21 +500,23 @@ HistType selectBestHistAlgo(IdxT nbins) {
 
 /**
  * @brief Perform histogram on the input data. It chooses the right load size
- * based on the input data vector length. It also supports large-bin cases
- * using a specialized smem-based hashing technique.
- * @tparam DataT input data type
- * @tparam IdxT data type used to compute indices
- * @tparam BinnerOp takes the input data and computes its bin index
- * @param type histogram implementation type to choose
- * @param bins the output bins (length = ncols * nbins)
- * @param nbins number of bins
- * @param data input data (length = ncols * nrows)
- * @param nrows data array length in each column (or batch)
- * @param ncols number of columsn (or batch size)
+ *        based on the input data vector length. It also supports large-bin
+ *        cases using a specialized smem-based hashing technique.
+ *
+ * @param type   histogram implementation type to choose
+ * @param bins   the output bins (length = ncols * nbins)
+ * @param nbins  number of bins
+ * @param data   input data (length = ncols * nrows)
+ * @param nrows  data array length in each column (or batch)
+ * @param ncols  number of columsn (or batch size)
  * @param stream cuda stream
  * @param binner the operation that computes the bin index of the input data
  *
  * @note signature of BinnerOp is `int func(DataT, IdxT);`
+ *
+ * @tparam DataT input data type
+ * @tparam IdxT     data type used to compute indices
+ * @tparam BinnerOp takes the input data and computes its bin index
  */
 template <typename DataT, typename IdxT = int,
           typename BinnerOp = IdentityBinner<DataT, IdxT>>

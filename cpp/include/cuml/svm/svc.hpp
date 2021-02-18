@@ -53,7 +53,7 @@ void svcFit(const raft::handle_t &handle, math_t *input, int n_rows, int n_cols,
             svmModel<math_t> &model, const math_t *sample_weight = nullptr);
 
 /**
- * @brief Predict classes or decision function value for samples in input.
+ * Predict classes or decision function value for samples in input.
  *
  * We evaluate the decision function f(x_i). Depending on the parameter
  * predict_class, we either return f(x_i) or the label corresponding to
@@ -97,7 +97,7 @@ template <typename math_t>
 void svmFreeBuffers(const raft::handle_t &handle, svmModel<math_t> &m);
 
 /**
- * @brief C-Support Vector Classification
+ * C-Support Vector Classification
  *
  * This is a Scikit-Learn like wrapper around the stateless C++ functions.
  * See Issue #456 for general discussion about stateful Sklearn like wrappers.

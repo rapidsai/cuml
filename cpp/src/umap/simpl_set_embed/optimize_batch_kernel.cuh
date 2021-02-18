@@ -29,6 +29,16 @@ using namespace ML;
 
 /**
  * Calculate the squared distance between two vectors of size n
+ *
+ * @param[in] X     { parameter_description }
+ * @param[in] Y     { parameter_description }
+ * @param[in] n     { parameter_description }
+ *
+ * @tparam T     { description }
+ * @tparam T2    { description }
+ *
+ * @return { description_of_the_return_value }
+ *
  * @{
  */
 template <typename T, typename T2>
@@ -52,7 +62,7 @@ DI T2 rdist(const T (&X)[LEN], const T (&Y)[LEN]) {
 }
 /** @} */
 
-/**
+/*
  * Clip a value to within a lower and upper bound
  */
 template <typename T2>
@@ -60,7 +70,7 @@ DI T2 clip(T2 val, T2 lb, T2 ub) {
   return min(max(val, lb), ub);
 }
 
-/**
+/*
  * Calculate the repulsive gradient
  */
 template <typename T2>
@@ -71,7 +81,7 @@ DI T2 repulsive_grad(T2 dist_squared, T2 gamma, UMAPParams params) {
   return grad_coeff;
 }
 
-/**
+/*
  * Calculate the attractive gradient
  */
 template <typename T2>
@@ -97,7 +107,7 @@ __global__ void optimize_batch_kernel_reg(
   if (_epoch_of_next_sample > epoch) return;
   auto _epochs_per_sample = epochs_per_sample[row];
   auto epochs_per_negative_sample = _epochs_per_sample * nsr_inv;
-  /**
+  /*
    * Positive sample stage (attractive forces)
    */
   int j = head[row];
@@ -116,7 +126,7 @@ __global__ void optimize_batch_kernel_reg(
   if (dist_squared > T2(0.0)) {
     attractive_grad_coeff = attractive_grad<T2>(dist_squared, params);
   }
-  /**
+  /*
    * Apply attractive force between `current` and `other`
    * by updating their 'weights' to place them relative
    * to their weight in the 1-skeleton.
@@ -146,7 +156,7 @@ __global__ void optimize_batch_kernel_reg(
   auto _epoch_of_next_negative_sample = epoch_of_next_negative_sample[row];
   int n_neg_samples =
     int(T(epoch - _epoch_of_next_negative_sample) / epochs_per_negative_sample);
-  /**
+  /*
    * Negative sampling stage
    */
   raft::random::detail::PhiloxGenerator gen((uint64_t)seed, (uint64_t)row, 0);
@@ -166,7 +176,7 @@ __global__ void optimize_batch_kernel_reg(
       repulsive_grad_coeff = repulsive_grad<T2>(dist_squared, gamma, params);
     } else if (j == t)
       continue;
-    /**
+    /*
      * Apply repulsive force between `current` and `other`
      * (which has been negatively sampled) by updating
      * their 'weights' to push them farther in Euclidean space.
@@ -212,7 +222,7 @@ __global__ void optimize_batch_kernel(
   if (_epoch_of_next_sample > epoch) return;
   auto _epochs_per_sample = epochs_per_sample[row];
   auto epochs_per_negative_sample = _epochs_per_sample * nsr_inv;
-  /**
+  /*
    * Positive sample stage (attractive forces)
    */
   int j = head[row];
@@ -234,7 +244,7 @@ __global__ void optimize_batch_kernel(
   if (dist_squared > T2(0.0)) {
     attractive_grad_coeff = attractive_grad<T2>(dist_squared, params);
   }
-  /**
+  /*
    * Apply attractive force between `current` and `other`
    * by updating their 'weights' to place them relative
    * to their weight in the 1-skeleton.
@@ -282,7 +292,7 @@ __global__ void optimize_batch_kernel(
   auto _epoch_of_next_negative_sample = epoch_of_next_negative_sample[row];
   int n_neg_samples =
     int(T(epoch - _epoch_of_next_negative_sample) / epochs_per_negative_sample);
-  /**
+  /*
    * Negative sampling stage
    */
   raft::random::detail::PhiloxGenerator gen((uint64_t)seed, (uint64_t)row, 0);
@@ -298,7 +308,7 @@ __global__ void optimize_batch_kernel(
       repulsive_grad_coeff = repulsive_grad<T2>(dist_squared, gamma, params);
     } else if (j == t)
       continue;
-    /**
+    /*
      * Apply repulsive force between `current` and `other`
      * (which has been negatively sampled) by updating
      * their 'weights' to push them farther in Euclidean space.

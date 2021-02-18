@@ -141,7 +141,7 @@ class KernelCache {
   ~KernelCache(){};
 
   /**
-   * @brief Get all the kernel matrix rows for the working set.
+   * Get all the kernel matrix rows for the working set.
    *
    * The kernel matrix is stored in column major format:
    * kernel[row_id, col_id] = kernel[row_id + col_id * n_rows]
@@ -161,7 +161,7 @@ class KernelCache {
    * \f[ x_{n_rows+i} = x_i for i \in [0..n_rows-1]. \f]
    *
    * The kernel matrix values are the same for x_i and x_{i+n_rows}, therefore
-   * we store only kernel[row_id, col_id] for \f[ row_id \in [0..n_rows]. \f]
+   * we store only kernel[row_id, col_id] for \f$ row_id \in [0..n_rows]. \f$
    *
    * Similarly, it can happen that two elements in the working set have the
    * same x vector. For example, if n_rows=10, then for ws = [5, 19, 15 0], the
@@ -226,28 +226,29 @@ class KernelCache {
     return tile.data();
   }
 
-  /** Map workspace indices to kernel matrix indices.
-  *
-  * The kernel matrix is matrix of K[i+j*n_rows] = K(x_i, x_j), where
-  * \f[ i \in [0..n_rows-1], and j=[0..n_unique-1] \f]
-  *
-  * The SmoBlockSolver needs to know where to find the kernel values that
-  * correspond to vectors in the working set. Vector ws[i] corresponds to column
-  * GetIdxMap()[i] in the kernel matrix.
-  *
-  * For SVC: GetIdxMap() == [0, 1, 2, ..., n_ws-1].
-  *
-  * SVR Example: n_rows = 3, n_train = 6, n_ws=4, ws_idx = [5 0 2 3]
-  * Note that we have only two unique x vector in the training set:
-  * ws_idx % n_rows = [2 0 2 0]
-  *
-  * To avoid redundant calculations, we just calculate the kernel values for the
-  * unique elements from the working set: unique_idx = [0 2] , n_unique = 2, so
-  * GetIdxMap() == [1 0 1 0].
-  *
-  * @return device array of index map size [n_ws], the array is owned by
-  *   KernelCache
-  */
+  /** 
+   * Map workspace indices to kernel matrix indices.
+   *
+   * The kernel matrix is matrix of K[i+j*n_rows] = K(x_i, x_j), where
+   * \f[ i \in [0..n_rows-1], and j=[0..n_unique-1] \f]
+   *
+   * The SmoBlockSolver needs to know where to find the kernel values that
+   * correspond to vectors in the working set. Vector ws[i] corresponds to column
+   * GetIdxMap()[i] in the kernel matrix.
+   *
+   * For SVC: GetIdxMap() == [0, 1, 2, ..., n_ws-1].
+   *
+   * SVR Example: n_rows = 3, n_train = 6, n_ws=4, ws_idx = [5 0 2 3]
+   * Note that we have only two unique x vector in the training set:
+   * ws_idx % n_rows = [2 0 2 0]
+   *
+   * To avoid redundant calculations, we just calculate the kernel values for the
+   * unique elements from the working set: unique_idx = [0 2] , n_unique = 2, so
+   * GetIdxMap() == [1 0 1 0].
+   *
+   * @return device array of index map size [n_ws], the array is owned by
+   *   KernelCache
+   */
   int *GetColIdxMap() {
     if (svmType == EPSILON_SVR) {
       mapColumnIndices<<<raft::ceildiv(n_ws, TPB), TPB, 0, stream>>>(

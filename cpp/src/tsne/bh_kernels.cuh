@@ -42,6 +42,13 @@ namespace TSNE {
 
 /**
  * Intializes the states of objects. This speeds the overall kernel up.
+ *
+ * @param limiter   The limiter
+ * @param maxdepthd The maxdepthd
+ * @param radiusd   The radiusd
+ *
+ * @tparam value_idx { description }
+ * @tparam value_t   { description }
  */
 template <typename value_idx, typename value_t>
 __global__ void InitializationKernel(/*int *restrict errd, */
@@ -56,6 +63,15 @@ __global__ void InitializationKernel(/*int *restrict errd, */
 
 /**
  * Reset normalization back to 0.
+ *
+ * @param     Z_norm          The z normalize
+ * @param     radiusd_squared The radiusd squared
+ * @param     bottomd         The bottomd
+ * @param[in] NNODES          The nnodes
+ * @param[in] radiusd         The radiusd
+ *
+ * @tparam value_idx { description }
+ * @tparam value_t   { description }
  */
 template <typename value_idx, typename value_t>
 __global__ void Reset_Normalization(value_t *restrict Z_norm,
@@ -71,6 +87,12 @@ __global__ void Reset_Normalization(value_t *restrict Z_norm,
 
 /**
  * Find 1/Z
+ *
+ * @param     Z_norm The z normalize
+ * @param[in] N      { parameter_description }
+ *
+ * @tparam value_idx { description }
+ * @tparam value_t   { description }
  */
 template <typename value_idx, typename value_t>
 __global__ void Find_Normalization(value_t *restrict Z_norm,
@@ -80,6 +102,24 @@ __global__ void Find_Normalization(value_t *restrict Z_norm,
 
 /**
  * Figures the bounding boxes for every point in the embedding.
+ *
+ * @param     startd      The startd
+ * @param     childd      The childd
+ * @param     massd       The massd
+ * @param     posxd       The posxd
+ * @param     posyd       The posyd
+ * @param     maxxd       The maxxd
+ * @param     maxyd       The maxyd
+ * @param     minxd       The minxd
+ * @param     minyd       The minyd
+ * @param[in] FOUR_NNODES Four nnodes
+ * @param[in] NNODES      The nnodes
+ * @param[in] N           { parameter_description }
+ * @param     limiter     The limiter
+ * @param     radiusd     The radiusd
+ *
+ * @tparam value_idx { description }
+ * @tparam value_t   { description }
  */
 template <typename value_idx, typename value_t>
 __global__ __launch_bounds__(THREADS1) void BoundingBoxKernel(
@@ -163,6 +203,12 @@ __global__ __launch_bounds__(THREADS1) void BoundingBoxKernel(
 
 /**
  * Clear some of the state vectors up.
+ *
+ * @param     childd      The childd
+ * @param[in] FOUR_NNODES Four nnodes
+ * @param[in] FOUR_N      Four n
+ *
+ * @tparam value_idx { description }
  */
 template <typename value_idx>
 __global__ __launch_bounds__(1024,
@@ -179,8 +225,20 @@ __global__ __launch_bounds__(1024,
 }
 
 /**
- * Build the actual QuadTree.
- * See: https://iss.oden.utexas.edu/Publications/Papers/burtscher11.pdf
+ * Build the actual QuadTree. See:
+ * https://iss.oden.utexas.edu/Publications/Papers/burtscher11.pdf
+ *
+ * @param     childd    The childd
+ * @param[in] posxd     The posxd
+ * @param[in] posyd     The posyd
+ * @param[in] NNODES    The nnodes
+ * @param[in] N         { parameter_description }
+ * @param     maxdepthd The maxdepthd
+ * @param     bottomd   The bottomd
+ * @param[in] radiusd   The radiusd
+ *
+ * @tparam value_idx { description }
+ * @tparam value_t   { description }
  */
 template <typename value_idx, typename value_t>
 __global__ __launch_bounds__(
@@ -317,6 +375,14 @@ __global__ __launch_bounds__(
 
 /**
  * Clean more state vectors.
+ *
+ * @param     startd  The startd
+ * @param     massd   The massd
+ * @param[in] NNODES  The nnodes
+ * @param[in] bottomd The bottomd
+ *
+ * @tparam value_idx { description }
+ * @tparam value_t   { description }
  */
 template <typename value_idx, typename value_t>
 __global__ __launch_bounds__(1024, 1) void ClearKernel2(
@@ -337,6 +403,18 @@ __global__ __launch_bounds__(1024, 1) void ClearKernel2(
 
 /**
  * Summarize the KD Tree via cell gathering
+ *
+ * @param     countd  The countd
+ * @param[in] childd  The childd
+ * @param     massd   The massd
+ * @param     posxd   The posxd
+ * @param     posyd   The posyd
+ * @param[in] NNODES  The nnodes
+ * @param[in] N       { parameter_description }
+ * @param[in] bottomd The bottomd
+ *
+ * @tparam value_idx { description }
+ * @tparam value_t   { description }
  */
 template <typename value_idx, typename value_t>
 __global__ __launch_bounds__(THREADS3, FACTOR3) void SummarizationKernel(
@@ -472,6 +550,16 @@ __global__ __launch_bounds__(THREADS3, FACTOR3) void SummarizationKernel(
 
 /**
  * Sort the cells
+ *
+ * @param     sortd   The sortd
+ * @param[in] countd  The countd
+ * @param     startd  The startd
+ * @param     childd  The childd
+ * @param[in] NNODES  The nnodes
+ * @param[in] N       { parameter_description }
+ * @param[in] bottomd The bottomd
+ *
+ * @tparam value_idx { description }
  */
 template <typename value_idx>
 __global__ __launch_bounds__(THREADS4, FACTOR4) void SortKernel(
@@ -519,6 +607,26 @@ __global__ __launch_bounds__(THREADS4, FACTOR4) void SortKernel(
 
 /**
  * Calculate the repulsive forces using the KD Tree
+ *
+ * @param[in] theta           The theta
+ * @param[in] epssqd          The epssqd
+ * @param[in] sortd           The sortd
+ * @param[in] childd          The childd
+ * @param[in] massd           The massd
+ * @param[in] posxd           The posxd
+ * @param[in] posyd           The posyd
+ * @param     velxd           The velxd
+ * @param     velyd           The velyd
+ * @param     Z_norm          The z normalize
+ * @param[in] theta_squared   The theta squared
+ * @param[in] NNODES          The nnodes
+ * @param[in] FOUR_NNODES     Four nnodes
+ * @param[in] N               { parameter_description }
+ * @param[in] radiusd_squared The radiusd squared
+ * @param[in] maxdepthd       The maxdepthd
+ *
+ * @tparam value_idx { description }
+ * @tparam value_t   { description }
  */
 template <typename value_idx, typename value_t>
 __global__ __launch_bounds__(
@@ -576,7 +684,8 @@ __global__ __launch_bounds__(
   // if (diff < 32)
   dq[diff + sbase] = dq[diff];
 
-  //__syncthreads();
+  //----------------------------------------------------------------------------
+  /// syncthreads();
   __threadfence_block();
 
   // iterate over all bodies assigned to thread
@@ -649,6 +758,18 @@ __global__ __launch_bounds__(
 
 /**
  * Fast attractive kernel. Uses COO matrix.
+ *
+ * @param[in] VAL      The val
+ * @param[in] COL      The col
+ * @param[in] ROW      The row
+ * @param[in] Y1       The y 1
+ * @param[in] Y2       The y 2
+ * @param     attract1 The attract 1
+ * @param     attract2 The attract 2
+ * @param[in] NNZ      The nnz
+ *
+ * @tparam value_idx { description }
+ * @tparam value_t   { description }
  */
 template <typename value_idx, typename value_t>
 __global__ void attractive_kernel_bh(
@@ -679,6 +800,25 @@ __global__ void attractive_kernel_bh(
 
 /**
  * Apply gradient updates.
+ *
+ * @param[in] eta          The eta
+ * @param[in] momentum     The momentum
+ * @param[in] exaggeration The exaggeration
+ * @param     Y1           The y 1
+ * @param     Y2           The y 2
+ * @param[in] attract1     The attract 1
+ * @param[in] attract2     The attract 2
+ * @param[in] repel1       The repel 1
+ * @param[in] repel2       The repel 2
+ * @param     gains1       The gains 1
+ * @param     gains2       The gains 2
+ * @param     old_forces1  The old forces 1
+ * @param     old_forces2  The old forces 2
+ * @param[in] Z            { parameter_description }
+ * @param[in] N            { parameter_description }
+ *
+ * @tparam value_idx { description }
+ * @tparam value_t   { description }
  */
 template <typename value_idx, typename value_t>
 __global__ __launch_bounds__(THREADS6, 1) void IntegrationKernel(

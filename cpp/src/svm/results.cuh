@@ -136,7 +136,7 @@ class Results {
   }
 
   /**
-   * @brief Combine alpha parameters and labels to get SVM coefficients.
+   * Combine alpha parameters and labels to get SVM coefficients.
    *
    * The output coefficients are the values that can be used directly
    * to calculate the decision function:

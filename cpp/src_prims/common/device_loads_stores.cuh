@@ -22,10 +22,13 @@ namespace MLCommon {
 
 /**
  * @defgroup SmemStores Shared memory store operations
- * @{
+ *
  * @brief Stores to shared memory (both vectorized and non-vectorized forms)
- * @param[out] addr shared memory address
- * @param[in]  x    data to be stored at this address
+ *
+ * @param[out] addr  shared memory address
+ * @param[in]  x     data to be stored at this address
+ *
+ * @{
  */
 DI void sts(float* addr, const float& x) { *addr = x; }
 DI void sts(float* addr, const float (&x)[1]) { *addr = x[0]; }
@@ -50,10 +53,13 @@ DI void sts(double* addr, const double (&x)[2]) {
 
 /**
  * @defgroup SmemLoads Shared memory load operations
- * @{
+ *
  * @brief Loads from shared memory (both vectorized and non-vectorized forms)
- * @param[out] x    the data to be loaded
- * @param[in]  addr shared memory address from where to load
+ *
+ * @param[out] x     the data to be loaded
+ * @param[in]  addr  shared memory address from where to load
+ *
+ * @{
  */
 DI void lds(float& x, float* addr) { x = *addr; }
 DI void lds(float (&x)[1], float* addr) { x[0] = *addr; }
@@ -83,10 +89,13 @@ DI void lds(double (&x)[2], double* addr) {
 
 /**
  * @defgroup GlobalLoads Global cached load operations
- * @{
+ *
  * @brief Load from global memory with caching at L1 level
- * @param[out] x    data to be loaded from global memory
- * @param[in]  addr address in global memory from where to load
+ *
+ * @param[out] x     data to be loaded from global memory
+ * @param[in]  addr  address in global memory from where to load
+ *
+ * @{
  */
 DI void ldg(float& x, const float* addr) {
   asm volatile("ld.global.cg.f32 %0, [%1];" : "=f"(x) : "l"(addr));

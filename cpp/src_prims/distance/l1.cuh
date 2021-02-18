@@ -24,23 +24,25 @@ namespace MLCommon {
 namespace Distance {
 
 /**
- * @brief the unexpanded L1 distance matrix calculation
- *  It computes the following equation: cij = op(ai-bj)
- * @tparam InType input data-type (for A and B matrices)
- * @tparam AccType accumulation data-type
- * @tparam OutType output data-type (for C and D matrices)
- * @tparam OutputTile_ output tile size for the thread block
- * @tparam FinalLambda user-defined epilogue lamba
- * @tparam Index_ Index type
- * @param m number of rows of A and C/D
- * @param n number of columns of B and C/D
- * @param k number of cols of A and rows of B
- * @param pA input matrix
- * @param pB input matrix
- * @param pD output matrix
- * @param fin_op the final element-wise epilogue lambda
- * @param stream cuda stream where to launch work
+ * @brief the unexpanded L1 distance matrix calculation It computes the
+ *        following equation: cij = op(ai-bj)
+ *
+ * @param m          number of rows of A and C/D
+ * @param n          number of columns of B and C/D
+ * @param k          number of cols of A and rows of B
+ * @param pA         input matrix
+ * @param pB         input matrix
+ * @param pD         output matrix
+ * @param fin_op     the final element-wise epilogue lambda
+ * @param stream     cuda stream where to launch work
  * @param isRowMajor whether the input and output matrices are row major
+ *
+ * @tparam InType      input data-type (for A and B matrices)
+ * @tparam AccType     accumulation data-type
+ * @tparam OutType     output data-type (for C and D matrices)
+ * @tparam OutputTile_ output tile size for the thread block
+ * @tparam Index_      Index type
+ * @tparam FinalLambda user-defined epilogue lamba
  */
 template <typename InType, typename AccType, typename OutType,
           typename OutputTile_, typename FinalLambda, typename Index_ = int>

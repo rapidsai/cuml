@@ -50,11 +50,11 @@ namespace Batched {
 /**
  * Kernel to construct batched CSR sparse matrices from batched dense matrices
  *
- * @note This kernel is intended to give decent performance for large batches
- *       of small matrices. For larger matrices you might want to store a COO
+ * @note This kernel is intended to give decent performance for large batches of
+ *       small matrices. For larger matrices you might want to store a COO
  *       representation of the matrices and assign threads to the non-zero
  *       elements of each matrix
- * 
+ *
  * @param[in]  dense      Batched dense matrices. Size: m * n * batch_size
  * @param[in]  col_index  CSR column index.       Size: nnz
  * @param[in]  row_index  CSR row index.          Size: m + 1
@@ -63,6 +63,8 @@ namespace Batched {
  * @param[in]  m          Number of rows per matrix
  * @param[in]  n          Number of columns per matrix
  * @param[in]  nnz        Number of non-zero elements in each matrix
+ *
+ * @tparam T     { description }
  */
 template <typename T>
 static __global__ void dense_to_csr_kernel(const T* dense, const int* col_index,
@@ -84,10 +86,10 @@ static __global__ void dense_to_csr_kernel(const T* dense, const int* col_index,
 
 /**
  * Kernel to construct batched dense matrices from batched CSR sparse matrices
- * 
- * @note This kernel is intended to give decent performance for large batches
- *       of small matrices.
- * 
+ *
+ * @note This kernel is intended to give decent performance for large batches of
+ *       small matrices.
+ *
  * @param[out] dense      Batched dense matrices. Size: m * n * batch_size
  * @param[in]  col_index  CSR column index.       Size: nnz
  * @param[in]  row_index  CSR row index.          Size: m + 1
@@ -96,6 +98,8 @@ static __global__ void dense_to_csr_kernel(const T* dense, const int* col_index,
  * @param[in]  m          Number of rows per matrix
  * @param[in]  n          Number of columns per matrix
  * @param[in]  nnz        Number of non-zero elements in each matrix
+ *
+ * @tparam T     { description }
  */
 template <typename T>
 static __global__ void csr_to_dense_kernel(T* dense, const int* col_index,
@@ -116,20 +120,22 @@ static __global__ void csr_to_dense_kernel(T* dense, const int* col_index,
 }
 
 /**
- * @brief The Batched::CSR class provides storage and a few operations for
- *        a batch of matrices in Compressed Sparse Row representation, that
- *        share a common structure (index arrays) but different values.
- * 
- * @note Most of the operations are asynchronous, using the stream that
- *       is given in the constructor (or, if constructing from a dense matrix,
- *       the stream attached to this matrix)
+ * @brief The Batched::CSR class provides storage and a few operations for a
+ *        batch of matrices in Compressed Sparse Row representation, that share
+ *        a common structure (index arrays) but different values.
+ *
+ * @note Most of the operations are asynchronous, using the stream that is given
+ *       in the constructor (or, if constructing from a dense matrix, the stream
+ *       attached to this matrix)
+ *
+ * @tparam T     { description }
  */
 template <typename T>
 class CSR {
  public:
   /**
    * @brief Constructor that leaves the matrix uninitialized
-   * 
+   *
    * @param[in] m                Number of rows per matrix
    * @param[in] n                Number of columns per matrix
    * @param[in] nnz              Number of non-zero elements per matrix
@@ -154,9 +160,13 @@ class CSR {
       m_row_index(allocator, stream, m + 1) {}
 
   //! Destructor: nothing to destroy explicitely
+  //!
   ~CSR() {}
 
   //! Copy constructor
+  //!
+  //! @param[in] other The other
+  //!
   CSR(const CSR<T>& other)
     : m_batch_size(other.m_batch_size),
       m_allocator(other.m_allocator),
@@ -178,6 +188,11 @@ class CSR {
   }
 
   //! Copy assignment operator
+  //!
+  //! @param[in] other The other
+  //!
+  //! @return The result of the assignment
+  //!
   CSR<T>& operator=(const CSR<T>& other) {
     m_batch_size = other.m_batch_size;
     m_shape = other.m_shape;
@@ -199,15 +214,17 @@ class CSR {
 
   /**
    * @brief Construct from a dense batched matrix and its mask
-   * 
-   * @param[in]  dense  Dense batched matrix
-   * @param[in]  mask   Col-major host device matrix containing a mask of the
-   *                    non-zero values common to all matrices in the batch.
-   *                    Note: the point of using a mask is that some values
-   *                    might be zero in a few matrices but not generally in
-   *                    the batch so we shouldn't rely on a single matrix to
-   *                    get the mask
+   *
+   * @param[in] dense            Dense batched matrix
+   * @param[in] mask             Col-major host device matrix containing a mask
+   *                             of the non-zero values common to all matrices
+   *                             in the batch. Note: the point of using a mask
+   *                             is that some values might be zero in a few
+   *                             matrices but not generally in the batch so we
+   *                             shouldn't rely on a single matrix to get the
+   *                             mask
    * @param[in] cusolverSpHandle cusolver sparse handle
+   *
    * @return Batched CSR matrix
    */
   static CSR<T> from_dense(const LinAlg::Batched::Matrix<T>& dense,
@@ -252,7 +269,7 @@ class CSR {
 
   /**
    * @brief Construct a dense batched matrix
-   * 
+   *
    * @return Batched::Matrix representing the same data as this object
    */
   LinAlg::Batched::Matrix<T> to_dense() {
@@ -272,35 +289,65 @@ class CSR {
   }
 
   //! Return batch size
+  //!
+  //! @return { description_of_the_return_value }
+  //!
   size_t batches() const { return m_batch_size; }
 
   //! Return number of non-zero elements
+  //!
+  //! @return { description_of_the_return_value }
+  //!
   size_t nnz() const { return m_nnz; }
 
   //! Return cublas handle
+  //!
+  //! @return The cublas handle.
+  //!
   cublasHandle_t cublasHandle() const { return m_cublasHandle; }
 
   //! Return cusolver sparse handle
+  //!
+  //! @return The cusolver sp handle.
+  //!
   cusolverSpHandle_t cusolverSpHandle() const { return m_cusolverSpHandle; }
 
   //! Return allocator
+  //!
+  //! @return { description_of_the_return_value }
+  //!
   std::shared_ptr<deviceAllocator> allocator() const { return m_allocator; }
 
   //! Return stream
+  //!
+  //! @return The cuda stream.
+  //!
   cudaStream_t stream() const { return m_stream; }
 
   //! Return shape
+  //!
+  //! @return { description_of_the_return_value }
+  //!
   const std::pair<int, int>& shape() const { return m_shape; }
 
   //! Return values array
+  //!
+  //! @return The values.
+  //!
   T* get_values() { return m_values.data(); }
   const T* get_values() const { return m_values.data(); }
 
   //! Return columns index array
+  //!
+  //! @return The col index.
+  //!
   int* get_col_index() { return m_col_index.data(); }
   const int* get_col_index() const { return m_col_index.data(); }
 
   //! Return rows index array
+  //!
+  //! @return The row index.
+  //!
   int* get_row_index() { return m_row_index.data(); }
   const int* get_row_index() const { return m_row_index.data(); }
 
@@ -330,23 +377,23 @@ class CSR {
 };
 
 /**
- * Kernel to compute a batched SpMV: alpha*A*x + beta*y
- * (where A is a sparse matrix, x and y dense vectors)
- * 
- * @note One thread per batch (this is intended for very large batches)
- *       Rows don't have the same number of non-zero elements, so an approach
- *       to parallelize on the rows would lead to divergence
- * 
- * @param[in]     alpha        Scalar alpha
- * @param[in]     A_col_index  CSR column index of batched matrix A
- * @param[in]     A_row_index  CSR row index of batched matrix A
- * @param[in]     A_values     Values of the non-zero elements of A
- * @param[in]     x            Dense vector x
- * @param[in]     beta         Scalar beta
- * @param[in,out] y            Dense vector y
- * @param[in]     m            Number of rows of A
- * @param[in]     n            Number of columns of A
- * @param[in]     batch_size   Number of individual matrices in the batch
+ * Kernel to compute a batched SpMV: alpha*A*x + beta*y (where A is a sparse
+ * matrix, x and y dense vectors)
+ *
+ * @note One thread per batch (this is intended for very large batches) Rows
+ *       don't have the same number of non-zero elements, so an approach to
+ *       parallelize on the rows would lead to divergence
+ *
+ * @param[in]     alpha       Scalar alpha
+ * @param[in]     A_col_index CSR column index of batched matrix A
+ * @param[in]     A_row_index CSR row index of batched matrix A
+ * @param[in]     A_values    Values of the non-zero elements of A
+ * @param[in]     x           Dense vector x
+ * @param[in]     beta        Scalar beta
+ * @param[in,out] y           Dense vector y
+ * @param[in]     m           Number of rows of A
+ * @param[in]     n           Number of columns of A
+ * @param[in]     batch_size  Number of individual matrices in the batch
  */
 template <typename T>
 __global__ void batched_spmv_kernel(T alpha, const int* A_col_index,
@@ -370,18 +417,18 @@ __global__ void batched_spmv_kernel(T alpha, const int* A_col_index,
 }
 
 /**
- * Compute a batched SpMV: alpha*A*x + beta*y
- * (where A is a sparse matrix, x and y dense vectors)
- * 
- * @note Not supporting transpose yet for simplicity as it isn't needed
- *       Also currently the strides between batched vectors are assumed to
- *       be exactly the dimensions of the problem
- * 
- * @param[in]     alpha  Scalar alpha
- * @param[in]     A      Batched sparse matrix (CSR)
- * @param[in]     x      Batched dense vector x
- * @param[in]     beta   Scalar beta
- * @param[in,out] y      Batched dense vector y
+ * Compute a batched SpMV: alpha*A*x + beta*y (where A is a sparse matrix, x and
+ * y dense vectors)
+ *
+ * @note Not supporting transpose yet for simplicity as it isn't needed Also
+ *       currently the strides between batched vectors are assumed to be exactly
+ *       the dimensions of the problem
+ *
+ * @param[in]     alpha Scalar alpha
+ * @param[in]     A     Batched sparse matrix (CSR)
+ * @param[in]     x     Batched dense vector x
+ * @param[in]     beta  Scalar beta
+ * @param[in,out] y     Batched dense vector y
  */
 template <typename T>
 void b_spmv(T alpha, const CSR<T>& A, const LinAlg::Batched::Matrix<T>& x,
@@ -410,11 +457,11 @@ void b_spmv(T alpha, const CSR<T>& A, const LinAlg::Batched::Matrix<T>& x,
 }
 
 /**
- * Kernel to compute a batched SpMM: alpha*A*B + beta*C
- * (where A is a sparse matrix, B and C dense matrices)
- * 
+ * Kernel to compute a batched SpMM: alpha*A*B + beta*C (where A is a sparse
+ * matrix, B and C dense matrices)
+ *
  * @note Parallelized over the batch and the columns of individual matrices
- * 
+ *
  * @param[in]     alpha           Scalar alpha
  * @param[in]     A_col_index     CSR column index of batched matrix A
  * @param[in]     A_row_index     CSR row index of batched matrix A
@@ -456,23 +503,23 @@ __global__ void batched_spmm_kernel(T alpha, const int* A_col_index,
 }
 
 /**
- * Kernel to compute a batched SpMM: alpha*A*B + beta*C
- * (where A is a sparse matrix, B and C dense matrices)
- * 
- * @note: this is more performant when the matrices are large enough and
- *        assuming that almost all elements of B need to be read
- * 
- * @param[in]     alpha           Scalar alpha
- * @param[in]     A_col_index     CSR column index of batched matrix A
- * @param[in]     A_row_index     CSR row index of batched matrix A
- * @param[in]     A_values        Values of the non-zero elements of A
- * @param[in]     B               Dense matrix B
- * @param[in]     beta            Scalar beta
- * @param[in,out] C               Dense matrix C
- * @param[in]     m               Number of rows of A and C
- * @param[in]     k               Number of columns of A, rows of B
- * @param[in]     n               Number of columns of B and C
- * @param[in]     nnz             Number of non-zero elements per matrix
+ * Kernel to compute a batched SpMM: alpha*A*B + beta*C (where A is a sparse
+ * matrix, B and C dense matrices)
+ *
+ * @note : this is more performant when the matrices are large enough and
+ *       assuming that almost all elements of B need to be read
+ *
+ * @param[in]     alpha       Scalar alpha
+ * @param[in]     A_col_index CSR column index of batched matrix A
+ * @param[in]     A_row_index CSR row index of batched matrix A
+ * @param[in]     A_values    Values of the non-zero elements of A
+ * @param[in]     B           Dense matrix B
+ * @param[in]     beta        Scalar beta
+ * @param[in,out] C           Dense matrix C
+ * @param[in]     m           Number of rows of A and C
+ * @param[in]     k           Number of columns of A, rows of B
+ * @param[in]     n           Number of columns of B and C
+ * @param[in]     nnz         Number of non-zero elements per matrix
  */
 template <typename T>
 __global__ void batched_spmm_kernel_shared_mem(T alpha, const int* A_col_index,
@@ -523,12 +570,12 @@ __global__ void batched_spmm_kernel_shared_mem(T alpha, const int* A_col_index,
 }
 
 /**
- * Compute a batched SpMM: alpha*A*B + beta*C
- * (where A is a sparse matrix, B and C dense matrices)
- * 
- * @note Not supporting transpose yet for simplicity as it isn't needed
- *       Also not supporting leading dim different than the problem dimensions
- * 
+ * Compute a batched SpMM: alpha*A*B + beta*C (where A is a sparse matrix, B and
+ * C dense matrices)
+ *
+ * @note Not supporting transpose yet for simplicity as it isn't needed Also not
+ *       supporting leading dim different than the problem dimensions
+ *
  * @param[in]    alpha          Scalar alpha
  * @param[in]    A              Batched sparse matrix (CSR)
  * @param[in]    B              Batched dense matrix B

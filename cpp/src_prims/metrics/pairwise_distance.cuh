@@ -26,22 +26,24 @@ namespace Metrics {
 
 /**
  * @brief Function to calculate the distance between each ij pair in the input
-          array
+ *        array
+ *
+ * @param x          pointer to the input data samples array (mRows x kCols)
+ * @param y          pointer to the second input data samples array. Can use the
+ *                   same pointer as x (nRows x kCols)
+ * @param dist       output pointer where the results will be stored (mRows x
+ *                   nCols)
+ * @param m          number of rows in x
+ * @param n          number of rows in y
+ * @param k          number of cols in x and y (must be the same)
+ * @param metric     the distance metric to use for the calculation
+ * @param allocator  default allocator to allocate device memory
+ * @param stream     the cuda stream where to launch this kernel
+ * @param isRowMajor specifies whether the x and y data pointers are row (C type
+ *                   array) or col (F type array) major
  *
  * @tparam DataT type of the data samples
  * @tparam IndexT typeof the index
- * @param x pointer to the input data samples array (mRows x kCols)
- * @param y pointer to the second input data samples array. Can use the same
- *          pointer as x (nRows x kCols)
- * @param dist output pointer where the results will be stored (mRows x nCols)
- * @param m number of rows in x
- * @param n number of rows in y
- * @param k number of cols in x and y (must be the same)
- * @param metric the distance metric to use for the calculation
- * @param allocator default allocator to allocate device memory
- * @param stream the cuda stream where to launch this kernel
- * @param isRowMajor specifies whether the x and y data pointers are row (C
- *                   type array) or col (F type array) major
  */
 template <typename DataT, typename IndexT>
 void pairwise_distance(const DataT *x, const DataT *y, DataT *dist, IndexT m,

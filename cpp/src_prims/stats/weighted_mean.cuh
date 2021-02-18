@@ -26,13 +26,14 @@ namespace Stats {
 /**
  * @brief Compute the row-wise weighted mean of the input matrix
  *
- * @tparam Type the data type
- * @param mu the output mean vector
- * @param data the input matrix (assumed to be row-major)
+ * @param mu      the output mean vector
+ * @param data    the input matrix (assumed to be row-major)
  * @param weights per-column means
- * @param D number of columns of data
- * @param N number of rows of data
- * @param stream cuda stream to launch work on
+ * @param D       number of columns of data
+ * @param N       number of rows of data
+ * @param stream  cuda stream to launch work on
+ *
+ * @tparam Type  the data type
  */
 template <typename Type>
 void rowWeightedMean(Type *mu, const Type *data, const Type *weights, int D,
@@ -52,13 +53,14 @@ void rowWeightedMean(Type *mu, const Type *data, const Type *weights, int D,
 /**
  * @brief Compute the column-wise weighted mean of the input matrix
  *
- * @tparam Type the data type
- * @param mu the output mean vector
- * @param data the input matrix (assumed to be column-major)
+ * @param mu      the output mean vector
+ * @param data    the input matrix (assumed to be column-major)
  * @param weights per-column means
- * @param D number of columns of data
- * @param N number of rows of data
- * @param stream cuda stream to launch work on
+ * @param D       number of columns of data
+ * @param N       number of rows of data
+ * @param stream  cuda stream to launch work on
+ *
+ * @tparam Type  the data type
  */
 template <typename Type>
 void colWeightedMean(Type *mu, const Type *data, const Type *weights, int D,

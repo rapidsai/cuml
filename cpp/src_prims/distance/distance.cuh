@@ -119,19 +119,23 @@ struct DistanceImpl<raft::distance::DistanceType::L1, InType, AccType, OutType,
 
 /**
  * @brief Return the exact workspace size to compute the distance
- * @tparam DistanceType which distance to evaluate
- * @tparam InType input argument type
- * @tparam AccType accumulation type
- * @tparam OutType output type
- * @tparam Index_ Index type
- * @param x first set of points
- * @param y second set of points
- * @param m number of points in x
- * @param n number of points in y
- * @param k dimensionality
+ *
+ * @param x     first set of points
+ * @param y     second set of points
+ * @param m     number of points in x
+ * @param n     number of points in y
+ * @param k     dimensionality
  *
  * @note If the specifed distanceType doesn't need the workspace at all, it
- * returns 0.
+ *       returns 0.
+ *
+ * @tparam distanceType which distance to evaluate
+ * @tparam InType       input argument type
+ * @tparam AccType      accumulation type
+ * @tparam OutType      output type
+ * @tparam Index_ Index type
+ *
+ * @return The workspace size.
  */
 template <raft::distance::DistanceType distanceType, typename InType,
           typename AccType, typename OutType, typename Index_ = int>
@@ -156,28 +160,32 @@ size_t getWorkspaceSize(const InType *x, const InType *y, Index_ m, Index_ n,
 
 /**
  * @brief Evaluate pairwise distances with the user epilogue lamba allowed
- * @tparam DistanceType which distance to evaluate
- * @tparam InType input argument type
- * @tparam AccType accumulation type
- * @tparam OutType output type
- * @tparam FinalLambda user-defined epilogue lamba
- * @tparam Index_ Index type
- * @param x first set of points
- * @param y second set of points
- * @param dist output distance matrix
- * @param m number of points in x
- * @param n number of points in y
- * @param k dimensionality
- * @param workspace temporary workspace needed for computations
- * @param worksize number of bytes of the workspace
- * @param fin_op the final gemm epilogue lambda
- * @param stream cuda stream
+ *
+ * @param x          first set of points
+ * @param y          second set of points
+ * @param dist       output distance matrix
+ * @param m          number of points in x
+ * @param n          number of points in y
+ * @param k          dimensionality
+ * @param workspace  temporary workspace needed for computations
+ * @param worksize   number of bytes of the workspace
+ * @param fin_op     the final gemm epilogue lambda
+ * @param stream     cuda stream
  * @param isRowMajor whether the matrices are row-major or col-major
  *
  * @note fin_op: This is a device lambda which is supposed to operate upon the
- * input which is AccType and returns the output in OutType. It's signature is
- * as follows:  <pre>OutType fin_op(AccType in, int g_idx);</pre>. If one needs
- * any other parameters, feel free to pass them via closure.
+ *       input which is AccType and returns the output in OutType. It's
+ *       signature is as follows:  <pre>OutType fin_op(AccType in, int
+ *       g_idx);</pre>. If one needs any other parameters, feel free to pass
+ *       them via closure.
+ *
+ * @tparam distanceType which distance to evaluate
+ * @tparam InType       input argument type
+ * @tparam AccType      accumulation type
+ * @tparam OutType      output type
+ * @tparam OutputTile_  { description }
+ * @tparam FinalLambda user-defined epilogue lamba
+ * @tparam Index_      Index type
  */
 template <raft::distance::DistanceType distanceType, typename InType,
           typename AccType, typename OutType, typename OutputTile_,
@@ -195,24 +203,27 @@ void distance(const InType *x, const InType *y, OutType *dist, Index_ m,
 
 /**
  * @brief Evaluate pairwise distances for the simple use case
- * @tparam DistanceType which distance to evaluate
- * @tparam InType input argument type
- * @tparam AccType accumulation type
- * @tparam OutType output type
- * @tparam Index_ Index type
- * @param x first set of points
- * @param y second set of points
- * @param dist output distance matrix
- * @param m number of points in x
- * @param n number of points in y
- * @param k dimensionality
- * @param workspace temporary workspace needed for computations
- * @param worksize number of bytes of the workspace
- * @param stream cuda stream
+ *
+ * @param x          first set of points
+ * @param y          second set of points
+ * @param dist       output distance matrix
+ * @param m          number of points in x
+ * @param n          number of points in y
+ * @param k          dimensionality
+ * @param workspace  temporary workspace needed for computations
+ * @param worksize   number of bytes of the workspace
+ * @param stream     cuda stream
  * @param isRowMajor whether the matrices are row-major or col-major
  *
- * @note if workspace is passed as nullptr, this will return in
- *  worksize, the number of bytes of workspace required
+ * @note if workspace is passed as nullptr, this will return in worksize, the
+ *       number of bytes of workspace required
+ *
+ * @tparam distanceType which distance to evaluate
+ * @tparam InType       input argument type
+ * @tparam AccType      accumulation type
+ * @tparam OutType      output type
+ * @tparam OutputTile_  { description }
+ * @tparam Index_ Index type
  */
 template <raft::distance::DistanceType distanceType, typename InType,
           typename AccType, typename OutType, typename OutputTile_,
@@ -237,22 +248,27 @@ void distance(const InType *x, const InType *y, OutType *dist, Index_ m,
 
 /**
  * @defgroup pairwise_distance pairwise distance prims
- * @{
+ *
  * @brief Convenience wrapper around 'distance' prim to convert runtime metric
- * into compile time for the purpose of dispatch
- * @tparam Type input/accumulation/output data-type
- * @tparam Index_ indexing type
- * @param x first set of points
- * @param y second set of points
- * @param dist output distance matrix
- * @param m number of points in x
- * @param n number of points in y
- * @param k dimensionality
- * @param workspace temporary workspace buffer which can get resized as per the
- * needed workspace size
- * @param metric distance metric
- * @param stream cuda stream
+ *        into compile time for the purpose of dispatch
+ *
+ * @param x          first set of points
+ * @param y          second set of points
+ * @param dist       output distance matrix
+ * @param m          number of points in x
+ * @param n          number of points in y
+ * @param k          dimensionality
+ * @param workspace  temporary workspace buffer which can get resized as per the
+ *                   needed workspace size
+ * @param stream     cuda stream
  * @param isRowMajor whether the matrices are row-major or col-major
+ *
+ * @{
+ * @param metric distance metric
+ *
+ * @tparam Type     input/accumulation/output data-type
+ * @tparam DistType { description }
+ * @tparam Index_ indexing type
  */
 template <typename Type, typename Index_, raft::distance::DistanceType DistType>
 void pairwise_distance_impl(const Type *x, const Type *y, Type *dist, Index_ m,

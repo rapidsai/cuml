@@ -24,23 +24,26 @@ namespace MLCommon {
 namespace Cache {
 
 /**
- * @brief Collect vectors of data from the cache into a contiguous memory buffer.
+ * @brief Collect vectors of data from the cache into a contiguous memory
+ *        buffer.
  *
- * We assume contiguous memory layout for the output buffer, i.e. we get
- * column vectors into a column major out buffer, or row vectors into a row
- * major output buffer.
+ *        We assume contiguous memory layout for the output buffer, i.e. we get
+ *        column vectors into a column major out buffer, or row vectors into a
+ *        row major output buffer.
  *
- * On exit, the output array is filled the following way:
- * out[i + n_vec*k] = cache[i + n_vec * cache_idx[k]]), where i=0..n_vec-1, and
- *   k = 0..n-1 where cache_idx[k] >= 0
+ *        On exit, the output array is filled the following way: out[i +
+ *        n_vec*k] = cache[i + n_vec * cache_idx[k]]), where i=0..n_vec-1, and k
+ *        = 0..n-1 where cache_idx[k] >= 0
  *
- *  We ignore vectors where cache_idx[k] < 0.
+ *        We ignore vectors where cache_idx[k] < 0.
  *
- * @param [in] cache stores the cached data, size [n_vec x n_cached_vectors]
- * @param [in] n_vec number of elements in a cached vector
- * @param [in] cache_idx cache indices, size [n]
- * @param [in] n the number of elements that need to be collected
- * @param [out] out vectors collected from the cache, size [n_vec * n]
+ * @param[in]  cache     stores the cached data, size [n_vec x n_cached_vectors]
+ * @param[in]  n_vec     number of elements in a cached vector
+ * @param[in]  cache_idx cache indices, size [n]
+ * @param[in]  n         the number of elements that need to be collected
+ * @param[out] out       vectors collected from the cache, size [n_vec * n]
+ *
+ * @tparam math_t { description }
  */
 template <typename math_t>
 __global__ void get_vecs(const math_t *cache, int n_vec, const int *cache_idx,
@@ -61,28 +64,34 @@ __global__ void get_vecs(const math_t *cache, int n_vec, const int *cache_idx,
 /**
  * @brief Store vectors of data into the cache.
  *
- * Elements within a vector should be contiguous in memory (i.e. column vectors
- * for column major data storage, or row vectors of row major data).
+ *        Elements within a vector should be contiguous in memory (i.e. column
+ *        vectors for column major data storage, or row vectors of row major
+ *        data).
  *
- * If tile_idx==nullptr then the operation is the opposite of get_vecs,
- * i.e. we store
- * cache[i + cache_idx[k]*n_vec] = tile[i + k*n_vec], for i=0..n_vec-1, k=0..n-1
+ *        If tile_idx==nullptr then the operation is the opposite of get_vecs,
+ *        i.e. we store cache[i + cache_idx[k]*n_vec] = tile[i + k*n_vec], for
+ *        i=0..n_vec-1, k=0..n-1
  *
- * If tile_idx != nullptr, then  we permute the vectors from tile according
- * to tile_idx. This allows to store vectors from a buffer where the individual
- * vectors are not stored contiguously (but the elements of each vector shall
- * be contiguous):
- * cache[i + cache_idx[k]*n_vec] = tile[i + tile_idx[k]*n_vec],
- * for i=0..n_vec-1, k=0..n-1
+ *        If tile_idx != nullptr, then  we permute the vectors from tile
+ *        according to tile_idx. This allows to store vectors from a buffer
+ *        where the individual vectors are not stored contiguously (but the
+ *        elements of each vector shall be contiguous): cache[i +
+ *        cache_idx[k]*n_vec] = tile[i + tile_idx[k]*n_vec], for i=0..n_vec-1,
+ *        k=0..n-1
  *
- * @param [in] tile stores the data to be cashed cached, size [n_vec x n_tile]
- * @param [in] n_tile number of vectors in the input tile
- * @param [in] n_vec number of elements in a cached vector
- * @param [in] tile_idx indices of vectors that we want to store
- * @param [in] n number of vectos that we want to store (n <= n_tile)
- * @param [in] cache_idx cache indices, size [n], negative values are ignored
- * @param [inout] cache updated cache
- * @param [in] n_cache_vecs
+ * @param[in]    tile         stores the data to be cashed cached, size [n_vec x
+ *                            n_tile]
+ * @param[in]    n_tile       number of vectors in the input tile
+ * @param[in]    n_vec        number of elements in a cached vector
+ * @param[in]    tile_idx     indices of vectors that we want to store
+ * @param[in]    n            number of vectos that we want to store (n <=
+ *                            n_tile)
+ * @param[in]    cache_idx    cache indices, size [n], negative values are
+ *                            ignored
+ * @param[inout] cache        updated cache
+ * @param[in]    n_cache_vecs The n cache vecs
+ *
+ * @tparam math_t { description }
  */
 template <typename math_t>
 __global__ void store_vecs(const math_t *tile, int n_tile, int n_vec,
@@ -106,6 +115,12 @@ __global__ void store_vecs(const math_t *tile, int n_tile, int n_vec,
 
 /**
  * Map a key to a cache set.
+ *
+ * @param[in] key           The key
+ * @param[in] n_cache_sets  The n cache sets
+ * @param[in] associativity The associativity
+ *
+ * @return { description_of_the_return_value }
  */
 int DI hash(int key, int n_cache_sets, int associativity) {
   return key % n_cache_sets;
@@ -113,12 +128,14 @@ int DI hash(int key, int n_cache_sets, int associativity) {
 
 /**
  * @brief Binary search to find the first element in the array which is greater
- * equal than a given value.
- * @param [in] array sorted array of n numbers
- * @param [in] n length of the array
- * @param [in] val the value to search for
- * @return the index of the first element in the array for which
- * array[idx] >= value. If there is no such value, then return n.
+ *        equal than a given value.
+ *
+ * @param[in] array sorted array of n numbers
+ * @param[in] n     length of the array
+ * @param[in] val   the value to search for
+ *
+ * @return the index of the first element in the array for which array[idx] >=
+ *         value. If there is no such value, then return n.
  */
 int DI arg_first_ge(const int *array, int n, int val) {
   int start = 0;
@@ -144,17 +161,18 @@ int DI arg_first_ge(const int *array, int n, int val) {
 /**
  * @brief Find the k-th occurrence of value in a sorted array.
  *
- * Assume that array is [0, 1, 1, 1, 2, 2, 4, 4, 4, 4, 6, 7]
- * then find_nth_occurrence(cset, 12, 4, 2) == 7, because cset_array[7] stores
- * the second element with value = 4.
- * If there are less then k values in the array, then return -1
+ *        Assume that array is [0, 1, 1, 1, 2, 2, 4, 4, 4, 4, 6, 7] then
+ *        find_nth_occurrence(cset, 12, 4, 2) == 7, because cset_array[7] stores
+ *        the second element with value = 4. If there are less then k values in
+ *        the array, then return -1
  *
- * @param [in] array sorted array of numbers, size [n]
- * @param [in] n number of elements in the array
- * @param [in] val the value we are searching for
- * @param [in] k
- * @return the idx of the k-th occurance of val in array, or -1 if
- * the value is not found.
+ * @param[in] array sorted array of numbers, size [n]
+ * @param[in] n     number of elements in the array
+ * @param[in] val   the value we are searching for
+ * @param[in] k     { parameter_description }
+ *
+ * @return the idx of the k-th occurance of val in array, or -1 if the value is
+ *         not found.
  */
 int DI find_nth_occurrence(const int *array, int n, int val, int k) {
   int q = arg_first_ge(array, n, val);
@@ -168,31 +186,28 @@ int DI find_nth_occurrence(const int *array, int n, int val, int k) {
 
 /**
  * @brief Rank the entries in a cache set according the time stamp, return the
- * indices that would sort the time stamp in ascending order.
+ *        indices that would sort the time stamp in ascending order.
  *
- * Assume we have a single cache set with time stamps as:
- * key (threadIdx.x):   0   1   2   3
- * val (time stamp):    8   6   7   5
+ *        Assume we have a single cache set with time stamps as: key
+ *        (threadIdx.x):   0   1   2   3 val (time stamp):    8   6   7   5
  *
- * The corresponding sorted key-value pairs:
- * key:    3   1   2   0
- * val:    5   6   7   8
- * rank: 0th 1st 2nd 3rd
+ *        The corresponding sorted key-value pairs: key:    3   1   2   0 val:
+ *        5   6   7   8 rank: 0th 1st 2nd 3rd
  *
- * On return, the rank is assigned for each thread:
- * threadIdx.x: 0   1   2   3
- * rank:        3   1   2   0
+ *        On return, the rank is assigned for each thread: threadIdx.x: 0   1
+ *        2   3 rank:        3   1   2   0
  *
- * For multiple cache sets, launch one block per cache set.
+ *        For multiple cache sets, launch one block per cache set.
  *
- * @tparam nthreads number of threads per block (nthreads <= associativity)
+ * @param[in]  cache_time   time stamp of caching the data, size [associativity *
+ *                          n_cache_sets]
+ * @param[in]  n_cache_sets number of cache sets
+ * @param[out] rank         within the cache set size [nthreads *
+ *                          items_per_thread] Each block should give a different
+ *                          pointer for rank.
+ *
+ * @tparam nthreads      number of threads per block (nthreads <= associativity)
  * @tparam associativity number of items in a cache set
- *
- * @param [in] cache_time time stamp of caching the data,
-     size [associativity * n_cache_sets]
- * @param [in] n_cache_sets number of cache sets
- * @param [out] rank within the cache set size [nthreads * items_per_thread]
- *   Each block should give a different pointer for rank.
  */
 template <int nthreads, int associativity>
 DI void rank_set_entries(const int *cache_time, int n_cache_sets, int *rank) {
@@ -226,29 +241,30 @@ DI void rank_set_entries(const int *cache_time, int n_cache_sets, int *rank) {
 /**
  * @brief Assign cache location to a set of keys using LRU replacement policy.
  *
- * The keys and the corresponding cache_set arrays shall be sorted according
- * to cache_set in ascending order. One block should be launched for every cache
- * set.
+ *        The keys and the corresponding cache_set arrays shall be sorted
+ *        according to cache_set in ascending order. One block should be
+ *        launched for every cache set.
  *
- * Each cache set is sorted according to time_stamp, and values from keys
- * are filled in starting at the oldest time stamp. Enties that were accessed
- * at the current time are not reassigned.
+ *        Each cache set is sorted according to time_stamp, and values from keys
+ *        are filled in starting at the oldest time stamp. Enties that were
+ *        accessed at the current time are not reassigned.
  *
- * @tparam nthreads number of threads per block
- * @tparam assaciativity number of keys in a cache set
+ * @param[in]    keys         that we want to cache size [n]
+ * @param[in]    n            number of keys
+ * @param[in]    cache_set    assigned to keys, size [n]
+ * @param[inout] cached_keys  keys of already cached vectors, size
+ *                            [n_cache_sets*associativity], on exit it will be
+ *                            updated with the cached elements from keys.
+ * @param[in]    n_cache_sets number of cache sets
+ * @param[inout] cache_time   will be updated to "time" for those elements that
+ *                            could be assigned to a cache location, size
+ *                            [n_cache_sets*associativity]
+ * @param[in]    time         time stamp
+ * @param[out]   cache_idx    the cache idx assigned to the input, or -1 if it
+ *                            could not be cached, size [n]
  *
- * @param [in] keys that we want to cache size [n]
- * @param [in] n number of keys
- * @param [in] cache_set assigned to keys, size [n]
- * @param [inout] cached_keys keys of already cached vectors,
- *   size [n_cache_sets*associativity], on exit it will be updated with the
- *   cached elements from keys.
- * @param [in] n_cache_sets number of cache sets
- * @param [inout] cache_time will be updated to "time" for those elements that
- *   could be assigned to a cache location, size [n_cache_sets*associativity]
- * @param [in] time time stamp
- * @param [out] cache_idx the cache idx assigned to the input, or -1 if it could
- *   not be cached, size [n]
+ * @tparam nthreads      number of threads per block
+ * @tparam associativity number of keys in a cache set
  */
 template <int nthreads, int associativity>
 __global__ void assign_cache_idx(const int *keys, int n, const int *cache_set,
@@ -298,26 +314,31 @@ namespace {
 /**
  * @brief Get the cache indices for keys stored in the cache.
  *
- * For every key, we look up the corresponding cache position.
- * If keys[k] is stored in the cache, then is_cached[k] is set to true, and
- * cache_idx[k] stores the corresponding cache idx.
+ *        For every key, we look up the corresponding cache position. If keys[k]
+ *        is stored in the cache, then is_cached[k] is set to true, and
+ *        cache_idx[k] stores the corresponding cache idx.
  *
- * If keys[k] is not stored in the cache, then we assign a cache set to it.
- * This  cache set is stored in cache_idx[k], and is_cached[k] is set to false.
- * In this case AssignCacheIdx should be called, to get an assigned position
- * within the cache set.
+ *        If keys[k] is not stored in the cache, then we assign a cache set to
+ *        it. This  cache set is stored in cache_idx[k], and is_cached[k] is set
+ *        to false. In this case AssignCacheIdx should be called, to get an
+ *        assigned position within the cache set.
  *
- * Cache_time is assigned to the time input argument for all elements in idx.
+ *        Cache_time is assigned to the time input argument for all elements in
+ *        idx.
  *
- * @param [in] keys array of keys that we want to look up in the cache, size [n]
- * @param [in] n number of keys to look up
- * @param [inout] cached_keys keys stored in the cache, size [n_cache_sets * associativity]
- * @param [in] n_cache_sets number of cache sets
- * @param [in] associativity number of keys in cache set
- * @param [inout] cache_time time stamp when the indices were cached, size [n_cache_sets * associativity]
- * @param [out] cache_idx cache indices of the working set elements, size [n]
- * @param [out] is_cached whether the element is cached size[n]
- * @param [in] time iteration counter (used for time stamping)
+ * @param[in]    keys          array of keys that we want to look up in the
+ *                             cache, size [n]
+ * @param[in]    n             number of keys to look up
+ * @param[inout] cached_keys   keys stored in the cache, size [n_cache_sets *
+ *                             associativity]
+ * @param[in]    n_cache_sets  number of cache sets
+ * @param[in]    associativity number of keys in cache set
+ * @param[inout] cache_time    time stamp when the indices were cached, size
+ *                             [n_cache_sets * associativity]
+ * @param[out]   cache_idx     cache indices of the working set elements, size
+ *                             [n]
+ * @param[out]   is_cached     whether the element is cached size[n]
+ * @param[in]    time          iteration counter (used for time stamping)
  */
 __global__ void get_cache_idx(int *keys, int n, int *cached_keys,
                               int n_cache_sets, int associativity,

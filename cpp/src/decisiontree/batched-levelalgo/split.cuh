@@ -59,7 +59,7 @@ struct Split {
    * @brief Assignment operator overload
    *
    * @param[in] other source object from where to copy
-   * 
+   *
    * @return the reference to the copied object (typically useful for chaining)
    */
   DI SplitT& operator=(const SplitT& other) {
@@ -72,6 +72,8 @@ struct Split {
 
   /**
    * @brief updates the current split if the input gain is better
+   *
+   * @param[in] other The other
    */
   DI void update(const SplitT& other) {
     if (other.best_metric_val > best_metric_val) *this = other;
@@ -137,6 +139,9 @@ struct Split {
  * @param[out] splits the array to be initialized
  * @param[in]  len    length of this array
  * @param[in]  s      cuda stream where to schedule work
+ *
+ * @tparam DataT { description }
+ * @tparam TPB   { description }
  */
 template <typename DataT, typename IdxT, int TPB = 256>
 void initSplit(Split<DataT, IdxT>* splits, IdxT len, cudaStream_t s) {

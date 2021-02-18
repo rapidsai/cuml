@@ -44,16 +44,16 @@ using namespace std;
 namespace tl = treelite;
 
 /**
- * @brief      Set RF_metrics.
+ * @brief Set RF_metrics.
  *
- * @param[in]  rf_type             Random Forest type: classification or
- *                                 regression
- * @param[in]  accuracy            accuracy.
- * @param[in]  mean_abs_error      mean absolute error.
- * @param[in]  mean_squared_error  mean squared error.
- * @param[in]  median_abs_error    median absolute error.
+ * @param[in] rf_type            Random Forest type: classification or
+ *                               regression
+ * @param[in] accuracy           accuracy.
+ * @param[in] mean_abs_error     mean absolute error.
+ * @param[in] mean_squared_error mean squared error.
+ * @param[in] median_abs_error   median absolute error.
  *
- * @return     RF_metrics struct with classification or regression score.
+ * @return RF_metrics struct with classification or regression score.
  */
 RF_metrics set_all_rf_metrics(RF_type rf_type, float accuracy,
                               double mean_abs_error, double mean_squared_error,
@@ -68,11 +68,11 @@ RF_metrics set_all_rf_metrics(RF_type rf_type, float accuracy,
 }
 
 /**
- * @brief      Set RF_metrics for classification.
+ * @brief Set RF_metrics for classification.
  *
- * @param[in]  accuracy  accuracy.
+ * @param[in] accuracy accuracy.
  *
- * @return     RF_metrics struct with classification score.
+ * @return RF_metrics struct with classification score.
  */
 RF_metrics set_rf_metrics_classification(float accuracy) {
   return set_all_rf_metrics(RF_type::CLASSIFICATION, accuracy, -1.0, -1.0,
@@ -80,13 +80,13 @@ RF_metrics set_rf_metrics_classification(float accuracy) {
 }
 
 /**
- * @brief      Set RF_metrics for regression.
+ * @brief Set RF_metrics for regression.
  *
- * @param[in]  mean_abs_error      mean absolute error.
- * @param[in]  mean_squared_error  mean squared error.
- * @param[in]  median_abs_error    median absolute error.
+ * @param[in] mean_abs_error     mean absolute error.
+ * @param[in] mean_squared_error mean squared error.
+ * @param[in] median_abs_error   median absolute error.
  *
- * @return     RF_metrics struct with regression score.
+ * @return RF_metrics struct with regression score.
  */
 RF_metrics set_rf_metrics_regression(double mean_abs_error,
                                      double mean_squared_error,
@@ -96,11 +96,11 @@ RF_metrics set_rf_metrics_regression(double mean_abs_error,
 }
 
 /**
- * @brief      Print either accuracy metric for classification, or mean absolute
- *             error, mean squared error, and median absolute error metrics for
- *             regression.
+ * @brief Print either accuracy metric for classification, or mean absolute
+ *        error, mean squared error, and median absolute error metrics for
+ *        regression.
  *
- * @param[in]  rf_metrics  random forest metrics to print.
+ * @param[in] rf_metrics random forest metrics to print.
  */
 void print(const RF_metrics rf_metrics) {
   if (rf_metrics.rf_type == RF_type::CLASSIFICATION) {
@@ -113,15 +113,14 @@ void print(const RF_metrics rf_metrics) {
 }
 
 /**
- * @brief         Update labels so they are unique from 0 to n_unique_labels
- *                values. Create/update an old label to new label map per random
- *                forest.
+ * @brief Update labels so they are unique from 0 to n_unique_labels values.
+ *        Create/update an old label to new label map per random forest.
  *
- * @param[in]     n_rows      number of rows (labels)
- * @param[in,out] labels      1D labels array to be changed in-place.
- * @param[in,out] labels_map  map of old label values to new ones.
- * @param[in]     verbosity   verbosity level for logging messages during
- *                            execution
+ * @param[in]     n_rows     number of rows (labels)
+ * @param[in,out] labels     1D labels array to be changed in-place.
+ * @param[in,out] labels_map map of old label values to new ones.
+ * @param[in]     verbosity  verbosity level for logging messages during
+ *                           execution
  */
 void preprocess_labels(int n_rows, std::vector<int>& labels,
                        std::map<int, int>& labels_map, int verbosity) {
@@ -143,14 +142,14 @@ void preprocess_labels(int n_rows, std::vector<int>& labels,
 }
 
 /**
- * @brief         Revert label preprocessing effect, if needed.
+ * @brief Revert label preprocessing effect, if needed.
  *
- * @param[in]     n_rows      number of rows (labels)
- * @param[in,out] labels      1D labels array to be changed in-place.
- * @param[in]     labels_map  map of old to new label values used during
- *                            preprocessing.
- * @param[in]     verbosity   verbosity level for logging messages during
- *                            execution
+ * @param[in]     n_rows     number of rows (labels)
+ * @param[in,out] labels     1D labels array to be changed in-place.
+ * @param[in]     labels_map map of old to new label values used during
+ *                           preprocessing.
+ * @param[in]     verbosity  verbosity level for logging messages during
+ *                           execution
  */
 void postprocess_labels(int n_rows, std::vector<int>& labels,
                         std::map<int, int>& labels_map, int verbosity) {
@@ -173,14 +172,14 @@ void postprocess_labels(int n_rows, std::vector<int>& labels,
 }
 
 /**
- * @brief         Set RF_params parameters members; use default tree parameters.
+ * @brief Set RF_params parameters members; use default tree parameters.
  *
- * @param[in,out] params           update with random forest parameters
- * @param[in]     cfg_n_trees      number of trees; default 1
- * @param[in]     cfg_bootstrap    bootstrapping; default true
- * @param[in]     cfg_max_samples  rows sample; default 1.0f
- * @param[in]     cfg_seed         The configuration seed
- * @param[in]     cfg_n_streams    No of parallel CUDA for training forest
+ * @param[in,out] params          update with random forest parameters
+ * @param[in]     cfg_n_trees     number of trees; default 1
+ * @param[in]     cfg_bootstrap   bootstrapping; default true
+ * @param[in]     cfg_max_samples rows sample; default 1.0f
+ * @param[in]     cfg_seed        The configuration seed
+ * @param[in]     cfg_n_streams   No of parallel CUDA for training forest
  */
 void set_rf_params(RF_params& params, int cfg_n_trees, bool cfg_bootstrap,
                    float cfg_max_samples, uint64_t cfg_seed,
@@ -199,16 +198,15 @@ void set_rf_params(RF_params& params, int cfg_n_trees, bool cfg_bootstrap,
 }
 
 /**
- * @brief         Set all RF_params parameters members, including tree
- *                parameters.
+ * @brief Set all RF_params parameters members, including tree parameters.
  *
- * @param[in,out] params           update with random forest parameters
- * @param[in]     cfg_n_trees      number of trees
- * @param[in]     cfg_bootstrap    bootstrapping
- * @param[in]     cfg_max_samples  rows sample
- * @param[in]     cfg_seed         The configuration seed
- * @param[in]     cfg_n_streams    No of parallel CUDA for training forest
- * @param[in]     cfg_tree_params  tree parameters
+ * @param[in,out] params          update with random forest parameters
+ * @param[in]     cfg_n_trees     number of trees
+ * @param[in]     cfg_bootstrap   bootstrapping
+ * @param[in]     cfg_max_samples rows sample
+ * @param[in]     cfg_seed        The configuration seed
+ * @param[in]     cfg_n_streams   No of parallel CUDA for training forest
+ * @param[in]     cfg_tree_params tree parameters
  */
 void set_all_rf_params(RF_params& params, int cfg_n_trees, bool cfg_bootstrap,
                        float cfg_max_samples, uint64_t cfg_seed,
@@ -225,9 +223,9 @@ void set_all_rf_params(RF_params& params, int cfg_n_trees, bool cfg_bootstrap,
 }
 
 /**
- * @brief      Check validity of all random forest hyper-parameters.
+ * @brief Check validity of all random forest hyper-parameters.
  *
- * @param[in]  rf_params  random forest hyper-parameters
+ * @param[in] rf_params random forest hyper-parameters
  */
 void validity_check(const RF_params rf_params) {
   ASSERT((rf_params.n_trees > 0), "Invalid n_trees %d", rf_params.n_trees);
@@ -238,9 +236,9 @@ void validity_check(const RF_params rf_params) {
 }
 
 /**
- * @brief      Print all random forest hyper-parameters.
+ * @brief Print all random forest hyper-parameters.
  *
- * @param[in]  rf_params  random forest hyper-parameters
+ * @param[in] rf_params random forest hyper-parameters
  */
 void print(const RF_params rf_params) {
   ML::PatternSetter _("%v");
@@ -252,12 +250,12 @@ void print(const RF_params rf_params) {
 }
 
 /**
- * @brief          Set the trees pointer of RandomForestMetaData to nullptr.
+ * @brief Set the trees pointer of RandomForestMetaData to nullptr.
  *
- * @param[in, out] forest  CPU pointer to RandomForestMetaData.
+ * @param[in, out] forest CPU pointer to RandomForestMetaData.
  *
- * @tparam         T       { description }
- * @tparam         L       { description }
+ * @tparam T     { description }
+ * @tparam L     { description }
  */
 template <class T, class L>
 void null_trees_ptr(RandomForestMetaData<T, L>*& forest) {
@@ -265,12 +263,12 @@ void null_trees_ptr(RandomForestMetaData<T, L>*& forest) {
 }
 
 /**
- * @brief      Deletes RandomForestMetaData object
+ * @brief Deletes RandomForestMetaData object
  *
- * @param[in]  forest  CPU pointer to RandomForestMetaData.
+ * @param[in] forest CPU pointer to RandomForestMetaData.
  *
- * @tparam     T       { description }
- * @tparam     L       { description }
+ * @tparam T     { description }
+ * @tparam L     { description }
  */
 template <class T, class L>
 void delete_rf_metadata(RandomForestMetaData<T, L>* forest) {
@@ -320,15 +318,15 @@ std::string _get_rf_json(const RandomForestMetaData<T, L>* forest) {
 }
 
 /**
- * @brief      Print summary for all trees in the random forest.
+ * @brief Print summary for all trees in the random forest.
  *
- * @param[in]  forest  CPU pointer to RandomForestMetaData struct.
+ * @param[in] forest CPU pointer to RandomForestMetaData struct.
  *
- * @tparam     T       data type for input data (float or double).
- * @tparam     L       data type for labels (int type for classification, T type
- *                     for regression).
+ * @tparam T     data type for input data (float or double).
+ * @tparam L     data type for labels (int type for classification, T type for
+ *               regression).
  *
- * @return     The rf summary text.
+ * @return The rf summary text.
  */
 template <class T, class L>
 std::string get_rf_summary_text(const RandomForestMetaData<T, L>* forest) {
@@ -336,15 +334,15 @@ std::string get_rf_summary_text(const RandomForestMetaData<T, L>* forest) {
 }
 
 /**
- * @brief      Print detailed view of all trees in the random forest.
+ * @brief Print detailed view of all trees in the random forest.
  *
- * @param[in]  forest  CPU pointer to RandomForestMetaData struct.
+ * @param[in] forest CPU pointer to RandomForestMetaData struct.
  *
- * @tparam     T       data type for input data (float or double).
- * @tparam     L       data type for labels (int type for classification, T type
- *                     for regression).
+ * @tparam T     data type for input data (float or double).
+ * @tparam L     data type for labels (int type for classification, T type for
+ *               regression).
  *
- * @return     The rf detailed text.
+ * @return The rf detailed text.
  */
 template <class T, class L>
 std::string get_rf_detailed_text(const RandomForestMetaData<T, L>* forest) {
@@ -400,18 +398,17 @@ void build_treelite_forest(ModelHandle* model_handle,
 }
 
 /**
- * @brief      Compares the trees present in concatenated treelite forest with
- *             the trees of the forests present in the different workers. If
- *             there is a difference in the two then an error statement will be
- *             thrown.
+ * @brief Compares the trees present in concatenated treelite forest with the
+ *        trees of the forests present in the different workers. If there is a
+ *        difference in the two then an error statement will be thrown.
  *
- * @param[in]  tree_from_concatenated_forest  Tree info from the concatenated
- *                                            forest.
- * @param[in]  tree_from_individual_forest    Tree info from the forest present
- *                                            in each worker.
+ * @param[in] tree_from_concatenated_forest Tree info from the concatenated
+ *                                          forest.
+ * @param[in] tree_from_individual_forest   Tree info from the forest present in
+ *                                          each worker.
  *
- * @tparam     T                              { description }
- * @tparam     L                              { description }
+ * @tparam T     { description }
+ * @tparam L     { description }
  */
 template <class T, class L>
 void compare_trees(tl::Tree<T, L>& tree_from_concatenated_forest,
@@ -451,13 +448,13 @@ void compare_trees(tl::Tree<T, L>& tree_from_concatenated_forest,
 }
 
 /**
- * @brief      Compares the concatenated treelite model with the information of
- *             the forest present in the different workers. If there is a
- *             difference in the two then an error statement will be thrown.
+ * @brief Compares the concatenated treelite model with the information of the
+ *        forest present in the different workers. If there is a difference in
+ *        the two then an error statement will be thrown.
  *
- * @param[in]  concat_tree_handle  ModelHandle for the concatenated forest.
- * @param[in]  treelite_handles    List containing ModelHandles for the forest
- *                                 present in each worker.
+ * @param[in] concat_tree_handle ModelHandle for the concatenated forest.
+ * @param[in] treelite_handles   List containing ModelHandles for the forest
+ *                               present in each worker.
  */
 void compare_concat_forest_to_subforests(
   ModelHandle concat_tree_handle, std::vector<ModelHandle> treelite_handles) {
@@ -517,15 +514,15 @@ void compare_concat_forest_to_subforests(
 }
 
 /**
- * @brief      Concatenates the forest information present in different workers
- *             to create a single forest. This concatenated forest is stored in
- *             a new treelite model. The model created is owned by and must be
- *             freed by the user.
+ * @brief Concatenates the forest information present in different workers to
+ *        create a single forest. This concatenated forest is stored in a new
+ *        treelite model. The model created is owned by and must be freed by the
+ *        user.
  *
- * @param[in]  treelite_handles  List containing ModelHandles for the forest
- *                               present in each worker.
+ * @param[in] treelite_handles List containing ModelHandles for the forest
+ *                             present in each worker.
  *
- * @return     The model handle.
+ * @return The model handle.
  */
 ModelHandle concatenate_trees(std::vector<ModelHandle> treelite_handles) {
   tl::Model& first_model = *(tl::Model*)treelite_handles[0];
@@ -555,31 +552,31 @@ ModelHandle concatenate_trees(std::vector<ModelHandle> treelite_handles) {
 }
 
 /**
- * @defgroup      RandomForestClassificationFit Random Forest Classification - Fit function
+ * @defgroup RandomForestClassificationFit Random Forest Classification - Fit function
  *
- * @brief         Build (i.e., fit, train) random forest classifier for input
- *                data.
+ * @brief Build (i.e., fit, train) random forest classifier for input data.
  *
- * @param[in]     user_handle      raft::handle_t
- * @param[in,out] forest           CPU pointer to RandomForestMetaData object.
- *                                 User allocated.
- * @param[in]     input            train data (n_rows samples, n_cols features)
- *                                 in column major format, excluding labels.
- *                                 Device pointer.
- * @param[in]     n_rows           number of training data samples.
- * @param[in]     n_cols           number of features (i.e., columns) excluding
- *                                 target feature.
- * @param[in]     labels           1D array of target features (int only), with
- *                                 one label per training sample. Device
- *                                 pointer. Assumption: labels were preprocessed
- *                                 to map to ascending numbers from 0; needed
- *                                 for current gini impl. in decision tree
- * @param[in]     n_unique_labels  unique label values (known during
- *                                 preprocessing)
- * @param[in]     rf_params        Random Forest training hyper parameter
- *                                 struct.
- * @param[in]     verbosity        verbosity level for logging messages during
- *                                 execution @{
+ * @param[in]     user_handle     raft::handle_t
+ * @param[in,out] forest          CPU pointer to RandomForestMetaData object.
+ *                                User allocated.
+ * @param[in]     input           train data (n_rows samples, n_cols features)
+ *                                in column major format, excluding labels.
+ *                                Device pointer.
+ * @param[in]     n_rows          number of training data samples.
+ * @param[in]     n_cols          number of features (i.e., columns) excluding
+ *                                target feature.
+ * @param[in]     labels          1D array of target features (int only), with
+ *                                one label per training sample. Device pointer.
+ *                                Assumption: labels were preprocessed to map to
+ *                                ascending numbers from 0; needed for current
+ *                                gini impl. in decision tree
+ * @param[in]     n_unique_labels unique label values (known during
+ *                                preprocessing)
+ * @param[in]     rf_params       Random Forest training hyper parameter struct.
+ * @param[in]     verbosity       verbosity level for logging messages during
+ *                                execution
+ *
+ * @{
  */
 void fit(const raft::handle_t& user_handle, RandomForestClassifierF*& forest,
          float* input, int n_rows, int n_cols, int* labels, int n_unique_labels,
@@ -614,23 +611,25 @@ void fit(const raft::handle_t& user_handle, RandomForestClassifierD*& forest,
  * @} */
 
 /**
- * @defgroup       RandomForestClassificationPredict Random Forest Classification - Predict function
+ * @defgroup RandomForestClassificationPredict Random Forest Classification - Predict function
  *
- * @brief          Predict target feature for input data; n-ary classification
- *                 for single feature supported.
+ * @brief Predict target feature for input data; n-ary classification for single
+ *        feature supported.
  *
- * @param[in]      user_handle  raft::handle_t.
- * @param[in]      forest       CPU pointer to RandomForestMetaData object. The
- *                              user should have previously called fit to build
- *                              the random forest.
- * @param[in]      input        test data (n_rows samples, n_cols features) in
- *                              row major format. GPU pointer.
- * @param[in]      n_rows       number of  data samples.
- * @param[in]      n_cols       number of features (excluding target feature).
- * @param[in, out] predictions  n_rows predicted labels. GPU pointer, user
- *                              allocated.
- * @param[in]      verbosity    verbosity level for logging messages during
- *                              execution @{
+ * @param[in]      user_handle raft::handle_t.
+ * @param[in]      forest      CPU pointer to RandomForestMetaData object. The
+ *                             user should have previously called fit to build
+ *                             the random forest.
+ * @param[in]      input       test data (n_rows samples, n_cols features) in
+ *                             row major format. GPU pointer.
+ * @param[in]      n_rows      number of  data samples.
+ * @param[in]      n_cols      number of features (excluding target feature).
+ * @param[in, out] predictions n_rows predicted labels. GPU pointer, user
+ *                             allocated.
+ * @param[in]      verbosity   verbosity level for logging messages during
+ *                             execution
+ *
+ * @{
  */
 void predict(const raft::handle_t& user_handle,
              const RandomForestClassifierF* forest, const float* input,
@@ -655,23 +654,25 @@ void predict(const raft::handle_t& user_handle,
  * @} */
 
 /**
- * @addtogroup     RandomForestClassificationPredict
+ * @addtogroup RandomForestClassificationPredict
  *
- * @brief          Predict target feature for input data; n-ary classification
- *                 for single feature supported.
+ * @brief Predict target feature for input data; n-ary classification for single
+ *        feature supported.
  *
- * @param[in]      user_handle  raft::handle_t.
- * @param[in]      forest       CPU pointer to RandomForestMetaData object. The
- *                              user should have previously called fit to build
- *                              the random forest.
- * @param[in]      input        test data (n_rows samples, n_cols features) in
- *                              row major format. GPU pointer.
- * @param[in]      n_rows       number of  data samples.
- * @param[in]      n_cols       number of features (excluding target feature).
- * @param[in, out] predictions  n_rows predicted labels. GPU pointer, user
- *                              allocated.
- * @param[in]      verbosity    verbosity level for logging messages during
- *                              execution @{
+ * @param[in]      user_handle raft::handle_t.
+ * @param[in]      forest      CPU pointer to RandomForestMetaData object. The
+ *                             user should have previously called fit to build
+ *                             the random forest.
+ * @param[in]      input       test data (n_rows samples, n_cols features) in
+ *                             row major format. GPU pointer.
+ * @param[in]      n_rows      number of  data samples.
+ * @param[in]      n_cols      number of features (excluding target feature).
+ * @param[in, out] predictions n_rows predicted labels. GPU pointer, user
+ *                             allocated.
+ * @param[in]      verbosity   verbosity level for logging messages during
+ *                             execution
+ *
+ * @{
  */
 void predictGetAll(const raft::handle_t& user_handle,
                    const RandomForestClassifierF* forest, const float* input,
@@ -696,26 +697,26 @@ void predictGetAll(const raft::handle_t& user_handle,
  * @} */
 
 /**
- * @defgroup   RandomForestClassificationScore Random Forest Classification - Score function
+ * @defgroup RandomForestClassificationScore Random Forest Classification - Score function
  *
- * @brief      Compare predicted features validate against ref_labels.
+ * @brief Compare predicted features validate against ref_labels.
  *
- * @param[in]  user_handle  raft::handle_t.
- * @param[in]  forest       CPU pointer to RandomForestMetaData object. The user
- *                          should have previously called fit to build the
- *                          random forest.
- * @param[in]  ref_labels   label values for cross validation (n_rows elements);
- *                          GPU pointer.
- * @param[in]  n_rows       number of  data samples.
- * @param[in]  predictions  n_rows predicted labels. GPU pointer, user
- *                          allocated.
- * @param[in]  verbosity    verbosity level for logging messages during
- *                          execution
- * @param[in]  input:   test data (n_rows samples, n_cols features) in row major
- *                      format. GPU pointer.
- * @param[in]  n_cols:  number of features (excluding target feature).
+ * @param[in] user_handle raft::handle_t.
+ * @param[in] forest      CPU pointer to RandomForestMetaData object. The user
+ *                        should have previously called fit to build the random
+ *                        forest.
+ * @param[in] ref_labels  label values for cross validation (n_rows elements);
+ *                        GPU pointer.
+ * @param[in] n_rows      number of  data samples.
+ * @param[in] predictions n_rows predicted labels. GPU pointer, user allocated.
+ * @param[in] verbosity   verbosity level for logging messages during execution
+ * @param[in] input:  test data (n_rows samples, n_cols features) in row major
+ *                    format. GPU pointer.
+ * @param[in] n_cols: number of features (excluding target feature).
  *
- * @return     RF_metrics struct with classification score (i.e., accuracy) @{
+ * @return RF_metrics struct with classification score (i.e., accuracy)
+ *
+ * @{
  */
 RF_metrics score(const raft::handle_t& user_handle,
                  const RandomForestClassifierF* forest, const int* ref_labels,
@@ -757,26 +758,27 @@ RF_params set_rf_class_obj(int max_depth, int max_leaves, float max_features,
  * @} */
 
 /**
- * @defgroup      RandomForestRegressorFit Random Forest Regression - Fit function
+ * @defgroup RandomForestRegressorFit Random Forest Regression - Fit function
  *
- * @brief         Build (i.e., fit, train) random forest regressor for input
- *                data.
+ * @brief Build (i.e., fit, train) random forest regressor for input data.
  *
- * @param[in]     user_handle  raft::handle_t
- * @param[in,out] forest       CPU pointer to RandomForestMetaData object. User
- *                             allocated.
- * @param[in]     input        train data (n_rows samples, n_cols features) in
- *                             column major format, excluding labels. Device
- *                             pointer.
- * @param[in]     n_rows       number of training data samples.
- * @param[in]     n_cols       number of features (i.e., columns) excluding
- *                             target feature.
- * @param[in]     labels       1D array of target features (float or double),
- *                             with one label per training sample. Device
- *                             pointer.
- * @param[in]     rf_params    Random Forest training hyper parameter struct.
- * @param[in]     verbosity    verbosity level for logging messages during
- *                             execution @{
+ * @param[in]     user_handle raft::handle_t
+ * @param[in,out] forest      CPU pointer to RandomForestMetaData object. User
+ *                            allocated.
+ * @param[in]     input       train data (n_rows samples, n_cols features) in
+ *                            column major format, excluding labels. Device
+ *                            pointer.
+ * @param[in]     n_rows      number of training data samples.
+ * @param[in]     n_cols      number of features (i.e., columns) excluding
+ *                            target feature.
+ * @param[in]     labels      1D array of target features (float or double),
+ *                            with one label per training sample. Device
+ *                            pointer.
+ * @param[in]     rf_params   Random Forest training hyper parameter struct.
+ * @param[in]     verbosity   verbosity level for logging messages during
+ *                            execution
+ *
+ * @{
  */
 void fit(const raft::handle_t& user_handle, RandomForestRegressorF*& forest,
          float* input, int n_rows, int n_cols, float* labels,
@@ -809,23 +811,25 @@ void fit(const raft::handle_t& user_handle, RandomForestRegressorD*& forest,
  * @} */
 
 /**
- * @defgroup       RandomForestRegressorPredict Random Forest Regression - Predict function
+ * @defgroup RandomForestRegressorPredict Random Forest Regression - Predict function
  *
- * @brief          Predict target feature for input data; regression for single
- *                 feature supported.
+ * @brief Predict target feature for input data; regression for single feature
+ *        supported.
  *
- * @param[in]      user_handle  raft::handle_t.
- * @param[in]      forest       CPU pointer to RandomForestMetaData object. The
- *                              user should have previously called fit to build
- *                              the random forest.
- * @param[in]      input        test data (n_rows samples, n_cols features) in
- *                              row major format. GPU pointer.
- * @param[in]      n_rows       number of  data samples.
- * @param[in]      n_cols       number of features (excluding target feature).
- * @param[in, out] predictions  n_rows predicted labels. GPU pointer, user
- *                              allocated.
- * @param[in]      verbosity    verbosity level for logging messages during
- *                              execution @{
+ * @param[in]      user_handle raft::handle_t.
+ * @param[in]      forest      CPU pointer to RandomForestMetaData object. The
+ *                             user should have previously called fit to build
+ *                             the random forest.
+ * @param[in]      input       test data (n_rows samples, n_cols features) in
+ *                             row major format. GPU pointer.
+ * @param[in]      n_rows      number of  data samples.
+ * @param[in]      n_cols      number of features (excluding target feature).
+ * @param[in, out] predictions n_rows predicted labels. GPU pointer, user
+ *                             allocated.
+ * @param[in]      verbosity   verbosity level for logging messages during
+ *                             execution
+ *
+ * @{
  */
 void predict(const raft::handle_t& user_handle,
              const RandomForestRegressorF* forest, const float* input,
@@ -850,28 +854,27 @@ void predict(const raft::handle_t& user_handle,
  * @} */
 
 /**
- * @defgroup   RandomForestRegressorScore Random Forest Regression - Score function
+ * @defgroup RandomForestRegressorScore Random Forest Regression - Score function
  *
- * @brief      Predict target feature for input data and validate against
- *             ref_labels.
+ * @brief Predict target feature for input data and validate against ref_labels.
  *
- * @param[in]  user_handle  raft::handle_t.
- * @param[in]  forest       CPU pointer to RandomForestMetaData object. The user
- *                          should have previously called fit to build the
- *                          random forest.
- * @param[in]  ref_labels   label values for cross validation (n_rows elements);
- *                          GPU pointer.
- * @param[in]  n_rows       number of  data samples.
- * @param[in]  predictions  n_rows predicted labels. GPU pointer, user
- *                          allocated.
- * @param[in]  verbosity    verbosity level for logging messages during
- *                          execution
- * @param[in]  input:   test data (n_rows samples, n_cols features) in row major
- *                      format. GPU pointer.
- * @param[in]  n_cols:  number of features (excluding target feature).
+ * @param[in] user_handle raft::handle_t.
+ * @param[in] forest      CPU pointer to RandomForestMetaData object. The user
+ *                        should have previously called fit to build the random
+ *                        forest.
+ * @param[in] ref_labels  label values for cross validation (n_rows elements);
+ *                        GPU pointer.
+ * @param[in] n_rows      number of  data samples.
+ * @param[in] predictions n_rows predicted labels. GPU pointer, user allocated.
+ * @param[in] verbosity   verbosity level for logging messages during execution
+ * @param[in] input:  test data (n_rows samples, n_cols features) in row major
+ *                    format. GPU pointer.
+ * @param[in] n_cols: number of features (excluding target feature).
  *
- * @return     RF_metrics struct with regression score (i.e., mean absolute
- *             error, mean squared error, median absolute error) @{
+ * @return RF_metrics struct with regression score (i.e., mean absolute error,
+ *         mean squared error, median absolute error)
+ *
+ * @{
  */
 RF_metrics score(const raft::handle_t& user_handle,
                  const RandomForestRegressorF* forest, const float* ref_labels,

@@ -22,11 +22,9 @@ namespace sparse {
 /**
  * Quantizes ncols to a valid blockdim, which is a multiple of 32.
  *
- * @param[in]  ncols      number of blocks to quantize
+ * @param[in] ncols number of blocks to quantize
  *
- * @tparam     value_idx  { description }
- *
- * @return     { description_of_the_return_value }
+ * @return { description_of_the_return_value }
  */
 template <typename value_idx>
 inline int block_dim(value_idx ncols) {
@@ -53,12 +51,10 @@ inline int block_dim(value_idx ncols) {
  * Returns a warp-level mask with 1's for all the threads in the current warp
  * that have the same key.
  *
- * @param[in]  init_mask  The initialize mask
- * @param      key        The key
+ * @param[in] init_mask The initialize mask
+ * @param     key       The key
  *
- * @tparam     G          { description }
- *
- * @return     { description_of_the_return_value }
+ * @return { description_of_the_return_value }
  */
 template <typename G>
 __device__ __inline__ unsigned int __match_any_sync(unsigned int init_mask,

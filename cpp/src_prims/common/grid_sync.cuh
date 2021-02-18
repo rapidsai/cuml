@@ -28,15 +28,17 @@ enum SyncType {
   ACROSS_ALL = 0,
   /** sync across all the locks along a given blockIdx.y and blockIdx.z */
   ACROSS_X
-  ///@todo: ACROSS_Y, ACROSS_Z
+  //////////////////////////////////////////////////////////////////////////////
+  // @todo : ACROSS_Y, ACROSS_Z                                               //
+  //////////////////////////////////////////////////////////////////////////////
 };
 
 /**
  * @brief A device-side structure to provide inter-block synchronization
  *
  * @note This does NOT provide synchronization across any arbitrary group of
- * threadblocks! Make sure you have read the documentation of SyncType enum to
- * know the list of supported synchronization 'modes'.
+ *       threadblocks! Make sure you have read the documentation of SyncType
+ *       enum to know the list of supported synchronization 'modes'.
  *
  * @code{.cu}
  * __global__ void kernel(void* workspace, SyncType type, ...) {
@@ -63,11 +65,11 @@ enum SyncType {
  * @endcode
  *
  * @note In order to call `GridSync::sync` method consecutively on the same
- * object inside the same kernel, make sure you set the 'multiSync' flag that is
- * passed `GridSync::computeWorkspaceSize` as well as `GridSync` constructor.
- * Having this flag not set, but trying to call `sync` method consecutively in
- * the same kernel using that same object can lead to deadlock and thus such a
- * usage is discouraged. Example follows:
+ *       object inside the same kernel, make sure you set the 'multiSync' flag
+ *       that is passed `GridSync::computeWorkspaceSize` as well as `GridSync`
+ *       constructor. Having this flag not set, but trying to call `sync` method
+ *       consecutively in the same kernel using that same object can lead to
+ *       deadlock and thus such a usage is discouraged. Example follows:
  *
  * @code{.cu}
  * __global__ void kernelMultiple(void* workspace, SyncType type, ...) {
@@ -94,27 +96,24 @@ enum SyncType {
  * @endcode
  *
  * @todo Implement the lock-free synchronization approach described in this
- * paper: https://synergy.cs.vt.edu/pubs/papers/xiao-ipdps2010-gpusync.pdf
- * Probably cleaner to implement this as a separate class?
+ *       paper: https://synergy.cs.vt.edu/pubs/papers/xiao-ipdps2010-gpusync.pdf
+ *       Probably cleaner to implement this as a separate class?
  */
 struct GridSync {
   /**
-     * @brief ctor
-     * @param _workspace workspace needed for providing synchronization
-     * @param _type synchronization type
-     * @param _multiSync whether we need this object to perform multiple
-     *  synchronizations in the same kernel call
-     *
-     * @note
-     * <ol>
-     * <li>All threads across all threadblocks must instantiate this object!
-     * <li>
-     *   Also, make sure that the workspace has been initialized to zero before
-     *   the first usage of this workspace
-     * </li>
-     * <li>This workspace must not be used elsewhere concurrently</li>
-     * </ol>
-     */
+    * @brief ctor
+    *
+    * @param _workspace workspace needed for providing synchronization
+    * @param _type      synchronization type
+    * @param _multiSync whether we need this object to perform multiple
+    *                   synchronizations in the same kernel call
+    *
+    * @note <ol>
+    * <li>All threads across all threadblocks must instantiate this object!
+    * <li> Also, make sure that the workspace has been initialized to zero
+    *      before the first usage of this workspace </li>
+    * <li>This workspace must not be used elsewhere concurrently</li> </ol>
+    */
   DI GridSync(void* _workspace, SyncType _type, bool _multiSync = false)
     : workspace((int*)_workspace), syncType(_type), multiSync(_multiSync) {
     if (syncType == ACROSS_X) {
@@ -136,8 +135,8 @@ struct GridSync {
    * @brief Perform the synchronization
    *
    * @note All threads of all threadblocks must call this unconditionally!
-   * There's no need to wrap this call between __syncthreads. That is taken
-   * care of internally.
+   *       There's no need to wrap this call between __syncthreads. That is
+   *       taken care of internally.
    */
   DI void sync() {
     int* arrivalTracker = workspace + offset;
@@ -150,12 +149,15 @@ struct GridSync {
 
   /**
    * @brief Computes workspace needed (in B) for the grid-sync
-   * @param gridDim grid dimensions for the kernel to be launched
-   * @param type synchronization type (this must the same as will be passed
-   * eventually inside the kernel, while creating a device object of this
-   * class)
+   *
+   * @param gridDim   grid dimensions for the kernel to be launched
+   * @param type      synchronization type (this must the same as will be passed
+   *                  eventually inside the kernel, while creating a device
+   *                  object of this class)
    * @param multiSync whether we need this object to perform multiple
-   *  synchronizations in the same kernel call
+   *                  synchronizations in the same kernel call
+   *
+   * @return The workspace size.
    */
   static size_t computeWorkspaceSize(const dim3& gridDim, SyncType type,
                                      bool multiSync = false) {
@@ -182,12 +184,13 @@ struct GridSync {
   int offset;
 
   /**
-     * @brief Register your threadblock to have arrived at the sync point
-     * @param arrivalTracker the location that'll be atomically updated by all
-     *  arriving threadblocks
-     *
-     * @note All threads of this threadblock must call this unconditionally!
-     */
+    * @brief Register your threadblock to have arrived at the sync point
+    *
+    * @param arrivalTracker the location that'll be atomically updated by all
+    *                       arriving threadblocks
+    *
+    * @note All threads of this threadblock must call this unconditionally!
+    */
   DI void markArrived(int* arrivalTracker) {
     __syncthreads();
     if (masterThread()) {
@@ -198,13 +201,14 @@ struct GridSync {
   }
 
   /**
-     * @brief Perform a wait until all the required threadblocks have arrived
-     * at the sync point by calling the 'arrived' method.
-     * @param gmemArrivedBlks the location that'd have been atomically updated
-     *  by all arriving threadblocks
-     *
-     * @note All threads of all threadblocks must call this unconditionally!
-     */
+    * @brief Perform a wait until all the required threadblocks have arrived at
+    *        the sync point by calling the 'arrived' method.
+    *
+    * @param gmemArrivedBlks the location that'd have been atomically updated by
+    *                        all arriving threadblocks
+    *
+    * @note All threads of all threadblocks must call this unconditionally!
+    */
   DI void waitForOthers(volatile int* gmemArrivedBlks) {
     if (masterThread()) {
       int arrivedBlks = -1;
@@ -224,13 +228,15 @@ struct GridSync {
 /**
  * @brief Helper method to have a group of threadblocks signal completion to
  *        others and also determine who's the last to arrive at this sync point
+ *
  * @param done_count location in global mem used to mark signal done of the
  *                   current threadblock.
- * @param nBlks number of blocks involved with this done-handshake
- * @param master which block is supposed to be considered as master in this
- *               process of handshake.
- * @param amIlast shared mem used for 'am i last' signal propagation to all the
- *                threads in the block
+ * @param nBlks      number of blocks involved with this done-handshake
+ * @param master     which block is supposed to be considered as master in this
+ *                   process of handshake.
+ * @param amIlast    shared mem used for 'am i last' signal propagation to all
+ *                   the threads in the block
+ *
  * @return true if the current threadblock is the last to arrive else false
  *
  * @note This function should be entered by all threads in the block together.

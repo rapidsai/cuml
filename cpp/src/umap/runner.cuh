@@ -75,9 +75,12 @@ __global__ void init_transform(int *indices, T *weights, int n,
 }
 
 /**
- * Fit exponential decay curve to find the parameters
- * a and b, which are based on min_dist and spread
- * parameters.
+ * Fit exponential decay curve to find the parameters a and b, which are based
+ * on min_dist and spread parameters.
+ *
+ * @param     params  The parameters
+ * @param[in] d_alloc The d allocate
+ * @param[in] stream  The stream
  */
 void find_ab(UMAPParams *params, std::shared_ptr<deviceAllocator> d_alloc,
              cudaStream_t stream) {
@@ -103,11 +106,11 @@ void _fit(const raft::handle_t &handle, const umap_inputs &inputs,
 
   knn_graph<value_idx, value_t> knn_graph(inputs.n, k);
 
-  /**
+  /*
    * If not given precomputed knn graph, compute it
    */
   if (inputs.alloc_knn_graph()) {
-    /**
+    /*
      * Allocate workspace for kNN graph
      */
     knn_indices_b = std::make_unique<MLCommon::device_buffer<value_idx>>(
@@ -134,7 +137,7 @@ void _fit(const raft::handle_t &handle, const umap_inputs &inputs,
     params, d_alloc, stream);
 
   CUML_LOG_DEBUG("Done. Calling remove zeros");
-  /**
+  /*
    * Remove zeros from simplicial set
    */
   raft::sparse::COO<value_t> cgraph_coo(d_alloc, stream);
@@ -142,7 +145,7 @@ void _fit(const raft::handle_t &handle, const umap_inputs &inputs,
                                                      d_alloc, stream);
   ML::POP_RANGE();
 
-  /**
+  /*
    * Run initialization method
    */
   ML::PUSH_RANGE("umap::embedding");
@@ -155,7 +158,7 @@ void _fit(const raft::handle_t &handle, const umap_inputs &inputs,
     params->callback->on_preprocess_end(embeddings);
   }
 
-  /**
+  /*
    * Run simplicial set embedding to approximate low-dimensional representation
    */
   SimplSetEmbed::run<TPB_X, value_t>(inputs.n, inputs.d, &cgraph_coo, params,
@@ -186,11 +189,11 @@ void _fit_supervised(const raft::handle_t &handle, const umap_inputs &inputs,
 
   knn_graph<value_idx, value_t> knn_graph(inputs.n, k);
 
-  /**
+  /*
    * If not given precomputed knn graph, compute it
    */
   if (inputs.alloc_knn_graph()) {
-    /**
+    /*
      * Allocate workspace for kNN graph
      */
     knn_indices_b = std::make_unique<MLCommon::device_buffer<value_idx>>(
@@ -207,14 +210,14 @@ void _fit_supervised(const raft::handle_t &handle, const umap_inputs &inputs,
 
   ML::POP_RANGE();
 
-  /**
+  /*
    * Allocate workspace for fuzzy simplicial set.
    */
   ML::PUSH_RANGE("umap::simplicial_set");
   raft::sparse::COO<value_t> rgraph_coo(d_alloc, stream);
   raft::sparse::COO<value_t> tmp_coo(d_alloc, stream);
 
-  /**
+  /*
    * Run Fuzzy simplicial set
    */
   //int nnz = n*k*2;
@@ -228,7 +231,7 @@ void _fit_supervised(const raft::handle_t &handle, const umap_inputs &inputs,
 
   raft::sparse::COO<value_t> final_coo(d_alloc, stream);
 
-  /**
+  /*
    * If target metric is 'categorical', perform
    * categorical simplicial set intersection.
    */
@@ -237,7 +240,7 @@ void _fit_supervised(const raft::handle_t &handle, const umap_inputs &inputs,
     Supervised::perform_categorical_intersection<TPB_X, value_t>(
       inputs.y, &rgraph_coo, &final_coo, params, d_alloc, stream);
 
-    /**
+    /*
      * Otherwise, perform general simplicial set intersection
      */
   } else {
@@ -246,7 +249,7 @@ void _fit_supervised(const raft::handle_t &handle, const umap_inputs &inputs,
       handle, inputs.y, &rgraph_coo, &final_coo, params, stream);
   }
 
-  /**
+  /*
    * Remove zeros
    */
   raft::sparse::op::coo_sort<value_t>(&final_coo, d_alloc, stream);
@@ -256,7 +259,7 @@ void _fit_supervised(const raft::handle_t &handle, const umap_inputs &inputs,
                                                      stream);
   ML::POP_RANGE();
 
-  /**
+  /*
    * Initialize embeddings
    */
   ML::PUSH_RANGE("umap::supervised::fit");
@@ -269,7 +272,7 @@ void _fit_supervised(const raft::handle_t &handle, const umap_inputs &inputs,
     params->callback->on_preprocess_end(embeddings);
   }
 
-  /**
+  /*
    * Run simplicial set embedding to approximate low-dimensional representation
    */
   SimplSetEmbed::run<TPB_X, value_t>(inputs.n, inputs.d, &ocoo, params,
@@ -282,9 +285,6 @@ void _fit_supervised(const raft::handle_t &handle, const umap_inputs &inputs,
   ML::POP_RANGE();
 }
 
-/**
-	 *
-	 */
 template <typename value_idx, typename value_t, typename umap_inputs, int TPB_X>
 void _transform(const raft::handle_t &handle, const umap_inputs &inputs,
                 umap_inputs &orig_x_inputs, value_t *embedding, int embedding_n,
@@ -307,12 +307,12 @@ void _transform(const raft::handle_t &handle, const umap_inputs &inputs,
 
   knn_graph<value_idx, value_t> knn_graph(inputs.n, k);
 
-  /**
+  /*
    * If not given precomputed knn graph, compute it
    */
 
   if (inputs.alloc_knn_graph()) {
-    /**
+    /*
      * Allocate workspace for kNN graph
      */
     knn_indices_b = std::make_unique<MLCommon::device_buffer<value_idx>>(
@@ -335,7 +335,7 @@ void _transform(const raft::handle_t &handle, const umap_inputs &inputs,
 
   CUML_LOG_DEBUG("Smoothing KNN distances");
 
-  /**
+  /*
    * Perform smooth_knn_dist
    */
   MLCommon::device_buffer<value_t> sigmas(d_alloc, stream, inputs.n);
@@ -354,7 +354,7 @@ void _transform(const raft::handle_t &handle, const umap_inputs &inputs,
     d_alloc, stream);
   ML::POP_RANGE();
 
-  /**
+  /*
    * Compute graph of membership strengths
    */
 
@@ -364,7 +364,7 @@ void _transform(const raft::handle_t &handle, const umap_inputs &inputs,
 
   CUML_LOG_DEBUG("Executing fuzzy simplicial set");
 
-  /**
+  /*
    * Allocate workspace for fuzzy simplicial set.
    */
 
@@ -404,7 +404,7 @@ void _transform(const raft::handle_t &handle, const umap_inputs &inputs,
 
   CUDA_CHECK(cudaPeekAtLastError());
 
-  /**
+  /*
    * Go through raft::sparse::COO values and set everything that's less than
    * vals.max() / params->n_epochs to 0.0
    */
@@ -437,7 +437,7 @@ void _transform(const raft::handle_t &handle, const umap_inputs &inputs,
 
   CUDA_CHECK(cudaPeekAtLastError());
 
-  /**
+  /*
    * Remove zeros
    */
   raft::sparse::COO<value_t> comp_coo(d_alloc, stream);

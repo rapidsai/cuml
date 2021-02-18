@@ -49,7 +49,8 @@ __host__ __device__ __forceinline__ int base_node::output<int>() const {
   return val.idx;
 }
 
-/** dense_tree represents a dense tree */
+/** dense_tree represents a dense tree
+ */
 struct dense_tree {
   __host__ __device__ dense_tree(dense_node* nodes, int node_pitch)
     : nodes_(nodes), node_pitch_(node_pitch) {}
@@ -60,7 +61,8 @@ struct dense_tree {
   int node_pitch_ = 0;
 };
 
-/** dense_storage stores the forest as a collection of dense nodes */
+/** dense_storage stores the forest as a collection of dense nodes
+ */
 struct dense_storage {
   __host__ __device__ dense_storage(dense_node* nodes, int num_trees,
                                     int tree_stride, int node_pitch)
@@ -78,7 +80,10 @@ struct dense_storage {
   int node_pitch_ = 0;
 };
 
-/** sparse_tree is a sparse tree */
+/** sparse_tree is a sparse tree
+ *
+ * @tparam node_t { description }
+ */
 template <typename node_t>
 struct sparse_tree {
   __host__ __device__ sparse_tree(node_t* nodes) : nodes_(nodes) {}
@@ -88,7 +93,10 @@ struct sparse_tree {
   node_t* nodes_ = nullptr;
 };
 
-/** sparse_storage stores the forest as a collection of sparse nodes */
+/** sparse_storage stores the forest as a collection of sparse nodes
+ *
+ * @tparam node_t { description }
+ */
 template <typename node_t>
 struct sparse_storage {
   int* trees_ = nullptr;
@@ -107,17 +115,22 @@ typedef sparse_storage<sparse_node8> sparse_storage8;
 
 /// all model parameters mostly required to compute shared memory footprint,
 /// also the footprint itself
+///
 struct shmem_size_params {
-  /// for class probabilities, this is the number of classes considered;
-  /// num_classes is ignored otherwise
+  //////////////////////////////////////////////////////////////////////////////
+  // for class probabilities, this is the number of classes considered; /     //
+  // num_classes is ignored otherwise                                         //
+  //////////////////////////////////////////////////////////////////////////////
   int num_classes = 1;
   // leaf_algo determines what the leaves store (predict) and how FIL
   // aggregates them into class margins/predicted class/regression answer
   leaf_algo_t leaf_algo = leaf_algo_t::FLOAT_UNARY_BINARY;
   /// how many columns an input row has
   int num_cols = 0;
-  /// are the input columns are prefetched into shared
-  /// memory before inferring the row in question
+  //////////////////////////////////////////////////////////////////////////////
+  // are the input columns are prefetched into shared / memory before         //
+  // inferring the row in question                                            //
+  //////////////////////////////////////////////////////////////////////////////
   bool cols_in_shmem = true;
   /// n_items is the most items per thread that fit into shared memory
   int n_items = 0;

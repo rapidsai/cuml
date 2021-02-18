@@ -95,18 +95,20 @@ void reverseImpl(math_t *out, const math_t *in, int nrows, int ncols,
 
 /**
  * @brief Reversal of the input matrix along the specified dimension
- * @tparam math_t data-type upon which the math operation will be performed
- * @tparam Lambda the device-lambda performing the actual operation
- * @tparam TPB threads-per-block in the final kernel launched
- * @param out the output matrix (supports inplace operation)
- * @param in the input matrix
- * @param nrows number of rows in the input matrix
- * @param ncols number of cols in the input matrix
- * @param rowMajor input matrix is row major or not
+ *
+ * @param out       the output matrix (supports inplace operation)
+ * @param in        the input matrix
+ * @param nrows     number of rows in the input matrix
+ * @param ncols     number of cols in the input matrix
+ * @param rowMajor  input matrix is row major or not
  * @param alongRows whether to reverse along rows or not
- * @param stream cuda stream where to launch work
- * @param op the device-lambda to perform an optional final unary operation on
- *  each element after the reverse
+ * @param stream    cuda stream where to launch work
+ * @param op        the device-lambda to perform an optional final unary
+ *                  operation on each element after the reverse
+ *
+ * @tparam math_t data-type upon which the math operation will be performed
+ * @tparam TPB    threads-per-block in the final kernel launched
+ * @tparam Lambda the device-lambda performing the actual operation
  */
 template <typename math_t, typename Lambda = raft::Nop<math_t>, int TPB = 256>
 void reverse(math_t *out, const math_t *in, int nrows, int ncols, bool rowMajor,

@@ -23,12 +23,13 @@ namespace MLCommon {
 /**
  * @brief Batched warp-level sum reduction
  *
- * @tparam T        data type
- * @tparam NThreads Number of threads in the warp doing independent reductions
+ * @param[in] val   input value
  *
- * @param[in] val input value
- * @return        for the first "group" of threads, the reduced value. All
- *                others will contain unusable values!
+ * @tparam NThreads Number of threads in the warp doing independent reductions
+ * @tparam T     data type
+ *
+ * @return for the first "group" of threads, the reduced value. All others will
+ *         contain unusable values!
  *
  * @note Why not cub? Because cub doesn't seem to allow working with arbitrary
  *       number of warps in a block and also doesn't support this kind of
@@ -49,14 +50,15 @@ DI T batchedWarpReduce(T val) {
 /**
  * @brief 1-D block-level batched sum reduction
  *
- * @tparam T        data type
- * @tparam NThreads Number of threads in the warp doing independent reductions
+ * @param val   input value
+ * @param smem  shared memory region needed for storing intermediate results. It
+ *              must alteast be of size: `sizeof(T) * nWarps * NThreads`
  *
- * @param val  input value
- * @param smem shared memory region needed for storing intermediate results. It
- *             must alteast be of size: `sizeof(T) * nWarps * NThreads`
- * @return     for the first "group" of threads in the block, the reduced value.
- *             All others will contain unusable values!
+ * @tparam NThreads Number of threads in the warp doing independent reductions
+ * @tparam T     data type
+ *
+ * @return for the first "group" of threads in the block, the reduced value. All
+ *         others will contain unusable values!
  *
  * @note Why not cub? Because cub doesn't seem to allow working with arbitrary
  *       number of warps in a block and also doesn't support this kind of

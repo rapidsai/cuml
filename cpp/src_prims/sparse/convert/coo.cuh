@@ -50,11 +50,14 @@ __global__ void csr_to_coo_kernel(const value_idx *row_ind, value_idx m,
 
 /**
  * @brief Convert a CSR row_ind array to a COO rows array
- * @param row_ind: Input CSR row_ind array
- * @param m: size of row_ind array
- * @param coo_rows: Output COO row array
- * @param nnz: size of output COO row array
- * @param stream: cuda stream to use
+ *
+ * @param row_ind  Input CSR row_ind array
+ * @param m        size of row_ind array
+ * @param coo_rows Output COO row array
+ * @param nnz      size of output COO row array
+ * @param stream   cuda stream to use
+ *
+ * @tparam TPB_X { description }
  */
 template <typename value_idx = int, int TPB_X = 32>
 void csr_to_coo(const value_idx *row_ind, value_idx m, value_idx *coo_rows,

@@ -28,26 +28,28 @@ namespace MLCommon {
 namespace Distance {
 
 /**
- * @brief the expanded euclidean distance matrix calculation
- *  It computes the following equation: C = op(A^2 + B^2 - 2AB)
- * @tparam InType input data-type (for A and B matrices)
- * @tparam AccType accumulation data-type
- * @tparam OutType output data-type (for C and D matrices)
+ * @brief the expanded euclidean distance matrix calculation It computes the
+ *        following equation: C = op(A^2 + B^2 - 2AB)
+ *
+ * @param m           number of rows of A and C/D
+ * @param n           number of columns of B and C/D
+ * @param k           number of cols of A and rows of B
+ * @param pA          input matrix
+ * @param pB          input matrix
+ * @param pD          output matrix
+ * @param enable_sqrt if the square root is computed or not
+ * @param workspace   temporary workspace needed for computations
+ * @param worksize    number of bytes of the workspace
+ * @param fin_op      the final gemm epilogue lambda
+ * @param stream      cuda stream where to launch work
+ * @param isRowMajor  whether the input and output matrices are row major
+ *
+ * @tparam InType      input data-type (for A and B matrices)
+ * @tparam AccType     accumulation data-type
+ * @tparam OutType     output data-type (for C and D matrices)
  * @tparam OutputTile_ output tile size for the thread block
  * @tparam FinalLambda the final lambda called by FragmentMultiplyAdd_
- * @tparam Index_ index type
- * @param m number of rows of A and C/D
- * @param n number of columns of B and C/D
- * @param k number of cols of A and rows of B
- * @param pA input matrix
- * @param pB input matrix
- * @param pD output matrix
- * @param enable_sqrt if the square root is computed or not
- * @param workspace temporary workspace needed for computations
- * @param worksize number of bytes of the workspace
- * @param fin_op the final gemm epilogue lambda
- * @param stream cuda stream where to launch work
- * @param isRowMajor whether the input and output matrices are row major
+ * @tparam Index_      index type
  */
 template <typename InType, typename AccType, typename OutType,
           typename OutputTile_, typename FinalLambda, typename Index_ = int>
@@ -65,24 +67,26 @@ void euclideanAlgo1(Index_ m, Index_ n, Index_ k, const InType *pA,
 }
 
 /**
- * @brief the unexpanded euclidean distance matrix calculation
- *  It computes the following equation: cij = op((ai-bj)^2)
- * @tparam InType input data-type (for A and B matrices)
- * @tparam AccType accumulation data-type
- * @tparam OutType output data-type (for C and D matrices)
+ * @brief the unexpanded euclidean distance matrix calculation It computes the
+ *        following equation: cij = op((ai-bj)^2)
+ *
+ * @param m           number of rows of A and C/D
+ * @param n           number of columns of B and C/D
+ * @param k           number of cols of A and rows of B
+ * @param pA          input matrix
+ * @param pB          input matrix
+ * @param pD          output matrix
+ * @param enable_sqrt if the square root is computed or not
+ * @param fin_op      the final gemm epilogue lambda
+ * @param stream      cuda stream where to launch work
+ * @param isRowMajor  whether the input and output matrices are row major
+ *
+ * @tparam InType      input data-type (for A and B matrices)
+ * @tparam AccType     accumulation data-type
+ * @tparam OutType     output data-type (for C and D matrices)
  * @tparam OutputTile_ output tile size for the thread block
  * @tparam FinalLambda user-defined epilogue lamba
- * @tparam Index_ index type
- * @param m number of rows of A and C/D
- * @param n number of columns of B and C/D
- * @param k number of cols of A and rows of B
- * @param pA input matrix
- * @param pB input matrix
- * @param pD output matrix
- * @param enable_sqrt if the square root is computed or not
- * @param fin_op the final gemm epilogue lambda
- * @param stream cuda stream where to launch work
- * @param isRowMajor whether the input and output matrices are row major
+ * @tparam Index_      index type
  */
 template <typename InType, typename AccType, typename OutType,
           typename OutputTile_, typename FinalLambda, typename Index_ = int>

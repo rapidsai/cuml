@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 /**
-* @file kl_divergence.cuh
-* @brief The KL divergence tells us how well the probability distribution Q AKA candidatePDF
-* approximates the probability distribution P AKA modelPDF.
-*/
+ * @file kl_divergence.cuh
+ * @brief The KL divergence tells us how well the probability distribution Q AKA
+ *        candidatePDF approximates the probability distribution P AKA modelPDF.
+ */
 
 #pragma once
 
@@ -31,12 +31,12 @@
 namespace MLCommon {
 
 /**
-* @brief the KL Diverence mapping function
-*
-* @tparam Type: Data type of the input
-* @param modelPDF: the model probability density function of type DataT
-* @param candidatePDF: the candidate probability density function of type DataT
-*/
+ * @brief the KL Diverence mapping function
+ *
+ * @tparam Type  Data type of the input
+ * @param modelPDF:     the model probability density function of type DataT
+ * @param candidatePDF: the candidate probability density function of type DataT
+ */
 template <typename Type>
 struct KLDOp {
   HDI Type operator()(Type modelPDF, Type candidatePDF) {
@@ -51,16 +51,24 @@ struct KLDOp {
 namespace Metrics {
 
 /**
-* @brief Function to calculate KL Divergence
-* <a href="https://en.wikipedia.org/wiki/Kullback%E2%80%93Leibler_divergence">more info on KL Divergence</a>
-*
-* @tparam DataT: Data type of the input array
-* @param modelPDF: the model array of probability density functions of type DataT
-* @param candidatePDF: the candidate array of probability density functions of type DataT
-* @param size: the size of the data points of type int
-* @param allocator: object that takes care of temporary device memory allocation of type std::shared_ptr<MLCommon::deviceAllocator>
-* @param stream: the cudaStream object
-*/
+ * @brief Function to calculate KL Divergence <a
+ *        href="https://en.wikipedia.org/wiki/Kullback%E2%80%93Leibler_divergence">more
+ *        info on KL Divergence</a>
+ *
+ * @param modelPDF     the model array of probability density functions of type
+ *                     DataT
+ * @param candidatePDF the candidate array of probability density functions of
+ *                     type DataT
+ * @param size         the size of the data points of type int
+ * @param allocator    object that takes care of temporary device memory
+ *                     allocation of type
+ *                     std::shared_ptr<MLCommon::deviceAllocator>
+ * @param stream       the cudaStream object
+ *
+ * @tparam DataT Data type of the input array
+ *
+ * @return The data t.
+ */
 template <typename DataT>
 DataT kl_divergence(const DataT* modelPDF, const DataT* candidatePDF, int size,
                     std::shared_ptr<MLCommon::deviceAllocator> allocator,

@@ -23,26 +23,28 @@ namespace MLCommon {
 namespace Distance {
 
 /**
- * @brief the expanded cosine distance matrix calculation
- *  It computes the following equation: C = op(A^2 + B^2 - 2AB)
- * @tparam IType input data-type (for A and B matrices)
- * @tparam AccType accumulation data-type
- * @tparam OType output data-type (for C and D matrices)
+ * @brief the expanded cosine distance matrix calculation It computes the
+ *        following equation: C = op(A^2 + B^2 - 2AB)
+ *
+ * @param m          number of rows of A and C/D
+ * @param n          number of columns of B and C/D
+ * @param k          number of cols of A and rows of B
+ * @param pA         input matrix
+ * @param pB         input matrix
+ * @param pD         output matrix
+ * @param workspace  temporary workspace needed for computations
+ * @param worksize   number of bytes of the workspace
+ * @param fin_op     the final gemm epilogue lambda
+ * @param stream     cuda stream where to launch work
+ * @param isRowMajor whether the input and output matrices are row major
+ *
+ * @tparam InType      input data-type (for A and B matrices)
+ * @tparam AccType     accumulation data-type
+ * @tparam OutType     output data-type (for C and D matrices)
  * @tparam OutputTile_ output tile size for the thread block
  * @tparam FinalLambda user-defined epilogue lamba
- * @tparam Index_ Index type
- * @param m number of rows of A and C/D
- * @param n number of columns of B and C/D
- * @param k number of cols of A and rows of B
- * @param pA input matrix
- * @param pB input matrix
- * @param pD output matrix
- * @tparam in_params user-defined input parameter
- * @param workspace temporary workspace needed for computations
- * @param worksize number of bytes of the workspace
- * @param fin_op the final gemm epilogue lambda
- * @param stream cuda stream where to launch work
- * @param isRowMajor whether the input and output matrices are row major
+ * @tparam Index_      Index type
+ * @tparam in_params   user-defined input parameter
  */
 template <typename InType, typename AccType, typename OutType,
           typename OutputTile_, typename FinalLambda, typename Index_ = int>

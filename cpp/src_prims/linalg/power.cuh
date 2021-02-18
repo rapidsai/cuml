@@ -25,13 +25,15 @@ namespace LinAlg {
 
 /**
  * @defgroup ScalarOps Scalar operations on the input buffer
- * @tparam math_t data-type upon which the math operation will be performed
+ * @tparam math_t  data-type upon which the math operation will be performed
  * @tparam IdxType Integer type used to for addressing
- * @param out the output buffer
- * @param in the input buffer
+ *
+ * @param out    the output buffer
+ * @param in     the input buffer
  * @param scalar the scalar used in the operations
- * @param len number of elements in the input buffer
+ * @param len    number of elements in the input buffer
  * @param stream cuda stream where to launch work
+ *
  * @{
  */
 template <typename math_t, typename IdxType = int>
@@ -45,14 +47,17 @@ void powerScalar(math_t *out, const math_t *in, math_t scalar, IdxType len,
 
 /**
  * @defgroup BinaryOps Element-wise binary operations on the input buffers
+ *
+ * @param out    the output buffer
+ * @param in1    the first input buffer
+ * @param in2    the second input buffer
+ * @param len    number of elements in the input buffers
+ * @param stream cuda stream where to launch work
+ *
+ * @{
+ *
  * @tparam math_t data-type upon which the math operation will be performed
  * @tparam IdxType Integer type used to for addressing
- * @param out the output buffer
- * @param in1 the first input buffer
- * @param in2 the second input buffer
- * @param len number of elements in the input buffers
- * @param stream cuda stream where to launch work
- * @{
  */
 template <typename math_t, typename IdxType = int>
 void power(math_t *out, const math_t *in1, const math_t *in2, IdxType len,

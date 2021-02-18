@@ -26,13 +26,14 @@ namespace Matrix {
 
 using namespace MLCommon;
 
-/** Epiloge function for polynomial kernel without padding.
- * Calculates output = (gain*in + offset)^exponent
- * @param inout device vector in column major format, size [len]
- * @param len array length
- * @param exponent
- * @param gain
- * @param offset
+/** Epiloge function for polynomial kernel without padding. Calculates output =
+ * (gain*in + offset)^exponent
+ *
+ * @param inout    device vector in column major format, size [len]
+ * @param len      array length
+ * @param exponent The exponent
+ * @param gain     The gain
+ * @param offset   The offset
  */
 template <typename math_t, typename exp_t>
 __global__ void polynomial_kernel_nopad(math_t *inout, size_t len,
@@ -44,15 +45,16 @@ __global__ void polynomial_kernel_nopad(math_t *inout, size_t len,
   }
 }
 
-/** Epiloge function for polynomial kernel with padding.
- * Calculates output = (gain*input + offset)^exponent
- * @param inout device vector in column major format, size [ld * cols]
- * @param ld leading dimension of the inout buffer
- * @param rows number of rows (rows <= ld)
- * @param cols number of colums
- * @param exponent
- * @param gain
- * @param offset
+/** Epiloge function for polynomial kernel with padding. Calculates output =
+ * (gain*input + offset)^exponent
+ *
+ * @param inout    device vector in column major format, size [ld * cols]
+ * @param ld       leading dimension of the inout buffer
+ * @param rows     number of rows (rows <= ld)
+ * @param cols     number of colums
+ * @param exponent The exponent
+ * @param gain     The gain
+ * @param offset   The offset
  */
 template <typename math_t, typename exp_t>
 __global__ void polynomial_kernel(math_t *inout, int ld, int rows, int cols,
@@ -66,12 +68,13 @@ __global__ void polynomial_kernel(math_t *inout, int ld, int rows, int cols,
     }
 }
 
-/** Epiloge function for tanh kernel without padding.
- * Calculates output = tanh(gain*input + offset)
- * @param inout device vector in column major format, size [len]
- * @param len length of the input vector
- * @param gain
- * @param offset
+/** Epiloge function for tanh kernel without padding. Calculates output =
+ * tanh(gain*input + offset)
+ *
+ * @param inout  device vector in column major format, size [len]
+ * @param len    length of the input vector
+ * @param gain   The gain
+ * @param offset The offset
  */
 template <typename math_t>
 __global__ void tanh_kernel_nopad(math_t *inout, size_t len, math_t gain,
@@ -82,14 +85,15 @@ __global__ void tanh_kernel_nopad(math_t *inout, size_t len, math_t gain,
   }
 }
 
-/** Epiloge function for tanh kernel without padding.
- * Calculates output = tanh(gain*input + offset)
- * @param inout device vector in column major format, size [ld * cols]
- * @param ld leading dimension of the inout buffer
- * @param rows number of rows (rows <= ld)
- * @param cols number of colums
- * @param gain
- * @param offset
+/** Epiloge function for tanh kernel without padding. Calculates output =
+ * tanh(gain*input + offset)
+ *
+ * @param inout  device vector in column major format, size [ld * cols]
+ * @param ld     leading dimension of the inout buffer
+ * @param rows   number of rows (rows <= ld)
+ * @param cols   number of colums
+ * @param gain   The gain
+ * @param offset The offset
  */
 template <typename math_t>
 __global__ void tanh_kernel(math_t *inout, int ld, int rows, int cols,
@@ -104,6 +108,9 @@ __global__ void tanh_kernel(math_t *inout, int ld, int rows, int cols,
 
 /**
  * Create a kernel matrix using polynomial kernel function.
+ *
+ * @tparam math_t { description }
+ * @tparam exp_t  { description }
  */
 template <typename math_t, typename exp_t>
 class PolynomialKernel : public GramMatrixBase<math_t> {
@@ -127,16 +134,16 @@ class PolynomialKernel : public GramMatrixBase<math_t> {
 
  public:
   /**
-    * Constructs a polynomial kernel object.
-    * It evaluates the kernel matrix using the following formula:
-    * K_ij = (gain*<x1_i, x2_k> + offset)^exponent
+    * Constructs a polynomial kernel object. It evaluates the kernel matrix
+    * using the following formula: K_ij = (gain*<x1_i, x2_k> + offset)^exponent
     *
     * @tparam math_t floating point type
-    * @tparam exp_t type of exponent
-    * @param exponent
-    * @param gain
-    * @param offset
-    * @param cublas_handle
+    * @tparam exp_t  type of exponent
+    *
+    * @param exponent      The exponent
+    * @param gain          The gain
+    * @param offset        The offset
+    * @param cublas_handle The cublas handle
     */
   PolynomialKernel(exp_t exponent, math_t gain, math_t offset,
                    cublasHandle_t cublas_handle)
@@ -147,23 +154,22 @@ class PolynomialKernel : public GramMatrixBase<math_t> {
 
   /** Evaluate kernel matrix using polynomial kernel.
    *
-   * output_[i + k*n1] = (gain*<x1_i, x2_k> + offset)^exponent,
-   * where x1_i is the i-th vector from the x1 set, and x2_k is k-th vector
-   * in the x2 set, and < , > denotes dot product.
+   * output_[i + k*n1] = (gain*<x1_i, x2_k> + offset)^exponent, where x1_i is
+   * the i-th vector from the x1 set, and x2_k is k-th vector in the x2 set, and
+   * < , > denotes dot product.
    *
-   * @param [in] x1 device array of vectors in column major format,
-   *  size [n1*n_cols]
-   * @param [in] n1 number vectors in x1
-   * @param [in] n_cols number of features in x1 and x2
-   * @param [in] x2 device array of vectors in column major format,
-   * @param [in] n2 number vectors in x2
-   *   size [n2*n_cols]
-   * @param [out] out device buffer to store the Gram matrix in column major
-   *   format, size [n1*n2]
-   * @param [in] stream cuda stream
-   * @param ld1 leading dimension of x1 (usually it is n1)
-   * @param ld2 leading dimension of x2 (usually it is n2)
-   * @param ld_out leading dimension of out (usually it is n1)
+   * @param[in]  x1     device array of vectors in column major format, size
+   *                    [n1*n_cols]
+   * @param[in]  n1     number vectors in x1
+   * @param[in]  n_cols number of features in x1 and x2
+   * @param[in]  x2     device array of vectors in column major format,
+   * @param[in]  n2     number vectors in x2 size [n2*n_cols]
+   * @param[out] out    device buffer to store the Gram matrix in column major
+   *                    format, size [n1*n2]
+   * @param[in]  stream cuda stream
+   * @param      ld1    leading dimension of x1 (usually it is n1)
+   * @param      ld2    leading dimension of x2 (usually it is n2)
+   * @param      ld_out leading dimension of out (usually it is n1)
    */
   void evaluate(const math_t *x1, int n1, int n_cols, const math_t *x2, int n2,
                 math_t *out, cudaStream_t stream, int ld1, int ld2,
@@ -176,6 +182,8 @@ class PolynomialKernel : public GramMatrixBase<math_t> {
 
 /**
  * Create a kernel matrix using tanh kernel function.
+ *
+ * @tparam math_t { description }
  */
 template <typename math_t>
 class TanhKernel : public GramMatrixBase<math_t> {
@@ -195,38 +203,38 @@ class TanhKernel : public GramMatrixBase<math_t> {
 
  public:
   /**
-  * Constructs a tanh kernel object.
-  * It evaluates the kernel matrix using the following formula:
-  * K_ij = tanh(gain*<x1_i, x2_k> + offset)
-  *
-  * @tparam math_t floating point type
-  * @param gain
-  * @param offset
-  * @param cublas_handle
-  */
+   * Constructs a tanh kernel object. It evaluates the kernel matrix using the
+   * following formula: K_ij = tanh(gain*<x1_i, x2_k> + offset)
+   *
+   * @tparam math_t floating point type
+   *
+   * @param gain          The gain
+   * @param offset        The offset
+   * @param cublas_handle The cublas handle
+   */
   TanhKernel(math_t gain, math_t offset, cublasHandle_t cublas_handle)
     : GramMatrixBase<math_t>(cublas_handle), gain(gain), offset(offset) {}
 
   /** Evaluate kernel matrix using tanh kernel.
-  *
-  * output_[i + k*n1] = (gain*<x1_i, x2_k> + offset)^exponent,
-  * where x1_i is the i-th vector from the x1 set, and x2_k is k-th vector
-  * in the x2 set, and < , > denotes dot product.
-  *
-  * @param [in] x1 device array of vectors in column major format,
-  *  size [n1*n_cols]
-  * @param [in] n1 number vectors in x1
-  * @param [in] n_cols number of features in x1 and x2
-  * @param [in] x2 device array of vectors in column major format,
-  *   size [n2*n_cols]
-  * @param [in] n2 number vectors in x2
-  * @param [out] out device buffer to store the Gram matrix in column major
-  *   format, size [n1*n2]
-  * @param [in] stream cuda stream
-  * @param ld1 leading dimension of x1 (usually it is n1)
-  * @param ld2 leading dimension of x2 (usually it is n2)
-  * @param ld_out leading dimension of out (usually it is n1)
-  */
+   *
+   * output_[i + k*n1] = (gain*<x1_i, x2_k> + offset)^exponent, where x1_i is
+   * the i-th vector from the x1 set, and x2_k is k-th vector in the x2 set, and
+   * < , > denotes dot product.
+   *
+   * @param[in]  x1     device array of vectors in column major format, size
+   *                    [n1*n_cols]
+   * @param[in]  n1     number vectors in x1
+   * @param[in]  n_cols number of features in x1 and x2
+   * @param[in]  x2     device array of vectors in column major format, size
+   *                    [n2*n_cols]
+   * @param[in]  n2     number vectors in x2
+   * @param[out] out    device buffer to store the Gram matrix in column major
+   *                    format, size [n1*n2]
+   * @param[in]  stream cuda stream
+   * @param      ld1    leading dimension of x1 (usually it is n1)
+   * @param      ld2    leading dimension of x2 (usually it is n2)
+   * @param      ld_out leading dimension of out (usually it is n1)
+   */
   void evaluate(const math_t *x1, int n1, int n_cols, const math_t *x2, int n2,
                 math_t *out, cudaStream_t stream, int ld1, int ld2,
                 int ld_out) {
@@ -238,6 +246,8 @@ class TanhKernel : public GramMatrixBase<math_t> {
 
 /**
  * Create a kernel matrix using RBF kernel function.
+ *
+ * @tparam math_t { description }
  */
 template <typename math_t>
 class RBFKernel : public GramMatrixBase<math_t> {
@@ -255,35 +265,37 @@ class RBFKernel : public GramMatrixBase<math_t> {
 
  public:
   /**
-   * Constructs a RBF kernel object.
-   * It evaluates the kernel matrix using the following formula:
-   * K_ij = exp(-gain*|x1_i- x2_k|^2)
+   * Constructs a RBF kernel object. It evaluates the kernel matrix using the
+   * following formula: K_ij = exp(-gain*|x1_i- x2_k|^2)
    *
    * @tparam math_t floating point type
-   * @param gain
+   *
+   * @param gain  The gain
    */
   RBFKernel(math_t gain) : GramMatrixBase<math_t>(NULL), gain(gain) {}
 
   /** Evaluate kernel matrix using RBF kernel.
-  *
-  * output_[i + k*n1] = exp(-gain*|x1_i - x2_k|^2),
-  * where x1_i is the i-th vector from the x1 set, and x2_k is k-th vector
-  * in the x2 set, and | | euclidean distance.
-  *
-  * @param [in] x1 device array of vectors in column major format,
-  *  size [n1*n_cols]
-  * @param [in] n1 number vectors in x1
-  * @param [in] n_cols number of features in x1 and x2
-  * @param [in] x2 device array of vectors in column major format,
-  *   size [n2*n_cols]
-  * @param [in] n2 number vectors in x2
-  * @param [out] out device buffer to store the Gram matrix in column major
-  *   format, size [n1*n2]
-  * @param [in] stream cuda stream
-  * @param ld1 leading dimension of x1, currently only ld1 == n1 is supported
-  * @param ld2 leading dimension of x2, currently only ld2 == n2 is supported
-  * @param ld_out leading dimension of out, only ld_out == n1 is supported
-  */
+   *
+   * output_[i + k*n1] = exp(-gain*|x1_i - x2_k|^2), where x1_i is the i-th
+   * vector from the x1 set, and x2_k is k-th vector in the x2 set, and | |
+   * euclidean distance.
+   *
+   * @param[in]  x1     device array of vectors in column major format, size
+   *                    [n1*n_cols]
+   * @param[in]  n1     number vectors in x1
+   * @param[in]  n_cols number of features in x1 and x2
+   * @param[in]  x2     device array of vectors in column major format, size
+   *                    [n2*n_cols]
+   * @param[in]  n2     number vectors in x2
+   * @param[out] out    device buffer to store the Gram matrix in column major
+   *                    format, size [n1*n2]
+   * @param[in]  stream cuda stream
+   * @param      ld1    leading dimension of x1, currently only ld1 == n1 is
+   *                    supported
+   * @param      ld2    leading dimension of x2, currently only ld2 == n2 is
+   *                    supported
+   * @param      ld_out leading dimension of out, only ld_out == n1 is supported
+   */
   void evaluate(const math_t *x1, int n1, int n_cols, const math_t *x2, int n2,
                 math_t *out, cudaStream_t stream, int ld1, int ld2,
                 int ld_out) {
@@ -294,7 +306,19 @@ class RBFKernel : public GramMatrixBase<math_t> {
     distance(x1, n1, n_cols, x2, n2, out, stream, ld1, ld2, ld_out);
   }
 
-  /** Customize distance function withe RBF epilogue */
+  /** Customize distance function withe RBF epilogue
+   *
+   * @param[in] x1     The x 1
+   * @param[in] n1     The n 1
+   * @param[in] n_cols The n cols
+   * @param[in] x2     The x 2
+   * @param[in] n2     The n 2
+   * @param     out    The out
+   * @param[in] stream The stream
+   * @param[in] ld1    The ld 1
+   * @param[in] ld2    The ld 2
+   * @param[in] ld_out The ld out
+   */
   void distance(const math_t *x1, int n1, int n_cols, const math_t *x2, int n2,
                 math_t *out, cudaStream_t stream, int ld1, int ld2,
                 int ld_out) {

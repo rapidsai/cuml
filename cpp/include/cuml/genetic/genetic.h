@@ -26,7 +26,8 @@
 namespace cuml {
 namespace genetic {
 
-/** Type of initialization of the member programs in the population */
+/** Type of initialization of the member programs in the population
+ */
 enum class init_method_t : uint32_t {
   /** random nodes chosen, allowing shorter or asymmetrical trees */
   grow,
@@ -36,7 +37,8 @@ enum class init_method_t : uint32_t {
   half_and_half,
 };  // enum class init_method_t
 
-/** fitness metric types */
+/** fitness metric types
+ */
 enum class metric_t : uint32_t {
   /** mean absolute error (regression-only) */
   mae,
@@ -102,7 +104,7 @@ struct param {
   float parsimony_coefficient = 0.001f;
   /** crossover mutation probability of the tournament winner */
   float p_crossover = 0.9f;
-  /** subtree mutation probability of the tournament winner*/
+  /** subtree mutation probability of the tournament winner */
   float p_subtree_mutation = 0.01f;
   /** hoist mutation probability of the tournament winner */
   float p_hoist_mutation = 0.01f;
@@ -114,15 +116,20 @@ struct param {
   float max_samples = 1.0f;
   /** list of feature names for generating syntax trees from the programs */
   std::vector<std::string> feature_names;
-  ///@todo: feature_names
-  ///@todo: verbose
-  /** random seed used for RNG */
+  /// @todo : feature_names
+  /// @todo : verbose /** random seed used for RNG */
   uint64_t random_state = 0ull;
 
-  /** Computes the probability of 'reproduction' */
+  /** Computes the probability of 'reproduction'
+   *
+   * @return { description_of_the_return_value }
+   */
   float p_reproduce() const;
 
-  /** maximum possible number of programs */
+  /** maximum possible number of programs
+   *
+   * @return { description_of_the_return_value }
+   */
   int max_programs() const;
 };  // struct param
 

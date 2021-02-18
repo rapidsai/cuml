@@ -28,12 +28,14 @@ namespace {
 /**
  * @brief Like Python range.
  *
- * Fills the output as out[i] = i.
+ *        Fills the output as out[i] = i.
  *
- * \param [out] out device array, size [end-start]
- * \param [in] start of the range
- * \param [in] end of range (exclusive)
- * \param [in] stream cuda stream
+ * @param[out] out    device array, size [end-start]
+ * @param[in]  start  of the range
+ * @param[in]  end    of range (exclusive)
+ * @param[in]  stream cuda stream
+ *
+ * @tparam T     { description }
  */
 template <typename T>
 void range(T *out, int start, int end, cudaStream_t stream) {
@@ -46,11 +48,14 @@ void range(T *out, int start, int end, cudaStream_t stream) {
 /**
  * @brief Like Python range.
  *
- * Fills the output as out[i] = i.
+ *        Fills the output as out[i] = i.
  *
- * \param [out] out device array, size [n]
- * \param [in] n length of the array
- * \param [in] stream cuda stream
+ * @param[out] out    device array, size [n]
+ * @param[in]  n      length of the array
+ * @param[in]  stream cuda stream
+ *
+ * @tparam T     { description }
+ * @tparam TPB   { description }
  */
 template <typename T, int TPB = 256>
 void range(T *out, int n, cudaStream_t stream) {

@@ -23,6 +23,13 @@ namespace MLCommon {
 namespace LinAlg {
 
 /// Template performing matrix diff-squared-add operation within a thread
+///
+/// @tparam AccumulatorsPerThread_ { description }
+/// @tparam ThreadsPerWarp_        { description }
+/// @tparam ScalarA_               { description }
+/// @tparam ScalarB_               { description }
+/// @tparam ScalarC_               { description }
+///
 template <typename AccumulatorsPerThread_, typename ThreadsPerWarp_,
           typename ScalarA_, typename ScalarB_, typename ScalarC_>
 struct ThreadDiffSquaredAdd {
@@ -52,9 +59,16 @@ struct ThreadDiffSquaredAdd {
     Accumulators;
 
   /// Ctor.
+  ///
   CUTLASS_DEVICE ThreadDiffSquaredAdd() {}
 
   /// Multiply : d = (a-b)^2 + c.
+  ///
+  /// @param a     { parameter_description }
+  /// @param b     { parameter_description }
+  /// @param c     { parameter_description }
+  /// @param d     { parameter_description }
+  ///
   CUTLASS_DEVICE void multiply_add(FragmentA const &a, FragmentB const &b,
                                    Accumulators const &c, Accumulators &d) {
     for (int j = 0; j < AccumulatorsPerThread::kH; ++j) {
@@ -68,6 +82,13 @@ struct ThreadDiffSquaredAdd {
 };
 
 /// Template performing matrix L1-norm operation within a thread
+///
+/// @tparam AccumulatorsPerThread_ { description }
+/// @tparam ThreadsPerWarp_        { description }
+/// @tparam ScalarA_               { description }
+/// @tparam ScalarB_               { description }
+/// @tparam ScalarC_               { description }
+///
 template <typename AccumulatorsPerThread_, typename ThreadsPerWarp_,
           typename ScalarA_, typename ScalarB_, typename ScalarC_>
 struct ThreadL1NormAdd {
@@ -97,9 +118,16 @@ struct ThreadL1NormAdd {
     Accumulators;
 
   /// Ctor.
+  ///
   CUTLASS_DEVICE ThreadL1NormAdd() {}
 
   /// Multiply : d = |a-b| + c.
+  ///
+  /// @param a     { parameter_description }
+  /// @param b     { parameter_description }
+  /// @param c     { parameter_description }
+  /// @param d     { parameter_description }
+  ///
   CUTLASS_DEVICE void multiply_add(FragmentA const &a, FragmentB const &b,
                                    Accumulators const &c, Accumulators &d) {
     for (int j = 0; j < AccumulatorsPerThread::kH; ++j) {

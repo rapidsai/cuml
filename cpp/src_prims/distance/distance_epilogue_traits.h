@@ -42,7 +42,8 @@ struct BoolEpilogueTraitsHelper : public BaseClass {
   typedef typename BaseClass::GlobalLoadIteratorC GlobalLoadIteratorC;
   typedef typename BaseClass::GlobalTransformerC GlobalTransformerC;
 
-  /// The traits class to build the iterator to store data to global memory for D^N.
+  /// The traits class to build the iterator to store data to global memory for
+  /// D^N.
   typedef cutlass::gemm::GemmGlobalTileCdTraits<
     bool,
     // The tile has size (N / Iterations)xM in GEMM's terminology.

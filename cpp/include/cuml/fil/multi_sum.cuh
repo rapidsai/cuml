@@ -21,28 +21,28 @@
 #include <raft/cuda_utils.cuh>
 
 /**
- * @brief      Multiple Sum
+ * @brief Multiple Sum
  *
- * @warning    `data` is "spoiled" during the process: at the end, it will
- *             contain neither the initial nor the final values. the only valid
- *             result is the one returned by the function. That makes it faster.
+ * @warning `data` is "spoiled" during the process: at the end, it will contain
+ *          neither the initial nor the final values. the only valid result is
+ *          the one returned by the function. That makes it faster.
  *
- * @note       It's assumed that:
+ * @note It's assumed that:
  *              - `data[n_groups * n_values - 1]` is within range
  *              - `T::operator+=` is defined
  *              - The implied addition is associative.
  *
- * @param      data      Holds one value per thread in shared memory. Values
- *                       are ordered such that the stride is 1 for values
- *                       belonging to the same group and `n_groups` for values
- *                       that are to be added together
- * @param[in]  n_groups  The number of indendent reductions
- * @param[in]  n_values  The size of each individual reduction
+ * @param     data     Holds one value per thread in shared memory. Values are
+ *                     ordered such that the stride is 1 for values belonging to
+ *                     the same group and `n_groups` for values that are to be
+ *                     added together
+ * @param[in] n_groups The number of indendent reductions
+ * @param[in] n_values The size of each individual reduction
  *
- * @tparam     R         Radix Type
- * @tparam     T         Data Type
+ * @tparam R     Radix Type
+ * @tparam T     Data Type
  *
- * @return     One sum per thread, for `n_groups` first threads.
+ * @return One sum per thread, for `n_groups` first threads.
  */
 template <int R = 5, typename T = float>
 __device__ T multi_sum(T* data, int n_groups, int n_values) {

@@ -27,7 +27,21 @@
 namespace MLCommon {
 namespace Metrics {
 
-///@todo: ColsPerBlk has been tested only for 32!
+////////////////////////////////////////////////////////////////////////////////
+// @todo : ColsPerBlk has been tested only for 32!                            //
+//                                                                            //
+// @brief { function_description }                                            //
+//                                                                            //
+// @param     mu     { parameter_description }                                //
+// @param[in] data   The data                                                 //
+// @param[in] counts The counts                                               //
+// @param[in] D      { parameter_description }                                //
+// @param[in] N      { parameter_description }                                //
+//                                                                            //
+// @tparam DataT      { description }                                         //
+// @tparam TPB        { description }                                         //
+// @tparam ColsPerBlk { description }                                         //
+////////////////////////////////////////////////////////////////////////////////
 template <typename DataT, typename IdxT, int TPB, int ColsPerBlk = 32>
 __global__ void weightedMeanKernel(DataT *mu, const DataT *data,
                                    const IdxT *counts, IdxT D, IdxT N) {
@@ -75,21 +89,25 @@ __global__ void dispersionKernel(DataT *result, const DataT *clusters,
 
 /**
  * @brief Compute cluster dispersion metric. This is very useful for
- * automatically finding the 'k' (in kmeans) that improves this metric.
- * @tparam DataT data type
- * @tparam IdxT index type
- * @tparam TPB threads block for kernels launched
- * @param centroids the cluster centroids. This is assumed to be row-major
- *   and of dimension (nClusters x dim)
- * @param clusterSizes number of points in the dataset which belong to each
- *   cluster. This is of length nClusters
+ *        automatically finding the 'k' (in kmeans) that improves this metric.
+ *
+ * @param centroids      the cluster centroids. This is assumed to be row-major
+ *                       and of dimension (nClusters x dim)
+ * @param clusterSizes   number of points in the dataset which belong to each
+ *                       cluster. This is of length nClusters
  * @param globalCentroid compute the global weighted centroid of all cluster
- *   centroids. This is of length dim. Pass a nullptr if this is not needed
- * @param nClusters number of clusters
- * @param nPoints number of points in the dataset
- * @param dim dataset dimensionality
- * @param allocator device allocator
- * @param stream cuda stream
+ *                       centroids. This is of length dim. Pass a nullptr if
+ *                       this is not needed
+ * @param nClusters      number of clusters
+ * @param nPoints        number of points in the dataset
+ * @param dim            dataset dimensionality
+ * @param allocator      device allocator
+ * @param stream         cuda stream
+ *
+ * @tparam DataT data type
+ * @tparam TPB   threads block for kernels launched
+ * @tparam IdxT  index type
+ *
  * @return the cluster dispersion value
  */
 template <typename DataT, typename IdxT = int, int TPB = 256>

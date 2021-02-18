@@ -24,6 +24,7 @@ namespace CorePoints {
 
 /**
  * Compute the core points from the vertex degrees and min_pts criterion
+ *
  * @param[in]  handle          cuML handle
  * @param[in]  vd              Vertex degrees
  * @param[out] mask            Boolean core point mask

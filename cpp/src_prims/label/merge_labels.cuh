@@ -27,9 +27,19 @@ namespace MLCommon {
 namespace Label {
 
 /** Note: this is one possible implementation where we represent the label
- *  equivalence graph implicitly using labels_a, labels_b and mask.
- *  For an additional cost we can build the graph with edges
- *  E={(A[i], B[i]) | M[i]=1} and make this step faster */
+ * equivalence graph implicitly using labels_a, labels_b and mask. For an
+ * additional cost we can build the graph with edges E={(A[i], B[i]) | M[i]=1}
+ * and make this step faster
+ *
+ * @param[in] labels_a The labels a
+ * @param[in] labels_b The labels b
+ * @param     R        { parameter_description }
+ * @param[in] mask     The mask
+ * @param     m        { parameter_description }
+ * @param[in] N        { parameter_description }
+ *
+ * @tparam TPB_X { description }
+ */
 template <typename Index_, int TPB_X = 256>
 __global__ void __launch_bounds__(TPB_X)
   propagate_label_kernel(const Index_* __restrict__ labels_a,
@@ -80,31 +90,36 @@ __global__ void __launch_bounds__(TPB_X)
 /**
  * @brief Merge two labellings in-place, according to a core mask
  *
- * A labelling is a representation of disjoint sets (groups) where points that
- * belong to the same group have the same label. It is assumed that group
- * labels take values between 1 and N. Labels relate to points, i.e a label i+1
- * means that you belong to the same group as the point i.
- * The special value MAX_LABEL is used to mark points that are not labelled.
+ *        A labelling is a representation of disjoint sets (groups) where points
+ *        that belong to the same group have the same label. It is assumed that
+ *        group labels take values between 1 and N. Labels relate to points, i.e
+ *        a label i+1 means that you belong to the same group as the point i.
+ *        The special value MAX_LABEL is used to mark points that are not
+ *        labelled.
  *
- * The two label arrays A and B induce two sets of groups over points 0..N-1.
- * If a point is labelled i in A and j in B and the mask is true for this
- * point, then i and j are equivalent labels and their groups are merged by
- * relabeling the elements of both groups to have the same label. The new label
- * is the smaller one from the original labels.
- * It is required that if the mask is true for a point, this point is labelled
- * (i.e its label is different than the special value MAX_LABEL).
+ *        The two label arrays A and B induce two sets of groups over points
+ *        0..N-1. If a point is labelled i in A and j in B and the mask is true
+ *        for this point, then i and j are equivalent labels and their groups
+ *        are merged by relabeling the elements of both groups to have the same
+ *        label. The new label is the smaller one from the original labels. It
+ *        is required that if the mask is true for a point, this point is
+ *        labelled (i.e its label is different than the special value
+ *        MAX_LABEL).
  *
- * One use case is finding connected components: the two input label arrays can
- * represent the connected components of graphs G_A and G_B, and the output
- * would be the connected components labels of G_A \union G_B.
+ *        One use case is finding connected components: the two input label
+ *        arrays can represent the connected components of graphs G_A and G_B,
+ *        and the output would be the connected components labels of G_A
+ * @union G_B.
  *
- * @param[inout] labels_a    First input, and output label array (in-place)
- * @param[in]    labels_b    Second input label array
- * @param[in]    mask        Core point mask
- * @param[out]   R           Label equivalence map
- * @param[in]    m           Working flag
- * @param[in]    N           Number of points in the dataset
- * @param[in]    stream      CUDA stream
+ * @param[inout] labels_a First input, and output label array (in-place)
+ * @param[in]    labels_b Second input label array
+ * @param[in]    mask     Core point mask
+ * @param[out]   R        Label equivalence map
+ * @param[in]    m        Working flag
+ * @param[in]    N        Number of points in the dataset
+ * @param[in]    stream   CUDA stream
+ *
+ * @tparam TPB_X { description }
  */
 template <typename Index_ = int, int TPB_X = 256>
 void merge_labels(Index_* labels_a, const Index_* labels_b, const bool* mask,

@@ -26,16 +26,20 @@ namespace Batched {
 /**
  * @brief Computes dot-product between 2 vectors each of which is stored in the
  *        registers of all participating threads
- * @tparam DataT data type
- * @tparam IdxT idx type
- * @tparam TPB threads per block
- * @tparam VecLen number of elements
- * @param x x vector
- * @param y y vector
- * @param smem dynamic shared memory needed for reduction. It must be atleast of
- *             size: `sizeof(DataT) * nWarps`.
+ *
+ * @param x         x vector
+ * @param y         y vector
+ * @param smem      dynamic shared memory needed for reduction. It must be
+ *                  atleast of size: `sizeof(DataT) * nWarps`.
  * @param broadcast only thread 0 will contain the final dot product if false,
  *                  else every thread will contain this value
+ *
+ * @tparam DataT  data type
+ * @tparam IdxT   idx type
+ * @tparam VecLen number of elements
+ * @tparam TPB   threads per block
+ *
+ * @return { description_of_the_return_value }
  */
 template <typename DataT, typename IdxT, int VecLen>
 DI DataT dotProduct(const DataT (&x)[VecLen], const DataT (&y)[VecLen],
@@ -146,20 +150,22 @@ void gemvImplAx(DataT* y, const DataT* A, const DataT* x, const DataT* z,
  * @brief Per threadblock batched gemv. This works well when each of the input
  *        matrices in the batch are of same dimensions and small enough to fit
  *        in a single threadblock.
- * @tparam DataT data type
- * @tparam IdxT idx type
+ * @tparam DataT      data type
+ * @tparam IdxT       idx type
  * @tparam EpilogueOp custom epilogue after computing alpha * Ax + beta * z
- * @param y the output vectors (dim = batchSize x m, row-major)
- * @param A input matrices (dim = batchSize x m x n, row-major)
- * @param x the input vectors (dim = batchSize x n, row-major)
- * @param z vectors used to update the output (dim = batchSize x m, row-major)
- * @param alpha scaling param for Ax
- * @param beta scaling param for z
- * @param m number of rows in A
- * @param n number of columns in A
+ *
+ * @param y         the output vectors (dim = batchSize x m, row-major)
+ * @param A         input matrices (dim = batchSize x m x n, row-major)
+ * @param x         the input vectors (dim = batchSize x n, row-major)
+ * @param z         vectors used to update the output (dim = batchSize x m,
+ *                  row-major)
+ * @param alpha     scaling param for Ax
+ * @param beta      scaling param for z
+ * @param m         number of rows in A
+ * @param n         number of columns in A
  * @param batchSize batch size
- * @param stream cuda stream
- * @param op epilogue operation
+ * @param stream    cuda stream
+ * @param op        epilogue operation
  */
 template <typename DataT, typename IdxT,
           typename EpilogueOp = raft::Nop<DataT, IdxT>>

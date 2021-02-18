@@ -59,22 +59,23 @@ __global__ void csr_to_dense_warp_per_row_kernel(int n_cols,
 }
 
 /**
- * Convert CSR arrays to a dense matrix in either row-
- * or column-major format. A custom kernel is used when
- * row-major output is desired since cusparse does not
- * output row-major.
- * @tparam value_idx : data type of the CSR index arrays
+ * Convert CSR arrays to a dense matrix in either row- or column-major format. A
+ * custom kernel is used when row-major output is desired since cusparse does
+ * not output row-major.
+ *
+ * @param[in]  handle      : cusparse handle for conversion
+ * @param[in]  nrows       : number of rows in CSR
+ * @param[in]  ncols       : number of columns in CSR
+ * @param[in]  csr_indptr  : CSR row index pointer array
+ * @param[in]  csr_indices : CSR column indices array
+ * @param[in]  csr_data    : CSR data array
+ * @param[in]  lda         : Leading dimension (used for col-major only)
+ * @param[out] out         : Dense output array of size nrows * ncols
+ * @param[in]  stream      : Cuda stream for ordering events
+ * @param[in]  row_major   : Is row-major output desired?
+ *
  * @tparam value_t : data type of the CSR value array
- * @param[in] handle : cusparse handle for conversion
- * @param[in] nrows : number of rows in CSR
- * @param[in] ncols : number of columns in CSR
- * @param[in] csr_indptr : CSR row index pointer array
- * @param[in] csr_indices : CSR column indices array
- * @param[in] csr_data : CSR data array
- * @param[in] lda : Leading dimension (used for col-major only)
- * @param[out] out : Dense output array of size nrows * ncols
- * @param[in] stream : Cuda stream for ordering events
- * @param[in] row_major : Is row-major output desired?
+ * @tparam value_idx : data type of the CSR index arrays
  */
 template <typename value_idx, typename value_t>
 void csr_to_dense(cusparseHandle_t handle, value_idx nrows, value_idx ncols,

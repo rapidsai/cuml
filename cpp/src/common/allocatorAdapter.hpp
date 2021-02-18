@@ -93,7 +93,7 @@ class stdAllocatorAdapter {
 };
 
 /**
- * @todo: Complete doxygen documentation
+ * @todo : Complete doxygen documentation
  * @code{.cpp}
  * void foo( const raft::handle_t& h, ... , cudaStream_t stream )
  * {
@@ -101,6 +101,8 @@ class stdAllocatorAdapter {
  *     thrust::for_each(execution_policy->on(stream), ... );
  * }
  * @endcode
+ *
+ * @brief Converts an interface to match a thrust allocator.
  */
 class thrustAllocatorAdapter {
  public:
@@ -133,13 +135,13 @@ thrustAllocatorAdapter _decltypeHelper{0, 0};
 
 /**
  * @brief Returns a unique_ptr to a Thrust CUDA execution policy that uses the
- * passed in allocator for temporary memory allocation.
+ *        passed in allocator for temporary memory allocation.
  *
  * @param[in] allocator The allocator to use
  * @param[in] stream    The stream that the allocator will use
  *
- * @returns A Thrust execution policy that will use allocator for temporary memory
- * allocation.
+ * @return A Thrust execution policy that will use allocator for temporary
+ *         memory allocation.
  */
 inline auto thrust_exec_policy(std::shared_ptr<deviceAllocator> allocator,
                                cudaStream_t stream)

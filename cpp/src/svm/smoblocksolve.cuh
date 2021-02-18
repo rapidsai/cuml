@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-/**@file smoblocksolve.cuh  contains implementation of the blocke SMO solver
-*/
+/** @file smoblocksolve.cuh  contains implementation of the blocke SMO solver
+ */
 #pragma once
 
 #include <cuml/svm/svm_parameter.h>
@@ -153,8 +153,8 @@ namespace SVM {
  * @param[in]    svmType     type of the SVM problem to solve
  * @param[in]    kColIdx     column index map for the kernel tile, size [n_ws]
  *
+ * @tparam WSIZE working set size (max 1024)
  * @tparam math_t floating point data type
- * @tparam WSIZE  working set size (max 1024)
  */
 template <typename math_t, int WSIZE>
 __global__ __launch_bounds__(WSIZE) void SmoBlockSolve(

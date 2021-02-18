@@ -25,14 +25,18 @@ namespace PCA {
 namespace opg {
 
 /**
- * @brief sign flip for PCA and tSVD. This is used to stabilize the sign of column major eigen vectors
- * @param[in] handle: the internal cuml handle object
- * @param[in] input_data: input matrix that will be used to determine the sign.
- * @param[in] input_desc: MNMG description of the input
- * @param[out]  components: components matrix.
- * @param[in] n_components: number of columns of components matrix
- * @param[in] streams: cuda streams
- * @param[in] n_stream: number of streams
+ * @brief sign flip for PCA and tSVD. This is used to stabilize the sign of
+ *        column major eigen vectors
+ *
+ * @param[in]  handle       the internal cuml handle object
+ * @param[in]  input_data   input matrix that will be used to determine the
+ *                          sign.
+ * @param[in]  input_desc   MNMG description of the input
+ * @param[out] components   components matrix.
+ * @param[in]  n_components number of columns of components matrix
+ * @param[in]  streams      cuda streams
+ * @param[in]  n_stream     number of streams
+ *
  * @{
  */
 void sign_flip(raft::handle_t &handle,

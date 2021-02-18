@@ -14,9 +14,10 @@
  * limitations under the License.
  */
 /**
-* @file entropy.cuh
-* @brief Calculates the entropy for a labeling in nats.(ie, uses natural logarithm for the calculations)
-*/
+ * @file entropy.cuh
+ * @brief Calculates the entropy for a labeling in nats.(ie, uses natural
+ *        logarithm for the calculations)
+ */
 
 #include <math.h>
 #include <raft/cudart_utils.h>
@@ -30,11 +31,12 @@
 namespace MLCommon {
 
 /**
-* @brief Lambda to calculate the entropy of a sample given its probability value
-*
-* @param p: the input to the functional mapping
-* @param q: dummy param
-*/
+ * @brief Lambda to calculate the entropy of a sample given its probability
+ *        value
+ *
+ * @param p:    the input to the functional mapping
+ * @param q:    dummy param
+ */
 struct entropyOp {
   HDI double operator()(double p, double q) {
     if (p)
@@ -47,18 +49,22 @@ struct entropyOp {
 namespace Metrics {
 
 /**
-* @brief function to calculate the bincounts of number of samples in every label
-*
-* @tparam LabelT: type of the labels
-* @param labels: the pointer to the array containing labels for every data sample 
-* @param binCountArray: pointer to the 1D array that contains the count of samples per cluster
-* @param nRows: number of data samples
-* @param lowerLabelRange
-* @param upperLabelRange
-* @param workspace: device buffer containing workspace memory
-* @param allocator: default allocator to allocate memory
-* @param stream: the cuda stream where to launch this kernel
-*/
+ * @brief function to calculate the bincounts of number of samples in every
+ *        label
+ *
+ * @tparam LabelT: type of the labels
+ *
+ * @param labels          the pointer to the array containing labels for every
+ *                        data sample
+ * @param binCountArray   pointer to the 1D array that contains the count of
+ *                        samples per cluster
+ * @param nRows           number of data samples
+ * @param lowerLabelRange The lower label range
+ * @param upperLabelRange The upper label range
+ * @param workspace       device buffer containing workspace memory
+ * @param allocator       default allocator to allocate memory
+ * @param stream          the cuda stream where to launch this kernel
+ */
 template <typename LabelT>
 void countLabels(const LabelT *labels, double *binCountArray, int nRows,
                  LabelT lowerLabelRange, LabelT upperLabelRange,
@@ -82,17 +88,23 @@ void countLabels(const LabelT *labels, double *binCountArray, int nRows,
 }
 
 /**
-* @brief Function to calculate entropy
-* <a href="https://en.wikipedia.org/wiki/Entropy_(information_theory)">more info on entropy</a>
-*
-* @param clusterArray: the array of classes of type T
-* @param size: the size of the data points of type int
-* @param lowerLabelRange: the lower bound of the range of labels
-* @param upperLabelRange: the upper bound of the range of labels
-* @param allocator: object that takes care of temporary device memory allocation of type std::shared_ptr<MLCommon::deviceAllocator>
-* @param stream: the cudaStream object
-* @return the entropy score
-*/
+ * @brief Function to calculate entropy <a
+ *        href="https://en.wikipedia.org/wiki/Entropy_(information_theory)">more
+ *        info on entropy</a>
+ *
+ * @param clusterArray    the array of classes of type T
+ * @param size            the size of the data points of type int
+ * @param lowerLabelRange the lower bound of the range of labels
+ * @param upperLabelRange the upper bound of the range of labels
+ * @param allocator       object that takes care of temporary device memory
+ *                        allocation of type
+ *                        std::shared_ptr<MLCommon::deviceAllocator>
+ * @param stream          the cudaStream object
+ *
+ * @tparam T     { description }
+ *
+ * @return the entropy score
+ */
 template <typename T>
 double entropy(const T *clusterArray, const int size, const T lowerLabelRange,
                const T upperLabelRange,

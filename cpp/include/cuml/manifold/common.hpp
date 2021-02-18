@@ -25,8 +25,9 @@ typedef int knn_indices_sparse_t;
 
 /**
  * Simple container for KNN graph properties
- * @tparam value_idx
- * @tparam value_t
+ *
+ * @tparam value_idx { description }
+ * @tparam value_t   { description }
  */
 template <typename value_idx, typename value_t>
 struct knn_graph {
@@ -48,9 +49,9 @@ struct knn_graph {
 };
 
 /**
- * Base struct for representing inputs to manifold learning
- * algorithms.
- * @tparam T
+ * Base struct for representing inputs to manifold learning algorithms.
+ *
+ * @tparam T     { description }
  */
 template <typename T>
 struct manifold_inputs_t {
@@ -65,7 +66,8 @@ struct manifold_inputs_t {
 
 /**
  * Dense input to manifold learning algorithms
- * @tparam T
+ *
+ * @tparam T     { description }
  */
 template <typename T>
 struct manifold_dense_inputs_t : public manifold_inputs_t<T> {
@@ -79,8 +81,9 @@ struct manifold_dense_inputs_t : public manifold_inputs_t<T> {
 
 /**
  * Sparse CSR input to manifold learning algorithms
- * @tparam value_idx
- * @tparam T
+ *
+ * @tparam value_idx { description }
+ * @tparam T         { description }
  */
 template <typename value_idx, typename T>
 struct manifold_sparse_inputs_t : public manifold_inputs_t<T> {
@@ -103,8 +106,9 @@ struct manifold_sparse_inputs_t : public manifold_inputs_t<T> {
 
 /**
  * Precomputed KNN graph input to manifold learning algorithms
- * @tparam value_idx
- * @tparam value_t
+ *
+ * @tparam value_idx { description }
+ * @tparam value_t   { description }
  */
 template <typename value_idx, typename value_t>
 struct manifold_precomputed_knn_inputs_t

@@ -42,14 +42,17 @@ namespace Algo {
 using namespace ML;
 
 /**
- * Given a set of weights and number of epochs, generate
- * the number of epochs per sample for each weight.
+ * Given a set of weights and number of epochs, generate the number of epochs
+ * per sample for each weight.
  *
- * @param weights: The weights of how much we wish to sample each 1-simplex
- * @param weights_n: the size of the weights array
- * @param n_epochs: the total number of epochs we want to train for
- * @param result: an array of number of epochs per sample, one for each 1-simplex
- * @param stream cuda stream
+ * @param weights   The weights of how much we wish to sample each 1-simplex
+ * @param weights_n the size of the weights array
+ * @param n_epochs  the total number of epochs we want to train for
+ * @param result    an array of number of epochs per sample, one for each
+ *                  1-simplex
+ * @param stream    cuda stream
+ *
+ * @tparam T     { description }
  */
 template <typename T>
 void make_epochs_per_sample(T *weights, int weights_n, int n_epochs, T *result,
@@ -79,9 +82,16 @@ void make_epochs_per_sample(T *weights, int weights_n, int n_epochs, T *result,
 }
 
 /**
- * Kernel applying updates to embedding
- * TODO: Replace this kernel with modified version of Linalg::Add
- * as described at https://github.com/rapidsai/cuml/issues/1781
+ * Kernel applying updates to embedding TODO: Replace this kernel with modified
+ * version of Linalg::Add as described at
+ * https://github.com/rapidsai/cuml/issues/1781
+ *
+ * @param     embedding         The embedding
+ * @param     embedding_updates The embedding updates
+ * @param[in] n                 { parameter_description }
+ *
+ * @tparam T     { description }
+ * @tparam TPB_X { description }
  */
 template <typename T, int TPB_X>
 __global__ void apply_optimization_kernel(T *embedding,
@@ -103,13 +113,31 @@ inline void optimization_iteration_finalization(UMAPParams *params,
 }
 
 /**
- * Runs gradient descent using sampling weights defined on
- * both the attraction and repulsion vectors.
+ * Runs gradient descent using sampling weights defined on both the attraction
+ * and repulsion vectors.
  *
- * In this GD implementation, the weights being tuned are the
- * embeddings themselves, as the objective function is attracting
- * positive weights (neighbors in the 1-skeleton) and repelling
- * negative weights (non-neighbors in the 1-skeleton).
+ * In this GD implementation, the weights being tuned are the embeddings
+ * themselves, as the objective function is attracting positive weights
+ * (neighbors in the 1-skeleton) and repelling negative weights (non-neighbors
+ * in the 1-skeleton).
+ *
+ * @param     head_embedding    The head embedding
+ * @param[in] head_n            The head n
+ * @param     tail_embedding    The tail embedding
+ * @param[in] tail_n            The tail n
+ * @param[in] head              The head
+ * @param[in] tail              The tail
+ * @param[in] nnz               The nnz
+ * @param     epochs_per_sample The epochs per sample
+ * @param[in] n_vertices        The n vertices
+ * @param[in] gamma             The gamma
+ * @param     params            The parameters
+ * @param[in] n_epochs          The n epochs
+ * @param[in] d_alloc           The d allocate
+ * @param[in] stream            The stream
+ *
+ * @tparam TPB_X { description }
+ * @tparam T     { description }
  */
 template <int TPB_X, typename T>
 void optimize_layout(T *head_embedding, int head_n, T *tail_embedding,
@@ -191,9 +219,19 @@ void optimize_layout(T *head_embedding, int head_n, T *tail_embedding,
 }
 
 /**
- * Perform a fuzzy simplicial set embedding by minimizing
- * the fuzzy set cross entropy between the embeddings
- * and their 1-skeletons.
+ * Perform a fuzzy simplicial set embedding by minimizing the fuzzy set cross
+ * entropy between the embeddings and their 1-skeletons.
+ *
+ * @param[in] m         { parameter_description }
+ * @param[in] n         { parameter_description }
+ * @param     in        { parameter_description }
+ * @param     params    The parameters
+ * @param     embedding The embedding
+ * @param[in] d_alloc   The d allocate
+ * @param[in] stream    The stream
+ *
+ * @tparam TPB_X { description }
+ * @tparam T     { description }
  */
 template <int TPB_X, typename T>
 void launcher(int m, int n, raft::sparse::COO<T> *in, UMAPParams *params,
@@ -217,8 +255,8 @@ void launcher(int m, int n, raft::sparse::COO<T> *in, UMAPParams *params,
   }
 
   /**
-   * Go through COO values and set everything that's less than
-   * vals.max() / params->n_epochs to 0.0
+   * Go through COO values and set everything that's less than vals.max() /
+   * params->n_epochs to 0.0
    */
   raft::linalg::unaryOp<T>(
     in->vals(), in->vals(), nnz,

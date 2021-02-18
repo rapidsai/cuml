@@ -451,45 +451,43 @@ class sparse_knn_t {
  * Search the sparse kNN for the k-nearest neighbors of a set of sparse query
  * vectors using some distance implementation
  *
- * @param[in]  idxIndptr         csr indptr of the index matrix (size n_idx_rows +
- *                               1)
- * @param[in]  idxIndices        csr column indices array of the index matrix
- *                               (size n_idx_nnz)
- * @param[in]  idxData           csr data array of the index matrix (size
- *                               idxNNZ)
- * @param[in]  idxNNZ            number of non-zeros for sparse index matrix
- * @param[in]  n_idx_rows        number of data samples in index matrix
- * @param[in]  n_idx_cols        The n index cols
- * @param[in]  queryIndptr       csr indptr of the query matrix (size
- *                               n_query_rows + 1)
- * @param[in]  queryIndices      csr indices array of the query matrix (size
- *                               queryNNZ)
- * @param[in]  queryData         csr data array of the query matrix (size
- *                               queryNNZ)
- * @param[in]  queryNNZ          number of non-zeros for sparse query matrix
- * @param[in]  n_query_rows      number of data samples in query matrix
- * @param[in]  n_query_cols      number of features in query matrix
- * @param[out] output_indices    dense matrix for output indices (size
- *                               n_query_rows * k)
- * @param[out] output_dists      dense matrix for output distances (size
- *                               n_query_rows * k)
- * @param[in]  k                 the number of neighbors to query
- * @param[in]  cusparseHandle    the initialized cusparseHandle instance to use
- * @param[in]  allocator         device allocator instance to use
- * @param[in]  stream            CUDA stream to order operations with respect to
- * @param[in]  batch_size_index  maximum number of rows to use from index matrix
- *                               per batch
- * @param[in]  batch_size_query  maximum number of rows to use from query matrix
- *                               per batch
- * @param[in]  metric            distance metric/measure to use
- * @param[in]  metricArg         potential argument for metric (currently
- *                               unused)
- * @param[in]  expanded_form     whether or not Lp variants should be reduced by
- *                               the pth-root
+ * @param[in]  idxIndptr        csr indptr of the index matrix (size n_idx_rows +
+ *                              1)
+ * @param[in]  idxIndices       csr column indices array of the index matrix
+ *                              (size n_idx_nnz)
+ * @param[in]  idxData          csr data array of the index matrix (size idxNNZ)
+ * @param[in]  idxNNZ           number of non-zeros for sparse index matrix
+ * @param[in]  n_idx_rows       number of data samples in index matrix
+ * @param[in]  n_idx_cols       The n index cols
+ * @param[in]  queryIndptr      csr indptr of the query matrix (size
+ *                              n_query_rows + 1)
+ * @param[in]  queryIndices     csr indices array of the query matrix (size
+ *                              queryNNZ)
+ * @param[in]  queryData        csr data array of the query matrix (size
+ *                              queryNNZ)
+ * @param[in]  queryNNZ         number of non-zeros for sparse query matrix
+ * @param[in]  n_query_rows     number of data samples in query matrix
+ * @param[in]  n_query_cols     number of features in query matrix
+ * @param[out] output_indices   dense matrix for output indices (size
+ *                              n_query_rows * k)
+ * @param[out] output_dists     dense matrix for output distances (size
+ *                              n_query_rows * k)
+ * @param[in]  k                the number of neighbors to query
+ * @param[in]  cusparseHandle   the initialized cusparseHandle instance to use
+ * @param[in]  allocator        device allocator instance to use
+ * @param[in]  stream           CUDA stream to order operations with respect to
+ * @param[in]  batch_size_index maximum number of rows to use from index matrix
+ *                              per batch
+ * @param[in]  batch_size_query maximum number of rows to use from query matrix
+ *                              per batch
+ * @param[in]  metric           distance metric/measure to use
+ * @param[in]  metricArg        potential argument for metric (currently unused)
+ * @param[in]  expanded_form    whether or not Lp variants should be reduced by
+ *                              the pth-root
  *
- * @tparam     value_idx         { description }
- * @tparam     value_t           { description }
- * @tparam     TPB_X             { description }
+ * @tparam value_idx { description }
+ * @tparam value_t   { description }
+ * @tparam TPB_X     { description }
  */
 template <typename value_idx = int, typename value_t = float, int TPB_X = 32>
 void brute_force_knn(const value_idx *idxIndptr, const value_idx *idxIndices,

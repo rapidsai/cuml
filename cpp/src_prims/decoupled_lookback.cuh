@@ -21,32 +21,41 @@
 namespace MLCommon {
 
 /**
- * @brief Abstraction for computing prefix scan using decoupled lookback
- * Refer to the following link for more details about the algo itself:
+ * Abstraction for computing prefix scan using decoupled lookback Refer to the
+ * following link for more details about the algo itself:
  * https://research.nvidia.com/sites/default/files/pubs/2016-03_Single-pass-Parallel-Prefix/nvr-2016-002.pdf
- * @tparam Type The data structure to compute prefix scan upon. This struct
- * should expose the following operations: = and +=
+ *
+ * @tparam Type  The data structure to compute prefix scan upon. This struct
+ *               should expose the following operations: = and +=
  */
 template <typename Type>
 struct DecoupledLookBack {
-  /** default ctor */
+  /** default ctor
+   *
+   * @param workspace The workspace
+   */
   DI DecoupledLookBack(void* workspace) : flags((Flags*)workspace) {}
 
   /**
-     * @brief Computes workspace needed (in B) for decoupled lookback
-     * @param nblks number of blocks to be launched
-     */
+    * Computes workspace needed (in B) for decoupled lookback
+    *
+    * @param nblks number of blocks to be launched
+    *
+    * @return The workspace size.
+    */
   static size_t computeWorkspaceSize(int nblks) {
     size_t workspaceSize = sizeof(Flags) * nblks;
     return workspaceSize;
   }
 
   /**
-     * @brief main decoupled lookback operator
-     * @param sum the summed value for the current thread
-     * @return the inclusive prefix sum computed for the current threadblock
-     * @note Should be called unconditionally by all threads in the threadblock!
-     */
+   * main decoupled lookback operator
+   *
+   * @param sum   the summed value for the current thread
+   *
+   * @return the inclusive prefix sum computed for the current threadblock
+   * @note   Should be called unconditionally by all threads in the threadblock!
+   */
   DI Type operator()(Type sum) {
     sumDone(sum);
     auto prefix = predecessorSum();

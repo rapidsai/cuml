@@ -85,6 +85,9 @@ class Tensor {
   }
 
   /// returns the total number of elements contained within our data
+  ///
+  /// @return { description_of_the_return_value }
+  ///
   __host__ size_t numElements() const {
     size_t num = (size_t)getSize(0);
 
@@ -96,35 +99,69 @@ class Tensor {
   }
 
   /// returns the size of a given dimension, `[0, Dim - 1]`
+  ///
+  /// @param[in] i     { parameter_description }
+  ///
+  /// @return The size.
+  ///
   __host__ inline IndexT getSize(int i) const { return _size[i]; }
 
   /// returns the stride array
+  ///
+  /// @return { description_of_the_return_value }
+  ///
   __host__ inline const IndexT *strides() const { return _stride; }
 
   /// returns the stride array.
+  ///
+  /// @param[in] i     { parameter_description }
+  ///
+  /// @return The stride.
+  ///
   __host__ inline const IndexT getStride(int i) const { return _stride[i]; }
 
   /// returns the total size in bytes of our data
+  ///
+  /// @return The size in bytes.
+  ///
   __host__ size_t getSizeInBytes() const {
     return numElements() * sizeof(DataT);
   }
 
   /// returns a raw pointer to the start of our data
+  ///
+  /// @return The data pointer t.
+  ///
   __host__ inline DataPtrT data() { return _data; }
 
   /// returns a raw pointer to the start of our data.
+  ///
+  /// @return The data pointer t.
+  ///
   __host__ inline DataPtrT begin() { return _data; }
 
   /// returns a raw pointer to the end of our data
+  ///
+  /// @return The data pointer t.
+  ///
   __host__ inline DataPtrT end() { return data() + numElements(); }
 
   /// returns a raw pointer to the start of our data (const)
+  ///
+  /// @return The data pointer t.
+  ///
   __host__ inline DataPtrT data() const { return _data; }
 
   /// returns a raw pointer to the end of our data (const)
+  ///
+  /// @return The data pointer t.
+  ///
   __host__ inline DataPtrT end() const { return data() + numElements(); }
 
   /// returns the size array.
+  ///
+  /// @return { description_of_the_return_value }
+  ///
   __host__ inline const IndexT *sizes() const { return _size; }
 
   template <int NewDim>
@@ -156,12 +193,11 @@ class Tensor {
 
  private:
   enum AllocState {
-    /// This tensor itself owns the memory, which must be freed via
-    /// cudaFree
+    /// This tensor itself owns the memory, which must be freed via cudaFree
     Owner,
 
-    /// This tensor itself is not an owner of the memory; there is
-    /// nothing to free
+    /// This tensor itself is not an owner of the memory; there is nothing to
+    /// free
     NotOwner
   };
 

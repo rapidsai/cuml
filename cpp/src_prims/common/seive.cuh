@@ -29,7 +29,9 @@ namespace MLCommon {
 class Seive {
  public:
   /**
-   * @param _num number of integers for which seive is needed
+   * @brief Constructs a new instance.
+   *
+   * @param _num  number of integers for which seive is needed
    */
   Seive(unsigned _num) {
     N = _num;
@@ -38,7 +40,9 @@ class Seive {
 
   /**
    * @brief Check whether a number is prime or not
-   * @param num number to be checked
+   *
+   * @param num   number to be checked
+   *
    * @return true if the 'num' is prime, else false
    */
   bool isPrime(unsigned num) const {

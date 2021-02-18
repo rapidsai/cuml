@@ -15,15 +15,15 @@
  */
 
 /**
-* @file information_criterion.cuh
-* @brief These information criteria are used to evaluate the quality of models
-*        by balancing the quality of the fit and the number of parameters.
-*
-* See:
-*  - AIC: https://en.wikipedia.org/wiki/Akaike_information_criterion
-*  - AICc: https://en.wikipedia.org/wiki/Akaike_information_criterion#AICc
-*  - BIC: https://en.wikipedia.org/wiki/Bayesian_information_criterion
-*/
+ * @file information_criterion.cuh
+ * @brief These information criteria are used to evaluate the quality of models
+ *        by balancing the quality of the fit and the number of parameters.
+ *
+ *        See:
+ *  - AIC: https://en.wikipedia.org/wiki/Akaike_information_criterion
+ *  - AICc: https://en.wikipedia.org/wiki/Akaike_information_criterion#AICc
+ *  - BIC: https://en.wikipedia.org/wiki/Bayesian_information_criterion
+ */
 
 #include <cuda_runtime.h>
 #include <cmath>
@@ -34,24 +34,27 @@ namespace MLCommon {
 namespace Metrics {
 
 /// Supported types of information criteria
+///
 enum IC_Type { AIC, AICc, BIC };
 
 namespace Batched {
 
 /**
  * Compute the given type of information criterion
- * 
- * @note: it is safe to do the computation in-place (i.e give same pointer
- *        as input and output)
- * 
- * @param[out] d_ic             Information criterion to be returned for each
- *                              series (device)
- * @param[in]  d_loglikelihood  Log-likelihood for each series (device)
- * @param[in]  ic_type          Type of criterion to compute. See IC_Type
- * @param[in]  n_params         Number of parameters in the model
- * @param[in]  batch_size       Number of series in the batch
- * @param[in]  n_samples        Number of samples in each series
- * @param[in]  stream           CUDA stream
+ *
+ * @note : it is safe to do the computation in-place (i.e give same pointer as
+ *       input and output)
+ *
+ * @param[out] d_ic            Information criterion to be returned for each
+ *                             series (device)
+ * @param[in]  d_loglikelihood Log-likelihood for each series (device)
+ * @param[in]  ic_type         Type of criterion to compute. See IC_Type
+ * @param[in]  n_params        Number of parameters in the model
+ * @param[in]  batch_size      Number of series in the batch
+ * @param[in]  n_samples       Number of samples in each series
+ * @param[in]  stream          CUDA stream
+ *
+ * @tparam ScalarT { description }
  */
 template <typename ScalarT, typename IdxT>
 void information_criterion(ScalarT* d_ic, const ScalarT* d_loglikelihood,

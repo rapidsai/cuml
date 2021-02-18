@@ -41,41 +41,34 @@ namespace Solver {
 using namespace MLCommon;
 
 /**
- * Fits a linear, lasso, and elastic-net regression model using Coordinate Descent solver
- * @param handle
- *        Reference of raft::handle_t
- * @param input
- *        pointer to an array in column-major format (size of n_rows, n_cols)
- * @param n_rows
- *        n_samples or rows in input
- * @param n_cols
- *        n_features or columns in X
- * @param labels
- *        pointer to an array for labels (size of n_rows)
- * @param coef
- *        pointer to an array for coefficients (size of n_cols). This will be filled with coefficients
- *        once the function is executed.
- * @param intercept
- *        pointer to a scalar for intercept. This will be filled
- *        once the function is executed
- * @param fit_intercept
- *        boolean parameter to control if the intercept will be fitted or not
- * @param normalize
- *        boolean parameter to control if the data will be normalized or not
- * @param epochs
- *        Maximum number of iterations that solver will run
- * @param loss
- *        enum to use different loss functions. Only linear regression loss functions is supported right now
- * @param alpha
- *        L1 parameter
- * @param l1_ratio
- *        ratio of alpha will be used for L1. (1 - l1_ratio) * alpha will be used for L2
- * @param shuffle
- *        boolean parameter to control whether coordinates will be picked randomly or not
- * @param tol
- *        tolerance to stop the solver
- * @param stream
- *        cuda stream
+ * Fits a linear, lasso, and elastic-net regression model using Coordinate
+ * Descent solver
+ *
+ * @param handle        Reference of raft::handle_t
+ * @param input         pointer to an array in column-major format (size of
+ *                      n_rows, n_cols)
+ * @param n_rows        n_samples or rows in input
+ * @param n_cols        n_features or columns in X
+ * @param labels        pointer to an array for labels (size of n_rows)
+ * @param coef          pointer to an array for coefficients (size of n_cols).
+ *                      This will be filled with coefficients once the function
+ *                      is executed.
+ * @param intercept     pointer to a scalar for intercept. This will be filled
+ *                      once the function is executed
+ * @param fit_intercept boolean parameter to control if the intercept will be
+ *                      fitted or not
+ * @param normalize     boolean parameter to control if the data will be
+ *                      normalized or not
+ * @param epochs        Maximum number of iterations that solver will run
+ * @param loss          enum to use different loss functions. Only linear
+ *                      regression loss functions is supported right now
+ * @param alpha         L1 parameter
+ * @param l1_ratio      ratio of alpha will be used for L1. (1 - l1_ratio) *
+ *                      alpha will be used for L2
+ * @param shuffle       boolean parameter to control whether coordinates will be
+ *                      picked randomly or not
+ * @param tol           tolerance to stop the solver
+ * @param stream        cuda stream
  */
 template <typename math_t>
 void cdFit(const raft::handle_t &handle, math_t *input, int n_rows, int n_cols,
@@ -202,25 +195,22 @@ void cdFit(const raft::handle_t &handle, math_t *input, int n_rows, int n_cols,
 }
 
 /**
- * Fits a linear, lasso, and elastic-net regression model using Coordinate Descent solver
- * @param handle
- *        cuml handle
- * @param input
- *        pointer to an array in column-major format (size of n_rows, n_cols)
- * @param n_rows
- *        n_samples or rows in input
- * @param n_cols
- *        n_features or columns in X
- * @param coef
- *        pointer to an array for coefficients (size of n_cols). Calculated in cdFit function.
- * @param intercept
- *        intercept value calculated in cdFit function
- * @param preds
- *        pointer to an array for predictions (size of n_rows). This will be fitted once functions is executed.
- * @param loss
- *        enum to use different loss functions. Only linear regression loss functions is supported right now.
- * @param stream
- *        cuda stream
+ * Fits a linear, lasso, and elastic-net regression model using Coordinate
+ * Descent solver
+ *
+ * @param handle    cuml handle
+ * @param input     pointer to an array in column-major format (size of n_rows,
+ *                  n_cols)
+ * @param n_rows    n_samples or rows in input
+ * @param n_cols    n_features or columns in X
+ * @param coef      pointer to an array for coefficients (size of n_cols).
+ *                  Calculated in cdFit function.
+ * @param intercept intercept value calculated in cdFit function
+ * @param preds     pointer to an array for predictions (size of n_rows). This
+ *                  will be fitted once functions is executed.
+ * @param loss      enum to use different loss functions. Only linear regression
+ *                  loss functions is supported right now.
+ * @param stream    cuda stream
  */
 template <typename math_t>
 void cdPredict(const raft::handle_t &handle, const math_t *input, int n_rows,

@@ -48,34 +48,31 @@ namespace Lars {
 enum class LarsFitStatus { kOk, kCollinear, kError, kStop };
 
 /**
- * @brief      Select the largest element from the inactive working set.
+ * @brief Select the largest element from the inactive working set.
  *
- *             The inactive set consist of cor[n_active..n-1]. This function
- *             returns the index of the most correlated element. The value of
- *             the largest element is returned in cj.
+ *        The inactive set consist of cor[n_active..n-1]. This function returns
+ *        the index of the most correlated element. The value of the largest
+ *        element is returned in cj.
  *
- *             The correlation value is checked for numeric error and
- *             convergence, and the return status indicates whether training
- *             should continue.
+ *        The correlation value is checked for numeric error and convergence,
+ *        and the return status indicates whether training should continue.
  *
- * @param      n_active     number of active elements (n_active <= n )
- * @param      n            number of elements in vector cor
- * @param      correlation  device array of correlations, size [n]
- * @param      cj           host pointer to return the value of the largest
- *                          element
- * @param      workspace    buffer, size >= n_cols
- * @param      max_idx      host pointer the index of the max correlation is
- *                          returned here
- * @param[in]  n_rows       The n rows
- * @param      indices      host pointer of feature column indices, size
- *                          [n_cols]
- * @param      n_iter       iteration counter
- * @param      stream       CUDA stream
+ * @param     n_active    number of active elements (n_active <= n )
+ * @param     n           number of elements in vector cor
+ * @param     correlation device array of correlations, size [n]
+ * @param     cj          host pointer to return the value of the largest
+ *                        element
+ * @param     workspace   buffer, size >= n_cols
+ * @param     max_idx     host pointer the index of the max correlation is
+ *                        returned here
+ * @param[in] n_rows      The n rows
+ * @param     indices     host pointer of feature column indices, size [n_cols]
+ * @param     n_iter      iteration counter
+ * @param     stream      CUDA stream
  *
- * @tparam     math_t       { description }
- * @tparam     idx_t        { description }
+ * @tparam math_t { description }
  *
- * @return     fit status
+ * @return fit status
  */
 template <typename math_t, typename idx_t = int>
 LarsFitStatus selectMostCorrelated(idx_t n_active, idx_t n, math_t* correlation,
@@ -119,29 +116,28 @@ LarsFitStatus selectMostCorrelated(idx_t n_active, idx_t n, math_t* correlation,
 }
 
 /**
- * @brief      Swap two feature vectors.
+ * @brief Swap two feature vectors.
  *
- *             The function swaps feature column j and k or the corresponding
- *             rows and and columns of the Gram matrix. The elements of the cor
- *             and indices arrays are also swapped.
+ *        The function swaps feature column j and k or the corresponding rows
+ *        and and columns of the Gram matrix. The elements of the cor and
+ *        indices arrays are also swapped.
  *
- * @param      handle   cuBLAS handle
- * @param      j        column index
- * @param      k        column index
- * @param      X        device array of feature vectors in column major format,
- *                      size [n_cols * ld_X]
- * @param      n_rows   number of training vectors
- * @param      n_cols   number of features
- * @param      ld_X     leading dimension of X
- * @param      cor      device array of correlations, size [n_cols]
- * @param      indices  host array of indices, size [n_cols]
- * @param      G        device pointer of Gram matrix (or nullptr), size [n_cols *
- *                      ld_G]
- * @param      ld_G     leading dimension of G
- * @param      stream   CUDA stream
+ * @param handle  cuBLAS handle
+ * @param j       column index
+ * @param k       column index
+ * @param X       device array of feature vectors in column major format, size
+ *                [n_cols * ld_X]
+ * @param n_rows  number of training vectors
+ * @param n_cols  number of features
+ * @param ld_X    leading dimension of X
+ * @param cor     device array of correlations, size [n_cols]
+ * @param indices host array of indices, size [n_cols]
+ * @param G       device pointer of Gram matrix (or nullptr), size [n_cols *
+ *                ld_G]
+ * @param ld_G    leading dimension of G
+ * @param stream  CUDA stream
  *
- * @tparam     math_t   { description }
- * @tparam     idx_t    { description }
+ * @tparam math_t { description }
  */
 template <typename math_t, typename idx_t = int>
 void swapFeatures(cublasHandle_t handle, idx_t j, idx_t k, math_t* X,
@@ -165,43 +161,41 @@ void swapFeatures(cublasHandle_t handle, idx_t j, idx_t k, math_t* X,
 }
 
 /**
- * @brief      Move feature at idx=j into the active set.
+ * @brief Move feature at idx=j into the active set.
  *
- *             We have an active set with n_active elements, and an inactive set
- *             with n_valid_cols - n_active elements. The matrix X [n_samples,
- *             n_features] is partitioned in a way that the first n_active
- *             columns store the active set. Similarily the vectors correlation
- *             and indices are partitioned in a way that the first n_active
- *             elements belong to the active set:
+ *        We have an active set with n_active elements, and an inactive set with
+ *        n_valid_cols - n_active elements. The matrix X [n_samples, n_features]
+ *        is partitioned in a way that the first n_active columns store the
+ *        active set. Similarily the vectors correlation and indices are
+ *        partitioned in a way that the first n_active elements belong to the
+ *        active set:
  * - active set:  X[:,:n_active], correlation[:n_active], indices[:n_active]
  * - inactive set: X[:,n_active:], correlation[n_active:], indices[n_active:].
  *
- *             This function moves the feature column X[:,idx] into the active
- *             set by replacing the first inactive element with idx. The indices
- *             and correlation vectors are modified accordinly. The sign array
- *             is updated with the sign of correlation[n_active].
+ *        This function moves the feature column X[:,idx] into the active set by
+ *        replacing the first inactive element with idx. The indices and
+ *        correlation vectors are modified accordinly. The sign array is updated
+ *        with the sign of correlation[n_active].
  *
- * @param      handle    cuBLAS handle
- * @param      n_active  number of active elements, will be increased by one
- *                       after we move the new element j into the active set
- * @param      j         index of the new element (n_active <= j < n_cols)
- * @param      X         device array of feature vectors in column major format,
- *                       size [n_cols * ld_X]
- * @param      n_rows    number of training vectors
- * @param      n_cols    number of valid features colums (ignoring those
- *                       features which are detected to be collinear with the
- *                       active set)
- * @param      ld_X      leading dimension of X
- * @param      cor       device array of correlations, size [n_cols]
- * @param      indices   host array of indices, size [n_cols]
- * @param      G         device pointer of Gram matrix (or nullptr), size
- *                       [n_cols * ld_G]
- * @param      ld_G      leading dimension of G
- * @param      sign      device pointer to sign array, size[n]
- * @param      stream    CUDA stream
+ * @param handle   cuBLAS handle
+ * @param n_active number of active elements, will be increased by one after we
+ *                 move the new element j into the active set
+ * @param j        index of the new element (n_active <= j < n_cols)
+ * @param X        device array of feature vectors in column major format, size
+ *                 [n_cols * ld_X]
+ * @param n_rows   number of training vectors
+ * @param n_cols   number of valid features colums (ignoring those features
+ *                 which are detected to be collinear with the active set)
+ * @param ld_X     leading dimension of X
+ * @param cor      device array of correlations, size [n_cols]
+ * @param indices  host array of indices, size [n_cols]
+ * @param G        device pointer of Gram matrix (or nullptr), size [n_cols *
+ *                 ld_G]
+ * @param ld_G     leading dimension of G
+ * @param sign     device pointer to sign array, size[n]
+ * @param stream   CUDA stream
  *
- * @tparam     math_t    { description }
- * @tparam     idx_t     { description }
+ * @tparam math_t { description }
  */
 template <typename math_t, typename idx_t = int>
 void moveToActive(cublasHandle_t handle, idx_t* n_active, idx_t j, math_t* X,
@@ -225,38 +219,34 @@ void moveToActive(cublasHandle_t handle, idx_t* n_active, idx_t j, math_t* X,
 }
 
 /**
- * @brief      Update the Cholesky decomposition of the Gram matrix of the
- *             active set
+ * @brief Update the Cholesky decomposition of the Gram matrix of the active set
  *
- *             G0 = X.T * X, Gram matrix without signs. We use the part that
- *             corresponds to the active set, [n_A x n_A]
+ *        G0 = X.T * X, Gram matrix without signs. We use the part that
+ *        corresponds to the active set, [n_A x n_A]
  *
- *             At each step on the LARS path we add one column to the active
- *             set, therefore the Gram matrix grows incrementally. We update the
- *             Cholesky decomposition G0 = U.T * U.
+ *        At each step on the LARS path we add one column to the active set,
+ *        therefore the Gram matrix grows incrementally. We update the Cholesky
+ *        decomposition G0 = U.T * U.
  *
- *             The Cholesky decomposition can use the same storage as G0, if the
- *             input pointers are same.
+ *        The Cholesky decomposition can use the same storage as G0, if the
+ *        input pointers are same.
  *
- * @param      handle     RAFT handle
- * @param      n_active   number of active elements
- * @param      X          device array  of feature vectors in column major
- *                        format, size [n_rows * n_cols]
- * @param      n_rows     number of training vectors
- * @param      n_cols     number of features
- * @param      ld_X       leading dimension of X (stride of columns)
- * @param      U          device pointer to the Cholesky decomposition of G0,
- *                        size [n_cols * ld_U]
- * @param      ld_U       leading dimension of U
- * @param      G0         device pointer to Gram matrix G0 = X.T*X (can be
- *                        nullptr), size [n_cols * ld_G].
- * @param      ld_G       leading dimension of G
- * @param      workspace  workspace for the Cholesky update
- * @param      eps        parameter for cheleskyRankOneUpdate
- * @param      stream     CUDA stream
- *
- * @tparam     math_t     { description }
- * @tparam     idx_t      { description }
+ * @param handle    RAFT handle
+ * @param n_active  number of active elements
+ * @param X         device array  of feature vectors in column major format,
+ *                  size [n_rows * n_cols]
+ * @param n_rows    number of training vectors
+ * @param n_cols    number of features
+ * @param ld_X      leading dimension of X (stride of columns)
+ * @param U         device pointer to the Cholesky decomposition of G0, size
+ *                  [n_cols * ld_U]
+ * @param ld_U      leading dimension of U
+ * @param G0        device pointer to Gram matrix G0 = X.T*X (can be nullptr),
+ *                  size [n_cols * ld_G].
+ * @param ld_G      leading dimension of G
+ * @param workspace workspace for the Cholesky update
+ * @param eps       parameter for cheleskyRankOneUpdate
+ * @param stream    CUDA stream
  */
 template <typename math_t, typename idx_t = int>
 void updateCholesky(const raft::handle_t& handle, idx_t n_active,
@@ -294,24 +284,23 @@ void updateCholesky(const raft::handle_t& handle, idx_t n_active,
 }
 
 /**
- * @brief      Solve for ws = S * GA^(-1) * 1_A  using a Cholesky decomposition.
+ * @brief Solve for ws = S * GA^(-1) * 1_A  using a Cholesky decomposition.
  *
- *             See calcEquiangularVec for more details on the formulas. In this
- *             function we calculate ws = S * (S * G0 * S)^{-1} 1_A = G0^{-1} (S
- *             1_A) = G0^{-1} sign_A.
+ *        See calcEquiangularVec for more details on the formulas. In this
+ *        function we calculate ws = S * (S * G0 * S)^{-1} 1_A = G0^{-1} (S 1_A)
+ *        = G0^{-1} sign_A.
  *
- * @param      handle    RAFT handle
- * @param      n_active  number of active elements
- * @param      n_cols    number of features
- * @param      sign      array with sign of the active set, size [n_cols]
- * @param      U         device pointer to the Cholesky decomposition of G0,
- *                       size [n_cols * n_cols]
- * @param      ld_U      leading dimension of U (column stride)
- * @param      ws        device pointer, size [n_active]
- * @param      stream    CUDA stream
+ * @param handle   RAFT handle
+ * @param n_active number of active elements
+ * @param n_cols   number of features
+ * @param sign     array with sign of the active set, size [n_cols]
+ * @param U        device pointer to the Cholesky decomposition of G0, size
+ *                 [n_cols * n_cols]
+ * @param ld_U     leading dimension of U (column stride)
+ * @param ws       device pointer, size [n_active]
+ * @param stream   CUDA stream
  *
- * @tparam     math_t    { description }
- * @tparam     idx_t     { description }
+ * @tparam math_t { description }
  */
 template <typename math_t, typename idx_t = int>
 void calcW0(const raft::handle_t& handle, idx_t n_active, idx_t n_cols,
@@ -334,19 +323,18 @@ void calcW0(const raft::handle_t& handle, idx_t n_active, idx_t n_cols,
 }
 
 /**
- * @brief      Calculate A = (1_A * GA^{-1} * 1_A)^{-1/2}.
+ * @brief Calculate A = (1_A * GA^{-1} * 1_A)^{-1/2}.
  *
- *             See calcEquiangularVec for more details on the formulas.
+ *        See calcEquiangularVec for more details on the formulas.
  *
- * @param      handle    RAFT handle
- * @param      A         device pointer to store the result
- * @param      n_active  number of active elements
- * @param      sign      array with sign of the active set, size [n_cols]
- * @param      ws        device pointer, size [n_active]
- * @param      stream    CUDA stream
+ * @param handle   RAFT handle
+ * @param A        device pointer to store the result
+ * @param n_active number of active elements
+ * @param sign     array with sign of the active set, size [n_cols]
+ * @param ws       device pointer, size [n_active]
+ * @param stream   CUDA stream
  *
- * @tparam     math_t    { description }
- * @tparam     idx_t     { description }
+ * @tparam math_t { description }
  */
 template <typename math_t, typename idx_t = int>
 void calcA(const raft::handle_t& handle, math_t* A, idx_t n_active,
@@ -360,9 +348,9 @@ void calcA(const raft::handle_t& handle, math_t* A, idx_t n_active,
 }
 
 /**
- * @brief      Calculate the equiangular vector u, w and A according to [1].
+ * @brief Calculate the equiangular vector u, w and A according to [1].
  *
- *             We introduce the following variables (Python like indexing):
+ *        We introduce the following variables (Python like indexing):
  * - n_A number of elements in the active set
  * - S = diag(sign_A): diagonal matrix with the signs, size [n_A x n_A]
  * - X_A = X[:,:n_A] * S, column vectors of the active set size [n_A x n_A]
@@ -375,50 +363,46 @@ void calcA(const raft::handle_t& handle, math_t* A, idx_t n_active,
  * - w = A GA^{-1} * 1_A, vector of size [n_A] see eq (2.6) in [1]
  * - ws = S * w, vector of size [n_A]
  *
- *             The equiangular vector can be expressed the following way
- *             (equation 2.6): u = X_A * w = X[:,:n_A] S * w = X[:,:n_A] * ws.
+ *        The equiangular vector can be expressed the following way (equation
+ *        2.6): u = X_A * w = X[:,:n_A] S * w = X[:,:n_A] * ws.
  *
- *             The equiangular vector later appears only in an expression like
- *             X.T u, which can be reformulated as X.T u = X.T X[:,:n_A] S * w =
- *             G[:n_A,:n_A] * ws. If the gram matrix is given, then we do not
- *             need to calculate u, it will be sufficient to calculate ws and A.
+ *        The equiangular vector later appears only in an expression like X.T u,
+ *        which can be reformulated as X.T u = X.T X[:,:n_A] S * w =
+ *        G[:n_A,:n_A] * ws. If the gram matrix is given, then we do not need to
+ *        calculate u, it will be sufficient to calculate ws and A.
  *
- *             We use Cholesky decomposition G0 = U.T * U to solve to calculate
- *             A and w which depend on GA^{-1}.
+ *        We use Cholesky decomposition G0 = U.T * U to solve to calculate A and
+ *        w which depend on GA^{-1}.
  *
- *             References: [1] B. Efron, T. Hastie, I. Johnstone, R Tibshirani,
- *             Least Angle Regression The Annals of Statistics (2004) Vol 32, No
- *             2, 407-499 http://statweb.stanford.edu/~tibs/ftp/lars.pdf
+ *        References: [1] B. Efron, T. Hastie, I. Johnstone, R Tibshirani, Least
+ *        Angle Regression The Annals of Statistics (2004) Vol 32, No 2, 407-499
+ *        http://statweb.stanford.edu/~tibs/ftp/lars.pdf
  *
- * @param      handle     RAFT handle
- * @param      n_active   number of active elements
- * @param      X          device array  of feature vectors in column major
- *                        format, size [ld_X * n_cols]
- * @param      n_rows     number of training vectors
- * @param      n_cols     number of features
- * @param      ld_X       leading dimension of array X (column stride, ld_X >=
- *                        n_rows)
- * @param      sign       array with sign of the active set, size [n_cols]
- * @param      U          device pointer to the Cholesky decomposition of G0,
- *                        size [ld_U * n_cols]
- * @param      ld_U       leading dimension of array U (ld_U >= n_cols)
- * @param      G0         device pointer to Gram matrix G0 = X.T*X (can be
- *                        nullptr), size [ld_G * n_cols]. Note the difference
- *                        between G0 and GA = X_A.T * X_A
- * @param      ld_G       leading dimension of array G0 (ld_G >= n_cols)
- * @param      workspace  workspace for the Cholesky update
- * @param      ws         device pointer, size [n_active]
- * @param      A          device pointer to a scalar
- * @param      u_eq       device pointer to the equiangular vector, only used if
- *                        Gram==nullptr, size [n_rows].
- * @param      eps        numerical regularizaton parameter for the Cholesky
- *                        decomposition
- * @param      stream     CUDA stream
+ * @param handle    RAFT handle
+ * @param n_active  number of active elements
+ * @param X         device array  of feature vectors in column major format,
+ *                  size [ld_X * n_cols]
+ * @param n_rows    number of training vectors
+ * @param n_cols    number of features
+ * @param ld_X      leading dimension of array X (column stride, ld_X >= n_rows)
+ * @param sign      array with sign of the active set, size [n_cols]
+ * @param U         device pointer to the Cholesky decomposition of G0, size
+ *                  [ld_U * n_cols]
+ * @param ld_U      leading dimension of array U (ld_U >= n_cols)
+ * @param G0        device pointer to Gram matrix G0 = X.T*X (can be nullptr),
+ *                  size [ld_G * n_cols]. Note the difference between G0 and GA
+ *                  = X_A.T * X_A
+ * @param ld_G      leading dimension of array G0 (ld_G >= n_cols)
+ * @param workspace workspace for the Cholesky update
+ * @param ws        device pointer, size [n_active]
+ * @param A         device pointer to a scalar
+ * @param u_eq      device pointer to the equiangular vector, only used if
+ *                  Gram==nullptr, size [n_rows].
+ * @param eps       numerical regularizaton parameter for the Cholesky
+ *                  decomposition
+ * @param stream    CUDA stream
  *
- * @tparam     math_t     { description }
- * @tparam     idx_t      { description }
- *
- * @return     fit status
+ * @return fit status
  */
 template <typename math_t, typename idx_t = int>
 LarsFitStatus calcEquiangularVec(const raft::handle_t& handle, idx_t n_active,
@@ -473,49 +457,44 @@ LarsFitStatus calcEquiangularVec(const raft::handle_t& handle, idx_t n_active,
 }
 
 /**
- * @brief      Calculate the maximum step size (gamma) in the equiangular
- *             direction.
+ * @brief Calculate the maximum step size (gamma) in the equiangular direction.
  *
- *             Let mu = X beta.T be the current prediction vector. The modified
- *             solution after taking step gamma is defined as mu' = mu + gamma
- *             u. With this solution the correlation of the covariates in the
- *             active set will decrease equally, to a new value |c_j(gamma)| =
- *             Cmax - gamma A. At the same time the correlation of the values in
- *             the inactive set changes according to the following formula:
- *             c_j(gamma) = c_j - gamma a_j. We increase gamma until one of
- *             correlations from the inactive set becomes equal with the
- *             correlation from the active set.
+ *        Let mu = X beta.T be the current prediction vector. The modified
+ *        solution after taking step gamma is defined as mu' = mu + gamma u.
+ *        With this solution the correlation of the covariates in the active set
+ *        will decrease equally, to a new value |c_j(gamma)| = Cmax - gamma A.
+ *        At the same time the correlation of the values in the inactive set
+ *        changes according to the following formula: c_j(gamma) = c_j - gamma
+ *        a_j. We increase gamma until one of correlations from the inactive set
+ *        becomes equal with the correlation from the active set.
  *
- *             References: [1] B. Efron, T. Hastie, I. Johnstone, R Tibshirani,
- *             Least Angle Regression The Annals of Statistics (2004) Vol 32, No
- *             2, 407-499 http://statweb.stanford.edu/~tibs/ftp/lars.pdf
+ *        References: [1] B. Efron, T. Hastie, I. Johnstone, R Tibshirani, Least
+ *        Angle Regression The Annals of Statistics (2004) Vol 32, No 2, 407-499
+ *        http://statweb.stanford.edu/~tibs/ftp/lars.pdf
  *
- * @param      handle    RAFT handle
- * @param      max_iter  maximum number of iterations
- * @param      n_rows    number of samples
- * @param      n_cols    number of valid feature columns
- * @param      n_active  size of the active set (n_active <= max_iter <= n_cols)
- * @param      cj        value of the maximum correlation
- * @param      A         device pointer to a scalar, as defined by eq 2.5 in [1]
- * @param      cor       device pointer to correlation vector, size [n_active]
- * @param      G         device pointer to Gram matrix of the active set
- *                       (without signs) size [n_active * ld_G]
- * @param      ld_G      leading dimension of G (ld_G >= n_cols)
- * @param      X         device array of training vectors in column major
- *                       format, size [n_rows * n_cols]. Only used if the gram
- *                       matrix is not avaiable.
- * @param      ld_X      leading dimension of X (ld_X >= n_rows)
- * @param      u         device pointer to equiangular vector size [n_rows].
- *                       Only used if the Gram matrix G is not available.
- * @param      ws        device pointer to the ws vector defined in
- *                       calcEquiangularVec, size [n_active]
- * @param      gamma     device pointer to a scalar. The max step size is
- *                       returned here.
- * @param      a_vec     device pointer, size [n_cols]
- * @param      stream    CUDA stream
- *
- * @tparam     math_t    { description }
- * @tparam     idx_t     { description }
+ * @param handle   RAFT handle
+ * @param max_iter maximum number of iterations
+ * @param n_rows   number of samples
+ * @param n_cols   number of valid feature columns
+ * @param n_active size of the active set (n_active <= max_iter <= n_cols)
+ * @param cj       value of the maximum correlation
+ * @param A        device pointer to a scalar, as defined by eq 2.5 in [1]
+ * @param cor      device pointer to correlation vector, size [n_active]
+ * @param G        device pointer to Gram matrix of the active set (without
+ *                 signs) size [n_active * ld_G]
+ * @param ld_G     leading dimension of G (ld_G >= n_cols)
+ * @param X        device array of training vectors in column major format, size
+ *                 [n_rows * n_cols]. Only used if the gram matrix is not
+ *                 avaiable.
+ * @param ld_X     leading dimension of X (ld_X >= n_rows)
+ * @param u        device pointer to equiangular vector size [n_rows]. Only used
+ *                 if the Gram matrix G is not available.
+ * @param ws       device pointer to the ws vector defined in
+ *                 calcEquiangularVec, size [n_active]
+ * @param gamma    device pointer to a scalar. The max step size is returned
+ *                 here.
+ * @param a_vec    device pointer, size [n_cols]
+ * @param stream   CUDA stream
  */
 template <typename math_t, typename idx_t = int>
 void calcMaxStep(const raft::handle_t& handle, idx_t max_iter, idx_t n_rows,
@@ -567,35 +546,34 @@ void calcMaxStep(const raft::handle_t& handle, idx_t max_iter, idx_t n_rows,
 }
 
 /**
- * @brief      Initialize for Lars training.
+ * @brief Initialize for Lars training.
  *
- *             We calculate the initial correlation, initialize the indices
- *             array, and set up pointers to store the Cholesky factorization.
+ *        We calculate the initial correlation, initialize the indices array,
+ *        and set up pointers to store the Cholesky factorization.
  *
- * @param      handle     RAFT handle
- * @param      X          device array of training vectors in column major
- *                        format, size [ld_X * n_cols].
- * @param      n_rows     number of samples
- * @param      n_cols     number of valid feature columns
- * @param      ld_X       leading dimension of X (ld_X >= n_rows)
- * @param      y          device pointer to regression targets, size [n_rows]
- * @param      Gram       device pointer to Gram matrix (X.T * X), size [n_cols *
- *                        ld_G], can be nullptr
- * @param      ld_G       leading dimension of G (ld_G >= n_cols)
- * @param      U_buffer   device buffer that will be initialized to store the
- *                        Cholesky factorization. Only used if Gram is nullptr.
- * @param      U          device pointer to U
- * @param      ld_U       leading dimension of U
- * @param      indices    host buffer to store feature column indices
- * @param      cor        device pointer to correlation vector, size [n_cols]
- * @param      max_iter   host pointer to the maximum number of iterations
- * @param      coef_path  device pointer to store coefficients along the
- *                        regularization path size [(max_iter + 1) * max_iter],
- *                        can be nullptr
- * @param      stream     CUDA stream
+ * @param handle    RAFT handle
+ * @param X         device array of training vectors in column major format,
+ *                  size [ld_X * n_cols].
+ * @param n_rows    number of samples
+ * @param n_cols    number of valid feature columns
+ * @param ld_X      leading dimension of X (ld_X >= n_rows)
+ * @param y         device pointer to regression targets, size [n_rows]
+ * @param Gram      device pointer to Gram matrix (X.T * X), size [n_cols *
+ *                  ld_G], can be nullptr
+ * @param ld_G      leading dimension of G (ld_G >= n_cols)
+ * @param U_buffer  device buffer that will be initialized to store the Cholesky
+ *                  factorization. Only used if Gram is nullptr.
+ * @param U         device pointer to U
+ * @param ld_U      leading dimension of U
+ * @param indices   host buffer to store feature column indices
+ * @param cor       device pointer to correlation vector, size [n_cols]
+ * @param max_iter  host pointer to the maximum number of iterations
+ * @param coef_path device pointer to store coefficients along the
+ *                  regularization path size [(max_iter + 1) * max_iter], can be
+ *                  nullptr
+ * @param stream    CUDA stream
  *
- * @tparam     math_t     { description }
- * @tparam     idx_t      { description }
+ * @tparam math_t { description }
  */
 template <typename math_t, typename idx_t>
 void larsInit(const raft::handle_t& handle, const math_t* X, idx_t n_rows,
@@ -639,29 +617,27 @@ void larsInit(const raft::handle_t& handle, const math_t* X, idx_t n_rows,
 }
 
 /**
- * @brief      Update regression coefficient and correlations
+ * @brief Update regression coefficient and correlations
  *
- *             After we calculated the equiangular vector and the step size
- *             (gamma) we adjust the regression coefficients here.
+ *        After we calculated the equiangular vector and the step size (gamma)
+ *        we adjust the regression coefficients here.
  *
- *             See calcEquiangularVec for definition of ws.
+ *        See calcEquiangularVec for definition of ws.
  *
- * @param      handle     RAFT handle
- * @param      max_iter   maximum number of iterations
- * @param      n_cols     number of valid feature columns
- * @param      n_active   number of elements in the active set (n_active <=
- *                        n_cols)
- * @param      gamma      device pointer to the maximum step size (scalar)
- * @param      ws         device pointer to the ws vector, size [n_cols]
- * @param      cor        device pointer to the correlations, size [n_cols]
- * @param      a_vec      device pointer to a = X.T[:,n_A:] * u, size [n_cols]
- * @param      beta       pointer to regression coefficents, size [max_iter]
- * @param      coef_path  device pointer to all the coefficients along the
- *                        regularization path, size [(max_iter + 1) * max_iter]
- * @param      stream     CUDA stream
+ * @param handle    RAFT handle
+ * @param max_iter  maximum number of iterations
+ * @param n_cols    number of valid feature columns
+ * @param n_active  number of elements in the active set (n_active <= n_cols)
+ * @param gamma     device pointer to the maximum step size (scalar)
+ * @param ws        device pointer to the ws vector, size [n_cols]
+ * @param cor       device pointer to the correlations, size [n_cols]
+ * @param a_vec     device pointer to a = X.T[:,n_A:] * u, size [n_cols]
+ * @param beta      pointer to regression coefficents, size [max_iter]
+ * @param coef_path device pointer to all the coefficients along the
+ *                  regularization path, size [(max_iter + 1) * max_iter]
+ * @param stream    CUDA stream
  *
- * @tparam     math_t     { description }
- * @tparam     idx_t      { description }
+ * @tparam math_t { description }
  */
 template <typename math_t, typename idx_t>
 void updateCoef(const raft::handle_t& handle, idx_t max_iter, idx_t n_cols,

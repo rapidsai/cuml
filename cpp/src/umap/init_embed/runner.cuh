@@ -36,8 +36,8 @@ void run(const raft::handle_t &handle, int n, int d,
          cudaStream_t stream, int algo = 0) {
   switch (algo) {
     /**
-             * Initial algo uses FAISS indices
-             */
+      * Initial algo uses FAISS indices
+      */
     case 0:
       RandomInit::launcher(n, d, knn_indices, knn_dists, params, embedding,
                            handle.get_stream());

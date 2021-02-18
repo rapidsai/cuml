@@ -21,7 +21,12 @@
 namespace MLCommon {
 namespace Random {
 
-/** check for curand runtime API errors and assert accordingly */
+/** check for curand runtime API errors and assert accordingly
+ *
+ * @param call  The call
+ *
+ * @return { description_of_the_return_value }
+ */
 #define CURAND_CHECK(call)                                        \
   do {                                                            \
     curandStatus_t status = call;                                 \
@@ -31,7 +36,16 @@ namespace Random {
 
 /**
  * @defgroup normal curand normal random number generation operations
+ *
  * @{
+ *
+ * @param[in] generator The generator
+ * @param     outputPtr The output pointer
+ * @param[in] n         { parameter_description }
+ * @param[in] mean      The mean
+ * @param[in] stddev    The stddev
+ *
+ * @return The curand status.
  */
 template <typename T>
 curandStatus_t curandGenerateNormal(curandGenerator_t generator, T *outputPtr,

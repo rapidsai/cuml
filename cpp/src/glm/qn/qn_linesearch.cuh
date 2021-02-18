@@ -78,21 +78,26 @@ inline bool ls_success(const LBFGSParam<T> &param, const T fx_init,
 /**
  * Backtracking linesearch
  *
- * \param param        LBFGS parameters
- * \param f            A function object such that `f(x, grad)` returns the
- *                     objective function value at `x`, and overwrites `grad`
- *                     with the gradient.
- * \param fx           In: The objective function value at the current point.
- *                     Out: The function value at the new point.
- * \param x            Out: The new point moved to.
- * \param grad         In: The current gradient vector.
- *                     Out: The gradient at the new point.
- * \param step         In: The initial step length.
- *                     Out: The calculated step length.
- * \param drt          The current moving direction.
- * \param xp           The current point.
- * \param dev_scalar   Device pointer to workspace of at least 1
- * \param stream Device pointer to workspace of at least 1
+ * @param param      LBFGS parameters
+ * @param f          A function object such that `f(x, grad)` returns the
+ *                   objective function value at `x`, and overwrites `grad` with
+ *                   the gradient.
+ * @param fx         In: The objective function value at the current point. Out:
+ *                   The function value at the new point.
+ * @param x          Out: The new point moved to.
+ * @param grad       In: The current gradient vector. Out: The gradient at the
+ *                   new point.
+ * @param step       In: The initial step length. Out: The calculated step
+ *                   length.
+ * @param drt        The current moving direction.
+ * @param xp         The current point.
+ * @param dev_scalar Device pointer to workspace of at least 1
+ * @param stream     Device pointer to workspace of at least 1
+ *
+ * @tparam T        { description }
+ * @tparam Function { description }
+ *
+ * @return The line search retcode.
  */
 template <typename T, typename Function>
 LINE_SEARCH_RETCODE ls_backtrack(const LBFGSParam<T> &param, Function &f, T &fx,

@@ -166,7 +166,6 @@ struct RegDeviceTraits {
  * @param[in] nSamples          number of samples belonging to this node
  *
  * @tparam DataT { description }
- * @tparam IdxT  { description }
  *
  * @return true if the current node is to be declared as a leaf, else false
  */
@@ -198,7 +197,6 @@ DI bool leafBasedOnParams(IdxT myDepth, IdxT max_depth, IdxT min_samples_split,
  *
  * @tparam DataT  { description }
  * @tparam LabelT { description }
- * @tparam IdxT   { description }
  * @tparam TPB    { description }
  */
 template <typename DataT, typename LabelT, typename IdxT, int TPB>
@@ -324,8 +322,6 @@ DI uint32_t fnv1a32(uint32_t hash, uint32_t txt) {
  * @param[in] nodeid The nodeid
  * @param[in] seed   The seed
  * @param[in] N      { parameter_description }
- *
- * @tparam IdxT  { description }
  *
  * @return The 'k'th value from the permutation
  * @note   This function does not allocated any temporary buffer, all the

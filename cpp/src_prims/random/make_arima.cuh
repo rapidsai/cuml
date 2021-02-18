@@ -33,22 +33,22 @@ namespace Random {
 /**
  * Main kernel to generate time series by simulating an ARIMA process
  *
- * @param[out] d_diff      Generated series (before un-differencing)
- * @param[in]  d_res       Residuals (normal noise)
- * @param[in]  d_mu        Parameters mu
- * @param[in]  d_ar        Parameters ar
- * @param[in]  d_ma        Parameters ma
- * @param[in]  d_sar       Parameters sar
- * @param[in]  d_sma       Parameters sma
- * @param[in]  n_obs_diff  Number of observations per series in d_diff
- * @param[in]  p           Parameter p
- * @param[in]  q           Parameter q
- * @param[in]  P           Parameter P
- * @param[in]  Q           Parameter Q
- * @param[in]  s           Parameter s
- * @param[in]  k           Parameter k
+ * @param[out] d_diff     Generated series (before un-differencing)
+ * @param[in]  d_res      Residuals (normal noise)
+ * @param[in]  d_mu       Parameters mu
+ * @param[in]  d_ar       Parameters ar
+ * @param[in]  d_ma       Parameters ma
+ * @param[in]  d_sar      Parameters sar
+ * @param[in]  d_sma      Parameters sma
+ * @param[in]  n_obs_diff Number of observations per series in d_diff
+ * @param[in]  p          Parameter p
+ * @param[in]  q          Parameter q
+ * @param[in]  P          Parameter P
+ * @param[in]  Q          Parameter Q
+ * @param[in]  s          Parameter s
+ * @param[in]  k          Parameter k
  *
- * @tparam     DataT       Scalar type
+ * @tparam DataT Scalar type
  */
 template <typename DataT>
 __global__ void make_arima_kernel(DataT* d_diff, const DataT* d_res,
@@ -117,19 +117,19 @@ __global__ void make_arima_kernel(DataT* d_diff, const DataT* d_res,
  * Generates a dataset of time series by simulating an ARIMA process of a given
  * order.
  *
- * @param[out] out              Generated time series
- * @param[in]  batch_size       Batch size
- * @param[in]  n_obs            Number of observations per series
- * @param[in]  order            ARIMA order
- * @param[in]  allocator        Device memory allocator
- * @param[in]  stream           CUDA stream
- * @param[in]  scale            Scale used to draw the starting values
- * @param[in]  noise_scale      Scale used to draw the residuals
- * @param[in]  intercept_scale  Scale used to draw the intercept
- * @param[in]  seed             Seed for the random number generator
- * @param[in]  type             Type of random number generator
+ * @param[out] out             Generated time series
+ * @param[in]  batch_size      Batch size
+ * @param[in]  n_obs           Number of observations per series
+ * @param[in]  order           ARIMA order
+ * @param[in]  allocator       Device memory allocator
+ * @param[in]  stream          CUDA stream
+ * @param[in]  scale           Scale used to draw the starting values
+ * @param[in]  noise_scale     Scale used to draw the residuals
+ * @param[in]  intercept_scale Scale used to draw the intercept
+ * @param[in]  seed            Seed for the random number generator
+ * @param[in]  type            Type of random number generator
  *
- * @tparam     DataT            Scalar type
+ * @tparam DataT Scalar type
  */
 template <typename DataT>
 void make_arima(DataT* out, int batch_size, int n_obs, ML::ARIMAOrder order,

@@ -33,12 +33,14 @@ namespace TimeSeries {
  * Auxiliary function of reduced_polynomial. Computes a coefficient of an (S)AR
  * or (S)MA polynomial based on the values of the corresponding parameters
  *
- * @tparam     isAr    Is this an AR (true) or MA (false) polynomial?
- * @tparam     DataT   Scalar type
- * @param[in]  param   Parameter array
- * @param[in]  lags    Number of parameters
- * @param[in]  idx     Which coefficient to compute
- * @return             The value of the coefficient
+ * @param[in] param Parameter array
+ * @param[in] lags  Number of parameters
+ * @param[in] idx   Which coefficient to compute
+ *
+ * @tparam isAr  Is this an AR (true) or MA (false) polynomial?
+ * @tparam DataT Scalar type
+ *
+ * @return The value of the coefficient
  */
 template <bool isAr, typename DataT>
 HDI DataT _param_to_poly(const DataT* param, int lags, int idx) {
@@ -51,19 +53,21 @@ HDI DataT _param_to_poly(const DataT* param, int lags, int idx) {
 }
 
 /**
- * Helper function to compute the reduced AR or MA polynomial based on the
- * AR and SAR or MA and SMA parameters
+ * Helper function to compute the reduced AR or MA polynomial based on the AR
+ * and SAR or MA and SMA parameters
  *
- * @tparam     isAr    Is this an AR (true) or MA (false) polynomial?
- * @tparam     DataT   Scalar type
- * @param[in]  bid     Batch id
- * @param[in]  param   Non-seasonal parameters
- * @param[in]  lags    Number of non-seasonal parameters
- * @param[in]  sparam  Seasonal parameters
- * @param[in]  slags   Number of seasonal parameters
- * @param[in]  s       Seasonal period
- * @param[in]  idx     Which coefficient to compute
- * @return             The value of the coefficient
+ * @param[in] bid    Batch id
+ * @param[in] param  Non-seasonal parameters
+ * @param[in] lags   Number of non-seasonal parameters
+ * @param[in] sparam Seasonal parameters
+ * @param[in] slags  Number of seasonal parameters
+ * @param[in] s      Seasonal period
+ * @param[in] idx    Which coefficient to compute
+ *
+ * @tparam isAr  Is this an AR (true) or MA (false) polynomial?
+ * @tparam DataT Scalar type
+ *
+ * @return The value of the coefficient
  */
 template <bool isAr, typename DataT>
 HDI DataT reduced_polynomial(int bid, const DataT* param, int lags,
@@ -76,19 +80,21 @@ HDI DataT reduced_polynomial(int bid, const DataT* param, int lags,
 }
 
 /**
- * @brief Prepare data by differencing if needed (simple and/or seasonal)
- *        and removing a trend if needed
+ * @brief Prepare data by differencing if needed (simple and/or seasonal) and
+ *        removing a trend if needed
  *
- * @note: It is assumed that d + D <= 2. This is enforced on the Python side
+ * @note : It is assumed that d + D <= 2. This is enforced on the Python side
  *
- * @param[out] d_out       Output. Shape (n_obs - d - D*s, batch_size) (device)
- * @param[in]  d_in        Input. Shape (n_obs, batch_size) (device)
- * @param[in]  batch_size  Number of series per batch
- * @param[in]  n_obs       Number of observations per series
- * @param[in]  d           Order of simple differences (0, 1 or 2)
- * @param[in]  D           Order of seasonal differences (0, 1 or 2)
- * @param[in]  s           Seasonal period if D > 0
- * @param[in]  stream      CUDA stream
+ * @param[out] d_out      Output. Shape (n_obs - d - D*s, batch_size) (device)
+ * @param[in]  d_in       Input. Shape (n_obs, batch_size) (device)
+ * @param[in]  batch_size Number of series per batch
+ * @param[in]  n_obs      Number of observations per series
+ * @param[in]  d          Order of simple differences (0, 1 or 2)
+ * @param[in]  D          Order of seasonal differences (0, 1 or 2)
+ * @param[in]  s          Seasonal period if D > 0
+ * @param[in]  stream     CUDA stream
+ *
+ * @tparam DataT { description }
  */
 template <typename DataT>
 void prepare_data(DataT* d_out, const DataT* d_in, int batch_size, int n_obs,
@@ -120,10 +126,19 @@ void prepare_data(DataT* d_out, const DataT* d_in, int batch_size, int n_obs,
 }
 
 /**
- * @brief Helper function that will read in src0 if the given index is
- *        negative, src1 otherwise.
- * @note  This is useful when one array is the logical continuation of
- *        another and the index is expressed relatively to the second array.
+ * @brief Helper function that will read in src0 if the given index is negative,
+ *        src1 otherwise.
+ * @note  This is useful when one array is the logical continuation of another
+ *        and the index is expressed relatively to the second array.
+ *
+ * @param[in] src0  The source 0
+ * @param[in] size0 The size 0
+ * @param[in] src1  The source 1
+ * @param[in] idx   The index
+ *
+ * @tparam DataT { description }
+ *
+ * @return { description_of_the_return_value }
  */
 template <typename DataT>
 DI DataT _select_read(const DataT* src0, int size0, const DataT* src1,
@@ -132,9 +147,21 @@ DI DataT _select_read(const DataT* src0, int size0, const DataT* src1,
 }
 
 /**
- * @brief Kernel to undifference the data with up to two levels of simple
- *        and/or seasonal differencing.
+ * @brief Kernel to undifference the data with up to two levels of simple and/or
+ *        seasonal differencing.
  * @note  One thread per series.
+ *
+ * @param     d_fc       The d fc
+ * @param[in] d_in       The d in
+ * @param[in] num_steps  The number steps
+ * @param[in] batch_size The batch size
+ * @param[in] in_ld      In ld
+ * @param[in] n_in       The n in
+ * @param[in] s0         The s 0
+ * @param[in] s1         The s 1
+ *
+ * @tparam double_diff { description }
+ * @tparam DataT       { description }
  */
 template <bool double_diff, typename DataT>
 __global__ void _undiff_kernel(DataT* d_fc, const DataT* d_in, int num_steps,
@@ -160,19 +187,20 @@ __global__ void _undiff_kernel(DataT* d_fc, const DataT* d_in, int num_steps,
 /**
  * @brief Finalizes a forecast by undifferencing
  *
- * @note: It is assumed that d + D <= 2. This is enforced on the Python side
+ * @note : It is assumed that d + D <= 2. This is enforced on the Python side
  *
- * @tparam       DataT       Scalar type
- * @param[inout] d_fc        Forecast. Shape (num_steps, batch_size) (device)
- * @param[in]    d_in        Original data. Shape (n_in, batch_size) (device)
- * @param[in]    num_steps   Number of steps forecasted
- * @param[in]    batch_size  Number of series per batch
- * @param[in]    in_ld       Leading dimension of d_in
- * @param[in]    n_in        Number of observations/predictions in d_in
- * @param[in]    d           Order of simple differences (0, 1 or 2)
- * @param[in]    D           Order of seasonal differences (0, 1 or 2)
- * @param[in]    s           Seasonal period if D > 0
- * @param[in]    stream      CUDA stream
+ * @param[inout] d_fc       Forecast. Shape (num_steps, batch_size) (device)
+ * @param[in]    d_in       Original data. Shape (n_in, batch_size) (device)
+ * @param[in]    num_steps  Number of steps forecasted
+ * @param[in]    batch_size Number of series per batch
+ * @param[in]    in_ld      Leading dimension of d_in
+ * @param[in]    n_in       Number of observations/predictions in d_in
+ * @param[in]    d          Order of simple differences (0, 1 or 2)
+ * @param[in]    D          Order of seasonal differences (0, 1 or 2)
+ * @param[in]    s          Seasonal period if D > 0
+ * @param[in]    stream     CUDA stream
+ *
+ * @tparam DataT Scalar type
  */
 template <typename DataT>
 void finalize_forecast(DataT* d_fc, const DataT* d_in, int num_steps,
@@ -198,14 +226,15 @@ void finalize_forecast(DataT* d_fc, const DataT* d_in, int num_steps,
  * Convenience function for batched "jones transform" used in ARIMA to ensure
  * certain properties of the AR and MA parameters
  *
- * @tparam     DataT      Scalar type
- * @param[in]  order      ARIMA hyper-parameters
- * @param[in]  batch_size Number of time series analyzed.
- * @param[in]  isInv      Do the inverse transform?
- * @param[in]  params     ARIMA parameters (device)
- * @param[in]  Tparams    Transformed ARIMA parameters (device)
- * @param[in]  allocator  Device memory allocator
- * @param[in]  stream     CUDA stream
+ * @param[in] order      ARIMA hyper-parameters
+ * @param[in] batch_size Number of time series analyzed.
+ * @param[in] isInv      Do the inverse transform?
+ * @param[in] params     ARIMA parameters (device)
+ * @param[in] Tparams    Transformed ARIMA parameters (device)
+ * @param[in] allocator  Device memory allocator
+ * @param[in] stream     CUDA stream
+ *
+ * @tparam DataT Scalar type
  */
 template <typename DataT>
 void batched_jones_transform(const ML::ARIMAOrder& order, int batch_size,

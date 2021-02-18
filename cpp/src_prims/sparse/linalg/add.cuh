@@ -56,9 +56,9 @@ __global__ void csr_add_calc_row_counts_kernel(
     int b_stop_idx = get_stop_idx(row, m, nnz2, b_ind);
 
     /**
-         * Union of columns within each row of A and B so that we can scan through
-         * them, adding their values together.
-         */
+      * Union of columns within each row of A and B so that we can scan through
+      * them, adding their values together.
+      */
     int max_size = (a_stop_idx - a_start_idx) + (b_stop_idx - b_start_idx);
 
     int *arr = new int[max_size];
@@ -144,20 +144,26 @@ __global__ void csr_add_kernel(const int *a_ind, const int *a_indptr,
 }
 
 /**
- * @brief Calculate the CSR row_ind array that would result
- * from summing together two CSR matrices
- * @param a_ind: left hand row_ind array
- * @param a_indptr: left hand index_ptr array
- * @param a_val: left hand data array
- * @param nnz1: size of left hand index_ptr and val arrays
- * @param b_ind: right hand row_ind array
- * @param b_indptr: right hand index_ptr array
- * @param b_val: right hand data array
- * @param nnz2: size of right hand index_ptr and val arrays
- * @param m: size of output array (number of rows in final matrix)
- * @param out_ind: output row_ind array
- * @param d_alloc: device allocator to use for temp memory
- * @param stream: cuda stream to use
+ * @brief Calculate the CSR row_ind array that would result from summing
+ *        together two CSR matrices
+ *
+ * @param a_ind    left hand row_ind array
+ * @param a_indptr left hand index_ptr array
+ * @param a_val    left hand data array
+ * @param nnz1     size of left hand index_ptr and val arrays
+ * @param b_ind    right hand row_ind array
+ * @param b_indptr right hand index_ptr array
+ * @param b_val    right hand data array
+ * @param nnz2     size of right hand index_ptr and val arrays
+ * @param m        size of output array (number of rows in final matrix)
+ * @param out_ind  output row_ind array
+ * @param d_alloc  device allocator to use for temp memory
+ * @param stream   cuda stream to use
+ *
+ * @tparam T     { description }
+ * @tparam TPB_X { description }
+ *
+ * @return { description_of_the_return_value }
  */
 template <typename T, int TPB_X = 128>
 size_t csr_add_calc_inds(const int *a_ind, const int *a_indptr, const T *a_val,
@@ -191,21 +197,25 @@ size_t csr_add_calc_inds(const int *a_ind, const int *a_indptr, const T *a_val,
 }
 
 /**
- * @brief Calculate the CSR row_ind array that would result
- * from summing together two CSR matrices
- * @param a_ind: left hand row_ind array
- * @param a_indptr: left hand index_ptr array
- * @param a_val: left hand data array
- * @param nnz1: size of left hand index_ptr and val arrays
- * @param b_ind: right hand row_ind array
- * @param b_indptr: right hand index_ptr array
- * @param b_val: right hand data array
- * @param nnz2: size of right hand index_ptr and val arrays
- * @param m: size of output array (number of rows in final matrix)
- * @param c_ind: output row_ind array
- * @param c_indptr: output ind_ptr array
- * @param c_val: output data array
- * @param stream: cuda stream to use
+ * @brief Calculate the CSR row_ind array that would result from summing
+ *        together two CSR matrices
+ *
+ * @param a_ind    left hand row_ind array
+ * @param a_indptr left hand index_ptr array
+ * @param a_val    left hand data array
+ * @param nnz1     size of left hand index_ptr and val arrays
+ * @param b_ind    right hand row_ind array
+ * @param b_indptr right hand index_ptr array
+ * @param b_val    right hand data array
+ * @param nnz2     size of right hand index_ptr and val arrays
+ * @param m        size of output array (number of rows in final matrix)
+ * @param c_ind    output row_ind array
+ * @param c_indptr output ind_ptr array
+ * @param c_val    output data array
+ * @param stream   cuda stream to use
+ *
+ * @tparam T     { description }
+ * @tparam TPB_X { description }
  */
 template <typename T, int TPB_X = 128>
 void csr_add_finalize(const int *a_ind, const int *a_indptr, const T *a_val,

@@ -55,17 +55,19 @@ void ternaryOpImpl(math_t *out, const math_t *in1, const math_t *in2,
 
 /**
  * @brief perform element-wise ternary operation on the input arrays
- * @tparam math_t data-type upon which the math operation will be performed
- * @tparam Lambda the device-lambda performing the actual operation
- * @tparam IdxType Integer type used to for addressing
- * @tparam TPB threads-per-block in the final kernel launched
- * @param out the output array
- * @param in1 the first input array
- * @param in2 the second input array
- * @param in3 the third input array
- * @param len number of elements in the input array
- * @param op the device-lambda
+ *
+ * @param out    the output array
+ * @param in1    the first input array
+ * @param in2    the second input array
+ * @param in3    the third input array
+ * @param len    number of elements in the input array
+ * @param op     the device-lambda
  * @param stream cuda stream where to launch work
+ *
+ * @tparam math_t data-type upon which the math operation will be performed
+ * @tparam TPB    threads-per-block in the final kernel launched
+ * @tparam Lambda  the device-lambda performing the actual operation
+ * @tparam IdxType Integer type used to for addressing
  */
 template <typename math_t, typename Lambda, typename IdxType = int,
           int TPB = 256>

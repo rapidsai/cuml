@@ -31,39 +31,44 @@ typedef enum cumlSvmKernelType {
 /**
  * @defgroup SVM C-wrapper to C++ implementation of Support Vector Machine
  *
- * The output device buffers shall be unallocated on entry.
- * Note that n_support, n_classes and b are host scalars, all other output
- * pointers are device pointers.
+ * The output device buffers shall be unallocated on entry. Note that n_support,
+ * n_classes and b are host scalars, all other output pointers are device
+ * pointers.
  *
- * @param [in] handle the cuML handle
- * @param [in] input device pointer for the input data in column major format.
- *   Size n_rows x n_cols.
- * @param [in] n_rows number of rows
- * @param [in] n_cols number of columns
- * @param [in] labels device pointer for the labels. Size n_rows.
- * @param [in] C penalty term
- * @param [in] cache_size size of kernel cache in device memory (MiB)
- * @param [in] max_iter maximum number of outer iterations in SmoSolver
- * @param [in] nochange_steps max number of outer iterations without change in convergence
- * @param [in] tol tolerance to stop fitting
- * @param [in] verbosity Fine grained control over logging of useful information
- *   as algorithm executes. Currently passing anything greater than or equal to
- *   CUML_LEVEL_INFO will make it execute quietly
- * @param [in] kernel type of kernel (LINEAR, POLYNOMIAL, RBF or TANH)
- * @param [in] degree of polynomial kernel (ignored by others)
- * @param [in] gamma multiplier in the RBF, POLYNOMIAL and TANH kernels
- * @param [in] coef0 additive constant in poly and tanh kernels
- * @param [out] n_support number of support vectors
- * @param [out] b constant used in the decision function
- * @param [out] dual_coefs non-zero dual coefficients, size [n_support].
- * @param [out] x_support support vectors in column major format.
- *    Size [n_support x n_cols].
- * @param [out] support_idx indices (from the traning set) of the support
- *    vectors, size [n_support].
- * @param [out] n_classes number of classes found in the input labels
- * @param [out] unique_labels device pointer for the unique classes,
- *    size [n_classes]
- * @return CUML_SUCCESS on success and other corresponding flags upon any failures.
+ * @param[in]  handle         the cuML handle
+ * @param[in]  input          device pointer for the input data in column major
+ *                            format. Size n_rows x n_cols.
+ * @param[in]  n_rows         number of rows
+ * @param[in]  n_cols         number of columns
+ * @param[in]  labels         device pointer for the labels. Size n_rows.
+ * @param[in]  C              penalty term
+ * @param[in]  cache_size     size of kernel cache in device memory (MiB)
+ * @param[in]  max_iter       maximum number of outer iterations in SmoSolver
+ * @param[in]  nochange_steps max number of outer iterations without change in
+ *                            convergence
+ * @param[in]  tol            tolerance to stop fitting
+ * @param[in]  verbosity      Fine grained control over logging of useful
+ *                            information as algorithm executes. Currently
+ *                            passing anything greater than or equal to
+ *                            CUML_LEVEL_INFO will make it execute quietly
+ * @param[in]  kernel         type of kernel (LINEAR, POLYNOMIAL, RBF or TANH)
+ * @param[in]  degree         of polynomial kernel (ignored by others)
+ * @param[in]  gamma          multiplier in the RBF, POLYNOMIAL and TANH kernels
+ * @param[in]  coef0          additive constant in poly and tanh kernels
+ * @param[out] n_support      number of support vectors
+ * @param[out] b              constant used in the decision function
+ * @param[out] dual_coefs     non-zero dual coefficients, size [n_support].
+ * @param[out] x_support      support vectors in column major format. Size
+ *                            [n_support x n_cols].
+ * @param[out] support_idx    indices (from the traning set) of the support
+ *                            vectors, size [n_support].
+ * @param[out] n_classes      number of classes found in the input labels
+ * @param[out] unique_labels  device pointer for the unique classes, size
+ *                            [n_classes]
+ *
+ * @return CUML_SUCCESS on success and other corresponding flags upon any
+ *         failures.
+ *
  * @{
  */
 cumlError_t cumlSpSvcFit(cumlHandle_t handle, float *input, int n_rows,
@@ -90,28 +95,31 @@ cumlError_t cumlDpSvcFit(cumlHandle_t handle, double *input, int n_rows,
  *
  * The output preds array shall be allocated on entry.
  *
- * @param [in] handle the cuML handle
- * @param [in] input device pointer for the input data in column major format.
- *   Size n_rows x n_cols.
- * @param [in] n_rows number of rows
- * @param [in] n_cols number of columns
- * @param [in] kernel type of kernel (LINEAR, POLYNOMIAL, RBF or TANH)
- * @param [in] degree of polynomial kernel (ignored by others)
- * @param [in] gamma multiplier in the RBF, POLYNOMIAL and TANH kernels
- * @param [in] coef0 additive constant in poly and tanh kernels
- * @param [in] n_support number of support vectors
- * @param [in] b constant used in the decision function
- * @param [in] dual_coefs non-zero dual coefficients, size [n_support].
- * @param [in] x_support support vectors in column major format.
- *    Size [n_support x n_cols].
- * @param [in] n_classes number of classes found in the input labels
- * @param [in] unique_labels device pointer for the unique classes,
- *    size [n_classes]
- * @param [out] preds device pointer for the predictions. Size [n_rows].
- * @param [in] buffer_size size of temporary buffer in MiB
- * @param [in] predict_class whether to predict class label (true), or just
- *     return the decision function value (false)
- * @return CUML_SUCCESS on success and other corresponding flags upon any failures.
+ * @param[in]  handle        the cuML handle
+ * @param[in]  input         device pointer for the input data in column major
+ *                           format. Size n_rows x n_cols.
+ * @param[in]  n_rows        number of rows
+ * @param[in]  n_cols        number of columns
+ * @param[in]  kernel        type of kernel (LINEAR, POLYNOMIAL, RBF or TANH)
+ * @param[in]  degree        of polynomial kernel (ignored by others)
+ * @param[in]  gamma         multiplier in the RBF, POLYNOMIAL and TANH kernels
+ * @param[in]  coef0         additive constant in poly and tanh kernels
+ * @param[in]  n_support     number of support vectors
+ * @param[in]  b             constant used in the decision function
+ * @param[in]  dual_coefs    non-zero dual coefficients, size [n_support].
+ * @param[in]  x_support     support vectors in column major format. Size
+ *                           [n_support x n_cols].
+ * @param[in]  n_classes     number of classes found in the input labels
+ * @param[in]  unique_labels device pointer for the unique classes, size
+ *                           [n_classes]
+ * @param[out] preds         device pointer for the predictions. Size [n_rows].
+ * @param[in]  buffer_size   size of temporary buffer in MiB
+ * @param[in]  predict_class whether to predict class label (true), or just
+ *                           return the decision function value (false)
+ *
+ * @return CUML_SUCCESS on success and other corresponding flags upon any
+ *         failures.
+ *
  * @{
  */
 cumlError_t cumlSpSvcPredict(cumlHandle_t handle, float *input, int n_rows,

@@ -22,20 +22,24 @@ namespace SVM {
 
 /**
  * Mark elements as unavailable if they are in the the idx list.
- * \param [out] available flag whether an idx is available, size [n_rows]
- * \param [in] n_rows number of training vectors
- * \param [in] idx list of indices already selected, size [n_selected]
- * \param [in] n_selected number of elements in the idx list
+ *
+ * @param[out] available  flag whether an idx is available, size [n_rows]
+ * @param[in]  n_rows     number of training vectors
+ * @param[in]  idx        list of indices already selected, size [n_selected]
+ * @param[in]  n_selected number of elements in the idx list
  */
 __global__ void set_unavailable(bool *available, int n_rows, const int *idx,
                                 int n_selected);
 
 /** Set availability to true for elements in the upper set, otherwise false.
- * @param [out] available size [n]
- * @param [in] n of elements in the working set
- * @param [in] alpha dual coefficients, size [n]
- * @param [in] y class label, must be +/-1, size [n]
- * @param [in] C penalty factor
+ *
+ * @param[out] available size [n]
+ * @param[in]  n         of elements in the working set
+ * @param[in]  alpha     dual coefficients, size [n]
+ * @param[in]  y         class label, must be +/-1, size [n]
+ * @param[in]  C         penalty factor
+ *
+ * @tparam math_t { description }
  */
 template <typename math_t>
 __global__ void set_upper(bool *available, int n, const math_t *alpha,
@@ -45,11 +49,14 @@ __global__ void set_upper(bool *available, int n, const math_t *alpha,
 }
 
 /** Set availability to true for elements in the lower set, otherwise false.
- * @param [out] available size [n]
- * @param [in] n of elements in the working set
- * @param [in] alpha dual coefficients, size [n]
- * @param [in] y class label, must be +/-1, size [n]
- * @param [in] C penalty factor
+ *
+ * @param[out] available size [n]
+ * @param[in]  n         of elements in the working set
+ * @param[in]  alpha     dual coefficients, size [n]
+ * @param[in]  y         class label, must be +/-1, size [n]
+ * @param[in]  C         penalty factor
+ *
+ * @tparam math_t { description }
  */
 template <typename math_t>
 __global__ void set_lower(bool *available, int n, const math_t *alpha,
@@ -58,18 +65,18 @@ __global__ void set_lower(bool *available, int n, const math_t *alpha,
   if (tid < n) available[tid] = in_lower(alpha[tid], y[tid], C[tid]);
 }
 /**
-* Get the priority of the elements that are selected by new_idx.
-*
-* We look up these indices from the old working set (idx), and return their
-* priority increased by one.
-*
-* @param [out] new_priority size [n_selected]
-* @param [in] n_selected (less equal n_ws)
-* @param [in] new_idx size [n_selected]
-* @param [in] n_ws working set size
-* @param [in] idx indices in the old working set, size [n_ws]
-* @param [in] priority of elements in the old working set, size [n_ws]
-*/
+ * Get the priority of the elements that are selected by new_idx.
+ *
+ * We look up these indices from the old working set (idx), and return their
+ * priority increased by one.
+ *
+ * @param[out] new_priority size [n_selected]
+ * @param[in]  n_selected   (less equal n_ws)
+ * @param[in]  new_idx      size [n_selected]
+ * @param[in]  n_ws         working set size
+ * @param[in]  idx          indices in the old working set, size [n_ws]
+ * @param[in]  priority     of elements in the old working set, size [n_ws]
+ */
 __global__ void update_priority(int *new_priority, int n_selected,
                                 const int *new_idx, int n_ws, const int *idx,
                                 const int *priority);

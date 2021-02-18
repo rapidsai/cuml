@@ -73,29 +73,42 @@ struct KMeansParams {
 };
 
 /**
- * @brief Compute k-means clustering and predicts cluster index for each sample
- in the input.
- *
- * @param[in]     handle        The handle to the cuML library context that
- manages the CUDA resources.
- * @param[in]     params        Parameters for KMeans model.
- * @param[in]     X             Training instances to cluster. It must be noted
- that the data must be in row-major format and stored in device accessible
+ * { list_item_description }
+
+ @brief Compute k-means clustering and predicts cluster index for each sample in
+        the input.
+ * { list_item_description }
+ * { list_item_description }
+
+ @param[in]    handle        The handle to the cuML library context that manages
+                             the CUDA resources.
+ * { list_item_description }
+ @param[in]    params        Parameters for KMeans model.
+ * { list_item_description }
+ @param[in]    X             Training instances to cluster. It must be noted
+                             that the data must be in row-major format and
+                             stored in device accessible
  * location.
- * @param[in]     n_samples     Number of samples in the input X.
- * @param[in]     n_features    Number of features or the dimensions of each
+ * { list_item_description }
+ @param[in]    n_samples     Number of samples in the input X.
+ * { list_item_description }
+ @param[in]    n_features    Number of features or the dimensions of each
  * sample.
- * @param[in]     sample_weight The weights for each observation in X.
- * @param[inout]  centroids     [in] When init is InitMethod::Array, use
- centroids  as the initial cluster centers
- *                              [out] Otherwise, generated centroids from the
- kmeans algorithm is stored at the address pointed by 'centroids'.
- * @param[out]    labels        Index of the cluster each sample in X belongs
- to.
- * @param[out]    inertia       Sum of squared distances of samples to their
- closest cluster center.
- * @param[out]    n_iter        Number of iterations run.
- */
+ * { list_item_description }
+ @param[in]    sample_weight The weights for each observation in X.
+ * { list_item_description }
+ @param[inout] centroids     [in] When init is InitMethod::Array, use centroids
+                             as the initial cluster centers
+ * [out] Otherwise, generated centroids from the kmeans algorithm is stored at
+   the address pointed by 'centroids'.
+ * { list_item_description }
+ @param[out]   labels        Index of the cluster each sample in X belongs to.
+ * { list_item_description }
+ @param[out]   inertia       Sum of squared distances of samples to their
+                             closest cluster center.
+ * { list_item_description }
+ @param[out]   n_iter        Number of iterations run.
+*/
 void fit_predict(const raft::handle_t &handle, const KMeansParams &params,
                  const float *X, int n_samples, int n_features,
                  const float *sample_weight, float *centroids, int *labels,
@@ -107,26 +120,39 @@ void fit_predict(const raft::handle_t &handle, const KMeansParams &params,
                  double &inertia, int &n_iter);
 
 /**
- * @brief Compute k-means clustering.
- *
- * @param[in]     handle        The handle to the cuML library context that
- manages the CUDA resources.
- * @param[in]     params        Parameters for KMeans model.
- * @param[in]     X             Training instances to cluster. It must be noted
- that the data must be in row-major format and stored in device accessible
+ * { list_item_description }
+
+ @brief Compute k-means clustering.
+ * { list_item_description }
+ * { list_item_description }
+
+ @param[in]    handle        The handle to the cuML library context that manages
+                             the CUDA resources.
+ * { list_item_description }
+ @param[in]    params        Parameters for KMeans model.
+ * { list_item_description }
+ @param[in]    X             Training instances to cluster. It must be noted
+                             that the data must be in row-major format and
+                             stored in device accessible
  * location.
- * @param[in]     n_samples     Number of samples in the input X.
- * @param[in]     n_features    Number of features or the dimensions of each
+ * { list_item_description }
+ @param[in]    n_samples     Number of samples in the input X.
+ * { list_item_description }
+ @param[in]    n_features    Number of features or the dimensions of each
  * sample.
- * @param[in]     sample_weight The weights for each observation in X.
- * @param[inout]  centroids     [in] When init is InitMethod::Array, use
- centroids as the initial cluster centers
- *                              [out] Otherwise, generated centroids from the
- kmeans algorithm is stored at the address pointed by 'centroids'.
- * @param[out]    inertia       Sum of squared distances of samples to their
- closest cluster center.
- * @param[out]    n_iter        Number of iterations run.
- */
+ * { list_item_description }
+ @param[in]    sample_weight The weights for each observation in X.
+ * { list_item_description }
+ @param[inout] centroids     [in] When init is InitMethod::Array, use centroids
+                             as the initial cluster centers
+ * [out] Otherwise, generated centroids from the kmeans algorithm is stored at
+   the address pointed by 'centroids'.
+ * { list_item_description }
+ @param[out]   inertia       Sum of squared distances of samples to their
+                             closest cluster center.
+ * { list_item_description }
+ @param[out]   n_iter        Number of iterations run.
+*/
 
 void fit(const raft::handle_t &handle, const KMeansParams &params,
          const float *X, int n_samples, int n_features,
@@ -141,21 +167,21 @@ void fit(const raft::handle_t &handle, const KMeansParams &params,
 /**
  * @brief Predict the closest cluster each sample in X belongs to.
  *
- * @param[in]     handle        The handle to the cuML library context that
- * manages the CUDA resources.
- * @param[in]     params        Parameters for KMeans model.
- * @param[in]     centroids     Cluster centroids. It must be noted that the
- * data must be in row-major format and stored in device accessible location.
- * @param[in]     X             New data to predict.
- * @param[in]     n_samples     Number of samples in the input X.
- * @param[in]     n_features    Number of features or the dimensions of each
- * sample in 'X' (value should be same as the dimension for each cluster centers
- * in 'centroids').
- * @param[in]     sample_weight The weights for each observation in X.
- * @param[out]    labels        Index of the cluster each sample in X belongs
- * to.
- * @param[out]    inertia       Sum of squared distances of samples to their
- * closest cluster center.
+ * @param[in]  handle        The handle to the cuML library context that manages
+ *                           the CUDA resources.
+ * @param[in]  params        Parameters for KMeans model.
+ * @param[in]  centroids     Cluster centroids. It must be noted that the data
+ *                           must be in row-major format and stored in device
+ *                           accessible location.
+ * @param[in]  X             New data to predict.
+ * @param[in]  n_samples     Number of samples in the input X.
+ * @param[in]  n_features    Number of features or the dimensions of each sample
+ *                           in 'X' (value should be same as the dimension for
+ *                           each cluster centers in 'centroids').
+ * @param[in]  sample_weight The weights for each observation in X.
+ * @param[out] labels        Index of the cluster each sample in X belongs to.
+ * @param[out] inertia       Sum of squared distances of samples to their
+ *                           closest cluster center.
  */
 
 void predict(const raft::handle_t &handle, const KMeansParams &params,
@@ -171,21 +197,22 @@ void predict(const raft::handle_t &handle, const KMeansParams &params,
 /**
  * @brief Transform X to a cluster-distance space.
  *
- * @param[in]     handle        The handle to the cuML library context that
- * manages the CUDA resources.
- * @param[in]     params        Parameters for KMeans model.
- * @param[in]     centroids     Cluster centroids. It must be noted that the
- * data must be in row-major format and stored in device accessible location.
- * @param[in]     X             Training instances to cluster. It must be noted
- * that the data must be in row-major format and stored in device accessible
- * location.
- * @param[in]     n_samples     Number of samples in the input X.
- * @param[in]     n_features    Number of features or the dimensions of each
- * sample in 'X' (it should be same as the dimension for each cluster centers in
- * 'centroids').
- * @param[in]     metric        Metric to use for distance computation. Any
- * metric from raft::distance::DistanceType can be used
- * @param[out]    X_new         X transformed in the new space..
+ * @param[in]  handle     The handle to the cuML library context that manages
+ *                        the CUDA resources.
+ * @param[in]  params     Parameters for KMeans model.
+ * @param[in]  centroids  Cluster centroids. It must be noted that the data must
+ *                        be in row-major format and stored in device accessible
+ *                        location.
+ * @param[in]  X          Training instances to cluster. It must be noted that
+ *                        the data must be in row-major format and stored in
+ *                        device accessible location.
+ * @param[in]  n_samples  Number of samples in the input X.
+ * @param[in]  n_features Number of features or the dimensions of each sample in
+ *                        'X' (it should be same as the dimension for each
+ *                        cluster centers in 'centroids').
+ * @param[in]  metric     Metric to use for distance computation. Any metric
+ *                        from raft::distance::DistanceType can be used
+ * @param[out] X_new      X transformed in the new space..
  */
 void transform(const raft::handle_t &handle, const KMeansParams &params,
                const float *centroids, const float *X, int n_samples,

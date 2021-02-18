@@ -149,14 +149,17 @@ ContingencyMatrixImplType getImplVersion(OutT outDimN) {
 }
 
 /**
- * @brief use this to allocate output matrix size
- * size of matrix = (maxLabel - minLabel + 1)^2 * sizeof(int)
- * @param groundTruth: device 1-d array for ground truth (num of rows)
- * @param nSamples: number of elements in input array
- * @param stream: cuda stream for execution
- * @param minLabel: [out] calculated min value in input array
- * @param maxLabel: [out] calculated max value in input array
-*/
+ * @brief use this to allocate output matrix size size of matrix = (maxLabel -
+ *        minLabel + 1)^2 * sizeof(int)
+ *
+ * @param groundTruth device 1-d array for ground truth (num of rows)
+ * @param nSamples    number of elements in input array
+ * @param stream      cuda stream for execution
+ * @param minLabel    [out] calculated min value in input array
+ * @param maxLabel    [out] calculated max value in input array
+ *
+ * @tparam T     { description }
+ */
 template <typename T>
 void getInputClassCardinality(const T *groundTruth, const int nSamples,
                               cudaStream_t stream, T &minLabel, T &maxLabel) {
@@ -170,13 +173,17 @@ void getInputClassCardinality(const T *groundTruth, const int nSamples,
 
 /**
  * @brief Calculate workspace size for running contingency matrix calculations
- * @tparam T label type
- * @tparam OutT output matrix type
- * @param nSamples: number of elements in input array
- * @param groundTruth: device 1-d array for ground truth (num of rows)
- * @param stream: cuda stream for execution
- * @param minLabel: Optional, min value in input array
- * @param maxLabel: Optional, max value in input array
+ *
+ * @param nSamples    number of elements in input array
+ * @param groundTruth device 1-d array for ground truth (num of rows)
+ * @param stream      cuda stream for execution
+ * @param minLabel    Optional, min value in input array
+ * @param maxLabel    Optional, max value in input array
+ *
+ * @tparam OutT  output matrix type
+ * @tparam T     label type
+ *
+ * @return The contingency matrix workspace size.
  */
 template <typename T, typename OutT = int>
 size_t getContingencyMatrixWorkspaceSize(
@@ -213,17 +220,19 @@ size_t getContingencyMatrixWorkspaceSize(
  *        labels. Users should call function getInputClassCardinality to find
  *        and allocate memory for output. Similarly workspace requirements
  *        should be checked using function getContingencyMatrixWorkspaceSize
- * @tparam T label type
- * @tparam OutT output matrix type
- * @param groundTruth: device 1-d array for ground truth (num of rows)
- * @param predictedLabel: device 1-d array for prediction (num of columns)
- * @param nSamples: number of elements in input array
- * @param outMat: output buffer for contingecy matrix
- * @param stream: cuda stream for execution
- * @param workspace: Optional, workspace memory allocation
- * @param workspaceSize: Optional, size of workspace memory
- * @param minLabel: Optional, min value in input ground truth array
- * @param maxLabel: Optional, max value in input ground truth array
+ *
+ * @param groundTruth    device 1-d array for ground truth (num of rows)
+ * @param predictedLabel device 1-d array for prediction (num of columns)
+ * @param nSamples       number of elements in input array
+ * @param outMat         output buffer for contingecy matrix
+ * @param stream         cuda stream for execution
+ * @param workspace      Optional, workspace memory allocation
+ * @param workspaceSize  Optional, size of workspace memory
+ * @param minLabel       Optional, min value in input ground truth array
+ * @param maxLabel       Optional, max value in input ground truth array
+ *
+ * @tparam OutT  output matrix type
+ * @tparam T     label type
  */
 template <typename T, typename OutT = int>
 void contingencyMatrix(const T *groundTruth, const T *predictedLabel,

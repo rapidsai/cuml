@@ -23,10 +23,9 @@ namespace AdjGraph {
 template <typename Index_ = int>
 struct Pack {
   /**
-     * vertex degree array
-     * Last position is the sum of all elements in this array (excluding it)
-     * Hence, its length is one more than the number of poTypes
-     */
+    * vertex degree array Last position is the sum of all elements in this array
+    * (excluding it) Hence, its length is one more than the number of poTypes
+    */
   Index_ *vd;
   /** the adjacency matrix */
   bool *adj;

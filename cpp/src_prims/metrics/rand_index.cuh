@@ -15,30 +15,37 @@
  */
 
 /**
- * @file rand_index.cuh
- * @todo TODO(Ganesh Venkataramana):
- * <pre>
- * The below rand_index calculation implementation is a Brute force one that uses (nElements*nElements) threads (2 dimensional grids and blocks)
- * For small datasets, this will suffice; but for larger ones, work done by the threads increase dramatically.
- * A more mathematically intensive implementation that uses half the above threads can be done, which will prove to be more efficient for larger datasets
- * the idea is as follows:
-  * instead of 2D block and grid configuration with a total of (nElements*nElements) threads (where each (i,j) through these threads represent an ordered pair selection of 2 data points),
-  a 1D block and grid configuration with a total of (nElements*(nElements))/2 threads (each thread index represents an element part of the set of unordered pairwise selections from the dataset (nChoose2))
-  * In this setup, one has to generate a one-to-one mapping between this 1D thread index (for each kernel) and the unordered pair of chosen datapoints.
-  * More specifically, thread0-> {dataPoint1, dataPoint0}, thread1-> {dataPoint2, dataPoint0}, thread2-> {dataPoint2, dataPoint1} ... thread((nElements*(nElements))/2 - 1)-> {dataPoint(nElements-1),dataPoint(nElements-2)}
-  * say ,
-     * threadNum: thread index | threadNum = threadIdx.x + BlockIdx.x*BlockDim.x,
-     * i : index of dataPoint i
-     * j : index of dataPoint j
-  * then the mapping is as follows:
-     * i = ceil((-1 + sqrt(1 + 8*(1 + threadNum)))/2) = floor((1 + sqrt(1 + 8*threadNum))/2)
-     * j = threadNum - i(i-1)/2
-  * after obtaining the the pair of datapoints, calculation of rand index is the same as done in this implementation
- * Caveat: since the kernel implementation involves use of emulated sqrt() operations:
-  * the number of instructions executed per kernel is ~40-50 times
-  * as the O(nElements*nElements) increase beyond the floating point limit, floating point inaccuracies occur, and hence the above floor(...) !=  ceil(...)
- * </pre>
- */
+  * @file rand_index.cuh
+  * @todo TODO(Ganesh Venkataramana): <pre> The below rand_index calculation
+  *       implementation is a Brute force one that uses (nElements*nElements)
+  *       threads (2 dimensional grids and blocks) For small datasets, this will
+  *       suffice; but for larger ones, work done by the threads increase
+  *       dramatically. A more mathematically intensive implementation that uses
+  *       half the above threads can be done, which will prove to be more
+  *       efficient for larger datasets the idea is as follows: instead of 2D
+  *       block and grid configuration with a total of (nElements*nElements)
+  *       threads (where each (i,j) through these threads represent an ordered
+  *       pair selection of 2 data points), a 1D block and grid configuration
+  *       with a total of (nElements*(nElements))/2 threads (each thread index
+  *       represents an element part of the set of unordered pairwise selections
+  *       from the dataset (nChoose2)) In this setup, one has to generate a
+  *       one-to-one mapping between this 1D thread index (for each kernel) and
+  *       the unordered pair of chosen datapoints. More specifically, thread0->
+  *       {dataPoint1, dataPoint0}, thread1-> {dataPoint2, dataPoint0},
+  *       thread2-> {dataPoint2, dataPoint1} ...
+  *       thread((nElements*(nElements))/2 - 1)->
+  *       {dataPoint(nElements-1),dataPoint(nElements-2)} say , threadNum:
+  *       thread index | threadNum = threadIdx.x + BlockIdx.x*BlockDim.x, i :
+  *       index of dataPoint i j : index of dataPoint j then the mapping is as
+  *       follows: i = ceil((-1 + sqrt(1 + 8*(1 + threadNum)))/2) = floor((1 +
+  *       sqrt(1 + 8*threadNum))/2) j = threadNum - i(i-1)/2 after obtaining the
+  *       the pair of datapoints, calculation of rand index is the same as done
+  *       in this implementation Caveat: since the kernel implementation
+  *       involves use of emulated sqrt() operations: the number of instructions
+  *       executed per kernel is ~40-50 times as the O(nElements*nElements)
+  *       increase beyond the floating point limit, floating point inaccuracies
+  *       occur, and hence the above floor(...) !=  ceil(...) </pre>
+  */
 
 #pragma once
 
@@ -54,11 +61,18 @@ namespace Metrics {
 
 /**
  * @brief kernel to calculate the values of a and b
- * @param firstClusterArray: the array of classes of type T
- * @param secondClusterArray: the array of classes of type T
- * @param size: the size of the data points
- * @param a: number of pairs of points that both the clusters have classified the same
- * @param b: number of pairs of points that both the clusters have classified differently
+ *
+ * @param firstClusterArray  the array of classes of type T
+ * @param secondClusterArray the array of classes of type T
+ * @param size               the size of the data points
+ * @param a                  number of pairs of points that both the clusters
+ *                           have classified the same
+ * @param b                  number of pairs of points that both the clusters
+ *                           have classified differently
+ *
+ * @tparam T           { description }
+ * @tparam BLOCK_DIM_X { description }
+ * @tparam BLOCK_DIM_Y { description }
  */
 template <typename T, int BLOCK_DIM_X, int BLOCK_DIM_Y>
 __global__ void computeTheNumerator(const T* firstClusterArray,
@@ -107,14 +121,22 @@ __global__ void computeTheNumerator(const T* firstClusterArray,
 }
 
 /**
-* @brief Function to calculate RandIndex
-* <a href="https://en.wikipedia.org/wiki/Rand_index">more info on rand index</a>
-* @param firstClusterArray: the array of classes of type T
-* @param secondClusterArray: the array of classes of type T
-* @param size: the size of the data points of type uint64_t
-* @param allocator: object that takes care of temporary device memory allocation of type std::shared_ptr<MLCommon::deviceAllocator>
-* @param stream: the cudaStream object
-*/
+ * @brief Function to calculate RandIndex <a
+ *        href="https://en.wikipedia.org/wiki/Rand_index">more info on rand
+ *        index</a>
+ *
+ * @param firstClusterArray  the array of classes of type T
+ * @param secondClusterArray the array of classes of type T
+ * @param size               the size of the data points of type uint64_t
+ * @param allocator          object that takes care of temporary device memory
+ *                           allocation of type
+ *                           std::shared_ptr<MLCommon::deviceAllocator>
+ * @param stream             the cudaStream object
+ *
+ * @tparam T     { description }
+ *
+ * @return The random index.
+ */
 template <typename T>
 double compute_rand_index(T* firstClusterArray, T* secondClusterArray,
                           uint64_t size,

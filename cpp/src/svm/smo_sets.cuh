@@ -21,7 +21,14 @@
 namespace ML {
 namespace SVM {
 
-/** Determine whether a training instance is in the upper set */
+/** Determine whether a training instance is in the upper set
+ *
+ * @param[in] a     { parameter_description }
+ * @param[in] y     { parameter_description }
+ * @param[in] C     { parameter_description }
+ *
+ * @return { description_of_the_return_value }
+ */
 template <typename math_t>
 DI bool in_upper(math_t a, math_t y, math_t C) {
   // (0 < a && a < C) || (y == 1  && a == 0) || (y == -1 && a == C);
@@ -29,7 +36,14 @@ DI bool in_upper(math_t a, math_t y, math_t C) {
   return (y < 0 && a > 0) || (y > 0 && a < C);
 }
 
-/** Determine whether a training instance is in the lower set */
+/** Determine whether a training instance is in the lower set
+ *
+ * @param[in] a     { parameter_description }
+ * @param[in] y     { parameter_description }
+ * @param[in] C     { parameter_description }
+ *
+ * @return { description_of_the_return_value }
+ */
 template <typename math_t>
 DI bool in_lower(math_t a, math_t y, math_t C) {
   // (0 < a && a < C) || (y == -1 && a == 0) || (y == 1 && a == C);

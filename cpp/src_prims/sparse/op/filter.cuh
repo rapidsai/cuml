@@ -88,21 +88,24 @@ __global__ void coo_remove_scalar_kernel(const int *rows, const int *cols,
 }
 
 /**
- * @brief Removes the values matching a particular scalar from a COO formatted sparse matrix.
+ * @brief Removes the values matching a particular scalar from a COO formatted
+ *        sparse matrix.
  *
- * @param rows: input array of rows (size n)
- * @param cols: input array of cols (size n)
- * @param vals: input array of vals (size n)
- * @param nnz: size of current rows/cols/vals arrays
- * @param crows: compressed array of rows
- * @param ccols: compressed array of cols
- * @param cvals: compressed array of vals
- * @param cnnz: array of non-zero counts per row
+ * @param rows     input array of rows (size n)
+ * @param cols     input array of cols (size n)
+ * @param vals     input array of vals (size n)
+ * @param nnz      size of current rows/cols/vals arrays
+ * @param crows    compressed array of rows
+ * @param ccols    compressed array of cols
+ * @param cvals    compressed array of vals
+ * @param cnnz     array of non-zero counts per row
  * @param cur_cnnz array of counts per row
- * @param scalar: scalar to remove from arrays
- * @param n: number of rows in dense matrix
- * @param d_alloc device allocator for temporary buffers
- * @param stream: cuda stream to use
+ * @param scalar   scalar to remove from arrays
+ * @param n        number of rows in dense matrix
+ * @param d_alloc  device allocator for temporary buffers
+ * @param stream   cuda stream to use
+ *
+ * @tparam TPB_X { description }
  */
 template <int TPB_X, typename T>
 void coo_remove_scalar(const int *rows, const int *cols, const T *vals, int nnz,
@@ -140,13 +143,16 @@ void coo_remove_scalar(const int *rows, const int *cols, const T *vals, int nnz,
 }
 
 /**
- * @brief Removes the values matching a particular scalar from a COO formatted sparse matrix.
+ * @brief Removes the values matching a particular scalar from a COO formatted
+ *        sparse matrix.
  *
- * @param in: input COO matrix
- * @param out: output COO matrix
- * @param scalar: scalar to remove from arrays
+ * @param in      input COO matrix
+ * @param out     output COO matrix
+ * @param scalar  scalar to remove from arrays
  * @param d_alloc device allocator for temporary buffers
- * @param stream: cuda stream to use
+ * @param stream  cuda stream to use
+ *
+ * @tparam TPB_X { description }
  */
 template <int TPB_X, typename T>
 void coo_remove_scalar(COO<T> *in, COO<T> *out, T scalar,
@@ -184,10 +190,13 @@ void coo_remove_scalar(COO<T> *in, COO<T> *out, T scalar,
 /**
  * @brief Removes zeros from a COO formatted sparse matrix.
  *
- * @param in: input COO matrix
- * @param out: output COO matrix
+ * @param in      input COO matrix
+ * @param out     output COO matrix
  * @param d_alloc device allocator for temporary buffers
- * @param stream: cuda stream to use
+ * @param stream  cuda stream to use
+ *
+ * @tparam TPB_X { description }
+ * @tparam T     { description }
  */
 template <int TPB_X, typename T>
 void coo_remove_zeros(COO<T> *in, COO<T> *out,

@@ -42,30 +42,29 @@ namespace sparse {
 namespace distance {
 
 /**
- * A simple interface that enables different instances
- * of inner product. Currently, there are two implementations:
- * cusparse gemm and our own semiring spmv.
- * @tparam value_idx
- * @tparam value_t
+ * A simple interface that enables different instances of inner product.
+ * Currently, there are two implementations: cusparse gemm and our own semiring
+ * spmv.
+ *
+ * @tparam value_idx { description }
+ * @tparam value_t   { description }
  */
 template <typename value_idx, typename value_t>
 class ip_trans_getters_t : public distances_t<value_t> {
  public:
   /**
-   * A copy of B's data in coo format. This is
-   * useful for downstream distances that
-   * might be able to compute a norm instead of
-   * point-wise products.
-   * @return
+   * A copy of B's data in coo format. This is useful for downstream distances
+   * that might be able to compute a norm instead of point-wise products.
+   *
+   * @return { description_of_the_return_value }
    */
   virtual value_t *b_data_coo() = 0;
 
   /**
-   * A copy of B's rows in coo format. This is
-   * useful for downstream distances that
-   * might be able to compute a norm instead of
-   * point-wise products.
-   * @return
+   * A copy of B's rows in coo format. This is useful for downstream distances
+   * that might be able to compute a norm instead of point-wise products.
+   *
+   * @return { description_of_the_return_value }
    */
   virtual value_idx *b_rows_coo() = 0;
 
@@ -73,21 +72,24 @@ class ip_trans_getters_t : public distances_t<value_t> {
 };
 
 /**
- * Simple inner product distance with sparse matrix multiply. This
- * uses cusparse and requires both B to be transposed as well as
- * the output to be explicitly converted to dense form (which requires
- * 3 copies of the dense data- 2 for the cusparse csr output and
- * 1 for the final m*n dense matrix.)
+ * Simple inner product distance with sparse matrix multiply. This uses cusparse
+ * and requires both B to be transposed as well as the output to be explicitly
+ * converted to dense form (which requires 3 copies of the dense data- 2 for the
+ * cusparse csr output and 1 for the final m*n dense matrix.)
+ *
+ * @tparam value_idx { description }
+ * @tparam value_t   { description }
  */
 template <typename value_idx, typename value_t>
 class ip_distances_gemm_t : public ip_trans_getters_t<value_idx, value_t> {
  public:
   /**
    * Computes simple sparse inner product distances as sum(x_y * y_k)
+   *
    * @param[in] config specifies inputs, outputs, and sizes
    *
-   * TODO: Remove this once we have a semiring SPGEMM
-   * Ref: https://github.com/rapidsai/cuml/issues/3371
+   * @todo Remove this once we have a semiring SPGEMM Ref:
+   *       https://github.com/rapidsai/cuml/issues/3371
    */
   explicit ip_distances_gemm_t(
     const distances_config_t<value_idx, value_t> &config)
@@ -112,10 +114,11 @@ class ip_distances_gemm_t : public ip_trans_getters_t<value_idx, value_t> {
 
   /**
    * Performs pairwise distance computation and computes output distances
+   *
    * @param out_distances dense output matrix (size a_nrows * b_nrows)
    */
   void compute(value_t *out_distances) {
-    /**
+    /*
 	   * Compute pairwise distances and return dense matrix in column-major format
 	   */
     CUML_LOG_DEBUG("Compute() inside inner-product d");
@@ -208,7 +211,7 @@ class ip_distances_gemm_t : public ip_trans_getters_t<value_idx, value_t> {
   }
 
   void transpose_b() {
-    /**
+    /*
      * Transpose index array into csc
      */
     CUML_LOG_DEBUG("Transposing index CSR. rows=%d, cols=%d, nnz=%d",
@@ -243,6 +246,7 @@ class ip_distances_spmv_t : public ip_trans_getters_t<value_idx, value_t> {
  public:
   /**
    * Computes simple sparse inner product distances as sum(x_y * y_k)
+   *
    * @param[in] config specifies inputs, outputs, and sizes
    */
   ip_distances_spmv_t(const distances_config_t<value_idx, value_t> &config)
@@ -255,10 +259,11 @@ class ip_distances_spmv_t : public ip_trans_getters_t<value_idx, value_t> {
 
   /**
    * Performs pairwise distance computation and computes output distances
+   *
    * @param out_distances dense output matrix (size a_nrows * b_nrows)
    */
   void compute(value_t *out_distances) {
-    /**
+    /*
 	   * Compute pairwise distances and return dense matrix in row-major format
 	   */
     balanced_coo_pairwise_generalized_spmv<value_idx, value_t>(
@@ -282,6 +287,7 @@ class ip_distances_t : public distances_t<value_t> {
  public:
   /**
    * Computes simple sparse inner product distances as sum(x_y * y_k)
+   *
    * @param[in] config specifies inputs, outputs, and sizes
    */
   explicit ip_distances_t(const distances_config_t<value_idx, value_t> &config)
@@ -297,10 +303,11 @@ class ip_distances_t : public distances_t<value_t> {
 
   /**
    * Performs pairwise distance computation and computes output distances
+   *
    * @param out_distances dense output matrix (size a_nrows * b_nrows)
    */
   void compute(value_t *out_distances) {
-    /**
+    /*
 	   * Compute pairwise distances and return dense matrix in column-major format
 	   */
     internal_ip_dist->compute(out_distances);
@@ -318,18 +325,18 @@ class ip_distances_t : public distances_t<value_t> {
 };
 
 /**
- * Compute pairwise distances between A and B, using the provided
- * input configuration and distance function.
+ * Compute pairwise distances between A and B, using the provided input
+ * configuration and distance function.
  *
- * @tparam value_idx index type
- * @tparam value_t value type
- * @param[out] out dense output array (size A.nrows * B.nrows)
- * @param[in] input_config input argument configuration
- * @param[in] metric distance metric to use
+ * @tparam     value_idx    index type
+ * @tparam     value_t      value type
+ * @param[out] out          dense output array (size A.nrows * B.nrows)
+ * @param[in]  input_config input argument configuration
+ * @param[in]  metric       distance metric to use
  */
 template class ip_distances_t<int, float>;
 template class distances_config_t<int, float>;
 
-};  // END namespace distance
-};  // END namespace sparse
-};  // END namespace raft
+}  // END namespace distance
+}  // END namespace sparse
+}  // END namespace raft

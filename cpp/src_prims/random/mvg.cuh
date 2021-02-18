@@ -38,11 +38,12 @@ enum Filler : unsigned char {
 
 /**
  * @brief Reset values within the epsilon absolute range to zero
- * @tparam T the data type
- * @param eig the array
+ * @tparam T     the data type
+ *
+ * @param eig     the array
  * @param epsilon the range
- * @param size length of the array
- * @param stream cuda stream
+ * @param size    length of the array
+ * @param stream  cuda stream
  */
 template <typename T>
 void epsilonToZero(T *eig, T epsilon, int size, cudaStream_t stream) {
@@ -56,13 +57,14 @@ void epsilonToZero(T *eig, T epsilon, int size, cudaStream_t stream) {
 
 /**
  * @brief Broadcast addition of vector onto a matrix
- * @tparam the data type
- * @param out the output matrix
- * @param in_m the input matrix
- * @param in_v the input vector
+ * @tparam the   data type
+ *
+ * @param out    the output matrix
+ * @param in_m   the input matrix
+ * @param in_v   the input vector
  * @param scalar scalar multiplier
- * @param rows number of rows in the input matrix
- * @param cols number of cols in the input matrix
+ * @param rows   number of rows in the input matrix
+ * @param cols   number of cols in the input matrix
  * @param stream cuda stream
  */
 template <typename T>

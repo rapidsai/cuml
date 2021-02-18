@@ -19,8 +19,13 @@
 namespace ML {
 
 /**
- * @param COV_EIG_DQ: covariance of input will be used along with eigen decomposition using divide and conquer method for symmetric matrices
- * @param COV_EIG_JACOBI: covariance of input will be used along with eigen decomposition using jacobi method for symmetric matrices
+ * @param COV_EIG_DQ:     covariance of input will be used along with eigen
+ *                        decomposition using divide and conquer method for
+ *                        symmetric matrices
+ * @param COV_EIG_JACOBI: covariance of input will be used along with eigen
+ *                        decomposition using jacobi method for symmetric matrices
+ *
+ * @brief This class describes a solver.
  */
 enum class solver : int {
   COV_EIG_DQ,
@@ -52,16 +57,25 @@ class paramsTSVDTemplate : public paramsSolver {
 };
 
 /**
- * @brief structure for pca parameters. Ref: http://scikit-learn.org/stable/modules/generated/sklearn.decomposition.PCA.html
- * @param n_components: Number of components to keep. if n_components is not set all components are kept:
- * @param copy: If False, data passed to fit are overwritten and running fit(X).transform(X) will not yield the expected results,
- *              use fit_transform(X) instead.
- * @param whiten: When True (False by default) the components_ vectors are multiplied by the square root of n_samples and
- *                then divided by the singular values to ensure uncorrelated outputs with unit component-wise variances.
- * @param algorithm: the solver to be used in PCA.
- * @param tol: Tolerance for singular values computed by svd_solver == ‘arpack’ or svd_solver == ‘COV_EIG_JACOBI’
- * @param n_iterations: Number of iterations for the power method computed by jacobi method (svd_solver == 'COV_EIG_JACOBI').
- * @param verbose: 0: no error message printing, 1: print error messages
+ * @brief structure for pca parameters. Ref:
+ *        http://scikit-learn.org/stable/modules/generated/sklearn.decomposition.PCA.html
+ * @param n_components: Number of components to keep. if n_components is not set
+ *                      all components are kept:
+ * @param copy:         If False, data passed to fit are overwritten and running
+ *                      fit(X).transform(X) will not yield the expected results,
+ *                      use fit_transform(X) instead.
+ * @param whiten:       When True (False by default) the components_ vectors are
+ *                      multiplied by the square root of n_samples and then divided
+ *                      by the singular values to ensure uncorrelated outputs with
+ *                      unit component-wise variances.
+ * @param algorithm:    the solver to be used in PCA.
+ * @param tol:          Tolerance for singular values computed by svd_solver ==
+ *                      ‘arpack’ or svd_solver == ‘COV_EIG_JACOBI’
+ * @param n_iterations: Number of iterations for the power method computed by
+ *                      jacobi method (svd_solver == 'COV_EIG_JACOBI').
+ * @param verbose:      0: no error message printing, 1: print error messages
+ *
+ * @tparam enum_solver { description }
  */
 
 template <typename enum_solver = solver>

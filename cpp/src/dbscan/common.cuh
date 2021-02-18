@@ -18,14 +18,24 @@
 
 namespace Dbscan {
 
-/// Default "ds1" diff-squared-accumulate traits specialization for value_t->accum_t
-/// Currently only supported for float/double
+/// Default "ds1" diff-squared-accumulate traits specialization for
+/// value_t->accum_t Currently only supported for float/double
+///
+/// @tparam value_t { description }
+/// @tparam accum_t { description }
+///
 template <typename value_t, typename accum_t>
 struct ds_accummulate {
   /// Single-component "ds1" diff-squared vector type
   typedef value_t dp_vector_t;
 
   /// Compute "ds1" float->float
+  ///
+  /// @param     d     { parameter_description }
+  /// @param[in] a     { parameter_description }
+  /// @param[in] b     { parameter_description }
+  /// @param[in] c     { parameter_description }
+  ///
   inline __device__ static void mad(float &d, const float &a, const float &b,
                                     const float &c) {
     float diff = a - b;
@@ -33,6 +43,12 @@ struct ds_accummulate {
   }
 
   /// Compute "ds1" double->double
+  ///
+  /// @param     d     { parameter_description }
+  /// @param[in] a     { parameter_description }
+  /// @param[in] b     { parameter_description }
+  /// @param[in] c     { parameter_description }
+  ///
   inline __device__ static void mad(double &d, const double &a, const double &b,
                                     const double &c) {
     double diff = a - b;

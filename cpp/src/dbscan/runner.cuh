@@ -42,6 +42,10 @@ static const int TPB = 256;
  * Adjust labels from weak_cc primitive to match sklearn:
  * 1. Turn any labels matching MAX_LABEL into -1
  * 2. Subtract 1 from all other labels.
+ *
+ * @param     labels    The labels
+ * @param[in] N         { parameter_description }
+ * @param[in] MAX_LABEL The max label
  */
 template <typename Index_ = int>
 __global__ void relabelForSkl(Index_* labels, Index_ N, Index_ MAX_LABEL) {
@@ -56,8 +60,13 @@ __global__ void relabelForSkl(Index_* labels, Index_ N, Index_ MAX_LABEL) {
 }
 
 /**
- * Turn the non-monotonic labels from weak_cc primitive into
- * an array of labels drawn from a monotonically increasing set.
+ * Turn the non-monotonic labels from weak_cc primitive into an array of labels
+ * drawn from a monotonically increasing set.
+ *
+ * @param     db_cluster The database cluster
+ * @param[in] N          { parameter_description }
+ * @param[in] stream     The stream
+ * @param[in] allocator  The allocator
  */
 template <typename Index_ = int>
 void final_relabel(Index_* db_cluster, Index_ N, cudaStream_t stream,
@@ -70,7 +79,7 @@ void final_relabel(Index_* db_cluster, Index_ N, cudaStream_t stream,
 
 /**
  * Run the DBSCAN algorithm (common code for single-GPU and multi-GPU)
- * @tparam opg Whether we are running in a multi-node multi-GPU context
+ *
  * @param[in]  handle       raft handle
  * @param[in]  x            Input data (N*D row-major device array)
  * @param[in]  N            Number of points
@@ -80,15 +89,21 @@ void final_relabel(Index_* db_cluster, Index_ N, cudaStream_t stream,
  * @param[in]  eps          Epsilon neighborhood criterion
  * @param[in]  min_pts      Core points criterion
  * @param[out] labels       Output labels (device array of length N)
- * @param[out] core_indices If not nullptr, the indices of core points are written in this array
+ * @param[out] core_indices If not nullptr, the indices of core points are
+ *                          written in this array
  * @param[in]  algo_vd      Algorithm used for the vertex degrees
  * @param[in]  algo_adj     Algorithm used for the adjacency graph
  * @param[in]  algo_ccl     Algorithm used for the final relabel
- * @param[in]  workspace    Temporary global memory buffer used to store intermediate computations
- *                          If nullptr, then this function will return the workspace size needed.
- *                          It is the responsibility of the user to allocate and free this buffer!
+ * @param[in]  workspace    Temporary global memory buffer used to store
+ *                          intermediate computations If nullptr, then this
+ *                          function will return the workspace size needed. It
+ *                          is the responsibility of the user to allocate and
+ *                          free this buffer!
  * @param[in]  batch_size   Batch size
  * @param[in]  stream       The CUDA stream where to launch the kernels
+ *
+ * @tparam opg   Whether we are running in a multi-node multi-GPU context
+ *
  * @return In case the workspace pointer is null, this returns the size needed.
  */
 template <typename Type_f, typename Index_ = int, bool opg = false>
@@ -110,13 +125,14 @@ size_t run(const raft::handle_t& handle, const Type_f* x, Index_ N, Index_ D,
   /**
    * Note on coupling between data types:
    * - adjacency graph has a worst case size of N * batch_size elements. Thus,
-   * if N is very close to being greater than the maximum 32-bit IdxType type used, a
-   * 64-bit IdxType should probably be used instead.
-   * - exclusive scan is the CSR row index for the adjacency graph and its values have a
-   * risk of overflowing when N * batch_size becomes larger what can be stored in IdxType
+   *   if N is very close to being greater than the maximum 32-bit IdxType type
+   *   used, a 64-bit IdxType should probably be used instead.
+   * - exclusive scan is the CSR row index for the adjacency graph and its
+   *   values have a risk of overflowing when N * batch_size becomes larger what
+   *   can be stored in IdxType
    * - the vertex degree array has a worst case of each element having all other
-   * elements in their neighborhood, so any IdxType can be safely used, so long as N doesn't
-   * overflow.
+   *   elements in their neighborhood, so any IdxType can be safely used, so
+   *   long as N doesn't overflow.
    */
   size_t adj_size = raft::alignTo<size_t>(sizeof(bool) * N * batch_size, align);
   size_t core_pts_size = raft::alignTo<size_t>(sizeof(bool) * N, align);

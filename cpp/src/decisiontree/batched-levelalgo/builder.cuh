@@ -39,7 +39,33 @@ void convertToSparse(const Builder<Traits>& b,
   }
 }
 
-///@todo: support col subsampling per node
+////////////////////////////////////////////////////////////////////////////////
+// @todo : support col subsampling per node                                   //
+//                                                                            //
+// @brief { function_description }                                            //
+//                                                                            //
+// @param[in] d_allocator    The d allocator                                  //
+// @param[in] h_allocator    The h allocator                                  //
+// @param[in] data           The data                                         //
+// @param[in] treeid         The treeid                                       //
+// @param[in] seed           The seed                                         //
+// @param[in] ncols          The ncols                                        //
+// @param[in] nrows          The nrows                                        //
+// @param[in] labels         The labels                                       //
+// @param[in] quantiles      The quantiles                                    //
+// @param     rowids         The rowids                                       //
+// @param[in] n_sampled_rows The n sampled rows                               //
+// @param[in] unique_labels  The unique labels                                //
+// @param[in] params         The parameters                                   //
+// @param[in] stream         The stream                                       //
+// @param     sparsetree     The sparsetree                                   //
+// @param     num_leaves     The number leaves                                //
+// @param     depth          The depth                                        //
+//                                                                            //
+// @tparam Traits { description }                                             //
+// @tparam DataT  { description }                                             //
+// @tparam LabelT { description }                                             //
+////////////////////////////////////////////////////////////////////////////////
 template <typename Traits, typename DataT = typename Traits::DataT,
           typename LabelT = typename Traits::LabelT,
           typename IdxT = typename Traits::IdxT>
@@ -74,23 +100,18 @@ void grow_tree(std::shared_ptr<MLCommon::deviceAllocator> d_allocator,
  * @defgroup GrowTree Main entry point function for batched-level algo to build
  *                    a decision tree
  *
- * @tparam DataT  data type
- * @tparam LabelT label type
- * @tparam IdxT   index type
- *
  * @param[in]  d_allocator    device allocator
  * @param[in]  h_allocator    host allocator
- * @param[in]  data           input dataset [on device] [col-major]
- *                            [dim = nrows x ncols]
+ * @param[in]  data           input dataset [on device] [col-major] [dim = nrows
+ *                            x ncols]
+ * @param[in]  treeid         The treeid
+ * @param[in]  seed           The seed
  * @param[in]  ncols          number of features in the dataset
  * @param[in]  nrows          number of rows in the dataset
  * @param[in]  labels         labels for the input [on device] [len = nrows]
- * @param[in]  quantiles      histograms/quantiles of the input dataset
- *                            [on device] [col-major]
- *                            [dim = params.n_bins x ncols]
+ * @param[in]  quantiles      histograms/quantiles of the input dataset [on
+ *                            device] [col-major] [dim = params.n_bins x ncols]
  * @param[in]  rowids         sampled rows [on device] [len = n_sampled_rows]
- * @param[in]  colids         sampled cols [on device]
- *                            [len = params.max_features * ncols]
  * @param[in]  n_sampled_rows number of sub-sampled rows
  * @param[in]  unique_labels  number of classes (meaningful only for
  *                            classification)
@@ -99,7 +120,13 @@ void grow_tree(std::shared_ptr<MLCommon::deviceAllocator> d_allocator,
  * @param[out] sparsetree     output learned tree
  * @param[out] num_leaves     number of leaves created during tree build
  * @param[out] depth          max depth of the built tree
+ * @param[in] colids sampled cols [on device] [len = params.max_features * ncols]
+ *
  * @{
+ *
+ * @tparam DataT  data type
+ * @tparam LabelT label type
+ * @tparam IdxT  index type
  */
 template <typename DataT, typename LabelT, typename IdxT>
 void grow_tree(std::shared_ptr<MLCommon::deviceAllocator> d_allocator,

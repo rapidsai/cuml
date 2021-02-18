@@ -23,8 +23,8 @@ namespace ML {
 namespace Datasets {
 
 /**
- * Generates a dataset of time series by simulating an ARIMA process
- * of a given order.
+ * Generates a dataset of time series by simulating an ARIMA process of a given
+ * order.
  *
  * @param[in]  handle          cuML handle
  * @param[out] out             Generated time series
@@ -35,6 +35,7 @@ namespace Datasets {
  * @param[in]  noise_scale     Scale used to draw the residuals
  * @param[in]  intercept_scale Scale used to draw the intercept
  * @param[in]  seed            Seed for the random number generator
+ *
  * @{
  */
 void make_arima(const raft::handle_t& handle, float* out, int batch_size,

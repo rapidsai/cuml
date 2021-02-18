@@ -25,24 +25,24 @@ namespace opg {
 /**
  * @brief Compute k-means clustering.
  *
- * @param[in]     handle        The handle to the cuML library context that
- manages the CUDA resources.
- * @param[in]     params        Parameters for KMeans model.
- * @param[in]     X             Training instances to cluster. It must be noted
- that the data must be in row-major format and stored in device accessible
- * location.
- * @param[in]     n_samples     Number of samples in the input X.
- * @param[in]     n_features    Number of features or the dimensions of each
- * sample.
- * @param[inout]  centroids     When init is InitMethod::Array, use
- centroids as the initial cluster centers
- *                              [out] Otherwise, generated centroids from the
- kmeans algorithm is stored at the address pointed by 'centroids'.
- * @param[out]    inertia       Sum of squared distances of samples to their
- closest cluster center.
- * @param[out]    n_iter        Number of iterations run.
+ * @param[in]    handle     The handle to the cuML library context that manages
+ *                          the CUDA resources.
+ * @param[in]    params     Parameters for KMeans model.
+ * @param[in]    X          Training instances to cluster. It must be noted that
+ *                          the data must be in row-major format and stored in
+ *                          device accessible location.
+ * @param[in]    n_samples  Number of samples in the input X.
+ * @param[in]    n_features Number of features or the dimensions of each sample.
+ * @param[inout] centroids  When init is InitMethod::Array, use centroids as the
+ *                          initial cluster centers [out] Otherwise, generated
+ *                          centroids from the kmeans algorithm is stored at the
+ *                          address pointed by 'centroids'.
+ * @param[out]   inertia    Sum of squared distances of samples to their closest
+ *                          cluster center.
+ * @param[out]   n_iter     Number of iterations run.
+ *
+ * @{
  */
-
 void fit(const raft::handle_t &handle, const KMeansParams &params,
          const float *X, int n_samples, int n_features, float *centroids,
          float &inertia, int &n_iter);
@@ -50,6 +50,8 @@ void fit(const raft::handle_t &handle, const KMeansParams &params,
 void fit(const raft::handle_t &handle, const KMeansParams &params,
          const double *X, int n_samples, int n_features, double *centroids,
          double &inertia, int &n_iter);
+
+/** @} */
 
 };  // end namespace opg
 };  // end namespace kmeans

@@ -35,10 +35,10 @@ namespace ML {
 /**
  * @defgroup CStringFormat Expand a C-style format string
  *
- * @brief Expands C-style formatted string into std::string
+ * Expands C-style formatted string into std::string
  *
- * @param[in] fmt format string
- * @param[in] vl  respective values for each of format modifiers in the string
+ * @param[in] fmt   format string
+ * @param[in] vl    respective values for each of format modifiers in the string
  *
  * @return the expanded `std::string`
  *
@@ -51,8 +51,8 @@ std::string format(const char* fmt, ...);
 /**
  * @defgroup CumlLogLevels Logging levels used in cuML
  *
- * @note exactly match the corresponding ones (but reverse in terms of value)
- *       in spdlog for wrapping purposes
+ * @note exactly match the corresponding ones (but reverse in terms of value) in
+ *       spdlog for wrapping purposes
  *
  * @{
  */
@@ -70,11 +70,11 @@ std::string format(const char* fmt, ...);
 #endif
 
 /**
- * @brief The main Logging class for cuML library.
+ * The main Logging class for cuML library.
  *
- * This class acts as a thin wrapper over the underlying `spdlog` interface. The
- * design is done in this way in order to avoid us having to also ship `spdlog`
- * header files in our installation.
+ * This class acts as a thin wrapper over the underlying `spdlog`
+ * interface. The design is done in this way in order to avoid us having
+ * to also ship `spdlog` header files in our installation.
  *
  * @todo This currently only supports logging to stdout. Need to add support in
  *       future to add custom loggers as well [Issue #2046]
@@ -82,27 +82,27 @@ std::string format(const char* fmt, ...);
 class Logger {
  public:
   /**
-   * @brief Singleton method to get the underlying logger object
+   * Singleton method to get the underlying logger object
    *
    * @return the singleton logger object
    */
   static Logger& get();
 
   /**
-   * @brief Set the logging level.
+   * Set the logging level.
    *
    * Only messages with level equal or above this will be printed
    *
    * @param[in] level logging level
    *
    * @note The log level will actually be set only if the input is within the
-   *       range [CUML_LEVEL_TRACE, CUML_LEVEL_OFF]. If it is not, then it'll
-   *       be ignored. See documentation of decisiontree for how this gets used
+   *       range [CUML_LEVEL_TRACE, CUML_LEVEL_OFF]. If it is not, then it'll be
+   *       ignored. See documentation of decisiontree for how this gets used
    */
   void setLevel(int level);
 
   /**
-   * @brief Set the logging pattern
+   * Set the logging pattern
    *
    * @param[in] pattern the pattern to be set. Refer this link
    *                    https://github.com/gabime/spdlog/wiki/3.-Custom-formatting
@@ -111,50 +111,53 @@ class Logger {
   void setPattern(const std::string& pattern);
 
   /**
-   * @brief Register a callback function to be run in place of usual log call
+   * Register a callback function to be run in place of usual log call
    *
    * @param[in] callback the function to be run on all logged messages
    */
   void setCallback(void (*callback)(int lvl, const char* msg));
 
   /**
-   * @brief Register a flush function compatible with the registered callback
+   * Register a flush function compatible with the registered callback
    *
    * @param[in] flush the function to use when flushing logs
    */
   void setFlush(void (*flush)());
 
   /**
-   * @brief Tells whether messages will be logged for the given log level
+   * Tells whether messages will be logged for the given log level
    *
    * @param[in] level log level to be checked for
+   *
    * @return true if messages will be logged for this level, else false
    */
   bool shouldLogFor(int level) const;
 
   /**
-   * @brief Query for the current log level
+   * Query for the current log level
    *
    * @return the current log level
    */
   int getLevel() const;
 
   /**
-   * @brief Get the current logging pattern
+   * Get the current logging pattern
+   *
    * @return the pattern
    */
   std::string getPattern() const { return currPattern; }
 
   /**
-   * @brief Main logging method
+   * Main logging method
    *
-   * @param[in] level logging level of this message
-   * @param[in] fmt   C-like format string, followed by respective params
+   * @param[in] level     logging level of this message
+   * @param[in] fmt       C-like format string, followed by respective params
+   * @param[in] ...       { parameter_description }
    */
   void log(int level, const char* fmt, ...);
 
   /**
-   * @brief Flush logs by calling flush on underlying logger
+   * Flush logs by calling flush on underlying logger
    */
   void flush();
 
@@ -169,7 +172,7 @@ class Logger {
 };  // class Logger
 
 /**
- * @brief RAII based pattern setter for Logger class
+ * RAII based pattern setter for Logger class
  *
  * @code{.cpp}
  * {
@@ -177,18 +180,20 @@ class Logger {
  *   CUML_LOG_INFO("Test message\n");
  * }
  * @endcode
+ * 
  */
 class PatternSetter {
  public:
   /**
-   * @brief Set the pattern for the rest of the log messages
+   * Set the pattern for the rest of the log messages
+   *
    * @param[in] pattern pattern to be set
    */
   PatternSetter(const std::string& pattern = "%v");
 
   /**
-   * @brief This will restore the previous pattern that was active during the
-   *        moment this object was created
+   * This will restore the previous pattern that was active during the
+   * moment this object was created
    */
   ~PatternSetter();
 
@@ -198,6 +203,12 @@ class PatternSetter {
 
 /**
  * @defgroup LoggerMacros Helper macros for dealing with logging
+ *
+ * @param fmt   The format
+ * @param ...   { parameter_description }
+ *
+ * @return { description_of_the_return_value }
+ * 
  * @{
  */
 #if (CUML_ACTIVE_LEVEL >= CUML_LEVEL_TRACE)

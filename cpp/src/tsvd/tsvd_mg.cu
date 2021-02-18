@@ -72,20 +72,20 @@ void fit_impl(raft::handle_t &handle,
 }
 
 /**
- * @brief      performs MNMG fit operation for the tsvd
+ * @brief performs MNMG fit operation for the tsvd
  *
- * @param[in]  handle         the internal cuml handle object
- * @param[in]  rank_sizes     includes all the partition size information for
- *                            the rank
- * @param[in]  n_parts        number of partitions
- * @param[in]  input          input data
- * @param[out] components     principal components of the input data
- * @param[out] singular_vals  singular values of the data
- * @param[in]  prms           data structure that includes all the parameters
- *                            from input size to algorithm
- * @param[in]  verbose        The verbose
+ * @param[in]  handle        the internal cuml handle object
+ * @param[in]  rank_sizes    includes all the partition size information for the
+ *                           rank
+ * @param[in]  n_parts       number of partitions
+ * @param[in]  input         input data
+ * @param[out] components    principal components of the input data
+ * @param[out] singular_vals singular values of the data
+ * @param[in]  prms          data structure that includes all the parameters
+ *                           from input size to algorithm
+ * @param[in]  verbose       The verbose
  *
- * @tparam     T              { description }
+ * @tparam T     { description }
  */
 template <typename T>
 void fit_impl(raft::handle_t &handle, Matrix::RankSizePair **rank_sizes,
@@ -151,20 +151,20 @@ void transform_impl(raft::handle_t &handle,
 }
 
 /**
- * @brief      performs MNMG transform operation for the tsvd.
+ * @brief performs MNMG transform operation for the tsvd.
  *
- * @param[in]  handle       the internal cuml handle object
- * @param[in]  rank_sizes   includes all the partition size information for the
- *                          rank
- * @param[in]  n_parts      number of partitions
- * @param[in]  input        input data
- * @param[in]  components   principal components of the input data
- * @param[out] trans_input  transformed input data
- * @param[in]  prms         data structure that includes all the parameters from
- *                          input size to algorithm
- * @param[in]  verbose      The verbose
+ * @param[in]  handle      the internal cuml handle object
+ * @param[in]  rank_sizes  includes all the partition size information for the
+ *                         rank
+ * @param[in]  n_parts     number of partitions
+ * @param[in]  input       input data
+ * @param[in]  components  principal components of the input data
+ * @param[out] trans_input transformed input data
+ * @param[in]  prms        data structure that includes all the parameters from
+ *                         input size to algorithm
+ * @param[in]  verbose     The verbose
  *
- * @tparam     T            { description }
+ * @tparam T     { description }
  */
 template <typename T>
 void transform_impl(raft::handle_t &handle, Matrix::RankSizePair **rank_sizes,
@@ -229,20 +229,20 @@ void inverse_transform_impl(raft::handle_t &handle,
 }
 
 /**
- * @brief      performs MNMG inverse transform operation for the output.
+ * @brief performs MNMG inverse transform operation for the output.
  *
- * @param[in]  handle       the internal cuml handle object
- * @param[in]  rank_sizes   includes all the partition size information for the
- *                          rank
- * @param[in]  n_parts      number of partitions
- * @param[in]  trans_input  transformed input data
- * @param[in]  components   principal components of the input data
- * @param[out] input        input data
- * @param[in]  prms         data structure that includes all the parameters from
- *                          input size to algorithm
- * @param[in]  verbose      The verbose
+ * @param[in]  handle      the internal cuml handle object
+ * @param[in]  rank_sizes  includes all the partition size information for the
+ *                         rank
+ * @param[in]  n_parts     number of partitions
+ * @param[in]  trans_input transformed input data
+ * @param[in]  components  principal components of the input data
+ * @param[out] input       input data
+ * @param[in]  prms        data structure that includes all the parameters from
+ *                         input size to algorithm
+ * @param[in]  verbose     The verbose
  *
- * @tparam     T            { description }
+ * @tparam T     { description }
  */
 template <typename T>
 void inverse_transform_impl(raft::handle_t &handle,
@@ -280,23 +280,23 @@ void inverse_transform_impl(raft::handle_t &handle,
 }
 
 /**
- * @brief      performs MNMG fit and transform operation for the tsvd.
+ * @brief performs MNMG fit and transform operation for the tsvd.
  *
- * @param[in]  handle               the internal cuml handle object
- * @param[in]  input_data           input data
- * @param      input_desc           The input description
- * @param[out] trans_data           transformed input data
- * @param[in]  trans_desc           includes all the partition size information
- *                                  for the rank
- * @param[out] components           principal components of the input data
- * @param[out] explained_var        explained var
- * @param[out] explained_var_ratio  the explained var ratio
- * @param[out] singular_vals        singular values of the data
- * @param[in]  prms                 data structure that includes all the
- *                                  parameters from input size to algorithm
- * @param[in]  verbose              The verbose
+ * @param[in]  handle              the internal cuml handle object
+ * @param[in]  input_data          input data
+ * @param      input_desc          The input description
+ * @param[out] trans_data          transformed input data
+ * @param[in]  trans_desc          includes all the partition size information
+ *                                 for the rank
+ * @param[out] components          principal components of the input data
+ * @param[out] explained_var       explained var
+ * @param[out] explained_var_ratio the explained var ratio
+ * @param[out] singular_vals       singular values of the data
+ * @param[in]  prms                data structure that includes all the
+ *                                 parameters from input size to algorithm
+ * @param[in]  verbose             The verbose
  *
- * @tparam     T                    { description }
+ * @tparam T     { description }
  */
 template <typename T>
 void fit_transform_impl(raft::handle_t &handle,

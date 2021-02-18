@@ -707,7 +707,7 @@ void _batched_kalman_filter(raft::handle_t& handle, const double* d_ys,
 
     if (n_diff > 0) {
       // Initialize the diffuse part with a large variance
-      /// TODO: pass this as a parameter
+      /// @todo pass this as a parameter
       constexpr double kappa = 1e6;
       thrust::for_each(thrust::cuda::par.on(stream), counting,
                        counting + batch_size, [=] __device__(int bid) {
@@ -718,7 +718,7 @@ void _batched_kalman_filter(raft::handle_t& handle, const double* d_ys,
                        });
 
       // Initialize the stationary part by solving a Lyapunov equation
-      /// TODO: reduce amount of memory copies
+      /// @todo reduce amount of memory copies
       MLCommon::LinAlg::Batched::Matrix<double> Ts =
         MLCommon::LinAlg::Batched::b_2dcopy(Tb, n_diff, n_diff, r, r);
       MLCommon::LinAlg::Batched::Matrix<double> RQRs =
@@ -728,7 +728,7 @@ void _batched_kalman_filter(raft::handle_t& handle, const double* d_ys,
       MLCommon::LinAlg::Batched::b_2dcopy(Ps, P, 0, 0, r, r, n_diff, n_diff);
     } else {
       // Initialize by solving a Lyapunov equation
-      /// TODO: avoid copy
+      /// @todo avoid copy
       P = MLCommon::LinAlg::Batched::b_lyapunov(Tb, RQR);
     }
   }
@@ -992,7 +992,7 @@ void batched_kalman_filter(raft::handle_t& handle, const double* d_ys, int nobs,
                                params.sma, batch_size, order, rd, Zb.raw_data(),
                                Rb.raw_data(), Tb.raw_data(), T_mask);
 
-  //===========================================================================
+  // ==========================================================================
   // Computation
 
   MLCommon::device_buffer<double> F_buffer(allocator, stream,

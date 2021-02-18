@@ -270,9 +270,8 @@ void initKMeansPlusPlus(const raft::handle_t &handle,
       stream);
     /// <<<< End of Step-4 >>>>
 
-    /// <<<< Step-5 >>> : C = C U C'
-    // append the data in Cp from all ranks to the buffer holding the
-    // potentialCentroids
+    // / <<<< Step-5 >>> : C = C U C' append the data in Cp from all ranks to
+    // the buffer holding the potentialCentroids
     std::fill(nPtsSampledByRank.begin(), nPtsSampledByRank.end(), 0);
     nPtsSampledByRank[my_rank] = inRankCp.getSize(0);
     comm.allgather(&nPtsSampledByRank[my_rank], nPtsSampledByRank.data(), 1,

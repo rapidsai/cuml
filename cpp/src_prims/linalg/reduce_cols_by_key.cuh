@@ -24,8 +24,21 @@
 namespace MLCommon {
 namespace LinAlg {
 
-///@todo: support col-major
-///@todo: specialize this to support shared-mem based atomics
+/// @todo : support col-major
+/// @todo : specialize this to support shared-mem based atomics
+///
+/// @brief Reduces the cols by key kernel.
+///
+/// @param[in] data  The data
+/// @param[in] keys  The keys
+/// @param     out   The out
+/// @param[in] nrows The nrows
+/// @param[in] ncols The ncols
+/// @param[in] nkeys The nkeys
+///
+/// @tparam T            { description }
+/// @tparam KeyIteratorT { description }
+///
 
 template <typename T, typename KeyIteratorT, typename IdxType>
 __global__ void reduce_cols_by_key_kernel(const T* data,
@@ -36,7 +49,9 @@ __global__ void reduce_cols_by_key_kernel(const T* data,
 
   IdxType idx = blockIdx.x * blockDim.x + threadIdx.x;
   if (idx >= (nrows * ncols)) return;
-  ///@todo: yikes! use fast-int-div
+  //////////////////////////////////////////////////////////////////////////////
+  // @todo : yikes! use fast-int-div                                          //
+  //////////////////////////////////////////////////////////////////////////////
   IdxType colId = idx % ncols;
   IdxType rowId = idx / ncols;
   KeyType key = keys[colId];
@@ -45,21 +60,26 @@ __global__ void reduce_cols_by_key_kernel(const T* data,
 
 /**
  * @brief Computes the sum-reduction of matrix columns for each given key
- * @tparam T the input data type (as well as the output reduced matrix)
+ *
+ * @param data   the input data (dim = nrows x ncols). This is assumed to be in
+ *               row-major layout
+ * @param keys   keys array (len = ncols). It is assumed that each key in this
+ *               array is between [0, nkeys). In case this is not true, the
+ *               caller is expected to have called make_monotonic primitive to
+ *               prepare such a contiguous and monotonically increasing keys
+ *               array.
+ * @param out    the output reduced matrix along columns (dim = nrows x nkeys).
+ *               This will be assumed to be in row-major layout
+ * @param nrows  number of rows in the input data
+ * @param ncols  number of colums in the input data
+ * @param nkeys  number of unique keys in the keys array
+ * @param stream cuda stream to launch the kernel onto
+ *
+ * @tparam T            the input data type (as well as the output reduced
+ *                      matrix)
+ * @tparam KeyIteratorT { description }
  * @tparam KeyType data type of the keys
  * @tparam IdxType indexing arithmetic type
- * @param data the input data (dim = nrows x ncols). This is assumed to be in
- * row-major layout
- * @param keys keys array (len = ncols). It is assumed that each key in this
- * array is between [0, nkeys). In case this is not true, the caller is expected
- * to have called make_monotonic primitive to prepare such a contiguous and
- * monotonically increasing keys array.
- * @param out the output reduced matrix along columns (dim = nrows x nkeys).
- * This will be assumed to be in row-major layout
- * @param nrows number of rows in the input data
- * @param ncols number of colums in the input data
- * @param nkeys number of unique keys in the keys array
- * @param stream cuda stream to launch the kernel onto
  */
 template <typename T, typename KeyIteratorT, typename IdxType = int>
 void reduce_cols_by_key(const T* data, const KeyIteratorT keys, T* out,

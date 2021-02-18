@@ -41,20 +41,22 @@ namespace linalg {
 
 /**
  * Transpose a set of CSR arrays into a set of CSC arrays.
- * @tparam value_idx : data type of the CSR index arrays
- * @tparam value_t : data type of the CSR data array
- * @param[in] handle : used for invoking cusparse
- * @param[in] csr_indptr : CSR row index array
- * @param[in] csr_indices : CSR column indices array
- * @param[in] csr_data : CSR data array
- * @param[out] csc_indptr : CSC row index array
+ *
+ * @param[in]  handle      : used for invoking cusparse
+ * @param[in]  csr_indptr  : CSR row index array
+ * @param[in]  csr_indices : CSR column indices array
+ * @param[in]  csr_data    : CSR data array
+ * @param[out] csc_indptr  : CSC row index array
  * @param[out] csc_indices : CSC column indices array
- * @param[out] csc_data : CSC data array
- * @param[in] csr_nrows : Number of rows in CSR
- * @param[in] csr_ncols : Number of columns in CSR
- * @param[in] nnz : Number of nonzeros of CSR
- * @param[in] allocator : Allocator for intermediate memory
- * @param[in] stream : Cuda stream for ordering events
+ * @param[out] csc_data    : CSC data array
+ * @param[in]  csr_nrows   : Number of rows in CSR
+ * @param[in]  csr_ncols   : Number of columns in CSR
+ * @param[in]  nnz         : Number of nonzeros of CSR
+ * @param[in]  allocator   : Allocator for intermediate memory
+ * @param[in]  stream      : Cuda stream for ordering events
+ *
+ * @tparam value_t : data type of the CSR data array
+ * @tparam value_idx : data type of the CSR index arrays
  */
 template <typename value_idx, typename value_t>
 void csr_transpose(cusparseHandle_t handle, const value_idx *csr_indptr,

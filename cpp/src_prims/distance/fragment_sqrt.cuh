@@ -27,9 +27,17 @@ struct FragmentSqrt : public cutlass::gemm::FragmentMultiplyAdd<Scalar_> {
   /// Base class
   typedef typename cutlass::gemm::FragmentMultiplyAdd<Scalar_> Base;
   /// Ctor.
+  ///
   CUTLASS_DEVICE FragmentSqrt() : Base() {}
 
   /// d = sqrt(b).
+  ///
+  /// @param b     { parameter_description }
+  /// @param d     { parameter_description }
+  ///
+  /// @tparam FragmentB_  { description }
+  /// @tparam FragmentCd_ { description }
+  ///
   template <typename FragmentB_, typename FragmentCd_>
   CUTLASS_DEVICE void sqrt(FragmentB_ const& b, FragmentCd_& d) {
     int const kReduction = FragmentB_::kElements / FragmentCd_::kElements;

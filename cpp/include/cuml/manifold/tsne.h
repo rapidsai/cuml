@@ -22,49 +22,54 @@
 namespace ML {
 
 /**
- * @brief Dimensionality reduction via TSNE using either Barnes Hut O(NlogN)
- *       or brute force O(N^2).
+ * @brief Dimensionality reduction via TSNE using either Barnes Hut O(NlogN) or
+ *        brute force O(N^2).
  *
- * @param[in]  handle              The GPU handle.
- * @param[in]  X                   The dataset you want to apply TSNE on.
- * @param[out] Y                   The final embedding.
- * @param[in]  n                   Number of rows in data X.
- * @param[in]  p                   Number of columns in data X.
- * @param[in]  knn_indices         Array containing nearest neighors indices.
- * @param[in]  knn_dists           Array containing nearest neighors distances.
- * @param[in]  dim                 Number of output dimensions for embeddings Y.
- * @param[in]  n_neighbors         Number of nearest neighbors used.
- * @param[in]  theta               Float between 0 and 1. Tradeoff for speed (0)
- *                                 vs accuracy (1) for Barnes Hut only.
- * @param[in]  epssq               A tiny jitter to promote numerical stability.
- * @param[in]  perplexity          How many nearest neighbors are used during
- *                                 construction of Pij.
- * @param[in]  perplexity_max_iter Number of iterations used to construct Pij.
- * @param[in]  perplexity_tol      The small tolerance used for Pij to ensure
- *                                 numerical stability.
- * @param[in]  early_exaggeration  How much early pressure you want the clusters
- *                                 in TSNE to spread out more.
- * @param[in] exaggeration_iter    How many iterations you want the early
- *                                 pressure to run for.
- * @param[in] min_gain             Rounds up small gradient updates.
- * @param[in] pre_learning_rate    The learning rate during exaggeration phase.
- * @param[in] post_learning_rate   The learning rate after exaggeration phase.
- * @param[in] max_iter             The maximum number of iterations TSNE should
- *                                 run for.
- * @param[in] min_grad_norm        The smallest gradient norm TSNE should
- *                                 terminate on.
- * @param[in] pre_momentum         The momentum used during the exaggeration
- *                                 phase.
- * @param[in] post_momentum        The momentum used after the exaggeration
- *                                 phase.
- * @param[in] random_state         Set this to -1 for pure random intializations
- *                                 or >= 0 for reproducible outputs.
- * @param[in] verbosity            verbosity level for logging messages during
- *                                 execution
- * @param[in] initialize_embeddings Whether to overwrite the current Y vector
- *                                 with random noise.
- * @param[in] barnes_hut           Whether to use the fast Barnes Hut or use the
- *                                 slower exact version.
+ * @param[in]  handle                The GPU handle.
+ * @param[in]  X                     The dataset you want to apply TSNE on.
+ * @param[out] Y                     The final embedding.
+ * @param[in]  n                     Number of rows in data X.
+ * @param[in]  p                     Number of columns in data X.
+ * @param[in]  knn_indices           Array containing nearest neighors indices.
+ * @param[in]  knn_dists             Array containing nearest neighors
+ *                                   distances.
+ * @param[in]  dim                   Number of output dimensions for embeddings
+ *                                   Y.
+ * @param[in]  n_neighbors           Number of nearest neighbors used.
+ * @param[in]  theta                 Float between 0 and 1. Tradeoff for speed
+ *                                   (0) vs accuracy (1) for Barnes Hut only.
+ * @param[in]  epssq                 A tiny jitter to promote numerical
+ *                                   stability.
+ * @param[in]  perplexity            How many nearest neighbors are used during
+ *                                   construction of Pij.
+ * @param[in]  perplexity_max_iter   Number of iterations used to construct Pij.
+ * @param[in]  perplexity_tol        The small tolerance used for Pij to ensure
+ *                                   numerical stability.
+ * @param[in]  early_exaggeration    How much early pressure you want the
+ *                                   clusters in TSNE to spread out more.
+ * @param[in]  exaggeration_iter     How many iterations you want the early
+ *                                   pressure to run for.
+ * @param[in]  min_gain              Rounds up small gradient updates.
+ * @param[in]  pre_learning_rate     The learning rate during exaggeration
+ *                                   phase.
+ * @param[in]  post_learning_rate    The learning rate after exaggeration phase.
+ * @param[in]  max_iter              The maximum number of iterations TSNE
+ *                                   should run for.
+ * @param[in]  min_grad_norm         The smallest gradient norm TSNE should
+ *                                   terminate on.
+ * @param[in]  pre_momentum          The momentum used during the exaggeration
+ *                                   phase.
+ * @param[in]  post_momentum         The momentum used after the exaggeration
+ *                                   phase.
+ * @param[in]  random_state          Set this to -1 for pure random
+ *                                   intializations or >= 0 for reproducible
+ *                                   outputs.
+ * @param[in]  verbosity             verbosity level for logging messages during
+ *                                   execution
+ * @param[in]  initialize_embeddings Whether to overwrite the current Y vector
+ *                                   with random noise.
+ * @param[in]  barnes_hut            Whether to use the fast Barnes Hut or use
+ *                                   the slower exact version.
  *
  * The CUDA implementation is derived from the excellent CannyLabs open source
  * implementation here: https://github.com/CannyLab/tsne-cuda/. The CannyLabs
@@ -90,52 +95,57 @@ void TSNE_fit(const raft::handle_t &handle, float *X, float *Y, int n, int p,
               const bool initialize_embeddings = true, bool barnes_hut = true);
 
 /**
- * @brief Dimensionality reduction via TSNE using either Barnes Hut O(NlogN)
- *       or brute force O(N^2).
+ * @brief Dimensionality reduction via TSNE using either Barnes Hut O(NlogN) or
+ *        brute force O(N^2).
  *
- * @param[in]  handle              The GPU handle.
- * @param[in]  indptr              indptr of CSR dataset.
- * @param[in]  indices             indices of CSR dataset.
- * @param[in]  data                data of CSR dataset.
- * @param[out] Y                   The final embedding.
- * @param[in]  nnz                 The number of non-zero entries in the CSR.
- * @param[in]  n                   Number of rows in data X.
- * @param[in]  p                   Number of columns in data X.
- * @param[in]  knn_indices         Array containing nearest neighors indices.
- * @param[in]  knn_dists           Array containing nearest neighors distances.
- * @param[in]  dim                 Number of output dimensions for embeddings Y.
- * @param[in]  n_neighbors         Number of nearest neighbors used.
- * @param[in]  theta               Float between 0 and 1. Tradeoff for speed (0)
- *                                 vs accuracy (1) for Barnes Hut only.
- * @param[in]  epssq               A tiny jitter to promote numerical stability.
- * @param[in]  perplexity          How many nearest neighbors are used during
- *                                 construction of Pij.
- * @param[in]  perplexity_max_iter Number of iterations used to construct Pij.
- * @param[in]  perplexity_tol      The small tolerance used for Pij to ensure
- *                                 numerical stability.
- * @param[in]  early_exaggeration  How much early pressure you want the clusters
- *                                 in TSNE to spread out more.
- * @param[in] exaggeration_iter    How many iterations you want the early
- *                                 pressure to run for.
- * @param[in] min_gain             Rounds up small gradient updates.
- * @param[in] pre_learning_rate    The learning rate during exaggeration phase.
- * @param[in] post_learning_rate   The learning rate after exaggeration phase.
- * @param[in] max_iter             The maximum number of iterations TSNE should
- *                                 run for.
- * @param[in] min_grad_norm        The smallest gradient norm TSNE should
- *                                 terminate on.
- * @param[in] pre_momentum         The momentum used during the exaggeration
- *                                 phase.
- * @param[in] post_momentum        The momentum used after the exaggeration
- *                                 phase.
- * @param[in] random_state         Set this to -1 for pure random intializations
- *                                 or >= 0 for reproducible outputs.
- * @param[in] verbosity            verbosity level for logging messages during
- *                                 execution
- * @param[in] initialize_embeddings Whether to overwrite the current Y vector
- *                                 with random noise.
- * @param[in] barnes_hut           Whether to use the fast Barnes Hut or use the
- *                                 slower exact version.
+ * @param[in]  handle                The GPU handle.
+ * @param[in]  indptr                indptr of CSR dataset.
+ * @param[in]  indices               indices of CSR dataset.
+ * @param[in]  data                  data of CSR dataset.
+ * @param[out] Y                     The final embedding.
+ * @param[in]  nnz                   The number of non-zero entries in the CSR.
+ * @param[in]  n                     Number of rows in data X.
+ * @param[in]  p                     Number of columns in data X.
+ * @param[in]  knn_indices           Array containing nearest neighors indices.
+ * @param[in]  knn_dists             Array containing nearest neighors
+ *                                   distances.
+ * @param[in]  dim                   Number of output dimensions for embeddings
+ *                                   Y.
+ * @param[in]  n_neighbors           Number of nearest neighbors used.
+ * @param[in]  theta                 Float between 0 and 1. Tradeoff for speed
+ *                                   (0) vs accuracy (1) for Barnes Hut only.
+ * @param[in]  epssq                 A tiny jitter to promote numerical
+ *                                   stability.
+ * @param[in]  perplexity            How many nearest neighbors are used during
+ *                                   construction of Pij.
+ * @param[in]  perplexity_max_iter   Number of iterations used to construct Pij.
+ * @param[in]  perplexity_tol        The small tolerance used for Pij to ensure
+ *                                   numerical stability.
+ * @param[in]  early_exaggeration    How much early pressure you want the
+ *                                   clusters in TSNE to spread out more.
+ * @param[in]  exaggeration_iter     How many iterations you want the early
+ *                                   pressure to run for.
+ * @param[in]  min_gain              Rounds up small gradient updates.
+ * @param[in]  pre_learning_rate     The learning rate during exaggeration
+ *                                   phase.
+ * @param[in]  post_learning_rate    The learning rate after exaggeration phase.
+ * @param[in]  max_iter              The maximum number of iterations TSNE
+ *                                   should run for.
+ * @param[in]  min_grad_norm         The smallest gradient norm TSNE should
+ *                                   terminate on.
+ * @param[in]  pre_momentum          The momentum used during the exaggeration
+ *                                   phase.
+ * @param[in]  post_momentum         The momentum used after the exaggeration
+ *                                   phase.
+ * @param[in]  random_state          Set this to -1 for pure random
+ *                                   intializations or >= 0 for reproducible
+ *                                   outputs.
+ * @param[in]  verbosity             verbosity level for logging messages during
+ *                                   execution
+ * @param[in]  initialize_embeddings Whether to overwrite the current Y vector
+ *                                   with random noise.
+ * @param[in]  barnes_hut            Whether to use the fast Barnes Hut or use
+ *                                   the slower exact version.
  *
  * The CUDA implementation is derived from the excellent CannyLabs open source
  * implementation here: https://github.com/CannyLab/tsne-cuda/. The CannyLabs

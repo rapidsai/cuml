@@ -63,16 +63,17 @@ T abs(const T &a) {
 }
 
 /*
-     * @brief Helper function to compare 2 device n-D arrays with custom comparison
-     * @tparam T the data type of the arrays
-     * @tparam L the comparator lambda or object function
-     * @param expected expected value(s)
-     * @param actual actual values
-     * @param eq_compare the comparator
-     * @param stream cuda stream
-     * @return the testing assertion to be later used by ASSERT_TRUE/EXPECT_TRUE
-     * @{
-     */
+ * @brief Helper function to compare 2 device n-D arrays with custom comparison
+ * @tparam T the data type of the arrays
+ * @tparam L the comparator lambda or object function
+ * @param expected expected value(s)
+ * @param actual actual values
+ * @param eq_compare the comparator
+ * @param stream cuda stream
+ * @return the testing assertion to be later used by ASSERT_TRUE/EXPECT_TRUE
+ * 
+ * @{
+ */
 template <typename T, typename L>
 testing::AssertionResult devArrMatch(const T *expected, const T *actual,
                                      size_t size, L eq_compare,

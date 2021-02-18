@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 /**
-* @file v_measure.cuh
-*/
+ * @file v_measure.cuh
+ */
 
 #include "homogeneity_score.cuh"
 
@@ -24,17 +24,21 @@ namespace MLCommon {
 namespace Metrics {
 
 /**
-* @brief Function to calculate the v-measure between two clusters
-*
-* @param truthClusterArray: the array of truth classes of type T
-* @param predClusterArray: the array of predicted classes of type T
-* @param size: the size of the data points of type int
-* @param lowerLabelRange: the lower bound of the range of labels
-* @param upperLabelRange: the upper bound of the range of labels
-* @param allocator: object that takes care of temporary device memory allocation of type std::shared_ptr<MLCommon::deviceAllocator>
-* @param stream: the cudaStream object
-* @param beta: v_measure parameter
-*/
+ * @brief Function to calculate the v-measure between two clusters
+ *
+ * @param truthClusterArray the array of truth classes of type T
+ * @param predClusterArray  the array of predicted classes of type T
+ * @param size              the size of the data points of type int
+ * @param lowerLabelRange   the lower bound of the range of labels
+ * @param upperLabelRange   the upper bound of the range of labels
+ * @param allocator         object that takes care of temporary device memory
+ *                          allocation of type
+ *                          std::shared_ptr<MLCommon::deviceAllocator>
+ * @param stream            the cudaStream object
+ * @param beta              v_measure parameter
+ *
+ * @return { description_of_the_return_value }
+ */
 template <typename T>
 double v_measure(const T *truthClusterArray, const T *predClusterArray,
                  int size, T lowerLabelRange, T upperLabelRange,

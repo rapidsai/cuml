@@ -26,23 +26,25 @@ namespace Stats {
 /**
  * @brief Compute covariance of the input matrix
  *
- * Mean operation is assumed to be performed on a given column.
+ *        Mean operation is assumed to be performed on a given column.
  *
- * @tparam Type the data type
- * @param covar the output covariance matrix
- * @param data the input matrix (this will get mean-centered at the end!)
- * @param mu mean vector of the input matrix
- * @param D number of columns of data
- * @param N number of rows of data
- * @param sample whether to evaluate sample covariance or not. In other words,
- * whether to normalize the output using N-1 or N, for true or false,
- * respectively
+ * @param handle   cublas handle
+ * @param covar    the output covariance matrix
+ * @param data     the input matrix (this will get mean-centered at the end!)
+ * @param mu       mean vector of the input matrix
+ * @param D        number of columns of data
+ * @param N        number of rows of data
+ * @param sample   whether to evaluate sample covariance or not. In other words,
+ *                 whether to normalize the output using N-1 or N, for true or
+ *                 false, respectively
  * @param rowMajor whether the input data is row or col major
- * @param stable whether to run the slower-but-numerically-stable version or not
- * @param handle cublas handle
- * @param stream cuda stream
- * @note if stable=true, then the input data will be mean centered after this
- * function returns!
+ * @param stable   whether to run the slower-but-numerically-stable version or
+ *                 not
+ * @param stream   cuda stream
+ * @note  if stable=true, then the input data will be mean centered after this
+ *        function returns!
+ *
+ * @tparam Type  the data type
  */
 template <typename Type>
 void cov(const raft::handle_t &handle, Type *covar, Type *data, const Type *mu,
@@ -65,7 +67,9 @@ void cov(const raft::handle_t &handle, Type *covar, Type *data, const Type *mu,
                          CUBLAS_OP_N, alpha, beta, stream);
     }
   } else {
-    ///@todo: implement this using cutlass + customized epilogue!
+    ////////////////////////////////////////////////////////////////////////////
+    // @todo : implement this using cutlass + customized epilogue!            //
+    ////////////////////////////////////////////////////////////////////////////
     ASSERT(false, "cov: Implement stable=false case!");
   }
   CUDA_CHECK(cudaPeekAtLastError());

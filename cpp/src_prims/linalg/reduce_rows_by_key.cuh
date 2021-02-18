@@ -320,11 +320,6 @@ void sum_rows_by_key_large_nkeys_rowmajor(const DataIteratorT d_A, int lda,
 /**
  * @brief Computes the weighted reduction of matrix rows for each given key
  *
- * @tparam DataIteratorT Random-access iterator type, for reading input matrix
- *                       (may be a simple pointer type)
- * @tparam KeysIteratorT Random-access iterator type, for reading input keys
- *                       (may be a simple pointer type)
- *
  * @param[in]  d_A         Input data array (lda x nrows)
  * @param[in]  lda         Real row size for input data, d_A
  * @param[in]  d_keys      Keys for each row (1 x nrows)
@@ -335,6 +330,12 @@ void sum_rows_by_key_large_nkeys_rowmajor(const DataIteratorT d_A, int lda,
  * @param[in]  nkeys       Number of unique keys in d_keys
  * @param[out] d_sums      Row sums by key (ncols x d_keys)
  * @param[in]  stream      CUDA stream
+ *
+ * @tparam KeysIteratorT Random-access iterator type, for reading input keys
+ *                       (may be a simple pointer type)
+ * @tparam WeightT       { description }
+ * @tparam DataIteratorT Random-access iterator type, for reading input matrix (may
+ *                       be a simple pointer type)
  */
 template <typename DataIteratorT, typename KeysIteratorT, typename WeightT>
 void reduce_rows_by_key(const DataIteratorT d_A, int lda,
@@ -367,8 +368,7 @@ void reduce_rows_by_key(const DataIteratorT d_A, int lda,
 
 /**
  * @brief Computes the reduction of matrix rows for each given key
- * @tparam DataIteratorT Random-access iterator type, for reading input matrix (may be a simple pointer type)
- * @tparam KeysIteratorT Random-access iterator type, for reading input keys (may be a simple pointer type)
+ *
  * @param[in]  d_A         Input data array (lda x nrows)
  * @param[in]  lda         Real row size for input data, d_A
  * @param[in]  d_keys      Keys for each row (1 x nrows)
@@ -378,6 +378,11 @@ void reduce_rows_by_key(const DataIteratorT d_A, int lda,
  * @param[in]  nkeys       Number of unique keys in d_keys
  * @param[out] d_sums      Row sums by key (ncols x d_keys)
  * @param[in]  stream      CUDA stream
+ *
+ * @tparam KeysIteratorT Random-access iterator type, for reading input keys
+ *                       (may be a simple pointer type)
+ * @tparam DataIteratorT Random-access iterator type, for reading input matrix (may
+ *                       be a simple pointer type)
  */
 template <typename DataIteratorT, typename KeysIteratorT>
 void reduce_rows_by_key(const DataIteratorT d_A, int lda,

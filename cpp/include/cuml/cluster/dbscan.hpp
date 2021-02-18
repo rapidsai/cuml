@@ -24,24 +24,36 @@ namespace Dbscan {
 
 /**
  * @defgroup DbscanCpp C++ implementation of Dbscan algo
+ *
  * @brief Fits a DBSCAN model on an input feature matrix and outputs the labels
  *        and core_sample_indices.
- * @param[in] handle cuml handle to use across the algorithm
- * @param[in] input row-major input feature matrix
- * @param[in] n_rows number of samples in the input feature matrix
- * @param[in] n_cols number of features in the input feature matrix
- * @param[in] eps epsilon value to use for epsilon-neighborhood determination
- * @param[in] min_pts minimum number of points to determine a cluster
- * @param[out] labels (size n_rows) output labels array
- * @param[out] core_sample_indices (size n_rows) output array containing the 
- *             indices of each core point. If the number of core points is less
- *             than n_rows, the right will be padded with -1. Setting this to 
- *             NULL will prevent calculating the core sample indices
- * @param[in] max_bytes_per_batch the maximum number of megabytes to be used for
- *            each batch of the pairwise distance calculation. This enables the
- *            trade off between memory usage and algorithm execution time.
- * @param[in] verbosity verbosity level for logging messages during execution
- * @param[in] opg whether we are running in a multi-node multi-GPU context
+ *
+ * @param[in]  handle              cuml handle to use across the algorithm
+ * @param[in]  input               row-major input feature matrix
+ * @param[in]  n_rows              number of samples in the input feature matrix
+ * @param[in]  n_cols              number of features in the input feature
+ *                                 matrix
+ * @param[in]  eps                 epsilon value to use for epsilon-neighborhood
+ *                                 determination
+ * @param[in]  min_pts             minimum number of points to determine a
+ *                                 cluster
+ * @param[out] labels              (size n_rows) output labels array
+ * @param[out] core_sample_indices (size n_rows) output array containing the
+ *                                 indices of each core point. If the number of
+ *                                 core points is less than n_rows, the right
+ *                                 will be padded with -1. Setting this to NULL
+ *                                 will prevent calculating the core sample
+ *                                 indices
+ * @param[in]  max_bytes_per_batch the maximum number of megabytes to be used
+ *                                 for each batch of the pairwise distance
+ *                                 calculation. This enables the trade off
+ *                                 between memory usage and algorithm execution
+ *                                 time.
+ * @param[in]  verbosity           verbosity level for logging messages during
+ *                                 execution
+ * @param[in]  opg                 whether we are running in a multi-node
+ *                                 multi-GPU context
+ *
  * @{
  */
 

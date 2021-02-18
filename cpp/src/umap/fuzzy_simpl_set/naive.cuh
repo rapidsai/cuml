@@ -48,35 +48,37 @@ static const float MIN_K_DIST_SCALE = 1e-3;
 /**
  * Computes a continuous version of the distance to the kth nearest neighbor.
  * That is, this is similar to knn-distance but allows continuous k values
- * rather than requiring an integral k. In essence, we are simply computing
- * the distance such that the cardinality of fuzzy set we generate is k.
+ * rather than requiring an integral k. In essence, we are simply computing the
+ * distance such that the cardinality of fuzzy set we generate is k.
  *
- * TODO: The data needs to be in column-major format (and the indices
- * of knn_dists and knn_inds transposed) so that we can take advantage
- * of read-coalescing within each block where possible.
+ * TODO: The data needs to be in column-major format (and the indices of
+ * knn_dists and knn_inds transposed) so that we can take advantage of
+ * read-coalescing within each block where possible.
  *
- * @param knn_dists: Distances to nearest neighbors for each sample. Each row should
- *                   be a sorted list of distances to a given sample's nearest neighbors.
+ * @param knn_dists          Distances to nearest neighbors for each sample.
+ *                           Each row should be a sorted list of distances to a
+ *                           given sample's nearest neighbors.
+ * @param n                  The number of samples
+ * @param mean_dist          The mean distance
+ * @param sigmas             An array of size n representing the distance to the
+ *                           kth nearest neighbor, as suitably approximated.
+ * @param rhos               An array of size n representing the distance to the
+ *                           1st nearest neighbor for each point.
+ * @param n_neighbors        The number of neighbors
+ * @param local_connectivity The local connectivity required -- i.e. the number
+ *                           of nearest neighbors that should be assumed to be
+ *                           connected at a local level. The higher this value
+ *                           the more connecte the manifold becomes locally. In
+ *                           practice, this should not be more than the local
+ *                           intrinsic dimension of the manifold.
+ * @param n_iter             The number of smoothing iterations to run
+ * @param bandwidth          Scale factor for log of neighbors
  *
- * @param n: The number of samples
- * @param mean_dist: The mean distance
- * @param sigmas: An array of size n representing the distance to the kth nearest neighbor,
- *                as suitably approximated.
- * @param rhos:  An array of size n representing the distance to the 1st nearest neighbor
- *               for each point.
- * @param n_neighbors: The number of neighbors
+ * Descriptions adapted from:
+ * https://github.com/lmcinnes/umap/blob/master/umap/umap_.py
  *
- * @param local_connectivity: The local connectivity required -- i.e. the number of nearest
- *                            neighbors that should be assumed to be connected at a local
- *                            level. The higher this value the more connecte the manifold
- *                            becomes locally. In practice, this should not be more than the
- *                            local intrinsic dimension of the manifold.
- *
- * @param n_iter The number of smoothing iterations to run
- * @param bandwidth Scale factor for log of neighbors
- *
- * Descriptions adapted from: https://github.com/lmcinnes/umap/blob/master/umap/umap_.py
- *
+ * @tparam TPB_X   { description }
+ * @tparam value_t { description }
  */
 template <int TPB_X, typename value_t>
 __global__ void smooth_knn_dist_kernel(
@@ -172,22 +174,29 @@ __global__ void smooth_knn_dist_kernel(
 }
 
 /**
- * Construct the membership strength data for the 1-skeleton of each local
- * fuzzy simplicial set -- this is formed as a sparse matrix (COO) where each
- * row is a local fuzzy simplicial set, with a membership strength for the
- * 1-simplex to each other data point.
+ * Construct the membership strength data for the 1-skeleton of each local fuzzy
+ * simplicial set -- this is formed as a sparse matrix (COO) where each row is a
+ * local fuzzy simplicial set, with a membership strength for the 1-simplex to
+ * each other data point.
  *
- * @param knn_indices: the knn index matrix of size (n, k)
- * @param knn_dists: the knn distance matrix of size (n, k)
- * @param sigmas: array of size n representing distance to kth nearest neighbor
- * @param rhos: array of size n representing distance to the first nearest neighbor
- * @param vals: value_t array of size n*k
- * @param rows: value_idx array of size n
- * @param cols: value_idx array of size k
- * @param n Number of samples (rows in knn indices/distances)
+ * @param knn_indices the knn index matrix of size (n, k)
+ * @param knn_dists   the knn distance matrix of size (n, k)
+ * @param sigmas      array of size n representing distance to kth nearest
+ *                    neighbor
+ * @param rhos        array of size n representing distance to the first nearest
+ *                    neighbor
+ * @param vals        value_t array of size n*k
+ * @param rows        value_idx array of size n
+ * @param cols        value_idx array of size k
+ * @param n           Number of samples (rows in knn indices/distances)
  * @param n_neighbors number of columns in knn indices/distances
  *
- * Descriptions adapted from: https://github.com/lmcinnes/umap/blob/master/umap/umap_.py
+ * Descriptions adapted from:
+ * https://github.com/lmcinnes/umap/blob/master/umap/umap_.py
+ *
+ * @tparam TPB_X     { description }
+ * @tparam value_idx { description }
+ * @tparam value_t   { description }
  */
 template <int TPB_X, typename value_idx, typename value_t>
 __global__ void compute_membership_strength_kernel(
@@ -252,7 +261,7 @@ void smooth_knn_dist(int n, const value_idx *knn_indices,
   raft::update_host(&mean_dist, dist_means_dev.data(), 1, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
-  /**
+  /*
    * Smooth kNN distances to be continuous
    */
   smooth_knn_dist_kernel<TPB_X><<<grid, blk, 0, stream>>>(
@@ -261,28 +270,32 @@ void smooth_knn_dist(int n, const value_idx *knn_indices,
 }
 
 /**
- * Given a set of X, a neighborhood size, and a measure of distance, compute
- * the fuzzy simplicial set (here represented as a fuzzy graph in the form of
- * a sparse coo matrix) associated to the data. This is done by locally
- * approximating geodesic (manifold surface) distance at each point, creating
- * a fuzzy simplicial set for each such point, and then combining all the local
+ * Given a set of X, a neighborhood size, and a measure of distance, compute the
+ * fuzzy simplicial set (here represented as a fuzzy graph in the form of a
+ * sparse coo matrix) associated to the data. This is done by locally
+ * approximating geodesic (manifold surface) distance at each point, creating a
+ * fuzzy simplicial set for each such point, and then combining all the local
  * fuzzy simplicial sets into a global one via a fuzzy union.
  *
- * @param n the number of rows/elements in X
+ * @param n           the number of rows/elements in X
  * @param knn_indices indexes of knn search
- * @param knn_dists distances of knn search
+ * @param knn_dists   distances of knn search
  * @param n_neighbors number of neighbors in knn search arrays
- * @param out The output COO sparse matrix
- * @param params UMAPParams config object
- * @param d_alloc the device allocator to use for temp memory
- * @param stream cuda stream to use for device operations
+ * @param out         The output COO sparse matrix
+ * @param params      UMAPParams config object
+ * @param d_alloc     the device allocator to use for temp memory
+ * @param stream      cuda stream to use for device operations
+ *
+ * @tparam TPB_X     { description }
+ * @tparam value_idx { description }
+ * @tparam value_t   { description }
  */
 template <int TPB_X, typename value_idx, typename value_t>
 void launcher(int n, const value_idx *knn_indices, const value_t *knn_dists,
               int n_neighbors, raft::sparse::COO<value_t> *out,
               UMAPParams *params, std::shared_ptr<deviceAllocator> d_alloc,
               cudaStream_t stream) {
-  /**
+  /*
    * Calculate mean distance through a parallel reduction
    */
   MLCommon::device_buffer<value_t> sigmas(d_alloc, stream, n);
@@ -307,7 +320,7 @@ void launcher(int n, const value_idx *knn_indices, const value_t *knn_dists,
 
   CUDA_CHECK(cudaPeekAtLastError());
 
-  /**
+  /*
    * Compute graph of membership strengths
    */
 
@@ -326,7 +339,7 @@ void launcher(int n, const value_idx *knn_indices, const value_t *knn_dists,
     CUML_LOG_DEBUG(ss.str().c_str());
   }
 
-  /**
+  /*
    * Combines all the fuzzy simplicial sets into a global
    * one via a fuzzy union. (Symmetrize knn graph).
    */
@@ -346,4 +359,4 @@ void launcher(int n, const value_idx *knn_indices, const value_t *knn_dists,
 }
 }  // namespace Naive
 }  // namespace FuzzySimplSet
-};  // namespace UMAPAlgo
+}  // namespace UMAPAlgo

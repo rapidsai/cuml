@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 /**
-* @file completeness_score.cuh
-*
-* @brief A clustering result satisfies completeness if all the data points
-* that are members of a given class are elements of the same cluster.
-*/
+ * @file completeness_score.cuh
+ *
+ * @brief A clustering result satisfies completeness if all the data points that
+ *        are members of a given class are elements of the same cluster.
+ */
 
 #pragma once
 
@@ -30,16 +30,20 @@ namespace MLCommon {
 namespace Metrics {
 
 /**
-* @brief Function to calculate the completeness score between two clusters
-*
-* @param truthClusterArray: the array of truth classes of type T
-* @param predClusterArray: the array of predicted classes of type T
-* @param size: the size of the data points of type int
-* @param lowerLabelRange: the lower bound of the range of labels
-* @param upperLabelRange: the upper bound of the range of labels
-* @param allocator: object that takes care of temporary device memory allocation of type std::shared_ptr<MLCommon::deviceAllocator>
-* @param stream: the cudaStream object
-*/
+ * @brief Function to calculate the completeness score between two clusters
+ *
+ * @param truthClusterArray the array of truth classes of type T
+ * @param predClusterArray  the array of predicted classes of type T
+ * @param size              the size of the data points of type int
+ * @param lowerLabelRange   the lower bound of the range of labels
+ * @param upperLabelRange   the upper bound of the range of labels
+ * @param allocator         object that takes care of temporary device memory
+ *                          allocation of type
+ *                          std::shared_ptr<MLCommon::deviceAllocator>
+ * @param stream            the cudaStream object
+ *
+ * @return { description_of_the_return_value }
+ */
 template <typename T>
 double completeness_score(const T *truthClusterArray, const T *predClusterArray,
                           int size, T lowerLabelRange, T upperLabelRange,

@@ -91,45 +91,56 @@ struct node {
   /**
    * @brief Construct a function node
    *
-   * @param[in] ft function type
+   * @param[in] ft    function type
    */
   explicit node(type ft);
 
   /**
    * @brief Construct a variable node
    *
-   * @param[in] fid feature id that represents the variable
+   * @param[in] fid   feature id that represents the variable
    */
   explicit node(int fid);
 
   /**
    * @brief Construct a constant node
    *
-   * @param[in] val constant value
+   * @param[in] val   constant value
    */
   explicit node(float val);
 
   /**
-   * @param[in] src source node to be copied
+   * @brief { function_description }
+   *
+   * @param[in] src   source node to be copied
    */
   explicit node(const node& src);
 
   /**
    * @brief assignment operator
    *
-   * @param[in] src source node to be copied
+   * @param[in] src   source node to be copied
    *
    * @return current node reference
    */
   node& operator=(const node& src);
 
-  /** whether the current is either a variable or a constant */
+  /** whether the current is either a variable or a constant
+   *
+   * @return True if terminal, False otherwise.
+   */
   bool is_terminal() const;
 
-  /** whether the current node is a function */
+  /** whether the current node is a function
+   *
+   * @return True if nonterminal, False otherwise.
+   */
   bool is_nonterminal() const;
 
-  /** Get the arity of the node. If it is a terminal, then a 0 is returned */
+  /** Get the arity of the node. If it is a terminal, then a 0 is returned
+   *
+   * @return { description_of_the_return_value }
+   */
   int arity() const;
 
   /**

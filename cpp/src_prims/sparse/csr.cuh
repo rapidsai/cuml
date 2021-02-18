@@ -103,26 +103,28 @@ __global__ void weak_cc_init_all_kernel(Index_ *labels, Index_ N,
 }  // namespace sparse
 
 /**
- * @brief Partial calculation of the weakly connected components in the
- * context of a batched algorithm: the labels are computed wrt the sub-graph
- * represented by the given CSR matrix of dimensions batch_size * N.
- * Note that this overwrites the labels array and it is the responsibility of
- * the caller to combine the results from different batches
- * (cf label/merge_labels.cuh)
+ * @brief Partial calculation of the weakly connected components in the context
+ *        of a batched algorithm: the labels are computed wrt the sub-graph
+ *        represented by the given CSR matrix of dimensions batch_size * N. Note
+ *        that this overwrites the labels array and it is the responsibility of
+ *        the caller to combine the results from different batches (cf
+ *        label/merge_labels.cuh)
  *
- * @tparam Index_ the numeric type of non-floating point elements
- * @tparam TPB_X the threads to use per block when configuring the kernel
- * @param labels an array for the output labels
- * @param row_ind the compressed row index of the CSR array
- * @param row_ind_ptr the row index pointer of the CSR array
- * @param nnz the size of row_ind_ptr array
- * @param N number of vertices
+ * @param labels          an array for the output labels
+ * @param row_ind         the compressed row index of the CSR array
+ * @param row_ind_ptr     the row index pointer of the CSR array
+ * @param nnz             the size of row_ind_ptr array
+ * @param N               number of vertices
  * @param start_vertex_id the starting vertex index for the current batch
- * @param batch_size number of vertices for current batch
- * @param state instance of inter-batch state management
- * @param stream the cuda stream to use
- * @param filter_op an optional filtering function to determine which points
- * should get considered for labeling. It gets global indexes (not batch-wide!)
+ * @param batch_size      number of vertices for current batch
+ * @param state           instance of inter-batch state management
+ * @param stream          the cuda stream to use
+ * @param filter_op       an optional filtering function to determine which
+ *                        points should get considered for labeling. It gets
+ *                        global indexes (not batch-wide!)
+ *
+ * @tparam TPB_X the threads to use per block when configuring the kernel
+ * @tparam Index_ the numeric type of non-floating point elements
  */
 template <typename Index_, int TPB_X = 256,
           typename Lambda = auto(Index_)->bool>
@@ -152,7 +154,8 @@ void weak_cc_batched(Index_ *labels, const Index_ *row_ind,
         batch_size, N, filter_op);
     CUDA_CHECK(cudaPeekAtLastError());
 
-    //** Updating m *
+    //--------------------------------------------------------------------------
+    /// Updating m *
     raft::update_host(&host_m, state->m, 1, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
 
@@ -161,24 +164,25 @@ void weak_cc_batched(Index_ *labels, const Index_ *row_ind,
 }
 
 /**
- * @brief Partial calculation of the weakly connected components in the
- * context of a batched algorithm: the labels are computed wrt the sub-graph
- * represented by the given CSR matrix of dimensions batch_size * N.
- * Note that this overwrites the labels array and it is the responsibility of
- * the caller to combine the results from different batches
- * (cf label/merge_labels.cuh)
+ * @brief Partial calculation of the weakly connected components in the context
+ *        of a batched algorithm: the labels are computed wrt the sub-graph
+ *        represented by the given CSR matrix of dimensions batch_size * N. Note
+ *        that this overwrites the labels array and it is the responsibility of
+ *        the caller to combine the results from different batches (cf
+ *        label/merge_labels.cuh)
  *
- * @tparam Index_ the numeric type of non-floating point elements
- * @tparam TPB_X the threads to use per block when configuring the kernel
- * @param labels an array for the output labels
- * @param row_ind the compressed row index of the CSR array
- * @param row_ind_ptr the row index pointer of the CSR array
- * @param nnz the size of row_ind_ptr array
- * @param N number of vertices
+ * @param labels          an array for the output labels
+ * @param row_ind         the compressed row index of the CSR array
+ * @param row_ind_ptr     the row index pointer of the CSR array
+ * @param nnz             the size of row_ind_ptr array
+ * @param N               number of vertices
  * @param start_vertex_id the starting vertex index for the current batch
- * @param batch_size number of vertices for current batch
- * @param state instance of inter-batch state management
- * @param stream the cuda stream to use
+ * @param batch_size      number of vertices for current batch
+ * @param state           instance of inter-batch state management
+ * @param stream          the cuda stream to use
+ *
+ * @tparam TPB_X the threads to use per block when configuring the kernel
+ * @tparam Index_ the numeric type of non-floating point elements
  */
 template <typename Index_, int TPB_X = 256>
 void weak_cc_batched(Index_ *labels, const Index_ *row_ind,
@@ -192,27 +196,32 @@ void weak_cc_batched(Index_ *labels, const Index_ *row_ind,
 
 /**
  * @brief Compute weakly connected components. Note that the resulting labels
- * may not be taken from a monotonically increasing set (eg. numbers may be
- * skipped). The MLCommon::Label package contains a primitive `make_monotonic`,
- * which will make a monotonically increasing set of labels.
+ *        may not be taken from a monotonically increasing set (eg. numbers may
+ *        be skipped). The MLCommon::Label package contains a primitive
+ *        `make_monotonic`, which will make a monotonically increasing set of
+ *        labels.
  *
- * This implementation comes from [1] and solves component labeling problem in
- * parallel on CSR-indexes based upon the vertex degree and adjacency graph.
+ *        This implementation comes from [1] and solves component labeling
+ *        problem in parallel on CSR-indexes based upon the vertex degree and
+ *        adjacency graph.
  *
- * [1] Hawick, K.A et al, 2010. "Parallel graph component labelling with GPUs and CUDA"
+ *        [1] Hawick, K.A et al, 2010.
+ *        "Parallel graph component labelling with GPUs and CUDA"
  *
- * @tparam Type the numeric type of non-floating point elements
- * @tparam TPB_X the threads to use per block when configuring the kernel
- * @tparam Lambda the type of an optional filter function (int)->bool
- * @param labels an array for the output labels
- * @param row_ind the compressed row index of the CSR array
+ * @param labels      an array for the output labels
+ * @param row_ind     the compressed row index of the CSR array
  * @param row_ind_ptr the row index pointer of the CSR array
- * @param nnz the size of row_ind_ptr array
- * @param N number of vertices
- * @param d_alloc: deviceAllocator to use for temp memory
- * @param stream the cuda stream to use
- * @param filter_op an optional filtering function to determine which points
- * should get considered for labeling. It gets global indexes (not batch-wide!)
+ * @param nnz         the size of row_ind_ptr array
+ * @param N           number of vertices
+ * @param d_alloc     deviceAllocator to use for temp memory
+ * @param stream      the cuda stream to use
+ * @param filter_op   an optional filtering function to determine which points
+ *                    should get considered for labeling. It gets global indexes
+ *                    (not batch-wide!)
+ *
+ * @tparam TPB_X the threads to use per block when configuring the kernel
+ * @tparam Type   the numeric type of non-floating point elements
+ * @tparam Lambda the type of an optional filter function (int)->bool
  */
 template <typename Index_ = int, int TPB_X = 256,
           typename Lambda = auto(Index_)->bool>
@@ -229,25 +238,29 @@ void weak_cc(Index_ *labels, const Index_ *row_ind, const Index_ *row_ind_ptr,
 
 /**
  * @brief Compute weakly connected components. Note that the resulting labels
- * may not be taken from a monotonically increasing set (eg. numbers may be
- * skipped). The MLCommon::Label package contains a primitive `make_monotonic`,
- * which will make a monotonically increasing set of labels.
+ *        may not be taken from a monotonically increasing set (eg. numbers may
+ *        be skipped). The MLCommon::Label package contains a primitive
+ *        `make_monotonic`, which will make a monotonically increasing set of
+ *        labels.
  *
- * This implementation comes from [1] and solves component labeling problem in
- * parallel on CSR-indexes based upon the vertex degree and adjacency graph.
+ *        This implementation comes from [1] and solves component labeling
+ *        problem in parallel on CSR-indexes based upon the vertex degree and
+ *        adjacency graph.
  *
- * [1] Hawick, K.A et al, 2010. "Parallel graph component labelling with GPUs and CUDA"
+ *        [1] Hawick, K.A et al, 2010.
+ *        "Parallel graph component labelling with GPUs and CUDA"
  *
- * @tparam Type the numeric type of non-floating point elements
- * @tparam TPB_X the threads to use per block when configuring the kernel
- * @tparam Lambda the type of an optional filter function (int)->bool
- * @param labels an array for the output labels
- * @param row_ind the compressed row index of the CSR array
+ * @param labels      an array for the output labels
+ * @param row_ind     the compressed row index of the CSR array
  * @param row_ind_ptr the row index pointer of the CSR array
- * @param nnz the size of row_ind_ptr array
- * @param N number of vertices
- * @param d_alloc: deviceAllocator to use for temp memory
- * @param stream the cuda stream to use
+ * @param nnz         the size of row_ind_ptr array
+ * @param N           number of vertices
+ * @param d_alloc     deviceAllocator to use for temp memory
+ * @param stream      the cuda stream to use
+ *
+ * @tparam TPB_X the threads to use per block when configuring the kernel
+ * @tparam Type   the numeric type of non-floating point elements
+ * @tparam Lambda the type of an optional filter function (int)->bool
  */
 template <typename Index_, int TPB_X = 256>
 void weak_cc(Index_ *labels, const Index_ *row_ind, const Index_ *row_ind_ptr,

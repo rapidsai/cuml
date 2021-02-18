@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 /**
-* @file jones_transform.cuh
-* @brief Transforms params to induce stationarity/invertability.
-* reference: Jones(1980) 
-*/
+ * @file jones_transform.cuh
+ * @brief Transforms params to induce stationarity/invertability. reference:
+ *        Jones(1980)
+ */
 
 #pragma once
 
@@ -32,27 +32,30 @@ namespace MLCommon {
 namespace TimeSeries {
 
 /**
-* @brief Lambda to map to the partial autocorrelation
-*
-* @tparam Type: Data type of the input 
-* @param in: the input to the functional mapping
-* @return : the Partial autocorrelation (ie, tanh(in/2))
-*/
+ * @brief Lambda to map to the partial autocorrelation
+ *
+ * @tparam Type  Data type of the input
+ * @param in:   the input to the functional mapping
+ * @return : the Partial autocorrelation (ie, tanh(in/2))
+ */
 template <typename Type>
 struct PAC {
   HDI Type operator()(Type in) { return raft::myTanh(in * 0.5); }
 };
 
 /**
-* @brief Inline device function for the transformation operation
-
-* @tparam Type: Data type of the input
-* @tparam IdxT: indexing data type
-* @tparam value: the pValue/qValue for the transformation
-* @param tmp: the temporary array used in transformation
-* @param myNewParams: will contain the transformed params
-* @param isAr: tell the type of transform (if ar or ma transform)
-*/
+ * @brief Inline device function for the transformation operation
+ *
+ * @param tmp         the temporary array used in transformation
+ * @param myNewParams will contain the transformed params
+ * @param isAr        tell the type of transform (if ar or ma transform)
+ *
+ * @tparam DataT { description }
+ * @tparam IdxT  indexing data type
+ * @tparam VALUE { description }
+ * @tparam Type:  Data type of the input
+ * @tparam value: the pValue/qValue for the transformation
+ */
 template <typename DataT, typename IdxT, int VALUE>
 inline __device__ void transform(DataT* tmp, DataT* myNewParams, bool isAr) {
   //do the ar transformation
@@ -89,15 +92,18 @@ inline __device__ void transform(DataT* tmp, DataT* myNewParams, bool isAr) {
 }
 
 /**
-* @brief Inline device function for the inverse transformation operation
-
-* @tparam Type: Data type of the input
-* @tparam IdxT: indexing data type
-* @tparam value: the pValue/qValue for the inverse transformation
-* @param tmp: the temporary array used in transformation
-* @param myNewParams: will contain the transformed params
-* @param isAr: tell the type of inverse transform (if ar or ma transform)
-*/
+ * @brief Inline device function for the inverse transformation operation
+ *
+ * @param tmp         the temporary array used in transformation
+ * @param myNewParams will contain the transformed params
+ * @param isAr        tell the type of inverse transform (if ar or ma transform)
+ *
+ * @tparam DataT { description }
+ * @tparam IdxT  indexing data type
+ * @tparam VALUE { description }
+ * @tparam Type:  Data type of the input
+ * @tparam value: the pValue/qValue for the inverse transformation
+ */
 template <typename DataT, typename IdxT, int VALUE>
 inline __device__ void invtransform(DataT* tmp, DataT* myNewParams, bool isAr) {
   //do the ar transformation
@@ -134,16 +140,21 @@ inline __device__ void invtransform(DataT* tmp, DataT* myNewParams, bool isAr) {
 
 /**
  * @brief kernel to perform jones transformation
- * @tparam DataT: type of the params
- * @tparam VALUE: the parameter for the batch of ARIMA(p,q,d) models (either p or q depending on whether coefficients are of type AR or MA respectively)
+ *
+ * @param newParams pointer to the memory where the new params are to be stored
+ * @param params    pointer to the memory where the initial params are stored
+ * @param batchSize number of models in a batch
+ * @param isAr      if the coefficients to be transformed are Autoregressive or
+ *                  moving average
+ * @param isInv     if the transformation type is regular or inverse
+ *
+ * @tparam DataT       type of the params
+ * @tparam VALUE       the parameter for the batch of ARIMA(p,q,d) models
+ *                     (either p or q depending on whether coefficients are of
+ *                     type AR or MA respectively)
+ * @tparam BLOCK_DIM_X number of threads in block in x dimension
+ * @tparam BLOCK_DIM_Y number of threads in block in y dimension
  * @tparam IdxT: type of indexing
- * @tparam BLOCK_DIM_X: number of threads in block in x dimension
- * @tparam BLOCK_DIM_Y: number of threads in block in y dimension
- * @param newParams: pointer to the memory where the new params are to be stored
- * @param params: pointer to the memory where the initial params are stored
- * @param batchSize: number of models in a batch
- * @param isAr: if the coefficients to be transformed are Autoregressive or moving average
- * @param isInv: if the transformation type is regular or inverse 
  */
 template <typename DataT, int VALUE, typename IdxT, int BLOCK_DIM_X,
           int BLOCK_DIM_Y>
@@ -178,17 +189,26 @@ __global__ void jones_transform_kernel(DataT* newParams, const DataT* params,
 }
 
 /**
-* @brief Host Function to batchwise transform/inverse transform the moving average coefficients/autoregressive coefficients according to "jone's (1980)" transformation 
-*
-* @param params: 2D array where each row represents the transformed MA coefficients of a transformed model
-* @param batchSize: the number of models in a batch (number of rows in params)
-* @param parameter: the number of coefficients per model (basically number of columns in params)
-* @param newParams: the inverse transformed params (output)
-* @param isAr: set to true if the params to be transformed are Autoregressive params, false if params are of type MA
-* @param isInv: set to true if the transformation is an inverse type transformation, false if regular transform
-* @param allocator: object that takes care of temporary device memory allocation of type std::shared_ptr<MLCommon::deviceAllocator>
-* @param stream: the cudaStream object
-*/
+ * @brief Host Function to batchwise transform/inverse transform the moving
+ *        average coefficients/autoregressive coefficients according to
+ *        "jone's (1980)" transformation
+ *
+ * @param params    2D array where each row represents the transformed MA
+ *                  coefficients of a transformed model
+ * @param batchSize the number of models in a batch (number of rows in params)
+ * @param parameter the number of coefficients per model (basically number of
+ *                  columns in params)
+ * @param newParams the inverse transformed params (output)
+ * @param isAr      set to true if the params to be transformed are
+ *                  Autoregressive params, false if params are of type MA
+ * @param isInv     set to true if the transformation is an inverse type
+ *                  transformation, false if regular transform
+ * @param allocator object that takes care of temporary device memory allocation
+ *                  of type std::shared_ptr<MLCommon::deviceAllocator>
+ * @param stream    the cudaStream object
+ *
+ * @tparam DataT { description }
+ */
 template <typename DataT, typename IdxT = int>
 void jones_transform(const DataT* params, IdxT batchSize, IdxT parameter,
                      DataT* newParams, bool isAr, bool isInv,

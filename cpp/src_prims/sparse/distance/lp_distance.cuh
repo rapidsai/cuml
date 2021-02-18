@@ -93,8 +93,8 @@ void unexpanded_lp_distances(
  * Computes L1 distances for sparse input. This does not have an equivalent
  * expanded form, so it is only executed in an unexpanded form.
  *
- * @tparam     value_idx  { description }
- * @tparam     value_t    { description }
+ * @tparam value_idx { description }
+ * @tparam value_t   { description }
  */
 template <typename value_idx = int, typename value_t = float>
 class l1_unexpanded_distances_t : public distances_t<value_t> {

@@ -94,7 +94,7 @@ void reset_local_connectivity(raft::sparse::COO<T> *in_coo,
   CUDA_CHECK(cudaPeekAtLastError());
 }
 
-/**
+/*
  * Combine a fuzzy simplicial set with another fuzzy simplicial set
  * generated from categorical data using categorical distances. The target
  * data is assumed to be categorical label data (a vector of labels),
@@ -160,7 +160,7 @@ __global__ void sset_intersection_kernel(
   }
 }
 
-/**
+/*
  * Computes the CSR column index pointer and values
  * for the general simplicial set intersecftion.
  */
@@ -179,7 +179,7 @@ void general_simplicial_set_intersection(
 
   result->allocate(result_nnz, in1->n_rows, in1->n_cols, true, stream);
 
-  /**
+  /*
    * Element-wise sum of two simplicial sets
    */
   raft::sparse::linalg::csr_add_finalize<float, 32>(
@@ -187,7 +187,7 @@ void general_simplicial_set_intersection(
     in2->vals(), in2->nnz, in1->n_rows, result_ind.data(), result->cols(),
     result->vals(), stream);
 
-  //@todo: Write a wrapper function for this
+  /// @todo : Write a wrapper function for this
   raft::sparse::convert::csr_to_coo<int, TPB_X>(
     result_ind.data(), result->n_rows, result->rows(), result->nnz, stream);
 
@@ -243,7 +243,7 @@ void perform_general_intersection(const raft::handle_t &handle, value_t *y,
                                   UMAPParams *params, cudaStream_t stream) {
   auto d_alloc = handle.get_device_allocator();
 
-  /**
+  /*
    * Calculate kNN for Y
    */
   int knn_dims = rgraph_coo->n_rows * params->target_n_neighbors;
@@ -274,7 +274,7 @@ void perform_general_intersection(const raft::handle_t &handle, value_t *y,
     CUML_LOG_DEBUG("%s", ss2.str().c_str());
   }
 
-  /**
+  /*
    * Compute fuzzy simplicial set
    */
   raft::sparse::COO<value_t> ygraph_coo(d_alloc, stream);
@@ -291,7 +291,7 @@ void perform_general_intersection(const raft::handle_t &handle, value_t *y,
     CUML_LOG_DEBUG(ss.str().c_str());
   }
 
-  /**
+  /*
    * Compute general simplicial set intersection.
    */
   MLCommon::device_buffer<int> xrow_ind(d_alloc, stream, rgraph_coo->n_rows);
@@ -316,7 +316,7 @@ void perform_general_intersection(const raft::handle_t &handle, value_t *y,
     xrow_ind.data(), rgraph_coo, yrow_ind.data(), &cygraph_coo, &result_coo,
     params->target_weights, d_alloc, stream);
 
-  /**
+  /*
    * Remove zeros
    */
   raft::sparse::COO<value_t> out(d_alloc, stream);

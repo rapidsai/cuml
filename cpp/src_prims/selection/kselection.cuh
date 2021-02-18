@@ -25,17 +25,25 @@ namespace Selection {
 
 /**
  * @brief The comparator
+ *
  * @tparam Greater whether to apply greater or lesser than comparison
- * @tparam T data type
+ * @tparam T       data type
  */
 template <bool Greater, typename T>
 struct Compare {
-  /** compare the two input operands */
+  /** compare the two input operands
+   *
+   * @param[in] a     { parameter_description }
+   * @param[in] b     { parameter_description }
+   *
+   * @return { description_of_the_return_value }
+   */
   static DI bool op(T a, T b) { return Greater ? a > b : a < b; }
 };
 
 /**
  * @brief Struct to abstract compare-and-swap operation
+ *
  * @tparam TypeV value type
  * @tparam TypeK key type
  */
@@ -49,9 +57,11 @@ struct KVPair {
 
   /**
    * @brief Compare and swap the current with the other pair
-   * @tparam Greater when to perform a swap operation
-   * @param other the other pair
+   *
+   * @param other   the other pair
    * @param reverse whether the comparison needs to be reversed or not
+   *
+   * @tparam Greater when to perform a swap operation
    */
   template <bool Greater>
   DI void cas(Pair &other, bool reverse) {
@@ -59,34 +69,58 @@ struct KVPair {
     if (swap_) swap(other);
   }
 
-  /** assign the contents of other pair to the current */
+  /** assign the contents of other pair to the current
+   *
+   * @param[in] other The other
+   */
   HDI void operator=(const Pair &other) {
     val = other.val;
     key = other.key;
   }
 
-  /** equality comparison */
+  /** equality comparison
+   *
+   * @param[in] other The other
+   *
+   * @return The result of the equality
+   */
   DI bool operator==(const Pair &other) const {
     return val == other.val && key == other.key;
   }
 
-  /** greater than operator */
+  /** greater than operator
+   *
+   * @param[in] other The other
+   *
+   * @return The result of the greater-than comparison
+   */
   DI bool operator>(const Pair &other) const {
-    ///@todo: should we also consider the key when values are the same?
+    ////////////////////////////////////////////////////////////////////////////
+    // @todo : should we also consider the key when values are the same?      //
+    ////////////////////////////////////////////////////////////////////////////
     return val > other.val;
   }
 
-  /** lesser than operator */
+  /** lesser than operator
+   *
+   * @param[in] other The other
+   *
+   * @return The result of the less-than comparison
+   */
   DI bool operator<(const Pair &other) const {
-    ///@todo: should we also consider the key when values are the same?
+    ////////////////////////////////////////////////////////////////////////////
+    // @todo : should we also consider the key when values are the same?      //
+    ////////////////////////////////////////////////////////////////////////////
     return val < other.val;
   }
 
   /**
    * @brief shuffle the current value with the src laneId
+   *
    * @param srcLane the source lane
-   * @param width lane width
-   * @param mask mask of participating threads (Volta+)
+   * @param width   lane width
+   * @param mask    mask of participating threads (Volta+)
+   *
    * @return the shuffled value
    */
   DI Pair shfl(int srcLane, int width = raft::WarpSize,
@@ -99,9 +133,11 @@ struct KVPair {
 
   /**
    * @brief XOR-shuffle the current value with the src laneId
+   *
    * @param laneMask mask to be applied in order to get the destination lane id
-   * @param width lane width
-   * @param mask mask of participating threads (Volta+)
+   * @param width    lane width
+   * @param mask     mask of participating threads (Volta+)
+   *
    * @return the shuffled value
    */
   DI Pair shfl_xor(int laneMask, int width = raft::WarpSize,
@@ -112,7 +148,11 @@ struct KVPair {
     return ret;
   }
 
-  /** store the data to global memory */
+  /** store the data to global memory
+   *
+   * @param vptr  The vptr
+   * @param kptr  The kptr
+   */
   DI void store(TypeV *vptr, TypeK *kptr) const {
     if (vptr != nullptr) *vptr = val;
     if (kptr != nullptr) *kptr = key;
@@ -134,11 +174,13 @@ struct KVPair {
 
 /**
  * @brief perform a warp-wide parallel one-pass bitonic sort stage
- * @tparam TypeV value type
- * @tparam TypeK key type
- * @tparam Greater when to perform swap operation
- * @tparam Log2Stride Starting log2(stride) value
+ *
  * @param current current thread's value
+ *
+ * @tparam TypeV      value type
+ * @tparam TypeK      key type
+ * @tparam Greater    when to perform swap operation
+ * @tparam Log2Stride Starting log2(stride) value
  */
 template <typename TypeV, typename TypeK, bool Greater, int Log2Stride>
 DI void bitonicSortStage(KVPair<TypeV, TypeK> &current) {
@@ -158,10 +200,12 @@ DI void bitonicSortStage(KVPair<TypeV, TypeK> &current) {
 
 /**
  * @brief perform a warp-wide parallel bitonic sort
- * @tparam TypeV value type
- * @tparam TypeK key type
- * @tparam Greater when to perform swap operation
+ *
  * @param current the pair that needs to be sorted across this warp
+ *
+ * @tparam TypeV   value type
+ * @tparam TypeK   key type
+ * @tparam Greater when to perform swap operation
  */
 template <typename TypeV, typename TypeK, bool Greater>
 DI void bitonicSort(KVPair<TypeV, TypeK> &current) {
@@ -174,11 +218,13 @@ DI void bitonicSort(KVPair<TypeV, TypeK> &current) {
 
 /**
  * @brief perform a warp-wide parallel one-pass bitonic kind of network
- * traversal
- * @tparam TypeV value type
- * @tparam TypeK key type
- * @tparam Greater when to perform swap operation
+ *        traversal
+ *
  * @param current current thread's value
+ *
+ * @tparam TypeV   value type
+ * @tparam TypeK   key type
+ * @tparam Greater when to perform swap operation
  */
 template <typename TypeV, typename TypeK, bool Greater>
 DI void warpSort(KVPair<TypeV, TypeK> &current) {
@@ -192,13 +238,14 @@ DI void warpSort(KVPair<TypeV, TypeK> &current) {
 }
 
 /**
- * @brief Struct to abstract an array of key-val pairs.
- * It is assumed to be strided across warp. Meaning, this array is assumed to be
- * actually of length N*32, in row-major order. In other words, all of
- * arr[0] across all threads will come first, followed by arr[1] and so on.
- * @tparam TypeV value type
- * @tparam TypeK key type
- * @tparam N number of elements in the array
+ * @brief Struct to abstract an array of key-val pairs. It is assumed to be
+ *        strided across warp. Meaning, this array is assumed to be actually of
+ *        length N*32, in row-major order. In other words, all of arr[0] across
+ *        all threads will come first, followed by arr[1] and so on.
+ *
+ * @tparam TypeV   value type
+ * @tparam TypeK   key type
+ * @tparam N       number of elements in the array
  * @tparam Greater whether to do a greater than comparison
  */
 template <typename TypeV, typename TypeK, int N, bool Greater>
@@ -211,7 +258,11 @@ struct KVArray {
   /** mask representing all threads in a warp */
   constexpr static int WarpMask = raft::WarpSize - 1;
 
-  /** reset the contents of the array */
+  /** reset the contents of the array
+   *
+   * @param[in] iV    { parameter_description }
+   * @param[in] iK    { parameter_description }
+   */
   DI void reset(TypeV iV, TypeK iK) {
 #pragma unroll
     for (int i = 0; i < N; ++i) {
@@ -231,10 +282,13 @@ struct KVArray {
     }
   }
 
-  ///@todo: we might just have rewrite this whole thing from scratch!!!
-  ///@todo: this fails for N=8 onwards!!
-  ///@todo: it also generates "stack frame" for N>=8
-  /** sort the elements in this array */
+  /// @todo : we might just have rewrite this whole thing from scratch!!!
+  /// @todo : this fails for N=8 onwards!!
+  /// @todo : it also generates "stack frame" for N>=8 /** sort the elements in
+  ///       this array */
+  ///
+  /// @brief { function_description }
+  ///
   DI void sort() {
     // start by sorting along the warp, first
     warpWideSort();
@@ -282,7 +336,25 @@ struct KVArray {
   }
 };
 
-///@todo: specialize this for k=1
+////////////////////////////////////////////////////////////////////////////////
+// @todo : specialize this for k=1                                            //
+//                                                                            //
+// @brief { function_description }                                            //
+//                                                                            //
+// @param     outV  The out v                                                 //
+// @param     outK  The out k                                                 //
+// @param[in] arr   The arr                                                   //
+// @param[in] k     { parameter_description }                                 //
+// @param[in] rows  The rows                                                  //
+// @param[in] cols  The cols                                                  //
+// @param[in] iV    { parameter_description }                                 //
+// @param[in] iK    { parameter_description }                                 //
+//                                                                            //
+// @tparam N       { description }                                            //
+// @tparam TPB     { description }                                            //
+// @tparam Greater { description }                                            //
+// @tparam Sort    { description }                                            //
+////////////////////////////////////////////////////////////////////////////////
 template <typename TypeV, typename TypeK, int N, int TPB, bool Greater,
           bool Sort>
 __global__ void warpTopKkernel(TypeV *outV, TypeK *outK, const TypeV *arr,
@@ -325,12 +397,21 @@ __global__ void warpTopKkernel(TypeV *outV, TypeK *outK, const TypeV *arr,
     break
 /**
  * @brief Perform warp-wide top-k selection on the input matrix
- * @tparam TypeV value type
- * @tparam TypeK key type
+ *
+ * @param     outV   The out v
+ * @param     outK   The out k
+ * @param[in] arr    The arr
+ * @param[in] k      { parameter_description }
+ * @param[in] rows   The rows
+ * @param[in] cols   The cols
+ * @param[in] stream The stream
+ *
+ * @tparam TypeV   value type
  * @tparam Greater whether to do a greater than comparison
- * @tparam Sort whether to sort the final topK values before writing
- * @note the input matrix is assumed to be row-major!
- * @todo verify and extend support to k <= 1024
+ * @tparam Sort    whether to sort the final topK values before writing
+ * @tparam TypeK key type
+ * @note   the input matrix is assumed to be row-major!
+ * @todo   verify and extend support to k <= 1024
  */
 template <typename TypeV, typename TypeK, bool Greater, bool Sort>
 void warpTopK(TypeV *outV, TypeK *outK, const TypeV *arr, int k, int rows,

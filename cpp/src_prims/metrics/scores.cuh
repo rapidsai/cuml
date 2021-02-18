@@ -40,12 +40,18 @@ namespace Score {
 
 /**
  * @brief Compute a the rank of trustworthiness score
- * @param[in] ind_X: indexes given by pairwise distance and sorting
- * @param[in] ind_X_embedded: indexes given by KNN
- * @param[in] n: Number of samples
- * @param[in] n_neighbors: Number of neighbors considered by trustworthiness score
- * @param[in] work: Batch to consider (to do it at once use n * n_neighbors)
- * @param[out] rank: Resulting rank
+ *
+ * @param[in]  ind_X          indexes given by pairwise distance and sorting
+ * @param[in]  ind_X_embedded indexes given by KNN
+ * @param[in]  n              Number of samples
+ * @param[in]  n_neighbors    Number of neighbors considered by trustworthiness
+ *                            score
+ * @param[in]  work           Batch to consider (to do it at once use n *
+ *                            n_neighbors)
+ * @param[out] rank           Resulting rank
+ *
+ * @tparam math_t      { description }
+ * @tparam knn_index_t { description }
  */
 template <typename math_t, typename knn_index_t>
 __global__ void compute_rank(math_t *ind_X, knn_index_t *ind_X_embedded, int n,
@@ -72,12 +78,16 @@ __global__ void compute_rank(math_t *ind_X, knn_index_t *ind_X_embedded, int n,
 
 /**
  * @brief Compute a kNN and returns the indices of the nearest neighbors
- * @param input Input matrix holding the dataset
- * @param n Number of samples
- * @param d Number of features
+ *
+ * @param input       Input matrix holding the dataset
+ * @param n           Number of samples
+ * @param d           Number of features
  * @param n_neighbors number of neighbors
- * @param d_alloc the device allocator to use for temp device memory
- * @param stream cuda stream to use
+ * @param d_alloc     the device allocator to use for temp device memory
+ * @param stream      cuda stream to use
+ *
+ * @tparam math_t { description }
+ *
  * @return Matrix holding the indices of the nearest neighbors
  */
 template <typename math_t>
@@ -103,16 +113,20 @@ long *get_knn_indices(math_t *input, int n, int d, int n_neighbors,
 
 /**
  * @brief Compute the trustworthiness score
- * @tparam distance_type: Distance type to consider
- * @param X: Data in original dimension
- * @param X_embedded: Data in target dimension (embedding)
- * @param n: Number of samples
- * @param m: Number of features in high/original dimension
- * @param d: Number of features in low/embedded dimension
+ *
+ * @param X           Data in original dimension
+ * @param X_embedded  Data in target dimension (embedding)
+ * @param n           Number of samples
+ * @param m           Number of features in high/original dimension
+ * @param d           Number of features in low/embedded dimension
  * @param n_neighbors Number of neighbors considered by trustworthiness score
- * @param d_alloc device allocator to use for temp device memory
- * @param stream the cuda stream to use
- * @param batchSize batch size
+ * @param d_alloc     device allocator to use for temp device memory
+ * @param stream      the cuda stream to use
+ * @param batchSize   batch size
+ *
+ * @tparam math_t        { description }
+ * @tparam distance_type Distance type to consider
+ *
  * @return Trustworthiness score
  */
 template <typename math_t, raft::distance::DistanceType distance_type>
@@ -203,19 +217,22 @@ double trustworthiness_score(math_t *X, math_t *X_embedded, int n, int m, int d,
 }
 
 /**
- * Calculates the "Coefficient of Determination" (R-Squared) score
- * normalizing the sum of squared errors by the total sum of squares.
+ * Calculates the "Coefficient of Determination" (R-Squared) score normalizing
+ * the sum of squared errors by the total sum of squares.
  *
- * This score indicates the proportionate amount of variation in an
- * expected response variable is explained by the independent variables
- * in a linear regression model. The larger the R-squared value, the
- * more variability is explained by the linear regression model.
+ * This score indicates the proportionate amount of variation in an expected
+ * response variable is explained by the independent variables in a linear
+ * regression model. The larger the R-squared value, the more variability is
+ * explained by the linear regression model.
  *
- * @param y: Array of ground-truth response variables
- * @param y_hat: Array of predicted response variables
- * @param n: Number of elements in y and y_hat
- * @param stream: cuda stream
- * @return: The R-squared value.
+ * @param y      Array of ground-truth response variables
+ * @param y_hat  Array of predicted response variables
+ * @param n      Number of elements in y and y_hat
+ * @param stream cuda stream
+ *
+ * @tparam math_t { description }
+ *
+ * @return : The R-squared value.
  */
 template <typename math_t>
 math_t r2_score(math_t *y, math_t *y_hat, int n, cudaStream_t stream) {
@@ -255,13 +272,18 @@ math_t r2_score(math_t *y, math_t *y_hat, int n, cudaStream_t stream) {
 
 /**
  * @brief Compute accuracy of predictions. Useful for classification.
- * @tparam math_t: data type for predictions (e.g., int for classification)
- * @param[in] predictions: array of predictions (GPU pointer).
- * @param[in] ref_predictions: array of reference (ground-truth) predictions (GPU pointer).
- * @param[in] n: number of elements in each of predictions, ref_predictions.
- * @param[in] d_alloc: device allocator.
- * @param[in] stream: cuda stream.
- * @return: Accuracy score in [0, 1]; higher is better.
+ *
+ * @param[in] predictions     array of predictions (GPU pointer).
+ * @param[in] ref_predictions array of reference (ground-truth) predictions (GPU
+ *                            pointer).
+ * @param[in] n               number of elements in each of predictions,
+ *                            ref_predictions.
+ * @param[in] d_alloc         device allocator.
+ * @param[in] stream          cuda stream.
+ *
+ * @tparam math_t data type for predictions (e.g., int for classification)
+ *
+ * @return : Accuracy score in [0, 1]; higher is better.
  */
 template <typename math_t>
 float accuracy_score(const math_t *predictions, const math_t *ref_predictions,
@@ -312,16 +334,26 @@ __global__ void reg_metrics_kernel(const T *predictions,
 }
 
 /**
- * @brief Compute regression metrics mean absolute error, mean squared error, median absolute error
- * @tparam T: data type for predictions (e.g., float or double for regression).
- * @param[in] predictions: array of predictions (GPU pointer).
- * @param[in] ref_predictions: array of reference (ground-truth) predictions (GPU pointer).
- * @param[in] n: number of elements in each of predictions, ref_predictions. Should be > 0.
- * @param[in] d_alloc: device allocator.
- * @param[in] stream: cuda stream.
- * @param[out] mean_abs_error: Mean Absolute Error. Sum over n of (|predictions[i] - ref_predictions[i]|) / n.
- * @param[out] mean_squared_error: Mean Squared Error. Sum over n of ((predictions[i] - ref_predictions[i])^2) / n.
- * @param[out] median_abs_error: Median Absolute Error. Median of |predictions[i] - ref_predictions[i]| for i in [0, n).
+ * @brief Compute regression metrics mean absolute error, mean squared error,
+ *        median absolute error
+ *
+ * @param[in]  predictions        array of predictions (GPU pointer).
+ * @param[in]  ref_predictions    array of reference (ground-truth) predictions
+ *                                (GPU pointer).
+ * @param[in]  n                  number of elements in each of predictions,
+ *                                ref_predictions. Should be > 0.
+ * @param[in]  d_alloc            device allocator.
+ * @param[in]  stream             cuda stream.
+ * @param[out] mean_abs_error     Mean Absolute Error. Sum over n of
+ *                                (|predictions[i] - ref_predictions[i]|) / n.
+ * @param[out] mean_squared_error Mean Squared Error. Sum over n of
+ *                                ((predictions[i] - ref_predictions[i])^2) / n.
+ * @param[out] median_abs_error   Median Absolute Error. Median of
+ *                                |predictions[i] - ref_predictions[i]| for i in
+ *                                [0, n).
+ *
+ * @tparam T     data type for predictions (e.g., float or double for
+ *               regression).
  */
 template <typename T>
 void regression_metrics(const T *predictions, const T *ref_predictions, int n,

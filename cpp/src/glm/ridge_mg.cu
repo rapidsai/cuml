@@ -164,23 +164,23 @@ void fit_impl(raft::handle_t &handle,
 }
 
 /**
- * @brief      performs MNMG fit operation for the ridge regression
+ * @brief performs MNMG fit operation for the ridge regression
  *
- * @param[in]  handle         the internal cuml handle object
- * @param[in]  input_data     input data
- * @param      input_desc     The input description
- * @param[in]  labels         labels data
- * @param[in]  alpha          ridge parameter
- * @param[in]  n_alpha        number of ridge parameters. Only one parameter is
- *                            supported right now.
- * @param[out] coef           learned regression coefficients
- * @param[out] intercept      intercept value
- * @param[in]  fit_intercept  fit intercept or not
- * @param[in]  normalize      normalize the data or not
- * @param[in]  algo           The algorithm
- * @param[in]  verbose        The verbose
+ * @param[in]  handle        the internal cuml handle object
+ * @param[in]  input_data    input data
+ * @param      input_desc    The input description
+ * @param[in]  labels        labels data
+ * @param[in]  alpha         ridge parameter
+ * @param[in]  n_alpha       number of ridge parameters. Only one parameter is
+ *                           supported right now.
+ * @param[out] coef          learned regression coefficients
+ * @param[out] intercept     intercept value
+ * @param[in]  fit_intercept fit intercept or not
+ * @param[in]  normalize     normalize the data or not
+ * @param[in]  algo          The algorithm
+ * @param[in]  verbose       The verbose
  *
- * @tparam     T              { description }
+ * @tparam T     { description }
  */
 template <typename T>
 void fit_impl(raft::handle_t &handle,

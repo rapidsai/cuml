@@ -23,11 +23,11 @@ namespace ML {
 namespace DecisionTree {
 
 /**
- * @brief      All info pertaining to a node in the decision tree.
+ * @brief All info pertaining to a node in the decision tree.
  *
- * @tparam     DataT   data type
- * @tparam     LabelT  label type
- * @tparam     IdxT    indexing type
+ * @tparam DataT  data type
+ * @tparam LabelT label type
+ * @tparam IdxT   indexing type
  */
 template <typename DataT, typename LabelT, typename IdxT>
 struct Node {
@@ -52,7 +52,7 @@ struct Node {
   IdxT depth;
 
   /**
-   * @brief      Initialize the underlying sparse tree node struct
+   * @brief Initialize the underlying sparse tree node struct
    */
   HDI void initSpNode() volatile {
     info.prediction = LabelT(0);
@@ -63,15 +63,14 @@ struct Node {
   }
 
   /**
-   * @brief        Makes this node as a leaf. Side effect of this is that it
-   *               atomically updates the number of leaves counter
+   * @brief Makes this node as a leaf. Side effect of this is that it atomically
+   *        updates the number of leaves counter
    *
-   * @param[inout] n_leaves  global memory location tracking the total number of
-   *                         leaves created in the tree so far
-   * @param[in]    pred      the prediction for this leaf node
+   * @param[inout] n_leaves global memory location tracking the total number of
+   *                        leaves created in the tree so far
+   * @param[in]    pred     the prediction for this leaf node
    *
-   * @note         to be called only by one thread across all participating
-   *               threadblocks
+   * @note to be called only by one thread across all participating threadblocks
    */
   DI void makeLeaf(IdxT* n_leaves, LabelT pred) volatile {
     info.prediction = pred;
@@ -84,18 +83,17 @@ struct Node {
   }
 
   /**
-   * @brief        create left/right child nodes
+   * @brief create left/right child nodes
    *
-   * @param[inout] n_nodes      number of nodes created in current kernel launch
-   * @param[in]    total_nodes  total nodes created so far across all levels
-   * @param[out]   nodes        the list of nodes
-   * @param[in]    split        split info for current node
-   * @param[inout] n_depth      max depth of the created tree so far
+   * @param[inout] n_nodes     number of nodes created in current kernel launch
+   * @param[in]    total_nodes total nodes created so far across all levels
+   * @param[out]   nodes       the list of nodes
+   * @param[in]    split       split info for current node
+   * @param[inout] n_depth     max depth of the created tree so far
    *
-   * @return       the position of the left child node in the above list
+   * @return the position of the left child node in the above list
    *
-   * @note         to be called only by one thread across all participating
-   *               threadblocks
+   * @note to be called only by one thread across all participating threadblocks
    */
   DI IdxT makeChildNodes(IdxT* n_nodes, IdxT total_nodes, volatile NodeT* nodes,
                          const SplitT& split, IdxT* n_depth) volatile {

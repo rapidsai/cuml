@@ -118,6 +118,7 @@ void ridgeEig(const raft::handle_t &handle, math_t *A, int n_rows, int n_cols,
 
 /**
  * @brief fit a ridge regression model (l2 regularized least squares)
+ *
  * @param handle        cuml handle
  * @param input         device pointer to feature matrix n_rows x n_cols
  * @param n_rows        number of rows of the feature matrix
@@ -125,12 +126,17 @@ void ridgeEig(const raft::handle_t &handle, math_t *A, int n_rows, int n_cols,
  * @param labels        device pointer to label vector of length n_rows
  * @param alpha         device pointer to parameters of the l2 regularizer
  * @param n_alpha       number of regularization parameters
- * @param coef          device pointer to hold the solution for weights of size n_cols
- * @param intercept     device pointer to hold the solution for bias term of size 1
+ * @param coef          device pointer to hold the solution for weights of size
+ *                      n_cols
+ * @param intercept     device pointer to hold the solution for bias term of
+ *                      size 1
  * @param fit_intercept if true, fit intercept
  * @param normalize     if true, normalize data to zero mean, unit variance
  * @param stream        cuda stream
- * @param algo          specifies which solver to use (0: SVD, 1: Eigendecomposition)
+ * @param algo          specifies which solver to use (0: SVD, 1:
+ *                      Eigendecomposition)
+ *
+ * @tparam math_t { description }
  */
 template <typename math_t>
 void ridgeFit(const raft::handle_t &handle, math_t *input, int n_rows,

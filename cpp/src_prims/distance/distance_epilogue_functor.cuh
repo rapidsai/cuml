@@ -29,8 +29,10 @@ namespace Distance {
 
 /**
  * @brief Base EpilogueFunctor for all distance metrics.
- * @tparam InputScalar_  input scalar type
- * @tparam OutputScalar_ output scalar type
+ *
+ * @tparam InputScalar_         input scalar type
+ * @tparam OutputScalar_        output scalar type
+ * @tparam GemmConfig_          { description }
  * @tparam FragmentMultiplyAdd_ fragment-level epilogue function
  */
 template <typename InputScalar_, typename OutputScalar_, typename GemmConfig_,
@@ -60,8 +62,10 @@ struct DistanceEpilogueFunctor {
     0>
     Delta;
 
-  /// The traits class to build the iterator to load data from global memory for
-  /// AA
+  //////////////////////////////////////////////////////////////////////////////
+  // The traits class to build the iterator to load data from global memory   //
+  // for / AA                                                                 //
+  //////////////////////////////////////////////////////////////////////////////
   typedef DistanceGlobalTileAATraits<
     InputScalar const,
     cutlass::Shape<
@@ -76,8 +80,10 @@ struct DistanceEpilogueFunctor {
   typedef cutlass::gemm::GemmGlobalIteratorCd<GlobalLoadTileAATraits, int>
     GlobalLoadIteratorAA;
 
-  /// The traits class to build the iterator to load data from global memory for
-  /// BB
+  //////////////////////////////////////////////////////////////////////////////
+  // The traits class to build the iterator to load data from global memory   //
+  // for / BB                                                                 //
+  //////////////////////////////////////////////////////////////////////////////
   typedef DistanceGlobalTileBBTraits<
     InputScalar const,
     cutlass::Shape<
@@ -92,6 +98,7 @@ struct DistanceEpilogueFunctor {
     GlobalLoadIteratorBB;
 
   /// The parameters.
+  ///
   struct Params {
     /// sqrt on/off
     bool enable_sqrt;
@@ -103,6 +110,13 @@ struct DistanceEpilogueFunctor {
     int m, n, k, ldd;
 
     /// Initialize the parameters.
+    ///
+    /// @param desc  The description
+    ///
+    /// @tparam GemmDesc_ { description }
+    ///
+    /// @return { description_of_the_return_value }
+    ///
     template <typename GemmDesc_>
     CUTLASS_HOST_DEVICE int initialize(GemmDesc_ const &desc) {
       /// row_gemm is assumed
@@ -114,6 +128,13 @@ struct DistanceEpilogueFunctor {
     }
 
     /// Initialize the custom parameters. User code must call it!
+    ///
+    /// @param     col_vec     The col vector
+    /// @param     row_vec     The row vector
+    /// @param[in] enable_sqrt The enable sqrt
+    ///
+    /// @return { description_of_the_return_value }
+    ///
     CUTLASS_HOST_DEVICE int initializeExtra(InputScalar *col_vec,
                                             InputScalar *row_vec,
                                             bool enable_sqrt) {
@@ -126,6 +147,9 @@ struct DistanceEpilogueFunctor {
   };  // end struct Params
 
   /// Ctor.
+  ///
+  /// @param p     { parameter_description }
+  ///
   CUTLASS_DEVICE DistanceEpilogueFunctor(Params const &p) : params(p) {}
 
   /// params
@@ -134,9 +158,12 @@ struct DistanceEpilogueFunctor {
 
 /**
  * @brief EpilogueFunctor to work with expanded cases (eg: expanded L2 metric)
- * @tparam InputScalar_  input scalar type
- * @tparam OutputScalar_ output scalar type
+ *
+ * @tparam InputScalar_         input scalar type
+ * @tparam OutputScalar_        output scalar type
+ * @tparam GemmConfig_          { description }
  * @tparam FragmentMultiplyAdd_ fragment-level epilogue function
+ * @tparam BaseClass            { description }
  */
 template <typename InputScalar_, typename OutputScalar_, typename GemmConfig_,
           typename FragmentMultiplyAdd_,
@@ -144,11 +171,27 @@ template <typename InputScalar_, typename OutputScalar_, typename GemmConfig_,
             InputScalar_, OutputScalar_, GemmConfig_, FragmentMultiplyAdd_>>
 struct ExpandedDistanceEpilogueFunctor : public BaseClass {
   /// Ctor.
+  ///
+  /// @param params The parameters
+  ///
   CUTLASS_DEVICE ExpandedDistanceEpilogueFunctor(
     typename BaseClass::Params const &params)
     : BaseClass(params) {}
 
   /// Evaluate the functor.
+  ///
+  /// @param     accum  The accum
+  /// @param     output The output
+  /// @param[in] index  The index
+  /// @param     col    The col
+  /// @param     row    The row
+  /// @param[in] fin_op The fin operation
+  ///
+  /// @tparam FragmentA_   { description }
+  /// @tparam FragmentB_   { description }
+  /// @tparam FragmentCol_ { description }
+  /// @tparam FragmentRow_ { description }
+  ///
   template <typename FragmentA_, typename FragmentB_, typename FragmentCol_,
             typename FragmentRow_, typename FinalLambda>
   CUTLASS_DEVICE void evaluate(FragmentA_ const &accum, FragmentB_ &output,
@@ -166,19 +209,34 @@ struct ExpandedDistanceEpilogueFunctor : public BaseClass {
 
 /**
  * @brief EpilogueFunctor for L1 and unexpanded L2 distance
- * @tparam Scalar_ input scalar type
+ *
+ * @tparam Scalar_              input scalar type
+ * @tparam GemmConfig_          { description }
  * @tparam FragmentMultiplyAdd_ fragment-level epilogue function
+ * @tparam BaseClass            { description }
  */
 template <typename Scalar_, typename GemmConfig_, typename FragmentMultiplyAdd_,
           typename BaseClass = DistanceEpilogueFunctor<
             Scalar_, Scalar_, GemmConfig_, FragmentMultiplyAdd_>>
 struct UnexpandedDistanceEpilogueFunctor : public BaseClass {
   /// Ctor.
+  ///
+  /// @param params The parameters
+  ///
   CUTLASS_DEVICE UnexpandedDistanceEpilogueFunctor(
     typename BaseClass::Params const &params)
     : BaseClass(params) {}
 
   /// Evaluate the functor.
+  ///
+  /// @param     accum  The accum
+  /// @param     output The output
+  /// @param[in] index  The index
+  /// @param[in] fin_op The fin operation
+  ///
+  /// @tparam FragmentA_ { description }
+  /// @tparam FragmentB_ { description }
+  ///
   template <typename FragmentA_, typename FragmentB_, typename FinalLambda>
   CUTLASS_DEVICE void evaluate(FragmentA_ const &accum, FragmentB_ &output,
                                const int index[FragmentB_::kElements],

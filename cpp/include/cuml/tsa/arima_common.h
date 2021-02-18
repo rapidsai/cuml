@@ -51,9 +51,11 @@ struct ARIMAOrder {
 
 /**
  * Structure to hold the parameters (makes it easier to pass as an argument)
- * @note: the qualifier const applied to this structure will only guarantee
- *        that the pointers are not changed, but the user can still modify the
- *        arrays when using the pointers directly!
+ * @note : the qualifier const applied to this structure will only guarantee
+ *       that the pointers are not changed, but the user can still modify the
+ *       arrays when using the pointers directly!
+ *
+ * @tparam DataT { description }
  */
 template <typename DataT>
 struct ARIMAParams {
@@ -67,12 +69,13 @@ struct ARIMAParams {
   /**
    * Allocate all the parameter device arrays
    *
-   * @tparam      AllocatorT Type of allocator used
-   * @param[in]   order      ARIMA order
-   * @param[in]   batch_size Batch size
-   * @param[in]   alloc      Allocator
-   * @param[in]   stream     CUDA stream
-   * @param[in]   tr         Whether these are the transformed parameters
+   * @param[in] order      ARIMA order
+   * @param[in] batch_size Batch size
+   * @param[in] alloc      Allocator
+   * @param[in] stream     CUDA stream
+   * @param[in] tr         Whether these are the transformed parameters
+   *
+   * @tparam AllocatorT Type of allocator used
    */
   template <typename AllocatorT>
   void allocate(const ARIMAOrder& order, int batch_size, AllocatorT& alloc,
@@ -97,12 +100,13 @@ struct ARIMAParams {
   /**
    * Deallocate all the parameter device arrays
    *
-   * @tparam      AllocatorT Type of allocator used
-   * @param[in]   order      ARIMA order
-   * @param[in]   batch_size Batch size
-   * @param[in]   alloc      Allocator
-   * @param[in]   stream     CUDA stream
-   * @param[in]   tr         Whether these are the transformed parameters
+   * @param[in] order      ARIMA order
+   * @param[in] batch_size Batch size
+   * @param[in] alloc      Allocator
+   * @param[in] stream     CUDA stream
+   * @param[in] tr         Whether these are the transformed parameters
+   *
+   * @tparam AllocatorT Type of allocator used
    */
   template <typename AllocatorT>
   void deallocate(const ARIMAOrder& order, int batch_size, AllocatorT& alloc,
@@ -123,11 +127,11 @@ struct ARIMAParams {
   /**
    * Pack the separate parameter arrays into a unique parameter vector
    *
-   * @param[in]   order      ARIMA order
-   * @param[in]   batch_size Batch size
-   * @param[out]  param_vec  Linear array of all parameters grouped by batch
-   *                         [mu, ar, ma, sar, sma, sigma2] (device)
-   * @param[in]  stream      CUDA stream
+   * @param[in]  order      ARIMA order
+   * @param[in]  batch_size Batch size
+   * @param[out] param_vec  Linear array of all parameters grouped by batch [mu,
+   *                        ar, ma, sar, sma, sigma2] (device)
+   * @param[in]  stream     CUDA stream
    */
   void pack(const ARIMAOrder& order, int batch_size, DataT* param_vec,
             cudaStream_t stream) const {
@@ -165,12 +169,12 @@ struct ARIMAParams {
 
   /**
    * Unpack a parameter vector into separate arrays of parameters.
-   * 
-   * @param[in]  order      ARIMA order
-   * @param[in]  batch_size Batch size
-   * @param[in]  param_vec  Linear array of all parameters grouped by batch
-   *                        [mu, ar, ma, sar, sma, sigma2] (device)
-   * @param[in]  stream     CUDA stream
+   *
+   * @param[in] order      ARIMA order
+   * @param[in] batch_size Batch size
+   * @param[in] param_vec  Linear array of all parameters grouped by batch [mu,
+   *                       ar, ma, sar, sma, sigma2] (device)
+   * @param[in] stream     CUDA stream
    */
   void unpack(const ARIMAOrder& order, int batch_size, const DataT* param_vec,
               cudaStream_t stream) {

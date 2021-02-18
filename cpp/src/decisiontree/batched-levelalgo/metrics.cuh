@@ -49,10 +49,10 @@ namespace DecisionTree {
  *
  * @param[in]    shist                 left/right class histograms for all bins
  *                                     [dim = nbins x 2 x nclasses]
- * @param[in]    sbins                 quantiles for the current column
- *                                     [len = nbins]
- * @param[inout] sp                    will contain the per-thread best split
- *                                     so far
+ * @param[in]    sbins                 quantiles for the current column [len =
+ *                                     nbins]
+ * @param[inout] sp                    will contain the per-thread best split so
+ *                                     far
  * @param[in]    col                   current column
  * @param[in]    len                   total number of samples for the current
  *                                     node to be split
@@ -63,9 +63,9 @@ namespace DecisionTree {
  *                                     samples fewer than min_samples_leaf will
  *                                     be ignored.
  * @param[in]    min_impurity_decrease minimum improvement in MSE metric. Any
- *                                     splits that do not improve (decrease)
- *                                     the MSE metric at least by this amount
- *                                     will be ignored.
+ *                                     splits that do not improve (decrease) the
+ *                                     MSE metric at least by this amount will
+ *                                     be ignored.
  */
 template <typename DataT, typename IdxT>
 DI void giniGain(int* shist, DataT* sbins, Split<DataT, IdxT>& sp, IdxT col,
@@ -115,10 +115,10 @@ DI void giniGain(int* shist, DataT* sbins, Split<DataT, IdxT>& sp, IdxT col,
  *
  * @param[in]    shist                 left/right class histograms for all bins
  *                                     [dim = nbins x 2 x nclasses]
- * @param[in]    sbins                 quantiles for the current column
- *                                     [len = nbins]
- * @param[inout] sp                    will contain the per-thread best split
- *                                     so far
+ * @param[in]    sbins                 quantiles for the current column [len =
+ *                                     nbins]
+ * @param[inout] sp                    will contain the per-thread best split so
+ *                                     far
  * @param[in]    col                   current column
  * @param[in]    len                   total number of samples for the current
  *                                     node to be split
@@ -129,9 +129,9 @@ DI void giniGain(int* shist, DataT* sbins, Split<DataT, IdxT>& sp, IdxT col,
  *                                     samples fewer than min_samples_leaf will
  *                                     be ignored.
  * @param[in]    min_impurity_decrease minimum improvement in MSE metric. Any
- *                                     splits that do not improve (decrease)
- *                                     the MSE metric at least by this amount
- *                                     will be ignored.
+ *                                     splits that do not improve (decrease) the
+ *                                     MSE metric at least by this amount will
+ *                                     be ignored.
  */
 template <typename DataT, typename IdxT>
 DI void entropyGain(int* shist, DataT* sbins, Split<DataT, IdxT>& sp, IdxT col,
@@ -191,12 +191,12 @@ DI void entropyGain(int* shist, DataT* sbins, Split<DataT, IdxT>& sp, IdxT col,
  *                                     prediction for all bins [dim = 2 x bins]
  * @param[in]    spredP                parent's sum of abs diff of prediction
  *                                     for all bins [dim = 2 x bins]
- * @param[in]    scount                left child count for all bins
- *                                     [len = nbins]
- * @param[in]    sbins                 quantiles for the current column
- *                                     [len = nbins]
- * @param[inout] sp                    will contain the per-thread best split
- *                                     so far
+ * @param[in]    scount                left child count for all bins [len =
+ *                                     nbins]
+ * @param[in]    sbins                 quantiles for the current column [len =
+ *                                     nbins]
+ * @param[inout] sp                    will contain the per-thread best split so
+ *                                     far
  * @param[in]    col                   current column
  * @param[in]    len                   total number of samples for current node
  *                                     to be split
@@ -206,9 +206,9 @@ DI void entropyGain(int* shist, DataT* sbins, Split<DataT, IdxT>& sp, IdxT col,
  *                                     samples fewer than min_samples_leaf will
  *                                     be ignored.
  * @param[in]    min_impurity_decrease minimum improvement in MSE metric. Any
- *                                     splits that do not improve (decrease)
- *                                     the MSE metric at least by this amount
- *                                     will be ignored.
+ *                                     splits that do not improve (decrease) the
+ *                                     MSE metric at least by this amount will
+ *                                     be ignored.
  */
 template <typename DataT, typename IdxT>
 DI void regressionMetricGain(DataT* spred, DataT* spredP, IdxT* scount,

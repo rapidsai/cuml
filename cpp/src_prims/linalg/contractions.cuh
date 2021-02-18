@@ -22,8 +22,8 @@ namespace MLCommon {
 namespace LinAlg {
 
 /**
- * @brief This is the central enum that should be used to configure the perf
- *        landscape of the Contraction kernel.
+ * This is the central enum that should be used to configure the perf landscape
+ * of the Contraction kernel.
  *
  * Main goal of this Policy struct is to provide sufficient knobs to tune the
  * perf of Contraction kernel, as and when we see matrices of different shapes.
@@ -31,21 +31,21 @@ namespace LinAlg {
  * @tparam DataT   the IO and math datatype
  * @tparam _veclen number of k-elements loaded by each thread for every LDG call
  *                 it makes. This should be configured based on the input 'k'
- *                 value and the input data type. For eg: if DataT = float and
- *                 k is multiples of 4, then setting this to 4 gives the best
- *                 LDG pattern. Possible values are {1, 2, 4}.
+ *                 value and the input data type. For eg: if DataT = float and k
+ *                 is multiples of 4, then setting this to 4 gives the best LDG
+ *                 pattern. Possible values are {1, 2, 4}.
  * @tparam _kblk   number of k-elements operated upon per main-loop iteration.
  *                 Therefore total number of main-loop iterations will be
  *                 `ceil(k/_kblk)`. This must be multiples of `_veclen`. Do note
  *                 that bigger this value, the greater shared mem requirement.
- * @tparam _rpt    Defines the number of rows that a given thread accumulates on.
- *                 This directly results in increased register pressure. This
- *                 also is used to compute the number of m-elements worked upon
- *                 by each thread block.
- * @tparam _rpt    Defines the number of cols that a given thread accumulates on.
- *                 This directly results in increased register pressure. This
- *                 also is used to compute the number of n-elements worked upon
- *                 by each thread block.
+ * @tparam _rpt    Defines the number of rows that a given thread accumulates
+ *                 on. This directly results in increased register pressure.
+ *                 This also is used to compute the number of m-elements worked
+ *                 upon by each thread block.
+ * @tparam _cpt    Defines the number of cols that a given thread accumulates
+ *                 on. This directly results in increased register pressure.
+ *                 This also is used to compute the number of n-elements worked
+ *                 upon by each thread block.
  * @tparam _tr     Number of threads working on the same output column. This is
  *                 used to compute the number of m-elements worked upon by each
  *                 thread block. This also determines the number of threads per
@@ -102,6 +102,12 @@ struct KernelPolicy {
 
 /**
  * @defgroup Policy4x4 16 elements per thread Policy with k-block = 32
+ *
+ * @brief { struct_description }
+ *
+ * @tparam DataT   { description }
+ * @tparam _veclen { description }
+ * 
  * @{
  */
 template <typename DataT, int _veclen>
@@ -119,7 +125,7 @@ struct Policy4x4<double, _veclen> {
 /** @} */
 
 /**
- * @brief Base class for gemm-like NT contractions
+ * Base class for gemm-like NT contractions
  *
  * This class does not provide any arithmetic operations, but only provides the
  * memory-related operations of loading the `x` and `y` matrix blocks from the
@@ -129,8 +135,8 @@ struct Policy4x4<double, _veclen> {
  *
  * @tparam DataT  IO and math data type
  * @tparam IdxT   indexing type
- * @tparam Policy policy used to customize memory access behavior.
- *                See documentation for `KernelPolicy` to know more.
+ * @tparam Policy policy used to customize memory access behavior. See
+ *                documentation for `KernelPolicy` to know more.
  */
 template <typename DataT, typename IdxT, typename Policy>
 struct Contractions_NT {
@@ -183,12 +189,13 @@ struct Contractions_NT {
 
  public:
   /**
-   * @brief Ctor
-   * @param[in] _x X matrix. [on device] [dim = _m x _k] [row-major]
-   * @param[in] _y Y matrix. [on device] [dim = _n x _k] [row-major]
-   * @param[in] _m number of rows of X
-   * @param[in] _n number of rows of Y
-   * @param[in] _k number of cols of X and Y
+   * Ctor
+   *
+   * @param[in] _x    X matrix. [on device] [dim = _m x _k] [row-major]
+   * @param[in] _y    Y matrix. [on device] [dim = _n x _k] [row-major]
+   * @param[in] _m    number of rows of X
+   * @param[in] _n    number of rows of Y
+   * @param[in] _k    number of cols of X and Y
    * @param[in] _smem shared memory region used during computations
    */
   DI Contractions_NT(const DataT* _x, const DataT* _y, IdxT _m, IdxT _n,
@@ -211,8 +218,9 @@ struct Contractions_NT {
 
  protected:
   /**
-   * @brief Load current block of X/Y from global memory to registers
-   * @param[in] kidx current start index of k to be loaded
+   * Load current block of X/Y from global memory to registers
+   *
+   * @param[in] kidx  current start index of k to be loaded
    */
   DI void ldgXY(IdxT kidx) {
     ldgX(kidx);
@@ -220,8 +228,8 @@ struct Contractions_NT {
   }
 
   /**
-   * @brief Store current block of X/Y from registers to smem
-   * @param[in] kidx current start index of k to be loaded
+   * Store current block of X/Y from registers to smem
+   * @param[in] kidx  current start index of k to be loaded
    */
   DI void stsXY() {
     stsX(sx + pageWr * P::SmemPage);
@@ -229,8 +237,9 @@ struct Contractions_NT {
   }
 
   /**
-   * @brief Load X and Y block from shared memory to registers
-   * @param[in] kidx k value from the current k-block to be loaded from smem
+   * Load X and Y block from shared memory to registers
+   *
+   * @param[in] kidx  k value from the current k-block to be loaded from smem
    */
   DI void ldsXY(int kidx) {
     ldsX(kidx, sx + pageRd * P::SmemPage);

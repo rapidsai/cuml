@@ -45,24 +45,35 @@ __global__ void gatherKernel(MatrixIteratorT in, IndexT D, IndexT N,
 }
 
 /**
- * @brief  gather conditionally copies rows from a source matrix into a destination matrix according to a transformed map.
+ * @brief gather conditionally copies rows from a source matrix into a
+ *        destination matrix according to a transformed map.
  *
- * @tparam MatrixIteratorT      Random-access iterator type, for reading input matrix (may be a simple pointer type).
- * @tparam MapIteratorT         Random-access iterator type, for reading input map (may be a simple pointer type).
- * @tparam StencilIteratorT     Random-access iterator type, for reading input stencil (may be a simple pointer type).
- * @tparam UnaryPredicateOp     Unary lambda expression or operator type, UnaryPredicateOp's result type must be convertible to bool type.
- * @tparam MapTransformOp       Unary lambda expression or operator type, MapTransformOp's result type must be convertible to IndexT (= int) type.
+ * @tparam MatrixIteratorT  Random-access iterator type, for reading input matrix
+ *                          (may be a simple pointer type).
+ * @tparam MapIteratorT     Random-access iterator type, for reading input map (may
+ *                          be a simple pointer type).
+ * @tparam StencilIteratorT Random-access iterator type, for reading input stencil
+ *                          (may be a simple pointer type).
+ * @tparam UnaryPredicateOp Unary lambda expression or operator type,
+ *                          UnaryPredicateOp's result type must be convertible to
+ *                          bool type.
+ * @tparam MapTransformOp   Unary lambda expression or operator type,
+ *                          MapTransformOp's result type must be convertible to
+ *                          IndexT (= int) type.
  *
- * @param  in           Pointer to the input matrix (assumed to be row-major)
- * @param  D            Leading dimension of the input matrix 'in', which in-case of row-major storage is the number of columns
- * @param  N            Second dimension
- * @param  map          Pointer to the input sequence of gather locations
- * @param  stencil      Pointer to the input sequence of stencil or predicate values
- * @param  map_length   The length of 'map' and 'stencil'
- * @param  out          Pointer to the output matrix (assumed to be row-major)
- * @param  pred_op      Predicate to apply to the stencil values
- * @param  transform_op The transformation operation, transforms the map values to IndexT
- * @param  stream       CUDA stream to launch kernels within
+ * @param in           Pointer to the input matrix (assumed to be row-major)
+ * @param D            Leading dimension of the input matrix 'in', which in-case
+ *                     of row-major storage is the number of columns
+ * @param N            Second dimension
+ * @param map          Pointer to the input sequence of gather locations
+ * @param stencil      Pointer to the input sequence of stencil or predicate
+ *                     values
+ * @param map_length   The length of 'map' and 'stencil'
+ * @param out          Pointer to the output matrix (assumed to be row-major)
+ * @param pred_op      Predicate to apply to the stencil values
+ * @param transform_op The transformation operation, transforms the map values
+ *                     to IndexT
+ * @param stream       CUDA stream to launch kernels within
  */
 template <typename MatrixIteratorT, typename MapIteratorT,
           typename StencilIteratorT, typename UnaryPredicateOp,
@@ -123,18 +134,22 @@ void gatherImpl(MatrixIteratorT in, int D, int N, MapIteratorT map,
 }
 
 /**
- * @brief  gather copies rows from a source matrix into a destination matrix according to a map.
+ * @brief gather copies rows from a source matrix into a destination matrix
+ *        according to a map.
  *
- * @tparam MatrixIteratorT      Random-access iterator type, for reading input matrix (may be a simple pointer type).
- * @tparam MapIteratorT         Random-access iterator type, for reading input map (may be a simple pointer type).
+ * @tparam MatrixIteratorT Random-access iterator type, for reading input matrix
+ *                         (may be a simple pointer type).
+ * @tparam MapIteratorT    Random-access iterator type, for reading input map (may
+ *                         be a simple pointer type).
  *
- * @param  in           Pointer to the input matrix (assumed to be row-major)
- * @param  D            Leading dimension of the input matrix 'in', which in-case of row-major storage is the number of columns
- * @param  N            Second dimension
- * @param  map          Pointer to the input sequence of gather locations
- * @param  map_length   The length of 'map' and 'stencil'
- * @param  out          Pointer to the output matrix (assumed to be row-major)
- * @param  stream       CUDA stream to launch kernels within
+ * @param in         Pointer to the input matrix (assumed to be row-major)
+ * @param D          Leading dimension of the input matrix 'in', which in-case
+ *                   of row-major storage is the number of columns
+ * @param N          Second dimension
+ * @param map        Pointer to the input sequence of gather locations
+ * @param map_length The length of 'map' and 'stencil'
+ * @param out        Pointer to the output matrix (assumed to be row-major)
+ * @param stream     CUDA stream to launch kernels within
  */
 template <typename MatrixIteratorT, typename MapIteratorT>
 void gather(MatrixIteratorT in, int D, int N, MapIteratorT map, int map_length,
@@ -147,20 +162,27 @@ void gather(MatrixIteratorT in, int D, int N, MapIteratorT map, int map_length,
 }
 
 /**
- * @brief  gather copies rows from a source matrix into a destination matrix according to a transformed map.
+ * @brief gather copies rows from a source matrix into a destination matrix
+ *        according to a transformed map.
  *
- * @tparam MatrixIteratorT      Random-access iterator type, for reading input matrix (may be a simple pointer type).
- * @tparam MapIteratorT         Random-access iterator type, for reading input map (may be a simple pointer type).
- * @tparam MapTransformOp       Unary lambda expression or operator type, MapTransformOp's result type must be convertible to IndexT (= int) type.
+ * @tparam MatrixIteratorT Random-access iterator type, for reading input matrix
+ *                         (may be a simple pointer type).
+ * @tparam MapIteratorT    Random-access iterator type, for reading input map (may
+ *                         be a simple pointer type).
+ * @tparam MapTransformOp  Unary lambda expression or operator type,
+ *                         MapTransformOp's result type must be convertible to
+ *                         IndexT (= int) type.
  *
- * @param  in           Pointer to the input matrix (assumed to be row-major)
- * @param  D            Leading dimension of the input matrix 'in', which in-case of row-major storage is the number of columns
- * @param  N            Second dimension
- * @param  map          Pointer to the input sequence of gather locations
- * @param  map_length   The length of 'map' and 'stencil'
- * @param  out          Pointer to the output matrix (assumed to be row-major)
- * @param  transform_op The transformation operation, transforms the map values to IndexT
- * @param  stream       CUDA stream to launch kernels within
+ * @param in           Pointer to the input matrix (assumed to be row-major)
+ * @param D            Leading dimension of the input matrix 'in', which in-case
+ *                     of row-major storage is the number of columns
+ * @param N            Second dimension
+ * @param map          Pointer to the input sequence of gather locations
+ * @param map_length   The length of 'map' and 'stencil'
+ * @param out          Pointer to the output matrix (assumed to be row-major)
+ * @param transform_op The transformation operation, transforms the map values
+ *                     to IndexT
+ * @param stream       CUDA stream to launch kernels within
  */
 template <typename MatrixIteratorT, typename MapIteratorT,
           typename MapTransformOp>
@@ -174,22 +196,30 @@ void gather(MatrixIteratorT in, int D, int N, MapIteratorT map, int map_length,
 }
 
 /**
- * @brief  gather_if conditionally copies rows from a source matrix into a destination matrix according to a map.
+ * @brief gather_if conditionally copies rows from a source matrix into a
+ *        destination matrix according to a map.
  *
- * @tparam MatrixIteratorT      Random-access iterator type, for reading input matrix (may be a simple pointer type).
- * @tparam MapIteratorT         Random-access iterator type, for reading input map (may be a simple pointer type).
- * @tparam StencilIteratorT     Random-access iterator type, for reading input stencil (may be a simple pointer type).
- * @tparam UnaryPredicateOp     Unary lambda expression or operator type, UnaryPredicateOp's result type must be convertible to bool type.
+ * @tparam MatrixIteratorT  Random-access iterator type, for reading input matrix
+ *                          (may be a simple pointer type).
+ * @tparam MapIteratorT     Random-access iterator type, for reading input map (may
+ *                          be a simple pointer type).
+ * @tparam StencilIteratorT Random-access iterator type, for reading input stencil
+ *                          (may be a simple pointer type).
+ * @tparam UnaryPredicateOp Unary lambda expression or operator type,
+ *                          UnaryPredicateOp's result type must be convertible to
+ *                          bool type.
  *
- * @param  in           Pointer to the input matrix (assumed to be row-major)
- * @param  D            Leading dimension of the input matrix 'in', which in-case of row-major storage is the number of columns
- * @param  N            Second dimension
- * @param  map          Pointer to the input sequence of gather locations
- * @param  stencil      Pointer to the input sequence of stencil or predicate values
- * @param  map_length   The length of 'map' and 'stencil'
- * @param  out          Pointer to the output matrix (assumed to be row-major)
- * @param  pred_op      Predicate to apply to the stencil values
- * @param  stream       CUDA stream to launch kernels within
+ * @param in         Pointer to the input matrix (assumed to be row-major)
+ * @param D          Leading dimension of the input matrix 'in', which in-case
+ *                   of row-major storage is the number of columns
+ * @param N          Second dimension
+ * @param map        Pointer to the input sequence of gather locations
+ * @param stencil    Pointer to the input sequence of stencil or predicate
+ *                   values
+ * @param map_length The length of 'map' and 'stencil'
+ * @param out        Pointer to the output matrix (assumed to be row-major)
+ * @param pred_op    Predicate to apply to the stencil values
+ * @param stream     CUDA stream to launch kernels within
  */
 template <typename MatrixIteratorT, typename MapIteratorT,
           typename StencilIteratorT, typename UnaryPredicateOp>
@@ -203,24 +233,35 @@ void gather_if(MatrixIteratorT in, int D, int N, MapIteratorT map,
 }
 
 /**
- * @brief  gather_if conditionally copies rows from a source matrix into a destination matrix according to a transformed map.
+ * @brief gather_if conditionally copies rows from a source matrix into a
+ *        destination matrix according to a transformed map.
  *
- * @tparam MatrixIteratorT      Random-access iterator type, for reading input matrix (may be a simple pointer type).
- * @tparam MapIteratorT         Random-access iterator type, for reading input map (may be a simple pointer type).
- * @tparam StencilIteratorT     Random-access iterator type, for reading input stencil (may be a simple pointer type).
- * @tparam UnaryPredicateOp     Unary lambda expression or operator type, UnaryPredicateOp's result type must be convertible to bool type.
- * @tparam MapTransformOp       Unary lambda expression or operator type, MapTransformOp's result type must be convertible to IndexT (= int) type.
+ * @tparam MatrixIteratorT  Random-access iterator type, for reading input matrix
+ *                          (may be a simple pointer type).
+ * @tparam MapIteratorT     Random-access iterator type, for reading input map (may
+ *                          be a simple pointer type).
+ * @tparam StencilIteratorT Random-access iterator type, for reading input stencil
+ *                          (may be a simple pointer type).
+ * @tparam UnaryPredicateOp Unary lambda expression or operator type,
+ *                          UnaryPredicateOp's result type must be convertible to
+ *                          bool type.
+ * @tparam MapTransformOp   Unary lambda expression or operator type,
+ *                          MapTransformOp's result type must be convertible to
+ *                          IndexT (= int) type.
  *
- * @param  in           Pointer to the input matrix (assumed to be row-major)
- * @param  D            Leading dimension of the input matrix 'in', which in-case of row-major storage is the number of columns
- * @param  N            Second dimension
- * @param  map          Pointer to the input sequence of gather locations
- * @param  stencil      Pointer to the input sequence of stencil or predicate values
- * @param  map_length   The length of 'map' and 'stencil'
- * @param  out          Pointer to the output matrix (assumed to be row-major)
- * @param  pred_op      Predicate to apply to the stencil values
- * @param  transform_op The transformation operation, transforms the map values to IndexT
- * @param  stream       CUDA stream to launch kernels within
+ * @param in           Pointer to the input matrix (assumed to be row-major)
+ * @param D            Leading dimension of the input matrix 'in', which in-case
+ *                     of row-major storage is the number of columns
+ * @param N            Second dimension
+ * @param map          Pointer to the input sequence of gather locations
+ * @param stencil      Pointer to the input sequence of stencil or predicate
+ *                     values
+ * @param map_length   The length of 'map' and 'stencil'
+ * @param out          Pointer to the output matrix (assumed to be row-major)
+ * @param pred_op      Predicate to apply to the stencil values
+ * @param transform_op The transformation operation, transforms the map values
+ *                     to IndexT
+ * @param stream       CUDA stream to launch kernels within
  */
 template <typename MatrixIteratorT, typename MapIteratorT,
           typename StencilIteratorT, typename UnaryPredicateOp,

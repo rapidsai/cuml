@@ -24,6 +24,7 @@ namespace MergeLabels {
 
 /**
  * Merges to label arrays according to a given core point mask
+ *
  * @param[in]    handle      raft handle
  * @param[inout] labels      Labels computed by this node
  * @param[in]    labels_temp Buffer to receive labels from another node

@@ -36,24 +36,25 @@ namespace LinAlg {
 
 /**
  * @brief randomized singular value decomposition (RSVD) on the column major
- * float type input matrix (Jacobi-based), by specifying no. of PCs and
- * upsamples directly
- * @param handle: raft handle
- * @param M: input matrix
- * @param n_rows: number rows of input matrix
- * @param n_cols: number columns of input matrix
- * @param S_vec: singular values of input matrix
- * @param U: left singular values of input matrix
- * @param V: right singular values of input matrix
- * @param k: no. of singular values to be computed
- * @param p: no. of upsamples
- * @param use_bbt: whether use eigen decomposition in computation or not
- * @param gen_left_vec: left vector needs to be generated or not?
- * @param gen_right_vec: right vector needs to be generated or not?
- * @param use_jacobi: whether to jacobi solver for decomposition
- * @param tol: tolerance for Jacobi-based solvers
- * @param max_sweeps: maximum number of sweeps for Jacobi-based solvers
- * @param stream cuda stream
+ *        float type input matrix (Jacobi-based), by specifying no. of PCs and
+ *        upsamples directly
+ *
+ * @param handle        raft handle
+ * @param M             input matrix
+ * @param n_rows        number rows of input matrix
+ * @param n_cols        number columns of input matrix
+ * @param S_vec         singular values of input matrix
+ * @param U             left singular values of input matrix
+ * @param V             right singular values of input matrix
+ * @param k             no. of singular values to be computed
+ * @param p             no. of upsamples
+ * @param use_bbt       whether use eigen decomposition in computation or not
+ * @param gen_left_vec  left vector needs to be generated or not?
+ * @param gen_right_vec right vector needs to be generated or not?
+ * @param use_jacobi    whether to jacobi solver for decomposition
+ * @param tol           tolerance for Jacobi-based solvers
+ * @param max_sweeps    maximum number of sweeps for Jacobi-based solvers
+ * @param stream        cuda stream
  */
 template <typename math_t>
 void rsvdFixedRank(const raft::handle_t &handle, math_t *M, int n_rows,
@@ -233,24 +234,25 @@ void rsvdFixedRank(const raft::handle_t &handle, math_t *M, int n_rows,
 
 /**
  * @brief randomized singular value decomposition (RSVD) on the column major
- * float type input matrix (Jacobi-based), by specifying the PC and upsampling
- * ratio
- * @param handle: raft handle
- * @param M: input matrix
- * @param n_rows: number rows of input matrix
- * @param n_cols: number columns of input matrix
- * @param S_vec: singular values of input matrix
- * @param U: left singular values of input matrix
- * @param V: right singular values of input matrix
- * @param PC_perc: percentage of singular values to be computed
- * @param UpS_perc: upsampling percentage
- * @param use_bbt: whether use eigen decomposition in computation or not
- * @param gen_left_vec: left vector needs to be generated or not?
- * @param gen_right_vec: right vector needs to be generated or not?
- * @param use_jacobi: whether to jacobi solver for decomposition
- * @param tol: tolerance for Jacobi-based solvers
- * @param max_sweeps: maximum number of sweeps for Jacobi-based solvers
- * @param stream cuda stream
+ *        float type input matrix (Jacobi-based), by specifying the PC and
+ *        upsampling ratio
+ *
+ * @param handle        raft handle
+ * @param M             input matrix
+ * @param n_rows        number rows of input matrix
+ * @param n_cols        number columns of input matrix
+ * @param S_vec         singular values of input matrix
+ * @param U             left singular values of input matrix
+ * @param V             right singular values of input matrix
+ * @param PC_perc       percentage of singular values to be computed
+ * @param UpS_perc      upsampling percentage
+ * @param use_bbt       whether use eigen decomposition in computation or not
+ * @param gen_left_vec  left vector needs to be generated or not?
+ * @param gen_right_vec right vector needs to be generated or not?
+ * @param use_jacobi    whether to jacobi solver for decomposition
+ * @param tol           tolerance for Jacobi-based solvers
+ * @param max_sweeps    maximum number of sweeps for Jacobi-based solvers
+ * @param stream        cuda stream
  */
 template <typename math_t>
 void rsvdPerc(const raft::handle_t &handle, math_t *M, int n_rows, int n_cols,

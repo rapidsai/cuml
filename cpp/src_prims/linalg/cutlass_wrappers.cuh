@@ -34,8 +34,19 @@ namespace MLCommon {
 namespace LinAlg {
 
 /**
- * this type has been mostly customized for float/double data-types
- * might require changes to the template params for others!
+ * this type has been mostly customized for float/double data-types might
+ * require changes to the template params for others!
+ *
+ * @tparam IType                  { description }
+ * @tparam AccType_               { description }
+ * @tparam OType                  { description }
+ * @tparam OutputTile_            { description }
+ * @tparam AccumulatorsPerThread_ { description }
+ * @tparam MainLoopFunctor_       { description }
+ * @tparam kScalarsPerLdgA_       { description }
+ * @tparam kScalarsPerLdgB_       { description }
+ * @tparam kScalarsPerLdgAcc_     { description }
+ * @tparam kScalarsPerLdgC_       { description }
  */
 template <
   /// Input type
@@ -102,8 +113,13 @@ struct CustomGemmConfig
   enum { kScalarsPerLdsAcc = 16 / sizeof(AccType) };
 };
 
-/***
+/**
  * Exposes passing of a different type in which to accumulate in epilogue
+ *
+ * @tparam GemmConfig_      { description }
+ * @tparam EpilogueFunctor_ { description }
+ * @tparam Index_           { description }
+ * @tparam BaseClass        { description }
  */
 template <
   /// The GEMM config
@@ -186,12 +202,23 @@ struct CustomGemmEpilogue : public BaseClass {
   using typename BaseClass::SharedStorage;
 
   /// Ctor.
+  ///
+  /// @param     params_         The parameters
+  /// @param     shared_storage_ The shared storage
+  /// @param[in] m_              { parameter_description }
+  /// @param[in] n_              { parameter_description }
+  ///
   CUTLASS_DEVICE CustomGemmEpilogue(Params const& params_,
                                     SharedStorage& shared_storage_, Index m_,
                                     Index n_)
     : BaseClass(params_, shared_storage_, m_, n_) {}
 
   /// Execute the epilogue.
+  ///
+  /// @param     block        The block
+  /// @param     accumulators The accumulators
+  /// @param[in] fin_op       The fin operation
+  ///
   template <typename FinalLambda>
   CUTLASS_DEVICE void epilogue(cutlass::Coord<3> const& block,
                                Accumulators& accumulators, FinalLambda fin_op) {
@@ -234,9 +261,23 @@ struct LinearScaling : public BaseClass {
 };
 
 /**
- * main traits to customize cutlass gemm kernel
- * this type has been mostly customized for float/double data-types
- * might require changes to the template params for others!
+ * main traits to customize cutlass gemm kernel this type has been mostly
+ * customized for float/double data-types might require changes to the template
+ * params for others!
+ *
+ * @tparam IType                  { description }
+ * @tparam AccType                { description }
+ * @tparam OType                  { description }
+ * @tparam kLayoutA_              { description }
+ * @tparam kLayoutB_              { description }
+ * @tparam OutputTile_            { description }
+ * @tparam AccumulatorsPerThread_ { description }
+ * @tparam MainLoopFunctor_       { description }
+ * @tparam Index_                 { description }
+ * @tparam GemmConfig_            { description }
+ * @tparam EpilogueFunctor_       { description }
+ * @tparam GemmEpilogueTraits_    { description }
+ * @tparam GemmEpilogue_          { description }
  */
 template <
   /// Input type
@@ -293,6 +334,9 @@ __global__ void custom_gemm_kernel(typename Gemm_::Params params,
  * main Gemm class to launch the kernel. It is customized to accept a device
  * lambda directly. This is done this way since cutlass currently doesn't expose
  * such an interface.
+ *
+ * @tparam GemmTraits_ { description }
+ * @tparam BaseClass   { description }
  */
 template <typename GemmTraits_,
           typename BaseClass = cutlass::gemm::Gemm<GemmTraits_>>
@@ -317,7 +361,9 @@ struct CustomGemm : public BaseClass {
   /// The index.
   typedef typename Traits::Index Index;
 
-  /// params
+  //////////////////////////////////////////////////////////////////////////////
+  // params                                                                   //
+  //////////////////////////////////////////////////////////////////////////////
   struct Params : public BaseClass::Params {
     CUTLASS_HOST_DEVICE int initialize(Index m, Index n, Index k,
                                        ScalarEpilogue alpha, void const* d_a,
@@ -343,6 +389,11 @@ struct CustomGemm : public BaseClass {
   };
 
   /// Launch the kernel.
+  ///
+  /// @param     params The parameters
+  /// @param[in] fin_op The fin operation
+  /// @param[in] stream The stream
+  ///
   template <typename FinalLambda>
   static void launch(Params const& params, FinalLambda fin_op,
                      cudaStream_t stream) {
@@ -366,11 +417,18 @@ struct CustomGemm : public BaseClass {
   }
 
   /// Ctor.
+  ///
+  /// @param params_         The parameters
+  /// @param shared_storage_ The shared storage
+  ///
   CUTLASS_DEVICE CustomGemm(Params const& params_,
                             SharedStorage& shared_storage_)
     : BaseClass(params_, shared_storage_) {}
 
   /// Do the GEMM.
+  ///
+  /// @param[in] fin_op The fin operation
+  ///
   template <typename FinalLambda>
   CUTLASS_DEVICE void multiply_add(FinalLambda fin_op) {
     // Swizzle the IDs of the block (to enable better cache behavior).
@@ -456,51 +514,55 @@ struct CustomGemm : public BaseClass {
 };  // end struct CustomGemm
 
 /**
- * @brief main function to launch cutlass-gemm kernel. It computes the following
- *  equation: D = alpha . opA(A) * opB(B) + beta . C
- * @tparam IType input data-type (for A and B matrices)
- * @tparam AccType accumulation data-type
- * @tparam OType output data-type (for C and D matrices)
- * @tparam kLayoutA layout for A
- * @tparam kLayoutB layout for B
- * @tparam OutputTile_ output tile size for the thread block
- * @tparam AccumulatorsPerThread_ number of accumulators per thread
- * @tparam MainLoopFunctor_ custom functor to be used in the main loop
- * @tparam Index_ the type of index
- * @tparam GemmConfig_ the config for the GEMM
- * @tparam EpilogueFunctor_ custom epilogue functor
- * @tparam GemmEpilogueTraits_ epilogue traits class to build the epilogue
- * @tparam GemmEpilogue_ custom epilogue
- * @tparam Lambda lambda to initialize any custom params inside EpilogueFunctor_
- * @tparam FinalLambda Final device lambda to be applied in epilogue
+ * Main function to launch cutlass-gemm kernel. It computes the following
+ * equation: D = alpha . opA(A) * opB(B) + beta . C
+ *
  * @param transA cublas transpose op for A
  * @param transB cublas transpose op for B
- * @param m number of rows of A and C/D
- * @param n number of columns of B and C/D
- * @param k number of cols of A and rows of B
- * @param alpha scalar
- * @param A input matrix
- * @param lda leading dim for A
- * @param B input matrix
- * @param ldb leading dim for B
- * @param beta scalar
- * @param C input matrix
- * @param ldc leading dim for C and D
- * @param D output matrix
- * @param op lambda function to initialize any custom params inside
- * EpilogueFunctor_
+ * @param m      number of rows of A and C/D
+ * @param n      number of columns of B and C/D
+ * @param k      number of cols of A and rows of B
+ * @param alpha  scalar
+ * @param A      input matrix
+ * @param lda    leading dim for A
+ * @param B      input matrix
+ * @param ldb    leading dim for B
+ * @param beta   scalar
+ * @param C      input matrix
+ * @param ldc    leading dim for C and D
+ * @param D      output matrix
+ * @param op     lambda function to initialize any custom params inside
+ *               EpilogueFunctor_
  * @param fin_op the final lambda to be run inside the Epilogue. This can help
- * in customizing a given EpilogueFunctor, without having to go through the task
- * of creating another Functor!
+ *               in customizing a given EpilogueFunctor, without having to go
+ *               through the task of creating another Functor!
  * @param stream cuda stream where to launch work
  *
  * @note op: This is a host-side lambda to initialize any custom params needed
- * by EpilogueFunctor_. It's signature is as follows:
- * <pre>void op(EpilogueFunctor_& func);</pre>
+ *       by EpilogueFunctor_. It's signature is as follows: <pre>void
+ *       op(EpilogueFunctor_& func);</pre>
  *
  * @note fin_op: This is a device-side lambda to perform an elementwise op on
- * the accumulated result and return the result. It's signature is as follows:
- * <pre>OType fin_op(AccType val, int g_idx);</pre>
+ *       the accumulated result and return the result. It's signature is as
+ *       follows: <pre>OType fin_op(AccType val, int g_idx);</pre>
+ *
+ * @tparam IType                  input data-type (for A and B matrices)
+ * @tparam AccType                accumulation data-type
+ * @tparam kLayoutA               layout for A
+ * @tparam kLayoutB               layout for B
+ * @tparam OutputTile_            output tile size for the thread block
+ * @tparam AccumulatorsPerThread_ number of accumulators per thread
+ * @tparam MainLoopFunctor_       custom functor to be used in the main loop
+ * @tparam GemmConfig_            the config for the GEMM
+ * @tparam EpilogueFunctor_       custom epilogue functor
+ * @tparam GemmEpilogueTraits_    epilogue traits class to build the epilogue
+ * @tparam GemmEpilogue_          custom epilogue
+ * @tparam OType       output data-type (for C and D matrices)
+ * @tparam Index_      the type of index
+ * @tparam Lambda      lambda to initialize any custom params inside
+ *                     EpilogueFunctor_
+ * @tparam FinalLambda Final device lambda to be applied in epilogue
+ *
  * @{
  */
 template <
@@ -576,42 +638,46 @@ void gemmLauncher(cublasOperation_t transA, cublasOperation_t transB, Index_ m,
 /** @} */
 
 /**
- * @brief the wrapper of gemmLauncher, which doesn't need to specify
- *  cutlass::MatrixLayout::Kind. It computes the following equation:
- *  D = alpha . opA(A) * opB(B) + beta . C
- * @tparam IType input data-type (for A and B matrices)
- * @tparam AccType accumulation data-type
- * @tparam OType output data-type (for C and D matrices)
- * @tparam OutputTile_ output tile size for the thread block
- * @tparam AccumulatorsPerThread_ number of accumulators per thread
- * @tparam MainLoopFunctor_ custom functor to be used in the main loop
- * @tparam Index_ the type of index
- * @tparam GemmConfig_ the config for the GEMM
- * @tparam EpilogueFunctor_ custom epilogue functor
- * @tparam GemmEpilogueTraits_ epilogue traits class to build the epilogue
- * @tparam GemmEpilogue_ custom epilogue
- * @tparam Lambda lambda to initialize any custom params inside EpilogueFunctor_
- * @tparam FinalLambda Final device lambda to be applied in epilogue
+ * The wrapper of gemmLauncher, which doesn't need to specify
+ * cutlass::MatrixLayout::Kind. It computes the following equation: D = alpha .
+ * opA(A) * opB(B) + beta . C
+ *
  * @param transA cublas transpose op for A
  * @param transB cublas transpose op for B
- * @param m number of rows of A and C/D
- * @param n number of columns of B and C/D
- * @param k number of cols of A and rows of B
- * @param alpha scalar
- * @param A input matrix
- * @param lda leading dim for A
- * @param B input matrix
- * @param ldb leading dim for B
- * @param beta scalar
- * @param C input matrix
- * @param ldc leading dim for C and D
- * @param D output matrix
- * @param op lambda function to initialize any custom params inside
- * EpilogueFunctor_
+ * @param m      number of rows of A and C/D
+ * @param n      number of columns of B and C/D
+ * @param k      number of cols of A and rows of B
+ * @param alpha  scalar
+ * @param A      input matrix
+ * @param lda    leading dim for A
+ * @param B      input matrix
+ * @param ldb    leading dim for B
+ * @param beta   scalar
+ * @param C      input matrix
+ * @param ldc    leading dim for C and D
+ * @param D      output matrix
+ * @param op     lambda function to initialize any custom params inside
+ *               EpilogueFunctor_
  * @param fin_op the final lambda to be run inside the Epilogue. This can help
- * in customizing a given EpilogueFunctor, without having to go through the task
- * of creating another Functor!
+ *               in customizing a given EpilogueFunctor, without having to go
+ *               through the task of creating another Functor!
  * @param stream cuda stream where to launch work
+ *
+ * @tparam IType                  input data-type (for A and B matrices)
+ * @tparam AccType                accumulation data-type
+ * @tparam OutputTile_            output tile size for the thread block
+ * @tparam AccumulatorsPerThread_ number of accumulators per thread
+ * @tparam MainLoopFunctor_       custom functor to be used in the main loop
+ * @tparam GemmConfig_            the config for the GEMM
+ * @tparam EpilogueFunctor_       custom epilogue functor
+ * @tparam GemmEpilogueTraits_    epilogue traits class to build the epilogue
+ * @tparam GemmEpilogue_          custom epilogue
+ * @tparam OType       output data-type (for C and D matrices)
+ * @tparam Index_      the type of index
+ * @tparam Lambda      lambda to initialize any custom params inside
+ *                     EpilogueFunctor_
+ * @tparam FinalLambda Final device lambda to be applied in epilogue
+ *
  * @{
  */
 template <

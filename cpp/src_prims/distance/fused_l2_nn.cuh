@@ -357,26 +357,17 @@ void fusedL2NNImpl(OutT* min, const DataT* x, const DataT* y, const DataT* xn,
 /**
  * @brief Fused L2 distance and 1-nearest-neighbor computation in a single call.
  *
- * The benefits of such a call are 2-fold: 1) eliminate the need for an
- * intermediate buffer to store the output of gemm 2) reduce the memory read
- * traffic on this intermediate buffer, otherwise needed during the reduction
- * phase for 1-NN.
+ *        The benefits of such a call are 2-fold: 1) eliminate the need for an
+ *        intermediate buffer to store the output of gemm 2) reduce the memory
+ *        read traffic on this intermediate buffer, otherwise needed during the
+ *        reduction phase for 1-NN.
  *
- * @tparam DataT     data type
- * @tparam OutT      output type to either store 1-NN indices and their minimum
- *                   distances or store only the min distances. Accordingly, one
- *                   has to pass an appropriate `ReduceOpT`
- * @tparam IdxT      indexing arithmetic type
- * @tparam ReduceOpT A struct to perform the final needed reduction operation
- *                   and also to initialize the output array elements with the
- *                   appropriate initial value needed for reduction.
- *
- * @param[out] min           will contain the reduced output (Length = `m`)
- *                           (on device)
- * @param[in]  x             first matrix. Row major. Dim = `m x k`.
- *                           (on device).
- * @param[in]  y             second matrix. Row major. Dim = `n x k`.
- *                           (on device).
+ * @param[out] min           will contain the reduced output (Length = `m`) (on
+ *                           device)
+ * @param[in]  x             first matrix. Row major. Dim = `m x k`. (on
+ *                           device).
+ * @param[in]  y             second matrix. Row major. Dim = `n x k`. (on
+ *                           device).
  * @param[in]  xn            L2 squared norm of `x`. Length = `m`. (on device).
  * @param[in]  yn            L2 squared norm of `y`. Length = `n`. (on device)
  * @param[in]  m             gemm m
@@ -388,6 +379,15 @@ void fusedL2NNImpl(OutT* min, const DataT* x, const DataT* y, const DataT* xn,
  * @param[in]  initOutBuffer whether to initialize the output buffer before the
  *                           main kernel launch
  * @param[in]  stream        cuda stream
+ *
+ * @tparam DataT data type
+ * @tparam OutT  output type to either store 1-NN indices and their minimum
+ *               distances or store only the min distances. Accordingly, one has
+ *               to pass an appropriate `ReduceOpT`
+ * @tparam IdxT      indexing arithmetic type
+ * @tparam ReduceOpT A struct to perform the final needed reduction operation and
+ *                   also to initialize the output array elements with the
+ *                   appropriate initial value needed for reduction.
  */
 template <typename DataT, typename OutT, typename IdxT, typename ReduceOpT>
 void fusedL2NN(OutT* min, const DataT* x, const DataT* y, const DataT* xn,

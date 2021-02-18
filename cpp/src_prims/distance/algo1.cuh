@@ -33,29 +33,31 @@ namespace MLCommon {
 namespace Distance {
 
 /**
- * @brief the expanded distance matrix calculation
- *  It computes the following equation: C = op(A^2 + B^2 - 2AB)
- * @tparam IType input data-type (for A and B matrices)
- * @tparam AccType accumulation data-type
- * @tparam OutType output data-type (for C and D matrices)
- * @tparam OutputTile_ output tile size for the thread block
+ * @brief the expanded distance matrix calculation It computes the following
+ *        equation: C = op(A^2 + B^2 - 2AB)
+ *
+ * @param m           number of rows of A and C/D
+ * @param n           number of columns of B and C/D
+ * @param k           number of cols of A and rows of B
+ * @param pA          input matrix
+ * @param pB          input matrix
+ * @param pD          output matrix
+ * @param enable_sqrt if the square root is computed or not
+ * @param workspace   temporary workspace needed for computations
+ * @param worksize    number of bytes of the workspace
+ * @param fin_op      the final element-wise epilogue lambda
+ * @param norm_op     the final L2 norm lambda
+ * @param stream      cuda stream where to launch work
+ * @param isRowMajor  whether the input and output matrices are row major
+ *
+ * @tparam InType               input data-type (for A and B matrices)
+ * @tparam AccType              accumulation data-type
+ * @tparam OutType              output data-type (for C and D matrices)
+ * @tparam OutputTile_          output tile size for the thread block
  * @tparam FragmentMultiplyAdd_ cutlass-fragment-level multiply & add
  * @tparam FinalLambda user-defined epilogue lamba
- * @tparam NormLambda the final L2 norm lambda
- * @tparam Index_ index type
- * @param m number of rows of A and C/D
- * @param n number of columns of B and C/D
- * @param k number of cols of A and rows of B
- * @param pA input matrix
- * @param pB input matrix
- * @param pD output matrix
- * @param enable_sqrt if the square root is computed or not
- * @param workspace temporary workspace needed for computations
- * @param worksize number of bytes of the workspace
- * @param fin_op the final element-wise epilogue lambda
- * @param norm_op the final L2 norm lambda
- * @param stream cuda stream where to launch work
- * @param isRowMajor whether the input and output matrices are row major
+ * @tparam NormLambda  the final L2 norm lambda
+ * @tparam Index_      index type
  */
 template <typename InType, typename AccType, typename OutType,
           typename OutputTile_, typename FragmentMultiplyAdd_,

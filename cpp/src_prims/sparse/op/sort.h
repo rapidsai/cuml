@@ -41,17 +41,18 @@ namespace sparse {
 namespace op {
 
 /**
- * @brief Sorts the arrays that comprise the coo matrix
- * by row.
+ * @brief Sorts the arrays that comprise the coo matrix by row.
  *
- * @param m number of rows in coo matrix
- * @param n number of cols in coo matrix
- * @param nnz number of non-zeros
- * @param rows rows array from coo matrix
- * @param cols cols array from coo matrix
- * @param vals vals array from coo matrix
+ * @param m       number of rows in coo matrix
+ * @param n       number of cols in coo matrix
+ * @param nnz     number of non-zeros
+ * @param rows    rows array from coo matrix
+ * @param cols    cols array from coo matrix
+ * @param vals    vals array from coo matrix
  * @param d_alloc device allocator for temporary buffers
- * @param stream: cuda stream to use
+ * @param stream  cuda stream to use
+ *
+ * @tparam T     { description }
  */
 template <typename T>
 void coo_sort(int m, int n, int nnz, int *rows, int *cols, T *vals,
@@ -88,10 +89,12 @@ void coo_sort(int m, int n, int nnz, int *rows, int *cols, T *vals,
 
 /**
  * @brief Sort the underlying COO arrays by row
- * @tparam T: the type name of the underlying value array
- * @param in: COO to sort by row
+ *
+ * @param in      COO to sort by row
  * @param d_alloc device allocator for temporary buffers
- * @param stream: the cuda stream to use
+ * @param stream  the cuda stream to use
+ *
+ * @tparam T     the type name of the underlying value array
  */
 template <typename T>
 void coo_sort(COO<T> *const in,

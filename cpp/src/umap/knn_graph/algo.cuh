@@ -35,6 +35,19 @@ namespace Algo {
 
 /**
  * Initial implementation calls out to FAISS to do its work.
+ *
+ * @param[in] handle      The handle
+ * @param[in] inputsA     The inputs a
+ * @param[in] inputsB     The inputs b
+ * @param     out         The out
+ * @param[in] n_neighbors The n neighbors
+ * @param[in] params      The parameters
+ * @param[in] d_alloc     The d allocate
+ * @param[in] stream      The stream
+ *
+ * @tparam value_idx   { description }
+ * @tparam value_t     { description }
+ * @tparam umap_inputs { description }
  */
 
 template <typename value_idx = int64_t, typename value_t = float,

@@ -28,7 +28,16 @@ namespace VertexDeg {
 namespace Algo {
 
 /**
- * Calculates the vertex degree array and the epsilon neighborhood adjacency matrix for the batch.
+ * Calculates the vertex degree array and the epsilon neighborhood adjacency
+ * matrix for the batch.
+ *
+ * @param[in] handle          The handle
+ * @param[in] data            The data
+ * @param[in] start_vertex_id The start vertex identifier
+ * @param[in] batch_size      The batch size
+ * @param[in] stream          The stream
+ *
+ * @tparam value_t { description }
  */
 template <typename value_t, typename index_t = int>
 void launcher(const raft::handle_t &handle, Pack<value_t, index_t> data,

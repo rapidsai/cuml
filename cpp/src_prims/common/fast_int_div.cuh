@@ -22,20 +22,21 @@
 namespace MLCommon {
 
 /**
- * @brief      Perform fast integer division and modulo using a known divisor
+ * @brief Perform fast integer division and modulo using a known divisor
  *
- * @note       This currently only supports 32b signed integers
- * @todo       Extend support for signed divisors Hacker's Delight, Second
- *             Edition, Chapter 10
+ * @note This currently only supports 32b signed integers
+ * @todo Extend support for signed divisors Hacker's Delight, Second Edition,
+ *       Chapter 10
  */
 struct FastIntDiv {
   /**
-   * @defgroup   HostMethods Ctor's that are accessible only from host
+   * @defgroup HostMethods Ctor's that are accessible only from host
+   *
+   * @brief Host-only ctor's
+   *
+   * @param _d    the divisor
+   *
    * @{
-   *
-   * @brief      Host-only ctor's
-   *
-   * @param      _d    the divisor
    */
   FastIntDiv(int _d) : d(_d) { computeScalars(); }
   FastIntDiv& operator=(int _d) {
@@ -43,18 +44,18 @@ struct FastIntDiv {
     computeScalars();
     return *this;
   }
-  /**
-   * @} */
+  /** @} */
 
   /**
-   * @defgroup   DeviceMethods Ctor's which even the device-side can access
+   * @defgroup DeviceMethods Ctor's which even the device-side can access
+   *
+   * @brief host and device ctor's
+   *
+   * @param other source object to be copied from
+   *
+   * @return { description_of_the_return_value }
+   *
    * @{
-   *
-   * @brief      host and device ctor's
-   *
-   * @param      other  source object to be copied from
-   *
-   * @return     { description_of_the_return_value }
    */
   HDI FastIntDiv(const FastIntDiv& other)
     : d(other.d), m(other.m), p(other.p) {}
@@ -64,17 +65,13 @@ struct FastIntDiv {
     p = other.p;
     return *this;
   }
-  /**
-   * @} */
+  /** @} */
 
-  /**
-   * divisor */
+  // divisor
   int d;
-  /**
-   * the term 'm' as found in the reference chapter */
+  // the term 'm' as found in the reference chapter
   unsigned m;
-  /**
-   * the term 'p' as found in the reference chapter */
+  // the term 'p' as found in the reference chapter
   int p;
 
  private:
@@ -101,13 +98,13 @@ struct FastIntDiv {
 };  // struct FastIntDiv
 
 /**
- * @brief      Division overload, so that FastIntDiv can be transparently
- *             switched to even on device
+ * @brief Division overload, so that FastIntDiv can be transparently switched to
+ *        even on device
  *
- * @param      n        numerator
- * @param      divisor  the denominator
+ * @param n       numerator
+ * @param divisor the denominator
  *
- * @return     the quotient
+ * @return the quotient
  */
 HDI int operator/(int n, const FastIntDiv& divisor) {
   if (divisor.d == 1) return n;
@@ -117,13 +114,13 @@ HDI int operator/(int n, const FastIntDiv& divisor) {
 }
 
 /**
- * @brief      Modulo overload, so that FastIntDiv can be transparently switched
- *             to even on device
+ * @brief Modulo overload, so that FastIntDiv can be transparently switched to
+ *        even on device
  *
- * @param      n        numerator
- * @param      divisor  the denominator
+ * @param n       numerator
+ * @param divisor the denominator
  *
- * @return     the remainder
+ * @return the remainder
  */
 HDI int operator%(int n, const FastIntDiv& divisor) {
   int quotient = n / divisor;

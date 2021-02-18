@@ -61,17 +61,21 @@ __global__ void symmKernel(DataT* out, const DataT* in, IdxT batchSize, IdxT n,
 }
 
 /**
- * @brief An out-of-place batched matrix symmetrizer. In other words, given
- *        a bunch of square matrices Ai, it computes (Ai + Ai') / 2.
- * @tparam DataT data type
- * @tparam IdxT index type
- * @tparam EpilogueOp any custom operation before storing the elements
- * @param out the output symmetric matrices (dim = batchSize x n x n, row-major)
- * @param in the input square matrices (dim = batchSize x n x n, row-major)
+ * @brief An out-of-place batched matrix symmetrizer. In other words, given a
+ *        bunch of square matrices Ai, it computes (Ai + Ai') / 2.
+ *
+ * @param out       the output symmetric matrices (dim = batchSize x n x n,
+ *                  row-major)
+ * @param in        the input square matrices (dim = batchSize x n x n,
+ *                  row-major)
  * @param batchSize number of such matrices
- * @param n dimension of each square matrix
- * @param stream cuda stream
- * @param op custom epilogue functor
+ * @param n         dimension of each square matrix
+ * @param stream    cuda stream
+ * @param op        custom epilogue functor
+ *
+ * @tparam DataT data type
+ * @tparam IdxT       index type
+ * @tparam EpilogueOp any custom operation before storing the elements
  */
 template <typename DataT, typename IdxT,
           typename EpilogueOp = raft::Nop<DataT, IdxT>>

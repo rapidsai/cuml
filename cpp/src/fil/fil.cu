@@ -41,11 +41,20 @@ namespace tl = treelite;
 
 __host__ __device__ float sigmoid(float x) { return 1.0f / (1.0f + expf(-x)); }
 
-/** performs additional transformations on the array of forest predictions
-    (preds) of size n; the transformations are defined by output, and include
-    averaging (multiplying by inv_num_trees), adding global_bias (always done),
-    sigmoid and applying threshold. in case of complement_proba,
-    fills in the complement probability */
+/** performs additional transformations on the array of forest predictions (preds)
+ of size n; the transformations are defined by output, and include averaging
+ (multiplying by inv_num_trees), adding global_bias (always done), sigmoid and
+ applying threshold. in case of complement_proba, fills in the complement
+ probability
+
+ @param     preds            The preds
+ @param[in] n                { parameter_description }
+ @param[in] output           The output
+ @param[in] inv_num_trees    The inv number trees
+ @param[in] threshold        The threshold
+ @param[in] global_bias      The global bias
+ @param[in] complement_proba The complement proba
+*/
 __global__ void transform_k(float* preds, size_t n, output_t output,
                             float inv_num_trees, float threshold,
                             float global_bias, bool complement_proba) {
@@ -142,40 +151,36 @@ struct forest {
     params.num_blocks = fixed_block_count_;
 
     /**
-    The binary classification / regression (FLOAT_UNARY_BINARY) predict_proba() works as follows
-      (always 2 outputs):
-    RAW: output the sum of tree predictions
-    AVG is set: divide by the number of trees (averaging)
-    SIGMOID is set: apply sigmoid
-    CLASS is set: ignored
-    write the output of the previous stages and its complement
-
-    The binary classification / regression (FLOAT_UNARY_BINARY) predict() works as follows
-      (always 1 output):
-    RAW (no values set): output the sum of tree predictions
-    AVG is set: divide by the number of trees (averaging)
-    SIGMOID is set: apply sigmoid
-    CLASS is set: apply threshold (equivalent to choosing best class)
+    The binary classification / regression (FLOAT_UNARY_BINARY) predict_proba()
+    works as follows (always 2 outputs): RAW: output the sum of tree predictions
+    AVG is set: divide by the number of trees (averaging) SIGMOID is set: apply
+    sigmoid CLASS is set: ignored write the output of the previous stages and
+    its complement
     
-    The multi-class classification / regression (CATEGORICAL_LEAF) predict_proba() works as follows
-      (always num_classes outputs):
-    RAW (no values set): output class votes
-    AVG is set: divide by the number of trees (averaging, output class probability)
-    SIGMOID is set: apply sigmoid
-    CLASS is set: ignored
+    The binary classification / regression (FLOAT_UNARY_BINARY) predict() works
+    as follows (always 1 output): RAW (no values set): output the sum of tree
+    predictions AVG is set: divide by the number of trees (averaging) SIGMOID is
+    set: apply sigmoid CLASS is set: apply threshold (equivalent to choosing
+    best class)
     
-    The multi-class classification / regression (CATEGORICAL_LEAF) predict() works as follows
-      (always 1 output):
-    RAW (no values set): output the label of the class with highest probability, else output label 0.
-    All other flags (AVG, SIGMOID, CLASS) are ignored
+    The multi-class classification / regression (CATEGORICAL_LEAF)
+    predict_proba() works as follows (always num_classes outputs): RAW (no
+    values set): output class votes AVG is set: divide by the number of trees
+    (averaging, output class probability) SIGMOID is set: apply sigmoid CLASS is
+    set: ignored
     
-    The multi-class classification / regression (GROVE_PER_CLASS) predict_proba() is not implemented
+    The multi-class classification / regression (CATEGORICAL_LEAF) predict()
+    works as follows (always 1 output): RAW (no values set): output the label of
+    the class with highest probability, else output label 0. All other flags
+    (AVG, SIGMOID, CLASS) are ignored
     
-    The multi-class classification / regression (GROVE_PER_CLASS) predict() works as follows
-      (always 1 output):
-    RAW (no values set): output the label of the class with highest margin,
-      equal margins resolved in favor of smaller label integer
-    All other flags (AVG, SIGMOID, CLASS) are ignored
+    The multi-class classification / regression (GROVE_PER_CLASS)
+    predict_proba() is not implemented
+    
+    The multi-class classification / regression (GROVE_PER_CLASS) predict()
+    works as follows (always 1 output): RAW (no values set): output the label of
+    the class with highest margin, equal margins resolved in favor of smaller
+    label integer All other flags (AVG, SIGMOID, CLASS) are ignored
     */
     output_t ot = output_;
     bool complement_proba = false, do_transform;
@@ -482,9 +487,17 @@ inline void adjust_threshold(float* pthreshold, int* tl_left, int* tl_right,
   }
 }
 
-/** if the vector consists of zeros and a single one, return the position
-for the one (assumed class label). Else, asserts false.
-If the vector contains a NAN, asserts false */
+/** if the vector consists of zeros and a single one, return the position for the
+one (assumed class label). Else, asserts false. If the vector contains a NAN,
+asserts false
+
+@param     vector The vector
+@param[in] len    The length
+
+@tparam L     { description }
+
+@return { description_of_the_return_value }
+*/
 template <typename L>
 int find_class_label_from_one_hot(L* vector, int len) {
   bool found_label = false;
@@ -676,10 +689,10 @@ void tl2fil_common(forest_params_t* params, const tl::ModelImpl<T, L>& model,
   ASSERT(param.sigmoid_alpha == 1.0f, "sigmoid_alpha not supported");
   params->global_bias = param.global_bias;
   params->output = output_t::RAW;
-  /** output_t::CLASS denotes using a threshold in FIL, when
-      predict_proba == false. For all multiclass models, the best class is
-      selected using argmax instead. This happens when either
-      leaf_algo == CATEGORICAL_LEAF or num_classes > 2.
+  /** output_t::CLASS denotes using a threshold in FIL, when predict_proba ==
+    false. For all multiclass models, the best class is selected using argmax
+    instead. This happens when either leaf_algo == CATEGORICAL_LEAF or
+    num_classes > 2.
   **/
   if (tl_params->output_class && params->leaf_algo != CATEGORICAL_LEAF &&
       params->num_classes <= 2) {

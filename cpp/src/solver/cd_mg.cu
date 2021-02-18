@@ -273,8 +273,6 @@ void fit_impl(raft::handle_t &handle,
  * @param[in]  shuffle       The shuffle
  * @param[in]  tol           The tolerance
  * @param[in]  verbose       The verbose
- *
- * @tparam T     { description }
  */
 template <typename T>
 void fit_impl(raft::handle_t &handle,

@@ -38,11 +38,11 @@ namespace TimeSeries {
 /**
  * Helper to compute the cumulative sum of a boolean mask
  *
- * @param[in]  mask       Input boolean array
- * @param[out] cumul      Output cumulative sum
- * @param[in]  mask_size  Size of the arrays
- * @param[in]  allocator  Device memory allocator
- * @param[in]  stream     CUDA stream
+ * @param[in]  mask      Input boolean array
+ * @param[out] cumul     Output cumulative sum
+ * @param[in]  mask_size Size of the arrays
+ * @param[in]  allocator Device memory allocator
+ * @param[in]  stream    CUDA stream
  */
 void cumulative_sum_helper(const bool* mask, int* cumul, int mask_size,
                            std::shared_ptr<MLCommon::deviceAllocator> allocator,
@@ -71,6 +71,7 @@ void cumulative_sum_helper(const bool* mask, int* cumul, int mask_size,
  * @param[in]  batch_size Batch size
  * @param[in]  allocator  Device memory allocator
  * @param[in]  stream     CUDA stream
+ *
  * @return The number of 'true' series in the mask
  */
 inline int divide_by_mask_build_index(
@@ -109,12 +110,14 @@ inline int divide_by_mask_build_index(
 /**
  * Kernel for the batch division by mask
  *
- * @param[in]  d_in       Input batch
- * @param[in]  d_mask     Boolean mask
- * @param[in]  d_index    Index of each series in its new batch
- * @param[out] d_out0     The sub-batch for the 'false' members
- * @param[out] d_out1     The sub-batch for the 'true' members
- * @param[in]  n_obs      Number of data points per series
+ * @param[in]  d_in    Input batch
+ * @param[in]  d_mask  Boolean mask
+ * @param[in]  d_index Index of each series in its new batch
+ * @param[out] d_out0  The sub-batch for the 'false' members
+ * @param[out] d_out1  The sub-batch for the 'true' members
+ * @param[in]  n_obs   Number of data points per series
+ *
+ * @tparam DataT { description }
  */
 template <typename DataT>
 __global__ void divide_by_mask_kernel(const DataT* d_in, const bool* d_mask,
@@ -141,6 +144,8 @@ __global__ void divide_by_mask_kernel(const DataT* d_in, const bool* d_mask,
  * @param[in]  batch_size Batch size
  * @param[in]  n_obs      Number of data points per series
  * @param[in]  stream     CUDA stream
+ *
+ * @tparam DataT { description }
  */
 template <typename DataT>
 inline void divide_by_mask_execute(const DataT* d_in, const bool* d_mask,
@@ -176,8 +181,8 @@ struct which_col : thrust::unary_function<int, int> {
  * each series belongs to, an index of the position of each series in its new
  * batch, and measure the size of each sub-batch
  *
- * @param[in]  d_matrix   Matrix of the values to minimize
- *                        Shape: (batch_size, n_sub)
+ * @param[in]  d_matrix   Matrix of the values to minimize Shape: (batch_size,
+ *                        n_sub)
  * @param[out] d_batch    Which sub-batch each series belongs to
  * @param[out] d_index    Index of each series in its new batch
  * @param[out] h_size     Size of each sub-batch (host)
@@ -185,6 +190,8 @@ struct which_col : thrust::unary_function<int, int> {
  * @param[in]  n_sub      Number of sub-batches
  * @param[in]  allocator  Device memory allocator
  * @param[in]  stream     CUDA stream
+ *
+ * @tparam DataT { description }
  */
 template <typename DataT>
 inline void divide_by_min_build_index(
@@ -239,11 +246,13 @@ inline void divide_by_min_build_index(
 /**
  * Batch division by minimum value step 2: create all the sub-batches
  *
- * @param[in]  d_in       Input batch
- * @param[in]  d_batch    Which sub-batch each series belongs to
- * @param[in]  d_index    Index of each series in its new sub-batch
- * @param[out] d_out      Array of pointers to the arrays of each sub-batch
- * @param[in]  n_obs      Number of data points per series
+ * @param[in]  d_in    Input batch
+ * @param[in]  d_batch Which sub-batch each series belongs to
+ * @param[in]  d_index Index of each series in its new sub-batch
+ * @param[out] d_out   Array of pointers to the arrays of each sub-batch
+ * @param[in]  n_obs   Number of data points per series
+ *
+ * @tparam DataT { description }
  */
 template <typename DataT>
 __global__ void divide_by_min_kernel(const DataT* d_in, const int* d_batch,
@@ -270,6 +279,8 @@ __global__ void divide_by_min_kernel(const DataT* d_in, const int* d_batch,
  * @param[in]  n_obs      Number of data points per series
  * @param[in]  allocator  Device memory allocator
  * @param[in]  stream     CUDA stream
+ *
+ * @tparam DataT { description }
  */
 template <typename DataT>
 inline void divide_by_min_execute(
@@ -300,10 +311,9 @@ inline void divide_by_min_execute(
  * @param[in]  d_id          Array of pointers to arrays containing the indices
  *                           of the members of each sub-batch
  * @param[in]  d_size        Array containing the size of each sub-batch
- * @param[out] d_id_to_pos   Array containing the position of each member in
- *                           its new sub-batch
- * @param[out] d_id_to_model Array associating each member with its
- *                           sub-batch
+ * @param[out] d_id_to_pos   Array containing the position of each member in its
+ *                           new sub-batch
+ * @param[out] d_id_to_model Array associating each member with its sub-batch
  */
 __global__ void build_division_map_kernel(const int* const* d_id,
                                           const int* d_size, int* d_id_to_pos,
@@ -325,8 +335,8 @@ __global__ void build_division_map_kernel(const int* const* d_id,
  * @param[in]  hd_id         Host array of pointers to device arrays containing
  *                           the indices of the members of each sub-batch
  * @param[in]  h_size        Host array containing the size of each sub-batch
- * @param[out] d_id_to_pos   Device array containing the position of each
- *                           member in its new sub-batch
+ * @param[out] d_id_to_pos   Device array containing the position of each member
+ *                           in its new sub-batch
  * @param[out] d_id_to_model Device array associating each member with its
  *                           sub-batch
  * @param[in]  batch_size    Batch size
@@ -366,6 +376,8 @@ inline void build_division_map(
  * @param[in]  d_id_to_sub Array associating each member with its sub-batch
  * @param[out] d_out       Output merged batch
  * @param[in]  n_obs       Number of observations (or forecasts) per series
+ *
+ * @tparam DataT { description }
  */
 template <typename DataT>
 __global__ void merge_series_kernel(const DataT* const* d_in,
@@ -383,8 +395,8 @@ __global__ void merge_series_kernel(const DataT* const* d_in,
 
 /**
  * Merge multiple sub-batches into one batch according to the maps that
- * associate each id in the unique batch to a sub-batch and a position in
- * this sub-batch.
+ * associate each id in the unique batch to a sub-batch and a position in this
+ * sub-batch.
  *
  * @param[in]  hd_in       Host array of pointers to device arrays containing
  *                         the sub-batches
@@ -398,6 +410,8 @@ __global__ void merge_series_kernel(const DataT* const* d_in,
  * @param[in]  n_obs       Number of observations (or forecasts) per series
  * @param[in]  allocator   Device memory allocator
  * @param[in]  stream      CUDA stream
+ *
+ * @tparam DataT { description }
  */
 template <typename DataT>
 inline void merge_series(const DataT* const* hd_in, const int* d_id_to_pos,

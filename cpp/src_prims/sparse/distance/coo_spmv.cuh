@@ -55,44 +55,40 @@ namespace distance {
  * Reference:
  * https://www.icl.utk.edu/files/publications/2020/icl-utk-1421-2020.pdf
  *
- * @param[in]  indptrA           column pointer array for A
- * @param[in]  indicesA          column indices array for A
- * @param[in]  dataA             data array for A
- * @param[in]  rowsB             coo row array for B
- * @param[in]  indicesB          column indices array for B
- * @param[in]  dataB             data array for B
- * @param[in]  m                 number of rows in A
- * @param[in]  n                 number of rows in B
- * @param[in]  dim               number of features
- * @param[in]  nnz_b             number of nonzeros in B
- * @param[out] out               array of size m*n
- * @param[in]  n_blocks_per_row  number of blocks of B per row of A
- * @param[in]  chunk_size        number of nnz for B to use for each row of A
- * @param[in]  product_func      semiring product() function
- * @param[in]  accum_func        semiring sum() function
- * @param[in]  write_func        atomic semiring sum() function
+ * @param[in]  indptrA          column pointer array for A
+ * @param[in]  indicesA         column indices array for A
+ * @param[in]  dataA            data array for A
+ * @param[in]  rowsB            coo row array for B
+ * @param[in]  indicesB         column indices array for B
+ * @param[in]  dataB            data array for B
+ * @param[in]  m                number of rows in A
+ * @param[in]  n                number of rows in B
+ * @param[in]  dim              number of features
+ * @param[in]  nnz_b            number of nonzeros in B
+ * @param[out] out              array of size m*n
+ * @param[in]  n_blocks_per_row number of blocks of B per row of A
+ * @param[in]  chunk_size       number of nnz for B to use for each row of A
+ * @param[in]  product_func     semiring product() function
+ * @param[in]  accum_func       semiring sum() function
+ * @param[in]  write_func       atomic semiring sum() function
  *
- * @tparam     value_idx         index type
- * @tparam     value_t           value type
- * @tparam     tpb               threads per block configured on launch
- * @tparam     rev               if this is true, the reduce/accumulate
- *                               functions are only executed when A[col] == 0.0.
- *                               when executed before/after !rev and A & B are
- *                               reversed, this allows the full symmetric
- *                               difference and intersection to be computed.
- * @tparam     kv_t              data type stored in shared mem cache
- * @tparam     product_f         reduce function type (semiring product()
- *                               function). accepts two arguments of value_t and
- *                               returns a value_t
- * @tparam     accum_f           accumulation function type (semiring sum()
- *                               function). accepts two arguments of value_t and
- *                               returns a value_t
- * @tparam     write_f           function to write value out. this should be
- *                               mathematically equivalent to the accumulate
- *                               function but implemented as an atomic operation
- *                               on global memory. Accepts two arguments of
- *                               value_t* and value_t and updates the value
- *                               given by the pointer.
+ * @tparam value_t value type
+ * @tparam tpb     threads per block configured on launch
+ * @tparam rev     if this is true, the reduce/accumulate functions are only
+ *                 executed when A[col] == 0.0. when executed before/after !rev
+ *                 and A & B are reversed, this allows the full symmetric
+ *                 difference and intersection to be computed.
+ * @tparam kv_t    data type stored in shared mem cache
+ * @tparam value_idx index type
+ * @tparam product_f reduce function type (semiring product() function). accepts
+ *                   two arguments of value_t and returns a value_t
+ * @tparam accum_f   accumulation function type (semiring sum() function). accepts
+ *                   two arguments of value_t and returns a value_t
+ * @tparam write_f   function to write value out. this should be mathematically
+ *                   equivalent to the accumulate function but implemented as an
+ *                   atomic operation on global memory. Accepts two arguments of
+ *                   value_t* and value_t and updates the value given by the
+ *                   pointer.
  */
 template <typename value_idx, typename value_t, int tpb, bool rev,
           typename kv_t, typename product_f, typename accum_f, typename write_f>
@@ -202,11 +198,11 @@ __global__ void balanced_coo_generalized_spmv_kernel(
  * Computes the maximum number of columns that can be stored in shared memory in
  * dense form with the given block size and precision.
  *
- * @tparam     value_idx  { description }
- * @tparam     value_t    { description }
- * @tparam     tpb        { description }
+ * @tparam value_idx { description }
+ * @tparam value_t   { description }
+ * @tparam tpb       { description }
  *
- * @return     the maximum number of columns that can be stored in smem
+ * @return the maximum number of columns that can be stored in smem
  */
 template <typename value_idx, typename value_t, int tpb = 1024>
 inline int max_cols_per_block() {
@@ -242,24 +238,24 @@ inline int smem_per_block(int n_cols) {
  * Each vector of A is loaded into shared memory in dense form and the non-zeros
  * of B load balanced across the threads of each block.
  *
- * @param[out] out_dists          dense array of out distances of size m * n in
- *                                row-major format.
- * @param[in]  config_            distance config object
- * @param[in]  coo_rows_b         coo row array for B
- * @param[in]  product_func       semiring product() function
- * @param[in]  accum_func         semiring sum() function
- * @param[in]  write_func         atomic semiring sum() function
+ * @param[out] out_dists    dense array of out distances of size m * n in
+ *                          row-major format.
+ * @param[in]  config_      distance config object
+ * @param[in]  coo_rows_b   coo row array for B
+ * @param[in]  product_func semiring product() function
+ * @param[in]  accum_func   semiring sum() function
+ * @param[in]  write_func   atomic semiring sum() function
  *
- * @tparam     value_idx          index type
- * @tparam     value_t            value type
- * @tparam     threads_per_block  block size
- * @tparam     chunk_size         number of nonzeros of B to process for each
- *                                row of A this value was found through
- *                                profiling and represents a reasonable setting
- *                                for both large and small densities
- * @tparam     product_f          semiring product() function
- * @tparam     accum_f            semiring sum() function
- * @tparam     write_f            atomic semiring sum() function
+ * @tparam value_idx         index type
+ * @tparam value_t           value type
+ * @tparam threads_per_block block size
+ * @tparam chunk_size        number of nonzeros of B to process for each row of
+ *                           A this value was found through profiling and
+ *                           represents a reasonable setting for both large and
+ *                           small densities
+ * @tparam product_f semiring product() function
+ * @tparam accum_f   semiring sum() function
+ * @tparam write_f   atomic semiring sum() function
  */
 template <typename value_idx, typename value_t, int threads_per_block = 1024,
           int chunk_size = 500000, typename product_f, typename accum_f,
@@ -317,23 +313,23 @@ inline void balanced_coo_pairwise_generalized_spmv(
  * Manattan distance sum(abs(x_k-y_k)) is a great example of when this type of
  * execution pattern is necessary.
  *
- * @param[out] out_dists          dense array of out distances of size m * n
- * @param[in]  config_            distance config object
- * @param[in]  coo_rows_a         coo row array for A
- * @param[in]  product_func       semiring product() function
- * @param[in]  accum_func         semiring sum() function
- * @param[in]  write_func         atomic semiring sum() function
+ * @param[out] out_dists    dense array of out distances of size m * n
+ * @param[in]  config_      distance config object
+ * @param[in]  coo_rows_a   coo row array for A
+ * @param[in]  product_func semiring product() function
+ * @param[in]  accum_func   semiring sum() function
+ * @param[in]  write_func   atomic semiring sum() function
  *
- * @tparam     value_idx          index type
- * @tparam     value_t            value type
- * @tparam     threads_per_block  block size
- * @tparam     chunk_size         number of nonzeros of B to process for each
- *                                row of A this value was found through
- *                                profiling and represents a reasonable setting
- *                                for both large and small densities
- * @tparam     product_f          semiring product() function
- * @tparam     accum_f            semiring sum() function
- * @tparam     write_f            atomic semiring sum() function
+ * @tparam value_idx         index type
+ * @tparam value_t           value type
+ * @tparam threads_per_block block size
+ * @tparam chunk_size        number of nonzeros of B to process for each row of
+ *                           A this value was found through profiling and
+ *                           represents a reasonable setting for both large and
+ *                           small densities
+ * @tparam product_f semiring product() function
+ * @tparam accum_f   semiring sum() function
+ * @tparam write_f   atomic semiring sum() function
  */
 template <typename value_idx, typename value_t, int threads_per_block = 1024,
           int chunk_size = 500000, typename product_f, typename accum_f,

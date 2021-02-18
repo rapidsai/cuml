@@ -25,7 +25,7 @@ enum LoglikeMethod { CSS, MLE };
 
 /**
  * Pack separate parameter arrays into a compact array
- * 
+ *
  * @param[in]  handle     cuML handle
  * @param[in]  params     Parameter structure
  * @param[in]  order      ARIMA order
@@ -37,7 +37,7 @@ void pack(raft::handle_t& handle, const ARIMAParams<double>& params,
 
 /**
  * Unpack a compact array into separate parameter arrays
- * 
+ *
  * @param[in]  handle     cuML handle
  * @param[out] params     Parameter structure
  * @param[in]  order      ARIMA order
@@ -49,7 +49,7 @@ void unpack(raft::handle_t& handle, ARIMAParams<double>& params,
 
 /**
  * Compute the differenced series (seasonal and/or non-seasonal differences)
- * 
+ *
  * @param[in]  handle     cuML handle
  * @param[out] d_y_diff   Differenced series
  * @param[in]  d_y        Original series
@@ -61,8 +61,8 @@ void batched_diff(raft::handle_t& handle, double* d_y_diff, const double* d_y,
                   int batch_size, int n_obs, const ARIMAOrder& order);
 
 /**
- * Compute the loglikelihood of the given parameter on the given time series
- * in a batched context.
+ * Compute the loglikelihood of the given parameter on the given time series in
+ * a batched context.
  *
  * @param[in]  handle       cuML handle
  * @param[in]  d_y          Series to fit: shape = (n_obs, batch_size) and
@@ -70,12 +70,12 @@ void batched_diff(raft::handle_t& handle, double* d_y_diff, const double* d_y,
  * @param[in]  batch_size   Number of time series
  * @param[in]  n_obs        Number of observations in a time series
  * @param[in]  order        ARIMA hyper-parameters
- * @param[in]  d_params     Parameters to evaluate grouped by series:
- *                          [mu0, ar.., ma.., mu1, ..] (device)
+ * @param[in]  d_params     Parameters to evaluate grouped by series: [mu0,
+ *                          ar.., ma.., mu1, ..] (device)
  * @param[out] loglike      Log-Likelihood of the model per series
  * @param[out] d_vs         The residual between model and original signal.
- *                          shape = (n_obs-d-s*D, batch_size) (device)
- *                          Note: no output when using CSS estimation
+ *                          shape = (n_obs-d-s*D, batch_size) (device) Note: no
+ *                          output when using CSS estimation
  * @param[in]  trans        Run `jones_transform` on params.
  * @param[in]  host_loglike Whether loglike is a host pointer
  * @param[in]  method       Whether to use sum-of-squares or Kalman filter
@@ -83,8 +83,8 @@ void batched_diff(raft::handle_t& handle, double* d_y_diff, const double* d_y,
  *                          number of observations
  * @param[in]  fc_steps     Number of steps to forecast
  * @param[in]  d_fc         Array to store the forecast
- * @param[in]  level        Confidence level for prediction intervals. 0 to
- *                          skip the computation. Else 0 < level < 1
+ * @param[in]  level        Confidence level for prediction intervals. 0 to skip
+ *                          the computation. Else 0 < level < 1
  * @param[out] d_lower      Lower limit of the prediction interval
  * @param[out] d_upper      Upper limit of the prediction interval
  */
@@ -97,11 +97,11 @@ void batched_loglike(raft::handle_t& handle, const double* d_y, int batch_size,
                      double* d_upper = nullptr);
 
 /**
- * Compute the loglikelihood of the given parameter on the given time series
- * in a batched context.
- * 
- * @note: this overload should be used when the parameters are already unpacked
- *        to avoid useless packing / unpacking
+ * Compute the loglikelihood of the given parameter on the given time series in
+ * a batched context.
+ *
+ * @note : this overload should be used when the parameters are already unpacked
+ *       to avoid useless packing / unpacking
  *
  * @param[in]  handle       cuML handle
  * @param[in]  d_y          Series to fit: shape = (n_obs, batch_size) and
@@ -112,8 +112,8 @@ void batched_loglike(raft::handle_t& handle, const double* d_y, int batch_size,
  * @param[in]  params       ARIMA parameters (device)
  * @param[out] loglike      Log-Likelihood of the model per series
  * @param[out] d_vs         The residual between model and original signal.
- *                          shape = (n_obs-d-s*D, batch_size) (device)
- *                          Note: no output when using CSS estimation
+ *                          shape = (n_obs-d-s*D, batch_size) (device) Note: no
+ *                          output when using CSS estimation
  * @param[in]  trans        Run `jones_transform` on params.
  * @param[in]  host_loglike Whether loglike is a host pointer
  * @param[in]  method       Whether to use sum-of-squares or Kalman filter
@@ -121,8 +121,8 @@ void batched_loglike(raft::handle_t& handle, const double* d_y, int batch_size,
  *                          number of observations
  * @param[in]  fc_steps     Number of steps to forecast
  * @param[in]  d_fc         Array to store the forecast
- * @param[in]  level        Confidence level for prediction intervals. 0 to
- *                          skip the computation. Else 0 < level < 1
+ * @param[in]  level        Confidence level for prediction intervals. 0 to skip
+ *                          the computation. Else 0 < level < 1
  * @param[out] d_lower      Lower limit of the prediction interval
  * @param[out] d_upper      Upper limit of the prediction interval
  */
@@ -136,20 +136,20 @@ void batched_loglike(raft::handle_t& handle, const double* d_y, int batch_size,
 
 /**
  * Compute the gradient of the log-likelihood
- * 
- * @param[in]  handle       cuML handle
- * @param[in]  d_y          Series to fit: shape = (n_obs, batch_size) and
- *                          expects column major data layout. (device)
- * @param[in]  batch_size   Number of time series
- * @param[in]  n_obs        Number of observations in a time series
- * @param[in]  order        ARIMA hyper-parameters
- * @param[in]  d_x          Parameters grouped by series
- * @param[out] d_grad       Gradient to compute
- * @param[in]  h            Finite-differencing step size
- * @param[in]  trans        Run `jones_transform` on params
- * @param[in]  method       Whether to use sum-of-squares or Kalman filter
- * @param[in]  truncate     For CSS, start the sum-of-squares after a given
- *                          number of observations
+ *
+ * @param[in]  handle     cuML handle
+ * @param[in]  d_y        Series to fit: shape = (n_obs, batch_size) and expects
+ *                        column major data layout. (device)
+ * @param[in]  batch_size Number of time series
+ * @param[in]  n_obs      Number of observations in a time series
+ * @param[in]  order      ARIMA hyper-parameters
+ * @param[in]  d_x        Parameters grouped by series
+ * @param[out] d_grad     Gradient to compute
+ * @param[in]  h          Finite-differencing step size
+ * @param[in]  trans      Run `jones_transform` on params
+ * @param[in]  method     Whether to use sum-of-squares or Kalman filter
+ * @param[in]  truncate   For CSS, start the sum-of-squares after a given number
+ *                        of observations
  */
 void batched_loglike_grad(raft::handle_t& handle, const double* d_y,
                           int batch_size, int n_obs, const ARIMAOrder& order,
@@ -158,25 +158,25 @@ void batched_loglike_grad(raft::handle_t& handle, const double* d_y,
                           int truncate = 0);
 
 /**
- * Batched in-sample and out-of-sample prediction of a time-series given all
- * the model parameters
+ * Batched in-sample and out-of-sample prediction of a time-series given all the
+ * model parameters
  *
- * @param[in]  handle      cuML handle
- * @param[in]  d_y         Batched Time series to predict.
- *                         Shape: (num_samples, batch size) (device)
- * @param[in]  batch_size  Total number of batched time series
- * @param[in]  n_obs       Number of samples per time series
- *                         (all series must be identical)
- * @param[in]  start       Index to start the prediction
- * @param[in]  end         Index to end the prediction (excluded)
- * @param[in]  order       ARIMA hyper-parameters
- * @param[in]  params      ARIMA parameters (device)
- * @param[out] d_y_p       Prediction output (device)
- * @param[in]  pre_diff    Whether to use pre-differencing
- * @param[in]  level       Confidence level for prediction intervals. 0 to
- *                         skip the computation. Else 0 < level < 1
- * @param[out] d_lower     Lower limit of the prediction interval
- * @param[out] d_upper     Upper limit of the prediction interval
+ * @param[in]  handle     cuML handle
+ * @param[in]  d_y        Batched Time series to predict. Shape: (num_samples,
+ *                        batch size) (device)
+ * @param[in]  batch_size Total number of batched time series
+ * @param[in]  n_obs      Number of samples per time series (all series must be
+ *                        identical)
+ * @param[in]  start      Index to start the prediction
+ * @param[in]  end        Index to end the prediction (excluded)
+ * @param[in]  order      ARIMA hyper-parameters
+ * @param[in]  params     ARIMA parameters (device)
+ * @param[out] d_y_p      Prediction output (device)
+ * @param[in]  pre_diff   Whether to use pre-differencing
+ * @param[in]  level      Confidence level for prediction intervals. 0 to skip
+ *                        the computation. Else 0 < level < 1
+ * @param[out] d_lower    Lower limit of the prediction interval
+ * @param[out] d_upper    Upper limit of the prediction interval
  */
 void predict(raft::handle_t& handle, const double* d_y, int batch_size,
              int n_obs, int start, int end, const ARIMAOrder& order,
@@ -187,18 +187,18 @@ void predict(raft::handle_t& handle, const double* d_y, int batch_size,
 /**
  * Compute an information criterion (AIC, AICc, BIC)
  *
- * @param[in]  handle      cuML handle
- * @param[in]  d_y         Series to fit: shape = (n_obs, batch_size) and
- *                         expects column major data layout. (device)
- * @param[in]  batch_size  Total number of batched time series
- * @param[in]  n_obs       Number of samples per time series
- *                         (all series must be identical)
- * @param[in]  order       ARIMA hyper-parameters
- * @param[in]  params      ARIMA parameters (device)
- * @param[out] ic          Array where to write the information criteria
- *                         Shape: (batch_size) (device)
- * @param[in]  ic_type     Type of information criterion wanted.
- *                         0: AIC, 1: AICc, 2: BIC
+ * @param[in]  handle     cuML handle
+ * @param[in]  d_y        Series to fit: shape = (n_obs, batch_size) and expects
+ *                        column major data layout. (device)
+ * @param[in]  batch_size Total number of batched time series
+ * @param[in]  n_obs      Number of samples per time series (all series must be
+ *                        identical)
+ * @param[in]  order      ARIMA hyper-parameters
+ * @param[in]  params     ARIMA parameters (device)
+ * @param[out] ic         Array where to write the information criteria Shape:
+ *                        (batch_size) (device)
+ * @param[in]  ic_type    Type of information criterion wanted. 0: AIC, 1: AICc,
+ *                        2: BIC
  */
 void information_criterion(raft::handle_t& handle, const double* d_y,
                            int batch_size, int n_obs, const ARIMAOrder& order,
@@ -208,14 +208,14 @@ void information_criterion(raft::handle_t& handle, const double* d_y,
 /**
  * Provide initial estimates to ARIMA parameters mu, AR, and MA
  *
- * @param[in]  handle      cuML handle
- * @param[in]  params      ARIMA parameters (device)
- * @param[in]  d_y         Series to fit: shape = (n_obs, batch_size) and
- *                         expects column major data layout. (device)
- * @param[in]  batch_size  Total number of batched time series
- * @param[in]  n_obs       Number of samples per time series
- *                         (all series must be identical)
- * @param[in]  order       ARIMA hyper-parameters
+ * @param[in] handle     cuML handle
+ * @param[in] params     ARIMA parameters (device)
+ * @param[in] d_y        Series to fit: shape = (n_obs, batch_size) and expects
+ *                       column major data layout. (device)
+ * @param[in] batch_size Total number of batched time series
+ * @param[in] n_obs      Number of samples per time series (all series must be
+ *                       identical)
+ * @param[in] order      ARIMA hyper-parameters
  */
 void estimate_x0(raft::handle_t& handle, ARIMAParams<double>& params,
                  const double* d_y, int batch_size, int n_obs,

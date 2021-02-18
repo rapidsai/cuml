@@ -112,15 +112,18 @@ __global__ void coo_symmetrize_kernel(int *row_ind, int *rows, int *cols,
 }
 
 /**
- * @brief takes a COO matrix which may not be symmetric and symmetrizes
- * it, running a custom reduction function against the each value
- * and its transposed value.
+ * @brief takes a COO matrix which may not be symmetric and symmetrizes it,
+ *        running a custom reduction function against the each value and its
+ *        transposed value.
  *
- * @param in: Input COO matrix
- * @param out: Output symmetrized COO matrix
- * @param reduction_op: a custom reduction function
- * @param d_alloc device allocator for temporary buffers
- * @param stream: cuda stream to use
+ * @param in           Input COO matrix
+ * @param out          Output symmetrized COO matrix
+ * @param reduction_op a custom reduction function
+ * @param d_alloc      device allocator for temporary buffers
+ * @param stream       cuda stream to use
+ *
+ * @tparam TPB_X { description }
+ * @tparam T     { description }
  */
 template <int TPB_X = 128, typename T, typename Lambda>
 void coo_symmetrize(COO<T> *in, COO<T> *out,
@@ -145,15 +148,18 @@ void coo_symmetrize(COO<T> *in, COO<T> *out,
 }
 
 /**
- * @brief Find how much space needed in each row.
- * We look through all datapoints and increment the count for each row.
+ * @brief Find how much space needed in each row. We look through all datapoints
+ *        and increment the count for each row.
  *
- * @param data: Input knn distances(n, k)
- * @param indices: Input knn indices(n, k)
- * @param n: Number of rows
- * @param k: Number of n_neighbors
- * @param row_sizes: Input empty row sum 1 array(n)
- * @param row_sizes2: Input empty row sum 2 array(n) for faster reduction
+ * @param data       Input knn distances(n, k)
+ * @param indices    Input knn indices(n, k)
+ * @param n          Number of rows
+ * @param k          Number of n_neighbors
+ * @param row_sizes  Input empty row sum 1 array(n)
+ * @param row_sizes2 Input empty row sum 2 array(n) for faster reduction
+ *
+ * @tparam value_idx { description }
+ * @tparam value_t   { description }
  */
 template <typename value_idx = int64_t, typename value_t = float>
 __global__ static void symmetric_find_size(const value_t *restrict data,
@@ -174,13 +180,15 @@ __global__ static void symmetric_find_size(const value_t *restrict data,
 }
 
 /**
- * @brief Reduce sum(row_sizes) + k
- * Reduction for symmetric_find_size kernel. Allows algo to be faster.
+ * @brief Reduce sum(row_sizes) + k Reduction for symmetric_find_size kernel.
+ *        Allows algo to be faster.
  *
- * @param n: Number of rows
- * @param k: Number of n_neighbors
- * @param row_sizes: Input row sum 1 array(n)
- * @param row_sizes2: Input row sum 2 array(n) for faster reduction
+ * @param n          Number of rows
+ * @param k          Number of n_neighbors
+ * @param row_sizes  Input row sum 1 array(n)
+ * @param row_sizes2 Input row sum 2 array(n) for faster reduction
+ *
+ * @tparam value_idx { description }
  */
 template <typename value_idx>
 __global__ static void reduce_find_size(const value_idx n, const int k,
@@ -192,18 +200,20 @@ __global__ static void reduce_find_size(const value_idx n, const int k,
 }
 
 /**
- * @brief Perform data + data.T operation.
- * Can only run once row_sizes from the CSR matrix of data + data.T has been
- * determined.
+ * @brief Perform data + data.T operation. Can only run once row_sizes from the
+ *        CSR matrix of data + data.T has been determined.
  *
- * @param edges: Input row sum array(n) after reduction
- * @param data: Input knn distances(n, k)
- * @param indices: Input knn indices(n, k)
- * @param VAL: Output values for data + data.T
- * @param COL: Output column indices for data + data.T
- * @param ROW: Output row indices for data + data.T
- * @param n: Number of rows
- * @param k: Number of n_neighbors
+ * @param edges   Input row sum array(n) after reduction
+ * @param data    Input knn distances(n, k)
+ * @param indices Input knn indices(n, k)
+ * @param VAL     Output values for data + data.T
+ * @param COL     Output column indices for data + data.T
+ * @param ROW     Output row indices for data + data.T
+ * @param n       Number of rows
+ * @param k       Number of n_neighbors
+ *
+ * @tparam value_idx { description }
+ * @tparam value_t   { description }
  */
 template <typename value_idx = int64_t, typename value_t = float>
 __global__ static void symmetric_sum(value_idx *restrict edges,
@@ -232,22 +242,24 @@ __global__ static void symmetric_sum(value_idx *restrict edges,
 }
 
 /**
- * @brief Perform data + data.T on raw KNN data.
- * The following steps are invoked:
- * (1) Find how much space needed in each row
- * (2) Compute final space needed (n*k + sum(row_sizes)) == 2*n*k
- * (3) Allocate new space
- * (4) Prepare edges for each new row
- * (5) Perform final data + data.T operation
- * (6) Return summed up VAL, COL, ROW
+ * @brief Perform data + data.T on raw KNN data. The following steps are
+ *        invoked: (1) Find how much space needed in each row (2) Compute final
+ *        space needed (n*k + sum(row_sizes)) == 2*n*k (3) Allocate new space
+ *        (4) Prepare edges for each new row (5) Perform final data + data.T
+ *        operation (6) Return summed up VAL, COL, ROW
  *
- * @param knn_indices: Input knn distances(n, k)
- * @param knn_dists: Input knn indices(n, k)
- * @param n: Number of rows
- * @param k: Number of n_neighbors
- * @param out: Output COO Matrix class
- * @param stream: Input cuda stream
- * @param d_alloc device allocator for temporary buffers
+ * @param knn_indices Input knn distances(n, k)
+ * @param knn_dists   Input knn indices(n, k)
+ * @param n           Number of rows
+ * @param k           Number of n_neighbors
+ * @param out         Output COO Matrix class
+ * @param stream      Input cuda stream
+ * @param d_alloc     device allocator for temporary buffers
+ *
+ * @tparam value_idx { description }
+ * @tparam value_t   { description }
+ * @tparam TPB_X     { description }
+ * @tparam TPB_Y     { description }
  */
 template <typename value_idx = int64_t, typename value_t = float,
           int TPB_X = 32, int TPB_Y = 32>

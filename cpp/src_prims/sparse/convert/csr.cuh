@@ -71,19 +71,21 @@ void coo_to_csr(const raft::handle_t &handle, const int *srcRows,
 }
 
 /**
- * @brief Constructs an adjacency graph CSR row_ind_ptr array from
- * a row_ind array and adjacency array.
- * @tparam T the numeric type of the index arrays
- * @tparam TPB_X the number of threads to use per block for kernels
- * @tparam Lambda function for fused operation in the adj_graph construction
- * @param row_ind the input CSR row_ind array
- * @param total_rows number of vertices in graph
- * @param nnz number of non-zeros
- * @param batchSize number of vertices in current batch
- * @param adj an adjacency array (size batchSize x total_rows)
+ * @brief Constructs an adjacency graph CSR row_ind_ptr array from a row_ind
+ *        array and adjacency array.
+ *
+ * @param row_ind     the input CSR row_ind array
+ * @param total_rows  number of vertices in graph
+ * @param nnz         number of non-zeros
+ * @param batchSize   number of vertices in current batch
+ * @param adj         an adjacency array (size batchSize x total_rows)
  * @param row_ind_ptr output CSR row_ind_ptr for adjacency graph
- * @param stream cuda stream to use
- * @param fused_op: the fused operation
+ * @param stream      cuda stream to use
+ * @param fused_op    the fused operation
+ *
+ * @tparam TPB_X the number of threads to use per block for kernels
+ * @tparam T      the numeric type of the index arrays
+ * @tparam Lambda function for fused operation in the adj_graph construction
  */
 template <typename Index_, int TPB_X = 32,
           typename Lambda = auto(Index_, Index_, Index_)->void>
@@ -119,17 +121,19 @@ void csr_adj_graph_batched(const Index_ *row_ind, Index_ total_rows, Index_ nnz,
 }
 
 /**
- * @brief Constructs an adjacency graph CSR row_ind_ptr array from a
- * a row_ind array and adjacency array.
- * @tparam T the numeric type of the index arrays
- * @tparam TPB_X the number of threads to use per block for kernels
- * @param row_ind the input CSR row_ind array
- * @param total_rows number of total vertices in graph
- * @param nnz number of non-zeros
- * @param adj an adjacency array
+ * @brief Constructs an adjacency graph CSR row_ind_ptr array from a a row_ind
+ *        array and adjacency array.
+ *
+ * @param row_ind     the input CSR row_ind array
+ * @param total_rows  number of total vertices in graph
+ * @param nnz         number of non-zeros
+ * @param adj         an adjacency array
  * @param row_ind_ptr output CSR row_ind_ptr for adjacency graph
- * @param stream cuda stream to use
- * @param fused_op the fused operation
+ * @param stream      cuda stream to use
+ * @param fused_op    the fused operation
+ *
+ * @tparam TPB_X the number of threads to use per block for kernels
+ * @tparam T     the numeric type of the index arrays
  */
 template <typename Index_, int TPB_X = 32,
           typename Lambda = auto(Index_, Index_, Index_)->void>
@@ -143,12 +147,14 @@ void csr_adj_graph(const Index_ *row_ind, Index_ total_rows, Index_ nnz,
 /**
  * @brief Generate the row indices array for a sorted COO matrix
  *
- * @param rows: COO rows array
- * @param nnz: size of COO rows array
- * @param row_ind: output row indices array
- * @param m: number of rows in dense matrix
+ * @param rows    COO rows array
+ * @param nnz     size of COO rows array
+ * @param row_ind output row indices array
+ * @param m       number of rows in dense matrix
  * @param d_alloc device allocator for temporary buffers
- * @param stream: cuda stream to use
+ * @param stream  cuda stream to use
+ *
+ * @tparam T     { description }
  */
 template <typename T>
 void sorted_coo_to_csr(const T *rows, int nnz, T *row_ind, int m,
@@ -171,10 +177,12 @@ void sorted_coo_to_csr(const T *rows, int nnz, T *row_ind, int m,
 /**
  * @brief Generate the row indices array for a sorted COO matrix
  *
- * @param coo: Input COO matrix
- * @param row_ind: output row indices array
+ * @param coo     Input COO matrix
+ * @param row_ind output row indices array
  * @param d_alloc device allocator for temporary buffers
- * @param stream: cuda stream to use
+ * @param stream  cuda stream to use
+ *
+ * @tparam T     { description }
  */
 template <typename T>
 void sorted_coo_to_csr(COO<T> *coo, int *row_ind,

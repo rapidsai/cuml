@@ -24,15 +24,16 @@ namespace Distance {
 
 /**
  * @brief Fragment-level epilogue function called by ExpandedEpilogueFunctor,
- *  which calls FusedDistance and user lambda
+ *        which calls FusedDistance and user lambda
+ *
  * @tparam FusedDistance used to generate the final distance value
  */
 template <typename FusedDistance>
 struct ExpandedDistanceFragmentMultiplyAdd {
-  /// Ctor.
+  // Ctor.
   CUTLASS_DEVICE ExpandedDistanceFragmentMultiplyAdd() {}
 
-  /// Multiply : d = b.
+  // Multiply : d = b.
   template <bool enable_sqrt_, typename FragmentB_, typename FragmentCd_,
             typename FragmentCol_, typename FragmentRow_, typename Lambda_>
   CUTLASS_DEVICE void multiply(FragmentB_ const &b, FragmentCd_ &d,
@@ -56,7 +57,7 @@ struct ExpandedDistanceFragmentMultiplyAdd {
 };
 
 struct L2FusedDistance {
-  /// Ctor.
+  // Ctor.
   CUTLASS_DEVICE L2FusedDistance() {}
 
   template <bool enable_sqrt_, typename CdElement_, typename ColElement_,
@@ -70,7 +71,7 @@ struct L2FusedDistance {
 };
 
 struct CosFusedDistance {
-  /// Ctor.
+  // Ctor.
   CUTLASS_DEVICE CosFusedDistance() {}
 
   template <bool enable_sqrt_, typename CdElement_, typename ColElement_,
@@ -84,13 +85,13 @@ struct CosFusedDistance {
 
 /**
  * @brief Fragment-level epilogue function called by UnexpandedEpilogueFunctor,
- *  which calls the user lambda
+ *        which calls the user lambda
  */
 struct UnexpandedDistanceFragmentMultiplyAdd {
-  /// Ctor.
+  // Ctor.
   CUTLASS_DEVICE UnexpandedDistanceFragmentMultiplyAdd() {}
 
-  /// Multiply : d = b.
+  // Multiply : d = b.
   template <bool enable_sqrt_, typename FragmentB_, typename FragmentCd_,
             typename Lambda_>
   CUTLASS_DEVICE void multiply(FragmentB_ const &b, FragmentCd_ &d,

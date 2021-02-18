@@ -32,10 +32,11 @@ namespace MLCommon {
 namespace Selection {
 
 /**
- * @brief A virtual class defining pre- and post-processing
- * for metrics. This class will temporarily modify its given
- * state in `preprocess()` and undo those modifications in
- * `postprocess()`
+ * @brief A virtual class defining pre- and post-processing for metrics. This
+ *        class will temporarily modify its given state in `preprocess()` and
+ *        undo those modifications in `postprocess()`
+ *
+ * @tparam math_t { description }
  */
 
 template <typename math_t>
