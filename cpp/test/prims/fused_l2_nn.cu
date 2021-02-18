@@ -25,6 +25,21 @@
 namespace MLCommon {
 namespace Distance {
 
+template <typename LabelT, typename DataT>
+struct CubKVPMinReduce {
+  typedef cub::KeyValuePair<LabelT, DataT> KVP;
+
+  DI KVP operator()(LabelT rit, const KVP& a, const KVP& b) {
+    return b.value < a.value ? b : a;
+  }
+
+  DI KVP operator()(const KVP& a, const KVP& b) {
+    return b.value < a.value ? b : a;
+  }
+
+};  // KVPMinReduce
+
+
 template <typename DataT, bool Sqrt, typename ReduceOpT, int NWARPS>
 __global__ void naiveKernel(cub::KeyValuePair<int, DataT> *min, DataT *x,
                             DataT *y, int m, int n, int k, int *workspace,
@@ -48,7 +63,7 @@ __global__ void naiveKernel(cub::KeyValuePair<int, DataT> *min, DataT *x,
   cub::KeyValuePair<int, DataT> tmp;
   tmp.key = nidx;
   tmp.value = midx >= m || nidx >= n ? maxVal : acc;
-  tmp = WarpReduce(temp[warpId]).Reduce(tmp, KVPMinReduce<int, DataT>());
+  tmp = WarpReduce(temp[warpId]).Reduce(tmp, CubKVPMinReduce<int, DataT>());
   if (threadIdx.x % raft::WarpSize == 0 && midx < m) {
     while (atomicCAS(workspace + midx, 0, 1) == 1)
       ;
@@ -139,7 +154,9 @@ class FusedL2NNTest : public ::testing::TestWithParam<Inputs<DataT>> {
     int k = params.k;
     MinAndDistanceReduceOp<int, DataT> redOp;
     fusedL2NN<DataT, cub::KeyValuePair<int, DataT>, int>(
-      out, x, y, xn, yn, m, n, k, (void *)workspace, redOp, Sqrt, true, stream);
+      out, x, y, xn, yn, m, n, k, (void *)workspace, redOp,
+      MLCommon::Distance::KVPMinReduce<int, DataT>(),
+      Sqrt, true, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
   }
 };

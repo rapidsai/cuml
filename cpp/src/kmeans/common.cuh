@@ -342,6 +342,7 @@ void minClusterAndDistance(
           minClusterAndDistanceView.data(), datasetView.data(),
           centroidsView.data(), L2NormXView.data(), centroidsNormView.data(),
           ns, nc, n_features, (void *)workspace.data(), redOp,
+          MLCommon::Distance::KVPMinReduce<IndexT, DataT>(),
           (metric == raft::distance::DistanceType::L2Expanded) ? false : true,
           false, stream);
       } else {
@@ -457,6 +458,7 @@ void minClusterDistance(const raft::handle_t &handle,
           minClusterDistanceView.data(), datasetView.data(),
           centroidsView.data(), L2NormXView.data(), centroidsNormView.data(),
           ns, nc, n_features, (void *)workspace.data(), redOp,
+          MLCommon::Distance::KVPMinReduce<IndexT, DataT>(),
           (metric == raft::distance::DistanceType::L2Expanded) ? false : true,
           false, stream);
       } else {

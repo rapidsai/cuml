@@ -127,7 +127,7 @@ class KmeansTest : public ::testing::TestWithParam<KmeansInputs<T>> {
   ML::kmeans::KMeansParams params;
 };
 
-const std::vector<KmeansInputs<float>> inputsf2 = {
+const std::vector<KmeansInputs<float>> linkage_inputsf2 = {
   {1000, 32, 5, 0.0001, true},      {1000, 32, 5, 0.0001, false},
   {1000, 100, 20, 0.0001, true},    {1000, 100, 20, 0.0001, false},
   {10000, 32, 10, 0.0001, true},    {10000, 32, 10, 0.0001, false},
@@ -148,7 +148,7 @@ typedef KmeansTest<double> KmeansTestD;
 TEST_P(KmeansTestD, Result) { ASSERT_TRUE(score == 1.0); }
 
 INSTANTIATE_TEST_CASE_P(KmeansTests, KmeansTestF,
-                        ::testing::ValuesIn(inputsf2));
+                        ::testing::ValuesIn(linkage_inputsf2));
 
 INSTANTIATE_TEST_CASE_P(KmeansTests, KmeansTestD,
                         ::testing::ValuesIn(inputsd2));

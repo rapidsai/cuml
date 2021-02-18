@@ -70,7 +70,7 @@ struct FusedL2NN : public Fixture {
     loopOnState(state, [this]() {
       // it is enough to only benchmark the L2-squared metric
       MLCommon::Distance::fusedL2NN<T, cub::KeyValuePair<int, T>, int>(
-        out, x, y, xn, yn, params.m, params.n, params.k, (void*)workspace, op,
+        out, x, y, xn, yn, params.m, params.n, params.k, (void*)workspace, op, MLCommon::Distance::KVPMinReduce<int, T>(),
         false, false, stream);
     });
   }
