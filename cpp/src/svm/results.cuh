@@ -329,7 +329,6 @@ class Results {
    * @param[in]  val   values to filter, size [n]
    * @param[in]  op    The operation
    * @param[out] out   buffer size [n]
-   * @param[in] alpha dual coefficients, size [n]
    *
    * @tparam valType type of values that will be selected
    * @tparam select_op lambda selection criteria
