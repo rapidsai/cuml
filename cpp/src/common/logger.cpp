@@ -85,7 +85,7 @@ int Logger::getLevel() const {
   return CUML_LEVEL_TRACE - static_cast<int>(level_e);
 }
 
-void Logger::log(int level, const char* fmt, ...) {
+void Logger::log(int level, const char* fmt...) {
   level = convert_level_to_spdlog(level);
   auto level_e = static_cast<spdlog::level::level_enum>(level);
   // explicit check to make sure that we only expand messages when required

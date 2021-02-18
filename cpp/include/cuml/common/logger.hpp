@@ -150,11 +150,10 @@ class Logger {
   /**
    * Main logging method
    *
-   * @param[in] level     logging level of this message
-   * @param[in] fmt       C-like format string, followed by respective params
-   * @param[in] <unnamed> { parameter_description }
+   * @param[in] level logging level of this message
+   * @param[in] fmt   C-like format string, followed by respective params
    */
-  void log(int level, const char* fmt, ...);
+  void log(int level, const char* fmt...);
 
   /**
    * Flush logs by calling flush on underlying logger
