@@ -116,7 +116,8 @@ __global__ void balanced_coo_generalized_spmv_kernel(
   __syncthreads();
 
   value_idx start_offset_a, stop_offset_a;
-  indptrA.get_row_offsets(cur_row_a, start_offset_a, stop_offset_a, n_blocks_per_row);
+  indptrA.get_row_offsets(cur_row_a, start_offset_a, stop_offset_a,
+                          n_blocks_per_row);
 
   // Convert current row vector in A to dense
   for (int i = tid; i < (stop_offset_a - start_offset_a); i += blockDim.x) {

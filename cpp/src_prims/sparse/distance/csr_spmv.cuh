@@ -442,7 +442,7 @@ void generalized_csr_pairwise_semiring(
   value_idx max_nnz =
     max_degree<value_idx, false>(config_.a_indptr, config_.a_nrows,
                                  config_.allocator, config_.stream)
-      .second +
+      .first +
     1;
 
   if (max_nnz <= nnz_upper_bound)
