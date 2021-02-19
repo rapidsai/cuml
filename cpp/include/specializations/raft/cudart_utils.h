@@ -15,8 +15,6 @@
  */
 
 #pragma once
-#ifndef WHTEST
-#define WHTEST
 #include <raft/cudart_utils.h>
 
 namespace raft {
@@ -34,4 +32,3 @@ extern template void copy<unsigned long long>(unsigned long long*,
                                               const unsigned long long*, size_t,
                                               cudaStream_t);
 }  // namespace raft
-#endif
