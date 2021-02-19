@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include <raft/cudart_utils.h>
+#include <specializations/raft/cudart_utils.h>
 #include <raft/linalg/transpose.h>
 #include <cuml/cuml.hpp>
 #include <cuml/datasets/make_blobs.hpp>

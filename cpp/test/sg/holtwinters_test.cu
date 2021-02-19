@@ -16,7 +16,7 @@
 
 #include <cuml/tsa/holtwinters.h>
 #include <gtest/gtest.h>
-#include <raft/cudart_utils.h>
+#include <specializations/raft/cudart_utils.h>
 #include <test_utils.h>
 #include <algorithm>
 #include <cuml/common/logger.hpp>

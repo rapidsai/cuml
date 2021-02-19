@@ -15,7 +15,7 @@
  */
 
 #include <gtest/gtest.h>
-#include <raft/cudart_utils.h>
+#include <specializations/raft/cudart_utils.h>
 #include <common/grid_sync.cuh>
 #include <raft/cuda_utils.cuh>
 #include "test_utils.h"

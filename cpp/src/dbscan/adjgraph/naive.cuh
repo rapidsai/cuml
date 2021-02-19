@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include <raft/cudart_utils.h>
+#include <specializations/raft/cudart_utils.h>
 #include <cuml/common/host_buffer.hpp>
 #include <raft/cuda_utils.cuh>
 #include "../common.cuh"

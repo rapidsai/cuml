@@ -47,7 +47,7 @@
 
 #include <cuml/cluster/kmeans_mg.hpp>
 
-#include <raft/cudart_utils.h>
+#include <specializations/raft/cudart_utils.h>
 #include <fstream>
 
 namespace ML {

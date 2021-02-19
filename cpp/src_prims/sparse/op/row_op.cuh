@@ -18,7 +18,7 @@
 
 #include <cusparse_v2.h>
 
-#include <raft/cudart_utils.h>
+#include <specializations/raft/cudart_utils.h>
 #include <raft/sparse/cusparse_wrappers.h>
 #include <raft/cuda_utils.cuh>
 

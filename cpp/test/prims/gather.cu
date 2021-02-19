@@ -15,7 +15,7 @@
  */
 
 #include <gtest/gtest.h>
-#include <raft/cudart_utils.h>
+#include <specializations/raft/cudart_utils.h>
 #include <matrix/gather.cuh>
 #include <raft/cuda_utils.cuh>
 #include <raft/random/rng.cuh>

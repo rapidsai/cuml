@@ -26,7 +26,7 @@
 #include <memory>
 #include <set>
 
-#include <raft/cudart_utils.h>
+#include <specializations/raft/cudart_utils.h>
 #include <raft/cuda_utils.cuh>
 
 #include "knn_opg_common.cuh"

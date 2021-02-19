@@ -20,7 +20,7 @@
 #include <limits>
 
 #include <linalg/init.h>
-#include <raft/cudart_utils.h>
+#include <specializations/raft/cudart_utils.h>
 #include <raft/cuda_utils.cuh>
 
 namespace MLCommon {

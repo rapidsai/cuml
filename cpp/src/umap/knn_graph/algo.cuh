@@ -24,7 +24,7 @@
 #include <specializations/prims/selection/knn.cuh>
 #include <sparse/selection/knn.cuh>
 
-#include <raft/cudart_utils.h>
+#include <specializations/raft/cudart_utils.h>
 
 #include <raft/sparse/cusparse_wrappers.h>
 #include <raft/error.hpp>

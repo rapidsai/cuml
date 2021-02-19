@@ -15,7 +15,7 @@
  */
 
 #pragma once
-#include <raft/cudart_utils.h>
+#include <specializations/raft/cudart_utils.h>
 #include "hw_utils.cuh"
 
 template <typename Dtype>

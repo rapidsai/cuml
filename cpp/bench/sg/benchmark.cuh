@@ -18,7 +18,7 @@
 
 #include <benchmark/benchmark.h>
 #include <cuda_runtime.h>
-#include <raft/cudart_utils.h>
+#include <specializations/raft/cudart_utils.h>
 #include <cuml/common/logger.hpp>
 #include <cuml/cuml.hpp>
 #include "../common/ml_benchmark.hpp"

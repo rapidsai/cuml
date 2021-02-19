@@ -19,7 +19,7 @@
 #include <sparse/csr.cuh>
 #include <sparse/op/row_op.cuh>
 
-#include <raft/cudart_utils.h>
+#include <specializations/raft/cudart_utils.h>
 #include <test_utils.h>
 #include <raft/random/rng.cuh>
 

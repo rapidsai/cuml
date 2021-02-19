@@ -15,7 +15,7 @@
  */
 
 #include <gtest/gtest.h>
-#include <raft/cudart_utils.h>
+#include <specializations/raft/cudart_utils.h>
 #include <cub/cub.cuh>
 #include <raft/cuda_utils.cuh>
 #include <random/make_blobs.cuh>

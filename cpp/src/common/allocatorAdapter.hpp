@@ -22,7 +22,7 @@
 
 #include <cuml/cuml.hpp>
 
-#include <raft/cudart_utils.h>
+#include <specializations/raft/cudart_utils.h>
 #include <cuml/common/cuml_allocator.hpp>
 
 namespace ML {

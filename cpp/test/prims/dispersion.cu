@@ -15,7 +15,7 @@
  */
 
 #include <gtest/gtest.h>
-#include <raft/cudart_utils.h>
+#include <specializations/raft/cudart_utils.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <metrics/dispersion.cuh>

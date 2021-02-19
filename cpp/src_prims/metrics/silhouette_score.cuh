@@ -17,7 +17,7 @@
 #pragma once
 
 #include <math.h>
-#include <raft/cudart_utils.h>
+#include <specializations/raft/cudart_utils.h>
 #include <raft/linalg/distance_type.h>
 #include <algorithm>
 #include <cub/cub.cuh>

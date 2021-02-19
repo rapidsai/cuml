@@ -15,7 +15,7 @@
  */
 
 #include <gtest/gtest.h>
-#include <raft/cudart_utils.h>
+#include <specializations/raft/cudart_utils.h>
 #include <test_utils.h>
 #include <cuml/neighbors/knn.hpp>
 #include <iostream>

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include <raft/cudart_utils.h>
+#include <specializations/raft/cudart_utils.h>
 #include <cuml/linear_model/preprocess_mg.hpp>
 #include <cuml/linear_model/ridge_mg.hpp>
 #include <opg/linalg/mv_aTb.hpp>

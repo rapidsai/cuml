@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include <raft/cudart_utils.h>
+#include <specializations/raft/cudart_utils.h>
 #include <algorithm>
 #include <raft/cuda_utils.cuh>
 #include <raft/random/rng.cuh>

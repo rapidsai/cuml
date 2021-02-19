@@ -15,7 +15,7 @@
  */
 
 #include <gtest/gtest.h>
-#include <raft/cudart_utils.h>
+#include <specializations/raft/cudart_utils.h>
 #include <raft/linalg/cusolver_wrappers.h>
 #include <iostream>
 #include <label/classlabels.cuh>

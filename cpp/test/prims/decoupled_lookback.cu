@@ -15,7 +15,7 @@
  */
 
 #include <gtest/gtest.h>
-#include <raft/cudart_utils.h>
+#include <specializations/raft/cudart_utils.h>
 #include <decoupled_lookback.cuh>
 #include <raft/cuda_utils.cuh>
 #include "test_utils.h"

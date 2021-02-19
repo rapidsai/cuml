@@ -28,7 +28,7 @@
 #include <cuml/tsa/batched_arima.hpp>
 #include <cuml/tsa/batched_kalman.hpp>
 
-#include <raft/cudart_utils.h>
+#include <specializations/raft/cudart_utils.h>
 #include <common/nvtx.hpp>
 #include <cuml/common/device_buffer.hpp>
 #include <linalg/batched/matrix.cuh>

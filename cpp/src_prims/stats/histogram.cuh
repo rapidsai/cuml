@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include <raft/cudart_utils.h>
+#include <specializations/raft/cudart_utils.h>
 #include <stdint.h>
 #include <common/seive.cuh>
 #include <raft/cuda_utils.cuh>

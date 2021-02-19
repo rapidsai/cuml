@@ -24,7 +24,7 @@
 #include <cuml/common/cuml_allocator.hpp>
 
 #include <linalg/init.h>
-#include <raft/cudart_utils.h>
+#include <specializations/raft/cudart_utils.h>
 #include <raft/linalg/cublas_wrappers.h>
 #include <raft/linalg/transpose.h>
 #include <cuml/common/device_buffer.hpp>

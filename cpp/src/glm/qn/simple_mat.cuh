@@ -18,7 +18,7 @@
 #include <iostream>
 #include <vector>
 
-#include <raft/cudart_utils.h>
+#include <specializations/raft/cudart_utils.h>
 #include <raft/linalg/cublas_wrappers.h>
 #include <cuml/common/cuml_allocator.hpp>
 #include <linalg/ternary_op.cuh>

@@ -17,7 +17,7 @@
 #include <gtest/gtest.h>
 #include <cuml/explainer/kernel_shap.hpp>
 
-#include <raft/cudart_utils.h>
+#include <specializations/raft/cudart_utils.h>
 #include <raft/cuda_utils.cuh>
 
 #include <thrust/device_ptr.h>

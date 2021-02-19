@@ -20,7 +20,7 @@
 #include <decisiontree/memory.h>
 #include <decisiontree/quantile/quantile.h>
 #include <decisiontree/treelite_util.h>
-#include <raft/cudart_utils.h>
+#include <specializations/raft/cudart_utils.h>
 #include <cuml/common/logger.hpp>
 #include <metrics/scores.cuh>
 #include <raft/random/rng.cuh>

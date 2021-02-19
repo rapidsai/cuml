@@ -21,7 +21,7 @@
 #include <random>
 #include <vector>
 
-#include <raft/cudart_utils.h>
+#include <specializations/raft/cudart_utils.h>
 #include <test_utils.h>
 #include <metrics/batched/information_criterion.cuh>
 #include "../test_utils.h"

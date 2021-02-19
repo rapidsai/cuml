@@ -17,7 +17,7 @@
 #include <decisiontree/decisiontree_impl.h>
 #include <decisiontree/treelite_util.h>
 #include <gtest/gtest.h>
-#include <raft/cudart_utils.h>
+#include <specializations/raft/cudart_utils.h>
 #include <raft/linalg/gemv.h>
 #include <raft/linalg/transpose.h>
 #include <sys/stat.h>

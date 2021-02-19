@@ -18,7 +18,7 @@
 
 #include <cuda_runtime.h>
 #include <execinfo.h>
-#include <raft/cudart_utils.h>
+#include <specializations/raft/cudart_utils.h>
 #include <cstdio>
 #include <raft/error.hpp>
 #include <sstream>

@@ -23,7 +23,7 @@
 #include <raft/cuda_utils.cuh>
 
 #include <linalg/init.h>
-#include <raft/cudart_utils.h>
+#include <specializations/raft/cudart_utils.h>
 #include <cub/device/device_select.cuh>
 #include <cuml/common/cuml_allocator.hpp>
 #include <cuml/common/device_buffer.hpp>

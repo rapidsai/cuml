@@ -25,7 +25,7 @@
 #include <cuml/cuml.hpp>
 #include <cuml/tsa/batched_kalman.hpp>
 
-#include <raft/cudart_utils.h>
+#include <specializations/raft/cudart_utils.h>
 #include <raft/linalg/cublas_wrappers.h>
 #include <common/nvtx.hpp>
 #include <linalg/batched/matrix.cuh>

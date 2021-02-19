@@ -21,7 +21,7 @@
 
 #include <cuml/common/device_buffer.hpp>
 
-#include <raft/cudart_utils.h>
+#include <specializations/raft/cudart_utils.h>
 #include <linalg/power.cuh>
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/binary_op.cuh>

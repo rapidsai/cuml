@@ -17,7 +17,7 @@
 #include <cuml/manifold/tsne.h>
 #include <datasets/digits.h>
 #include <gtest/gtest.h>
-#include <raft/cudart_utils.h>
+#include <specializations/raft/cudart_utils.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <cuml/common/cuml_allocator.hpp>

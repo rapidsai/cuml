@@ -17,7 +17,7 @@
 #pragma once
 
 #include <cuml/matrix/kernelparams.h>
-#include <raft/cudart_utils.h>
+#include <specializations/raft/cudart_utils.h>
 #include "grammatrix.cuh"
 #include "kernelmatrices.cuh"
 

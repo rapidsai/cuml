@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include <raft/cudart_utils.h>
+#include <specializations/raft/cudart_utils.h>
 #include "common.cuh"
 #include "sg_impl.cuh"
 

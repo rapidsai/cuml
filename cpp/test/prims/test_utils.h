@@ -16,7 +16,7 @@
 
 #pragma once
 #include <gtest/gtest.h>
-#include <raft/cudart_utils.h>
+#include <specializations/raft/cudart_utils.h>
 #include <iostream>
 #include <memory>
 #include <raft/cuda_utils.cuh>

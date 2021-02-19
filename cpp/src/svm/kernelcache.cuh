@@ -18,7 +18,7 @@
 
 #include <cuml/svm/svm_parameter.h>
 #include <linalg/init.h>
-#include <raft/cudart_utils.h>
+#include <specializations/raft/cudart_utils.h>
 #include <cache/cache.cuh>
 #include <cache/cache_util.cuh>
 #include <cub/cub.cuh>

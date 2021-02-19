@@ -23,7 +23,7 @@
 #include <cuml/common/cuml_allocator.hpp>
 #include <cuml/cuml.hpp>
 
-#include <raft/cudart_utils.h>
+#include <specializations/raft/cudart_utils.h>
 #include <test_utils.h>
 #include <linalg/batched/matrix.cuh>
 #include <raft/linalg/add.cuh>

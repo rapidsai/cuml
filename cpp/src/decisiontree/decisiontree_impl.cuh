@@ -15,7 +15,7 @@
  */
 
 #include <cuml/tree/flatnode.h>
-#include <raft/cudart_utils.h>
+#include <specializations/raft/cudart_utils.h>
 #include <treelite/tree.h>
 #include <common/iota.cuh>
 #include <cuml/common/logger.hpp>

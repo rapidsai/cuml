@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include <raft/cudart_utils.h>
+#include <specializations/raft/cudart_utils.h>
 #include <common/nvtx.hpp>
 #include <cuml/common/device_buffer.hpp>
 #include <label/classlabels.cuh>

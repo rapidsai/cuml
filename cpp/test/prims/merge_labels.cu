@@ -17,7 +17,7 @@
 #include <gtest/gtest.h>
 #include <label/merge_labels.cuh>
 
-#include <raft/cudart_utils.h>
+#include <specializations/raft/cudart_utils.h>
 #include <thrust/device_ptr.h>
 #include <cuml/common/cuml_allocator.hpp>
 #include <raft/handle.hpp>

@@ -16,7 +16,7 @@
 
 #include <cuml/linear_model/preprocess_mg.hpp>
 
-#include <raft/cudart_utils.h>
+#include <specializations/raft/cudart_utils.h>
 #include <opg/linalg/norm.hpp>
 #include <opg/matrix/math.hpp>
 #include <opg/stats/mean.hpp>

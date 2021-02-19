@@ -21,7 +21,7 @@
 #include <cuml/neighbors/knn.hpp>
 #include "optimize.cuh"
 
-#include <raft/cudart_utils.h>
+#include <specializations/raft/cudart_utils.h>
 #include "fuzzy_simpl_set/runner.cuh"
 #include "init_embed/runner.cuh"
 #include "knn_graph/runner.cuh"

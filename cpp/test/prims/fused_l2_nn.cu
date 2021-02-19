@@ -15,7 +15,7 @@
  */
 
 #include <gtest/gtest.h>
-#include <raft/cudart_utils.h>
+#include <specializations/raft/cudart_utils.h>
 #include <distance/fused_l2_nn.cuh>
 #include <raft/cuda_utils.cuh>
 #include <raft/linalg/norm.cuh>

@@ -21,7 +21,7 @@
 #include <vector>
 
 #include <linalg_naive.h>
-#include <raft/cudart_utils.h>
+#include <specializations/raft/cudart_utils.h>
 #include <test_utils.h>
 #include <linalg/batched/matrix.cuh>
 #include <sparse/batched/csr.cuh>

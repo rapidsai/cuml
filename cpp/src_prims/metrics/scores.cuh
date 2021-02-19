@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include <raft/cudart_utils.h>
+#include <specializations/raft/cudart_utils.h>
 #include <linalg/power.cuh>
 #include <raft/linalg/eltwise.cuh>
 #include <raft/linalg/subtract.cuh>
