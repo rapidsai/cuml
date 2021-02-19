@@ -41,9 +41,9 @@ _F = typing.TypeVar("_F", bound=typing.Callable[..., typing.Any])
 @contextlib.contextmanager
 def _using_mirror_output_type():
     """
-    Sets cuml.global_settings.output_type to "mirror" for internal API handling. We need
-    a separate function since `cuml.using_output_type()` doesn't accept
-    "mirror"
+    Sets cuml.global_settings.output_type to "mirror" for internal API
+    handling. We need a separate function since `cuml.using_output_type()`
+    doesn't accept "mirror"
 
     Yields
     -------
@@ -334,7 +334,9 @@ class ProcessReturnArray(ProcessReturn):
 
         self._process_return_cbs.append(self.convert_to_cumlarray)
 
-        if (self._context.is_root or cuml.global_settings.output_type != "mirror"):
+        if (
+                self._context.is_root
+                or cuml.global_settings.output_type != "mirror"):
             self._process_return_cbs.append(self.convert_to_outputtype)
 
     def convert_to_cumlarray(self, ret_val):

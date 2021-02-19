@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2020, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -201,7 +201,8 @@ class Base(metaclass=cuml.internals.BaseMetaClass):
             self.verbose = verbose
 
         self.output_type = _check_output_type_str(
-            cuml.global_settings.output_type if output_type is None else output_type)
+            cuml.global_settings.output_type
+            if output_type is None else output_type)
         self._input_type = None
         self.target_dtype = None
         self.n_features_in_ = None
