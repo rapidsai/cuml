@@ -261,10 +261,10 @@ void approx_knn_ivfsq_build_index(ML::knnIndex *index, ML::IVFSQParam *params,
 }
 
 template <typename IntType = int>
-void approx_knn_build_index(ML::knnIndex *index, ML::knnIndexParam *params,
-                            IntType D, ML::MetricType metric, float metricArg,
-                            float *index_items, IntType n,
-                            cudaStream_t userStream) {
+void approx_knn_build_index(raft::handle_t &handle, ML::knnIndex *index,
+                            ML::knnIndexParam *params, IntType D,
+                            ML::MetricType metric, float metricArg,
+                            float *index_items, IntType n) {
   int device;
   CUDA_CHECK(cudaGetDevice(&device));
 
@@ -272,17 +272,19 @@ void approx_knn_build_index(ML::knnIndex *index, ML::knnIndexParam *params,
     new faiss::gpu::StandardGpuResources();
   gpu_res->noTempMemory();
   gpu_res->setCudaMallocWarning(false);
-  gpu_res->setDefaultStream(device, userStream);
+  gpu_res->setDefaultStream(device, handle.get_stream());
   index->gpu_res = gpu_res;
   index->device = device;
   index->index = nullptr;
+  index->metric = metric;
+  index->metricArg = metricArg;
 
   if (dynamic_cast<ML::IVFFlatParam *>(params)) {
     ML::IVFFlatParam *IVFFlat_param = dynamic_cast<ML::IVFFlatParam *>(params);
     approx_knn_ivfflat_build_index(index, IVFFlat_param, D, metric, n);
     std::vector<float> h_index_items(n * D);
     raft::update_host(h_index_items.data(), index_items, h_index_items.size(),
-                      userStream);
+                      handle.get_stream());
     index->index->train(n, h_index_items.data());
     index->index->add(n, h_index_items.data());
     return;
@@ -296,14 +298,44 @@ void approx_knn_build_index(ML::knnIndex *index, ML::knnIndexParam *params,
     ASSERT(index->index, "KNN index could not be initialized");
   }
 
+  // perform preprocessing
+  std::unique_ptr<MetricProcessor<float>> query_metric_processor =
+    // k set to 0 (unused during preprocessing / revertion)
+    create_processor<float>(metric, n, D, 0, false, handle.get_stream(),
+                            handle.get_device_allocator());
+
+  query_metric_processor->preprocess(index_items);
   index->index->train(n, index_items);
   index->index->add(n, index_items);
+  query_metric_processor->revert(index_items);
 }
 
 template <typename IntType = int>
-void approx_knn_search(ML::knnIndex *index, IntType n, const float *x,
-                       IntType k, float *distances, int64_t *labels) {
+void approx_knn_search(raft::handle_t &handle, ML::knnIndex *index, IntType n,
+                       float *x, IntType k, float *distances, int64_t *labels) {
+  // perform preprocessing
+  std::unique_ptr<MetricProcessor<float>> query_metric_processor =
+    create_processor<float>(index->metric, n, index->index->d, k, false,
+                            handle.get_stream(), handle.get_device_allocator());
+
+  query_metric_processor->preprocess(x);
   index->index->search(n, x, k, distances, labels);
+  query_metric_processor->revert(x);
+
+  // Perform necessary post-processing
+  if (index->metric == ML::MetricType::METRIC_L2 ||
+      index->metric == ML::MetricType::METRIC_Lp) {
+    /**
+     * post-processing
+     */
+    float p = 0.5;  // standard l2
+    if (index->metric == ML::MetricType::METRIC_Lp) p = 1.0 / index->metricArg;
+    raft::linalg::unaryOp<float>(
+      distances, distances, n * k,
+      [p] __device__(float input) { return powf(input, p); },
+      handle.get_stream());
+  }
+  query_metric_processor->postprocess(distances);
 }
 
 /**

@@ -41,8 +41,11 @@ enum MetricType {
 };
 
 struct knnIndex {
-  faiss::gpu::StandardGpuResources *gpu_res;
   faiss::gpu::GpuIndex *index;
+  ML::MetricType metric;
+  float metricArg;
+
+  faiss::gpu::StandardGpuResources *gpu_res;
   int device;
   ~knnIndex() {
     delete index;
@@ -117,8 +120,8 @@ void approx_knn_build_index(raft::handle_t &handle, ML::knnIndex *index,
                             ML::MetricType metric, float metricArg,
                             float *index_items, int n);
 
-void approx_knn_search(ML::knnIndex *index, int n, const float *x, int k,
-                       float *distances, int64_t *labels);
+void approx_knn_search(raft::handle_t &handle, ML::knnIndex *index, int n,
+                       float *x, int k, float *distances, int64_t *labels);
 
 /**
  * @brief Flat C++ API function to perform a knn classification using a

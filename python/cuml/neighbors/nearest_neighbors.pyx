@@ -111,6 +111,7 @@ cdef extern from "cuml/neighbors/knn.hpp" namespace "ML":
     ) except +
 
     void approx_knn_search(
+        handle_t &handle,
         knnIndex* index,
         int n,
         const float *x,
@@ -695,6 +696,7 @@ class NearestNeighbors(Base):
         else:
             knn_index = <knnIndex*><uintptr_t> self.knn_index
             approx_knn_search(
+                handle_[0],
                 <knnIndex*>knn_index,
                 <int>N,
                 <float*><uintptr_t>X_m.ptr,

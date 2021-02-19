@@ -51,13 +51,14 @@ void approx_knn_build_index(raft::handle_t &handle, ML::knnIndex *index,
                             ML::knnIndexParam *params, int D,
                             ML::MetricType metric, float metricArg,
                             float *index_items, int n) {
-  MLCommon::Selection::approx_knn_build_index(
-    index, params, D, metric, metricArg, index_items, n, handle.get_stream());
+  MLCommon::Selection::approx_knn_build_index(handle, index, params, D, metric,
+                                              metricArg, index_items, n);
 }
 
-void approx_knn_search(ML::knnIndex *index, int n, const float *x, int k,
-                       float *distances, int64_t *labels) {
-  MLCommon::Selection::approx_knn_search(index, n, x, k, distances, labels);
+void approx_knn_search(raft::handle_t &handle, ML::knnIndex *index, int n,
+                       float *x, int k, float *distances, int64_t *labels) {
+  MLCommon::Selection::approx_knn_search(handle, index, n, x, k, distances,
+                                         labels);
 }
 
 void knn_classify(raft::handle_t &handle, int *out, int64_t *knn_indices,
