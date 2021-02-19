@@ -79,17 +79,18 @@ namespace distance {
  * @param[in] accum_func semiring sum() function
  * @param[in] write_func atomic semiring sum() function
  */
-template <typename strategy_t, typename value_idx, typename value_t, int tpb,
-          bool rev, typename product_f, typename accum_f, typename write_f>
+template <typename strategy_t, typename indptr_it, typename value_idx,
+          typename value_t, int tpb, bool rev, typename product_f,
+          typename accum_f, typename write_f>
 __global__ void balanced_coo_generalized_spmv_kernel(
-  strategy_t strategy, value_idx *indptrA, value_idx *indicesA, value_t *dataA,
+  strategy_t strategy, indptr_it indptrA, value_idx *indicesA, value_t *dataA,
   value_idx *rowsB, value_idx *indicesB, value_t *dataB, value_idx m,
   value_idx n, value_idx dim, value_idx nnz_b, value_t *out,
   int n_blocks_per_row, int chunk_size, product_f product_func,
   accum_f accum_func, write_f write_func) {
   typedef cub::WarpReduce<value_t> warp_reduce;
 
-  value_idx cur_row_a = blockIdx.x / n_blocks_per_row;
+  value_idx cur_row_a = indptrA.get_row_idx();
   value_idx cur_chunk_offset = blockIdx.x % n_blocks_per_row;
 
   // chunk starting offset
@@ -114,8 +115,8 @@ __global__ void balanced_coo_generalized_spmv_kernel(
 
   __syncthreads();
 
-  value_idx start_offset_a = indptrA[cur_row_a];
-  value_idx stop_offset_a = indptrA[cur_row_a + 1];
+  value_idx start_offset_a, stop_offset_a;
+  indptrA.get_row_offsets(cur_row_a, start_offset_a, stop_offset_a);
 
   // Convert current row vector in A to dense
   for (int i = tid; i < (stop_offset_a - start_offset_a); i += blockDim.x) {

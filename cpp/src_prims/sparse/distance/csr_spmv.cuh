@@ -16,6 +16,8 @@
 
 #pragma once
 
+#include "utils.cuh"
+
 #include <raft/cudart_utils.h>
 #include <raft/sparse/cusparse_wrappers.h>
 #include <raft/cuda_utils.cuh>
@@ -325,49 +327,6 @@ inline value_idx max_nnz_per_block() {
          (sizeof(value_t) + sizeof(value_idx));
 }
 
-/**
- * @tparam value_idx
- * @param out
- * @param in
- * @param n
- */
-template <typename value_idx>
-__global__ void max_kernel(value_idx *out, value_idx *in, value_idx n) {
-  int tid = blockDim.x * blockIdx.x + threadIdx.x;
-
-  typedef cub::BlockReduce<value_idx, 256> BlockReduce;
-  __shared__ typename BlockReduce::TempStorage temp_storage;
-
-  value_idx v = tid < n ? in[tid] - in[tid - 1] : 0;
-  value_idx agg = BlockReduce(temp_storage).Reduce(v, cub::Max());
-
-  if (threadIdx.x == 0) atomicMax(out, agg);
-}
-
-template <typename value_idx>
-inline value_idx max_degree(
-  value_idx *indptr, value_idx n_rows,
-  std::shared_ptr<raft::mr::device::allocator> allocator, cudaStream_t stream) {
-  raft::mr::device::buffer<value_idx> max_d(allocator, stream, 1);
-  CUDA_CHECK(cudaMemsetAsync(max_d.data(), 0, sizeof(value_idx), stream));
-
-  /**
-   * A custom max reduction is performed until https://github.com/rapidsai/cuml/issues/3431
-   * is fixed.
-   */
-  max_kernel<<<raft::ceildiv(n_rows, 256), 256, 0, stream>>>(
-    max_d.data(), indptr + 1, n_rows);
-
-  value_idx max_h;
-  raft::update_host(&max_h, max_d.data(), 1, stream);
-
-  CUDA_CHECK(cudaStreamSynchronize(stream));
-
-  CUML_LOG_DEBUG("max nnz: %d", max_h);
-
-  return max_h;
-}
-
 template <typename value_idx = int, typename value_t = float,
           int threads_per_block = 64, typename product_f, typename accum_f>
 void _generalized_csr_pairwise_semiring(
@@ -480,9 +439,11 @@ void generalized_csr_pairwise_semiring(
   CUML_LOG_DEBUG("nnz_upper_bound: %d", nnz_upper_bound);
 
   // max_nnz set from max(diff(indptrA))
-  value_idx max_nnz = max_degree<value_idx>(config_.a_indptr, config_.a_nrows,
-                                            config_.allocator, config_.stream) +
-                      1;
+  value_idx max_nnz =
+    max_degree<value_idx, false>(config_.a_indptr, config_.a_nrows,
+                                 config_.allocator, config_.stream)
+      .second +
+    1;
 
   if (max_nnz <= nnz_upper_bound)
     // use smem
