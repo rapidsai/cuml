@@ -38,56 +38,42 @@ namespace raft {
 namespace linkage {
 
 template <typename value_idx, typename value_t>
-struct FixConnectivitiesKVPMinReduce {
-  typedef cub::KeyValuePair<value_idx, value_t> KVP;
-  value_idx *colors;
-
-  FixConnectivitiesKVPMinReduce(value_idx *colors_): colors(colors_) {};
-
-  DI KVP operator()(value_idx rit, const KVP& a, const KVP& b) {
-
-    if(rit > 96)
-      printf("rit=%d, rit.color=%d, a.key=%d, a.color=%d, b.key=%d, b.color=%d\n",
-             rit, colors[rit], a.key, colors[a.key], b.key, colors[b.key]);
-
-    if(a.value < b.value &&colors[rit] != colors[a.key]) {
-
-      return a;
-    }
-    else
-      return b;
-  }
-};
-
-template <typename value_idx, typename value_t>
 struct FixConnectivitiesRedOp {
   value_idx *colors;
+  value_idx m;
 
-  FixConnectivitiesRedOp(value_idx *colors_): colors(colors_){};
+  FixConnectivitiesRedOp(value_idx *colors_, value_idx m_): colors(colors_), m(m_){};
 
   typedef typename cub::KeyValuePair<value_idx, value_t> KVP;
   DI void operator()(value_idx rit, KVP *out, const KVP &other) {
 
-    if(rit > 96)
-      printf("kvp: rit=%d,rit.color=%d, out.key=%d, out.color=%d, out.dist=%f, other.key=%d, other.color=%d, other.dist=%f\n",
-             rit, colors[rit], out->key, colors[out->key], out->value, other.key, colors[other.key], other.value);
+    if (rit < m &&  other.value < out->value && colors[rit] != colors[other.key]) {
 
-    if (other.value < out->value && colors[rit] != colors[other.key]) {
+        printf("kvp: rit=%d,rit.color=%d, out.key=%d, out.color=%d, out.dist=%f, other.key=%d, other.color=%d, other.dist=%f\n",
+               rit, colors[rit], out->key, colors[out->key], out->value, other.key, colors[other.key], other.value);
       out->key = other.key;
       out->value = other.value;
     }
   }
 
-  DI void operator()(value_idx rit, value_t *out, const KVP &other) {
+  DI KVP operator()(value_idx rit, const KVP& a, const KVP& b) {
 
-    if(rit < 4)
-      printf("nkvp: rit=%d,rit.color=%d, out.dist=%f, other.key=%d, other.color=%d, other.dist=%f\n",
-             rit, colors[rit], out->value, other.key, colors[other.key], other.value);
+    if(rit < m && a.value < b.value && colors[rit] != colors[a.key]) {
 
-    if (other.value < *out && colors[rit] != colors[other.key]) {
-      *out = other.value;
+      printf("selecting a: rit=%d, rit.color=%d, a.key=%d, a.color=%d, a.dist=%f, b.key=%d, b.color=%d, b.dist=%f\n",
+             rit, colors[rit], a.key, colors[a.key], a.value, b.key, colors[b.key], b.value);
+
+      return a;
+    }
+    else {
+
+      if(rit < m)
+        printf("selecting b: rit=%d, rit.color=%d, a.key=%d, a.color=%d, a.dist=%f, b.key=%d, b.color=%d, b.dist=%f\n",
+               rit, colors[rit], a.key, colors[a.key], a.value, b.key, colors[b.key], b.value);
+      return b;
     }
   }
+
 
   DI void init(value_t *out, value_t maxVal) { *out = maxVal; }
   DI void init(KVP *out, value_t maxVal) {
@@ -274,9 +260,7 @@ struct LookupColorOp {
   LookupColorOp(value_idx *colors_): colors(colors_) {}
 
   DI value_idx operator()(const cub::KeyValuePair<value_idx, value_t> &kvp) {
-    value_idx c = colors[kvp.key];
-    printf("COLOR: %d, key=%d\n", c, kvp.key);
-    return c;
+    return colors[kvp.key];
   }
 };
 
@@ -297,19 +281,24 @@ void perform_1nn(cub::KeyValuePair<value_idx, value_t> *kvp,
   raft::linalg::rowNorm(x_norm.data(), X, n_cols, n_rows,
                         raft::linalg::L2Norm, true, stream);
 
-  FixConnectivitiesRedOp<value_idx, value_t> red_op(colors);
-  FixConnectivitiesKVPMinReduce<value_idx, value_t> pair_red_op(colors);
+  FixConnectivitiesRedOp<value_idx, value_t> red_op(colors, n_rows);
   MLCommon::Distance::fusedL2NN<value_t, cub::KeyValuePair<value_idx, value_t>,
     value_idx>(kvp, X, X,
                x_norm.data(), x_norm.data(),
                n_rows, n_rows, n_cols, workspace.data(),
-               red_op, pair_red_op, true, true, stream);
+               red_op, red_op, true, true, stream);
 
   thrust::device_ptr<cub::KeyValuePair<value_idx, value_t>> t_kvp = thrust::device_pointer_cast(kvp);
   thrust::device_ptr<value_idx> t_nn_colors = thrust::device_pointer_cast(nn_colors);
 
   LookupColorOp<value_idx, value_t> extract_colors_op(colors);
   thrust::transform(thrust::cuda::par.on(stream), t_kvp, t_kvp+n_rows, t_nn_colors, extract_colors_op);
+
+  CUDA_CHECK(cudaStreamSynchronize(stream));
+
+
+  raft::print_device_vector<value_idx>("nn_colors", nn_colors, n_rows, std::cout);
+
 }
 
 template<typename value_idx, typename value_t>

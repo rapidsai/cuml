@@ -200,10 +200,7 @@ struct FusedL2NN : public BaseClass {
       for (int j = 0; j < P::AccColsPerTh; ++j) {
         auto tmpkey = this->acccolid + j * P::AccThCols + blockIdx.y * P::Nblk;
         cub::KeyValuePair<IdxT, DataT> tmp = {tmpkey, acc[i][j]};
-        printf("bidx=%d, bidy=%d, tidx=%d, tidy=%d, i=%d, j=%d, accrowid=%d, acccolid=%d, accthrows=%d, mblk=%d, nblk=%d, rid=%d\n",
-               blockIdx.x, blockIdx.y, threadIdx.x, threadIdx.y, i, j, this->accrowid, this->acccolid, P::AccThRows, P::Mblk, P::Nblk,
-               this->accrowid + i * P::AccThRows + blockIdx.x * P::Mblk);
-        if (tmpkey < this->n) val[i] = pairRedOp(this->accrowid + i * P::AccThCols + blockIdx.x * P::Mblk, tmp, val[i]);
+        if (tmpkey < this->n) val[i] = pairRedOp(this->accrowid + i * P::AccThRows + blockIdx.x * P::Mblk, tmp, val[i]);
       }
       __syncthreads();
 #pragma unroll

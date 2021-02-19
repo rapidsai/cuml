@@ -159,6 +159,8 @@ class FixConnectivitiesTest : public ::testing::TestWithParam<FixConnectivitiesI
                params.n_centers, true, nullptr, nullptr, params.cluster_std,
                true, -10.0f, 10.0f, params.seed);
 
+    raft::print_device_vector("data", data.data(), data.size(), std::cout);
+
     /**
      * Run connect_components
      */
@@ -574,7 +576,7 @@ const std::vector<LinkageInputs<float, int>> linkage_inputsf2 = {
    5}};
 
 const std::vector<FixConnectivitiesInputs<float, int>> fix_connectivities_inputsf2 = {
-  { 100, 10, 3, 0.01 }};
+  { 10, 1, 3, 0.01 }};
 
 typedef LinkageTest<float, int> LinkageTestF_Int;
 TEST_P(LinkageTestF_Int, Result) {

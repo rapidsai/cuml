@@ -42,7 +42,7 @@ namespace LinAlg {
  *                 This directly results in increased register pressure. This
  *                 also is used to compute the number of m-elements worked upon
  *                 by each thread block.
- * @tparam _rpt    Defines the number of cols that a given thread accumulates on.
+ * @tparam _cpt    Defines the number of cols that a given thread accumulates on.
  *                 This directly results in increased register pressure. This
  *                 also is used to compute the number of n-elements worked upon
  *                 by each thread block.
