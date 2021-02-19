@@ -175,10 +175,10 @@ class LinearRegression(Base, RegressorMixin, LinearPredictMixin):
         is a regression task (predicting a continuous variable).
 
     For additional information, see `scikitlearn's OLS documentation
-    <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.LinearRegression.html>`_.
+    <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.LinearRegression.html>`__.
 
     For an additional example see `the OLS notebook
-    <https://github.com/rapidsai/cuml/blob/branch-0.15/notebooks/linear_regression_demo.ipynb>`_.
+    <https://github.com/rapidsai/cuml/blob/branch-0.15/notebooks/linear_regression_demo.ipynb>`__.
 
 
     """
