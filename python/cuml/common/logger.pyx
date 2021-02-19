@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020, NVIDIA CORPORATION.
+# Copyright (c) 2020-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -187,14 +187,12 @@ def set_pattern(pattern):
     Examples
     --------
 
-    .. code-block:: python
+    >>> # regular usage of setting a logging pattern for all subsequent logs
+    >>> logger.set_pattern("--> [%H-%M-%S] %v")
 
-        # regular usage of setting a logging pattern for all subsequent logs
-        logger.set_pattern("--> [%H-%M-%S] %v")
-
-        # in case one wants to temporarily set the pattern for a code block
-        with logger.set_pattern("--> [%H-%M-%s] %v") as _:
-            logger.info("Hello world!")
+    >>> # in case one wants to temporarily set the pattern for a code block
+    >>> with logger.set_pattern("--> [%H-%M-%s] %v") as _:
+    >>>     logger.info("Hello world!")
 
     Parameters
     ----------

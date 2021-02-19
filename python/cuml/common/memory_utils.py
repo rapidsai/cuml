@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020, NVIDIA CORPORATION.
+# Copyright (c) 2020-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -181,14 +181,13 @@ def rmm_cupy_ary(cupy_fn, *args, **kwargs):
     Examples
     --------
 
-    .. code-block:: python
-
-        from cuml.common import rmm_cupy_ary
-        import cupy as cp
-
-        # Get a new array filled with 0, column major
-        a = rmm_cupy_ary(cp.zeros, 5, order='F')
-
+    >>> from cuml.common import rmm_cupy_ary
+    >>> import cupy as cp
+    >>>
+    >>> # Get a new array filled with 0, column major
+    >>> a = rmm_cupy_ary(cp.zeros, 5, order='F')
+    >>> a
+    array([0., 0., 0., 0., 0.])
 
     """
 
@@ -372,32 +371,25 @@ def set_global_output_type(output_type):
     Examples
     --------
 
-    .. code-block:: python
-
-        import cuml
-        import cupy as cp
-
-        ary = [[1.0, 4.0, 4.0], [2.0, 2.0, 2.0], [5.0, 1.0, 1.0]]
-        ary = cp.asarray(ary)
-
-        cuml.set_global_output_type('cudf'):
-        dbscan_float = cuml.DBSCAN(eps=1.0, min_samples=1)
-        dbscan_float.fit(ary)
-
-        print("cuML output type")
-        print(dbscan_float.labels_)
-        print(type(dbscan_float.labels_))
-
-    Output:
-
-    .. code-block::
-
-        cuML output type
-        0    0
-        1    1
-        2    2
-        dtype: int32
-        <class 'cudf.core.series.Series'>
+    >>> import cuml
+    >>> import cupy as cp
+    >>>
+    >>> ary = [[1.0, 4.0, 4.0], [2.0, 2.0, 2.0], [5.0, 1.0, 1.0]]
+    >>> ary = cp.asarray(ary)
+    >>>
+    >>> cuml.set_global_output_type('cudf')
+    >>> dbscan_float = cuml.DBSCAN(eps=1.0, min_samples=1)
+    >>> dbscan_float.fit(ary)
+    DBSCAN(eps=1.0, handle=<cuml.common.handle.Handle object at 0x7fa892beb330>, min_samples=1, verbose=4, max_mbytes_per_batch=0, output_type='cudf', calc_core_sample_indices=True)  # noqa E501
+    >>>
+    >>> # cuML output type
+    >>> dbscan_float.labels_
+    0    0
+    1    1
+    2    2
+    dtype: int32
+    >>> type(dbscan_float.labels_)
+    <class 'cudf.core.series.Series'>
 
     Notes
     -----
@@ -464,44 +456,37 @@ def using_output_type(output_type):
     Examples
     --------
 
-    .. code-block:: python
-
-        import cuml
-        import cupy as cp
-
-        ary = [[1.0, 4.0, 4.0], [2.0, 2.0, 2.0], [5.0, 1.0, 1.0]]
-        ary = cp.asarray(ary)
-
-        with cuml.using_output_type('cudf'):
-            dbscan_float = cuml.DBSCAN(eps=1.0, min_samples=1)
-            dbscan_float.fit(ary)
-
-            print("cuML output inside 'with' context")
-            print(dbscan_float.labels_)
-            print(type(dbscan_float.labels_))
-
-        # use cuml again outside the context manager
-        dbscan_float2 = cuml.DBSCAN(eps=1.0, min_samples=1)
-        dbscan_float2.fit(ary)
-
-        print("cuML default output")
-        print(dbscan_float2.labels_)
-        print(type(dbscan_float2.labels_))
-
-    Output:
-
-    .. code-block::
-
-        cuML output inside 'with' context
-        0    0
-        1    1
-        2    2
-        dtype: int32
-        <class 'cudf.core.series.Series'>
-
-        cuML default output
-        [0 1 2]
-        <class 'cupy.core.core.ndarray'>
+    >>> import cuml
+    >>> import cupy as cp
+    >>>
+    >>> ary = [[1.0, 4.0, 4.0], [2.0, 2.0, 2.0], [5.0, 1.0, 1.0]]
+    >>> ary = cp.asarray(ary)
+    >>>
+    >>> with cuml.using_output_type('cudf'):
+    ...     dbscan_float = cuml.DBSCAN(eps=1.0, min_samples=1)
+    ...     dbscan_float.fit(ary)
+    ...
+    ...     print("cuML output inside 'with' context")
+    ...     print(dbscan_float.labels_)
+    ...     print(type(dbscan_float.labels_))
+    ...
+    DBSCAN(eps=1.0, handle=<cuml.common.handle.Handle object at 0x7f1ca74d4e50>, min_samples=1, verbose=4, max_mbytes_per_batch=0, output_type='cudf', calc_core_sample_indices=True)  # noqa E501
+    cuML output inside 'with' context
+    0    0
+    1    1
+    2    2
+    dtype: int32
+    <class 'cudf.core.series.Series'>
+    >>> # use cuml again outside the context manager
+    >>> dbscan_float2 = cuml.DBSCAN(eps=1.0, min_samples=1)
+    >>> dbscan_float2.fit(ary)
+    DBSCAN(eps=1.0, handle=<cuml.common.handle.Handle object at 0x7f1ca74d4f30>, min_samples=1, verbose=4, max_mbytes_per_batch=0, output_type='cupy', calc_core_sample_indices=True)  # noqa E501
+    >>>
+    >>> # cuML default output
+    >>> dbscan_float2.labels_
+    [0 1 2]
+    >>> type(dbscan_float2.labels_)
+    <class 'cupy.core.core.ndarray'>
 
     """
     prev_output_type = cuml.global_output_type
