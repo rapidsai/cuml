@@ -397,8 +397,7 @@ class NearestNeighbors(Base):
             m = DistanceType.L2SqrtExpanded
         elif metric == "sqeuclidean":
             m = DistanceType.L2Expanded
-        elif metric == "cityblock" or metric == "l1"\
-                or metric == "manhattan" or metric == 'taxicab':
+        elif metric in ["cityblock", "l1", "manhattan", 'taxicab']:
             m = DistanceType.L1
         elif metric == "braycurtis":
             m = DistanceType.BrayCurtis
