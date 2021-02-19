@@ -245,7 +245,7 @@ def test_auto_predict(input_type, base_output_type, global_output_type):
     # Test with output_type="input"
     est = TestEstimator()
 
-    # With cuml.global_output_type == None, this should return the input type
+    # With cuml.global_settings.output_type == None, this should return the input type
     X_out = est.predict(X_in)
 
     assert determine_array_type(X_out) == input_type
@@ -255,7 +255,7 @@ def test_auto_predict(input_type, base_output_type, global_output_type):
     # Test with output_type=base_output_type
     est = TestEstimator(output_type=base_output_type)
 
-    # With cuml.global_output_type == None, this should return the
+    # With cuml.global_settings.output_type == None, this should return the
     # base_output_type
     X_out = est.predict(X_in)
 

@@ -504,7 +504,7 @@ def using_output_type(output_type):
         <class 'cupy.core.core.ndarray'>
 
     """
-    prev_output_type = cuml.global_output_type
+    prev_output_type = cuml.global_settings.output_type
     try:
         set_global_output_type(output_type)
         yield prev_output_type

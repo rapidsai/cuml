@@ -104,7 +104,7 @@ def make_arima(batch_size=1000, n_obs=100, order=(1, 1, 1),
         .. deprecated:: 0.17
            `output_type` is deprecated in 0.17 and will be removed in 0.18.
            Please use the module level output type control,
-           `cuml.global_output_type`.
+           `cuml.global_settings.output_type`.
            See :ref:`output-data-type-configuration` for more info.
 
     handle: cuml.Handle

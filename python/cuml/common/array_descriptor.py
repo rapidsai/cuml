@@ -107,7 +107,7 @@ class CumlArrayDescriptor():
         assert len(existing.values) > 0
 
         # Get the global output type
-        output_type = cuml.global_output_type
+        output_type = cuml.global_settings.output_type
 
         # First, determine if we need to call to_output at all
         if (output_type == "mirror"):

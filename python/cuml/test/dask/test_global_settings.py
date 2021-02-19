@@ -42,7 +42,7 @@ def test_set_global_output_type():
             sleep(0.1)
         set_global_output_type(output_type)
         sleep(0.5)
-        return cuml.global_output_type == output_type
+        return cuml.global_settings.output_type == output_type
 
     results = [
         delayed(check_correct_type)(index)
@@ -61,7 +61,7 @@ def test_using_output_type():
             sleep(0.1)
         with using_output_type(output_type):
             sleep(0.5)
-            return cuml.global_output_type == output_type
+            return cuml.global_settings.output_type == output_type
 
     results = [
         delayed(check_correct_type)(index)
@@ -80,12 +80,12 @@ def test_using_mirror_output_type():
         if index % 2 == 0:
             with _using_mirror_output_type():
                 sleep(0.5)
-                return cuml.global_output_type == 'mirror'
+                return cuml.global_settings.output_type == 'mirror'
         else:
             output_type = test_output_types_str[index]
             with using_output_type(output_type):
                 sleep(0.5)
-                return cuml.global_output_type == output_type
+                return cuml.global_settings.output_type == output_type
 
     results = [
         delayed(check_correct_type)(index)
