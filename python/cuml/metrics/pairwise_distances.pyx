@@ -40,14 +40,14 @@ cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics":
                            DistanceType metric, bool isRowMajor) except +
 
 cdef extern from "cuml/metrics/metrics.hpp" namespace "raft::sparse::distance":
-    void pairwiseDistance_py(const handle_t &handle, const float *x,
-                             const float *y,
+    void pairwiseDistance_py(const handle_t &handle, float *x,
+                             int *y,
                              float *dist, int m, int n, int k,
                              int x_nnz, int y_nnz, int* x_indptr,
                              int* y_indptr, int* x_indices, int* y_indices,
                              DistanceType metric, float metric_arg) except +
-    void pairwiseDistance_py(const handle_t &handle, const double *x,
-                             const double *y,
+    void pairwiseDistance_py(const handle_t &handle, double *x,
+                             int *y,
                              double *dist, int m, int n, int k,
                              int x_nnz, int y_nnz, int* x_indptr,
                              int* y_indptr, int* x_indices, int* y_indices,
@@ -291,21 +291,10 @@ def pairwise_distances(X, Y=None, metric="euclidean", handle=None,
     # Now execute the functions
     # First, check for sparse input
     if isinstance(X_m, SparseCumlArray):
-            pairwiseDistance_py(handle_[0],
-                                <float*> d_X_ptr,
-                                <float*> d_Y_ptr,
-                                <float*> d_dest_ptr,
-                                <int> n_samples_x,
-                                <int> n_samples_y,
-                                <int> n_features_x,
-                                <int> X_m.nnz,
-                                <int> Y_m.nnz,
-                                <int> X_m.indptr.ptr,
-                                <int> Y_m.indptr.ptr,
-                                <int> X_m.indices.ptr,
-                                <int> Y_m.indices.ptr,
-                                <DistanceType> metric_val,
-                                <float> metric_arg)
+        sparse_pairwise_distance(handle, X_m, Y_m, dest_m,
+                                n_samples_x,
+                                n_samples_y,
+                                n_features_x, metric_val, dtype_x)
     else:
         if (dtype_x == np.float32):
             pairwise_distance(handle_[0],
@@ -337,3 +326,50 @@ def pairwise_distances(X, Y=None, metric="euclidean", handle=None,
     del Y_m
 
     return dest_m
+
+
+def sparse_pairwise_distance(handle, X_m, Y_m, dest_m,
+                            n_samples_x, n_samples_y,
+                            n_features_x, metric_val, dtype_x):
+    handle = Handle() if handle is None else handle
+    cdef handle_t *handle_ = <handle_t*> <size_t> handle.getHandle()
+    cdef uintptr_t d_X_ptr = X_m.ptr
+    cdef uintptr_t d_Y_ptr = Y_m.ptr
+    cdef uintptr_t d_dest_ptr = dest_m.ptr
+    cdef uintptr_t X_m_indptr = X_m.indptr.ptr
+    cdef uintptr_t Y_m_indptr = Y_m.indptr.ptr
+    cdef uintptr_t X_m_indices = X_m.indices.ptr
+    cdef uintptr_t Y_m_indices = Y_m.indices.ptr
+    metric_arg = 0
+    if (dtype_x == np.float32):
+        pairwiseDistance_py(handle_[0],
+                            <float*> d_X_ptr,
+                            <float*> d_Y_ptr,
+                            <float*> d_dest_ptr,
+                            <int> n_samples_x,
+                            <int> n_samples_y,
+                            <int> n_features_x,
+                            <int> X_m.nnz,
+                            <int> Y_m.nnz,
+                            <int*> X_m_indptr,
+                            <int*> Y_m_indptr,
+                            <int*> X_m_indices,
+                            <int*> Y_m_indices,
+                            <DistanceType> metric_val,
+                            <float> metric_arg)
+    elif (dtype_x == np.float64):
+        pairwiseDistance_py(handle_[0],
+                            <double*> d_X_ptr,
+                            <double*> d_Y_ptr,
+                            <double*> d_dest_ptr,
+                            <int> n_samples_x,
+                            <int> n_samples_y,
+                            <int> n_features_x,
+                            <int> X_m.nnz,
+                            <int> Y_m.nnz,
+                            <int*> X_m_indptr,
+                            <int*> Y_m_indptr,
+                            <int*> X_m_indices,
+                            <int*> Y_m_indices,
+                            <DistanceType> metric_val,
+                            <float> metric_arg)

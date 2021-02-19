@@ -327,15 +327,15 @@ void pairwise_distance(const raft::handle_t &handle, const float *x,
 namespace raft {
 namespace sparse {
 namespace distance {
-void pairwiseDistance_py(const handle_t &handle, const double *x,
-                         const double *y,
+void pairwiseDistance_py(const handle_t &handle, double *x,
+                         double *y,
                          double *dist, int m, int n, int k,
                          int x_nnz, int y_nnz, int *x_indptr,
                          int *y_indptr, int *x_indices, int *y_indices,
                          raft::distance::DistanceType metric,
                          float metric_arg);
-void pairwiseDistance_py(const handle_t &handle, const float *x,
-                         const float *y,
+void pairwiseDistance_py(const handle_t &handle, float *x,
+                         float *y,
                          float *dist, int m, int n, int k,
                          int x_nnz, int y_nnz, int *x_indptr,
                          int *y_indptr, int *x_indices, int *y_indices,
