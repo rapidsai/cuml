@@ -260,11 +260,17 @@ if [ -n "${CODECOV_TOKEN}" ]; then
     # CodeCov uses a local merge commit created by Jenkins. Since this commit
     # never gets pushed, it causes issues in Codecov
     if [ -n "${REPORT_HASH}" ]; then
-        EXTRA_CODECOV_ARGS="${EXTRA_CODECOV_ARGS} -C ${REPORT_HASH}"
+        EXTRA_CODECOV_ARGS="${EXTRA_CODECOV_ARGS}"
     fi
 
     # Append the PR ID. This is needed when running the build inside docker
-    EXTRA_CODECOV_ARGS="${EXTRA_CODECOV_ARGS} -P ${PR_ID} -c"
+    EXTRA_CODECOV_ARGS="${EXTRA_CODECOV_ARGS} -c"
+
+    # TEMP: Override Jenkins auto config with manual settings
+    export CODECOV_SLUG="${PR_AUTHOR}/${SOURCE_BRANCH}"
+    export ghprbSourceBranch="${SOURCE_BRANCH}"
+    export ghprbActualCommit="${REPORT_HASH}"
+    export ghprbPullId="${PR_ID}"
 
     # Upload the two reports with separate flags. Delete the report on success
     # to prevent further CI steps from re-uploading
