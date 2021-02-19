@@ -90,7 +90,7 @@ __global__ void balanced_coo_generalized_spmv_kernel(
   accum_f accum_func, write_f write_func) {
   typedef cub::WarpReduce<value_t> warp_reduce;
 
-  value_idx cur_row_a = indptrA.get_row_idx();
+  value_idx cur_row_a = indptrA.get_row_idx(n_blocks_per_row);
   value_idx cur_chunk_offset = blockIdx.x % n_blocks_per_row;
 
   // chunk starting offset
@@ -116,7 +116,7 @@ __global__ void balanced_coo_generalized_spmv_kernel(
   __syncthreads();
 
   value_idx start_offset_a, stop_offset_a;
-  indptrA.get_row_offsets(cur_row_a, start_offset_a, stop_offset_a);
+  indptrA.get_row_offsets(cur_row_a, start_offset_a, stop_offset_a, n_blocks_per_row);
 
   // Convert current row vector in A to dense
   for (int i = tid; i < (stop_offset_a - start_offset_a); i += blockDim.x) {
