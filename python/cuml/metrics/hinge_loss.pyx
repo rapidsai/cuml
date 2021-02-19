@@ -16,10 +16,11 @@
 
 import cudf
 import cupy as cp
+import cuml.internals
 from cuml.common.input_utils import determine_array_type
 from cuml.preprocessing import LabelEncoder, LabelBinarizer
 
-
+@cuml.internals.api_return_any()
 def hinge_loss(y_true,
                pred_decision,
                labels=None,
