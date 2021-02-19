@@ -16,11 +16,11 @@
 
 #pragma once
 
-#include <specializations/raft/cudart_utils.h>
 #include <raft/linalg/cublas_wrappers.h>
 #include <raft/linalg/cusolver_wrappers.h>
 #include <raft/linalg/gemv.h>
 #include <raft/linalg/transpose.h>
+#include <specializations/raft/cudart_utils.h>
 #include <cuml/common/cuml_allocator.hpp>
 #include <cuml/common/device_buffer.hpp>
 #include <raft/cuda_utils.cuh>
@@ -30,9 +30,9 @@
 #include <raft/linalg/svd.cuh>
 #include <raft/matrix/math.cuh>
 #include <raft/matrix/matrix.cuh>
-#include <specializations/raft/mr/device/buffer.hpp>
 #include <raft/random/rng.cuh>
 #include <rmm/device_uvector.hpp>
+#include <specializations/raft/mr/device/buffer.hpp>
 
 namespace MLCommon {
 namespace LinAlg {

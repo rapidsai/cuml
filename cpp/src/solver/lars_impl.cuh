@@ -20,9 +20,9 @@
 #include <limits>
 #include <numeric>
 
-#include <specializations/raft/cudart_utils.h>
 #include <raft/linalg/cublas_wrappers.h>
 #include <raft/linalg/gemv.h>
+#include <specializations/raft/cudart_utils.h>
 #include <thrust/copy.h>
 #include <thrust/device_ptr.h>
 #include <thrust/execution_policy.h>

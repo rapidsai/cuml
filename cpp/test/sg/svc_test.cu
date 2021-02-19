@@ -17,8 +17,8 @@
 #include <cuml/svm/svm_model.h>
 #include <cuml/svm/svm_parameter.h>
 #include <gtest/gtest.h>
-#include <specializations/raft/cudart_utils.h>
 #include <raft/linalg/transpose.h>
+#include <specializations/raft/cudart_utils.h>
 #include <test_utils.h>
 #include <thrust/device_ptr.h>
 #include <thrust/fill.h>

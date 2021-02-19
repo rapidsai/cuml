@@ -15,8 +15,8 @@
  */
 
 #include <gtest/gtest.h>
-#include <specializations/raft/cudart_utils.h>
 #include <raft/linalg/cusolver_wrappers.h>
+#include <specializations/raft/cudart_utils.h>
 #include <test_utils.h>
 #include <iomanip>
 #include <raft/handle.hpp>

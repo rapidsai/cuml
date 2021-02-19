@@ -15,8 +15,8 @@
  */
 
 #include <gtest/gtest.h>
-#include <specializations/raft/cudart_utils.h>
 #include <raft/linalg/transpose.h>
+#include <specializations/raft/cudart_utils.h>
 #include <test_utils.h>
 #include <cuml/datasets/make_blobs.hpp>
 #include <cuml/ensemble/randomforest.hpp>

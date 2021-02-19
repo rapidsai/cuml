@@ -17,9 +17,9 @@
 #pragma once
 #include <cuda_runtime.h>
 #include <cuml/tsa/holtwinters_params.h>
-#include <specializations/raft/cudart_utils.h>
 #include <raft/linalg/cublas_wrappers.h>
 #include <raft/linalg/cusolver_wrappers.h>
+#include <specializations/raft/cudart_utils.h>
 #include <cuml/common/cuml_allocator.hpp>
 #include <iostream>
 #include <raft/linalg/eltwise.cuh>

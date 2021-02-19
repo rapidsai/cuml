@@ -9,5 +9,5 @@ extern template class CosineMetricProcessor<float>;
 extern template class CorrelationMetricProcessor<float>;
 extern template class DefaultMetricProcessor<float>;
 
-}
-}
+}  // namespace Selection
+}  // namespace MLCommon

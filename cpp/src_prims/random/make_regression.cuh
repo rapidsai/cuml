@@ -24,16 +24,16 @@
 #include <cuml/common/cuml_allocator.hpp>
 
 #include <linalg/init.h>
-#include <specializations/raft/cudart_utils.h>
 #include <raft/linalg/cublas_wrappers.h>
 #include <raft/linalg/transpose.h>
+#include <specializations/raft/cudart_utils.h>
 #include <cuml/common/device_buffer.hpp>
 #include <raft/handle.hpp>
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/qr.cuh>
 #include <raft/matrix/matrix.cuh>
-#include <specializations/raft/mr/device/buffer.hpp>
 #include <raft/random/rng.cuh>
+#include <specializations/raft/mr/device/buffer.hpp>
 #include "permute.cuh"
 
 namespace MLCommon {

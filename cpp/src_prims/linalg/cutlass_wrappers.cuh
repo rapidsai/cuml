@@ -26,8 +26,8 @@
 #include <cutlass/gemm/linear_scaling.h>
 #include <cutlass/gemm/thread_multiply_add.h>
 #include <cutlass/util/platform.h>
-#include <specializations/raft/cudart_utils.h>
 #include <raft/linalg/cublas_wrappers.h>
+#include <specializations/raft/cudart_utils.h>
 #include <raft/cuda_utils.cuh>
 
 namespace MLCommon {

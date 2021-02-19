@@ -18,8 +18,8 @@
 
 #include <specializations/prims/selection/knn.cuh>
 
-#include <specializations/raft/cudart_utils.h>
 #include <raft/sparse/cusparse_wrappers.h>
+#include <specializations/raft/cudart_utils.h>
 #include <raft/cuda_utils.cuh>
 #include <raft/matrix/matrix.cuh>
 

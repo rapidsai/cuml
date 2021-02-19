@@ -16,8 +16,8 @@
 
 #pragma once
 
-#include <specializations/raft/cudart_utils.h>
 #include <raft/linalg/cublas_wrappers.h>
+#include <specializations/raft/cudart_utils.h>
 #include <raft/cuda_utils.cuh>
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/binary_op.cuh>

@@ -27,10 +27,10 @@
 #include <raft/linalg/unary_op.cuh>
 #include <raft/matrix/math.cuh>
 #include <raft/matrix/matrix.cuh>
-#include <specializations/raft/mr/device/buffer.hpp>
 #include <raft/stats/mean.cuh>
 #include <raft/stats/sum.cuh>
 #include <rmm/device_uvector.hpp>
+#include <specializations/raft/mr/device/buffer.hpp>
 #include "penalty.cuh"
 
 namespace MLCommon {

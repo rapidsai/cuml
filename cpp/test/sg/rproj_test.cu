@@ -16,8 +16,8 @@
 
 #include <cuml/random_projection/rproj_c.h>
 #include <gtest/gtest.h>
-#include <specializations/raft/cudart_utils.h>
 #include <raft/linalg/transpose.h>
+#include <specializations/raft/cudart_utils.h>
 #include <test_utils.h>
 #include <distance/distance.cuh>
 #include <iostream>

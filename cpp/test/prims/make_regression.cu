@@ -18,9 +18,9 @@
 #include <thrust/count.h>
 #include <thrust/device_vector.h>
 
-#include <specializations/raft/cudart_utils.h>
 #include <raft/linalg/cublas_wrappers.h>
 #include <raft/linalg/transpose.h>
+#include <specializations/raft/cudart_utils.h>
 #include <raft/cuda_utils.cuh>
 #include <raft/linalg/subtract.cuh>
 #include <random/make_regression.cuh>

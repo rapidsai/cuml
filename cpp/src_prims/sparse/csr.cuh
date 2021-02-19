@@ -19,8 +19,8 @@
 #include <cuml/common/logger.hpp>
 
 #include <cusparse_v2.h>
-#include <specializations/raft/cudart_utils.h>
 #include <raft/sparse/cusparse_wrappers.h>
+#include <specializations/raft/cudart_utils.h>
 #include <raft/cuda_utils.cuh>
 #include <raft/mr/device/allocator.hpp>
 

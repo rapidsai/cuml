@@ -15,9 +15,9 @@
  */
 
 #pragma once
-#include <specializations/raft/cudart_utils.h>
 #include <raft/linalg/cublas_wrappers.h>
 #include <raft/linalg/cusolver_wrappers.h>
+#include <specializations/raft/cudart_utils.h>
 #include <stdio.h>
 #include <cmath>
 #include <raft/cuda_utils.cuh>

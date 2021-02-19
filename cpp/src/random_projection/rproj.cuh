@@ -21,9 +21,9 @@
 #include <vector>
 
 #include <cuml/random_projection/rproj_c.h>
-#include <specializations/raft/cudart_utils.h>
 #include <raft/linalg/cublas_wrappers.h>
 #include <raft/sparse/cusparse_wrappers.h>
+#include <specializations/raft/cudart_utils.h>
 #include <raft/cuda_utils.cuh>
 #include "rproj_utils.cuh"
 

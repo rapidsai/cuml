@@ -16,9 +16,9 @@
 
 #pragma once
 
-#include <specializations/raft/cudart_utils.h>
 #include <raft/linalg/cublas_wrappers.h>
 #include <raft/linalg/transpose.h>
+#include <specializations/raft/cudart_utils.h>
 #include <thrust/device_vector.h>
 #include <thrust/execution_policy.h>
 #include <common/allocatorAdapter.hpp>

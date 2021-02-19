@@ -21,8 +21,8 @@
 #include <cuml/neighbors/knn_sparse.hpp>
 #include <iostream>
 #include <raft/linalg/unary_op.cuh>
-#include <specializations/prims/selection/knn.cuh>
 #include <sparse/selection/knn.cuh>
+#include <specializations/prims/selection/knn.cuh>
 
 #include <specializations/raft/cudart_utils.h>
 

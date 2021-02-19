@@ -19,8 +19,8 @@
 #include <raft/sparse/cusparse_wrappers.h>
 #include <raft/cuda_utils.cuh>
 #include <raft/mr/device/allocator.hpp>
-#include <specializations/raft/mr/device/buffer.hpp>
 #include <raft/spectral/partition.hpp>
+#include <specializations/raft/mr/device/buffer.hpp>
 
 #include <specializations/prims/selection/knn.cuh>
 #include "../convert/csr.cuh"
