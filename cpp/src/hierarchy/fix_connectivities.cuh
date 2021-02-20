@@ -48,9 +48,6 @@ struct FixConnectivitiesRedOp {
   DI void operator()(value_idx rit, KVP *out, const KVP &other) {
 
     if (rit < m &&  other.value < out->value && colors[rit] != colors[other.key]) {
-
-        printf("kvp: rit=%d,rit.color=%d, out.key=%d, out.color=%d, out.dist=%f, other.key=%d, other.color=%d, other.dist=%f\n",
-               rit, colors[rit], out->key, colors[out->key], out->value, other.key, colors[other.key], other.value);
       out->key = other.key;
       out->value = other.value;
     }
@@ -59,21 +56,11 @@ struct FixConnectivitiesRedOp {
   DI KVP operator()(value_idx rit, const KVP& a, const KVP& b) {
 
     if(rit < m && a.value < b.value && colors[rit] != colors[a.key]) {
-
-      printf("selecting a: rit=%d, rit.color=%d, a.key=%d, a.color=%d, a.dist=%f, b.key=%d, b.color=%d, b.dist=%f\n",
-             rit, colors[rit], a.key, colors[a.key], a.value, b.key, colors[b.key], b.value);
-
       return a;
     }
-    else {
-
-      if(rit < m)
-        printf("selecting b: rit=%d, rit.color=%d, a.key=%d, a.color=%d, a.dist=%f, b.key=%d, b.color=%d, b.dist=%f\n",
-               rit, colors[rit], a.key, colors[a.key], a.value, b.key, colors[b.key], b.value);
+    else
       return b;
-    }
   }
-
 
   DI void init(value_t *out, value_t maxVal) { *out = maxVal; }
   DI void init(KVP *out, value_t maxVal) {
@@ -100,11 +87,13 @@ __global__ void count_components_by_color_kernel(value_idx *out_indptr,
 
   for(value_idx i = tid; i < (stop_offset - start_offset); i+= blockDim.x) {
     value_idx new_color = colors_nn[start_offset + i];
-    atomicAdd(count_smem+new_color, 1);
+    count_smem[new_color] = 1;
   }
 
+  __syncthreads();
+
   for(value_idx i = tid; i < n_colors; i += blockDim.x)
-    out_indptr[row] = count_smem[i];
+    atomicAdd(out_indptr+i, count_smem[i] > 0);
 }
 
 template<typename value_idx>
@@ -145,11 +134,6 @@ __global__ void min_components_by_color_kernel(value_idx *out_cols,
                                         const cub::KeyValuePair<value_idx, value_t> *kvp,
                                         value_idx n_colors) {
 
-  value_idx tid = blockDim.x * blockIdx.x + threadIdx.x;
-  value_idx row = blockIdx.x;
-
-  if(row >= n_colors) return;
-
   __shared__ extern char min_smem[];
 
   int* mutex = (int*)min_smem;
@@ -158,17 +142,25 @@ __global__ void min_components_by_color_kernel(value_idx *out_cols,
     (cub::KeyValuePair<value_idx, value_t>*)(mutex+n_colors);
   value_idx *src_inds = (value_idx*)(min+n_colors);
 
-  value_idx start_offset = colors_indptr[row];
-  value_idx stop_offset = colors_indptr[row+1];
+  value_idx *output_offset_i = (value_idx*)(src_inds+n_colors);
+
+  if(threadIdx.x == 0) {
+    output_offset_i[0] = 0;
+  }
+
+  value_idx start_offset = colors_indptr[blockIdx.x];
+  value_idx stop_offset = colors_indptr[blockIdx.x+1];
 
   // initialize
-  for(value_idx i = tid; i < (stop_offset - start_offset); i+= blockDim.x) {
+  for(value_idx i = threadIdx.x; i < (stop_offset - start_offset); i+= blockDim.x) {
     auto skvp = min+i;
     skvp->key = -1;
     skvp->value = std::numeric_limits<value_t>::max();
   }
 
-  for(value_idx i = tid; i < (stop_offset - start_offset); i+= blockDim.x) {
+  __syncthreads();
+
+  for(value_idx i = threadIdx.x; i < (stop_offset - start_offset); i+= blockDim.x) {
     value_idx new_color = colors_nn[start_offset + i];
 
     while (atomicCAS(mutex + new_color, 0, 1) == 1);
@@ -183,13 +175,21 @@ __global__ void min_components_by_color_kernel(value_idx *out_cols,
     atomicCAS(mutex + new_color, 1, 0);
   }
 
-  value_idx out_offset = out_indptr[row];
-  for(value_idx i = tid; i < n_colors; i += blockDim.x) {
+  __syncthreads();
+
+  value_idx out_offset = out_indptr[blockIdx.x];
+  for(value_idx i = threadIdx.x; i < n_colors; i += blockDim.x) {
     auto min_color = min[i];
     if(min_color.key > -1) {
-      out_rows[out_offset+i] = src_inds[i];
-      out_cols[out_offset+i] = min_color.key;
-      out_vals[out_offset+i] = min_color.value;
+      __threadfence();
+
+      value_idx cur_offset = output_offset_i[0];
+
+      out_rows[out_offset+cur_offset] = src_inds[i];
+      out_cols[out_offset+cur_offset] = min_color.key;
+      out_vals[out_offset+cur_offset] = min_color.value;
+
+      atomicAdd(output_offset_i, 1);
     }
   }
 }
@@ -204,7 +204,7 @@ void min_components_by_color(raft::sparse::COO<value_t, value_idx> &coo,
                              value_idx n_colors, cudaStream_t stream) {
 
 
-  int smem_bytes = (n_colors * sizeof(int)) + (n_colors * sizeof(kvp)) + (n_colors * sizeof(value_idx));
+  int smem_bytes = (n_colors * sizeof(int)) + (n_colors * sizeof(kvp)) + ((n_colors+1) * sizeof(value_idx));
 
   min_components_by_color_kernel<<<n_colors, 256, smem_bytes, stream>>>(
     coo.cols(), coo.vals(), coo.rows(), out_indptr, colors_indptr, colors_nn, indices, kvp, n_colors);
@@ -396,6 +396,9 @@ void connect_components(const raft::handle_t &handle,
                              n_components, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
+  raft::print_device_vector("color_neigh_degrees", color_neigh_degrees.data(), color_neigh_degrees.size(), std::cout);
+
+
   value_idx nnz;
   raft::update_host(&nnz, color_neigh_degrees.data()+n_components, 1, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
@@ -409,12 +412,18 @@ void connect_components(const raft::handle_t &handle,
 
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
+  raft::print_device_vector("min_edges", min_edges.rows(), nnz, std::cout);
+  raft::print_device_vector("min_edges", min_edges.cols(), nnz, std::cout);
+  raft::print_device_vector("min_edges", min_edges.vals(), nnz, std::cout);
+
   CUML_LOG_DEBUG("Performing symmetrize");
   // symmetrize
   raft::sparse::linalg::symmetrize(handle, min_edges.rows(),
                                  min_edges.cols(), min_edges.vals(),
                                  n_rows, n_rows, nnz, out);
   CUDA_CHECK(cudaStreamSynchronize(stream));
+
+  CUML_LOG_DEBUG("Done.");
 }
 
 

@@ -144,6 +144,8 @@ class FixConnectivitiesTest : public ::testing::TestWithParam<FixConnectivitiesI
 
     params = ::testing::TestWithParam<FixConnectivitiesInputs<value_t, value_idx>>::GetParam();
 
+    out_edges = new raft::sparse::COO<value_t, value_idx>(handle.get_device_allocator(), handle.get_stream());
+
     Logger::get().setLevel(CUML_LEVEL_DEBUG);
 
     /**
@@ -168,6 +170,8 @@ class FixConnectivitiesTest : public ::testing::TestWithParam<FixConnectivitiesI
                                       l.data(), params.n_row, params.n_col);
 
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
+
+    std::cout << "OUTPUT: " << *out_edges << std::endl;
   }
 
   void SetUp() override { basicTest(); }
