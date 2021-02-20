@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
-#include <cuml/cluster/linkage.hpp>
-#include <raft/sparse/hierarchy/common.h>
-#include <hierarchy/pw_dist_graph.cuh>
 #include <raft/linalg/distance_type.h>
+#include <raft/sparse/hierarchy/common.h>
+#include <cuml/cluster/linkage.hpp>
 #include <cuml/common/logger.hpp>
 #include <cuml/cuml.hpp>
+#include <hierarchy/pw_dist_graph.cuh>
 #include <utility>
 #include "benchmark.cuh"
 
@@ -46,33 +46,31 @@ class Linkage : public BlobsFixture<D> {
     }
 
     this->loopOnState(state, [this]() {
-
       out_arrs.labels = labels;
       out_arrs.children = out_children;
 
       printf("RUNNING!\n");
 
       Logger::get().setLevel(CUML_LEVEL_WARN);
-      ML::single_linkage_pairwise(*this->handle, this->data.X,
-                              this->params.nrows, this->params.ncols,
-                             raft::distance::DistanceType::L2Expanded,
-                              &out_arrs, 50, 50);
+      ML::single_linkage_pairwise(
+        *this->handle, this->data.X, this->params.nrows, this->params.ncols,
+        raft::distance::DistanceType::L2Expanded, &out_arrs, 50, 50);
     });
   }
 
   void allocateTempBuffers(const ::benchmark::State& state) override {
     this->alloc(labels, this->params.nrows);
-    this->alloc(out_children, (this->params.nrows -1) * 2);
+    this->alloc(out_children, (this->params.nrows - 1) * 2);
   }
 
   void deallocateTempBuffers(const ::benchmark::State& state) override {
     this->dealloc(labels, this->params.nrows);
-    this->dealloc(out_children, (this->params.nrows -1) * 2);
+    this->dealloc(out_children, (this->params.nrows - 1) * 2);
   }
 
  private:
-  int *labels;
-  int *out_children;
+  int* labels;
+  int* out_children;
   raft::hierarchy::linkage_output<int, D> out_arrs;
 };
 
@@ -86,7 +84,7 @@ std::vector<Params> getInputs() {
   p.blobs.center_box_max = 10.0;
   p.blobs.seed = 12345ULL;
   std::vector<std::pair<int, int>> rowcols = {
-    {35000, 128}, {16384, 128}, { 12288, 128}, { 8192, 128}, { 4096, 128},
+    {35000, 128}, {16384, 128}, {12288, 128}, {8192, 128}, {4096, 128},
   };
   for (auto& rc : rowcols) {
     p.data.nrows = rc.first;
@@ -101,6 +99,6 @@ std::vector<Params> getInputs() {
 
 ML_BENCH_REGISTER(Params, Linkage<float>, "blobs", getInputs());
 
-}  // end namespace kmeans
+}  // namespace linkage
 }  // end namespace Bench
 }  // end namespace ML
