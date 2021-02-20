@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2020, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -23,40 +23,14 @@ import cuml.common.cuda
 import cuml.common.logger as logger
 import cuml.internals
 import cuml.raft.common.handle
-from cuml.common.doc_utils import generate_docstring
 import cuml.common.input_utils
 
-
-# tag system based on experimental tag system from Scikit-learn >=0.21
-# https://scikit-learn.org/stable/developers/develop.html#estimator-tags
-_default_tags = {
-    # cuML specific tags
-    'preferred_input_order': None,
-    'X_types_gpu': ['2darray'],
-
-    # Scikit-learn API standard tags
-    'allow_nan': False,
-    'binary_only': False,
-    'multilabel': False,
-    'multioutput': False,
-    'multioutput_only': False,
-    'no_validation': False,
-    'non_deterministic': False,
-    'pairwise': False,
-    'poor_score': False,
-    'preserves_dtype': [],
-    'requires_fit': True,
-    'requires_positive_X': False,
-    'requires_positive_y': False,
-    'requires_y': False,
-    'stateless': False,
-    'X_types': ['2darray'],
-    '_skip_test': False,
-    '_xfail_checks': False,
-}
+from cuml.common.doc_utils import generate_docstring
+from cuml.common.mixins import TagsMixin
 
 
-class Base(metaclass=cuml.internals.BaseMetaClass):
+class Base(TagsMixin,
+           metaclass=cuml.internals.BaseMetaClass):
     """
     Base class for all the ML algos. It handles some of the common operations
     across all algos. Every ML algo class exposed at cython level must inherit
@@ -378,38 +352,16 @@ class Base(metaclass=cuml.internals.BaseMetaClass):
         else:
             self.n_features_in_ = X.shape[1]
 
-    @cuml.internals._tags_class_and_instance
-    def _get_tags(cls):
-        # method and code based on scikit-learn 0.21 _get_tags functionality:
-        # https://scikit-learn.org/stable/developers/develop.html#estimator-tags
-        collected_tags = _default_tags
-        for cl in reversed(inspect.getmro(cls)):
-            if hasattr(cl, '_more_static_tags'):
-                more_tags = cl._more_static_tags()
-                collected_tags.update(more_tags)
-            if hasattr(cl, '_more_tags'):
-                collected_tags['dynamic_tags'] = True
-        return collected_tags
-
-    @_get_tags.instance_method
-    def _get_tags(self):
-        collected_tags = _default_tags
-        dynamic_tags = {}
-        for cl in reversed(inspect.getmro(self.__class__)):
-            if hasattr(cl, '_more_static_tags'):
-                more_tags = cl._more_static_tags()
-                collected_tags.update(more_tags)
-            if hasattr(cl, '_more_tags'):
-                more_tags = self._more_tags()
-                dynamic_tags.update(more_tags)
-        collected_tags.update(dynamic_tags)
-
-        # by default, our transform methods convert to self.dtype, but
+    def _more_tags(self):
+        # 'preserves_dtype' tag's Scikit definition currently only appies to
+        # transformers and whether the transform method conserves the dtype
+        # (in that case returns an empty list, otherwise the dtype it
+        # casts to).
+        # By default, our transform methods convert to self.dtype, but
         # we need to check whether the tag has been defined already.
-        if hasattr(self, 'transform') and hasattr(self, 'dtype') and \
-                collected_tags['preserves_dtype'] == []:
-            collected_tags['preserves_dtype'] = [self.dtype]
-        return collected_tags
+        if hasattr(self, 'transform') and hasattr(self, 'dtype'):
+            return {'preserves_dtype': [self.dtype]}
+        return {}
 
 
 # Internal, non class owned helper functions

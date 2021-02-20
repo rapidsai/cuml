@@ -16,14 +16,19 @@
 
 import pytest
 import cuml
+import cuml.common.mixins as cumix
+import cupy as cp
+import inspect
+import numpy as np
+
 from cuml.common.base import Base
 from cuml.test.utils import ClassEnumerator
-import numpy as np
-import cupy as cp
-
-from cuml.common.mixins import RegressorMixin
 from sklearn.datasets import make_classification
 
+
+###############################################################################
+#                        Helper functions and classes                         #
+###############################################################################
 
 def func_positional_arg(func):
 
@@ -59,31 +64,47 @@ tags = {
     'X_types_gpu': list,
 
     # Scikit-learn API standard tags
-    'non_deterministic': bool,
-    'requires_positive_X': bool,
-    'requires_positive_y': bool,
-    'X_types': list,
-    'poor_score': bool,
-    'no_validation': bool,
-    'multioutput': bool,
     'allow_nan': bool,
-    'stateless': bool,
-    'multilabel': bool,
-    '_skip_test': bool,
-    '_xfail_checks': bool,
-    'multioutput_only': bool,
     'binary_only': bool,
+    'multilabel': bool,
+    'multioutput': bool,
+    'multioutput_only': bool,
+    'no_validation': bool,
+    'non_deterministic': bool,
+    'pairwise': bool,
+    'poor_score': bool,
+    'preserves_dtype': list,
     'requires_fit': bool,
     'requires_y': bool,
-    'pairwise': bool,
+    'requires_positive_X': bool,
+    'requires_positive_y': bool,
+    'stateless': bool,
+    'X_types': list,
+    '_skip_test': bool,
+    '_xfail_checks': bool,
 }
 
 
 class dummy_regressor_estimator(Base,
-                                RegressorMixin):
+                                cumix.RegressorMixin):
     def __init__(self, handle=None):
         super().__init__(handle=handle)
 
+
+class dummy_classifier_estimator(Base,
+                                 cumix.ClassifierMixin):
+    def __init__(self, handle=None):
+        super().__init__(handle=handle)
+
+
+class dummy_cluster_estimator(Base,
+                              cumix.ClusterMixin):
+    def __init__(self, handle=None):
+        super().__init__(handle=handle)
+
+
+class dummy_class_with_tags(cumix.TagsMixin,
+                            cumix.FMajorInputTagMixin):
     @staticmethod
     def _more_static_tags():
         return {
@@ -95,6 +116,10 @@ class dummy_regressor_estimator(Base,
             'X_types': ['string']
         }
 
+
+###############################################################################
+#                               Tags Tests                                    #
+###############################################################################
 
 @pytest.mark.parametrize("model", list(models.values()))
 def test_get_tags(model):
@@ -121,8 +146,8 @@ def test_get_tags(model):
 
 
 def test_dynamic_tags():
-    estimator = dummy_regressor_estimator()
-    static_tags = dummy_regressor_estimator._get_tags()
+    estimator = dummy_class_with_tags()
+    static_tags = dummy_class_with_tags._get_tags()
     assert static_tags['X_types'] == ['categorical']
     assert estimator._get_tags()['X_types'] == ['string']
 
@@ -130,6 +155,20 @@ def test_dynamic_tags():
 def test_estimator_type_attribute():
     assert True
 
+
+@pytest.mark.parametrize("model", list(models.values()))
+def test_mro(model):
+    found_base = False
+    for cl in reversed(inspect.getmro(model.__class__)):
+        if cl == Base:
+            if found_base:
+                pytest.fail("Found Base class twice in the MRO")
+            else:
+                found_base = True
+
+###############################################################################
+#                            Fit Function Tests                               #
+###############################################################################
 
 @pytest.mark.parametrize("model_name", list(models.keys()))
 def test_fit_function(dataset, model_name):

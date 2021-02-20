@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020, NVIDIA CORPORATION.
+# Copyright (c) 2020-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -149,7 +149,7 @@ class _tags_class_and_instance:
     """
     Decorator for Base class to allow for dynamic and static _get_tags.
     In general, most methods are either dynamic or static, so this decorator
-    is only meant to be used in the Base estimator.
+    is only meant to be used in the Base estimator _get_tags.
     """
 
     def __init__(self, _class, _instance=None):
