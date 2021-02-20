@@ -29,16 +29,15 @@ template <typename LabelT, typename DataT>
 struct CubKVPMinReduce {
   typedef cub::KeyValuePair<LabelT, DataT> KVP;
 
-  DI KVP operator()(LabelT rit, const KVP& a, const KVP& b) {
+  DI KVP operator()(LabelT rit, const KVP &a, const KVP &b) {
     return b.value < a.value ? b : a;
   }
 
-  DI KVP operator()(const KVP& a, const KVP& b) {
+  DI KVP operator()(const KVP &a, const KVP &b) {
     return b.value < a.value ? b : a;
   }
 
 };  // KVPMinReduce
-
 
 template <typename DataT, bool Sqrt, typename ReduceOpT, int NWARPS>
 __global__ void naiveKernel(cub::KeyValuePair<int, DataT> *min, DataT *x,
@@ -155,8 +154,7 @@ class FusedL2NNTest : public ::testing::TestWithParam<Inputs<DataT>> {
     MinAndDistanceReduceOp<int, DataT> redOp;
     fusedL2NN<DataT, cub::KeyValuePair<int, DataT>, int>(
       out, x, y, xn, yn, m, n, k, (void *)workspace, redOp,
-      MLCommon::Distance::KVPMinReduce<int, DataT>(),
-      Sqrt, true, stream);
+      MLCommon::Distance::KVPMinReduce<int, DataT>(), Sqrt, true, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
   }
 };

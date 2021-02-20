@@ -262,7 +262,8 @@ TEST_P(PcaTestDataVecD, Result) {
                       raft::CompareApproxAbs<double>(params.tolerance)));
 }
 
-INSTANTIATE_TEST_CASE_P(PcaTests, PcaTestValF, ::testing::ValuesIn(linkage_inputsf2));
+INSTANTIATE_TEST_CASE_P(PcaTests, PcaTestValF,
+                        ::testing::ValuesIn(linkage_inputsf2));
 
 INSTANTIATE_TEST_CASE_P(PcaTests, PcaTestValD, ::testing::ValuesIn(inputsd2));
 

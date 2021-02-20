@@ -23,12 +23,12 @@
 #include <cuml/common/cuml_allocator.hpp>
 #include <cuml/cuml.hpp>
 #include <cuml/datasets/make_blobs.hpp>
-#include <hierarchy/pw_dist_graph.cuh>
 #include <hierarchy/fix_connectivities.cuh>
+#include <hierarchy/pw_dist_graph.cuh>
 
-#include <raft/sparse/coo.cuh>
 #include <raft/linalg/distance_type.h>
 #include <raft/linalg/transpose.h>
+#include <raft/sparse/coo.cuh>
 
 #include <common/device_buffer.hpp>
 #include <cuml/common/logger.hpp>
@@ -122,7 +122,6 @@ class LinkageTest : public ::testing::TestWithParam<LinkageInputs<T, IdxT>> {
   double score;
 };
 
-
 template <typename value_t, typename value_idx>
 struct FixConnectivitiesInputs {
   value_idx n_row;
@@ -135,27 +134,30 @@ struct FixConnectivitiesInputs {
   unsigned long long int seed = 1234ULL;
 };
 
-
 template <typename value_idx, typename value_t>
-class FixConnectivitiesTest : public ::testing::TestWithParam<FixConnectivitiesInputs<value_t, value_idx>> {
+class FixConnectivitiesTest : public ::testing::TestWithParam<
+                                FixConnectivitiesInputs<value_t, value_idx>> {
  protected:
   void basicTest() {
     raft::handle_t handle;
 
-    params = ::testing::TestWithParam<FixConnectivitiesInputs<value_t, value_idx>>::GetParam();
+    params = ::testing::TestWithParam<
+      FixConnectivitiesInputs<value_t, value_idx>>::GetParam();
 
-    out_edges = new raft::sparse::COO<value_t, value_idx>(handle.get_device_allocator(), handle.get_stream());
+    out_edges = new raft::sparse::COO<value_t, value_idx>(
+      handle.get_device_allocator(), handle.get_stream());
 
     Logger::get().setLevel(CUML_LEVEL_DEBUG);
 
     /**
      * Generate some data
      */
-    device_buffer<value_t> data(handle.get_device_allocator(), handle.get_stream(),
-                          params.n_row * params.n_col);
+    device_buffer<value_t> data(handle.get_device_allocator(),
+                                handle.get_stream(),
+                                params.n_row * params.n_col);
 
-    device_buffer<value_idx> l(handle.get_device_allocator(), handle.get_stream(),
-                          params.n_row);
+    device_buffer<value_idx> l(handle.get_device_allocator(),
+                               handle.get_stream(), params.n_row);
 
     make_blobs(handle, data.data(), l.data(), params.n_row, params.n_col,
                params.n_centers, true, nullptr, nullptr, params.cluster_std,
@@ -166,8 +168,8 @@ class FixConnectivitiesTest : public ::testing::TestWithParam<FixConnectivitiesI
     /**
      * Run connect_components
      */
-    raft::linkage::connect_components<value_idx, value_t>(handle, *out_edges, data.data(),
-                                      l.data(), params.n_row, params.n_col);
+    raft::linkage::connect_components<value_idx, value_t>(
+      handle, *out_edges, data.data(), l.data(), params.n_row, params.n_col);
 
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 
@@ -186,7 +188,6 @@ class FixConnectivitiesTest : public ::testing::TestWithParam<FixConnectivitiesI
   value_idx *labels;
   raft::sparse::COO<value_t, value_idx> *out_edges;
 };
-
 
 const std::vector<LinkageInputs<float, int>> linkage_inputsf2 = {
   // Test n_clusters == n_points
@@ -579,8 +580,8 @@ const std::vector<LinkageInputs<float, int>> linkage_inputsf2 = {
    false,
    5}};
 
-const std::vector<FixConnectivitiesInputs<float, int>> fix_connectivities_inputsf2 = {
-  { 10, 1, 3, 0.01 }};
+const std::vector<FixConnectivitiesInputs<float, int>>
+  fix_connectivities_inputsf2 = {{10, 1, 3, 0.01}};
 
 typedef LinkageTest<float, int> LinkageTestF_Int;
 TEST_P(LinkageTestF_Int, Result) {
@@ -601,5 +602,6 @@ TEST_P(FixConnectivitiesTestF_Int, Result) {
 INSTANTIATE_TEST_CASE_P(LinkageTest, LinkageTestF_Int,
                         ::testing::ValuesIn(linkage_inputsf2));
 
-INSTANTIATE_TEST_CASE_P(FixConnectivitiesTest, FixConnectivitiesTestF_Int, ::testing::ValuesIn(fix_connectivities_inputsf2));
+INSTANTIATE_TEST_CASE_P(FixConnectivitiesTest, FixConnectivitiesTestF_Int,
+                        ::testing::ValuesIn(fix_connectivities_inputsf2));
 }  // end namespace ML
