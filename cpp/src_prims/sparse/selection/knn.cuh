@@ -121,7 +121,7 @@ class sparse_knn_t {
                size_t batch_size_index_ = 2 << 14,  // approx 1M
                size_t batch_size_query_ = 2 << 14,
                raft::distance::DistanceType metric_ =
-                 raft::distance::DistanceType::L2Unexpanded,
+                 raft::distance::DistanceType::L2Expanded,
                float metricArg_ = 0)
     : idxIndptr(idxIndptr_),
       idxIndices(idxIndices_),
@@ -444,7 +444,7 @@ void brute_force_knn(const value_idx *idxIndptr, const value_idx *idxIndices,
                      size_t batch_size_index = 2 << 14,  // approx 1M
                      size_t batch_size_query = 2 << 14,
                      raft::distance::DistanceType metric =
-                       raft::distance::DistanceType::L2Unexpanded,
+                       raft::distance::DistanceType::L2Expanded,
                      float metricArg = 0) {
   sparse_knn_t<value_idx, value_t>(
     idxIndptr, idxIndices, idxData, idxNNZ, n_idx_rows, n_idx_cols, queryIndptr,
