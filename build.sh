@@ -257,6 +257,6 @@ if completeBuild || hasArg cuml || hasArg pydocs; then
 
     if hasArg pydocs; then
         cd ${REPODIR}/docs
-        cmake --build ${LIBCUML_BUILD_DIR} --target html
+        make html
     fi
 fi
