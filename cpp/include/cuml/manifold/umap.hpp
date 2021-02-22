@@ -16,10 +16,12 @@
 
 #pragma once
 
-#include <cuml/cuml.hpp>
-#include "umapparams.h"
+namespace raft {
+  class handle_t;
+}
 
 namespace ML {
+  class UMAPParams;
 namespace UMAP {
 
 void transform(const raft::handle_t &handle, float *X, int n, int d,
