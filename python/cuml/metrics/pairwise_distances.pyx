@@ -41,13 +41,13 @@ cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics":
 
 cdef extern from "cuml/metrics/metrics.hpp" namespace "raft::sparse::distance":
     void pairwiseDistance_py(const handle_t &handle, float *x,
-                             int *y,
+                             float *y,
                              float *dist, int m, int n, int k,
                              int x_nnz, int y_nnz, int* x_indptr,
                              int* y_indptr, int* x_indices, int* y_indices,
                              DistanceType metric, float metric_arg) except +
     void pairwiseDistance_py(const handle_t &handle, double *x,
-                             int *y,
+                             double *y,
                              double *dist, int m, int n, int k,
                              int x_nnz, int y_nnz, int* x_indptr,
                              int* y_indptr, int* x_indices, int* y_indices,
