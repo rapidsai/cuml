@@ -109,8 +109,7 @@ cdef extern from "cuml/svm/svc.hpp" namespace "ML::SVM":
 
 
 class SVC(SVMBase,
-          ClassifierMixin,
-          FMajorInputTagMixin):
+          ClassifierMixin):
     """
     SVC (C-Support Vector Classification)
 
