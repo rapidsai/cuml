@@ -84,6 +84,21 @@ tags = {
     '_xfail_checks': bool,
 }
 
+tags_mixins = {
+    cumix.FMajorInputTagMixin: {'preferred_input_order': 'F'},
+    cumix.CMajorInputTagMixin: {'preferred_input_order': 'C'},
+    cumix.SparseInputTagMixin: {
+        'X_types_gpu': ['2darray', 'sparse'],
+        'X_types': ['2darray', 'sparse']
+    },
+    cumix.StringInputTagMixin: {
+        'X_types_gpu': ['2darray', 'string'],
+        'X_types': ['2darray', 'string']
+    },
+    cumix.AllowNaNTagMixin: {'allow_nan': True},
+    cumix.StatelessTagMixin: {'stateless': True}
+}
+
 
 class dummy_regressor_estimator(Base,
                                 cumix.RegressorMixin):
@@ -104,7 +119,8 @@ class dummy_cluster_estimator(Base,
 
 
 class dummy_class_with_tags(cumix.TagsMixin,
-                            cumix.FMajorInputTagMixin):
+                            cumix.FMajorInputTagMixin,
+                            cumix.CMajorInputTagMixin):
     @staticmethod
     def _more_static_tags():
         return {
@@ -145,15 +161,35 @@ def test_get_tags(model):
     return True
 
 
-def test_dynamic_tags():
-    estimator = dummy_class_with_tags()
+def test_dynamic_tags_and_composition():
     static_tags = dummy_class_with_tags._get_tags()
+    dynamic_tags = dummy_class_with_tags()._get_tags()
+    print(dummy_class_with_tags.__mro__)
+
+    # In python, the MRO is so that the uppermost inheritted class
+    # being closest to the final class, so in our dummy_class_with_tags
+    # the F Major input mixin overwrites the C mixin
+    assert static_tags['preferred_input_order'] == 'F'
+    assert dynamic_tags['preferred_input_order'] == 'F'
     assert static_tags['X_types'] == ['categorical']
-    assert estimator._get_tags()['X_types'] == ['string']
+    assert dynamic_tags['X_types'] == ['string']
 
 
-def test_estimator_type_attribute():
-    assert True
+@pytest.mark.parametrize("mixin", tags_mixins.keys())
+def test_tag_mixins(mixin):
+    for tag, value in tags_mixins[mixin].items():
+        assert mixin._more_static_tags()[tag] == value
+
+
+@pytest.mark.parametrize("model", [dummy_cluster_estimator,
+                                   dummy_regressor_estimator,
+                                   dummy_classifier_estimator])
+def test_estimator_type_mixins(model):
+    assert hasattr(model, "_estimator_type")
+    if model._estimator_type in ["regressor", "classifier"]:
+        assert model._get_tags()['requires_y']
+    else:
+        assert not model._get_tags()['requires_y']
 
 
 @pytest.mark.parametrize("model", list(models.values()))
@@ -165,6 +201,7 @@ def test_mro(model):
                 pytest.fail("Found Base class twice in the MRO")
             else:
                 found_base = True
+
 
 ###############################################################################
 #                            Fit Function Tests                               #
