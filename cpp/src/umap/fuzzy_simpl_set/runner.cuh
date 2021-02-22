@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,13 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#pragma once
 
 #include <cuml/manifold/umapparams.h>
 #include "naive.cuh"
 
-#include <sparse/coo.cuh>
-
-#pragma once
+#include <raft/sparse/coo.cuh>
 
 namespace UMAPAlgo {
 
@@ -41,7 +40,7 @@ using namespace ML;
  */
 template <int TPB_X, typename value_idx, typename T>
 void run(int n, const value_idx *knn_indices, const T *knn_dists,
-         int n_neighbors, MLCommon::Sparse::COO<T> *coo, UMAPParams *params,
+         int n_neighbors, raft::sparse::COO<T> *coo, UMAPParams *params,
          std::shared_ptr<deviceAllocator> alloc, cudaStream_t stream,
          int algorithm = 0) {
   switch (algorithm) {

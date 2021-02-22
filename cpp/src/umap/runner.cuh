@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -36,8 +36,11 @@
 #include <thrust/scan.h>
 #include <thrust/system/cuda/execution_policy.h>
 
-#include <sparse/coo.cuh>
-#include <sparse/csr.cuh>
+#include <raft/sparse/op/sort.h>
+#include <raft/sparse/convert/csr.cuh>
+#include <raft/sparse/coo.cuh>
+#include <raft/sparse/linalg/norm.cuh>
+#include <raft/sparse/op/filter.cuh>
 
 #include <raft/cuda_utils.cuh>
 
@@ -51,7 +54,6 @@ namespace FuzzySimplSetImpl = FuzzySimplSet::Naive;
 namespace SimplSetEmbedImpl = SimplSetEmbed::Algo;
 
 using namespace ML;
-using namespace MLCommon::Sparse;
 
 template <int TPB_X, typename T>
 __global__ void init_transform(int *indices, T *weights, int n,
@@ -126,7 +128,7 @@ void _fit(const raft::handle_t &handle, const umap_inputs &inputs,
   CUML_LOG_DEBUG("Done. Calling fuzzy simplicial set");
 
   ML::PUSH_RANGE("umap::simplicial_set");
-  COO<value_t> rgraph_coo(d_alloc, stream);
+  raft::sparse::COO<value_t> rgraph_coo(d_alloc, stream);
   FuzzySimplSet::run<TPB_X, value_idx, value_t>(
     inputs.n, knn_graph.knn_indices, knn_graph.knn_dists, k, &rgraph_coo,
     params, d_alloc, stream);
@@ -135,8 +137,8 @@ void _fit(const raft::handle_t &handle, const umap_inputs &inputs,
   /**
    * Remove zeros from simplicial set
    */
-  COO<value_t> cgraph_coo(d_alloc, stream);
-  MLCommon::Sparse::coo_remove_zeros<TPB_X, value_t>(&rgraph_coo, &cgraph_coo,
+  raft::sparse::COO<value_t> cgraph_coo(d_alloc, stream);
+  raft::sparse::op::coo_remove_zeros<TPB_X, value_t>(&rgraph_coo, &cgraph_coo,
                                                      d_alloc, stream);
   ML::POP_RANGE();
 
@@ -209,8 +211,8 @@ void _fit_supervised(const raft::handle_t &handle, const umap_inputs &inputs,
    * Allocate workspace for fuzzy simplicial set.
    */
   ML::PUSH_RANGE("umap::simplicial_set");
-  COO<value_t> rgraph_coo(d_alloc, stream);
-  COO<value_t> tmp_coo(d_alloc, stream);
+  raft::sparse::COO<value_t> rgraph_coo(d_alloc, stream);
+  raft::sparse::COO<value_t> tmp_coo(d_alloc, stream);
 
   /**
    * Run Fuzzy simplicial set
@@ -221,10 +223,10 @@ void _fit_supervised(const raft::handle_t &handle, const umap_inputs &inputs,
     &tmp_coo, params, d_alloc, stream);
   CUDA_CHECK(cudaPeekAtLastError());
 
-  MLCommon::Sparse::coo_remove_zeros<TPB_X, value_t>(&tmp_coo, &rgraph_coo,
+  raft::sparse::op::coo_remove_zeros<TPB_X, value_t>(&tmp_coo, &rgraph_coo,
                                                      d_alloc, stream);
 
-  COO<value_t> final_coo(d_alloc, stream);
+  raft::sparse::COO<value_t> final_coo(d_alloc, stream);
 
   /**
    * If target metric is 'categorical', perform
@@ -247,10 +249,10 @@ void _fit_supervised(const raft::handle_t &handle, const umap_inputs &inputs,
   /**
    * Remove zeros
    */
-  MLCommon::Sparse::coo_sort<value_t>(&final_coo, d_alloc, stream);
+  raft::sparse::op::coo_sort<value_t>(&final_coo, d_alloc, stream);
 
-  COO<value_t> ocoo(d_alloc, stream);
-  MLCommon::Sparse::coo_remove_zeros<TPB_X, value_t>(&final_coo, &ocoo, d_alloc,
+  raft::sparse::COO<value_t> ocoo(d_alloc, stream);
+  raft::sparse::op::coo_remove_zeros<TPB_X, value_t>(&final_coo, &ocoo, d_alloc,
                                                      stream);
   ML::POP_RANGE();
 
@@ -366,7 +368,8 @@ void _transform(const raft::handle_t &handle, const umap_inputs &inputs,
    * Allocate workspace for fuzzy simplicial set.
    */
 
-  COO<value_t> graph_coo(d_alloc, stream, nnz, inputs.n, inputs.n);
+  raft::sparse::COO<value_t> graph_coo(d_alloc, stream, nnz, inputs.n,
+                                       inputs.n);
 
   FuzzySimplSetImpl::compute_membership_strength_kernel<TPB_X>
     <<<grid_nnz, blk, 0, stream>>>(knn_graph.knn_indices, knn_graph.knn_dists,
@@ -378,9 +381,9 @@ void _transform(const raft::handle_t &handle, const umap_inputs &inputs,
   MLCommon::device_buffer<int> row_ind(d_alloc, stream, inputs.n);
   MLCommon::device_buffer<int> ia(d_alloc, stream, inputs.n);
 
-  MLCommon::Sparse::sorted_coo_to_csr(&graph_coo, row_ind.data(), d_alloc,
-                                      stream);
-  MLCommon::Sparse::coo_row_count<TPB_X>(&graph_coo, ia.data(), stream);
+  raft::sparse::convert::sorted_coo_to_csr(&graph_coo, row_ind.data(), d_alloc,
+                                           stream);
+  raft::sparse::linalg::coo_degree<TPB_X>(&graph_coo, ia.data(), stream);
 
   MLCommon::device_buffer<value_t> vals_normed(d_alloc, stream, graph_coo.nnz);
   CUDA_CHECK(cudaMemsetAsync(vals_normed.data(), 0,
@@ -388,7 +391,7 @@ void _transform(const raft::handle_t &handle, const umap_inputs &inputs,
 
   CUML_LOG_DEBUG("Performing L1 normalization");
 
-  MLCommon::Sparse::csr_row_normalize_l1<TPB_X, value_t>(
+  raft::sparse::linalg::csr_row_normalize_l1<TPB_X, value_t>(
     row_ind.data(), graph_coo.vals(), graph_coo.nnz, graph_coo.n_rows,
     vals_normed.data(), stream);
 
@@ -402,7 +405,7 @@ void _transform(const raft::handle_t &handle, const umap_inputs &inputs,
   CUDA_CHECK(cudaPeekAtLastError());
 
   /**
-   * Go through COO values and set everything that's less than
+   * Go through raft::sparse::COO values and set everything that's less than
    * vals.max() / params->n_epochs to 0.0
    */
   thrust::device_ptr<value_t> d_ptr =
@@ -437,8 +440,8 @@ void _transform(const raft::handle_t &handle, const umap_inputs &inputs,
   /**
    * Remove zeros
    */
-  MLCommon::Sparse::COO<value_t> comp_coo(d_alloc, stream);
-  MLCommon::Sparse::coo_remove_zeros<TPB_X, value_t>(&graph_coo, &comp_coo,
+  raft::sparse::COO<value_t> comp_coo(d_alloc, stream);
+  raft::sparse::op::coo_remove_zeros<TPB_X, value_t>(&graph_coo, &comp_coo,
                                                      d_alloc, stream);
 
   ML::PUSH_RANGE("umap::optimization");

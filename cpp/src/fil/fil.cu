@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@
 
 /** @file fil.cu implements forest inference */
 
+#include <omp.h>
 #include <thrust/device_ptr.h>
 #include <thrust/device_vector.h>
 #include <thrust/host_vector.h>
@@ -70,43 +71,60 @@ __global__ void transform_k(float* preds, size_t n, output_t output,
 }
 
 struct forest {
-  void init_max_shm() {
+  void init_n_items(int device) {
     int max_shm_std = 48 * 1024;  // 48 KiB
-    int device = 0;
-    // TODO(canonizer): use raft::handle_t for this
-    CUDA_CHECK(cudaGetDevice(&device));
+    /// the most shared memory a kernel can request on the GPU in question
+    int max_shm = 0;
     CUDA_CHECK(cudaDeviceGetAttribute(
-      &max_shm_, cudaDevAttrMaxSharedMemoryPerBlockOptin, device));
+      &max_shm, cudaDevAttrMaxSharedMemoryPerBlockOptin, device));
     // TODO(canonizer): use >48KiB shared memory if available
-    max_shm_ = std::min(max_shm_, max_shm_std);
+    max_shm = std::min(max_shm, max_shm_std);
+
+    // searching for the most items per block while respecting the shared
+    // memory limits creates a full linear programming problem.
+    // solving it in a single equation looks less tractable than this
+    shmem_size_params ssp = ssp_;
+    for (bool cols_in_shmem : {false, true}) {
+      ssp.cols_in_shmem = cols_in_shmem;
+      for (ssp.n_items = 1;
+           ssp.n_items <= (algo_ == algo_t::BATCH_TREE_REORG ? 4 : 1);
+           ++ssp.n_items) {
+        ssp.compute_smem_footprint();
+        if (ssp.shm_sz < max_shm) ssp_ = ssp;
+      }
+    }
+    ASSERT(max_shm >= ssp_.shm_sz,
+           "FIL out of shared memory. Perhaps the maximum number of \n"
+           "supported classes is exceeded? 5'000 would still be safe.");
   }
 
-  void init_fixed_block_count(const raft::handle_t& h, int blocks_per_sm) {
+  void init_fixed_block_count(int device, int blocks_per_sm) {
     int max_threads_per_sm, sm_count;
-    CUDA_CHECK(cudaDeviceGetAttribute(&max_threads_per_sm,
-                                      cudaDevAttrMaxThreadsPerMultiProcessor,
-                                      h.get_device()));
+    CUDA_CHECK(cudaDeviceGetAttribute(
+      &max_threads_per_sm, cudaDevAttrMaxThreadsPerMultiProcessor, device));
     int max_blocks_per_sm = max_threads_per_sm / FIL_TPB;
     ASSERT(blocks_per_sm <= max_blocks_per_sm,
            "on this GPU, FIL blocks_per_sm cannot exceed %d",
            max_blocks_per_sm);
     CUDA_CHECK(cudaDeviceGetAttribute(&sm_count, cudaDevAttrMultiProcessorCount,
-                                      h.get_device()));
+                                      device));
     fixed_block_count_ = blocks_per_sm * sm_count;
   }
 
   void init_common(const raft::handle_t& h, const forest_params_t* params) {
     depth_ = params->depth;
     num_trees_ = params->num_trees;
-    num_cols_ = params->num_cols;
     algo_ = params->algo;
     output_ = params->output;
     threshold_ = params->threshold;
     global_bias_ = params->global_bias;
-    leaf_algo_ = params->leaf_algo;
-    num_classes_ = params->num_classes;
-    init_max_shm();
-    init_fixed_block_count(h, params->blocks_per_sm);
+    ssp_.leaf_algo = params->leaf_algo;
+    ssp_.num_cols = params->num_cols;
+    ssp_.num_classes = params->num_classes;
+
+    int device = h.get_device();
+    init_n_items(device);  // n_items takes priority over blocks_per_sm
+    init_fixed_block_count(device, params->blocks_per_sm);
   }
 
   virtual void infer(predict_params params, cudaStream_t stream) = 0;
@@ -114,15 +132,11 @@ struct forest {
   void predict(const raft::handle_t& h, float* preds, const float* data,
                size_t num_rows, bool predict_proba) {
     // Initialize prediction parameters.
-    predict_params params;
-    params.num_cols = num_cols_;
+    predict_params params(ssp_);
     params.algo = algo_;
     params.preds = preds;
     params.data = data;
     params.num_rows = num_rows;
-    params.max_shm = max_shm_;
-    params.num_classes = num_classes_;
-    params.leaf_algo = leaf_algo_;
     // fixed_block_count_ == 0 means the number of thread blocks is
     // proportional to the number of rows
     params.num_blocks = fixed_block_count_;
@@ -170,7 +184,7 @@ struct forest {
       // no threshold on probabilities
       ot = output_t(ot & ~output_t::CLASS);
 
-      switch (leaf_algo_) {
+      switch (ssp_.leaf_algo) {
         case leaf_algo_t::FLOAT_UNARY_BINARY:
           params.num_outputs = 2;
           complement_proba = true;
@@ -183,14 +197,14 @@ struct forest {
             "predict_proba not supported for multi-class gradient boosted "
             "decision trees (encountered in xgboost, scikit-learn, lightgbm)");
         case leaf_algo_t::CATEGORICAL_LEAF:
-          params.num_outputs = num_classes_;
+          params.num_outputs = ssp_.num_classes;
           do_transform = ot != output_t::RAW || global_bias_ != 0.0f;
           break;
         default:
           ASSERT(false, "internal error: invalid leaf_algo_");
       }
     } else {
-      if (leaf_algo_ == leaf_algo_t::FLOAT_UNARY_BINARY) {
+      if (ssp_.leaf_algo == leaf_algo_t::FLOAT_UNARY_BINARY) {
         do_transform = ot != output_t::RAW || global_bias_ != 0.0f;
       } else {
         // GROVE_PER_CLASS, CATEGORICAL_LEAF: moot since choosing best class and
@@ -221,14 +235,11 @@ struct forest {
 
   int num_trees_ = 0;
   int depth_ = 0;
-  int num_cols_ = 0;
   algo_t algo_ = algo_t::NAIVE;
-  int max_shm_ = 0;
   output_t output_ = output_t::RAW;
   float threshold_ = 0.5;
   float global_bias_ = 0;
-  leaf_algo_t leaf_algo_ = leaf_algo_t::FLOAT_UNARY_BINARY;
-  int num_classes_ = 1;
+  shmem_size_params ssp_;
   int fixed_block_count_ = 0;
 };
 
@@ -433,7 +444,10 @@ inline int max_depth(const tl::Tree<T, L>& tree) {
 template <typename T, typename L>
 int max_depth(const tl::ModelImpl<T, L>& model) {
   int depth = 0;
-  for (const auto& tree : model.trees) {
+  const auto& trees = model.trees;
+#pragma omp parallel for reduction(max : depth)
+  for (size_t i = 0; i < trees.size(); ++i) {
+    const auto& tree = trees[i];
     depth = std::max(depth, max_depth(tree));
   }
   return depth;
@@ -543,12 +557,12 @@ void tree2fil_dense(std::vector<dense_node>* pnodes, int root,
 }
 
 template <typename fil_node_t, typename T, typename L>
-int tree2fil_sparse(std::vector<fil_node_t>* pnodes, const tl::Tree<T, L>& tree,
+int tree2fil_sparse(std::vector<fil_node_t>& nodes, int root,
+                    const tl::Tree<T, L>& tree,
                     const forest_params_t& forest_params) {
   typedef std::pair<int, int> pair_t;
   std::stack<pair_t> stack;
-  int root = pnodes->size();
-  pnodes->push_back(fil_node_t());
+  int built_index = root + 1;
   stack.push(pair_t(tree_root(tree), 0));
   while (!stack.empty()) {
     const pair_t& top = stack.top();
@@ -572,10 +586,9 @@ int tree2fil_sparse(std::vector<fil_node_t>* pnodes, const tl::Tree<T, L>& tree,
       // reserve space for child nodes
       // left is the offset of the left child node relative to the tree root
       // in the array of all nodes of the FIL sparse forest
-      int left = pnodes->size() - root;
-      pnodes->push_back(fil_node_t());
-      pnodes->push_back(fil_node_t());
-      (*pnodes)[root + cur] =
+      int left = built_index - root;
+      built_index += 2;
+      nodes[root + cur] =
         fil_node_t(val_t{.f = 0}, threshold, tree.SplitIndex(node_id),
                    default_left, false, left);
 
@@ -587,8 +600,8 @@ int tree2fil_sparse(std::vector<fil_node_t>* pnodes, const tl::Tree<T, L>& tree,
     }
 
     // leaf node
-    (*pnodes)[root + cur] = fil_node_t(val_t{.f = NAN}, NAN, 0, false, true, 0);
-    tl2fil_leaf_payload(&(*pnodes)[root + cur], tree, node_id, forest_params);
+    nodes[root + cur] = fil_node_t(val_t{.f = NAN}, NAN, 0, false, true, 0);
+    tl2fil_leaf_payload(&nodes[root + cur], tree, node_id, forest_params);
   }
 
   return root;
@@ -751,11 +764,23 @@ void tl2fil_sparse(std::vector<int>* ptrees, std::vector<fil_node_t>* pnodes,
   tl2fil_common(params, model, tl_params);
   tl2fil_sparse_check_t<fil_node_t>::check(model);
 
-  // convert the nodes
-  for (int i = 0; i < model.trees.size(); ++i) {
-    int root = tree2fil_sparse(pnodes, model.trees[i], *params);
-    ptrees->push_back(root);
+  size_t num_trees = model.trees.size();
+
+  ptrees->reserve(num_trees);
+  ptrees->push_back(0);
+  for (size_t i = 0; i < num_trees - 1; ++i) {
+    ptrees->push_back(model.trees[i].num_nodes + ptrees->back());
   }
+  size_t total_nodes = ptrees->back() + model.trees.back().num_nodes;
+
+  pnodes->resize(total_nodes);
+
+  // convert the nodes
+#pragma omp parallel for
+  for (int i = 0; i < num_trees; ++i) {
+    tree2fil_sparse(*pnodes, (*ptrees)[i], model.trees[i], *params);
+  }
+
   params->num_nodes = pnodes->size();
 }
 

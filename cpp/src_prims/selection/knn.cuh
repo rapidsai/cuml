@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -37,10 +37,10 @@
 #include <thrust/device_vector.h>
 #include <thrust/iterator/transform_iterator.h>
 
-#include <selection/processing.cuh>
+#include "processing.cuh"
 
-#include <common/device_buffer.hpp>
 #include <cuml/common/cuml_allocator.hpp>
+#include <cuml/common/device_buffer.hpp>
 #include <cuml/neighbors/knn.hpp>
 
 #include <iostream>

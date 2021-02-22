@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,9 +27,11 @@
 #include <cstdlib>
 #include <cuml/common/logger.hpp>
 #include <raft/random/rng_impl.cuh>
-#include <sparse/coo.cuh>
+#include <raft/sparse/coo.cuh>
 #include <string>
 #include "optimize_batch_kernel.cuh"
+
+#include <raft/sparse/op/filter.cuh>
 
 #pragma once
 
@@ -194,7 +196,7 @@ void optimize_layout(T *head_embedding, int head_n, T *tail_embedding,
  * and their 1-skeletons.
  */
 template <int TPB_X, typename T>
-void launcher(int m, int n, MLCommon::Sparse::COO<T> *in, UMAPParams *params,
+void launcher(int m, int n, raft::sparse::COO<T> *in, UMAPParams *params,
               T *embedding, std::shared_ptr<deviceAllocator> d_alloc,
               cudaStream_t stream) {
   int nnz = in->nnz;
@@ -228,8 +230,8 @@ void launcher(int m, int n, MLCommon::Sparse::COO<T> *in, UMAPParams *params,
     },
     stream);
 
-  MLCommon::Sparse::COO<T> out(d_alloc, stream);
-  MLCommon::Sparse::coo_remove_zeros<TPB_X, T>(in, &out, d_alloc, stream);
+  raft::sparse::COO<T> out(d_alloc, stream);
+  raft::sparse::op::coo_remove_zeros<TPB_X, T>(in, &out, d_alloc, stream);
 
   MLCommon::device_buffer<T> epochs_per_sample(d_alloc, stream, out.nnz);
   CUDA_CHECK(

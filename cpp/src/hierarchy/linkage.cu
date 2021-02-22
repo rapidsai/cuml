@@ -14,8 +14,6 @@
  * limitations under the License.
  */
 
-#include <cuml/cuml_api.h>
-#include <common/cumlHandle.hpp>
 
 #include <cuml/cluster/linkage.hpp>
 #include <raft/sparse/hierarchy/single_linkage.hpp>

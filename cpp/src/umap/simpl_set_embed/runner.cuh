@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
+#pragma once
+
 #include <cuml/manifold/umapparams.h>
 #include "algo.cuh"
 
-#include <sparse/coo.cuh>
-
-#pragma once
+#include <raft/sparse/coo.cuh>
 
 namespace UMAPAlgo {
 
@@ -28,7 +28,7 @@ namespace SimplSetEmbed {
 using namespace ML;
 
 template <int TPB_X, typename T>
-void run(int m, int n, MLCommon::Sparse::COO<T> *coo, UMAPParams *params,
+void run(int m, int n, raft::sparse::COO<T> *coo, UMAPParams *params,
          T *embedding, std::shared_ptr<deviceAllocator> alloc,
          cudaStream_t stream, int algorithm = 0) {
   switch (algorithm) {

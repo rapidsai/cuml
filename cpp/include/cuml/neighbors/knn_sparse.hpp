@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,7 +25,7 @@
 namespace ML {
 namespace Sparse {
 
-constexpr int DEFAULT_BATCH_SIZE = 2 << 16;
+constexpr int DEFAULT_BATCH_SIZE = 1 << 16;
 
 void brute_force_knn(raft::handle_t &handle, const int *idx_indptr,
                      const int *idx_indices, const float *idx_data,

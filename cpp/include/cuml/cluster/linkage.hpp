@@ -19,7 +19,6 @@
 #include <raft/linalg/distance_type.h>
 #include <raft/sparse/hierarchy/common.h>
 
-#include <cuml/common/logger.hpp>
 #include <cuml/cuml.hpp>
 
 namespace ML {

@@ -16,12 +16,10 @@
 
 #pragma once
 
-#include <cuml/cuml_api.h>
 #include <raft/cudart_utils.h>
 #include <raft/cuda_utils.cuh>
 
 #include <common/allocatorAdapter.hpp>
-#include <common/cumlHandle.hpp>
 
 #include <distance/distance.cuh>
 

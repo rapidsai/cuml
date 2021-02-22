@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,8 +15,7 @@
  */
 
 #include <gtest/gtest.h>
-#include <sparse/csr.cuh>
-#include "csr.h"
+#include <raft/sparse/csr.cuh>
 
 #include <raft/cudart_utils.h>
 #include <raft/random/rng.cuh>
@@ -24,342 +23,186 @@
 
 #include <iostream>
 #include <limits>
+#include <vector>
 
-namespace MLCommon {
-namespace Sparse {
+constexpr int MAX32 = std::numeric_limits<int>::max();
+constexpr int64_t MAX64 = std::numeric_limits<int64_t>::max();
 
-template <typename T>
-class CSRTest : public ::testing::TestWithParam<CSRInputs<T>> {
- protected:
-  void SetUp() override {}
+namespace raft {
+namespace sparse {
 
-  void TearDown() override {}
-
- protected:
-  CSRInputs<T> params;
+template <typename Index_>
+struct CSRMatrix {
+  std::vector<Index_> row_ind;
+  std::vector<Index_> row_ind_ptr;
 };
 
-const std::vector<CSRInputs<float>> inputsf = {{5, 10, 5, 1234ULL}};
+template <typename Index_>
+struct WeakCCInputs {
+  Index_ N;
+  std::vector<int8_t> mask;
+  std::vector<CSRMatrix<Index_>> batches;
+  std::vector<std::vector<Index_>> verify;
+};
 
-typedef CSRTest<float> CSRToCOO;
-TEST_P(CSRToCOO, Result) {
+/** Wrapper to call weakcc because the enclosing function of a __device__
+ *  lambda cannot have private ot protected access within the class. */
+template <typename Index_>
+void weak_cc_wrapper(Index_ *labels, const Index_ *row_ind,
+                     const Index_ *row_ind_ptr, Index_ nnz, Index_ N,
+                     Index_ startVertexId, Index_ batchSize, WeakCCState *state,
+                     cudaStream_t stream, bool *mask) {
+  weak_cc_batched<Index_>(
+    labels, row_ind, row_ind_ptr, nnz, N, startVertexId, batchSize, state,
+    stream, [mask, N] __device__(Index_ global_id) {
+      return global_id < N ? __ldg((char *)mask + global_id) : 0;
+    });
+}
+
+template <typename Index_>
+class WeakCCTest : public ::testing::TestWithParam<WeakCCInputs<Index_>> {
+ protected:
+  void SetUp() override {
+    params = ::testing::TestWithParam<WeakCCInputs<Index_>>::GetParam();
+
+    CUDA_CHECK(cudaStreamCreate(&stream));
+    std::shared_ptr<raft::mr::device::allocator> alloc(
+      new raft::mr::device::default_allocator);
+
+    Index_ row_ind_size = params.batches[0].row_ind.size();
+    Index_ row_ind_ptr_size = params.batches[0].row_ind_ptr.size();
+    for (int i = 1; i < params.batches.size(); i++) {
+      row_ind_size =
+        max(row_ind_size, (Index_)params.batches[i].row_ind.size());
+      row_ind_ptr_size =
+        max(row_ind_ptr_size, (Index_)params.batches[i].row_ind_ptr.size());
+    }
+
+    raft::allocate(row_ind, row_ind_size);
+    raft::allocate(row_ind_ptr, row_ind_ptr_size);
+    raft::allocate(result, params.N, true);
+    raft::allocate(verify, params.N);
+    raft::allocate(mask, params.N);
+    raft::allocate(m, 1);
+  }
+
+  void Run() {
+    params = ::testing::TestWithParam<WeakCCInputs<Index_>>::GetParam();
+    Index_ N = params.N;
+
+    WeakCCState state(m);
+
+    raft::update_device(mask, reinterpret_cast<bool *>(params.mask.data()), N,
+                        stream);
+
+    Index_ start_id = 0;
+    for (int i = 0; i < params.batches.size(); i++) {
+      Index_ batch_size = params.batches[i].row_ind.size() - 1;
+      Index_ row_ind_size = params.batches[i].row_ind.size();
+      Index_ row_ind_ptr_size = params.batches[i].row_ind_ptr.size();
+
+      raft::update_device(row_ind, params.batches[i].row_ind.data(),
+                          row_ind_size, stream);
+      raft::update_device(row_ind_ptr, params.batches[i].row_ind_ptr.data(),
+                          row_ind_ptr_size, stream);
+      raft::update_device(verify, params.verify[i].data(), N, stream);
+
+      weak_cc_wrapper<Index_>(result, row_ind, row_ind_ptr, row_ind_ptr_size, N,
+                              start_id, batch_size, &state, stream, mask);
+
+      cudaStreamSynchronize(stream);
+      ASSERT_TRUE(
+        raft::devArrMatch<Index_>(verify, result, N, raft::Compare<Index_>()));
+
+      start_id += batch_size;
+    }
+  }
+
+  void TearDown() override {
+    CUDA_CHECK(cudaFree(row_ind));
+    CUDA_CHECK(cudaFree(row_ind_ptr));
+    CUDA_CHECK(cudaFree(verify));
+    CUDA_CHECK(cudaFree(result));
+    CUDA_CHECK(cudaFree(mask));
+    CUDA_CHECK(cudaFree(m));
+    CUDA_CHECK(cudaStreamDestroy(stream));
+  }
+
+ protected:
+  WeakCCInputs<Index_> params;
   cudaStream_t stream;
-  cudaStreamCreate(&stream);
-
-  int *ex_scan;
-  int *result, *verify;
-
-  int *ex_scan_h = new int[4]{0, 4, 8, 9};
-  int *verify_h = new int[10]{0, 0, 0, 0, 1, 1, 1, 1, 2, 3};
-
-  raft::allocate(verify, 10);
-  raft::allocate(ex_scan, 4);
-  raft::allocate(result, 10, true);
-
-  raft::update_device(ex_scan, ex_scan_h, 4, stream);
-  raft::update_device(verify, verify_h, 10, stream);
-
-  csr_to_coo<int, 32>(ex_scan, 4, result, 10, stream);
-
-  ASSERT_TRUE(
-    raft::devArrMatch<int>(verify, result, 10, raft::Compare<float>(), stream));
-
-  delete[] ex_scan_h;
-  delete[] verify_h;
-
-  CUDA_CHECK(cudaFree(ex_scan));
-  CUDA_CHECK(cudaFree(verify));
-  CUDA_CHECK(cudaFree(result));
-
-  cudaStreamDestroy(stream);
-}
-
-typedef CSRTest<float> CSRRowNormalizeMax;
-TEST_P(CSRRowNormalizeMax, Result) {
-  cudaStream_t stream;
-  cudaStreamCreate(&stream);
-
-  int *ex_scan;
-  float *in_vals, *result, *verify;
-
-  int ex_scan_h[4] = {0, 4, 8, 9};
-  float in_vals_h[10] = {5.0, 1.0, 0.0, 0.0, 10.0, 1.0, 0.0, 0.0, 1.0, 0.0};
-
-  float verify_h[10] = {1.0, 0.2, 0.0, 0.0, 1.0, 0.1, 0.0, 0.0, 1, 0.0};
-
-  raft::allocate(in_vals, 10);
-  raft::allocate(verify, 10);
-  raft::allocate(ex_scan, 4);
-  raft::allocate(result, 10, true);
-
-  raft::update_device(ex_scan, *&ex_scan_h, 4, stream);
-  raft::update_device(in_vals, *&in_vals_h, 10, stream);
-  raft::update_device(verify, *&verify_h, 10, stream);
-
-  csr_row_normalize_max<32, float>(ex_scan, in_vals, 10, 4, result, stream);
-
-  ASSERT_TRUE(
-    raft::devArrMatch<float>(verify, result, 10, raft::Compare<float>()));
-
-  cudaStreamDestroy(stream);
-
-  CUDA_CHECK(cudaFree(ex_scan));
-  CUDA_CHECK(cudaFree(in_vals));
-  CUDA_CHECK(cudaFree(verify));
-  CUDA_CHECK(cudaFree(result));
-}
-
-typedef CSRTest<float> CSRRowNormalizeL1;
-TEST_P(CSRRowNormalizeL1, Result) {
-  int *ex_scan;
-  float *in_vals, *result, *verify;
-
-  int ex_scan_h[4] = {0, 4, 8, 9};
-  float in_vals_h[10] = {1.0, 1.0, 0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 1.0, 0.0};
-
-  float verify_h[10] = {0.5, 0.5, 0.0, 0.0, 0.5, 0.5, 0.0, 0.0, 1, 0.0};
-
-  raft::allocate(in_vals, 10);
-  raft::allocate(verify, 10);
-  raft::allocate(ex_scan, 4);
-  raft::allocate(result, 10, true);
-
-  raft::update_device(ex_scan, *&ex_scan_h, 4, 0);
-  raft::update_device(in_vals, *&in_vals_h, 10, 0);
-  raft::update_device(verify, *&verify_h, 10, 0);
-
-  csr_row_normalize_l1<32, float>(ex_scan, in_vals, 10, 4, result, 0);
-  cudaDeviceSynchronize();
-
-  ASSERT_TRUE(
-    raft::devArrMatch<float>(verify, result, 10, raft::Compare<float>()));
-
-  CUDA_CHECK(cudaFree(ex_scan));
-  CUDA_CHECK(cudaFree(in_vals));
-  CUDA_CHECK(cudaFree(verify));
-  CUDA_CHECK(cudaFree(result));
-}
-
-typedef CSRTest<float> CSRSum;
-TEST_P(CSRSum, Result) {
-  cudaStream_t stream;
-  cudaStreamCreate(&stream);
-
-  std::shared_ptr<deviceAllocator> alloc(
-    new raft::mr::device::default_allocator);
-
-  int *ex_scan, *ind_ptr_a, *ind_ptr_b, *verify_indptr;
-  float *in_vals_a, *in_vals_b, *verify;
-
-  int ex_scan_h[4] = {0, 4, 8, 9};
-
-  int indptr_a_h[10] = {1, 2, 3, 4, 1, 2, 3, 5, 0, 1};
-  int indptr_b_h[10] = {1, 2, 5, 4, 0, 2, 3, 5, 1, 0};
-
-  float in_vals_h[10] = {1.0, 1.0, 0.5, 0.5, 1.0, 1.0, 0.5, 0.5, 1.0, 1.0};
-
-  float verify_h[14] = {2.0, 2.0, 0.5, 1.0, 0.5, 1.0, 2.0,
-                        1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0};
-  int verify_indptr_h[14] = {1, 2, 3, 4, 5, 1, 2, 3, 5, 0, 0, 1, 1, 0};
-
-  raft::allocate(in_vals_a, 10);
-  raft::allocate(in_vals_b, 10);
-  raft::allocate(verify, 14);
-  raft::allocate(ex_scan, 4);
-  raft::allocate(verify_indptr, 14);
-
-  raft::allocate(ind_ptr_a, 10);
-  raft::allocate(ind_ptr_b, 10);
-
-  raft::update_device(ex_scan, *&ex_scan_h, 4, stream);
-  raft::update_device(in_vals_a, *&in_vals_h, 10, stream);
-  raft::update_device(in_vals_b, *&in_vals_h, 10, stream);
-  raft::update_device(verify, *&verify_h, 14, stream);
-  raft::update_device(verify_indptr, *&verify_indptr_h, 14, stream);
-  raft::update_device(ind_ptr_a, *&indptr_a_h, 10, stream);
-  raft::update_device(ind_ptr_b, *&indptr_b_h, 10, stream);
-
-  int *result_ind;
-  raft::allocate(result_ind, 4);
-
-  int nnz = csr_add_calc_inds<float, 32>(ex_scan, ind_ptr_a, in_vals_a, 10,
-                                         ex_scan, ind_ptr_b, in_vals_b, 10, 4,
-                                         result_ind, alloc, stream);
-
-  int *result_indptr;
-  float *result_val;
-  raft::allocate(result_indptr, nnz);
-  raft::allocate(result_val, nnz);
-
-  csr_add_finalize<float, 32>(ex_scan, ind_ptr_a, in_vals_a, 10, ex_scan,
-                              ind_ptr_b, in_vals_b, 10, 4, result_ind,
-                              result_indptr, result_val, stream);
-
-  ASSERT_TRUE(nnz == 14);
-
-  ASSERT_TRUE(
-    raft::devArrMatch<float>(verify, result_val, nnz, raft::Compare<float>()));
-  ASSERT_TRUE(raft::devArrMatch<int>(verify_indptr, result_indptr, nnz,
-                                     raft::Compare<int>()));
-
-  cudaStreamDestroy(stream);
-
-  CUDA_CHECK(cudaFree(ex_scan));
-  CUDA_CHECK(cudaFree(in_vals_a));
-  CUDA_CHECK(cudaFree(in_vals_b));
-  CUDA_CHECK(cudaFree(ind_ptr_a));
-  CUDA_CHECK(cudaFree(ind_ptr_b));
-  CUDA_CHECK(cudaFree(verify));
-  CUDA_CHECK(cudaFree(result_indptr));
-  CUDA_CHECK(cudaFree(result_val));
-}
-
-typedef CSRTest<float> CSRRowOpTest;
-TEST_P(CSRRowOpTest, Result) {
-  cudaStream_t stream;
-  cudaStreamCreate(&stream);
-
-  int *ex_scan;
-  float *result, *verify;
-
-  int ex_scan_h[4] = {0, 4, 8, 9};
-
-  float verify_h[10] = {0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 1.0, 2.0, 3.0};
-
-  raft::allocate(verify, 10);
-  raft::allocate(ex_scan, 4);
-  raft::allocate(result, 10, true);
-
-  raft::update_device(ex_scan, *&ex_scan_h, 4, stream);
-  raft::update_device(verify, *&verify_h, 10, stream);
-
-  csr_row_op<int, 32>(
-    ex_scan, 4, 10,
-    [result] __device__(int row, int start_idx, int stop_idx) {
-      for (int i = start_idx; i < stop_idx; i++) result[i] = row;
-    },
-    stream);
-
-  ASSERT_TRUE(
-    raft::devArrMatch<float>(verify, result, 10, raft::Compare<float>()));
-
-  cudaStreamDestroy(stream);
-
-  CUDA_CHECK(cudaFree(ex_scan));
-  CUDA_CHECK(cudaFree(verify));
-  CUDA_CHECK(cudaFree(result));
-}
-
-typedef CSRTest<float> AdjGraphTest;
-TEST_P(AdjGraphTest, Result) {
-  cudaStream_t stream;
-  cudaStreamCreate(&stream);
-
-  int *row_ind, *result, *verify;
-  bool *adj;
-
-  int row_ind_h[3] = {0, 3, 6};
-  bool adj_h[18] = {1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-
-  int verify_h[9] = {0, 1, 2, 0, 1, 2, 0, 1, 2};
-
-  raft::allocate(row_ind, 3);
-  raft::allocate(adj, 18);
-  raft::allocate(result, 9, true);
-  raft::allocate(verify, 9);
-
-  raft::update_device(row_ind, *&row_ind_h, 3, stream);
-  raft::update_device(adj, *&adj_h, 18, stream);
-  raft::update_device(verify, *&verify_h, 9, stream);
-
-  csr_adj_graph_batched<int, 32>(row_ind, 6, 9, 3, adj, result, stream);
-
-  ASSERT_TRUE(raft::devArrMatch<int>(verify, result, 9, raft::Compare<int>()));
-
-  cudaStreamDestroy(stream);
-
-  CUDA_CHECK(cudaFree(row_ind));
-  CUDA_CHECK(cudaFree(adj));
-  CUDA_CHECK(cudaFree(verify));
-  CUDA_CHECK(cudaFree(result));
-}
-
-typedef CSRTest<float> WeakCCTest;
-TEST_P(WeakCCTest, Result) {
-  cudaStream_t stream;
-  cudaStreamCreate(&stream);
-
-  std::shared_ptr<deviceAllocator> alloc(
-    new raft::mr::device::default_allocator);
-  int *row_ind, *row_ind_ptr, *result, *verify;
-
-  int row_ind_h1[3] = {0, 3, 6};
-  int row_ind_ptr_h1[9] = {0, 1, 2, 0, 1, 2, 0, 1, 2};
-  int verify_h1[6] = {1, 1, 1, 2147483647, 2147483647, 2147483647};
-
-  int row_ind_h2[3] = {0, 2, 4};
-  int row_ind_ptr_h2[5] = {3, 4, 3, 4, 5};
-  int verify_h2[6] = {1, 1, 1, 5, 5, 5};
-
-  raft::allocate(row_ind, 3);
-  raft::allocate(row_ind_ptr, 9);
-  raft::allocate(result, 9, true);
-  raft::allocate(verify, 9);
-
-  device_buffer<bool> xa(alloc, stream, 6);
-  device_buffer<bool> fa(alloc, stream, 6);
-  device_buffer<bool> m(alloc, stream, 1);
-  WeakCCState state(xa.data(), fa.data(), m.data());
-
-  /**
-     * Run batch #1
-     */
-  raft::update_device(row_ind, *&row_ind_h1, 3, stream);
-  raft::update_device(row_ind_ptr, *&row_ind_ptr_h1, 9, stream);
-  raft::update_device(verify, *&verify_h1, 6, stream);
-
-  weak_cc_batched<int, 32>(result, row_ind, row_ind_ptr, 9, 6, 0, 3, &state,
-                           stream);
-
-  cudaStreamSynchronize(stream);
-  ASSERT_TRUE(raft::devArrMatch<int>(verify, result, 6, raft::Compare<int>()));
-
-  /**
-     * Run batch #2
-     */
-  raft::update_device(row_ind, *&row_ind_h2, 3, stream);
-  raft::update_device(row_ind_ptr, *&row_ind_ptr_h2, 5, stream);
-  raft::update_device(verify, *&verify_h2, 6, stream);
-
-  weak_cc_batched<int, 32>(result, row_ind, row_ind_ptr, 5, 6, 4, 3, &state,
-                           stream);
-
-  ASSERT_TRUE(raft::devArrMatch<int>(verify, result, 6, raft::Compare<int>()));
-
-  cudaStreamSynchronize(stream);
-
-  cudaStreamDestroy(stream);
-
-  CUDA_CHECK(cudaFree(row_ind));
-  CUDA_CHECK(cudaFree(row_ind_ptr));
-  CUDA_CHECK(cudaFree(verify));
-  CUDA_CHECK(cudaFree(result));
-}
-
-INSTANTIATE_TEST_CASE_P(CSRTests, WeakCCTest, ::testing::ValuesIn(inputsf));
-
-INSTANTIATE_TEST_CASE_P(CSRTests, AdjGraphTest, ::testing::ValuesIn(inputsf));
-
-INSTANTIATE_TEST_CASE_P(CSRTests, CSRRowOpTest, ::testing::ValuesIn(inputsf));
-
-INSTANTIATE_TEST_CASE_P(CSRTests, CSRToCOO, ::testing::ValuesIn(inputsf));
-
-INSTANTIATE_TEST_CASE_P(CSRTests, CSRRowNormalizeMax,
-                        ::testing::ValuesIn(inputsf));
-
-INSTANTIATE_TEST_CASE_P(CSRTests, CSRRowNormalizeL1,
-                        ::testing::ValuesIn(inputsf));
-
-INSTANTIATE_TEST_CASE_P(CSRTests, CSRSum, ::testing::ValuesIn(inputsf));
-}  // namespace Sparse
-}  // namespace MLCommon
+  Index_ *row_ind, *row_ind_ptr, *result, *verify;
+  bool *mask, *m;
+};
+
+using WeakCCTestI = WeakCCTest<int>;
+TEST_P(WeakCCTestI, Result) { Run(); }
+
+using WeakCCTestL = WeakCCTest<int64_t>;
+TEST_P(WeakCCTestL, Result) { Run(); }
+
+// Hand-designed corner cases for weakcc
+const std::vector<WeakCCInputs<int>> weakcc_inputs_32 = {
+  {6,
+   {1, 0, 1, 1, 1, 0},
+   {{{0, 2, 5, 7}, {0, 1, 0, 1, 4, 2, 5}},
+    {{0, 2, 5, 7}, {3, 4, 1, 3, 4, 2, 5}}},
+   {{1, 1, 3, 4, 5, 3}, {1, 4, 3, 4, 4, 3}}},
+  {6,
+   {1, 0, 1, 0, 1, 0},
+   {{{0, 5, 8}, {0, 1, 2, 3, 4, 0, 1, 4}},
+    {{0, 5, 8}, {0, 2, 3, 4, 5, 0, 2, 3}},
+    {{0, 5, 8}, {0, 1, 2, 4, 5, 2, 4, 5}}},
+   {{1, 1, 1, 1, 1, MAX32}, {1, MAX32, 1, 1, 1, 1}, {1, 1, 1, MAX32, 1, 1}}},
+  {6,
+   {1, 1, 1, 0, 1, 1},
+   {{{0, 3, 6}, {0, 1, 2, 0, 1, 3}},
+    {{0, 3, 6}, {0, 2, 4, 1, 3, 5}},
+    {{0, 3, 6}, {2, 4, 5, 3, 4, 5}}},
+   {{1, 1, 1, 1, 5, 6}, {1, 2, 1, 2, 1, 6}, {1, 2, 3, 3, 3, 3}}},
+  {8,
+   {1, 1, 1, 1, 0, 0, 1, 1},
+   {{{0, 2, 5}, {0, 1, 0, 1, 2}},
+    {{0, 3, 6}, {1, 2, 3, 2, 3, 4}},
+    {{0, 2, 4}, {3, 4, 5, 6}},
+    {{0, 2, 5}, {5, 6, 7, 6, 7}}},
+   {{1, 1, 1, 4, MAX32, MAX32, 7, 8},
+    {1, 2, 2, 2, 2, MAX32, 7, 8},
+    {1, 2, 3, 4, 4, 7, 7, 8},
+    {1, 2, 3, 4, MAX32, 7, 7, 7}}}};
+const std::vector<WeakCCInputs<int64_t>> weakcc_inputs_64 = {
+  {6,
+   {1, 0, 1, 1, 1, 0},
+   {{{0, 2, 5, 7}, {0, 1, 0, 1, 4, 2, 5}},
+    {{0, 2, 5, 7}, {3, 4, 1, 3, 4, 2, 5}}},
+   {{1, 1, 3, 4, 5, 3}, {1, 4, 3, 4, 4, 3}}},
+  {6,
+   {1, 0, 1, 0, 1, 0},
+   {{{0, 5, 8}, {0, 1, 2, 3, 4, 0, 1, 4}},
+    {{0, 5, 8}, {0, 2, 3, 4, 5, 0, 2, 3}},
+    {{0, 5, 8}, {0, 1, 2, 4, 5, 2, 4, 5}}},
+   {{1, 1, 1, 1, 1, MAX64}, {1, MAX64, 1, 1, 1, 1}, {1, 1, 1, MAX64, 1, 1}}},
+  {6,
+   {1, 1, 1, 0, 1, 1},
+   {{{0, 3, 6}, {0, 1, 2, 0, 1, 3}},
+    {{0, 3, 6}, {0, 2, 4, 1, 3, 5}},
+    {{0, 3, 6}, {2, 4, 5, 3, 4, 5}}},
+   {{1, 1, 1, 1, 5, 6}, {1, 2, 1, 2, 1, 6}, {1, 2, 3, 3, 3, 3}}},
+  {8,
+   {1, 1, 1, 1, 0, 0, 1, 1},
+   {{{0, 2, 5}, {0, 1, 0, 1, 2}},
+    {{0, 3, 6}, {1, 2, 3, 2, 3, 4}},
+    {{0, 2, 4}, {3, 4, 5, 6}},
+    {{0, 2, 5}, {5, 6, 7, 6, 7}}},
+   {{1, 1, 1, 4, MAX64, MAX64, 7, 8},
+    {1, 2, 2, 2, 2, MAX64, 7, 8},
+    {1, 2, 3, 4, 4, 7, 7, 8},
+    {1, 2, 3, 4, MAX64, 7, 7, 7}}}};
+
+INSTANTIATE_TEST_CASE_P(CSRTests, WeakCCTestI,
+                        ::testing::ValuesIn(weakcc_inputs_32));
+INSTANTIATE_TEST_CASE_P(CSRTests, WeakCCTestL,
+                        ::testing::ValuesIn(weakcc_inputs_64));
+
+}  // namespace sparse
+}  // namespace raft

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,7 +30,7 @@
 
 #include <test_utils.h>
 
-#include <common/device_buffer.hpp>
+#include <cuml/common/device_buffer.hpp>
 #include <cuml/common/logger.hpp>
 
 namespace ML {
@@ -39,6 +39,11 @@ using namespace MLCommon;
 using namespace Datasets;
 using namespace Metrics;
 using namespace std;
+
+// Note: false negatives are theoretically possible, given that border
+// points are ambiguous.
+// If test failures are observed, these tests might need to be re-written
+// (cf how the Python tests work).
 
 template <typename T, typename IdxT>
 struct DbscanInputs {
@@ -82,8 +87,8 @@ class DbscanTest : public ::testing::TestWithParam<DbscanInputs<T, IdxT>> {
 
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 
-    dbscanFit(handle, out.data(), params.n_row, params.n_col, params.eps,
-              params.min_pts, labels, nullptr, params.max_bytes_per_batch);
+    Dbscan::fit(handle, out.data(), params.n_row, params.n_col, params.eps,
+                params.min_pts, labels, nullptr, params.max_bytes_per_batch);
 
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 
@@ -197,8 +202,8 @@ class Dbscan2DSimple : public ::testing::TestWithParam<DBScan2DArrayInputs<T>> {
     raft::copy(labels_ref, params.out, params.n_out, handle.get_stream());
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 
-    dbscanFit(handle, inputs, (int)params.n_row, 2, params.eps, params.min_pts,
-              labels, core_sample_indices_d);
+    Dbscan::fit(handle, inputs, (int)params.n_row, 2, params.eps,
+                params.min_pts, labels, core_sample_indices_d);
 
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 

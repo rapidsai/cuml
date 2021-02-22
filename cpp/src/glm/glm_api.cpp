@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,17 +14,18 @@
  * limitations under the License.
  */
 
-#include "glm_api.h"
+#include <cuml/linear_model/glm_api.h>
+
 #include <common/cumlHandle.hpp>
 #include <cuml/linear_model/glm.hpp>
 
-extern "C" cumlError_t cumlSpQnFit(cumlHandle_t cuml_handle, float *X, float *y,
-                                   int N, int D, int C, bool fit_intercept,
-                                   float l1, float l2, int max_iter,
-                                   float grad_tol, int linesearch_max_iter,
-                                   int lbfgs_memory, int verbosity, float *w0,
-                                   float *f, int *num_iters, bool X_col_major,
-                                   int loss_type) {
+extern "C" {
+
+cumlError_t cumlSpQnFit(cumlHandle_t cuml_handle, float *X, float *y, int N,
+                        int D, int C, bool fit_intercept, float l1, float l2,
+                        int max_iter, float grad_tol, int linesearch_max_iter,
+                        int lbfgs_memory, int verbosity, float *w0, float *f,
+                        int *num_iters, bool X_col_major, int loss_type) {
   cumlError_t status;
   raft::handle_t *handle_ptr;
   std::tie(handle_ptr, status) = ML::handleMap.lookupHandlePointer(cuml_handle);
@@ -48,11 +49,11 @@ extern "C" cumlError_t cumlSpQnFit(cumlHandle_t cuml_handle, float *X, float *y,
   return status;
 }
 
-extern "C" cumlError_t cumlDpQnFit(
-  cumlHandle_t cuml_handle, double *X, double *y, int N, int D, int C,
-  bool fit_intercept, double l1, double l2, int max_iter, double grad_tol,
-  int linesearch_max_iter, int lbfgs_memory, int verbosity, double *w0,
-  double *f, int *num_iters, bool X_col_major, int loss_type) {
+cumlError_t cumlDpQnFit(cumlHandle_t cuml_handle, double *X, double *y, int N,
+                        int D, int C, bool fit_intercept, double l1, double l2,
+                        int max_iter, double grad_tol, int linesearch_max_iter,
+                        int lbfgs_memory, int verbosity, double *w0, double *f,
+                        int *num_iters, bool X_col_major, int loss_type) {
   cumlError_t status;
   raft::handle_t *handle_ptr;
   std::tie(handle_ptr, status) = ML::handleMap.lookupHandlePointer(cuml_handle);
@@ -74,4 +75,5 @@ extern "C" cumlError_t cumlDpQnFit(
     }
   }
   return status;
+}
 }

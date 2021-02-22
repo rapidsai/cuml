@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,11 +17,13 @@
 #pragma once
 
 #include <raft/cudart_utils.h>
+#include <raft/linalg/distance_type.h>
 #include <cuml/neighbors/knn_sparse.hpp>
 #include <raft/linalg/eltwise.cuh>
+#include <raft/sparse/coo.cuh>
+#include <raft/sparse/linalg/symmetrize.cuh>
+#include <raft/sparse/selection/knn.cuh>
 #include <selection/knn.cuh>
-#include <sparse/coo.cuh>
-#include <sparse/knn.cuh>
 
 #include <cuml/manifold/common.hpp>
 
@@ -82,13 +84,13 @@ template <>
 void get_distances(const raft::handle_t &handle,
                    manifold_sparse_inputs_t<int, float> &input,
                    knn_graph<int, float> &k_graph, cudaStream_t stream) {
-  MLCommon::Sparse::Selection::brute_force_knn(
+  raft::sparse::selection::brute_force_knn(
     input.indptr, input.indices, input.data, input.nnz, input.n, input.d,
     input.indptr, input.indices, input.data, input.nnz, input.n, input.d,
     k_graph.knn_indices, k_graph.knn_dists, k_graph.n_neighbors,
     handle.get_cusparse_handle(), handle.get_device_allocator(), stream,
     ML::Sparse::DEFAULT_BATCH_SIZE, ML::Sparse::DEFAULT_BATCH_SIZE,
-    ML::MetricType::METRIC_L2);
+    raft::distance::DistanceType::L2Expanded);
 }
 
 // sparse, int64
@@ -135,17 +137,16 @@ void normalize_distances(const value_idx n, value_t *distances,
  * @param[in] handle: The GPU handle.
  */
 template <typename value_idx, typename value_t, int TPB_X = 32>
-void symmetrize_perplexity(
-  float *P, value_idx *indices, const value_idx n, const int k,
-  const value_t exaggeration,
-  MLCommon::Sparse::COO<value_t, value_idx> *COO_Matrix, cudaStream_t stream,
-  const raft::handle_t &handle) {
+void symmetrize_perplexity(float *P, value_idx *indices, const value_idx n,
+                           const int k, const value_t exaggeration,
+                           raft::sparse::COO<value_t, value_idx> *COO_Matrix,
+                           cudaStream_t stream, const raft::handle_t &handle) {
   // Perform (P + P.T) / P_sum * early_exaggeration
   const value_t div = exaggeration / (2.0f * n);
   raft::linalg::scalarMultiply(P, P, div, n * k, stream);
 
   // Symmetrize to form P + P.T
-  MLCommon::Sparse::from_knn_symmetrize_matrix(
+  raft::sparse::linalg::from_knn_symmetrize_matrix<value_idx, value_t>(
     indices, P, n, k, COO_Matrix, stream, handle.get_device_allocator());
 }
 
