@@ -539,3 +539,8 @@ Model Explanation (SHAP)
 
 .. autoclass:: cuml.experimental.explainer.PermutationExplainer
    :members:
+
+Linear Models
+-------------
+.. autoclass:: cuml.experimental.linear_model.Lars
+   :members:

@@ -288,6 +288,10 @@ class SimpleImputer(_BaseImputer):
         -------
         self : SimpleImputer
         """
+
+        if type(X) is list:
+            X = np.asarray(X)
+
         X = self._validate_input(X, in_fit=True)
         super()._fit_indicator(X)
 
