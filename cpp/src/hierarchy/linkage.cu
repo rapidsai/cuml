@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-
 #include <cuml/cluster/linkage.hpp>
 #include <raft/sparse/hierarchy/single_linkage.hpp>
 #include "pw_dist_graph.cuh"
