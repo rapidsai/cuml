@@ -102,19 +102,28 @@ tags_mixins = {
 
 class dummy_regressor_estimator(Base,
                                 cumix.RegressorMixin):
-    def __init__(self, handle=None):
+    def __init__(self,
+                 handle=None,
+                 verbose=False,
+                 output_type=None):
         super().__init__(handle=handle)
 
 
 class dummy_classifier_estimator(Base,
                                  cumix.ClassifierMixin):
-    def __init__(self, handle=None):
+    def __init__(self,
+                 handle=None,
+                 verbose=False,
+                 output_type=None):
         super().__init__(handle=handle)
 
 
 class dummy_cluster_estimator(Base,
                               cumix.ClusterMixin):
-    def __init__(self, handle=None):
+    def __init__(self,
+                 handle=None,
+                 verbose=False,
+                 output_type=None):
         super().__init__(handle=handle)
 
 
