@@ -16,8 +16,11 @@
 
 #pragma once
 
-#include <cuml/common/logger.hpp>
-#include <cuml/cuml.hpp>
+#include <cuml/common/log_levels.hpp>
+
+namespace raft {
+  class handle_t;
+}
 
 namespace ML {
 

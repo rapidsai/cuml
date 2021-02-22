@@ -21,6 +21,8 @@
 #include <sstream>
 #include <string>
 
+#include <cuml/common/log_levels.hpp>
+
 namespace spdlog {
 class logger;
 namespace sinks {
@@ -47,27 +49,6 @@ namespace ML {
 std::string format(const char* fmt, va_list& vl);
 std::string format(const char* fmt, ...);
 /** @} */
-
-/**
- * @defgroup CumlLogLevels Logging levels used in cuML
- *
- * @note exactly match the corresponding ones (but reverse in terms of value)
- *       in spdlog for wrapping purposes
- *
- * @{
- */
-#define CUML_LEVEL_TRACE 6
-#define CUML_LEVEL_DEBUG 5
-#define CUML_LEVEL_INFO 4
-#define CUML_LEVEL_WARN 3
-#define CUML_LEVEL_ERROR 2
-#define CUML_LEVEL_CRITICAL 1
-#define CUML_LEVEL_OFF 0
-/** @} */
-
-#if !defined(CUML_ACTIVE_LEVEL)
-#define CUML_ACTIVE_LEVEL CUML_LEVEL_DEBUG
-#endif
 
 /**
  * @brief The main Logging class for cuML library.
