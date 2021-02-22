@@ -97,7 +97,7 @@ If other tags are needed, they are static (i.e. don't change depending on the in
             "requires_y": True
        }
    ```
-If the tags depend on an attribute that is defined at runtime or instantiation of the estimator, then implement the `_more_tags` method:
+   If the tags depend on an attribute that is defined at runtime or instantiation of the estimator, then implement the `_more_tags` method:
    ```python
       def _more_tags(self):
            return {
