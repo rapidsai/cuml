@@ -188,12 +188,28 @@ inline void knn_merge_parts(value_t *inK, value_idx *inV, value_t *outK,
 
 inline faiss::MetricType build_faiss_metric(ML::MetricType metric) {
   switch (metric) {
+    case ML::MetricType::METRIC_INNER_PRODUCT:
+      return faiss::MetricType::METRIC_INNER_PRODUCT;
+    case ML::MetricType::METRIC_L2:
+      return faiss::MetricType::METRIC_L2;
+    case ML::MetricType::METRIC_L1:
+      return faiss::MetricType::METRIC_L1;
+    case ML::MetricType::METRIC_Linf:
+      return faiss::MetricType::METRIC_Linf;
+    case ML::MetricType::METRIC_Lp:
+      return faiss::MetricType::METRIC_Lp;
+    case ML::MetricType::METRIC_Canberra:
+      return faiss::MetricType::METRIC_Canberra;
+    case ML::MetricType::METRIC_BrayCurtis:
+      return faiss::MetricType::METRIC_BrayCurtis;
+    case ML::MetricType::METRIC_JensenShannon:
+      return faiss::MetricType::METRIC_JensenShannon;
     case ML::MetricType::METRIC_Cosine:
       return faiss::MetricType::METRIC_INNER_PRODUCT;
     case ML::MetricType::METRIC_Correlation:
       return faiss::MetricType::METRIC_INNER_PRODUCT;
     default:
-      return (faiss::MetricType)metric;
+      THROW("MetricType not supported: %d", metric);
   }
 }
 
@@ -279,25 +295,6 @@ void approx_knn_build_index(raft::handle_t &handle, ML::knnIndex *index,
   index->metric = metric;
   index->metricArg = metricArg;
 
-  if (dynamic_cast<ML::IVFFlatParam *>(params)) {
-    ML::IVFFlatParam *IVFFlat_param = dynamic_cast<ML::IVFFlatParam *>(params);
-    approx_knn_ivfflat_build_index(index, IVFFlat_param, D, metric, n);
-    std::vector<float> h_index_items(n * D);
-    raft::update_host(h_index_items.data(), index_items, h_index_items.size(),
-                      handle.get_stream());
-    index->index->train(n, h_index_items.data());
-    index->index->add(n, h_index_items.data());
-    return;
-  } else if (dynamic_cast<ML::IVFPQParam *>(params)) {
-    ML::IVFPQParam *IVFPQ_param = dynamic_cast<ML::IVFPQParam *>(params);
-    approx_knn_ivfpq_build_index(index, IVFPQ_param, D, metric, n);
-  } else if (dynamic_cast<ML::IVFSQParam *>(params)) {
-    ML::IVFSQParam *IVFSQ_param = dynamic_cast<ML::IVFSQParam *>(params);
-    approx_knn_ivfsq_build_index(index, IVFSQ_param, D, metric, n);
-  } else {
-    ASSERT(index->index, "KNN index could not be initialized");
-  }
-
   // perform preprocessing
   std::unique_ptr<MetricProcessor<float>> query_metric_processor =
     // k set to 0 (unused during preprocessing / revertion)
@@ -305,9 +302,31 @@ void approx_knn_build_index(raft::handle_t &handle, ML::knnIndex *index,
                             handle.get_device_allocator());
 
   query_metric_processor->preprocess(index_items);
-  index->index->train(n, index_items);
-  index->index->add(n, index_items);
-  query_metric_processor->revert(index_items);
+
+  if (dynamic_cast<ML::IVFFlatParam *>(params)) {
+    ML::IVFFlatParam *IVFFlat_param = dynamic_cast<ML::IVFFlatParam *>(params);
+    approx_knn_ivfflat_build_index(index, IVFFlat_param, D, metric, n);
+    std::vector<float> h_index_items(n * D);
+    raft::update_host(h_index_items.data(), index_items, h_index_items.size(),
+                      handle.get_stream());
+    query_metric_processor->revert(index_items);
+    index->index->train(n, h_index_items.data());
+    index->index->add(n, h_index_items.data());
+  } else {
+    if (dynamic_cast<ML::IVFPQParam *>(params)) {
+      ML::IVFPQParam *IVFPQ_param = dynamic_cast<ML::IVFPQParam *>(params);
+      approx_knn_ivfpq_build_index(index, IVFPQ_param, D, metric, n);
+    } else if (dynamic_cast<ML::IVFSQParam *>(params)) {
+      ML::IVFSQParam *IVFSQ_param = dynamic_cast<ML::IVFSQParam *>(params);
+      approx_knn_ivfsq_build_index(index, IVFSQ_param, D, metric, n);
+    } else {
+      ASSERT(index->index, "KNN index could not be initialized");
+    }
+
+    index->index->train(n, index_items);
+    index->index->add(n, index_items);
+    query_metric_processor->revert(index_items);
+  }
 }
 
 template <typename IntType = int>
