@@ -16,10 +16,13 @@
 
 #pragma once
 
-#include "kmeans.hpp"
+namespace raft {
+  class handle_t;
+}
 
 namespace ML {
 namespace kmeans {
+  struct KMeansParams;
 namespace opg {
 
 /**

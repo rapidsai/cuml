@@ -14,7 +14,11 @@
  * limitations under the License.
  */
 
+#pragma once
 #include <raft/cudart_utils.h>
+
+#include <cuml/cluster/kmeans.hpp>
+
 #include "common.cuh"
 #include "sg_impl.cuh"
 
