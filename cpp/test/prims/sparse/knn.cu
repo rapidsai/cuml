@@ -163,6 +163,7 @@ const std::vector<SparseKNNInputs<int, float>> inputs_i32_f = {
    {0, 3, 1, 0, 2, 0, 3, 0},                          // inds
    2,
    2,
+   2,
    ML::MetricType::METRIC_L2}};
 typedef SparseKNNTest<int, float> KNNTestF;
 TEST_P(KNNTestF, Result) { compare(); }
