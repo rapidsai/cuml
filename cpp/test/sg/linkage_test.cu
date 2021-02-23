@@ -30,7 +30,6 @@
 #include <raft/linalg/transpose.h>
 #include <raft/sparse/coo.cuh>
 
-#include <common/device_buffer.hpp>
 #include <cuml/common/logger.hpp>
 
 #include <test_utils.h>

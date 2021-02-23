@@ -19,7 +19,6 @@
 #include <cuml/cluster/linkage.hpp>
 #include <cuml/common/logger.hpp>
 #include <cuml/cuml.hpp>
-#include "hierarchy/pw_dist_graph.cuh"
 #include <utility>
 #include "benchmark.cuh"
 
