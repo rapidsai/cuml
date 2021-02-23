@@ -294,6 +294,10 @@ class NearestNeighbors(Base):
     Notes
     -----
 
+    Warning: IVFPQ might be unstable in this version of cuML.
+    This is due to a known issue in the FAISS release that this
+    cuML version is linked to. (see FAISS issue #1421)
+
     For an additional example see `the NearestNeighbors notebook
     <https://github.com/rapidsai/cuml/blob/branch-0.15/notebooks/nearest_neighbors_demo.ipynb>`_.
 
@@ -363,6 +367,12 @@ class NearestNeighbors(Base):
         cdef handle_t* handle_ = <handle_t*><uintptr_t> self.handle.getHandle()
         cdef knnIndexParam* algo_params = <knnIndexParam*> 0
         if self.algorithm in ['ivfflat', 'ivfpq', 'ivfsq']:
+            if self.algorithm == 'ivfpq':
+                warnings.warn("\nWarning: IVFPQ might be unstable in this "
+                              "version of cuML. This is due to a known issue "
+                              "in the FAISS release that this cuML version "
+                              "is linked to. (see FAISS issue #1421)")
+
             if not is_dense(X):
                 raise ValueError("Approximate Nearest Neigbors methods "
                                  "require dense data")

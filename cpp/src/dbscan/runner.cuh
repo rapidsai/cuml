@@ -17,9 +17,8 @@
 #pragma once
 
 #include <raft/cudart_utils.h>
-#include <common/cumlHandle.hpp>
-#include <common/device_buffer.hpp>
 #include <common/nvtx.hpp>
+#include <cuml/common/device_buffer.hpp>
 #include <label/classlabels.cuh>
 #include <raft/cuda_utils.cuh>
 #include <sparse/csr.cuh>

@@ -556,7 +556,11 @@ def test_robust_scale_sparse(sparse_clf_dataset,  # noqa: F811
 @pytest.mark.parametrize("n_bins", [5, 20])
 @pytest.mark.parametrize("encode", ['ordinal', 'onehot-dense', 'onehot'])
 @pytest.mark.parametrize("strategy", [
-    'uniform',
+    pytest.param('uniform', marks=pytest.mark.xfail(
+        strict=False,
+        reason='Intermittent mismatch with sklearn'
+        ' (https://github.com/rapidsai/cuml/issues/3481)'
+    )),
     pytest.param('quantile', marks=pytest.mark.xfail(
         strict=False,
         reason='Bug in cupy.percentile'

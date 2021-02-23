@@ -14,6 +14,11 @@
  * limitations under the License.
  */
 
+#pragma once
+
+#include <cuml/common/cuml_allocator.hpp>
+#include <cuml/common/device_buffer.hpp>
+
 #include <raft/cudart_utils.h>
 #include <raft/linalg/distance_type.h>
 #include <raft/sparse/cusparse_wrappers.h>
@@ -23,27 +28,15 @@
 #include <raft/mr/device/allocator.hpp>
 #include <raft/mr/device/buffer.hpp>
 
-#include <sparse/op/slice.h>
-#include <sparse/utils.h>
 #include <selection/knn.cuh>
-#include <sparse/coo.cuh>
-#include <sparse/csr.cuh>
-#include <sparse/distance/distance.cuh>
-#include <sparse/selection/selection.cuh>
-
-#include <raft/linalg/distance_type.h>
-
-#include <raft/cudart_utils.h>
-#include <common/device_buffer.hpp>
-#include <cuml/common/cuml_allocator.hpp>
-
-#include <raft/cuda_utils.cuh>
-
-#include <raft/sparse/cusparse_wrappers.h>
+#include "../coo.cuh"
+#include "../csr.cuh"
+#include "../distance/distance.cuh"
+#include "../op/slice.h"
+#include "../utils.h"
+#include "selection.cuh"
 
 #include <cusparse_v2.h>
-
-#pragma once
 
 namespace raft {
 namespace sparse {

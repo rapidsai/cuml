@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,7 +29,6 @@
 #include <cuml/matrix/kernelparams.h>
 #include <raft/linalg/cublas_wrappers.h>
 #include <raft/linalg/gemv.h>
-#include <common/cumlHandle.hpp>
 #include <cuml/common/logger.hpp>
 #include <matrix/grammatrix.cuh>
 #include <matrix/kernelfactory.cuh>
@@ -40,7 +39,7 @@
 #include "workingset.cuh"
 #include "ws_util.cuh"
 
-#include <common/device_buffer.hpp>
+#include <cuml/common/device_buffer.hpp>
 #include "results.cuh"
 
 namespace ML {

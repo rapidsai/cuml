@@ -14,10 +14,13 @@
  * limitations under the License.
  */
 
-#include "dbscan_api.h"
+#include <cuml/cluster/dbscan_api.h>
+
 #include <cuml/cuml_api.h>
 #include <common/cumlHandle.hpp>
 #include <cuml/cluster/dbscan.hpp>
+
+extern "C" {
 
 cumlError_t cumlSpDbscanFit(cumlHandle_t handle, float *input, int n_rows,
                             int n_cols, float eps, int min_pts, int *labels,
@@ -67,4 +70,5 @@ cumlError_t cumlDpDbscanFit(cumlHandle_t handle, double *input, int n_rows,
     }
   }
   return status;
+}
 }
