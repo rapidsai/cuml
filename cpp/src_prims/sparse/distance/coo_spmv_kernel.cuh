@@ -120,14 +120,6 @@ __global__ void balanced_coo_generalized_spmv_kernel(
   value_idx start_offset_a, stop_offset_a, start_index_a, stop_index_a;
   indptrA.get_row_offsets(cur_row_a, start_offset_a, stop_offset_a,
                           n_blocks_per_row);
-  indptrA.get_indices_boundary(indicesA, nnz_a, start_offset_a, stop_offset_a,
-                               start_index_a, stop_index_a);
-  if (threadIdx.x == 0)
-    printf(
-      "blockIdx.x: %d, cur_row_a: %d, start_offset: %d, end_offset: %d, "
-      "start_index_a: %d, stop_index_a: %d, active_chunk_size: %d\n",
-      blockIdx.x, cur_row_a, start_offset_a, stop_offset_a, start_index_a,
-      stop_index_a, active_chunk_size);
 
   // Convert current row vector in A to dense
   for (int i = tid; i < (stop_offset_a - start_offset_a); i += blockDim.x) {
@@ -142,6 +134,16 @@ __global__ void balanced_coo_generalized_spmv_kernel(
   if (cur_row_a > m || cur_chunk_offset > n_blocks_per_row) return;
   if (ind >= nnz_b) return;
   // if (tid < active_chunk_size) printf("cur_row_a: %d, m: %d, cur_chunk_offset: %d, n_blocks_per_row: %d, ind: %d, nnz_b: %d\n", cur_row_a, m, cur_chunk_offset, n_blocks_per_row, ind, nnz_b);
+
+  indptrA.get_indices_boundary(indicesA, cur_row_a, start_offset_a, stop_offset_a,
+    start_index_a, stop_index_a);
+  // if (threadIdx.x == 0) {
+  // printf(
+  // "blockIdx.x: %d, cur_row_a: %d, start_offset: %d, end_offset: %d, "
+  // "start_index_a: %d, stop_index_a: %d, nnz_a: %d, active_chunk_size: %d\n",
+  // blockIdx.x, cur_row_a, start_offset_a, stop_offset_a, start_index_a,
+  // stop_index_a, nnz_a, active_chunk_size);
+  // }
 
   value_idx cur_row_b = -1;
   value_t c = 0.0;
@@ -159,9 +161,9 @@ __global__ void balanced_coo_generalized_spmv_kernel(
     // if (cur_row_a == cur_row_b)
     auto in_bounds =
       indptrA.check_indices_bounds(start_index_a, stop_index_a, index_b);
-    if (tid < active_chunk_size)
-      printf("blockIdx.x: %d, index_b: %d, in_bounds: %d\n", blockIdx.x,
-             index_b, in_bounds);
+    // if (tid < active_chunk_size)
+    //   printf("blockIdx.x: %d, index_b: %d, in_bounds: %d\n", blockIdx.x,
+    //          index_b, in_bounds);
     if (in_bounds) {
       value_t a_col = strategy.find(finder, index_b);
 

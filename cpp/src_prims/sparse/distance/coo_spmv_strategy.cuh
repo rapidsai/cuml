@@ -232,19 +232,21 @@ class hash_strategy : public coo_spmv_strategy<value_idx, value_t, tpb> {
         this->config.a_indptr, more_rows, mask_indptr.data().get() + less_rows,
         0.5 * map_size(), this->config.stream);
       more.init();
-      cudaStreamSynchronize(this->config.stream);
+      // cudaStreamSynchronize(this->config.stream);
 
       auto n_less_blocks = less_rows * n_blocks_per_row;
-      this->_dispatch_base(*this, map_size(), less, out_dists, coo_rows_b,
-                           product_func, accum_func, write_func, chunk_size,
-                           n_less_blocks, n_blocks_per_row);
-      cudaStreamSynchronize(this->config.stream);
+      if (less_rows > 0) {
+        this->_dispatch_base(*this, map_size(), less, out_dists, coo_rows_b,
+                            product_func, accum_func, write_func, chunk_size,
+                            n_less_blocks, n_blocks_per_row);
+        // cudaStreamSynchronize(this->config.stream);
+      }
 
       auto n_more_blocks = more.total_row_blocks * n_blocks_per_row;
       this->_dispatch_base(*this, map_size(), more, out_dists, coo_rows_b,
                            product_func, accum_func, write_func, chunk_size,
                            n_more_blocks, n_blocks_per_row);
-      cudaStreamSynchronize(this->config.stream);
+      // cudaStreamSynchronize(this->config.stream);
     } else {
       mask_row_it<value_idx> less(this->config.a_indptr, this->config.a_nrows);
 
@@ -272,9 +274,11 @@ class hash_strategy : public coo_spmv_strategy<value_idx, value_t, tpb> {
       more.init();
 
       auto n_less_blocks = less_rows * n_blocks_per_row;
-      this->_dispatch_base_rev(*this, map_size(), less, out_dists, coo_rows_a,
+      if (less_rows > 0) {
+        this->_dispatch_base_rev(*this, map_size(), less, out_dists, coo_rows_a,
                                product_func, accum_func, write_func, chunk_size,
                                n_less_blocks, n_blocks_per_row);
+      }
 
       auto n_more_blocks = more.total_row_blocks * n_blocks_per_row;
       this->_dispatch_base_rev(*this, map_size(), more, out_dists, coo_rows_a,
