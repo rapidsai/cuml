@@ -334,8 +334,7 @@ class ProcessReturnArray(ProcessReturn):
 
         self._process_return_cbs.append(self.convert_to_cumlarray)
 
-        if (
-                self._context.is_root
+        if (self._context.is_root
                 or cuml.global_settings.output_type != "mirror"):
             self._process_return_cbs.append(self.convert_to_outputtype)
 
