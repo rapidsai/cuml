@@ -16,6 +16,8 @@
 
 #pragma once
 
+#include "coo_mask_row_iterators.cuh"
+
 #include <sparse/utils.h>
 
 #include <cub/cub.cuh>
@@ -84,8 +86,8 @@ template <typename strategy_t, typename indptr_it, typename value_idx,
           typename accum_f, typename write_f>
 __global__ void balanced_coo_generalized_spmv_kernel(
   strategy_t strategy, indptr_it indptrA, value_idx *indicesA, value_t *dataA,
-  value_idx *rowsB, value_idx *indicesB, value_t *dataB, value_idx m,
-  value_idx n, value_idx dim, value_idx nnz_b, value_t *out,
+  value_idx nnz_a, value_idx *rowsB, value_idx *indicesB, value_t *dataB,
+  value_idx m, value_idx n, value_idx dim, value_idx nnz_b, value_t *out,
   int n_blocks_per_row, int chunk_size, product_f product_func,
   accum_f accum_func, write_f write_func) {
   typedef cub::WarpReduce<value_t> warp_reduce;
@@ -115,9 +117,17 @@ __global__ void balanced_coo_generalized_spmv_kernel(
 
   __syncthreads();
 
-  value_idx start_offset_a, stop_offset_a;
+  value_idx start_offset_a, stop_offset_a, start_index_a, stop_index_a;
   indptrA.get_row_offsets(cur_row_a, start_offset_a, stop_offset_a,
                           n_blocks_per_row);
+  indptrA.get_indices_boundary(indicesA, nnz_a, start_offset_a, stop_offset_a,
+                               start_index_a, stop_index_a);
+  if (threadIdx.x == 0)
+    printf(
+      "blockIdx.x: %d, cur_row_a: %d, start_offset: %d, end_offset: %d, "
+      "start_index_a: %d, stop_index_a: %d, active_chunk_size: %d\n",
+      blockIdx.x, cur_row_a, start_offset_a, stop_offset_a, start_index_a,
+      stop_index_a, active_chunk_size);
 
   // Convert current row vector in A to dense
   for (int i = tid; i < (stop_offset_a - start_offset_a); i += blockDim.x) {
@@ -131,6 +141,7 @@ __global__ void balanced_coo_generalized_spmv_kernel(
 
   if (cur_row_a > m || cur_chunk_offset > n_blocks_per_row) return;
   if (ind >= nnz_b) return;
+  // if (tid < active_chunk_size) printf("cur_row_a: %d, m: %d, cur_chunk_offset: %d, n_blocks_per_row: %d, ind: %d, nnz_b: %d\n", cur_row_a, m, cur_chunk_offset, n_blocks_per_row, ind, nnz_b);
 
   value_idx cur_row_b = -1;
   value_t c = 0.0;
@@ -138,13 +149,25 @@ __global__ void balanced_coo_generalized_spmv_kernel(
   auto warp_red = warp_reduce(*(temp_storage + warp_id));
 
   // coalesced reads from B
+  // if (tid < active_chunk_size) printf("HI\n");
   if (tid < active_chunk_size) {
+    // if (threadIdx.x == 0) printf("YO MAMA\n");
     cur_row_b = rowsB[ind];
 
-    value_t a_col = strategy.find(finder, indicesB[ind]);
+    auto index_b = indicesB[ind];
+    // auto in_bounds = true;
+    // if (cur_row_a == cur_row_b)
+    auto in_bounds =
+      indptrA.check_indices_bounds(start_index_a, stop_index_a, index_b);
+    if (tid < active_chunk_size)
+      printf("blockIdx.x: %d, index_b: %d, in_bounds: %d\n", blockIdx.x,
+             index_b, in_bounds);
+    if (in_bounds) {
+      value_t a_col = strategy.find(finder, index_b);
 
-    if (!rev || a_col == 0.0) {
-      c = product_func(a_col, dataB[ind]);
+      if (!rev || a_col == 0.0) {
+        c = product_func(a_col, dataB[ind]);
+      }
     }
   }
 
@@ -179,10 +202,19 @@ __global__ void balanced_coo_generalized_spmv_kernel(
     if (next_row_b != -1) {
       ind = ind_next;
 
-      value_t a_col = strategy.find(finder, indicesB[ind]);
+      auto index_b = indicesB[ind];
+      // auto in_bounds = true;
+      // if (cur_row_a == cur_row_b)
+      auto in_bounds =
+        indptrA.check_indices_bounds(start_index_a, stop_index_a, index_b);
+      if (in_bounds) {
+        value_t a_col = strategy.find(finder, index_b);
 
-      if (!rev || a_col == 0.0)
-        c = accum_func(c, product_func(a_col, dataB[ind]));
+        if (!rev || a_col == 0.0) {
+          c = accum_func(c, product_func(a_col, dataB[ind]));
+        }
+      }
+
       cur_row_b = next_row_b;
     }
   }

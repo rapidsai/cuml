@@ -58,10 +58,10 @@ class coo_spmv_strategy {
     balanced_coo_generalized_spmv_kernel<strategy_t, indptr_it, value_idx,
                                          value_t, tpb, false>
       <<<n_blocks, tpb, smem, config.stream>>>(
-        strategy, a_indptr, config.a_indices, config.a_data, coo_rows_b,
-        config.b_indices, config.b_data, a_indptr.n_rows, config.b_nrows,
-        smem_dim, config.b_nnz, out_dists, n_blocks_per_row, chunk_size,
-        product_func, accum_func, write_func);
+        strategy, a_indptr, config.a_indices, config.a_data, config.a_nnz,
+        coo_rows_b, config.b_indices, config.b_data, config.a_nrows,
+        config.b_nrows, smem_dim, config.b_nnz, out_dists, n_blocks_per_row,
+        chunk_size, product_func, accum_func, write_func);
   }
 
   template <typename strategy_t, typename indptr_it, typename product_f,
@@ -84,164 +84,15 @@ class coo_spmv_strategy {
     balanced_coo_generalized_spmv_kernel<strategy_t, indptr_it, value_idx,
                                          value_t, tpb, true>
       <<<n_blocks, tpb, smem, config.stream>>>(
-        strategy, b_indptr, config.b_indices, config.b_data, coo_rows_a,
-        config.a_indices, config.a_data, b_indptr.n_rows, config.a_nrows,
-        smem_dim, config.a_nnz, out_dists, n_blocks_per_row, chunk_size,
-        product_func, accum_func, write_func);
+        strategy, b_indptr, config.b_indices, config.b_data, config.b_nnz,
+        coo_rows_a, config.a_indices, config.a_data, config.b_nrows,
+        config.a_nrows, smem_dim, config.a_nnz, out_dists, n_blocks_per_row,
+        chunk_size, product_func, accum_func, write_func);
   }
 
  protected:
   int smem;
   const distances_config_t<value_idx, value_t> &config;
-};
-
-/**
- * Computes the maximum number of columns that can be stored
- * in shared memory in dense form with the given block size
- * and precision.
- * @return the maximum number of columns that can be stored in smem
- */
-template <typename value_idx, typename value_t, int tpb = 1024>
-inline int max_cols_per_block() {
-  // max cols = (total smem available - cub reduction smem)
-  return (raft::getSharedMemPerBlock() -
-          ((tpb / raft::warp_size()) * sizeof(value_t))) /
-         sizeof(value_t);
-}
-
-template <typename value_idx>
-class mask_indptr_it {
- public:
-  mask_indptr_it(const value_idx *full_indptr_, const value_idx &n_rows_,
-                 value_idx *mask_row_idx_ = NULL)
-    : full_indptr(full_indptr_), mask_row_idx(mask_row_idx_), n_rows(n_rows_) {}
-
-  __device__ inline value_idx get_row_idx(const int &n_blocks_nnz_b) {
-    if (mask_row_idx != NULL) {
-      return mask_row_idx[blockIdx.x / n_blocks_nnz_b];
-    } else {
-      return blockIdx.x / n_blocks_nnz_b;
-    }
-  }
-
-  __device__ inline void get_row_offsets(const value_idx &row_idx,
-                                         value_idx &start_offset,
-                                         value_idx &stop_offset,
-                                         const value_idx &n_blocks_nnz_b) {
-    start_offset = full_indptr[row_idx];
-    stop_offset = full_indptr[row_idx + 1];
-  }
-
-  const value_idx *full_indptr, &n_rows;
-  value_idx *mask_row_idx;
-};
-
-template <typename value_idx>
-__global__ void fill_chunk_indices_kernel(value_idx *n_chunks_per_row,
-                                          value_idx *chunk_indices,
-                                          value_idx n_rows) {
-  auto tid = threadIdx.x + blockIdx.x * blockDim.x;
-  if (tid < n_rows) {
-    auto start = n_chunks_per_row[tid];
-    auto end = n_chunks_per_row[tid + 1];
-
-// auto row_idx = mask_row_idx[tid];
-#pragma unroll
-    for (int i = start; i < end; i++) {
-      chunk_indices[i] = tid;
-    }
-  }
-}
-
-template <typename value_idx>
-class chunked_mask_indptr_it : public mask_indptr_it<value_idx> {
- public:
-  chunked_mask_indptr_it(const value_idx *full_indptr_,
-                         const value_idx &n_rows_, value_idx *mask_row_idx_,
-                         int row_chunk_size_, const cudaStream_t stream_)
-    : mask_indptr_it<value_idx>(full_indptr_, n_rows_, mask_row_idx_),
-      row_chunk_size(row_chunk_size_),
-      stream(stream_) {}
-
-  void init() {
-    auto policy = rmm::exec_policy(stream);
-    CUDA_CHECK(cudaMalloc(&row_chunk_size_d, 1 * sizeof(int)));
-    raft::update_device(row_chunk_size_d, &row_chunk_size, 1, stream);
-
-    // set first element as 0, and rest are row indices from mask
-    n_chunks_per_row = rmm::device_vector<value_idx>(this->n_rows + 1);
-    CUDA_CHECK(cudaMemsetAsync(n_chunks_per_row.data().get(), 0,
-                               sizeof(value_idx) * 1, stream));
-    n_chunks_per_row_functor chunk_functor(this->full_indptr, row_chunk_size_d);
-    thrust::transform(policy, this->mask_row_idx,
-                      this->mask_row_idx + this->n_rows,
-                      n_chunks_per_row.begin() + 1, chunk_functor);
-
-    thrust::inclusive_scan(policy, n_chunks_per_row.begin() + 1,
-                           n_chunks_per_row.end(),
-                           n_chunks_per_row.begin() + 1);
-
-    n_chunks_per_row_ptr = n_chunks_per_row.data().get();
-    raft::update_host(&total_row_blocks, n_chunks_per_row_ptr + this->n_rows, 1,
-                      stream);
-
-    fill_chunk_indices();
-  }
-
-  __device__ inline value_idx get_row_idx(const int &n_blocks_nnz_b) {
-    return this->mask_row_idx[chunk_indices_ptr[blockIdx.x / n_blocks_nnz_b]];
-  }
-
-  __device__ inline void get_row_offsets(const value_idx &row_idx,
-                                         value_idx &start_offset,
-                                         value_idx &stop_offset,
-                                         const int &n_blocks_nnz_b) {
-    auto chunk_index = blockIdx.x / n_blocks_nnz_b;
-    auto chunk_val = chunk_indices_ptr[chunk_index];
-    auto prev_n_chunks = n_chunks_per_row_ptr[chunk_val];
-    auto relative_chunk = chunk_index - prev_n_chunks;
-
-    start_offset = relative_chunk * row_chunk_size_d[0];
-    stop_offset = start_offset + row_chunk_size_d[0];
-
-    auto final_stop_offset = this->full_indptr[row_idx + 1];
-
-    stop_offset =
-      stop_offset > final_stop_offset ? final_stop_offset : stop_offset;
-  }
-
-  value_idx total_row_blocks;
-
-  const cudaStream_t stream;
-  rmm::device_vector<value_idx> n_chunks_per_row, chunk_indices;
-  value_idx *n_chunks_per_row_ptr, *chunk_indices_ptr;
-  int &row_chunk_size, *row_chunk_size_d;
-
-  struct n_chunks_per_row_functor {
-   public:
-    n_chunks_per_row_functor(const value_idx *indptr_, int *row_chunk_size_)
-      : indptr(indptr_), row_chunk_size(row_chunk_size_) {}
-
-    __host__ __device__ value_idx operator()(const value_idx &i) {
-      auto degree = indptr[i + 1] - indptr[i];
-      return raft::ceildiv(degree, (value_idx)row_chunk_size[0]);
-    }
-
-    const value_idx *indptr;
-    int *row_chunk_size;
-  };
-
-  void fill_chunk_indices() {
-    auto n_threads = std::min(this->n_rows, 256);
-    auto n_blocks = raft::ceildiv(this->n_rows, (value_idx)n_threads);
-
-    chunk_indices = rmm::device_vector<value_idx>(total_row_blocks);
-    // chunk_indices.resize(total_row_blocks, stream);
-    chunk_indices_ptr = chunk_indices.data().get();
-
-    fill_chunk_indices_kernel<value_idx><<<n_blocks, n_threads, 0, stream>>>(
-      n_chunks_per_row_ptr, chunk_indices_ptr, this->n_rows);
-  }
 };
 
 template <typename value_idx, typename value_t, int tpb>
@@ -273,8 +124,8 @@ class dense_smem_strategy : public coo_spmv_strategy<value_idx, value_t, tpb> {
     auto n_blocks_per_row = raft::ceildiv(this->config.b_nnz, chunk_size * tpb);
     auto n_blocks = this->config.a_nrows * n_blocks_per_row;
 
-    mask_indptr_it<value_idx> a_indptr(this->config.a_indptr,
-                                       this->config.a_nrows);
+    mask_row_it<value_idx> a_indptr(this->config.a_indptr,
+                                    this->config.a_nrows);
 
     this->_dispatch_base(*this, this->config.b_ncols, a_indptr, out_dists,
                          coo_rows_b, product_func, accum_func, write_func,
@@ -288,8 +139,8 @@ class dense_smem_strategy : public coo_spmv_strategy<value_idx, value_t, tpb> {
     auto n_blocks_per_row = raft::ceildiv(this->config.a_nnz, chunk_size * tpb);
     auto n_blocks = this->config.b_nrows * n_blocks_per_row;
 
-    mask_indptr_it<value_idx> b_indptr(this->config.b_indptr,
-                                       this->config.b_nrows);
+    mask_row_it<value_idx> b_indptr(this->config.b_indptr,
+                                    this->config.b_nrows);
 
     this->_dispatch_base_rev(*this, this->config.a_ncols, b_indptr, out_dists,
                              coo_rows_a, product_func, accum_func, write_func,
@@ -340,7 +191,10 @@ class hash_strategy : public coo_spmv_strategy<value_idx, value_t, tpb> {
 
     // figure out if chunking strategy needs to be enabled
     // operating at 50% of hash table size
+    CUML_LOG_DEBUG("map_size: %d", hash_strategy::map_size());
     if (widest_row.first > 0.5 * map_size()) {
+      CUML_LOG_DEBUG("Widest row: %d, no. of wide rows: %d", widest_row.first,
+                     widest_row.second);
       chunking = true;
       more_rows = widest_row.second;
       less_rows = n_rows - more_rows;
@@ -349,11 +203,14 @@ class hash_strategy : public coo_spmv_strategy<value_idx, value_t, tpb> {
       fits_in_hash_table<true> fits_functor(indptr);
       thrust::copy_if(thrust::make_counting_iterator(0),
                       thrust::make_counting_iterator(n_rows),
-                      mask_indptr.data().get(), fits_functor);
+                      mask_indptr.begin(), fits_functor);
+      CUML_LOG_DEBUG("First copy if done");
       fits_in_hash_table<false> not_fits_functor(indptr);
       thrust::copy_if(thrust::make_counting_iterator(0),
                       thrust::make_counting_iterator(n_rows),
-                      mask_indptr.data().get() + less_rows, not_fits_functor);
+                      mask_indptr.begin() + less_rows, not_fits_functor);
+      CUML_LOG_DEBUG("Second copy ifs done");
+      printv(mask_indptr, "mask_indptr");
     } else {
       chunking = false;
     }
@@ -369,25 +226,27 @@ class hash_strategy : public coo_spmv_strategy<value_idx, value_t, tpb> {
     auto n_blocks_per_row = raft::ceildiv(this->config.b_nnz, chunk_size * tpb);
 
     if (need) {
-      mask_indptr_it<value_idx> less(this->config.a_indptr, less_rows,
-                                     mask_indptr.data().get());
-      chunked_mask_indptr_it<value_idx> more(
+      mask_row_it<value_idx> less(this->config.a_indptr, less_rows,
+                                  mask_indptr.data().get());
+      chunked_mask_row_it<value_idx> more(
         this->config.a_indptr, more_rows, mask_indptr.data().get() + less_rows,
         0.5 * map_size(), this->config.stream);
       more.init();
+      cudaStreamSynchronize(this->config.stream);
 
       auto n_less_blocks = less_rows * n_blocks_per_row;
       this->_dispatch_base(*this, map_size(), less, out_dists, coo_rows_b,
                            product_func, accum_func, write_func, chunk_size,
                            n_less_blocks, n_blocks_per_row);
+      cudaStreamSynchronize(this->config.stream);
 
       auto n_more_blocks = more.total_row_blocks * n_blocks_per_row;
       this->_dispatch_base(*this, map_size(), more, out_dists, coo_rows_b,
                            product_func, accum_func, write_func, chunk_size,
                            n_more_blocks, n_blocks_per_row);
+      cudaStreamSynchronize(this->config.stream);
     } else {
-      mask_indptr_it<value_idx> less(this->config.a_indptr,
-                                     this->config.a_nrows);
+      mask_row_it<value_idx> less(this->config.a_indptr, this->config.a_nrows);
 
       auto n_blocks = this->config.a_nrows * n_blocks_per_row;
       this->_dispatch_base(*this, map_size(), less, out_dists, coo_rows_b,
@@ -405,9 +264,9 @@ class hash_strategy : public coo_spmv_strategy<value_idx, value_t, tpb> {
     auto n_blocks_per_row = raft::ceildiv(this->config.a_nnz, chunk_size * tpb);
 
     if (need) {
-      mask_indptr_it<value_idx> less(this->config.b_indptr, less_rows,
-                                     mask_indptr.data().get());
-      chunked_mask_indptr_it<value_idx> more(
+      mask_row_it<value_idx> less(this->config.b_indptr, less_rows,
+                                  mask_indptr.data().get());
+      chunked_mask_row_it<value_idx> more(
         this->config.b_indptr, more_rows, mask_indptr.data().get() + less_rows,
         0.5 * map_size(), this->config.stream);
       more.init();
@@ -422,8 +281,7 @@ class hash_strategy : public coo_spmv_strategy<value_idx, value_t, tpb> {
                                product_func, accum_func, write_func, chunk_size,
                                n_more_blocks, n_blocks_per_row);
     } else {
-      mask_indptr_it<value_idx> less(this->config.b_indptr,
-                                     this->config.b_nrows);
+      mask_row_it<value_idx> less(this->config.b_indptr, this->config.b_nrows);
 
       auto n_blocks = this->config.a_nrows * n_blocks_per_row;
       this->_dispatch_base_rev(*this, map_size(), less, out_dists, coo_rows_a,
@@ -457,16 +315,6 @@ class hash_strategy : public coo_spmv_strategy<value_idx, value_t, tpb> {
     return a_col;
   }
 
- private:
-  __host__ __device__ constexpr static int map_size() {
-    return (48000 - ((tpb / raft::warp_size()) * sizeof(value_t))) /
-           sizeof(typename insert_type::slot_type);
-  }
-
-  bool chunking = false;
-  value_idx less_rows, more_rows;
-  rmm::device_vector<value_idx> mask_indptr;
-
   template <bool fits>
   struct fits_in_hash_table {
     fits_in_hash_table(const value_idx *indptr_) : indptr(indptr_) {}
@@ -484,6 +332,17 @@ class hash_strategy : public coo_spmv_strategy<value_idx, value_t, tpb> {
    private:
     const value_idx *indptr;
   };
+
+ private:
+  __host__ __device__ constexpr static int map_size() {
+    // return (48000 - ((tpb / raft::warp_size()) * sizeof(value_t))) /
+    //        sizeof(typename insert_type::slot_type);
+    return 2;
+  }
+
+  bool chunking = false;
+  value_idx less_rows, more_rows;
+  rmm::device_vector<value_idx> mask_indptr;
 };
 
 }  // namespace distance

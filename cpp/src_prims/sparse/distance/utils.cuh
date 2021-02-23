@@ -23,6 +23,8 @@
 
 #include <cub/cub.cuh>
 
+#include <rmm/device_vector.hpp>
+
 namespace raft {
 namespace sparse {
 namespace distance {
@@ -42,12 +44,16 @@ __global__ void max_kernel(value_idx *out, const value_idx *in,
   typedef cub::BlockReduce<value_idx, 256> BlockReduce;
   __shared__ typename BlockReduce::TempStorage temp_storage;
 
-  auto degree = in[tid] - in[tid - 1];
-  value_idx v = tid < n ? degree : 0;
+  value_idx v;
+  if (tid < n) {
+    v = in[tid] - in[tid - 1];
+  } else {
+    v = 0;
+  }
   value_idx agg = BlockReduce(temp_storage).Reduce(v, cub::Max());
 
   if (count_greater_than) {
-    bool predicate = tid < n && degree > greater_than;
+    bool predicate = tid < n && v > greater_than;
     value_idx count = __syncthreads_count(predicate);
 
     if (threadIdx.x == 0) atomicAdd(out_count, count);
@@ -77,6 +83,7 @@ inline std::pair<value_idx, value_idx> max_degree(
       max_d.data(), indptr + 1, count_d.data(), n_rows, greater_than);
 
     raft::update_host(&count_h, count_d.data(), 1, stream);
+    CUML_LOG_DEBUG("count nnz: %d", count_h);
   } else {
     max_kernel<value_idx, false>
       <<<raft::ceildiv(n_rows, 256), 256, 0, stream>>>(
@@ -91,6 +98,30 @@ inline std::pair<value_idx, value_idx> max_degree(
   CUML_LOG_DEBUG("max nnz: %d", max_h);
 
   return std::make_pair(std::move(max_h), std::move(count_h));
+}
+
+template <typename T>
+void printv(rmm::device_vector<T> &vec, const std::string &name = "",
+            const size_t displ = 5) {
+  std::cout.precision(15);
+  std::cout << name << " size = " << vec.size() << std::endl;
+  thrust::copy(vec.begin(), vec.end(),
+               std::ostream_iterator<T>(std::cout, " "));
+  std::cout << std::endl << std::endl;
+}
+
+/**
+ * Computes the maximum number of columns that can be stored
+ * in shared memory in dense form with the given block size
+ * and precision.
+ * @return the maximum number of columns that can be stored in smem
+ */
+template <typename value_idx, typename value_t, int tpb = 1024>
+inline int max_cols_per_block() {
+  // max cols = (total smem available - cub reduction smem)
+  return (raft::getSharedMemPerBlock() -
+          ((tpb / raft::warp_size()) * sizeof(value_t))) /
+         sizeof(value_t);
 }
 
 }  // namespace distance
