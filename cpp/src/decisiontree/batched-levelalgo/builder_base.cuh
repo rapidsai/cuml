@@ -33,6 +33,8 @@ namespace DecisionTree {
  *
  * @note This struct does NOT own any of the underlying device/host pointers.
  *       They all must explicitly be allocated by the caller and passed to it.
+ *
+ * @tparam Traits { description }
  */
 template <typename Traits>
 struct Builder {
@@ -43,67 +45,99 @@ struct Builder {
   typedef typename Traits::SplitT SplitT;
   typedef typename Traits::InputT InputT;
 
-  /** DT params */
+  /**
+   * DT params */
   DecisionTreeParams params;
-  /** input dataset */
+  /**
+   * input dataset */
   InputT input;
 
-  /** max nodes that we can create */
+  /**
+   * max nodes that we can create */
   IdxT maxNodes;
-  /** total number of histogram bins (classification only) */
+  /**
+   * total number of histogram bins (classification only) */
   IdxT nHistBins;
-  /** total number of prediction counts (regression only) */
+  /**
+   * total number of prediction counts (regression only) */
   IdxT nPredCounts;
-  /** size of block-sync workspace (regression + MAE only) */
+  /**
+   * size of block-sync workspace (regression + MAE only) */
   size_t block_sync_size;
 
-  /** Tree index */
+  /**
+   * Tree index */
   IdxT treeid;
-  /** Seed used for randomization */
+  /**
+   * Seed used for randomization */
   uint64_t seed;
-  /** number of nodes created in the current batch */
+  /**
+   * number of nodes created in the current batch */
   IdxT* n_nodes;
-  /** class histograms (classification only) */
+  /**
+   * class histograms (classification only) */
   int* hist;
-  /** sum of predictions (regression only) */
+  /**
+   * sum of predictions (regression only) */
   DataT* pred;
-  /** MAE computation (regression only) */
+  /**
+   * MAE computation (regression only) */
   DataT* pred2;
-  /** parent MAE computation (regression only) */
+  /**
+   * parent MAE computation (regression only) */
   DataT* pred2P;
-  /** node count tracker for averaging (regression only) */
+  /**
+   * node count tracker for averaging (regression only) */
   IdxT* pred_count;
-  /** threadblock arrival count */
+  /**
+   * threadblock arrival count */
   int* done_count;
-  /** mutex array used for atomically updating best split */
+  /**
+   * mutex array used for atomically updating best split */
   int* mutex;
-  /** used for syncing across blocks in a kernel (regression + MAE only) */
+  /**
+   * used for syncing across blocks in a kernel (regression + MAE only) */
   char* block_sync;
-  /** number of leaves created so far */
+  /**
+   * number of leaves created so far */
   IdxT* n_leaves;
-  /** max depth reached so far */
+  /**
+   * max depth reached so far */
   IdxT* n_depth;
-  /** best splits for the current batch of nodes */
+  /**
+   * best splits for the current batch of nodes */
   SplitT* splits;
-  /** current batch of nodes */
+  /**
+   * current batch of nodes */
   NodeT* curr_nodes;
-  /** next batch of nodes */
+  /**
+   * next batch of nodes */
   NodeT* next_nodes;
 
-  /** host copy of the number of new nodes in current branch */
+  /**
+   * host copy of the number of new nodes in current branch */
   IdxT* h_n_nodes;
-  /** total number of nodes created so far */
+  /**
+   * total number of nodes created so far */
   IdxT h_total_nodes;
-  /** range of the currently worked upon nodes */
+  /**
+   * range of the currently worked upon nodes */
   IdxT node_start, node_end;
-  /** number of blocks used to parallelize column-wise computations. */
+  /**
+   * number of blocks used to parallelize column-wise computations. */
   int n_blks_for_cols = 10;
-  /** Number of blocks used to parallelize row-wise computations. */
+  /**
+   * Number of blocks used to parallelize row-wise computations. */
   int n_blks_for_rows = 4;
-  /** Memory alignment value */
+  /**
+   * Memory alignment value */
   const size_t alignValue = 512;
 
-  /** checks if this struct is being used for classification or regression */
+  /**
+   * checks if this struct is being used for classification or regression
+   *
+   * @return True if regression, False otherwise.
+   */
   static constexpr bool isRegression() {
     return std::is_same<DataT, LabelT>::value;
   }
@@ -115,24 +149,25 @@ struct Builder {
   /**
    * @brief Computes workspace size needed for the current computation
    *
-   * @param[out] d_wsize    (in B) of the device workspace to be allocated
-   * @param[out] h_wsize    (in B) of the host workspace to be allocated
-   * @param[in]  p the      input params
-   * @param[in]  data       input dataset [on device] [col-major]
-   *                        [dim = totalRows x totalCols]
-   * @param[in]  labels     output label for each row in the dataset
-   *                        [len = totalRows] [on device].
-   * @param[in] totalRows   total rows in the dataset
-   * @param[in] totalCols   total cols in the dataset
-   * @param[in] sampledRows number of rows sampled in the dataset
-   * @param[in] sampledCols number of cols sampled in the dataset
-   * @param[in] rowids      sampled row ids [on device] [len = sampledRows]
-   * @param[in] colids      sampled col ids [on device] [len = sampledCols]
-   * @param[in] nclasses    number of output classes (only for classification)
-   * @param[in] quantiles   histogram/quantile bins of the input dataset, for
-   *                        each of its column. Pass a nullptr if this needs to
-   *                        be computed fresh. [on device] [col-major]
-   *                        [dim = nbins x sampledCols]
+   * @param[out] d_wsize     (in B) of the device workspace to be allocated
+   * @param[out] h_wsize     (in B) of the host workspace to be allocated
+   * @param[in]  treeid      The treeid
+   * @param[in]  seed        The seed
+   * @param[in]  p           the      input params
+   * @param[in]  data        input dataset [on device] [col-major] [dim =
+   *                         totalRows x totalCols]
+   * @param[in]  labels      output label for each row in the dataset [len =
+   *                         totalRows] [on device].
+   * @param[in]  totalRows   total rows in the dataset
+   * @param[in]  totalCols   total cols in the dataset
+   * @param[in]  sampledRows number of rows sampled in the dataset
+   * @param[in]  sampledCols number of cols sampled in the dataset
+   * @param[in]  rowids      sampled row ids [on device] [len = sampledRows]
+   * @param[in]  nclasses    number of output classes (only for classification)
+   * @param[in]  quantiles   histogram/quantile bins of the input dataset, for
+   *                         each of its column. Pass a nullptr if this needs to
+   *                         be computed fresh. [on device] [col-major] [dim =
+   *                         nbins x sampledCols]
    */
   void workspaceSize(size_t& d_wsize, size_t& h_wsize, IdxT treeid,
                      uint64_t seed, const DecisionTreeParams& p,
@@ -299,12 +334,16 @@ struct Builder {
     h_nodes[0].info.unique_id = 0;
   }
 
-  /** check whether any more nodes need to be processed or not */
+  /**
+   * check whether any more nodes need to be processed or not
+   *
+   * @return True if over, False otherwise.
+   */
   bool isOver() const { return node_end == h_total_nodes; }
 
   /**
-   * @brief After the current batch is finished processing, update the range
-   *        of nodes to be worked upon in the next batch
+   * @brief After the current batch is finished processing, update the range of
+   *        nodes to be worked upon in the next batch
    */
   void updateNodeRange() {
     node_start = node_end;
@@ -317,7 +356,8 @@ struct Builder {
    *        the nodes accordingly
    *
    * @param[out] h_nodes list of nodes (must be allocated using cudaMallocHost!)
-   * @param[in]  s cuda stream
+   * @param[in]  s       cuda stream
+   *
    * @return the number of newly created nodes
    */
   IdxT doSplit(std::vector<Node<DataT, LabelT, IdxT>>& h_nodes,
@@ -372,9 +412,11 @@ struct ClsTraits {
   typedef Split<DataT, IdxT> SplitT;
   typedef Input<DataT, LabelT, IdxT> InputT;
 
-  /** default threads per block for most kernels in here */
+  /**
+   * default threads per block for most kernels in here */
   static constexpr int TPB_DEFAULT = 256;
-  /** threads per block for the nodeSplitKernel */
+  /**
+   * threads per block for the nodeSplitKernel */
   static constexpr int TPB_SPLIT = 128;
 
   typedef ClsDeviceTraits<DataT, LabelT, IdxT, TPB_SPLIT> DevTraits;
@@ -414,7 +456,7 @@ struct ClsTraits {
   /**
    * @brief Computes the smem size (in B) needed for `nodeSplitKernel`
    *
-   * @param[in] b         builder object
+   * @param[in] b     builder object
    *
    * @return the smem size (in B)
    */
@@ -441,9 +483,11 @@ struct RegTraits {
   typedef Split<DataT, IdxT> SplitT;
   typedef Input<DataT, LabelT, IdxT> InputT;
 
-  /** default threads per block for most kernels in here */
+  /**
+   * default threads per block for most kernels in here */
   static constexpr int TPB_DEFAULT = 256;
-  /** threads per block for the nodeSplitKernel */
+  /**
+   * threads per block for the nodeSplitKernel */
   static constexpr int TPB_SPLIT = 128;
 
   typedef RegDeviceTraits<DataT, LabelT, IdxT, TPB_SPLIT> DevTraits;
@@ -490,7 +534,7 @@ struct RegTraits {
   /**
    * @brief Computes the smem size (in B) needed for `nodeSplitKernel`
    *
-   * @param[in] b         builder object
+   * @param[in] b     builder object
    *
    * @return the smem size (in B)
    */

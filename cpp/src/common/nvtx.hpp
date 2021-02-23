@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,11 +20,13 @@ namespace ML {
 
 /**
  * @brief Push a named nvtx range
- * @param name range name
+ *
+ * @param name  range name
  */
 void PUSH_RANGE(const char *name);
 
-/** Pop the latest range */
+/** Pop the latest range
+ */
 void POP_RANGE();
 
 }  // end namespace ML

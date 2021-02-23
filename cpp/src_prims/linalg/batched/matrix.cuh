@@ -45,12 +45,14 @@ namespace Batched {
 
 /**
  * @brief Kernel to create an identity matrix
- * 
+ *
  * @note The block id is the batch id, and the thread id is the starting
  *       row/column for this thread (then looping to cover all the diagonal)
- * 
- * @param[out]  I  Pointer to the raw data of the identity matrix to create
- * @param[in]   m  Number of rows/columns of matrix
+ *
+ * @param[out] I     Pointer to the raw data of the identity matrix to create
+ * @param[in]  m     Number of rows/columns of matrix
+ *
+ * @tparam T     { description }
  */
 template <typename T>
 __global__ void identity_matrix_kernel(T* I, int m) {
@@ -65,13 +67,15 @@ __global__ void identity_matrix_kernel(T* I, int m) {
  * @brief Kernel to compute the difference of batched vectors with a given
  *        period (1 for simple difference, s for seasonal difference)
  *
- * @note: The thread id is the starting position in each vector and the block
- *        id is the batch id.
- * 
- * @param[in]  in      Input vector
- * @param[out] out     Output vector
- * @param[in]  n_elem  Number of elements in the input vector
- * @param[in]  period  Period of the difference
+ * @note : The thread id is the starting position in each vector and the block
+ *       id is the batch id.
+ *
+ * @param[in]  in     Input vector
+ * @param[out] out    Output vector
+ * @param[in]  n_elem Number of elements in the input vector
+ * @param[in]  period Period of the difference
+ *
+ * @tparam T     { description }
  */
 template <typename T>
 __global__ void batched_diff_kernel(const T* in, T* out, int n_elem,
@@ -88,14 +92,16 @@ __global__ void batched_diff_kernel(const T* in, T* out, int n_elem,
  * @brief Kernel to compute the second difference of batched vectors with given
  *        periods (1 for simple difference, s for seasonal difference)
  *
- * @note: The thread id is the starting position in each vector and the block
- *        id is the batch id.
- * 
- * @param[in]  in       Input vector
- * @param[out] out      Output vector
- * @param[in]  n_elem   Number of elements in the input vector
- * @param[in]  period1  Period for the 1st difference
- * @param[in]  period2  Period for the 2nd difference
+ * @note : The thread id is the starting position in each vector and the block
+ *       id is the batch id.
+ *
+ * @param[in]  in      Input vector
+ * @param[out] out     Output vector
+ * @param[in]  n_elem  Number of elements in the input vector
+ * @param[in]  period1 Period for the 1st difference
+ * @param[in]  period2 Period for the 2nd difference
+ *
+ * @tparam T     { description }
  */
 template <typename T>
 __global__ void batched_second_diff_kernel(const T* in, T* out, int n_elem,
@@ -110,14 +116,16 @@ __global__ void batched_second_diff_kernel(const T* in, T* out, int n_elem,
 }
 
 /**
- * @brief Helper kernel for the allocation: computes the array of pointers to each
- *        matrix in the strided batch
+ * @brief Helper kernel for the allocation: computes the array of pointers to
+ *        each matrix in the strided batch
  *
- * @param[in]  A_dense     Raw data array
- * @param[out] A_array     Array of strided pointers to A_dense
- * @param[in]  batch_size  Number of matrices in the batch
- * @param[in]  m           Number of rows of each matrix
- * @param[in]  n           Number of columns of each matrix
+ * @param[in]  A_dense    Raw data array
+ * @param[out] A_array    Array of strided pointers to A_dense
+ * @param[in]  batch_size Number of matrices in the batch
+ * @param[in]  m          Number of rows of each matrix
+ * @param[in]  n          Number of columns of each matrix
+ *
+ * @tparam T     { description }
  */
 template <typename T>
 __global__ void fill_strided_pointers_kernel(T* A_dense, T** A_array,
@@ -131,13 +139,15 @@ __global__ void fill_strided_pointers_kernel(T* A_dense, T** A_array,
 /**
  * @brief The Batched::Matrix class provides storage and a number of linear
  *        operations on collections (batches) of matrices of identical shape.
+ *
+ * @tparam T     { description }
  */
 template <typename T>
 class Matrix {
  protected:
   /**
    * @brief Initialization method
-   * 
+   *
    * @param[in] setZero Whether to initialize the allocated matrix with zeros
    */
   void initialize(bool setZero = false) {
@@ -159,14 +169,14 @@ class Matrix {
  public:
   /**
    * @brief Constructor that allocates memory using the memory pool.
-   * 
-   * @param[in]  m            Number of rows
-   * @param[in]  n            Number of columns
-   * @param[in]  batch_size   Number of matrices in the batch
-   * @param[in]  cublasHandle cuBLAS handle
-   * @param[in]  allocator    Device memory allocator
-   * @param[in]  stream       CUDA stream
-   * @param[in]  setZero      Should matrix be zeroed on allocation?
+   *
+   * @param[in] m            Number of rows
+   * @param[in] n            Number of columns
+   * @param[in] batch_size   Number of matrices in the batch
+   * @param[in] cublasHandle cuBLAS handle
+   * @param[in] allocator    Device memory allocator
+   * @param[in] stream       CUDA stream
+   * @param[in] setZero      Should matrix be zeroed on allocation?
    */
   Matrix(int m, int n, int batch_size, cublasHandle_t cublasHandle,
          std::shared_ptr<ML::deviceAllocator> allocator, cudaStream_t stream,
@@ -182,9 +192,13 @@ class Matrix {
   }
 
   //! Destructor: nothing to destroy explicitely
+  //!
   ~Matrix() {}
 
   //! Copy constructor
+  //!
+  //! @param[in] other The other
+  //!
   Matrix(const Matrix<T>& other)
     : m_batch_size(other.m_batch_size),
       m_allocator(other.m_allocator),
@@ -202,6 +216,11 @@ class Matrix {
   }
 
   //! Copy assignment operator
+  //!
+  //! @param[in] other The other
+  //!
+  //! @return The result of the assignment
+  //!
   Matrix<T>& operator=(const Matrix<T>& other) {
     m_batch_size = other.m_batch_size;
     m_shape = other.m_shape;
@@ -218,44 +237,66 @@ class Matrix {
   }
 
   //! Return batches
+  //!
+  //! @return { description_of_the_return_value }
+  //!
   int batches() const { return m_batch_size; }
 
   //! Return cublas handle
+  //!
+  //! @return The cublas handle.
+  //!
   cublasHandle_t cublasHandle() const { return m_cublasHandle; }
 
   //! Return allocator
+  //!
+  //! @return { description_of_the_return_value }
+  //!
   std::shared_ptr<deviceAllocator> allocator() const { return m_allocator; }
 
   //! Return stream
+  //!
+  //! @return The cuda stream.
+  //!
   cudaStream_t stream() const { return m_stream; }
 
   //! Return shape
+  //!
+  //! @return { description_of_the_return_value }
+  //!
   const std::pair<int, int>& shape() const { return m_shape; }
 
   //! Return pointer array
+  //!
+  //! @return { description_of_the_return_value }
+  //!
   T** data() { return m_batches.data(); }
   const T** data() const { return m_batches.data(); }
 
   //! Return pointer to the underlying memory
+  //!
+  //! @return { description_of_the_return_value }
+  //!
   T* raw_data() { return m_dense.data(); }
   const T* raw_data() const { return m_dense.data(); }
 
   /**
    * @brief Return pointer to the data of a specific matrix
-   * 
-   * @param[in]  id  id of the matrix
-   * @return         A pointer to the raw data of the matrix
+   *
+   * @param[in] id    id of the matrix
+   *
+   * @return A pointer to the raw data of the matrix
    */
   T* operator[](int id) const {
     return &(m_dense.data()[id * m_shape.first * m_shape.second]);
   }
 
   /**
-   * @brief Reshape the matrix (the new shape must have the same size)
-   *        The column-major data is left unchanged
-   * 
-   * @param[in]  m  Number of desired rows
-   * @param[in]  n  Number of desired columns
+   * @brief Reshape the matrix (the new shape must have the same size) The
+   *        column-major data is left unchanged
+   *
+   * @param[in] m     Number of desired rows
+   * @param[in] n     Number of desired columns
    */
   void reshape(int m, int n) {
     const int r = m_shape.first * m_shape.second;
@@ -265,6 +306,9 @@ class Matrix {
   }
 
   //! Stack the matrix by columns creating a long vector
+  //!
+  //! @return { description_of_the_return_value }
+  //!
   Matrix<T> vec() const {
     int m = m_shape.first;
     int n = m_shape.second;
@@ -277,10 +321,11 @@ class Matrix {
 
   /**
    * @brief Create a matrix from a long vector.
-   * 
-   * @param[in]  m  Number of desired rows
-   * @param[in]  n  Number of desired columns
-   * @return        A batched matrix
+   *
+   * @param[in] m     Number of desired rows
+   * @param[in] n     Number of desired columns
+   *
+   * @return A batched matrix
    */
   Matrix<T> mat(int m, int n) const {
     const int r = m_shape.first * m_shape.second;
@@ -294,6 +339,9 @@ class Matrix {
   }
 
   //! Visualize the first matrix.
+  //!
+  //! @param[in] name  The name
+  //!
   void print(std::string name) const {
     size_t len = m_shape.first * m_shape.second * m_batch_size;
     std::vector<T> A(len);
@@ -309,13 +357,13 @@ class Matrix {
   }
 
   /**
-   * @brief Compute the difference of the batched vector with a given period
-   *        (1 for simple difference, s for seasonal)
-   * 
-   * @param[in]  period  Period of the difference (defaults to 1)
+   * @brief Compute the difference of the batched vector with a given period (1
+   *        for simple difference, s for seasonal)
    *
-   * @return A batched vector corresponding to the first difference. Matches
-   *         the layout of the input vector (row or column vector)
+   * @param[in] period Period of the difference (defaults to 1)
+   *
+   * @return A batched vector corresponding to the first difference. Matches the
+   *         layout of the input vector (row or column vector)
    */
   Matrix<T> difference(int period = 1) const {
     ASSERT(m_shape.first == 1 || m_shape.second == 1,
@@ -338,10 +386,10 @@ class Matrix {
   }
 
   /**
-  * @brief Compute the inverse of the batched matrix
-  * 
-  * @return Batched inverse matrix
-  */
+   * @brief Compute the inverse of the batched matrix
+   *
+   * @return Batched inverse matrix
+   */
   Matrix<T> inv() const {
     int n = m_shape.first;
 
@@ -399,13 +447,13 @@ class Matrix {
 
   /**
    * @brief Initialize a batched identity matrix.
-   * 
-   * @param[in]  m            Number of rows/columns of matrix
-   * @param[in]  batch_size   Number of matrices in batch
-   * @param[in]  cublasHandle cublas handle
-   * @param[in]  allocator    device allocator
-   * @param[in]  stream       cuda stream to schedule work on
-   * 
+   *
+   * @param[in] m            Number of rows/columns of matrix
+   * @param[in] batch_size   Number of matrices in batch
+   * @param[in] cublasHandle cublas handle
+   * @param[in] allocator    device allocator
+   * @param[in] stream       cuda stream to schedule work on
+   *
    * @return A batched identity matrix
    */
   static Matrix<T> Identity(int m, int batch_size, cublasHandle_t cublasHandle,
@@ -420,7 +468,8 @@ class Matrix {
   }
 
  protected:
-  //! Shape (rows, cols) of matrices. We assume all matrices in batch have same shape.
+  //! Shape (rows, cols) of matrices. We assume all matrices in batch have same
+  //! shape.
   std::pair<int, int> m_shape;
 
   //! Array(pointer) to each matrix.
@@ -439,19 +488,21 @@ class Matrix {
 
 /**
  * @brief Computes batched kronecker product between AkB <- A (x) B
- * 
- * @note The block x is the batch id, the thread x is the starting row
- *       in B and the thread y is the starting column in B
- * 
- * @param[in]   A    Pointer to the raw data of matrix `A`
- * @param[in]   m    Number of rows (A)
- * @param[in]   n    Number of columns (A)
- * @param[in]   B    Pointer to the raw data of matrix `B`
- * @param[in]   p    Number of rows (B)
- * @param[in]   q    Number of columns (B)
- * @param[out]  AkB  Pointer to raw data of the result kronecker product
- * @param[in]   k_m  Number of rows of the result    (m * p)
- * @param[in]   k_n  Number of columns of the result (n * q)
+ *
+ * @note The block x is the batch id, the thread x is the starting row in B and
+ *       the thread y is the starting column in B
+ *
+ * @param[in]  A     Pointer to the raw data of matrix `A`
+ * @param[in]  m     Number of rows (A)
+ * @param[in]  n     Number of columns (A)
+ * @param[in]  B     Pointer to the raw data of matrix `B`
+ * @param[in]  p     Number of rows (B)
+ * @param[in]  q     Number of columns (B)
+ * @param[out] AkB   Pointer to raw data of the result kronecker product
+ * @param[in]  k_m   Number of rows of the result    (m * p)
+ * @param[in]  k_n   Number of columns of the result (n * q)
+ *
+ * @tparam T     { description }
  */
 template <typename T>
 __global__ void kronecker_product_kernel(const T* A, int m, int n, const T* B,
@@ -477,19 +528,19 @@ __global__ void kronecker_product_kernel(const T* A, int m, int n, const T* B,
 }
 
 /**
- * @brief Batched GEMM operation (exhaustive version)
- *        [C1, C2, ...] = [alpha*A1*B1+beta*C1, alpha*A2*B2+beta*C2, ...]
+ * @brief Batched GEMM operation (exhaustive version) [C1, C2, ...] =
+ *        [alpha*A1*B1+beta*C1, alpha*A2*B2+beta*C2, ...]
  *
- * @param[in]      aT     Is `A` transposed?
- * @param[in]      bT     Is `B` transposed?
- * @param[in]      m      Number of rows of A or A.T
- * @param[in]      n      Number of columns of B or B.T
- * @param[in]      k      Common dimension of A or A.T and B or B.T
- * @param[in]      alpha  Parameter alpha
- * @param[in]      A      Batch of matrices A
- * @param[in]      B      Batch of matrices B
- * @param[in]      beta   Parameter beta
- * @param[in,out]  C      Batch of matrices C
+ * @param[in]     aT    Is `A` transposed?
+ * @param[in]     bT    Is `B` transposed?
+ * @param[in]     m     Number of rows of A or A.T
+ * @param[in]     n     Number of columns of B or B.T
+ * @param[in]     k     Common dimension of A or A.T and B or B.T
+ * @param[in]     alpha Parameter alpha
+ * @param[in]     A     Batch of matrices A
+ * @param[in]     B     Batch of matrices B
+ * @param[in]     beta  Parameter beta
+ * @param[in,out] C     Batch of matrices C
  */
 template <typename T>
 void b_gemm(bool aT, bool bT, int m, int n, int k, T alpha, const Matrix<T>& A,
@@ -525,14 +576,16 @@ void b_gemm(bool aT, bool bT, int m, int n, int k, T alpha, const Matrix<T>& A,
 }
 
 /**
- * @brief Multiplies each matrix in a batch-A with it's batch-B counterpart.
- *        A = [A1,A2,A3], B=[B1,B2,B3] returns [A1*B1, A2*B2, A3*B3]
- * 
- * @param[in]  A   First matrix batch
- * @param[in]  B   Second matrix batch
- * @param[in]  aT  Is `A` transposed?
- * @param[in]  bT  Is `B` transposed?
- * 
+ * @brief Multiplies each matrix in a batch-A with it's batch-B counterpart. A =
+ *        [A1,A2,A3], B=[B1,B2,B3] returns [A1*B1, A2*B2, A3*B3]
+ *
+ * @param[in] A     First matrix batch
+ * @param[in] B     Second matrix batch
+ * @param[in] aT    Is `A` transposed?
+ * @param[in] bT    Is `B` transposed?
+ *
+ * @tparam T     { description }
+ *
  * @return Member-wise A*B
  */
 template <typename T>
@@ -558,14 +611,16 @@ Matrix<T> b_gemm(const Matrix<T>& A, const Matrix<T>& B, bool aT = false,
 
 /**
  * @brief Wrapper around cuBLAS batched gels (least-square solver of Ax=C)
- * 
- * @details: - This simple wrapper only supports non-transpose mode.
+ *
+ * @details : - This simple wrapper only supports non-transpose mode.
  *           - There isn't any strided version in cuBLAS yet.
  *           - cuBLAS only supports overdetermined systems.
  *           - This function copies A to avoid modifying the original one.
- * 
- * @param[in]     A  Batched matrix A (must have more rows than columns)
- * @param[inout]  C  Batched matrix C (the number of rows must match A)
+ *
+ * @param[in]    A     Batched matrix A (must have more rows than columns)
+ * @param[inout] C     Batched matrix C (the number of rows must match A)
+ *
+ * @tparam T     { description }
  */
 template <typename T>
 void b_gels(const Matrix<T>& A, Matrix<T>& C) {
@@ -587,9 +642,12 @@ void b_gels(const Matrix<T>& A, Matrix<T>& C) {
 
 /**
  * @brief A utility method to implement a unary operation on a batched matrix
- * 
- * @param[in]  A          Batched matrix A
- * @param[in]  unary_op   The unary operation applied on the elements of A
+ *
+ * @param[in] A        Batched matrix A
+ * @param[in] unary_op The unary operation applied on the elements of A
+ *
+ * @tparam T     { description }
+ *
  * @return A batched matrix, the result of unary_op A
  */
 template <typename T, typename F>
@@ -607,12 +665,15 @@ Matrix<T> b_op_A(const Matrix<T>& A, F unary_op) {
 }
 
 /**
- * @brief A utility method to implement pointwise operations between elements
- *        of two batched matrices.
- * 
- * @param[in]  A          Batched matrix A
- * @param[in]  B          Batched matrix B
- * @param[in]  binary_op  The binary operation used on elements of A and B
+ * @brief A utility method to implement pointwise operations between elements of
+ *        two batched matrices.
+ *
+ * @param[in] A         Batched matrix A
+ * @param[in] B         Batched matrix B
+ * @param[in] binary_op The binary operation used on elements of A and B
+ *
+ * @tparam T     { description }
+ *
  * @return A batched matrix, the result of A binary_op B
  */
 template <typename T, typename F>
@@ -636,11 +697,14 @@ Matrix<T> b_aA_op_B(const Matrix<T>& A, const Matrix<T>& B, F binary_op) {
 }
 
 /**
- * @brief Multiplies each matrix in a batch-A with it's batch-B counterpart.
- *        A = [A1,A2,A3], B=[B1,B2,B3] return [A1*B1, A2*B2, A3*B3]
- * 
- * @param[in]  A  Batched matrix A
- * @param[in]  B  Batched matrix B
+ * @brief Multiplies each matrix in a batch-A with it's batch-B counterpart. A =
+ *        [A1,A2,A3], B=[B1,B2,B3] return [A1*B1, A2*B2, A3*B3]
+ *
+ * @param[in] A     Batched matrix A
+ * @param[in] B     Batched matrix B
+ *
+ * @tparam T     { description }
+ *
  * @return The result of the batched matrix-matrix multiplication of A * B
  */
 template <typename T>
@@ -650,9 +714,12 @@ Matrix<T> operator*(const Matrix<T>& A, const Matrix<T>& B) {
 
 /**
  * @brief Adds two batched matrices together element-wise.
- * 
- * @param[in]  A  Batched matrix A
- * @param[in]  B  Batched matrix B
+ *
+ * @param[in] A     Batched matrix A
+ * @param[in] B     Batched matrix B
+ *
+ * @tparam T     { description }
+ *
  * @return A+B
  */
 template <typename T>
@@ -662,9 +729,12 @@ Matrix<T> operator+(const Matrix<T>& A, const Matrix<T>& B) {
 
 /**
  * @brief Subtract two batched matrices together element-wise.
- * 
- * @param[in]  A  Batched matrix A
- * @param[in]  B  Batched matrix B
+ *
+ * @param[in] A     Batched matrix A
+ * @param[in] B     Batched matrix B
+ *
+ * @tparam T     { description }
+ *
  * @return A-B
  */
 template <typename T>
@@ -674,8 +744,11 @@ Matrix<T> operator-(const Matrix<T>& A, const Matrix<T>& B) {
 
 /**
  * @brief Unary substraction
- * 
- * @param[in]  A  Batched matrix A
+ *
+ * @param[in] A     Batched matrix A
+ *
+ * @tparam T     { description }
+ *
  * @return -A
  */
 template <typename T>
@@ -685,9 +758,12 @@ Matrix<T> operator-(const Matrix<T>& A) {
 
 /**
  * @brief Solve Ax = b for given batched matrix A and batched vector b
- * 
- * @param[in]  A  Batched matrix A
- * @param[in]  b  Batched vector b
+ *
+ * @param[in] A     Batched matrix A
+ * @param[in] b     Batched vector b
+ *
+ * @tparam T     { description }
+ *
  * @return A\b
  */
 template <typename T>
@@ -697,11 +773,14 @@ Matrix<T> b_solve(const Matrix<T>& A, const Matrix<T>& b) {
 }
 
 /**
- * @brief The batched kroneker product A (x) B for given batched matrix A
- *        and batched matrix B
- * 
- * @param[in]  A  Matrix A
- * @param[in]  B  Matrix B
+ * @brief The batched kroneker product A (x) B for given batched matrix A and
+ *        batched matrix B
+ *
+ * @param[in] A     Matrix A
+ * @param[in] B     Matrix B
+ *
+ * @tparam T     { description }
+ *
  * @return A (x) B
  */
 template <typename T>
@@ -729,18 +808,20 @@ Matrix<T> b_kron(const Matrix<T>& A, const Matrix<T>& B) {
 
 /**
  * @brief Kernel to create a batched lagged matrix from a given batched vector
- * 
+ *
  * @note The block id is the batch id and the thread id is the starting index
- * 
- * @param[in]  vec              Input vector
- * @param[out] mat              Output lagged matrix
- * @param[in]  lags             Number of lags
- * @param[in]  lagged_height    Height of the lagged matrix
- * @param[in]  vec_offset       Offset in the input vector
- * @param[in]  ld               Length of the underlying vector
- * @param[in]  mat_offset       Offset in the lagged matrix
- * @param[in]  ls_batch_stride  Stride between batches in the output matrix
- * @param[in]  s                Seasonality of the lags
+ *
+ * @param[in]  vec             Input vector
+ * @param[out] mat             Output lagged matrix
+ * @param[in]  lags            Number of lags
+ * @param[in]  lagged_height   Height of the lagged matrix
+ * @param[in]  vec_offset      Offset in the input vector
+ * @param[in]  ld              Length of the underlying vector
+ * @param[in]  mat_offset      Offset in the lagged matrix
+ * @param[in]  ls_batch_stride Stride between batches in the output matrix
+ * @param[in]  s               Seasonality of the lags
+ *
+ * @tparam T     { description }
  */
 template <typename T>
 __global__ void lagged_mat_kernel(const T* vec, T* mat, int lags,
@@ -761,16 +842,18 @@ __global__ void lagged_mat_kernel(const T* vec, T* mat, int lags,
 
 /**
  * @brief Create a batched lagged matrix from a given batched vector
- * 
+ *
  * @note This overload takes both batched matrices as inputs
- * 
- * @param[in]  vec            Input vector
- * @param[out] lagged_mat     Output matrix
- * @param[in]  lags           Number of lags
- * @param[in]  lagged_height  Height of the lagged matrix
- * @param[in]  vec_offset     Offset in the input vector
- * @param[in]  mat_offset     Offset in the lagged matrix
- * @param[in]  s              Period of the lags
+ *
+ * @param[in]  vec           Input vector
+ * @param[out] lagged_mat    Output matrix
+ * @param[in]  lags          Number of lags
+ * @param[in]  lagged_height Height of the lagged matrix
+ * @param[in]  vec_offset    Offset in the input vector
+ * @param[in]  mat_offset    Offset in the lagged matrix
+ * @param[in]  s             Period of the lags
+ *
+ * @tparam T     { description }
  */
 template <typename T>
 void b_lagged_mat(const Matrix<T>& vec, Matrix<T>& lagged_mat, int lags,
@@ -798,13 +881,15 @@ void b_lagged_mat(const Matrix<T>& vec, Matrix<T>& lagged_mat, int lags,
 
 /**
  * @brief Create a batched lagged matrix from a given batched vector
- * 
- * @note This overload takes the input vector and returns the output matrix.
- *       For more control, use the other overload.
- * 
- * @param[in]  vec            Input vector
- * @param[in]  lags           Number of lags
- * 
+ *
+ * @note This overload takes the input vector and returns the output matrix. For
+ *       more control, use the other overload.
+ *
+ * @param[in] vec   Input vector
+ * @param[in] lags  Number of lags
+ *
+ * @tparam T     { description }
+ *
  * @return A batched matrix corresponding to the output lagged matrix
  */
 template <typename T>
@@ -826,22 +911,24 @@ Matrix<T> b_lagged_mat(const Matrix<T>& vec, int lags) {
 
 /**
  * @brief Kernel to compute a 2D copy of a window in a batched matrix.
- * 
+ *
  * @note The blocks are the batches and the threads are the matrix elements,
  *       column-wise.
- * 
- * @param[in]  in                Input matrix
- * @param[out] out               Output matrix
- * @param[in]  in_starting_row   First row to copy in the input matrix
- * @param[in]  in_starting_col   First column to copy in the input matrix
- * @param[in]  in_rows           Number of rows in the input matrix
- * @param[in]  in_cols           Number of columns in the input matrix
- * @param[in]  copy_rows         Number of rows to copy
- * @param[in]  n_copy            Total number of elements to copy
- * @param[in]  out_starting_row  First row to copy in the output matrix
- * @param[in]  out_starting_col  First column to copy in the output matrix
- * @param[in]  out_rows          Number of rows in the output matrix
- * @param[in]  out_cols          Number of columns in the output matrix
+ *
+ * @param[in]  in               Input matrix
+ * @param[out] out              Output matrix
+ * @param[in]  in_starting_row  First row to copy in the input matrix
+ * @param[in]  in_starting_col  First column to copy in the input matrix
+ * @param[in]  in_rows          Number of rows in the input matrix
+ * @param[in]  in_cols          Number of columns in the input matrix
+ * @param[in]  copy_rows        Number of rows to copy
+ * @param[in]  n_copy           Total number of elements to copy
+ * @param[in]  out_starting_row First row to copy in the output matrix
+ * @param[in]  out_starting_col First column to copy in the output matrix
+ * @param[in]  out_rows         Number of rows in the output matrix
+ * @param[in]  out_cols         Number of columns in the output matrix
+ *
+ * @tparam T     { description }
  */
 template <typename T>
 static __global__ void batched_2dcopy_kernel(
@@ -862,17 +949,19 @@ static __global__ void batched_2dcopy_kernel(
 
 /**
  * @brief Compute a 2D copy of a window in a batched matrix.
- * 
+ *
  * @note This overload takes two matrices as inputs
- * 
- * @param[in]  in                Batched input matrix
- * @param[out] out               Batched output matrix
- * @param[in]  in_starting_row   First row to copy in the input matrix
- * @param[in]  in_starting_col   First column to copy in the input matrix
- * @param[in]  copy_rows         Number of rows to copy
- * @param[in]  copy_cols         Number of columns to copy
- * @param[in]  out_starting_row  First row to copy in the output matrix
- * @param[in]  out_starting_col  First column to copy in the output matrix
+ *
+ * @param[in]  in               Batched input matrix
+ * @param[out] out              Batched output matrix
+ * @param[in]  in_starting_row  First row to copy in the input matrix
+ * @param[in]  in_starting_col  First column to copy in the input matrix
+ * @param[in]  copy_rows        Number of rows to copy
+ * @param[in]  copy_cols        Number of columns to copy
+ * @param[in]  out_starting_row First row to copy in the output matrix
+ * @param[in]  out_starting_col First column to copy in the output matrix
+ *
+ * @tparam T     { description }
  */
 template <typename T>
 void b_2dcopy(const Matrix<T>& in, Matrix<T>& out, int in_starting_row,
@@ -899,18 +988,18 @@ void b_2dcopy(const Matrix<T>& in, Matrix<T>& out, int in_starting_row,
 
 /**
  * @brief Compute a 2D copy of a window in a batched matrix.
- * 
+ *
  * @note This overload only takes the input matrix as input and creates and
  *       returns the output matrix
- * 
- * @tparam T      data type
  *
- * @param[in]  in            Batched input matrix
- * @param[in]  starting_row  First row to copy
- * @param[in]  starting_col  First column to copy
- * @param[in]  rows          Number of rows to copy
- * @param[in]  cols          Number of columns to copy
- * 
+ * @param[in] in           Batched input matrix
+ * @param[in] starting_row First row to copy
+ * @param[in] starting_col First column to copy
+ * @param[in] rows         Number of rows to copy
+ * @param[in] cols         Number of columns to copy
+ *
+ * @tparam T     data type
+ *
  * @return The batched output matrix
  */
 template <typename T>
@@ -927,12 +1016,14 @@ Matrix<T> b_2dcopy(const Matrix<T>& in, int starting_row, int starting_col,
 }
 
 /**
- * Helper function to generate a vector representing a Householder
- * reflection that creates zeros in xk
- * 
+ * Helper function to generate a vector representing a Householder reflection
+ * that creates zeros in xk
+ *
  * @param[out] d_uk  Householder vector
  * @param[in]  d_xk  Input vector
  * @param[in]  m     Size of the vectors
+ *
+ * @tparam T     { description }
  */
 template <typename T>
 DI void generate_householder_vector(T* d_uk, const T* d_xk, int m) {
@@ -955,11 +1046,13 @@ DI void generate_householder_vector(T* d_uk, const T* d_xk, int m) {
 
 /**
  * A variant generated by a thread block together
- * 
- * @param[out] d_uk        Householder vector
- * @param[in]  d_xk        Input vector
- * @param[in]  shared_mem  Shared memory
- * @param[in]  m           Size of the vectors
+ *
+ * @param[out] d_uk       Householder vector
+ * @param[in]  d_xk       Input vector
+ * @param[in]  shared_mem Shared memory
+ * @param[in]  m          Size of the vectors
+ *
+ * @tparam T     { description }
  */
 template <typename T>
 DI void generate_householder_vector(T* d_uk, const T* d_xk, T* shared_mem,
@@ -999,13 +1092,15 @@ DI void generate_householder_vector(T* d_uk, const T* d_xk, T* shared_mem,
 }
 
 /**
- * Reduce H to Hessenberg form by iteratively applying Householder
- * reflections and update U accordingly.
- * 
- * @param[inout] d_U  Batched matrix U
- * @param[inout] d_H  Batched matrix H
- * @param[out]   d_hh Buffer where Householder reflectors are stored
- * @param[in]    n    Matrix dimensions
+ * Reduce H to Hessenberg form by iteratively applying Householder reflections
+ * and update U accordingly.
+ *
+ * @param[inout] d_U   Batched matrix U
+ * @param[inout] d_H   Batched matrix H
+ * @param[out]   d_hh  Buffer where Householder reflectors are stored
+ * @param[in]    n     Matrix dimensions
+ *
+ * @tparam T     { description }
  */
 template <typename T>
 __global__ void hessenberg_reduction_kernel(T* d_U, T* d_H, T* d_hh, int n) {
@@ -1123,13 +1218,14 @@ __global__ void hessenberg_reduction_kernel(T* d_U, T* d_H, T* d_hh, int n) {
 
 /**
  * Hessenberg decomposition A = UHU' of a square matrix A, where Q is unitary
- * and H in Hessenberg form (no zeros below the subdiagonal), using
- * Householder reflections
+ * and H in Hessenberg form (no zeros below the subdiagonal), using Householder
+ * reflections
  *
- * @tparam T      data type
- * @param[in]  A  Batched matrix A
- * @param[out] U  Batched matrix U
- * @param[out] H  Batched matrix H
+ * @param[in]  A     Batched matrix A
+ * @param[out] U     Batched matrix U
+ * @param[out] H     Batched matrix H
+ *
+ * @tparam T     data type
  */
 template <typename T>
 void b_hessenberg(const Matrix<T>& A, Matrix<T>& U, Matrix<T>& H) {
@@ -1162,11 +1258,11 @@ void b_hessenberg(const Matrix<T>& A, Matrix<T>& U, Matrix<T>& H) {
 
 /**
  * Auxiliary function to generate a Givens rotation
- * 
- * @param[in]  a  First element of the input vector
- * @param[in]  b  Second element of the input vector
- * @param[out] c  Parameter c of the Givens rotation
- * @param[out] s  Parameter s of the Givens rotation
+ *
+ * @param[in]  a     First element of the input vector
+ * @param[in]  b     Second element of the input vector
+ * @param[out] c     Parameter c of the Givens rotation
+ * @param[out] s     Parameter s of the Givens rotation
  */
 template <typename T>
 DI void generate_givens(T a, T b, T& c, T& s) {
@@ -1188,15 +1284,16 @@ DI void generate_givens(T a, T b, T& c, T& s) {
 }
 
 /**
- * Device auxiliary function to compute Ahues and Tisseur's criterion
- * to consider a subdiagonal element M[i,i-1] as 0
+ * Device auxiliary function to compute Ahues and Tisseur's criterion to
+ * consider a subdiagonal element M[i,i-1] as 0
  *
- * @tparam T data type
+ * @param[in] d_M   Batched matrix M
+ * @param[in] i     Index i
+ * @param[in] n     Dimension of the matrix
  *
- * @param[in] d_M       Batched matrix M
- * @param[in] i         Index i
- * @param[in] n         Dimension of the matrix
- * @return              A boolean: the result of the test
+ * @tparam T     data type
+ *
+ * @return A boolean: the result of the test
  */
 template <typename T>
 DI bool ahues_tisseur(const T* d_M, int i, int n) {
@@ -1213,15 +1310,16 @@ DI bool ahues_tisseur(const T* d_M, int i, int n) {
 }
 
 /**
- * Kernel to execute the Francis QR algorithm
- * (from Matrix Computations 3rd ed (Golub and Van Loan, 1996),
- *  algorithm 7.5.1 and 7.5.2)
- * 
+ * Kernel to execute the Francis QR algorithm (from Matrix Computations 3rd ed
+ * (Golub and Van Loan, 1996), algorithm 7.5.1 and 7.5.2)
+ *
  * @note Computes 1 batch member per thread block (n threads)
- * 
- * @param[inout]  d_U  Batched matrix U
- * @param[inout]  d_H  Batched matrix H
- * @param[in]     n    Matrix dimension
+ *
+ * @param[inout] d_U   Batched matrix U
+ * @param[inout] d_H   Batched matrix H
+ * @param[in]    n     Matrix dimension
+ *
+ * @tparam T     { description }
  */
 template <typename T>
 __global__ void francis_qr_algorithm_kernel(T* d_U, T* d_H, int n) {
@@ -1402,13 +1500,15 @@ __global__ void francis_qr_algorithm_kernel(T* d_U, T* d_H, int n) {
 }
 
 /**
- * @brief Schur decomposition A = USU' of a square matrix A, where U is
- *        unitary and S is an upper quasi-triangular matrix
- * 
- * @param[in]  A  Batched matrix A
- * @param[out] U  Batched matrix U
- * @param[out] S  Batched matrix S
+ * @brief Schur decomposition A = USU' of a square matrix A, where U is unitary
+ *        and S is an upper quasi-triangular matrix
+ *
+ * @param[in]  A                 Batched matrix A
+ * @param[out] U                 Batched matrix U
+ * @param[out] S                 Batched matrix S
  * @param[in]  max_iter_per_step maximum iterations
+ *
+ * @tparam T     { description }
  */
 template <typename T>
 void b_schur(const Matrix<T>& A, Matrix<T>& U, Matrix<T>& S,
@@ -1427,17 +1527,17 @@ void b_schur(const Matrix<T>& A, Matrix<T>& U, Matrix<T>& S,
 }
 
 /**
- * This helper function called by a kernel solves a system Ax=b for p columns
- * of x and b, where A is in Hessenberg form. A and b are stored side-by-side
- * in a scratch buffer
- *
- * @tparam       p          Number of columns to solve
- * @tparam       T          data type
+ * This helper function called by a kernel solves a system Ax=b for p columns of
+ * x and b, where A is in Hessenberg form. A and b are stored side-by-side in a
+ * scratch buffer
  *
  * @param[inout] d_scratch  Scratch buffer containing A and b (overwritten)
  * @param[out]   d_x        Solution
  * @param[in]    n          number of columns
  * @param[out]   shared_mem Shared memory
+ *
+ * @tparam p     Number of columns to solve
+ * @tparam T     data type
  */
 template <int p, typename T>
 DI void quasi_triangular_solver(T* d_scratch, T* d_x, int n, T* shared_mem) {
@@ -1511,18 +1611,20 @@ DI void quasi_triangular_solver(T* d_scratch, T* d_x, int n, T* shared_mem) {
 }
 
 /**
- * Auxiliary kernel for b_trsyl_uplo
- * (from Sorensen and Zhou, 2003, algorithm 2.1)
+ * Auxiliary kernel for b_trsyl_uplo (from Sorensen and Zhou, 2003, algorithm
+ * 2.1)
  *
  * @note 1 block per batch member ; block size: n + 2
- * 
- * @param[in]  d_R         Batched matrix R
- * @param[in]  d_R2        Batched matrix R*R
- * @param[in]  d_S         Batched matrix S
- * @param[in]  d_F         Batched matrix F
- * @param[out] d_Y         Batched matrix Y
- * @param[out] d_scratch   Batched scratch buffer
- * @param[in]  n           Matrix dimension
+ *
+ * @param[in]  d_R       Batched matrix R
+ * @param[in]  d_R2      Batched matrix R*R
+ * @param[in]  d_S       Batched matrix S
+ * @param[in]  d_F       Batched matrix F
+ * @param[out] d_Y       Batched matrix Y
+ * @param[out] d_scratch Batched scratch buffer
+ * @param[in]  n         Matrix dimension
+ *
+ * @tparam T     { description }
  */
 template <typename T>
 __global__ void trsyl_kernel(const T* d_R, const T* d_R2, const T* d_S,
@@ -1656,14 +1758,17 @@ __global__ void trsyl_kernel(const T* d_R, const T* d_R2, const T* d_S,
 /**
  * Solves RY + YS = F, where R upper quasi-triangular, S lower quasi-triangular
  * Special case of LAPACK's real variant of the routine TRSYL
- * 
+ *
  * @note From algorithm 2.1 in Direct Methods for Matrix Sylvester and Lyapunov
  *       equations (Sorensen and Zhou, 2003)
- * 
- * @param[in]  R  Matrix R (upper quasi-triangular)
- * @param[in]  S  Matrix S (lower quasi-triangular)
- * @param[in]  F  Matrix F
- * @return        Matrix Y such that RY + YS = F
+ *
+ * @param[in] R     Matrix R (upper quasi-triangular)
+ * @param[in] S     Matrix S (lower quasi-triangular)
+ * @param[in] F     Matrix F
+ *
+ * @tparam T     { description }
+ *
+ * @return Matrix Y such that RY + YS = F
  */
 template <typename T>
 Matrix<T> b_trsyl_uplo(const Matrix<T>& R, const Matrix<T>& S,
@@ -1689,15 +1794,17 @@ Matrix<T> b_trsyl_uplo(const Matrix<T>& R, const Matrix<T>& S,
 
 /**
  * @brief Solve discrete Lyapunov equation A*X*A' - X + Q = 0
- * 
- * @note The content of Q isn't modified, but can be reshaped into a vector
- *       and back into a matrix
- *       The precision of this algorithm for single-precision floating-point
- *       numbers is not good, use double for better results.
  *
- * @param[in]  A       Batched matrix A
- * @param[in]  Q       Batched matrix Q
- * @return             Batched matrix X solving the Lyapunov equation
+ * @note The content of Q isn't modified, but can be reshaped into a vector and
+ *       back into a matrix The precision of this algorithm for single-precision
+ *       floating-point numbers is not good, use double for better results.
+ *
+ * @param[in] A     Batched matrix A
+ * @param[in] Q     Batched matrix Q
+ *
+ * @tparam T     { description }
+ *
+ * @return Batched matrix X solving the Lyapunov equation
  */
 template <typename T>
 Matrix<T> b_lyapunov(const Matrix<T>& A, Matrix<T>& Q) {

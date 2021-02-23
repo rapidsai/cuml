@@ -1,0 +1,73 @@
+// Settings in here override those in "${packages}/DoxyDoxygen/Doxy.sublime-settings",
+// and are overridden in turn by syntax-specific settings.
+{
+	"c_macros": [
+        "__NVCC__",
+        "__launch_bounds__(x)=",
+        "DI=inline __device__",
+        "HDI=inline __host__ __device__",
+        "HD=__host__ __device__",
+        "CUTLASS_DEVICE=__forceinline__ __device__",
+        "CUTLASS_HOST_DEVICE=__forceinline__ __device__ __host__",
+    ],
+    "group_tabs_sizes_by": "section",
+    "max_line_reducing": 40,
+    "profiles": [
+    	{
+            "languages":  [ "c++", "c" ],
+            "parsers":    [ "LanguageCpp" ],
+            "doc_styles": [ "Doxygen" ],
+        },
+        {
+            "languages":  [ "python", "cython" ],
+            "parsers":    [ "LanguagePython" ],
+            "doc_styles": [ "DoxyDoxygen_contrib_Numpy" ]
+        },
+    ],
+    "preferred_tabs_sizes": [ 3, 6, 8 ],
+    "min_spaces_between_columns": [ 1 ],
+    "remove_template_used_as_type": true,
+    // "brief_mode": "remove",
+    "block_layout": {
+        "Numpy": [
+            "@_brief",
+            "",
+            "@_hidden_param_header",
+            "@_hidden_param",
+            "",
+            "@_hidden_return_header",
+            "@_hidden_return",
+            "",
+            "@_hidden_raises_header",
+            "@_hidden_raises",
+            ""
+        ],
+    },
+    "preferred_comments_styles": [
+        [
+            "/**",
+            " *"
+        ],
+        [
+            ["/*", "-", "*//**"],
+            " *"
+        ],
+        [
+            ["//", "-"],
+            "///"
+        ],
+        [
+            [ "\"\"\"", "", "" ],
+            "",
+            "\"\"\"",
+        ],
+        [
+            "##",
+            "##"
+        ],
+        [
+            ["#", "-"],
+            "##"
+        ]
+    ],
+}

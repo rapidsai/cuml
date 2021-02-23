@@ -161,25 +161,27 @@ void predict(raft::handle_t& handle, const double* d_y, int batch_size,
 /**
  * Kernel to compute the sum-of-squares log-likelihood estimation
  *
- * @param[in]  d_y        Series to fit
- * @param[in]  d_mu       mu parameters
- * @param[in]  d_ar       AR parameters
- * @param[in]  d_ma       MA parameters
- * @param[in]  d_sar      Seasonal AR parameters
- * @param[in]  d_sma      Seasonal MA parameters
- * @param[out] d_loglike  Evaluated log-likelihood
- * @param[in]  n_obs      Number of observations in a time series
- * @param[in]  n_phi      Number of phi coefficients (combined AR-SAR)
- * @param[in]  n_theta    Number of theta coefficients (combined MA-SMA)
- * @param[in]  p          Number of AR parameters
- * @param[in]  q          Number of MA parameters
- * @param[in]  P          Number of seasonal AR parameters
- * @param[in]  Q          Number of seasonal MA parameters
- * @param[in]  s          Seasonal period or 0
- * @param[in]  k          Whether to use an intercept
- * @param[in]  start_sum  At which index to start the sum
- * @param[in]  start_y    First used y index (observation)
- * @param[in]  start_v    First used v index (residual)
+ * @param[in]  d_y       Series to fit
+ * @param[in]  d_mu      mu parameters
+ * @param[in]  d_ar      AR parameters
+ * @param[in]  d_ma      MA parameters
+ * @param[in]  d_sar     Seasonal AR parameters
+ * @param[in]  d_sma     Seasonal MA parameters
+ * @param[out] d_loglike Evaluated log-likelihood
+ * @param[in]  n_obs     Number of observations in a time series
+ * @param[in]  n_phi     Number of phi coefficients (combined AR-SAR)
+ * @param[in]  n_theta   Number of theta coefficients (combined MA-SMA)
+ * @param[in]  p         Number of AR parameters
+ * @param[in]  q         Number of MA parameters
+ * @param[in]  P         Number of seasonal AR parameters
+ * @param[in]  Q         Number of seasonal MA parameters
+ * @param[in]  s         Seasonal period or 0
+ * @param[in]  k         Whether to use an intercept
+ * @param[in]  start_sum At which index to start the sum
+ * @param[in]  start_y   First used y index (observation)
+ * @param[in]  start_v   First used v index (residual)
+ *
+ * @tparam DataT { description }
  */
 template <typename DataT>
 __global__ void sum_of_squares_kernel(const DataT* d_y, const DataT* d_mu,
@@ -438,10 +440,13 @@ void information_criterion(raft::handle_t& handle, const double* d_y,
 
 /**
  * Test that the parameters are valid for the inverse transform
- * 
- * @tparam isAr        Are these (S)AR or (S)MA parameters?
- * @param[in]  params  Parameters
- * @param[in]  pq      p for AR, q for MA, P for SAR, Q for SMA
+ *
+ * @param[in] params Parameters
+ * @param[in] pq     p for AR, q for MA, P for SAR, Q for SMA
+ *
+ * @tparam isAr  Are these (S)AR or (S)MA parameters?
+ *
+ * @return { description_of_the_return_value }
  */
 template <bool isAr>
 DI bool test_invparams(const double* params, int pq) {
@@ -476,9 +481,21 @@ DI bool test_invparams(const double* params, int pq) {
 }
 
 /**
- * Auxiliary function of _start_params: least square approximation of an
- * ARMA model (with or without seasonality)
- * @note: in this function the non-seasonal case has s=1, not s=0!
+ * Auxiliary function of _start_params: least square approximation of an ARMA
+ * model (with or without seasonality)
+ * @note : in this function the non-seasonal case has s=1, not s=0!
+ *
+ * @param     handle          The handle
+ * @param     d_ar            The d archive
+ * @param     d_ma            The d ma
+ * @param     d_sigma2        The d sigma 2
+ * @param[in] bm_y            The bm y
+ * @param[in] p               { parameter_description }
+ * @param[in] q               The quarter
+ * @param[in] s               { parameter_description }
+ * @param[in] estimate_sigma2 The estimate sigma 2
+ * @param[in] k               { parameter_description }
+ * @param     d_mu            The d mu
  */
 void _arma_least_squares(raft::handle_t& handle, double* d_ar, double* d_ma,
                          double* d_sigma2,
@@ -651,8 +668,13 @@ void _arma_least_squares(raft::handle_t& handle, double* d_ar, double* d_ma,
 }
 
 /**
- * Auxiliary function of estimate_x0: compute the starting parameters for
- * the series pre-processed by estimate_x0
+ * Auxiliary function of estimate_x0: compute the starting parameters for the
+ * series pre-processed by estimate_x0
+ *
+ * @param     handle The handle
+ * @param     params The parameters
+ * @param[in] bm_y   The bm y
+ * @param[in] order  The order
  */
 void _start_params(raft::handle_t& handle, ARIMAParams<double>& params,
                    const MLCommon::LinAlg::Batched::Matrix<double>& bm_y,

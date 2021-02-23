@@ -96,11 +96,14 @@ inline double check_density(double density, size_t n_features) {
 
 namespace ML {
 /**
-     * @brief computes minimum target dimension to preserve information according to error tolerance (eps parameter)
-     * @param[in] n_samples: number of samples
-     * @param[in] eps: error tolerance
-     * @return minimum target dimension
-     */
+  * @brief computes minimum target dimension to preserve information according
+  *        to error tolerance (eps parameter)
+  *
+  * @param[in] n_samples number of samples
+  * @param[in] eps       error tolerance
+  *
+  * @return minimum target dimension
+  */
 size_t johnson_lindenstrauss_min_dim(size_t n_samples, double eps) {
   ASSERT(eps > 0.0 && eps < 1.0, "Parameter eps: must be in range (0, 1)");
   ASSERT(n_samples > 0, "Parameter n_samples: must be strictly positive");

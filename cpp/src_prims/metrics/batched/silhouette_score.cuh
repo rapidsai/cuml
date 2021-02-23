@@ -32,12 +32,20 @@ namespace Batched {
 
 namespace detail {
 
-/** 
- * This kernel initializes matrix b (n_rows * n_labels)
- * For each label that the corresponding row is not a part of is initialized as 0
- * If the corresponding row is the only sample in its label, again 0
- * Only if the there are > 1 samples in the label, row is initialized to max
-*/
+/**
+ * This kernel initializes matrix b (n_rows * n_labels) For each label that the
+ * corresponding row is not a part of is initialized as 0 If the corresponding
+ * row is the only sample in its label, again 0 Only if the there are > 1
+ * samples in the label, row is initialized to max
+ *
+ * @param     b              { parameter_description }
+ * @param     y              { parameter_description }
+ * @param[in] n_rows         The n rows
+ * @param[in] n_labels       The n labels
+ * @param     cluster_counts The cluster counts
+ *
+ * @tparam value_t { description }
+ */
 template <typename value_t, typename value_idx, typename label_idx>
 __global__ void fill_b_kernel(value_t *b, label_idx *y, value_idx n_rows,
                               label_idx n_labels, value_idx *cluster_counts) {
@@ -68,12 +76,25 @@ __global__ void fill_b_kernel(value_t *b, label_idx *y, value_idx n_rows,
 }
 
 /**
- * This kernel does an elementwise sweep of chunked pairwise distance matrix
- * By knowing the offsets of the chunked pairwise distance matrix in the
- * global pairwise distance matrix, we are able to calculate
- * intermediate values of a and b for the rows and columns present in the
- * current chunked pairwise distance matrix. 
-*/
+ * This kernel does an elementwise sweep of chunked pairwise distance matrix By
+ * knowing the offsets of the chunked pairwise distance matrix in the global
+ * pairwise distance matrix, we are able to calculate intermediate values of a
+ * and b for the rows and columns present in the current chunked pairwise
+ * distance matrix.
+ *
+ * @param     a              { parameter_description }
+ * @param     b              { parameter_description }
+ * @param[in] row_offset     The row offset
+ * @param[in] col_offset     The col offset
+ * @param     y              { parameter_description }
+ * @param[in] n_labels       The n labels
+ * @param     cluster_counts The cluster counts
+ * @param     distances      The distances
+ * @param[in] dist_rows      The distance rows
+ * @param[in] dist_cols      The distance cols
+ *
+ * @tparam value_t { description }
+ */
 template <typename value_t, typename value_idx, typename label_idx>
 __global__ void compute_chunked_a_b_kernel(
   value_t *a, value_t *b, value_idx row_offset, value_idx col_offset,

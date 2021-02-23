@@ -39,6 +39,11 @@ static const int TPB_X = 256;
 /**
  * Takes vertex degree array (vd) and CSR row_ind array (ex_scan) to produce the
  * CSR row_ind_ptr array (adj_graph)
+ *
+ * @param[in] handle     The handle
+ * @param[in] data       The data
+ * @param[in] batch_size The batch size
+ * @param[in] stream     The stream
  */
 template <typename Index_ = int>
 void launcher(const raft::handle_t &handle, Pack<Index_> data,

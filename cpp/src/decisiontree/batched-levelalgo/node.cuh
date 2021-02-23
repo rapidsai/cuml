@@ -34,16 +34,21 @@ struct Node {
   typedef Node<DataT, LabelT, IdxT> NodeT;
   typedef Split<DataT, IdxT> SplitT;
 
-  /** special value to represent the leaf node */
+  /**
+   * special value to represent the leaf node */
   static constexpr IdxT Leaf = static_cast<IdxT>(-1);
 
-  /** node related public information */
+  /**
+   * node related public information */
   SparseTreeNode<DataT, LabelT, IdxT> info;
-  /** start of sampled rows belonging to this node */
+  /**
+   * start of sampled rows belonging to this node */
   IdxT start;
-  /** number of sampled rows belonging to this node */
+  /**
+   * number of sampled rows belonging to this node */
   IdxT count;
-  /** depth of this node */
+  /**
+   * depth of this node */
   IdxT depth;
 
   /**
@@ -83,7 +88,7 @@ struct Node {
    * @param[inout] n_nodes     number of nodes created in current kernel launch
    * @param[in]    total_nodes total nodes created so far across all levels
    * @param[out]   nodes       the list of nodes
-   * @param[in]    splits      split info for current node
+   * @param[in]    split       split info for current node
    * @param[inout] n_depth     max depth of the created tree so far
    *
    * @return the position of the left child node in the above list

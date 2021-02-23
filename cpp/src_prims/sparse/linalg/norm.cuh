@@ -75,14 +75,18 @@ __global__ void csr_row_normalize_l1_kernel(
 }
 
 /**
- * @brief Perform L1 normalization on the rows of a given CSR-formatted sparse matrix
+ * @brief Perform L1 normalization on the rows of a given CSR-formatted sparse
+ *        matrix
  *
- * @param ia: row_ind array
- * @param vals: data array
- * @param nnz: size of data array
- * @param m: size of row_ind array
- * @param result: l1 normalized data array
- * @param stream: cuda stream to use
+ * @param ia     row_ind array
+ * @param vals   data array
+ * @param nnz    size of data array
+ * @param m      size of row_ind array
+ * @param result l1 normalized data array
+ * @param stream cuda stream to use
+ *
+ * @tparam TPB_X { description }
+ * @tparam T     { description }
  */
 template <int TPB_X = 64, typename T>
 void csr_row_normalize_l1(const int *ia,  // csr row ex_scan (sorted by row)
@@ -142,12 +146,15 @@ __global__ void csr_row_normalize_max_kernel(
 /**
  * @brief Perform L_inf normalization on a given CSR-formatted sparse matrix
  *
- * @param ia: row_ind array
- * @param vals: data array
- * @param nnz: size of data array
- * @param m: size of row_ind array
- * @param result: l1 normalized data array
- * @param stream: cuda stream to use
+ * @param ia     row_ind array
+ * @param vals   data array
+ * @param nnz    size of data array
+ * @param m      size of row_ind array
+ * @param result l1 normalized data array
+ * @param stream cuda stream to use
+ *
+ * @tparam TPB_X { description }
+ * @tparam T     { description }
  */
 
 template <int TPB_X = 64, typename T>

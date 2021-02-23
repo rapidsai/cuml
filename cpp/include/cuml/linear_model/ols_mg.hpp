@@ -26,16 +26,18 @@ namespace opg {
 
 /**
  * @brief performs MNMG fit operation for the ridge regression
- * @param[in] handle: the internal cuml handle object
- * @param[in] input_data: vector holding all partitions for that rank
- * @param[in] input_desc: PartDescriptor object for the input
- * @param[in] labels: labels data
- * @param[out] coef: learned regression coefficients
- * @param[out] intercept: intercept value
- * @param[in] fit_intercept: fit intercept or not
- * @param[in] normalize: normalize the data or not
- * @param[in] algo: which algorithm is used for OLS. 0 is for SVD, 1 is for eig.
- * @param[in] verbose
+ *
+ * @param[in]  handle        the internal cuml handle object
+ * @param[in]  input_data    vector holding all partitions for that rank
+ * @param[in]  input_desc    PartDescriptor object for the input
+ * @param[in]  labels        labels data
+ * @param[out] coef          learned regression coefficients
+ * @param[out] intercept     intercept value
+ * @param[in]  fit_intercept fit intercept or not
+ * @param[in]  normalize     normalize the data or not
+ * @param[in]  algo          which algorithm is used for OLS. 0 is for SVD, 1 is
+ *                           for eig.
+ * @param[in]  verbose       The verbose
  */
 void fit(raft::handle_t &handle,
          std::vector<MLCommon::Matrix::Data<float> *> &input_data,
@@ -53,16 +55,18 @@ void fit(raft::handle_t &handle,
 
 /**
  * @brief performs MNMG prediction for OLS
- * @param[in] handle: the internal cuml handle object
- * @param[in] rank_sizes: includes all the partition size information for the rank
- * @param[in] n_parts: number of partitions
- * @param[in] input: input data
- * @param[in] n_rows: number of rows of input data
- * @param[in] n_cols: number of cols of input data
- * @param[in] coef: OLS coefficients
- * @param[in] intercept: the fit intercept
- * @param[out] preds: predictions
- * @param[in] verbose
+ *
+ * @param[in]  handle     the internal cuml handle object
+ * @param[in]  rank_sizes includes all the partition size information for the
+ *                        rank
+ * @param[in]  n_parts    number of partitions
+ * @param[in]  input      input data
+ * @param[in]  n_rows     number of rows of input data
+ * @param[in]  n_cols     number of cols of input data
+ * @param[in]  coef       OLS coefficients
+ * @param[in]  intercept  the fit intercept
+ * @param[out] preds      predictions
+ * @param[in]  verbose    The verbose
  */
 void predict(raft::handle_t &handle,
              MLCommon::Matrix::RankSizePair **rank_sizes, size_t n_parts,

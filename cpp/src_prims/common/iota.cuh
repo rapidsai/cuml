@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -31,11 +31,12 @@ __global__ void iotaKernel(DataT* out, DataT start, DataT step, IdxT len) {
 /**
  * @brief GPU version of std::iota
  * @tparam DataT data type
- * @tparam IdxT indexing arithmetic type
- * @param out the output array
- * @param start start value in the array
- * @param step step size for each successive locations in the array
- * @param len the array length
+ * @tparam IdxT  indexing arithmetic type
+ *
+ * @param out    the output array
+ * @param start  start value in the array
+ * @param step   step size for each successive locations in the array
+ * @param len    the array length
  * @param stream cuda stream
  */
 template <typename DataT, typename IdxT>

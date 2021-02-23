@@ -114,18 +114,21 @@ inline void select_k_impl(value_t *inK, value_idx *inV, size_t n_rows,
 }
 
 /**
- * @brief Select the k-nearest neighbors from dense
- * distance and index matrices.
+ * @brief Select the k-nearest neighbors from dense distance and index matrices.
  *
- * @param[in] inK partitioned knn distance matrix
- * @param[in] inV partitioned knn index matrix
- * @param[in] n_rows number of rows in distance and index matrices
- * @param[in] n_cols number of columns in distance and index matrices
- * @param[out] outK merged knn distance matrix
- * @param[out] outV merged knn index matrix
- * @param[in] select_min whether to select the min or the max distances
- * @param[in] k number of neighbors per partition (also number of merged neighbors)
- * @param[in] stream CUDA stream to use
+ * @param[in]  inK        partitioned knn distance matrix
+ * @param[in]  inV        partitioned knn index matrix
+ * @param[in]  n_rows     number of rows in distance and index matrices
+ * @param[in]  n_cols     number of columns in distance and index matrices
+ * @param[out] outK       merged knn distance matrix
+ * @param[out] outV       merged knn index matrix
+ * @param[in]  select_min whether to select the min or the max distances
+ * @param[in]  k          number of neighbors per partition (also number of
+ *                        merged neighbors)
+ * @param[in]  stream     CUDA stream to use
+ *
+ * @tparam value_idx { description }
+ * @tparam value_t   { description }
  */
 template <typename value_idx = int, typename value_t = float>
 inline void select_k(value_t *inK, value_idx *inV, size_t n_rows, size_t n_cols,

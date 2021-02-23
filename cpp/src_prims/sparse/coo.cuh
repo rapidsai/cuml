@@ -37,23 +37,24 @@
 namespace raft {
 namespace sparse {
 
-/** @brief A Container object for sparse coordinate. There are two motivations
- * behind using a container for COO arrays.
+/**
+ * @brief A Container object for sparse coordinate. There are two motivations
+ *        behind using a container for COO arrays.
  *
- * The first motivation is that it simplifies code, rather than always having
- * to pass three arrays as function arguments.
+ *        The first motivation is that it simplifies code, rather than always
+ *        having to pass three arrays as function arguments.
  *
- * The second is more subtle, but much more important. The size
- * of the resulting COO from a sparse operation is often not known ahead of time,
- * since it depends on the contents of the underlying graph. The COO object can
- * allocate the underlying arrays lazily so that the object can be created by the
- * user and passed as an output argument in a sparse primitive. The sparse primitive
- * would have the responsibility for allocating and populating the output arrays,
- * while the original caller still maintains ownership of the underlying memory.
+ *        The second is more subtle, but much more important. The size of the
+ *        resulting COO from a sparse operation is often not known ahead of
+ *        time, since it depends on the contents of the underlying graph. The
+ *        COO object can allocate the underlying arrays lazily so that the
+ *        object can be created by the user and passed as an output argument in
+ *        a sparse primitive. The sparse primitive would have the responsibility
+ *        for allocating and populating the output arrays, while the original
+ *        caller still maintains ownership of the underlying memory.
  *
- * @tparam T: the type of the value array.
- * @tparam Index_Type: the type of index array
- *
+ * @tparam T          the type of the value array.
+ * @tparam Index_Type the type of index array
  */
 template <typename T, typename Index_Type = int>
 class COO {
@@ -68,8 +69,10 @@ class COO {
   Index_Type n_cols;
 
   /**
-    * @param d_alloc: the device allocator to use for the underlying buffers
-    * @param stream: CUDA stream to use
+    * @brief Constructs a new instance.
+    *
+    * @param d_alloc the device allocator to use for the underlying buffers
+    * @param stream  CUDA stream to use
     */
   COO(std::shared_ptr<raft::mr::device::allocator> d_alloc, cudaStream_t stream)
     : rows_arr(d_alloc, stream, 0),
@@ -80,12 +83,14 @@ class COO {
       n_cols(0) {}
 
   /**
-    * @param rows: coo rows array
-    * @param cols: coo cols array
-    * @param vals: coo vals array
-    * @param nnz: size of the rows/cols/vals arrays
-    * @param n_rows: number of rows in the dense matrix
-    * @param n_cols: number of cols in the dense matrix
+    * @brief Constructs a new instance.
+    *
+    * @param rows   coo rows array
+    * @param cols   coo cols array
+    * @param vals   coo vals array
+    * @param nnz    size of the rows/cols/vals arrays
+    * @param n_rows number of rows in the dense matrix
+    * @param n_cols number of cols in the dense matrix
     */
   COO(raft::mr::device::buffer<Index_Type> &rows,
       raft::mr::device::buffer<Index_Type> &cols,
@@ -99,12 +104,14 @@ class COO {
       n_cols(n_cols) {}
 
   /**
-    * @param d_alloc: the device allocator use
-    * @param stream: CUDA stream to use
-    * @param nnz: size of the rows/cols/vals arrays
-    * @param n_rows: number of rows in the dense matrix
-    * @param n_cols: number of cols in the dense matrix
-    * @param init: initialize arrays with zeros
+    * @brief Constructs a new instance.
+    *
+    * @param d_alloc the device allocator use
+    * @param stream  CUDA stream to use
+    * @param nnz     size of the rows/cols/vals arrays
+    * @param n_rows  number of rows in the dense matrix
+    * @param n_cols  number of cols in the dense matrix
+    * @param init    initialize arrays with zeros
     */
   COO(std::shared_ptr<raft::mr::device::allocator> d_alloc, cudaStream_t stream,
       Index_Type nnz, Index_Type n_rows = 0, Index_Type n_cols = 0,
@@ -130,8 +137,10 @@ class COO {
   ~COO() {}
 
   /**
-    * @brief Size should be > 0, with the number of rows
-    * and cols in the dense matrix being > 0.
+    * @brief Size should be > 0, with the number of rows and cols in the dense
+    *        matrix being > 0.
+    *
+    * @return { description_of_the_return_value }
     */
   bool validate_size() const {
     if (this->nnz < 0 || n_rows < 0 || n_cols < 0) return false;
@@ -139,8 +148,10 @@ class COO {
   }
 
   /**
-    * @brief If the underlying arrays have not been set,
-    * return false. Otherwise true.
+    * @brief If the underlying arrays have not been set, return false. Otherwise
+    *        true.
+    *
+    * @return { description_of_the_return_value }
     */
   bool validate_mem() const {
     if (this->rows_arr.size() == 0 || this->cols_arr.size() == 0 ||
@@ -158,16 +169,25 @@ class COO {
 
   /**
    * @brief Returns the cols array
+   *
+   * @return { description_of_the_return_value }
    */
   Index_Type *cols() { return this->cols_arr.data(); }
 
   /**
    * @brief Returns the vals array
+   *
+   * @return { description_of_the_return_value }
    */
   T *vals() { return this->vals_arr.data(); }
 
   /**
     * @brief Send human-readable state information to output stream
+    *
+    * @param     out   The out
+    * @param[in] c     { parameter_description }
+    *
+    * @return The result of the bitwise left shift
     */
   friend std::ostream &operator<<(std::ostream &out,
                                   const COO<T, Index_Type> &c) {
@@ -195,8 +215,9 @@ class COO {
 
   /**
     * @brief Set the number of rows and cols
-    * @param n_rows: number of rows in the dense matrix
-    * @param n_cols: number of columns in the dense matrix
+    *
+    * @param n_rows number of rows in the dense matrix
+    * @param n_cols number of columns in the dense matrix
     */
   void setSize(int n_rows, int n_cols) {
     this->n_rows = n_rows;
@@ -205,7 +226,8 @@ class COO {
 
   /**
     * @brief Set the number of rows and cols for a square dense matrix
-    * @param n: number of rows and cols
+    *
+    * @param n     number of rows and cols
     */
   void setSize(int n) {
     this->n_rows = n;
@@ -214,9 +236,10 @@ class COO {
 
   /**
     * @brief Allocate the underlying arrays
-    * @param nnz: size of underlying row/col/val arrays
-    * @param init: should values be initialized to 0?
-    * @param stream: CUDA stream to use
+    *
+    * @param nnz    size of underlying row/col/val arrays
+    * @param init   should values be initialized to 0?
+    * @param stream CUDA stream to use
     */
   void allocate(int nnz, bool init, cudaStream_t stream) {
     this->allocate(nnz, 0, init, stream);
@@ -224,10 +247,11 @@ class COO {
 
   /**
     * @brief Allocate the underlying arrays
-    * @param nnz: size of the underlying row/col/val arrays
-    * @param size: the number of rows/cols in a square dense matrix
-    * @param init: should values be initialized to 0?
-    * @param stream: CUDA stream to use
+    *
+    * @param nnz    size of the underlying row/col/val arrays
+    * @param size   the number of rows/cols in a square dense matrix
+    * @param init   should values be initialized to 0?
+    * @param stream CUDA stream to use
     */
   void allocate(int nnz, int size, bool init, cudaStream_t stream) {
     this->allocate(nnz, size, size, init, stream);
@@ -235,11 +259,12 @@ class COO {
 
   /**
     * @brief Allocate the underlying arrays
-    * @param nnz: size of the underlying row/col/val arrays
-    * @param n_rows: number of rows in the dense matrix
-    * @param n_cols: number of columns in the dense matrix
-    * @param init: should values be initialized to 0?
-    * @param stream: stream to use for init
+    *
+    * @param nnz    size of the underlying row/col/val arrays
+    * @param n_rows number of rows in the dense matrix
+    * @param n_cols number of columns in the dense matrix
+    * @param init   should values be initialized to 0?
+    * @param stream stream to use for init
     */
   void allocate(int nnz, int n_rows, int n_cols, bool init,
                 cudaStream_t stream) {

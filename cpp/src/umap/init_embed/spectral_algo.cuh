@@ -38,8 +38,20 @@ namespace SpectralInit {
 using namespace ML;
 
 /**
-   * Performs a spectral layout initialization
-   */
+  * Performs a spectral layout initialization
+  *
+  * @param[in] handle      The handle
+  * @param[in] n           { parameter_description }
+  * @param[in] d           { parameter_description }
+  * @param[in] knn_indices The knn indices
+  * @param[in] knn_dists   The knn dists
+  * @param     coo         The coo
+  * @param     params      The parameters
+  * @param     embedding   The embedding
+  *
+  * @tparam value_idx { description }
+  * @tparam T         { description }
+  */
 template <typename value_idx, typename T>
 void launcher(const raft::handle_t &handle, int n, int d,
               const value_idx *knn_indices, const T *knn_dists,

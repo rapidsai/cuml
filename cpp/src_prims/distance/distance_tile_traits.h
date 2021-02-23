@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,14 +26,20 @@ namespace MLCommon {
 namespace Distance {
 
 /**
- * @brief Traits class to configure the iterator which accesses
- *  A^2 column vector
- * @tparam Scalar_ the type of each element in A^2
- * @tparam Tile_ the tile shape
- * @tparam Threads_ the thread shape of each thread block
-   @tparam kStrideH_ elements we jump over at each iteration
-   @tparam kAccessSize_ the number of scalars accessed
- */
+ * { list_item_description }
+
+ @brief Traits class to configure the iterator which accesses
+ * A^2 column vector
+ * { list_item_description }
+
+ @tparam Scalar_      the type of each element in A^2
+ * { list_item_description }
+ @tparam Tile_        the tile shape
+ * { list_item_description }
+ @tparam Threads_     the thread shape of each thread block
+ @tparam kStrideH_    elements we jump over at each iteration
+ @tparam kAccessSize_ the number of scalars accessed
+*/
 template <typename Scalar_, typename Tile_, typename Threads_, int kStrideH_,
           int kAccessSize_>
 struct DistanceGlobalTileAATraits
@@ -62,7 +68,9 @@ struct DistanceGlobalTileAATraits
 
   typedef typename Base::ImmediateOffsetStrides ImmediateOffsetStrides;
 
-  /// Computes the thread offset in (H, W) based on thread ID
+  //////////////////////////////////////////////////////////////////////////////
+  // Computes the thread offset in (H, W) based on thread ID                  //
+  //////////////////////////////////////////////////////////////////////////////
   struct ThreadOffset {
     CUTLASS_HOST_DEVICE
     cutlass::Coord<4> operator()() const {
@@ -76,12 +84,12 @@ struct DistanceGlobalTileAATraits
 };
 
 /**
- * @brief Traits class to configure the iterator which accesses
- *  B^2 row vector
- * @tparam Scalar_ the type of each element in B^2
- * @tparam Tile_ the tile shape
- * @tparam Threads_ the thread shape of each thread block
-   @tparam kAccessSize_ the number of scalars accessed
+ * @brief Traits class to configure the iterator which accesses B^2 row vector
+ *
+ * @tparam Scalar_      the type of each element in B^2
+ * @tparam Tile_        the tile shape
+ * @tparam Threads_     the thread shape of each thread block
+ * @tparam kAccessSize_ the number of scalars accessed
  */
 template <typename Scalar_, typename Tile_, typename Threads_, int kAccessSize_>
 struct DistanceGlobalTileBBTraits
@@ -110,7 +118,9 @@ struct DistanceGlobalTileBBTraits
 
   typedef typename Base::ImmediateOffsetStrides ImmediateOffsetStrides;
 
-  /// Computes the thread offset in (H, W) based on thread ID
+  //////////////////////////////////////////////////////////////////////////////
+  // Computes the thread offset in (H, W) based on thread ID                  //
+  //////////////////////////////////////////////////////////////////////////////
   struct ThreadOffset {
     CUTLASS_HOST_DEVICE
     cutlass::Coord<4> operator()() const {

@@ -23,17 +23,19 @@
 namespace ML {
 
 /**
-     * @defgroup paramsRPROJ: structure holding parameters used by random projection model
-     * @param n_samples: Number of samples
-     * @param n_features: Number of features (original dimension)
-     * @param n_components: Number of components (target dimension)
-     * @param eps: error tolerance used to decide automatically of n_components
-     * @param gaussian_method: boolean describing random matrix generation method
-     * @param density: Density of the random matrix
-     * @param dense_output: boolean describing sparsity of transformed matrix
-     * @param random_state: seed used by random generator
-     * @{
-     */
+ * @defgroup paramsRPROJ: structure holding parameters used by random projection model
+ * @param n_samples:       Number of samples
+ * @param n_features:      Number of features (original dimension)
+ * @param n_components:    Number of components (target dimension)
+ * @param eps:             error tolerance used to decide automatically of
+ *                         n_components
+ * @param gaussian_method: boolean describing random matrix generation method
+ * @param density:         Density of the random matrix
+ * @param dense_output:    boolean describing sparsity of transformed matrix
+ * @param random_state:    seed used by random generator
+ *
+ * @{
+ */
 struct paramsRPROJ {
   int n_samples;
   int n_features;

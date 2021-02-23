@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,12 +24,15 @@ namespace LinAlg {
 
 /**
  * @defgroup ScalarOps Scalar operations on the input buffer
+ *
+ * @param out    the output buffer
+ * @param in     the input buffer
+ * @param len    number of elements in the input buffer
+ * @param stream cuda stream where to launch work
+ *
  * @tparam math_t data-type upon which the math operation will be performed
  * @tparam IdxType Integer type used to for addressing
- * @param out the output buffer
- * @param in the input buffer
- * @param len number of elements in the input buffer
- * @param stream cuda stream where to launch work
+ *
  * @{
  */
 template <typename math_t, typename IdxType = int>

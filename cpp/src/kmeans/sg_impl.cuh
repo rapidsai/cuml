@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -420,8 +420,8 @@ void initScalableKMeansPlusPlus(
                                               workspace, stream);
     /// <<<< End of Step-4 >>>>
 
-    /// <<<< Step-5 >>> : C = C U C'
-    // append the data in Cp to the buffer holding the potentialCentroids
+    /// <<<< Step-5 >>> : C = C U C' // append the data in Cp to the buffer
+    /// holding the potentialCentroids
     centroidsBuf.resize(centroidsBuf.size() + Cp.numElements(), stream);
     raft::copy(centroidsBuf.end() - Cp.numElements(), Cp.data(),
                Cp.numElements(), stream);

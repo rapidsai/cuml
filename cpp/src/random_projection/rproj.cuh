@@ -32,11 +32,15 @@ namespace ML {
 using namespace MLCommon;
 
 /**
-	 * @brief generates a gaussian random matrix
-	 * @param[in] h: cuML handle
-	 * @param[out] random_matrix: the random matrix to be allocated and generated
-	 * @param[in] params: data structure that includes all the parameters of the model
-	 */
+  * @brief generates a gaussian random matrix
+  *
+  * @param[in]  h             cuML handle
+  * @param[out] random_matrix the random matrix to be allocated and generated
+  * @param[in]  params        data structure that includes all the parameters of
+  *                           the model
+  *
+  * @tparam math_t { description }
+  */
 template <typename math_t>
 void gaussian_random_matrix(const raft::handle_t& h,
                             rand_mat<math_t>* random_matrix,
@@ -52,9 +56,13 @@ void gaussian_random_matrix(const raft::handle_t& h,
 
 /**
  * @brief generates a sparse random matrix
- * @param[in] h: cuML handle
- * @param[out] random_matrix: the random matrix to be allocated and generated
- * @param[in] params: data structure that includes all the parameters of the model
+ *
+ * @param[in]  h             cuML handle
+ * @param[out] random_matrix the random matrix to be allocated and generated
+ * @param[in]  params        data structure that includes all the parameters of
+ *                           the model
+ *
+ * @tparam math_t { description }
  */
 template <typename math_t>
 void sparse_random_matrix(const raft::handle_t& h,
@@ -117,11 +125,15 @@ void sparse_random_matrix(const raft::handle_t& h,
 }
 
 /**
-	 * @brief fits the model by generating appropriate random matrix
-	 * @param[in] handle: cuML handle
-	 * @param[out] random_matrix: the random matrix to be allocated and generated
-	 * @param[in] params: data structure that includes all the parameters of the model
-	 */
+  * @brief fits the model by generating appropriate random matrix
+  *
+  * @param[in]  handle        cuML handle
+  * @param[out] random_matrix the random matrix to be allocated and generated
+  * @param[in]  params        data structure that includes all the parameters of
+  *                           the model
+  *
+  * @tparam math_t { description }
+  */
 template <typename math_t>
 void RPROJfit(const raft::handle_t& handle, rand_mat<math_t>* random_matrix,
               paramsRPROJ* params) {
@@ -140,13 +152,17 @@ void RPROJfit(const raft::handle_t& handle, rand_mat<math_t>* random_matrix,
 }
 
 /**
-	 * @brief transforms data according to generated random matrix
-	 * @param[in] handle: cuML handle
-	 * @param[in] input: unprojected original dataset
-	 * @param[in] random_matrix: the random matrix to be allocated and generated
-	 * @param[out] output: projected dataset
-	 * @param[in] params: data structure that includes all the parameters of the model
-	 */
+  * @brief transforms data according to generated random matrix
+  *
+  * @param[in]  handle        cuML handle
+  * @param[in]  input         unprojected original dataset
+  * @param[in]  random_matrix the random matrix to be allocated and generated
+  * @param[out] output        projected dataset
+  * @param[in]  params        data structure that includes all the parameters of
+  *                           the model
+  *
+  * @tparam math_t { description }
+  */
 template <typename math_t>
 void RPROJtransform(const raft::handle_t& handle, math_t* input,
                     rand_mat<math_t>* random_matrix, math_t* output,

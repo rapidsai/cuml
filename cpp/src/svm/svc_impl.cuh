@@ -18,7 +18,7 @@
 
 /** @file svc_impl.cuh
  * @brief Implementation of the stateless C++ functions to fit an SVM
- * classifier, and predict with it.
+ *        classifier, and predict with it.
  */
 
 #include <iostream>

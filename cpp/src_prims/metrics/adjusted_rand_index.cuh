@@ -14,11 +14,12 @@
  * limitations under the License.
  */
 /**
-* @file adjusted_rand_index.cuh
-* @brief The adjusted Rand index is the corrected-for-chance version of the Rand index.
-* Such a correction for chance establishes a baseline by using the expected similarity
-* of all pair-wise comparisons between clusterings specified by a random model.
-*/
+ * @file adjusted_rand_index.cuh
+ * @brief The adjusted Rand index is the corrected-for-chance version of the
+ *        Rand index. Such a correction for chance establishes a baseline by
+ *        using the expected similarity of all pair-wise comparisons between
+ *        clusterings specified by a random model.
+ */
 
 #pragma once
 
@@ -39,9 +40,9 @@ namespace Metrics {
 /**
  * @brief Lambda to calculate the number of unordered pairs in a given input
  *
- * @tparam Type: Data type of the input
- * @param in: the input to the functional mapping
- * @param i: the indexing(not used in this case)
+ * @tparam Type  Data type of the input
+ * @param in:   the input to the functional mapping
+ * @param i:    the indexing(not used in this case)
  */
 template <typename Type>
 struct nCTwo {
@@ -65,14 +66,14 @@ struct Binner {
 /**
  * @brief Function to count the number of unique elements in the input array
  *
- * @tparam T data-type for input arrays
- *
  * @param[in]  arr       input array [on device] [len = size]
  * @param[in]  size      the size of the input array
  * @param[out] minLabel  the lower bound of the range of labels
  * @param[out] maxLabel  the upper bound of the range of labels
  * @param[in]  allocator device memory allocator
  * @param[in]  stream    cuda stream
+ *
+ * @tparam T     data-type for input arrays
  *
  * @return the number of unique elements in the array
  */
@@ -103,16 +104,21 @@ int countUnique(const T* arr, int size, T& minLabel, T& maxLabel,
 }
 
 /**
-* @brief Function to calculate Adjusted RandIndex as described
-*        <a href="https://en.wikipedia.org/wiki/Rand_index">here</a>
-* @tparam T data-type for input label arrays
-* @tparam MathT integral data-type used for computing n-choose-r
-* @param firstClusterArray: the array of classes
-* @param secondClusterArray: the array of classes
-* @param size: the size of the data points of type int
-* @param allocator: object that takes care of temporary device memory allocation
-* @param stream: the cudaStream object
-*/
+ * @brief Function to calculate Adjusted RandIndex as described <a
+ *        href="https://en.wikipedia.org/wiki/Rand_index">here</a>
+ *
+ * @param firstClusterArray  the array of classes
+ * @param secondClusterArray the array of classes
+ * @param size               the size of the data points of type int
+ * @param allocator          object that takes care of temporary device memory
+ *                           allocation
+ * @param stream             the cudaStream object
+ *
+ * @tparam T     data-type for input label arrays
+ * @tparam MathT integral data-type used for computing n-choose-r
+ *
+ * @return The adjusted random index.
+ */
 template <typename T, typename MathT = int>
 double compute_adjusted_rand_index(const T* firstClusterArray,
                                    const T* secondClusterArray, int size,

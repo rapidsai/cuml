@@ -28,7 +28,13 @@
 #include <vector>
 #include "memory.h"
 
-/** check for treelite runtime API errors and assert accordingly */
+/**
+ * check for treelite runtime API errors and assert accordingly
+ *
+ * @param call  The call
+ *
+ * @return { description_of_the_return_value }
+ */
 #define TREELITE_CHECK(call)                                            \
   do {                                                                  \
     int status = call;                                                  \

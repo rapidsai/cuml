@@ -111,8 +111,11 @@ void compute_l2(value_t *out, const value_idx *Q_coo_rows,
 }
 
 /**
- * L2 distance using the expanded form: sum(x_k)^2 + sum(y_k)^2 - 2 * sum(x_k * y_k)
- * The expanded form is more efficient for sparse data.
+ * L2 distance using the expanded form: sum(x_k)^2 + sum(y_k)^2 - 2 * sum(x_k *
+ * y_k) The expanded form is more efficient for sparse data.
+ *
+ * @tparam value_idx { description }
+ * @tparam value_t   { description }
  */
 template <typename value_idx = int, typename value_t = float>
 class l2_expanded_distances_t : public distances_t<value_t> {
@@ -156,8 +159,12 @@ class l2_expanded_distances_t : public distances_t<value_t> {
 };
 
 /**
- * Cosine distance using the expanded form: 1 - ( sum(x_k * y_k) / (sqrt(sum(x_k)^2) * sqrt(sum(y_k)^2)))
- * The expanded form is more efficient for sparse data.
+ * Cosine distance using the expanded form: 1 - ( sum(x_k * y_k) /
+ * (sqrt(sum(x_k)^2) * sqrt(sum(y_k)^2))) The expanded form is more efficient
+ * for sparse data.
+ *
+ * @tparam value_idx { description }
+ * @tparam value_t   { description }
  */
 template <typename value_idx = int, typename value_t = float>
 class cosine_expanded_distances_t : public distances_t<value_t> {
@@ -204,13 +211,15 @@ class cosine_expanded_distances_t : public distances_t<value_t> {
 };
 
 /**
- * Hellinger distance using the expanded form: sqrt(1 - sum(sqrt(x_k) * sqrt(y_k)))
- * The expanded form is more efficient for sparse data.
+ * Hellinger distance using the expanded form: sqrt(1 - sum(sqrt(x_k) *
+ * sqrt(y_k))) The expanded form is more efficient for sparse data.
  *
- * This distance computation modifies A and B by computing a sqrt
- * and then performing a `pow(x, 2)` to convert it back. Because of this,
- * it is possible that the values in A and B might differ slightly
- * after this is invoked.
+ * This distance computation modifies A and B by computing a sqrt and then
+ * performing a `pow(x, 2)` to convert it back. Because of this, it is possible
+ * that the values in A and B might differ slightly after this is invoked.
+ *
+ * @tparam value_idx { description }
+ * @tparam value_t   { description }
  */
 template <typename value_idx = int, typename value_t = float>
 class hellinger_expanded_distances_t : public distances_t<value_t> {

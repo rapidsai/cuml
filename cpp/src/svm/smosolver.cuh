@@ -46,8 +46,8 @@ namespace ML {
 namespace SVM {
 
 /**
- * @brief Solve the quadratic optimization problem using two level decomposition
- * and Sequential Minimal Optimization (SMO).
+ * Solve the quadratic optimization problem using two level decomposition and
+ * Sequential Minimal Optimization (SMO).
  *
  * The general decomposition idea by Osuna is to choose q examples from all the
  * training examples, and solve the QP problem for this subset (discussed in
@@ -61,14 +61,17 @@ namespace SVM {
  * which is implemented in SmoBlockSolve.
  *
  * References:
+ *
  * - [1] Joachims, T. Making large-scale support vector machine learning
- *      practical. In B. Scholkopf, C. Burges, & A. Smola (Eds.), Advances in
- *      kernel methods: Support vector machines. Cambridge, MA: MIT Press (1998)
+ *   practical. In B. Scholkopf, C. Burges, & A. Smola (Eds.), Advances in
+ *   kernel methods: Support vector machines. Cambridge, MA: MIT Press (1998)
  * - [2] J. Vanek et al. A GPU-Architecture Optimized Hierarchical Decomposition
- *      Algorithm for Support VectorMachine Training, IEEE Transactions on
- *      Parallel and Distributed Systems, vol 28, no 12, 3330, (2017)
+ *   Algorithm for Support VectorMachine Training, IEEE Transactions on Parallel
+ *   and Distributed Systems, vol 28, no 12, 3330, (2017)
  * - [3] Z. Wen et al. ThunderSVM: A Fast SVM Library on GPUs and CPUs, Journal
- *      of Machine Learning Research, 19, 1-5 (2018)
+ *   of Machine Learning Research, 19, 1-5 (2018)
+ *
+ * @tparam math_t { description }
  */
 template <typename math_t>
 class SmoSolver {
@@ -96,24 +99,29 @@ class SmoSolver {
 
 #define SMO_WS_SIZE 1024
   /**
-   * @brief Solve the quadratic optimization problem.
+   * Solve the quadratic optimization problem.
    *
    * The output arrays (dual_coefs, x_support, idx) will be allocated on the
    * device, they should be unallocated on entry.
    *
-   * @param [in] x training vectors in column major format, size [n_rows x n_cols]
-   * @param [in] n_rows number of rows (training vectors)
-   * @param [in] n_cols number of columns (features)
-   * @param [in] y labels (values +/-1), size [n_rows]
-   * @param [in] sample_weight device array of sample weights (or nullptr if not
-   *     applicable)
-   * @param [out] dual_coefs size [n_support] on exit
-   * @param [out] n_support number of support vectors
-   * @param [out] x_support support vectors in column major format, size [n_support, n_cols]
-   * @param [out] idx the original training set indices of the support vectors, size [n_support]
-   * @param [out] b scalar constant for the decision function
-   * @param [in] max_outer_iter maximum number of outer iteration (default 100 * n_rows)
-   * @param [in] max_inner_iter maximum number of inner iterations (default 10000)
+   * @param[in]  x              training vectors in column major format, size
+   *                            [n_rows x n_cols]
+   * @param[in]  n_rows         number of rows (training vectors)
+   * @param[in]  n_cols         number of columns (features)
+   * @param[in]  y              labels (values +/-1), size [n_rows]
+   * @param[in]  sample_weight  device array of sample weights (or nullptr if
+   *                            not applicable)
+   * @param[out] dual_coefs     size [n_support] on exit
+   * @param[out] n_support      number of support vectors
+   * @param[out] x_support      support vectors in column major format, size
+   *                            [n_support, n_cols]
+   * @param[out] idx            the original training set indices of the support
+   *                            vectors, size [n_support]
+   * @param[out] b              scalar constant for the decision function
+   * @param[in]  max_outer_iter maximum number of outer iteration (default 100 *
+   *                            n_rows)
+   * @param[in]  max_inner_iter maximum number of inner iterations (default
+   *                            10000)
    */
   void Solve(math_t *x, int n_rows, int n_cols, math_t *y,
              const math_t *sample_weight, math_t **dual_coefs, int *n_support,
@@ -173,18 +181,19 @@ class SmoSolver {
   }
 
   /**
-   * @brief Update the f vector after a block solve step.
+   * Update the f vector after a block solve step.
    *
-   * \f[ f_i = f_i + \sum_{k\in WS} K_{i,k} * \Delta \alpha_k, \f]
-   * where i = [0..n_train-1], WS is the set of workspace indices,
-   * and \f$K_{i,k}\f$ is the kernel function evaluated for training vector x_i and workspace vector x_k.
+   * @f[ f_i = f_i + \sum_{k\in WS} K_{i,k} * \Delta \alpha_k,
+   * @f] where i = [0..n_train-1], WS is the set of workspace indices, and
+   * @f$K_{i,k}\f$ is the kernel function evaluated for training vector x_i and
+   * workspace vector x_k.
    *
-   * @param f size [n_train]
-   * @param n_rows
+   * @param f           size [n_train]
+   * @param n_rows      The n rows
    * @param delta_alpha size [n_ws]
-   * @param n_ws
-   * @param cacheTile kernel function evaluated for the following set K[X,x_ws],
-   *   size [n_rows, n_ws]
+   * @param n_ws        The n ws
+   * @param cacheTile   kernel function evaluated for the following set
+   *                    K[X,x_ws], size [n_rows, n_ws]
    */
   void UpdateF(math_t *f, int n_rows, const math_t *delta_alpha, int n_ws,
                const math_t *cacheTile) {
@@ -202,12 +211,13 @@ class SmoSolver {
     }
   }
 
-  /** @brief Initialize the problem to solve.
+  /** Initialize the problem to solve.
    *
-   * Both SVC and SVR are solved as a classification problem.
-   * The optimization target (W) does not appear directly in the SMO
-   * formulation, only its derivative through f (optimality indicator vector):
-   * \f[ f_i = y_i \frac{\partial W }{\partial \alpha_i}. \f]
+   * Both SVC and SVR are solved as a classification problem. The optimization
+   * target (W) does not appear directly in the SMO formulation, only its
+   * derivative through f (optimality indicator vector):
+   * @f[ f_i = y_i \frac{\partial W }{\partial \alpha_i}.
+   * @f]
    *
    * The f_i values are initialized here, and updated at every solver iteration
    * when alpha changes. The update step is the same for SVC and SVR, only the
@@ -216,12 +226,12 @@ class SmoSolver {
    * Additionally, we zero init the dual coefficients (alpha), and initialize
    * class labels for SVR.
    *
-   * @param[inout] y on entry class labels or target values,
-   *    on exit device pointer to class labels
-   * @param[in] sample_weight sample weights (can be nullptr, otherwise device
-   *    array of size [n_rows])
-   * @param[in] n_rows
-   * @param[in] n_cols
+   * @param[inout] y             on entry class labels or target values, on exit
+   *                             device pointer to class labels
+   * @param[in]    sample_weight sample weights (can be nullptr, otherwise
+   *                             device array of size [n_rows])
+   * @param[in]    n_rows        The n rows
+   * @param[in]    n_cols        The n cols
    */
   void Initialize(math_t **y, const math_t *sample_weight, int n_rows,
                   int n_cols) {
@@ -266,17 +276,19 @@ class SmoSolver {
       }
     }
   }
-  /** @brief Initialize Support Vector Classification
+  /** Initialize Support Vector Classification
    *
    * We would like to maximize the following quantity
-   * \f[ W(\mathbf{\alpha}) = -\mathbf{\alpha}^T \mathbf{1}
-   *   + \frac{1}{2} \mathbf{\alpha}^T Q \mathbf{\alpha}, \f]
+   * @f[ W(\mathbf{\alpha}) = -\mathbf{\alpha}^T \mathbf{1}
+   *   + \frac{1}{2} \mathbf{\alpha}^T Q \mathbf{\alpha},
+   * @f]
    *
    * We initialize f as:
-   * \f[ f_i = y_i \frac{\partial W(\mathbf{\alpha})}{\partial \alpha_i} =
-   *          -y_i +   y_j \alpha_j K(\mathbf{x}_i, \mathbf{x}_j) \f]
+   * @f[ f_i = y_i \frac{\partial W(\mathbf{\alpha})}{\partial \alpha_i} = -y_i +
+   * y_j \alpha_j K(\mathbf{x}_i, \mathbf{x}_j)
+   * @f]
    *
-   * @param [in] y device pointer of class labels size [n_rows]
+   * @param[in] y     device pointer of class labels size [n_rows]
    */
   void SvcInit(const math_t *y) {
     raft::linalg::unaryOp(
@@ -284,37 +296,37 @@ class SmoSolver {
   }
 
   /**
-   * @brief Initializes the solver for epsilon-SVR.
+   * Initializes the solver for epsilon-SVR.
    *
    * For regression we are optimizing the following quantity
-   * \f[
-   * W(\alpha^+, \alpha^-) =
-   * \epsilon \sum_{i=1}^l (\alpha_i^+ + \alpha_i^-)
+   * @f[ W(\alpha^+, \alpha^-) = \epsilon \sum_{i=1}^l (\alpha_i^+ + \alpha_i^-)
    * - \sum_{i=1}^l yc_i (\alpha_i^+ - \alpha_i^-)
-   * + \frac{1}{2} \sum_{i,j=1}^l
-   *   (\alpha_i^+ - \alpha_i^-)(\alpha_j^+ - \alpha_j^-) K(\bm{x}_i, \bm{x}_j)
-   * \f]
+   * + \frac{1}{2} \sum_{i,j=1}^l (\alpha_i^+ - \alpha_i^-)(\alpha_j^+ -
+   *   \alpha_j^-) K(\bm{x}_i, \bm{x}_j)
+   * @f]
    *
-   * Then \f$ f_i = y_i \frac{\partial W(\alpha}{\partial \alpha_i} \f$
-   *      \f$     = yc_i*epsilon - yr_i \f$
+   * Then
+   * @f$ f_i = y_i \frac{\partial W(\alpha}{\partial \alpha_i}
+   * @f$
+   * @f$     = yc_i*epsilon - yr_i
+   * @f$
    *
    * Additionally we set class labels for the training vectors.
    *
    * References:
-   * [1] B. Schölkopf et. al (1998): New support vector algorithms,
-   *     NeuroCOLT2 Technical Report Series, NC2-TR-1998-031, Section 6
-   * [2] A.J. Smola, B. Schölkopf (2004): A tutorial on support vector
-   *     regression, Statistics and Computing 14, 199–222
-   * [3] Orchel M. (2011) Support Vector Regression as a Classification Problem
-   *     with a Priori Knowledge in the Form of Detractors,
-   *     Man-Machine Interactions 2. Advances in Intelligent and Soft Computing,
-   *     vol 103
+   * - [1] B. Schölkopf et. al (1998): New support vector algorithms, NeuroCOLT2
+   *   Technical Report Series, NC2-TR-1998-031, Section 6
+   * - [2] A.J. Smola, B. Schölkopf (2004): A tutorial on support vector
+   *   regression, Statistics and Computing 14, 199–222
+   * - [3] Orchel M. (2011) Support Vector Regression as a Classification
+   *   Problem with a Priori Knowledge in the Form of Detractors, Man-Machine
+   *   Interactions 2. Advances in Intelligent and Soft Computing, vol 103
    *
-   * @param [in] yr device pointer with values for regression, size [n_rows]
-   * @param [in] n_rows
-   * @param [out] yc device pointer to classes associated to the dual
-   *     coefficients, size [n_rows*2]
-   * @param [out] f device pointer f size [n_rows*2]
+   * @param[in]  yr     device pointer with values for regression, size [n_rows]
+   * @param[in]  n_rows The n rows
+   * @param[out] yc     device pointer to classes associated to the dual
+   *                    coefficients, size [n_rows*2]
+   * @param[out] f      device pointer f size [n_rows*2]
    */
   void SvrInit(const math_t *yr, int n_rows, math_t *yc, math_t *f) {
     // Init class labels to [1, 1, 1, ..., -1, -1, -1, ...]
@@ -341,21 +353,21 @@ class SmoSolver {
   const raft::handle_t &handle;
   cudaStream_t stream;
 
-  int n_rows = 0;  //!< training data number of rows
-  int n_cols = 0;  //!< training data number of columns
-  int n_ws = 0;    //!< size of the working set
+  int n_rows = 0;  //! < training data number of rows
+  int n_cols = 0;  //! < training data number of columns
+  int n_ws = 0;    //! < size of the working set
   int n_train =
-    0;  //!< number of training vectors (including duplicates for SVR)
+    0;  //! < number of training vectors (including duplicates for SVR)
 
   // Buffers for the domain [n_train]
-  MLCommon::device_buffer<math_t> alpha;    //!< dual coordinates
-  MLCommon::device_buffer<math_t> f;        //!< optimality indicator vector
-  MLCommon::device_buffer<math_t> y_label;  //!< extra label for regression
+  MLCommon::device_buffer<math_t> alpha;    //! < dual coordinates
+  MLCommon::device_buffer<math_t> f;        //! < optimality indicator vector
+  MLCommon::device_buffer<math_t> y_label;  //! < extra label for regression
 
-  MLCommon::device_buffer<math_t> C_vec;  //!< penalty parameter vector
+  MLCommon::device_buffer<math_t> C_vec;  //! < penalty parameter vector
 
   // Buffers for the working set [n_ws]
-  //! change in alpha parameter during a blocksolve step
+  // change in alpha parameter during a blocksolve step
   MLCommon::device_buffer<math_t> delta_alpha;
 
   // Buffers to return some parameters from the kernel (iteration number, and
@@ -364,13 +376,13 @@ class SmoSolver {
   math_t host_return_buff[2];
 
   math_t C;
-  math_t tol;      //!< tolerance for stopping condition
-  math_t epsilon;  //!< epsilon parameter for epsiolon-SVR
+  math_t tol;      //! < tolerance for stopping condition
+  math_t epsilon;  //! < epsilon parameter for epsiolon-SVR
 
   MLCommon::Matrix::GramMatrixBase<math_t> *kernel;
-  float cache_size;  //!< size of kernel cache in MiB
+  float cache_size;  //! < size of kernel cache in MiB
 
-  SvmType svmType;  ///!< Type of the SVM problem to solve
+  SvmType svmType;  //! < Type of the SVM problem to solve
 
   // Variables to track convergence of training
   math_t diff_prev;
@@ -407,7 +419,7 @@ class SmoSolver {
     return keep_going;
   }
 
-  /// Return the number of maximum iterations.
+  // Return the number of maximum iterations.
   int GetDefaultMaxIter(int n_train, int max_outer_iter) {
     if (max_outer_iter == -1) {
       max_outer_iter = n_train < std::numeric_limits<int>::max() / 100

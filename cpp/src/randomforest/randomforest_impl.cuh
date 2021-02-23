@@ -30,10 +30,13 @@
 namespace ML {
 /**
  * @brief Construct rf (random forest) object.
- * @tparam T: data type for input data (float or double).
- * @tparam L: data type for labels (int type for classification, T type for regression).
- * @param[in] cfg_rf_params: Random forest hyper-parameter struct.
- * @param[in] cfg_rf_type: Random forest type.
+ *
+ * @param[in] cfg_rf_params Random forest hyper-parameter struct.
+ * @param[in] cfg_rf_type   Random forest type.
+ *
+ * @tparam T     data type for input data (float or double).
+ * @tparam L     data type for labels (int type for classification, T type for
+ *               regression).
  */
 template <typename T, typename L>
 rf<T, L>::rf(RF_params cfg_rf_params, int cfg_rf_type)
@@ -43,8 +46,12 @@ rf<T, L>::rf(RF_params cfg_rf_params, int cfg_rf_type)
 
 /**
  * @brief Return number of trees in the forest.
- * @tparam T: data type for input data (float or double).
- * @tparam L: data type for labels (int type for classification, T type for regression).
+ *
+ * @tparam T     data type for input data (float or double).
+ * @tparam L     data type for labels (int type for classification, T type for
+ *               regression).
+ *
+ * @return The ntrees.
  */
 template <typename T, typename L>
 int rf<T, L>::get_ntrees() {
@@ -53,15 +60,18 @@ int rf<T, L>::get_ntrees() {
 
 /**
  * @brief Sample row IDs for tree fitting and bootstrap if requested.
- * @tparam T: data type for input data (float or double).
- * @tparam L: data type for labels (int type for classification, T type for regression).
- * @param[in] tree_id: unique tree ID
- * @param[in] n_rows: total number of data samples.
- * @param[in] n_sampled_rows: number of rows used for training
- * @param[in, out] selected_rows: already allocated array w/ row IDs
- * @param[in] num_sms: No of SM in current GPU
- * @param[in] stream: Current cuda stream
- * @param[in] device_allocator: Current device allocator from cuml handle
+ *
+ * @param[in]      tree_id          unique tree ID
+ * @param[in]      n_rows           total number of data samples.
+ * @param[in]      n_sampled_rows   number of rows used for training
+ * @param[in, out] selected_rows    already allocated array w/ row IDs
+ * @param[in]      num_sms          No of SM in current GPU
+ * @param[in]      stream           Current cuda stream
+ * @param[in]      device_allocator Current device allocator from cuml handle
+ *
+ * @tparam T     data type for input data (float or double).
+ * @tparam L     data type for labels (int type for classification, T type for
+ *               regression).
  */
 template <typename T, typename L>
 void rf<T, L>::prepare_fit_per_tree(
@@ -106,8 +116,10 @@ void rf<T, L>::error_checking(const T* input, L* predictions, int n_rows,
 
 /**
  * @brief Construct rfClassifier object.
- * @tparam T: data type for input data (float or double).
- * @param[in] cfg_rf_params: Random forest hyper-parameter struct.
+ *
+ * @param[in] cfg_rf_params Random forest hyper-parameter struct.
+ *
+ * @tparam T     data type for input data (float or double).
  */
 template <typename T>
 rfClassifier<T>::rfClassifier(RF_params cfg_rf_params)
@@ -117,7 +129,8 @@ rfClassifier<T>::rfClassifier(RF_params cfg_rf_params)
 
 /**
  * @brief Destructor for random forest classifier object.
- * @tparam T: data type for input data (float or double).
+ *
+ * @tparam T     data type for input data (float or double).
  */
 template <typename T>
 rfClassifier<T>::~rfClassifier() {
@@ -126,7 +139,10 @@ rfClassifier<T>::~rfClassifier() {
 
 /**
  * @brief Return a const pointer to decision tree classifiers.
- * @tparam T: data type for input data (float or double).
+ *
+ * @tparam T     data type for input data (float or double).
+ *
+ * @return The trees pointer.
  */
 template <typename T>
 const DecisionTree::DecisionTreeClassifier<T>* rfClassifier<T>::get_trees_ptr()
@@ -136,17 +152,23 @@ const DecisionTree::DecisionTreeClassifier<T>* rfClassifier<T>::get_trees_ptr()
 
 /**
  * @brief Build (i.e., fit, train) random forest classifier for input data.
- * @tparam T: data type for input data (float or double).
- * @param[in] user_handle: raft::handle_t
- * @param[in] input: train data (n_rows samples, n_cols features) in column major format,
- *   excluding labels. Device pointer.
- * @param[in] n_rows: number of training data samples.
- * @param[in] n_cols: number of features (i.e., columns) excluding target feature.
- * @param[in] labels: 1D array of target features (int only), with one label per training sample. Device pointer.
-          Assumption: labels were preprocessed to map to ascending numbers from 0;
-          needed for current gini impl in decision tree
- * @param[in] n_unique_labels: #unique label values (known during preprocessing)
- * @param[in] forest: CPU point to RandomForestMetaData struct.
+ *
+ * @param[in] user_handle     raft::handle_t
+ * @param[in] input           train data (n_rows samples, n_cols features) in
+ *                            column major format, excluding labels. Device
+ *                            pointer.
+ * @param[in] n_rows          number of training data samples.
+ * @param[in] n_cols          number of features (i.e., columns) excluding
+ *                            target feature.
+ * @param[in] labels          1D array of target features (int only), with one
+ *                            label per training sample. Device pointer.
+ *                            Assumption: labels were preprocessed to map to
+ *                            ascending numbers from 0; needed for current gini
+ *                            impl in decision tree
+ * @param[in] n_unique_labels unique label values (known during preprocessing)
+ * @param[in] forest          CPU point to RandomForestMetaData struct.
+ *
+ * @tparam T     data type for input data (float or double).
  */
 template <typename T>
 void rfClassifier<T>::fit(const raft::handle_t& user_handle, const T* input,
@@ -246,14 +268,21 @@ void rfClassifier<T>::fit(const raft::handle_t& user_handle, const T* input,
 }
 
 /**
- * @brief Predict target feature for input data; n-ary classification for single feature supported.
- * @tparam T: data type for input data (float or double).
- * @param[in] user_handle: raft::handle_t.
- * @param[in] input: test data (n_rows samples, n_cols features) in row major format. GPU pointer.
- * @param[in] n_rows: number of  data samples.
- * @param[in] n_cols: number of features (excluding target feature).
- * @param[in, out] predictions: n_rows predicted labels. GPU pointer, user allocated.
- * @param[in] verbosity: verbosity level for logging messages during execution
+ * @brief Predict target feature for input data; n-ary classification for single
+ *        feature supported.
+ *
+ * @param[in]      user_handle raft::handle_t.
+ * @param[in]      input       test data (n_rows samples, n_cols features) in
+ *                             row major format. GPU pointer.
+ * @param[in]      n_rows      number of  data samples.
+ * @param[in]      n_cols      number of features (excluding target feature).
+ * @param[in, out] predictions n_rows predicted labels. GPU pointer, user
+ *                             allocated.
+ * @param[in]      forest      The forest
+ * @param[in]      verbosity   verbosity level for logging messages during
+ *                             execution
+ *
+ * @tparam T     data type for input data (float or double).
  */
 template <typename T>
 void rfClassifier<T>::predict(const raft::handle_t& user_handle, const T* input,
@@ -309,14 +338,21 @@ void rfClassifier<T>::predict(const raft::handle_t& user_handle, const T* input,
 }
 
 /**
- * @brief Predict target feature for input data; n-ary classification for single feature supported.
- * @tparam T: data type for input data (float or double).
- * @param[in] user_handle: raft::handle_t.
- * @param[in] input: test data (n_rows samples, n_cols features) in row major format. GPU pointer.
- * @param[in] n_rows: number of  data samples.
- * @param[in] n_cols: number of features (excluding target feature).
- * @param[in, out] predictions: n_rows predicted labels. GPU pointer, user allocated.
- * @param[in] verbosity: verbosity level for logging messages during execution
+ * @brief Predict target feature for input data; n-ary classification for single
+ *        feature supported.
+ *
+ * @param[in]      user_handle raft::handle_t.
+ * @param[in]      input       test data (n_rows samples, n_cols features) in
+ *                             row major format. GPU pointer.
+ * @param[in]      n_rows      number of  data samples.
+ * @param[in]      n_cols      number of features (excluding target feature).
+ * @param[in, out] predictions n_rows predicted labels. GPU pointer, user
+ *                             allocated.
+ * @param[in]      forest      The forest
+ * @param[in]      verbosity   verbosity level for logging messages during
+ *                             execution
+ *
+ * @tparam T     data type for input data (float or double).
  */
 template <typename T>
 void rfClassifier<T>::predictGetAll(const raft::handle_t& user_handle,
@@ -362,14 +398,17 @@ void rfClassifier<T>::predictGetAll(const raft::handle_t& user_handle,
 
 /**
  * @brief Predict target feature for input data and validate against ref_labels.
- * @tparam T: data type for input data (float or double).
- * @param[in] user_handle: raft::handle_t.
- * @param[in] input: test data (n_rows samples, n_cols features) in row major format. GPU pointer.
- * @param[in] ref_labels: label values for cross validation (n_rows elements); GPU pointer.
- * @param[in] n_rows: number of  data samples.
- * @param[in] n_cols: number of features (excluding target feature).
- * @param[in] predictions: n_rows predicted labels. GPU pointer, user allocated.
- * @param[in] verbosity: verbosity level for logging messages during execution
+ *
+ * @param[in] user_handle raft::handle_t.
+ * @param[in] ref_labels  label values for cross validation (n_rows elements);
+ *                        GPU pointer.
+ * @param[in] n_rows      number of data samples.
+ * @param[in] predictions n_rows predicted labels. GPU pointer, user allocated.
+ * @param[in] verbosity   verbosity level for logging messages during execution
+ *
+ * @tparam T     data type for input data (float or double).
+ *
+ * @return The rf metrics.
  */
 template <typename T>
 RF_metrics rfClassifier<T>::score(const raft::handle_t& user_handle,
@@ -391,8 +430,10 @@ RF_metrics rfClassifier<T>::score(const raft::handle_t& user_handle,
 
 /**
  * @brief Construct rfRegressor object.
- * @tparam T: data type for input data (float or double).
- * @param[in] cfg_rf_params: Random forest hyper-parameter struct.
+ *
+ * @param[in] cfg_rf_params Random forest hyper-parameter struct.
+ *
+ * @tparam T     data type for input data (float or double).
  */
 template <typename T>
 rfRegressor<T>::rfRegressor(RF_params cfg_rf_params)
@@ -402,7 +443,8 @@ rfRegressor<T>::rfRegressor(RF_params cfg_rf_params)
 
 /**
  * @brief Destructor for random forest regressor object.
- * @tparam T: data type for input data (float or double).
+ *
+ * @tparam T     data type for input data (float or double).
  */
 template <typename T>
 rfRegressor<T>::~rfRegressor() {
@@ -411,7 +453,10 @@ rfRegressor<T>::~rfRegressor() {
 
 /**
  * @brief Return a const pointer to decision tree regressors.
- * @tparam T: data type for input data (float or double).
+ *
+ * @tparam T     data type for input data (float or double).
+ *
+ * @return The trees pointer.
  */
 template <typename T>
 const DecisionTree::DecisionTreeRegressor<T>* rfRegressor<T>::get_trees_ptr()
@@ -421,13 +466,20 @@ const DecisionTree::DecisionTreeRegressor<T>* rfRegressor<T>::get_trees_ptr()
 
 /**
  * @brief Build (i.e., fit, train) random forest regressor for input data.
- * @tparam T: data type for input data (float or double).
- * @param[in] user_handle: raft::handle_t
- * @param[in] input: train data (n_rows samples, n_cols features) in column major format, excluding labels. Device pointer.
- * @param[in] n_rows: number of training data samples.
- * @param[in] n_cols: number of features (i.e., columns) excluding target feature.
- * @param[in] labels: 1D array of target features (float or double), with one label per training sample. Device pointer.
- * @param[in, out] forest: CPU pointer to RandomForestMetaData struct
+ *
+ * @param[in]      user_handle raft::handle_t
+ * @param[in]      input       train data (n_rows samples, n_cols features) in
+ *                             column major format, excluding labels. Device
+ *                             pointer.
+ * @param[in]      n_rows      number of training data samples.
+ * @param[in]      n_cols      number of features (i.e., columns) excluding
+ *                             target feature.
+ * @param[in]      labels      1D array of target features (float or double),
+ *                             with one label per training sample. Device
+ *                             pointer.
+ * @param[in, out] forest      CPU pointer to RandomForestMetaData struct
+ *
+ * @tparam T     data type for input data (float or double).
  */
 template <typename T>
 void rfRegressor<T>::fit(const raft::handle_t& user_handle, const T* input,
@@ -522,15 +574,21 @@ void rfRegressor<T>::fit(const raft::handle_t& user_handle, const T* input,
 }
 
 /**
- * @brief Predict target feature for input data; regression for single feature supported.
- * @tparam T: data type for input data (float or double).
- * @param[in] user_handle: raft::handle_t.
- * @param[in] input: test data (n_rows samples, n_cols features) in row major format. GPU pointer.
- * @param[in] n_rows: number of  data samples.
- * @param[in] n_cols: number of features (excluding target feature).
- * @param[in, out] predictions: n_rows predicted labels. GPU pointer, user allocated.
- * @param[in] forest: CPU pointer to RandomForestMetaData struct
- * @param[in] verbosity: verbosity level for logging messages during execution
+ * @brief Predict target feature for input data; regression for single feature
+ *        supported.
+ *
+ * @param[in]      user_handle raft::handle_t.
+ * @param[in]      input       test data (n_rows samples, n_cols features) in
+ *                             row major format. GPU pointer.
+ * @param[in]      n_rows      number of  data samples.
+ * @param[in]      n_cols      number of features (excluding target feature).
+ * @param[in, out] predictions n_rows predicted labels. GPU pointer, user
+ *                             allocated.
+ * @param[in]      forest      CPU pointer to RandomForestMetaData struct
+ * @param[in]      verbosity   verbosity level for logging messages during
+ *                             execution
+ *
+ * @tparam T     data type for input data (float or double).
  */
 template <typename T>
 void rfRegressor<T>::predict(const raft::handle_t& user_handle, const T* input,
@@ -576,15 +634,17 @@ void rfRegressor<T>::predict(const raft::handle_t& user_handle, const T* input,
 
 /**
  * @brief Predict target feature for input data and validate against ref_labels.
- * @tparam T: data type for input data (float or double).
- * @param[in] user_handle: raft::handle_t.
- * @param[in] input: test data (n_rows samples, n_cols features) in row major format. GPU pointer.
- * @param[in] ref_labels: label values for cross validation (n_rows elements); GPU pointer.
- * @param[in] n_rows: number of  data samples.
- * @param[in] n_cols: number of features (excluding target feature).
- * @param[in] predictions: n_rows predicted labels. GPU pointer, user allocated.
- * @param[in] forest: CPU pointer to RandomForestMetaData struct
- * @param[in] verbosity: verbosity level for logging messages during execution
+ *
+ * @param[in] user_handle raft::handle_t.
+ * @param[in] ref_labels  label values for cross validation (n_rows elements);
+ *                        GPU pointer.
+ * @param[in] n_rows      number of  data samples.
+ * @param[in] predictions n_rows predicted labels. GPU pointer, user allocated.
+ * @param[in] verbosity   verbosity level for logging messages during execution
+ *
+ * @tparam T     data type for input data (float or double).
+ *
+ * @return The rf metrics.
  */
 template <typename T>
 RF_metrics rfRegressor<T>::score(const raft::handle_t& user_handle,

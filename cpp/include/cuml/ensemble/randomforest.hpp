@@ -57,14 +57,12 @@ struct RF_params {
    */
   int n_trees;
   /**
-   * Control bootstrapping.
-   * If bootstrapping is set to true, bootstrapped samples are used for building
-   * each tree. Bootstrapped sampling is done by randomly drawing
-   * round(max_samples * n_samples) number of samples with replacement. More on
-   * bootstrapping:
-   *     https://en.wikipedia.org/wiki/Bootstrap_aggregating
-   * If boostrapping is set to false, whole dataset is used to build each
-   * tree.
+   * Control bootstrapping. If bootstrapping is set to true, bootstrapped
+   * samples are used for building each tree. Bootstrapped sampling is done by
+   * randomly drawing round(max_samples * n_samples) number of samples with
+   * replacement. More on bootstrapping:
+   * https://en.wikipedia.org/wiki/Bootstrap_aggregating If boostrapping is set
+   * to false, whole dataset is used to build each tree.
    */
   bool bootstrap;
   /**
@@ -79,9 +77,8 @@ struct RF_params {
    */
   uint64_t seed;
   /**
-   * Number of concurrent GPU streams for parallel tree building.
-   * Each stream is independently managed by CPU thread.
-   * N streams need N times RF workspace.
+   * Number of concurrent GPU streams for parallel tree building. Each stream is
+   * independently managed by CPU thread. N streams need N times RF workspace.
    */
   int n_streams;
   DecisionTree::DecisionTreeParams tree_params;

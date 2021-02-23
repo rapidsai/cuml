@@ -105,8 +105,11 @@ void compute_bin_distance(value_t *out, const value_idx *Q_coo_rows,
 }
 
 /**
- * Jaccard distance using the expanded form:
- * 1 - (sum(x_k * y_k) / ((sum(x_k) + sum(y_k)) - sum(x_k * y_k))
+ * Jaccard distance using the expanded form: 1 - (sum(x_k * y_k) / ((sum(x_k) +
+ * sum(y_k)) - sum(x_k * y_k))
+ *
+ * @tparam value_idx { description }
+ * @tparam value_t   { description }
  */
 template <typename value_idx = int, typename value_t = float>
 class jaccard_expanded_distances_t : public distances_t<value_t> {
@@ -151,8 +154,11 @@ class jaccard_expanded_distances_t : public distances_t<value_t> {
 };
 
 /**
- * Dice distance using the expanded form:
- * 1 - ((2 * sum(x_k * y_k)) / (sum(x_k)^2 + sum(y_k)^2))
+ * Dice distance using the expanded form: 1 - ((2 * sum(x_k * y_k)) /
+ * (sum(x_k)^2 + sum(y_k)^2))
+ *
+ * @tparam value_idx { description }
+ * @tparam value_t   { description }
  */
 template <typename value_idx = int, typename value_t = float>
 class dice_expanded_distances_t : public distances_t<value_t> {

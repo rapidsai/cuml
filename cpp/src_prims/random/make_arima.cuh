@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,7 +33,6 @@ namespace Random {
 /**
  * Main kernel to generate time series by simulating an ARIMA process
  *
- * @tparam     DataT      Scalar type
  * @param[out] d_diff     Generated series (before un-differencing)
  * @param[in]  d_res      Residuals (normal noise)
  * @param[in]  d_mu       Parameters mu
@@ -48,6 +47,8 @@ namespace Random {
  * @param[in]  Q          Parameter Q
  * @param[in]  s          Parameter s
  * @param[in]  k          Parameter k
+ *
+ * @tparam DataT Scalar type
  */
 template <typename DataT>
 __global__ void make_arima_kernel(DataT* d_diff, const DataT* d_res,
@@ -113,21 +114,22 @@ __global__ void make_arima_kernel(DataT* d_diff, const DataT* d_res,
 }
 
 /**
- * Generates a dataset of time series by simulating an ARIMA process
- * of a given order.
+ * Generates a dataset of time series by simulating an ARIMA process of a given
+ * order.
  *
- * @tparam     DataT          Scalar type
- * @param[out] out            Generated time series
- * @param[in]  batch_size     Batch size
- * @param[in]  n_obs          Number of observations per series
- * @param[in]  order          ARIMA order
- * @param[in]  allocator      Device memory allocator
- * @param[in]  stream         CUDA stream
- * @param[in]  scale          Scale used to draw the starting values
- * @param[in]  noise_scale    Scale used to draw the residuals
- * @param[in]  intercept_sale Scale used to draw the intercept
- * @param[in]  seed           Seed for the random number generator
- * @param[in]  type           Type of random number generator
+ * @param[out] out             Generated time series
+ * @param[in]  batch_size      Batch size
+ * @param[in]  n_obs           Number of observations per series
+ * @param[in]  order           ARIMA order
+ * @param[in]  allocator       Device memory allocator
+ * @param[in]  stream          CUDA stream
+ * @param[in]  scale           Scale used to draw the starting values
+ * @param[in]  noise_scale     Scale used to draw the residuals
+ * @param[in]  intercept_scale Scale used to draw the intercept
+ * @param[in]  seed            Seed for the random number generator
+ * @param[in]  type            Type of random number generator
+ *
+ * @tparam DataT Scalar type
  */
 template <typename DataT>
 void make_arima(DataT* out, int batch_size, int n_obs, ML::ARIMAOrder order,

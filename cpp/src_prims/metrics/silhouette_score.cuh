@@ -38,17 +38,28 @@ namespace MLCommon {
 namespace Metrics {
 
 /**
-* @brief kernel that calculates the average intra-cluster distance for every sample data point and updates the cluster distance to max value
-* @tparam DataT: type of the data samples
-* @tparam LabelT: type of the labels
-* @param sampleToClusterSumOfDistances: the pointer to the 2D array that contains the sum of distances from every sample to every cluster (nRows x nLabels)
-* @param binCountArray: pointer to the 1D array that contains the count of samples per cluster (1 x nLabels)
-* @param d_aArray: the pointer to the array of average intra-cluster distances for every sample in device memory (1 x nRows)
-* @param labels: the pointer to the array containing labels for every data sample (1 x nRows)
-* @param nRows: number of data samples
-* @param nLabels: number of Labels
-* @param MAX_VAL: DataT specific upper limit
-*/
+ * @brief kernel that calculates the average intra-cluster distance for every
+ *        sample data point and updates the cluster distance to max value
+ *
+ * @param sampleToClusterSumOfDistances the pointer to the 2D array that
+ *                                      contains the sum of distances from every
+ *                                      sample to every cluster (nRows x
+ *                                      nLabels)
+ * @param binCountArray                 pointer to the 1D array that contains
+ *                                      the count of samples per cluster (1 x
+ *                                      nLabels)
+ * @param d_aArray                      the pointer to the array of average
+ *                                      intra-cluster distances for every sample
+ *                                      in device memory (1 x nRows)
+ * @param labels                        the pointer to the array containing
+ *                                      labels for every data sample (1 x nRows)
+ * @param nRows                         number of data samples
+ * @param nLabels                       number of Labels
+ * @param MAX_VAL                       DataT specific upper limit
+ *
+ * @tparam DataT  type of the data samples
+ * @tparam LabelT type of the labels
+ */
 template <typename DataT, typename LabelT>
 __global__ void populateAKernel(DataT *sampleToClusterSumOfDistances,
                                 DataT *binCountArray, DataT *d_aArray,
@@ -84,17 +95,22 @@ __global__ void populateAKernel(DataT *sampleToClusterSumOfDistances,
 }
 
 /**
-* @brief function to calculate the bincounts of number of samples in every label
-* @tparam DataT: type of the data samples
-* @tparam LabelT: type of the labels
-* @param labels: the pointer to the array containing labels for every data sample (1 x nRows)
-* @param binCountArray: pointer to the 1D array that contains the count of samples per cluster (1 x nLabels)
-* @param nRows: number of data samples
-* @param nUniqueLabels: number of Labels
-* @param workspace: device buffer containing workspace memory
-* @param allocator: default allocator to allocate memory
-* @param stream: the cuda stream where to launch this kernel
-*/
+ * @brief function to calculate the bincounts of number of samples in every
+ *        label
+ *
+ * @param labels        the pointer to the array containing labels for every
+ *                      data sample (1 x nRows)
+ * @param binCountArray pointer to the 1D array that contains the count of
+ *                      samples per cluster (1 x nLabels)
+ * @param nRows         number of data samples
+ * @param nUniqueLabels number of Labels
+ * @param workspace     device buffer containing workspace memory
+ * @param allocator     default allocator to allocate memory
+ * @param stream        the cuda stream where to launch this kernel
+ *
+ * @tparam DataT  type of the data samples
+ * @tparam LabelT type of the labels
+ */
 template <typename DataT, typename LabelT>
 void countLabels(LabelT *labels, DataT *binCountArray, int nRows,
                  int nUniqueLabels, MLCommon::device_buffer<char> &workspace,
@@ -119,8 +135,10 @@ void countLabels(LabelT *labels, DataT *binCountArray, int nRows,
 }
 
 /**
-* @brief stucture that defines the division Lambda for elementwise op
-*/
+ * @brief stucture that defines the division Lambda for elementwise op
+ *
+ * @tparam DataT { description }
+ */
 template <typename DataT>
 struct DivOp {
   HDI DataT operator()(DataT a, int b, int c) {
@@ -132,8 +150,11 @@ struct DivOp {
 };
 
 /**
-* @brief stucture that defines the elementwise operation to calculate silhouette score using params 'a' and 'b'
-*/
+ * @brief stucture that defines the elementwise operation to calculate
+ *        silhouette score using params 'a' and 'b'
+ *
+ * @tparam DataT { description }
+ */
 template <typename DataT>
 struct SilOp {
   HDI DataT operator()(DataT a, DataT b) {
@@ -149,8 +170,11 @@ struct SilOp {
 };
 
 /**
-* @brief stucture that defines the reduction Lambda to find minimum between elements
-*/
+ * @brief stucture that defines the reduction Lambda to find minimum between
+ *        elements
+ *
+ * @tparam DataT { description }
+ */
 template <typename DataT>
 struct MinOp {
   HDI DataT operator()(DataT a, DataT b) {
@@ -162,19 +186,31 @@ struct MinOp {
 };
 
 /**
-* @brief main function that returns the average silhouette score for a given set of data and its clusterings
-* @tparam DataT: type of the data samples
-* @tparam LabelT: type of the labels
-* @param X_in: pointer to the input Data samples array (nRows x nCols)
-* @param nRows: number of data samples
-* @param nCols: number of features
-* @param labels: the pointer to the array containing labels for every data sample (1 x nRows)
-* @param nLabels: number of Labels
-* @param silhouette_scorePerSample: pointer to the array that is optionally taken in as input and is populated with the silhouette score for every sample (1 x nRows)
-* @param allocator: default allocator to allocate device memory
-* @param stream: the cuda stream where to launch this kernel
-* @param metric: the numerical value that maps to the type of distance metric to be used in the calculations
-*/
+ * @brief main function that returns the average silhouette score for a given
+ *        set of data and its clusterings
+ *
+ * @param X_in                      pointer to the input Data samples array
+ *                                  (nRows x nCols)
+ * @param nRows                     number of data samples
+ * @param nCols                     number of features
+ * @param labels                    the pointer to the array containing labels
+ *                                  for every data sample (1 x nRows)
+ * @param nLabels                   number of Labels
+ * @param silhouette_scorePerSample pointer to the array that is optionally
+ *                                  taken in as input and is populated with the
+ *                                  silhouette score for every sample (1 x
+ *                                  nRows)
+ * @param allocator                 default allocator to allocate device memory
+ * @param stream                    the cuda stream where to launch this kernel
+ * @param metric                    the numerical value that maps to the type of
+ *                                  distance metric to be used in the
+ *                                  calculations
+ *
+ * @tparam DataT  type of the data samples
+ * @tparam LabelT type of the labels
+ *
+ * @return The data t.
+ */
 template <typename DataT, typename LabelT>
 DataT silhouette_score(DataT *X_in, int nRows, int nCols, LabelT *labels,
                        int nLabels, DataT *silhouette_scorePerSample,

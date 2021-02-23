@@ -14,15 +14,15 @@
  * limitations under the License.
  */
 /**
-* @file mutual_info_score.cuh
-* @brief The Mutual Information is a measure of the similarity between two labels of
-*   the same data.This metric is independent of the absolute values of the labels:
-*   a permutation of the class or cluster label values won't change the
-*   score value in any way.
-*   This metric is furthermore symmetric.This can be useful to
-*   measure the agreement of two independent label assignments strategies
-*   on the same dataset when the real ground truth is not known.
-*/
+ * @file mutual_info_score.cuh
+ * @brief The Mutual Information is a measure of the similarity between two
+ *        labels of the same data.This metric is independent of the absolute
+ *        values of the labels: a permutation of the class or cluster label
+ *        values won't change the score value in any way. This metric is
+ *        furthermore symmetric.This can be useful to measure the agreement of
+ *        two independent label assignments strategies on the same dataset when
+ *        the real ground truth is not known.
+ */
 
 #include <math.h>
 #include <raft/cudart_utils.h>
@@ -39,12 +39,23 @@ namespace Metrics {
 
 /**
  * @brief kernel to calculate the mutual info score
- * @param dContingencyMatrix: the contingency matrix corresponding to the two clusters
- * @param a: the row wise sum of the contingency matrix, which is also the bin counts of first cluster array
- * @param b: the column wise sum of the contingency matrix, which is also the bin counts of second cluster array
- * @param numUniqueClasses: number of unique classes
- * @param size: the size of array a and b (size of the contingency matrix is (size x size))
- * @param d_MI: pointer to the device memory that stores the aggreggate mutual information
+ *
+ * @param dContingencyMatrix the contingency matrix corresponding to the two
+ *                           clusters
+ * @param a                  the row wise sum of the contingency matrix, which
+ *                           is also the bin counts of first cluster array
+ * @param b                  the column wise sum of the contingency matrix,
+ *                           which is also the bin counts of second cluster
+ *                           array
+ * @param numUniqueClasses   number of unique classes
+ * @param size               the size of array a and b (size of the contingency
+ *                           matrix is (size x size))
+ * @param d_MI               pointer to the device memory that stores the
+ *                           aggreggate mutual information
+ *
+ * @tparam T           { description }
+ * @tparam BLOCK_DIM_X { description }
+ * @tparam BLOCK_DIM_Y { description }
  */
 template <typename T, int BLOCK_DIM_X, int BLOCK_DIM_Y>
 __global__ void mutual_info_kernel(const int *dContingencyMatrix, const int *a,
@@ -84,16 +95,22 @@ __global__ void mutual_info_kernel(const int *dContingencyMatrix, const int *a,
 }
 
 /**
-* @brief Function to calculate the mutual information between two clusters
-* <a href="https://en.wikipedia.org/wiki/Mutual_information">more info on mutual information</a>
-* @param firstClusterArray: the array of classes of type T
-* @param secondClusterArray: the array of classes of type T
-* @param size: the size of the data points of type int
-* @param lowerLabelRange: the lower bound of the range of labels
-* @param upperLabelRange: the upper bound of the range of labels
-* @param allocator: object that takes care of temporary device memory allocation of type std::shared_ptr<MLCommon::deviceAllocator>
-* @param stream: the cudaStream object
-*/
+ * @brief Function to calculate the mutual information between two clusters <a
+ *        href="https://en.wikipedia.org/wiki/Mutual_information">more info on
+ *        mutual information</a>
+ *
+ * @param firstClusterArray  the array of classes of type T
+ * @param secondClusterArray the array of classes of type T
+ * @param size               the size of the data points of type int
+ * @param lowerLabelRange    the lower bound of the range of labels
+ * @param upperLabelRange    the upper bound of the range of labels
+ * @param allocator          object that takes care of temporary device memory
+ *                           allocation of type
+ *                           std::shared_ptr<MLCommon::deviceAllocator>
+ * @param stream             the cudaStream object
+ *
+ * @return { description_of_the_return_value }
+ */
 template <typename T>
 double mutual_info_score(const T *firstClusterArray,
                          const T *secondClusterArray, int size,

@@ -15,13 +15,13 @@
  */
 
 /**
-* @file stationarity.cuh
-* @brief Test a batched times series for stationarity
-* Reference: 'Testing the null hypothesis of stationarity against the
-* alternative of a unit root', Kwiatkowski et al. 1992.
-* See https://www.statsmodels.org/dev/_modules/statsmodels/tsa/stattools.html#kpss
-* for additional details.
-*/
+ * @file stationarity.cuh
+ * @brief Test a batched times series for stationarity Reference: 'Testing the
+ *        null hypothesis of stationarity against the alternative of a unit
+ *        root', Kwiatkowski et al. 1992. See
+ *        https://www.statsmodels.org/dev/_modules/statsmodels/tsa/stattools.html#kpss
+ *        for additional details.
+ */
 
 #pragma once
 
@@ -47,13 +47,15 @@ namespace MLCommon {
 namespace TimeSeries {
 
 /**
-* @brief Auxiliary function to decide the block dimensions
-*
-* @tparam     TPB        Threads per block
-* @tparam     IdxT       Integer type of the indices
-* @param[in]  batch_size Number of batches in the input data
-* @return                The block dimensions
-*/
+ * @brief Auxiliary function to decide the block dimensions
+ *
+ * @param[in] batch_size Number of batches in the input data
+ *
+ * @tparam TPB   Threads per block
+ * @tparam IdxT  Integer type of the indices
+ *
+ * @return The block dimensions
+ */
 template <int TPB, typename IdxT>
 static inline dim3 choose_block_dims(IdxT batch_size) {
   uint tpb_y = batch_size > 8 ? 4 : 1;
@@ -63,28 +65,29 @@ static inline dim3 choose_block_dims(IdxT batch_size) {
 
 /**
  * @brief Auxiliary kernel for the computation of s2 (Kwiatkowski 1992 eq.10)
- * 
- * @details The kernel computes partial sums for the term of equation 10.
- *          A reduction is performed to get the full sum.
- *          If y is a series and z the accumulator, this kernel computes:
- *          z[t] = w(k) * sum from k=1 to lags of y[t]*y[t+k]
- *          padded with zeros and where w(k)=2/ns*(1-k/(lags+1))
- * 
+ *
+ * @details The kernel computes partial sums for the term of equation 10. A
+ *          reduction is performed to get the full sum. If y is a series and z
+ *          the accumulator, this kernel computes: z[t] = w(k) * sum from k=1 to
+ *          lags of y[t]*y[t+k] padded with zeros and where
+ *          w(k)=2/ns*(1-k/(lags+1))
+ *
  * @note The accumulator has one extra element per series, which avoids some
  *       index calculations and it has the right size anyway since it is
- *       recycled for another operation.
- *       Performance note: this kernel could use shared memory
- * 
- * @tparam      DataT        Scalar type of the data (float or double)
- * @tparam      IdxT         Integer type of the indices
- * @param[out]  accumulator  Output matrix that holds the partial sums
- * @param[in]   data         Source data
- * @param[in]   lags         Number of lags
- * @param[in]   batch_size   Number of columns in the data
- * @param[in]   n_obs        Number of rows in the data
- * @param[in]   coeff_a      Part of the calculation for w(k)=a*k+b
- * @param[in]   coeff_b      Part of the calculation for w(k)=a*k+b
-*/
+ *       recycled for another operation. Performance note: this kernel could use
+ *       shared memory
+ *
+ * @tparam DataT Scalar type of the data (float or double)
+ * @tparam IdxT  Integer type of the indices
+ *
+ * @param[out] accumulator Output matrix that holds the partial sums
+ * @param[in]  data        Source data
+ * @param[in]  lags        Number of lags
+ * @param[in]  batch_size  Number of columns in the data
+ * @param[in]  n_obs       Number of rows in the data
+ * @param[in]  coeff_a     Part of the calculation for w(k)=a*k+b
+ * @param[in]  coeff_b     Part of the calculation for w(k)=a*k+b
+ */
 template <typename DataT, typename IdxT>
 static __global__ void s2B_accumulation_kernel(DataT* accumulator,
                                                const DataT* data, IdxT lags,
@@ -106,21 +109,22 @@ static __global__ void s2B_accumulation_kernel(DataT* accumulator,
 
 /**
  * @brief Kernel to decide whether the series are stationary or not
- * 
- * @details The kernel uses the results of the different equations to
- *          make the final decision for each series.
  *
- * @tparam      DataT           Scalar type of the data (float or double)
- * @tparam      IdxT            Integer type of the indices
- * @param[out]  results         Boolean array to store the results.
- * @param[in]   s2A             1st component of eq.10 (before division by ns)
- * @param[in]   s2B             2nd component of eq.10
- * @param[in]   eta             Eq.11 (before division by ns^2)
- * @param[in]   batch_size      Number of batches
- * @param[in]   n_obs_f         Number of samples (floating-point number)
- * @param[in]   pval_threshold  P-value threshold above which the series is
- *                              considered stationary
-*/
+ * @details The kernel uses the results of the different equations to make the
+ *          final decision for each series.
+ *
+ * @tparam DataT Scalar type of the data (float or double)
+ * @tparam IdxT  Integer type of the indices
+ *
+ * @param[out] results        Boolean array to store the results.
+ * @param[in]  s2A            1st component of eq.10 (before division by ns)
+ * @param[in]  s2B            2nd component of eq.10
+ * @param[in]  eta            Eq.11 (before division by ns^2)
+ * @param[in]  batch_size     Number of batches
+ * @param[in]  n_obs_f        Number of samples (floating-point number)
+ * @param[in]  pval_threshold P-value threshold above which the series is
+ *                            considered stationary
+ */
 template <typename DataT, typename IdxT>
 static __global__ void kpss_stationarity_check_kernel(
   bool* results, const DataT* s2A, const DataT* s2B, const DataT* eta,
@@ -175,22 +179,23 @@ struct which_col : thrust::unary_function<IdxT, IdxT> {
 
 /**
  * @brief Applies the KPSS stationarity test to the differenced series
- * 
+ *
  * @details The following algorithm is based on Kwiatkowski 1992:
  *          - Center each series around its mean
  *          - Calculate s^2 (eq. 10) and eta (eq. 11)
  *          - Deduce the p-value and compare against the threshold
  *
- * @tparam      DataT           Scalar type of the data (float or double)
- * @tparam      IdxT            Integer type of the indices
- * @param[in]   d_y             Input data
- * @param[out]  results         Boolean array to store the results of the test
- * @param[in]   batch_size      Batch size
- * @param[in]   n_obs           Number of observations
- * @param[in]   allocator       cuML device memory allocator
- * @param[in]   stream          CUDA stream
- * @param[in]   pval_threshold  P-value threshold above which a series is
- *                              considered stationary 
+ * @tparam DataT Scalar type of the data (float or double)
+ * @tparam IdxT  Integer type of the indices
+ *
+ * @param[in]  d_y            Input data
+ * @param[out] results        Boolean array to store the results of the test
+ * @param[in]  batch_size     Batch size
+ * @param[in]  n_obs          Number of observations
+ * @param[in]  allocator      cuML device memory allocator
+ * @param[in]  stream         CUDA stream
+ * @param[in]  pval_threshold P-value threshold above which a series is
+ *                            considered stationary
  */
 template <typename DataT, typename IdxT>
 static void _kpss_test(const DataT* d_y, bool* results, IdxT batch_size,
@@ -264,20 +269,21 @@ static void _kpss_test(const DataT* d_y, bool* results, IdxT batch_size,
 /**
  * @brief Perform the KPSS stationarity test on the data differenced according
  *        to the given order
- * 
- * @tparam      DataT           Scalar type of the data (float or double)
- * @tparam      IdxT            Integer type of the indices
- * @param[in]   d_y             Input data
- * @param[out]  results         Boolean device array to store the results
- * @param[in]   batch_size      Batch size
- * @param[in]   n_obs           Number of observations
- * @param[in]   d               Order of simple differencing
- * @param[out]  D               Order of seasonal differencing
- * @param[in]   s               Seasonal period if D > 0 (else unused)
- * @param[in]   allocator       cuML device memory allocator
- * @param[in]   stream          CUDA stream
- * @param[in]   pval_threshold  P-value threshold above which a series is
- *                              considered stationary
+ *
+ * @tparam DataT Scalar type of the data (float or double)
+ * @tparam IdxT  Integer type of the indices
+ *
+ * @param[in]  d_y            Input data
+ * @param[out] results        Boolean device array to store the results
+ * @param[in]  batch_size     Batch size
+ * @param[in]  n_obs          Number of observations
+ * @param[in]  d              Order of simple differencing
+ * @param[out] D              Order of seasonal differencing
+ * @param[in]  s              Seasonal period if D > 0 (else unused)
+ * @param[in]  allocator      cuML device memory allocator
+ * @param[in]  stream         CUDA stream
+ * @param[in]  pval_threshold P-value threshold above which a series is
+ *                            considered stationary
  */
 template <typename DataT, typename IdxT>
 void kpss_test(const DataT* d_y, bool* results, IdxT batch_size, IdxT n_obs,

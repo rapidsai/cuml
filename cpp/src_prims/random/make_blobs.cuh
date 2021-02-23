@@ -110,10 +110,10 @@ void generate_data(DataT* out, const IdxT* labels, IdxT n_rows, IdxT n_cols,
  * @tparam DataT output data type
  * @tparam IdxT  indexing arithmetic type
  *
- * @param[out] out                generated data [on device]
- *                                [dim = n_rows x n_cols]
- * @param[out] labels             labels for the generated data [on device]
- *                                [len = n_rows]
+ * @param[out] out                generated data [on device] [dim = n_rows x
+ *                                n_cols]
+ * @param[out] labels             labels for the generated data [on device] [len
+ *                                = n_rows]
  * @param[in]  n_rows             number of rows in the generated data
  * @param[in]  n_cols             number of columns in the generated data
  * @param[in]  n_clusters         number of clusters (or classes) to generate
@@ -127,8 +127,8 @@ void generate_data(DataT* out, const IdxT* labels, IdxT n_rows, IdxT n_cols,
  *                                [on device] [dim = n_clusters x n_cols]
  * @param[in]  cluster_std        standard deviation of each cluster center,
  *                                pass a nullptr if this is to be read from the
- *                                `cluster_std_scalar`. [on device]
- *                                [len = n_clusters]
+ *                                `cluster_std_scalar`. [on device] [len =
+ *                                n_clusters]
  * @param[in]  cluster_std_scalar if 'cluster_std' is nullptr, then use this as
  *                                the std-dev across all dimensions.
  * @param[in]  shuffle            shuffle the generated dataset and labels

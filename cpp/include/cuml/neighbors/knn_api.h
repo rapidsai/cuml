@@ -25,29 +25,33 @@ extern "C" {
 #endif
 
 /**
- * @brief Flat C API function to perform a brute force knn on
- * a series of input arrays and combine the results into a single
- * output array for indexes and distances.
+ * @brief Flat C API function to perform a brute force knn on a series of input
+ *        arrays and combine the results into a single output array for indexes
+ *        and distances.
  *
- * @param[in] handle the cuml handle to use
- * @param[in] input an array of pointers to the input arrays
- * @param[in] size an array of sizes of input arrays
- * @param[in] n_params array size of input and sizes
- * @param[in] D the dimensionality of the arrays
- * @param[in] search_items array of items to search of dimensionality D
- * @param[in] n number of rows in search_items
- * @param[out] res_I the resulting index array of size n * k
- * @param[out] res_D the resulting distance array of size n * k
- * @param[in] k the number of nearest neighbors to return
- * @param[in] rowMajorIndex is the index array in row major layout?
- * @param[in] rowMajorQuery is the query array in row major layout?
- * @param[in] metric_type the type of distance metric to use. This corresponds
- * 					  to the value in the ML::MetricType enum. Default is
- * 					  Euclidean (L2).
- * @param[in] metric_arg the value of `p` for Minkowski (l-p) distances. This
- * 					 is ignored if the metric_type is not Minkowski.
- * @param[in] expanded should lp-based distances be returned in their expanded
- * 					 form (e.g., without raising to the 1/p power).
+ * @param[in]  handle        the cuml handle to use
+ * @param[in]  input         an array of pointers to the input arrays
+ * @param[in]  size          an array of sizes of input arrays
+ * @param[in]  n_params      array size of input and sizes
+ * @param[in]  D             the dimensionality of the arrays
+ * @param[in]  search_items  array of items to search of dimensionality D
+ * @param[in]  n             number of rows in search_items
+ * @param[out] res_I         the resulting index array of size n * k
+ * @param[out] res_D         the resulting distance array of size n * k
+ * @param[in]  k             the number of nearest neighbors to return
+ * @param[in]  rowMajorIndex is the index array in row major layout?
+ * @param[in]  rowMajorQuery is the query array in row major layout?
+ * @param[in]  metric_type   the type of distance metric to use. This
+ *                           corresponds to the value in the ML::MetricType
+ *                           enum. Default is Euclidean (L2).
+ * @param[in]  metric_arg    the value of `p` for Minkowski (l-p) distances.
+ *                           This is ignored if the metric_type is not
+ *                           Minkowski.
+ * @param[in]  expanded      should lp-based distances be returned in their
+ *                           expanded form (e.g., without raising to the 1/p
+ *                           power).
+ *
+ * @return The cuml error.
  */
 cumlError_t knn_search(const cumlHandle_t handle, float **input, int *size,
                        int n_params, int D, float *search_items, int n,

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -34,10 +34,20 @@ struct LinearScalingSqrt
   // The adapater.
   typedef FragmentMultiplyAdd_ FragmentMultiplyAdd;
   /// Ctor.
+  ///
+  /// @param params The parameters
+  ///
   CUTLASS_DEVICE LinearScalingSqrt(typename Base::Params const& params)
     : Base(params) {}
 
   /// Evaluate the functor.
+  ///
+  /// @param accum  The accum
+  /// @param output The output
+  ///
+  /// @tparam FragmentA_ { description }
+  /// @tparam FragmentB_ { description }
+  ///
   template <typename FragmentA_, typename FragmentB_>
   CUTLASS_DEVICE void evaluate(FragmentA_ const& accum, FragmentB_& output) {
     FragmentMultiplyAdd mad;
@@ -47,6 +57,14 @@ struct LinearScalingSqrt
   }
 
   /// Evaluate the functor.
+  ///
+  /// @param accum  The accum
+  /// @param old    The old
+  /// @param output The output
+  ///
+  /// @tparam FragmentA_ { description }
+  /// @tparam FragmentB_ { description }
+  ///
   template <typename FragmentA_, typename FragmentB_>
   CUTLASS_DEVICE void evaluate(FragmentA_ const& accum, FragmentB_ const& old,
                                FragmentB_& output) {

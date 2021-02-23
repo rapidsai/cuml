@@ -35,13 +35,14 @@ namespace sparse {
 namespace linalg {
 
 /**
- * @brief Count all the rows in the coo row array and place them in the
- * results matrix, indexed by row.
+ * @brief Count all the rows in the coo row array and place them in the results
+ *        matrix, indexed by row.
  *
- * @tparam TPB_X: number of threads to use per block
- * @param rows the rows array of the coo matrix
- * @param nnz the size of the rows array
+ * @param rows    the rows array of the coo matrix
+ * @param nnz     the size of the rows array
  * @param results array to place results
+ *
+ * @tparam TPB_X number of threads to use per block
  */
 template <int TPB_X = 64>
 __global__ void coo_degree_kernel(const int *rows, int nnz, int *results) {
@@ -53,11 +54,13 @@ __global__ void coo_degree_kernel(const int *rows, int nnz, int *results) {
 
 /**
  * @brief Count the number of values for each row
- * @tparam TPB_X: number of threads to use per block
- * @param rows: rows array of the COO matrix
- * @param nnz: size of the rows array
- * @param results: output result array
- * @param stream: cuda stream to use
+ *
+ * @param rows    rows array of the COO matrix
+ * @param nnz     size of the rows array
+ * @param results output result array
+ * @param stream  cuda stream to use
+ *
+ * @tparam TPB_X number of threads to use per block
  */
 template <int TPB_X = 64>
 void coo_degree(const int *rows, int nnz, int *results, cudaStream_t stream) {
@@ -70,11 +73,13 @@ void coo_degree(const int *rows, int nnz, int *results, cudaStream_t stream) {
 
 /**
  * @brief Count the number of values for each row
- * @tparam TPB_X: number of threads to use per block
- * @tparam T: type name of underlying values array
- * @param in: input COO object for counting rows
- * @param results: output array with row counts (size=in->n_rows)
- * @param stream: cuda stream to use
+ *
+ * @param in      input COO object for counting rows
+ * @param results output array with row counts (size=in->n_rows)
+ * @param stream  cuda stream to use
+ *
+ * @tparam TPB_X number of threads to use per block
+ * @tparam T     type name of underlying values array
  */
 template <int TPB_X = 64, typename T>
 void coo_degree(COO<T> *in, int *results, cudaStream_t stream) {
@@ -106,12 +111,14 @@ __global__ void coo_degree_scalar_kernel(const int *rows, const T *vals,
 
 /**
  * @brief Count the number of values for each row matching a particular scalar
- * @tparam TPB_X: number of threads to use per block
- * @tparam T: the type name of the underlying value arrays
- * @param in: Input COO array
- * @param scalar: scalar to match for counting rows
- * @param results: output row counts
- * @param stream: cuda stream to use
+ *
+ * @param in      Input COO array
+ * @param scalar  scalar to match for counting rows
+ * @param results output row counts
+ * @param stream  cuda stream to use
+ *
+ * @tparam TPB_X number of threads to use per block
+ * @tparam T:    the type name of the underlying value arrays
  */
 template <int TPB_X = 64, typename T>
 void coo_degree_scalar(COO<T> *in, T scalar, int *results,
@@ -125,14 +132,16 @@ void coo_degree_scalar(COO<T> *in, T scalar, int *results,
 
 /**
  * @brief Count the number of values for each row matching a particular scalar
- * @tparam TPB_X: number of threads to use per block
- * @tparam T: the type name of the underlying value arrays
- * @param rows: Input COO row array
- * @param vals: Input COO val arrays
- * @param nnz: size of input COO arrays
- * @param scalar: scalar to match for counting rows
- * @param results: output row counts
- * @param stream: cuda stream to use
+ *
+ * @param rows    Input COO row array
+ * @param vals    Input COO val arrays
+ * @param nnz     size of input COO arrays
+ * @param scalar  scalar to match for counting rows
+ * @param results output row counts
+ * @param stream  cuda stream to use
+ *
+ * @tparam TPB_X number of threads to use per block
+ * @tparam T:    the type name of the underlying value arrays
  */
 template <int TPB_X = 64, typename T>
 void coo_degree_scalar(const int *rows, const T *vals, int nnz, T scalar,
@@ -145,13 +154,15 @@ void coo_degree_scalar(const int *rows, const T *vals, int nnz, T scalar,
 
 /**
  * @brief Count the number of nonzeros for each row
- * @tparam TPB_X: number of threads to use per block
- * @tparam T: the type name of the underlying value arrays
- * @param rows: Input COO row array
- * @param vals: Input COO val arrays
- * @param nnz: size of input COO arrays
- * @param results: output row counts
- * @param stream: cuda stream to use
+ *
+ * @param rows    Input COO row array
+ * @param vals    Input COO val arrays
+ * @param nnz     size of input COO arrays
+ * @param results output row counts
+ * @param stream  cuda stream to use
+ *
+ * @tparam TPB_X number of threads to use per block
+ * @tparam T     the type name of the underlying value arrays
  */
 template <int TPB_X = 64, typename T>
 void coo_degree_nz(const int *rows, const T *vals, int nnz, int *results,
@@ -164,11 +175,13 @@ void coo_degree_nz(const int *rows, const T *vals, int nnz, int *results,
 
 /**
  * @brief Count the number of nonzero values for each row
- * @tparam TPB_X: number of threads to use per block
- * @tparam T: the type name of the underlying value arrays
- * @param in: Input COO array
- * @param results: output row counts
- * @param stream: cuda stream to use
+ *
+ * @param in      Input COO array
+ * @param results output row counts
+ * @param stream  cuda stream to use
+ *
+ * @tparam TPB_X number of threads to use per block
+ * @tparam T     the type name of the underlying value arrays
  */
 template <int TPB_X = 64, typename T>
 void coo_degree_nz(COO<T> *in, int *results, cudaStream_t stream) {

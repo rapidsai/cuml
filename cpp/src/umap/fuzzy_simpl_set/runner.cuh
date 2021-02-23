@@ -28,15 +28,20 @@ using namespace ML;
 
 /**
  * Calculates a fuzzy simplicial set of the input X and kNN results
- * @param n: number of rows in X
- * @param knn_indices: matrix of kNN indices size (nxn)
- * @param knn_dists: matrix of kNN dists size (nxn)
+ *
+ * @param n           number of rows in X
+ * @param knn_indices matrix of kNN indices size (nxn)
+ * @param knn_dists   matrix of kNN dists size (nxn)
  * @param n_neighbors number of neighbors
- * @param coo input knn-graph
- * @param params umap parameters
- * @param alloc device allocator
- * @param stream cuda stream
- * @param algorithm algo type to choose
+ * @param coo         input knn-graph
+ * @param params      umap parameters
+ * @param alloc       device allocator
+ * @param stream      cuda stream
+ * @param algorithm   algo type to choose
+ *
+ * @tparam TPB_X     { description }
+ * @tparam value_idx { description }
+ * @tparam T         { description }
  */
 template <int TPB_X, typename value_idx, typename T>
 void run(int n, const value_idx *knn_indices, const T *knn_dists,

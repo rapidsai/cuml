@@ -53,7 +53,7 @@ __global__ void map_kernel(T *output, T *X, int n_rows, T *coef, Lambda grad) {
   }
 }
 
-/**
+/*
  * This works on a one-dimensional set of
  * x-values.
  */
@@ -68,7 +68,7 @@ void f(T *input, int n_rows, T *coef, T *preds) {
     [] __device__(T x, T a, T b) { return 1.0 / (1 + a * pow(x, 2.0 * b)); });
 }
 
-/**
+/*
  * Calculate the gradients for fitting parameters a and b
  * to a smooth function based on exponential decay
  */
@@ -79,7 +79,7 @@ void abLossGrads(T *input, int n_rows, const T *labels, T *coef, T *grads,
   dim3 grid(raft::ceildiv(n_rows, TPB_X), 1, 1);
   dim3 blk(TPB_X, 1, 1);
 
-  /**
+  /*
    * Calculate residuals
    */
   MLCommon::device_buffer<T> residuals(d_alloc, stream, n_rows);
@@ -89,7 +89,7 @@ void abLossGrads(T *input, int n_rows, const T *labels, T *coef, T *grads,
                            stream);
   CUDA_CHECK(cudaPeekAtLastError());
 
-  /**
+  /*
    * Gradient w/ respect to a
    */
   MLCommon::device_buffer<T> a_deriv(d_alloc, stream, n_rows);
@@ -104,7 +104,7 @@ void abLossGrads(T *input, int n_rows, const T *labels, T *coef, T *grads,
                                 residuals.data(), n_rows, stream);
   CUDA_CHECK(cudaPeekAtLastError());
 
-  /**
+  /*
    * Gradient w/ respect to b
    */
   MLCommon::device_buffer<T> b_deriv(d_alloc, stream, n_rows);
@@ -116,14 +116,14 @@ void abLossGrads(T *input, int n_rows, const T *labels, T *coef, T *grads,
                                         pow(1 + a * pow(x, 2.0 * b), 2.0);
                                });
 
-  /**
+  /*
    * Multiply partial derivs by residuals
    */
   raft::linalg::eltwiseMultiply(b_deriv.data(), b_deriv.data(),
                                 residuals.data(), n_rows, stream);
   CUDA_CHECK(cudaPeekAtLastError());
 
-  /**
+  /*
    * Finally, take the mean
    */
   raft::stats::mean(grads, a_deriv.data(), 1, n_rows, false, false, stream);
@@ -132,7 +132,7 @@ void abLossGrads(T *input, int n_rows, const T *labels, T *coef, T *grads,
   CUDA_CHECK(cudaPeekAtLastError());
 }
 
-/**
+/*
  * Perform non-linear gradient descent
  */
 template <typename T, int TPB_X>

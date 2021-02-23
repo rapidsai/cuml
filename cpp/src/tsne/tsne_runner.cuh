@@ -103,7 +103,7 @@ class TSNE_runner {
     auto *VAL = COO_Matrix.vals();
     const auto *COL = COO_Matrix.cols();
     const auto *ROW = COO_Matrix.rows();
-    //---------------------------------------------------
+    // ---------------------------------------------------
 
     if (barnes_hut) {
       TSNE::Barnes_Hut(VAL, COL, ROW, NNZ, handle, Y, n, theta, epssq,
@@ -124,7 +124,7 @@ class TSNE_runner {
   void distance_and_perplexity() {
     START_TIMER;
 
-    //---------------------------------------------------
+    // ---------------------------------------------------
     // Get distances
     CUML_LOG_DEBUG("Getting distances.");
 
@@ -146,19 +146,19 @@ class TSNE_runner {
       TSNE::get_distances(handle, input, k_graph, stream);
     }
 
-    //---------------------------------------------------
+    // ---------------------------------------------------
     END_TIMER(DistancesTime);
 
     START_TIMER;
-    //---------------------------------------------------
+    // ---------------------------------------------------
     // Normalize distances
     CUML_LOG_DEBUG("Now normalizing distances so exp(D) doesn't explode.");
     TSNE::normalize_distances(n, k_graph.knn_dists, n_neighbors, stream);
-    //---------------------------------------------------
+    /** */
     END_TIMER(NormalizeTime);
 
     START_TIMER;
-    //---------------------------------------------------
+    // ---------------------------------------------------
     // Optimal perplexity
     CUML_LOG_DEBUG("Searching for optimal perplexity via bisection search.");
     rmm::device_uvector<float> P(n * n_neighbors, stream);
@@ -166,11 +166,11 @@ class TSNE_runner {
                             perplexity_max_iter, perplexity_tol, n, n_neighbors,
                             handle);
 
-    //---------------------------------------------------
+    // ---------------------------------------------------
     END_TIMER(PerplexityTime);
 
     START_TIMER;
-    //---------------------------------------------------
+    // ---------------------------------------------------
     // Convert data to COO layout
     TSNE::symmetrize_perplexity(P.data(), k_graph.knn_indices, n, n_neighbors,
                                 early_exaggeration, &COO_Matrix, stream,

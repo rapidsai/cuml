@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -35,8 +35,10 @@ class cachingDeviceAllocator : public deviceAllocator {
    * @brief asynchronosly allocate n bytes that can be used after all work in
    *        stream sheduled prior to this call has completetd.
    *
-   * @param[in] n         size of the allocation in bytes
-   * @param[in] stream    the stream to use for the asynchronous allocations
+   * @param[in] n      size of the allocation in bytes
+   * @param[in] stream the stream to use for the asynchronous allocations
+   *
+   * @return { description_of_the_return_value }
    */
   void* allocate(std::size_t n, cudaStream_t stream) {
     void* ptr = 0;
@@ -48,9 +50,9 @@ class cachingDeviceAllocator : public deviceAllocator {
    * @brief asynchronosly free an allocation of n bytes that can be reused after
    *        all work in stream scheduled prior to this call has completed.
    *
-   * @param[in] p         pointer to n bytes of memory to be deallocated
-   * @param[in] n         size of the allocation to release in bytes
-   * @param[in] stream    the stream to use for the asynchronous free
+   * @param[in] p      pointer to n bytes of memory to be deallocated
+   * @param[in] n      size of the allocation to release in bytes
+   * @param[in] stream the stream to use for the asynchronous free
    */
   void deallocate(void* p, std::size_t n, cudaStream_t stream) {
     _allocator.DeviceFree(p);

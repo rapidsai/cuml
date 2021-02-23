@@ -25,28 +25,50 @@ namespace ML {
 namespace TSNE {
 
 /**
- * @brief Fast Dimensionality reduction via TSNE using the Barnes Hut O(NlogN) approximation.
- * @param[in] VAL: The values in the attractive forces COO matrix.
- * @param[in] COL: The column indices in the attractive forces COO matrix.
- * @param[in] ROW: The row indices in the attractive forces COO matrix.
- * @param[in] NNZ: The number of non zeros in the attractive forces COO matrix.
- * @param[in] handle: The GPU handle.
- * @param[out] Y: The final embedding. Will overwrite this internally.
- * @param[in] n: Number of rows in data X.
- * @param[in] theta: repulsion threshold
- * @param[in] epssq: A tiny jitter to promote numerical stability.
- * @param[in] early_exaggeration: How much early pressure you want the clusters in TSNE to spread out more.
- * @param[in] exaggeration_iter: How many iterations you want the early pressure to run for.
- * @param[in] min_gain: Rounds up small gradient updates.
- * @param[in] pre_learning_rate: The learning rate during the exaggeration phase.
- * @param[in] post_learning_rate: The learning rate after the exaggeration phase.
- * @param[in] max_iter: The maximum number of iterations TSNE should run for.
- * @param[in] min_grad_norm: The smallest gradient norm TSNE should terminate on. 
-              This argument is currently ignored.
- * @param[in] pre_momentum: The momentum used during the exaggeration phase.
- * @param[in] post_momentum: The momentum used after the exaggeration phase.
- * @param[in] random_state: Set this to -1 for pure random intializations or >= 0 for reproducible outputs.
- * @param[in] initialize_embeddings: Whether to overwrite the current Y vector with random noise.
+ * @brief Fast Dimensionality reduction via TSNE using the Barnes Hut O(NlogN)
+ *        approximation.
+ *
+ * @param[in]  VAL                   The values in the attractive forces COO
+ *                                   matrix.
+ * @param[in]  COL                   The column indices in the attractive forces
+ *                                   COO matrix.
+ * @param[in]  ROW                   The row indices in the attractive forces
+ *                                   COO matrix.
+ * @param[in]  NNZ                   The number of non zeros in the attractive
+ *                                   forces COO matrix.
+ * @param[in]  handle                The GPU handle.
+ * @param[out] Y                     The final embedding. Will overwrite this
+ *                                   internally.
+ * @param[in]  n                     Number of rows in data X.
+ * @param[in]  theta                 repulsion threshold
+ * @param[in]  epssq                 A tiny jitter to promote numerical
+ *                                   stability.
+ * @param[in]  early_exaggeration    How much early pressure you want the
+ *                                   clusters in TSNE to spread out more.
+ * @param[in]  exaggeration_iter     How many iterations you want the early
+ *                                   pressure to run for.
+ * @param[in]  min_gain              Rounds up small gradient updates.
+ * @param[in]  pre_learning_rate     The learning rate during the exaggeration
+ *                                   phase.
+ * @param[in]  post_learning_rate    The learning rate after the exaggeration
+ *                                   phase.
+ * @param[in]  max_iter              The maximum number of iterations TSNE
+ *                                   should run for.
+ * @param[in]  min_grad_norm         The smallest gradient norm TSNE should
+ *                                   terminate on. This argument is currently
+ *                                   ignored.
+ * @param[in]  pre_momentum          The momentum used during the exaggeration
+ *                                   phase.
+ * @param[in]  post_momentum         The momentum used after the exaggeration
+ *                                   phase.
+ * @param[in]  random_state          Set this to -1 for pure random
+ *                                   intializations or >= 0 for reproducible
+ *                                   outputs.
+ * @param[in]  initialize_embeddings Whether to overwrite the current Y vector
+ *                                   with random noise.
+ *
+ * @tparam value_idx { description }
+ * @tparam value_t   { description }
  */
 template <typename value_idx, typename value_t>
 void Barnes_Hut(value_t *VAL, const value_idx *COL, const value_idx *ROW,

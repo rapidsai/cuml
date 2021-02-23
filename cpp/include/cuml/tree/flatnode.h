@@ -17,12 +17,14 @@
 #pragma once
 
 /**
- * A node in Decision Tree.
- * This however uses an index instead of pointer to left child. Right child
- * index is assumed to be `left_child_id + 1`
- * @tparam T data type
- * @tparam L label type
- * @tparam IdxT type used for indexing operations
+ * A node in Decision Tree. This however uses an index instead of pointer to
+ * left child. Right child index is assumed to be `left_child_id + 1`
+ *
+ * @tparam DataT  { description }
+ * @tparam LabelT { description }
+ * @tparam IdxT   type used for indexing operations
+ * @tparam T     data type
+ * @tparam L     label type
  */
 template <typename DataT, typename LabelT, typename IdxT = int>
 struct SparseTreeNode {

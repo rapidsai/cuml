@@ -26,14 +26,17 @@ namespace opg {
 
 /**
  * @brief performs MNMG fit operation for the tsvd
- * @param[in] handle: the internal cuml handle object
- * @param[in] rank_sizes: includes all the partition size information for the rank
- * @param[in] n_parts: number of partitions
- * @param[in] input: input data
- * @param[out] components: principal components of the input data
- * @param[out] singular_vals: singular values of the data
- * @param[in] prms: data structure that includes all the parameters from input size to algorithm
- * @param[in] verbose
+ *
+ * @param[in]  handle        the internal cuml handle object
+ * @param[in]  rank_sizes    includes all the partition size information for the
+ *                           rank
+ * @param[in]  n_parts       number of partitions
+ * @param[in]  input         input data
+ * @param[out] components    principal components of the input data
+ * @param[out] singular_vals singular values of the data
+ * @param[in]  prms          data structure that includes all the parameters
+ *                           from input size to algorithm
+ * @param[in]  verbose       The verbose
  */
 void fit(raft::handle_t &handle, MLCommon::Matrix::RankSizePair **rank_sizes,
          size_t n_parts, MLCommon::Matrix::floatData_t **input,
@@ -47,17 +50,19 @@ void fit(raft::handle_t &handle, MLCommon::Matrix::RankSizePair **rank_sizes,
 
 /**
  * @brief performs MNMG fit and transform operation for the tsvd.
- * @param[in] handle: the internal cuml handle object
- * @param[in] input_data: input data
- * @param[in] input_desc: input descriptor for data
- * @param[out] trans_data: transformed input data
- * @param[out] trans_desc: transformed input data descriptor
- * @param[out] components: principal components of the input data
- * @param[out] explained_var: explained var
- * @param[out] explained_var_ratio: the explained var ratio
- * @param[out] singular_vals: singular values of the data
- * @param[in] prms: data structure that includes all the parameters from input size to algorithm
- * @param[in] verbose
+ *
+ * @param[in]  handle              the internal cuml handle object
+ * @param[in]  input_data          input data
+ * @param[in]  input_desc          input descriptor for data
+ * @param[out] trans_data          transformed input data
+ * @param[out] trans_desc          transformed input data descriptor
+ * @param[out] components          principal components of the input data
+ * @param[out] explained_var       explained var
+ * @param[out] explained_var_ratio the explained var ratio
+ * @param[out] singular_vals       singular values of the data
+ * @param[in]  prms                data structure that includes all the
+ *                                 parameters from input size to algorithm
+ * @param[in]  verbose             The verbose
  */
 void fit_transform(raft::handle_t &handle,
                    std::vector<MLCommon::Matrix::Data<float> *> &input_data,
@@ -79,14 +84,17 @@ void fit_transform(raft::handle_t &handle,
 
 /**
  * @brief performs MNMG transform operation for the tsvd.
- * @param[in] handle: the internal cuml handle object
- * @param[in] rank_sizes: includes all the partition size information for the rank
- * @param[in] n_parts: number of partitions
- * @param[in] input: input data
- * @param[in] components: principal components of the input data
- * @param[out] trans_input: transformed input data
- * @param[in] prms: data structure that includes all the parameters from input size to algorithm
- * @param[in] verbose
+ *
+ * @param[in]  handle      the internal cuml handle object
+ * @param[in]  rank_sizes  includes all the partition size information for the
+ *                         rank
+ * @param[in]  n_parts     number of partitions
+ * @param[in]  input       input data
+ * @param[in]  components  principal components of the input data
+ * @param[out] trans_input transformed input data
+ * @param[in]  prms        data structure that includes all the parameters from
+ *                         input size to algorithm
+ * @param[in]  verbose     The verbose
  */
 void transform(raft::handle_t &handle,
                MLCommon::Matrix::RankSizePair **rank_sizes, size_t n_parts,
@@ -102,14 +110,17 @@ void transform(raft::handle_t &handle,
 
 /**
  * @brief performs MNMG inverse transform operation for the output.
- * @param[in] handle: the internal cuml handle object
- * @param[in] rank_sizes: includes all the partition size information for the rank
- * @param[in] n_parts: number of partitions
- * @param[in] trans_input: transformed input data
- * @param[in] components: principal components of the input data
- * @param[out] input: input data
- * @param[in] prms: data structure that includes all the parameters from input size to algorithm
- * @param[in] verbose
+ *
+ * @param[in]  handle      the internal cuml handle object
+ * @param[in]  rank_sizes  includes all the partition size information for the
+ *                         rank
+ * @param[in]  n_parts     number of partitions
+ * @param[in]  trans_input transformed input data
+ * @param[in]  components  principal components of the input data
+ * @param[out] input       input data
+ * @param[in]  prms        data structure that includes all the parameters from
+ *                         input size to algorithm
+ * @param[in]  verbose     The verbose
  */
 void inverse_transform(raft::handle_t &handle,
                        MLCommon::Matrix::RankSizePair **rank_sizes,

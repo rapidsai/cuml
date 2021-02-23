@@ -730,8 +730,8 @@ void kmeansPlusPlus(const raft::handle_t &handle, const KMeansParams &params,
                  stream);
       /// <<< End of Step-3 >>>
 
-      /// <<< Step-4 >>>: C = C U {x}
-      // Update minimum cluster distance corresponding to the chosen centroid candidate
+      /// <<< Step-4 >>>: C = C U {x} // Update minimum cluster distance
+      /// corresponding to the chosen centroid candidate
       raft::copy(minClusterDistance.data(),
                  minDistBuf.data() + bestCandidateIdx * n_samples, n_samples,
                  stream);

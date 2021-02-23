@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,18 +24,20 @@
 namespace ML {
 
 /**
-   * Chunk a single host array up into one or many GPUs (determined by the provided
-   * list of device ids)
-   *
-   * @param ptr       an array in host memory to chunk over devices
-   * @param n         number of elements in ptr
-   * @param D         number of cols in ptr
-   * @param devices   array of device ids for chunking the ptr
-   * @param output    host array of device array pointers for output chunks
-   * @param sizes     host array of output sizes for output array
-   * @param n_chunks  number of elements in gpus
-   * @param stream    cuda stream to use
-   */
+  * Chunk a single host array up into one or many GPUs (determined by the
+  * provided list of device ids)
+  *
+  * @param ptr      an array in host memory to chunk over devices
+  * @param n        number of elements in ptr
+  * @param D        number of cols in ptr
+  * @param devices  array of device ids for chunking the ptr
+  * @param output   host array of device array pointers for output chunks
+  * @param sizes    host array of output sizes for output array
+  * @param n_chunks number of elements in gpus
+  * @param stream   cuda stream to use
+  *
+  * @tparam OutType { description }
+  */
 template <typename OutType, typename T = size_t>
 void chunk_to_device(const OutType *ptr, T n, int D, int *devices,
                      OutType **output, T *sizes, int n_chunks,

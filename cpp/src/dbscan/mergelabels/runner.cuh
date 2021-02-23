@@ -24,6 +24,7 @@ namespace MergeLabels {
 
 /**
  * Merges to label arrays according to a given core point mask
+ *
  * @param[in]    handle      raft handle
  * @param[inout] labels_a    First input, and output label array (in-place)
  * @param[in]    labels_b    Second input label array
@@ -32,6 +33,8 @@ namespace MergeLabels {
  * @param[in]    m           Working flag
  * @param[in]    N           Number of points in the dataset
  * @param[in]    stream      CUDA stream
+ *
+ * @tparam TPB_X { description }
  */
 template <typename Index_ = int, int TPB_X = 256>
 void run(const raft::handle_t& handle, Index_* labels_a, const Index_* labels_b,

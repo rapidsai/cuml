@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,15 +25,18 @@ namespace MLCommon {
  * @brief Perform fast integer division and modulo using a known divisor
  *
  * @note This currently only supports 32b signed integers
- * @todo Extend support for signed divisors
- * @ref Hacker's Delight, Second Edition, Chapter 10
+ * @todo Extend support for signed divisors Hacker's Delight, Second Edition,
+ *       Chapter 10
  */
 struct FastIntDiv {
   /**
    * @defgroup HostMethods Ctor's that are accessible only from host
-   * @{
+   *
    * @brief Host-only ctor's
-   * @param _d the divisor
+   *
+   * @param _d    the divisor
+   *
+   * @{
    */
   FastIntDiv(int _d) : d(_d) { computeScalars(); }
   FastIntDiv& operator=(int _d) {
@@ -45,9 +48,13 @@ struct FastIntDiv {
 
   /**
    * @defgroup DeviceMethods Ctor's which even the device-side can access
-   * @{
+   *
    * @brief host and device ctor's
+   *
    * @param other source object to be copied from
+   *
+   *
+   * @{
    */
   HDI FastIntDiv(const FastIntDiv& other)
     : d(other.d), m(other.m), p(other.p) {}
@@ -59,11 +66,11 @@ struct FastIntDiv {
   }
   /** @} */
 
-  /** divisor */
+  // divisor
   int d;
-  /** the term 'm' as found in the reference chapter */
+  // the term 'm' as found in the reference chapter
   unsigned m;
-  /** the term 'p' as found in the reference chapter */
+  // the term 'p' as found in the reference chapter
   int p;
 
  private:
@@ -90,10 +97,12 @@ struct FastIntDiv {
 };  // struct FastIntDiv
 
 /**
- * @brief Division overload, so that FastIntDiv can be transparently switched
- *        to even on device
- * @param n numerator
+ * @brief Division overload, so that FastIntDiv can be transparently switched to
+ *        even on device
+ *
+ * @param n       numerator
  * @param divisor the denominator
+ *
  * @return the quotient
  */
 HDI int operator/(int n, const FastIntDiv& divisor) {
@@ -104,10 +113,12 @@ HDI int operator/(int n, const FastIntDiv& divisor) {
 }
 
 /**
- * @brief Modulo overload, so that FastIntDiv can be transparently switched
- *        to even on device
- * @param n numerator
+ * @brief Modulo overload, so that FastIntDiv can be transparently switched to
+ *        even on device
+ *
+ * @param n       numerator
  * @param divisor the denominator
+ *
  * @return the remainder
  */
 HDI int operator%(int n, const FastIntDiv& divisor) {

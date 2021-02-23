@@ -24,8 +24,8 @@ namespace genetic {
 /**
  * @brief A fixed capacity stack on device currently used for AST evaluation
  *
- * The idea is to use only the registers to store the elements of the stack,
- * thereby achieving the best performance.
+ *        The idea is to use only the registers to store the elements of the
+ *        stack, thereby achieving the best performance.
  *
  * @tparam DataT   data type of the stack elements
  * @tparam MaxSize max capacity of the stack
@@ -39,19 +39,28 @@ struct stack {
     }
   }
 
-  /** Checks if the stack is empty */
+  /** Checks if the stack is empty
+   *
+   * @return { description_of_the_return_value }
+   */
   HDI bool empty() const { return elements_ == 0; }
 
-  /** Current number of elements in the stack */
+  /** Current number of elements in the stack
+   *
+   * @return { description_of_the_return_value }
+   */
   HDI int size() const { return elements_; }
 
-  /** Checks if the number of elements in the stack equal its capacity */
+  /** Checks if the number of elements in the stack equal its capacity
+   *
+   * @return { description_of_the_return_value }
+   */
   HDI bool full() const { return elements_ == MaxSize; }
 
   /**
    * @brief Pushes the input element to the top of the stack
    *
-   * @param[in] val input element to be pushed
+   * @param[in] val   input element to be pushed
    *
    * @note If called when the stack is already full, then it is a no-op! To keep
    *       the device-side logic simpler, it has been designed this way. Trying
