@@ -130,8 +130,6 @@ class SparseDistanceTest
   }
 
   void compare() {
-    // skip Hellinger test due to sporadic CI issue
-    // https://github.com/rapidsai/cuml/issues/3477
     ASSERT_TRUE(devArrMatch(out_dists_ref, out_dists,
                             params.out_dists_ref_h.size(),
                             CompareApprox<value_t>(1e-3)));
