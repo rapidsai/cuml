@@ -63,7 +63,7 @@ gpuci_conda_retry install -c conda-forge -c rapidsai -c rapidsai-nightly -c nvid
 # gpuci_conda_retry install -y "your-pkg=1.0.0"
 
 gpuci_conda_retry remove --force rapids-build-env rapids-notebook-env
-gpuci_conda_retry install -c conda-forge "conda-forge::faiss=1.7.0" "conda-forge::faiss-proc=*=cuda"
+gpuci_conda_retry install -c conda-forge "conda-forge::libfaiss=1.7.0" "conda-forge::faiss-proc=*=cuda"
 
 gpuci_logger "Install contextvars if needed"
 py_ver=$(python -c "import sys; print('.'.join(map(str, sys.version_info[:2])))")
