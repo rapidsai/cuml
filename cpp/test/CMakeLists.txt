@@ -164,8 +164,7 @@ if(BUILD_PRIMS_TESTS)
     prims/entropy.cu
     prims/epsilon_neighborhood.cu
     prims/fast_int_div.cu
-    prims/fused_l2_nn.cu
-    prims/gather.cu
+          prims/gather.cu
     prims/gram.cu
     prims/grid_sync.cu
     prims/hinge.cu
