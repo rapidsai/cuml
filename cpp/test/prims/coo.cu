@@ -18,7 +18,7 @@
 #include <raft/cudart_utils.h>
 #include <raft/random/rng.cuh>
 #include <sparse/coo.cuh>
-#include "coo.h"
+#include <coo.h>
 #include "test_utils.h"
 
 #include <iostream>
