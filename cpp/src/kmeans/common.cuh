@@ -16,10 +16,11 @@
 #pragma once
 
 #include <distance/distance.cuh>
-#include <distance/fused_l2_nn.cuh>
 #include <linalg/reduce_cols_by_key.cuh>
 #include <linalg/reduce_rows_by_key.cuh>
 #include <matrix/gather.cuh>
+
+#include <raft/distance/fused_l2_nn.cuh>
 #include <raft/linalg/binary_op.cuh>
 #include <raft/linalg/matrix_vector_op.cuh>
 #include <raft/linalg/mean_squared_error.cuh>
@@ -335,13 +336,13 @@ void minClusterAndDistance(
         workspace.resize((sizeof(int)) * ns, stream);
 
         FusedL2NNReduceOp<IndexT, DataT> redOp(cIdx);
+        raft::distance::KVPMinReduce<IndexT, DataT> pairRedOp;
 
-        MLCommon::Distance::fusedL2NN<DataT, cub::KeyValuePair<IndexT, DataT>,
-                                      IndexT>(
+        raft::distance::fusedL2NN<DataT, cub::KeyValuePair<IndexT, DataT>,
+                                  IndexT>(
           minClusterAndDistanceView.data(), datasetView.data(),
           centroidsView.data(), L2NormXView.data(), centroidsNormView.data(),
-          ns, nc, n_features, (void *)workspace.data(), redOp,
-          MLCommon::Distance::KVPMinReduce<IndexT, DataT>(),
+          ns, nc, n_features, (void *)workspace.data(), redOp, pairRedOp,
           (metric == raft::distance::DistanceType::L2Expanded) ? false : true,
           false, stream);
       } else {
@@ -453,11 +454,11 @@ void minClusterDistance(const raft::handle_t &handle,
         workspace.resize((sizeof(int)) * ns, stream);
 
         FusedL2NNReduceOp<IndexT, DataT> redOp(cIdx);
-        MLCommon::Distance::fusedL2NN<DataT, DataT, IndexT>(
+        raft::distance::KVPMinReduce<IndexT, DataT> pairRedOp;
+        raft::distance::fusedL2NN<DataT, DataT, IndexT>(
           minClusterDistanceView.data(), datasetView.data(),
           centroidsView.data(), L2NormXView.data(), centroidsNormView.data(),
-          ns, nc, n_features, (void *)workspace.data(), redOp,
-          MLCommon::Distance::KVPMinReduce<IndexT, DataT>(),
+          ns, nc, n_features, (void *)workspace.data(), redOp, pairRedOp,
           (metric == raft::distance::DistanceType::L2Expanded) ? false : true,
           false, stream);
       } else {
