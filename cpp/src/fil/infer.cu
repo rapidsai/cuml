@@ -92,9 +92,43 @@ __device__ __forceinline__ vec<NITEMS, best_margin_label> to_vec(
   return ret;
 }
 
+struct ArgMax {
+  template <int NITEMS>
+  __host__ __device__ __forceinline__ vec<NITEMS, best_margin_label> operator()(
+    vec<NITEMS, best_margin_label> a, vec<NITEMS, best_margin_label> b) const {
+    vec<NITEMS, best_margin_label> c;
+#pragma unroll
+    for (int i = 0; i < NITEMS; i++) c[i] = cub::ArgMax()(a[i], b[i]);
+    return c;
+  }
+};
+
+/** tree_leaf_output returns the leaf outputs from the tree with leaf indices
+    given by leaves for n_rows items. FULL_ITEMS indicates whether n_rows ==
+    NITEMS, to allow the compiler to skip the conditional when unrolling the
+    loop. */
+template <typename output_type, bool FULL_NITEMS, int NITEMS,
+          typename tree_type>
+__device__ __forceinline__ vec<NITEMS, output_type> tree_leaf_output(
+  tree_type tree, int n_rows, int (&leaves)[NITEMS]) {
+  vec<NITEMS, output_type> out(0);
+#pragma unroll
+  for (int j = 0; j < NITEMS; ++j) {
+    if (FULL_NITEMS || j < n_rows) {
+      /** dependent names are not considered templates by default, unless it's a
+          member of a current [template] instantiation. As output<>() is a
+          member function inherited from the base class, template
+          output<output_type>() is required. */
+      out[j] = tree[leaves[j]].template output<output_type>();
+    }
+  }
+  return out;
+}
+
 template <int NITEMS, typename output_type, typename tree_type>
 __device__ __forceinline__ vec<NITEMS, output_type> infer_one_tree(
   tree_type tree, const float* input, int cols, int n_rows) {
+  // find the leaf nodes for each row
   int curr[NITEMS];
   // the first n_rows are active
   int mask = (1 << n_rows) - 1;
@@ -104,22 +138,20 @@ __device__ __forceinline__ vec<NITEMS, output_type> infer_one_tree(
     for (int j = 0; j < NITEMS; ++j) {
       auto n = tree[curr[j]];
       mask &= ~(n.is_leaf() << j);
-      if (mask & (1 << j)) {
+      if ((mask & (1 << j)) != 0) {
         float val = input[j * cols + n.fid()];
         bool cond = isnan(val) ? !n.def_left() : val >= n.thresh();
         curr[j] = n.left(curr[j]) + cond;
       }
     }
   } while (mask != 0);
-  vec<NITEMS, output_type> out;
-#pragma unroll
-  for (int j = 0; j < NITEMS; ++j) {
-    /** dependent names are not considered templates by default,
-        unless it's a member of a current [template] instantiation.
-        alternatively, could have used .base_node::output<... */
-    out[j] = tree[curr[j]].template output<output_type>();
+
+  // get the output from the leaves
+  if (n_rows == NITEMS) {
+    return tree_leaf_output<output_type, true>(tree, n_rows, curr);
+  } else {
+    return tree_leaf_output<output_type, false>(tree, n_rows, curr);
   }
-  return out;
 }
 
 template <typename output_type, typename tree_type>
@@ -207,7 +239,6 @@ struct tree_aggregator_t {
 
   __device__ __forceinline__ void accumulate(
     vec<NITEMS, float> single_tree_prediction, int tree, int num_rows) {
-    for (int i = num_rows; i < NITEMS; ++i) acc[i] = 0.0f;
     acc += single_tree_prediction;
   }
 
@@ -354,7 +385,6 @@ struct tree_aggregator_t<NITEMS, GROVE_PER_CLASS_FEW_CLASSES> {
 
   __device__ __forceinline__ void accumulate(
     vec<NITEMS, float> single_tree_prediction, int tree, int num_rows) {
-    for (int i = num_rows; i < NITEMS; ++i) acc[i] = 0.0f;
     acc += single_tree_prediction;
   }
 
@@ -410,7 +440,6 @@ struct tree_aggregator_t<NITEMS, GROVE_PER_CLASS_MANY_CLASSES> {
 
   __device__ __forceinline__ void accumulate(
     vec<NITEMS, float> single_tree_prediction, int tree, int num_rows) {
-    for (int i = num_rows; i < NITEMS; ++i) acc[i] = 0.0f;
     // since threads are assigned to consecutive classes, no need for atomics
     per_class_margin[tree % num_classes] += single_tree_prediction;
     // __syncthreads() is called in infer_k
@@ -454,9 +483,8 @@ struct tree_aggregator_t<NITEMS, CATEGORICAL_LEAF> {
     vec<NITEMS, int> single_tree_prediction, int tree, int num_rows) {
 #pragma unroll
     for (int item = 0; item < NITEMS; ++item) {
-      if (item < num_rows)
-        raft::myAtomicAdd(votes + single_tree_prediction[item] * NITEMS + item,
-                          1);
+      raft::myAtomicAdd(votes + single_tree_prediction[item] * NITEMS + item,
+                        1);
     }
   }
   // class probabilities or regression. for regression, num_classes

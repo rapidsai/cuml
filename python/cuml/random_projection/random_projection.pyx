@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2018-2019, NVIDIA CORPORATION.
+# Copyright (c) 2018-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -27,6 +27,7 @@ from cuml.common.array import CumlArray
 from cuml.common.base import Base
 from cuml.raft.common.handle cimport *
 from cuml.common import input_to_cuml_array
+from cuml.common.mixins import FMajorInputTagMixin
 
 cdef extern from * nogil:
     ctypedef void* _Stream "cudaStream_t"
@@ -324,7 +325,9 @@ cdef class BaseRandomProjection():
         return self.fit(X).transform(X, convert_dtype)
 
 
-class GaussianRandomProjection(Base, BaseRandomProjection):
+class GaussianRandomProjection(Base,
+                               BaseRandomProjection,
+                               FMajorInputTagMixin):
     """
     Gaussian Random Projection method derivated from BaseRandomProjection
     class.
@@ -448,7 +451,9 @@ class GaussianRandomProjection(Base, BaseRandomProjection):
         ]
 
 
-class SparseRandomProjection(Base, BaseRandomProjection):
+class SparseRandomProjection(Base,
+                             BaseRandomProjection,
+                             FMajorInputTagMixin):
     """
     Sparse Random Projection method derivated from BaseRandomProjection class.
 
@@ -589,8 +594,3 @@ class SparseRandomProjection(Base, BaseRandomProjection):
             "dense_output",
             "random_state"
         ]
-
-    def _more_tags(self):
-        return {
-            'preferred_input_order': 'F'
-        }

@@ -14,6 +14,8 @@ import numbers
 import warnings
 
 import cupy as np
+from cuml.common.mixins import AllowNaNTagMixin
+from cuml.common.mixins import StringInputTagMixin
 from cupy import sparse
 
 from ....thirdparty_adapters import (get_input_type, to_output_type, _get_mask,
@@ -202,13 +204,13 @@ class SimpleImputer(_BaseImputer):
 
     Examples
     --------
-    >>> import numpy as np
-    >>> from cuml.impute import SimpleImputer
-    >>> imp_mean = SimpleImputer(missing_values=np.nan, strategy='mean')
-    >>> imp_mean.fit([[7, 2, 3], [4, np.nan, 6], [10, 5, 9]])
+    >>> import cupy as cp
+    >>> from cuml.experimental.preprocessing import SimpleImputer
+    >>> imp_mean = SimpleImputer(missing_values=cp.nan, strategy='mean')
+    >>> imp_mean.fit(cp.asarray([[7, 2, 3], [4, cp.nan, 6], [10, 5, 9]]))
     SimpleImputer()
-    >>> X = [[np.nan, 2, 3], [4, np.nan, 6], [10, np.nan, 9]]
-    >>> print(imp_mean.transform(X))
+    >>> X = [[cp.nan, 2, 3], [4, cp.nan, 6], [10, cp.nan, 9]]
+    >>> print(imp_mean.transform(cp.asarray(X)))
     [[ 7.   2.   3. ]
      [ 4.   3.5  6. ]
      [10.   3.5  9. ]]
@@ -286,6 +288,10 @@ class SimpleImputer(_BaseImputer):
         -------
         self : SimpleImputer
         """
+
+        if type(X) is list:
+            X = np.asarray(X)
+
         X = self._validate_input(X, in_fit=True)
         super()._fit_indicator(X)
 
@@ -446,7 +452,10 @@ class SimpleImputer(_BaseImputer):
         return X
 
 
-class MissingIndicator(TransformerMixin, BaseEstimator):
+class MissingIndicator(TransformerMixin,
+                       BaseEstimator,
+                       AllowNaNTagMixin,
+                       StringInputTagMixin):
     """Binary indicators for missing values.
 
     Note that this component typically should not be used in a vanilla
@@ -712,7 +721,3 @@ class MissingIndicator(TransformerMixin, BaseEstimator):
             imputer_mask = imputer_mask[:, self.features_]
 
         return imputer_mask
-
-    def _more_tags(self):
-        return {'allow_nan': True,
-                'X_types': ['2darray', 'string']}
