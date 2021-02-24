@@ -193,7 +193,8 @@ def checkCopyright_main():
                            action="append",
                            required=False,
                            default=["python/cuml/_thirdparty/"],
-                           help="Exclude the paths specified (regexp).")
+                           help=("Exclude the paths specified (regexp). "
+                                 "Can be specified multiple times."))
 
     (args, dirs) = argparser.parse_known_args()
     ExemptFiles = [re.compile(pathName) for pathName in args.exclude]
