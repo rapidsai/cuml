@@ -357,7 +357,7 @@ void approx_knn_search(ML::knnIndex *index, IntType n, const float *x,
  * @param[in] rowMajorQuery are the query array in row-major layout?
  * @param[in] translations translation ids for indices when index rows represent
  *        non-contiguous partitions
- * @param[in] metric corresponds to the FAISS::metricType enum (default is euclidean)
+ * @param[in] metric corresponds to the raft::distance::DistanceType enum (default is L2Expanded)
  * @param[in] metricArg metric argument to use. Corresponds to the p arg for lp norm
  */
 template <typename IntType = int>

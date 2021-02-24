@@ -51,7 +51,7 @@ struct SparseKNNInputs {
   int batch_size_query = 2;
 
   raft::distance::DistanceType metric =
-    raft::distance::DistanceType::L2Unexpanded;
+    raft::distance::DistanceType::L2SqrtExpanded;
 };
 
 template <typename value_idx, typename value_t>
@@ -166,7 +166,7 @@ const std::vector<SparseKNNInputs<int, float>> inputs_i32_f = {
    {0, 3, 1, 0, 2, 0, 3, 0},                          // inds
    2,
    2,
-   raft::distance::DistanceType::L2Unexpanded}};
+   raft::distance::DistanceType::L2SqrtExpanded}};
 typedef SparseKNNTest<int, float> KNNTestF;
 TEST_P(KNNTestF, Result) { compare(); }
 INSTANTIATE_TEST_CASE_P(SparseKNNTest, KNNTestF,
