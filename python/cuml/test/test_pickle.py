@@ -70,13 +70,19 @@ unfit_pickle_xfail = [
     'AutoARIMA',
     'KalmanFilter',
     'BaseRandomForestModel',
-    'ForestInference'
+    'ForestInference',
+    'MulticlassClassifier',
+    'OneVsOneClassifier',
+    'OneVsRestClassifier'
 ]
 unfit_clone_xfail = [
     'AutoARIMA',
     "ARIMA",
     "BaseRandomForestModel",
     "GaussianRandomProjection",
+    'MulticlassClassifier',
+    'OneVsOneClassifier',
+    'OneVsRestClassifier',
     "SparseRandomProjection",
 ]
 
@@ -527,10 +533,11 @@ def test_tsne_pickle(tmpdir):
 
 # Probabilistic SVM is tested separately because it is a meta estimator that
 # owns a set of base SV classifiers.
+@pytest.mark.parametrize('datatype', [np.float32, np.float64])
 @pytest.mark.parametrize('params', [{'probability': True},
                                     {'probability': False}])
-@pytest.mark.parametrize('datatype', [np.float32, np.float64])
-def test_svc_pickle(tmpdir, datatype, params):
+@pytest.mark.parametrize('multiclass', [True, False])
+def test_svc_pickle(tmpdir, datatype, params, multiclass):
     result = {}
 
     def create_mod():
@@ -540,7 +547,8 @@ def test_svc_pickle(tmpdir, datatype, params):
             [True, False], 150, replace=True, p=[0.75, 0.25])
         X_train = iris.data[iris_selection]
         y_train = iris.target[iris_selection]
-        y_train = (y_train > 0).astype(datatype)
+        if not multiclass:
+            y_train = (y_train > 0).astype(datatype)
         data = [X_train, y_train]
         result["model"] = model.fit(X_train, y_train)
         return model, data

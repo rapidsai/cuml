@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,7 +15,7 @@
  */
 #pragma once
 
-#include <common/cumlHandle.hpp>
+#include <raft/handle.hpp>
 
 namespace ML {
 namespace GLM {
@@ -76,16 +76,11 @@ void ridgeFit(const raft::handle_t &handle, double *input, int n_rows,
  * @param preds         device pointer to store predictions of size n_rows
  * @{
  */
-void olsPredict(const raft::handle_t &handle, const float *input, int n_rows,
-                int n_cols, const float *coef, float intercept, float *preds);
-void olsPredict(const raft::handle_t &handle, const double *input, int n_rows,
-                int n_cols, const double *coef, double intercept,
-                double *preds);
-void ridgePredict(const raft::handle_t &handle, const float *input, int n_rows,
-                  int n_cols, const float *coef, float intercept, float *preds);
-void ridgePredict(const raft::handle_t &handle, const double *input, int n_rows,
-                  int n_cols, const double *coef, double intercept,
-                  double *preds);
+void gemmPredict(const raft::handle_t &handle, const float *input, int n_rows,
+                 int n_cols, const float *coef, float intercept, float *preds);
+void gemmPredict(const raft::handle_t &handle, const double *input, int n_rows,
+                 int n_cols, const double *coef, double intercept,
+                 double *preds);
 /** @} */
 
 /**

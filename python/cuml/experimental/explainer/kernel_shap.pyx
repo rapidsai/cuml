@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020, NVIDIA CORPORATION.
+# Copyright (c) 2020-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,13 +14,14 @@
 # limitations under the License.
 #
 
+import cuml.common.logger as logger
 import cupy as cp
 import numpy as np
+import time
 
 from cuml.common.import_utils import has_shap
 from cuml.common.import_utils import has_sklearn
 from cuml.common.input_utils import input_to_cupy_array
-from cuml.common.logger import warn
 from cuml.experimental.explainer.base import SHAPBase
 from cuml.experimental.explainer.common import get_cai_ptr
 from cuml.experimental.explainer.common import model_func_call
@@ -216,8 +217,8 @@ class KernelExplainer(SHAPBase):
         max_samples = 2 ** 32
 
         # restricting maximum number of samples
-        if self.M <= 32:
-            max_samples = 2 ** self.M - 2
+        if self.ncols <= 32:
+            max_samples = 2 ** self.ncols - 2
 
             # if the user requested more samples than there are subsets in the
             # _powerset, we set nsamples to max_samples
@@ -229,30 +230,31 @@ class KernelExplainer(SHAPBase):
         self.ratio_evaluated = self.nsamples / max_samples
 
         self.nsamples_exact, self.nsamples_random, self.randind = \
-            _get_number_of_exact_random_samples(ncols=self.M,
+            _get_number_of_exact_random_samples(ncols=self.ncols,
                                                 nsamples=self.nsamples)
 
         # using numpy for powerset and shapley kernel weight calculations
         # cost is incurred only once, and generally we only generate
         # very few samples of the powerset if M is big.
-        mat, weight = _powerset(self.M, self.randind, self.nsamples_exact,
+        mat, weight = _powerset(self.ncols, self.randind, self.nsamples_exact,
                                 full_powerset=(self.nsamples_random == 0),
                                 dtype=self.dtype)
 
         # Store the mask and weights as device arrays
         # Mask dtype can be independent of Explainer dtype, since model
         # is not called on it.
-        self._mask = cp.zeros((self.nsamples, self.M), dtype=np.float32)
+        self._mask = cp.zeros((self.nsamples, self.ncols), dtype=np.float32)
         self._mask[:self.nsamples_exact] = cp.array(mat)
 
         self._weights = cp.ones(self.nsamples, dtype=self.dtype)
         self._weights[:self.nsamples_exact] = cp.array(weight)
 
-        self._synth_data = None
+        self._reset_timers()
 
     def shap_values(self,
                     X,
-                    l1_reg='auto'):
+                    l1_reg='auto',
+                    as_list=True):
         """
         Interface to estimate the SHAP values for a set of samples.
         Corresponds to the SHAP package's legacy interface, and is our main
@@ -266,73 +268,46 @@ class KernelExplainer(SHAPBase):
             DataFrame/Series.
         l1_reg : str (default: 'auto')
             The l1 regularization to use for feature selection.
+        as_list : bool (default = True)
+            Set to True to return a list of arrays for multi-dimensional
+            models (like predict_proba functions) to match the SHAP package
+            behavior. Set to False to return them as an array of arrays.
 
         Returns
         -------
-        array or list
+        values : array or list
 
         """
         return self._explain(X,
+                             synth_data_shape=(self.nrows * self.nsamples,
+                                               self.ncols),
+                             return_as_list=as_list,
                              l1_reg=l1_reg)
-
-    def _explain(self,
-                 X,
-                 nsamples=None,
-                 l1_reg='auto'):
-        X = input_to_cupy_array(X, order='C', convert_to_dtype=self.dtype)[0]
-
-        if X.ndim == 1:
-            X = X.reshape((1, self.M))
-
-        # shap_values is a list so we can return a list in the case that
-        # model is a multidimensional-output function
-        shap_values = []
-
-        for i in range(self.D):
-            shap_values.append(cp.zeros(X.shape, dtype=self.dtype))
-
-        # Allocate synthetic dataset array once for multiple explanations
-        if self._synth_data is None:
-            self._synth_data = cp.zeros(
-                shape=(self.N * self.nsamples, self.M),
-                dtype=self.dtype,
-                order=self.order
-            )
-
-        # Explain each observation
-        for idx, x in enumerate(X):
-            # use mutability of lists and cupy arrays to get all shap values
-            self._explain_single_observation(
-                shap_values,
-                x.reshape(1, self.M),
-                l1_reg,
-                idx
-            )
-
-        del(self._synth_data)
-
-        return output_list_shap_values(shap_values, self.D, self.output_type)
 
     def _explain_single_observation(self,
                                     shap_values,
                                     row,
-                                    l1_reg,
-                                    idx):
+                                    idx,
+                                    l1_reg):
+        total_timer = time.time()
         # Call the model to get the value f(row)
         fx = cp.array(
             model_func_call(X=row,
                             model_func=self.model,
                             gpu_model=self.is_gpu_model))
 
+        self.model_call_time = \
+            self.model_call_time + (time.time() - total_timer)
+
         self._mask[self.nsamples_exact:self.nsamples] = \
-            cp.zeros((self.nsamples_random, self.M), dtype=cp.float32)
+            cp.zeros((self.nsamples_random, self.ncols), dtype=cp.float32)
 
         # If we need sampled rows, then we call the function that generates
         # the samples array with how many samples each row will have
         # and its corresponding weight
         if self.nsamples_random > 0:
             samples, self._weights[self.nsamples_exact:self.nsamples] = \
-                _generate_nsamples_weights(self.M,
+                _generate_nsamples_weights(self.ncols,
                                            self.nsamples,
                                            self.nsamples_exact,
                                            int(self.nsamples_random / 2),
@@ -391,24 +366,30 @@ class KernelExplainer(SHAPBase):
                 <int> maxsample,
                 <uint64_t> self.random_state)
 
-        # kept while in experimental phase. It is not needed for cuml
+        # kept while in experimental namespace. It is not needed for cuml
         # models, but for other GPU models it is
         self.handle.sync()
 
+        model_timer = time.time()
         # evaluate model on combinations
         y = model_func_call(X=self._synth_data,
                             model_func=self.model,
                             gpu_model=self.is_gpu_model)
 
-        for i in range(self.D):
-            if self.D == 1:
-                y_hat = y - self.expected_value
-                exp_val_param = self.expected_value
+        self.model_call_time = \
+            self.model_call_time + (time.time() - model_timer)
+
+        l1_reg_time = 0
+
+        for i in range(self.model_dimensions):
+            if self.model_dimensions == 1:
+                y_hat = y - self._expected_value
+                exp_val_param = self._expected_value
                 fx_param = fx[0]
             else:
-                y_hat = y[:, i] - self.expected_value[i]
+                y_hat = y[:, i] - self._expected_value[i]
                 fx_param = fx[0][i]
-                exp_val_param = self.expected_value[i]
+                exp_val_param = self._expected_value[i]
 
             # get average of each combination of X
             y_hat = cp.mean(
@@ -423,6 +404,7 @@ class KernelExplainer(SHAPBase):
             nonzero_inds = None
             if ((self.ratio_evaluated < 0.2 and l1_reg == "auto") or
                     (self.ratio_evaluated < 1.0 and l1_reg != "auto")):
+                reg_timer = time.time()
                 nonzero_inds = _l1_regularization(self._mask,
                                                   y_hat,
                                                   self._weights,
@@ -430,11 +412,13 @@ class KernelExplainer(SHAPBase):
                                                   fx_param,
                                                   self.link_fn,
                                                   l1_reg)
-
+                self.l1_reg_time = \
+                    self.l1_reg_time + (time.time() - reg_timer)
                 # in case all indexes become zero
                 if nonzero_inds.shape == (0, ):
                     return None
 
+            reg_timer = time.time()
             shap_values[i][idx, :-1] = _weighted_linear_regression(
                 self._mask,
                 y_hat,
@@ -455,6 +439,24 @@ class KernelExplainer(SHAPBase):
                     (fx_param - exp_val_param) - cp.sum(
                         shap_values[i][idx, :-1])
 
+            self.linear_model_time = \
+                self.linear_model_time + (time.time() - reg_timer)
+
+        self.total_time = self.total_time + (time.time() - total_timer)
+
+    def _reset_timers(self):
+        super()._reset_timers()
+        self.l1_reg_time = 0
+        self.linear_model_time = 0
+
+    def _get_timers_str(self):
+        res_str = super()._get_timers_str()
+        res_str += "Time spent in L1 regularization: {}".format(
+            self.l1_reg_time)
+        res_str += "Time spent in linear model calculation: {}".format(
+            self.linear_model_time)
+        return res_str
+
 
 def _get_number_of_exact_random_samples(ncols, nsamples):
     """
@@ -466,7 +468,7 @@ def _get_number_of_exact_random_samples(ncols, nsamples):
     nsamples_exact = 0
     r = 0
 
-    # we check how many subsets of the _powerset of self.M we can fit
+    # we check how many subsets of the _powerset of self.ncols we can fit
     # in self.nsamples. This sets of the powerset are used  as indexes
     # to generate the mask matrix
     while cur_nsamples <= nsamples / 2:

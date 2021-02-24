@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,9 +17,8 @@
 #include <cuml/matrix/kernelparams.h>
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
-#include <common/cumlHandle.hpp>
-#include <common/device_buffer.hpp>
-#include <common/host_buffer.hpp>
+#include <cuml/common/device_buffer.hpp>
+#include <cuml/common/host_buffer.hpp>
 #include <iostream>
 #include <matrix/grammatrix.cuh>
 #include <matrix/kernelfactory.cuh>

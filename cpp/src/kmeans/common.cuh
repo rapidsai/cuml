@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -38,10 +38,9 @@
 #include <ml_cuda_utils.h>
 
 #include <common/allocatorAdapter.hpp>
-#include <common/cumlHandle.hpp>
-#include <common/device_buffer.hpp>
-#include <common/host_buffer.hpp>
 #include <common/tensor.hpp>
+#include <cuml/common/device_buffer.hpp>
+#include <cuml/common/host_buffer.hpp>
 #include <raft/comms/comms.hpp>
 
 #include <cuml/common/logger.hpp>
@@ -280,8 +279,8 @@ void minClusterAndDistance(
   auto centroidsBatchSize =
     kmeans::detail::getCentroidsBatchSize(params, n_clusters);
 
-  if (metric == raft::distance::DistanceType::EucExpandedL2 ||
-      metric == raft::distance::DistanceType::EucExpandedL2Sqrt) {
+  if (metric == raft::distance::DistanceType::L2Expanded ||
+      metric == raft::distance::DistanceType::L2SqrtExpanded) {
     L2NormBuf_OR_DistBuf.resize(n_clusters, stream);
     raft::linalg::rowNorm(L2NormBuf_OR_DistBuf.data(), centroids.data(),
                           centroids.getSize(1), centroids.getSize(0),
@@ -330,8 +329,8 @@ void minClusterAndDistance(
       auto centroidsView =
         centroids.template view<2>({nc, n_features}, {cIdx, 0});
 
-      if (metric == raft::distance::DistanceType::EucExpandedL2 ||
-          metric == raft::distance::DistanceType::EucExpandedL2Sqrt) {
+      if (metric == raft::distance::DistanceType::L2Expanded ||
+          metric == raft::distance::DistanceType::L2SqrtExpanded) {
         auto centroidsNormView = centroidsNorm.template view<1>({nc}, {cIdx});
         workspace.resize((sizeof(int)) * ns, stream);
 
@@ -342,8 +341,7 @@ void minClusterAndDistance(
           minClusterAndDistanceView.data(), datasetView.data(),
           centroidsView.data(), L2NormXView.data(), centroidsNormView.data(),
           ns, nc, n_features, (void *)workspace.data(), redOp,
-          (metric == raft::distance::DistanceType::EucExpandedL2) ? false
-                                                                  : true,
+          (metric == raft::distance::DistanceType::L2Expanded) ? false : true,
           false, stream);
       } else {
         // pairwiseDistanceView [ns x nc] - view representing the pairwise
@@ -400,8 +398,8 @@ void minClusterDistance(const raft::handle_t &handle,
   auto centroidsBatchSize =
     kmeans::detail::getCentroidsBatchSize(params, n_clusters);
 
-  if (metric == raft::distance::DistanceType::EucExpandedL2 ||
-      metric == raft::distance::DistanceType::EucExpandedL2Sqrt) {
+  if (metric == raft::distance::DistanceType::L2Expanded ||
+      metric == raft::distance::DistanceType::L2SqrtExpanded) {
     L2NormBuf_OR_DistBuf.resize(n_clusters, stream);
     raft::linalg::rowNorm(L2NormBuf_OR_DistBuf.data(), centroids.data(),
                           centroids.getSize(1), centroids.getSize(0),
@@ -448,8 +446,8 @@ void minClusterDistance(const raft::handle_t &handle,
       auto centroidsView =
         centroids.template view<2>({nc, n_features}, {cIdx, 0});
 
-      if (metric == raft::distance::DistanceType::EucExpandedL2 ||
-          metric == raft::distance::DistanceType::EucExpandedL2Sqrt) {
+      if (metric == raft::distance::DistanceType::L2Expanded ||
+          metric == raft::distance::DistanceType::L2SqrtExpanded) {
         auto centroidsNormView = centroidsNorm.template view<1>({nc}, {cIdx});
         workspace.resize((sizeof(int)) * ns, stream);
 
@@ -458,8 +456,7 @@ void minClusterDistance(const raft::handle_t &handle,
           minClusterDistanceView.data(), datasetView.data(),
           centroidsView.data(), L2NormXView.data(), centroidsNormView.data(),
           ns, nc, n_features, (void *)workspace.data(), redOp,
-          (metric == raft::distance::DistanceType::EucExpandedL2) ? false
-                                                                  : true,
+          (metric == raft::distance::DistanceType::L2Expanded) ? false : true,
           false, stream);
       } else {
         // pairwiseDistanceView [ns x nc] - view representing the pairwise
@@ -635,8 +632,8 @@ void kmeansPlusPlus(const raft::handle_t &handle, const KMeansParams &params,
   // L2 norm of X: ||c||^2
   Tensor<DataT, 1> L2NormX({n_samples}, handle.get_device_allocator(), stream);
 
-  if (metric == raft::distance::DistanceType::EucExpandedL2 ||
-      metric == raft::distance::DistanceType::EucExpandedL2Sqrt) {
+  if (metric == raft::distance::DistanceType::L2Expanded ||
+      metric == raft::distance::DistanceType::L2SqrtExpanded) {
     raft::linalg::rowNorm(L2NormX.data(), X.data(), X.getSize(1), X.getSize(0),
                           raft::linalg::L2Norm, true, stream);
   }

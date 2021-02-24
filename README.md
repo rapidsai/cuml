@@ -85,10 +85,10 @@ repo](https://github.com/rapidsai/notebooks-contrib).
 ### Supported Algorithms
 | Category | Algorithm | Notes |
 | --- | --- | --- |
-| **Clustering** |  Density-Based Spatial Clustering of Applications with Noise (DBSCAN) | |
+| **Clustering** |  Density-Based Spatial Clustering of Applications with Noise (DBSCAN) | Multi-node multi-GPU via Dask |
 |  | K-Means | Multi-node multi-GPU via Dask |
 | **Dimensionality Reduction** | Principal Components Analysis (PCA) | Multi-node multi-GPU via Dask|
-| | Incremental PCA | Experimental |
+| | Incremental PCA | |
 | | Truncated Singular Value Decomposition (tSVD) | Multi-node multi-GPU via Dask |
 | | Uniform Manifold Approximation and Projection (UMAP) | Multi-node multi-GPU Inference via Dask |
 | | Random Projection | |
@@ -96,6 +96,7 @@ repo](https://github.com/rapidsai/notebooks-contrib).
 | **Linear Models for Regression or Classification** | Linear Regression (OLS) | Multi-node multi-GPU via Dask |
 | | Linear Regression with Lasso or Ridge Regularization | Multi-node multi-GPU via Dask |
 | | ElasticNet Regression | |
+| | LARS Regression | (experimental) |
 | | Logistic Regression | Multi-node multi-GPU via Dask-GLM [demo](https://github.com/daxiongshu/rapids-demos) |
 | | Naive Bayes | Multi-node multi-GPU via Dask |
 | | Stochastic Gradient Descent (SGD), Coordinate Descent (CD), and Quasi-Newton (QN) (including L-BFGS and OWL-QN) solvers for linear models  | |
@@ -136,7 +137,7 @@ For additional details on the technologies behind cuML, as well as a broader ove
 
 Please consider citing this when using cuML in a project. You can use the citation BibTeX:
 
-```
+```bibtex
 @article{raschka2020machine,
   title={Machine Learning in Python: Main developments and technology trends in data science, machine learning, and artificial intelligence},
   author={Raschka, Sebastian and Patterson, Joshua and Nolet, Corey},

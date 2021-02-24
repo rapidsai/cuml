@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020, NVIDIA CORPORATION.
+# Copyright (c) 2020-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -52,8 +52,8 @@ def test_init_explainer_base_init_cuml_model(handle,
                          dtype=None,
                          output_type=None)
 
-    assert explainer.M == 2
-    assert explainer.N == 5
+    assert explainer.ncols == 2
+    assert explainer.nrows == 5
     assert np.all(cp.asnumpy(explainer.background) == bg)
     assert np.all(explainer.feature_names == bg_df.columns)
     assert explainer.is_gpu_model
@@ -101,8 +101,8 @@ def test_init_explainer_base_init_abritrary_model(handle,
                          dtype=None,
                          output_type=output_type)
 
-    assert explainer.M == 2
-    assert explainer.N == 5
+    assert explainer.ncols == 2
+    assert explainer.nrows == 5
     assert np.all(cp.asnumpy(explainer.background) == bg)
     if not is_gpu_model or is_gpu_model is None:
         assert not explainer.is_gpu_model
@@ -134,7 +134,7 @@ def test_init_explainer_base_wrong_dtype():
         explainer = SHAPBase(model=dummy_func,
                              background=np.ones(10),
                              dtype=np.int32)
-        explainer.M
+        explainer.ncols
 
 
 def dummy_func(x):

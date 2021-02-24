@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2020, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -173,10 +173,6 @@ def test_rf_classification(small_clf, datatype, split_algo,
     captured_stdout = f.getvalue()
     if use_experimental_backend:
         is_fallback_used = False
-        if max_features != 1.0:
-            assert ('Experimental backend does not yet support feature ' +
-                    'sub-sampling' in captured_stdout)
-            is_fallback_used = True
         if split_algo != 1:
             assert ('Experimental backend does not yet support histogram ' +
                     'split algorithm' in captured_stdout)
@@ -735,8 +731,8 @@ def test_multiple_fits_regression(column_info, nrows, n_estimators, n_bins):
 
 
 @pytest.mark.parametrize('n_estimators', [5, 10, 20])
-@pytest.mark.parametrize('detailed_printing', [True, False])
-def test_rf_printing(capfd, n_estimators, detailed_printing):
+@pytest.mark.parametrize('detailed_text', [True, False])
+def test_rf_get_text(n_estimators, detailed_text):
 
     X, y = make_classification(n_samples=500, n_features=10,
                                n_clusters_per_class=1, n_informative=5,
@@ -758,20 +754,17 @@ def test_rf_printing(capfd, n_estimators, detailed_printing):
     # Train model on the data
     cuml_model.fit(X, y)
 
-    if detailed_printing:
-        cuml_model.print_detailed()
+    if detailed_text:
+        text_output = cuml_model.get_detailed_text()
     else:
-        cuml_model.print_summary()
-
-    # Read the captured output
-    printed_output = capfd.readouterr().out
+        text_output = cuml_model.get_summary_text()
 
     # Test 1: Output is non-zero
-    assert '' != printed_output
+    assert '' != text_output
 
     # Count the number of trees printed
     tree_count = 0
-    for line in printed_output.split('\n'):
+    for line in text_output.split('\n'):
         if line.strip().startswith('Tree #'):
             tree_count += 1
 
@@ -782,7 +775,7 @@ def test_rf_printing(capfd, n_estimators, detailed_printing):
 @pytest.mark.parametrize('max_depth', [1, 2, 3, 5, 10, 15, 20])
 @pytest.mark.parametrize('n_estimators', [5, 10, 20])
 @pytest.mark.parametrize('estimator_type', ['regression', 'classification'])
-def test_dump_json(estimator_type, max_depth, n_estimators):
+def test_rf_get_json(estimator_type, max_depth, n_estimators):
     X, y = make_classification(n_samples=350, n_features=20,
                                n_clusters_per_class=1, n_informative=10,
                                random_state=123, n_classes=2)
@@ -807,7 +800,7 @@ def test_dump_json(estimator_type, max_depth, n_estimators):
     # Train model on the data
     cuml_model.fit(X, y)
 
-    json_out = cuml_model.dump_as_json()
+    json_out = cuml_model.get_json()
     json_obj = json.loads(json_out)
 
     # Test 1: Output is non-zero
@@ -994,6 +987,6 @@ def test_rf_regression_with_identical_labels(split_criterion,
                 n_streams=1, n_estimators=1, max_depth=1,
                 use_experimental_backend=use_experimental_backend)
     clf.fit(X, y)
-    model_dump = json.loads(clf.dump_as_json())
+    model_dump = json.loads(clf.get_json())
     assert len(model_dump) == 1
     assert model_dump[0] == {'nodeid': 0, 'leaf_value': 1.0}
