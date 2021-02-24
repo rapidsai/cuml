@@ -2,6 +2,11 @@
 cuML API Reference
 ~~~~~~~~~~~~~~~~~~~
 
+.. role:: py(code)
+   :language: python
+   :class: highlight
+
+
 Module Configuration
 ====================
 
@@ -10,8 +15,8 @@ Module Configuration
 Output Data Type Configuration
 ------------------------------
 
- .. automethod:: cuml.common.memory_utils.set_global_output_type
- .. automethod:: cuml.common.memory_utils.using_output_type
+ .. autofunction:: cuml.common.memory_utils.set_global_output_type
+ .. autofunction:: cuml.common.memory_utils.using_output_type
 
 .. _verbosity-levels:
 
@@ -58,7 +63,7 @@ Preprocessing, Metrics, and Utilities
 Model Selection and Data Splitting
 ----------------------------------
 
- .. automethod:: cuml.preprocessing.model_selection.train_test_split
+ .. autofunction:: cuml.preprocessing.model_selection.train_test_split
 
 Feature and Label Encoding (Single-GPU)
 ---------------------------------------
@@ -69,7 +74,7 @@ Feature and Label Encoding (Single-GPU)
  .. autoclass:: cuml.preprocessing.LabelBinarizer
     :members:
 
- .. automethod:: cuml.preprocessing.label_binarize
+ .. autofunction:: cuml.preprocessing.label_binarize
 
  .. autoclass:: cuml.preprocessing.OneHotEncoder
     :members:
@@ -115,10 +120,10 @@ Dataset Generation (Single-GPU)
     random_state
         Determines random number generation for dataset creation. Pass an int
         for reproducible output across multiple function calls.
-  .. automethod:: cuml.datasets.make_blobs
-  .. automethod:: cuml.datasets.make_classification
-  .. automethod:: cuml.datasets.make_regression
-  .. automethod:: cuml.datasets.make_arima
+  .. autofunction:: cuml.datasets.make_blobs
+  .. autofunction:: cuml.datasets.make_classification
+  .. autofunction:: cuml.datasets.make_regression
+  .. autofunction:: cuml.datasets.make_arima
 
 
 Dataset Generation (Dask-based Multi-GPU)
@@ -147,11 +152,11 @@ Metrics (regression, classification, and distance)
   .. automodule:: cuml.metrics.accuracy
     :members:
 
-  .. automethod:: cuml.metrics.confusion_matrix
+  .. autofunction:: cuml.metrics.confusion_matrix
 
-  .. automethod:: cuml.metrics.roc_auc_score
+  .. autofunction:: cuml.metrics.roc_auc_score
 
-  .. automethod:: cuml.metrics.precision_recall_curve
+  .. autofunction:: cuml.metrics.precision_recall_curve
 
   .. automodule:: cuml.metrics.pairwise_distances
     :members:
@@ -168,6 +173,9 @@ Metrics (clustering and trustworthiness)
     :members:
 
   .. automodule:: cuml.metrics.cluster.homogeneity_score
+    :members:
+
+  .. automodule:: cuml.metrics.cluster.silhouette_score
     :members:
        
   .. automodule:: cuml.metrics.cluster.completeness_score
@@ -232,6 +240,18 @@ Mini Batch SGD Regressor
 ------------------------
 
 .. autoclass:: cuml.MBSGDRegressor
+    :members:
+
+Multiclass Classification
+-------------------------
+
+.. autoclass:: cuml.multiclass.MulticlassClassifier
+    :members:
+
+.. autoclass:: cuml.multiclass.OneVsOneClassifier
+    :members:
+
+.. autoclass:: cuml.multiclass.OneVsRestClassifier
     :members:
 
 Mutinomial Naive Bayes
@@ -320,6 +340,11 @@ Principal Component Analysis
 .. autoclass:: cuml.PCA
     :members:
 
+Incremental PCA
+---------------
+.. autoclass:: cuml.IncrementalPCA
+   :members:
+
 Truncated SVD
 --------------
 
@@ -341,7 +366,7 @@ Random Projections
 .. autoclass:: cuml.random_projection.SparseRandomProjection
     :members:
 
-.. automethod:: cuml.random_projection.johnson_lindenstrauss_min_dim
+.. autofunction:: cuml.random_projection.johnson_lindenstrauss_min_dim
 
 
 TSNE
@@ -391,6 +416,12 @@ ARIMA
 
 Multi-Node, Multi-GPU Algorithms
 ================================
+
+DBSCAN Clustering
+--------------------
+
+.. autoclass:: cuml.dask.cluster.DBSCAN
+    :members:
 
 K-Means Clustering
 --------------------
@@ -492,11 +523,6 @@ Experimental
     the root `cuml` package. Each `experimental` submodule must be imported
     separately.
 
-Decomposition
--------------
-.. autoclass:: cuml.experimental.decomposition.IncrementalPCA
-   :members:
-
 Preprocessing
 -------------
 .. automodule:: cuml.experimental.preprocessing
@@ -512,4 +538,9 @@ Model Explanation (SHAP)
    :members:
 
 .. autoclass:: cuml.experimental.explainer.PermutationExplainer
+   :members:
+
+Linear Models
+-------------
+.. autoclass:: cuml.experimental.linear_model.Lars
    :members:
