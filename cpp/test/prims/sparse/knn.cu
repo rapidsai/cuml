@@ -166,7 +166,12 @@ const std::vector<SparseKNNInputs<int, float>> inputs_i32_f = {
    {0, 3, 1, 0, 2, 0, 3, 0},                          // inds
    2,
    2,
+<<<<<<< HEAD
    raft::distance::DistanceType::L2SqrtExpanded}};
+=======
+   2,
+   ML::MetricType::METRIC_L2}};
+>>>>>>> branch-0.19
 typedef SparseKNNTest<int, float> KNNTestF;
 TEST_P(KNNTestF, Result) { compare(); }
 INSTANTIATE_TEST_CASE_P(SparseKNNTest, KNNTestF,

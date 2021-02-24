@@ -53,6 +53,7 @@ gpuci_conda_retry install -c conda-forge -c rapidsai -c rapidsai-nightly -c nvid
       "dask-cudf=${MINOR_VERSION}" \
       "dask-cuda=${MINOR_VERSION}" \
       "ucx-py=${MINOR_VERSION}" \
+      "ucx-proc=*=gpu" \
       "xgboost=1.3.3dev.rapidsai${MINOR_VERSION}" \
       "rapids-build-env=${MINOR_VERSION}.*" \
       "rapids-notebook-env=${MINOR_VERSION}.*" \
@@ -102,9 +103,6 @@ if [[ -z "$PROJECT_FLASH" || "$PROJECT_FLASH" == "0" ]]; then
 
     gpuci_logger "Resetting LD_LIBRARY_PATH"
 
-    export LD_LIBRARY_PATH=$LD_LIBRARY_PATH_CACHED
-    export LD_LIBRARY_PATH_CACHED=""
-
     cd $WORKSPACE
 
     ################################################################################
@@ -124,13 +122,15 @@ if [[ -z "$PROJECT_FLASH" || "$PROJECT_FLASH" == "0" ]]; then
     cd $WORKSPACE/cpp/build
     GTEST_OUTPUT="xml:${WORKSPACE}/test-results/libcuml_cpp/" ./test/ml
 
+    export LD_LIBRARY_PATH=$LD_LIBRARY_PATH_CACHED
+    export LD_LIBRARY_PATH_CACHED=""
 
     gpuci_logger "Python pytest for cuml"
     cd $WORKSPACE/python
 
     pytest --cache-clear --basetemp=${WORKSPACE}/cuml-cuda-tmp --junitxml=${WORKSPACE}/junit-cuml.xml -v -s -m "not memleak" --durations=50 --timeout=300 --ignore=cuml/test/dask --ignore=cuml/raft --cov-config=.coveragerc --cov=cuml --cov-report=xml:${WORKSPACE}/python/cuml/cuml-coverage.xml --cov-report term
 
-    timeout 7200 sh -c "pytest cuml/test/dask --cache-clear --basetemp=${WORKSPACE}/cuml-mg-cuda-tmp --junitxml=${WORKSPACE}/junit-cuml-mg.xml -v -s -m 'not memleak' --durations=50 --timeout=300"
+    timeout 7200 sh -c "pytest cuml/test/dask --cache-clear --basetemp=${WORKSPACE}/cuml-mg-cuda-tmp --junitxml=${WORKSPACE}/junit-cuml-mg.xml -v -s -m 'not memleak' --durations=50 --timeout=300 --cov-config=.coveragerc --cov=cuml --cov-report=xml:${WORKSPACE}/python/cuml/cuml-dask-coverage.xml --cov-report term"
 
 
     ################################################################################
@@ -200,7 +200,7 @@ else
 
     pytest --cache-clear --basetemp=${WORKSPACE}/cuml-cuda-tmp --junitxml=${WORKSPACE}/junit-cuml.xml -v -s -m "not memleak" --durations=50 --timeout=300 --ignore=cuml/test/dask --ignore=cuml/raft --cov-config=.coveragerc --cov=cuml --cov-report=xml:${WORKSPACE}/python/cuml/cuml-coverage.xml --cov-report term
 
-    timeout 7200 sh -c "pytest cuml/test/dask --cache-clear --basetemp=${WORKSPACE}/cuml-mg-cuda-tmp --junitxml=${WORKSPACE}/junit-cuml-mg.xml -v -s -m 'not memleak' --durations=50 --timeout=300"
+    timeout 7200 sh -c "pytest cuml/test/dask --cache-clear --basetemp=${WORKSPACE}/cuml-mg-cuda-tmp --junitxml=${WORKSPACE}/junit-cuml-mg.xml -v -s -m 'not memleak' --durations=50 --timeout=300 --cov-config=.coveragerc --cov=cuml --cov-report=xml:${WORKSPACE}/python/cuml/cuml-dask-coverage.xml --cov-report term"
 
     ################################################################################
     # TEST - Run notebook tests
@@ -241,8 +241,36 @@ else
 
 fi
 
-if [ -n "\${CODECOV_TOKEN}" ]; then
-    codecov -t \$CODECOV_TOKEN
+if [ -n "${CODECOV_TOKEN}" ]; then
+
+    gpuci_logger "Uploading Code Coverage to codecov.io"
+
+    # Directory containing reports
+    REPORT_DIR="${WORKSPACE}/python/cuml"
+
+    # Base name to use in Codecov UI
+    CODECOV_NAME="${OS},py${PYTHON},cuda${CUDA}"
+
+    # Codecov args needed by both calls
+    EXTRA_CODECOV_ARGS=""
+
+    # Save the OS PYTHON and CUDA flags
+    EXTRA_CODECOV_ARGS="${EXTRA_CODECOV_ARGS} -e OS,PYTHON,CUDA"
+
+    # If we have REPORT_HASH, use that instead. This fixes an issue where
+    # CodeCov uses a local merge commit created by Jenkins. Since this commit
+    # never gets pushed, it causes issues in Codecov
+    if [ -n "${REPORT_HASH}" ]; then
+        EXTRA_CODECOV_ARGS="${EXTRA_CODECOV_ARGS} -C ${REPORT_HASH}"
+    fi
+
+    # Append the PR ID. This is needed when running the build inside docker
+    EXTRA_CODECOV_ARGS="${EXTRA_CODECOV_ARGS} -P ${PR_ID} -c"
+
+    # Upload the two reports with separate flags. Delete the report on success
+    # to prevent further CI steps from re-uploading
+    curl -s https://codecov.io/bash | bash -s -- -F non-dask -f ${REPORT_DIR}/cuml-coverage.xml -n "$CODECOV_NAME,non-dask" ${EXTRA_CODECOV_ARGS}
+    curl -s https://codecov.io/bash | bash -s -- -F dask -f ${REPORT_DIR}/cuml-dask-coverage.xml -n "$CODECOV_NAME,dask" ${EXTRA_CODECOV_ARGS}
 fi
 
 return ${EXITCODE}
