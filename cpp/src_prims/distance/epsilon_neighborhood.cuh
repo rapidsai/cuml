@@ -23,7 +23,8 @@ namespace MLCommon {
 namespace Distance {
 
 template <typename DataT, typename IdxT, typename Policy,
-          typename BaseClass = raft::linalg::Contractions_NT<DataT, IdxT, Policy>>
+          typename BaseClass =
+            raft::linalg::Contractions_NT<DataT, IdxT, Policy>>
 struct EpsUnexpL2SqNeighborhood : public BaseClass {
  private:
   typedef Policy P;

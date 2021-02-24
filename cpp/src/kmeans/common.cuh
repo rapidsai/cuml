@@ -339,7 +339,7 @@ void minClusterAndDistance(
         raft::distance::KVPMinReduce<IndexT, DataT> pairRedOp;
 
         raft::distance::fusedL2NN<DataT, cub::KeyValuePair<IndexT, DataT>,
-                                      IndexT>(
+                                  IndexT>(
           minClusterAndDistanceView.data(), datasetView.data(),
           centroidsView.data(), L2NormXView.data(), centroidsNormView.data(),
           ns, nc, n_features, (void *)workspace.data(), redOp, pairRedOp,
