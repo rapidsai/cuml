@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -161,6 +161,7 @@ const std::vector<SparseKNNInputs<int, float>> inputs_i32_f = {
    {0.0f, 1.0f, 5.0f, 6.0f, 5.0f, 6.0f, 0.0f, 1.0f},  // data
    {0, 1.41421, 0, 7.87401, 0, 7.87401, 0, 1.41421},  // dists
    {0, 3, 1, 0, 2, 0, 3, 0},                          // inds
+   2,
    2,
    2,
    ML::MetricType::METRIC_L2}};
