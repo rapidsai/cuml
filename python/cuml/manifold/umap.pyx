@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2020, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -45,6 +45,7 @@ from cuml.common.memory_utils import using_output_type
 from cuml.common.import_utils import has_scipy
 from cuml.common.array import CumlArray
 from cuml.common.array_sparse import SparseCumlArray
+from cuml.common.mixins import CMajorInputTagMixin
 from cuml.common.sparse_utils import is_sparse
 
 if has_scipy(True):
@@ -157,7 +158,8 @@ cdef extern from "cuml/manifold/umap.hpp" namespace "ML::UMAP":
                           float *transformed) except +
 
 
-class UMAP(Base):
+class UMAP(Base,
+           CMajorInputTagMixin):
     """
     Uniform Manifold Approximation and Projection
 
@@ -878,8 +880,3 @@ class UMAP(Base):
             "optim_batch_size",
             "callback",
         ]
-
-    def _more_tags(self):
-        return {
-            'preferred_input_order': 'C'
-        }

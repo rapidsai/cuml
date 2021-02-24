@@ -47,6 +47,8 @@ from cuml.common import using_output_type
 from cuml.prims.stats import cov
 from cuml.common.input_utils import sparse_scipy_to_cp
 from cuml.common.exceptions import NotFittedError
+from cuml.common.mixins import FMajorInputTagMixin
+from cuml.common.mixins import SparseInputTagMixin
 
 
 cdef extern from "cuml/decomposition/pca.hpp" namespace "ML":
@@ -109,7 +111,9 @@ class Solver(IntEnum):
     COV_EIG_JACOBI = <underlying_type_t_solver> solver.COV_EIG_JACOBI
 
 
-class PCA(Base):
+class PCA(Base,
+          FMajorInputTagMixin,
+          SparseInputTagMixin):
 
     """
     PCA (Principal Component Analysis) is a fundamental dimensionality
@@ -724,25 +728,6 @@ class PCA(Base):
         return super().get_param_names() + \
             ["copy", "iterated_power", "n_components", "svd_solver", "tol",
                 "whiten", "random_state"]
-
-    def __getstate__(self):
-        state = self.__dict__.copy()
-        # Remove the unpicklable handle.
-        if 'handle' in state:
-            del state['handle']
-
-        return state
-
-    def __setstate__(self, state):
-        self.__dict__.update(state)
-        self.handle = Handle()
-
-    def _more_tags(self):
-        return {
-            'preferred_input_order': 'F',
-            'X_types_gpu': ['2darray', 'sparse'],
-            'X_types': ['2darray', 'sparse']
-        }
 
     def _check_is_fitted(self, attr):
         if not hasattr(self, attr) or (getattr(self, attr) is None):

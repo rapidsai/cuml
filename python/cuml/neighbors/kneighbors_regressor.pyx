@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -22,8 +22,9 @@ import cuml.internals
 from cuml.common.array import CumlArray
 from cuml.common import input_to_cuml_array
 from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.common.base import RegressorMixin
+from cuml.common.mixins import RegressorMixin
 from cuml.common.doc_utils import generate_docstring
+from cuml.common.mixins import FMajorInputTagMixin
 
 import numpy as np
 
@@ -63,7 +64,9 @@ cdef extern from "cuml/neighbors/knn.hpp" namespace "ML":
     ) except +
 
 
-class KNeighborsRegressor(NearestNeighbors, RegressorMixin):
+class KNeighborsRegressor(NearestNeighbors,
+                          RegressorMixin,
+                          FMajorInputTagMixin):
     """
 
     K-Nearest Neighbors Regressor is an instance-based learning technique,
@@ -231,9 +234,3 @@ class KNeighborsRegressor(NearestNeighbors, RegressorMixin):
 
     def get_param_names(self):
         return super().get_param_names() + ["weights"]
-
-    def _more_tags(self):
-        return {
-            # fit and predict require conflicting memory layouts
-            'preferred_input_order': 'F'
-        }
