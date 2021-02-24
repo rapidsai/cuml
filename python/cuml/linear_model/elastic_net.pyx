@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,13 +17,18 @@
 # distutils: language = c++
 
 from cuml.solvers import CD
-from cuml.common.base import Base, RegressorMixin
+from cuml.common.base import Base
+from cuml.common.mixins import RegressorMixin
 from cuml.common.doc_utils import generate_docstring
 from cuml.common.array_descriptor import CumlArrayDescriptor
+from cuml.common.mixins import FMajorInputTagMixin
 from cuml.linear_model.base import LinearPredictMixin
 
 
-class ElasticNet(Base, RegressorMixin, LinearPredictMixin):
+class ElasticNet(Base,
+                 LinearPredictMixin,
+                 RegressorMixin,
+                 FMajorInputTagMixin):
 
     """
     ElasticNet extends LinearRegression with combined L1 and L2 regularizations
@@ -227,8 +232,3 @@ class ElasticNet(Base, RegressorMixin, LinearPredictMixin):
             "tol",
             "selection",
         ]
-
-    def _more_tags(self):
-        return {
-            'preferred_input_order': 'F'
-        }

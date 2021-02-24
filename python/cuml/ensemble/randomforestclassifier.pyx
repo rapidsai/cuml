@@ -25,7 +25,7 @@ import cuml.common.logger as logger
 
 from cuml import ForestInference
 from cuml.common.array import CumlArray
-from cuml.common.base import ClassifierMixin
+from cuml.common.mixins import ClassifierMixin
 import cuml.internals
 from cuml.common.doc_utils import generate_docstring
 from cuml.common.doc_utils import insert_into_docstring
@@ -122,7 +122,8 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
                           bool) except +
 
 
-class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
+class RandomForestClassifier(BaseRandomForestModel,
+                             ClassifierMixin):
     """
     Implements a Random Forest classifier model which fits multiple decision
     tree classifiers in an ensemble.
@@ -957,9 +958,3 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
         if self.dtype == np.float64:
             return get_rf_json(rf_forest64).decode('utf-8')
         return get_rf_json(rf_forest).decode('utf-8')
-
-    def _more_tags(self):
-        return {
-            # fit and predict require conflicting memory layouts
-            'preferred_input_order': None
-        }
