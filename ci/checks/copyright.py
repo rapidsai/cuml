@@ -202,7 +202,8 @@ def checkCopyright_main():
     except re.error as reException:
         print("Regular expression error:")
         print(reException)
-        retval = 1
+        return 1
+
     if args.git_modified_only:
         files = gitutils.modifiedFiles(pathFilter=checkThisFile)
     else:
