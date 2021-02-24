@@ -308,8 +308,8 @@ class SparseInputTagMixin:
     Mixin class for estimators that can take (GPU and host) sparse inputs.
     """
 
-    @classmethod
-    def _more_static_tags(cls):
+    @staticmethod
+    def _more_static_tags():
         return {
             'X_types_gpu': ['2darray', 'sparse'],
             'X_types': ['2darray', 'sparse']

@@ -177,9 +177,12 @@ def test_dynamic_tags_and_composition():
 
     # In python, the MRO is so that the uppermost inheritted class
     # being closest to the final class, so in our dummy_class_with_tags
-    # the F Major input mixin overwrites the C mixin
+    # the F Major input mixin should the C mixin
     assert static_tags['preferred_input_order'] == 'F'
     assert dynamic_tags['preferred_input_order'] == 'F'
+
+    # Testing dynamic tags actually take precedence over static ones on the
+    # instantiated object
     assert static_tags['X_types'] == ['categorical']
     assert dynamic_tags['X_types'] == ['string']
 

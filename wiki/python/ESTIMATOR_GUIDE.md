@@ -221,6 +221,23 @@ Additionaly, some tags specific to cuML have been added. These tags may or may n
 - `dynamic_tags` (default=False)
    Most estimators only need to define the tags statically, which facilitates the usage of tags in general. But some estimators might need to modify the values of a tag based on runtime attributes, so this tag reflects whether an estimator needs to do that. This tag value is automatically set by the `Base` estimator class if an Estimator has defined the `_more_tags` instance method.
 
+Note on MRO and tags: Tag resolution makes it so that multiple classes define the same tag in a composed class, classes closer to the final class overwrite the values of the farther ones. In Python, the MRO resolution makes it so that the uppermost classes are closer to the inheritting class, for example:
+
+Class:
+```python
+class DBSCAN(Base,
+             ClusterMixin,
+             CMajorInputTagMixin):
+```
+
+MRO:
+```python
+>>> cuml.DBSCAN.__mro__
+(<class 'cuml.cluster.dbscan.DBSCAN'>, <class 'cuml.common.base.Base'>, <class 'cuml.common.mixins.TagsMixin'>, <class 'cuml.common.mixins.ClusterMixin'>, <class 'cuml.common.mixins.CMajorInputTagMixin'>, <class 'object'>)
+```
+
+So this needs to be taken into account for tag resolution, for the case above, the tags in `ClusterMixin` would overwrite tags of `CMajorInputTagMixin` if they defined the same tags. So take this into consideration for the (uncommon) cases where there might be tags re-defined in your MRO. This is not common since most tag mixins define mutually exclusive tags (i.e. either prefer `F` or `C` major inputs).
+
 ### Estimator Array-Like Attributes
 
 Any array-like attribute stored in an estimator needs to be convertible to the user's desired output type. To make it easier to store array-like objects in a class that derives from `Base`, the `cuml.common.array_descriptor.CumlArrayDescriptor` was created. The `CumlArrayDescriptor` class is a Python descriptor object which allows cuML to implement customized attribute lookup, storage and deletion code that can be reused on all estimators.
