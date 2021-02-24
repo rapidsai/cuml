@@ -197,7 +197,12 @@ def checkCopyright_main():
                                  "Can be specified multiple times."))
 
     (args, dirs) = argparser.parse_known_args()
-    ExemptFiles = [re.compile(pathName) for pathName in args.exclude]
+    try:
+        ExemptFiles = [re.compile(pathName) for pathName in args.exclude]
+    except re.error as reException:
+        print("Regular expression error:")
+        print(reException)
+        retval = 1
     if args.git_modified_only:
         files = gitutils.modifiedFiles(pathFilter=checkThisFile)
     else:
