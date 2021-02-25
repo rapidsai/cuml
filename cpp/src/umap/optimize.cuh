@@ -16,10 +16,10 @@
 
 #pragma once
 
-#include <cuml/manifold/umapparams.h>
+#include <cuml/common/cuml_allocator.hpp>
 #include <cuml/common/logger.hpp>
-
 #include <cuml/common/device_buffer.hpp>
+#include <cuml/manifold/umapparams.h>
 
 #include <raft/cudart_utils.h>
 #include <linalg/power.cuh>
@@ -34,6 +34,10 @@
 #include <cuda_runtime.h>
 
 #pragma once
+
+namespace ML {
+using MLCommon::deviceAllocator;
+}
 
 namespace UMAPAlgo {
 
