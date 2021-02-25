@@ -413,53 +413,74 @@ void DecisionTreeBase<T, L>::base_fit(
     }
   }
   // Dump all the parameters for comaprison
-  printf("Pre-plant dump\n");
-  printf("sparsetree vector length = %lu\n", sparsetree.size());
-  // printf("location of data = %p\n", data);
-  printf("n_rows = %d\n", nrows);
-  printf("n_cols = %d\n", ncols);
-  printf("n_sampled_rows = %d\n", n_sampled_rows);
-  printf("rowids = {");
+  FILE *fp;
+  char filename[100];
+  sprintf(filename, "dump/cmp-%d-%d.txt", seed, treeid);
+  fp = fopen(filename, "w");
+  fprintf(fp, "Pre-plant dump\n");
+  fprintf(fp, "sparsetree vector length = %lu\n", sparsetree.size());
+  fprintf(fp, "location of data = %p\n", data);
+  fprintf(fp, "n_rows = %d\n", nrows);
+  fprintf(fp, "n_cols = %d\n", ncols);
+  fprintf(fp, "n_sampled_rows = %d\n", n_sampled_rows);
+  fprintf(fp, "max_shared_mem = %d\n", max_shared_mem);
+  fprintf(fp, "rowids = {");
   int *h_rowids;
   h_rowids = (int*)malloc(sizeof(int) * n_sampled_rows);
   CUDA_CHECK(cudaMemcpy(h_rowids, rowids, sizeof(int) * n_sampled_rows, cudaMemcpyDeviceToHost));
   for (int i = 0; i < n_sampled_rows; i++) {
     if(i == n_sampled_rows - 1) {
-      printf("%d}\n", h_rowids[i]);
+      fprintf(fp, "%d}\n", h_rowids[i]);
     } else {
-      printf("%d, ", h_rowids[i]);
+      fprintf(fp, "%d, ", h_rowids[i]);
     }
   }
   free(h_rowids);
-  printf("unique_labels = %d\n", unique_labels);
-  printf("treeid = %d\n", treeid);
-  printf("seed = %lu\n", seed);
+  fprintf(fp, "unique_labels = %d\n", unique_labels);
+  fprintf(fp, "treeid = %d\n", treeid);
+  fprintf(fp, "seed = %lu\n", seed);
   if(!tree_params.use_experimental_backend) {
-    printf("tempmem:\n");
-    printf("    parentsz = %lu\n", tempmem->parentsz);
-    printf("    childsz = %lu\n", tempmem->childsz);
-    printf("    gather_max_nodes = %lu\n", tempmem->gather_max_nodes);
-    // printf("    stream = %lu\n", tempmem->stream);
-    printf("    num_sms = %d\n", tempmem->num_sms);
-    printf("    max_shared_mem = %lu\n", tempmem->max_shared_mem);
-    printf("    max_nodes_class = %d\n", tempmem->max_nodes_class);
-    printf("    max_nodes_pred = %d\n", tempmem->max_nodes_pred);
-    printf("    max_nodes_mse = %d\n", tempmem->max_nodes_mse);
-    printf("    max_nodes_per_level = %d\n", tempmem->max_nodes_per_level);
-    printf("    max_nodes_minmax = %d\n", tempmem->max_nodes_minmax);
+    fprintf(fp, "tempmem:\n");
+    fprintf(fp, "    parentsz = %lu\n", tempmem->parentsz);
+    fprintf(fp, "    childsz = %lu\n", tempmem->childsz);
+    fprintf(fp, "    gather_max_nodes = %lu\n", tempmem->gather_max_nodes);
+    fprintf(fp, "    num_sms = %d\n", tempmem->num_sms);
+    fprintf(fp, "    max_shared_mem = %lu\n", tempmem->max_shared_mem);
+    fprintf(fp, "    max_nodes_class = %d\n", tempmem->max_nodes_class);
+    fprintf(fp, "    max_nodes_pred = %d\n", tempmem->max_nodes_pred);
+    fprintf(fp, "    max_nodes_mse = %d\n", tempmem->max_nodes_mse);
+    fprintf(fp, "    max_nodes_per_level = %d\n", tempmem->max_nodes_per_level);
+    fprintf(fp, "    max_nodes_minmax = %d\n", tempmem->max_nodes_minmax);
 
-    CUDA_CHECK(cudaMemcpy(tempmem->h_quantile->data(), tempmem->d_quantile->data(),
-                          tree_params.n_bins * ncols * sizeof(T),
-                          cudaMemcpyDeviceToHost));
-    printf("    quantiles = {");
-    for (int i = 0; i < tree_params.n_bins * ncols; i++) {
-      if(i == tree_params.n_bins * ncols - 1) {
-        printf("%f}\n", tempmem->h_quantile->data()[i]);
-      } else {
-        printf("%f, ", tempmem->h_quantile->data()[i]);
+    if(tree_params.split_algo == SPLIT_ALGO::GLOBAL_QUANTILE) {
+      CUDA_CHECK(cudaMemcpy(tempmem->h_quantile->data(), tempmem->d_quantile->data(),
+                            tree_params.n_bins * ncols * sizeof(T),
+                            cudaMemcpyDeviceToHost));
+      fprintf(fp, "    quantiles = {");
+      for (int i = 0; i < tree_params.n_bins * ncols; i++) {
+        if(i == tree_params.n_bins * ncols - 1) {
+          fprintf(fp, "%f}\n", tempmem->h_quantile->data()[i]);
+        } else {
+          fprintf(fp, "%f, ", tempmem->h_quantile->data()[i]);
+        }
+      }
+    }
+  } else {
+        if(tree_params.split_algo == SPLIT_ALGO::GLOBAL_QUANTILE) {
+      CUDA_CHECK(cudaMemcpy(tempmem->h_quantile->data(), d_global_quantiles,
+                            tree_params.n_bins * ncols * sizeof(T),
+                            cudaMemcpyDeviceToHost));
+      fprintf(fp, "    quantiles = {");
+      for (int i = 0; i < tree_params.n_bins * ncols; i++) {
+        if(i == tree_params.n_bins * ncols - 1) {
+          fprintf(fp, "%f}\n", tempmem->h_quantile->data()[i]);
+        } else {
+          fprintf(fp, "%f, ", tempmem->h_quantile->data()[i]);
+        }
       }
     }
   }
+  fclose(fp);
   plant(sparsetree, data, ncols, nrows, labels, rowids, n_sampled_rows,
         unique_labels, treeid, seed);
   if(!tree_params.use_experimental_backend) {
