@@ -38,6 +38,25 @@ $ ./build.sh                           # build the cuML libraries, tests, and py
                                        # install them to $INSTALL_PREFIX if set, otherwise $CONDA_PREFIX
 ```
 
+#### Tips for Faster Builds
+
+The `build.sh` script allows you to pass additional arguments directly to CMake
+using the `CUML_EXTRA_CMAKE_ARGS` environment variable. This allows you to take
+advantage of `ninja` as a faster alternative to `make` and to use `ccache` for
+caching results of previous builds. For workflows that involve frequent
+switching among branches or between debug and release builds, `ccache` is
+particularly helpful. Assuming you have `ccache` installed, you can take
+advantage of both with the following:
+
+```bash
+$ CUML_EXTRA_CMAKE_ARGS='-GNinja'\
+' -DCMAKE_C_COMPILER_LAUNCHER=ccache'\
+' -DCMAKE_CXX_COMPILER_LAUNCHER=ccache'\
+' -DCMAKE_CUDA_COMPILER_LAUNCHER=ccache' ./build.sh
+```
+
+#### Additional Options
+
 To build individual components, specify them as arguments to `build.sh`
 ```bash
 $ ./build.sh libcuml                   # build and install the cuML C++ and C-wrapper libraries
