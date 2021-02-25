@@ -47,6 +47,7 @@ from libc.stdlib cimport calloc, malloc, free
 
 from numba import cuda
 
+from cuml.common.cuda import nvtx_range_wrap, nvtx_range_push, nvtx_range_pop
 from cuml.raft.common.handle cimport handle_t
 cimport cuml.common.cuda
 
@@ -439,6 +440,8 @@ class RandomForestClassifier(BaseRandomForestModel,
             y to be of dtype int32. This will increase memory used for
             the method.
         """
+        nvtx_range_push("Fit RF-Classifier @randomforestclassifier.pyx")
+
         X_m, y_m, max_feature_val = self._dataset_setup_for_fit(X, y,
                                                                 convert_dtype)
         cdef uintptr_t X_ptr, y_ptr
@@ -512,6 +515,7 @@ class RandomForestClassifier(BaseRandomForestModel,
         self.handle.sync()
         del X_m
         del y_m
+        nvtx_range_pop()
         return self
 
     @cuml.internals.api_base_return_array(get_output_dtype=True)
@@ -626,6 +630,7 @@ class RandomForestClassifier(BaseRandomForestModel,
         ----------
         y : {}
         """
+        nvtx_range_push("predict RF-Classifier @randomforestclassifier.pyx")
         if num_classes:
             warnings.warn("num_classes is deprecated and will be removed"
                           " in an upcoming version")
@@ -653,6 +658,7 @@ class RandomForestClassifier(BaseRandomForestModel,
                                            fil_sparse_format=fil_sparse_format,
                                            predict_proba=False)
 
+        nvtx_range_pop()
         return preds
 
     def _predict_get_all(self, X, convert_dtype=True) -> CumlArray:
@@ -859,6 +865,8 @@ class RandomForestClassifier(BaseRandomForestModel,
         accuracy : float
            Accuracy of the model [0.0 - 1.0]
         """
+
+        nvtx_range_push("score RF-Classifier @randomforestclassifier.pyx")
         cdef uintptr_t X_ptr, y_ptr
         _, n_rows, _, _ = \
             input_to_cuml_array(X, check_dtype=self.dtype,
@@ -913,6 +921,7 @@ class RandomForestClassifier(BaseRandomForestModel,
         self.handle.sync()
         del(y_m)
         del(preds_m)
+        nvtx_range_pop()
         return self.stats['accuracy']
 
     def get_summary_text(self):
