@@ -417,6 +417,7 @@ if(BUILD_CUML_CPP_LIBRARY)
     src/metrics/kl_divergence.cu
     src/metrics/mutual_info_score.cu
     src/metrics/pairwise_distance.cu
+    src/metrics/precision_score.cu
     src/metrics/r2_score.cu
     src/metrics/rand_index.cu
     src/metrics/silhouette_score.cu

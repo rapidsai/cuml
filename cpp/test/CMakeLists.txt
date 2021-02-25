@@ -192,6 +192,7 @@ if(BUILD_PRIMS_TESTS)
     prims/penalty.cu
     prims/permute.cu
     prims/power.cu
+    prims/precision_score.cu
     prims/rand_index.cu
     prims/reduce_cols_by_key.cu
     prims/reduce_rows_by_key.cu
