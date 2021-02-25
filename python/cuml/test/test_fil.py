@@ -137,8 +137,10 @@ def test_fil_classification(n_rows, n_columns, num_rounds,
     if n_classes == 2:
         assert array_equal(fil_preds, xgb_preds_int)
         xgb_proba = np.stack([1-xgb_preds, xgb_preds], axis=1)
-        fil_proba = np.asarray(fm.predict_proba(X_validation))
-        assert np.allclose(fil_proba, xgb_proba, 1e-3)
+    else:
+        xgb_proba = bst.predict(dvalidation, output_margin=True)
+    fil_proba = np.asarray(fm.predict_proba(X_validation))
+    assert np.allclose(fil_proba, xgb_proba, 1e-3)
 
 
 @pytest.mark.parametrize('n_rows', [unit_param(1000), quality_param(10000),
@@ -260,30 +262,33 @@ def test_fil_skl_classification(n_rows, n_columns, n_estimators, max_depth,
 
     if n_classes == 2:
         assert array_equal(fil_preds, skl_preds_int)
-        fil_proba = np.asarray(fm.predict_proba(X_validation))
-        fil_proba = np.reshape(fil_proba, np.shape(skl_proba))
-        assert np.allclose(fil_proba, skl_proba, 1e-3)
+    fil_proba = np.asarray(fm.predict_proba(X_validation))
+    fil_proba = np.reshape(fil_proba, np.shape(skl_proba))
+    proba_threshold = 1e-3 if n_classes == 2 else 0.1
+    assert np.allclose(fil_proba, skl_proba, proba_threshold)
 
 
 @pytest.mark.parametrize('n_rows', [1000])
 @pytest.mark.parametrize('n_columns', [20])
-@pytest.mark.parametrize('n_estimators', [1, 10])
+@pytest.mark.parametrize('n_classes,model_class,n_estimators',
+                         [(1, GradientBoostingRegressor, 1),
+                          (1, GradientBoostingRegressor, 10),
+                          (1, RandomForestRegressor, 1),
+                          (1, RandomForestRegressor, 10),
+                          (5, GradientBoostingRegressor, 10)])
 @pytest.mark.parametrize('max_depth', [2, 10, 20])
 @pytest.mark.parametrize('storage_type', [False, True])
-@pytest.mark.parametrize('model_class',
-                         [GradientBoostingRegressor, RandomForestRegressor])
-def test_fil_skl_regression(n_rows, n_columns, n_estimators, max_depth,
-                            storage_type, model_class):
+def test_fil_skl_regression(n_rows, n_columns, n_classes, model_class,
+                            n_estimators, max_depth, storage_type):
 
     # skip depth 20 for dense tests
     if max_depth == 20 and not storage_type:
         return
 
     # settings
-    n_categories = 1
     random_state = np.random.RandomState(43210)
 
-    X, y = simulate_data(n_rows, n_columns, n_categories,
+    X, y = simulate_data(n_rows, n_columns, n_classes,
                          random_state=random_state,
                          classification=False)
     # identify shape and indices
@@ -465,41 +470,40 @@ def test_lightgbm(tmp_path, num_classes):
                          random_state=43210,
                          classification=True)
     train_data = lgb.Dataset(X, label=y)
+    num_round = 5
+    model_path = str(os.path.join(tmp_path, 'lgb.model'))
 
     if num_classes == 2:
         param = {'objective': 'binary',
                  'metric': 'binary_logloss',
                  'num_class': 1}
-    else:
-        param = {'objective': 'ova',  # 'multiclass', would use softmax
-                 'metric': 'multi_logloss',
-                 'num_class': num_classes}
-    num_round = 5
-    model_path = str(os.path.join(tmp_path, 'lgb.model'))
-
-    bst = lgb.train(param, train_data, num_round)
-    bst.save_model(model_path)
-    if num_classes == 2:
-        # binary classification
-        gbm_proba = bst.predict(X)
+        bst = lgb.train(param, train_data, num_round)
+        bst.save_model(model_path)
         fm = ForestInference.load(model_path,
                                   algo='TREE_REORG',
                                   output_class=True,
                                   model_type="lightgbm")
         fil_proba = fm.predict_proba(X)
+        # binary classification
+        gbm_proba = bst.predict(X)
         assert np.allclose(gbm_proba, fil_proba[:, 1], 1e-2)
         gbm_preds = (gbm_proba > 0.5)
         fil_preds = fm.predict(X)
         assert array_equal(gbm_preds, fil_preds)
     else:
         # multi-class classification
-        # FIL doesn't yet support predict_proba() for multi-class
-        # TODO: Add a test for predict_proba() when it's supported
-        gbm_preds = bst.predict(X)
-        gbm_preds = gbm_preds.argmax(axis=1)
+        lgm = lgb.LGBMClassifier(objective='multiclass',
+                                 boosting_type='gbdt',
+                                 n_estimators=num_round)
+        lgm.fit(X, y)
+        lgm.booster_.save_model(model_path)
         fm = ForestInference.load(model_path,
                                   algo='TREE_REORG',
                                   output_class=True,
                                   model_type="lightgbm")
-        fil_preds = fm.predict(X)
-        assert array_equal(np.round(gbm_preds), fil_preds)
+        lgm_preds = lgm.predict(X)
+        assert array_equal(lgm.booster_.predict(X).argmax(axis=1), lgm_preds)
+        assert array_equal(lgm_preds, fm.predict(X))
+        # lightgbm uses float64 thresholds, while FIL uses float32
+        # TODO(levsnv): once FIL supports float64 accuracy, revisit thresholds
+        assert np.allclose(lgm.predict_proba(X), fm.predict_proba(X), 1e-3)

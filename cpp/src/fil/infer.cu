@@ -482,10 +482,9 @@ struct tree_aggregator_t<NITEMS, CATEGORICAL_LEAF> {
   __device__ __forceinline__ void accumulate(
     vec<NITEMS, int> single_tree_prediction, int tree, int num_rows) {
 #pragma unroll
-    for (int item = 0; item < NITEMS; ++item) {
+    for (int item = 0; item < NITEMS; ++item)
       raft::myAtomicAdd(votes + single_tree_prediction[item] * NITEMS + item,
                         1);
-    }
   }
   // class probabilities or regression. for regression, num_classes
   // is just the number of outputs for each data instance

@@ -1,4 +1,4 @@
-name: cuml_dev
+name: cuml_dev_0.18_11.0
 channels:
 - rapidsai
 - nvidia
