@@ -14,10 +14,16 @@
 # limitations under the License.
 #
 
+import pytest
+import cuml
+import cupy
+
 from cuml.pipeline import Pipeline
 from cuml.model_selection import GridSearchCV
 
-from cuml.datasets import make_classification
+from cuml.test.utils import ClassEnumerator
+
+from cuml.datasets import make_regression, make_classification
 from cuml.model_selection import train_test_split
 from sklearn.datasets import load_iris
 
@@ -28,9 +34,8 @@ from cuml.svm import SVC
 def test_pipeline():
     X, y = make_classification(random_state=0)
     X_train, X_test, y_train, y_test = train_test_split(X, y, random_state=0)
-    pipe = Pipeline([('scaler', StandardScaler()), ('svc', SVC())])
+    pipe = Pipeline(steps=[('scaler', StandardScaler()), ('svc', SVC())])
     pipe.fit(X_train, y_train)
-    Pipeline(steps=[('scaler', StandardScaler()), ('svc', SVC())])
     score = pipe.score(X_test, y_test)
     assert score > 0.8
 
@@ -42,3 +47,44 @@ def test_gridsearchCV():
     clf.fit(iris.data, iris.target)
     assert clf.best_params_['kernel'] == 'rbf'
     assert clf.best_params_['C'] == 10
+
+
+@pytest.fixture(scope="session")
+def regression_dataset(request):
+    X, y = make_regression(n_samples=10, n_features=5, random_state=0)
+    return train_test_split(X, y, random_state=0)
+
+
+@pytest.fixture(scope="session")
+def classification_dataset(request):
+    X, y = make_classification(n_samples=10, n_features=5, random_state=0)
+    return train_test_split(X, y, random_state=0)
+
+
+regression_config = ClassEnumerator(module=cuml.linear_model)
+regression_models = regression_config.get_models()
+
+
+@pytest.mark.parametrize('model_key', regression_models.keys())
+def test_pipeline_with_regression(regression_dataset, model_key):
+    X_train, X_test, y_train, y_test = regression_dataset
+    model = regression_models[model_key]
+    pipe = Pipeline(steps=[('scaler', StandardScaler()), ('model', model())])
+    pipe.fit(X_train, y_train)
+    prediction = pipe.predict(X_test)
+    assert isinstance(prediction, cupy.ndarray)
+
+
+models_config = ClassEnumerator(module=cuml)
+models = models_config.get_models()
+
+
+@pytest.mark.parametrize('model_key', ['KNeighborsClassifier',
+                                       'MBSGDClassifier'])
+def test_pipeline_with_classification(classification_dataset, model_key):
+    X_train, X_test, y_train, y_test = classification_dataset
+    model = models[model_key]
+    pipe = Pipeline(steps=[('scaler', StandardScaler()), ('model', model())])
+    pipe.fit(X_train, y_train)
+    prediction = pipe.predict(X_test)
+    assert isinstance(prediction, cupy.ndarray)
