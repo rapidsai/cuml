@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2020, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -26,7 +26,7 @@ from cuml import ForestInference
 from cuml.common.array import CumlArray
 import cuml.internals
 
-from cuml.common.base import RegressorMixin
+from cuml.common.mixins import RegressorMixin
 from cuml.common.doc_utils import generate_docstring
 from cuml.common.doc_utils import insert_into_docstring
 from cuml.raft.common.handle import Handle
@@ -42,7 +42,7 @@ from cython.operator cimport dereference as deref
 
 from libcpp cimport bool
 from libcpp.vector cimport vector
-from libc.stdint cimport uintptr_t
+from libc.stdint cimport uintptr_t, uint64_t
 from libc.stdlib cimport calloc, malloc, free
 
 from numba import cuda
@@ -104,7 +104,8 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
                           int) except +
 
 
-class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
+class RandomForestRegressor(BaseRandomForestModel,
+                            RegressorMixin):
 
     """
     Implements a Random Forest regressor model which fits multiple decision
@@ -222,7 +223,6 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
         If set to true and  following conditions are also met, experimental
          decision tree training implementation would be used:
             split_algo = 1 (GLOBAL_QUANTILE)
-            max_features = 1.0 (Feature sub-sampling disabled)
             quantile_per_tree = false (No per tree quantile computation)
     max_batch_size: int (default = 128)
         Maximum number of nodes that can be processed in a given batch. This is
@@ -251,7 +251,7 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
     output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
         Variable to control output type of the results and attributes of
         the estimator. If None, it'll inherit the output type set at the
-        module level, `cuml.global_output_type`.
+        module level, `cuml.global_settings.output_type`.
         See :ref:`output-data-type-configuration` for more info.
 
     """
@@ -453,7 +453,7 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
                                      <bool> self.bootstrap,
                                      <int> self.n_estimators,
                                      <float> self.max_samples,
-                                     <int> seed_val,
+                                     <uint64_t> seed_val,
                                      <CRITERION> self.split_criterion,
                                      <bool> self.quantile_per_tree,
                                      <int> self.n_streams,
@@ -742,9 +742,9 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
         else:
             return get_rf_detailed_text(rf_forest).decode('utf-8')
 
-    def dump_as_json(self):
+    def get_json(self):
         """
-        Dump (export) the Random Forest model as a JSON string
+        Export the Random Forest model as a JSON string
         """
         cdef RandomForestMetaData[float, float] *rf_forest = \
             <RandomForestMetaData[float, float]*><uintptr_t> self.rf_forest
@@ -753,11 +753,5 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
             <RandomForestMetaData[double, double]*><uintptr_t> self.rf_forest64
 
         if self.dtype == np.float64:
-            return dump_rf_as_json(rf_forest64).decode('utf-8')
-        return dump_rf_as_json(rf_forest).decode('utf-8')
-
-    def _more_tags(self):
-        return {
-            # fit and predict require conflicting memory layouts
-            'preferred_input_order': None
-        }
+            return get_rf_json(rf_forest64).decode('utf-8')
+        return get_rf_json(rf_forest).decode('utf-8')

@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2020, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -37,6 +37,9 @@ from cuml.ensemble.randomforestregressor import RandomForestRegressor
 
 from cuml.fil import fil
 
+from cuml.internals.global_settings import (
+    GlobalSettings, _global_settings_data)
+
 from cuml.linear_model.elastic_net import ElasticNet
 from cuml.linear_model.lasso import Lasso
 from cuml.linear_model.linear_regression import LinearRegression
@@ -50,6 +53,7 @@ from cuml.manifold.umap import UMAP
 from cuml.metrics.accuracy import accuracy_score
 from cuml.metrics.cluster.adjusted_rand_index import adjusted_rand_score
 from cuml.metrics.regression import r2_score
+from cuml.model_selection import train_test_split
 
 from cuml.naive_bayes.naive_bayes import MultinomialNB
 
@@ -58,7 +62,6 @@ from cuml.neighbors.kneighbors_classifier import KNeighborsClassifier
 from cuml.neighbors.kneighbors_regressor import KNeighborsRegressor
 
 from cuml.preprocessing.LabelEncoder import LabelEncoder
-from cuml.preprocessing.model_selection import train_test_split
 
 from cuml.random_projection.random_projection import GaussianRandomProjection
 from cuml.random_projection.random_projection import SparseRandomProjection
@@ -87,10 +90,25 @@ from cuml.raft import raft_include_test
 from ._version import get_versions
 
 
-# Output type configuration
-
-global_output_type = None
-
 # Version configuration
 __version__ = get_versions()['version']
 del get_versions
+
+
+def __getattr__(name):
+
+    if name == 'global_settings':
+        try:
+            return _global_settings_data.settings
+        except AttributeError:
+            _global_settings_data.settings = GlobalSettings()
+            return _global_settings_data.settings
+    if name == 'global_output_type':
+        import warnings  # pylint: disable=import-outside-toplevel
+        warnings.warn("Accessing cuml.global_output_type directly is"
+                      " deprecated and will be removed in v0.20. Use"
+                      " cuml.global_settings.output_type instead.",
+                      DeprecationWarning)
+        return __getattr__('global_settings').output_type
+
+    raise AttributeError(f"module {__name__} has no attribute {name}")

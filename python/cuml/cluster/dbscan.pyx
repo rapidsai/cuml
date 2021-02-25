@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2020, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -32,57 +32,66 @@ from cuml.raft.common.handle cimport handle_t
 from cuml.common import input_to_cuml_array
 from cuml.common import using_output_type
 from cuml.common.array_descriptor import CumlArrayDescriptor
+from cuml.common.mixins import ClusterMixin
+from cuml.common.mixins import CMajorInputTagMixin
 
 from collections import defaultdict
 
-cdef extern from "cuml/cluster/dbscan.hpp" namespace "ML":
+cdef extern from "cuml/cluster/dbscan.hpp" \
+        namespace "ML::Dbscan":
 
-    cdef void dbscanFit(handle_t& handle,
-                        float *input,
-                        int n_rows,
-                        int n_cols,
-                        float eps,
-                        int min_pts,
-                        int *labels,
-                        int *core_sample_indices,
-                        size_t max_mbytes_per_batch,
-                        int verbosity) except +
+    cdef void fit(handle_t& handle,
+                  float *input,
+                  int n_rows,
+                  int n_cols,
+                  float eps,
+                  int min_pts,
+                  int *labels,
+                  int *core_sample_indices,
+                  size_t max_mbytes_per_batch,
+                  int verbosity,
+                  bool opg) except +
 
-    cdef void dbscanFit(handle_t& handle,
-                        double *input,
-                        int n_rows,
-                        int n_cols,
-                        double eps,
-                        int min_pts,
-                        int *labels,
-                        int *core_sample_indices,
-                        size_t max_mbytes_per_batch,
-                        int verbosity) except +
+    cdef void fit(handle_t& handle,
+                  double *input,
+                  int n_rows,
+                  int n_cols,
+                  double eps,
+                  int min_pts,
+                  int *labels,
+                  int *core_sample_indices,
+                  size_t max_mbytes_per_batch,
+                  int verbosity,
+                  bool opg) except +
 
-    cdef void dbscanFit(handle_t& handle,
-                        float *input,
-                        int64_t n_rows,
-                        int64_t n_cols,
-                        double eps,
-                        int min_pts,
-                        int64_t *labels,
-                        int64_t *core_sample_indices,
-                        size_t max_mbytes_per_batch,
-                        int verbosity) except +
+    cdef void fit(handle_t& handle,
+                  float *input,
+                  int64_t n_rows,
+                  int64_t n_cols,
+                  double eps,
+                  int min_pts,
+                  int64_t *labels,
+                  int64_t *core_sample_indices,
+                  size_t max_mbytes_per_batch,
+                  int verbosity,
+                  bool opg) except +
 
-    cdef void dbscanFit(handle_t& handle,
-                        double *input,
-                        int64_t n_rows,
-                        int64_t n_cols,
-                        double eps,
-                        int min_pts,
-                        int64_t *labels,
-                        int64_t *core_sample_indices,
-                        size_t max_mbytes_per_batch,
-                        int verbosity) except +
+    cdef void fit(handle_t& handle,
+                  double *input,
+                  int64_t n_rows,
+                  int64_t n_cols,
+                  double eps,
+                  int min_pts,
+                  int64_t *labels,
+                  int64_t *core_sample_indices,
+                  size_t max_mbytes_per_batch,
+                  int verbosity,
+                  bool opg) except +
 
 
-class DBSCAN(Base):
+class DBSCAN(Base,
+             ClusterMixin,
+             CMajorInputTagMixin):
     """
     DBSCAN is a very powerful yet fast clustering technique that finds clusters
     where data is concentrated. This allows DBSCAN to generalize to many
@@ -152,7 +161,7 @@ class DBSCAN(Base):
     output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
         Variable to control output type of the results and attributes of
         the estimator. If None, it'll inherit the output type set at the
-        module level, `cuml.global_output_type`.
+        module level, `cuml.global_settings.output_type`.
         See :ref:`output-data-type-configuration` for more info.
     calc_core_sample_indices : (optional) boolean (default = True)
         Indicates whether the indices of the core samples should be calculated.
@@ -210,17 +219,10 @@ class DBSCAN(Base):
         if self.max_mbytes_per_batch is None:
             self.max_mbytes_per_batch = 0
 
-    @generate_docstring(skip_parameters_heading=True)
-    def fit(self, X, out_dtype="int32") -> "DBSCAN":
+    def _fit(self, X, out_dtype, opg) -> "DBSCAN":
         """
-        Perform DBSCAN clustering from features.
-
-        Parameters
-        ----------
-        out_dtype: dtype Determines the precision of the output labels array.
-            default: "int32". Valid values are { "int32", np.int32,
-            "int64", np.int64}.
-
+        Protected auxiliary function for `fit`. Takes an additional parameter
+        opg that is set to `False` for SG, `True` for OPG (multi-GPU)
         """
         if out_dtype not in ["int32", np.int32, "int64", np.int64]:
             raise ValueError("Invalid value for out_dtype. "
@@ -247,54 +249,58 @@ class DBSCAN(Base):
             core_sample_indices_ptr = self.core_sample_indices_.ptr
 
         if self.dtype == np.float32:
-            if out_dtype is "int32" or out_dtype is np.int32:
-                dbscanFit(handle_[0],
-                          <float*>input_ptr,
-                          <int> n_rows,
-                          <int> n_cols,
-                          <float> self.eps,
-                          <int> self.min_samples,
-                          <int*> labels_ptr,
-                          <int*> core_sample_indices_ptr,
-                          <size_t>self.max_mbytes_per_batch,
-                          <int> self.verbose)
+            if out_dtype == "int32" or out_dtype is np.int32:
+                fit(handle_[0],
+                    <float*>input_ptr,
+                    <int> n_rows,
+                    <int> n_cols,
+                    <float> self.eps,
+                    <int> self.min_samples,
+                    <int*> labels_ptr,
+                    <int*> core_sample_indices_ptr,
+                    <size_t>self.max_mbytes_per_batch,
+                    <int> self.verbose,
+                    <bool> opg)
             else:
-                dbscanFit(handle_[0],
-                          <float*>input_ptr,
-                          <int64_t> n_rows,
-                          <int64_t> n_cols,
-                          <float> self.eps,
-                          <int> self.min_samples,
-                          <int64_t*> labels_ptr,
-                          <int64_t*> core_sample_indices_ptr,
-                          <size_t>self.max_mbytes_per_batch,
-                          <int> self.verbose)
+                fit(handle_[0],
+                    <float*>input_ptr,
+                    <int64_t> n_rows,
+                    <int64_t> n_cols,
+                    <float> self.eps,
+                    <int> self.min_samples,
+                    <int64_t*> labels_ptr,
+                    <int64_t*> core_sample_indices_ptr,
+                    <size_t>self.max_mbytes_per_batch,
+                    <int> self.verbose,
+                    <bool> opg)
 
         else:
-            if out_dtype is "int32" or out_dtype is np.int32:
-                dbscanFit(handle_[0],
-                          <double*>input_ptr,
-                          <int> n_rows,
-                          <int> n_cols,
-                          <double> self.eps,
-                          <int> self.min_samples,
-                          <int*> labels_ptr,
-                          <int*> core_sample_indices_ptr,
-                          <size_t> self.max_mbytes_per_batch,
-                          <int> self.verbose)
+            if out_dtype == "int32" or out_dtype is np.int32:
+                fit(handle_[0],
+                    <double*>input_ptr,
+                    <int> n_rows,
+                    <int> n_cols,
+                    <double> self.eps,
+                    <int> self.min_samples,
+                    <int*> labels_ptr,
+                    <int*> core_sample_indices_ptr,
+                    <size_t> self.max_mbytes_per_batch,
+                    <int> self.verbose,
+                    <bool> opg)
             else:
-                dbscanFit(handle_[0],
-                          <double*>input_ptr,
-                          <int64_t> n_rows,
-                          <int64_t> n_cols,
-                          <double> self.eps,
-                          <int> self.min_samples,
-                          <int64_t*> labels_ptr,
-                          <int64_t*> core_sample_indices_ptr,
-                          <size_t> self.max_mbytes_per_batch,
-                          <int> self.verbose)
+                fit(handle_[0],
+                    <double*>input_ptr,
+                    <int64_t> n_rows,
+                    <int64_t> n_cols,
+                    <double> self.eps,
+                    <int> self.min_samples,
+                    <int64_t*> labels_ptr,
+                    <int64_t*> core_sample_indices_ptr,
+                    <size_t> self.max_mbytes_per_batch,
+                    <int> self.verbose,
+                    <bool> opg)
 
-        # make sure that the `dbscanFit` is complete before the following
+        # make sure that the `fit` is complete before the following
         # delete call happens
         self.handle.sync()
         del(X_m)
@@ -319,6 +325,20 @@ class DBSCAN(Base):
                         self.core_sample_indices_[:min_index]
 
         return self
+
+    @generate_docstring(skip_parameters_heading=True)
+    def fit(self, X, out_dtype="int32") -> "DBSCAN":
+        """
+        Perform DBSCAN clustering from features.
+
+        Parameters
+        ----------
+        out_dtype: dtype Determines the precision of the output labels array.
+            default: "int32". Valid values are { "int32", np.int32,
+            "int64", np.int64}.
+
+        """
+        return self._fit(X, out_dtype, False)
 
     @generate_docstring(skip_parameters_heading=True,
                         return_values={'name': 'preds',
@@ -346,8 +366,3 @@ class DBSCAN(Base):
             "max_mbytes_per_batch",
             "calc_core_sample_indices",
         ]
-
-    def _more_tags(self):
-        return {
-            'preferred_input_order': 'C'
-        }

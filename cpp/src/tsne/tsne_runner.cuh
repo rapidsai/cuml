@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,7 +15,6 @@
  */
 
 #include <raft/cudart_utils.h>
-#include <common/device_buffer.hpp>
 #include <cuml/common/logger.hpp>
 #include <cuml/manifold/common.hpp>
 #include <rmm/device_uvector.hpp>
@@ -203,7 +202,7 @@ class TSNE_runner {
   const bool initialize_embeddings;
   bool barnes_hut;
 
-  MLCommon::Sparse::COO<value_t, value_idx> COO_Matrix;
+  raft::sparse::COO<value_t, value_idx> COO_Matrix;
   value_idx n, p;
   value_t *Y;
 };

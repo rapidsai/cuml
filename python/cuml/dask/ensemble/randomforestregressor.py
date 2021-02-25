@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2020, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -211,6 +211,12 @@ class RandomForestRegressor(BaseRandomForestModel, DelayedPredictionMixin,
         Obtain the detailed information for the random forest model, as text
         """
         return self._get_detailed_text()
+
+    def get_json(self):
+        """
+        Export the Random Forest model as a JSON string
+        """
+        return self._get_json()
 
     def fit(self, X, y, convert_dtype=False):
         """

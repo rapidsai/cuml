@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -60,7 +60,7 @@ class RFBatchedClsTest : public ::testing::TestWithParam<RfInputs> {
                     params.split_criterion, false, true);
     RF_params rf_params;
     set_all_rf_params(rf_params, params.n_trees, params.bootstrap,
-                      params.max_samples, -1, params.n_streams, tree_params);
+                      params.max_samples, 0, params.n_streams, tree_params);
 
     CUDA_CHECK(cudaStreamCreate(&stream));
     handle.reset(new raft::handle_t(rf_params.n_streams));

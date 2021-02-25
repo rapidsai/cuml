@@ -21,6 +21,8 @@ import warnings
 from itertools import combinations_with_replacement as combinations_w_r
 
 import cupy as np
+from cuml.common.mixins import AllowNaNTagMixin
+from cuml.common.mixins import StatelessTagMixin
 from cupy import sparse
 from scipy import stats
 from scipy import optimize
@@ -200,7 +202,9 @@ def scale(X, *, axis=0, with_mean=True, with_std=True, copy=True):
     return X
 
 
-class MinMaxScaler(TransformerMixin, BaseEstimator):
+class MinMaxScaler(TransformerMixin,
+                   BaseEstimator,
+                   AllowNaNTagMixin):
     """Transform features by scaling each feature to a given range.
 
     This estimator scales and translates each feature individually such
@@ -252,7 +256,7 @@ class MinMaxScaler(TransformerMixin, BaseEstimator):
 
     Examples
     --------
-    >>> from cuml.preprocessing import MinMaxScaler
+    >>> from cuml.experimental.preprocessing import MinMaxScaler
     >>> data = [[-1, 2], [-0.5, 6], [0, 10], [1, 18]]
     >>> scaler = MinMaxScaler()
     >>> print(scaler.fit(data))
@@ -428,9 +432,6 @@ class MinMaxScaler(TransformerMixin, BaseEstimator):
         X /= self.scale_
         return X
 
-    def _more_tags(self):
-        return {'allow_nan': True}
-
 
 @_deprecate_positional_args
 @api_return_generic(get_output_type=True)
@@ -499,7 +500,9 @@ def minmax_scale(X, feature_range=(0, 1), *, axis=0, copy=True):
         return X
 
 
-class StandardScaler(TransformerMixin, BaseEstimator):
+class StandardScaler(TransformerMixin,
+                     BaseEstimator,
+                     AllowNaNTagMixin):
     """Standardize features by removing the mean and scaling to unit variance
 
     The standard score of a sample `x` is calculated as:
@@ -571,7 +574,7 @@ class StandardScaler(TransformerMixin, BaseEstimator):
 
     Examples
     --------
-    >>> from cuml.preprocessing import StandardScaler
+    >>> from cuml.experimental.preprocessing import StandardScaler
     >>> data = [[0, 0], [0, 0], [1, 1], [1, 1]]
     >>> scaler = StandardScaler()
     >>> print(scaler.fit(data))
@@ -859,7 +862,9 @@ class StandardScaler(TransformerMixin, BaseEstimator):
                 'allow_nan': True}
 
 
-class MaxAbsScaler(TransformerMixin, BaseEstimator):
+class MaxAbsScaler(TransformerMixin,
+                   BaseEstimator,
+                   AllowNaNTagMixin):
     """Scale each feature by its maximum absolute value.
 
     This estimator scales and translates each feature individually such
@@ -889,7 +894,7 @@ class MaxAbsScaler(TransformerMixin, BaseEstimator):
 
     Examples
     --------
-    >>> from cuml.preprocessing import MaxAbsScaler
+    >>> from cuml.experimental.preprocessing import MaxAbsScaler
     >>> X = [[ 1., -1.,  2.],
     ...      [ 2.,  0.,  0.],
     ...      [ 0.,  1., -1.]]
@@ -1100,7 +1105,9 @@ def maxabs_scale(X, *, axis=0, copy=True):
     return X
 
 
-class RobustScaler(TransformerMixin, BaseEstimator):
+class RobustScaler(TransformerMixin,
+                   BaseEstimator,
+                   AllowNaNTagMixin):
     """Scale features using statistics that are robust to outliers.
 
     This Scaler removes the median and scales the data according to the
@@ -1150,7 +1157,7 @@ class RobustScaler(TransformerMixin, BaseEstimator):
 
     Examples
     --------
-    >>> from cuml.preprocessing import RobustScaler
+    >>> from cuml.experimental.preprocessing import RobustScaler
     >>> X = [[ 1., -2.,  2.],
     ...      [ -2.,  1.,  3.],
     ...      [ 4.,  1., -2.]]
@@ -1413,7 +1420,7 @@ class PolynomialFeatures(TransformerMixin, BaseEstimator):
     Examples
     --------
     >>> import numpy as np
-    >>> from cuml.preprocessing import PolynomialFeatures
+    >>> from cuml.experimental.preprocessing import PolynomialFeatures
     >>> X = np.arange(6).reshape(3, 2)
     >>> X
     array([[0, 1],
@@ -1762,7 +1769,9 @@ def normalize(X, norm='l2', *, axis=1, copy=True, return_norm=False):
         return X
 
 
-class Normalizer(TransformerMixin, BaseEstimator):
+class Normalizer(TransformerMixin,
+                 BaseEstimator,
+                 StatelessTagMixin):
     """Normalize samples individually to unit norm.
 
     Each sample (i.e. each row of the data matrix) with at least one
@@ -1791,7 +1800,7 @@ class Normalizer(TransformerMixin, BaseEstimator):
 
     Examples
     --------
-    >>> from cuml.preprocessing import Normalizer
+    >>> from cuml.experimental.preprocessing import Normalizer
     >>> X = [[4, 1, 2, 2],
     ...      [1, 3, 9, 3],
     ...      [5, 7, 5, 1]]
@@ -1894,7 +1903,9 @@ def binarize(X, *, threshold=0.0, copy=True):
     return X
 
 
-class Binarizer(TransformerMixin, BaseEstimator):
+class Binarizer(TransformerMixin,
+                BaseEstimator,
+                StatelessTagMixin):
     """Binarize data (set feature values to 0 or 1) according to a threshold
 
     Values greater than the threshold map to 1, while values less than
@@ -1921,7 +1932,7 @@ class Binarizer(TransformerMixin, BaseEstimator):
 
     Examples
     --------
-    >>> from cuml.preprocessing import Binarizer
+    >>> from cuml.experimental.preprocessing import Binarizer
     >>> X = [[ 1., -1.,  2.],
     ...      [ 2.,  0.,  0.],
     ...      [ 0.,  1., -1.]]
@@ -2154,7 +2165,9 @@ class KernelCenterer(TransformerMixin, BaseEstimator):
         return True
 
 
-class QuantileTransformer(TransformerMixin, BaseEstimator):
+class QuantileTransformer(TransformerMixin,
+                          BaseEstimator,
+                          AllowNaNTagMixin):
     """Transform features using quantiles information.
 
     This method transforms the features to follow a uniform or a normal
@@ -2582,9 +2595,6 @@ class QuantileTransformer(TransformerMixin, BaseEstimator):
 
         return self._transform(X, inverse=True)
 
-    def _more_tags(self):
-        return {'allow_nan': True}
-
 
 @_deprecate_positional_args
 def quantile_transform(X, *, axis=0, n_quantiles=1000,
@@ -2708,7 +2718,9 @@ def quantile_transform(X, *, axis=0, n_quantiles=1000,
                          " axis={}".format(axis))
 
 
-class PowerTransformer(TransformerMixin, BaseEstimator):
+class PowerTransformer(TransformerMixin,
+                       BaseEstimator,
+                       AllowNaNTagMixin):
     """Apply a power transform featurewise to make data more Gaussian-like.
 
     Power transforms are a family of parametric, monotonic transformations
@@ -3058,9 +3070,6 @@ class PowerTransformer(TransformerMixin, BaseEstimator):
                              .format(valid_methods, self.method))
 
         return X
-
-    def _more_tags(self):
-        return {'allow_nan': True}
 
 
 @_deprecate_positional_args

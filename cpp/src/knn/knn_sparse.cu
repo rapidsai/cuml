@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,12 +14,10 @@
  * limitations under the License.
  */
 
-#include <common/cumlHandle.hpp>
-
 #include <cuml/common/logger.hpp>
 #include <cuml/neighbors/knn_sparse.hpp>
 
-#include <sparse/knn.cuh>
+#include <sparse/selection/knn.cuh>
 
 #include <cusparse_v2.h>
 
@@ -40,7 +38,7 @@ void brute_force_knn(raft::handle_t &handle, const int *idx_indptr,
   cusparseHandle_t cusparse_handle = handle.get_cusparse_handle();
   cudaStream_t stream = handle.get_stream();
 
-  MLCommon::Sparse::Selection::brute_force_knn(
+  raft::sparse::selection::brute_force_knn(
     idx_indptr, idx_indices, idx_data, idx_nnz, n_idx_rows, n_idx_cols,
     query_indptr, query_indices, query_data, query_nnz, n_query_rows,
     n_query_cols, output_indices, output_dists, k, cusparse_handle, d_alloc,

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,19 +16,21 @@
 
 #include <cusparse_v2.h>
 #include <gtest/gtest.h>
-#include <raft/cudart_utils.h>
-#include <common/device_buffer.hpp>
 
-#include <raft/sparse/cusparse_wrappers.h>
 #include <test_utils.h>
-#include <cuml/common/logger.hpp>
-#include <sparse/knn.cuh>
+#include <sparse/selection/knn.cuh>
 
-namespace MLCommon {
-namespace Sparse {
-namespace Selection {
+#include <raft/cudart_utils.h>
+#include <raft/sparse/cusparse_wrappers.h>
+#include <raft/mr/device/allocator.hpp>
+#include <raft/mr/device/buffer.hpp>
+
+namespace raft {
+namespace sparse {
+namespace selection {
 
 using namespace raft;
+using namespace raft::sparse;
 
 template <typename value_idx, typename value_t>
 struct SparseKNNInputs {
@@ -90,13 +92,11 @@ class SparseKNNTest
   void SetUp() override {
     params =
       ::testing::TestWithParam<SparseKNNInputs<value_idx, value_t>>::GetParam();
-    std::shared_ptr<deviceAllocator> alloc(
+    std::shared_ptr<raft::mr::device::allocator> alloc(
       new raft::mr::device::default_allocator);
     CUDA_CHECK(cudaStreamCreate(&stream));
 
     CUSPARSE_CHECK(cusparseCreate(&cusparseHandle));
-
-    ML::Logger::get().setLevel(CUML_LEVEL_INFO);
 
     n_rows = params.indptr_h.size() - 1;
     nnz = params.indices_h.size();
@@ -104,7 +104,7 @@ class SparseKNNTest
 
     make_data();
 
-    brute_force_knn<value_idx, value_t>(
+    raft::sparse::selection::brute_force_knn<value_idx, value_t>(
       indptr, indices, data, nnz, n_rows, params.n_cols, indptr, indices, data,
       nnz, n_rows, params.n_cols, out_indices, out_dists, k, cusparseHandle,
       alloc, stream, params.batch_size_index, params.batch_size_query,
@@ -163,12 +163,13 @@ const std::vector<SparseKNNInputs<int, float>> inputs_i32_f = {
    {0, 3, 1, 0, 2, 0, 3, 0},                          // inds
    2,
    2,
+   2,
    ML::MetricType::METRIC_L2}};
 typedef SparseKNNTest<int, float> KNNTestF;
 TEST_P(KNNTestF, Result) { compare(); }
 INSTANTIATE_TEST_CASE_P(SparseKNNTest, KNNTestF,
                         ::testing::ValuesIn(inputs_i32_f));
 
-};  // end namespace Selection
-};  // end namespace Sparse
-};  // end namespace MLCommon
+};  // end namespace selection
+};  // end namespace sparse
+};  // end namespace raft
