@@ -3,7 +3,6 @@
 ## New Features
 
 ## Improvements
-- PR #3270: cuML's estimator Base class for preprocessing models
 
 ## Bug Fixes
 
