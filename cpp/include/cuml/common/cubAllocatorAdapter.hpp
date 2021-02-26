@@ -17,9 +17,11 @@
 #pragma once
 
 #include <cub/util_allocator.cuh>
-#include <cuml/cuml.hpp>
+#include <raft/mr/device/allocator.hpp>
 
 namespace ML {
+
+using deviceAllocator = raft::mr::device::allocator;
 
 /**
  * @brief Implemententation of ML::deviceAllocator using the cub's caching
