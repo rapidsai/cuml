@@ -25,7 +25,6 @@
 #include <linalg/init.h>
 #include <raft/cudart_utils.h>
 #include <cub/device/device_select.cuh>
-#include <cuml/common/cuml_allocator.hpp>
 #include <cuml/common/device_buffer.hpp>
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/binary_op.cuh>
@@ -33,6 +32,11 @@
 #include <raft/linalg/unary_op.cuh>
 #include <raft/matrix/matrix.cuh>
 #include "ws_util.cuh"
+
+// TODO: WH
+/* namespace MLCommon {
+class deviceAllocator;
+} */
 
 namespace ML {
 namespace SVM {
@@ -261,7 +265,7 @@ class Results {
     return n_selected;
   }
 
-  std::shared_ptr<deviceAllocator> allocator;
+  std::shared_ptr<MLCommon::deviceAllocator> allocator;
 
  private:
   const raft::handle_t &handle;

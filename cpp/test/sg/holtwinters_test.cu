@@ -17,6 +17,7 @@
 #include <cuml/tsa/holtwinters.h>
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
+#include <raft/handle.hpp>
 #include <test_utils.h>
 #include <algorithm>
 #include <cuml/common/logger.hpp>
@@ -24,8 +25,6 @@
 #include "time_series_datasets.h"
 
 namespace ML {
-
-using namespace MLCommon;
 
 template <typename T>
 struct HoltWintersInputs {

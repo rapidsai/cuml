@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#pragma once
 #include <cuml/tree/flatnode.h>
 #include <raft/cudart_utils.h>
 #include <treelite/tree.h>

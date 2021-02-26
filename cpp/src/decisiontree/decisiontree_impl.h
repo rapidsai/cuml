@@ -22,6 +22,7 @@
 #include <treelite/tree.h>
 #include <algorithm>
 #include <climits>
+#include <cuml/common/cuml_allocator.hpp>
 #include <cuml/tree/decisiontree.hpp>
 #include <map>
 #include <numeric>

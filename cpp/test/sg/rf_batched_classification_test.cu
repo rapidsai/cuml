@@ -24,8 +24,6 @@
 
 namespace ML {
 
-using namespace MLCommon;
-
 struct RfInputs {
   int n_rows;
   int n_cols;

@@ -15,6 +15,7 @@
  */
 
 #pragma once
+#include <raft/handle.hpp>
 #include <cuml/tree/algo_helper.h>
 #include <thrust/extrema.h>
 #include <algorithm>
