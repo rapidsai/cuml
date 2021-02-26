@@ -20,8 +20,6 @@
 
 #include <thrust/system/cuda/execution_policy.h>
 
-#include <cuml/cuml.hpp>
-
 #include <raft/cudart_utils.h>
 #include <cuml/common/cuml_allocator.hpp>
 
