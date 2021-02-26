@@ -15,6 +15,8 @@
  * limitations under the License.
  */
 
+#include <raft/handle.hpp>
+
 #include <cuml/metrics/metrics.hpp>
 #include <metrics/rand_index.cuh>
 

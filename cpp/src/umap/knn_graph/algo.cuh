@@ -25,9 +25,14 @@
 #include <sparse/selection/knn.cuh>
 
 #include <raft/cudart_utils.h>
+#include <raft/mr/device/allocator.hpp>
 
 #include <raft/sparse/cusparse_wrappers.h>
 #include <raft/error.hpp>
+
+namespace ML {
+using deviceAllocator = raft::mr::device::allocator;
+}
 
 namespace UMAPAlgo {
 namespace kNNGraph {

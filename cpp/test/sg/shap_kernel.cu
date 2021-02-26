@@ -19,13 +19,19 @@
 
 #include <raft/cudart_utils.h>
 #include <raft/cuda_utils.cuh>
+#include <raft/handle.hpp>
 
 #include <thrust/device_ptr.h>
 #include <thrust/device_vector.h>
 
 #include <test_utils.h>
 
+namespace MLCommon {
+class deviceAllocator;
+}
+
 namespace ML {
+
 namespace Explainer {
 
 struct MakeKSHAPDatasetInputs {
@@ -195,7 +201,7 @@ class MakeKSHAPDatasetTest
   bool test_sampled_X;
   bool test_scatter_exact;
   bool test_scatter_sampled;
-  std::shared_ptr<deviceAllocator> allocator;
+  std::shared_ptr<MLCommon::deviceAllocator> allocator;
   raft::handle_t handle;
   cudaStream_t stream;
 };
