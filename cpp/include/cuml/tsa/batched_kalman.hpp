@@ -17,7 +17,10 @@
 #pragma once
 
 #include <cuml/tsa/arima_common.h>
-#include <cuml/cuml.hpp>
+
+namespace raft {
+class handle_t;
+}
 
 namespace ML {
 
