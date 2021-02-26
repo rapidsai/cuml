@@ -28,12 +28,12 @@
 #include <cuml/tsa/batched_kalman.hpp>
 
 #include <raft/cudart_utils.h>
-#include <raft/handle.hpp>
 #include <common/nvtx.hpp>
 #include <cuml/common/device_buffer.hpp>
 #include <linalg/batched/matrix.cuh>
 #include <metrics/batched/information_criterion.cuh>
 #include <raft/cuda_utils.cuh>
+#include <raft/handle.hpp>
 #include <raft/linalg/matrix_vector_op.cuh>
 #include <timeSeries/arima_helpers.cuh>
 

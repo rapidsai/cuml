@@ -16,10 +16,10 @@
 
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
-#include <raft/handle.hpp>
 #include <cuml/ensemble/randomforest.hpp>
 #include <queue>
 #include <raft/cuda_utils.cuh>
+#include <raft/handle.hpp>
 #include <random>
 
 namespace ML {

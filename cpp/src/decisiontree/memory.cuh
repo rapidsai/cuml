@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,12 +15,12 @@
  */
 
 #pragma once
-#include <raft/handle.hpp>
 #include <cuml/tree/algo_helper.h>
 #include <thrust/extrema.h>
 #include <algorithm>
 #include <cub/cub.cuh>
 #include <cuml/common/logger.hpp>
+#include <raft/handle.hpp>
 #include "memory.h"
 
 template <class T, class L>

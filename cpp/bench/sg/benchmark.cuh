@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,9 +19,9 @@
 #include <benchmark/benchmark.h>
 #include <cuda_runtime.h>
 #include <raft/cudart_utils.h>
-#include <raft/handle.hpp>
 #include <cuml/common/cuml_allocator.hpp>
 #include <cuml/common/logger.hpp>
+#include <raft/handle.hpp>
 #include "../common/ml_benchmark.hpp"
 #include "dataset.cuh"
 #include "dataset_ts.cuh"

@@ -30,8 +30,8 @@
 
 #include <cuml/fil/fil.h>
 #include <raft/cudart_utils.h>
-#include <raft/handle.hpp>
 #include <cuml/common/cuml_allocator.hpp>
+#include <raft/handle.hpp>
 #include "common.cuh"
 
 namespace ML {

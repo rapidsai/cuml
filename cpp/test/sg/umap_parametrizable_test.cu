@@ -21,7 +21,6 @@
 #include <cuml/manifold/umapparams.h>
 #include <datasets/digits.h>
 #include <raft/cudart_utils.h>
-#include <raft/handle.hpp>
 #include <cuml/common/cuml_allocator.hpp>
 #include <cuml/common/device_buffer.hpp>
 #include <cuml/datasets/make_blobs.hpp>
@@ -31,6 +30,7 @@
 #include <linalg/reduce_rows_by_key.cuh>
 #include <metrics/trustworthiness.cuh>
 #include <raft/cuda_utils.cuh>
+#include <raft/handle.hpp>
 #include <selection/knn.cuh>
 #include <umap/runner.cuh>
 
