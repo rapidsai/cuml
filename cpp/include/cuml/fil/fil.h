@@ -18,8 +18,11 @@
 
 #pragma once
 
-#include <cuml/cuml.hpp>
 #include <cuml/ensemble/treelite_defs.hpp>
+
+namespace raft {
+class handle_t;
+}
 
 namespace ML {
 namespace fil {
