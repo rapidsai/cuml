@@ -16,8 +16,11 @@
 
 #pragma once
 
-#include <cuml/cuml.hpp>
 #include "holtwinters_params.h"
+
+namespace raft {
+class handle_t;
+}
 
 namespace ML {
 namespace HoltWinters {
