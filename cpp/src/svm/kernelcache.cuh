@@ -208,7 +208,8 @@ class KernelCache {
                                                     x_ws.data(), ws_idx_new,
                                                     non_cached, stream, false);
         math_t *tile_new = tile.data() + (size_t)n_cached * n_rows;
-        (*kernel)(x, n_rows, n_cols, x_ws.data(), non_cached, tile_new, stream);
+        (*kernel)(x, n_rows, n_cols, x_ws.data(), non_cached, tile_new, false,
+                  stream);
         // We need AssignCacheIdx to be finished before calling StoreCols
         cache.StoreVecs(tile_new, n_rows, non_cached,
                         ws_cache_idx.data() + n_cached, stream);
@@ -219,7 +220,7 @@ class KernelCache {
         raft::matrix::copyRows<math_t, int, size_t>(
           x, n_rows, n_cols, x_ws.data(), unique_idx.data(), n_unique, stream,
           false);
-        (*kernel)(x, n_rows, n_cols, x_ws.data(), n_unique, tile.data(),
+        (*kernel)(x, n_rows, n_cols, x_ws.data(), n_unique, tile.data(), false,
                   stream);
       }
     }
