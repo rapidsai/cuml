@@ -140,7 +140,7 @@ def test_fil_classification(n_rows, n_columns, num_rounds,
     else:
         xgb_proba = bst.predict(dvalidation, output_margin=True)
     fil_proba = np.asarray(fm.predict_proba(X_validation))
-    assert np.allclose(fil_proba, xgb_proba, 1e-3)
+    np.testing.assert_allclose(fil_proba, xgb_proba, 1e-3)
 
 
 @pytest.mark.parametrize('n_rows', [unit_param(1000), quality_param(10000),
@@ -264,8 +264,7 @@ def test_fil_skl_classification(n_rows, n_columns, n_estimators, max_depth,
         assert array_equal(fil_preds, skl_preds_int)
     fil_proba = np.asarray(fm.predict_proba(X_validation))
     fil_proba = np.reshape(fil_proba, np.shape(skl_proba))
-    proba_threshold = 1e-3 if n_classes == 2 else 0.1
-    assert np.allclose(fil_proba, skl_proba, proba_threshold)
+    np.testing.assert_allclose(fil_proba, skl_proba, 1e-4)
 
 
 @pytest.mark.parametrize('n_rows', [1000])
@@ -455,7 +454,7 @@ def test_lightgbm(tmp_path, num_classes):
         fil_proba = fm.predict_proba(X)
         # binary classification
         gbm_proba = bst.predict(X)
-        assert np.allclose(gbm_proba, fil_proba[:, 1], 1e-2)
+        assert np.allclose(gbm_proba, fil_proba[:, 1], 1e-6)
         gbm_preds = (gbm_proba > 0.5)
         fil_preds = fm.predict(X)
         assert array_equal(gbm_preds, fil_preds)
@@ -475,4 +474,5 @@ def test_lightgbm(tmp_path, num_classes):
         assert array_equal(lgm_preds, fm.predict(X))
         # lightgbm uses float64 thresholds, while FIL uses float32
         # TODO(levsnv): once FIL supports float64 accuracy, revisit thresholds
-        assert np.allclose(lgm.predict_proba(X), fm.predict_proba(X), 1e-3)
+        np.testing.assert_allclose(lgm.predict_proba(X), fm.predict_proba(X),
+                                   1e-6)
