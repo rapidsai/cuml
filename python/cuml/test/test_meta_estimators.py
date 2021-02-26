@@ -61,30 +61,42 @@ def classification_dataset(request):
     return train_test_split(X, y, random_state=0)
 
 
-regression_config = ClassEnumerator(module=cuml.linear_model)
-regression_models = regression_config.get_models()
+models_config = ClassEnumerator(module=cuml)
+models = models_config.get_models()
 
 
-@pytest.mark.parametrize('model_key', regression_models.keys())
+@pytest.mark.parametrize('model_key', ['ElasticNet',
+                                       'Lasso',
+                                       'Ridge',
+                                       'LinearRegression',
+                                       'LogisticRegression',
+                                       'MBSGDRegressor',
+                                       'RandomForestRegressor',
+                                       'KNeighborsRegressor'])
 def test_pipeline_with_regression(regression_dataset, model_key):
     X_train, X_test, y_train, y_test = regression_dataset
-    model = regression_models[model_key]
-    pipe = Pipeline(steps=[('scaler', StandardScaler()), ('model', model())])
+    model_const = models[model_key]
+    if model_key == 'RandomForestRegressor':
+        model = model_const(n_bins=2)
+    else:
+        model = model_const()
+    pipe = Pipeline(steps=[('scaler', StandardScaler()), ('model', model)])
     pipe.fit(X_train, y_train)
     prediction = pipe.predict(X_test)
     assert isinstance(prediction, cupy.ndarray)
 
 
-models_config = ClassEnumerator(module=cuml)
-models = models_config.get_models()
-
-
-@pytest.mark.parametrize('model_key', ['KNeighborsClassifier',
-                                       'MBSGDClassifier'])
+@pytest.mark.parametrize('model_key', ['MBSGDClassifier',
+                                       'RandomForestClassifier',
+                                       'KNeighborsClassifier'])
 def test_pipeline_with_classification(classification_dataset, model_key):
     X_train, X_test, y_train, y_test = classification_dataset
-    model = models[model_key]
-    pipe = Pipeline(steps=[('scaler', StandardScaler()), ('model', model())])
+    model_const = models[model_key]
+    if model_key == 'RandomForestClassifier':
+        model = model_const(n_bins=2)
+    else:
+        model = model_const()
+    pipe = Pipeline(steps=[('scaler', StandardScaler()), ('model', model)])
     pipe.fit(X_train, y_train)
     prediction = pipe.predict(X_test)
     assert isinstance(prediction, cupy.ndarray)
