@@ -22,7 +22,6 @@
 #include <raft/random/rng.cuh>
 #include <vector>
 
-
 #include <cuml/common/device_buffer.hpp>
 #include <cuml/datasets/make_blobs.hpp>
 #include <cuml/neighbors/knn.hpp>

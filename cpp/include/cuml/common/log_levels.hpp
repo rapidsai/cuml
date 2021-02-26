@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-# pragma once
+#pragma once
 
 /**
  * @defgroup CumlLogLevels Logging levels used in cuML
@@ -35,4 +35,3 @@
 #if !defined(CUML_ACTIVE_LEVEL)
 #define CUML_ACTIVE_LEVEL CUML_LEVEL_DEBUG
 #endif
-

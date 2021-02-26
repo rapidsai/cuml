@@ -22,7 +22,8 @@
 namespace ML {
 namespace SVM {
 
-template <typename math_t> struct svmModel;
+template <typename math_t>
+struct svmModel;
 struct svmParameter;
 
 // Forward declarations of the stateless API

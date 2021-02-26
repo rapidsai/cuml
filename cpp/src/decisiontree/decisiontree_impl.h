@@ -40,7 +40,6 @@ struct TemporaryMemory;
 
 namespace ML {
 
-
 namespace tl = treelite;
 
 bool is_dev_ptr(const void *p);

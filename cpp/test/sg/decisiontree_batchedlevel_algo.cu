@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <decisiontree/memory.h>
 #include <decisiontree/quantile/quantile.h>
 #include <gtest/gtest.h>
 #include <raft/linalg/cublas_wrappers.h>
@@ -21,7 +22,6 @@
 #include <common/iota.cuh>
 #include <cuml/cuml.hpp>
 #include <decisiontree/batched-levelalgo/builder.cuh>
-#include <decisiontree/memory.h>
 #include <memory>
 #include <raft/cuda_utils.cuh>
 #include <random/make_blobs.cuh>
