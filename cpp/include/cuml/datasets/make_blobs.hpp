@@ -16,7 +16,6 @@
 
 #pragma once
 
-
 namespace raft {
 class handle_t;
 }
