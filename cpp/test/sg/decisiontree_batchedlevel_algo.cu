@@ -21,6 +21,7 @@
 #include <common/iota.cuh>
 #include <cuml/cuml.hpp>
 #include <decisiontree/batched-levelalgo/builder.cuh>
+#include <decisiontree/memory.h>
 #include <memory>
 #include <raft/cuda_utils.cuh>
 #include <random/make_blobs.cuh>

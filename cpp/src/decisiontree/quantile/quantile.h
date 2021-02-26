@@ -15,7 +15,11 @@
  */
 
 #pragma once
-#include "../memory.h"
+
+#include <memory>
+
+template <class T, class L>
+struct TemporaryMemory;
 
 namespace ML {
 namespace DecisionTree {
