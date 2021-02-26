@@ -16,6 +16,7 @@
 
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
+#include <raft/handle.hpp>
 #include <test_utils.h>
 #include <raft/cuda_utils.cuh>
 #include <vector>
@@ -25,7 +26,6 @@
 #include <cuml/common/cuml_allocator.hpp>
 #include <cuml/common/device_buffer.hpp>
 #include <cuml/common/logger.hpp>
-#include <cuml/cuml.hpp>
 #include <cuml/datasets/make_blobs.hpp>
 #include <cuml/metrics/metrics.hpp>
 

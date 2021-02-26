@@ -16,7 +16,6 @@
 
 #include <gtest/gtest.h>
 #include <cuml/common/cuml_allocator.hpp>
-#include <cuml/cuml.hpp>
 #include <random>
 #include <vector>
 

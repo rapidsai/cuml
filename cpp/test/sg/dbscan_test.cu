@@ -21,10 +21,10 @@
 
 #include <cuml/cluster/dbscan.hpp>
 #include <cuml/common/cuml_allocator.hpp>
-#include <cuml/cuml.hpp>
 #include <cuml/datasets/make_blobs.hpp>
 #include <cuml/metrics/metrics.hpp>
 
+#include <raft/handle.hpp>
 #include <raft/linalg/cublas_wrappers.h>
 #include <raft/linalg/transpose.h>
 

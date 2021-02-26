@@ -21,7 +21,6 @@
 #include <vector>
 
 #include <cuml/common/cuml_allocator.hpp>
-#include <cuml/cuml.hpp>
 
 #include <raft/cudart_utils.h>
 #include <test_utils.h>
