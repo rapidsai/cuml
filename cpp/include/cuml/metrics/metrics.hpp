@@ -17,7 +17,10 @@
 #pragma once
 
 #include <raft/linalg/distance_type.h>
-#include <cuml/cuml.hpp>
+
+namespace raft {
+class handle_t;
+}
 
 namespace ML {
 
