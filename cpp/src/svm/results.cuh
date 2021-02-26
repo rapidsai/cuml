@@ -33,11 +33,6 @@
 #include <raft/matrix/matrix.cuh>
 #include "ws_util.cuh"
 
-// TODO: WH
-/* namespace MLCommon {
-class deviceAllocator;
-} */
-
 namespace ML {
 namespace SVM {
 

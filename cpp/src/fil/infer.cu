@@ -21,8 +21,6 @@
 namespace ML {
 namespace fil {
 
-using namespace MLCommon;
-
 // vec wraps float[N] for cub::BlockReduce
 template <int N, typename T>
 struct vec {

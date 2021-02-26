@@ -30,13 +30,13 @@
 
 #include <cuml/fil/fil.h>
 #include <raft/cudart_utils.h>
+#include <raft/handle.hpp>
 #include <cuml/common/cuml_allocator.hpp>
 #include "common.cuh"
 
 namespace ML {
 namespace fil {
 
-using namespace MLCommon;
 namespace tl = treelite;
 
 __host__ __device__ float sigmoid(float x) { return 1.0f / (1.0f + expf(-x)); }
