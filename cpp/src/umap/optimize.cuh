@@ -35,9 +35,7 @@
 
 #pragma once
 
-namespace ML {
 using MLCommon::deviceAllocator;
-}
 
 namespace UMAPAlgo {
 
