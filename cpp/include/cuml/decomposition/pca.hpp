@@ -16,8 +16,11 @@
 
 #pragma once
 
-#include <cuml/cuml.hpp>
 #include "params.hpp"
+
+namespace raft {
+class handle_t;
+}
 
 namespace ML {
 
