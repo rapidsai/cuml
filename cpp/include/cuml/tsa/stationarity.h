@@ -15,7 +15,10 @@
  */
 
 #pragma once
-#include <cuml/cuml.hpp>
+
+namespace raft {
+class handle_t;
+}
 
 namespace ML {
 
