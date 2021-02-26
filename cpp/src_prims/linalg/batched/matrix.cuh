@@ -32,7 +32,7 @@
 #include <common/fast_int_div.cuh>
 #include <cuml/common/device_buffer.hpp>
 #include <cuml/common/utils.hpp>
-#include <cuml/cuml.hpp>
+#include <cuml/common/cuml_allocator.hpp>
 #include <raft/cuda_utils.cuh>
 
 #include <raft/linalg/cublas_wrappers.h>
@@ -169,7 +169,7 @@ class Matrix {
    * @param[in]  setZero      Should matrix be zeroed on allocation?
    */
   Matrix(int m, int n, int batch_size, cublasHandle_t cublasHandle,
-         std::shared_ptr<ML::deviceAllocator> allocator, cudaStream_t stream,
+         std::shared_ptr<deviceAllocator> allocator, cudaStream_t stream,
          bool setZero = true)
     : m_batch_size(batch_size),
       m_allocator(allocator),
@@ -409,7 +409,7 @@ class Matrix {
    * @return A batched identity matrix
    */
   static Matrix<T> Identity(int m, int batch_size, cublasHandle_t cublasHandle,
-                            std::shared_ptr<ML::deviceAllocator> allocator,
+                            std::shared_ptr<deviceAllocator> allocator,
                             cudaStream_t stream) {
     Matrix<T> I(m, m, batch_size, cublasHandle, allocator, stream, true);
 

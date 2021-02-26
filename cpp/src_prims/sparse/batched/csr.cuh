@@ -34,8 +34,8 @@
 #include <thrust/for_each.h>
 #include <thrust/iterator/counting_iterator.h>
 
+#include <cuml/common/cuml_allocator.hpp>
 #include <cuml/common/utils.hpp>
-#include <cuml/cuml.hpp>
 
 #include <raft/cudart_utils.h>
 #include <raft/linalg/cusolver_wrappers.h>
@@ -141,7 +141,7 @@ class CSR {
    */
   CSR(int m, int n, int nnz, int batch_size, cublasHandle_t cublasHandle,
       cusolverSpHandle_t cusolverSpHandle,
-      std::shared_ptr<ML::deviceAllocator> allocator, cudaStream_t stream)
+      std::shared_ptr<deviceAllocator> allocator, cudaStream_t stream)
     : m_batch_size(batch_size),
       m_allocator(allocator),
       m_cublasHandle(cublasHandle),
@@ -323,7 +323,7 @@ class CSR {
   //! Number of matrices in batch
   size_t m_batch_size;
 
-  std::shared_ptr<ML::deviceAllocator> m_allocator;
+  std::shared_ptr<deviceAllocator> m_allocator;
   cublasHandle_t m_cublasHandle;
   cusolverSpHandle_t m_cusolverSpHandle;
   cudaStream_t m_stream;
