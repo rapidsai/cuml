@@ -18,9 +18,12 @@
 
 #include <cuml/matrix/kernelparams.h>
 #include <cuml/common/logger.hpp>
-#include <cuml/cuml.hpp>
 #include "svm_model.h"
 #include "svm_parameter.h"
+
+namespace raft {
+class handle_t;
+}
 
 namespace ML {
 namespace SVM {
