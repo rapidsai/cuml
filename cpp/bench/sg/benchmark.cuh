@@ -19,8 +19,9 @@
 #include <benchmark/benchmark.h>
 #include <cuda_runtime.h>
 #include <raft/cudart_utils.h>
+#include <raft/handle.hpp>
+#include <cuml/common/cuml_allocator.hpp>
 #include <cuml/common/logger.hpp>
-#include <cuml/cuml.hpp>
 #include "../common/ml_benchmark.hpp"
 #include "dataset.cuh"
 #include "dataset_ts.cuh"
@@ -33,7 +34,7 @@ class Fixture : public MLCommon::Bench::Fixture {
  public:
   Fixture(const std::string& name)
     : MLCommon::Bench::Fixture(name,
-                               std::shared_ptr<deviceAllocator>(
+                               std::shared_ptr<MLCommon::deviceAllocator>(
                                  new raft::mr::device::default_allocator)) {}
   Fixture() = delete;
 
