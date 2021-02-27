@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2020, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -36,6 +36,9 @@ from cuml.ensemble.randomforestclassifier import RandomForestClassifier
 from cuml.ensemble.randomforestregressor import RandomForestRegressor
 
 from cuml.fil import fil
+
+from cuml.internals.global_settings import (
+    GlobalSettings, _global_settings_data)
 
 from cuml.linear_model.elastic_net import ElasticNet
 from cuml.linear_model.lasso import Lasso
@@ -87,10 +90,25 @@ from cuml.raft import raft_include_test
 from ._version import get_versions
 
 
-# Output type configuration
-
-global_output_type = None
-
 # Version configuration
 __version__ = get_versions()['version']
 del get_versions
+
+
+def __getattr__(name):
+
+    if name == 'global_settings':
+        try:
+            return _global_settings_data.settings
+        except AttributeError:
+            _global_settings_data.settings = GlobalSettings()
+            return _global_settings_data.settings
+    if name == 'global_output_type':
+        import warnings  # pylint: disable=import-outside-toplevel
+        warnings.warn("Accessing cuml.global_output_type directly is"
+                      " deprecated and will be removed in v0.20. Use"
+                      " cuml.global_settings.output_type instead.",
+                      DeprecationWarning)
+        return __getattr__('global_settings').output_type
+
+    raise AttributeError(f"module {__name__} has no attribute {name}")
