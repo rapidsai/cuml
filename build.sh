@@ -19,7 +19,7 @@ ARGS=$*
 REPODIR=$(cd $(dirname $0); pwd)
 
 VALIDTARGETS="clean libcuml cuml cpp-mgtests prims bench prims-bench cppdocs pydocs"
-VALIDFLAGS="-v -g -n --allgpuarch --buildfaiss --buildgtest --singlegpu --nvtx --show_depr_warn --codecov -h --help "
+VALIDFLAGS="-v -g -n --allgpuarch --buildfaiss --buildgtest --singlegpu --nvtx --show_depr_warn --codecov --ccache -h --help "
 VALIDARGS="${VALIDTARGETS} ${VALIDFLAGS}"
 HELP="$0 [<target> ...] [<flag> ...]
  where <target> is:
@@ -45,6 +45,7 @@ HELP="$0 [<target> ...] [<flag> ...]
    --show_depr_warn - show cmake deprecation warnings
    --codecov        - Enable code coverage support by compiling with Cython linetracing
                       and profiling enabled (WARNING: Impacts performance)
+   --ccache         - Use ccache to cache previous compilations
    -h               - print this text
 
  default action (no args) is to build and install 'libcuml', 'cuml', and 'prims' targets only for the detected GPU arch
@@ -150,6 +151,11 @@ if hasArg --show_depr_warn; then
 fi
 if hasArg --codecov; then
     CUML_EXTRA_PYTHON_ARGS="${CUML_EXTRA_PYTHON_ARGS} --linetrace=1 --profile"
+fi
+if hasArg --ccache; then
+    CUML_EXTRA_CMAKE_ARGS="${CUML_EXTRA_CMAKE_ARGS} -DCMAKE_C_COMPILER_LAUNCHER=ccache"
+    CUML_EXTRA_CMAKE_ARGS="${CUML_EXTRA_CMAKE_ARGS} -DCMAKE_CXX_COMPILER_LAUNCHER=ccache"
+    CUML_EXTRA_CMAKE_ARGS="${CUML_EXTRA_CMAKE_ARGS} -DCMAKE_CUDA_COMPILER_LAUNCHER=ccache"
 fi
 if hasArg clean; then
     CLEAN=1
