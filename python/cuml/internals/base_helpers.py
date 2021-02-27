@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020, NVIDIA CORPORATION.
+# Copyright (c) 2020-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -143,3 +143,31 @@ class BaseMetaClass(type):
                                         input_arg=None))
 
         return type.__new__(cls, classname, bases, classDict)
+
+
+class _tags_class_and_instance:
+    """
+    Decorator for Base class to allow for dynamic and static _get_tags.
+    In general, most methods are either dynamic or static, so this decorator
+    is only meant to be used in the Base estimator _get_tags.
+    """
+
+    def __init__(self, _class, _instance=None):
+        self._class = _class
+        self._instance = _instance
+
+    def instance_method(self, _instance):
+        """
+        Factory to create a _tags_class_and_instance instance method with
+        the existing class associated.
+        """
+        return _tags_class_and_instance(self._class, _instance)
+
+    def __get__(self, _instance, _class):
+        # if the caller had no instance (i.e. it was a class) or there is no
+        # instance associated we the method we return the class call
+        if _instance is None or self._instance is None:
+            return self._class.__get__(_class, None)
+
+        # otherwise return instance call
+        return self._instance.__get__(_instance, _class)
