@@ -53,6 +53,14 @@ void pairwiseDistance_py(const handle_t &handle, value_t *x,
                          raft::distance::DistanceType metric,
                          float metric_arg) {
     distances_config_t<value_idx, value_t> dist_config;
+    dist_config.a_nrows = m;
+    dist_config.a_ncols = k;
+    dist_config.a_nnz = x_nnz;
+    dist_config.a_indptr = x_indptr;
+    dist_config.a_indices = x_indices;
+    dist_config.a_data = x;
+
+
     dist_config.b_nrows = n;
     dist_config.b_ncols = k;
     dist_config.b_nnz = y_nnz;
@@ -60,12 +68,6 @@ void pairwiseDistance_py(const handle_t &handle, value_t *x,
     dist_config.b_indices = y_indices;
     dist_config.b_data = y;
     
-    dist_config.a_nrows = m;
-    dist_config.a_ncols = k;
-    dist_config.a_nnz = x_nnz;
-    dist_config.a_indptr = x_indptr;
-    dist_config.a_indices = x_indices;
-    dist_config.a_data = x;
     dist_config.handle = handle.get_cusparse_handle();;
     dist_config.allocator = handle.get_device_allocator();
     dist_config.stream = handle.get_stream();

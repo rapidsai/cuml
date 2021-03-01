@@ -336,11 +336,12 @@ def sparse_pairwise_distance(X, Y=None, metric="euclidean", handle=None,
     else:
         Y_m = SparseCumlArray(Y)
     n_samples_y, n_features_y = Y_m.shape
-    dest_m = CumlArray.zeros((n_samples_x, n_samples_y), dtype=dtype_x)
 
     # Get the metric string to a distance enum
     metric_val = _determine_metric(metric, is_sparse=True)
     
+    x_nrows, y_nrows = X_m.indptr.shape[0] - 1, Y_m.indptr.shape[0] - 1
+    dest_m = CumlArray.zeros((x_nrows, y_nrows), dtype=dtype_x)
     cdef uintptr_t d_X_ptr = X_m.data.ptr
     cdef uintptr_t d_Y_ptr = Y_m.data.ptr
     cdef uintptr_t d_dest_ptr = dest_m.ptr
@@ -354,8 +355,8 @@ def sparse_pairwise_distance(X, Y=None, metric="euclidean", handle=None,
                             <float*> d_X_ptr,
                             <float*> d_Y_ptr,
                             <float*> d_dest_ptr,
-                            <int> n_samples_x,
-                            <int> n_samples_y,
+                            <int> x_nrows,
+                            <int> y_nrows,
                             <int> n_features_x,
                             <int> X_m.nnz,
                             <int> Y_m.nnz,
