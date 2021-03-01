@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2020, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -28,12 +28,14 @@ from libc.stdint cimport uintptr_t
 from libc.stdlib cimport calloc, malloc, free
 
 from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.common.base import Base, RegressorMixin
+from cuml.common.base import Base
+from cuml.common.mixins import RegressorMixin
 from cuml.common.array import CumlArray
 from cuml.common.doc_utils import generate_docstring
 from cuml.linear_model.base import LinearPredictMixin
 from cuml.raft.common.handle cimport handle_t
 from cuml.common import input_to_cuml_array
+from cuml.common.mixins import FMajorInputTagMixin
 
 cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM":
 
@@ -64,7 +66,10 @@ cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM":
                        int algo) except +
 
 
-class Ridge(Base, RegressorMixin, LinearPredictMixin):
+class Ridge(Base,
+            RegressorMixin,
+            LinearPredictMixin,
+            FMajorInputTagMixin):
 
     """
     Ridge extends LinearRegression by providing L2 regularization on the
@@ -162,7 +167,7 @@ class Ridge(Base, RegressorMixin, LinearPredictMixin):
     output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
         Variable to control output type of the results and attributes of
         the estimator. If None, it'll inherit the output type set at the
-        module level, `cuml.global_output_type`.
+        module level, `cuml.global_settings.output_type`.
         See :ref:`output-data-type-configuration` for more info.
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
@@ -331,8 +336,3 @@ class Ridge(Base, RegressorMixin, LinearPredictMixin):
     def get_param_names(self):
         return super().get_param_names() + \
             ['solver', 'fit_intercept', 'normalize', 'alpha']
-
-    def _more_tags(self):
-        return {
-            'preferred_input_order': 'F'
-        }

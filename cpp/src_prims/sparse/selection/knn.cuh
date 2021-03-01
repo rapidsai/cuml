@@ -27,6 +27,7 @@
 #include <raft/matrix/matrix.cuh>
 #include <raft/mr/device/allocator.hpp>
 #include <raft/mr/device/buffer.hpp>
+#include <rmm/device_uvector.hpp>
 
 #include <selection/knn.cuh>
 #include "../coo.cuh"
@@ -165,26 +166,23 @@ class sparse_knn_t {
         * Slice CSR to rows in batch
         */
 
-      raft::mr::device::buffer<value_idx> query_batch_indptr(
-        allocator, stream, query_batcher.batch_rows() + 1);
+      rmm::device_uvector<value_idx> query_batch_indptr(
+        query_batcher.batch_rows() + 1, stream);
 
       value_idx n_query_batch_nnz = query_batcher.get_batch_csr_indptr_nnz(
         query_batch_indptr.data(), stream);
 
-      raft::mr::device::buffer<value_idx> query_batch_indices(
-        allocator, stream, n_query_batch_nnz);
-      raft::mr::device::buffer<value_t> query_batch_data(allocator, stream,
-                                                         n_query_batch_nnz);
+      rmm::device_uvector<value_idx> query_batch_indices(n_query_batch_nnz,
+                                                         stream);
+      rmm::device_uvector<value_t> query_batch_data(n_query_batch_nnz, stream);
 
       query_batcher.get_batch_csr_indices_data(query_batch_indices.data(),
                                                query_batch_data.data(), stream);
 
       // A 3-partition temporary merge space to scale the batching. 2 parts for subsequent
       // batches and 1 space for the results of the merge, which get copied back to the top
-      raft::mr::device::buffer<value_idx> merge_buffer_indices(allocator,
-                                                               stream, 0);
-      raft::mr::device::buffer<value_t> merge_buffer_dists(allocator, stream,
-                                                           0);
+      rmm::device_uvector<value_idx> merge_buffer_indices(0, stream);
+      rmm::device_uvector<value_t> merge_buffer_dists(0, stream);
 
       value_t *dists_merge_buffer_ptr;
       value_idx *indices_merge_buffer_ptr;
@@ -202,11 +200,10 @@ class sparse_knn_t {
         /**
           * Slice CSR to rows in batch
         */
-        raft::mr::device::buffer<value_idx> idx_batch_indptr(
-          allocator, stream, idx_batcher.batch_rows() + 1);
-        raft::mr::device::buffer<value_idx> idx_batch_indices(allocator, stream,
-                                                              0);
-        raft::mr::device::buffer<value_t> idx_batch_data(allocator, stream, 0);
+        rmm::device_uvector<value_idx> idx_batch_indptr(
+          idx_batcher.batch_rows() + 1, stream);
+        rmm::device_uvector<value_idx> idx_batch_indices(0, stream);
+        rmm::device_uvector<value_t> idx_batch_data(0, stream);
 
         value_idx idx_batch_nnz =
           idx_batcher.get_batch_csr_indptr_nnz(idx_batch_indptr.data(), stream);
@@ -222,8 +219,7 @@ class sparse_knn_t {
            */
         size_t dense_size =
           idx_batcher.batch_rows() * query_batcher.batch_rows();
-        raft::mr::device::buffer<value_t> batch_dists(allocator, stream,
-                                                      dense_size);
+        rmm::device_uvector<value_t> batch_dists(dense_size, stream);
 
         CUDA_CHECK(cudaMemset(batch_dists.data(), 0,
                               batch_dists.size() * sizeof(value_t)));
@@ -234,13 +230,9 @@ class sparse_knn_t {
                           query_batch_indptr.data(), query_batch_indices.data(),
                           query_batch_data.data(), batch_dists.data());
 
-        idx_batch_indptr.release(stream);
-        idx_batch_indices.release(stream);
-        idx_batch_data.release(stream);
-
         // Build batch indices array
-        raft::mr::device::buffer<value_idx> batch_indices(allocator, stream,
-                                                          batch_dists.size());
+        rmm::device_uvector<value_idx> batch_indices(batch_dists.size(),
+                                                     stream);
 
         // populate batch indices array
         value_idx batch_rows = query_batcher.batch_rows(),
@@ -328,8 +320,7 @@ class sparse_knn_t {
     id_ranges.push_back(0);
     id_ranges.push_back(idx_batcher.batch_start());
 
-    raft::mr::device::buffer<value_idx> trans(allocator, stream,
-                                              id_ranges.size());
+    rmm::device_uvector<value_idx> trans(id_ranges.size(), stream);
     raft::update_device(trans.data(), id_ranges.data(), id_ranges.size(),
                         stream);
 

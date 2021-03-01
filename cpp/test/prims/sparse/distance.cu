@@ -88,6 +88,7 @@ class SparseDistanceTest
     CUDA_CHECK(cudaStreamCreate(&stream));
 
     CUSPARSE_CHECK(cusparseCreate(&cusparseHandle));
+    CUSPARSE_CHECK(cusparseSetStream(cusparseHandle, stream));
 
     make_data();
 
@@ -129,15 +130,9 @@ class SparseDistanceTest
   }
 
   void compare() {
-    // skip Hellinger test due to sporadic CI issue
-    // https://github.com/rapidsai/cuml/issues/3477
-    if (params.metric == raft::distance::DistanceType::HellingerExpanded) {
-      GTEST_SKIP();
-    } else {
-      ASSERT_TRUE(devArrMatch(out_dists_ref, out_dists,
-                              params.out_dists_ref_h.size(),
-                              CompareApprox<value_t>(1e-3)));
-    }
+    ASSERT_TRUE(devArrMatch(out_dists_ref, out_dists,
+                            params.out_dists_ref_h.size(),
+                            CompareApprox<value_t>(1e-3)));
   }
 
  protected:
@@ -178,14 +173,16 @@ const std::vector<SparseDistanceInputs<int, float>> inputs_i32_f = {
      1832.0,
      0.0,
    },
-   raft::distance::DistanceType::L2Expanded},
+   raft::distance::DistanceType::L2Expanded,
+   0.0},
   {2,
    {0, 2, 4, 6, 8},
    {0, 1, 0, 1, 0, 1, 0, 1},
    {1.0f, 2.0f, 1.0f, 2.0f, 1.0f, 2.0f, 1.0f, 2.0f},
    {5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0,
     5.0},
-   raft::distance::DistanceType::InnerProduct},
+   raft::distance::DistanceType::InnerProduct,
+   0.0},
   {2,
    {0, 2, 4, 6, 8},
    {0, 1, 0, 1, 0, 1, 0, 1},  // indices
@@ -209,7 +206,8 @@ const std::vector<SparseDistanceInputs<int, float>> inputs_i32_f = {
      1832.0,
      0.0,
    },
-   raft::distance::DistanceType::L2Unexpanded},
+   raft::distance::DistanceType::L2Unexpanded,
+   0.0},
 
   {10,
    {0, 5, 11, 15, 20, 27, 32, 36, 43, 47, 50},
@@ -239,7 +237,8 @@ const std::vector<SparseDistanceInputs<int, float>> inputs_i32_f = {
     0.67676228, 0.24558392, 0.76064776, 0.51360432, 0.,         1.,
     0.76978799, 0.78021386, 1.,         0.84923694, 0.73155632, 0.99166225,
     0.61547536, 0.68185144, 1.,         0.},
-   raft::distance::DistanceType::CosineExpanded},
+   raft::distance::DistanceType::CosineExpanded,
+   0.0},
 
   {10,
    {0, 5, 11, 15, 20, 27, 32, 36, 43, 47, 50},
@@ -349,7 +348,8 @@ const std::vector<SparseDistanceInputs<int, float>> inputs_i32_f = {
     0.75,
     1.0,
     0.0},
-   raft::distance::DistanceType::JaccardExpanded},
+   raft::distance::DistanceType::JaccardExpanded,
+   0.0},
 
   {10,
    {0, 5, 11, 15, 20, 27, 32, 36, 43, 47, 50},
@@ -462,7 +462,8 @@ const std::vector<SparseDistanceInputs<int, float>> inputs_i32_f = {
     6.903282911791188,
     7.0,
     0.0},
-   raft::distance::DistanceType::Canberra},
+   raft::distance::DistanceType::Canberra,
+   0.0},
 
   {10,
    {0, 5, 11, 15, 20, 27, 32, 36, 43, 47, 50},
@@ -689,33 +690,10 @@ const std::vector<SparseDistanceInputs<int, float>> inputs_i32_f = {
     0.5079750812968089,
     0.8429599432532096,
     0.0},
-   raft::distance::DistanceType::Linf},
+   raft::distance::DistanceType::Linf,
+   0.0},
 
-  {4,
-   {0, 1, 1, 2, 4},
-   {3, 2, 0, 1},  // indices
-   {0.99296, 0.42180, 0.11687, 0.305869},
-   {
-     // dense output
-     0.0,
-     0.99296,
-     1.41476,
-     1.415707,
-     0.99296,
-     0.0,
-     0.42180,
-     0.42274,
-     1.41476,
-     0.42180,
-     0.0,
-     0.84454,
-     1.41570,
-     0.42274,
-     0.84454,
-     0.0,
-   },
-   raft::distance::DistanceType::L1},
-  {10,
+  {15,
    {0, 5, 8, 9, 15, 20, 26, 31, 34, 38, 45},
    {0,  1, 5,  6,  9,  1, 4, 14, 7, 3, 4,  7, 9, 11, 14,
     0,  3, 7,  8,  12, 0, 2, 5,  7, 8, 14, 4, 9, 10, 11,
@@ -754,7 +732,34 @@ const std::vector<SparseDistanceInputs<int, float>> inputs_i32_f = {
     1.00000000e+00, 8.05419635e-01, 9.53789212e-01, 8.07933016e-01,
     7.40428532e-01, 7.95485011e-01, 8.51370877e-01, 1.49011612e-08},
    // Dataset is L1 normalized into pdfs
-   raft::distance::DistanceType::HellingerExpanded}};
+   raft::distance::DistanceType::HellingerExpanded,
+   0.0},
+
+  {4,
+   {0, 1, 1, 2, 4},
+   {3, 2, 0, 1},  // indices
+   {0.99296, 0.42180, 0.11687, 0.305869},
+   {
+     // dense output
+     0.0,
+     0.99296,
+     1.41476,
+     1.415707,
+     0.99296,
+     0.0,
+     0.42180,
+     0.42274,
+     1.41476,
+     0.42180,
+     0.0,
+     0.84454,
+     1.41570,
+     0.42274,
+     0.84454,
+     0.0,
+   },
+   raft::distance::DistanceType::L1,
+   0.0}};
 
 typedef SparseDistanceTest<int, float> SparseDistanceTestF;
 TEST_P(SparseDistanceTestF, Result) { compare(); }

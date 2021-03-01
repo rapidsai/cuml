@@ -14,6 +14,8 @@ import numbers
 import warnings
 
 import cupy as np
+from cuml.common.mixins import AllowNaNTagMixin
+from cuml.common.mixins import StringInputTagMixin
 from cupy import sparse
 
 from ....thirdparty_adapters import (get_input_type, to_output_type, _get_mask,
@@ -286,6 +288,10 @@ class SimpleImputer(_BaseImputer):
         -------
         self : SimpleImputer
         """
+
+        if type(X) is list:
+            X = np.asarray(X)
+
         X = self._validate_input(X, in_fit=True)
         super()._fit_indicator(X)
 
@@ -446,7 +452,10 @@ class SimpleImputer(_BaseImputer):
         return X
 
 
-class MissingIndicator(TransformerMixin, BaseEstimator):
+class MissingIndicator(TransformerMixin,
+                       BaseEstimator,
+                       AllowNaNTagMixin,
+                       StringInputTagMixin):
     """Binary indicators for missing values.
 
     Note that this component typically should not be used in a vanilla
@@ -712,7 +721,3 @@ class MissingIndicator(TransformerMixin, BaseEstimator):
             imputer_mask = imputer_mask[:, self.features_]
 
         return imputer_mask
-
-    def _more_tags(self):
-        return {'allow_nan': True,
-                'X_types': ['2darray', 'string']}

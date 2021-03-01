@@ -33,15 +33,16 @@ from cuml.common.array_sparse import SparseCumlArray
 from cuml.common.doc_utils import generate_docstring
 from cuml.common.doc_utils import insert_into_docstring
 from cuml.common.import_utils import has_scipy
+from cuml.common.mixins import CMajorInputTagMixin
 from cuml.common.input_utils import input_to_cupy_array
 from cuml.common import input_to_cuml_array
-from cuml.neighbors.ann cimport *
 from cuml.common.sparse_utils import is_sparse
 from cuml.common.sparse_utils import is_dense
 
-from cython.operator cimport dereference as deref
-
+from cuml.neighbors.ann cimport *
 from cuml.raft.common.handle cimport handle_t
+
+from cython.operator cimport dereference as deref
 
 from libcpp cimport bool
 from libcpp.memory cimport shared_ptr
@@ -143,7 +144,8 @@ cdef extern from "cuml/neighbors/knn_sparse.hpp" namespace "ML::Sparse":
                          bool expanded_form) except +
 
 
-class NearestNeighbors(Base):
+class NearestNeighbors(Base,
+                       CMajorInputTagMixin):
     """
     NearestNeighbors is an queries neighborhoods from a given set of
     datapoints. Currently, cuML supports k-NN queries, which define
@@ -231,7 +233,7 @@ class NearestNeighbors(Base):
     output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
         Variable to control output type of the results and attributes of
         the estimator. If None, it'll inherit the output type set at the
-        module level, `cuml.global_output_type`.
+        module level, `cuml.global_settings.output_type`.
         See :ref:`output-data-type-configuration` for more info.
 
     Examples
@@ -848,11 +850,6 @@ class NearestNeighbors(Base):
         if knn_index:
             del knn_index
 
-    def _more_tags(self):
-        return {
-            'preferred_input_order': 'C'
-        }
-
 
 @cuml.internals.api_return_sparse_array()
 def kneighbors_graph(X=None, n_neighbors=5, mode='connectivity', verbose=False,
@@ -911,13 +908,13 @@ def kneighbors_graph(X=None, n_neighbors=5, mode='connectivity', verbose=False,
     output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
         Variable to control output type of the results and attributes of
         the estimator. If None, it'll inherit the output type set at the
-        module level, `cuml.global_output_type`.
+        module level, `cuml.global_settings.output_type`.
         See :ref:`output-data-type-configuration` for more info.
 
         .. deprecated:: 0.17
            `output_type` is deprecated in 0.17 and will be removed in 0.18.
            Please use the module level output type control,
-           `cuml.global_output_type`.
+           `cuml.global_settings.output_type`.
            See :ref:`output-data-type-configuration` for more info.
 
     Returns
