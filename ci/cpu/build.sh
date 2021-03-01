@@ -1,7 +1,7 @@
 #!/bin/bash
-# Copyright (c) 2018, NVIDIA CORPORATION.
+# Copyright (c) 2018-2021, NVIDIA CORPORATION.
 ##############################################
-# cuML CPU conda build script for CI         # 
+# cuML CPU conda build script for CI         #
 ##############################################
 set -ex
 
@@ -18,6 +18,9 @@ export CUDA_REL=${CUDA_VERSION%.*}
  # Setup 'gpuci_conda_retry' for build retries (results in 2 total attempts)
 export GPUCI_CONDA_RETRY_MAX=1
 export GPUCI_CONDA_RETRY_SLEEP=30
+
+# Use Ninja to build
+export CMAKE_GENERATOR="Ninja"
 
 # Switch to project root; also root of repo checkout
 cd $WORKSPACE
