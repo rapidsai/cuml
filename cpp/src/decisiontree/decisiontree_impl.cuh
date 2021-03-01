@@ -419,11 +419,9 @@ void DecisionTreeBase<T, L>::base_fit(
   fp = fopen(filename, "w");
   fprintf(fp, "Pre-plant dump\n");
   fprintf(fp, "sparsetree vector length = %lu\n", sparsetree.size());
-  fprintf(fp, "location of data = %p\n", data);
   fprintf(fp, "n_rows = %d\n", nrows);
   fprintf(fp, "n_cols = %d\n", ncols);
   fprintf(fp, "n_sampled_rows = %d\n", n_sampled_rows);
-  fprintf(fp, "max_shared_mem = %d\n", max_shared_mem);
   fprintf(fp, "rowids = {");
   int *h_rowids;
   h_rowids = (int*)malloc(sizeof(int) * n_sampled_rows);
