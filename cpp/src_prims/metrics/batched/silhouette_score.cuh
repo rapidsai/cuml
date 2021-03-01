@@ -18,7 +18,7 @@
 
 #include "../silhouette_score.cuh"
 
-#include <common/device_buffer.hpp>
+#include <cuml/common/device_buffer.hpp>
 
 #include <thrust/device_vector.h>
 #include <raft/cuda_utils.cuh>

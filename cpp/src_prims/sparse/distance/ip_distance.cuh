@@ -25,13 +25,13 @@
 #include <raft/mr/device/allocator.hpp>
 #include <raft/mr/device/buffer.hpp>
 
-#include <sparse/distance/common.h>
-#include <sparse/linalg/transpose.h>
-#include <sparse/utils.h>
-#include <sparse/convert/csr.cuh>
-#include <sparse/convert/dense.cuh>
-#include <sparse/distance/coo_spmv.cuh>
-#include <sparse/distance/operators.cuh>
+#include "../convert/csr.cuh"
+#include "../convert/dense.cuh"
+#include "../linalg/transpose.h"
+#include "../utils.h"
+#include "common.h"
+#include "coo_spmv.cuh"
+#include "operators.cuh"
 
 #include <nvfunctional>
 
@@ -284,16 +284,16 @@ class ip_distances_t : public distances_t<value_t> {
    * Computes simple sparse inner product distances as sum(x_y * y_k)
    * @param[in] config specifies inputs, outputs, and sizes
    */
-  explicit ip_distances_t(const distances_config_t<value_idx, value_t> &config)
-    : config_(&config) {
-    if (config_->a_ncols < max_cols_per_block<value_idx, value_t>()) {
-      internal_ip_dist =
-        std::make_unique<ip_distances_spmv_t<value_idx, value_t>>(*config_);
-    } else {
-      internal_ip_dist =
-        std::make_unique<ip_distances_gemm_t<value_idx, value_t>>(*config_);
-    }
-  }
+   explicit ip_distances_t(const distances_config_t<value_idx, value_t> &config)
+   : config_(&config) {
+//    if (config_->a_ncols < max_cols_per_block<value_idx, value_t>()) {
+     internal_ip_dist =
+       std::make_unique<ip_distances_spmv_t<value_idx, value_t>>(*config_);
+//    } else {
+//      internal_ip_dist =
+//        std::make_unique<ip_distances_gemm_t<value_idx, value_t>>(*config_);
+//    }
+ }
 
   /**
    * Performs pairwise distance computation and computes output distances

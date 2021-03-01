@@ -16,8 +16,8 @@
 
 #pragma once
 
-#include "common.h"
-#include "utils.cuh"
+#include "../common.h"
+#include "../utils.cuh"
 
 #include <cuml/common/logger.hpp>
 

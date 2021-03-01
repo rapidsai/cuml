@@ -24,12 +24,10 @@
 #include <raft/mr/device/allocator.hpp>
 #include <raft/mr/device/buffer.hpp>
 
-#include <common/allocatorAdapter.hpp>
-
-#include <sparse/distance/common.h>
-#include <sparse/utils.h>
-#include <sparse/csr.cuh>
-#include <sparse/distance/operators.cuh>
+#include "../csr.cuh"
+#include "../utils.h"
+#include "common.h"
+#include "operators.cuh"
 
 #include <limits.h>
 

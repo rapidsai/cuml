@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@
 
 #pragma once
 
+namespace ML {
 namespace Dbscan {
 namespace AdjGraph {
 
@@ -36,13 +37,10 @@ struct Pack {
 
   /** exculusive scan generated from vd */
   Index_ *ex_scan;
-  /** array to store whether a vertex is core poType or not */
-  bool *core_pts;
-  /** number of poTypes in the dataset */
+  /** number of points in the dataset */
   Index_ N;
-  /** Minpts for classifying core pts */
-  Index_ minPts;
 };
 
 }  // namespace AdjGraph
 }  // namespace Dbscan
+}  // namespace ML

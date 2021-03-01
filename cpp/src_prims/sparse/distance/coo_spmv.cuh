@@ -16,7 +16,8 @@
 
 #pragma once
 
-#include "coo_spmv_strategy.cuh"
+#include "coo_spmv_strategies/dense_smem_strategy.cuh"
+#include "coo_spmv_strategies/hash_strategy.cuh"
 
 #include <raft/cudart_utils.h>
 #include <raft/sparse/cusparse_wrappers.h>
@@ -24,8 +25,9 @@
 #include <raft/mr/device/allocator.hpp>
 #include <raft/mr/device/buffer.hpp>
 
-#include <sparse/distance/common.h>
-#include <sparse/csr.cuh>
+#include "../csr.cuh"
+#include "../utils.h"
+#include "common.h"
 
 #include <limits.h>
 

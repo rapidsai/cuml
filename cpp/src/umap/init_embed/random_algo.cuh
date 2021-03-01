@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,15 +14,12 @@
  * limitations under the License.
  */
 
-#include <cuml/manifold/umapparams.h>
-#include <raft/random/rng.cuh>
-
 #pragma once
 
+#include <cuml/manifold/umapparams.h>
+#include <raft/random/rng.cuh>
 namespace UMAPAlgo {
-
 namespace InitEmbed {
-
 namespace RandomInit {
 
 using namespace ML;

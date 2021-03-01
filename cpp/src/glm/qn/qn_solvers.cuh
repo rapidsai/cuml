@@ -374,6 +374,12 @@ inline int qn_minimize(const raft::handle_t &handle, SimpleVec<T> &x, T *fx,
 
     CUML_LOG_DEBUG("OWL-QN Done");
   }
+  if (ret == OPT_MAX_ITERS_REACHED) {
+    CUML_LOG_WARN(
+      "Maximum iterations reached before solver is converged. To increase "
+      "model accuracy you can increase the number of iterations (max_iter) or "
+      "improve the scaling of the input data.");
+  }
   return ret;
 }
 

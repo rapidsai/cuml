@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -34,3 +34,4 @@ from cuml.metrics.confusion_matrix import confusion_matrix
 from cuml.metrics.cluster.entropy import cython_entropy as entropy
 from cuml.metrics.pairwise_distances import pairwise_distances, \
     PAIRWISE_DISTANCE_METRICS
+from cuml.metrics.hinge_loss import hinge_loss

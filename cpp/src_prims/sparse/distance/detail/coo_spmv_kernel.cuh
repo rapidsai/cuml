@@ -16,8 +16,6 @@
 
 #pragma once
 
-#include "coo_mask_row_iterators.cuh"
-
 #include <sparse/utils.h>
 
 #include <cub/cub.cuh>
@@ -153,7 +151,6 @@ __global__ void balanced_coo_generalized_spmv_kernel(
   // coalesced reads from B
   // if (tid < active_chunk_size) printf("HI\n");
   if (tid < active_chunk_size) {
-    // if (threadIdx.x == 0) printf("YO MAMA\n");
     cur_row_b = rowsB[ind];
 
     auto index_b = indicesB[ind];
@@ -165,7 +162,7 @@ __global__ void balanced_coo_generalized_spmv_kernel(
     //   printf("blockIdx.x: %d, index_b: %d, in_bounds: %d\n", blockIdx.x,
     //          index_b, in_bounds);
     if (in_bounds) {
-      value_t a_col = strategy.find(finder, index_b);
+      value_t a_col = strategy.find(finder, index_b, indicesA, dataA, start_offset_a, stop_offset_a);
 
       if (!rev || a_col == 0.0) {
         c = product_func(a_col, dataB[ind]);
@@ -210,7 +207,7 @@ __global__ void balanced_coo_generalized_spmv_kernel(
       auto in_bounds =
         indptrA.check_indices_bounds(start_index_a, stop_index_a, index_b);
       if (in_bounds) {
-        value_t a_col = strategy.find(finder, index_b);
+        value_t a_col = strategy.find(finder, index_b, indicesA, dataA, start_offset_a, stop_offset_a);
 
         if (!rev || a_col == 0.0) {
           c = accum_func(c, product_func(a_col, dataB[ind]));
