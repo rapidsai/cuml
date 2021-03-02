@@ -33,8 +33,8 @@ namespace ML {
 void brute_force_knn(raft::handle_t &handle, std::vector<float *> &input,
                      std::vector<int> &sizes, int D, float *search_items, int n,
                      int64_t *res_I, float *res_D, int k, bool rowMajorIndex,
-                     bool rowMajorQuery, MetricType metric, float metric_arg,
-                     bool expanded) {
+                     bool rowMajorQuery, raft::distance::DistanceType metric,
+                     float metric_arg) {
   ASSERT(input.size() == sizes.size(),
          "input and sizes vectors must be the same size");
 
@@ -44,13 +44,13 @@ void brute_force_knn(raft::handle_t &handle, std::vector<float *> &input,
     input, sizes, D, search_items, n, res_I, res_D, k,
     handle.get_device_allocator(), handle.get_stream(), int_streams.data(),
     handle.get_num_internal_streams(), rowMajorIndex, rowMajorQuery, nullptr,
-    metric, metric_arg, expanded);
+    metric, metric_arg);
 }
 
 void approx_knn_build_index(raft::handle_t &handle, ML::knnIndex *index,
                             ML::knnIndexParam *params, int D,
-                            ML::MetricType metric, float metricArg,
-                            float *index_items, int n) {
+                            raft::distance::DistanceType metric,
+                            float metricArg, float *index_items, int n) {
   MLCommon::Selection::approx_knn_build_index(
     index, params, D, metric, metricArg, index_items, n, handle.get_stream());
 }

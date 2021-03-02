@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@
 
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
+#include <raft/linalg/distance_type.h>
 #include <iostream>
 #include <raft/cuda_utils.cuh>
 #include <selection/knn.cuh>
@@ -69,7 +70,8 @@ class KNNTest : public ::testing::Test {
     CUDA_CHECK(cudaStreamCreate(&stream));
 
     brute_force_knn(input_vec, sizes_vec, d, d_train_inputs, n, d_pred_I,
-                    d_pred_D, n, alloc, stream);
+                    d_pred_D, n, alloc, stream, nullptr, 0, true, true, nullptr,
+                    raft::distance::DistanceType::L2SqrtExpanded);
 
     CUDA_CHECK(cudaStreamDestroy(stream));
   }

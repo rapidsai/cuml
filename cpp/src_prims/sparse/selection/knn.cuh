@@ -121,8 +121,9 @@ class sparse_knn_t {
                cudaStream_t stream_,
                size_t batch_size_index_ = 2 << 14,  // approx 1M
                size_t batch_size_query_ = 2 << 14,
-               ML::MetricType metric_ = ML::MetricType::METRIC_L2,
-               float metricArg_ = 0, bool expanded_form_ = false)
+               raft::distance::DistanceType metric_ =
+                 raft::distance::DistanceType::L2Expanded,
+               float metricArg_ = 0)
     : idxIndptr(idxIndptr_),
       idxIndices(idxIndices_),
       idxData(idxData_),
@@ -144,8 +145,7 @@ class sparse_knn_t {
       batch_size_index(batch_size_index_),
       batch_size_query(batch_size_query_),
       metric(metric_),
-      metricArg(metricArg_),
-      expanded_form(expanded_form_) {}
+      metricArg(metricArg_) {}
 
   void run() {
     using namespace raft::sparse;
@@ -253,8 +253,6 @@ class sparse_knn_t {
                             batch_indices.data(), dists_merge_buffer_ptr,
                             indices_merge_buffer_ptr);
 
-        perform_postprocessing(dists_merge_buffer_ptr, batch_rows);
-
         value_t *dists_merge_buffer_tmp_ptr = dists_merge_buffer_ptr;
         value_idx *indices_merge_buffer_tmp_ptr = indices_merge_buffer_ptr;
 
@@ -289,23 +287,6 @@ class sparse_knn_t {
                                 query_batcher.batch_rows() * k, stream);
 
       rows_processed += query_batcher.batch_rows();
-    }
-  }
-
-  void perform_postprocessing(value_t *dists, size_t batch_rows) {
-    // Perform necessary post-processing
-    if (metric == ML::MetricType::METRIC_L2 && !expanded_form) {
-      /**
-        * post-processing
-        */
-      value_t p = 0.5;  // standard l2
-      raft::linalg::unaryOp<value_t>(
-        dists, dists, batch_rows * k,
-        [p] __device__(value_t input) {
-          int neg = input < 0 ? -1 : 1;
-          return powf(fabs(input), p) * neg;
-        },
-        stream);
     }
   }
 
@@ -348,48 +329,11 @@ class sparse_knn_t {
     value_idx n_neighbors = min(k, batch_cols);
 
     bool ascending = true;
-    if (metric == ML::MetricType::METRIC_INNER_PRODUCT) ascending = false;
+    if (metric == raft::distance::DistanceType::InnerProduct) ascending = false;
 
     // kernel to slice first (min) k cols and copy into batched merge buffer
     select_k(batch_dists, batch_indices, batch_rows, batch_cols, out_dists,
              out_indices, ascending, n_neighbors, stream);
-  }
-
-  raft::distance::DistanceType get_pw_metric() {
-    raft::distance::DistanceType pw_metric;
-    switch (metric) {
-      case ML::MetricType::METRIC_INNER_PRODUCT:
-        pw_metric = raft::distance::DistanceType::InnerProduct;
-        break;
-      case ML::MetricType::METRIC_L2:
-        pw_metric = raft::distance::DistanceType::L2Expanded;
-        break;
-      case ML::MetricType::METRIC_L1:
-        pw_metric = raft::distance::DistanceType::L1;
-        break;
-      case ML::MetricType::METRIC_Canberra:
-        pw_metric = raft::distance::DistanceType::Canberra;
-        break;
-      case ML::MetricType::METRIC_Linf:
-        pw_metric = raft::distance::DistanceType::Linf;
-        break;
-      case ML::MetricType::METRIC_Lp:
-        pw_metric = raft::distance::DistanceType::LpUnexpanded;
-        break;
-      case ML::MetricType::METRIC_Jaccard:
-        pw_metric = raft::distance::DistanceType::JaccardExpanded;
-        break;
-      case ML::MetricType::METRIC_Cosine:
-        pw_metric = raft::distance::DistanceType::CosineExpanded;
-        break;
-      case ML::MetricType::METRIC_Hellinger:
-        pw_metric = raft::distance::DistanceType::HellingerExpanded;
-        break;
-      default:
-        THROW("MetricType not supported: %d", metric);
-    }
-
-    return pw_metric;
   }
 
   void compute_distances(csr_batcher_t<value_idx, value_t> &idx_batcher,
@@ -425,8 +369,12 @@ class sparse_knn_t {
     dist_config.allocator = allocator;
     dist_config.stream = stream;
 
-    raft::sparse::distance::pairwiseDistance(batch_dists, dist_config,
-                                             get_pw_metric(), metricArg);
+    if (raft::sparse::distance::supportedDistance.find(metric) ==
+        raft::sparse::distance::supportedDistance.end())
+      THROW("DistanceType not supported: %d", metric);
+
+    raft::sparse::distance::pairwiseDistance(batch_dists, dist_config, metric,
+                                             metricArg);
   }
 
   const value_idx *idxIndptr, *idxIndices, *queryIndptr, *queryIndices;
@@ -436,11 +384,9 @@ class sparse_knn_t {
 
   size_t idxNNZ, queryNNZ, batch_size_index, batch_size_query;
 
-  ML::MetricType metric;
+  raft::distance::DistanceType metric;
 
   float metricArg;
-
-  bool expanded_form;
 
   int n_idx_rows, n_idx_cols, n_query_rows, n_query_cols, k;
 
@@ -475,7 +421,6 @@ class sparse_knn_t {
    * @param[in] batch_size_query maximum number of rows to use from query matrix per batch
    * @param[in] metric distance metric/measure to use
    * @param[in] metricArg potential argument for metric (currently unused)
-   * @param[in] expanded_form whether or not Lp variants should be reduced by the pth-root
    */
 template <typename value_idx = int, typename value_t = float, int TPB_X = 32>
 void brute_force_knn(const value_idx *idxIndptr, const value_idx *idxIndices,
@@ -489,13 +434,14 @@ void brute_force_knn(const value_idx *idxIndptr, const value_idx *idxIndices,
                      cudaStream_t stream,
                      size_t batch_size_index = 2 << 14,  // approx 1M
                      size_t batch_size_query = 2 << 14,
-                     ML::MetricType metric = ML::MetricType::METRIC_L2,
-                     float metricArg = 0, bool expanded_form = false) {
+                     raft::distance::DistanceType metric =
+                       raft::distance::DistanceType::L2Expanded,
+                     float metricArg = 0) {
   sparse_knn_t<value_idx, value_t>(
     idxIndptr, idxIndices, idxData, idxNNZ, n_idx_rows, n_idx_cols, queryIndptr,
     queryIndices, queryData, queryNNZ, n_query_rows, n_query_cols,
     output_indices, output_dists, k, cusparseHandle, allocator, stream,
-    batch_size_index, batch_size_query, metric, metricArg, expanded_form)
+    batch_size_index, batch_size_query, metric, metricArg)
     .run();
 }
 
