@@ -38,7 +38,10 @@ public:
   
     bloom_filter_strategy(const distances_config_t<value_idx, value_t> &config_, mask_row_it<value_idx> &row_it_)
       : coo_spmv_strategy<value_idx, value_t, tpb>(config_),
-        row_it(row_it_) {
+        row_it(row_it_),
+        hash1(config_.a_nnz),
+        hash2(config_.a_nrows),
+        hash3(config_.a_ncols) {
       this->smem = raft::getSharedMemPerBlock();
     }
 

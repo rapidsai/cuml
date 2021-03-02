@@ -161,7 +161,7 @@ __global__ void balanced_coo_generalized_spmv_kernel(
 
     if (in_bounds) {
       value_t a_col = strategy.find(finder, index_b, indicesA, dataA, start_offset_a, stop_offset_a);
-      if (tid < active_chunk_size)
+      // if (tid < active_chunk_size)
       // printf("blockIdx.x: %d, cur_row_a: %d, index_b: %d, a_col: %f\n", blockIdx.x, cur_row_a,
       //        index_b, a_col);
 
