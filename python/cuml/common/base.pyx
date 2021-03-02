@@ -109,7 +109,7 @@ class Base(TagsMixin,
     output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
         Variable to control output type of the results and attributes of
         the estimator. If None, it'll inherit the output type set at the
-        module level, `cuml.global_output_type`.
+        module level, `cuml.global_settings.output_type`.
         See :ref:`output-data-type-configuration` for more info.
 
     Examples
@@ -177,7 +177,8 @@ class Base(TagsMixin,
             self.verbose = verbose
 
         self.output_type = _check_output_type_str(
-            cuml.global_output_type if output_type is None else output_type)
+            cuml.global_settings.output_type
+            if output_type is None else output_type)
         self._input_type = None
         self.target_dtype = None
         self.n_features_in_ = None
@@ -318,7 +319,7 @@ class Base(TagsMixin,
         """
 
         # Default to the global type
-        output_type = cuml.global_output_type
+        output_type = cuml.global_settings.output_type
 
         # If its None, default to our type
         if (output_type is None or output_type == "mirror"):
@@ -373,8 +374,8 @@ def _check_output_type_str(output_str):
     assert output_str != "mirror", \
         ("Cannot pass output_type='mirror' in Base.__init__(). Did you forget "
          "to pass `output_type=self.output_type` to a child estimator? "
-         "Currently `cuml.global_output_type==`{}`"
-         ).format(cuml.global_output_type)
+         "Currently `cuml.global_settings.output_type==`{}`"
+         ).format(cuml.global_settings.output_type)
 
     if isinstance(output_str, str):
         output_type = output_str.lower()
@@ -401,7 +402,7 @@ def _determine_stateless_output_type(output_type, input_obj):
 
     # Default to the global type if not specified, otherwise, check the
     # output_type string
-    temp_output = cuml.global_output_type if output_type is None \
+    temp_output = cuml.global_settings.output_type if output_type is None \
         else _check_output_type_str(output_type)
 
     # If we are using 'input', determine the the type from the input object
