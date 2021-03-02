@@ -53,7 +53,8 @@ cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM":
                float *f,
                int *num_iters,
                bool X_col_major,
-               int loss_type) except +
+               int loss_type,
+               float *sample_weight) except +
 
     void qnFit(handle_t& cuml_handle,
                double *X,
@@ -73,7 +74,8 @@ cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM":
                double *f,
                int *num_iters,
                bool X_col_major,
-               int loss_type) except +
+               int loss_type,
+               double *sample_weight) except +
 
     void qnDecisionFunction(handle_t& cuml_handle,
                             float *X,
@@ -291,7 +293,7 @@ class QN(Base,
             return self._coef_
 
     @generate_docstring()
-    def fit(self, X, y, convert_dtype=False) -> "QN":
+    def fit(self, X, y, sample_weight=None, convert_dtype=False) -> "QN":
         """
         Fit the model with X and y.
 
@@ -307,6 +309,10 @@ class QN(Base,
             check_rows=n_rows, check_cols=1
         )
         cdef uintptr_t y_ptr = y_m.ptr
+
+        cdef uintptr_t sample_weight_ptr = 0
+        if sample_weight is not None:
+            sample_weight_ptr = sample_weight.ptr
 
         self._num_classes = len(cp.unique(y_m))
 
@@ -357,7 +363,8 @@ class QN(Base,
                   <float*> &objective32,
                   <int*> &num_iters,
                   <bool> True,
-                  <int> self.loss_type)
+                  <int> self.loss_type,
+                  <float*>sample_weight_ptr)
 
             self.objective = objective32
 
@@ -380,7 +387,8 @@ class QN(Base,
                   <double*> &objective64,
                   <int*> &num_iters,
                   <bool> True,
-                  <int> self.loss_type)
+                  <int> self.loss_type,
+                  <double*>sample_weight_ptr)
 
             self.objective = objective64
 

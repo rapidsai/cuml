@@ -178,6 +178,7 @@ class LogisticRegression(Base,
     """
 
     classes_ = CumlArrayDescriptor()
+    class_weight_ = CumlArrayDescriptor()
 
     def __init__(
         self,
@@ -198,9 +199,6 @@ class LogisticRegression(Base,
         super(LogisticRegression, self).__init__(
             handle=handle, verbose=verbose, output_type=output_type
         )
-
-        if class_weight:
-            raise ValueError("`class_weight` not supported.")
 
         if penalty not in supported_penalties:
             raise ValueError("`penalty` " + str(penalty) + "not supported.")
@@ -246,6 +244,11 @@ class LogisticRegression(Base,
 
         loss = "sigmoid"
 
+        self.class_weight_, _, _, _ = \
+                input_to_cuml_array(class_weight, order='C',
+                                    check_dtype=cp.float32,
+                                    convert_to_dtype=(cp.float32))
+
         self.solver_model = QN(
             loss=loss,
             fit_intercept=self.fit_intercept,
@@ -267,7 +270,7 @@ class LogisticRegression(Base,
 
     @generate_docstring()
     @cuml.internals.api_base_return_any(set_output_dtype=True)
-    def fit(self, X, y, convert_dtype=True) -> "LogisticRegression":
+    def fit(self, X, y, sample_weight=None, convert_dtype=True) -> "LogisticRegression":
         """
         Fit the model with X and y.
 
@@ -275,7 +278,25 @@ class LogisticRegression(Base,
         # Converting y to device array here to use `unique` function
         # since calling input_to_cuml_array again in QN has no cost
         # Not needed to check dtype since qn class checks it already
-        y_m, _, _, _ = input_to_cuml_array(y)
+        y_m, n_rows, _, _ = input_to_cuml_array(y)
+
+        sample_weight_desc = CumlArrayDescriptor()
+
+        if sample_weight is not None or self.class_weight_ is not None:
+            if sample_weight is None:
+                sample_weight = cp.ones(n_rows)
+
+            sample_weight_desc, n_weights, D, _ = \
+                input_to_cuml_array(sample_weight, order='C', check_dtype=cp.float32,
+                                    convert_to_dtype=(cp.float32
+                                                        if convert_dtype
+                                                        else None))
+
+            if n_rows != n_weights or D!= 1:
+                raise ValueError("sample_weight should be of shape ({},)".format(n_rows))
+
+            if self.class_weight_ is not None:
+                sample_weight_desc *= self.class_weight_[y]
 
         self.classes_ = cp.unique(y_m)
         self._num_classes = len(self.classes_)
@@ -293,7 +314,8 @@ class LogisticRegression(Base,
         if logger.should_log_for(logger.level_debug):
             logger.debug(self.verb_prefix + "Calling QN fit " + str(loss))
 
-        self.solver_model.fit(X, y_m, convert_dtype=convert_dtype)
+        self.solver_model.fit(X, y_m, sample_weight=sample_weight_desc,
+                              convert_dtype=convert_dtype)
 
         # coefficients and intercept are contained in the same array
         if logger.should_log_for(logger.level_debug):

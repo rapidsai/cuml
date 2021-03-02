@@ -488,3 +488,32 @@ def test_logistic_predict_convert_dtype(train_dtype, test_dtype):
     clf = cuLog()
     clf.fit(X_train, y_train)
     clf.predict(X_test.astype(test_dtype))
+
+
+def test_logistic_regression_sample_weight():
+    X_train, X_test, y_train, y_test = small_classification_dataset(np.float32)
+
+    n_samples = X_train.shape[0]
+    sample_weight = np.random.rand(n_samples)
+
+    culog = cuLog()
+    culog.fit(X_train, y_train, sample_weight=sample_weight)
+
+    sklog = skLog(multi_class="auto")
+    sklog.fit(X_train, y_train, sample_weight=sample_weight)
+
+    assert culog.score(X_test, y_test) >= sklog.score(X_test, y_test) - 0.02
+
+
+def test_logistic_regression_class_weight():
+    X_train, X_test, y_train, y_test = small_classification_dataset(np.float32)
+
+    class_weight = np.random.rand(2)
+
+    culog = cuLog(class_weight=class_weight)
+    culog.fit(X_train, y_train)
+
+    sklog = skLog(multi_class="auto", class_weight=class_weight)
+    sklog.fit(X_train, y_train)
+
+    assert culog.score(X_test, y_test) >= sklog.score(X_test, y_test)
