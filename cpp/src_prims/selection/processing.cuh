@@ -162,17 +162,17 @@ class DefaultMetricProcessor : public MetricProcessor<math_t> {
 
 template <typename math_t>
 inline std::unique_ptr<MetricProcessor<math_t>> create_processor(
-  ML::MetricType metric, int n, int D, int k, bool rowMajorQuery,
+  raft::distance::DistanceType metric, int n, int D, int k, bool rowMajorQuery,
   cudaStream_t userStream, std::shared_ptr<deviceAllocator> allocator) {
   MetricProcessor<math_t> *mp = nullptr;
 
   switch (metric) {
-    case ML::MetricType::METRIC_Cosine:
+    case raft::distance::DistanceType::CosineExpanded:
       mp = new CosineMetricProcessor<math_t>(n, D, k, rowMajorQuery, userStream,
                                              allocator);
       break;
 
-    case ML::MetricType::METRIC_Correlation:
+    case raft::distance::DistanceType::CorrelationExpanded:
       mp = new CorrelationMetricProcessor<math_t>(n, D, k, rowMajorQuery,
                                                   userStream, allocator);
       break;
