@@ -79,14 +79,14 @@ public:
     }
 
     __device__ inline void _set_key(insert_type filter, uint32_t &h) {
-        auto size = sizeof(uint32_t);
-        uint32_t mem_idx = h;
+        constexpr auto size = sizeof(uint32_t);
+        // uint32_t mem_idx = h;
         uint32_t mem_bit = size - (h % size);
         uint32_t val;
         uint32_t old;
         do {
-          val = filter[mem_idx];
-          old = atomicCAS(filter+mem_idx, val, val | 1 << mem_bit);
+          val = filter[h];
+          old = atomicCAS(filter+h, val, val | 1 << mem_bit);
         } while(val != old);
     }
 
@@ -102,10 +102,10 @@ public:
     __device__ inline find_type init_find(smem_type cache) { return cache; }
 
     __device__ inline bool _get_key(find_type filter, uint32_t &h) {
-        auto size = sizeof(uint32_t);
-        uint32_t mem_idx = h;
+        constexpr auto size = sizeof(uint32_t);
+        // uint32_t mem_idx = h;
         uint32_t mem_bit = size - (h % size);
-        return (filter[mem_idx] & 1 << mem_bit) > 0;
+        return (filter[h] & 1 << mem_bit) > 0;
     }
 
     __device__ inline value_t find(find_type filter, value_idx &key, value_idx *indices, value_t *data, value_idx start_offset, value_idx stop_offset) {

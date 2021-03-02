@@ -103,7 +103,10 @@ __global__ void balanced_coo_generalized_spmv_kernel(
 
   // compute id relative to current warp
   unsigned int lane_id = tid & (raft::warp_size() - 1);
-  value_idx ind = ind_offset + threadIdx.x;
+  // value_idx ind = ind_offset + threadIdx.x;
+  constexpr int n_warps = tpb / raft::warp_size();
+  value_idx chunk_per_warp = max(active_chunk_size / n_warps, active_chunk_size);
+  value_idx ind = ind_offset + chunk_per_warp * warp_id + lane_id;
 
   extern __shared__ char smem[];
 
@@ -150,7 +153,8 @@ __global__ void balanced_coo_generalized_spmv_kernel(
 
   // coalesced reads from B
   // if (tid < active_chunk_size) printf("HI\n");
-  if (tid < active_chunk_size) {
+  // printf("warp_id: %d, lane_id: %d, chunk_per_warp: %d, ind: %d, active_chunk_size: %d, n_warps: %d\n", warp_id, lane_id, chunk_per_warp, ind, active_chunk_size, n_warps);
+  if (lane_id < chunk_per_warp) {
     cur_row_b = rowsB[ind];
 
     auto index_b = indicesB[ind];
@@ -173,11 +177,11 @@ __global__ void balanced_coo_generalized_spmv_kernel(
 
   // loop through chunks in parallel, reducing when a new row is
   // encountered by each thread
-  for (int i = tid; i < active_chunk_size; i += blockDim.x) {
-    value_idx ind_next = ind + blockDim.x;
+  for (int i = lane_id; i < chunk_per_warp; i += raft::warp_size()) {
+    value_idx ind_next = ind + raft::warp_size();
     value_idx next_row_b = -1;
 
-    if (i + blockDim.x < active_chunk_size) next_row_b = rowsB[ind_next];
+    if (i + raft::warp_size() < chunk_per_warp) next_row_b = rowsB[ind_next];
 
     bool diff_rows = next_row_b != cur_row_b;
 
