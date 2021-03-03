@@ -1155,6 +1155,8 @@ def test_sparse_pairwise_distances(metric: str, matrix_size, is_col_major):
         pairwise_distances(X, Y, metric=metric.capitalize())
 
 
+@pytest.mark.xfail(reason='Temporarily disabling this test. '
+                          'See rapidsai/cuml#3569')
 @pytest.mark.parametrize("nrows, ncols, n_info",
                          [
                              unit_param(30, 10, 7),
