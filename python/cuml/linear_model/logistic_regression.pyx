@@ -244,10 +244,13 @@ class LogisticRegression(Base,
 
         loss = "sigmoid"
 
-        self.class_weight_, _, _, _ = \
+        if class_weight is not None:
+            self.class_weight_, _, _, _ = \
                 input_to_cuml_array(class_weight, order='C',
                                     check_dtype=cp.float32,
                                     convert_to_dtype=(cp.float32))
+        else:
+            self.class_weight_ = None
 
         self.solver_model = QN(
             loss=loss,
@@ -279,27 +282,30 @@ class LogisticRegression(Base,
         # since calling input_to_cuml_array again in QN has no cost
         # Not needed to check dtype since qn class checks it already
         y_m, n_rows, _, _ = input_to_cuml_array(y)
-
-        sample_weight_desc = CumlArrayDescriptor()
+        self.classes_ = cp.unique(y_m)
+        self._num_classes = len(self.classes_)
 
         if sample_weight is not None or self.class_weight_ is not None:
             if sample_weight is None:
                 sample_weight = cp.ones(n_rows)
 
-            sample_weight_desc, n_weights, D, _ = \
+            sample_weight, n_weights, D, _ = \
                 input_to_cuml_array(sample_weight, order='C', check_dtype=cp.float32,
                                     convert_to_dtype=(cp.float32
-                                                        if convert_dtype
-                                                        else None))
+                                                      if convert_dtype
+                                                      else None))
 
             if n_rows != n_weights or D!= 1:
-                raise ValueError("sample_weight should be of shape ({},)".format(n_rows))
+                msg = "sample_weight should be of shape ({},)".format(n_rows)
+                raise ValueError(msg)
 
             if self.class_weight_ is not None:
-                sample_weight_desc *= self.class_weight_[y]
-
-        self.classes_ = cp.unique(y_m)
-        self._num_classes = len(self.classes_)
+                if self._num_classes != self.class_weight_.shape[0]:
+                    msg = "class_weight should be of shape ({},)".format(self._num_classes)
+                    raise ValueError(msg)
+                out = y_m.to_output('cupy')
+                sample_weight *= self.class_weight_[out].to_output('cupy')
+                sample_weight = CumlArray(sample_weight)
 
         if self._num_classes > 2:
             loss = "softmax"
@@ -314,7 +320,7 @@ class LogisticRegression(Base,
         if logger.should_log_for(logger.level_debug):
             logger.debug(self.verb_prefix + "Calling QN fit " + str(loss))
 
-        self.solver_model.fit(X, y_m, sample_weight=sample_weight_desc,
+        self.solver_model.fit(X, y_m, sample_weight=sample_weight,
                               convert_dtype=convert_dtype)
 
         # coefficients and intercept are contained in the same array

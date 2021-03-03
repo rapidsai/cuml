@@ -310,11 +310,17 @@ class QN(Base,
         )
         cdef uintptr_t y_ptr = y_m.ptr
 
+        self._num_classes = len(cp.unique(y_m))
+
         cdef uintptr_t sample_weight_ptr = 0
         if sample_weight is not None:
+            sample_weight, _, _, _ = \
+                input_to_cuml_array(sample_weight, order='C',
+                                    check_dtype=cp.float32,
+                                    convert_to_dtype=(cp.float32
+                                                      if convert_dtype
+                                                      else None))
             sample_weight_ptr = sample_weight.ptr
-
-        self._num_classes = len(cp.unique(y_m))
 
         self.loss_type = self._get_loss_int(self.loss)
         if self.loss_type != 2 and self._num_classes > 2:

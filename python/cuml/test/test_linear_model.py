@@ -490,30 +490,69 @@ def test_logistic_predict_convert_dtype(train_dtype, test_dtype):
     clf.predict(X_test.astype(test_dtype))
 
 
-def test_logistic_regression_sample_weight():
-    X_train, X_test, y_train, y_test = small_classification_dataset(np.float32)
+@pytest.fixture()
+def logistic_regression_dataset():
+    n_samples = 100000
+    n_features = 5
 
-    n_samples = X_train.shape[0]
-    sample_weight = np.random.rand(n_samples)
+    data = (np.random.rand(n_samples, n_features) * 2) - 1
+    coef = (np.random.rand(n_features) * 2) - 1
+    intercept = (np.random.rand(1)[0] * 2) - 1
+    output = ((data @ coef) + intercept) > 0
+    output = output.astype(np.int32)
+
+    return data, coef, intercept, output
+
+
+def test_logistic_regression_custom_dataset(logistic_regression_dataset):
+    data, coef, intercept, output = logistic_regression_dataset
 
     culog = cuLog()
-    culog.fit(X_train, y_train, sample_weight=sample_weight)
+    culog.fit(data, output)
 
-    sklog = skLog(multi_class="auto")
-    sklog.fit(X_train, y_train, sample_weight=sample_weight)
+    cucoef = np.squeeze(culog.coef_)
+    assert array_equal(coef, cucoef, unit_tol=0.05, total_tol=0.2)
 
-    assert culog.score(X_test, y_test) >= sklog.score(X_test, y_test) - 0.02
+    cuintercept = culog.intercept_[0]
+    assert abs(intercept - cuintercept) < 0.02
 
 
-def test_logistic_regression_class_weight():
-    X_train, X_test, y_train, y_test = small_classification_dataset(np.float32)
+def test_logistic_regression_sample_weight(logistic_regression_dataset):
+    data, coef, intercept, output = logistic_regression_dataset
+
+    n_samples = data.shape[0]
+    sample_weight = np.abs(np.random.rand(n_samples))
+
+    culog = cuLog()
+    culog.fit(data, output, sample_weight=sample_weight)
+
+    sklog = skLog()
+    sklog.fit(data, output, sample_weight=sample_weight)
+
+    skcoef = np.squeeze(sklog.coef_)
+    cucoef = np.squeeze(culog.coef_)
+    assert array_equal(skcoef, cucoef, unit_tol=0.05, total_tol=0.2)
+
+    skintercept = sklog.intercept_[0]
+    cuintercept = culog.intercept_[0]
+    assert abs(skintercept - cuintercept) < 0.02
+
+
+def test_logistic_regression_class_weight(logistic_regression_dataset):
+    data, coef, intercept, output = logistic_regression_dataset
 
     class_weight = np.random.rand(2)
 
     culog = cuLog(class_weight=class_weight)
-    culog.fit(X_train, y_train)
+    culog.fit(data, output)
 
-    sklog = skLog(multi_class="auto", class_weight=class_weight)
-    sklog.fit(X_train, y_train)
+    sklog = skLog(class_weight=class_weight)
+    sklog.fit(data, output)
 
-    assert culog.score(X_test, y_test) >= sklog.score(X_test, y_test)
+    skcoef = np.squeeze(sklog.coef_)
+    cucoef = np.squeeze(culog.coef_)
+    assert array_equal(skcoef, cucoef, unit_tol=0.05, total_tol=0.2)
+
+    skintercept = sklog.intercept_[0]
+    cuintercept = culog.intercept_[0]
+    assert abs(skintercept - cuintercept) < 0.02

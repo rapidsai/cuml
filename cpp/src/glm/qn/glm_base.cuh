@@ -30,8 +30,6 @@
 namespace ML {
 namespace GLM {
 
-__device__ double d_weights_sum;
-
 template <typename T>
 inline void linearFwd(const raft::handle_t &handle, SimpleMat<T> &Z,
                       const SimpleMat<T> &X, const SimpleMat<T> &W,
@@ -102,7 +100,8 @@ struct GLMBase : GLMDims {
   T weights_sum;
 
   GLMBase(const raft::handle_t &handle, int D, int C, bool fit_intercept)
-    : GLMDims(C, D, fit_intercept), handle(handle), weights_sum(0) {}
+    : GLMDims(C, D, fit_intercept), handle(handle),
+      sample_weights(nullptr), weights_sum(0) {}
 
   void add_sample_weights(T *sample_weights, int n_samples, cudaStream_t stream) {
     this->sample_weights = sample_weights;
