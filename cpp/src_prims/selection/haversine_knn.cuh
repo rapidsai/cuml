@@ -16,29 +16,8 @@
 
 #pragma once
 
-#include <raft/cudart_utils.h>
-#include <raft/cuda_utils.cuh>
-
-#include <faiss/gpu/GpuDistance.h>
-#include <faiss/gpu/GpuIndexFlat.h>
-#include <faiss/gpu/GpuIndexIVFFlat.h>
-#include <faiss/gpu/GpuIndexIVFPQ.h>
-#include <faiss/gpu/GpuIndexIVFScalarQuantizer.h>
-#include <faiss/gpu/GpuResources.h>
-#include <faiss/gpu/StandardGpuResources.h>
-#include <faiss/utils/Heap.h>
 #include <faiss/gpu/utils/Limits.cuh>
 #include <faiss/gpu/utils/Select.cuh>
-#include <faiss/gpu/utils/Tensor.cuh>
-
-#include <thrust/device_vector.h>
-#include <thrust/iterator/transform_iterator.h>
-
-#include <cuml/common/cuml_allocator.hpp>
-#include <cuml/common/device_buffer.hpp>
-
-#include <iostream>
-#include <set>
 
 namespace raft {
 namespace selection {
