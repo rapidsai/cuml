@@ -88,7 +88,8 @@ class DbscanTest : public ::testing::TestWithParam<DbscanInputs<T, IdxT>> {
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 
     Dbscan::fit(handle, out.data(), params.n_row, params.n_col, params.eps,
-                params.min_pts, labels, nullptr, params.max_bytes_per_batch);
+                params.min_pts, Dbscan::L2, labels, nullptr,
+                params.max_bytes_per_batch);
 
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 
@@ -203,7 +204,7 @@ class Dbscan2DSimple : public ::testing::TestWithParam<DBScan2DArrayInputs<T>> {
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 
     Dbscan::fit(handle, inputs, (int)params.n_row, 2, params.eps,
-                params.min_pts, labels, core_sample_indices_d);
+                params.min_pts, Dbscan::L2, labels, core_sample_indices_d);
 
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 

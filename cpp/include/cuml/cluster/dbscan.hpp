@@ -22,6 +22,8 @@
 namespace ML {
 namespace Dbscan {
 
+typedef enum { PRECOMPUTED = 0, L2 } MetricType;
+
 /**
  * @defgroup DbscanCpp C++ implementation of Dbscan algo
  * @brief Fits a DBSCAN model on an input feature matrix and outputs the labels
@@ -32,6 +34,7 @@ namespace Dbscan {
  * @param[in] n_cols number of features in the input feature matrix
  * @param[in] eps epsilon value to use for epsilon-neighborhood determination
  * @param[in] min_pts minimum number of points to determine a cluster
+ * @param[in] metric metric type (or precomputed)
  * @param[out] labels (size n_rows) output labels array
  * @param[out] core_sample_indices (size n_rows) output array containing the 
  *             indices of each core point. If the number of core points is less
@@ -46,22 +49,24 @@ namespace Dbscan {
  */
 
 void fit(const raft::handle_t &handle, float *input, int n_rows, int n_cols,
-         float eps, int min_pts, int *labels,
+         float eps, int min_pts, MetricType metric, int *labels,
          int *core_sample_indices = nullptr, size_t max_bytes_per_batch = 0,
          int verbosity = CUML_LEVEL_INFO, bool opg = false);
 void fit(const raft::handle_t &handle, double *input, int n_rows, int n_cols,
-         double eps, int min_pts, int *labels,
+         double eps, int min_pts, MetricType metric, int *labels,
          int *core_sample_indices = nullptr, size_t max_bytes_per_batch = 0,
          int verbosity = CUML_LEVEL_INFO, bool opg = false);
 
 void fit(const raft::handle_t &handle, float *input, int64_t n_rows,
-         int64_t n_cols, float eps, int min_pts, int64_t *labels,
-         int64_t *core_sample_indices = nullptr, size_t max_bytes_per_batch = 0,
-         int verbosity = CUML_LEVEL_INFO, bool opg = false);
+         int64_t n_cols, float eps, int min_pts, MetricType metric,
+         int64_t *labels, int64_t *core_sample_indices = nullptr,
+         size_t max_bytes_per_batch = 0, int verbosity = CUML_LEVEL_INFO,
+         bool opg = false);
 void fit(const raft::handle_t &handle, double *input, int64_t n_rows,
-         int64_t n_cols, double eps, int min_pts, int64_t *labels,
-         int64_t *core_sample_indices = nullptr, size_t max_bytes_per_batch = 0,
-         int verbosity = CUML_LEVEL_INFO, bool opg = false);
+         int64_t n_cols, double eps, int min_pts, MetricType metric,
+         int64_t *labels, int64_t *core_sample_indices = nullptr,
+         size_t max_bytes_per_batch = 0, int verbosity = CUML_LEVEL_INFO,
+         bool opg = false);
 
 /** @} */
 

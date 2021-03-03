@@ -39,6 +39,10 @@ from collections import defaultdict
 
 cdef extern from "cuml/cluster/dbscan.hpp" \
         namespace "ML::Dbscan":
+    
+    ctypedef enum MetricType:
+        PRECOMPUTED,
+        L2
 
     cdef void fit(handle_t& handle,
                   float *input,
@@ -46,6 +50,7 @@ cdef extern from "cuml/cluster/dbscan.hpp" \
                   int n_cols,
                   float eps,
                   int min_pts,
+                  MetricType metric,
                   int *labels,
                   int *core_sample_indices,
                   size_t max_mbytes_per_batch,
@@ -58,6 +63,7 @@ cdef extern from "cuml/cluster/dbscan.hpp" \
                   int n_cols,
                   double eps,
                   int min_pts,
+                  MetricType metric,
                   int *labels,
                   int *core_sample_indices,
                   size_t max_mbytes_per_batch,
@@ -70,6 +76,7 @@ cdef extern from "cuml/cluster/dbscan.hpp" \
                   int64_t n_cols,
                   double eps,
                   int min_pts,
+                  MetricType metric,
                   int64_t *labels,
                   int64_t *core_sample_indices,
                   size_t max_mbytes_per_batch,
@@ -82,6 +89,7 @@ cdef extern from "cuml/cluster/dbscan.hpp" \
                   int64_t n_cols,
                   double eps,
                   int min_pts,
+                  MetricType metric,
                   int64_t *labels,
                   int64_t *core_sample_indices,
                   size_t max_mbytes_per_batch,
@@ -145,6 +153,10 @@ class DBSCAN(Base,
     min_samples : int (default = 5)
         The number of samples in a neighborhood such that this group can be
         considered as an important core point (including the point itself).
+    metric: string (default = 'euclidean')
+        The metric to use when calculating distances between points.
+        If metric is 'precomputed', X is assumed to be a distance matrix
+        and must be square.
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
@@ -200,7 +212,7 @@ class DBSCAN(Base,
     labels_ = CumlArrayDescriptor()
     core_sample_indices_ = CumlArrayDescriptor()
 
-    def __init__(self, eps=0.5, handle=None, min_samples=5,
+    def __init__(self, eps=0.5, handle=None, min_samples=5, metric='euclidean',
                  verbose=False, max_mbytes_per_batch=None,
                  output_type=None, calc_core_sample_indices=True):
         super(DBSCAN, self).__init__(handle, verbose, output_type)
@@ -218,6 +230,17 @@ class DBSCAN(Base,
         # C++ API expects this to be numeric.
         if self.max_mbytes_per_batch is None:
             self.max_mbytes_per_batch = 0
+        
+        # metric
+        metric_parsing = {
+            'L2': L2,
+            'euclidean': L2,
+            'precomputed': PRECOMPUTED,
+        }
+        if metric in metric_parsing:
+            self.metric = metric_parsing[metric.lower()]
+        else:
+            raise ValueError("Invalid value for metric: {}".format(metric))
 
     def _fit(self, X, out_dtype, opg) -> "DBSCAN":
         """
@@ -256,6 +279,7 @@ class DBSCAN(Base,
                     <int> n_cols,
                     <float> self.eps,
                     <int> self.min_samples,
+                    <MetricType> self.metric,
                     <int*> labels_ptr,
                     <int*> core_sample_indices_ptr,
                     <size_t>self.max_mbytes_per_batch,
@@ -268,6 +292,7 @@ class DBSCAN(Base,
                     <int64_t> n_cols,
                     <float> self.eps,
                     <int> self.min_samples,
+                    <MetricType> self.metric,
                     <int64_t*> labels_ptr,
                     <int64_t*> core_sample_indices_ptr,
                     <size_t>self.max_mbytes_per_batch,
@@ -282,6 +307,7 @@ class DBSCAN(Base,
                     <int> n_cols,
                     <double> self.eps,
                     <int> self.min_samples,
+                    <MetricType> self.metric,
                     <int*> labels_ptr,
                     <int*> core_sample_indices_ptr,
                     <size_t> self.max_mbytes_per_batch,
@@ -294,6 +320,7 @@ class DBSCAN(Base,
                     <int64_t> n_cols,
                     <double> self.eps,
                     <int> self.min_samples,
+                    <MetricType> self.metric,
                     <int64_t*> labels_ptr,
                     <int64_t*> core_sample_indices_ptr,
                     <size_t> self.max_mbytes_per_batch,

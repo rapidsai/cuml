@@ -17,6 +17,7 @@
 #pragma once
 
 #include <common/nvtx.hpp>
+#include <cuml/cluster/dbscan.hpp>
 #include <cuml/common/device_buffer.hpp>
 #include <cuml/common/logger.hpp>
 #include "runner.cuh"
@@ -24,6 +25,7 @@
 #include <algorithm>
 
 namespace ML {
+namespace Dbscan {
 
 // Default max mem set to a reasonable value for a 16gb card.
 static const size_t DEFAULT_MAX_MEM_MBYTES = 13e3;
@@ -98,12 +100,13 @@ Index_ compute_batch_size(size_t &estimated_memory, Index_ n_rows,
 
 template <typename T, typename Index_ = int, bool opg = false>
 void dbscanFitImpl(const raft::handle_t &handle, T *input, Index_ n_rows,
-                   Index_ n_cols, T eps, Index_ min_pts, Index_ *labels,
-                   Index_ *core_sample_indices, size_t max_mbytes_per_batch,
-                   cudaStream_t stream, int verbosity) {
+                   Index_ n_cols, T eps, Index_ min_pts, MetricType metric,
+                   Index_ *labels, Index_ *core_sample_indices,
+                   size_t max_mbytes_per_batch, cudaStream_t stream,
+                   int verbosity) {
   ML::PUSH_RANGE("ML::Dbscan::Fit");
   ML::Logger::get().setLevel(verbosity);
-  int algo_vd = 1;
+  int algo_vd = (metric == PRECOMPUTED) ? 2 : 1;
   int algo_adj = 1;
   int algo_ccl = 2;
 
@@ -129,6 +132,7 @@ void dbscanFitImpl(const raft::handle_t &handle, T *input, Index_ n_rows,
                  (unsigned long)n_owned_rows);
 
   /// TODO: Query device for remaining memory
+  ///       or at least take input dataset into account!
   size_t estimated_memory;
   Index_ batch_size = compute_batch_size<Index_>(
     estimated_memory, n_rows, n_owned_rows, max_mbytes_per_batch);
@@ -153,4 +157,5 @@ void dbscanFitImpl(const raft::handle_t &handle, T *input, Index_ n_rows,
   ML::POP_RANGE();
 }
 
+}  // namespace Dbscan
 }  // namespace ML
