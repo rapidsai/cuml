@@ -15,8 +15,8 @@
  */
 
 #include <raft/cudart_utils.h>
-#include <raft//distance/fused_l2_nn.cuh>
 #include <limits>
+#include <raft  //distance/fused_l2_nn.cuh>
 #include <raft/linalg/norm.cuh>
 #include <raft/random/rng.cuh>
 #include "../common/ml_benchmark.hpp"
