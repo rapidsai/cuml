@@ -86,13 +86,13 @@ class hash_strategy : public coo_spmv_strategy<value_idx, value_t, tpb> {
     if (need) {
       mask_row_it<value_idx> less(this->config.a_indptr, less_rows,
                                   mask_indptr.data().get());
-      mask_row_it<value_idx> more(this->config.a_indptr, more_rows,
-        mask_indptr.data().get() + less_rows);
-      bloom_filter_strategy<value_idx, value_t, tpb> bf_strategy(this->config, more);
-      // chunked_mask_row_it<value_idx> more(
-      //   this->config.a_indptr, more_rows, mask_indptr.data().get() + less_rows,
-      //   0.5 * map_size(), this->config.stream);
-      // more.init();
+      // mask_row_it<value_idx> more(this->config.a_indptr, more_rows,
+      //   mask_indptr.data().get() + less_rows);
+      // bloom_filter_strategy<value_idx, value_t, tpb> bf_strategy(this->config, more);
+      chunked_mask_row_it<value_idx> more(
+        this->config.a_indptr, more_rows, mask_indptr.data().get() + less_rows,
+        0.5 * map_size(), this->config.stream);
+      more.init();
       // cudaStreamSynchronize(this->config.stream);
 
       auto n_less_blocks = less_rows * n_blocks_per_row;
@@ -102,11 +102,11 @@ class hash_strategy : public coo_spmv_strategy<value_idx, value_t, tpb> {
                             n_less_blocks, n_blocks_per_row);
         // cudaStreamSynchronize(this->config.stream);
       }
-      bf_strategy.dispatch(out_dists, coo_rows_b, product_func, accum_func, write_func, chunk_size);
-      // auto n_more_blocks = more.total_row_blocks * n_blocks_per_row;
-      // this->_dispatch_base(*this, map_size(), more, out_dists, coo_rows_b,
-      //                      product_func, accum_func, write_func, chunk_size,
-      //                      n_more_blocks, n_blocks_per_row);
+      // bf_strategy.dispatch(out_dists, coo_rows_b, product_func, accum_func, write_func, chunk_size);
+      auto n_more_blocks = more.total_row_blocks * n_blocks_per_row;
+      this->_dispatch_base(*this, map_size(), more, out_dists, coo_rows_b,
+                           product_func, accum_func, write_func, chunk_size,
+                           n_more_blocks, n_blocks_per_row);
       // cudaStreamSynchronize(this->config.stream);
     } else {
       mask_row_it<value_idx> less(this->config.a_indptr, this->config.a_nrows);
@@ -129,13 +129,13 @@ class hash_strategy : public coo_spmv_strategy<value_idx, value_t, tpb> {
     if (need) {
       mask_row_it<value_idx> less(this->config.b_indptr, less_rows,
                                   mask_indptr.data().get());
-      mask_row_it<value_idx> more(this->config.b_indptr, more_rows,
-        mask_indptr.data().get() + less_rows);
-      bloom_filter_strategy<value_idx, value_t, tpb> bf_strategy(this->config, more);
-      // chunked_mask_row_it<value_idx> more(
-      //   this->config.b_indptr, more_rows, mask_indptr.data().get() + less_rows,
-      //   0.5 * map_size(), this->config.stream);
-      // more.init();
+      // mask_row_it<value_idx> more(this->config.b_indptr, more_rows,
+      //   mask_indptr.data().get() + less_rows);
+      // bloom_filter_strategy<value_idx, value_t, tpb> bf_strategy(this->config, more);
+      chunked_mask_row_it<value_idx> more(
+        this->config.b_indptr, more_rows, mask_indptr.data().get() + less_rows,
+        0.5 * map_size(), this->config.stream);
+      more.init();
 
       auto n_less_blocks = less_rows * n_blocks_per_row;
       if (less_rows > 0) {
@@ -144,11 +144,11 @@ class hash_strategy : public coo_spmv_strategy<value_idx, value_t, tpb> {
                                n_less_blocks, n_blocks_per_row);
       }
 
-      bf_strategy.dispatch_rev(out_dists, coo_rows_a, product_func, accum_func, write_func, chunk_size);
-      // auto n_more_blocks = more.total_row_blocks * n_blocks_per_row;
-      // this->_dispatch_base_rev(*this, map_size(), more, out_dists, coo_rows_a,
-      //                          product_func, accum_func, write_func, chunk_size,
-      //                          n_more_blocks, n_blocks_per_row);
+      // bf_strategy.dispatch_rev(out_dists, coo_rows_a, product_func, accum_func, write_func, chunk_size);
+      auto n_more_blocks = more.total_row_blocks * n_blocks_per_row;
+      this->_dispatch_base_rev(*this, map_size(), more, out_dists, coo_rows_a,
+                               product_func, accum_func, write_func, chunk_size,
+                               n_more_blocks, n_blocks_per_row);
     } else {
       mask_row_it<value_idx> less(this->config.b_indptr, this->config.b_nrows);
 

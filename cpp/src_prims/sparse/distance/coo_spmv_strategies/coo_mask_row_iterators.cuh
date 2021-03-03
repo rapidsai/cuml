@@ -114,8 +114,8 @@ class chunked_mask_row_it : public mask_row_it<value_idx> {
     n_chunks_per_row_ptr = n_chunks_per_row.data().get();
     raft::update_host(&total_row_blocks, n_chunks_per_row_ptr + this->n_rows, 1,
                       stream);
-    CUML_LOG_DEBUG("total blocks for wide rows: %d", total_row_blocks);
-    printv(n_chunks_per_row, "n_chunks_per_row");
+    // CUML_LOG_DEBUG("total blocks for wide rows: %d", total_row_blocks);
+    // printv(n_chunks_per_row, "n_chunks_per_row");
 
     fill_chunk_indices();
   }
@@ -195,7 +195,7 @@ class chunked_mask_row_it : public mask_row_it<value_idx> {
     fill_chunk_indices_kernel<value_idx><<<n_blocks, n_threads, 0, stream>>>(
       n_chunks_per_row_ptr, chunk_indices_ptr, this->n_rows);
 
-    printv(chunk_indices, "chunk_indices");
+    // printv(chunk_indices, "chunk_indices");
   }
 };
 

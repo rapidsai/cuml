@@ -105,7 +105,8 @@ __global__ void balanced_coo_generalized_spmv_kernel(
   unsigned int lane_id = tid & (raft::warp_size() - 1);
   // value_idx ind = ind_offset + threadIdx.x;
   constexpr int n_warps = tpb / raft::warp_size();
-  value_idx chunk_per_warp = max(active_chunk_size / n_warps, active_chunk_size);
+  value_idx chunk_per_warp = active_chunk_size < n_warps ? active_chunk_size : active_chunk_size / n_warps;
+  // chunk_per_warp = chunk_per_warp == 0 ? active_chunk_size : chunk_per_warp;
   value_idx ind = ind_offset + chunk_per_warp * warp_id + lane_id;
 
   extern __shared__ char smem[];
