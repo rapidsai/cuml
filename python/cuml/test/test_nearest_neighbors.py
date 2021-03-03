@@ -585,3 +585,15 @@ def test_haversine(n_neighbors):
         cpu_ordered = pw_dists[i, argsort[i]]
         cp.testing.assert_allclose(cpu_ordered[:n_neighbors], dists[i],
                                    atol=1e-4, rtol=1e-4)
+
+
+@pytest.mark.xfail(raises=RuntimeError)
+def test_haversine_fails_high_dimensions():
+
+    data = np.array([[0., 1., 2.], [3., 4., 5.]])
+
+    cunn = cuKNN(metric='haversine',
+                 n_neighbors=2,
+                 algorithm='brute')
+
+    cunn.fit(data).kneighbors(data)
