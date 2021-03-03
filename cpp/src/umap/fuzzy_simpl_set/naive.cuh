@@ -17,7 +17,6 @@
 #pragma once
 
 #include <cuml/manifold/umapparams.h>
-#include <common/device_buffer.hpp>
 #include <cuml/common/logger.hpp>
 #include <cuml/neighbors/knn.hpp>
 
