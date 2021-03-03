@@ -40,6 +40,8 @@
 #include <raft/linalg/distance_type.h>
 #include "processing.cuh"
 
+#include <selection/haversine_knn.cuh>
+
 #include <cuml/common/cuml_allocator.hpp>
 #include <cuml/common/device_buffer.hpp>
 #include <cuml/neighbors/knn.hpp>
@@ -433,35 +435,48 @@ void brute_force_knn(std::vector<float *> &input, std::vector<int> &sizes,
   if (n_int_streams > 0) CUDA_CHECK(cudaStreamSynchronize(userStream));
 
   for (int i = 0; i < input.size(); i++) {
-    faiss::gpu::StandardGpuResources gpu_res;
+
+    float *out_d_ptr = out_D + (i * k * n);
+    IntType *out_i_ptr = out_I + (i * k * n);
 
     cudaStream_t stream =
       raft::select_stream(userStream, internalStreams, n_int_streams, i);
 
-    gpu_res.noTempMemory();
-    gpu_res.setCudaMallocWarning(false);
-    gpu_res.setDefaultStream(device, stream);
+    switch(metric) {
 
-    faiss::gpu::GpuDistanceParams args;
-    args.metric = m;
-    args.metricArg = metricArg;
-    args.k = k;
-    args.dims = D;
-    args.vectors = input[i];
-    args.vectorsRowMajor = rowMajorIndex;
-    args.numVectors = sizes[i];
-    args.queries = search_items;
-    args.queriesRowMajor = rowMajorQuery;
-    args.numQueries = n;
-    args.outDistances = out_D + (i * k * n);
-    args.outIndices = out_I + (i * k * n);
+      case raft::distance::DistanceType::Haversine:
 
-    /**
-     * @todo: Until FAISS supports pluggable allocation strategies,
-     * we will not reap the benefits of the pool allocator for
-     * avoiding device-wide synchronizations from cudaMalloc/cudaFree
-     */
-    bfKnn(&gpu_res, args);
+        raft::selection::haversine_knn(out_i_ptr, out_d_ptr, input[i],
+                                       search_items, sizes[i], n, k, stream);
+        break;
+      default:
+        faiss::gpu::StandardGpuResources gpu_res;
+
+        gpu_res.noTempMemory();
+        gpu_res.setCudaMallocWarning(false);
+        gpu_res.setDefaultStream(device, stream);
+
+        faiss::gpu::GpuDistanceParams args;
+        args.metric = m;
+        args.metricArg = metricArg;
+        args.k = k;
+        args.dims = D;
+        args.vectors = input[i];
+        args.vectorsRowMajor = rowMajorIndex;
+        args.numVectors = sizes[i];
+        args.queries = search_items;
+        args.queriesRowMajor = rowMajorQuery;
+        args.numQueries = n;
+        args.outDistances = out_d_ptr;
+        args.outIndices = out_i_ptr;
+
+        /**
+         * @todo: Until FAISS supports pluggable allocation strategies,
+         * we will not reap the benefits of the pool allocator for
+         * avoiding device-wide synchronizations from cudaMalloc/cudaFree
+         */
+        bfKnn(&gpu_res, args);
+    }
 
     CUDA_CHECK(cudaPeekAtLastError());
   }
