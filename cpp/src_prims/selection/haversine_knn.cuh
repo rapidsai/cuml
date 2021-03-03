@@ -58,17 +58,17 @@ DI value_t compute_haversine(value_t x1, value_t y1, value_t x2, value_t y2) {
  * @tparam warp_q
  * @tparam thread_q
  * @tparam tpb
- * @param out_inds
- * @param out_dists
- * @param index
- * @param query
- * @param n_index_rows
- * @param k
+ * @param[out] out_inds output indices
+ * @param[out] out_dists output distances
+ * @param[in] index index array
+ * @param[in] query query array
+ * @param[in] n_index_rows number of rows in index array
+ * @param[in] k number of closest neighbors to return
  */
 template <typename value_idx, typename value_t, int warp_q = 1024,
           int thread_q = 8, int tpb = 128>
 __global__ void haversine_knn_kernel(value_idx *out_inds, value_t *out_dists,
-                                     value_t *index, value_t *query,
+                                     const value_t *index, const value_t *query,
                                      size_t n_index_rows, int k) {
   constexpr int kNumWarps = tpb / faiss::gpu::kWarpSize;
 
@@ -83,16 +83,14 @@ __global__ void haversine_knn_kernel(value_idx *out_inds, value_t *out_dists,
   // Grid is exactly sized to rows available
   int limit = faiss::gpu::utils::roundDown(n_index_rows, faiss::gpu::kWarpSize);
 
-  value_t *query_ptr = query + (blockIdx.x * 2);
+  const value_t *query_ptr = query + (blockIdx.x * 2);
   value_t x1 = query_ptr[0];
   value_t x2 = query_ptr[1];
 
   int i = threadIdx.x;
 
-  value_t *idx_ptr = index + (i * 2);
-
   for (; i < limit; i += tpb) {
-    idx_ptr = index + (i * 2);
+    const value_t *idx_ptr = index + (i * 2);
     value_t y1 = idx_ptr[0];
     value_t y2 = idx_ptr[1];
 
@@ -103,7 +101,7 @@ __global__ void haversine_knn_kernel(value_idx *out_inds, value_t *out_dists,
 
   // Handle last remainder fraction of a warp of elements
   if (i < n_index_rows) {
-    idx_ptr = index + (i * 2);
+    const value_t *idx_ptr = index + (i * 2);
     value_t y1 = idx_ptr[0];
     value_t y2 = idx_ptr[1];
 
@@ -121,22 +119,26 @@ __global__ void haversine_knn_kernel(value_idx *out_inds, value_t *out_dists,
 }
 
 /**
- *
+ * Conmpute the k-nearest neighbors using the Haversine
+ * (great circle arc) distance. Input is assumed to have
+ * 2 dimensions (latitude, longitude) in radians.
+
  * @tparam value_idx
  * @tparam value_t
- * @param out_inds
- * @param out_dists
- * @param index
- * @param query
- * @param n_index_rows
- * @param n_query_rows
- * @param k
- * @param stream
+ * @param[out] out_inds output indices array on device (size n_query_rows * k)
+ * @param[out] out_dists output dists array on device (size n_query_rows * k)
+ * @param[in] index input index array on device (size n_index_rows * 2)
+ * @param[in] query input query array on device (size n_query_rows * 2)
+ * @param[in] n_index_rows number of rows in index array
+ * @param[in] n_query_rows number of rows in query array
+ * @param[in] k number of closest neighbors to return
+ * @param[in] stream stream to order kernel launch
  */
 template <typename value_idx, typename value_t>
-void haversine_knn(value_idx *out_inds, value_t *out_dists, value_t *index,
-                   value_t *query, size_t n_index_rows, size_t n_query_rows,
-                   int k, cudaStream_t stream) {
+void haversine_knn(value_idx *out_inds, value_t *out_dists,
+                   const value_t *index, const value_t *query,
+                   size_t n_index_rows, size_t n_query_rows, int k,
+                   cudaStream_t stream) {
   haversine_knn_kernel<<<n_query_rows, 128, 0, stream>>>(
     out_inds, out_dists, index, query, n_index_rows, k);
 }
