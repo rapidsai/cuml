@@ -32,6 +32,8 @@ from cuml.raft.common.handle cimport handle_t
 from cuml.common import input_to_cuml_array
 from cuml.common import using_output_type
 from cuml.common.array_descriptor import CumlArrayDescriptor
+from cuml.common.mixins import ClusterMixin
+from cuml.common.mixins import CMajorInputTagMixin
 
 from collections import defaultdict
 
@@ -87,7 +89,9 @@ cdef extern from "cuml/cluster/dbscan.hpp" \
                   bool opg) except +
 
 
-class DBSCAN(Base):
+class DBSCAN(Base,
+             ClusterMixin,
+             CMajorInputTagMixin):
     """
     DBSCAN is a very powerful yet fast clustering technique that finds clusters
     where data is concentrated. This allows DBSCAN to generalize to many
@@ -157,7 +161,7 @@ class DBSCAN(Base):
     output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
         Variable to control output type of the results and attributes of
         the estimator. If None, it'll inherit the output type set at the
-        module level, `cuml.global_output_type`.
+        module level, `cuml.global_settings.output_type`.
         See :ref:`output-data-type-configuration` for more info.
     calc_core_sample_indices : (optional) boolean (default = True)
         Indicates whether the indices of the core samples should be calculated.
@@ -362,8 +366,3 @@ class DBSCAN(Base):
             "max_mbytes_per_batch",
             "calc_core_sample_indices",
         ]
-
-    def _more_tags(self):
-        return {
-            'preferred_input_order': 'C'
-        }
