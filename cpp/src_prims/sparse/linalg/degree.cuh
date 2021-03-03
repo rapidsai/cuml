@@ -105,7 +105,7 @@ __global__ void coo_degree_scalar_kernel(const int *rows, const T *vals,
 }
 
 /**
- * @brief Count the number of values for each row matching a particular scalar
+ * @brief Count the number of values for each row that doesn't match a particular scalar
  * @tparam TPB_X: number of threads to use per block
  * @tparam T: the type name of the underlying value arrays
  * @param in: Input COO array
@@ -124,7 +124,7 @@ void coo_degree_scalar(COO<T> *in, T scalar, int *results,
 }
 
 /**
- * @brief Count the number of values for each row matching a particular scalar
+ * @brief Count the number of values for each row that doesn't match a particular scalar
  * @tparam TPB_X: number of threads to use per block
  * @tparam T: the type name of the underlying value arrays
  * @param rows: Input COO row array

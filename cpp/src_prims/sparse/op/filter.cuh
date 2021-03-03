@@ -42,29 +42,6 @@ namespace sparse {
 namespace op {
 
 template <int TPB_X, typename T>
-__global__ void coo_remove_zeros_kernel(const int *rows, const int *cols,
-                                        const T *vals, int nnz, int *crows,
-                                        int *ccols, T *cvals, int *ex_scan,
-                                        int *cur_ex_scan, int m) {
-  int row = (blockIdx.x * TPB_X) + threadIdx.x;
-
-  if (row < m) {
-    int start = cur_ex_scan[row];
-    int stop = get_stop_idx(row, m, nnz, cur_ex_scan);
-    int cur_out_idx = ex_scan[row];
-
-    for (int idx = start; idx < stop; idx++) {
-      if (vals[idx] != 0.0) {
-        crows[cur_out_idx] = rows[idx];
-        ccols[cur_out_idx] = cols[idx];
-        cvals[cur_out_idx] = vals[idx];
-        ++cur_out_idx;
-      }
-    }
-  }
-}
-
-template <int TPB_X, typename T>
 __global__ void coo_remove_scalar_kernel(const int *rows, const int *cols,
                                          const T *vals, int nnz, int *crows,
                                          int *ccols, T *cvals, int *ex_scan,
