@@ -21,7 +21,8 @@ import cupy.prof
 import cupyx
 from cuml.common import CumlArray
 from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.common.base import Base, ClassifierMixin
+from cuml.common.base import Base
+from cuml.common.mixins import ClassifierMixin
 from cuml.common.doc_utils import generate_docstring
 from cuml.common.import_utils import has_scipy
 from cuml.common.input_utils import input_to_cuml_array, input_to_cupy_array
@@ -150,7 +151,7 @@ class MultinomialNB(Base, ClassifierMixin):
     output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
         Variable to control output type of the results and attributes of
         the estimator. If None, it'll inherit the output type set at the
-        module level, `cuml.global_output_type`.
+        module level, `cuml.global_settings.output_type`.
         See :ref:`output-data-type-configuration` for more info.
     handle : cuml.Handle
         Specifies the cuml.handle that holds internal CUDA state for

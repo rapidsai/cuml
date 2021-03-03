@@ -53,6 +53,7 @@ gpuci_conda_retry install -c conda-forge -c rapidsai -c rapidsai-nightly -c nvid
       "dask-cudf=${MINOR_VERSION}" \
       "dask-cuda=${MINOR_VERSION}" \
       "ucx-py=${MINOR_VERSION}" \
+      "ucx-proc=*=gpu" \
       "xgboost=1.3.3dev.rapidsai${MINOR_VERSION}" \
       "rapids-build-env=${MINOR_VERSION}.*" \
       "rapids-notebook-env=${MINOR_VERSION}.*" \
@@ -242,16 +243,19 @@ fi
 
 if [ -n "${CODECOV_TOKEN}" ]; then
 
+    # NOTE: The code coverage upload needs to work for both PR builds and normal
+    # branch builds (aka `branch-0.XX`). Ensure the following settings to the
+    # codecov CLI will work with and without a PR
     gpuci_logger "Uploading Code Coverage to codecov.io"
 
     # Directory containing reports
     REPORT_DIR="${WORKSPACE}/python/cuml"
 
     # Base name to use in Codecov UI
-    CODECOV_NAME="${OS},py${PYTHON},cuda${CUDA}"
+    CODECOV_NAME=${JOB_BASE_NAME:-"${OS},py${PYTHON},cuda${CUDA}"}
 
     # Codecov args needed by both calls
-    EXTRA_CODECOV_ARGS=""
+    EXTRA_CODECOV_ARGS="-c"
 
     # Save the OS PYTHON and CUDA flags
     EXTRA_CODECOV_ARGS="${EXTRA_CODECOV_ARGS} -e OS,PYTHON,CUDA"
@@ -263,8 +267,14 @@ if [ -n "${CODECOV_TOKEN}" ]; then
         EXTRA_CODECOV_ARGS="${EXTRA_CODECOV_ARGS} -C ${REPORT_HASH}"
     fi
 
-    # Append the PR ID. This is needed when running the build inside docker
-    EXTRA_CODECOV_ARGS="${EXTRA_CODECOV_ARGS} -P ${PR_ID} -c"
+    # Append the PR ID. This is needed when running the build inside docker for
+    # PR builds
+    if [ -n "${PR_ID}" ]; then
+        EXTRA_CODECOV_ARGS="${EXTRA_CODECOV_ARGS} -P ${PR_ID}"
+    fi
+
+    # Set the slug since this does not work in jenkins.
+    export CODECOV_SLUG="${PR_AUTHOR:-"rapidsai"}/cuml"
 
     # Upload the two reports with separate flags. Delete the report on success
     # to prevent further CI steps from re-uploading

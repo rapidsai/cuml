@@ -29,7 +29,8 @@ from libc.stdint cimport uintptr_t
 
 import cuml.internals
 from cuml.common.array import CumlArray
-from cuml.common.base import Base, ClassifierMixin
+from cuml.common.base import Base
+from cuml.common.mixins import ClassifierMixin
 from cuml.common.doc_utils import generate_docstring
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.logger import warn
@@ -40,6 +41,7 @@ from cuml.preprocessing import LabelEncoder
 from libcpp cimport bool, nullptr
 from cuml.svm.svm_base import SVMBase
 from cuml.common.import_utils import has_sklearn
+from cuml.common.mixins import FMajorInputTagMixin
 
 if has_sklearn():
     from cuml.multiclass import MulticlassClassifier
@@ -106,7 +108,8 @@ cdef extern from "cuml/svm/svc.hpp" namespace "ML::SVM":
                                      svmModel[math_t] &m) except +
 
 
-class SVC(SVMBase, ClassifierMixin):
+class SVC(SVMBase,
+          ClassifierMixin):
     """
     SVC (C-Support Vector Classification)
 
@@ -185,7 +188,7 @@ class SVC(SVMBase, ClassifierMixin):
     output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
         Variable to control output type of the results and attributes of
         the estimator. If None, it'll inherit the output type set at the
-        module level, `cuml.global_output_type`.
+        module level, `cuml.global_settings.output_type`.
         See :ref:`output-data-type-configuration` for more info.
     probability: bool (default = False)
         Enable or disable probability estimates.
@@ -579,8 +582,3 @@ class SVC(SVMBase, ClassifierMixin):
             params.remove("epsilon")
 
         return params
-
-    def _more_tags(self):
-        return {
-            'preferred_input_order': 'F'
-        }
