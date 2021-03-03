@@ -40,10 +40,17 @@
 #include <iostream>
 #include <set>
 
-
 namespace raft {
 namespace selection {
 
+template <typename value_t>
+DI value_t compute_haversine(value_t x1, value_t y1, value_t x2, value_t y2) {
+  value_t sin_0 = sin(0.5 * (x1 - y1));
+  value_t sin_1 = sin(0.5 * (x2 - y2));
+  value_t rdist = sin_0 * sin_0 + cos(x1) * cos(y1) * sin_1 * sin_1;
+
+  return 2 * asin(sqrt(rdist));
+}
 
 /**
  * @tparam value_idx data type of indices
@@ -58,45 +65,51 @@ namespace selection {
  * @param n_index_rows
  * @param k
  */
-template<typename value_idx = int, typename value_t = float,
-  int warp_q = 1024, int thread_q = 8, int tpb = 128>
+template <typename value_idx, typename value_t, int warp_q = 1024,
+          int thread_q = 8, int tpb = 128>
 __global__ void haversine_knn_kernel(value_idx *out_inds, value_t *out_dists,
-                      value_t *index, value_t *query,
-                      size_t n_index_rows, int k) {
-
-  value_idx query_row = blockIdx.x;
-
+                                     value_t *index, value_t *query,
+                                     size_t n_index_rows, int k) {
   constexpr int kNumWarps = tpb / faiss::gpu::kWarpSize;
 
   __shared__ value_t smemK[kNumWarps * warp_q];
   __shared__ value_idx smemV[kNumWarps * warp_q];
 
   faiss::gpu::BlockSelect<value_t, value_idx, false,
-    faiss::gpu::Comparator<value_t>, warp_q, thread_q,
-    tpb>
+                          faiss::gpu::Comparator<value_t>, warp_q, thread_q,
+                          tpb>
     heap(faiss::gpu::Limits<value_t>::getMax(), -1, smemK, smemV, k);
 
   // Grid is exactly sized to rows available
-  int chunk_size = faiss::gpu::utils::roundDown(n_index_rows, tpb);
+  int limit = faiss::gpu::utils::roundDown(n_index_rows, faiss::gpu::kWarpSize);
 
   value_t *query_ptr = query + (blockIdx.x * 2);
   value_t x1 = query_ptr[0];
-  value_t y1 = query_ptr[1];
+  value_t x2 = query_ptr[1];
 
   int i = threadIdx.x;
 
-  value_idx translation = 0;
+  value_t *idx_ptr = index + (i * 2);
 
-  for (i = threadIdx.x; i < chunk_size; i += tpb) {
-
-    value_t *idx_ptr = index + (i * 2);
-    value_t x2 = idx_ptr[0];
+  for (; i < limit; i += tpb) {
+    idx_ptr = index + (i * 2);
+    value_t y1 = idx_ptr[0];
     value_t y2 = idx_ptr[1];
 
-    value_t dist = 2 * sqrt(pow(sin((x1-y1)/2), 2) +
-                            cos(x1) * cos(y1) * pow(sin((x2 - y2)/2)));
+    value_t dist = compute_haversine(x1, y1, x2, y2);
 
     heap.add(dist, i);
+  }
+
+  // Handle last remainder fraction of a warp of elements
+  if (i < n_index_rows) {
+    idx_ptr = index + (i * 2);
+    value_t y1 = idx_ptr[0];
+    value_t y2 = idx_ptr[1];
+
+    value_t dist = compute_haversine(x1, y1, x2, y2);
+
+    heap.addThreadQ(dist, i);
   }
 
   heap.reduce();
@@ -120,15 +133,13 @@ __global__ void haversine_knn_kernel(value_idx *out_inds, value_t *out_dists,
  * @param k
  * @param stream
  */
-template<typename value_idx, typename value_t>
-void haversine_knn(value_idx *out_inds, value_t *out_dists,
-                   value_t *index, value_t *query,
-                   size_t n_index_rows, size_t n_query_rows,
+template <typename value_idx, typename value_t>
+void haversine_knn(value_idx *out_inds, value_t *out_dists, value_t *index,
+                   value_t *query, size_t n_index_rows, size_t n_query_rows,
                    int k, cudaStream_t stream) {
-
   haversine_knn_kernel<<<n_query_rows, 128, 0, stream>>>(
     out_inds, out_dists, index, query, n_index_rows, k);
 }
 
-}; // end selection
-}; // end raft
+};  // namespace selection
+};  // namespace raft

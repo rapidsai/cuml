@@ -23,6 +23,8 @@ from cuml.neighbors import NearestNeighbors as cuKNN
 from sklearn.neighbors import NearestNeighbors as skKNN
 from cuml.datasets import make_blobs
 
+from sklearn.metrics import pairwise_distances
+
 from cuml.common import logger
 
 import cupy as cp
@@ -547,3 +549,36 @@ def test_nearest_neighbors_sparse(metric,
         # (.5% in this case) to allow differences from non-determinism.
         diffs = abs(cuI - skI)
         assert (len(diffs[diffs > 0]) / len(np.ravel(skI))) <= 0.005
+
+
+def test_haversine():
+
+    hoboken_nj = [40.745255, -74.034775]
+    port_hueneme_ca = [34.155834, -119.202789]
+    auburn_ny = [42.933334, -76.566666]
+    league_city_tx = [29.499722, -95.089722]
+    tallahassee_fl = [30.455000, -84.253334]
+    aurora_il = [41.763889, -88.29001]
+
+    import math
+
+    data = np.array([hoboken_nj,
+                     port_hueneme_ca,
+                     auburn_ny,
+                     league_city_tx,
+                     tallahassee_fl,
+                     aurora_il])
+
+    data = data * math.pi / 180
+
+    pw_dists = pairwise_distances(data, metric='haversine')
+
+    cunn = cuKNN(metric='haversine', n_neighbors=6, algorithm='brute')
+    cunn.fit(data)
+    dists, inds = cunn.kneighbors(data)
+
+    argsort = np.argsort(pw_dists, axis=1)
+
+    for i in range(pw_dists.shape[0]):
+        cp.testing.assert_allclose(pw_dists[i, argsort[i]], dists[i],
+                                   atol=1e-4, rtol=1e-4)

@@ -378,8 +378,6 @@ void brute_force_knn(std::vector<float *> &input, std::vector<int> &sizes,
   ASSERT(input.size() == sizes.size(),
          "input and sizes vectors should be the same size");
 
-  faiss::MetricType m = build_faiss_metric(metric);
-
   std::vector<int64_t> *id_ranges;
   if (translations == nullptr) {
     // If we don't have explicit translations
@@ -435,21 +433,25 @@ void brute_force_knn(std::vector<float *> &input, std::vector<int> &sizes,
   if (n_int_streams > 0) CUDA_CHECK(cudaStreamSynchronize(userStream));
 
   for (int i = 0; i < input.size(); i++) {
-
     float *out_d_ptr = out_D + (i * k * n);
-    IntType *out_i_ptr = out_I + (i * k * n);
+    int64_t *out_i_ptr = out_I + (i * k * n);
 
     cudaStream_t stream =
       raft::select_stream(userStream, internalStreams, n_int_streams, i);
 
-    switch(metric) {
-
+    switch (metric) {
       case raft::distance::DistanceType::Haversine:
+
+        ASSERT(D == 2,
+               "Haversine distance requires 2 dimensions "
+               "(latitude / longitude).");
 
         raft::selection::haversine_knn(out_i_ptr, out_d_ptr, input[i],
                                        search_items, sizes[i], n, k, stream);
         break;
       default:
+        faiss::MetricType m = build_faiss_metric(metric);
+
         faiss::gpu::StandardGpuResources gpu_res;
 
         gpu_res.noTempMemory();
@@ -503,7 +505,8 @@ void brute_force_knn(std::vector<float *> &input, std::vector<int> &sizes,
 	* post-processing
 	*/
     float p = 0.5;  // standard l2
-    if (m == faiss::MetricType::METRIC_Lp) p = 1.0 / metricArg;
+    if (metric == raft::distance::DistanceType::LpUnexpanded)
+      p = 1.0 / metricArg;
     raft::linalg::unaryOp<float>(
       res_D, res_D, n * k,
       [p] __device__(float input) { return powf(input, p); }, userStream);
