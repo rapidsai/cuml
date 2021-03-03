@@ -17,8 +17,8 @@
 #pragma once
 
 #include <cuml/manifold/umapparams.h>
-#include <cuml/common/logger.hpp>
 #include <common/device_buffer.hpp>
+#include <cuml/common/logger.hpp>
 #include <cuml/neighbors/knn.hpp>
 
 #include <raft/cudart_utils.h>
