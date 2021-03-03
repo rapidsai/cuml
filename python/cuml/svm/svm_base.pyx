@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2020, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -33,6 +33,7 @@ from cuml.common.exceptions import NotFittedError
 from cuml.raft.common.handle cimport handle_t
 from cuml.common import input_to_cuml_array
 from cuml.common import using_output_type
+from cuml.common.mixins import FMajorInputTagMixin
 from libcpp cimport bool
 
 cdef extern from "cuml/matrix/kernelparams.h" namespace "MLCommon::Matrix":
@@ -96,7 +97,8 @@ cdef extern from "cuml/svm/svc.hpp" namespace "ML::SVM":
                                      svmModel[math_t] &m) except +
 
 
-class SVMBase(Base):
+class SVMBase(Base,
+              FMajorInputTagMixin):
     """
     Base class for Support Vector Machines
 
@@ -158,7 +160,7 @@ class SVMBase(Base):
     output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
         Variable to control output type of the results and attributes of
         the estimator. If None, it'll inherit the output type set at the
-        module level, `cuml.global_output_type`.
+        module level, `cuml.global_settings.output_type`.
         See :ref:`output-data-type-configuration` for more info.
 
     Attributes
@@ -582,8 +584,3 @@ class SVMBase(Base):
         self.__dict__.update(state)
         self._model = self._get_svm_model()
         self._freeSvmBuffers = False
-
-    def _more_tags(self):
-        return {
-            'preferred_input_order': 'F'
-        }

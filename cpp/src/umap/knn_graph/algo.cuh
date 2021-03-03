@@ -17,6 +17,7 @@
 #pragma once
 
 #include <cuml/manifold/umapparams.h>
+#include <raft/linalg/distance_type.h>
 #include <cuml/manifold/common.hpp>
 #include <cuml/neighbors/knn_sparse.hpp>
 #include <iostream>
