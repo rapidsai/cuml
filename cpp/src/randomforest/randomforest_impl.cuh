@@ -200,7 +200,7 @@ void rfClassifier<T>::fit(const raft::handle_t& user_handle, const T* input,
   }
 
   MLCommon::device_buffer<T>* d_global_quantiles = nullptr;
-  auto quantile_size = this->rf_params.tree_params.n_bins * n_cols * sizeof(T);
+  auto quantile_size = this->rf_params.tree_params.n_bins * n_cols;
 
   //Preprocess once only per forest
   if (this->rf_params.tree_params.use_experimental_backend) {
@@ -260,13 +260,13 @@ void rfClassifier<T>::fit(const raft::handle_t& user_handle, const T* input,
     trees[i].fit(handle.get_device_allocator(), handle.get_host_allocator(),
                  handle.get_internal_stream(stream_id), input, n_cols, n_rows, labels,
                  rowids, n_sampled_rows, n_unique_labels, tree_ptr,
-                 this->rf_params.tree_params, this->rf_params.seed, (T*)d_global_quantiles,
+                 this->rf_params.tree_params, this->rf_params.seed, d_global_quantiles->data(),
                  tempmem[stream_id]);
 
   }
   //Cleanup
   for (int i = 0; i < n_streams; i++) {
-    auto s = tempmem[i]->stream;
+    auto s = handle.get_internal_stream(i);
     CUDA_CHECK(cudaStreamSynchronize(s));
     selected_rows[i]->release(s);
     delete selected_rows[i];
@@ -517,7 +517,7 @@ void rfRegressor<T>::fit(const raft::handle_t& user_handle, const T* input,
   }
 
   MLCommon::device_buffer<T>* d_global_quantiles = nullptr;
-  auto quantile_size = this->rf_params.tree_params.n_bins * n_cols * sizeof(T);
+  auto quantile_size = this->rf_params.tree_params.n_bins * n_cols;
   //Preprocess once only per forest
   if (this->rf_params.tree_params.use_experimental_backend) {
     // Using batched backend
@@ -574,12 +574,12 @@ void rfRegressor<T>::fit(const raft::handle_t& user_handle, const T* input,
     trees[i].fit(handle.get_device_allocator(), handle.get_host_allocator(),
                  handle.get_internal_stream(stream_id), input, n_cols, n_rows, labels,
                  rowids, n_sampled_rows, tree_ptr,
-     this->rf_params.tree_params, this->rf_params.seed, (T*)d_global_quantiles,
+     this->rf_params.tree_params, this->rf_params.seed, d_global_quantiles->data(),
      tempmem[stream_id]);
   }
   //Cleanup
   for (int i = 0; i < n_streams; i++) {
-    auto s = tempmem[i]->stream;
+    auto s = handle.get_internal_stream(i);
     CUDA_CHECK(cudaStreamSynchronize(s));
     selected_rows[i]->release(s);
     delete selected_rows[i];
