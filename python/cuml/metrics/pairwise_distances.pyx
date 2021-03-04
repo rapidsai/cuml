@@ -30,6 +30,7 @@ import cuml.internals
 from cuml.common.base import _determine_stateless_output_type
 from cuml.common import (input_to_cuml_array, CumlArray, logger)
 from cuml.common.input_utils import sparse_scipy_to_cp
+from cuml.common.sparse_utils import is_sparse
 from cuml.common.array_sparse import SparseCumlArray
 from cuml.metrics.cluster.utils import prepare_cluster_metric_inputs
 from cuml.metrics.distance_type cimport DistanceType
@@ -45,13 +46,13 @@ cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics":
 cdef extern from "cuml/metrics/metrics.hpp" namespace "raft::sparse::distance":
     void pairwiseDistance_py(const handle_t &handle, float *x,
                              float *y,
-                             float *dist, int m, int n, int k,
+                             float *dist, int x_nrows, int y_nrows, int n_cols,
                              int x_nnz, int y_nnz, int* x_indptr,
                              int* y_indptr, int* x_indices, int* y_indices,
                              DistanceType metric, float metric_arg) except +
     void pairwiseDistance_py(const handle_t &handle, double *x,
                              double *y,
-                             double *dist, int m, int n, int k,
+                             double *dist, int x_nrows, int y_nrows, int n_cols,
                              int x_nnz, int y_nnz, int* x_indptr,
                              int* y_indptr, int* x_indices, int* y_indices,
                              DistanceType metric,
@@ -63,9 +64,9 @@ List of available distance metrics in `pairwise_distances`
 PAIRWISE_DISTANCE_METRICS = {
     "cityblock": DistanceType.L1,
     "cosine": DistanceType.CosineExpanded,
-    "euclidean": DistanceType.L2SqrtExpanded,
+    "euclidean": DistanceType.L2SqrtUnexpanded,
     "l1": DistanceType.L1,
-    "l2": DistanceType.L2SqrtExpanded,
+    "l2": DistanceType.L2SqrtUnexpanded,
     "manhattan": DistanceType.L1,
     "sqeuclidean": DistanceType.L2Expanded
 }
@@ -73,11 +74,11 @@ PAIRWISE_DISTANCE_METRICS = {
 PAIRWISE_DISTANCE_SPARSE_METRICS = {
     "cityblock": DistanceType.L1,
     "cosine": DistanceType.CosineExpanded,
-    "euclidean": DistanceType.L2SqrtExpanded,
+    "euclidean": DistanceType.L2SqrtUnexpanded,
     "l1": DistanceType.L1,
-    "l2": DistanceType.L2SqrtExpanded,
+    "l2": DistanceType.L2SqrtUnexpanded,
     "manhattan": DistanceType.L1,
-    "sqeuclidean": DistanceType.L2Expanded,
+    "sqeuclidean": DistanceType.L2Unexpanded,
     "canberra": DistanceType.Canberra,
     "inner_product": DistanceType.InnerProduct,
     "lp": DistanceType.LpUnexpanded,
@@ -224,11 +225,7 @@ def pairwise_distances(X, Y=None, metric="euclidean", handle=None,
 
         cuml.internals.set_api_output_type(output_type)
 
-    if cupyx.scipy.sparse.issparse(X):
-        return sparse_pairwise_distance(X, Y, metric, handle,
-                                        convert_dtype, **kwds)
-    elif scipy.sparse.issparse(X):
-        X = sparse_scipy_to_cp(X, dtype=None)
+    if is_sparse(X):
         return sparse_pairwise_distance(X, Y, metric, handle,
                                         convert_dtype, **kwds)
 
@@ -288,7 +285,6 @@ def pairwise_distances(X, Y=None, metric="euclidean", handle=None,
     d_X_ptr = X_m.ptr
     d_Y_ptr = Y_m.ptr
     d_dest_ptr = dest_m.ptr
-    metric_arg = 0
 
     # Now execute the functions
     if (dtype_x == np.float32):
@@ -324,9 +320,13 @@ def pairwise_distances(X, Y=None, metric="euclidean", handle=None,
 
 
 def sparse_pairwise_distance(X, Y=None, metric="euclidean", handle=None,
-                             convert_dtype=True, output_type=None, **kwds):
+                             convert_dtype=True, output_type=None, metric_arg = 2,
+                             **kwds):
     handle = Handle() if handle is None else handle
     cdef handle_t *handle_ = <handle_t*> <size_t> handle.getHandle()
+    
+    if scipy.sparse.issparse(X):
+        X = sparse_scipy_to_cp(X, dtype=None)
     
     X_m = SparseCumlArray(X)
     n_samples_x, n_features_x = X_m.shape
@@ -334,22 +334,35 @@ def sparse_pairwise_distance(X, Y=None, metric="euclidean", handle=None,
     if Y is None:
         Y_m = X_m
     else:
+        if scipy.sparse.issparse(Y):
+            Y = sparse_scipy_to_cp(Y, dtype=dtype_x if convert_dtype else None)
+        else:
+            if convert_dtype:
+                Y = Y.astype(dtype_x)
         Y_m = SparseCumlArray(Y)
     n_samples_y, n_features_y = Y_m.shape
+
+    # Check feature sizes are equal
+    if (n_features_x != n_features_y):
+        raise ValueError("Incompatible dimension for X and Y matrices: \
+                         X.shape[1] == {} while Y.shape[1] == {}"
+                         .format(n_features_x, n_features_y))
 
     # Get the metric string to a distance enum
     metric_val = _determine_metric(metric, is_sparse=True)
     
     x_nrows, y_nrows = X_m.indptr.shape[0] - 1, Y_m.indptr.shape[0] - 1
     dest_m = CumlArray.zeros((x_nrows, y_nrows), dtype=dtype_x)
-    cdef uintptr_t d_X_ptr = X_m.data.ptr
-    cdef uintptr_t d_Y_ptr = Y_m.data.ptr
     cdef uintptr_t d_dest_ptr = dest_m.ptr
+
+    cdef uintptr_t d_X_ptr = X_m.data.ptr
     cdef uintptr_t X_m_indptr = X_m.indptr.ptr
-    cdef uintptr_t Y_m_indptr = Y_m.indptr.ptr
     cdef uintptr_t X_m_indices = X_m.indices.ptr
+    
+    cdef uintptr_t d_Y_ptr = Y_m.data.ptr
+    cdef uintptr_t Y_m_indptr = Y_m.indptr.ptr
     cdef uintptr_t Y_m_indices = Y_m.indices.ptr
-    metric_arg = 0
+    
     if (dtype_x == np.float32):
         pairwiseDistance_py(handle_[0],
                             <float*> d_X_ptr,
@@ -382,3 +395,12 @@ def sparse_pairwise_distance(X, Y=None, metric="euclidean", handle=None,
                             <int*> Y_m_indices,
                             <DistanceType> metric_val,
                             <float> metric_arg)
+    else:
+        raise NotImplementedError("Unsupported dtype: {}".format(dtype_x))
+
+    # Sync on the stream before exiting.
+    handle.sync()
+
+    del X_m
+    del Y_m
+    return dest_m

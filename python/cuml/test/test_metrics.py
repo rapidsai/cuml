@@ -20,6 +20,7 @@ from functools import partial
 import cuml
 import cuml.common.logger as logger
 import cupy as cp
+import cupyx
 import numpy as np
 import pytest
 import cudf
@@ -70,8 +71,8 @@ from sklearn.metrics import roc_auc_score as sklearn_roc_auc_score
 from sklearn.metrics import precision_recall_curve \
     as sklearn_precision_recall_curve
 
-from cuml.metrics import pairwise_distances, PAIRWISE_DISTANCE_METRICS, \
-    PAIRWISE_DISTANCE_SPARSE_METRICS
+from cuml.metrics import pairwise_distances, sparse_pairwise_distance, \
+    PAIRWISE_DISTANCE_METRICS, PAIRWISE_DISTANCE_SPARSE_METRICS
 from sklearn.metrics import pairwise_distances as sklearn_pairwise_distances
 
 
@@ -1088,10 +1089,9 @@ def test_pairwise_distances_output_types(input_type, output_type, use_global):
 
 
 @pytest.mark.parametrize("metric", PAIRWISE_DISTANCE_SPARSE_METRICS.keys())
-@pytest.mark.parametrize("matrix_size", [(50, 40), (1000, 3), (2, 100),
-                                         (500, 400)])
-@pytest.mark.parametrize("is_col_major", [True, False])
-def test_sparse_pairwise_distances(metric: str, matrix_size, is_col_major):
+@pytest.mark.parametrize("matrix_size", [(30, 30), (400, 2), (2, 400),
+                                         (500, 40)])
+def test_sparse_pairwise_distances(metric: str, matrix_size):
     if has_scipy():
         import scipy
         from scipy import sparse
@@ -1102,18 +1102,17 @@ def test_sparse_pairwise_distances(metric: str, matrix_size, is_col_major):
 
     # For fp64, compare at 13 decimals, (2 places less than the ~15 max)
     compare_precision = 10
-    import pdb; pdb.set_trace()
 
     # Compare to sklearn, single input
-    X = scipy.sparse.random(matrix_size[0], matrix_size[1], format='csr')
-    S = pairwise_distances(X, metric=metric)
-    S2 = sklearn_pairwise_distances(X, metric=metric)
+    X = scipy.sparse.random(matrix_size[0], matrix_size[1], format='csr', dtype=np.float64)
+    S = sparse_pairwise_distance(X, metric=metric)
+    S2 = sklearn_pairwise_distances(X.todense(), metric=metric)
     cp.testing.assert_array_almost_equal(S, S2, decimal=compare_precision)
 
     # Compare to sklearn, double input with same dimensions
     Y = X
     S = pairwise_distances(X, Y, metric=metric)
-    S2 = sklearn_pairwise_distances(X, Y, metric=metric)
+    S2 = sklearn_pairwise_distances(X.todense(), Y.todense(), metric=metric)
     cp.testing.assert_array_almost_equal(S, S2, decimal=compare_precision)
 
     # Compare single and double inputs to eachother
@@ -1121,33 +1120,42 @@ def test_sparse_pairwise_distances(metric: str, matrix_size, is_col_major):
     S2 = pairwise_distances(X, Y, metric=metric)
     cp.testing.assert_array_almost_equal(S, S2, decimal=compare_precision)
 
+
     # Compare to sklearn, with Y dim != X dim
-    Y = scipy.sparse.random(2, matrix_size[1], format='csr')
+    Y = scipy.sparse.random(3, matrix_size[1], format='csr')
     S = pairwise_distances(X, Y, metric=metric)
-    S2 = sklearn_pairwise_distances(X, Y, metric=metric)
+    S2 = sklearn_pairwise_distances(X.todense(), Y.todense(), metric=metric)
     cp.testing.assert_array_almost_equal(S, S2, decimal=compare_precision)
 
     # Change precision of one parameter
-    Y = np.asfarray(Y, dtype=np.float32)
+    Y = scipy.sparse.random(matrix_size[0], matrix_size[1], format='csr', dtype=np.float32)
     S = pairwise_distances(X, Y, metric=metric)
-    S2 = sklearn_pairwise_distances(X, Y, metric=metric)
+    S2 = sklearn_pairwise_distances(X.todense(), Y.todense(), metric=metric)
+    cp.testing.assert_array_almost_equal(S, S2, decimal=compare_precision)
+    
+    # Change to cupyx with different precision
+    Y = cupyx.scipy.sparse.random(matrix_size[0], matrix_size[1], format='csr',
+                                  dtype=np.float32)
+    S = sparse_pairwise_distance(X, Y, metric=metric)
+    S2 = sklearn_pairwise_distances(X.todense(), Y.todense().get(), metric=metric)
     cp.testing.assert_array_almost_equal(S, S2, decimal=compare_precision)
 
     # For fp32, compare at 5 decimals, (2 places less than the ~7 max)
     compare_precision = 2
 
     # Change precision of both parameters to float
-    X = np.asfarray(X, dtype=np.float32)
-    Y = np.asfarray(Y, dtype=np.float32)
+    X = scipy.sparse.random(matrix_size[0], matrix_size[1], format='csr', dtype=np.float32)
+    Y = scipy.sparse.random(matrix_size[0], matrix_size[1], format='csr', dtype=np.float32)
     S = pairwise_distances(X, Y, metric=metric)
-    S2 = sklearn_pairwise_distances(X, Y, metric=metric)
+    S2 = sklearn_pairwise_distances(X.todense(), Y.todense(), metric=metric)
     cp.testing.assert_array_almost_equal(S, S2, decimal=compare_precision)
 
     # Test sending an int type with convert_dtype=True
-    Y = scipy.sparse.random(Y.shape[0], Y.shape[1], dtype=cp.int32, format='csr')
+    Y = (scipy.sparse.random(Y.shape[0], Y.shape[1], dtype=cp.float32, format='csr') * 100)
+    Y = Y.astype(cp.int32)
     #Y = prep_array(rng.randint(10, size=Y.shape))
     S = pairwise_distances(X, Y, metric=metric, convert_dtype=True)
-    S2 = sklearn_pairwise_distances(X, Y, metric=metric)
+    S2 = sklearn_pairwise_distances(X.todense(), Y.todense(), metric=metric)
     cp.testing.assert_array_almost_equal(S, S2, decimal=compare_precision)
 
     # Test that uppercase on the metric name throws an error.

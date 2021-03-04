@@ -15,9 +15,9 @@
  * limitations under the License.
  */
 
+#include <sparse/distance/common.h>
 #include <cuml/metrics/metrics.hpp>
 #include <metrics/pairwise_distance.cuh>
-#include <sparse/distance/common.h>
 #include <sparse/distance/distance.cuh>
 
 namespace ML {
@@ -45,66 +45,58 @@ void pairwise_distance(const raft::handle_t &handle, const float *x,
 namespace raft {
 namespace sparse {
 namespace distance {
-template<typename value_idx = int, typename value_t = float>
-void pairwiseDistance_py(const handle_t &handle, value_t *x, 
-                         value_t *y, value_t *dist, value_idx m, value_idx n, 
-                         value_idx k, value_idx x_nnz, value_idx y_nnz, value_idx* x_indptr,
-                         value_idx* y_indptr, value_idx* x_indices, value_idx* y_indices,
+template <typename value_idx = int, typename value_t = float>
+void pairwiseDistance_py(const handle_t &handle, value_t *x, value_t *y,
+                         value_t *dist, value_idx x_nrows, value_idx y_nrows,
+                         value_idx n_cols, value_idx x_nnz, value_idx y_nnz,
+                         value_idx *x_indptr, value_idx *y_indptr,
+                         value_idx *x_indices, value_idx *y_indices,
                          raft::distance::DistanceType metric,
                          float metric_arg) {
-    distances_config_t<value_idx, value_t> dist_config;
-    dist_config.a_nrows = m;
-    dist_config.a_ncols = k;
-    dist_config.a_nnz = x_nnz;
-    dist_config.a_indptr = x_indptr;
-    dist_config.a_indices = x_indices;
-    dist_config.a_data = x;
+  distances_config_t<value_idx, value_t> dist_config;
 
+  dist_config.b_nrows = x_nrows;
+  dist_config.b_ncols = n_cols;
+  dist_config.b_nnz = x_nnz;
+  dist_config.b_indptr = x_indptr;
+  dist_config.b_indices = x_indices;
+  dist_config.b_data = x;
 
-    dist_config.b_nrows = n;
-    dist_config.b_ncols = k;
-    dist_config.b_nnz = y_nnz;
-    dist_config.b_indptr = y_indptr;
-    dist_config.b_indices = y_indices;
-    dist_config.b_data = y;
-    
-    dist_config.handle = handle.get_cusparse_handle();;
-    dist_config.allocator = handle.get_device_allocator();
-    dist_config.stream = handle.get_stream();
+  dist_config.a_nrows = y_nrows;
+  dist_config.a_ncols = n_cols;
+  dist_config.a_nnz = y_nnz;
+  dist_config.a_indptr = y_indptr;
+  dist_config.a_indices = y_indices;
+  dist_config.a_data = y;
 
-    pairwiseDistance(dist, dist_config, metric, metric_arg);
+  dist_config.handle = handle.get_cusparse_handle();
+  dist_config.allocator = handle.get_device_allocator();
+  dist_config.stream = handle.get_stream();
+
+  pairwiseDistance(dist, dist_config, metric, metric_arg);
 }
 
-void pairwiseDistance_py(const handle_t &handle, float *x, 
-                        float *y, float *dist, int m, int n, 
-                        int k, int x_nnz, int y_nnz, int* x_indptr,
-                        int* y_indptr, int* x_indices, int* y_indices,
-                        raft::distance::DistanceType metric,
-                        float metric_arg)
-{
-    pairwiseDistance_py<int, float>(handle, x, 
-        y, dist, m, n, 
-        k, x_nnz, y_nnz, x_indptr,
-        y_indptr, x_indices, y_indices,
-        metric,
-        metric_arg);
+void pairwiseDistance_py(const handle_t &handle, float *x, float *y,
+                         float *dist, int x_nrows, int y_nrows, int n_cols,
+                         int x_nnz, int y_nnz, int *x_indptr, int *y_indptr,
+                         int *x_indices, int *y_indices,
+                         raft::distance::DistanceType metric,
+                         float metric_arg) {
+  pairwiseDistance_py<int, float>(handle, x, y, dist, x_nrows, y_nrows, n_cols,
+                                  x_nnz, y_nnz, x_indptr, y_indptr, x_indices,
+                                  y_indices, metric, metric_arg);
 }
 
-
-void pairwiseDistance_py(const handle_t &handle, double *x, 
-    double *y, double *dist, int m, int n, 
-    int k, int x_nnz, int y_nnz, int* x_indptr,
-    int* y_indptr, int* x_indices, int* y_indices,
-    raft::distance::DistanceType metric,
-    float metric_arg)
-{
-    pairwiseDistance_py<int, double>(handle, x, 
-                                     y, dist, m, n, 
-                                     k, x_nnz, y_nnz, x_indptr,
-                                     y_indptr, x_indices, y_indices,
-                                     metric,
-                                     metric_arg);
+void pairwiseDistance_py(const handle_t &handle, double *x, double *y,
+                         double *dist, int x_nrows, int y_nrows, int n_cols,
+                         int x_nnz, int y_nnz, int *x_indptr, int *y_indptr,
+                         int *x_indices, int *y_indices,
+                         raft::distance::DistanceType metric,
+                         float metric_arg) {
+  pairwiseDistance_py<int, double>(handle, x, y, dist, x_nrows, y_nrows, n_cols,
+                                   x_nnz, y_nnz, x_indptr, y_indptr, x_indices,
+                                   y_indices, metric, metric_arg);
 }
-}
-}
-}
+}  // namespace distance
+}  // namespace sparse
+}  // namespace raft
