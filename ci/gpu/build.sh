@@ -285,7 +285,7 @@ if [ -n "${CODECOV_TOKEN}" ]; then
     # return a non-zero status on failure. Append this flag here:
     EXTRA_CODECOV_ARGS="${EXTRA_CODECOV_ARGS} -U \"--connect-timeout 0.001\" -Z"
 
-    function codecov_cli {
+    function codecov_cli() {
         # We wrap calling the codecov CLI to enable using it with `gpuci_retry`.
         # Without this, the '|' character breaks up the statement and only the
         # `curl` command is retried. Also, see
