@@ -243,9 +243,6 @@ fi
 
 if [ -n "${CODECOV_TOKEN}" ]; then
 
-    # TEMP: Debug
-    set -x
-
     # NOTE: The code coverage upload needs to work for both PR builds and normal
     # branch builds (aka `branch-0.XX`). Ensure the following settings to the
     # codecov CLI will work with and without a PR
@@ -283,30 +280,17 @@ if [ -n "${CODECOV_TOKEN}" ]; then
     # occassionally. So we increase the timeout to 60 seconds, and retry in case
     # it fails. In order for `gpuci_retry` to work, we need the codecov CLI to
     # return a non-zero status on failure. Append this flag here:
-    EXTRA_CODECOV_ARGS="${EXTRA_CODECOV_ARGS} -U \"--connect-timeout 0.001\" -Z"
+    EXTRA_CODECOV_ARGS="${EXTRA_CODECOV_ARGS} -U \"--connect-timeout 60\" -Z"
 
-    function codecov_cli() {
-        # We wrap calling the codecov CLI to enable using it with `gpuci_retry`.
-        # Without this, the '|' character breaks up the statement and only the
-        # `curl` command is retried. Also, see
-        # https://stackoverflow.com/questions/22591272/passing-strings-to-bash-functions-with-space
-        # for why we use xargs to parse the incoming commands. Without this, the
-        # command line parsing breaks when using `gpuci_retry codecov_cli`.
-        args_line="$*"
-
-        IFS=$'\n' read -d '' -ra args <<<"$(xargs -n 1 printf '%s\n' <<<"$args_line")"
-
-        curl -s https://codecov.io/bash | bash -s -- "${args[@]}"
-
-        return $?
-    }
+    # Download the codecov script locally. Cannot use pipes with `gpuci_retry`
+    curl -s https://codecov.io/bash > ${WORKSPACE}/codecov.sh
 
     # Upload the two reports with separate flags. Delete the report on success
     # to prevent further CI steps from re-uploading
-    gpuci_retry codecov_cli -F non-dask -f ${REPORT_DIR}/cuml-coverage.xml -n "$CODECOV_NAME,non-dask" ${EXTRA_CODECOV_ARGS}
-    gpuci_retry codecov_cli -F dask -f ${REPORT_DIR}/cuml-dask-coverage.xml -n "$CODECOV_NAME,dask" ${EXTRA_CODECOV_ARGS}
-
-    set +x
+    # TODO: Add `gpuci_retry` once
+    # gpuci-tools PR: https://github.com/rapidsai/gpuci-tools/pull/18 is merged
+    ${WORKSPACE}/codecov.sh -F non-dask -f ${REPORT_DIR}/cuml-coverage.xml -n "$CODECOV_NAME,non-dask" ${EXTRA_CODECOV_ARGS}
+    ${WORKSPACE}/codecov.sh -F dask -f ${REPORT_DIR}/cuml-dask-coverage.xml -n "$CODECOV_NAME,dask" ${EXTRA_CODECOV_ARGS}
 fi
 
 return ${EXITCODE}
