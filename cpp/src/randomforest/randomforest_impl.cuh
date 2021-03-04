@@ -174,7 +174,6 @@ void rfClassifier<T>::fit(const raft::handle_t& user_handle, const T* input,
     "rf_params.n_streams (=%d) should be <= raft::handle_t.n_streams (=%d)",
     n_streams, handle.get_num_internal_streams());
 
-  // cudaStream_t stream = handle.get_stream();
   // Select n_sampled_rows (with replacement) numbers from [0, n_rows) per tree.
   // selected_rows: randomly generated IDs for bootstrapped samples (w/ replacement); a device ptr.
   MLCommon::device_buffer<unsigned int>* selected_rows[n_streams];
@@ -199,16 +198,21 @@ void rfClassifier<T>::fit(const raft::handle_t& user_handle, const T* input,
     }
   }
 
-  MLCommon::device_buffer<T>* d_global_quantiles = nullptr;
+  MLCommon::device_buffer<T>* global_quantiles_buffer = nullptr;
+  T *global_quantiles = nullptr;
   auto quantile_size = this->rf_params.tree_params.n_bins * n_cols;
 
   //Preprocess once only per forest
   if (this->rf_params.tree_params.use_experimental_backend) {
     // Using batched backend
     // allocate space for d_global_quantiles
-    d_global_quantiles = new MLCommon::device_buffer<T>(handle.get_device_allocator(), handle.get_stream(), quantile_size);
-    DecisionTree::computeQuantiles(d_global_quantiles->data(), this->rf_params.tree_params.n_bins, input, n_rows, n_cols,
-      handle.get_device_allocator(), handle.get_host_allocator(), handle.get_stream());
+    global_quantiles_buffer = new MLCommon::device_buffer<T>(
+      handle.get_device_allocator(), handle.get_stream(), quantile_size);
+    global_quantiles = global_quantiles_buffer->data();
+    DecisionTree::computeQuantiles(
+      global_quantiles, this->rf_params.tree_params.n_bins, input, n_rows,
+      n_cols, handle.get_device_allocator(), handle.get_host_allocator(),
+      handle.get_stream());
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
     } else {
     if ((this->rf_params.tree_params.split_algo == SPLIT_ALGO::GLOBAL_QUANTILE) &&
@@ -260,7 +264,7 @@ void rfClassifier<T>::fit(const raft::handle_t& user_handle, const T* input,
     trees[i].fit(handle.get_device_allocator(), handle.get_host_allocator(),
                  handle.get_internal_stream(stream_id), input, n_cols, n_rows, labels,
                  rowids, n_sampled_rows, n_unique_labels, tree_ptr,
-                 this->rf_params.tree_params, this->rf_params.seed, d_global_quantiles->data(),
+                 this->rf_params.tree_params, this->rf_params.seed, global_quantiles,
                  tempmem[stream_id]);
 
   }
@@ -275,8 +279,8 @@ void rfClassifier<T>::fit(const raft::handle_t& user_handle, const T* input,
     }
   }
   if (this->rf_params.tree_params.use_experimental_backend) {
-    d_global_quantiles->release(handle.get_stream());
-    delete d_global_quantiles;
+    global_quantiles_buffer->release(handle.get_stream());
+    delete global_quantiles_buffer;
   }
   CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 }
@@ -516,15 +520,21 @@ void rfRegressor<T>::fit(const raft::handle_t& user_handle, const T* input,
     }
   }
 
-  MLCommon::device_buffer<T>* d_global_quantiles = nullptr;
+  MLCommon::device_buffer<T>* global_quantiles_buffer = nullptr;
+  T *global_quantiles = nullptr;
   auto quantile_size = this->rf_params.tree_params.n_bins * n_cols;
+
   //Preprocess once only per forest
   if (this->rf_params.tree_params.use_experimental_backend) {
     // Using batched backend
     // allocate space for d_global_quantiles
-    d_global_quantiles = new MLCommon::device_buffer<T>(handle.get_device_allocator(), handle.get_stream(), quantile_size);
-    DecisionTree::computeQuantiles(d_global_quantiles->data(), this->rf_params.tree_params.n_bins, input, n_rows, n_cols,
-      handle.get_device_allocator(), handle.get_host_allocator(), handle.get_stream());
+    global_quantiles_buffer = new MLCommon::device_buffer<T>(
+      handle.get_device_allocator(), handle.get_stream(), quantile_size);
+    global_quantiles = global_quantiles_buffer->data();
+    DecisionTree::computeQuantiles(
+      global_quantiles, this->rf_params.tree_params.n_bins, input, n_rows,
+      n_cols, handle.get_device_allocator(), handle.get_host_allocator(),
+      handle.get_stream());
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
     } else {
     if ((this->rf_params.tree_params.split_algo == SPLIT_ALGO::GLOBAL_QUANTILE) &&
@@ -574,7 +584,7 @@ void rfRegressor<T>::fit(const raft::handle_t& user_handle, const T* input,
     trees[i].fit(handle.get_device_allocator(), handle.get_host_allocator(),
                  handle.get_internal_stream(stream_id), input, n_cols, n_rows, labels,
                  rowids, n_sampled_rows, tree_ptr,
-     this->rf_params.tree_params, this->rf_params.seed, d_global_quantiles->data(),
+     this->rf_params.tree_params, this->rf_params.seed, global_quantiles,
      tempmem[stream_id]);
   }
   //Cleanup
@@ -588,8 +598,8 @@ void rfRegressor<T>::fit(const raft::handle_t& user_handle, const T* input,
     }
   }
   if (this->rf_params.tree_params.use_experimental_backend) {
-    d_global_quantiles->release(handle.get_stream());
-    delete d_global_quantiles;
+    global_quantiles_buffer->release(handle.get_stream());
+    delete global_quantiles_buffer;
   }
   CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 }
