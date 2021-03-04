@@ -138,7 +138,7 @@ def test_fil_classification(n_rows, n_columns, num_rounds,
         assert array_equal(fil_preds, xgb_preds_int)
         xgb_proba = np.stack([1-xgb_preds, xgb_preds], axis=1)
         fil_proba = np.asarray(fm.predict_proba(X_validation))
-        assert np.allclose(fil_proba, xgb_proba, 1e-3)
+        assert np.allclose(fil_proba, xgb_proba, atol=3e-7)
 
 
 @pytest.mark.parametrize('n_rows', [unit_param(1000), quality_param(10000),
@@ -262,7 +262,7 @@ def test_fil_skl_classification(n_rows, n_columns, n_estimators, max_depth,
         assert array_equal(fil_preds, skl_preds_int)
         fil_proba = np.asarray(fm.predict_proba(X_validation))
         fil_proba = np.reshape(fil_proba, np.shape(skl_proba))
-        assert np.allclose(fil_proba, skl_proba, 1e-3)
+        assert np.allclose(fil_proba, skl_proba, atol=3e-7)
 
 
 @pytest.mark.parametrize('n_rows', [1000])
@@ -486,8 +486,8 @@ def test_lightgbm(tmp_path, num_classes):
                                   algo='TREE_REORG',
                                   output_class=True,
                                   model_type="lightgbm")
-        fil_proba = fm.predict_proba(X)
-        assert np.allclose(gbm_proba, fil_proba[:, 1], 1e-2)
+        fil_proba = fm.predict_proba(X)[:, 1]
+        assert np.allclose(gbm_proba, fil_proba, atol=1e-7)
         gbm_preds = (gbm_proba > 0.5)
         fil_preds = fm.predict(X)
         assert array_equal(gbm_preds, fil_preds)
