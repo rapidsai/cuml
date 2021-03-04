@@ -288,20 +288,9 @@ void DecisionTreeBase<T, L>::plant(
 
   total_temp_mem = tempmem->totalmem;
   MLCommon::TimerCPU timer;
-  if (tree_params.use_experimental_backend) {
-    if (treeid == 0) {
-      CUML_LOG_WARN("Using experimental backend for growing trees\n");
-    }
-    T *quantiles = tempmem->d_quantile->data();
-    grow_tree(tempmem->device_allocator, tempmem->host_allocator, data, treeid,
-              seed, ncols, nrows, labels, quantiles, (int *)rowids,
-              n_sampled_rows, unique_labels, tree_params, tempmem->stream,
-              sparsetree, this->leaf_counter, this->depth_counter);
-  } else {
-    grow_deep_tree(data, labels, rowids, n_sampled_rows, ncols,
-                   tree_params.max_features, dinfo.NLocalrows, sparsetree,
-                   treeid, tempmem);
-  }
+  grow_deep_tree(data, labels, rowids, n_sampled_rows, ncols,
+                 tree_params.max_features, dinfo.NLocalrows, sparsetree, treeid,
+                 tempmem);
   train_time = timer.getElapsedSeconds();
 }
 
@@ -415,7 +404,7 @@ void DecisionTreeBase<T, L>::base_fit(
   // Dump all the parameters for comaprison
   FILE *fp;
   char filename[100];
-  sprintf(filename, "dump/cmp-%d-%d.txt", seed, treeid);
+  sprintf(filename, "dump/cmp-%lu-%d.txt", seed, treeid);
   fp = fopen(filename, "w");
   fprintf(fp, "Pre-plant dump\n");
   fprintf(fp, "sparsetree vector length = %lu\n", sparsetree.size());
@@ -464,24 +453,40 @@ void DecisionTreeBase<T, L>::base_fit(
       }
     }
   } else {
-        if(tree_params.split_algo == SPLIT_ALGO::GLOBAL_QUANTILE) {
-      CUDA_CHECK(cudaMemcpy(tempmem->h_quantile->data(), d_global_quantiles,
+    T *h_quantile = nullptr;
+    h_quantile = (T*) malloc(tree_params.n_bins * ncols * sizeof(T));
+    if(tree_params.split_algo == SPLIT_ALGO::GLOBAL_QUANTILE) {
+      CUDA_CHECK(cudaMemcpy(h_quantile, d_global_quantiles,
                             tree_params.n_bins * ncols * sizeof(T),
                             cudaMemcpyDeviceToHost));
       fprintf(fp, "    quantiles = {");
       for (int i = 0; i < tree_params.n_bins * ncols; i++) {
         if(i == tree_params.n_bins * ncols - 1) {
-          fprintf(fp, "%f}\n", tempmem->h_quantile->data()[i]);
+          fprintf(fp, "%f}\n", h_quantile[i]);
         } else {
-          fprintf(fp, "%f, ", tempmem->h_quantile->data()[i]);
+          fprintf(fp, "%f, ", h_quantile[i]);
         }
       }
     }
+    free(h_quantile);
   }
   fclose(fp);
-  plant(sparsetree, data, ncols, nrows, labels, rowids, n_sampled_rows,
-        unique_labels, treeid, seed);
-  if(!tree_params.use_experimental_backend) {
+
+  if (tree_params.use_experimental_backend) {
+      dinfo.NLocalrows = nrows;
+  dinfo.NGlobalrows = nrows;
+  dinfo.Ncols = ncols;
+  n_unique_labels = unique_labels;
+  grow_tree(device_allocator_in, host_allocator_in,
+               data, treeid, seed, ncols,
+               nrows, labels, d_global_quantiles,
+               (int*) rowids, n_sampled_rows, unique_labels,
+               tree_params, stream_in,
+               sparsetree,
+               this->leaf_counter, this->depth_counter);
+  } else {
+    plant(sparsetree, data, ncols, nrows, labels, rowids, n_sampled_rows,
+          unique_labels, treeid, seed);
     if (in_tempmem == nullptr) {
       tempmem.reset();
     }
