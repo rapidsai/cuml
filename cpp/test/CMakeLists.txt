@@ -150,7 +150,6 @@ if(BUILD_PRIMS_TESTS)
     prims/completeness_score.cu
     prims/contingencyMatrix.cu
     prims/cov.cu
-    prims/csr.cu
     prims/cutlass_gemm.cu
     prims/decoupled_lookback.cu
     prims/device_utils.cu
@@ -164,7 +163,7 @@ if(BUILD_PRIMS_TESTS)
     prims/entropy.cu
     prims/epsilon_neighborhood.cu
     prims/fast_int_div.cu
-          prims/gather.cu
+    prims/gather.cu
     prims/gram.cu
     prims/grid_sync.cu
     prims/hinge.cu
