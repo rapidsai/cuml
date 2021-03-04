@@ -96,18 +96,21 @@ struct GLMBase : GLMDims {
   typedef SimpleVec<T> Vec;
 
   const raft::handle_t &handle;
-  T* sample_weights;
+  T *sample_weights;
   T weights_sum;
 
   GLMBase(const raft::handle_t &handle, int D, int C, bool fit_intercept)
-    : GLMDims(C, D, fit_intercept), handle(handle),
-      sample_weights(nullptr), weights_sum(0) {}
+    : GLMDims(C, D, fit_intercept),
+      handle(handle),
+      sample_weights(nullptr),
+      weights_sum(0) {}
 
-  void add_sample_weights(T *sample_weights, int n_samples, cudaStream_t stream) {
+  void add_sample_weights(T *sample_weights, int n_samples,
+                          cudaStream_t stream) {
     this->sample_weights = sample_weights;
-    this->weights_sum = thrust::reduce(thrust::cuda::par.on(stream),
-                        sample_weights, sample_weights+n_samples,
-                        (T) 0, thrust::plus<T>());
+    this->weights_sum =
+      thrust::reduce(thrust::cuda::par.on(stream), sample_weights,
+                     sample_weights + n_samples, (T)0, thrust::plus<T>());
   }
 
   /*
@@ -125,25 +128,26 @@ struct GLMBase : GLMDims {
     // TODO would be nice to have a kernel that fuses these two steps
     // This would be easy, if mapThenSumReduce allowed outputing the result of
     // map (supporting inplace)
-    if (this->sample_weights) { // Sample weights are in use
+    if (this->sample_weights) {  // Sample weights are in use
       T normalization = 1.0 / this->weights_sum;
       auto f_l = [=] __device__(const T y, const T z, const T weight) {
         return loss->lz(y, z) * (weight * normalization);
       };
       raft::linalg::mapThenSumReduce(loss_val, y.len, f_l, stream, y.data,
-        Z.data, sample_weights);
+                                     Z.data, sample_weights);
 
       auto f_dl = [=] __device__(const T y, const T z, const T weight) {
         return weight * loss->dlz(y, z);
       };
-      raft::linalg::map(Z.data, y.len, f_dl, stream, y.data, Z.data, sample_weights);
-    } else { // Sample weights are not used
+      raft::linalg::map(Z.data, y.len, f_dl, stream, y.data, Z.data,
+                        sample_weights);
+    } else {  // Sample weights are not used
       T normalization = 1.0 / y.len;
       auto f_l = [=] __device__(const T y, const T z) {
         return loss->lz(y, z) * normalization;
       };
       raft::linalg::mapThenSumReduce(loss_val, y.len, f_l, stream, y.data,
-        Z.data);
+                                     Z.data);
 
       auto f_dl = [=] __device__(const T y, const T z) {
         return loss->dlz(y, z);

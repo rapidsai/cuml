@@ -273,7 +273,8 @@ class LogisticRegression(Base,
 
     @generate_docstring()
     @cuml.internals.api_base_return_any(set_output_dtype=True)
-    def fit(self, X, y, sample_weight=None, convert_dtype=True) -> "LogisticRegression":
+    def fit(self, X, y, sample_weight=None,
+            convert_dtype=True) -> "LogisticRegression":
         """
         Fit the model with X and y.
 
@@ -289,19 +290,16 @@ class LogisticRegression(Base,
             if sample_weight is None:
                 sample_weight = cp.ones(n_rows)
 
-            sample_weight, n_weights, D, _ = \
-                input_to_cuml_array(sample_weight, order='C', check_dtype=cp.float32,
-                                    convert_to_dtype=(cp.float32
-                                                      if convert_dtype
-                                                      else None))
+            sample_weight, n_weights, D, _ = input_to_cuml_array(sample_weight)
 
-            if n_rows != n_weights or D!= 1:
+            if n_rows != n_weights or D != 1:
                 msg = "sample_weight should be of shape ({},)".format(n_rows)
                 raise ValueError(msg)
 
             if self.class_weight_ is not None:
                 if self._num_classes != self.class_weight_.shape[0]:
-                    msg = "class_weight should be of shape ({},)".format(self._num_classes)
+                    msg = "class_weight should be of shape ({},)"
+                    msg = msg.format(self._num_classes)
                     raise ValueError(msg)
                 out = y_m.to_output('cupy')
                 sample_weight *= self.class_weight_[out].to_output('cupy')

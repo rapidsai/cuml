@@ -315,9 +315,9 @@ class QN(Base,
         cdef uintptr_t sample_weight_ptr = 0
         if sample_weight is not None:
             sample_weight, _, _, _ = \
-                input_to_cuml_array(sample_weight, order='C',
-                                    check_dtype=cp.float32,
-                                    convert_to_dtype=(cp.float32
+                input_to_cuml_array(sample_weight,
+                                    check_dtype=self.dtype,
+                                    convert_to_dtype=(self.dtype
                                                       if convert_dtype
                                                       else None))
             sample_weight_ptr = sample_weight.ptr
