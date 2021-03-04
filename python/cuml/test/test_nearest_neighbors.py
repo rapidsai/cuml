@@ -59,7 +59,9 @@ def valid_metrics(algo="brute", cuml_algo=None):
     cuml_algo = algo if cuml_algo is None else cuml_algo
     cuml_metrics = cuml.neighbors.VALID_METRICS[cuml_algo]
     sklearn_metrics = sklearn.neighbors.VALID_METRICS[algo]
-    return [value for value in cuml_metrics if value in sklearn_metrics]
+    ret = [value for value in cuml_metrics if value in sklearn_metrics]
+    ret.remove("haversine")  # This is tested on its own
+    return ret
 
 
 def valid_metrics_sparse(algo="brute", cuml_algo=None):
