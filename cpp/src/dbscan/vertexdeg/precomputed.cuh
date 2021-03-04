@@ -42,6 +42,40 @@ __global__ void dist_to_adj_kernel(const value_t* X, bool* adj, index_t N,
   }
 }
 
+template <uint32_t block_rows, uint32_t block_cols, typename value_t,
+          typename index_t>
+__global__ void __launch_bounds__(block_rows* block_cols)
+  dist_to_adj_transposed_kernel(const value_t* X, bool* adj, index_t N,
+                                index_t start_vertex_id, index_t batch_size,
+                                value_t eps) {
+  __shared__ bool shared_mem[block_rows * block_cols];
+
+  const uint32_t& bi = blockIdx.x;
+  const uint32_t& bj = blockIdx.y;
+
+  uint32_t read_i = block_rows * bi + threadIdx.x % block_rows;
+  uint32_t batch_j = block_cols * bj + threadIdx.x / block_rows;
+  uint32_t read_j = start_vertex_id + batch_j;
+
+  // Load and transform tile from x
+  if (read_i < N && batch_j < batch_size)
+    shared_mem[threadIdx.x] = X[read_j * N + read_i] <= eps;
+
+  uint32_t local_write_i = threadIdx.x % block_cols;
+  uint32_t local_write_j = threadIdx.x / block_cols;
+  uint32_t write_i = block_cols * bj + local_write_i;
+  uint32_t write_j = block_rows * bi + local_write_j;
+
+  /// TODO: fix shared memory bank conflicts?
+  uint32_t sid = local_write_i * block_rows + local_write_j;
+
+  __syncthreads();
+
+  // Write tile in adj
+  if (write_j < N && write_i < batch_size)
+    adj[write_j * batch_size + write_i] = shared_mem[sid];
+}
+
 /**
  * Calculates the vertex degree array and the epsilon neighborhood adjacency matrix for the batch.
  */
@@ -80,6 +114,19 @@ void launcher(const raft::handle_t& handle, Pack<value_t, index_t> data,
   dist_to_adj_kernel<<<data.N, std::min(batch_size, (index_t)256), 0, stream>>>(
     data.x, data.adj, data.N, start_vertex_id, batch_size, data.eps);
   CUDA_CHECK(cudaPeekAtLastError());
+
+  // Note: in case we want to use the same N*B sub-matrix to compute adj,
+  // e.g for multi-node with partitioned matrix, we can use the alternative
+  // kernel that transposes with shared memory (commented code below)
+
+  // constexpr uint32_t block_rows = 32, block_cols = 32;
+  // dim3 grid(raft::ceildiv<index_t>(data.N, block_rows),
+  //           raft::ceildiv<index_t>(batch_size, block_cols));
+  // dim3 block(block_rows * block_cols);
+  // dist_to_adj_transposed_kernel<block_rows, block_cols>
+  //   <<<grid, block, 0, stream>>>(data.x, data.adj, data.N, start_vertex_id,
+  //                                batch_size, data.eps);
+  // CUDA_CHECK(cudaPeekAtLastError());
 }
 
 }  // namespace Precomputed
