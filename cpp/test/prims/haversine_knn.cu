@@ -19,6 +19,7 @@
 #include <raft/linalg/distance_type.h>
 #include <iostream>
 #include <raft/cuda_utils.cuh>
+#include <raft/mr/device/allocator.hpp>
 #include <selection/haversine_knn.cuh>
 #include <vector>
 #include "test_utils.h"
