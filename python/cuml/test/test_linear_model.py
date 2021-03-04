@@ -505,7 +505,7 @@ def regression_dataset():
 
 
 @pytest.mark.parametrize('option', ['sample_weight', 'class_weight',
-                                    'no_weight'])
+                                    'balanced', 'no_weight'])
 def test_logistic_regression_weighting(regression_dataset, option):
     data, coef, output = regression_dataset
 
@@ -520,11 +520,18 @@ def test_logistic_regression_weighting(regression_dataset, option):
         sklog.fit(data, output, sample_weight=sample_weight)
     elif option == 'class_weight':
         class_weight = np.random.rand(2)
+        class_weight = {0: class_weight[0], 1: class_weight[1]}
 
-        culog = cuLog(class_weight=class_weight, fit_intercept=False)
+        culog = cuLog(fit_intercept=False, class_weight=class_weight)
         culog.fit(data, output)
 
-        sklog = skLog(class_weight=class_weight, fit_intercept=False)
+        sklog = skLog(fit_intercept=False, class_weight=class_weight)
+        sklog.fit(data, output)
+    elif option == 'balanced':
+        culog = cuLog(fit_intercept=False, class_weight='balanced')
+        culog.fit(data, output)
+
+        sklog = skLog(fit_intercept=False, class_weight='balanced')
         sklog.fit(data, output)
     else:
         culog = cuLog(fit_intercept=False)

@@ -245,10 +245,15 @@ class LogisticRegression(Base,
         loss = "sigmoid"
 
         if class_weight is not None:
-            self.class_weight_, _, _, _ = \
-                input_to_cuml_array(class_weight, order='C',
-                                    check_dtype=cp.float32,
-                                    convert_to_dtype=(cp.float32))
+            if class_weight == 'balanced':
+                self.class_weight_ = 'balanced'
+            else:
+                classes = list(class_weight.keys())
+                weights = list(class_weight.values())
+                max_class = sorted(classes)[-1]
+                class_weight = cp.zeros(max_class + 1)
+                class_weight[classes] = weights
+                self.class_weight_, _, _, _ = input_to_cuml_array(class_weight)
         else:
             self.class_weight_ = None
 
@@ -297,12 +302,19 @@ class LogisticRegression(Base,
                 raise ValueError(msg)
 
             if self.class_weight_ is not None:
-                if self._num_classes != self.class_weight_.shape[0]:
+                if self.class_weight_ == 'balanced':
+                    class_weight = n_rows / \
+                                   (self._num_classes *
+                                    cp.bincount(y_m.to_output('cupy')))
+                    class_weight = CumlArray(class_weight)
+                else:
+                    class_weight = self.class_weight_
+                if self._num_classes != class_weight.shape[0]:
                     msg = "class_weight should be of shape ({},)"
                     msg = msg.format(self._num_classes)
                     raise ValueError(msg)
                 out = y_m.to_output('cupy')
-                sample_weight *= self.class_weight_[out].to_output('cupy')
+                sample_weight *= class_weight[out].to_output('cupy')
                 sample_weight = CumlArray(sample_weight)
 
         if self._num_classes > 2:
