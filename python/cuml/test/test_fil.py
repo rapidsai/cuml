@@ -487,7 +487,7 @@ def test_lightgbm(tmp_path, num_classes):
                                   output_class=True,
                                   model_type="lightgbm")
         fil_proba = fm.predict_proba(X)[:, 1]
-        assert np.allclose(gbm_proba, fil_proba, atol=1e-7)
+        assert np.allclose(gbm_proba, fil_proba, atol=3e-7)
         gbm_preds = (gbm_proba > 0.5)
         fil_preds = fm.predict(X)
         assert array_equal(gbm_preds, fil_preds)
