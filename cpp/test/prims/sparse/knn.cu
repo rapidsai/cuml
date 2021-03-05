@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,6 +17,8 @@
 #include <cusparse_v2.h>
 #include <gtest/gtest.h>
 
+#include <raft/linalg/distance_type.h>
+#include <raft/sparse/cusparse_wrappers.h>
 #include <test_utils.h>
 #include <sparse/selection/knn.cuh>
 
@@ -48,7 +50,8 @@ struct SparseKNNInputs {
   int batch_size_index = 2;
   int batch_size_query = 2;
 
-  ML::MetricType metric = ML::MetricType::METRIC_L2;
+  raft::distance::DistanceType metric =
+    raft::distance::DistanceType::L2SqrtExpanded;
 };
 
 template <typename value_idx, typename value_t>
@@ -163,7 +166,8 @@ const std::vector<SparseKNNInputs<int, float>> inputs_i32_f = {
    {0, 3, 1, 0, 2, 0, 3, 0},                          // inds
    2,
    2,
-   ML::MetricType::METRIC_L2}};
+   2,
+   raft::distance::DistanceType::L2SqrtExpanded}};
 typedef SparseKNNTest<int, float> KNNTestF;
 TEST_P(KNNTestF, Result) { compare(); }
 INSTANTIATE_TEST_CASE_P(SparseKNNTest, KNNTestF,

@@ -135,8 +135,8 @@ def make_blobs(n_samples=100, n_features=2, centers=None, cluster_std=1.0,
     """
 
     # Set the default output type to "cupy". This will be ignored if the user
-    # has set `cuml.global_output_type`. Only necessary for array generation
-    # methods that do not take an array as input
+    # has set `cuml.global_settings.output_type`. Only necessary for array
+    # generation methods that do not take an array as input
     cuml.internals.set_api_output_type("cupy")
 
     generator = _create_rs_generator(random_state=random_state)
