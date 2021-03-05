@@ -44,16 +44,14 @@ cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics":
                            DistanceType metric, bool isRowMajor) except +
 
 cdef extern from "cuml/metrics/metrics.hpp" namespace "raft::sparse::distance":
-    void pairwiseDistance_py(const handle_t &handle, float *x,
-                             float *y,
+    void pairwiseDistance_py(const handle_t &handle, float *x, float *y,
                              float *dist, int x_nrows, int y_nrows, int n_cols,
                              int x_nnz, int y_nnz, int* x_indptr,
                              int* y_indptr, int* x_indices, int* y_indices,
                              DistanceType metric, float metric_arg) except +
-    void pairwiseDistance_py(const handle_t &handle, double *x,
-                             double *y,
-                             double *dist, int x_nrows, int y_nrows, int n_cols,
-                             int x_nnz, int y_nnz, int* x_indptr,
+    void pairwiseDistance_py(const handle_t &handle, double *x, double *y,
+                             double *dist, int x_nrows, int y_nrows,
+                             int n_cols, int x_nnz, int y_nnz, int* x_indptr,
                              int* y_indptr, int* x_indices, int* y_indices,
                              DistanceType metric,
                              float metric_arg) except +
@@ -89,8 +87,8 @@ PAIRWISE_DISTANCE_SPARSE_METRICS = {
     "linf": DistanceType.Linf
 }
 
-def _determine_metric(metric_str, is_sparse=False):
 
+def _determine_metric(metric_str, is_sparse=False):
     # Available options in scikit-learn and their pairs. See
     # sklearn.metrics.pairwise.PAIRWISE_DISTANCE_FUNCTIONS:
     # 'cityblock': L1
@@ -114,8 +112,8 @@ def _determine_metric(metric_str, is_sparse=False):
 
     if not(is_sparse) and (metric_str not in PAIRWISE_DISTANCE_METRICS):
         if metric_str in PAIRWISE_DISTANCE_SPARSE_METRICS:
-            raise ValueError(" The metric: '{}', is only available on sparse data."
-                             .format(metric_str))
+            raise ValueError(" The metric: '{}', is only available on "
+                             "sparse data.".format(metric_str))
         else:
             raise ValueError("Unknown metric: {}".format(metric_str))
     elif is_sparse and (metric_str not in PAIRWISE_DISTANCE_SPARSE_METRICS):
@@ -289,24 +287,24 @@ def pairwise_distances(X, Y=None, metric="euclidean", handle=None,
     # Now execute the functions
     if (dtype_x == np.float32):
         pairwise_distance(handle_[0],
-                        <float*> d_X_ptr,
-                        <float*> d_Y_ptr,
-                        <float*> d_dest_ptr,
-                        <int> n_samples_x,
-                        <int> n_samples_y,
-                        <int> n_features_x,
-                        <DistanceType> metric_val,
-                        <bool> is_row_major)
+                          <float*> d_X_ptr,
+                          <float*> d_Y_ptr,
+                          <float*> d_dest_ptr,
+                          <int> n_samples_x,
+                          <int> n_samples_y,
+                          <int> n_features_x,
+                          <DistanceType> metric_val,
+                          <bool> is_row_major)
     elif (dtype_x == np.float64):
         pairwise_distance(handle_[0],
-                        <double*> d_X_ptr,
-                        <double*> d_Y_ptr,
-                        <double*> d_dest_ptr,
-                        <int> n_samples_x,
-                        <int> n_samples_y,
-                        <int> n_features_x,
-                        <DistanceType> metric_val,
-                        <bool> is_row_major)
+                          <double*> d_X_ptr,
+                          <double*> d_Y_ptr,
+                          <double*> d_dest_ptr,
+                          <int> n_samples_x,
+                          <int> n_samples_y,
+                          <int> n_features_x,
+                          <DistanceType> metric_val,
+                          <bool> is_row_major)
     else:
         raise NotImplementedError("Unsupported dtype: {}".format(dtype_x))
 
@@ -320,14 +318,14 @@ def pairwise_distances(X, Y=None, metric="euclidean", handle=None,
 
 
 def sparse_pairwise_distance(X, Y=None, metric="euclidean", handle=None,
-                             convert_dtype=True, output_type=None, metric_arg = 2,
-                             **kwds):
+                             convert_dtype=True, output_type=None,
+                             metric_arg=2, **kwds):
     handle = Handle() if handle is None else handle
     cdef handle_t *handle_ = <handle_t*> <size_t> handle.getHandle()
-    
+
     if scipy.sparse.issparse(X):
         X = sparse_scipy_to_cp(X, dtype=None)
-    
+
     X_m = SparseCumlArray(X)
     n_samples_x, n_features_x = X_m.shape
     dtype_x = X_m.dtype
@@ -350,7 +348,7 @@ def sparse_pairwise_distance(X, Y=None, metric="euclidean", handle=None,
 
     # Get the metric string to a distance enum
     metric_val = _determine_metric(metric, is_sparse=True)
-    
+
     x_nrows, y_nrows = X_m.indptr.shape[0] - 1, Y_m.indptr.shape[0] - 1
     dest_m = CumlArray.zeros((x_nrows, y_nrows), dtype=dtype_x)
     cdef uintptr_t d_dest_ptr = dest_m.ptr
@@ -358,11 +356,11 @@ def sparse_pairwise_distance(X, Y=None, metric="euclidean", handle=None,
     cdef uintptr_t d_X_ptr = X_m.data.ptr
     cdef uintptr_t X_m_indptr = X_m.indptr.ptr
     cdef uintptr_t X_m_indices = X_m.indices.ptr
-    
+
     cdef uintptr_t d_Y_ptr = Y_m.data.ptr
     cdef uintptr_t Y_m_indptr = Y_m.indptr.ptr
     cdef uintptr_t Y_m_indices = Y_m.indices.ptr
-    
+
     if (dtype_x == np.float32):
         pairwiseDistance_py(handle_[0],
                             <float*> d_X_ptr,
