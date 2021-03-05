@@ -490,24 +490,33 @@ def test_logistic_predict_convert_dtype(train_dtype, test_dtype):
     clf.predict(X_test.astype(test_dtype))
 
 
-@pytest.fixture()
-def regression_dataset():
-    n_samples = 100000
+@pytest.fixture(scope='session',
+                params=['binary', 'multiclass'])
+def regression_dataset(request):
+    regression_type = request.param
+    n_samples = 500000
     n_features = 5
 
     data = (np.random.rand(n_samples, n_features) * 2) - 1
-    coef = (np.random.rand(n_features) * 2) - 1
-    coef /= np.linalg.norm(coef)
-    output = (data @ coef) > 0
-    output = output.astype(np.int32)
 
-    return data, coef, output
+    if regression_type == 'binary':
+        coef = (np.random.rand(n_features) * 2) - 1
+        coef /= np.linalg.norm(coef)
+        output = (data @ coef) > 0
+    elif regression_type == 'multiclass':
+        n_classes = 3
+        coef = (np.random.rand(n_features, n_classes) * 2) - 1
+        coef /= np.linalg.norm(coef, axis=0)
+        output = (data @ coef).argmax(axis=1)
+
+    output = output.astype(np.int32)
+    return regression_type, data, coef, output
 
 
 @pytest.mark.parametrize('option', ['sample_weight', 'class_weight',
                                     'balanced', 'no_weight'])
 def test_logistic_regression_weighting(regression_dataset, option):
-    data, coef, output = regression_dataset
+    regression_type, data, coef, output = regression_dataset
 
     if option == 'sample_weight':
         n_samples = data.shape[0]
@@ -542,9 +551,19 @@ def test_logistic_regression_weighting(regression_dataset, option):
 
     skcoef = np.squeeze(sklog.coef_)
     cucoef = np.squeeze(culog.coef_)
-    skcoef /= np.linalg.norm(skcoef)
-    cucoef /= np.linalg.norm(cucoef)
-    assert array_equal(skcoef, cucoef, unit_tol=0.02, total_tol=0.05)
+    if regression_type == 'binary':
+        skcoef /= np.linalg.norm(skcoef)
+        cucoef /= np.linalg.norm(cucoef)
+        unit_tol = 0.04
+        total_tol = 0.08
+    elif regression_type == 'multiclass':
+        skcoef = skcoef.T
+        skcoef /= np.linalg.norm(skcoef, axis=1)[:, None]
+        cucoef /= np.linalg.norm(cucoef, axis=1)[:, None]
+        unit_tol = 0.2
+        total_tol = 0.3
 
+    assert array_equal(skcoef, cucoef, unit_tol=unit_tol, total_tol=total_tol)
     if option == 'no_weight':
-        assert array_equal(coef, cucoef, unit_tol=0.02, total_tol=0.05)
+        assert array_equal(coef, cucoef, unit_tol=unit_tol,
+                           total_tol=total_tol)

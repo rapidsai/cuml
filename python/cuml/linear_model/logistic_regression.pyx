@@ -251,7 +251,7 @@ class LogisticRegression(Base,
                 classes = list(class_weight.keys())
                 weights = list(class_weight.values())
                 max_class = sorted(classes)[-1]
-                class_weight = cp.zeros(max_class + 1)
+                class_weight = cp.ones(max_class + 1)
                 class_weight[classes] = weights
                 self.class_weight_, _, _, _ = input_to_cuml_array(class_weight)
         else:
@@ -308,11 +308,14 @@ class LogisticRegression(Base,
                                     cp.bincount(y_m.to_output('cupy')))
                     class_weight = CumlArray(class_weight)
                 else:
-                    class_weight = self.class_weight_
-                if self._num_classes != class_weight.shape[0]:
-                    msg = "class_weight should be of shape ({},)"
-                    msg = msg.format(self._num_classes)
-                    raise ValueError(msg)
+                    n_explicit = self.class_weight_.shape[0]
+                    if n_explicit != self._num_classes:
+                        class_weight = cp.ones(self._num_classes)
+                        class_weight[:n_explicit] = self.class_weight_
+                        class_weight = CumlArray(class_weight)
+                        self.class_weight_ = class_weight
+                    else:
+                        class_weight = self.class_weight_
                 out = y_m.to_output('cupy')
                 sample_weight *= class_weight[out].to_output('cupy')
                 sample_weight = CumlArray(sample_weight)
