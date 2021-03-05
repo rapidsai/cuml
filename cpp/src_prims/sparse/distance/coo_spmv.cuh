@@ -22,9 +22,9 @@
 #include <raft/mr/device/allocator.hpp>
 #include <raft/mr/device/buffer.hpp>
 
-#include <sparse/distance/common.h>
-#include <sparse/utils.h>
-#include <sparse/csr.cuh>
+#include "../csr.cuh"
+#include "../utils.h"
+#include "common.h"
 
 #include <limits.h>
 

@@ -555,7 +555,19 @@ def test_robust_scale_sparse(sparse_clf_dataset,  # noqa: F811
 @check_cupy8('pytest')
 @pytest.mark.parametrize("n_bins", [5, 20])
 @pytest.mark.parametrize("encode", ['ordinal', 'onehot-dense', 'onehot'])
-@pytest.mark.parametrize("strategy", ['uniform', 'quantile', 'kmeans'])
+@pytest.mark.parametrize("strategy", [
+    pytest.param('uniform', marks=pytest.mark.xfail(
+        strict=False,
+        reason='Intermittent mismatch with sklearn'
+        ' (https://github.com/rapidsai/cuml/issues/3481)'
+    )),
+    pytest.param('quantile', marks=pytest.mark.xfail(
+        strict=False,
+        reason='Bug in cupy.percentile'
+        ' (https://github.com/cupy/cupy/issues/4607)'
+    )),
+    'kmeans'
+])
 def test_kbinsdiscretizer(blobs_dataset, n_bins,  # noqa: F811
                           encode, strategy):
     X_np, X = blobs_dataset

@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,13 +21,15 @@ import pprint
 
 import cuml.internals
 from cuml.solvers import QN
-from cuml.common.base import Base, ClassifierMixin
+from cuml.common.base import Base
+from cuml.common.mixins import ClassifierMixin
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.array import CumlArray
 from cuml.common.doc_utils import generate_docstring
 import cuml.common.logger as logger
 from cuml.common import input_to_cuml_array
 from cuml.common import using_output_type
+from cuml.common.mixins import FMajorInputTagMixin
 
 
 supported_penalties = ["l1", "l2", "none", "elasticnet"]
@@ -35,7 +37,9 @@ supported_penalties = ["l1", "l2", "none", "elasticnet"]
 supported_solvers = ["qn"]
 
 
-class LogisticRegression(Base, ClassifierMixin):
+class LogisticRegression(Base,
+                         ClassifierMixin,
+                         FMajorInputTagMixin):
     """
     LogisticRegression is a linear model that is used to model probability of
     occurrence of certain events, for example probability of success or fail of
@@ -148,7 +152,7 @@ class LogisticRegression(Base, ClassifierMixin):
     output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
         Variable to control output type of the results and attributes of
         the estimator. If None, it'll inherit the output type set at the
-        module level, `cuml.global_output_type`.
+        module level, `cuml.global_settings.output_type`.
         See :ref:`output-data-type-configuration` for more info.
 
     Attributes
@@ -424,8 +428,3 @@ class LogisticRegression(Base, ClassifierMixin):
         super(LogisticRegression, self).__init__(handle=None,
                                                  verbose=state["verbose"])
         self.__dict__.update(state)
-
-    def _more_tags(self):
-        return {
-            'preferred_input_order': 'F'
-        }

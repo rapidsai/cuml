@@ -17,7 +17,6 @@
 #pragma once
 
 #include <raft/linalg/gemv.h>
-#include <common/cumlHandle.hpp>
 #include <linalg/lstsq.cuh>
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/norm.cuh>
@@ -76,10 +75,8 @@ void olsFit(const raft::handle_t &handle, math_t *input, int n_rows, int n_cols,
                    fit_intercept, normalize, stream);
   }
 
-  if (algo == 0 || n_cols == 1) {
-    LinAlg::lstsqSVD(handle, input, n_rows, n_cols, labels, coef, stream);
-  } else if (algo == 1) {
-    LinAlg::lstsqEig(handle, input, n_rows, n_cols, labels, coef, stream);
+  if (algo == 0 || algo == 1) {
+    LinAlg::lstsq(handle, input, n_rows, n_cols, labels, coef, algo, stream);
   } else if (algo == 2) {
     LinAlg::lstsqQR(input, n_rows, n_cols, labels, coef, cusolver_handle,
                     cublas_handle, allocator, stream);
