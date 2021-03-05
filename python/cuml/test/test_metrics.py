@@ -1101,7 +1101,7 @@ def test_sparse_pairwise_distances(metric: str, matrix_size):
     from scipy import sparse
     
     # For fp64, compare at 13 decimals, (2 places less than the ~15 max)
-    compare_precision = 7
+    compare_precision = 9
 
     # Compare to sklearn, single input
     X = scipy.sparse.random(matrix_size[0], matrix_size[1], format='csr',
