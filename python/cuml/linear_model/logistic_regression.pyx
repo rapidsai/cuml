@@ -291,6 +291,12 @@ class LogisticRegression(Base,
         self.classes_ = cp.unique(y_m)
         self._num_classes = len(self.classes_)
 
+        if self._num_classes == 2:
+            if self.classes_[0] != 0 or self.classes_[1] != 1:
+                msg = ("In binary classification,"
+                       "y should be filled with 0 and 1")
+                raise ValueError(msg)
+
         if sample_weight is not None or self.class_weight_ is not None:
             if sample_weight is None:
                 sample_weight = cp.ones(n_rows)
