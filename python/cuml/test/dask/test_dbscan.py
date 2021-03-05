@@ -72,10 +72,10 @@ def test_dbscan(datatype, nrows, ncols,
 
 
 @pytest.mark.mg
-@pytest.mark.parametrize('max_mbytes_per_batch', [1e3, None])
+@pytest.mark.parametrize('max_mbytes_per_batch', [1e2, None])
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
 @pytest.mark.parametrize('nrows', [unit_param(500), quality_param(5000),
-                         stress_param(500000)])
+                         stress_param(10000)])
 @pytest.mark.parametrize('out_dtype', ["int32", "int64"])
 def test_dbscan_precomputed(datatype, nrows, max_mbytes_per_batch, out_dtype,
                             client):
@@ -96,18 +96,17 @@ def test_dbscan_precomputed(datatype, nrows, max_mbytes_per_batch, out_dtype,
 
     cu_labels = cuml_dbscan.fit_predict(X_dist, out_dtype=out_dtype)
 
-    if nrows < 500000:
-        sk_dbscan = skDBSCAN(eps=1, min_samples=2, metric='precomputed',
-                             algorithm="brute")
-        sk_labels = sk_dbscan.fit_predict(X_dist)
+    sk_dbscan = skDBSCAN(eps=1, min_samples=2, metric='precomputed',
+                            algorithm="brute")
+    sk_labels = sk_dbscan.fit_predict(X_dist)
 
-        # Check the core points are equal
-        assert array_equal(cuml_dbscan.core_sample_indices_,
-                           sk_dbscan.core_sample_indices_)
+    # Check the core points are equal
+    assert array_equal(cuml_dbscan.core_sample_indices_,
+                        sk_dbscan.core_sample_indices_)
 
-        # Check the labels are correct
-        assert_dbscan_equal(sk_labels, cu_labels, X,
-                            cuml_dbscan.core_sample_indices_, eps)
+    # Check the labels are correct
+    assert_dbscan_equal(sk_labels, cu_labels, X,
+                        cuml_dbscan.core_sample_indices_, eps)
 
 
 @pytest.mark.mg

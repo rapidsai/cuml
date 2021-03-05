@@ -95,13 +95,18 @@ void launcher(const raft::handle_t& handle, Pack<value_t, index_t> data,
   //  - The conversion to a boolean matrix works on a column-major B*N matrix
   //    (coalesced 2d copy + transform).
 
+  // Regarding index types, a special index type is used here for indices in
+  // the distance matrix due to its dimensions (that are independent of the
+  // batch size)
+  using long_index_t = long long int;
+
   // Reduction to compute the vertex degrees
   index_t* d_nnz = data.vd + batch_size;
   CUDA_CHECK(cudaMemsetAsync(d_nnz, 0, sizeof(index_t), stream));
-  raft::linalg::coalescedReduction(
+  raft::linalg::coalescedReduction<value_t, index_t, long_index_t>(
     data.vd, data.x + start_vertex_id * data.N, data.N, batch_size, (index_t)0,
     stream, false,
-    [eps] __device__(value_t dist, index_t idx) {
+    [eps] __device__(value_t dist, long_index_t idx) {
       return static_cast<index_t>(dist <= eps);
     },
     raft::Sum<index_t>(),
@@ -112,7 +117,8 @@ void launcher(const raft::handle_t& handle, Pack<value_t, index_t> data,
 
   // Transform the distance matrix into a neighborhood matrix
   dist_to_adj_kernel<<<data.N, std::min(batch_size, (index_t)256), 0, stream>>>(
-    data.x, data.adj, data.N, start_vertex_id, batch_size, data.eps);
+    data.x, data.adj, (long_index_t)data.N, (long_index_t)start_vertex_id,
+    (long_index_t)batch_size, data.eps);
   CUDA_CHECK(cudaPeekAtLastError());
 
   // Note: in case we want to use the same N*B sub-matrix to compute adj,
@@ -124,8 +130,9 @@ void launcher(const raft::handle_t& handle, Pack<value_t, index_t> data,
   //           raft::ceildiv<index_t>(batch_size, block_cols));
   // dim3 block(block_rows * block_cols);
   // dist_to_adj_transposed_kernel<block_rows, block_cols>
-  //   <<<grid, block, 0, stream>>>(data.x, data.adj, data.N, start_vertex_id,
-  //                                batch_size, data.eps);
+  //   <<<grid, block, 0, stream>>>(data.x, data.adj, (long_index_t)data.N,
+  //                                (long_index_t)start_vertex_id,
+  //                                (long_index_t)batch_size, data.eps);
   // CUDA_CHECK(cudaPeekAtLastError());
 }
 

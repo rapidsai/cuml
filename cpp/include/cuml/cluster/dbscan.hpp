@@ -29,7 +29,7 @@ typedef enum { PRECOMPUTED = 0, L2 } MetricType;
  * @brief Fits a DBSCAN model on an input feature matrix and outputs the labels
  *        and core_sample_indices.
  * @param[in] handle cuml handle to use across the algorithm
- * @param[in] input row-major input feature matrix
+ * @param[in] input row-major input feature matrix or distance matrix
  * @param[in] n_rows number of samples in the input feature matrix
  * @param[in] n_cols number of features in the input feature matrix
  * @param[in] eps epsilon value to use for epsilon-neighborhood determination

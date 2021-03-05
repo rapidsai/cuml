@@ -39,7 +39,7 @@ from collections import defaultdict
 
 cdef extern from "cuml/cluster/dbscan.hpp" \
         namespace "ML::Dbscan":
-    
+
     ctypedef enum MetricType:
         PRECOMPUTED,
         L2
@@ -230,7 +230,7 @@ class DBSCAN(Base,
         # C++ API expects this to be numeric.
         if self.max_mbytes_per_batch is None:
             self.max_mbytes_per_batch = 0
-        
+
         # metric
         metric_parsing = {
             'L2': L2,
