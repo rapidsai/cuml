@@ -53,6 +53,11 @@ def simulate_data(m, n, k=2, random_state=None, classification=True,
         np.c_[labels].astype(np.float32).flatten()
 
 
+# absolute tolerance for FIL predict_proba
+# False is binary classification, True is multiclass
+proba_atol = {False: 3e-7, True: 3e-6}
+
+
 def _build_and_save_xgboost(model_path,
                             X_train,
                             y_train,
@@ -140,7 +145,8 @@ def test_fil_classification(n_rows, n_columns, num_rounds,
     else:
         xgb_proba = bst.predict(dvalidation, output_margin=True)
     fil_proba = np.asarray(fm.predict_proba(X_validation))
-    np.testing.assert_allclose(fil_proba, xgb_proba, 1e-3)
+    np.testing.assert_allclose(fil_proba, xgb_proba,
+                               atol=proba_atol[n_classes > 2])
 
 
 @pytest.mark.parametrize('n_rows', [unit_param(1000), quality_param(10000),
@@ -264,7 +270,8 @@ def test_fil_skl_classification(n_rows, n_columns, n_estimators, max_depth,
         assert array_equal(fil_preds, skl_preds_int)
     fil_proba = np.asarray(fm.predict_proba(X_validation))
     fil_proba = np.reshape(fil_proba, np.shape(skl_proba))
-    np.testing.assert_allclose(fil_proba, skl_proba, 1e-4)
+    np.testing.assert_allclose(fil_proba, skl_proba,
+                               atol=proba_atol[n_classes > 2])
 
 
 @pytest.mark.parametrize('n_rows', [1000])
@@ -451,13 +458,14 @@ def test_lightgbm(tmp_path, num_classes):
                                   algo='TREE_REORG',
                                   output_class=True,
                                   model_type="lightgbm")
-        fil_proba = fm.predict_proba(X)
         # binary classification
         gbm_proba = bst.predict(X)
-        assert np.allclose(gbm_proba, fil_proba[:, 1], 1e-6)
+        fil_proba = fm.predict_proba(X)[:, 1]
         gbm_preds = (gbm_proba > 0.5)
         fil_preds = fm.predict(X)
         assert array_equal(gbm_preds, fil_preds)
+        np.testing.assert_allclose(gbm_proba, fil_proba,
+                                   atol=proba_atol[num_classes > 2])
     else:
         # multi-class classification
         lgm = lgb.LGBMClassifier(objective='multiclass',
@@ -473,6 +481,5 @@ def test_lightgbm(tmp_path, num_classes):
         assert array_equal(lgm.booster_.predict(X).argmax(axis=1), lgm_preds)
         assert array_equal(lgm_preds, fm.predict(X))
         # lightgbm uses float64 thresholds, while FIL uses float32
-        # TODO(levsnv): once FIL supports float64 accuracy, revisit thresholds
         np.testing.assert_allclose(lgm.predict_proba(X), fm.predict_proba(X),
-                                   1e-6)
+                                   atol=proba_atol[num_classes > 2])
