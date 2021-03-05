@@ -421,6 +421,8 @@ class NearestNeighbors(Base,
             m = DistanceType.JaccardExpanded
         elif metric == "hellinger":
             m = DistanceType.HellingerExpanded
+        elif metric == "haversine":
+            m = DistanceType.Haversine
         else:
             raise ValueError("Metric %s is not supported" % metric)
 

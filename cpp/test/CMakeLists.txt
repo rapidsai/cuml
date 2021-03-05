@@ -168,6 +168,7 @@ if(BUILD_PRIMS_TESTS)
     prims/gather.cu
     prims/gram.cu
     prims/grid_sync.cu
+    prims/haversine_knn.cu
     prims/hinge.cu
     prims/histogram.cu
     prims/homogeneity_score.cu
