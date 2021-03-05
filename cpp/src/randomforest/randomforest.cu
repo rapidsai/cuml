@@ -18,20 +18,24 @@
 #else
 #define omp_get_max_threads() 1
 #endif
+
+#include <cuml/ensemble/randomforest.hpp>
+
 #include <cuml/tree/flatnode.h>
 #include <treelite/c_api.h>
 #include <treelite/tree.h>
-#include <cstdio>
-#include <cstring>
+
 #include <cuml/common/logger.hpp>
-#include <cuml/ensemble/randomforest.hpp>
-#include <fstream>
-#include <iostream>
 #include <raft/error.hpp>
-#include <string>
-#include <vector>
 
 #include "randomforest_impl.cuh"
+
+#include <cstdio>
+#include <cstring>
+#include <fstream>
+#include <iostream>
+#include <string>
+#include <vector>
 
 namespace ML {
 
@@ -500,7 +504,7 @@ ModelHandle concatenate_trees(std::vector<ModelHandle> treelite_handles) {
 }
 
 /**
- * @defgroup Random Forest Classification - Fit function
+ * @defgroup RandomForestClassificationFit Random Forest Classification - Fit function
  * @brief Build (i.e., fit, train) random forest classifier for input data.
  * @param[in] user_handle: raft::handle_t
  * @param[in,out] forest: CPU pointer to RandomForestMetaData object. User allocated.
@@ -520,6 +524,7 @@ ModelHandle concatenate_trees(std::vector<ModelHandle> treelite_handles) {
 void fit(const raft::handle_t& user_handle, RandomForestClassifierF*& forest,
          float* input, int n_rows, int n_cols, int* labels, int n_unique_labels,
          RF_params rf_params, int verbosity) {
+  ML::PUSH_RANGE("RF::fit @randomforest.cu");
   ML::Logger::get().setLevel(verbosity);
   ASSERT(!forest->trees, "Cannot fit an existing forest.");
   forest->trees =
@@ -530,11 +535,13 @@ void fit(const raft::handle_t& user_handle, RandomForestClassifierF*& forest,
     std::make_shared<rfClassifier<float>>(rf_params);
   rf_classifier->fit(user_handle, input, n_rows, n_cols, labels,
                      n_unique_labels, forest);
+  ML::POP_RANGE();
 }
 
 void fit(const raft::handle_t& user_handle, RandomForestClassifierD*& forest,
          double* input, int n_rows, int n_cols, int* labels,
          int n_unique_labels, RF_params rf_params, int verbosity) {
+  ML::PUSH_RANGE("RF::fit @randomforest.cu");
   ML::Logger::get().setLevel(verbosity);
   ASSERT(!forest->trees, "Cannot fit an existing forest.");
   forest->trees =
@@ -545,11 +552,12 @@ void fit(const raft::handle_t& user_handle, RandomForestClassifierD*& forest,
     std::make_shared<rfClassifier<double>>(rf_params);
   rf_classifier->fit(user_handle, input, n_rows, n_cols, labels,
                      n_unique_labels, forest);
+  ML::POP_RANGE();
 }
 /** @} */
 
 /**
- * @defgroup Random Forest Classification - Predict function
+ * @defgroup RandomForestClassificationPredict Random Forest Classification - Predict function
  * @brief Predict target feature for input data; n-ary classification for
      single feature supported.
  * @param[in] user_handle: raft::handle_t.
@@ -584,7 +592,7 @@ void predict(const raft::handle_t& user_handle,
 /** @} */
 
 /**
- * @defgroup Random Forest Classification - Predict function
+ * @addtogroup RandomForestClassificationPredict
  * @brief Predict target feature for input data; n-ary classification for
      single feature supported.
  * @param[in] user_handle: raft::handle_t.
@@ -619,7 +627,7 @@ void predictGetAll(const raft::handle_t& user_handle,
 /** @} */
 
 /**
- * @defgroup Random Forest Classification - Score function
+ * @defgroup RandomForestClassificationScore Random Forest Classification - Score function
  * @brief Compare predicted features validate against ref_labels.
  * @param[in] user_handle: raft::handle_t.
  * @param[in] forest: CPU pointer to RandomForestMetaData object.
@@ -672,7 +680,7 @@ RF_params set_rf_class_obj(int max_depth, int max_leaves, float max_features,
 /** @} */
 
 /**
- * @defgroup Random Forest Regression - Fit function
+ * @defgroup RandomForestRegressorFit Random Forest Regression - Fit function
  * @brief Build (i.e., fit, train) random forest regressor for input data.
  * @param[in] user_handle: raft::handle_t
  * @param[in,out] forest: CPU pointer to RandomForestMetaData object. User allocated.
@@ -689,6 +697,7 @@ RF_params set_rf_class_obj(int max_depth, int max_leaves, float max_features,
 void fit(const raft::handle_t& user_handle, RandomForestRegressorF*& forest,
          float* input, int n_rows, int n_cols, float* labels,
          RF_params rf_params, int verbosity) {
+  ML::PUSH_RANGE("RF::fit @randomforest.cu");
   ML::Logger::get().setLevel(verbosity);
   ASSERT(!forest->trees, "Cannot fit an existing forest.");
   forest->trees =
@@ -698,11 +707,13 @@ void fit(const raft::handle_t& user_handle, RandomForestRegressorF*& forest,
   std::shared_ptr<rfRegressor<float>> rf_regressor =
     std::make_shared<rfRegressor<float>>(rf_params);
   rf_regressor->fit(user_handle, input, n_rows, n_cols, labels, forest);
+  ML::POP_RANGE();
 }
 
 void fit(const raft::handle_t& user_handle, RandomForestRegressorD*& forest,
          double* input, int n_rows, int n_cols, double* labels,
          RF_params rf_params, int verbosity) {
+  ML::PUSH_RANGE("RF::fit @randomforest.cu");
   ML::Logger::get().setLevel(verbosity);
   ASSERT(!forest->trees, "Cannot fit an existing forest.");
   forest->trees =
@@ -712,11 +723,12 @@ void fit(const raft::handle_t& user_handle, RandomForestRegressorD*& forest,
   std::shared_ptr<rfRegressor<double>> rf_regressor =
     std::make_shared<rfRegressor<double>>(rf_params);
   rf_regressor->fit(user_handle, input, n_rows, n_cols, labels, forest);
+  ML::POP_RANGE();
 }
 /** @} */
 
 /**
- * @defgroup Random Forest Regression - Predict function
+ * @defgroup RandomForestRegressorPredict Random Forest Regression - Predict function
  * @brief Predict target feature for input data; regression for single feature supported.
  * @param[in] user_handle: raft::handle_t.
  * @param[in] forest: CPU pointer to RandomForestMetaData object.
@@ -750,7 +762,7 @@ void predict(const raft::handle_t& user_handle,
 /** @} */
 
 /**
- * @defgroup Random Forest Regression - Score function
+ * @defgroup RandomForestRegressorScore Random Forest Regression - Score function
  * @brief Predict target feature for input data and validate against ref_labels.
  * @param[in] user_handle: raft::handle_t.
  * @param[in] forest: CPU pointer to RandomForestMetaData object.

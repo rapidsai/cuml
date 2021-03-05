@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -32,7 +32,7 @@
 #include <algorithm>
 #include <iostream>
 
-#include <sparse/utils.h>
+#include "../utils.h"
 
 namespace raft {
 namespace sparse {
@@ -74,8 +74,8 @@ void csr_row_slice_indptr(value_idx start_row, value_idx stop_row,
 
 /**
  * Slice rows from a CSR, populate column and data arrays
- * @tparam[in] value_idx : data type of CSR index arrays
- * @tparam[in] value_t : data type of CSR data array
+ * @tparam value_idx : data type of CSR index arrays
+ * @tparam value_t : data type of CSR data array
  * @param[in] start_offset : beginning column offset to slice
  * @param[in] stop_offset : ending column offset to slice
  * @param[in] indices : column indices array from input CSR

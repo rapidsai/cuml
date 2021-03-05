@@ -16,7 +16,6 @@
 
 #pragma once
 
-#include <common/cumlHandle.hpp>
 #include "algo.cuh"
 #include "naive.cuh"
 #include "pack.h"

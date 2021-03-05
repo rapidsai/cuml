@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020, NVIDIA CORPORATION.
+# Copyright (c) 2020-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -34,7 +34,6 @@ from cuml.internals.api_context_managers import ReturnAnyCM
 from cuml.internals.api_context_managers import ReturnArrayCM
 from cuml.internals.api_context_managers import ReturnGenericCM
 from cuml.internals.api_context_managers import ReturnSparseArrayCM
-from cuml.internals.api_context_managers import global_output_type_data
 from cuml.internals.api_context_managers import set_api_output_dtype
 from cuml.internals.api_context_managers import set_api_output_type
 from cuml.internals.base_helpers import _get_base_return_type
@@ -686,12 +685,12 @@ def api_ignore(func: _F) -> _F:
 @contextlib.contextmanager
 def exit_internal_api():
 
-    assert (global_output_type_data.root_cm is not None)
+    assert (cuml.global_settings.root_cm is not None)
 
     try:
-        old_root_cm = global_output_type_data.root_cm
+        old_root_cm = cuml.global_settings.root_cm
 
-        global_output_type_data.root_cm = None
+        cuml.global_settings.root_cm = None
 
         # Set the global output type to the previous value to pretend we never
         # entered the API
@@ -700,7 +699,7 @@ def exit_internal_api():
             yield
 
     finally:
-        global_output_type_data.root_cm = old_root_cm
+        cuml.global_settings.root_cm = old_root_cm
 
 
 def mirror_args(

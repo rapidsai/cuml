@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020, NVIDIA CORPORATION.
+# Copyright (c) 2020-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,7 +21,8 @@ import cupy.prof
 import cupyx
 from cuml.common import CumlArray
 from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.common.base import Base, ClassifierMixin
+from cuml.common.base import Base
+from cuml.common.mixins import ClassifierMixin
 from cuml.common.doc_utils import generate_docstring
 from cuml.common.import_utils import has_scipy
 from cuml.common.input_utils import input_to_cuml_array, input_to_cupy_array
@@ -106,6 +107,20 @@ def count_features_dense_kernel(float_dtype, int_dtype):
                                "count_features_dense")
 
 
+def _convert_x_sparse(X):
+    X = X.tocoo()
+
+    if X.dtype not in [cp.float32, cp.float64]:
+        raise ValueError("Only floating-point dtypes (float32 or "
+                         "float64) are supported for sparse inputs.")
+
+    rows = cp.asarray(X.row, dtype=X.row.dtype)
+    cols = cp.asarray(X.col, dtype=X.col.dtype)
+    data = cp.asarray(X.data, dtype=X.data.dtype)
+    return cupyx.scipy.sparse.coo_matrix((data, (rows, cols)),
+                                         shape=X.shape)
+
+
 class MultinomialNB(Base, ClassifierMixin):
     """
     Naive Bayes classifier for multinomial models
@@ -136,7 +151,7 @@ class MultinomialNB(Base, ClassifierMixin):
     output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
         Variable to control output type of the results and attributes of
         the estimator. If None, it'll inherit the output type set at the
-        module level, `cuml.global_output_type`.
+        module level, `cuml.global_settings.output_type`.
         See :ref:`output-data-type-configuration` for more info.
     handle : cuml.Handle
         Specifies the cuml.handle that holds internal CUDA state for
@@ -230,19 +245,21 @@ class MultinomialNB(Base, ClassifierMixin):
 
     @generate_docstring(X='dense_sparse')
     @cp.prof.TimeRangeDecorator(message="fit()", color_id=0)
-    def fit(self, X, y, sample_weight=None) -> "MultinomialNB":
+    def fit(self, X, y,
+            sample_weight=None, convert_dtype=True) -> "MultinomialNB":
         """
         Fit Naive Bayes classifier according to X, y
-
         """
-        return self.partial_fit(X, y, sample_weight)
+        return self.partial_fit(X, y, sample_weight,
+                                convert_dtype=convert_dtype)
 
     @cp.prof.TimeRangeDecorator(message="fit()", color_id=0)
     def _partial_fit(self,
                      X,
                      y,
                      sample_weight=None,
-                     _classes=None) -> "MultinomialNB":
+                     _classes=None,
+                     convert_dtype=True) -> "MultinomialNB":
 
         if has_scipy():
             from scipy.sparse import isspmatrix as scipy_sparse_isspmatrix
@@ -253,23 +270,33 @@ class MultinomialNB(Base, ClassifierMixin):
         # todo: use a sparse CumlArray style approach when ready
         # https://github.com/rapidsai/cuml/issues/2216
         if scipy_sparse_isspmatrix(X) or cupyx.scipy.sparse.isspmatrix(X):
-            X = X.tocoo()
-            rows = cp.asarray(X.row, dtype=X.row.dtype)
-            cols = cp.asarray(X.col, dtype=X.col.dtype)
-            data = cp.asarray(X.data, dtype=X.data.dtype)
-            X = cupyx.scipy.sparse.coo_matrix((data, (rows, cols)),
-                                              shape=X.shape)
+            X = _convert_x_sparse(X)
+            # TODO: Expanded this since sparse kernel doesn't
+            # actually require the scipy sparse container format.
         else:
-            X = input_to_cupy_array(X, order='K').array
+            X = input_to_cupy_array(X, order='K',
+                                    check_dtype=[cp.float32, cp.float64,
+                                                 cp.int32]).array
 
-        y = input_to_cupy_array(y).array
+        expected_y_dtype = cp.int32 if X.dtype in [cp.float32,
+                                                   cp.int32] else cp.int64
+        y = input_to_cupy_array(y,
+                                convert_to_dtype=(expected_y_dtype
+                                                  if convert_dtype
+                                                  else False),
+                                check_dtype=expected_y_dtype).array
 
         Y, label_classes = make_monotonic(y, copy=True)
 
         if not self.fit_called_:
             self.fit_called_ = True
             if _classes is not None:
-                _classes, *_ = input_to_cuml_array(_classes, order='K')
+                _classes, *_ = input_to_cuml_array(_classes,
+                                                   order='K',
+                                                   convert_to_dtype=(
+                                                       expected_y_dtype
+                                                       if convert_dtype
+                                                       else False))
                 check_labels(Y, _classes)
                 self.classes_ = _classes
             else:
@@ -281,7 +308,10 @@ class MultinomialNB(Base, ClassifierMixin):
         else:
             check_labels(Y, self.classes_)
 
-        self._count(X, Y)
+        if cp.sparse.isspmatrix(X):
+            self._count_sparse(X.row, X.col, X.data, X.shape, Y)
+        else:
+            self._count(X, Y)
 
         self._update_feature_log_prob(self.alpha)
         self._update_class_log_prior(class_prior=self._class_prior_)
@@ -302,7 +332,8 @@ class MultinomialNB(Base, ClassifierMixin):
                     X,
                     y,
                     classes=None,
-                    sample_weight=None) -> "MultinomialNB":
+                    sample_weight=None,
+                    convert_dtype=True) -> "MultinomialNB":
         """
         Incremental fit on a batch of samples.
 
@@ -324,15 +355,20 @@ class MultinomialNB(Base, ClassifierMixin):
             Training vectors, where n_samples is the number of samples and
             n_features is the number of features
 
-        y : array-like of shape (n_samples) Target values.
+        y : array-like of int32 or int64, shape (n_samples)
+            Target values.
+
         classes : array-like of shape (n_classes)
-                  List of all the classes that can possibly appear in the y
-                  vector. Must be provided at the first call to partial_fit,
-                  can be omitted in subsequent calls.
+            List of all the classes that can possibly appear in the y
+            vector. Must be provided at the first call to partial_fit,
+            can be omitted in subsequent calls.
 
         sample_weight : array-like of shape (n_samples)
-                        Weights applied to individual samples (1. for
-                        unweighted). Currently sample weight is ignored
+            Weights applied to individual samples (1. for
+            unweighted). Currently sample weight is ignored
+
+        convert_dtype : bool
+            If True, convert y to the appropriate dtype (int)
 
         Returns
         -------
@@ -366,14 +402,11 @@ class MultinomialNB(Base, ClassifierMixin):
         # todo: use a sparse CumlArray style approach when ready
         # https://github.com/rapidsai/cuml/issues/2216
         if scipy_sparse_isspmatrix(X) or cupyx.scipy.sparse.isspmatrix(X):
-            X = X.tocoo()
-            rows = cp.asarray(X.row, dtype=X.row.dtype)
-            cols = cp.asarray(X.col, dtype=X.col.dtype)
-            data = cp.asarray(X.data, dtype=X.data.dtype)
-            X = cupyx.scipy.sparse.coo_matrix((data, (rows, cols)),
-                                              shape=X.shape)
+            X = _convert_x_sparse(X)
         else:
-            X = input_to_cupy_array(X, order='K').array
+            X = input_to_cupy_array(X, order='K',
+                                    check_dtype=[cp.float32, cp.float64,
+                                                 cp.int32]).array
 
         jll = self._joint_log_likelihood(X)
         indices = cp.argmax(jll, axis=1).astype(self.classes_.dtype)
@@ -406,14 +439,12 @@ class MultinomialNB(Base, ClassifierMixin):
         # todo: use a sparse CumlArray style approach when ready
         # https://github.com/rapidsai/cuml/issues/2216
         if scipy_sparse_isspmatrix(X) or cupyx.scipy.sparse.isspmatrix(X):
-            X = X.tocoo()
-            rows = cp.asarray(X.row, dtype=X.row.dtype)
-            cols = cp.asarray(X.col, dtype=X.col.dtype)
-            data = cp.asarray(X.data, dtype=X.data.dtype)
-            X = cupyx.scipy.sparse.coo_matrix((data, (rows, cols)),
-                                              shape=X.shape)
+            X = _convert_x_sparse(X)
         else:
-            X = input_to_cupy_array(X, order='K').array
+            X = input_to_cupy_array(X, order='K',
+                                    check_dtype=[cp.float32,
+                                                 cp.float64,
+                                                 cp.int32]).array
 
         jll = self._joint_log_likelihood(X)
 
@@ -470,7 +501,7 @@ class MultinomialNB(Base, ClassifierMixin):
         Parameters
         ----------
         X : cupy.ndarray or cupyx.scipy.sparse matrix of size
-                  (n_rows, n_features)
+            (n_rows, n_features)
         Y : cupy.array of monotonic class labels
         """
 
@@ -493,43 +524,80 @@ class MultinomialNB(Base, ClassifierMixin):
         n_rows = X.shape[0]
         n_cols = X.shape[1]
 
+        tpb = 32
         labels_dtype = self.classes_.dtype
 
-        if cupyx.scipy.sparse.isspmatrix(X):
-            X = X.tocoo()
+        count_features_dense = count_features_dense_kernel(
+            X.dtype, labels_dtype)
+        count_features_dense(
+            (math.ceil(n_rows / tpb), math.ceil(n_cols / tpb), 1),
+            (tpb, tpb, 1),
+            (counts,
+             X,
+             n_rows,
+             n_cols,
+             Y,
+             self._n_classes_,
+             False,
+             X.flags["C_CONTIGUOUS"]))
 
-            count_features_coo = count_features_coo_kernel(
-                X.dtype, labels_dtype)
-            count_features_coo((math.ceil(X.nnz / 32), ), (32, ),
-                               (counts,
-                                X.row,
-                                X.col,
-                                X.data,
-                                X.nnz,
-                                n_rows,
-                                n_cols,
-                                Y,
-                                self._n_classes_,
-                                False))
-
-        else:
-
-            count_features_dense = count_features_dense_kernel(
-                X.dtype, labels_dtype)
-            count_features_dense(
-                (math.ceil(n_rows / 32), math.ceil(n_cols / 32), 1),
-                (32, 32, 1),
-                (counts,
-                 X,
-                 n_rows,
-                 n_cols,
-                 Y,
-                 self._n_classes_,
-                 False,
-                 X.flags["C_CONTIGUOUS"]))
-
+        tpb = 256
         count_classes = count_classes_kernel(X.dtype, labels_dtype)
-        count_classes((math.ceil(n_rows / 32), ), (32, ), (class_c, n_rows, Y))
+        count_classes((math.ceil(n_rows / tpb), ), (tpb, ),
+                      (class_c, n_rows, Y))
+
+        self.feature_count_ = self.feature_count_ + counts
+        self.class_count_ = self.class_count_ + class_c
+
+    def _count_sparse(self, x_coo_rows, x_coo_cols, x_coo_data, x_shape, Y):
+        """
+        Sum feature counts & class prior counts and add to current model.
+
+        Parameters
+        ----------
+        x_coo_rows : cupy.ndarray of size (nnz)
+        x_coo_cols : cupy.ndarray of size (nnz)
+        x_coo_data : cupy.ndarray of size (nnz)
+        Y : cupy.array of monotonic class labels
+        """
+
+        if Y.dtype != self.classes_.dtype:
+            warnings.warn("Y dtype does not match classes_ dtype. Y will be "
+                          "converted, which will increase memory consumption")
+
+        # Make sure Y is a cupy array, not CumlArray
+        Y = cp.asarray(Y)
+
+        counts = cp.zeros((self._n_classes_, self._n_features_),
+                          order="F",
+                          dtype=x_coo_data.dtype)
+
+        class_c = cp.zeros(self._n_classes_, order="F", dtype=x_coo_data.dtype)
+
+        n_rows = x_shape[0]
+        n_cols = x_shape[1]
+
+        tpb = 256
+
+        labels_dtype = self.classes_.dtype
+
+        count_features_coo = count_features_coo_kernel(
+            x_coo_data.dtype, labels_dtype)
+        count_features_coo((math.ceil(x_coo_rows.shape[0] / tpb), ), (tpb, ),
+                           (counts,
+                            x_coo_rows,
+                            x_coo_cols,
+                            x_coo_data,
+                            x_coo_rows.shape[0],
+                            n_rows,
+                            n_cols,
+                            Y,
+                            self._n_classes_,
+                            False))
+
+        count_classes = count_classes_kernel(x_coo_data.dtype, labels_dtype)
+        count_classes((math.ceil(n_rows / tpb), ), (tpb, ),
+                      (class_c, n_rows, Y))
 
         self.feature_count_ = self.feature_count_ + counts
         self.class_count_ = self.class_count_ + class_c
@@ -578,7 +646,6 @@ class MultinomialNB(Base, ClassifierMixin):
 
         X : array-like of size (n_samples, n_features)
         """
-
         ret = X.dot(self.feature_log_prob_.T)
         ret += self.class_log_prior_
         return ret

@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -165,8 +165,8 @@ def make_regression(
     """
 
     # Set the default output type to "cupy". This will be ignored if the user
-    # has set `cuml.global_output_type`. Only necessary for array generation
-    # methods that do not take an array as input
+    # has set `cuml.global_settings.output_type`. Only necessary for array
+    # generation methods that do not take an array as input
     cuml.internals.set_api_output_type("cupy")
 
     if dtype not in ['single', 'float', 'double', np.float32, np.float64]:
