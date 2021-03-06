@@ -1098,8 +1098,7 @@ def test_sparse_pairwise_distances(metric: str, matrix_size):
     if not has_scipy():
         pytest.skip('Skipping sparse_pairwise_distances if Scipy is missing')
     import scipy
-    from scipy import sparse
-    
+
     # For fp64, compare at 13 decimals, (2 places less than the ~15 max)
     compare_precision = 9
 
