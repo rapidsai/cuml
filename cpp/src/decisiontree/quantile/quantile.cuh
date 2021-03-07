@@ -209,11 +209,6 @@ void computeQuantiles(
   const std::shared_ptr<MLCommon::hostAllocator> host_allocator, 
   cudaStream_t stream) {
 
-  printf("[quantile.cuh] In the preprocess_quantile()\n");
-  printf("[quantile.cuh:%d] n_rows: %d, n_cols:%d\n", __LINE__, n_rows, n_cols);
-
-  CUDA_CHECK(cudaGetLastError());
-
   // Determine temporary device storage requirements
   MLCommon::device_buffer<char> *d_temp_storage = nullptr;
   size_t temp_storage_bytes = 0;
