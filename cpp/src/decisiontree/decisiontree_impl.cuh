@@ -29,7 +29,7 @@
 #include "levelalgo/levelfunc_regressor.cuh"
 #include "levelalgo/metric.cuh"
 #include "memory.cuh"
-#include "quantile/quantile.cuh"
+#include "quantile/quantile.h"
 #include "treelite_util.h"
 
 #include <common/nvtx.hpp>
