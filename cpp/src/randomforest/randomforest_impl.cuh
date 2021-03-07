@@ -244,10 +244,6 @@ void rfClassifier<T>::fit(const raft::handle_t& user_handle, const T* input,
     unsigned int* rowids;
     rowids = selected_rows[stream_id]->data();
 
-    // this->prepare_fit_per_tree(
-    //   i, n_rows, n_sampled_rows, rowids, tempmem[stream_id]->num_sms,
-    //   tempmem[stream_id]->stream, handle.get_device_allocator());
-
     this->prepare_fit_per_tree(
       i, n_rows, n_sampled_rows, rowids, raft::getMultiProcessorCount(),
       handle.get_internal_stream(stream_id), handle.get_device_allocator());
@@ -261,11 +257,6 @@ void rfClassifier<T>::fit(const raft::handle_t& user_handle, const T* input,
     */
     DecisionTree::TreeMetaDataNode<T, int>* tree_ptr = &(forest->trees[i]);
     tree_ptr->treeid = i;
-    // trees[i].fit(handle.get_device_allocator(), handle.get_host_allocator(),
-    //              tempmem[stream_id]->stream, input, n_cols, n_rows, labels,
-    //              rowids, n_sampled_rows, n_unique_labels, tree_ptr,
-    //              this->rf_params.tree_params, this->rf_params.seed, (T*)d_global_quantiles,
-    //              tempmem[stream_id]);
     trees[i].fit(handle.get_device_allocator(), handle.get_host_allocator(),
                  handle.get_internal_stream(stream_id), input, n_cols, n_rows, labels,
                  rowids, n_sampled_rows, n_unique_labels, tree_ptr,
@@ -567,9 +558,6 @@ void rfRegressor<T>::fit(const raft::handle_t& user_handle, const T* input,
     int stream_id = omp_get_thread_num();
     unsigned int* rowids;
     rowids = selected_rows[stream_id]->data();
-    // this->prepare_fit_per_tree(
-    //   i, n_rows, n_sampled_rows, rowids, tempmem[stream_id]->num_sms,
-    //   tempmem[stream_id]->stream, handle.get_device_allocator());
 
     this->prepare_fit_per_tree(
       i, n_rows, n_sampled_rows, rowids, raft::getMultiProcessorCount(),
@@ -583,11 +571,6 @@ void rfRegressor<T>::fit(const raft::handle_t& user_handle, const T* input,
     */
     DecisionTree::TreeMetaDataNode<T, T>* tree_ptr = &(forest->trees[i]);
     tree_ptr->treeid = i;
-    // trees[i].fit(handle.get_device_allocator(), handle.get_host_allocator(),
-    //              tempmem[stream_id]->stream, input, n_cols, n_rows, labels,
-    //              rowids, n_sampled_rows, tree_ptr,
-    //              this->rf_params.tree_params, this->rf_params.seed, (T*)d_global_quantiles,
-    //              tempmem[stream_id]);
     trees[i].fit(handle.get_device_allocator(), handle.get_host_allocator(),
                  handle.get_internal_stream(stream_id), input, n_cols, n_rows, labels,
                  rowids, n_sampled_rows, tree_ptr,
