@@ -15,7 +15,7 @@
  */
 
 #pragma once
-#include <raft/cuda_utils.cuh>
+#include <raft/cudart_utils.h>
 #include <cub/cub.cuh>
 #include "quantile.h"
 
@@ -85,7 +85,7 @@ void preprocess_quantile(const T *data, const unsigned int *rowids,
 	int max_ncols = free_mem / (2 * n_sampled_rows * sizeof(T));
 	int batch_cols = (max_ncols > ncols) ? ncols : max_ncols;
 	ASSERT(max_ncols != 0, "Cannot preprocess quantiles due to insufficient device memory.");
-	*/
+	  */
   ML::PUSH_RANGE("preprocessing quantile @quantile.cuh");
   int batch_cols =
     1;  // Processing one column at a time, for now, until an appropriate getMemInfo function is provided for the deviceAllocator interface.
@@ -128,7 +128,7 @@ void preprocess_quantile(const T *data, const unsigned int *rowids,
     ncols - batch_cols * (batch_cnt - 1);  // number of columns in last batch
   int batch_items =
     n_sampled_rows * batch_cols;  // used to determine d_temp_storage size
-    d_keys_out = new MLCommon::device_buffer<T>(tempmem->device_allocator,
+  d_keys_out = new MLCommon::device_buffer<T>(tempmem->device_allocator,
                                               tempmem->stream, batch_items);
   ML::PUSH_RANGE(
     "DecisionTree::cub::DeviceRadixSort::SortKeys over batch_items "
