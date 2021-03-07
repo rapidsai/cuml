@@ -86,6 +86,7 @@ void preprocess_quantile(const T *data, const unsigned int *rowids,
 	int batch_cols = (max_ncols > ncols) ? ncols : max_ncols;
 	ASSERT(max_ncols != 0, "Cannot preprocess quantiles due to insufficient device memory.");
   */
+
   ML::PUSH_RANGE("preprocessing quantile @quantile.cuh");
   int batch_cols =
     1;  // Processing one column at a time, for now, until an appropriate getMemInfo function is provided for the deviceAllocator interface.
