@@ -63,22 +63,12 @@ __global__ void set_sorting_offset(const int nrows, const int ncols,
 template <typename T>
 __global__ void get_all_quantiles(const T *__restrict__ data, T *quantile,
                                   const int nrows, const int ncols,
-                                  const int nbins, bool isVerbose=false) {
+                                  const int nbins) {
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
   if (tid < nbins * ncols) {
     int binoff = (int)(nrows / nbins);
     int coloff = (int)(tid / nbins) * nrows;
     quantile[tid] = data[((tid % nbins) + 1) * binoff - 1 + coloff];
-    // if(isVerbose) {
-    //   float bin_width = float(nrows) / nbins;
-    //   int index = ((tid % nbins) + 1) * binoff - 1 + coloff;
-    //   // int binIndex = tid + 1;
-    //   // printf("tid = %d, index = %d, Exact cut = %f, rounded = %d,\n", tid, 
-    //   //   ((tid % nbins) + 1) * binoff - 1 + coloff,
-    //   //   binIndex*binWidth - 1, int(round(binIndex*binWidth))-1);
-    //   printf("[*] bin/n_bins = %d/%d, Exact cut = %f, rounded = %d,\n", tid,
-    //          nbins, (tid + 1)*bin_width, index);
-    // }
   }
   return;
 }
@@ -96,7 +86,6 @@ void preprocess_quantile(const T *data, const unsigned int *rowids,
 	int batch_cols = (max_ncols > ncols) ? ncols : max_ncols;
 	ASSERT(max_ncols != 0, "Cannot preprocess quantiles due to insufficient device memory.");
 	*/
-  printf("[quantile.cuh] In the preprocess_quantile()\n");
   ML::PUSH_RANGE("preprocessing quantile @quantile.cuh");
   int batch_cols =
     1;  // Processing one column at a time, for now, until an appropriate getMemInfo function is provided for the deviceAllocator interface.
@@ -123,7 +112,6 @@ void preprocess_quantile(const T *data, const unsigned int *rowids,
                                                tempmem->stream, batch_cols + 1);
 
   blocks = raft::ceildiv(batch_cols + 1, threads);
-  printf("[quantile.cuh:%d] blocks: %d, threads:%d\n", __LINE__, blocks, threads);
   ML::PUSH_RANGE("set_sorting_offset kernel @quantile.cuh");
   set_sorting_offset<<<blocks, threads, 0, tempmem->stream>>>(
     n_sampled_rows, batch_cols, d_offsets->data());
@@ -140,11 +128,7 @@ void preprocess_quantile(const T *data, const unsigned int *rowids,
     ncols - batch_cols * (batch_cnt - 1);  // number of columns in last batch
   int batch_items =
     n_sampled_rows * batch_cols;  // used to determine d_temp_storage size
-  printf("[quantile.cuh:%d] n_sampled_rows: %d, n_cols:%d\n", __LINE__, n_sampled_rows, ncols);
-  printf("[quantile.cuh:%d] batch_cnt: %d, last_batch_size: %d, batch_items: %d\n",
-    __LINE__, batch_cnt, last_batch_size, batch_items);
-  printf("[quantile.cuh:%d] nbins: %d\n", __LINE__, nbins);
-  d_keys_out = new MLCommon::device_buffer<T>(tempmem->device_allocator,
+    d_keys_out = new MLCommon::device_buffer<T>(tempmem->device_allocator,
                                               tempmem->stream, batch_items);
   ML::PUSH_RANGE(
     "DecisionTree::cub::DeviceRadixSort::SortKeys over batch_items "
@@ -156,7 +140,6 @@ void preprocess_quantile(const T *data, const unsigned int *rowids,
   // Allocate temporary storage
   d_temp_storage = new MLCommon::device_buffer<char>(
     tempmem->device_allocator, tempmem->stream, temp_storage_bytes);
-  printf("[quantile.cuh:%d] temp_storage_bytes: %d\n", __LINE__, temp_storage_bytes);
 
   ML::PUSH_RANGE("iterative quantile computation for each batch");
   // Compute quantiles for cur_batch_cols columns per loop iteration.
@@ -178,7 +161,7 @@ void preprocess_quantile(const T *data, const unsigned int *rowids,
     ML::PUSH_RANGE("get_all_quantiles kernel @quantile.cuh");
     get_all_quantiles<<<blocks, threads, 0, tempmem->stream>>>(
       d_keys_out->data(), &tempmem->d_quantile->data()[quantile_offset],
-      n_sampled_rows, cur_batch_cols, nbins, batch == 0);
+      n_sampled_rows, cur_batch_cols, nbins);
     ML::POP_RANGE();
 
     CUDA_CHECK(cudaGetLastError());
@@ -202,18 +185,15 @@ void preprocess_quantile(const T *data, const unsigned int *rowids,
 template <typename T>
 __global__ void computeQuantilesSorted(T *quantiles, const int n_bins,
                                        const T *sorted_data, 
-                                       const int length, 
-                                       bool isVerbose=false) {
+                                       const int length) {
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
   float bin_width = float(length) / n_bins;
   int index = int(round((tid + 1)*bin_width)) - 1;
+  // Old way of computing quantiles. Kept here for comparison.
+  // To be deleted eventually
   // int index = (tid + 1)*floor(bin_width) - 1;
   if(tid < n_bins) {
     quantiles[tid] = sorted_data[index];
-    // if(isVerbose) { 
-    //   printf("bin/n_bins = %d/%d, Exact cut = %f, rounded = %d,\n", tid,
-    //          n_bins, (tid + 1)*bin_width, index);
-    // }
   }
 
   return;
@@ -236,11 +216,9 @@ void computeQuantiles(
   MLCommon::device_buffer<char> *d_temp_storage = nullptr;
   size_t temp_storage_bytes = 0;
 
-  printf("[quantile.cuh:%d] n_cols: %d, last_batch_size: %d, batch_items: %d\n",
-    __LINE__, n_cols, 1, n_rows);
-
   MLCommon::device_buffer<T> *single_column_sorted;
-  single_column_sorted = new MLCommon::device_buffer<T>(device_allocator, stream, n_rows);
+  single_column_sorted = new MLCommon::device_buffer<T>(
+    device_allocator, stream, n_rows);
 
   CUDA_CHECK(cub::DeviceRadixSort::SortKeys(
     d_temp_storage, temp_storage_bytes, data, single_column_sorted->data(),
