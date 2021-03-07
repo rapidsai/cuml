@@ -15,7 +15,7 @@
  */
 
 #pragma once
-#include <raft/cudart_utils.h>
+#include <raft/cuda_utils.cuh>
 #include <cub/cub.cuh>
 #include "quantile.h"
 
@@ -243,8 +243,8 @@ void computeQuantiles(
     int blocks = raft::ceildiv(n_bins, 128);
   
     computeQuantilesSorted<<<blocks, 128, 0, stream>>>(
-      &quantiles[quantile_offset], n_bins, single_column_sorted->data(), n_rows,
-      col == 0);
+      &quantiles[quantile_offset], n_bins, single_column_sorted->data(),
+      n_rows);
 
     CUDA_CHECK(cudaGetLastError());
     CUDA_CHECK(cudaStreamSynchronize(stream));
