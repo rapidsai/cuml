@@ -15,8 +15,8 @@
  */
 
 #pragma once
-#include <raft/cuda_utils.cuh>
 #include <cub/cub.cuh>
+#include <raft/cuda_utils.cuh>
 #include "quantile.h"
 
 #include <common/nvtx.hpp>
@@ -183,18 +183,16 @@ void preprocess_quantile(const T *data, const unsigned int *rowids,
   return;
 }
 
-
 template <typename T>
 __global__ void computeQuantilesSorted(T *quantiles, const int n_bins,
-                                       const T *sorted_data, 
-                                       const int length) {
+                                       const T *sorted_data, const int length) {
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
   float bin_width = float(length) / n_bins;
-  int index = int(round((tid + 1)*bin_width)) - 1;
+  int index = int(round((tid + 1) * bin_width)) - 1;
   // Old way of computing quantiles. Kept here for comparison.
   // To be deleted eventually
-  // int index = (tid + 1)*floor(bin_width) - 1;
-  if(tid < n_bins) {
+  // int index = (tid + 1) * floor(bin_width) - 1;
+  if (tid < n_bins) {
     quantiles[tid] = sorted_data[index];
   }
 
@@ -203,10 +201,10 @@ __global__ void computeQuantilesSorted(T *quantiles, const int n_bins,
 
 template <typename T>
 void computeQuantiles(
-  T* quantiles, const int n_bins, const T *data,
-  const int n_rows, const int n_cols,
+  T *quantiles, const int n_bins, const T *data, const int n_rows,
+  const int n_cols,
   const std::shared_ptr<MLCommon::deviceAllocator> device_allocator,
-  const std::shared_ptr<MLCommon::hostAllocator> host_allocator, 
+  const std::shared_ptr<MLCommon::hostAllocator> host_allocator,
   cudaStream_t stream) {
 
   // Determine temporary device storage requirements
@@ -214,16 +212,16 @@ void computeQuantiles(
   size_t temp_storage_bytes = 0;
 
   MLCommon::device_buffer<T> *single_column_sorted;
-  single_column_sorted = new MLCommon::device_buffer<T>(
-    device_allocator, stream, n_rows);
+  single_column_sorted =
+    new MLCommon::device_buffer<T>(device_allocator, stream, n_rows);
 
-  CUDA_CHECK(cub::DeviceRadixSort::SortKeys(
-    d_temp_storage, temp_storage_bytes, data, single_column_sorted->data(),
-    n_rows, 0, 8 * sizeof(T), stream));
+  CUDA_CHECK(cub::DeviceRadixSort::SortKeys(d_temp_storage, temp_storage_bytes,
+                                            data, single_column_sorted->data(),
+                                            n_rows, 0, 8 * sizeof(T), stream));
 
   // Allocate temporary storage for sorting
-  d_temp_storage = new MLCommon::device_buffer<char>(
-    device_allocator, stream, temp_storage_bytes);
+  d_temp_storage = new MLCommon::device_buffer<char>(device_allocator, stream,
+                                                     temp_storage_bytes);
 
   // Compute quantiles column by column
   for (int col = 0; col < n_cols; col++) {
@@ -231,9 +229,8 @@ void computeQuantiles(
     int quantile_offset = col * n_bins;
 
     CUDA_CHECK(cub::DeviceRadixSort::SortKeys(
-      (void *)d_temp_storage->data(), temp_storage_bytes,
-      &data[col_offset], single_column_sorted->data(), n_rows, 0,
-      8 * sizeof(T), stream));
+      (void *)d_temp_storage->data(), temp_storage_bytes, &data[col_offset],
+      single_column_sorted->data(), n_rows, 0, 8 * sizeof(T), stream));
 
     int blocks = raft::ceildiv(n_bins, 128);
   

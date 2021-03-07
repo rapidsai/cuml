@@ -367,7 +367,7 @@ void DecisionTreeBase<T, L>::base_fit(
   const cudaStream_t stream_in, const T *data, const int ncols, const int nrows,
   const L *labels, unsigned int *rowids, const int n_sampled_rows,
   int unique_labels, std::vector<SparseTreeNode<T, L>> &sparsetree,
-  const int treeid, uint64_t seed, bool is_classifier, T* d_global_quantiles,
+  const int treeid, uint64_t seed, bool is_classifier, T *d_global_quantiles,
   std::shared_ptr<TemporaryMemory<T, L>> in_tempmem) {
   prepare_fit_timer.reset();
   const char *CRITERION_NAME[] = {"GINI", "ENTROPY", "MSE", "MAE", "END"};
@@ -394,10 +394,10 @@ void DecisionTreeBase<T, L>::base_fit(
          "Unsupported criterion %s\n",
          CRITERION_NAME[tree_params.split_criterion]);
 
-  if(!tree_params.use_experimental_backend) {
-    // Only execute for level backend as temporary memory is unused in batched 
+  if (!tree_params.use_experimental_backend) {
+    // Only execute for level backend as temporary memory is unused in batched
     // backend.
-    if (in_tempmem != nullptr ) {
+    if (in_tempmem != nullptr) {
       tempmem = in_tempmem;
     } else {
       tempmem = std::make_shared<TemporaryMemory<T, L>>(
@@ -418,10 +418,11 @@ void DecisionTreeBase<T, L>::base_fit(
   fprintf(fp, "n_sampled_rows = %d\n", n_sampled_rows);
   fprintf(fp, "rowids = {");
   int *h_rowids;
-  h_rowids = (int*)malloc(sizeof(int) * n_sampled_rows);
-  CUDA_CHECK(cudaMemcpy(h_rowids, rowids, sizeof(int) * n_sampled_rows, cudaMemcpyDeviceToHost));
+  h_rowids = (int *)malloc(sizeof(int) * n_sampled_rows);
+  CUDA_CHECK(cudaMemcpy(h_rowids, rowids, sizeof(int) * n_sampled_rows,
+                        cudaMemcpyDeviceToHost));
   for (int i = 0; i < n_sampled_rows; i++) {
-    if(i == n_sampled_rows - 1) {
+    if (i == n_sampled_rows - 1) {
       fprintf(fp, "%d}\n", h_rowids[i]);
     } else {
       fprintf(fp, "%d, ", h_rowids[i]);
@@ -431,7 +432,7 @@ void DecisionTreeBase<T, L>::base_fit(
   fprintf(fp, "unique_labels = %d\n", unique_labels);
   fprintf(fp, "treeid = %d\n", treeid);
   fprintf(fp, "seed = %lu\n", seed);
-  if(!tree_params.use_experimental_backend) {
+  if (!tree_params.use_experimental_backend) {
     fprintf(fp, "tempmem:\n");
     fprintf(fp, "    parentsz = %lu\n", tempmem->parentsz);
     fprintf(fp, "    childsz = %lu\n", tempmem->childsz);
@@ -444,13 +445,13 @@ void DecisionTreeBase<T, L>::base_fit(
     fprintf(fp, "    max_nodes_per_level = %d\n", tempmem->max_nodes_per_level);
     fprintf(fp, "    max_nodes_minmax = %d\n", tempmem->max_nodes_minmax);
 
-    if(tree_params.split_algo == SPLIT_ALGO::GLOBAL_QUANTILE) {
-      CUDA_CHECK(cudaMemcpy(tempmem->h_quantile->data(), tempmem->d_quantile->data(),
-                            tree_params.n_bins * ncols * sizeof(T),
-                            cudaMemcpyDeviceToHost));
+    if (tree_params.split_algo == SPLIT_ALGO::GLOBAL_QUANTILE) {
+      CUDA_CHECK(cudaMemcpy(
+        tempmem->h_quantile->data(), tempmem->d_quantile->data(),
+        tree_params.n_bins * ncols * sizeof(T), cudaMemcpyDeviceToHost));
       fprintf(fp, "    quantiles = {");
       for (int i = 0; i < tree_params.n_bins * ncols; i++) {
-        if(i == tree_params.n_bins * ncols - 1) {
+        if (i == tree_params.n_bins * ncols - 1) {
           fprintf(fp, "%f}\n", tempmem->h_quantile->data()[i]);
         } else {
           fprintf(fp, "%f, ", tempmem->h_quantile->data()[i]);
@@ -459,14 +460,14 @@ void DecisionTreeBase<T, L>::base_fit(
     }
   } else {
     T *h_quantile = nullptr;
-    h_quantile = (T*) malloc(tree_params.n_bins * ncols * sizeof(T));
-    if(tree_params.split_algo == SPLIT_ALGO::GLOBAL_QUANTILE) {
+    h_quantile = (T *)malloc(tree_params.n_bins * ncols * sizeof(T));
+    if (tree_params.split_algo == SPLIT_ALGO::GLOBAL_QUANTILE) {
       CUDA_CHECK(cudaMemcpy(h_quantile, d_global_quantiles,
                             tree_params.n_bins * ncols * sizeof(T),
                             cudaMemcpyDeviceToHost));
       fprintf(fp, "    quantiles = {");
       for (int i = 0; i < tree_params.n_bins * ncols; i++) {
-        if(i == tree_params.n_bins * ncols - 1) {
+        if (i == tree_params.n_bins * ncols - 1) {
           fprintf(fp, "%f}\n", h_quantile[i]);
         } else {
           fprintf(fp, "%f, ", h_quantile[i]);
@@ -478,17 +479,14 @@ void DecisionTreeBase<T, L>::base_fit(
   fclose(fp);
 
   if (tree_params.use_experimental_backend) {
-      dinfo.NLocalrows = nrows;
-  dinfo.NGlobalrows = nrows;
-  dinfo.Ncols = ncols;
-  n_unique_labels = unique_labels;
-  grow_tree(device_allocator_in, host_allocator_in,
-               data, treeid, seed, ncols,
-               nrows, labels, d_global_quantiles,
-               (int*) rowids, n_sampled_rows, unique_labels,
-               tree_params, stream_in,
-               sparsetree,
-               this->leaf_counter, this->depth_counter);
+    dinfo.NLocalrows = nrows;
+    dinfo.NGlobalrows = nrows;
+    dinfo.Ncols = ncols;
+    n_unique_labels = unique_labels;
+    grow_tree(device_allocator_in, host_allocator_in, data, treeid, seed, ncols,
+              nrows, labels, d_global_quantiles, (int *)rowids, n_sampled_rows,
+              unique_labels, tree_params, stream_in, sparsetree,
+              this->leaf_counter, this->depth_counter);
   } else {
     plant(sparsetree, data, ncols, nrows, labels, rowids, n_sampled_rows,
           unique_labels, treeid, seed);
@@ -503,7 +501,7 @@ void DecisionTreeClassifier<T>::fit(
   const raft::handle_t &handle, const T *data, const int ncols, const int nrows,
   const int *labels, unsigned int *rowids, const int n_sampled_rows,
   const int unique_labels, TreeMetaDataNode<T, int> *&tree,
-  DecisionTreeParams tree_parameters, uint64_t seed, T* d_global_quantiles,
+  DecisionTreeParams tree_parameters, uint64_t seed, T *d_global_quantiles,
   std::shared_ptr<TemporaryMemory<T, int>> in_tempmem) {
   this->tree_params = tree_parameters;
   this->base_fit(handle.get_device_allocator(), handle.get_host_allocator(),
@@ -521,12 +519,13 @@ void DecisionTreeClassifier<T>::fit(
   const cudaStream_t stream_in, const T *data, const int ncols, const int nrows,
   const int *labels, unsigned int *rowids, const int n_sampled_rows,
   const int unique_labels, TreeMetaDataNode<T, int> *&tree,
-  DecisionTreeParams tree_parameters, uint64_t seed, T* d_global_quantiles,
+  DecisionTreeParams tree_parameters, uint64_t seed, T *d_global_quantiles,
   std::shared_ptr<TemporaryMemory<T, int>> in_tempmem) {
   this->tree_params = tree_parameters;
   this->base_fit(device_allocator_in, host_allocator_in, stream_in, data, ncols,
                  nrows, labels, rowids, n_sampled_rows, unique_labels,
-                 tree->sparsetree, tree->treeid, seed, true, d_global_quantiles, in_tempmem);
+                 tree->sparsetree, tree->treeid, seed, true, d_global_quantiles,
+                 in_tempmem);
   this->set_metadata(tree);
 }
 
@@ -535,7 +534,7 @@ void DecisionTreeRegressor<T>::fit(
   const raft::handle_t &handle, const T *data, const int ncols, const int nrows,
   const T *labels, unsigned int *rowids, const int n_sampled_rows,
   TreeMetaDataNode<T, T> *&tree, DecisionTreeParams tree_parameters,
-  uint64_t seed, T* d_global_quantiles,
+  uint64_t seed, T *d_global_quantiles,
   std::shared_ptr<TemporaryMemory<T, T>> in_tempmem) {
   this->tree_params = tree_parameters;
   this->base_fit(handle.get_device_allocator(), handle.get_host_allocator(),
@@ -552,7 +551,7 @@ void DecisionTreeRegressor<T>::fit(
   const cudaStream_t stream_in, const T *data, const int ncols, const int nrows,
   const T *labels, unsigned int *rowids, const int n_sampled_rows,
   TreeMetaDataNode<T, T> *&tree, DecisionTreeParams tree_parameters,
-  uint64_t seed, T* d_global_quantiles,
+  uint64_t seed, T *d_global_quantiles,
   std::shared_ptr<TemporaryMemory<T, T>> in_tempmem) {
   this->tree_params = tree_parameters;
   this->base_fit(device_allocator_in, host_allocator_in, stream_in, data, ncols,
