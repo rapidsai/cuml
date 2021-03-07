@@ -556,9 +556,7 @@ void rfRegressor<T>::fit(const raft::handle_t& user_handle, const T* input,
 #pragma omp parallel for num_threads(n_streams)
   for (int i = 0; i < this->rf_params.n_trees; i++) {
     int stream_id = omp_get_thread_num();
-    unsigned int* rowids;
-    rowids = selected_rows[stream_id]->data();
-
+    unsigned int* rowids = selected_rows[stream_id]->data();
     this->prepare_fit_per_tree(
       i, n_rows, n_sampled_rows, rowids, raft::getMultiProcessorCount(),
       handle.get_internal_stream(stream_id), handle.get_device_allocator());
@@ -591,6 +589,7 @@ void rfRegressor<T>::fit(const raft::handle_t& user_handle, const T* input,
     global_quantiles_buffer->release(handle.get_stream());
     delete global_quantiles_buffer;
   }
+
   CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 
   ML::POP_RANGE();
