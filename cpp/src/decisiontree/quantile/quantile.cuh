@@ -206,7 +206,6 @@ void computeQuantiles(
   const std::shared_ptr<MLCommon::deviceAllocator> device_allocator,
   const std::shared_ptr<MLCommon::hostAllocator> host_allocator,
   cudaStream_t stream) {
-
   // Determine temporary device storage requirements
   MLCommon::device_buffer<char> *d_temp_storage = nullptr;
   size_t temp_storage_bytes = 0;
@@ -233,7 +232,7 @@ void computeQuantiles(
       single_column_sorted->data(), n_rows, 0, 8 * sizeof(T), stream));
 
     int blocks = raft::ceildiv(n_bins, 128);
-  
+
     computeQuantilesSorted<<<blocks, 128, 0, stream>>>(
       &quantiles[quantile_offset], n_bins, single_column_sorted->data(),
       n_rows);
