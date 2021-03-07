@@ -247,6 +247,7 @@ void rfClassifier<T>::fit(const raft::handle_t& user_handle, const T* input,
     this->prepare_fit_per_tree(
       i, n_rows, n_sampled_rows, rowids, raft::getMultiProcessorCount(),
       handle.get_internal_stream(stream_id), handle.get_device_allocator());
+
     /* Build individual tree in the forest.
        - input is a pointer to orig data that have n_cols features and n_rows rows.
        - n_sampled_rows: # rows sampled for tree's bootstrap sample.
@@ -262,7 +263,6 @@ void rfClassifier<T>::fit(const raft::handle_t& user_handle, const T* input,
                  rowids, n_sampled_rows, n_unique_labels, tree_ptr,
                  this->rf_params.tree_params, this->rf_params.seed, global_quantiles,
                  tempmem[stream_id]);
-
   }
   //Cleanup
   for (int i = 0; i < n_streams; i++) {
@@ -502,8 +502,6 @@ void rfRegressor<T>::fit(const raft::handle_t& user_handle, const T* input,
   }
 
   std::shared_ptr<TemporaryMemory<T, T>> tempmem[n_streams];
-
-
   if(this->rf_params.tree_params.use_experimental_backend) {
     // TemporaryMemory is unused for batched (new) backend
     for (int i = 0; i < n_streams; i++) {
@@ -559,6 +557,7 @@ void rfRegressor<T>::fit(const raft::handle_t& user_handle, const T* input,
     unsigned int* rowids = selected_rows[stream_id]->data();
     this->prepare_fit_per_tree(
       i, n_rows, n_sampled_rows, rowids, raft::getMultiProcessorCount(),
+
       handle.get_internal_stream(stream_id), handle.get_device_allocator());
     /* Build individual tree in the forest.
        - input is a pointer to orig data that have n_cols features and n_rows rows.
