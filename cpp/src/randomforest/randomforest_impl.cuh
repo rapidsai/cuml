@@ -242,8 +242,7 @@ void rfClassifier<T>::fit(const raft::handle_t& user_handle, const T* input,
 #pragma omp parallel for num_threads(n_streams)
   for (int i = 0; i < this->rf_params.n_trees; i++) {
     int stream_id = omp_get_thread_num();
-    unsigned int* rowids;
-    rowids = selected_rows[stream_id]->data();
+    unsigned int* rowids = selected_rows[stream_id]->data();
 
     this->prepare_fit_per_tree(
       i, n_rows, n_sampled_rows, rowids, raft::getMultiProcessorCount(),
@@ -477,16 +476,16 @@ void rfRegressor<T>::fit(const raft::handle_t& user_handle, const T* input,
   const raft::handle_t& handle = user_handle;
   int n_sampled_rows = 0;
   if (this->rf_params.bootstrap) {
-    n_sampled_rows = this->rf_params.max_samples * n_rows;
+    n_sampled_rows = std::round(this->rf_params.max_samples * n_rows);
   } else {
     if (this->rf_params.max_samples != 1.0) {
       CUML_LOG_WARN(
         "If bootstrap sampling is disabled, max_samples value is ignored and "
         "whole dataset is used for building each tree");
+      this->rf_params.max_samples = 1.0;
     }
     n_sampled_rows = n_rows;
   }
-
   int n_streams = this->rf_params.n_streams;
   ASSERT(
     n_streams <= handle.get_num_internal_streams(),
@@ -557,10 +556,11 @@ void rfRegressor<T>::fit(const raft::handle_t& user_handle, const T* input,
   for (int i = 0; i < this->rf_params.n_trees; i++) {
     int stream_id = omp_get_thread_num();
     unsigned int* rowids = selected_rows[stream_id]->data();
+
     this->prepare_fit_per_tree(
       i, n_rows, n_sampled_rows, rowids, raft::getMultiProcessorCount(),
-
       handle.get_internal_stream(stream_id), handle.get_device_allocator());
+
     /* Build individual tree in the forest.
        - input is a pointer to orig data that have n_cols features and n_rows rows.
        - n_sampled_rows: # rows sampled for tree's bootstrap sample.
@@ -590,9 +590,7 @@ void rfRegressor<T>::fit(const raft::handle_t& user_handle, const T* input,
     global_quantiles_buffer->release(handle.get_stream());
     delete global_quantiles_buffer;
   }
-
   CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
-
   ML::POP_RANGE();
 }
 
