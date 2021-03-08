@@ -494,29 +494,38 @@ def test_logistic_predict_convert_dtype(train_dtype, test_dtype):
                 params=['binary', 'multiclass-3', 'multiclass-7'])
 def regression_dataset(request):
     regression_type = request.param
-    n_samples = 100000
-    n_features = 5
 
-    data = (np.random.rand(n_samples, n_features) * 2) - 1
+    out = {}
+    for test_status in ['regular', 'stress_test']:
+        if test_status == 'regular':
+            n_samples, n_features = 100000, 5
+        elif test_status == 'stress_test':
+            n_samples, n_features = 1000000, 20
 
-    if regression_type == 'binary':
-        coef = (np.random.rand(n_features) * 2) - 1
-        coef /= np.linalg.norm(coef)
-        output = (data @ coef) > 0
-    elif regression_type.startswith('multiclass'):
-        n_classes = 3 if regression_type == 'multiclass-3' else 7
-        coef = (np.random.rand(n_features, n_classes) * 2) - 1
-        coef /= np.linalg.norm(coef, axis=0)
-        output = (data @ coef).argmax(axis=1)
+        data = (np.random.rand(n_samples, n_features) * 2) - 1
 
-    output = output.astype(np.int32)
-    return regression_type, data, coef, output
+        if regression_type == 'binary':
+            coef = (np.random.rand(n_features) * 2) - 1
+            coef /= np.linalg.norm(coef)
+            output = (data @ coef) > 0
+        elif regression_type.startswith('multiclass'):
+            n_classes = 3 if regression_type == 'multiclass-3' else 7
+            coef = (np.random.rand(n_features, n_classes) * 2) - 1
+            coef /= np.linalg.norm(coef, axis=0)
+            output = (data @ coef).argmax(axis=1)
+        output = output.astype(np.int32)
+
+        out[test_status] = (regression_type, data, coef, output)
+    return out
 
 
 @pytest.mark.parametrize('option', ['sample_weight', 'class_weight',
                                     'balanced', 'no_weight'])
-def test_logistic_regression_weighting(regression_dataset, option):
-    regression_type, data, coef, output = regression_dataset
+@pytest.mark.parametrize('test_status', ['regular',
+                                         stress_param('stress_test')])
+def test_logistic_regression_weighting(regression_dataset,
+                                       option, test_status):
+    regression_type, data, coef, output = regression_dataset[test_status]
 
     if option == 'sample_weight':
         n_samples = data.shape[0]
