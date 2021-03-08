@@ -205,20 +205,20 @@ void computeQuantiles(
   const std::shared_ptr<MLCommon::deviceAllocator> device_allocator,
   cudaStream_t stream) {
   // Determine temporary device storage requirements
-  MLCommon::device_buffer<char> *d_temp_storage = nullptr;
+  std::unique_ptr<MLCommon::device_buffer<char>> d_temp_storage = nullptr;
   size_t temp_storage_bytes = 0;
 
-  MLCommon::device_buffer<T> *single_column_sorted;
-  single_column_sorted =
-    new MLCommon::device_buffer<T>(device_allocator, stream, n_rows);
+  std::unique_ptr<MLCommon::device_buffer<T>> single_column_sorted = nullptr;
+  single_column_sorted = std::make_unique<MLCommon::device_buffer<T>>(
+    device_allocator, stream, n_rows);
 
-  CUDA_CHECK(cub::DeviceRadixSort::SortKeys(d_temp_storage, temp_storage_bytes,
-                                            data, single_column_sorted->data(),
-                                            n_rows, 0, 8 * sizeof(T), stream));
+  CUDA_CHECK(cub::DeviceRadixSort::SortKeys(
+    nullptr, temp_storage_bytes, data, single_column_sorted->data(), n_rows, 0,
+    8 * sizeof(T), stream));
 
   // Allocate temporary storage for sorting
-  d_temp_storage = new MLCommon::device_buffer<char>(device_allocator, stream,
-                                                     temp_storage_bytes);
+  d_temp_storage = std::make_unique<MLCommon::device_buffer<char>>(
+    device_allocator, stream, temp_storage_bytes);
 
   // Compute quantiles column by column
   for (int col = 0; col < n_cols; col++) {
@@ -237,12 +237,6 @@ void computeQuantiles(
 
     CUDA_CHECK(cudaGetLastError());
   }
-
-  single_column_sorted->release(stream);
-  d_temp_storage->release(stream);
-
-  delete single_column_sorted;
-  delete d_temp_storage;
 
   return;
 }
