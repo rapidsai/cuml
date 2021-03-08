@@ -284,6 +284,7 @@ if [ -n "${CODECOV_TOKEN}" ]; then
 
     # Download the codecov script locally. Cannot use pipes with `gpuci_retry`
     curl -s https://codecov.io/bash > ${WORKSPACE}/codecov.sh
+    chmod +x ${WORKSPACE}/codecov.sh
 
     # Upload the two reports with separate flags. Delete the report on success
     # to prevent further CI steps from re-uploading
