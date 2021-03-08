@@ -315,12 +315,12 @@ message("-- Building for GPU_ARCHS = ${GPU_ARCHS}")
 
 foreach(arch ${GPU_ARCHS})
   set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -gencode arch=compute_${arch},code=sm_${arch}")
-  set(FAISS_GPU_ARCHS "${FAISS_GPU_ARCHS} -gencode arch=compute_${arch},code=sm_${arch}")
+  set(FAISS_GPU_ARCHS "${FAISS_GPU_ARCHS} ${arch}")
 endforeach()
 
 list(GET GPU_ARCHS -1 ptx)
 set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -gencode arch=compute_${ptx},code=compute_${ptx}")
-set(FAISS_GPU_ARCHS "${FAISS_GPU_ARCHS} -gencode arch=compute_${ptx},code=compute_${ptx}")
+set(FAISS_GPU_ARCHS "${FAISS_GPU_ARCHS} ${ptx}")
 
 set(CMAKE_CUDA_FLAGS
   "${CMAKE_CUDA_FLAGS} -Xcudafe --diag_suppress=unrecognized_gcc_pragma")
@@ -364,6 +364,13 @@ set(CUML_PRIVATE_LINK_LIBRARIES
   treelite::treelite
   treelite::treelite_runtime
   )
+
+if(BUILD_STATIC_FAISS)
+  set(CUML_PRIVATE_LINK_LIBRARIES
+   ${CUML_PRIVATE_LINK_LIBRARIES}
+   ${BLAS_LIBRARIES}
+  )
+endif(BUILD_STATIC_FAISS)
 
 if(BUILD_CUML_STD_COMMS OR BUILD_CUML_MPI_COMMS)
 	list(APPEND CUML_INCLUDE_DIRECTORIES
