@@ -201,8 +201,7 @@ __global__ void computeQuantilesSorted(T *quantiles, const int n_bins,
 
 template <typename T>
 void computeQuantiles(
-  T *quantiles, const int n_bins, const T *data, const int n_rows,
-  const int n_cols,
+  T *quantiles, int n_bins, const T *data, int n_rows, int n_cols,
   const std::shared_ptr<MLCommon::deviceAllocator> device_allocator,
   cudaStream_t stream) {
   // Determine temporary device storage requirements

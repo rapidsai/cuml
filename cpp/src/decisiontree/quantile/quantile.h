@@ -28,8 +28,7 @@ void preprocess_quantile(const T *data, const unsigned int *rowids,
 
 template <typename T>
 void computeQuantiles(
-  T *quantiles, const int n_bins, const T *data, const int n_rows,
-  const int n_cols,
+  T *quantiles, int n_bins, const T *data, int n_rows, int n_cols,
   const std::shared_ptr<MLCommon::deviceAllocator> device_allocator,
   cudaStream_t stream);
 
