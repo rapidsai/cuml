@@ -329,8 +329,8 @@ class QN(Base,
                              "than 2 classes.")
 
         if self.loss_type == 2 and self._num_classes <= 2:
-            raise ValueError("Softmax (multinomial) loss should only be"
-                             "used with more than 2 classes.")
+            raise ValueError("Two classes or less cannot be trained"
+                             "with softmax (multinomial).")
 
         if self.loss_type == 0:
             self._num_classes_dim = self._num_classes - 1
