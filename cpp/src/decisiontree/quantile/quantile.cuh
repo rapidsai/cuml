@@ -187,7 +187,7 @@ template <typename T>
 __global__ void computeQuantilesSorted(T *quantiles, const int n_bins,
                                        const T *sorted_data, const int length) {
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
-  float bin_width = float(length) / n_bins;
+  double bin_width = static_cast<double>(length) / n_bins;
   int index = int(round((tid + 1) * bin_width)) - 1;
   // Old way of computing quantiles. Kept here for comparison.
   // To be deleted eventually
@@ -236,7 +236,6 @@ void computeQuantiles(
       n_rows);
 
     CUDA_CHECK(cudaGetLastError());
-    CUDA_CHECK(cudaStreamSynchronize(stream));
   }
 
   single_column_sorted->release(stream);
