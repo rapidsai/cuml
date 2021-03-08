@@ -203,7 +203,7 @@ void rfClassifier<T>::fit(const raft::handle_t& user_handle, const T* input,
     }
   }
 
-  MLCommon::device_buffer<T>* global_quantiles_buffer = nullptr;
+  std::unique_ptr<MLCommon::device_buffer<T>> global_quantiles_buffer = nullptr;
   T* global_quantiles = nullptr;
   auto quantile_size = this->rf_params.tree_params.n_bins * n_cols;
 
@@ -211,7 +211,7 @@ void rfClassifier<T>::fit(const raft::handle_t& user_handle, const T* input,
   if (this->rf_params.tree_params.use_experimental_backend) {
     // Using batched backend
     // allocate space for d_global_quantiles
-    global_quantiles_buffer = new MLCommon::device_buffer<T>(
+    global_quantiles_buffer = std::make_unique<MLCommon::device_buffer<T>>(
       handle.get_device_allocator(), handle.get_stream(), quantile_size);
     global_quantiles = global_quantiles_buffer->data();
     DecisionTree::computeQuantiles(
@@ -272,10 +272,6 @@ void rfClassifier<T>::fit(const raft::handle_t& user_handle, const T* input,
     if (!this->rf_params.tree_params.use_experimental_backend) {
       tempmem[i].reset();
     }
-  }
-  if (this->rf_params.tree_params.use_experimental_backend) {
-    global_quantiles_buffer->release(handle.get_stream());
-    delete global_quantiles_buffer;
   }
   CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
   ML::POP_RANGE();
@@ -515,7 +511,7 @@ void rfRegressor<T>::fit(const raft::handle_t& user_handle, const T* input,
     }
   }
 
-  MLCommon::device_buffer<T>* global_quantiles_buffer = nullptr;
+  std::unique_ptr<MLCommon::device_buffer<T>> global_quantiles_buffer = nullptr;
   T* global_quantiles = nullptr;
   auto quantile_size = this->rf_params.tree_params.n_bins * n_cols;
 
@@ -523,7 +519,7 @@ void rfRegressor<T>::fit(const raft::handle_t& user_handle, const T* input,
   if (this->rf_params.tree_params.use_experimental_backend) {
     // Using batched backend
     // allocate space for d_global_quantiles
-    global_quantiles_buffer = new MLCommon::device_buffer<T>(
+    global_quantiles_buffer = std::make_unique<MLCommon::device_buffer<T>>(
       handle.get_device_allocator(), handle.get_stream(), quantile_size);
     global_quantiles = global_quantiles_buffer->data();
     DecisionTree::computeQuantiles(
@@ -583,10 +579,6 @@ void rfRegressor<T>::fit(const raft::handle_t& user_handle, const T* input,
     if (!this->rf_params.tree_params.use_experimental_backend) {
       tempmem[i].reset();
     }
-  }
-  if (this->rf_params.tree_params.use_experimental_backend) {
-    global_quantiles_buffer->release(handle.get_stream());
-    delete global_quantiles_buffer;
   }
   CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
   ML::POP_RANGE();
