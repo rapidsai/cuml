@@ -137,6 +137,12 @@ Additionally, to reduce compile times, you can specify a GPU compute capability 
 $ cmake .. -DCMAKE_INSTALL_PREFIX=$CONDA_PREFIX -DGPU_ARCHS="70"
 ```
 
+You may also wish to make use of `ccache` to reduce build times when switching among branches or between debug and release builds:
+
+```bash
+$ cmake .. -DUSE_CCACHE=ON
+```
+
 There are many options to configure the build process, see the [customizing build section](#libcuml-&-libcumlc++).
 
 3. Build `libcuml++` and `libcuml`:
