@@ -491,10 +491,10 @@ def test_logistic_predict_convert_dtype(train_dtype, test_dtype):
 
 
 @pytest.fixture(scope='session',
-                params=['binary', 'multiclass'])
+                params=['binary', 'multiclass-3', 'multiclass-7'])
 def regression_dataset(request):
     regression_type = request.param
-    n_samples = 500000
+    n_samples = 100000
     n_features = 5
 
     data = (np.random.rand(n_samples, n_features) * 2) - 1
@@ -503,8 +503,8 @@ def regression_dataset(request):
         coef = (np.random.rand(n_features) * 2) - 1
         coef /= np.linalg.norm(coef)
         output = (data @ coef) > 0
-    elif regression_type == 'multiclass':
-        n_classes = 3
+    elif regression_type.startswith('multiclass'):
+        n_classes = 3 if regression_type == 'multiclass-3' else 7
         coef = (np.random.rand(n_features, n_classes) * 2) - 1
         coef /= np.linalg.norm(coef, axis=0)
         output = (data @ coef).argmax(axis=1)
@@ -556,14 +556,28 @@ def test_logistic_regression_weighting(regression_dataset, option):
         cucoef /= np.linalg.norm(cucoef)
         unit_tol = 0.04
         total_tol = 0.08
-    elif regression_type == 'multiclass':
+    elif regression_type.startswith('multiclass'):
         skcoef = skcoef.T
         skcoef /= np.linalg.norm(skcoef, axis=1)[:, None]
         cucoef /= np.linalg.norm(cucoef, axis=1)[:, None]
         unit_tol = 0.2
         total_tol = 0.3
 
-    assert array_equal(skcoef, cucoef, unit_tol=unit_tol, total_tol=total_tol)
-    if option == 'no_weight':
-        assert array_equal(coef, cucoef, unit_tol=unit_tol,
+    equality = array_equal(skcoef, cucoef, unit_tol=unit_tol,
                            total_tol=total_tol)
+    if not equality:
+        print('\ncoef.shape: ', coef.shape)
+        print('coef:\n', coef)
+        print('cucoef.shape: ', cucoef.shape)
+        print('cucoef:\n', cucoef)
+    assert equality
+
+    if option == 'no_weight':
+        equality = array_equal(coef, cucoef, unit_tol=unit_tol,
+                               total_tol=total_tol)
+        if not equality:
+            print('\ncoef.shape: ', coef.shape)
+            print('coef:\n', coef)
+            print('cucoef.shape: ', cucoef.shape)
+            print('cucoef:\n', cucoef)
+        assert equality

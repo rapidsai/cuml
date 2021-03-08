@@ -317,6 +317,7 @@ class QN(Base,
             sample_weight, _, _, _ = \
                 input_to_cuml_array(sample_weight,
                                     check_dtype=self.dtype,
+                                    check_rows=n_rows, check_cols=1,
                                     convert_to_dtype=(self.dtype
                                                       if convert_dtype
                                                       else None))

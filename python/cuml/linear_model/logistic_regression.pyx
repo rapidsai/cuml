@@ -126,6 +126,15 @@ class LogisticRegression(Base,
        If False, the model expects that you have centered the data.
     class_weight: None
         Custom class weighs are currently not supported.
+    class_weight: dict or 'balanced', default=None
+        By default all classes have a weight one. However, a dictionnary
+        can be provided with weights associated with classes
+        in the form ``{class_label: weight}``. The "balanced" mode
+        uses the values of y to automatically adjust weights
+        inversely proportional to class frequencies in the input data
+        as ``n_samples / (n_classes * np.bincount(y))``. Note that
+        these weights will be multiplied with sample_weight
+        (passed through the fit method) if sample_weight is specified.
     max_iter: int (default = 1000)
         Maximum number of iterations taken for the solvers to converge.
     linesearch_max_iter: int (default = 50)
@@ -293,9 +302,8 @@ class LogisticRegression(Base,
 
         if self._num_classes == 2:
             if self.classes_[0] != 0 or self.classes_[1] != 1:
-                msg = ("In binary classification,"
-                       "y should be filled with 0 and 1")
-                raise ValueError(msg)
+                raise ValueError("Only values of 0 and 1 are"
+                                 " supported for binary classification.")
 
         if sample_weight is not None or self.class_weight_ is not None:
             if sample_weight is None:
@@ -304,8 +312,9 @@ class LogisticRegression(Base,
             sample_weight, n_weights, D, _ = input_to_cuml_array(sample_weight)
 
             if n_rows != n_weights or D != 1:
-                msg = "sample_weight should be of shape ({},)".format(n_rows)
-                raise ValueError(msg)
+                raise ValueError("sample_weight.shape == {}, "
+                                 "expected ({},)!".format(sample_weight.shape,
+                                                          n_rows))
 
             if self.class_weight_ is not None:
                 if self.class_weight_ == 'balanced':
