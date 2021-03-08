@@ -204,7 +204,6 @@ void computeQuantiles(
   T *quantiles, const int n_bins, const T *data, const int n_rows,
   const int n_cols,
   const std::shared_ptr<MLCommon::deviceAllocator> device_allocator,
-  const std::shared_ptr<MLCommon::hostAllocator> host_allocator,
   cudaStream_t stream) {
   // Determine temporary device storage requirements
   MLCommon::device_buffer<char> *d_temp_storage = nullptr;

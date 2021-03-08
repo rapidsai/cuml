@@ -216,8 +216,7 @@ void rfClassifier<T>::fit(const raft::handle_t& user_handle, const T* input,
     global_quantiles = global_quantiles_buffer->data();
     DecisionTree::computeQuantiles(
       global_quantiles, this->rf_params.tree_params.n_bins, input, n_rows,
-      n_cols, handle.get_device_allocator(), handle.get_host_allocator(),
-      handle.get_stream());
+      n_cols, handle.get_device_allocator(), handle.get_stream());
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
   } else {
     if ((this->rf_params.tree_params.split_algo ==
@@ -529,8 +528,7 @@ void rfRegressor<T>::fit(const raft::handle_t& user_handle, const T* input,
     global_quantiles = global_quantiles_buffer->data();
     DecisionTree::computeQuantiles(
       global_quantiles, this->rf_params.tree_params.n_bins, input, n_rows,
-      n_cols, handle.get_device_allocator(), handle.get_host_allocator(),
-      handle.get_stream());
+      n_cols, handle.get_device_allocator(), handle.get_stream());
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
   } else {
     if ((this->rf_params.tree_params.split_algo ==

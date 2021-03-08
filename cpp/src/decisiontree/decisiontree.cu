@@ -166,8 +166,7 @@ void decisionTreeClassifierFit(const raft::handle_t &handle,
       handle.get_device_allocator(), handle.get_stream(), quantile_size);
     DecisionTree::computeQuantiles(
       global_quantiles->data(), tree_params.n_bins, data, nrows, ncols,
-      handle.get_device_allocator(), handle.get_host_allocator(),
-      handle.get_stream());
+      handle.get_device_allocator(), handle.get_stream());
   }
   dt_classifier->fit(handle, data, ncols, nrows, labels, rowids, n_sampled_rows,
                      unique_labels, tree, tree_params, seed,
@@ -192,8 +191,7 @@ void decisionTreeClassifierFit(const raft::handle_t &handle,
       handle.get_device_allocator(), handle.get_stream(), quantile_size);
     DecisionTree::computeQuantiles(
       global_quantiles->data(), tree_params.n_bins, data, nrows, ncols,
-      handle.get_device_allocator(), handle.get_host_allocator(),
-      handle.get_stream());
+      handle.get_device_allocator(), handle.get_stream());
   }
   dt_classifier->fit(handle, data, ncols, nrows, labels, rowids, n_sampled_rows,
                      unique_labels, tree, tree_params, seed,
@@ -241,8 +239,7 @@ void decisionTreeRegressorFit(const raft::handle_t &handle,
       handle.get_device_allocator(), handle.get_stream(), quantile_size);
     DecisionTree::computeQuantiles(
       global_quantiles->data(), tree_params.n_bins, data, nrows, ncols,
-      handle.get_device_allocator(), handle.get_host_allocator(),
-      handle.get_stream());
+      handle.get_device_allocator(), handle.get_stream());
   }
   dt_regressor->fit(handle, data, ncols, nrows, labels, rowids, n_sampled_rows,
                     tree, tree_params, seed, global_quantiles->data());
@@ -265,8 +262,7 @@ void decisionTreeRegressorFit(const raft::handle_t &handle,
       handle.get_device_allocator(), handle.get_stream(), quantile_size);
     DecisionTree::computeQuantiles(
       global_quantiles->data(), tree_params.n_bins, data, nrows, ncols,
-      handle.get_device_allocator(), handle.get_host_allocator(),
-      handle.get_stream());
+      handle.get_device_allocator(), handle.get_stream());
   }
   dt_regressor->fit(handle, data, ncols, nrows, labels, rowids, n_sampled_rows,
                     tree, tree_params, seed, global_quantiles->data());
