@@ -212,9 +212,9 @@ void computeQuantiles(
   single_column_sorted = std::make_unique<MLCommon::device_buffer<T>>(
     device_allocator, stream, n_rows);
 
-  CUDA_CHECK(cub::DeviceRadixSort::SortKeys(
-    nullptr, temp_storage_bytes, data, single_column_sorted->data(), n_rows, 0,
-    8 * sizeof(T), stream));
+  CUDA_CHECK(cub::DeviceRadixSort::SortKeys(nullptr, temp_storage_bytes, data,
+                                            single_column_sorted->data(),
+                                            n_rows, 0, 8 * sizeof(T), stream));
 
   // Allocate temporary storage for sorting
   d_temp_storage = std::make_unique<MLCommon::device_buffer<char>>(
