@@ -30,11 +30,11 @@ from sklearn import datasets
 DEFAULT_N_NEIGHBORS = 150
 
 test_datasets = {
-
-                    "digits": datasets.load_digits(),
+                 "diabetes": datasets.load_diabetes(),
+                 "digits": datasets.load_digits(),
                  "boston": datasets.load_boston(),
                  "cancer": datasets.load_breast_cancer(),
-                 "diabetes": datasets.load_diabetes()}
+}
 
 
 def validate_embedding(X, Y, score=0.76, n_neighbors=DEFAULT_N_NEIGHBORS):
@@ -64,14 +64,11 @@ def test_tsne_knn_graph_used(dataset, type_knn_graph, method):
                 n_neighbors=DEFAULT_N_NEIGHBORS,
                 method=method,
                 perplexity=50,
-                learning_rate_method='none')
-
-
+                learning_rate_method='none',
+                min_grad_norm=1e-12)
 
     # Perform tsne with normal knn_graph
     Y = tsne.fit_transform(X, True, knn_graph)
-
-    print("Embedding: %s, mean: %s, min: %s, max: %s" % (Y, np.mean(Y, axis=0), np.min(Y), np.max(Y)))
 
     print("Y=" + str(hex(id(Y))))
     trust_normal = trustworthiness(X, Y, n_neighbors=DEFAULT_N_NEIGHBORS)
@@ -87,7 +84,8 @@ def test_tsne_knn_graph_used(dataset, type_knn_graph, method):
                 n_neighbors=DEFAULT_N_NEIGHBORS,
                 method=method,
                 perplexity=50,
-                learning_rate_method='none')
+                learning_rate_method='none',
+                min_grad_norm=1e-12)
 
     # Perform tsne with garbage knn_graph
     Y = tsne.fit_transform(X, True, knn_graph_garbage)
@@ -95,7 +93,6 @@ def test_tsne_knn_graph_used(dataset, type_knn_graph, method):
 
     trust_garbage = trustworthiness(X, Y, n_neighbors=DEFAULT_N_NEIGHBORS)
     assert (trust_normal - trust_garbage) > 0.15
-
 
     print("calling delete2")
     del tsne
@@ -132,23 +129,16 @@ def test_tsne_knn_parameters(dataset, type_knn_graph, method):
         tsne = TSNE(random_state=1,
                     n_neighbors=DEFAULT_N_NEIGHBORS,
                     learning_rate_method='none',
-                    method=method)
+                    method=method,
+                    min_grad_norm=1e-12)
 
-        import cupy as cp
         embed = tsne.fit_transform(X, True, knn_graph)
-        print("Embedding: %s, mean: %s, min: %s, max: %s" % (embed, np.mean(embed, axis=0), np.min(embed), np.max(embed)))
-        print("KNN GRAPH: %s, mean: %s, min: %s, max: %s" % (knn_graph.data, cp.mean(knn_graph.data), cp.min(knn_graph.data), cp.max(knn_graph.data)))
         validate_embedding(X, embed)
 
         embed = tsne.fit_transform(X, True, knn_graph.tocoo())
-        print("COO Embedding: %s, mean: %s, min: %s, max: %s" % (embed, np.mean(embed, axis=0), np.min(embed), np.max(embed)))
-        print("KNN GRAPH: %s, mean: %s, min: %s, max: %s" % (knn_graph.tocoo().data, cp.mean(knn_graph.tocoo().data), cp.min(knn_graph.tocoo().data), cp.max(knn_graph.tocoo().data)))
-
         validate_embedding(X, embed)
 
         embed = tsne.fit_transform(X, True, knn_graph.tocsc())
-        print("CSC Embedding: %s, mean: %s, min: %s, max: %s" % (embed, np.mean(embed, axis=0), np.min(embed), np.max(embed)))
-        print("KNN GRAPH: %s, mean: %s, min: %s, max: %s" % (knn_graph.tocsc().data, cp.mean(knn_graph.tocsc().data), cp.min(knn_graph.tocsc().data), cp.max(knn_graph.tocsc().data)))
         validate_embedding(X, embed)
 
 
@@ -171,7 +161,8 @@ def test_tsne(dataset, method):
                     random_state=1,
                     n_neighbors=DEFAULT_N_NEIGHBORS,
                     learning_rate_method='none',
-                    method=method)
+                    method=method,
+                    min_grad_norm=1e-12)
 
         Y = tsne.fit_transform(X)
         validate_embedding(X, Y)
@@ -181,7 +172,8 @@ def test_tsne(dataset, method):
                     random_state=1,
                     n_neighbors=DEFAULT_N_NEIGHBORS,
                     learning_rate_method='none',
-                    method=method)
+                    method=method,
+                    min_grad_norm=1e-12)
 
         Y = tsne.fit_transform(X)
         validate_embedding(X, Y)
@@ -195,7 +187,8 @@ def test_tsne_default(dataset, method):
 
     for i in range(3):
         tsne = TSNE(random_state=1,
-                    method=method)
+                    method=method,
+                    min_grad_norm=1e-12)
         Y = tsne.fit_transform(X)
         validate_embedding(X, Y)
 
@@ -214,7 +207,8 @@ def test_tsne_large(nrows, ncols, method):
 
     tsne = TSNE(random_state=1,
                 exaggeration_iter=1,
-                n_iter=2, method=method)
+                n_iter=2, method=method,
+                min_grad_norm=1e-12)
     Y = tsne.fit_transform(X)
     nans = np.sum(np.isnan(Y))
     assert nans == 0
@@ -238,7 +232,8 @@ def test_tsne_fit_transform_on_digits_sparse(input_type, method):
 
     fitter = TSNE(n_components=2,
                   random_state=1,
-                  method=method)
+                  method=method,
+                  min_grad_norm=1e-12)
 
     new_data = sp_prefix.csr_matrix(
         scipy.sparse.csr_matrix(digits)).astype('float32')
@@ -276,7 +271,8 @@ def test_tsne_knn_parameters_sparse(type_knn_graph, input_type, method):
                 n_neighbors=DEFAULT_N_NEIGHBORS,
                 random_state=1,
                 learning_rate_method='none',
-                method=method)
+                method=method,
+                min_grad_norm=1e-12)
 
     new_data = sp_prefix.csr_matrix(
         scipy.sparse.csr_matrix(digits))
