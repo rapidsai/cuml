@@ -44,12 +44,12 @@ cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics":
                            DistanceType metric, bool isRowMajor) except +
 
 cdef extern from "cuml/metrics/metrics.hpp" namespace "raft::sparse::distance":
-    void pairwiseDistance_py(const handle_t &handle, float *x, float *y,
+    void pairwiseDistance_sparse(const handle_t &handle, float *x, float *y,
                              float *dist, int x_nrows, int y_nrows, int n_cols,
                              int x_nnz, int y_nnz, int* x_indptr,
                              int* y_indptr, int* x_indices, int* y_indices,
                              DistanceType metric, float metric_arg) except +
-    void pairwiseDistance_py(const handle_t &handle, double *x, double *y,
+    void pairwiseDistance_sparse(const handle_t &handle, double *x, double *y,
                              double *dist, int x_nrows, int y_nrows,
                              int n_cols, int x_nnz, int y_nnz, int* x_indptr,
                              int* y_indptr, int* x_indices, int* y_indices,
@@ -362,37 +362,37 @@ def sparse_pairwise_distance(X, Y=None, metric="euclidean", handle=None,
     cdef uintptr_t Y_m_indices = Y_m.indices.ptr
 
     if (dtype_x == np.float32):
-        pairwiseDistance_py(handle_[0],
-                            <float*> d_X_ptr,
-                            <float*> d_Y_ptr,
-                            <float*> d_dest_ptr,
-                            <int> x_nrows,
-                            <int> y_nrows,
-                            <int> n_features_x,
-                            <int> X_m.nnz,
-                            <int> Y_m.nnz,
-                            <int*> X_m_indptr,
-                            <int*> Y_m_indptr,
-                            <int*> X_m_indices,
-                            <int*> Y_m_indices,
-                            <DistanceType> metric_val,
-                            <float> metric_arg)
+        pairwiseDistance_sparse(handle_[0],
+                                <float*> d_X_ptr,
+                                <float*> d_Y_ptr,
+                                <float*> d_dest_ptr,
+                                <int> x_nrows,
+                                <int> y_nrows,
+                                <int> n_features_x,
+                                <int> X_m.nnz,
+                                <int> Y_m.nnz,
+                                <int*> X_m_indptr,
+                                <int*> Y_m_indptr,
+                                <int*> X_m_indices,
+                                <int*> Y_m_indices,
+                                <DistanceType> metric_val,
+                                <float> metric_arg)
     elif (dtype_x == np.float64):
-        pairwiseDistance_py(handle_[0],
-                            <double*> d_X_ptr,
-                            <double*> d_Y_ptr,
-                            <double*> d_dest_ptr,
-                            <int> n_samples_x,
-                            <int> n_samples_y,
-                            <int> n_features_x,
-                            <int> X_m.nnz,
-                            <int> Y_m.nnz,
-                            <int*> X_m_indptr,
-                            <int*> Y_m_indptr,
-                            <int*> X_m_indices,
-                            <int*> Y_m_indices,
-                            <DistanceType> metric_val,
-                            <float> metric_arg)
+        pairwiseDistance_sparse(handle_[0],
+                                <double*> d_X_ptr,
+                                <double*> d_Y_ptr,
+                                <double*> d_dest_ptr,
+                                <int> n_samples_x,
+                                <int> n_samples_y,
+                                <int> n_features_x,
+                                <int> X_m.nnz,
+                                <int> Y_m.nnz,
+                                <int*> X_m_indptr,
+                                <int*> Y_m_indptr,
+                                <int*> X_m_indices,
+                                <int*> Y_m_indices,
+                                <DistanceType> metric_val,
+                                <float> metric_arg)
     else:
         raise NotImplementedError("Unsupported dtype: {}".format(dtype_x))
 

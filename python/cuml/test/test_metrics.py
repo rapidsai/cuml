@@ -1089,7 +1089,7 @@ def test_pairwise_distances_output_types(input_type, output_type, use_global):
 
 
 @pytest.mark.parametrize("metric", PAIRWISE_DISTANCE_SPARSE_METRICS.keys())
-@pytest.mark.parametrize("matrix_size", [(30, 30), (400, 2), (2, 400),
+@pytest.mark.parametrize("matrix_size", [(20, 10), (400, 2), (2, 400),
                                          (500, 40)])
 def test_sparse_pairwise_distances(metric: str, matrix_size):
     # Test the sparse_pairwise_distance helper function.
@@ -1100,7 +1100,7 @@ def test_sparse_pairwise_distances(metric: str, matrix_size):
     import scipy
 
     # For fp64, compare at 13 decimals, (2 places less than the ~15 max)
-    compare_precision = 9
+    compare_precision = 6
 
     # Compare to sklearn, single input
     X = scipy.sparse.random(matrix_size[0], matrix_size[1], format='csr',
