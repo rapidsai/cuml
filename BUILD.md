@@ -37,6 +37,7 @@ As a convenience, a `build.sh` script is provided which can be used to execute t
 $ ./build.sh                           # build the cuML libraries, tests, and python package, then
                                        # install them to $INSTALL_PREFIX if set, otherwise $CONDA_PREFIX
 ```
+For workflows that involve frequent switching among branches or between debug and release builds, it is recommended that you install [ccache](https://ccache.dev/) and make use of it by passing the `--ccache` flag to `build.sh`.
 
 To build individual components, specify them as arguments to `build.sh`
 ```bash
@@ -56,6 +57,7 @@ $ PARALLEL_LEVEL=4 ./build.sh libcuml  # build and install libcuml limiting para
 $ ./build.sh libcuml -n                # build libcuml but do not install
 $ ./build.sh prims --allgpuarch        # build the ML prims tests for all supported GPU architectures
 $ ./build.sh cuml --singlegpu          # build the cuML python package without MNMG algorithms
+$ ./build.sh --ccache                  # use ccache to cache compilations, speeding up subsequent builds
 ```
 
 To run the C++ unit tests (optional), from the repo root:
@@ -133,6 +135,12 @@ Additionally, to reduce compile times, you can specify a GPU compute capability 
 
 ```bash
 $ cmake .. -DCMAKE_INSTALL_PREFIX=$CONDA_PREFIX -DGPU_ARCHS="70"
+```
+
+You may also wish to make use of `ccache` to reduce build times when switching among branches or between debug and release builds:
+
+```bash
+$ cmake .. -DUSE_CCACHE=ON
 ```
 
 There are many options to configure the build process, see the [customizing build section](#libcuml-&-libcumlc++).
