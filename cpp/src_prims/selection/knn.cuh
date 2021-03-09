@@ -265,6 +265,7 @@ void approx_knn_ivfpq_build_index(ML::knnIndex *index, ML::IVFPQParam *params,
   faiss::gpu::GpuIndexIVFPQConfig config;
   config.device = index->device;
   config.usePrecomputedTables = params->usePrecomputedTables;
+  config.interleavedLayout = params->n_bits != 8;
   faiss::MetricType faiss_metric = build_faiss_metric(metric);
   faiss::gpu::GpuIndexIVFPQ *faiss_index =
     new faiss::gpu::GpuIndexIVFPQ(index->gpu_res, D, params->nlist, params->M,
