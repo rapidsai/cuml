@@ -37,7 +37,10 @@
 #include <thrust/device_vector.h>
 #include <thrust/iterator/transform_iterator.h>
 
+#include <raft/linalg/distance_type.h>
 #include "processing.cuh"
+
+#include <selection/haversine_knn.cuh>
 
 #include <cuml/common/cuml_allocator.hpp>
 #include <cuml/common/device_buffer.hpp>
@@ -186,14 +189,37 @@ inline void knn_merge_parts(value_t *inK, value_idx *inV, value_t *outK,
       inK, inV, outK, outV, n_samples, n_parts, k, stream, translations);
 }
 
-inline faiss::MetricType build_faiss_metric(ML::MetricType metric) {
+inline faiss::MetricType build_faiss_metric(
+  raft::distance::DistanceType metric) {
   switch (metric) {
-    case ML::MetricType::METRIC_Cosine:
+    case raft::distance::DistanceType::CosineExpanded:
       return faiss::MetricType::METRIC_INNER_PRODUCT;
-    case ML::MetricType::METRIC_Correlation:
+    case raft::distance::DistanceType::CorrelationExpanded:
       return faiss::MetricType::METRIC_INNER_PRODUCT;
+    case raft::distance::DistanceType::L2Expanded:
+      return faiss::MetricType::METRIC_L2;
+    case raft::distance::DistanceType::L2Unexpanded:
+      return faiss::MetricType::METRIC_L2;
+    case raft::distance::DistanceType::L2SqrtExpanded:
+      return faiss::MetricType::METRIC_L2;
+    case raft::distance::DistanceType::L2SqrtUnexpanded:
+      return faiss::MetricType::METRIC_L2;
+    case raft::distance::DistanceType::L1:
+      return faiss::MetricType::METRIC_L1;
+    case raft::distance::DistanceType::InnerProduct:
+      return faiss::MetricType::METRIC_INNER_PRODUCT;
+    case raft::distance::DistanceType::LpUnexpanded:
+      return faiss::MetricType::METRIC_Lp;
+    case raft::distance::DistanceType::Linf:
+      return faiss::MetricType::METRIC_Linf;
+    case raft::distance::DistanceType::Canberra:
+      return faiss::MetricType::METRIC_Canberra;
+    case raft::distance::DistanceType::BrayCurtis:
+      return faiss::MetricType::METRIC_BrayCurtis;
+    case raft::distance::DistanceType::JensenShannon:
+      return faiss::MetricType::METRIC_JensenShannon;
     default:
-      return (faiss::MetricType)metric;
+      THROW("MetricType not supported: %d", metric);
   }
 }
 
@@ -219,7 +245,8 @@ inline faiss::ScalarQuantizer::QuantizerType build_faiss_qtype(
 
 template <typename IntType = int>
 void approx_knn_ivfflat_build_index(ML::knnIndex *index, ML::IVFParam *params,
-                                    IntType D, ML::MetricType metric,
+                                    IntType D,
+                                    raft::distance::DistanceType metric,
                                     IntType n) {
   faiss::gpu::GpuIndexIVFFlatConfig config;
   config.device = index->device;
@@ -232,7 +259,9 @@ void approx_knn_ivfflat_build_index(ML::knnIndex *index, ML::IVFParam *params,
 
 template <typename IntType = int>
 void approx_knn_ivfpq_build_index(ML::knnIndex *index, ML::IVFPQParam *params,
-                                  IntType D, ML::MetricType metric, IntType n) {
+                                  IntType D,
+                                  raft::distance::DistanceType metric,
+                                  IntType n) {
   faiss::gpu::GpuIndexIVFPQConfig config;
   config.device = index->device;
   config.usePrecomputedTables = params->usePrecomputedTables;
@@ -246,7 +275,9 @@ void approx_knn_ivfpq_build_index(ML::knnIndex *index, ML::IVFPQParam *params,
 
 template <typename IntType = int>
 void approx_knn_ivfsq_build_index(ML::knnIndex *index, ML::IVFSQParam *params,
-                                  IntType D, ML::MetricType metric, IntType n) {
+                                  IntType D,
+                                  raft::distance::DistanceType metric,
+                                  IntType n) {
   faiss::gpu::GpuIndexIVFScalarQuantizerConfig config;
   config.device = index->device;
   faiss::MetricType faiss_metric = build_faiss_metric(metric);
@@ -262,8 +293,8 @@ void approx_knn_ivfsq_build_index(ML::knnIndex *index, ML::IVFSQParam *params,
 
 template <typename IntType = int>
 void approx_knn_build_index(ML::knnIndex *index, ML::knnIndexParam *params,
-                            IntType D, ML::MetricType metric, float metricArg,
-                            float *index_items, IntType n,
+                            IntType D, raft::distance::DistanceType metric,
+                            float metricArg, float *index_items, IntType n,
                             cudaStream_t userStream) {
   int device;
   CUDA_CHECK(cudaGetDevice(&device));
@@ -271,7 +302,6 @@ void approx_knn_build_index(ML::knnIndex *index, ML::knnIndexParam *params,
   faiss::gpu::StandardGpuResources *gpu_res =
     new faiss::gpu::StandardGpuResources();
   gpu_res->noTempMemory();
-  gpu_res->setCudaMallocWarning(false);
   gpu_res->setDefaultStream(device, userStream);
   index->gpu_res = gpu_res;
   index->device = device;
@@ -328,9 +358,8 @@ void approx_knn_search(ML::knnIndex *index, IntType n, const float *x,
  * @param[in] rowMajorQuery are the query array in row-major layout?
  * @param[in] translations translation ids for indices when index rows represent
  *        non-contiguous partitions
- * @param[in] metric corresponds to the FAISS::metricType enum (default is euclidean)
+ * @param[in] metric corresponds to the raft::distance::DistanceType enum (default is L2Expanded)
  * @param[in] metricArg metric argument to use. Corresponds to the p arg for lp norm
- * @param[in] expanded_form whether or not lp variants should be reduced w/ lp-root
  */
 template <typename IntType = int>
 void brute_force_knn(std::vector<float *> &input, std::vector<int> &sizes,
@@ -342,12 +371,11 @@ void brute_force_knn(std::vector<float *> &input, std::vector<int> &sizes,
                      int n_int_streams = 0, bool rowMajorIndex = true,
                      bool rowMajorQuery = true,
                      std::vector<int64_t> *translations = nullptr,
-                     ML::MetricType metric = ML::MetricType::METRIC_L2,
-                     float metricArg = 0, bool expanded_form = false) {
+                     raft::distance::DistanceType metric =
+                       raft::distance::DistanceType::L2Expanded,
+                     float metricArg = 0) {
   ASSERT(input.size() == sizes.size(),
          "input and sizes vectors should be the same size");
-
-  faiss::MetricType m = build_faiss_metric(metric);
 
   std::vector<int64_t> *id_ranges;
   if (translations == nullptr) {
@@ -404,35 +432,51 @@ void brute_force_knn(std::vector<float *> &input, std::vector<int> &sizes,
   if (n_int_streams > 0) CUDA_CHECK(cudaStreamSynchronize(userStream));
 
   for (int i = 0; i < input.size(); i++) {
-    faiss::gpu::StandardGpuResources gpu_res;
+    float *out_d_ptr = out_D + (i * k * n);
+    int64_t *out_i_ptr = out_I + (i * k * n);
 
     cudaStream_t stream =
       raft::select_stream(userStream, internalStreams, n_int_streams, i);
 
-    gpu_res.noTempMemory();
-    gpu_res.setCudaMallocWarning(false);
-    gpu_res.setDefaultStream(device, stream);
+    switch (metric) {
+      case raft::distance::DistanceType::Haversine:
 
-    faiss::gpu::GpuDistanceParams args;
-    args.metric = m;
-    args.metricArg = metricArg;
-    args.k = k;
-    args.dims = D;
-    args.vectors = input[i];
-    args.vectorsRowMajor = rowMajorIndex;
-    args.numVectors = sizes[i];
-    args.queries = search_items;
-    args.queriesRowMajor = rowMajorQuery;
-    args.numQueries = n;
-    args.outDistances = out_D + (i * k * n);
-    args.outIndices = out_I + (i * k * n);
+        ASSERT(D == 2,
+               "Haversine distance requires 2 dimensions "
+               "(latitude / longitude).");
 
-    /**
-     * @todo: Until FAISS supports pluggable allocation strategies,
-     * we will not reap the benefits of the pool allocator for
-     * avoiding device-wide synchronizations from cudaMalloc/cudaFree
-     */
-    bfKnn(&gpu_res, args);
+        raft::selection::haversine_knn(out_i_ptr, out_d_ptr, input[i],
+                                       search_items, sizes[i], n, k, stream);
+        break;
+      default:
+        faiss::MetricType m = build_faiss_metric(metric);
+
+        faiss::gpu::StandardGpuResources gpu_res;
+
+        gpu_res.noTempMemory();
+        gpu_res.setDefaultStream(device, stream);
+
+        faiss::gpu::GpuDistanceParams args;
+        args.metric = m;
+        args.metricArg = metricArg;
+        args.k = k;
+        args.dims = D;
+        args.vectors = input[i];
+        args.vectorsRowMajor = rowMajorIndex;
+        args.numVectors = sizes[i];
+        args.queries = search_items;
+        args.queriesRowMajor = rowMajorQuery;
+        args.numQueries = n;
+        args.outDistances = out_d_ptr;
+        args.outIndices = out_i_ptr;
+
+        /**
+         * @todo: Until FAISS supports pluggable allocation strategies,
+         * we will not reap the benefits of the pool allocator for
+         * avoiding device-wide synchronizations from cudaMalloc/cudaFree
+         */
+        bfKnn(&gpu_res, args);
+    }
 
     CUDA_CHECK(cudaPeekAtLastError());
   }
@@ -452,14 +496,15 @@ void brute_force_knn(std::vector<float *> &input, std::vector<int> &sizes,
   }
 
   // Perform necessary post-processing
-  if ((m == faiss::MetricType::METRIC_L2 ||
-       m == faiss::MetricType::METRIC_Lp) &&
-      !expanded_form) {
+  if (metric == raft::distance::DistanceType::L2SqrtExpanded ||
+      metric == raft::distance::DistanceType::L2SqrtUnexpanded ||
+      metric == raft::distance::DistanceType::LpUnexpanded) {
     /**
 	* post-processing
 	*/
     float p = 0.5;  // standard l2
-    if (m == faiss::MetricType::METRIC_Lp) p = 1.0 / metricArg;
+    if (metric == raft::distance::DistanceType::LpUnexpanded)
+      p = 1.0 / metricArg;
     raft::linalg::unaryOp<float>(
       res_D, res_D, n * k,
       [p] __device__(float input) { return powf(input, p); }, userStream);
