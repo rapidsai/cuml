@@ -310,6 +310,11 @@ def _check_array_contiguity(ary):
         else:
             raise TypeError("No array_interface attribute detected in input. ")
 
+        # __cuda_array_interface__ v2 requires the strides to be omitted
+        # (either not set or set to None) for C-contiguous arrays.
+        if 'strides' not in ary_interface or ary_interface['strides'] is None:
+            return True
+
         shape = ary_interface['shape']
         strides = ary_interface['strides']
         dtype = cp.dtype(ary_interface['typestr'])
