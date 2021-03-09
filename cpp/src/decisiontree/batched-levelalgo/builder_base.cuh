@@ -105,6 +105,25 @@ struct Builder {
   /** Memory alignment value */
   const size_t alignValue = 512;
 
+ /** calculates optimal gridDim.x based on gridDim.y and gridDim.z to maximize occupancy
+  * so when number of nodes in a batch are low, the blocks for rows are bumped up */
+ int calculate_optimal_n_blks_for_rows(int gridDimy, int gridDimz, const void* func, int blockSize, size_t dynamic_smem_size){
+  int devid;
+  CUDA_CHECK(cudaGetDevice(&devid));
+  int mpcount;
+  CUDA_CHECK(
+    cudaDeviceGetAttribute(&mpcount, cudaDevAttrMultiProcessorCount, devid));
+  int maxblks;
+  CUDA_CHECK(cudaOccupancyMaxActiveBlocksPerMultiprocessor(
+               &maxblks, func, blockSize, dynamic_smem_size));
+
+  int n_blks = maxblks * mpcount;
+  //return max(n_blks_for_rows, raft::ceildiv(n_blks, gridDimy*gridDimz));
+  //return raft::ceildiv(n_blks , gridDimy*gridDimz);
+  //return 4;
+  return 40;
+ }
+
   /** checks if this struct is being used for classification or regression */
   static constexpr bool isRegression() {
     return std::is_same<DataT, LabelT>::value;
@@ -409,15 +428,19 @@ struct ClsTraits {
       "Builder::computeSplit @builder_base.cuh [batched-levelalgo]");
     auto nbins = b.params.n_bins;
     auto nclasses = b.input.nclasses;
-    auto binSize = nbins * 2 * nclasses;
+    auto binSize = ( nbins * 3 + 1 ) * nclasses;
     auto colBlks = std::min(b.n_blks_for_cols, b.input.nSampledCols - col);
-    dim3 grid(b.n_blks_for_rows, colBlks, batchSize);
+    //dim3 grid(b.n_blks_for_rows, colBlks, batchSize);
     size_t smemSize = sizeof(int) * binSize + sizeof(DataT) * nbins;
     smemSize += sizeof(int);
 
     // Extra room for alignment (see alignPointer in computeSplitClassificationKernel)
     smemSize += 2 * sizeof(DataT) + 1 * sizeof(int);
-
+    int optimal_n_blks_for_rows = b.calculate_optimal_n_blks_for_rows(
+                                    colBlks, batchSize,
+                                    (const void*)computeSplitClassificationKernel<DataT, LabelT, IdxT, TPB_DEFAULT>,
+                                    TPB_DEFAULT, smemSize);
+    dim3 grid(optimal_n_blks_for_rows, colBlks, batchSize);
     CUDA_CHECK(cudaMemsetAsync(b.hist, 0, sizeof(int) * b.nHistBins, s));
     ML::PUSH_RANGE(
       "computeSplitClassificationKernel @builder_base.cuh [batched-levelalgo]");
