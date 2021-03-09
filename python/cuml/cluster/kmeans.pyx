@@ -211,12 +211,7 @@ class KMeans(Base,
         Number of instances the k-means algorithm will be called with different seeds.
         The final results will be from the instance that produces lowest inertia out
         of n_init instances.
-    oversampling_factor : float64
-        scalable k-means|| oversampling factor
-    max_samples_per_batch : int (default=1<<15)
-        maximum number of samples to use for each batch
-        of the pairwise distance computation.
-    oversampling_factor : int (default = 2)
+    oversampling_factor : float64 (default = 2.0)
         The amount of points to sample
         in scalable k-means++ initialization for potential centroids.
         Increasing this value can lead to better initial centroids at the
