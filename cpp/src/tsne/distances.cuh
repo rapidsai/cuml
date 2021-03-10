@@ -19,7 +19,7 @@
 #include <raft/cudart_utils.h>
 #include <cuml/neighbors/knn_sparse.hpp>
 #include <raft/linalg/eltwise.cuh>
-#include <selection/knn.cuh>
+#include <raft/spatial/knn/knn.hpp>
 #include <sparse/coo.cuh>
 #include <sparse/linalg/symmetrize.cuh>
 #include <sparse/selection/knn.cuh>
@@ -63,10 +63,9 @@ void get_distances(const raft::handle_t &handle,
                      cudaStream_t userStream,
  */
 
-  MLCommon::Selection::brute_force_knn(input_vec, sizes_vec, input.d, input.X,
-                                       input.n, k_graph.knn_indices,
-                                       k_graph.knn_dists, k_graph.n_neighbors,
-                                       handle.get_device_allocator(), stream);
+  raft::spatial::knn::brute_force_knn(handle, input_vec, sizes_vec, input.d,
+                                      input.X, input.n, k_graph.knn_indices,
+                                      k_graph.knn_dists, k_graph.n_neighbors);
 }
 
 // dense, int32 indices

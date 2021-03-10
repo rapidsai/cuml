@@ -22,7 +22,7 @@
 #include <cuml/neighbors/knn_sparse.hpp>
 #include <iostream>
 #include <raft/linalg/unary_op.cuh>
-#include <selection/knn.cuh>
+#include <raft/spatial/knn/knn.hpp>
 #include <sparse/selection/knn.cuh>
 
 #include <raft/cudart_utils.h>
@@ -61,9 +61,9 @@ void launcher(const raft::handle_t &handle,
   ptrs[0] = inputsA.X;
   sizes[0] = inputsA.n;
 
-  MLCommon::Selection::brute_force_knn(
-    ptrs, sizes, inputsA.d, inputsB.X, inputsB.n, out.knn_indices,
-    out.knn_dists, n_neighbors, d_alloc, stream);
+  raft::spatial::knn::brute_force_knn(handle, ptrs, sizes, inputsA.d, inputsB.X,
+                                      inputsB.n, out.knn_indices, out.knn_dists,
+                                      n_neighbors);
 }
 
 // Instantiation for dense inputs, int indices

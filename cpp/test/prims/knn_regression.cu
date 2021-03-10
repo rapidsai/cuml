@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -67,10 +67,9 @@ void generate_data(float *out_samples, float *out_labels, int n_rows,
 class KNNRegressionTest : public ::testing::TestWithParam<KNNRegressionInputs> {
  protected:
   void basicTest() {
-    std::shared_ptr<MLCommon::deviceAllocator> alloc(
-      new raft::mr::device::default_allocator);
-    cudaStream_t stream;
-    CUDA_CHECK(cudaStreamCreate(&stream));
+    raft::handle_t handle;
+    cudaStream_t stream = handle.get_stream();
+    auto alloc = handle.get_device_allocator();
 
     cublasHandle_t cublas_handle;
     CUBLAS_CHECK(cublasCreate(&cublas_handle));
@@ -96,8 +95,9 @@ class KNNRegressionTest : public ::testing::TestWithParam<KNNRegressionInputs> {
     ptrs[0] = train_samples;
     sizes[0] = params.rows;
 
-    brute_force_knn(ptrs, sizes, params.cols, train_samples, params.rows,
-                    knn_indices, knn_dists, params.k, alloc, stream);
+    raft::spatial::knn::brute_force_knn(handle, ptrs, sizes, params.cols,
+                                        train_samples, params.rows, knn_indices,
+                                        knn_dists, params.k);
 
     std::vector<float *> y;
     y.push_back(train_labels);

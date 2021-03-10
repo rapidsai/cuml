@@ -37,7 +37,8 @@ template <typename T>
 class KNNTest : public ::testing::Test {
  protected:
   void basicTest() {
-    auto alloc = std::make_shared<raft::mr::device::default_allocator>();
+    raft::handle_t handle;
+    cudaStream_t stream = handle.get_stream();
 
     // Allocate input
     raft::allocate(d_train_inputs, n * d);
@@ -66,12 +67,9 @@ class KNNTest : public ::testing::Test {
     std::vector<float *> input_vec = {d_train_inputs};
     std::vector<int> sizes_vec = {n};
 
-    cudaStream_t stream;
-    CUDA_CHECK(cudaStreamCreate(&stream));
-
-    brute_force_knn(input_vec, sizes_vec, d, d_train_inputs, n, d_pred_I,
-                    d_pred_D, n, alloc, stream, nullptr, 0, true, true, nullptr,
-                    raft::distance::DistanceType::L2SqrtExpanded);
+    raft::spatial::knn::brute_force_knn(
+      handle, input_vec, sizes_vec, d, d_train_inputs, n, d_pred_I, d_pred_D, n,
+      true, true, nullptr, raft::distance::DistanceType::L2SqrtExpanded);
 
     CUDA_CHECK(cudaStreamDestroy(stream));
   }

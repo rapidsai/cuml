@@ -135,9 +135,9 @@ class UMAPParametrizableTest : public ::testing::Test {
       ptrs[0] = X;
       sizes[0] = n_samples;
 
-      MLCommon::Selection::brute_force_knn(
-        ptrs, sizes, n_features, X, n_samples, knn_indices, knn_dists,
-        umap_params.n_neighbors, alloc, stream);
+      raft::spatial::knn::brute_force_knn(handle, ptrs, sizes, n_features, X,
+                                          n_samples, knn_indices, knn_dists,
+                                          umap_params.n_neighbors);
 
       CUDA_CHECK(cudaStreamSynchronize(stream));
     }

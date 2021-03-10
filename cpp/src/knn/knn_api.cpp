@@ -73,7 +73,7 @@ cumlError_t knn_search(const cumlHandle_t handle, float **input, int *sizes,
     try {
       ML::brute_force_knn(*handle_ptr, input_vec, sizes_vec, D, search_items, n,
                           res_I, res_D, k, rowMajorIndex, rowMajorQuery,
-                          metric_distance_type, metric_arg);
+                          nullptr, metric_distance_type, metric_arg);
     } catch (...) {
       status = CUML_ERROR_UNKNOWN;
     }

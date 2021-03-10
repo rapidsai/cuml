@@ -28,6 +28,7 @@
 
 #include <raft/cudart_utils.h>
 #include <raft/cuda_utils.cuh>
+#include <raft/spatial/knn/knn.hpp>
 
 #include "knn_opg_common.cuh"
 
@@ -167,6 +168,7 @@ struct KNN_CL_params : public opg_knn_param<in_t, ind_t, dist_t, out_t> {
  */
 struct cuda_utils {
   cuda_utils(raft::handle_t &handle) {
+    this->handle = &handle;
     this->alloc = handle.get_device_allocator();
     this->stream = handle.get_stream();
     this->comm = &(handle.get_comms());  //communicator_ is a private attribute
@@ -176,6 +178,7 @@ struct cuda_utils {
       internal_streams[i] = handle.get_internal_stream(i);
     }
   }
+  raft::handle_t *handle;                 /**< RAFT handle */
   std::shared_ptr<deviceAllocator> alloc; /**< RMM alloc */
   cudaStream_t stream;                    /**< CUDA user stream */
   const raft::comms::comms_t *comm;       /**< RAFT comms handle */
@@ -440,11 +443,10 @@ void perform_local_knn(opg_knn_param<in_t, ind_t, dist_t, out_t> &params,
 
   // ID ranges need to be offset by each local partition's
   // starting indices.
-  MLCommon::Selection::brute_force_knn(
-    ptrs, sizes, params.idx_desc->N, query, query_size, work.res_I.data(),
-    work.res_D.data(), params.k, cutils.alloc, cutils.stream,
-    cutils.internal_streams.data(), cutils.internal_streams.size(),
-    params.rowMajorIndex, params.rowMajorQuery, &start_indices_long);
+  raft::spatial::knn::brute_force_knn(
+    *(cutils.handle), ptrs, sizes, params.idx_desc->N, query, query_size,
+    work.res_I.data(), work.res_D.data(), params.k, params.rowMajorIndex,
+    params.rowMajorQuery, &start_indices_long);
   CUDA_CHECK(cudaStreamSynchronize(cutils.stream));
   CUDA_CHECK(cudaPeekAtLastError());
 }
