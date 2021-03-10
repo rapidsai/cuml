@@ -15,11 +15,16 @@
 #
 
 import cupy as cp
+import numpy as np
 import pytest
+import zlib
+
 from sklearn.datasets import fetch_20newsgroups
 from sklearn.datasets import fetch_california_housing
+from sklearn.datasets import make_classification as skl_make_clas
+from sklearn.datasets import make_regression as skl_make_reg
 from sklearn.feature_extraction.text import CountVectorizer
-import zlib
+from sklearn.model_selection import train_test_split
 
 
 def pytest_configure(config):
@@ -57,3 +62,54 @@ def housing_dataset():
     feature_names = data['feature_names']
 
     return X, y, feature_names
+
+
+def create_synthetic_dataset(generator=skl_make_reg,
+                             n_samples=100,
+                             n_features=10,
+                             test_size=0.25,
+                             random_state_generator=None,
+                             random_state_train_test_split=None,
+                             dtype=np.float32,
+                             **kwargs):
+    X, y = generator(
+        n_samples=n_samples,
+        n_features=n_features,
+        random_state=random_state_generator,
+        **kwargs
+    )
+
+    X_train, X_test, y_train, y_test = train_test_split(
+        X,
+        y,
+        test_size=test_size,
+        random_state=random_state_train_test_split
+    )
+
+    X_train = X_train.astype(dtype)
+    X_test = X_test.astype(dtype)
+    y_train = y_train.astype(dtype)
+    y_test = y_test.astype(dtype)
+
+    return X_train, X_test, y_train, y_test
+
+
+@pytest.fixture(scope="module")
+def exact_shap_regression_dataset():
+    return create_synthetic_dataset(generator=skl_make_reg,
+                                    n_samples=101,
+                                    n_features=11,
+                                    test_size=1,
+                                    random_state_generator=42,
+                                    random_state_train_test_split=42,
+                                    noise=0.1)
+
+
+@pytest.fixture(scope="module")
+def exact_shap_classification_dataset():
+    return create_synthetic_dataset(generator=skl_make_clas,
+                                    n_samples=101,
+                                    n_features=11,
+                                    test_size=1,
+                                    random_state_generator=42,
+                                    random_state_train_test_split=42)
