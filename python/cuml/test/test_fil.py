@@ -78,7 +78,7 @@ def _build_and_save_xgboost(model_path,
             params['objective'] = 'binary:logistic'
         else:
             params['num_class'] = n_classes
-            params['objective'] = 'multi:softmax'
+            params['objective'] = 'multi:softprob'
     else:
         params['eval_metric'] = 'error'
         params['objective'] = 'reg:squarederror'
@@ -127,8 +127,14 @@ def test_fil_classification(n_rows, n_columns, num_rounds,
                                   n_classes=n_classes)
 
     dvalidation = xgb.DMatrix(X_validation, label=y_validation)
-    xgb_preds = bst.predict(dvalidation)
-    xgb_preds_int = np.around(xgb_preds)
+
+    if n_classes == 2:
+        xgb_preds = bst.predict(dvalidation)
+        xgb_preds_int = np.around(xgb_preds)
+        xgb_proba = np.stack([1-xgb_preds, xgb_preds], axis=1)
+    else:
+        xgb_proba = bst.predict(dvalidation)
+        xgb_preds_int = xgb_proba.argmax(axis=1)
     xgb_acc = accuracy_score(y_validation, xgb_preds_int)
 
     fm = ForestInference.load(model_path,
@@ -136,15 +142,11 @@ def test_fil_classification(n_rows, n_columns, num_rounds,
                               output_class=True,
                               threshold=0.50)
     fil_preds = np.asarray(fm.predict(X_validation))
+    fil_proba = np.asarray(fm.predict_proba(X_validation))
     fil_acc = accuracy_score(y_validation, fil_preds)
 
     assert fil_acc == pytest.approx(xgb_acc, abs=0.01)
-    if n_classes == 2:
-        assert array_equal(fil_preds, xgb_preds_int)
-        xgb_proba = np.stack([1-xgb_preds, xgb_preds], axis=1)
-    else:
-        xgb_proba = bst.predict(dvalidation, output_margin=True)
-    fil_proba = np.asarray(fm.predict_proba(X_validation))
+    assert array_equal(fil_preds, xgb_preds_int)
     np.testing.assert_allclose(fil_proba, xgb_proba,
                                atol=proba_atol[n_classes > 2])
 
