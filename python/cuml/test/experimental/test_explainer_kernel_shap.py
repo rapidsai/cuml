@@ -53,7 +53,7 @@ def assert_and_log(cu_shap_values,
         print(golden_result_values)
 
     if not expected_sum:
-        print("Expected sum: {}".format())
+        # print("Expected sum: {}".format())
         print(np.sum(cp.asnumpy(cu_shap_values)))
 
     assert expected_sum
