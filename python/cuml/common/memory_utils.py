@@ -310,8 +310,7 @@ def _check_array_contiguity(ary):
         else:
             raise TypeError("No array_interface attribute detected in input. ")
 
-        # __cuda_array_interface__ v2 requires the strides to be omitted
-        # (either not set or set to None) for C-contiguous arrays.
+        # if the strides are not set or none, then the array is C-contiguous
         if 'strides' not in ary_interface or ary_interface['strides'] is None:
             return True
 
