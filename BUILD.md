@@ -9,7 +9,7 @@ To install cuML from source, ensure the following dependencies are met:
 3. cmake (>= 3.14)
 4. CUDA (>= 9.2)
 5. Cython (>= 0.29)
-6. gcc (>=5.4.0)
+6. gcc (>=7.5.0)
 7. BLAS - Any BLAS compatible with cmake's [FindBLAS](https://cmake.org/cmake/help/v3.14/module/FindBLAS.html). Note that the blas has to be installed to the same folder system as cmake, for example if using conda installed cmake, the blas implementation should also be installed in the conda environment.
 8. clang-format (= 8.0.1) - enforces uniform C++ coding style; required to build cuML from source. The packages `clang=8` and `clang-tools=8` from the conda-forge channel should be sufficient, if you are on conda. If not using conda, install the right version using your OS package manager.
 9. NCCL (>=2.4)
@@ -59,6 +59,8 @@ $ ./build.sh prims --allgpuarch        # build the ML prims tests for all suppor
 $ ./build.sh cuml --singlegpu          # build the cuML python package without MNMG algorithms
 $ ./build.sh --ccache                  # use ccache to cache compilations, speeding up subsequent builds
 ```
+
+Note. If you are using GCC 7.5, make sure to read [RDN 0002: updates to from-source builds with conda for gcc '7.5.0'](https://docs.rapids.ai/notices/rdn0002/).
 
 To run the C++ unit tests (optional), from the repo root:
 
