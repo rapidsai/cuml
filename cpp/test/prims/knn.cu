@@ -67,9 +67,9 @@ class KNNTest : public ::testing::Test {
     std::vector<float *> input_vec = {d_train_inputs};
     std::vector<int> sizes_vec = {n};
 
-    raft::spatial::knn::brute_force_knn(
-      handle, input_vec, sizes_vec, d, d_train_inputs, n, d_pred_I, d_pred_D, n,
-      true, true, nullptr, raft::distance::DistanceType::L2SqrtExpanded);
+    ML::brute_force_knn(handle, input_vec, sizes_vec, d, d_train_inputs, n,
+                        d_pred_I, d_pred_D, n, true, true,
+                        raft::distance::DistanceType::L2SqrtExpanded);
 
     CUDA_CHECK(cudaStreamDestroy(stream));
   }

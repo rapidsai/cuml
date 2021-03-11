@@ -19,6 +19,7 @@
 #include <iostream>
 #include <label/classlabels.cuh>
 #include <raft/cuda_utils.cuh>
+#include <raft/spatial/knn/knn.hpp>
 #include <random/make_blobs.cuh>
 #include <selection/knn.cuh>
 #include <vector>
