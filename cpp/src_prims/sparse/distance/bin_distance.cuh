@@ -146,7 +146,7 @@ class jaccard_expanded_distances_t : public distances_t<value_t> {
 
         // flip the similarity when both rows are 0
         bool both_empty = q_r_union == 0;
-        return  1 - ((!both_empty * jacc) + both_empty);
+        return 1 - ((!both_empty * jacc) + both_empty);
       });
   }
 

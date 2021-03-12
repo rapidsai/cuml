@@ -152,27 +152,22 @@ class SparseDistanceTest
 };
 
 const std::vector<SparseDistanceInputs<int, float>> inputs_i32_f = {
-  {
-    5,
-    {0, 0, 1, 2},
+  {5,
+   {0, 0, 1, 2},
 
-    {1, 2},
-    {0.5, 0.5},
-    {0, 1, 1, 1, 0, 1, 1, 1, 0},
-    raft::distance::DistanceType::CosineExpanded,
-    0.0
-  },
-  {
-    5,
-    {0, 0, 1, 2},
+   {1, 2},
+   {0.5, 0.5},
+   {0, 1, 1, 1, 0, 1, 1, 1, 0},
+   raft::distance::DistanceType::CosineExpanded,
+   0.0},
+  {5,
+   {0, 0, 1, 2},
 
-    {1, 2},
-    {1.0, 1.0},
-    {0, 1, 1, 1, 0, 1, 1, 1, 0},
-    raft::distance::DistanceType::JaccardExpanded,
-    0.0
-  },
-
+   {1, 2},
+   {1.0, 1.0},
+   {0, 1, 1, 1, 0, 1, 1, 1, 0},
+   raft::distance::DistanceType::JaccardExpanded,
+   0.0},
 
   {2,
    {0, 2, 4, 6, 8},

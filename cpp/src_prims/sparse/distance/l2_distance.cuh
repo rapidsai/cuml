@@ -212,20 +212,20 @@ class cosine_expanded_distances_t : public distances_t<value_t> {
                                       config_->stream);
 
     CUML_LOG_DEBUG("Computing L2");
-    compute_l2(
-      out_dists, search_coo_rows.data(), config_->a_data, config_->a_nnz,
-      b_indices, b_data, config_->b_nnz, config_->a_nrows, config_->b_nrows,
-      config_->handle, config_->allocator, config_->stream,
-      [] __device__(value_t dot, value_t q_norm, value_t r_norm) {
-        value_t norms = sqrt(q_norm) * sqrt(r_norm);
-        // deal with potential for 0 in denominator by forcing 0/1 instead
-        value_t cos = ((norms != 0) * dot) / ((norms == 0) + norms);
+    compute_l2(out_dists, search_coo_rows.data(), config_->a_data,
+               config_->a_nnz, b_indices, b_data, config_->b_nnz,
+               config_->a_nrows, config_->b_nrows, config_->handle,
+               config_->allocator, config_->stream,
+               [] __device__(value_t dot, value_t q_norm, value_t r_norm) {
+                 value_t norms = sqrt(q_norm) * sqrt(r_norm);
+                 // deal with potential for 0 in denominator by forcing 0/1 instead
+                 value_t cos = ((norms != 0) * dot) / ((norms == 0) + norms);
 
-        // flip the similarity when both rows are 0
-        bool both_empty = q_norm == 0 && r_norm == 0;
+                 // flip the similarity when both rows are 0
+                 bool both_empty = q_norm == 0 && r_norm == 0;
 
-        return  1 - ((!both_empty * cos) + both_empty);
-      });
+                 return 1 - ((!both_empty * cos) + both_empty);
+               });
   }
 
   ~cosine_expanded_distances_t() = default;
