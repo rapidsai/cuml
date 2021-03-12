@@ -97,7 +97,8 @@ class KNNRegressionTest : public ::testing::TestWithParam<KNNRegressionInputs> {
     sizes[0] = params.rows;
 
     raft::spatial::knn::brute_force_knn(handle, ptrs, sizes, params.cols,
-      train_samples, params.rows, knn_indices, knn_dists, params.k);
+                                        train_samples, params.rows, knn_indices,
+                                        knn_dists, params.k);
 
     std::vector<float *> y;
     y.push_back(train_labels);
