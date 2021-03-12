@@ -140,8 +140,6 @@ class jaccard_expanded_distances_t : public distances_t<value_t> {
         value_t q_r_union = q_norm + r_norm;
         value_t denom = q_r_union - dot;
 
-        printf("dot=%f, q_r_union=%f, denom=%f\n", dot, q_r_union, denom);
-
         value_t jacc = ((denom != 0) * dot) / ((denom == 0) + denom);
 
         // flip the similarity when both rows are 0
