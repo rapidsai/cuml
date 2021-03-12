@@ -1089,7 +1089,7 @@ def test_pairwise_distances_output_types(input_type, output_type, use_global):
 
 
 @pytest.mark.parametrize("metric", PAIRWISE_DISTANCE_SPARSE_METRICS.keys())
-@pytest.mark.parametrize("matrix_size", [(20, 10), (400, 2), (2, 400),
+@pytest.mark.parametrize("matrix_size", [(3, 8), (800, 10), (2, 400),
                                          (500, 40)])
 def test_sparse_pairwise_distances(metric: str, matrix_size):
     # Test the sparse_pairwise_distance helper function.
@@ -1104,7 +1104,7 @@ def test_sparse_pairwise_distances(metric: str, matrix_size):
 
     # Compare to sklearn, single input
     X = scipy.sparse.random(matrix_size[0], matrix_size[1], format='csr',
-                            dtype=np.float64, random_state=123)
+                            dtype=np.float64, random_state=123, density=0.6)
     S = sparse_pairwise_distance(X, metric=metric)
     S2 = sklearn_pairwise_distances(X.todense(), metric=metric)
     cp.testing.assert_array_almost_equal(S, S2, decimal=compare_precision)
@@ -1147,7 +1147,7 @@ def test_sparse_pairwise_distances(metric: str, matrix_size):
 
     # Change precision of both parameters to float
     X = scipy.sparse.random(matrix_size[0], matrix_size[1], format='csr',
-                            dtype=np.float32, random_state=123)
+                            dtype=np.float32, random_state=123, density=0.6)
     Y = scipy.sparse.random(matrix_size[0], matrix_size[1], format='csr',
                             dtype=np.float32, random_state=123)
     S = pairwise_distances(X, Y, metric=metric)

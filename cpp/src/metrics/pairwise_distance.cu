@@ -39,22 +39,16 @@ void pairwise_distance(const raft::handle_t &handle, const float *x,
                                        handle.get_stream(), isRowMajor);
 }
 
-}  // namespace Metrics
-}  // namespace ML
-
-namespace raft {
-namespace sparse {
-namespace distance {
 template <typename value_idx = int, typename value_t = float>
-void pairwiseDistance_sparse(const handle_t &handle, value_t *x, value_t *y,
-                             value_t *dist, value_idx x_nrows,
+void pairwiseDistance_sparse(const raft::handle_t &handle, value_t *x,
+                             value_t *y, value_t *dist, value_idx x_nrows,
                              value_idx y_nrows, value_idx n_cols,
                              value_idx x_nnz, value_idx y_nnz,
                              value_idx *x_indptr, value_idx *y_indptr,
                              value_idx *x_indices, value_idx *y_indices,
                              raft::distance::DistanceType metric,
                              float metric_arg) {
-  distances_config_t<value_idx, value_t> dist_config;
+  raft::sparse::distance::distances_config_t<value_idx, value_t> dist_config;
 
   dist_config.b_nrows = x_nrows;
   dist_config.b_ncols = n_cols;
@@ -74,10 +68,11 @@ void pairwiseDistance_sparse(const handle_t &handle, value_t *x, value_t *y,
   dist_config.allocator = handle.get_device_allocator();
   dist_config.stream = handle.get_stream();
 
-  pairwiseDistance(dist, dist_config, metric, metric_arg);
+  raft::sparse::distance::pairwiseDistance(dist, dist_config, metric,
+                                           metric_arg);
 }
 
-void pairwiseDistance_sparse(const handle_t &handle, float *x, float *y,
+void pairwiseDistance_sparse(const raft::handle_t &handle, float *x, float *y,
                              float *dist, int x_nrows, int y_nrows, int n_cols,
                              int x_nnz, int y_nnz, int *x_indptr, int *y_indptr,
                              int *x_indices, int *y_indices,
@@ -88,7 +83,7 @@ void pairwiseDistance_sparse(const handle_t &handle, float *x, float *y,
                                       x_indices, y_indices, metric, metric_arg);
 }
 
-void pairwiseDistance_sparse(const handle_t &handle, double *x, double *y,
+void pairwiseDistance_sparse(const raft::handle_t &handle, double *x, double *y,
                              double *dist, int x_nrows, int y_nrows, int n_cols,
                              int x_nnz, int y_nnz, int *x_indptr, int *y_indptr,
                              int *x_indices, int *y_indices,
@@ -98,6 +93,5 @@ void pairwiseDistance_sparse(const handle_t &handle, double *x, double *y,
     handle, x, y, dist, x_nrows, y_nrows, n_cols, x_nnz, y_nnz, x_indptr,
     y_indptr, x_indices, y_indices, metric, metric_arg);
 }
-}  // namespace distance
-}  // namespace sparse
-}  // namespace raft
+}  // namespace Metrics
+}  // namespace ML

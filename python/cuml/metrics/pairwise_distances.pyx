@@ -42,19 +42,20 @@ cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics":
     void pairwise_distance(const handle_t &handle, const float *x,
                            const float *y, float *dist, int m, int n, int k,
                            DistanceType metric, bool isRowMajor) except +
-
-cdef extern from "cuml/metrics/metrics.hpp" namespace "raft::sparse::distance":
     void pairwiseDistance_sparse(const handle_t &handle, float *x, float *y,
-                             float *dist, int x_nrows, int y_nrows, int n_cols,
-                             int x_nnz, int y_nnz, int* x_indptr,
-                             int* y_indptr, int* x_indices, int* y_indices,
-                             DistanceType metric, float metric_arg) except +
+                                 float *dist, int x_nrows, int y_nrows,
+                                 int n_cols, int x_nnz, int y_nnz,
+                                 int* x_indptr, int* y_indptr,
+                                 int* x_indices, int* y_indices,
+                                 DistanceType metric,
+                                 float metric_arg) except +
     void pairwiseDistance_sparse(const handle_t &handle, double *x, double *y,
-                             double *dist, int x_nrows, int y_nrows,
-                             int n_cols, int x_nnz, int y_nnz, int* x_indptr,
-                             int* y_indptr, int* x_indices, int* y_indices,
-                             DistanceType metric,
-                             float metric_arg) except +
+                                 double *dist, int x_nrows, int y_nrows,
+                                 int n_cols, int x_nnz, int y_nnz,
+                                 int* x_indptr, int* y_indptr,
+                                 int* x_indices, int* y_indices,
+                                 DistanceType metric,
+                                 float metric_arg) except +
 
 """
 List of available distance metrics in `pairwise_distances`
@@ -323,8 +324,15 @@ def sparse_pairwise_distance(X, Y=None, metric="euclidean", handle=None,
     handle = Handle() if handle is None else handle
     cdef handle_t *handle_ = <handle_t*> <size_t> handle.getHandle()
 
+    if not is_sparse(X) or (Y is not None and not is_sparse(Y)):
+        raise ValueError("Input matrices are not sparse.")
+
     if scipy.sparse.issparse(X):
         X = sparse_scipy_to_cp(X, dtype=None)
+
+    if metric == 'jaccard' and not cp.all(X.data == 1.):
+        warnings.warn("X was converted to boolean for metric jaccard")
+        X.data = cp.ones(X.data.shape)
 
     X_m = SparseCumlArray(X)
     n_samples_x, n_features_x = X_m.shape
@@ -337,6 +345,9 @@ def sparse_pairwise_distance(X, Y=None, metric="euclidean", handle=None,
         else:
             if convert_dtype:
                 Y = Y.astype(dtype_x)
+        if metric == 'jaccard' and not cp.all(Y.data == 1.):
+            warnings.warn("Y was converted to boolean for metric jaccard")
+            Y.data = cp.ones(Y.data.shape)
         Y_m = SparseCumlArray(Y)
     n_samples_y, n_features_y = Y_m.shape
 
