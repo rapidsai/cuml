@@ -440,11 +440,12 @@ __global__ void computeSplitClassificationKernel(
    *   for each split-point
    */
   for(IdxT tix = threadIdx.x; tix < max(TPB, nbins); tix += blockDim.x) {
-    // left to right scan operation for scanning lesser-than-or-equal-to-bin values
     for(IdxT c = 0; c < nclasses; ++c){
       // for each class, do inclusive block scan
       int pdf_per_bin_per_class;
       int cdf_per_bin_per_class;
+      // left to right scan operation for scanning lesser-than-or-equal-to-bin counts
+      // offset for left to right scan of pdf_shist
       IdxT class_segment_offset = nclasses*tix;
       pdf_per_bin_per_class = tix < nbins ? pdf_shist[class_segment_offset + c] : 0;
       BlockScan(temp_storage).InclusiveSum(pdf_per_bin_per_class, cdf_per_bin_per_class);
@@ -453,17 +454,13 @@ __global__ void computeSplitClassificationKernel(
         auto histOffset = (2*nclasses*tix + c);
         cdf_shist[histOffset] = cdf_per_bin_per_class;
       }
-    }
 
-    // now right to left scan operation for scanning greater-than-bin values
-    for(IdxT c = 0; c < nclasses; ++c){
-      // for each class, do inclusive block scan
-      int pdf_per_bin_per_class;
-      int cdf_per_bin_per_class;
+      // right to left scan operation for scanning greater-than-bin counts
       // thread0 -> last class segment of pdf_shist
       // thread(nbins - 1) -> 2nd class segment of pdf_shist
-      IdxT class_segment_offset = nclasses*(nbins - tix);
-      pdf_per_bin_per_class = tix < nbins ? pdf_shist[class_segment_offset + c] : 0; 
+      // offset for right to left scan of pdf_shist
+      class_segment_offset = nclasses*(nbins - tix);
+      pdf_per_bin_per_class = tix < nbins ? pdf_shist[class_segment_offset + c] : 0;
       BlockScan(temp_storage).InclusiveSum(pdf_per_bin_per_class, cdf_per_bin_per_class);
       __syncthreads(); // synchronizing the scan
       if(tix < nbins) {
