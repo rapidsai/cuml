@@ -434,6 +434,7 @@ def rf_classification(datatype, array_type, max_features, max_samples,
         cu_proba_gpu = cuml_model.predict_proba(X_test)
         cu_preds_cpu = cuml_model.predict(X_test, predict_model="CPU")
         cu_preds_gpu = cuml_model.predict(X_test, predict_model="GPU")
+    np.testing.assert_array_equal(cu_preds_gpu, np.argmax(cu_proba_gpu, axis=1))
 
     cu_acc_cpu = accuracy_score(y_test, cu_preds_cpu)
     cu_acc_gpu = accuracy_score(y_test, cu_preds_gpu)
