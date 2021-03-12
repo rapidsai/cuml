@@ -24,6 +24,7 @@
 #include <cuml/cuml.hpp>
 #include <cuml/datasets/make_blobs.hpp>
 #include <cuml/metrics/metrics.hpp>
+#include <distance/distance.cuh>
 
 #include <raft/linalg/cublas_wrappers.h>
 #include <raft/linalg/transpose.h>
@@ -55,6 +56,7 @@ struct DbscanInputs {
   int min_pts;
   size_t max_bytes_per_batch;
   unsigned long long int seed;
+  Dbscan::MetricType metric;
 };
 
 template <typename T, typename IdxT>
@@ -75,10 +77,23 @@ class DbscanTest : public ::testing::TestWithParam<DbscanInputs<T, IdxT>> {
                          params.n_row * params.n_col);
     device_buffer<IdxT> l(handle.get_device_allocator(), handle.get_stream(),
                           params.n_row);
+    device_buffer<T> dist(
+      handle.get_device_allocator(), handle.get_stream(),
+      params.metric == Dbscan::PRECOMPUTED ? params.n_row * params.n_row : 0);
 
     make_blobs(handle, out.data(), l.data(), params.n_row, params.n_col,
                params.n_centers, true, nullptr, nullptr, params.cluster_std,
                true, -10.0f, 10.0f, params.seed);
+
+    if (params.metric == Dbscan::PRECOMPUTED) {
+      device_buffer<char> workspace(handle.get_device_allocator(),
+                                    handle.get_stream(), 0);
+
+      MLCommon::Distance::pairwise_distance_impl<
+        T, IdxT, raft::distance::L2SqrtExpanded>(
+        out.data(), out.data(), dist.data(), params.n_row, params.n_row,
+        params.n_col, workspace, handle.get_stream(), true);
+    }
 
     raft::allocate(labels, params.n_row);
     raft::allocate(labels_ref, params.n_row);
@@ -87,9 +102,10 @@ class DbscanTest : public ::testing::TestWithParam<DbscanInputs<T, IdxT>> {
 
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 
-    Dbscan::fit(handle, out.data(), params.n_row, params.n_col, params.eps,
-                params.min_pts, Dbscan::L2, labels, nullptr,
-                params.max_bytes_per_batch);
+    Dbscan::fit(handle,
+                params.metric == Dbscan::PRECOMPUTED ? dist.data() : out.data(),
+                params.n_row, params.n_col, params.eps, params.min_pts,
+                params.metric, labels, nullptr, params.max_bytes_per_batch);
 
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 
@@ -120,34 +136,37 @@ class DbscanTest : public ::testing::TestWithParam<DbscanInputs<T, IdxT>> {
 };
 
 const std::vector<DbscanInputs<float, int>> inputsf2 = {
-  {500, 16, 5, 0.01, 2, 2, (size_t)100, 1234ULL},
-  {1000, 1000, 10, 0.01, 2, 2, (size_t)13e3, 1234ULL},
-  {20000, 10000, 10, 0.01, 2, 2, (size_t)13e3, 1234ULL},
-  {20000, 100, 5000, 0.01, 2, 2, (size_t)13e3, 1234ULL}};
+  {500, 16, 5, 0.01, 2, 2, (size_t)100, 1234ULL, Dbscan::L2},
+  {500, 16, 5, 0.01, 2, 2, (size_t)100, 1234ULL, Dbscan::PRECOMPUTED},
+  {1000, 1000, 10, 0.01, 2, 2, (size_t)13e3, 1234ULL, Dbscan::L2},
+  {20000, 10000, 10, 0.01, 2, 2, (size_t)13e3, 1234ULL, Dbscan::L2},
+  {20000, 100, 5000, 0.01, 2, 2, (size_t)13e3, 1234ULL, Dbscan::L2}};
 
 const std::vector<DbscanInputs<float, int64_t>> inputsf3 = {
-  {50000, 16, 5, 0.01, 2, 2, (size_t)9e3, 1234ULL},
-  {500, 16, 5, 0.01, 2, 2, (size_t)100, 1234ULL},
-  {1000, 1000, 10, 0.01, 2, 2, (size_t)9e3, 1234ULL},
-  {50000, 16, 5l, 0.01, 2, 2, (size_t)9e3, 1234ULL},
-  {20000, 10000, 10, 0.01, 2, 2, (size_t)9e3, 1234ULL},
-  {20000, 100, 5000, 0.01, 2, 2, (size_t)9e3, 1234ULL}};
+  {500, 16, 5, 0.01, 2, 2, (size_t)100, 1234ULL, Dbscan::L2},
+  {500, 16, 5, 0.01, 2, 2, (size_t)100, 1234ULL, Dbscan::PRECOMPUTED},
+  {1000, 1000, 10, 0.01, 2, 2, (size_t)9e3, 1234ULL, Dbscan::L2},
+  {50000, 16, 5, 0.01, 2, 2, (size_t)9e3, 1234ULL, Dbscan::L2},
+  {20000, 10000, 10, 0.01, 2, 2, (size_t)9e3, 1234ULL, Dbscan::L2},
+  {20000, 100, 5000, 0.01, 2, 2, (size_t)9e3, 1234ULL, Dbscan::L2}};
 
 const std::vector<DbscanInputs<double, int>> inputsd2 = {
-  {50000, 16, 5, 0.01, 2, 2, (size_t)13e3, 1234ULL},
-  {500, 16, 5, 0.01, 2, 2, (size_t)100, 1234ULL},
-  {1000, 1000, 10, 0.01, 2, 2, (size_t)13e3, 1234ULL},
-  {100, 10000, 10, 0.01, 2, 2, (size_t)13e3, 1234ULL},
-  {20000, 10000, 10, 0.01, 2, 2, (size_t)13e3, 1234ULL},
-  {20000, 100, 5000, 0.01, 2, 2, (size_t)13e3, 1234ULL}};
+  {50000, 16, 5, 0.01, 2, 2, (size_t)13e3, 1234ULL, Dbscan::L2},
+  {10000, 16, 5, 0.01, 2, 2, (size_t)13e3, 1234ULL, Dbscan::PRECOMPUTED},
+  {500, 16, 5, 0.01, 2, 2, (size_t)100, 1234ULL, Dbscan::L2},
+  {1000, 1000, 10, 0.01, 2, 2, (size_t)13e3, 1234ULL, Dbscan::L2},
+  {100, 10000, 10, 0.01, 2, 2, (size_t)13e3, 1234ULL, Dbscan::L2},
+  {20000, 10000, 10, 0.01, 2, 2, (size_t)13e3, 1234ULL, Dbscan::L2},
+  {20000, 100, 5000, 0.01, 2, 2, (size_t)13e3, 1234ULL, Dbscan::L2}};
 
 const std::vector<DbscanInputs<double, int64_t>> inputsd3 = {
-  {50000, 16, 5, 0.01, 2, 2, (size_t)9e3, 1234ULL},
-  {500, 16, 5, 0.01, 2, 2, (size_t)100, 1234ULL},
-  {1000, 1000, 10, 0.01, 2, 2, (size_t)9e3, 1234ULL},
-  {100, 10000, 10, 0.01, 2, 2, (size_t)9e3, 1234ULL},
-  {20000, 10000, 10, 0.01, 2, 2, (size_t)9e3, 1234ULL},
-  {20000, 100, 5000, 0.01, 2, 2, (size_t)9e3, 1234ULL}};
+  {50000, 16, 5, 0.01, 2, 2, (size_t)9e3, 1234ULL, Dbscan::L2},
+  {10000, 16, 5, 0.01, 2, 2, (size_t)9e3, 1234ULL, Dbscan::PRECOMPUTED},
+  {500, 16, 5, 0.01, 2, 2, (size_t)100, 1234ULL, Dbscan::L2},
+  {1000, 1000, 10, 0.01, 2, 2, (size_t)9e3, 1234ULL, Dbscan::L2},
+  {100, 10000, 10, 0.01, 2, 2, (size_t)9e3, 1234ULL, Dbscan::L2},
+  {20000, 10000, 10, 0.01, 2, 2, (size_t)9e3, 1234ULL, Dbscan::L2},
+  {20000, 100, 5000, 0.01, 2, 2, (size_t)9e3, 1234ULL, Dbscan::L2}};
 
 typedef DbscanTest<float, int> DbscanTestF_Int;
 TEST_P(DbscanTestF_Int, Result) { ASSERT_TRUE(score == 1.0); }

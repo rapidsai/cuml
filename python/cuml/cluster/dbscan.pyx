@@ -220,6 +220,7 @@ class DBSCAN(Base,
         self.min_samples = min_samples
         self.max_mbytes_per_batch = max_mbytes_per_batch
         self.calc_core_sample_indices = calc_core_sample_indices
+        self.metric = metric
 
         # internal array attributes
         self.labels_ = None
@@ -230,17 +231,6 @@ class DBSCAN(Base,
         # C++ API expects this to be numeric.
         if self.max_mbytes_per_batch is None:
             self.max_mbytes_per_batch = 0
-
-        # metric
-        metric_parsing = {
-            'L2': L2,
-            'euclidean': L2,
-            'precomputed': PRECOMPUTED,
-        }
-        if metric in metric_parsing:
-            self.metric = metric_parsing[metric.lower()]
-        else:
-            raise ValueError("Invalid value for metric: {}".format(metric))
 
     def _fit(self, X, out_dtype, opg) -> "DBSCAN":
         """
@@ -265,6 +255,17 @@ class DBSCAN(Base,
 
         cdef uintptr_t core_sample_indices_ptr = <uintptr_t> NULL
 
+        # metric
+        metric_parsing = {
+            'L2': L2,
+            'euclidean': L2,
+            'precomputed': PRECOMPUTED,
+        }
+        if self.metric in metric_parsing:
+            metric = metric_parsing[self.metric.lower()]
+        else:
+            raise ValueError("Invalid value for metric: {}".format(self.metric))
+
         # Create the output core_sample_indices only if needed
         if self.calc_core_sample_indices:
             self.core_sample_indices_ = \
@@ -279,7 +280,7 @@ class DBSCAN(Base,
                     <int> n_cols,
                     <float> self.eps,
                     <int> self.min_samples,
-                    <MetricType> self.metric,
+                    <MetricType> metric,
                     <int*> labels_ptr,
                     <int*> core_sample_indices_ptr,
                     <size_t>self.max_mbytes_per_batch,
@@ -292,7 +293,7 @@ class DBSCAN(Base,
                     <int64_t> n_cols,
                     <float> self.eps,
                     <int> self.min_samples,
-                    <MetricType> self.metric,
+                    <MetricType> metric,
                     <int64_t*> labels_ptr,
                     <int64_t*> core_sample_indices_ptr,
                     <size_t>self.max_mbytes_per_batch,
@@ -307,7 +308,7 @@ class DBSCAN(Base,
                     <int> n_cols,
                     <double> self.eps,
                     <int> self.min_samples,
-                    <MetricType> self.metric,
+                    <MetricType> metric,
                     <int*> labels_ptr,
                     <int*> core_sample_indices_ptr,
                     <size_t> self.max_mbytes_per_batch,
@@ -320,7 +321,7 @@ class DBSCAN(Base,
                     <int64_t> n_cols,
                     <double> self.eps,
                     <int> self.min_samples,
-                    <MetricType> self.metric,
+                    <MetricType> metric,
                     <int64_t*> labels_ptr,
                     <int64_t*> core_sample_indices_ptr,
                     <size_t> self.max_mbytes_per_batch,

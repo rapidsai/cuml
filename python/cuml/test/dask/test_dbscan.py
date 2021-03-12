@@ -96,13 +96,13 @@ def test_dbscan_precomputed(datatype, nrows, max_mbytes_per_batch, out_dtype,
 
     cu_labels = cuml_dbscan.fit_predict(X_dist, out_dtype=out_dtype)
 
-    sk_dbscan = skDBSCAN(eps=1, min_samples=2, metric='precomputed',
-                            algorithm="brute")
+    sk_dbscan = skDBSCAN(eps=eps, min_samples=2, metric='precomputed',
+                         algorithm="brute")
     sk_labels = sk_dbscan.fit_predict(X_dist)
 
     # Check the core points are equal
     assert array_equal(cuml_dbscan.core_sample_indices_,
-                        sk_dbscan.core_sample_indices_)
+                       sk_dbscan.core_sample_indices_)
 
     # Check the labels are correct
     assert_dbscan_equal(sk_labels, cu_labels, X,

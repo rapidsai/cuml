@@ -23,7 +23,6 @@
 #include <raft/cuda_utils.cuh>
 #include <raft/linalg/coalesced_reduction.cuh>
 #include <raft/linalg/reduce.cuh>
-#include <raft/linalg/unary_op.cuh>
 
 #include "pack.h"
 
@@ -42,40 +41,6 @@ __global__ void dist_to_adj_kernel(const value_t* X, bool* adj, index_t N,
   }
 }
 
-template <uint32_t block_rows, uint32_t block_cols, typename value_t,
-          typename index_t>
-__global__ void __launch_bounds__(block_rows* block_cols)
-  dist_to_adj_transposed_kernel(const value_t* X, bool* adj, index_t N,
-                                index_t start_vertex_id, index_t batch_size,
-                                value_t eps) {
-  __shared__ bool shared_mem[block_rows * block_cols];
-
-  const uint32_t& bi = blockIdx.x;
-  const uint32_t& bj = blockIdx.y;
-
-  uint32_t read_i = block_rows * bi + threadIdx.x % block_rows;
-  uint32_t batch_j = block_cols * bj + threadIdx.x / block_rows;
-  uint32_t read_j = start_vertex_id + batch_j;
-
-  // Load and transform tile from x
-  if (read_i < N && batch_j < batch_size)
-    shared_mem[threadIdx.x] = X[read_j * N + read_i] <= eps;
-
-  uint32_t local_write_i = threadIdx.x % block_cols;
-  uint32_t local_write_j = threadIdx.x / block_cols;
-  uint32_t write_i = block_cols * bj + local_write_i;
-  uint32_t write_j = block_rows * bi + local_write_j;
-
-  /// TODO: fix shared memory bank conflicts?
-  uint32_t sid = local_write_i * block_rows + local_write_j;
-
-  __syncthreads();
-
-  // Write tile in adj
-  if (write_j < N && write_i < batch_size)
-    adj[write_j * batch_size + write_i] = shared_mem[sid];
-}
-
 /**
  * Calculates the vertex degree array and the epsilon neighborhood adjacency matrix for the batch.
  */
@@ -85,8 +50,6 @@ void launcher(const raft::handle_t& handle, Pack<value_t, index_t> data,
               cudaStream_t stream) {
   const value_t& eps = data.eps;
 
-  /// TODO: case where less remaining elements than batch_size?
-
   // Note: the matrix is symmetric. We take advantage of this to have two
   //       coalesced kernels:
   //  - The reduction works on a column-major N*B matrix to compute a B vector
@@ -94,6 +57,10 @@ void launcher(const raft::handle_t& handle, Pack<value_t, index_t> data,
   //    The final_op is used to compute the total number of non-zero elements
   //  - The conversion to a boolean matrix works on a column-major B*N matrix
   //    (coalesced 2d copy + transform).
+  //
+  // If we end up supporting distributed distance matrices for MNMG, we can't
+  // rely on this trick anymore and need either a transposed kernel or to
+  // change the output layout.
 
   // Regarding index types, a special index type is used here for indices in
   // the distance matrix due to its dimensions (that are independent of the
@@ -120,20 +87,6 @@ void launcher(const raft::handle_t& handle, Pack<value_t, index_t> data,
     data.x, data.adj, (long_index_t)data.N, (long_index_t)start_vertex_id,
     (long_index_t)batch_size, data.eps);
   CUDA_CHECK(cudaPeekAtLastError());
-
-  // Note: in case we want to use the same N*B sub-matrix to compute adj,
-  // e.g for multi-node with partitioned matrix, we can use the alternative
-  // kernel that transposes with shared memory (commented code below)
-
-  // constexpr uint32_t block_rows = 32, block_cols = 32;
-  // dim3 grid(raft::ceildiv<index_t>(data.N, block_rows),
-  //           raft::ceildiv<index_t>(batch_size, block_cols));
-  // dim3 block(block_rows * block_cols);
-  // dist_to_adj_transposed_kernel<block_rows, block_cols>
-  //   <<<grid, block, 0, stream>>>(data.x, data.adj, (long_index_t)data.N,
-  //                                (long_index_t)start_vertex_id,
-  //                                (long_index_t)batch_size, data.eps);
-  // CUDA_CHECK(cudaPeekAtLastError());
 }
 
 }  // namespace Precomputed
