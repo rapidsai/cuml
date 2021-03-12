@@ -72,7 +72,8 @@ def test_dbscan(datatype, nrows, ncols,
 
 
 @pytest.mark.mg
-@pytest.mark.parametrize('max_mbytes_per_batch', [1e2, None])
+@pytest.mark.parametrize('max_mbytes_per_batch', [unit_param(1),
+                         quality_param(1e2), stress_param(None)])
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
 @pytest.mark.parametrize('nrows', [unit_param(500), quality_param(5000),
                          stress_param(10000)])

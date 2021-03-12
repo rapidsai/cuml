@@ -264,7 +264,8 @@ class DBSCAN(Base,
         if self.metric in metric_parsing:
             metric = metric_parsing[self.metric.lower()]
         else:
-            raise ValueError("Invalid value for metric: {}".format(self.metric))
+            raise ValueError("Invalid value for metric: {}"
+                             .format(self.metric))
 
         # Create the output core_sample_indices only if needed
         if self.calc_core_sample_indices:
