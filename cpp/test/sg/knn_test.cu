@@ -17,16 +17,14 @@
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
 #include <test_utils.h>
-#include <cuml/neighbors/knn.hpp>
 #include <iostream>
 #include <raft/cuda_utils.cuh>
 #include <raft/random/rng.cuh>
 #include <vector>
 
-#include <cuml/neighbors/knn.hpp>
-
 #include <cuml/common/device_buffer.hpp>
 #include <cuml/datasets/make_blobs.hpp>
+#include <cuml/neighbors/knn.hpp>
 
 namespace ML {
 
