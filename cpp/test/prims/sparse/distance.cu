@@ -118,8 +118,6 @@ class SparseDistanceTest
     pairwiseDistance(out_dists, dist_config, params.metric, params.metric_arg);
 
     CUDA_CHECK(cudaStreamSynchronize(stream));
-
-    raft::print_device_vector("dist", out_dists, out_size, std::cout);
   }
 
   void TearDown() override {
