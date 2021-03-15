@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,6 +26,8 @@
 #include <raft/random/rng.cuh>
 #include <random/permute.cuh>
 #include "randomforest_impl.h"
+
+#include <common/nvtx.hpp>
 
 namespace ML {
 /**
@@ -68,8 +70,9 @@ void rf<T, L>::prepare_fit_per_tree(
   int tree_id, int n_rows, int n_sampled_rows, unsigned int* selected_rows,
   const int num_sms, const cudaStream_t stream,
   const std::shared_ptr<deviceAllocator> device_allocator) {
+  ML::PUSH_RANGE("bootstrapping row IDs @randomforest_impl.cuh");
   int rs = tree_id;
-  if (rf_params.seed > -1) rs = rf_params.seed + tree_id;
+  if (rf_params.seed != 0) rs = rf_params.seed + tree_id;
 
   raft::random::Rng rng(rs * 1000 | 0xFF00AA,
                         raft::random::GeneratorType::GenKiss99);
@@ -82,6 +85,7 @@ void rf<T, L>::prepare_fit_per_tree(
     thrust::sequence(thrust::cuda::par.on(stream), selected_rows,
                      selected_rows + n_sampled_rows);
   }
+  ML::POP_RANGE();
 }
 
 template <typename T, typename L>
@@ -153,6 +157,7 @@ void rfClassifier<T>::fit(const raft::handle_t& user_handle, const T* input,
                           int n_rows, int n_cols, int* labels,
                           int n_unique_labels,
                           RandomForestMetaData<T, int>*& forest) {
+  ML::PUSH_RANGE("rfClassifer::fit @randomforest_impl.cuh");
   this->error_checking(input, labels, n_rows, n_cols, false);
 
   const raft::handle_t& handle = user_handle;
@@ -230,7 +235,8 @@ void rfClassifier<T>::fit(const raft::handle_t& user_handle, const T* input,
     trees[i].fit(handle.get_device_allocator(), handle.get_host_allocator(),
                  tempmem[stream_id]->stream, input, n_cols, n_rows, labels,
                  rowids, n_sampled_rows, n_unique_labels, tree_ptr,
-                 this->rf_params.tree_params, tempmem[stream_id]);
+                 this->rf_params.tree_params, this->rf_params.seed,
+                 tempmem[stream_id]);
   }
   //Cleanup
   for (int i = 0; i < n_streams; i++) {
@@ -242,6 +248,8 @@ void rfClassifier<T>::fit(const raft::handle_t& user_handle, const T* input,
   }
 
   CUDA_CHECK(cudaStreamSynchronize(user_handle.get_stream()));
+
+  ML::POP_RANGE();
 }
 
 /**
@@ -432,6 +440,7 @@ template <typename T>
 void rfRegressor<T>::fit(const raft::handle_t& user_handle, const T* input,
                          int n_rows, int n_cols, T* labels,
                          RandomForestMetaData<T, T>*& forest) {
+  ML::PUSH_RANGE("rfRegressor::fit @randomforest_impl.cuh");
   this->error_checking(input, labels, n_rows, n_cols, false);
 
   const raft::handle_t& handle = user_handle;
@@ -506,7 +515,7 @@ void rfRegressor<T>::fit(const raft::handle_t& user_handle, const T* input,
     trees[i].fit(handle.get_device_allocator(), handle.get_host_allocator(),
                  tempmem[stream_id]->stream, input, n_cols, n_rows, labels,
                  rowids, n_sampled_rows, tree_ptr, this->rf_params.tree_params,
-                 tempmem[stream_id]);
+                 this->rf_params.seed, tempmem[stream_id]);
   }
   //Cleanup
   for (int i = 0; i < n_streams; i++) {
@@ -518,6 +527,8 @@ void rfRegressor<T>::fit(const raft::handle_t& user_handle, const T* input,
   }
 
   CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
+
+  ML::POP_RANGE();
 }
 
 /**

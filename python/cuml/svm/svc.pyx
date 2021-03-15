@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2020, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -29,7 +29,8 @@ from libc.stdint cimport uintptr_t
 
 import cuml.internals
 from cuml.common.array import CumlArray
-from cuml.common.base import Base, ClassifierMixin
+from cuml.common.base import Base
+from cuml.common.mixins import ClassifierMixin
 from cuml.common.doc_utils import generate_docstring
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.logger import warn
@@ -40,6 +41,7 @@ from cuml.preprocessing import LabelEncoder
 from libcpp cimport bool, nullptr
 from cuml.svm.svm_base import SVMBase
 from cuml.common.import_utils import has_sklearn
+from cuml.common.mixins import FMajorInputTagMixin
 
 if has_sklearn():
     from cuml.multiclass import MulticlassClassifier
@@ -106,7 +108,8 @@ cdef extern from "cuml/svm/svc.hpp" namespace "ML::SVM":
                                      svmModel[math_t] &m) except +
 
 
-class SVC(SVMBase, ClassifierMixin):
+class SVC(SVMBase,
+          ClassifierMixin):
     """
     SVC (C-Support Vector Classification)
 
@@ -116,20 +119,20 @@ class SVC(SVMBase, ClassifierMixin):
     --------
     .. code-block:: python
 
-            import numpy as np
-            from cuml.svm import SVC
-            X = np.array([[1,1], [2,1], [1,2], [2,2], [1,3], [2,3]],
-                         dtype=np.float32);
-            y = np.array([-1, -1, 1, -1, 1, 1], dtype=np.float32)
-            clf = SVC(kernel='poly', degree=2, gamma='auto', C=1)
-            clf.fit(X, y)
-            print("Predicted labels:", clf.predict(X))
+        import numpy as np
+        from cuml.svm import SVC
+        X = np.array([[1,1], [2,1], [1,2], [2,2], [1,3], [2,3]],
+                        dtype=np.float32);
+        y = np.array([-1, -1, 1, -1, 1, 1], dtype=np.float32)
+        clf = SVC(kernel='poly', degree=2, gamma='auto', C=1)
+        clf.fit(X, y)
+        print("Predicted labels:", clf.predict(X))
 
     Output:
 
     .. code-block:: none
 
-            Predicted labels: [-1. -1.  1. -1.  1.  1.]
+        Predicted labels: [-1. -1.  1. -1.  1.  1.]
 
     Parameters
     ----------
@@ -150,8 +153,10 @@ class SVC(SVMBase, ClassifierMixin):
     gamma : float or string (default = 'scale')
         Coefficient for rbf, poly, and sigmoid kernels. You can specify the
         numeric value, or use one of the following options:
-        - 'auto': gamma will be set to 1 / n_features
-        - 'scale': gamma will be se to 1 / (n_features * X.var())
+
+        - 'auto': gamma will be set to ``1 / n_features``
+        - 'scale': gamma will be se to ``1 / (n_features * X.var())``
+
     coef0 : float (default = 0.0)
         Independent term in kernel function, only signifficant for poly and
         sigmoid
@@ -167,8 +172,8 @@ class SVC(SVMBase, ClassifierMixin):
         buffer as well.
     class_weight : dict or string (default=None)
         Weights to modify the parameter C for class i to class_weight[i]*C. The
-        string 'balanced' is also accepted, in which case class_weight[i] =
-        n_samples / (n_classes * n_samples_of_class[i])
+        string 'balanced' is also accepted, in which case ``class_weight[i] =
+        n_samples / (n_classes * n_samples_of_class[i])``
     max_iter : int (default = 100*n_samples)
         Limit the number of outer iterations in the solver
     multiclass_strategy : str ('ovo' or 'ovr', default 'ovo')
@@ -183,7 +188,7 @@ class SVC(SVMBase, ClassifierMixin):
     output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
         Variable to control output type of the results and attributes of
         the estimator. If None, it'll inherit the output type set at the
-        module level, `cuml.global_output_type`.
+        module level, `cuml.global_settings.output_type`.
         See :ref:`output-data-type-configuration` for more info.
     probability: bool (default = False)
         Enable or disable probability estimates.
@@ -577,8 +582,3 @@ class SVC(SVMBase, ClassifierMixin):
             params.remove("epsilon")
 
         return params
-
-    def _more_tags(self):
-        return {
-            'preferred_input_order': 'F'
-        }

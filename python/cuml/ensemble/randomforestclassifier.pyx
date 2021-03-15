@@ -1,6 +1,6 @@
 
 #
-# Copyright (c) 2019-2020, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -25,7 +25,7 @@ import cuml.common.logger as logger
 
 from cuml import ForestInference
 from cuml.common.array import CumlArray
-from cuml.common.base import ClassifierMixin
+from cuml.common.mixins import ClassifierMixin
 import cuml.internals
 from cuml.common.doc_utils import generate_docstring
 from cuml.common.doc_utils import insert_into_docstring
@@ -42,11 +42,12 @@ from cython.operator cimport dereference as deref
 
 from libcpp cimport bool
 from libcpp.vector cimport vector
-from libc.stdint cimport uintptr_t
+from libc.stdint cimport uintptr_t, uint64_t
 from libc.stdlib cimport calloc, malloc, free
 
 from numba import cuda
 
+from cuml.common.cuda import nvtx_range_wrap, nvtx_range_push, nvtx_range_pop
 from cuml.raft.common.handle cimport handle_t
 cimport cuml.common.cuda
 
@@ -122,7 +123,8 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
                           bool) except +
 
 
-class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
+class RandomForestClassifier(BaseRandomForestModel,
+                             ClassifierMixin):
     """
     Implements a Random Forest classifier model which fits multiple decision
     tree classifiers in an ensemble.
@@ -230,7 +232,6 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
         If set to true and  following conditions are also met, experimental
          decision tree training implementation would be used:
             split_algo = 1 (GLOBAL_QUANTILE)
-            max_features = 1.0 (Feature sub-sampling disabled)
             quantile_per_tree = false (No per tree quantile computation)
     max_batch_size: int (default = 128)
         Maximum number of nodes that can be processed in a given batch. This is
@@ -257,7 +258,7 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
     output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
         Variable to control output type of the results and attributes of
         the estimator. If None, it'll inherit the output type set at the
-        module level, `cuml.global_output_type`.
+        module level, `cuml.global_settings.output_type`.
         See :ref:`output-data-type-configuration` for more info.
 
     """
@@ -439,6 +440,8 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
             y to be of dtype int32. This will increase memory used for
             the method.
         """
+        nvtx_range_push("Fit RF-Classifier @randomforestclassifier.pyx")
+
         X_m, y_m, max_feature_val = self._dataset_setup_for_fit(X, y,
                                                                 convert_dtype)
         cdef uintptr_t X_ptr, y_ptr
@@ -473,7 +476,7 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
                                      <bool> self.bootstrap,
                                      <int> self.n_estimators,
                                      <float> self.max_samples,
-                                     <int> seed_val,
+                                     <uint64_t> seed_val,
                                      <CRITERION> self.split_criterion,
                                      <bool> self.quantile_per_tree,
                                      <int> self.n_streams,
@@ -512,6 +515,7 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
         self.handle.sync()
         del X_m
         del y_m
+        nvtx_range_pop()
         return self
 
     @cuml.internals.api_base_return_array(get_output_dtype=True)
@@ -626,6 +630,7 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
         ----------
         y : {}
         """
+        nvtx_range_push("predict RF-Classifier @randomforestclassifier.pyx")
         if num_classes:
             warnings.warn("num_classes is deprecated and will be removed"
                           " in an upcoming version")
@@ -653,6 +658,7 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
                                            fil_sparse_format=fil_sparse_format,
                                            predict_proba=False)
 
+        nvtx_range_pop()
         return preds
 
     def _predict_get_all(self, X, convert_dtype=True) -> CumlArray:
@@ -859,6 +865,8 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
         accuracy : float
            Accuracy of the model [0.0 - 1.0]
         """
+
+        nvtx_range_push("score RF-Classifier @randomforestclassifier.pyx")
         cdef uintptr_t X_ptr, y_ptr
         _, n_rows, _, _ = \
             input_to_cuml_array(X, check_dtype=self.dtype,
@@ -913,6 +921,7 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
         self.handle.sync()
         del(y_m)
         del(preds_m)
+        nvtx_range_pop()
         return self.stats['accuracy']
 
     def get_summary_text(self):
@@ -958,9 +967,3 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
         if self.dtype == np.float64:
             return get_rf_json(rf_forest64).decode('utf-8')
         return get_rf_json(rf_forest).decode('utf-8')
-
-    def _more_tags(self):
-        return {
-            # fit and predict require conflicting memory layouts
-            'preferred_input_order': None
-        }

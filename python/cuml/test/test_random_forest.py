@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2020, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -173,10 +173,6 @@ def test_rf_classification(small_clf, datatype, split_algo,
     captured_stdout = f.getvalue()
     if use_experimental_backend:
         is_fallback_used = False
-        if max_features != 1.0:
-            assert ('Experimental backend does not yet support feature ' +
-                    'sub-sampling' in captured_stdout)
-            is_fallback_used = True
         if split_algo != 1:
             assert ('Experimental backend does not yet support histogram ' +
                     'split algorithm' in captured_stdout)

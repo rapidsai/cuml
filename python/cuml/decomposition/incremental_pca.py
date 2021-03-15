@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020, NVIDIA CORPORATION.
+# Copyright (c) 2020-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -39,15 +39,15 @@ class IncrementalPCA(PCA):
     Depending on the size of the input data, this algorithm can be much
     more memory efficient than a PCA, and allows sparse input.
     This algorithm has constant memory complexity, on the order of
-    ``batch_size * n_features``, enabling use of np.memmap files without
+    :py:`batch_size * n_features`, enabling use of np.memmap files without
     loading the entire file into memory. For sparse matrices, the input
     is converted to dense in batches (in order to be able to subtract the
     mean) which avoids storing the entire dense matrix at any one time.
     The computational overhead of each SVD is
-    ``O(batch_size * n_features ** 2)``, but only 2 * batch_size samples
-    remain in memory at a time. There will be ``n_samples / batch_size``
+    :py:`O(batch_size * n_features ** 2)`, but only 2 * batch_size samples
+    remain in memory at a time. There will be :py:`n_samples / batch_size`
     SVD computations to get the principal components, versus 1 large SVD
-    of complexity ``O(n_samples * n_features ** 2)`` for PCA.
+    of complexity :py:`O(n_samples * n_features ** 2)` for PCA.
 
     Parameters
     ----------
@@ -60,8 +60,8 @@ class IncrementalPCA(PCA):
         handles in several streams.
         If it is None, a new one is created.
     n_components : int or None, (default=None)
-        Number of components to keep. If ``n_components`` is ``None``,
-        then ``n_components`` is set to ``min(n_samples, n_features)``.
+        Number of components to keep. If `n_components` is ``None``,
+        then `n_components` is set to :py:`min(n_samples, n_features)`.
     whiten : bool, optional
         If True, de-correlates the components. This is done by dividing them by
         the corresponding singular values then multiplying by sqrt(n_samples).
@@ -69,12 +69,12 @@ class IncrementalPCA(PCA):
         multi-collinearity. It might be beneficial for downstream
         tasks like LinearRegression where correlated features cause problems.
     copy : bool, (default=True)
-        If False, X will be overwritten. ``copy=False`` can be used to
+        If False, X will be overwritten. :py:`copy=False` can be used to
         save memory but is unsafe for general use.
     batch_size : int or None, (default=None)
         The number of samples to use for each batch. Only used when calling
-        ``fit``. If ``batch_size`` is ``None``, then ``batch_size``
-        is inferred from the data and set to ``5 * n_features``, to provide a
+        `fit`. If `batch_size` is ``None``, then `batch_size`
+        is inferred from the data and set to :py:`5 * n_features`, to provide a
         balance between approximation accuracy and memory consumption.
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
@@ -82,7 +82,7 @@ class IncrementalPCA(PCA):
     output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
         Variable to control output type of the results and attributes of
         the estimator. If None, it'll inherit the output type set at the
-        module level, `cuml.global_output_type`.
+        module level, `cuml.global_settings.output_type`.
         See :ref:`output-data-type-configuration` for more info.
 
     Attributes
@@ -98,24 +98,24 @@ class IncrementalPCA(PCA):
         to 1.0.
     singular_values_ : array, shape (n_components,)
         The singular values corresponding to each of the selected components.
-        The singular values are equal to the 2-norms of the ``n_components``
+        The singular values are equal to the 2-norms of the `n_components`
         variables in the lower-dimensional space.
     mean_ : array, shape (n_features,)
-        Per-feature empirical mean, aggregate over calls to ``partial_fit``.
+        Per-feature empirical mean, aggregate over calls to `partial_fit`.
     var_ : array, shape (n_features,)
         Per-feature empirical variance, aggregate over calls to
-        ``partial_fit``.
+        `partial_fit`.
     noise_variance_ : float
         The estimated noise covariance following the Probabilistic PCA model
         from [4]_.
     n_components_ : int
         The estimated number of components. Relevant when
-        ``n_components=None``.
+        `n_components=None`.
     n_samples_seen_ : int
         The number of samples processed by the estimator. Will be reset on
-        new calls to fit, but increments across ``partial_fit`` calls.
+        new calls to fit, but increments across `partial_fit` calls.
     batch_size_ : int
-        Inferred batch size from ``batch_size``.
+        Inferred batch size from `batch_size`.
 
     Notes
     -----
@@ -126,8 +126,8 @@ class IncrementalPCA(PCA):
     decomposition used in specific situations to reduce the algorithmic
     complexity of the SVD. The source for this technique is [3]_. This
     technique has been omitted because it is advantageous only when decomposing
-    a matrix with ``n_samples >= 5/3 * n_features`` where ``n_samples`` and
-    ``n_features`` are the matrix rows and columns, respectively. In addition,
+    a matrix with :py:`n_samples >= 5/3 * n_features` where `n_samples` and
+    `n_features` are the matrix rows and columns, respectively. In addition,
     it hurts the readability of the implemented algorithm. This would be a good
     opportunity for future optimization, if it is deemed necessary.
 

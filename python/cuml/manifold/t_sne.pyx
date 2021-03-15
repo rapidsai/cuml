@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -38,6 +38,7 @@ from cuml.common.array_sparse import SparseCumlArray
 from cuml.common.sparse_utils import is_sparse
 from cuml.common.doc_utils import generate_docstring
 from cuml.common import input_to_cuml_array
+from cuml.common.mixins import CMajorInputTagMixin
 from cuml.common.sparsefuncs import extract_knn_graph
 import rmm
 
@@ -111,7 +112,8 @@ cdef extern from "cuml/manifold/tsne.h" namespace "ML" nogil:
         bool barnes_hut) except +
 
 
-class TSNE(Base):
+class TSNE(Base,
+           CMajorInputTagMixin):
     """
     TSNE (T-Distributed Stochastic Neighbor Embedding) is an extremely
     powerful dimensionality reduction technique that aims to maintain
@@ -194,7 +196,7 @@ class TSNE(Base):
     output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
         Variable to control output type of the results and attributes of
         the estimator. If None, it'll inherit the output type set at the
-        module level, `cuml.global_output_type`.
+        module level, `cuml.global_settings.output_type`.
         See :ref:`output-data-type-configuration` for more info.
 
     References
@@ -366,20 +368,16 @@ class TSNE(Base):
 
         self.sparse_fit = False
 
-    @generate_docstring(convert_dtype_cast='np.float32')
+    @generate_docstring(skip_parameters_heading=True,
+                        convert_dtype_cast='np.float32')
     def fit(self, X, convert_dtype=True, knn_graph=None) -> "TSNE":
         """
         Fit X into an embedded space.
 
         Parameters
         -----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-            X contains a sample per row.
-        convert_dtype : bool, optional (default = True)
-            When set to True, the fit method will automatically
-            convert the inputs to np.float32.
-        knn_graph : sparse array-like (device or host)
-            shape=(n_samples, n_samples)
+        knn_graph : sparse array-like (device or host), \
+                shape=(n_samples, n_samples)
             A sparse array containing the k-nearest neighbors of X,
             where the columns are the nearest neighbor indices
             for each row and the values are their distances.
@@ -600,8 +598,3 @@ class TSNE(Base):
             "pre_momentum",
             "post_momentum",
         ]
-
-    def _more_tags(self):
-        return {
-            'preferred_input_order': 'C'
-        }

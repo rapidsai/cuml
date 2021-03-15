@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,34 +18,18 @@
 
 #include <faiss/gpu/GpuIndex.h>
 #include <faiss/gpu/StandardGpuResources.h>
-#include <common/cumlHandle.hpp>
+#include <raft/linalg/distance_type.h>
 #include <cuml/common/logger.hpp>
 #include <cuml/cuml.hpp>
 
 namespace ML {
-
-enum MetricType {
-  METRIC_INNER_PRODUCT = 0,
-  METRIC_L2,
-  METRIC_L1,
-  METRIC_Linf,
-  METRIC_Lp,
-
-  METRIC_Canberra = 20,
-  METRIC_BrayCurtis,
-  METRIC_JensenShannon,
-
-  METRIC_Cosine = 100,
-  METRIC_Correlation
-};
-
 struct knnIndex {
   faiss::gpu::StandardGpuResources *gpu_res;
   faiss::gpu::GpuIndex *index;
   int device;
   ~knnIndex() {
-    delete gpu_res;
     delete index;
+    delete gpu_res;
   }
 };
 
@@ -101,20 +85,19 @@ struct IVFSQParam : IVFParam {
  * 			   default
  * @param[in] metric_arg the value of `p` for Minkowski (l-p) distances. This
  * 					 is ignored if the metric_type is not Minkowski.
- * @param[in] expanded should lp-based distances be returned in their expanded
- * 					 form (e.g., without raising to the 1/p power).
-   */
-void brute_force_knn(const raft::handle_t &handle, std::vector<float *> &input,
+ */
+void brute_force_knn(raft::handle_t &handle, std::vector<float *> &input,
                      std::vector<int> &sizes, int D, float *search_items, int n,
                      int64_t *res_I, float *res_D, int k,
                      bool rowMajorIndex = false, bool rowMajorQuery = false,
-                     MetricType metric = MetricType::METRIC_L2,
-                     float metric_arg = 2.0f, bool expanded = false);
+                     raft::distance::DistanceType metric =
+                       raft::distance::DistanceType::L2Expanded,
+                     float metric_arg = 2.0f);
 
 void approx_knn_build_index(raft::handle_t &handle, ML::knnIndex *index,
                             ML::knnIndexParam *params, int D,
-                            ML::MetricType metric, float metricArg,
-                            float *index_items, int n);
+                            raft::distance::DistanceType metric,
+                            float metricArg, float *index_items, int n);
 
 void approx_knn_search(ML::knnIndex *index, int n, const float *x, int k,
                        float *distances, int64_t *labels);
