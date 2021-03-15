@@ -394,4 +394,5 @@ class DBSCAN(Base,
             "min_samples",
             "max_mbytes_per_batch",
             "calc_core_sample_indices",
+            "metric",
         ]
