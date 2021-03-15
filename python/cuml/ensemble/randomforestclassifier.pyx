@@ -47,6 +47,7 @@ from libc.stdlib cimport calloc, malloc, free
 
 from numba import cuda
 
+from cuml.common.cuda import nvtx_range_wrap, nvtx_range_push, nvtx_range_pop
 from cuml.raft.common.handle cimport handle_t
 cimport cuml.common.cuda
 
@@ -439,6 +440,8 @@ class RandomForestClassifier(BaseRandomForestModel,
             y to be of dtype int32. This will increase memory used for
             the method.
         """
+        nvtx_range_push("Fit RF-Classifier @randomforestclassifier.pyx")
+
         X_m, y_m, max_feature_val = self._dataset_setup_for_fit(X, y,
                                                                 convert_dtype)
         cdef uintptr_t X_ptr, y_ptr
@@ -512,6 +515,7 @@ class RandomForestClassifier(BaseRandomForestModel,
         self.handle.sync()
         del X_m
         del y_m
+        nvtx_range_pop()
         return self
 
     @cuml.internals.api_base_return_array(get_output_dtype=True)
@@ -563,8 +567,7 @@ class RandomForestClassifier(BaseRandomForestModel,
 
     @insert_into_docstring(parameters=[('dense', '(n_samples, n_features)')],
                            return_values=[('dense', '(n_samples, 1)')])
-    def predict(self, X, predict_model="GPU",
-                output_class=True, threshold=0.5,
+    def predict(self, X, predict_model="GPU", threshold=0.5,
                 algo='auto', num_classes=None,
                 convert_dtype=True,
                 fil_sparse_format='auto') -> CumlArray:
@@ -579,12 +582,6 @@ class RandomForestClassifier(BaseRandomForestModel,
             be used if the model was trained on float32 data and `X` is float32
             or convert_dtype is set to True. Also the 'GPU' should only be
             used for binary classification problems.
-        output_class : boolean (default = True)
-            This is optional and required only while performing the
-            predict operation on the GPU.
-            If true, return a 1 or 0 depending on whether the raw
-            prediction exceeds the threshold. If False, just return
-            the raw prediction.
         algo : string (default = 'auto')
             This is optional and required only while performing the
             predict operation on the GPU.
@@ -599,7 +596,6 @@ class RandomForestClassifier(BaseRandomForestModel,
         threshold : float (default = 0.5)
             Threshold used for classification. Optional and required only
             while performing the predict operation on the GPU.
-            It is applied if output_class == True, else it is ignored
         num_classes : int (default = None)
             number of different classes present in the dataset.
 
@@ -626,6 +622,7 @@ class RandomForestClassifier(BaseRandomForestModel,
         ----------
         y : {}
         """
+        nvtx_range_push("predict RF-Classifier @randomforestclassifier.pyx")
         if num_classes:
             warnings.warn("num_classes is deprecated and will be removed"
                           " in an upcoming version")
@@ -646,13 +643,14 @@ class RandomForestClassifier(BaseRandomForestModel,
 
         else:
             preds = \
-                self._predict_model_on_gpu(X=X, output_class=output_class,
+                self._predict_model_on_gpu(X=X, output_class=True,
                                            threshold=threshold,
                                            algo=algo,
                                            convert_dtype=convert_dtype,
                                            fil_sparse_format=fil_sparse_format,
                                            predict_proba=False)
 
+        nvtx_range_pop()
         return preds
 
     def _predict_get_all(self, X, convert_dtype=True) -> CumlArray:
@@ -716,8 +714,7 @@ class RandomForestClassifier(BaseRandomForestModel,
 
     @insert_into_docstring(parameters=[('dense', '(n_samples, n_features)')],
                            return_values=[('dense', '(n_samples, 1)')])
-    def predict_proba(self, X, output_class=True,
-                      threshold=0.5, algo='auto',
+    def predict_proba(self, X, algo='auto',
                       num_classes=None, convert_dtype=True,
                       fil_sparse_format='auto') -> CumlArray:
         """
@@ -728,12 +725,6 @@ class RandomForestClassifier(BaseRandomForestModel,
         Parameters
         ----------
         X : {}
-        output_class: boolean (default = True)
-            This is optional and required only while performing the
-            predict operation on the GPU.
-            If true, return a 1 or 0 depending on whether the raw
-            prediction exceeds the threshold. If False, just return
-            the raw prediction.
         algo : string (default = 'auto')
             This is optional and required only while performing the
             predict operation on the GPU.
@@ -745,10 +736,6 @@ class RandomForestClassifier(BaseRandomForestModel,
             `auto` - choose the algorithm automatically. Currently
             'batch_tree_reorg' is used for dense storage
             and 'naive' for sparse storage
-        threshold : float (default = 0.5)
-            Threshold used for classification. Optional and required only
-            while performing the predict operation on the GPU.
-            It is applied if output_class == True, else it is ignored
         num_classes : int (default = None)
             number of different classes present in the dataset.
 
@@ -793,8 +780,7 @@ class RandomForestClassifier(BaseRandomForestModel,
                                           "training dataset.")
 
         preds_proba = \
-            self._predict_model_on_gpu(X, output_class=output_class,
-                                       threshold=threshold,
+            self._predict_model_on_gpu(X, output_class=True,
                                        algo=algo,
                                        convert_dtype=convert_dtype,
                                        fil_sparse_format=fil_sparse_format,
@@ -859,6 +845,8 @@ class RandomForestClassifier(BaseRandomForestModel,
         accuracy : float
            Accuracy of the model [0.0 - 1.0]
         """
+
+        nvtx_range_push("score RF-Classifier @randomforestclassifier.pyx")
         cdef uintptr_t X_ptr, y_ptr
         _, n_rows, _, _ = \
             input_to_cuml_array(X, check_dtype=self.dtype,
@@ -913,6 +901,7 @@ class RandomForestClassifier(BaseRandomForestModel,
         self.handle.sync()
         del(y_m)
         del(preds_m)
+        nvtx_range_pop()
         return self.stats['accuracy']
 
     def get_summary_text(self):
