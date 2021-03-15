@@ -187,7 +187,6 @@ def test_rf_classification(small_clf, datatype, split_algo,
         assert captured_stdout == ''
     fil_preds = cuml_model.predict(X_test,
                                    predict_model="GPU",
-                                   output_class=True,
                                    threshold=0.5,
                                    algo='auto')
     cu_preds = cuml_model.predict(X_test, predict_model="CPU")
@@ -428,14 +427,15 @@ def rf_classification(datatype, array_type, max_features, max_samples,
                                 .as_gpu_matrix())
         cu_preds_cpu = cuml_model.predict(X_test_df,
                                           predict_model="CPU").to_array()
-        cu_preds_gpu = cuml_model.predict(X_test_df, output_class=True,
+        cu_preds_gpu = cuml_model.predict(X_test_df,
                                           predict_model="GPU").to_array()
     else:
         cuml_model.fit(X_train, y_train)
         cu_proba_gpu = cuml_model.predict_proba(X_test)
         cu_preds_cpu = cuml_model.predict(X_test, predict_model="CPU")
-        cu_preds_gpu = cuml_model.predict(X_test, predict_model="GPU",
-                                          output_class=True)
+        cu_preds_gpu = cuml_model.predict(X_test, predict_model="GPU")
+    np.testing.assert_array_equal(cu_preds_gpu,
+                                  np.argmax(cu_proba_gpu, axis=1))
 
     cu_acc_cpu = accuracy_score(y_test, cu_preds_cpu)
     cu_acc_gpu = accuracy_score(y_test, cu_preds_gpu)
@@ -507,14 +507,12 @@ def test_rf_classification_sparse(small_clf, datatype,
         with pytest.raises(ValueError):
             fil_preds = cuml_model.predict(X_test,
                                            predict_model="GPU",
-                                           output_class=True,
                                            threshold=0.5,
                                            fil_sparse_format=fil_sparse_format,
                                            algo=algo)
     else:
         fil_preds = cuml_model.predict(X_test,
                                        predict_model="GPU",
-                                       output_class=True,
                                        threshold=0.5,
                                        fil_sparse_format=fil_sparse_format,
                                        algo=algo)
