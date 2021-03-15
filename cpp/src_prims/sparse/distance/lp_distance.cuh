@@ -147,7 +147,7 @@ class l2_sqrt_unexpanded_distances_t
       out_dists, out_dists, this->config_->a_nrows * this->config_->b_nrows,
       [p] __device__(value_t input) {
         int neg = input < 0 ? -1 : 1;
-        return powf(fabs(input), p) * neg;
+        return pow(std::abs(input), p) * neg;
       },
       this->config_->stream);
   }

@@ -330,13 +330,13 @@ def sparse_pairwise_distance(X, Y=None, metric="euclidean", handle=None,
     if scipy.sparse.issparse(X):
         X = sparse_scipy_to_cp(X, dtype=None)
 
+    dtype_x = X.data.dtype
     if metric == 'jaccard' and not cp.all(X.data == 1.):
         warnings.warn("X was converted to boolean for metric jaccard")
-        X.data = cp.ones(X.data.shape)
+        X.data = (X.data != 0.).astype(dtype_x)
 
     X_m = SparseCumlArray(X)
     n_samples_x, n_features_x = X_m.shape
-    dtype_x = X_m.dtype
     if Y is None:
         Y_m = X_m
     else:
@@ -347,7 +347,8 @@ def sparse_pairwise_distance(X, Y=None, metric="euclidean", handle=None,
                 Y = Y.astype(dtype_x)
         if metric == 'jaccard' and not cp.all(Y.data == 1.):
             warnings.warn("Y was converted to boolean for metric jaccard")
-            Y.data = cp.ones(Y.data.shape)
+            dtype_y = Y.data.dtype
+            Y.data = (Y.data != 0.).astype(dtype_y)
         Y_m = SparseCumlArray(Y)
     n_samples_y, n_features_y = Y_m.shape
 

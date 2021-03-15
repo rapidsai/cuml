@@ -1121,14 +1121,15 @@ def test_sparse_pairwise_distances(metric: str, matrix_size):
     cp.testing.assert_array_almost_equal(S, S2, decimal=compare_precision)
 
     # Compare to sklearn, with Y dim != X dim
-    Y = scipy.sparse.random(3, matrix_size[1], format='csr', random_state=123)
+    Y = scipy.sparse.random(3, matrix_size[1], format='csr', random_state=123,
+                            density=0.6)
     S = pairwise_distances(X, Y, metric=metric)
     S2 = sklearn_pairwise_distances(X.todense(), Y.todense(), metric=metric)
     cp.testing.assert_array_almost_equal(S, S2, decimal=compare_precision)
 
     # Change precision of one parameter
     Y = scipy.sparse.random(matrix_size[0], matrix_size[1], format='csr',
-                            dtype=np.float32, random_state=123)
+                            dtype=np.float32, random_state=123, density=0.6)
     S = pairwise_distances(X, Y, metric=metric)
     S2 = sklearn_pairwise_distances(X.todense(), Y.todense(), metric=metric)
     cp.testing.assert_array_almost_equal(S, S2, decimal=compare_precision)
@@ -1136,7 +1137,7 @@ def test_sparse_pairwise_distances(metric: str, matrix_size):
     # Change to cupyx with different precision
     Y = cupyx.scipy.sparse.random(matrix_size[0], matrix_size[1],
                                   format='csr', dtype=np.float32,
-                                  random_state=123)
+                                  random_state=123, density=0.6)
     S = sparse_pairwise_distance(X, Y, metric=metric)
     S2 = sklearn_pairwise_distances(X.todense(), Y.todense().get(),
                                     metric=metric)
@@ -1149,14 +1150,15 @@ def test_sparse_pairwise_distances(metric: str, matrix_size):
     X = scipy.sparse.random(matrix_size[0], matrix_size[1], format='csr',
                             dtype=np.float32, random_state=123, density=0.6)
     Y = scipy.sparse.random(matrix_size[0], matrix_size[1], format='csr',
-                            dtype=np.float32, random_state=123)
+                            dtype=np.float32, random_state=123, density=0.6)
     S = pairwise_distances(X, Y, metric=metric)
     S2 = sklearn_pairwise_distances(X.todense(), Y.todense(), metric=metric)
     cp.testing.assert_array_almost_equal(S, S2, decimal=compare_precision)
 
     # Test sending an int type with convert_dtype=True
-    Y = (scipy.sparse.random(Y.shape[0], Y.shape[1], dtype=cp.float32,
-                             format='csr', random_state=123) * 100)
+    Y = (scipy.sparse.random(Y.shape[0], Y.shape[1], dtype=np.float32,
+                             density=0.6, format='csr',
+                             random_state=123) * 100)
     Y = Y.astype(cp.int32)
     S = pairwise_distances(X, Y, metric=metric, convert_dtype=True)
     S2 = sklearn_pairwise_distances(X.todense(), Y.todense(), metric=metric)
