@@ -95,6 +95,11 @@ __global__ void compute_chunked_a_b_kernel(
   auto row_cluster = y[pw_row_id];
 
   auto col_cluster_counts = cluster_counts[col_cluster];
+  auto row_cluster_counts = cluster_counts[row_cluster];
+
+  if (row_cluster_counts <= 1) {
+    return;
+  }
 
   if (col_cluster == row_cluster) {
     atomicAdd(&a[pw_row_id], distances[row_id * dist_cols + col_id] /
