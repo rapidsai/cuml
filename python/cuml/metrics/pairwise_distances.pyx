@@ -80,12 +80,10 @@ PAIRWISE_DISTANCE_SPARSE_METRICS = {
     "sqeuclidean": DistanceType.L2Unexpanded,
     "canberra": DistanceType.Canberra,
     "inner_product": DistanceType.InnerProduct,
-    "lp": DistanceType.LpUnexpanded,
     "minkowski": DistanceType.LpUnexpanded,
     "jaccard": DistanceType.JaccardExpanded,
     "hellinger": DistanceType.HellingerExpanded,
     "chebyshev": DistanceType.Linf,
-    "linf": DistanceType.Linf
 }
 
 
@@ -142,10 +140,10 @@ def pairwise_distances(X, Y=None, metric="euclidean", handle=None,
 
     - From scikit-learn: ['cityblock', 'cosine', 'euclidean', 'l1', 'l2', \
         'manhattan'].
-        Sparse matrices are not supported.
+        Sparse matrices are supported, see 'sparse_pairwise_distances'.
     - From scipy.spatial.distance: ['sqeuclidean']
         See the documentation for scipy.spatial.distance for details on this
-        metric. Sparse matrices are not supported.
+        metric. Sparse matrices are supported.
 
     Parameters
     ----------
@@ -225,8 +223,8 @@ def pairwise_distances(X, Y=None, metric="euclidean", handle=None,
         cuml.internals.set_api_output_type(output_type)
 
     if is_sparse(X):
-        return sparse_pairwise_distance(X, Y, metric, handle,
-                                        convert_dtype, **kwds)
+        return sparse_pairwise_distances(X, Y, metric, handle,
+                                         convert_dtype, **kwds)
 
     handle = Handle() if handle is None else handle
     cdef handle_t *handle_ = <handle_t*> <size_t> handle.getHandle()
@@ -318,9 +316,88 @@ def pairwise_distances(X, Y=None, metric="euclidean", handle=None,
     return dest_m
 
 
-def sparse_pairwise_distance(X, Y=None, metric="euclidean", handle=None,
-                             convert_dtype=True, output_type=None,
-                             metric_arg=2, **kwds):
+@cuml.internals.api_return_array(get_output_type=True)
+def sparse_pairwise_distances(X, Y=None, metric="euclidean", handle=None,
+                              convert_dtype=True, metric_arg=2, **kwds):
+    """
+    Compute the distance matrix from a vector array `X` and optional `Y`.
+
+    This method takes either one or two sparse vector arrays, and returns a
+    dense distance matrix.
+
+    If `Y` is given (default is `None`), then the returned matrix is the
+    pairwise distance between the arrays from both `X` and `Y`.
+
+    Valid values for metric are:
+
+    - From scikit-learn: ['cityblock', 'cosine', 'euclidean', 'l1', 'l2', \
+        'manhattan'].
+    - From scipy.spatial.distance: ['sqeuclidean', 'canberra', 'minkowski', \
+        'jaccard', 'chebyshev']
+        See the documentation for scipy.spatial.distance for details on these
+        metrics.
+    - ['inner_product', 'hellinger']
+    Parameters
+    ----------
+    X : array-like (device or host) of shape (n_samples_x, n_features)
+        Acceptable formats: SciPy or Cupy sparse array
+
+    Y : array-like (device or host) of shape (n_samples_y, n_features),\
+        optional
+        Acceptable formats: SciPy or Cupy sparse array
+
+    metric : {"cityblock", "cosine", "euclidean", "l1", "l2", "manhattan", \
+        "sqeuclidean", "canberra", "lp", "inner_product", "minkowski", \
+        "jaccard", "hellinger", "chebyshev", "linf"}
+        The metric to use when calculating distance between instances in a
+        feature array.
+
+    convert_dtype : bool, optional (default = True)
+        When set to True, the method will, when necessary, convert
+        Y to be the same data type as X if they differ. This
+        will increase memory used for the method.
+
+    metric_arg : float, optional (default = 2)
+        Additionnal metric-specific argument.
+        For Minkowski it's the p-norm to apply.
+
+    Returns
+    -------
+    D : array [n_samples_x, n_samples_x] or [n_samples_x, n_samples_y]
+        A dense distance matrix D such that D_{i, j} is the distance between
+        the ith and jth vectors of the given matrix `X`, if `Y` is None.
+        If `Y` is not `None`, then D_{i, j} is the distance between the ith
+        array from `X` and the jth array from `Y`.
+
+    Examples
+    --------
+        >>> import cupy as cp
+        >>> from cuml.metrics import sparse_pairwise_distances
+        >>> import scipy
+        >>> from scipy import sparse
+        >>>
+        >>> X = scipy.sparse.random(2, 3, density=0.3)
+        >>> Y = scipy.sparse.random(1, 3, density=0.5)
+        >>> print(X.todense())
+        matrix([[0.18253484, 0.82337939, 0.        ],
+                [0.        , 0.        , 0.        ]])
+        >>> print(Y.todense())
+        matrix([[0.33561047, 0.73499085, 0.        ]])
+        >>> # Euclidean Pairwise Distance, Single Input:
+        >>> sparse_pairwise_distances(X, metric='euclidean').to_output()
+        array([[0.        , 0.84336978],
+               [0.84336978, 0.        ]])
+        >>>
+        >>> # Squared euclidean Pairwise Distance, Multi-Input:
+        >>> pairwise_distances(X, Y, metric='sqeuclidean').to_output()
+        array([[0.03124469],
+               [0.65284593]])
+        >>>
+        >>> # Canberra Pairwise Distance, Multi-Input:
+        >>> sparse_pairwise_distances(X, Y, metric='canberra').to_output()
+        array([[0.35214852],
+               [2.        ]])
+    """
     handle = Handle() if handle is None else handle
     cdef handle_t *handle_ = <handle_t*> <size_t> handle.getHandle()
 
