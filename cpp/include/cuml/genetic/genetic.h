@@ -36,22 +36,6 @@ enum class init_method_t : uint32_t {
   half_and_half,
 };  // enum class init_method_t
 
-/** fitness metric types */
-enum class metric_t : uint32_t {
-  /** mean absolute error (regression-only) */
-  mae,
-  /** mean squared error (regression-only) */
-  mse,
-  /** root mean squared error (regression-only) */
-  rmse,
-  /** pearson product-moment coefficient (regression and transformation) */
-  pearson,
-  /** spearman's rank-order coefficient (regression and transformation) */
-  spearman,
-  /** binary cross-entropy loss (classification-only) */
-  logloss,
-};  // enum class metric_t
-
 enum class transformer_t : uint32_t {
   /** sigmoid function */
   sigmoid,

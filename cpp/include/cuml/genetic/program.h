@@ -17,6 +17,8 @@
 #pragma once
 
 #include "node.h"
+#include "fitness.h"
+#include <cuml/cuml.hpp>
 
 namespace cuml {
 namespace genetic {
@@ -41,7 +43,26 @@ struct program {
   int len;
   /** maximum depth of this AST */
   int depth;
+  /** fitness score of current AST */
+  float raw_fitness_;
+  /** fitness metric used for current AST*/
+  metric_t metric;
 };  // struct program
+
+/** program_t is the type of the program */
+typedef program* program_t;
+
+/** returns predictions for given dataset */
+void execute(const raft::handle_t &h, program_t p, 
+                 float** X, float* y_pred, int num_rows, float* sample_weights);
+                 
+/** computes fitness score for a single program */
+void raw_fitness(const raft::handle_t &h, program_t p, 
+                 float** X, float* y, int num_rows, float* sample_weights, float* score);
+
+/** returns precomputed fitness score of program*/
+void fitness(const raft::handle_t &h, program_t p, 
+             float parsimony_coeff, float* score);
 
 }  // namespace genetic
 }  // namespace cuml
