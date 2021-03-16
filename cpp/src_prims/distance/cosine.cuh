@@ -59,8 +59,8 @@ namespace Distance {
  * @param fin_op    the final gemm epilogue lambda
  */
 template <typename DataT, typename AccT, typename OutT, typename IdxT,
-          typename Policy, typename CoreLambda,
-          typename EpilogueLambda, typename FinalLambda>
+          typename Policy, typename CoreLambda, typename EpilogueLambda,
+          typename FinalLambda>
 __global__ __launch_bounds__(Policy::Nthreads, 2) void cosineKernel(
   const DataT *x, const DataT *y, const DataT *_xn, const DataT *_yn, IdxT m,
   IdxT n, IdxT k, OutT *dOutput, CoreLambda core_op, EpilogueLambda epilog_op,
@@ -98,8 +98,8 @@ __global__ __launch_bounds__(Policy::Nthreads, 2) void cosineKernel(
 template <typename DataT, typename AccT, typename OutT, typename IdxT,
           int VecLen, typename FinalLambda>
 void cosineImpl(const DataT *x, const DataT *y, const DataT *xn,
-                    const DataT *yn, IdxT m, IdxT n, IdxT k, OutT *dOutput,
-                    FinalLambda fin_op, cudaStream_t stream) {
+                const DataT *yn, IdxT m, IdxT n, IdxT k, OutT *dOutput,
+                FinalLambda fin_op, cudaStream_t stream) {
   typedef typename raft::linalg::Policy4x4<DataT, VecLen>::Policy Policy;
   dim3 grid(raft::ceildiv<int>(m, Policy::Mblk),
             raft::ceildiv<int>(n, Policy::Nblk));
@@ -147,10 +147,10 @@ void cosineImpl(const DataT *x, const DataT *y, const DataT *xn,
     }
   };
 
-  cosineKernel<DataT, AccT, OutT, IdxT, Policy,
-                     decltype(core_lambda), decltype(epilog_lambda),
-                     FinalLambda><<<grid, blk, Policy::SmemSize, stream>>>(
-    x, y, xn, yn, m, n, k, dOutput, core_lambda, epilog_lambda, fin_op);
+  cosineKernel<DataT, AccT, OutT, IdxT, Policy, decltype(core_lambda),
+               decltype(epilog_lambda), FinalLambda>
+    <<<grid, blk, Policy::SmemSize, stream>>>(
+      x, y, xn, yn, m, n, k, dOutput, core_lambda, epilog_lambda, fin_op);
 
   CUDA_CHECK(cudaGetLastError());
 }
@@ -158,8 +158,8 @@ void cosineImpl(const DataT *x, const DataT *y, const DataT *xn,
 template <typename DataT, typename AccT, typename OutT, typename IdxT,
           typename FinalLambda>
 void cosine(IdxT m, IdxT n, IdxT k, const DataT *x, const DataT *y,
-                  const DataT *xn, const DataT *yn, OutT *dOutput,
-                  FinalLambda fin_op, cudaStream_t stream) {
+            const DataT *xn, const DataT *yn, OutT *dOutput, FinalLambda fin_op,
+            cudaStream_t stream) {
   size_t bytes = sizeof(DataT) * k;
   if (16 % sizeof(DataT) == 0 && bytes % 16 == 0) {
     cosineImpl<DataT, AccT, OutT, IdxT, 16 / sizeof(DataT), FinalLambda>(
@@ -202,7 +202,6 @@ void cosineAlgo1(Index_ m, Index_ n, Index_ k, const InType *pA,
                  const InType *pB, OutType *pD, AccType *workspace,
                  size_t worksize, FinalLambda fin_op, cudaStream_t stream,
                  bool isRowMajor) {
-
   auto norm_op = [] __device__(AccType in) { return raft::mySqrt(in); };
 
   // Wrap fin_op to allow computing 1 - pA before calling fin_op

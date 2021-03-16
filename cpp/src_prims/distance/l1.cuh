@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -49,8 +49,8 @@ namespace Distance {
  * @param fin_op    the final gemm epilogue lambda
  */
 template <typename DataT, typename AccT, typename OutT, typename IdxT,
-          typename Policy, typename CoreLambda,
-          typename EpilogueLambda, typename FinalLambda>
+          typename Policy, typename CoreLambda, typename EpilogueLambda,
+          typename FinalLambda>
 __global__ __launch_bounds__(Policy::Nthreads, 2) void l1Kernel(
   const DataT *x, const DataT *y, IdxT m, IdxT n, IdxT k, OutT *dOutput,
   CoreLambda core_op, EpilogueLambda epilog_op, FinalLambda fin_op) {
@@ -65,7 +65,7 @@ __global__ __launch_bounds__(Policy::Nthreads, 2) void l1Kernel(
 template <typename DataT, typename AccT, typename OutT, typename IdxT,
           int VecLen, typename FinalLambda>
 static void l1Impl(const DataT *x, const DataT *y, IdxT m, IdxT n, IdxT k,
-                OutT *dOutput, FinalLambda fin_op, cudaStream_t stream) {
+                   OutT *dOutput, FinalLambda fin_op, cudaStream_t stream) {
   typedef typename raft::linalg::Policy4x4<DataT, VecLen>::Policy Policy;
   dim3 grid(raft::ceildiv<int>(m, Policy::Mblk),
             raft::ceildiv<int>(n, Policy::Nblk));
@@ -82,30 +82,28 @@ static void l1Impl(const DataT *x, const DataT *y, IdxT m, IdxT n, IdxT k,
                          AccT acc[Policy::AccRowsPerTh][Policy::AccColsPerTh],
                          DataT * sxNorm, DataT * syNorm) { return; };
 
-  l1Kernel<DataT, AccT, OutT, IdxT, Policy,
-                         decltype(core_lambda), decltype(epilog_lambda),
-                         FinalLambda><<<grid, blk, Policy::SmemSize, stream>>>(
+  l1Kernel<DataT, AccT, OutT, IdxT, Policy, decltype(core_lambda),
+           decltype(epilog_lambda), FinalLambda>
+    <<<grid, blk, Policy::SmemSize, stream>>>(
       x, y, m, n, k, dOutput, core_lambda, epilog_lambda, fin_op);
-
-
 
   CUDA_CHECK(cudaGetLastError());
 }
 
 template <typename DataT, typename AccT, typename OutT, typename IdxT,
           typename FinalLambda>
-void l1(IdxT m, IdxT n, IdxT k, const DataT *x, const DataT *y,
-              OutT *dOutput, FinalLambda fin_op, cudaStream_t stream) {
+void l1(IdxT m, IdxT n, IdxT k, const DataT *x, const DataT *y, OutT *dOutput,
+        FinalLambda fin_op, cudaStream_t stream) {
   size_t bytes = sizeof(DataT) * k;
   if (16 % sizeof(DataT) == 0 && bytes % 16 == 0) {
-    l1Impl<DataT, AccT, OutT, IdxT, 16 / sizeof(DataT),
-                       FinalLambda>(x, y, m, n, k, dOutput, fin_op, stream);
+    l1Impl<DataT, AccT, OutT, IdxT, 16 / sizeof(DataT), FinalLambda>(
+      x, y, m, n, k, dOutput, fin_op, stream);
   } else if (8 % sizeof(DataT) == 0 && bytes % 8 == 0) {
     l1Impl<DataT, AccT, OutT, IdxT, 8 / sizeof(DataT), FinalLambda>(
       x, y, m, n, k, dOutput, fin_op, stream);
   } else {
-    l1Impl<DataT, AccT, OutT, IdxT, 1, FinalLambda>(
-      x, y, m, n, k, dOutput, fin_op, stream);
+    l1Impl<DataT, AccT, OutT, IdxT, 1, FinalLambda>(x, y, m, n, k, dOutput,
+                                                    fin_op, stream);
   }
 }
 
@@ -139,8 +137,7 @@ void l1Impl(int m, int n, int k, const InType *pA, const InType *pB,
     typedef typename std::conditional<is_bool::value, OutType, AccType>::type
       L1OutType;
     l1<InType, AccType, L1OutType, Index_, FinalLambda>(
-      m, n, k, pA, pB, reinterpret_cast<L1OutType *>(pD),
-      fin_op, stream);
+      m, n, k, pA, pB, reinterpret_cast<L1OutType *>(pD), fin_op, stream);
 
   } else {
     typedef typename std::conditional<is_bool::value, AccType, OutType>::type
@@ -188,9 +185,9 @@ void l1Impl(int m, int n, int k, const InType *pA, const InType *pB,
     gemm_m = m;
     gemm_n = n;
 
-    LinAlg::gemm<InType, AccType, EffOutType, OutputTile_, AccumulatorsPerThread_,
-                 MainLoopFunctor_, Index_, GemmConfig_, EpilogueFunctor_,
-                 GemmEpilogueTraits_, GemmEpilogue_>(
+    LinAlg::gemm<InType, AccType, EffOutType, OutputTile_,
+                 AccumulatorsPerThread_, MainLoopFunctor_, Index_, GemmConfig_,
+                 EpilogueFunctor_, GemmEpilogueTraits_, GemmEpilogue_>(
       transa, transb, gemm_m, gemm_n, k, (EffOutType)1, aPtr, lda, bPtr, ldb,
       (EffOutType)0, nullptr, ldd, pDCast,
       [] HD(EpiParams & p) {
@@ -199,7 +196,6 @@ void l1Impl(int m, int n, int k, const InType *pA, const InType *pB,
       },
       fin_op, stream);
   }
-
 }
 }  // namespace Distance
 }  // namespace MLCommon
