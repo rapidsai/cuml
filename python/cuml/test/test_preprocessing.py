@@ -24,7 +24,8 @@ from cuml.experimental.preprocessing import \
     PolynomialFeatures as cuPolynomialFeatures, \
     SimpleImputer as cuSimpleImputer, \
     RobustScaler as cuRobustScaler, \
-    KBinsDiscretizer as cuKBinsDiscretizer
+    KBinsDiscretizer as cuKBinsDiscretizer, \
+    MissingIndicator as cuMissingIndicator
 from cuml.experimental.preprocessing import scale as cu_scale, \
                             minmax_scale as cu_minmax_scale, \
                             normalize as cu_normalize, \
@@ -44,7 +45,8 @@ from sklearn.preprocessing import scale as sk_scale, \
                                   add_dummy_feature as sk_add_dummy_feature, \
                                   binarize as sk_binarize, \
                                   robust_scale as sk_robust_scale
-from sklearn.impute import SimpleImputer as skSimpleImputer
+from sklearn.impute import SimpleImputer as skSimpleImputer, \
+                           MissingIndicator as skMissingIndicator
 from sklearn.preprocessing import KBinsDiscretizer as skKBinsDiscretizer
 
 from cuml.thirdparty_adapters.sparsefuncs_fast import \
@@ -609,6 +611,52 @@ def test_kbinsdiscretizer(blobs_dataset, n_bins,  # noqa: F811
     else:
         assert_allclose(t_X, sk_t_X)
         assert_allclose(r_X, sk_r_X)
+
+
+@pytest.mark.parametrize("features", ['missing-only', 'all'])
+def test_missing_indicator(int_dataset,  # noqa: F811
+                           features):
+    X_np, X = int_dataset
+
+    indicator = cuMissingIndicator(features=features)
+    ft_X = indicator.fit_transform(X)
+    assert type(ft_X) == type(X)
+    indicator.fit(X)
+    t_X = indicator.transform(X)
+    assert type(t_X) == type(X)
+
+    indicator = skMissingIndicator(features=features)
+    sk_ft_X = indicator.fit_transform(X_np)
+    indicator.fit(X_np)
+    sk_t_X = indicator.transform(X_np)
+
+    assert_allclose(ft_X, sk_ft_X)
+    assert_allclose(t_X, sk_t_X)
+
+
+@pytest.mark.parametrize("features", ['missing-only', 'all'])
+def test_missing_indicator_sparse(sparse_int_dataset,  # noqa: F811
+                                  features):
+    X_np, X = sparse_int_dataset
+
+    indicator = cuMissingIndicator(features=features,
+                                   missing_values=1)
+    ft_X = indicator.fit_transform(X)
+    # assert type(ft_X) == type(X)
+    assert cp.sparse.issparse(ft_X) or scipy.sparse.issparse(ft_X)
+    indicator.fit(X)
+    t_X = indicator.transform(X)
+    # assert type(t_X) == type(X)
+    assert cp.sparse.issparse(t_X) or scipy.sparse.issparse(t_X)
+
+    indicator = skMissingIndicator(features=features,
+                                   missing_values=1)
+    sk_ft_X = indicator.fit_transform(X_np)
+    indicator.fit(X_np)
+    sk_t_X = indicator.transform(X_np)
+
+    assert_allclose(ft_X, sk_ft_X)
+    assert_allclose(t_X, sk_t_X)
 
 
 def test_csr_mean_variance_axis0(sparse_clf_dataset):  # noqa: F811

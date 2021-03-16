@@ -13,7 +13,9 @@
 import numbers
 import warnings
 
+import numpy
 import cupy as np
+import cuml
 from cuml.common.mixins import AllowNaNTagMixin
 from cuml.common.mixins import StringInputTagMixin
 from cupy import sparse
@@ -478,10 +480,6 @@ class MissingIndicator(TransformerMixin,
     :class:`Pipeline` consisting of transformers and a classifier, but rather
     could be added using a :class:`FeatureUnion` or :class:`ColumnTransformer`.
 
-    Read more in the :ref:`User Guide <impute>`.
-
-    .. versionadded:: 0.20
-
     Parameters
     ----------
     missing_values : number, string, np.nan (default) or None
@@ -538,6 +536,9 @@ class MissingIndicator(TransformerMixin,
            [False, False]])
 
     """
+
+    features_ = CumlArrayDescriptor()
+
     @_deprecate_positional_args
     def __init__(self, *, missing_values=np.nan, features="missing-only",
                  sparse="auto", error_on_new=True):
@@ -545,6 +546,14 @@ class MissingIndicator(TransformerMixin,
         self.features = features
         self.sparse = sparse
         self.error_on_new = error_on_new
+
+    def get_param_names(self):
+        return super().get_param_names() + [
+            "missing_values",
+            "features",
+            "sparse",
+            "error_on_new"
+        ]
 
     def _get_missing_features_info(self, X):
         """Compute the imputer mask and the indices of the features
@@ -575,11 +584,12 @@ class MissingIndicator(TransformerMixin,
                                   else sparse.csc_matrix)
             imputer_mask = sparse_constructor(
                 (mask, X.indices.copy(), X.indptr.copy()),
-                shape=X.shape, dtype=bool)
-            imputer_mask.eliminate_zeros()
+                shape=X.shape, dtype=np.float32)
+            # temporarly switch to using float32 as
+            # cupy cannot operate with bool as of now
 
             if self.features == 'missing-only':
-                n_missing = imputer_mask.getnnz(axis=0)
+                n_missing = imputer_mask.sum(axis=0)
 
             if self.sparse is False:
                 imputer_mask = imputer_mask.toarray()
@@ -704,18 +714,21 @@ class MissingIndicator(TransformerMixin,
         imputer_mask, features = self._get_missing_features_info(X)
 
         if self.features == "missing-only":
-            features_diff_fit_trans = np.setdiff1d(features, self.features_)
-            if (self.error_on_new and features_diff_fit_trans.size > 0):
-                raise ValueError("The features {} have missing values "
-                                 "in transform but have no missing values "
-                                 "in fit.".format(features_diff_fit_trans))
+            with cuml.using_output_type("numpy"):
+                np_features = np.asnumpy(features)
+                features_diff_fit_trans = numpy.setdiff1d(np_features,
+                                                          self.features_)
+                if (self.error_on_new and features_diff_fit_trans.size > 0):
+                    raise ValueError("The features {} have missing values "
+                                     "in transform but have no missing values "
+                                     "in fit.".format(features_diff_fit_trans))
 
             if self.features_.size < self._n_features:
                 imputer_mask = imputer_mask[:, self.features_]
 
         return imputer_mask
 
-    def fit_transform(self, X, y=None):
+    def fit_transform(self, X, y=None) -> SparseCumlArray:
         """Generate missing values indicator for X.
 
         Parameters

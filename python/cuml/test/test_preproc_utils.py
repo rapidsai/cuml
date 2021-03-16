@@ -94,7 +94,6 @@ def create_rand_blobs():
 
 def create_rand_integers():
     randint = cp.random.randint(30, size=(500, 20)).astype(cp.float64)
-    randint = cp.asfortranarray(randint)
     return randint
 
 
@@ -196,6 +195,7 @@ def assert_allclose(actual, desired, rtol=1e-05, atol=1e-05,
         actual = to_output_type(actual, 'numpy')
     if not isinstance(desired, np.ndarray):
         desired = to_output_type(desired, 'numpy')
+
     if ratio_tol:
         assert actual.shape == desired.shape
         diff_ratio = (actual != desired).sum() / actual.size
