@@ -48,14 +48,14 @@ from libcpp.memory cimport shared_ptr
 
 cimport cuml.common.cuda
 
-cdef extern from "cuml/manifold/tsne.h" namespace "ML" nogil:
+cdef extern from "cuml/manifold/tsne.h" namespace "ML":
 
     enum TSNE_ALGORITHM:
         EXACT = 0,
         BARNES_HUT = 1,
         FFT = 2
 
-cdef extern from "cuml/manifold/tsne.h" namespace "ML" nogil:
+cdef extern from "cuml/manifold/tsne.h" namespace "ML":
 
     cdef void TSNE_fit(
         handle_t &handle,

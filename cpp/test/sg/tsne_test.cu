@@ -15,8 +15,9 @@
  */
 
 #include <cuml/manifold/tsne.h>
+#include <datasets/boston.h>
+#include <datasets/breast_cancer.h>
 #include <datasets/digits.h>
-// #include <datasets/boston.h>
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
 #include <stdio.h>
@@ -31,11 +32,15 @@
 
 using namespace MLCommon;
 using namespace MLCommon::Score;
-using namespace MLCommon::Datasets::Digits;
-// using namespace MLCommon::Datasets::Boston;
+using namespace MLCommon::Datasets;
 using namespace ML;
 
-class TSNETest : public ::testing::Test {
+struct TSNEInput {
+  int n, p;
+  std::vector<float> dataset;
+};
+
+class TSNETest : public ::testing::TestWithParam<TSNEInput> {
  protected:
   void assert_score(double score, const char *test) {
     printf("%s", test);
@@ -49,7 +54,7 @@ class TSNETest : public ::testing::Test {
     // Allocate memory
     device_buffer<float> X_d(handle.get_device_allocator(), handle.get_stream(),
                              n * p);
-    raft::update_device(X_d.data(), digits.data(), n * p, handle.get_stream());
+    raft::update_device(X_d.data(), dataset.data(), n * p, handle.get_stream());
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 
     device_buffer<float> Y_d(handle.get_device_allocator(), handle.get_stream(),
@@ -132,38 +137,39 @@ class TSNETest : public ::testing::Test {
   }
 
   void basicTest() {
-    for (int i = 0; i < 1; i++) {
-      printf("BH\n");
-      score_bh = runTest(TSNE_ALGORITHM::BARNES_HUT);
-      printf("EXACT\n");
-      score_exact = runTest(TSNE_ALGORITHM::EXACT);
+    for (int i = 0; i < 25; i++) {
+      // printf("BH\n");
+      // score_bh = runTest(TSNE_ALGORITHM::BARNES_HUT);
+      // printf("EXACT\n");
+      // score_exact = runTest(TSNE_ALGORITHM::EXACT);
       printf("FFT\n");
       score_fft = runTest(TSNE_ALGORITHM::FFT);
-      if (score_fft < 0.98) {
-        std::cout << "NORMAL FAILED" << std::endl;
-        break;
-      }
+      assert_score(score_fft, "fft\n");
 
-      printf("KNN BH\n");
-      knn_score_bh = runTest(TSNE_ALGORITHM::BARNES_HUT, true);
-      printf("KNN EXACT\n");
-      knn_score_exact = runTest(TSNE_ALGORITHM::EXACT, true);
+      // printf("KNN BH\n");
+      // knn_score_bh = runTest(TSNE_ALGORITHM::BARNES_HUT, true);
+      // printf("KNN EXACT\n");
+      // knn_score_exact = runTest(TSNE_ALGORITHM::EXACT, true);
       printf("KNN FFT\n");
       knn_score_fft = runTest(TSNE_ALGORITHM::FFT, true);
-      if (knn_score_fft < 0.98) {
-        std::cout << "KNN FAILED" << std::endl;
-        break;
-      }
+      assert_score(knn_score_fft, "knn_fft\n");
     }
   }
 
-  void SetUp() override { basicTest(); }
+  void SetUp() override {
+    params = ::testing::TestWithParam<TSNEInput>::GetParam();
+    n = params.n;
+    p = params.p;
+    dataset = params.dataset;
+    basicTest();
+  }
 
   void TearDown() override {}
 
  protected:
-  int n = 1797;
-  int p = 64;
+  TSNEInput params;
+  std::vector<float> dataset;
+  int n, p;
   double score_bh;
   double score_exact;
   double score_fft;
@@ -172,12 +178,20 @@ class TSNETest : public ::testing::Test {
   double knn_score_fft;
 };
 
+const std::vector<TSNEInput> inputs = {
+  {Digits::n_samples, Digits::n_features, Digits::digits},
+  {Boston::n_samples, Boston::n_features, Boston::boston},
+  {BreastCancer::n_samples, BreastCancer::n_features,
+   BreastCancer::breast_cancer}};
+
 typedef TSNETest TSNETestF;
-TEST_F(TSNETestF, Result) {
-  assert_score(score_bh, "bh\n");
-  assert_score(score_exact, "exact\n");
-  assert_score(score_fft, "fft\n");
-  assert_score(knn_score_bh, "knn_bh\n");
-  assert_score(knn_score_exact, "knn_exact\n");
-  assert_score(knn_score_fft, "knn_fft\n");
+TEST_P(TSNETestF, Result) {
+  // assert_score(score_bh, "bh\n");
+  // assert_score(score_exact, "exact\n");
+  // assert_score(score_fft, "fft\n");
+  // assert_score(knn_score_bh, "knn_bh\n");
+  // assert_score(knn_score_exact, "knn_exact\n");
+  // assert_score(knn_score_fft, "knn_fft\n");
 }
+
+INSTANTIATE_TEST_CASE_P(TSNETests, TSNETestF, ::testing::ValuesIn(inputs));

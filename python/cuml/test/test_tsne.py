@@ -146,7 +146,7 @@ def test_tsne_knn_parameters(dataset, type_knn_graph, method):
 
 
 @pytest.mark.parametrize('dataset', test_datasets.values())
-@pytest.mark.parametrize('method', ['fft', 'barnes_hut'])
+@pytest.mark.parametrize('method', ['fft'])
 def test_tsne(dataset, method):
     """
     This tests how TSNE handles a lot of input data across time.
@@ -211,7 +211,7 @@ def test_components_exception():
 
 
 @pytest.mark.parametrize('input_type', ['cupy', 'scipy'])
-@pytest.mark.parametrize('method', ['fft', 'barnes_hut'])
+@pytest.mark.parametrize('method', ['fft'])
 def test_tsne_fit_transform_on_digits_sparse(input_type, method):
 
     digits = test_datasets['digits'].data
@@ -244,7 +244,7 @@ def test_tsne_fit_transform_on_digits_sparse(input_type, method):
 
 @pytest.mark.parametrize('type_knn_graph', ['cuml', 'sklearn'])
 @pytest.mark.parametrize('input_type', ['cupy', 'scipy'])
-@pytest.mark.parametrize('method', ['fft', 'barnes_hut'])
+@pytest.mark.parametrize('method', ['fft'])
 def test_tsne_knn_parameters_sparse(type_knn_graph, input_type, method):
 
     digits = test_datasets["digits"].data
