@@ -149,7 +149,7 @@ class TsvdTest : public ::testing::TestWithParam<TsvdInputs<T>> {
   cudaStream_t stream;
 };
 
-const std::vector<TsvdInputs<float>> linkage_inputsf2 = {
+const std::vector<TsvdInputs<float>> inputsf2 = {
   {0.01f, 4 * 3, 4, 3, 1024 * 128, 1024, 128, 1234ULL, 0},
   {0.01f, 4 * 3, 4, 3, 1024 * 128, 1024, 128, 1234ULL, 1},
   {0.05f, 4 * 3, 4, 3, 512 * 64, 512, 64, 1234ULL, 2},
@@ -190,13 +190,13 @@ TEST_P(TsvdTestDataVecD, Result) {
 }
 
 INSTANTIATE_TEST_CASE_P(TsvdTests, TsvdTestLeftVecF,
-                        ::testing::ValuesIn(linkage_inputsf2));
+                        ::testing::ValuesIn(inputsf2));
 
 INSTANTIATE_TEST_CASE_P(TsvdTests, TsvdTestLeftVecD,
                         ::testing::ValuesIn(inputsd2));
 
 INSTANTIATE_TEST_CASE_P(TsvdTests, TsvdTestDataVecF,
-                        ::testing::ValuesIn(linkage_inputsf2));
+                        ::testing::ValuesIn(inputsf2));
 
 INSTANTIATE_TEST_CASE_P(TsvdTests, TsvdTestDataVecD,
                         ::testing::ValuesIn(inputsd2));

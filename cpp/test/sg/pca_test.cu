@@ -187,7 +187,7 @@ class PcaTest : public ::testing::TestWithParam<PcaInputs<T>> {
   cudaStream_t stream;
 };
 
-const std::vector<PcaInputs<float>> linkage_inputsf2 = {
+const std::vector<PcaInputs<float>> inputsf2 = {
   {0.01f, 3 * 2, 3, 2, 1024 * 128, 1024, 128, 1234ULL, 0},
   {0.01f, 3 * 2, 3, 2, 256 * 32, 256, 32, 1234ULL, 1}};
 
@@ -263,30 +263,30 @@ TEST_P(PcaTestDataVecD, Result) {
 }
 
 INSTANTIATE_TEST_CASE_P(PcaTests, PcaTestValF,
-                        ::testing::ValuesIn(linkage_inputsf2));
+                        ::testing::ValuesIn(inputsf2));
 
 INSTANTIATE_TEST_CASE_P(PcaTests, PcaTestValD, ::testing::ValuesIn(inputsd2));
 
 INSTANTIATE_TEST_CASE_P(PcaTests, PcaTestLeftVecF,
-                        ::testing::ValuesIn(linkage_inputsf2));
+                        ::testing::ValuesIn(inputsf2));
 
 INSTANTIATE_TEST_CASE_P(PcaTests, PcaTestLeftVecD,
                         ::testing::ValuesIn(inputsd2));
 
 INSTANTIATE_TEST_CASE_P(PcaTests, PcaTestDataVecSmallF,
-                        ::testing::ValuesIn(linkage_inputsf2));
+                        ::testing::ValuesIn(inputsf2));
 
 INSTANTIATE_TEST_CASE_P(PcaTests, PcaTestDataVecSmallD,
                         ::testing::ValuesIn(inputsd2));
 
 INSTANTIATE_TEST_CASE_P(PcaTests, PcaTestTransDataF,
-                        ::testing::ValuesIn(linkage_inputsf2));
+                        ::testing::ValuesIn(inputsf2));
 
 INSTANTIATE_TEST_CASE_P(PcaTests, PcaTestTransDataD,
                         ::testing::ValuesIn(inputsd2));
 
 INSTANTIATE_TEST_CASE_P(PcaTests, PcaTestDataVecF,
-                        ::testing::ValuesIn(linkage_inputsf2));
+                        ::testing::ValuesIn(inputsf2));
 
 INSTANTIATE_TEST_CASE_P(PcaTests, PcaTestDataVecD,
                         ::testing::ValuesIn(inputsd2));

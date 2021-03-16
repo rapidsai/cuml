@@ -118,7 +118,7 @@ class DbscanTest : public ::testing::TestWithParam<DbscanInputs<T, IdxT>> {
   double score;
 };
 
-const std::vector<DbscanInputs<float, int>> linkage_inputsf2 = {
+const std::vector<DbscanInputs<float, int>> inputsf2 = {
   {500, 16, 5, 0.01, 2, 2, (size_t)100, 1234ULL},
   {1000, 1000, 10, 0.01, 2, 2, (size_t)13e3, 1234ULL},
   {20000, 10000, 10, 0.01, 2, 2, (size_t)13e3, 1234ULL},
@@ -161,7 +161,7 @@ typedef DbscanTest<double, int64_t> DbscanTestD_Int64;
 TEST_P(DbscanTestD_Int64, Result) { ASSERT_TRUE(score == 1.0); }
 
 INSTANTIATE_TEST_CASE_P(DbscanTests, DbscanTestF_Int,
-                        ::testing::ValuesIn(linkage_inputsf2));
+                        ::testing::ValuesIn(inputsf2));
 
 INSTANTIATE_TEST_CASE_P(DbscanTests, DbscanTestF_Int64,
                         ::testing::ValuesIn(inputsf3));
