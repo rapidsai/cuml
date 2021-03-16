@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -89,7 +89,7 @@ void get_distances(const raft::handle_t &handle,
     k_graph.knn_indices, k_graph.knn_dists, k_graph.n_neighbors,
     handle.get_cusparse_handle(), handle.get_device_allocator(), stream,
     ML::Sparse::DEFAULT_BATCH_SIZE, ML::Sparse::DEFAULT_BATCH_SIZE,
-    ML::MetricType::METRIC_L2);
+    raft::distance::DistanceType::L2Expanded);
 }
 
 // sparse, int64

@@ -15,9 +15,10 @@ dependencies:
 - dask-cudf=0.19.*
 - dask-cuda=0.19.*
 - ucx-py=0.19.*
+- ucx-proc=*=gpu
 - dask-ml
 - doxygen>=1.8.20
-- libfaiss>=1.6.3
+- libfaiss>=1.7.0
 - faiss-proc=*=cuda
 - umap-learn
 - scikit-learn=0.23.1
@@ -25,8 +26,8 @@ dependencies:
 - pip
 - pip:
     - sphinx_markdown_tables
-    - git+https://github.com/dask/dask.git@master
-    - git+https://github.com/dask/distributed.git@master
+    - git+https://github.com/dask/dask.git@main
+    - git+https://github.com/dask/distributed.git@main
 
 # rapids-build-env, notebook-env and doc-env are defined in
 # https://docs.rapids.ai/maintainers/depmgmt/

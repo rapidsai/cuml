@@ -57,6 +57,8 @@ cumlError_t knn_search(const cumlHandle_t handle, float **input, int *sizes,
   cumlError_t status;
   raft::handle_t *handle_ptr;
   std::tie(handle_ptr, status) = ML::handleMap.lookupHandlePointer(handle);
+  raft::distance::DistanceType metric_distance_type =
+    static_cast<raft::distance::DistanceType>(metric_type);
 
   std::vector<cudaStream_t> int_streams = handle_ptr->get_internal_streams();
 
@@ -71,7 +73,7 @@ cumlError_t knn_search(const cumlHandle_t handle, float **input, int *sizes,
     try {
       ML::brute_force_knn(*handle_ptr, input_vec, sizes_vec, D, search_items, n,
                           res_I, res_D, k, rowMajorIndex, rowMajorQuery,
-                          (ML::MetricType)metric_type, metric_arg, expanded);
+                          metric_distance_type, metric_arg);
     } catch (...) {
       status = CUML_ERROR_UNKNOWN;
     }

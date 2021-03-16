@@ -477,6 +477,7 @@ ModelHandle concatenate_trees(std::vector<ModelHandle> treelite_handles) {
 void fit(const raft::handle_t& user_handle, RandomForestClassifierF*& forest,
          float* input, int n_rows, int n_cols, int* labels, int n_unique_labels,
          RF_params rf_params, int verbosity) {
+  ML::PUSH_RANGE("RF::fit @randomforest.cu");
   ML::Logger::get().setLevel(verbosity);
   ASSERT(!forest->trees, "Cannot fit an existing forest.");
   forest->trees =
@@ -487,11 +488,13 @@ void fit(const raft::handle_t& user_handle, RandomForestClassifierF*& forest,
     std::make_shared<rfClassifier<float>>(rf_params);
   rf_classifier->fit(user_handle, input, n_rows, n_cols, labels,
                      n_unique_labels, forest);
+  ML::POP_RANGE();
 }
 
 void fit(const raft::handle_t& user_handle, RandomForestClassifierD*& forest,
          double* input, int n_rows, int n_cols, int* labels,
          int n_unique_labels, RF_params rf_params, int verbosity) {
+  ML::PUSH_RANGE("RF::fit @randomforest.cu");
   ML::Logger::get().setLevel(verbosity);
   ASSERT(!forest->trees, "Cannot fit an existing forest.");
   forest->trees =
@@ -502,6 +505,7 @@ void fit(const raft::handle_t& user_handle, RandomForestClassifierD*& forest,
     std::make_shared<rfClassifier<double>>(rf_params);
   rf_classifier->fit(user_handle, input, n_rows, n_cols, labels,
                      n_unique_labels, forest);
+  ML::POP_RANGE();
 }
 /** @} */
 
@@ -651,6 +655,7 @@ RF_params set_rf_params(int max_depth, int max_leaves, float max_features,
 void fit(const raft::handle_t& user_handle, RandomForestRegressorF*& forest,
          float* input, int n_rows, int n_cols, float* labels,
          RF_params rf_params, int verbosity) {
+  ML::PUSH_RANGE("RF::fit @randomforest.cu");
   ML::Logger::get().setLevel(verbosity);
   ASSERT(!forest->trees, "Cannot fit an existing forest.");
   forest->trees =
@@ -660,11 +665,13 @@ void fit(const raft::handle_t& user_handle, RandomForestRegressorF*& forest,
   std::shared_ptr<rfRegressor<float>> rf_regressor =
     std::make_shared<rfRegressor<float>>(rf_params);
   rf_regressor->fit(user_handle, input, n_rows, n_cols, labels, forest);
+  ML::POP_RANGE();
 }
 
 void fit(const raft::handle_t& user_handle, RandomForestRegressorD*& forest,
          double* input, int n_rows, int n_cols, double* labels,
          RF_params rf_params, int verbosity) {
+  ML::PUSH_RANGE("RF::fit @randomforest.cu");
   ML::Logger::get().setLevel(verbosity);
   ASSERT(!forest->trees, "Cannot fit an existing forest.");
   forest->trees =
@@ -674,6 +681,7 @@ void fit(const raft::handle_t& user_handle, RandomForestRegressorD*& forest,
   std::shared_ptr<rfRegressor<double>> rf_regressor =
     std::make_shared<rfRegressor<double>>(rf_params);
   rf_regressor->fit(user_handle, input, n_rows, n_cols, labels, forest);
+  ML::POP_RANGE();
 }
 /** @} */
 
