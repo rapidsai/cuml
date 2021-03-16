@@ -19,7 +19,7 @@
 #include <cuml/manifold/umapparams.h>
 #include "algo.cuh"
 
-#include <sparse/coo.cuh>
+#include <raft/sparse/coo.cuh>
 
 namespace UMAPAlgo {
 

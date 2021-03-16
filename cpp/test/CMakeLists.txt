@@ -150,7 +150,6 @@ if(BUILD_PRIMS_TESTS)
     prims/completeness_score.cu
     prims/contingencyMatrix.cu
     prims/cov.cu
-    prims/csr.cu
     prims/cutlass_gemm.cu
     prims/decoupled_lookback.cu
     prims/device_utils.cu
@@ -164,7 +163,6 @@ if(BUILD_PRIMS_TESTS)
     prims/entropy.cu
     prims/epsilon_neighborhood.cu
     prims/fast_int_div.cu
-    prims/fused_l2_nn.cu
     prims/gather.cu
     prims/gram.cu
     prims/grid_sync.cu
@@ -201,23 +199,6 @@ if(BUILD_PRIMS_TESTS)
     prims/score.cu
     prims/seive.cu
     prims/sigmoid.cu
-    prims/sparse/add.cu
-    prims/sparse/convert_coo.cu
-    prims/sparse/convert_csr.cu
-    prims/sparse/csr_row_slice.cu
-    prims/sparse/csr_to_dense.cu
-    prims/sparse/csr_transpose.cu
-    prims/sparse/degree.cu
-    prims/sparse/dist_coo_spmv.cu
-    prims/sparse/dist_csr_spmv.cu
-    prims/sparse/distance.cu
-    prims/sparse/filter.cu
-    prims/sparse/knn.cu
-    prims/sparse/norm.cu
-    prims/sparse/row_op.cu
-    prims/sparse/selection.cu
-    prims/sparse/sort.cu
-    prims/sparse/symmetrize.cu
     prims/silhouette_score.cu
     prims/sqrt.cu
     prims/ternary_op.cu
