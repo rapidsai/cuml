@@ -23,7 +23,6 @@
 #include <cuml/common/cuml_allocator.hpp>
 #include <cuml/cuml.hpp>
 #include <cuml/datasets/make_blobs.hpp>
-#include <hierarchy/fix_connectivities.cuh>
 #include <hierarchy/pw_dist_graph.cuh>
 
 #include <raft/linalg/distance_type.h>
@@ -95,7 +94,7 @@ class LinkageTest : public ::testing::TestWithParam<LinkageInputs<T, IdxT>> {
     if (params.use_knn) {
       ML::single_linkage_neighbors(handle, data.data(), params.n_row,
                                    params.n_col,
-                                   raft::distance::DistanceType::L2Expanded,
+                                   raft::distance::DistanceType::L2Unexpanded,
                                    &out_arrs, params.c, params.n_clusters);
     } else {
       ML::single_linkage_pairwise(handle, data.data(), params.n_row,
@@ -119,73 +118,6 @@ class LinkageTest : public ::testing::TestWithParam<LinkageInputs<T, IdxT>> {
   IdxT *labels, *labels_ref;
 
   double score;
-};
-
-template <typename value_t, typename value_idx>
-struct FixConnectivitiesInputs {
-  value_idx n_row;
-  value_idx n_col;
-
-  int n_centers;
-
-  float cluster_std;
-
-  unsigned long long int seed = 1234ULL;
-};
-
-template <typename value_idx, typename value_t>
-class FixConnectivitiesTest : public ::testing::TestWithParam<
-                                FixConnectivitiesInputs<value_t, value_idx>> {
- protected:
-  void basicTest() {
-    raft::handle_t handle;
-
-    params = ::testing::TestWithParam<
-      FixConnectivitiesInputs<value_t, value_idx>>::GetParam();
-
-    out_edges = new raft::sparse::COO<value_t, value_idx>(
-      handle.get_device_allocator(), handle.get_stream());
-
-    Logger::get().setLevel(CUML_LEVEL_DEBUG);
-
-    /**
-     * Generate some data
-     */
-    device_buffer<value_t> data(handle.get_device_allocator(),
-                                handle.get_stream(),
-                                params.n_row * params.n_col);
-
-    device_buffer<value_idx> l(handle.get_device_allocator(),
-                               handle.get_stream(), params.n_row);
-
-    make_blobs(handle, data.data(), l.data(), params.n_row, params.n_col,
-               params.n_centers, true, nullptr, nullptr, params.cluster_std,
-               true, -10.0f, 10.0f, params.seed);
-
-    raft::print_device_vector("data", data.data(), data.size(), std::cout);
-
-    /**
-     * Run connect_components
-     */
-    raft::linkage::connect_components<value_idx, value_t>(
-      handle, *out_edges, data.data(), l.data(), params.n_row, params.n_col);
-
-    CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
-
-    std::cout << "OUTPUT: " << *out_edges << std::endl;
-  }
-
-  void SetUp() override { basicTest(); }
-
-  void TearDown() override {
-    //    CUDA_CHECK(cudaFree(labels));
-    //    CUDA_CHECK(cudaFree(labels_ref));
-  }
-
- protected:
-  FixConnectivitiesInputs<value_t, value_idx> params;
-  value_idx *labels;
-  raft::sparse::COO<value_t, value_idx> *out_edges;
 };
 
 const std::vector<LinkageInputs<float, int>> linkage_inputsf2 = {
@@ -579,28 +511,12 @@ const std::vector<LinkageInputs<float, int>> linkage_inputsf2 = {
    false,
    5}};
 
-const std::vector<FixConnectivitiesInputs<float, int>>
-  fix_connectivities_inputsf2 = {{10, 1, 3, 0.01}};
-
 typedef LinkageTest<float, int> LinkageTestF_Int;
 TEST_P(LinkageTestF_Int, Result) {
   EXPECT_TRUE(
     raft::devArrMatch(labels, labels_ref, params.n_row, raft::Compare<int>()));
 }
 
-typedef FixConnectivitiesTest<int, float> FixConnectivitiesTestF_Int;
-TEST_P(FixConnectivitiesTestF_Int, Result) {
-  /**
-   * Verify the src & dst vertices on each edge have different colors
-   */
-  bool pass = true;
-
-  EXPECT_TRUE(pass);
-}
-
 INSTANTIATE_TEST_CASE_P(LinkageTest, LinkageTestF_Int,
                         ::testing::ValuesIn(linkage_inputsf2));
-
-INSTANTIATE_TEST_CASE_P(FixConnectivitiesTest, FixConnectivitiesTestF_Int,
-                        ::testing::ValuesIn(fix_connectivities_inputsf2));
 }  // end namespace ML

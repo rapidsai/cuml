@@ -23,10 +23,14 @@
 
 #include <distance/distance.cuh>
 
-// TODO: Not a good strategy for pluggability
+#include <rmm/device_uvector.hpp>
+
 #include <raft/linalg/distance_type.h>
-#include <raft/sparse/hierarchy/common.h>
 #include <raft/mr/device/buffer.hpp>
+
+// TODO: Not a good strategy for pluggability but will be
+// removed once our dense pairwise distance API is in RAFT
+#include <raft/sparse/hierarchy/common.h>
 #include <raft/sparse/hierarchy/detail/connectivities.cuh>
 
 #include <thrust/device_ptr.h>
@@ -78,6 +82,8 @@ void pairwise_distances(const raft::handle_t &handle, const value_t *X,
 
   raft::update_device(indptr + m, &nnz, 1, stream);
 
+  // TODO: Keeping raft device buffer here for now until our
+  // dense pairwise distances API is finished being refactored
   raft::mr::device::buffer<char> workspace(d_alloc, stream, (size_t)0);
 
   MLCommon::Distance::pairwise_distance<value_t, value_idx>(
@@ -94,9 +100,9 @@ struct distance_graph_impl<raft::hierarchy::LinkageDistance::PAIRWISE,
                            value_idx, value_t> {
   void run(const raft::handle_t &handle, const value_t *X, size_t m, size_t n,
            raft::distance::DistanceType metric,
-           raft::mr::device::buffer<value_idx> &indptr,
-           raft::mr::device::buffer<value_idx> &indices,
-           raft::mr::device::buffer<value_t> &data, int c) {
+           rmm::device_uvector<value_idx> &indptr,
+           rmm::device_uvector<value_idx> &indices,
+           rmm::device_uvector<value_t> &data, int c) {
     auto d_alloc = handle.get_device_allocator();
     auto stream = handle.get_stream();
 

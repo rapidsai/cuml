@@ -477,12 +477,6 @@ void brute_force_knn(std::vector<float *> &input, std::vector<int> &sizes,
          */
         bfKnn(&gpu_res, args);
     }
-
-    CUDA_CHECK(cudaStreamSynchronize(stream));
-
-    printf("bfknn_time: %dms\n", raft::curTimeMillis() - knn_start);
-
-    CUDA_CHECK(cudaPeekAtLastError());
   }
 
   // Sync internal streams if used. We don't need to

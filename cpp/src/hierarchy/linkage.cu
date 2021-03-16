@@ -40,24 +40,9 @@ void single_linkage_neighbors(const raft::handle_t &handle, const float *X,
     handle, X, m, n, metric, out, c, n_clusters);
 }
 
-void single_linkage_pairwise(
-  const raft::handle_t &handle, const float *X, size_t m, size_t n,
-  raft::distance::DistanceType metric,
-  raft::hierarchy::linkage_output<int64_t, float> *out, int c, int n_clusters) {
-  raft::hierarchy::single_linkage<int64_t, float,
-                                  raft::hierarchy::LinkageDistance::PAIRWISE>(
-    handle, X, m, n, metric, out, c, n_clusters);
-}
-
 struct distance_graph_impl_int_float
   : public raft::hierarchy::detail::distance_graph_impl<
       raft::hierarchy::LinkageDistance::PAIRWISE, int, float> {};
-struct distance_graph_impl_int64_float
-  : public raft::hierarchy::detail::distance_graph_impl<
-      raft::hierarchy::LinkageDistance::PAIRWISE, long, float> {};
-struct distance_graph_impl_int64_double
-  : public raft::hierarchy::detail::distance_graph_impl<
-      raft::hierarchy::LinkageDistance::PAIRWISE, long, double> {};
 struct distance_graph_impl_int_double
   : public raft::hierarchy::detail::distance_graph_impl<
       raft::hierarchy::LinkageDistance::PAIRWISE, int, double> {};
