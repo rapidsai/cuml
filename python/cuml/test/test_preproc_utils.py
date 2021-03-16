@@ -164,8 +164,14 @@ def int_dataset(request):
     random_loc = cp.random.choice(randint.size,
                                   int(randint.size * 0.3),
                                   replace=False)
+
+    randint.ravel()[random_loc] = 0
+    zero_filled = convert(randint, request.param)
+    randint.ravel()[random_loc] = 1
+    one_filled = convert(randint, request.param)
     randint.ravel()[random_loc] = cp.nan
-    return convert(randint, request.param)
+    nan_filled = convert(randint, request.param)
+    return zero_filled, one_filled, nan_filled
 
 
 @pytest.fixture(scope="session",

@@ -277,9 +277,15 @@ def test_normalize_sparse(sparse_clf_dataset, norm):  # noqa: F811
 @check_cupy8('pytest')
 @pytest.mark.parametrize("strategy", ["mean", "median", "most_frequent",
                                       "constant"])
-@pytest.mark.parametrize("missing_values", [0., 1., np.nan])
+@pytest.mark.parametrize("missing_values", [0, 1, np.nan])
 def test_imputer(int_dataset, strategy, missing_values):  # noqa: F811
-    X_np, X = int_dataset
+    zero_filled, one_filled, nan_filled = int_dataset
+    if missing_values == 0:
+        X_np, X = zero_filled
+    elif missing_values == 1:
+        X_np, X = one_filled
+    else:
+        X_np, X = nan_filled
     fill_value = np.random.randint(10, size=1)[0]
 
     imputer = cuSimpleImputer(copy=True, missing_values=missing_values,
@@ -613,19 +619,28 @@ def test_kbinsdiscretizer(blobs_dataset, n_bins,  # noqa: F811
         assert_allclose(r_X, sk_r_X)
 
 
+@pytest.mark.parametrize("missing_values", [0, 1, np.nan])
 @pytest.mark.parametrize("features", ['missing-only', 'all'])
-def test_missing_indicator(int_dataset,  # noqa: F811
+def test_missing_indicator(int_dataset, missing_values,  # noqa: F811
                            features):
-    X_np, X = int_dataset
+    zero_filled, one_filled, nan_filled = int_dataset
+    if missing_values == 0:
+        X_np, X = zero_filled
+    elif missing_values == 1:
+        X_np, X = one_filled
+    else:
+        X_np, X = nan_filled
 
-    indicator = cuMissingIndicator(features=features)
+    indicator = cuMissingIndicator(missing_values=missing_values,
+                                   features=features)
     ft_X = indicator.fit_transform(X)
     assert type(ft_X) == type(X)
     indicator.fit(X)
     t_X = indicator.transform(X)
     assert type(t_X) == type(X)
 
-    indicator = skMissingIndicator(features=features)
+    indicator = skMissingIndicator(missing_values=missing_values,
+                                   features=features)
     sk_ft_X = indicator.fit_transform(X_np)
     indicator.fit(X_np)
     sk_t_X = indicator.transform(X_np)
