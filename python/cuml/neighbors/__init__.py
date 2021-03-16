@@ -30,7 +30,8 @@ VALID_METRICS = {
         "chebyshev", "linf",
         "jensenshannon",
         "cosine", "correlation",
-        "inner_product", "sqeuclidean"
+        "inner_product", "sqeuclidean",
+        "haversine"
     ]),
     "ivfflat": set(["l2", "euclidean"]),
     "ivfpq": set(["l2", "euclidean"]),
