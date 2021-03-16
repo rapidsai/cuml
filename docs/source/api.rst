@@ -154,6 +154,8 @@ Metrics (regression, classification, and distance)
 
   .. autofunction:: cuml.metrics.confusion_matrix
 
+  .. autofunction:: cuml.metrics.log_loss
+
   .. autofunction:: cuml.metrics.roc_auc_score
 
   .. autofunction:: cuml.metrics.precision_recall_curve

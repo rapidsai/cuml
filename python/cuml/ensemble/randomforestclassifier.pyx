@@ -567,8 +567,7 @@ class RandomForestClassifier(BaseRandomForestModel,
 
     @insert_into_docstring(parameters=[('dense', '(n_samples, n_features)')],
                            return_values=[('dense', '(n_samples, 1)')])
-    def predict(self, X, predict_model="GPU",
-                output_class=True, threshold=0.5,
+    def predict(self, X, predict_model="GPU", threshold=0.5,
                 algo='auto', num_classes=None,
                 convert_dtype=True,
                 fil_sparse_format='auto') -> CumlArray:
@@ -583,12 +582,6 @@ class RandomForestClassifier(BaseRandomForestModel,
             be used if the model was trained on float32 data and `X` is float32
             or convert_dtype is set to True. Also the 'GPU' should only be
             used for binary classification problems.
-        output_class : boolean (default = True)
-            This is optional and required only while performing the
-            predict operation on the GPU.
-            If true, return a 1 or 0 depending on whether the raw
-            prediction exceeds the threshold. If False, just return
-            the raw prediction.
         algo : string (default = 'auto')
             This is optional and required only while performing the
             predict operation on the GPU.
@@ -603,7 +596,6 @@ class RandomForestClassifier(BaseRandomForestModel,
         threshold : float (default = 0.5)
             Threshold used for classification. Optional and required only
             while performing the predict operation on the GPU.
-            It is applied if output_class == True, else it is ignored
         num_classes : int (default = None)
             number of different classes present in the dataset.
 
@@ -651,7 +643,7 @@ class RandomForestClassifier(BaseRandomForestModel,
 
         else:
             preds = \
-                self._predict_model_on_gpu(X=X, output_class=output_class,
+                self._predict_model_on_gpu(X=X, output_class=True,
                                            threshold=threshold,
                                            algo=algo,
                                            convert_dtype=convert_dtype,
@@ -722,8 +714,7 @@ class RandomForestClassifier(BaseRandomForestModel,
 
     @insert_into_docstring(parameters=[('dense', '(n_samples, n_features)')],
                            return_values=[('dense', '(n_samples, 1)')])
-    def predict_proba(self, X, output_class=True,
-                      threshold=0.5, algo='auto',
+    def predict_proba(self, X, algo='auto',
                       num_classes=None, convert_dtype=True,
                       fil_sparse_format='auto') -> CumlArray:
         """
@@ -734,12 +725,6 @@ class RandomForestClassifier(BaseRandomForestModel,
         Parameters
         ----------
         X : {}
-        output_class: boolean (default = True)
-            This is optional and required only while performing the
-            predict operation on the GPU.
-            If true, return a 1 or 0 depending on whether the raw
-            prediction exceeds the threshold. If False, just return
-            the raw prediction.
         algo : string (default = 'auto')
             This is optional and required only while performing the
             predict operation on the GPU.
@@ -751,10 +736,6 @@ class RandomForestClassifier(BaseRandomForestModel,
             `auto` - choose the algorithm automatically. Currently
             'batch_tree_reorg' is used for dense storage
             and 'naive' for sparse storage
-        threshold : float (default = 0.5)
-            Threshold used for classification. Optional and required only
-            while performing the predict operation on the GPU.
-            It is applied if output_class == True, else it is ignored
         num_classes : int (default = None)
             number of different classes present in the dataset.
 
@@ -799,8 +780,7 @@ class RandomForestClassifier(BaseRandomForestModel,
                                           "training dataset.")
 
         preds_proba = \
-            self._predict_model_on_gpu(X, output_class=output_class,
-                                       threshold=threshold,
+            self._predict_model_on_gpu(X, output_class=True,
                                        algo=algo,
                                        convert_dtype=convert_dtype,
                                        fil_sparse_format=fil_sparse_format,

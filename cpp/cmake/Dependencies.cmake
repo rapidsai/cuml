@@ -92,7 +92,8 @@ message(STATUS "RMM: RMM_INCLUDE_DIRS set to ${RMM_INCLUDE_DIRS}")
 # - NCCL ---------------------------------------------------------------------
 
 if(BUILD_CUML_MPI_COMMS OR BUILD_CUML_STD_COMMS)
-  find_package(NCCL REQUIRED)
+  # At least NCCL 2.8 required for p2p methods on comms
+  find_package(NCCL 2.8 REQUIRED)
 endif(BUILD_CUML_MPI_COMMS OR BUILD_CUML_STD_COMMS)
 
 ##############################################################################
