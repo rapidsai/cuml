@@ -26,11 +26,11 @@
 #include <raft/mr/device/allocator.hpp>
 #include <raft/mr/device/buffer.hpp>
 
-#include "../csr.cuh"
-#include "../utils.h"
+#include <../csr.cuh>
+#include <../utils.h>
 
-#include "common.h"
-#include "ip_distance.cuh"
+#include <common.h>
+#include <ip_distance.cuh>
 
 #include <limits.h>
 #include <cmath>

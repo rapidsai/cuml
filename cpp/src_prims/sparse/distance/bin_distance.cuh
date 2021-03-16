@@ -26,9 +26,9 @@
 #include <raft/mr/device/allocator.hpp>
 #include <raft/mr/device/buffer.hpp>
 
-#include "../utils.h"
-#include "common.h"
-#include "ip_distance.cuh"
+#include <../utils.h>
+#include <common.h>
+#include <ip_distance.cuh>
 
 #include <nvfunctional>
 
