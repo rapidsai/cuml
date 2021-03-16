@@ -17,12 +17,18 @@
 #pragma once
 #include <cub/cub.cuh>
 #include <raft/cuda_utils.cuh>
+#include <raft/mr/device/allocator.hpp>
+#include <raft/mr/device/buffer.hpp>
 #include "quantile.h"
 
 #include <common/nvtx.hpp>
 
 namespace ML {
 namespace DecisionTree {
+
+using device_allocator = raft::mr::device::allocator;
+template <typename T>
+using device_buffer = raft::mr::device::buffer<T>;
 
 template <typename T>
 __global__ void allcolsampler_kernel(const T *__restrict__ data,
@@ -200,24 +206,24 @@ __global__ void computeQuantilesSorted(T *quantiles, const int n_bins,
 }
 
 template <typename T>
-void computeQuantiles(
-  T *quantiles, int n_bins, const T *data, int n_rows, int n_cols,
-  const std::shared_ptr<MLCommon::deviceAllocator> device_allocator,
-  cudaStream_t stream) {
+void computeQuantiles(T *quantiles, int n_bins, const T *data, int n_rows,
+                      int n_cols,
+                      const std::shared_ptr<deviceAllocator> device_allocator,
+                      cudaStream_t stream) {
   // Determine temporary device storage requirements
-  std::unique_ptr<MLCommon::device_buffer<char>> d_temp_storage = nullptr;
+  std::unique_ptr<device_buffer<char>> d_temp_storage = nullptr;
   size_t temp_storage_bytes = 0;
 
-  std::unique_ptr<MLCommon::device_buffer<T>> single_column_sorted = nullptr;
-  single_column_sorted = std::make_unique<MLCommon::device_buffer<T>>(
-    device_allocator, stream, n_rows);
+  std::unique_ptr<device_buffer<T>> single_column_sorted = nullptr;
+  single_column_sorted =
+    std::make_unique<device_buffer<T>>(device_allocator, stream, n_rows);
 
   CUDA_CHECK(cub::DeviceRadixSort::SortKeys(nullptr, temp_storage_bytes, data,
                                             single_column_sorted->data(),
                                             n_rows, 0, 8 * sizeof(T), stream));
 
   // Allocate temporary storage for sorting
-  d_temp_storage = std::make_unique<MLCommon::device_buffer<char>>(
+  d_temp_storage = std::make_unique<device_buffer<char>>(
     device_allocator, stream, temp_storage_bytes);
 
   // Compute quantiles column by column
