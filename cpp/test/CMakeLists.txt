@@ -178,7 +178,7 @@ if(BUILD_PRIMS_TESTS)
     prims/knn_regression.cu
     prims/knn.cu
     prims/kselection.cu
-    prims/agglomerative.cu
+    prims/label.cu
     prims/linearReg.cu
     prims/log.cu
     prims/logisticReg.cu

@@ -24,13 +24,6 @@
 namespace ML {
 namespace TSNE {
 
-struct isnan_test {
-  template <typename value_t>
-  __host__ __device__ bool operator()(const value_t a) const {
-    return isnan(a);
-  }
-};
-
 /**
  * @brief Fast Dimensionality reduction via TSNE using the Barnes Hut O(NlogN) approximation.
  * @param[in] VAL: The values in the attractive forces COO matrix.
@@ -179,7 +172,6 @@ void Barnes_Hut(value_t *VAL, const value_idx *COL, const value_idx *ROW,
   value_t learning_rate = pre_learning_rate;
 
   for (int iter = 0; iter < max_iter; iter++) {
-    CUML_LOG_DEBUG("iter: %d", iter);
     CUDA_CHECK(cudaMemsetAsync(static_cast<void *>(rep_forces.data()), 0,
                                rep_forces.size() * sizeof(*rep_forces.data()),
                                stream));
