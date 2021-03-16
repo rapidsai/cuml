@@ -138,7 +138,13 @@ class jaccard_expanded_distances_t : public distances_t<value_t> {
       config_->handle, config_->allocator, config_->stream,
       [] __device__ __host__(value_t dot, value_t q_norm, value_t r_norm) {
         value_t q_r_union = q_norm + r_norm;
-        return 1 - (dot / (q_r_union - dot));
+        value_t denom = q_r_union - dot;
+
+        value_t jacc = ((denom != 0) * dot) / ((denom == 0) + denom);
+
+        // flip the similarity when both rows are 0
+        bool both_empty = q_r_union == 0;
+        return 1 - ((!both_empty * jacc) + both_empty);
       });
   }
 
