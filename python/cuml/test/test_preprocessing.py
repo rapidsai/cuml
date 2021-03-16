@@ -278,7 +278,9 @@ def test_normalize_sparse(sparse_clf_dataset, norm):  # noqa: F811
 @pytest.mark.parametrize("strategy", ["mean", "median", "most_frequent",
                                       "constant"])
 @pytest.mark.parametrize("missing_values", [0, 1, np.nan])
-def test_imputer(int_dataset, strategy, missing_values):  # noqa: F811
+@pytest.mark.parametrize("add_indicator", [False, True])
+def test_imputer(int_dataset, strategy, missing_values,  # noqa: F811
+                 add_indicator):
     zero_filled, one_filled, nan_filled = int_dataset
     if missing_values == 0:
         X_np, X = zero_filled
@@ -289,12 +291,14 @@ def test_imputer(int_dataset, strategy, missing_values):  # noqa: F811
     fill_value = np.random.randint(10, size=1)[0]
 
     imputer = cuSimpleImputer(copy=True, missing_values=missing_values,
-                              strategy=strategy, fill_value=fill_value)
+                              strategy=strategy, fill_value=fill_value,
+                              add_indicator=add_indicator)
     t_X = imputer.fit_transform(X)
     assert type(t_X) == type(X)
 
     imputer = skSimpleImputer(copy=True, missing_values=missing_values,
-                              strategy=strategy, fill_value=fill_value)
+                              strategy=strategy, fill_value=fill_value,
+                              add_indicator=add_indicator)
     sk_t_X = imputer.fit_transform(X_np)
 
     assert_allclose(t_X, sk_t_X)
