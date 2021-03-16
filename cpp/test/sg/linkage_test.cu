@@ -93,14 +93,13 @@ class LinkageTest : public ::testing::TestWithParam<LinkageInputs<T, IdxT>> {
 
     if (params.use_knn) {
       ML::single_linkage_neighbors(handle, data.data(), params.n_row,
-                                   params.n_col,
+                                   params.n_col, &out_arrs,
                                    raft::distance::DistanceType::L2Unexpanded,
-                                   &out_arrs, params.c, params.n_clusters);
+                                   params.c, params.n_clusters);
     } else {
-      ML::single_linkage_pairwise(handle, data.data(), params.n_row,
-                                  params.n_col,
-                                  raft::distance::DistanceType::L2Expanded,
-                                  &out_arrs, params.c, params.n_clusters);
+      ML::single_linkage_pairwise(
+        handle, data.data(), params.n_row, params.n_col, &out_arrs,
+        raft::distance::DistanceType::L2Expanded, params.n_clusters);
     }
 
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));

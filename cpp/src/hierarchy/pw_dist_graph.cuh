@@ -77,7 +77,6 @@ void pairwise_distances(const raft::handle_t &handle, const value_t *X,
   value_idx blocks = raft::ceildiv(nnz, (value_idx)256);
   fill_indices2<value_idx><<<blocks, 256, 0, stream>>>(indices, m, nnz);
 
-  thrust::device_ptr<value_idx> t_rows = thrust::device_pointer_cast(indptr);
   thrust::sequence(thrust::cuda::par.on(stream), indptr, indptr + m, 0, (int)m);
 
   raft::update_device(indptr + m, &nnz, 1, stream);
@@ -86,6 +85,9 @@ void pairwise_distances(const raft::handle_t &handle, const value_t *X,
   // dense pairwise distances API is finished being refactored
   raft::mr::device::buffer<char> workspace(d_alloc, stream, (size_t)0);
 
+  // TODO: It would ultimately be nice if the MST could accept
+  // dense inputs directly so we don't need to double the memory
+  // usage to hand it a sparse array here.
   MLCommon::Distance::pairwise_distance<value_t, value_idx>(
     X, X, data, m, m, n, workspace, metric, stream);
 }

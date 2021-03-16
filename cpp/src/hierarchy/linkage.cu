@@ -24,10 +24,10 @@ void single_linkage_pairwise(const raft::handle_t &handle, const float *X,
                              size_t m, size_t n,
                              raft::distance::DistanceType metric,
                              raft::hierarchy::linkage_output<int, float> *out,
-                             int c, int n_clusters) {
+                             int n_clusters) {
   raft::hierarchy::single_linkage<int, float,
                                   raft::hierarchy::LinkageDistance::PAIRWISE>(
-    handle, X, m, n, metric, out, c, n_clusters);
+    handle, X, m, n, metric, out, 0, n_clusters);
 }
 
 void single_linkage_neighbors(const raft::handle_t &handle, const float *X,

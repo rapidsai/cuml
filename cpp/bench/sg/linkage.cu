@@ -48,12 +48,9 @@ class Linkage : public BlobsFixture<D> {
       out_arrs.labels = labels;
       out_arrs.children = out_children;
 
-      printf("RUNNING!\n");
-
-      Logger::get().setLevel(CUML_LEVEL_WARN);
-      ML::single_linkage_pairwise(
+      ML::single_linkage_neighbors(
         *this->handle, this->data.X, this->params.nrows, this->params.ncols,
-        raft::distance::DistanceType::L2Expanded, &out_arrs, 50, 50);
+        &out_arrs, raft::distance::DistanceType::L2Unexpanded, 15, 50);
     });
   }
 
