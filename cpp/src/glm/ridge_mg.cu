@@ -15,7 +15,6 @@
  */
 
 #include <raft/cudart_utils.h>
-#include <common/cumlHandle.hpp>
 #include <cuml/linear_model/preprocess_mg.hpp>
 #include <cuml/linear_model/ridge_mg.hpp>
 #include <opg/linalg/mv_aTb.hpp>

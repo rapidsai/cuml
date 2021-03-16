@@ -37,6 +37,7 @@ from cuml.common.array_sparse import SparseCumlArray
 from cuml.common.sparse_utils import is_sparse
 from cuml.common.doc_utils import generate_docstring
 from cuml.common import input_to_cuml_array
+from cuml.common.mixins import CMajorInputTagMixin
 from cuml.common.sparsefuncs import extract_knn_graph
 import rmm
 
@@ -120,7 +121,8 @@ cdef extern from "cuml/manifold/tsne.h" namespace "ML" nogil:
         TSNE_ALGORITHM algorithm) except +
 
 
-class TSNE(Base):
+class TSNE(Base,
+           CMajorInputTagMixin):
     """
     t-SNE (T-Distributed Stochastic Neighbor Embedding) is an extremely
     powerful dimensionality reduction technique that aims to maintain
@@ -202,7 +204,7 @@ class TSNE(Base):
     output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
         Variable to control output type of the results and attributes of
         the estimator. If None, it'll inherit the output type set at the
-        module level, `cuml.global_output_type`.
+        module level, `cuml.global_settings.output_type`.
         See :ref:`output-data-type-configuration` for more info.
 
     References
@@ -618,8 +620,3 @@ class TSNE(Base):
             "pre_momentum",
             "post_momentum",
         ]
-
-    def _more_tags(self):
-        return {
-            'preferred_input_order': 'C'
-        }

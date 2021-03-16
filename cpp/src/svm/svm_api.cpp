@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,12 +14,14 @@
  * limitations under the License.
  */
 
-#include <cuml/cuml_api.h>
-#include <cuml/matrix/kernelparams.h>
 #include <cuml/svm/svm_api.h>
+
+#include <cuml/matrix/kernelparams.h>
 #include <common/cumlHandle.hpp>
 #include <cuml/svm/svc.hpp>
 #include <tuple>
+
+extern "C" {
 
 cumlError_t cumlSpSvcFit(cumlHandle_t handle, float *input, int n_rows,
                          int n_cols, float *labels, float C, float cache_size,
@@ -208,4 +210,5 @@ cumlError_t cumlDpSvcPredict(cumlHandle_t handle, double *input, int n_rows,
     }
   }
   return status;
+}
 }

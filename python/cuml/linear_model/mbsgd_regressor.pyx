@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,12 +18,16 @@
 
 import cuml.internals
 from cuml.common.array import CumlArray
-from cuml.common.base import Base, RegressorMixin
+from cuml.common.base import Base
+from cuml.common.mixins import RegressorMixin
 from cuml.common.doc_utils import generate_docstring
+from cuml.common.mixins import FMajorInputTagMixin
 from cuml.solvers import SGD
 
 
-class MBSGDRegressor(Base, RegressorMixin):
+class MBSGDRegressor(Base,
+                     RegressorMixin,
+                     FMajorInputTagMixin):
     """
     Linear regression model fitted by minimizing a
     regularized empirical loss with mini-batch SGD.
@@ -136,7 +140,7 @@ class MBSGDRegressor(Base, RegressorMixin):
     output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
         Variable to control output type of the results and attributes of
         the estimator. If None, it'll inherit the output type set at the
-        module level, `cuml.global_output_type`.
+        module level, `cuml.global_settings.output_type`.
         See :ref:`output-data-type-configuration` for more info.
 
     Notes
@@ -213,8 +217,3 @@ class MBSGDRegressor(Base, RegressorMixin):
             "batch_size",
             "n_iter_no_change",
         ]
-
-    def _more_tags(self):
-        return {
-            'preferred_input_order': 'F'
-        }

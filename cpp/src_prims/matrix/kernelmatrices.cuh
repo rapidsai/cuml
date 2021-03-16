@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -35,9 +35,10 @@ using namespace MLCommon;
  * @param offset
  */
 template <typename math_t, typename exp_t>
-__global__ void polynomial_kernel_nopad(math_t *inout, int len, exp_t exponent,
-                                        math_t gain, math_t offset) {
-  for (int tid = threadIdx.x + blockIdx.x * blockDim.x; tid < len;
+__global__ void polynomial_kernel_nopad(math_t *inout, size_t len,
+                                        exp_t exponent, math_t gain,
+                                        math_t offset) {
+  for (size_t tid = threadIdx.x + blockIdx.x * blockDim.x; tid < len;
        tid += blockDim.x * gridDim.x) {
     inout[tid] = pow(gain * inout[tid] + offset, exponent);
   }
@@ -56,9 +57,9 @@ __global__ void polynomial_kernel_nopad(math_t *inout, int len, exp_t exponent,
 template <typename math_t, typename exp_t>
 __global__ void polynomial_kernel(math_t *inout, int ld, int rows, int cols,
                                   exp_t exponent, math_t gain, math_t offset) {
-  for (int tidy = threadIdx.y + blockIdx.y * blockDim.y; tidy < cols;
+  for (size_t tidy = threadIdx.y + blockIdx.y * blockDim.y; tidy < cols;
        tidy += blockDim.y * gridDim.y)
-    for (int tidx = threadIdx.x + blockIdx.x * blockDim.x; tidx < rows;
+    for (size_t tidx = threadIdx.x + blockIdx.x * blockDim.x; tidx < rows;
          tidx += blockDim.x * gridDim.x) {
       inout[tidx + tidy * ld] =
         pow(gain * inout[tidx + tidy * ld] + offset, exponent);
@@ -73,9 +74,9 @@ __global__ void polynomial_kernel(math_t *inout, int ld, int rows, int cols,
  * @param offset
  */
 template <typename math_t>
-__global__ void tanh_kernel_nopad(math_t *inout, int len, math_t gain,
+__global__ void tanh_kernel_nopad(math_t *inout, size_t len, math_t gain,
                                   math_t offset) {
-  for (int tid = threadIdx.x + blockIdx.x * blockDim.x; tid < len;
+  for (size_t tid = threadIdx.x + blockIdx.x * blockDim.x; tid < len;
        tid += blockDim.x * gridDim.x) {
     inout[tid] = tanh(gain * inout[tid] + offset);
   }
@@ -93,9 +94,9 @@ __global__ void tanh_kernel_nopad(math_t *inout, int len, math_t gain,
 template <typename math_t>
 __global__ void tanh_kernel(math_t *inout, int ld, int rows, int cols,
                             math_t gain, math_t offset) {
-  for (int tidy = threadIdx.y + blockIdx.y * blockDim.y; tidy < cols;
+  for (size_t tidy = threadIdx.y + blockIdx.y * blockDim.y; tidy < cols;
        tidy += blockDim.y * gridDim.y)
-    for (int tidx = threadIdx.x + blockIdx.x * blockDim.x; tidx < rows;
+    for (size_t tidx = threadIdx.x + blockIdx.x * blockDim.x; tidx < rows;
          tidx += blockDim.x * gridDim.x) {
       inout[tidx + tidy * ld] = tanh(gain * inout[tidx + tidy * ld] + offset);
     }
@@ -113,9 +114,9 @@ class PolynomialKernel : public GramMatrixBase<math_t> {
   void applyKernel(math_t *inout, int ld, int rows, int cols,
                    cudaStream_t stream) {
     if (ld == cols)
-      polynomial_kernel_nopad<<<raft::ceildiv(rows * cols, 128), 128, 0,
-                                stream>>>(inout, rows * cols, exponent, gain,
-                                          offset);
+      polynomial_kernel_nopad<<<raft::ceildiv<size_t>((size_t)rows * cols, 128),
+                                128, 0, stream>>>(inout, rows * cols, exponent,
+                                                  gain, offset);
     else
       polynomial_kernel<<<dim3(raft::ceildiv(rows, 32), raft::ceildiv(cols, 4),
                                1),
@@ -183,8 +184,8 @@ class TanhKernel : public GramMatrixBase<math_t> {
   void applyKernel(math_t *inout, int ld, int rows, int cols,
                    cudaStream_t stream) {
     if (ld == cols)
-      tanh_kernel_nopad<<<raft::ceildiv(rows * cols, 128), 128, 0, stream>>>(
-        inout, rows * cols, gain, offset);
+      tanh_kernel_nopad<<<raft::ceildiv<size_t>((size_t)rows * cols, 128), 128,
+                          0, stream>>>(inout, rows * cols, gain, offset);
     else
       tanh_kernel<<<dim3(raft::ceildiv(rows, 32), raft::ceildiv(cols, 4), 1),
                     dim3(32, 4, 1), 0, stream>>>(inout, ld, rows, cols, gain,
@@ -245,8 +246,8 @@ class RBFKernel : public GramMatrixBase<math_t> {
   void applyKernel(math_t *inout, int ld, int rows, int cols,
                    cudaStream_t stream) {
     if (ld == cols)
-      rbf_kernel_nopad<<<raft::ceildiv(rows * cols, 128), 128, 0, stream>>>(
-        inout, rows * cols, gain);
+      rbf_kernel_nopad<<<raft::ceildiv<size_t>((size_t)rows * cols, 128), 128,
+                         0, stream>>>(inout, rows * cols, gain);
     else
       rbf_kernel<<<dim3(raft::ceildiv(rows, 32), raft::ceildiv(cols, 4), 1),
                    dim3(32, 4, 1), 0, stream>>>(inout, ld, rows, cols, gain);
@@ -299,11 +300,13 @@ class RBFKernel : public GramMatrixBase<math_t> {
                 int ld_out) {
     typedef cutlass::Shape<8, 128, 128> OutputTile_t;
     math_t gain = this->gain;
-    auto fin_op = [gain] __device__(math_t d_val, int idx) {
+    using index_t = int64_t;
+
+    auto fin_op = [gain] __device__(math_t d_val, index_t idx) {
       return exp(-gain * d_val);
     };
     Distance::distance<raft::distance::DistanceType::L2Unexpanded, math_t,
-                       math_t, math_t, OutputTile_t>(
+                       math_t, math_t, OutputTile_t, decltype(fin_op), index_t>(
       const_cast<math_t *>(x1), const_cast<math_t *>(x2), out, n1, n2, n_cols,
       NULL, 0, fin_op, stream, false);
   }

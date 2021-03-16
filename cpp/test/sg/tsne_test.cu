@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,12 +16,13 @@
 
 #include <cuml/manifold/tsne.h>
 #include <datasets/digits.h>
+// #include <datasets/boston.h>
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <common/device_buffer.hpp>
 #include <cuml/common/cuml_allocator.hpp>
+#include <cuml/common/device_buffer.hpp>
 #include <cuml/common/logger.hpp>
 #include <iostream>
 #include <metrics/scores.cuh>
@@ -31,6 +32,7 @@
 using namespace MLCommon;
 using namespace MLCommon::Score;
 using namespace MLCommon::Datasets::Digits;
+// using namespace MLCommon::Datasets::Boston;
 using namespace ML;
 
 class TSNETest : public ::testing::Test {
@@ -89,7 +91,7 @@ class TSNETest : public ::testing::Test {
              200,                              // pre_learn_rate
              500,                              // post_learn_rate
              1000,                             // max_iter
-             1e-7,                             // min_grad_norm
+             1e-12,                            // min_grad_norm
              0.5,                              // pre_momentum
              0.8,                              // post_momentum
              -1,                               // rand_state
@@ -130,21 +132,29 @@ class TSNETest : public ::testing::Test {
   }
 
   void basicTest() {
-    // for (int i = 0; i < 5; i++) {
-    printf("BH\n");
-    score_bh = runTest(TSNE_ALGORITHM::BARNES_HUT);
-    printf("EXACT\n");
-    score_exact = runTest(TSNE_ALGORITHM::EXACT);
-    printf("FFT\n");
-    score_fft = runTest(TSNE_ALGORITHM::FFT);
+    for (int i = 0; i < 1; i++) {
+      printf("BH\n");
+      score_bh = runTest(TSNE_ALGORITHM::BARNES_HUT);
+      printf("EXACT\n");
+      score_exact = runTest(TSNE_ALGORITHM::EXACT);
+      printf("FFT\n");
+      score_fft = runTest(TSNE_ALGORITHM::FFT);
+      if (score_fft < 0.98) {
+        std::cout << "NORMAL FAILED" << std::endl;
+        break;
+      }
 
-    printf("KNN BH\n");
-    knn_score_bh = runTest(TSNE_ALGORITHM::BARNES_HUT, true);
-    printf("KNN EXACT\n");
-    knn_score_exact = runTest(TSNE_ALGORITHM::EXACT, true);
-    printf("KNN FFT\n");
-    knn_score_fft = runTest(TSNE_ALGORITHM::FFT, true);
-    // }
+      printf("KNN BH\n");
+      knn_score_bh = runTest(TSNE_ALGORITHM::BARNES_HUT, true);
+      printf("KNN EXACT\n");
+      knn_score_exact = runTest(TSNE_ALGORITHM::EXACT, true);
+      printf("KNN FFT\n");
+      knn_score_fft = runTest(TSNE_ALGORITHM::FFT, true);
+      if (knn_score_fft < 0.98) {
+        std::cout << "KNN FAILED" << std::endl;
+        break;
+      }
+    }
   }
 
   void SetUp() override { basicTest(); }

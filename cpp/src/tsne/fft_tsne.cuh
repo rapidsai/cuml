@@ -26,10 +26,11 @@
 #include <cufft_utils.h>
 #include <linalg/init.h>
 #include <cmath>
-#include <common/device_buffer.hpp>
 #include <common/device_utils.cuh>
 #include <raft/linalg/eltwise.cuh>
+#include <raft/mr/device/buffer.hpp>
 #include <raft/stats/sum.cuh>
+#include <rmm/device_vector.hpp>
 #include "fft_kernels.cuh"
 #include "utils.cuh"
 
@@ -86,15 +87,17 @@ cufftResult CUFFTAPI cufft_MakePlanMany(cufftHandle plan, int rank, int *n,
 }
 
 template <typename value_t, typename value_idx>
-std::pair<value_t, value_t> min_max(const value_t *Y, const value_idx &n,
-                                    cudaStream_t stream) {
+std::pair<value_t, value_t> min_max(const value_t *Y, const value_idx n,
+                                    cudaStream_t stream, int iter) {
   value_t min_h, max_h;
 
   rmm::device_uvector<value_t> min_d(1, stream);
   rmm::device_uvector<value_t> max_d(1, stream);
 
   min_d.set_element(0, std::numeric_limits<value_t>::max(), stream);
-  max_d.set_element(0, std::numeric_limits<value_t>::min(), stream);
+  max_d.set_element(0, std::numeric_limits<value_t>::lowest(), stream);
+  // rmm::device_vector<value_t> min_d(1, std::numeric_limits<value_t>::max());
+  // rmm::device_vector<value_t> max_d(1, std::numeric_limits<value_t>::lowest());
 
   raft::update_host(&min_h, min_d.data(), 1, stream);
   raft::update_host(&max_h, max_d.data(), 1, stream);
@@ -103,10 +106,12 @@ std::pair<value_t, value_t> min_max(const value_t *Y, const value_idx &n,
   auto nblocks = raft::ceildiv(n, (value_idx)nthreads);
 
   min_max_kernel<<<nblocks, nthreads, 0, stream>>>(Y, n, min_d.data(),
-                                                   max_d.data());
+                                                   max_d.data(), true, iter);
 
+  // raft::print_device_vector("Max_d", max_d.data(), 1, std::cout);
   raft::update_host(&min_h, min_d.data(), 1, stream);
   raft::update_host(&max_h, max_d.data(), 1, stream);
+  // std::cout << "In function, min: " << min_h << ", max: " << max_h << std::endl;
 
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
@@ -279,7 +284,7 @@ void FFT_TSNE(value_t *VAL, const value_idx *COL, const value_idx *ROW,
   value_t exaggeration = early_exaggeration;
 
   if (initialize_embeddings) {
-    random_vector(Y, -0.0001f, 0.0001f, n * 2, stream, random_state);
+    random_vector(Y, 0.0000f, 0.0001f, n * 2, stream, random_state);
     // auto op = [] __device__ (const value_idx &i) {
     //   if (i % 2 == 0) {
     //     return -0.0001f;
@@ -292,6 +297,9 @@ void FFT_TSNE(value_t *VAL, const value_idx *COL, const value_idx *ROW,
   }
 
   for (int iter = 0; iter < max_iter; iter++) {
+    if (iter < 1000) {
+      std::cout << "Iter: " << iter << std::endl;
+    }
     thrust::device_ptr<value_t> d_ptr = thrust::device_pointer_cast(Y);
     bool h_result = thrust::transform_reduce(
       thrust::cuda::par.on(stream), d_ptr, d_ptr + (n * 2), isnan_test(), 0,
@@ -300,11 +308,16 @@ void FFT_TSNE(value_t *VAL, const value_idx *COL, const value_idx *ROW,
     ASSERT(!h_result, "Output embedding (Y) contains nan values");
 
     // Compute charges Q_ij
-    int num_blocks = raft::ceildiv(n, (value_idx)NTHREADS_1024);
-    FFT::compute_chargesQij<<<num_blocks, NTHREADS_1024, 0, stream>>>(
-      chargesQij_device.data(), Y, Y + n, n, n_terms);
-    // CUDA_CHECK(cudaPeekAtLastError());
-    // CUDA_CHECK(cudaStreamSynchronize(stream));
+    {
+      int num_blocks = raft::ceildiv(n, (value_idx)NTHREADS_1024);
+      FFT::compute_chargesQij<<<num_blocks, NTHREADS_1024, 0, stream>>>(
+        chargesQij_device.data(), Y, Y + n, n, n_terms);
+      // if (iter < 1000) {raft::print_device_vector("chargesQij", chargesQij_device.data(), 15,
+      // std::cout);std::cout << std::endl;}
+
+      CUDA_CHECK(cudaPeekAtLastError());
+      CUDA_CHECK(cudaStreamSynchronize(stream));
+    }
 
     if (iter == exaggeration_iter) {
       momentum = post_momentum;
@@ -321,187 +334,240 @@ void FFT_TSNE(value_t *VAL, const value_idx *COL, const value_idx *ROW,
                            attractive_forces_device.size(), stream);
 
     CUDA_CHECK(cudaStreamSynchronize(stream));
-    auto minmax_pair = min_max(Y, n * 2, stream);
+    auto minmax_pair = min_max(Y, n * 2, stream, iter);
     auto min_coord = minmax_pair.first;
     auto max_coord = minmax_pair.second;
-    // CUDA_CHECK(cudaPeekAtLastError());
-    // CUDA_CHECK(cudaStreamSynchronize(stream));
+    CUDA_CHECK(cudaPeekAtLastError());
+    CUDA_CHECK(cudaStreamSynchronize(stream));
 
     value_t box_width =
       (max_coord - min_coord) / static_cast<value_t>(n_boxes_per_dim);
+    // if (iter < 1000) {
+    //   // raft::print_device_vector("Y", Y, n*2, std::cout);
+    //   std::cout << std::endl << "min: " << min_coord << ", max: " << max_coord << std::endl;
+    // }
 
     //// Precompute FFT
 
     // Left and right bounds of each box, first the lower bounds in the x
     // direction, then in the y direction
-    num_blocks = raft::ceildiv(n_total_boxes, (value_idx)NTHREADS_32);
-    FFT::compute_bounds<<<num_blocks, NTHREADS_32, 0, stream>>>(
-      box_lower_bounds_device.data(), box_width, min_coord, min_coord,
-      n_boxes_per_dim, n_total_boxes);
-    CUDA_CHECK(cudaPeekAtLastError());
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    {
+      auto num_blocks = raft::ceildiv(n_total_boxes, (value_idx)NTHREADS_32);
+      FFT::compute_bounds<<<num_blocks, NTHREADS_32, 0, stream>>>(
+        box_lower_bounds_device.data(), box_width, min_coord, min_coord,
+        n_boxes_per_dim, n_total_boxes);
+      CUDA_CHECK(cudaPeekAtLastError());
+      CUDA_CHECK(cudaStreamSynchronize(stream));
+    }
 
-    if (iter == 999) raft::print_device_vector("Y", Y, 15, std::cout);
+    //  if (iter < 1000) {raft::print_device_vector("box_lower_bounds", box_lower_bounds_device.data(), 15, std::cout);std::cout << std::endl;}
 
-    // Evaluate the kernel at the interpolation nodes and form the embedded
-    // generating kernel vector for a circulant matrix.
-    // Coordinates of all the equispaced interpolation points
-    value_t h = box_width / n_interpolation_points;
-    num_blocks =
-      raft::ceildiv(n_interpolation_points_1d * n_interpolation_points_1d,
-                    (value_idx)NTHREADS_32);
-    FFT::compute_kernel_tilde<<<num_blocks, NTHREADS_32, 0, stream>>>(
-      kernel_tilde_device.data(), min_coord, min_coord, h,
-      n_interpolation_points_1d, n_fft_coeffs);
-    CUDA_CHECK(cudaPeekAtLastError());
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    {
+      // Evaluate the kernel at the interpolation nodes and form the embedded
+      // generating kernel vector for a circulant matrix.
+      // Coordinates of all the equispaced interpolation points
+      value_t h = box_width / n_interpolation_points;
+      auto num_blocks =
+        raft::ceildiv(n_interpolation_points_1d * n_interpolation_points_1d,
+                      (value_idx)NTHREADS_32);
+      FFT::compute_kernel_tilde<<<num_blocks, NTHREADS_32, 0, stream>>>(
+        kernel_tilde_device.data(), min_coord, min_coord, h,
+        n_interpolation_points_1d, n_fft_coeffs);
+      CUDA_CHECK(cudaPeekAtLastError());
+      CUDA_CHECK(cudaStreamSynchronize(stream));
+    }
+    // if (iter < 1000) {raft::print_device_vector("kernel_tilde", kernel_tilde_device.data(), 15, std::cout);std::cout << std::endl;}
 
-    // Precompute the FFT of the kernel generating matrix
-    CUFFT_TRY(cufftExecR2C(plan_kernel_tilde, kernel_tilde_device.data(),
-                           fft_kernel_tilde_device.data()));
-
-    CUDA_CHECK(cudaStreamSynchronize(stream));
-    //// Run N-body FFT
-    num_blocks = raft::ceildiv(n, (value_idx)NTHREADS_128);
-    FFT::compute_point_box_idx<<<num_blocks, NTHREADS_128, 0, stream>>>(
-      point_box_idx_device.data(), x_in_box_device.data(),
-      y_in_box_device.data(), Y, Y + n, box_lower_bounds_device.data(),
-      min_coord, box_width, n_boxes_per_dim, n_total_boxes, n);
-    CUDA_CHECK(cudaPeekAtLastError());
-    CUDA_CHECK(cudaStreamSynchronize(stream));
-
-    // raft::print_device_vector(
-    //   "w_coefficients_device", w_coefficients_device.data(),
-    //   min(15, (int)w_coefficients_device.size()), std::cout);
-
-    // Step 1: Interpolate kernel using Lagrange polynomials and compute the w
-    // coefficients.
-
-    // Compute the interpolated values at each real point with each Lagrange
-    // polynomial in the `x` direction
-    num_blocks =
-      raft::ceildiv(n * n_interpolation_points, (value_idx)NTHREADS_128);
-    FFT::interpolate_device<<<num_blocks, NTHREADS_128, 0, stream>>>(
-      x_interpolated_values_device.data(), x_in_box_device.data(),
-      y_tilde_spacings_device.data(), denominator_device.data(),
-      n_interpolation_points, n);
-    CUDA_CHECK(cudaPeekAtLastError());
-    CUDA_CHECK(cudaStreamSynchronize(stream));
-
-    // ...and in the `y` direction
-    FFT::interpolate_device<<<num_blocks, NTHREADS_128, 0, stream>>>(
-      y_interpolated_values_device.data(), y_in_box_device.data(),
-      y_tilde_spacings_device.data(), denominator_device.data(),
-      n_interpolation_points, n);
-    CUDA_CHECK(cudaPeekAtLastError());
-    CUDA_CHECK(cudaStreamSynchronize(stream));
-
-    num_blocks = raft::ceildiv(
-      n_terms * n_interpolation_points * n_interpolation_points * n,
-      (value_idx)NTHREADS_128);
-    FFT::compute_interpolated_indices<<<num_blocks, NTHREADS_128, 0, stream>>>(
-      w_coefficients_device.data(), point_box_idx_device.data(),
-      chargesQij_device.data(), x_interpolated_values_device.data(),
-      y_interpolated_values_device.data(), n, n_interpolation_points,
-      n_boxes_per_dim, n_terms);
-    CUDA_CHECK(cudaPeekAtLastError());
+    {
+      // Precompute the FFT of the kernel generating matrix
+      CUFFT_TRY(cufftExecR2C(plan_kernel_tilde, kernel_tilde_device.data(),
+                             fft_kernel_tilde_device.data()));
+    }
+    // if (iter < 1000) {raft::print_device_vector("fft_kernel_tilde", fft_kernel_tilde_device.data(), 15, std::cout);std::cout << std::endl;}
 
     CUDA_CHECK(cudaStreamSynchronize(stream));
+    {
+      //// Run N-body FFT
+      auto num_blocks = raft::ceildiv(n, (value_idx)NTHREADS_128);
+      FFT::compute_point_box_idx<<<num_blocks, NTHREADS_128, 0, stream>>>(
+        point_box_idx_device.data(), x_in_box_device.data(),
+        y_in_box_device.data(), Y, Y + n, box_lower_bounds_device.data(),
+        min_coord, box_width, n_boxes_per_dim, n_total_boxes, n);
+      CUDA_CHECK(cudaPeekAtLastError());
+      CUDA_CHECK(cudaStreamSynchronize(stream));
+      // if (iter < 1000) {raft::print_device_vector("point_box_idx", point_box_idx_device.data(), 15, std::cout);std::cout << std::endl;}
+      // if (iter < 1000) {raft::print_device_vector("x_in_box", x_in_box_device.data(), 15, std::cout);std::cout << std::endl;}
+      // if (iter < 1000) {raft::print_device_vector("y_in_box", y_in_box_device.data(), 15, std::cout);std::cout << std::endl;}
 
-    // raft::print_device_vector(
-    //   "w_coefficients_device", w_coefficients_device.data(),
-    //   min(15, (int)w_coefficients_device.size()), std::cout);
+      // raft::print_device_vector(
+      //   "w_coefficients_device", w_coefficients_device.data(),
+      //   min(15, (int)w_coefficients_device.size()), std::cout);
 
-    // Step 2: Compute the values v_{m, n} at the equispaced nodes, multiply
-    // the kernel matrix with the coefficients w
-    num_blocks = raft::ceildiv(n_terms * n_fft_coeffs_half * n_fft_coeffs_half,
-                               (value_idx)NTHREADS_128);
-    FFT::copy_to_fft_input<<<num_blocks, NTHREADS_128, 0, stream>>>(
-      fft_input.data(), w_coefficients_device.data(), n_fft_coeffs,
-      n_fft_coeffs_half, n_terms);
-    CUDA_CHECK(cudaPeekAtLastError());
+      // Step 1: Interpolate kernel using Lagrange polynomials and compute the w
+      // coefficients.
 
-    CUDA_CHECK(cudaStreamSynchronize(stream));
-    // Compute fft values at interpolated nodes
-    CUFFT_TRY(
-      cufftExecR2C(plan_dft, fft_input.data(), fft_w_coefficients.data()));
-    CUDA_CHECK(cudaPeekAtLastError());
+      // Compute the interpolated values at each real point with each Lagrange
+      // polynomial in the `x` direction
+      num_blocks =
+        raft::ceildiv(n * n_interpolation_points, (value_idx)NTHREADS_128);
+      FFT::interpolate_device<<<num_blocks, NTHREADS_128, 0, stream>>>(
+        x_interpolated_values_device.data(), x_in_box_device.data(),
+        y_tilde_spacings_device.data(), denominator_device.data(),
+        n_interpolation_points, n);
+      CUDA_CHECK(cudaPeekAtLastError());
+      CUDA_CHECK(cudaStreamSynchronize(stream));
+      // if (iter < 1000) {raft::print_device_vector("x_interpolated_values", x_interpolated_values_device.data(), 15, std::cout);std::cout << std::endl;}
 
-    CUDA_CHECK(cudaStreamSynchronize(stream));
-    // Take the broadcasted Hadamard product of a complex matrix and a complex
-    // vector.
-    const value_idx nn = n_fft_coeffs * (n_fft_coeffs / 2 + 1);
-    num_blocks = raft::ceildiv(nn * n_terms, (value_idx)NTHREADS_32);
-    FFT::broadcast_column_vector<<<num_blocks, NTHREADS_32, 0, stream>>>(
-      fft_w_coefficients.data(), fft_kernel_tilde_device.data(), nn, n_terms);
-    CUDA_CHECK(cudaPeekAtLastError());
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+      // ...and in the `y` direction
+      FFT::interpolate_device<<<num_blocks, NTHREADS_128, 0, stream>>>(
+        y_interpolated_values_device.data(), y_in_box_device.data(),
+        y_tilde_spacings_device.data(), denominator_device.data(),
+        n_interpolation_points, n);
+      CUDA_CHECK(cudaPeekAtLastError());
+      CUDA_CHECK(cudaStreamSynchronize(stream));
+      // if (iter < 1000) {raft::print_device_vector("y_interpolated_values", y_interpolated_values_device.data(), 15, std::cout);std::cout << std::endl;}
 
-    // raft::print_device_vector("fft_input", fft_input.data(),
-    //                           min(15, (int)fft_input.size()), std::cout);
+      num_blocks = raft::ceildiv(
+        n_terms * n_interpolation_points * n_interpolation_points * n,
+        (value_idx)NTHREADS_128);
+      FFT::
+        compute_interpolated_indices<<<num_blocks, NTHREADS_128, 0, stream>>>(
+          w_coefficients_device.data(), point_box_idx_device.data(),
+          chargesQij_device.data(), x_interpolated_values_device.data(),
+          y_interpolated_values_device.data(), n, n_interpolation_points,
+          n_boxes_per_dim, n_terms);
+      CUDA_CHECK(cudaPeekAtLastError());
+      CUDA_CHECK(cudaStreamSynchronize(stream));
 
-    // Invert the computed values at the interpolated nodes.
-    CUFFT_TRY(
-      cufftExecC2R(plan_idft, fft_w_coefficients.data(), fft_output.data()));
-    FFT::copy_from_fft_output<<<num_blocks, NTHREADS_32, 0, stream>>>(
-      y_tilde_values.data(), fft_output.data(), n_fft_coeffs, n_fft_coeffs_half,
-      n_terms);
-    CUDA_CHECK(cudaPeekAtLastError());
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+      // if (iter < 1000) {raft::print_device_vector("w_coefficients", w_coefficients_device.data(), 15, std::cout);std::cout << std::endl;}
 
-    // raft::print_device_vector("fft_output", fft_output.data(),
-    //                           min(15, (int)fft_output.size()), std::cout);
+      // raft::print_device_vector(
+      //   "w_coefficients_device", w_coefficients_device.data(),
+      //   min(15, (int)w_coefficients_device.size()), std::cout);
 
-    // Step 3: Compute the potentials \tilde{\phi}
-    num_blocks = raft::ceildiv(
-      n_terms * n_interpolation_points * n_interpolation_points * n,
-      (value_idx)NTHREADS_32);
-    FFT::compute_potential_indices<value_idx, value_t, n_terms,
-                                   n_interpolation_points>
-      <<<num_blocks, NTHREADS_32, 0, stream>>>(
-        potentialsQij_device.data(), point_box_idx_device.data(),
-        y_tilde_values.data(), x_interpolated_values_device.data(),
-        y_interpolated_values_device.data(), n, n_boxes_per_dim);
-    CUDA_CHECK(cudaPeekAtLastError());
+      // Step 2: Compute the values v_{m, n} at the equispaced nodes, multiply
+      // the kernel matrix with the coefficients w
+      num_blocks =
+        raft::ceildiv(n_terms * n_fft_coeffs_half * n_fft_coeffs_half,
+                      (value_idx)NTHREADS_128);
+      FFT::copy_to_fft_input<<<num_blocks, NTHREADS_128, 0, stream>>>(
+        fft_input.data(), w_coefficients_device.data(), n_fft_coeffs,
+        n_fft_coeffs_half, n_terms);
+      CUDA_CHECK(cudaPeekAtLastError());
+      CUDA_CHECK(cudaStreamSynchronize(stream));
 
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+      // if (iter < 1000) {raft::print_device_vector("fft_input", fft_input.data(), 15, std::cout);std::cout << std::endl;}
 
-    // raft::print_device_vector("potentialsQij", potentialsQij_device.data(), 15,
-    //                           std::cout);
+      // Compute fft values at interpolated nodes
+      CUFFT_TRY(
+        cufftExecR2C(plan_dft, fft_input.data(), fft_w_coefficients.data()));
+      CUDA_CHECK(cudaPeekAtLastError());
+      CUDA_CHECK(cudaStreamSynchronize(stream));
+      // if (iter < 1000) {raft::print_device_vector("fft_w_coefficients", fft_w_coefficients.data(), 15, std::cout);std::cout << std::endl;}
+
+      // Take the broadcasted Hadamard product of a complex matrix and a complex
+      // vector.
+      {
+        const value_idx nn = n_fft_coeffs * (n_fft_coeffs / 2 + 1);
+        auto num_blocks = raft::ceildiv(nn * n_terms, (value_idx)NTHREADS_32);
+        FFT::broadcast_column_vector<<<num_blocks, NTHREADS_32, 0, stream>>>(
+          fft_w_coefficients.data(), fft_kernel_tilde_device.data(), nn,
+          n_terms);
+        CUDA_CHECK(cudaPeekAtLastError());
+        CUDA_CHECK(cudaStreamSynchronize(stream));
+      }
+      // if (iter < 1000) {raft::print_device_vector("fft_w_coefficients", fft_w_coefficients.data(), 15, std::cout);std::cout << std::endl;}
+
+      // raft::print_device_vector("fft_input", fft_input.data(),
+      //                           min(15, (int)fft_input.size()), std::cout);
+
+      // Invert the computed values at the interpolated nodes.
+      CUFFT_TRY(
+        cufftExecC2R(plan_idft, fft_w_coefficients.data(), fft_output.data()));
+      CUDA_CHECK(cudaPeekAtLastError());
+      CUDA_CHECK(cudaStreamSynchronize(stream));
+      if (iter < 1000) {
+        raft::print_device_vector("fft_output", fft_output.data() + 45150, 15,
+                                  std::cout);
+        std::cout << std::endl;
+      }
+
+      FFT::copy_from_fft_output<<<num_blocks, NTHREADS_128, 0, stream>>>(
+        y_tilde_values.data(), fft_output.data(), n_fft_coeffs,
+        n_fft_coeffs_half, n_terms, iter);
+      CUDA_CHECK(cudaPeekAtLastError());
+      CUDA_CHECK(cudaStreamSynchronize(stream));
+      if (iter < 1000) {
+        // std::cout << "n_fft_coeffs: " << n_fft_coeffs << ", n_fft_coeffs_half: " << n_fft_coeffs_half << ", n_terms: " << n_terms << std::endl;
+        raft::print_device_vector("y_tilde_values", y_tilde_values.data(), 15,
+                                  std::cout);
+        std::cout << std::endl;
+      }
+
+      // raft::print_device_vector("fft_output", fft_output.data(),
+      //                           min(15, (int)fft_output.size()), std::cout);
+
+      // Step 3: Compute the potentials \tilde{\phi}
+      num_blocks = raft::ceildiv(
+        n_terms * n_interpolation_points * n_interpolation_points * n,
+        (value_idx)NTHREADS_128);
+      FFT::compute_potential_indices<value_idx, value_t, n_terms,
+                                     n_interpolation_points>
+        <<<num_blocks, NTHREADS_128, 0, stream>>>(
+          potentialsQij_device.data(), point_box_idx_device.data(),
+          y_tilde_values.data(), x_interpolated_values_device.data(),
+          y_interpolated_values_device.data(), n, n_boxes_per_dim);
+      CUDA_CHECK(cudaPeekAtLastError());
+      CUDA_CHECK(cudaStreamSynchronize(stream));
+    }
+
+    if (iter < 1000) {
+      raft::print_device_vector("potentialsQij", potentialsQij_device.data(),
+                                15, std::cout);
+      std::cout << std::endl;
+    }
+    // if (iter > 997) {raft::print_device_vector("potentialsQij", potentialsQij_device.data(), 15,
+    // std::cout);std::cout << std::endl;}
 
     value_t normalization;
-    // Compute repulsive forces
-    // Make the negative term, or F_rep in the equation 3 of the paper.
-    num_blocks = raft::ceildiv(n, (value_idx)NTHREADS_1024);
-    FFT::
-      compute_repulsive_forces_kernel<<<num_blocks, NTHREADS_1024, 0, stream>>>(
+    {
+      // Compute repulsive forces
+      // Make the negative term, or F_rep in the equation 3 of the paper.
+      auto num_blocks = raft::ceildiv(n, (value_idx)NTHREADS_1024);
+      FFT::compute_repulsive_forces_kernel<<<num_blocks, NTHREADS_1024, 0,
+                                             stream>>>(
         repulsive_forces_device.data(), normalization_vec_device.data(), Y,
         Y + n, potentialsQij_device.data(), n, n_terms);
-    CUDA_CHECK(cudaPeekAtLastError());
+      CUDA_CHECK(cudaPeekAtLastError());
 
-    CUDA_CHECK(cudaStreamSynchronize(stream));
-    auto norm_vec_thrust =
-      thrust::device_pointer_cast(normalization_vec_device.data());
+      CUDA_CHECK(cudaStreamSynchronize(stream));
+      auto norm_vec_thrust =
+        thrust::device_pointer_cast(normalization_vec_device.data());
 
-    value_t sumQ =
-      thrust::reduce(thrust::cuda::par.on(stream), norm_vec_thrust,
-                     norm_vec_thrust + normalization_vec_device.size(), 0.0f,
-                     thrust::plus<value_t>());
-    normalization = sumQ - n;
+      value_t sumQ =
+        thrust::reduce(thrust::cuda::par.on(stream), norm_vec_thrust,
+                       norm_vec_thrust + normalization_vec_device.size(), 0.0f,
+                       thrust::plus<value_t>());
+      normalization = sumQ - n;
+    }
 
     CUDA_CHECK(cudaStreamSynchronize(stream));
     // Compute attractive forces
-    num_blocks = raft::ceildiv(NNZ, (value_idx)NTHREADS_1024);
-    FFT::compute_Pij_x_Qij_kernel<<<num_blocks, NTHREADS_1024, 0, stream>>>(
-      attractive_forces_device.data(), VAL, ROW, COL, Y, n, NNZ);
+    {
+      auto num_blocks = raft::ceildiv(NNZ, (value_idx)NTHREADS_1024);
+      FFT::compute_Pij_x_Qij_kernel<<<num_blocks, NTHREADS_1024, 0, stream>>>(
+        attractive_forces_device.data(), VAL, ROW, COL, Y, n, NNZ);
+    }
 
     CUDA_CHECK(cudaStreamSynchronize(stream));  // Apply Forces
-    num_blocks = mp_count * integration_kernel_factor;
+    {
+      auto num_blocks = mp_count * integration_kernel_factor;
 
-    FFT::IntegrationKernel<<<num_blocks, NTHREADS_1024, 0, stream>>>(
-      Y, attractive_forces_device.data(), repulsive_forces_device.data(),
-      gains_device.data(), old_forces_device.data(), learning_rate,
-      normalization, momentum, exaggeration, n);
+      FFT::IntegrationKernel<<<num_blocks, NTHREADS_1024, 0, stream>>>(
+        Y, attractive_forces_device.data(), repulsive_forces_device.data(),
+        gains_device.data(), old_forces_device.data(), learning_rate,
+        normalization, momentum, exaggeration, n);
+    }
     CUDA_CHECK(cudaPeekAtLastError());
 
     CUDA_CHECK(cudaStreamSynchronize(stream));
@@ -538,6 +604,10 @@ void FFT_TSNE(value_t *VAL, const value_idx *COL, const value_idx *ROW,
     CUDA_CHECK(cudaStreamSynchronize(stream));
 
     if (grad_norm <= min_grad_norm) {
+      std::cout << "Broke early with: " << grad_norm << ", at iter: " << iter
+                << std::endl;
+      raft::print_device_vector("potentialsQij", potentialsQij_device.data(),
+                                15, std::cout);
       break;
     }
 

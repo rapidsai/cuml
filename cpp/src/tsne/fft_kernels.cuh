@@ -200,7 +200,7 @@ template <typename value_idx, typename value_t>
 __global__ void copy_from_fft_output(
   volatile value_t* __restrict__ y_tilde_values, const value_t* fft_output,
   const value_idx n_fft_coeffs, const value_idx n_fft_coeffs_half,
-  const value_idx n_terms) {
+  const value_idx n_terms, int iter) {
   const value_idx TID = threadIdx.x + blockIdx.x * blockDim.x;
   if (TID >= n_terms * n_fft_coeffs_half * n_fft_coeffs_half) return;
 
@@ -214,6 +214,16 @@ __global__ void copy_from_fft_output(
     fft_output[current_term * (n_fft_coeffs * n_fft_coeffs) + i * n_fft_coeffs +
                j] /
     (value_t)(n_fft_coeffs * n_fft_coeffs);
+  if (iter == 0 && TID == 1) {
+    printf(
+      "\ny_tilde: %f, y_idx: %d, fft_out: %f, fft_idx: %d, denominator: %f\n",
+      y_tilde_values[current_term + n_terms * current_loc],
+      current_term + n_terms * current_loc,
+      fft_output[current_term * (n_fft_coeffs * n_fft_coeffs) +
+                 i * n_fft_coeffs + j],
+      current_term * (n_fft_coeffs * n_fft_coeffs) + i * n_fft_coeffs + j,
+      (value_t)(n_fft_coeffs * n_fft_coeffs));
+  }
 }
 
 // Template so that division is by compile-time divisors.

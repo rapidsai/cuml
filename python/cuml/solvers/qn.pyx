@@ -1,4 +1,4 @@
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -29,7 +29,7 @@ from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
 from cuml.raft.common.handle cimport handle_t
 from cuml.common import input_to_cuml_array
-from cuml.common import with_cupy_rmm
+from cuml.common.mixins import FMajorInputTagMixin
 from cuml.metrics import accuracy_score
 
 
@@ -120,7 +120,8 @@ cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM":
                    double *preds) except +
 
 
-class QN(Base):
+class QN(Base,
+         FMajorInputTagMixin):
     """
     Quasi-Newton methods are used to either find zeroes or local maxima
     and minima of functions, and used by this class to optimize a cost
@@ -224,7 +225,7 @@ class QN(Base):
     output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
         Variable to control output type of the results and attributes of
         the estimator. If None, it'll inherit the output type set at the
-        module level, `cuml.global_output_type`.
+        module level, `cuml.global_settings.output_type`.
         See :ref:`output-data-type-configuration` for more info.
 
     Attributes
@@ -537,8 +538,3 @@ class QN(Base):
         return super().get_param_names() + \
             ['loss', 'fit_intercept', 'l1_strength', 'l2_strength',
                 'max_iter', 'tol', 'linesearch_max_iter', 'lbfgs_memory']
-
-    def _more_tags(self):
-        return {
-            'preferred_input_order': 'F'
-        }
