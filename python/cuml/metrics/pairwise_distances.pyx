@@ -404,10 +404,13 @@ def sparse_pairwise_distances(X, Y=None, metric="euclidean", handle=None,
     if not is_sparse(X) or (Y is not None and not is_sparse(Y)):
         raise ValueError("Input matrices are not sparse.")
 
+    dtype_x = X.data.dtype
+    if dtype_x not in [cp.float32, cp.float64]:
+        raise TypeError("Unsupported dtype: {}".format(dtype_x))
+
     if scipy.sparse.issparse(X):
         X = sparse_scipy_to_cp(X, dtype=None)
 
-    dtype_x = X.data.dtype
     if metric == 'jaccard' and not cp.all(X.data == 1.):
         warnings.warn("X was converted to boolean for metric jaccard")
         X.data = (X.data != 0.).astype(dtype_x)
@@ -416,21 +419,26 @@ def sparse_pairwise_distances(X, Y=None, metric="euclidean", handle=None,
     n_samples_x, n_features_x = X_m.shape
     if Y is None:
         Y_m = X_m
+        dtype_y = dtype_x
     else:
         if scipy.sparse.issparse(Y):
             Y = sparse_scipy_to_cp(Y, dtype=dtype_x if convert_dtype else None)
-        else:
-            if convert_dtype:
-                Y = Y.astype(dtype_x)
+        if convert_dtype:
+            Y = Y.astype(dtype_x)
+        elif dtype_x != Y.data.dtype:
+            raise TypeError("Different data types unsupported when "
+                            "convert_dtypes=False")
+        
         if metric == 'jaccard' and not cp.all(Y.data == 1.):
-            warnings.warn("Y was converted to boolean for metric jaccard")
             dtype_y = Y.data.dtype
+            warnings.warn("Y was converted to boolean for metric jaccard")
             Y.data = (Y.data != 0.).astype(dtype_y)
         Y_m = SparseCumlArray(Y)
+
     n_samples_y, n_features_y = Y_m.shape
 
     # Check feature sizes are equal
-    if (n_features_x != n_features_y):
+    if n_features_x != n_features_y:
         raise ValueError("Incompatible dimension for X and Y matrices: \
                          X.shape[1] == {} while Y.shape[1] == {}"
                          .format(n_features_x, n_features_y))
@@ -482,8 +490,6 @@ def sparse_pairwise_distances(X, Y=None, metric="euclidean", handle=None,
                                 <int*> Y_m_indices,
                                 <DistanceType> metric_val,
                                 <float> metric_arg)
-    else:
-        raise NotImplementedError("Unsupported dtype: {}".format(dtype_x))
 
     # Sync on the stream before exiting.
     handle.sync()
