@@ -22,8 +22,8 @@ namespace ML {
 
 void single_linkage_pairwise(const raft::handle_t &handle, const float *X,
                              size_t m, size_t n,
-                             raft::distance::DistanceType metric,
                              raft::hierarchy::linkage_output<int, float> *out,
+                             raft::distance::DistanceType metric,
                              int n_clusters) {
   raft::hierarchy::single_linkage<int, float,
                                   raft::hierarchy::LinkageDistance::PAIRWISE>(
@@ -32,9 +32,9 @@ void single_linkage_pairwise(const raft::handle_t &handle, const float *X,
 
 void single_linkage_neighbors(const raft::handle_t &handle, const float *X,
                               size_t m, size_t n,
-                              raft::distance::DistanceType metric,
                               raft::hierarchy::linkage_output<int, float> *out,
-                              int c, int n_clusters) {
+                              raft::distance::DistanceType metric, int c,
+                              int n_clusters) {
   raft::hierarchy::single_linkage<int, float,
                                   raft::hierarchy::LinkageDistance::KNN_GRAPH>(
     handle, X, m, n, metric, out, c, n_clusters);
