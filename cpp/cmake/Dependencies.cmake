@@ -39,7 +39,7 @@ else(DEFINED ENV{RAFT_PATH})
 
   ExternalProject_Add(raft
     GIT_REPOSITORY    https://github.com/rapidsai/raft.git
-    GIT_TAG           5ea9795425d2968103211b559a2c741b9db10589
+    GIT_TAG           2ef0a5181399c712aa360f8357ea53792faa13d3
     PREFIX            ${RAFT_DIR}
     CONFIGURE_COMMAND ""
     BUILD_COMMAND     ""
@@ -92,7 +92,8 @@ message(STATUS "RMM: RMM_INCLUDE_DIRS set to ${RMM_INCLUDE_DIRS}")
 # - NCCL ---------------------------------------------------------------------
 
 if(BUILD_CUML_MPI_COMMS OR BUILD_CUML_STD_COMMS)
-  find_package(NCCL REQUIRED)
+  # At least NCCL 2.8 required for p2p methods on comms
+  find_package(NCCL 2.8 REQUIRED)
 endif(BUILD_CUML_MPI_COMMS OR BUILD_CUML_STD_COMMS)
 
 ##############################################################################
