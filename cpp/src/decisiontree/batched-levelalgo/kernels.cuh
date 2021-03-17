@@ -349,7 +349,7 @@ __global__ void computeSplitClassificationKernel(
   }
   auto end = range_start + range_len;
   auto nclasses = input.nclasses;
-  auto pdf_shist_len = (nbins + 1)*nclasses;
+  auto pdf_shist_len = (nbins + 1) * nclasses;
   auto cdf_shist_len = nbins * 2 * nclasses;
   auto* pdf_shist = alignPointer<int>(smem);
   auto* cdf_shist = alignPointer<int>(pdf_shist + pdf_shist_len);
@@ -368,8 +368,10 @@ __global__ void computeSplitClassificationKernel(
   }
 
   // populating shared memory with initial values
-  for (IdxT i = threadIdx.x; i < pdf_shist_len; i += blockDim.x) pdf_shist[i] = 0;
-  for (IdxT j = threadIdx.x; j < cdf_shist_len; j += blockDim.x) cdf_shist[j] = 0;
+  for (IdxT i = threadIdx.x; i < pdf_shist_len; i += blockDim.x)
+    pdf_shist[i] = 0;
+  for (IdxT j = threadIdx.x; j < cdf_shist_len; j += blockDim.x)
+    cdf_shist[j] = 0;
   for (IdxT b = threadIdx.x; b < nbins; b += blockDim.x)
     sbins[b] = input.quantiles[col * nbins + b];
 
@@ -386,7 +388,7 @@ __global__ void computeSplitClassificationKernel(
     // breakflag to check if data is greater than largest bin
     bool breakflag = false;
     for (IdxT b = 0; b < nbins; ++b) {
-      if(d <= sbins[b]) { // shist (0 -> nbins*nclasses - 1)
+      if (d <= sbins[b]) {  // shist (0 -> nbins*nclasses - 1)
         auto offset = b * nclasses + label;
         atomicAdd(pdf_shist + offset, 1);
         breakflag = true;
@@ -394,7 +396,7 @@ __global__ void computeSplitClassificationKernel(
       }
     }
     // case when d is larger than all bins
-    if(!breakflag) atomicAdd(pdf_shist + nbins*nclasses + label, 1);
+    if (!breakflag) atomicAdd(pdf_shist + nbins * nclasses + label, 1);
   }
 
   // synchronizeing above changes across block
@@ -439,19 +441,21 @@ __global__ void computeSplitClassificationKernel(
    * * second from right to left to populate the right splits
    *   for each split-point
    */
-  for(IdxT tix = threadIdx.x; tix < max(TPB, nbins); tix += blockDim.x) {
-    for(IdxT c = 0; c < nclasses; ++c){
+  for (IdxT tix = threadIdx.x; tix < max(TPB, nbins); tix += blockDim.x) {
+    for (IdxT c = 0; c < nclasses; ++c) {
       // for each class, do inclusive block scan
       int pdf_per_bin_per_class;
       int cdf_per_bin_per_class;
       // left to right scan operation for scanning lesser-than-or-equal-to-bin counts
       // offset for left to right scan of pdf_shist
-      IdxT class_segment_offset = nclasses*tix;
-      pdf_per_bin_per_class = tix < nbins ? pdf_shist[class_segment_offset + c] : 0;
-      BlockScan(temp_storage).InclusiveSum(pdf_per_bin_per_class, cdf_per_bin_per_class);
-      __syncthreads(); // synchronizing the scan
+      IdxT class_segment_offset = nclasses * tix;
+      pdf_per_bin_per_class =
+        tix < nbins ? pdf_shist[class_segment_offset + c] : 0;
+      BlockScan(temp_storage)
+        .InclusiveSum(pdf_per_bin_per_class, cdf_per_bin_per_class);
+      __syncthreads();  // synchronizing the scan
       if (tix < nbins) {
-        auto histOffset = (2*nclasses*tix + c);
+        auto histOffset = (2 * nclasses * tix + c);
         cdf_shist[histOffset] = cdf_per_bin_per_class;
       }
 
@@ -459,12 +463,14 @@ __global__ void computeSplitClassificationKernel(
       // thread0 -> last class segment of pdf_shist
       // thread(nbins - 1) -> 2nd class segment of pdf_shist
       // offset for right to left scan of pdf_shist
-      class_segment_offset = nclasses*(nbins - tix);
-      pdf_per_bin_per_class = tix < nbins ? pdf_shist[class_segment_offset + c] : 0;
-      BlockScan(temp_storage).InclusiveSum(pdf_per_bin_per_class, cdf_per_bin_per_class);
-      __syncthreads(); // synchronizing the scan
-      if(tix < nbins) {
-        auto histOffset = (2*nclasses*(nbins - tix - 1) + nclasses + c);
+      class_segment_offset = nclasses * (nbins - tix);
+      pdf_per_bin_per_class =
+        tix < nbins ? pdf_shist[class_segment_offset + c] : 0;
+      BlockScan(temp_storage)
+        .InclusiveSum(pdf_per_bin_per_class, cdf_per_bin_per_class);
+      __syncthreads();  // synchronizing the scan
+      if (tix < nbins) {
+        auto histOffset = (2 * nclasses * (nbins - tix - 1) + nclasses + c);
         cdf_shist[histOffset] = cdf_per_bin_per_class;
       }
     }
@@ -480,8 +486,8 @@ __global__ void computeSplitClassificationKernel(
     giniGain<DataT, IdxT>(cdf_shist, sbins, sp, col, range_len, nbins, nclasses,
                           min_samples_leaf, min_impurity_decrease);
   } else {
-    entropyGain<DataT, IdxT>(cdf_shist, sbins, sp, col, range_len, nbins, nclasses,
-                             min_samples_leaf, min_impurity_decrease);
+    entropyGain<DataT, IdxT>(cdf_shist, sbins, sp, col, range_len, nbins,
+                             nclasses, min_samples_leaf, min_impurity_decrease);
   }
   __syncthreads();
 

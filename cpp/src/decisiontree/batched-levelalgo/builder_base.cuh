@@ -125,7 +125,9 @@ struct Builder {
    * @note Assigning n_blks_for_rows while maximizing for occupancy when the blocks along z-dimension is
    * minimum gaurantees maximal occupancy for all other possible values of the same.
   */
-  int n_blks_for_rows(const int gridDimy,  const void* func, const int blockSize, const size_t dynamic_smem_size, const int min_gridDimz = 1){
+  int n_blks_for_rows(const int gridDimy, const void* func, const int blockSize,
+                      const size_t dynamic_smem_size,
+                      const int min_gridDimz = 1) {
     int devid;
     CUDA_CHECK(cudaGetDevice(&devid));
     int mpcount;
@@ -133,11 +135,11 @@ struct Builder {
       cudaDeviceGetAttribute(&mpcount, cudaDevAttrMultiProcessorCount, devid));
     int maxblks;
     CUDA_CHECK(cudaOccupancyMaxActiveBlocksPerMultiprocessor(
-                &maxblks, func, blockSize, dynamic_smem_size));
+      &maxblks, func, blockSize, dynamic_smem_size));
     // get the total number of blocks
     int n_blks = maxblks * mpcount;
     // return n_blks_for_rows
-    return raft::ceildiv(n_blks , gridDimy*min_gridDimz);
+    return raft::ceildiv(n_blks, gridDimy * min_gridDimz);
   }
 
   size_t calculateAlignedBytes(const size_t actualSize) {
@@ -190,7 +192,7 @@ struct Builder {
     input.quantiles = quantiles;
     auto max_batch = params.max_batch_size;
     auto n_col_blks = n_blks_for_cols;
-    nHistBins = max_batch * ( 1 + params.n_bins ) * n_col_blks * nclasses;
+    nHistBins = max_batch * (1 + params.n_bins) * n_col_blks * nclasses;
     // x2 for mean and mean-of-square
     nPredCounts = max_batch * params.n_bins * n_col_blks;
     if (params.max_depth < 13) {
@@ -202,9 +204,11 @@ struct Builder {
     }
 
     if (isRegression()) {
-      int n_blks_for_rows = this->n_blks_for_rows(n_col_blks,
-                            (const void*)computeSplitRegressionKernel<DataT, LabelT, IdxT, TPB_DEFAULT>,
-                            TPB_DEFAULT, 0);
+      int n_blks_for_rows = this->n_blks_for_rows(
+        n_col_blks,
+        (const void*)
+          computeSplitRegressionKernel<DataT, LabelT, IdxT, TPB_DEFAULT>,
+        TPB_DEFAULT, 0);
       dim3 grid(n_blks_for_rows, n_col_blks, max_batch);
       block_sync_size = MLCommon::GridSync::computeWorkspaceSize(
         grid, MLCommon::SyncType::ACROSS_X, false);
@@ -442,16 +446,18 @@ struct ClsTraits {
       "Builder::computeSplit @builder_base.cuh [batched-levelalgo]");
     auto nbins = b.params.n_bins;
     auto nclasses = b.input.nclasses;
-    auto binSize = ( nbins * 3 + 1 ) * nclasses;
+    auto binSize = (nbins * 3 + 1) * nclasses;
     auto colBlks = std::min(b.n_blks_for_cols, b.input.nSampledCols - col);
     size_t smemSize = sizeof(int) * binSize + sizeof(DataT) * nbins;
     smemSize += sizeof(int);
 
     // Extra room for alignment (see alignPointer in computeSplitClassificationKernel)
     smemSize += 2 * sizeof(DataT) + 1 * sizeof(int);
-    int n_blks_for_rows = b.n_blks_for_rows(colBlks,
-                          (const void*) computeSplitClassificationKernel<DataT, LabelT, IdxT, TPB_DEFAULT>,
-                          TPB_DEFAULT, smemSize);
+    int n_blks_for_rows = b.n_blks_for_rows(
+      colBlks,
+      (const void*)
+        computeSplitClassificationKernel<DataT, LabelT, IdxT, TPB_DEFAULT>,
+      TPB_DEFAULT, smemSize);
     dim3 grid(n_blks_for_rows, colBlks, batchSize);
     CUDA_CHECK(cudaMemsetAsync(b.hist, 0, sizeof(int) * b.nHistBins, s));
     ML::PUSH_RANGE(
@@ -525,9 +531,11 @@ struct RegTraits {
     // Room for alignment in worst case (see alignPointer in
     // computeSplitRegressionKernel)
     smemSize += 5 * sizeof(DataT) + 2 * sizeof(int);
-    int n_blks_for_rows = b.n_blks_for_rows(n_col_blks,
-                          (const void*) computeSplitRegressionKernel<DataT, LabelT, IdxT, TPB_DEFAULT>,
-                          TPB_DEFAULT, smemSize);
+    int n_blks_for_rows = b.n_blks_for_rows(
+      n_col_blks,
+      (const void*)
+        computeSplitRegressionKernel<DataT, LabelT, IdxT, TPB_DEFAULT>,
+      TPB_DEFAULT, smemSize);
     dim3 grid(n_blks_for_rows, n_col_blks, batchSize);
 
     CUDA_CHECK(
