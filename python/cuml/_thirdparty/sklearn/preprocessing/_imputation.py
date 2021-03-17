@@ -14,8 +14,6 @@ import numbers
 import warnings
 
 import cupy as np
-from cuml.common.mixins import AllowNaNTagMixin
-from cuml.common.mixins import StringInputTagMixin
 from cupy import sparse
 
 from ....thirdparty_adapters import (_get_mask,
@@ -23,6 +21,8 @@ from ....thirdparty_adapters import (_get_mask,
                                      _masked_column_mean,
                                      _masked_column_mode)
 from ..utils.skl_dependencies import BaseEstimator, TransformerMixin
+from cuml.common.mixins import AllowNaNTagMixin, SparseInputTagMixin, \
+                               StringInputTagMixin
 from ..utils.validation import check_is_fitted
 from ..utils.validation import FLOAT_DTYPES
 from ..utils.validation import _deprecate_positional_args
@@ -142,7 +142,9 @@ class _BaseImputer(TransformerMixin):
         return {'allow_nan': is_scalar_nan(self.missing_values)}
 
 
-class SimpleImputer(_BaseImputer, BaseEstimator):
+class SimpleImputer(_BaseImputer,
+                    BaseEstimator,
+                    SparseInputTagMixin):
     """Imputation transformer for completing missing values.
 
     Parameters
@@ -463,14 +465,11 @@ class SimpleImputer(_BaseImputer, BaseEstimator):
         X = super()._concatenate_indicator(X, X_indicator)
         return X
 
-    def _more_tags(self):
-        return {'X_types_gpu': ['2darray', 'sparse'],
-                'X_types': ['2darray', 'sparse']}
-
 
 class MissingIndicator(TransformerMixin,
                        BaseEstimator,
                        AllowNaNTagMixin,
+                       SparseInputTagMixin,
                        StringInputTagMixin):
     """Binary indicators for missing values.
 
@@ -737,8 +736,3 @@ class MissingIndicator(TransformerMixin,
             imputer_mask = imputer_mask[:, self.features_]
 
         return imputer_mask
-
-    def _more_tags(self):
-        return {'X_types_gpu': ['2darray', 'sparse'],
-                'X_types': ['2darray', 'sparse'],
-                'allow-nan': True}

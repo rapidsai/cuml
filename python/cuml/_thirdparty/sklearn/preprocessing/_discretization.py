@@ -22,6 +22,7 @@ from cuml.preprocessing import OneHotEncoder
 from cuml.cluster import KMeans
 
 from ..utils.skl_dependencies import BaseEstimator, TransformerMixin
+from cuml.common.mixins import SparseInputTagMixin
 from ..utils.validation import check_is_fitted
 from ..utils.validation import FLOAT_DTYPES
 from ..utils.validation import _deprecate_positional_args
@@ -36,7 +37,9 @@ def digitize(x, bins):
     return np.searchsorted(bins, x, side='left')
 
 
-class KBinsDiscretizer(TransformerMixin, BaseEstimator):
+class KBinsDiscretizer(TransformerMixin,
+                       BaseEstimator,
+                       SparseInputTagMixin):
     """
     Bin continuous data into intervals.
 
@@ -357,7 +360,3 @@ class KBinsDiscretizer(TransformerMixin, BaseEstimator):
             Xinv[:, jj] = bin_centers[idxs.astype(np.int32)]
 
         return Xinv
-
-        def _more_tags(self):
-            return {'X_types_gpu': ['2darray', 'sparse'],
-                    'X_types': ['2darray', 'sparse']}
