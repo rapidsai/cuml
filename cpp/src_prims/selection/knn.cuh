@@ -311,8 +311,8 @@ void approx_knn_build_index(raft::handle_t &handle, ML::knnIndex *index,
   index->metricArg = metricArg;
 
   // perform preprocessing
+  // k set to 0 (unused during preprocessing / revertion)
   std::unique_ptr<MetricProcessor<float>> query_metric_processor =
-    // k set to 0 (unused during preprocessing / revertion)
     create_processor<float>(metric, n, D, 0, false, handle.get_stream(),
                             handle.get_device_allocator());
 
