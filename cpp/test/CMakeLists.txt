@@ -67,6 +67,7 @@ if(BUILD_CUML_TESTS)
     sg/rf_batched_classification_test.cu
     sg/rf_batched_regression_test.cu
     sg/rf_depth_test.cu
+    sg/rf_quantiles_test.cu
     sg/rf_test.cu
     sg/rf_treelite_test.cu
     sg/ridge.cu
