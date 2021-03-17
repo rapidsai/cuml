@@ -527,36 +527,22 @@ def test_logistic_regression_weighting(regression_dataset,
                                        option, test_status):
     regression_type, data, coef, output = regression_dataset[test_status]
 
+    class_weight = None
+    sample_weight = None
     if option == 'sample_weight':
         n_samples = data.shape[0]
         sample_weight = np.abs(np.random.rand(n_samples))
-
-        culog = cuLog(fit_intercept=False)
-        culog.fit(data, output, sample_weight=sample_weight)
-
-        sklog = skLog(fit_intercept=False)
-        sklog.fit(data, output, sample_weight=sample_weight)
     elif option == 'class_weight':
         class_weight = np.random.rand(2)
         class_weight = {0: class_weight[0], 1: class_weight[1]}
-
-        culog = cuLog(fit_intercept=False, class_weight=class_weight)
-        culog.fit(data, output)
-
-        sklog = skLog(fit_intercept=False, class_weight=class_weight)
-        sklog.fit(data, output)
     elif option == 'balanced':
-        culog = cuLog(fit_intercept=False, class_weight='balanced')
-        culog.fit(data, output)
+        class_weight = 'balanced'
 
-        sklog = skLog(fit_intercept=False, class_weight='balanced')
-        sklog.fit(data, output)
-    else:
-        culog = cuLog(fit_intercept=False)
-        culog.fit(data, output)
+    culog = cuLog(fit_intercept=False, class_weight=class_weight)
+    culog.fit(data, output, sample_weight=sample_weight)
 
-        sklog = skLog(fit_intercept=False)
-        sklog.fit(data, output)
+    sklog = skLog(fit_intercept=False, class_weight=class_weight)
+    sklog.fit(data, output, sample_weight=sample_weight)
 
     skcoef = np.squeeze(sklog.coef_)
     cucoef = np.squeeze(culog.coef_)
@@ -581,12 +567,7 @@ def test_logistic_regression_weighting(regression_dataset,
         print('cucoef:\n', cucoef)
     assert equality
 
-    if option == 'no_weight':
-        equality = array_equal(coef, cucoef, unit_tol=unit_tol,
-                               total_tol=total_tol)
-        if not equality:
-            print('\ncoef.shape: ', coef.shape)
-            print('coef:\n', coef)
-            print('cucoef.shape: ', cucoef.shape)
-            print('cucoef:\n', cucoef)
-        assert equality
+    cuOut = culog.predict(data)
+    skOut = sklog.predict(data)
+    assert array_equal(skOut, cuOut, unit_tol=unit_tol,
+                       total_tol=total_tol)
