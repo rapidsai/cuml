@@ -30,6 +30,20 @@ from cuml.common import input_to_cuml_array
 
 
 def to_output_type(array, output_type, order='F'):
+    """Used to convert arrays while creating datasets
+    for testing.
+
+    Parameters
+    ----------
+    array : array
+        Input array to convert
+    output_type : string
+        Type of to convert to
+
+    Returns
+    -------
+    Converted array
+    """
     if output_type == 'scipy_csr':
         return cpu_sparse.csr_matrix(array.get())
     if output_type == 'scipy_csc':
