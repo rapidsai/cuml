@@ -17,9 +17,11 @@
 #pragma once
 
 #include <memory>
+#include <raft/mr/device/allocator.hpp>
 
 template <class T, class L>
 struct TemporaryMemory;
+using deviceAllocator = raft::mr::device::allocator;
 
 namespace ML {
 namespace DecisionTree {
@@ -29,6 +31,12 @@ void preprocess_quantile(const T *data, const unsigned int *rowids,
                          const int n_sampled_rows, const int ncols,
                          const int rowoffset, const int nbins,
                          std::shared_ptr<TemporaryMemory<T, L>> tempmem);
+
+template <typename T>
+void computeQuantiles(T *quantiles, int n_bins, const T *data, int n_rows,
+                      int n_cols,
+                      const std::shared_ptr<deviceAllocator> device_allocator,
+                      cudaStream_t stream);
 
 }  // namespace DecisionTree
 }  // namespace ML

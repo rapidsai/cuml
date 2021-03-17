@@ -40,7 +40,7 @@
 #include <raft/linalg/distance_type.h>
 #include "processing.cuh"
 
-#include <selection/haversine_knn.cuh>
+#include "haversine_knn.cuh"
 
 #include <cuml/common/cuml_allocator.hpp>
 #include <cuml/common/device_buffer.hpp>
