@@ -45,6 +45,8 @@ struct Builder {
   typedef typename Traits::SplitT SplitT;
   typedef typename Traits::InputT InputT;
 
+  /** default threads per block for most kernels in here */
+  static constexpr int TPB_DEFAULT = 256;
   /** DT params */
   DecisionTreeParams params;
   /** input dataset */
@@ -100,14 +102,42 @@ struct Builder {
   IdxT node_start, node_end;
   /** number of blocks used to parallelize column-wise computations. */
   int n_blks_for_cols = 10;
-  /** Number of blocks used to parallelize row-wise computations. */
-  int n_blks_for_rows = 40;
   /** Memory alignment value */
   const size_t alignValue = 512;
 
   /** checks if this struct is being used for classification or regression */
   static constexpr bool isRegression() {
     return std::is_same<DataT, LabelT>::value;
+  }
+
+  /**
+   * @brief Assigns number of blocks used to parallelize row-wise computations to maximize occupacy
+   *
+   * @param[out] n_blks_for_rows    Apropriate blocks for rows (gridDim.x)
+   *                                that maximizes occupancy
+   * @param[in] gridDimy            number of blocks assigned in the y-dimension (n_blks_for_cols)
+   * @param[in] func                Kernel function; needed by the occupancy calculator for finding
+   *                                maximum active blocks per multiprocessor
+   * @param[in] blockSize           Threads per Block, passed to cuda occupancy calculator API
+   * @param[in] dynamic_smem_size   dynamic shared memory size, passed to cuda occupancy calculator API
+   * @param[in] min_gridDimz        minimum value that number of blocks along the z-dimension can take, based
+   *                                on the concurrent nodes of tree available to be processed.
+   * @note Assigning n_blks_for_rows while maximizing for occupancy when the blocks along z-dimension is
+   * minimum gaurantees maximal occupancy for all other possible values of the same.
+  */
+  int n_blks_for_rows(const int gridDimy,  const void* func, const int blockSize, const size_t dynamic_smem_size, const int min_gridDimz = 1){
+    int devid;
+    CUDA_CHECK(cudaGetDevice(&devid));
+    int mpcount;
+    CUDA_CHECK(
+      cudaDeviceGetAttribute(&mpcount, cudaDevAttrMultiProcessorCount, devid));
+    int maxblks;
+    CUDA_CHECK(cudaOccupancyMaxActiveBlocksPerMultiprocessor(
+                &maxblks, func, blockSize, dynamic_smem_size));
+    // get the total number of blocks
+    int n_blks = maxblks * mpcount;
+    // return n_blks_for_rows
+    return raft::ceildiv(n_blks , gridDimy*min_gridDimz);
   }
 
   size_t calculateAlignedBytes(const size_t actualSize) {
@@ -172,6 +202,9 @@ struct Builder {
     }
 
     if (isRegression()) {
+      int n_blks_for_rows = this->n_blks_for_rows(n_col_blks,
+                            (const void*)computeSplitRegressionKernel<DataT, LabelT, IdxT, TPB_DEFAULT>,
+                            TPB_DEFAULT, 0);
       dim3 grid(n_blks_for_rows, n_col_blks, max_batch);
       block_sync_size = MLCommon::GridSync::computeWorkspaceSize(
         grid, MLCommon::SyncType::ACROSS_X, false);
@@ -411,12 +444,15 @@ struct ClsTraits {
     auto nclasses = b.input.nclasses;
     auto binSize = ( nbins * 3 + 1 ) * nclasses;
     auto colBlks = std::min(b.n_blks_for_cols, b.input.nSampledCols - col);
-    dim3 grid(b.n_blks_for_rows, colBlks, batchSize);
     size_t smemSize = sizeof(int) * binSize + sizeof(DataT) * nbins;
     smemSize += sizeof(int);
 
     // Extra room for alignment (see alignPointer in computeSplitClassificationKernel)
     smemSize += 2 * sizeof(DataT) + 1 * sizeof(int);
+    int n_blks_for_rows = b.n_blks_for_rows(colBlks,
+                          (const void*) computeSplitClassificationKernel<DataT, LabelT, IdxT, TPB_DEFAULT>,
+                          TPB_DEFAULT, smemSize);
+    dim3 grid(n_blks_for_rows, colBlks, batchSize);
     CUDA_CHECK(cudaMemsetAsync(b.hist, 0, sizeof(int) * b.nHistBins, s));
     ML::PUSH_RANGE(
       "computeSplitClassificationKernel @builder_base.cuh [batched-levelalgo]");
@@ -482,7 +518,6 @@ struct RegTraits {
     ML::PUSH_RANGE(
       "Builder::computeSplit @builder_base.cuh [batched-levelalgo]");
     auto n_col_blks = std::min(b.n_blks_for_cols, b.input.nSampledCols - col);
-    dim3 grid(b.n_blks_for_rows, n_col_blks, batchSize);
     auto nbins = b.params.n_bins;
     size_t smemSize = 7 * nbins * sizeof(DataT) + nbins * sizeof(int);
     smemSize += sizeof(int);
@@ -490,6 +525,10 @@ struct RegTraits {
     // Room for alignment in worst case (see alignPointer in
     // computeSplitRegressionKernel)
     smemSize += 5 * sizeof(DataT) + 2 * sizeof(int);
+    int n_blks_for_rows = b.n_blks_for_rows(n_col_blks,
+                          (const void*) computeSplitRegressionKernel<DataT, LabelT, IdxT, TPB_DEFAULT>,
+                          TPB_DEFAULT, smemSize);
+    dim3 grid(n_blks_for_rows, n_col_blks, batchSize);
 
     CUDA_CHECK(
       cudaMemsetAsync(b.pred, 0, sizeof(DataT) * b.nPredCounts * 2, s));
