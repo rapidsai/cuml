@@ -346,7 +346,8 @@ def small_classifier_and_preds(tmpdir_factory, request):
 
     ext = 'json' if request.param == 'json' else 'model'
     model_type = 'xgboost_json' if request.param == 'json' else 'xgboost'
-    model_path = str(tmpdir_factory.mktemp("models").join(f"small_class.{ext}"))
+    model_path = str(tmpdir_factory.mktemp("models").join(
+                 f"small_class.{ext}"))
     bst = _build_and_save_xgboost(model_path, X, y)
     # just do within-sample since it's not an accuracy test
     dtrain = xgb.DMatrix(X, label=y)
