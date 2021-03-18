@@ -63,7 +63,6 @@ void single_linkage_pairwise(const raft::handle_t &handle, const float *X,
  * value, like 15, and still maintain good performance.
  * @param[out] n_clusters number of clusters to cut from resulting dendrogram
  */
-
 void single_linkage_neighbors(const raft::handle_t &handle, const float *X,
                               size_t m, size_t n,
                               raft::hierarchy::linkage_output<int, float> *out,

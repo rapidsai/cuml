@@ -73,7 +73,6 @@ cdef extern from "cuml/cluster/linkage.hpp" namespace "ML":
     ) except +
 
 
-
 class AgglomerativeClustering(Base, ClusterMixin, CMajorInputTagMixin):
 
     def __init__(self, n_clusters=2, affinity="euclidean", linkage="single",
@@ -124,14 +123,15 @@ class AgglomerativeClustering(Base, ClusterMixin, CMajorInputTagMixin):
 
         cdef DistanceType metric = DistanceType.L2Unexpanded
 
-        single_linkage_neighbors(handle_[0],
-                                 <float*>input_ptr,
-                                 <int> n_rows,
-                                 <int> n_cols,
-                                 <linkage_output_int_float*> linkage_output,
-                                 <DistanceType> metric,
-                                 <int> self.n_neighbors,
-                                 <int> self.n_clusters)
+        single_linkage_pairwise(handle_[0],
+                                <float*>input_ptr,
+                                <int> n_rows,
+                                <int> n_cols,
+                                <linkage_output_int_float*> linkage_output,
+                                <DistanceType> metric,
+                                <int> self.n_clusters)
+
+        self.handle.sync()
 
     def fit_predict(self, X, y=None):
         """
@@ -143,3 +143,12 @@ class AgglomerativeClustering(Base, ClusterMixin, CMajorInputTagMixin):
         """
         self.fit(X)
         return self.labels_
+
+    def get_param_names(self):
+        return super().get_param_names() + [
+            "n_clusters",
+            "affinity",
+            "linkage",
+            "compute_distances",
+            "n_neighbors"
+        ]
