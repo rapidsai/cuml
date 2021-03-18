@@ -43,11 +43,11 @@ HDI int arity(node::type t) {
 
 // `data` assumed to be stored in col-major format
 DI float evaluate_node(const node& n, const float* data, size_t stride,
-                       float inval, float inval1) {
+                       size_t idx, float inval, float inval1) {
   if (n.t == node::type::constant) {
     return n.u.val;
   } else if (n.t == node::type::variable) {
-    return n.u.fid != node::kInvalidFeatureId ? data[n.u.fid * stride] : 0.f;
+    return data[n.u.fid * stride + idx] ;
   } else {
     auto abs_inval = fabsf(inval), abs_inval1 = fabsf(inval1);
     auto small = abs_inval < MIN_VAL;

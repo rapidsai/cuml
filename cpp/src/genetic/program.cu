@@ -17,15 +17,67 @@
 #include <cuml/genetic/program.h>
 #include <cuml/genetic/node.h>
 #include <raft/cudart_utils.h>
+#include <rmm/device_uvector.hpp>
 
+#include "node.cuh"
 #include "reg_stack.cuh"
-#include "constants.cuh"
+#include "constants.h"
 #include "fitness.cuh"
 
 namespace cuml {
 namespace genetic {
 
-void metric(const raft::handle_t &h, program_t p, int len, float* y, float* y_pred, float* w, float* score){
+/** 
+  Execution kernel for a single program. We assume that the input data 
+  is stored in column major format.
+ */
+template<int MaxSize>
+__global__ void execute_kernel(program_t p,
+                               float* data, 
+                               float* y_pred, 
+                               int n_rows) {
+  // Single evaluation stack per thread
+  stack<float, MaxSize> eval_stack;
+  for(size_t row_idx = blockIdx.x*blockDim.x + threadIdx.x; 
+      row_idx < (size_t)n_rows;
+      row_idx += blockDim.x * gridDim.x) {
+    // Arithmetic expr stored in postfix form
+    for(int e=0;e<p->len;++e) {
+      node* curr = &p->nodes[e];
+      if(detail::is_terminal(curr->t)) {
+        // function
+        int ar = detail::arity(curr->t);
+        float inval = ar > 0 ? eval_stack.pop() : 0.0f;
+        ar--;
+        float inval1 = ar > 0 ? eval_stack.pop() : 0.0f;
+        ar--;
+        eval_stack.push(detail::evaluate_node(*curr,
+                                      data,
+                                      n_rows,
+                                      row_idx,
+                                      inval,
+                                      inval1));
+      } 
+      else{
+        // constant or variable
+        eval_stack.push(detail::evaluate_node(*curr, 
+                                          data, 
+                                          n_rows, 
+                                          row_idx, 
+                                          0.0f,
+                                          0.0f ));
+      }
+    } 
+    y_pred[row_idx] = eval_stack.pop();
+  }                                   
+}
+
+/** 
+  Internal function which computes the score of program p on the given dataset.
+  */
+void metric(const raft::handle_t &h, program_t p, 
+            int len, float* y, float* y_pred, 
+            float* w, float* score) {
   // Call appropriate metric function based on metric defined in p
   cudaStream_t stream = h.get_stream();
 
@@ -46,46 +98,42 @@ void metric(const raft::handle_t &h, program_t p, int len, float* y, float* y_pr
   }
 }
   
-
-template<int MaxSize>
-__global__ void execute_k(program_t p, float** X, float* y_hat){
-  
-  stack<float, MaxSize> eval_s;
-}
-
-/** returns predictions for given dataset and program */
-void execute(const raft::handle_t &h, program_t p, float** X, float* y_pred, int num_rows, float* sample_weights){
+/** Returns predictions for a single program on input data*/
+void execute_single(const raft::handle_t &h, program_t p, 
+                     float* data, float* y_pred, int n_rows) {
 
   cudaStream_t stream = h.get_stream();
 
-  // config kernel launch params - single program
-  // dim3 numBlocks(num_rows/GENE_TPB,1,1);
-  // dim3 numThreads(GENE_TPB,1,1);
-  
-  // execute_k<MAXSSIZE><<<numBlocks,numThreads,0,stream>>>(p, X, y_pred);
+  execute_kernel<MAX_STACK_SIZE><<<raft::ceildiv(n_rows,GENE_TPB),
+                                  GENE_TPB,0,stream>>>(
+                                    p,
+                                    data, 
+                                    y_pred,
+                                    n_rows );
+  CUDA_CHECK(cudaPeekAtLastError());
 }
 
 /** Computes the raw fitness metric for a single program on a given dataset */
-void raw_fitness(const raft::handle_t &h, program_t p, float** X, float* y, 
-                int num_rows, float* sample_weights, float* score){
+void raw_fitness(const raft::handle_t &h, program_t p, 
+                 float* data, float* y, int num_rows, 
+                 float* sample_weights, float* score){
     
   cudaStream_t stream = h.get_stream();
-    
-  float* y_pred;
-  raft::allocate<float>(y_pred, num_rows,true);   
+
+  rmm::device_uvector<float> y_pred(num_rows,stream);  
   
-  // execute program on dataset
-  execute(h, p, X, y_pred, num_rows, sample_weights);  
-  
-  // Populate score according to fitness metric
-  metric(h, p, num_rows, y, y_pred, sample_weights, score);
+  execute_single(h, p, data, y_pred.data(), num_rows);
+  metric(h, p, num_rows, y, y_pred.data(), sample_weights, score);
 }   
 
-
-void fitness(const raft::handle_t &h, program_t p, float parsimony_coeff, float* score) {
-    
-    float penalty = parsimony_coeff * p->len;
-    *score = p->raw_fitness_ - penalty;
+/** 
+  Returns the pre-computed fitness score for the given program p. 
+  We assume that p is stored on the CPU.
+  */
+void fitness(const raft::handle_t &h, program_t p, 
+             float parsimony_coeff, float* score) { 
+  float penalty = parsimony_coeff * p->len;
+  *score = p->raw_fitness_ - penalty;
 }
 
 }

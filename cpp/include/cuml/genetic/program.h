@@ -52,13 +52,14 @@ struct program {
 /** program_t is the type of the program */
 typedef program* program_t;
 
-/** returns predictions for given dataset */
-void execute(const raft::handle_t &h, program_t p, 
-                 float** X, float* y_pred, int num_rows, float* sample_weights);
+/** returns predictions for given dataset on a single program*/
+void execute_single(const raft::handle_t &h, program_t p, 
+                     float* data, float* y_pred, int n_rows);
                  
 /** computes fitness score for a single program */
 void raw_fitness(const raft::handle_t &h, program_t p, 
-                 float** X, float* y, int num_rows, float* sample_weights, float* score);
+                 float* data, float* y, int num_rows, 
+                 float* sample_weights, float* score);
 
 /** returns precomputed fitness score of program*/
 void fitness(const raft::handle_t &h, program_t p, 
