@@ -413,8 +413,9 @@ class ForestInference(Base,
      * A single row of data should fit into the shared memory of a thread
        block, which means that more than 12288 features are not supported.
      * From sklearn.ensemble, only
-       {RandomForest,GradientBoosting}{Classifier,Regressor} models are
-       supported. Other sklearn.ensemble models are currently not supported.
+       {RandomForest,GradientBoosting,ExtraTrees}{Classifier,Regressor} models
+       are supported. Other sklearn.ensemble models are currently not
+       supported.
      * Importing large SKLearn models can be slow, as it is done in Python.
      * LightGBM categorical features are not supported.
      * Inference uses a dense matrix format, which is efficient for many
@@ -619,7 +620,7 @@ class ForestInference(Base,
                           handle=None):
         """
         Creates a FIL model using the scikit-learn model passed to the
-        function. This function requires Treelite 0.90 to be installed.
+        function. This function requires Treelite 1.0.0+ to be installed.
 
         Parameters
         ----------
