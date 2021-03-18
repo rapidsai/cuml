@@ -113,6 +113,6 @@ def test_pipeline_with_classification(classification_dataset, model_key,
     prediction = pipe.predict(X_test)
     assert isinstance(prediction, cupy.ndarray)
     if model_key == 'RandomForestClassifier':
-        pytest.skip("RandomForestClassifier is not yet supported:"
+        pytest.skip("RandomForestClassifier is not yet supported"
                     "by the Pipeline utility")
     _ = pipe.score(X_test, y_test)
