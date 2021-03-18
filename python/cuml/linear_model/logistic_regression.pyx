@@ -16,6 +16,7 @@
 
 # distutils: language = c++
 
+import numpy as np
 import cupy as cp
 import pprint
 
@@ -127,7 +128,7 @@ class LogisticRegression(Base,
     class_weight: None
         Custom class weighs are currently not supported.
     class_weight: dict or 'balanced', default=None
-        By default all classes have a weight one. However, a dictionnary
+        By default all classes have a weight one. However, a dictionary
         can be provided with weights associated with classes
         in the form ``{class_label: weight}``. The "balanced" mode
         uses the values of y to automatically adjust weights
@@ -188,6 +189,7 @@ class LogisticRegression(Base,
 
     classes_ = CumlArrayDescriptor()
     class_weight_ = CumlArrayDescriptor()
+    expl_spec_weights_ = CumlArrayDescriptor()
 
     def __init__(
         self,
@@ -263,6 +265,8 @@ class LogisticRegression(Base,
                 class_weight = cp.ones(max_class + 1)
                 class_weight[classes] = weights
                 self.class_weight_, _, _, _ = input_to_cuml_array(class_weight)
+                self.expl_spec_weights_, _, _, _ = \
+                    input_to_cuml_array(np.array(classes))
         else:
             self.class_weight_ = None
 
@@ -316,6 +320,14 @@ class LogisticRegression(Base,
                                  "expected ({},)!".format(sample_weight.shape,
                                                           n_rows))
 
+            def check_expl_spec_weights():
+                with cuml.using_output_type("numpy"):
+                    for c in self.expl_spec_weights_:
+                        i = np.searchsorted(self.classes_, c)
+                        if i >= self._num_classes or self.classes_[i] != c:
+                            msg = "Class label {} not present.".format(c)
+                            raise ValueError(msg)
+
             if self.class_weight_ is not None:
                 if self.class_weight_ == 'balanced':
                     class_weight = n_rows / \
@@ -323,6 +335,7 @@ class LogisticRegression(Base,
                                     cp.bincount(y_m.to_output('cupy')))
                     class_weight = CumlArray(class_weight)
                 else:
+                    check_expl_spec_weights()
                     n_explicit = self.class_weight_.shape[0]
                     if n_explicit != self._num_classes:
                         class_weight = cp.ones(self._num_classes)
