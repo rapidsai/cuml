@@ -33,47 +33,6 @@ namespace MLCommon {
 namespace Distance {
 
 /**
- * @brief the expanded euclidean distance matrix calculation kernel
- *  It computes the following equation: C = op(A^2 + B^2 - 2AB)
- * @tparam DataT          input data-type (for A and B matrices)
- * @tparam AccT           accumulation data-type
- * @tparam OutT           output data-type (for C and D matrices)
- * @tparam IdxT           index data-type
- * @tparam sqrt           if the square root is computed or not
- * @tparam Policy         struct which tunes the Contraction kernel
- * @tparam CoreLambda     lambda which implements accumulation operation
- * @tparam EpilogueLambda lambda which implements operation for calculating
-                          final value.
- * @tparam FinalLambda    final lambda called on final distance value
- *
- * @param[in]       x input matrix
- * @param[in]       y input matrix
- * @param[in]       xn row norms of input matrix A.
- * @param[in]       yn row norms of input matrix B.
- * @param[in]       m number of rows of A and C/D
- * @param[in]       n number of columns of B and C/D
- * @param[in]       k number of cols of A and rows of B
- * @param[output]   pD output matrix
- * @param core_op   the core lambda
- * @param epilog_op the epilogue lambda
- * @param fin_op    the final gemm epilogue lambda
- */
-template <typename DataT, typename AccT, typename OutT, typename IdxT,
-          bool Sqrt, typename Policy, typename CoreLambda,
-          typename EpilogueLambda, typename FinalLambda>
-__global__ __launch_bounds__(Policy::Nthreads, 2) void euclideanExpKernel(
-  const DataT *x, const DataT *y, const DataT *_xn, const DataT *_yn, IdxT m,
-  IdxT n, IdxT k, OutT *dOutput, CoreLambda core_op, EpilogueLambda epilog_op,
-  FinalLambda fin_op) {
-  extern __shared__ char smem[];
-
-  PairwiseDistances<DataT, AccT, OutT, IdxT, Sqrt, Policy, CoreLambda,
-                    EpilogueLambda, FinalLambda>
-    obj(x, y, m, n, k, _xn, _yn, dOutput, smem, core_op, epilog_op, fin_op);
-  obj.run();
-}
-
-/**
  * @brief the expanded euclidean distance matrix calculation implementer
  *  It computes the following equation: C = op(A^2 + B^2 - 2AB)
  * @tparam DataT input data-type (for A and B matrices)
@@ -111,33 +70,9 @@ void euclideanExpImpl(const DataT *x, const DataT *y, const DataT *xn,
   };
 
   // epilogue operation lambda for final value calculation
-  auto epilog_lambda = [xn, yn, m, n, k] __device__(
+  auto epilog_lambda = [sqrt] __device__(
                          AccT acc[Policy::AccRowsPerTh][Policy::AccColsPerTh],
-                         DataT * sxNorm, DataT * syNorm) {
-    __syncthreads();  // so that we can safely reuse smem
-
-    // Load x & y norms required by this threadblock in shmem buffer
-    for (int i = threadIdx.x; i < Policy::Mblk; i += Policy::Nthreads) {
-      auto idx = blockIdx.x * Policy::Mblk + i;
-      sxNorm[i] = idx < m ? xn[idx] : 0;
-    }
-    for (int i = threadIdx.x; i < Policy::Nblk; i += Policy::Nthreads) {
-      auto idx = blockIdx.y * Policy::Nblk + i;
-      syNorm[i] = idx < n ? yn[idx] : 0;
-    }
-
-    __syncthreads();
-    DataT regxn[Policy::AccRowsPerTh], regyn[Policy::AccColsPerTh];
-#pragma unroll
-    for (int i = 0; i < Policy::AccRowsPerTh; ++i) {
-      regxn[i] =
-        sxNorm[i * Policy::AccThRows + (threadIdx.x / Policy::AccThCols)];
-    }
-#pragma unroll
-    for (int i = 0; i < Policy::AccColsPerTh; ++i) {
-      regyn[i] =
-        syNorm[i * Policy::AccThCols + (threadIdx.x % Policy::AccThCols)];
-    }
+                         DataT * regxn, DataT * regyn) {
 #pragma unroll
     for (int i = 0; i < Policy::AccRowsPerTh; ++i) {
 #pragma unroll
@@ -145,19 +80,22 @@ void euclideanExpImpl(const DataT *x, const DataT *y, const DataT *xn,
         acc[i][j] = regxn[i] + regyn[j] - (DataT)2.0 * acc[i][j];
       }
     }
+    if (sqrt) {
+#pragma unroll
+      for (int i = 0; i < Policy::AccRowsPerTh; ++i) {
+#pragma unroll
+        for (int j = 0; j < Policy::AccColsPerTh; ++j) {
+          acc[i][j] = raft::mySqrt(acc[i][j]);
+        }
+      }
+    }
   };
 
-  if (sqrt) {
-    euclideanExpKernel<DataT, AccT, OutT, IdxT, true, Policy,
-                       decltype(core_lambda), decltype(epilog_lambda),
-                       FinalLambda><<<grid, blk, Policy::SmemSize, stream>>>(
+  pairwiseDistanceMatKernel<raft::distance::DistanceType::L2Expanded, DataT,
+                            AccT, OutT, IdxT, Policy, decltype(core_lambda),
+                            decltype(epilog_lambda), FinalLambda>
+    <<<grid, blk, Policy::SmemSize, stream>>>(
       x, y, xn, yn, m, n, k, dOutput, core_lambda, epilog_lambda, fin_op);
-  } else {
-    euclideanExpKernel<DataT, AccT, OutT, IdxT, false, Policy,
-                       decltype(core_lambda), decltype(epilog_lambda),
-                       FinalLambda><<<grid, blk, Policy::SmemSize, stream>>>(
-      x, y, xn, yn, m, n, k, dOutput, core_lambda, epilog_lambda, fin_op);
-  }
 
   CUDA_CHECK(cudaGetLastError());
 }
@@ -212,13 +150,10 @@ void euclideanAlgo1(Index_ m, Index_ n, Index_ k, const InType *pA,
 
   typedef std::is_same<OutType, bool> is_bool;
 
-  if (((pA != pB) && (worksize < (m + n) * sizeof(AccType))) ||
-      (worksize < m * sizeof(AccType))) {
-    THROW("workspace size error");
-  }
-  if (workspace == nullptr) {
-    THROW("workspace is null");
-  }
+  ASSERT(!(((pA != pB) && (worksize < (m + n) * sizeof(AccType))) ||
+           (worksize < m * sizeof(AccType))),
+         "workspace size error");
+  ASSERT(workspace != nullptr, "workspace is null");
 
   InType *col_vec = workspace;
   InType *row_vec = workspace;
@@ -302,17 +237,12 @@ void euclideanAlgo1(Index_ m, Index_ n, Index_ k, const InType *pA,
 }
 
 /**
- * @brief the unexpanded euclidean distance matrix calculation kernel
+ * @brief the unexpanded euclidean distance matrix calculation 
  *  It computes the following equation: cij = op((ai-bj)^2)
  * @tparam DataT          input data-type (for A and B matrices)
  * @tparam AccT           accumulation data-type
  * @tparam OutT           output data-type (for C and D matrices)
  * @tparam IdxT           index data-type
- * @tparam sqrt           if the square root is computed or not
- * @tparam Policy         struct which tunes the Contraction kernel
- * @tparam CoreLambda     lambda which implements accumulation operation
- * @tparam EpilogueLambda lambda which implements operation for calculating
-                          final value.
  * @tparam FinalLambda    final lambda called on final distance value
  *
  * @param[in]       x input matrix
@@ -320,25 +250,10 @@ void euclideanAlgo1(Index_ m, Index_ n, Index_ k, const InType *pA,
  * @param[in]       m number of rows of A and C/D
  * @param[in]       n number of columns of B and C/D
  * @param[in]       k number of cols of A and rows of B
+ * @param[in]       sqrt if the square root is computed or not
  * @param[output]   pD output matrix
- * @param core_op   the core lambda
- * @param epilog_op the epilogue lambda
  * @param fin_op    the final gemm epilogue lambda
  */
-template <typename DataT, typename AccT, typename OutT, typename IdxT,
-          bool Sqrt, typename Policy, typename CoreLambda,
-          typename EpilogueLambda, typename FinalLambda>
-__global__ __launch_bounds__(Policy::Nthreads, 2) void euclideanUnExpKernel(
-  const DataT *x, const DataT *y, IdxT m, IdxT n, IdxT k, OutT *dOutput,
-  CoreLambda core_op, EpilogueLambda epilog_op, FinalLambda fin_op) {
-  extern __shared__ char smem[];
-
-  PairwiseDistances<DataT, AccT, OutT, IdxT, Sqrt, Policy, CoreLambda,
-                    EpilogueLambda, FinalLambda>
-    obj(x, y, m, n, k, dOutput, smem, core_op, epilog_op, fin_op);
-  obj.run();
-}
-
 template <typename DataT, typename AccT, typename OutT, typename IdxT,
           int VecLen, typename FinalLambda>
 void euclideanUnExpImpl(const DataT *x, const DataT *y, IdxT m, IdxT n, IdxT k,
@@ -356,21 +271,26 @@ void euclideanUnExpImpl(const DataT *x, const DataT *y, IdxT m, IdxT n, IdxT k,
   };
 
   // epilogue operation lambda for final value calculation
-  auto epilog_lambda = [] __device__(
+  auto epilog_lambda = [sqrt] __device__(
                          AccT acc[Policy::AccRowsPerTh][Policy::AccColsPerTh],
-                         DataT * sxNorm, DataT * syNorm) { return; };
+                         DataT * regxn, DataT * regyn) {
+    if (sqrt) {
+#pragma unroll
+      for (int i = 0; i < Policy::AccRowsPerTh; ++i) {
+#pragma unroll
+        for (int j = 0; j < Policy::AccColsPerTh; ++j) {
+          acc[i][j] = raft::mySqrt(acc[i][j]);
+        }
+      }
+    }
+  };
 
-  if (sqrt) {
-    euclideanUnExpKernel<DataT, AccT, OutT, IdxT, true, Policy,
-                         decltype(core_lambda), decltype(epilog_lambda),
-                         FinalLambda><<<grid, blk, Policy::SmemSize, stream>>>(
-      x, y, m, n, k, dOutput, core_lambda, epilog_lambda, fin_op);
-  } else {
-    euclideanUnExpKernel<DataT, AccT, OutT, IdxT, false, Policy,
-                         decltype(core_lambda), decltype(epilog_lambda),
-                         FinalLambda><<<grid, blk, Policy::SmemSize, stream>>>(
-      x, y, m, n, k, dOutput, core_lambda, epilog_lambda, fin_op);
-  }
+  pairwiseDistanceMatKernel<raft::distance::DistanceType::L2Unexpanded, DataT,
+                            AccT, OutT, IdxT, Policy, decltype(core_lambda),
+                            decltype(epilog_lambda), FinalLambda>
+    <<<grid, blk, Policy::SmemSize, stream>>>(x, y, nullptr, nullptr, m, n, k,
+                                              dOutput, core_lambda,
+                                              epilog_lambda, fin_op);
 
   CUDA_CHECK(cudaGetLastError());
 }

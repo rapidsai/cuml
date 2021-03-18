@@ -26,16 +26,13 @@ namespace MLCommon {
 namespace Distance {
 
 /**
- * @brief the L1 distance matrix calculation kernel
+ * @brief the L1 distance matrix calculation implementer
  *  It computes the following equation: cij = op(ai-bj)
  * @tparam DataT          input data-type (for A and B matrices)
  * @tparam AccT           accumulation data-type
  * @tparam OutT           output data-type (for C and D matrices)
  * @tparam IdxT           index data-type
- * @tparam Policy         struct which tunes the Contraction kernel
- * @tparam CoreLambda     lambda which implements accumulation operation
- * @tparam EpilogueLambda lambda which implements operation for calculating
-                          final value.
+
  * @tparam FinalLambda    final lambda called on final distance value
  *
  * @param[in]       x input matrix
@@ -44,24 +41,8 @@ namespace Distance {
  * @param[in]       n number of columns of B and C/D
  * @param[in]       k number of cols of A and rows of B
  * @param[output]   pD output matrix
- * @param core_op   the core lambda
- * @param epilog_op the epilogue lambda
  * @param fin_op    the final gemm epilogue lambda
  */
-template <typename DataT, typename AccT, typename OutT, typename IdxT,
-          typename Policy, typename CoreLambda, typename EpilogueLambda,
-          typename FinalLambda>
-__global__ __launch_bounds__(Policy::Nthreads, 2) void l1Kernel(
-  const DataT *x, const DataT *y, IdxT m, IdxT n, IdxT k, OutT *dOutput,
-  CoreLambda core_op, EpilogueLambda epilog_op, FinalLambda fin_op) {
-  extern __shared__ char smem[];
-
-  PairwiseDistances<DataT, AccT, OutT, IdxT, false, Policy, CoreLambda,
-                    EpilogueLambda, FinalLambda>
-    obj(x, y, m, n, k, dOutput, smem, core_op, epilog_op, fin_op);
-  obj.run();
-}
-
 template <typename DataT, typename AccT, typename OutT, typename IdxT,
           int VecLen, typename FinalLambda>
 static void l1Impl(const DataT *x, const DataT *y, IdxT m, IdxT n, IdxT k,
@@ -80,12 +61,14 @@ static void l1Impl(const DataT *x, const DataT *y, IdxT m, IdxT n, IdxT k,
   // epilogue operation lambda for final value calculation
   auto epilog_lambda = [] __device__(
                          AccT acc[Policy::AccRowsPerTh][Policy::AccColsPerTh],
-                         DataT * sxNorm, DataT * syNorm) { return; };
+                         DataT * regxn, DataT * regyn) { return; };
 
-  l1Kernel<DataT, AccT, OutT, IdxT, Policy, decltype(core_lambda),
-           decltype(epilog_lambda), FinalLambda>
-    <<<grid, blk, Policy::SmemSize, stream>>>(
-      x, y, m, n, k, dOutput, core_lambda, epilog_lambda, fin_op);
+  pairwiseDistanceMatKernel<raft::distance::DistanceType::L1, DataT, AccT, OutT,
+                            IdxT, Policy, decltype(core_lambda),
+                            decltype(epilog_lambda), FinalLambda>
+    <<<grid, blk, Policy::SmemSize, stream>>>(x, y, nullptr, nullptr, m, n, k,
+                                              dOutput, core_lambda,
+                                              epilog_lambda, fin_op);
 
   CUDA_CHECK(cudaGetLastError());
 }
