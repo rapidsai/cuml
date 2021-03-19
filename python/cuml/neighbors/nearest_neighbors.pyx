@@ -69,7 +69,7 @@ cdef extern from "cuml/neighbors/knn.hpp" namespace "ML":
         pass
 
     void brute_force_knn(
-        handle_t &handle,
+        const handle_t &handle,
         vector[float*] &inputs,
         vector[int] &sizes,
         int D,

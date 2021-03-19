@@ -23,7 +23,7 @@
 #include "../common.cuh"
 #include "pack.h"
 
-#include <sparse/convert/csr.cuh>
+#include <raft/sparse/convert/csr.cuh>
 
 using namespace thrust;
 
