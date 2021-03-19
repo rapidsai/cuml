@@ -368,6 +368,8 @@ __global__ void computeSplitClassificationKernel(
   }
 
   // populating shared memory with initial values
+  for (IdxT i = threadIdx.x; i < pdf_shist_len; i += blockDim.x) pdf_shist[i] = 0;
+  for (IdxT j = threadIdx.x; j < cdf_shist_len; j += blockDim.x) cdf_shist[j] = 0;
   for (IdxT i = threadIdx.x; i < pdf_shist_len; i += blockDim.x)
     pdf_shist[i] = 0;
   for (IdxT j = threadIdx.x; j < cdf_shist_len; j += blockDim.x)
@@ -389,14 +391,15 @@ __global__ void computeSplitClassificationKernel(
     bool breakflag = false;
     for (IdxT b = 0; b < nbins; ++b) {
       if (d <= sbins[b]) {  // shist (0 -> nbins*nclasses - 1)
-        auto offset = b * nclasses + label;
+        //auto offset = b * nclasses + label;
+        auto offset = label * (1 + nbins) + b;
         atomicAdd(pdf_shist + offset, 1);
         breakflag = true;
         break;
       }
     }
     // case when d is larger than all bins
-    if (!breakflag) atomicAdd(pdf_shist + nbins * nclasses + label, 1);
+    if (!breakflag) atomicAdd(pdf_shist + ( 1 + nbins ) * label + nbins, 1);
   }
 
   // synchronizeing above changes across block
@@ -448,14 +451,16 @@ __global__ void computeSplitClassificationKernel(
       int cdf_per_bin_per_class;
       // left to right scan operation for scanning lesser-than-or-equal-to-bin counts
       // offset for left to right scan of pdf_shist
-      IdxT class_segment_offset = nclasses * tix;
+      //IdxT class_segment_offset = nclasses * tix;
+      IdxT class_segment_offset = (1 + nbins) * c;
       pdf_per_bin_per_class =
-        tix < nbins ? pdf_shist[class_segment_offset + c] : 0;
+        tix < nbins ? pdf_shist[class_segment_offset + tix] : 0;
       BlockScan(temp_storage)
         .InclusiveSum(pdf_per_bin_per_class, cdf_per_bin_per_class);
       __syncthreads();  // synchronizing the scan
       if (tix < nbins) {
-        auto histOffset = (2 * nclasses * tix + c);
+        //auto histOffset = (2 * nclasses * tix + c);
+        auto histOffset = (2 * nbins * c + tix);
         cdf_shist[histOffset] = cdf_per_bin_per_class;
       }
 
@@ -463,14 +468,15 @@ __global__ void computeSplitClassificationKernel(
       // thread0 -> last class segment of pdf_shist
       // thread(nbins - 1) -> 2nd class segment of pdf_shist
       // offset for right to left scan of pdf_shist
-      class_segment_offset = nclasses * (nbins - tix);
+      //class_segment_offset = nclasses * (nbins - tix);
       pdf_per_bin_per_class =
-        tix < nbins ? pdf_shist[class_segment_offset + c] : 0;
+        tix < nbins ? pdf_shist[class_segment_offset + (nbins - tix)] : 0;
       BlockScan(temp_storage)
         .InclusiveSum(pdf_per_bin_per_class, cdf_per_bin_per_class);
       __syncthreads();  // synchronizing the scan
       if (tix < nbins) {
-        auto histOffset = (2 * nclasses * (nbins - tix - 1) + nclasses + c);
+        //auto histOffset = (2 * nclasses * (nbins - tix - 1) + nclasses + c);
+        auto histOffset = (2 * nbins * c) + nbins + (nbins - tix - 1);
         cdf_shist[histOffset] = cdf_per_bin_per_class;
       }
     }
