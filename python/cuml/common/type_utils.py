@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020, NVIDIA CORPORATION.
+# Copyright (c) 2020-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,8 +14,9 @@
 # limitations under the License.
 #
 import functools
-import cupy as cp
 import typing
+
+import cupy as cp
 
 # Those are the only data types supported by cupyx.scipy.sparse matrices.
 CUPY_SPARSE_DTYPES = [cp.float32, cp.float64, cp.complex64, cp.complex128]
@@ -29,5 +30,10 @@ def wraps_typed(
         wrapped: _F,
         assigned=('__doc__', '__annotations__'),
         updated=functools.WRAPPER_UPDATES) -> typing.Callable[[_F], _F]:
-    
-    return functools.wraps(wrapped=wrapped, assigned=assigned, updated=updated)
+    """
+    Typed version of `functools.wraps`. Allows decorators to retain their
+    return type.
+    """
+    return functools.wraps(wrapped=wrapped,
+                           assigned=assigned,
+                           updated=updated)

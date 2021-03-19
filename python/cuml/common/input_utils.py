@@ -614,6 +614,7 @@ def sparse_scipy_to_cp(sp, dtype):
 
     return cupyx.scipy.sparse.coo_matrix((v, (r, c)), sp.shape)
 
+
 class _deprecate_pos_args:
     """
     Decorator that issues a warning when using positional args that should be
@@ -678,4 +679,3 @@ class _deprecate_pos_args:
         inner_f.__dict__[_deprecate_pos_args.FLAG_NAME] = True
 
         return inner_f
-

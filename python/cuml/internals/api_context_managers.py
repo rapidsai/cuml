@@ -34,7 +34,6 @@ except ImportError:
         pass
 
 
-
 @contextlib.contextmanager
 def _using_mirror_output_type():
     """

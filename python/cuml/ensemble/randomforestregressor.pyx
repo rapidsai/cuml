@@ -257,7 +257,7 @@ class RandomForestRegressor(BaseRandomForestModel,
 
     """
 
-    def __init__(self, *, 
+    def __init__(self, *,
                  split_criterion=2,
                  accuracy_metric='r2',
                  handle=None,

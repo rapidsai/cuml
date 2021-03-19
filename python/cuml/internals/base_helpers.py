@@ -20,7 +20,7 @@ import typing
 import cuml
 import cuml.internals
 import cuml.common
-from cuml.common.type_utils import _F, wraps_typed
+
 
 def _process_generic(gen_type):
 
