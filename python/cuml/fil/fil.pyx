@@ -419,7 +419,7 @@ class ForestInference(Base,
      * LightGBM categorical features are not supported.
      * Inference uses a dense matrix format, which is efficient for many
        problems but can be suboptimal for sparse datasets.
-     * Only binary classification and regression are supported.
+     * Only classification and regression are supported.
      * Many other random forest implementations including LightGBM, and SKLearn
        GBDTs make use of 64-bit floating point parameters, but the underlying
        library for ForestInference uses only 32-bit parameters. Because of the
