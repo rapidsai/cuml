@@ -125,7 +125,7 @@ void approx_knn_build_index(raft::handle_t &handle, ML::knnIndex *index,
  * @param[out] indices indices of the nearest neighbors
  * @param[in] index index to perform a search with
  * @param[in] k the number of nearest neighbors to search for
- * @param[in] x the query to perform a search with
+ * @param[in] query_array the query to perform a search with
  * @param[in] n number of rows in the query array
  */
 void approx_knn_search(raft::handle_t &handle, float *distances,
