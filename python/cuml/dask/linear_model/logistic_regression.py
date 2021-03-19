@@ -14,45 +14,17 @@
 #
 
 from cuml.dask.common.base import BaseEstimator
-from cuml.dask.common.base import DelayedPredictionMixin
-from cuml.dask.common.base import mnmg_import
-from cuml.dask.common.base import SyncFitMixinLinearModel
-from cuml.raft.dask.common.comms import get_raft_comm_state
-from dask_glm.estimators import LogisticRegression as LogisticRegressionGLM 
+from dask_glm.estimators import LogisticRegression as LogisticRegressionGLM
+import cupy as cp
+import dask_cudf
 
-class LogisticRegression(BaseEstimator,
-                       SyncFitMixinLinearModel,
-                       DelayedPredictionMixin):
-    """
-    LogisticRegression is a simple machine learning model for classification.
 
-    cuML's dask Logistic Regression (multi-node multi-gpu) expects dask cuDF
-    DataFrame and provides five algorithms, Eig, to fit a linear model.
-
-    Parameters
-    -----------
-    algorithm : {'admm', 'gradient_descent', 'newton', 'lbfgs', 'proximal_grad'}
-    fit_intercept : boolean (default = True)
-        LinearRegression adds an additional term c to correct for the global
-        mean of y, modeling the reponse as "x * beta + c".
-        If False, the model expects that you have centered the data.
-    normalize : boolean (default = False)
-        If True, the predictors in X will be normalized by dividing by its
-        L2 norm.
-        If False, no scaling will be done.
-
-    Attributes
-    -----------
-    coef_ : cuDF series, shape (n_features)
-        The estimated coefficients for the linear regression model.
-    intercept_ : array
-        The independent term. If `fit_intercept` is False, will be 0.
-    """
+class LogisticRegression(BaseEstimator):
 
     def __init__(self, client=None, verbose=False, **kwargs):
         super(LogisticRegression, self).__init__(client=client,
-                                               verbose=verbose,
-                                               **kwargs)
+                                                 verbose=verbose,
+                                                 **kwargs)
 
     def fit(self, X, y):
         """
@@ -60,20 +32,19 @@ class LogisticRegression(BaseEstimator,
 
         Parameters
         ----------
-        X : Dask cuDF dataframe  or CuPy backed Dask Array (n_rows, n_features)
+        X : Dask cuDF dataframe or CuPy backed Dask Array (n_rows, n_features)
             Features for regression
-        y : Dask cuDF dataframe  or CuPy backed Dask Array (n_rows, 1)
-            Labels (outcome values)
+        y : Dask cuDF Series or CuPy backed Dask Array (n_rows,)
+            Label (outcome values)
         """
-
-        models = self._fit(model_func=LinearRegression._create_model,
-                           data=(X, y))
-
-        self._set_internal_model(models[0])
-
+        X = self._to_dask_cupy_array(X)
+        y = self._to_dask_cupy_array(y)
+        lr = LogisticRegressionGLM(**self.kwargs)
+        lr.fit(X, y)
+        self.lr = lr
         return self
 
-    def predict(self, X, delayed=True):
+    def predict(self, X):
         """
         Make predictions for X and returns a dask collection.
 
@@ -83,23 +54,20 @@ class LogisticRegression(BaseEstimator,
             Distributed dense matrix (floats or doubles) of shape
             (n_samples, n_features).
 
-        delayed : bool (default = True)
-            Whether to do a lazy prediction (and return Delayed objects) or an
-            eagerly executed one.
-
         Returns
         -------
-        y : Dask cuDF dataframe  or CuPy backed Dask Array (n_rows, 1)
+        y : Dask cuDF Series or CuPy backed Dask Array (n_rows,)
         """
-        return self._predict(X, delayed=delayed)
+        X = self._to_dask_cupy_array(X)
+        return self.lr.predict(X)
+
+    def _to_dask_cupy_array(self, X):
+        if isinstance(X, dask_cudf.DataFrame) or \
+           isinstance(X, dask_cudf.Series):
+            X = X.values
+            X._meta = cp.asarray(X._meta)
+        X.compute_chunk_sizes()
+        return X
 
     def get_param_names(self):
         return list(self.kwargs.keys())
-
-    @staticmethod
-    @mnmg_import
-    def _create_model(sessionId, datatype, **kwargs):
-        from cuml.linear_model.linear_regression_mg import LinearRegressionMG
-        handle = get_raft_comm_state(sessionId)["handle"]
-        return LinearRegressionMG(handle=handle, output_type=datatype,
-                                  **kwargs)
