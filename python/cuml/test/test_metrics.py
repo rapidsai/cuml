@@ -270,6 +270,23 @@ def test_silhouette_samples_batched(metric, chunk_divider, labeled_clusters):
         assert False
 
 
+def test_silhouette_score_batched_non_monotonic():
+    vecs = np.array([[0.0, 0.0, 0.0], [1.0, 1.0, 1.0],
+                    [2.0, 2.0, 2.0], [10.0, 10.0, 10.0]])
+    labels = np.array([0, 0, 1, 3])
+
+    cuml_score = cu_silhouette_score(X=vecs, labels=labels)
+    sk_score = sk_silhouette_score(X=vecs, labels=labels)
+    assert_almost_equal(cuml_score, sk_score, decimal=2)
+
+    vecs = np.array([[0.0, 0.0, 0.0], [1.0, 1.0, 1.0], [10.0, 10.0, 10.0]])
+    labels = np.array([1, 1, 3])
+
+    cuml_score = cu_silhouette_score(X=vecs, labels=labels)
+    sk_score = sk_silhouette_score(X=vecs, labels=labels)
+    assert_almost_equal(cuml_score, sk_score, decimal=2)
+
+
 def score_homogeneity(ground_truth, predictions, use_handle):
     return score_labeling_with_handle(cuml.metrics.homogeneity_score,
                                       ground_truth,
@@ -1086,6 +1103,8 @@ def test_pairwise_distances_output_types(input_type, output_type, use_global):
             assert isinstance(S, cp.core.core.ndarray)
 
 
+@pytest.mark.xfail(reason='Temporarily disabling this test. '
+                          'See rapidsai/cuml#3569')
 @pytest.mark.parametrize("nrows, ncols, n_info",
                          [
                              unit_param(30, 10, 7),

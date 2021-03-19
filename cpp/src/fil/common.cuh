@@ -116,6 +116,8 @@ struct shmem_size_params {
   leaf_algo_t leaf_algo = leaf_algo_t::FLOAT_UNARY_BINARY;
   /// how many columns an input row has
   int num_cols = 0;
+  /// whether to predict class probabilities or classes (or regress)
+  bool predict_proba = false;
   /// are the input columns are prefetched into shared
   /// memory before inferring the row in question
   bool cols_in_shmem = true;
@@ -148,7 +150,9 @@ struct predict_params : shmem_size_params {
   // number of data rows (instances) to predict on
   size_t num_rows;
 
-  // Other parameters.
+  // to signal infer kernel to apply softmax and also average prior to that
+  // for GROVE_PER_CLASS for predict_proba
+  output_t transform;
   int num_blocks;
 };
 
