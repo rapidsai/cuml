@@ -162,8 +162,9 @@ class Lars(Base, RegressorMixin):
                  handle=None, verbose=False, output_type=None, copy_X=True,
                  fit_path=True, n_nonzero_coefs=500, eps=None,
                  precompute='auto'):
-        super(Lars, self).__init__(handle=handle, verbose=verbose,
-                                   output_type=output_type)
+        super().__init__(handle=handle,
+                         verbose=verbose,
+                         output_type=output_type)
 
         self.fit_intercept = fit_intercept
         self.normalize = normalize

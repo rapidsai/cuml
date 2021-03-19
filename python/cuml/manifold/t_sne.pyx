@@ -237,7 +237,7 @@ class TSNE(Base,
 
     embedding_ = CumlArrayDescriptor()
 
-    def __init__(self,
+    def __init__(self, *,
                  n_components=2,
                  perplexity=30.0,
                  early_exaggeration=12.0,
@@ -260,9 +260,9 @@ class TSNE(Base,
                  handle=None,
                  output_type=None):
 
-        super(TSNE, self).__init__(handle=handle,
-                                   verbose=verbose,
-                                   output_type=output_type)
+        super().__init__(handle=handle,
+                         verbose=verbose,
+                         output_type=output_type)
 
         if n_components < 0:
             raise ValueError("n_components = {} should be more "

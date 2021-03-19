@@ -247,7 +247,7 @@ class SVC(SVMBase,
 
     """
 
-    def __init__(self, handle=None, C=1, kernel='rbf', degree=3,
+    def __init__(self, *, handle=None, C=1, kernel='rbf', degree=3,
                  gamma='scale', coef0=0.0, tol=1e-3, cache_size=1024.0,
                  max_iter=-1, nochange_steps=1000, verbose=False,
                  output_type=None, probability=False, random_state=None,

@@ -174,17 +174,16 @@ class AutoARIMA(Base):
 
     d_y = CumlArrayDescriptor()
 
-    def __init__(self,
+    def __init__(self, *,
                  endog,
                  handle=None,
                  simple_differencing=True,
                  verbose=False,
                  output_type=None):
         # Initialize base class
-        super().__init__(
-            handle=handle,
-            output_type=output_type,
-            verbose=verbose)
+        super().__init__(handle=handle,
+                         verbose=verbose,
+                         output_type=output_type)
         self._set_base_attributes(output_type=endog)
 
         # Get device array. Float64 only for now.

@@ -149,7 +149,7 @@ class KNeighborsRegressor(NearestNeighbors,
 
     y = CumlArrayDescriptor()
 
-    def __init__(self, weights="uniform", *, handle=None, verbose=False,
+    def __init__(self, *, weights="uniform", handle=None, verbose=False,
                  output_type=None, **kwargs):
         super(KNeighborsRegressor, self).__init__(
             handle=handle,

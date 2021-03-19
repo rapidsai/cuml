@@ -150,7 +150,7 @@ class KNeighborsClassifier(NearestNeighbors,
     y = CumlArrayDescriptor()
     classes_ = CumlArrayDescriptor()
 
-    def __init__(self, weights="uniform", *, handle=None, verbose=False,
+    def __init__(self, *, weights="uniform", handle=None, verbose=False,
                  output_type=None, **kwargs):
         super(KNeighborsClassifier, self).__init__(
             handle=handle,

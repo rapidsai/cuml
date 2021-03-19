@@ -25,6 +25,7 @@ import cuml.common
 import cuml.common.array
 import cuml.common.array_sparse
 import cuml.common.input_utils
+from cuml.common.type_utils import _F
 from cuml.internals.api_context_managers import BaseReturnAnyCM
 from cuml.internals.api_context_managers import BaseReturnArrayCM
 from cuml.internals.api_context_managers import BaseReturnGenericCM
@@ -37,10 +38,6 @@ from cuml.internals.api_context_managers import ReturnSparseArrayCM
 from cuml.internals.api_context_managers import set_api_output_dtype
 from cuml.internals.api_context_managers import set_api_output_type
 from cuml.internals.base_helpers import _get_base_return_type
-
-# Use _F as a type variable for decorators. See:
-# https://github.com/python/mypy/pull/8336/files#diff-eb668b35b7c0c4f88822160f3ca4c111f444c88a38a3b9df9bb8427131538f9cR260
-_F = typing.TypeVar("_F", bound=typing.Callable[..., typing.Any])
 
 
 class DecoratorMetaClass(type):

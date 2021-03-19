@@ -14,12 +14,13 @@
 # limitations under the License.
 #
 
+from inspect import Parameter, signature
 import typing
 
 import cuml
 import cuml.internals
 import cuml.common
-
+from cuml.common.type_utils import _F, wraps_typed
 
 def _process_generic(gen_type):
 
@@ -125,14 +126,50 @@ def _wrap_attribute(class_name: str,
     return attribute
 
 
+def _check_and_wrap_init(attribute, **kwargs):
+
+    from cuml.common.input_utils import _deprecate_pos_args
+
+    # Check if the decorator has already been added
+    if (attribute.__dict__.get(_deprecate_pos_args.FLAG_NAME)):
+        return attribute
+
+    # Get the signature to test if all args are keyword only
+    sig = signature(attribute)
+
+    incorrect_params = [
+        n for n,
+        p in sig.parameters.items()
+        if n != "self" and (p.kind == Parameter.POSITIONAL_ONLY
+                            or p.kind == Parameter.POSITIONAL_OR_KEYWORD)
+    ]
+
+    assert len(incorrect_params) == 0, \
+        (
+            "Error in `{}`!. Positional arguments for estimators (that derive "
+            "from `Base`) have been deprecated but parameters '{}' can still "
+            "be used as positional arguments. Please specify all parameters "
+            "after `self` as keyword only by using the `*` argument"
+        ).format(attribute.__qualname__, ", ".join(incorrect_params))
+
+    return _deprecate_pos_args(**kwargs)(attribute)
+
+
 class BaseMetaClass(type):
     def __new__(cls, classname, bases, classDict):
 
         for attributeName, attribute in classDict.items():
             # Must be a function
             if callable(attribute):
+
+                # If attributeName is `__init__`, wrap in the decorator to
+                # deprecate positional args
+                if (attributeName == "__init__"):
+                    attribute = _check_and_wrap_init(attribute, version="0.20")
+
                 classDict[attributeName] = _wrap_attribute(
                     classname, attributeName, attribute)
+
             elif isinstance(attribute, property):
                 # Need to wrap the getter if it exists
                 if (hasattr(attribute, "fget") and attribute.fget is not None):

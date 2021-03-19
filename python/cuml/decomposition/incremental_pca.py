@@ -189,7 +189,7 @@ class IncrementalPCA(PCA):
         0.003474966583315544
 
     """
-    def __init__(self, handle=None, n_components=None, *, whiten=False,
+    def __init__(self, *, handle=None, n_components=None, whiten=False,
                  copy=True, batch_size=None, verbose=False,
                  output_type=None):
 

@@ -182,13 +182,14 @@ class ExponentialSmoothing(Base):
     season = CumlArrayDescriptor()
     SSE = CumlArrayDescriptor()
 
-    def __init__(self, endog, seasonal="additive",
+    def __init__(self, *, endog, seasonal="additive",
                  seasonal_periods=2, start_periods=2,
                  ts_num=1, eps=2.24e-3, handle=None,
                  verbose=False, output_type=None):
 
-        super(ExponentialSmoothing, self).__init__(
-            handle=handle, verbose=verbose, output_type=output_type)
+        super().__init__(handle=handle,
+                         verbose=verbose,
+                         output_type=output_type)
 
         # Total number of Time Series for forecasting
         if type(ts_num) != int:

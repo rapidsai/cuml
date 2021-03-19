@@ -263,7 +263,7 @@ class RandomForestClassifier(BaseRandomForestModel,
 
     """
 
-    def __init__(self, split_criterion=0, handle=None, verbose=False,
+    def __init__(self, *, split_criterion=0, handle=None, verbose=False,
                  output_type=None, **kwargs):
 
         self.RF_type = CLASSIFICATION

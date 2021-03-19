@@ -293,7 +293,7 @@ class NearestNeighbors(Base,
 
     X_m = CumlArrayDescriptor()
 
-    def __init__(self,
+    def __init__(self, *,
                  n_neighbors=5,
                  verbose=False,
                  handle=None,
@@ -304,9 +304,9 @@ class NearestNeighbors(Base,
                  metric_params=None,
                  output_type=None):
 
-        super(NearestNeighbors, self).__init__(handle=handle,
-                                               verbose=verbose,
-                                               output_type=output_type)
+        super().__init__(handle=handle,
+                         verbose=verbose,
+                         output_type=output_type)
 
         self.n_neighbors = n_neighbors
         self.n_indices = 0

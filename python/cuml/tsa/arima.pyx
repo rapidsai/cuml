@@ -270,11 +270,10 @@ class ARIMA(Base):
     sma_ = CumlArrayDescriptor()
     sigma2_ = CumlArrayDescriptor()
 
-    def __init__(self,
+    def __init__(self, *,
                  endog,
                  order: Tuple[int, int, int] = (1, 1, 1),
-                 seasonal_order: Tuple[int, int, int, int]
-                 = (0, 0, 0, 0),
+                 seasonal_order: Tuple[int, int, int, int] = (0, 0, 0, 0),
                  fit_intercept=True,
                  simple_differencing=True,
                  handle=None,
@@ -287,7 +286,9 @@ class ARIMA(Base):
                                "estimation.")
 
         # Initialize base class
-        super().__init__(handle, verbose, output_type)
+        super().__init__(handle=handle,
+                         verbose=verbose,
+                         output_type=output_type)
         self._set_base_attributes(output_type=endog)
 
         # Set the ARIMA order
