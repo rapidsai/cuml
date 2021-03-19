@@ -28,7 +28,7 @@ dependencies:
     - sphinx_markdown_tables
     - git+https://github.com/dask/dask.git@main
     - git+https://github.com/dask/distributed.git@main
-
+    - git+https://github.com/dask/dask-glm@main
 # rapids-build-env, notebook-env and doc-env meta packages are defined in
 # https://docs.rapids.ai/maintainers/depmgmt/
 
