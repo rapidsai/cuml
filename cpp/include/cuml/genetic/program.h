@@ -55,6 +55,11 @@ typedef program* program_t;
 /** returns predictions for given dataset on a single program*/
 void execute_single(const raft::handle_t &h, program_t p, 
                      float* data, float* y_pred, int n_rows);
+
+/** returns predictions for given dataset on multiple programs program*/
+void execute_batched(const raft::handle_t &h, program_t p, 
+                     float* data, float* y_pred, int n_rows, 
+                     int n_progs);
                  
 /** computes fitness score for a single program */
 void raw_fitness(const raft::handle_t &h, program_t p, 
