@@ -279,7 +279,7 @@ def test_silhouette_score_batched_non_monotonic():
     sk_samples = sk_silhouette_samples(X=vecs, labels=labels)
     print(cuml_samples)
     print(sk_samples)
-    assert_almost_equal(cuml_samples, sk_samples, decimal=2)
+    array_equal(cuml_samples, sk_samples)
 
     vecs = np.array([[0.0, 0.0, 0.0], [1.0, 1.0, 1.0], [10.0, 10.0, 10.0]])
     labels = np.array([1, 1, 3])
@@ -288,7 +288,7 @@ def test_silhouette_score_batched_non_monotonic():
     sk_samples = sk_silhouette_samples(X=vecs, labels=labels)
     print(cuml_samples)
     print(sk_samples)
-    assert_almost_equal(cuml_samples, sk_samples, decimal=2)
+    array_equal(cuml_samples, sk_samples)
 
 
 def score_homogeneity(ground_truth, predictions, use_handle):
