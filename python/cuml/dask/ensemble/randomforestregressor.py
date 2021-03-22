@@ -338,13 +338,13 @@ class RandomForestRegressor(BaseRandomForestModel, DelayedPredictionMixin,
             Whether to do a lazy prediction (and return Delayed objects) or an
             eagerly executed one.
         broadcast_data : bool (default = False)
-            Usually the trees are merged in a single model for the workers
-            to perform inference. Then each worker receives its portion of
-            the work. When set to True, the step performing the merge of
-            the trees is skipped. Instead the workers infer the whole dataset
-            from trees at disposal, the results are reduced on the client.
-            May be advantageous when the model is larger than the data
-            used for inference.
+            If broadcast_data=False, the trees are merged in a single model
+            before the workers perform inference on their share of the
+            prediction workload. When broadcast_data=True, trees aren't merged.
+            Instead each of the workers infer the whole prediction work
+            from trees at disposal. The results are reduced on the client.
+            May be advantageous when the model is larger than the data used
+            for inference.
 
         Returns
         -------

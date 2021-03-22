@@ -317,6 +317,12 @@ class BaseRandomForestModel(object):
         return internal_model
 
     def apply_reduction(self, reduce, partial_infs, datatype, delayed):
+        """
+        Reduces the partial inferences to obtain the final result. The workers
+        didn't have the same number of trees to form their predictions. To
+        correct for this worker's predictions are weighted differently during
+        reduction.
+        """
         workers_weights = cp.array(self.n_estimators_per_worker)
         workers_weights = workers_weights / workers_weights.sum()
         unique_classes = None if not hasattr(self, 'unique_classes') \
