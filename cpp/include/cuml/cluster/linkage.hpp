@@ -75,6 +75,4 @@ void single_linkage_pairwise(
   raft::hierarchy::linkage_output<int64_t, float> *out,
   raft::distance::DistanceType metric, int n_clusters = 5);
 
-/** @} */
-
 };  // namespace ML
