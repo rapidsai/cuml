@@ -12,7 +12,7 @@ def test_class_enumerator():
             pass
 
         class CustomConstructorClass(cuml.Base):
-            def __init__(self, some_parameter):
+            def __init__(self, *, some_parameter):
                 self.some_parameter = some_parameter
 
             def __eq__(self, other):
