@@ -50,7 +50,6 @@ cdef extern from "raft/sparse/hierarchy/common.h" namespace "raft::hierarchy":
 
 cdef extern from "cuml/cluster/linkage.hpp" namespace "ML":
 
-
     cdef void single_linkage_pairwise(
         const handle_t &handle,
         const float *X,
@@ -75,9 +74,29 @@ cdef extern from "cuml/cluster/linkage.hpp" namespace "ML":
 
 class AgglomerativeClustering(Base, ClusterMixin, CMajorInputTagMixin):
 
+    labels_ = CumlArrayDescriptor()
+    children_ = CumlArrayDescriptor()
+
     def __init__(self, n_clusters=2, affinity="euclidean", linkage="single",
                  compute_distances=False, handle=None, verbose=False,
-                 n_neighbors=10, output_type=None):
+                 connectivity='knn', n_neighbors=10, output_type=None):
+
+        """
+        Agglomerative Clustering
+
+        Recursively merges the pair of clusters that minimally increases a
+        given linkage distance.
+
+        :param n_clusters: number of clusters
+        :param affinity: distance measure to use for linkage construction
+        :param linkage: linkage criterion to use. Currently only 'single' is supported.
+        :param compute_distances:
+        :param handle:
+        :param verbose:
+        :param connectivity: 'knn' constructs a knn graph to save
+        :param n_neighbors:
+        :param output_type:
+        """
         super(AgglomerativeClustering, self).__init__(handle,
                                                       verbose,
                                                       output_type)
@@ -86,6 +105,7 @@ class AgglomerativeClustering(Base, ClusterMixin, CMajorInputTagMixin):
         self.affinity = affinity
         self.linkage = linkage
         self.n_neighbors = n_neighbors
+        self.connectivity = connectivity
 
         self.labels_ = None
         self.n_clusters_ = None
@@ -112,7 +132,7 @@ class AgglomerativeClustering(Base, ClusterMixin, CMajorInputTagMixin):
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
         self.labels_ = CumlArray.empty(n_rows, dtype="int32")
-        self.children_ = CumlArray.empty((n_rows - 1) * 2, dtype="int32")
+        self.children_ = CumlArray.empty((2, (n_rows - 1)), dtype="int32")
         cdef uintptr_t labels_ptr = self.labels_.ptr
         cdef uintptr_t children_ptr = self.children_.ptr
 
@@ -121,15 +141,27 @@ class AgglomerativeClustering(Base, ClusterMixin, CMajorInputTagMixin):
         linkage_output.children = <int*>children_ptr
         linkage_output.labels = <int*>labels_ptr
 
-        cdef DistanceType metric = DistanceType.L2Unexpanded
+        cdef DistanceType metric = DistanceType.L2SqrtExpanded
 
-        single_linkage_pairwise(handle_[0],
-                                <float*>input_ptr,
-                                <int> n_rows,
-                                <int> n_cols,
-                                <linkage_output_int_float*> linkage_output,
-                                <DistanceType> metric,
-                                <int> self.n_clusters)
+        if self.connectivity == 'knn':
+            single_linkage_neighbors(handle_[0],
+                                     <float*>input_ptr,
+                                     <int> n_rows,
+                                     <int> n_cols,
+                                     <linkage_output_int_float*> linkage_output,
+                                     <DistanceType> metric,
+                                     <int>self.n_neighbors,
+                                     <int> self.n_clusters)
+        elif self.connectivity == 'pairwise':
+            single_linkage_pairwise(handle_[0],
+                                    <float*>input_ptr,
+                                    <int> n_rows,
+                                    <int> n_cols,
+                                    <linkage_output_int_float*> linkage_output,
+                                    <DistanceType> metric,
+                                    <int> self.n_clusters)
+        else:
+            raise ValueError("'connectivity' can be one of {'knn', 'pairwise'}")
 
         self.handle.sync()
 

@@ -13,29 +13,23 @@
 # limitations under the License.
 #
 
-import random
-
-import cuml
-import cuml.common.logger as logger
-import numpy as np
 import pytest
 
 from cuml.cluster import AgglomerativeClustering
 from cuml.datasets import make_blobs
 
-from cuml.test.utils import get_pattern, unit_param, \
-    quality_param, stress_param, array_equal
-
 from cuml.metrics import adjusted_rand_score
 
 from sklearn import cluster
 
+from cuml.test.utils import array_equal
+
 import cupy as cp
 
 
-@pytest.mark.parametrize('nrows', [1000, 10000])
+@pytest.mark.parametrize('nrows', [1000])
 @pytest.mark.parametrize('ncols', [25])
-@pytest.mark.parametrize('nclusters', [2, 5, 10])
+@pytest.mark.parametrize('nclusters', [2, 5, 10, 50, 100])
 @pytest.mark.parametrize('k', [3, 4])
 def test_sklearn_compare(nrows, ncols, nclusters, k):
 
@@ -48,14 +42,33 @@ def test_sklearn_compare(nrows, ncols, nclusters, k):
 
     cuml_agg = AgglomerativeClustering(
         n_clusters=nclusters, affinity='euclidean', linkage='single',
-        n_neighbors=k)
+        n_neighbors=k, connectivity='knn')
 
     cuml_agg.fit(X)
+
+    print("cu labels: %s" % cuml_agg.labels_.to_output("numpy"))
 
     sk_agg = cluster.AgglomerativeClustering(
         n_clusters=nclusters, affinity='euclidean', linkage='single')
 
     sk_agg.fit(cp.asnumpy(X))
+
+    cu_children = cp.asarray(cuml_agg.children_).T.get()
+    sk_children = sk_agg.children_
+
+    sk_children.sort(axis=1)
+    cu_children.sort(axis=1)
+
+    print("cu_children: " + str(cu_children))
+    print("sk_children: " + str(sk_children))
+
+    import numpy
+
+    a = numpy.not_equal(cu_children, sk_children)
+
+    print("NOT EQUAL: " + str(len(cu_children[a==True])))
+
+    # assert array_equal(cu_children, sk_children)
 
     # Cluster assignments should be exact, even though the actual
     # labels may differ
