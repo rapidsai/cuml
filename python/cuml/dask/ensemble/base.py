@@ -323,8 +323,10 @@ class BaseRandomForestModel(object):
         correct for this worker's predictions are weighted differently during
         reduction.
         """
-        workers_weights = cp.array(self.n_estimators_per_worker)
+        workers_weights = np.array(self.n_estimators_per_worker)
+        workers_weights = workers_weights[workers_weights != 0]
         workers_weights = workers_weights / workers_weights.sum()
+        workers_weights = cp.array(workers_weights)
         unique_classes = None if not hasattr(self, 'unique_classes') \
             else self.unique_classes
         delayed_local_array = dask.delayed(reduce)(partial_infs,
