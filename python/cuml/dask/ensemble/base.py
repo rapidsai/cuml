@@ -317,13 +317,6 @@ class BaseRandomForestModel(object):
         return internal_model
 
     def apply_reduction(self, reduce, partial_infs, datatype, delayed):
-        def back_to_dask(array, datatype):
-            res = array.compute()
-            if datatype == 'daskArray':
-                return dask.array.from_array(res, asarray=False)
-            else:
-                return dask.dataframe.from_array(res)
-
         workers_weights = cp.array(self.n_estimators_per_worker)
         workers_weights = workers_weights / workers_weights.sum()
         unique_classes = None if not hasattr(self, 'unique_classes') \
@@ -331,8 +324,9 @@ class BaseRandomForestModel(object):
         delayed_local_array = dask.delayed(reduce)(partial_infs,
                                                    workers_weights,
                                                    unique_classes)
-        delayed_res = back_to_dask(delayed_local_array, datatype)
-
+        delayed_res = dask.array.from_delayed(delayed_local_array,
+                                              shape=(np.nan, np.nan),
+                                              dtype=np.float32)
         if delayed:
             return delayed_res
         else:
