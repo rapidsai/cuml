@@ -598,3 +598,6 @@ def test_rf_broadcast(model_type, fit_broadcast, transform_broadcast, client):
         cuml_mod_predict = cp.asnumpy(cuml_mod_predict)
         acc_score = r2_score(cuml_mod_predict, y_test)
         assert acc_score >= 0.72
+
+    if transform_broadcast:
+        assert cuml_mod.internal_model is None
