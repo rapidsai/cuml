@@ -808,20 +808,21 @@ def test_rf_get_json(estimator_type, max_depth, n_estimators):
     assert isinstance(json_obj, list)
     assert len(json_obj) == n_estimators
 
-    # Test 3: The instance counts in the descendent nodes sum to the instance
-    # count of the root node
-    def total_instance_count_of_descendents(tree):
+    # Test 3: The instance count of each node must be equal to the sum of
+    # the instance counts of its children
+    def check_instance_count_for_non_leaf(tree):
         assert 'instance_count' in tree
         if 'children' not in tree:
-            return 0
+            return
         assert 'instance_count' in tree['children'][0]
         assert 'instance_count' in tree['children'][1]
-        return (tree['children'][0]['instance_count']
+        assert (tree['instance_count'] == tree['children'][0]['instance_count']
                 + tree['children'][1]['instance_count'])
+        check_instance_count_for_non_leaf(tree['children'][0])
+        check_instance_count_for_non_leaf(tree['children'][1])
 
     for tree in json_obj:
-        assert (total_instance_count_of_descendents(tree)
-                == tree['instance_count'])
+        check_instance_count_for_non_leaf(tree)
         # The root's count should be equal to the number of rows in the data
         assert tree['instance_count'] == X.shape[0]
 
