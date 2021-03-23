@@ -434,7 +434,8 @@ def test_rf_get_json(client, estimator_type, max_depth, n_estimators):
         assert 'split_threshold' in tree
         assert 'yes' in tree
         assert 'no' in tree
-        if np.float32(x[tree['split_feature']]) <= np.float32(tree['split_threshold']):
+        if (np.float32(x[tree['split_feature']])
+                <= np.float32(tree['split_threshold'])):
             return predict_with_json_tree(tree['children'][0], x)
         return predict_with_json_tree(tree['children'][1], x)
 
