@@ -50,9 +50,9 @@ namespace Distance {
  * @param epilog_op the epilog operation lambda
  * @param fin_op the final gemm epilogue lambda
  */
-template <bool useNorms, typename DataT,
-          typename AccT, typename OutT, typename IdxT, typename Policy,
-          typename CoreLambda, typename EpilogueLambda, typename FinalLambda,
+template <bool useNorms, typename DataT, typename AccT, typename OutT,
+          typename IdxT, typename Policy, typename CoreLambda,
+          typename EpilogueLambda, typename FinalLambda,
           typename BaseClass =
             raft::linalg::Contractions_NT<DataT, IdxT, Policy>>
 struct PairwiseDistances : public BaseClass {
@@ -208,9 +208,9 @@ struct PairwiseDistances : public BaseClass {
  * @param epilog_op the epilogue lambda
  * @param fin_op    the final gemm epilogue lambda
  */
-template <bool useNorms, typename DataT,
-          typename AccT, typename OutT, typename IdxT, typename Policy,
-          typename CoreLambda, typename EpilogueLambda, typename FinalLambda>
+template <bool useNorms, typename DataT, typename AccT, typename OutT,
+          typename IdxT, typename Policy, typename CoreLambda,
+          typename EpilogueLambda, typename FinalLambda>
 __global__ __launch_bounds__(
   Policy::Nthreads,
   2) void pairwiseDistanceMatKernel(const DataT* x, const DataT* y,
@@ -222,8 +222,8 @@ __global__ __launch_bounds__(
   extern __shared__ char smem[];
 
   PairwiseDistances<useNorms, DataT, AccT, OutT, IdxT, Policy, CoreLambda,
-                      EpilogueLambda, FinalLambda>
-      obj(x, y, m, n, k, _xn, _yn, dOutput, smem, core_op, epilog_op, fin_op);
+                    EpilogueLambda, FinalLambda>
+    obj(x, y, m, n, k, _xn, _yn, dOutput, smem, core_op, epilog_op, fin_op);
   obj.run();
 }
 
