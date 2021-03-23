@@ -40,7 +40,7 @@
 #include <raft/linalg/distance_type.h>
 #include "processing.cuh"
 
-#include <selection/haversine_knn.cuh>
+#include "haversine_knn.cuh"
 
 #include <cuml/common/cuml_allocator.hpp>
 #include <cuml/common/device_buffer.hpp>
@@ -302,7 +302,6 @@ void approx_knn_build_index(ML::knnIndex *index, ML::knnIndexParam *params,
   faiss::gpu::StandardGpuResources *gpu_res =
     new faiss::gpu::StandardGpuResources();
   gpu_res->noTempMemory();
-  gpu_res->setCudaMallocWarning(false);
   gpu_res->setDefaultStream(device, userStream);
   index->gpu_res = gpu_res;
   index->device = device;
@@ -455,7 +454,6 @@ void brute_force_knn(std::vector<float *> &input, std::vector<int> &sizes,
         faiss::gpu::StandardGpuResources gpu_res;
 
         gpu_res.noTempMemory();
-        gpu_res.setCudaMallocWarning(false);
         gpu_res.setDefaultStream(device, stream);
 
         faiss::gpu::GpuDistanceParams args;
@@ -479,8 +477,6 @@ void brute_force_knn(std::vector<float *> &input, std::vector<int> &sizes,
          */
         bfKnn(&gpu_res, args);
     }
-
-    CUDA_CHECK(cudaPeekAtLastError());
   }
 
   // Sync internal streams if used. We don't need to
