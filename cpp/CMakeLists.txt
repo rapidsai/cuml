@@ -82,6 +82,8 @@ option(NVTX "Enable nvtx markers" OFF)
 
 option(SINGLEGPU "Disable all mnmg components and comms libraries" OFF)
 
+option(USE_CCACHE "Cache build artifacts with ccache" OFF)
+
 set(BUILD_RPATH_USE_ORIGIN "Whether to use relative paths for the build RPATH." TRUE)
 
 set(PARALLEL_LEVEL "" CACHE STRING
@@ -160,6 +162,12 @@ if(BUILD_CUML_MG_TESTS AND NOT SINGLEGPU)
   message(STATUS "Detected BUILD_CUML_MG_TESTS set to ON. Enabling BUILD_CUML_MPI_COMMS")
   set(BUILD_CUML_MPI_COMMS ON)
 endif(BUILD_CUML_MG_TESTS AND NOT SINGLEGPU)
+
+if(USE_CCACHE)
+  set(CMAKE_C_COMPILER_LAUNCHER ccache)
+  set(CMAKE_CXX_COMPILER_LAUNCHER ccache)
+  set(CMAKE_CUDA_COMPILER_LAUNCHER ccache)
+endif(USE_CCACHE)
 
 ##############################################################################
 # - Requirements -------------------------------------------------------------
@@ -416,6 +424,7 @@ if(BUILD_CUML_CPP_LIBRARY)
     src/kmeans/kmeans.cu
     src/knn/knn.cu
     src/knn/knn_sparse.cu
+    src/hierarchy/linkage.cu
     src/metrics/accuracy_score.cu
     src/metrics/adjusted_rand_index.cu
     src/metrics/completeness_score.cu
