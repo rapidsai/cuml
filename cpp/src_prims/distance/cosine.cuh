@@ -84,9 +84,9 @@ void cosineImpl(const DataT *x, const DataT *y, const DataT *xn,
     }
   };
 
-  pairwiseDistanceMatKernel<raft::distance::DistanceType::CosineExpanded, DataT,
-                            AccT, OutT, IdxT, Policy, decltype(core_lambda),
-                            decltype(epilog_lambda), FinalLambda>
+  pairwiseDistanceMatKernel<true, DataT, AccT, OutT, IdxT, Policy,
+                            decltype(core_lambda), decltype(epilog_lambda),
+                            FinalLambda>
     <<<grid, blk, Policy::SmemSize, stream>>>(
       x, y, xn, yn, m, n, k, dOutput, core_lambda, epilog_lambda, fin_op);
 

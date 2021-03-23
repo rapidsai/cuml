@@ -63,9 +63,9 @@ static void l1Impl(const DataT *x, const DataT *y, IdxT m, IdxT n, IdxT k,
                          AccT acc[Policy::AccRowsPerTh][Policy::AccColsPerTh],
                          DataT * regxn, DataT * regyn) { return; };
 
-  pairwiseDistanceMatKernel<raft::distance::DistanceType::L1, DataT, AccT, OutT,
-                            IdxT, Policy, decltype(core_lambda),
-                            decltype(epilog_lambda), FinalLambda>
+  pairwiseDistanceMatKernel<false, DataT, AccT, OutT, IdxT, Policy,
+                            decltype(core_lambda), decltype(epilog_lambda),
+                            FinalLambda>
     <<<grid, blk, Policy::SmemSize, stream>>>(x, y, nullptr, nullptr, m, n, k,
                                               dOutput, core_lambda,
                                               epilog_lambda, fin_op);

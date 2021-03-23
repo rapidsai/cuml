@@ -91,9 +91,9 @@ void euclideanExpImpl(const DataT *x, const DataT *y, const DataT *xn,
     }
   };
 
-  pairwiseDistanceMatKernel<raft::distance::DistanceType::L2Expanded, DataT,
-                            AccT, OutT, IdxT, Policy, decltype(core_lambda),
-                            decltype(epilog_lambda), FinalLambda>
+  pairwiseDistanceMatKernel<true, DataT, AccT, OutT, IdxT, Policy,
+                            decltype(core_lambda), decltype(epilog_lambda),
+                            FinalLambda>
     <<<grid, blk, Policy::SmemSize, stream>>>(
       x, y, xn, yn, m, n, k, dOutput, core_lambda, epilog_lambda, fin_op);
 
@@ -285,9 +285,9 @@ void euclideanUnExpImpl(const DataT *x, const DataT *y, IdxT m, IdxT n, IdxT k,
     }
   };
 
-  pairwiseDistanceMatKernel<raft::distance::DistanceType::L2Unexpanded, DataT,
-                            AccT, OutT, IdxT, Policy, decltype(core_lambda),
-                            decltype(epilog_lambda), FinalLambda>
+  pairwiseDistanceMatKernel<false, DataT, AccT, OutT, IdxT, Policy,
+                            decltype(core_lambda), decltype(epilog_lambda),
+                            FinalLambda>
     <<<grid, blk, Policy::SmemSize, stream>>>(x, y, nullptr, nullptr, m, n, k,
                                               dOutput, core_lambda,
                                               epilog_lambda, fin_op);

@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 #pragma once
-#include <raft/linalg/distance_type.h>
 #include <raft/linalg/contractions.cuh>
 #include <raft/linalg/norm.cuh>
 
@@ -23,7 +22,7 @@ namespace Distance {
 
 /**
  * @brief Device class for L1, L2 and cosine distance metrics.
- * @tparam DistanceType   which distance to evaluate
+ * @tparam useNorms       whether norms are needed
  * @tparam DataT          input data-type (for A and B matrices)
  * @tparam AccT           accumulation data-type
  * @tparam OutT           output data-type (for C and D matrices)
@@ -51,7 +50,7 @@ namespace Distance {
  * @param epilog_op the epilog operation lambda
  * @param fin_op the final gemm epilogue lambda
  */
-template <raft::distance::DistanceType distanceType, typename DataT,
+template <bool useNorms, typename DataT,
           typename AccT, typename OutT, typename IdxT, typename Policy,
           typename CoreLambda, typename EpilogueLambda, typename FinalLambda,
           typename BaseClass =
@@ -72,7 +71,7 @@ struct PairwiseDistances : public BaseClass {
   AccT acc[P::AccRowsPerTh][P::AccColsPerTh];
 
  public:
-  // Constructor for euclidean expanded
+  // Constructor
   DI PairwiseDistances(const DataT* _x, const DataT* _y, IdxT _m, IdxT _n,
                        IdxT _k, const DataT* _xn, const DataT* _yn,
                        OutT* _dOutput, char* _smem, CoreLambda _core_op,
@@ -82,18 +81,6 @@ struct PairwiseDistances : public BaseClass {
       syNorm(&(sxNorm[P::Mblk])),
       xn(_xn),
       yn(_yn),
-      dOutput(_dOutput),
-      smem(_smem),
-      core_op(_core_op),
-      epilog_op(_epilog_op),
-      fin_op(_fin_op) {}
-
-  // Constructor for euclidean unexpanded
-  DI PairwiseDistances(const DataT* _x, const DataT* _y, IdxT _m, IdxT _n,
-                       IdxT _k, OutT* _dOutput, char* _smem,
-                       CoreLambda _core_op, EpilogueLambda _epilog_op,
-                       FinalLambda _fin_op)
-    : BaseClass(_x, _y, _m, _n, _k, _smem),
       dOutput(_dOutput),
       smem(_smem),
       core_op(_core_op),
@@ -151,7 +138,7 @@ struct PairwiseDistances : public BaseClass {
   }
 
   DI void epilog() {
-    if (distanceType <= raft::distance::DistanceType::CosineExpanded) {
+    if (useNorms) {
       __syncthreads();  // so that we can safely reuse smem
 
       // Load x & y norms required by this threadblock in shmem buffer
@@ -198,7 +185,7 @@ struct PairwiseDistances : public BaseClass {
 
 /**
  * @brief the distance matrix calculation kernel for L1, L2 and cosine
- * @tparam DistanceType   which distance to evaluate
+ * @tparam useNorms       whether norms are needed
  * @tparam DataT          input data-type (for A and B matrices)
  * @tparam AccT           accumulation data-type
  * @tparam OutT           output data-type (for C and D matrices)
@@ -221,7 +208,7 @@ struct PairwiseDistances : public BaseClass {
  * @param epilog_op the epilogue lambda
  * @param fin_op    the final gemm epilogue lambda
  */
-template <raft::distance::DistanceType distanceType, typename DataT,
+template <bool useNorms, typename DataT,
           typename AccT, typename OutT, typename IdxT, typename Policy,
           typename CoreLambda, typename EpilogueLambda, typename FinalLambda>
 __global__ __launch_bounds__(
@@ -234,17 +221,10 @@ __global__ __launch_bounds__(
                                     FinalLambda fin_op) {
   extern __shared__ char smem[];
 
-  if (distanceType <= raft::distance::DistanceType::CosineExpanded) {
-    PairwiseDistances<distanceType, DataT, AccT, OutT, IdxT, Policy, CoreLambda,
+  PairwiseDistances<useNorms, DataT, AccT, OutT, IdxT, Policy, CoreLambda,
                       EpilogueLambda, FinalLambda>
       obj(x, y, m, n, k, _xn, _yn, dOutput, smem, core_op, epilog_op, fin_op);
-    obj.run();
-  } else {
-    PairwiseDistances<distanceType, DataT, AccT, OutT, IdxT, Policy, CoreLambda,
-                      EpilogueLambda, FinalLambda>
-      obj(x, y, m, n, k, dOutput, smem, core_op, epilog_op, fin_op);
-    obj.run();
-  }
+  obj.run();
 }
 
 };  // end namespace Distance
