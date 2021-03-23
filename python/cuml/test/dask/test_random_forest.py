@@ -421,6 +421,8 @@ def test_rf_get_json(client, estimator_type, max_depth, n_estimators):
     for tree in json_obj:
         assert (total_instance_count_of_descendents(tree)
                 == tree['instance_count'])
+        # The root's count should be equal to the number of rows in the data
+        assert tree['instance_count'] == X.shape[0]
 
     # Test 4: Traverse JSON trees and get the same predictions as cuML RF
     def predict_with_json_tree(tree, x):
