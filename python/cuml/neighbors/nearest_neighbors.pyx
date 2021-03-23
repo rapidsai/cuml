@@ -912,9 +912,16 @@ def kneighbors_graph(X=None, n_neighbors=5, mode='connectivity', verbose=False,
                       "type using `cuml.using_output_type()` instead",
                       DeprecationWarning)
 
-    X = NearestNeighbors(n_neighbors, verbose, handle, algorithm, metric, p,
-                         metric_params=metric_params,
-                         output_type=output_type).fit(X)
+    X = NearestNeighbors(
+        n_neighbors=n_neighbors,
+        verbose=verbose,
+        handle=handle,
+        algorithm=algorithm,
+        metric=metric,
+        p=p,
+        metric_params=metric_params,
+        output_type=output_type,
+    ).fit(X)
 
     if include_self == 'auto':
         include_self = mode == 'connectivity'

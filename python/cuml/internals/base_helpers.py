@@ -104,8 +104,7 @@ def _wrap_attribute(class_name: str,
                     **kwargs):
 
     # Skip items marked with autowrap_ignore
-    if ("__cuml_is_wrapped" in attribute.__dict__
-            and attribute.__dict__["__cuml_is_wrapped"]):
+    if (attribute.__dict__.get("__cuml_is_wrapped", False)):
         return attribute
 
     return_type = _get_base_return_type(class_name, attribute)
@@ -156,16 +155,35 @@ def _check_and_wrap_init(attribute, **kwargs):
 
 
 class BaseMetaClass(type):
+    """
+    Metaclass for all estimators in cuML. This metaclass will get called for
+    estimators deriving from `cuml.common.Base` as well as
+    `cuml.dask.common.BaseEstimator`. It serves 2 primary functions:
+
+     1. Set the `@_deprecate_pos_args()` decorator on all `__init__` functions
+     2. Wrap any functions and properties in the API decorators
+        [`cuml.common.Base` only] 
+
+    """
     def __new__(cls, classname, bases, classDict):
 
+        is_dask_module = classDict["__module__"].startswith("cuml.dask")
+
         for attributeName, attribute in classDict.items():
+
+            # If attributeName is `__init__`, wrap in the decorator to
+            # deprecate positional args
+            if (attributeName == "__init__"):
+                attribute = _check_and_wrap_init(attribute, version="0.20")
+                classDict[attributeName] = attribute
+
+            # For now, skip all additional processing if we are a dask
+            # estimator
+            if is_dask_module:
+                continue
+
             # Must be a function
             if callable(attribute):
-
-                # If attributeName is `__init__`, wrap in the decorator to
-                # deprecate positional args
-                if (attributeName == "__init__"):
-                    attribute = _check_and_wrap_init(attribute, version="0.20")
 
                 classDict[attributeName] = _wrap_attribute(
                     classname, attributeName, attribute)

@@ -91,7 +91,7 @@ class LabelEncoder(BaseEstimator,
         dtype: object
 
     """
-    def __init__(self, client=None, verbose=False, **kwargs):
+    def __init__(self, *, client=None, verbose=False, **kwargs):
         super(LabelEncoder, self).__init__(client=client,
                                            verbose=verbose,
                                            **kwargs)

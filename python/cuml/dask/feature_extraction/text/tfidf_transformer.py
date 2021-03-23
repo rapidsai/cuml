@@ -78,7 +78,7 @@ class TfidfTransformer(BaseEstimator, DelayedTransformMixin):
 
     """
 
-    def __init__(self, client=None, verbose=False, **kwargs):
+    def __init__(self, *, client=None, verbose=False, **kwargs):
 
         """
         Create new  distributed TF-IDF transformer instance

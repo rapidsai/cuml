@@ -36,6 +36,7 @@ import cuml.common.logger as logger
 from cuml.common import has_scipy
 from cuml.common.input_utils import input_to_cuml_array
 from cuml.common.input_utils import input_to_host_array
+from cuml.common.input_utils import _deprecate_pos_args
 
 
 cdef extern from "cuml/tsa/arima_common.h" namespace "ML":
@@ -235,7 +236,10 @@ class ARIMA(Base):
                 + np.tile(pattern, (25, 1)))
 
             # Fit a seasonal ARIMA model
-            model = ARIMA(y, (0,1,1), (0,1,1,4), fit_intercept=False)
+            model = ARIMA(y,
+                          order=(0,1,1),
+                          seasonal_order=(0,1,1,4),
+                          fit_intercept=False)
             model.fit()
 
             # Forecast
@@ -270,8 +274,10 @@ class ARIMA(Base):
     sma_ = CumlArrayDescriptor()
     sigma2_ = CumlArrayDescriptor()
 
-    def __init__(self, *,
+    @_deprecate_pos_args(version="0.20")
+    def __init__(self,
                  endog,
+                 *,
                  order: Tuple[int, int, int] = (1, 1, 1),
                  seasonal_order: Tuple[int, int, int, int] = (0, 0, 0, 0),
                  fit_intercept=True,
@@ -531,7 +537,7 @@ class ARIMA(Base):
 
             from cuml.tsa.arima import ARIMA
 
-            model = ARIMA(ys, (1,1,1))
+            model = ARIMA(ys, order=(1,1,1))
             model.fit()
             y_pred = model.predict()
         """
@@ -629,7 +635,7 @@ class ARIMA(Base):
 
             from cuml.tsa.arima import ARIMA
             ...
-            model = ARIMA(ys, (1,1,1))
+            model = ARIMA(ys, order=(1,1,1))
             model.fit()
             y_fc = model.forecast(10)
         """

@@ -227,9 +227,22 @@ class SVR(SVMBase, RegressorMixin):
                  gamma='scale', coef0=0.0, tol=1e-3, epsilon=0.1,
                  cache_size=1024.0, max_iter=-1, nochange_steps=1000,
                  verbose=False, output_type=None):
-        super(SVR, self).__init__(handle, C, kernel, degree, gamma, coef0, tol,
-                                  cache_size, max_iter, nochange_steps,
-                                  verbose, epsilon, output_type=output_type)
+        super().__init__(
+            handle=handle,
+            C=C,
+            kernel=kernel,
+            degree=degree,
+            gamma=gamma,
+            coef0=coef0,
+            tol=tol,
+            epsilon=epsilon,
+            cache_size=cache_size,
+            max_iter=max_iter,
+            nochange_steps=nochange_steps,
+            verbose=verbose,
+            output_type=output_type,
+        )
+
         self.svmType = EPSILON_SVR
 
     @generate_docstring()

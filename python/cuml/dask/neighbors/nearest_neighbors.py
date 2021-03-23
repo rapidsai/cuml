@@ -53,7 +53,7 @@ class NearestNeighbors(BaseEstimator):
         See :ref:`verbosity-levels` for more info.
 
     """
-    def __init__(self, client=None, streams_per_handle=0,
+    def __init__(self, *, client=None, streams_per_handle=0,
                  **kwargs):
         super(NearestNeighbors, self).__init__(client=client,
                                                **kwargs)

@@ -29,7 +29,7 @@ class OneHotEncoderMG(OneHotEncoder):
     in `cuml.dask.preprocessing.encoders`.
     """
 
-    def __init__(self, client=None, **kwargs):
+    def __init__(self, *, client=None, **kwargs):
         super().__init__(**kwargs)
         self.client = client
 

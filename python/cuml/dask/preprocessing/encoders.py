@@ -80,7 +80,7 @@ class OneHotEncoder(BaseEstimator, DelayedTransformMixin,
         will be denoted as None.
     """
 
-    def __init__(self, client=None, verbose=False, **kwargs):
+    def __init__(self, *, client=None, verbose=False, **kwargs):
         super(OneHotEncoder, self).__init__(client=client,
                                             verbose=verbose,
                                             **kwargs)

@@ -117,7 +117,7 @@ class TruncatedSVD(BaseDecomposition,
 
     """
 
-    def __init__(self, client=None, **kwargs):
+    def __init__(self, *, client=None, **kwargs):
         """
         Constructor for distributed TruncatedSVD model
         """

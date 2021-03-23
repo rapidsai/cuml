@@ -148,6 +148,7 @@ class RandomForestRegressor(BaseRandomForestModel, DelayedPredictionMixin,
 
     def __init__(
         self,
+        *,
         workers=None,
         client=None,
         verbose=False,
@@ -302,14 +303,16 @@ class RandomForestRegressor(BaseRandomForestModel, DelayedPredictionMixin,
         algo : string (default = 'auto')
             This is optional and required only while performing the
             predict operation on the GPU.
-            'naive' - simple inference using shared memory
-            'tree_reorg' - similar to naive but trees rearranged to be more
-            coalescing-friendly
-            'batch_tree_reorg' - similar to tree_reorg but predicting
-            multiple rows per thread block
-            `algo` - choose the algorithm automatically. Currently
-            'batch_tree_reorg' is used for dense storage
-            and 'naive' for sparse storage
+
+             * ``'naive'`` - simple inference using shared memory
+             * ``'tree_reorg'`` - similar to naive but trees rearranged to be more
+               coalescing-friendly
+             * ``'batch_tree_reorg'`` - similar to tree_reorg but predicting
+               multiple rows per thread block
+             * ``'auto'`` - choose the algorithm automatically. Currently
+             * ``'batch_tree_reorg'`` is used for dense storage
+               and 'naive' for sparse storage
+
         convert_dtype : bool, optional (default = True)
             When set to True, the predict method will, when necessary, convert
             the input to the data type which was used to train the model. This
@@ -322,11 +325,13 @@ class RandomForestRegressor(BaseRandomForestModel, DelayedPredictionMixin,
             This variable is used to choose the type of forest that will be
             created in the Forest Inference Library. It is not required
             while using predict_model='CPU'.
-            'auto' - choose the storage type automatically
-            (currently True is chosen by auto)
-            False - create a dense forest
-            True - create a sparse forest, requires algo='naive'
-            or algo='auto'
+
+             * ``'auto'`` - choose the storage type automatically
+               (currently True is chosen by auto)
+             * ``False`` - create a dense forest
+             * ``True`` - create a sparse forest, requires algo='naive'
+               or algo='auto'
+
         delayed : bool (default = True)
             Whether to do a lazy prediction (and return Delayed objects) or an
             eagerly executed one.

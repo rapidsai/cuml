@@ -664,11 +664,12 @@ class _deprecate_pos_args:
                     arg in zip(kwonly_args[:extra_args], args[-extra_args:])
                 ]
                 warnings.warn(
-                    "Pass {} as keyword args. From version {} "
+                    "Pass {} as keyword args. From version {}, "
                     "passing these as positional arguments will "
                     "result in an error".format(", ".join(args_msg),
                                                 self._version),
-                    FutureWarning)
+                    FutureWarning,
+                    stacklevel=2)
 
             # Convert all positional args to keyword
             kwargs.update({k: arg for k, arg in zip(sig.parameters, args)})

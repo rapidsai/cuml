@@ -87,7 +87,7 @@ class ElasticNet(BaseEstimator):
     <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.ElasticNet.html>`_.
     """
 
-    def __init__(self, client=None, **kwargs):
+    def __init__(self, *, client=None, **kwargs):
         super(ElasticNet, self).__init__(client=client, **kwargs)
 
         kwargs['shuffle'] = False

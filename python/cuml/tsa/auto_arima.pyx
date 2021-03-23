@@ -32,6 +32,7 @@ from cuml.common import logger
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.array import CumlArray
 from cuml.common.base import Base
+from cuml.common.input_utils import _deprecate_pos_args
 from cuml.raft.common.handle cimport handle_t
 from cuml.raft.common.handle import Handle
 from cuml.common import input_to_cuml_array
@@ -174,8 +175,10 @@ class AutoARIMA(Base):
 
     d_y = CumlArrayDescriptor()
 
-    def __init__(self, *,
+    @_deprecate_pos_args(version="0.20")
+    def __init__(self,
                  endog,
+                 *,
                  handle=None,
                  simple_differencing=True,
                  verbose=False,

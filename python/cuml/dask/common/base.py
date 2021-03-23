@@ -28,6 +28,7 @@ from cuml.dask.common.utils import wait_and_raise_from_futures
 from cuml.raft.dask.common.comms import Comms
 from cuml.dask.common.input_utils import DistributedDataHandler
 from cuml.dask.common import parts_to_ranks
+from cuml.internals import BaseMetaClass
 
 from dask_cudf.core import DataFrame as dcDataFrame
 from dask_cudf.core import Series as dcSeries
@@ -36,9 +37,9 @@ from functools import wraps
 from distributed.client import Future
 
 
-class BaseEstimator(object):
+class BaseEstimator(object, metaclass=BaseMetaClass):
 
-    def __init__(self, client=None, verbose=False, **kwargs):
+    def __init__(self, *, client=None, verbose=False, **kwargs):
         """
         Constructor for distributed estimators.
         """

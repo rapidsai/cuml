@@ -68,7 +68,7 @@ class Lasso(BaseEstimator):
     <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.Lasso.html>`_.
     """
 
-    def __init__(self, client=None, **kwargs):
+    def __init__(self, *, client=None, **kwargs):
         super(Lasso, self).__init__(client=client, **kwargs)
 
         kwargs['shuffle'] = False

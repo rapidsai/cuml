@@ -20,7 +20,7 @@ import pytest
 from cudf import DataFrame
 from cuml.preprocessing import OneHotEncoder
 from cuml.test.utils import stress_param
-from pandas.util.testing import assert_frame_equal
+from pandas.testing import assert_frame_equal
 from sklearn.preprocessing import OneHotEncoder as SkOneHotEncoder
 
 

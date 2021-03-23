@@ -30,7 +30,7 @@ from cuml.dask.common.input_utils import DistributedDataHandler
 
 class BaseDecomposition(BaseEstimator):
 
-    def __init__(self, model_func, client=None, verbose=False,
+    def __init__(self, *, model_func, client=None, verbose=False,
                  **kwargs):
         """
         Constructor for distributed decomposition model

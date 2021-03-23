@@ -87,7 +87,7 @@ class LabelBinarizer(BaseEstimator):
 
 
     """
-    def __init__(self, client=None, **kwargs):
+    def __init__(self, *, client=None, **kwargs):
 
         super(LabelBinarizer, self).__init__(client=client, **kwargs)
 
