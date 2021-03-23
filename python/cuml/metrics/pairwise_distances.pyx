@@ -333,7 +333,7 @@ def sparse_pairwise_distances(X, Y=None, metric="euclidean", handle=None,
     - From scikit-learn: ['cityblock', 'cosine', 'euclidean', 'l1', 'l2', \
         'manhattan'].
     - From scipy.spatial.distance: ['sqeuclidean', 'canberra', 'minkowski', \
-        'jaccard', 'chebyshev']
+        'jaccard', 'chebyshev', 'dice']
         See the documentation for scipy.spatial.distance for details on these
         metrics.
     - ['inner_product', 'hellinger']
@@ -348,7 +348,7 @@ def sparse_pairwise_distances(X, Y=None, metric="euclidean", handle=None,
 
     metric : {"cityblock", "cosine", "euclidean", "l1", "l2", "manhattan", \
         "sqeuclidean", "canberra", "lp", "inner_product", "minkowski", \
-        "jaccard", "hellinger", "chebyshev", "linf"}
+        "jaccard", "hellinger", "chebyshev", "linf", "dice"}
         The metric to use when calculating distance between instances in a
         feature array.
 
@@ -371,37 +371,34 @@ def sparse_pairwise_distances(X, Y=None, metric="euclidean", handle=None,
 
     Examples
     --------
-        >>> import cupy as cp
+        >>> import cupyx
         >>> from cuml.metrics import sparse_pairwise_distances
-        >>> import scipy
-        >>> from scipy import sparse
         >>>
-        >>> X = scipy.sparse.random(2, 3, density=0.3)
-        >>> Y = scipy.sparse.random(1, 3, density=0.5)
-        >>> print(X.todense())
-        matrix([[0.18253484, 0.82337939, 0.        ],
-                [0.        , 0.        , 0.        ]])
-        >>> print(Y.todense())
-        matrix([[0.33561047, 0.73499085, 0.        ]])
-        >>> # Euclidean Pairwise Distance, Single Input:
-        >>> sparse_pairwise_distances(X, metric='euclidean').to_output()
-        array([[0.        , 0.84336978],
-               [0.84336978, 0.        ]])
+        >>> X = cupyx.scipy.sparse.random(2, 3, density=0.5)
+        >>> Y = cupyx.scipy.sparse.random(1, 3, density=0.5)
+        >>> X.todense()
+        array([[0.02797998, 0.        , 0.66309184],
+               [0.        , 0.        , 0.92316052]])
+        >>> Y.todense()
+        array([[0.        , 0.        , 0.32750517]])
+        >>> # Cosine Pairwise Distance, Single Input:
+        >>> sparse_pairwise_distances(X, metric='cosine')
+        array([[0.        , 0.00088907],
+               [0.00088907, 0.        ]])
         >>>
         >>> # Squared euclidean Pairwise Distance, Multi-Input:
-        >>> pairwise_distances(X, Y, metric='sqeuclidean').to_output()
-        array([[0.03124469],
-               [0.65284593]])
+        >>> sparse_pairwise_distances(X, Y, metric='sqeuclidean')
+        array([[0.11340129],
+               [0.3548053]])
         >>>
         >>> # Canberra Pairwise Distance, Multi-Input:
-        >>> sparse_pairwise_distances(X, Y, metric='canberra').to_output()
-        array([[0.35214852],
-               [2.        ]])
+        >>> sparse_pairwise_distances(X, Y, metric='canberra')
+        array([[1.33877214],
+               [0.47627064]])
     """
     handle = Handle() if handle is None else handle
     cdef handle_t *handle_ = <handle_t*> <size_t> handle.getHandle()
-
-    if not is_sparse(X) or (Y is not None and not is_sparse(Y)):
+    if (not is_sparse(X)) or (Y is not None and not is_sparse(Y)):
         raise ValueError("Input matrices are not sparse.")
 
     dtype_x = X.data.dtype
@@ -411,8 +408,8 @@ def sparse_pairwise_distances(X, Y=None, metric="euclidean", handle=None,
     if scipy.sparse.issparse(X):
         X = sparse_scipy_to_cp(X, dtype=None)
 
-    if metric == 'jaccard' and not cp.all(X.data == 1.):
-        warnings.warn("X was converted to boolean for metric jaccard")
+    if metric in ['jaccard', 'dice'] and not cp.all(X.data == 1.):
+        warnings.warn("X was converted to boolean for metric {}".format(metric))
         X.data = (X.data != 0.).astype(dtype_x)
 
     X_m = SparseCumlArray(X)
@@ -429,9 +426,10 @@ def sparse_pairwise_distances(X, Y=None, metric="euclidean", handle=None,
             raise TypeError("Different data types unsupported when "
                             "convert_dtypes=False")
         
-        if metric == 'jaccard' and not cp.all(Y.data == 1.):
+        if metric in ['jaccard', 'dice'] and not cp.all(Y.data == 1.):
             dtype_y = Y.data.dtype
-            warnings.warn("Y was converted to boolean for metric jaccard")
+            warnings.warn("Y was converted to boolean for metric {}"
+                          .format(metric))
             Y.data = (Y.data != 0.).astype(dtype_y)
         Y_m = SparseCumlArray(Y)
 
