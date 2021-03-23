@@ -173,8 +173,7 @@ class AgglomerativeClustering(Base, ClusterMixin, CMajorInputTagMixin):
         :param y:
         :return:
         """
-        self.fit(X)
-        return self.labels_
+        return self.fit(X).labels_
 
     def get_param_names(self):
         return super().get_param_names() + [

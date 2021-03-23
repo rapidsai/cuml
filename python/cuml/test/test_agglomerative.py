@@ -27,10 +27,10 @@ from cuml.test.utils import array_equal
 import cupy as cp
 
 
-@pytest.mark.parametrize('nrows', [1000])
+@pytest.mark.parametrize('nrows', [100000])
 @pytest.mark.parametrize('ncols', [25])
-@pytest.mark.parametrize('nclusters', [2, 5, 10, 50, 100])
-@pytest.mark.parametrize('k', [3, 4])
+@pytest.mark.parametrize('nclusters', [100])
+@pytest.mark.parametrize('k', [100])
 def test_sklearn_compare(nrows, ncols, nclusters, k):
 
     X, y = make_blobs(int(nrows),
@@ -52,23 +52,6 @@ def test_sklearn_compare(nrows, ncols, nclusters, k):
         n_clusters=nclusters, affinity='euclidean', linkage='single')
 
     sk_agg.fit(cp.asnumpy(X))
-
-    cu_children = cp.asarray(cuml_agg.children_).T.get()
-    sk_children = sk_agg.children_
-
-    sk_children.sort(axis=1)
-    cu_children.sort(axis=1)
-
-    print("cu_children: " + str(cu_children))
-    print("sk_children: " + str(sk_children))
-
-    import numpy
-
-    a = numpy.not_equal(cu_children, sk_children)
-
-    print("NOT EQUAL: " + str(len(cu_children[a==True])))
-
-    # assert array_equal(cu_children, sk_children)
 
     # Cluster assignments should be exact, even though the actual
     # labels may differ
