@@ -409,7 +409,8 @@ def sparse_pairwise_distances(X, Y=None, metric="euclidean", handle=None,
         X = sparse_scipy_to_cp(X, dtype=None)
 
     if metric in ['jaccard', 'dice'] and not cp.all(X.data == 1.):
-        warnings.warn("X was converted to boolean for metric {}".format(metric))
+        warnings.warn("X was converted to boolean for metric {}"
+                      .format(metric))
         X.data = (X.data != 0.).astype(dtype_x)
 
     X_m = SparseCumlArray(X)
@@ -425,7 +426,7 @@ def sparse_pairwise_distances(X, Y=None, metric="euclidean", handle=None,
         elif dtype_x != Y.data.dtype:
             raise TypeError("Different data types unsupported when "
                             "convert_dtypes=False")
-        
+
         if metric in ['jaccard', 'dice'] and not cp.all(Y.data == 1.):
             dtype_y = Y.data.dtype
             warnings.warn("Y was converted to boolean for metric {}"
