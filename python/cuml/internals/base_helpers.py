@@ -162,7 +162,7 @@ class BaseMetaClass(type):
 
      1. Set the `@_deprecate_pos_args()` decorator on all `__init__` functions
      2. Wrap any functions and properties in the API decorators
-        [`cuml.common.Base` only] 
+        [`cuml.common.Base` only]
 
     """
     def __new__(cls, classname, bases, classDict):

@@ -305,8 +305,8 @@ class RandomForestRegressor(BaseRandomForestModel, DelayedPredictionMixin,
             predict operation on the GPU.
 
              * ``'naive'`` - simple inference using shared memory
-             * ``'tree_reorg'`` - similar to naive but trees rearranged to be more
-               coalescing-friendly
+             * ``'tree_reorg'`` - similar to naive but trees rearranged to be
+               more coalescing-friendly
              * ``'batch_tree_reorg'`` - similar to tree_reorg but predicting
                multiple rows per thread block
              * ``'auto'`` - choose the algorithm automatically. Currently

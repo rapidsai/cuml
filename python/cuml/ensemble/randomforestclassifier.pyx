@@ -134,7 +134,7 @@ class RandomForestClassifier(BaseRandomForestModel,
     histogram-based algorithms to determine splits, rather than an exact
     count. You can tune the size of the histograms with the n_bins parameter.
 
-    .. note:: This is an early release of the cuML Random Forest code. 
+    .. note:: This is an early release of the cuML Random Forest code.
         It contains a few known limitations:
 
          * GPU-based inference is only supported if the model was trained
@@ -389,8 +389,8 @@ class RandomForestClassifier(BaseRandomForestModel,
             predict operation on the GPU.
 
              * ``'naive'`` - simple inference using shared memory
-             * ``'tree_reorg'`` - similar to naive but trees rearranged to be more
-               coalescing-friendly
+             * ``'tree_reorg'`` - similar to naive but trees rearranged to be
+               more coalescing-friendly
              * ``'batch_tree_reorg'`` - similar to tree_reorg but predicting
                multiple rows per thread block
              * ``'auto'`` - choose the algorithm automatically. Currently
@@ -592,8 +592,8 @@ class RandomForestClassifier(BaseRandomForestModel,
             predict operation on the GPU.
 
              * ``'naive'`` - simple inference using shared memory
-             * ``'tree_reorg'`` - similar to naive but trees rearranged to be more
-               coalescing-friendly
+             * ``'tree_reorg'`` - similar to naive but trees rearranged to be
+               more coalescing-friendly
              * ``'batch_tree_reorg'`` - similar to tree_reorg but predicting
                multiple rows per thread block
              * ``'auto'`` - choose the algorithm automatically. Currently
@@ -738,8 +738,8 @@ class RandomForestClassifier(BaseRandomForestModel,
             predict operation on the GPU.
 
              * ``'naive'`` - simple inference using shared memory
-             * ``'tree_reorg'`` - similar to naive but trees rearranged to be more
-               coalescing-friendly
+             * ``'tree_reorg'`` - similar to naive but trees rearranged to be
+               more coalescing-friendly
              * ``'batch_tree_reorg'`` - similar to tree_reorg but predicting
                multiple rows per thread block
              * ``'auto'`` - choose the algorithm automatically. Currently
@@ -816,8 +816,8 @@ class RandomForestClassifier(BaseRandomForestModel,
             predict operation on the GPU.
 
              * ``'naive'`` - simple inference using shared memory
-             * ``'tree_reorg'`` - similar to naive but trees rearranged to be more
-               coalescing-friendly
+             * ``'tree_reorg'`` - similar to naive but trees rearranged to be
+               more coalescing-friendly
              * ``'batch_tree_reorg'`` - similar to tree_reorg but predicting
                multiple rows per thread block
              * ``'auto'`` - choose the algorithm automatically. Currently
