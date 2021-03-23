@@ -1021,4 +1021,7 @@ def test_rf_regression_with_identical_labels(split_criterion,
     clf.fit(X, y)
     model_dump = json.loads(clf.get_json())
     assert len(model_dump) == 1
-    assert model_dump[0] == {'nodeid': 0, 'leaf_value': 1.0}
+    expected_dump = {'nodeid': 0, 'leaf_value': 1.0}
+    if use_experimental_backend:
+        expected_dump['instance_count'] = 5
+    assert model_dump[0] == expected_dump
