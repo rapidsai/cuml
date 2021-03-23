@@ -192,6 +192,7 @@ else
     CONDA_FILE=${CONDA_FILE//-/=} #convert to conda install
     gpuci_logger "Installing $CONDA_FILE"
     conda install -c $WORKSPACE/ci/artifacts/cuml/cpu/conda-bld/ "$CONDA_FILE"
+    pip install "git+https://github.com/dask/dask-glm@main"
 
     gpuci_logger "Building cuml"
     "$WORKSPACE/build.sh" -v cuml --codecov

@@ -88,7 +88,6 @@ Please see https://github.com/rapidsai/cuml/releases/tag/v0.19.0a for the latest
 - Multiclass meta estimator wrappers and multiclass SVC (#3092) @tfeher
 - Approximate Nearest Neighbors (#2780) @viclafargue
 - Add KNN parameter to t-SNE (#2592) @aleksficek
-- MNMG Logistic Regression (dask-glm wrapper) (#3512) @daxiongshu
 
 ## Improvements 🛠️
 
