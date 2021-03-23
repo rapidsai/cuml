@@ -1192,18 +1192,19 @@ def test_sparse_pairwise_distances(metric: str, matrix_size, density: float):
 
 def test_sparse_pairwise_distances_exceptions():
     if not has_scipy():
-        pytest.skip('Skipping sparse_pairwise_distances if Scipy is missing')
+        pytest.skip('Skipping sparse_pairwise_distances_exceptions '
+                    'if Scipy is missing')
     import scipy
     from scipy import sparse
-    X_int = scipy.sparse.random(5, 4, dtype=np.float32,
-                                      random_state=123, density=0.3) * 10
+    X_int = sparse.random(5, 4, dtype=np.float32,
+                          random_state=123, density=0.3) * 10
     X_int.dtype = cp.int32
+    X_bool = sparse.random(5, 4, dtype=cp.bool,
+                           random_state=123, density=0.3)
     X_double = cupyx.scipy.sparse.random(5, 4, dtype=cp.float64,
                                          random_state=123, density=0.3)
     X_float = cupyx.scipy.sparse.random(5, 4, dtype=cp.float32,
                                         random_state=123, density=0.3)
-    X_bool = scipy.sparse.random(5, 4, dtype=cp.bool,
-                                       random_state=123, density=0.3)
 
     # Test int inputs (only float/double accepted at this time)
     with pytest.raises(TypeError):
