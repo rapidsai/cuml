@@ -37,6 +37,7 @@ void convertToSparse(const Builder<Traits>& b,
   for (IdxT i = 0; i < b.h_total_nodes; ++i) {
     const auto& hnode = h_nodes[i].info;
     sparsetree[i + len] = hnode;
+    sparsetree[i + len].instance_count = h_nodes[i].count;
     if (hnode.left_child_id != -1) sparsetree[i + len].left_child_id += len;
   }
 }
