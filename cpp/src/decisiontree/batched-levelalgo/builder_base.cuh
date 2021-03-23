@@ -120,14 +120,12 @@ struct Builder {
    *                                maximum active blocks per multiprocessor
    * @param[in] blockSize           Threads per Block, passed to cuda occupancy calculator API
    * @param[in] dynamic_smem_size   dynamic shared memory size, passed to cuda occupancy calculator API
-   * @param[in] min_gridDimz        minimum value that number of blocks along the z-dimension can take, based
+   * @param[in] gridDimz            Number of blocks along the z-dimension can take, based
    *                                on the concurrent nodes of tree available to be processed.
-   * @note Assigning n_blks_for_rows while maximizing for occupancy when the blocks along z-dimension is
-   * minimum gaurantees maximal occupancy for all other possible values of the same.
   */
   int n_blks_for_rows(const int gridDimy, const void* func, const int blockSize,
                       const size_t dynamic_smem_size,
-                      const int gridDimz = 1) {
+                      const int gridDimz) {
     int devid;
     CUDA_CHECK(cudaGetDevice(&devid));
     int mpcount;
@@ -138,9 +136,7 @@ struct Builder {
       &maxblks, func, blockSize, dynamic_smem_size));
     // get the total number of blocks
     int n_blks = maxblks * mpcount;
-    // return n_blks_for_rows
-    // we want minimum of 4 blocks for rows, can be more if available
-    return max(4, raft::ceildiv(n_blks, gridDimy * gridDimz));
+    return raft::ceildiv(n_blks, gridDimy * gridDimz);
   }
 
   size_t calculateAlignedBytes(const size_t actualSize) {
