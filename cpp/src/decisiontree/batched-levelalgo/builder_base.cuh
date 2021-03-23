@@ -127,7 +127,7 @@ struct Builder {
   */
   int n_blks_for_rows(const int gridDimy, const void* func, const int blockSize,
                       const size_t dynamic_smem_size,
-                      const int min_gridDimz = 1) {
+                      const int gridDimz = 1) {
     int devid;
     CUDA_CHECK(cudaGetDevice(&devid));
     int mpcount;
@@ -139,7 +139,8 @@ struct Builder {
     // get the total number of blocks
     int n_blks = maxblks * mpcount;
     // return n_blks_for_rows
-    return raft::ceildiv(n_blks, gridDimy * min_gridDimz);
+    // we want minimum of 4 blocks for rows, can be more if available
+    return max(4, raft::ceildiv(n_blks, gridDimy * gridDimz));
   }
 
   size_t calculateAlignedBytes(const size_t actualSize) {
@@ -208,7 +209,7 @@ struct Builder {
         n_col_blks,
         (const void*)
           computeSplitRegressionKernel<DataT, LabelT, IdxT, TPB_DEFAULT>,
-        TPB_DEFAULT, 0);
+        TPB_DEFAULT, 0, max_batch);
       dim3 grid(n_blks_for_rows, n_col_blks, max_batch);
       block_sync_size = MLCommon::GridSync::computeWorkspaceSize(
         grid, MLCommon::SyncType::ACROSS_X, false);
@@ -457,7 +458,7 @@ struct ClsTraits {
       colBlks,
       (const void*)
         computeSplitClassificationKernel<DataT, LabelT, IdxT, TPB_DEFAULT>,
-      TPB_DEFAULT, smemSize);
+      TPB_DEFAULT, smemSize, batchSize);
     dim3 grid(n_blks_for_rows, colBlks, batchSize);
     CUDA_CHECK(cudaMemsetAsync(b.hist, 0, sizeof(int) * b.nHistBins, s));
     ML::PUSH_RANGE(
@@ -535,7 +536,7 @@ struct RegTraits {
       n_col_blks,
       (const void*)
         computeSplitRegressionKernel<DataT, LabelT, IdxT, TPB_DEFAULT>,
-      TPB_DEFAULT, smemSize);
+      TPB_DEFAULT, smemSize, batchSize);
     dim3 grid(n_blks_for_rows, n_col_blks, batchSize);
 
     CUDA_CHECK(
