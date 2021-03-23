@@ -808,7 +808,22 @@ def test_rf_get_json(estimator_type, max_depth, n_estimators):
     assert isinstance(json_obj, list)
     assert len(json_obj) == n_estimators
 
-    # Test 3: Traverse JSON trees and get the same predictions as cuML RF
+    # Test 3: The instance counts in the descendent nodes sum to the instance
+    # count of the root node
+    def total_instance_count_of_descendents(tree):
+        assert 'instance_count' in tree
+        if 'children' not in tree:
+            return 0
+        assert 'instance_count' in tree['children'][0]
+        assert 'instance_count' in tree['children'][1]
+        return (tree['children'][0]['instance_count']
+                + tree['children'][1]['instance_count'])
+
+    for tree in json_obj:
+        assert (total_instance_count_of_descendents(tree)
+                == tree['instance_count'])
+
+    # Test 4: Traverse JSON trees and get the same predictions as cuML RF
     def predict_with_json_tree(tree, x):
         if 'children' not in tree:
             assert 'leaf_value' in tree

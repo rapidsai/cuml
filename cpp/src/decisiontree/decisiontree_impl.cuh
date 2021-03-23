@@ -119,6 +119,7 @@ std::string get_node_json(const std::string &prefix,
         << ", \"split_feature\": " << node.colid
         << ", \"split_threshold\": " << to_string_high_precision(node.quesval)
         << ", \"gain\": " << to_string_high_precision(node.best_metric_val)
+        << ", \"instance_count\": " << node.instance_count
         << ", \"yes\": " << node.left_child_id
         << ", \"no\": " << (node.left_child_id + 1) << ", \"children\": [\n";
     // enter the next tree level - left and right branch
@@ -129,6 +130,7 @@ std::string get_node_json(const std::string &prefix,
   } else {
     oss << prefix << "{\"nodeid\": " << idx
         << ", \"leaf_value\": " << to_string_high_precision(node.prediction)
+        << ", \"instance_count\": " << node.instance_count
         << "}";
   }
   return oss.str();
