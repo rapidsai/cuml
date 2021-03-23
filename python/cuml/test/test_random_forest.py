@@ -780,17 +780,17 @@ def test_rf_get_json(estimator_type, max_depth, n_estimators):
     X = X.astype(np.float32)
     if estimator_type == 'classification':
         cuml_model = curfc(max_features=1.0, max_samples=1.0,
-                           n_bins=16, split_algo=0, split_criterion=0,
+                           n_bins=16, split_algo=1, split_criterion=0,
                            min_samples_leaf=2, seed=23707, n_streams=1,
                            n_estimators=n_estimators, max_leaves=-1,
-                           max_depth=max_depth)
+                           max_depth=max_depth, use_experimental_backend=True)
         y = y.astype(np.int32)
     elif estimator_type == 'regression':
         cuml_model = curfr(max_features=1.0, max_samples=1.0,
-                           n_bins=16, split_algo=0,
+                           n_bins=16, split_algo=1,
                            min_samples_leaf=2, seed=23707, n_streams=1,
                            n_estimators=n_estimators, max_leaves=-1,
-                           max_depth=max_depth)
+                           max_depth=max_depth, use_experimental_backend=True)
         y = y.astype(np.float32)
     else:
         assert False
@@ -834,7 +834,7 @@ def test_rf_get_json(estimator_type, max_depth, n_estimators):
         assert 'split_threshold' in tree
         assert 'yes' in tree
         assert 'no' in tree
-        if x[tree['split_feature']] <= tree['split_threshold']:
+        if np.float32(x[tree['split_feature']]) <= np.float32(tree['split_threshold']):
             return predict_with_json_tree(tree['children'][0], x)
         return predict_with_json_tree(tree['children'][1], x)
 
