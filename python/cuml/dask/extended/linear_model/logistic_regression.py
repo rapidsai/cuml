@@ -77,6 +77,11 @@ class LogisticRegression(BaseEstimator):
         X_ = self.lr._maybe_add_intercept(X)
         return np.dot(X_, self.lr._coef)
 
+    def score(self, X, y):
+        from dask_glm.utils import accuracy_score
+
+        return accuracy_score(y, self.predict(X))
+
     def _to_dask_cupy_array(self, X):
         if isinstance(X, dask_cudf.DataFrame) or \
            isinstance(X, dask_cudf.Series):
