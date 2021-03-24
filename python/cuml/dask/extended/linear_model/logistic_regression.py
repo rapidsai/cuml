@@ -27,8 +27,8 @@ class LogisticRegression(BaseEstimator):
                                                  verbose=verbose,
                                                  **kwargs)
         
-        if not has_daskglm("0.2.1"):
-            raise ImportError("dask-glm >= 0.2.1 was not found, please install it "
+        if not has_daskglm("0.2.1.dev"):
+            raise ImportError("dask-glm >= 0.2.1.dev was not found, please install it "
                               " to use multi-GPU logistic regression. ")
 
     def fit(self, X, y):
