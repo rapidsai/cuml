@@ -1172,7 +1172,7 @@ def test_sparse_pairwise_distances(metric: str, matrix_size, density: float):
     S2 = ref_pairwise_dist(sk_array(X).get(), sk_array(Y).get(), metric=metric)
     cp.testing.assert_array_almost_equal(S, S2, decimal=compare_precision)
 
-    # Change precision of one parameter, should work with convert_dtype=True
+    # Change precision of one parameter, should work (convert_dtype=True)
     Y = prepare_sparse_data(matrix_size[0], matrix_size[1],
                             cp.float32, density, metric)
     S = sparse_pairwise_distances(X, Y, metric=metric)
@@ -1191,6 +1191,15 @@ def test_sparse_pairwise_distances(metric: str, matrix_size, density: float):
     S2 = ref_pairwise_dist(sk_array(X).get(), sk_array(Y).get(), metric=metric)
     cp.testing.assert_array_almost_equal(S, S2, decimal=compare_precision)
 
+    # Test sending an int type (convert_dtype=True)
+    if metric != 'hellinger':
+        compare_precision = 3
+        Y = Y * 100
+        Y.data = Y.data.astype(cp.int32)
+        S = sparse_pairwise_distances(X, Y, metric=metric)
+        S2 = ref_pairwise_dist(sk_array(X).get(), sk_array(Y).get(),
+                               metric=metric)
+        cp.testing.assert_array_almost_equal(S, S2, decimal=compare_precision)
     # Test that uppercase on the metric name throws an error.
     with pytest.raises(ValueError):
         sparse_pairwise_distances(X, Y, metric=metric.capitalize())
