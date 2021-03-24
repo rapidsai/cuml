@@ -17,7 +17,9 @@ from cuml.dask.common.base import BaseEstimator
 from cuml.common.import_utils import has_daskglm
 import cupy as cp
 import numpy as np
-import dask_cudf
+import pandas as pd
+from dask.utils import is_dataframe_like, is_series_like, is_arraylike
+import cudf
 
 
 class LogisticRegression(BaseEstimator):
@@ -28,10 +30,11 @@ class LogisticRegression(BaseEstimator):
         super(LogisticRegression, self).__init__(client=client,
                                                  verbose=verbose,
                                                  **kwargs)
-        
+
         if not has_daskglm("0.2.1.dev"):
-            raise ImportError("dask-glm >= 0.2.1.dev was not found, please install it "
-                              " to use multi-GPU logistic regression. ")
+            raise ImportError(
+                "dask-glm >= 0.2.1.dev was not found, please install it"
+                " to use multi-GPU logistic regression.")
 
     def fit(self, X, y):
         """
@@ -46,12 +49,11 @@ class LogisticRegression(BaseEstimator):
         """
         from dask_glm.estimators import LogisticRegression as LogisticRegressionGLM
 
-        X = self._to_dask_cupy_array(X)
-        y = self._to_dask_cupy_array(y)
-        lr = LogisticRegressionGLM(**self.kwargs)
-        lr.fit(X, y)
-        self.lr = lr
-        self._set_coefs()
+        X = self._input_to_dask_cupy_array(X)
+        y = self._input_to_dask_cupy_array(y)
+        self.internal_model = LogisticRegressionGLM(**self.kwargs)
+        self.internal_model.fit(X, y)
+        self._finalize_coefs()
         return self
 
     def predict(self, X):
@@ -68,33 +70,51 @@ class LogisticRegression(BaseEstimator):
         -------
         y : Dask cuDF Series or CuPy backed Dask Array (n_rows,)
         """
-        X = self._to_dask_cupy_array(X)
-        return self.lr.predict(X)
-    
+        X = self._input_to_dask_cupy_array(X)
+        return self.internal_model.predict(X)
+
     def predict_proba(self, X):
-        return self.lr.predict_proba(X)
-    
+        X = self._input_to_dask_cupy_array(X)
+        return self.internal_model.predict_proba(X)
+
     def decision_function(self, X):
-        X_ = self.lr._maybe_add_intercept(X)
-        return np.dot(X_, self.lr._coef)
+        X = self._input_to_dask_cupy_array(X)
+        X_ = self.internal_model._maybe_add_intercept(X)
+        return np.dot(X_, self.internal_model._coef)
 
     def score(self, X, y):
         from dask_glm.utils import accuracy_score
 
+        X = self._input_to_dask_cupy_array(X)
         return accuracy_score(y, self.predict(X))
 
-    def _set_coefs(self):
-        if self.lr.fit_intercept:
-            self.coef_ = self.lr._coef[:-1]
-            self.intercept_ = self.lr._coef[-1]
+    def _finalize_coefs(self):
+        if self.internal_model.fit_intercept:
+            self.coef_ = self.internal_model._coef[:-1]
+            self.intercept_ = self.internal_model._coef[-1]
         else:
-            self.coef_ = self.lr._coef
+            self.coef_ = self.internal_model._coef
 
-    def _to_dask_cupy_array(self, X):
-        if isinstance(X, dask_cudf.DataFrame) or \
-           isinstance(X, dask_cudf.Series):
+    def _input_to_dask_cupy_array(self, X):
+        if (is_dataframe_like(X) or is_series_like(X)) and \
+            hasattr(X, "dask"):
+            
+            if not isinstance(X._meta, (cudf.Series, cudf.DataFrame)):
+                raise TypeError("Please convert your Dask DataFrame" 
+                                " to a Dask-cuDF DataFrame using dask_cudf.")
             X = X.values
             X._meta = cp.asarray(X._meta)
+                
+        elif is_arraylike(X) and hasattr(X, "dask"):
+            if not isinstance(X._meta, cp.ndarray):
+                raise TypeError("Please convert your CPU Dask Array" 
+                                " to a GPU Dask Array using" 
+                                " arr.map_blocks(cp.asarray).")
+        else:
+            raise TypeError(
+                "Please pass a GPU backed Dask DataFrame or Dask Array."
+            )
+        
         X.compute_chunk_sizes()
         return X
 
