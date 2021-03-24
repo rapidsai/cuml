@@ -21,6 +21,8 @@ import dask_cudf
 
 
 class LogisticRegression(BaseEstimator):
+    """
+    """
 
     def __init__(self, client=None, verbose=False, **kwargs):
         super(LogisticRegression, self).__init__(client=client,
@@ -49,8 +51,7 @@ class LogisticRegression(BaseEstimator):
         lr = LogisticRegressionGLM(**self.kwargs)
         lr.fit(X, y)
         self.lr = lr
-        self.coef_ = self.lr.coef_
-        self.intercept_ = self.lr.intercept_
+        self._set_coefs()
         return self
 
     def predict(self, X):
@@ -81,6 +82,13 @@ class LogisticRegression(BaseEstimator):
         from dask_glm.utils import accuracy_score
 
         return accuracy_score(y, self.predict(X))
+
+    def _set_coefs(self):
+        if self.lr.fit_intercept:
+            self.coef_ = self.lr._coef[:-1]
+            self.intercept_ = self.lr._coef[-1]
+        else:
+            self.coef_ = self.lr._coef
 
     def _to_dask_cupy_array(self, X):
         if isinstance(X, dask_cudf.DataFrame) or \
