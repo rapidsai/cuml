@@ -25,7 +25,8 @@ from cuml.common.import_utils import has_lightgbm
 
 from sklearn.datasets import make_classification, make_regression
 from sklearn.ensemble import GradientBoostingClassifier, \
-    GradientBoostingRegressor, RandomForestClassifier, RandomForestRegressor
+    GradientBoostingRegressor, RandomForestClassifier, RandomForestRegressor, \
+    ExtraTreesClassifier, ExtraTreesRegressor
 from sklearn.metrics import accuracy_score, mean_squared_error
 from sklearn.model_selection import train_test_split
 
@@ -213,6 +214,8 @@ def test_fil_regression(n_rows, n_columns, num_rounds, tmp_path, max_depth):
                           (2, GradientBoostingClassifier, 10),
                           (2, RandomForestClassifier, 1),
                           (2, RandomForestClassifier, 10),
+                          (2, ExtraTreesClassifier, 1),
+                          (2, ExtraTreesClassifier, 10),
                           (5, GradientBoostingClassifier, 1),
                           (5, GradientBoostingClassifier, 10),
                           (25, GradientBoostingClassifier, 1)])
@@ -235,7 +238,7 @@ def test_fil_skl_classification(n_rows, n_columns, n_estimators, max_depth,
         'n_estimators': n_estimators,
         'max_depth': max_depth,
     }
-    if model_class == RandomForestClassifier:
+    if model_class in [RandomForestClassifier, ExtraTreesClassifier]:
         init_kwargs['max_features'] = 0.3
         init_kwargs['n_jobs'] = -1
     else:
@@ -283,6 +286,8 @@ def test_fil_skl_classification(n_rows, n_columns, n_estimators, max_depth,
                           (1, GradientBoostingRegressor, 10),
                           (1, RandomForestRegressor, 1),
                           (1, RandomForestRegressor, 10),
+                          (1, ExtraTreesRegressor, 1),
+                          (1, ExtraTreesRegressor, 10),
                           (5, GradientBoostingRegressor, 10)])
 @pytest.mark.parametrize('max_depth', [2, 10, 20])
 @pytest.mark.parametrize('storage_type', [False, True])
@@ -309,7 +314,7 @@ def test_fil_skl_regression(n_rows, n_columns, n_classes, model_class,
         'n_estimators': n_estimators,
         'max_depth': max_depth,
     }
-    if model_class == RandomForestRegressor:
+    if model_class in [RandomForestRegressor, ExtraTreesRegressor]:
         init_kwargs['max_features'] = 0.3
         init_kwargs['n_jobs'] = -1
     else:

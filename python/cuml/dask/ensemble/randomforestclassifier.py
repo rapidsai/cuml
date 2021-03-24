@@ -453,7 +453,7 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
             'GPU' to predict using the GPU, 'CPU' otherwise. The 'GPU' can only
             be used if the model was trained on float32 data and `X` is float32
             or convert_dtype is set to True. Also the 'GPU' should only be
-            used for binary classification problems.
+            used for classification problems.
         algo : string (default = 'auto')
             This is optional and required only while performing the
             predict operation on the GPU.
