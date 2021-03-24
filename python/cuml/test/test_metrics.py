@@ -1114,10 +1114,21 @@ def naive_hellinger(X, Y, metric=None):
                                       metric='euclidean') / np.sqrt(2)
 
 
+def prepare_sparse_data(size0, size1, dtype, density, metric):
+    # create sparse array, then normalize every row to one
+    data = cupyx.scipy.sparse.random(size0, size1,
+                                     dtype=dtype,
+                                     random_state=123, density=density)
+    if metric == 'hellinger':
+        data = (cupyx.scipy.sparse.diags(cp.array(1 / data.sum(1).T)[0],
+                                         0).tocoo()) * data
+    return data
+  
+
 @pytest.mark.parametrize("metric", PAIRWISE_DISTANCE_SPARSE_METRICS.keys())
 @pytest.mark.parametrize("matrix_size, density", [
     ((3, 3), 0.7),
-    ((5, 400), 0.01)])
+    ((5, 40), 0.1)])
 def test_sparse_pairwise_distances(metric: str, matrix_size, density: float):
     # Test the sparse_pairwise_distance helper function.
     # Use sparse input for sklearn calls when possible
@@ -1139,13 +1150,12 @@ def test_sparse_pairwise_distances(metric: str, matrix_size, density: float):
             return naive_hellinger(X, Y, metric)
         return sklearn_pairwise_distances(X, Y, metric)
 
-    # For fp64, compare at 10 decimals, (5 places less than the ~15 max)
-    compare_precision = 8
+    # For fp64, compare at 7 decimals, (5 places less than the ~15 max)
+    compare_precision = 7
 
     # Compare to sklearn, single input
-    X = cupyx.scipy.sparse.random(matrix_size[0], matrix_size[1],
-                                  dtype=np.float64,
-                                  random_state=123, density=density)
+    X = prepare_sparse_data(matrix_size[0], matrix_size[1],
+                            cp.float64, density, metric)
     S = sparse_pairwise_distances(X, metric=metric)
     S2 = ref_pairwise_dist(sk_array(X).get(), metric=metric)
     cp.testing.assert_array_almost_equal(S, S2, decimal=compare_precision)
@@ -1157,16 +1167,14 @@ def test_sparse_pairwise_distances(metric: str, matrix_size, density: float):
     cp.testing.assert_array_almost_equal(S, S2, decimal=compare_precision)
 
     # Compare to sklearn, with Y dim != X dim
-    Y = cupyx.scipy.sparse.random(2, matrix_size[1], random_state=123,
-                                  dtype=np.float64, density=density)
+    Y = prepare_sparse_data(2, matrix_size[1], cp.float64, density, metric)
     S = pairwise_distances(X, Y, metric=metric)
     S2 = ref_pairwise_dist(sk_array(X).get(), sk_array(Y).get(), metric=metric)
     cp.testing.assert_array_almost_equal(S, S2, decimal=compare_precision)
 
-    # Change precision of one parameter
-    Y = cupyx.scipy.sparse.random(matrix_size[0], matrix_size[1],
-                                  dtype=np.float32, random_state=123,
-                                  density=density)
+    # Change precision of one parameter, should work with convert_dtype=True
+    Y = prepare_sparse_data(matrix_size[0], matrix_size[1],
+                            cp.float32, density, metric)
     S = sparse_pairwise_distances(X, Y, metric=metric)
     S2 = ref_pairwise_dist(sk_array(X).get(), sk_array(Y).get(), metric=metric)
     cp.testing.assert_array_almost_equal(S, S2, decimal=compare_precision)
@@ -1175,12 +1183,10 @@ def test_sparse_pairwise_distances(metric: str, matrix_size, density: float):
     compare_precision = 5
 
     # Change precision of both parameters to float
-    X = cupyx.scipy.sparse.random(matrix_size[0], matrix_size[1],
-                                  dtype=np.float32, random_state=123,
-                                  density=density)
-    Y = cupyx.scipy.sparse.random(matrix_size[0], matrix_size[1],
-                                  dtype=np.float32, random_state=123,
-                                  density=density)
+    X = prepare_sparse_data(matrix_size[0], matrix_size[1],
+                            cp.float32, density, metric)
+    Y = prepare_sparse_data(matrix_size[0], matrix_size[1],
+                            cp.float32, density, metric)
     S = sparse_pairwise_distances(X, Y, metric=metric)
     S2 = ref_pairwise_dist(sk_array(X).get(), sk_array(Y).get(), metric=metric)
     cp.testing.assert_array_almost_equal(S, S2, decimal=compare_precision)
@@ -1238,6 +1244,7 @@ def test_sparse_pairwise_distances_exceptions():
 @pytest.mark.parametrize("metric", PAIRWISE_DISTANCE_SPARSE_METRICS.keys())
 @pytest.mark.parametrize("matrix_size,density", [
     unit_param((1000, 100), 0.4),
+    unit_param((20, 10000), 0.01),
     quality_param((2000, 1000), 0.05),
     stress_param((10000, 10000), 0.01)])
 def test_sparse_pairwise_distances_sklearn_comparison(metric: str, matrix_size,
@@ -1264,12 +1271,10 @@ def test_sparse_pairwise_distances_sklearn_comparison(metric: str, matrix_size,
 
     element_count = matrix_size[0] * matrix_size[1]
 
-    X = cupyx.scipy.sparse.random(matrix_size[0], matrix_size[1],
-                                  dtype=np.float64, random_state=123,
-                                  density=density)
-    Y = cupyx.scipy.sparse.random(matrix_size[0], matrix_size[1],
-                                  dtype=np.float64, random_state=123,
-                                  density=density)
+    X = prepare_sparse_data(matrix_size[0], matrix_size[1],
+                            cp.float64, density, metric)
+    Y = prepare_sparse_data(matrix_size[0], matrix_size[1],
+                            cp.float64, density, metric)
 
     # For fp64, compare at 10 decimals, (5 places less than the ~15 max)
     compare_precision = 10
