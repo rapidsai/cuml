@@ -17,6 +17,36 @@
 include(ExternalProject)
 
 ##############################################################################
+# - libcudacxx
+
+set(CUDA_CXX_DIR ${CMAKE_CURRENT_BINARY_DIR}/libcudacxx CACHE STRING "Path to libcudacxx repo")
+
+ExternalProject_Add(libcudacxx
+  GIT_REPOSITORY    https://github.com/NVIDIA/libcudacxx.git
+  GIT_TAG           main
+  PREFIX            ${CUDA_CXX_DIR}
+  CONFIGURE_COMMAND ""
+  BUILD_COMMAND     ""
+  INSTALL_COMMAND   "")
+
+  set(CUDA_CXX_DIR ${CUDA_CXX_DIR}/src/libcudacxx/)
+
+##############################################################################
+# - cucollections - (header only) -----------------------------------------------------
+
+set(CUCO_DIR ${CMAKE_CURRENT_BINARY_DIR}/cuCollections CACHE STRING "Path to cuCollections repo")
+
+ExternalProject_Add(cuCollections
+  GIT_REPOSITORY    https://github.com/divyegala/cuCollections.git
+  GIT_TAG           view-initialization-ctor
+  PREFIX            ${CUCO_DIR}
+  CONFIGURE_COMMAND ""
+  BUILD_COMMAND     ""
+  INSTALL_COMMAND   "")
+
+  set(CUCO_DIR ${CUCO_DIR}/src/cuCollections/)
+
+##############################################################################
 # - raft - (header only) -----------------------------------------------------
 
 # Only cloned if RAFT_PATH env variable is not defined
@@ -257,6 +287,8 @@ set_property(TARGET benchmarklib PROPERTY
 
 # TODO: Change to using build.sh and make targets instead of this
 
+add_dependencies(cuCollections libcudacxx)
+add_dependencies(raft cuCollections)
 if(CUB_IS_PART_OF_CTK)
   add_dependencies(cutlass raft)
 else()

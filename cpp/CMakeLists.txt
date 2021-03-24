@@ -339,6 +339,8 @@ set(CUML_INCLUDE_DIRECTORIES
   ${CUTLASS_DIR}/src/cutlass
   ${SPDLOG_DIR}/src/spdlog/include
   ${FAISS_INCLUDE_DIRS}
+  ${CUDA_CXX_DIR}/include
+  ${CUCO_DIR}/include
   ${RAFT_DIR}/cpp/include
   ${RMM_INCLUDE_DIRS})
 
