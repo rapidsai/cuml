@@ -455,7 +455,7 @@ def test_rf_get_json(client, estimator_type, max_depth, n_estimators):
 
 @pytest.mark.parametrize('max_depth', [1, 2, 3, 5, 10, 15, 20])
 @pytest.mark.parametrize('n_estimators', [5, 10, 20])
-def test_rf_instance_count(max_depth, n_estimators):
+def test_rf_instance_count(client, max_depth, n_estimators):
     n_workers = len(client.scheduler_info()['workers'])
     if n_estimators < n_workers:
         err_msg = "n_estimators cannot be lower than number of dask workers"
@@ -494,7 +494,6 @@ def test_rf_instance_count(max_depth, n_estimators):
         check_instance_count_for_non_leaf(tree)
         # The root's count should be equal to the number of rows in the data
         assert tree['instance_count'] == X.shape[0]
-
 
 
 @pytest.mark.parametrize('estimator_type', ['regression', 'classification'])
