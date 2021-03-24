@@ -16,13 +16,12 @@
 
 #pragma once
 
+#include <raft/linalg/distance_type.h>
 #include <cuml/common/logger.hpp>
 #include <cuml/cuml.hpp>
 
 namespace ML {
 namespace Dbscan {
-
-typedef enum { PRECOMPUTED = 0, L2 } MetricType;
 
 /**
  * @defgroup DbscanCpp C++ implementation of Dbscan algo
@@ -49,24 +48,26 @@ typedef enum { PRECOMPUTED = 0, L2 } MetricType;
  */
 
 void fit(const raft::handle_t &handle, float *input, int n_rows, int n_cols,
-         float eps, int min_pts, MetricType metric, int *labels,
-         int *core_sample_indices = nullptr, size_t max_bytes_per_batch = 0,
-         int verbosity = CUML_LEVEL_INFO, bool opg = false);
+         float eps, int min_pts, raft::distance::DistanceType metric,
+         int *labels, int *core_sample_indices = nullptr,
+         size_t max_bytes_per_batch = 0, int verbosity = CUML_LEVEL_INFO,
+         bool opg = false);
 void fit(const raft::handle_t &handle, double *input, int n_rows, int n_cols,
-         double eps, int min_pts, MetricType metric, int *labels,
-         int *core_sample_indices = nullptr, size_t max_bytes_per_batch = 0,
-         int verbosity = CUML_LEVEL_INFO, bool opg = false);
+         double eps, int min_pts, raft::distance::DistanceType metric,
+         int *labels, int *core_sample_indices = nullptr,
+         size_t max_bytes_per_batch = 0, int verbosity = CUML_LEVEL_INFO,
+         bool opg = false);
 
 void fit(const raft::handle_t &handle, float *input, int64_t n_rows,
-         int64_t n_cols, float eps, int min_pts, MetricType metric,
-         int64_t *labels, int64_t *core_sample_indices = nullptr,
-         size_t max_bytes_per_batch = 0, int verbosity = CUML_LEVEL_INFO,
-         bool opg = false);
+         int64_t n_cols, float eps, int min_pts,
+         raft::distance::DistanceType metric, int64_t *labels,
+         int64_t *core_sample_indices = nullptr, size_t max_bytes_per_batch = 0,
+         int verbosity = CUML_LEVEL_INFO, bool opg = false);
 void fit(const raft::handle_t &handle, double *input, int64_t n_rows,
-         int64_t n_cols, double eps, int min_pts, MetricType metric,
-         int64_t *labels, int64_t *core_sample_indices = nullptr,
-         size_t max_bytes_per_batch = 0, int verbosity = CUML_LEVEL_INFO,
-         bool opg = false);
+         int64_t n_cols, double eps, int min_pts,
+         raft::distance::DistanceType metric, int64_t *labels,
+         int64_t *core_sample_indices = nullptr, size_t max_bytes_per_batch = 0,
+         int verbosity = CUML_LEVEL_INFO, bool opg = false);
 
 /** @} */
 

@@ -89,13 +89,13 @@ Index_ compute_batch_size(size_t &estimated_memory, Index_ n_rows,
 
 template <typename T, typename Index_ = int, bool opg = false>
 void dbscanFitImpl(const raft::handle_t &handle, T *input, Index_ n_rows,
-                   Index_ n_cols, T eps, Index_ min_pts, MetricType metric,
-                   Index_ *labels, Index_ *core_sample_indices,
-                   size_t max_mbytes_per_batch, cudaStream_t stream,
-                   int verbosity) {
+                   Index_ n_cols, T eps, Index_ min_pts,
+                   raft::distance::DistanceType metric, Index_ *labels,
+                   Index_ *core_sample_indices, size_t max_mbytes_per_batch,
+                   cudaStream_t stream, int verbosity) {
   ML::PUSH_RANGE("ML::Dbscan::Fit");
   ML::Logger::get().setLevel(verbosity);
-  int algo_vd = (metric == PRECOMPUTED) ? 2 : 1;
+  int algo_vd = (metric == raft::distance::Precomputed) ? 2 : 1;
   int algo_adj = 1;
   int algo_ccl = 2;
 
@@ -128,7 +128,7 @@ void dbscanFitImpl(const raft::handle_t &handle, T *input, Index_ n_rows,
     CUDA_CHECK(cudaMemGetInfo(&free_memory, &total_memory));
 
     // X can either be a feature matrix or distance matrix
-    size_t dataset_memory = (metric == PRECOMPUTED)
+    size_t dataset_memory = (metric == raft::distance::Precomputed)
                               ? ((size_t)n_rows * (size_t)n_rows * sizeof(T))
                               : ((size_t)n_rows * (size_t)n_cols * sizeof(T));
 

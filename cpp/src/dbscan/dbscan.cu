@@ -23,9 +23,9 @@ namespace ML {
 namespace Dbscan {
 
 void fit(const raft::handle_t &handle, float *input, int n_rows, int n_cols,
-         float eps, int min_pts, MetricType metric, int *labels,
-         int *core_sample_indices, size_t max_bytes_per_batch, int verbosity,
-         bool opg) {
+         float eps, int min_pts, raft::distance::DistanceType metric,
+         int *labels, int *core_sample_indices, size_t max_bytes_per_batch,
+         int verbosity, bool opg) {
   if (opg)
     dbscanFitImpl<float, int, true>(
       handle, input, n_rows, n_cols, eps, min_pts, metric, labels,
@@ -37,9 +37,9 @@ void fit(const raft::handle_t &handle, float *input, int n_rows, int n_cols,
 }
 
 void fit(const raft::handle_t &handle, double *input, int n_rows, int n_cols,
-         double eps, int min_pts, MetricType metric, int *labels,
-         int *core_sample_indices, size_t max_bytes_per_batch, int verbosity,
-         bool opg) {
+         double eps, int min_pts, raft::distance::DistanceType metric,
+         int *labels, int *core_sample_indices, size_t max_bytes_per_batch,
+         int verbosity, bool opg) {
   if (opg)
     dbscanFitImpl<double, int, true>(
       handle, input, n_rows, n_cols, eps, min_pts, metric, labels,
@@ -51,9 +51,10 @@ void fit(const raft::handle_t &handle, double *input, int n_rows, int n_cols,
 }
 
 void fit(const raft::handle_t &handle, float *input, int64_t n_rows,
-         int64_t n_cols, float eps, int min_pts, MetricType metric,
-         int64_t *labels, int64_t *core_sample_indices,
-         size_t max_bytes_per_batch, int verbosity, bool opg) {
+         int64_t n_cols, float eps, int min_pts,
+         raft::distance::DistanceType metric, int64_t *labels,
+         int64_t *core_sample_indices, size_t max_bytes_per_batch,
+         int verbosity, bool opg) {
   if (opg)
     dbscanFitImpl<float, int64_t, true>(
       handle, input, n_rows, n_cols, eps, min_pts, metric, labels,
@@ -65,9 +66,10 @@ void fit(const raft::handle_t &handle, float *input, int64_t n_rows,
 }
 
 void fit(const raft::handle_t &handle, double *input, int64_t n_rows,
-         int64_t n_cols, double eps, int min_pts, MetricType metric,
-         int64_t *labels, int64_t *core_sample_indices,
-         size_t max_bytes_per_batch, int verbosity, bool opg) {
+         int64_t n_cols, double eps, int min_pts,
+         raft::distance::DistanceType metric, int64_t *labels,
+         int64_t *core_sample_indices, size_t max_bytes_per_batch,
+         int verbosity, bool opg) {
   if (opg)
     dbscanFitImpl<double, int64_t, true>(
       handle, input, n_rows, n_cols, eps, min_pts, metric, labels,

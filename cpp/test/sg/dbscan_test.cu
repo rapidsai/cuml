@@ -19,6 +19,7 @@
 #include <raft/cuda_utils.cuh>
 #include <vector>
 
+#include <raft/linalg/distance_type.h>
 #include <cuml/cluster/dbscan.hpp>
 #include <cuml/common/cuml_allocator.hpp>
 #include <cuml/cuml.hpp>
@@ -56,7 +57,7 @@ struct DbscanInputs {
   int min_pts;
   size_t max_bytes_per_batch;
   unsigned long long int seed;
-  Dbscan::MetricType metric;
+  raft::distance::DistanceType metric;
 };
 
 template <typename T, typename IdxT>
@@ -77,20 +78,21 @@ class DbscanTest : public ::testing::TestWithParam<DbscanInputs<T, IdxT>> {
                          params.n_row * params.n_col);
     device_buffer<IdxT> l(handle.get_device_allocator(), handle.get_stream(),
                           params.n_row);
-    device_buffer<T> dist(
-      handle.get_device_allocator(), handle.get_stream(),
-      params.metric == Dbscan::PRECOMPUTED ? params.n_row * params.n_row : 0);
+    device_buffer<T> dist(handle.get_device_allocator(), handle.get_stream(),
+                          params.metric == raft::distance::Precomputed
+                            ? params.n_row * params.n_row
+                            : 0);
 
     make_blobs(handle, out.data(), l.data(), params.n_row, params.n_col,
                params.n_centers, true, nullptr, nullptr, params.cluster_std,
                true, -10.0f, 10.0f, params.seed);
 
-    if (params.metric == Dbscan::PRECOMPUTED) {
+    if (params.metric == raft::distance::Precomputed) {
       device_buffer<char> workspace(handle.get_device_allocator(),
                                     handle.get_stream(), 0);
 
       MLCommon::Distance::pairwise_distance_impl<
-        T, IdxT, raft::distance::L2SqrtExpanded>(
+        T, IdxT, raft::distance::L2SqrtUnexpanded>(
         out.data(), out.data(), dist.data(), params.n_row, params.n_row,
         params.n_col, workspace, handle.get_stream(), true);
     }
@@ -102,10 +104,11 @@ class DbscanTest : public ::testing::TestWithParam<DbscanInputs<T, IdxT>> {
 
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 
-    Dbscan::fit(handle,
-                params.metric == Dbscan::PRECOMPUTED ? dist.data() : out.data(),
-                params.n_row, params.n_col, params.eps, params.min_pts,
-                params.metric, labels, nullptr, params.max_bytes_per_batch);
+    Dbscan::fit(
+      handle,
+      params.metric == raft::distance::Precomputed ? dist.data() : out.data(),
+      params.n_row, params.n_col, params.eps, params.min_pts, params.metric,
+      labels, nullptr, params.max_bytes_per_batch);
 
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 
@@ -136,37 +139,59 @@ class DbscanTest : public ::testing::TestWithParam<DbscanInputs<T, IdxT>> {
 };
 
 const std::vector<DbscanInputs<float, int>> inputsf2 = {
-  {500, 16, 5, 0.01, 2, 2, (size_t)100, 1234ULL, Dbscan::L2},
-  {500, 16, 5, 0.01, 2, 2, (size_t)100, 1234ULL, Dbscan::PRECOMPUTED},
-  {1000, 1000, 10, 0.01, 2, 2, (size_t)13e3, 1234ULL, Dbscan::L2},
-  {20000, 10000, 10, 0.01, 2, 2, (size_t)13e3, 1234ULL, Dbscan::L2},
-  {20000, 100, 5000, 0.01, 2, 2, (size_t)13e3, 1234ULL, Dbscan::L2}};
+  {500, 16, 5, 0.01, 2, 2, (size_t)100, 1234ULL,
+   raft::distance::L2SqrtUnexpanded},
+  {500, 16, 5, 0.01, 2, 2, (size_t)100, 1234ULL, raft::distance::Precomputed},
+  {1000, 1000, 10, 0.01, 2, 2, (size_t)13e3, 1234ULL,
+   raft::distance::L2SqrtUnexpanded},
+  {20000, 10000, 10, 0.01, 2, 2, (size_t)13e3, 1234ULL,
+   raft::distance::L2SqrtUnexpanded},
+  {20000, 100, 5000, 0.01, 2, 2, (size_t)13e3, 1234ULL,
+   raft::distance::L2SqrtUnexpanded}};
 
 const std::vector<DbscanInputs<float, int64_t>> inputsf3 = {
-  {500, 16, 5, 0.01, 2, 2, (size_t)100, 1234ULL, Dbscan::L2},
-  {500, 16, 5, 0.01, 2, 2, (size_t)100, 1234ULL, Dbscan::PRECOMPUTED},
-  {1000, 1000, 10, 0.01, 2, 2, (size_t)9e3, 1234ULL, Dbscan::L2},
-  {50000, 16, 5, 0.01, 2, 2, (size_t)9e3, 1234ULL, Dbscan::L2},
-  {20000, 10000, 10, 0.01, 2, 2, (size_t)9e3, 1234ULL, Dbscan::L2},
-  {20000, 100, 5000, 0.01, 2, 2, (size_t)9e3, 1234ULL, Dbscan::L2}};
+  {500, 16, 5, 0.01, 2, 2, (size_t)100, 1234ULL,
+   raft::distance::L2SqrtUnexpanded},
+  {500, 16, 5, 0.01, 2, 2, (size_t)100, 1234ULL, raft::distance::Precomputed},
+  {1000, 1000, 10, 0.01, 2, 2, (size_t)9e3, 1234ULL,
+   raft::distance::L2SqrtUnexpanded},
+  {50000, 16, 5, 0.01, 2, 2, (size_t)9e3, 1234ULL,
+   raft::distance::L2SqrtUnexpanded},
+  {20000, 10000, 10, 0.01, 2, 2, (size_t)9e3, 1234ULL,
+   raft::distance::L2SqrtUnexpanded},
+  {20000, 100, 5000, 0.01, 2, 2, (size_t)9e3, 1234ULL,
+   raft::distance::L2SqrtUnexpanded}};
 
 const std::vector<DbscanInputs<double, int>> inputsd2 = {
-  {50000, 16, 5, 0.01, 2, 2, (size_t)13e3, 1234ULL, Dbscan::L2},
-  {10000, 16, 5, 0.01, 2, 2, (size_t)13e3, 1234ULL, Dbscan::PRECOMPUTED},
-  {500, 16, 5, 0.01, 2, 2, (size_t)100, 1234ULL, Dbscan::L2},
-  {1000, 1000, 10, 0.01, 2, 2, (size_t)13e3, 1234ULL, Dbscan::L2},
-  {100, 10000, 10, 0.01, 2, 2, (size_t)13e3, 1234ULL, Dbscan::L2},
-  {20000, 10000, 10, 0.01, 2, 2, (size_t)13e3, 1234ULL, Dbscan::L2},
-  {20000, 100, 5000, 0.01, 2, 2, (size_t)13e3, 1234ULL, Dbscan::L2}};
+  {50000, 16, 5, 0.01, 2, 2, (size_t)13e3, 1234ULL,
+   raft::distance::L2SqrtUnexpanded},
+  {10000, 16, 5, 0.01, 2, 2, (size_t)13e3, 1234ULL,
+   raft::distance::Precomputed},
+  {500, 16, 5, 0.01, 2, 2, (size_t)100, 1234ULL,
+   raft::distance::L2SqrtUnexpanded},
+  {1000, 1000, 10, 0.01, 2, 2, (size_t)13e3, 1234ULL,
+   raft::distance::L2SqrtUnexpanded},
+  {100, 10000, 10, 0.01, 2, 2, (size_t)13e3, 1234ULL,
+   raft::distance::L2SqrtUnexpanded},
+  {20000, 10000, 10, 0.01, 2, 2, (size_t)13e3, 1234ULL,
+   raft::distance::L2SqrtUnexpanded},
+  {20000, 100, 5000, 0.01, 2, 2, (size_t)13e3, 1234ULL,
+   raft::distance::L2SqrtUnexpanded}};
 
 const std::vector<DbscanInputs<double, int64_t>> inputsd3 = {
-  {50000, 16, 5, 0.01, 2, 2, (size_t)9e3, 1234ULL, Dbscan::L2},
-  {10000, 16, 5, 0.01, 2, 2, (size_t)9e3, 1234ULL, Dbscan::PRECOMPUTED},
-  {500, 16, 5, 0.01, 2, 2, (size_t)100, 1234ULL, Dbscan::L2},
-  {1000, 1000, 10, 0.01, 2, 2, (size_t)9e3, 1234ULL, Dbscan::L2},
-  {100, 10000, 10, 0.01, 2, 2, (size_t)9e3, 1234ULL, Dbscan::L2},
-  {20000, 10000, 10, 0.01, 2, 2, (size_t)9e3, 1234ULL, Dbscan::L2},
-  {20000, 100, 5000, 0.01, 2, 2, (size_t)9e3, 1234ULL, Dbscan::L2}};
+  {50000, 16, 5, 0.01, 2, 2, (size_t)9e3, 1234ULL,
+   raft::distance::L2SqrtUnexpanded},
+  {10000, 16, 5, 0.01, 2, 2, (size_t)9e3, 1234ULL, raft::distance::Precomputed},
+  {500, 16, 5, 0.01, 2, 2, (size_t)100, 1234ULL,
+   raft::distance::L2SqrtUnexpanded},
+  {1000, 1000, 10, 0.01, 2, 2, (size_t)9e3, 1234ULL,
+   raft::distance::L2SqrtUnexpanded},
+  {100, 10000, 10, 0.01, 2, 2, (size_t)9e3, 1234ULL,
+   raft::distance::L2SqrtUnexpanded},
+  {20000, 10000, 10, 0.01, 2, 2, (size_t)9e3, 1234ULL,
+   raft::distance::L2SqrtUnexpanded},
+  {20000, 100, 5000, 0.01, 2, 2, (size_t)9e3, 1234ULL,
+   raft::distance::L2SqrtUnexpanded}};
 
 typedef DbscanTest<float, int> DbscanTestF_Int;
 TEST_P(DbscanTestF_Int, Result) { ASSERT_TRUE(score == 1.0); }
@@ -223,7 +248,8 @@ class Dbscan2DSimple : public ::testing::TestWithParam<DBScan2DArrayInputs<T>> {
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 
     Dbscan::fit(handle, inputs, (int)params.n_row, 2, params.eps,
-                params.min_pts, Dbscan::L2, labels, core_sample_indices_d);
+                params.min_pts, raft::distance::L2SqrtUnexpanded, labels,
+                core_sample_indices_d);
 
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 

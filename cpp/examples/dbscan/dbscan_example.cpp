@@ -201,8 +201,8 @@ int main(int argc, char* argv[]) {
             << "max_bytes_per_batch - " << max_bytes_per_batch << std::endl;
 
   ML::Dbscan::fit(handle, d_inputData, nRows, nCols, eps, minPts,
-                  ML::Dbscan::L2, d_labels, nullptr, max_bytes_per_batch,
-                  false);
+                  raft::distance::L2SqrtUnexpanded, d_labels, nullptr,
+                  max_bytes_per_batch, false);
   CUDA_RT_CALL(cudaMemcpyAsync(h_labels.data(), d_labels, nRows * sizeof(int),
                                cudaMemcpyDeviceToHost, stream));
   CUDA_RT_CALL(cudaStreamSynchronize(stream));
