@@ -14,8 +14,9 @@
 #
 
 from cuml.dask.common.base import BaseEstimator
-from dask_glm.estimators import LogisticRegression as LogisticRegressionGLM
+from cuml.common.import_utils import has_daskglm
 import cupy as cp
+import numpy as np
 import dask_cudf
 
 
@@ -25,6 +26,10 @@ class LogisticRegression(BaseEstimator):
         super(LogisticRegression, self).__init__(client=client,
                                                  verbose=verbose,
                                                  **kwargs)
+        
+        if not has_daskglm("0.2.1"):
+            raise ImportError("dask-glm >= 0.2.1 was not found, please install it "
+                              " to use multi-GPU logistic regression. ")
 
     def fit(self, X, y):
         """
@@ -37,11 +42,15 @@ class LogisticRegression(BaseEstimator):
         y : Dask cuDF Series or CuPy backed Dask Array (n_rows,)
             Label (outcome values)
         """
+        from dask_glm.estimators import LogisticRegression as LogisticRegressionGLM
+
         X = self._to_dask_cupy_array(X)
         y = self._to_dask_cupy_array(y)
         lr = LogisticRegressionGLM(**self.kwargs)
         lr.fit(X, y)
         self.lr = lr
+        self.coef_ = self.lr.coef_
+        self.intercept_ = self.lr.intercept_
         return self
 
     def predict(self, X):
@@ -60,6 +69,13 @@ class LogisticRegression(BaseEstimator):
         """
         X = self._to_dask_cupy_array(X)
         return self.lr.predict(X)
+    
+    def predict_proba(self, X):
+        return self.lr.predict_proba(X)
+    
+    def decision_function(self, X):
+        X_ = self.lr._maybe_add_intercept(X)
+        return np.dot(X_, self.lr._coef)
 
     def _to_dask_cupy_array(self, X):
         if isinstance(X, dask_cudf.DataFrame) or \

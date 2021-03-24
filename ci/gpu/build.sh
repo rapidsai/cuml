@@ -69,7 +69,7 @@ if [ "$py_ver" == "3.6" ];then
     conda install contextvars
 fi
 
-gpuci_logger "Install the main version of dask and distributed"
+gpuci_logger "Install the main version of dask, distributed, and dask-glm"
 set -x
 pip install "git+https://github.com/dask/distributed.git@main" --upgrade --no-deps
 pip install "git+https://github.com/dask/dask.git@main" --upgrade --no-deps
