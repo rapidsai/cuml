@@ -27,10 +27,10 @@ from cuml.test.utils import array_equal
 import cupy as cp
 
 
-@pytest.mark.parametrize('nrows', [100000])
+@pytest.mark.parametrize('nrows', [1000000])
 @pytest.mark.parametrize('ncols', [25])
-@pytest.mark.parametrize('nclusters', [100])
-@pytest.mark.parametrize('k', [100])
+@pytest.mark.parametrize('nclusters', [10])
+@pytest.mark.parametrize('k', [3])
 def test_sklearn_compare(nrows, ncols, nclusters, k):
 
     X, y = make_blobs(int(nrows),
@@ -44,14 +44,20 @@ def test_sklearn_compare(nrows, ncols, nclusters, k):
         n_clusters=nclusters, affinity='euclidean', linkage='single',
         n_neighbors=k, connectivity='knn')
 
+    import time
+    s = time.time()
     cuml_agg.fit(X)
+
+    print("cuml took %ss" % (time.time() - s))
 
     print("cu labels: %s" % cuml_agg.labels_.to_output("numpy"))
 
     sk_agg = cluster.AgglomerativeClustering(
         n_clusters=nclusters, affinity='euclidean', linkage='single')
 
+    s = time.time()
     sk_agg.fit(cp.asnumpy(X))
+    print("sklearn took %ss" % (time.time() - s))
 
     # Cluster assignments should be exact, even though the actual
     # labels may differ

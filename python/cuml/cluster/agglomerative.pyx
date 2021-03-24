@@ -132,7 +132,7 @@ class AgglomerativeClustering(Base, ClusterMixin, CMajorInputTagMixin):
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
         self.labels_ = CumlArray.empty(n_rows, dtype="int32")
-        self.children_ = CumlArray.empty((2, (n_rows - 1)), dtype="int32")
+        self.children_ = CumlArray.empty((2, n_rows), dtype="int32")
         cdef uintptr_t labels_ptr = self.labels_.ptr
         cdef uintptr_t children_ptr = self.children_.ptr
 
