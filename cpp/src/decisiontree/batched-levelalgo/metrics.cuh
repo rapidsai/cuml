@@ -96,7 +96,7 @@ DI void giniGain(int* shist, DataT* sbins, Split<DataT, IdxT>& sp, IdxT col,
 
         val_i += lval_i;
         //auto rval_i = shist[i * 2 * nclasses + nclasses + j];
-        auto rval_i = shist[ 2 * nbins * j + nbins + i];
+        auto rval_i = shist[2 * nbins * j + nbins + i];
         auto rval = DataT(rval_i);
         gain += rval * invRight * rval * invlen;
 

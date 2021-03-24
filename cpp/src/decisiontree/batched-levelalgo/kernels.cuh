@@ -368,8 +368,10 @@ __global__ void computeSplitClassificationKernel(
   }
 
   // populating shared memory with initial values
-  for (IdxT i = threadIdx.x; i < pdf_shist_len; i += blockDim.x) pdf_shist[i] = 0;
-  for (IdxT j = threadIdx.x; j < cdf_shist_len; j += blockDim.x) cdf_shist[j] = 0;
+  for (IdxT i = threadIdx.x; i < pdf_shist_len; i += blockDim.x)
+    pdf_shist[i] = 0;
+  for (IdxT j = threadIdx.x; j < cdf_shist_len; j += blockDim.x)
+    cdf_shist[j] = 0;
   for (IdxT i = threadIdx.x; i < pdf_shist_len; i += blockDim.x)
     pdf_shist[i] = 0;
   for (IdxT j = threadIdx.x; j < cdf_shist_len; j += blockDim.x)
@@ -399,7 +401,7 @@ __global__ void computeSplitClassificationKernel(
       }
     }
     // case when d is larger than all bins
-    if (!breakflag) atomicAdd(pdf_shist + ( 1 + nbins ) * label + nbins, 1);
+    if (!breakflag) atomicAdd(pdf_shist + (1 + nbins) * label + nbins, 1);
   }
 
   // synchronizeing above changes across block

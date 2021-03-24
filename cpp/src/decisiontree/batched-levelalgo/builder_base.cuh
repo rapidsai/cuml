@@ -124,8 +124,7 @@ struct Builder {
    *                                on the concurrent nodes of tree available to be processed.
   */
   int n_blks_for_rows(const int gridDimy, const void* func, const int blockSize,
-                      const size_t dynamic_smem_size,
-                      const int gridDimz) {
+                      const size_t dynamic_smem_size, const int gridDimz) {
     int devid;
     CUDA_CHECK(cudaGetDevice(&devid));
     int mpcount;
