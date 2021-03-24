@@ -1123,7 +1123,7 @@ def prepare_sparse_data(size0, size1, dtype, density, metric):
         data = (cupyx.scipy.sparse.diags(cp.array(1 / data.sum(1).T)[0],
                                          0).tocoo()) * data
     return data
-  
+
 
 @pytest.mark.parametrize("metric", PAIRWISE_DISTANCE_SPARSE_METRICS.keys())
 @pytest.mark.parametrize("matrix_size, density", [
@@ -1200,7 +1200,6 @@ def test_sparse_pairwise_distances_exceptions():
     if not has_scipy():
         pytest.skip('Skipping sparse_pairwise_distances_exceptions '
                     'if Scipy is missing')
-    import scipy
     from scipy import sparse
     X_int = sparse.random(5, 4, dtype=np.float32,
                           random_state=123, density=0.3) * 10
