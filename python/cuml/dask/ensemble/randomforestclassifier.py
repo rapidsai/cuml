@@ -271,7 +271,7 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
                   convert_dtype=convert_dtype)
         return self
 
-    def predict(self, X, output_class=True, algo='auto', threshold=0.5,
+    def predict(self, X, algo='auto', threshold=0.5,
                 convert_dtype=True, predict_model="GPU",
                 fil_sparse_format='auto', delayed=True):
         """
@@ -304,12 +304,6 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
         X : Dask cuDF dataframe  or CuPy backed Dask Array (n_rows, n_features)
             Distributed dense matrix (floats or doubles) of shape
             (n_samples, n_features).
-        output_class : boolean (default = True)
-            This is optional and required only while performing the
-            predict operation on the GPU.
-            If true, return a 1 or 0 depending on whether the raw
-            prediction exceeds the threshold. If False, just return
-            the raw prediction.
         algo : string (default = 'auto')
             This is optional and required only while performing the
             predict operation on the GPU.
@@ -325,7 +319,6 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
             Threshold used for classification. Optional and required only
             while performing the predict operation on the GPU, that is for,
             predict_model='GPU'.
-            It is applied if output_class == True, else it is ignored
         convert_dtype : bool, optional (default = True)
             When set to True, the predict method will, when necessary, convert
             the input to the data type which was used to train the model. This
@@ -358,7 +351,7 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
                                               convert_dtype=convert_dtype)
         else:
             preds = \
-                self._predict_using_fil(X, output_class=output_class,
+                self._predict_using_fil(X,
                                         algo=algo,
                                         threshold=threshold,
                                         convert_dtype=convert_dtype,
@@ -455,13 +448,7 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
             'GPU' to predict using the GPU, 'CPU' otherwise. The 'GPU' can only
             be used if the model was trained on float32 data and `X` is float32
             or convert_dtype is set to True. Also the 'GPU' should only be
-            used for binary classification problems.
-        output_class : boolean (default = True)
-            This is optional and required only while performing the
-            predict operation on the GPU.
-            If true, return a 1 or 0 depending on whether the raw
-            prediction exceeds the threshold. If False, just return
-            the raw prediction.
+            used for classification problems.
         algo : string (default = 'auto')
             This is optional and required only while performing the
             predict operation on the GPU.
@@ -476,7 +463,6 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
         threshold : float (default = 0.5)
             Threshold used for classification. Optional and required only
             while performing the predict operation on the GPU.
-            It is applied if output_class == True, else it is ignored
         convert_dtype : bool, optional (default = True)
             When set to True, the predict method will, when necessary, convert
             the input to the data type which was used to train the model. This

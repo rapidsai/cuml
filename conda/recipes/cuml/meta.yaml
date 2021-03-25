@@ -43,7 +43,7 @@ requirements:
     - libcumlprims {{ minor_version }}
     - cupy>=7.8.0,<9.0.0a0
     - treelite=1.0.0
-    - nccl>=2.5
+    - nccl>=2.8.4
     - ucx-py {{ minor_version }}
     - ucx-proc=*=gpu
     - dask>=2.12.0

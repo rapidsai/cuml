@@ -16,6 +16,7 @@
 
 # distutils: language = c++
 
+import numpy as np
 import cupy as cp
 import pprint
 
@@ -126,6 +127,15 @@ class LogisticRegression(Base,
        If False, the model expects that you have centered the data.
     class_weight: None
         Custom class weighs are currently not supported.
+    class_weight: dict or 'balanced', default=None
+        By default all classes have a weight one. However, a dictionary
+        can be provided with weights associated with classes
+        in the form ``{class_label: weight}``. The "balanced" mode
+        uses the values of y to automatically adjust weights
+        inversely proportional to class frequencies in the input data
+        as ``n_samples / (n_classes * np.bincount(y))``. Note that
+        these weights will be multiplied with sample_weight
+        (passed through the fit method) if sample_weight is specified.
     max_iter: int (default = 1000)
         Maximum number of iterations taken for the solvers to converge.
     linesearch_max_iter: int (default = 50)
@@ -178,6 +188,8 @@ class LogisticRegression(Base,
     """
 
     classes_ = CumlArrayDescriptor()
+    class_weight_ = CumlArrayDescriptor()
+    expl_spec_weights_ = CumlArrayDescriptor()
 
     def __init__(
         self,
@@ -198,9 +210,6 @@ class LogisticRegression(Base,
         super(LogisticRegression, self).__init__(
             handle=handle, verbose=verbose, output_type=output_type
         )
-
-        if class_weight:
-            raise ValueError("`class_weight` not supported.")
 
         if penalty not in supported_penalties:
             raise ValueError("`penalty` " + str(penalty) + "not supported.")
@@ -246,6 +255,21 @@ class LogisticRegression(Base,
 
         loss = "sigmoid"
 
+        if class_weight is not None:
+            if class_weight == 'balanced':
+                self.class_weight_ = 'balanced'
+            else:
+                classes = list(class_weight.keys())
+                weights = list(class_weight.values())
+                max_class = sorted(classes)[-1]
+                class_weight = cp.ones(max_class + 1)
+                class_weight[classes] = weights
+                self.class_weight_, _, _, _ = input_to_cuml_array(class_weight)
+                self.expl_spec_weights_, _, _, _ = \
+                    input_to_cuml_array(np.array(classes))
+        else:
+            self.class_weight_ = None
+
         self.solver_model = QN(
             loss=loss,
             fit_intercept=self.fit_intercept,
@@ -267,7 +291,8 @@ class LogisticRegression(Base,
 
     @generate_docstring()
     @cuml.internals.api_base_return_any(set_output_dtype=True)
-    def fit(self, X, y, convert_dtype=True) -> "LogisticRegression":
+    def fit(self, X, y, sample_weight=None,
+            convert_dtype=True) -> "LogisticRegression":
         """
         Fit the model with X and y.
 
@@ -275,10 +300,53 @@ class LogisticRegression(Base,
         # Converting y to device array here to use `unique` function
         # since calling input_to_cuml_array again in QN has no cost
         # Not needed to check dtype since qn class checks it already
-        y_m, _, _, _ = input_to_cuml_array(y)
-
+        y_m, n_rows, _, _ = input_to_cuml_array(y)
         self.classes_ = cp.unique(y_m)
         self._num_classes = len(self.classes_)
+
+        if self._num_classes == 2:
+            if self.classes_[0] != 0 or self.classes_[1] != 1:
+                raise ValueError("Only values of 0 and 1 are"
+                                 " supported for binary classification.")
+
+        if sample_weight is not None or self.class_weight_ is not None:
+            if sample_weight is None:
+                sample_weight = cp.ones(n_rows)
+
+            sample_weight, n_weights, D, _ = input_to_cuml_array(sample_weight)
+
+            if n_rows != n_weights or D != 1:
+                raise ValueError("sample_weight.shape == {}, "
+                                 "expected ({},)!".format(sample_weight.shape,
+                                                          n_rows))
+
+            def check_expl_spec_weights():
+                with cuml.using_output_type("numpy"):
+                    for c in self.expl_spec_weights_:
+                        i = np.searchsorted(self.classes_, c)
+                        if i >= self._num_classes or self.classes_[i] != c:
+                            msg = "Class label {} not present.".format(c)
+                            raise ValueError(msg)
+
+            if self.class_weight_ is not None:
+                if self.class_weight_ == 'balanced':
+                    class_weight = n_rows / \
+                                   (self._num_classes *
+                                    cp.bincount(y_m.to_output('cupy')))
+                    class_weight = CumlArray(class_weight)
+                else:
+                    check_expl_spec_weights()
+                    n_explicit = self.class_weight_.shape[0]
+                    if n_explicit != self._num_classes:
+                        class_weight = cp.ones(self._num_classes)
+                        class_weight[:n_explicit] = self.class_weight_
+                        class_weight = CumlArray(class_weight)
+                        self.class_weight_ = class_weight
+                    else:
+                        class_weight = self.class_weight_
+                out = y_m.to_output('cupy')
+                sample_weight *= class_weight[out].to_output('cupy')
+                sample_weight = CumlArray(sample_weight)
 
         if self._num_classes > 2:
             loss = "softmax"
@@ -293,7 +361,8 @@ class LogisticRegression(Base,
         if logger.should_log_for(logger.level_debug):
             logger.debug(self.verb_prefix + "Calling QN fit " + str(loss))
 
-        self.solver_model.fit(X, y_m, convert_dtype=convert_dtype)
+        self.solver_model.fit(X, y_m, sample_weight=sample_weight,
+                              convert_dtype=convert_dtype)
 
         # coefficients and intercept are contained in the same array
         if logger.should_log_for(logger.level_debug):

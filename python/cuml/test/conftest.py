@@ -17,7 +17,6 @@
 import cupy as cp
 import numpy as np
 import pytest
-import zlib
 
 from sklearn.datasets import fetch_20newsgroups
 from sklearn.datasets import fetch_california_housing
@@ -37,7 +36,7 @@ def nlp_20news():
         twenty_train = fetch_20newsgroups(subset='train',
                                           shuffle=True,
                                           random_state=42)
-    except (IOError, zlib.error):
+    except:  # noqa E722
         pytest.xfail(reason="Error fetching 20 newsgroup dataset")
 
     count_vect = CountVectorizer()

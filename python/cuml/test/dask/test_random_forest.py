@@ -173,9 +173,7 @@ def test_rf_regression_dask_fil(partitions_per_worker,
 
 
 @pytest.mark.parametrize('partitions_per_worker', [5])
-@pytest.mark.parametrize('output_class', [True, False])
-def test_rf_classification_dask_array(partitions_per_worker, client,
-                                      output_class):
+def test_rf_classification_dask_array(partitions_per_worker, client):
     n_workers = len(client.scheduler_info()['workers'])
 
     X, y = make_classification(n_samples=n_workers * 2000, n_features=30,
@@ -199,10 +197,7 @@ def test_rf_classification_dask_array(partitions_per_worker, client,
     X_test_dask_array = from_array(X_test)
     cuml_mod = cuRFC_mg(**cu_rf_params)
     cuml_mod.fit(X_train_df, y_train_df)
-    cuml_mod_predict = cuml_mod.predict(X_test_dask_array,
-                                        output_class).compute()
-    if not output_class:
-        cuml_mod_predict = np.round(cuml_mod_predict)
+    cuml_mod_predict = cuml_mod.predict(X_test_dask_array).compute()
 
     acc_score = accuracy_score(cuml_mod_predict, y_test, normalize=True)
 
@@ -279,8 +274,12 @@ def test_rf_classification_dask_fil_predict_proba(partitions_per_worker,
     cu_rf_mg = cuRFC_mg(**cu_rf_params)
     cu_rf_mg.fit(X_train_df, y_train_df)
 
+    fil_preds = cu_rf_mg.predict(X_test_df).compute()
+    fil_preds = fil_preds.to_array()
     fil_preds_proba = cu_rf_mg.predict_proba(X_test_df).compute()
     fil_preds_proba = cp.asnumpy(fil_preds_proba.as_gpu_matrix())
+    np.testing.assert_equal(fil_preds, np.argmax(fil_preds_proba, axis=1))
+
     y_proba = np.zeros(np.shape(fil_preds_proba))
     y_proba[:, 1] = y_test
     y_proba[:, 0] = 1.0 - y_test
