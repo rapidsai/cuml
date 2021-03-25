@@ -51,11 +51,14 @@ __global__ void fill_b_kernel(value_t *b, const label_idx *y, value_idx n_rows,
 
   auto row_cluster = y[idx];
 
+  auto col_cluster_count = cluster_counts[idy];
+
   // b for own cluster should be max value
   // so that it does not interfere with min operator
+  // b is also max if col cluster count is 0
   // however, b is 0 if self cluster count is 1
-  if (row_cluster == idy) {
-    if (cluster_counts[row_cluster] == 1) {
+  if (row_cluster == idy || col_cluster_count == 0) {
+    if (cluster_counts[row_cluster] == 1 ) {
       b[idx * n_labels + idy] = 0;
     } else {
       b[idx * n_labels + idy] = std::numeric_limits<value_t>::max();
