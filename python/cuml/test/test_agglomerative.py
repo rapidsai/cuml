@@ -37,8 +37,7 @@ def test_sklearn_compare(nrows, ncols, nclusters, k):
                       ncols,
                       nclusters,
                       cluster_std=1.0,
-                      shuffle=False,
-                      random_state=0)
+                      shuffle=False)
 
     cuml_agg = AgglomerativeClustering(
         n_clusters=nclusters, affinity='euclidean', linkage='single',
