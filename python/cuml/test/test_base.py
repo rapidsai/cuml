@@ -20,7 +20,7 @@ import pytest
 import numpydoc.docscrape
 from cuml.test.utils import (get_classes_from_package,
                              small_classification_dataset)
-from cuml._thirdparty.sklearn.utils.skl_dependencies import BaseEstimator
+from cuml._thirdparty.sklearn.utils.skl_dependencies import sklBaseEstimator
 
 all_base_children = get_classes_from_package(cuml, import_sub_packages=True)
 
@@ -89,8 +89,9 @@ def test_base_subclass_init_matches_docs(child_class: str):
     """
     klass = all_base_children[child_class]
 
-    if issubclass(klass, BaseEstimator):
-        pytest.skip("Exemption for preprocessing models")
+    if issubclass(klass, sklBaseEstimator):
+        pytest.skip("Exemption for preprocessing models. Preprocessing models"
+                    "do not have base arguments in constructors.")
 
     # To quickly find and replace all instances in the documentation, the below
     # regex's may be useful
