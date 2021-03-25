@@ -152,7 +152,9 @@ const std::vector<adjustedRandIndexParam> inputs = {
   {100, 1, 20, false, 0.000001, false},  {10, 1, 10, false, 0.000001, false},
   {198, 1, 100, false, 0.000001, false}, {300, 3, 99, false, 0.000001, false},
   {199, 1, 10, true, 0.000001, false},   {200, 15, 100, true, 0.000001, false},
-  {100, 1, 20, true, 0.000001, false},   {10, 1, 10, true, 0.000001, false},
+  {100, 1, 20, true, 0.000001, false},
+  // FIXME: disabled temporarily due to flaky test
+  // {10, 1, 10, true, 0.000001, false},
   {198, 1, 100, true, 0.000001, false},  {300, 3, 99, true, 0.000001, false},
 
   {199, 0, 0, false, 0.000001, true},    {200, 0, 0, false, 0.000001, true},
