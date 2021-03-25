@@ -232,21 +232,19 @@ class SimpleImputer(_BaseImputer,
     @check_cupy8()
     @_deprecate_positional_args
     def __init__(self, *, missing_values=np.nan, strategy="mean",
-                 fill_value=None, verbose=0, copy=True, add_indicator=False):
+                 fill_value=None, copy=True, add_indicator=False):
         super().__init__(
             missing_values=missing_values,
             add_indicator=add_indicator
         )
         self.strategy = strategy
         self.fill_value = fill_value
-        self.verbose = verbose
         self.copy = copy
 
     def get_param_names(self):
         return super().get_param_names() + [
             "strategy",
             "fill_value",
-            "verbose",
             "copy"
         ]
 
