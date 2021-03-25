@@ -76,7 +76,7 @@ def test_pca_fit(datatype, input_type, name, use_handle):
 @pytest.mark.parametrize('sparse', [True, False])
 def test_pca_defaults(n_samples, n_features, sparse):
     # FIXME: Disable the case True-300-200 due to flaky test
-    if sparse and n_features == 30 and n_samples == 200:
+    if sparse and n_features == 300 and n_samples == 200:
         pytest.xfail('Skipping the case True-300-200 due to flaky test')
 
     if sparse:
