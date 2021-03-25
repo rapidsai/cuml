@@ -286,6 +286,31 @@ def test_ivfsq_pred(qtype, encodeResidual, nrows, ncols, n_neighbors, nlist):
     assert array_equal(labels, y)
 
 
+@pytest.mark.parametrize("algo", ["brute", "ivfflat", "ivfpq", "ivfsq"])
+@pytest.mark.parametrize("metric", set([
+        "l2", "euclidean", "sqeuclidean",
+        "cosine", "correlation"
+    ]))
+def test_ann_distances_metrics(algo, metric):
+    X, y = make_blobs(n_samples=500, centers=2,
+                      n_features=128, random_state=0)
+
+    cu_knn = cuKNN(algorithm=algo, metric=metric)
+    cu_knn.fit(X)
+    cu_dist, cu_ind = cu_knn.kneighbors(X, n_neighbors=10,
+                                        return_distance=True)
+    del cu_knn
+    gc.collect()
+
+    X = X.get()
+    sk_knn = skKNN(metric=metric)
+    sk_knn.fit(X)
+    sk_dist, sk_ind = sk_knn.kneighbors(X, n_neighbors=10,
+                                        return_distance=True)
+
+    return array_equal(sk_dist, cu_dist)
+
+
 def test_return_dists():
     n_samples = 50
     n_feats = 50

@@ -120,7 +120,7 @@ cdef class TreeliteModel():
             Path to treelite model file to load
 
         model_type : string
-            Type of model: 'xgboost', or 'lightgbm'
+            Type of model: 'xgboost', 'xgboost_json', or 'lightgbm'
         """
         filename_bytes = filename.encode("UTF-8")
         cdef ModelHandle handle
@@ -413,13 +413,14 @@ class ForestInference(Base,
      * A single row of data should fit into the shared memory of a thread
        block, which means that more than 12288 features are not supported.
      * From sklearn.ensemble, only
-       {RandomForest,GradientBoosting}{Classifier,Regressor} models are
-       supported. Other sklearn.ensemble models are currently not supported.
+       {RandomForest,GradientBoosting,ExtraTrees}{Classifier,Regressor} models
+       are supported. Other sklearn.ensemble models are currently not
+       supported.
      * Importing large SKLearn models can be slow, as it is done in Python.
      * LightGBM categorical features are not supported.
      * Inference uses a dense matrix format, which is efficient for many
        problems but can be suboptimal for sparse datasets.
-     * Only binary classification and regression are supported.
+     * Only classification and regression are supported.
      * Many other random forest implementations including LightGBM, and SKLearn
        GBDTs make use of 64-bit floating point parameters, but the underlying
        library for ForestInference uses only 32-bit parameters. Because of the
@@ -619,7 +620,7 @@ class ForestInference(Base,
                           handle=None):
         """
         Creates a FIL model using the scikit-learn model passed to the
-        function. This function requires Treelite 0.90 to be installed.
+        function. This function requires Treelite 1.0.0+ to be installed.
 
         Parameters
         ----------
@@ -727,7 +728,7 @@ class ForestInference(Base,
 
         model_type : string (default="xgboost")
             Format of the saved treelite model to be load.
-            It can be 'xgboost', 'lightgbm'.
+            It can be 'xgboost', 'xgboost_json', 'lightgbm'.
 
         Returns
         ----------
