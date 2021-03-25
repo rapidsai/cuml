@@ -16,15 +16,15 @@
 
 
 import cuml
-import cuml.experimental.explainer
 import cupy as cp
 import numpy as np
 import pytest
 import sklearn.neighbors
 
+from cuml.experimental.explainer.kernel_shap import KernelExplainer as cuPE
+from cuml.test.conftest import create_synthetic_dataset
 from cuml.test.utils import ClassEnumerator
-from sklearn.datasets import make_classification
-from sklearn.datasets import make_regression
+from cuml.test.utils import get_shap_values
 from sklearn.model_selection import train_test_split
 
 models_config = ClassEnumerator(module=cuml)
@@ -57,101 +57,65 @@ def exact_tests_dataset():
                                    cuml.KNeighborsRegressor,
                                    cuml.SVR])
 def test_regression_datasets(exact_tests_dataset, model):
-    # in general permutation shap does not behave as predictable as
-    # kernel shap, even when comparing permutation against kernel SHAP of the
-    # mainline SHAP package. So these tests assure us that we're doing the
-    # correct calculations, even if we can't compare directly.
     X_train, X_test, y_train, y_test = exact_tests_dataset
 
-    mod = model().fit(X_train, y_train)
+    models = []
+    models.append(model().fit(X_train, y_train))
+    models.append(cuml_skl_class_dict[model]().fit(X_train, y_train))
 
-    explainer = cuml.experimental.explainer.PermutationExplainer(
-        model=mod.predict,
-        data=X_train)
+    for mod in models:
+        explainer, shap_values = get_shap_values(
+            model=mod.predict,
+            background_dataset=X_train,
+            explained_dataset=X_test,
+            explainer=cuPE
+        )
 
-    cu_shap_values = explainer.shap_values(X_test)
+        fx = mod.predict(X_test)
+        exp_v = explainer.expected_value
 
-    exp_v = float(explainer.expected_value)
-    fx = mod.predict(X_test)
-    assert (np.sum(cp.asnumpy(cu_shap_values)) - abs(fx - exp_v)) <= 1e-5
-
-    skmod = cuml_skl_class_dict[model]().fit(X_train, y_train)
-
-    explainer = cuml.experimental.explainer.PermutationExplainer(
-        model=skmod.predict,
-        data=X_train)
-
-    skl_shap_values = explainer.shap_values(X_test)
-    exp_v = float(explainer.expected_value)
-    fx = mod.predict(X_test)
-    assert (np.sum(cp.asnumpy(skl_shap_values)) - abs(fx - exp_v)) <= 1e-5
+        assert (np.sum(cp.asnumpy(shap_values)) - abs(fx - exp_v)) <= 1e-5
 
 
-def test_exact_classification_datasets():
-    X, y = make_classification(n_samples=101,
-                               n_features=11,
-                               random_state=42,
-                               n_informative=2,
-                               n_classes=2)
+def test_exact_classification_datasets(exact_shap_classification_dataset):
+    X_train, X_test, y_train, y_test = exact_shap_classification_dataset
 
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=1, random_state=42)
+    models = []
+    models.append(cuml.SVC(probability=True).fit(X_train, y_train))
+    models.append(sklearn.svm.SVC(probability=True).fit(X_train, y_train))
 
-    X_train = X_train.astype(np.float32)
-    X_test = X_test.astype(np.float32)
-    y_train = y_train.astype(np.float32)
-    y_test = y_test.astype(np.float32)
+    for mod in models:
+        explainer, shap_values = get_shap_values(
+            model=mod.predict_proba,
+            background_dataset=X_train,
+            explained_dataset=X_test,
+            explainer=cuPE
+        )
 
-    mod = cuml.SVC(probability=True).fit(X_train, y_train)
+        fx = mod.predict_proba(X_test)[0]
+        exp_v = explainer.expected_value
 
-    explainer = cuml.experimental.explainer.PermutationExplainer(
-        model=mod.predict_proba,
-        data=X_train)
-
-    cu_shap_values = explainer.shap_values(X_test)
-
-    exp_v = explainer.expected_value
-    fx = mod.predict_proba(X_test)[0]
-    assert (np.sum(cp.asnumpy(
-        cu_shap_values[0])) - abs(fx[0] - exp_v[0])) <= 1e-5
-    assert (np.sum(cp.asnumpy(
-        cu_shap_values[1])) - abs(fx[1] - exp_v[1])) <= 1e-5
-
-    mod = sklearn.svm.SVC(probability=True).fit(X_train, y_train)
-
-    explainer = cuml.experimental.explainer.PermutationExplainer(
-        model=mod.predict_proba,
-        data=X_train)
-
-    skl_shap_values = explainer.shap_values(X_test)
-
-    exp_v = explainer.expected_value
-    fx = mod.predict_proba(X_test)[0]
-    assert (np.sum(cp.asnumpy(
-        skl_shap_values[0])) - abs(fx[0] - exp_v[0])) <= 1e-5
-    assert (np.sum(cp.asnumpy(
-        skl_shap_values[1])) - abs(fx[1] - exp_v[1])) <= 1e-5
+        assert (np.sum(cp.asnumpy(
+            shap_values[0])) - abs(fx[0] - exp_v[0])) <= 1e-5
+        assert (np.sum(cp.asnumpy(
+            shap_values[1])) - abs(fx[1] - exp_v[1])) <= 1e-5
 
 
 @pytest.mark.parametrize("dtype", [np.float32, np.float64])
-@pytest.mark.parametrize("nfeatures", [11, 50])
-@pytest.mark.parametrize("nbackground", [10, 50])
+@pytest.mark.parametrize("n_features", [11, 50])
+@pytest.mark.parametrize("n_background", [10, 50])
 @pytest.mark.parametrize("model", [cuml.LinearRegression,
                                    cuml.SVR])
 @pytest.mark.parametrize("npermutations", [5, 50])
-def test_different_parameters(dtype, nfeatures, nbackground, model,
-                              npermutations):
-    X, y = cuml.datasets.make_regression(n_samples=nbackground + 5,
-                                         n_features=nfeatures,
-                                         noise=0.1)
-
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=5, random_state=42)
-
-    X_train = X_train.astype(dtype)
-    X_test = X_test.astype(dtype)
-    y_train = y_train.astype(dtype)
-    y_test = y_test.astype(dtype)
+def test_different_parameters(dtype, n_features, n_background, model,
+                              npermutations, ):
+    X_train, X_test, y_train, y_test = create_synthetic_dataset(
+        n_samples=n_background + 5,
+        n_features=n_features,
+        test_size=5,
+        noise=0.1,
+        dtype=dtype
+    )
 
     mod = model().fit(X_train, y_train)
 
@@ -166,8 +130,8 @@ def test_different_parameters(dtype, nfeatures, nbackground, model,
     exp_v = float(cu_explainer.expected_value)
     fx = mod.predict(X_test)
     for i in range(5):
-        assert 0.99 <= (abs(np.sum(cp.asnumpy(
-            cu_shap_values[i]))) / abs(fx[i] - exp_v)) <= 1.01
+        assert 0.97 <= (abs(np.sum(cp.asnumpy(
+            cu_shap_values[i]))) / abs(fx[i] - exp_v)) <= 1.03
 
 
 ###############################################################################

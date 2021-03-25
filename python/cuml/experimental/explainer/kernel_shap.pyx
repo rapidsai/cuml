@@ -19,7 +19,6 @@ import cupy as cp
 import numpy as np
 import time
 
-from cuml.common.import_utils import has_shap
 from cuml.common.import_utils import has_sklearn
 from cuml.common.input_utils import input_to_cupy_array
 from cuml.experimental.explainer.base import SHAPBase
@@ -415,7 +414,7 @@ class KernelExplainer(SHAPBase):
                 self.l1_reg_time = \
                     self.l1_reg_time + (time.time() - reg_timer)
                 # in case all indexes become zero
-                if nonzero_inds.shape == (0, ):
+                if len(nonzero_inds) == 0:
                     return None
 
             reg_timer = time.time()

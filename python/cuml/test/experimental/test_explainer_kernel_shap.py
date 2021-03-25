@@ -27,6 +27,7 @@ from cuml.common.import_utils import has_shap
 from cuml.experimental.explainer.kernel_shap import KernelExplainer as cuKE
 from cuml.test.conftest import create_synthetic_dataset
 from cuml.test.utils import ClassEnumerator
+from cuml.test.utils import get_shap_values
 from sklearn.model_selection import train_test_split
 
 
@@ -53,28 +54,10 @@ def assert_and_log(cu_shap_values,
         print(golden_result_values)
 
     if not expected_sum:
-        # print("Expected sum: {}".format())
         print(np.sum(cp.asnumpy(cu_shap_values)))
 
     assert expected_sum
     assert close_values
-
-
-def get_shap_values(model,
-                    background_dataset,
-                    explained_dataset,
-                    explainer=cuKE,
-                    api_type='shap_values'):
-    explainer = explainer(
-        model=model,
-        data=background_dataset
-    )
-    if api_type == 'shap_values':
-        shap_values = explainer.shap_values(explained_dataset)
-    elif api_type == '__call__':
-        shap_values = explainer(explained_dataset)
-
-    return explainer, shap_values
 
 
 ###############################################################################
@@ -206,7 +189,7 @@ def test_kernel_gpu_cpu_shap(dtype, n_features, n_background, model):
         assert(np.sum(
             shap_values[test_idx]) - abs(fx[test_idx] - exp_v)) <= 1e-5
 
-    if has_shap("0.37"):
+    if has_shap(min_version="0.37"):
         import shap
         explainer = shap.KernelExplainer(mod.predict, cp.asnumpy(X_train))
         cpu_shap_values = explainer.shap_values(cp.asnumpy(X_test))

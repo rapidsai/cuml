@@ -306,7 +306,7 @@ class SHAPBase():
                  main_effects=False,
                  **kwargs):
 
-        if not has_shap("0.37"):
+        if not has_shap(min_version="0.37"):
             raise ImportError("SHAP >= 0.37 was not found, please install it "
                               " or use the explainer.shap_values function "
                               "instead. ")

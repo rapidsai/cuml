@@ -57,7 +57,8 @@ gpuci_conda_retry install -c conda-forge -c rapidsai -c rapidsai-nightly -c nvid
       "xgboost=1.3.3dev.rapidsai${MINOR_VERSION}" \
       "rapids-build-env=${MINOR_VERSION}.*" \
       "rapids-notebook-env=${MINOR_VERSION}.*" \
-      "rapids-doc-env=${MINOR_VERSION}.*"
+      "rapids-doc-env=${MINOR_VERSION}.*" \
+      "shap>=0.37, <0.39"
 
 # https://docs.rapids.ai/maintainers/depmgmt/
 # gpuci_conda_retry remove --force rapids-build-env rapids-notebook-env
@@ -74,13 +75,6 @@ set -x
 pip install "git+https://github.com/dask/distributed.git@main" --upgrade --no-deps
 pip install "git+https://github.com/dask/dask.git@main" --upgrade --no-deps
 set +x
-
-# gpuci_logger "Installing SHAP package from conda-forge for testing..."
-# gpuci_conda_retry remove --force rapids-build-env rapids-notebook-env
-# gpuci_conda_retry install -y "shap>=0.37"
-
-gpuci_logger "Installing SHAP with pip for testing..."
-pip install shap
 
 gpuci_logger "Check compiler versions"
 python --version
