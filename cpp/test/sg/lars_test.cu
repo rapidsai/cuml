@@ -384,7 +384,7 @@ class LarsTestFitPredict : public ::testing::Test {
                               verbosity, n_rows, n_cols, (math_t)-1);
     EXPECT_EQ(n_cols, n_active);
     EXPECT_TRUE(raft::devArrMatchHost(beta_exp, beta.data(), n_cols,
-                                      raft::CompareApprox<math_t>(1e-5)));
+                                      raft::CompareApprox<math_t>(2e-4)));
     EXPECT_TRUE(raft::devArrMatchHost(alphas_exp, alphas.data(), n_cols + 1,
                                       raft::CompareApprox<math_t>(1e-4)));
     EXPECT_TRUE(raft::devArrMatchHost(indices_exp, active_idx.data(), n_cols,
