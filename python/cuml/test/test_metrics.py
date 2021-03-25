@@ -285,8 +285,6 @@ def test_silhouette_score_batched_non_monotonic():
 
     cuml_samples = cu_silhouette_samples(X=vecs, labels=labels)
     sk_samples = sk_silhouette_samples(X=vecs, labels=labels)
-    print(cuml_samples)
-    print(sk_samples)
     assert array_equal(cuml_samples, sk_samples)
 
 
