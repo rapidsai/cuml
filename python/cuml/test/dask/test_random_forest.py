@@ -453,6 +453,49 @@ def test_rf_get_json(client, estimator_type, max_depth, n_estimators):
         np.testing.assert_almost_equal(pred, expected_pred, decimal=6)
 
 
+@pytest.mark.parametrize('max_depth', [1, 2, 3, 5, 10, 15, 20])
+@pytest.mark.parametrize('n_estimators', [5, 10, 20])
+def test_rf_instance_count(client, max_depth, n_estimators):
+    n_workers = len(client.scheduler_info()['workers'])
+    if n_estimators < n_workers:
+        err_msg = "n_estimators cannot be lower than number of dask workers"
+        pytest.xfail(err_msg)
+
+    X, y = make_classification(n_samples=350, n_features=20,
+                               n_clusters_per_class=1, n_informative=10,
+                               random_state=123, n_classes=2)
+    X = X.astype(np.float32)
+    cu_rf_mg = cuRFC_mg(max_features=1.0, max_samples=1.0,
+                        n_bins=16, split_algo=1, split_criterion=0,
+                        min_samples_leaf=2, seed=23707, n_streams=1,
+                        n_estimators=n_estimators, max_leaves=-1,
+                        max_depth=max_depth, use_experimental_backend=True)
+    y = y.astype(np.int32)
+
+    X_dask, y_dask = _prep_training_data(client, X, y, partitions_per_worker=2)
+    cu_rf_mg.fit(X_dask, y_dask)
+    json_out = cu_rf_mg.get_json()
+    json_obj = json.loads(json_out)
+
+    # The instance count of each node must be equal to the sum of
+    # the instance counts of its children
+    def check_instance_count_for_non_leaf(tree):
+        assert 'instance_count' in tree
+        if 'children' not in tree:
+            return
+        assert 'instance_count' in tree['children'][0]
+        assert 'instance_count' in tree['children'][1]
+        assert (tree['instance_count'] == tree['children'][0]['instance_count']
+                + tree['children'][1]['instance_count'])
+        check_instance_count_for_non_leaf(tree['children'][0])
+        check_instance_count_for_non_leaf(tree['children'][1])
+
+    for tree in json_obj:
+        check_instance_count_for_non_leaf(tree)
+        # The root's count should be equal to the number of rows in the data
+        assert tree['instance_count'] == X.shape[0]
+
+
 @pytest.mark.parametrize('estimator_type', ['regression', 'classification'])
 def test_rf_get_combined_model_right_aftter_fit(client, estimator_type):
     max_depth = 3
