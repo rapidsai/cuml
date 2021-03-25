@@ -120,7 +120,7 @@ cdef class TreeliteModel():
             Path to treelite model file to load
 
         model_type : string
-            Type of model: 'xgboost', or 'lightgbm'
+            Type of model: 'xgboost', 'xgboost_json', or 'lightgbm'
         """
         filename_bytes = filename.encode("UTF-8")
         cdef ModelHandle handle
@@ -728,7 +728,7 @@ class ForestInference(Base,
 
         model_type : string (default="xgboost")
             Format of the saved treelite model to be load.
-            It can be 'xgboost', 'lightgbm'.
+            It can be 'xgboost', 'xgboost_json', 'lightgbm'.
 
         Returns
         ----------
