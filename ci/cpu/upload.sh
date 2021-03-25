@@ -29,8 +29,8 @@ fi
 
 gpuci_logger "Get conda file output locations"
 
-export LIBCUML_FILE=`conda build conda/recipes/libcuml --output`
-export CUML_FILE=`conda build conda/recipes/cuml --python=$PYTHON --output`
+export LIBCUML_FILE=`conda build --no-build-id --croot ${CONDA_BLD_DIR} conda/recipes/libcuml --output`
+export CUML_FILE=`conda build --croot ${CONDA_BLD_DIR} conda/recipes/cuml --python=$PYTHON --output`
 
 ################################################################################
 # UPLOAD - Conda packages
