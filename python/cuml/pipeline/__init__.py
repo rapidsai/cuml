@@ -14,14 +14,16 @@
 # limitations under the License.
 #
 
-from sklearn.pipeline import Pipeline
+from sklearn.pipeline import Pipeline, make_pipeline
 
-
-Pipeline.__doc__ = """
+disclaimer = """
 This code is developed and maintained by scikit-learn and imported
 by cuML to maintain the familiar sklearn namespace structure.
 cuML includes tests to ensure full compatibility of these wrappers
 with CUDA-based data and cuML estimators, but all of the underlying code
-is due to the scikit-learn developers.\n\n""" + Pipeline.__doc__
+is due to the scikit-learn developers.\n\n"""
 
-__all__ = ['Pipeline']
+Pipeline.__doc__ = disclaimer + Pipeline.__doc__
+make_pipeline.__doc__ = disclaimer + make_pipeline.__doc__
+
+__all__ = ['Pipeline', 'make_pipeline']

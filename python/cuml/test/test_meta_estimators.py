@@ -18,7 +18,7 @@ import pytest
 import cuml
 import cupy
 
-from cuml.pipeline import Pipeline
+from cuml.pipeline import Pipeline, make_pipeline
 from cuml.model_selection import GridSearchCV
 
 from cuml.test.utils import ClassEnumerator
@@ -73,30 +73,46 @@ models = models_config.get_models()
                                        'MBSGDRegressor',
                                        'RandomForestRegressor',
                                        'KNeighborsRegressor'])
-def test_pipeline_with_regression(regression_dataset, model_key):
+@pytest.mark.parametrize('instantiation', ['Pipeline', 'make_pipeline'])
+def test_pipeline_with_regression(regression_dataset, model_key,
+                                  instantiation):
     X_train, X_test, y_train, y_test = regression_dataset
     model_const = models[model_key]
     if model_key == 'RandomForestRegressor':
         model = model_const(n_bins=2)
     else:
         model = model_const()
-    pipe = Pipeline(steps=[('scaler', StandardScaler()), ('model', model)])
+
+    if instantiation == 'Pipeline':
+        pipe = Pipeline(steps=[('scaler', StandardScaler()), ('model', model)])
+    elif instantiation == 'make_pipeline':
+        pipe = make_pipeline(StandardScaler(), model)
     pipe.fit(X_train, y_train)
     prediction = pipe.predict(X_test)
     assert isinstance(prediction, cupy.ndarray)
+    _ = pipe.score(X_test, y_test)
 
 
 @pytest.mark.parametrize('model_key', ['MBSGDClassifier',
                                        'RandomForestClassifier',
                                        'KNeighborsClassifier'])
-def test_pipeline_with_classification(classification_dataset, model_key):
+@pytest.mark.parametrize('instantiation', ['Pipeline', 'make_pipeline'])
+def test_pipeline_with_classification(classification_dataset, model_key,
+                                      instantiation):
     X_train, X_test, y_train, y_test = classification_dataset
     model_const = models[model_key]
     if model_key == 'RandomForestClassifier':
         model = model_const(n_bins=2)
     else:
         model = model_const()
-    pipe = Pipeline(steps=[('scaler', StandardScaler()), ('model', model)])
+    if instantiation == 'Pipeline':
+        pipe = Pipeline(steps=[('scaler', StandardScaler()), ('model', model)])
+    elif instantiation == 'make_pipeline':
+        pipe = make_pipeline(StandardScaler(), model)
     pipe.fit(X_train, y_train)
     prediction = pipe.predict(X_test)
     assert isinstance(prediction, cupy.ndarray)
+    if model_key == 'RandomForestClassifier':
+        pytest.skip("RandomForestClassifier is not yet supported"
+                    "by the Pipeline utility")
+    _ = pipe.score(X_test, y_test)

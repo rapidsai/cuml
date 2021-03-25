@@ -25,7 +25,8 @@ from cuml.common.import_utils import has_lightgbm
 
 from sklearn.datasets import make_classification, make_regression
 from sklearn.ensemble import GradientBoostingClassifier, \
-    GradientBoostingRegressor, RandomForestClassifier, RandomForestRegressor
+    GradientBoostingRegressor, RandomForestClassifier, RandomForestRegressor, \
+    ExtraTreesClassifier, ExtraTreesRegressor
 from sklearn.metrics import accuracy_score, mean_squared_error
 from sklearn.model_selection import train_test_split
 
@@ -213,6 +214,8 @@ def test_fil_regression(n_rows, n_columns, num_rounds, tmp_path, max_depth):
                           (2, GradientBoostingClassifier, 10),
                           (2, RandomForestClassifier, 1),
                           (2, RandomForestClassifier, 10),
+                          (2, ExtraTreesClassifier, 1),
+                          (2, ExtraTreesClassifier, 10),
                           (5, GradientBoostingClassifier, 1),
                           (5, GradientBoostingClassifier, 10),
                           (25, GradientBoostingClassifier, 1)])
@@ -235,7 +238,7 @@ def test_fil_skl_classification(n_rows, n_columns, n_estimators, max_depth,
         'n_estimators': n_estimators,
         'max_depth': max_depth,
     }
-    if model_class == RandomForestClassifier:
+    if model_class in [RandomForestClassifier, ExtraTreesClassifier]:
         init_kwargs['max_features'] = 0.3
         init_kwargs['n_jobs'] = -1
     else:
@@ -283,6 +286,8 @@ def test_fil_skl_classification(n_rows, n_columns, n_estimators, max_depth,
                           (1, GradientBoostingRegressor, 10),
                           (1, RandomForestRegressor, 1),
                           (1, RandomForestRegressor, 10),
+                          (1, ExtraTreesRegressor, 1),
+                          (1, ExtraTreesRegressor, 10),
                           (5, GradientBoostingRegressor, 10)])
 @pytest.mark.parametrize('max_depth', [2, 10, 20])
 @pytest.mark.parametrize('storage_type', [False, True])
@@ -309,7 +314,7 @@ def test_fil_skl_regression(n_rows, n_columns, n_classes, model_class,
         'n_estimators': n_estimators,
         'max_depth': max_depth,
     }
-    if model_class == RandomForestRegressor:
+    if model_class in [RandomForestRegressor, ExtraTreesRegressor]:
         init_kwargs['max_features'] = 0.3
         init_kwargs['n_jobs'] = -1
     else:
@@ -338,19 +343,22 @@ def test_fil_skl_regression(n_rows, n_columns, n_classes, model_class,
     assert np.allclose(fil_preds, skl_preds, 1.2e-3)
 
 
-@pytest.fixture(scope="session")
-def small_classifier_and_preds(tmpdir_factory):
+@pytest.fixture(scope="session", params=['binary', 'json'])
+def small_classifier_and_preds(tmpdir_factory, request):
     X, y = simulate_data(500, 10,
                          random_state=43210,
                          classification=True)
 
-    model_path = str(tmpdir_factory.mktemp("models").join("small_class.model"))
+    ext = 'json' if request.param == 'json' else 'model'
+    model_type = 'xgboost_json' if request.param == 'json' else 'xgboost'
+    model_path = str(tmpdir_factory.mktemp("models").join(
+                 f"small_class.{ext}"))
     bst = _build_and_save_xgboost(model_path, X, y)
     # just do within-sample since it's not an accuracy test
     dtrain = xgb.DMatrix(X, label=y)
     xgb_preds = bst.predict(dtrain)
 
-    return (model_path, X, xgb_preds)
+    return (model_path, model_type, X, xgb_preds)
 
 
 @pytest.mark.skipif(has_xgboost() is False, reason="need to install xgboost")
@@ -359,8 +367,9 @@ def small_classifier_and_preds(tmpdir_factory):
                                   'auto', 'naive', 'tree_reorg',
                                   'batch_tree_reorg'])
 def test_output_algos(algo, small_classifier_and_preds):
-    model_path, X, xgb_preds = small_classifier_and_preds
+    model_path, model_type, X, xgb_preds = small_classifier_and_preds
     fm = ForestInference.load(model_path,
+                              model_type=model_type,
                               algo=algo,
                               output_class=True,
                               threshold=0.50)
@@ -376,8 +385,9 @@ def test_output_algos(algo, small_classifier_and_preds):
 @pytest.mark.parametrize('storage_type',
                          [False, True, 'auto', 'dense', 'sparse', 'sparse8'])
 def test_output_storage_type(storage_type, small_classifier_and_preds):
-    model_path, X, xgb_preds = small_classifier_and_preds
+    model_path, model_type, X, xgb_preds = small_classifier_and_preds
     fm = ForestInference.load(model_path,
+                              model_type=model_type,
                               output_class=True,
                               storage_type=storage_type,
                               threshold=0.50)
@@ -394,8 +404,9 @@ def test_output_storage_type(storage_type, small_classifier_and_preds):
 @pytest.mark.parametrize('blocks_per_sm', [1, 2, 3, 4])
 def test_output_blocks_per_sm(storage_type, blocks_per_sm,
                               small_classifier_and_preds):
-    model_path, X, xgb_preds = small_classifier_and_preds
+    model_path, model_type, X, xgb_preds = small_classifier_and_preds
     fm = ForestInference.load(model_path,
+                              model_type=model_type,
                               output_class=True,
                               storage_type=storage_type,
                               threshold=0.50,
@@ -411,8 +422,9 @@ def test_output_blocks_per_sm(storage_type, blocks_per_sm,
 @pytest.mark.parametrize('output_class', [True, False])
 @pytest.mark.skipif(has_xgboost() is False, reason="need to install xgboost")
 def test_thresholding(output_class, small_classifier_and_preds):
-    model_path, X, xgb_preds = small_classifier_and_preds
+    model_path, model_type, X, xgb_preds = small_classifier_and_preds
     fm = ForestInference.load(model_path,
+                              model_type=model_type,
                               algo='TREE_REORG',
                               output_class=output_class,
                               threshold=0.50)
@@ -425,8 +437,9 @@ def test_thresholding(output_class, small_classifier_and_preds):
 
 @pytest.mark.skipif(has_xgboost() is False, reason="need to install xgboost")
 def test_output_args(small_classifier_and_preds):
-    model_path, X, xgb_preds = small_classifier_and_preds
+    model_path, model_type, X, xgb_preds = small_classifier_and_preds
     fm = ForestInference.load(model_path,
+                              model_type=model_type,
                               algo='TREE_REORG',
                               output_class=False,
                               threshold=0.50)
