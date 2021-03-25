@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2020, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,7 +20,7 @@ import numpy as np
 import warnings
 
 from libcpp cimport bool
-from libc.stdint cimport uintptr_t
+from libc.stdint cimport uintptr_t, uint64_t
 from libc.stdlib cimport calloc, malloc, free
 from libcpp.vector cimport vector
 from libcpp.string cimport string
@@ -44,19 +44,6 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
         MAE,
         CRITERION_END
 
-cdef extern from "cuml/tree/decisiontree.hpp" namespace "ML::DecisionTree":
-    cdef struct DecisionTreeParams:
-        int max_depth
-        int max_leaves
-        float max_features
-        int n_bins
-        int split_algo
-        int min_samples_leaf
-        int min_samples_split
-        bool bootstrap_features
-        bool quantile_per_tree
-        CRITERION split_criterion
-
 cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
 
     cdef enum RF_type:
@@ -77,7 +64,7 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
     cdef struct RF_params:
         int n_trees
         bool bootstrap
-        float rows_sample
+        float max_samples
         int seed
         pass
 
@@ -98,28 +85,29 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
     #
     # Text representation of random forest
     #
-    cdef void print_rf_summary[T, L](RandomForestMetaData[T, L]*) except +
-    cdef void print_rf_detailed[T, L](RandomForestMetaData[T, L]*) except +
-    cdef string dump_rf_as_json[T, L](RandomForestMetaData[T, L]*) except +
+    cdef string get_rf_summary_text[T, L](RandomForestMetaData[T, L]*) except +
+    cdef string get_rf_detailed_text[T, L](RandomForestMetaData[T, L]*
+                                           ) except +
+    cdef string get_rf_json[T, L](RandomForestMetaData[T, L]*) except +
 
-    cdef RF_params set_rf_class_obj(int,
-                                    int,
-                                    float,
-                                    int,
-                                    int,
-                                    int,
-                                    int,
-                                    float,
-                                    bool,
-                                    bool,
-                                    int,
-                                    float,
-                                    int,
-                                    CRITERION,
-                                    bool,
-                                    int,
-                                    bool,
-                                    int) except +
+    cdef RF_params set_rf_params(int,
+                                 int,
+                                 float,
+                                 int,
+                                 int,
+                                 int,
+                                 int,
+                                 float,
+                                 bool,
+                                 bool,
+                                 int,
+                                 float,
+                                 uint64_t,
+                                 CRITERION,
+                                 bool,
+                                 int,
+                                 bool,
+                                 int) except +
 
     cdef vector[unsigned char] save_model(ModelHandle)
 

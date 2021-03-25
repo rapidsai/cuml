@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2020, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -23,39 +23,14 @@ import cuml.common.cuda
 import cuml.common.logger as logger
 import cuml.internals
 import cuml.raft.common.handle
-from cuml.common.doc_utils import generate_docstring
 import cuml.common.input_utils
 
-
-# tag system based on experimental tag system from Scikit-learn >=0.21
-# https://scikit-learn.org/stable/developers/develop.html#estimator-tags
-_default_tags = {
-    # cuML specific tags
-    'preferred_input_order': None,
-    'X_types_gpu': ['2darray'],
-
-    # Scikit-learn API standard tags
-    'non_deterministic': False,
-    'requires_positive_X': False,
-    'requires_positive_y': False,
-    'X_types': ['2darray'],
-    'poor_score': False,
-    'no_validation': False,
-    'multioutput': False,
-    'allow_nan': False,
-    'stateless': False,
-    'multilabel': False,
-    '_skip_test': False,
-    '_xfail_checks': False,
-    'multioutput_only': False,
-    'binary_only': False,
-    'requires_fit': True,
-    'requires_y': False,
-    'pairwise': False,
-}
+from cuml.common.doc_utils import generate_docstring
+from cuml.common.mixins import TagsMixin
 
 
-class Base(metaclass=cuml.internals.BaseMetaClass):
+class Base(TagsMixin,
+           metaclass=cuml.internals.BaseMetaClass):
     """
     Base class for all the ML algos. It handles some of the common operations
     across all algos. Every ML algo class exposed at cython level must inherit
@@ -134,7 +109,7 @@ class Base(metaclass=cuml.internals.BaseMetaClass):
     output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
         Variable to control output type of the results and attributes of
         the estimator. If None, it'll inherit the output type set at the
-        module level, `cuml.global_output_type`.
+        module level, `cuml.global_settings.output_type`.
         See :ref:`output-data-type-configuration` for more info.
 
     Examples
@@ -179,6 +154,7 @@ class Base(metaclass=cuml.internals.BaseMetaClass):
         base.handle.sync()
         del base  # optional!
     """
+
     def __init__(self,
                  handle=None,
                  verbose=False,
@@ -201,7 +177,8 @@ class Base(metaclass=cuml.internals.BaseMetaClass):
             self.verbose = verbose
 
         self.output_type = _check_output_type_str(
-            cuml.global_output_type if output_type is None else output_type)
+            cuml.global_settings.output_type
+            if output_type is None else output_type)
         self._input_type = None
         self.target_dtype = None
         self.n_features_in_ = None
@@ -342,7 +319,7 @@ class Base(metaclass=cuml.internals.BaseMetaClass):
         """
 
         # Default to the global type
-        output_type = cuml.global_output_type
+        output_type = cuml.global_settings.output_type
 
         # If its None, default to our type
         if (output_type is None or output_type == "mirror"):
@@ -376,87 +353,16 @@ class Base(metaclass=cuml.internals.BaseMetaClass):
         else:
             self.n_features_in_ = X.shape[1]
 
-    def _get_tags(self):
-        # method and code based on scikit-learn 0.21 _get_tags functionality:
-        # https://scikit-learn.org/stable/developers/develop.html#estimator-tags
-        collected_tags = _default_tags
-        for cl in reversed(inspect.getmro(self.__class__)):
-            if hasattr(cl, '_more_tags') and cl != Base:
-                more_tags = cl._more_tags(self)
-                collected_tags.update(more_tags)
-        return collected_tags
-
-
-class RegressorMixin:
-    """Mixin class for regression estimators in cuML"""
-
-    _estimator_type = "regressor"
-
-    @generate_docstring(
-        return_values={
-            'name': 'score',
-            'type': 'float',
-            'description': 'R^2 of self.predict(X) '
-                           'wrt. y.'
-        })
-    @cuml.internals.api_base_return_any_skipall
-    def score(self, X, y, **kwargs):
-        """
-        Scoring function for regression estimators
-
-        Returns the coefficient of determination R^2 of the prediction.
-
-        """
-        from cuml.metrics.regression import r2_score
-
-        if hasattr(self, 'handle'):
-            handle = self.handle
-        else:
-            handle = None
-
-        preds = self.predict(X, **kwargs)
-        return r2_score(y, preds, handle=handle)
-
     def _more_tags(self):
-        return {
-            'requires_y': True
-        }
-
-
-class ClassifierMixin:
-    """Mixin class for classifier estimators in cuML"""
-
-    _estimator_type = "classifier"
-
-    @generate_docstring(
-        return_values={
-            'name':
-                'score',
-            'type':
-                'float',
-            'description': ('Accuracy of self.predict(X) wrt. y '
-                            '(fraction where y == pred_y)')
-        })
-    @cuml.internals.api_base_return_any_skipall
-    def score(self, X, y, **kwargs):
-        """
-        Scoring function for classifier estimators based on mean accuracy.
-
-        """
-        from cuml.metrics.accuracy import accuracy_score
-
-        if hasattr(self, 'handle'):
-            handle = self.handle
-        else:
-            handle = None
-
-        preds = self.predict(X, **kwargs)
-        return accuracy_score(y, preds, handle=handle)
-
-    def _more_tags(self):
-        return {
-            'requires_y': True
-        }
+        # 'preserves_dtype' tag's Scikit definition currently only appies to
+        # transformers and whether the transform method conserves the dtype
+        # (in that case returns an empty list, otherwise the dtype it
+        # casts to).
+        # By default, our transform methods convert to self.dtype, but
+        # we need to check whether the tag has been defined already.
+        if hasattr(self, 'transform') and hasattr(self, 'dtype'):
+            return {'preserves_dtype': [self.dtype]}
+        return {}
 
 
 # Internal, non class owned helper functions
@@ -468,8 +374,8 @@ def _check_output_type_str(output_str):
     assert output_str != "mirror", \
         ("Cannot pass output_type='mirror' in Base.__init__(). Did you forget "
          "to pass `output_type=self.output_type` to a child estimator? "
-         "Currently `cuml.global_output_type==`{}`"
-         ).format(cuml.global_output_type)
+         "Currently `cuml.global_settings.output_type==`{}`"
+         ).format(cuml.global_settings.output_type)
 
     if isinstance(output_str, str):
         output_type = output_str.lower()
@@ -496,7 +402,7 @@ def _determine_stateless_output_type(output_type, input_obj):
 
     # Default to the global type if not specified, otherwise, check the
     # output_type string
-    temp_output = cuml.global_output_type if output_type is None \
+    temp_output = cuml.global_settings.output_type if output_type is None \
         else _check_output_type_str(output_type)
 
     # If we are using 'input', determine the the type from the input object

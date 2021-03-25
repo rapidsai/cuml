@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,8 +21,8 @@
 #include <cuml/manifold/umapparams.h>
 #include <datasets/digits.h>
 #include <raft/cudart_utils.h>
-#include <common/device_buffer.hpp>
 #include <cuml/common/cuml_allocator.hpp>
+#include <cuml/common/device_buffer.hpp>
 #include <cuml/common/logger.hpp>
 #include <cuml/cuml.hpp>
 #include <cuml/neighbors/knn.hpp>
@@ -82,7 +82,7 @@ class UMAPTest : public ::testing::Test {
 
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 
-    xformed_score = trustworthiness_score<float, EucUnexpandedL2Sqrt>(
+    xformed_score = trustworthiness_score<float, L2SqrtUnexpanded>(
       handle, X_d.data(), xformed.data(), n_samples, n_features,
       umap_params->n_components, umap_params->n_neighbors);
   }
@@ -117,7 +117,7 @@ class UMAPTest : public ::testing::Test {
 
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 
-    fit_score = trustworthiness_score<float, EucUnexpandedL2Sqrt>(
+    fit_score = trustworthiness_score<float, L2SqrtUnexpanded>(
       handle, X_d.data(), embeddings.data(), n_samples, n_features,
       umap_params->n_components, umap_params->n_neighbors);
   }
@@ -154,7 +154,7 @@ class UMAPTest : public ::testing::Test {
 
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 
-    supervised_score = trustworthiness_score<float, EucUnexpandedL2Sqrt>(
+    supervised_score = trustworthiness_score<float, L2SqrtUnexpanded>(
       handle, X_d.data(), embeddings.data(), n_samples, n_features,
       umap_params->n_components, umap_params->n_neighbors);
   }
@@ -213,7 +213,7 @@ class UMAPTest : public ::testing::Test {
 
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 
-    fit_with_knn_score = trustworthiness_score<float, EucUnexpandedL2Sqrt>(
+    fit_with_knn_score = trustworthiness_score<float, L2SqrtUnexpanded>(
       handle, X_d.data(), embeddings.data(), n_samples, n_features,
       umap_params->n_components, umap_params->n_neighbors);
   }

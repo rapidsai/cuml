@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -31,7 +31,7 @@ struct RfInputs {
   int n_cols;
   int n_trees;
   float max_features;
-  float rows_sample;
+  float max_samples;
   int max_depth;
   int max_leaves;
   bool bootstrap;
@@ -52,15 +52,13 @@ class RFBatchedClsTest : public ::testing::TestWithParam<RfInputs> {
   void basicTest() {
     params = ::testing::TestWithParam<RfInputs>::GetParam();
 
-    DecisionTree::DecisionTreeParams tree_params;
-    set_tree_params(tree_params, params.max_depth, params.max_leaves,
-                    params.max_features, params.n_bins, params.split_algo,
-                    params.min_samples_leaf, params.min_samples_split,
-                    params.min_impurity_decrease, params.bootstrap_features,
-                    params.split_criterion, false, true);
     RF_params rf_params;
-    set_all_rf_params(rf_params, params.n_trees, params.bootstrap,
-                      params.rows_sample, -1, params.n_streams, tree_params);
+    rf_params = set_rf_params(
+      params.max_depth, params.max_leaves, params.max_features, params.n_bins,
+      params.split_algo, params.min_samples_leaf, params.min_samples_split,
+      params.min_impurity_decrease, params.bootstrap_features, params.bootstrap,
+      params.n_trees, params.max_samples, 0, params.split_criterion, false,
+      params.n_streams, true, 128);
 
     CUDA_CHECK(cudaStreamCreate(&stream));
     handle.reset(new raft::handle_t(rf_params.n_streams));

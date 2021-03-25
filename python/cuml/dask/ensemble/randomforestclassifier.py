@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2020, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -42,8 +42,8 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
         and predict are all consistent
      * Training data comes in the form of cuDF dataframes or Dask Arrays \
         distributed so that each worker has at least one partition.
-     * The print_summary and print_detailed functions print the \
-        information of the forest on the worker.
+     * The get_summary_text and get_detailed_text functions provides the \
+        text representation of the forest on the worker.
 
     Future versions of the API will support more flexible data
     distribution and additional input types.
@@ -87,11 +87,11 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
         Control bootstrapping.
         If set, each tree in the forest is built
         on a bootstrapped sample with replacement.
-        If false, sampling without replacement is done.
+        If False, the whole dataset is used to build each tree.
     bootstrap_features : boolean (default = False)
         Control bootstrapping for features.
         If features are drawn with or without replacement
-    rows_sample : float (default = 1.0)
+    max_samples : float (default = 1.0)
         Ratio of dataset rows used while fitting each tree.
     max_depth : int (default = -1)
         Maximum tree depth. Unlimited (i.e, until leaves are pure), if -1.
@@ -200,21 +200,23 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
     def _predict_model_on_cpu(model, X, convert_dtype):
         return model._predict_get_all(X, convert_dtype)
 
-    def print_summary(self):
+    def get_summary_text(self):
         """
-        Print the summary of the forest used to train the model
-        on each worker. This information is displayed on the
-        individual workers and not the client.
+        Obtain the text summary of the random forest model
         """
-        return self._print_summary()
+        return self._get_summary_text()
 
-    def print_detailed(self):
+    def get_detailed_text(self):
         """
-        Print detailed information of the forest used to train
-        the model on each worker. This information is displayed on the
-        workers and not the client.
+        Obtain the detailed information for the random forest model, as text
         """
-        return self._print_detailed()
+        return self._get_detailed_text()
+
+    def get_json(self):
+        """
+        Export the Random Forest model as a JSON string
+        """
+        return self._get_json()
 
     def fit(self, X, y, convert_dtype=False):
         """
@@ -269,7 +271,7 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
                   convert_dtype=convert_dtype)
         return self
 
-    def predict(self, X, output_class=True, algo='auto', threshold=0.5,
+    def predict(self, X, algo='auto', threshold=0.5,
                 convert_dtype=True, predict_model="GPU",
                 fil_sparse_format='auto', delayed=True):
         """
@@ -302,12 +304,6 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
         X : Dask cuDF dataframe  or CuPy backed Dask Array (n_rows, n_features)
             Distributed dense matrix (floats or doubles) of shape
             (n_samples, n_features).
-        output_class : boolean (default = True)
-            This is optional and required only while performing the
-            predict operation on the GPU.
-            If true, return a 1 or 0 depending on whether the raw
-            prediction exceeds the threshold. If False, just return
-            the raw prediction.
         algo : string (default = 'auto')
             This is optional and required only while performing the
             predict operation on the GPU.
@@ -323,7 +319,6 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
             Threshold used for classification. Optional and required only
             while performing the predict operation on the GPU, that is for,
             predict_model='GPU'.
-            It is applied if output_class == True, else it is ignored
         convert_dtype : bool, optional (default = True)
             When set to True, the predict method will, when necessary, convert
             the input to the data type which was used to train the model. This
@@ -356,7 +351,7 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
                                               convert_dtype=convert_dtype)
         else:
             preds = \
-                self._predict_using_fil(X, output_class=output_class,
+                self._predict_using_fil(X,
                                         algo=algo,
                                         threshold=threshold,
                                         convert_dtype=convert_dtype,
@@ -453,13 +448,7 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
             'GPU' to predict using the GPU, 'CPU' otherwise. The 'GPU' can only
             be used if the model was trained on float32 data and `X` is float32
             or convert_dtype is set to True. Also the 'GPU' should only be
-            used for binary classification problems.
-        output_class : boolean (default = True)
-            This is optional and required only while performing the
-            predict operation on the GPU.
-            If true, return a 1 or 0 depending on whether the raw
-            prediction exceeds the threshold. If False, just return
-            the raw prediction.
+            used for classification problems.
         algo : string (default = 'auto')
             This is optional and required only while performing the
             predict operation on the GPU.
@@ -474,7 +463,6 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
         threshold : float (default = 0.5)
             Threshold used for classification. Optional and required only
             while performing the predict operation on the GPU.
-            It is applied if output_class == True, else it is ignored
         convert_dtype : bool, optional (default = True)
             When set to True, the predict method will, when necessary, convert
             the input to the data type which was used to train the model. This

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,7 +30,7 @@ struct RfInputs {
   int n_cols;
   int n_trees;
   float max_features;
-  float rows_sample;
+  float max_samples;
   int n_inference_rows;
   int max_depth;
   int max_leaves;
@@ -56,16 +56,13 @@ class RfClassifierTest : public ::testing::TestWithParam<RfInputs<T>> {
   void basicTest() {
     params = ::testing::TestWithParam<RfInputs<T>>::GetParam();
 
-    DecisionTree::DecisionTreeParams tree_params;
-    set_tree_params(tree_params, params.max_depth, params.max_leaves,
-                    params.max_features, params.n_bins, params.split_algo,
-                    params.min_samples_leaf, params.min_samples_split,
-                    params.min_impurity_decrease, params.bootstrap_features,
-                    params.split_criterion, false);
     RF_params rf_params;
-    set_all_rf_params(rf_params, params.n_trees, params.bootstrap,
-                      params.rows_sample, -1, params.n_streams, tree_params);
-    //print(rf_params);
+    rf_params = set_rf_params(
+      params.max_depth, params.max_leaves, params.max_features, params.n_bins,
+      params.split_algo, params.min_samples_leaf, params.min_samples_split,
+      params.min_impurity_decrease, params.bootstrap_features, params.bootstrap,
+      params.n_trees, params.max_samples, 0, params.split_criterion, false,
+      params.n_streams, false, 128);
 
     //--------------------------------------------------------
     // Random Forest
@@ -159,16 +156,13 @@ class RfRegressorTest : public ::testing::TestWithParam<RfInputs<T>> {
   void basicTest() {
     params = ::testing::TestWithParam<RfInputs<T>>::GetParam();
 
-    DecisionTree::DecisionTreeParams tree_params;
-    set_tree_params(tree_params, params.max_depth, params.max_leaves,
-                    params.max_features, params.n_bins, params.split_algo,
-                    params.min_samples_leaf, params.min_samples_split,
-                    params.min_impurity_decrease, params.bootstrap_features,
-                    params.split_criterion, false);
     RF_params rf_params;
-    set_all_rf_params(rf_params, params.n_trees, params.bootstrap,
-                      params.rows_sample, -1, params.n_streams, tree_params);
-    //print(rf_params);
+    rf_params = set_rf_params(
+      params.max_depth, params.max_leaves, params.max_features, params.n_bins,
+      params.split_algo, params.min_samples_leaf, params.min_samples_split,
+      params.min_impurity_decrease, params.bootstrap_features, params.bootstrap,
+      params.n_trees, params.max_samples, 0, params.split_criterion, false,
+      params.n_streams, false, 128);
 
     //--------------------------------------------------------
     // Random Forest

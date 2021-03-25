@@ -1,7 +1,7 @@
 #!/bin/bash
-# Copyright (c) 2018, NVIDIA CORPORATION.
+# Copyright (c) 2018-2021, NVIDIA CORPORATION.
 ##############################################
-# cuML CPU conda build script for CI         # 
+# cuML CPU conda build script for CI         #
 ##############################################
 set -ex
 

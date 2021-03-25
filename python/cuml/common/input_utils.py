@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2020, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -85,8 +85,8 @@ def get_supported_input_type(X):
     -----
     To closely match the functionality of
     :func:`~cuml.common.input_utils.input_to_cuml_array`, this method will
-    return ``cupy.ndarray`` for any object supporting
-    `__cuda_array_interface__` and ``numpy.ndarray`` for any object supporting
+    return `cupy.ndarray` for any object supporting
+    `__cuda_array_interface__` and `numpy.ndarray` for any object supporting
     `__array_interface__`.
 
     Returns
@@ -398,11 +398,21 @@ def input_to_cupy_array(X,
                         check_cols=False,
                         check_rows=False,
                         fail_on_order=False,
-                        force_contiguous=True) -> cuml_array:
+                        force_contiguous=True,
+                        fail_on_null=True) -> cuml_array:
     """
     Identical to input_to_cuml_array but it returns a cupy array instead of
     CumlArray
     """
+    if not fail_on_null:
+        if isinstance(X, (cudf.DataFrame, cudf.Series)):
+            try:
+                X = X.values
+            except ValueError:
+                X = X.astype('float64', copy=False)
+                X.fillna(cp.nan, inplace=True)
+                X = X.values
+
     out_data = input_to_cuml_array(X,
                                    order=order,
                                    deepcopy=deepcopy,

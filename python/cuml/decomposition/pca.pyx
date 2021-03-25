@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -46,6 +46,9 @@ from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common import using_output_type
 from cuml.prims.stats import cov
 from cuml.common.input_utils import sparse_scipy_to_cp
+from cuml.common.exceptions import NotFittedError
+from cuml.common.mixins import FMajorInputTagMixin
+from cuml.common.mixins import SparseInputTagMixin
 
 
 cdef extern from "cuml/decomposition/pca.hpp" namespace "ML":
@@ -108,7 +111,9 @@ class Solver(IntEnum):
     COV_EIG_JACOBI = <underlying_type_t_solver> solver.COV_EIG_JACOBI
 
 
-class PCA(Base):
+class PCA(Base,
+          FMajorInputTagMixin,
+          SparseInputTagMixin):
 
     """
     PCA (Principal Component Analysis) is a fundamental dimensionality
@@ -248,7 +253,7 @@ class PCA(Base):
     output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
         Variable to control output type of the results and attributes of
         the estimator. If None, it'll inherit the output type set at the
-        module level, `cuml.global_output_type`.
+        module level, `cuml.global_settings.output_type`.
         See :ref:`output-data-type-configuration` for more info.
 
     Attributes
@@ -341,15 +346,7 @@ class PCA(Base):
 
     def _build_params(self, n_rows, n_cols):
         cpdef paramsPCA *params = new paramsPCA()
-        if self.n_components is None:
-            logger.warn(
-                'Warning(`_build_params`): As of v0.16, PCA invoked without an'
-                ' n_components argument defauts to using'
-                ' min(n_samples, n_features) rather than 1'
-            )
-            params.n_components = min(n_rows, n_cols)
-        else:
-            params.n_components = self.n_components
+        params.n_components = self._n_components
         params.n_rows = n_rows
         params.n_cols = n_cols
         params.whiten = self.whiten
@@ -398,22 +395,22 @@ class PCA(Base):
 
         self.components_ = cp.flip(self.components_, axis=1)
 
-        self.components_ = self.components_.T[:self.n_components, :]
+        self.components_ = self.components_.T[:self._n_components, :]
 
         self.explained_variance_ratio_ = self.explained_variance_ / cp.sum(
             self.explained_variance_)
 
-        if self.n_components < min(self.n_rows, self.n_cols):
+        if self._n_components < min(self.n_rows, self.n_cols):
             self.noise_variance_ = \
-                self.explained_variance_[self.n_components:].mean()
+                self.explained_variance_[self._n_components:].mean()
         else:
             self.noise_variance_ = cp.array([0.0])
 
         self.explained_variance_ = \
-            self.explained_variance_[:self.n_components]
+            self.explained_variance_[:self._n_components]
 
         self.explained_variance_ratio_ = \
-            self.explained_variance_ratio_[:self.n_components]
+            self.explained_variance_ratio_[:self._n_components]
 
         # Truncating negative explained variance values to 0
         self.singular_values_ = \
@@ -430,10 +427,22 @@ class PCA(Base):
         Fit the model with X. y is currently ignored.
 
         """
+        if self.n_components is None:
+            logger.warn(
+                'Warning(`fit`): As of v0.16, PCA invoked without an'
+                ' n_components argument defauts to using'
+                ' min(n_samples, n_features) rather than 1'
+            )
+            n_rows = X.shape[0]
+            n_cols = X.shape[1]
+            self._n_components = min(n_rows, n_cols)
+        else:
+            self._n_components = self.n_components
+
         if cupyx.scipy.sparse.issparse(X):
             return self._sparse_fit(X)
         elif scipy.sparse.issparse(X):
-            X = sparse_scipy_to_cp(X)
+            X = sparse_scipy_to_cp(X, dtype=None)
             return self._sparse_fit(X)
 
         X_m, self.n_rows, self.n_cols, self.dtype = \
@@ -521,13 +530,14 @@ class PCA(Base):
             cp.multiply(self.components_,
                         (1 / cp.sqrt(self.n_rows - 1)), out=self.components_)
             cp.multiply(self.components_,
-                        self.singular_values_, out=self.components_)
+                        self.singular_values_.reshape((-1, 1)),
+                        out=self.components_)
 
         X_inv = cp.dot(X, self.components_)
         cp.add(X_inv, self.mean_, out=X_inv)
 
         if self.whiten:
-            self.components_ /= self.singular_values_
+            self.components_ /= self.singular_values_.reshape((-1, 1))
             self.components_ *= cp.sqrt(self.n_rows - 1)
 
         if return_sparse:
@@ -553,12 +563,13 @@ class PCA(Base):
 
         """
 
+        self._check_is_fitted('components_')
         if cupyx.scipy.sparse.issparse(X):
             return self._sparse_inverse_transform(X,
                                                   return_sparse=return_sparse,
                                                   sparse_tol=sparse_tol)
         elif scipy.sparse.issparse(X):
-            X = sparse_scipy_to_cp(X)
+            X = sparse_scipy_to_cp(X, dtype=None)
             return self._sparse_inverse_transform(X,
                                                   return_sparse=return_sparse,
                                                   sparse_tol=sparse_tol)
@@ -580,7 +591,7 @@ class PCA(Base):
 
         # todo: check n_cols and dtype
         cpdef paramsPCA params
-        params.n_components = self.n_components
+        params.n_components = self._n_components
         params.n_rows = n_rows
         params.n_cols = self.n_cols
         params.whiten = self.whiten
@@ -627,13 +638,13 @@ class PCA(Base):
 
             if self.whiten:
                 self.components_ *= cp.sqrt(self.n_rows - 1)
-                self.components_ /= self.singular_values_
+                self.components_ /= self.singular_values_.reshape((-1, 1))
 
             X = X - self.mean_
             X_transformed = X.dot(self.components_.T)
 
             if self.whiten:
-                self.components_ *= self.singular_values_
+                self.components_ *= self.singular_values_.reshape((-1, 1))
                 self.components_ *= (1 / cp.sqrt(self.n_rows - 1))
 
         return X_transformed
@@ -652,10 +663,11 @@ class PCA(Base):
 
         """
 
+        self._check_is_fitted('components_')
         if cupyx.scipy.sparse.issparse(X):
             return self._sparse_transform(X)
         elif scipy.sparse.issparse(X):
-            X = sparse_scipy_to_cp(X)
+            X = sparse_scipy_to_cp(X, dtype=None)
             return self._sparse_transform(X)
         elif self._sparse_model:
             X, _, _, _ = \
@@ -673,7 +685,7 @@ class PCA(Base):
 
         # todo: check dtype
         cpdef paramsPCA params
-        params.n_components = self.n_components
+        params.n_components = self._n_components
         params.n_rows = n_rows
         params.n_cols = n_cols
         params.whiten = self.whiten
@@ -717,21 +729,8 @@ class PCA(Base):
             ["copy", "iterated_power", "n_components", "svd_solver", "tol",
                 "whiten", "random_state"]
 
-    def __getstate__(self):
-        state = self.__dict__.copy()
-        # Remove the unpicklable handle.
-        if 'handle' in state:
-            del state['handle']
-
-        return state
-
-    def __setstate__(self, state):
-        self.__dict__.update(state)
-        self.handle = Handle()
-
-    def _more_tags(self):
-        return {
-            'preferred_input_order': 'F',
-            'X_types_gpu': ['2darray', 'sparse'],
-            'X_types': ['2darray', 'sparse']
-        }
+    def _check_is_fitted(self, attr):
+        if not hasattr(self, attr) or (getattr(self, attr) is None):
+            msg = ("This instance is not fitted yet. Call 'fit' "
+                   "with appropriate arguments before using this estimator.")
+            raise NotFittedError(msg)

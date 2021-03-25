@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2020, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -27,7 +27,7 @@ from libc.stdint cimport uintptr_t
 
 from cuml.common.array import CumlArray
 from cuml.common.base import Base
-from cuml.common.base import RegressorMixin
+from cuml.common.mixins import RegressorMixin
 from cuml.common.doc_utils import generate_docstring
 from cuml.metrics import r2_score
 from cuml.raft.common.handle cimport handle_t
@@ -137,11 +137,10 @@ class SVR(SVMBase, RegressorMixin):
         epsilon parameter of the epsiron-SVR model. There is no penalty
         associated to points that are predicted within the epsilon-tube
         around the target values.
-    cache_size : float (default = 200 MiB)
-        Size of the kernel cache during training in MiB. The default is a
-        conservative value, increase it to improve the training time, at
-        the cost of higher memory footprint. After training the kernel
-        cache is deallocated.
+    cache_size : float (default = 1024.0)
+        Size of the kernel cache during training in MiB. Increase it to improve
+        the training time, at the cost of higher memory footprint. After
+        training the kernel cache is deallocated.
         During prediction, we also need a temporary space to store kernel
         matrix elements (this can be signifficant if n_support is large).
         The cache_size variable sets an upper limit to the prediction
@@ -158,7 +157,7 @@ class SVR(SVMBase, RegressorMixin):
     output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
         Variable to control output type of the results and attributes of
         the estimator. If None, it'll inherit the output type set at the
-        module level, `cuml.global_output_type`.
+        module level, `cuml.global_settings.output_type`.
         See :ref:`output-data-type-configuration` for more info.
 
     Attributes
@@ -226,7 +225,7 @@ class SVR(SVMBase, RegressorMixin):
     """
     def __init__(self, handle=None, C=1, kernel='rbf', degree=3,
                  gamma='scale', coef0=0.0, tol=1e-3, epsilon=0.1,
-                 cache_size=200.0, max_iter=-1, nochange_steps=1000,
+                 cache_size=1024.0, max_iter=-1, nochange_steps=1000,
                  verbose=False, output_type=None):
         super(SVR, self).__init__(handle, C, kernel, degree, gamma, coef0, tol,
                                   cache_size, max_iter, nochange_steps,

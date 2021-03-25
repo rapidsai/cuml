@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2020, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -33,6 +33,7 @@ from cuml.common.exceptions import NotFittedError
 from cuml.raft.common.handle cimport handle_t
 from cuml.common import input_to_cuml_array
 from cuml.common import using_output_type
+from cuml.common.mixins import FMajorInputTagMixin
 from libcpp cimport bool
 
 cdef extern from "cuml/matrix/kernelparams.h" namespace "MLCommon::Matrix":
@@ -96,7 +97,8 @@ cdef extern from "cuml/svm/svc.hpp" namespace "ML::SVM":
                                      svmModel[math_t] &m) except +
 
 
-class SVMBase(Base):
+class SVMBase(Base,
+              FMajorInputTagMixin):
     """
     Base class for Support Vector Machines
 
@@ -134,11 +136,10 @@ class SVMBase(Base):
         sigmoid
     tol : float (default = 1e-3)
         Tolerance for stopping criterion.
-    cache_size : float (default = 200.0)
-        Size of the kernel cache during training in MiB. The default is a
-        conservative value, increase it to improve the training time, at
-        the cost of higher memory footprint. After training the kernel
-        cache is deallocated.
+    cache_size : float (default = 1024.0)
+        Size of the kernel cache during training in MiB. Increase it to improve
+        the training time, at the cost of higher memory footprint. After
+        training the kernel cache is deallocated.
         During prediction, we also need a temporary space to store kernel
         matrix elements (this can be signifficant if n_support is large).
         The cache_size variable sets an upper limit to the prediction
@@ -159,7 +160,7 @@ class SVMBase(Base):
     output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
         Variable to control output type of the results and attributes of
         the estimator. If None, it'll inherit the output type set at the
-        module level, `cuml.global_output_type`.
+        module level, `cuml.global_settings.output_type`.
         See :ref:`output-data-type-configuration` for more info.
 
     Attributes
@@ -174,7 +175,7 @@ class SVMBase(Base):
         Device array of support vectors
     dual_coef_ : float, shape = [1, n_support]
         Device array of coefficients for support vectors
-    intercept_ : int
+    intercept_ : float
         The constant in the decision function
     fit_status_ : int
         0 if SVM is correctly fitted
@@ -203,12 +204,12 @@ class SVMBase(Base):
     dual_coef_ = CumlArrayDescriptor()
     support_ = CumlArrayDescriptor()
     support_vectors_ = CumlArrayDescriptor()
-    intercept_ = CumlArrayDescriptor()
+    _intercept_ = CumlArrayDescriptor()
     _internal_coef_ = CumlArrayDescriptor()
     _unique_labels_ = CumlArrayDescriptor()
 
     def __init__(self, handle=None, C=1, kernel='rbf', degree=3,
-                 gamma='auto', coef0=0.0, tol=1e-3, cache_size=200.0,
+                 gamma='auto', coef0=0.0, tol=1e-3, cache_size=1024.0,
                  max_iter=-1, nochange_steps=1000, verbose=False,
                  epsilon=0.1, output_type=None):
         super(SVMBase, self).__init__(handle=handle, verbose=verbose,
@@ -234,7 +235,7 @@ class SVMBase(Base):
         self.dual_coef_ = None
         self.support_ = None
         self.support_vectors_ = None
-        self.intercept_ = None
+        self._intercept_ = None
         self.n_support_ = None
 
         self._c_kernel = self._get_c_kernel(kernel)
@@ -334,6 +335,15 @@ class SVMBase(Base):
     def coef_(self, value):
         self._internal_coef_ = value
 
+    @property
+    @cuml.internals.api_base_return_array_skipall
+    def intercept_(self):
+        return self._intercept_
+
+    @intercept_.setter
+    def intercept_(self, value):
+        self._intercept_ = value
+
     def _get_kernel_params(self, X=None):
         """ Wrap the kernel parameters in a KernelParams obtect """
         cdef KernelParams _kernel_params
@@ -373,15 +383,15 @@ class SVMBase(Base):
             model_f = new svmModel[float]()
             model_f.n_support = self.n_support_
             model_f.n_cols = self.n_cols
-            model_f.b = self.intercept_.item()
+            model_f.b = self._intercept_.item()
             model_f.dual_coefs = \
                 <float*><size_t>self.dual_coef_.ptr
             model_f.x_support = \
                 <float*><uintptr_t>self.support_vectors_.ptr
             model_f.support_idx = \
                 <int*><uintptr_t>self.support_.ptr
-            model_f.n_classes = self._n_classes
-            if self._n_classes > 0:
+            model_f.n_classes = self.n_classes_
+            if self.n_classes_ > 0:
                 model_f.unique_labels = \
                     <float*><uintptr_t>self._unique_labels_.ptr
             else:
@@ -391,15 +401,15 @@ class SVMBase(Base):
             model_d = new svmModel[double]()
             model_d.n_support = self.n_support_
             model_d.n_cols = self.n_cols
-            model_d.b = self.intercept_.item()
+            model_d.b = self._intercept_.item()
             model_d.dual_coefs = \
                 <double*><size_t>self.dual_coef_.ptr
             model_d.x_support = \
                 <double*><uintptr_t>self.support_vectors_.ptr
             model_d.support_idx = \
                 <int*><uintptr_t>self.support_.ptr
-            model_d.n_classes = self._n_classes
-            if self._n_classes > 0:
+            model_d.n_classes = self.n_classes_
+            if self.n_classes_ > 0:
                 model_d.unique_labels = \
                     <double*><uintptr_t>self._unique_labels_.ptr
             else:
@@ -421,7 +431,7 @@ class SVMBase(Base):
             if model_f.n_support == 0:
                 self._fit_status_ = 1  # incorrect fit
                 return
-            self.intercept_ = CumlArray.full(1, model_f.b, np.float32)
+            self._intercept_ = CumlArray.full(1, model_f.b, np.float32)
             self.n_support_ = model_f.n_support
 
             self.dual_coef_ = CumlArray(
@@ -441,11 +451,11 @@ class SVMBase(Base):
                 shape=(self.n_support_, self.n_cols),
                 dtype=self.dtype,
                 order='F')
-            self._n_classes = model_f.n_classes
-            if self._n_classes > 0:
+            self.n_classes_ = model_f.n_classes
+            if self.n_classes_ > 0:
                 self._unique_labels_ = CumlArray(
                     data=<uintptr_t>model_f.unique_labels,
-                    shape=(self._n_classes,),
+                    shape=(self.n_classes_,),
                     dtype=self.dtype,
                     order='F')
             else:
@@ -455,7 +465,7 @@ class SVMBase(Base):
             if model_d.n_support == 0:
                 self._fit_status_ = 1  # incorrect fit
                 return
-            self.intercept_ = CumlArray.full(1, model_d.b, np.float64)
+            self._intercept_ = CumlArray.full(1, model_d.b, np.float64)
             self.n_support_ = model_d.n_support
 
             self.dual_coef_ = CumlArray(
@@ -475,11 +485,11 @@ class SVMBase(Base):
                 shape=(self.n_support_, self.n_cols),
                 dtype=self.dtype,
                 order='F')
-            self._n_classes = model_d.n_classes
-            if self._n_classes > 0:
+            self.n_classes_ = model_d.n_classes
+            if self.n_classes_ > 0:
                 self._unique_labels_ = CumlArray(
                     data=<uintptr_t>model_d.unique_labels,
-                    shape=(self._n_classes,),
+                    shape=(self.n_classes_,),
                     dtype=self.dtype,
                     order='F')
             else:
@@ -574,8 +584,3 @@ class SVMBase(Base):
         self.__dict__.update(state)
         self._model = self._get_svm_model()
         self._freeSvmBuffers = False
-
-    def _more_tags(self):
-        return {
-            'preferred_input_order': 'F'
-        }

@@ -1,4 +1,4 @@
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,6 +13,7 @@
 # limitations under the License.
 #
 
+import dask
 import logging
 import os
 import numba.cuda
@@ -22,6 +23,7 @@ import time
 from dask.distributed import default_client, wait
 
 from cuml.common import device_of_gpu_matrix
+from cuml.common.import_utils import check_min_dask_version
 
 from asyncio import InvalidStateError
 
@@ -133,7 +135,13 @@ def persist_across_workers(client, objects, workers=None):
     """
     if workers is None:
         workers = client.has_what().keys()  # Default to all workers
-    return client.persist(objects, workers={o: workers for o in objects})
+
+    if check_min_dask_version("2020.12.0"):
+        with dask.annotate(workers=set(workers)):
+            return client.persist(objects)
+
+    else:
+        return client.persist(objects, workers={o: workers for o in objects})
 
 
 def raise_exception_from_futures(futures):

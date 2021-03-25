@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,7 +14,11 @@
  * limitations under the License.
  */
 
+#pragma once
 #include <raft/cudart_utils.h>
+
+#include <cuml/cluster/kmeans.hpp>
+
 #include "common.cuh"
 #include "sg_impl.cuh"
 
@@ -191,8 +195,8 @@ void initKMeansPlusPlus(const raft::handle_t &handle,
 
   // L2 norm of X: ||x||^2
   Tensor<DataT, 1> L2NormX({n_samples}, handle.get_device_allocator(), stream);
-  if (metric == raft::distance::DistanceType::EucExpandedL2 ||
-      metric == raft::distance::DistanceType::EucExpandedL2Sqrt) {
+  if (metric == raft::distance::DistanceType::L2Expanded ||
+      metric == raft::distance::DistanceType::L2SqrtExpanded) {
     raft::linalg::rowNorm(L2NormX.data(), X.data(), X.getSize(1), X.getSize(0),
                           raft::linalg::L2Norm, true, stream);
   }
@@ -412,8 +416,8 @@ void fit(const raft::handle_t &handle, const KMeansParams &params,
 
   // L2 norm of X: ||x||^2
   Tensor<DataT, 1> L2NormX({n_samples}, handle.get_device_allocator(), stream);
-  if (metric == raft::distance::DistanceType::EucExpandedL2 ||
-      metric == raft::distance::DistanceType::EucExpandedL2Sqrt) {
+  if (metric == raft::distance::DistanceType::L2Expanded ||
+      metric == raft::distance::DistanceType::L2SqrtExpanded) {
     raft::linalg::rowNorm(L2NormX.data(), X.data(), X.getSize(1), X.getSize(0),
                           raft::linalg::L2Norm, true, stream);
   }

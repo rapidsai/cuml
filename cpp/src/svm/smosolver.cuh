@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,7 +29,6 @@
 #include <cuml/matrix/kernelparams.h>
 #include <raft/linalg/cublas_wrappers.h>
 #include <raft/linalg/gemv.h>
-#include <common/cumlHandle.hpp>
 #include <cuml/common/logger.hpp>
 #include <matrix/grammatrix.cuh>
 #include <matrix/kernelfactory.cuh>
@@ -40,7 +39,7 @@
 #include "workingset.cuh"
 #include "ws_util.cuh"
 
-#include <common/device_buffer.hpp>
+#include <cuml/common/device_buffer.hpp>
 #include "results.cuh"
 
 namespace ML {
@@ -128,10 +127,12 @@ class SmoSolver {
                               cache_size, svmType);
     // Init counters
     max_outer_iter = GetDefaultMaxIter(n_train, max_outer_iter);
-    int n_iter = 0;
+    n_iter = 0;
     int n_inner_iter = 0;
     diff_prev = 0;
     n_small_diff = 0;
+    n_increased_diff = 0;
+    report_increased_diff = true;
     bool keep_going = true;
 
     while (n_iter < max_outer_iter && keep_going) {
@@ -377,9 +378,31 @@ class SmoSolver {
   math_t diff_prev;
   int n_small_diff;
   int nochange_steps;
+  int n_increased_diff;
+  int n_iter;
+  bool report_increased_diff;
 
   bool CheckStoppingCondition(math_t diff) {
-    // TODO improve stopping condition to detect oscillations, see Issue #947
+    if (diff > diff_prev * 1.5 && n_iter > 0) {
+      // Ideally, diff should decrease monotonically. In practice we can have
+      // small fluctuations (10% increase is not uncommon). Here we consider a
+      // 50% increase in the diff value large enough to indicate a problem.
+      // The 50% value is an educated guess that triggers the convergence debug
+      // message for problematic use cases while avoids false alarms in many
+      // other cases.
+      n_increased_diff++;
+    }
+    if (report_increased_diff && n_iter > 100 &&
+        n_increased_diff > n_iter * 0.1) {
+      CUML_LOG_DEBUG(
+        "Solver is not converging monotonically. This might be caused by "
+        "insufficient normalization of the feature columns. In that case "
+        "MinMaxScaler((0,1)) could help. Alternatively, for nonlinear kernels, "
+        "you can try to increase the gamma parameter. To limit execution time, "
+        "you can also adjust the number of iterations using the max_iter "
+        "parameter.");
+      report_increased_diff = false;
+    }
     bool keep_going = true;
     if (abs(diff - diff_prev) < 0.001 * tol) {
       n_small_diff++;

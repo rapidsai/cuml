@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2020, NVIDIA CORPORATION.
+# Copyright (c) 2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -32,11 +32,11 @@ from cuml.metrics.cluster import silhouette_samples as cu_silhouette_samples
 from cuml.test.utils import get_handle, get_pattern, array_equal, \
     unit_param, quality_param, stress_param, generate_random_labels, \
     score_labeling_with_handle
-from cupy.testing import assert_allclose
 
 from numba import cuda
 from numpy.testing import assert_almost_equal
 
+from sklearn.metrics import hinge_loss as sk_hinge
 from sklearn.datasets import make_classification, make_blobs
 from sklearn.metrics import accuracy_score as sk_acc_score
 from sklearn.metrics import log_loss as sklearn_log_loss
@@ -48,7 +48,10 @@ from sklearn.metrics.cluster import silhouette_score as sk_silhouette_score
 from sklearn.metrics.cluster import silhouette_samples as sk_silhouette_samples
 from sklearn.preprocessing import StandardScaler
 
+from cuml import LogisticRegression as cu_log
+from cuml.metrics import hinge_loss as cuml_hinge
 from cuml.metrics.cluster import entropy
+from cuml.model_selection import train_test_split
 from cuml.metrics.regression import mean_squared_error, \
     mean_squared_log_error, mean_absolute_error
 from sklearn.metrics import mean_squared_error as sklearn_mse
@@ -230,21 +233,59 @@ def test_rand_index_score(name, nrows):
 @pytest.mark.parametrize('metric', (
     'cityblock', 'cosine', 'euclidean', 'l1', 'sqeuclidean'
 ))
-def test_silhouette_score(metric, labeled_clusters):
+@pytest.mark.parametrize('chunk_divider', [1, 3, 5])
+def test_silhouette_score_batched(metric, chunk_divider, labeled_clusters):
     X, labels = labeled_clusters
-    cuml_score = cu_silhouette_score(X, labels, metric=metric)
+    cuml_score = cu_silhouette_score(X, labels, metric=metric,
+                                     chunksize=int(X.shape[0]/chunk_divider))
     sk_score = sk_silhouette_score(X, labels, metric=metric)
-    assert_almost_equal(cuml_score, sk_score)
+    assert_almost_equal(cuml_score, sk_score, decimal=2)
 
 
 @pytest.mark.parametrize('metric', (
     'cityblock', 'cosine', 'euclidean', 'l1', 'sqeuclidean'
 ))
-def test_silhouette_samples(metric, labeled_clusters):
+@pytest.mark.parametrize('chunk_divider', [1, 3, 5])
+def test_silhouette_samples_batched(metric, chunk_divider, labeled_clusters):
     X, labels = labeled_clusters
-    cuml_scores = cu_silhouette_samples(X, labels, metric=metric)
+    cuml_scores = cu_silhouette_samples(X, labels, metric=metric,
+                                        chunksize=int(X.shape[0] /
+                                                      chunk_divider))
     sk_scores = sk_silhouette_samples(X, labels, metric=metric)
-    assert_allclose(cuml_scores, sk_scores, rtol=1e-2)
+
+    cu_trunc = cp.around(cuml_scores, decimals=3)
+    sk_trunc = cp.around(sk_scores, decimals=3)
+
+    diff = cp.absolute(cu_trunc - sk_trunc) > 0
+    over_diff = cp.all(diff)
+
+    # 0.5% elements allowed to be different
+    if len(over_diff.shape) > 0:
+        assert over_diff.shape[0] <= 0.005 * X.shape[0]
+
+    # different elements should not differ more than 1e-1
+    tolerance_diff = cp.absolute(cu_trunc[diff] - sk_trunc[diff]) > 1e-1
+    diff_change = cp.all(tolerance_diff)
+    if len(diff_change.shape) > 0:
+        assert False
+
+
+@pytest.mark.xfail
+def test_silhouette_score_batched_non_monotonic():
+    vecs = np.array([[0.0, 0.0, 0.0], [1.0, 1.0, 1.0],
+                    [2.0, 2.0, 2.0], [10.0, 10.0, 10.0]])
+    labels = np.array([0, 0, 1, 3])
+
+    cuml_score = cu_silhouette_score(X=vecs, labels=labels)
+    sk_score = sk_silhouette_score(X=vecs, labels=labels)
+    assert_almost_equal(cuml_score, sk_score, decimal=2)
+
+    vecs = np.array([[0.0, 0.0, 0.0], [1.0, 1.0, 1.0], [10.0, 10.0, 10.0]])
+    labels = np.array([1, 1, 3])
+
+    cuml_score = cu_silhouette_score(X=vecs, labels=labels)
+    sk_score = sk_silhouette_score(X=vecs, labels=labels)
+    assert_almost_equal(cuml_score, sk_score, decimal=2)
 
 
 def score_homogeneity(ground_truth, predictions, use_handle):
@@ -1061,3 +1102,49 @@ def test_pairwise_distances_output_types(input_type, output_type, use_global):
             assert isinstance(S, np.ndarray)
         elif output_type == "cupy":
             assert isinstance(S, cp.core.core.ndarray)
+
+
+@pytest.mark.xfail(reason='Temporarily disabling this test. '
+                          'See rapidsai/cuml#3569')
+@pytest.mark.parametrize("nrows, ncols, n_info",
+                         [
+                             unit_param(30, 10, 7),
+                             quality_param(5000, 100, 50),
+                             stress_param(500000, 200, 100)
+                         ])
+@pytest.mark.parametrize("input_type", ["cudf", "cupy"])
+@pytest.mark.parametrize("n_classes", [2, 5])
+def test_hinge_loss(nrows, ncols, n_info, input_type, n_classes):
+    train_rows = np.int32(nrows*0.8)
+    X, y = make_classification(n_samples=nrows, n_features=ncols,
+                               n_clusters_per_class=1, n_informative=n_info,
+                               random_state=123, n_classes=n_classes)
+
+    if input_type == "cudf":
+        X = cudf.DataFrame(X)
+        y = cudf.Series(y)
+    elif input_type == "cupy":
+        X = cp.asarray(X)
+        y = cp.asarray(y)
+
+    X_train, X_test, y_train, y_test = train_test_split(X,
+                                                        y,
+                                                        train_size=train_rows,
+                                                        shuffle=True)
+    cuml_model = cu_log()
+    cuml_model.fit(X_train, y_train)
+    cu_predict_decision = cuml_model.decision_function(X_test)
+    cu_loss = cuml_hinge(y_test, cu_predict_decision.T, labels=cp.unique(y))
+    if input_type == "cudf":
+        y_test = y_test.to_array()
+        y = y.to_array()
+        cu_predict_decision = cp.asnumpy(cu_predict_decision.values)
+    elif input_type == "cupy":
+        y = cp.asnumpy(y)
+        y_test = cp.asnumpy(y_test)
+        cu_predict_decision = cp.asnumpy(cu_predict_decision)
+
+    cu_loss_using_sk = sk_hinge(y_test, cu_predict_decision.T,
+                                labels=np.unique(y))
+    # compare the accuracy of the two models
+    cp.testing.assert_array_almost_equal(cu_loss, cu_loss_using_sk)

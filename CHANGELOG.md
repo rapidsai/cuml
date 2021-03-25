@@ -1,9 +1,128 @@
-# cuML 0.17.0 (Date TBD)
+# cuML 0.19.0 (Date TBD)
+
+Please see https://github.com/rapidsai/cuml/releases/tag/v0.19.0a for the latest changes to this development branch.
+
+# cuML 0.18.0 (24 Feb 2021)
+
+## Breaking Changes 🚨
+
+- cuml.experimental SHAP improvements (#3433) @dantegd
+- Enable feature sampling for the experimental backend of Random Forest (#3364) @vinaydes
+- re-enable cuML&#39;s copyright checker script (#3363) @teju85
+- Batched Silhouette Score (#3362) @divyegala
+- Update failing MNMG tests (#3348) @viclafargue
+- Rename print_summary() of Dask RF to get_summary_text(); it now returns string to the client (#3341) @hcho3
+- Rename dump_as_json() -&gt; get_json(); expose it from Dask RF (#3340) @hcho3
+- MNMG KNN consolidation (#3307) @viclafargue
+- Return confusion matrix as int unless float weights are used (#3275) @lowener
+- Approximate Nearest Neighbors (#2780) @viclafargue
+
+## Bug Fixes 🐛
+
+- HOTFIX Add ucx-proc package back that got lost during an auto merge conflict (#3551) @dantegd
+- Non project-flash CI ml test 18.04 issue debugging and bugfixing (#3495) @dantegd
+- Temporarily xfail KBinsDiscretizer uniform tests (#3494) @wphicks
+- Fix illegal memory accesses when NITEMS &gt; 1, and nrows % NITEMS != 0. (#3480) @canonizer
+- Update call to dask client persist (#3474) @dantegd
+- Adding warning for IVFPQ (#3472) @viclafargue
+- Fix failing sparse NN test in CI by allowing small number of index discrepancies (#3454) @cjnolet
+- Exempting thirdparty code from copyright checks (#3453) @lowener
+- Relaxing Batched SilhouetteScore Test Constraint (#3452) @divyegala
+- Mark kbinsdiscretizer quantile tests as xfail (#3450) @wphicks
+- Fixing documentation on SimpleImputer (#3447) @lowener
+- Skipping IVFPQ (#3429) @viclafargue
+- Adding tol to dask test_kmeans (#3426) @lowener
+- Fix memory bug for SVM with large n_rows (#3420) @tfeher
+- Allow linear regression for  with CUDA &gt;=11.0 (#3417) @wphicks
+- Fix vectorizer tests by restoring sort behavior in groupby (#3416) @JohnZed
+- Ensure make_classification respects output type (#3415) @wphicks
+- Clean Up `#include` Dependencies (#3402) @mdemoret-nv
+- Fix Nearest Neighbor Stress Test (#3401) @lowener
+- Fix array_equal in tests (#3400) @viclafargue
+- Improving Copyright Check When Not Running in CI (#3398) @mdemoret-nv
+- Also xfail zlib errors when downloading newsgroups data (#3393) @JohnZed
+- Fix for ANN memory release bug (#3391) @viclafargue
+- XFail Holt Winters test where statsmodels has known issues with gcc 9.3.0 (#3385) @JohnZed
+- FIX Update cupy to &gt;= 7.8 and remove unused build.sh script (#3378) @dantegd
+- re-enable cuML&#39;s copyright checker script (#3363) @teju85
+- Update failing MNMG tests (#3348) @viclafargue
+- Rename print_summary() of Dask RF to get_summary_text(); it now returns string to the client (#3341) @hcho3
+- Fixing `make_blobs` to Respect the Global Output Type (#3339) @mdemoret-nv
+- Fix permutation explainer (#3332) @RAMitchell
+- k-means bug fix in debug build (#3321) @akkamesh
+- Fix for default arguments of PCA (#3320) @lowener
+- Provide workaround for cupy.percentile bug (#3315) @wphicks
+- Fix SVR unit test parameter (#3294) @tfeher
+- Add xfail on fetching 20newsgroup dataset (test_naive_bayes) (#3291) @lowener
+- Remove unused keyword in PorterStemmer code (#3289) @wphicks
+- Remove static specifier in DecisionTree unit test for C++14 compliance (#3281) @wphicks
+- Correct pure virtual declaration in manifold_inputs_t (#3279) @wphicks
+
+## Documentation 📖
+
+- Correct import path in docs for experimental preprocessing features (#3488) @wphicks
+- Minor doc updates for 0.18 (#3475) @JohnZed
+- Improve Python Docs with Default Role (#3445) @mdemoret-nv
+- Fixing Python Documentation Errors and Warnings (#3428) @mdemoret-nv
+- Remove outdated references to changelog in CONTRIBUTING.md (#3328) @wphicks
+- Adding highlighting to bibtex in readme (#3296) @cjnolet
+
+## New Features 🚀
+
+- Improve runtime performance of RF to Treelite conversion (#3410) @wphicks
+- Parallelize Treelite to FIL conversion over trees (#3396) @wphicks
+- Parallelize RF to Treelite conversion over trees (#3395) @wphicks
+- Allow saving Dask RandomForest models immediately after training (fixes #3331) (#3388) @jameslamb
+- genetic programming initial structures (#3387) @teju85
+- MNMG DBSCAN (#3382) @Nyrio
+- FIL to use L1 cache when input columns don&#39;t fit into shared memory (#3370) @levsnv
+- Enable feature sampling for the experimental backend of Random Forest (#3364) @vinaydes
+- Batched Silhouette Score (#3362) @divyegala
+- Rename dump_as_json() -&gt; get_json(); expose it from Dask RF (#3340) @hcho3
+- Exposing model_selection in a similar way to scikit-learn (#3329) @ptartan21
+- Promote IncrementalPCA from experimental in 0.18 release (#3327) @lowener
+- Create labeler.yml (#3324) @jolorunyomi
+- Add slow high-precision mode to KNN (#3304) @wphicks
+- Sparse TSNE (#3293) @divyegala
+- Sparse Generalized SPMV (semiring) Primitive (#3146) @cjnolet
+- Multiclass meta estimator wrappers and multiclass SVC (#3092) @tfeher
+- Approximate Nearest Neighbors (#2780) @viclafargue
+- Add KNN parameter to t-SNE (#2592) @aleksficek
+
+## Improvements 🛠️
+
+- Update stale GHA with exemptions &amp; new labels (#3507) @mike-wendt
+- Add GHA to mark issues/prs as stale/rotten (#3500) @Ethyling
+- Fix naive bayes inputs (#3448) @cjnolet
+- Prepare Changelog for Automation (#3442) @ajschmidt8
+- cuml.experimental SHAP improvements (#3433) @dantegd
+- Speed up knn tests (#3411) @JohnZed
+- Replacing sklearn functions with cuml in RF MNMG notebook (#3408) @lowener
+- Auto-label PRs based on their content (#3407) @jolorunyomi
+- Use stable 1.0.0 version of Treelite (#3394) @hcho3
+- API update to match RAFT PR #120 (#3386) @drobison00
+- Update linear models to use RMM memory allocation (#3365) @lowener
+- Updating dense pairwise distance enum names (#3352) @cjnolet
+- Upgrade Treelite module (#3316) @hcho3
+- Removed FIL node types with `_t` suffix (#3314) @canonizer
+- MNMG KNN consolidation (#3307) @viclafargue
+- Updating PyTests to Stay Below 4 Gb Limit (#3306) @mdemoret-nv
+- Refactoring: move internal FIL interface to a separate file (#3292) @canonizer
+- Return confusion matrix as int unless float weights are used (#3275) @lowener
+- 018 add unfitted error pca &amp; tests on IPCA (#3272) @lowener
+- Linear models predict function consolidation (#3256) @dantegd
+- Preparing sparse primitives for movement to RAFT (#3157) @cjnolet
+
+# cuML 0.17.0 (10 Dec 2020)
 
 ## New Features
 - PR #3164: Expose silhouette score in Python
+- PR #3160: Least Angle Regression (experimental)
 - PR #2659: Add initial max inner product sparse knn
+- PR #3092: Multiclass meta estimator wrappers and multiclass SVC
 - PR #2836: Refactor UMAP to accept sparse inputs
+- PR #2894: predict_proba in FIL C++ for XGBoost-style multi-class models
+- PR #3126: Experimental versions of GPU accelerated Kernel and Permutation SHAP
 
 ## Improvements
 - PR #3077: Improve runtime for test_kmeans
@@ -17,6 +136,7 @@
 - PR #2956: Follow cuML array conventions in ARIMA and remove redundancy
 - PR #3000: Pin cmake policies to cmake 3.17 version, bump project version to 0.17
 - PR #3083: Improving test_make_blobs testing time
+- PR #3223: Increase default SVM kernel cache to 2000 MiB
 - PR #2906: Moving `linalg` decomp to RAFT namespaces
 - PR #2988: FIL: use tree-per-class reduction for GROVE_PER_CLASS_FEW_CLASSES
 - PR #2996: Removing the max_depth restriction for switching to the batched backend
@@ -31,7 +151,7 @@
 - PR #3115: Speeding up MNMG UMAP testing
 - PR #3112: Speed test_array
 - PR #3111: Adding Cython to Code Coverage
-- PR #3129:  Update notebooks README
+- PR #3129: Update notebooks README
 - PR #3002: Update flake8 Config To With Per File Settings
 - PR #3135: Add QuasiNewton tests
 - PR #3040: Improved Array Conversion with CumlArrayDescriptor and Decorators
@@ -44,8 +164,18 @@
 - PR #3155: Eliminate unnecessary warnings from random projection test
 - PR #3176: Add probabilistic SVM tests with various input array types
 - PR #3180: FIL: `blocks_per_sm` support in Python
+- PR #3186: Add gain to RF JSON dump
+- PR #3219: Update CI to use XGBoost 1.3.0 RCs
+- PR #3221: Update contributing doc for label support
+- PR #3177: Make Multinomial Naive Bayes inherit from `ClassifierMixin` and use it for score
+- PR #3241: Updating RAFT to latest
+- PR #3240: Minor doc updates
+- PR #3275: Return confusion matrix as int unless float weights are used
 
 ## Bug Fixes
+- PR #3218: Specify dependency branches in conda dev environment to avoid pip resolver issue
+- PR #3196: Disable ascending=false path for sortColumnsPerRow
+- PR #3051: MNMG KNN Cl&Re fix + multiple improvements
 - PR #3179: Remove unused metrics.cu file
 - PR #3069: Prevent conversion of DataFrames to Series in preprocessing
 - PR #3065: Refactoring prims metrics function names from camelcase to underscore format
@@ -57,6 +187,7 @@
 - PR #3008: Check number of columns in check_array validator
 - PR #3012: Increasing learning rate for SGD log loss and invscaling pytests
 - PR #2950: Fix includes in UMAP
+- PR #3194: Fix cuDF to cuPy conversion (missing value)
 - PR #3021: Fix a hang in cuML RF experimental backend
 - PR #3039: Update RF and decision tree parameter initializations in benchmark codes
 - PR #3060: Speed up test suite `test_fil`
@@ -75,10 +206,22 @@
 - PR #3152: Fix access to attributes of individual NB objects in dask NB
 - PR #3156: Force local conda artifact install
 - PR #3162: Removing accidentally checked in debug file
+- PR #3191: Fix __repr__ function for preprocessing models
 - PR #3175: Fix gtest pinned cmake version for build from source option
 - PR #3182: Fix a bug in MSE metric calculation
+- PR #3187: Update docstring to document behavior of `bootstrap=False`
+- PR #3215: Add a missing `__syncthreads()`
+- PR #3246: Fix MNMG KNN doc (adding batch_size)
+- PR #3185: Add documentation for Distributed TFIDF Transformer
+- PR #3190: Fix Attribute error on ICPA #3183 and PCA input type
 - PR #3208: Fix EXITCODE override in notebook test script
-
+- PR #3250: Fixing label binarizer bug with multiple partitions
+- PR #3214: Correct flaky silhouette score test by setting atol
+- PR #3216: Ignore splits that do not satisfy constraints
+- PR #3239: Fix intermittent dask random forest failure
+- PR #3243: Avoid unnecessary split for degenerate case where all labels are identical
+- PR #3245: Rename `rows_sample` -> `max_samples` to be consistent with sklearn's RF
+- PR #3282: Add secondary test to kernel explainer pytests for stability in Volta
 
 # cuML 0.16.0 (23 Oct 2020)
 

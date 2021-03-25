@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -87,6 +87,14 @@ def has_pytest_benchmark():
         return False
 
 
+def check_min_dask_version(version):
+    try:
+        import dask
+        return LooseVersion(dask.__version__) >= LooseVersion(version)
+    except ImportError:
+        return False
+
+
 def check_min_numba_version(version):
     return LooseVersion(str(numba.__version__)) >= LooseVersion(version)
 
@@ -114,6 +122,18 @@ def has_sklearn():
     try:
         import sklearn   # NOQA
         return True
+    except ImportError:
+        return False
+
+
+def has_shap(min_version=None):
+    try:
+        import shap  # noqa
+        if min_version is None:
+            return True
+        else:
+            return (LooseVersion(str(shap.__version__)) >=
+                    LooseVersion(min_version))
     except ImportError:
         return False
 

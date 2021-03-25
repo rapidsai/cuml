@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,13 +20,24 @@
 
 #include <cuda_runtime_api.h>
 
+// Block inclusion of this header when compiling libcuml++.so. If this error is
+// shown during compilation, there is an issue with how the `#include` have
+// been set up. To debug the issue, run `./build.sh cppdocs` and open the page
+// 'cpp/build/html/cuml__api_8h.html' in a browser. This will show which files
+// directly and indirectly include this file. Only files ending in '*_api' or
+// 'cumlHandle' should include this header.
+#ifdef CUML_CPP_API
+#error \
+  "This header is only for the C-API and should not be included from the C++ API."
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 typedef int cumlHandle_t;
 
-typedef enum {
+typedef enum cumlError_t {
   CUML_SUCCESS,
   CUML_ERROR_UNKNOWN,
   CUML_INVALID_HANDLE

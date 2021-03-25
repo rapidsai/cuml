@@ -1,5 +1,5 @@
 #=============================================================================
-# Copyright (c) 2018-2020, NVIDIA CORPORATION.
+# Copyright (c) 2018-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@ set (CMAKE_FIND_NO_INSTALL_PREFIX TRUE FORCE)
 
 cmake_minimum_required(VERSION 3.14...3.17 FATAL_ERROR)
 
-project(CUML VERSION 0.17.0 LANGUAGES C CXX CUDA)
+project(cuML VERSION 0.18.0 LANGUAGES C CXX CUDA)
 
 ##############################################################################
 # - build type ---------------------------------------------------------------
@@ -81,6 +81,8 @@ option(LINE_INFO "Enable lineinfo in nvcc" OFF)
 option(NVTX "Enable nvtx markers" OFF)
 
 option(SINGLEGPU "Disable all mnmg components and comms libraries" OFF)
+
+option(USE_CCACHE "Cache build artifacts with ccache" OFF)
 
 set(BUILD_RPATH_USE_ORIGIN "Whether to use relative paths for the build RPATH." TRUE)
 
@@ -161,6 +163,12 @@ if(BUILD_CUML_MG_TESTS AND NOT SINGLEGPU)
   set(BUILD_CUML_MPI_COMMS ON)
 endif(BUILD_CUML_MG_TESTS AND NOT SINGLEGPU)
 
+if(USE_CCACHE)
+  set(CMAKE_C_COMPILER_LAUNCHER ccache)
+  set(CMAKE_CXX_COMPILER_LAUNCHER ccache)
+  set(CMAKE_CUDA_COMPILER_LAUNCHER ccache)
+endif(USE_CCACHE)
+
 ##############################################################################
 # - Requirements -------------------------------------------------------------
 
@@ -206,6 +214,9 @@ set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_BINARY_DIR}/cmake)
 # https://github.com/rapidsai/cuml/issues/2194
 find_package(CUDA 10.0 REQUIRED)
 
+# Set the -isystem flag to not have an '=' sign to allow parsing of compile_commands.json
+set(CMAKE_INCLUDE_SYSTEM_FLAG_CUDA "-isystem ")
+
 if (NOT DISABLE_OPENMP OR NOT ${DISABLE_OPENMP})
   find_package(OpenMP)
   if(OPENMP_FOUND)
@@ -249,7 +260,7 @@ if(OPENMP_FOUND)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
 endif(OPENMP_FOUND)
 
-set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --expt-extended-lambda")
+set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --expt-extended-lambda --expt-relaxed-constexpr")
 
 if(${CMAKE_VERSION} VERSION_LESS "3.17.0")
   set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --std=c++14")
@@ -304,12 +315,12 @@ message("-- Building for GPU_ARCHS = ${GPU_ARCHS}")
 
 foreach(arch ${GPU_ARCHS})
   set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -gencode arch=compute_${arch},code=sm_${arch}")
-  set(FAISS_GPU_ARCHS "${FAISS_GPU_ARCHS} -gencode arch=compute_${arch},code=sm_${arch}")
+  set(FAISS_GPU_ARCHS "${FAISS_GPU_ARCHS} ${arch}")
 endforeach()
 
 list(GET GPU_ARCHS -1 ptx)
 set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -gencode arch=compute_${ptx},code=compute_${ptx}")
-set(FAISS_GPU_ARCHS "${FAISS_GPU_ARCHS} -gencode arch=compute_${ptx},code=compute_${ptx}")
+set(FAISS_GPU_ARCHS "${FAISS_GPU_ARCHS} ${ptx}")
 
 set(CMAKE_CUDA_FLAGS
   "${CMAKE_CUDA_FLAGS} -Xcudafe --diag_suppress=unrecognized_gcc_pragma")
@@ -324,15 +335,17 @@ include(cmake/Dependencies.cmake)
 
 set(CUML_INCLUDE_DIRECTORIES
   ${CUML_INCLUDE_DIR}
-  ${CMAKE_CURRENT_SOURCE_DIR}/src
-  ${CMAKE_CURRENT_SOURCE_DIR}/src_prims
-  ${CMAKE_CURRENT_SOURCE_DIR}/test/prims
   ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}
   ${CUTLASS_DIR}/src/cutlass
   ${SPDLOG_DIR}/src/spdlog/include
   ${FAISS_INCLUDE_DIRS}
   ${RAFT_DIR}/cpp/include
   ${RMM_INCLUDE_DIRS})
+
+# These directories will be used by dependent targets
+set(CUML_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src)
+set(CUML_SRC_PRIMS_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src_prims)
+set(CUML_TEST_PRIMS_DIR ${CMAKE_CURRENT_SOURCE_DIR}/test/prims)
 
 if(NOT CUB_IS_PART_OF_CTK)
   list(APPEND CUML_INCLUDE_DIRECTORIES ${CUB_DIR}/src/cub)
@@ -351,6 +364,13 @@ set(CUML_PRIVATE_LINK_LIBRARIES
   treelite::treelite
   treelite::treelite_runtime
   )
+
+if(BUILD_STATIC_FAISS)
+  set(CUML_PRIVATE_LINK_LIBRARIES
+   ${CUML_PRIVATE_LINK_LIBRARIES}
+   ${BLAS_LIBRARIES}
+  )
+endif(BUILD_STATIC_FAISS)
 
 if(BUILD_CUML_STD_COMMS OR BUILD_CUML_MPI_COMMS)
 	list(APPEND CUML_INCLUDE_DIRECTORIES
@@ -386,8 +406,6 @@ if(BUILD_CUML_CPP_LIBRARY)
   add_library(${CUML_CPP_TARGET} SHARED
     src/arima/batched_arima.cu
     src/arima/batched_kalman.cu
-    src/common/cumlHandle.cpp
-    src/common/cuml_api.cpp
     src/common/logger.cpp
     src/common/nvtx.cu
     src/datasets/make_arima.cu
@@ -395,13 +413,18 @@ if(BUILD_CUML_CPP_LIBRARY)
     src/datasets/make_regression.cu
     src/dbscan/dbscan.cu
     src/decisiontree/decisiontree.cu
+    src/explainer/kernel_shap.cu
+    src/explainer/permutation_shap.cu
     src/fil/fil.cu
     src/fil/infer.cu
     src/glm/glm.cu
+    src/genetic/genetic.cu
+    src/genetic/node.cu
     src/holtwinters/holtwinters.cu
     src/kmeans/kmeans.cu
     src/knn/knn.cu
     src/knn/knn_sparse.cu
+    src/hierarchy/linkage.cu
     src/metrics/accuracy_score.cu
     src/metrics/adjusted_rand_index.cu
     src/metrics/completeness_score.cu
@@ -418,6 +441,7 @@ if(BUILD_CUML_CPP_LIBRARY)
     src/pca/pca.cu
     src/randomforest/randomforest.cu
     src/random_projection/rproj.cu
+    src/solver/lars.cu
     src/solver/solver.cu
     src/spectral/spectral.cu
     src/svm/svc.cu
@@ -439,7 +463,6 @@ if(BUILD_CUML_CPP_LIBRARY)
         src/glm/ridge_mg.cu
         src/kmeans/kmeans_mg.cu
         src/knn/knn_mg.cu
-        src/knn/knn_opg_common.cu
         src/knn/knn_classify_mg.cu
         src/knn/knn_regress_mg.cu
         src/pca/pca_mg.cu
@@ -458,8 +481,16 @@ if(BUILD_CUML_CPP_LIBRARY)
     link_directories(${CUDA_TOOLKIT_ROOT_DIR}/lib64)
   endif(NVTX)
 
+  target_compile_definitions(${CUML_CPP_TARGET}
+    PRIVATE
+      CUML_CPP_API)
+
   target_include_directories(${CUML_CPP_TARGET}
-    PRIVATE ${CUML_INCLUDE_DIRECTORIES})
+    PUBLIC
+      ${CUML_INCLUDE_DIRECTORIES}
+    PRIVATE
+      ${CUML_SRC_DIR}
+      ${CUML_SRC_PRIMS_DIR})
 
   target_link_libraries(${CUML_CPP_TARGET}
     PUBLIC
@@ -467,6 +498,7 @@ if(BUILD_CUML_CPP_LIBRARY)
     PRIVATE
       ${CUML_PRIVATE_LINK_LIBRARIES}
   )
+
   # If we export the libdmlc symbols, they can lead to weird crashes with other
   # libraries that use libdmlc. This just hides the symbols internally.
   target_link_options(${CUML_CPP_TARGET} PRIVATE "-Wl,--exclude-libs,libdmlc.a")
@@ -482,14 +514,23 @@ if(BUILD_CUML_C_LIBRARY)
   set(CUML_C_TARGET "cuml")
 
   add_library(${CUML_C_TARGET} SHARED
+    src/common/cumlHandle.cpp
     src/common/cuml_api.cpp
     src/dbscan/dbscan_api.cpp
     src/glm/glm_api.cpp
     src/holtwinters/holtwinters_api.cpp
-    src/svm/svm_api.cpp)
+    src/knn/knn_api.cpp
+    src/svm/svm_api.cpp
+  )
+
+  target_compile_definitions(${CUML_C_TARGET}
+    PRIVATE
+      CUML_C_API)
 
   target_include_directories(${CUML_C_TARGET}
-    PRIVATE ${CUML_INCLUDE_DIRECTORIES})
+    PRIVATE 
+      ${CUML_SRC_DIR}
+  )
 
   target_link_libraries(${CUML_C_TARGET} PUBLIC ${CUML_CPP_TARGET})
 endif(BUILD_CUML_C_LIBRARY)

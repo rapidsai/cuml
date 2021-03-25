@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2020, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -28,11 +28,14 @@ from libc.stdint cimport uintptr_t
 from libc.stdlib cimport calloc, malloc, free
 
 from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.common.base import Base, RegressorMixin
+from cuml.common.base import Base
+from cuml.common.mixins import RegressorMixin
 from cuml.common.array import CumlArray
 from cuml.common.doc_utils import generate_docstring
+from cuml.linear_model.base import LinearPredictMixin
 from cuml.raft.common.handle cimport handle_t
 from cuml.common import input_to_cuml_array
+from cuml.common.mixins import FMajorInputTagMixin
 
 cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM":
 
@@ -62,24 +65,11 @@ cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM":
                        bool normalize,
                        int algo) except +
 
-    cdef void ridgePredict(handle_t& handle,
-                           const float *input,
-                           int n_rows,
-                           int n_cols,
-                           const float *coef,
-                           float intercept,
-                           float *preds) except +
 
-    cdef void ridgePredict(handle_t& handle,
-                           const double *input,
-                           int n_rows,
-                           int n_cols,
-                           const double *coef,
-                           double intercept,
-                           double *preds) except +
-
-
-class Ridge(Base, RegressorMixin):
+class Ridge(Base,
+            RegressorMixin,
+            LinearPredictMixin,
+            FMajorInputTagMixin):
 
     """
     Ridge extends LinearRegression by providing L2 regularization on the
@@ -177,7 +167,7 @@ class Ridge(Base, RegressorMixin):
     output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
         Variable to control output type of the results and attributes of
         the estimator. If None, it'll inherit the output type set at the
-        module level, `cuml.global_output_type`.
+        module level, `cuml.global_settings.output_type`.
         See :ref:`output-data-type-configuration` for more info.
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
@@ -343,58 +333,6 @@ class Ridge(Base, RegressorMixin):
 
         return self
 
-    @generate_docstring(return_values={'name': 'preds',
-                                       'type': 'dense',
-                                       'description': 'Predicted values',
-                                       'shape': '(n_samples, 1)'})
-    def predict(self, X, convert_dtype=True) -> CumlArray:
-        """
-        Predicts the y for X.
-
-        """
-        cdef uintptr_t X_ptr
-        X_m, n_rows, n_cols, dtype = \
-            input_to_cuml_array(X, check_dtype=self.dtype,
-                                convert_to_dtype=(self.dtype if convert_dtype
-                                                  else None),
-                                check_cols=self.n_cols)
-        X_ptr = X_m.ptr
-
-        cdef uintptr_t coef_ptr = self.coef_.ptr
-
-        preds = CumlArray.zeros(n_rows, dtype=dtype)
-        cdef uintptr_t preds_ptr = preds.ptr
-
-        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
-
-        if dtype.type == np.float32:
-            ridgePredict(handle_[0],
-                         <float*>X_ptr,
-                         <int>n_rows,
-                         <int>n_cols,
-                         <float*>coef_ptr,
-                         <float>self.intercept_,
-                         <float*>preds_ptr)
-        else:
-            ridgePredict(handle_[0],
-                         <double*>X_ptr,
-                         <int>n_rows,
-                         <int>n_cols,
-                         <double*>coef_ptr,
-                         <double>self.intercept_,
-                         <double*>preds_ptr)
-
-        self.handle.sync()
-
-        del(X_m)
-
-        return preds
-
     def get_param_names(self):
         return super().get_param_names() + \
             ['solver', 'fit_intercept', 'normalize', 'alpha']
-
-    def _more_tags(self):
-        return {
-            'preferred_input_order': 'F'
-        }

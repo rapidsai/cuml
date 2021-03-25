@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2020, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -31,9 +31,11 @@ from cuml.common.array import CumlArray
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.base import Base
 from cuml.common.doc_utils import generate_docstring
-from cuml.raft.common.handle cimport handle_t
+from cuml.common.mixins import ClusterMixin
+from cuml.common.mixins import CMajorInputTagMixin
 from cuml.common import input_to_cuml_array
 from cuml.cluster.kmeans_utils cimport *
+from cuml.raft.common.handle cimport handle_t
 
 cdef extern from "cuml/cluster/kmeans.hpp" namespace "ML::kmeans":
 
@@ -98,7 +100,9 @@ cdef extern from "cuml/cluster/kmeans.hpp" namespace "ML::kmeans":
                         double *X_new) except +
 
 
-class KMeans(Base):
+class KMeans(Base,
+             ClusterMixin,
+             CMajorInputTagMixin):
 
     """
     KMeans is a basic but powerful clustering method which is optimized via
@@ -207,12 +211,7 @@ class KMeans(Base):
         Number of instances the k-means algorithm will be called with different seeds.
         The final results will be from the instance that produces lowest inertia out
         of n_init instances.
-    oversampling_factor : float64
-        scalable k-means|| oversampling factor
-    max_samples_per_batch : int (default=1<<15)
-        maximum number of samples to use for each batch
-        of the pairwise distance computation.
-    oversampling_factor : int (default = 2)
+    oversampling_factor : float64 (default = 2.0)
         The amount of points to sample
         in scalable k-means++ initialization for potential centroids.
         Increasing this value can lead to better initial centroids at the
@@ -229,7 +228,7 @@ class KMeans(Base):
     output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
         Variable to control output type of the results and attributes of
         the estimator. If None, it'll inherit the output type set at the
-        module level, `cuml.global_output_type`.
+        module level, `cuml.global_settings.output_type`.
         See :ref:`output-data-type-configuration` for more info.
 
     Attributes
@@ -622,8 +621,3 @@ class KMeans(Base):
             ['n_init', 'oversampling_factor', 'max_samples_per_batch',
                 'init', 'max_iter', 'n_clusters', 'random_state',
                 'tol']
-
-    def _more_tags(self):
-        return {
-            'preferred_input_order': 'C'
-        }

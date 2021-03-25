@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020, NVIDIA CORPORATION.
+# Copyright (c) 2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -24,9 +24,20 @@ from cuml.metrics.pairwise_distances import _determine_metric
 from cuml.raft.common.handle cimport handle_t
 from cuml.raft.common.handle import Handle
 from cuml.metrics.distance_type cimport DistanceType
+from cuml.prims.label.classlabels import make_monotonic, check_labels
 
+cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics::Batched":
+    float silhouette_score(
+        const handle_t &handle,
+        float *y,
+        int n_rows,
+        int n_cols,
+        int *labels,
+        int n_labels,
+        float *sil_scores,
+        int chunk,
+        DistanceType metric) except +
 
-cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics":
     double silhouette_score(
         const handle_t &handle,
         double *y,
@@ -35,11 +46,13 @@ cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics":
         int *labels,
         int n_labels,
         double *sil_scores,
+        int chunk,
         DistanceType metric) except +
 
 
 def _silhouette_coeff(
-        X, labels, metric='euclidean', sil_scores=None, handle=None):
+        X, labels, metric='euclidean', sil_scores=None, chunksize=None,
+        handle=None):
     """Function wrapped by silhouette_score and silhouette_samples to compute
     silhouette coefficients
 
@@ -56,6 +69,13 @@ def _silhouette_coeff(
     sil_scores : array_like, shape = (1, n_samples), dtype='float64'
         An optional array in which to store the silhouette score for each
         sample.
+    chunksize : integer (default = None)
+        An integer, 1 <= chunksize <= n_rows to tile the pairwise distance
+        matrix computations, so as to reduce the quadratic memory usage of
+        having the entire pairwise distance matrix in GPU memory.
+        If None, chunksize will automically be set to 40000, which through
+        experiments has proved to be a safe number for the computation
+        to run on a GPU with 16 GB VRAM.
     handle : cuml.Handle
         Specifies the cuml.handle that holds internal CUDA state for
         computations in this model. Most importantly, this specifies the CUDA
@@ -67,10 +87,13 @@ def _silhouette_coeff(
     handle = Handle() if handle is None else handle
     cdef handle_t *handle_ = <handle_t*> <size_t> handle.getHandle()
 
-    data, n_rows, n_cols, _ = input_to_cuml_array(
+    if chunksize is None:
+        chunksize = 40000
+
+    data, n_rows, n_cols, dtype = input_to_cuml_array(
         X,
         order='C',
-        convert_to_dtype=np.float64
+        check_dtype=[np.float32, np.float64],
     )
 
     labels, _, _, _ = input_to_cuml_array(
@@ -83,32 +106,55 @@ def _silhouette_coeff(
         labels.to_output(output_type='cupy', output_dtype='int')
     ).shape[0]
 
+    if not check_labels(labels, cp.arange(n_labels, dtype=np.int32)):
+        mono_labels, _ = make_monotonic(labels, copy=True)
+        mono_labels, _, _, _ = input_to_cuml_array(
+            mono_labels,
+            order='C',
+            convert_to_dtype=np.int32
+        )
+    else:
+        mono_labels = labels
+
     cdef uintptr_t scores_ptr
     if sil_scores is None:
         scores_ptr = <uintptr_t> NULL
     else:
         sil_scores = input_to_cuml_array(
             sil_scores,
-            check_dtype=np.float64)[0]
+            check_dtype=dtype)[0]
 
         scores_ptr = sil_scores.ptr
 
     metric = _determine_metric(metric)
 
-    return silhouette_score(handle_[0],
-                            <double*> <uintptr_t> data.ptr,
-                            n_rows,
-                            n_cols,
-                            <int*> <uintptr_t> labels.ptr,
-                            n_labels,
-                            <double*> scores_ptr,
-                            metric)
+    if dtype == np.float32:
+        return silhouette_score(handle_[0],
+                                <float*> <uintptr_t> data.ptr,
+                                <int> n_rows,
+                                <int> n_cols,
+                                <int*> <uintptr_t> mono_labels.ptr,
+                                <int> n_labels,
+                                <float*> scores_ptr,
+                                <int> chunksize,
+                                <DistanceType> metric)
+    elif dtype == np.float64:
+        return silhouette_score(handle_[0],
+                                <double*> <uintptr_t> data.ptr,
+                                <int> n_rows,
+                                <int> n_cols,
+                                <int*> <uintptr_t> mono_labels.ptr,
+                                <int> n_labels,
+                                <double*> scores_ptr,
+                                <int> chunksize,
+                                <DistanceType> metric)
 
 
 def cython_silhouette_score(
         X,
         labels,
         metric='euclidean',
+        chunksize=None,
         handle=None):
     """Calculate the mean silhouette coefficient for the provided data
 
@@ -127,6 +173,13 @@ def cython_silhouette_score(
         A string representation of the distance metric to use for evaluating
         the silhouette schore. Available options are "cityblock", "cosine",
         "euclidean", "l1", "l2", "manhattan", and "sqeuclidean".
+    chunksize : integer (default = None)
+        An integer, 1 <= chunksize <= n_rows to tile the pairwise distance
+        matrix computations, so as to reduce the quadratic memory usage of
+        having the entire pairwise distance matrix in GPU memory.
+        If None, chunksize will automically be set to 40000, which through
+        experiments has proved to be a safe number for the computation
+        to run on a GPU with 16 GB VRAM.
     handle : cuml.Handle
         Specifies the cuml.handle that holds internal CUDA state for
         computations in this model. Most importantly, this specifies the CUDA
@@ -137,7 +190,7 @@ def cython_silhouette_score(
     """
 
     return _silhouette_coeff(
-        X, labels, metric=metric, handle=handle
+        X, labels, chunksize=chunksize, metric=metric, handle=handle
     )
 
 
@@ -145,6 +198,7 @@ def cython_silhouette_samples(
         X,
         labels,
         metric='euclidean',
+        chunksize=None,
         handle=None):
     """Calculate the silhouette coefficient for each sample in the provided data
 
@@ -163,6 +217,13 @@ def cython_silhouette_samples(
         A string representation of the distance metric to use for evaluating
         the silhouette schore. Available options are "cityblock", "cosine",
         "euclidean", "l1", "l2", "manhattan", and "sqeuclidean".
+    chunksize : integer (default = None)
+        An integer, 1 <= chunksize <= n_rows to tile the pairwise distance
+        matrix computations, so as to reduce the quadratic memory usage of
+        having the entire pairwise distance matrix in GPU memory.
+        If None, chunksize will automically be set to 40000, which through
+        experiments has proved to be a safe number for the computation
+        to run on a GPU with 16 GB VRAM.
     handle : cuml.Handle
         Specifies the cuml.handle that holds internal CUDA state for
         computations in this model. Most importantly, this specifies the CUDA
@@ -172,10 +233,11 @@ def cython_silhouette_samples(
         If it is None, a new one is created.
     """
 
-    sil_scores = cp.empty((X.shape[0],), dtype='float64')
+    sil_scores = cp.empty((X.shape[0],), dtype=X.dtype)
 
     _silhouette_coeff(
-        X, labels, metric=metric, sil_scores=sil_scores, handle=handle
+        X, labels, chunksize=chunksize, metric=metric, sil_scores=sil_scores,
+        handle=handle
     )
 
     return sil_scores

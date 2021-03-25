@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,7 +16,7 @@
 #pragma once
 
 #include <raft/cudart_utils.h>
-#include <common/device_buffer.hpp>
+#include <cuml/common/device_buffer.hpp>
 #include <cuml/common/logger.hpp>
 #include "bh_kernels.cuh"
 #include "utils.cuh"
@@ -48,9 +48,11 @@ namespace TSNE {
  * @param[in] random_state: Set this to -1 for pure random intializations or >= 0 for reproducible outputs.
  * @param[in] initialize_embeddings: Whether to overwrite the current Y vector with random noise.
  */
-void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
-                const raft::handle_t &handle, float *Y, const int n,
-                const float theta = 0.5f, const float epssq = 0.0025,
+template <typename value_idx, typename value_t>
+void Barnes_Hut(value_t *VAL, const value_idx *COL, const value_idx *ROW,
+                const value_idx NNZ, const raft::handle_t &handle, value_t *Y,
+                const value_idx n, const float theta = 0.5f,
+                const float epssq = 0.0025,
                 const float early_exaggeration = 12.0f,
                 const int exaggeration_iter = 250, const float min_gain = 0.01f,
                 const float pre_learning_rate = 200.0f,
@@ -66,7 +68,7 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
   //---------------------------------------------------
   const int blocks = raft::getMultiProcessorCount();
 
-  int nnodes = n * 2;
+  auto nnodes = n * 2;
   if (nnodes < 1024 * blocks) nnodes = 1024 * blocks;
   while ((nnodes & (32 - 1)) != 0) nnodes++;
   nnodes--;
@@ -75,9 +77,9 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
   // Allocate more space
   // MLCommon::device_buffer<unsigned> errl(d_alloc, stream, 1);
   MLCommon::device_buffer<unsigned> limiter(d_alloc, stream, 1);
-  MLCommon::device_buffer<int> maxdepthd(d_alloc, stream, 1);
-  MLCommon::device_buffer<int> bottomd(d_alloc, stream, 1);
-  MLCommon::device_buffer<float> radiusd(d_alloc, stream, 1);
+  MLCommon::device_buffer<value_idx> maxdepthd(d_alloc, stream, 1);
+  MLCommon::device_buffer<value_idx> bottomd(d_alloc, stream, 1);
+  MLCommon::device_buffer<value_t> radiusd(d_alloc, stream, 1);
 
   TSNE::InitializationKernel<<<1, 1, 0, stream>>>(/*errl.data(),*/
                                                   limiter.data(),
@@ -85,54 +87,55 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
                                                   radiusd.data());
   CUDA_CHECK(cudaPeekAtLastError());
 
-  const int FOUR_NNODES = 4 * nnodes;
-  const int FOUR_N = 4 * n;
+  const value_idx FOUR_NNODES = 4 * nnodes;
+  const value_idx FOUR_N = 4 * n;
   const float theta_squared = theta * theta;
-  const int NNODES = nnodes;
+  const value_idx NNODES = nnodes;
 
   // Actual allocations
-  MLCommon::device_buffer<int> startl(d_alloc, stream, nnodes + 1);
-  MLCommon::device_buffer<int> childl(d_alloc, stream, (nnodes + 1) * 4);
-  MLCommon::device_buffer<float> massl(d_alloc, stream, nnodes + 1);
+  MLCommon::device_buffer<value_idx> startl(d_alloc, stream, nnodes + 1);
+  MLCommon::device_buffer<value_idx> childl(d_alloc, stream, (nnodes + 1) * 4);
+  MLCommon::device_buffer<value_t> massl(d_alloc, stream, nnodes + 1);
 
-  thrust::device_ptr<float> begin_massl =
+  thrust::device_ptr<value_t> begin_massl =
     thrust::device_pointer_cast(massl.data());
   thrust::fill(thrust::cuda::par.on(stream), begin_massl,
                begin_massl + (nnodes + 1), 1.0f);
 
-  MLCommon::device_buffer<float> maxxl(d_alloc, stream, blocks * FACTOR1);
-  MLCommon::device_buffer<float> maxyl(d_alloc, stream, blocks * FACTOR1);
-  MLCommon::device_buffer<float> minxl(d_alloc, stream, blocks * FACTOR1);
-  MLCommon::device_buffer<float> minyl(d_alloc, stream, blocks * FACTOR1);
+  MLCommon::device_buffer<value_t> maxxl(d_alloc, stream, blocks * FACTOR1);
+  MLCommon::device_buffer<value_t> maxyl(d_alloc, stream, blocks * FACTOR1);
+  MLCommon::device_buffer<value_t> minxl(d_alloc, stream, blocks * FACTOR1);
+  MLCommon::device_buffer<value_t> minyl(d_alloc, stream, blocks * FACTOR1);
 
   // SummarizationKernel
-  MLCommon::device_buffer<int> countl(d_alloc, stream, nnodes + 1);
+  MLCommon::device_buffer<value_idx> countl(d_alloc, stream, nnodes + 1);
 
   // SortKernel
-  MLCommon::device_buffer<int> sortl(d_alloc, stream, nnodes + 1);
+  MLCommon::device_buffer<value_idx> sortl(d_alloc, stream, nnodes + 1);
 
   // RepulsionKernel
-  MLCommon::device_buffer<float> rep_forces(d_alloc, stream, (nnodes + 1) * 2);
-  MLCommon::device_buffer<float> attr_forces(
+  MLCommon::device_buffer<value_t> rep_forces(d_alloc, stream,
+                                              (nnodes + 1) * 2);
+  MLCommon::device_buffer<value_t> attr_forces(
     d_alloc, stream, n * 2);  // n*2 double for reduction sum
 
-  MLCommon::device_buffer<float> Z_norm(d_alloc, stream, 1);
+  MLCommon::device_buffer<value_t> Z_norm(d_alloc, stream, 1);
 
-  MLCommon::device_buffer<float> radiusd_squared(d_alloc, stream, 1);
+  MLCommon::device_buffer<value_t> radiusd_squared(d_alloc, stream, 1);
 
   // Apply
-  MLCommon::device_buffer<float> gains_bh(d_alloc, stream, n * 2);
+  MLCommon::device_buffer<value_t> gains_bh(d_alloc, stream, n * 2);
 
-  thrust::device_ptr<float> begin_gains_bh =
+  thrust::device_ptr<value_t> begin_gains_bh =
     thrust::device_pointer_cast(gains_bh.data());
   thrust::fill(thrust::cuda::par.on(stream), begin_gains_bh,
                begin_gains_bh + (n * 2), 1.0f);
 
-  MLCommon::device_buffer<float> old_forces(d_alloc, stream, n * 2);
+  MLCommon::device_buffer<value_t> old_forces(d_alloc, stream, n * 2);
   CUDA_CHECK(
-    cudaMemsetAsync(old_forces.data(), 0, sizeof(float) * n * 2, stream));
+    cudaMemsetAsync(old_forces.data(), 0, sizeof(value_t) * n * 2, stream));
 
-  MLCommon::device_buffer<float> YY(d_alloc, stream, (nnodes + 1) * 2);
+  MLCommon::device_buffer<value_t> YY(d_alloc, stream, (nnodes + 1) * 2);
   if (initialize_embeddings) {
     random_vector(YY.data(), -0.0001f, 0.0001f, (nnodes + 1) * 2, stream,
                   random_state);
@@ -143,27 +146,30 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
 
   // Set cache levels for faster algorithm execution
   //---------------------------------------------------
-  CUDA_CHECK(
-    cudaFuncSetCacheConfig(TSNE::BoundingBoxKernel, cudaFuncCachePreferShared));
-  CUDA_CHECK(
-    cudaFuncSetCacheConfig(TSNE::TreeBuildingKernel, cudaFuncCachePreferL1));
-  CUDA_CHECK(cudaFuncSetCacheConfig(TSNE::ClearKernel1, cudaFuncCachePreferL1));
-  CUDA_CHECK(cudaFuncSetCacheConfig(TSNE::ClearKernel2, cudaFuncCachePreferL1));
-  CUDA_CHECK(cudaFuncSetCacheConfig(TSNE::SummarizationKernel,
+  CUDA_CHECK(cudaFuncSetCacheConfig(TSNE::BoundingBoxKernel<value_idx, value_t>,
                                     cudaFuncCachePreferShared));
-  CUDA_CHECK(cudaFuncSetCacheConfig(TSNE::SortKernel, cudaFuncCachePreferL1));
+  CUDA_CHECK(cudaFuncSetCacheConfig(
+    TSNE::TreeBuildingKernel<value_idx, value_t>, cudaFuncCachePreferL1));
+  CUDA_CHECK(cudaFuncSetCacheConfig(TSNE::ClearKernel1<value_idx>,
+                                    cudaFuncCachePreferL1));
+  CUDA_CHECK(cudaFuncSetCacheConfig(TSNE::ClearKernel2<value_idx, value_t>,
+                                    cudaFuncCachePreferL1));
+  CUDA_CHECK(cudaFuncSetCacheConfig(
+    TSNE::SummarizationKernel<value_idx, value_t>, cudaFuncCachePreferShared));
   CUDA_CHECK(
-    cudaFuncSetCacheConfig(TSNE::RepulsionKernel, cudaFuncCachePreferL1));
-  CUDA_CHECK(
-    cudaFuncSetCacheConfig(TSNE::attractive_kernel_bh, cudaFuncCachePreferL1));
-  CUDA_CHECK(
-    cudaFuncSetCacheConfig(TSNE::IntegrationKernel, cudaFuncCachePreferL1));
+    cudaFuncSetCacheConfig(TSNE::SortKernel<value_idx>, cudaFuncCachePreferL1));
+  CUDA_CHECK(cudaFuncSetCacheConfig(TSNE::RepulsionKernel<value_idx, value_t>,
+                                    cudaFuncCachePreferL1));
+  CUDA_CHECK(cudaFuncSetCacheConfig(
+    TSNE::attractive_kernel_bh<value_idx, value_t>, cudaFuncCachePreferL1));
+  CUDA_CHECK(cudaFuncSetCacheConfig(TSNE::IntegrationKernel<value_idx, value_t>,
+                                    cudaFuncCachePreferL1));
   // Do gradient updates
   //---------------------------------------------------
   CUML_LOG_DEBUG("Start gradient updates!");
 
-  float momentum = pre_momentum;
-  float learning_rate = pre_learning_rate;
+  value_t momentum = pre_momentum;
+  value_t learning_rate = pre_learning_rate;
 
   for (int iter = 0; iter < max_iter; iter++) {
     CUDA_CHECK(cudaMemsetAsync(static_cast<void *>(rep_forces.data()), 0,
@@ -181,7 +187,7 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
     if (iter == exaggeration_iter) {
       momentum = post_momentum;
       // Divide perplexities
-      const float div = 1.0f / early_exaggeration;
+      const value_t div = 1.0f / early_exaggeration;
       raft::linalg::scalarMultiply(VAL, VAL, div, NNZ, stream);
       learning_rate = post_learning_rate;
     }
@@ -252,7 +258,8 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
     START_TIMER;
     // TODO: Calculate Kullback-Leibler divergence
     // For general embedding dimensions
-    TSNE::attractive_kernel_bh<<<raft::ceildiv(NNZ, 1024), 1024, 0, stream>>>(
+    TSNE::attractive_kernel_bh<<<raft::ceildiv(NNZ, (value_idx)1024), 1024, 0,
+                                 stream>>>(
       VAL, COL, ROW, YY.data(), YY.data() + nnodes + 1, attr_forces.data(),
       attr_forces.data() + n, NNZ);
     CUDA_CHECK(cudaPeekAtLastError());

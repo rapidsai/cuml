@@ -41,9 +41,20 @@ into three categories:
 ### A note related to our CI process
 After you have started a PR (refer to step 6 in the previous section), every time you do a `git push <yourRemote> <pr-branch>`, it triggers a new CI run on all the commits thus far. Even though GPUCI has mechanisms to deal with this to a certain extent, if you keep `push`ing too frequently, it might just clog our GPUCI servers and slow down every PR and conda package generation! So, please be mindful of this and try not to do many frequent pushes.
 
-To quantify this, the average check in our CI takes between 25 and 32 minutes on our servers. The GPUCI infrastructure has limited resources, so if the servers get overwhelmed, every current active PR will not be able to correctly schedule CI.
+To quantify this, the average check in our CI takes between 80 and 90 minutes on our servers. The GPUCI infrastructure has limited resources, so if the servers get overwhelmed, every current active PR will not be able to correctly schedule CI.
 
 Remember, if you are unsure about anything, don't hesitate to comment on issues and ask for clarifications!
+
+### Managing PR labels
+
+Each PR must be labeled according to whether it is a "breaking" or "non-breaking" change (using Github labels). This is used to highlight changes that users should know about when upgrading.
+
+For cuML, a "breaking" change is one that modifies the public, non-experimental, Python API in a
+non-backward-compatible way. The C++ API does not have an expectation of backward compatibility at this
+time, so changes to it are not typically considered breaking. Backward-compatible API changes to the Python
+API (such as adding a new keyword argument to a function) do not need to be labeled.
+
+Additional labels must be applied to indicate whether the change is a feature, improvement, bugfix, or documentation change. See the shared RAPIDS documentation for these labels: https://github.com/rapidsai/kb/issues/42.
 
 ### Seasoned developers
 
@@ -73,18 +84,17 @@ For all development, your changes should be pushed into a branch (created using 
 
 A few days before releasing version `x.y` the code of the current development branch (`branch-x.y`) will be frozen and a new branch, 'branch-x+1.y' will be created to continue development.
 
-### Steps for feature development
+### Branch naming
 
-1. Create a new branch based on `branch-x.y` named following the format `<type>-<name>`, where:
-    - Type: 
-        - fea - For if the branch is for a new feature(s)
-        - enh - For if the branch is an enhancement of an existing feature(s)
-        - bug - For if the branch is for fixing a bug(s) or regression(s)
-    - Name: 
-        - A name to convey what is being worked on
-        - Please use dashes or underscores between words as opposed to spaces.
-
-2. Add a line to the `CHANGELOG.md` file (located in the repository root folder) with a one line description of the functionality implemented in the Pull Request. Please put the line in the adequate section: New Feature, Improvement or Bug Fix. The cuML repository CI requires this change before a pull request can be merged.
+Branches used to create PRs should have a name of the form `<type>-<name>`
+which conforms to the following conventions:
+- Type: 
+    - fea - For if the branch is for a new feature(s)
+    - enh - For if the branch is an enhancement of an existing feature(s)
+    - bug - For if the branch is for fixing a bug(s) or regression(s)
+- Name: 
+    - A name to convey what is being worked on
+    - Please use dashes or underscores between words as opposed to spaces.
 
 ### Building and Testing on a gpuCI image locally
 

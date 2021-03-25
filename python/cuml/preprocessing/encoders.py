@@ -1,4 +1,4 @@
-# Copyright (c) 2020, NVIDIA CORPORATION.
+# Copyright (c) 2020-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -66,9 +66,8 @@ class OneHotEncoder(Base):
         - dict/list : ``drop[col]`` is the category in feature col that
           should be dropped.
 
-    sparse : bool, default=False
-        This feature was deactivated and will give an exception when True.
-        The reason is because sparse matrix are not fully supported by cupy
+    sparse : bool, default=True
+        This feature is not fully supported by cupy
         yet, causing incorrect values when computing one hot encodings.
         See https://github.com/cupy/cupy/issues/3223
     dtype : number type, default=np.float
@@ -93,7 +92,7 @@ class OneHotEncoder(Base):
     output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
         Variable to control output type of the results and attributes of
         the estimator. If None, it'll inherit the output type set at the
-        module level, `cuml.global_output_type`.
+        module level, `cuml.global_settings.output_type`.
         See :ref:`output-data-type-configuration` for more info.
 
     Attributes

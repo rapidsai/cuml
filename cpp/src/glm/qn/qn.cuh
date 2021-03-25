@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,8 +15,8 @@
  */
 
 #pragma once
-#include <common/device_buffer.hpp>
 #include <raft/matrix/math.cuh>
+#include <rmm/device_uvector.hpp>
 #include "glm_base.cuh"
 #include "glm_linear.cuh"
 #include "glm_logistic.cuh"
@@ -64,18 +64,18 @@ void qnFit(const raft::handle_t &handle, T *X, T *y, int N, int D, int C,
            bool fit_intercept, T l1, T l2, int max_iter, T grad_tol,
            int linesearch_max_iter, int lbfgs_memory, int verbosity, T *w0,
            T *f, int *num_iters, bool X_col_major, int loss_type,
-           cudaStream_t stream) {
+           cudaStream_t stream, T *sample_weight = nullptr) {
   STORAGE_ORDER ord = X_col_major ? COL_MAJOR : ROW_MAJOR;
   int C_len = (loss_type == 0) ? (C - 1) : C;
 
-  MLCommon::device_buffer<T> tmp(handle.get_device_allocator(), stream,
-                                 C_len * N);
+  rmm::device_uvector<T> tmp(C_len * N, stream);
   SimpleMat<T> z(tmp.data(), C_len, N);
 
   switch (loss_type) {
     case 0: {
       ASSERT(C == 2, "qn.h: logistic loss invalid C");
       LogisticLoss<T> loss(handle, D, fit_intercept);
+      if (sample_weight) loss.add_sample_weights(sample_weight, N, stream);
       qn_fit<T, decltype(loss)>(handle, loss, X, y, z.data, N, l1, l2, max_iter,
                                 grad_tol, linesearch_max_iter, lbfgs_memory,
                                 verbosity, w0, f, num_iters, ord, stream);
@@ -83,6 +83,7 @@ void qnFit(const raft::handle_t &handle, T *X, T *y, int N, int D, int C,
     case 1: {
       ASSERT(C == 1, "qn.h: squared loss invalid C");
       SquaredLoss<T> loss(handle, D, fit_intercept);
+      if (sample_weight) loss.add_sample_weights(sample_weight, N, stream);
       qn_fit<T, decltype(loss)>(handle, loss, X, y, z.data, N, l1, l2, max_iter,
                                 grad_tol, linesearch_max_iter, lbfgs_memory,
                                 verbosity, w0, f, num_iters, ord, stream);
@@ -90,6 +91,7 @@ void qnFit(const raft::handle_t &handle, T *X, T *y, int N, int D, int C,
     case 2: {
       ASSERT(C > 2, "qn.h: softmax invalid C");
       Softmax<T> loss(handle, D, C, fit_intercept);
+      if (sample_weight) loss.add_sample_weights(sample_weight, N, stream);
       qn_fit<T, decltype(loss)>(handle, loss, X, y, z.data, N, l1, l2, max_iter,
                                 grad_tol, linesearch_max_iter, lbfgs_memory,
                                 verbosity, w0, f, num_iters, ord, stream);
@@ -125,8 +127,7 @@ void qnPredict(const raft::handle_t &handle, T *Xptr, int N, int D, int C,
                bool fit_intercept, T *params, bool X_col_major, int loss_type,
                T *preds, cudaStream_t stream) {
   int C_len = (loss_type == 0) ? (C - 1) : C;
-  MLCommon::device_buffer<T> scores(handle.get_device_allocator(), stream,
-                                    C_len * N);
+  rmm::device_uvector<T> scores(C_len * N, stream);
   qnDecisionFunction<T>(handle, Xptr, N, D, C, fit_intercept, params,
                         X_col_major, loss_type, scores.data(), stream);
   SimpleMat<T> Z(scores.data(), C_len, N);

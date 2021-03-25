@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,8 +23,10 @@
 #include <raft/cudart_utils.h>
 #include <raft/cuda_utils.cuh>
 
+#include <raft/sparse/op/sort.h>
+#include <raft/sparse/coo.cuh>
+#include <raft/sparse/linalg/symmetrize.cuh>
 #include <raft/stats/mean.cuh>
-#include <sparse/coo.cuh>
 
 #include <cuda_runtime.h>
 
@@ -276,8 +278,8 @@ void smooth_knn_dist(int n, const value_idx *knn_indices,
  * @param stream cuda stream to use for device operations
  */
 template <int TPB_X, typename value_idx, typename value_t>
-void launcher(int n, const value_idx *knn_indices, const float *knn_dists,
-              int n_neighbors, MLCommon::Sparse::COO<value_t> *out,
+void launcher(int n, const value_idx *knn_indices, const value_t *knn_dists,
+              int n_neighbors, raft::sparse::COO<value_t> *out,
               UMAPParams *params, std::shared_ptr<deviceAllocator> d_alloc,
               cudaStream_t stream) {
   /**
@@ -292,7 +294,7 @@ void launcher(int n, const value_idx *knn_indices, const float *knn_dists,
     n, knn_indices, knn_dists, rhos.data(), sigmas.data(), params, n_neighbors,
     params->local_connectivity, d_alloc, stream);
 
-  MLCommon::Sparse::COO<value_t> in(d_alloc, stream, n * n_neighbors, n, n);
+  raft::sparse::COO<value_t> in(d_alloc, stream, n * n_neighbors, n, n);
 
   // check for logging in order to avoid the potentially costly `arr2Str` call!
   if (ML::Logger::get().shouldLogFor(CUML_LEVEL_DEBUG)) {
@@ -329,7 +331,7 @@ void launcher(int n, const value_idx *knn_indices, const float *knn_dists,
    * one via a fuzzy union. (Symmetrize knn graph).
    */
   float set_op_mix_ratio = params->set_op_mix_ratio;
-  MLCommon::Sparse::coo_symmetrize<TPB_X, value_t>(
+  raft::sparse::linalg::coo_symmetrize<TPB_X, value_t>(
     &in, out,
     [set_op_mix_ratio] __device__(int row, int col, value_t result,
                                   value_t transpose) {
@@ -340,7 +342,7 @@ void launcher(int n, const value_idx *knn_indices, const float *knn_dists,
     },
     d_alloc, stream);
 
-  MLCommon::Sparse::coo_sort<value_t>(out, d_alloc, stream);
+  raft::sparse::op::coo_sort<value_t>(out, d_alloc, stream);
 }
 }  // namespace Naive
 }  // namespace FuzzySimplSet

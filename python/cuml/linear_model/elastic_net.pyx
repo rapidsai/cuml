@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,13 +17,18 @@
 # distutils: language = c++
 
 from cuml.solvers import CD
-from cuml.common.base import Base, RegressorMixin
+from cuml.common.base import Base
+from cuml.common.mixins import RegressorMixin
 from cuml.common.doc_utils import generate_docstring
-from cuml.common.array import CumlArray
 from cuml.common.array_descriptor import CumlArrayDescriptor
+from cuml.common.mixins import FMajorInputTagMixin
+from cuml.linear_model.base import LinearPredictMixin
 
 
-class ElasticNet(Base, RegressorMixin):
+class ElasticNet(Base,
+                 LinearPredictMixin,
+                 RegressorMixin,
+                 FMajorInputTagMixin):
 
     """
     ElasticNet extends LinearRegression with combined L1 and L2 regularizations
@@ -124,7 +129,7 @@ class ElasticNet(Base, RegressorMixin):
     output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
         Variable to control output type of the results and attributes of
         the estimator. If None, it'll inherit the output type set at the
-        module level, `cuml.global_output_type`.
+        module level, `cuml.global_settings.output_type`.
         See :ref:`output-data-type-configuration` for more info.
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
@@ -175,7 +180,6 @@ class ElasticNet(Base, RegressorMixin):
 
         self.alpha = alpha
         self.l1_ratio = l1_ratio
-        self.intercept_ = None
         self.fit_intercept = fit_intercept
         self.normalize = normalize
         self.max_iter = max_iter
@@ -218,18 +222,6 @@ class ElasticNet(Base, RegressorMixin):
 
         return self
 
-    @generate_docstring(return_values={'name': 'preds',
-                                       'type': 'dense',
-                                       'description': 'Predicted values',
-                                       'shape': '(n_samples, 1)'})
-    def predict(self, X, convert_dtype=True) -> CumlArray:
-        """
-        Predicts `y` values for `X`.
-
-        """
-
-        return self.solver_model.predict(X, convert_dtype=convert_dtype)
-
     def get_param_names(self):
         return super().get_param_names() + [
             "alpha",
@@ -240,8 +232,3 @@ class ElasticNet(Base, RegressorMixin):
             "tol",
             "selection",
         ]
-
-    def _more_tags(self):
-        return {
-            'preferred_input_order': 'F'
-        }
