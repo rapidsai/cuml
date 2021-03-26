@@ -29,7 +29,8 @@ import cupy as cp
 @pytest.mark.parametrize('ncols', [25, 50])
 @pytest.mark.parametrize('nclusters', [2, 10, 50])
 @pytest.mark.parametrize('k', [3, 5, 50])
-def test_sklearn_compare(nrows, ncols, nclusters, k):
+@pytest.mark.parametrize('connectivity', ['knn', 'pairwise'])
+def test_sklearn_compare(nrows, ncols, nclusters, k, connectivity):
 
     X, y = make_blobs(int(nrows),
                       ncols,
@@ -39,7 +40,7 @@ def test_sklearn_compare(nrows, ncols, nclusters, k):
 
     cuml_agg = AgglomerativeClustering(
         n_clusters=nclusters, affinity='euclidean', linkage='single',
-        n_neighbors=k, connectivity='knn')
+        n_neighbors=k, connectivity=connectivity)
 
     import time
     s = time.time()
