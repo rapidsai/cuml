@@ -16,25 +16,18 @@
 
 # distutils: language = c++
 
-import ctypes
-import cudf
-import numpy as np
-import cupy as cp
+from libc.stdint cimport uintptr_t
 
-from libcpp cimport bool
-from libc.stdint cimport uintptr_t, int64_t
-from libc.stdlib cimport calloc, malloc, free
+import numpy as np
 
 from cuml.common.array import CumlArray
 from cuml.common.base import Base
 from cuml.common.doc_utils import generate_docstring
 from cuml.raft.common.handle cimport handle_t
 from cuml.common import input_to_cuml_array
-from cuml.common import using_output_type
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.mixins import ClusterMixin
 from cuml.common.mixins import CMajorInputTagMixin
-from cuml.metrics.pairwise_distances import _determine_metric
 
 from cuml.metrics.distance_type cimport DistanceType
 

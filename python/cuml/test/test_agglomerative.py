@@ -43,20 +43,11 @@ def test_single_linkage_sklearn_compare(nrows, ncols, nclusters,
         n_clusters=nclusters, affinity='euclidean', linkage='single',
         n_neighbors=k, connectivity=connectivity)
 
-    import time
-    s = time.time()
     cuml_agg.fit(X)
-
-    print("cuml took %ss" % (time.time() - s))
-
-    print("cu labels: %s" % cuml_agg.labels_.to_output("numpy"))
 
     sk_agg = cluster.AgglomerativeClustering(
         n_clusters=nclusters, affinity='euclidean', linkage='single')
-
-    s = time.time()
     sk_agg.fit(cp.asnumpy(X))
-    print("sklearn took %ss" % (time.time() - s))
 
     # Cluster assignments should be exact, even though the actual
     # labels may differ
