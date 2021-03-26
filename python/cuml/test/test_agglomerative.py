@@ -28,9 +28,10 @@ import cupy as cp
 @pytest.mark.parametrize('nrows', [100, 1000])
 @pytest.mark.parametrize('ncols', [25, 50])
 @pytest.mark.parametrize('nclusters', [2, 10, 50])
-@pytest.mark.parametrize('k', [3, 5, 50])
+@pytest.mark.parametrize('k', [3, 5, 15])
 @pytest.mark.parametrize('connectivity', ['knn', 'pairwise'])
-def test_sklearn_compare(nrows, ncols, nclusters, k, connectivity):
+def test_single_linkage_sklearn_compare(nrows, ncols, nclusters,
+                                        k, connectivity):
 
     X, y = make_blobs(int(nrows),
                       ncols,
@@ -60,3 +61,31 @@ def test_sklearn_compare(nrows, ncols, nclusters, k, connectivity):
     # Cluster assignments should be exact, even though the actual
     # labels may differ
     assert(adjusted_rand_score(cuml_agg.labels_, sk_agg.labels_) == 1.0)
+    assert(cuml_agg.n_connected_components_ == sk_agg.n_connected_components_)
+    assert(cuml_agg.n_leaves_ == sk_agg.n_leaves_)
+    assert(cuml_agg.n_clusters_ == sk_agg.n_clusters_)
+
+
+def test_invalid_inputs():
+
+    # Test bad affinity
+    with pytest.raises(ValueError):
+        AgglomerativeClustering(affinity='doesntexist')
+
+    with pytest.raises(ValueError):
+        AgglomerativeClustering(linkage='doesntexist')
+
+    with pytest.raises(ValueError):
+        AgglomerativeClustering(connectivity='doesntexist')
+
+    with pytest.raises(ValueError):
+        AgglomerativeClustering(n_neighbors=1)
+
+    with pytest.raises(ValueError):
+        AgglomerativeClustering(n_neighbors=1024)
+
+    with pytest.raises(ValueError):
+        AgglomerativeClustering(n_clusters=0)
+
+    with pytest.raises(ValueError):
+        AgglomerativeClustering(n_clusters=500).fit(cp.ones((2, 5)))
