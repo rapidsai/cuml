@@ -255,22 +255,22 @@ if [ -n "${CODECOV_TOKEN}" ]; then
     CODECOV_NAME=${JOB_BASE_NAME:-"${OS},py${PYTHON},cuda${CUDA}"}
 
     # Codecov args needed by both calls
-    EXTRA_CODECOV_ARGS="-c"
+    EXTRA_CODECOV_ARGS=("-c")
 
     # Save the OS PYTHON and CUDA flags
-    EXTRA_CODECOV_ARGS="${EXTRA_CODECOV_ARGS} -e OS,PYTHON,CUDA"
+    EXTRA_CODECOV_ARGS+=("-e" "OS,PYTHON,CUDA")
 
     # If we have REPORT_HASH, use that instead. This fixes an issue where
     # CodeCov uses a local merge commit created by Jenkins. Since this commit
     # never gets pushed, it causes issues in Codecov
     if [ -n "${REPORT_HASH}" ]; then
-        EXTRA_CODECOV_ARGS="${EXTRA_CODECOV_ARGS} -C ${REPORT_HASH}"
+        EXTRA_CODECOV_ARGS+=("-C" "${REPORT_HASH}")
     fi
 
     # Append the PR ID. This is needed when running the build inside docker for
     # PR builds
     if [ -n "${PR_ID}" ]; then
-        EXTRA_CODECOV_ARGS="${EXTRA_CODECOV_ARGS} -P ${PR_ID}"
+        EXTRA_CODECOV_ARGS+=("-P" "${PR_ID}")
     fi
 
     # Set the slug since this does not work in jenkins.
@@ -280,7 +280,7 @@ if [ -n "${CODECOV_TOKEN}" ]; then
     # occassionally. So we increase the timeout to 60 seconds, and retry in case
     # it fails. In order for `gpuci_retry` to work, we need the codecov CLI to
     # return a non-zero status on failure. Append this flag here:
-    EXTRA_CODECOV_ARGS="${EXTRA_CODECOV_ARGS} -U \"--connect-timeout 60\" -Z"
+    EXTRA_CODECOV_ARGS+=("-Z" "-U" "--connect-timeout 60")
 
     # Download the codecov script locally. Cannot use pipes with `gpuci_retry`
     curl -s https://codecov.io/bash > ${WORKSPACE}/codecov.sh
@@ -288,10 +288,8 @@ if [ -n "${CODECOV_TOKEN}" ]; then
 
     # Upload the two reports with separate flags. Delete the report on success
     # to prevent further CI steps from re-uploading
-    # TODO: Add `gpuci_retry` once
-    # gpuci-tools PR: https://github.com/rapidsai/gpuci-tools/pull/18 is merged
-    ${WORKSPACE}/codecov.sh -F non-dask -f ${REPORT_DIR}/cuml-coverage.xml -n "$CODECOV_NAME,non-dask" ${EXTRA_CODECOV_ARGS}
-    ${WORKSPACE}/codecov.sh -F dask -f ${REPORT_DIR}/cuml-dask-coverage.xml -n "$CODECOV_NAME,dask" ${EXTRA_CODECOV_ARGS}
+    gpuci_retry ${WORKSPACE}/codecov.sh -F non-dask -f ${REPORT_DIR}/cuml-coverage.xml -n "$CODECOV_NAME,non-dask" "${EXTRA_CODECOV_ARGS[@]}"
+    gpuci_retry ${WORKSPACE}/codecov.sh -F dask -f ${REPORT_DIR}/cuml-dask-coverage.xml -n "$CODECOV_NAME,dask" "${EXTRA_CODECOV_ARGS[@]}"
 fi
 
 return ${EXITCODE}
