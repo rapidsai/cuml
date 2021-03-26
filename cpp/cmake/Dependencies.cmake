@@ -39,7 +39,7 @@ else(DEFINED ENV{RAFT_PATH})
 
   ExternalProject_Add(raft
     GIT_REPOSITORY    https://github.com/cjnolet/raft.git
-    GIT_TAG           5d215def5a7dc5645ef2303b468a57afe2bb93a9
+    GIT_TAG           7bffddfe69aaa370d2affb2b1bb4bf7735589c1f
     PREFIX            ${RAFT_DIR}
     CONFIGURE_COMMAND ""
     BUILD_COMMAND     ""
