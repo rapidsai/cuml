@@ -434,8 +434,6 @@ class TrustworthinessScoreTest : public ::testing::Test {
     allocator->deallocate(d_X, X.size() * sizeof(float), stream);
     allocator->deallocate(d_X_embedded, X_embedded.size() * sizeof(float),
                           stream);
-
-    cudaStreamDestroy(stream);
   }
 
   void SetUp() override { basicTest(); }

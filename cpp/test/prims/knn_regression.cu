@@ -107,7 +107,6 @@ class KNNRegressionTest : public ::testing::TestWithParam<KNNRegressionInputs> {
                 stream);
 
     CUDA_CHECK(cudaStreamSynchronize(stream));
-    CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
   void SetUp() override { basicTest(); }
