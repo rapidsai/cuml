@@ -118,8 +118,11 @@ std::string get_node_json(const std::string &prefix,
     oss << prefix << "{\"nodeid\": " << idx
         << ", \"split_feature\": " << node.colid
         << ", \"split_threshold\": " << to_string_high_precision(node.quesval)
-        << ", \"gain\": " << to_string_high_precision(node.best_metric_val)
-        << ", \"yes\": " << node.left_child_id
+        << ", \"gain\": " << to_string_high_precision(node.best_metric_val);
+    if (node.instance_count != UINT32_MAX) {
+      oss << ", \"instance_count\": " << node.instance_count;
+    }
+    oss << ", \"yes\": " << node.left_child_id
         << ", \"no\": " << (node.left_child_id + 1) << ", \"children\": [\n";
     // enter the next tree level - left and right branch
     oss << get_node_json(prefix + "  ", sparsetree, node.left_child_id) << ",\n"
@@ -128,8 +131,11 @@ std::string get_node_json(const std::string &prefix,
         << prefix << "]}";
   } else {
     oss << prefix << "{\"nodeid\": " << idx
-        << ", \"leaf_value\": " << to_string_high_precision(node.prediction)
-        << "}";
+        << ", \"leaf_value\": " << to_string_high_precision(node.prediction);
+    if (node.instance_count != UINT32_MAX) {
+      oss << ", \"instance_count\": " << node.instance_count;
+    }
+    oss << "}";
   }
   return oss.str();
 }
