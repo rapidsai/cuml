@@ -52,7 +52,7 @@ cdef build_ivfflat_algo_params(params, automated):
 cdef build_ivfpq_algo_params(params, automated, additional_info):
     cdef IVFPQParam* algo_params = new IVFPQParam()
     if automated:
-        allowedSubquantizers = [1, 2, 3, 4, 8, 12, 16, 20, 24, 28, 32]
+        allowedSubquantizers = [1, 2, 3, 4, 8, 12, 16, 20, 24, 28, 32, 40, 48]
         allowedSubDimSize = {1, 2, 3, 4, 6, 8, 10, 12, 16, 20, 24, 28, 32}
         N = additional_info['n_samples']
         D = additional_info['n_features']
@@ -75,10 +75,12 @@ cdef build_ivfpq_algo_params(params, automated, additional_info):
                     params['M'] = n_subq
                     break
 
-        for i in reversed(range(1, 4)):
-            min_train_points = (2 ** i) * 39
+        # n_bits should be in set {4, 5, 6, 8} since FAISS 1.7
+        params['n_bits'] = 4
+        for n_bits in [5, 6, 8]:
+            min_train_points = (2 ** n_bits) * 39
             if N >= min_train_points:
-                params['n_bits'] = i
+                params['n_bits'] = n_bits
                 break
 
     algo_params.nlist = <int> params['nlist']

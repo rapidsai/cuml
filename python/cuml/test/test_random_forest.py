@@ -187,7 +187,6 @@ def test_rf_classification(small_clf, datatype, split_algo,
         assert captured_stdout == ''
     fil_preds = cuml_model.predict(X_test,
                                    predict_model="GPU",
-                                   output_class=True,
                                    threshold=0.5,
                                    algo='auto')
     cu_preds = cuml_model.predict(X_test, predict_model="CPU")
@@ -428,14 +427,15 @@ def rf_classification(datatype, array_type, max_features, max_samples,
                                 .as_gpu_matrix())
         cu_preds_cpu = cuml_model.predict(X_test_df,
                                           predict_model="CPU").to_array()
-        cu_preds_gpu = cuml_model.predict(X_test_df, output_class=True,
+        cu_preds_gpu = cuml_model.predict(X_test_df,
                                           predict_model="GPU").to_array()
     else:
         cuml_model.fit(X_train, y_train)
         cu_proba_gpu = cuml_model.predict_proba(X_test)
         cu_preds_cpu = cuml_model.predict(X_test, predict_model="CPU")
-        cu_preds_gpu = cuml_model.predict(X_test, predict_model="GPU",
-                                          output_class=True)
+        cu_preds_gpu = cuml_model.predict(X_test, predict_model="GPU")
+    np.testing.assert_array_equal(cu_preds_gpu,
+                                  np.argmax(cu_proba_gpu, axis=1))
 
     cu_acc_cpu = accuracy_score(y_test, cu_preds_cpu)
     cu_acc_gpu = accuracy_score(y_test, cu_preds_gpu)
@@ -507,14 +507,12 @@ def test_rf_classification_sparse(small_clf, datatype,
         with pytest.raises(ValueError):
             fil_preds = cuml_model.predict(X_test,
                                            predict_model="GPU",
-                                           output_class=True,
                                            threshold=0.5,
                                            fil_sparse_format=fil_sparse_format,
                                            algo=algo)
     else:
         fil_preds = cuml_model.predict(X_test,
                                        predict_model="GPU",
-                                       output_class=True,
                                        threshold=0.5,
                                        fil_sparse_format=fil_sparse_format,
                                        algo=algo)
@@ -854,6 +852,58 @@ def test_rf_get_json(estimator_type, max_depth, n_estimators):
         np.testing.assert_almost_equal(pred, expected_pred, decimal=6)
 
 
+@pytest.mark.parametrize('max_depth', [1, 2, 3, 5, 10, 15, 20])
+@pytest.mark.parametrize('n_estimators', [5, 10, 20])
+@pytest.mark.parametrize('use_experimental_backend', [True, False])
+def test_rf_instance_count(max_depth, n_estimators, use_experimental_backend):
+    X, y = make_classification(n_samples=350, n_features=20,
+                               n_clusters_per_class=1, n_informative=10,
+                               random_state=123, n_classes=2)
+    X = X.astype(np.float32)
+    cuml_model = curfc(max_features=1.0, max_samples=1.0,
+                       n_bins=16, split_algo=1, split_criterion=0,
+                       min_samples_leaf=2, seed=23707, n_streams=1,
+                       n_estimators=n_estimators, max_leaves=-1,
+                       max_depth=max_depth,
+                       use_experimental_backend=use_experimental_backend)
+    y = y.astype(np.int32)
+
+    # Train model on the data
+    cuml_model.fit(X, y)
+
+    json_out = cuml_model.get_json()
+    json_obj = json.loads(json_out)
+
+    # The instance count of each node must be equal to the sum of
+    # the instance counts of its children. Note that the instance count
+    # is only available with the new backend.
+    if use_experimental_backend:
+        def check_instance_count_for_non_leaf(tree):
+            assert 'instance_count' in tree
+            if 'children' not in tree:
+                return
+            assert 'instance_count' in tree['children'][0]
+            assert 'instance_count' in tree['children'][1]
+            assert (tree['instance_count']
+                    == tree['children'][0]['instance_count']
+                    + tree['children'][1]['instance_count'])
+            check_instance_count_for_non_leaf(tree['children'][0])
+            check_instance_count_for_non_leaf(tree['children'][1])
+        for tree in json_obj:
+            check_instance_count_for_non_leaf(tree)
+            # The root's count must be equal to the number of rows in the data
+            assert tree['instance_count'] == X.shape[0]
+    else:
+        def assert_instance_count_absent(tree):
+            assert 'instance_count' not in tree
+            if 'children' not in tree:
+                return
+            assert_instance_count_absent(tree['children'][0])
+            assert_instance_count_absent(tree['children'][1])
+        for tree in json_obj:
+            assert_instance_count_absent(tree)
+
+
 @pytest.mark.memleak
 @pytest.mark.parametrize('estimator_type', ['classification'])
 def test_rf_host_memory_leak(large_clf, estimator_type):
@@ -989,4 +1039,7 @@ def test_rf_regression_with_identical_labels(split_criterion,
     clf.fit(X, y)
     model_dump = json.loads(clf.get_json())
     assert len(model_dump) == 1
-    assert model_dump[0] == {'nodeid': 0, 'leaf_value': 1.0}
+    expected_dump = {'nodeid': 0, 'leaf_value': 1.0}
+    if use_experimental_backend:
+        expected_dump['instance_count'] = 5
+    assert model_dump[0] == expected_dump
