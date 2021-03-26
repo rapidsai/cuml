@@ -39,7 +39,10 @@ from cuml.test.test_preproc_utils import assert_allclose
 
 
 @pytest.mark.parametrize('remainder', ['drop', 'passthrough'])
-def test_column_transformer(clf_dataset, remainder):  # noqa: F811
+@pytest.mark.parametrize('transformer_weights', [None, {'scaler': 2.4,
+                                                        'normalizer': 1.8}])
+def test_column_transformer(clf_dataset, remainder,  # noqa: F811
+                            transformer_weights):
     X_np, X = clf_dataset
 
     cu_transformers = [
@@ -48,7 +51,8 @@ def test_column_transformer(clf_dataset, remainder):  # noqa: F811
     ]
 
     transformer = cuColumnTransformer(transformers=cu_transformers,
-                                      remainder=remainder)
+                                      remainder=remainder,
+                                      transformer_weights=transformer_weights)
     t_X = transformer.fit_transform(X)
     assert type(t_X) == type(X)
 
@@ -59,7 +63,8 @@ def test_column_transformer(clf_dataset, remainder):  # noqa: F811
     ]
 
     transformer = skColumnTransformer(transformers=sk_transformers,
-                                      remainder=remainder)
+                                      remainder=remainder,
+                                      transformer_weights=transformer_weights)
     sk_t_X = transformer.fit_transform(X_np)
 
     assert_allclose(t_X, sk_t_X)

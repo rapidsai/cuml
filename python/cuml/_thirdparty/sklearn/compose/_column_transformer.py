@@ -27,7 +27,7 @@ import cuml
 from cuml.internals.global_settings import _global_settings_data
 from ....common.array_sparse import SparseCumlArray
 from ..utils.skl_dependencies import TransformerMixin, _BaseComposition
-from ..preprocessing._function_transformer import FunctionTransformer
+from ..preprocessing import FunctionTransformer
 
 
 _ERR_MSG_1DCOLUMN = ("1D data passed to a transformer that expects 2D data. "

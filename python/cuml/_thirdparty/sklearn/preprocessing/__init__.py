@@ -21,6 +21,8 @@ from ._data import PolynomialFeatures
 from ._imputation import SimpleImputer
 from ._discretization import KBinsDiscretizer
 
+from ._function_transformer import FunctionTransformer
+
 __all__ = [
     'Binarizer',
     'FunctionTransformer',
