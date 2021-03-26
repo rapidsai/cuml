@@ -24,7 +24,8 @@ from cuml.experimental.preprocessing import \
     PolynomialFeatures as cuPolynomialFeatures, \
     SimpleImputer as cuSimpleImputer, \
     RobustScaler as cuRobustScaler, \
-    KBinsDiscretizer as cuKBinsDiscretizer
+    KBinsDiscretizer as cuKBinsDiscretizer, \
+    FunctionTransformer as cuFunctionTransformer
 from cuml.experimental.preprocessing import scale as cu_scale, \
                             minmax_scale as cu_minmax_scale, \
                             normalize as cu_normalize, \
@@ -37,7 +38,9 @@ from sklearn.preprocessing import StandardScaler as skStandardScaler, \
                                   Normalizer as skNormalizer, \
                                   Binarizer as skBinarizer, \
                                   PolynomialFeatures as skPolynomialFeatures, \
-                                  RobustScaler as skRobustScaler
+                                  RobustScaler as skRobustScaler, \
+                                  KBinsDiscretizer as skKBinsDiscretizer, \
+                                  FunctionTransformer as skFunctionTransformer
 from sklearn.preprocessing import scale as sk_scale, \
                                   minmax_scale as sk_minmax_scale, \
                                   normalize as sk_normalize, \
@@ -45,7 +48,6 @@ from sklearn.preprocessing import scale as sk_scale, \
                                   binarize as sk_binarize, \
                                   robust_scale as sk_robust_scale
 from sklearn.impute import SimpleImputer as skSimpleImputer
-from sklearn.preprocessing import KBinsDiscretizer as skKBinsDiscretizer
 
 from cuml.thirdparty_adapters.sparsefuncs_fast import \
     csr_mean_variance_axis0, \
@@ -609,6 +611,23 @@ def test_kbinsdiscretizer(blobs_dataset, n_bins,  # noqa: F811
     else:
         assert_allclose(t_X, sk_t_X)
         assert_allclose(r_X, sk_r_X)
+
+
+def test_column_transformer(clf_dataset):  # noqa: F811
+    X_np, X = clf_dataset
+
+    transformer = cuFunctionTransformer(func=cp.exp, inverse_func=cp.log)
+    t_X = transformer.fit_transform(X)
+    r_X = transformer.inverse_transform(t_X)
+    assert type(t_X) == type(X)
+    assert type(r_X) == type(t_X)
+
+    transformer = skFunctionTransformer(func=np.exp, inverse_func=np.log)
+    sk_t_X = transformer.fit_transform(X_np)
+    sk_r_X = transformer.inverse_transform(sk_t_X)
+
+    assert_allclose(t_X, sk_t_X)
+    assert_allclose(r_X, sk_r_X)
 
 
 def test_csr_mean_variance_axis0(sparse_clf_dataset):  # noqa: F811

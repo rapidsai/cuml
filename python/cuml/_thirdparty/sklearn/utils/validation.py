@@ -22,6 +22,7 @@ import warnings
 import numbers
 
 import numpy as np
+import cupy as cp
 import scipy.sparse as sp
 from distutils.version import LooseVersion
 from inspect import signature, isclass, Parameter
@@ -1059,11 +1060,11 @@ def _allclose_dense_sparse(x, y, rtol=1e-7, atol=1e-9):
         y = y.tocsr()
         x.sum_duplicates()
         y.sum_duplicates()
-        return (np.array_equal(x.indices, y.indices) and
-                np.array_equal(x.indptr, y.indptr) and
-                np.allclose(x.data, y.data, rtol=rtol, atol=atol))
+        return (cp.array_equal(x.indices, y.indices) and
+                cp.array_equal(x.indptr, y.indptr) and
+                cp.allclose(x.data, y.data, rtol=rtol, atol=atol))
     elif not sp.issparse(x) and not sp.issparse(y):
-        return np.allclose(x, y, rtol=rtol, atol=atol)
+        return cp.allclose(x, y, rtol=rtol, atol=atol)
     raise ValueError("Can only compare two sparse matrices, not a sparse "
                      "matrix and an array")
 
