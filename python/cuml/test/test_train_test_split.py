@@ -1,4 +1,4 @@
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -371,3 +371,32 @@ def test_stratify_retain_index(test_size, train_size):
 
     elif test_size is not None:
         assert X_test.shape[0] == (int)(X.shape[0] * test_size)
+
+
+def test_stratified_binary_classification():
+    X = cp.array([[0.37487513, -2.3031888, 1.662633, 0.7671007],
+                  [-0.49796826, -1.0621182, -0.32518214, -0.20583323],
+                  [-1.0104885, -2.4997945, 2.8952584, 1.4712684],
+                  [2.008748, -2.4520662, 0.5557737, 0.07749569],
+                  [0.97350526, -0.3403474, -0.58081895, -0.23199573]])
+
+    # Needs to fail when we have just 1 occurence of a label
+    y = cp.array([0, 0, 0, 0, 1])
+    with pytest.raises(ValueError):
+        train_test_split(X, y,
+                         train_size=0.75,
+                         stratify=True,
+                         shuffle=True)
+
+    y = cp.array([0, 0, 0, 1, 1])
+
+    X_train, X_test, y_train, y_test = train_test_split(X, y,
+                                                        train_size=0.75,
+                                                        stratify=True)
+
+    _, y_counts = cp.unique(y, return_counts=True)
+    _, train_counts = cp.unique(y_train, return_counts=True)
+    _, test_counts = cp.unique(y_test, return_counts=True)
+
+    # Ensure we have preserve the number of labels
+    cp.testing.assert_array_equal(train_counts+test_counts, y_counts)
