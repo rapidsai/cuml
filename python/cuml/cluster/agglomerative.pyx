@@ -96,7 +96,6 @@ class AgglomerativeClustering(Base, ClusterMixin, CMajorInputTagMixin):
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
-
     n_clusters : int (default = 2)
         The number of clusters to find.
     affinity : str, default='euclidean'
@@ -164,11 +163,9 @@ class AgglomerativeClustering(Base, ClusterMixin, CMajorInputTagMixin):
         self.n_neighbors = n_neighbors
         self.connectivity = connectivity
 
-        self.labels_ = None
         self.n_clusters_ = None
         self.n_leaves_ = None
         self.n_connected_components_ = None
-        self.children_ = None
         self.distances_ = None
 
     @generate_docstring()
