@@ -89,7 +89,8 @@ class AgglomerativeClustering(Base, ClusterMixin, CMajorInputTagMixin):
 
         :param n_clusters: number of clusters
         :param affinity: distance measure to use for linkage construction
-        :param linkage: linkage criterion to use. Currently only 'single' is supported.
+        :param linkage: linkage criterion to use. Currently only 'single'
+                        is supported.
         :param compute_distances:
         :param handle:
         :param verbose:
@@ -114,7 +115,6 @@ class AgglomerativeClustering(Base, ClusterMixin, CMajorInputTagMixin):
         self.children_ = None
         self.distances_ = None
 
-
     def fit(self, X, y=None):
         """
         Fit the hierarchical clustering from features
@@ -136,7 +136,8 @@ class AgglomerativeClustering(Base, ClusterMixin, CMajorInputTagMixin):
         cdef uintptr_t labels_ptr = self.labels_.ptr
         cdef uintptr_t children_ptr = self.children_.ptr
 
-        cdef linkage_output_int_float* linkage_output = new linkage_output_int_float()
+        cdef linkage_output_int_float* linkage_output = \
+            new linkage_output_int_float()
 
         linkage_output.children = <int*>children_ptr
         linkage_output.labels = <int*>labels_ptr
@@ -144,24 +145,19 @@ class AgglomerativeClustering(Base, ClusterMixin, CMajorInputTagMixin):
         cdef DistanceType metric = DistanceType.L2SqrtExpanded
 
         if self.connectivity == 'knn':
-            single_linkage_neighbors(handle_[0],
-                                     <float*>input_ptr,
-                                     <int> n_rows,
-                                     <int> n_cols,
-                                     <linkage_output_int_float*> linkage_output,
-                                     <DistanceType> metric,
-                                     <int>self.n_neighbors,
-                                     <int> self.n_clusters)
+            single_linkage_neighbors(
+                handle_[0], <float*>input_ptr, <int> n_rows,
+                <int> n_cols, <linkage_output_int_float*> linkage_output,
+                <DistanceType> metric, <int>self.n_neighbors,
+                <int> self.n_clusters)
         elif self.connectivity == 'pairwise':
-            single_linkage_pairwise(handle_[0],
-                                    <float*>input_ptr,
-                                    <int> n_rows,
-                                    <int> n_cols,
-                                    <linkage_output_int_float*> linkage_output,
-                                    <DistanceType> metric,
-                                    <int> self.n_clusters)
+            single_linkage_pairwise(
+                handle_[0], <float*>input_ptr, <int> n_rows,
+                <int> n_cols, <linkage_output_int_float*> linkage_output,
+                <DistanceType> metric, <int> self.n_clusters)
         else:
-            raise ValueError("'connectivity' can be one of {'knn', 'pairwise'}")
+            raise ValueError("'connectivity' can be one of "
+                             "{'knn', 'pairwise'}")
 
         self.handle.sync()
 

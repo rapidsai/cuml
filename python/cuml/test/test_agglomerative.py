@@ -22,15 +22,13 @@ from cuml.metrics import adjusted_rand_score
 
 from sklearn import cluster
 
-from cuml.test.utils import array_equal
-
 import cupy as cp
 
 
-@pytest.mark.parametrize('nrows', [1000000])
-@pytest.mark.parametrize('ncols', [25])
-@pytest.mark.parametrize('nclusters', [10])
-@pytest.mark.parametrize('k', [3])
+@pytest.mark.parametrize('nrows', [100, 1000])
+@pytest.mark.parametrize('ncols', [25, 50])
+@pytest.mark.parametrize('nclusters', [2, 10, 50])
+@pytest.mark.parametrize('k', [3, 5, 50])
 def test_sklearn_compare(nrows, ncols, nclusters, k):
 
     X, y = make_blobs(int(nrows),
