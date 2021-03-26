@@ -402,8 +402,8 @@ TEST(BatchedLevelAlgoUnitTest, TestQuantileComputationNewBackend) {
    *    in each range (quantile[i], quantile[i + 1]]. It is expected that
    *    each range should contain 1/n_bins fraction of the data points.
    */
-  std::unique_ptr<raft::handle_t> raft_handle
-    = std::make_unique<raft::handle_t>();
+  std::unique_ptr<raft::handle_t> raft_handle =
+    std::make_unique<raft::handle_t>();
   auto d_allocator = raft_handle->get_device_allocator();
 
   int n_rows = 16000;
@@ -411,23 +411,21 @@ TEST(BatchedLevelAlgoUnitTest, TestQuantileComputationNewBackend) {
   int n_bins = 16;
   cudaStream_t stream{0};
   float* quantiles = static_cast<float*>(
-      d_allocator->allocate(sizeof(float) * n_bins * n_cols, stream));
+    d_allocator->allocate(sizeof(float) * n_bins * n_cols, stream));
   float* data = static_cast<float*>(
-      d_allocator->allocate(sizeof(float) * n_rows * n_cols, stream));
+    d_allocator->allocate(sizeof(float) * n_rows * n_cols, stream));
 
   std::vector<float> h_data(n_rows * n_cols);
   std::vector<float> h_quantiles(n_bins * n_cols);
 
   std::mt19937 engine;
   std::uniform_real_distribution<float> dist(-1.0, 1.0);
-  std::generate(h_data.begin(), h_data.end(), [&]() {
-      return dist(engine);
-  });
+  std::generate(h_data.begin(), h_data.end(), [&]() { return dist(engine); });
 
   raft::update_device(data, h_data.data(), n_rows * n_cols, stream);
 
-  computeQuantiles<float>(quantiles, n_bins, data, n_rows, n_cols,
-      d_allocator, stream);
+  computeQuantiles<float>(quantiles, n_bins, data, n_rows, n_cols, d_allocator,
+                          stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
   raft::update_host(h_quantiles.data(), quantiles, n_bins * n_cols, stream);
@@ -437,9 +435,8 @@ TEST(BatchedLevelAlgoUnitTest, TestQuantileComputationNewBackend) {
     float* h_data_single_col = &h_data[col * n_rows];
     float* h_quantiles_single_col = &h_quantiles[col * n_bins];
 
-    EXPECT_EQ(
-        *std::max_element(h_data_single_col, h_data_single_col + n_rows),
-        h_quantiles_single_col[n_bins - 1]);
+    EXPECT_EQ(*std::max_element(h_data_single_col, h_data_single_col + n_rows),
+              h_quantiles_single_col[n_bins - 1]);
 
     std::sort(h_data_single_col, h_data_single_col + n_rows);
     int cnt = 0;
