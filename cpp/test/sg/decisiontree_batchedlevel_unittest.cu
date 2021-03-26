@@ -22,6 +22,7 @@
 #include <decisiontree/batched-levelalgo/builder_base.cuh>
 #include <decisiontree/batched-levelalgo/kernels.cuh>
 #include <functional>
+#include <random>
 
 namespace ML {
 namespace DecisionTree {
@@ -391,6 +392,72 @@ INSTANTIATE_TEST_SUITE_P(BatchedLevelAlgoUnitTest, TestMetric,
                                return "";
                            }
                          });
+
+TEST(BatchedLevelAlgoUnitTest, TestQuantileComputationNewBackend) {
+  /**
+   * Verify the correctness of computeQuantiles(), as follows:
+   * 1. Randomly generate synthetic data
+   * 2. Run computeQuantiles()
+   * 3. Verify the quantile points by counting the number of data elements
+   *    in each range (quantile[i], quantile[i + 1]]. It is expected that
+   *    each range should contain 1/n_bins fraction of the data points.
+   */
+  std::unique_ptr<raft::handle_t> raft_handle
+    = std::make_unique<raft::handle_t>();
+  auto d_allocator = raft_handle->get_device_allocator();
+
+  int n_rows = 16000;
+  int n_cols = 5;
+  int n_bins = 16;
+  cudaStream_t stream{0};
+  float* quantiles = static_cast<float*>(
+      d_allocator->allocate(sizeof(float) * n_bins * n_cols, stream));
+  float* data = static_cast<float*>(
+      d_allocator->allocate(sizeof(float) * n_rows * n_cols, stream));
+
+  std::vector<float> h_data(n_rows * n_cols);
+  std::vector<float> h_quantiles(n_bins * n_cols);
+
+  std::mt19937 engine;
+  std::uniform_real_distribution<float> dist(-1.0, 1.0);
+  std::generate(h_data.begin(), h_data.end(), [&]() {
+      return dist(engine);
+  });
+
+  raft::update_device(data, h_data.data(), n_rows * n_cols, stream);
+
+  computeQuantiles<float>(quantiles, n_bins, data, n_rows, n_cols,
+      d_allocator, stream);
+  CUDA_CHECK(cudaStreamSynchronize(stream));
+
+  raft::update_host(h_quantiles.data(), quantiles, n_bins * n_cols, stream);
+
+  // Note: column major
+  for (int col = 0; col < n_cols; ++col) {
+    float* h_data_single_col = &h_data[col * n_rows];
+    float* h_quantiles_single_col = &h_quantiles[col * n_bins];
+
+    EXPECT_EQ(
+        *std::max_element(h_data_single_col, h_data_single_col + n_rows),
+        h_quantiles_single_col[n_bins - 1]);
+
+    std::sort(h_data_single_col, h_data_single_col + n_rows);
+    int cnt = 0;
+    int quantile_id = 0;
+    for (int i = 0; i < n_rows; ++i) {
+      if (h_data_single_col[i] > h_quantiles_single_col[quantile_id]) {
+        EXPECT_EQ(cnt, 1000);
+        cnt = 0;
+        ++quantile_id;
+      }
+      ++cnt;
+    }
+    EXPECT_EQ(quantile_id, n_bins - 1);
+  }
+
+  d_allocator->deallocate(quantiles, sizeof(float) * n_bins * n_cols, stream);
+  d_allocator->deallocate(data, sizeof(float) * n_rows * n_cols, stream);
+}
 
 }  // namespace DecisionTree
 }  // namespace ML
