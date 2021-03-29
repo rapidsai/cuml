@@ -22,29 +22,24 @@ from cuml.preprocessing import OneHotEncoder
 from cuml.cluster import KMeans
 
 from ..utils.skl_dependencies import BaseEstimator, TransformerMixin
+from cuml.common.mixins import SparseInputTagMixin
 from ..utils.validation import check_is_fitted
 from ..utils.validation import FLOAT_DTYPES
 from ..utils.validation import _deprecate_positional_args
-from ....thirdparty_adapters import check_array, get_input_type, \
-                                    to_output_type
+from ....thirdparty_adapters import check_array
 from ....common.import_utils import check_cupy8
+from ....common.array_sparse import SparseCumlArray
+from ....common.array_descriptor import CumlArrayDescriptor
+from ....common.memory_utils import using_output_type
 
 
 def digitize(x, bins):
-    # With right = Flase and bins in increasing order
-    out = np.full(shape=x.shape, fill_value=0, dtype=np.int32)
-    for i in range(1, len(bins)):
-        bool_arr = np.logical_and(bins[i-1] <= x, x < bins[i])
-        matched = np.where(bool_arr)
-        out[matched] = i
-
-    bool_arr = x >= bins[-1]
-    matched = np.where(bool_arr)
-    out[matched] = len(bins)
-    return out
+    return np.searchsorted(bins, x, side='left')
 
 
-class KBinsDiscretizer(TransformerMixin, BaseEstimator):
+class KBinsDiscretizer(TransformerMixin,
+                       BaseEstimator,
+                       SparseInputTagMixin):
     """
     Bin continuous data into intervals.
 
@@ -140,6 +135,9 @@ class KBinsDiscretizer(TransformerMixin, BaseEstimator):
 
     """
 
+    bin_edges_ = CumlArrayDescriptor()
+    n_bins_ = CumlArrayDescriptor()
+
     @check_cupy8()
     @_deprecate_positional_args
     def __init__(self, n_bins=5, *, encode='onehot', strategy='quantile'):
@@ -147,7 +145,14 @@ class KBinsDiscretizer(TransformerMixin, BaseEstimator):
         self.encode = encode
         self.strategy = strategy
 
-    def fit(self, X, y=None):
+    def get_param_names(self):
+        return super().get_param_names() + [
+            "n_bins",
+            "encode",
+            "strategy"
+        ]
+
+    def fit(self, X, y=None) -> "KBinsDiscretizer":
         """
         Fit the estimator.
 
@@ -210,8 +215,11 @@ class KBinsDiscretizer(TransformerMixin, BaseEstimator):
                 init = (uniform_edges[1:] + uniform_edges[:-1])[:, None] * 0.5
 
                 # 1D k-means procedure
-                km = KMeans(n_clusters=n_bins[jj], init=init, n_init=1)
-                centers = km.fit(column[:, None]).cluster_centers_[:, 0]
+                km = KMeans(n_clusters=n_bins[jj], init=init, n_init=1,
+                            output_type='cupy')
+                km = km.fit(column[:, None])
+                with using_output_type('cupy'):
+                    centers = km.cluster_centers_[:, 0]
                 # Must sort, centers may be unsorted even with sorted init
                 centers.sort()
                 bin_edges[jj] = (centers[1:] + centers[:-1]) * 0.5
@@ -233,7 +241,7 @@ class KBinsDiscretizer(TransformerMixin, BaseEstimator):
         if 'onehot' in self.encode:
             self._encoder = OneHotEncoder(
                 categories=np.array([np.arange(i) for i in self.n_bins_]),
-                sparse=self.encode == 'onehot')
+                sparse=self.encode == 'onehot', output_type='cupy')
             # Fit the OneHotEncoder with toy datasets
             # so that it's ready for use after the KBinsDiscretizer is fitted
             self._encoder.fit(np.zeros((1, len(self.n_bins_)), dtype=int))
@@ -274,7 +282,7 @@ class KBinsDiscretizer(TransformerMixin, BaseEstimator):
                              .format(KBinsDiscretizer.__name__, indices))
         return n_bins
 
-    def transform(self, X):
+    def transform(self, X) -> SparseCumlArray:
         """
         Discretize the data.
 
@@ -290,7 +298,6 @@ class KBinsDiscretizer(TransformerMixin, BaseEstimator):
         """
         check_is_fitted(self)
 
-        output_type = get_input_type(X)
         Xt = check_array(X, copy=True, dtype=FLOAT_DTYPES)
         n_features = self.n_bins_.shape[0]
         if Xt.shape[1] != n_features:
@@ -312,15 +319,12 @@ class KBinsDiscretizer(TransformerMixin, BaseEstimator):
 
         Xt = Xt.astype(np.int32)
         if self.encode == 'ordinal':
-            return to_output_type(Xt, output_type)
+            return Xt
 
         Xt = self._encoder.transform(Xt)
-        if self.encode == 'onehot':
-            return Xt
-        else:
-            return to_output_type(Xt, output_type)
+        return Xt
 
-    def inverse_transform(self, Xt):
+    def inverse_transform(self, Xt) -> SparseCumlArray:
         """
         Transform discretized data back to original feature space.
 
@@ -339,10 +343,8 @@ class KBinsDiscretizer(TransformerMixin, BaseEstimator):
         """
         check_is_fitted(self)
 
-        output_type = get_input_type(Xt)
-        sparse_input = hasattr(Xt, 'format')
         if 'onehot' in self.encode:
-            Xt = check_array(Xt, accept_sparse='coo', copy=True)
+            Xt = check_array(Xt, accept_sparse=['csr', 'coo'], copy=True)
             Xt = self._encoder.inverse_transform(Xt)
 
         Xinv = check_array(Xt, copy=True, dtype=FLOAT_DTYPES)
@@ -357,9 +359,4 @@ class KBinsDiscretizer(TransformerMixin, BaseEstimator):
             idxs = np.asnumpy(Xinv[:, jj])
             Xinv[:, jj] = bin_centers[idxs.astype(np.int32)]
 
-        if not sparse_input:
-            # Dense input -> Dense output in correct format
-            return to_output_type(Xinv, output_type)
-        else:
-            # Sparse input -> Dense CuPy output
-            return Xinv
+        return Xinv
