@@ -16,6 +16,7 @@ function hasArg {
 # Set path and build parallel level
 export PATH=/opt/conda/bin:/usr/local/cuda/bin:$PATH
 export PARALLEL_LEVEL=${PARALLEL_LEVEL:-4}
+export CONDA_ARTIFACT_PATH=${WORKSPACE}/ci/artifacts/cuml/cpu/.conda-bld/
 
 # Set home to the job's workspace
 export HOME=$WORKSPACE
@@ -108,7 +109,6 @@ if [[ -z "$PROJECT_FLASH" || "$PROJECT_FLASH" == "0" ]]; then
     ################################################################################
     # TEST - Run GoogleTest and py.tests for libcuml and cuML
     ################################################################################
-
     if hasArg --skip-tests; then
         gpuci_logger "Skipping Tests"
         exit 0
@@ -186,11 +186,11 @@ else
     patchelf --replace-needed `patchelf --print-needed ./test/ml | grep faiss` libfaiss.so ./test/ml
     GTEST_OUTPUT="xml:${WORKSPACE}/test-results/libcuml_cpp/" ./test/ml
 
-    CONDA_FILE=`find $WORKSPACE/ci/artifacts/cuml/cpu/conda-bld/ -name "libcuml*.tar.bz2"`
+    CONDA_FILE=`find ${CONDA_ARTIFACT_PATH} -name "libcuml*.tar.bz2"`
     CONDA_FILE=`basename "$CONDA_FILE" .tar.bz2` #get filename without extension
     CONDA_FILE=${CONDA_FILE//-/=} #convert to conda install
     gpuci_logger "Installing $CONDA_FILE"
-    conda install -c $WORKSPACE/ci/artifacts/cuml/cpu/conda-bld/ "$CONDA_FILE"
+    conda install -c ${CONDA_ARTIFACT_PATH} "$CONDA_FILE"
 
     gpuci_logger "Building cuml"
     "$WORKSPACE/build.sh" -v cuml --codecov

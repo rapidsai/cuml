@@ -17,8 +17,10 @@ import dask
 import json
 import math
 import numpy as np
+import cupy as cp
 import warnings
 
+from cuml import using_output_type
 from collections.abc import Iterable
 from dask.distributed import Future
 
@@ -95,7 +97,7 @@ class BaseRandomForestModel(object):
             )
         return n_estimators_per_worker
 
-    def _fit(self, model, dataset, convert_dtype):
+    def _fit(self, model, dataset, convert_dtype, broadcast_data):
         data = DistributedDataHandler.create(dataset, client=self.client)
         self.active_workers = data.workers
         self.datatype = data.datatype
@@ -112,7 +114,10 @@ class BaseRandomForestModel(object):
         else:
             self.num_classes = \
                 len(dask.array.unique(labels).compute())
-        labels = self.client.persist(dataset[1])
+
+        combined_data = list(map(lambda x: x[1], data.gpu_futures)) \
+            if broadcast_data else None
+
         futures = list()
         for idx, (worker, worker_data) in \
                 enumerate(data.worker_to_parts.items()):
@@ -120,7 +125,7 @@ class BaseRandomForestModel(object):
                 self.client.submit(
                     _func_fit,
                     model[worker],
-                    worker_data,
+                    combined_data if broadcast_data else worker_data,
                     convert_dtype,
                     workers=[worker],
                     pure=False)
@@ -171,14 +176,37 @@ class BaseRandomForestModel(object):
             TreeliteModel.free_treelite_model(tl_handle)
         return model
 
+    def _partial_inference(self, X, op_type, delayed, **kwargs):
+        data = DistributedDataHandler.create(X, client=self.client)
+        combined_data = list(map(lambda x: x[1], data.gpu_futures))
+
+        func = _func_predict_partial if op_type == 'regression' \
+            else _func_predict_proba_partial
+
+        partial_infs = list()
+        for worker in self.active_workers:
+            partial_infs.append(
+                self.client.submit(
+                    func,
+                    self.rfs[worker],
+                    combined_data,
+                    **kwargs,
+                    workers=[worker],
+                    pure=False)
+            )
+        partial_infs = dask.delayed(dask.array.concatenate)(
+            partial_infs, axis=1, allow_unknown_chunksizes=True)
+        return partial_infs
+
     def _predict_using_fil(self, X, delayed, **kwargs):
         if self._get_internal_model() is None:
             self._set_internal_model(self._concat_treelite_models())
         data = DistributedDataHandler.create(X, client=self.client)
-        self.datatype = data.datatype
         if self._get_internal_model() is None:
             self._set_internal_model(self._concat_treelite_models())
-        return self._predict(X, delayed=delayed, **kwargs)
+        return self._predict(X, delayed=delayed,
+                             output_collection_type=data.datatype,
+                             **kwargs)
 
     def _get_params(self, deep):
         model_params = list()
@@ -268,7 +296,7 @@ class BaseRandomForestModel(object):
         -------
 
         model : Trained single-GPU model or None if the model has not
-               yet been trained.
+                yet been trained.
         """
 
         # set internal model if it hasn't been accessed before
@@ -288,11 +316,59 @@ class BaseRandomForestModel(object):
 
         return internal_model
 
+    def apply_reduction(self, reduce, partial_infs, datatype, delayed):
+        """
+        Reduces the partial inferences to obtain the final result. The workers
+        didn't have the same number of trees to form their predictions. To
+        correct for this worker's predictions are weighted differently during
+        reduction.
+        """
+        workers_weights = np.array(self.n_estimators_per_worker)
+        workers_weights = workers_weights[workers_weights != 0]
+        workers_weights = workers_weights / workers_weights.sum()
+        workers_weights = cp.array(workers_weights)
+        unique_classes = None if not hasattr(self, 'unique_classes') \
+            else self.unique_classes
+        delayed_local_array = dask.delayed(reduce)(partial_infs,
+                                                   workers_weights,
+                                                   unique_classes)
+        delayed_res = dask.array.from_delayed(delayed_local_array,
+                                              shape=(np.nan, np.nan),
+                                              dtype=np.float32)
+        if delayed:
+            return delayed_res
+        else:
+            return delayed_res.persist()
+
 
 def _func_fit(model, input_data, convert_dtype):
     X = concatenate([item[0] for item in input_data])
     y = concatenate([item[1] for item in input_data])
     return model.fit(X, y, convert_dtype)
+
+
+def _func_predict_partial(model, input_data, **kwargs):
+    """
+    Whole dataset inference with part of the model (trees at disposal locally).
+    Transfer dataset instead of model. Interesting when model is larger
+    than dataset.
+    """
+    X = concatenate(input_data)
+    with using_output_type('cupy'):
+        prediction = model.predict(X, **kwargs)
+        return cp.expand_dims(prediction, axis=1)
+
+
+def _func_predict_proba_partial(model, input_data, **kwargs):
+    """
+    Whole dataset inference with part of the model (trees at disposal locally).
+    Transfer dataset instead of model. Interesting when model is larger
+    than dataset.
+    """
+    X = concatenate(input_data)
+    with using_output_type('cupy'):
+        prediction = model.predict_proba(X, **kwargs)
+        return cp.expand_dims(prediction, axis=1)
 
 
 def _get_summary_text_func(model):
