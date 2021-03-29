@@ -16,7 +16,10 @@
 
 #pragma once
 
+#include <cuml/common/device_buffer.hpp>
+#include <cuml/cuml.hpp>
 #include <cuml/manifold/umapparams.h>
+
 #include <curand.h>
 #include <math.h>
 #include <raft/cudart_utils.h>
@@ -29,10 +32,13 @@
 #include <raft/mr/device/allocator.hpp>
 #include <raft/random/rng_impl.cuh>
 #include <raft/sparse/coo.cuh>
+#include <raft/sparse/convert/csr.cuh>
+#include <raft/linalg/unary_op.cuh>
 #include <string>
 #include "optimize_batch_kernel.cuh"
 
 #include <raft/sparse/op/filter.cuh>
+#include <raft/linalg/binary_op.cuh>
 
 #pragma once
 
@@ -115,11 +121,13 @@ inline void optimization_iteration_finalization(UMAPParams *params,
 template <int TPB_X, typename T>
 void optimize_layout(T *head_embedding, int head_n, T *tail_embedding,
                      int tail_n, const int *head, const int *tail, int nnz,
-                     T *epochs_per_sample, int n_vertices, float gamma,
+                     T *epochs_per_sample,
+                     int n_vertices, float gamma,
                      UMAPParams *params, int n_epochs,
                      std::shared_ptr<raft::mr::device::allocator> d_alloc,
                      cudaStream_t stream) {
   // Are we doing a fit or a transform?
+  // true if fit, false if tranform
   bool move_other = head_embedding == tail_embedding;
 
   if (params->optim_batch_size <= 0) {
@@ -169,7 +177,7 @@ void optimize_layout(T *head_embedding, int head_n, T *tail_embedding,
       int toDo = nnz;
       int offset = 0;
       while (toDo > 0) {
-        int curBatchSize = min(toDo, params->optim_batch_size);
+        int curBatchSize = std::min(toDo, params->optim_batch_size);
         call_optimize_batch_kernel<T, TPB_X>(
           head_embedding, head_n, tail_embedding, tail_n_fast, head, tail,
           offset + curBatchSize, epochs_per_sample, n_vertices,
@@ -191,16 +199,66 @@ void optimize_layout(T *head_embedding, int head_n, T *tail_embedding,
   }
 }
 
+template <int TPB_X, typename T>
+void optimize_layout(T *embedding, T *other, int *indptr, size_t n_samples,
+                     int *indices, size_t n_indices, int nnz,
+                     T *epochs_per_sample, float gamma,
+                     UMAPParams *params, int n_epochs,
+                     std::shared_ptr<deviceAllocator> d_alloc,
+                     cudaStream_t stream) {
+  if (params->optim_batch_size <= 0) {
+    params->optim_batch_size = 100000 / params->n_components;
+  }
+
+  T alpha = params->initial_alpha;
+
+  MLCommon::device_buffer<T> epoch_of_next_negative_sample(d_alloc, stream,
+                                                           nnz);
+  T nsr_inv = T(1.0) / params->negative_sample_rate;
+  raft::linalg::unaryOp<T>(
+    epoch_of_next_negative_sample.data(), epochs_per_sample, nnz,
+    [=] __device__(T input) { return input * nsr_inv; }, stream);
+  CUDA_CHECK(cudaPeekAtLastError());
+
+  MLCommon::device_buffer<T> epoch_of_next_sample(d_alloc, stream, nnz);
+  raft::copy(epoch_of_next_sample.data(), epochs_per_sample, nnz, stream);
+  MLCommon::device_buffer<T> epoch_of_next_sample_buffer(d_alloc, stream, nnz);
+
+  static_assert(size_t(TPB_X) % raft::warp_size() == 0,
+                "Block size must be multiple of warp size.");
+  auto warps_per_blk = size_t(TPB_X) / raft::warp_size();
+  dim3 grid(raft::ceildiv(n_samples, warps_per_blk), 1, 1);
+  dim3 blk(TPB_X, 1, 1);
+
+  uint64_t seed = params->random_state;
+
+  MLCommon::device_buffer<T> buffer(d_alloc, stream,
+                                    n_samples * params->n_components);
+
+  for (int n = 0; n < n_epochs; n++) {
+    call_optimization_batch_kernel<T, TPB_X>(
+        embedding, buffer.data(), other, indptr, n_samples, indices, n_indices,
+      epochs_per_sample, epoch_of_next_sample.data(),
+      epoch_of_next_sample_buffer.data(), epoch_of_next_negative_sample.data(),
+      params, seed, n, alpha, gamma, grid, blk, stream, nnz);
+    optimization_iteration_finalization(params, embedding, alpha, n, n_epochs,
+                                        seed);
+    CUDA_CHECK(cudaGetLastError());
+  }
+}
+
 /**
  * Perform a fuzzy simplicial set embedding by minimizing
  * the fuzzy set cross entropy between the embeddings
  * and their 1-skeletons.
+ *
+ * @param m   Number of samples
+ * @param n   Number of dimension in ambient sapce
+ * @pARAM in  COO connectitivity graph
  */
 template <int TPB_X, typename T>
-void launcher(int m, int n, raft::sparse::COO<T> *in, UMAPParams *params,
-              T *embedding,
-              std::shared_ptr<raft::mr::device::allocator> d_alloc,
-              cudaStream_t stream) {
+void launcher(raft::handle_t const& handle, int m, int n, raft::sparse::COO<T> *in, UMAPParams *params,
+              T *embedding) {
   int nnz = in->nnz;
 
   /**
@@ -208,7 +266,7 @@ void launcher(int m, int n, raft::sparse::COO<T> *in, UMAPParams *params,
    */
   thrust::device_ptr<const T> d_ptr = thrust::device_pointer_cast(in->vals());
   T max =
-    *(thrust::max_element(thrust::cuda::par.on(stream), d_ptr, d_ptr + nnz));
+      *(thrust::max_element(thrust::cuda::par.on(handle.get_stream()), d_ptr, d_ptr + nnz));
 
   int n_epochs = params->n_epochs;
   if (n_epochs <= 0) {
@@ -230,29 +288,46 @@ void launcher(int m, int n, raft::sparse::COO<T> *in, UMAPParams *params,
       else
         return input;
     },
-    stream);
+    handle.get_stream());
 
-  raft::sparse::COO<T> out(d_alloc, stream);
-  raft::sparse::op::coo_remove_zeros<TPB_X, T>(in, &out, d_alloc, stream);
+  // COO connectivity graph
+  raft::sparse::COO<T> out(handle.get_device_allocator(), handle.get_stream());
+  // This will set the size correctly.
+  raft::sparse::op::coo_remove_zeros<TPB_X, T>(in, &out, handle.get_device_allocator(), handle.get_stream());
 
-  MLCommon::device_buffer<T> epochs_per_sample(d_alloc, stream, out.nnz);
-  CUDA_CHECK(
-    cudaMemsetAsync(epochs_per_sample.data(), 0, out.nnz * sizeof(T), stream));
+  MLCommon::device_buffer<T> epochs_per_sample(handle.get_device_allocator(),
+                                               handle.get_stream(), out.nnz);
+  CUDA_CHECK(cudaMemsetAsync(epochs_per_sample.data(), 0, out.nnz * sizeof(T),
+                             handle.get_stream()));
 
   make_epochs_per_sample(out.vals(), out.nnz, n_epochs,
-                         epochs_per_sample.data(), stream);
+                         epochs_per_sample.data(), handle.get_stream());
 
   if (ML::Logger::get().shouldLogFor(CUML_LEVEL_DEBUG)) {
     std::stringstream ss;
     ss << raft::arr2Str(epochs_per_sample.data(), out.nnz, "epochs_per_sample",
-                        stream);
+                        handle.get_stream());
     CUML_LOG_DEBUG(ss.str().c_str());
   }
 
-  optimize_layout<TPB_X, T>(embedding, m, embedding, m, out.rows(), out.cols(),
-                            out.nnz, epochs_per_sample.data(), m,
+  // FIXME(jiaming): This is redundent and consumes memory.
+  raft::mr::device::buffer<int> src_offsets(handle.get_device_allocator(), handle.get_stream(), m + 1);
+  raft::mr::device::buffer<int> dst_cols(handle.get_device_allocator(), handle.get_stream(), nnz);
+  raft::mr::device::buffer<T> dst_vals(handle.get_device_allocator(), handle.get_stream(), nnz);
+  raft::sparse::convert::coo_to_csr(handle, out.rows(), out.cols(), out.vals(),
+                                    out.nnz, out.n_rows, src_offsets.data(),
+                                    dst_cols.data(), dst_vals.data());
+
+  optimize_layout<TPB_X, T>(embedding, embedding, src_offsets.data(),
+                            src_offsets.size() - 1, dst_cols.data(),
+                            dst_cols.size(), out.nnz, epochs_per_sample.data(),
                             params->repulsion_strength, params, n_epochs,
-                            d_alloc, stream);
+                            handle.get_device_allocator(), handle.get_stream());
+
+  // optimize_layout<TPB_X, T>(embedding, m, embedding, m, out.rows(), out.cols(),
+  //                           out.nnz, epochs_per_sample.data(), m,
+  //                           params->repulsion_strength, params, n_epochs,
+  //                           handle.get_device_allocator(), handle.get_stream());
 
   CUDA_CHECK(cudaPeekAtLastError());
 }

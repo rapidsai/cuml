@@ -18,8 +18,14 @@
 
 #include <cuml/manifold/umapparams.h>
 #include <raft/cudart_utils.h>
+#include <raft/random/rng.cuh>
 #include <common/fast_int_div.cuh>
 #include <raft/cuda_utils.cuh>
+#include <raft/linalg/binary_op.cuh>
+#include <raft/linalg/unary_op.cuh>
+#include <thrust/fill.h>
+#include <thrust/execution_policy.h>
+#include <thrust/device_vector.h>
 
 namespace UMAPAlgo {
 namespace SimplSetEmbed {
@@ -129,6 +135,7 @@ __global__ void optimize_batch_kernel_reg(
     grads[d] = grad_d * alpha;
   }
   // storing gradients for negative samples back to global memory
+  // move_other = (head_embedding == tail_embedding)
   if (move_other) {
     if (multicore_implem) {
       for (int d = 0; d < n_components; d++) {
@@ -196,6 +203,211 @@ __global__ void optimize_batch_kernel_reg(
     _epoch_of_next_negative_sample + n_neg_samples * epochs_per_negative_sample;
 }
 
+template <typename T>
+DI T warpReduce(T val, uint32_t mask) {
+#pragma unroll
+  for (int i = raft::warp_size() / 2; i > 0; i >>= 1) {
+    T tmp = raft::shfl(val, raft::laneId() + i, raft::warp_size(), mask);
+    val += tmp;
+  }
+  return val;
+}
+
+__device__ int warpId() {
+  size_t n_warps_per_block = blockDim.x / raft::warp_size();
+  assert(blockDim.x % raft::warp_size() == 0 && "block size must be multiple of warp size");
+  size_t n_warps = n_warps_per_block * blockIdx.x;
+  size_t warp_id = n_warps + threadIdx.x / raft::warp_size();
+  return warp_id;
+}
+
+/**
+ * Positive sampling.
+ */
+template <typename T, typename T2>
+__global__ void optimize_batch_attractive(T *embedding, T *buffer, int *indptr,
+                                           size_t n_samples, int *indices,
+                                           size_t n_indices,
+                                           T const *epochs_per_sample,
+                                           T *epoch_of_next_sample,
+                                           UMAPParams params,
+                                           int epoch, T2 alpha, T2 gamma) {
+  static_assert(std::is_floating_point<T>::value, "Must be floating point");
+  static_assert(std::is_floating_point<T2>::value, "Must be floating point");
+
+  // handles the connectivity graph with 1 warp for each row.
+  size_t warp_id = warpId();
+  if (warp_id >= n_samples) {
+    return;
+  }
+  T const *current = embedding + (warp_id * params.n_components);
+  T *writeto = buffer + (warp_id * params.n_components);
+
+  auto lane = raft::laneId();
+  size_t beg = indptr[warp_id];
+  size_t end = indptr[warp_id + 1];
+  size_t nnz = end - beg;  // nnz in each row of the connectivity graph.
+
+  // load column indices into warp.
+  for (size_t k = 0; k < nnz; k += raft::warp_size()) {
+    // FIXME: argue that this is correct edge.
+    uint32_t edge = beg + k + lane;
+    uint32_t mask = __ballot_sync(raft::warp_full_mask(), edge < end);
+    bool sampled =  epoch_of_next_sample[edge] <= T(epoch);
+    if (edge < end) {
+      assert(edge < n_indices);
+      size_t col = indices[edge];
+      T const *other = embedding + static_cast<ptrdiff_t>(col * params.n_components);
+      auto dist_squared = rdist<T, T>(current, other, params.n_components);
+      auto attractive_grad_coeff = T(0.0);
+      if (dist_squared > T(0.0)) {
+        attractive_grad_coeff = attractive_grad<T>(dist_squared, params);
+      }
+      // compute gradient for each component in embedded space
+      for (size_t d = 0; d < params.n_components; ++d) {
+        auto grad_d =
+          sampled ? clip<T>(attractive_grad_coeff * (current[d] - other[d]),
+                            T(-4.0), T(4.0)) *
+                      alpha
+                  : T(0.0);
+        // The gradient summed for each compoent among all threads in the warp
+        grad_d = warpReduce(grad_d, mask) * 2.0f;
+        if (lane == 0) {
+          // already reduced, only the first thread in warp does the writing.
+          writeto[d] += grad_d;
+        }
+      }
+      if (sampled) {
+        // FIXME: Verify this is not conflicting and correct
+        auto _epochs_per_sample = epochs_per_sample[edge];
+        // smaller the weight, greater the epochs_per_sample
+        epoch_of_next_sample[edge] += _epochs_per_sample;
+      }
+    }
+  }
+}
+
+// negative sampling needs to be split into a different kernel as it reads and writes to the embedding.
+template <typename T>
+void __global__ optimize_batch_repuslive_kernel(
+  // embedding
+  T const *embedding, T *buffer,
+  // CSR graph
+  int const *indptr, size_t n_samples, int const *indices, size_t n_indices,
+  // sampling
+  T const *epochs_per_sample, T const *epoch_of_next_sample,
+  T *epoch_of_next_negative_sample, int epoch, T nsr_inv,
+  // parameters
+  UMAPParams params, uint64_t seed, float alpha, float gamma) {
+  size_t warp_id = warpId();
+  if (warp_id >= n_samples) {
+    return;
+  }
+  // writes only to current node, so no conflict.
+  T const *current = embedding + (warp_id * params.n_components);
+  T *writeto = buffer + (warp_id * params.n_components);
+
+  auto lane = raft::laneId();
+  size_t beg = indptr[warp_id];
+  size_t end = indptr[warp_id + 1];
+  auto nnz = end - beg;  // nnz in each row of the connectivity graph.
+
+  for (size_t k = 0; k < nnz; k += raft::warp_size()) {
+    uint32_t edge = beg + k + lane;
+    uint32_t mask = __ballot_sync(raft::warp_full_mask(), edge < end);
+    bool sampled = epoch_of_next_sample[edge] <= T(epoch);
+    if (!(edge < end)) {
+      assert(lane != 0);
+      continue;
+    }
+
+    auto _epochs_per_sample = epochs_per_sample[edge];
+    auto epochs_per_negative_sample = _epochs_per_sample * nsr_inv;
+    auto _epoch_of_next_negative_sample = epoch_of_next_negative_sample[edge];
+    int n_neg_samples = int(T(epoch - _epoch_of_next_negative_sample) /
+                            epochs_per_negative_sample);
+
+    raft::random::detail::PhiloxGenerator gen((uint64_t)seed, (uint64_t)edge, 0);
+    using WarpReduce = cub::WarpReduce<int>;
+     __shared__ typename WarpReduce::TempStorage temp_storage;
+     // use maximum for the loop to keep warp primitives in sync
+    auto max_n_neg_samples = WarpReduce(temp_storage).Reduce(n_neg_samples, cub::Max());
+
+    for (int p = 0; p < max_n_neg_samples; p += 1) {
+      int r;
+      gen.next(r);
+      int t = r % n_samples;
+      // Get the point in embedded space
+      T const *negative_sample = embedding + (t * params.n_components);
+
+      auto dist_squared =
+        rdist<T, T>(current, negative_sample, params.n_components);
+
+      auto repulsive_grad_coeff = dist_squared > T(0.0) ? repulsive_grad<T>(dist_squared, gamma, params) : T(0.0);
+      for (int d = 0; d < params.n_components; d++) {
+        auto diff = (current[d] - negative_sample[d]);
+        auto grad_d = T(0.0);
+        if (p < n_neg_samples && current != negative_sample && sampled) {
+          if (repulsive_grad_coeff > T(0.0)) {
+            grad_d = clip<T>(repulsive_grad_coeff * diff, T(-4.0), T(4.0));
+          } else {
+            grad_d = T(4.0);
+          }
+        }
+        grad_d *= alpha;
+        grad_d = warpReduce(grad_d, mask);
+        if (lane == 0) {
+          writeto[d] += grad_d;
+        }
+      }
+    }
+    if (sampled) {
+      epoch_of_next_negative_sample[edge] +=
+        T(n_neg_samples) * epochs_per_negative_sample;
+    }
+  }
+}
+
+/**
+ * @param embedding
+ * @param buffer     Buffer for writing gradient updates
+ */
+template <typename T, int TPB_X>
+void call_optimization_batch_kernel(
+  T *embedding, T *buffer, T *other, int *indptr, size_t n_samples,
+  int *indices, size_t n_indices, T *epochs_per_sample, T *epoch_of_next_sample,
+  T *epoch_of_next_sample_buffer, T *epoch_of_next_negative_sample,
+  UMAPParams *params, uint64_t seed, int epoch, float alpha,
+  float gamma, dim3 &grid, dim3 &blk, cudaStream_t &stream, int nnz) {
+  raft::copy(epoch_of_next_sample_buffer, epoch_of_next_sample, nnz, stream);
+  /**
+   * Apply attractive force
+   */
+  size_t embedding_size = n_samples * params->n_components;
+  CUDA_CHECK(cudaMemsetAsync(buffer, 0, embedding_size * sizeof(T), stream));
+  optimize_batch_attractive<T><<<grid, blk, 0, stream>>>(
+    embedding, buffer, indptr, n_samples, indices, n_indices, epochs_per_sample,
+    epoch_of_next_sample, *params, epoch, alpha, gamma);
+  raft::linalg::binaryOp(
+    embedding, embedding, buffer, embedding_size,
+    [] __device__(T l, T r) { return l + r; }, stream);
+  /**
+   * Apply replusive force
+   */
+  T nsr_inv = T(1.0) / params->negative_sample_rate;
+  CUDA_CHECK(cudaMemsetAsync(buffer, 0, embedding_size * sizeof(T), stream));
+  optimize_batch_repuslive_kernel<<<grid, blk, 0, stream>>>(
+    embedding, buffer, indptr, n_samples, indices, n_indices, epochs_per_sample,
+    epoch_of_next_sample_buffer, epoch_of_next_negative_sample, epoch, nsr_inv,
+    *params, seed, alpha, gamma);
+  raft::linalg::binaryOp(
+    embedding, embedding, buffer, n_samples * params->n_components,
+    [] __device__(T l, T r) { return l + r; }, stream);
+}
+
+/**
+ * @param head_embedding Either the embedding used for fit, or the output of transform.
+ */
 template <typename T, typename T2, int TPB_X, bool multicore_implem,
           bool use_shared_mem>
 __global__ void optimize_batch_kernel(
@@ -325,7 +537,7 @@ __global__ void optimize_batch_kernel(
   }
   // storing gradients for positive samples back to global memory
   if (use_shared_mem) {
-    __syncthreads();
+    cub::CTA_SYNC();
     if (multicore_implem) {
       for (int d = 0; d < params.n_components; d++) {
         raft::myAtomicAdd<T>((T *)current + d, current_buffer[d * TPB_X]);
@@ -409,7 +621,6 @@ void call_optimize_batch_kernel(
     }
   }
 }
-
 }  // namespace Algo
 }  // namespace SimplSetEmbed
 }  // namespace UMAPAlgo

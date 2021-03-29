@@ -40,6 +40,7 @@
 #include <raft/sparse/op/sort.h>
 #include <raft/sparse/convert/csr.cuh>
 #include <raft/sparse/coo.cuh>
+#include <raft/sparse/csr.cuh>
 #include <raft/sparse/linalg/norm.cuh>
 #include <raft/sparse/op/filter.cuh>
 
@@ -161,7 +162,7 @@ void _fit(const raft::handle_t &handle, const umap_inputs &inputs,
    * Run simplicial set embedding to approximate low-dimensional representation
    */
   SimplSetEmbed::run<TPB_X, value_t>(inputs.n, inputs.d, &cgraph_coo, params,
-                                     embeddings, d_alloc, stream);
+                                     embeddings, handle);
   ML::POP_RANGE();
 
   if (params->callback) params->callback->on_train_end(embeddings);
@@ -275,7 +276,7 @@ void _fit_supervised(const raft::handle_t &handle, const umap_inputs &inputs,
    * Run simplicial set embedding to approximate low-dimensional representation
    */
   SimplSetEmbed::run<TPB_X, value_t>(inputs.n, inputs.d, &ocoo, params,
-                                     embeddings, d_alloc, stream);
+                                     embeddings, handle);
   ML::POP_RANGE();
 
   if (params->callback) params->callback->on_train_end(embeddings);
@@ -284,9 +285,6 @@ void _fit_supervised(const raft::handle_t &handle, const umap_inputs &inputs,
   ML::POP_RANGE();
 }
 
-/**
-	 *
-	 */
 template <typename value_idx, typename value_t, typename umap_inputs, int TPB_X>
 void _transform(const raft::handle_t &handle, const umap_inputs &inputs,
                 umap_inputs &orig_x_inputs, value_t *embedding, int embedding_n,
@@ -333,7 +331,7 @@ void _transform(const raft::handle_t &handle, const umap_inputs &inputs,
 
   ML::PUSH_RANGE("umap::smooth_knn");
   float adjusted_local_connectivity =
-    max(0.0, params->local_connectivity - 1.0);
+      std::max(0.0, params->local_connectivity - 1.0);
 
   CUML_LOG_DEBUG("Smoothing KNN distances");
 
@@ -462,15 +460,21 @@ void _transform(const raft::handle_t &handle, const umap_inputs &inputs,
   }
 
   auto initial_alpha = params->initial_alpha / 4.0;
+  // FIXME(jiaming): This is redundent and consumes memory.
+  raft::mr::device::buffer<int> src_offsets(handle.get_device_allocator(), handle.get_stream(), inputs.n + 1);
+  raft::mr::device::buffer<int> dst_cols(handle.get_device_allocator(), handle.get_stream(), nnz);
+  raft::mr::device::buffer<value_t> dst_vals(handle.get_device_allocator(), handle.get_stream(), nnz);
+  raft::sparse::convert::coo_to_csr(handle, comp_coo.rows(), comp_coo.cols(), comp_coo.vals(),
+                                    comp_coo.nnz, comp_coo.n_rows, src_offsets.data(),
+                                    dst_cols.data(), dst_vals.data());
 
   SimplSetEmbedImpl::optimize_layout<TPB_X, value_t>(
-    transformed, inputs.n, embedding, embedding_n, comp_coo.rows(),
-    comp_coo.cols(), comp_coo.nnz, epochs_per_sample.data(), inputs.n,
+    transformed, embedding, src_offsets.data(), src_offsets.size() - 1,
+    dst_cols.data(), dst_cols.size(), nnz, epochs_per_sample.data(),
     params->repulsion_strength, params, n_epochs, d_alloc, stream);
   ML::POP_RANGE();
 
   if (params->callback) params->callback->on_train_end(transformed);
   ML::POP_RANGE();
 }
-
 }  // namespace UMAPAlgo
