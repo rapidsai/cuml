@@ -133,6 +133,8 @@ def test_predict_and_score(dataset, datatype, parameters, client):
 
 @pytest.mark.parametrize('input_type', ['array', 'dataframe'])
 def test_predict_1D_labels(input_type, client):
+    # Testing that nothing crashes with 1D labels
+
     X, y = make_regression(n_samples=10000)
     if input_type == 'array':
         dX = da.from_array(X)

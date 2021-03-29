@@ -17,7 +17,6 @@
 # distutils: language = c++
 
 import typing
-import cuml
 from cuml.common.array import CumlArray
 from cuml.common import input_to_cuml_array
 from cuml.internals import api_base_return_generic_skipall
