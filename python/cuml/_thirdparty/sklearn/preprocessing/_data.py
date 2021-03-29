@@ -857,11 +857,6 @@ class StandardScaler(TransformerMixin,
                 X += self.mean_
         return X
 
-    def _more_tags(self):
-        return {'X_types_gpu': ['2darray', 'sparse'],
-                'X_types': ['2darray', 'sparse'],
-                'allow_nan': True}
-
 
 class MaxAbsScaler(TransformerMixin,
                    BaseEstimator,
@@ -1043,11 +1038,6 @@ class MaxAbsScaler(TransformerMixin,
         else:
             X *= self.scale_
         return X
-
-    def _more_tags(self):
-        return {'X_types_gpu': ['2darray', 'sparse'],
-                'X_types': ['2darray', 'sparse'],
-                'allow_nan': True}
 
 
 @check_cupy8()
@@ -1982,11 +1972,6 @@ class Binarizer(TransformerMixin,
         """
         copy = copy if copy is not None else self.copy
         return binarize(X, threshold=self.threshold, copy=copy)
-
-    def _more_tags(self):
-        return {'X_types_gpu': ['2darray', 'sparse'],
-                'X_types': ['2darray', 'sparse'],
-                'stateless': True}
 
 
 @api_return_generic(get_output_type=True)

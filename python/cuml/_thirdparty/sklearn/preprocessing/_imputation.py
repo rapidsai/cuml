@@ -466,10 +466,6 @@ class SimpleImputer(_BaseImputer, BaseEstimator,
         X = super()._concatenate_indicator(X, X_indicator)
         return X
 
-    def _more_tags(self):
-        return {'X_types_gpu': ['2darray', 'sparse'],
-                'X_types': ['2darray', 'sparse']}
-
 
 class MissingIndicator(TransformerMixin,
                        BaseEstimator,

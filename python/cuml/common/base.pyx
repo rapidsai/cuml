@@ -24,8 +24,6 @@ import cuml.common.logger as logger
 import cuml.internals
 import cuml.raft.common.handle
 import cuml.common.input_utils
-from copy import deepcopy
-from cuml.common.mixins import _default_tags
 
 from cuml.common.doc_utils import generate_docstring
 from cuml.common.mixins import TagsMixin
@@ -354,83 +352,6 @@ class Base(TagsMixin,
             self.n_features_in_ = X
         else:
             self.n_features_in_ = X.shape[1]
-
-    def _get_tags(self):
-        # method and code based on scikit-learn 0.21 _get_tags functionality:
-        # https://scikit-learn.org/stable/developers/develop.html#estimator-tags
-        collected_tags = deepcopy(_default_tags)
-        for cl in reversed(inspect.getmro(self.__class__)):
-            if hasattr(cl, '_more_tags') and cl != Base:
-                more_tags = cl._more_tags(self)
-                collected_tags.update(more_tags)
-        return collected_tags
-
-
-class RegressorMixin:
-    """Mixin class for regression estimators in cuML"""
-
-    _estimator_type = "regressor"
-
-    @generate_docstring(
-        return_values={
-            'name': 'score',
-            'type': 'float',
-            'description': 'R^2 of self.predict(X) '
-                           'wrt. y.'
-        })
-    @cuml.internals.api_base_return_any_skipall
-    def score(self, X, y, **kwargs):
-        """
-        Scoring function for regression estimators
-
-        Returns the coefficient of determination R^2 of the prediction.
-
-        """
-        from cuml.metrics.regression import r2_score
-
-        if hasattr(self, 'handle'):
-            handle = self.handle
-        else:
-            handle = None
-
-        preds = self.predict(X, **kwargs)
-        return r2_score(y, preds, handle=handle)
-
-    def _more_tags(self):
-        return {
-            'requires_y': True
-        }
-
-
-class ClassifierMixin:
-    """Mixin class for classifier estimators in cuML"""
-
-    _estimator_type = "classifier"
-
-    @generate_docstring(
-        return_values={
-            'name':
-                'score',
-            'type':
-                'float',
-            'description': ('Accuracy of self.predict(X) wrt. y '
-                            '(fraction where y == pred_y)')
-        })
-    @cuml.internals.api_base_return_any_skipall
-    def score(self, X, y, **kwargs):
-        """
-        Scoring function for classifier estimators based on mean accuracy.
-
-        """
-        from cuml.metrics.accuracy import accuracy_score
-
-        if hasattr(self, 'handle'):
-            handle = self.handle
-        else:
-            handle = None
-
-        preds = self.predict(X, **kwargs)
-        return accuracy_score(y, preds, handle=handle)
 
     def _more_tags(self):
         # 'preserves_dtype' tag's Scikit definition currently only appies to
