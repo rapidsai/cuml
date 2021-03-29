@@ -21,14 +21,14 @@ import warnings
 from itertools import combinations_with_replacement as combinations_w_r
 
 import cupy as np
-from cuml.common.mixins import AllowNaNTagMixin
-from cuml.common.mixins import StatelessTagMixin
 from cupy import sparse
 from scipy import stats
 from scipy import optimize
 from scipy.special import boxcox
 
 from ..utils.skl_dependencies import BaseEstimator, TransformerMixin
+from cuml.common.mixins import AllowNaNTagMixin, SparseInputTagMixin, \
+                               StatelessTagMixin
 from ....thirdparty_adapters import check_array
 from ..utils.extmath import row_norms
 from ..utils.extmath import _incremental_mean_and_var
@@ -502,7 +502,8 @@ def minmax_scale(X, feature_range=(0, 1), *, axis=0, copy=True):
 
 class StandardScaler(TransformerMixin,
                      BaseEstimator,
-                     AllowNaNTagMixin):
+                     AllowNaNTagMixin,
+                     SparseInputTagMixin):
     """Standardize features by removing the mean and scaling to unit variance
 
     The standard score of a sample `x` is calculated as:
@@ -864,7 +865,8 @@ class StandardScaler(TransformerMixin,
 
 class MaxAbsScaler(TransformerMixin,
                    BaseEstimator,
-                   AllowNaNTagMixin):
+                   AllowNaNTagMixin,
+                   SparseInputTagMixin):
     """Scale each feature by its maximum absolute value.
 
     This estimator scales and translates each feature individually such
@@ -1107,7 +1109,8 @@ def maxabs_scale(X, *, axis=0, copy=True):
 
 class RobustScaler(TransformerMixin,
                    BaseEstimator,
-                   AllowNaNTagMixin):
+                   AllowNaNTagMixin,
+                   SparseInputTagMixin):
     """Scale features using statistics that are robust to outliers.
 
     This Scaler removes the median and scales the data according to the
@@ -1307,11 +1310,6 @@ class RobustScaler(TransformerMixin,
                 X += self.center_
         return X
 
-    def _more_tags(self):
-        return {'X_types_gpu': ['2darray', 'sparse'],
-                'X_types': ['2darray', 'sparse'],
-                'allow_nan': True}
-
 
 @_deprecate_positional_args
 @api_return_generic(get_output_type=True)
@@ -1390,7 +1388,10 @@ def robust_scale(X, *, axis=0, with_centering=True, with_scaling=True,
         return X
 
 
-class PolynomialFeatures(TransformerMixin, BaseEstimator):
+class PolynomialFeatures(TransformerMixin,
+                         BaseEstimator,
+                         AllowNaNTagMixin,
+                         SparseInputTagMixin):
     """Generate polynomial and interaction features.
 
     Generate a new feature matrix consisting of all polynomial combinations
@@ -1671,11 +1672,6 @@ class PolynomialFeatures(TransformerMixin, BaseEstimator):
 
         return XP  # TODO keep order
 
-    def _more_tags(self):
-        return {'X_types_gpu': ['2darray', 'sparse'],
-                'X_types': ['2darray', 'sparse'],
-                'allow_nan': True}
-
 
 @check_cupy8()
 @_deprecate_positional_args
@@ -1771,7 +1767,8 @@ def normalize(X, norm='l2', *, axis=1, copy=True, return_norm=False):
 
 class Normalizer(TransformerMixin,
                  BaseEstimator,
-                 StatelessTagMixin):
+                 StatelessTagMixin,
+                 SparseInputTagMixin):
     """Normalize samples individually to unit norm.
 
     Each sample (i.e. each row of the data matrix) with at least one
@@ -1857,11 +1854,6 @@ class Normalizer(TransformerMixin,
         X = check_array(X, accept_sparse='csr')
         return normalize(X, norm=self.norm, axis=1, copy=copy)
 
-    def _more_tags(self):
-        return {'X_types_gpu': ['2darray', 'sparse'],
-                'X_types': ['2darray', 'sparse'],
-                'stateless': True}
-
 
 @_deprecate_positional_args
 @api_return_generic(get_output_type=True)
@@ -1905,7 +1897,8 @@ def binarize(X, *, threshold=0.0, copy=True):
 
 class Binarizer(TransformerMixin,
                 BaseEstimator,
-                StatelessTagMixin):
+                StatelessTagMixin,
+                SparseInputTagMixin):
     """Binarize data (set feature values to 0 or 1) according to a threshold
 
     Values greater than the threshold map to 1, while values less than

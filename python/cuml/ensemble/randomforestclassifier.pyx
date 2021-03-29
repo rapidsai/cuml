@@ -464,24 +464,24 @@ class RandomForestClassifier(BaseRandomForestModel,
         else:
             seed_val = <uintptr_t>self.random_state
 
-        rf_params = set_rf_class_obj(<int> self.max_depth,
-                                     <int> self.max_leaves,
-                                     <float> max_feature_val,
-                                     <int> self.n_bins,
-                                     <int> self.split_algo,
-                                     <int> self.min_samples_leaf,
-                                     <int> self.min_samples_split,
-                                     <float> self.min_impurity_decrease,
-                                     <bool> self.bootstrap_features,
-                                     <bool> self.bootstrap,
-                                     <int> self.n_estimators,
-                                     <float> self.max_samples,
-                                     <uint64_t> seed_val,
-                                     <CRITERION> self.split_criterion,
-                                     <bool> self.quantile_per_tree,
-                                     <int> self.n_streams,
-                                     <bool> self.use_experimental_backend,
-                                     <int> self.max_batch_size)
+        rf_params = set_rf_params(<int> self.max_depth,
+                                  <int> self.max_leaves,
+                                  <float> max_feature_val,
+                                  <int> self.n_bins,
+                                  <int> self.split_algo,
+                                  <int> self.min_samples_leaf,
+                                  <int> self.min_samples_split,
+                                  <float> self.min_impurity_decrease,
+                                  <bool> self.bootstrap_features,
+                                  <bool> self.bootstrap,
+                                  <int> self.n_estimators,
+                                  <float> self.max_samples,
+                                  <uint64_t> seed_val,
+                                  <CRITERION> self.split_criterion,
+                                  <bool> self.quantile_per_tree,
+                                  <int> self.n_streams,
+                                  <bool> self.use_experimental_backend,
+                                  <int> self.max_batch_size)
 
         if self.dtype == np.float32:
             fit(handle_[0],
@@ -581,7 +581,7 @@ class RandomForestClassifier(BaseRandomForestModel,
             'GPU' to predict using the GPU, 'CPU' otherwise. The 'GPU' can only
             be used if the model was trained on float32 data and `X` is float32
             or convert_dtype is set to True. Also the 'GPU' should only be
-            used for binary classification problems.
+            used for classification problems.
         algo : string (default = 'auto')
             This is optional and required only while performing the
             predict operation on the GPU.
@@ -829,7 +829,7 @@ class RandomForestClassifier(BaseRandomForestModel,
             'GPU' to predict using the GPU, 'CPU' otherwise. The 'GPU' can only
             be used if the model was trained on float32 data and `X` is float32
             or convert_dtype is set to True. Also the 'GPU' should only be
-            used for binary classification problems.
+            used for classification problems.
         fil_sparse_format : boolean or string (default = auto)
             This variable is used to choose the type of forest that will be
             created in the Forest Inference Library. It is not required

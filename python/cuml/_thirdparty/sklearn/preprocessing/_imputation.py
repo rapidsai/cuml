@@ -16,8 +16,6 @@ import warnings
 import numpy
 import cupy as np
 import cuml
-from cuml.common.mixins import AllowNaNTagMixin
-from cuml.common.mixins import StringInputTagMixin
 from cupy import sparse
 
 from ....thirdparty_adapters import (_get_mask,
@@ -25,6 +23,8 @@ from ....thirdparty_adapters import (_get_mask,
                                      _masked_column_mean,
                                      _masked_column_mode)
 from ..utils.skl_dependencies import BaseEstimator, TransformerMixin
+from cuml.common.mixins import AllowNaNTagMixin, SparseInputTagMixin, \
+                               StringInputTagMixin
 from ..utils.validation import check_is_fitted
 from ..utils.validation import FLOAT_DTYPES
 from ..utils.validation import _deprecate_positional_args
@@ -145,7 +145,8 @@ class _BaseImputer(TransformerMixin):
         return {'allow_nan': is_scalar_nan(self.missing_values)}
 
 
-class SimpleImputer(_BaseImputer, BaseEstimator):
+class SimpleImputer(_BaseImputer, BaseEstimator,
+                    SparseInputTagMixin, AllowNaNTagMixin):
     """Imputation transformer for completing missing values.
 
     Parameters
@@ -233,14 +234,13 @@ class SimpleImputer(_BaseImputer, BaseEstimator):
     @check_cupy8()
     @_deprecate_positional_args
     def __init__(self, *, missing_values=np.nan, strategy="mean",
-                 fill_value=None, verbose=0, copy=True, add_indicator=False):
+                 fill_value=None, copy=True, add_indicator=False):
         super().__init__(
             missing_values=missing_values,
             add_indicator=add_indicator
         )
         self.strategy = strategy
         self.fill_value = fill_value
-        self.verbose = verbose
         self.copy = copy
 
     def get_param_names(self):
@@ -474,6 +474,7 @@ class SimpleImputer(_BaseImputer, BaseEstimator):
 class MissingIndicator(TransformerMixin,
                        BaseEstimator,
                        AllowNaNTagMixin,
+                       SparseInputTagMixin,
                        StringInputTagMixin):
     """Binary indicators for missing values.
 
@@ -751,8 +752,3 @@ class MissingIndicator(TransformerMixin,
             imputer_mask = imputer_mask[:, self.features_]
 
         return imputer_mask
-
-    def _more_tags(self):
-        return {'X_types_gpu': ['2darray', 'sparse'],
-                'X_types': ['2darray', 'sparse'],
-                'allow-nan': True}
