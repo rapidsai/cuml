@@ -15,11 +15,8 @@
 #
 
 
-import inspect
 import numba
-
 from distutils.version import LooseVersion
-from functools import wraps
 
 
 def has_dask():
