@@ -1031,7 +1031,7 @@ def test_rf_regression_with_identical_labels(split_criterion,
     # Degenerate case: all labels are identical.
     # RF Regressor must not create any split. It must yield an empty tree
     # with only the root node.
-    clf = curfr(max_features=1.0, rows_sample=1.0, n_bins=5, split_algo=1,
+    clf = curfr(max_features=1.0, max_samples=1.0, n_bins=5, split_algo=1,
                 bootstrap=False, split_criterion=split_criterion,
                 min_samples_leaf=1, min_samples_split=2, random_state=0,
                 n_streams=1, n_estimators=1, max_depth=1,
