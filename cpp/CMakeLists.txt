@@ -425,6 +425,7 @@ if(BUILD_CUML_CPP_LIBRARY)
     src/kmeans/kmeans.cu
     src/knn/knn.cu
     src/knn/knn_sparse.cu
+    src/hierarchy/linkage.cu
     src/metrics/accuracy_score.cu
     src/metrics/adjusted_rand_index.cu
     src/metrics/completeness_score.cu

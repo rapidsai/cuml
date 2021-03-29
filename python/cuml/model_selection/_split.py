@@ -1,5 +1,5 @@
 
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -72,15 +72,19 @@ def _stratify_split(X, y, n_train, n_test, x_numba, y_numba, random_state):
 
     n_classes = classes.shape[0]
     class_counts = cp.bincount(y_indices)
+    if cp.min(class_counts) < 2:
+        raise ValueError("The least populated class in y has only 1"
+                         " member, which is too few. The minimum"
+                         " number of groups for any class cannot"
+                         " be less than 2.")
+
     if n_train < n_classes:
         raise ValueError('The train_size = %d should be greater or '
                          'equal to the number of classes = %d' % (n_train,
                                                                   n_classes))
-    if n_test < n_classes:
-        raise ValueError('The test_size = %d should be greater or '
-                         'equal to the number of classes = %d' % (n_test,
-                                                                  n_classes))
-    class_indices = cp.array_split(cp.argsort(y_indices), n_classes)
+
+    class_indices = cp.split(cp.argsort(y_indices),
+                             cp.cumsum(class_counts)[:-1].tolist())
 
     X_train = None
 
