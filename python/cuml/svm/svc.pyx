@@ -252,7 +252,7 @@ class SVC(SVMBase,
                  max_iter=-1, nochange_steps=1000, verbose=False,
                  output_type=None, probability=False, random_state=None,
                  class_weight=None, multiclass_strategy='ovo'):
-        super(SVC, self).__init__(
+        super().__init__(
             handle=handle,
             C=C,
             kernel=kernel,

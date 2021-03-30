@@ -269,7 +269,7 @@ class RandomForestClassifier(BaseRandomForestModel,
 
         self.RF_type = CLASSIFICATION
         self.num_classes = 2
-        super(RandomForestClassifier, self).__init__(
+        super().__init__(
             split_criterion=split_criterion,
             handle=handle,
             verbose=verbose,

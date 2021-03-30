@@ -81,9 +81,9 @@ class OneHotEncoder(BaseEstimator, DelayedTransformMixin,
     """
 
     def __init__(self, *, client=None, verbose=False, **kwargs):
-        super(OneHotEncoder, self).__init__(client=client,
-                                            verbose=verbose,
-                                            **kwargs)
+        super().__init__(client=client,
+                         verbose=verbose,
+                         **kwargs)
 
     @with_cupy_rmm
     def fit(self, X):

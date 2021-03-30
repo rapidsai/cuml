@@ -35,9 +35,9 @@ class BaseDecomposition(BaseEstimator):
         """
         Constructor for distributed decomposition model
         """
-        super(BaseDecomposition, self).__init__(client=client,
-                                                verbose=verbose,
-                                                **kwargs)
+        super().__init__(client=client,
+                         verbose=verbose,
+                         **kwargs)
         self._model_func = model_func
 
 

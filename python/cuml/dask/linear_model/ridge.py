@@ -70,9 +70,9 @@ class Ridge(BaseEstimator,
     """
 
     def __init__(self, *, client=None, verbose=False, **kwargs):
-        super(Ridge, self).__init__(client=client,
-                                    verbose=verbose,
-                                    **kwargs)
+        super().__init__(client=client,
+                         verbose=verbose,
+                         **kwargs)
 
         self.coef_ = None
         self.intercept_ = None

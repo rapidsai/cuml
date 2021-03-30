@@ -88,7 +88,7 @@ class ElasticNet(BaseEstimator):
     """
 
     def __init__(self, *, client=None, **kwargs):
-        super(ElasticNet, self).__init__(client=client, **kwargs)
+        super().__init__(client=client, **kwargs)
 
         kwargs['shuffle'] = False
 

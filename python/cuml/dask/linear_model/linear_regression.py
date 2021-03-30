@@ -63,9 +63,9 @@ class LinearRegression(BaseEstimator,
     """
 
     def __init__(self, *, client=None, verbose=False, **kwargs):
-        super(LinearRegression, self).__init__(client=client,
-                                               verbose=verbose,
-                                               **kwargs)
+        super().__init__(client=client,
+                         verbose=verbose,
+                         **kwargs)
 
     def fit(self, X, y):
         """

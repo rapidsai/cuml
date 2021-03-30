@@ -262,7 +262,7 @@ class RandomForestRegressor(BaseRandomForestModel,
                  output_type=None,
                  **kwargs):
         self.RF_type = REGRESSION
-        super(RandomForestRegressor, self).__init__(
+        super().__init__(
             split_criterion=split_criterion,
             accuracy_metric=accuracy_metric,
             handle=handle,

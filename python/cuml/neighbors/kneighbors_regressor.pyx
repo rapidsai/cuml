@@ -151,7 +151,7 @@ class KNeighborsRegressor(NearestNeighbors,
 
     def __init__(self, *, weights="uniform", handle=None, verbose=False,
                  output_type=None, **kwargs):
-        super(KNeighborsRegressor, self).__init__(
+        super().__init__(
             handle=handle,
             verbose=verbose,
             output_type=output_type,

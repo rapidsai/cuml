@@ -88,7 +88,7 @@ class TfidfTransformer(BaseEstimator, DelayedTransformMixin):
 
         client : dask.distributed.Client optional Dask client to use
         """
-        super(TfidfTransformer, self).__init__(
+        super().__init__(
             client=client, verbose=verbose, **kwargs
         )
 

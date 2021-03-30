@@ -193,11 +193,11 @@ class IncrementalPCA(PCA):
                  copy=True, batch_size=None, verbose=False,
                  output_type=None):
 
-        super(IncrementalPCA, self).__init__(handle=handle,
-                                             n_components=n_components,
-                                             whiten=whiten, copy=copy,
-                                             verbose=verbose,
-                                             output_type=output_type)
+        super().__init__(handle=handle,
+                         n_components=n_components,
+                         whiten=whiten, copy=copy,
+                         verbose=verbose,
+                         output_type=output_type)
         self.batch_size = batch_size
         self._hyperparams = ["n_components", "whiten", "copy", "batch_size"]
         self._sparse_model = True

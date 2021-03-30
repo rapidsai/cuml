@@ -162,9 +162,9 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
         **kwargs
     ):
 
-        super(RandomForestClassifier, self).__init__(client=client,
-                                                     verbose=verbose,
-                                                     **kwargs)
+        super().__init__(client=client,
+                         verbose=verbose,
+                         **kwargs)
         if seed is not None:
             if random_state is None:
                 warnings.warn("Parameter 'seed' is deprecated and will be"

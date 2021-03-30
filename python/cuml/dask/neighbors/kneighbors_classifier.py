@@ -59,9 +59,9 @@ class KNeighborsClassifier(NearestNeighbors):
     """
     def __init__(self, *, client=None, streams_per_handle=0,
                  verbose=False, **kwargs):
-        super(KNeighborsClassifier, self).__init__(client=client,
-                                                   verbose=verbose,
-                                                   **kwargs)
+        super().__init__(client=client,
+                         verbose=verbose,
+                         **kwargs)
         self.streams_per_handle = streams_per_handle
 
     def fit(self, X, y):

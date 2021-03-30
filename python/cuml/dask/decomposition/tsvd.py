@@ -121,9 +121,9 @@ class TruncatedSVD(BaseDecomposition,
         """
         Constructor for distributed TruncatedSVD model
         """
-        super(TruncatedSVD, self).__init__(TruncatedSVD._create_tsvd,
-                                           client,
-                                           **kwargs)
+        super().__init__(TruncatedSVD._create_tsvd,
+                         client,
+                         **kwargs)
 
     def fit(self, X, _transform=False):
         """

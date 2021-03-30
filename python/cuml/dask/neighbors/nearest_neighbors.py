@@ -55,8 +55,8 @@ class NearestNeighbors(BaseEstimator):
     """
     def __init__(self, *, client=None, streams_per_handle=0,
                  **kwargs):
-        super(NearestNeighbors, self).__init__(client=client,
-                                               **kwargs)
+        super().__init__(client=client,
+                         **kwargs)
         self.streams_per_handle = streams_per_handle
 
     def fit(self, X):

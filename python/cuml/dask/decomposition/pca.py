@@ -158,10 +158,10 @@ class PCA(BaseDecomposition,
 
     def __init__(self, *, client=None, verbose=False, **kwargs):
 
-        super(PCA, self).__init__(PCA._create_pca,
-                                  client=client,
-                                  verbose=verbose,
-                                  **kwargs)
+        super().__init__(PCA._create_pca,
+                         client=client,
+                         verbose=verbose,
+                         **kwargs)
 
     def fit(self, X):
         """

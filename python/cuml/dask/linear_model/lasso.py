@@ -69,7 +69,7 @@ class Lasso(BaseEstimator):
     """
 
     def __init__(self, *, client=None, **kwargs):
-        super(Lasso, self).__init__(client=client, **kwargs)
+        super().__init__(client=client, **kwargs)
 
         kwargs['shuffle'] = False
 
