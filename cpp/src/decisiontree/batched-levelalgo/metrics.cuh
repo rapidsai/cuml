@@ -76,7 +76,6 @@ DI void giniGain(int* shist, DataT* sbins, Split<DataT, IdxT>& sp, IdxT col,
   for (IdxT i = threadIdx.x; i < nbins; i += blockDim.x) {
     int nLeft = 0;
     for (IdxT j = 0; j < nclasses; ++j) {
-      //nLeft += shist[i * 2 * nclasses + j];
       nLeft += shist[2 * nbins * j + i];
     }
     auto nRight = len - nLeft;
@@ -89,13 +88,11 @@ DI void giniGain(int* shist, DataT* sbins, Split<DataT, IdxT>& sp, IdxT col,
       auto invRight = One / nRight;
       for (IdxT j = 0; j < nclasses; ++j) {
         int val_i = 0;
-        //auto lval_i = shist[i * 2 * nclasses + j];
         auto lval_i = shist[2 * nbins * j + i];
         auto lval = DataT(lval_i);
         gain += lval * invLeft * lval * invlen;
 
         val_i += lval_i;
-        //auto rval_i = shist[i * 2 * nclasses + nclasses + j];
         auto rval_i = shist[2 * nbins * j + nbins + i];
         auto rval = DataT(rval_i);
         gain += rval * invRight * rval * invlen;
@@ -145,7 +142,6 @@ DI void entropyGain(int* shist, DataT* sbins, Split<DataT, IdxT>& sp, IdxT col,
   for (IdxT i = threadIdx.x; i < nbins; i += blockDim.x) {
     int nLeft = 0;
     for (IdxT j = 0; j < nclasses; ++j) {
-      //nLeft += shist[i * 2 * nclasses + j];
       nLeft += shist[2 * nbins * j + i];
     }
     auto nRight = len - nLeft;
@@ -158,7 +154,6 @@ DI void entropyGain(int* shist, DataT* sbins, Split<DataT, IdxT>& sp, IdxT col,
       auto invRight = One / nRight;
       for (IdxT j = 0; j < nclasses; ++j) {
         int val_i = 0;
-        //auto lval_i = shist[i * 2 * nclasses + j];
         auto lval_i = shist[2 * nbins * j + i];
         if (lval_i != 0) {
           auto lval = DataT(lval_i);
@@ -167,7 +162,6 @@ DI void entropyGain(int* shist, DataT* sbins, Split<DataT, IdxT>& sp, IdxT col,
         }
 
         val_i += lval_i;
-        //auto rval_i = shist[i * 2 * nclasses + nclasses + j];
         auto rval_i = shist[2 * nbins * j + nbins + i];
         if (rval_i != 0) {
           auto rval = DataT(rval_i);

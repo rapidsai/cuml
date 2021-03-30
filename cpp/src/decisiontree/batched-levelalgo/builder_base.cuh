@@ -113,14 +113,14 @@ struct Builder {
   /**
    * @brief Assigns number of blocks used to parallelize row-wise computations to maximize occupacy
    *
-   * @param[out] n_blks_for_rows    Apropriate blocks for rows (gridDim.x)
+   * @param[out] n_blks_for_rows    Appropriate blocks for rows (gridDim.x)
    *                                that maximizes occupancy
    * @param[in] gridDimy            number of blocks assigned in the y-dimension (n_blks_for_cols)
    * @param[in] func                Kernel function; needed by the occupancy calculator for finding
    *                                maximum active blocks per multiprocessor
    * @param[in] blockSize           Threads per Block, passed to cuda occupancy calculator API
    * @param[in] dynamic_smem_size   dynamic shared memory size, passed to cuda occupancy calculator API
-   * @param[in] gridDimz            Number of blocks along the z-dimension can take, based
+   * @param[in] gridDimz            Number of blocks along the z-dimension, based
    *                                on the concurrent nodes of tree available to be processed.
   */
   int n_blks_for_rows(const int gridDimy, const void* func, const int blockSize,
@@ -131,10 +131,12 @@ struct Builder {
     CUDA_CHECK(
       cudaDeviceGetAttribute(&mpcount, cudaDevAttrMultiProcessorCount, devid));
     int maxblks;
+    // get expected max blocks per multiprocessor
     CUDA_CHECK(cudaOccupancyMaxActiveBlocksPerMultiprocessor(
       &maxblks, func, blockSize, dynamic_smem_size));
     // get the total number of blocks
     int n_blks = maxblks * mpcount;
+    // return appropriate number of blocks in x-dimension
     return raft::ceildiv(n_blks, gridDimy * gridDimz);
   }
 
