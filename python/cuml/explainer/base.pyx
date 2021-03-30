@@ -411,9 +411,3 @@ class SHAPBase():
     def _reset_timers(self):
         self.total_time = 0
         self.model_call_time = 0
-
-    def _get_timers_str(self):
-        res_str = "Time spent by category:\n"
-        res_str += "Total time: {}".format(self.total_time)
-        res_str += "Time spent in model calls {}:".format(self.model_call_time)
-        return res_str
