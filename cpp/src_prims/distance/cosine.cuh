@@ -15,21 +15,9 @@
  */
 
 #pragma once
-#include <linalg/eltwise2d.cuh>
-#include "distance_fragment_multiply_add.cuh"
-#include "pairwise_distance_base.cuh"
 
-#include <linalg/cutlass_gemm.cuh>
 #include <raft/linalg/norm.cuh>
-#include "distance_epilogue.cuh"
-#include "distance_epilogue_functor.cuh"
-#include "distance_epilogue_traits.h"
-
-#include <cutlass/gemm/gemm_epilogue_traits.h>
-#include <cutlass/gemm/thread_multiply_add.h>
-#include <cutlass/shape.h>
-
-#include <type_traits>
+#include "pairwise_distance_base.cuh"
 
 namespace MLCommon {
 namespace Distance {
@@ -45,6 +33,8 @@ namespace Distance {
  * @tparam Veclen number of k-elements loaded by each thread for every LDG call
  *                it makes. check contractions.cuh for details.
  * @tparam FinalLambda the final lambda called on final distance value
+ * @tparam isRowMajor  true if input/output is row major,
+                       false for column major
  * @param[in]     x input matrix
  * @param[in]     y input matrix
  * @param[in]     xn row norms of input matrix A.
@@ -52,19 +42,28 @@ namespace Distance {
  * @param[in]     m number of rows of A and C/D
  * @param[in]     n number of columns of B and C/D
  * @param[in]     k number of cols of A and rows of B
+ * @param[in]     lda leading dimension of A
+ * @param[in]     ldb leading dimension of B
+ * @param[in]     ldd leading dimension of C/D
  * @param[output] pD output matrix
  * @param fin_op  the final gemm epilogue lambda
 *  @param stream  cuda stream to launch cuda operations.
  */
 template <typename DataT, typename AccT, typename OutT, typename IdxT,
-          int VecLen, typename FinalLambda>
+          int VecLen, typename FinalLambda, bool isRowMajor>
 void cosineImpl(const DataT *x, const DataT *y, const DataT *xn,
-                const DataT *yn, IdxT m, IdxT n, IdxT k, OutT *dOutput,
-                FinalLambda fin_op, cudaStream_t stream) {
-  typedef typename raft::linalg::Policy4x4<DataT, VecLen>::Policy Policy;
-  dim3 grid(raft::ceildiv<int>(m, Policy::Mblk),
-            raft::ceildiv<int>(n, Policy::Nblk));
-  dim3 blk(Policy::Nthreads);
+                const DataT *yn, IdxT m, IdxT n, IdxT k, IdxT lda, IdxT ldb,
+                IdxT ldd, OutT *dOutput, FinalLambda fin_op,
+                cudaStream_t stream) {
+  typedef typename raft::linalg::Policy4x4<DataT, VecLen>::Policy RowPolicy;
+  typedef typename raft::linalg::Policy4x4<DataT, VecLen>::ColPolicy ColPolicy;
+
+  typedef
+    typename std::conditional<isRowMajor, RowPolicy, ColPolicy>::type KPolicy;
+
+  dim3 grid(raft::ceildiv<int>(m, KPolicy::Mblk),
+            raft::ceildiv<int>(n, KPolicy::Nblk));
+  dim3 blk(KPolicy::Nthreads);
 
   // Accumulation operation lambda
   auto core_lambda = [] __device__(AccT & acc, DataT & x, DataT & y) {
@@ -73,41 +72,53 @@ void cosineImpl(const DataT *x, const DataT *y, const DataT *xn,
 
   // epilogue operation lambda for final value calculation
   auto epilog_lambda = [] __device__(
-                         AccT acc[Policy::AccRowsPerTh][Policy::AccColsPerTh],
+                         AccT acc[KPolicy::AccRowsPerTh][KPolicy::AccColsPerTh],
                          DataT * regxn, DataT * regyn) {
 #pragma unroll
-    for (int i = 0; i < Policy::AccRowsPerTh; ++i) {
+    for (int i = 0; i < KPolicy::AccRowsPerTh; ++i) {
 #pragma unroll
-      for (int j = 0; j < Policy::AccColsPerTh; ++j) {
+      for (int j = 0; j < KPolicy::AccColsPerTh; ++j) {
         acc[i][j] = acc[i][j] / (regxn[i] * regyn[j]);
       }
     }
   };
 
-  pairwiseDistanceMatKernel<true, DataT, AccT, OutT, IdxT, Policy,
-                            decltype(core_lambda), decltype(epilog_lambda),
-                            FinalLambda>
-    <<<grid, blk, Policy::SmemSize, stream>>>(
-      x, y, xn, yn, m, n, k, dOutput, core_lambda, epilog_lambda, fin_op);
+  if (isRowMajor) {
+    pairwiseDistanceMatKernel<true, DataT, AccT, OutT, IdxT, KPolicy,
+                              decltype(core_lambda), decltype(epilog_lambda),
+                              FinalLambda, true>
+      <<<grid, blk, KPolicy::SmemSize, stream>>>(x, y, xn, yn, m, n, k, lda,
+                                                 ldb, ldd, dOutput, core_lambda,
+                                                 epilog_lambda, fin_op);
+  } else {
+    pairwiseDistanceMatKernel<true, DataT, AccT, OutT, IdxT, KPolicy,
+                              decltype(core_lambda), decltype(epilog_lambda),
+                              FinalLambda, false>
+      <<<grid, blk, KPolicy::SmemSize, stream>>>(x, y, xn, yn, m, n, k, lda,
+                                                 ldb, ldd, dOutput, core_lambda,
+                                                 epilog_lambda, fin_op);
+  }
 
   CUDA_CHECK(cudaGetLastError());
 }
 
 template <typename DataT, typename AccT, typename OutT, typename IdxT,
-          typename FinalLambda>
-void cosine(IdxT m, IdxT n, IdxT k, const DataT *x, const DataT *y,
-            const DataT *xn, const DataT *yn, OutT *dOutput, FinalLambda fin_op,
-            cudaStream_t stream) {
+          typename FinalLambda, bool isRowMajor>
+void cosine(IdxT m, IdxT n, IdxT k, IdxT lda, IdxT ldb, IdxT ldd,
+            const DataT *x, const DataT *y, const DataT *xn, const DataT *yn,
+            OutT *dOutput, FinalLambda fin_op, cudaStream_t stream) {
   size_t bytes = sizeof(DataT) * k;
   if (16 % sizeof(DataT) == 0 && bytes % 16 == 0) {
-    cosineImpl<DataT, AccT, OutT, IdxT, 16 / sizeof(DataT), FinalLambda>(
-      x, y, xn, yn, m, n, k, dOutput, fin_op, stream);
+    cosineImpl<DataT, AccT, OutT, IdxT, 16 / sizeof(DataT), FinalLambda,
+               isRowMajor>(x, y, xn, yn, m, n, k, lda, ldb, ldd, dOutput,
+                           fin_op, stream);
   } else if (8 % sizeof(DataT) == 0 && bytes % 8 == 0) {
-    cosineImpl<DataT, AccT, OutT, IdxT, 8 / sizeof(DataT), FinalLambda>(
-      x, y, xn, yn, m, n, k, dOutput, fin_op, stream);
+    cosineImpl<DataT, AccT, OutT, IdxT, 8 / sizeof(DataT), FinalLambda,
+               isRowMajor>(x, y, xn, yn, m, n, k, lda, ldb, ldd, dOutput,
+                           fin_op, stream);
   } else {
-    cosineImpl<DataT, AccT, OutT, IdxT, 1, FinalLambda>(
-      x, y, xn, yn, m, n, k, dOutput, fin_op, stream);
+    cosineImpl<DataT, AccT, OutT, IdxT, 1, FinalLambda, isRowMajor>(
+      x, y, xn, yn, m, n, k, lda, ldb, ldd, dOutput, fin_op, stream);
   }
 }
 
@@ -148,12 +159,16 @@ void cosineAlgo1(Index_ m, Index_ n, Index_ k, const InType *pA,
   };
 
   typedef std::is_same<OutType, bool> is_bool;
+  typedef typename std::conditional<is_bool::value, OutType, AccType>::type
+    CosOutType;
+  CosOutType *pDcast = reinterpret_cast<CosOutType *>(pD);
 
   ASSERT(!(((pA != pB) && (worksize < (m + n) * sizeof(AccType))) ||
            (worksize < m * sizeof(AccType))),
          "workspace size error");
   ASSERT(workspace != nullptr, "workspace is null");
 
+  Index_ lda, ldb, ldd;
   InType *col_vec = workspace;
   InType *row_vec = workspace;
   if (pA != pB) {
@@ -168,71 +183,15 @@ void cosineAlgo1(Index_ m, Index_ n, Index_ k, const InType *pA,
   }
 
   if (isRowMajor) {
-    typedef typename std::conditional<is_bool::value, OutType, AccType>::type
-      CosOutType;
-
-    cosine<InType, AccType, CosOutType, Index_, decltype(wrapped_fin_op)>(
-      m, n, k, pA, pB, col_vec, row_vec, reinterpret_cast<CosOutType *>(pD),
-      wrapped_fin_op, stream);
+    lda = k, ldb = k, ldd = n;
+    cosine<InType, AccType, CosOutType, Index_, decltype(wrapped_fin_op), true>(
+      m, n, k, lda, ldb, ldd, pA, pB, col_vec, row_vec, pDcast, wrapped_fin_op,
+      stream);
   } else {
-    typedef ExpandedDistanceFragmentMultiplyAdd<CosFusedDistance>
-      FragmentMultiplyAdd_;
-    typedef typename std::conditional<is_bool::value, AccType, OutType>::type
-      EffOutType;
-    EffOutType *pDCast =
-      reinterpret_cast<EffOutType *>(pD);  // Pretend to be EffOutType;
-    typedef typename cutlass::Shape<8, 8, 8> AccumulatorsPerThread_;
-    typedef cutlass::gemm::ThreadMultiplyAdd<
-      AccumulatorsPerThread_, cutlass::Shape<1, 4, 8>, InType, InType, AccType>
-      MainLoopFunctor_;
-    typedef LinAlg::CustomGemmConfig<InType, AccType, EffOutType, OutputTile_,
-                                     AccumulatorsPerThread_, MainLoopFunctor_>
-      GemmConfig_;
-
-    typedef ExpandedDistanceEpilogueFunctor<InType, AccType, GemmConfig_,
-                                            FragmentMultiplyAdd_>
-      EpilogueFunctor_;
-
-    typedef typename std::conditional<
-      is_bool::value,
-      BoolEpilogueTraitsHelper<GemmConfig_, EpilogueFunctor_, Index_>,
-      cutlass::gemm::GemmEpilogueTraitsHelper<
-        GemmConfig_, EpilogueFunctor_, Index_>>::type EpilogueTraitsHelper_;
-
-    typedef typename cutlass::gemm::SimplifiedGemmEpilogueTraits<
-      GemmConfig_, EpilogueFunctor_, Index_, EpilogueTraitsHelper_>
-      GemmEpilogueTraits_;
-    typedef ExpandedDistanceGemmEpilogue<GemmEpilogueTraits_> GemmEpilogue_;
-    typedef typename EpilogueFunctor_::Params EpiParams;
-
-    cublasOperation_t transa, transb;
-    const InType *aPtr, *bPtr;
-    Index_ lda, ldb, ldd;
-    Index_ gemm_m, gemm_n;
-    InType *rvec, *cvec;
-
-    transa = CUBLAS_OP_N;
-    transb = CUBLAS_OP_T;
-    aPtr = pA;
-    bPtr = pB;
-    lda = m;
-    ldb = n;
-    ldd = m;
-    gemm_m = m;
-    gemm_n = n;
-    cvec = row_vec;
-    rvec = col_vec;
-
-    LinAlg::gemm<InType, AccType, EffOutType, OutputTile_,
-                 AccumulatorsPerThread_, MainLoopFunctor_, Index_, GemmConfig_,
-                 EpilogueFunctor_, GemmEpilogueTraits_, GemmEpilogue_>(
-      transa, transb, gemm_m, gemm_n, k, (EffOutType)1, aPtr, lda, bPtr, ldb,
-      (EffOutType)0, nullptr, ldd, pDCast,
-      [cvec, rvec] HD(EpiParams & p) {
-        int err = p.initializeExtra(cvec, rvec, false);
-        return err;
-      },
-      wrapped_fin_op, stream);
+    lda = n, ldb = m, ldd = m;
+    cosine<InType, AccType, CosOutType, Index_, decltype(wrapped_fin_op),
+           false>(n, m, k, lda, ldb, ldd, pB, pA, row_vec, col_vec, pDcast,
+                  wrapped_fin_op, stream);
   }
 }
 
