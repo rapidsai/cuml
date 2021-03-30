@@ -22,6 +22,8 @@ from cuml.dask.ensemble.base import \
     BaseRandomForestModel
 from cuml.dask.common.base import BaseEstimator
 
+import dask
+
 
 class RandomForestRegressor(BaseRandomForestModel, DelayedPredictionMixin,
                             BaseEstimator):
@@ -218,7 +220,7 @@ class RandomForestRegressor(BaseRandomForestModel, DelayedPredictionMixin,
         """
         return self._get_json()
 
-    def fit(self, X, y, convert_dtype=False):
+    def fit(self, X, y, convert_dtype=False, broadcast_data=False):
         """
         Fit the input data with a Random Forest regression model
 
@@ -259,17 +261,22 @@ class RandomForestRegressor(BaseRandomForestModel, DelayedPredictionMixin,
             When set to True, the fit method will, when necessary, convert
             y to be the same data type as X if they differ. This will increase
             memory used for the method.
+        broadcast_data : bool, optional (default = False)
+            When set to True, the whole dataset is broadcasted
+            to train the workers, otherwise each worker
+            is trained on its partition
 
         """
         self.internal_model = None
         self._fit(model=self.rfs,
                   dataset=(X, y),
-                  convert_dtype=convert_dtype)
+                  convert_dtype=convert_dtype,
+                  broadcast_data=broadcast_data)
         return self
 
     def predict(self, X, predict_model="GPU", algo='auto',
                 convert_dtype=True, fil_sparse_format='auto',
-                delayed=True):
+                delayed=True, broadcast_data=False):
         """
         Predicts the regressor outputs for X.
 
@@ -330,6 +337,14 @@ class RandomForestRegressor(BaseRandomForestModel, DelayedPredictionMixin,
         delayed : bool (default = True)
             Whether to do a lazy prediction (and return Delayed objects) or an
             eagerly executed one.
+        broadcast_data : bool (default = False)
+            If broadcast_data=False, the trees are merged in a single model
+            before the workers perform inference on their share of the
+            prediction workload. When broadcast_data=True, trees aren't merged.
+            Instead each of the workers infer the whole prediction work
+            from trees at disposal. The results are reduced on the client.
+            May be advantageous when the model is larger than the data used
+            for inference.
 
         Returns
         -------
@@ -340,13 +355,44 @@ class RandomForestRegressor(BaseRandomForestModel, DelayedPredictionMixin,
             preds = self.predict_model_on_cpu(X, convert_dtype=convert_dtype)
 
         else:
-            preds = \
-                self._predict_using_fil(X,
-                                        algo=algo,
-                                        convert_dtype=convert_dtype,
-                                        fil_sparse_format=fil_sparse_format,
-                                        delayed=delayed)
+            if broadcast_data:
+                preds = \
+                    self.partial_inference(
+                        X,
+                        algo=algo,
+                        convert_dtype=convert_dtype,
+                        fil_sparse_format=fil_sparse_format,
+                        delayed=delayed
+                    )
+            else:
+                preds = \
+                    self._predict_using_fil(
+                        X,
+                        algo=algo,
+                        convert_dtype=convert_dtype,
+                        fil_sparse_format=fil_sparse_format,
+                        delayed=delayed
+                    )
         return preds
+
+    def partial_inference(self, X, delayed, **kwargs):
+        partial_infs = \
+            self._partial_inference(X=X,
+                                    op_type='regression',
+                                    delayed=delayed,
+                                    **kwargs)
+
+        def reduce(partial_infs, workers_weights,
+                   unique_classes=None):
+            regressions = dask.array.average(partial_infs, axis=1,
+                                             weights=workers_weights)
+            merged_regressions = regressions.compute()
+            return merged_regressions
+
+        datatype = 'daskArray' if isinstance(X, dask.array.Array) \
+            else 'daskDataframe'
+
+        return self.apply_reduction(reduce, partial_infs, datatype, delayed)
 
     def predict_using_fil(self, X, delayed, **kwargs):
         if self._get_internal_model() is None:

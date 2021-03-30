@@ -488,3 +488,86 @@ def test_logistic_predict_convert_dtype(train_dtype, test_dtype):
     clf = cuLog()
     clf.fit(X_train, y_train)
     clf.predict(X_test.astype(test_dtype))
+
+
+@pytest.fixture(scope='session',
+                params=['binary', 'multiclass-3', 'multiclass-7'])
+def regression_dataset(request):
+    regression_type = request.param
+
+    out = {}
+    for test_status in ['regular', 'stress_test']:
+        if test_status == 'regular':
+            n_samples, n_features = 100000, 5
+        elif test_status == 'stress_test':
+            n_samples, n_features = 1000000, 20
+
+        data = (np.random.rand(n_samples, n_features) * 2) - 1
+
+        if regression_type == 'binary':
+            coef = (np.random.rand(n_features) * 2) - 1
+            coef /= np.linalg.norm(coef)
+            output = (data @ coef) > 0
+        elif regression_type.startswith('multiclass'):
+            n_classes = 3 if regression_type == 'multiclass-3' else 7
+            coef = (np.random.rand(n_features, n_classes) * 2) - 1
+            coef /= np.linalg.norm(coef, axis=0)
+            output = (data @ coef).argmax(axis=1)
+        output = output.astype(np.int32)
+
+        out[test_status] = (regression_type, data, coef, output)
+    return out
+
+
+@pytest.mark.parametrize('option', ['sample_weight', 'class_weight',
+                                    'balanced', 'no_weight'])
+@pytest.mark.parametrize('test_status', ['regular',
+                                         stress_param('stress_test')])
+def test_logistic_regression_weighting(regression_dataset,
+                                       option, test_status):
+    regression_type, data, coef, output = regression_dataset[test_status]
+
+    class_weight = None
+    sample_weight = None
+    if option == 'sample_weight':
+        n_samples = data.shape[0]
+        sample_weight = np.abs(np.random.rand(n_samples))
+    elif option == 'class_weight':
+        class_weight = np.random.rand(2)
+        class_weight = {0: class_weight[0], 1: class_weight[1]}
+    elif option == 'balanced':
+        class_weight = 'balanced'
+
+    culog = cuLog(fit_intercept=False, class_weight=class_weight)
+    culog.fit(data, output, sample_weight=sample_weight)
+
+    sklog = skLog(fit_intercept=False, class_weight=class_weight)
+    sklog.fit(data, output, sample_weight=sample_weight)
+
+    skcoef = np.squeeze(sklog.coef_)
+    cucoef = np.squeeze(culog.coef_)
+    if regression_type == 'binary':
+        skcoef /= np.linalg.norm(skcoef)
+        cucoef /= np.linalg.norm(cucoef)
+        unit_tol = 0.04
+        total_tol = 0.08
+    elif regression_type.startswith('multiclass'):
+        skcoef = skcoef.T
+        skcoef /= np.linalg.norm(skcoef, axis=1)[:, None]
+        cucoef /= np.linalg.norm(cucoef, axis=1)[:, None]
+        unit_tol = 0.2
+        total_tol = 0.3
+
+    equality = array_equal(skcoef, cucoef, unit_tol=unit_tol,
+                           total_tol=total_tol)
+    if not equality:
+        print('\ncoef.shape: ', coef.shape)
+        print('coef:\n', coef)
+        print('cucoef.shape: ', cucoef.shape)
+        print('cucoef:\n', cucoef)
+    assert equality
+
+    cuOut = culog.predict(data)
+    skOut = sklog.predict(data)
+    assert array_equal(skOut, cuOut, unit_tol=unit_tol,
+                       total_tol=total_tol)
