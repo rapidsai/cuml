@@ -168,15 +168,18 @@ class AgglomerativeClustering(Base, ClusterMixin, CMajorInputTagMixin):
         self.n_connected_components_ = None
         self.distances_ = None
 
-    @generate_docstring()
-    def fit(self, X, y=None):
+    @generate_docstring(skip_parameters_heading=True)
+    def fit(self, X, y=None, convert_dtype=True) -> "AgglomerativeClustering":
         """
         Fit the hierarchical clustering from features.
         """
 
         X_m, n_rows, n_cols, self.dtype = \
             input_to_cuml_array(X, order='C',
-                                check_dtype=[np.float32, np.float64])
+                                check_dtype=[np.float32],
+                                convert_to_dtype=(np.float32
+                                                  if convert_dtype
+                                                  else None))
 
         if self.n_clusters > n_rows:
             raise ValueError("'n_clusters' must be <= n_samples")
@@ -225,11 +228,14 @@ class AgglomerativeClustering(Base, ClusterMixin, CMajorInputTagMixin):
 
         self.handle.sync()
 
-    @generate_docstring(return_values={'name': 'preds',
+        return self
+
+    @generate_docstring(skip_parameters_heading=True,
+                        return_values={'name': 'preds',
                                        'type': 'dense',
                                        'description': 'Cluster indexes',
                                        'shape': '(n_samples, 1)'})
-    def fit_predict(self, X, y=None):
+    def fit_predict(self, X, y=None) -> CumlArray:
         """
         Fit the hierarchical clustering from features and return
         cluster labels.
@@ -241,6 +247,6 @@ class AgglomerativeClustering(Base, ClusterMixin, CMajorInputTagMixin):
             "n_clusters",
             "affinity",
             "linkage",
-            "compute_distances",
+            "connectivity",
             "n_neighbors"
         ]
