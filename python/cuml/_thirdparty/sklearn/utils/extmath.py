@@ -42,9 +42,13 @@ def row_norms(X, squared=False):
         The row-wise (squared) Euclidean norm of X.
     """
     if sparse.issparse(X):
-        if not isinstance(X, sparse.csr_matrix):
-            X = sparse.csr_matrix(X)
-        # norms = csr_row_norms(X)
+        if isinstance(X, (sparse.csr_matrix, sparse.csc_matrix,
+                          sparse.coo_matrix)):
+            X_copy = X.copy()
+            X_copy.data = np.square(X_copy.data)
+            norms = X_copy.sum(axis=1).squeeze()
+        else:
+            raise ValueError('Sparse matrix not compatible')
     else:
         norms = np.einsum('ij,ij->i', X, X)
 
