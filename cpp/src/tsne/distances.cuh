@@ -64,10 +64,9 @@ void get_distances(const raft::handle_t &handle,
                      cudaStream_t userStream,
  */
 
-  MLCommon::Selection::brute_force_knn(input_vec, sizes_vec, input.d, input.X,
-                                       input.n, k_graph.knn_indices,
-                                       k_graph.knn_dists, k_graph.n_neighbors,
-                                       handle.get_device_allocator(), stream);
+  raft::spatial::knn::brute_force_knn(handle, input_vec, sizes_vec, input.d,
+                                      input.X, input.n, k_graph.knn_indices,
+                                      k_graph.knn_dists, k_graph.n_neighbors);
 }
 
 // dense, int32 indices

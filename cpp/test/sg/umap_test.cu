@@ -199,10 +199,9 @@ class UMAPTest : public ::testing::Test {
     ptrs[0] = X_d.data();
     sizes[0] = n_samples;
 
-    MLCommon::Selection::brute_force_knn(
-      ptrs, sizes, n_features, X_d.data(), n_samples, knn_indices.data(),
-      knn_dists.data(), umap_params->n_neighbors, handle.get_device_allocator(),
-      handle.get_stream());
+    raft::spatial::knn::brute_force_knn(
+      handle, ptrs, sizes, n_features, X_d.data(), n_samples,
+      knn_indices.data(), knn_dists.data(), umap_params->n_neighbors);
 
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 
