@@ -256,7 +256,7 @@ class MinMaxScaler(TransformerMixin,
 
     Examples
     --------
-    >>> from cuml.experimental.preprocessing import MinMaxScaler
+    >>> from cuml.preprocessing import MinMaxScaler
     >>> data = [[-1, 2], [-0.5, 6], [0, 10], [1, 18]]
     >>> scaler = MinMaxScaler()
     >>> print(scaler.fit(data))
@@ -575,7 +575,7 @@ class StandardScaler(TransformerMixin,
 
     Examples
     --------
-    >>> from cuml.experimental.preprocessing import StandardScaler
+    >>> from cuml.preprocessing import StandardScaler
     >>> data = [[0, 0], [0, 0], [1, 1], [1, 1]]
     >>> scaler = StandardScaler()
     >>> print(scaler.fit(data))
@@ -891,7 +891,7 @@ class MaxAbsScaler(TransformerMixin,
 
     Examples
     --------
-    >>> from cuml.experimental.preprocessing import MaxAbsScaler
+    >>> from cuml.preprocessing import MaxAbsScaler
     >>> X = [[ 1., -1.,  2.],
     ...      [ 2.,  0.,  0.],
     ...      [ 0.,  1., -1.]]
@@ -1150,7 +1150,7 @@ class RobustScaler(TransformerMixin,
 
     Examples
     --------
-    >>> from cuml.experimental.preprocessing import RobustScaler
+    >>> from cuml.preprocessing import RobustScaler
     >>> X = [[ 1., -2.,  2.],
     ...      [ -2.,  1.,  3.],
     ...      [ 4.,  1., -2.]]
@@ -1411,7 +1411,7 @@ class PolynomialFeatures(TransformerMixin,
     Examples
     --------
     >>> import numpy as np
-    >>> from cuml.experimental.preprocessing import PolynomialFeatures
+    >>> from cuml.preprocessing import PolynomialFeatures
     >>> X = np.arange(6).reshape(3, 2)
     >>> X
     array([[0, 1],
@@ -1787,7 +1787,7 @@ class Normalizer(TransformerMixin,
 
     Examples
     --------
-    >>> from cuml.experimental.preprocessing import Normalizer
+    >>> from cuml.preprocessing import Normalizer
     >>> X = [[4, 1, 2, 2],
     ...      [1, 3, 9, 3],
     ...      [5, 7, 5, 1]]
@@ -1915,7 +1915,7 @@ class Binarizer(TransformerMixin,
 
     Examples
     --------
-    >>> from cuml.experimental.preprocessing import Binarizer
+    >>> from cuml.preprocessing import Binarizer
     >>> X = [[ 1., -1.,  2.],
     ...      [ 2.,  0.,  0.],
     ...      [ 0.,  1., -1.]]
