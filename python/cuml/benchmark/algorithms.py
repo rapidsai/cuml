@@ -30,10 +30,10 @@ from cuml.common.import_utils import has_umap
 import numpy as np
 import tempfile
 
-from cuml.experimental.preprocessing import StandardScaler, MinMaxScaler, \
-                                            MaxAbsScaler, Normalizer, \
-                                            SimpleImputer, RobustScaler, \
-                                            PolynomialFeatures
+from cuml.preprocessing import StandardScaler, MinMaxScaler, \
+                               MaxAbsScaler, Normalizer, \
+                               SimpleImputer, RobustScaler, \
+                               PolynomialFeatures
 
 from cuml.benchmark.bench_helper_funcs import (
     fit,

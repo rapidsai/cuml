@@ -15,7 +15,7 @@
 
 import pytest
 
-from cuml.experimental.preprocessing import \
+from cuml.preprocessing import \
     StandardScaler as cuStandardScaler, \
     MinMaxScaler as cuMinMaxScaler, \
     MaxAbsScaler as cuMaxAbsScaler, \
@@ -25,12 +25,12 @@ from cuml.experimental.preprocessing import \
     SimpleImputer as cuSimpleImputer, \
     RobustScaler as cuRobustScaler, \
     KBinsDiscretizer as cuKBinsDiscretizer
-from cuml.experimental.preprocessing import scale as cu_scale, \
-                            minmax_scale as cu_minmax_scale, \
-                            normalize as cu_normalize, \
-                            add_dummy_feature as cu_add_dummy_feature, \
-                            binarize as cu_binarize, \
-                            robust_scale as cu_robust_scale
+from cuml.preprocessing import scale as cu_scale, \
+                    minmax_scale as cu_minmax_scale, \
+                    normalize as cu_normalize, \
+                    add_dummy_feature as cu_add_dummy_feature, \
+                    binarize as cu_binarize, \
+                    robust_scale as cu_robust_scale
 from sklearn.preprocessing import StandardScaler as skStandardScaler, \
                                   MinMaxScaler as skMinMaxScaler, \
                                   MaxAbsScaler as skMaxAbsScaler, \

@@ -26,6 +26,9 @@ from ....common.exceptions import NotFittedError
 from ....thirdparty_adapters import check_array
 
 
+FLOAT_DTYPES = (np.float64, np.float32, np.float16)
+
+
 def _deprecate_positional_args(f):
     """Decorator for methods that issues warnings for positional arguments
 
