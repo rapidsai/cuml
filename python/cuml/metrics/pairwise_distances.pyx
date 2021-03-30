@@ -84,6 +84,7 @@ PAIRWISE_DISTANCE_SPARSE_METRICS = {
     "jaccard": DistanceType.JaccardExpanded,
     "hellinger": DistanceType.HellingerExpanded,
     "chebyshev": DistanceType.Linf,
+    "dice": DistanceType.DiceExpanded
 }
 
 

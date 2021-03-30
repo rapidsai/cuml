@@ -1128,7 +1128,7 @@ def prepare_sparse_data(size0, size1, dtype, density, metric):
 @pytest.mark.parametrize("metric", PAIRWISE_DISTANCE_SPARSE_METRICS.keys())
 @pytest.mark.parametrize("matrix_size, density", [
     ((3, 3), 0.7),
-    ((5, 40), 0.1)])
+    ((5, 40), 0.2)])
 def test_sparse_pairwise_distances(metric: str, matrix_size, density: float):
     # Test the sparse_pairwise_distance helper function.
     # Use sparse input for sklearn calls when possible
@@ -1173,14 +1173,13 @@ def test_sparse_pairwise_distances(metric: str, matrix_size, density: float):
     cp.testing.assert_array_almost_equal(S, S2, decimal=compare_precision)
 
     # Change precision of one parameter, should work (convert_dtype=True)
-    Y = prepare_sparse_data(matrix_size[0], matrix_size[1],
-                            cp.float32, density, metric)
+    Y = Y.astype(cp.float32)
     S = sparse_pairwise_distances(X, Y, metric=metric)
     S2 = ref_pairwise_dist(sk_array(X).get(), sk_array(Y).get(), metric=metric)
     cp.testing.assert_array_almost_equal(S, S2, decimal=compare_precision)
 
-    # For fp32, compare at 5 decimals, (2 places less than the ~7 max)
-    compare_precision = 5
+    # For fp32, compare at 3 decimals, (4 places less than the ~7 max)
+    compare_precision = 3
 
     # Change precision of both parameters to float
     X = prepare_sparse_data(matrix_size[0], matrix_size[1],
@@ -1193,7 +1192,7 @@ def test_sparse_pairwise_distances(metric: str, matrix_size, density: float):
 
     # Test sending an int type (convert_dtype=True)
     if metric != 'hellinger':
-        compare_precision = 3
+        compare_precision = 2
         Y = Y * 100
         Y.data = Y.data.astype(cp.int32)
         S = sparse_pairwise_distances(X, Y, metric=metric)
@@ -1284,8 +1283,8 @@ def test_sparse_pairwise_distances_sklearn_comparison(metric: str, matrix_size,
     Y = prepare_sparse_data(matrix_size[0], matrix_size[1],
                             cp.float64, density, metric)
 
-    # For fp64, compare at 10 decimals, (5 places less than the ~15 max)
-    compare_precision = 10
+    # For fp64, compare at 9 decimals, (6 places less than the ~15 max)
+    compare_precision = 9
 
     # Compare to sklearn, fp64
     S = sparse_pairwise_distances(X, Y, metric=metric)
@@ -1294,8 +1293,9 @@ def test_sparse_pairwise_distances_sklearn_comparison(metric: str, matrix_size,
         S2 = ref_pairwise_dist(sk_array(X), sk_array(Y), metric=metric)
         cp.testing.assert_array_almost_equal(S, S2, decimal=compare_precision)
 
-    # For fp32, compare at 4 decimals, (3 places less than the ~7 max)
-    compare_precision = 4
+
+    # For fp32, compare at 3 decimals, (4 places less than the ~7 max)
+    compare_precision = 3
 
     X = X.astype(np.float32)
     Y = Y.astype(np.float32)
