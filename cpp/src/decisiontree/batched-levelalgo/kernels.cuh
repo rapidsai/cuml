@@ -329,6 +329,36 @@ DI IdxT select(IdxT k, IdxT treeid, uint32_t nodeid, uint64_t seed, IdxT N) {
   return blksum;
 }
 
+/**
+ * @brief For every block, converts the smem pdf-histogram to
+ *        cdf-histogram using block-sum-scan.
+ * @return The cdf-histogram pointer to shared memory
+ * @note This is called only by the last block in x-dimension
+ */
+template <typename DataT, typename IdxT, int TPB>
+DI void pdf_to_cdf(DataT* pdf_shist, DataT* cdf_shist, IdxT nbins,
+                   bool reverse_scan = false, DataT *offset_shist = NULL) {
+  // Blockscan instance preparation
+  typedef cub::BlockScan<DataT, TPB> BlockScan;
+  __shared__ typename BlockScan::TempStorage temp_storage;
+
+  for (IdxT tix = threadIdx.x; tix < max(TPB, nbins); tix += blockDim.x) {
+    DataT result;
+    // getting the scanning element from pdf shist only
+    IdxT offset = reverse_scan ? nbins - tix : tix;
+    DataT element = tix < nbins ? pdf_shist[offset] : 0;
+    // inclusive sum scan
+    BlockScan(temp_storage)
+      .InclusiveSum(element, result);
+    __syncthreads();
+    // store the result in cdf shist
+    if(tix < nbins) {
+      auto histOffset = reverse_scan ? nbins - tix - 1 : tix;
+      cdf_shist[histOffset] = result;
+    }
+  }
+}
+
 template <typename DataT, typename LabelT, typename IdxT, int TPB>
 __global__ void computeSplitClassificationKernel(
   int* hist, IdxT nbins, IdxT max_depth, IdxT min_samples_split,
@@ -421,10 +451,6 @@ __global__ void computeSplitClassificationKernel(
 
   __syncthreads();
 
-  // Blockscan instance preparation
-  typedef cub::BlockScan<int, TPB> BlockScan;
-  __shared__ typename BlockScan::TempStorage temp_storage;
-
   /**
    * Scanning code:
    * span: block-wide
@@ -435,38 +461,20 @@ __global__ void computeSplitClassificationKernel(
    * * second from right to left to sum-scan the right splits
    *   for each split-point
    */
-  for (IdxT tix = threadIdx.x; tix < max(TPB, nbins); tix += blockDim.x) {
-    for (IdxT c = 0; c < nclasses; ++c) {
-      // for each class, do inclusive block scan
-      int pdf_per_bin_per_class;
-      int cdf_per_bin_per_class;
-      // left to right scan operation for scanning lesser-than-or-equal-to-bin counts
-      // offset for left to right scan of pdf_shist
-      IdxT class_segment_offset = (1 + nbins) * c;
-      pdf_per_bin_per_class =
-        tix < nbins ? pdf_shist[class_segment_offset + tix] : 0;
-      BlockScan(temp_storage)
-        .InclusiveSum(pdf_per_bin_per_class, cdf_per_bin_per_class);
-      __syncthreads();  // synchronizing the scan
-      if (tix < nbins) {
-        auto histOffset = (2 * nbins * c + tix);
-        cdf_shist[histOffset] = cdf_per_bin_per_class;
-      }
+  for (IdxT c = 0; c < nclasses; ++c) {
+    ///// left to right scan operation for scanning lesser-than-or-equal-to-bin counts
+    // offsets to pdft and cdf shist pointers
+    auto offset_pdf = (1 + nbins)*c;
+    auto offset_cdf = (2*nbins)*c;
+    // converting pdf to cdf
+    pdf_to_cdf<int, IdxT, TPB>(pdf_shist + offset_pdf, cdf_shist + offset_cdf, nbins);
 
-      // right to left scan operation for scanning greater-than-bin counts
-      // thread0 -> last class segment of pdf_shist
-      // thread(nbins - 1) -> 2nd class segment of pdf_shist
-      // offset for right to left scan of pdf_shist
-      pdf_per_bin_per_class =
-        tix < nbins ? pdf_shist[class_segment_offset + (nbins - tix)] : 0;
-      BlockScan(temp_storage)
-        .InclusiveSum(pdf_per_bin_per_class, cdf_per_bin_per_class);
-      __syncthreads();  // synchronizing the scan
-      if (tix < nbins) {
-        auto histOffset = (2 * nbins * c) + nbins + (nbins - tix - 1);
-        cdf_shist[histOffset] = cdf_per_bin_per_class;
-      }
-    }
+    ///// right to left scan operation for scanning greater-than-bin counts
+    // greater-than split starts after nbins of less-than-equal split
+    // locations
+    offset_cdf += nbins;
+    //convert pdf to cdf
+    pdf_to_cdf<int, IdxT, TPB>(pdf_shist + offset_pdf, cdf_shist + offset_cdf, nbins, true);
   }
 
   // create a split instance to test current feature split
