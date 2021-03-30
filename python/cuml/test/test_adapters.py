@@ -19,8 +19,16 @@ import pytest
 import cupy as cp
 import numpy as np
 from cupyx.scipy.sparse import coo_matrix
+from scipy import stats
 
-from cuml.thirdparty_adapters.adapters import check_array
+from cuml.thirdparty_adapters.adapters import check_array, \
+    _get_mask as cu_get_mask, \
+    _masked_column_median, \
+    _masked_column_mean, \
+    _masked_column_mode
+
+from sklearn.utils._mask import _get_mask as sk_get_mask
+
 from cuml.thirdparty_adapters.sparsefuncs_fast import \
     csr_mean_variance_axis0, \
     csc_mean_variance_axis0, \
@@ -28,7 +36,8 @@ from cuml.thirdparty_adapters.sparsefuncs_fast import \
     inplace_csr_row_normalize_l1, \
     inplace_csr_row_normalize_l2
 
-from cuml.test.test_preproc_utils import sparse_clf_dataset  # noqa: F401
+from cuml.test.test_preproc_utils import sparse_clf_dataset, \
+    mask_dataset  # noqa: F401
 from cuml.test.test_preproc_utils import assert_allclose
 from sklearn.preprocessing import normalize as sk_normalize
 
@@ -171,3 +180,43 @@ def test_inplace_csr_row_normalize_l2(sparse_clf_dataset):  # noqa: F811
     X_np = sk_normalize(X_np, norm='l2', axis=1)
 
     assert_allclose(X, X_np)
+
+
+def test_get_mask(mask_dataset):  # noqa: F811
+    mask_value, X_np, X = mask_dataset
+    cu_mask = cu_get_mask(X, value_to_mask=mask_value)
+    sk_mask = sk_get_mask(X_np, value_to_mask=mask_value)
+    assert_allclose(cu_mask, sk_mask)
+
+
+def test_masked_column_median(mask_dataset):  # noqa: F811
+    mask_value, X_np, X = mask_dataset
+    median = _masked_column_median(X, mask_value).get()
+    mask = ~sk_get_mask(X_np, value_to_mask=mask_value)
+    n_columns = X.shape[1]
+    for i in range(n_columns):
+        column_mask = mask[:, i]
+        column_median = np.median(X_np[:, i][column_mask])
+        assert column_median == median[i]
+
+
+def test_masked_column_mean(mask_dataset):  # noqa: F811
+    mask_value, X_np, X = mask_dataset
+    mean = _masked_column_mean(X, mask_value).get()
+    mask = ~sk_get_mask(X_np, value_to_mask=mask_value)
+    n_columns = X.shape[1]
+    for i in range(n_columns):
+        column_mask = mask[:, i]
+        column_mean = np.mean(X_np[:, i][column_mask])
+        assert column_mean == mean[i]
+
+
+def test_masked_column_mode(mask_dataset):  # noqa: F811
+    mask_value, X_np, X = mask_dataset
+    mode = _masked_column_mode(X, mask_value).get()
+    mask = ~sk_get_mask(X_np, value_to_mask=mask_value)
+    n_columns = X.shape[1]
+    for i in range(n_columns):
+        column_mask = mask[:, i]
+        column_mode = stats.mode(X_np[:, i][column_mask])[0][0]
+        assert column_mode == mode[i]

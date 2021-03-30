@@ -110,7 +110,6 @@ def create_rand_blobs():
 
 def create_rand_integers():
     randint = cp.random.randint(30, size=(500, 20)).astype(cp.float64)
-    randint = cp.asfortranarray(randint)
     return randint
 
 
@@ -223,6 +222,23 @@ def sparse_blobs_dataset(request):
 def sparse_int_dataset(request):
     randint = create_rand_integers()
     return sparsify_and_convert(randint, request.param)
+
+
+@pytest.fixture(scope="session",
+                params=["zero", "one", "nan"])
+def mask_dataset(request):
+    randint = create_rand_integers()
+    if request.param == 'zero':
+        mask_value = 0
+    elif request.param == 'one':
+        mask_value = 1
+    else:
+        mask_value = cp.nan
+    random_loc = cp.random.choice(randint.size,
+                                  int(randint.size * 0.3),
+                                  replace=False)
+    randint.ravel()[random_loc] = mask_value
+    return mask_value, randint.get(), randint
 
 
 def assert_allclose(actual, desired, rtol=1e-05, atol=1e-05,
