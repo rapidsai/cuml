@@ -47,13 +47,6 @@ from sklearn.preprocessing import scale as sk_scale, \
 from sklearn.impute import SimpleImputer as skSimpleImputer
 from sklearn.preprocessing import KBinsDiscretizer as skKBinsDiscretizer
 
-from cuml.thirdparty_adapters.sparsefuncs_fast import \
-    csr_mean_variance_axis0, \
-    csc_mean_variance_axis0, \
-    _csc_mean_variance_axis0, \
-    inplace_csr_row_normalize_l1, \
-    inplace_csr_row_normalize_l2
-
 from cuml.test.test_preproc_utils import \
     clf_dataset, int_dataset, blobs_dataset, \
     sparse_clf_dataset, \
@@ -656,99 +649,6 @@ def test_kbinsdiscretizer(blobs_dataset, n_bins,  # noqa: F811
     else:
         assert_allclose(t_X, sk_t_X)
         assert_allclose(r_X, sk_r_X)
-
-
-def test_csr_mean_variance_axis0(sparse_clf_dataset):  # noqa: F811
-    X_np, X = sparse_clf_dataset
-
-    if not cp.sparse.issparse(X):
-        pytest.skip("Skipping non-CuPy or non-sparse arrays")
-
-    if X.format != 'csr':
-        X = X.tocsr()
-
-    means, variances = csr_mean_variance_axis0(X)
-
-    X_np = X_np.toarray()
-    ref_means = np.nanmean(X_np, axis=0)
-    ref_variances = np.nanvar(X_np, axis=0)
-
-    assert_allclose(means, ref_means)
-    assert_allclose(variances, ref_variances)
-
-
-def test_csc_mean_variance_axis0(sparse_clf_dataset):  # noqa: F811
-    X_np, X = sparse_clf_dataset
-
-    if not cp.sparse.issparse(X):
-        pytest.skip("Skipping non-CuPy or non-sparse arrays")
-
-    if X.format != 'csc':
-        X = X.tocsc()
-
-    means, variances = csc_mean_variance_axis0(X)
-
-    X_np = X_np.toarray()
-    ref_means = np.nanmean(X_np, axis=0)
-    ref_variances = np.nanvar(X_np, axis=0)
-
-    assert_allclose(means, ref_means)
-    assert_allclose(variances, ref_variances)
-
-
-def test__csc_mean_variance_axis0(sparse_clf_dataset):  # noqa: F811
-    X_np, X = sparse_clf_dataset
-
-    if not cp.sparse.issparse(X):
-        pytest.skip("Skipping non-CuPy or non-sparse arrays")
-
-    if X.format != 'csc':
-        X = X.tocsc()
-
-    means, variances, counts_nan = _csc_mean_variance_axis0(X)
-
-    X_np = X_np.toarray()
-    ref_means = np.nanmean(X_np, axis=0)
-    ref_variances = np.nanvar(X_np, axis=0)
-    ref_counts_nan = np.isnan(X_np).sum(axis=0)
-
-    assert_allclose(means, ref_means)
-    assert_allclose(variances, ref_variances)
-    assert_allclose(counts_nan, ref_counts_nan)
-
-
-def test_inplace_csr_row_normalize_l1(sparse_clf_dataset):  # noqa: F811
-    X_np, X = sparse_clf_dataset
-
-    if not cp.sparse.issparse(X):
-        pytest.skip("Skipping non-CuPy or non-sparse arrays")
-
-    if X.format != 'csr':
-        X = X.tocsr()
-
-    inplace_csr_row_normalize_l1(X)
-
-    X_np = X_np.toarray()
-    X_np = sk_normalize(X_np, norm='l1', axis=1)
-
-    assert_allclose(X, X_np)
-
-
-def test_inplace_csr_row_normalize_l2(sparse_clf_dataset):  # noqa: F811
-    X_np, X = sparse_clf_dataset
-
-    if not cp.sparse.issparse(X):
-        pytest.skip("Skipping non-CuPy or non-sparse arrays")
-
-    if X.format != 'csr':
-        X = X.tocsr()
-
-    inplace_csr_row_normalize_l2(X)
-
-    X_np = X_np.toarray()
-    X_np = sk_normalize(X_np, norm='l2', axis=1)
-
-    assert_allclose(X, X_np)
 
 
 def test__repr__():
