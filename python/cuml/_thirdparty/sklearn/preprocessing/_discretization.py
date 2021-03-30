@@ -27,7 +27,6 @@ from ..utils.validation import check_is_fitted
 from ..utils.validation import FLOAT_DTYPES
 from ..utils.validation import _deprecate_positional_args
 from ....thirdparty_adapters import check_array
-from ....common.import_utils import check_cupy8
 from ....common.array_sparse import SparseCumlArray
 from ....common.array_descriptor import CumlArrayDescriptor
 from ....common.memory_utils import using_output_type
@@ -138,7 +137,6 @@ class KBinsDiscretizer(TransformerMixin,
     bin_edges_ = CumlArrayDescriptor()
     n_bins_ = CumlArrayDescriptor()
 
-    @check_cupy8()
     @_deprecate_positional_args
     def __init__(self, n_bins=5, *, encode='onehot', strategy='quantile'):
         self.n_bins = n_bins
