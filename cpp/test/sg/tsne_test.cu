@@ -44,7 +44,8 @@ class TSNETest : public ::testing::TestWithParam<TSNEInput> {
  protected:
   void assert_score(double score, const char *test) {
     printf("%s", test);
-    if (score < 0.98) printf("score = %f\n", score);
+    // if (score < 0.98)
+    printf("score = %f\n", score);
     ASSERT_TRUE(0.98 < score);
   }
 
@@ -121,19 +122,30 @@ class TSNETest : public ::testing::TestWithParam<TSNEInput> {
     // Move transposed embeddings back to device, as trustworthiness requires C contiguous format
     raft::update_device(Y_d.data(), C_contiguous_embedding, n * 2,
                         handle.get_stream());
-    CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
-
-    // Free space
-    free(embeddings_h);
 
     // Test trustworthiness
-    double score =
-      trustworthiness_score<float,
-                            raft::distance::DistanceType::L2SqrtUnexpanded>(
-        X_d.data(), Y_d.data(), n, p, 2, 5, handle.get_device_allocator(),
-        handle.get_stream());
+    return trustworthiness_score<
+      float, raft::distance::DistanceType::L2SqrtUnexpanded>(
+      handle, X_d.data(), Y_d.data(), n, p, 2, 5);
 
-    return score;
+    // // Test Exact TSNE
+    // TSNE_fit(handle, X_d.data(), Y_d.data(), n, p, knn_indices.data(),
+    //          knn_dists.data(), 2, 90, 0.5, 0.0025, 50, 100, 1e-5, 12, 250, 0.01,
+    //          200, 500, 1000, 1e-7, 0.5, 0.8, -1, CUML_LEVEL_INFO, false, false);
+
+    // raft::update_host(&embeddings_h[0], Y_d.data(), n * 2, handle.get_stream());
+    // CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
+
+    // // Free space
+    free(embeddings_h);
+
+    // // Test trustworthiness
+    // double score =
+    //   trustworthiness_score<float,
+    //                         raft::distance::DistanceType::L2SqrtUnexpanded>(
+    //     handle, X_d.data(), Y_d.data(), n, p, 2, 5);
+
+    // return score;
   }
 
   void basicTest() {

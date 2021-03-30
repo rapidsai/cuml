@@ -506,7 +506,7 @@ void FFT_TSNE(value_t *VAL, const value_idx *COL, const value_idx *ROW,
 
       FFT::copy_from_fft_output<<<num_blocks, NTHREADS_128, 0, stream>>>(
         y_tilde_values.data(), fft_output.data(), n_fft_coeffs,
-        n_fft_coeffs_half, n_terms, iter);
+        n_fft_coeffs_half, n_terms);
       CUDA_CHECK(cudaPeekAtLastError());
       CUDA_CHECK(cudaDeviceSynchronize());
       if (iter < 3 || iter > 996) {
