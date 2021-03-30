@@ -57,6 +57,7 @@ if(BUILD_CUML_TESTS)
     sg/kmeans_test.cu
     sg/knn_test.cu
     sg/lars_test.cu
+    sg/linkage_test.cu
     sg/logger.cpp
     sg/multi_sum_test.cu
     sg/nvtx_test.cpp
@@ -167,7 +168,6 @@ if(BUILD_PRIMS_TESTS)
     prims/gather.cu
     prims/gram.cu
     prims/grid_sync.cu
-    prims/haversine_knn.cu
     prims/hinge.cu
     prims/histogram.cu
     prims/homogeneity_score.cu
@@ -176,7 +176,6 @@ if(BUILD_PRIMS_TESTS)
     prims/kl_divergence.cu
     prims/knn_classify.cu
     prims/knn_regression.cu
-    prims/knn.cu
     prims/kselection.cu
     prims/label.cu
     prims/linearReg.cu

@@ -129,40 +129,40 @@ class RandomForestClassifier(BaseRandomForestModel,
     Implements a Random Forest classifier model which fits multiple decision
     tree classifiers in an ensemble.
 
-    Note that the underlying algorithm for tree node splits differs from that
-    used in scikit-learn. By default, the cuML Random Forest uses a
-    histogram-based algorithms to determine splits, rather than an exact
-    count. You can tune the size of the histograms with the n_bins parameter.
+    .. note:: Note that the underlying algorithm for tree node splits differs
+      from that used in scikit-learn. By default, the cuML Random Forest uses a
+      histogram-based algorithm to determine splits, rather than an exact
+      count. You can tune the size of the histograms with the n_bins parameter.
 
-    .. note:: This is an early release of the cuML
-        Random Forest code. It contains a few known limitations:
+    **Known Limitations**: This is an early release of the cuML
+    Random Forest code. It contains a few known limitations:
 
-       * GPU-based inference is only supported if the model was trained
-         with 32-bit (float32) datatypes. CPU-based inference may be used
-         in this case as a slower fallback.
-       * Very deep / very wide models may exhaust available GPU memory.
-         Future versions of cuML will provide an alternative algorithm to
-         reduce memory consumption.
-       * While training the model for multi class classification problems,
-         using deep trees or `max_features=1.0` provides better performance.
+      * GPU-based inference is only supported if the model was trained
+        with 32-bit (float32) datatypes. CPU-based inference may be used
+        in this case as a slower fallback.
+      * Very deep / very wide models may exhaust available GPU memory.
+        Future versions of cuML will provide an alternative algorithm to
+        reduce memory consumption.
+      * While training the model for multi class classification problems,
+        using deep trees or `max_features=1.0` provides better performance.
 
     Examples
     --------
     .. code-block:: python
 
-            import numpy as np
-            from cuml.ensemble import RandomForestClassifier as cuRFC
+        import numpy as np
+        from cuml.ensemble import RandomForestClassifier as cuRFC
 
-            X = np.random.normal(size=(10,4)).astype(np.float32)
-            y = np.asarray([0,1]*5, dtype=np.int32)
+        X = np.random.normal(size=(10,4)).astype(np.float32)
+        y = np.asarray([0,1]*5, dtype=np.int32)
 
-            cuml_model = cuRFC(max_features=1.0,
-                               n_bins=8,
-                               n_estimators=40)
-            cuml_model.fit(X,y)
-            cuml_predict = cuml_model.predict(X)
+        cuml_model = cuRFC(max_features=1.0,
+                           n_bins=8,
+                           n_estimators=40)
+        cuml_model.fit(X,y)
+        cuml_predict = cuml_model.predict(X)
 
-            print("Predicted labels : ", cuml_predict)
+        print("Predicted labels : ", cuml_predict)
 
     Output:
 
@@ -180,7 +180,7 @@ class RandomForestClassifier(BaseRandomForestModel,
         (default = 0)
     split_algo : int (default = 1)
         The algorithm to determine how nodes are split in the tree.
-        0 for HIST and 1 for GLOBAL_QUANTILE. HIST curently uses a slower
+        0 for HIST and 1 for GLOBAL_QUANTILE. HIST currently uses a slower
         tree-building algorithm so GLOBAL_QUANTILE is recommended for most
         cases.
     bootstrap : boolean (default = True)
@@ -226,24 +226,25 @@ class RandomForestClassifier(BaseRandomForestModel,
         Minimum decrease in impurity requried for
         node to be spilt.
     quantile_per_tree : boolean (default = False)
-        Whether quantile is computed for individal trees in RF.
-        Only relevant for GLOBAL_QUANTILE split_algo.
+        Whether quantile is computed for individual trees in RF.
+        Only relevant when `split_algo = GLOBAL_QUANTILE`.
+
+        .. deprecated:: 0.19
+           Parameter 'quantile_per_tree' is deprecated and will be removed in
+           subsequent release.
     use_experimental_backend : boolean (default = False)
         If set to true and  following conditions are also met, experimental
-         decision tree training implementation would be used:
-            split_algo = 1 (GLOBAL_QUANTILE)
-            quantile_per_tree = false (No per tree quantile computation)
+        decision tree training implementation would be used only if
+        `split_algo = 1` (GLOBAL_QUANTILE) and `quantile_per_tree = False`
+        (No per tree quantile computation).
     max_batch_size: int (default = 128)
         Maximum number of nodes that can be processed in a given batch. This is
-        used only when 'use_experimental_backend' is true.
+        used only when 'use_experimental_backend' is true. Does not currently
+        fully guarantee the exact same results.
     random_state : int (default = None)
-        Seed for the random number generator. Unseeded by default.
-    seed : int (default = None)
-        Seed for the random number generator. Unseeded by default.
-
-        .. deprecated:: 0.16
-           Parameter `seed` is deprecated and will be removed in 0.17. Please
-           use `random_state` instead
+        Seed for the random number generator. Unseeded by default. Does not
+        currently fully guarantee the exact same results. **Note: Parameter
+        `seed` is removed since release 0.19.**
 
     handle : cuml.Handle
         Specifies the cuml.handle that holds internal CUDA state for
@@ -581,7 +582,7 @@ class RandomForestClassifier(BaseRandomForestModel,
             'GPU' to predict using the GPU, 'CPU' otherwise. The 'GPU' can only
             be used if the model was trained on float32 data and `X` is float32
             or convert_dtype is set to True. Also the 'GPU' should only be
-            used for binary classification problems.
+            used for classification problems.
         algo : string (default = 'auto')
             This is optional and required only while performing the
             predict operation on the GPU.
@@ -829,7 +830,7 @@ class RandomForestClassifier(BaseRandomForestModel,
             'GPU' to predict using the GPU, 'CPU' otherwise. The 'GPU' can only
             be used if the model was trained on float32 data and `X` is float32
             or convert_dtype is set to True. Also the 'GPU' should only be
-            used for binary classification problems.
+            used for classification problems.
         fil_sparse_format : boolean or string (default = auto)
             This variable is used to choose the type of forest that will be
             created in the Forest Inference Library. It is not required
