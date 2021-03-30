@@ -20,6 +20,7 @@ from sklearn.datasets import make_classification
 from sklearn.linear_model import LogisticRegression as skLR
 import pandas as pd
 import numpy as np
+import cupy as cp
 import dask_cudf
 import cudf
 
@@ -58,42 +59,60 @@ def make_classification_dataset(datatype, nrows, ncols, n_info):
 @pytest.mark.mg
 @pytest.mark.parametrize("nrows", [1e5])
 @pytest.mark.parametrize("ncols", [20])
-@pytest.mark.parametrize("n_parts", [2, 23])
+@pytest.mark.parametrize("n_parts", [2, 6])
 @pytest.mark.parametrize("fit_intercept", [False, True])
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
-def test_lr(nrows, ncols, n_parts, fit_intercept,
-            datatype, client):
+@pytest.mark.parametrize("gpu_array_input", [False, True])
+def test_lr_fit_predict_score(nrows, ncols, n_parts, fit_intercept,
+            datatype, gpu_array_input, client):
 
     def imp():
         import cuml.comm.serialize  # NOQA
 
     client.run(imp)
 
-    from cuml.dask.linear_model import LogisticRegression as cumlLR_dask
+    from cuml.dask.extended.linear_model import LogisticRegression as cumlLR_dask
 
     n_info = 5
     nrows = np.int(nrows)
     ncols = np.int(ncols)
     X, y = make_classification_dataset(datatype, nrows, ncols, n_info)
 
-    X_df, y_df = _prep_training_data(client, X, y, n_parts)
+    gX, gy = _prep_training_data(client, X, y, n_parts)
+    
+    if gpu_array_input:
+        gX = gX.values
+        gX._meta = cp.asarray(gX._meta)
+        gy = gy.values
+        gy._meta = cp.asarray(gy._meta)
 
     cuml_model = cumlLR_dask(fit_intercept=fit_intercept,
-                             solver='lbfgs', max_iter=10)
+                             solver='admm', max_iter=10)
 
-    cuml_model.fit(X_df, y_df)
-
-    cu_preds = cuml_model.predict(X_df)
-
+    # test fit and predict
+    cuml_model.fit(gX, gy)
+    cu_preds = cuml_model.predict(gX)
     accuracy_cuml = accuracy_score(y, cu_preds.compute().get())
 
     sk_model = skLR(fit_intercept=fit_intercept,
-                    solver='lbfgs', max_iter=10)
-
+                    solver='lbfgs', max_iter=50)
     sk_model.fit(X, y)
-
     sk_preds = sk_model.predict(X)
-
     accuracy_sk = accuracy_score(y, sk_preds)
-
-    assert(abs(accuracy_cuml-accuracy_sk) < 1e-3)
+    
+    assert (accuracy_cuml >= accuracy_sk) | \
+        (np.abs(accuracy_cuml-accuracy_sk) < 1e-3)
+    
+    # score
+    accuracy_cuml = cuml_model.score(gX, gy).compute().item()
+    accuracy_sk = sk_model.score(X, y)
+    
+    assert (accuracy_cuml >= accuracy_sk) | \
+        (np.abs(accuracy_cuml-accuracy_sk) < 1e-3)
+    
+    # predicted probabilities should differ by <= 5% 
+    # even with different solvers (arbitrary)
+    probs_cuml = cuml_model.predict_proba(gX).compute()
+    probs_sk = sk_model.predict_proba(X)[:, 1]
+    assert np.abs(probs_sk - probs_cuml.get()).max() <= 0.05
+    
