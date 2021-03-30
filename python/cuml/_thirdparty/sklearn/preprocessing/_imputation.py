@@ -475,10 +475,6 @@ class MissingIndicator(TransformerMixin,
     :class:`Pipeline` consisting of transformers and a classifier, but rather
     could be added using a :class:`FeatureUnion` or :class:`ColumnTransformer`.
 
-    Read more in the :ref:`User Guide <impute>`.
-
-    .. versionadded:: 0.20
-
     Parameters
     ----------
     missing_values : number, string, np.nan (default) or None

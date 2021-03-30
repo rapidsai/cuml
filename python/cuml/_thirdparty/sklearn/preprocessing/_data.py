@@ -2049,8 +2049,6 @@ class KernelCenterer(TransformerMixin, BaseEstimator):
     It is equivalent to centering phi(x) with
     sklearn.preprocessing.StandardScaler(with_std=False).
 
-    Read more in the :ref:`User Guide <kernel_centering>`.
-
     Attributes
     ----------
     K_fit_rows_ : array, shape (n_samples,)
@@ -2162,10 +2160,6 @@ class QuantileTransformer(TransformerMixin,
     distribution. Note that this transform is non-linear. It may distort linear
     correlations between variables measured at the same scale but renders
     variables measured at different scales more directly comparable.
-
-    Read more in the :ref:`User Guide <preprocessing_transformer>`.
-
-    .. versionadded:: 0.19
 
     Parameters
     ----------
@@ -2598,8 +2592,6 @@ def quantile_transform(X, *, axis=0, n_quantiles=1000,
     correlations between variables measured at the same scale but renders
     variables measured at different scales more directly comparable.
 
-    Read more in the :ref:`User Guide <preprocessing_transformer>`.
-
     Parameters
     ----------
     X : array-like, sparse matrix
@@ -2715,10 +2707,6 @@ class PowerTransformer(TransformerMixin,
 
     By default, zero-mean, unit-variance normalization is applied to the
     transformed data.
-
-    Read more in the :ref:`User Guide <preprocessing_transformer>`.
-
-    .. versionadded:: 0.20
 
     Parameters
     ----------
@@ -3067,8 +3055,6 @@ def power_transform(X, method='yeo-johnson', *, standardize=True, copy=True):
 
     By default, zero-mean, unit-variance normalization is applied to the
     transformed data.
-
-    Read more in the :ref:`User Guide <preprocessing_transformer>`.
 
     Parameters
     ----------
