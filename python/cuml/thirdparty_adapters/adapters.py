@@ -154,7 +154,7 @@ def check_array(array, accept_sparse=False, accept_large_sparse=True,
                 dtype='numeric', order=None, copy=False,
                 force_all_finite=True, ensure_2d=True, allow_nd=False,
                 ensure_min_samples=1, ensure_min_features=1,
-                warn_on_dtype=None, estimator=None):
+                warn_on_dtype=None):
     """Input validation on an array, list, sparse matrix or similar.
     By default, the input is checked to be a non-empty 2D array containing
     only finite values. If the dtype of the array is object, attempt
@@ -209,7 +209,6 @@ def check_array(array, accept_sparse=False, accept_large_sparse=True,
         This check is only enforced when the input data has effectively 2
         dimensions or is originally 1D and ``ensure_2d`` is True. Setting to 0
         disables this check.
-    estimator : unused parameter
 
     Returns
     -------

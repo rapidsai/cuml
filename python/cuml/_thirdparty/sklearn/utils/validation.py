@@ -23,10 +23,7 @@ import numpy as np
 from inspect import signature, isclass, Parameter
 
 from ....common.exceptions import NotFittedError
-
 from ....thirdparty_adapters import check_array
-
-FLOAT_DTYPES = (np.float64, np.float32, np.float16)
 
 
 def _deprecate_positional_args(f):
@@ -71,8 +68,7 @@ def _deprecate_positional_args(f):
 def check_X_y(X, y, accept_sparse=False, *, accept_large_sparse=True,
               dtype="numeric", order=None, copy=False, force_all_finite=True,
               ensure_2d=True, allow_nd=False, multi_output=False,
-              ensure_min_samples=1, ensure_min_features=1, y_numeric=False,
-              estimator=None):
+              ensure_min_samples=1, ensure_min_features=1, y_numeric=False):
     """Input validation for standard estimators.
 
     Checks X and y for consistent length, enforces X to be 2D and y 1D. By
@@ -152,9 +148,6 @@ def check_X_y(X, y, accept_sparse=False, *, accept_large_sparse=True,
         it is converted to float64. Should only be used for regression
         algorithms.
 
-    estimator : str or estimator instance (default=None)
-        If passed, include the name of the estimator in warning messages.
-
     Returns
     -------
     X_converted : object
@@ -172,8 +165,7 @@ def check_X_y(X, y, accept_sparse=False, *, accept_large_sparse=True,
                     force_all_finite=force_all_finite,
                     ensure_2d=ensure_2d, allow_nd=allow_nd,
                     ensure_min_samples=ensure_min_samples,
-                    ensure_min_features=ensure_min_features,
-                    estimator=estimator)
+                    ensure_min_features=ensure_min_features)
 
     y = check_array(y, accept_sparse='csr', force_all_finite=True,
                     ensure_2d=False, dtype='numeric' if y_numeric else None)
