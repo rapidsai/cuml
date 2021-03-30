@@ -35,6 +35,9 @@ from cuml.fil.fil import ForestInference
 from cuml.ensemble.randomforestclassifier import RandomForestClassifier
 from cuml.ensemble.randomforestregressor import RandomForestRegressor
 
+from cuml.explainer.kernel_shap import KernelExplainer
+from cuml.explainer.permutation_shap import PermutationExplainer
+
 from cuml.fil import fil
 
 from cuml.internals.global_settings import (

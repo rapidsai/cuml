@@ -126,7 +126,7 @@ def has_sklearn():
         return False
 
 
-def has_shap(min_version=None):
+def has_shap(min_version="0.37"):
     try:
         import shap  # noqa
         if min_version is None:

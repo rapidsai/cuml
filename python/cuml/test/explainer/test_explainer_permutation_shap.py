@@ -21,31 +21,13 @@ import numpy as np
 import pytest
 import sklearn.neighbors
 
-from cuml.experimental.explainer.kernel_shap import KernelExplainer as cuPE
+from cuml import PermutationExplainer
 from cuml.test.conftest import create_synthetic_dataset
 from cuml.test.utils import ClassEnumerator
 from cuml.test.utils import get_shap_values
-from sklearn.model_selection import train_test_split
 
 models_config = ClassEnumerator(module=cuml)
 models = models_config.get_models()
-
-
-@pytest.fixture(scope="module")
-def exact_tests_dataset():
-    X, y = make_regression(n_samples=101,
-                           n_features=11,
-                           noise=0.1,
-                           random_state=42)
-
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=1, random_state=42)
-
-    X_train = X_train.astype(np.float32)
-    X_test = X_test.astype(np.float32)
-    y_train = y_train.astype(np.float32)
-    y_test = y_test.astype(np.float32)
-    return X_train, X_test, y_train, y_test
 
 
 ###############################################################################
@@ -56,8 +38,8 @@ def exact_tests_dataset():
 @pytest.mark.parametrize("model", [cuml.LinearRegression,
                                    cuml.KNeighborsRegressor,
                                    cuml.SVR])
-def test_regression_datasets(exact_tests_dataset, model):
-    X_train, X_test, y_train, y_test = exact_tests_dataset
+def test_regression_datasets(exact_shap_regression_dataset, model):
+    X_train, X_test, y_train, y_test = exact_shap_regression_dataset
 
     models = []
     models.append(model().fit(X_train, y_train))
@@ -68,7 +50,7 @@ def test_regression_datasets(exact_tests_dataset, model):
             model=mod.predict,
             background_dataset=X_train,
             explained_dataset=X_test,
-            explainer=cuPE
+            explainer=PermutationExplainer
         )
 
         fx = mod.predict(X_test)
@@ -89,7 +71,7 @@ def test_exact_classification_datasets(exact_shap_classification_dataset):
             model=mod.predict_proba,
             background_dataset=X_train,
             explained_dataset=X_test,
-            explainer=cuPE
+            explainer=PermutationExplainer
         )
 
         fx = mod.predict_proba(X_test)[0]
@@ -120,9 +102,9 @@ def test_different_parameters(dtype, n_features, n_background, model,
     mod = model().fit(X_train, y_train)
 
     cu_explainer = \
-        cuml.experimental.explainer.PermutationExplainer(model=mod.predict,
-                                                         data=X_train,
-                                                         is_gpu_model=True)
+        PermutationExplainer(model=mod.predict,
+                             data=X_train,
+                             is_gpu_model=True)
 
     cu_shap_values = cu_explainer.shap_values(X_test,
                                               npermutations=npermutations)
@@ -138,16 +120,16 @@ def test_different_parameters(dtype, n_features, n_background, model,
 #                              Functional tests                               #
 ###############################################################################
 
-def test_not_shuffled_explanation(exact_tests_dataset):
+def test_not_shuffled_explanation(exact_shap_regression_dataset):
     # in general permutation shap does not behave as predictable as
     # kernel shap, even when comparing permutation against kernel SHAP of the
     # mainline SHAP package. So these tests assure us that we're doing the
     # correct calculations, even if we can't compare directly.
-    X_train, X_test, y_train, y_test = exact_tests_dataset
+    X_train, X_test, y_train, y_test = exact_shap_regression_dataset
 
     mod = cuml.LinearRegression().fit(X_train, y_train)
 
-    explainer = cuml.experimental.explainer.PermutationExplainer(
+    explainer = PermutationExplainer(
         model=mod.predict,
         data=X_train)
 
@@ -163,8 +145,8 @@ def test_not_shuffled_explanation(exact_tests_dataset):
 
 # Test against exact shap values for linear regression
 # 1 permutation should give exact result
-def test_permutation(exact_tests_dataset):
-    X_train, X_test, y_train, y_test = exact_tests_dataset
+def test_permutation(exact_shap_regression_dataset):
+    X_train, X_test, y_train, y_test = exact_shap_regression_dataset
     # Train arbitrary model to get some coefficients
     mod = cuml.LinearRegression().fit(X_train, y_train)
     # Single background and foreground instance
@@ -172,7 +154,7 @@ def test_permutation(exact_tests_dataset):
     # and the effect of the regression coefficient when they are 'on'
     X_background = np.zeros((1, X_train.shape[1]))
     X_foreground = np.ones((1, X_train.shape[1]))
-    explainer = cuml.experimental.explainer.PermutationExplainer(
+    explainer = PermutationExplainer(
         model=mod.predict,
         data=X_background)
 

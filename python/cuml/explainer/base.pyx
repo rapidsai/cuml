@@ -26,12 +26,12 @@ from cuml.common.input_utils import input_to_cupy_array
 from cuml.common.input_utils import input_to_host_array
 from cuml.common.logger import debug
 from cuml.common.logger import warn
-from cuml.experimental.explainer.common import get_dtype_from_model_func
-from cuml.experimental.explainer.common import get_handle_from_cuml_model_func
-from cuml.experimental.explainer.common import get_link_fn_from_str_or_fn
-from cuml.experimental.explainer.common import get_tag_from_model_func
-from cuml.experimental.explainer.common import model_func_call
-from cuml.experimental.explainer.common import output_list_shap_values
+from cuml.explainer.common import get_dtype_from_model_func
+from cuml.explainer.common import get_handle_from_cuml_model_func
+from cuml.explainer.common import get_link_fn_from_str_or_fn
+from cuml.explainer.common import get_tag_from_model_func
+from cuml.explainer.common import model_func_call
+from cuml.explainer.common import output_list_shap_values
 
 from cuml.raft.common.handle cimport handle_t
 from libcpp cimport bool

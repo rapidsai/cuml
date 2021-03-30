@@ -22,11 +22,11 @@ import time
 from cudf import DataFrame as cu_df
 from cuml.common.array import CumlArray
 from cuml.common.input_utils import input_to_cupy_array
-from cuml.experimental.explainer.base import SHAPBase
-from cuml.experimental.explainer.common import get_cai_ptr
-from cuml.experimental.explainer.common import get_dtype_from_model_func
-from cuml.experimental.explainer.common import get_tag_from_model_func
-from cuml.experimental.explainer.common import model_func_call
+from cuml.explainer.base import SHAPBase
+from cuml.explainer.common import get_cai_ptr
+from cuml.explainer.common import get_dtype_from_model_func
+from cuml.explainer.common import get_tag_from_model_func
+from cuml.explainer.common import model_func_call
 from numba import cuda
 from pandas import DataFrame as pd_df
 

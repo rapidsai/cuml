@@ -15,16 +15,15 @@
 #
 
 import cuml
-import cuml.experimental.explainer
 import cupy as cp
 import numpy as np
 import math
 import pytest
 import sklearn.neighbors
 
+from cuml import KernelExplainer
 from cuml.common.import_utils import has_scipy
 from cuml.common.import_utils import has_shap
-from cuml.experimental.explainer.kernel_shap import KernelExplainer as cuKE
 from cuml.test.conftest import create_synthetic_dataset
 from cuml.test.utils import ClassEnumerator
 from cuml.test.utils import get_shap_values
@@ -80,7 +79,7 @@ def test_exact_regression_datasets(exact_shap_regression_dataset, model):
             model=mod.predict,
             background_dataset=X_train,
             explained_dataset=X_test,
-            explainer=cuKE
+            explainer=KernelExplainer
         )
 
         assert_and_log(
@@ -103,7 +102,7 @@ def test_exact_classification_datasets(exact_shap_classification_dataset):
             model=mod.predict_proba,
             background_dataset=X_train,
             explained_dataset=X_test,
-            explainer=cuKE
+            explainer=KernelExplainer
         )
 
         # Some values are very small, which mean our tolerance here needs to be
@@ -139,7 +138,7 @@ def test_kernel_shap_standalone(dtype, n_features, n_background, model):
         model=mod.transform,
         background_dataset=X_train,
         explained_dataset=X_test,
-        explainer=cuKE
+        explainer=KernelExplainer
     )
 
     exp_v = explainer.expected_value
@@ -179,7 +178,7 @@ def test_kernel_gpu_cpu_shap(dtype, n_features, n_background, model):
         model=mod.predict,
         background_dataset=X_train,
         explained_dataset=X_test,
-        explainer=cuKE
+        explainer=KernelExplainer
     )
 
     exp_v = explainer.expected_value
@@ -189,7 +188,7 @@ def test_kernel_gpu_cpu_shap(dtype, n_features, n_background, model):
         assert(np.sum(
             shap_values[test_idx]) - abs(fx[test_idx] - exp_v)) <= 1e-5
 
-    if has_shap(min_version="0.37"):
+    if has_shap():
         import shap
         explainer = shap.KernelExplainer(mod.predict, cp.asnumpy(X_train))
         cpu_shap_values = explainer.shap_values(cp.asnumpy(X_test))
@@ -213,7 +212,7 @@ def test_kernel_housing_dataset(housing_dataset):
 
     cumodel = cuml.RandomForestRegressor().fit(X_train, y_train)
 
-    explainer = cuml.experimental.explainer.KernelExplainer(
+    explainer = KernelExplainer(
         model=cumodel.predict,
         data=X_train[:100],
         output_type='numpy')
@@ -230,7 +229,7 @@ def test_kernel_housing_dataset(housing_dataset):
 
 def test_binom_coef():
     for i in range(1, 101):
-        val = cuml.experimental.explainer.kernel_shap._binomCoef(100, i)
+        val = cuml.explainer.kernel_shap._binomCoef(100, i)
         if has_scipy():
             from scipy.special import binom
             assert math.isclose(val, binom(100, i), rel_tol=1e-15)
@@ -238,12 +237,12 @@ def test_binom_coef():
 
 def test_shapley_kernel():
     for i in range(11):
-        val = cuml.experimental.explainer.kernel_shap._shapley_kernel(10, i)
+        val = cuml.explainer.kernel_shap._shapley_kernel(10, i)
         assert val == shapley_kernel_results[i]
 
 
 def test_full_powerset():
-    ps, w = cuml.experimental.explainer.kernel_shap._powerset(
+    ps, w = cuml.explainer.kernel_shap._powerset(
         5, 2, 2**5 - 2, full_powerset=True)
 
     for i in range(len(ps)):
@@ -252,7 +251,7 @@ def test_full_powerset():
 
 
 def test_partial_powerset():
-    ps, w = cuml.experimental.explainer.kernel_shap._powerset(6, 3, 42)
+    ps, w = cuml.explainer.kernel_shap._powerset(6, 3, 42)
 
     for i in range(len(ps)):
         assert np.all(ps[i] == partial_powerset_result[i])
@@ -264,14 +263,14 @@ def test_get_number_of_exact_random_samples(full_powerset):
 
     if full_powerset:
         nsamples_exact, nsamples_random, ind = \
-            (cuml.experimental.explainer.kernel_shap.
+            (cuml.explainer.kernel_shap.
              _get_number_of_exact_random_samples(10, 2**10 + 1))
         assert nsamples_exact == 1022
         assert nsamples_random == 0
         assert ind == 5
     else:
         nsamples_exact, nsamples_random, ind = \
-            (cuml.experimental.explainer.kernel_shap.
+            (cuml.explainer.kernel_shap.
              _get_number_of_exact_random_samples(10, 100))
 
         assert nsamples_exact == 20
@@ -281,7 +280,7 @@ def test_get_number_of_exact_random_samples(full_powerset):
 
 def test_generate_nsamples_weights():
     samples, w = \
-        cuml.experimental.explainer.kernel_shap._generate_nsamples_weights(
+        cuml.explainer.kernel_shap._generate_nsamples_weights(
             ncols=20,
             nsamples=30,
             nsamples_exact=10,
@@ -294,9 +293,9 @@ def test_generate_nsamples_weights():
     for i, s in enumerate(samples):
         assert s in [5, 6]
         assert w[i * 2] == \
-            cuml.experimental.explainer.kernel_shap._shapley_kernel(20, int(s))
+            cuml.explainer.kernel_shap._shapley_kernel(20, int(s))
         assert w[i * 2 + 1] == \
-            cuml.experimental.explainer.kernel_shap._shapley_kernel(20, int(s))
+            cuml.explainer.kernel_shap._shapley_kernel(20, int(s))
 
 
 @pytest.mark.parametrize("l1_type", ['auto', 'aic', 'bic', 'num_features(3)',
@@ -305,18 +304,18 @@ def test_l1_regularization(exact_shap_regression_dataset, l1_type):
     # currently this is a code test, not mathematical results test.
     # Hard to test without falling into testing the underlying algorithms
     # which are out of this unit test scope.
-    X, w = cuml.experimental.explainer.kernel_shap._powerset(
+    X, w = cuml.explainer.kernel_shap._powerset(
         5, 2, 2**5 - 2, full_powerset=True)
 
     y = cp.random.rand(X.shape[0])
     nz = \
-        cuml.experimental.explainer.kernel_shap._l1_regularization(
+        cuml.explainer.kernel_shap._l1_regularization(
             X=cp.asarray(X).astype(np.float32),
             y=cp.asarray(y).astype(np.float32),
             weights=cp.asarray(w),
             expected_value=0.0,
             fx=0.0,
-            link_fn=cuml.experimental.explainer.common.identity,
+            link_fn=cuml.explainer.common.identity,
             l1_reg=l1_type
         )
     assert isinstance(nz, cp.ndarray)

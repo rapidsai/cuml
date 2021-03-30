@@ -21,10 +21,10 @@ import time
 
 from cuml.common.import_utils import has_sklearn
 from cuml.common.input_utils import input_to_cupy_array
-from cuml.experimental.explainer.base import SHAPBase
-from cuml.experimental.explainer.common import get_cai_ptr
-from cuml.experimental.explainer.common import model_func_call
-from cuml.experimental.explainer.common import output_list_shap_values
+from cuml.explainer.base import SHAPBase
+from cuml.explainer.common import get_cai_ptr
+from cuml.explainer.common import model_func_call
+from cuml.explainer.common import output_list_shap_values
 from cuml.linear_model import Lasso
 from cuml.linear_model import LinearRegression
 from cuml.raft.common.handle import Handle

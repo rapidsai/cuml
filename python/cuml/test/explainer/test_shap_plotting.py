@@ -16,7 +16,7 @@
 
 import pytest
 
-from cuml.experimental.explainer.kernel_shap import KernelExplainer as cuKE
+from cuml import KernelExplainer as cuKE
 from cuml import LinearRegression
 
 
