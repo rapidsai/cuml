@@ -523,6 +523,16 @@ class TSNE(Base,
                             <bool> True,
                             algo)
         else:
+            print("Python Params")
+            print("Early Exaggeration: ", self.early_exaggeration)
+            print("Late Exaggeration: ", self.late_exaggeration)
+            print("Exaggeration Iter: ", self.exaggeration_iter)
+            print("Pre Learning Rate: ", self.pre_learning_rate)
+            print("Post Learning Rate: ", self.post_learning_rate)
+            print("Max Iter: ", self.n_iter)
+            print("Min Grad Norm: ", self.min_grad_norm)
+            print("Pre Momentum: ", self.pre_momentum)
+            print("Post Momentum: ", self.post_momentum)
             TSNE_fit(handle_[0],
                      <float*><uintptr_t> self.X_m.ptr,
                      <float*> embed_ptr,

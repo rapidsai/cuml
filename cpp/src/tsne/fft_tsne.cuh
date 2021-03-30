@@ -148,6 +148,18 @@ void FFT_TSNE(value_t *VAL, const value_idx *COL, const value_idx *ROW,
               const int max_iter, const float min_grad_norm,
               const float pre_momentum, const float post_momentum,
               const long long random_state, const bool initialize_embeddings) {
+  // raft::print_device_vector("VAL", VAL, NNZ, std::cout);
+  // raft::print_device_vector("Y", Y, n, std::cout);
+  std::cout << "CPP Params" << std::endl;
+  std::cout << "Early Exaggeration: " << early_exaggeration << std::endl;
+  std::cout << "Late Exaggeration: " << late_exaggeration << std::endl;
+  std::cout << "Exaggeration Iter: " << exaggeration_iter << std::endl;
+  std::cout << "Pre-Learning-Rate: " << pre_learning_rate << std::endl;
+  std::cout << "Post-Learning-Rate: " << post_learning_rate << std::endl;
+  std::cout << "Max_Iter: " << max_iter << std::endl;
+  std::cout << "Min_Grad_Norm: " << min_grad_norm << std::endl;
+  std::cout << "Pre-Momentum: " << pre_momentum << std::endl;
+  std::cout << "Post-Momentum: " << post_momentum << std::endl;
   auto d_alloc = handle.get_device_allocator();
   auto stream = handle.get_stream();
 
