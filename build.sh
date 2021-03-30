@@ -83,6 +83,10 @@ BUILD_STATIC_FAISS=OFF
 INSTALL_PREFIX=${INSTALL_PREFIX:=${PREFIX:=${CONDA_PREFIX}}}
 PARALLEL_LEVEL=${PARALLEL_LEVEL:=""}
 
+
+# Default to Ninja if generator is not specified
+export CMAKE_GENERATOR="${CMAKE_GENERATOR:=Ninja}"
+
 # Allow setting arbitrary cmake args via the $CUML_ADDL_CMAKE_ARGS variable. Any
 # values listed here will override existing arguments. For example:
 # CUML_EXTRA_CMAKE_ARGS="-DBUILD_CUML_C_LIBRARY=OFF" ./build.sh
