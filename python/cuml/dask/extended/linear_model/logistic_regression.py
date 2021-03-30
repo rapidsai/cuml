@@ -19,17 +19,15 @@ from cuml.common.import_utils import has_daskglm
 
 import cupy as cp
 import numpy as np
-import pandas as pd
 from dask.utils import is_dataframe_like, is_series_like, is_arraylike
-import dask.array as da
 import cudf
 
 
 class LogisticRegression(BaseEstimator):
     """
     Distributed Logistic Regression for Binary classification.
-    
-    
+
+
     Parameters
     ----------
     fit_intercept: boolean (default = True)
@@ -43,48 +41,69 @@ class LogisticRegression(BaseEstimator):
        Inverse of regularization strength; must be a positive float.
     max_iter: int (default = 100)
         Maximum number of iterations taken for the solvers to converge.
-    rho, over_relax, abstol, reltol : float
-        Only used with the ``admm`` solver.
     verbose : int or boolean (default=False)
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
-        
+
     Attributes
     ----------
-    coef_: dev array, dim (n_features, 1)
+    coef_: device array (n_features, 1)
         The estimated coefficients for the logistic regression model.
     intercept_: device array (1,)
         The independent term. If `fit_intercept` is False, will be 0.
     solver: string
         Algorithm to use in the optimization process. Currently only `admm` is
         supported.
+
+    Notes
+    ------
+
+    This estimator is a wrapper class around Dask-GLM's
+    Logistic Regression estimator. Several methods in this wrapper class
+    duplicate code from Dask-GLM to create a user-friendly namespace.
     """
 
-    def __init__(self,
-                 client=None,
-                 fit_intercept=True, 
-                 solver="admm",
-                 penalty="l2",
-                 C=1.0,
-                 max_iter=100,
-                 verbose=False,
-                 **kwargs
-                ):
-        super(LogisticRegression, self).__init__(client=client,
-                                                 verbose=verbose,
-                                                 **kwargs)
+    def __init__(
+        self,
+        client=None,
+        fit_intercept=True,
+        solver="admm",
+        penalty="l2",
+        C=1.0,
+        max_iter=100,
+        verbose=False,
+        **kwargs
+    ):
+        super(LogisticRegression, self).__init__(
+            client=client, verbose=verbose, **kwargs
+        )
 
         if not has_daskglm("0.2.1.dev"):
             raise ImportError(
                 "dask-glm >= 0.2.1.dev was not found, please install it"
-                " to use multi-GPU logistic regression.")
-        
+                " to use multi-GPU logistic regression."
+            )
+
+        from dask_glm.estimators import LogisticRegression \
+            as LogisticRegressionGLM
+
+        self.fit_intercept = fit_intercept
         self.solver = solver
-        self.lambda = 1/C
+        self.penalty = penalty
+        self.C = C
+        self.max_iter = max_iter
+
         if self.solver != "admm":
             raise TypeError("Only ADMM solver is currently supported.")
 
-    
+        self.solver_model = LogisticRegressionGLM(
+            solver=self.solver,
+            fit_intercept=self.fit_intercept,
+            regularizer=self.penalty,
+            max_iter=self.max_iter,
+            lamduh=1 / self.C,
+        )
+
     @with_cupy_rmm
     def fit(self, X, y):
         """
@@ -97,16 +116,10 @@ class LogisticRegression(BaseEstimator):
         y : Dask cuDF Series or CuPy backed Dask Array (n_rows,)
             Label (outcome values)
         """
-        from dask_glm.estimators import LogisticRegression as LogisticRegressionGLM
 
         X = self._input_to_dask_cupy_array(X)
         y = self._input_to_dask_cupy_array(y)
-        self.internal_model = LogisticRegressionGLM(
-            solver=self.solver,
-            fit_intercept=self.fit_intercept
-            **self.kwargs
-        )
-        self.internal_model.fit(X, y)
+        self.solver_model.fit(X, y)
         self._finalize_coefs()
         return self
 
@@ -126,12 +139,12 @@ class LogisticRegression(BaseEstimator):
         y : Dask cuDF Series or CuPy backed Dask Array (n_rows,)
         """
         X = self._input_to_dask_cupy_array(X)
-        return self.predict_proba(X) > .5
+        return self.predict_proba(X) > 0.5
 
     @with_cupy_rmm
     def predict_proba(self, X):
         from dask_glm.utils import sigmoid
-        
+
         X = self._input_to_dask_cupy_array(X)
         return sigmoid(self.decision_function(X))
 
@@ -151,16 +164,17 @@ class LogisticRegression(BaseEstimator):
     @with_cupy_rmm
     def _finalize_coefs(self):
         if self.fit_intercept:
-            # _coef contains both coefficients and intercept
-            self._coef = cp.asarray(self.internal_model._coef)
+            # _coef contains both coefficients and (potentially) intercept
+            self._coef = cp.asarray(self.solver_model._coef)
             self.coef_ = self._coef[:-1]
-            self.intercept_ = self.internal_model._coef[-1]
+            self.intercept_ = self.solver_model._coef[-1]
         else:
-            self.coef_ = cp.asarray(self.internal_model._coef)
-            
+            self.coef_ = cp.asarray(self.solver_model._coef)
+
     @with_cupy_rmm
     def _maybe_add_intercept(self, X):
         from dask_glm.utils import add_intercept
+
         if self.fit_intercept:
             return add_intercept(X)
         else:
@@ -168,25 +182,27 @@ class LogisticRegression(BaseEstimator):
 
     @with_cupy_rmm
     def _input_to_dask_cupy_array(self, X):
-        if (is_dataframe_like(X) or is_series_like(X)) and \
-            hasattr(X, "dask"):
-            
+        if (is_dataframe_like(X) or is_series_like(X)) and hasattr(X, "dask"):
+
             if not isinstance(X._meta, (cudf.Series, cudf.DataFrame)):
-                raise TypeError("Please convert your Dask DataFrame" 
-                                " to a Dask-cuDF DataFrame using dask_cudf.")
+                raise TypeError(
+                    "Please convert your Dask DataFrame"
+                    " to a Dask-cuDF DataFrame using dask_cudf."
+                )
             X = X.values
             X._meta = cp.asarray(X._meta)
-                
+
         elif is_arraylike(X) and hasattr(X, "dask"):
             if not isinstance(X._meta, cp.ndarray):
-                raise TypeError("Please convert your CPU Dask Array" 
-                                " to a GPU Dask Array using" 
-                                " arr.map_blocks(cp.asarray).")
+                raise TypeError(
+                    "Please convert your CPU Dask Array"
+                    " to a GPU Dask Array using"
+                    " arr.map_blocks(cp.asarray)."
+                )
         else:
-            raise TypeError(
-                "Please pass a GPU backed Dask DataFrame or Dask Array."
-            )
-        
+            raise TypeError("Please pass a GPU backed Dask DataFrame"
+                            " or Dask Array.")
+
         X.compute_chunk_sizes()
         return X
 
