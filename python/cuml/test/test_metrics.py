@@ -1294,7 +1294,6 @@ def test_sparse_pairwise_distances_sklearn_comparison(metric: str, matrix_size,
         S2 = ref_pairwise_dist(sk_array(X), sk_array(Y), metric=metric)
         cp.testing.assert_array_almost_equal(S, S2, decimal=compare_precision)
 
-
     # For fp32, compare at 3 decimals, (4 places less than the ~7 max)
     compare_precision = 3
 
