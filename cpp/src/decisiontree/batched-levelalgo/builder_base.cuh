@@ -221,6 +221,7 @@ struct Builder {
       // x2 for left and right children
       d_wsize +=
         calculateAlignedBytes(2 * nPredCounts * sizeof(DataT));  // pred
+        // calculateAlignedBytes(max_batch * ( 1 + params.n_bins ) * n_col_blks * sizeof(DataT));  // pred
       d_wsize +=
         calculateAlignedBytes(2 * nPredCounts * sizeof(DataT));       // pred2
       d_wsize += calculateAlignedBytes(nPredCounts * sizeof(DataT));  // pred2P
@@ -523,12 +524,14 @@ struct RegTraits {
       "Builder::computeSplit @builder_base.cuh [batched-levelalgo]");
     auto n_col_blks = std::min(b.n_blks_for_cols, b.input.nSampledCols - col);
     auto nbins = b.params.n_bins;
-    size_t smemSize = 7 * nbins * sizeof(DataT) + nbins * sizeof(int);
+    size_t smemSize = ( 8 * nbins + 1 ) * sizeof(DataT)
+                      + 2 * nbins * sizeof(int);
     smemSize += sizeof(int);
 
     // Room for alignment in worst case (see alignPointer in
     // computeSplitRegressionKernel)
-    smemSize += 5 * sizeof(DataT) + 2 * sizeof(int);
+    // smemSize += 5 * sizeof(DataT) + 2 * sizeof(int);
+    smemSize += 6 * sizeof(DataT) + 3 * sizeof(int);
     int n_blks_for_rows = b.n_blks_for_rows(
       n_col_blks,
       (const void*)
