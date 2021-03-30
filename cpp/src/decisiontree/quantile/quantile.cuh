@@ -242,6 +242,19 @@ void computeQuantiles(T *quantiles, int n_bins, const T *data, int n_rows,
       n_rows);
 
     CUDA_CHECK(cudaGetLastError());
+    // DEBUG_CODE
+    // if (col == 43) {
+    //   T* h_quantile = nullptr;
+    //   h_quantile = (T*)malloc(n_bins*sizeof(T));
+    //   raft::update_host(h_quantile, &quantiles[quantile_offset], n_bins,
+    //                     stream);
+    //   CUDA_CHECK(cudaStreamSynchronize(stream));
+    //   for (int bin = 0; bin < n_bins; bin++) {
+    //     printf("%.10f, ", h_quantile[bin]);
+    //   }
+    //   printf("\n");
+    //   free(h_quantile);
+    // }
   }
 
   return;
