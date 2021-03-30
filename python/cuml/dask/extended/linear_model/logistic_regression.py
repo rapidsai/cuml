@@ -138,7 +138,6 @@ class LogisticRegression(BaseEstimator):
         -------
         y : Dask cuDF Series or CuPy backed Dask Array (n_rows,)
         """
-        X = self._input_to_dask_cupy_array(X)
         return self.predict_proba(X) > 0.5
 
     @with_cupy_rmm
@@ -159,17 +158,18 @@ class LogisticRegression(BaseEstimator):
         from dask_glm.utils import accuracy_score
 
         X = self._input_to_dask_cupy_array(X)
+        y = self._input_to_dask_cupy_array(y)
         return accuracy_score(y, self.predict(X))
 
     @with_cupy_rmm
     def _finalize_coefs(self):
+        # _coef contains coefficients and (potentially) intercept
+        self._coef = cp.asarray(self.solver_model._coef)
         if self.fit_intercept:
-            # _coef contains both coefficients and (potentially) intercept
-            self._coef = cp.asarray(self.solver_model._coef)
             self.coef_ = self._coef[:-1]
             self.intercept_ = self.solver_model._coef[-1]
         else:
-            self.coef_ = cp.asarray(self.solver_model._coef)
+            self.coef_ = self._coef
 
     @with_cupy_rmm
     def _maybe_add_intercept(self, X):
