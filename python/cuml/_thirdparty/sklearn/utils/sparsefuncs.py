@@ -64,8 +64,9 @@ def inplace_csr_column_scale(X, scale):
         Array of precomputed feature-wise values to use for scaling.
     """
     assert scale.shape[0] == X.shape[1]
-    X.indices[X.indices >= X.shape[1]] = X.shape[1] - 1
-    X.data *= scale.take(X.indices)
+    indices_copy = X.indices.copy()
+    indices_copy[indices_copy >= X.shape[1]] = X.shape[1] - 1
+    X.data *= scale.take(indices_copy)
 
 
 def inplace_csr_row_scale(X, scale):
@@ -84,6 +85,28 @@ def inplace_csr_row_scale(X, scale):
     """
     assert scale.shape[0] == X.shape[0]
     X.data *= np.repeat(scale, np.diff(X.indptr).tolist())
+
+
+def inplace_column_scale(X, scale):
+    """Inplace column scaling of a CSC/CSR matrix.
+
+    Scale each feature of the data matrix by multiplying with specific scale
+    provided by the caller assuming a (n_samples, n_features) shape.
+
+    Parameters
+    ----------
+    X : CSC or CSR matrix with shape (n_samples, n_features)
+        Matrix to normalize using the variance of the features.
+
+    scale : float array with shape (n_features,)
+        Array of precomputed feature-wise values to use for scaling.
+    """
+    if iscsc(X):
+        inplace_csr_row_scale(X.T, scale)
+    elif iscsr(X):
+        inplace_csr_column_scale(X, scale)
+    else:
+        _raise_typeerror(X)
 
 
 def mean_variance_axis(X, axis):
@@ -123,46 +146,27 @@ def mean_variance_axis(X, axis):
         _raise_typeerror(X)
 
 
-def inplace_column_scale(X, scale):
-    """Inplace column scaling of a CSC/CSR matrix.
-
-    Scale each feature of the data matrix by multiplying with specific scale
-    provided by the caller assuming a (n_samples, n_features) shape.
-
-    Parameters
-    ----------
-    X : CSC or CSR matrix with shape (n_samples, n_features)
-        Matrix to normalize using the variance of the features.
-
-    scale : float array with shape (n_features,)
-        Array of precomputed feature-wise values to use for scaling.
-    """
-    if iscsc(X):
-        inplace_csr_row_scale(X.T, scale)
-    elif iscsr(X):
-        inplace_csr_column_scale(X, scale)
-    else:
-        _raise_typeerror(X)
+ufunc_dic = {
+    'min': np.min,
+    'max': np.max,
+    'nanmin': np.min,
+    'nanmax': np.nanmax
+}
 
 
 def _minor_reduce(X, min_or_max):
-    if min_or_max == 'min':
-        min_or_max = np.min
-    else:
-        min_or_max = np.max
-
+    fminmax = ufunc_dic[min_or_max]
     major_index = np.flatnonzero(np.diff(X.indptr))
-
     # reduceat tries casts X.indptr to intp, which errors
     # if it is int64 on a 32 bit system.
     # Reinitializing prevents this where possible, see #13737
     X = type(X)((X.data, X.indices, X.indptr), shape=X.shape)
 
     value = cpu_np.zeros(len(X.indptr)-1, dtype=X.dtype)
-
     start = X.indptr[0]
     for i, end in enumerate(X.indptr[1:]):
-        value[i] = min_or_max(X.data[start:end])
+        if start != end:
+            value[i] = fminmax(X.data[start:end])
         start = end
 
     value = np.array(value)
@@ -178,11 +182,14 @@ def _min_or_max_axis(X, axis, min_or_max):
     mat.sum_duplicates()
     major_index, value = _minor_reduce(mat, min_or_max)
     not_full = np.diff(mat.indptr)[major_index] < N
-    if min_or_max == 'min':
-        min_or_max = np.fmin
+    if 'min' in min_or_max:
+        fminmax = np.fmin
     else:
-        min_or_max = np.fmax
-    value[not_full] = min_or_max(value[not_full], 0)
+        fminmax = np.fmax
+    is_nan = np.isnan(value)
+    value[not_full] = fminmax(value[not_full], 0)
+    if 'nan' not in min_or_max:
+        value[is_nan] = np.nan
     mask = value != 0
     major_index = np.compress(mask, major_index)
     value = np.compress(mask, value)
@@ -203,14 +210,16 @@ def _sparse_min_or_max(X, axis, min_or_max):
         zero = X.dtype.type(0)
         if X.nnz == 0:
             return zero
-        if min_or_max == 'min':
-            fminmax = np.min
-        else:
-            fminmax = np.max
-        m = fminmax.reduce(X.data.ravel())
-        if X.nnz != np.product(X.shape):
-            m = fminmax(zero, m)
-        return m
+        fminmax = ufunc_dic[min_or_max]
+        m = fminmax(X.data)
+        if np.isnan(m) and 'nan' in min_or_max:
+            m = 0
+        if X.nnz != X.size:
+            if 'min' in min_or_max:
+                m = m if m <= 0 else 0
+            else:
+                m = m if m >= 0 else 0
+        return X.dtype.type(m)
     if axis < 0:
         axis += 2
     if (axis == 0) or (axis == 1):
@@ -225,8 +234,8 @@ def _sparse_min_max(X, axis):
 
 
 def _sparse_nan_min_max(X, axis):
-    return(_sparse_min_or_max(X, axis, 'min'),
-           _sparse_min_or_max(X, axis, 'max'))
+    return(_sparse_min_or_max(X, axis, 'nanmin'),
+           _sparse_min_or_max(X, axis, 'nanmax'))
 
 
 def min_max_axis(X, axis, ignore_nan=False):
