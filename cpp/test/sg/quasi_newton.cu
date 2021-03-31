@@ -223,6 +223,9 @@ TEST_F(QuasiNewtonTest, binary_logistic_vs_sklearn) {
 }
 
 TEST_F(QuasiNewtonTest, multiclass_logistic_vs_sklearn) {
+#if CUDART_VERSION >= 11020
+  GTEST_SKIP();
+#endif
   // The data seems to small for the objective to be strongly convex
   // leaving out exact param checks
 
