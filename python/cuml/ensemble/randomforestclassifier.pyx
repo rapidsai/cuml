@@ -208,7 +208,7 @@ class RandomForestClassifier(BaseRandomForestModel,
         If 'auto' then max_features=1/sqrt(n_features).
         If 'sqrt' then max_features=1/sqrt(n_features).
         If 'log2' then max_features=log2(n_features)/n_features.
-    n_bins : int (default = 8)
+    n_bins : int (default = 32)
         Number of bins used by the split algorithm.
     min_samples_leaf : int or float (default = 1)
         The minimum number of samples (rows) in each leaf node.
@@ -232,7 +232,7 @@ class RandomForestClassifier(BaseRandomForestModel,
         .. deprecated:: 0.19
            Parameter 'quantile_per_tree' is deprecated and will be removed in
            subsequent release.
-    use_experimental_backend : boolean (default = False)
+    use_experimental_backend : boolean (default = True)
         If set to true and  following conditions are also met, experimental
         decision tree training implementation would be used only if
         `split_algo = 1` (GLOBAL_QUANTILE) and `quantile_per_tree = False`
@@ -265,7 +265,8 @@ class RandomForestClassifier(BaseRandomForestModel,
     """
 
     def __init__(self, split_criterion=0, handle=None, verbose=False,
-                 output_type=None, **kwargs):
+                 output_type=None, n_bins=32, use_experimental_backend=True,
+                 **kwargs):
 
         self.RF_type = CLASSIFICATION
         self.num_classes = 2
@@ -274,6 +275,8 @@ class RandomForestClassifier(BaseRandomForestModel,
             handle=handle,
             verbose=verbose,
             output_type=output_type,
+            n_bins=n_bins,
+            use_experimental_backend=use_experimental_backend,
             **kwargs)
 
     """
