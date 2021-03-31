@@ -43,7 +43,6 @@ from ..utils.sparsefuncs import (inplace_column_scale,
 from ....thirdparty_adapters.sparsefuncs_fast import \
     (inplace_csr_row_normalize_l1, inplace_csr_row_normalize_l2,
      csr_polynomial_expansion)
-from ....common.import_utils import check_cupy8
 
 from ....common.array import CumlArray
 from ....common.array_sparse import SparseCumlArray
@@ -917,7 +916,6 @@ class MaxAbsScaler(TransformerMixin,
     n_samples_seen_ = CumlArrayDescriptor()
     max_abs_ = CumlArrayDescriptor()
 
-    @check_cupy8()
     @_deprecate_positional_args
     def __init__(self, *, copy=True):
         self.copy = copy
@@ -1040,7 +1038,6 @@ class MaxAbsScaler(TransformerMixin,
         return X
 
 
-@check_cupy8()
 @_deprecate_positional_args
 @api_return_generic(get_output_type=True)
 def maxabs_scale(X, *, axis=0, copy=True):
@@ -1448,7 +1445,6 @@ class PolynomialFeatures(TransformerMixin,
     exponentially in the degree. High degrees can cause overfitting.
     """
 
-    @check_cupy8()
     @_deprecate_positional_args
     def __init__(self, degree=2, *, interaction_only=False, include_bias=True,
                  order='C'):
@@ -1466,7 +1462,6 @@ class PolynomialFeatures(TransformerMixin,
         ]
 
     @staticmethod
-    @check_cupy8()
     def _combinations(n_features, degree, interaction_only, include_bias):
         comb = (combinations if interaction_only else combinations_w_r)
         start = int(not include_bias)
@@ -1663,7 +1658,6 @@ class PolynomialFeatures(TransformerMixin,
         return XP  # TODO keep order
 
 
-@check_cupy8()
 @_deprecate_positional_args
 @api_return_generic(get_output_type=True)
 def normalize(X, norm='l2', *, axis=1, copy=True, return_norm=False):
@@ -1810,7 +1804,6 @@ class Normalizer(TransformerMixin,
     normalize: Equivalent function without the estimator API.
     """
 
-    @check_cupy8()
     @_deprecate_positional_args
     def __init__(self, norm='l2', *, copy=True):
         self.norm = norm
