@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020, NVIDIA CORPORATION.
+# Copyright (c) 2020-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -55,22 +55,17 @@ class BaseRandomForestModel(Base):
 
     classes_ = CumlArrayDescriptor()
 
-    def __init__(self, *, split_criterion, seed=None,
-                 n_streams=8, n_estimators=100,
-                 max_depth=16, handle=None, max_features='auto',
-                 n_bins=8, split_algo=1, bootstrap=True,
-                 bootstrap_features=False,
-                 verbose=False, min_rows_per_node=None,
-                 min_samples_leaf=1, min_samples_split=2,
-                 rows_sample=None, max_samples=1.0, max_leaves=-1,
-                 accuracy_metric=None, dtype=None,
-                 output_type=None,
-                 min_weight_fraction_leaf=None, n_jobs=None,
-                 max_leaf_nodes=None, min_impurity_decrease=0.0,
-                 min_impurity_split=None, oob_score=None,
-                 random_state=None, warm_start=None, class_weight=None,
-                 quantile_per_tree=False, criterion=None,
-                 use_experimental_backend=False, max_batch_size=128):
+    def __init__(self, *, split_criterion, n_streams=8, n_estimators=100,
+                 max_depth=16, handle=None, max_features='auto', n_bins=8,
+                 split_algo=1, bootstrap=True, bootstrap_features=False,
+                 verbose=False, min_samples_leaf=1, min_samples_split=2,
+                 max_samples=1.0, max_leaves=-1, accuracy_metric=None,
+                 dtype=None, output_type=None, min_weight_fraction_leaf=None,
+                 n_jobs=None, max_leaf_nodes=None, min_impurity_decrease=0.0,
+                 min_impurity_split=None, oob_score=None, random_state=None,
+                 warm_start=None, class_weight=None, quantile_per_tree=False,
+                 criterion=None, use_experimental_backend=False,
+                 max_batch_size=128):
 
         sklearn_params = {"criterion": criterion,
                           "min_weight_fraction_leaf": min_weight_fraction_leaf,
@@ -89,20 +84,6 @@ class BaseRandomForestModel(Base):
                     "(https://docs.rapids.ai/api/cuml/nightly/"
                     "api.html#random-forest) for more information")
 
-        if seed is not None:
-            if random_state is None:
-                warnings.warn("Parameter 'seed' is deprecated and will be"
-                              " removed in 0.17. Please use 'random_state'"
-                              " instead. Setting 'random_state' as the"
-                              " curent 'seed' value",
-                              DeprecationWarning)
-                random_state = seed
-            else:
-                warnings.warn("Both 'seed' and 'random_state' parameters were"
-                              " set. Using 'random_state' since 'seed' is"
-                              " deprecated and will be removed in 0.17.",
-                              DeprecationWarning)
-
         if ((random_state is not None) and (n_streams != 1)):
             warnings.warn("For reproducible results in Random Forest"
                           " Classifier or for almost reproducible results"
@@ -110,16 +91,10 @@ class BaseRandomForestModel(Base):
                           "recommended. If n_streams is > 1, results may vary "
                           "due to stream/thread timing differences, even when "
                           "random_state is set")
-        if min_rows_per_node is not None:
-            warnings.warn("The 'min_rows_per_node' parameter is deprecated "
-                          "and will be removed in 0.18. Please use "
-                          "'min_samples_leaf' parameter instead.")
-            min_samples_leaf = min_rows_per_node
-        if rows_sample is not None:
-            warnings.warn("The 'rows_sample' parameter is deprecated and will "
-                          "be removed in 0.18. Please use 'max_samples' "
-                          "parameter instead.")
-            max_samples = rows_sample
+        if quantile_per_tree:
+            warnings.warn("The 'quantile_per_tree' parameter is deprecated "
+                          "and will be removed in 0.20 release. Instead use "
+                          "higher number of global quantile bins.")
         if handle is None:
             handle = Handle(n_streams)
 
