@@ -255,7 +255,7 @@ if [ -n "${CODECOV_TOKEN}" ]; then
     CODECOV_NAME=${JOB_BASE_NAME:-"${OS},py${PYTHON},cuda${CUDA}"}
 
     # Codecov args needed by both calls
-    EXTRA_CODECOV_ARGS=("-c")
+    EXTRA_CODECOV_ARGS=()
 
     # Save the OS PYTHON and CUDA flags
     EXTRA_CODECOV_ARGS+=("-e" "OS,PYTHON,CUDA")
@@ -288,8 +288,8 @@ if [ -n "${CODECOV_TOKEN}" ]; then
 
     # Upload the two reports with separate flags. Delete the report on success
     # to prevent further CI steps from re-uploading
-    gpuci_retry ${WORKSPACE}/codecov.sh -F non-dask -f ${REPORT_DIR}/cuml-coverage.xml -n "$CODECOV_NAME,non-dask" "${EXTRA_CODECOV_ARGS[@]}"
-    gpuci_retry ${WORKSPACE}/codecov.sh -F dask -f ${REPORT_DIR}/cuml-dask-coverage.xml -n "$CODECOV_NAME,dask" "${EXTRA_CODECOV_ARGS[@]}"
+    gpuci_retry ${WORKSPACE}/codecov.sh -F non-dask -f ${REPORT_DIR}/cuml-coverage.xml -n "$CODECOV_NAME,non-dask" "${EXTRA_CODECOV_ARGS[@]}" && rm ${REPORT_DIR}/cuml-coverage.xml
+    gpuci_retry ${WORKSPACE}/codecov.sh -F dask -f ${REPORT_DIR}/cuml-dask-coverage.xml -n "$CODECOV_NAME,dask" "${EXTRA_CODECOV_ARGS[@]}" && rm ${REPORT_DIR}/cuml-dask-coverage.xml
 fi
 
 return ${EXITCODE}
