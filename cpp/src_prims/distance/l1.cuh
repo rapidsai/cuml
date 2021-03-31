@@ -92,11 +92,12 @@ template <typename DataT, typename AccT, typename OutT, typename IdxT,
 void l1(IdxT m, IdxT n, IdxT k, IdxT lda, IdxT ldb, IdxT ldd, const DataT *x,
         const DataT *y, OutT *dOutput, FinalLambda fin_op,
         cudaStream_t stream) {
-  size_t bytes = sizeof(DataT) * k;
-  if (16 % sizeof(DataT) == 0 && bytes % 16 == 0) {
+  size_t bytesA = sizeof(DataT) * lda;
+  size_t bytesB = sizeof(DataT) * ldb;
+  if (16 % sizeof(DataT) == 0 && bytesA % 16 == 0 && bytesB % 16 == 0) {
     l1Impl<DataT, AccT, OutT, IdxT, 16 / sizeof(DataT), FinalLambda,
            isRowMajor>(x, y, m, n, k, lda, ldb, ldd, dOutput, fin_op, stream);
-  } else if (8 % sizeof(DataT) == 0 && bytes % 8 == 0) {
+  } else if (8 % sizeof(DataT) == 0 && bytesA % 8 == 0 && bytesB % 8 == 0) {
     l1Impl<DataT, AccT, OutT, IdxT, 8 / sizeof(DataT), FinalLambda, isRowMajor>(
       x, y, m, n, k, lda, ldb, ldd, dOutput, fin_op, stream);
   } else {
