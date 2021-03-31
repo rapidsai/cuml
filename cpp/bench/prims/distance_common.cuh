@@ -54,9 +54,8 @@ struct Distance : public Fixture {
   }
 
   void runBenchmark(::benchmark::State& state) override {
-    typedef cutlass::Shape<8, 128, 128> OutputTile_t;
     loopOnState(state, [this]() {
-      MLCommon::Distance::distance<DType, T, T, T, OutputTile_t>(
+      MLCommon::Distance::distance<DType, T, T, T>(
         x, y, out, params.m, params.n, params.k, (void*)workspace, worksize,
         stream);
     });
