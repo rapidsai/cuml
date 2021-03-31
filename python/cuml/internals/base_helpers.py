@@ -20,6 +20,7 @@ import typing
 import cuml
 import cuml.internals
 import cuml.common
+from cuml.internals.api_decorators import CUML_WRAPPED_FLAG
 
 
 def _process_generic(gen_type):
@@ -104,7 +105,7 @@ def _wrap_attribute(class_name: str,
                     **kwargs):
 
     # Skip items marked with autowrap_ignore
-    if (attribute.__dict__.get("__cuml_is_wrapped", False)):
+    if (attribute.__dict__.get(CUML_WRAPPED_FLAG, False)):
         return attribute
 
     return_type = _get_base_return_type(class_name, attribute)

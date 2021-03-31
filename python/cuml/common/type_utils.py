@@ -21,19 +21,19 @@ import cupy as cp
 # Those are the only data types supported by cupyx.scipy.sparse matrices.
 CUPY_SPARSE_DTYPES = [cp.float32, cp.float64, cp.complex64, cp.complex128]
 
-# Use _F as a type variable for decorators. See:
+# Use _DecoratorType as a type variable for decorators. See:
 # https://github.com/python/mypy/pull/8336/files#diff-eb668b35b7c0c4f88822160f3ca4c111f444c88a38a3b9df9bb8427131538f9cR260
-_F = typing.TypeVar("_F", bound=typing.Callable[..., typing.Any])
+_DecoratorType = typing.TypeVar("_DecoratorType",
+                                bound=typing.Callable[..., typing.Any])
 
 
 def wraps_typed(
-        wrapped: _F,
-        assigned=('__doc__', '__annotations__'),
-        updated=functools.WRAPPER_UPDATES) -> typing.Callable[[_F], _F]:
+    wrapped: _DecoratorType,
+    assigned=('__doc__', '__annotations__'),
+    updated=functools.WRAPPER_UPDATES
+) -> typing.Callable[[_DecoratorType], _DecoratorType]:
     """
     Typed version of `functools.wraps`. Allows decorators to retain their
     return type.
     """
-    return functools.wraps(wrapped=wrapped,
-                           assigned=assigned,
-                           updated=updated)
+    return functools.wraps(wrapped=wrapped, assigned=assigned, updated=updated)

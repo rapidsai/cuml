@@ -25,7 +25,7 @@ import cuml.common
 import cuml.common.array
 import cuml.common.array_sparse
 import cuml.common.input_utils
-from cuml.common.type_utils import _F
+from cuml.common.type_utils import _DecoratorType
 from cuml.internals.api_context_managers import BaseReturnAnyCM
 from cuml.internals.api_context_managers import BaseReturnArrayCM
 from cuml.internals.api_context_managers import BaseReturnGenericCM
@@ -39,6 +39,7 @@ from cuml.internals.api_context_managers import set_api_output_dtype
 from cuml.internals.api_context_managers import set_api_output_type
 from cuml.internals.base_helpers import _get_base_return_type
 
+CUML_WRAPPED_FLAG = "__cuml_is_wrapped"
 
 class DecoratorMetaClass(type):
     """
@@ -55,7 +56,7 @@ class DecoratorMetaClass(type):
             def wrap_call(*args, **kwargs):
                 ret_val = func(*args, **kwargs)
 
-                ret_val.__dict__["__cuml_is_wrapped"] = True
+                ret_val.__dict__[CUML_WRAPPED_FLAG] = True
 
                 return ret_val
 
@@ -342,7 +343,7 @@ class ReturnDecorator(metaclass=DecoratorMetaClass):
 
         self.do_autowrap = False
 
-    def __call__(self, func: _F) -> _F:
+    def __call__(self, func: _DecoratorType) -> _DecoratorType:
         raise NotImplementedError()
 
     def _recreate_cm(self, func, args) -> InternalAPIContextBase:
@@ -350,7 +351,7 @@ class ReturnDecorator(metaclass=DecoratorMetaClass):
 
 
 class ReturnAnyDecorator(ReturnDecorator):
-    def __call__(self, func: _F) -> _F:
+    def __call__(self, func: _DecoratorType) -> _DecoratorType:
         @wraps(func)
         def inner(*args, **kwargs):
             with self._recreate_cm(func, args):
@@ -387,7 +388,7 @@ class BaseReturnAnyDecorator(ReturnDecorator,
 
         self.do_autowrap = self.has_setters
 
-    def __call__(self, func: _F) -> _F:
+    def __call__(self, func: _DecoratorType) -> _DecoratorType:
 
         self.prep_arg_to_use(func)
 
@@ -443,7 +444,7 @@ class ReturnArrayDecorator(ReturnDecorator,
 
         self.do_autowrap = self.has_getters
 
-    def __call__(self, func: _F) -> _F:
+    def __call__(self, func: _DecoratorType) -> _DecoratorType:
 
         self.prep_arg_to_use(func)
 
@@ -518,7 +519,7 @@ class BaseReturnArrayDecorator(ReturnDecorator,
 
         self.do_autowrap = self.has_setters or self.has_getters
 
-    def __call__(self, func: _F) -> _F:
+    def __call__(self, func: _DecoratorType) -> _DecoratorType:
 
         self.prep_arg_to_use(func)
 
@@ -672,9 +673,9 @@ api_base_return_generic_skipall = BaseReturnGenericDecorator(
     get_output_type=False)
 
 
-def api_ignore(func: _F) -> _F:
+def api_ignore(func: _DecoratorType) -> _DecoratorType:
 
-    func.__dict__["__cuml_is_wrapped"] = True
+    func.__dict__[CUML_WRAPPED_FLAG] = True
 
     return func
 
@@ -700,15 +701,15 @@ def exit_internal_api():
 
 
 def mirror_args(
-        wrapped: _F,
+        wrapped: _DecoratorType,
         assigned=('__doc__', '__annotations__'),
-        updated=functools.WRAPPER_UPDATES) -> typing.Callable[[_F], _F]:
+        updated=functools.WRAPPER_UPDATES) -> typing.Callable[[_DecoratorType], _DecoratorType]:
     return wraps(wrapped=wrapped, assigned=assigned, updated=updated)
 
 
 @mirror_args(BaseReturnArrayDecorator)
 def api_base_return_autoarray(*args, **kwargs):
-    def inner(func: _F) -> _F:
+    def inner(func: _DecoratorType) -> _DecoratorType:
         # Determine the array return type and choose
         return_type = _get_base_return_type(None, func)
 

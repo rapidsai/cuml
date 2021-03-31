@@ -141,7 +141,7 @@ class CumlArray(Buffer):
         else:
             flattened_data = data
 
-        super(CumlArray, self).__init__(data=flattened_data,
+        super().__init__(data=flattened_data,
                                         owner=owner,
                                         size=size)
 
@@ -284,7 +284,7 @@ class CumlArray(Buffer):
         return self
 
     def serialize(self):
-        header, frames = super(CumlArray, self).serialize()
+        header, frames = super().serialize()
         header["constructor-kwargs"] = {
             "dtype": self.dtype.str,
             "shape": self.shape,

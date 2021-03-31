@@ -26,7 +26,7 @@ import cupyx
 import numba.cuda
 import numpy as np
 import pandas as pd
-from cuml.common.type_utils import _F, wraps_typed
+from cuml.common.type_utils import _DecoratorType, wraps_typed
 import cuml.internals
 import cuml.common.array
 from cuml.common.array import CumlArray
@@ -641,7 +641,7 @@ class _deprecate_pos_args:
 
         self._version = version
 
-    def __call__(self, func: _F) -> _F:
+    def __call__(self, func: _DecoratorType) -> _DecoratorType:
 
         sig = signature(func)
         kwonly_args = []

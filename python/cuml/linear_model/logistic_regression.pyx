@@ -495,6 +495,6 @@ class LogisticRegression(Base,
         return state
 
     def __setstate__(self, state):
-        super(LogisticRegression, self).__init__(handle=None,
-                                                 verbose=state["verbose"])
+        super().__init__(handle=None,
+                         verbose=state["verbose"])
         self.__dict__.update(state)
