@@ -24,152 +24,184 @@
 #include <matrix/kernelfactory.cuh>
 #include <memory>
 #include <raft/cuda_utils.cuh>
+#include <raft/random/rng.cuh>
+#include <rmm/device_uvector.hpp>
 #include "test_utils.h"
 
 namespace MLCommon {
 namespace Matrix {
 
-class GramMatrixTest : public ::testing::Test {
+// Get the offset of element [i,k].
+HDI int get_offset(int i, int k, int ld, bool is_row_major) {
+  return is_row_major ? i * ld + k : i + k * ld;
+}
+
+struct GramMatrixInputs {
+  int n1;      // feature vectors in matrix 1
+  int n2;      // featuer vectors in matrix 2
+  int n_cols;  // number of elements in a feature vector
+  bool is_row_major;
+  KernelParams kernel;
+  int ld1;
+  int ld2;
+  int ld_out;
+  // We will generate random input using the dimensions given here.
+  // The reference output is calculated by a custom kernel.
+};
+
+std::ostream& operator<<(std::ostream& os, const GramMatrixInputs& p) {
+  std::vector<std::string> kernel_names{"linear", "poly", "rbf", "tanh"};
+  os << "/" << p.n1 << "x" << p.n2 << "x" << p.n_cols << "/"
+     << (p.is_row_major ? "RowMajor/" : "ColMajor/")
+     << kernel_names[p.kernel.kernel] << "/ld_" << p.ld1 << "x" << p.ld2 << "x"
+     << p.ld_out;
+  return os;
+}
+
+const std::vector<GramMatrixInputs> inputs = {
+  {42, 137, 2, false, {KernelType::LINEAR}},
+  {42, 137, 2, true, {KernelType::LINEAR}},
+  {42, 137, 2, false, {KernelType::LINEAR}, 64, 179, 181},
+  {42, 137, 2, true, {KernelType::LINEAR}, 64, 179, 181},
+  {137, 42, 2, false, {KernelType::POLYNOMIAL, 2, 0.5, 2.4}},
+  {137, 42, 2, true, {KernelType::POLYNOMIAL, 2, 0.5, 2.4}},
+  {137, 42, 2, false, {KernelType::POLYNOMIAL, 2, 0.5, 2.4}, 159, 73, 144},
+  {137, 42, 2, true, {KernelType::POLYNOMIAL, 2, 0.5, 2.4}, 159, 73, 144},
+  {42, 137, 2, false, {KernelType::TANH, 0, 0.5, 2.4}},
+  {42, 137, 2, true, {KernelType::TANH, 0, 0.5, 2.4}},
+  {42, 137, 2, false, {KernelType::TANH, 0, 0.5, 2.4}, 64, 155, 49},
+  {42, 137, 2, true, {KernelType::TANH, 0, 0.5, 2.4}, 64, 155, 143},
+  {3, 4, 2, false, {KernelType::RBF, 0, 0.5}},
+  {42, 137, 2, false, {KernelType::RBF, 0, 0.5}},
+  {42, 137, 2, true, {KernelType::RBF, 0, 0.5}},
+  // Distance kernel does not support LD parameter yet.
+  //{42, 137, 2, false, {KernelType::RBF, 0, 0.5}, 64, 155, 49},
+  // {42, 137, 2, true, {KernelType::RBF, 0, 0.5}, 64, 155, 143},
+};
+
+template <typename math_t>
+class GramMatrixTest : public ::testing::TestWithParam<GramMatrixInputs> {
  protected:
-  void SetUp() override {
+  GramMatrixTest()
+    : params(GetParam()),
+      stream(0),
+      x1(0, stream),
+      x2(0, stream),
+      gram(0, stream),
+      gram_host(handle.get_host_allocator(), stream) {
     CUDA_CHECK(cudaStreamCreate(&stream));
-    CUBLAS_CHECK(cublasCreate(&cublas_handle));
-    allocator = std::make_shared<raft::mr::device::default_allocator>();
-    host_allocator = std::make_shared<raft::mr::host::default_allocator>();
-    raft::allocate(x_dev, n1 * n_cols);
-    raft::update_device(x_dev, x_host, n1 * n_cols, stream);
 
-    raft::allocate(gram_dev, n1 * n1);
+    if (params.ld1 == 0) {
+      params.ld1 = params.is_row_major ? params.n_cols : params.n1;
+    }
+    if (params.ld2 == 0) {
+      params.ld2 = params.is_row_major ? params.n_cols : params.n2;
+    }
+    if (params.ld_out == 0) {
+      params.ld_out = params.is_row_major ? params.n2 : params.n1;
+    }
+    // Derive the size of the ouptut from the offset of the last element.
+    size_t size = get_offset(params.n1 - 1, params.n_cols - 1, params.ld1,
+                             params.is_row_major) +
+                  1;
+    x1.resize(size, stream);
+    size = get_offset(params.n2 - 1, params.n_cols - 1, params.ld2,
+                      params.is_row_major) +
+           1;
+    x2.resize(size, stream);
+    size = get_offset(params.n1 - 1, params.n2 - 1, params.ld_out,
+                      params.is_row_major) +
+           1;
+    gram.resize(size, stream);
+    gram_host.resize(gram.size());
+
+    raft::random::Rng r(42137ULL);
+    r.uniform(x1.data(), x1.size(), math_t(0), math_t(1), stream);
+    r.uniform(x2.data(), x2.size(), math_t(0), math_t(1), stream);
+    CUDA_CHECK(
+      cudaMemsetAsync(gram.data(), 0, gram.size() * sizeof(math_t), stream));
+    CUDA_CHECK(cudaMemsetAsync(gram_host.data(), 0,
+                               gram_host.size() * sizeof(math_t), stream));
   }
 
-  void TearDown() override {
-    CUDA_CHECK(cudaStreamDestroy(stream));
-    CUDA_CHECK(cudaFree(x_dev));
-    CUDA_CHECK(cudaFree(gram_dev));
-    CUBLAS_CHECK(cublasDestroy(cublas_handle));
-  }
+  ~GramMatrixTest() override { CUDA_CHECK_NO_THROW(cudaStreamDestroy(stream)); }
 
-  void naiveRBFKernel(float *x1_dev, int n1, int n_cols, float *x2_dev, int n2,
-                      float gamma) {
-    host_buffer<float> x1_host(host_allocator, stream, n1 * n_cols);
-    raft::update_host(x1_host.data(), x1_dev, n1 * n_cols, stream);
-    host_buffer<float> x2_host(host_allocator, stream, n2 * n_cols);
-    raft::update_host(x2_host.data(), x2_dev, n2 * n_cols, stream);
+  // Calculate the Gram matrix on the host.
+  void naiveKernel() {
+    host_buffer<math_t> x1_host(handle.get_host_allocator(), stream, x1.size());
+    raft::update_host(x1_host.data(), x1.data(), x1.size(), stream);
+    host_buffer<math_t> x2_host(handle.get_host_allocator(), stream, x2.size());
+    raft::update_host(x2_host.data(), x2.data(), x2.size(), stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
-    for (int i = 0; i < n1; i++) {
-      for (int j = 0; j < n2; j++) {
+
+    for (int i = 0; i < params.n1; i++) {
+      for (int j = 0; j < params.n2; j++) {
         float d = 0;
-        for (int k = 0; k < n_cols; k++) {
-          float diff = x1_host[i + k * n1] - x2_host[j + k * n2];
-          d += diff * diff;
+        for (int k = 0; k < params.n_cols; k++) {
+          if (params.kernel.kernel == KernelType::RBF) {
+            math_t diff =
+              x1_host[get_offset(i, k, params.ld1, params.is_row_major)] -
+              x2_host[get_offset(j, k, params.ld2, params.is_row_major)];
+            d += diff * diff;
+          } else {
+            d += x1_host[get_offset(i, k, params.ld1, params.is_row_major)] *
+                 x2_host[get_offset(j, k, params.ld2, params.is_row_major)];
+          }
         }
-        gram_host_expected[i + j * n2] = exp(-gamma * d);
+        int idx = get_offset(i, j, params.ld_out, params.is_row_major);
+        math_t v = 0;
+        switch (params.kernel.kernel) {
+          case (KernelType::LINEAR):
+            gram_host[idx] = d;
+            break;
+          case (KernelType::POLYNOMIAL):
+            v = params.kernel.gamma * d + params.kernel.coef0;
+            gram_host[idx] = std::pow(v, params.kernel.degree);
+            break;
+          case (KernelType::TANH):
+            gram_host[idx] =
+              std::tanh(params.kernel.gamma * d + params.kernel.coef0);
+            break;
+          case (KernelType::RBF):
+            gram_host[idx] = exp(-params.kernel.gamma * d);
+            break;
+        }
       }
     }
   }
-  cudaStream_t stream;
-  cublasHandle_t cublas_handle;
-  std::shared_ptr<deviceAllocator> allocator;
-  std::shared_ptr<hostAllocator> host_allocator;
-  int n1 = 4;
-  int n_cols = 2;
-  int n2 = 4;
 
-  float *x_dev;
-  float *gram_dev;
-  float x_host[8] = {1, 2, 3, 4, 5, 6, 7, 8};
-  float gram_host_expected[16] = {26, 32, 38, 44, 32, 40, 48, 56,
-                                  38, 48, 58, 68, 44, 56, 68, 80};
+  void runTest() {
+    std::unique_ptr<GramMatrixBase<math_t>> kernel =
+      std::unique_ptr<GramMatrixBase<math_t>>(KernelFactory<math_t>::create(
+        params.kernel, handle.get_cublas_handle()));
+
+    kernel->evaluate(x1.data(), params.n1, params.n_cols, x2.data(), params.n2,
+                     gram.data(), params.is_row_major, stream, params.ld1,
+                     params.ld2, params.ld_out);
+    naiveKernel();
+    ASSERT_TRUE(raft::devArrMatchHost(gram_host.data(), gram.data(),
+                                      gram.size(),
+                                      raft::CompareApprox<math_t>(1e-6f)));
+  }
+
+  raft::handle_t handle;
+  cudaStream_t stream;
+  GramMatrixInputs params;
+
+  std::shared_ptr<hostAllocator> host_allocator;
+
+  rmm::device_uvector<math_t> x1;
+  rmm::device_uvector<math_t> x2;
+  rmm::device_uvector<math_t> gram;
+  raft::mr::host::buffer<math_t> gram_host;
 };
 
-TEST_F(GramMatrixTest, Base) {
-  GramMatrixBase<float> kernel(cublas_handle);
-  kernel(x_dev, n1, n_cols, x_dev, n1, gram_dev, stream);
-  ASSERT_TRUE(raft::devArrMatchHost(gram_host_expected, gram_dev, n1 * n1,
-                                    raft::CompareApprox<float>(1e-6f)));
-}
-TEST_F(GramMatrixTest, Poly) {
-  float offset = 2.4;
-  float gain = 0.5;
-  // naive kernel
-  for (int z = 0; z < n1 * n1; z++) {
-    float val = gain * gram_host_expected[z] + offset;
-    gram_host_expected[z] = val * val;
-  }
+typedef GramMatrixTest<float> GramMatrixTestFloat;
+typedef GramMatrixTest<double> GramMatrixTestDouble;
 
-  PolynomialKernel<float, int> kernel(2, gain, offset, cublas_handle);
-  kernel(x_dev, n1, n_cols, x_dev, n1, gram_dev, stream);
-  ASSERT_TRUE(raft::devArrMatchHost(gram_host_expected, gram_dev, n1 * n1,
-                                    raft::CompareApprox<float>(1e-6f)));
-}
+TEST_P(GramMatrixTestFloat, Gram) { runTest(); }
 
-TEST_F(GramMatrixTest, Tanh) {
-  float offset = 2.4;
-  float gain = 0.5;
-  // naive kernel
-  for (int z = 0; z < n1 * n1; z++) {
-    gram_host_expected[z] = tanh(gain * gram_host_expected[z] + offset);
-  }
-  TanhKernel<float> kernel(gain, offset, cublas_handle);
-  kernel(x_dev, n1, n_cols, x_dev, n1, gram_dev, stream);
-  ASSERT_TRUE(raft::devArrMatchHost(gram_host_expected, gram_dev, n1 * n1,
-                                    raft::CompareApprox<float>(1e-6f)));
-}
-
-TEST_F(GramMatrixTest, RBF) {
-  float gamma = 0.5;
-  naiveRBFKernel(x_dev, n1, n_cols, x_dev, n1, gamma);
-  RBFKernel<float> kernel(gamma);
-  kernel(x_dev, n1, n_cols, x_dev, n1, gram_dev, stream);
-  ASSERT_TRUE(raft::devArrMatchHost(gram_host_expected, gram_dev, n1 * n1,
-                                    raft::CompareApprox<float>(3e-6f)));
-}
-
-TEST_F(GramMatrixTest, RBF_Rectangular) {
-  float gamma = 0.7;
-  RBFKernel<float> kernel(gamma);
-  // Instead of a 5x5 Gram matrix, we want to calculate a 5x3 matrix here.
-  // The inputs to the distance function are the vector sets x1 and x2.
-  //
-  // x1 = [ [1, 6],
-  //        [2, 7],
-  //        [3, 8],
-  //        [4, 9],
-  //        [5, 10] ];
-  // The vectors are stored in column major format, so actually
-  float x1[] = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
-  int n1 = 5;
-
-  // x2 = [ [1, 6],
-  //        [2, 7],
-  //        [3, 8] ];
-  // In column major format:
-  float x2[] = {1, 2, 3, 6, 7, 8};
-  int n2 = 3;
-  //
-  // The output is a 5x3 matrix. Here is the distance matrix (without exp)
-  //  K(x1,x2)  = [ [ 0,  2, 8],
-  //                [ 2,  0, 2],
-  //                [ 8,  2, 0],
-  //                [18,  8, 2],
-  //                [32, 18, 8] ];
-  //
-  // It is also stored in colum major format, therefore:
-  float K[] = {0, 2, 8, 18, 32, 2, 0, 2, 8, 18, 8, 2, 0, 2, 8};
-
-  // The RBF kernel calculates exp for the distance matrix
-  for (int i = 0; i < n1 * n2; i++) {
-    K[i] = exp(-gamma * K[i]);
-  }
-
-  device_buffer<float> x1_dev(allocator, stream, n1 * n_cols);
-  raft::update_device(x1_dev.data(), x1, n1 * n_cols, stream);
-  device_buffer<float> x2_dev(allocator, stream, n2 * n_cols);
-  raft::update_device(x2_dev.data(), x2, n2 * n_cols, stream);
-
-  kernel(x1_dev.data(), n1, n_cols, x2_dev.data(), n2, gram_dev, stream);
-  ASSERT_TRUE(raft::devArrMatchHost(K, gram_dev, n1 * n2,
-                                    raft::CompareApprox<float>(1e-6f)));
-}
+INSTANTIATE_TEST_SUITE_P(GramMatrixTests, GramMatrixTestFloat,
+                         ::testing::ValuesIn(inputs));
 };  // end namespace Matrix
 };  // end namespace MLCommon
