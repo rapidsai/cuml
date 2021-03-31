@@ -166,7 +166,7 @@ TEST_P(DtRegTestF, Test) {
                         params, stream, sparsetree, num_leaves, depth);
   // goes all the way to max-depth
 #if CUDART_VERSION >= 11020
-  if (inparams.splitType == CRITERION::MAE){
+  if (inparams.splitType == CRITERION::MAE) {
     GTEST_SKIP();
   }
 #endif
