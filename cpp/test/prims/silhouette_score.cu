@@ -47,7 +47,7 @@ class silhouetteScoreTest
     std::vector<double> h_X(nElements, 0.0);
     std::vector<int> h_labels(nRows, 0);
     std::random_device rd;
-    std::default_random_engine dre(rd());
+    std::default_random_engine dre(nElements * nLabels);
     std::uniform_int_distribution<int> intGenerator(0, nLabels - 1);
     std::uniform_real_distribution<double> realGenerator(0, 100);
 
@@ -207,8 +207,7 @@ class silhouetteScoreTest
 //setting test parameter values
 const std::vector<silhouetteScoreParam> inputs = {
   {4, 2, 3, raft::distance::DistanceType::L2Expanded, 4, 0.00001},
-  // FIXME: temporarily disabled due to flaky test
-  // {4, 2, 2, raft::distance::DistanceType::L2SqrtUnexpanded, 2, 0.00001},
+  {4, 2, 2, raft::distance::DistanceType::L2SqrtUnexpanded, 2, 0.00001},
   {8, 8, 3, raft::distance::DistanceType::L2Unexpanded, 4, 0.00001},
   {11, 2, 5, raft::distance::DistanceType::L2Expanded, 3, 0.00001},
   {40, 2, 8, raft::distance::DistanceType::L2Expanded, 10, 0.00001},
