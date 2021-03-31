@@ -221,7 +221,6 @@ struct Builder {
       // x2 for left and right children
       d_wsize +=
         calculateAlignedBytes(2 * nPredCounts * sizeof(DataT));  // pred
-        // calculateAlignedBytes(max_batch * ( 1 + params.n_bins ) * n_col_blks * sizeof(DataT));  // pred
       d_wsize +=
         calculateAlignedBytes(2 * nPredCounts * sizeof(DataT));       // pred2
       d_wsize += calculateAlignedBytes(nPredCounts * sizeof(DataT));  // pred2P
