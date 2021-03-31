@@ -348,11 +348,10 @@ DI void pdf_to_cdf(DataT* pdf_shist, DataT* cdf_shist, IdxT nbins,
     IdxT offset = reverse_scan ? nbins - tix : tix;
     DataT element = tix < nbins ? pdf_shist[offset] : 0;
     // inclusive sum scan
-    BlockScan(temp_storage)
-      .InclusiveSum(element, result);
+    BlockScan(temp_storage).InclusiveSum(element, result);
     __syncthreads();
     // store the result in cdf shist
-    if(tix < nbins) {
+    if (tix < nbins) {
       auto histOffset = reverse_scan ? nbins - tix - 1 : tix;
       cdf_shist[histOffset] = result;
     }
@@ -465,10 +464,11 @@ __global__ void computeSplitClassificationKernel(
     /** left to right scan operation for scanning
      *  lesser-than-or-equal-to-bin counts **/
     // offsets to pdf and cdf shist pointers
-    auto offset_pdf = ( 1 + nbins) * c;
-    auto offset_cdf = ( 2 * nbins ) * c;
+    auto offset_pdf = (1 + nbins) * c;
+    auto offset_cdf = (2 * nbins) * c;
     // converting pdf to cdf
-    pdf_to_cdf<int, IdxT, TPB>(pdf_shist + offset_pdf, cdf_shist + offset_cdf, nbins);
+    pdf_to_cdf<int, IdxT, TPB>(pdf_shist + offset_pdf, cdf_shist + offset_cdf,
+                               nbins);
 
     /** right to left scan operation for scanning greater-than-bin counts
      **/
@@ -476,7 +476,8 @@ __global__ void computeSplitClassificationKernel(
     // locations
     offset_cdf += nbins;
     //convert pdf to cdf
-    pdf_to_cdf<int, IdxT, TPB>(pdf_shist + offset_pdf, cdf_shist + offset_cdf, nbins, true);
+    pdf_to_cdf<int, IdxT, TPB>(pdf_shist + offset_pdf, cdf_shist + offset_cdf,
+                               nbins, true);
   }
 
   // create a split instance to test current feature split
@@ -524,7 +525,7 @@ __global__ void computeSplitRegressionKernel(
   auto end = range_start + range_len;
   auto len = nbins * 2;
   auto pdf_spred_len = 1 + nbins;
-  auto cdf_spred_len = 2*nbins;
+  auto cdf_spred_len = 2 * nbins;
   IdxT stride = blockDim.x * gridDim.x;
   IdxT tid = threadIdx.x + blockIdx.x * blockDim.x;
   IdxT col;
@@ -571,7 +572,7 @@ __global__ void computeSplitRegressionKernel(
     auto label = input.labels[row];
     for (IdxT b = 0; b < nbins; ++b) {
       // if sample is less-than-or-equal to threshold
-      if(d <= sbins[b]){
+      if (d <= sbins[b]) {
         atomicAdd(pdf_spred + b, label);
         atomicAdd(pdf_scount + b, 1);
         break;
