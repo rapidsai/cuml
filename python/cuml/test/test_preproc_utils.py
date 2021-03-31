@@ -77,7 +77,7 @@ def to_output_type(array, output_type, order='F'):
             array = array.todense()
     elif gpu_sparse.issparse(array):
         if output_type == 'numpy':
-            return cp.asnumpy(array.todense())
+            return array.get().todense()
         elif output_type == 'cupy':
             return array.todense()
         else:
