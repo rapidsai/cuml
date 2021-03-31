@@ -36,7 +36,7 @@ import cuml.common.logger as logger
 from cuml.common import has_scipy
 from cuml.common.input_utils import input_to_cuml_array
 from cuml.common.input_utils import input_to_host_array
-from cuml.common.input_utils import _deprecate_pos_args
+from cuml.internals import _deprecate_pos_args
 
 
 cdef extern from "cuml/tsa/arima_common.h" namespace "ML":

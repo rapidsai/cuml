@@ -23,7 +23,8 @@ import cupy as np
 import cupyx
 from cupy import sparse
 
-from ....common.input_utils import _deprecate_pos_args
+from ....internals import _deprecate_pos_args
+
 
 def row_norms(X, squared=False):
     """Row-wise (squared) Euclidean norm of X.

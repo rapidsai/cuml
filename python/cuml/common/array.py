@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020, NVIDIA CORPORATION.
+# Copyright (c) 2020-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -142,8 +142,8 @@ class CumlArray(Buffer):
             flattened_data = data
 
         super().__init__(data=flattened_data,
-                                        owner=owner,
-                                        size=size)
+                         owner=owner,
+                         size=size)
 
         # Post processing of meta data
         if detailed_construction:

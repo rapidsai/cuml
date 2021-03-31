@@ -27,10 +27,10 @@ from ..utils.validation import check_is_fitted
 from ..utils.validation import FLOAT_DTYPES
 from ....thirdparty_adapters import check_array
 from ....common.import_utils import check_cupy8
-from ....common.input_utils import _deprecate_pos_args
 from ....common.array_sparse import SparseCumlArray
 from ....common.array_descriptor import CumlArrayDescriptor
 from ....common.memory_utils import using_output_type
+from ....internals import _deprecate_pos_args
 
 
 def digitize(x, bins):

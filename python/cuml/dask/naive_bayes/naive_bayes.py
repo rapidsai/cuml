@@ -108,7 +108,7 @@ class MultinomialNB(BaseEstimator,
         client : dask.distributed.Client optional Dask client to use
         """
         super().__init__(client=client, verbose=verbose,
-                                            **kwargs)
+                         **kwargs)
 
         self.datatype = "cupy"
 

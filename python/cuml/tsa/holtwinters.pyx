@@ -22,7 +22,7 @@ from libc.stdint cimport uintptr_t
 
 import cuml.internals
 from cuml.common.input_utils import input_to_cupy_array
-from cuml.common.input_utils import _deprecate_pos_args
+from cuml.internals import _deprecate_pos_args
 from cuml.common import using_output_type
 from cuml.common.base import Base
 from cuml.common.array import CumlArray

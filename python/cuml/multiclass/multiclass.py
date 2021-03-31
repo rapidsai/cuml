@@ -21,7 +21,7 @@ from cuml.common.base import Base
 from cuml.common.mixins import ClassifierMixin
 from cuml.common.doc_utils import generate_docstring
 from cuml.common import input_to_host_array
-from cuml.common.input_utils import _deprecate_pos_args
+from cuml.internals import _deprecate_pos_args
 
 
 class MulticlassClassifier(Base, ClassifierMixin):

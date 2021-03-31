@@ -79,7 +79,7 @@ class Lars(Base, RegressorMixin):
     Note: this algorithm assumes that the offset is removed from X and y, and
     each feature is normalized:
 
-    :math:`sum_i y_i = 0, sum_i x_{i,j} = 0, sum_i x_{i,j}^2=1 for j=0..n_col-1` # noqa
+    :math:`sum_i y_i = 0, sum_i x_{i,j} = 0,sum_i x_{i,j}^2=1 for j=0..n_col-1`
 
     Parameters
     -----------
@@ -144,9 +144,9 @@ class Lars(Base, RegressorMixin):
     For additional information, see `scikitlearn's OLS documentation
     <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.Lars.html>`__.
 
-    References:
-    -----------
-    .. [1] `B. Efron, T. Hastie, I. Johnstone, R Tibshirani, Least Angle 
+    References
+    ----------
+    .. [1] `B. Efron, T. Hastie, I. Johnstone, R Tibshirani, Least Angle
        Regression The Annals of Statistics (2004) Vol 32, No 2, 407-499
        <http://statweb.stanford.edu/~tibs/ftp/lars.pdf>`_
 

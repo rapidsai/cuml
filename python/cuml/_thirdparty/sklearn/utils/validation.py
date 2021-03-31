@@ -17,14 +17,13 @@
 # Authors mentioned above do not endorse or promote this production.
 
 
-from functools import wraps
 import warnings
 import numbers
 
 import numpy as np
 import scipy.sparse as sp
 from distutils.version import LooseVersion
-from inspect import signature, isclass, Parameter
+from inspect import signature, isclass
 
 import joblib
 
@@ -33,7 +32,7 @@ from ..exceptions import NotFittedError
 from ..exceptions import DataConversionWarning
 
 from ....thirdparty_adapters import check_array
-from ....common.input_utils import _deprecate_pos_args
+from ....internals import _deprecate_pos_args
 
 FLOAT_DTYPES = (np.float64, np.float32, np.float16)
 

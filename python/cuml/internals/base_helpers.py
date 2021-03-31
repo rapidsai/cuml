@@ -20,7 +20,6 @@ import typing
 import cuml
 import cuml.internals
 import cuml.common
-from cuml.internals.api_decorators import CUML_WRAPPED_FLAG
 
 
 def _process_generic(gen_type):
@@ -105,7 +104,7 @@ def _wrap_attribute(class_name: str,
                     **kwargs):
 
     # Skip items marked with autowrap_ignore
-    if (attribute.__dict__.get(CUML_WRAPPED_FLAG, False)):
+    if (attribute.__dict__.get(cuml.internals.CUML_WRAPPED_FLAG, False)):
         return attribute
 
     return_type = _get_base_return_type(class_name, attribute)
@@ -128,10 +127,8 @@ def _wrap_attribute(class_name: str,
 
 def _check_and_wrap_init(attribute, **kwargs):
 
-    from cuml.common.input_utils import _deprecate_pos_args
-
     # Check if the decorator has already been added
-    if (attribute.__dict__.get(_deprecate_pos_args.FLAG_NAME)):
+    if (attribute.__dict__.get(cuml.internals._deprecate_pos_args.FLAG_NAME)):
         return attribute
 
     # Get the signature to test if all args are keyword only
@@ -152,7 +149,7 @@ def _check_and_wrap_init(attribute, **kwargs):
             "after `self` as keyword only by using the `*` argument"
         ).format(attribute.__qualname__, ", ".join(incorrect_params))
 
-    return _deprecate_pos_args(**kwargs)(attribute)
+    return cuml.internals._deprecate_pos_args(**kwargs)(attribute)
 
 
 class BaseMetaClass(type):
