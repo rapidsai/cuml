@@ -143,6 +143,9 @@ T run_api(const raft::handle_t &cuml_handle, int loss_type, int C,
 }
 
 TEST_F(QuasiNewtonTest, binary_logistic_vs_sklearn) {
+#if CUDART_VERSION >= 11020
+  GTEST_SKIP();
+#endif
   raft::CompareApprox<double> compApprox(tol);
   // Test case generated in python and solved with sklearn
   double y[N] = {1, 1, 1, 0, 1, 0, 1, 0, 1, 0};
