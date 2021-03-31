@@ -781,14 +781,14 @@ def test_rf_get_json(estimator_type, max_depth, n_estimators):
     if estimator_type == 'classification':
         cuml_model = curfc(max_features=1.0, max_samples=1.0,
                            n_bins=16, split_algo=0, split_criterion=0,
-                           min_samples_leaf=2, seed=23707, n_streams=1,
+                           min_samples_leaf=2, random_state=23707, n_streams=1,
                            n_estimators=n_estimators, max_leaves=-1,
                            max_depth=max_depth)
         y = y.astype(np.int32)
     elif estimator_type == 'regression':
         cuml_model = curfr(max_features=1.0, max_samples=1.0,
                            n_bins=16, split_algo=0,
-                           min_samples_leaf=2, seed=23707, n_streams=1,
+                           min_samples_leaf=2, random_state=23707, n_streams=1,
                            n_estimators=n_estimators, max_leaves=-1,
                            max_depth=max_depth)
         y = y.astype(np.float32)
@@ -862,7 +862,7 @@ def test_rf_instance_count(max_depth, n_estimators, use_experimental_backend):
     X = X.astype(np.float32)
     cuml_model = curfc(max_features=1.0, max_samples=1.0,
                        n_bins=16, split_algo=1, split_criterion=0,
-                       min_samples_leaf=2, seed=23707, n_streams=1,
+                       min_samples_leaf=2, random_state=23707, n_streams=1,
                        n_estimators=n_estimators, max_leaves=-1,
                        max_depth=max_depth,
                        use_experimental_backend=use_experimental_backend)
@@ -1031,7 +1031,7 @@ def test_rf_regression_with_identical_labels(split_criterion,
     # Degenerate case: all labels are identical.
     # RF Regressor must not create any split. It must yield an empty tree
     # with only the root node.
-    clf = curfr(max_features=1.0, rows_sample=1.0, n_bins=5, split_algo=1,
+    clf = curfr(max_features=1.0, max_samples=1.0, n_bins=5, split_algo=1,
                 bootstrap=False, split_criterion=split_criterion,
                 min_samples_leaf=1, min_samples_split=2, random_state=0,
                 n_streams=1, n_estimators=1, max_depth=1,
