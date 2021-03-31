@@ -149,11 +149,10 @@ class GramMatrixBase {
   virtual void distance(const math_t *x1, int n1, int n_cols, const math_t *x2,
                         int n2, math_t *out, cudaStream_t stream, int ld1,
                         int ld2, int ld_out) {
-    typedef cutlass::Shape<8, 128, 128> OutputTile_t;
     auto fin_op = [] __device__(math_t d_val, int idx) { return d_val; };
     Distance::distance<raft::distance::DistanceType::L2Unexpanded, math_t,
-                       math_t, math_t, OutputTile_t>(
-      x1, x2, out, n1, n2, n_cols, NULL, 0, fin_op, stream, false);
+                       math_t, math_t>(x1, x2, out, n1, n2, n_cols, NULL, 0,
+                                       fin_op, stream, false);
   }
 };
 };  // end namespace Matrix

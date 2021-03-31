@@ -138,7 +138,6 @@ void euclideanExp(IdxT m, IdxT n, IdxT k, IdxT lda, IdxT ldb, IdxT ldd,
  * @tparam InType input data-type (for A and B matrices)
  * @tparam AccType accumulation data-type
  * @tparam OutType output data-type (for C and D matrices)
- * @tparam OutputTile_ output tile size for the thread block
  * @tparam FinalLambda the final lambda called by FragmentMultiplyAdd_
  * @tparam Index_ index type
  * @param m number of rows of A and C/D
@@ -155,7 +154,7 @@ void euclideanExp(IdxT m, IdxT n, IdxT k, IdxT lda, IdxT ldb, IdxT ldd,
  * @param isRowMajor whether the input and output matrices are row major
  */
 template <typename InType, typename AccType, typename OutType,
-          typename OutputTile_, typename FinalLambda, typename Index_ = int>
+          typename FinalLambda, typename Index_ = int>
 void euclideanAlgo1(Index_ m, Index_ n, Index_ k, const InType *pA,
                     const InType *pB, OutType *pD, bool enable_sqrt,
                     AccType *workspace, size_t &worksize, FinalLambda fin_op,
@@ -301,7 +300,6 @@ void euclideanUnExp(IdxT m, IdxT n, IdxT k, IdxT lda, IdxT ldb, IdxT ldd,
  * @tparam InType input data-type (for A and B matrices)
  * @tparam AccType accumulation data-type
  * @tparam OutType output data-type (for C and D matrices)
- * @tparam OutputTile_ output tile size for the thread block
  * @tparam FinalLambda user-defined epilogue lamba
  * @tparam Index_ index type
  * @param m number of rows of A and C/D
@@ -316,7 +314,7 @@ void euclideanUnExp(IdxT m, IdxT n, IdxT k, IdxT lda, IdxT ldb, IdxT ldd,
  * @param isRowMajor whether the input and output matrices are row major
  */
 template <typename InType, typename AccType, typename OutType,
-          typename OutputTile_, typename FinalLambda, typename Index_ = int>
+          typename FinalLambda, typename Index_ = int>
 void euclideanAlgo2(Index_ m, Index_ n, Index_ k, const InType *pA,
                     const InType *pB, OutType *pD, bool enable_sqrt,
                     FinalLambda fin_op, cudaStream_t stream, bool isRowMajor) {

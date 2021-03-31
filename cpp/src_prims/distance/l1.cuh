@@ -112,7 +112,6 @@ void l1(IdxT m, IdxT n, IdxT k, IdxT lda, IdxT ldb, IdxT ldd, const DataT *x,
  * @tparam InType input data-type (for A and B matrices)
  * @tparam AccType accumulation data-type
  * @tparam OutType output data-type (for C and D matrices)
- * @tparam OutputTile_ output tile size for the thread block
  * @tparam FinalLambda user-defined epilogue lamba
  * @tparam Index_ Index type
  * @param m number of rows of A and C/D
@@ -126,7 +125,7 @@ void l1(IdxT m, IdxT n, IdxT k, IdxT lda, IdxT ldb, IdxT ldd, const DataT *x,
  * @param isRowMajor whether the input and output matrices are row major
  */
 template <typename InType, typename AccType, typename OutType,
-          typename OutputTile_, typename FinalLambda, typename Index_ = int>
+          typename FinalLambda, typename Index_ = int>
 void l1Impl(int m, int n, int k, const InType *pA, const InType *pB,
             OutType *pD, FinalLambda fin_op, cudaStream_t stream,
             bool isRowMajor) {

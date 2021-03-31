@@ -147,7 +147,7 @@ void cosine(IdxT m, IdxT n, IdxT k, IdxT lda, IdxT ldb, IdxT ldd,
  * @param isRowMajor whether the input and output matrices are row major
  */
 template <typename InType, typename AccType, typename OutType,
-          typename OutputTile_, typename FinalLambda, typename Index_ = int>
+          typename FinalLambda, typename Index_ = int>
 void cosineAlgo1(Index_ m, Index_ n, Index_ k, const InType *pA,
                  const InType *pB, OutType *pD, AccType *workspace,
                  size_t worksize, FinalLambda fin_op, cudaStream_t stream,
