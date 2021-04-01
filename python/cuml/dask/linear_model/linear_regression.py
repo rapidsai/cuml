@@ -62,10 +62,10 @@ class LinearRegression(BaseEstimator,
         The independent term. If `fit_intercept` is False, will be 0.
     """
 
-    def __init__(self, client=None, verbose=False, **kwargs):
-        super(LinearRegression, self).__init__(client=client,
-                                               verbose=verbose,
-                                               **kwargs)
+    def __init__(self, *, client=None, verbose=False, **kwargs):
+        super().__init__(client=client,
+                         verbose=verbose,
+                         **kwargs)
 
     def fit(self, X, y):
         """

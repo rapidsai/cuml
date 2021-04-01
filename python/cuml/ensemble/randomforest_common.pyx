@@ -365,23 +365,27 @@ def _check_fil_parameter_validity(depth, algo, fil_sparse_format):
     algo : string (default = 'auto')
         This is optional and required only while performing the
         predict operation on the GPU.
-        'naive' - simple inference using shared memory
-        'tree_reorg' - similar to naive but trees rearranged to be more
-        coalescing-friendly
-        'batch_tree_reorg' - similar to tree_reorg but predicting
-        multiple rows per thread block
-        `auto` - choose the algorithm automatically. Currently
-        'batch_tree_reorg' is used for dense storage
-        and 'naive' for sparse storage
+
+         * ``'naive'`` - simple inference using shared memory
+         * ``'tree_reorg'`` - similar to naive but trees rearranged to be more
+           coalescing-friendly
+         * ``'batch_tree_reorg'`` - similar to tree_reorg but predicting
+           multiple rows per thread block
+         * ``'auto'`` - choose the algorithm automatically. Currently
+         * ``'batch_tree_reorg'`` is used for dense storage
+           and 'naive' for sparse storage
+
     fil_sparse_format : boolean or string (default = 'auto')
         This variable is used to choose the type of forest that will be
         created in the Forest Inference Library. It is not required
         while using predict_model='CPU'.
-        'auto' - choose the storage type automatically
-        (currently True is chosen by auto)
-        False - create a dense forest
-        True - create a sparse forest, requires algo='naive'
-        or algo='auto'
+
+         * ``'auto'`` - choose the storage type automatically
+           (currently True is chosen by auto)
+         * ``False`` - create a dense forest
+         * ``True`` - create a sparse forest, requires algo='naive'
+           or algo='auto'
+
     Returns
     ----------
     fil_sparse_format
