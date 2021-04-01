@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020, NVIDIA CORPORATION.
+# Copyright (c) 2020-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,7 +16,7 @@
 
 from cuml._thirdparty.sklearn.preprocessing import StandardScaler, \
     MinMaxScaler, MaxAbsScaler, Normalizer, Binarizer, PolynomialFeatures, \
-    SimpleImputer, RobustScaler, KBinsDiscretizer
+    SimpleImputer, MissingIndicator, RobustScaler, KBinsDiscretizer
 from cuml._thirdparty.sklearn.preprocessing import scale, minmax_scale, \
     normalize, add_dummy_feature, binarize, robust_scale
 
@@ -30,6 +30,7 @@ __all__ = [
     'PolynomialFeatures',
     'RobustScaler',
     'SimpleImputer',
+    'MissingIndicator'
     'StandardScaler',
     # Functions
     'add_dummy_feature',
