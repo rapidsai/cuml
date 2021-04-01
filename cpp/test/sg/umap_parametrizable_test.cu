@@ -18,11 +18,14 @@
 #include <iostream>
 #include <vector>
 
+#include <raft/cudart_utils.h>
+
 #include <cuml/manifold/umapparams.h>
 #include <datasets/digits.h>
 #include <raft/cudart_utils.h>
 #include <cuml/common/cuml_allocator.hpp>
 #include <cuml/common/device_buffer.hpp>
+#include <cuml/common/logger.hpp>
 #include <cuml/cuml.hpp>
 #include <cuml/datasets/make_blobs.hpp>
 #include <cuml/manifold/umap.hpp>
@@ -73,19 +76,18 @@ __global__ void are_equal_kernel(T* embedding1, T* embedding2, size_t len,
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
   if (tid >= len) return;
   if (embedding1[tid] != embedding2[tid]) {
-    *diff += abs(embedding1[tid] - embedding2[tid]);
+    atomicAdd(diff, abs(embedding1[tid] - embedding2[tid]));
   }
 }
 
 template <typename T>
 bool are_equal(T* embedding1, T* embedding2, size_t len,
                std::shared_ptr<deviceAllocator> alloc, cudaStream_t stream) {
-  dim3 blk(32);
-  dim3 grid(raft::ceildiv(len, (size_t)blk.x));
   double h_answer = 0.;
   device_buffer<double> d_answer(alloc, stream, 1);
   raft::update_device(d_answer.data(), &h_answer, 1, stream);
-  are_equal_kernel<<<grid, blk, 0, stream>>>(embedding1, embedding2, len,
+
+  are_equal_kernel<<<raft::ceildiv(len, (size_t)32), 32, 0, stream>>>(embedding1, embedding2, len,
                                              d_answer.data());
   raft::update_host(&h_answer, d_answer.data(), 1, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
@@ -212,9 +214,6 @@ class UMAPParametrizableTest : public ::testing::Test {
   }
 
   void test(TestParams& test_params, UMAPParams& umap_params) {
-#if CUDART_VERSION >= 11020
-    GTEST_SKIP();
-#endif
     std::cout << "\numap_params : [" << std::boolalpha
               << umap_params.n_neighbors << "-" << umap_params.n_components
               << "-" << umap_params.n_epochs << "-" << umap_params.random_state
@@ -231,6 +230,8 @@ class UMAPParametrizableTest : public ::testing::Test {
     auto alloc = handle.get_device_allocator();
     int& n_samples = test_params.n_samples;
     int& n_features = test_params.n_features;
+
+    Logger::get().setLevel(CUML_LEVEL_DEBUG);
 
     UMAP::find_ab(handle, &umap_params);
 
@@ -252,8 +253,12 @@ class UMAPParametrizableTest : public ::testing::Test {
                                      n_samples * umap_params.n_components);
     float* e1 = embeddings1.data();
 
+    device_buffer<float> X_2(alloc, stream, X_d.size());
+
     get_embedding(handle, X_d.data(), (float*)y_d.data(), e1, test_params,
                   umap_params);
+
+    raft::copy_async(X_2.data(), X_d.data(), X_d.size(), stream);
 
     assertions(handle, X_d.data(), e1, test_params, umap_params);
 
@@ -293,13 +298,15 @@ class UMAPParametrizableTest : public ::testing::Test {
     umap_params_vec[1].multicore_implem = true;
 
     umap_params_vec[2].n_components = 21;
-    umap_params_vec[2].random_state = 42;
+    umap_params_vec[2].random_state = 43;
+    umap_params_vec[2].init = 0;
     umap_params_vec[2].multicore_implem = false;
     umap_params_vec[2].optim_batch_size = 0;  // use default value
     umap_params_vec[2].n_epochs = 500;
 
     umap_params_vec[3].n_components = 25;
-    umap_params_vec[3].random_state = 42;
+    umap_params_vec[3].random_state = 43;
+    umap_params_vec[3].init = 0;
     umap_params_vec[3].multicore_implem = false;
     umap_params_vec[3].optim_batch_size = 0;  // use default value
     umap_params_vec[3].n_epochs = 500;
