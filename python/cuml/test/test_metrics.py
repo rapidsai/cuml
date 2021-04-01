@@ -63,6 +63,7 @@ from sklearn.metrics import mean_absolute_error as sklearn_mae
 from sklearn.metrics import mean_squared_log_error as sklearn_msle
 
 from cuml.common import has_scipy
+from cuml.common.sparsefuncs import csr_row_normalize_l1
 
 from cuml.metrics import roc_auc_score
 from cuml.metrics import precision_recall_curve
@@ -1119,10 +1120,9 @@ def prepare_sparse_data(size0, size1, dtype, density, metric):
     # create sparse array, then normalize every row to one
     data = cupyx.scipy.sparse.random(size0, size1,
                                      dtype=dtype,
-                                     random_state=123, density=density)
+                                     random_state=123, density=density).tocsr()
     if metric == 'hellinger':
-        data = (cupyx.scipy.sparse.diags(cp.array(1 / data.sum(1).T)[0],
-                                         0).tocoo()) * data
+        data = csr_row_normalize_l1(data)
     return data
 
 
@@ -1130,7 +1130,8 @@ def prepare_sparse_data(size0, size1, dtype, density, metric):
 @pytest.mark.parametrize("matrix_size, density", [
     ((3, 3), 0.7),
     ((5, 40), 0.2)])
-def test_sparse_pairwise_distances(metric: str, matrix_size, density: float):
+def test_sparse_pairwise_distances_corner_cases(metric: str, matrix_size,
+                                                density: float):
     # Test the sparse_pairwise_distance helper function.
     # Use sparse input for sklearn calls when possible
     sk_sparse = metric in ['cityblock', 'cosine', 'euclidean', 'l1', 'l2',
