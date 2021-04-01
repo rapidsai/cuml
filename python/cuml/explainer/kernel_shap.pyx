@@ -81,7 +81,7 @@ class KernelExplainer(SHAPBase):
     capped by factors like data transfers and the speed of the models.
 
 
-    KenelExplainer is algorithmically similar and based on the Python SHAP
+    KernelExplainer is based on the Python SHAP
     package kernel explainer:
     https://github.com/slundberg/shap/blob/master/shap/explainers/_kernel.py
 
