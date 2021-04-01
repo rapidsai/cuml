@@ -218,7 +218,7 @@ class KernelExplainer(SHAPBase):
 
         # default value matching SHAP package
         if nsamples == 'auto':
-            self.nsamples = 2 * self.M + 2**11
+            self.nsamples = 2 * self.ncols + 2**11
         else:
             self.nsamples = nsamples
 
