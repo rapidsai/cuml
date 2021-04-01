@@ -103,13 +103,12 @@ class OneHotEncoder(Base):
         be retained.
 
     """
-    def __init__(self,
+    def __init__(self, *,
                  categories='auto',
                  drop=None,
                  sparse=True,
                  dtype=np.float,
                  handle_unknown='error',
-                 *,
                  handle=None,
                  verbose=False,
                  output_type=None):

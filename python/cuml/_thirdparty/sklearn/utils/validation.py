@@ -17,14 +17,13 @@
 # Authors mentioned above do not endorse or promote this production.
 
 
-from functools import wraps
 import warnings
 import numbers
 
 import numpy as np
 import scipy.sparse as sp
 from distutils.version import LooseVersion
-from inspect import signature, isclass, Parameter
+from inspect import signature, isclass
 
 import joblib
 
@@ -33,50 +32,13 @@ from ..exceptions import NotFittedError
 from ..exceptions import DataConversionWarning
 
 from ....thirdparty_adapters import check_array
+from ....internals import _deprecate_pos_args
 
 FLOAT_DTYPES = (np.float64, np.float32, np.float16)
 
 # Silenced by default to reduce verbosity. Turn on at runtime for
 # performance profiling.
 warnings.simplefilter('ignore', NonBLASDotWarning)
-
-
-def _deprecate_positional_args(f):
-    """Decorator for methods that issues warnings for positional arguments
-
-    Using the keyword-only argument syntax in pep 3102, arguments after the
-    * will issue a warning when passed as a positional argument.
-
-    Parameters
-    ----------
-    f : function
-        function to check arguments on
-    """
-    sig = signature(f)
-    kwonly_args = []
-    all_args = []
-
-    for name, param in sig.parameters.items():
-        if param.kind == Parameter.POSITIONAL_OR_KEYWORD:
-            all_args.append(name)
-        elif param.kind == Parameter.KEYWORD_ONLY:
-            kwonly_args.append(name)
-
-    @wraps(f)
-    def inner_f(*args, **kwargs):
-        extra_args = len(args) - len(all_args)
-        if extra_args > 0:
-            # ignore first 'self' argument for instance methods
-            args_msg = ['{}={}'.format(name, arg)
-                        for name, arg in zip(kwonly_args[:extra_args],
-                                             args[-extra_args:])]
-            warnings.warn("Pass {} as keyword args. From version 0.25 "
-                          "passing these as positional arguments will "
-                          "result in an error".format(", ".join(args_msg)),
-                          FutureWarning)
-        kwargs.update({k: arg for k, arg in zip(sig.parameters, args)})
-        return f(**kwargs)
-    return inner_f
 
 
 def _assert_all_finite(X, allow_nan=False, msg_dtype=None):
@@ -104,7 +66,7 @@ def _assert_all_finite(X, allow_nan=False, msg_dtype=None):
             )
 
 
-@_deprecate_positional_args
+@_deprecate_pos_args(version="0.20")
 def assert_all_finite(X, *, allow_nan=False):
     """Throw a ValueError if X contains NaN or infinity.
 
@@ -117,7 +79,7 @@ def assert_all_finite(X, *, allow_nan=False):
     _assert_all_finite(X.data if sp.issparse(X) else X, allow_nan)
 
 
-@_deprecate_positional_args
+@_deprecate_pos_args(version="0.20")
 def as_float_array(X, *, copy=True, force_all_finite=True):
     """Converts an array-like to an array of floats.
 
@@ -413,7 +375,7 @@ def _check_large_sparse(X, accept_large_sparse=False):
                                  % indices_datatype)
 
 
-@_deprecate_positional_args
+@_deprecate_pos_args(version="0.20")
 def check_X_y(X, y, accept_sparse=False, *, accept_large_sparse=True,
               dtype="numeric", order=None, copy=False, force_all_finite=True,
               ensure_2d=True, allow_nd=False, multi_output=False,
@@ -542,7 +504,7 @@ def check_X_y(X, y, accept_sparse=False, *, accept_large_sparse=True,
     return X, y
 
 
-@_deprecate_positional_args
+@_deprecate_pos_args(version="0.20")
 def column_or_1d(y, *, warn=False):
     """ Ravel column or 1d numpy array, else raises an error
 
@@ -623,7 +585,7 @@ def has_fit_parameter(estimator, parameter):
     return parameter in signature(estimator.fit).parameters
 
 
-@_deprecate_positional_args
+@_deprecate_pos_args(version="0.20")
 def check_symmetric(array, *, tol=1E-10, raise_warning=True,
                     raise_exception=False):
     """Make sure that array is 2D, square and symmetric.
@@ -680,7 +642,7 @@ def check_symmetric(array, *, tol=1E-10, raise_warning=True,
     return array
 
 
-@_deprecate_positional_args
+@_deprecate_pos_args(version="0.20")
 def check_is_fitted(estimator, attributes=None, *, msg=None, all_or_any=all):
     """Perform is_fitted validation for estimator.
 

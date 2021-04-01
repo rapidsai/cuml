@@ -23,7 +23,7 @@ import cupy as np
 import cupyx
 from cupy import sparse
 
-from .validation import _deprecate_positional_args
+from ....internals import _deprecate_pos_args
 
 
 def row_norms(X, squared=False):
@@ -136,7 +136,7 @@ def _incremental_mean_and_var(X, last_mean, last_variance, last_sample_count):
     return updated_mean, updated_variance, updated_sample_count
 
 
-@_deprecate_positional_args
+@_deprecate_pos_args(version="0.20")
 def weighted_mode(a, w, *, axis=0):
     """Returns an array of the weighted modal (most common) value in a
 

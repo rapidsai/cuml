@@ -208,12 +208,13 @@ class SVMBase(Base,
     _internal_coef_ = CumlArrayDescriptor()
     _unique_labels_ = CumlArrayDescriptor()
 
-    def __init__(self, handle=None, C=1, kernel='rbf', degree=3,
+    def __init__(self, *, handle=None, C=1, kernel='rbf', degree=3,
                  gamma='auto', coef0=0.0, tol=1e-3, cache_size=1024.0,
                  max_iter=-1, nochange_steps=1000, verbose=False,
                  epsilon=0.1, output_type=None):
-        super(SVMBase, self).__init__(handle=handle, verbose=verbose,
-                                      output_type=output_type)
+        super().__init__(handle=handle,
+                         verbose=verbose,
+                         output_type=output_type)
         # Input parameters for training
         self.tol = tol
         self.C = C
