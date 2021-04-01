@@ -472,8 +472,8 @@ __global__ void computeSplitClassificationKernel(
     auto offset_pdf = (1 + nbins) * c;
     auto offset_cdf = (2 * nbins) * c;
     // converting pdf to cdf
-    int total_sum = pdf_to_cdf<int, IdxT, TPB>(pdf_shist + offset_pdf, cdf_shist + offset_cdf,
-                               nbins);
+    int total_sum = pdf_to_cdf<int, IdxT, TPB>(pdf_shist + offset_pdf,
+                                               cdf_shist + offset_cdf, nbins);
 
     // greater-than split starts after nbins of less-than-equal split
     // locations
@@ -481,8 +481,9 @@ __global__ void computeSplitClassificationKernel(
     /** samples that are greater-than-bin calculated by difference
      *  of count of lesser-than-equal samples from total_sum.
      **/
-    for ( IdxT i = threadIdx.x; i < nbins; i += blockDim.x) {
-      *(cdf_shist + offset_cdf + i) = total_sum - *(cdf_shist + 2 * nbins * c + i);
+    for (IdxT i = threadIdx.x; i < nbins; i += blockDim.x) {
+      *(cdf_shist + offset_cdf + i) =
+        total_sum - *(cdf_shist + 2 * nbins * c + i);
     }
   }
 
@@ -627,7 +628,7 @@ __global__ void computeSplitRegressionKernel(
 
   // cdf of samples greater than threshold
   // calculated by subtracting lesser-than-equals from total_sum
-  for ( IdxT i = threadIdx.x; i < nbins; i += blockDim.x) {
+  for (IdxT i = threadIdx.x; i < nbins; i += blockDim.x) {
     *(cdf_spred + nbins + i) = total_sum - *(cdf_spred + i);
   }
 
