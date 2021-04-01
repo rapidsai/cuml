@@ -111,7 +111,7 @@ struct Node {
     nodes[pos].depth = depth + 1;
     nodes[pos].start = start + split.nLeft;
     nodes[pos].count = count - split.nLeft;
-    nodes[pos].info.unique_id = 2 * info.unique_id + 1;
+    nodes[pos].info.unique_id = 2 * info.unique_id + 2;
     // update depth
     auto val = atomicMax(n_depth, depth + 1);
     __threadfence();
