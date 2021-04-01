@@ -70,9 +70,10 @@ __global__ void execute_kernel(program_t p, float* data, float* y_pred, int n_ro
 }
 
 program::program(const program& src) : len(src.len), depth(src.depth), raw_fitness_(src.raw_fitness_){
-  nodes = new node[len];
-  for(int i=0;i<len;++i)
-    nodes[i]=src.nodes[i];
+  nodes=new node[len];
+  for(int i=0;i<len;++i){
+    nodes[i] = src.nodes[i];
+  }
 }
 
 /** 
@@ -166,7 +167,8 @@ std::pair<int, int> get_subtree(program_t p, int seed) {
   // Iterate until all function arguments are satisfied in current subtree
   int num_args = 1;
   while(num_args > end - start){
-    node curr = p->nodes[end];
+    node curr;
+    curr = p->nodes[end];
     if(curr.is_nonterminal())num_args += curr.arity();
     ++end;
   }
@@ -183,12 +185,13 @@ program_t point_mutation(program_t prog, param& params, int seed){
   std::uniform_real_distribution<float> dist_01(0.0f, 1.0f);
   // Fill with uniform numbers
   std::vector<float> node_probs(next_prog->len);
-  std::generate(node_probs.begin(),node_probs.end(),[&]{return dist_01(gen)});
+  std::generate(node_probs.begin(),node_probs.end(),[&]{return dist_01(gen);});
 
   // Mutate nodes
   int len = next_prog->len;
   for(int i=0;i<len;++i){
-    node curr = prog->nodes[i];
+    node curr;
+    curr = prog->nodes[i];
     if(node_probs[i] < params.p_point_replace){
       if(curr.is_terminal()){
         // Replace with a var or const
@@ -196,8 +199,8 @@ program_t point_mutation(program_t prog, param& params, int seed){
         int ch = dist_t(gen);
         if(ch == (params.num_features + 1)){
           // Add random constant
-          std::uniform_real_distribution<float> dist_c(params.const_range.first,
-                                                       params.const_range.second);
+          std::uniform_real_distribution<float> dist_c(params.const_range[0],
+                                                       params.const_range[1]);
           next_prog->nodes[i] = *(new node(dist_c(gen)));
         }
         else{
@@ -212,6 +215,8 @@ program_t point_mutation(program_t prog, param& params, int seed){
       }
     }
   }
+
+  return next_prog;
 }
 
 } // namespace genetic
