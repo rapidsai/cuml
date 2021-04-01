@@ -53,8 +53,8 @@ class Dbscan : public BlobsFixture<D, int> {
     this->loopOnState(state, [this, &state]() {
       ML::Dbscan::fit(*this->handle, this->data.X, this->params.nrows,
                       this->params.ncols, D(dParams.eps), dParams.min_pts,
-                      this->data.y, this->core_sample_indices,
-                      dParams.max_bytes_per_batch);
+                      raft::distance::L2SqrtUnexpanded, this->data.y,
+                      this->core_sample_indices, dParams.max_bytes_per_batch);
       state.SetItemsProcessed(this->params.nrows * this->params.ncols);
     });
   }
