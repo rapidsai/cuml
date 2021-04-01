@@ -344,6 +344,7 @@ class PermutationExplainer(SHAPBase):
 
                 self.handle.sync()
 
-        shap_values[0][idx] = shap_values[0][idx] / (2 * npermutations)
+        for i in range(self.model_dimensions):
+            shap_values[i][idx] = shap_values[i][idx] / (2 * npermutations)
 
         self.total_time = self.total_time + (time.time() - total_timer)

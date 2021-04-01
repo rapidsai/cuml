@@ -98,7 +98,7 @@ def exact_shap_regression_dataset():
     return create_synthetic_dataset(generator=skl_make_reg,
                                     n_samples=101,
                                     n_features=11,
-                                    test_size=1,
+                                    test_size=3,
                                     random_state_generator=42,
                                     random_state_train_test_split=42,
                                     noise=0.1)
@@ -109,6 +109,6 @@ def exact_shap_classification_dataset():
     return create_synthetic_dataset(generator=skl_make_clas,
                                     n_samples=101,
                                     n_features=11,
-                                    test_size=1,
+                                    test_size=3,
                                     random_state_generator=42,
                                     random_state_train_test_split=42)

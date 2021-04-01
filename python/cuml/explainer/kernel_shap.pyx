@@ -80,7 +80,6 @@ class KernelExplainer(SHAPBase):
     CPU based models, where speedups can still be achieved, but those can be
     capped by factors like data transfers and the speed of the models.
 
-
     KernelExplainer is based on the Python SHAP
     package's KernelExplainer class:
     https://github.com/slundberg/shap/blob/master/shap/explainers/_kernel.py
