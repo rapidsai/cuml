@@ -72,6 +72,8 @@ def test_check_X_y():
         check_X_y(X, y3, multi_output=False)
     with pytest.raises(Exception):
         check_X_y(X, y4, multi_output=False)
+    with pytest.raises(Exception):
+        check_X_y(X, y4, multi_output=True)
 
 
 @pytest.mark.parametrize("square", [False, True])

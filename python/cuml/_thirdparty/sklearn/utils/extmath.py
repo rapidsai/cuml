@@ -25,7 +25,7 @@ def row_norms(X, squared=False):
     """Row-wise (squared) Euclidean norm of X.
 
     Equivalent to np.sqrt((X * X).sum(axis=1)), but also supports sparse
-    matrices and does not create an X.shape-sized temporary.
+    matrices.
 
     Performs no input validation.
 
