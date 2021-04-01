@@ -143,6 +143,9 @@ T run_api(const raft::handle_t &cuml_handle, int loss_type, int C,
 }
 
 TEST_F(QuasiNewtonTest, binary_logistic_vs_sklearn) {
+#if CUDART_VERSION >= 11020
+  GTEST_SKIP();
+#endif
   raft::CompareApprox<double> compApprox(tol);
   // Test case generated in python and solved with sklearn
   double y[N] = {1, 1, 1, 0, 1, 0, 1, 0, 1, 0};
@@ -220,6 +223,9 @@ TEST_F(QuasiNewtonTest, binary_logistic_vs_sklearn) {
 }
 
 TEST_F(QuasiNewtonTest, multiclass_logistic_vs_sklearn) {
+#if CUDART_VERSION >= 11020
+  GTEST_SKIP();
+#endif
   // The data seems to small for the objective to be strongly convex
   // leaving out exact param checks
 
