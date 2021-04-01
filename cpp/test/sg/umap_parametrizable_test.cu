@@ -212,6 +212,9 @@ class UMAPParametrizableTest : public ::testing::Test {
   }
 
   void test(TestParams& test_params, UMAPParams& umap_params) {
+#if CUDART_VERSION >= 11020
+    GTEST_SKIP();
+#endif
     std::cout << "\numap_params : [" << std::boolalpha
               << umap_params.n_neighbors << "-" << umap_params.n_components
               << "-" << umap_params.n_epochs << "-" << umap_params.random_state
