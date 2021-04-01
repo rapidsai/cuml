@@ -518,6 +518,8 @@ def test_rf_classification_sparse(small_clf, datatype,
                                        algo=algo)
         fil_preds = np.reshape(fil_preds, np.shape(y_test))
         fil_acc = accuracy_score(y_test, fil_preds)
+        np.testing.assert_almost_equal(fil_acc,
+                                       cuml_model.score(X_test, y_test))
 
         fil_model = cuml_model.convert_to_fil_model()
 
