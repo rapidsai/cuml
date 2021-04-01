@@ -859,7 +859,7 @@ class RandomForestClassifier(BaseRandomForestModel,
                                 convert_to_dtype=(np.int32 if convert_dtype
                                                   else False))
         y_ptr = y_m.ptr
-        preds = self.predict(X, output_class=True,
+        preds = self.predict(X,
                              threshold=threshold, algo=algo,
                              convert_dtype=convert_dtype,
                              predict_model=predict_model,
