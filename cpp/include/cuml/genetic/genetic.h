@@ -17,11 +17,12 @@
 #pragma once
 
 #include "node.h"
-#include "program.h"
+#include "fitness.h"
 
 #include <cstdint>
 #include <string>
 #include <vector>
+#include <map>
 
 namespace cuml {
 namespace genetic {
@@ -78,6 +79,10 @@ struct param {
   /** list of functions to choose from */
   std::vector<node::type> function_set{node::type::add, node::type::mul,
                                        node::type::div, node::type::sub};
+  /** map of functions ordered by their arity */
+  std::map<int, std::vector<node::type>> arity_set{{2,{node::type::add, node::type::mul,
+                                                       node::type::div, node::type::sub}}
+                                                  };
   /** transformation function to class probabilities (classification-only) */
   transformer_t transformer = transformer_t::sigmoid;
   /** fitness metric */
@@ -96,8 +101,12 @@ struct param {
   float p_point_replace = 0.05f;
   /** subsampling factor */
   float max_samples = 1.0f;
+  /** default constant range */
+  std::pair<float, float> const_range = {0.0f, 1.0f};
   /** list of feature names for generating syntax trees from the programs */
   std::vector<std::string> feature_names;
+  /** number of features in current dataset */
+  int num_features;
   ///@todo: feature_names
   ///@todo: verbose
   /** random seed used for RNG */

@@ -18,6 +18,7 @@
 
 #include "node.h"
 #include "fitness.h"
+#include "genetic.h"
 #include <cuml/cuml.hpp>
 
 namespace cuml {
@@ -38,6 +39,12 @@ struct program {
    *       is assumed to be a zero-copy (aka pinned memory) buffer, atleast in
    *       this initial version
    */
+
+  /**
+   * @param[in] src source program to be copied
+   */
+  explicit program(const program &src);
+  
   node* nodes;
   /** total number of nodes in this AST */
   int len;
@@ -52,11 +59,11 @@ struct program {
 /** program_t is the type of the program */
 typedef program* program_t;
 
-/** returns predictions for given dataset on a single program*/
+/** returns predictions for given dataset on a single program */
 void execute_single(const raft::handle_t &h, program_t p, 
                      float* data, float* y_pred, int n_rows);
 
-/** returns predictions for given dataset on multiple programs program*/
+/** returns predictions for given dataset on multiple programs program */
 void execute_batched(const raft::handle_t &h, program_t p, 
                      float* data, float* y_pred, int n_rows, 
                      int n_progs);
@@ -66,9 +73,12 @@ void raw_fitness(const raft::handle_t &h, program_t p,
                  float* data, float* y, int num_rows, 
                  float* sample_weights, float* score);
 
-/** returns precomputed fitness score of program*/
+/** returns precomputed fitness score of program */
 void fitness(const raft::handle_t &h, program_t p, 
              float parsimony_coeff, float* score);
+
+/** Point mutations on CPU */
+program_t point_mutation(program_t prog, param &params, int seed);
 
 }  // namespace genetic
 }  // namespace cuml

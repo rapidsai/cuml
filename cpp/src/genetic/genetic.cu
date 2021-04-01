@@ -28,9 +28,9 @@ namespace cuml {
 namespace genetic {
 
 /**
-  * Simultaneous execution of tournaments on the GPU, 
-  * using online random number generation.
-  */
+ * Simultaneous execution of tournaments on the GPU, 
+ * using online random number generation.
+ */
 __global__ void batched_tournament_kernel(program_t programs, 
                                           int* win_indices,
                                           int* seed,
@@ -66,7 +66,7 @@ void parallel_evolve(const raft::handle_t &h, program_t old_progs,
                      float* data, float* y, float* w, 
                      int num_progs, int tournament_size, int init_seed){
   cudaStream_t stream = h.get_stream();
-  // Generate seeds 
+  // Generate seeds : todo: Find a better way for random seed generation.
   rmm::device_uvector<int> seed(num_progs,stream);
   rmm::device_uvector<int> winners(num_progs,stream);
   raft::random::Rng seedgen((uint64_t)init_seed);
