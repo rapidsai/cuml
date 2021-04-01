@@ -47,7 +47,7 @@ class silhouetteScoreTest
     std::vector<double> h_X(nElements, 0.0);
     std::vector<int> h_labels(nRows, 0);
     std::random_device rd;
-    std::default_random_engine dre(rd());
+    std::default_random_engine dre(nElements * nLabels);
     std::uniform_int_distribution<int> intGenerator(0, nLabels - 1);
     std::uniform_real_distribution<double> realGenerator(0, 100);
 

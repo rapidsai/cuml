@@ -169,8 +169,6 @@ class LogisticRegression(Base,
     -----------
     coef_: dev array, dim (n_classes, n_features) or (n_classes, n_features+1)
         The estimated coefficients for the linear regression model.
-        Note: this includes the intercept as the last column if fit_intercept
-        is True
     intercept_: device array (n_classes, 1)
         The independent term. If `fit_intercept` is False, will be 0.
 
