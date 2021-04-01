@@ -60,6 +60,11 @@ $ ./build.sh cuml --singlegpu          # build the cuML python package without M
 $ ./build.sh --ccache                  # use ccache to cache compilations, speeding up subsequent builds
 ```
 
+By default, Ninja is used as the cmake generator. To override this and use (e.g.) `make`, define the `CMAKE_GENERATOR` environment variable accodingly:
+```bash
+CMAKE_GENERATOR='Unix Makefiles' ./build.sh
+```
+
 Note. If you are using GCC 7.5, make sure to read [RDN 0002: updates to from-source builds with conda for gcc '7.5.0'](https://docs.rapids.ai/notices/rdn0002/).
 
 To run the C++ unit tests (optional), from the repo root:
