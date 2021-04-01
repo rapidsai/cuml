@@ -74,7 +74,7 @@ cdef extern from "cuml/explainer/permutation_shap.hpp" namespace "ML":
 
 class PermutationExplainer(SHAPBase):
     """
-    GPU accelerated of SHAP's permutation explainer
+    GPU accelerated version of SHAP's PermutationExplainer
 
     cuML's SHAP based explainers accelerate the algorithmic part of SHAP.
     They are optimized to be used with fast GPU based models, like those in
