@@ -87,7 +87,7 @@ class KernelExplainer(SHAPBase):
 
     Current characteristics of the GPU version:
 
-     * Unlike the SHAP package, nsamples is a parameter at the
+     * Unlike the SHAP package, ``nsamples`` is a parameter at the
        initialization of the explainer and there is a small initialization
        time.
      * Only tabular data is supported for now, via passing the background
