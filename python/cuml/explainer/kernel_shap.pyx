@@ -82,7 +82,7 @@ class KernelExplainer(SHAPBase):
 
 
     KernelExplainer is based on the Python SHAP
-    package kernel explainer:
+    package's KernelExplainer class:
     https://github.com/slundberg/shap/blob/master/shap/explainers/_kernel.py
 
     Current characteristics of the GPU version:
