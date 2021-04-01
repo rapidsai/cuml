@@ -20,6 +20,7 @@ import numbers
 import warnings
 from itertools import combinations_with_replacement as combinations_w_r
 
+import numpy as cpu_np
 import cupy as np
 from cupy import sparse
 from scipy import stats
@@ -1085,16 +1086,17 @@ def maxabs_scale(X, *, axis=0, copy=True):
     if original_ndim == 1:
         X = X.reshape(X.shape[0], 1)
 
-    s = MaxAbsScaler(copy=copy)
-    if axis == 0:
-        X = s.fit_transform(X)
-    else:
-        X = s.fit_transform(X.T).T
+    with using_output_type('cupy'):
+        s = MaxAbsScaler(copy=copy)
+        if axis == 0:
+            X = s.fit_transform(X)
+        else:
+            X = s.fit_transform(X.T).T
 
-    if original_ndim == 1:
-        X = X.ravel()
+        if original_ndim == 1:
+            X = X.ravel()
 
-    return X
+        return X
 
 
 class RobustScaler(TransformerMixin,
@@ -1480,8 +1482,9 @@ class PolynomialFeatures(TransformerMixin,
         combinations = self._combinations(self.n_input_features_, self.degree,
                                           self.interaction_only,
                                           self.include_bias)
-        return np.vstack([np.bincount(c, minlength=self.n_input_features_)
-                          for c in combinations])
+        return cpu_np.vstack([cpu_np.bincount(c,
+                                              minlength=self.n_input_features_)
+                              for c in combinations])
 
     def get_feature_names(self, input_features=None):
         """
@@ -1503,7 +1506,7 @@ class PolynomialFeatures(TransformerMixin,
             input_features = ['x%d' % i for i in range(powers.shape[1])]
         feature_names = []
         for row in powers:
-            inds = np.where(row)[0]
+            inds = cpu_np.where(row)[0]
             if len(inds):
                 name = " ".join("%s^%d" % (input_features[ind], exp)
                                 if exp != 1 else input_features[ind]
