@@ -72,7 +72,8 @@ class DtBaseTest : public ::testing::TestWithParam<DtTestParams> {
       (T*)allocator->allocate(sizeof(T) * inparams.nbins * inparams.N, stream);
 
     // computing the quantiles
-    computeQuantiles(quantiles, inparams.nbins, data, inparams.M, inparams.N, allocator, stream);
+    computeQuantiles(quantiles, inparams.nbins, data, inparams.M, inparams.N,
+                     allocator, stream);
   }
 
   void TearDown() {
