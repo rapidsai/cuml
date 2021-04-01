@@ -331,31 +331,36 @@ DI IdxT select(IdxT k, IdxT treeid, uint32_t nodeid, uint64_t seed, IdxT N) {
 
 /**
  * @brief For every block, converts the smem pdf-histogram to
- *        cdf-histogram using inclusive block-sum-scan.
- * @return The cdf-histogram pointer to shared memory
- * @note This is called only by the last block in x-dimension
+ *        cdf-histogram using inclusive block-sum-scan and returns
+ *        the total_sum
+ * @return The total sum aggregated over the sumscan,
+ *         as well as the modified cdf-histogram pointer
  */
 template <typename DataT, typename IdxT, int TPB>
-DI void pdf_to_cdf(DataT* pdf_shist, DataT* cdf_shist, IdxT nbins,
-                   bool reverse_scan = false) {
+DI DataT pdf_to_cdf(DataT* pdf_shist, DataT* cdf_shist, IdxT nbins) {
   // Blockscan instance preparation
   typedef cub::BlockScan<DataT, TPB> BlockScan;
   __shared__ typename BlockScan::TempStorage temp_storage;
 
+  // variable to accumulate aggregate of sumscans of previous iterations
+  DataT total_aggregate = DataT(0);
+
   for (IdxT tix = threadIdx.x; tix < max(TPB, nbins); tix += blockDim.x) {
     DataT result;
+    DataT block_aggregate;
     // getting the scanning element from pdf shist only
-    IdxT offset = reverse_scan ? nbins - tix : tix;
-    DataT element = tix < nbins ? pdf_shist[offset] : 0;
+    DataT element = tix < nbins ? pdf_shist[tix] : 0;
     // inclusive sum scan
-    BlockScan(temp_storage).InclusiveSum(element, result);
+    BlockScan(temp_storage).InclusiveSum(element, result, block_aggregate);
     __syncthreads();
     // store the result in cdf shist
     if (tix < nbins) {
-      auto histOffset = reverse_scan ? nbins - tix - 1 : tix;
-      cdf_shist[histOffset] = result;
+      cdf_shist[tix] = result + total_aggregate;
+      total_aggregate += block_aggregate;
     }
   }
+  // return the total sum
+  return total_aggregate;
 }
 
 template <typename DataT, typename LabelT, typename IdxT, int TPB>
@@ -467,17 +472,18 @@ __global__ void computeSplitClassificationKernel(
     auto offset_pdf = (1 + nbins) * c;
     auto offset_cdf = (2 * nbins) * c;
     // converting pdf to cdf
-    pdf_to_cdf<int, IdxT, TPB>(pdf_shist + offset_pdf, cdf_shist + offset_cdf,
+    int total_sum = pdf_to_cdf<int, IdxT, TPB>(pdf_shist + offset_pdf, cdf_shist + offset_cdf,
                                nbins);
 
-    /** right to left scan operation for scanning greater-than-bin counts
-     **/
     // greater-than split starts after nbins of less-than-equal split
     // locations
     offset_cdf += nbins;
-    //convert pdf to cdf
-    pdf_to_cdf<int, IdxT, TPB>(pdf_shist + offset_pdf, cdf_shist + offset_cdf,
-                               nbins, true);
+    /** samples that are greater-than-bin calculated by difference
+     *  of count of lesser-than-equal samples from total_sum.
+     **/
+    for ( IdxT i = threadIdx.x; i < nbins; i += blockDim.x) {
+      *(cdf_shist + offset_cdf + i) = total_sum - *(cdf_shist + 2 * nbins * c + i);
+    }
   }
 
   // create a split instance to test current feature split
@@ -595,8 +601,6 @@ __global__ void computeSplitRegressionKernel(
   __threadfence();  // for commit guarantee
   __syncthreads();
 
-  /* Make a second pass over the data to compute gain */
-
   // Wait until all blockIdx.x's are done
   MLCommon::GridSync gs(workspace, MLCommon::SyncType::ACROSS_X, false);
   gs.sync();
@@ -619,13 +623,19 @@ __global__ void computeSplitRegressionKernel(
 
   /** get cdf of spred from pdf_spred **/
   // cdf of samples lesser-than-equal to threshold
-  pdf_to_cdf<DataT, IdxT, TPB>(pdf_spred, cdf_spred, nbins);
+  DataT total_sum = pdf_to_cdf<DataT, IdxT, TPB>(pdf_spred, cdf_spred, nbins);
+
   // cdf of samples greater than threshold
-  pdf_to_cdf<DataT, IdxT, TPB>(pdf_spred, cdf_spred + nbins, nbins, true);
+  // calculated by subtracting lesser-than-equals from total_sum
+  for ( IdxT i = threadIdx.x; i < nbins; i += blockDim.x) {
+    *(cdf_spred + nbins + i) = total_sum - *(cdf_spred + i);
+  }
 
   /** get cdf of scount from pdf_scount **/
   pdf_to_cdf<int, IdxT, TPB>(pdf_scount, cdf_scount, nbins);
   __syncthreads();
+
+  // calcualting prediction average-sums
   for (IdxT i = threadIdx.x; i < nbins; i += blockDim.x) {
     spredP[i] = cdf_spred[i] + cdf_spred[i + nbins];
   }
@@ -641,6 +651,8 @@ __global__ void computeSplitRegressionKernel(
     spredP[i] *= invlen;
   }
   __syncthreads();
+
+  /* Make a second pass over the data to compute gain */
 
   // 2nd pass over data to compute partial metric across blockIdx.x's
   if (splitType == CRITERION::MAE) {
