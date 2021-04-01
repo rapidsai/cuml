@@ -75,7 +75,7 @@ struct Split {
    */
   DI void update(const SplitT& other) {
     if (other.best_metric_val == best_metric_val) {
-      if(other.colid < colid) *this = other;
+      if (other.colid < colid) *this = other;
     } else if (other.best_metric_val > best_metric_val) {
       *this = other;
     }
