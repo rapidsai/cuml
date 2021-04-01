@@ -321,5 +321,18 @@ void pairwise_distance(const raft::handle_t &handle, const float *x,
                        raft::distance::DistanceType metric,
                        bool isRowMajor = true);
 
+void pairwiseDistance_sparse(const raft::handle_t &handle, double *x, double *y,
+                             double *dist, int x_nrows, int y_nrows, int n_cols,
+                             int x_nnz, int y_nnz, int *x_indptr, int *y_indptr,
+                             int *x_indices, int *y_indices,
+                             raft::distance::DistanceType metric,
+                             float metric_arg);
+void pairwiseDistance_sparse(const raft::handle_t &handle, float *x, float *y,
+                             float *dist, int x_nrows, int y_nrows, int n_cols,
+                             int x_nnz, int y_nnz, int *x_indptr, int *y_indptr,
+                             int *x_indices, int *y_indices,
+                             raft::distance::DistanceType metric,
+                             float metric_arg);
+
 }  // namespace Metrics
 }  // namespace ML

@@ -51,5 +51,5 @@ VALID_METRICS_SPARSE = {
     "brute": set(["euclidean", "l2", "inner_product",
                   "l1", "cityblock", "manhattan", "taxicab",
                   "canberra", "linf", "chebyshev", "jaccard",
-                  "minkowski", "lp", "cosine"])
+                  "minkowski", "lp", "cosine", "hellinger"])
 }

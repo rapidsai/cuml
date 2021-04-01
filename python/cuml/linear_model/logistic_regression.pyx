@@ -169,8 +169,6 @@ class LogisticRegression(Base,
     -----------
     coef_: dev array, dim (n_classes, n_features) or (n_classes, n_features+1)
         The estimated coefficients for the linear regression model.
-        Note: this includes the intercept as the last column if fit_intercept
-        is True
     intercept_: device array (n_classes, 1)
         The independent term. If `fit_intercept` is False, will be 0.
 
@@ -193,6 +191,7 @@ class LogisticRegression(Base,
 
     def __init__(
         self,
+        *,
         penalty="l2",
         tol=1e-4,
         C=1.0,
@@ -207,9 +206,9 @@ class LogisticRegression(Base,
         output_type=None,
     ):
 
-        super(LogisticRegression, self).__init__(
-            handle=handle, verbose=verbose, output_type=output_type
-        )
+        super().__init__(handle=handle,
+                         verbose=verbose,
+                         output_type=output_type)
 
         if penalty not in supported_penalties:
             raise ValueError("`penalty` " + str(penalty) + "not supported.")
@@ -494,6 +493,6 @@ class LogisticRegression(Base,
         return state
 
     def __setstate__(self, state):
-        super(LogisticRegression, self).__init__(handle=None,
-                                                 verbose=state["verbose"])
+        super().__init__(handle=None,
+                         verbose=state["verbose"])
         self.__dict__.update(state)
