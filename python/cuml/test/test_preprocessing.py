@@ -63,7 +63,6 @@ from cuml.test.test_preproc_utils import \
     sparse_int_dataset, \
     sparse_dataset_with_coo  # noqa: F401
 from cuml.test.test_preproc_utils import assert_allclose
-from cuml.common.import_utils import check_cupy8
 
 import numpy as np
 import cupy as cp
@@ -174,7 +173,6 @@ def test_scale_sparse(sparse_clf_dataset, with_std):  # noqa: F811
     assert_allclose(t_X, sk_t_X)
 
 
-@check_cupy8('pytest')
 def test_maxabs_scaler(clf_dataset):  # noqa: F811
     X_np, X = clf_dataset
 
@@ -192,7 +190,6 @@ def test_maxabs_scaler(clf_dataset):  # noqa: F811
     assert_allclose(r_X, sk_r_X)
 
 
-@check_cupy8('pytest')
 def test_maxabs_scaler_sparse(sparse_clf_dataset):  # noqa: F811
     X_np, X = sparse_clf_dataset
 
@@ -218,7 +215,6 @@ def test_maxabs_scaler_sparse(sparse_clf_dataset):  # noqa: F811
     assert_allclose(r_X, sk_r_X)
 
 
-@check_cupy8('pytest')
 @pytest.mark.parametrize("norm", ['l1', 'l2', 'max'])
 def test_normalizer(clf_dataset, norm):  # noqa: F811
     X_np, X = clf_dataset
@@ -233,7 +229,6 @@ def test_normalizer(clf_dataset, norm):  # noqa: F811
     assert_allclose(t_X, sk_t_X)
 
 
-@check_cupy8('pytest')
 @pytest.mark.parametrize("norm", ['l1', 'l2', 'max'])
 def test_normalizer_sparse(sparse_clf_dataset, norm):  # noqa: F811
     X_np, X = sparse_clf_dataset
@@ -255,7 +250,6 @@ def test_normalizer_sparse(sparse_clf_dataset, norm):  # noqa: F811
     assert_allclose(t_X, sk_t_X)
 
 
-@check_cupy8('pytest')
 @pytest.mark.parametrize("axis", [0, 1])
 @pytest.mark.parametrize("norm", ['l1', 'l2', 'max'])
 @pytest.mark.parametrize("return_norm", [True, False])
@@ -277,7 +271,6 @@ def test_normalize(clf_dataset, axis, norm, return_norm):  # noqa: F811
     assert_allclose(t_X, sk_t_X)
 
 
-@check_cupy8('pytest')
 @pytest.mark.parametrize("norm", ['l1', 'l2', 'max'])
 def test_normalize_sparse(sparse_clf_dataset, norm):  # noqa: F811
     X_np, X = sparse_clf_dataset
@@ -296,7 +289,6 @@ def test_normalize_sparse(sparse_clf_dataset, norm):  # noqa: F811
     assert_allclose(t_X, sk_t_X)
 
 
-@check_cupy8('pytest')
 @pytest.mark.parametrize("strategy", ["mean", "median", "most_frequent",
                                       "constant"])
 @pytest.mark.parametrize("missing_values", [0, 1, np.nan])
@@ -326,7 +318,6 @@ def test_imputer(int_dataset, strategy, missing_values,  # noqa: F811
     assert_allclose(t_X, sk_t_X)
 
 
-@check_cupy8('pytest')
 @pytest.mark.parametrize("strategy", ["mean", "median", "most_frequent",
                          "constant"])
 @pytest.mark.parametrize("missing_values", [np.nan, 1.])
@@ -365,7 +356,6 @@ def test_imputer_sparse(sparse_int_dataset, strategy,  # noqa: F811
     assert_allclose(t_X, sk_t_X)
 
 
-@check_cupy8('pytest')
 @pytest.mark.parametrize("degree", [2, 3])
 @pytest.mark.parametrize("interaction_only", [True, False])
 @pytest.mark.parametrize("include_bias", [True, False])
@@ -394,7 +384,6 @@ def test_poly_features(clf_dataset, degree,  # noqa: F811
     assert_allclose(t_X, sk_t_X, rtol=0.1, atol=0.1)
 
 
-@check_cupy8('pytest')
 @pytest.mark.parametrize("degree", [2, 3])
 @pytest.mark.parametrize("interaction_only", [True, False])
 @pytest.mark.parametrize("include_bias", [True, False])
@@ -627,7 +616,6 @@ def test_robust_scale_sparse(sparse_clf_dataset,  # noqa: F811
     assert_allclose(t_X, sk_t_X)
 
 
-@check_cupy8('pytest')
 @pytest.mark.parametrize("n_bins", [5, 20])
 @pytest.mark.parametrize("encode", ['ordinal', 'onehot-dense', 'onehot'])
 @pytest.mark.parametrize("strategy", [

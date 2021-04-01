@@ -25,12 +25,11 @@ from ..utils.skl_dependencies import BaseEstimator, TransformerMixin
 from cuml.common.mixins import SparseInputTagMixin
 from ..utils.validation import check_is_fitted
 from ..utils.validation import FLOAT_DTYPES
-from ..utils.validation import _deprecate_positional_args
 from ....thirdparty_adapters import check_array
-from ....common.import_utils import check_cupy8
 from ....common.array_sparse import SparseCumlArray
 from ....common.array_descriptor import CumlArrayDescriptor
 from ....common.memory_utils import using_output_type
+from ....internals import _deprecate_pos_args
 
 
 def digitize(x, bins):
@@ -138,8 +137,7 @@ class KBinsDiscretizer(TransformerMixin,
     bin_edges_ = CumlArrayDescriptor()
     n_bins_ = CumlArrayDescriptor()
 
-    @check_cupy8()
-    @_deprecate_positional_args
+    @_deprecate_pos_args(version="0.20")
     def __init__(self, n_bins=5, *, encode='onehot', strategy='quantile'):
         self.n_bins = n_bins
         self.encode = encode

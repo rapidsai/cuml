@@ -27,10 +27,9 @@ from cuml.common.mixins import AllowNaNTagMixin, SparseInputTagMixin, \
                                StringInputTagMixin
 from ..utils.validation import check_is_fitted
 from ..utils.validation import FLOAT_DTYPES
-from ..utils.validation import _deprecate_positional_args
-from ....common.import_utils import check_cupy8
 from ....common.array_sparse import SparseCumlArray
 from ....common.array_descriptor import CumlArrayDescriptor
+from ....internals import _deprecate_pos_args
 
 
 def is_scalar_nan(x):
@@ -231,8 +230,7 @@ class SimpleImputer(_BaseImputer, BaseEstimator,
 
     statistics_ = CumlArrayDescriptor()
 
-    @check_cupy8()
-    @_deprecate_positional_args
+    @_deprecate_pos_args(version="0.20")
     def __init__(self, *, missing_values=np.nan, strategy="mean",
                  fill_value=None, copy=True, add_indicator=False):
         super().__init__(
@@ -534,10 +532,9 @@ class MissingIndicator(TransformerMixin,
            [False, False]])
 
     """
-
     features_ = CumlArrayDescriptor()
 
-    @_deprecate_positional_args
+    @_deprecate_pos_args(version="0.20")
     def __init__(self, *, missing_values=np.nan, features="missing-only",
                  sparse="auto", error_on_new=True):
         self.missing_values = missing_values
