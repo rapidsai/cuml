@@ -544,7 +544,7 @@ def test_nearest_neighbors_sparse(metric,
 
     # Jaccard & Chebyshev have a high potential for mismatched indices
     # due to duplicate distances. We can ignore the indices in this case.
-    if metric not in ['jaccard', 'chebyshev']:
+    if metric not in ['jaccard', 'chebyshev', "hamming"]:
 
         # The actual neighbors returned in the presence of duplicate distances
         # is non-deterministic. If we got to this point, the distances all

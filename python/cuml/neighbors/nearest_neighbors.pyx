@@ -423,6 +423,14 @@ class NearestNeighbors(Base,
             m = DistanceType.HellingerExpanded
         elif metric == "haversine":
             m = DistanceType.Haversine
+        elif metric == "kl_divergence":
+            m = DistanceType.KLDivergence
+        elif metric == "jensenshannon":
+            m = DistanceType.JensenShannon
+        elif metric == "hamming":
+            m = DistanceType.HammingUnexpanded
+        elif metric == "russelrao":
+            m = DistanceType.RusselRaoExpanded
         else:
             raise ValueError("Metric %s is not supported" % metric)
 
