@@ -18,8 +18,6 @@
 #include <iostream>
 #include <vector>
 
-#include <raft/cudart_utils.h>
-
 #include <cuml/manifold/umapparams.h>
 #include <datasets/digits.h>
 #include <raft/cudart_utils.h>
@@ -250,12 +248,8 @@ class UMAPParametrizableTest : public ::testing::Test {
                                      n_samples * umap_params.n_components);
     float* e1 = embeddings1.data();
 
-    device_buffer<float> X_2(alloc, stream, X_d.size());
-
     get_embedding(handle, X_d.data(), (float*)y_d.data(), e1, test_params,
                   umap_params);
-
-    raft::copy_async(X_2.data(), X_d.data(), X_d.size(), stream);
 
     assertions(handle, X_d.data(), e1, test_params, umap_params);
 
