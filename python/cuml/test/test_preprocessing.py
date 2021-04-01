@@ -61,16 +61,17 @@ import cupy as cp
 import scipy
 
 
-def test_minmax_scaler(clf_dataset):  # noqa: F811
+@pytest.mark.parametrize("feature_range", [(0, 1), (.1, 0.8)])
+def test_minmax_scaler(clf_dataset, feature_range):  # noqa: F811
     X_np, X = clf_dataset
 
-    scaler = cuMinMaxScaler(copy=True)
+    scaler = cuMinMaxScaler(feature_range=feature_range, copy=True)
     t_X = scaler.fit_transform(X)
     r_X = scaler.inverse_transform(t_X)
     assert type(t_X) == type(X)
     assert type(r_X) == type(t_X)
 
-    scaler = skMinMaxScaler(copy=True)
+    scaler = skMinMaxScaler(feature_range=feature_range, copy=True)
     sk_t_X = scaler.fit_transform(X_np)
     sk_r_X = scaler.inverse_transform(sk_t_X)
 
@@ -78,13 +79,15 @@ def test_minmax_scaler(clf_dataset):  # noqa: F811
     assert_allclose(r_X, sk_r_X)
 
 
-def test_minmax_scale(clf_dataset):  # noqa: F811
+@pytest.mark.parametrize("axis", [0, 1])
+@pytest.mark.parametrize("feature_range", [(0, 1), (.1, 0.8)])
+def test_minmax_scale(clf_dataset, axis, feature_range):  # noqa: F811
     X_np, X = clf_dataset
 
-    t_X = cu_minmax_scale(X)
+    t_X = cu_minmax_scale(X, feature_range=feature_range, axis=axis)
     assert type(t_X) == type(X)
 
-    sk_t_X = sk_minmax_scale(X_np)
+    sk_t_X = sk_minmax_scale(X_np, feature_range=feature_range, axis=axis)
 
     assert_allclose(t_X, sk_t_X)
 
@@ -94,15 +97,17 @@ def test_minmax_scale(clf_dataset):  # noqa: F811
 def test_standard_scaler(clf_dataset, with_mean, with_std):  # noqa: F811
     X_np, X = clf_dataset
 
-    scaler = cuStandardScaler(copy=True, with_mean=with_mean,
-                              with_std=with_std)
+    scaler = cuStandardScaler(with_mean=with_mean,
+                              with_std=with_std,
+                              copy=True)
     t_X = scaler.fit_transform(X)
     r_X = scaler.inverse_transform(t_X)
     assert type(t_X) == type(X)
     assert type(r_X) == type(t_X)
 
-    scaler = skStandardScaler(copy=True, with_mean=with_mean,
-                              with_std=with_std)
+    scaler = skStandardScaler(with_mean=with_mean,
+                              with_std=with_std,
+                              copy=True)
     sk_t_X = scaler.fit_transform(X_np)
     sk_r_X = scaler.inverse_transform(sk_t_X)
 
@@ -114,7 +119,7 @@ def test_standard_scaler(clf_dataset, with_mean, with_std):  # noqa: F811
 def test_standard_scaler_sparse(sparse_clf_dataset, with_std):  # noqa: F811
     X_np, X = sparse_clf_dataset
 
-    scaler = cuStandardScaler(copy=True, with_mean=False, with_std=with_std)
+    scaler = cuStandardScaler(with_mean=False, with_std=with_std, copy=True)
     t_X = scaler.fit_transform(X)
     r_X = scaler.inverse_transform(t_X)
     #  assert type(t_X) == type(X)
@@ -136,15 +141,18 @@ def test_standard_scaler_sparse(sparse_clf_dataset, with_std):  # noqa: F811
     assert_allclose(r_X, sk_r_X)
 
 
+@pytest.mark.parametrize("axis", [0, 1])
 @pytest.mark.parametrize("with_mean", [True, False])
 @pytest.mark.parametrize("with_std", [True, False])
-def test_scale(clf_dataset, with_mean, with_std):  # noqa: F811
+def test_scale(clf_dataset, axis, with_mean, with_std):  # noqa: F811
     X_np, X = clf_dataset
 
-    t_X = cu_scale(X, copy=True, with_mean=with_mean, with_std=with_std)
+    t_X = cu_scale(X, axis=axis, with_mean=with_mean,
+                   with_std=with_std, copy=True)
     assert type(t_X) == type(X)
 
-    sk_t_X = sk_scale(X_np, copy=True, with_mean=with_mean, with_std=with_std)
+    sk_t_X = sk_scale(X_np, axis=axis, with_mean=with_mean,
+                      with_std=with_std, copy=True)
 
     assert_allclose(t_X, sk_t_X)
 
@@ -153,14 +161,14 @@ def test_scale(clf_dataset, with_mean, with_std):  # noqa: F811
 def test_scale_sparse(sparse_clf_dataset, with_std):  # noqa: F811
     X_np, X = sparse_clf_dataset
 
-    t_X = cu_scale(X, copy=True, with_mean=False, with_std=with_std)
+    t_X = cu_scale(X, with_mean=False, with_std=with_std, copy=True)
     #  assert type(t_X) == type(X)
     if cp.sparse.issparse(X):
         assert cp.sparse.issparse(t_X)
     if scipy.sparse.issparse(X):
         assert scipy.sparse.issparse(t_X)
 
-    sk_t_X = sk_scale(X_np, copy=True, with_mean=False, with_std=with_std)
+    sk_t_X = sk_scale(X_np, with_mean=False, with_std=with_std, copy=True)
 
     assert_allclose(t_X, sk_t_X)
 
