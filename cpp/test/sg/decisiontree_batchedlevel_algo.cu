@@ -71,12 +71,9 @@ class DtBaseTest : public ::testing::TestWithParam<DtTestParams> {
     quantiles =
       (T*)allocator->allocate(sizeof(T) * inparams.nbins * inparams.N, stream);
 
-    std::shared_ptr<TemporaryMemory<T, int>> tempmem;
-    tempmem = std::make_shared<TemporaryMemory<T, int>>(
-      *handle, handle->get_stream(), inparams.M, inparams.N, 1, params);
-
-    preprocess_quantile((const T*)data, (const unsigned*)rowids, inparams.M,
-                        inparams.N, inparams.M, inparams.nbins, tempmem);
+    // computing the quantiles
+    computeQuantiles(quantiles, inparams.nbins, data, inparams.M, inparams.N,
+                     allocator, stream);
   }
 
   void TearDown() {
