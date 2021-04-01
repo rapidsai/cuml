@@ -25,7 +25,6 @@
 #include <raft/cudart_utils.h>
 #include <cuml/common/cuml_allocator.hpp>
 #include <cuml/common/device_buffer.hpp>
-#include <cuml/common/logger.hpp>
 #include <cuml/cuml.hpp>
 #include <cuml/datasets/make_blobs.hpp>
 #include <cuml/manifold/umap.hpp>
@@ -87,8 +86,8 @@ bool are_equal(T* embedding1, T* embedding2, size_t len,
   device_buffer<double> d_answer(alloc, stream, 1);
   raft::update_device(d_answer.data(), &h_answer, 1, stream);
 
-  are_equal_kernel<<<raft::ceildiv(len, (size_t)32), 32, 0, stream>>>(embedding1, embedding2, len,
-                                             d_answer.data());
+  are_equal_kernel<<<raft::ceildiv(len, (size_t)32), 32, 0, stream>>>(
+    embedding1, embedding2, len, d_answer.data());
   raft::update_host(&h_answer, d_answer.data(), 1, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
@@ -230,8 +229,6 @@ class UMAPParametrizableTest : public ::testing::Test {
     auto alloc = handle.get_device_allocator();
     int& n_samples = test_params.n_samples;
     int& n_features = test_params.n_features;
-
-    Logger::get().setLevel(CUML_LEVEL_DEBUG);
 
     UMAP::find_ab(handle, &umap_params);
 

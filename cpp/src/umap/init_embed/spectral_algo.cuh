@@ -55,8 +55,8 @@ void launcher(const raft::handle_t &handle, int n, int d,
   uint64_t seed = params->random_state;
 
   Spectral::fit_embedding(handle, coo->rows(), coo->cols(), coo->vals(),
-                          coo->nnz, n, params->n_components,
-                          tmp_storage.data(), seed);
+                          coo->nnz, n, params->n_components, tmp_storage.data(),
+                          seed);
 
   raft::linalg::transpose(handle, tmp_storage.data(), embedding, n,
                           params->n_components, stream);
@@ -68,7 +68,6 @@ void launcher(const raft::handle_t &handle, int n, int d,
   thrust::device_ptr<T> d_ptr = thrust::device_pointer_cast(tmp_storage.data());
   T max = *(thrust::max_element(thrust::cuda::par.on(stream), d_ptr,
                                 d_ptr + (n * params->n_components)));
-
 
   // Reuse tmp_storage to add random noise
   raft::random::Rng r(seed);
