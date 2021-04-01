@@ -179,7 +179,7 @@ Metrics (clustering and trustworthiness)
 
   .. automodule:: cuml.metrics.cluster.silhouette_score
     :members:
-       
+
   .. automodule:: cuml.metrics.cluster.completeness_score
     :members:
 
@@ -416,6 +416,22 @@ ARIMA
 .. autoclass:: cuml.tsa.auto_arima.AutoARIMA
     :members:
 
+Model Explainability
+====================
+
+SHAP Kernel Explainer
+---------------------
+
+.. autoclass:: cuml.explainer.KernelExplainer
+   :members:
+
+SHAP Permutation Explainer
+--------------------------
+
+.. autoclass:: cuml.explainer.PermutationExplainer
+   :members:
+
+
 Multi-Node, Multi-GPU Algorithms
 ================================
 
@@ -532,15 +548,6 @@ Preprocessing
       Normalizer, RobustScaler, SimpleImputer, StandardScaler,
       add_dummy_feature, binarize, minmax_scale, normalize,
       PolynomialFeatures, robust_scale, scale
-
-
-Model Explanation (SHAP)
-------------------------
-.. autoclass:: cuml.experimental.explainer.KernelExplainer
-   :members:
-
-.. autoclass:: cuml.experimental.explainer.PermutationExplainer
-   :members:
 
 Linear Models
 -------------

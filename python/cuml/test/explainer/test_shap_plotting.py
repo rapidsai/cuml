@@ -20,7 +20,8 @@ from cuml import KernelExplainer as cuKE
 from cuml import LinearRegression
 
 
-show_charts = False
+# set this variable to True if you want to see the charts
+show_plots = False
 
 
 def get_shap_values(explainer,
@@ -57,25 +58,21 @@ def explainer(exact_shap_regression_dataset):
 
 
 def test_bar(explainer, exact_shap_regression_dataset):
-    """ Check that the bar plot is unchanged.
-    """
     shap = pytest.importorskip("shap")
     shap_values, _ = get_shap_values(explainer=explainer,
                                      dataset=exact_shap_regression_dataset,
                                      api_type="explanation_object")
 
-    shap.plots.bar(shap_values, show=show_charts)
+    shap.plots.bar(shap_values, show=show_plots)
 
 
 def test_decision_plot(explainer, exact_shap_regression_dataset):
-    """ Check that the bar plot is unchanged.
-    """
     shap = pytest.importorskip("shap")
     shap_values, _ = get_shap_values(explainer=explainer,
                                      dataset=exact_shap_regression_dataset,
                                      api_type="raw_shap_values")
 
-    shap.decision_plot(0, shap_values, show=show_charts)
+    shap.decision_plot(0, shap_values, show=show_plots)
 
 
 def test_dependence_plot(explainer, exact_shap_regression_dataset):
@@ -87,18 +84,16 @@ def test_dependence_plot(explainer, exact_shap_regression_dataset):
         api_type="raw_shap_values"
     )
 
-    shap.dependence_plot(0, shap_values, data, show=show_charts)
+    shap.dependence_plot(0, shap_values, data, show=show_plots)
 
 
 def test_heatmap(explainer, exact_shap_regression_dataset):
-    """ Check that the bar plot is unchanged.
-    """
     shap = pytest.importorskip("shap")
     shap_values, _ = get_shap_values(explainer=explainer,
                                      dataset=exact_shap_regression_dataset,
                                      api_type="explanation_object")
 
-    shap.plots.heatmap(shap_values, show=show_charts)
+    shap.plots.heatmap(shap_values, show=show_plots)
 
 
 def test_summary(explainer, exact_shap_regression_dataset):
@@ -112,7 +107,7 @@ def test_summary(explainer, exact_shap_regression_dataset):
         api_type="raw_shap_values"
     )
 
-    shap.summary_plot(shap_values, show=show_charts)
+    shap.summary_plot(shap_values, show=show_plots)
 
 
 def test_violin(explainer, exact_shap_regression_dataset):
@@ -126,7 +121,7 @@ def test_violin(explainer, exact_shap_regression_dataset):
         api_type="raw_shap_values"
     )
 
-    shap.plots.violin(shap_values, show=show_charts)
+    shap.plots.violin(shap_values, show=show_plots)
 
 
 def test_waterfall(explainer, exact_shap_regression_dataset):
@@ -137,4 +132,4 @@ def test_waterfall(explainer, exact_shap_regression_dataset):
                                      dataset=exact_shap_regression_dataset,
                                      api_type="explanation_object")
 
-    shap.plots.waterfall(shap_values[0], show=show_charts)
+    shap.plots.waterfall(shap_values[0], show=show_plots)

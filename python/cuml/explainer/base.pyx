@@ -269,7 +269,7 @@ class SHAPBase():
             shap_values.append(cp.zeros(X.shape, dtype=self.dtype))
 
         # Allocate synthetic dataset array once for multiple explanations
-        if getattr(self, "synth_data", None) is None and synth_data_shape \
+        if getattr(self, "_synth_data", None) is None and synth_data_shape \
                 is not None:
             self._synth_data = cp.zeros(
                 shape=synth_data_shape,
@@ -296,8 +296,6 @@ class SHAPBase():
                 dimensions=self.model_dimensions,
                 output_type=self.output_type
             )
-
-        debug(self._get_timers_str())
 
         return shap_values
 

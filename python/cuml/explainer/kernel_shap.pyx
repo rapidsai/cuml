@@ -70,28 +70,33 @@ cdef extern from "cuml/explainer/kernel_shap.hpp" namespace "ML":
 
 class KernelExplainer(SHAPBase):
     """
-    GPU accelerated of SHAP's kernel explainer (experimental).
+    GPU accelerated of SHAP's kernel explainer.
 
-    Based on the SHAP package:
+    cuML's SHAP based explainers accelerate the algorithmic part of SHAP.
+    They are optimized to be used with fast GPU based models, like those in
+    cuML. By creating the datasets and internal calculations,
+    alongside minimizing data copies and transfers, they can accelerate
+    explanations significantly. But they can also be used with
+    CPU based models, where speedups can still be achieved, but those can be
+    capped by factors like data transfers and the speed of the models.
+
+
+    KenelExplainer is algorithmically similar and based on the Python SHAP
+    package kernel explainer:
     https://github.com/slundberg/shap/blob/master/shap/explainers/_kernel.py
 
-    Main differences of the GPU version:
+    Current characteristics of the GPU version:
 
-     - Data generation and Kernel SHAP calculations are significantly faster,
-       but this has a tradeoff of having more model evaluations if both the
-       observation explained and the background data have many 0-valued
-       columns.
-     - Support for SHAP's new Explanation and API will be available in the
-       next version.
-     - There is a small initialization cost (similar to training time of
-       regular Scikit/cuML models) of a few seconds, which was a tradeoff for
-       faster explanations after that.
-     - Only tabular data is supported for now, via passing the background
-       dataset explicitly. Since the new API of SHAP is still evolving, the
-       main supported API right now is the old one
-       (i.e. ``explainer.shap_values()``)
-     - Sparse data support is planned for the near future.
-     - Further optimizations are in progress.
+     * Unlike the SHAP package, nsamples is a parameter at the
+       initialization of the explainer and there is a small initialization
+       time.
+     * Only tabular data is supported for now, via passing the background
+       dataset explicitly.
+     * Sparse data support is planned for the near future.
+     * Further optimizations are in progress. For example, if the background
+       dataset has constant value columns and the observation has the same
+       value in some entries, the number of evaluations of the function can
+       be reduced (this will come in the next version).
 
     Parameters
     ----------
@@ -124,7 +129,7 @@ class KernelExplainer(SHAPBase):
     random_state: int, RandomState instance or None (default = None)
         Seed for the random number generator for dataset creation. Note: due to
         the design of the sampling algorithm the concurrency can affect
-        results so currently 100% deterministic execution is not guaranteed.
+        results, so currently 100% deterministic execution is not guaranteed.
     gpu_model : bool or None (default = None)
         If None Explainer will try to infer whether `model` can take GPU data
         (as CuPy arrays), otherwise it will use NumPy arrays to call `model`.
@@ -154,7 +159,7 @@ class KernelExplainer(SHAPBase):
     >>> from cuml import make_regression
     >>> from cuml import train_test_split
     >>>
-    >>> from cuml.experimental.explainer import KernelExplainer as cuKE
+    >>> from cuml.explainer import KernelExplainer
     >>>
     >>> X, y = make_regression(
     ...     n_samples=102,
@@ -170,7 +175,7 @@ class KernelExplainer(SHAPBase):
     >>>
     >>> model = SVR().fit(X_train, y_train)
     >>>
-    >>> cu_explainer = cuKE(
+    >>> cu_explainer = KernelExplainer(
     ...     model=model.predict,
     ...     data=X_train,
     ...     gpu_model=True)
@@ -189,7 +194,7 @@ class KernelExplainer(SHAPBase):
                  *,
                  model,
                  data,
-                 nsamples=2**11,
+                 nsamples='auto',
                  link='identity',
                  verbose=False,
                  random_state=None,
@@ -198,7 +203,7 @@ class KernelExplainer(SHAPBase):
                  dtype=None,
                  output_type=None):
 
-        super(KernelExplainer, self).__init__(
+        super().__init__(
             model=model,
             background=data,
             order='C',
@@ -211,7 +216,12 @@ class KernelExplainer(SHAPBase):
             output_type=output_type
         )
 
-        self.nsamples = nsamples
+        # default value matching SHAP package
+        if nsamples == 'auto':
+            self.nsamples = 2 * self.M + 2**11
+        else:
+            self.nsamples = nsamples
+
         # Maximum number of samples that user can set
         max_samples = 2 ** 32
 
@@ -248,8 +258,6 @@ class KernelExplainer(SHAPBase):
         self._weights = cp.ones(self.nsamples, dtype=self.dtype)
         self._weights[:self.nsamples_exact] = cp.array(weight)
 
-        self._reset_timers()
-
     def shap_values(self,
                     X,
                     l1_reg='auto',
@@ -274,8 +282,7 @@ class KernelExplainer(SHAPBase):
 
         Returns
         -------
-        values : array or list
-
+        shap_values : array or list
         """
         return self._explain(X,
                              synth_data_shape=(self.nrows * self.nsamples,
@@ -365,8 +372,6 @@ class KernelExplainer(SHAPBase):
                 <int> maxsample,
                 <uint64_t> self.random_state)
 
-        # kept while in experimental namespace. It is not needed for cuml
-        # models, but for other GPU models it is
         self.handle.sync()
 
         model_timer = time.time()
@@ -377,8 +382,6 @@ class KernelExplainer(SHAPBase):
 
         self.model_call_time = \
             self.model_call_time + (time.time() - model_timer)
-
-        l1_reg_time = 0
 
         for i in range(self.model_dimensions):
             if self.model_dimensions == 1:
@@ -447,14 +450,6 @@ class KernelExplainer(SHAPBase):
         super()._reset_timers()
         self.l1_reg_time = 0
         self.linear_model_time = 0
-
-    def _get_timers_str(self):
-        res_str = super()._get_timers_str()
-        res_str += "Time spent in L1 regularization: {}".format(
-            self.l1_reg_time)
-        res_str += "Time spent in linear model calculation: {}".format(
-            self.linear_model_time)
-        return res_str
 
 
 def _get_number_of_exact_random_samples(ncols, nsamples):
