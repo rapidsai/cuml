@@ -20,7 +20,7 @@ import cupy as cp
 import numpy as np
 import pytest
 
-from cuml.experimental.explainer.base import SHAPBase
+from cuml.explainer.base import SHAPBase
 from cuml import LinearRegression as cuLR
 
 
