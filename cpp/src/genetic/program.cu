@@ -69,6 +69,10 @@ __global__ void execute_kernel(program_t p, float* data, float* y_pred, int n_ro
   }                                   
 }
 
+program::program(){
+  depth=10;
+}
+
 program::program(const program& src) : len(src.len), depth(src.depth), raw_fitness_(src.raw_fitness_){
   nodes=new node[len];
   for(int i=0;i<len;++i){
@@ -134,9 +138,9 @@ void fitness(const raft::handle_t &h, program_t p,
 }
 
 /**
- * Get a random subtree of the current program(on CPU)
+ * Get a random subtree of the current program nodes (on CPU)
  */
-std::pair<int, int> get_subtree(program_t p, int seed) {
+std::pair<int, int> get_subtree(node* pnodes, int len, int seed) {
   
   int start,end;
   start=end=0;
@@ -147,17 +151,17 @@ std::pair<int, int> get_subtree(program_t p, int seed) {
   float bound = dist(gen);
 
   // Specify subtree start probs acc to Koza's selection approach 
-  std::vector<float> node_probs(p->len,0.1);
-  float sum = 0.1 * p->len;
-  for(int i=0; i< p->len ; ++i){
-    if(p->nodes[i].is_nonterminal()){
+  std::vector<float> node_probs(len,0.1);
+  float sum = 0.1 * len;
+  for(int i=0; i< len ; ++i){
+    if(pnodes[i].is_nonterminal()){
       node_probs[i] = 0.9; 
       sum += 0.8;
     }
   }
 
   // Normalize vector
-  for(int i=0;i<p->len;++i){
+  for(int i=0;i<len;++i){
     node_probs[i] /= sum;
   }
 
@@ -168,7 +172,7 @@ std::pair<int, int> get_subtree(program_t p, int seed) {
   int num_args = 1;
   while(num_args > end - start){
     node curr;
-    curr = p->nodes[end];
+    curr = pnodes[end];
     if(curr.is_nonterminal())num_args += curr.arity();
     ++end;
   }
@@ -218,6 +222,43 @@ program_t point_mutation(program_t prog, param& params, int seed){
 
   return next_prog;
 }
+
+program_t crossover(program_t prog, program_t donor, param &params, int seed){
+
+  // Get a random subtree of prog to replace
+  std::pair<int, int> prog_slice = get_subtree(prog->nodes, prog->len, seed);
+  int prog_start = prog_slice.first;
+  int prog_end = prog_slice.second;
+
+  // Get subtree of donor
+  std::pair<int, int> donor_slice = get_subtree(donor->nodes, donor->len, seed);
+  int donor_start = donor_slice.first;
+  int donor_end = donor_slice.second;
+
+  // Evolve
+  program_t next_prog = new program(*prog); 
+  next_prog->len = (prog_start) + (donor_end - donor_start + 1) + (prog->len-prog_end);
+  next_prog->nodes = new node[next_prog->len];
+  
+  int i=0;
+  for(;i<prog_start;++i){
+    next_prog->nodes[i] = prog->nodes[i];
+  }
+
+  for(int j=donor_start;j<donor_end;++i,++j){
+    next_prog->nodes[i] = donor->nodes[j];
+  }
+
+  for(int j=prog_end;j<prog->len;++j,++i){
+    next_prog->nodes[i] = prog->nodes[i];
+  }
+
+  // Set metric
+  next_prog->metric = prog->metric;
+  return next_prog;
+}
+
+program_t 
 
 } // namespace genetic
 } // namespace cuml

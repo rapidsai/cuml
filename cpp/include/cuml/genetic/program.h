@@ -40,6 +40,11 @@ struct program {
    *       this initial version
    */
 
+  /** 
+   * Default constructor
+   */
+  explicit program();
+  
   /**
    * @param[in] src source program to be copied
    */
@@ -80,5 +85,7 @@ void fitness(const raft::handle_t &h, program_t p,
 /** Point mutations on CPU */
 program_t point_mutation(program_t prog, param &params, int seed);
 
+/** Crossover mutations on CPU */
+program_t crossover(program_t prog, program_t donor, param &params, int seed);
 }  // namespace genetic
 }  // namespace cuml
