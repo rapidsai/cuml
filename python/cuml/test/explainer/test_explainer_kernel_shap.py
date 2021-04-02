@@ -15,18 +15,18 @@
 #
 
 import cuml
-import cuml.experimental.explainer
 import cupy as cp
 import numpy as np
 import math
 import pytest
 import sklearn.neighbors
 
+from cuml import KernelExplainer
 from cuml.common.import_utils import has_scipy
 from cuml.common.import_utils import has_shap
+from cuml.test.conftest import create_synthetic_dataset
 from cuml.test.utils import ClassEnumerator
-from sklearn.datasets import make_classification
-from sklearn.datasets import make_regression
+from cuml.test.utils import get_shap_values
 from sklearn.model_selection import train_test_split
 
 
@@ -34,28 +34,11 @@ models_config = ClassEnumerator(module=cuml)
 models = models_config.get_models()
 
 
-@pytest.fixture(scope="module")
-def exact_tests_dataset():
-    X, y = make_regression(n_samples=101,
-                           n_features=11,
-                           noise=0.1,
-                           random_state=42)
-
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=1, random_state=42)
-
-    X_train = X_train.astype(np.float32)
-    X_test = X_test.astype(np.float32)
-    y_train = y_train.astype(np.float32)
-    y_test = y_test.astype(np.float32)
-    return X_train, X_test, y_train, y_test
-
-
-def experimental_test_and_log(cu_shap_values,
-                              golden_result_values,
-                              fx,
-                              expected,
-                              tolerance=1e-02):
+def assert_and_log(cu_shap_values,
+                   golden_result_values,
+                   fx,
+                   expected,
+                   tolerance=1e-02):
     close_values = \
         np.allclose(cu_shap_values, golden_result_values,
                     rtol=tolerance, atol=tolerance)
@@ -69,8 +52,12 @@ def experimental_test_and_log(cu_shap_values,
         print("golden_result_values")
         print(golden_result_values)
 
+    if not expected_sum:
+        print(np.sum(cp.asnumpy(cu_shap_values)))
+
     assert expected_sum
     assert close_values
+
 
 ###############################################################################
 #                              End to end tests                               #
@@ -80,180 +67,135 @@ def experimental_test_and_log(cu_shap_values,
 @pytest.mark.parametrize("model", [cuml.LinearRegression,
                                    cuml.KNeighborsRegressor,
                                    cuml.SVR])
-def test_exact_regression_datasets(exact_tests_dataset, model):
-    # todo (dd): idx parameter is for repeating the test for a few CI runs
-    # will be removed before merging
-    X_train, X_test, y_train, y_test = exact_tests_dataset
+def test_exact_regression_datasets(exact_shap_regression_dataset, model):
+    X_train, X_test, y_train, y_test = exact_shap_regression_dataset
 
-    mod = model().fit(X_train, y_train)
+    models = []
+    models.append(model().fit(X_train, y_train))
+    models.append(cuml_skl_class_dict[model]().fit(X_train, y_train))
 
-    explainer = cuml.experimental.explainer.KernelExplainer(
-        model=mod.predict,
-        data=X_train)
-
-    cu_shap_values = explainer.shap_values(X_test)
-    experimental_test_and_log(cu_shap_values,
-                              golden_regression_results[model],
-                              mod.predict(X_test),
-                              float(explainer.expected_value))
-
-    skmod = cuml_skl_class_dict[model]().fit(X_train, y_train)
-
-    explainer = cuml.experimental.explainer.KernelExplainer(
-        model=skmod.predict,
-        data=X_train)
-
-    cu_shap_values = explainer.shap_values(X_test)
-
-    # since the values were calculated with the cuml models, a little
-    # looser tolerance in the comparison is expected
-    experimental_test_and_log(cu_shap_values,
-                              golden_regression_results[model],
-                              mod.predict(X_test),
-                              float(explainer.expected_value))
+    for mod in models:
+        explainer, shap_values = get_shap_values(
+            model=mod.predict,
+            background_dataset=X_train,
+            explained_dataset=X_test,
+            explainer=KernelExplainer
+        )
+        for i in range(3):
+            print(i)
+            assert_and_log(
+                shap_values[i],
+                golden_regression_results[model][i],
+                mod.predict(X_test[i].reshape(1, X_test.shape[1])),
+                explainer.expected_value
+            )
 
 
-def test_exact_classification_datasets():
-    X, y = make_classification(n_samples=101,
-                               n_features=11,
-                               random_state=42,
-                               n_informative=2,
-                               n_classes=2)
+def test_exact_classification_datasets(exact_shap_classification_dataset):
+    X_train, X_test, y_train, y_test = exact_shap_classification_dataset
 
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=1, random_state=42)
+    models = []
+    models.append(cuml.SVC(probability=True).fit(X_train, y_train))
+    models.append(sklearn.svm.SVC(probability=True).fit(X_train, y_train))
 
-    X_train = X_train.astype(np.float32)
-    X_test = X_test.astype(np.float32)
-    y_train = y_train.astype(np.float32)
-    y_test = y_test.astype(np.float32)
+    for mod in models:
+        explainer, shap_values = get_shap_values(
+            model=mod.predict_proba,
+            background_dataset=X_train,
+            explained_dataset=X_test,
+            explainer=KernelExplainer
+        )
 
-    mod = cuml.SVC(probability=True).fit(X_train, y_train)
-
-    explainer = cuml.experimental.explainer.KernelExplainer(
-        model=mod.predict_proba,
-        data=X_train)
-
-    cu_shap_values = explainer.shap_values(X_test)
-
-    experimental_test_and_log(cu_shap_values[0],
-                              golden_classification_result[0],
-                              float(mod.predict_proba(X_test)[0][0]),
-                              float(explainer.expected_value[0]),
-                              tolerance=1e-01)
-
-    experimental_test_and_log(cu_shap_values[1],
-                              golden_classification_result[1],
-                              float(mod.predict_proba(X_test)[0][1]),
-                              float(explainer.expected_value[1]),
-                              tolerance=1e-01)
-
-    mod = sklearn.svm.SVC(probability=True).fit(X_train, y_train)
-
-    explainer = cuml.experimental.explainer.KernelExplainer(
-        model=mod.predict_proba,
-        data=X_train)
-
-    cu_shap_values = explainer.shap_values(X_test)
-
-    # Some values are very small, which mean our tolerance here needs to be
-    # a little looser to avoid false positives from comparisons like
-    # 0.00348627 - 0.00247397. The loose tolerance still tests that the
-    # distribution of the values matches.
-    experimental_test_and_log(cu_shap_values[0],
-                              golden_classification_result[0],
-                              float(mod.predict_proba(X_test)[0][0]),
-                              float(explainer.expected_value[0]),
-                              tolerance=1e-01)
-
-    experimental_test_and_log(cu_shap_values[1],
-                              golden_classification_result[1],
-                              float(mod.predict_proba(X_test)[0][1]),
-                              float(explainer.expected_value[1]),
-                              tolerance=1e-01)
+        # Some values are very small, which mean our tolerance here needs to be
+        # a little looser to avoid false positives from comparisons like
+        # 0.00348627 - 0.00247397. The loose tolerance still tests that the
+        # distribution of the values matches.
+        for idx, svs in enumerate(shap_values):
+            assert_and_log(
+                svs[0],
+                golden_classification_result[idx],
+                float(mod.predict_proba(X_test)[0][idx]),
+                explainer.expected_value[idx],
+                tolerance=1e-01
+            )
 
 
 @pytest.mark.parametrize("dtype", [np.float32, np.float64])
-@pytest.mark.parametrize("nfeatures", [10])
-@pytest.mark.parametrize("nbackground", [10])
+@pytest.mark.parametrize("n_features", [10, 30])
+@pytest.mark.parametrize("n_background", [10, 30])
 @pytest.mark.parametrize("model", [cuml.TruncatedSVD,
                                    cuml.PCA])
-def test_kernel_shap_standalone(dtype, nfeatures, nbackground, model):
-    X, y = cuml.datasets.make_regression(n_samples=nbackground + 10,
-                                         n_features=nfeatures,
-                                         noise=0.1, dtype=dtype)
-
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=2)
+def test_kernel_shap_standalone(dtype, n_features, n_background, model):
+    X_train, X_test, y_train, y_test = create_synthetic_dataset(
+        n_samples=n_background + 3,
+        n_features=n_features,
+        test_size=3,
+        noise=0.1,
+        dtype=dtype
+    )
 
     mod = model(n_components=3).fit(X_train, y_train)
+    explainer, shap_values = get_shap_values(
+        model=mod.transform,
+        background_dataset=X_train,
+        explained_dataset=X_test,
+        explainer=KernelExplainer
+    )
 
-    cu_explainer = \
-        cuml.experimental.explainer.KernelExplainer(model=mod.transform,
-                                                    data=X_train,
-                                                    is_gpu_model=True)
+    exp_v = explainer.expected_value
 
-    cu_shap_values = cu_explainer.shap_values(X_test)
-    exp_v = cu_explainer.expected_value
-
-    # we have 5 lists of shap values, each corresponding to a component since
+    # we have 3 lists of shap values, each corresponding to a component since
     # transform gives back arrays of shape (nrows x ncomponents)
     # we test that for each test row, for each component, the
     # sum of the shap values is the same as the difference between the
     # expected value for that component minus the value of the transform of
     # the row.
-    for sv_idx in range(2):
+    for sv_idx in range(3):
         # pca and tsvd transform give results back nested
-        fx = mod.transform(X_test[sv_idx].reshape(1, nfeatures))[0]
+        fx = mod.transform(X_test[sv_idx].reshape(1, n_features))[0]
 
         for comp_idx in range(3):
             assert(
                 np.sum(
-                    cu_shap_values[comp_idx][sv_idx]) - abs(
+                    shap_values[comp_idx][sv_idx]) - abs(
                         fx[comp_idx] - exp_v[comp_idx])) <= 1e-5
 
 
 @pytest.mark.parametrize("dtype", [np.float32, np.float64])
-@pytest.mark.parametrize("nfeatures", [11, 15])
-@pytest.mark.parametrize("nbackground", [30])
+@pytest.mark.parametrize("n_features", [11, 15])
+@pytest.mark.parametrize("n_background", [30])
 @pytest.mark.parametrize("model", [cuml.SVR])
-def test_kernel_gpu_cpu_shap(dtype, nfeatures, nbackground, model):
-    X, y = cuml.datasets.make_regression(n_samples=nbackground + 5,
-                                         n_features=nfeatures,
-                                         noise=0.1)
-
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=5, random_state=42)
-
-    X_train = X_train.astype(dtype)
-    X_test = X_test.astype(dtype)
-    y_train = y_train.astype(dtype)
-    y_test = y_test.astype(dtype)
+def test_kernel_gpu_cpu_shap(dtype, n_features, n_background, model):
+    X_train, X_test, y_train, y_test = create_synthetic_dataset(
+        n_samples=n_background + 3,
+        n_features=n_features,
+        test_size=3,
+        noise=0.1,
+        dtype=dtype
+    )
 
     mod = model().fit(X_train, y_train)
+    explainer, shap_values = get_shap_values(
+        model=mod.predict,
+        background_dataset=X_train,
+        explained_dataset=X_test,
+        explainer=KernelExplainer
+    )
 
-    cu_explainer = \
-        cuml.experimental.explainer.KernelExplainer(model=mod.predict,
-                                                    data=X_train,
-                                                    is_gpu_model=True)
+    exp_v = explainer.expected_value
 
-    cu_shap_values = cu_explainer.shap_values(X_test)
-
-    exp_v = cu_explainer._expected_value
     fx = mod.predict(X_test)
-    for test_idx in range(5):
+    for test_idx in range(3):
         assert(np.sum(
-            cu_shap_values[test_idx]) - abs(fx[test_idx] - exp_v)) <= 1e-5
+            shap_values[test_idx]) - abs(fx[test_idx] - exp_v)) <= 1e-5
 
-    if has_shap("0.37"):
+    if has_shap():
         import shap
         explainer = shap.KernelExplainer(mod.predict, cp.asnumpy(X_train))
-        shap_values = explainer.shap_values(cp.asnumpy(X_test))
+        cpu_shap_values = explainer.shap_values(cp.asnumpy(X_test))
 
-        # note that small variances in the l1_regression with larger
-        # n_features, even among runs of the same explainer can cause this
-        # test to be flaky, better testing strategy in process.
-        assert np.allclose(cu_shap_values, shap_values, rtol=1e-01, atol=1e-01)
+        assert np.allclose(shap_values, cpu_shap_values, rtol=1e-01,
+                           atol=1e-01)
 
 
 def test_kernel_housing_dataset(housing_dataset):
@@ -271,7 +213,7 @@ def test_kernel_housing_dataset(housing_dataset):
 
     cumodel = cuml.RandomForestRegressor().fit(X_train, y_train)
 
-    explainer = cuml.experimental.explainer.KernelExplainer(
+    explainer = KernelExplainer(
         model=cumodel.predict,
         data=X_train[:100],
         output_type='numpy')
@@ -281,8 +223,6 @@ def test_kernel_housing_dataset(housing_dataset):
     assert np.allclose(cu_shap_values, housing_regression_result,
                        rtol=1e-01, atol=1e-01)
 
-    assert True
-
 ###############################################################################
 #                        Single function unit tests                           #
 ###############################################################################
@@ -290,7 +230,7 @@ def test_kernel_housing_dataset(housing_dataset):
 
 def test_binom_coef():
     for i in range(1, 101):
-        val = cuml.experimental.explainer.kernel_shap._binomCoef(100, i)
+        val = cuml.explainer.kernel_shap._binomCoef(100, i)
         if has_scipy():
             from scipy.special import binom
             assert math.isclose(val, binom(100, i), rel_tol=1e-15)
@@ -298,12 +238,12 @@ def test_binom_coef():
 
 def test_shapley_kernel():
     for i in range(11):
-        val = cuml.experimental.explainer.kernel_shap._shapley_kernel(10, i)
+        val = cuml.explainer.kernel_shap._shapley_kernel(10, i)
         assert val == shapley_kernel_results[i]
 
 
 def test_full_powerset():
-    ps, w = cuml.experimental.explainer.kernel_shap._powerset(
+    ps, w = cuml.explainer.kernel_shap._powerset(
         5, 2, 2**5 - 2, full_powerset=True)
 
     for i in range(len(ps)):
@@ -312,7 +252,7 @@ def test_full_powerset():
 
 
 def test_partial_powerset():
-    ps, w = cuml.experimental.explainer.kernel_shap._powerset(6, 3, 42)
+    ps, w = cuml.explainer.kernel_shap._powerset(6, 3, 42)
 
     for i in range(len(ps)):
         assert np.all(ps[i] == partial_powerset_result[i])
@@ -324,14 +264,14 @@ def test_get_number_of_exact_random_samples(full_powerset):
 
     if full_powerset:
         nsamples_exact, nsamples_random, ind = \
-            (cuml.experimental.explainer.kernel_shap.
+            (cuml.explainer.kernel_shap.
              _get_number_of_exact_random_samples(10, 2**10 + 1))
         assert nsamples_exact == 1022
         assert nsamples_random == 0
         assert ind == 5
     else:
         nsamples_exact, nsamples_random, ind = \
-            (cuml.experimental.explainer.kernel_shap.
+            (cuml.explainer.kernel_shap.
              _get_number_of_exact_random_samples(10, 100))
 
         assert nsamples_exact == 20
@@ -341,7 +281,7 @@ def test_get_number_of_exact_random_samples(full_powerset):
 
 def test_generate_nsamples_weights():
     samples, w = \
-        cuml.experimental.explainer.kernel_shap._generate_nsamples_weights(
+        cuml.explainer.kernel_shap._generate_nsamples_weights(
             ncols=20,
             nsamples=30,
             nsamples_exact=10,
@@ -354,29 +294,29 @@ def test_generate_nsamples_weights():
     for i, s in enumerate(samples):
         assert s in [5, 6]
         assert w[i * 2] == \
-            cuml.experimental.explainer.kernel_shap._shapley_kernel(20, int(s))
+            cuml.explainer.kernel_shap._shapley_kernel(20, int(s))
         assert w[i * 2 + 1] == \
-            cuml.experimental.explainer.kernel_shap._shapley_kernel(20, int(s))
+            cuml.explainer.kernel_shap._shapley_kernel(20, int(s))
 
 
 @pytest.mark.parametrize("l1_type", ['auto', 'aic', 'bic', 'num_features(3)',
                                      0.2])
-def test_l1_regularization(exact_tests_dataset, l1_type):
+def test_l1_regularization(exact_shap_regression_dataset, l1_type):
     # currently this is a code test, not mathematical results test.
     # Hard to test without falling into testing the underlying algorithms
     # which are out of this unit test scope.
-    X, w = cuml.experimental.explainer.kernel_shap._powerset(
+    X, w = cuml.explainer.kernel_shap._powerset(
         5, 2, 2**5 - 2, full_powerset=True)
 
     y = cp.random.rand(X.shape[0])
     nz = \
-        cuml.experimental.explainer.kernel_shap._l1_regularization(
+        cuml.explainer.kernel_shap._l1_regularization(
             X=cp.asarray(X).astype(np.float32),
             y=cp.asarray(y).astype(np.float32),
             weights=cp.asarray(w),
             expected_value=0.0,
             fx=0.0,
-            link_fn=cuml.experimental.explainer.common.identity,
+            link_fn=cuml.explainer.common.identity,
             l1_reg=l1_type
         )
     assert isinstance(nz, cp.ndarray)
@@ -392,17 +332,36 @@ def test_l1_regularization(exact_tests_dataset, l1_type):
 # and confirmed with SHAP package.
 golden_regression_results = {
     cuml.LinearRegression: [
-        -3.6001968e-01, -1.0214063e+02, 1.2992077e+00, -6.3079113e+01,
-        2.5177002e-04, -2.3135548e+00, -1.0176431e+02, 3.3992329e+00,
-        4.1034698e+01, 7.1334076e+01, -1.6048431e+00
+        [-1.3628216e+00, -1.0234555e+02, 1.3433075e-01, -6.1763966e+01,
+         2.6035309e-04, -3.4455872e+00, -1.0159061e+02, 3.4058199e+00,
+         4.1598396e+01, 7.2152481e+01, -2.1964417e+00],
+        [-8.6558792e+01, 8.9456577e+00, -3.6405910e+01, 1.0574381e+01,
+         -4.1580200e-04, -5.8939896e+01, 4.8407948e+01, 1.4475842e+00,
+         -2.0742226e+01, 6.6378265e+01, -3.5134201e+01],
+        [-1.3722158e+01, -2.9430325e+01, -8.0079269e+01, 1.2096907e+02,
+         1.0681152e-03, -5.4266449e+01, -3.1012087e+01, -7.9640961e-01,
+         7.7072838e+01, 1.5370981e+01, -2.4032040e+01]
     ],
     cuml.KNeighborsRegressor: [
-        3.3001919, -46.435326, -5.2908664, -34.01667, -5.917948, -14.939089,
-        -46.88066, -3.1448324, 11.431797, 49.297226, 5.9906464
+        [4.3210926, -47.497078, -4.523407, -35.49657, -5.5174675, -14.158726,
+         -51.303787, -2.6457424, 12.230529, 52.345207, 6.3014755],
+        [-52.036957, 2.4158602, -20.302296, 15.428952, 5.9823637,
+         -20.046719, 22.46046, -4.762917, -6.20145, 37.457417,
+         5.3511925],
+        [-8.803419, -7.4095736, -48.113777, 57.21296, 1.0490589,
+         -37.94751, -20.748789, -0.22258139, 28.204493, 4.5492225,
+         0.5797138]
     ],
     cuml.SVR: [
-        0.04022658, -1.019261, 0.03412837, -0.7708928, -0.01342008,
-        -0.10700871, -1.2565054, 0.49404335, 0.4250477, 1.0444777, 0.01112604
+        [3.53810340e-02, -8.11021507e-01, 3.34369540e-02, -8.68727207e-01,
+         1.06804073e-03, -1.14741415e-01, -1.35545099e+00, 3.87545109e-01,
+         4.43311602e-01, 1.08623052e+00, 2.65314579e-02],
+        [-1.39247358e+00, 5.91157824e-02, -4.33764964e-01, 1.04503572e-01,
+         -4.41753864e-03, -1.09017754e+00, 5.90143979e-01, 1.08445108e-01,
+         -2.26831138e-01, 9.69056726e-01, -1.18437767e-01],
+        [-1.28573015e-01, -2.33658075e-01, -1.02735841e+00, 1.47447693e+00,
+         -1.99043751e-03, -1.11328888e+00, -4.66209412e-01, -1.02243885e-01,
+         8.18460345e-01, 2.20144764e-01, -9.62769389e-02]
     ]
 }
 
