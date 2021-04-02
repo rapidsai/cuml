@@ -84,6 +84,9 @@ void raw_fitness(const raft::handle_t &h, program_t p,
 void fitness(const raft::handle_t &h, program_t p, 
              float parsimony_coeff, float* score);
 
+/** build a random program of max-depth */
+program_t build_program(param &params, int seed);
+
 /** Point mutations on CPU */
 program_t point_mutation(program_t prog, param &params, int seed);
 

@@ -20,6 +20,7 @@
 #include <rmm/device_uvector.hpp>
 
 #include <random>
+#include <stack>
 
 #include "node.cuh"
 #include "reg_stack.cuh"
@@ -180,6 +181,79 @@ std::pair<int, int> get_subtree(node* pnodes, int len, int seed) {
   return std::make_pair(start,end);
 }
 
+program_t build_program(param &params,int seed){
+  
+  // Build a new program
+  std::stack<int> arity_stack;
+  std::vector<node> nodelist(0);
+
+  // Specify RNG
+  std::mt19937 gen(seed);
+  std::uniform_int_distribution<> dist_func(0,params.function_set.size()-1);
+  std::uniform_int_distribution<> dist_depth(1, MAX_STACK_SIZE);
+  std::uniform_int_distribution<> dist_t(0,params.num_features);
+  std::uniform_int_distribution<> dist_choice(0,params.num_features+params.function_set.size()-1);
+  std::uniform_real_distribution<float> dist_const(params.const_range[0],
+                                              params.const_range[1]);
+
+  // Initialize nodes
+  int max_depth = dist_depth(gen);
+  node::type func = params.function_set[dist_func(gen)];
+  node* curr_node = new node(func);
+  nodelist.push_back(*curr_node);
+  arity_stack.push(curr_node->arity());
+
+  // Fill tree
+  while(!arity_stack.empty()){
+    int depth = arity_stack.size();
+    int ch = dist_choice(gen);
+    if(ch <= params.function_set.size() && depth < max_depth){
+      // Add a function to node list
+      curr_node = new node(params.function_set[dist_func(gen)]);
+      nodelist.push_back(*curr_node);
+      arity_stack.push(curr_node->arity());
+    }
+    else{
+      // Add terminal
+      int vorc = dist_t(gen);
+      if(vorc == params.num_features){
+        // Add constant
+        float val = dist_const(gen);
+        curr_node = new node(val);        
+      }
+      else{
+        // Add variable
+        int fid = vorc;
+        curr_node = new node(fid);
+      }
+
+      // Modify nodelist and stack
+      nodelist.push_back(*curr_node);
+      int end_elem = arity_stack.top();
+      arity_stack.pop();
+      arity_stack.push(--end_elem);
+      while(arity_stack.top() == 0){
+        arity_stack.pop();
+        if(arity_stack.empty()){
+          break;
+        }
+        end_elem = arity_stack.top();
+        arity_stack.pop();
+        arity_stack.push(--end_elem);
+      }
+    }
+  }
+
+  // Create new program
+  program_t next_prog = new program();
+  next_prog->nodes = &nodelist[0];
+  next_prog->len = nodelist.size();
+  next_prog->metric = params.metric;
+  next_prog->depth = MAX_STACK_SIZE;
+  next_prog->raw_fitness_ = 0.0f;
+  return next_prog;
+}
+
 program_t point_mutation(program_t prog, param& params, int seed){
   
   program_t next_prog = new program(*prog);
@@ -187,6 +261,9 @@ program_t point_mutation(program_t prog, param& params, int seed){
   // Specify RNG
   std::mt19937 gen(seed);
   std::uniform_real_distribution<float> dist_01(0.0f, 1.0f);
+  std::uniform_int_distribution<> dist_t(0,params.num_features);
+  std::uniform_real_distribution<float> dist_c(params.const_range[0],
+                                              params.const_range[1]);
   // Fill with uniform numbers
   std::vector<float> node_probs(next_prog->len);
   std::generate(node_probs.begin(),node_probs.end(),[&]{return dist_01(gen);});
@@ -199,12 +276,9 @@ program_t point_mutation(program_t prog, param& params, int seed){
     if(node_probs[i] < params.p_point_replace){
       if(curr.is_terminal()){
         // Replace with a var or const
-        std::uniform_int_distribution<> dist_t(0,params.num_features);
         int ch = dist_t(gen);
         if(ch == (params.num_features + 1)){
           // Add random constant
-          std::uniform_real_distribution<float> dist_c(params.const_range[0],
-                                                       params.const_range[1]);
           next_prog->nodes[i] = *(new node(dist_c(gen)));
         }
         else{
@@ -259,7 +333,9 @@ program_t crossover(program_t prog, program_t donor, param &params, int seed){
 }
 
 program_t subtree_mutation(program_t prog, param &params, int seed){
-
+  // Generate a random program and perform crossover
+  program_t new_program = build_program(params,seed);
+  return crossover(prog,new_program,params,seed);
 }
 
 program_t hoist_mutation(program_t prog, param &params, int seed){
