@@ -326,7 +326,7 @@ set(CMAKE_CUDA_FLAGS
   "${CMAKE_CUDA_FLAGS} -Xcudafe --diag_suppress=unrecognized_gcc_pragma")
 
 # make sure we produce smallest binary size
-string(APPEND CMAKE_CUDA_FLAGS -Xfatbin=-compress-all)
+string(APPEND CMAKE_CUDA_FLAGS " -Xfatbin=-compress-all")
 
 ##############################################################################
 # - dependencies -------------------------------------------------------------
