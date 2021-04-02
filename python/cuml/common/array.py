@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020, NVIDIA CORPORATION.
+# Copyright (c) 2020-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -141,9 +141,9 @@ class CumlArray(Buffer):
         else:
             flattened_data = data
 
-        super(CumlArray, self).__init__(data=flattened_data,
-                                        owner=owner,
-                                        size=size)
+        super().__init__(data=flattened_data,
+                         owner=owner,
+                         size=size)
 
         # Post processing of meta data
         if detailed_construction:
@@ -284,7 +284,7 @@ class CumlArray(Buffer):
         return self
 
     def serialize(self):
-        header, frames = super(CumlArray, self).serialize()
+        header, frames = super().serialize()
         header["constructor-kwargs"] = {
             "dtype": self.dtype.str,
             "shape": self.shape,

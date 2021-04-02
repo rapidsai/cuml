@@ -39,10 +39,11 @@ namespace detail {
  * Only if the there are > 1 samples in the label, row is initialized to max
 */
 template <typename value_t, typename value_idx, typename label_idx>
-__global__ void fill_b_kernel(value_t *b, label_idx *y, value_idx n_rows,
-                              label_idx n_labels, value_idx *cluster_counts) {
-  auto idx = threadIdx.x + blockIdx.x * blockDim.x;
-  auto idy = threadIdx.y + blockIdx.y * blockDim.y;
+__global__ void fill_b_kernel(value_t *b, const label_idx *y, value_idx n_rows,
+                              label_idx n_labels,
+                              const value_idx *cluster_counts) {
+  value_idx idx = threadIdx.x + blockIdx.x * blockDim.x;
+  label_idx idy = threadIdx.y + blockIdx.y * blockDim.y;
 
   if (idx >= n_rows || idy >= n_labels) {
     return;
@@ -54,7 +55,7 @@ __global__ void fill_b_kernel(value_t *b, label_idx *y, value_idx n_rows,
 
   // b for own cluster should be max value
   // so that it does not interfere with min operator
-  // b is also max if self cluster count is 0
+  // b is also max if col cluster count is 0
   // however, b is 0 if self cluster count is 1
   if (row_cluster == idy || col_cluster_count == 0) {
     if (cluster_counts[row_cluster] == 1) {
@@ -77,23 +78,26 @@ __global__ void fill_b_kernel(value_t *b, label_idx *y, value_idx n_rows,
 template <typename value_t, typename value_idx, typename label_idx>
 __global__ void compute_chunked_a_b_kernel(
   value_t *a, value_t *b, value_idx row_offset, value_idx col_offset,
-  label_idx *y, label_idx n_labels, value_idx *cluster_counts,
-  value_t *distances, value_idx dist_rows, value_idx dist_cols) {
-  auto row_id = threadIdx.x + blockIdx.x * blockDim.x;
-  auto col_id = threadIdx.y + blockIdx.y * blockDim.y;
+  const label_idx *y, label_idx n_labels, const value_idx *cluster_counts,
+  const value_t *distances, value_idx dist_rows, value_idx dist_cols) {
+  value_idx row_id = threadIdx.x + blockIdx.x * blockDim.x;
+  value_idx col_id = threadIdx.y + blockIdx.y * blockDim.y;
 
   // these are global offsets of current element
   // in the full pairwise distance matrix
-  auto pw_row_id = row_id + row_offset;
-  auto pw_col_id = col_id + col_offset;
+  value_idx pw_row_id = row_id + row_offset;
+  value_idx pw_col_id = col_id + col_offset;
 
   if (row_id >= dist_rows || col_id >= dist_cols || pw_row_id == pw_col_id) {
     return;
   }
 
-  auto col_cluster = y[pw_col_id];
   auto row_cluster = y[pw_row_id];
+  if (cluster_counts[row_cluster] == 1) {
+    return;
+  }
 
+  auto col_cluster = y[pw_col_id];
   auto col_cluster_counts = cluster_counts[col_cluster];
 
   if (col_cluster == row_cluster) {
@@ -146,10 +150,10 @@ rmm::device_uvector<value_t> get_pairwise_distance(
 template <typename value_t, typename value_idx, typename label_idx>
 void compute_chunked_a_b(const raft::handle_t &handle, value_t *a, value_t *b,
                          value_idx &row_offset, value_idx &col_offset,
-                         label_idx *y, label_idx &n_labels,
-                         value_idx *cluster_counts, value_t *distances,
-                         value_idx &dist_rows, value_idx &dist_cols,
-                         cudaStream_t stream) {
+                         const label_idx *y, label_idx &n_labels,
+                         const value_idx *cluster_counts,
+                         const value_t *distances, value_idx &dist_rows,
+                         value_idx &dist_cols, cudaStream_t stream) {
   dim3 block_size(std::min(dist_rows, 32), std::min(dist_cols, 32));
   dim3 grid_size(raft::ceildiv(dist_rows, (value_idx)block_size.x),
                  raft::ceildiv(dist_cols, (value_idx)block_size.y));
@@ -194,7 +198,7 @@ value_t silhouette_score(const raft::handle_t &handle, value_t *X,
 
   dim3 block_size(std::min(n_rows, 32), std::min(n_labels, 32));
   dim3 grid_size(raft::ceildiv(n_rows, (value_idx)block_size.x),
-                 raft::ceildiv(n_labels, (value_idx)block_size.y));
+                 raft::ceildiv(n_labels, (label_idx)block_size.y));
   detail::fill_b_kernel<<<grid_size, block_size, 0, stream>>>(
     b_ptr, y, n_rows, n_labels, cluster_counts.data());
 
@@ -241,7 +245,7 @@ value_t silhouette_score(const raft::handle_t &handle, value_t *X,
                          value_idx>(
     a_ptr, a_ptr, b_ptr, n_rows, MLCommon::Metrics::SilOp<value_t>(), stream);
 
-  return thrust::reduce(policy, a_ptr, a_ptr + n_rows) / n_rows;
+  return thrust::reduce(policy, a_ptr, a_ptr + n_rows, value_t(0)) / n_rows;
 }
 
 }  // namespace Batched

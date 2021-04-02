@@ -1,4 +1,4 @@
-# Copyright (c) 2020, NVIDIA CORPORATION.
+# Copyright (c) 2020-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -92,8 +92,8 @@ class UMAP(BaseEstimator,
        Reduction. <https://arxiv.org/abs/1802.03426>`_
 
     """
-    def __init__(self, model, client=None, **kwargs):
-        super(UMAP, self).__init__(client, **kwargs)
+    def __init__(self, *, model, client=None, **kwargs):
+        super().__init__(client, **kwargs)
 
         self._set_internal_model(model)
 

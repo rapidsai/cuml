@@ -21,6 +21,7 @@ from cuml.common.base import Base
 from cuml.common.mixins import ClassifierMixin
 from cuml.common.doc_utils import generate_docstring
 from cuml.common import input_to_host_array
+from cuml.internals import _deprecate_pos_args
 
 
 class MulticlassClassifier(Base, ClassifierMixin):
@@ -82,13 +83,16 @@ class MulticlassClassifier(Base, ClassifierMixin):
         Number of classes.
 
     """
+    @_deprecate_pos_args(version="0.20")
     def __init__(self,
                  estimator,
+                 *,
                  handle=None,
                  verbose=False,
                  output_type=None,
                  strategy='ovr'):
-        super().__init__(handle=handle, verbose=verbose,
+        super().__init__(handle=handle,
+                         verbose=verbose,
                          output_type=output_type)
         self.strategy = strategy
         self.estimator = estimator
@@ -204,6 +208,7 @@ class OneVsRestClassifier(MulticlassClassifier):
         module level, `cuml.global_settings.output_type`.
         See :ref:`output-data-type-configuration` for more info.
     """
+    @_deprecate_pos_args(version="0.20")
     def __init__(self,
                  estimator,
                  *args,
@@ -269,6 +274,7 @@ class OneVsOneClassifier(MulticlassClassifier):
         module level, `cuml.global_settings.output_type`.
         See :ref:`output-data-type-configuration` for more info.
     """
+    @_deprecate_pos_args(version="0.20")
     def __init__(self,
                  estimator,
                  *args,
