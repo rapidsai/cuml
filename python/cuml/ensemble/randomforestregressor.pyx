@@ -26,7 +26,7 @@ from cuml import ForestInference
 from cuml.common.array import CumlArray
 import cuml.internals
 
-from cuml.common.base import RegressorMixin
+from cuml.common.mixins import RegressorMixin
 from cuml.common.doc_utils import generate_docstring
 from cuml.common.doc_utils import insert_into_docstring
 from cuml.raft.common.handle import Handle
@@ -47,6 +47,7 @@ from libc.stdlib cimport calloc, malloc, free
 
 from numba import cuda
 
+from cuml.common.cuda import nvtx_range_wrap, nvtx_range_push, nvtx_range_pop
 from cuml.raft.common.handle cimport handle_t
 cimport cuml.common.cuda
 
@@ -104,7 +105,8 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
                           int) except +
 
 
-class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
+class RandomForestRegressor(BaseRandomForestModel,
+                            RegressorMixin):
 
     """
     Implements a Random Forest regressor model which fits multiple decision
@@ -250,7 +252,7 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
     output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
         Variable to control output type of the results and attributes of
         the estimator. If None, it'll inherit the output type set at the
-        module level, `cuml.global_output_type`.
+        module level, `cuml.global_settings.output_type`.
         See :ref:`output-data-type-configuration` for more info.
 
     """
@@ -418,6 +420,8 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
         Perform Random Forest Regression on the input data
 
         """
+        nvtx_range_push("Fit RF-Regressor @randomforestregressor.pyx")
+
         X_m, y_m, max_feature_val = self._dataset_setup_for_fit(X, y,
                                                                 convert_dtype)
 
@@ -440,24 +444,24 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
         else:
             seed_val = <uintptr_t>self.random_state
 
-        rf_params = set_rf_class_obj(<int> self.max_depth,
-                                     <int> self.max_leaves,
-                                     <float> max_feature_val,
-                                     <int> self.n_bins,
-                                     <int> self.split_algo,
-                                     <int> self.min_samples_leaf,
-                                     <int> self.min_samples_split,
-                                     <float> self.min_impurity_decrease,
-                                     <bool> self.bootstrap_features,
-                                     <bool> self.bootstrap,
-                                     <int> self.n_estimators,
-                                     <float> self.max_samples,
-                                     <uint64_t> seed_val,
-                                     <CRITERION> self.split_criterion,
-                                     <bool> self.quantile_per_tree,
-                                     <int> self.n_streams,
-                                     <bool> self.use_experimental_backend,
-                                     <int> self.max_batch_size)
+        rf_params = set_rf_params(<int> self.max_depth,
+                                  <int> self.max_leaves,
+                                  <float> max_feature_val,
+                                  <int> self.n_bins,
+                                  <int> self.split_algo,
+                                  <int> self.min_samples_leaf,
+                                  <int> self.min_samples_split,
+                                  <float> self.min_impurity_decrease,
+                                  <bool> self.bootstrap_features,
+                                  <bool> self.bootstrap,
+                                  <int> self.n_estimators,
+                                  <float> self.max_samples,
+                                  <uint64_t> seed_val,
+                                  <CRITERION> self.split_criterion,
+                                  <bool> self.quantile_per_tree,
+                                  <int> self.n_streams,
+                                  <bool> self.use_experimental_backend,
+                                  <int> self.max_batch_size)
 
         if self.dtype == np.float32:
             fit(handle_[0],
@@ -484,6 +488,7 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
         self.handle.sync()
         del X_m
         del y_m
+        nvtx_range_pop()
         return self
 
     def _predict_model_on_cpu(self, X, convert_dtype) -> CumlArray:
@@ -578,6 +583,7 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
         y : {}
 
         """
+        nvtx_range_push("predict RF-Regressor @randomforestregressor.pyx")
         if predict_model == "CPU":
             preds = self._predict_model_on_cpu(X, convert_dtype)
 
@@ -596,6 +602,7 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
                 convert_dtype=convert_dtype,
                 fil_sparse_format=fil_sparse_format)
 
+        nvtx_range_pop()
         return preds
 
     @insert_into_docstring(parameters=[('dense', '(n_samples, n_features)'),
@@ -644,6 +651,7 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
         median_abs_error : float or
         mean_abs_error : float
         """
+        nvtx_range_push("score RF-Regressor @randomforestregressor.pyx")
         from cuml.metrics.regression import r2_score
 
         cdef uintptr_t y_ptr
@@ -709,6 +717,7 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
         self.handle.sync()
         del(y_m)
         del(preds_m)
+        nvtx_range_pop()
         return stats
 
     def get_summary_text(self):
@@ -754,9 +763,3 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
         if self.dtype == np.float64:
             return get_rf_json(rf_forest64).decode('utf-8')
         return get_rf_json(rf_forest).decode('utf-8')
-
-    def _more_tags(self):
-        return {
-            # fit and predict require conflicting memory layouts
-            'preferred_input_order': None
-        }

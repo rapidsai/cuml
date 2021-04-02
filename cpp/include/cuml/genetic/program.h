@@ -24,6 +24,8 @@
 namespace cuml {
 namespace genetic {
 
+struct node;
+
 /**
  * @brief The main data structure to store the AST that represents a program
  *        in the current generation
