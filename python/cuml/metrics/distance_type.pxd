@@ -36,3 +36,5 @@ cdef extern from "raft/linalg/distance_type.h" namespace "raft::distance":
         RusselRaoExpanded "raft::distance::DistanceType::RusselRaoExpanded"
         HammingUnexpanded "raft::distance::DistanceType::HammingUnexpanded"
         KLDivergence "raft::distance::DistanceType::KLDivergence"
+        DiceExpanded "raft::distance::DistanceType::DiceExpanded"
+        Precomputed "raft::distance::DistanceType::Precomputed"

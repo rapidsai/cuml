@@ -245,9 +245,8 @@ inline faiss::ScalarQuantizer::QuantizerType build_faiss_qtype(
 
 template <typename IntType = int>
 void approx_knn_ivfflat_build_index(ML::knnIndex *index, ML::IVFParam *params,
-                                    IntType D,
                                     raft::distance::DistanceType metric,
-                                    IntType n) {
+                                    IntType n, IntType D) {
   faiss::gpu::GpuIndexIVFFlatConfig config;
   config.device = index->device;
   faiss::MetricType faiss_metric = build_faiss_metric(metric);
@@ -259,12 +258,12 @@ void approx_knn_ivfflat_build_index(ML::knnIndex *index, ML::IVFParam *params,
 
 template <typename IntType = int>
 void approx_knn_ivfpq_build_index(ML::knnIndex *index, ML::IVFPQParam *params,
-                                  IntType D,
                                   raft::distance::DistanceType metric,
-                                  IntType n) {
+                                  IntType n, IntType D) {
   faiss::gpu::GpuIndexIVFPQConfig config;
   config.device = index->device;
   config.usePrecomputedTables = params->usePrecomputedTables;
+  config.interleavedLayout = params->n_bits != 8;
   faiss::MetricType faiss_metric = build_faiss_metric(metric);
   faiss::gpu::GpuIndexIVFPQ *faiss_index =
     new faiss::gpu::GpuIndexIVFPQ(index->gpu_res, D, params->nlist, params->M,
@@ -275,9 +274,8 @@ void approx_knn_ivfpq_build_index(ML::knnIndex *index, ML::IVFPQParam *params,
 
 template <typename IntType = int>
 void approx_knn_ivfsq_build_index(ML::knnIndex *index, ML::IVFSQParam *params,
-                                  IntType D,
                                   raft::distance::DistanceType metric,
-                                  IntType n) {
+                                  IntType n, IntType D) {
   faiss::gpu::GpuIndexIVFScalarQuantizerConfig config;
   config.device = index->device;
   faiss::MetricType faiss_metric = build_faiss_metric(metric);
@@ -292,230 +290,88 @@ void approx_knn_ivfsq_build_index(ML::knnIndex *index, ML::IVFSQParam *params,
 }
 
 template <typename IntType = int>
-void approx_knn_build_index(ML::knnIndex *index, ML::knnIndexParam *params,
-                            IntType D, raft::distance::DistanceType metric,
-                            float metricArg, float *index_items, IntType n,
-                            cudaStream_t userStream) {
+void approx_knn_build_index(raft::handle_t &handle, ML::knnIndex *index,
+                            ML::knnIndexParam *params,
+                            raft::distance::DistanceType metric,
+                            float metricArg, float *index_array, IntType n,
+                            IntType D) {
   int device;
   CUDA_CHECK(cudaGetDevice(&device));
 
   faiss::gpu::StandardGpuResources *gpu_res =
     new faiss::gpu::StandardGpuResources();
   gpu_res->noTempMemory();
-  gpu_res->setDefaultStream(device, userStream);
+  gpu_res->setDefaultStream(device, handle.get_stream());
   index->gpu_res = gpu_res;
   index->device = device;
   index->index = nullptr;
+  index->metric = metric;
+  index->metricArg = metricArg;
+
+  // perform preprocessing
+  // k set to 0 (unused during preprocessing / revertion)
+  std::unique_ptr<MetricProcessor<float>> query_metric_processor =
+    create_processor<float>(metric, n, D, 0, false, handle.get_stream(),
+                            handle.get_device_allocator());
+
+  query_metric_processor->preprocess(index_array);
 
   if (dynamic_cast<ML::IVFFlatParam *>(params)) {
     ML::IVFFlatParam *IVFFlat_param = dynamic_cast<ML::IVFFlatParam *>(params);
-    approx_knn_ivfflat_build_index(index, IVFFlat_param, D, metric, n);
-    std::vector<float> h_index_items(n * D);
-    raft::update_host(h_index_items.data(), index_items, h_index_items.size(),
-                      userStream);
-    index->index->train(n, h_index_items.data());
-    index->index->add(n, h_index_items.data());
-    return;
-  } else if (dynamic_cast<ML::IVFPQParam *>(params)) {
-    ML::IVFPQParam *IVFPQ_param = dynamic_cast<ML::IVFPQParam *>(params);
-    approx_knn_ivfpq_build_index(index, IVFPQ_param, D, metric, n);
-  } else if (dynamic_cast<ML::IVFSQParam *>(params)) {
-    ML::IVFSQParam *IVFSQ_param = dynamic_cast<ML::IVFSQParam *>(params);
-    approx_knn_ivfsq_build_index(index, IVFSQ_param, D, metric, n);
+    approx_knn_ivfflat_build_index(index, IVFFlat_param, metric, n, D);
+    std::vector<float> h_index_array(n * D);
+    raft::update_host(h_index_array.data(), index_array, h_index_array.size(),
+                      handle.get_stream());
+    query_metric_processor->revert(index_array);
+    index->index->train(n, h_index_array.data());
+    index->index->add(n, h_index_array.data());
   } else {
-    ASSERT(index->index, "KNN index could not be initialized");
-  }
-
-  index->index->train(n, index_items);
-  index->index->add(n, index_items);
-}
-
-template <typename IntType = int>
-void approx_knn_search(ML::knnIndex *index, IntType n, const float *x,
-                       IntType k, float *distances, int64_t *labels) {
-  index->index->search(n, x, k, distances, labels);
-}
-
-/**
- * Search the kNN for the k-nearest neighbors of a set of query vectors
- * @param[in] input vector of device device memory array pointers to search
- * @param[in] sizes vector of memory sizes for each device array pointer in input
- * @param[in] D number of cols in input and search_items
- * @param[in] search_items set of vectors to query for neighbors
- * @param[in] n        number of items in search_items
- * @param[out] res_I    pointer to device memory for returning k nearest indices
- * @param[out] res_D    pointer to device memory for returning k nearest distances
- * @param[in] k        number of neighbors to query
- * @param[in] allocator the device memory allocator to use for temporary scratch memory
- * @param[in] userStream the main cuda stream to use
- * @param[in] internalStreams optional when n_params > 0, the index partitions can be
- *        queried in parallel using these streams. Note that n_int_streams also
- *        has to be > 0 for these to be used and their cardinality does not need
- *        to correspond to n_parts.
- * @param[in] n_int_streams size of internalStreams. When this is <= 0, only the
- *        user stream will be used.
- * @param[in] rowMajorIndex are the index arrays in row-major layout?
- * @param[in] rowMajorQuery are the query array in row-major layout?
- * @param[in] translations translation ids for indices when index rows represent
- *        non-contiguous partitions
- * @param[in] metric corresponds to the raft::distance::DistanceType enum (default is L2Expanded)
- * @param[in] metricArg metric argument to use. Corresponds to the p arg for lp norm
- */
-template <typename IntType = int>
-void brute_force_knn(std::vector<float *> &input, std::vector<int> &sizes,
-                     IntType D, float *search_items, IntType n, int64_t *res_I,
-                     float *res_D, IntType k,
-                     std::shared_ptr<deviceAllocator> allocator,
-                     cudaStream_t userStream,
-                     cudaStream_t *internalStreams = nullptr,
-                     int n_int_streams = 0, bool rowMajorIndex = true,
-                     bool rowMajorQuery = true,
-                     std::vector<int64_t> *translations = nullptr,
-                     raft::distance::DistanceType metric =
-                       raft::distance::DistanceType::L2Expanded,
-                     float metricArg = 0) {
-  ASSERT(input.size() == sizes.size(),
-         "input and sizes vectors should be the same size");
-
-  std::vector<int64_t> *id_ranges;
-  if (translations == nullptr) {
-    // If we don't have explicit translations
-    // for offsets of the indices, build them
-    // from the local partitions
-    id_ranges = new std::vector<int64_t>();
-    int64_t total_n = 0;
-    for (int i = 0; i < input.size(); i++) {
-      id_ranges->push_back(total_n);
-      total_n += sizes[i];
+    if (dynamic_cast<ML::IVFPQParam *>(params)) {
+      ML::IVFPQParam *IVFPQ_param = dynamic_cast<ML::IVFPQParam *>(params);
+      approx_knn_ivfpq_build_index(index, IVFPQ_param, metric, n, D);
+    } else if (dynamic_cast<ML::IVFSQParam *>(params)) {
+      ML::IVFSQParam *IVFSQ_param = dynamic_cast<ML::IVFSQParam *>(params);
+      approx_knn_ivfsq_build_index(index, IVFSQ_param, metric, n, D);
+    } else {
+      ASSERT(index->index, "KNN index could not be initialized");
     }
-  } else {
-    // otherwise, use the given translations
-    id_ranges = translations;
-  }
 
+    index->index->train(n, index_array);
+    index->index->add(n, index_array);
+    query_metric_processor->revert(index_array);
+  }
+}
+
+template <typename IntType = int>
+void approx_knn_search(raft::handle_t &handle, float *distances,
+                       int64_t *indices, ML::knnIndex *index, IntType k,
+                       float *query_array, IntType n) {
   // perform preprocessing
   std::unique_ptr<MetricProcessor<float>> query_metric_processor =
-    create_processor<float>(metric, n, D, k, rowMajorQuery, userStream,
-                            allocator);
-  query_metric_processor->preprocess(search_items);
+    create_processor<float>(index->metric, n, index->index->d, k, false,
+                            handle.get_stream(), handle.get_device_allocator());
 
-  std::vector<std::unique_ptr<MetricProcessor<float>>> metric_processors(
-    input.size());
-  for (int i = 0; i < input.size(); i++) {
-    metric_processors[i] = create_processor<float>(
-      metric, sizes[i], D, k, rowMajorQuery, userStream, allocator);
-    metric_processors[i]->preprocess(input[i]);
-  }
-
-  int device;
-  CUDA_CHECK(cudaGetDevice(&device));
-
-  device_buffer<int64_t> trans(allocator, userStream, id_ranges->size());
-  raft::update_device(trans.data(), id_ranges->data(), id_ranges->size(),
-                      userStream);
-
-  device_buffer<float> all_D(allocator, userStream, 0);
-  device_buffer<int64_t> all_I(allocator, userStream, 0);
-
-  float *out_D = res_D;
-  int64_t *out_I = res_I;
-
-  if (input.size() > 1) {
-    all_D.resize(input.size() * k * n, userStream);
-    all_I.resize(input.size() * k * n, userStream);
-
-    out_D = all_D.data();
-    out_I = all_I.data();
-  }
-
-  // Sync user stream only if using other streams to parallelize query
-  if (n_int_streams > 0) CUDA_CHECK(cudaStreamSynchronize(userStream));
-
-  for (int i = 0; i < input.size(); i++) {
-    float *out_d_ptr = out_D + (i * k * n);
-    int64_t *out_i_ptr = out_I + (i * k * n);
-
-    cudaStream_t stream =
-      raft::select_stream(userStream, internalStreams, n_int_streams, i);
-
-    switch (metric) {
-      case raft::distance::DistanceType::Haversine:
-
-        ASSERT(D == 2,
-               "Haversine distance requires 2 dimensions "
-               "(latitude / longitude).");
-
-        raft::selection::haversine_knn(out_i_ptr, out_d_ptr, input[i],
-                                       search_items, sizes[i], n, k, stream);
-        break;
-      default:
-        faiss::MetricType m = build_faiss_metric(metric);
-
-        faiss::gpu::StandardGpuResources gpu_res;
-
-        gpu_res.noTempMemory();
-        gpu_res.setDefaultStream(device, stream);
-
-        faiss::gpu::GpuDistanceParams args;
-        args.metric = m;
-        args.metricArg = metricArg;
-        args.k = k;
-        args.dims = D;
-        args.vectors = input[i];
-        args.vectorsRowMajor = rowMajorIndex;
-        args.numVectors = sizes[i];
-        args.queries = search_items;
-        args.queriesRowMajor = rowMajorQuery;
-        args.numQueries = n;
-        args.outDistances = out_d_ptr;
-        args.outIndices = out_i_ptr;
-
-        /**
-         * @todo: Until FAISS supports pluggable allocation strategies,
-         * we will not reap the benefits of the pool allocator for
-         * avoiding device-wide synchronizations from cudaMalloc/cudaFree
-         */
-        bfKnn(&gpu_res, args);
-    }
-  }
-
-  // Sync internal streams if used. We don't need to
-  // sync the user stream because we'll already have
-  // fully serial execution.
-  for (int i = 0; i < n_int_streams; i++) {
-    CUDA_CHECK(cudaStreamSynchronize(internalStreams[i]));
-  }
-
-  if (input.size() > 1 || translations != nullptr) {
-    // This is necessary for proper index translations. If there are
-    // no translations or partitions to combine, it can be skipped.
-    knn_merge_parts(out_D, out_I, res_D, res_I, n, input.size(), k, userStream,
-                    trans.data());
-  }
+  query_metric_processor->preprocess(query_array);
+  index->index->search(n, query_array, k, distances, indices);
+  query_metric_processor->revert(query_array);
 
   // Perform necessary post-processing
-  if (metric == raft::distance::DistanceType::L2SqrtExpanded ||
-      metric == raft::distance::DistanceType::L2SqrtUnexpanded ||
-      metric == raft::distance::DistanceType::LpUnexpanded) {
+  if (index->metric == raft::distance::DistanceType::L2SqrtExpanded ||
+      index->metric == raft::distance::DistanceType::L2SqrtUnexpanded ||
+      index->metric == raft::distance::DistanceType::LpUnexpanded) {
     /**
-	* post-processing
-	*/
+  * post-processing
+  */
     float p = 0.5;  // standard l2
-    if (metric == raft::distance::DistanceType::LpUnexpanded)
-      p = 1.0 / metricArg;
+    if (index->metric == raft::distance::DistanceType::LpUnexpanded)
+      p = 1.0 / index->metricArg;
     raft::linalg::unaryOp<float>(
-      res_D, res_D, n * k,
-      [p] __device__(float input) { return powf(input, p); }, userStream);
+      distances, distances, n * k,
+      [p] __device__(float input) { return powf(input, p); },
+      handle.get_stream());
   }
-
-  query_metric_processor->revert(search_items);
-  query_metric_processor->postprocess(out_D);
-  for (int i = 0; i < input.size(); i++) {
-    metric_processors[i]->revert(input[i]);
-  }
-
-  if (translations == nullptr) delete id_ranges;
-};
+  query_metric_processor->postprocess(distances);
+}
 
 template <typename OutType = float, bool precomp_lbls = false>
 __global__ void class_probs_kernel(OutType *out, const int64_t *knn_indices,

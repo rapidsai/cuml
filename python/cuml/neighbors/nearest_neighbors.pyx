@@ -88,20 +88,21 @@ cdef extern from "cuml/neighbors/knn.hpp" namespace "ML":
         handle_t &handle,
         knnIndex* index,
         knnIndexParam* params,
-        int D,
         DistanceType metric,
         float metricArg,
-        float *search_items,
-        int n
+        float *index_array,
+        int n,
+        int D
     ) except +
 
     void approx_knn_search(
-        knnIndex* index,
-        int n,
-        const float *x,
-        int k,
+        handle_t &handle,
         float *distances,
-        int64_t* labels
+        int64_t* indices,
+        knnIndex* index,
+        int k,
+        const float *query_array,
+        int n
     ) except +
 
 cdef extern from "cuml/neighbors/knn_sparse.hpp" namespace "ML::Sparse":
@@ -374,11 +375,11 @@ class NearestNeighbors(Base,
             approx_knn_build_index(handle_[0],
                                    <knnIndex*>knn_index,
                                    <knnIndexParam*>algo_params,
-                                   <int>n_cols,
                                    <DistanceType>metric,
                                    <float>self.p,
                                    <float*><uintptr_t>self.X_m.ptr,
-                                   <int>self.n_rows)
+                                   <int>self.n_rows,
+                                   <int>n_cols)
             self.handle.sync()
 
             destroy_algo_params(<uintptr_t>algo_params)
@@ -683,12 +684,13 @@ class NearestNeighbors(Base,
         else:
             knn_index = <knnIndex*><uintptr_t> self.knn_index
             approx_knn_search(
-                <knnIndex*>knn_index,
-                <int>N,
-                <float*><uintptr_t>X_m.ptr,
-                <int>n_neighbors,
+                handle_[0],
                 <float*>D_ptr,
-                <int64_t*>I_ptr
+                <int64_t*>I_ptr,
+                <knnIndex*>knn_index,
+                <int>n_neighbors,
+                <float*><uintptr_t>X_m.ptr,
+                <int>N
             )
 
         self.handle.sync()

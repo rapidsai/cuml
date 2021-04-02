@@ -112,21 +112,20 @@ class RandomForestRegressor(BaseRandomForestModel,
     Implements a Random Forest regressor model which fits multiple decision
     trees in an ensemble.
 
-    .. note:: that the underlying algorithm for tree node splits differs from
-        that used in scikit-learn. By default, the cuML Random Forest uses a
-        histogram-based algorithm to determine splits, rather than an exact
-        count. You can tune the size of the histograms with the n_bins
-        parameter.
+    .. note:: Note that the underlying algorithm for tree node splits differs
+      from that used in scikit-learn. By default, the cuML Random Forest uses a
+      histogram-based algorithm to determine splits, rather than an exact
+      count. You can tune the size of the histograms with the n_bins parameter.
 
     **Known Limitations**: This is an early release of the cuML
     Random Forest code. It contains a few known limitations:
 
-     * GPU-based inference is only supported if the model was trained
-       with 32-bit (float32) datatypes. CPU-based inference may be used
-       in this case as a slower fallback.
-     * Very deep / very wide models may exhaust available GPU memory.
-       Future versions of cuML will provide an alternative algorithm to
-       reduce memory consumption.
+      * GPU-based inference is only supported if the model was trained
+        with 32-bit (float32) datatypes. CPU-based inference may be used
+        in this case as a slower fallback.
+      * Very deep / very wide models may exhaust available GPU memory.
+        Future versions of cuML will provide an alternative algorithm to
+        reduce memory consumption.
 
     Examples
     --------
@@ -149,7 +148,7 @@ class RandomForestRegressor(BaseRandomForestModel,
 
     Output:
 
-    .. code-block:: python
+    .. code-block:: none
 
         MSE score of cuml :  0.1123437201231765
 
@@ -159,7 +158,7 @@ class RandomForestRegressor(BaseRandomForestModel,
         Number of trees in the forest. (Default changed to 100 in cuML 0.11)
     split_algo : int (default = 1)
         The algorithm to determine how nodes are split in the tree.
-        0 for HIST and 1 for GLOBAL_QUANTILE. HIST curently uses a slower
+        0 for HIST and 1 for GLOBAL_QUANTILE. HIST currently uses a slower
         tree-building algorithm so GLOBAL_QUANTILE is recommended for most
         cases.
     split_criterion : int (default = 2)
@@ -218,26 +217,24 @@ class RandomForestRegressor(BaseRandomForestModel,
         for mean of abs error : 'mean_ae'
         for mean square error' : 'mse'
     quantile_per_tree : boolean (default = False)
-        Whether quantile is computed for individal trees in RF.
-        Only relevant for GLOBAL_QUANTILE split_algo.
+        Whether quantile is computed for individual trees in RF.
+        Only relevant when `split_algo = GLOBAL_QUANTILE`.
+
+        .. deprecated:: 0.19
+           Parameter 'quantile_per_tree' is deprecated and will be removed in
+           subsequent release.
     use_experimental_backend : boolean (default = False)
         If set to true and  following conditions are also met, experimental
-         decision tree training implementation would be used:
-            split_algo = 1 (GLOBAL_QUANTILE)
-            quantile_per_tree = false (No per tree quantile computation)
+        decision tree training implementation would be used only if
+        `split_algo = 1` (GLOBAL_QUANTILE) and `quantile_per_tree = False`
+        (No per tree quantile computation).
     max_batch_size: int (default = 128)
         Maximum number of nodes that can be processed in a given batch. This is
         used only when 'use_experimental_backend' is true.
     random_state : int (default = None)
         Seed for the random number generator. Unseeded by default. Does not
-        currently fully guarantee the exact same results.
-    seed : int (default = None)
-        Seed for the random number generator. Unseeded by default. Does not
-        currently fully guarantee the exact same results.
-
-        .. deprecated:: 0.16
-           Parameter `seed` is deprecated and will be removed in 0.17. Please
-           use `random_state` instead
+        currently fully guarantee the exact same results. **Note: Parameter
+        `seed` is removed since release 0.19.**
 
     handle : cuml.Handle
         Specifies the cuml.handle that holds internal CUDA state for
