@@ -43,5 +43,5 @@ VALID_METRICS_SPARSE = {
                   "l1", "cityblock", "manhattan", "taxicab",
                   "canberra", "linf", "chebyshev", "jaccard",
                   "minkowski", "lp", "cosine", "jensenshannon",
-                  "russelrao", "kl_divergence", "hamming", "hellinger])
+                  "russelrao", "kl_divergence", "hamming", "hellinger"])
 }
