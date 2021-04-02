@@ -258,7 +258,42 @@ program_t crossover(program_t prog, program_t donor, param &params, int seed){
   return next_prog;
 }
 
-program_t 
+program_t subtree_mutation(program_t prog, param &params, int seed){
+
+}
+
+program_t hoist_mutation(program_t prog, param &params, int seed){
+  // Replace program subtree with a random sub-subtree
+
+  std::pair<int, int> prog_slice = get_subtree(prog->nodes, prog->len, seed);
+  int prog_start = prog_slice.first;
+  int prog_end = prog_slice.second;
+
+  std::pair<int,int> sub_slice = get_subtree(&prog->nodes[prog_start],prog_end-prog_start,seed);
+  int sub_start = sub_slice.first;
+  int sub_end = sub_slice.second;
+
+  program_t next_prog = new program(*prog); 
+  next_prog->len = (prog_start) + (sub_end - sub_start + 1) + (prog->len-prog_end);
+  next_prog->nodes = new node[next_prog->len];
+  
+  int i=0;
+  for(;i<prog_start;++i){
+    next_prog->nodes[i] = prog->nodes[i];
+  }
+
+  for(int j=sub_start;j<sub_end;++i,++j){
+    next_prog->nodes[i] = prog->nodes[j];
+  }
+
+  for(int j=prog_end;j<prog->len;++j,++i){
+    next_prog->nodes[i] = prog->nodes[i];
+  }
+
+  // Set metric
+  next_prog->metric = prog->metric;
+  return next_prog;
+}
 
 } // namespace genetic
 } // namespace cuml

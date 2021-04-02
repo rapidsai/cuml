@@ -89,5 +89,11 @@ program_t point_mutation(program_t prog, param &params, int seed);
 
 /** Crossover mutations on CPU */
 program_t crossover(program_t prog, program_t donor, param &params, int seed);
+
+/** Subtree mutations on CPU*/
+program_t subtree_mutation(program_t prog, param &params, int seed);
+
+/** Hoist mutation on CPU*/
+program_t hoist_mutation(program_t prog, param &params, int seed);
 }  // namespace genetic
 }  // namespace cuml
