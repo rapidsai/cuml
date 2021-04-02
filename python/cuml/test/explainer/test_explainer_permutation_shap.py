@@ -144,8 +144,6 @@ def test_not_shuffled_explanation(exact_shap_regression_dataset):
         testing=True
     )
 
-    print(shap_values)
-
     assert np.allclose(shap_values, not_shuffled_shap_values,
                        rtol=1e-04, atol=1e-04)
 
