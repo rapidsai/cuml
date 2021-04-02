@@ -58,7 +58,7 @@ def _local_umap_trustworthiness(local_X, local_y,
     from cuml.manifold import UMAP
 
     local_model = UMAP(n_neighbors=n_neighbors,
-                       random_state=42)
+                       random_state=42, init="random")
     y_train = None
     if supervised:
         y_train = local_y
@@ -84,7 +84,7 @@ def _umap_mnmg_trustworthiness(local_X, local_y,
     from cuml.manifold import UMAP
 
     local_model = UMAP(n_neighbors=n_neighbors,
-                       random_state=42)
+                       random_state=42, init="random")
 
     n_samples = local_X.shape[0]
     n_samples_per_part = math.ceil(n_samples / n_parts)
