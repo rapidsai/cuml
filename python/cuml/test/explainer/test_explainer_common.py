@@ -21,13 +21,13 @@ import pytest
 
 from cuml import LinearRegression as reg
 from cuml import PCA
-from cuml.experimental.explainer.common import get_cai_ptr
-from cuml.experimental.explainer.common import get_dtype_from_model_func
-from cuml.experimental.explainer.common import get_handle_from_cuml_model_func
-from cuml.experimental.explainer.common import get_link_fn_from_str_or_fn
-from cuml.experimental.explainer.common import get_tag_from_model_func
-from cuml.experimental.explainer.common import link_dict
-from cuml.experimental.explainer.common import model_func_call
+from cuml.explainer.common import get_cai_ptr
+from cuml.explainer.common import get_dtype_from_model_func
+from cuml.explainer.common import get_handle_from_cuml_model_func
+from cuml.explainer.common import get_link_fn_from_str_or_fn
+from cuml.explainer.common import get_tag_from_model_func
+from cuml.explainer.common import link_dict
+from cuml.explainer.common import model_func_call
 from cuml.test.utils import ClassEnumerator
 from cuml.datasets import make_regression
 from sklearn.linear_model import LinearRegression as skreg
