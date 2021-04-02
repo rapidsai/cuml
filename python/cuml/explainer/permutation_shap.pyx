@@ -21,13 +21,12 @@ import time
 
 from cudf import DataFrame as cu_df
 from cuml.common.array import CumlArray
-from cuml.common.import_utils import has_shap
 from cuml.common.input_utils import input_to_cupy_array
-from cuml.experimental.explainer.base import SHAPBase
-from cuml.experimental.explainer.common import get_cai_ptr
-from cuml.experimental.explainer.common import get_dtype_from_model_func
-from cuml.experimental.explainer.common import get_tag_from_model_func
-from cuml.experimental.explainer.common import model_func_call
+from cuml.explainer.base import SHAPBase
+from cuml.explainer.common import get_cai_ptr
+from cuml.explainer.common import get_dtype_from_model_func
+from cuml.explainer.common import get_tag_from_model_func
+from cuml.explainer.common import model_func_call
 from numba import cuda
 from pandas import DataFrame as pd_df
 
@@ -75,29 +74,38 @@ cdef extern from "cuml/explainer/permutation_shap.hpp" namespace "ML":
 
 class PermutationExplainer(SHAPBase):
     """
-    GPU accelerated of SHAP's permutation explainer (experimental)
+    GPU accelerated version of SHAP's PermutationExplainer
 
-    Initial experimental version of a GPU accelerated of SHAP's
-    permutation explainer:
-    https://github.com/slundberg/shap/blob/master/shap/explainers/_permutation.py
+    cuML's SHAP based explainers accelerate the algorithmic part of SHAP.
+    They are optimized to be used with fast GPU based models, like those in
+    cuML. By creating the datasets and internal calculations,
+    alongside minimizing data copies and transfers, they can accelerate
+    explanations significantly. But they can also be used with
+    CPU based models, where speedups can still be achieved, but those can be
+    capped by factors like data transfers and the speed of the models.
+
+    PermutationExplainer is algorithmically similar and based on the Python
+    SHAP package kernel explainer:
+    https://github.com/slundberg/shap/blob/master/shap/explainers/_kernel.py
 
     This method approximates the Shapley values by iterating through
-    permutations of the inputs. Quoting the SHAP library docs, it guarantees
+    permutations of the inputs. From the SHAP library docs: it guarantees
     local accuracy (additivity) by iterating completely through  entire
     permutations of the features in both forward and reverse directions.
 
-    Current limitations of the GPU version (support in progress):
+    Current characteristics of the GPU version:
 
-     - Batched, both for supporting larger daasets as well as to accelerate
-       smaller ones, is not implemented yet.
-     - Only tabular masker is supported, via passing the background
-       dataset explicitly. Since the new API of SHAP is still evolving, the
-       supported API for this version is the old one
-       (i.e. ``explainer.shap_values()``). The new one, and the new SHAP
-       Explanation object will be supported in the next version.
-     - Hierarchical clustering for Owen values are planned for the near
+     * Only tabular data is supported for now, via passing the background
+       dataset explicitly.
+     * Hierarchical clustering for Owen values are planned for the near
        future.
-     - Sparse data support is not yet implemented.
+     * Sparse data support is planned for the near future.
+
+    **Setting the random seed**:
+
+    This explainer uses CuPy to generate the permutations that are used, so
+    to have reproducible results use `CuPy's seeding mechanism
+    <https://docs.cupy.dev/en/stable/reference/generated/cupy.random.seed.html>`_.
 
     Parameters
     ----------
@@ -126,8 +134,6 @@ class PermutationExplainer(SHAPBase):
         explanations remain in the (more naturally additive) log-odds units.
         For more details on how link functions work see any overview of link
         functions for generalized linear models.
-    random_state: int, RandomState instance or None (default = None)
-        Seed for the random number generator for dataset creation.
     gpu_model : bool or None (default = None)
         If None Explainer will try to infer whether `model` can take GPU data
         (as CuPy arrays), otherwise it will use NumPy arrays to call `model`.
@@ -156,7 +162,7 @@ class PermutationExplainer(SHAPBase):
     >>> from cuml import make_regression
     >>> from cuml import train_test_split
     >>>
-    >>> from cuml.experimental.explainer import PermutationExplainer as cuPE
+    >>> from cuml.explainer import PermutationExplainer
     >>>
     >>> X, y = make_regression(
     ...     n_samples=102,
@@ -172,9 +178,9 @@ class PermutationExplainer(SHAPBase):
     >>>
     >>> model = SVR().fit(X_train, y_train)
     >>>
-    >>> cu_explainer = cuPE(
+    >>> cu_explainer = PermutationExplainer(
     ...     model=model.predict,
-    ...     masker=X_train)
+    ...     data=X_train)
     >>>
     >>> cu_shap_values = cu_explainer.shap_values(X_test)
     <class 'list'>
@@ -200,20 +206,17 @@ class PermutationExplainer(SHAPBase):
                  dtype=None,
                  output_type=None,
                  verbose=False,):
-        super(PermutationExplainer, self).__init__(
+        super().__init__(
             order='C',
             model=model,
             background=data,
             link=link,
             verbose=verbose,
-            random_state=random_state,
             is_gpu_model=is_gpu_model,
             handle=handle,
             dtype=dtype,
             output_type=output_type
         )
-
-        self._synth_data = None
 
     def shap_values(self,
                     X,
@@ -241,7 +244,7 @@ class PermutationExplainer(SHAPBase):
 
         Returns
         -------
-        array or list
+        shap_values : array or list
 
         """
         return self._explain(X,
@@ -341,6 +344,7 @@ class PermutationExplainer(SHAPBase):
 
                 self.handle.sync()
 
-        shap_values[0][idx] = shap_values[0][idx] / (2 * npermutations)
+        for i in range(self.model_dimensions):
+            shap_values[i][idx] = shap_values[i][idx] / (2 * npermutations)
 
         self.total_time = self.total_time + (time.time() - total_timer)

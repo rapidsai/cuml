@@ -1132,6 +1132,9 @@ def prepare_sparse_data(size0, size1, dtype, density, metric):
     ((5, 40), 0.2)])
 def test_sparse_pairwise_distances_corner_cases(metric: str, matrix_size,
                                                 density: float):
+    if metric == "hellinger":
+        pytest.xfail("Sporadic failure, see issue "
+                     "https://github.com/rapidsai/cuml/issues/3705")
     # Test the sparse_pairwise_distance helper function.
     # Use sparse input for sklearn calls when possible
     sk_sparse = metric in ['cityblock', 'cosine', 'euclidean', 'l1', 'l2',
