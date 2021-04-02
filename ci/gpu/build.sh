@@ -64,7 +64,8 @@ gpuci_conda_retry install -c conda-forge -c rapidsai -c rapidsai-nightly -c nvid
 # gpuci_conda_retry remove --force rapids-build-env rapids-notebook-env
 # gpuci_conda_retry install -y "your-pkg=1.0.0"
 
-gpuci_conda_retry remove --force rapids-build-env rapids-notebook-env
+gpuci_logger "Removing libcumlprims and installing testing package"
+gpuci_conda_retry remove --force rapids-build-env rapids-notebook-env libcumlprims
 gpuci_conda_retry install -c rapidsai-nightly/label/testing libcumlprims=0.19.0a210402
 
 gpuci_logger "Install contextvars if needed"
