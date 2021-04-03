@@ -131,13 +131,13 @@ class AgglomerativeClustering(Base, ClusterMixin, CMajorInputTagMixin):
     labels_ = CumlArrayDescriptor()
     children_ = CumlArrayDescriptor()
 
-    def __init__(self, n_clusters=2, affinity="euclidean", linkage="single",
+    def __init__(self, *, n_clusters=2, affinity="euclidean", linkage="single",
                  handle=None, verbose=False, connectivity='knn',
                  n_neighbors=10, output_type=None):
 
-        super(AgglomerativeClustering, self).__init__(handle,
-                                                      verbose,
-                                                      output_type)
+        super().__init__(handle,
+                         verbose,
+                         output_type)
 
         if linkage is not "single":
             raise ValueError("Only single linkage clustering is "

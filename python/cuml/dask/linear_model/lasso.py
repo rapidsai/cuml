@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020, NVIDIA CORPORATION.
+# Copyright (c) 2020-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -68,8 +68,8 @@ class Lasso(BaseEstimator):
     <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.Lasso.html>`_.
     """
 
-    def __init__(self, client=None, **kwargs):
-        super(Lasso, self).__init__(client=client, **kwargs)
+    def __init__(self, *, client=None, **kwargs):
+        super().__init__(client=client, **kwargs)
 
         kwargs['shuffle'] = False
 

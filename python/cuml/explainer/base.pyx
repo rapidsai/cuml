@@ -26,12 +26,12 @@ from cuml.common.input_utils import input_to_cupy_array
 from cuml.common.input_utils import input_to_host_array
 from cuml.common.logger import debug
 from cuml.common.logger import warn
-from cuml.experimental.explainer.common import get_dtype_from_model_func
-from cuml.experimental.explainer.common import get_handle_from_cuml_model_func
-from cuml.experimental.explainer.common import get_link_fn_from_str_or_fn
-from cuml.experimental.explainer.common import get_tag_from_model_func
-from cuml.experimental.explainer.common import model_func_call
-from cuml.experimental.explainer.common import output_list_shap_values
+from cuml.explainer.common import get_dtype_from_model_func
+from cuml.explainer.common import get_handle_from_cuml_model_func
+from cuml.explainer.common import get_link_fn_from_str_or_fn
+from cuml.explainer.common import get_tag_from_model_func
+from cuml.explainer.common import model_func_call
+from cuml.explainer.common import output_list_shap_values
 
 from cuml.raft.common.handle cimport handle_t
 from libcpp cimport bool
@@ -269,7 +269,7 @@ class SHAPBase():
             shap_values.append(cp.zeros(X.shape, dtype=self.dtype))
 
         # Allocate synthetic dataset array once for multiple explanations
-        if getattr(self, "synth_data", None) is None and synth_data_shape \
+        if getattr(self, "_synth_data", None) is None and synth_data_shape \
                 is not None:
             self._synth_data = cp.zeros(
                 shape=synth_data_shape,
@@ -297,8 +297,6 @@ class SHAPBase():
                 output_type=self.output_type
             )
 
-        debug(self._get_timers_str())
-
         return shap_values
 
     def __call__(self,
@@ -306,7 +304,7 @@ class SHAPBase():
                  main_effects=False,
                  **kwargs):
 
-        if not has_shap("0.37"):
+        if not has_shap(min_version="0.37"):
             raise ImportError("SHAP >= 0.37 was not found, please install it "
                               " or use the explainer.shap_values function "
                               "instead. ")
@@ -411,9 +409,3 @@ class SHAPBase():
     def _reset_timers(self):
         self.total_time = 0
         self.model_call_time = 0
-
-    def _get_timers_str(self):
-        res_str = "Time spent by category:\n"
-        res_str += "Total time: {}".format(self.total_time)
-        res_str += "Time spent in model calls {}:".format(self.model_call_time)
-        return res_str
