@@ -209,10 +209,18 @@ class DBSCAN(Base,
     labels_ = CumlArrayDescriptor()
     core_sample_indices_ = CumlArrayDescriptor()
 
-    def __init__(self, eps=0.5, handle=None, min_samples=5, metric='euclidean',
-                 verbose=False, max_mbytes_per_batch=None,
-                 output_type=None, calc_core_sample_indices=True):
-        super(DBSCAN, self).__init__(handle, verbose, output_type)
+    def __init__(self, *,
+                 eps=0.5,
+                 handle=None,
+                 min_samples=5,
+                 metric='euclidean',
+                 verbose=False,
+                 max_mbytes_per_batch=None,
+                 output_type=None,
+                 calc_core_sample_indices=True):
+        super().__init__(handle=handle,
+                         verbose=verbose,
+                         output_type=output_type)
         self.eps = eps
         self.min_samples = min_samples
         self.max_mbytes_per_batch = max_mbytes_per_batch

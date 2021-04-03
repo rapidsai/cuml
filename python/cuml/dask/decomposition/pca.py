@@ -1,4 +1,4 @@
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -156,12 +156,12 @@ class PCA(BaseDecomposition,
     <http://scikit-learn.org/stable/modules/generated/sklearn.decomposition.PCA.html>`_.
     """
 
-    def __init__(self, client=None, verbose=False, **kwargs):
+    def __init__(self, *, client=None, verbose=False, **kwargs):
 
-        super(PCA, self).__init__(PCA._create_pca,
-                                  client=client,
-                                  verbose=verbose,
-                                  **kwargs)
+        super().__init__(PCA._create_pca,
+                         client=client,
+                         verbose=verbose,
+                         **kwargs)
 
     def fit(self, X):
         """
