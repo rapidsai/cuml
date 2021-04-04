@@ -528,7 +528,6 @@ struct RegTraits {
 
     // Room for alignment in worst case (see alignPointer in
     // computeSplitRegressionKernel)
-    // smemSize += 5 * sizeof(DataT) + 2 * sizeof(int);
     smemSize += 6 * sizeof(DataT) + 3 * sizeof(int);
     int n_blks_for_rows = b.n_blks_for_rows(
       n_col_blks,
