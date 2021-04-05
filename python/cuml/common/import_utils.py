@@ -146,6 +146,7 @@ def has_daskglm(min_version=None):
     except ImportError:
         return False
 
+
 def dummy_function_always_false(*args, **kwargs):
     return False
 

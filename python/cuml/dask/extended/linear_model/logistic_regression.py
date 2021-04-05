@@ -97,7 +97,7 @@ class LogisticRegression(BaseEstimator):
         if self.solver != "admm":
             raise TypeError("Only admm solver is currently supported.")
 
-        if self.penalty not in ["l2", "l1", "elastic_net"]:
+        if self.penalty not in ("l2", "l1", "elastic_net"):
             raise TypeError(
                 "Only l2, l1, and elastic_net penalties are"
                 " currently supported."

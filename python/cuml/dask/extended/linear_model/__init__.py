@@ -18,7 +18,8 @@ from cuml.common.import_utils import has_daskglm
 import warnings
 
 if has_daskglm():
-    from cuml.dask.extended.linear_model.logistic_regression import LogisticRegression
+    from cuml.dask.extended.linear_model.logistic_regression import \
+        LogisticRegression
 else:
     warnings.warn(
         "Dask-glm not found. Multi-GPU logistic regression is disabed.")
