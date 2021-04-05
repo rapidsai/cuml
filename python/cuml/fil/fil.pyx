@@ -476,13 +476,13 @@ class ForestInference(Base,
 
     """
 
-    def __init__(self,
+    def __init__(self, *,
                  handle=None,
                  output_type=None,
                  verbose=False):
-        super(ForestInference, self).__init__(handle=handle,
-                                              output_type=output_type,
-                                              verbose=verbose)
+        super().__init__(handle=handle,
+                         verbose=verbose,
+                         output_type=output_type)
         self._impl = ForestInference_impl(self.handle)
 
     def predict(self, X, preds=None) -> CumlArray:

@@ -253,13 +253,14 @@ class QN(Base,
     _coef_ = CumlArrayDescriptor()
     intercept_ = CumlArrayDescriptor()
 
-    def __init__(self, loss='sigmoid', fit_intercept=True,
+    def __init__(self, *, loss='sigmoid', fit_intercept=True,
                  l1_strength=0.0, l2_strength=0.0, max_iter=1000, tol=1e-3,
                  linesearch_max_iter=50, lbfgs_memory=5,
                  verbose=False, handle=None, output_type=None):
 
-        super(QN, self).__init__(handle=handle, verbose=verbose,
-                                 output_type=output_type)
+        super().__init__(handle=handle,
+                         verbose=verbose,
+                         output_type=output_type)
 
         self.fit_intercept = fit_intercept
         self.l1_strength = l1_strength
