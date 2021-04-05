@@ -35,7 +35,7 @@ class LogisticRegression(BaseEstimator):
        If False, the model expects that you have centered the data.
     solver : 'admm'
         Solver to use. Only admm is supported currently.
-    penalty : {'l1', 'l2'} (default = 'l2')
+    penalty : {'l1', 'l2', 'elastic_net'} (default = 'l2')
         Regularization technique for the solver.
     C: float (default = 1.0)
        Inverse of regularization strength; must be a positive float.
@@ -65,6 +65,7 @@ class LogisticRegression(BaseEstimator):
 
     def __init__(
         self,
+        *,
         client=None,
         fit_intercept=True,
         solver="admm",
@@ -95,6 +96,12 @@ class LogisticRegression(BaseEstimator):
 
         if self.solver != "admm":
             raise TypeError("Only ADMM solver is currently supported.")
+
+        if self.penalty not in ["l2", "l1", "elastic_net"]:
+            raise TypeError(
+                "Only l2, l1, and elastic net penalties are"
+                " currently supported."
+            )
 
         self.solver_model = LogisticRegressionGLM(
             solver=self.solver,
