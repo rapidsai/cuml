@@ -37,7 +37,7 @@ the `quick_dev.sh` script from the root of the cloned repository:
 ```bash
 git clone git@github.com:rapidsai/cuml.git
 cd cuml
-bash quick_dev.sh
+./quick_dev.sh
 ```
 The first time you run this, it may take some time to download the development
 Docker image. The script will then
@@ -78,7 +78,10 @@ environment variables, if desired:
       version under development.
 
 With both `CUML_BUILD_VOLUME` and `CUML_CCACHE_VOLUME` set, the development
-container can even be used for long-term development work.
+container can even be used for long-term development work. E.g.:
+```bash
+CUML_BUILD_VOLUME=cuml-build CUML_CCACHE_VOLUME=cuml-ccache ./quick_dev.sh
+```
 
 #### Conda environment
 If you would rather *not* use the Docker development environment, you can
