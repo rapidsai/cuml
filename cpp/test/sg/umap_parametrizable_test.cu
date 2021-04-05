@@ -265,10 +265,10 @@ class UMAPParametrizableTest : public ::testing::Test {
       get_embedding(handle, X_d.data(), (float*)y_d.data(), e2, test_params,
                     umap_params);
 
+      bool equal =
+        are_equal(e1, e2, n_samples * umap_params.n_components, alloc, stream);
 
-      bool equal = are_equal(e1, e2, n_samples * umap_params.n_components, alloc, stream);
-
-      if(!equal) {
+      if (!equal) {
         raft::print_device_vector("e1", e1, 25, std::cout);
         raft::print_device_vector("e2", e2, 25, std::cout);
       }
