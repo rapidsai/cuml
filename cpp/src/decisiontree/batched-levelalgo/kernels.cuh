@@ -341,19 +341,24 @@ __global__ void computeSplitClassificationKernel(
   auto node = nodes[nid];
   auto range_start = node.start;
   auto range_len = node.count;
+
+  // return if leaf
   if (leafBasedOnParams<DataT, IdxT>(node.depth, max_depth, min_samples_split,
                                      max_leaves, n_leaves, range_len)) {
     return;
   }
   auto end = range_start + range_len;
   auto nclasses = input.nclasses;
-  auto len = nbins * 2 * nclasses;
-  auto* shist = alignPointer<int>(smem);
-  auto* sbins = alignPointer<DataT>(shist + len);
+  auto pdf_shist_len = (nbins + 1) * nclasses;
+  auto cdf_shist_len = nbins * 2 * nclasses;
+  auto* pdf_shist = alignPointer<int>(smem);
+  auto* cdf_shist = alignPointer<int>(pdf_shist + pdf_shist_len);
+  auto* sbins = alignPointer<DataT>(cdf_shist + cdf_shist_len);
   auto* sDone = alignPointer<int>(sbins + nbins);
   IdxT stride = blockDim.x * gridDim.x;
   IdxT tid = threadIdx.x + blockIdx.x * blockDim.x;
 
+  // obtaining the feature to test split on
   IdxT col;
   if (input.nSampledCols == input.N) {
     col = colStart + blockIdx.y;
@@ -362,50 +367,125 @@ __global__ void computeSplitClassificationKernel(
     col = select(colIndex, treeid, node.info.unique_id, seed, input.N);
   }
 
-  for (IdxT i = threadIdx.x; i < len; i += blockDim.x) shist[i] = 0;
+  // populating shared memory with initial values
+  for (IdxT i = threadIdx.x; i < pdf_shist_len; i += blockDim.x)
+    pdf_shist[i] = 0;
+  for (IdxT j = threadIdx.x; j < cdf_shist_len; j += blockDim.x)
+    cdf_shist[j] = 0;
   for (IdxT b = threadIdx.x; b < nbins; b += blockDim.x)
     sbins[b] = input.quantiles[col * nbins + b];
+
+  // synchronizing above changes across block
   __syncthreads();
+
+  // compute pdf shared histogram for all bins for all classes in shared mem
   auto coloffset = col * input.M;
-  // compute class histogram for all bins for all classes in shared mem
   for (auto i = range_start + tid; i < end; i += stride) {
+    // each thread works over a data point and strides to the next
     auto row = input.rowids[i];
     auto d = input.data[row + coloffset];
     auto label = input.labels[row];
     for (IdxT b = 0; b < nbins; ++b) {
-      auto isRight = d > sbins[b];  // no divergence
-      auto offset = b * 2 * nclasses + isRight * nclasses + label;
-      atomicAdd(shist + offset, 1);  // class hist
+      if (d <= sbins[b]) {
+        auto offset = label * (1 + nbins) + b;
+        atomicAdd(pdf_shist + offset, 1);
+        break;
+      }
     }
   }
+
+  // synchronizeing above changes across block
   __syncthreads();
+
   // update the corresponding global location
-  auto histOffset = ((nid * gridDim.y) + blockIdx.y) * len;
-  for (IdxT i = threadIdx.x; i < len; i += blockDim.x) {
-    atomicAdd(hist + histOffset + i, shist[i]);
+  auto histOffset = ((nid * gridDim.y) + blockIdx.y) * pdf_shist_len;
+  for (IdxT i = threadIdx.x; i < pdf_shist_len; i += blockDim.x) {
+    atomicAdd(hist + histOffset + i, pdf_shist[i]);
   }
+
   __threadfence();  // for commit guarantee
   __syncthreads();
+
   // last threadblock will go ahead and compute the best split
   bool last = true;
   if (gridDim.x > 1) {
     last = MLCommon::signalDone(done_count + nid * gridDim.y + blockIdx.y,
                                 gridDim.x, blockIdx.x == 0, sDone);
   }
+  // if not the last threadblock, exit
   if (!last) return;
-  for (IdxT i = threadIdx.x; i < len; i += blockDim.x)
-    shist[i] = hist[histOffset + i];
+
+  // store the complete global histogram in shared memory of last block
+  for (IdxT i = threadIdx.x; i < pdf_shist_len; i += blockDim.x)
+    pdf_shist[i] = hist[histOffset + i];
+
+  __syncthreads();
+
+  // Blockscan instance preparation
+  typedef cub::BlockScan<int, TPB> BlockScan;
+  __shared__ typename BlockScan::TempStorage temp_storage;
+
+  /**
+   * Scanning code:
+   * span: block-wide
+   * Function: convert the PDF calculated in the previous steps to CDF
+   * This CDF is done over 2 passes
+   * * one from left to right to sum-scan counts of left splits
+   *   for each split-point.
+   * * second from right to left to sum-scan the right splits
+   *   for each split-point
+   */
+  for (IdxT tix = threadIdx.x; tix < max(TPB, nbins); tix += blockDim.x) {
+    for (IdxT c = 0; c < nclasses; ++c) {
+      // for each class, do inclusive block scan
+      int pdf_per_bin_per_class;
+      int cdf_per_bin_per_class;
+      // left to right scan operation for scanning lesser-than-or-equal-to-bin counts
+      // offset for left to right scan of pdf_shist
+      IdxT class_segment_offset = (1 + nbins) * c;
+      pdf_per_bin_per_class =
+        tix < nbins ? pdf_shist[class_segment_offset + tix] : 0;
+      BlockScan(temp_storage)
+        .InclusiveSum(pdf_per_bin_per_class, cdf_per_bin_per_class);
+      __syncthreads();  // synchronizing the scan
+      if (tix < nbins) {
+        auto histOffset = (2 * nbins * c + tix);
+        cdf_shist[histOffset] = cdf_per_bin_per_class;
+      }
+
+      // right to left scan operation for scanning greater-than-bin counts
+      // thread0 -> last class segment of pdf_shist
+      // thread(nbins - 1) -> 2nd class segment of pdf_shist
+      // offset for right to left scan of pdf_shist
+      pdf_per_bin_per_class =
+        tix < nbins ? pdf_shist[class_segment_offset + (nbins - tix)] : 0;
+      BlockScan(temp_storage)
+        .InclusiveSum(pdf_per_bin_per_class, cdf_per_bin_per_class);
+      __syncthreads();  // synchronizing the scan
+      if (tix < nbins) {
+        auto histOffset = (2 * nbins * c) + nbins + (nbins - tix - 1);
+        cdf_shist[histOffset] = cdf_per_bin_per_class;
+      }
+    }
+  }
+
+  // create a split instance to test current feature split
   Split<DataT, IdxT> sp;
   sp.init();
   __syncthreads();
+
+  // calculate the best candidate bins (one for each block-thread) in current feature and corresponding information gain for splitting
   if (splitType == CRITERION::GINI) {
-    giniGain<DataT, IdxT>(shist, sbins, sp, col, range_len, nbins, nclasses,
+    giniGain<DataT, IdxT>(cdf_shist, sbins, sp, col, range_len, nbins, nclasses,
                           min_samples_leaf, min_impurity_decrease);
   } else {
-    entropyGain<DataT, IdxT>(shist, sbins, sp, col, range_len, nbins, nclasses,
-                             min_samples_leaf, min_impurity_decrease);
+    entropyGain<DataT, IdxT>(cdf_shist, sbins, sp, col, range_len, nbins,
+                             nclasses, min_samples_leaf, min_impurity_decrease);
   }
   __syncthreads();
+
+  // calculate best bins among candidate bins per feature using warp reduce
+  // then atomically update across features to get best split per node (in split[nid])
   sp.evalBestSplit(smem, splits + nid, mutex + nid);
 }
 

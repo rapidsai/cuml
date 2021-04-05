@@ -33,10 +33,6 @@ except ImportError:
     except ImportError:
         pass
 
-# Use _F as a type variable for decorators. See:
-# https://github.com/python/mypy/pull/8336/files#diff-eb668b35b7c0c4f88822160f3ca4c111f444c88a38a3b9df9bb8427131538f9cR260
-_F = typing.TypeVar("_F", bound=typing.Callable[..., typing.Any])
-
 
 @contextlib.contextmanager
 def _using_mirror_output_type():
