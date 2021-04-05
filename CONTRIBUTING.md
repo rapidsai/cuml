@@ -22,21 +22,83 @@ into three categories:
 
 ## Code contributions
 
+### Setting up a development environment
+
+#### Docker development container
+
+For first-time and occasional contributors to cuML, we encourage you to use the
+`quick_dev.sh` script, which will allow you to build and test your changes
+quickly within a Docker container rather than setting up a build environment
+yourself. This require that you have
+[Docker](https://docs.docker.com/get-docker/) and [the NVIDIA container toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html#docker) installed.
+
+Once you have those prerequisites installed, simply clone the cuML repo and run
+the `quick_dev.sh` script from the root of the cloned repository:
+```bash
+git clone git@github.com:rapidsai/cuml.git
+cd cuml
+bash quick_dev.sh
+```
+The first time you run this, it may take some time to download the development
+Docker image. The script will then
+[mount](https://docs.docker.com/storage/bind-mounts/) the cuML source directory
+into the container and provide you with a prompt from within the container. You
+can edit source files as you would normally would in the `cuml` directory on
+your machine and then build from within the container by running `./build.sh`
+from the container prompt.
+
+The development container can be further configured with the following
+environment variables, if desired:
+
+* Basic Options
+    - `CUML_OS`: The name of one of the supported operating systems for cuML's
+      development containers (Default: `ubuntu18.04`)
+    - `CUML_CUDA`: The desired CUDA version (Default: `11.0`)
+    - `CUML_PY`: The desired Python version (Default: `3.8`)
+    - `CUDA_VISIBLE_DEVICES`: The GPU(s) that will be visible in the dev
+      container (Default: `all`)
+* Advanced Options
+    - `CUML_BUILD_VOLUME`: If set to an absolute path, then this path will be
+      bind-mounted to cuML's build directory, allowing you to persist build
+      artifacts between sessions. If a Docker volume name is used instead, the
+      build directory will be persisted in a volume. This option is
+      particularly useful for those who will be working on more extensive or
+      complex changes.
+    - `CUML_CCACHE_VOLUME`: If set to an absolute path, then this path will be
+      bind-mounted to the `ccache` cache directory within the container,
+      allowing you to persist the cache between sessions. If a Docker volume
+      name is used instead, the cache will be persisted in a volume. This
+      option is useful for those who will be working on multiple branches or
+      building both release and debug versions. You must use the `--ccache`
+      argument to `build.sh` in order to take advantage of this option.
+    - `CUML_VERSION`: The cuML version of the development Docker container.
+      Note that this will NOT affect what version of cuML you currently have
+      checked out in your repo, only the version of the development container.
+      In general, you should not change this option. Defaults to the latest
+      version under development.
+
+With both `CUML_BUILD_VOLUME` and `CUML_CCACHE_VOLUME` set, the development
+container can even be used for long-term development work.
+
+#### Conda environment
+If you would rather *not* use the Docker development environment, you can
+follow the instructions in
+[BUILD.md](https://github.com/rapidsai/cuml/blob/main/BUILD.md) to set up a
+conda development environment instead.
+
 ### Your first issue
 
-1. Read the project's [README.md](https://github.com/rapidsai/cuml/blob/main/README.md)
-    to learn how to setup the development environment.
-2. Find an issue to work on. The best way is to look for the [good first issue](https://github.com/rapidsai/cuml/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22)
+1. Find an issue to work on. The best way is to look for the [good first issue](https://github.com/rapidsai/cuml/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22)
     or [help wanted](https://github.com/rapidsai/cuml/issues?q=is%3Aissue+is%3Aopen+label%3A%22help+wanted%22) labels
-3. Comment on the issue saying you are going to work on it.
-4. Get familar with the developer guide relevant for you:
+2. Comment on the issue saying you are going to work on it.
+3. Get familar with the developer guide relevant for you:
     * For C++ developers it is available here [DEVELOPER_GUIDE.md](wiki/cpp/DEVELOPER_GUIDE.md)
     * For Python developers, a [Python DEVELOPER_GUIDE.md](wiki/python/DEVELOPER_GUIDE.md) is availabe as well.
-5. Code! Make sure to update unit tests!
-6. When done, [create your pull request](https://github.com/rapidsai/cuml/compare).
-7. Verify that CI passes all [status checks](https://help.github.com/articles/about-status-checks/), or fix if needed.
-8. Wait for other developers to review your code and update code as needed.
-9. Once reviewed and approved, a RAPIDS developer will merge your pull request.
+4. Code! Make sure to update unit tests!
+5. When done, [create your pull request](https://github.com/rapidsai/cuml/compare).
+6. Verify that CI passes all [status checks](https://help.github.com/articles/about-status-checks/), or fix if needed.
+7. Wait for other developers to review your code and update code as needed.
+8. Once reviewed and approved, a RAPIDS developer will merge your pull request.
 
 ### A note related to our CI process
 After you have started a PR (refer to step 6 in the previous section), every time you do a `git push <yourRemote> <pr-branch>`, it triggers a new CI run on all the commits thus far. Even though GPUCI has mechanisms to deal with this to a certain extent, if you keep `push`ing too frequently, it might just clog our GPUCI servers and slow down every PR and conda package generation! So, please be mindful of this and try not to do many frequent pushes.
