@@ -54,7 +54,7 @@ environment variables, if desired:
 
 * Basic Options
     - `CUML_OS`: The name of one of the supported operating systems for cuML's
-      development containers (Default: `ubuntu18.04`)
+      development containers (Default: `ubuntu20.04`)
     - `CUML_CUDA`: The desired CUDA version (Default: `11.0`)
     - `CUML_PY`: The desired Python version (Default: `3.8`)
     - `CUDA_VISIBLE_DEVICES`: The GPU(s) that will be visible in the dev

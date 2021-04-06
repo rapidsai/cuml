@@ -1,6 +1,6 @@
 #!/bin/bash
 
-CUML_OS="${CUML_OS:-ubuntu18.04}"
+CUML_OS="${CUML_OS:-ubuntu20.04}"
 CUML_CUDA="${CUML_CUDA:-11.0}"
 CUML_PY="${CUML_PY:-3.8}"
 CUML_VERSION="$(git describe --tags | grep -o -E '([0-9]+\.[0-9]+)')"
