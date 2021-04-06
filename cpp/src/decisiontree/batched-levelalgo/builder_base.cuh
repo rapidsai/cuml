@@ -523,12 +523,12 @@ struct RegTraits {
       "Builder::computeSplit @builder_base.cuh [batched-levelalgo]");
     auto n_col_blks = std::min(b.n_blks_for_cols, b.input.nSampledCols - col);
     auto nbins = b.params.n_bins;
-    size_t smemSize = 7 * nbins * sizeof(DataT) + nbins * sizeof(int);
+    size_t smemSize = (8 * nbins + 1) * sizeof(DataT) + 2 * nbins * sizeof(int);
     smemSize += sizeof(int);
 
     // Room for alignment in worst case (see alignPointer in
     // computeSplitRegressionKernel)
-    smemSize += 5 * sizeof(DataT) + 2 * sizeof(int);
+    smemSize += 6 * sizeof(DataT) + 3 * sizeof(int);
     int n_blks_for_rows = b.n_blks_for_rows(
       n_col_blks,
       (const void*)
