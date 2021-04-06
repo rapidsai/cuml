@@ -339,7 +339,6 @@ include(cmake/Dependencies.cmake)
 set(CUML_INCLUDE_DIRECTORIES
   ${CUML_INCLUDE_DIR}
   ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}
-  ${CUTLASS_DIR}/src/cutlass
   ${SPDLOG_DIR}/src/spdlog/include
   ${FAISS_INCLUDE_DIRS}
   ${RAFT_DIR}/cpp/include
