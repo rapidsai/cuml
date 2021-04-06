@@ -148,9 +148,11 @@ def pairwise_distances(X, Y=None, metric="euclidean", handle=None,
 
     Parameters
     ----------
-    X : array-like (device or host) of shape (n_samples_x, n_features)
+    X : Dense or sparse matrix (device or host) of shape
+        (n_samples_x, n_features)
         Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-        ndarray, cuda array interface compliant array like CuPy
+        ndarray, cuda array interface compliant array like CuPy, or
+        cupyx.scipy.sparse for sparse input
 
     Y : array-like (device or host) of shape (n_samples_y, n_features),\
         optional
