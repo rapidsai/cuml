@@ -191,6 +191,7 @@ class LogisticRegression(Base,
 
     def __init__(
         self,
+        *,
         penalty="l2",
         tol=1e-4,
         C=1.0,
@@ -205,9 +206,9 @@ class LogisticRegression(Base,
         output_type=None,
     ):
 
-        super(LogisticRegression, self).__init__(
-            handle=handle, verbose=verbose, output_type=output_type
-        )
+        super().__init__(handle=handle,
+                         verbose=verbose,
+                         output_type=output_type)
 
         if penalty not in supported_penalties:
             raise ValueError("`penalty` " + str(penalty) + "not supported.")
@@ -492,6 +493,6 @@ class LogisticRegression(Base,
         return state
 
     def __setstate__(self, state):
-        super(LogisticRegression, self).__init__(handle=None,
-                                                 verbose=state["verbose"])
+        super().__init__(handle=None,
+                         verbose=state["verbose"])
         self.__dict__.update(state)

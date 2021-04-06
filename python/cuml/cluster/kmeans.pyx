@@ -263,11 +263,13 @@ class KMeans(Base,
     labels_ = CumlArrayDescriptor()
     cluster_centers_ = CumlArrayDescriptor()
 
-    def __init__(self, handle=None, n_clusters=8, max_iter=300, tol=1e-4,
+    def __init__(self, *, handle=None, n_clusters=8, max_iter=300, tol=1e-4,
                  verbose=False, random_state=1,
                  init='scalable-k-means++', n_init=1, oversampling_factor=2.0,
                  max_samples_per_batch=1<<15, output_type=None):
-        super(KMeans, self).__init__(handle, verbose, output_type)
+        super().__init__(handle=handle,
+                         verbose=verbose,
+                         output_type=output_type)
         self.n_clusters = n_clusters
         self.random_state = random_state
         self.max_iter = max_iter
