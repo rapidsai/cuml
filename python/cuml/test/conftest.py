@@ -14,8 +14,11 @@
 # limitations under the License.
 #
 
-import cupy as cp
 import pytest
+import os
+
+import numpy as np
+import cupy as cp
 from sklearn.datasets import fetch_20newsgroups
 from sklearn.datasets import fetch_california_housing
 from sklearn.feature_extraction.text import CountVectorizer
@@ -56,3 +59,30 @@ def housing_dataset():
     feature_names = data['feature_names']
 
     return X, y, feature_names
+
+
+@pytest.fixture(scope="session")
+def random_seed(request):
+    random_seed = np.random.randint(0, 1e6)
+    os.environ['PYTEST_RANDOM_SEED'] = str(random_seed)
+    return random_seed
+
+
+@pytest.hookimpl(tryfirst=True, hookwrapper=True)
+def pytest_runtest_makereport(item, call):
+    outcome = yield
+    rep = outcome.get_result()
+    setattr(item, "rep_" + rep.when, rep)
+
+
+@pytest.fixture(scope="function")
+def failure_logger(request):
+    """
+    To be used when willing to log the random seed used in some failing test.
+    """
+    yield
+    if request.node.rep_call.failed:
+        error_msg = " {} failed with seed: {}"
+        error_msg = error_msg.format(request.node.nodeid,
+                                     os.getenv('PYTEST_RANDOM_SEED'))
+        print(error_msg)
