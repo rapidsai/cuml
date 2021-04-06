@@ -541,7 +541,7 @@ struct RegTraits {
                        nbins * sizeof(DataT) +        // spreadP
                        sizeof(int);                   // sDone
     // Room for alignment (see alignPointer in computeSplitRegressionKernel)
-    smemSize1 += 6 * sizeof(DataT) + 4 * sizeof(int);
+    smemSize1 += 6 * sizeof(DataT) + 3 * sizeof(int);
     // Calculate the shared memory needed for evalBestSplit
     size_t smemSize2 =
       raft::ceildiv(TPB_DEFAULT, raft::WarpSize) * sizeof(Split<DataT, IdxT>);
