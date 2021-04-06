@@ -45,7 +45,9 @@ Docker image. The script will then
 into the container and provide you with a prompt from within the container. You
 can edit source files as you would normally would in the `cuml` directory on
 your machine and then build from within the container by running `./build.sh`
-from the container prompt.
+from the container prompt. With this container running, you are read to tackle
+your [first
+issue](https://github.com/rapidsai/cuml/blob/branch-0.19/CONTRIBUTING.md#your-first-issue).
 
 The development container can be further configured with the following
 environment variables, if desired:
