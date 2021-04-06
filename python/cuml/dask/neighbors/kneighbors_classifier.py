@@ -112,10 +112,10 @@ class KNeighborsClassifier(NearestNeighbors):
                     uniq_labels.append(y.iloc[:, i].unique())
 
         uniq_labels = da.compute(uniq_labels)[0]
-        if not isinstance(uniq_labels[0], pd.DataFrame):  # for pandas Series
-            uniq_labels = list(map(lambda x: x.values, uniq_labels))
-        elif not isinstance(uniq_labels[0], cudf.DataFrame):  # for cuDF Series
+        if hasattr(uniq_labels[0], 'values_host'):  # for cuDF Series
             uniq_labels = list(map(lambda x: x.values_host, uniq_labels))
+        elif hasattr(uniq_labels[0], 'values'):  # for pandas Series
+            uniq_labels = list(map(lambda x: x.values, uniq_labels))
         self.uniq_labels = np.array(uniq_labels)
         self.n_unique = list(map(lambda x: len(x), self.uniq_labels))
 
