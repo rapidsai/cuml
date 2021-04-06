@@ -175,9 +175,8 @@ def test_scale_sparse(sparse_clf_dataset, with_std):  # noqa: F811
     assert_allclose(t_X, sk_t_X)
 
 
-@check_cupy8('pytest')
 @pytest.mark.parametrize("axis", [0, 1])
-def test_maxabs_scaler_funtion(clf_dataset, axis):  # noqa: F811
+def test_maxabs_scale(failure_logger, clf_dataset, axis):  # noqa: F811
     X_np, X = clf_dataset
 
     t_X = cu_maxabs_scale(X, axis=axis)
@@ -439,17 +438,9 @@ def test_add_dummy_feature(clf_dataset, value):  # noqa: F811
 
 
 @pytest.mark.parametrize("value", [1.0, 42])
-@pytest.mark.parametrize("sp_format", ["coo", "csr", "csc"])
 def test_add_dummy_feature_sparse(sparse_dataset_with_coo,  # noqa: F811
-                                  value, sp_format):
+                                  value):
     X_np, X = sparse_dataset_with_coo
-
-    if sp_format == "csc":
-        X_np = X_np.tocsc()
-        X = X.tocsc()
-    elif sp_format == "csr":
-        X_np = X_np.tocsr()
-        X = X.tocsr()
 
     t_X = cu_add_dummy_feature(X, value=value)
     #  assert type(t_X) == type(X)
