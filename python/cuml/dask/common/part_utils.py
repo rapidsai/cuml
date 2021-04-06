@@ -1,4 +1,4 @@
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -135,8 +135,8 @@ def _extract_partitions(dask_obj, client=None):
     client = default_client() if client is None else client
 
     # dask.dataframe or dask.array
-    if isinstance(dask_obj, (daskArray, dcSeries, daskSeries,
-                             daskDataFrame, dcDataFrame)):
+    if isinstance(dask_obj, (daskArray, daskSeries, daskDataFrame,
+                             dcSeries, dcDataFrame)):
         persisted = client.persist(dask_obj)
         parts = futures_of(persisted)
 
