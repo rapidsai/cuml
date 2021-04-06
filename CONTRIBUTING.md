@@ -29,7 +29,7 @@ into three categories:
 For first-time and occasional contributors to cuML, we encourage you to use the
 `quick_dev.sh` script, which will allow you to build and test your changes
 quickly within a Docker container rather than setting up a build environment
-yourself. This require that you have
+yourself. This requires you to have
 [Docker](https://docs.docker.com/get-docker/) and [the NVIDIA container toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html#docker) installed.
 
 Once you have those prerequisites installed, simply clone the cuML repo and run
