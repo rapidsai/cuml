@@ -536,9 +536,9 @@ struct RegTraits {
                        nbins * sizeof(int) +          // pdf_scount
                        nbins * sizeof(int) +          // cdf_scount
                        nbins * sizeof(DataT) +        // sbins
-                       2 * nbins * sizeof(DataT) +    // spread2
-                       nbins * sizeof(DataT) +        // spread2P
-                       nbins * sizeof(DataT) +        // spreadP
+                       2 * nbins * sizeof(DataT) +    // spred2
+                       nbins * sizeof(DataT) +        // spred2P
+                       nbins * sizeof(DataT) +        // spredP
                        sizeof(int);                   // sDone
     // Room for alignment (see alignPointer in computeSplitRegressionKernel)
     smemSize1 += 6 * sizeof(DataT) + 3 * sizeof(int);
