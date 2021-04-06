@@ -22,7 +22,7 @@ dependencies:
 - faiss-proc=*=cuda
 - umap-learn
 - scikit-learn=0.23.1
-- treelite=1.0.0
+- treelite=1.1.0
 - pip
 - pip:
     - sphinx_markdown_tables
