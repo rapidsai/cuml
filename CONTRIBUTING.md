@@ -57,9 +57,11 @@ environment variables, if desired:
       development containers (Default: `ubuntu20.04`)
     - `CUML_CUDA`: The desired CUDA version (Default: `11.0`)
     - `CUML_PY`: The desired Python version (Default: `3.8`)
-    - `CUDA_VISIBLE_DEVICES`: The GPU(s) that will be visible in the dev
-      container (Default: `all`)
 * Advanced Options
+    - `CUDA_VISIBLE_DEVICES`: The GPU(s) that will be visible in the dev
+      container. You can generally leave this as the default value unless you
+      explicitly wish to restrict GPU usage to a specific device or subset of
+      devices. (Default: `all`)
     - `CUML_BUILD_VOLUME`: If set to an absolute path, then this path will be
       bind-mounted to cuML's build directory, allowing you to persist build
       artifacts between sessions. If a Docker volume name is used instead, the
@@ -87,9 +89,21 @@ CUML_BUILD_VOLUME=cuml-build CUML_CCACHE_VOLUME=cuml-ccache ./quick_dev.sh
 
 #### Conda environment
 If you would rather *not* use the Docker development environment, you can
-follow the instructions in
-[BUILD.md](https://github.com/rapidsai/cuml/blob/main/BUILD.md) to set up a
-conda development environment instead.
+instead set up a development environment on your host machine with Conda. To
+begin, you should [install
+conda](https://docs.conda.io/projects/conda/en/latest/user-guide/install/linux.html)
+if it is not already available on your system and then do the following:
+
+```console
+$ git clone git@github.com:rapidsai/cuml.git
+$ cd cuml
+$ conda env create -f conda/environments/cuml_dev_cuda11.0.yml  # Choose your CUDA version
+$ conda activate cuml_dev
+$ ./build.sh
+```
+
+For more detailed instructions on configuration options and `build.sh` usage,
+check out [BUILD.md](https://github.com/rapidsai/cuml/blob/main/BUILD.md).
 
 ### Your first issue
 
