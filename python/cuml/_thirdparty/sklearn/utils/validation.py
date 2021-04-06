@@ -15,12 +15,9 @@
 # Authors mentioned above do not endorse or promote this production.
 
 
-from functools import wraps
-import warnings
 import numbers
-
 import numpy as np
-from inspect import signature, isclass, Parameter
+from inspect import isclass
 
 from ....common.exceptions import NotFittedError
 from ....thirdparty_adapters import check_array
@@ -29,45 +26,6 @@ from ....thirdparty_adapters import check_array
 FLOAT_DTYPES = (np.float64, np.float32, np.float16)
 
 
-def _deprecate_positional_args(f):
-    """Decorator for methods that issues warnings for positional arguments
-
-    Using the keyword-only argument syntax in pep 3102, arguments after the
-    * will issue a warning when passed as a positional argument.
-
-    Parameters
-    ----------
-    f : function
-        function to check arguments on
-    """
-    sig = signature(f)
-    kwonly_args = []
-    all_args = []
-
-    for name, param in sig.parameters.items():
-        if param.kind == Parameter.POSITIONAL_OR_KEYWORD:
-            all_args.append(name)
-        elif param.kind == Parameter.KEYWORD_ONLY:
-            kwonly_args.append(name)
-
-    @wraps(f)
-    def inner_f(*args, **kwargs):
-        extra_args = len(args) - len(all_args)
-        if extra_args > 0:
-            # ignore first 'self' argument for instance methods
-            args_msg = ['{}={}'.format(name, arg)
-                        for name, arg in zip(kwonly_args[:extra_args],
-                                             args[-extra_args:])]
-            warnings.warn("Pass {} as keyword args. From version 0.25 "
-                          "passing these as positional arguments will "
-                          "result in an error".format(", ".join(args_msg)),
-                          FutureWarning)
-        kwargs.update({k: arg for k, arg in zip(sig.parameters, args)})
-        return f(**kwargs)
-    return inner_f
-
-
-@_deprecate_positional_args
 def check_X_y(X, y, accept_sparse=False, *, accept_large_sparse=True,
               dtype="numeric", order=None, copy=False, force_all_finite=True,
               ensure_2d=True, allow_nd=False, multi_output=False,
@@ -207,7 +165,6 @@ def check_random_state(seed):
                      ' instance' % seed)
 
 
-@_deprecate_positional_args
 def check_is_fitted(estimator, attributes=None, *, msg=None, all_or_any=all):
     """Perform is_fitted validation for estimator.
 

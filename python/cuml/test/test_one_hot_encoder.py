@@ -1,4 +1,4 @@
-# Copyright (c) 2020, NVIDIA CORPORATION.
+# Copyright (c) 2020-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,7 +20,7 @@ import pytest
 from cudf import DataFrame
 from cuml.preprocessing import OneHotEncoder
 from cuml.test.utils import stress_param
-from pandas.util.testing import assert_frame_equal
+from pandas.testing import assert_frame_equal
 from sklearn.preprocessing import OneHotEncoder as SkOneHotEncoder
 
 

@@ -19,4 +19,37 @@ from ._data import minmax_scale
 from ._data import PolynomialFeatures
 
 from ._imputation import SimpleImputer
+from ._imputation import MissingIndicator
 from ._discretization import KBinsDiscretizer
+
+__all__ = [
+    'Binarizer',
+    'FunctionTransformer',
+    'KBinsDiscretizer',
+    'KernelCenterer',
+    'LabelBinarizer',
+    'LabelEncoder',
+    'MultiLabelBinarizer',
+    'MinMaxScaler',
+    'MaxAbsScaler',
+    'QuantileTransformer',
+    'Normalizer',
+    'OneHotEncoder',
+    'OrdinalEncoder',
+    'PowerTransformer',
+    'RobustScaler',
+    'StandardScaler',
+    'SimpleImputer',
+    'MissingIndicator',
+    'add_dummy_feature',
+    'PolynomialFeatures',
+    'binarize',
+    'normalize',
+    'scale',
+    'robust_scale',
+    'maxabs_scale',
+    'minmax_scale',
+    'label_binarize',
+    'quantile_transform',
+    'power_transform',
+]

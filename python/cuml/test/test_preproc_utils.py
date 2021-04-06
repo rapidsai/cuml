@@ -195,8 +195,14 @@ def int_dataset(request, random_seed):
     random_loc = cp.random.choice(randint.size,
                                   int(randint.size * 0.3),
                                   replace=False)
+
+    randint.ravel()[random_loc] = 0
+    zero_filled = convert(randint, request.param)
+    randint.ravel()[random_loc] = 1
+    one_filled = convert(randint, request.param)
     randint.ravel()[random_loc] = cp.nan
-    return convert(randint, request.param)
+    nan_filled = convert(randint, request.param)
+    return zero_filled, one_filled, nan_filled
 
 
 @pytest.fixture(scope="session",
@@ -234,6 +240,7 @@ def assert_allclose(actual, desired, rtol=1e-05, atol=1e-05,
         actual = to_output_type(actual, 'numpy')
     if not isinstance(desired, np.ndarray):
         desired = to_output_type(desired, 'numpy')
+
     if ratio_tol:
         assert actual.shape == desired.shape
         diff_ratio = (actual != desired).sum() / actual.size
