@@ -369,6 +369,7 @@ class TSNE(Base,
         self.sparse_fit = False
 
     @generate_docstring(skip_parameters_heading=True,
+                        X='dense_sparse',
                         convert_dtype_cast='np.float32')
     def fit(self, X, convert_dtype=True, knn_graph=None) -> "TSNE":
         """
