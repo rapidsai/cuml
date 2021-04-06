@@ -329,6 +329,40 @@ DI IdxT select(IdxT k, IdxT treeid, uint32_t nodeid, uint64_t seed, IdxT N) {
   return blksum;
 }
 
+/**
+ * @brief For every block, converts the smem pdf-histogram to
+ *        cdf-histogram using inclusive block-sum-scan and returns
+ *        the total_sum
+ * @return The total sum aggregated over the sumscan,
+ *         as well as the modified cdf-histogram pointer
+ */
+template <typename DataT, typename IdxT, int TPB>
+DI DataT pdf_to_cdf(DataT* pdf_shist, DataT* cdf_shist, IdxT nbins) {
+  // Blockscan instance preparation
+  typedef cub::BlockScan<DataT, TPB> BlockScan;
+  __shared__ typename BlockScan::TempStorage temp_storage;
+
+  // variable to accumulate aggregate of sumscans of previous iterations
+  DataT total_aggregate = DataT(0);
+
+  for (IdxT tix = threadIdx.x; tix < max(TPB, nbins); tix += blockDim.x) {
+    DataT result;
+    DataT block_aggregate;
+    // getting the scanning element from pdf shist only
+    DataT element = tix < nbins ? pdf_shist[tix] : 0;
+    // inclusive sum scan
+    BlockScan(temp_storage).InclusiveSum(element, result, block_aggregate);
+    __syncthreads();
+    // store the result in cdf shist
+    if (tix < nbins) {
+      cdf_shist[tix] = result + total_aggregate;
+      total_aggregate += block_aggregate;
+    }
+  }
+  // return the total sum
+  return total_aggregate;
+}
+
 template <typename DataT, typename LabelT, typename IdxT, int TPB>
 __global__ void computeSplitClassificationKernel(
   int* hist, IdxT nbins, IdxT max_depth, IdxT min_samples_split,
@@ -421,10 +455,6 @@ __global__ void computeSplitClassificationKernel(
 
   __syncthreads();
 
-  // Blockscan instance preparation
-  typedef cub::BlockScan<int, TPB> BlockScan;
-  __shared__ typename BlockScan::TempStorage temp_storage;
-
   /**
    * Scanning code:
    * span: block-wide
@@ -435,37 +465,25 @@ __global__ void computeSplitClassificationKernel(
    * * second from right to left to sum-scan the right splits
    *   for each split-point
    */
-  for (IdxT tix = threadIdx.x; tix < max(TPB, nbins); tix += blockDim.x) {
-    for (IdxT c = 0; c < nclasses; ++c) {
-      // for each class, do inclusive block scan
-      int pdf_per_bin_per_class;
-      int cdf_per_bin_per_class;
-      // left to right scan operation for scanning lesser-than-or-equal-to-bin counts
-      // offset for left to right scan of pdf_shist
-      IdxT class_segment_offset = (1 + nbins) * c;
-      pdf_per_bin_per_class =
-        tix < nbins ? pdf_shist[class_segment_offset + tix] : 0;
-      BlockScan(temp_storage)
-        .InclusiveSum(pdf_per_bin_per_class, cdf_per_bin_per_class);
-      __syncthreads();  // synchronizing the scan
-      if (tix < nbins) {
-        auto histOffset = (2 * nbins * c + tix);
-        cdf_shist[histOffset] = cdf_per_bin_per_class;
-      }
+  for (IdxT c = 0; c < nclasses; ++c) {
+    /** left to right scan operation for scanning
+     *  lesser-than-or-equal-to-bin counts **/
+    // offsets to pdf and cdf shist pointers
+    auto offset_pdf = (1 + nbins) * c;
+    auto offset_cdf = (2 * nbins) * c;
+    // converting pdf to cdf
+    int total_sum = pdf_to_cdf<int, IdxT, TPB>(pdf_shist + offset_pdf,
+                                               cdf_shist + offset_cdf, nbins);
 
-      // right to left scan operation for scanning greater-than-bin counts
-      // thread0 -> last class segment of pdf_shist
-      // thread(nbins - 1) -> 2nd class segment of pdf_shist
-      // offset for right to left scan of pdf_shist
-      pdf_per_bin_per_class =
-        tix < nbins ? pdf_shist[class_segment_offset + (nbins - tix)] : 0;
-      BlockScan(temp_storage)
-        .InclusiveSum(pdf_per_bin_per_class, cdf_per_bin_per_class);
-      __syncthreads();  // synchronizing the scan
-      if (tix < nbins) {
-        auto histOffset = (2 * nbins * c) + nbins + (nbins - tix - 1);
-        cdf_shist[histOffset] = cdf_per_bin_per_class;
-      }
+    // greater-than split starts after nbins of less-than-equal split
+    // locations
+    offset_cdf += nbins;
+    /** samples that are greater-than-bin calculated by difference
+     *  of count of lesser-than-equal samples from total_sum.
+     **/
+    for (IdxT i = threadIdx.x; i < nbins; i += blockDim.x) {
+      *(cdf_shist + offset_cdf + i) =
+        total_sum - *(cdf_shist + 2 * nbins * c + i);
     }
   }
 
@@ -503,90 +521,139 @@ __global__ void computeSplitRegressionKernel(
   auto node = nodes[nid];
   auto range_start = node.start;
   auto range_len = node.count;
+
+  // exit if current node is leaf
   if (leafBasedOnParams<DataT, IdxT>(node.depth, max_depth, min_samples_split,
                                      max_leaves, n_leaves, range_len)) {
     return;
   }
+
+  // variables
   auto end = range_start + range_len;
   auto len = nbins * 2;
-  auto* spred = alignPointer<DataT>(smem);
-  auto* scount = alignPointer<int>(spred + len);
-  auto* sbins = alignPointer<DataT>(scount + nbins);
+  auto pdf_spred_len = 1 + nbins;
+  auto cdf_spred_len = 2 * nbins;
+  IdxT stride = blockDim.x * gridDim.x;
+  IdxT tid = threadIdx.x + blockIdx.x * blockDim.x;
+  IdxT col;
+
+  // allocating pointers to shared memory
+  auto* pdf_spred = alignPointer<DataT>(smem);
+  auto* cdf_spred = alignPointer<DataT>(pdf_spred + pdf_spred_len);
+  auto* pdf_scount = alignPointer<int>(cdf_spred + cdf_spred_len);
+  auto* cdf_scount = alignPointer<int>(pdf_scount + nbins);
+  auto* sbins = alignPointer<DataT>(cdf_scount + nbins);
   auto* spred2 = alignPointer<DataT>(sbins + nbins);
   auto* spred2P = alignPointer<DataT>(spred2 + len);
   auto* spredP = alignPointer<DataT>(spred2P + nbins);
   auto* sDone = alignPointer<int>(spredP + nbins);
-  IdxT stride = blockDim.x * gridDim.x;
-  IdxT tid = threadIdx.x + blockIdx.x * blockDim.x;
-  IdxT col;
+
+  // select random feature to split-check
+  // (if feature-sampling is true)
   if (input.nSampledCols == input.N) {
     col = colStart + blockIdx.y;
   } else {
     int colIndex = colStart + blockIdx.y;
     col = select(colIndex, treeid, node.info.unique_id, seed, input.N);
   }
-  for (IdxT i = threadIdx.x; i < len; i += blockDim.x) {
-    spred[i] = DataT(0.0);
+
+  // memset smem pointers
+  for (IdxT i = threadIdx.x; i < pdf_spred_len; i += blockDim.x) {
+    pdf_spred[i] = DataT(0.0);
+  }
+  for (IdxT i = threadIdx.x; i < cdf_spred_len; i += blockDim.x) {
+    cdf_spred[i] = DataT(0.0);
   }
   for (IdxT i = threadIdx.x; i < nbins; i += blockDim.x) {
-    scount[i] = 0;
+    pdf_scount[i] = 0;
+    cdf_scount[i] = 0;
     sbins[i] = input.quantiles[col * nbins + i];
   }
   __syncthreads();
   auto coloffset = col * input.M;
 
-  // compute prediction averages for all bins in shared mem
+  // compute prediction pdfs and count pdfs
   for (auto i = range_start + tid; i < end; i += stride) {
     auto row = input.rowids[i];
     auto d = input.data[row + coloffset];
     auto label = input.labels[row];
     for (IdxT b = 0; b < nbins; ++b) {
-      auto isRight = d > sbins[b];  // no divergence
-      auto offset = isRight * nbins + b;
-      atomicAdd(spred + offset, label);
-      if (!isRight) atomicAdd(scount + b, 1);
+      // if sample is less-than-or-equal to threshold
+      if (d <= sbins[b]) {
+        atomicAdd(pdf_spred + b, label);
+        atomicAdd(pdf_scount + b, 1);
+        break;
+      }
     }
   }
   __syncthreads();
-  // update the corresponding global location
+
+  // update the corresponding global location for counts
   auto gcOffset = ((nid * gridDim.y) + blockIdx.y) * nbins;
   for (IdxT i = threadIdx.x; i < nbins; i += blockDim.x) {
-    atomicAdd(count + gcOffset + i, scount[i]);
+    atomicAdd(count + gcOffset + i, pdf_scount[i]);
   }
-  auto gOffset = gcOffset * 2;
-  for (IdxT i = threadIdx.x; i < len; i += blockDim.x) {
-    atomicAdd(pred + gOffset + i, spred[i]);
+
+  // update the corresponding global location for preds
+  auto gOffset = ((nid * gridDim.y) + blockIdx.y) * pdf_spred_len;
+  for (IdxT i = threadIdx.x; i < pdf_spred_len; i += blockDim.x) {
+    atomicAdd(pred + gOffset + i, pdf_spred[i]);
   }
   __threadfence();  // for commit guarantee
   __syncthreads();
 
-  /* Make a second pass over the data to compute gain */
   // Wait until all blockIdx.x's are done
   MLCommon::GridSync gs(workspace, MLCommon::SyncType::ACROSS_X, false);
   gs.sync();
-  // now, compute the mean value to be used for metric update
+
+  // transfer from global to smem
   for (IdxT i = threadIdx.x; i < nbins; i += blockDim.x) {
-    scount[i] = count[gcOffset + i];
+    pdf_scount[i] = count[gcOffset + i];
     spred2P[i] = DataT(0.0);
   }
+  for (IdxT i = threadIdx.x; i < pdf_spred_len; i += blockDim.x) {
+    pdf_spred[i] = pred[gOffset + i];
+  }
+  // memset spred2
   for (IdxT i = threadIdx.x; i < len; i += blockDim.x) {
-    spred[i] = pred[gOffset + i];
     spred2[i] = DataT(0.0);
   }
   __syncthreads();
+
+  /** pdf to cdf conversion **/
+
+  /** get cdf of spred from pdf_spred **/
+  // cdf of samples lesser-than-equal to threshold
+  DataT total_sum = pdf_to_cdf<DataT, IdxT, TPB>(pdf_spred, cdf_spred, nbins);
+
+  // cdf of samples greater than threshold
+  // calculated by subtracting lesser-than-equals from total_sum
   for (IdxT i = threadIdx.x; i < nbins; i += blockDim.x) {
-    spredP[i] = spred[i] + spred[i + nbins];
+    *(cdf_spred + nbins + i) = total_sum - *(cdf_spred + i);
+  }
+
+  /** get cdf of scount from pdf_scount **/
+  pdf_to_cdf<int, IdxT, TPB>(pdf_scount, cdf_scount, nbins);
+  __syncthreads();
+
+  // calcualting prediction average-sums
+  for (IdxT i = threadIdx.x; i < nbins; i += blockDim.x) {
+    spredP[i] = cdf_spred[i] + cdf_spred[i + nbins];
   }
   __syncthreads();
+
+  // now, compute the mean value to be used for metric update
   auto invlen = DataT(1.0) / range_len;
   for (IdxT i = threadIdx.x; i < nbins; i += blockDim.x) {
-    auto cnt_l = DataT(scount[i]);
-    auto cnt_r = DataT(range_len - scount[i]);
-    spred[i] /= cnt_l;
-    spred[i + nbins] /= cnt_r;
+    auto cnt_l = DataT(cdf_scount[i]);
+    auto cnt_r = DataT(range_len - cdf_scount[i]);
+    cdf_spred[i] /= cnt_l;
+    cdf_spred[i + nbins] /= cnt_r;
     spredP[i] *= invlen;
   }
   __syncthreads();
+
+  /* Make a second pass over the data to compute gain */
 
   // 2nd pass over data to compute partial metric across blockIdx.x's
   if (splitType == CRITERION::MAE) {
@@ -597,7 +664,7 @@ __global__ void computeSplitRegressionKernel(
       for (IdxT b = 0; b < nbins; ++b) {
         auto isRight = d > sbins[b];  // no divergence
         auto offset = isRight * nbins + b;
-        auto diff = label - (isRight ? spred[nbins + b] : spred[b]);
+        auto diff = label - (isRight ? cdf_spred[nbins + b] : cdf_spred[b]);
         atomicAdd(spred2 + offset, raft::myAbs(diff));
         atomicAdd(spred2P + b, raft::myAbs(label - spredP[b]));
       }
@@ -610,7 +677,7 @@ __global__ void computeSplitRegressionKernel(
       for (IdxT b = 0; b < nbins; ++b) {
         auto isRight = d > sbins[b];  // no divergence
         auto offset = isRight * nbins + b;
-        auto diff = label - (isRight ? spred[nbins + b] : spred[b]);
+        auto diff = label - (isRight ? cdf_spred[nbins + b] : cdf_spred[b]);
         auto diff2 = label - spredP[b];
         atomicAdd(spred2 + offset, (diff * diff));
         atomicAdd(spred2P + b, (diff2 * diff2));
@@ -618,15 +685,21 @@ __global__ void computeSplitRegressionKernel(
     }
   }
   __syncthreads();
-  // update the corresponding global location
+
+  // update the corresponding global location for pred2P
   for (IdxT i = threadIdx.x; i < nbins; i += blockDim.x) {
     atomicAdd(pred2P + gcOffset + i, spred2P[i]);
   }
+
+  // changing gOffset for pred2 from that of pred
+  gOffset = ((nid * gridDim.y) + blockIdx.y) * len;
+  // update the corresponding global location for pred2
   for (IdxT i = threadIdx.x; i < len; i += blockDim.x) {
     atomicAdd(pred2 + gOffset + i, spred2[i]);
   }
   __threadfence();  // for commit guarantee
   __syncthreads();
+
   // last threadblock will go ahead and compute the best split
   bool last = true;
   if (gridDim.x > 1) {
@@ -634,10 +707,15 @@ __global__ void computeSplitRegressionKernel(
                                 gridDim.x, blockIdx.x == 0, sDone);
   }
 
+  // exit if not last
   if (!last) return;
+
   // last block computes the final gain
+  // create a split instance to test current feature split
   Split<DataT, IdxT> sp;
   sp.init();
+
+  // store global pred2 and pred2P into shared memory of last x-dim block
   for (IdxT i = threadIdx.x; i < len; i += blockDim.x) {
     spred2[i] = pred2[gOffset + i];
   }
@@ -645,9 +723,15 @@ __global__ void computeSplitRegressionKernel(
     spred2P[i] = pred2P[gcOffset + i];
   }
   __syncthreads();
-  regressionMetricGain(spred2, spred2P, scount, sbins, sp, col, range_len,
+
+  // calculate the best candidate bins (one for each block-thread) in current
+  // feature and corresponding regression-metric gain for splitting
+  regressionMetricGain(spred2, spred2P, cdf_scount, sbins, sp, col, range_len,
                        nbins, min_samples_leaf, min_impurity_decrease);
   __syncthreads();
+
+  // calculate best bins among candidate bins per feature using warp reduce
+  // then atomically update across features to get best split per node (in split[nid])
   sp.evalBestSplit(smem, splits + nid, mutex + nid);
 }
 
