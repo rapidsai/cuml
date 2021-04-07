@@ -194,6 +194,8 @@ class RandomForestRegressor(BaseRandomForestModel,
         If 'log2' then max_features=log2(n_features)/n_features.
     n_bins : int (default = 8)
         Number of bins used by the split algorithm.
+        For large problems, particularly those with highly-skewed input data,
+        increasing the number of bins may improve accuracy.
     min_samples_leaf : int or float (default = 1)
         The minimum number of samples (rows) in each leaf node.
         If int, then min_samples_leaf represents the minimum number.
@@ -224,10 +226,13 @@ class RandomForestRegressor(BaseRandomForestModel,
            Parameter 'quantile_per_tree' is deprecated and will be removed in
            subsequent release.
     use_experimental_backend : boolean (default = False)
-        If set to true and  following conditions are also met, experimental
-        decision tree training implementation would be used only if
-        `split_algo = 1` (GLOBAL_QUANTILE) and `quantile_per_tree = False`
-        (No per tree quantile computation).
+        If set to true and the following conditions are also met, a new
+        experimental backend for decision tree training will be used. The
+        new backend is available only if `split_algo = 1` (GLOBAL_QUANTILE)
+        and `quantile_per_tree = False` (No per tree quantile computation).
+        The new backend is considered stable for the classification task but
+        not for the regression task. We are currently evaluating the impact
+        of the new backend for the regression task.
     max_batch_size: int (default = 128)
         Maximum number of nodes that can be processed in a given batch. This is
         used only when 'use_experimental_backend' is true.
