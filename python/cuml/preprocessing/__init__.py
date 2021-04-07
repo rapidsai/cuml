@@ -24,7 +24,7 @@ from cuml._thirdparty.sklearn.preprocessing import StandardScaler, \
     MinMaxScaler, MaxAbsScaler, Normalizer, Binarizer, PolynomialFeatures, \
     SimpleImputer, RobustScaler, KBinsDiscretizer, MissingIndicator
 from cuml._thirdparty.sklearn.preprocessing import scale, minmax_scale, \
-    normalize, add_dummy_feature, binarize, robust_scale
+    maxabs_scale, normalize, add_dummy_feature, binarize, robust_scale
 
 __all__ = [
     # Classes
@@ -46,6 +46,7 @@ __all__ = [
     'add_dummy_feature',
     'binarize',
     'minmax_scale',
+    'maxabs_scale',
     'normalize',
     'robust_scale',
     'scale',

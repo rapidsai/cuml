@@ -28,6 +28,7 @@ from cuml.preprocessing import \
     MissingIndicator as cuMissingIndicator
 from cuml.preprocessing import scale as cu_scale, \
                     minmax_scale as cu_minmax_scale, \
+                    maxabs_scale as cu_maxabs_scale, \
                     normalize as cu_normalize, \
                     add_dummy_feature as cu_add_dummy_feature, \
                     binarize as cu_binarize, \
@@ -41,6 +42,7 @@ from sklearn.preprocessing import StandardScaler as skStandardScaler, \
                                   RobustScaler as skRobustScaler
 from sklearn.preprocessing import scale as sk_scale, \
                                   minmax_scale as sk_minmax_scale, \
+                                  maxabs_scale as sk_maxabs_scale, \
                                   normalize as sk_normalize, \
                                   add_dummy_feature as sk_add_dummy_feature, \
                                   binarize as sk_binarize, \
@@ -177,6 +179,18 @@ def test_scale_sparse(failure_logger, sparse_clf_dataset,  # noqa: F811
         assert scipy.sparse.issparse(t_X)
 
     sk_t_X = sk_scale(X_np, with_mean=False, with_std=with_std, copy=True)
+
+    assert_allclose(t_X, sk_t_X)
+
+
+@pytest.mark.parametrize("axis", [0, 1])
+def test_maxabs_scale(failure_logger, clf_dataset, axis):  # noqa: F811
+    X_np, X = clf_dataset
+
+    t_X = cu_maxabs_scale(X, axis=axis)
+    assert type(t_X) == type(X)
+
+    sk_t_X = sk_maxabs_scale(X_np, axis=axis)
 
     assert_allclose(t_X, sk_t_X)
 
@@ -384,6 +398,7 @@ def test_poly_features(failure_logger, clf_dataset, degree,  # noqa: F811
                                         include_bias=include_bias)
     t_X = polyfeatures.fit_transform(X)
     assert type(X) == type(t_X)
+    cu_feature_names = polyfeatures.get_feature_names()
 
     if isinstance(t_X, np.ndarray):
         if order == 'C':
@@ -395,8 +410,10 @@ def test_poly_features(failure_logger, clf_dataset, degree,  # noqa: F811
                                         interaction_only=interaction_only,
                                         include_bias=include_bias)
     sk_t_X = polyfeatures.fit_transform(X_np)
+    sk_feature_names = polyfeatures.get_feature_names()
 
     assert_allclose(t_X, sk_t_X, rtol=0.1, atol=0.1)
+    assert sk_feature_names == cu_feature_names
 
 
 @pytest.mark.parametrize("degree", [2, 3])
