@@ -31,8 +31,6 @@ void launcher(int n, int d, const value_idx *knn_indices, const T *knn_dists,
 
   raft::random::Rng r(seed);
   r.uniform<T>(embedding, n * params->n_components, -10, 10, stream);
-
-  raft::print_device_vector("init", embedding, 25, std::cout);
 }
 }  // namespace RandomInit
 }  // namespace InitEmbed
