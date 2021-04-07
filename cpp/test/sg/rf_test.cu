@@ -62,7 +62,7 @@ class RfClassifierTest : public ::testing::TestWithParam<RfInputs<T>> {
       params.split_algo, params.min_samples_leaf, params.min_samples_split,
       params.min_impurity_decrease, params.bootstrap_features, params.bootstrap,
       params.n_trees, params.max_samples, 0, params.split_criterion, false,
-      params.n_streams, false, 128);
+      params.n_streams, true, 128);
 
     //--------------------------------------------------------
     // Random Forest
@@ -162,7 +162,7 @@ class RfRegressorTest : public ::testing::TestWithParam<RfInputs<T>> {
       params.split_algo, params.min_samples_leaf, params.min_samples_split,
       params.min_impurity_decrease, params.bootstrap_features, params.bootstrap,
       params.n_trees, params.max_samples, 0, params.split_criterion, false,
-      params.n_streams, true, 128);
+      params.n_streams, false, 128);
 
     //--------------------------------------------------------
     // Random Forest
