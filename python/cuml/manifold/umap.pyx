@@ -553,6 +553,7 @@ class UMAP(Base,
         return (None, None), (None, None)
 
     @generate_docstring(convert_dtype_cast='np.float32',
+                        X='dense_sparse',
                         skip_parameters_heading=True)
     def fit(self, X, y=None, convert_dtype=True,
             knn_graph=None) -> "UMAP":

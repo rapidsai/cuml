@@ -319,7 +319,7 @@ class NearestNeighbors(Base,
         self.algo_params = algo_params
         self.knn_index = <uintptr_t> 0
 
-    @generate_docstring()
+    @generate_docstring(X='dense_sparse')
     def fit(self, X, convert_dtype=True) -> "NearestNeighbors":
         """
         Fit GPU index for performing nearest neighbor queries.
