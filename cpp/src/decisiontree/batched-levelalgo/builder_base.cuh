@@ -444,13 +444,20 @@ struct ClsTraits {
       "Builder::computeSplit @builder_base.cuh [batched-levelalgo]");
     auto nbins = b.params.n_bins;
     auto nclasses = b.input.nclasses;
-    auto binSize = (nbins * 3 + 1) * nclasses;
     auto colBlks = std::min(b.n_blks_for_cols, b.input.nSampledCols - col);
-    size_t smemSize = sizeof(int) * binSize + sizeof(DataT) * nbins;
-    smemSize += sizeof(int);
 
-    // Extra room for alignment (see alignPointer in computeSplitClassificationKernel)
-    smemSize += 2 * sizeof(DataT) + 1 * sizeof(int);
+    size_t smemSize1 = (nbins + 1) * nclasses * sizeof(int) +  // pdf_shist size
+                       2 * nbins * nclasses * sizeof(int) +    // cdf_shist size
+                       nbins * sizeof(DataT) +                 // sbins size
+                       sizeof(int);                            // sDone size
+    // Extra room for alignment (see alignPointer in
+    // computeSplitClassificationKernel)
+    smemSize1 += sizeof(DataT) + 3 * sizeof(int);
+    // Calculate the shared memory needed for evalBestSplit
+    size_t smemSize2 =
+      raft::ceildiv(TPB_DEFAULT, raft::WarpSize) * sizeof(Split<DataT, IdxT>);
+    // Pick the max of two
+    size_t smemSize = std::max(smemSize1, smemSize2);
     int n_blks_for_rows = b.n_blks_for_rows(
       colBlks,
       (const void*)
@@ -523,12 +530,23 @@ struct RegTraits {
       "Builder::computeSplit @builder_base.cuh [batched-levelalgo]");
     auto n_col_blks = std::min(b.n_blks_for_cols, b.input.nSampledCols - col);
     auto nbins = b.params.n_bins;
-    size_t smemSize = (8 * nbins + 1) * sizeof(DataT) + 2 * nbins * sizeof(int);
-    smemSize += sizeof(int);
 
-    // Room for alignment in worst case (see alignPointer in
-    // computeSplitRegressionKernel)
-    smemSize += 6 * sizeof(DataT) + 3 * sizeof(int);
+    size_t smemSize1 = (nbins + 1) * sizeof(DataT) +  // pdf_spred
+                       2 * nbins * sizeof(DataT) +    // cdf_spred
+                       nbins * sizeof(int) +          // pdf_scount
+                       nbins * sizeof(int) +          // cdf_scount
+                       nbins * sizeof(DataT) +        // sbins
+                       2 * nbins * sizeof(DataT) +    // spred2
+                       nbins * sizeof(DataT) +        // spred2P
+                       nbins * sizeof(DataT) +        // spredP
+                       sizeof(int);                   // sDone
+    // Room for alignment (see alignPointer in computeSplitRegressionKernel)
+    smemSize1 += 6 * sizeof(DataT) + 3 * sizeof(int);
+    // Calculate the shared memory needed for evalBestSplit
+    size_t smemSize2 =
+      raft::ceildiv(TPB_DEFAULT, raft::WarpSize) * sizeof(Split<DataT, IdxT>);
+    // Pick the max of two
+    size_t smemSize = std::max(smemSize1, smemSize2);
     int n_blks_for_rows = b.n_blks_for_rows(
       n_col_blks,
       (const void*)
