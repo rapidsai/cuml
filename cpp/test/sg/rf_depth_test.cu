@@ -73,7 +73,7 @@ class RfClassifierDepthTest : public ::testing::TestWithParam<int> {
       params.split_algo, params.min_samples_leaf, params.min_samples_split,
       params.min_impurity_decrease, params.bootstrap_features, params.bootstrap,
       params.n_trees, params.max_samples, 0, params.split_criterion, false,
-      params.n_streams, false, 128);
+      params.n_streams, true, 128);
 
     int data_len = params.n_rows * params.n_cols;
     raft::allocate(data, data_len);
@@ -165,7 +165,7 @@ class RfRegressorDepthTest : public ::testing::TestWithParam<int> {
       params.split_algo, params.min_samples_leaf, params.min_samples_split,
       params.min_impurity_decrease, params.bootstrap_features, params.bootstrap,
       params.n_trees, params.max_samples, 0, params.split_criterion, false,
-      params.n_streams, false, 128);
+      params.n_streams, true, 128);
 
     int data_len = params.n_rows * params.n_cols;
     raft::allocate(data, data_len);
