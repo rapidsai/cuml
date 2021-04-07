@@ -120,6 +120,14 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
     quantile_per_tree : boolean (default = False)
         Whether quantile is computed for individual RF trees.
         Only relevant for GLOBAL_QUANTILE split_algo.
+    use_experimental_backend : boolean (default = True)
+        If set to true and the following conditions are also met, a new
+        experimental backend for decision tree training will be used. The
+        new backend is available only if `split_algo = 1` (GLOBAL_QUANTILE)
+        and `quantile_per_tree = False` (No per tree quantile computation).
+        The new backend is considered stable for the classification task but
+        not for the regression task. We are currently evaluating the impact
+        of the new backend for the regression task.
     n_streams : int (default = 4 )
         Number of parallel streams used for forest building
     workers : optional, list of strings
