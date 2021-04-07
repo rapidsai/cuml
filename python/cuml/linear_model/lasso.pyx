@@ -143,14 +143,14 @@ class Lasso(Base,
     <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.Lasso.html>`_.
     """
 
-    def __init__(self, alpha=1.0, fit_intercept=True, normalize=False,
+    def __init__(self, *, alpha=1.0, fit_intercept=True, normalize=False,
                  max_iter=1000, tol=1e-3, selection='cyclic', handle=None,
                  output_type=None, verbose=False):
 
         # Hard-code verbosity as CoordinateDescent does not have verbosity
-        super(Lasso, self).__init__(handle=handle,
-                                    verbose=verbose,
-                                    output_type=output_type)
+        super().__init__(handle=handle,
+                         verbose=verbose,
+                         output_type=output_type)
 
         self._check_alpha(alpha)
         self.alpha = alpha

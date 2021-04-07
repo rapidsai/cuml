@@ -17,7 +17,7 @@
 
 from cuml.preprocessing import StandardScaler, MinMaxScaler, MaxAbsScaler, \
     Normalizer, Binarizer, PolynomialFeatures, SimpleImputer, RobustScaler, \
-    KBinsDiscretizer
+    KBinsDiscretizer, MissingIndicator
 
 from cuml.preprocessing import scale, minmax_scale, maxabs_scale, normalize, \
     add_dummy_feature, binarize, robust_scale
@@ -33,6 +33,7 @@ __all__ = [
     'PolynomialFeatures',
     'RobustScaler',
     'SimpleImputer',
+    'MissingIndicator'
     'StandardScaler',
     # Functions
     'add_dummy_feature',

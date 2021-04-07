@@ -41,14 +41,16 @@ from cuml.test.test_preproc_utils import assert_allclose
 
 
 @pytest.fixture(scope="session")
-def random_dataset(request):
+def random_dataset(request, random_seed):
+    cp.random.seed(random_seed)
     X = cp.random.rand(100, 10)
     return X.get(), X
 
 
 @pytest.fixture(scope="session",
                 params=["cupy-csr", "cupy-csc"])
-def sparse_random_dataset(request):
+def sparse_random_dataset(request, random_seed):
+    cp.random.seed(random_seed)
     X = cp.random.rand(100, 10)
     random_loc = cp.random.choice(X.size, int(X.size * 0.3), replace=False)
     X.ravel()[random_loc] = 0
@@ -77,7 +79,7 @@ def test_check_X_y():
 
 
 @pytest.mark.parametrize("square", [False, True])
-def test_row_norms(sparse_random_dataset, square):
+def test_row_norms(failure_logger, sparse_random_dataset, square):
     X_np, X, X_sparse_np, X_sparse = sparse_random_dataset
 
     cu_norms = cu_row_norms(X_np, squared=square)
@@ -89,8 +91,9 @@ def test_row_norms(sparse_random_dataset, square):
     assert_allclose(cu_norms, sk_norms)
 
 
-def test_incremental_mean_and_var(random_dataset):
+def test_incremental_mean_and_var(failure_logger, random_seed, random_dataset):
     X_np, X = random_dataset
+    cp.random.seed(random_seed)
     last_mean = cp.random.rand(10)
     last_variance = cp.random.rand(10)
     last_sample_count = cp.random.rand(10)
@@ -107,28 +110,34 @@ def test_incremental_mean_and_var(random_dataset):
     assert_allclose(cu_sample_count, sk_sample_count)
 
 
-def test_inplace_csr_column_scale(sparse_random_dataset):
+def test_inplace_csr_column_scale(failure_logger, random_seed,
+                                  sparse_random_dataset):
     _, _, X_sparse_np, X_sparse = sparse_random_dataset
     if X_sparse.format != 'csr':
         pytest.skip()
+    cp.random.seed(random_seed)
     scale = cp.random.rand(10)
     cu_inplace_csr_column_scale(X_sparse, scale)
     sk_inplace_csr_column_scale(X_sparse_np, scale.get())
     assert_allclose(X_sparse, X_sparse_np)
 
 
-def test_inplace_csr_row_scale(sparse_random_dataset):
+def test_inplace_csr_row_scale(failure_logger, random_seed,
+                               sparse_random_dataset):
     _, _, X_sparse_np, X_sparse = sparse_random_dataset
     if X_sparse.format != 'csr':
         pytest.skip()
+    cp.random.seed(random_seed)
     scale = cp.random.rand(100)
     cu_inplace_csr_row_scale(X_sparse, scale)
     sk_inplace_csr_row_scale(X_sparse_np, scale.get())
     assert_allclose(X_sparse, X_sparse_np)
 
 
-def test_inplace_column_scale(sparse_random_dataset):
+def test_inplace_column_scale(failure_logger, random_seed,
+                              sparse_random_dataset):
     _, X, X_sparse_np, X_sparse = sparse_random_dataset
+    cp.random.seed(random_seed)
     scale = cp.random.rand(10)
     cu_inplace_column_scale(X_sparse, scale)
     sk_inplace_column_scale(X_sparse_np, scale.get())
@@ -138,7 +147,7 @@ def test_inplace_column_scale(sparse_random_dataset):
 
 
 @pytest.mark.parametrize("axis", [0, 1])
-def test_mean_variance_axis(sparse_random_dataset, axis):
+def test_mean_variance_axis(failure_logger, sparse_random_dataset, axis):
     _, _, X_sparse_np, X_sparse = sparse_random_dataset
     cu_mean, cu_variance = cu_mean_variance_axis(X_sparse, axis=axis)
     sk_mean, sk_variance = sk_mean_variance_axis(X_sparse_np, axis=axis)
@@ -148,7 +157,7 @@ def test_mean_variance_axis(sparse_random_dataset, axis):
 
 @pytest.mark.parametrize("axis", [None, 0, 1])
 @pytest.mark.parametrize("ignore_nan", [False, True])
-def test_min_max_axis(sparse_random_dataset, axis, ignore_nan):
+def test_min_max_axis(failure_logger, sparse_random_dataset, axis, ignore_nan):
     _, X, X_sparse_np, X_sparse = sparse_random_dataset
     X_sparse[0, 0] = np.nan
     X_sparse_np[0, 0] = np.nan

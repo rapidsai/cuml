@@ -218,16 +218,16 @@ class MultinomialNB(Base, ClassifierMixin):
     class_log_prior_ = CumlArrayDescriptor()
     feature_log_prob_ = CumlArrayDescriptor()
 
-    def __init__(self,
+    def __init__(self, *,
                  alpha=1.0,
                  fit_prior=True,
                  class_prior=None,
                  output_type=None,
                  handle=None,
                  verbose=False):
-        super(MultinomialNB, self).__init__(handle=handle,
-                                            output_type=output_type,
-                                            verbose=verbose)
+        super().__init__(handle=handle,
+                         verbose=verbose,
+                         output_type=output_type)
         self.alpha = alpha
         self.fit_prior = fit_prior
 

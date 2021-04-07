@@ -42,8 +42,10 @@ from sklearn.preprocessing import normalize as sk_normalize
 
 @pytest.fixture(scope="session",
                 params=["zero", "one", "nan"])
-def mask_dataset(request):
-    randint = cp.random.randint(30, size=(500, 20)).astype(cp.float64)
+def mask_dataset(request, random_seed):
+    cp.random.seed(random_seed)
+    randint = cp.random.randint(30, size=(500, 20))
+    randint = randint.astype(cp.float64)
     if request.param == 'zero':
         mask_value = 0
     elif request.param == 'one':
@@ -59,9 +61,11 @@ def mask_dataset(request):
 
 @pytest.fixture(scope="session",
                 params=["cupy-csr", "cupy-csc"])
-def sparse_random_dataset(request):
+def sparse_random_dataset(request, random_seed):
+    cp.random.seed(random_seed)
     X = cp.random.rand(100, 10)
-    random_loc = cp.random.choice(X.size, int(X.size * 0.3), replace=False)
+    random_loc = cp.random.choice(X.size, int(X.size * 0.3),
+                                  replace=False)
     X.ravel()[random_loc] = 0
     if request.param == 'cupy-csr':
         X_sparse = cp.sparse.csr_matrix(X)
@@ -117,7 +121,7 @@ def test_check_array():
         check_array(arr, ensure_min_features=1)
 
 
-def test_csr_mean_variance_axis0(sparse_random_dataset):
+def test_csr_mean_variance_axis0(failure_logger, sparse_random_dataset):
     X_np, _, _, X_sparse = sparse_random_dataset
     if X_sparse.format != 'csr':
         pytest.skip('Skip non CSR matrices')
@@ -131,7 +135,7 @@ def test_csr_mean_variance_axis0(sparse_random_dataset):
     assert_allclose(variances, ref_variances)
 
 
-def test_csc_mean_variance_axis0(sparse_random_dataset):
+def test_csc_mean_variance_axis0(failure_logger, sparse_random_dataset):
     X_np, _, _, X_sparse = sparse_random_dataset
     if X_sparse.format != 'csc':
         pytest.skip('Skip non CSC matrices')
@@ -145,7 +149,7 @@ def test_csc_mean_variance_axis0(sparse_random_dataset):
     assert_allclose(variances, ref_variances)
 
 
-def test__csc_mean_variance_axis0(sparse_random_dataset):
+def test__csc_mean_variance_axis0(failure_logger, sparse_random_dataset):
     X_np, _, _, X_sparse = sparse_random_dataset
     if X_sparse.format != 'csc':
         pytest.skip('Skip non CSC matrices')
@@ -161,7 +165,7 @@ def test__csc_mean_variance_axis0(sparse_random_dataset):
     assert_allclose(counts_nan, ref_counts_nan)
 
 
-def test_inplace_csr_row_normalize_l1(sparse_random_dataset):
+def test_inplace_csr_row_normalize_l1(failure_logger, sparse_random_dataset):
     X_np, _, _, X_sparse = sparse_random_dataset
     if X_sparse.format != 'csr':
         pytest.skip('Skip non CSR matrices')
@@ -171,7 +175,7 @@ def test_inplace_csr_row_normalize_l1(sparse_random_dataset):
     assert_allclose(X_sparse, X_np)
 
 
-def test_inplace_csr_row_normalize_l2(sparse_random_dataset):
+def test_inplace_csr_row_normalize_l2(failure_logger, sparse_random_dataset):
     X_np, _, _, X_sparse = sparse_random_dataset
     if X_sparse.format != 'csr':
         pytest.skip('Skip non CSR matrices')
@@ -181,14 +185,14 @@ def test_inplace_csr_row_normalize_l2(sparse_random_dataset):
     assert_allclose(X_sparse, X_np)
 
 
-def test_get_mask(mask_dataset):
+def test_get_mask(failure_logger, mask_dataset):
     mask_value, X_np, X = mask_dataset
     cu_mask = cu_get_mask(X, value_to_mask=mask_value)
     sk_mask = sk_get_mask(X_np, value_to_mask=mask_value)
     assert_allclose(cu_mask, sk_mask)
 
 
-def test_masked_column_median(mask_dataset):
+def test_masked_column_median(failure_logger, mask_dataset):
     mask_value, X_np, X = mask_dataset
     median = _masked_column_median(X, mask_value).get()
     mask = ~sk_get_mask(X_np, value_to_mask=mask_value)
@@ -199,7 +203,7 @@ def test_masked_column_median(mask_dataset):
         assert column_median == median[i]
 
 
-def test_masked_column_mean(mask_dataset):
+def test_masked_column_mean(failure_logger, mask_dataset):
     mask_value, X_np, X = mask_dataset
     mean = _masked_column_mean(X, mask_value).get()
     mask = ~sk_get_mask(X_np, value_to_mask=mask_value)
@@ -210,7 +214,7 @@ def test_masked_column_mean(mask_dataset):
         assert column_mean == mean[i]
 
 
-def test_masked_column_mode(mask_dataset):
+def test_masked_column_mode(failure_logger, mask_dataset):
     mask_value, X_np, X = mask_dataset
     mode = _masked_column_mode(X, mask_value).get()
     mask = ~sk_get_mask(X_np, value_to_mask=mask_value)
