@@ -125,9 +125,9 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
         experimental backend for decision tree training will be used. The
         new backend is available only if `split_algo = 1` (GLOBAL_QUANTILE)
         and `quantile_per_tree = False` (No per tree quantile computation).
-        The new backend is considered stable for the classification task but
-        not for the regression task. We are currently evaluating the impact
-        of the new backend for the regression task.
+        The new backend is considered stable for classification tasks but
+        not yet for the regression task. The RAPIDS team is continuing
+        optimization and evaluation of the new backend for regression tasks.
     n_streams : int (default = 4 )
         Number of parallel streams used for forest building
     workers : optional, list of strings
