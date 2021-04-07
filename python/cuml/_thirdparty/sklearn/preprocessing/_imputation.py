@@ -211,7 +211,7 @@ class SimpleImputer(_BaseImputer, BaseEstimator,
     Examples
     --------
     >>> import cupy as cp
-    >>> from cuml.experimental.preprocessing import SimpleImputer
+    >>> from cuml.preprocessing import SimpleImputer
     >>> imp_mean = SimpleImputer(missing_values=cp.nan, strategy='mean')
     >>> imp_mean.fit(cp.asarray([[7, 2, 3], [4, cp.nan, 6], [10, 5, 9]]))
     SimpleImputer()
