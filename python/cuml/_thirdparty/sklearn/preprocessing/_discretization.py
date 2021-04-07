@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 # Original authors from Sckit-Learn:
 #         Henry Lin <hlin117@gmail.com>
 #         Tom Dupré la Tour
