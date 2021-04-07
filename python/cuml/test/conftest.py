@@ -67,8 +67,13 @@ def housing_dataset():
 
 @pytest.fixture(scope="session")
 def random_seed(request):
-    random_seed = np.random.randint(0, 1e6)
-    os.environ['PYTEST_RANDOM_SEED'] = str(random_seed)
+    current_random_seed = os.getenv('PYTEST_RANDOM_SEED')
+    if current_random_seed is not None and current_random_seed.isdigit():
+        random_seed = int(current_random_seed)
+    else:
+        random_seed = np.random.randint(0, 1e6)
+        os.environ['PYTEST_RANDOM_SEED'] = str(random_seed)
+    print("\nRandom seed value:", random_seed)
     return random_seed
 
 
