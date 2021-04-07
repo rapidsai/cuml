@@ -24,7 +24,8 @@ from cuml.experimental.preprocessing import \
     PolynomialFeatures as cuPolynomialFeatures, \
     SimpleImputer as cuSimpleImputer, \
     RobustScaler as cuRobustScaler, \
-    KBinsDiscretizer as cuKBinsDiscretizer
+    KBinsDiscretizer as cuKBinsDiscretizer, \
+    MissingIndicator as cuMissingIndicator
 from cuml.experimental.preprocessing import scale as cu_scale, \
                             minmax_scale as cu_minmax_scale, \
                             normalize as cu_normalize, \
@@ -44,7 +45,8 @@ from sklearn.preprocessing import scale as sk_scale, \
                                   add_dummy_feature as sk_add_dummy_feature, \
                                   binarize as sk_binarize, \
                                   robust_scale as sk_robust_scale
-from sklearn.impute import SimpleImputer as skSimpleImputer
+from sklearn.impute import SimpleImputer as skSimpleImputer, \
+                           MissingIndicator as skMissingIndicator
 from sklearn.preprocessing import KBinsDiscretizer as skKBinsDiscretizer
 
 from cuml.thirdparty_adapters.sparsefuncs_fast import \
@@ -61,7 +63,6 @@ from cuml.test.test_preproc_utils import \
     sparse_int_dataset, \
     sparse_dataset_with_coo  # noqa: F401
 from cuml.test.test_preproc_utils import assert_allclose
-from cuml.common.import_utils import check_cupy8
 
 import numpy as np
 import cupy as cp
@@ -172,7 +173,6 @@ def test_scale_sparse(sparse_clf_dataset, with_std):  # noqa: F811
     assert_allclose(t_X, sk_t_X)
 
 
-@check_cupy8('pytest')
 def test_maxabs_scaler(clf_dataset):  # noqa: F811
     X_np, X = clf_dataset
 
@@ -190,7 +190,6 @@ def test_maxabs_scaler(clf_dataset):  # noqa: F811
     assert_allclose(r_X, sk_r_X)
 
 
-@check_cupy8('pytest')
 def test_maxabs_scaler_sparse(sparse_clf_dataset):  # noqa: F811
     X_np, X = sparse_clf_dataset
 
@@ -216,7 +215,6 @@ def test_maxabs_scaler_sparse(sparse_clf_dataset):  # noqa: F811
     assert_allclose(r_X, sk_r_X)
 
 
-@check_cupy8('pytest')
 @pytest.mark.parametrize("norm", ['l1', 'l2', 'max'])
 def test_normalizer(clf_dataset, norm):  # noqa: F811
     X_np, X = clf_dataset
@@ -231,7 +229,6 @@ def test_normalizer(clf_dataset, norm):  # noqa: F811
     assert_allclose(t_X, sk_t_X)
 
 
-@check_cupy8('pytest')
 @pytest.mark.parametrize("norm", ['l1', 'l2', 'max'])
 def test_normalizer_sparse(sparse_clf_dataset, norm):  # noqa: F811
     X_np, X = sparse_clf_dataset
@@ -253,7 +250,6 @@ def test_normalizer_sparse(sparse_clf_dataset, norm):  # noqa: F811
     assert_allclose(t_X, sk_t_X)
 
 
-@check_cupy8('pytest')
 @pytest.mark.parametrize("axis", [0, 1])
 @pytest.mark.parametrize("norm", ['l1', 'l2', 'max'])
 @pytest.mark.parametrize("return_norm", [True, False])
@@ -275,7 +271,6 @@ def test_normalize(clf_dataset, axis, norm, return_norm):  # noqa: F811
     assert_allclose(t_X, sk_t_X)
 
 
-@check_cupy8('pytest')
 @pytest.mark.parametrize("norm", ['l1', 'l2', 'max'])
 def test_normalize_sparse(sparse_clf_dataset, norm):  # noqa: F811
     X_np, X = sparse_clf_dataset
@@ -294,27 +289,35 @@ def test_normalize_sparse(sparse_clf_dataset, norm):  # noqa: F811
     assert_allclose(t_X, sk_t_X)
 
 
-@check_cupy8('pytest')
 @pytest.mark.parametrize("strategy", ["mean", "median", "most_frequent",
                                       "constant"])
-@pytest.mark.parametrize("missing_values", [0., 1., np.nan])
-def test_imputer(int_dataset, strategy, missing_values):  # noqa: F811
-    X_np, X = int_dataset
+@pytest.mark.parametrize("missing_values", [0, 1, np.nan])
+@pytest.mark.parametrize("add_indicator", [False, True])
+def test_imputer(int_dataset, strategy, missing_values,  # noqa: F811
+                 add_indicator):
+    zero_filled, one_filled, nan_filled = int_dataset
+    if missing_values == 0:
+        X_np, X = zero_filled
+    elif missing_values == 1:
+        X_np, X = one_filled
+    else:
+        X_np, X = nan_filled
     fill_value = np.random.randint(10, size=1)[0]
 
     imputer = cuSimpleImputer(copy=True, missing_values=missing_values,
-                              strategy=strategy, fill_value=fill_value)
+                              strategy=strategy, fill_value=fill_value,
+                              add_indicator=add_indicator)
     t_X = imputer.fit_transform(X)
     assert type(t_X) == type(X)
 
     imputer = skSimpleImputer(copy=True, missing_values=missing_values,
-                              strategy=strategy, fill_value=fill_value)
+                              strategy=strategy, fill_value=fill_value,
+                              add_indicator=add_indicator)
     sk_t_X = imputer.fit_transform(X_np)
 
     assert_allclose(t_X, sk_t_X)
 
 
-@check_cupy8('pytest')
 @pytest.mark.parametrize("strategy", ["mean", "median", "most_frequent",
                          "constant"])
 @pytest.mark.parametrize("missing_values", [np.nan, 1.])
@@ -353,7 +356,6 @@ def test_imputer_sparse(sparse_int_dataset, strategy,  # noqa: F811
     assert_allclose(t_X, sk_t_X)
 
 
-@check_cupy8('pytest')
 @pytest.mark.parametrize("degree", [2, 3])
 @pytest.mark.parametrize("interaction_only", [True, False])
 @pytest.mark.parametrize("include_bias", [True, False])
@@ -382,7 +384,6 @@ def test_poly_features(clf_dataset, degree,  # noqa: F811
     assert_allclose(t_X, sk_t_X, rtol=0.1, atol=0.1)
 
 
-@check_cupy8('pytest')
 @pytest.mark.parametrize("degree", [2, 3])
 @pytest.mark.parametrize("interaction_only", [True, False])
 @pytest.mark.parametrize("include_bias", [True, False])
@@ -615,7 +616,6 @@ def test_robust_scale_sparse(sparse_clf_dataset,  # noqa: F811
     assert_allclose(t_X, sk_t_X)
 
 
-@check_cupy8('pytest')
 @pytest.mark.parametrize("n_bins", [5, 20])
 @pytest.mark.parametrize("encode", ['ordinal', 'onehot-dense', 'onehot'])
 @pytest.mark.parametrize("strategy", [
@@ -656,6 +656,61 @@ def test_kbinsdiscretizer(blobs_dataset, n_bins,  # noqa: F811
     else:
         assert_allclose(t_X, sk_t_X)
         assert_allclose(r_X, sk_r_X)
+
+
+@pytest.mark.parametrize("missing_values", [0, 1, np.nan])
+@pytest.mark.parametrize("features", ['missing-only', 'all'])
+def test_missing_indicator(int_dataset, missing_values,  # noqa: F811
+                           features):
+    zero_filled, one_filled, nan_filled = int_dataset
+    if missing_values == 0:
+        X_np, X = zero_filled
+    elif missing_values == 1:
+        X_np, X = one_filled
+    else:
+        X_np, X = nan_filled
+
+    indicator = cuMissingIndicator(missing_values=missing_values,
+                                   features=features)
+    ft_X = indicator.fit_transform(X)
+    assert type(ft_X) == type(X)
+    indicator.fit(X)
+    t_X = indicator.transform(X)
+    assert type(t_X) == type(X)
+
+    indicator = skMissingIndicator(missing_values=missing_values,
+                                   features=features)
+    sk_ft_X = indicator.fit_transform(X_np)
+    indicator.fit(X_np)
+    sk_t_X = indicator.transform(X_np)
+
+    assert_allclose(ft_X, sk_ft_X)
+    assert_allclose(t_X, sk_t_X)
+
+
+@pytest.mark.parametrize("features", ['missing-only', 'all'])
+def test_missing_indicator_sparse(sparse_int_dataset,  # noqa: F811
+                                  features):
+    X_np, X = sparse_int_dataset
+
+    indicator = cuMissingIndicator(features=features,
+                                   missing_values=1)
+    ft_X = indicator.fit_transform(X)
+    # assert type(ft_X) == type(X)
+    assert cp.sparse.issparse(ft_X) or scipy.sparse.issparse(ft_X)
+    indicator.fit(X)
+    t_X = indicator.transform(X)
+    # assert type(t_X) == type(X)
+    assert cp.sparse.issparse(t_X) or scipy.sparse.issparse(t_X)
+
+    indicator = skMissingIndicator(features=features,
+                                   missing_values=1)
+    sk_ft_X = indicator.fit_transform(X_np)
+    indicator.fit(X_np)
+    sk_t_X = indicator.transform(X_np)
+
+    assert_allclose(ft_X, sk_ft_X)
+    assert_allclose(t_X, sk_t_X)
 
 
 def test_csr_mean_variance_axis0(sparse_clf_dataset):  # noqa: F811

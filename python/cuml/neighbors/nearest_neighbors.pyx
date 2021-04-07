@@ -294,7 +294,7 @@ class NearestNeighbors(Base,
 
     X_m = CumlArrayDescriptor()
 
-    def __init__(self,
+    def __init__(self, *,
                  n_neighbors=5,
                  verbose=False,
                  handle=None,
@@ -305,9 +305,9 @@ class NearestNeighbors(Base,
                  metric_params=None,
                  output_type=None):
 
-        super(NearestNeighbors, self).__init__(handle=handle,
-                                               verbose=verbose,
-                                               output_type=output_type)
+        super().__init__(handle=handle,
+                         verbose=verbose,
+                         output_type=output_type)
 
         self.n_neighbors = n_neighbors
         self.n_indices = 0
@@ -319,7 +319,7 @@ class NearestNeighbors(Base,
         self.algo_params = algo_params
         self.knn_index = <uintptr_t> 0
 
-    @generate_docstring()
+    @generate_docstring(X='dense_sparse')
     def fit(self, X, convert_dtype=True) -> "NearestNeighbors":
         """
         Fit GPU index for performing nearest neighbor queries.
@@ -922,9 +922,16 @@ def kneighbors_graph(X=None, n_neighbors=5, mode='connectivity', verbose=False,
                       "type using `cuml.using_output_type()` instead",
                       DeprecationWarning)
 
-    X = NearestNeighbors(n_neighbors, verbose, handle, algorithm, metric, p,
-                         metric_params=metric_params,
-                         output_type=output_type).fit(X)
+    X = NearestNeighbors(
+        n_neighbors=n_neighbors,
+        verbose=verbose,
+        handle=handle,
+        algorithm=algorithm,
+        metric=metric,
+        p=p,
+        metric_params=metric_params,
+        output_type=output_type,
+    ).fit(X)
 
     if include_self == 'auto':
         include_self = mode == 'connectivity'
