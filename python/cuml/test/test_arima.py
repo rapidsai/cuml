@@ -37,7 +37,6 @@ import pytest
 from collections import namedtuple
 import numpy as np
 import os
-import rmm
 import warnings
 
 import pandas as pd
@@ -270,11 +269,6 @@ def _statsmodels_to_cuml(ref_fits, cuml_model, order, seasonal_order,
         in statsmodels and cuML models (it depends on the order).
 
     """
-
-    if rmm._cuda.gpu.runtimeGetVersion() >= 11020:
-        pytest.skip("CUDA 11.2 nan failure, see "
-                    "https://github.com/rapidsai/cuml/issues/3649")
-
     nb = cuml_model.batch_size
     N = cuml_model.complexity
     x = np.zeros(nb * N, dtype=np.float64)
