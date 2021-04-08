@@ -92,6 +92,16 @@ struct Builder {
   /** next batch of nodes */
   NodeT* next_nodes;
 
+  IdxT* blockid_to_nodeid;
+  IdxT* relative_blockids;
+
+  IdxT* h_blockid_to_nodeid;
+  IdxT* h_relative_blockids;
+  IdxT total_blocks_needed;
+
+  static constexpr int samples_per_thread = 4;
+  int max_blocks = 0;
+
   /** host copy of the number of new nodes in current branch */
   IdxT* h_n_nodes;
   /** total number of nodes created so far */
@@ -161,6 +171,9 @@ struct Builder {
     auto max_batch = params.max_batch_size;
     auto n_col_blks = n_blks_for_cols;
     nHistBins = 2 * max_batch * params.n_bins * n_col_blks * nclasses;
+    max_blocks =  1 + max_batch +
+     input.nSampledRows / (Traits::TPB_DEFAULT * samples_per_thread);
+    // printf("max_blocks = %d\n", max_blocks);
     // x2 for mean and mean-of-square
     nPredCounts = max_batch * params.n_bins * n_col_blks;
     if (params.max_depth < 13) {
@@ -202,8 +215,17 @@ struct Builder {
     d_wsize += calculateAlignedBytes(sizeof(NodeT) * max_batch);   // curr_nodes
     d_wsize +=
       calculateAlignedBytes(sizeof(NodeT) * 2 * max_batch);  // next_nodes
+    d_wsize +=
+      calculateAlignedBytes(sizeof(IdxT) * max_blocks);  // blockid_to_nodeid
+    d_wsize +=
+      calculateAlignedBytes(sizeof(IdxT) * max_blocks);  // relative_blockids
+
     // all nodes in the tree
     h_wsize = calculateAlignedBytes(sizeof(IdxT));  // h_n_nodes
+    // h_blockid_to_nodeid
+    h_wsize += calculateAlignedBytes(sizeof(IdxT) * max_blocks);
+    // h_relative_blockids
+    h_wsize += calculateAlignedBytes(sizeof(IdxT) * max_blocks);
     ML::POP_RANGE();
   }
 
@@ -250,8 +272,17 @@ struct Builder {
     curr_nodes = reinterpret_cast<NodeT*>(d_wspace);
     d_wspace += calculateAlignedBytes(sizeof(NodeT) * max_batch);
     next_nodes = reinterpret_cast<NodeT*>(d_wspace);
+    d_wspace += calculateAlignedBytes(sizeof(NodeT) * 2 * max_batch);
+    blockid_to_nodeid = reinterpret_cast<IdxT*>(d_wspace);
+    d_wspace += calculateAlignedBytes(sizeof(IdxT) * max_blocks);
+    relative_blockids = reinterpret_cast<IdxT*>(d_wspace);
     // host
     h_n_nodes = reinterpret_cast<IdxT*>(h_wspace);
+    h_wspace += calculateAlignedBytes(sizeof(IdxT));
+    h_blockid_to_nodeid = reinterpret_cast<IdxT*>(h_wspace);
+    h_wspace += calculateAlignedBytes(sizeof(IdxT) * max_blocks);
+    h_relative_blockids = reinterpret_cast<IdxT*>(h_wspace);
+    h_wspace += calculateAlignedBytes(sizeof(IdxT) * max_blocks);
     ML::POP_RANGE();
   }
 
@@ -340,6 +371,39 @@ struct Builder {
 
     // get the current set of nodes to be worked upon
     raft::update_device(curr_nodes, h_nodes.data() + node_start, batchSize, s);
+    // DEBUG_CODE
+    int total_samples_in_curr_batch = 0;
+    total_blocks_needed = 0;
+    for (int n = 0; n < batchSize; n++) {
+      total_samples_in_curr_batch += h_nodes[node_start + n].count;
+      int blocks_needed = h_nodes[node_start + n].count /
+                          (samples_per_thread * Traits::TPB_DEFAULT);
+      blocks_needed = std::max(1, blocks_needed);
+
+      for (int b = 0; b < blocks_needed; b++) {
+        h_blockid_to_nodeid[total_blocks_needed + b] = n;
+        h_relative_blockids[total_blocks_needed + b] = b;
+      }
+      total_blocks_needed += blocks_needed;
+      // printf("node %d -> samples = %d, blocks = %d\n", h_nodes[node_start + n].info.unique_id,
+      //        h_nodes[node_start + n].count, blocks_needed);
+    }
+    raft::update_device(blockid_to_nodeid, h_blockid_to_nodeid, total_blocks_needed, s);
+    raft::update_device(relative_blockids, h_relative_blockids, total_blocks_needed, s);
+
+    // printf("(total_samples_in_curr_batch = %d)\n", total_samples_in_curr_batch);
+    // printf("(total_blocks_needed = %d)\n", total_blocks_needed);
+    // printf("-------------------------\n");
+    // printf("Splitting %d node\n", batchSize);
+    // for(int i = node_start; i < node_start + batchSize; i++) {
+    //   printf(
+    //   "prediction = %d, colid = %d, quesval = %f, best_metric_val = %f, "
+    //   "left_child_id = %d, start = %d, count = %d, depth = %d, unique_id = %u\n",
+    //   h_nodes[i].info.prediction, h_nodes[i].info.colid, h_nodes[i].info.quesval,
+    //   h_nodes[i].info.best_metric_val, h_nodes[i].info.left_child_id, h_nodes[i].start,
+    //   h_nodes[i].count, h_nodes[i].depth, h_nodes[i].info.unique_id);
+    // }
+    // CUDA_CHECK(cudaDeviceSynchronize());
     // iterate through a batch of columns (to reduce the memory pressure) and
     // compute the best split at the end
     auto n_col_blks = n_blks_for_cols;
@@ -365,6 +429,27 @@ struct Builder {
     raft::update_host(h_nodes.data() + node_start, curr_nodes, batchSize, s);
     raft::update_host(h_nodes.data() + h_total_nodes, next_nodes, *h_n_nodes,
                       s);
+    // DEBUG_CODE
+    // cudaStreamSynchronize(s);
+    // printf("Finalizing %d node\n", batchSize);
+    // for(int i = node_start; i < node_start + batchSize; i++) {
+    //   printf(
+    //   "prediction = %d, colid = %d, quesval = %f, best_metric_val = %f, "
+    //   "left_child_id = %d, start = %d, count = %d, depth = %d, unique_id = %u\n",
+    //   h_nodes[i].info.prediction, h_nodes[i].info.colid, h_nodes[i].info.quesval,
+    //   h_nodes[i].info.best_metric_val, h_nodes[i].info.left_child_id, h_nodes[i].start,
+    //   h_nodes[i].count, h_nodes[i].depth, h_nodes[i].info.unique_id);
+    // }
+
+    // printf("New %d nodes\n", *h_n_nodes);
+    // for(int i = h_total_nodes; i < h_total_nodes + *h_n_nodes; i++) {
+    //   printf(
+    //   "prediction = %d, colid = %d, quesval = %f, best_metric_val = %f, "
+    //   "left_child_id = %d, start = %d, count = %d, depth = %d, unique_id = %u\n",
+    //   h_nodes[i].info.prediction, h_nodes[i].info.colid, h_nodes[i].info.quesval,
+    //   h_nodes[i].info.best_metric_val, h_nodes[i].info.left_child_id, h_nodes[i].start,
+    //   h_nodes[i].count, h_nodes[i].depth, h_nodes[i].info.unique_id);
+    // }
     ML::POP_RANGE();
     return *h_n_nodes;
   }
@@ -412,6 +497,7 @@ struct ClsTraits {
     auto binSize = nbins * 2 * nclasses;
     auto colBlks = std::min(b.n_blks_for_cols, b.input.nSampledCols - col);
     dim3 grid(b.n_blks_for_rows, colBlks, batchSize);
+    dim3 proportionate_grid(b.total_blocks_needed, colBlks, 1);
     size_t smemSize = sizeof(int) * binSize + sizeof(DataT) * nbins;
     smemSize += sizeof(int);
 
@@ -421,12 +507,13 @@ struct ClsTraits {
     CUDA_CHECK(cudaMemsetAsync(b.hist, 0, sizeof(int) * b.nHistBins, s));
     ML::PUSH_RANGE(
       "computeSplitClassificationKernel @builder_base.cuh [batched-levelalgo]");
-    computeSplitClassificationKernel<DataT, LabelT, IdxT, TPB_DEFAULT>
+    computeSplitClassificationKernel<DataT, LabelT, IdxT, TPB_DEFAULT, b.samples_per_thread>
       <<<grid, TPB_DEFAULT, smemSize, s>>>(
         b.hist, b.params.n_bins, b.params.max_depth, b.params.min_samples_split,
         b.params.min_samples_leaf, b.params.min_impurity_decrease,
         b.params.max_leaves, b.input, b.curr_nodes, col, b.done_count, b.mutex,
-        b.n_leaves, b.splits, splitType, b.treeid, b.seed);
+        b.n_leaves, b.splits, splitType, b.treeid, b.seed,
+        b.blockid_to_nodeid, b.relative_blockids, false);
     ML::POP_RANGE();  //computeSplitClassificationKernel
     ML::POP_RANGE();  //Builder::computeSplit
   }

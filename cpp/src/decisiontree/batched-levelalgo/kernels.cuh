@@ -329,15 +329,22 @@ DI IdxT select(IdxT k, IdxT treeid, uint32_t nodeid, uint64_t seed, IdxT N) {
   return blksum;
 }
 
-template <typename DataT, typename LabelT, typename IdxT, int TPB>
+template <typename DataT, typename LabelT, typename IdxT, int TPB, int samples_per_thread>
 __global__ void computeSplitClassificationKernel(
   int* hist, IdxT nbins, IdxT max_depth, IdxT min_samples_split,
   IdxT min_samples_leaf, DataT min_impurity_decrease, IdxT max_leaves,
   Input<DataT, LabelT, IdxT> input, const Node<DataT, LabelT, IdxT>* nodes,
   IdxT colStart, int* done_count, int* mutex, const IdxT* n_leaves,
-  Split<DataT, IdxT>* splits, CRITERION splitType, IdxT treeid, uint64_t seed) {
+  Split<DataT, IdxT>* splits, CRITERION splitType, IdxT treeid, uint64_t seed,
+  int* blockid_to_nodeid, int* relative_blockids, bool proportionate_launch) {
   extern __shared__ char smem[];
-  IdxT nid = blockIdx.z;
+  IdxT nid;
+  if (proportionate_launch) {
+    nid = blockid_to_nodeid[blockIdx.x];
+  } else {
+    nid = blockIdx.z;
+  }
+
   auto node = nodes[nid];
   auto range_start = node.start;
   auto range_len = node.count;
@@ -345,14 +352,23 @@ __global__ void computeSplitClassificationKernel(
                                      max_leaves, n_leaves, range_len)) {
     return;
   }
+  IdxT relative_blockid, num_blocks;
+  if (proportionate_launch) {
+    relative_blockid = relative_blockids[blockIdx.x];
+    num_blocks = (range_len / (TPB*samples_per_thread)) == 0 ?
+               1 : (range_len / (TPB*samples_per_thread));
+  } else {
+    relative_blockid = blockIdx.x;
+    num_blocks = gridDim.x;
+  }
   auto end = range_start + range_len;
   auto nclasses = input.nclasses;
   auto len = nbins * 2 * nclasses;
   auto* shist = alignPointer<int>(smem);
   auto* sbins = alignPointer<DataT>(shist + len);
   auto* sDone = alignPointer<int>(sbins + nbins);
-  IdxT stride = blockDim.x * gridDim.x;
-  IdxT tid = threadIdx.x + blockIdx.x * blockDim.x;
+  IdxT stride = blockDim.x * num_blocks;
+  IdxT tid = threadIdx.x + relative_blockid * blockDim.x;
 
   IdxT col;
   if (input.nSampledCols == input.N) {
@@ -388,10 +404,11 @@ __global__ void computeSplitClassificationKernel(
   __syncthreads();
   // last threadblock will go ahead and compute the best split
   bool last = true;
-  if (gridDim.x > 1) {
+  if (num_blocks > 1) {
     last = MLCommon::signalDone(done_count + nid * gridDim.y + blockIdx.y,
-                                gridDim.x, blockIdx.x == 0, sDone);
+                                num_blocks, relative_blockid == 0, sDone);
   }
+
   if (!last) return;
   for (IdxT i = threadIdx.x; i < len; i += blockDim.x)
     shist[i] = hist[histOffset + i];
