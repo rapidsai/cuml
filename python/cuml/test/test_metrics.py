@@ -20,6 +20,7 @@ from functools import partial
 import cuml
 import cuml.common.logger as logger
 import cupy as cp
+import cupyx
 import numpy as np
 import pytest
 import cudf
@@ -62,6 +63,7 @@ from sklearn.metrics import mean_absolute_error as sklearn_mae
 from sklearn.metrics import mean_squared_log_error as sklearn_msle
 
 from cuml.common import has_scipy
+from cuml.common.sparsefuncs import csr_row_normalize_l1
 
 from cuml.metrics import roc_auc_score
 from cuml.metrics import precision_recall_curve
@@ -70,7 +72,8 @@ from sklearn.metrics import roc_auc_score as sklearn_roc_auc_score
 from sklearn.metrics import precision_recall_curve \
     as sklearn_precision_recall_curve
 
-from cuml.metrics import pairwise_distances, PAIRWISE_DISTANCE_METRICS
+from cuml.metrics import pairwise_distances, sparse_pairwise_distances, \
+    PAIRWISE_DISTANCE_METRICS, PAIRWISE_DISTANCE_SPARSE_METRICS
 from sklearn.metrics import pairwise_distances as sklearn_pairwise_distances
 
 
@@ -276,16 +279,16 @@ def test_silhouette_score_batched_non_monotonic():
                     [2.0, 2.0, 2.0], [10.0, 10.0, 10.0]])
     labels = np.array([0, 0, 1, 3])
 
-    cuml_score = cu_silhouette_score(X=vecs, labels=labels)
-    sk_score = sk_silhouette_score(X=vecs, labels=labels)
-    assert_almost_equal(cuml_score, sk_score, decimal=2)
+    cuml_samples = cu_silhouette_samples(X=vecs, labels=labels)
+    sk_samples = sk_silhouette_samples(X=vecs, labels=labels)
+    assert array_equal(cuml_samples, sk_samples)
 
     vecs = np.array([[0.0, 0.0, 0.0], [1.0, 1.0, 1.0], [10.0, 10.0, 10.0]])
     labels = np.array([1, 1, 3])
 
-    cuml_score = cu_silhouette_score(X=vecs, labels=labels)
-    sk_score = sk_silhouette_score(X=vecs, labels=labels)
-    assert_almost_equal(cuml_score, sk_score, decimal=2)
+    cuml_samples = cu_silhouette_samples(X=vecs, labels=labels)
+    sk_samples = sk_silhouette_samples(X=vecs, labels=labels)
+    assert array_equal(cuml_samples, sk_samples)
 
 
 def score_homogeneity(ground_truth, predictions, use_handle):
@@ -856,7 +859,7 @@ def test_log_loss_at_limits():
         log_loss(y_true, y_pred)
 
 
-@pytest.mark.parametrize("metric", PAIRWISE_DISTANCE_METRICS)
+@pytest.mark.parametrize("metric", PAIRWISE_DISTANCE_METRICS.keys())
 @pytest.mark.parametrize("matrix_size", [(5, 4), (1000, 3), (2, 10),
                                          (500, 400)])
 @pytest.mark.parametrize("is_col_major", [True, False])
@@ -920,7 +923,7 @@ def test_pairwise_distances(metric: str, matrix_size, is_col_major):
         pairwise_distances(X, Y, metric=metric.capitalize())
 
 
-@pytest.mark.parametrize("metric", PAIRWISE_DISTANCE_METRICS)
+@pytest.mark.parametrize("metric", PAIRWISE_DISTANCE_METRICS.keys())
 @pytest.mark.parametrize("matrix_size", [
     unit_param((1000, 100)),
     quality_param((2000, 1000)),
@@ -958,7 +961,7 @@ def test_pairwise_distances_sklearn_comparison(metric: str, matrix_size):
         cp.testing.assert_array_almost_equal(S, S2, decimal=compare_precision)
 
 
-@pytest.mark.parametrize("metric", PAIRWISE_DISTANCE_METRICS)
+@pytest.mark.parametrize("metric", PAIRWISE_DISTANCE_METRICS.keys())
 def test_pairwise_distances_one_dimension_order(metric: str):
     # Test the pairwise_distance helper function for 1 dimensional cases which
     # can break down when using a size of 1 for either dimension
@@ -1019,7 +1022,7 @@ def test_pairwise_distances_one_dimension_order(metric: str):
     cp.testing.assert_array_almost_equal(S, S2, decimal=compare_precision)
 
 
-@pytest.mark.parametrize("metric", ["haversine", "nan_euclidean"])
+@pytest.mark.parametrize("metric", ["haversine", "nan_euclidean", "canberra"])
 def test_pairwise_distances_unsuppored_metrics(metric):
     rng = np.random.RandomState(3)
 
@@ -1097,6 +1100,239 @@ def test_pairwise_distances_output_types(input_type, output_type, use_global):
         if output_type == "input":
             assert isinstance(S, type(X))
         elif output_type == "cudf":
+            assert isinstance(S, cudf.DataFrame)
+        elif output_type == "numpy":
+            assert isinstance(S, np.ndarray)
+        elif output_type == "cupy":
+            assert isinstance(S, cp.core.core.ndarray)
+
+
+def naive_inner(X, Y, metric=None):
+    return X.dot(Y.T)
+
+
+def naive_hellinger(X, Y, metric=None):
+    return sklearn_pairwise_distances(np.sqrt(X), np.sqrt(Y),
+                                      metric='euclidean') / np.sqrt(2)
+
+
+def prepare_sparse_data(size0, size1, dtype, density, metric):
+    # create sparse array, then normalize every row to one
+    data = cupyx.scipy.sparse.random(size0, size1,
+                                     dtype=dtype,
+                                     random_state=123, density=density).tocsr()
+    if metric == 'hellinger':
+        data = csr_row_normalize_l1(data)
+    return data
+
+
+@pytest.mark.parametrize("metric", PAIRWISE_DISTANCE_SPARSE_METRICS.keys())
+@pytest.mark.parametrize("matrix_size, density", [
+    ((3, 3), 0.7),
+    ((5, 40), 0.2)])
+def test_sparse_pairwise_distances_corner_cases(metric: str, matrix_size,
+                                                density: float):
+    if metric == "hellinger":
+        pytest.xfail("Sporadic failure, see issue "
+                     "https://github.com/rapidsai/cuml/issues/3705")
+    # Test the sparse_pairwise_distance helper function.
+    # Use sparse input for sklearn calls when possible
+    sk_sparse = metric in ['cityblock', 'cosine', 'euclidean', 'l1', 'l2',
+                           'manhattan', 'haversine']
+
+    def sk_array(array):
+        return array if sk_sparse else array.todense()
+
+    # Select sklearn except for IP and Hellinger that sklearn doesn't support
+    def ref_pairwise_dist(X, Y=None, metric=None):
+        if metric == "inner_product":
+            if Y is None:
+                Y = X
+            return naive_inner(X, Y, metric)
+        elif metric == "hellinger":
+            if Y is None:
+                Y = X
+            return naive_hellinger(X, Y, metric)
+        return sklearn_pairwise_distances(X, Y, metric)
+
+    # For fp64, compare at 7 decimals, (5 places less than the ~15 max)
+    compare_precision = 7
+
+    # Compare to sklearn, single input
+    X = prepare_sparse_data(matrix_size[0], matrix_size[1],
+                            cp.float64, density, metric)
+    S = sparse_pairwise_distances(X, metric=metric)
+    S2 = ref_pairwise_dist(sk_array(X).get(), metric=metric)
+    cp.testing.assert_array_almost_equal(S, S2, decimal=compare_precision)
+
+    # Compare to sklearn, double input with same dimensions
+    Y = X
+    S = pairwise_distances(X, Y, metric=metric)
+    S2 = ref_pairwise_dist(sk_array(X).get(), sk_array(Y).get(), metric=metric)
+    cp.testing.assert_array_almost_equal(S, S2, decimal=compare_precision)
+
+    # Compare to sklearn, with Y dim != X dim
+    Y = prepare_sparse_data(2, matrix_size[1], cp.float64, density, metric)
+    S = pairwise_distances(X, Y, metric=metric)
+    S2 = ref_pairwise_dist(sk_array(X).get(), sk_array(Y).get(), metric=metric)
+    cp.testing.assert_array_almost_equal(S, S2, decimal=compare_precision)
+
+    # Change precision of one parameter, should work (convert_dtype=True)
+    Y = Y.astype(cp.float32)
+    S = sparse_pairwise_distances(X, Y, metric=metric)
+    S2 = ref_pairwise_dist(sk_array(X).get(), sk_array(Y).get(), metric=metric)
+    cp.testing.assert_array_almost_equal(S, S2, decimal=compare_precision)
+
+    # For fp32, compare at 3 decimals, (4 places less than the ~7 max)
+    compare_precision = 3
+
+    # Change precision of both parameters to float
+    X = prepare_sparse_data(matrix_size[0], matrix_size[1],
+                            cp.float32, density, metric)
+    Y = prepare_sparse_data(matrix_size[0], matrix_size[1],
+                            cp.float32, density, metric)
+    S = sparse_pairwise_distances(X, Y, metric=metric)
+    S2 = ref_pairwise_dist(sk_array(X).get(), sk_array(Y).get(), metric=metric)
+    cp.testing.assert_array_almost_equal(S, S2, decimal=compare_precision)
+
+    # Test sending an int type (convert_dtype=True)
+    if metric != 'hellinger':
+        compare_precision = 2
+        Y = Y * 100
+        Y.data = Y.data.astype(cp.int32)
+        S = sparse_pairwise_distances(X, Y, metric=metric)
+        S2 = ref_pairwise_dist(sk_array(X).get(), sk_array(Y).get(),
+                               metric=metric)
+        cp.testing.assert_array_almost_equal(S, S2, decimal=compare_precision)
+    # Test that uppercase on the metric name throws an error.
+    with pytest.raises(ValueError):
+        sparse_pairwise_distances(X, Y, metric=metric.capitalize())
+
+
+def test_sparse_pairwise_distances_exceptions():
+    if not has_scipy():
+        pytest.skip('Skipping sparse_pairwise_distances_exceptions '
+                    'if Scipy is missing')
+    from scipy import sparse
+    X_int = sparse.random(5, 4, dtype=np.float32,
+                          random_state=123, density=0.3) * 10
+    X_int.dtype = cp.int32
+    X_bool = sparse.random(5, 4, dtype=cp.bool,
+                           random_state=123, density=0.3)
+    X_double = cupyx.scipy.sparse.random(5, 4, dtype=cp.float64,
+                                         random_state=123, density=0.3)
+    X_float = cupyx.scipy.sparse.random(5, 4, dtype=cp.float32,
+                                        random_state=123, density=0.3)
+
+    # Test int inputs (only float/double accepted at this time)
+    with pytest.raises(TypeError):
+        sparse_pairwise_distances(X_int, metric="euclidean")
+
+    # Test second int inputs (should not have an exception with
+    # convert_dtype=True)
+    sparse_pairwise_distances(X_double, X_int, metric="euclidean")
+
+    # Test bool inputs (only float/double accepted at this time)
+    with pytest.raises(TypeError):
+        sparse_pairwise_distances(X_bool, metric="euclidean")
+
+    # Test sending different types with convert_dtype=False
+    with pytest.raises(TypeError):
+        sparse_pairwise_distances(X_double, X_float, metric="euclidean",
+                                  convert_dtype=False)
+
+    # Invalid metric name
+    with pytest.raises(ValueError):
+        sparse_pairwise_distances(X_double, metric="Not a metric")
+
+    # Invalid dimensions
+    X = cupyx.scipy.sparse.random(5, 4, dtype=np.float32, random_state=123)
+    Y = cupyx.scipy.sparse.random(5, 7, dtype=np.float32, random_state=123)
+
+    with pytest.raises(ValueError):
+        sparse_pairwise_distances(X, Y, metric="euclidean")
+
+
+@pytest.mark.parametrize("metric", PAIRWISE_DISTANCE_SPARSE_METRICS.keys())
+@pytest.mark.parametrize("matrix_size,density", [
+    unit_param((1000, 100), 0.4),
+    unit_param((20, 10000), 0.01),
+    quality_param((2000, 1000), 0.05),
+    stress_param((10000, 10000), 0.01)])
+def test_sparse_pairwise_distances_sklearn_comparison(metric: str, matrix_size,
+                                                      density: float):
+    # Test larger sizes to sklearn
+    # Use sparse input for sklearn calls when possible
+    sk_sparse = metric in ['cityblock', 'cosine', 'euclidean', 'l1', 'l2',
+                           'manhattan', 'haversine']
+
+    def sk_array(array):
+        return array.get() if sk_sparse else array.todense().get()
+
+    # Select sklearn except for IP and Hellinger that sklearn doesn't support
+    def ref_pairwise_dist(X, Y=None, metric=None):
+        if metric == "inner_product":
+            if Y is None:
+                Y = X
+            return naive_inner(X, Y, metric)
+        elif metric == "hellinger":
+            if Y is None:
+                Y = X
+            return naive_hellinger(X, Y, metric)
+        return sklearn_pairwise_distances(X, Y, metric)
+
+    element_count = matrix_size[0] * matrix_size[1]
+
+    X = prepare_sparse_data(matrix_size[0], matrix_size[1],
+                            cp.float64, density, metric)
+    Y = prepare_sparse_data(matrix_size[0], matrix_size[1],
+                            cp.float64, density, metric)
+
+    # For fp64, compare at 9 decimals, (6 places less than the ~15 max)
+    compare_precision = 9
+
+    # Compare to sklearn, fp64
+    S = sparse_pairwise_distances(X, Y, metric=metric)
+
+    if (element_count <= 2000000):
+        S2 = ref_pairwise_dist(sk_array(X), sk_array(Y), metric=metric)
+        cp.testing.assert_array_almost_equal(S, S2, decimal=compare_precision)
+
+    # For fp32, compare at 3 decimals, (4 places less than the ~7 max)
+    compare_precision = 3
+
+    X = X.astype(np.float32)
+    Y = Y.astype(np.float32)
+
+    # Compare to sklearn, fp32
+    S = sparse_pairwise_distances(X, Y, metric=metric)
+
+    if (element_count <= 2000000):
+        S2 = ref_pairwise_dist(sk_array(X), sk_array(Y), metric=metric)
+        cp.testing.assert_array_almost_equal(S, S2, decimal=compare_precision)
+
+
+@pytest.mark.parametrize("input_type", ["numpy", "cupy"])
+@pytest.mark.parametrize("output_type", ["cudf", "numpy", "cupy"])
+def test_sparse_pairwise_distances_output_types(input_type, output_type):
+    # Test larger sizes to sklearn
+    if not has_scipy():
+        pytest.skip('Skipping sparse_pairwise_distances if Scipy is missing')
+    import scipy
+
+    if input_type == "cupy":
+        X = cupyx.scipy.sparse.random(100, 100, dtype=cp.float64,
+                                      random_state=123)
+        Y = cupyx.scipy.sparse.random(100, 100, dtype=cp.float64,
+                                      random_state=456)
+    else:
+        X = scipy.sparse.random(100, 100, dtype=np.float64, random_state=123)
+        Y = scipy.sparse.random(100, 100, dtype=np.float64, random_state=456)
+
+    # Use the global manager object.
+    with cuml.using_output_type(output_type):
+        S = sparse_pairwise_distances(X, Y, metric="euclidean")
+        if output_type == "cudf":
             assert isinstance(S, cudf.DataFrame)
         elif output_type == "numpy":
             assert isinstance(S, np.ndarray)

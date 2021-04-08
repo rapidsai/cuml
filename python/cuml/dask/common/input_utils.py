@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020, NVIDIA CORPORATION.
+# Copyright (c) 2020-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -27,8 +27,10 @@ from cuml.common.memory_utils import with_cupy_rmm
 
 from collections import OrderedDict
 from cudf.core import DataFrame, Series
+from dask.dataframe import DataFrame as daskDataFrame
+from dask.dataframe import Series as daskSeries
 from dask_cudf.core import DataFrame as dcDataFrame
-from dask_cudf.core import Series as daskSeries
+from dask_cudf.core import Series as dcSeries
 
 from cuml.dask.common.utils import get_client
 from cuml.dask.common.dask_df_utils import to_dask_cudf
@@ -164,7 +166,7 @@ def _get_datatype_from_inputs(data):
     multiple = isinstance(data, Sequence)
 
     if isinstance(first(data) if multiple else data,
-                  (dcDataFrame, daskSeries)):
+                  (daskSeries, daskDataFrame, dcDataFrame, dcSeries)):
         datatype = 'cudf'
     else:
         datatype = 'cupy'

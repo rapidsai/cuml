@@ -194,6 +194,8 @@ class RandomForestRegressor(BaseRandomForestModel,
         If 'log2' then max_features=log2(n_features)/n_features.
     n_bins : int (default = 8)
         Number of bins used by the split algorithm.
+        For large problems, particularly those with highly-skewed input data,
+        increasing the number of bins may improve accuracy.
     min_samples_leaf : int or float (default = 1)
         The minimum number of samples (rows) in each leaf node.
         If int, then min_samples_leaf represents the minimum number.
@@ -224,10 +226,13 @@ class RandomForestRegressor(BaseRandomForestModel,
            Parameter 'quantile_per_tree' is deprecated and will be removed in
            subsequent release.
     use_experimental_backend : boolean (default = False)
-        If set to true and  following conditions are also met, experimental
-        decision tree training implementation would be used only if
-        `split_algo = 1` (GLOBAL_QUANTILE) and `quantile_per_tree = False`
-        (No per tree quantile computation).
+        If set to true and the following conditions are also met, a new
+        experimental backend for decision tree training will be used. The
+        new backend is available only if `split_algo = 1` (GLOBAL_QUANTILE)
+        and `quantile_per_tree = False` (No per tree quantile computation).
+        The new backend is considered stable for classification tasks but
+        not yet for regression tasks. The RAPIDS team is continuing
+        optimization and evaluation of the new backend for regression tasks.
     max_batch_size: int (default = 128)
         Maximum number of nodes that can be processed in a given batch. This is
         used only when 'use_experimental_backend' is true.
@@ -254,14 +259,15 @@ class RandomForestRegressor(BaseRandomForestModel,
 
     """
 
-    def __init__(self, split_criterion=2,
+    def __init__(self, *,
+                 split_criterion=2,
                  accuracy_metric='r2',
                  handle=None,
                  verbose=False,
                  output_type=None,
                  **kwargs):
         self.RF_type = REGRESSION
-        super(RandomForestRegressor, self).__init__(
+        super().__init__(
             split_criterion=split_criterion,
             accuracy_metric=accuracy_metric,
             handle=handle,
@@ -376,24 +382,26 @@ class RandomForestRegressor(BaseRandomForestModel,
         algo : string (default = 'auto')
             This is optional and required only while performing the
             predict operation on the GPU.
-            'naive' - simple inference using shared memory
-            'tree_reorg' - similar to naive but trees rearranged to be more
-            coalescing-friendly
-            'batch_tree_reorg' - similar to tree_reorg but predicting
-            multiple rows per thread block
-            `auto` - choose the algorithm automatically. Currently
-            'batch_tree_reorg' is used for dense storage
-            and 'naive' for sparse storage
+
+             * ``'naive'`` - simple inference using shared memory
+             * ``'tree_reorg'`` - similar to naive but trees rearranged to be
+               more coalescing-friendly
+             * ``'batch_tree_reorg'`` - similar to tree_reorg but predicting
+               multiple rows per thread block
+             * ``'auto'`` - choose the algorithm automatically. Currently
+             * ``'batch_tree_reorg'`` is used for dense storage
+               and 'naive' for sparse storage
 
         fil_sparse_format : boolean or string (default = 'auto')
             This variable is used to choose the type of forest that will be
             created in the Forest Inference Library. It is not required
             while using predict_model='CPU'.
-            'auto' - choose the storage type automatically
-            (currently True is chosen by auto)
-            False - create a dense forest
-            True - create a sparse forest, requires algo='naive'
-            or algo='auto'
+
+             * ``'auto'`` - choose the storage type automatically
+               (currently True is chosen by auto)
+             * ``False`` - create a dense forest
+             * ``True`` - create a sparse forest, requires algo='naive'
+               or algo='auto'
 
         Returns
         -------
@@ -553,14 +561,16 @@ class RandomForestRegressor(BaseRandomForestModel,
         algo : string (default = 'auto')
             This is optional and required only while performing the
             predict operation on the GPU.
-            'naive' - simple inference using shared memory
-            'tree_reorg' - similar to naive but trees rearranged to be more
-            coalescing-friendly
-            'batch_tree_reorg' - similar to tree_reorg but predicting
-            multiple rows per thread block
-            `auto` - choose the algorithm automatically. Currently
-            'batch_tree_reorg' is used for dense storage
-            and 'naive' for sparse storage
+
+             * ``'naive'`` - simple inference using shared memory
+             * ``'tree_reorg'`` - similar to naive but trees rearranged to be
+               more coalescing-friendly
+             * ``'batch_tree_reorg'`` - similar to tree_reorg but predicting
+               multiple rows per thread block
+             * ``'auto'`` - choose the algorithm automatically. Currently
+             * ``'batch_tree_reorg'`` is used for dense storage
+               and 'naive' for sparse storage
+
         convert_dtype : bool, optional (default = True)
             When set to True, the predict method will, when necessary, convert
             the input to the data type which was used to train the model. This
@@ -569,11 +579,12 @@ class RandomForestRegressor(BaseRandomForestModel,
             This variable is used to choose the type of forest that will be
             created in the Forest Inference Library. It is not required
             while using predict_model='CPU'.
-            'auto' - choose the storage type automatically
-            (currently True is chosen by auto)
-            False - create a dense forest
-            True - create a sparse forest, requires algo='naive'
-            or algo='auto'
+
+             * ``'auto'`` - choose the storage type automatically
+               (currently True is chosen by auto)
+             * ``False`` - create a dense forest
+             * ``True`` - create a sparse forest, requires algo='naive'
+               or algo='auto'
 
         Returns
         ----------
@@ -618,14 +629,16 @@ class RandomForestRegressor(BaseRandomForestModel,
         algo : string (default = 'auto')
             This is optional and required only while performing the
             predict operation on the GPU.
-            'naive' - simple inference using shared memory
-            'tree_reorg' - similar to naive but trees rearranged to be more
-            coalescing-friendly
-            'batch_tree_reorg' - similar to tree_reorg but predicting
-            multiple rows per thread block
-            `auto` - choose the algorithm automatically. Currently
-            'batch_tree_reorg' is used for dense storage
-            and 'naive' for sparse storage
+
+             * ``'naive'`` - simple inference using shared memory
+             * ``'tree_reorg'`` - similar to naive but trees rearranged to be
+               more coalescing-friendly
+             * ``'batch_tree_reorg'`` - similar to tree_reorg but predicting
+               multiple rows per thread block
+             * ``'auto'`` - choose the algorithm automatically. Currently
+             * ``'batch_tree_reorg'`` is used for dense storage
+               and 'naive' for sparse storage
+
         convert_dtype : boolean, default=True
             whether to convert input data to correct dtype automatically
         predict_model : String (default = 'GPU')
@@ -636,11 +649,12 @@ class RandomForestRegressor(BaseRandomForestModel,
             This variable is used to choose the type of forest that will be
             created in the Forest Inference Library. It is not required
             while using predict_model='CPU'.
-            'auto' - choose the storage type automatically
-            (currently True is chosen by auto)
-            False - create a dense forest
-            True - create a sparse forest, requires algo='naive'
-            or algo='auto'
+
+             * ``'auto'`` - choose the storage type automatically
+               (currently True is chosen by auto)
+             * ``False`` - create a dense forest
+             * ``True`` - create a sparse forest, requires algo='naive'
+               or algo='auto'
 
         Returns
         ----------

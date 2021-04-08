@@ -208,8 +208,10 @@ class RandomForestClassifier(BaseRandomForestModel,
         If 'auto' then max_features=1/sqrt(n_features).
         If 'sqrt' then max_features=1/sqrt(n_features).
         If 'log2' then max_features=log2(n_features)/n_features.
-    n_bins : int (default = 8)
+    n_bins : int (default = 32)
         Number of bins used by the split algorithm.
+        For large problems, particularly those with highly-skewed input data,
+        increasing the number of bins may improve accuracy.
     min_samples_leaf : int or float (default = 1)
         The minimum number of samples (rows) in each leaf node.
         If int, then min_samples_leaf represents the minimum number.
@@ -232,11 +234,14 @@ class RandomForestClassifier(BaseRandomForestModel,
         .. deprecated:: 0.19
            Parameter 'quantile_per_tree' is deprecated and will be removed in
            subsequent release.
-    use_experimental_backend : boolean (default = False)
-        If set to true and  following conditions are also met, experimental
-        decision tree training implementation would be used only if
-        `split_algo = 1` (GLOBAL_QUANTILE) and `quantile_per_tree = False`
-        (No per tree quantile computation).
+    use_experimental_backend : boolean (default = True)
+        If set to true and the following conditions are also met, a new
+        experimental backend for decision tree training will be used. The
+        new backend is available only if `split_algo = 1` (GLOBAL_QUANTILE)
+        and `quantile_per_tree = False` (No per tree quantile computation).
+        The new backend is considered stable for classification tasks but
+        not yet for regression tasks. The RAPIDS team is continuing
+        optimization and evaluation of the new backend for regression tasks.
     max_batch_size: int (default = 128)
         Maximum number of nodes that can be processed in a given batch. This is
         used only when 'use_experimental_backend' is true. Does not currently
@@ -264,16 +269,19 @@ class RandomForestClassifier(BaseRandomForestModel,
 
     """
 
-    def __init__(self, split_criterion=0, handle=None, verbose=False,
-                 output_type=None, **kwargs):
+    def __init__(self, *, split_criterion=0, handle=None, verbose=False,
+                 output_type=None, n_bins=32, use_experimental_backend=True,
+                 **kwargs):
 
         self.RF_type = CLASSIFICATION
         self.num_classes = 2
-        super(RandomForestClassifier, self).__init__(
+        super().__init__(
             split_criterion=split_criterion,
             handle=handle,
             verbose=verbose,
             output_type=output_type,
+            n_bins=n_bins,
+            use_experimental_backend=use_experimental_backend,
             **kwargs)
 
     """
@@ -386,14 +394,16 @@ class RandomForestClassifier(BaseRandomForestModel,
         algo : string (default = 'auto')
             This is optional and required only while performing the
             predict operation on the GPU.
-            'naive' - simple inference using shared memory
-            'tree_reorg' - similar to naive but trees rearranged to be more
-            coalescing-friendly
-            'batch_tree_reorg' - similar to tree_reorg but predicting
-            multiple rows per thread block
-            `auto` - choose the algorithm automatically. Currently
-            'batch_tree_reorg' is used for dense storage
-            and 'naive' for sparse storage
+
+             * ``'naive'`` - simple inference using shared memory
+             * ``'tree_reorg'`` - similar to naive but trees rearranged to be
+               more coalescing-friendly
+             * ``'batch_tree_reorg'`` - similar to tree_reorg but predicting
+               multiple rows per thread block
+             * ``'auto'`` - choose the algorithm automatically. Currently
+             * ``'batch_tree_reorg'`` is used for dense storage
+               and 'naive' for sparse storage
+
         threshold : float (default = 0.5)
             Threshold used for classification. Optional and required only
             while performing the predict operation on the GPU.
@@ -402,11 +412,12 @@ class RandomForestClassifier(BaseRandomForestModel,
             This variable is used to choose the type of forest that will be
             created in the Forest Inference Library. It is not required
             while using predict_model='CPU'.
-            'auto' - choose the storage type automatically
-            (currently True is chosen by auto)
-            False - create a dense forest
-            True - create a sparse forest, requires algo='naive'
-            or algo='auto'
+
+             * ``'auto'`` - choose the storage type automatically
+               (currently True is chosen by auto)
+             * ``False`` - create a dense forest
+             * ``True`` - create a sparse forest, requires algo='naive'
+               or algo='auto'
 
         Returns
         -------
@@ -583,17 +594,19 @@ class RandomForestClassifier(BaseRandomForestModel,
             be used if the model was trained on float32 data and `X` is float32
             or convert_dtype is set to True. Also the 'GPU' should only be
             used for classification problems.
-        algo : string (default = 'auto')
+        algo : string (default = ``'auto'``)
             This is optional and required only while performing the
             predict operation on the GPU.
-            'naive' - simple inference using shared memory
-            'tree_reorg' - similar to naive but trees rearranged to be more
-            coalescing-friendly
-            'batch_tree_reorg' - similar to tree_reorg but predicting
-            multiple rows per thread block
-            `auto` - choose the algorithm automatically. Currently
-            'batch_tree_reorg' is used for dense storage
-            and 'naive' for sparse storage
+
+             * ``'naive'`` - simple inference using shared memory
+             * ``'tree_reorg'`` - similar to naive but trees rearranged to be
+               more coalescing-friendly
+             * ``'batch_tree_reorg'`` - similar to tree_reorg but predicting
+               multiple rows per thread block
+             * ``'auto'`` - choose the algorithm automatically. Currently
+             * ``'batch_tree_reorg'`` is used for dense storage
+               and 'naive' for sparse storage
+
         threshold : float (default = 0.5)
             Threshold used for classification. Optional and required only
             while performing the predict operation on the GPU.
@@ -609,15 +622,16 @@ class RandomForestClassifier(BaseRandomForestModel,
             When set to True, the predict method will, when necessary, convert
             the input to the data type which was used to train the model. This
             will increase memory used for the method.
-        fil_sparse_format : boolean or string (default = auto)
+        fil_sparse_format : boolean or string (default = ``'auto'``)
             This variable is used to choose the type of forest that will be
             created in the Forest Inference Library. It is not required
             while using predict_model='CPU'.
-            'auto' - choose the storage type automatically
-            (currently True is chosen by auto)
-            False - create a dense forest
-            True - create a sparse forest, requires algo='naive'
-            or algo='auto'
+
+             * ``'auto'`` - choose the storage type automatically
+               (currently True is chosen by auto)
+             * ``False`` - create a dense forest
+             * ``True`` - create a sparse forest, requires algo='naive'
+               or algo='auto'
 
         Returns
         ----------
@@ -729,14 +743,16 @@ class RandomForestClassifier(BaseRandomForestModel,
         algo : string (default = 'auto')
             This is optional and required only while performing the
             predict operation on the GPU.
-            'naive' - simple inference using shared memory
-            'tree_reorg' - similar to naive but trees rearranged to be more
-            coalescing-friendly
-            'batch_tree_reorg' - similar to tree_reorg but predicting
-            multiple rows per thread block
-            `auto` - choose the algorithm automatically. Currently
-            'batch_tree_reorg' is used for dense storage
-            and 'naive' for sparse storage
+
+             * ``'naive'`` - simple inference using shared memory
+             * ``'tree_reorg'`` - similar to naive but trees rearranged to be
+               more coalescing-friendly
+             * ``'batch_tree_reorg'`` - similar to tree_reorg but predicting
+               multiple rows per thread block
+             * ``'auto'`` - choose the algorithm automatically. Currently
+             * ``'batch_tree_reorg'`` is used for dense storage
+               and 'naive' for sparse storage
+
         num_classes : int (default = None)
             number of different classes present in the dataset.
 
@@ -753,11 +769,12 @@ class RandomForestClassifier(BaseRandomForestModel,
             This variable is used to choose the type of forest that will be
             created in the Forest Inference Library. It is not required
             while using predict_model='CPU'.
-            'auto' - choose the storage type automatically
-            (currently True is chosen by auto)
-            False - create a dense forest
-            True - create a sparse forest, requires algo='naive'
-            or algo='auto'
+
+             * ``'auto'`` - choose the storage type automatically
+               (currently True is chosen by auto)
+             * ``False`` - create a dense forest
+             * ``True`` - create a sparse forest, requires algo='naive'
+               or algo='auto'
 
         Returns
         -------
@@ -804,14 +821,16 @@ class RandomForestClassifier(BaseRandomForestModel,
         algo : string (default = 'auto')
             This is optional and required only while performing the
             predict operation on the GPU.
-            'naive' - simple inference using shared memory
-            'tree_reorg' - similar to naive but trees rearranged to be more
-            coalescing-friendly
-            'batch_tree_reorg' - similar to tree_reorg but predicting
-            multiple rows per thread block
-            `auto` - choose the algorithm automatically. Currently
-            'batch_tree_reorg' is used for dense storage
-            and 'naive' for sparse storage
+
+             * ``'naive'`` - simple inference using shared memory
+             * ``'tree_reorg'`` - similar to naive but trees rearranged to be
+               more coalescing-friendly
+             * ``'batch_tree_reorg'`` - similar to tree_reorg but predicting
+               multiple rows per thread block
+             * ``'auto'`` - choose the algorithm automatically. Currently
+             * ``'batch_tree_reorg'`` is used for dense storage
+               and 'naive' for sparse storage
+
         threshold : float
             threshold is used to for classification
             This is optional and required only while performing the
@@ -835,11 +854,12 @@ class RandomForestClassifier(BaseRandomForestModel,
             This variable is used to choose the type of forest that will be
             created in the Forest Inference Library. It is not required
             while using predict_model='CPU'.
-            'auto' - choose the storage type automatically
-            (currently True is chosen by auto)
-            False - create a dense forest
-            True - create a sparse forest, requires algo='naive'
-            or algo='auto'
+
+             * ``'auto'`` - choose the storage type automatically
+               (currently True is chosen by auto)
+             * ``False`` - create a dense forest
+             * ``True`` - create a sparse forest, requires algo='naive'
+               or algo='auto'
 
         Returns
         -------
@@ -859,7 +879,7 @@ class RandomForestClassifier(BaseRandomForestModel,
                                 convert_to_dtype=(np.int32 if convert_dtype
                                                   else False))
         y_ptr = y_m.ptr
-        preds = self.predict(X, output_class=True,
+        preds = self.predict(X,
                              threshold=threshold, algo=algo,
                              convert_dtype=convert_dtype,
                              predict_model=predict_model,
