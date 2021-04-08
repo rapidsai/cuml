@@ -50,7 +50,7 @@ def test_column_transformer(clf_dataset, remainder,  # noqa: F811
         ("normalizer", cuNormalizer(), [1, 3])
     ]
 
-    transformer = cuColumnTransformer(transformers=cu_transformers,
+    transformer = cuColumnTransformer(cu_transformers,
                                       remainder=remainder,
                                       transformer_weights=transformer_weights)
     t_X = transformer.fit_transform(X)
@@ -62,7 +62,7 @@ def test_column_transformer(clf_dataset, remainder,  # noqa: F811
         ("normalizer", skNormalizer(), [1, 3])
     ]
 
-    transformer = skColumnTransformer(transformers=sk_transformers,
+    transformer = skColumnTransformer(sk_transformers,
                                       remainder=remainder,
                                       transformer_weights=transformer_weights)
     sk_t_X = transformer.fit_transform(X_np)

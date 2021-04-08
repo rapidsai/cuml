@@ -41,8 +41,7 @@ void knn_classify(raft::handle_t &handle, std::vector<Matrix::Data<int> *> *out,
     rowMajorQuery, k, batch_size, verbose, n_unique.size(), &y, &n_unique,
     &uniq_labels, out, probas);
 
-  cuda_utils cutils(handle);
-  opg_knn(params, cutils);
+  opg_knn(params, handle);
 }
 };  // namespace opg
 };  // namespace KNN

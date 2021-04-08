@@ -20,6 +20,7 @@
 #include <ml_mg_utils.cuh>
 
 #include <label/classlabels.cuh>
+#include <raft/spatial/knn/knn.hpp>
 #include <selection/knn.cuh>
 
 #include <cuda_runtime.h>
@@ -38,13 +39,9 @@ void brute_force_knn(const raft::handle_t &handle, std::vector<float *> &input,
   ASSERT(input.size() == sizes.size(),
          "input and sizes vectors must be the same size");
 
-  std::vector<cudaStream_t> int_streams = handle.get_internal_streams();
-
-  MLCommon::Selection::brute_force_knn(
-    input, sizes, D, search_items, n, res_I, res_D, k,
-    handle.get_device_allocator(), handle.get_stream(), int_streams.data(),
-    handle.get_num_internal_streams(), rowMajorIndex, rowMajorQuery, nullptr,
-    metric, metric_arg);
+  raft::spatial::knn::brute_force_knn(
+    handle, input, sizes, D, search_items, n, res_I, res_D, k, rowMajorIndex,
+    rowMajorQuery, nullptr, metric, metric_arg);
 }
 
 void approx_knn_build_index(raft::handle_t &handle, ML::knnIndex *index,

@@ -19,6 +19,7 @@ from ._data import minmax_scale
 from ._data import PolynomialFeatures
 
 from ._imputation import SimpleImputer
+from ._imputation import MissingIndicator
 from ._discretization import KBinsDiscretizer
 
 from ._function_transformer import FunctionTransformer
@@ -41,6 +42,7 @@ __all__ = [
     'RobustScaler',
     'StandardScaler',
     'SimpleImputer',
+    'MissingIndicator',
     'add_dummy_feature',
     'PolynomialFeatures',
     'binarize',

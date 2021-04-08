@@ -28,6 +28,7 @@ from cuml.internals.global_settings import _global_settings_data
 from ....common.array_sparse import SparseCumlArray
 from ..utils.skl_dependencies import TransformerMixin, _BaseComposition
 from ..preprocessing import FunctionTransformer
+from ....internals import _deprecate_pos_args
 
 
 _ERR_MSG_1DCOLUMN = ("1D data passed to a transformer that expects 2D data. "
@@ -605,6 +606,7 @@ class ColumnTransformer(TransformerMixin, _BaseComposition):
     """
     _required_parameters = ['transformers']
 
+    @_deprecate_pos_args(version="0.20")
     def __init__(self,
                  transformers, *,
                  remainder='drop',

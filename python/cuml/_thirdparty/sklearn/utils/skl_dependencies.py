@@ -1,8 +1,3 @@
-"""
-This file gathers Scikit-Learn code that would otherwise
-require a version-dependent import from the sklearn library
-"""
-
 # Original authors from Sckit-Learn:
 #         Gael Varoquaux <gael.varoquaux@normalesup.org>
 # License: BSD 3 clause

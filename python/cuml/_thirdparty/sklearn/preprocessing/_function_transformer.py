@@ -4,7 +4,7 @@ import cuml
 from ....common.array_sparse import SparseCumlArray
 from ..utils.skl_dependencies import TransformerMixin, BaseEstimator
 from ..utils.validation import _allclose_dense_sparse
-from ..utils.validation import _deprecate_positional_args
+from ....internals import _deprecate_pos_args
 
 
 def _identity(X):
@@ -23,10 +23,6 @@ class FunctionTransformer(TransformerMixin, BaseEstimator):
 
     Note: If a lambda is used as the function, then the resulting
     transformer will not be pickleable.
-
-    .. versionadded:: 0.17
-
-    Read more in the :ref:`User Guide <function_transformer>`.
 
     Parameters
     ----------
@@ -51,31 +47,25 @@ class FunctionTransformer(TransformerMixin, BaseEstimator):
        the original inputs. It can be used for a sanity check, raising a
        warning when the condition is not fulfilled.
 
-       .. versionadded:: 0.20
-
     kw_args : dict, default=None
         Dictionary of additional keyword arguments to pass to func.
-
-        .. versionadded:: 0.18
 
     inv_kw_args : dict, default=None
         Dictionary of additional keyword arguments to pass to inverse_func.
 
-        .. versionadded:: 0.18
-
     Examples
     --------
-    >>> import numpy as np
-    >>> from sklearn.preprocessing import FunctionTransformer
-    >>> transformer = FunctionTransformer(np.log1p)
-    >>> X = np.array([[0, 1], [2, 3]])
+    >>> import cupy as cp
+    >>> from cuml.preprocessing import FunctionTransformer
+    >>> transformer = FunctionTransformer(cp.log1p)
+    >>> X = cp.array([[0, 1], [2, 3]])
     >>> transformer.transform(X)
     array([[0.       , 0.6931...],
            [1.0986..., 1.3862...]])
     """
 
-    @_deprecate_positional_args
-    def __init__(self, func=None, inverse_func=None, *, accept_sparse=False,
+    @_deprecate_pos_args(version="0.20")
+    def __init__(self, *, func=None, inverse_func=None, accept_sparse=False,
                  check_inverse=True, kw_args=None, inv_kw_args=None):
         self.func = func
         self.inverse_func = inverse_func
@@ -95,16 +85,16 @@ class FunctionTransformer(TransformerMixin, BaseEstimator):
             X_round_trip = self.inverse_transform(self.transform(X[selection]))
             if not _allclose_dense_sparse(X[selection], X_round_trip):
                 warnings.warn("The provided functions are not strictly"
-                            " inverse of each other. If you are sure you"
-                            " want to proceed regardless, set"
-                            " 'check_inverse=False'.", UserWarning)
+                              " inverse of each other. If you are sure you"
+                              " want to proceed regardless, set"
+                              " 'check_inverse=False'.", UserWarning)
 
     def fit(self, X, y=None) -> "FunctionTransformer":
         """Fit transformer by checking X.
 
         Parameters
         ----------
-        X : array-like, shape (n_samples, n_features)
+        X : {array-like, sparse matrix}, shape (n_samples, n_features)
             Input array.
 
         Returns
@@ -122,12 +112,12 @@ class FunctionTransformer(TransformerMixin, BaseEstimator):
 
         Parameters
         ----------
-        X : array-like, shape (n_samples, n_features)
+        X : {array-like, sparse matrix}, shape (n_samples, n_features)
             Input array.
 
         Returns
         -------
-        X_out : array-like, shape (n_samples, n_features)
+        X_out : {array-like, sparse matrix}, shape (n_samples, n_features)
             Transformed input.
         """
         return self._transform(X, func=self.func, kw_args=self.kw_args)
@@ -137,12 +127,12 @@ class FunctionTransformer(TransformerMixin, BaseEstimator):
 
         Parameters
         ----------
-        X : array-like, shape (n_samples, n_features)
+        X : {array-like, sparse matrix}, shape (n_samples, n_features)
             Input array.
 
         Returns
         -------
-        X_out : array-like, shape (n_samples, n_features)
+        X_out : {array-like, sparse matrix}, shape (n_samples, n_features)
             Transformed input.
         """
         return self._transform(X, func=self.inverse_func,
