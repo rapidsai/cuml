@@ -470,7 +470,7 @@ def test_rf_instance_count(client, max_depth, n_estimators):
                         n_bins=16, split_algo=1, split_criterion=0,
                         min_samples_leaf=2, seed=23707, n_streams=1,
                         n_estimators=n_estimators, max_leaves=-1,
-                        max_depth=max_depth, use_experimental_backend=True)
+                        max_depth=max_depth)
     y = y.astype(np.int32)
 
     X_dask, y_dask = _prep_training_data(client, X, y, partitions_per_worker=2)

@@ -100,7 +100,7 @@ class RFClassifierAccuracyTest : public ::testing::TestWithParam<RFInputs> {
                         sc,    /* split_criterion */
                         false, /* quantile_per_tree */
                         1,     /* n_streams */
-                        false, /* use_experimental_backend */
+                        true,  /* use_experimental_backend */
                         128    /* max_batch_size */
     );
   }
