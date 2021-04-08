@@ -309,9 +309,9 @@ class UMAPParametrizableTest : public ::testing::Test {
     umap_params_vec[3].n_components = 25;
     umap_params_vec[3].random_state = 43;
 #if CUDART_VERSION < 110200
-    umap_params_vec[2].init = 1;
+    umap_params_vec[3].init = 1;
 #else
-    umap_params_vec[2].init = 0;
+    umap_params_vec[3].init = 0;
 #endif
     umap_params_vec[3].multicore_implem = false;
     umap_params_vec[3].optim_batch_size = 0;  // use default value
