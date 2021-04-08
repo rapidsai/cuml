@@ -459,8 +459,7 @@ void _transform(const raft::handle_t &handle, const umap_inputs &inputs,
     params->callback->on_preprocess_end(transformed);
   }
 
-  params->initial_alpha /=
-    4.0;  // TODO: This value should be passed into "optimize layout" directly to avoid side-effects.
+  auto initial_alpha = params->initial_alpha / 4.0;
 
   SimplSetEmbedImpl::optimize_layout<TPB_X, value_t>(
     transformed, inputs.n, embedding, embedding_n, comp_coo.rows(),
