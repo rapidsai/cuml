@@ -62,7 +62,7 @@ class RfClassifierTest : public ::testing::TestWithParam<RfInputs<T>> {
       params.split_algo, params.min_samples_leaf, params.min_samples_split,
       params.min_impurity_decrease, params.bootstrap_features, params.bootstrap,
       params.n_trees, params.max_samples, 0, params.split_criterion, false,
-      params.n_streams, false, 128);
+      params.n_streams, true, 128);
 
     //--------------------------------------------------------
     // Random Forest
@@ -258,7 +258,7 @@ const std::vector<RfInputs<float>> inputsf2_clf = {
    CRITERION::
      GINI},  //forest with 10 trees, with bootstrap and column subsampling enabled, 3 bins
   {4, 2, 10, 0.8f, 0.8f, 4, 7, -1, true, false, 3, SPLIT_ALGO::GLOBAL_QUANTILE,
-   2, 2, 0.0, 2,
+   1, 2, 0.0, 1,
    CRITERION::
      CRITERION_END},  //forest with 10 trees, with bootstrap and column subsampling enabled, 3 bins, different split algorithm
   {4, 2, 1, 1.0f, 1.0f, 4, 7, -1, false, false, 4, SPLIT_ALGO::HIST, 2, 2, 0.0,
@@ -270,7 +270,7 @@ const std::vector<RfInputs<float>> inputsf2_clf = {
   {4, 2, 10, 0.8f, 0.8f, 4, 7, -1, true, false, 3, SPLIT_ALGO::HIST, 2, 2, 0.0,
    2, CRITERION::ENTROPY},
   {4, 2, 10, 0.8f, 0.8f, 4, 7, -1, true, false, 3, SPLIT_ALGO::GLOBAL_QUANTILE,
-   2, 2, 0.0, 2, CRITERION::ENTROPY},
+   1, 2, 0.0, 2, CRITERION::ENTROPY},
   {50, 10, 10, 0.8f, 0.8f, 10, 7, -1, true, true, 3,
    SPLIT_ALGO::GLOBAL_QUANTILE, 2, 2, 0.0, 2, CRITERION::ENTROPY}};
 
@@ -284,7 +284,7 @@ const std::vector<RfInputs<double>> inputsd2_clf = {  // Same as inputsf2_clf
   {4, 2, 10, 0.8f, 0.8f, 4, 7, -1, true, false, 3, SPLIT_ALGO::HIST, 2, 2, 0.0,
    2, CRITERION::GINI},
   {4, 2, 10, 0.8f, 0.8f, 4, 7, -1, true, false, 3, SPLIT_ALGO::GLOBAL_QUANTILE,
-   2, 2, 0.0, 2, CRITERION::CRITERION_END},
+   1, 2, 0.0, 2, CRITERION::CRITERION_END},
   {4, 2, 1, 1.0f, 1.0f, 4, 7, -1, false, false, 4, SPLIT_ALGO::HIST, 2, 2, 0.0,
    2, CRITERION::ENTROPY},
   {4, 2, 1, 1.0f, 1.0f, 4, 7, -1, false, false, 4, SPLIT_ALGO::HIST, 2, 2, 0.0,
@@ -294,7 +294,7 @@ const std::vector<RfInputs<double>> inputsd2_clf = {  // Same as inputsf2_clf
   {4, 2, 10, 0.8f, 0.8f, 4, 7, -1, true, false, 3, SPLIT_ALGO::HIST, 2, 2, 0.0,
    2, CRITERION::ENTROPY},
   {4, 2, 10, 0.8f, 0.8f, 4, 7, -1, true, false, 3, SPLIT_ALGO::GLOBAL_QUANTILE,
-   2, 2, 0.0, 2, CRITERION::ENTROPY},
+   1, 2, 0.0, 2, CRITERION::ENTROPY},
   {50, 10, 10, 0.8f, 0.8f, 10, 7, -1, true, true, 3,
    SPLIT_ALGO::GLOBAL_QUANTILE, 2, 2, 0.0, 2, CRITERION::ENTROPY}};
 

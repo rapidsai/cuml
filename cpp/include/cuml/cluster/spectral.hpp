@@ -34,9 +34,11 @@ namespace Spectral {
    * @param n number of samples in X
    * @param n_components the number of components to project the X into
    * @param out output array for embedding (size n*n_comonents)
+   * @param seed random seed to use in both the lanczos solver and k-means
    */
 void fit_embedding(const raft::handle_t &handle, int *rows, int *cols,
-                   float *vals, int nnz, int n, int n_components, float *out);
+                   float *vals, int nnz, int n, int n_components, float *out,
+                   unsigned long long seed = 1234567);
 
 }  // namespace Spectral
 }  // namespace ML
