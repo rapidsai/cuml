@@ -20,6 +20,7 @@ import numbers
 import warnings
 from itertools import combinations_with_replacement as combinations_w_r
 
+import numpy as cpu_np
 import cupy as np
 from cupy import sparse
 from scipy import stats
@@ -33,8 +34,7 @@ from ....thirdparty_adapters import check_array
 from ..utils.extmath import row_norms
 from ..utils.extmath import _incremental_mean_and_var
 from ..utils.validation import (check_is_fitted, FLOAT_DTYPES,
-                                check_random_state,
-                                _deprecate_positional_args)
+                                check_random_state)
 
 from ..utils.sparsefuncs import (inplace_column_scale,
                                  min_max_axis,
@@ -48,6 +48,8 @@ from ....common.array import CumlArray
 from ....common.array_sparse import SparseCumlArray
 from ....common.array_descriptor import CumlArrayDescriptor
 from ....internals import api_return_generic
+from ....internals import _deprecate_pos_args
+
 from ....common.memory_utils import using_output_type
 
 BOUNDS_THRESHOLD = 1e-7
@@ -87,7 +89,7 @@ def _handle_zeros_in_scale(scale, copy=True):
         return scale
 
 
-@_deprecate_positional_args
+@_deprecate_pos_args(version="0.20")
 @api_return_generic(get_output_type=True)
 def scale(X, *, axis=0, with_mean=True, with_std=True, copy=True):
     """Standardize a dataset along any axis
@@ -255,7 +257,7 @@ class MinMaxScaler(TransformerMixin,
 
     Examples
     --------
-    >>> from cuml.experimental.preprocessing import MinMaxScaler
+    >>> from cuml.preprocessing import MinMaxScaler
     >>> data = [[-1, 2], [-0.5, 6], [0, 10], [1, 18]]
     >>> scaler = MinMaxScaler()
     >>> print(scaler.fit(data))
@@ -287,7 +289,7 @@ class MinMaxScaler(TransformerMixin,
     data_max_ = CumlArrayDescriptor()
     data_range_ = CumlArrayDescriptor()
 
-    @_deprecate_positional_args
+    @_deprecate_pos_args(version="0.20")
     def __init__(self, feature_range=(0, 1), *, copy=True):
         self.feature_range = feature_range
         self.copy = copy
@@ -432,7 +434,7 @@ class MinMaxScaler(TransformerMixin,
         return X
 
 
-@_deprecate_positional_args
+@_deprecate_pos_args(version="0.20")
 @api_return_generic(get_output_type=True)
 def minmax_scale(X, feature_range=(0, 1), *, axis=0, copy=True):
     """Transform features by scaling each feature to a given range.
@@ -574,7 +576,7 @@ class StandardScaler(TransformerMixin,
 
     Examples
     --------
-    >>> from cuml.experimental.preprocessing import StandardScaler
+    >>> from cuml.preprocessing import StandardScaler
     >>> data = [[0, 0], [0, 0], [1, 1], [1, 1]]
     >>> scaler = StandardScaler()
     >>> print(scaler.fit(data))
@@ -611,7 +613,7 @@ class StandardScaler(TransformerMixin,
     mean_ = CumlArrayDescriptor()
     var_ = CumlArrayDescriptor()
 
-    @_deprecate_positional_args
+    @_deprecate_pos_args(version="0.20")
     def __init__(self, *, copy=True, with_mean=True, with_std=True):
         self.with_mean = with_mean
         self.with_std = with_std
@@ -890,7 +892,7 @@ class MaxAbsScaler(TransformerMixin,
 
     Examples
     --------
-    >>> from cuml.experimental.preprocessing import MaxAbsScaler
+    >>> from cuml.preprocessing import MaxAbsScaler
     >>> X = [[ 1., -1.,  2.],
     ...      [ 2.,  0.,  0.],
     ...      [ 0.,  1., -1.]]
@@ -916,7 +918,7 @@ class MaxAbsScaler(TransformerMixin,
     n_samples_seen_ = CumlArrayDescriptor()
     max_abs_ = CumlArrayDescriptor()
 
-    @_deprecate_positional_args
+    @_deprecate_pos_args(version="0.20")
     def __init__(self, *, copy=True):
         self.copy = copy
 
@@ -1038,7 +1040,7 @@ class MaxAbsScaler(TransformerMixin,
         return X
 
 
-@_deprecate_positional_args
+@_deprecate_pos_args(version="0.20")
 @api_return_generic(get_output_type=True)
 def maxabs_scale(X, *, axis=0, copy=True):
     """Scale each feature to the [-1, 1] range without breaking the sparsity.
@@ -1082,16 +1084,17 @@ def maxabs_scale(X, *, axis=0, copy=True):
     if original_ndim == 1:
         X = X.reshape(X.shape[0], 1)
 
-    s = MaxAbsScaler(copy=copy)
-    if axis == 0:
-        X = s.fit_transform(X)
-    else:
-        X = s.fit_transform(X.T).T
+    with using_output_type('cupy'):
+        s = MaxAbsScaler(copy=copy)
+        if axis == 0:
+            X = s.fit_transform(X)
+        else:
+            X = s.fit_transform(X.T).T
 
-    if original_ndim == 1:
-        X = X.ravel()
+        if original_ndim == 1:
+            X = X.ravel()
 
-    return X
+        return X
 
 
 class RobustScaler(TransformerMixin,
@@ -1147,7 +1150,7 @@ class RobustScaler(TransformerMixin,
 
     Examples
     --------
-    >>> from cuml.experimental.preprocessing import RobustScaler
+    >>> from cuml.preprocessing import RobustScaler
     >>> X = [[ 1., -2.,  2.],
     ...      [ -2.,  1.,  3.],
     ...      [ 4.,  1., -2.]]
@@ -1172,7 +1175,7 @@ class RobustScaler(TransformerMixin,
     center_ = CumlArrayDescriptor()
     scale_ = CumlArrayDescriptor()
 
-    @_deprecate_positional_args
+    @_deprecate_pos_args(version="0.20")
     def __init__(self, *, with_centering=True, with_scaling=True,
                  quantile_range=(25.0, 75.0), copy=True):
         self.with_centering = with_centering
@@ -1298,7 +1301,7 @@ class RobustScaler(TransformerMixin,
         return X
 
 
-@_deprecate_positional_args
+@_deprecate_pos_args(version="0.20")
 @api_return_generic(get_output_type=True)
 def robust_scale(X, *, axis=0, with_centering=True, with_scaling=True,
                  quantile_range=(25.0, 75.0), copy=True):
@@ -1408,7 +1411,7 @@ class PolynomialFeatures(TransformerMixin,
     Examples
     --------
     >>> import numpy as np
-    >>> from cuml.experimental.preprocessing import PolynomialFeatures
+    >>> from cuml.preprocessing import PolynomialFeatures
     >>> X = np.arange(6).reshape(3, 2)
     >>> X
     array([[0, 1],
@@ -1445,7 +1448,7 @@ class PolynomialFeatures(TransformerMixin,
     exponentially in the degree. High degrees can cause overfitting.
     """
 
-    @_deprecate_positional_args
+    @_deprecate_pos_args(version="0.20")
     def __init__(self, degree=2, *, interaction_only=False, include_bias=True,
                  order='C'):
         self.degree = degree
@@ -1475,8 +1478,9 @@ class PolynomialFeatures(TransformerMixin,
         combinations = self._combinations(self.n_input_features_, self.degree,
                                           self.interaction_only,
                                           self.include_bias)
-        return np.vstack([np.bincount(c, minlength=self.n_input_features_)
-                          for c in combinations])
+        return cpu_np.vstack([cpu_np.bincount(c,
+                                              minlength=self.n_input_features_)
+                              for c in combinations])
 
     def get_feature_names(self, input_features=None):
         """
@@ -1498,7 +1502,7 @@ class PolynomialFeatures(TransformerMixin,
             input_features = ['x%d' % i for i in range(powers.shape[1])]
         feature_names = []
         for row in powers:
-            inds = np.where(row)[0]
+            inds = cpu_np.where(row)[0]
             if len(inds):
                 name = " ".join("%s^%d" % (input_features[ind], exp)
                                 if exp != 1 else input_features[ind]
@@ -1658,7 +1662,7 @@ class PolynomialFeatures(TransformerMixin,
         return XP  # TODO keep order
 
 
-@_deprecate_positional_args
+@_deprecate_pos_args(version="0.20")
 @api_return_generic(get_output_type=True)
 def normalize(X, norm='l2', *, axis=1, copy=True, return_norm=False):
     """Scale input vectors individually to unit norm (vector length).
@@ -1781,7 +1785,7 @@ class Normalizer(TransformerMixin,
 
     Examples
     --------
-    >>> from cuml.experimental.preprocessing import Normalizer
+    >>> from cuml.preprocessing import Normalizer
     >>> X = [[4, 1, 2, 2],
     ...      [1, 3, 9, 3],
     ...      [5, 7, 5, 1]]
@@ -1804,7 +1808,7 @@ class Normalizer(TransformerMixin,
     normalize: Equivalent function without the estimator API.
     """
 
-    @_deprecate_positional_args
+    @_deprecate_pos_args(version="0.20")
     def __init__(self, norm='l2', *, copy=True):
         self.norm = norm
         self.copy = copy
@@ -1838,7 +1842,7 @@ class Normalizer(TransformerMixin,
         return normalize(X, norm=self.norm, axis=1, copy=copy)
 
 
-@_deprecate_positional_args
+@_deprecate_pos_args(version="0.20")
 @api_return_generic(get_output_type=True)
 def binarize(X, *, threshold=0.0, copy=True):
     """Boolean thresholding of array-like or sparse matrix
@@ -1908,7 +1912,7 @@ class Binarizer(TransformerMixin,
 
     Examples
     --------
-    >>> from cuml.experimental.preprocessing import Binarizer
+    >>> from cuml.preprocessing import Binarizer
     >>> X = [[ 1., -1.,  2.],
     ...      [ 2.,  0.,  0.],
     ...      [ 0.,  1., -1.]]
@@ -1933,7 +1937,7 @@ class Binarizer(TransformerMixin,
     binarize: Equivalent function without the estimator API.
     """
 
-    @_deprecate_positional_args
+    @_deprecate_pos_args(version="0.20")
     def __init__(self, *, threshold=0.0, copy=True):
         self.threshold = threshold
         self.copy = copy
@@ -2041,8 +2045,6 @@ class KernelCenterer(TransformerMixin, BaseEstimator):
     normalize to have zero mean) the data without explicitly computing phi(x).
     It is equivalent to centering phi(x) with
     sklearn.preprocessing.StandardScaler(with_std=False).
-
-    Read more in the :ref:`User Guide <kernel_centering>`.
 
     Attributes
     ----------
@@ -2156,10 +2158,6 @@ class QuantileTransformer(TransformerMixin,
     correlations between variables measured at the same scale but renders
     variables measured at different scales more directly comparable.
 
-    Read more in the :ref:`User Guide <preprocessing_transformer>`.
-
-    .. versionadded:: 0.19
-
     Parameters
     ----------
     n_quantiles : int, optional (default=1000 or n_samples)
@@ -2237,7 +2235,7 @@ class QuantileTransformer(TransformerMixin,
     <sphx_glr_auto_examples_preprocessing_plot_all_scaling.py>`.
     """
 
-    @_deprecate_positional_args
+    @_deprecate_pos_args(version="0.20")
     def __init__(self, *, n_quantiles=1000, output_distribution='uniform',
                  ignore_implicit_zeros=False, subsample=int(1e5),
                  random_state=None, copy=True):
@@ -2567,7 +2565,7 @@ class QuantileTransformer(TransformerMixin,
         return self._transform(X, inverse=True)
 
 
-@_deprecate_positional_args
+@_deprecate_pos_args(version="0.20")
 def quantile_transform(X, *, axis=0, n_quantiles=1000,
                        output_distribution='uniform',
                        ignore_implicit_zeros=False,
@@ -2590,8 +2588,6 @@ def quantile_transform(X, *, axis=0, n_quantiles=1000,
     distribution. Note that this transform is non-linear. It may distort linear
     correlations between variables measured at the same scale but renders
     variables measured at different scales more directly comparable.
-
-    Read more in the :ref:`User Guide <preprocessing_transformer>`.
 
     Parameters
     ----------
@@ -2709,10 +2705,6 @@ class PowerTransformer(TransformerMixin,
     By default, zero-mean, unit-variance normalization is applied to the
     transformed data.
 
-    Read more in the :ref:`User Guide <preprocessing_transformer>`.
-
-    .. versionadded:: 0.20
-
     Parameters
     ----------
     method : str, (default='yeo-johnson')
@@ -2775,7 +2767,7 @@ class PowerTransformer(TransformerMixin,
            of the Royal Statistical Society B, 26, 211-252 (1964).
 
     """
-    @_deprecate_positional_args
+    @_deprecate_pos_args(version="0.20")
     def __init__(self, method='yeo-johnson', *, standardize=True, copy=True):
         self.method = method
         self.standardize = standardize
@@ -3043,7 +3035,7 @@ class PowerTransformer(TransformerMixin,
         return X
 
 
-@_deprecate_positional_args
+@_deprecate_pos_args(version="0.20")
 def power_transform(X, method='yeo-johnson', *, standardize=True, copy=True):
     """
     Power transforms are a family of parametric, monotonic transformations
@@ -3060,8 +3052,6 @@ def power_transform(X, method='yeo-johnson', *, standardize=True, copy=True):
 
     By default, zero-mean, unit-variance normalization is applied to the
     transformed data.
-
-    Read more in the :ref:`User Guide <preprocessing_transformer>`.
 
     Parameters
     ----------

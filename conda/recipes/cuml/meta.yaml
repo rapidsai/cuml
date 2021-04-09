@@ -28,9 +28,9 @@ requirements:
     - setuptools
     - cython>=0.29,<0.30
     - cmake>=3.14
-    - treelite=1.0.0
+    - treelite=1.1.0
     - cudf {{ minor_version }}
-    - libcuml={{ version }}=*_{{ GIT_DESCRIBE_NUMBER }}
+    - libcuml={{ version }}
     - libcumlprims {{ minor_version }}
     - cudatoolkit {{ cuda_version }}.*
     - ucx-py {{ minor_version }}
@@ -39,10 +39,10 @@ requirements:
     - python x.x
     - cudf {{ minor_version }}
     - dask-cudf {{ minor_version }}
-    - libcuml={{ version }}=*_{{ GIT_DESCRIBE_NUMBER }}
+    - libcuml={{ version }}
     - libcumlprims {{ minor_version }}
     - cupy>=7.8.0,<9.0.0a0
-    - treelite=1.0.0
+    - treelite=1.1.0
     - nccl>=2.8.4
     - ucx-py {{ minor_version }}
     - ucx-proc=*=gpu

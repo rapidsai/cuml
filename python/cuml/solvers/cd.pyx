@@ -188,7 +188,7 @@ class CD(Base,
 
     coef_ = CumlArrayDescriptor()
 
-    def __init__(self, loss='squared_loss', alpha=0.0001, l1_ratio=0.15,
+    def __init__(self, *, loss='squared_loss', alpha=0.0001, l1_ratio=0.15,
                  fit_intercept=True, normalize=False, max_iter=1000, tol=1e-3,
                  shuffle=True, handle=None, output_type=None, verbose=False):
 
@@ -196,8 +196,9 @@ class CD(Base,
             msg = "loss {!r} is not supported"
             raise NotImplementedError(msg.format(loss))
 
-        super(CD, self).__init__(handle=handle, verbose=verbose,
-                                 output_type=output_type)
+        super().__init__(handle=handle,
+                         verbose=verbose,
+                         output_type=output_type)
 
         self.loss = loss
         self.alpha = alpha
