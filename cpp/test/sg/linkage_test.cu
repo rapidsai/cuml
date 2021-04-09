@@ -21,7 +21,6 @@
 
 #include <cuml/cluster/linkage.hpp>
 #include <cuml/common/cuml_allocator.hpp>
-#include <cuml/cuml.hpp>
 #include <cuml/datasets/make_blobs.hpp>
 #include <hierarchy/pw_dist_graph.cuh>
 
