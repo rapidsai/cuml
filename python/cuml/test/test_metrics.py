@@ -1112,8 +1112,12 @@ def naive_inner(X, Y, metric=None):
 
 
 def naive_hellinger(X, Y, metric=None):
-    return sklearn_pairwise_distances(np.sqrt(X), np.sqrt(Y),
-                                      metric='euclidean') / np.sqrt(2)
+    X, Y = cp.sqrt(X), cp.sqrt(Y)
+    innerproduct = 1 - X.dot(Y.T)
+    rectifier = cp.abs(innerproduct) <= cp.sqrt(cp.finfo(X.dtype).eps)
+    result = cp.array(cp.sqrt(innerproduct))
+    result[rectifier] = 0
+    return result
 
 
 def prepare_sparse_data(size0, size1, dtype, density, metric):
@@ -1132,9 +1136,6 @@ def prepare_sparse_data(size0, size1, dtype, density, metric):
     ((5, 40), 0.2)])
 def test_sparse_pairwise_distances_corner_cases(metric: str, matrix_size,
                                                 density: float):
-    if metric == "hellinger":
-        pytest.xfail("Sporadic failure, see issue "
-                     "https://github.com/rapidsai/cuml/issues/3705")
     # Test the sparse_pairwise_distance helper function.
     # Use sparse input for sklearn calls when possible
     sk_sparse = metric in ['cityblock', 'cosine', 'euclidean', 'l1', 'l2',
@@ -1153,7 +1154,10 @@ def test_sparse_pairwise_distances_corner_cases(metric: str, matrix_size,
             if Y is None:
                 Y = X
             return naive_hellinger(X, Y, metric)
-        return sklearn_pairwise_distances(X, Y, metric)
+        else:
+            X = X.get()
+            Y = Y.get() if Y is not None else Y
+            return sklearn_pairwise_distances(X, Y, metric)
 
     # For fp64, compare at 7 decimals, (5 places less than the ~15 max)
     compare_precision = 7
@@ -1162,25 +1166,26 @@ def test_sparse_pairwise_distances_corner_cases(metric: str, matrix_size,
     X = prepare_sparse_data(matrix_size[0], matrix_size[1],
                             cp.float64, density, metric)
     S = sparse_pairwise_distances(X, metric=metric)
-    S2 = ref_pairwise_dist(sk_array(X).get(), metric=metric)
+    S2 = ref_pairwise_dist(sk_array(X), metric=metric)
     cp.testing.assert_array_almost_equal(S, S2, decimal=compare_precision)
+
 
     # Compare to sklearn, double input with same dimensions
     Y = X
     S = pairwise_distances(X, Y, metric=metric)
-    S2 = ref_pairwise_dist(sk_array(X).get(), sk_array(Y).get(), metric=metric)
+    S2 = ref_pairwise_dist(sk_array(X), sk_array(Y), metric=metric)
     cp.testing.assert_array_almost_equal(S, S2, decimal=compare_precision)
 
     # Compare to sklearn, with Y dim != X dim
     Y = prepare_sparse_data(2, matrix_size[1], cp.float64, density, metric)
     S = pairwise_distances(X, Y, metric=metric)
-    S2 = ref_pairwise_dist(sk_array(X).get(), sk_array(Y).get(), metric=metric)
+    S2 = ref_pairwise_dist(sk_array(X), sk_array(Y), metric=metric)
     cp.testing.assert_array_almost_equal(S, S2, decimal=compare_precision)
 
     # Change precision of one parameter, should work (convert_dtype=True)
     Y = Y.astype(cp.float32)
     S = sparse_pairwise_distances(X, Y, metric=metric)
-    S2 = ref_pairwise_dist(sk_array(X).get(), sk_array(Y).get(), metric=metric)
+    S2 = ref_pairwise_dist(sk_array(X), sk_array(Y), metric=metric)
     cp.testing.assert_array_almost_equal(S, S2, decimal=compare_precision)
 
     # For fp32, compare at 3 decimals, (4 places less than the ~7 max)
@@ -1192,7 +1197,7 @@ def test_sparse_pairwise_distances_corner_cases(metric: str, matrix_size,
     Y = prepare_sparse_data(matrix_size[0], matrix_size[1],
                             cp.float32, density, metric)
     S = sparse_pairwise_distances(X, Y, metric=metric)
-    S2 = ref_pairwise_dist(sk_array(X).get(), sk_array(Y).get(), metric=metric)
+    S2 = ref_pairwise_dist(sk_array(X), sk_array(Y), metric=metric)
     cp.testing.assert_array_almost_equal(S, S2, decimal=compare_precision)
 
     # Test sending an int type (convert_dtype=True)
@@ -1201,7 +1206,7 @@ def test_sparse_pairwise_distances_corner_cases(metric: str, matrix_size,
         Y = Y * 100
         Y.data = Y.data.astype(cp.int32)
         S = sparse_pairwise_distances(X, Y, metric=metric)
-        S2 = ref_pairwise_dist(sk_array(X).get(), sk_array(Y).get(),
+        S2 = ref_pairwise_dist(sk_array(X), sk_array(Y),
                                metric=metric)
         cp.testing.assert_array_almost_equal(S, S2, decimal=compare_precision)
     # Test that uppercase on the metric name throws an error.
