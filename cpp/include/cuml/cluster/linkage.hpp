@@ -20,7 +20,7 @@
 #include <raft/sparse/hierarchy/common.h>
 
 namespace raft {
-  class handle_t;
+class handle_t;
 }
 
 namespace ML {

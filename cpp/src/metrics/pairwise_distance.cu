@@ -15,10 +15,10 @@
  * limitations under the License.
  */
 
-#include <raft/handle.hpp>
 #include <raft/sparse/distance/common.h>
 #include <cuml/metrics/metrics.hpp>
 #include <metrics/pairwise_distance.cuh>
+#include <raft/handle.hpp>
 #include <raft/sparse/distance/distance.cuh>
 
 namespace ML {

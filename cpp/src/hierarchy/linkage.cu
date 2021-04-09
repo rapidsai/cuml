@@ -19,7 +19,7 @@
 #include "pw_dist_graph.cuh"
 
 namespace raft {
-  class handle_t;
+class handle_t;
 }
 
 namespace ML {
