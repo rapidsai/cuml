@@ -21,12 +21,10 @@
 #include <thrust/system/cuda/execution_policy.h>
 
 #include <raft/cudart_utils.h>
-#include <cuml/common/cuml_allocator.hpp>
+#include <raft/mr/device/allocator.hpp>
+#include <raft/mr/host/allocator.hpp>
 
 namespace ML {
-
-using MLCommon::deviceAllocator;
-using MLCommon::hostAllocator;
 
 template <typename T>
 class stdAllocatorAdapter {
@@ -54,7 +52,7 @@ class stdAllocatorAdapter {
 
   stdAllocatorAdapter& operator=(const stdAllocatorAdapter& other) = default;
 
-  stdAllocatorAdapter(std::shared_ptr<hostAllocator> allocator,
+  stdAllocatorAdapter(std::shared_ptr<raft::mr::host::allocator> allocator,
                       cudaStream_t stream)
     : _allocator(allocator), _stream(stream) {}
 
@@ -86,7 +84,7 @@ class stdAllocatorAdapter {
   }
 
  private:
-  std::shared_ptr<hostAllocator> _allocator;
+  std::shared_ptr<raft::mr::host::allocator> _allocator;
   cudaStream_t _stream = 0;
 };
 
@@ -106,7 +104,7 @@ class thrustAllocatorAdapter {
 
   thrustAllocatorAdapter() = delete;
 
-  thrustAllocatorAdapter(std::shared_ptr<deviceAllocator> allocator,
+  thrustAllocatorAdapter(std::shared_ptr<raft::mr::device::allocator> allocator,
                          cudaStream_t stream)
     : _allocator(allocator), _stream(stream) {}
 
@@ -121,7 +119,7 @@ class thrustAllocatorAdapter {
   }
 
  private:
-  std::shared_ptr<deviceAllocator> _allocator;
+  std::shared_ptr<raft::mr::device::allocator> _allocator;
   cudaStream_t _stream = 0;
 };
 
@@ -139,7 +137,7 @@ thrustAllocatorAdapter _decltypeHelper{0, 0};
  * @returns A Thrust execution policy that will use allocator for temporary memory
  * allocation.
  */
-inline auto thrust_exec_policy(std::shared_ptr<deviceAllocator> allocator,
+inline auto thrust_exec_policy(std::shared_ptr<raft::mr::device::allocator> allocator,
                                cudaStream_t stream)
   -> std::unique_ptr<
     decltype(thrust::cuda::par(_decltypeHelper)),

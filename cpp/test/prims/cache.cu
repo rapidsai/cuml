@@ -17,7 +17,7 @@
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
 #include <cache/cache.cuh>
-#include <cuml/common/cuml_allocator.hpp>
+#include <raft/mr/device/allocator.hpp>
 #include <iostream>
 #include <raft/cuda_utils.cuh>
 #include "test_utils.h"
@@ -29,7 +29,7 @@ class CacheTest : public ::testing::Test {
  protected:
   void SetUp() override {
     CUDA_CHECK(cudaStreamCreate(&stream));
-    allocator = std::shared_ptr<deviceAllocator>(
+    allocator = std::shared_ptr<raft::mr::device::allocator>(
       new raft::mr::device::default_allocator());
     raft::allocate(x_dev, n_rows * n_cols);
     raft::update_device(x_dev, x_host, n_rows * n_cols, stream);
@@ -77,7 +77,7 @@ class CacheTest : public ::testing::Test {
 
   int *argfirst_dev;
 
-  std::shared_ptr<deviceAllocator> allocator;
+  std::shared_ptr<raft::mr::device::allocator> allocator;
   cudaStream_t stream;
 
   bool *is_cached;

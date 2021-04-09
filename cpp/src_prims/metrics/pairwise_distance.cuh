@@ -15,7 +15,7 @@
  */
 
 #include <raft/cudart_utils.h>
-#include <cuml/common/cuml_allocator.hpp>
+#include <raft/mr/device/allocator.hpp>
 #include <cuml/common/device_buffer.hpp>
 #include <distance/distance.cuh>
 #include <raft/cuda_utils.cuh>
@@ -46,7 +46,7 @@ namespace Metrics {
 template <typename DataT, typename IndexT>
 void pairwise_distance(const DataT *x, const DataT *y, DataT *dist, IndexT m,
                        IndexT n, IndexT k, raft::distance::DistanceType metric,
-                       std::shared_ptr<MLCommon::deviceAllocator> allocator,
+                       std::shared_ptr<raft::mr::device::allocator> allocator,
                        cudaStream_t stream, bool isRowMajor = true) {
   //Allocate workspace
   MLCommon::device_buffer<char> workspace(allocator, stream, 1);

@@ -18,7 +18,7 @@
 
 #include <raft/cudart_utils.h>
 #include <cub/cub.cuh>
-#include <cuml/common/cuml_allocator.hpp>
+#include <raft/mr/device/allocator.hpp>
 #include <cuml/common/device_buffer.hpp>
 #include <cuml/common/logger.hpp>
 #include <raft/cuda_utils.cuh>
@@ -118,7 +118,7 @@ class Cache {
    *   cache entry
    * @param cache_size in MiB
    */
-  Cache(std::shared_ptr<deviceAllocator> allocator, cudaStream_t stream,
+  Cache(std::shared_ptr<raft::mr::device::allocator> allocator, cudaStream_t stream,
         int n_vec, float cache_size = 200)
     : allocator(allocator),
       n_vec(n_vec),
@@ -333,7 +333,7 @@ class Cache {
   int GetSize() const { return cached_keys.size(); }
 
  private:
-  std::shared_ptr<deviceAllocator> allocator;
+  std::shared_ptr<raft::mr::device::allocator> allocator;
 
   int n_vec;         //!< Number of elements in a cached vector
   float cache_size;  //!< in MiB

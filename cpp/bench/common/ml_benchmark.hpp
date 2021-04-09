@@ -19,7 +19,7 @@
 #include <benchmark/benchmark.h>
 #include <cuda_runtime.h>
 #include <raft/cudart_utils.h>
-#include <cuml/common/cuml_allocator.hpp>
+#include <raft/mr/device/allocator.hpp>
 #include <cuml/common/logger.hpp>
 #include <cuml/common/utils.hpp>
 #include <memory>
@@ -87,7 +87,7 @@ struct CudaEventTimer {
 /** Main fixture to be inherited and used by all other c++ benchmarks in cuml */
 class Fixture : public ::benchmark::Fixture {
  public:
-  Fixture(const std::string& name, std::shared_ptr<deviceAllocator> _alloc)
+  Fixture(const std::string& name, std::shared_ptr<raft::mr::device::allocator> _alloc)
     : ::benchmark::Fixture(), d_alloc(_alloc) {
     SetName(name.c_str());
   }
@@ -173,7 +173,7 @@ class Fixture : public ::benchmark::Fixture {
     d_alloc->deallocate(ptr, len * sizeof(T), stream);
   }
 
-  std::shared_ptr<deviceAllocator> d_alloc;
+  std::shared_ptr<raft::mr::device::allocator> d_alloc;
   cudaStream_t stream;
   int l2CacheSize;
   char* scratchBuffer;

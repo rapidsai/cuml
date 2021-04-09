@@ -17,7 +17,7 @@
 #include <raft/cudart_utils.h>
 #include <raft/linalg/distance_type.h>
 #include <algorithm>
-#include <cuml/common/cuml_allocator.hpp>
+#include <raft/mr/device/allocator.hpp>
 #include <iostream>
 #include <metrics/batched/silhouette_score.cuh>
 #include <metrics/silhouette_score.cuh>
@@ -201,7 +201,7 @@ class silhouetteScoreTest
   cudaStream_t stream;
   raft::handle_t handle;
   int chunk;
-  std::shared_ptr<MLCommon::deviceAllocator> allocator;
+  std::shared_ptr<raft::mr::device::allocator> allocator;
 };
 
 //setting test parameter values

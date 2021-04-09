@@ -14,7 +14,8 @@
  * limitations under the License.
  */
 
-#include <cuml/common/cuml_allocator.hpp>
+#include <raft/mr/device/allocator.hpp>
+#include <raft/mr/host/allocator.hpp>
 #include <cuml/linear_model/ols_mg.hpp>
 #include <cuml/linear_model/preprocess_mg.hpp>
 #include <opg/linalg/lstsq.hpp>

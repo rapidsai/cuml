@@ -21,7 +21,6 @@
 
 template <class T, class L>
 struct TemporaryMemory;
-using deviceAllocator = raft::mr::device::allocator;
 
 namespace ML {
 namespace DecisionTree {

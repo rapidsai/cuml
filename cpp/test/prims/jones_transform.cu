@@ -15,7 +15,7 @@
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
 #include <algorithm>
-#include <cuml/common/cuml_allocator.hpp>
+#include <raft/mr/device/allocator.hpp>
 #include <iostream>
 #include <random>
 #include <timeSeries/jones_transform.cuh>
@@ -99,7 +99,7 @@ template
     raft::update_device(d_params, &arr1[0], (size_t)nElements, stream);
     raft::update_device(d_golden_ar_trans, newParams, (size_t)nElements,
                         stream);
-    std::shared_ptr<MLCommon::deviceAllocator> allocator(
+    std::shared_ptr<raft::mr::device::allocator> allocator(
       new raft::mr::device::default_allocator);
 
     //calling the ar_trans_param CUDA implementation

@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include <cuml/common/cuml_allocator.hpp>
+#include <raft/mr/device/allocator.hpp>
 #include <opg/matrix/data.hpp>
 #include <opg/matrix/part_descriptor.hpp>
 #include <raft/comms/comms.hpp>

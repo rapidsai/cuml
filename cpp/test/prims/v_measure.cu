@@ -16,7 +16,7 @@
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
 #include <algorithm>
-#include <cuml/common/cuml_allocator.hpp>
+#include <raft/mr/device/allocator.hpp>
 #include <iostream>
 #include <metrics/v_measure.cuh>
 #include <random>
@@ -73,7 +73,7 @@ class vMeasureTest : public ::testing::TestWithParam<vMeasureParam> {
 
     raft::update_device(truthClusterArray, &arr1[0], (int)nElements, stream);
     raft::update_device(predClusterArray, &arr2[0], (int)nElements, stream);
-    std::shared_ptr<MLCommon::deviceAllocator> allocator(
+    std::shared_ptr<raft::mr::device::allocator> allocator(
       new raft::mr::device::default_allocator);
 
     //calculating the golden output

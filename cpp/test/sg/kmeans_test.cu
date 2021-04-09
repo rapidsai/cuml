@@ -23,7 +23,7 @@
 
 #include <thrust/fill.h>
 #include <cuml/cluster/kmeans.hpp>
-#include <cuml/common/cuml_allocator.hpp>
+#include <raft/mr/device/allocator.hpp>
 #include <cuml/common/device_buffer.hpp>
 #include <cuml/common/logger.hpp>
 #include <cuml/datasets/make_blobs.hpp>

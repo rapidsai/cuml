@@ -21,7 +21,7 @@
 #include <cuml/manifold/umapparams.h>
 #include <datasets/digits.h>
 #include <raft/cudart_utils.h>
-#include <cuml/common/cuml_allocator.hpp>
+#include <raft/mr/device/allocator.hpp>
 #include <cuml/common/device_buffer.hpp>
 #include <cuml/datasets/make_blobs.hpp>
 #include <cuml/manifold/umap.hpp>
@@ -54,7 +54,7 @@ __global__ void has_nan_kernel(T* data, size_t len, bool* answer) {
 }
 
 template <typename T>
-bool has_nan(T* data, size_t len, std::shared_ptr<deviceAllocator> alloc,
+bool has_nan(T* data, size_t len, std::shared_ptr<raft::mr::device::allocator> alloc,
              cudaStream_t stream) {
   dim3 blk(256);
   dim3 grid(raft::ceildiv(len, (size_t)blk.x));
@@ -79,7 +79,7 @@ __global__ void are_equal_kernel(T* embedding1, T* embedding2, size_t len,
 
 template <typename T>
 bool are_equal(T* embedding1, T* embedding2, size_t len,
-               std::shared_ptr<deviceAllocator> alloc, cudaStream_t stream) {
+               std::shared_ptr<raft::mr::device::allocator> alloc, cudaStream_t stream) {
   double h_answer = 0.;
   device_buffer<double> d_answer(alloc, stream, 1);
   raft::update_device(d_answer.data(), &h_answer, 1, stream);

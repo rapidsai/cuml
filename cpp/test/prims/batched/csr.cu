@@ -15,7 +15,7 @@
  */
 
 #include <gtest/gtest.h>
-#include <cuml/common/cuml_allocator.hpp>
+#include <raft/mr/device/allocator.hpp>
 #include <random>
 #include <vector>
 

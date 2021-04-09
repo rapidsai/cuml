@@ -22,7 +22,8 @@
 #include <treelite/tree.h>
 #include <algorithm>
 #include <climits>
-#include <cuml/common/cuml_allocator.hpp>
+#include <raft/mr/device/allocator.hpp>
+#include <raft/mr/host/allocator.hpp>
 #include <cuml/tree/decisiontree.hpp>
 #include <map>
 #include <numeric>
@@ -101,8 +102,8 @@ class DecisionTreeBase {
     const int treeid, std::shared_ptr<TemporaryMemory<T, L>> tempmem) = 0;
 
   void base_fit(
-    const std::shared_ptr<MLCommon::deviceAllocator> device_allocator_in,
-    const std::shared_ptr<MLCommon::hostAllocator> host_allocator_in,
+    const std::shared_ptr<raft::mr::device::allocator> device_allocator_in,
+    const std::shared_ptr<raft::mr::host::allocator> host_allocator_in,
     const cudaStream_t stream_in, const T *data, const int ncols,
     const int nrows, const L *labels, unsigned int *rowids,
     const int n_sampled_rows, int unique_labels,
@@ -145,8 +146,8 @@ class DecisionTreeClassifier : public DecisionTreeBase<T, int> {
            std::shared_ptr<TemporaryMemory<T, int>> in_tempmem = nullptr);
 
   //This fit fucntion does not take handle , used by RF
-  void fit(const std::shared_ptr<MLCommon::deviceAllocator> device_allocator_in,
-           const std::shared_ptr<MLCommon::hostAllocator> host_allocator_in,
+  void fit(const std::shared_ptr<raft::mr::device::allocator> device_allocator_in,
+           const std::shared_ptr<raft::mr::host::allocator> host_allocator_in,
            const cudaStream_t stream_in, const T *data, const int ncols,
            const int nrows, const int *labels, unsigned int *rowids,
            const int n_sampled_rows, const int unique_labels,
@@ -174,8 +175,8 @@ class DecisionTreeRegressor : public DecisionTreeBase<T, T> {
            std::shared_ptr<TemporaryMemory<T, T>> in_tempmem = nullptr);
 
   //This fit function does not take handle. Used by RF
-  void fit(const std::shared_ptr<MLCommon::deviceAllocator> device_allocator_in,
-           const std::shared_ptr<MLCommon::hostAllocator> host_allocator_in,
+  void fit(const std::shared_ptr<raft::mr::device::allocator> device_allocator_in,
+           const std::shared_ptr<raft::mr::host::allocator> host_allocator_in,
            const cudaStream_t stream_in, const T *data, const int ncols,
            const int nrows, const T *labels, unsigned int *rowids,
            const int n_sampled_rows, TreeMetaDataNode<T, T> *&tree,

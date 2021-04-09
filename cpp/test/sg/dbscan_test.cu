@@ -21,7 +21,7 @@
 
 #include <raft/linalg/distance_type.h>
 #include <cuml/cluster/dbscan.hpp>
-#include <cuml/common/cuml_allocator.hpp>
+#include <raft/mr/device/allocator.hpp>
 #include <cuml/datasets/make_blobs.hpp>
 #include <cuml/metrics/metrics.hpp>
 #include <distance/distance.cuh>

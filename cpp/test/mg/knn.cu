@@ -21,7 +21,7 @@
 #include "../prims/test_utils.h"
 #include "test_opg_utils.h"
 
-#include <cuml/common/cuml_allocator.hpp>
+#include <raft/mr/device/allocator.hpp>
 #include <cuml/common/device_buffer.hpp>
 #include <raft/comms/mpi_comms.hpp>
 
@@ -47,7 +47,7 @@ class BruteForceKNNTest : public ::testing::TestWithParam<KNNParams> {
  public:
   void generate_partition(Matrix::floatData_t *part, size_t n_rows, int n_cols,
                           int n_clusters, int part_num,
-                          std::shared_ptr<deviceAllocator> allocator,
+                          std::shared_ptr<raft::mr::device::allocator> allocator,
                           cudaStream_t stream) {
     device_buffer<int> labels(allocator, stream, n_rows);
 

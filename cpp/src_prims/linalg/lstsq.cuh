@@ -21,7 +21,7 @@
 #include <raft/linalg/cusolver_wrappers.h>
 #include <raft/linalg/gemv.h>
 #include <raft/linalg/transpose.h>
-#include <cuml/common/cuml_allocator.hpp>
+#include <raft/mr/device/allocator.hpp>
 #include <cuml/common/device_buffer.hpp>
 #include <raft/cuda_utils.cuh>
 #include <raft/linalg/eig.cuh>
@@ -79,7 +79,7 @@ void lstsq(const raft::handle_t &handle, math_t *A, int n_rows, int n_cols,
 template <typename math_t>
 void lstsqQR(math_t *A, int n_rows, int n_cols, math_t *b, math_t *w,
              cusolverDnHandle_t cusolverH, cublasHandle_t cublasH,
-             std::shared_ptr<deviceAllocator> allocator, cudaStream_t stream) {
+             std::shared_ptr<raft::mr::device::allocator> allocator, cudaStream_t stream) {
   int m = n_rows;
   int n = n_cols;
 

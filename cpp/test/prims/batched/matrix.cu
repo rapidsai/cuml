@@ -20,7 +20,7 @@
 #include <random>
 #include <vector>
 
-#include <cuml/common/cuml_allocator.hpp>
+#include <raft/mr/device/allocator.hpp>
 
 #include <raft/cudart_utils.h>
 #include <test_utils.h>

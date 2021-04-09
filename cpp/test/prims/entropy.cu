@@ -16,7 +16,7 @@
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
 #include <algorithm>
-#include <cuml/common/cuml_allocator.hpp>
+#include <raft/mr/device/allocator.hpp>
 #include <iostream>
 #include <metrics/entropy.cuh>
 #include <raft/cuda_utils.cuh>
@@ -79,7 +79,7 @@ class entropyTest : public ::testing::TestWithParam<entropyParam> {
     raft::allocate(clusterArray, nElements, true);
     raft::update_device(clusterArray, &arr1[0], (int)nElements, stream);
 
-    std::shared_ptr<MLCommon::deviceAllocator> allocator(
+    std::shared_ptr<raft::mr::device::allocator> allocator(
       new raft::mr::device::default_allocator);
 
     CUDA_CHECK(cudaStreamSynchronize(stream));

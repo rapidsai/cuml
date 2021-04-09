@@ -31,10 +31,6 @@
 #include <raft/sparse/cusparse_wrappers.h>
 #include <raft/error.hpp>
 
-namespace ML {
-using deviceAllocator = raft::mr::device::allocator;
-}
-
 namespace UMAPAlgo {
 namespace kNNGraph {
 namespace Algo {

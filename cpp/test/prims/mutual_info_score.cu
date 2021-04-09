@@ -16,7 +16,7 @@
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
 #include <algorithm>
-#include <cuml/common/cuml_allocator.hpp>
+#include <raft/mr/device/allocator.hpp>
 #include <iostream>
 #include <metrics/contingencyMatrix.cuh>
 #include <metrics/mutual_info_score.cuh>
@@ -114,7 +114,7 @@ class mutualInfoTest : public ::testing::TestWithParam<mutualInfoParam> {
 
     raft::update_device(firstClusterArray, &arr1[0], (int)nElements, stream);
     raft::update_device(secondClusterArray, &arr2[0], (int)nElements, stream);
-    std::shared_ptr<MLCommon::deviceAllocator> allocator(
+    std::shared_ptr<raft::mr::device::allocator> allocator(
       new raft::mr::device::default_allocator);
 
     //calling the mutualInfo CUDA implementation
