@@ -83,7 +83,7 @@ class KNeighborsRegressor(NearestNeighbors):
         self.data_handler = \
             DistributedDataHandler.create(data=[X, y],
                                           client=self.client)
-        self.n_outputs = y.shape[1]
+        self.n_outputs = y.shape[1] if y.ndim != 1 else 1
 
         return self
 

@@ -20,6 +20,7 @@ import numbers
 import warnings
 from itertools import combinations_with_replacement as combinations_w_r
 
+import numpy as cpu_np
 import cupy as np
 from cupy import sparse
 from scipy import stats
@@ -256,7 +257,7 @@ class MinMaxScaler(TransformerMixin,
 
     Examples
     --------
-    >>> from cuml.experimental.preprocessing import MinMaxScaler
+    >>> from cuml.preprocessing import MinMaxScaler
     >>> data = [[-1, 2], [-0.5, 6], [0, 10], [1, 18]]
     >>> scaler = MinMaxScaler()
     >>> print(scaler.fit(data))
@@ -575,7 +576,7 @@ class StandardScaler(TransformerMixin,
 
     Examples
     --------
-    >>> from cuml.experimental.preprocessing import StandardScaler
+    >>> from cuml.preprocessing import StandardScaler
     >>> data = [[0, 0], [0, 0], [1, 1], [1, 1]]
     >>> scaler = StandardScaler()
     >>> print(scaler.fit(data))
@@ -891,7 +892,7 @@ class MaxAbsScaler(TransformerMixin,
 
     Examples
     --------
-    >>> from cuml.experimental.preprocessing import MaxAbsScaler
+    >>> from cuml.preprocessing import MaxAbsScaler
     >>> X = [[ 1., -1.,  2.],
     ...      [ 2.,  0.,  0.],
     ...      [ 0.,  1., -1.]]
@@ -1083,16 +1084,17 @@ def maxabs_scale(X, *, axis=0, copy=True):
     if original_ndim == 1:
         X = X.reshape(X.shape[0], 1)
 
-    s = MaxAbsScaler(copy=copy)
-    if axis == 0:
-        X = s.fit_transform(X)
-    else:
-        X = s.fit_transform(X.T).T
+    with using_output_type('cupy'):
+        s = MaxAbsScaler(copy=copy)
+        if axis == 0:
+            X = s.fit_transform(X)
+        else:
+            X = s.fit_transform(X.T).T
 
-    if original_ndim == 1:
-        X = X.ravel()
+        if original_ndim == 1:
+            X = X.ravel()
 
-    return X
+        return X
 
 
 class RobustScaler(TransformerMixin,
@@ -1148,7 +1150,7 @@ class RobustScaler(TransformerMixin,
 
     Examples
     --------
-    >>> from cuml.experimental.preprocessing import RobustScaler
+    >>> from cuml.preprocessing import RobustScaler
     >>> X = [[ 1., -2.,  2.],
     ...      [ -2.,  1.,  3.],
     ...      [ 4.,  1., -2.]]
@@ -1409,7 +1411,7 @@ class PolynomialFeatures(TransformerMixin,
     Examples
     --------
     >>> import numpy as np
-    >>> from cuml.experimental.preprocessing import PolynomialFeatures
+    >>> from cuml.preprocessing import PolynomialFeatures
     >>> X = np.arange(6).reshape(3, 2)
     >>> X
     array([[0, 1],
@@ -1476,8 +1478,9 @@ class PolynomialFeatures(TransformerMixin,
         combinations = self._combinations(self.n_input_features_, self.degree,
                                           self.interaction_only,
                                           self.include_bias)
-        return np.vstack([np.bincount(c, minlength=self.n_input_features_)
-                          for c in combinations])
+        return cpu_np.vstack([cpu_np.bincount(c,
+                                              minlength=self.n_input_features_)
+                              for c in combinations])
 
     def get_feature_names(self, input_features=None):
         """
@@ -1499,7 +1502,7 @@ class PolynomialFeatures(TransformerMixin,
             input_features = ['x%d' % i for i in range(powers.shape[1])]
         feature_names = []
         for row in powers:
-            inds = np.where(row)[0]
+            inds = cpu_np.where(row)[0]
             if len(inds):
                 name = " ".join("%s^%d" % (input_features[ind], exp)
                                 if exp != 1 else input_features[ind]
@@ -1782,7 +1785,7 @@ class Normalizer(TransformerMixin,
 
     Examples
     --------
-    >>> from cuml.experimental.preprocessing import Normalizer
+    >>> from cuml.preprocessing import Normalizer
     >>> X = [[4, 1, 2, 2],
     ...      [1, 3, 9, 3],
     ...      [5, 7, 5, 1]]
@@ -1909,7 +1912,7 @@ class Binarizer(TransformerMixin,
 
     Examples
     --------
-    >>> from cuml.experimental.preprocessing import Binarizer
+    >>> from cuml.preprocessing import Binarizer
     >>> X = [[ 1., -1.,  2.],
     ...      [ 2.,  0.,  0.],
     ...      [ 0.,  1., -1.]]
@@ -2043,8 +2046,6 @@ class KernelCenterer(TransformerMixin, BaseEstimator):
     It is equivalent to centering phi(x) with
     sklearn.preprocessing.StandardScaler(with_std=False).
 
-    Read more in the :ref:`User Guide <kernel_centering>`.
-
     Attributes
     ----------
     K_fit_rows_ : array, shape (n_samples,)
@@ -2156,10 +2157,6 @@ class QuantileTransformer(TransformerMixin,
     distribution. Note that this transform is non-linear. It may distort linear
     correlations between variables measured at the same scale but renders
     variables measured at different scales more directly comparable.
-
-    Read more in the :ref:`User Guide <preprocessing_transformer>`.
-
-    .. versionadded:: 0.19
 
     Parameters
     ----------
@@ -2592,8 +2589,6 @@ def quantile_transform(X, *, axis=0, n_quantiles=1000,
     correlations between variables measured at the same scale but renders
     variables measured at different scales more directly comparable.
 
-    Read more in the :ref:`User Guide <preprocessing_transformer>`.
-
     Parameters
     ----------
     X : array-like, sparse matrix
@@ -2709,10 +2704,6 @@ class PowerTransformer(TransformerMixin,
 
     By default, zero-mean, unit-variance normalization is applied to the
     transformed data.
-
-    Read more in the :ref:`User Guide <preprocessing_transformer>`.
-
-    .. versionadded:: 0.20
 
     Parameters
     ----------
@@ -3061,8 +3052,6 @@ def power_transform(X, method='yeo-johnson', *, standardize=True, copy=True):
 
     By default, zero-mean, unit-variance normalization is applied to the
     transformed data.
-
-    Read more in the :ref:`User Guide <preprocessing_transformer>`.
 
     Parameters
     ----------
