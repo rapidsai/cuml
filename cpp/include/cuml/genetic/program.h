@@ -19,6 +19,7 @@
 #include "node.h"
 #include "fitness.h"
 #include "genetic.h"
+#include <random>
 #include <cuml/cuml.hpp>
 
 namespace cuml {
@@ -85,18 +86,18 @@ void fitness(const raft::handle_t &h, program_t p,
              float parsimony_coeff, float* score);
 
 /** build a random program of max-depth */
-program_t build_program(param &params, int seed);
+program_t build_program(param &params, std::mt19937 &gen);
 
 /** Point mutations on CPU */
-program_t point_mutation(program_t prog, param &params, int seed);
+program_t point_mutation(program_t prog, param &params, std::mt19937 &gen);
 
 /** Crossover mutations on CPU */
-program_t crossover(program_t prog, program_t donor, param &params, int seed);
+program_t crossover(program_t prog, program_t donor, param &params, std::mt19937 &gen);
 
 /** Subtree mutations on CPU*/
-program_t subtree_mutation(program_t prog, param &params, int seed);
+program_t subtree_mutation(program_t prog, param &params, std::mt19937 &gen);
 
 /** Hoist mutation on CPU*/
-program_t hoist_mutation(program_t prog, param &params, int seed);
+program_t hoist_mutation(program_t prog, param &params, std::mt19937 &gen);
 }  // namespace genetic
 }  // namespace cuml

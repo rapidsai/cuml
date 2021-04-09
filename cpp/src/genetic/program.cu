@@ -141,13 +141,12 @@ void fitness(const raft::handle_t &h, program_t p,
 /**
  * Get a random subtree of the current program nodes (on CPU)
  */
-std::pair<int, int> get_subtree(node* pnodes, int len, int seed) {
+std::pair<int, int> get_subtree(node* pnodes, int len, std::mt19937 &gen) {
   
   int start,end;
   start=end=0;
 
   // Specify RNG
-  std::mt19937 gen(seed);
   std::uniform_real_distribution<float> dist(0.0f, 1.0f);
   float bound = dist(gen);
 
@@ -181,14 +180,13 @@ std::pair<int, int> get_subtree(node* pnodes, int len, int seed) {
   return std::make_pair(start,end);
 }
 
-program_t build_program(param &params,int seed){
+program_t build_program(param &params,std::mt19937 &gen){
   
   // Build a new program
   std::stack<int> arity_stack;
   std::vector<node> nodelist(0);
 
   // Specify RNG
-  std::mt19937 gen(seed);
   std::uniform_int_distribution<> dist_func(0,params.function_set.size()-1);
   std::uniform_int_distribution<> dist_depth(1, MAX_STACK_SIZE);
   std::uniform_int_distribution<> dist_t(0,params.num_features);
@@ -254,12 +252,11 @@ program_t build_program(param &params,int seed){
   return next_prog;
 }
 
-program_t point_mutation(program_t prog, param& params, int seed){
+program_t point_mutation(program_t prog, param& params, std::mt19937 &gen){
   
   program_t next_prog = new program(*prog);
   
   // Specify RNG
-  std::mt19937 gen(seed);
   std::uniform_real_distribution<float> dist_01(0.0f, 1.0f);
   std::uniform_int_distribution<> dist_t(0,params.num_features);
   std::uniform_real_distribution<float> dist_c(params.const_range[0],
@@ -297,15 +294,15 @@ program_t point_mutation(program_t prog, param& params, int seed){
   return next_prog;
 }
 
-program_t crossover(program_t prog, program_t donor, param &params, int seed){
+program_t crossover(program_t prog, program_t donor, param &params, std::mt19937 &gen){
 
   // Get a random subtree of prog to replace
-  std::pair<int, int> prog_slice = get_subtree(prog->nodes, prog->len, seed);
+  std::pair<int, int> prog_slice = get_subtree(prog->nodes, prog->len, gen);
   int prog_start = prog_slice.first;
   int prog_end = prog_slice.second;
 
   // Get subtree of donor
-  std::pair<int, int> donor_slice = get_subtree(donor->nodes, donor->len, seed);
+  std::pair<int, int> donor_slice = get_subtree(donor->nodes, donor->len, gen);
   int donor_start = donor_slice.first;
   int donor_end = donor_slice.second;
 
@@ -332,20 +329,20 @@ program_t crossover(program_t prog, program_t donor, param &params, int seed){
   return next_prog;
 }
 
-program_t subtree_mutation(program_t prog, param &params, int seed){
+program_t subtree_mutation(program_t prog, param &params, std::mt19937 &gen){
   // Generate a random program and perform crossover
-  program_t new_program = build_program(params,seed);
-  return crossover(prog,new_program,params,seed);
+  program_t new_program = build_program(params,gen);
+  return crossover(prog,new_program,params,gen);
 }
 
-program_t hoist_mutation(program_t prog, param &params, int seed){
+program_t hoist_mutation(program_t prog, param &params, std::mt19937 &gen){
   // Replace program subtree with a random sub-subtree
 
-  std::pair<int, int> prog_slice = get_subtree(prog->nodes, prog->len, seed);
+  std::pair<int, int> prog_slice = get_subtree(prog->nodes, prog->len, gen);
   int prog_start = prog_slice.first;
   int prog_end = prog_slice.second;
 
-  std::pair<int,int> sub_slice = get_subtree(&prog->nodes[prog_start],prog_end-prog_start,seed);
+  std::pair<int,int> sub_slice = get_subtree(&prog->nodes[prog_start],prog_end-prog_start,gen);
   int sub_start = sub_slice.first;
   int sub_end = sub_slice.second;
 
