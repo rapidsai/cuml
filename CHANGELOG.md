@@ -1,10 +1,10 @@
+# cuML 0.20.0 (Date TBD)
+
+Please see https://github.com/rapidsai/cuml/releases/tag/v0.20.0a for the latest changes to this development branch.
+
 # cuML 0.19.0 (Date TBD)
 
-## New Features
-
-## Improvements
-
-## Bug Fixes
+Please see https://github.com/rapidsai/cuml/releases/tag/v0.19.0a for the latest changes to this development branch.
 
 # cuML 0.18.0 (24 Feb 2021)
 
@@ -125,6 +125,7 @@
 - PR #2659: Add initial max inner product sparse knn
 - PR #3092: Multiclass meta estimator wrappers and multiclass SVC
 - PR #2836: Refactor UMAP to accept sparse inputs
+- PR #2894: predict_proba in FIL C++ for XGBoost-style multi-class models
 - PR #3126: Experimental versions of GPU accelerated Kernel and Permutation SHAP
 
 ## Improvements

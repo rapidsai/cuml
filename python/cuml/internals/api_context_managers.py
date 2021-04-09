@@ -33,10 +33,6 @@ except ImportError:
     except ImportError:
         pass
 
-# Use _F as a type variable for decorators. See:
-# https://github.com/python/mypy/pull/8336/files#diff-eb668b35b7c0c4f88822160f3ca4c111f444c88a38a3b9df9bb8427131538f9cR260
-_F = typing.TypeVar("_F", bound=typing.Callable[..., typing.Any])
-
 
 @contextlib.contextmanager
 def _using_mirror_output_type():
@@ -341,13 +337,17 @@ class ProcessReturnArray(ProcessReturn):
     def convert_to_cumlarray(self, ret_val):
 
         # Get the output type
-        ret_val_type_str = cuml.common.input_utils.determine_array_type(
-            ret_val)
+        ret_val_type_str, is_sparse = \
+            cuml.common.input_utils.determine_array_type_full(ret_val)
 
         # If we are a supported array and not already cuml, convert to cuml
         if (ret_val_type_str is not None and ret_val_type_str != "cuml"):
-            ret_val = cuml.common.input_utils.input_to_cuml_array(
-                ret_val, order="K").array
+            if is_sparse:
+                ret_val = cuml.common.array_sparse.SparseCumlArray(
+                    ret_val, convert_index=False)
+            else:
+                ret_val = cuml.common.input_utils.input_to_cuml_array(
+                    ret_val, order="K").array
 
         return ret_val
 

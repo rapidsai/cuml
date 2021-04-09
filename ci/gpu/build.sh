@@ -16,6 +16,7 @@ function hasArg {
 # Set path and build parallel level
 export PATH=/opt/conda/bin:/usr/local/cuda/bin:$PATH
 export PARALLEL_LEVEL=${PARALLEL_LEVEL:-4}
+export CONDA_ARTIFACT_PATH=${WORKSPACE}/ci/artifacts/cuml/cpu/.conda-bld/
 
 # Set home to the job's workspace
 export HOME=$WORKSPACE
@@ -54,10 +55,11 @@ gpuci_conda_retry install -c conda-forge -c rapidsai -c rapidsai-nightly -c nvid
       "dask-cuda=${MINOR_VERSION}" \
       "ucx-py=${MINOR_VERSION}" \
       "ucx-proc=*=gpu" \
-      "xgboost=1.3.3dev.rapidsai${MINOR_VERSION}" \
+      "xgboost=1.4.0dev.rapidsai${MINOR_VERSION}" \
       "rapids-build-env=${MINOR_VERSION}.*" \
       "rapids-notebook-env=${MINOR_VERSION}.*" \
-      "rapids-doc-env=${MINOR_VERSION}.*"
+      "rapids-doc-env=${MINOR_VERSION}.*" \
+      "shap>=0.37,<=0.39"
 
 # https://docs.rapids.ai/maintainers/depmgmt/
 # gpuci_conda_retry remove --force rapids-build-env rapids-notebook-env
@@ -69,10 +71,10 @@ if [ "$py_ver" == "3.6" ];then
     conda install contextvars
 fi
 
-gpuci_logger "Install the master version of dask and distributed"
+gpuci_logger "Install the main version of dask and distributed"
 set -x
-pip install "git+https://github.com/dask/distributed.git@master" --upgrade --no-deps
-pip install "git+https://github.com/dask/dask.git@master" --upgrade --no-deps
+pip install "git+https://github.com/dask/distributed.git@main" --upgrade --no-deps
+pip install "git+https://github.com/dask/dask.git@main" --upgrade --no-deps
 set +x
 
 gpuci_logger "Check compiler versions"
@@ -108,7 +110,6 @@ if [[ -z "$PROJECT_FLASH" || "$PROJECT_FLASH" == "0" ]]; then
     ################################################################################
     # TEST - Run GoogleTest and py.tests for libcuml and cuML
     ################################################################################
-
     if hasArg --skip-tests; then
         gpuci_logger "Skipping Tests"
         exit 0
@@ -186,11 +187,11 @@ else
     patchelf --replace-needed `patchelf --print-needed ./test/ml | grep faiss` libfaiss.so ./test/ml
     GTEST_OUTPUT="xml:${WORKSPACE}/test-results/libcuml_cpp/" ./test/ml
 
-    CONDA_FILE=`find $WORKSPACE/ci/artifacts/cuml/cpu/conda-bld/ -name "libcuml*.tar.bz2"`
+    CONDA_FILE=`find ${CONDA_ARTIFACT_PATH} -name "libcuml*.tar.bz2"`
     CONDA_FILE=`basename "$CONDA_FILE" .tar.bz2` #get filename without extension
     CONDA_FILE=${CONDA_FILE//-/=} #convert to conda install
     gpuci_logger "Installing $CONDA_FILE"
-    conda install -c $WORKSPACE/ci/artifacts/cuml/cpu/conda-bld/ "$CONDA_FILE"
+    conda install -c ${CONDA_ARTIFACT_PATH} "$CONDA_FILE"
 
     gpuci_logger "Building cuml"
     "$WORKSPACE/build.sh" -v cuml --codecov

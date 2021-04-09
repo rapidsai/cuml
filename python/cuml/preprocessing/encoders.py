@@ -66,9 +66,8 @@ class OneHotEncoder(Base):
         - dict/list : ``drop[col]`` is the category in feature col that
           should be dropped.
 
-    sparse : bool, default=False
-        This feature was deactivated and will give an exception when True.
-        The reason is because sparse matrix are not fully supported by cupy
+    sparse : bool, default=True
+        This feature is not fully supported by cupy
         yet, causing incorrect values when computing one hot encodings.
         See https://github.com/cupy/cupy/issues/3223
     dtype : number type, default=np.float
@@ -104,13 +103,12 @@ class OneHotEncoder(Base):
         be retained.
 
     """
-    def __init__(self,
+    def __init__(self, *,
                  categories='auto',
                  drop=None,
                  sparse=True,
                  dtype=np.float,
                  handle_unknown='error',
-                 *,
                  handle=None,
                  verbose=False,
                  output_type=None):

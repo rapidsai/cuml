@@ -19,7 +19,7 @@ ARGS=$*
 REPODIR=$(cd $(dirname $0); pwd)
 
 VALIDTARGETS="clean libcuml cuml cpp-mgtests prims bench prims-bench cppdocs pydocs"
-VALIDFLAGS="-v -g -n --allgpuarch --buildfaiss --buildgtest --singlegpu --nvtx --show_depr_warn --codecov -h --help "
+VALIDFLAGS="-v -g -n --allgpuarch --buildfaiss --buildgtest --singlegpu --nvtx --show_depr_warn --codecov --ccache -h --help "
 VALIDARGS="${VALIDTARGETS} ${VALIDFLAGS}"
 HELP="$0 [<target> ...] [<flag> ...]
  where <target> is:
@@ -45,6 +45,7 @@ HELP="$0 [<target> ...] [<flag> ...]
    --show_depr_warn - show cmake deprecation warnings
    --codecov        - Enable code coverage support by compiling with Cython linetracing
                       and profiling enabled (WARNING: Impacts performance)
+   --ccache         - Use ccache to cache previous compilations
    -h               - print this text
 
  default action (no args) is to build and install 'libcuml', 'cuml', and 'prims' targets only for the detected GPU arch
@@ -69,6 +70,7 @@ BUILD_ALL_GPU_ARCH=0
 SINGLEGPU_CPP_FLAG=""
 CUML_EXTRA_PYTHON_ARGS=${CUML_EXTRA_PYTHON_ARGS:=""}
 NVTX=OFF
+CCACHE=OFF
 CLEAN=0
 BUILD_DISABLE_DEPRECATION_WARNING=ON
 BUILD_CUML_STD_COMMS=ON
@@ -80,6 +82,10 @@ BUILD_STATIC_FAISS=OFF
 #         CONDA_PREFIX, but there is no fallback from there!
 INSTALL_PREFIX=${INSTALL_PREFIX:=${PREFIX:=${CONDA_PREFIX}}}
 PARALLEL_LEVEL=${PARALLEL_LEVEL:=""}
+
+
+# Default to Ninja if generator is not specified
+export CMAKE_GENERATOR="${CMAKE_GENERATOR:=Ninja}"
 
 # Allow setting arbitrary cmake args via the $CUML_ADDL_CMAKE_ARGS variable. Any
 # values listed here will override existing arguments. For example:
@@ -151,6 +157,9 @@ fi
 if hasArg --codecov; then
     CUML_EXTRA_PYTHON_ARGS="${CUML_EXTRA_PYTHON_ARGS} --linetrace=1 --profile"
 fi
+if hasArg --ccache; then
+    CCACHE=ON
+fi
 if hasArg clean; then
     CLEAN=1
 fi
@@ -199,6 +208,7 @@ if completeBuild || hasArg libcuml || hasArg prims || hasArg bench || hasArg pri
           -DBUILD_STATIC_FAISS=${BUILD_STATIC_FAISS} \
           -DNVTX=${NVTX} \
           -DPARALLEL_LEVEL=${PARALLEL_LEVEL} \
+          -DUSE_CCACHE=${CCACHE} \
           -DNCCL_PATH=${INSTALL_PREFIX} \
           -DDISABLE_DEPRECATION_WARNING=${BUILD_DISABLE_DEPRECATION_WARNING} \
           -DCMAKE_PREFIX_PATH=${INSTALL_PREFIX} \

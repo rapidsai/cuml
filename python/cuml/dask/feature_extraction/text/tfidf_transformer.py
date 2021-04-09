@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020, NVIDIA CORPORATION.
+# Copyright (c) 2020-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -78,7 +78,7 @@ class TfidfTransformer(BaseEstimator, DelayedTransformMixin):
 
     """
 
-    def __init__(self, client=None, verbose=False, **kwargs):
+    def __init__(self, *, client=None, verbose=False, **kwargs):
 
         """
         Create new  distributed TF-IDF transformer instance
@@ -88,7 +88,7 @@ class TfidfTransformer(BaseEstimator, DelayedTransformMixin):
 
         client : dask.distributed.Client optional Dask client to use
         """
-        super(TfidfTransformer, self).__init__(
+        super().__init__(
             client=client, verbose=verbose, **kwargs
         )
 

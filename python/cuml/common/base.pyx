@@ -155,7 +155,7 @@ class Base(TagsMixin,
         del base  # optional!
     """
 
-    def __init__(self,
+    def __init__(self, *,
                  handle=None,
                  verbose=False,
                  output_type=None):

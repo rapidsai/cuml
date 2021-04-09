@@ -14,12 +14,18 @@
 # limitations under the License.
 #
 
-import cupy as cp
 import pytest
+import os
+
+import numpy as np
+import cupy as cp
+
 from sklearn.datasets import fetch_20newsgroups
 from sklearn.datasets import fetch_california_housing
+from sklearn.datasets import make_classification as skl_make_clas
+from sklearn.datasets import make_regression as skl_make_reg
 from sklearn.feature_extraction.text import CountVectorizer
-import zlib
+from sklearn.model_selection import train_test_split
 
 
 def pytest_configure(config):
@@ -32,7 +38,7 @@ def nlp_20news():
         twenty_train = fetch_20newsgroups(subset='train',
                                           shuffle=True,
                                           random_state=42)
-    except (IOError, zlib.error):
+    except:  # noqa E722
         pytest.xfail(reason="Error fetching 20 newsgroup dataset")
 
     count_vect = CountVectorizer()
@@ -57,3 +63,86 @@ def housing_dataset():
     feature_names = data['feature_names']
 
     return X, y, feature_names
+
+
+@pytest.fixture(scope="session")
+def random_seed(request):
+    current_random_seed = os.getenv('PYTEST_RANDOM_SEED')
+    if current_random_seed is not None and current_random_seed.isdigit():
+        random_seed = int(current_random_seed)
+    else:
+        random_seed = np.random.randint(0, 1e6)
+        os.environ['PYTEST_RANDOM_SEED'] = str(random_seed)
+    print("\nRandom seed value:", random_seed)
+    return random_seed
+
+
+@pytest.hookimpl(tryfirst=True, hookwrapper=True)
+def pytest_runtest_makereport(item, call):
+    outcome = yield
+    rep = outcome.get_result()
+    setattr(item, "rep_" + rep.when, rep)
+
+
+@pytest.fixture(scope="function")
+def failure_logger(request):
+    """
+    To be used when willing to log the random seed used in some failing test.
+    """
+    yield
+    if request.node.rep_call.failed:
+        error_msg = " {} failed with seed: {}"
+        error_msg = error_msg.format(request.node.nodeid,
+                                     os.getenv('PYTEST_RANDOM_SEED'))
+        print(error_msg)
+
+
+def create_synthetic_dataset(generator=skl_make_reg,
+                             n_samples=100,
+                             n_features=10,
+                             test_size=0.25,
+                             random_state_generator=None,
+                             random_state_train_test_split=None,
+                             dtype=np.float32,
+                             **kwargs):
+    X, y = generator(
+        n_samples=n_samples,
+        n_features=n_features,
+        random_state=random_state_generator,
+        **kwargs
+    )
+
+    X_train, X_test, y_train, y_test = train_test_split(
+        X,
+        y,
+        test_size=test_size,
+        random_state=random_state_train_test_split
+    )
+
+    X_train = X_train.astype(dtype)
+    X_test = X_test.astype(dtype)
+    y_train = y_train.astype(dtype)
+    y_test = y_test.astype(dtype)
+
+    return X_train, X_test, y_train, y_test
+
+
+@pytest.fixture(scope="module")
+def exact_shap_regression_dataset():
+    return create_synthetic_dataset(generator=skl_make_reg,
+                                    n_samples=101,
+                                    n_features=11,
+                                    test_size=3,
+                                    random_state_generator=42,
+                                    random_state_train_test_split=42,
+                                    noise=0.1)
+
+
+@pytest.fixture(scope="module")
+def exact_shap_classification_dataset():
+    return create_synthetic_dataset(generator=skl_make_clas,
+                                    n_samples=101,
+                                    n_features=11,
+                                    test_size=3,
+                                    random_state_generator=42,
+                                    random_state_train_test_split=42)

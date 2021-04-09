@@ -53,7 +53,8 @@ cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM":
                float *f,
                int *num_iters,
                bool X_col_major,
-               int loss_type) except +
+               int loss_type,
+               float *sample_weight) except +
 
     void qnFit(handle_t& cuml_handle,
                double *X,
@@ -73,7 +74,8 @@ cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM":
                double *f,
                int *num_iters,
                bool X_col_major,
-               int loss_type) except +
+               int loss_type,
+               double *sample_weight) except +
 
     void qnDecisionFunction(handle_t& cuml_handle,
                             float *X,
@@ -251,13 +253,14 @@ class QN(Base,
     _coef_ = CumlArrayDescriptor()
     intercept_ = CumlArrayDescriptor()
 
-    def __init__(self, loss='sigmoid', fit_intercept=True,
+    def __init__(self, *, loss='sigmoid', fit_intercept=True,
                  l1_strength=0.0, l2_strength=0.0, max_iter=1000, tol=1e-3,
                  linesearch_max_iter=50, lbfgs_memory=5,
                  verbose=False, handle=None, output_type=None):
 
-        super(QN, self).__init__(handle=handle, verbose=verbose,
-                                 output_type=output_type)
+        super().__init__(handle=handle,
+                         verbose=verbose,
+                         output_type=output_type)
 
         self.fit_intercept = fit_intercept
         self.l1_strength = l1_strength
@@ -291,7 +294,7 @@ class QN(Base,
             return self._coef_
 
     @generate_docstring()
-    def fit(self, X, y, convert_dtype=False) -> "QN":
+    def fit(self, X, y, sample_weight=None, convert_dtype=False) -> "QN":
         """
         Fit the model with X and y.
 
@@ -310,14 +313,25 @@ class QN(Base,
 
         self._num_classes = len(cp.unique(y_m))
 
+        cdef uintptr_t sample_weight_ptr = 0
+        if sample_weight is not None:
+            sample_weight, _, _, _ = \
+                input_to_cuml_array(sample_weight,
+                                    check_dtype=self.dtype,
+                                    check_rows=n_rows, check_cols=1,
+                                    convert_to_dtype=(self.dtype
+                                                      if convert_dtype
+                                                      else None))
+            sample_weight_ptr = sample_weight.ptr
+
         self.loss_type = self._get_loss_int(self.loss)
         if self.loss_type != 2 and self._num_classes > 2:
             raise ValueError("Only softmax (multinomial) loss supports more"
                              "than 2 classes.")
 
         if self.loss_type == 2 and self._num_classes <= 2:
-            raise ValueError("Only softmax (multinomial) loss supports more"
-                             "than 2 classes.")
+            raise ValueError("Two classes or less cannot be trained"
+                             "with softmax (multinomial).")
 
         if self.loss_type == 0:
             self._num_classes_dim = self._num_classes - 1
@@ -357,7 +371,8 @@ class QN(Base,
                   <float*> &objective32,
                   <int*> &num_iters,
                   <bool> True,
-                  <int> self.loss_type)
+                  <int> self.loss_type,
+                  <float*>sample_weight_ptr)
 
             self.objective = objective32
 
@@ -380,7 +395,8 @@ class QN(Base,
                   <double*> &objective64,
                   <int*> &num_iters,
                   <bool> True,
-                  <int> self.loss_type)
+                  <int> self.loss_type,
+                  <double*>sample_weight_ptr)
 
             self.objective = objective64
 

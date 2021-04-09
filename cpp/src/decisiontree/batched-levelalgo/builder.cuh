@@ -21,6 +21,8 @@
 
 #include "builder_base.cuh"
 
+#include <common/nvtx.hpp>
+
 namespace ML {
 namespace DecisionTree {
 
@@ -35,6 +37,7 @@ void convertToSparse(const Builder<Traits>& b,
   for (IdxT i = 0; i < b.h_total_nodes; ++i) {
     const auto& hnode = h_nodes[i].info;
     sparsetree[i + len] = hnode;
+    sparsetree[i + len].instance_count = h_nodes[i].count;
     if (hnode.left_child_id != -1) sparsetree[i + len].left_child_id += len;
   }
 }
@@ -51,6 +54,7 @@ void grow_tree(std::shared_ptr<MLCommon::deviceAllocator> d_allocator,
                const DecisionTreeParams& params, cudaStream_t stream,
                std::vector<SparseTreeNode<DataT, LabelT>>& sparsetree,
                IdxT& num_leaves, IdxT& depth) {
+  ML::PUSH_RANGE("DecisionTree::grow_tree in batched-levelalgo @builder.cuh");
   Builder<Traits> builder;
   size_t d_wsize, h_wsize;
   builder.workspaceSize(d_wsize, h_wsize, treeid, seed, params, data, labels,
@@ -68,6 +72,7 @@ void grow_tree(std::shared_ptr<MLCommon::deviceAllocator> d_allocator,
   d_buff.release(stream);
   h_buff.release(stream);
   convertToSparse<Traits>(builder, h_nodes.data(), sparsetree);
+  ML::POP_RANGE();
 }
 
 /**

@@ -77,8 +77,7 @@ class TSNETest : public ::testing::Test {
     score_bh =
       trustworthiness_score<float,
                             raft::distance::DistanceType::L2SqrtUnexpanded>(
-        X_d.data(), Y_d.data(), n, p, 2, 5, handle.get_device_allocator(),
-        handle.get_stream());
+        handle, X_d.data(), Y_d.data(), n, p, 2, 5);
 
     // Test Exact TSNE
     TSNE_fit(handle, X_d.data(), Y_d.data(), n, p, NULL, NULL, 2, 90, 0.5,
@@ -105,8 +104,7 @@ class TSNETest : public ::testing::Test {
     score_exact =
       trustworthiness_score<float,
                             raft::distance::DistanceType::L2SqrtUnexpanded>(
-        X_d.data(), Y_d.data(), n, p, 2, 5, handle.get_device_allocator(),
-        handle.get_stream());
+        handle, X_d.data(), Y_d.data(), n, p, 2, 5);
 
     // Free space
     free(embeddings_h);
@@ -171,8 +169,7 @@ class TSNETest : public ::testing::Test {
     knn_score_bh =
       trustworthiness_score<float,
                             raft::distance::DistanceType::L2SqrtUnexpanded>(
-        X_d.data(), Y_d.data(), n, p, 2, 5, handle.get_device_allocator(),
-        handle.get_stream());
+        handle, X_d.data(), Y_d.data(), n, p, 2, 5);
 
     // Test Exact TSNE
     TSNE_fit(handle, X_d.data(), Y_d.data(), n, p, knn_indices.data(),
@@ -199,8 +196,7 @@ class TSNETest : public ::testing::Test {
     knn_score_exact =
       trustworthiness_score<float,
                             raft::distance::DistanceType::L2SqrtUnexpanded>(
-        X_d.data(), Y_d.data(), n, p, 2, 5, handle.get_device_allocator(),
-        handle.get_stream());
+        handle, X_d.data(), Y_d.data(), n, p, 2, 5);
 
     // Free space
     free(embeddings_h);
