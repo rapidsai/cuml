@@ -200,7 +200,7 @@ std::pair<int, int> get_subtree(node* pnodes, int len, std::mt19937 &gen) {
   return std::make_pair(start,end);
 }
 
-void build_program(program_t p_out, const param &params,std::mt19937 &gen){
+void build_program(program &p_out, const param &params,std::mt19937 &gen){
   
   // Define tree
   std::stack<int> arity_stack;
@@ -263,17 +263,17 @@ void build_program(program_t p_out, const param &params,std::mt19937 &gen){
   }
 
   // Set new program parameters
-  p_out->nodes = &nodelist[0];
-  p_out->len = nodelist.size();
-  p_out->metric = params.metric;
-  p_out->depth = MAX_STACK_SIZE;
-  p_out->raw_fitness_ = 0.0f;
+  p_out.nodes = &nodelist[0];
+  p_out.len = nodelist.size();
+  p_out.metric = params.metric;
+  p_out.depth = MAX_STACK_SIZE;
+  p_out.raw_fitness_ = 0.0f;
 }
 
-void point_mutation(program_t prog, program_t p_out, const param& params, std::mt19937 &gen){
+void point_mutation(const program &prog, program &p_out, const param& params, std::mt19937 &gen){
   
   // Copy program
-  p_out[0] = prog[0];
+  p_out = prog;
   
   // Specify RNG
   std::uniform_real_distribution<float> dist_01(0.0f, 1.0f);
@@ -281,99 +281,100 @@ void point_mutation(program_t prog, program_t p_out, const param& params, std::m
   std::uniform_real_distribution<float> dist_c(params.const_range[0],
                                               params.const_range[1]);
   // Fill with uniform numbers
-  std::vector<float> node_probs(p_out->len);
+  std::vector<float> node_probs(p_out.len);
   std::generate(node_probs.begin(),node_probs.end(),[&]{return dist_01(gen);});
 
   // Mutate nodes
-  int len = p_out->len;
+  int len = p_out.len;
   for(int i=0;i<len;++i){
     node curr;
-    curr = prog->nodes[i];
+    curr = prog.nodes[i];
     if(node_probs[i] < params.p_point_replace){
       if(curr.is_terminal()){
         // Replace with a var or const
         int ch = dist_t(gen);
         if(ch == (params.num_features + 1)){
           // Add random constant
-          p_out->nodes[i] = *(new node(dist_c(gen)));
+          p_out.nodes[i] = *(new node(dist_c(gen)));
         }
         else{
           // Add variable ch
-          p_out->nodes[i] = *(new node(ch));
+          p_out.nodes[i] = *(new node(ch));
         }
       }
       else{
         // Replace current function with another function of the same arity
-        std::uniform_int_distribution<> dist_nt(0,params.arity_set[curr.arity()].size()-1);
-        p_out->nodes[i] = *(new node(params.arity_set[curr.arity()][dist_nt(gen)]));
+        auto space_size = params.arity_set.at(curr.arity()).size();
+        std::uniform_int_distribution<> dist_nt(0,space_size-1);
+        p_out.nodes[i] = *(new node(params.arity_set.at(curr.arity())[dist_nt(gen)]));
       }
     }
   }
 }
 
-void crossover(program_t prog, program_t donor, program_t p_out, const param &params, std::mt19937 &gen){
+void crossover(const program &prog, const program &donor, program &p_out, const param &params, std::mt19937 &gen){
 
   // Get a random subtree of prog to replace
-  std::pair<int, int> prog_slice = get_subtree(prog->nodes, prog->len, gen);
+  std::pair<int, int> prog_slice = get_subtree(prog.nodes, prog.len, gen);
   int prog_start = prog_slice.first;
   int prog_end = prog_slice.second;
 
   // Get subtree of donor
-  std::pair<int, int> donor_slice = get_subtree(donor->nodes, donor->len, gen);
+  std::pair<int, int> donor_slice = get_subtree(donor.nodes, donor.len, gen);
   int donor_start = donor_slice.first;
   int donor_end = donor_slice.second;
 
   // Evolve 
-  p_out->len = (prog_start) + (donor_end - donor_start + 1) + (prog->len-prog_end);
-  p_out->nodes = new node[p_out->len];
+  p_out.len = (prog_start) + (donor_end - donor_start + 1) + (prog.len-prog_end);
+  p_out.nodes = new node[p_out.len];
   
   int i=0;
   for(;i<prog_start;++i){
-    p_out->nodes[i] = prog->nodes[i];
+    p_out.nodes[i] = prog.nodes[i];
   }
 
   for(int j=donor_start;j<donor_end;++i,++j){
-    p_out->nodes[i] = donor->nodes[j];
+    p_out.nodes[i] = donor.nodes[j];
   }
 
-  for(int j=prog_end;j<prog->len;++j,++i){
-    p_out->nodes[i] = prog->nodes[i];
+  for(int j=prog_end;j<prog.len;++j,++i){
+    p_out.nodes[i] = prog.nodes[i];
   }
 }
 
-void subtree_mutation(program_t prog, program_t p_out, const param &params, std::mt19937 &gen){
+void subtree_mutation(const program &prog, program &p_out, const param &params, std::mt19937 &gen){
   // Generate a random program and perform crossover
   program_t new_program = new program();
-  build_program(new_program,params,gen);
-  crossover(prog,new_program,p_out,params,gen);
+  build_program(*new_program,params,gen);
+  crossover(prog,*new_program,p_out,params,gen);
   delete new_program;
 }
 
-void hoist_mutation(program_t prog, program_t p_out, const param &params, std::mt19937 &gen){
+void hoist_mutation(const program &prog, program &p_out, const param &params, std::mt19937 &gen){
   // Replace program subtree with a random sub-subtree
 
-  std::pair<int, int> prog_slice = get_subtree(prog->nodes, prog->len, gen);
+  std::pair<int, int> prog_slice = get_subtree(prog.nodes, prog.len, gen);
   int prog_start = prog_slice.first;
   int prog_end = prog_slice.second;
 
-  std::pair<int,int> sub_slice = get_subtree(&prog->nodes[prog_start],prog_end-prog_start,gen);
+  std::pair<int,int> sub_slice = get_subtree(&prog.nodes[prog_start],prog_end-prog_start,gen);
   int sub_start = sub_slice.first;
   int sub_end = sub_slice.second;
 
-  p_out->len = (prog_start) + (sub_end - sub_start + 1) + (prog->len-prog_end);
-  p_out->nodes = new node[p_out->len];
+  p_out.len = (prog_start) + (sub_end - sub_start + 1) + (prog.len-prog_end);
+  p_out.nodes = new node[p_out.len];
   
   int i=0;
   for(;i<prog_start;++i){
-    p_out->nodes[i] = prog->nodes[i];
+    p_out.nodes[i] = prog.nodes[i];
   }
 
   for(int j=sub_start;j<sub_end;++i,++j){
-    p_out->nodes[i] = prog->nodes[j];
+    p_out.nodes[i] = prog.nodes[j];
   }
 
-  for(int j=prog_end;j<prog->len;++j,++i){
-    p_out->nodes[i] = prog->nodes[i];
+  for(int j=prog_end;j<prog.len;++j,++i){
+    p_out.nodes[i] = prog.nodes[i];
   }
 }
 

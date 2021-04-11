@@ -102,18 +102,18 @@ void fitness(const raft::handle_t &h, program_t p,
              float parsimony_coeff, float* score);
 
 /** build a random program of max-depth */
-void build_program(program_t p_out, const param &params, std::mt19937 &gen);
+void build_program(program &p_out, const param &params, std::mt19937 &gen);
 
 /** Point mutations on CPU */
-void point_mutation(program_t prog, program_t p_out, const param &params, std::mt19937 &gen);
+void point_mutation(const program &prog, program &p_out, const param &params, std::mt19937 &gen);
 
 /** Crossover mutations on CPU */
-void crossover(program_t prog, program_t donor, program_t p_out, const param &params, std::mt19937 &gen);
+void crossover(const program &prog, const program &donor, program &p_out, const param &params, std::mt19937 &gen);
 
 /** Subtree mutations on CPU*/
-void subtree_mutation(program_t prog, program_t p_out, const param &params, std::mt19937 &gen);
+void subtree_mutation(const program &prog, program &p_out, const param &params, std::mt19937 &gen);
 
 /** Hoist mutation on CPU*/
-void hoist_mutation(program_t prog, program_t p_out, const param &params, std::mt19937 &gen);
+void hoist_mutation(const program &prog, program &p_out, const param &params, std::mt19937 &gen);
 }  // namespace genetic
 }  // namespace cuml

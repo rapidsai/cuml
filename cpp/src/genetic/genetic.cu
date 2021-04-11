@@ -123,8 +123,7 @@ void parallel_evolve(const raft::handle_t &h,
 
   // Perform host mutations
   auto donor_pos  = n_progs;
-
-  for(auto pos=0; pos < n_progs; ++pos){
+  for(auto pos=0; pos < n_progs; ++pos) {
     
     auto parent_index = d_win_indices.element(pos, stream);
     
