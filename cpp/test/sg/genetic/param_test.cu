@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include <cuml/genetic/genetic.h>
+#include <cuml/genetic/common.h>
 #include <gtest/gtest.h>
 #include "../../prims/test_utils.h"
 

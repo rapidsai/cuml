@@ -18,10 +18,12 @@
 #include "genetic.cuh"
 #include <cuml/genetic/program.h>
 #include "node.cuh"
+
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
 #include <raft/random/rng_impl.cuh>
 #include <raft/random/rng.cuh>
+#include <random>
 #include <rmm/device_uvector.hpp>
 
 namespace cuml {
@@ -31,64 +33,129 @@ namespace genetic {
  * Simultaneous execution of tournaments on the GPU, 
  * using online random number generation.
  */
-__global__ void batched_tournament_kernel(program_t programs, 
-                                          int* win_indices,
-                                          int* seed,
-                                          int num_progs,
-                                          int tournament_size,
-                                          int criterion){
-  int idx = blockIdx.x*blockDim.x + threadIdx.x;
-  raft::random::detail::PhiloxGenerator gen((uint64_t)seed[idx],(uint64_t)idx,0);
-  int r;
-  gen.next(r);
-  int optimum = r % num_progs;
-  float opt_score = programs[optimum].raw_fitness_;
+__global__ void batched_tournament_kernel(const program_t progs, 
+                                          int* win_indices, uint64_t* seeds, 
+                                          const uint64_t n_progs, const uint64_t n_tours, 
+                                          const uint64_t tour_size, const int criterion) {
 
-  for (int s = 1; s < tournament_size ; ++s){
+  int idx = blockIdx.x * blockDim.x + threadIdx.x;
+  if(idx < n_tours) {
+    raft::random::detail::PhiloxGenerator gen(seeds[idx],(uint64_t)idx,0);
+   
+    int r;
     gen.next(r);
-    int curr = r % num_progs;
-    float curr_score = programs[curr].raw_fitness_;
+    int opt = r % n_progs;
+    float opt_score = progs[opt].raw_fitness_;
 
-    if (criterion == 0) { // min is better
-      optimum = curr_score < opt_score ? curr : optimum;
-    } else {
-      optimum = curr_score > opt_score ? curr : optimum;
+    for (int s = 1; s < tour_size ; ++s){
+      gen.next(r);
+      int curr = r % n_progs;
+      float curr_score = progs[curr].raw_fitness_;
+      
+      // Reduce thread divergence
+      // criterion = 0 if min is better
+      if(opt_score < curr_score) {
+        opt = (1 - criterion)*opt + criterion*curr;
+      }
+      else {
+        opt = criterion*opt + (1 - criterion)*curr;
+      }
+
+      opt_score = progs[opt].raw_fitness_;
     }
+
+    win_indices[idx] = opt;
   }
-  
-  win_indices[idx] = optimum;
 }
 
-/**
-Driver function for tournaments and program fitness calculation
-*/
-void parallel_evolve(const raft::handle_t &h, program_t old_progs, 
-                     float* data, float* y, float* w, 
-                     int num_progs, int tournament_size, int init_seed){
+/** 
+ * Driver function for tournaments and program fitness calculation 
+ */
+void parallel_evolve(const raft::handle_t &h, 
+                     const std::vector<program> &h_oldprogs, const program_t d_oldprogs, 
+                     std::vector<program> &h_nextprogs, program_t d_nextprogs, 
+                     const float* data, const float* y, const float* w, 
+                     const param &params) {
   cudaStream_t stream = h.get_stream();
-  // Generate seeds : todo: Find a better way for random seed generation.
-  rmm::device_uvector<int> seed(num_progs,stream);
-  rmm::device_uvector<int> winners(num_progs,stream);
-  raft::random::Rng seedgen((uint64_t)init_seed);
-  seedgen.uniformInt(seed.data(), num_progs, 1, num_progs * tournament_size, stream);
-  
-  int criterion = 0;
-  // Perform a tournament
-  batched_tournament_kernel<<<raft::ceildiv(num_progs,GENE_TPB),
-                              GENE_TPB,0,stream>>>(
-                                old_progs,
-                                winners.data(),
-                                seed.data(),
-                                num_progs,
-                                tournament_size,
-                                criterion
-                              );
+  uint64_t n_progs    =   (uint64_t) params.population_size;
+  uint64_t tour_size  =   (uint64_t) params.tournament_size;
+  uint64_t n_tours    =   n_progs;                            // at least num_progs tournaments
+
+  // Seed engines
+  std::mt19937 h_gen(params.random_state);                  // CPU random engine
+  raft::random::Rng d_gen(params.random_state);             // GPU random engine
+
+  std::uniform_real_distribution<float> dist_01(0.0f,1.0f);
+
+  // Set mutation type
+  for(auto i=0; i < n_progs; ++i){
+    float prob = dist_01(h_gen);
+
+    if(prob < params.p_crossover) {
+      h_nextprogs[i].mut_type = mutation_t::crossover;
+      n_tours++;
+    }
+    else if(prob < params.p_crossover + params.p_subtree_mutation) {
+      h_nextprogs[i].mut_type = mutation_t::subtree;
+    }
+    else if(prob < params.p_crossover+params.p_subtree_mutation+params.p_hoist_mutation) {
+      h_nextprogs[i].mut_type = mutation_t::hoist;
+    } 
+    else if(prob < params.p_crossover+params.p_subtree_mutation+params.p_hoist_mutation+params.p_point_mutation) {
+      h_nextprogs[i].mut_type = mutation_t::point;
+    }
+    else {
+      h_nextprogs[i].mut_type = mutation_t::reproduce;
+    }
+  } 
+
+  // Run tournaments
+  // TODO: Find a better way for subset-seed generation
+  rmm::device_uvector<uint64_t> tour_seeds(n_tours,stream);
+  rmm::device_uvector<int> d_win_indices(n_tours,stream);
+  d_gen.uniformInt(tour_seeds.data(), n_tours, (uint64_t)1, (uint64_t)INT_MAX, stream);
+  int crit = params.criterion();
+  batched_tournament_kernel<<<raft::ceildiv(n_tours,GENE_TPB),GENE_TPB,0,stream>>>(d_oldprogs,win_indices.data(),tour_seeds.data(),n_progs,n_tours,tour_size,crit);
   CUDA_CHECK(cudaPeekAtLastError());
+
+  // Make sure tournaments have finished running before copying win_indices
+  CUDA_CHECK(cudaStreamSynchronize(stream));
+
+  // Perform host mutations
+  auto donor_pos  = n_progs;
+
+  for(auto pos=0; pos < n_progs; ++pos){
+    
+    auto parent_index = d_win_indices.element(pos, stream);
+    
+    if(h_nextprogs[pos].mut_type == mutation_t::crossover){
+      // Get secondary index
+      auto donor_index = d_win_indices.element(donor_pos, stream);
+      donor_pos++; 
+      crossover(h_oldprogs[parent_index], h_oldprogs[donor_index],h_nextprogs[pos], params, h_gen);
+    }
+    else if(h_nextprogs[pos].mut_type == mutation_t::subtree){
+      subtree_mutation(h_oldprogs[parent_index],h_nextprogs[pos],params, h_gen);
+    }
+    else if(h_nextprogs[pos].mut_type == mutation_t::hoist){
+      hoist_mutation(h_oldprogs[parent_index],h_nextprogs[pos],params,h_gen);
+    }
+    else if(h_nextprogs[pos].mut_type == mutation_t::point){
+      point_mutation(h_oldprogs[parent_index],h_nextprogs[pos],params,h_gen);
+    }
+    else if(h_nextprogs[pos].mut_type == mutation_t::reproduce){
+      h_nextprogs[pos] = h_oldprogs[parent_index];
+    }
+    else{
+      // Should not come here
+    }
+  }
 }
   
 float param::p_reproduce() const { return detail::p_reproduce(*this); }
 
 int param::max_programs() const { return detail::max_programs(*this); }
 
+int param::criterion() const { return detail::criterion(*this); }
 }  // namespace genetic
 }  // namespace cuml

@@ -42,6 +42,22 @@ enum class transformer_t : uint32_t {
   sigmoid,
 };  // enum class transformer_t
 
+/** Mutation types for a program */
+enum class mutation_t : uint32_t {
+  /* Placeholder for first generation programs */
+  none,
+  /* Crossover mutations */
+  crossover,
+  /* Subtree mutations */
+  subtree,
+  /* Hoise mutations */
+  hoist,
+  /* Point mutations */
+  point,
+  /* Program reproduction */
+  reproduce
+};  // enum class mutation_t
+
 /**
  * @brief contains all the hyper-parameters for training
  *
@@ -115,6 +131,9 @@ struct param {
 
   /** maximum possible number of programs */
   int max_programs() const;
+
+  /** criterion for scoring based on metric used */
+  int criterion() const;
 };  // struct param
 
 }  // namespace genetic

@@ -70,15 +70,35 @@ __global__ void execute_kernel(program_t p, float* data, float* y_pred, int n_ro
   }                                   
 }
 
-program::program(){
-  depth=10;
+program::program() {
+  depth         = MAX_STACK_SIZE;
+  len           = 0;
+  raw_fitness_  = 0.0f;
+  metric        = metric_t::mse;
+  mut_type      = mutation_t::none;
 }
 
-program::program(const program& src) : len(src.len), depth(src.depth), raw_fitness_(src.raw_fitness_){
-  nodes=new node[len];
-  for(int i=0;i<len;++i){
+program::program(const program& src) : len(src.len), depth(src.depth), raw_fitness_(src.raw_fitness_), metric(src.metric) {
+  nodes = new node[len];
+  for(auto i=0; i<len; ++i){
     nodes[i] = src.nodes[i];
   }
+}
+
+program& program::operator=(const program& src){
+  // Deep copy
+  len           = src.len;
+  depth         = src.depth;
+  raw_fitness_  = src.raw_fitness_;
+  metric        = src.metric;
+
+  nodes         = new node[len];
+
+  for(auto i=0; i<len; ++i) {
+    nodes[i]    = src.nodes[i];
+  }
+
+  return *this;
 }
 
 /** 
@@ -180,9 +200,9 @@ std::pair<int, int> get_subtree(node* pnodes, int len, std::mt19937 &gen) {
   return std::make_pair(start,end);
 }
 
-program_t build_program(param &params,std::mt19937 &gen){
+void build_program(program_t p_out, const param &params,std::mt19937 &gen){
   
-  // Build a new program
+  // Define tree
   std::stack<int> arity_stack;
   std::vector<node> nodelist(0);
 
@@ -242,19 +262,18 @@ program_t build_program(param &params,std::mt19937 &gen){
     }
   }
 
-  // Create new program
-  program_t next_prog = new program();
-  next_prog->nodes = &nodelist[0];
-  next_prog->len = nodelist.size();
-  next_prog->metric = params.metric;
-  next_prog->depth = MAX_STACK_SIZE;
-  next_prog->raw_fitness_ = 0.0f;
-  return next_prog;
+  // Set new program parameters
+  p_out->nodes = &nodelist[0];
+  p_out->len = nodelist.size();
+  p_out->metric = params.metric;
+  p_out->depth = MAX_STACK_SIZE;
+  p_out->raw_fitness_ = 0.0f;
 }
 
-program_t point_mutation(program_t prog, param& params, std::mt19937 &gen){
+void point_mutation(program_t prog, program_t p_out, const param& params, std::mt19937 &gen){
   
-  program_t next_prog = new program(*prog);
+  // Copy program
+  p_out[0] = prog[0];
   
   // Specify RNG
   std::uniform_real_distribution<float> dist_01(0.0f, 1.0f);
@@ -262,11 +281,11 @@ program_t point_mutation(program_t prog, param& params, std::mt19937 &gen){
   std::uniform_real_distribution<float> dist_c(params.const_range[0],
                                               params.const_range[1]);
   // Fill with uniform numbers
-  std::vector<float> node_probs(next_prog->len);
+  std::vector<float> node_probs(p_out->len);
   std::generate(node_probs.begin(),node_probs.end(),[&]{return dist_01(gen);});
 
   // Mutate nodes
-  int len = next_prog->len;
+  int len = p_out->len;
   for(int i=0;i<len;++i){
     node curr;
     curr = prog->nodes[i];
@@ -276,25 +295,23 @@ program_t point_mutation(program_t prog, param& params, std::mt19937 &gen){
         int ch = dist_t(gen);
         if(ch == (params.num_features + 1)){
           // Add random constant
-          next_prog->nodes[i] = *(new node(dist_c(gen)));
+          p_out->nodes[i] = *(new node(dist_c(gen)));
         }
         else{
           // Add variable ch
-          next_prog->nodes[i] = *(new node(ch));
+          p_out->nodes[i] = *(new node(ch));
         }
       }
       else{
         // Replace current function with another function of the same arity
         std::uniform_int_distribution<> dist_nt(0,params.arity_set[curr.arity()].size()-1);
-        next_prog->nodes[i] = *(new node(params.arity_set[curr.arity()][dist_nt(gen)]));
+        p_out->nodes[i] = *(new node(params.arity_set[curr.arity()][dist_nt(gen)]));
       }
     }
   }
-
-  return next_prog;
 }
 
-program_t crossover(program_t prog, program_t donor, param &params, std::mt19937 &gen){
+void crossover(program_t prog, program_t donor, program_t p_out, const param &params, std::mt19937 &gen){
 
   // Get a random subtree of prog to replace
   std::pair<int, int> prog_slice = get_subtree(prog->nodes, prog->len, gen);
@@ -306,36 +323,33 @@ program_t crossover(program_t prog, program_t donor, param &params, std::mt19937
   int donor_start = donor_slice.first;
   int donor_end = donor_slice.second;
 
-  // Evolve
-  program_t next_prog = new program(*prog); 
-  next_prog->len = (prog_start) + (donor_end - donor_start + 1) + (prog->len-prog_end);
-  next_prog->nodes = new node[next_prog->len];
+  // Evolve 
+  p_out->len = (prog_start) + (donor_end - donor_start + 1) + (prog->len-prog_end);
+  p_out->nodes = new node[p_out->len];
   
   int i=0;
   for(;i<prog_start;++i){
-    next_prog->nodes[i] = prog->nodes[i];
+    p_out->nodes[i] = prog->nodes[i];
   }
 
   for(int j=donor_start;j<donor_end;++i,++j){
-    next_prog->nodes[i] = donor->nodes[j];
+    p_out->nodes[i] = donor->nodes[j];
   }
 
   for(int j=prog_end;j<prog->len;++j,++i){
-    next_prog->nodes[i] = prog->nodes[i];
+    p_out->nodes[i] = prog->nodes[i];
   }
-
-  // Set metric
-  next_prog->metric = prog->metric;
-  return next_prog;
 }
 
-program_t subtree_mutation(program_t prog, param &params, std::mt19937 &gen){
+void subtree_mutation(program_t prog, program_t p_out, const param &params, std::mt19937 &gen){
   // Generate a random program and perform crossover
-  program_t new_program = build_program(params,gen);
-  return crossover(prog,new_program,params,gen);
+  program_t new_program = new program();
+  build_program(new_program,params,gen);
+  crossover(prog,new_program,p_out,params,gen);
+  delete new_program;
 }
 
-program_t hoist_mutation(program_t prog, param &params, std::mt19937 &gen){
+void hoist_mutation(program_t prog, program_t p_out, const param &params, std::mt19937 &gen){
   // Replace program subtree with a random sub-subtree
 
   std::pair<int, int> prog_slice = get_subtree(prog->nodes, prog->len, gen);
@@ -346,26 +360,21 @@ program_t hoist_mutation(program_t prog, param &params, std::mt19937 &gen){
   int sub_start = sub_slice.first;
   int sub_end = sub_slice.second;
 
-  program_t next_prog = new program(*prog); 
-  next_prog->len = (prog_start) + (sub_end - sub_start + 1) + (prog->len-prog_end);
-  next_prog->nodes = new node[next_prog->len];
+  p_out->len = (prog_start) + (sub_end - sub_start + 1) + (prog->len-prog_end);
+  p_out->nodes = new node[p_out->len];
   
   int i=0;
   for(;i<prog_start;++i){
-    next_prog->nodes[i] = prog->nodes[i];
+    p_out->nodes[i] = prog->nodes[i];
   }
 
   for(int j=sub_start;j<sub_end;++i,++j){
-    next_prog->nodes[i] = prog->nodes[j];
+    p_out->nodes[i] = prog->nodes[j];
   }
 
   for(int j=prog_end;j<prog->len;++j,++i){
-    next_prog->nodes[i] = prog->nodes[i];
+    p_out->nodes[i] = prog->nodes[i];
   }
-
-  // Set metric
-  next_prog->metric = prog->metric;
-  return next_prog;
 }
 
 } // namespace genetic

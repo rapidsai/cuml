@@ -16,10 +16,6 @@
 
 #pragma once
 
-#include <cstdint>
-#include <string>
-#include <vector>
-
 namespace cuml{
 namespace genetic{
   

@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include <cuml/genetic/genetic.h>
+#include <cuml/genetic/common.h>
 #include <raft/cuda_utils.cuh>
 
 namespace cuml {
@@ -36,6 +36,23 @@ HDI int max_programs(const param& p) {
   return p.population_size + p.generations;
 }
 
+HDI int criterion(const param& p) {
+  // Returns 0 if a smaller value is preferred and 1 for the opposite
+  switch(p.metric){
+    case metric_t::mse:
+      return 0;
+    case metric_t::logloss:
+      return 0;
+    case metric_t::mae:
+      return 0;
+    case metric_t::pearson:
+      return 1;
+    case metric_t::spearman:
+      return 1;
+    // Unreachable code
+    default:
+  }
+}
 }  // namespace detail
 }  // namespace genetic
 }  // namespace cuml
