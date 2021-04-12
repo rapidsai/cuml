@@ -208,11 +208,10 @@ def _sparse_min_or_max(X, axis, min_or_max):
             return X.dtype.type(0)
         fminmax = ufunc_dic[min_or_max]
         m = fminmax(X.data)
-        n_elements = X.shape[0] * X.shape[1]
         if np.isnan(m):
             if 'nan' in min_or_max:
                 m = 0
-        elif X.nnz != n_elements:
+        elif X.nnz != cpu_np.product(X.shape):
             if 'min' in min_or_max:
                 m = m if m <= 0 else 0
             else:
@@ -261,7 +260,6 @@ def min_max_axis(X, axis, ignore_nan=False):
         Feature-wise maxima
     """
     if issparse(X):
-        X.sum_duplicates()
         if ignore_nan:
             return _sparse_nan_min_max(X, axis=axis)
         else:
