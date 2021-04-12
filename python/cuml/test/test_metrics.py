@@ -1169,7 +1169,6 @@ def test_sparse_pairwise_distances_corner_cases(metric: str, matrix_size,
     S2 = ref_pairwise_dist(sk_array(X), metric=metric)
     cp.testing.assert_array_almost_equal(S, S2, decimal=compare_precision)
 
-
     # Compare to sklearn, double input with same dimensions
     Y = X
     S = pairwise_distances(X, Y, metric=metric)
