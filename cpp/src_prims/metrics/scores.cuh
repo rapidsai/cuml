@@ -126,8 +126,6 @@ double trustworthiness_score(const raft::handle_t &h, math_t *X,
   cudaStream_t stream = h.get_stream();
   auto d_alloc = h.get_device_allocator();
 
-  typedef cutlass::Shape<8, 128, 128> OutputTile_t;
-
   math_t *d_pdist_tmp =
     (math_t *)d_alloc->allocate(TMP_SIZE * sizeof(math_t), stream);
   int *d_ind_X_tmp = (int *)d_alloc->allocate(TMP_SIZE * sizeof(int), stream);
@@ -147,8 +145,7 @@ double trustworthiness_score(const raft::handle_t &h, math_t *X,
 
     size_t workspaceSize = 0;
 
-    MLCommon::Distance::distance<distance_type, math_t, math_t, math_t,
-                                 OutputTile_t>(
+    MLCommon::Distance::distance<distance_type, math_t, math_t, math_t>(
       &X[(n - toDo) * m], X, d_pdist_tmp, curBatchSize, n, m, (void *)nullptr,
       workspaceSize, stream);
     CUDA_CHECK(cudaPeekAtLastError());

@@ -42,6 +42,9 @@ namespace Distance {
  * @param[in] m number of rows of A and C/D
  * @param[in] n number of columns of B and C/D
  * @param[in] k number of cols of A and rows of B
+ * @param[in] lda leading dimension of A
+ * @param[in] ldb leading dimension of B
+ * @param[in] ldd leading dimension of C/D
  * @param[in] xn row norms of input matrix A. Required for expanded L2, cosine
  * @param[in] yn row norms of input matrix B. Required for expanded L2, cosine
  * @param[output] pD output matrix
@@ -52,9 +55,9 @@ namespace Distance {
  */
 template <bool useNorms, typename DataT, typename AccT, typename OutT,
           typename IdxT, typename Policy, typename CoreLambda,
-          typename EpilogueLambda, typename FinalLambda,
+          typename EpilogueLambda, typename FinalLambda, bool isRowMajor = true,
           typename BaseClass =
-            raft::linalg::Contractions_NT<DataT, IdxT, Policy>>
+            raft::linalg::Contractions_NT<DataT, IdxT, Policy, isRowMajor>>
 struct PairwiseDistances : public BaseClass {
  private:
   typedef Policy P;
@@ -73,10 +76,11 @@ struct PairwiseDistances : public BaseClass {
  public:
   // Constructor
   DI PairwiseDistances(const DataT* _x, const DataT* _y, IdxT _m, IdxT _n,
-                       IdxT _k, const DataT* _xn, const DataT* _yn,
-                       OutT* _dOutput, char* _smem, CoreLambda _core_op,
+                       IdxT _k, IdxT _lda, IdxT _ldb, IdxT _ldd,
+                       const DataT* _xn, const DataT* _yn, OutT* _dOutput,
+                       char* _smem, CoreLambda _core_op,
                        EpilogueLambda _epilog_op, FinalLambda _fin_op)
-    : BaseClass(_x, _y, _m, _n, _k, _smem),
+    : BaseClass(_x, _y, _m, _n, _k, _lda, _ldb, _ldd, _smem),
       sxNorm((DataT*)_smem),
       syNorm(&(sxNorm[P::Mblk])),
       xn(_xn),
@@ -195,6 +199,8 @@ struct PairwiseDistances : public BaseClass {
  * @tparam EpilogueLambda lambda which implements operation for calculating
                           final value.
  * @tparam FinalLambda    final lambda called on final distance value
+ * @tparam isRowMajor     true if input/output is row major(default),
+                          false for column major
  *
  * @param[in]       x input matrix
  * @param[in]       y input matrix
@@ -203,6 +209,9 @@ struct PairwiseDistances : public BaseClass {
  * @param[in]       m number of rows of A and C/D
  * @param[in]       n number of columns of B and C/D
  * @param[in]       k number of cols of A and rows of B
+ * @param[in]       lda leading dimension of A
+ * @param[in]       ldb leading dimension of B
+ * @param[in]       ldd leading dimension of C/D
  * @param[output]   pD output matrix
  * @param core_op   the core lambda
  * @param epilog_op the epilogue lambda
@@ -210,20 +219,21 @@ struct PairwiseDistances : public BaseClass {
  */
 template <bool useNorms, typename DataT, typename AccT, typename OutT,
           typename IdxT, typename Policy, typename CoreLambda,
-          typename EpilogueLambda, typename FinalLambda>
+          typename EpilogueLambda, typename FinalLambda, bool isRowMajor = true>
 __global__ __launch_bounds__(
   Policy::Nthreads,
   2) void pairwiseDistanceMatKernel(const DataT* x, const DataT* y,
                                     const DataT* _xn, const DataT* _yn, IdxT m,
-                                    IdxT n, IdxT k, OutT* dOutput,
-                                    CoreLambda core_op,
+                                    IdxT n, IdxT k, IdxT lda, IdxT ldb,
+                                    IdxT ldd, OutT* dOutput, CoreLambda core_op,
                                     EpilogueLambda epilog_op,
                                     FinalLambda fin_op) {
   extern __shared__ char smem[];
 
   PairwiseDistances<useNorms, DataT, AccT, OutT, IdxT, Policy, CoreLambda,
-                    EpilogueLambda, FinalLambda>
-    obj(x, y, m, n, k, _xn, _yn, dOutput, smem, core_op, epilog_op, fin_op);
+                    EpilogueLambda, FinalLambda, isRowMajor>
+    obj(x, y, m, n, k, lda, ldb, ldd, _xn, _yn, dOutput, smem, core_op,
+        epilog_op, fin_op);
   obj.run();
 }
 
