@@ -46,7 +46,7 @@ def test_single_linkage_sklearn_compare(nrows, ncols, nclusters,
 
     try:
         cuml_agg.fit(X)
-    except:
+    except Exception:
         cuml_agg.fit(X)
 
     sk_agg = cluster.AgglomerativeClustering(
