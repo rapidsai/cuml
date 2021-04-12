@@ -37,7 +37,8 @@ def test_single_linkage_sklearn_compare(nrows, ncols, nclusters,
                       ncols,
                       nclusters,
                       cluster_std=1.0,
-                      shuffle=False)
+                      shuffle=False,
+                      random_seed=42)
 
     cuml_agg = AgglomerativeClustering(
         n_clusters=nclusters, affinity='euclidean', linkage='single',
