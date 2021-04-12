@@ -91,7 +91,7 @@ void execute( const raft::handle_t &h, const program_t d_progs, const int n_samp
 /** 
  * Function to compute scores for given y and y_pred on the given dataset.
  */
-void compute_metric(const raft::handle_t &h, int n_samples, 
+void compute_metric(const raft::handle_t &h, int n_samples, int n_progs,
                     const float* y, const float* y_pred, const float* w, 
                     float* score, const param& params);
 
