@@ -1271,7 +1271,7 @@ def test_sparse_pairwise_distances_sklearn_comparison(metric: str, matrix_size,
                            'manhattan', 'haversine']
 
     def sk_array(array):
-        return array.get() if sk_sparse else array.todense().get()
+        return array if sk_sparse else array.todense()
 
     # Select sklearn except for IP and Hellinger that sklearn doesn't support
     def ref_pairwise_dist(X, Y=None, metric=None):
@@ -1283,7 +1283,10 @@ def test_sparse_pairwise_distances_sklearn_comparison(metric: str, matrix_size,
             if Y is None:
                 Y = X
             return naive_hellinger(X, Y, metric)
-        return sklearn_pairwise_distances(X, Y, metric)
+        else:
+            X = X.get()
+            Y = Y.get() if Y is not None else Y
+            return sklearn_pairwise_distances(X, Y, metric)
 
     element_count = matrix_size[0] * matrix_size[1]
 
