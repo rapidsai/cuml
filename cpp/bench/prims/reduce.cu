@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <raft/mr/device/allocator.hpp>
 #include <raft/linalg/reduce.cuh>
 #include "../common/ml_benchmark.hpp"
 
@@ -29,7 +30,7 @@ struct Params {
 template <typename T>
 struct Reduce : public Fixture {
   Reduce(const std::string& name, const Params& p)
-    : Fixture(name, std::shared_ptr<deviceAllocator>(
+    : Fixture(name, std::shared_ptr<raft::mr::device::allocator>(
                       new raft::mr::device::default_allocator)),
       params(p) {}
 

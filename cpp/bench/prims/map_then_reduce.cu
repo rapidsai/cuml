@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <raft/mr/device/allocator.hpp>
 #include <raft/linalg/map_then_reduce.cuh>
 #include "../common/ml_benchmark.hpp"
 
@@ -33,7 +34,7 @@ struct Identity {
 template <typename T>
 struct MapThenReduce : public Fixture {
   MapThenReduce(const std::string& name, const Params& p)
-    : Fixture(name, std::shared_ptr<deviceAllocator>(
+    : Fixture(name, std::shared_ptr<raft::mr::device::allocator>(
                       new raft::mr::device::default_allocator)),
       params(p) {}
 

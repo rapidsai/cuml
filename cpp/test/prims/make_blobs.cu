@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <raft/mr/device/allocator.hpp>
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
 #include <cub/cub.cuh>
@@ -123,7 +124,7 @@ class MakeBlobsTest : public ::testing::TestWithParam<MakeBlobsInputs<T>> {
   MakeBlobsInputs<T> params;
   int *labels, *lens;
   T *data, *stats, *mu_vec, *mean_var;
-  std::shared_ptr<deviceAllocator> allocator;
+  std::shared_ptr<raft::mr::device::allocator> allocator;
   int num_sigma;
 };
 

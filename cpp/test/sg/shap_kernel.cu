@@ -15,6 +15,7 @@
  */
 
 #include <gtest/gtest.h>
+#include <raft/mr/device/allocator.hpp>
 #include <cuml/explainer/kernel_shap.hpp>
 
 #include <raft/cudart_utils.h>
@@ -27,7 +28,7 @@
 #include <test_utils.h>
 
 namespace MLCommon {
-class deviceAllocator;
+class raft::mr::device::allocator;
 }
 
 namespace ML {
@@ -201,7 +202,7 @@ class MakeKSHAPDatasetTest
   bool test_sampled_X;
   bool test_scatter_exact;
   bool test_scatter_sampled;
-  std::shared_ptr<MLCommon::deviceAllocator> allocator;
+  std::shared_ptr<raft::mr::device::allocator> allocator;
   raft::handle_t handle;
   cudaStream_t stream;
 };

@@ -17,6 +17,7 @@
 #include <cuml/matrix/kernelparams.h>
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
+#include <raft/mr/host/allocator.hpp>
 #include <cuml/common/device_buffer.hpp>
 #include <cuml/common/host_buffer.hpp>
 #include <iostream>
@@ -188,7 +189,7 @@ class GramMatrixTest : public ::testing::TestWithParam<GramMatrixInputs> {
   cudaStream_t stream;
   GramMatrixInputs params;
 
-  std::shared_ptr<hostAllocator> host_allocator;
+  std::shared_ptr<raft::mr::host::allocator> host_allocator;
 
   rmm::device_uvector<math_t> x1;
   rmm::device_uvector<math_t> x2;

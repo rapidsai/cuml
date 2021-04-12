@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <raft/mr/device/allocator.hpp>
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
 #include <stdio.h>
@@ -100,7 +101,7 @@ class DispersionTest : public ::testing::TestWithParam<DispersionInputs<T>> {
   int *counts;
   cudaStream_t stream;
   int npoints;
-  std::shared_ptr<deviceAllocator> allocator;
+  std::shared_ptr<raft::mr::device::allocator> allocator;
   T expectedVal, actualVal;
 };
 

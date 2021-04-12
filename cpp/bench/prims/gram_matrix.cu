@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <raft/mr/device/allocator.hpp>
 #include <cuml/matrix/kernelparams.h>
 #include <matrix/grammatrix.cuh>
 #include <matrix/kernelfactory.cuh>
@@ -41,7 +42,7 @@ struct GramTestParams {
 template <typename T>
 struct GramMatrix : public Fixture {
   GramMatrix(const std::string& name, const GramTestParams& p)
-    : Fixture(name, std::shared_ptr<deviceAllocator>(
+    : Fixture(name, std::shared_ptr<raft::mr::device::allocator>(
                       new raft::mr::device::default_allocator)),
       params(p) {
     std::vector<std::string> kernel_names{"linear", "poly", "rbf", "tanh"};

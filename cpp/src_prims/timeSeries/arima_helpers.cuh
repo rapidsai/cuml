@@ -18,6 +18,7 @@
 
 #include <cuda_runtime.h>
 
+#include <raft/mr/device/allocator.hpp>
 #include <cuml/tsa/arima_common.h>
 #include <raft/cudart_utils.h>
 #include <linalg/batched/matrix.cuh>
@@ -211,7 +212,7 @@ template <typename DataT>
 void batched_jones_transform(const ML::ARIMAOrder& order, int batch_size,
                              bool isInv, const ML::ARIMAParams<DataT>& params,
                              const ML::ARIMAParams<DataT>& Tparams,
-                             std::shared_ptr<deviceAllocator> allocator,
+                             std::shared_ptr<raft::mr::device::allocator> allocator,
                              cudaStream_t stream) {
   if (order.p)
     jones_transform(params.ar, batch_size, order.p, Tparams.ar, true, isInv,

@@ -15,6 +15,7 @@
  */
 
 #include <gtest/gtest.h>
+#include <raft/mr/device/allocator.hpp>
 #include <raft/cudart_utils.h>
 #include <raft/linalg/transpose.h>
 #include <test_utils.h>
@@ -44,7 +45,7 @@ struct QuasiNewtonTest : ::testing::Test {
   std::shared_ptr<SimpleMatOwning<double>> Xdev;
   std::shared_ptr<SimpleVecOwning<double>> ydev;
 
-  std::shared_ptr<deviceAllocator> allocator;
+  std::shared_ptr<raft::mr::device::allocator> allocator;
   QuasiNewtonTest() : handle(cuml_handle) {}
   void SetUp() {
     stream = cuml_handle.get_stream();

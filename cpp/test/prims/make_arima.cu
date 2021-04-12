@@ -18,6 +18,7 @@
 #include <thrust/count.h>
 #include <thrust/device_vector.h>
 
+#include <raft/mr/device/allocator.hpp>
 #include <raft/cudart_utils.h>
 #include <raft/cuda_utils.cuh>
 #include <random/make_arima.cuh>
@@ -68,7 +69,7 @@ class MakeArimaTest : public ::testing::TestWithParam<MakeArimaInputs> {
  protected:
   MakeArimaInputs params;
   T *data;
-  std::shared_ptr<deviceAllocator> allocator;
+  std::shared_ptr<raft::mr::device::allocator> allocator;
   cudaStream_t stream;
 };
 

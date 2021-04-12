@@ -22,6 +22,7 @@
 #include <thrust/device_vector.h>
 #include <thrust/execution_policy.h>
 #include <common/allocatorAdapter.hpp>
+#include <raft/mr/device/allocator.hpp>
 #include <cuml/common/device_buffer.hpp>
 #include <cuml/decomposition/params.hpp>
 #include <linalg/rsvd.cuh>
@@ -115,7 +116,7 @@ void calEig(const raft::handle_t &handle, math_t *in, math_t *components,
  */
 template <typename math_t>
 void signFlip(math_t *input, int n_rows, int n_cols, math_t *components,
-              int n_cols_comp, std::shared_ptr<deviceAllocator> allocator,
+              int n_cols_comp, std::shared_ptr<raft::mr::device::allocator> allocator,
               cudaStream_t stream) {
   auto counting = thrust::make_counting_iterator(0);
   auto m = n_rows;

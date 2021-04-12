@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <raft/mr/device/allocator.hpp>
 #include "knn_test_helper.cuh"
 
 namespace ML {
@@ -23,7 +24,7 @@ namespace opg {
 template <>
 void generate_partitions(float *data, int *lbls_ptr, size_t n_rows, int n_cols,
                          int n_clusters, int my_rank,
-                         std::shared_ptr<deviceAllocator> allocator,
+                         std::shared_ptr<raft::mr::device::allocator> allocator,
                          cudaStream_t stream) {
   Random::make_blobs<float, int>(data, lbls_ptr, (int)n_rows, (int)n_cols,
                                  n_clusters, allocator, stream, true, nullptr,

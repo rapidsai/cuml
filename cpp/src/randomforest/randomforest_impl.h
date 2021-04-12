@@ -16,6 +16,7 @@
 
 #pragma once
 #include <decisiontree/decisiontree_impl.h>
+#include <raft/mr/device/allocator.hpp>
 #include <cuml/ensemble/randomforest.hpp>
 #include <map>
 
@@ -31,7 +32,7 @@ class rf {
   void prepare_fit_per_tree(
     int tree_id, int n_rows, int n_sampled_rows, unsigned int* selected_rows,
     int num_sms, const cudaStream_t stream,
-    const std::shared_ptr<MLCommon::deviceAllocator> device_allocator);
+    const std::shared_ptr<raft::mr::device::allocator> device_allocator);
 
   void error_checking(const T* input, L* predictions, int n_rows, int n_cols,
                       bool is_predict) const;

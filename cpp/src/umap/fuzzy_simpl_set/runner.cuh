@@ -15,6 +15,7 @@
  */
 #pragma once
 
+#include <raft/mr/device/allocator.hpp>
 #include <cuml/manifold/umapparams.h>
 #include "naive.cuh"
 
@@ -41,7 +42,7 @@ using namespace ML;
 template <int TPB_X, typename value_idx, typename T>
 void run(int n, const value_idx *knn_indices, const T *knn_dists,
          int n_neighbors, raft::sparse::COO<T> *coo, UMAPParams *params,
-         std::shared_ptr<deviceAllocator> alloc, cudaStream_t stream,
+         std::shared_ptr<raft::mr::device::allocator> alloc, cudaStream_t stream,
          int algorithm = 0) {
   switch (algorithm) {
     case 0:

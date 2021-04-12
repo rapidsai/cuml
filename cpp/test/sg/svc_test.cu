@@ -25,6 +25,7 @@
 #include <thrust/iterator/zip_iterator.h>
 #include <thrust/transform.h>
 #include <cub/cub.cuh>
+#include <raft/mr/device/allocator.hpp>
 #include <cuml/common/device_buffer.hpp>
 #include <cuml/common/host_buffer.hpp>
 #include <cuml/common/logger.hpp>
@@ -1404,7 +1405,7 @@ class SvrTest : public ::testing::Test {
  protected:
   raft::handle_t handle;
   cudaStream_t stream;
-  std::shared_ptr<deviceAllocator> allocator;
+  std::shared_ptr<raft::mr::device::allocator> allocator;
   int n_rows = 7;
   int n_train = 2 * n_rows;
   const int n_cols = 1;

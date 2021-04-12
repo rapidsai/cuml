@@ -15,6 +15,7 @@
  */
 
 #include <gtest/gtest.h>
+#include <raft/mr/device/allocator.hpp>
 #include <raft/cudart_utils.h>
 #include <iostream>
 #include <metrics/scores.cuh>
@@ -120,7 +121,7 @@ class AccuracyTest : public ::testing::TestWithParam<AccuracyInputs> {
 
     raft::random::Rng r(params.seed);
     CUDA_CHECK(cudaStreamCreate(&stream));
-    std::shared_ptr<deviceAllocator> d_allocator(
+    std::shared_ptr<raft::mr::device::allocator> d_allocator(
       new raft::mr::device::default_allocator);
 
     raft::allocate(predictions, params.n);
@@ -263,7 +264,7 @@ class RegressionMetricsTest
     ref_regression_metrics.assign(3, -1.0);
 
     CUDA_CHECK(cudaStreamCreate(&stream));
-    std::shared_ptr<deviceAllocator> d_allocator(
+    std::shared_ptr<raft::mr::device::allocator> d_allocator(
       new raft::mr::device::default_allocator);
 
     raft::allocate(d_predictions, params.n);
