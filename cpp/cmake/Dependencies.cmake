@@ -39,7 +39,7 @@ else(DEFINED ENV{RAFT_PATH})
 
   ExternalProject_Add(raft
     GIT_REPOSITORY    https://github.com/wphicks/raft.git
-    GIT_TAG           13f484b556c1fae2d9c98d46ce30467f4c0d6f7c
+    GIT_TAG           20cc03b74b8f0d5f9a130d31793eca3ff4978d9c
     PREFIX            ${RAFT_DIR}
     CONFIGURE_COMMAND ""
     BUILD_COMMAND     ""
