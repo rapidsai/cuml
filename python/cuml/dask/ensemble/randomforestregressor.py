@@ -14,8 +14,6 @@
 # limitations under the License.
 #
 
-import warnings
-
 from cuml.dask.common.base import DelayedPredictionMixin
 from cuml.ensemble import RandomForestRegressor as cuRFR
 from cuml.dask.ensemble.base import \

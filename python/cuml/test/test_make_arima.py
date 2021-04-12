@@ -50,8 +50,8 @@ def test_make_arima(dtype, output_type, batch_size, n_obs, random_state,
 
     with cuml.using_output_type(output_type):
         out = cuml.make_arima(batch_size, n_obs,
-                            (p, d, q), (P, D, Q, s), k,
-                            random_state=random_state,
-                            dtype=dtype)
+                              (p, d, q), (P, D, Q, s), k,
+                              random_state=random_state,
+                              dtype=dtype)
 
     assert out.shape == (n_obs, batch_size), "out shape mismatch"

@@ -14,8 +14,6 @@
 # limitations under the License.
 #
 
-import warnings
-
 import numpy as np
 import cupy as cp
 
