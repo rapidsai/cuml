@@ -497,7 +497,7 @@ def test_knn_graph(input_type, mode, output_type, as_instance,
     if input_type == "dataframe":
         X = cudf.DataFrame(X)
 
-    with cuml.internals.set_api_output_type(output_type):
+    with cuml.using_output_type(output_type):
         if as_instance:
             sparse_cu = cuml.neighbors.kneighbors_graph(X, k, mode,
                                                         metric=metric, p=p,
