@@ -107,12 +107,5 @@ def __getattr__(name):
         except AttributeError:
             _global_settings_data.settings = GlobalSettings()
             return _global_settings_data.settings
-    if name == 'global_output_type':
-        import warnings  # pylint: disable=import-outside-toplevel
-        warnings.warn("Accessing cuml.global_output_type directly is"
-                      " deprecated and will be removed in v0.20. Use"
-                      " cuml.global_settings.output_type instead.",
-                      DeprecationWarning)
-        return __getattr__('global_settings').output_type
 
     raise AttributeError(f"module {__name__} has no attribute {name}")

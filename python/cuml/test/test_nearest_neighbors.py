@@ -497,15 +497,15 @@ def test_knn_graph(input_type, mode, output_type, as_instance,
     if input_type == "dataframe":
         X = cudf.DataFrame(X)
 
-    if as_instance:
-        sparse_cu = cuml.neighbors.kneighbors_graph(X, k, mode,
-                                                    metric=metric, p=p,
-                                                    include_self='auto',
-                                                    output_type=output_type)
-    else:
-        knn_cu = cuKNN(metric=metric, p=p, output_type=output_type)
-        knn_cu.fit(X)
-        sparse_cu = knn_cu.kneighbors_graph(X, k, mode)
+    with cuml.internals.set_api_output_type(output_type):
+        if as_instance:
+            sparse_cu = cuml.neighbors.kneighbors_graph(X, k, mode,
+                                                        metric=metric, p=p,
+                                                        include_self='auto')
+        else:
+            knn_cu = cuKNN(metric=metric, p=p)
+            knn_cu.fit(X)
+            sparse_cu = knn_cu.kneighbors_graph(X, k, mode)
 
     assert np.array_equal(sparse_sk.data.shape, sparse_cu.data.shape)
     assert np.array_equal(sparse_sk.indices.shape, sparse_cu.indices.shape)
