@@ -28,6 +28,7 @@
 #include <stack>
 #include <utility>
 
+#include <cuml/common/logger.hpp>
 #include <cuml/fil/fil.h>
 #include <raft/cudart_utils.h>
 #include <raft/mr/device/allocator.hpp>

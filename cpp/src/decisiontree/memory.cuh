@@ -19,14 +19,16 @@
 #include <thrust/extrema.h>
 #include <algorithm>
 #include <cub/cub.cuh>
+#include <raft/mr/device/allocator.hpp>
+#include <raft/mr/host/allocator.hpp>
 #include <cuml/common/logger.hpp>
 #include <raft/handle.hpp>
 #include "memory.h"
 
 template <class T, class L>
 TemporaryMemory<T, L>::TemporaryMemory(
-  const std::shared_ptr<MLCommon::deviceAllocator> device_allocator_in,
-  const std::shared_ptr<MLCommon::hostAllocator> host_allocator_in,
+  const std::shared_ptr<raft::mr::device::allocator> device_allocator_in,
+  const std::shared_ptr<raft::mr::host::allocator> host_allocator_in,
   const cudaStream_t stream_in, int N, int Ncols, int n_unique,
   const ML::DecisionTree::DecisionTreeParams& tree_params) {
   stream = stream_in;
