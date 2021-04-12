@@ -89,6 +89,13 @@ void execute( const raft::handle_t &h, const program_t d_progs, const int n_samp
               const float* data, float* y_pred);
 
 /** 
+ * Function to compute scores for given y and y_pred on the given dataset.
+ */
+void compute_metric(const raft::handle_t &h, int n_samples, 
+                    const float* y, const float* y_pred, const float* w, 
+                    float* score, const param& params);
+
+/** 
  * Computes the fitness scores for a single program on the given dataset
  */
 void compute_fitness(const raft::handle_t &h, program_t d_prog, float* score,

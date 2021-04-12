@@ -104,9 +104,6 @@ program& program::operator=(const program& src){
   return *this;
 }
 
-/** 
- * Internal function which computes the score of program p on the given dataset.
- */
 void compute_metric(const raft::handle_t &h, int n_samples, 
                     const float* y, const float* y_pred, const float* w, 
                     float* score, const param& params) {
@@ -151,8 +148,12 @@ void compute_fitness(const raft::handle_t &h, program_t d_prog, float* score,
                      const float* y, const float* sample_weights) {
   cudaStream_t stream = h.get_stream();
 
+  // Compute predicted values
   rmm::device_uvector<float> y_pred(n_samples, stream);
   execute(h, d_prog, n_samples, 1, data, y_pred.data());
+
+  // Compute error
+  compute_metric(h, n_samples, y, y_pred.data(), sample_weights, score, params);
 }
 
 void compute_batched_fitness(const raft::handle_t &h, program_t d_progs, float* score,
@@ -163,6 +164,9 @@ void compute_batched_fitness(const raft::handle_t &h, program_t d_progs, float* 
 
   rmm::device_uvector<float> y_pred(n_samples * n_progs, stream);
   execute(h, d_progs, n_samples, n_progs, data, y_pred.data());
+
+  // Compute error
+  compute_metric(h, n_samples, y, y_pred.data(), sample_weights, score, params);
 }
 
 void set_fitness(const raft::handle_t &h, program_t d_prog, program &h_prog,
