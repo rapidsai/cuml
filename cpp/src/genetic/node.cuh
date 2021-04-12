@@ -46,9 +46,11 @@ DI float evaluate_node(const node& n, const float* data, size_t stride,
                        size_t idx, float inval, float inval1) {
   if (n.t == node::type::constant) {
     return n.u.val;
-  } else if (n.t == node::type::variable) {
+  } 
+  else if (n.t == node::type::variable) {
     return data[n.u.fid * stride + idx] ;
-  } else {
+  } 
+  else {
     auto abs_inval = fabsf(inval), abs_inval1 = fabsf(inval1);
     auto small = abs_inval < MIN_VAL;
     // note: keep the case statements in alphabetical order under each category

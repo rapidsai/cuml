@@ -36,7 +36,7 @@ namespace cuml {
 namespace genetic {
 
 template <typename math_t>
-void _weighted_pearson(cudaStream_t stream, int len, math_t* y, math_t* y_pred, math_t* w,math_t* out) {
+void _weighted_pearson(cudaStream_t stream, int len, const math_t* y, const math_t* y_pred, const math_t* w, math_t* out) {
 
   rmm::device_uvector<math_t> mu_y(1,stream);
   rmm::device_uvector<math_t> mu_y_pred(1,stream);
@@ -64,7 +64,7 @@ void _weighted_pearson(cudaStream_t stream, int len, math_t* y, math_t* y_pred, 
 }
 
 template <typename math_t>
-void _weighted_spearman(cudaStream_t stream,int len, math_t* y, math_t* y_pred, math_t* w, math_t* out) {
+void _weighted_spearman(cudaStream_t stream,int len, const math_t* y, const math_t* y_pred, const math_t* w, math_t* out) {
   
   // Find ranks of y and y_pred 
   rmm::device_uvector<math_t> copy_y(len,stream);
@@ -96,7 +96,7 @@ void _weighted_spearman(cudaStream_t stream,int len, math_t* y, math_t* y_pred, 
 }
 
 template <typename math_t>
-void _mean_absolute_error(cudaStream_t stream,int len, math_t* y, math_t* y_pred, math_t* w, math_t* out) {       
+void _mean_absolute_error(cudaStream_t stream,int len, const math_t* y, const math_t* y_pred, const math_t* w, math_t* out) {       
   // Find weighted absolute error
   rmm::device_uvector<math_t> error(len, stream);
   raft::linalg::subtract(error.data(), y, y_pred, len, stream);
@@ -108,7 +108,7 @@ void _mean_absolute_error(cudaStream_t stream,int len, math_t* y, math_t* y_pred
 }
 
 template <typename math_t>
-void _mean_square_error(cudaStream_t stream,int len, math_t* y, math_t* y_pred, math_t* w, math_t* out){
+void _mean_square_error(cudaStream_t stream,int len, const math_t* y, const math_t* y_pred, const math_t* w, math_t* out){
   rmm::device_uvector<math_t> error(len, stream);
   raft::linalg::subtract(error.data(), y, y_pred, len, stream);
   math_t power = 2.0;
@@ -120,7 +120,7 @@ void _mean_square_error(cudaStream_t stream,int len, math_t* y, math_t* y_pred, 
 }
 
 template <typename math_t>
-void _root_mean_square_error(cudaStream_t stream, int len, math_t* y, math_t* y_pred,math_t* w, math_t* out){
+void _root_mean_square_error(cudaStream_t stream, int len, const math_t* y, const math_t* y_pred, const math_t* w, math_t* out){
   _mean_square_error(stream, len, y, y_pred, w, out);
   raft::linalg::unaryOp(
     out, out, 1, [] __device__(math_t in) { return raft::mySqrt(in); },
@@ -128,17 +128,17 @@ void _root_mean_square_error(cudaStream_t stream, int len, math_t* y, math_t* y_
 }
 
 template <typename math_t>
-void _log_loss(cudaStream_t stream, int len, math_t* y, math_t* y_pred, math_t* w, math_t* out) {
+void _log_loss(cudaStream_t stream, int len, const math_t* y, const math_t* y_pred, const math_t* w, math_t* out) {
   rmm::device_uvector<math_t> score(len, stream);
   MLCommon::Functions::logLoss(score.data(), y, y_pred, len, stream);
   MLCommon::Stats::colWeightedMean(out,score.data(), w, 1, len, stream);
 }
 
-template void _weighted_pearson<float>(cudaStream_t stream, int len, float* y , float* y_pred, float* w, float* out );
-template void _weighted_spearman<float>(cudaStream_t stream, int len, float* y , float* y_pred, float* w, float* out );
-template void _mean_absolute_error<float>(cudaStream_t stream, int len, float* y , float* y_pred, float* w, float* out );
-template void _mean_square_error<float>(cudaStream_t stream, int len, float* y , float* y_pred, float* w, float* out );
-template void _root_mean_square_error<float>(cudaStream_t stream, int len, float* y , float* y_pred, float* w, float* out );
+template void _weighted_pearson<float>        (cudaStream_t stream, int len, const float* y , const float* y_pred, const float* w, float* out );
+template void _weighted_spearman<float>       (cudaStream_t stream, int len, const float* y , const float* y_pred, const float* w, float* out );
+template void _mean_absolute_error<float>     (cudaStream_t stream, int len, const float* y , const float* y_pred, const float* w, float* out );
+template void _mean_square_error<float>       (cudaStream_t stream, int len, const float* y , const float* y_pred, const float* w, float* out );
+template void _root_mean_square_error<float>  (cudaStream_t stream, int len, const float* y , const float* y_pred, const float* w, float* out );
 
 }  // namespace genetic
 }  // namespace cuml

@@ -69,21 +69,21 @@ __global__ void batched_tournament_kernel(const program_t progs,
 }
 
 /** 
- * Driver function for tournaments and program fitness calculation 
+ * Driver function for evolving 1 generation 
  */
 void parallel_evolve(const raft::handle_t &h, 
                      const std::vector<program> &h_oldprogs, const program_t d_oldprogs, 
                      std::vector<program> &h_nextprogs, program_t d_nextprogs, 
-                     const float* data, const float* y, const float* w, 
-                     const param &params) {
+                     const int n_samples, const float* data, const float* y, 
+                     const float* sample_weights, const param &params) {
   cudaStream_t stream = h.get_stream();
   uint64_t n_progs    =   (uint64_t) params.population_size;
   uint64_t tour_size  =   (uint64_t) params.tournament_size;
   uint64_t n_tours    =   n_progs;                            // at least num_progs tournaments
 
   // Seed engines
-  std::mt19937 h_gen(params.random_state);                  // CPU random engine
-  raft::random::Rng d_gen(params.random_state);             // GPU random engine
+  std::mt19937 h_gen(params.random_state);                    // CPU engine
+  raft::random::Rng d_gen(params.random_state);               // GPU engine
 
   std::uniform_real_distribution<float> dist_01(0.0f,1.0f);
 
@@ -149,6 +149,27 @@ void parallel_evolve(const raft::handle_t &h,
       // Should not come here
     }
   }
+
+  // Memcpy individual host nodes to device
+  // TODO: Find a better way to do this. One can copy while utilizing multiple streams
+  // or switch to a unified memory model for genetic::program
+  for(auto i=0;i<n_progs;++i) {
+    program_t tmp      = new program(h_nextprogs[i], false);        
+    tmp->nodes         = (node*)h.get_device_allocator()->allocate(tmp->len*sizeof(node),stream);
+
+    CUDA_CHECK(cudaMemcpyAsync(tmp->nodes, h_nextprogs[i].nodes,
+                                h_nextprogs[i].len * sizeof(node),
+                                cudaMemcpyHostToDevice, stream));
+    CUDA_CHECK(cudaMemcpyAsync( &d_nextprogs[i], tmp,
+                                sizeof(program),
+                                cudaMemcpyHostToDevice,stream));
+  }
+
+  // Make sure all copying is done
+  CUDA_CHECK(cudaStreamSynchronize(stream));
+
+  // Update fitness
+  set_batched_fitness(h, d_nextprogs, h_nextprogs, params, n_samples, data, y, sample_weights);
 }
   
 float param::p_reproduce() const { return detail::p_reproduce(*this); }

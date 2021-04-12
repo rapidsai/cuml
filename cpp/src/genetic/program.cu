@@ -35,38 +35,39 @@ namespace genetic {
  * is stored in column major format.
  */
 template<int MaxSize>
-__global__ void execute_kernel(program_t p, float* data, float* y_pred, int n_rows) {
+__global__ void execute_kernel( const program_t d_progs, const float* data, 
+                                float* y_pred, const int n_samples, const int n_progs) {
 
   // Single evaluation stack per thread
   stack<float, MaxSize> eval_stack;
+  size_t prog_id = blockIdx.y;                                    // current program 
+  size_t row_idx = blockIdx.x * blockDim.x + threadIdx.x;         // current dataset row
+  size_t tid = prog_id * gridDim.x * blockDim.x + row_id;         
 
-  for(size_t row_idx = blockIdx.x*blockDim.x + threadIdx.x; row_idx < (size_t)n_rows;
-      row_idx += blockDim.x * gridDim.x) {
+  if(tid < (size_t) n_samples*n_progs) {
 
     // Arithmetic expr stored in prefix form
-    for(int e=p->len-1;e>=0;--e) {
+    for(int e=d_progs[prog_id].len-1;e>=0;--e) {
 
-      node* curr = &p->nodes[e];
+      node* curr = &d_progs[prog_id].nodes[e];
       
       if(detail::is_terminal(curr->t)) {
-
         // function
         int ar = detail::arity(curr->t);
         float inval = ar > 0 ? eval_stack.pop() : 0.0f;
         ar--;
         float inval1 = ar > 0 ? eval_stack.pop() : 0.0f;
         ar--;
-        eval_stack.push(detail::evaluate_node(*curr,data,n_rows,row_idx,inval,inval1));
-
-      } else {
-
+        eval_stack.push(detail::evaluate_node(*curr,data,n_samples,row_idx,inval,inval1));
+      } 
+      else {
         // constant or variable
-        eval_stack.push(detail::evaluate_node(*curr,data, n_rows, row_idx, 0.0f,0.0f ));
+        eval_stack.push(detail::evaluate_node(*curr,data, n_samples, row_idx, 0.0f,0.0f ));
       }
     }
 
-    y_pred[row_idx] = eval_stack.pop();
-
+    // Outputs stored in col-major format
+    y_pred[prog_id * n_samples + row_idx] = eval_stack.pop();
   }                                   
 }
 
@@ -78,10 +79,12 @@ program::program() {
   mut_type      = mutation_t::none;
 }
 
-program::program(const program& src) : len(src.len), depth(src.depth), raw_fitness_(src.raw_fitness_), metric(src.metric) {
-  nodes = new node[len];
-  for(auto i=0; i<len; ++i){
-    nodes[i] = src.nodes[i];
+program::program(const program& src, const bool &dst) : len(src.len), depth(src.depth), raw_fitness_(src.raw_fitness_), metric(src.metric), mut_type(src.mut_type) {
+  if(dst) {
+    nodes = new node[len];
+    for(auto i=0; i<len; ++i) {
+      nodes[i] = src.nodes[i];
+    }
   }
 }
 
@@ -104,58 +107,104 @@ program& program::operator=(const program& src){
 /** 
  * Internal function which computes the score of program p on the given dataset.
  */
-void metric(const raft::handle_t &h, program_t p, 
-            int len, float* y, float* y_pred, 
-            float* w, float* score) {
+void compute_metric(const raft::handle_t &h, int n_samples, 
+                    const float* y, const float* y_pred, const float* w, 
+                    float* score, const param& params) {
   // Call appropriate metric function based on metric defined in p
   cudaStream_t stream = h.get_stream();
 
-  if(p->metric == metric_t::pearson){
-    _weighted_pearson(stream, len, y, y_pred, w, score);
-  } else if(p->metric == metric_t::spearman){
-    _weighted_spearman(stream, len, y, y_pred, w, score);
-  } else if(p->metric == metric_t::mae){
-    _mean_absolute_error(stream, len, y, y_pred, w, score);
-  } else if(p->metric == metric_t::mse){
-    _mean_square_error(stream, len, y, y_pred, w, score);
-  } else if(p->metric == metric_t::rmse){
-    _root_mean_square_error(stream, len, y, y_pred, w, score);
-  } else if(p->metric == metric_t::logloss){
-    _log_loss(stream, len, y, y_pred, w, score);
-  } else{
-    // None of the above - error
+  if(params.metric == metric_t::pearson){
+    _weighted_pearson(stream, n_samples, y, y_pred, w, score);
+  } 
+  else if(params.metric == metric_t::spearman){
+    _weighted_spearman(stream, n_samples, y, y_pred, w, score);
+  } 
+  else if(params.metric == metric_t::mae){
+    _mean_absolute_error(stream, n_samples, y, y_pred, w, score);
+  } 
+  else if(params.metric == metric_t::mse){
+    _mean_square_error(stream, n_samples, y, y_pred, w, score);
+  } 
+  else if(params.metric == metric_t::rmse){
+    _root_mean_square_error(stream, n_samples, y, y_pred, w, score);
+  } 
+  else if(params.metric == metric_t::logloss){
+    _log_loss(stream, n_samples, y, y_pred, w, score);
+  } 
+  else{
+    // This should not be reachable
   }
 }
-  
-void execute_single(const raft::handle_t &h, program_t p, 
-                     float* data, float* y_pred, int n_rows) {
+
+void execute (const raft::handle_t &h, const program_t d_progs, const int n_samples, 
+              const int n_progs, const float* data, float* y_pred){
 
   cudaStream_t stream = h.get_stream();
+  dim3 ex_grid(raft::ceildiv(n_samples,GENE_TPB),n_progs,1);
 
-  execute_kernel<MAX_STACK_SIZE><<<raft::ceildiv(n_rows,GENE_TPB),
-                                  GENE_TPB,0,stream>>>(p,
-                                                      data, 
-                                                      y_pred,
-                                                      n_rows );
+  execute_kernel<MAX_STACK_SIZE><<<ex_grid,GENE_TPB,0,stream>>>(d_progs, data, y_pred, n_samples, n_progs);
   CUDA_CHECK(cudaPeekAtLastError());
 }
 
-void raw_fitness(const raft::handle_t &h, program_t p, 
-                 float* data, float* y, int num_rows, 
-                 float* sample_weights, float* score){
-    
+void compute_fitness(const raft::handle_t &h, program_t d_prog, float* score,
+                     const param &params, const int n_samples, const float* data, 
+                     const float* y, const float* sample_weights) {
   cudaStream_t stream = h.get_stream();
 
-  rmm::device_uvector<float> y_pred(num_rows,stream);  
-  
-  execute_single(h, p, data, y_pred.data(), num_rows);
-  metric(h, p, num_rows, y, y_pred.data(), sample_weights, score);
-}   
+  rmm::device_uvector<float> y_pred(n_samples, stream);
+  execute(h, d_prog, n_samples, 1, data, y_pred.data());
+}
 
-void fitness(const raft::handle_t &h, program_t p, 
-             float parsimony_coeff, float* score) { 
-  float penalty = parsimony_coeff * p->len;
-  *score = p->raw_fitness_ - penalty;
+void compute_batched_fitness(const raft::handle_t &h, program_t d_progs, float* score,
+                             const param &params, const int n_samples, const float* data, 
+                             const float* y, const float* sample_weights){
+  cudaStream_t stream = h.get_stream();
+  int n_progs         = params.population_size;
+
+  rmm::device_uvector<float> y_pred(n_samples * n_progs, stream);
+  execute(h, d_progs, n_samples, n_progs, data, y_pred.data());
+}
+
+void set_fitness(const raft::handle_t &h, program_t d_prog, program &h_prog,
+                 const param &params, const int n_samples, const float* data,
+                 const float* y, const float* sample_weights) {
+  cudaStream_t stream = h.get_stream();
+  int n_progs         = params.population_size;
+
+  rmm::device_uvector<float> score(1, stream);
+
+  compute_fitness(h, d_prog, score.data(), params, n_samples, data, y, sample_weights);
+
+  // Update host and device score for program
+  CUDA_CHECK(cudaMemcpyAsync( &d_prog[0].raw_fitness_, score.data(), sizeof(float), 
+                              cudaMemcpyDeviceToDevice, stream)); 
+  h_prog.raw_fitness_ = score.front_element(stream);
+}
+
+void set_batched_fitness( const raft::handle_t &h, program_t d_progs,
+                     std::vector<program> &h_progs, const param &params, const int n_samples,
+                     const float* data, const float* y, const float* sample_weights) {
+
+  cudaStream_t stream   = h.get_stream();
+  int n_progs           = params.population_size;
+  
+  rmm::device_uvector<float> score(n_progs,stream);
+
+  compute_batched_fitness(h,d_progs,score.data(),params,n_samples,data,y,sample_weights);
+  
+  // Update scores on host and device
+  // TODO: Find a way to reduce the number of implicit memory transfers
+  for(auto i=0; i < n_progs; ++i){
+    CUDA_CHECK(cudaMemcpyAsync( &d_progs[i].raw_fitness_,score.element_ptr(i),sizeof(float),
+                                cudaMemcpyDeviceToDevice,stream));
+    h_progs[i].raw_fitness_ = score.element(i, stream);
+  }
+}
+
+void fitness(const program &prog, const param &params, float &score) { 
+  int crit      = params.criterion();
+  float penalty = params.parsimony_coefficient * prog.len * (2*crit - 1);
+  score         = prog.raw_fitness_ - penalty;
 }
 
 /**

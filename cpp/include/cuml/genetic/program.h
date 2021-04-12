@@ -50,8 +50,9 @@ struct program {
   
   /**
    * @param[in] src source program to be copied
+   * @param[dst] dst boolean indicating location of nodes(true for host, false for device)
    */
-  explicit program(const program &src);
+  explicit program(const program &src, const bool &dst);
   
   /**
    * Destructor for current program
@@ -83,37 +84,59 @@ struct program {
 /** program_t is the type of the program */
 typedef program* program_t;
 
-/** returns predictions for given dataset on a single program */
-void execute_single(const raft::handle_t &h, program_t p, 
-                     float* data, float* y_pred, int n_rows);
+/** Execute given programs on the dataset */
+void execute( const raft::handle_t &h, const program_t d_progs, const int n_samples, const int n_progs,
+              const float* data, float* y_pred);
 
-/** returns predictions for given dataset on multiple programs program */
-void execute_batched(const raft::handle_t &h, program_t p, 
-                     float* data, float* y_pred, int n_rows, 
-                     int n_progs);
-                 
-/** computes fitness score for a single program */
-void raw_fitness(const raft::handle_t &h, program_t p, 
-                 float* data, float* y, int num_rows, 
-                 float* sample_weights, float* score);
+/** 
+ * Computes the fitness scores for a single program on the given dataset
+ */
+void compute_fitness(const raft::handle_t &h, program_t d_prog, float* score,
+                     const param &params, const int n_samples, const float* data, 
+                     const float* y, const float* sample_weights);
 
-/** returns precomputed fitness score of program */
-void fitness(const raft::handle_t &h, program_t p, 
-             float parsimony_coeff, float* score);
+/** 
+ * Computes the fitness scores for all programs on the given dataset 
+ */
+void compute_batched_fitness(const raft::handle_t &h, program_t d_progs, float* score,
+                             const param &params, const int n_samples, const float* data, 
+                             const float* y, const float* sample_weights);         
+
+/** 
+ * Computes and sets the fitness scores for a single program w.r.t the passed dataset
+ */
+void set_fitness(const raft::handle_t &h, program_t d_prog, program &h_prog,
+                 const param &params, const int n_samples, const float* data,
+                 const float* y, const float* sample_weights);
+
+/** 
+ * Computes and sets the fitness scores of all given programs w.r.t the passed dataset
+ */
+void set_batched_fitness( const raft::handle_t &h, program_t d_progs, std::vector<program> &h_progs,
+                          const param &params, const int n_samples, const float* data,
+                          const float* y, const float* sample_weights);
+
+/** Returns precomputed fitness score of program on the host */
+void get_fitness(const program &prog, const param &params, float &score);
 
 /** build a random program of max-depth */
 void build_program(program &p_out, const param &params, std::mt19937 &gen);
 
 /** Point mutations on CPU */
-void point_mutation(const program &prog, program &p_out, const param &params, std::mt19937 &gen);
+void point_mutation(const program &prog, program &p_out, const param &params, 
+                    std::mt19937 &gen);
 
 /** Crossover mutations on CPU */
-void crossover(const program &prog, const program &donor, program &p_out, const param &params, std::mt19937 &gen);
+void crossover(const program &prog, const program &donor, program &p_out, 
+               const param &params, std::mt19937 &gen);
 
 /** Subtree mutations on CPU*/
-void subtree_mutation(const program &prog, program &p_out, const param &params, std::mt19937 &gen);
+void subtree_mutation(const program &prog, program &p_out, const param &params, 
+                      std::mt19937 &gen);
 
 /** Hoist mutation on CPU*/
-void hoist_mutation(const program &prog, program &p_out, const param &params, std::mt19937 &gen);
+void hoist_mutation(const program &prog, program &p_out, const param &params, 
+                    std::mt19937 &gen);
+
 }  // namespace genetic
 }  // namespace cuml
