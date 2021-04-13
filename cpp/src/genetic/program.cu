@@ -42,9 +42,9 @@ __global__ void execute_kernel( const program_t d_progs, const float* data,
   stack<float, MaxSize> eval_stack;
   size_t prog_id = blockIdx.y;                                    // current program 
   size_t row_idx = blockIdx.x * blockDim.x + threadIdx.x;         // current dataset row
-  size_t tid = prog_id * gridDim.x * blockDim.x + row_id;         
+  size_t tidx = prog_id * gridDim.x * blockDim.x + row_idx;         
 
-  if(tid < (size_t) n_samples*n_progs) {
+  if(tidx < (size_t) n_samples*n_progs) {
 
     // Arithmetic expr stored in prefix form
     for(int e=d_progs[prog_id].len-1;e>=0;--e) {
@@ -171,7 +171,6 @@ void set_fitness(const raft::handle_t &h, program_t d_prog, program &h_prog,
                  const param &params, const int n_samples, const float* data,
                  const float* y, const float* sample_weights) {
   cudaStream_t stream = h.get_stream();
-  int n_progs         = params.population_size;
 
   rmm::device_uvector<float> score(1, stream);
 

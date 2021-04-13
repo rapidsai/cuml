@@ -61,8 +61,8 @@ void _weighted_pearson(const raft::handle_t &h, const int n_samples, const int n
 
   // Find stats for Y
   MLCommon::Stats::colWeightedMean(mu_Y.data(),Y,W,1,n_samples,stream);
-  raft::stats::meanCenter(Y_norm.data(), Y, mu_Y.data(), (math_t)1, n_samples, false, false, stream );
-  raft::linalg::stridedReduction(Y_std.data(),Y_norm.data(),(math_t)1,n_samples,(math_t)0,stream,false,
+  raft::stats::meanCenter(Y_norm.data(), Y, mu_Y.data(), (int)1, n_samples, false, false, stream );
+  raft::linalg::stridedReduction(Y_std.data(),Y_norm.data(),(int)1,n_samples,(math_t)0,stream,false,
                                 [W]__device__(math_t v, int i){return v*v*W[i];},
                                 raft::Sum<math_t>(),
                                 [] __device__(math_t in){return raft::mySqrt(in);});
@@ -70,7 +70,7 @@ void _weighted_pearson(const raft::handle_t &h, const int n_samples, const int n
   math_t h_Y_std = Y_std.element(0,stream);
 
   // Find stats for Y_pred
-  MLCommon::Stats::colWeightedMean(mu_Y_pred.data(),Y_pred,n_progs,n_samples,stream);
+  MLCommon::Stats::colWeightedMean(mu_Y_pred.data(),Y_pred,W,n_progs,n_samples,stream);
   raft::stats::meanCenter(Y_pred_norm.data(), Y_pred, mu_Y_pred.data(), n_progs, n_samples, false, false, stream);
   raft::linalg::stridedReduction(Y_pred_std.data(),Y_pred_norm.data(),n_progs,n_samples,(math_t)0,stream,false,
                                 [W]__device__(math_t v, int i){return v*v*W[i];},

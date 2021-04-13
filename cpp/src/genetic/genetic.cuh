@@ -49,8 +49,8 @@ HDI int criterion(const param& p) {
       return 1;
     case metric_t::spearman:
       return 1;
-    // Unreachable code
     default:
+      return -1;
   }
 }
 }  // namespace detail

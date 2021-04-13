@@ -75,84 +75,95 @@ void parallel_evolve(const raft::handle_t &h,
                      const std::vector<program> &h_oldprogs, const program_t d_oldprogs, 
                      std::vector<program> &h_nextprogs, program_t d_nextprogs, 
                      const int n_samples, const float* data, const float* y, 
-                     const float* sample_weights, const param &params) {
+                     const float* sample_weights, const param &params, int generation) {
   cudaStream_t stream = h.get_stream();
-  uint64_t n_progs    =   (uint64_t) params.population_size;
-  uint64_t tour_size  =   (uint64_t) params.tournament_size;
-  uint64_t n_tours    =   n_progs;                            // at least num_progs tournaments
+  int n_progs    =   params.population_size;
+  int tour_size  =   params.tournament_size;
+  int n_tours    =   n_progs;                                 // at least num_progs tournaments
 
   // Seed engines
   std::mt19937 h_gen(params.random_state);                    // CPU engine
   raft::random::Rng d_gen(params.random_state);               // GPU engine
 
   std::uniform_real_distribution<float> dist_01(0.0f,1.0f);
-
-  // Set mutation type
-  for(auto i=0; i < n_progs; ++i){
-    float prob = dist_01(h_gen);
-
-    if(prob < params.p_crossover) {
-      h_nextprogs[i].mut_type = mutation_t::crossover;
-      n_tours++;
+  
+  // Build, Mutate and Run Tournaments
+  if(generation == 1){
+    // Build random programs for the first generation
+    for(auto i=0; i<n_progs; ++i){
+      build_program(h_nextprogs[i],params,h_gen);
     }
-    else if(prob < params.p_crossover + params.p_subtree_mutation) {
-      h_nextprogs[i].mut_type = mutation_t::subtree;
-    }
-    else if(prob < params.p_crossover+params.p_subtree_mutation+params.p_hoist_mutation) {
-      h_nextprogs[i].mut_type = mutation_t::hoist;
+  }
+  else{
+    // Set mutation type
+    for(auto i=0; i < n_progs; ++i){
+      float prob = dist_01(h_gen);
+
+      if(prob < params.p_crossover) {
+        h_nextprogs[i].mut_type = mutation_t::crossover;
+        n_tours++;
+      }
+      else if(prob < params.p_crossover + params.p_subtree_mutation) {
+        h_nextprogs[i].mut_type = mutation_t::subtree;
+      }
+      else if(prob < params.p_crossover+params.p_subtree_mutation+params.p_hoist_mutation) {
+        h_nextprogs[i].mut_type = mutation_t::hoist;
+      } 
+      else if(prob < params.p_crossover+params.p_subtree_mutation+params.p_hoist_mutation+params.p_point_mutation) {
+        h_nextprogs[i].mut_type = mutation_t::point;
+      }
+      else {
+        h_nextprogs[i].mut_type = mutation_t::reproduce;
+      }
     } 
-    else if(prob < params.p_crossover+params.p_subtree_mutation+params.p_hoist_mutation+params.p_point_mutation) {
-      h_nextprogs[i].mut_type = mutation_t::point;
-    }
-    else {
-      h_nextprogs[i].mut_type = mutation_t::reproduce;
-    }
-  } 
 
-  // Run tournaments
-  // TODO: Find a better way for subset-seed generation
-  rmm::device_uvector<uint64_t> tour_seeds(n_tours,stream);
-  rmm::device_uvector<int> d_win_indices(n_tours,stream);
-  d_gen.uniformInt(tour_seeds.data(), n_tours, (uint64_t)1, (uint64_t)INT_MAX, stream);
-  int crit = params.criterion();
-  batched_tournament_kernel<<<raft::ceildiv(n_tours,GENE_TPB),GENE_TPB,0,stream>>>(d_oldprogs,win_indices.data(),tour_seeds.data(),n_progs,n_tours,tour_size,crit);
-  CUDA_CHECK(cudaPeekAtLastError());
+    // Run tournaments
+    // TODO: Find a better way for subset-seed generation
+    rmm::device_uvector<uint64_t> tour_seeds(n_tours,stream);
+    rmm::device_uvector<int> d_win_indices(n_tours,stream);
+    d_gen.uniformInt(tour_seeds.data(), n_tours, (uint64_t)1, (uint64_t)INT_MAX, stream);
+    int crit = params.criterion();
+    dim3 nblks(raft::ceildiv(n_tours,GENE_TPB),1,1);
+    batched_tournament_kernel<<<nblks,GENE_TPB,0,stream>>>(d_oldprogs,d_win_indices.data(),tour_seeds.data(),n_progs,n_tours,tour_size,crit);
+    CUDA_CHECK(cudaPeekAtLastError());
 
-  // Make sure tournaments have finished running before copying win_indices
-  CUDA_CHECK(cudaStreamSynchronize(stream));
+    // Make sure tournaments have finished running before copying win indices
+    CUDA_CHECK(cudaStreamSynchronize(stream));
 
-  // Perform host mutations
-  auto donor_pos  = n_progs;
-  for(auto pos=0; pos < n_progs; ++pos) {
-    
-    auto parent_index = d_win_indices.element(pos, stream);
-    
-    if(h_nextprogs[pos].mut_type == mutation_t::crossover){
-      // Get secondary index
-      auto donor_index = d_win_indices.element(donor_pos, stream);
-      donor_pos++; 
-      crossover(h_oldprogs[parent_index], h_oldprogs[donor_index],h_nextprogs[pos], params, h_gen);
-    }
-    else if(h_nextprogs[pos].mut_type == mutation_t::subtree){
-      subtree_mutation(h_oldprogs[parent_index],h_nextprogs[pos],params, h_gen);
-    }
-    else if(h_nextprogs[pos].mut_type == mutation_t::hoist){
-      hoist_mutation(h_oldprogs[parent_index],h_nextprogs[pos],params,h_gen);
-    }
-    else if(h_nextprogs[pos].mut_type == mutation_t::point){
-      point_mutation(h_oldprogs[parent_index],h_nextprogs[pos],params,h_gen);
-    }
-    else if(h_nextprogs[pos].mut_type == mutation_t::reproduce){
-      h_nextprogs[pos] = h_oldprogs[parent_index];
-    }
-    else{
-      // Should not come here
+    // Perform host mutations
+    auto donor_pos  = n_progs;
+    for(auto pos=0; pos < n_progs; ++pos) {
+      
+      auto parent_index = d_win_indices.element(pos, stream);
+      
+      if(h_nextprogs[pos].mut_type == mutation_t::crossover){
+        // Get secondary index
+        auto donor_index = d_win_indices.element(donor_pos, stream);
+        donor_pos++; 
+        crossover(h_oldprogs[parent_index], h_oldprogs[donor_index],h_nextprogs[pos], params, h_gen);
+      }
+      else if(h_nextprogs[pos].mut_type == mutation_t::subtree){
+        subtree_mutation(h_oldprogs[parent_index],h_nextprogs[pos],params, h_gen);
+      }
+      else if(h_nextprogs[pos].mut_type == mutation_t::hoist){
+        hoist_mutation(h_oldprogs[parent_index],h_nextprogs[pos],params,h_gen);
+      }
+      else if(h_nextprogs[pos].mut_type == mutation_t::point){
+        point_mutation(h_oldprogs[parent_index],h_nextprogs[pos],params,h_gen);
+      }
+      else if(h_nextprogs[pos].mut_type == mutation_t::reproduce){
+        h_nextprogs[pos] = h_oldprogs[parent_index];
+      }
+      else{
+        // Should not come here
+      }
     }
   }
 
-  // Memcpy individual host nodes to device
-  // TODO: Find a better way to do this. One can copy while utilizing multiple streams
-  // or switch to a unified memory model for genetic::program
+  /* Memcpy individual host nodes to device
+     TODO: Find a better way to do this. Possibilities include a copy utilizing multiple streams,
+     a switch to a unified memory model, or a Structure of Arrays representation 
+     for all programs */
   for(auto i=0;i<n_progs;++i) {
     program_t tmp      = new program(h_nextprogs[i], false);        
     tmp->nodes         = (node*)h.get_device_allocator()->allocate(tmp->len*sizeof(node),stream);
