@@ -18,10 +18,10 @@
 
 #include <raft/cudart_utils.h>
 #include <common/nvtx.hpp>
-#include <raft/mr/device/allocator.hpp>
 #include <cuml/common/device_buffer.hpp>
 #include <label/classlabels.cuh>
 #include <raft/cuda_utils.cuh>
+#include <raft/mr/device/allocator.hpp>
 #include <raft/sparse/csr.cuh>
 #include "adjgraph/runner.cuh"
 #include "corepoints/compute.cuh"

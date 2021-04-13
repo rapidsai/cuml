@@ -34,8 +34,8 @@
 #include <thrust/for_each.h>
 #include <thrust/iterator/counting_iterator.h>
 
-#include <raft/mr/device/allocator.hpp>
 #include <cuml/common/utils.hpp>
+#include <raft/mr/device/allocator.hpp>
 
 #include <raft/cudart_utils.h>
 #include <raft/linalg/cusolver_wrappers.h>
@@ -141,7 +141,8 @@ class CSR {
    */
   CSR(int m, int n, int nnz, int batch_size, cublasHandle_t cublasHandle,
       cusolverSpHandle_t cusolverSpHandle,
-      std::shared_ptr<raft::mr::device::allocator> allocator, cudaStream_t stream)
+      std::shared_ptr<raft::mr::device::allocator> allocator,
+      cudaStream_t stream)
     : m_batch_size(batch_size),
       m_allocator(allocator),
       m_cublasHandle(cublasHandle),
@@ -284,7 +285,9 @@ class CSR {
   cusolverSpHandle_t cusolverSpHandle() const { return m_cusolverSpHandle; }
 
   //! Return allocator
-  std::shared_ptr<raft::mr::device::allocator> allocator() const { return m_allocator; }
+  std::shared_ptr<raft::mr::device::allocator> allocator() const {
+    return m_allocator;
+  }
 
   //! Return stream
   cudaStream_t stream() const { return m_stream; }

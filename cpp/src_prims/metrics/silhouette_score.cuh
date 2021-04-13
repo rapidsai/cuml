@@ -21,7 +21,6 @@
 #include <raft/linalg/distance_type.h>
 #include <algorithm>
 #include <cub/cub.cuh>
-#include <raft/mr/device/allocator.hpp>
 #include <cuml/common/device_buffer.hpp>
 #include <distance/distance.cuh>
 #include <iostream>
@@ -33,6 +32,7 @@
 #include <raft/linalg/map_then_reduce.cuh>
 #include <raft/linalg/matrix_vector_op.cuh>
 #include <raft/linalg/reduce.cuh>
+#include <raft/mr/device/allocator.hpp>
 
 namespace MLCommon {
 namespace Metrics {

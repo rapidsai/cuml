@@ -25,11 +25,11 @@
 #include <math.h>
 #include <raft/cudart_utils.h>
 #include <cub/cub.cuh>
-#include <raft/mr/device/allocator.hpp>
 #include <cuml/common/device_buffer.hpp>
 #include <raft/cuda_utils.cuh>
 #include <raft/linalg/map_then_reduce.cuh>
 #include <raft/linalg/reduce.cuh>
+#include <raft/mr/device/allocator.hpp>
 #include <stats/histogram.cuh>
 #include "contingencyMatrix.cuh"
 
@@ -114,10 +114,9 @@ int countUnique(const T* arr, int size, T& minLabel, T& maxLabel,
 * @param stream: the cudaStream object
 */
 template <typename T, typename MathT = int>
-double compute_adjusted_rand_index(const T* firstClusterArray,
-                                   const T* secondClusterArray, int size,
-                                   std::shared_ptr<raft::mr::device::allocator> allocator,
-                                   cudaStream_t stream) {
+double compute_adjusted_rand_index(
+  const T* firstClusterArray, const T* secondClusterArray, int size,
+  std::shared_ptr<raft::mr::device::allocator> allocator, cudaStream_t stream) {
   ASSERT(size >= 2, "Rand Index for size less than 2 not defined!");
   T minFirst, maxFirst, minSecond, maxSecond;
   auto nUniqFirst =

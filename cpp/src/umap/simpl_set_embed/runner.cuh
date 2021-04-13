@@ -16,8 +16,8 @@
 
 #pragma once
 
-#include <raft/mr/device/allocator.hpp>
 #include <cuml/manifold/umapparams.h>
+#include <raft/mr/device/allocator.hpp>
 #include "algo.cuh"
 
 #include <raft/sparse/coo.cuh>

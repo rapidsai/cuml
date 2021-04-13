@@ -25,7 +25,6 @@
 #include <thrust/iterator/zip_iterator.h>
 #include <thrust/transform.h>
 #include <cub/cub.cuh>
-#include <raft/mr/device/allocator.hpp>
 #include <cuml/common/device_buffer.hpp>
 #include <cuml/common/host_buffer.hpp>
 #include <cuml/common/logger.hpp>
@@ -38,6 +37,7 @@
 #include <raft/cuda_utils.cuh>
 #include <raft/linalg/binary_op.cuh>
 #include <raft/linalg/map_then_reduce.cuh>
+#include <raft/mr/device/allocator.hpp>
 #include <raft/random/rng.cuh>
 #include <random/make_blobs.cuh>
 #include <string>

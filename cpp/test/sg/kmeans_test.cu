@@ -23,11 +23,11 @@
 
 #include <thrust/fill.h>
 #include <cuml/cluster/kmeans.hpp>
-#include <raft/mr/device/allocator.hpp>
 #include <cuml/common/device_buffer.hpp>
 #include <cuml/common/logger.hpp>
 #include <cuml/datasets/make_blobs.hpp>
 #include <cuml/metrics/metrics.hpp>
+#include <raft/mr/device/allocator.hpp>
 
 namespace ML {
 

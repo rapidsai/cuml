@@ -16,7 +16,6 @@
 
 #pragma once
 #include <cub/cub.cuh>
-#include <raft/mr/device/allocator.hpp>
 #include <raft/cuda_utils.cuh>
 #include <raft/mr/device/allocator.hpp>
 #include <raft/mr/device/buffer.hpp>
@@ -207,10 +206,10 @@ __global__ void computeQuantilesSorted(T *quantiles, const int n_bins,
 }
 
 template <typename T>
-void computeQuantiles(T *quantiles, int n_bins, const T *data, int n_rows,
-                      int n_cols,
-                      const std::shared_ptr<raft::mr::device::allocator> device_allocator,
-                      cudaStream_t stream) {
+void computeQuantiles(
+  T *quantiles, int n_bins, const T *data, int n_rows, int n_cols,
+  const std::shared_ptr<raft::mr::device::allocator> device_allocator,
+  cudaStream_t stream) {
   // Determine temporary device storage requirements
   std::unique_ptr<device_buffer<char>> d_temp_storage = nullptr;
   size_t temp_storage_bytes = 0;

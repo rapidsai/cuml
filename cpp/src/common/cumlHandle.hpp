@@ -17,9 +17,9 @@
 #pragma once
 
 #include <cuml/cuml_api.h>
+#include <raft/handle.hpp>
 #include <raft/mr/device/allocator.hpp>
 #include <raft/mr/host/allocator.hpp>
-#include <raft/handle.hpp>
 
 namespace ML {
 

@@ -17,10 +17,10 @@
 #include <raft/cudart_utils.h>
 #include <raft/linalg/distance_type.h>
 #include <algorithm>
-#include <raft/mr/device/allocator.hpp>
 #include <iostream>
 #include <metrics/batched/silhouette_score.cuh>
 #include <metrics/silhouette_score.cuh>
+#include <raft/mr/device/allocator.hpp>
 #include <random>
 #include "test_utils.h"
 

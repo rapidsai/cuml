@@ -15,8 +15,8 @@
  */
 
 #include <gtest/gtest.h>
-#include <raft/mr/device/allocator.hpp>
 #include <cuml/explainer/kernel_shap.hpp>
+#include <raft/mr/device/allocator.hpp>
 
 #include <raft/cudart_utils.h>
 #include <raft/cuda_utils.cuh>

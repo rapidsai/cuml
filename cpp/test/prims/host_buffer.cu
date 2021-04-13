@@ -20,8 +20,8 @@
 #include <iterator>
 
 #include <gtest/gtest.h>
-#include <raft/mr/host/allocator.hpp>
 #include <cuml/common/host_buffer.hpp>
+#include <raft/mr/host/allocator.hpp>
 
 namespace MLCommon {
 

@@ -266,7 +266,8 @@ math_t r2_score(math_t *y, math_t *y_hat, int n, cudaStream_t stream) {
  */
 template <typename math_t>
 float accuracy_score(const math_t *predictions, const math_t *ref_predictions,
-                     int n, std::shared_ptr<raft::mr::device::allocator> d_alloc,
+                     int n,
+                     std::shared_ptr<raft::mr::device::allocator> d_alloc,
                      cudaStream_t stream) {
   unsigned long long correctly_predicted = 0ULL;
   math_t *diffs_array = (math_t *)d_alloc->allocate(n * sizeof(math_t), stream);

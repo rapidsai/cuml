@@ -18,10 +18,10 @@
 
 #include <raft/cudart_utils.h>
 #include <cub/cub.cuh>
-#include <raft/mr/device/allocator.hpp>
 #include <cuml/common/device_buffer.hpp>
 #include <cuml/common/logger.hpp>
 #include <raft/cuda_utils.cuh>
+#include <raft/mr/device/allocator.hpp>
 #include "cache_util.cuh"
 
 namespace MLCommon {
@@ -118,8 +118,8 @@ class Cache {
    *   cache entry
    * @param cache_size in MiB
    */
-  Cache(std::shared_ptr<raft::mr::device::allocator> allocator, cudaStream_t stream,
-        int n_vec, float cache_size = 200)
+  Cache(std::shared_ptr<raft::mr::device::allocator> allocator,
+        cudaStream_t stream, int n_vec, float cache_size = 200)
     : allocator(allocator),
       n_vec(n_vec),
       cache_size(cache_size),

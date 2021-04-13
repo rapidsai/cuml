@@ -29,8 +29,8 @@
 
 #include <raft/cudart_utils.h>
 #include <common/fast_int_div.cuh>
-#include <raft/mr/device/allocator.hpp>
 #include <cuml/common/device_buffer.hpp>
+#include <raft/mr/device/allocator.hpp>
 
 namespace ML {
 namespace TimeSeries {
@@ -44,9 +44,9 @@ namespace TimeSeries {
  * @param[in]  allocator  Device memory allocator
  * @param[in]  stream     CUDA stream
  */
-void cumulative_sum_helper(const bool* mask, int* cumul, int mask_size,
-                           std::shared_ptr<raft::mr::device::allocator> allocator,
-                           cudaStream_t stream) {
+void cumulative_sum_helper(
+  const bool* mask, int* cumul, int mask_size,
+  std::shared_ptr<raft::mr::device::allocator> allocator, cudaStream_t stream) {
   // Determine temporary storage size
   size_t temp_storage_bytes = 0;
   cub::DeviceScan::InclusiveSum(NULL, temp_storage_bytes, mask, cumul,

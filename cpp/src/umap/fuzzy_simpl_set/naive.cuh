@@ -17,9 +17,9 @@
 #pragma once
 
 #include <cuml/manifold/umapparams.h>
-#include <raft/mr/device/allocator.hpp>
 #include <cuml/common/logger.hpp>
 #include <cuml/neighbors/knn.hpp>
+#include <raft/mr/device/allocator.hpp>
 
 #include <raft/cudart_utils.h>
 #include <raft/cuda_utils.cuh>
@@ -281,7 +281,8 @@ void smooth_knn_dist(int n, const value_idx *knn_indices,
 template <int TPB_X, typename value_idx, typename value_t>
 void launcher(int n, const value_idx *knn_indices, const value_t *knn_dists,
               int n_neighbors, raft::sparse::COO<value_t> *out,
-              UMAPParams *params, std::shared_ptr<raft::mr::device::allocator> d_alloc,
+              UMAPParams *params,
+              std::shared_ptr<raft::mr::device::allocator> d_alloc,
               cudaStream_t stream) {
   /**
    * Calculate mean distance through a parallel reduction

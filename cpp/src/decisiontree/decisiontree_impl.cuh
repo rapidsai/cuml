@@ -19,11 +19,11 @@
 #include <raft/cudart_utils.h>
 #include <treelite/tree.h>
 #include <common/iota.cuh>
-#include <raft/mr/device/allocator.hpp>
-#include <raft/mr/host/allocator.hpp>
 #include <cuml/common/logger.hpp>
 #include <iomanip>
 #include <locale>
+#include <raft/mr/device/allocator.hpp>
+#include <raft/mr/host/allocator.hpp>
 #include <random>
 #include <type_traits>
 #include "batched-levelalgo/builder.cuh"

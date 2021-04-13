@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,13 +14,13 @@
  * limitations under the License.
  */
 
-#include <raft/mr/device/allocator.hpp>
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <metrics/dispersion.cuh>
 #include <raft/cuda_utils.cuh>
+#include <raft/mr/device/allocator.hpp>
 #include <raft/random/rng.cuh>
 #include <vector>
 #include "test_utils.h"

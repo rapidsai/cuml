@@ -17,7 +17,6 @@
 #include <cuml/matrix/kernelparams.h>
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
-#include <raft/mr/host/allocator.hpp>
 #include <cuml/common/device_buffer.hpp>
 #include <cuml/common/host_buffer.hpp>
 #include <iostream>
@@ -25,6 +24,7 @@
 #include <matrix/kernelfactory.cuh>
 #include <memory>
 #include <raft/cuda_utils.cuh>
+#include <raft/mr/host/allocator.hpp>
 #include <raft/random/rng.cuh>
 #include <rmm/device_uvector.hpp>
 #include "test_utils.h"

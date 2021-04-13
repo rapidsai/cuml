@@ -21,10 +21,10 @@
 #include <decisiontree/memory.h>
 #include <decisiontree/treelite_util.h>
 #include <raft/cudart_utils.h>
-#include <raft/mr/device/allocator.hpp>
 #include <cuml/common/logger.hpp>
 #include <decisiontree/quantile/quantile.cuh>
 #include <metrics/scores.cuh>
+#include <raft/mr/device/allocator.hpp>
 #include <raft/random/rng.cuh>
 #include <random/permute.cuh>
 #include "randomforest_impl.h"

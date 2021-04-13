@@ -18,11 +18,11 @@
 
 #include <cuml/manifold/umapparams.h>
 #include <raft/linalg/distance_type.h>
-#include <raft/mr/device/allocator.hpp>
 #include <cuml/manifold/common.hpp>
 #include <cuml/neighbors/knn_sparse.hpp>
 #include <iostream>
 #include <raft/linalg/unary_op.cuh>
+#include <raft/mr/device/allocator.hpp>
 #include <raft/sparse/selection/knn.cuh>
 #include <selection/knn.cuh>
 
@@ -114,8 +114,8 @@ void launcher(
   const ML::manifold_precomputed_knn_inputs_t<int64_t, float> &inputsA,
   const ML::manifold_precomputed_knn_inputs_t<int64_t, float> &inputsB,
   ML::knn_graph<int64_t, float> &out, int n_neighbors,
-  const ML::UMAPParams *params, std::shared_ptr<raft::mr::device::allocator> d_alloc,
-  cudaStream_t stream) {
+  const ML::UMAPParams *params,
+  std::shared_ptr<raft::mr::device::allocator> d_alloc, cudaStream_t stream) {
   out.knn_indices = inputsA.knn_graph.knn_indices;
   out.knn_dists = inputsA.knn_graph.knn_dists;
 }

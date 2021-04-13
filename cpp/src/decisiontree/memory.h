@@ -17,11 +17,11 @@
 #pragma once
 #include <cuml/tree/flatnode.h>
 #include <raft/cudart_utils.h>
-#include <raft/mr/device/allocator.hpp>
-#include <raft/mr/host/allocator.hpp>
 #include <cuml/common/device_buffer.hpp>
 #include <cuml/common/host_buffer.hpp>
 #include <cuml/tree/decisiontree.hpp>
+#include <raft/mr/device/allocator.hpp>
+#include <raft/mr/host/allocator.hpp>
 
 template <class T, class L>
 struct TemporaryMemory {

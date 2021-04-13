@@ -17,9 +17,9 @@
 #pragma once
 
 #include <cuml/manifold/umapparams.h>
-#include <raft/mr/device/allocator.hpp>
 #include <cuml/common/logger.hpp>
 #include <cuml/neighbors/knn.hpp>
+#include <raft/mr/device/allocator.hpp>
 #include "optimize.cuh"
 
 #include <raft/cudart_utils.h>
@@ -68,10 +68,10 @@ __global__ void fast_intersection_kernel(int *rows, int *cols, T *vals, int nnz,
 }
 
 template <typename T, int TPB_X>
-void reset_local_connectivity(raft::sparse::COO<T> *in_coo,
-                              raft::sparse::COO<T> *out_coo,
-                              std::shared_ptr<raft::mr::device::allocator> d_alloc,
-                              cudaStream_t stream  // size = nnz*2
+void reset_local_connectivity(
+  raft::sparse::COO<T> *in_coo, raft::sparse::COO<T> *out_coo,
+  std::shared_ptr<raft::mr::device::allocator> d_alloc,
+  cudaStream_t stream  // size = nnz*2
 ) {
   MLCommon::device_buffer<int> row_ind(d_alloc, stream, in_coo->n_rows);
 
@@ -216,11 +216,10 @@ void general_simplicial_set_intersection(
 }
 
 template <int TPB_X, typename T>
-void perform_categorical_intersection(T *y, raft::sparse::COO<T> *rgraph_coo,
-                                      raft::sparse::COO<T> *final_coo,
-                                      UMAPParams *params,
-                                      std::shared_ptr<raft::mr::device::allocator> d_alloc,
-                                      cudaStream_t stream) {
+void perform_categorical_intersection(
+  T *y, raft::sparse::COO<T> *rgraph_coo, raft::sparse::COO<T> *final_coo,
+  UMAPParams *params, std::shared_ptr<raft::mr::device::allocator> d_alloc,
+  cudaStream_t stream) {
   float far_dist = 1.0e12;  // target weight
   if (params->target_weights < 1.0)
     far_dist = 2.5 * (1.0 / (1.0 - params->target_weights));

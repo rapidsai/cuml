@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,10 +19,10 @@
 #include <benchmark/benchmark.h>
 #include <cuda_runtime.h>
 #include <raft/cudart_utils.h>
-#include <raft/mr/device/allocator.hpp>
 #include <cuml/common/logger.hpp>
 #include <cuml/common/utils.hpp>
 #include <memory>
+#include <raft/mr/device/allocator.hpp>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -87,7 +87,8 @@ struct CudaEventTimer {
 /** Main fixture to be inherited and used by all other c++ benchmarks in cuml */
 class Fixture : public ::benchmark::Fixture {
  public:
-  Fixture(const std::string& name, std::shared_ptr<raft::mr::device::allocator> _alloc)
+  Fixture(const std::string& name,
+          std::shared_ptr<raft::mr::device::allocator> _alloc)
     : ::benchmark::Fixture(), d_alloc(_alloc) {
     SetName(name.c_str());
   }

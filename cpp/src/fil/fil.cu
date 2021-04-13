@@ -28,12 +28,12 @@
 #include <stack>
 #include <utility>
 
-#include <cuml/common/logger.hpp>
 #include <cuml/fil/fil.h>
 #include <raft/cudart_utils.h>
+#include <cuml/common/logger.hpp>
+#include <raft/handle.hpp>
 #include <raft/mr/device/allocator.hpp>
 #include <raft/mr/host/allocator.hpp>
-#include <raft/handle.hpp>
 #include "common.cuh"
 
 namespace ML {

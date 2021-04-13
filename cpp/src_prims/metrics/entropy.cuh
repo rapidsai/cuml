@@ -21,11 +21,11 @@
 #include <math.h>
 #include <raft/cudart_utils.h>
 #include <cub/cub.cuh>
-#include <raft/mr/device/allocator.hpp>
 #include <cuml/common/device_buffer.hpp>
 #include <raft/cuda_utils.cuh>
 #include <raft/linalg/divide.cuh>
 #include <raft/linalg/map_then_reduce.cuh>
+#include <raft/mr/device/allocator.hpp>
 
 namespace MLCommon {
 

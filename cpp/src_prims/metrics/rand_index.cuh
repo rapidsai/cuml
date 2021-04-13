@@ -45,9 +45,9 @@
 #include <math.h>
 #include <raft/cudart_utils.h>
 #include <cub/cub.cuh>
-#include <raft/mr/device/allocator.hpp>
 #include <cuml/common/device_buffer.hpp>
 #include <raft/cuda_utils.cuh>
+#include <raft/mr/device/allocator.hpp>
 
 namespace MLCommon {
 namespace Metrics {
@@ -116,10 +116,9 @@ __global__ void computeTheNumerator(const T* firstClusterArray,
 * @param stream: the cudaStream object
 */
 template <typename T>
-double compute_rand_index(T* firstClusterArray, T* secondClusterArray,
-                          uint64_t size,
-                          std::shared_ptr<raft::mr::device::allocator> allocator,
-                          cudaStream_t stream) {
+double compute_rand_index(
+  T* firstClusterArray, T* secondClusterArray, uint64_t size,
+  std::shared_ptr<raft::mr::device::allocator> allocator, cudaStream_t stream) {
   //rand index for size less than 2 is not defined
   ASSERT(size >= 2, "Rand Index for size less than 2 not defined!");
 

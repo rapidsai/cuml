@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
-#include <raft/mr/device/allocator.hpp>
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
 #include <distance/epsilon_neighborhood.cuh>
+#include <raft/mr/device/allocator.hpp>
 #include <random/make_blobs.cuh>
 #include "test_utils.h"
 

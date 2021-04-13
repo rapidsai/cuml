@@ -15,12 +15,12 @@
  */
 
 #include <gtest/gtest.h>
-#include <raft/mr/device/allocator.hpp>
 #include <raft/cudart_utils.h>
 #include <raft/linalg/cusolver_wrappers.h>
 #include <test_utils.h>
 #include <iomanip>
 #include <raft/handle.hpp>
+#include <raft/mr/device/allocator.hpp>
 #include <raft/random/rng.cuh>
 #include <solver/lars_impl.cuh>
 #include <sstream>

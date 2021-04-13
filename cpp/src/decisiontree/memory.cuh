@@ -19,10 +19,10 @@
 #include <thrust/extrema.h>
 #include <algorithm>
 #include <cub/cub.cuh>
-#include <raft/mr/device/allocator.hpp>
-#include <raft/mr/host/allocator.hpp>
 #include <cuml/common/logger.hpp>
 #include <raft/handle.hpp>
+#include <raft/mr/device/allocator.hpp>
+#include <raft/mr/host/allocator.hpp>
 #include "memory.h"
 
 template <class T, class L>

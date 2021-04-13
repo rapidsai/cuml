@@ -17,10 +17,10 @@
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
 #include <algorithm>
-#include <raft/mr/device/allocator.hpp>
 #include <iostream>
 #include <metrics/adjusted_rand_index.cuh>
 #include <metrics/contingencyMatrix.cuh>
+#include <raft/mr/device/allocator.hpp>
 #include <random>
 #include "test_utils.h"
 

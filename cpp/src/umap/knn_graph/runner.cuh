@@ -16,8 +16,8 @@
 
 #pragma once
 
-#include <raft/mr/device/allocator.hpp>
 #include <cuml/manifold/common.hpp>
+#include <raft/mr/device/allocator.hpp>
 #include "algo.cuh"
 
 namespace UMAPAlgo {
@@ -50,8 +50,8 @@ template <typename value_idx = int64_t, typename value_t = float,
 void run(const raft::handle_t &handle, const umap_inputs &inputsA,
          const umap_inputs &inputsB, knn_graph<value_idx, value_t> &out,
          int n_neighbors, const UMAPParams *params,
-         std::shared_ptr<raft::mr::device::allocator> d_alloc, cudaStream_t stream,
-         int algo = 0) {
+         std::shared_ptr<raft::mr::device::allocator> d_alloc,
+         cudaStream_t stream, int algo = 0) {
   switch (algo) {
     /**
       * Initial algo uses FAISS indices

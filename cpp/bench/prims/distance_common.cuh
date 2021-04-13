@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-#include <raft/mr/device/allocator.hpp>
 #include <raft/cudart_utils.h>
 #include <distance/distance.cuh>
+#include <raft/mr/device/allocator.hpp>
 #include "../common/ml_benchmark.hpp"
 
 namespace MLCommon {

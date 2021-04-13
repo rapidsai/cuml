@@ -18,11 +18,11 @@
 
 #include <raft/cudart_utils.h>
 #include <cub/cub.cuh>
-#include <raft/mr/device/allocator.hpp>
 #include <cuml/common/device_buffer.hpp>
 #include <memory>
 #include <raft/cuda_utils.cuh>
 #include <raft/linalg/eltwise.cuh>
+#include <raft/mr/device/allocator.hpp>
 
 namespace MLCommon {
 namespace Metrics {

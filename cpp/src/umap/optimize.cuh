@@ -17,9 +17,9 @@
 #pragma once
 
 #include <cuml/manifold/umapparams.h>
-#include <raft/mr/device/allocator.hpp>
 #include <cuml/common/device_buffer.hpp>
 #include <cuml/common/logger.hpp>
+#include <raft/mr/device/allocator.hpp>
 
 #include <raft/cudart_utils.h>
 #include <linalg/power.cuh>
@@ -72,7 +72,8 @@ void f(T *input, int n_rows, T *coef, T *preds) {
  */
 template <typename T, int TPB_X>
 void abLossGrads(T *input, int n_rows, const T *labels, T *coef, T *grads,
-                 UMAPParams *params, std::shared_ptr<raft::mr::device::allocator> d_alloc,
+                 UMAPParams *params,
+                 std::shared_ptr<raft::mr::device::allocator> d_alloc,
                  cudaStream_t stream) {
   dim3 grid(raft::ceildiv(n_rows, TPB_X), 1, 1);
   dim3 blk(TPB_X, 1, 1);

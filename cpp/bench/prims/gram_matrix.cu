@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 
-#include <raft/mr/device/allocator.hpp>
 #include <cuml/matrix/kernelparams.h>
 #include <matrix/grammatrix.cuh>
 #include <matrix/kernelfactory.cuh>
 #include <memory>
+#include <raft/mr/device/allocator.hpp>
 #include <raft/random/rng.cuh>
 #include <sstream>
 #include <string>

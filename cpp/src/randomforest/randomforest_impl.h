@@ -16,9 +16,9 @@
 
 #pragma once
 #include <decisiontree/decisiontree_impl.h>
-#include <raft/mr/device/allocator.hpp>
 #include <cuml/ensemble/randomforest.hpp>
 #include <map>
+#include <raft/mr/device/allocator.hpp>
 
 namespace ML {
 

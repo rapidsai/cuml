@@ -137,8 +137,8 @@ thrustAllocatorAdapter _decltypeHelper{0, 0};
  * @returns A Thrust execution policy that will use allocator for temporary memory
  * allocation.
  */
-inline auto thrust_exec_policy(std::shared_ptr<raft::mr::device::allocator> allocator,
-                               cudaStream_t stream)
+inline auto thrust_exec_policy(
+  std::shared_ptr<raft::mr::device::allocator> allocator, cudaStream_t stream)
   -> std::unique_ptr<
     decltype(thrust::cuda::par(_decltypeHelper)),
     std::function<void(decltype(thrust::cuda::par(_decltypeHelper))*)>> {

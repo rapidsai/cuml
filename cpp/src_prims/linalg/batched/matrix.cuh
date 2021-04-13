@@ -30,10 +30,10 @@
 
 #include <raft/cudart_utils.h>
 #include <common/fast_int_div.cuh>
-#include <raft/mr/device/allocator.hpp>
 #include <cuml/common/device_buffer.hpp>
 #include <cuml/common/utils.hpp>
 #include <raft/cuda_utils.cuh>
+#include <raft/mr/device/allocator.hpp>
 
 #include <raft/linalg/cublas_wrappers.h>
 #include <raft/linalg/binary_op.cuh>
@@ -169,8 +169,8 @@ class Matrix {
    * @param[in]  setZero      Should matrix be zeroed on allocation?
    */
   Matrix(int m, int n, int batch_size, cublasHandle_t cublasHandle,
-         std::shared_ptr<raft::mr::device::allocator> allocator, cudaStream_t stream,
-         bool setZero = true)
+         std::shared_ptr<raft::mr::device::allocator> allocator,
+         cudaStream_t stream, bool setZero = true)
     : m_batch_size(batch_size),
       m_allocator(allocator),
       m_cublasHandle(cublasHandle),
@@ -224,7 +224,9 @@ class Matrix {
   cublasHandle_t cublasHandle() const { return m_cublasHandle; }
 
   //! Return allocator
-  std::shared_ptr<raft::mr::device::allocator> allocator() const { return m_allocator; }
+  std::shared_ptr<raft::mr::device::allocator> allocator() const {
+    return m_allocator;
+  }
 
   //! Return stream
   cudaStream_t stream() const { return m_stream; }
@@ -408,9 +410,10 @@ class Matrix {
    * 
    * @return A batched identity matrix
    */
-  static Matrix<T> Identity(int m, int batch_size, cublasHandle_t cublasHandle,
-                            std::shared_ptr<raft::mr::device::allocator> allocator,
-                            cudaStream_t stream) {
+  static Matrix<T> Identity(
+    int m, int batch_size, cublasHandle_t cublasHandle,
+    std::shared_ptr<raft::mr::device::allocator> allocator,
+    cudaStream_t stream) {
     Matrix<T> I(m, m, batch_size, cublasHandle, allocator, stream, true);
 
     identity_matrix_kernel<T>

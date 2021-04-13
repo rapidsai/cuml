@@ -16,11 +16,11 @@
 
 #pragma once
 
-#include <raft/mr/device/allocator.hpp>
 #include <opg/matrix/data.hpp>
 #include <opg/matrix/part_descriptor.hpp>
 #include <raft/comms/comms.hpp>
 #include <raft/handle.hpp>
+#include <raft/mr/device/allocator.hpp>
 
 namespace ML {
 namespace GLM {

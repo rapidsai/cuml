@@ -19,9 +19,9 @@
 #include <benchmark/benchmark.h>
 #include <cuda_runtime.h>
 #include <raft/cudart_utils.h>
-#include <raft/mr/device/allocator.hpp>
 #include <cuml/common/logger.hpp>
 #include <raft/handle.hpp>
+#include <raft/mr/device/allocator.hpp>
 #include "../common/ml_benchmark.hpp"
 #include "dataset.cuh"
 #include "dataset_ts.cuh"

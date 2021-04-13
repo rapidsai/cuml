@@ -41,10 +41,10 @@ namespace Metrics {
 * @param stream: the cudaStream object
 */
 template <typename T>
-double completeness_score(const T *truthClusterArray, const T *predClusterArray,
-                          int size, T lowerLabelRange, T upperLabelRange,
-                          std::shared_ptr<raft::mr::device::allocator> allocator,
-                          cudaStream_t stream) {
+double completeness_score(
+  const T *truthClusterArray, const T *predClusterArray, int size,
+  T lowerLabelRange, T upperLabelRange,
+  std::shared_ptr<raft::mr::device::allocator> allocator, cudaStream_t stream) {
   if (size == 0) return 1.0;
 
   double computedMI, computedEntropy;

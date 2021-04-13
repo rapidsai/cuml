@@ -15,7 +15,6 @@
  */
 
 #include <gtest/gtest.h>
-#include <raft/mr/device/allocator.hpp>
 #include <raft/cudart_utils.h>
 #include <raft/linalg/transpose.h>
 #include <test_utils.h>
@@ -25,6 +24,7 @@
 #include <glm/qn/glm_softmax.cuh>
 #include <glm/qn/qn.cuh>
 #include <raft/handle.hpp>
+#include <raft/mr/device/allocator.hpp>
 #include <vector>
 
 namespace ML {
