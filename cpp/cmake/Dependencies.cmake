@@ -38,8 +38,8 @@ else(DEFINED ENV{RAFT_PATH})
   set(RAFT_DIR ${CMAKE_CURRENT_BINARY_DIR}/raft CACHE STRING "Path to RAFT repo")
 
   ExternalProject_Add(raft
-    GIT_REPOSITORY    https://github.com/wphicks/raft.git
-    GIT_TAG           20cc03b74b8f0d5f9a130d31793eca3ff4978d9c
+    GIT_REPOSITORY    https://github.com/rapidsai/raft.git
+    GIT_TAG           3de470fe9d47a335b63e2a11e87c2737ea37800b
     PREFIX            ${RAFT_DIR}
     CONFIGURE_COMMAND ""
     BUILD_COMMAND     ""
