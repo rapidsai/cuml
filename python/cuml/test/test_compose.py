@@ -25,9 +25,10 @@ from sklearn.compose import \
     make_column_transformer as sk_make_column_transformer, \
     make_column_selector as sk_make_column_selector
 
-from cuml.test.test_preproc_utils import clf_dataset
+from cuml.test.test_preproc_utils import clf_dataset, \
+    sparse_clf_dataset
 
-from cuml.experimental.preprocessing import \
+from cuml.preprocessing import \
     StandardScaler as cuStandardScaler, \
     Normalizer as cuNormalizer
 
@@ -59,6 +60,46 @@ def test_column_transformer(clf_dataset, remainder,  # noqa: F811
 
     sk_transformers = [
         ("scaler", skStandardScaler(), [0, 2]),
+        ("normalizer", skNormalizer(), [1, 3])
+    ]
+
+    transformer = skColumnTransformer(sk_transformers,
+                                      remainder=remainder,
+                                      transformer_weights=transformer_weights)
+    sk_t_X = transformer.fit_transform(X_np)
+
+    assert_allclose(t_X, sk_t_X)
+
+
+@pytest.mark.parametrize('remainder', ['drop', 'passthrough'])
+@pytest.mark.parametrize('transformer_weights', [None, {'scaler': 2.4,
+                                                        'normalizer': 1.8}])
+@pytest.mark.parametrize('sparse_threshold', [0.2, 0.8])
+def test_column_transformer_sparse(sparse_clf_dataset, remainder,  # noqa: F811
+                                   transformer_weights, sparse_threshold):
+    X_np, X = sparse_clf_dataset
+
+    if X.format == 'csc':
+        pytest.xfail()
+    dataset_density = X.nnz / X.size
+
+    cu_transformers = [
+        ("scaler", cuStandardScaler(with_mean=False), [0, 2]),
+        ("normalizer", cuNormalizer(), [1, 3])
+    ]
+
+    transformer = cuColumnTransformer(cu_transformers,
+                                      remainder=remainder,
+                                      transformer_weights=transformer_weights,
+                                      sparse_threshold=sparse_threshold)
+    t_X = transformer.fit_transform(X)
+    if dataset_density < sparse_threshold:
+        # Sparse input -> sparse output if dataset_density > sparse_threshold
+        # else sparse input -> dense output
+        assert type(t_X) == type(X)
+
+    sk_transformers = [
+        ("scaler", skStandardScaler(with_mean=False), [0, 2]),
         ("normalizer", skNormalizer(), [1, 3])
     ]
 

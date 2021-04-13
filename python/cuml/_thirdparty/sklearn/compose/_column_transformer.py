@@ -18,17 +18,18 @@ import numbers
 from sklearn.base import clone
 from contextlib import contextmanager
 
-from scipy import sparse
-import numpy as np
-import cupy as cp
+from cupy import sparse
+import numpy as cpu_np
+import cupy as np
 import numba
 
 import cuml
 from cuml.internals.global_settings import _global_settings_data
-from ....common.array_sparse import SparseCumlArray
+from cuml.common.array_sparse import SparseCumlArray
+from cuml.internals import _deprecate_pos_args
 from ..utils.skl_dependencies import TransformerMixin, _BaseComposition
+from ....thirdparty_adapters import check_array
 from ..preprocessing import FunctionTransformer
-from ....internals import _deprecate_pos_args
 
 
 _ERR_MSG_1DCOLUMN = ("1D data passed to a transformer that expects 2D data. "
@@ -251,7 +252,7 @@ def _array_indexing(array, key, key_dtype, axis):
     if isinstance(key, tuple):
         key = list(key)
     if numba.cuda.is_cuda_array(array):
-        array = cp.asarray(array)
+        array = np.asarray(array)
     return array[key] if axis == 0 else array[:, key]
 
 
@@ -303,6 +304,7 @@ def _fit_transform_one(transformer,
     """
     with _print_elapsed_time(message_clsname, message):
         with cuml.using_output_type("cupy"):
+            transformer.accept_sparse = True
             if hasattr(transformer, 'fit_transform'):
                 res = transformer.fit_transform(X, y, **fit_params)
             else:
@@ -699,9 +701,8 @@ class ColumnTransformer(TransformerMixin, _BaseComposition):
                 # skip in case of 'drop'
                 if trans == 'passthrough':
                     with cuml.using_output_type("cupy"):
-                        trans = FunctionTransformer(
-                            accept_sparse=True, check_inverse=False
-                        )
+                        trans = FunctionTransformer(accept_sparse=True,
+                                                    check_inverse=False)
                 elif trans == 'drop':
                     continue
                 elif _is_empty_column_selection(column):
@@ -1058,10 +1059,8 @@ class ColumnTransformer(TransformerMixin, _BaseComposition):
 
 
 def _check_X(X):
-    """Use check_array only on lists and other non-array-likes / sparse"""
-    if hasattr(X, '__array__') or sparse.issparse(X):
-        return X
-    return check_array(X, force_all_finite='allow-nan', dtype=object)
+    return check_array(X, force_all_finite='allow-nan',
+                       accept_sparse=True)
 
 
 def _is_empty_column_selection(column):

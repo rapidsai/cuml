@@ -96,7 +96,7 @@ def create_rand_clf(random_state):
                                  n_clusters_per_class=1,
                                  n_informative=12,
                                  n_classes=5,
-                                 order='F',
+                                 order='C',
                                  random_state=random_state)
     return clf
 
@@ -105,7 +105,7 @@ def create_rand_blobs(random_state):
     blobs, _ = make_blobs(n_samples=500,
                           n_features=20,
                           centers=20,
-                          order='F',
+                          order='C',
                           random_state=random_state)
     return blobs
 

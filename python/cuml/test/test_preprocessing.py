@@ -751,7 +751,7 @@ def test_missing_indicator_sparse(failure_logger,
     assert_allclose(t_X, sk_t_X)
 
 
-def test_column_transformer(clf_dataset):  # noqa: F811
+def test_function_transformer(clf_dataset):  # noqa: F811
     X_np, X = clf_dataset
 
     transformer = cuFunctionTransformer(func=cp.exp, inverse_func=cp.log)
@@ -761,6 +761,27 @@ def test_column_transformer(clf_dataset):  # noqa: F811
     assert type(r_X) == type(t_X)
 
     transformer = skFunctionTransformer(func=np.exp, inverse_func=np.log)
+    sk_t_X = transformer.fit_transform(X_np)
+    sk_r_X = transformer.inverse_transform(sk_t_X)
+
+    assert_allclose(t_X, sk_t_X)
+    assert_allclose(r_X, sk_r_X)
+
+
+def test_function_transformer_sparse(sparse_clf_dataset):  # noqa: F811
+    X_np, X = sparse_clf_dataset
+
+    transformer = cuFunctionTransformer(func=lambda x: x * 2,
+                                        inverse_func=lambda x: x / 2,
+                                        accept_sparse=True)
+    t_X = transformer.fit_transform(X)
+    r_X = transformer.inverse_transform(t_X)
+    assert cp.sparse.issparse(t_X) or scipy.sparse.issparse(t_X)
+    assert cp.sparse.issparse(r_X) or scipy.sparse.issparse(r_X)
+
+    transformer = skFunctionTransformer(func=lambda x: x * 2,
+                                        inverse_func=lambda x: x / 2,
+                                        accept_sparse=True)
     sk_t_X = transformer.fit_transform(X_np)
     sk_r_X = transformer.inverse_transform(sk_t_X)
 
