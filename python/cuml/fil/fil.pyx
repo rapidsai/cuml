@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2020, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -35,6 +35,7 @@ from cuml.common.array import CumlArray
 from cuml.common.base import Base
 from cuml.raft.common.handle cimport handle_t
 from cuml.common import input_to_cuml_array, logger
+from cuml.common.mixins import CMajorInputTagMixin
 
 import treelite
 import treelite.sklearn as tl_skl
@@ -119,7 +120,7 @@ cdef class TreeliteModel():
             Path to treelite model file to load
 
         model_type : string
-            Type of model: 'xgboost', or 'lightgbm'
+            Type of model: 'xgboost', 'xgboost_json', or 'lightgbm'
         """
         filename_bytes = filename.encode("UTF-8")
         cdef ModelHandle handle
@@ -391,7 +392,8 @@ cdef class ForestInference_impl():
             free(handle_[0], self.forest_data)
 
 
-class ForestInference(Base):
+class ForestInference(Base,
+                      CMajorInputTagMixin):
     """
     ForestInference provides GPU-accelerated inference (prediction)
     for random forest and boosted decision tree models.
@@ -411,13 +413,14 @@ class ForestInference(Base):
      * A single row of data should fit into the shared memory of a thread
        block, which means that more than 12288 features are not supported.
      * From sklearn.ensemble, only
-       {RandomForest,GradientBoosting}{Classifier,Regressor} models are
-       supported. Other sklearn.ensemble models are currently not supported.
+       {RandomForest,GradientBoosting,ExtraTrees}{Classifier,Regressor} models
+       are supported. Other sklearn.ensemble models are currently not
+       supported.
      * Importing large SKLearn models can be slow, as it is done in Python.
      * LightGBM categorical features are not supported.
      * Inference uses a dense matrix format, which is efficient for many
        problems but can be suboptimal for sparse datasets.
-     * Only binary classification and regression are supported.
+     * Only classification and regression are supported.
      * Many other random forest implementations including LightGBM, and SKLearn
        GBDTs make use of 64-bit floating point parameters, but the underlying
        library for ForestInference uses only 32-bit parameters. Because of the
@@ -439,7 +442,7 @@ class ForestInference(Base):
     output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
         Variable to control output type of the results and attributes of
         the estimator. If None, it'll inherit the output type set at the
-        module level, `cuml.global_output_type`.
+        module level, `cuml.global_settings.output_type`.
         See :ref:`output-data-type-configuration` for more info.
 
     Examples
@@ -473,13 +476,13 @@ class ForestInference(Base):
 
     """
 
-    def __init__(self,
+    def __init__(self, *,
                  handle=None,
                  output_type=None,
                  verbose=False):
-        super(ForestInference, self).__init__(handle=handle,
-                                              output_type=output_type,
-                                              verbose=verbose)
+        super().__init__(handle=handle,
+                         verbose=verbose,
+                         output_type=output_type)
         self._impl = ForestInference_impl(self.handle)
 
     def predict(self, X, preds=None) -> CumlArray:
@@ -617,7 +620,7 @@ class ForestInference(Base):
                           handle=None):
         """
         Creates a FIL model using the scikit-learn model passed to the
-        function. This function requires Treelite 0.90 to be installed.
+        function. This function requires Treelite 1.0.0+ to be installed.
 
         Parameters
         ----------
@@ -725,7 +728,7 @@ class ForestInference(Base):
 
         model_type : string (default="xgboost")
             Format of the saved treelite model to be load.
-            It can be 'xgboost', 'lightgbm'.
+            It can be 'xgboost', 'xgboost_json', 'lightgbm'.
 
         Returns
         ----------
@@ -797,8 +800,3 @@ class ForestInference(Base):
                                               blocks_per_sm)
         # DO NOT RETURN self._impl here!!
         return self
-
-    def _more_tags(self):
-        return {
-            'preferred_input_order': 'C'
-        }

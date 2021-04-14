@@ -18,20 +18,24 @@
 #else
 #define omp_get_max_threads() 1
 #endif
+
+#include <cuml/ensemble/randomforest.hpp>
+
 #include <cuml/tree/flatnode.h>
 #include <treelite/c_api.h>
 #include <treelite/tree.h>
-#include <cstdio>
-#include <cstring>
+
 #include <cuml/common/logger.hpp>
-#include <cuml/ensemble/randomforest.hpp>
-#include <fstream>
-#include <iostream>
 #include <raft/error.hpp>
-#include <string>
-#include <vector>
 
 #include "randomforest_impl.cuh"
+
+#include <cstdio>
+#include <cstring>
+#include <fstream>
+#include <iostream>
+#include <string>
+#include <vector>
 
 namespace ML {
 
@@ -151,53 +155,6 @@ void postprocess_labels(int n_rows, std::vector<int>& labels,
     CUML_LOG_DEBUG("Mapping %d back to %d", prev, labels[i]);
   }
   CUML_LOG_DEBUG("Finished postrocessing labels");
-}
-
-/**
- * @brief Set RF_params parameters members; use default tree parameters.
- * @param[in,out] params: update with random forest parameters
- * @param[in] cfg_n_trees: number of trees; default 1
- * @param[in] cfg_bootstrap: bootstrapping; default true
- * @param[in] cfg_max_samples: rows sample; default 1.0f
- * @param[in] cfg_n_streams: No of parallel CUDA for training forest
- */
-void set_rf_params(RF_params& params, int cfg_n_trees, bool cfg_bootstrap,
-                   float cfg_max_samples, uint64_t cfg_seed,
-                   int cfg_n_streams) {
-  params.n_trees = cfg_n_trees;
-  params.bootstrap = cfg_bootstrap;
-  params.max_samples = cfg_max_samples;
-  params.seed = cfg_seed;
-  params.n_streams = min(cfg_n_streams, omp_get_max_threads());
-  if (params.n_streams == cfg_n_streams) {
-    CUML_LOG_WARN("Warning! Max setting Max streams to max openmp threads %d",
-                  omp_get_max_threads());
-  }
-  if (cfg_n_trees < params.n_streams) params.n_streams = cfg_n_trees;
-  set_tree_params(params.tree_params);  // use default tree params
-}
-
-/**
- * @brief Set all RF_params parameters members, including tree parameters.
- * @param[in,out] params: update with random forest parameters
- * @param[in] cfg_n_trees: number of trees
- * @param[in] cfg_bootstrap: bootstrapping
- * @param[in] cfg_max_samples: rows sample
- * @param[in] cfg_n_streams: No of parallel CUDA for training forest
- * @param[in] cfg_tree_params: tree parameters
- */
-void set_all_rf_params(RF_params& params, int cfg_n_trees, bool cfg_bootstrap,
-                       float cfg_max_samples, uint64_t cfg_seed,
-                       int cfg_n_streams,
-                       DecisionTree::DecisionTreeParams cfg_tree_params) {
-  params.n_trees = cfg_n_trees;
-  params.bootstrap = cfg_bootstrap;
-  params.max_samples = cfg_max_samples;
-  params.seed = cfg_seed;
-  params.n_streams = min(cfg_n_streams, omp_get_max_threads());
-  if (cfg_n_trees < params.n_streams) params.n_streams = cfg_n_trees;
-  set_tree_params(params.tree_params);  // use input tree params
-  params.tree_params = cfg_tree_params;
 }
 
 /**
@@ -500,7 +457,7 @@ ModelHandle concatenate_trees(std::vector<ModelHandle> treelite_handles) {
 }
 
 /**
- * @defgroup Random Forest Classification - Fit function
+ * @defgroup RandomForestClassificationFit Random Forest Classification - Fit function
  * @brief Build (i.e., fit, train) random forest classifier for input data.
  * @param[in] user_handle: raft::handle_t
  * @param[in,out] forest: CPU pointer to RandomForestMetaData object. User allocated.
@@ -520,6 +477,7 @@ ModelHandle concatenate_trees(std::vector<ModelHandle> treelite_handles) {
 void fit(const raft::handle_t& user_handle, RandomForestClassifierF*& forest,
          float* input, int n_rows, int n_cols, int* labels, int n_unique_labels,
          RF_params rf_params, int verbosity) {
+  ML::PUSH_RANGE("RF::fit @randomforest.cu");
   ML::Logger::get().setLevel(verbosity);
   ASSERT(!forest->trees, "Cannot fit an existing forest.");
   forest->trees =
@@ -530,11 +488,13 @@ void fit(const raft::handle_t& user_handle, RandomForestClassifierF*& forest,
     std::make_shared<rfClassifier<float>>(rf_params);
   rf_classifier->fit(user_handle, input, n_rows, n_cols, labels,
                      n_unique_labels, forest);
+  ML::POP_RANGE();
 }
 
 void fit(const raft::handle_t& user_handle, RandomForestClassifierD*& forest,
          double* input, int n_rows, int n_cols, int* labels,
          int n_unique_labels, RF_params rf_params, int verbosity) {
+  ML::PUSH_RANGE("RF::fit @randomforest.cu");
   ML::Logger::get().setLevel(verbosity);
   ASSERT(!forest->trees, "Cannot fit an existing forest.");
   forest->trees =
@@ -545,11 +505,12 @@ void fit(const raft::handle_t& user_handle, RandomForestClassifierD*& forest,
     std::make_shared<rfClassifier<double>>(rf_params);
   rf_classifier->fit(user_handle, input, n_rows, n_cols, labels,
                      n_unique_labels, forest);
+  ML::POP_RANGE();
 }
 /** @} */
 
 /**
- * @defgroup Random Forest Classification - Predict function
+ * @defgroup RandomForestClassificationPredict Random Forest Classification - Predict function
  * @brief Predict target feature for input data; n-ary classification for
      single feature supported.
  * @param[in] user_handle: raft::handle_t.
@@ -584,7 +545,7 @@ void predict(const raft::handle_t& user_handle,
 /** @} */
 
 /**
- * @defgroup Random Forest Classification - Predict function
+ * @addtogroup RandomForestClassificationPredict
  * @brief Predict target feature for input data; n-ary classification for
      single feature supported.
  * @param[in] user_handle: raft::handle_t.
@@ -619,7 +580,7 @@ void predictGetAll(const raft::handle_t& user_handle,
 /** @} */
 
 /**
- * @defgroup Random Forest Classification - Score function
+ * @defgroup RandomForestClassificationScore Random Forest Classification - Score function
  * @brief Compare predicted features validate against ref_labels.
  * @param[in] user_handle: raft::handle_t.
  * @param[in] forest: CPU pointer to RandomForestMetaData object.
@@ -649,14 +610,14 @@ RF_metrics score(const raft::handle_t& user_handle,
   return classification_score;
 }
 
-RF_params set_rf_class_obj(int max_depth, int max_leaves, float max_features,
-                           int n_bins, int split_algo, int min_samples_leaf,
-                           int min_samples_split, float min_impurity_decrease,
-                           bool bootstrap_features, bool bootstrap, int n_trees,
-                           float max_samples, uint64_t seed,
-                           CRITERION split_criterion, bool quantile_per_tree,
-                           int cfg_n_streams, bool use_experimental_backend,
-                           int max_batch_size) {
+RF_params set_rf_params(int max_depth, int max_leaves, float max_features,
+                        int n_bins, int split_algo, int min_samples_leaf,
+                        int min_samples_split, float min_impurity_decrease,
+                        bool bootstrap_features, bool bootstrap, int n_trees,
+                        float max_samples, uint64_t seed,
+                        CRITERION split_criterion, bool quantile_per_tree,
+                        int cfg_n_streams, bool use_experimental_backend,
+                        int max_batch_size) {
   DecisionTree::DecisionTreeParams tree_params;
   DecisionTree::set_tree_params(
     tree_params, max_depth, max_leaves, max_features, n_bins, split_algo,
@@ -664,15 +625,20 @@ RF_params set_rf_class_obj(int max_depth, int max_leaves, float max_features,
     bootstrap_features, split_criterion, quantile_per_tree,
     use_experimental_backend, max_batch_size);
   RF_params rf_params;
-  set_all_rf_params(rf_params, n_trees, bootstrap, max_samples, seed,
-                    cfg_n_streams, tree_params);
+  rf_params.n_trees = n_trees;
+  rf_params.bootstrap = bootstrap;
+  rf_params.max_samples = max_samples;
+  rf_params.seed = seed;
+  rf_params.n_streams = min(cfg_n_streams, omp_get_max_threads());
+  if (n_trees < rf_params.n_streams) rf_params.n_streams = n_trees;
+  rf_params.tree_params = tree_params;
   return rf_params;
 }
 
 /** @} */
 
 /**
- * @defgroup Random Forest Regression - Fit function
+ * @defgroup RandomForestRegressorFit Random Forest Regression - Fit function
  * @brief Build (i.e., fit, train) random forest regressor for input data.
  * @param[in] user_handle: raft::handle_t
  * @param[in,out] forest: CPU pointer to RandomForestMetaData object. User allocated.
@@ -689,6 +655,7 @@ RF_params set_rf_class_obj(int max_depth, int max_leaves, float max_features,
 void fit(const raft::handle_t& user_handle, RandomForestRegressorF*& forest,
          float* input, int n_rows, int n_cols, float* labels,
          RF_params rf_params, int verbosity) {
+  ML::PUSH_RANGE("RF::fit @randomforest.cu");
   ML::Logger::get().setLevel(verbosity);
   ASSERT(!forest->trees, "Cannot fit an existing forest.");
   forest->trees =
@@ -698,11 +665,13 @@ void fit(const raft::handle_t& user_handle, RandomForestRegressorF*& forest,
   std::shared_ptr<rfRegressor<float>> rf_regressor =
     std::make_shared<rfRegressor<float>>(rf_params);
   rf_regressor->fit(user_handle, input, n_rows, n_cols, labels, forest);
+  ML::POP_RANGE();
 }
 
 void fit(const raft::handle_t& user_handle, RandomForestRegressorD*& forest,
          double* input, int n_rows, int n_cols, double* labels,
          RF_params rf_params, int verbosity) {
+  ML::PUSH_RANGE("RF::fit @randomforest.cu");
   ML::Logger::get().setLevel(verbosity);
   ASSERT(!forest->trees, "Cannot fit an existing forest.");
   forest->trees =
@@ -712,11 +681,12 @@ void fit(const raft::handle_t& user_handle, RandomForestRegressorD*& forest,
   std::shared_ptr<rfRegressor<double>> rf_regressor =
     std::make_shared<rfRegressor<double>>(rf_params);
   rf_regressor->fit(user_handle, input, n_rows, n_cols, labels, forest);
+  ML::POP_RANGE();
 }
 /** @} */
 
 /**
- * @defgroup Random Forest Regression - Predict function
+ * @defgroup RandomForestRegressorPredict Random Forest Regression - Predict function
  * @brief Predict target feature for input data; regression for single feature supported.
  * @param[in] user_handle: raft::handle_t.
  * @param[in] forest: CPU pointer to RandomForestMetaData object.
@@ -750,7 +720,7 @@ void predict(const raft::handle_t& user_handle,
 /** @} */
 
 /**
- * @defgroup Random Forest Regression - Score function
+ * @defgroup RandomForestRegressorScore Random Forest Regression - Score function
  * @brief Predict target feature for input data and validate against ref_labels.
  * @param[in] user_handle: raft::handle_t.
  * @param[in] forest: CPU pointer to RandomForestMetaData object.

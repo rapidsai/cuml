@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,10 +16,11 @@
 #pragma once
 
 #include <distance/distance.cuh>
-#include <distance/fused_l2_nn.cuh>
 #include <linalg/reduce_cols_by_key.cuh>
 #include <linalg/reduce_rows_by_key.cuh>
 #include <matrix/gather.cuh>
+
+#include <raft/distance/fused_l2_nn.cuh>
 #include <raft/linalg/binary_op.cuh>
 #include <raft/linalg/matrix_vector_op.cuh>
 #include <raft/linalg/mean_squared_error.cuh>
@@ -38,10 +39,9 @@
 #include <ml_cuda_utils.h>
 
 #include <common/allocatorAdapter.hpp>
-#include <common/cumlHandle.hpp>
-#include <common/device_buffer.hpp>
-#include <common/host_buffer.hpp>
 #include <common/tensor.hpp>
+#include <cuml/common/device_buffer.hpp>
+#include <cuml/common/host_buffer.hpp>
 #include <raft/comms/comms.hpp>
 
 #include <cuml/common/logger.hpp>
@@ -76,14 +76,14 @@ struct FusedL2NNReduceOp {
   FusedL2NNReduceOp(LabelT _offset) : offset(_offset){};
 
   typedef typename cub::KeyValuePair<LabelT, DataT> KVP;
-  DI void operator()(KVP *out, const KVP &other) {
+  DI void operator()(LabelT rit, KVP *out, const KVP &other) {
     if (other.value < out->value) {
       out->key = offset + other.key;
       out->value = other.value;
     }
   }
 
-  DI void operator()(DataT *out, const KVP &other) {
+  DI void operator()(LabelT rit, DataT *out, const KVP &other) {
     if (other.value < *out) {
       *out = other.value;
     }
@@ -336,12 +336,13 @@ void minClusterAndDistance(
         workspace.resize((sizeof(int)) * ns, stream);
 
         FusedL2NNReduceOp<IndexT, DataT> redOp(cIdx);
+        raft::distance::KVPMinReduce<IndexT, DataT> pairRedOp;
 
-        MLCommon::Distance::fusedL2NN<DataT, cub::KeyValuePair<IndexT, DataT>,
-                                      IndexT>(
+        raft::distance::fusedL2NN<DataT, cub::KeyValuePair<IndexT, DataT>,
+                                  IndexT>(
           minClusterAndDistanceView.data(), datasetView.data(),
           centroidsView.data(), L2NormXView.data(), centroidsNormView.data(),
-          ns, nc, n_features, (void *)workspace.data(), redOp,
+          ns, nc, n_features, (void *)workspace.data(), redOp, pairRedOp,
           (metric == raft::distance::DistanceType::L2Expanded) ? false : true,
           false, stream);
       } else {
@@ -453,10 +454,11 @@ void minClusterDistance(const raft::handle_t &handle,
         workspace.resize((sizeof(int)) * ns, stream);
 
         FusedL2NNReduceOp<IndexT, DataT> redOp(cIdx);
-        MLCommon::Distance::fusedL2NN<DataT, DataT, IndexT>(
+        raft::distance::KVPMinReduce<IndexT, DataT> pairRedOp;
+        raft::distance::fusedL2NN<DataT, DataT, IndexT>(
           minClusterDistanceView.data(), datasetView.data(),
           centroidsView.data(), L2NormXView.data(), centroidsNormView.data(),
-          ns, nc, n_features, (void *)workspace.data(), redOp,
+          ns, nc, n_features, (void *)workspace.data(), redOp, pairRedOp,
           (metric == raft::distance::DistanceType::L2Expanded) ? false : true,
           false, stream);
       } else {

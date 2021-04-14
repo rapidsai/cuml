@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,20 +14,21 @@
  * limitations under the License.
  */
 
+#pragma once
+
 #include <cuml/manifold/umapparams.h>
+#include <raft/linalg/distance_type.h>
 #include <cuml/manifold/common.hpp>
 #include <cuml/neighbors/knn_sparse.hpp>
 #include <iostream>
 #include <raft/linalg/unary_op.cuh>
+#include <raft/sparse/selection/knn.cuh>
 #include <selection/knn.cuh>
-#include <sparse/selection/knn.cuh>
 
 #include <raft/cudart_utils.h>
 
 #include <raft/sparse/cusparse_wrappers.h>
 #include <raft/error.hpp>
-
-#pragma once
 
 namespace UMAPAlgo {
 namespace kNNGraph {
@@ -60,9 +61,9 @@ void launcher(const raft::handle_t &handle,
   ptrs[0] = inputsA.X;
   sizes[0] = inputsA.n;
 
-  MLCommon::Selection::brute_force_knn(
-    ptrs, sizes, inputsA.d, inputsB.X, inputsB.n, out.knn_indices,
-    out.knn_dists, n_neighbors, d_alloc, stream);
+  raft::spatial::knn::brute_force_knn(handle, ptrs, sizes, inputsA.d, inputsB.X,
+                                      inputsB.n, out.knn_indices, out.knn_dists,
+                                      n_neighbors);
 }
 
 // Instantiation for dense inputs, int indices
@@ -91,7 +92,7 @@ void launcher(const raft::handle_t &handle,
     inputsB.n, inputsB.d, out.knn_indices, out.knn_dists, n_neighbors,
     handle.get_cusparse_handle(), d_alloc, stream,
     ML::Sparse::DEFAULT_BATCH_SIZE, ML::Sparse::DEFAULT_BATCH_SIZE,
-    ML::MetricType::METRIC_L2);
+    raft::distance::DistanceType::L2Expanded);
 }
 
 template <>

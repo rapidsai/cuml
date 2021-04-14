@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,8 +21,6 @@
 #include <raft/cudart_utils.h>
 #include <cache/cache.cuh>
 #include <cache/cache_util.cuh>
-#include <common/cumlHandle.hpp>
-#include <common/host_buffer.hpp>
 #include <cub/cub.cuh>
 #include <matrix/grammatrix.cuh>
 #include <raft/cuda_utils.cuh>
@@ -108,13 +106,22 @@ class KernelCache {
       cublas_handle(handle.get_cublas_handle()),
       d_num_selected_out(handle.get_device_allocator(), handle.get_stream(), 1),
       d_temp_storage(handle.get_device_allocator(), handle.get_stream()),
-      x_ws(handle.get_device_allocator(), handle.get_stream(), n_ws * n_cols),
-      tile(handle.get_device_allocator(), handle.get_stream(), n_ws * n_rows),
+      x_ws(handle.get_device_allocator(), handle.get_stream()),
+      tile(handle.get_device_allocator(), handle.get_stream()),
       unique_idx(handle.get_device_allocator(), handle.get_stream(), n_ws),
       k_col_idx(handle.get_device_allocator(), handle.get_stream(), n_ws),
       ws_cache_idx(handle.get_device_allocator(), handle.get_stream(), n_ws) {
     ASSERT(kernel != nullptr, "Kernel pointer required for KernelCache!");
     stream = handle.get_stream();
+
+    size_t kernel_tile_size = (size_t)n_ws * n_rows;
+    CUML_LOG_DEBUG("Allocating kernel tile, size: %zu MiB",
+                   kernel_tile_size * sizeof(math_t) / (1024 * 1024));
+    tile.resize(kernel_tile_size, handle.get_stream());
+
+    size_t x_ws_tile_size = (size_t)n_ws * n_cols;
+    CUML_LOG_DEBUG("Allocating x_ws, size: %zu KiB", x_ws_tile_size / (1024));
+    x_ws.resize(x_ws_tile_size, handle.get_stream());
 
     // Default kernel_column_idx map for SVC
     MLCommon::LinAlg::range(k_col_idx.data(), n_ws, stream);
@@ -197,10 +204,12 @@ class KernelCache {
                              stream);  // cache stream
 
         // collect training vectors for kernel elements that needs to be calculated
-        raft::matrix::copyRows(x, n_rows, n_cols, x_ws.data(), ws_idx_new,
-                               non_cached, stream, false);
-        math_t *tile_new = tile.data() + n_cached * n_rows;
-        (*kernel)(x, n_rows, n_cols, x_ws.data(), non_cached, tile_new, stream);
+        raft::matrix::copyRows<math_t, int, size_t>(x, n_rows, n_cols,
+                                                    x_ws.data(), ws_idx_new,
+                                                    non_cached, stream, false);
+        math_t *tile_new = tile.data() + (size_t)n_cached * n_rows;
+        (*kernel)(x, n_rows, n_cols, x_ws.data(), non_cached, tile_new, false,
+                  stream);
         // We need AssignCacheIdx to be finished before calling StoreCols
         cache.StoreVecs(tile_new, n_rows, non_cached,
                         ws_cache_idx.data() + n_cached, stream);
@@ -208,9 +217,10 @@ class KernelCache {
     } else {
       if (n_unique > 0) {
         // collect all the feature vectors in the working set
-        raft::matrix::copyRows(x, n_rows, n_cols, x_ws.data(),
-                               unique_idx.data(), n_unique, stream, false);
-        (*kernel)(x, n_rows, n_cols, x_ws.data(), n_unique, tile.data(),
+        raft::matrix::copyRows<math_t, int, size_t>(
+          x, n_rows, n_cols, x_ws.data(), unique_idx.data(), n_unique, stream,
+          false);
+        (*kernel)(x, n_rows, n_cols, x_ws.data(), n_unique, tile.data(), false,
                   stream);
       }
     }

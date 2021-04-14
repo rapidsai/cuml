@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,13 +21,12 @@
 #include <thrust/iterator/counting_iterator.h>
 #include <cub/cub.cuh>
 
+#include <cuml/common/device_buffer.hpp>
 #include <cuml/cuml.hpp>
 #include <cuml/tsa/batched_kalman.hpp>
 
 #include <raft/cudart_utils.h>
 #include <raft/linalg/cublas_wrappers.h>
-#include <common/cumlHandle.hpp>
-#include <common/device_buffer.hpp>
 #include <common/nvtx.hpp>
 #include <linalg/batched/matrix.cuh>
 #include <raft/cuda_utils.cuh>
@@ -50,14 +49,13 @@ DI void Mv_l(const double* A, const double* v, double* out) {
 }
 
 template <int n>
-DI void Mv_l(double alpha, const double* A, const double* v, double beta,
-             double* out) {
+DI void Mv_l(double alpha, const double* A, const double* v, double* out) {
   for (int i = 0; i < n; i++) {
     double sum = 0.0;
     for (int j = 0; j < n; j++) {
       sum += A[i + j * n] * v[j];
     }
-    out[i] = alpha * sum + beta * out[i];
+    out[i] = alpha * sum;
   }
 }
 
@@ -180,7 +178,7 @@ __global__ void batched_kalman_loop_kernel(
           l_K[i] = _1_Fs * l_TP[i];
         }
       } else
-        Mv_l<rd>(_1_Fs, l_TP, l_Z, 0.0, l_K);
+        Mv_l<rd>(_1_Fs, l_TP, l_Z, l_K);
 
       // 4. alpha = T*alpha + K*vs[it] + c
       // tmp = T*alpha

@@ -15,6 +15,7 @@
 #
 
 import pytest
+import math
 
 from cuml.test.utils import array_equal, unit_param, quality_param, \
     stress_param
@@ -22,6 +23,8 @@ from cuml.neighbors import NearestNeighbors as cuKNN
 
 from sklearn.neighbors import NearestNeighbors as skKNN
 from cuml.datasets import make_blobs
+
+from sklearn.metrics import pairwise_distances
 
 from cuml.common import logger
 
@@ -56,7 +59,9 @@ def valid_metrics(algo="brute", cuml_algo=None):
     cuml_algo = algo if cuml_algo is None else cuml_algo
     cuml_metrics = cuml.neighbors.VALID_METRICS[cuml_algo]
     sklearn_metrics = sklearn.neighbors.VALID_METRICS[algo]
-    return [value for value in cuml_metrics if value in sklearn_metrics]
+    ret = [value for value in cuml_metrics if value in sklearn_metrics]
+    ret.remove("haversine")  # This is tested on its own
+    return ret
 
 
 def valid_metrics_sparse(algo="brute", cuml_algo=None):
@@ -141,17 +146,25 @@ def test_self_neighboring(datatype, metric_p, nrows):
     )
 
 
-@pytest.mark.parametrize("datatype", ["dataframe", "numpy"])
-@pytest.mark.parametrize("nrows", [500, 1000, 10000])
-@pytest.mark.parametrize("ncols", [128, 1024])
-@pytest.mark.parametrize("n_neighbors", [10, 50])
-@pytest.mark.parametrize("n_clusters", [2, 10])
-@pytest.mark.parametrize("algo", ["brute", "ivfflat", "ivfpq", "ivfsq"])
+@pytest.mark.parametrize("nrows,ncols,n_neighbors,n_clusters",
+                         [(500, 128, 10, 2),
+                          (4301, 128, 10, 2),
+                          (1000, 128, 50, 2),
+                          (2233, 1024, 2, 10),
+                          stress_param(10000, 1024, 50, 10),
+                          ])
+@pytest.mark.parametrize("algo,datatype",
+                         [("brute", "dataframe"),
+                          ("ivfflat", "numpy"),
+                          ("ivfpq", "dataframe"),
+                          ("ivfsq", "numpy")])
 def test_neighborhood_predictions(nrows, ncols, n_neighbors, n_clusters,
                                   datatype, algo):
     if algo == "ivfpq":
-        pytest.xfail("""See Memory access error in IVFPQ :
-                        https://github.com/rapidsai/cuml/issues/3318""")
+        pytest.xfail("Warning: IVFPQ might be unstable in this "
+                     "version of cuML. This is due to a known issue "
+                     "in the FAISS release that this cuML version "
+                     "is linked to. (see FAISS issue #1421)")
 
     if not has_scipy():
         pytest.skip('Skipping test_neighborhood_predictions because ' +
@@ -181,10 +194,11 @@ def test_neighborhood_predictions(nrows, ncols, n_neighbors, n_clusters,
     assert array_equal(labels, y)
 
 
-@pytest.mark.parametrize("nlist", [4, 8])
-@pytest.mark.parametrize("nrows", [10000])
-@pytest.mark.parametrize("ncols", [128, 512])
-@pytest.mark.parametrize("n_neighbors", [8, 16])
+@pytest.mark.parametrize("nlist,nrows,ncols,n_neighbors", [
+    (4, 10000, 128, 8),
+    (8, 100, 512, 8),
+    (8, 10000, 512, 16),
+    ])
 def test_ivfflat_pred(nrows, ncols, n_neighbors, nlist):
     algo_params = {
         'nlist': nlist,
@@ -213,11 +227,14 @@ def test_ivfflat_pred(nrows, ncols, n_neighbors, nlist):
 @pytest.mark.parametrize("nrows", [4000])
 @pytest.mark.parametrize("ncols", [128, 512])
 @pytest.mark.parametrize("n_neighbors", [8])
-@pytest.mark.xfail
-#  See Memory access error in IVFPQ :
-#  https://github.com/rapidsai/cuml/issues/3318
 def test_ivfpq_pred(nrows, ncols, n_neighbors,
                     nlist, M, n_bits, usePrecomputedTables):
+
+    pytest.xfail("Warning: IVFPQ might be unstable in this "
+                 "version of cuML. This is due to a known issue "
+                 "in the FAISS release that this cuML version "
+                 "is linked to. (see FAISS issue #1421)")
+
     algo_params = {
         'nlist': nlist,
         'nprobe': int(nlist * 0.2),
@@ -241,13 +258,11 @@ def test_ivfpq_pred(nrows, ncols, n_neighbors,
     assert array_equal(labels, y)
 
 
-@pytest.mark.parametrize("nlist", [4])
-@pytest.mark.parametrize("qtype", ['QT_4bit', 'QT_8bit', 'QT_fp16'])
-@pytest.mark.parametrize("encodeResidual", [False, True])
-@pytest.mark.parametrize("nrows", [10000])
-@pytest.mark.parametrize("ncols", [128, 512])
-@pytest.mark.parametrize("n_neighbors", [8])
-def test_ivfsq_pred(nrows, ncols, n_neighbors, nlist, qtype, encodeResidual):
+@pytest.mark.parametrize("qtype,encodeResidual,nrows,ncols,n_neighbors,nlist",
+                         [('QT_4bit', False, 10000, 128, 8, 4),
+                          ('QT_8bit', True, 1000, 512, 7, 4),
+                          ('QT_fp16', False, 3000, 301, 5, 8)])
+def test_ivfsq_pred(qtype, encodeResidual, nrows, ncols, n_neighbors, nlist):
     algo_params = {
         'nlist': nlist,
         'nprobe': nlist * 0.25,
@@ -269,6 +284,31 @@ def test_ivfsq_pred(nrows, ncols, n_neighbors, nlist, qtype, encodeResidual):
     labels, probs = predict(neigh_ind, y, n_neighbors)
 
     assert array_equal(labels, y)
+
+
+@pytest.mark.parametrize("algo", ["brute", "ivfflat", "ivfpq", "ivfsq"])
+@pytest.mark.parametrize("metric", set([
+        "l2", "euclidean", "sqeuclidean",
+        "cosine", "correlation"
+    ]))
+def test_ann_distances_metrics(algo, metric):
+    X, y = make_blobs(n_samples=500, centers=2,
+                      n_features=128, random_state=0)
+
+    cu_knn = cuKNN(algorithm=algo, metric=metric)
+    cu_knn.fit(X)
+    cu_dist, cu_ind = cu_knn.kneighbors(X, n_neighbors=10,
+                                        return_distance=True)
+    del cu_knn
+    gc.collect()
+
+    X = X.get()
+    sk_knn = skKNN(metric=metric)
+    sk_knn.fit(X)
+    sk_dist, sk_ind = sk_knn.kneighbors(X, n_neighbors=10,
+                                        return_distance=True)
+
+    return array_equal(sk_dist, cu_dist)
 
 
 def test_return_dists():
@@ -294,10 +334,8 @@ def test_return_dists():
 @pytest.mark.parametrize('input_type', ['dataframe', 'ndarray'])
 @pytest.mark.parametrize('nrows', [unit_param(500), quality_param(5000),
                          stress_param(70000)])
-@pytest.mark.parametrize('n_feats', [unit_param(3), quality_param(100),
-                         stress_param(1000)])
-@pytest.mark.parametrize('k', [unit_param(3), quality_param(30),
-                         stress_param(50)])
+@pytest.mark.parametrize('n_feats', [unit_param(3), stress_param(1000)])
+@pytest.mark.parametrize('k', [unit_param(3), stress_param(50)])
 @pytest.mark.parametrize("metric", valid_metrics())
 def test_knn_separate_index_search(input_type, nrows, n_feats, k, metric):
     X, _ = make_blobs(n_samples=nrows,
@@ -350,12 +388,9 @@ def test_knn_separate_index_search(input_type, nrows, n_feats, k, metric):
 
 
 @pytest.mark.parametrize('input_type', ['dataframe', 'ndarray'])
-@pytest.mark.parametrize('nrows', [unit_param(500), quality_param(5000),
-                         stress_param(70000)])
-@pytest.mark.parametrize('n_feats', [unit_param(3), quality_param(100),
-                         stress_param(1000)])
-@pytest.mark.parametrize('k', [unit_param(3), quality_param(30),
-                         stress_param(50)])
+@pytest.mark.parametrize('nrows', [unit_param(500), stress_param(70000)])
+@pytest.mark.parametrize('n_feats', [unit_param(3), stress_param(1000)])
+@pytest.mark.parametrize('k', [unit_param(3), stress_param(50)])
 @pytest.mark.parametrize("metric", valid_metrics())
 def test_knn_x_none(input_type, nrows, n_feats, k, metric):
     X, _ = make_blobs(n_samples=nrows,
@@ -410,10 +445,8 @@ def test_knn_fit_twice():
 
 
 @pytest.mark.parametrize('input_type', ['ndarray'])
-@pytest.mark.parametrize('nrows', [unit_param(500), quality_param(5000),
-                         stress_param(70000)])
-@pytest.mark.parametrize('n_feats', [unit_param(20), quality_param(100),
-                         stress_param(1000)])
+@pytest.mark.parametrize('nrows', [unit_param(500), stress_param(70000)])
+@pytest.mark.parametrize('n_feats', [unit_param(20), stress_param(1000)])
 def test_nn_downcast_fails(input_type, nrows, n_feats):
     from sklearn.datasets import make_blobs as skmb
 
@@ -436,20 +469,19 @@ def test_nn_downcast_fails(input_type, nrows, n_feats):
         knn_cu.fit(X, convert_dtype=False)
 
 
-@pytest.mark.parametrize('input_type', ['dataframe', 'ndarray'])
-@pytest.mark.parametrize('nrows', [unit_param(10), quality_param(100),
-                         stress_param(1000)])
-@pytest.mark.parametrize('n_feats', [unit_param(5), quality_param(30),
-                         stress_param(100)])
+@pytest.mark.parametrize("input_type,mode,output_type,as_instance", [
+    ("dataframe", "connectivity", "cupy", True),
+    ("dataframe", "distance", "numpy", True),
+    ("ndarray", "connectivity", "cupy", False),
+    ("ndarray", "distance", "numpy", False),
+    ])
+@pytest.mark.parametrize('nrows', [unit_param(10), stress_param(1000)])
+@pytest.mark.parametrize('n_feats', [unit_param(5), stress_param(100)])
 @pytest.mark.parametrize("p", [2, 5])
-@pytest.mark.parametrize('k', [unit_param(3), quality_param(10),
-                         stress_param(30)])
+@pytest.mark.parametrize('k', [unit_param(3), stress_param(30)])
 @pytest.mark.parametrize("metric", valid_metrics())
-@pytest.mark.parametrize("mode", ['connectivity', 'distance'])
-@pytest.mark.parametrize("output_type", ['cupy', 'numpy'])
-@pytest.mark.parametrize("as_instance", [True, False])
-def test_knn_graph(input_type, nrows, n_feats, p, k, metric, mode,
-                   output_type, as_instance):
+def test_knn_graph(input_type, mode, output_type, as_instance,
+                   nrows, n_feats, p, k, metric):
     X, _ = make_blobs(n_samples=nrows,
                       n_features=n_feats, random_state=0)
 
@@ -487,18 +519,19 @@ def test_knn_graph(input_type, nrows, n_feats, p, k, metric, mode,
 
 
 @pytest.mark.parametrize("metric", valid_metrics_sparse())
-@pytest.mark.parametrize('shape', [(100, 100, 0.4), (100, 15000, 0.04)])
-@pytest.mark.parametrize('n_neighbors', [4])
-@pytest.mark.parametrize('batch_size_index', [40000])
-@pytest.mark.parametrize('batch_size_query', [40000])
-def test_nearest_neighbors_sparse(shape,
-                                  metric,
+@pytest.mark.parametrize(
+    'nrows,ncols,density,n_neighbors,batch_size_index,batch_size_query',
+    [(1, 10, 0.8, 1, 10, 10),
+     (10, 35, 0.8, 4, 10, 20000),
+     (40, 35, 0.5, 4, 20000, 10),
+     (35, 35, 0.8, 4, 20000, 20000)])
+def test_nearest_neighbors_sparse(metric,
+                                  nrows,
+                                  ncols,
+                                  density,
                                   n_neighbors,
                                   batch_size_index,
                                   batch_size_query):
-
-    nrows, ncols, density = shape
-
     if nrows == 1 and n_neighbors > 1:
         return
 
@@ -537,4 +570,57 @@ def test_nearest_neighbors_sparse(shape,
     # Jaccard & Chebyshev have a high potential for mismatched indices
     # due to duplicate distances. We can ignore the indices in this case.
     if metric not in ['jaccard', 'chebyshev']:
-        cp.testing.assert_allclose(cuI, skI, atol=1e-4, rtol=1e-4)
+
+        # The actual neighbors returned in the presence of duplicate distances
+        # is non-deterministic. If we got to this point, the distances all
+        # match between cuml and sklearn. We set a reasonable threshold
+        # (.5% in this case) to allow differences from non-determinism.
+        diffs = abs(cuI - skI)
+        assert (len(diffs[diffs > 0]) / len(np.ravel(skI))) <= 0.005
+
+
+@pytest.mark.parametrize("n_neighbors", [1, 5, 6])
+def test_haversine(n_neighbors):
+
+    hoboken_nj = [40.745255, -74.034775]
+    port_hueneme_ca = [34.155834, -119.202789]
+    auburn_ny = [42.933334, -76.566666]
+    league_city_tx = [29.499722, -95.089722]
+    tallahassee_fl = [30.455000, -84.253334]
+    aurora_il = [41.763889, -88.29001]
+
+    data = np.array([hoboken_nj,
+                     port_hueneme_ca,
+                     auburn_ny,
+                     league_city_tx,
+                     tallahassee_fl,
+                     aurora_il])
+
+    data = data * math.pi / 180
+
+    pw_dists = pairwise_distances(data, metric='haversine')
+
+    cunn = cuKNN(metric='haversine',
+                 n_neighbors=n_neighbors,
+                 algorithm='brute')
+
+    dists, inds = cunn.fit(data).kneighbors(data)
+
+    argsort = np.argsort(pw_dists, axis=1)
+
+    for i in range(pw_dists.shape[0]):
+        cpu_ordered = pw_dists[i, argsort[i]]
+        cp.testing.assert_allclose(cpu_ordered[:n_neighbors], dists[i],
+                                   atol=1e-4, rtol=1e-4)
+
+
+@pytest.mark.xfail(raises=RuntimeError)
+def test_haversine_fails_high_dimensions():
+
+    data = np.array([[0., 1., 2.], [3., 4., 5.]])
+
+    cunn = cuKNN(metric='haversine',
+                 n_neighbors=2,
+                 algorithm='brute')
+
+    cunn.fit(data).kneighbors(data)

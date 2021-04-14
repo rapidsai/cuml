@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,9 +17,9 @@
 #pragma once
 
 #include <cuml/manifold/umapparams.h>
+#include <cuml/common/cuml_allocator.hpp>
+#include <cuml/common/device_buffer.hpp>
 #include <cuml/common/logger.hpp>
-
-#include <common/device_buffer.hpp>
 
 #include <raft/cudart_utils.h>
 #include <linalg/power.cuh>
@@ -34,6 +34,8 @@
 #include <cuda_runtime.h>
 
 #pragma once
+
+using MLCommon::deviceAllocator;
 
 namespace UMAPAlgo {
 

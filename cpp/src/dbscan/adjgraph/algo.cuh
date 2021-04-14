@@ -19,12 +19,11 @@
 #include <thrust/device_ptr.h>
 #include <thrust/scan.h>
 #include <common/allocatorAdapter.hpp>
-#include <common/cumlHandle.hpp>
 #include <raft/cuda_utils.cuh>
 #include "../common.cuh"
 #include "pack.h"
 
-#include <sparse/convert/csr.cuh>
+#include <raft/sparse/convert/csr.cuh>
 
 using namespace thrust;
 

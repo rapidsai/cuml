@@ -26,12 +26,6 @@ import dask.array as da
 from uuid import uuid1
 
 
-def _custom_getter(o):
-    def func_get(f, idx):
-        return f[o][idx]
-    return func_get
-
-
 class KNeighborsRegressor(NearestNeighbors):
     """
     Multi-node Multi-GPU K-Nearest Neighbors Regressor Model.
@@ -61,11 +55,11 @@ class KNeighborsRegressor(NearestNeighbors):
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
     """
-    def __init__(self, client=None, streams_per_handle=0,
+    def __init__(self, *, client=None, streams_per_handle=0,
                  verbose=False, **kwargs):
-        super(KNeighborsRegressor, self).__init__(client=client,
-                                                  verbose=verbose,
-                                                  **kwargs)
+        super().__init__(client=client,
+                         verbose=verbose,
+                         **kwargs)
         self.streams_per_handle = streams_per_handle
 
     def fit(self, X, y):
@@ -89,7 +83,7 @@ class KNeighborsRegressor(NearestNeighbors):
         self.data_handler = \
             DistributedDataHandler.create(data=[X, y],
                                           client=self.client)
-        self.n_outputs = y.shape[1]
+        self.n_outputs = y.shape[1] if y.ndim != 1 else 1
 
         return self
 
@@ -105,11 +99,11 @@ class KNeighborsRegressor(NearestNeighbors):
         return cumlKNN(handle=handle, **kwargs)
 
     @staticmethod
-    def _func_predict(model, data, data_parts_to_ranks, data_nrows,
+    def _func_predict(model, index, index_parts_to_ranks, index_nrows,
                       query, query_parts_to_ranks, query_nrows,
                       ncols, rank, n_output, convert_dtype):
         return model.predict(
-            data, data_parts_to_ranks, data_nrows,
+            index, index_parts_to_ranks, index_nrows,
             query, query_parts_to_ranks, query_nrows,
             ncols, rank, n_output, convert_dtype
         )
@@ -204,8 +198,7 @@ class KNeighborsRegressor(NearestNeighbors):
         """
         out_futures = flatten_grouped_results(self.client,
                                               query_parts_to_ranks,
-                                              knn_reg_res,
-                                              getter_func=_custom_getter(0))
+                                              knn_reg_res)
 
         comms.destroy()
 

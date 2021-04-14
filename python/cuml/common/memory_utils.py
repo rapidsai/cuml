@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020, NVIDIA CORPORATION.
+# Copyright (c) 2020-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -310,6 +310,10 @@ def _check_array_contiguity(ary):
         else:
             raise TypeError("No array_interface attribute detected in input. ")
 
+        # if the strides are not set or none, then the array is C-contiguous
+        if 'strides' not in ary_interface or ary_interface['strides'] is None:
+            return True
+
         shape = ary_interface['shape']
         strides = ary_interface['strides']
         dtype = cp.dtype(ary_interface['typestr'])
@@ -419,7 +423,7 @@ def set_global_output_type(output_type):
         raise ValueError('Parameter output_type must be one of "numpy", '
                          '"cupy", cudf", "numba", "input" or None')
 
-    cuml.global_output_type = output_type
+    cuml.global_settings.output_type = output_type
 
 
 @contextlib.contextmanager
@@ -504,12 +508,12 @@ def using_output_type(output_type):
         <class 'cupy.core.core.ndarray'>
 
     """
-    prev_output_type = cuml.global_output_type
+    prev_output_type = cuml.global_settings.output_type
     try:
         set_global_output_type(output_type)
         yield prev_output_type
     finally:
-        cuml.global_output_type = prev_output_type
+        cuml.global_settings.output_type = prev_output_type
 
 
 @with_cupy_rmm

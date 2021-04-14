@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,8 +14,12 @@
 # limitations under the License.
 #
 
-from cuml.internals.base_helpers import BaseMetaClass
+from cuml.internals.base_helpers import (
+    BaseMetaClass,
+    _tags_class_and_instance
+)
 from cuml.internals.api_decorators import (
+    _deprecate_pos_args,
     api_base_fit_transform,
     api_base_return_any_skipall,
     api_base_return_any,
@@ -31,6 +35,7 @@ from cuml.internals.api_decorators import (
     api_return_array,
     api_return_generic,
     api_return_sparse_array,
+    CUML_WRAPPED_FLAG,
     exit_internal_api,
 )
 from cuml.internals.api_context_managers import (

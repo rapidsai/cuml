@@ -15,7 +15,6 @@
 #=============================================================================
 
 set(CUML_TEST_INCLUDE_DIRS
-  ${CUML_INCLUDE_DIRECTORIES}
   ${GTEST_INCLUDE_DIRS}/include
   ${TREELITE_DIR}/runtime/native/include)
 
@@ -51,13 +50,16 @@ if(BUILD_CUML_TESTS)
     sg/decisiontree_batchedlevel_algo.cu
     sg/decisiontree_batchedlevel_unittest.cu
     sg/fil_test.cu
-    sg/multi_sum_test.cu
+    sg/genetic/node_test.cpp
+    sg/genetic/param_test.cu
     sg/handle_test.cu
     sg/holtwinters_test.cu
     sg/kmeans_test.cu
     sg/knn_test.cu
     sg/lars_test.cu
+    sg/linkage_test.cu
     sg/logger.cpp
+    sg/multi_sum_test.cu
     sg/nvtx_test.cpp
     sg/ols.cu
     sg/pca_test.cu
@@ -66,6 +68,7 @@ if(BUILD_CUML_TESTS)
     sg/rf_batched_classification_test.cu
     sg/rf_batched_regression_test.cu
     sg/rf_depth_test.cu
+    sg/rf_quantiles_test.cu
     sg/rf_test.cu
     sg/rf_treelite_test.cu
     sg/ridge.cu
@@ -81,9 +84,14 @@ if(BUILD_CUML_TESTS)
 
   add_dependencies(ml cutlass)
 
-  target_include_directories(ml PRIVATE ${CUML_TEST_INCLUDE_DIRS})
+  target_include_directories(ml
+    PRIVATE
+      ${CUML_SRC_DIR}
+      ${CUML_SRC_PRIMS_DIR}
+      ${CUML_TEST_PRIMS_DIR}
+  )
 
-  target_link_libraries(ml ${CUML_TEST_LINK_LIBRARIES})
+  target_link_libraries(ml ${CUML_TEST_LINK_LIBRARIES} ${CUML_C_TARGET})
 
 endif(BUILD_CUML_TESTS)
 
@@ -107,7 +115,11 @@ if(BUILD_CUML_MG_TESTS)
         ${MPI_CXX_INCLUDE_PATH}
         ${cumlprims_mg_INCLUDE_DIRS})
 
-    target_include_directories(ml_mg PUBLIC ${CUML_TEST_INCLUDE_DIRS})
+    target_include_directories(ml_mg
+      PRIVATE
+        ${CUML_SRC_DIR}
+        ${CUML_SRC_PRIMS_DIR}
+        ${CUML_TEST_PRIMS_DIR})
 
     set(CUML_TEST_LINK_LIBRARIES
     	${CUML_TEST_LINK_LIBRARIES}
@@ -140,7 +152,6 @@ if(BUILD_PRIMS_TESTS)
     prims/completeness_score.cu
     prims/contingencyMatrix.cu
     prims/cov.cu
-    prims/csr.cu
     prims/cutlass_gemm.cu
     prims/decoupled_lookback.cu
     prims/device_utils.cu
@@ -154,7 +165,6 @@ if(BUILD_PRIMS_TESTS)
     prims/entropy.cu
     prims/epsilon_neighborhood.cu
     prims/fast_int_div.cu
-    prims/fused_l2_nn.cu
     prims/gather.cu
     prims/gram.cu
     prims/grid_sync.cu
@@ -166,7 +176,6 @@ if(BUILD_PRIMS_TESTS)
     prims/kl_divergence.cu
     prims/knn_classify.cu
     prims/knn_regression.cu
-    prims/knn.cu
     prims/kselection.cu
     prims/label.cu
     prims/linearReg.cu
@@ -190,39 +199,44 @@ if(BUILD_PRIMS_TESTS)
     prims/score.cu
     prims/seive.cu
     prims/sigmoid.cu
-    prims/sparse/add.cu
-    prims/sparse/convert_coo.cu
-    prims/sparse/convert_csr.cu
-    prims/sparse/csr_row_slice.cu
-    prims/sparse/csr_to_dense.cu
-    prims/sparse/csr_transpose.cu
-    prims/sparse/degree.cu
-    prims/sparse/dist_coo_spmv.cu
-    prims/sparse/dist_csr_spmv.cu
-    prims/sparse/distance.cu
-    prims/sparse/filter.cu
-    prims/sparse/knn.cu
-    prims/sparse/norm.cu
-    prims/sparse/row_op.cu
-    prims/sparse/selection.cu
-    prims/sparse/sort.cu
-    prims/sparse/symmetrize.cu
     prims/silhouette_score.cu
     prims/sqrt.cu
     prims/ternary_op.cu
     prims/trustworthiness.cu
     prims/v_measure.cu
-    prims/weighted_mean.cu
-    ../src/common/logger.cpp)  # because prims is header only!
+    prims/weighted_mean.cu)
 
-  target_include_directories(prims PRIVATE ${CUML_TEST_INCLUDE_DIRS})
+  target_include_directories(prims
+    PRIVATE
+      ${CUML_SRC_PRIMS_DIR}
+      ${CUML_TEST_PRIMS_DIR}
+  )
 
   add_dependencies(prims cutlass)
 
   target_link_libraries(prims
+    ${CUML_CPP_TARGET}
   	GTest::GTest
   	GTest::Main
   	FAISS::FAISS
     ${PRIMS_TEST_LINK_LIBRARIES})
 
 endif(BUILD_PRIMS_TESTS)
+
+##############################################################################
+# - build C-API test library -------------------------------------------------
+
+if(BUILD_CUML_C_LIBRARY)
+  set(CUML_C_TEST_TARGET "${CUML_C_TARGET}_test")
+
+  add_library(${CUML_C_TEST_TARGET} SHARED
+    c_api/dbscan_api_test.c
+    c_api/glm_api_test.c
+    c_api/holtwinters_api_test.c
+    c_api/knn_api_test.c
+    c_api/svm_api_test.c
+  )
+
+  target_link_libraries(${CUML_C_TEST_TARGET} PUBLIC ${CUML_C_TARGET})
+
+endif(BUILD_CUML_C_LIBRARY)

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,8 +27,8 @@
 #include <cuml/common/cuml_allocator.hpp>
 
 #include <distance/distance.cuh>
+#include <raft/spatial/knn/knn.hpp>
 #include <selection/columnWiseSort.cuh>
-#include <selection/knn.cuh>
 
 #include <thrust/device_ptr.h>
 #include <thrust/reduce.h>
@@ -81,9 +81,11 @@ __global__ void compute_rank(math_t *ind_X, knn_index_t *ind_X_embedded, int n,
  * @return Matrix holding the indices of the nearest neighbors
  */
 template <typename math_t>
-long *get_knn_indices(math_t *input, int n, int d, int n_neighbors,
-                      std::shared_ptr<deviceAllocator> d_alloc,
-                      cudaStream_t stream) {
+long *get_knn_indices(const raft::handle_t &h, math_t *input, int n, int d,
+                      int n_neighbors) {
+  cudaStream_t stream = h.get_stream();
+  auto d_alloc = h.get_device_allocator();
+
   long *d_pred_I =
     (int64_t *)d_alloc->allocate(n * n_neighbors * sizeof(int64_t), stream);
   math_t *d_pred_D =
@@ -94,8 +96,8 @@ long *get_knn_indices(math_t *input, int n, int d, int n_neighbors,
   ptrs[0] = input;
   sizes[0] = n;
 
-  MLCommon::Selection::brute_force_knn(ptrs, sizes, d, input, n, d_pred_I,
-                                       d_pred_D, n_neighbors, d_alloc, stream);
+  raft::spatial::knn::brute_force_knn(h, ptrs, sizes, d, input, n, d_pred_I,
+                                      d_pred_D, n_neighbors);
 
   d_alloc->deallocate(d_pred_D, n * n_neighbors * sizeof(math_t), stream);
   return d_pred_I;
@@ -116,11 +118,13 @@ long *get_knn_indices(math_t *input, int n, int d, int n_neighbors,
  * @return Trustworthiness score
  */
 template <typename math_t, raft::distance::DistanceType distance_type>
-double trustworthiness_score(math_t *X, math_t *X_embedded, int n, int m, int d,
-                             int n_neighbors,
-                             std::shared_ptr<deviceAllocator> d_alloc,
-                             cudaStream_t stream, int batchSize = 512) {
+double trustworthiness_score(const raft::handle_t &h, math_t *X,
+                             math_t *X_embedded, int n, int m, int d,
+                             int n_neighbors, int batchSize = 512) {
   const int TMP_SIZE = batchSize * n;
+
+  cudaStream_t stream = h.get_stream();
+  auto d_alloc = h.get_device_allocator();
 
   typedef cutlass::Shape<8, 128, 128> OutputTile_t;
 
@@ -129,7 +133,7 @@ double trustworthiness_score(math_t *X, math_t *X_embedded, int n, int m, int d,
   int *d_ind_X_tmp = (int *)d_alloc->allocate(TMP_SIZE * sizeof(int), stream);
 
   int64_t *ind_X_embedded =
-    get_knn_indices(X_embedded, n, d, n_neighbors + 1, d_alloc, stream);
+    get_knn_indices(h, X_embedded, n, d, n_neighbors + 1);
 
   double t_tmp = 0.0;
   double t = 0.0;

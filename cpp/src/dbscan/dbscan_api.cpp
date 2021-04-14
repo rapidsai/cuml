@@ -14,10 +14,13 @@
  * limitations under the License.
  */
 
-#include "dbscan_api.h"
+#include <cuml/cluster/dbscan_api.h>
+
 #include <cuml/cuml_api.h>
 #include <common/cumlHandle.hpp>
 #include <cuml/cluster/dbscan.hpp>
+
+extern "C" {
 
 cumlError_t cumlSpDbscanFit(cumlHandle_t handle, float *input, int n_rows,
                             int n_cols, float eps, int min_pts, int *labels,
@@ -28,7 +31,8 @@ cumlError_t cumlSpDbscanFit(cumlHandle_t handle, float *input, int n_rows,
   std::tie(handle_ptr, status) = ML::handleMap.lookupHandlePointer(handle);
   if (status == CUML_SUCCESS) {
     try {
-      ML::Dbscan::fit(*handle_ptr, input, n_rows, n_cols, eps, min_pts, labels,
+      ML::Dbscan::fit(*handle_ptr, input, n_rows, n_cols, eps, min_pts,
+                      raft::distance::L2SqrtUnexpanded, labels,
                       core_sample_indices, max_bytes_per_batch, verbosity);
     }
     //TODO: Implement this
@@ -53,7 +57,8 @@ cumlError_t cumlDpDbscanFit(cumlHandle_t handle, double *input, int n_rows,
   std::tie(handle_ptr, status) = ML::handleMap.lookupHandlePointer(handle);
   if (status == CUML_SUCCESS) {
     try {
-      ML::Dbscan::fit(*handle_ptr, input, n_rows, n_cols, eps, min_pts, labels,
+      ML::Dbscan::fit(*handle_ptr, input, n_rows, n_cols, eps, min_pts,
+                      raft::distance::L2SqrtUnexpanded, labels,
                       core_sample_indices, max_bytes_per_batch, verbosity);
     }
     //TODO: Implement this
@@ -67,4 +72,5 @@ cumlError_t cumlDpDbscanFit(cumlHandle_t handle, double *input, int n_rows,
     }
   }
   return status;
+}
 }

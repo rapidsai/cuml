@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2020, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -27,7 +27,7 @@ from libc.stdint cimport uintptr_t
 
 from cuml.common.array import CumlArray
 from cuml.common.base import Base
-from cuml.common.base import RegressorMixin
+from cuml.common.mixins import RegressorMixin
 from cuml.common.doc_utils import generate_docstring
 from cuml.metrics import r2_score
 from cuml.raft.common.handle cimport handle_t
@@ -157,7 +157,7 @@ class SVR(SVMBase, RegressorMixin):
     output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
         Variable to control output type of the results and attributes of
         the estimator. If None, it'll inherit the output type set at the
-        module level, `cuml.global_output_type`.
+        module level, `cuml.global_settings.output_type`.
         See :ref:`output-data-type-configuration` for more info.
 
     Attributes
@@ -223,13 +223,26 @@ class SVR(SVMBase, RegressorMixin):
         Predicted values: [1.200474 3.8999617 5.100488 3.7995374 1.0995375]
 
     """
-    def __init__(self, handle=None, C=1, kernel='rbf', degree=3,
+    def __init__(self, *, handle=None, C=1, kernel='rbf', degree=3,
                  gamma='scale', coef0=0.0, tol=1e-3, epsilon=0.1,
                  cache_size=1024.0, max_iter=-1, nochange_steps=1000,
                  verbose=False, output_type=None):
-        super(SVR, self).__init__(handle, C, kernel, degree, gamma, coef0, tol,
-                                  cache_size, max_iter, nochange_steps,
-                                  verbose, epsilon, output_type=output_type)
+        super().__init__(
+            handle=handle,
+            C=C,
+            kernel=kernel,
+            degree=degree,
+            gamma=gamma,
+            coef0=coef0,
+            tol=tol,
+            epsilon=epsilon,
+            cache_size=cache_size,
+            max_iter=max_iter,
+            nochange_steps=nochange_steps,
+            verbose=verbose,
+            output_type=output_type,
+        )
+
         self.svmType = EPSILON_SVR
 
     @generate_docstring()

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,7 +15,7 @@
  */
 #pragma once
 
-#include <common/cumlHandle.hpp>
+#include <raft/handle.hpp>
 
 namespace ML {
 namespace GLM {
@@ -124,12 +124,12 @@ void qnFit(const raft::handle_t &cuml_handle, float *X, float *y, int N, int D,
            int C, bool fit_intercept, float l1, float l2, int max_iter,
            float grad_tol, int linesearch_max_iter, int lbfgs_memory,
            int verbosity, float *w0, float *f, int *num_iters, bool X_col_major,
-           int loss_type);
+           int loss_type, float *sample_weight = nullptr);
 void qnFit(const raft::handle_t &cuml_handle, double *X, double *y, int N,
            int D, int C, bool fit_intercept, double l1, double l2, int max_iter,
            double grad_tol, int linesearch_max_iter, int lbfgs_memory,
            int verbosity, double *w0, double *f, int *num_iters,
-           bool X_col_major, int loss_type);
+           bool X_col_major, int loss_type, double *sample_weight = nullptr);
 /** @} */
 
 /**

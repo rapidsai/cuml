@@ -16,10 +16,10 @@
 
 #pragma once
 
-#include <common/cumlHandle.hpp>
 #include "algo.cuh"
 #include "naive.cuh"
 #include "pack.h"
+#include "precomputed.cuh"
 
 namespace ML {
 namespace Dbscan {
@@ -38,6 +38,10 @@ void run(const raft::handle_t& handle, bool* adj, Index_* vd, const Type_f* x,
     case 1:
       Algo::launcher<Type_f, Index_>(handle, data, start_vertex_id, batch_size,
                                      stream);
+      break;
+    case 2:
+      Precomputed::launcher<Type_f, Index_>(handle, data, start_vertex_id,
+                                            batch_size, stream);
       break;
     default:
       ASSERT(false, "Incorrect algo passed! '%d'", algo);

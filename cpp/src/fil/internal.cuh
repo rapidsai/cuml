@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-/** @file internal.h cuML-internal interface to Forest Inference Library. */
+/** @file internal.cuh cuML-internal interface to Forest Inference Library. */
 
 #pragma once
 
@@ -48,9 +48,16 @@ enum output_t {
   /** output class label: either apply threshold to the output of the previous stage (for binary classification),
       or select the class with the most votes to get the class label (for multi-class classification).  */
   CLASS = 0x100,
+  /** softmax: apply softmax to class margins when predicting probability 
+      in multiclass classification. Softmax is made robust by subtracting max
+      from margins before applying. */
+  SOFTMAX = 0x1000,
   SIGMOID_CLASS = SIGMOID | CLASS,
   AVG_CLASS = AVG | CLASS,
   AVG_SIGMOID_CLASS = AVG | SIGMOID | CLASS,
+  AVG_SOFTMAX = AVG | SOFTMAX,
+  AVG_CLASS_SOFTMAX = AVG | CLASS | SOFTMAX,
+  ALL_SET = AVG | SIGMOID | CLASS | SOFTMAX
 };
 
 /** val_t is the payload within a FIL leaf */
@@ -232,6 +239,9 @@ struct forest_params_t {
   // if zero, launches ceildiv(num_rows, NITEMS) blocks
   int blocks_per_sm;
 };
+
+/// FIL_TPB is the number of threads per block to use with FIL kernels
+const int FIL_TPB = 256;
 
 /** init_dense uses params and nodes to initialize the dense forest stored in pf
  *  @param h cuML handle used by this function

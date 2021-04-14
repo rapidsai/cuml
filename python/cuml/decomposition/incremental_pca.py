@@ -82,7 +82,7 @@ class IncrementalPCA(PCA):
     output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
         Variable to control output type of the results and attributes of
         the estimator. If None, it'll inherit the output type set at the
-        module level, `cuml.global_output_type`.
+        module level, `cuml.global_settings.output_type`.
         See :ref:`output-data-type-configuration` for more info.
 
     Attributes
@@ -189,15 +189,15 @@ class IncrementalPCA(PCA):
         0.003474966583315544
 
     """
-    def __init__(self, handle=None, n_components=None, *, whiten=False,
+    def __init__(self, *, handle=None, n_components=None, whiten=False,
                  copy=True, batch_size=None, verbose=False,
                  output_type=None):
 
-        super(IncrementalPCA, self).__init__(handle=handle,
-                                             n_components=n_components,
-                                             whiten=whiten, copy=copy,
-                                             verbose=verbose,
-                                             output_type=output_type)
+        super().__init__(handle=handle,
+                         n_components=n_components,
+                         whiten=whiten, copy=copy,
+                         verbose=verbose,
+                         output_type=output_type)
         self.batch_size = batch_size
         self._hyperparams = ["n_components", "whiten", "copy", "batch_size"]
         self._sparse_model = True
