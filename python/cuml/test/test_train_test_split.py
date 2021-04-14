@@ -298,7 +298,7 @@ def test_stratified_split(type, test_size, train_size):
     X_train, X_test, y_train, y_test = train_test_split(X, y,
                                                         train_size=train_size,
                                                         test_size=test_size,
-                                                        stratify=True)
+                                                        stratify=y)
 
     original_counts = counts(y)
     split_counts = counts(y_train)
@@ -327,7 +327,7 @@ def test_stratified_random_seed(seed_type):
         y = cudf.Series(([0] * (100 // 2)) + ([1] * (100 // 2)))
     X_train, X_test, y_train, y_test = train_test_split(X, y,
                                                         random_state=seed,
-                                                        stratify=True)
+                                                        stratify=y)
 
     if seed_type == 'cupy':
         seed = cp.random.RandomState(seed=seed_n)
@@ -335,7 +335,7 @@ def test_stratified_random_seed(seed_type):
         seed = np.random.RandomState(seed=seed_n)
 
     X_train2, X_test2, y_train2, y_test2 = \
-        train_test_split(X, y, random_state=seed, stratify=True)
+        train_test_split(X, y, random_state=seed, stratify=y)
 
     assert X_train.equals(X_train2)
     assert X_test.equals(X_test2)
@@ -362,7 +362,7 @@ def test_stratify_retain_index(test_size, train_size):
                                                         train_size=train_size,
                                                         test_size=test_size,
                                                         shuffle=True,
-                                                        stratify=True)
+                                                        stratify=y)
     assert (X_train["x"] == X_train.index).all()
     assert (X_test["x"] == X_test.index).all()
 
@@ -385,14 +385,14 @@ def test_stratified_binary_classification():
     with pytest.raises(ValueError):
         train_test_split(X, y,
                          train_size=0.75,
-                         stratify=True,
-                         shuffle=True)
+                         stratify=y,
+                         shuffle=y)
 
     y = cp.array([0, 0, 0, 1, 1])
 
     X_train, X_test, y_train, y_test = train_test_split(X, y,
                                                         train_size=0.75,
-                                                        stratify=True)
+                                                        stratify=y)
 
     _, y_counts = cp.unique(y, return_counts=True)
     _, train_counts = cp.unique(y_train, return_counts=True)

@@ -53,22 +53,24 @@ def _stratify_split(X, y, n_train, n_test, x_numba, y_numba, random_state):
         x_order = _strides_to_order(X.__cuda_array_interface__['strides'],
                                     cp.dtype(X.dtype))
 
+    # Converting to cupy array removes the need to add an if-else block
+    # for y column
     if isinstance(y, cudf.Series):
         y_cudf = True
+        y = y.values
     elif hasattr(y, "__cuda_array_interface__"):
         y = cp.asarray(y)
-        y_order = _strides_to_order(y.__cuda_array_interface__['strides'],
-                                    cp.dtype(y.dtype))
     elif isinstance(y, cudf.DataFrame):
         y_cudf = True
         # ensuring it has just one column
         if y.shape[1] != 1:
             raise ValueError('Expected one label, but found y'
                              'with shape = %d' % (y.shape))
+        y = y[0].values
 
-    classes, y_indices = cp.unique(y.values if y_cudf
-                                   else y,
-                                   return_inverse=True)
+    y_order = _strides_to_order(y.__cuda_array_interface__['strides'],
+                                    cp.dtype(y.dtype))
+    classes, y_indices = cp.unique(y, return_inverse=True)
 
     n_classes = classes.shape[0]
     class_counts = cp.bincount(y_indices)
@@ -101,6 +103,11 @@ def _stratify_split(X, y, n_train, n_test, x_numba, y_numba, random_state):
         permutation = random_state.permutation(class_counts[i].item())
         perm_indices_class_i = class_indices[i].take(permutation)
 
+        y_train_i = cp.array(y[perm_indices_class_i[:n_i[i]]],
+                                 order=y_order)
+        y_test_i = cp.array(y[perm_indices_class_i[n_i[i]:n_i[i] +
+                                                   t_i[i]]],
+                            order=y_order)
         if hasattr(X, "__cuda_array_interface__") or \
            isinstance(X, cupyx.scipy.sparse.csr_matrix):
 
@@ -109,12 +116,6 @@ def _stratify_split(X, y, n_train, n_test, x_numba, y_numba, random_state):
             X_test_i = cp.array(X[perm_indices_class_i[n_i[i]:n_i[i] +
                                                        t_i[i]]],
                                 order=x_order)
-
-            y_train_i = cp.array(y[perm_indices_class_i[:n_i[i]]],
-                                 order=y_order)
-            y_test_i = cp.array(y[perm_indices_class_i[n_i[i]:n_i[i] +
-                                                       t_i[i]]],
-                                order=y_order)
 
             if X_train is None:
                 X_train = cp.array(X_train_i, order=x_order)
@@ -131,8 +132,8 @@ def _stratify_split(X, y, n_train, n_test, x_numba, y_numba, random_state):
             X_train_i = X.iloc[perm_indices_class_i[:n_i[i]]]
             X_test_i = X.iloc[perm_indices_class_i[n_i[i]:n_i[i] + t_i[i]]]
 
-            y_train_i = y.iloc[perm_indices_class_i[:n_i[i]]]
-            y_test_i = y.iloc[perm_indices_class_i[n_i[i]:n_i[i] + t_i[i]]]
+#             y_train_i = y.iloc[perm_indices_class_i[:n_i[i]]]
+#             y_test_i = y.iloc[perm_indices_class_i[n_i[i]:n_i[i] + t_i[i]]]
 
             if X_train is None:
                 X_train = X_train_i
@@ -142,8 +143,10 @@ def _stratify_split(X, y, n_train, n_test, x_numba, y_numba, random_state):
             else:
                 X_train = cudf.concat([X_train, X_train_i], ignore_index=False)
                 X_test = cudf.concat([X_test, X_test_i], ignore_index=False)
-                y_train = cudf.concat([y_train, y_train_i], ignore_index=False)
-                y_test = cudf.concat([y_test, y_test_i], ignore_index=False)
+                y_train = cp.concatenate([y_train, y_train_i], axis=0)
+                y_test = cp.concatenate([y_test, y_test_i], axis=0)
+#                 y_train = cudf.concat([y_train, y_train_i], ignore_index=False)
+#                 y_test = cudf.concat([y_test, y_test_i], ignore_index=False)
 
     if x_numba:
         X_train = cuda.as_cuda_array(X_train)
@@ -255,9 +258,9 @@ def train_test_split(X,
            Parameter `seed` is deprecated and will be removed in 0.17. Please
            use `random_state` instead
 
-    stratify: bool, optional
-        Whether to stratify the input data based on class labels.
-        None by default
+    stratify: cudf.Series or cuda_array_interface compliant device array,
+            optional parameter. When passed, the input is split using this
+            as column to startify on. Default=None
 
     Examples
     --------
@@ -435,7 +438,7 @@ def train_test_split(X,
 
         if stratify is not None:
             split_return = _stratify_split(X,
-                                           y,
+                                           stratify,
                                            train_size,
                                            test_size,
                                            x_numba,
