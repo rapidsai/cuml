@@ -207,8 +207,8 @@ void FFT_TSNE(value_t *VAL, const value_idx *COL, const value_idx *ROW,
   MLCommon::LinAlg::zero(repulsive_forces_device.data(),
                          repulsive_forces_device.size(), stream);
   DB(value_t, attractive_forces_device, n * 2);
-  MLCommon::LinAlg::zero(attractive_forces_device.data(), attractive_forces_device.size(),
-  stream);
+  MLCommon::LinAlg::zero(attractive_forces_device.data(),
+                         attractive_forces_device.size(), stream);
   DB(value_t, gains_device, n * 2);
   auto gains_device_thrust = thrust::device_pointer_cast(gains_device.data());
   thrust::fill(thrust::cuda::par.on(stream), gains_device_thrust,
@@ -217,68 +217,62 @@ void FFT_TSNE(value_t *VAL, const value_idx *COL, const value_idx *ROW,
   MLCommon::LinAlg::zero(old_forces_device.data(), old_forces_device.size(),
                          stream);
   DB(value_t, normalization_vec_device, n);
-  MLCommon::LinAlg::zero(normalization_vec_device.data(), normalization_vec_device.size(),
-  stream);
+  MLCommon::LinAlg::zero(normalization_vec_device.data(),
+                         normalization_vec_device.size(), stream);
   DB(value_idx, point_box_idx_device, n);
   DB(value_t, x_in_box_device, n);
   MLCommon::LinAlg::zero(x_in_box_device.data(), x_in_box_device.size(),
-  stream);
+                         stream);
   DB(value_t, y_in_box_device, n);
   MLCommon::LinAlg::zero(y_in_box_device.data(), y_in_box_device.size(),
-  stream);
+                         stream);
   DB(value_t, y_tilde_values, total_interpolation_points * n_terms);
-  MLCommon::LinAlg::zero(y_tilde_values.data(), y_tilde_values.size(),
-  stream);
+  MLCommon::LinAlg::zero(y_tilde_values.data(), y_tilde_values.size(), stream);
   DB(value_t, x_interpolated_values_device, n * n_interpolation_points);
-  MLCommon::LinAlg::zero(x_interpolated_values_device.data(), x_interpolated_values_device.size(),
-  stream);
+  MLCommon::LinAlg::zero(x_interpolated_values_device.data(),
+                         x_interpolated_values_device.size(), stream);
   DB(value_t, y_interpolated_values_device, n * n_interpolation_points);
-  MLCommon::LinAlg::zero(y_interpolated_values_device.data(), y_interpolated_values_device.size(),
-  stream);
+  MLCommon::LinAlg::zero(y_interpolated_values_device.data(),
+                         y_interpolated_values_device.size(), stream);
   DB(value_t, potentialsQij_device, n * n_terms);
-  MLCommon::LinAlg::zero(potentialsQij_device.data(), potentialsQij_device.size(),
-  stream);
+  MLCommon::LinAlg::zero(potentialsQij_device.data(),
+                         potentialsQij_device.size(), stream);
   DB(value_t, w_coefficients_device, total_interpolation_points * n_terms);
-  MLCommon::LinAlg::zero(w_coefficients_device.data(), w_coefficients_device.size(),
-  stream);
+  MLCommon::LinAlg::zero(w_coefficients_device.data(),
+                         w_coefficients_device.size(), stream);
   DB(value_t, all_interpolated_values_device,
      n_terms * n_interpolation_points * n_interpolation_points * n);
-  MLCommon::LinAlg::zero(all_interpolated_values_device.data(), all_interpolated_values_device.size(),
-  stream);
+  MLCommon::LinAlg::zero(all_interpolated_values_device.data(),
+                         all_interpolated_values_device.size(), stream);
   DB(value_t, output_values,
      n_terms * n_interpolation_points * n_interpolation_points * n);
-     MLCommon::LinAlg::zero(output_values.data(), output_values.size(),
-     stream);
+  MLCommon::LinAlg::zero(output_values.data(), output_values.size(), stream);
   DB(value_t, all_interpolated_indices,
      n_terms * n_interpolation_points * n_interpolation_points * n);
-     MLCommon::LinAlg::zero(all_interpolated_indices.data(), all_interpolated_indices.size(),
-     stream);
+  MLCommon::LinAlg::zero(all_interpolated_indices.data(),
+                         all_interpolated_indices.size(), stream);
   DB(value_t, output_indices,
      n_terms * n_interpolation_points * n_interpolation_points * n);
-     MLCommon::LinAlg::zero(output_indices.data(), output_indices.size(),
-     stream);
+  MLCommon::LinAlg::zero(output_indices.data(), output_indices.size(), stream);
   DB(value_t, chargesQij_device, n * n_terms);
   MLCommon::LinAlg::zero(chargesQij_device.data(), chargesQij_device.size(),
-  stream);
+                         stream);
   DB(value_t, box_lower_bounds_device, 2 * n_total_boxes);
-  MLCommon::LinAlg::zero(box_lower_bounds_device.data(), box_lower_bounds_device.size(),
-  stream);
+  MLCommon::LinAlg::zero(box_lower_bounds_device.data(),
+                         box_lower_bounds_device.size(), stream);
   DB(value_t, kernel_tilde_device, n_fft_coeffs * n_fft_coeffs);
   MLCommon::LinAlg::zero(kernel_tilde_device.data(), kernel_tilde_device.size(),
-  stream);
+                         stream);
   DB(cufftComplex, fft_kernel_tilde_device,
      2 * n_interpolation_points_1d * 2 * n_interpolation_points_1d);
   DB(value_t, fft_input, n_terms * n_fft_coeffs * n_fft_coeffs);
-  MLCommon::LinAlg::zero(fft_input.data(), fft_input.size(),
-  stream);
+  MLCommon::LinAlg::zero(fft_input.data(), fft_input.size(), stream);
   DB(cufftComplex, fft_w_coefficients,
      n_terms * n_fft_coeffs * (n_fft_coeffs / 2 + 1));
   DB(value_t, fft_output, n_terms * n_fft_coeffs * n_fft_coeffs);
-  MLCommon::LinAlg::zero(fft_output.data(), fft_output.size(),
-  stream);
+  MLCommon::LinAlg::zero(fft_output.data(), fft_output.size(), stream);
   DB(value_t, sum_d, 1);
-  MLCommon::LinAlg::zero(sum_d.data(), sum_d.size(),
-  stream);
+  MLCommon::LinAlg::zero(sum_d.data(), sum_d.size(), stream);
   cudaDeviceSynchronize();
 
   value_t h = 1.0f / n_interpolation_points;
