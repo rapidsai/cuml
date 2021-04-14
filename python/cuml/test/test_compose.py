@@ -39,9 +39,8 @@ from sklearn.preprocessing import \
 from cuml.test.test_preproc_utils import assert_allclose
 
 
-@pytest.mark.parametrize('remainder', ['drop', 'passthrough'])
-@pytest.mark.parametrize('transformer_weights', [None, {'scaler': 2.4,
-                                                        'normalizer': 1.8}])
+@pytest.mark.parametrize('remainder', ['drop'])
+@pytest.mark.parametrize('transformer_weights', [None])
 def test_column_transformer(clf_dataset, remainder,  # noqa: F811
                             transformer_weights):
     X_np, X = clf_dataset
@@ -54,9 +53,11 @@ def test_column_transformer(clf_dataset, remainder,  # noqa: F811
     transformer = cuColumnTransformer(cu_transformers,
                                       remainder=remainder,
                                       transformer_weights=transformer_weights)
-    t_X = transformer.fit_transform(X)
+    ft_X = transformer.fit_transform(X)
+    t_X = transformer.transform(X)
     assert type(t_X) == type(X)
-
+    with pytest.raises(Exception):
+        cu_feature_names = transformer.get_feature_names()
 
     sk_transformers = [
         ("scaler", skStandardScaler(), [0, 2]),
@@ -67,7 +68,10 @@ def test_column_transformer(clf_dataset, remainder,  # noqa: F811
                                       remainder=remainder,
                                       transformer_weights=transformer_weights)
     sk_t_X = transformer.fit_transform(X_np)
+    with pytest.raises(Exception):
+        sk_feature_names = transformer.get_feature_names()
 
+    assert_allclose(ft_X, sk_t_X)
     assert_allclose(t_X, sk_t_X)
 
 
@@ -92,11 +96,14 @@ def test_column_transformer_sparse(sparse_clf_dataset, remainder,  # noqa: F811
                                       remainder=remainder,
                                       transformer_weights=transformer_weights,
                                       sparse_threshold=sparse_threshold)
-    t_X = transformer.fit_transform(X)
+    ft_X = transformer.fit_transform(X)
+    t_X = transformer.transform(X)
     if dataset_density < sparse_threshold:
         # Sparse input -> sparse output if dataset_density > sparse_threshold
         # else sparse input -> dense output
         assert type(t_X) == type(X)
+    with pytest.raises(Exception):
+        cu_feature_names = transformer.get_feature_names()
 
     sk_transformers = [
         ("scaler", skStandardScaler(with_mean=False), [0, 2]),
@@ -105,7 +112,77 @@ def test_column_transformer_sparse(sparse_clf_dataset, remainder,  # noqa: F811
 
     transformer = skColumnTransformer(sk_transformers,
                                       remainder=remainder,
-                                      transformer_weights=transformer_weights)
+                                      transformer_weights=transformer_weights,
+                                      sparse_threshold=sparse_threshold)
     sk_t_X = transformer.fit_transform(X_np)
+    with pytest.raises(Exception):
+        sk_feature_names = transformer.get_feature_names()
 
+    assert_allclose(ft_X, sk_t_X)
+    assert_allclose(t_X, sk_t_X)
+
+
+@pytest.mark.parametrize('remainder', ['drop', 'passthrough'])
+def test_make_column_transformer(clf_dataset, remainder):  # noqa: F811
+    X_np, X = clf_dataset
+
+    transformer = cu_make_column_transformer(
+        (cuStandardScaler(), [0, 2]),
+        (cuNormalizer(), [1, 3]),
+        remainder=remainder)
+
+    ft_X = transformer.fit_transform(X)
+    t_X = transformer.transform(X)
+    assert type(t_X) == type(X)
+    with pytest.raises(Exception):
+        cu_feature_names = transformer.get_feature_names()
+
+    transformer = sk_make_column_transformer(
+        (skStandardScaler(), [0, 2]),
+        (skNormalizer(), [1, 3]),
+        remainder=remainder)
+    sk_t_X = transformer.fit_transform(X_np)
+    with pytest.raises(Exception):
+        sk_feature_names = transformer.get_feature_names()
+
+    assert_allclose(ft_X, sk_t_X)
+    assert_allclose(t_X, sk_t_X)
+
+
+@pytest.mark.parametrize('remainder', ['drop', 'passthrough'])
+@pytest.mark.parametrize('sparse_threshold', [0.2, 0.8])
+def test_column_transformer_sparse(sparse_clf_dataset, remainder,  # noqa: F811
+                                   sparse_threshold):
+    X_np, X = sparse_clf_dataset
+
+    if X.format == 'csc':
+        pytest.xfail()
+    dataset_density = X.nnz / X.size
+
+    transformer = cu_make_column_transformer(
+        (cuStandardScaler(with_mean=False), [0, 2]),
+        (cuNormalizer(), [1, 3]),
+        remainder=remainder,
+        sparse_threshold=sparse_threshold)
+
+    ft_X = transformer.fit_transform(X)
+    t_X = transformer.transform(X)
+    if dataset_density < sparse_threshold:
+        # Sparse input -> sparse output if dataset_density > sparse_threshold
+        # else sparse input -> dense output
+        assert type(t_X) == type(X)
+    with pytest.raises(Exception):
+        cu_feature_names = transformer.get_feature_names()
+
+    transformer = sk_make_column_transformer(
+        (skStandardScaler(with_mean=False), [0, 2]),
+        (skNormalizer(), [1, 3]),
+        remainder=remainder,
+        sparse_threshold=sparse_threshold)
+
+    sk_t_X = transformer.fit_transform(X_np)
+    with pytest.raises(Exception):
+        sk_feature_names = transformer.get_feature_names()
+
+    assert_allclose(ft_X, sk_t_X)
     assert_allclose(t_X, sk_t_X)

@@ -17,6 +17,7 @@ import timeit
 import numbers
 from sklearn.base import clone
 from contextlib import contextmanager
+from collections import defaultdict
 
 from cupy import sparse
 import numpy as cpu_np
@@ -28,6 +29,7 @@ from cuml.internals.global_settings import _global_settings_data
 from cuml.common.array_sparse import SparseCumlArray
 from cuml.internals import _deprecate_pos_args
 from ..utils.skl_dependencies import TransformerMixin, _BaseComposition
+from ..utils.validation import check_is_fitted
 from ....thirdparty_adapters import check_array
 from ..preprocessing import FunctionTransformer
 
@@ -283,7 +285,7 @@ def _list_indexing(X, key, key_dtype):
 
 
 def _transform_one(transformer, X, y, weight, **fit_params):
-    res = transformer.transform(X)
+    res = transformer.transform(X).to_output('cupy')
     # if we have a weight for this transformer, multiply output
     if weight is None:
         return res
