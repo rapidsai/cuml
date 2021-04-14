@@ -400,3 +400,26 @@ def test_stratified_binary_classification():
 
     # Ensure we have preserve the number of labels
     cp.testing.assert_array_equal(train_counts+test_counts, y_counts)
+
+
+@pytest.mark.parametrize('test_size', [0.2, 0.4, None])
+@pytest.mark.parametrize('train_size', [0.6, 0.8, None])
+def test_stratify_any_input(test_size, train_size):
+    X = cudf.DataFrame({"x": range(10)})
+    X['test_col'] = cudf.Series([10, 0, 0, 10, 10,
+                                10, 0, 0, 10, 10])
+    y = cudf.Series(([0] * (10 // 2)) + ([1] * (10 // 2)))
+
+    X_train, X_test, y_train, y_test = train_test_split(X, y,
+                                                        train_size=train_size,
+                                                        test_size=test_size,
+                                                        shuffle=True,
+                                                        stratify=X['test_col'])
+    assert (X_train["x"] == X_train.index).all()
+    assert (X_test["x"] == X_test.index).all()
+
+    if train_size is not None:
+        assert X_train.shape[0] == (int)(X.shape[0] * train_size)
+
+    elif test_size is not None:
+        assert X_test.shape[0] == (int)(X.shape[0] * test_size)

@@ -69,7 +69,7 @@ def _stratify_split(X, y, n_train, n_test, x_numba, y_numba, random_state):
         y = y[0].values
 
     y_order = _strides_to_order(y.__cuda_array_interface__['strides'],
-                                    cp.dtype(y.dtype))
+                                cp.dtype(y.dtype))
     classes, y_indices = cp.unique(y, return_inverse=True)
 
     n_classes = classes.shape[0]
@@ -104,7 +104,7 @@ def _stratify_split(X, y, n_train, n_test, x_numba, y_numba, random_state):
         perm_indices_class_i = class_indices[i].take(permutation)
 
         y_train_i = cp.array(y[perm_indices_class_i[:n_i[i]]],
-                                 order=y_order)
+                             order=y_order)
         y_test_i = cp.array(y[perm_indices_class_i[n_i[i]:n_i[i] +
                                                    t_i[i]]],
                             order=y_order)
@@ -132,9 +132,6 @@ def _stratify_split(X, y, n_train, n_test, x_numba, y_numba, random_state):
             X_train_i = X.iloc[perm_indices_class_i[:n_i[i]]]
             X_test_i = X.iloc[perm_indices_class_i[n_i[i]:n_i[i] + t_i[i]]]
 
-#             y_train_i = y.iloc[perm_indices_class_i[:n_i[i]]]
-#             y_test_i = y.iloc[perm_indices_class_i[n_i[i]:n_i[i] + t_i[i]]]
-
             if X_train is None:
                 X_train = X_train_i
                 y_train = y_train_i
@@ -145,8 +142,6 @@ def _stratify_split(X, y, n_train, n_test, x_numba, y_numba, random_state):
                 X_test = cudf.concat([X_test, X_test_i], ignore_index=False)
                 y_train = cp.concatenate([y_train, y_train_i], axis=0)
                 y_test = cp.concatenate([y_test, y_test_i], axis=0)
-#                 y_train = cudf.concat([y_train, y_train_i], ignore_index=False)
-#                 y_test = cudf.concat([y_test, y_test_i], ignore_index=False)
 
     if x_numba:
         X_train = cuda.as_cuda_array(X_train)
@@ -159,8 +154,8 @@ def _stratify_split(X, y, n_train, n_test, x_numba, y_numba, random_state):
         y_train = cuda.as_cuda_array(y_train)
         y_test = cuda.as_cuda_array(y_test)
     elif y_cudf:
-        y_train = cudf.DataFrame(y_train)
-        y_test = cudf.DataFrame(y_test)
+        y_train = cudf.Series(y_train)
+        y_test = cudf.Series(y_test)
 
     return X_train, X_test, y_train, y_test
 
