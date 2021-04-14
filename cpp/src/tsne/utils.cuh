@@ -135,8 +135,8 @@ double SymmetrizeTime = 0, DistancesTime = 0, NormalizeTime = 0,
 
 template <typename value_t, typename value_idx, int TPB = 1024>
 __global__ void min_max_kernel(const value_t *Y, const value_idx n,
-                               value_t *min, value_t *max,
-                               bool find_min = true) {
+                               value_t *min, value_t *max, bool find_min = true,
+                               int iter = 0) {
   auto tid = threadIdx.x + blockDim.x * blockIdx.x;
 
   typedef cub::BlockReduce<value_t, TPB> BlockReduce;
@@ -149,18 +149,22 @@ __global__ void min_max_kernel(const value_t *Y, const value_idx n,
     if (find_min) thread_min = thread_max;
   } else {
     if (find_min) thread_min = std::numeric_limits<value_t>::max();
-    thread_max = std::numeric_limits<value_t>::min();
+    thread_max = std::numeric_limits<value_t>::lowest();
+    // if (iter==1) printf("threadIdx.x: %d, thread_max: %f", threadIdx.x, thread_max);
   }
 
   value_t block_min, block_max;
-  if (find_min)
+  if (find_min) {
     block_min = BlockReduce(temp_storage_min).Reduce(thread_min, cub::Min());
+  }
 
+  // block_max = BlockReduce(temp_storage_max).Reduce(thread_max, cub::Max());
   block_max = BlockReduce(temp_storage_max).Reduce(thread_max, cub::Max());
 
   // results stored in first thread of block
 
   if (threadIdx.x == 0) {
+    // if (iter==1)printf("BlockIdx.x: %d, block_max: %f, thread_max: %f, max: %f\n", blockIdx.x, block_max, thread_max, *max);
     if (find_min) atomicMin(min, block_min);
     atomicMax(max, block_max);
   }

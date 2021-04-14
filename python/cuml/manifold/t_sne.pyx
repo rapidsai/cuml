@@ -48,14 +48,14 @@ from libcpp.memory cimport shared_ptr
 
 cimport cuml.common.cuda
 
-cdef extern from "cuml/manifold/tsne.h" namespace "ML" nogil:
+cdef extern from "cuml/manifold/tsne.h" namespace "ML":
 
     enum TSNE_ALGORITHM:
         EXACT = 0,
         BARNES_HUT = 1,
         FFT = 2
 
-cdef extern from "cuml/manifold/tsne.h" namespace "ML" nogil:
+cdef extern from "cuml/manifold/tsne.h" namespace "ML":
 
     cdef void TSNE_fit(
         handle_t &handle,
@@ -524,6 +524,16 @@ class TSNE(Base,
                             <bool> True,
                             algo)
         else:
+            print("Python Params")
+            print("Early Exaggeration: ", self.early_exaggeration)
+            print("Late Exaggeration: ", self.late_exaggeration)
+            print("Exaggeration Iter: ", self.exaggeration_iter)
+            print("Pre Learning Rate: ", self.pre_learning_rate)
+            print("Post Learning Rate: ", self.post_learning_rate)
+            print("Max Iter: ", self.n_iter)
+            print("Min Grad Norm: ", self.min_grad_norm)
+            print("Pre Momentum: ", self.pre_momentum)
+            print("Post Momentum: ", self.post_momentum)
             TSNE_fit(handle_[0],
                      <float*><uintptr_t> self.X_m.ptr,
                      <float*> embed_ptr,
@@ -584,7 +594,6 @@ class TSNE(Base,
     def __del__(self):
 
         if hasattr(self, "embedding_"):
-            print("Cleaning up: " + str(self.embedding_.__cuda_array_interface__))
             del self.embedding_
 
     def __getstate__(self):
