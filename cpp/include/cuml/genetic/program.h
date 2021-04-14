@@ -55,11 +55,6 @@ struct program {
   explicit program(const program &src, const bool &dst);
   
   /**
-   * Destructor for current program
-   */
-  ~program(){ delete[] nodes; }
-  
-  /**
    * @brief assignment operator
    *
    * @param[in] src source program to be copied

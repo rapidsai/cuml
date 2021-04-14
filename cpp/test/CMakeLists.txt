@@ -52,6 +52,7 @@ if(BUILD_CUML_TESTS)
     sg/fil_test.cu
     sg/genetic/node_test.cpp
     sg/genetic/param_test.cu
+    sg/genetic/program_test.cu
     sg/handle_test.cu
     sg/holtwinters_test.cu
     sg/kmeans_test.cu

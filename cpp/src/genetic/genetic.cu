@@ -75,15 +75,15 @@ void parallel_evolve(const raft::handle_t &h,
                      const std::vector<program> &h_oldprogs, const program_t d_oldprogs, 
                      std::vector<program> &h_nextprogs, program_t d_nextprogs, 
                      const int n_samples, const float* data, const float* y, 
-                     const float* sample_weights, const param &params, int generation) {
+                     const float* sample_weights, const param &params, const int generation, const int seed) {
   cudaStream_t stream = h.get_stream();
   int n_progs    =   params.population_size;
   int tour_size  =   params.tournament_size;
   int n_tours    =   n_progs;                                 // at least num_progs tournaments
 
   // Seed engines
-  std::mt19937 h_gen(params.random_state);                    // CPU engine
-  raft::random::Rng d_gen(params.random_state);               // GPU engine
+  std::mt19937 h_gen(seed);                    // CPU engine
+  raft::random::Rng d_gen(seed);               // GPU engine
 
   std::uniform_real_distribution<float> dist_01(0.0f,1.0f);
   
