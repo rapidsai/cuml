@@ -20,7 +20,6 @@
 #include <raft/cuda_utils.cuh>
 #include <vector>
 
-using namespace MLCommon;
 using namespace ML::Metrics;
 
 class TrustworthinessScoreTest : public ::testing::Test {

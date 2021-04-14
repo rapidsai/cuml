@@ -23,7 +23,7 @@
 #include <cub/cub.cuh>
 #include <cuml/common/cuml_allocator.hpp>
 #include <cuml/common/device_buffer.hpp>
-#include <distance/distance.cuh>
+#include <raft/distance/distance.cuh>
 #include <iostream>
 #include <linalg/reduce_cols_by_key.cuh>
 #include <numeric>
@@ -190,7 +190,7 @@ DataT silhouette_score(DataT *X_in, int nRows, int nCols, LabelT *labels,
                                                 nRows * nRows);
   MLCommon::device_buffer<char> workspace(allocator, stream, 1);
 
-  Distance::pairwise_distance(
+  raft::distance::pairwise_distance(
     X_in, X_in, distanceMatrix.data(), nRows, nRows, nCols, workspace,
     static_cast<raft::distance::DistanceType>(metric), stream);
 

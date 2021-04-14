@@ -27,7 +27,7 @@
 #include <cuml/datasets/make_blobs.hpp>
 #include <cuml/manifold/umap.hpp>
 #include <cuml/neighbors/knn.hpp>
-#include <distance/distance.cuh>
+#include <raft/distance/distance.cuh>
 #include <linalg/reduce_rows_by_key.cuh>
 #include <metrics/trustworthiness.cuh>
 #include <raft/cuda_utils.cuh>
@@ -40,7 +40,6 @@ using namespace ML::Metrics;
 using namespace std;
 
 using namespace MLCommon;
-using namespace MLCommon::Distance;
 using namespace MLCommon::Datasets::Digits;
 
 template <typename T>

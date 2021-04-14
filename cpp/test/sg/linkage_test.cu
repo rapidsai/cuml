@@ -30,6 +30,7 @@
 #include <raft/sparse/coo.cuh>
 
 #include <cuml/common/logger.hpp>
+#include <cuml/common/device_buffer.hpp>
 
 #include <test_utils.h>
 
