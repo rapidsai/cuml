@@ -159,8 +159,8 @@ class GramMatrixBase {
                         cudaStream_t stream, int ld1, int ld2, int ld_out) {
     auto fin_op = [] __device__(math_t d_val, int idx) { return d_val; };
     raft::distance::distance<raft::distance::DistanceType::L2Unexpanded, math_t,
-                       math_t, math_t>(x1, x2, out, n1, n2, n_cols, NULL, 0,
-                                       fin_op, stream, is_row_major);
+                             math_t, math_t>(x1, x2, out, n1, n2, n_cols, NULL,
+                                             0, fin_op, stream, is_row_major);
   }
 };
 };  // end namespace Matrix

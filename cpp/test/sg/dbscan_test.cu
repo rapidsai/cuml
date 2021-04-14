@@ -91,8 +91,8 @@ class DbscanTest : public ::testing::TestWithParam<DbscanInputs<T, IdxT>> {
       device_buffer<char> workspace(handle.get_device_allocator(),
                                     handle.get_stream(), 0);
 
-      raft::distance::pairwise_distance_impl<
-        T, IdxT, raft::distance::L2SqrtUnexpanded>(
+      raft::distance::pairwise_distance_impl<T, IdxT,
+                                             raft::distance::L2SqrtUnexpanded>(
         out.data(), out.data(), dist.data(), params.n_row, params.n_row,
         params.n_col, workspace, handle.get_stream(), true);
     }

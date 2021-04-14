@@ -15,10 +15,10 @@
  */
 #pragma once
 
-#include <raft/distance/distance.cuh>
 #include <linalg/reduce_cols_by_key.cuh>
 #include <linalg/reduce_rows_by_key.cuh>
 #include <matrix/gather.cuh>
+#include <raft/distance/distance.cuh>
 
 #include <raft/distance/fused_l2_nn.cuh>
 #include <raft/linalg/binary_op.cuh>

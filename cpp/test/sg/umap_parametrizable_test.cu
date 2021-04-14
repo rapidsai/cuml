@@ -27,10 +27,10 @@
 #include <cuml/datasets/make_blobs.hpp>
 #include <cuml/manifold/umap.hpp>
 #include <cuml/neighbors/knn.hpp>
-#include <raft/distance/distance.cuh>
 #include <linalg/reduce_rows_by_key.cuh>
 #include <metrics/trustworthiness.cuh>
 #include <raft/cuda_utils.cuh>
+#include <raft/distance/distance.cuh>
 #include <selection/knn.cuh>
 #include <umap/runner.cuh>
 

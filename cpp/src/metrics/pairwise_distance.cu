@@ -26,10 +26,9 @@ namespace Metrics {
 void pairwise_distance(const raft::handle_t &handle, const double *x,
                        const double *y, double *dist, int m, int n, int k,
                        raft::distance::DistanceType metric, bool isRowMajor) {
-
   //Allocate workspace
   raft::mr::device::buffer<char> workspace(handle.get_device_allocator(),
-                                          handle.get_stream(), 1);
+                                           handle.get_stream(), 1);
 
   //Call the distance function
   raft::distance::pairwise_distance(x, y, dist, m, n, k, workspace, metric,
@@ -41,7 +40,7 @@ void pairwise_distance(const raft::handle_t &handle, const float *x,
                        raft::distance::DistanceType metric, bool isRowMajor) {
   //Allocate workspace
   raft::mr::device::buffer<char> workspace(handle.get_device_allocator(),
-                                          handle.get_stream(), 1);
+                                           handle.get_stream(), 1);
 
   //Call the distance function
   raft::distance::pairwise_distance(x, y, dist, m, n, k, workspace, metric,

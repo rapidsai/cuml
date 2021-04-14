@@ -16,8 +16,8 @@
 
 #pragma once
 
-#include <raft/distance/distance.cuh>
 #include <raft/cuda_utils.cuh>
+#include <raft/distance/distance.cuh>
 #include <raft/linalg/gemm.cuh>
 #include "grammatrix.cuh"
 
@@ -319,7 +319,7 @@ class RBFKernel : public GramMatrixBase<math_t> {
       return exp(-gain * d_val);
     };
     raft::distance::distance<raft::distance::DistanceType::L2Unexpanded, math_t,
-                       math_t, math_t, decltype(fin_op), index_t>(
+                             math_t, math_t, decltype(fin_op), index_t>(
       const_cast<math_t *>(x1), const_cast<math_t *>(x2), out, n1, n2, n_cols,
       NULL, 0, fin_op, stream, is_row_major);
   }
