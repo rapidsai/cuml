@@ -15,6 +15,9 @@
 
 import pytest
 
+from pandas import DataFrame as pdDataFrame
+from cudf import DataFrame as cuDataFrame
+
 from cuml.compose import \
     ColumnTransformer as cuColumnTransformer, \
     make_column_transformer as cu_make_column_transformer, \
@@ -39,15 +42,24 @@ from sklearn.preprocessing import \
 from cuml.test.test_preproc_utils import assert_allclose
 
 
-@pytest.mark.parametrize('remainder', ['drop'])
-@pytest.mark.parametrize('transformer_weights', [None])
+@pytest.mark.parametrize('remainder', ['drop', 'passthrough'])
+@pytest.mark.parametrize('transformer_weights', [None, {'scaler': 2.4,
+                                                        'normalizer': 1.8}])
 def test_column_transformer(clf_dataset, remainder,  # noqa: F811
                             transformer_weights):
     X_np, X = clf_dataset
 
+    sk_selec1 = [0, 2]
+    sk_selec2 = [1, 3]
+    cu_selec1 = sk_selec1
+    cu_selec2 = sk_selec2
+    if isinstance(X, (pdDataFrame, cuDataFrame)):
+        cu_selec1 = ['c'+str(i) for i in sk_selec1]
+        cu_selec2 = ['c'+str(i) for i in sk_selec2]
+
     cu_transformers = [
-        ("scaler", cuStandardScaler(), [0, 2]),
-        ("normalizer", cuNormalizer(), [1, 3])
+        ("scaler", cuStandardScaler(), cu_selec1),
+        ("normalizer", cuNormalizer(), cu_selec2)
     ]
 
     transformer = cuColumnTransformer(cu_transformers,
@@ -60,8 +72,8 @@ def test_column_transformer(clf_dataset, remainder,  # noqa: F811
         cu_feature_names = transformer.get_feature_names()
 
     sk_transformers = [
-        ("scaler", skStandardScaler(), [0, 2]),
-        ("normalizer", skNormalizer(), [1, 3])
+        ("scaler", skStandardScaler(), sk_selec1),
+        ("normalizer", skNormalizer(), sk_selec2)
     ]
 
     transformer = skColumnTransformer(sk_transformers,
@@ -126,9 +138,17 @@ def test_column_transformer_sparse(sparse_clf_dataset, remainder,  # noqa: F811
 def test_make_column_transformer(clf_dataset, remainder):  # noqa: F811
     X_np, X = clf_dataset
 
+    sk_selec1 = [0, 2]
+    sk_selec2 = [1, 3]
+    cu_selec1 = sk_selec1
+    cu_selec2 = sk_selec2
+    if isinstance(X, (pdDataFrame, cuDataFrame)):
+        cu_selec1 = ['c'+str(i) for i in sk_selec1]
+        cu_selec2 = ['c'+str(i) for i in sk_selec2]
+
     transformer = cu_make_column_transformer(
-        (cuStandardScaler(), [0, 2]),
-        (cuNormalizer(), [1, 3]),
+        (cuStandardScaler(), sk_selec1),
+        (cuNormalizer(), sk_selec2),
         remainder=remainder)
 
     ft_X = transformer.fit_transform(X)
@@ -138,8 +158,8 @@ def test_make_column_transformer(clf_dataset, remainder):  # noqa: F811
         cu_feature_names = transformer.get_feature_names()
 
     transformer = sk_make_column_transformer(
-        (skStandardScaler(), [0, 2]),
-        (skNormalizer(), [1, 3]),
+        (skStandardScaler(), cu_selec1),
+        (skNormalizer(), cu_selec2),
         remainder=remainder)
     sk_t_X = transformer.fit_transform(X_np)
     with pytest.raises(Exception):

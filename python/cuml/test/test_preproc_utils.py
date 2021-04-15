@@ -87,7 +87,13 @@ def to_output_type(array, output_type, order='F'):
     if output_type == 'series' and len(array.shape) > 1:
         output_type = 'cudf'
 
-    return cuml_array.to_output(output_type)
+    output = cuml_array.to_output(output_type)
+
+    if output_type in ['dataframe', 'cudf']:
+        renaming = {i: 'c'+str(i) for i in range(output.shape[1])}
+        output = output.rename(columns=renaming)
+
+    return output
 
 
 def create_rand_clf(random_state):

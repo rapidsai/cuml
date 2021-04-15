@@ -933,10 +933,10 @@ class ColumnTransformer(TransformerMixin, _BaseComposition):
         """
         # TODO: this should be `feature_names_in_` when we start having it
         if hasattr(X, "columns"):
-            self._feature_names_in = np.asarray(X.columns)
+            self._feature_names_in = cpu_np.asarray(X.columns)
         else:
             self._feature_names_in = None
-        X = _check_X(X)
+        #X = _check_X(X)
         # set n_features_in_ attribute
         self._check_n_features(X, reset=True)
         self._validate_transformers()
@@ -986,16 +986,16 @@ class ColumnTransformer(TransformerMixin, _BaseComposition):
 
         """
         check_is_fitted(self)
-        X = _check_X(X)
+        #X = _check_X(X)
         if hasattr(X, "columns"):
-            X_feature_names = np.asarray(X.columns)
+            X_feature_names = cpu_np.asarray(X.columns)
         else:
             X_feature_names = None
 
         self._check_n_features(X, reset=False)
         if (self._feature_names_in is not None and
             X_feature_names is not None and
-                np.any(self._feature_names_in != X_feature_names)):
+                cpu_np.any(self._feature_names_in != X_feature_names)):
             raise RuntimeError(
                 "Given feature/column names do not match the ones for the "
                 "data given during fit."
