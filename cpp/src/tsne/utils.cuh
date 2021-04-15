@@ -150,7 +150,6 @@ __global__ void min_max_kernel(const value_t *Y, const value_idx n,
   } else {
     if (find_min) thread_min = std::numeric_limits<value_t>::max();
     thread_max = std::numeric_limits<value_t>::lowest();
-    // if (iter==1) printf("threadIdx.x: %d, thread_max: %f", threadIdx.x, thread_max);
   }
 
   value_t block_min, block_max;
@@ -158,13 +157,11 @@ __global__ void min_max_kernel(const value_t *Y, const value_idx n,
     block_min = BlockReduce(temp_storage_min).Reduce(thread_min, cub::Min());
   }
 
-  // block_max = BlockReduce(temp_storage_max).Reduce(thread_max, cub::Max());
   block_max = BlockReduce(temp_storage_max).Reduce(thread_max, cub::Max());
 
   // results stored in first thread of block
 
   if (threadIdx.x == 0) {
-    // if (iter==1)printf("BlockIdx.x: %d, block_max: %f, thread_max: %f, max: %f\n", blockIdx.x, block_max, thread_max, *max);
     if (find_min) atomicMin(min, block_min);
     atomicMax(max, block_max);
   }

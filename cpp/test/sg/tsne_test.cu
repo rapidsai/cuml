@@ -44,7 +44,6 @@ class TSNETest : public ::testing::TestWithParam<TSNEInput> {
  protected:
   void assert_score(double score, const char *test) {
     printf("%s", test);
-    // if (score < 0.98)
     printf("score = %f\n", score);
     ASSERT_TRUE(0.98 < score);
   }

@@ -152,7 +152,6 @@ Please see https://github.com/rapidsai/cuml/releases/tag/v0.19.0a for the latest
 - PR #3096: Avoid memory transfers in CSR WeakCC for DBSCAN
 - PR #3088: More readable and robust FIL C++ test management
 - PR #3052: Speeding up MNMG KNN Cl&Re testing
-- PR #3058: Add FFT t-SNE implementation
 - PR #3115: Speeding up MNMG UMAP testing
 - PR #3112: Speed test_array
 - PR #3111: Adding Cython to Code Coverage
