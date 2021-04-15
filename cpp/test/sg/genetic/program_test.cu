@@ -116,7 +116,7 @@ class GeneticProgramTest : public ::testing::Test {
     const int n_cols      = 3;
     const int n_progs     = 2;
     const int n_samples   = 10;
-    const float tolerance = 0.03f;  // assuming upto 3% tolerance for results(for now)
+    const float tolerance = 0.05f;  // assuming upto 5% tolerance for results(for now)
     
     // 25*3 datapoints generated using scikit-learn
     // y = X[0] * X[1] + X[2] + 0.5
@@ -307,7 +307,6 @@ TEST_F(GeneticProgramTest, PearsonCoeff){
   // Unitary weights
   compute_metric(handle,250,2,d_lY,d_lYpred,d_lunitW,d_score,hyper_params);
   CUDA_CHECK(cudaMemcpyAsync(h_score,d_score,2*sizeof(float),cudaMemcpyDeviceToHost,stream));
-  
   for(int i=0;i<2;++i){
     ASSERT_TRUE(compApprox(h_score[i],h_expected_score[i]));
   }
@@ -429,7 +428,7 @@ TEST_F(GeneticProgramTest,RMSLoss){
 }
 
 TEST_F(GeneticProgramTest,LogLoss){
-  raft::CompareApprox<float> compApprox(tolerance);
+  raft::CompareApprox<float> compApprox(tolerance*2);
   float h_score[2] = {0.0f,0.0f};
   float* d_score;
   d_score = (float*)handle.get_device_allocator()->allocate(2*sizeof(float),stream);
