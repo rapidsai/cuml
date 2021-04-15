@@ -148,18 +148,6 @@ void FFT_TSNE(value_t *VAL, const value_idx *COL, const value_idx *ROW,
               const int max_iter, const float min_grad_norm,
               const float pre_momentum, const float post_momentum,
               const long long random_state, const bool initialize_embeddings) {
-  // raft::print_device_vector("VAL", VAL, NNZ, std::cout);
-  // raft::print_device_vector("Y", Y, n, std::cout);
-  std::cout << "CPP Params" << std::endl;
-  std::cout << "Early Exaggeration: " << early_exaggeration << std::endl;
-  std::cout << "Late Exaggeration: " << late_exaggeration << std::endl;
-  std::cout << "Exaggeration Iter: " << exaggeration_iter << std::endl;
-  std::cout << "Pre-Learning-Rate: " << pre_learning_rate << std::endl;
-  std::cout << "Post-Learning-Rate: " << post_learning_rate << std::endl;
-  std::cout << "Max_Iter: " << max_iter << std::endl;
-  std::cout << "Min_Grad_Norm: " << min_grad_norm << std::endl;
-  std::cout << "Pre-Momentum: " << pre_momentum << std::endl;
-  std::cout << "Post-Momentum: " << post_momentum << std::endl;
   auto d_alloc = handle.get_device_allocator();
   auto stream = handle.get_stream();
 
@@ -330,15 +318,6 @@ void FFT_TSNE(value_t *VAL, const value_idx *COL, const value_idx *ROW,
 
   if (initialize_embeddings) {
     random_vector(Y, 0.0000f, 0.0001f, n * 2, stream, random_state);
-    // auto op = [] __device__ (const value_idx &i) {
-    //   if (i % 2 == 0) {
-    //     return -0.0001f;
-    //   }
-    //   else {
-    //     return 0.0001f;
-    //   }
-    // };
-    // thrust::transform(thrust::cuda::par.on(stream), thrust::make_counting_iterator(static_cast<value_idx>(0)), thrust::make_counting_iterator(static_cast<value_idx>(n * 2)), Y, op);
   }
 
   for (int iter = 0; iter < max_iter; iter++) {

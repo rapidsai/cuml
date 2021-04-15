@@ -132,23 +132,19 @@ class TSNETest : public ::testing::TestWithParam<TSNEInput> {
   }
 
   void basicTest() {
-    for (int i = 0; i < 25; i++) {
-      // printf("BH\n");
-      // score_bh = runTest(TSNE_ALGORITHM::BARNES_HUT);
-      // printf("EXACT\n");
-      // score_exact = runTest(TSNE_ALGORITHM::EXACT);
-      printf("FFT\n");
-      score_fft = runTest(TSNE_ALGORITHM::FFT);
-      assert_score(score_fft, "fft\n");
+    printf("BH\n");
+    score_bh = runTest(TSNE_ALGORITHM::BARNES_HUT);
+    printf("EXACT\n");
+    score_exact = runTest(TSNE_ALGORITHM::EXACT);
+    printf("FFT\n");
+    score_fft = runTest(TSNE_ALGORITHM::FFT);
 
-      // printf("KNN BH\n");
-      // knn_score_bh = runTest(TSNE_ALGORITHM::BARNES_HUT, true);
-      // printf("KNN EXACT\n");
-      // knn_score_exact = runTest(TSNE_ALGORITHM::EXACT, true);
-      printf("KNN FFT\n");
-      knn_score_fft = runTest(TSNE_ALGORITHM::FFT, true);
-      assert_score(knn_score_fft, "knn_fft\n");
-    }
+    printf("KNN BH\n");
+    knn_score_bh = runTest(TSNE_ALGORITHM::BARNES_HUT, true);
+    printf("KNN EXACT\n");
+    knn_score_exact = runTest(TSNE_ALGORITHM::EXACT, true);
+    printf("KNN FFT\n");
+    knn_score_fft = runTest(TSNE_ALGORITHM::FFT, true);
   }
 
   void SetUp() override {
@@ -181,12 +177,12 @@ const std::vector<TSNEInput> inputs = {
 
 typedef TSNETest TSNETestF;
 TEST_P(TSNETestF, Result) {
-  // assert_score(score_bh, "bh\n");
-  // assert_score(score_exact, "exact\n");
-  // assert_score(score_fft, "fft\n");
-  // assert_score(knn_score_bh, "knn_bh\n");
-  // assert_score(knn_score_exact, "knn_exact\n");
-  // assert_score(knn_score_fft, "knn_fft\n");
+  assert_score(score_bh, "bh\n");
+  assert_score(score_exact, "exact\n");
+  assert_score(score_fft, "fft\n");
+  assert_score(knn_score_bh, "knn_bh\n");
+  assert_score(knn_score_exact, "knn_exact\n");
+  assert_score(knn_score_fft, "knn_fft\n");
 }
 
 INSTANTIATE_TEST_CASE_P(TSNETests, TSNETestF, ::testing::ValuesIn(inputs));

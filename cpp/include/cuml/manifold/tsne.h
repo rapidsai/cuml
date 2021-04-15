@@ -140,8 +140,7 @@ void TSNE_fit(
  *                                 execution
  * @param[in] initialize_embeddings Whether to overwrite the current Y vector
  *                                 with random noise.
- * @param[in] barnes_hut           Whether to use the fast Barnes Hut or use the
- *                                 slower exact version.
+ * @param[in] algorithm            Which implementation algorithm to use.
  *
  * The CUDA implementation is derived from the excellent CannyLabs open source
  * implementation here: https://github.com/CannyLab/tsne-cuda/. The CannyLabs
