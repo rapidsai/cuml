@@ -479,11 +479,11 @@ class TSNE(Base,
         if self.method == 'barnes_hut':
             algo = TSNE_ALGORITHM.BARNES_HUT
         elif self.method == 'fft':
-            warnings.warn("Method 'fft' is experimental and may be" +
+            warnings.warn("Method 'fft' is experimental and may be " +
                           "unstable. If you find this implementation is not" +
-                          "behaving as intended, please consider using one" +
-                          "of the other methods, such as 'barnes_hut' or" +
-                          "'exact'")
+                          " behaving as intended, please consider using one" +
+                          " of the other methods, such as 'barnes_hut' or" +
+                          " 'exact'")
             algo = TSNE_ALGORITHM.FFT
         elif self.method == 'exact':
             algo = TSNE_ALGORITHM.EXACT

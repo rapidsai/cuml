@@ -74,7 +74,6 @@ class TSNETest : public ::testing::TestWithParam<TSNEInput> {
 
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 
-    // Test Exact TSNE
     TSNE_fit(handle,
              X_d.data(),                       // X
              Y_d.data(),                       // embeddings
