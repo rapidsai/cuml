@@ -120,14 +120,16 @@ inline bool check_convergence(const LBFGSParam<T> &param, const int k,
                               const T fx, SimpleVec<T> &x, SimpleVec<T> &grad,
                               std::vector<T> &fx_hist, T *dev_scalar,
                               cudaStream_t stream) {
-  // New x norm and gradient norm
-  T xnorm = nrm2(x, dev_scalar, stream);
-  T gnorm = nrm2(grad, dev_scalar, stream);
+  // Gradient norm is now in Linf to match the reference implementation
+  // (originally it was L2-norm)
+  T gnorm = nrmMax(grad, dev_scalar, stream);
+  // Positive scale factor for the stop condition
+  T fmag = std::max(fx, param.epsilon);
 
-  CUML_LOG_DEBUG("%04d: f(x)=%.8f conv.crit=%.8f (gnorm=%.8f, xnorm=%.8f)", k,
-                 fx, gnorm / std::max(T(1), xnorm), gnorm, xnorm);
+  CUML_LOG_DEBUG("%04d: f(x)=%.8f conv.crit=%.8f (gnorm=%.8f, fmag=%.8f)", k,
+                 fx, gnorm / fmag, gnorm, fmag);
   // Convergence test -- gradient
-  if (gnorm <= param.epsilon * std::max(xnorm, T(1.0))) {
+  if (gnorm <= param.epsilon * fmag) {
     CUML_LOG_DEBUG("Converged after %d iterations: f(x)=%.6f", k, fx);
     return true;
   }
