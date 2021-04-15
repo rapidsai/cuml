@@ -18,6 +18,7 @@
 #include <cuml/genetic/node.h>
 #include <cuml/genetic/common.h>
 #include <cuml/genetic/program.h>
+#include <cuml/common/logger.hpp>
 #include <raft/handle.hpp>
 #include <test_utils.h>
 #include <vector>
@@ -29,6 +30,7 @@ namespace genetic{
 class GeneticProgramTest : public ::testing::Test {
   protected:
     void SetUp() override {
+      
       CUDA_CHECK(cudaStreamCreate(&stream));
       handle.set_stream(stream);
 
@@ -61,7 +63,7 @@ class GeneticProgramTest : public ::testing::Test {
       h_progs[0].len = h_nodes1.size();
 
       h_progs[1].nodes = h_nodes2.data(); 
-      h_progs[1].len = h_nodes1.size();
+      h_progs[1].len = h_nodes2.size();
 
       // Loss weights
       h_lunitW.resize(250,1.0f);
@@ -112,24 +114,26 @@ class GeneticProgramTest : public ::testing::Test {
 
     raft::handle_t handle;
     cudaStream_t stream;
-    const int n_rows      = 20;
+    const int n_rows      = 25;
     const int n_cols      = 3;
     const int n_progs     = 2;
-    const int n_samples   = 10;
+    const int n_samples   = 25;
     const float tolerance = 0.05f;  // assuming upto 5% tolerance for results(for now)
     
-    // 25*3 datapoints generated using scikit-learn
+    // 25*3 datapoints generated using numpy
     // y = X[0] * X[1] + X[2] + 0.5
     std::vector<float> h_data { -0.50446586, -2.06014071,  0.88514116, -2.3015387 ,  0.83898341,
                                 1.65980218, -0.87785842,  0.31563495,  0.3190391 ,  0.53035547,
                                 0.30017032, -0.12289023, -1.10061918, -0.0126646 ,  2.10025514,
                                 1.13376944, -0.88762896,  0.05080775, -0.34934272,  2.18557541,
                                 0.50249434, -0.07557171, -0.52817175, -0.6871727 ,  0.51292982,
+
                                 -1.44411381,  1.46210794,  0.28558733,  0.86540763,  0.58662319,
                                 0.2344157 , -0.17242821,  0.87616892, -0.7612069 , -0.26788808,
                                 0.61720311, -0.68372786,  0.58281521, -0.67124613,  0.19091548,
                                 -0.38405435, -0.19183555,  1.6924546 , -1.1425182 ,  1.51981682,
                                 0.90159072,  0.48851815, -0.61175641, -0.39675353,  1.25286816,
+                                
                                 -1.39649634, -0.24937038,  0.93110208, -1.07296862, -0.20889423,
                                 -1.11731035, -1.09989127,  0.16003707,  1.74481176, -0.93576943,
                                 0.12015895,  0.90085595,  0.04221375, -0.84520564, -0.63699565,
@@ -455,7 +459,32 @@ TEST_F(GeneticProgramTest,LogLoss){
 }
 
 TEST_F(GeneticProgramTest,ProgramExecution){
-  ASSERT_EQ(1,1);
+  raft::CompareApprox<float> compApprox(tolerance);
+
+  // Enable debug logging
+  ML::Logger::get().setLevel(CUML_LEVEL_DEBUG);
+  
+  // Allocate memory
+  std::vector<float> h_ypred(n_progs*n_samples,0.0f);
+  float* d_ypred;
+  d_ypred = (float*)handle.get_device_allocator()->allocate(n_progs*n_samples*sizeof(float),stream);
+
+  // Execute programs
+  CUML_LOG_DEBUG("Start Batched Program Execution");
+  execute(handle,d_progs,n_samples,n_progs,d_data,d_ypred);
+  CUDA_CHECK(cudaMemcpyAsync(h_ypred.data(),d_ypred,n_progs*n_samples*sizeof(float),cudaMemcpyDeviceToHost,stream));
+  CUDA_CHECK(cudaStreamSynchronize(stream));
+  CUML_LOG_DEBUG("End Batched Program Execution");
+
+  // Check results
+  
+  for(int i=0;i<n_samples;++i){
+    ASSERT_TRUE(compApprox(h_ypred[i],h_y[i]));
+  }
+
+  for(int i=0;i<n_samples;++i){
+    ASSERT_TRUE(compApprox(h_ypred[n_samples+i], 0.5*h_data[n_samples+i]-0.4*h_data[2*n_samples+i]));
+  }
 }
 
 TEST_F(GeneticProgramTest,ProgramFitnessScore){
