@@ -101,7 +101,7 @@ struct Builder {
   IdxT* h_relative_blockids;
   IdxT total_blocks_needed;
 
-  static constexpr int samples_per_thread = 4;
+  static constexpr int samples_per_thread = 1;
   int max_blocks = 0;
 
   /** host copy of the number of new nodes in current branch */
@@ -416,6 +416,12 @@ struct Builder {
                           (samples_per_thread * Traits::TPB_DEFAULT);
       blocks_needed = std::max(1, blocks_needed);
 
+      // bool is_leaf = leafBasedOnParams<DataT, IdxT>(
+      //   h_nodes[node_start + n].depth, params.max_depth,
+      //   params.min_samples_split, params.max_leaves, 0,
+      //   h_nodes[node_start + n].count);
+      // if (is_leaf) blocks_needed = 0;
+
       for (int b = 0; b < blocks_needed; b++) {
         h_blockid_to_nodeid[total_blocks_needed + b] = n;
         h_relative_blockids[total_blocks_needed + b] = b;
@@ -427,8 +433,11 @@ struct Builder {
     raft::update_device(blockid_to_nodeid, h_blockid_to_nodeid, total_blocks_needed, s);
     raft::update_device(relative_blockids, h_relative_blockids, total_blocks_needed, s);
 
-    // printf("(total_samples_in_curr_batch = %d)\n", total_samples_in_curr_batch);
-    // printf("(total_blocks_needed = %d)\n", total_blocks_needed);
+    // printf("total_samples_in_curr_batch = %d\n", total_samples_in_curr_batch);
+    // printf("total_blocks_needed = %d\n", total_blocks_needed);
+    // printf("minimum number of blocks needed = %f\n",
+    // (float)total_samples_in_curr_batch / (samples_per_thread * Traits::TPB_DEFAULT));
+
     // printf("-------------------------\n");
     // printf("Splitting %d node\n", batchSize);
     // for(int i = node_start; i < node_start + batchSize; i++) {
@@ -443,9 +452,11 @@ struct Builder {
     // iterate through a batch of columns (to reduce the memory pressure) and
     // compute the best split at the end
     auto n_col_blks = n_blks_for_cols;
-    for (IdxT c = 0; c < input.nSampledCols; c += n_col_blks) {
-      Traits::computeSplit(*this, c, batchSize, params.split_criterion, s);
-      CUDA_CHECK(cudaGetLastError());
+    // if(total_blocks_needed) {
+      for (IdxT c = 0; c < input.nSampledCols; c += n_col_blks) {
+        Traits::computeSplit(*this, c, batchSize, params.split_criterion, s);
+        CUDA_CHECK(cudaGetLastError());
+      // }
     }
     // create child nodes (or make the current ones leaf)
     auto smemSize = Traits::nodeSplitSmemSize(*this);
@@ -508,7 +519,7 @@ struct ClsTraits {
   typedef Input<DataT, LabelT, IdxT> InputT;
 
   /** default threads per block for most kernels in here */
-  static constexpr int TPB_DEFAULT = 256;
+  static constexpr int TPB_DEFAULT = 128;
   /** threads per block for the nodeSplitKernel */
   static constexpr int TPB_SPLIT = 128;
 
@@ -547,7 +558,7 @@ struct ClsTraits {
     int n_blks_for_rows = b.n_blks_for_rows(
       colBlks,
       (const void*)
-        computeSplitClassificationKernel<DataT, LabelT, IdxT, TPB_DEFAULT>,
+        computeSplitClassificationKernel<DataT, LabelT, IdxT, TPB_DEFAULT, b.samples_per_thread>,
       TPB_DEFAULT, smemSize, batchSize);
     dim3 grid(n_blks_for_rows, colBlks, batchSize);
     CUDA_CHECK(cudaMemsetAsync(b.hist, 0, sizeof(int) * b.nHistBins, s));
@@ -555,12 +566,12 @@ struct ClsTraits {
       "computeSplitClassificationKernel @builder_base.cuh [batched-levelalgo]");
     dim3 proportionate_grid(b.total_blocks_needed, colBlks, 1);
     computeSplitClassificationKernel<DataT, LabelT, IdxT, TPB_DEFAULT, b.samples_per_thread>
-      <<<grid, TPB_DEFAULT, smemSize, s>>>(
+      <<<proportionate_grid, TPB_DEFAULT, smemSize, s>>>(
         b.hist, b.params.n_bins, b.params.max_depth, b.params.min_samples_split,
         b.params.min_samples_leaf, b.params.min_impurity_decrease,
         b.params.max_leaves, b.input, b.curr_nodes, col, b.done_count, b.mutex,
         b.n_leaves, b.splits, splitType, b.treeid, b.seed,
-        b.blockid_to_nodeid, b.relative_blockids, false);
+        b.blockid_to_nodeid, b.relative_blockids, true);
     ML::POP_RANGE();  //computeSplitClassificationKernel
     ML::POP_RANGE();  //Builder::computeSplit
   }
