@@ -23,6 +23,7 @@
 #include <test_utils.h>
 #include <vector>
 #include <iostream>
+#include <cmath>
 
 namespace cuml{
 namespace genetic{
@@ -359,7 +360,7 @@ TEST_F(GeneticProgramTest, PearsonCoeff){
   CUDA_CHECK(cudaMemcpyAsync(h_score,d_score,2*sizeof(float),cudaMemcpyDeviceToHost,stream));
   std::copy(h_score,h_score+2,std::ostream_iterator<float>(std::cerr,";"));std::cerr<<std::endl;
   for(int i=0;i<2;++i){
-    ASSERT_TRUE(compApprox(h_score[i],h_expected_score[i]));
+    ASSERT_TRUE(compApprox(std::abs(h_score[i]),h_expected_score[i]));
   }
 
   // Non-unitary weights
@@ -370,7 +371,7 @@ TEST_F(GeneticProgramTest, PearsonCoeff){
   std::copy(h_score,h_score+2,std::ostream_iterator<float>(std::cerr,";"));std::cerr<<std::endl;
 
   for(int i=0;i<2;++i){
-    ASSERT_TRUE(compApprox(h_score[i],h_expected_score[i]));
+    ASSERT_TRUE(compApprox(std::abs(h_score[i]),h_expected_score[i]));
   }
 }
 
@@ -388,7 +389,7 @@ TEST_F(GeneticProgramTest,SpearmanCoeff){
   std::copy(h_score,h_score+2,std::ostream_iterator<float>(std::cerr,";"));std::cerr<<std::endl;
 
   for(int i=0;i<2;++i){
-    ASSERT_TRUE(compApprox(h_score[i],h_expected_score[i]));
+    ASSERT_TRUE(compApprox(std::abs(h_score[i]),h_expected_score[i]));
   }
 
   // Unitary weights - small
@@ -398,7 +399,7 @@ TEST_F(GeneticProgramTest,SpearmanCoeff){
   CUDA_CHECK(cudaMemcpyAsync(h_score,d_score,2*sizeof(float),cudaMemcpyDeviceToHost,stream));
   std::copy(h_score,h_score+2,std::ostream_iterator<float>(std::cerr,";"));std::cerr<<std::endl;
   for(int i=0;i<2;++i){
-    ASSERT_TRUE(compApprox(h_score[i],h_expected_score[i]));
+    ASSERT_TRUE(compApprox(std::abs(h_score[i]),h_expected_score[i]));
   }  
 
   // Non-unitary weights
@@ -542,6 +543,7 @@ TEST_F(GeneticProgramTest,LogLoss){
   float h_expected_score[2] = {0.92371192,0.91325318};
   compute_metric(handle,250,2,d_lY,d_lYpred,d_lunitW,d_score,hyper_params);
   CUDA_CHECK(cudaMemcpyAsync(h_score,d_score,2*sizeof(float),cudaMemcpyDeviceToHost,stream));
+  std::copy(h_score,h_score+2,std::ostream_iterator<float>(std::cerr,";"));std::cerr<<std::endl; 
   for(int i=0;i<2;++i){
     ASSERT_TRUE(compApprox(h_score[i],h_expected_score[i]));
   }
@@ -551,6 +553,7 @@ TEST_F(GeneticProgramTest,LogLoss){
   h_expected_score[1] = 0.9289842684f;
   compute_metric(handle,250,2,d_lY,d_lYpred,d_lW,d_score,hyper_params);
   CUDA_CHECK(cudaMemcpyAsync(h_score,d_score,2*sizeof(float),cudaMemcpyDeviceToHost,stream));
+  std::copy(h_score,h_score+2,std::ostream_iterator<float>(std::cerr,";"));std::cerr<<std::endl;
   
   for(int i=0;i<2;++i){
     ASSERT_TRUE(compApprox(h_score[i],h_expected_score[i]));
@@ -608,7 +611,7 @@ TEST_F(GeneticProgramTest,ProgramFitnessScore){
   std::copy(hactualscores.begin(),hactualscores.end(),std::ostream_iterator<float>(std::cerr,";"));std::cerr<<std::endl;
   
   for(int i=0;i<10;++i){
-    ASSERT_TRUE(compApprox(hactualscores[i],hexpscores[i]));
+    ASSERT_TRUE(compApprox(std::abs(hactualscores[i]),hexpscores[i]));
   }
 }
 

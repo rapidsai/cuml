@@ -21,6 +21,9 @@
 #include <raft/linalg/unary_op.cuh>
 #include <stats/weighted_mean.cuh>
 #include <raft/stats/mean_center.cuh>
+#include <raft/stats/mean.cuh>
+#include <raft/stats/sum.cuh>
+#include <raft/stats/stddev.cuh>
 
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
@@ -42,51 +45,78 @@ namespace cuml {
 namespace genetic {
 
 template <typename math_t>
-void _weighted_pearson(const raft::handle_t &h, const int n_samples, const int n_progs, const math_t* Y , const math_t* Y_pred, const math_t* W, math_t* out){
+void _weighted_pearson(const raft::handle_t &h, const int n_samples, const int n_progs, const math_t* Y , const math_t* X, const math_t* W, math_t* out){
   // Find Pearson's correlation coefficient
 
   cudaStream_t stream = h.get_stream();
 
-  rmm::device_uvector<math_t> sample_corr(n_samples * n_progs, stream);  // Per sample correlation
+  rmm::device_uvector<math_t> corr(n_samples * n_progs, stream);        // Per sample correlation
   
-  rmm::device_uvector<math_t> mu_Y(1, stream);                          // label mean
-  rmm::device_uvector<math_t> mu_Y_pred(n_progs, stream);               // predicted label means
-
-  rmm::device_uvector<math_t> Y_norm(n_samples, stream);                // normalized labels
-  rmm::device_uvector<math_t> Y_pred_norm(n_samples * n_progs, stream); // normalized prediction labels
+  rmm::device_uvector<math_t> y_tmp(n_samples,stream);
+  rmm::device_uvector<math_t> x_tmp(n_samples*n_progs,stream);
   
-  rmm::device_uvector<math_t> Y_std(1, stream);                         // standard deviation of labels
-  rmm::device_uvector<math_t> Y_pred_std(n_progs,stream);               // standard deviation of predicted labels
+  rmm::device_uvector<math_t> mu_y(1, stream);                          // label mean
+  rmm::device_uvector<math_t> mu_x(n_progs, stream);                    // predicted label means
 
+  rmm::device_uvector<math_t> y_diff(n_samples, stream);                // normalized labels
+  rmm::device_uvector<math_t> x_diff(n_samples * n_progs, stream);      // normalized prediction labels
+  
+  rmm::device_uvector<math_t> y_std(1, stream);                         // standard deviation of labels
+  rmm::device_uvector<math_t> x_std(n_progs,stream);                    // standard deviation of predicted labels
+  
+  rmm::device_uvector<math_t> dWS(1,stream);                            // sum of weights
+  math_t N = (math_t)n_samples;
+  
+  // Sum of weights
+  raft::stats::sum(dWS.data(),W,1,n_samples,false,stream);
+  math_t WS = dWS.element(0,stream);
 
-  // Find stats for Y
-  MLCommon::Stats::colWeightedMean(mu_Y.data(),Y,W,1,n_samples,stream);
-  raft::linalg::matrixVectorOp(Y_norm.data(),Y,mu_Y.data(),1,n_samples,false,true,[] __device__(math_t a, math_t b){return a-b;},stream);
-  raft::linalg::stridedReduction(Y_std.data(),Y_norm.data(),(int)1,n_samples,(math_t)0,stream,false,
-                                [W]__device__(math_t v, int i){return v*v*W[i];},
-                                raft::Sum<math_t>(),
-                                [] __device__(math_t in){return raft::mySqrt(in);});
+  // Find mu_y
+  raft::linalg::matrixVectorOp(y_tmp.data(),Y,W,1,n_samples,false,false,
+                              [N,WS] __device__(math_t y, math_t w){
+                                return N * w * y / WS ;
+                              }, stream);
+  raft::stats::mean(mu_y.data(),y_tmp.data(),1,n_samples,false,false,stream);
+  
+  // Find mu_x
+  raft::linalg::matrixVectorOp(x_tmp.data(),X,W,n_progs,n_samples,false,true,
+                              [N,WS] __device__(math_t x, math_t w){
+                                return N * w * x / WS;
+                              },stream);
+  raft::stats::mean(mu_x.data(),x_tmp.data(),n_progs,n_samples,false,false,stream);
 
-  math_t h_Y_std = Y_std.element(0,stream);
+  // Find y_diff 
+  raft::stats::meanCenter(y_diff.data(),Y,mu_y.data(),1,n_samples,false,true,stream);
 
-  // Find stats for Y_pred
-  MLCommon::Stats::colWeightedMean(mu_Y_pred.data(),Y_pred,W,n_progs,n_samples,stream);
-  raft::linalg::matrixVectorOp(Y_pred_norm.data(),Y_pred,mu_Y_pred.data(),n_progs,n_samples,false,true,[] __device__(math_t a, math_t b){return a-b;},stream);
-  raft::linalg::stridedReduction(Y_pred_std.data(),Y_pred_norm.data(),n_progs,n_samples,(math_t)0,stream,false,
+  // Find x_diff
+  raft::stats::meanCenter(x_diff.data(),X,mu_x.data(),n_progs,n_samples,false,true,stream);
+
+  // Find y_std
+  raft::linalg::stridedReduction(y_std.data(),y_diff.data(),1,n_samples,(math_t)0,stream,false,
+                                 [W]__device__(math_t v, int i){
+                                   return v * v * W[i];
+                                 },raft::Sum<math_t>(),
+                                 [] __device__(math_t in){return raft::mySqrt(in);});
+  math_t HYstd = y_std.element(0,stream);
+
+  // Find x_std
+  raft::linalg::stridedReduction(x_std.data(),x_diff.data(),n_progs,n_samples,(math_t)0,stream,false,
                                 [W]__device__(math_t v, int i){return v*v*W[i];},
                                 raft::Sum<math_t>(),
                                 [] __device__(math_t in){return raft::mySqrt(in);});
 
   // Cross covariance
-  raft::linalg::matrixVectorOp(sample_corr.data(), Y_pred_norm.data(), Y_norm.data(), W, n_progs, n_samples, false, false,
-                              [] __device__(math_t y_pred, math_t y, math_t w){
-                                return w * y_pred * y;
+  raft::linalg::matrixVectorOp(corr.data(), x_diff.data(), y_diff.data(), W, n_progs, n_samples, false, false,
+                              [N,HYstd] __device__(math_t xd, math_t yd, math_t w){
+                                return N * w * xd * yd / HYstd;
                               }, stream);
   
-  // Find Correlation
-  raft::linalg::stridedReduction(out,sample_corr.data(),n_progs,n_samples,(math_t)0,stream,false);
-  raft::linalg::eltwiseDivideCheckZero(out,out,Y_pred_std.data(),n_progs,stream);
-  raft::linalg::unaryOp(out,out,n_progs,[h_Y_std] __device__(math_t in){return in / h_Y_std;}, stream);
+  // Find Correlation coeff
+  raft::linalg::matrixVectorOp(corr.data(),corr.data(),x_std.data(),n_progs,n_samples,false,true,
+                              []__device__(math_t c, math_t xd){
+                                return c / xd;
+                              },stream);
+  raft::stats::mean(out,corr.data(),n_progs,n_samples,false,false,stream);
 }
 
 struct rank_functor{
@@ -141,15 +171,21 @@ void _mean_absolute_error(const raft::handle_t &h, const int n_samples, const in
 
   cudaStream_t stream = h.get_stream();
   rmm::device_uvector<math_t> error(n_samples*n_progs,stream);
+  rmm::device_uvector<math_t> dWS(1,stream);
+  math_t N = (math_t)n_samples;
+
+  // Weight Sum
+  raft::stats::sum(dWS.data(),W,1,n_samples,false,stream);
+  math_t WS = dWS.element(0,stream);
 
   // Compute absolute differences
-  raft::linalg::matrixVectorOp( error.data(),Y_pred,Y, n_progs, n_samples, false, false, 
-                                [] __device__(math_t y_p, math_t y){
-                                  return raft::myAbs(y - y_p);
+  raft::linalg::matrixVectorOp( error.data(),Y_pred,Y,W, n_progs, n_samples, false, false, 
+                                [N,WS] __device__(math_t y_p, math_t y,math_t w){
+                                  return N * w * raft::myAbs(y - y_p) / WS;
                                 },stream);
 
   // Average along rows
-  MLCommon::Stats::colWeightedMean(out,error.data(), W, n_progs, n_samples, stream);
+  raft::stats::mean(out,error.data(),n_progs,n_samples,false,false,stream);
 }
 
 template <typename math_t>
@@ -157,15 +193,21 @@ void _mean_square_error(const raft::handle_t &h, const int n_samples, const int 
 
   cudaStream_t stream = h.get_stream();
   rmm::device_uvector<math_t> error(n_samples*n_progs,stream);
+  rmm::device_uvector<math_t> dWS(1,stream);
+  math_t N = (math_t)n_samples;
+  
+  // Weight Sum
+  raft::stats::sum(dWS.data(),W,1,n_samples,false,stream);
+  math_t WS = dWS.element(0,stream);
 
   // Compute square differences
-  raft::linalg::matrixVectorOp( error.data(),Y_pred,Y, n_progs, n_samples, false, false, 
-                                [] __device__(math_t y_p, math_t y){
-                                  return (y_p-y)*(y_p-y);
+  raft::linalg::matrixVectorOp( error.data(),Y_pred,Y,W, n_progs, n_samples, false, false, 
+                                [N,WS] __device__(math_t y_p, math_t y, math_t w){
+                                  return N * w * (y_p-y)*(y_p-y) / WS;
                                 },stream);
 
   // Add up row values per column
-  MLCommon::Stats::colWeightedMean(out,error.data(),W,n_progs,n_samples,stream);
+  raft::stats::mean(out,error.data(),n_progs,n_samples,false,false,stream);
 }
 
 template <typename math_t>
@@ -186,15 +228,21 @@ void _log_loss(const raft::handle_t &h, const int n_samples, const int n_progs, 
   cudaStream_t stream = h.get_stream();
   // Logistic error per sample
   rmm::device_uvector<math_t> error(n_samples*n_progs, stream);
+  rmm::device_uvector<math_t> dWS(1,stream);
+  math_t N = (math_t)n_samples;
+  
+  // Weight Sum
+  raft::stats::sum(dWS.data(),W,1,n_samples,false,stream);
+  math_t WS = dWS.element(0,stream);
 
   // Populate logistic error as matrix vector op
-  raft::linalg::matrixVectorOp(error.data(),Y_pred,Y, n_progs, n_samples,false,false,
-                               [] __device__(math_t y_p, math_t y){
-                                 return -y * logf(y_p) -(1-y)*logf(1-y_p);
+  raft::linalg::matrixVectorOp(error.data(),Y_pred,Y,W, n_progs, n_samples,false,false,
+                               [N,WS] __device__(math_t y_p, math_t y,math_t w){
+                                 return N*w*(-y * logf(y_p) -(1-y)*logf(1-y_p))/WS;
                                }, stream);
 
   // Take average along rows
-  MLCommon::Stats::colWeightedMean(out,error.data(),W,n_progs,n_samples,stream);
+  raft::stats::mean(out,error.data(),n_progs,n_samples,false,false,stream);
 }
 
 
