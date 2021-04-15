@@ -145,7 +145,7 @@ void _mean_absolute_error(const raft::handle_t &h, const int n_samples, const in
   // Compute absolute differences
   raft::linalg::matrixVectorOp( error.data(),Y_pred,Y, n_progs, n_samples, false, false, 
                                 [] __device__(math_t y_p, math_t y){
-                                  return raft::myAbs(y_p - y);
+                                  return raft::myAbs(y - y_p);
                                 },stream);
 
   // Average along rows
@@ -161,9 +161,9 @@ void _mean_square_error(const raft::handle_t &h, const int n_samples, const int 
   // Compute square differences
   raft::linalg::matrixVectorOp( error.data(),Y_pred,Y, n_progs, n_samples, false, false, 
                                 [] __device__(math_t y_p, math_t y){
-                                  return raft::myPow(y_p - y, (math_t)2);
+                                  return (y_p-y)*(y_p-y);
                                 },stream);
-  
+
   // Add up row values per column
   MLCommon::Stats::colWeightedMean(out,error.data(),W,n_progs,n_samples,stream);
 }

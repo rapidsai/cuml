@@ -54,7 +54,7 @@ __global__ void execute_kernel( const program_t d_progs, const float* data,
   while(e>=0) {
     if(detail::is_nonterminal(curr_n->t)){
       int ar = detail::arity(curr_n->t);
-      if(ar>0) in[0]  = eval_stack.pop();
+      in[0]  = eval_stack.pop();                                 // Min arity of function is 1
       if(ar>1) in[1]  = eval_stack.pop();
     }
     res = detail::evaluate_node(*curr_n,data,n_samples,row_id,in);
@@ -133,34 +133,11 @@ void execute (const raft::handle_t &h, const program_t d_progs, const int n_samp
 
   cudaStream_t stream = h.get_stream();
   dim3 blks(raft::ceildiv(n_samples,GENE_TPB),n_progs,1);
-  CUML_LOG_DEBUG("Launching Program Execution kernel with (%d, %d, %d) blks : %d threads",blks.x,blks.y,blks.z);
+  // CUML_LOG_DEBUG("Launching Program Execution kernel with (%d, %d, %d) blks ; %d threads",blks.x,blks.y,blks.z,GENE_TPB);
 
   execute_kernel<<<blks,GENE_TPB,0,stream>>>(d_progs, data, y_pred, n_samples, n_progs);
   CUDA_CHECK(cudaPeekAtLastError());
 
-  // Check program validity
-  // std::vector<float> h_data(n_samples*3,0.0f);
-  // CUDA_CHECK(cudaMemcpyAsync(h_data.data(),data,n_samples*3*sizeof(float),cudaMemcpyDeviceToHost,stream));
-  // for(int i=0;i<10;++i){
-  //   CUML_LOG_DEBUG("Value %d: %f",i,h_data[i]);
-  // }
-  // program* p1 = new program();
-  // for(int j=0;j<n_progs;++j){
-  //   CUDA_CHECK(cudaMemcpyAsync(p1,d_progs+j,sizeof(program),cudaMemcpyDeviceToHost,stream));
-  //   node* n1 = new node[p1->len];
-  //   CUDA_CHECK(cudaMemcpyAsync(n1,p1->nodes,p1->len*sizeof(node),cudaMemcpyDeviceToHost,stream));
-  //   CUML_LOG_DEBUG("Program length: %d",p1->len);
-  //   CUML_LOG_DEBUG("Program depth %d",p1->depth);
-  //   for(int i=0;i<p1->len;++i){
-  //     if(n1[i].t == node::type::variable)
-  //       CUML_LOG_DEBUG("Node %d is a variable with id %d", i, n1[i].u.fid);
-  //     else if(n1[i].t == node::type::constant)
-  //       CUML_LOG_DEBUG("Node %d is a constant with value %f", i, n1[i].u.val);
-  //     else
-  //       CUML_LOG_DEBUG("Node %d is of type %d", i, n1[i].t);
-  //   }
-  // }
-  // CUML_LOG_DEBUG("Program metric %d",p1->metric);
 }
 
 void compute_fitness(const raft::handle_t &h, program_t d_prog, float* score,

@@ -68,19 +68,19 @@ class GeneticProgramTest : public ::testing::Test {
       // Loss weights
       h_lunitW.resize(250,1.0f);
 
+      // Smaller input
+      hw2.resize(5,1.0f);
+
       // Device memory
       d_data    = (float*)handle.get_device_allocator()->allocate(75*sizeof(float),stream);
       d_y       = (float*)handle.get_device_allocator()->allocate(25*sizeof(float),stream);
-      
       d_lYpred  = (float*)handle.get_device_allocator()->allocate(500*sizeof(float),stream);
       d_lY      = (float*)handle.get_device_allocator()->allocate(250*sizeof(float),stream);
       d_lunitW  = (float*)handle.get_device_allocator()->allocate(250*sizeof(float),stream);
       d_lW      = (float*)handle.get_device_allocator()->allocate(250*sizeof(float),stream);
-
-      d_nodes1 = (node*)handle.get_device_allocator()->allocate(7*sizeof(node),stream);
-      d_nodes2 = (node*)handle.get_device_allocator()->allocate(7*sizeof(node),stream);
-
-      d_progs = (program_t)handle.get_device_allocator()->allocate(2*sizeof(program),stream);
+      d_nodes1  = (node*)handle.get_device_allocator()->allocate(7*sizeof(node),stream);
+      d_nodes2  = (node*)handle.get_device_allocator()->allocate(7*sizeof(node),stream);
+      d_progs   = (program_t)handle.get_device_allocator()->allocate(2*sizeof(program),stream);
 
       CUDA_CHECK(cudaMemcpyAsync(d_lYpred,h_lYpred.data(),500*sizeof(float),cudaMemcpyHostToDevice,stream));
       CUDA_CHECK(cudaMemcpyAsync(d_lY,h_lY.data(),250*sizeof(float),cudaMemcpyHostToDevice,stream));
@@ -101,23 +101,41 @@ class GeneticProgramTest : public ::testing::Test {
       tmp->nodes = d_nodes2;
       CUDA_CHECK(cudaMemcpyAsync(&d_progs[1],tmp,sizeof(program),cudaMemcpyHostToDevice,stream));
 
+      // Small input
+      dx2            = (float*)handle.get_device_allocator()->allocate(15*sizeof(float),stream);
+      dy2            = (float*)handle.get_device_allocator()->allocate(5*sizeof(float),stream);
+      dw2            = (float*)handle.get_device_allocator()->allocate(5*sizeof(float),stream);
+      dyp2           = (float*)handle.get_device_allocator()->allocate(10*sizeof(float),stream);
+
+      CUDA_CHECK(cudaMemcpyAsync(dx2,hx2.data(),15*sizeof(float),cudaMemcpyHostToDevice,stream));
+      CUDA_CHECK(cudaMemcpyAsync(dy2,hy2.data(),5*sizeof(float),cudaMemcpyHostToDevice,stream));
+      CUDA_CHECK(cudaMemcpyAsync(dw2,hw2.data(),5*sizeof(float),cudaMemcpyHostToDevice,stream));
+      CUDA_CHECK(cudaMemcpyAsync(dyp2,hyp2.data(),10*sizeof(float),cudaMemcpyHostToDevice,stream));
     }
 
     void TearDown() override {
+      CUDA_CHECK(cudaFree(d_data));
+      CUDA_CHECK(cudaFree(d_y));
+      CUDA_CHECK(cudaFree(d_lYpred));
+      CUDA_CHECK(cudaFree(d_lY));
+      CUDA_CHECK(cudaFree(d_lunitW));
+      CUDA_CHECK(cudaFree(d_lW));
       CUDA_CHECK(cudaFree(d_nodes1));
       CUDA_CHECK(cudaFree(d_nodes2));
       CUDA_CHECK(cudaFree(d_progs));
-      CUDA_CHECK(cudaFree(d_data));
-      CUDA_CHECK(cudaFree(d_y));
+      CUDA_CHECK(cudaFree(dx2));
+      CUDA_CHECK(cudaFree(dy2));
+      CUDA_CHECK(cudaFree(dw2));  
+      CUDA_CHECK(cudaFree(dyp2));    
       CUDA_CHECK(cudaStreamDestroy(stream));
     }
 
     raft::handle_t handle;
     cudaStream_t stream;
-    const int n_rows      = 25;
     const int n_cols      = 3;
     const int n_progs     = 2;
     const int n_samples   = 25;
+    const int n_samples2  = 5;
     const float tolerance = 0.05f;  // assuming upto 5% tolerance for results(for now)
     
     // 25*3 datapoints generated using numpy
@@ -282,10 +300,22 @@ class GeneticProgramTest : public ::testing::Test {
                                     0.99167f,0.90332f,0.88546f,0.07109f,0.94168f,0.10211f,0.95949f,0.86314f,
                                     0.59917f,0.41948f};
     
+    // Setup smaller input
+    std::vector<float> hx2            = { 0.06298,0.96626,0.13916,0.77081,0.51479,
+                                          0.81894,0.32337,0.00316,0.58024,0.66415,
+                                          0.12176,0.21887,0.59440,0.02538,0.27380 };
+
+    std::vector<float> hy2            = { 0.11103,0.69397,0.21749,0.71930,0.28976 };
+    std::vector<float> hyp2           = { 0.67334,1.03133,1.09484,0.97263,1.1157,
+                                          0.36077,0.07413,-0.23618,0.27997,0.22255 };
+    std::vector<float> hw2;
+
+    // Nodes and programs
     std::vector<node> h_nodes1;
     std::vector<node> h_nodes2;
     std::vector<program> h_progs;
 
+    // Device ptrs
     node* d_nodes1;
     node* d_nodes2;
     program_t d_progs;
@@ -297,6 +327,11 @@ class GeneticProgramTest : public ::testing::Test {
     float* d_lunitW;
     float* d_lW;
 
+    float* dx2;
+    float* dy2;
+    float* dw2;
+    float* dyp2;
+    
     param hyper_params;
 };
 
@@ -311,6 +346,18 @@ TEST_F(GeneticProgramTest, PearsonCoeff){
   // Unitary weights
   compute_metric(handle,250,2,d_lY,d_lYpred,d_lunitW,d_score,hyper_params);
   CUDA_CHECK(cudaMemcpyAsync(h_score,d_score,2*sizeof(float),cudaMemcpyDeviceToHost,stream));
+  std::copy(h_score,h_score+2,std::ostream_iterator<float>(std::cerr,";"));std::cerr<<std::endl;
+
+  for(int i=0;i<2;++i){
+    ASSERT_TRUE(compApprox(h_score[i],h_expected_score[i]));
+  }
+
+  // Unitary weights - small
+  h_expected_score[0] = 0.3247632f;
+  h_expected_score[1] = 0.0796348f;
+  compute_metric(handle,n_samples2,n_progs,dy2,dyp2,dw2,d_score,hyper_params);
+  CUDA_CHECK(cudaMemcpyAsync(h_score,d_score,2*sizeof(float),cudaMemcpyDeviceToHost,stream));
+  std::copy(h_score,h_score+2,std::ostream_iterator<float>(std::cerr,";"));std::cerr<<std::endl;
   for(int i=0;i<2;++i){
     ASSERT_TRUE(compApprox(h_score[i],h_expected_score[i]));
   }
@@ -320,6 +367,8 @@ TEST_F(GeneticProgramTest, PearsonCoeff){
   h_expected_score[1] = 0.09064283f;
   compute_metric(handle,250,2,d_lY,d_lYpred,d_lW,d_score,hyper_params);
   CUDA_CHECK(cudaMemcpyAsync(h_score,d_score,2*sizeof(float),cudaMemcpyDeviceToHost,stream));
+  std::copy(h_score,h_score+2,std::ostream_iterator<float>(std::cerr,";"));std::cerr<<std::endl;
+
   for(int i=0;i<2;++i){
     ASSERT_TRUE(compApprox(h_score[i],h_expected_score[i]));
   }
@@ -336,16 +385,29 @@ TEST_F(GeneticProgramTest,SpearmanCoeff){
   float h_expected_score[2] = {0.09268333f, 0.07529861f};
   compute_metric(handle,250,2,d_lY,d_lYpred,d_lunitW,d_score,hyper_params);
   CUDA_CHECK(cudaMemcpyAsync(h_score,d_score,2*sizeof(float),cudaMemcpyDeviceToHost,stream));
+  std::copy(h_score,h_score+2,std::ostream_iterator<float>(std::cerr,";"));std::cerr<<std::endl;
 
   for(int i=0;i<2;++i){
     ASSERT_TRUE(compApprox(h_score[i],h_expected_score[i]));
   }
+
+  // Unitary weights - small
+  h_expected_score[0] = 0.10000f;
+  h_expected_score[1] = 0.10000f;
+  compute_metric(handle,n_samples2,n_progs,dy2,dyp2,dw2,d_score,hyper_params);
+  CUDA_CHECK(cudaMemcpyAsync(h_score,d_score,2*sizeof(float),cudaMemcpyDeviceToHost,stream));
+  std::copy(h_score,h_score+2,std::ostream_iterator<float>(std::cerr,";"));std::cerr<<std::endl;
+  for(int i=0;i<2;++i){
+    ASSERT_TRUE(compApprox(h_score[i],h_expected_score[i]));
+  }  
 
   // Non-unitary weights
   h_expected_score[0] = 0.14072408f;
   h_expected_score[1] = 0.08157397f;
   compute_metric(handle,250,2,d_lY,d_lYpred,d_lW,d_score,hyper_params);
   CUDA_CHECK(cudaMemcpyAsync(h_score,d_score,2*sizeof(float),cudaMemcpyDeviceToHost,stream));
+  std::copy(h_score,h_score+2,std::ostream_iterator<float>(std::cerr,";"));std::cerr<<std::endl;
+
   for(int i=0;i<2;++i){
     ASSERT_TRUE(compApprox(h_score[i],h_expected_score[i]));
   }
@@ -362,7 +424,17 @@ TEST_F(GeneticProgramTest,MeanSquareLoss){
   float h_expected_score[2] = {0.14297023,0.14242104};
   compute_metric(handle,250,2,d_lY,d_lYpred,d_lunitW,d_score,hyper_params);
   CUDA_CHECK(cudaMemcpyAsync(h_score,d_score,2*sizeof(float),cudaMemcpyDeviceToHost,stream));
-
+  std::copy(h_score,h_score+2,std::ostream_iterator<float>(std::cerr,";"));std::cerr<<std::endl;
+  for(int i=0;i<2;++i){
+    ASSERT_TRUE(compApprox(h_score[i],h_expected_score[i]));
+  }
+  
+  // Unitary weights - small
+  h_expected_score[0] = 0.3892163f;
+  h_expected_score[1] = 0.1699830f;
+  compute_metric(handle,n_samples2,n_progs,dy2,dyp2,dw2,d_score,hyper_params);
+  CUDA_CHECK(cudaMemcpyAsync(h_score,d_score,2*sizeof(float),cudaMemcpyDeviceToHost,stream));
+  std::copy(h_score,h_score+2,std::ostream_iterator<float>(std::cerr,";"));std::cerr<<std::endl;
   for(int i=0;i<2;++i){
     ASSERT_TRUE(compApprox(h_score[i],h_expected_score[i]));
   }
@@ -372,6 +444,8 @@ TEST_F(GeneticProgramTest,MeanSquareLoss){
   h_expected_score[1] = 0.14538825f;
   compute_metric(handle,250,2,d_lY,d_lYpred,d_lW,d_score,hyper_params);
   CUDA_CHECK(cudaMemcpyAsync(h_score,d_score,2*sizeof(float),cudaMemcpyDeviceToHost,stream));
+  std::copy(h_score,h_score+2,std::ostream_iterator<float>(std::cerr,";"));std::cerr<<std::endl;
+
   for(int i=0;i<2;++i){
     ASSERT_TRUE(compApprox(h_score[i],h_expected_score[i]));
   }
@@ -384,20 +458,33 @@ TEST_F(GeneticProgramTest,MeanAbsoluteLoss){
   d_score = (float*)handle.get_device_allocator()->allocate(2*sizeof(float),stream);
   hyper_params.metric = metric_t::mae;
 
-  // Unitary weights
+  // Unitary weights - big
   float h_expected_score[2] = {0.30614017,0.31275677};
   compute_metric(handle,250,2,d_lY,d_lYpred,d_lunitW,d_score,hyper_params);
   CUDA_CHECK(cudaMemcpyAsync(h_score,d_score,2*sizeof(float),cudaMemcpyDeviceToHost,stream));
+  std::copy(h_score,h_score+2,std::ostream_iterator<float>(std::cerr,";"));std::cerr<<std::endl;
 
   for(int i=0;i<2;++i){
     ASSERT_TRUE(compApprox(h_score[i],h_expected_score[i]));
   }
 
-  // Non-unitary weights
+  // Unitary weights - small
+  h_expected_score[0] = 0.571255f;
+  h_expected_score[1] = 0.365957f;
+  compute_metric(handle,n_samples2,n_progs,dy2,dyp2,dw2,d_score,hyper_params);
+  CUDA_CHECK(cudaMemcpyAsync(h_score,d_score,2*sizeof(float),cudaMemcpyDeviceToHost,stream));
+  std::copy(h_score,h_score+2,std::ostream_iterator<float>(std::cerr,";"));std::cerr<<std::endl;
+  
+  for(int i=0;i<2;++i){
+    ASSERT_TRUE(compApprox(h_score[i],h_expected_score[i]));
+  }
+
+  // Non-unitary weights -big
   h_expected_score[0] = 0.29643119f;
   h_expected_score[1] = 0.31756123f;
   compute_metric(handle,250,2,d_lY,d_lYpred,d_lW,d_score,hyper_params);
   CUDA_CHECK(cudaMemcpyAsync(h_score,d_score,2*sizeof(float),cudaMemcpyDeviceToHost,stream));
+  std::copy(h_score,h_score+2,std::ostream_iterator<float>(std::cerr,";"));std::cerr<<std::endl;
   
   for(int i=0;i<2;++i){
     ASSERT_TRUE(compApprox(h_score[i],h_expected_score[i]));
@@ -415,7 +502,19 @@ TEST_F(GeneticProgramTest,RMSLoss){
   float h_expected_score[2] = {0.37811404,0.37738713};
   compute_metric(handle,250,2,d_lY,d_lYpred,d_lunitW,d_score,hyper_params);
   CUDA_CHECK(cudaMemcpyAsync(h_score,d_score,2*sizeof(float),cudaMemcpyDeviceToHost,stream));
+  std::copy(h_score,h_score+2,std::ostream_iterator<float>(std::cerr,";"));std::cerr<<std::endl;
 
+  for(int i=0;i<2;++i){
+    ASSERT_TRUE(compApprox(h_score[i],h_expected_score[i]));
+  }
+  
+  // Unitary weights - small
+  h_expected_score[0] = 0.6238720f;
+  h_expected_score[1] = 0.4122899f;
+  compute_metric(handle,n_samples2,n_progs,dy2,dyp2,dw2,d_score,hyper_params);
+  CUDA_CHECK(cudaMemcpyAsync(h_score,d_score,2*sizeof(float),cudaMemcpyDeviceToHost,stream));
+  std::copy(h_score,h_score+2,std::ostream_iterator<float>(std::cerr,";"));std::cerr<<std::endl;
+  
   for(int i=0;i<2;++i){
     ASSERT_TRUE(compApprox(h_score[i],h_expected_score[i]));
   }
@@ -425,7 +524,8 @@ TEST_F(GeneticProgramTest,RMSLoss){
   h_expected_score[1] = 0.38129811f;
   compute_metric(handle,250,2,d_lY,d_lYpred,d_lW,d_score,hyper_params);
   CUDA_CHECK(cudaMemcpyAsync(h_score,d_score,2*sizeof(float),cudaMemcpyDeviceToHost,stream));
- 
+  std::copy(h_score,h_score+2,std::ostream_iterator<float>(std::cerr,";"));std::cerr<<std::endl;
+
   for(int i=0;i<2;++i){
     ASSERT_TRUE(compApprox(h_score[i],h_expected_score[i]));
   }
@@ -442,7 +542,6 @@ TEST_F(GeneticProgramTest,LogLoss){
   float h_expected_score[2] = {0.92371192,0.91325318};
   compute_metric(handle,250,2,d_lY,d_lYpred,d_lunitW,d_score,hyper_params);
   CUDA_CHECK(cudaMemcpyAsync(h_score,d_score,2*sizeof(float),cudaMemcpyDeviceToHost,stream));
-
   for(int i=0;i<2;++i){
     ASSERT_TRUE(compApprox(h_score[i],h_expected_score[i]));
   }
@@ -470,11 +569,9 @@ TEST_F(GeneticProgramTest,ProgramExecution){
   d_ypred = (float*)handle.get_device_allocator()->allocate(n_progs*n_samples*sizeof(float),stream);
 
   // Execute programs
-  CUML_LOG_DEBUG("Start Batched Program Execution");
   execute(handle,d_progs,n_samples,n_progs,d_data,d_ypred);
   CUDA_CHECK(cudaMemcpyAsync(h_ypred.data(),d_ypred,n_progs*n_samples*sizeof(float),cudaMemcpyDeviceToHost,stream));
   CUDA_CHECK(cudaStreamSynchronize(stream));
-  CUML_LOG_DEBUG("End Batched Program Execution");
 
   // Check results
   
@@ -488,11 +585,31 @@ TEST_F(GeneticProgramTest,ProgramExecution){
 }
 
 TEST_F(GeneticProgramTest,ProgramFitnessScore){
-  ASSERT_EQ(1,1);
-}
+  raft::CompareApprox<float> compApprox(tolerance);
 
-TEST_F(GeneticProgramTest,ProgramFitnessSet){
-  ASSERT_EQ(1,1);
+  std::vector<metric_t> all_metrics = { metric_t::mae, metric_t::mse, metric_t::rmse, 
+                                        metric_t::pearson, metric_t::spearman  };
+  
+  std::vector<float> hexpscores     = { 0.57126,0.36596,0.38922,0.16998,0.62387,
+                                        0.41229,0.32476,0.07963,0.10000,0.10000 };
+
+  std::vector<float> hactualscores(10);
+  
+  float* dactualscores  = (float*)handle.get_device_allocator()->allocate(10*sizeof(float),stream);
+  
+  // Start execution for all metrics
+  for(int i=0; i<5 ;++i){
+    hyper_params.metric = all_metrics[i];
+    compute_batched_fitness(handle,d_progs,dactualscores+2*i,hyper_params,n_samples2,dx2,dy2,dw2);
+    CUDA_CHECK(cudaStreamSynchronize(stream));
+  }
+
+  CUDA_CHECK(cudaMemcpyAsync(hactualscores.data(),dactualscores,10*sizeof(float),cudaMemcpyDeviceToHost,stream));
+  std::copy(hactualscores.begin(),hactualscores.end(),std::ostream_iterator<float>(std::cerr,";"));std::cerr<<std::endl;
+  
+  for(int i=0;i<10;++i){
+    ASSERT_TRUE(compApprox(hactualscores[i],hexpscores[i]));
+  }
 }
 
 } // namespace genetic
