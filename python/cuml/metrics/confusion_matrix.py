@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2021, NVIDIA CORPORATION.
+# Copyright (c) 2020-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -55,7 +55,7 @@ def confusion_matrix(y_true, y_pred,
         normalized.
     convert_dtype : bool, optional (default = False)
         When set to True, the confusion matrix method will automatically
-        convert the inputs to np.int32.
+        convert the predictions, ground truth, and labels arrays to np.int32.
 
     Returns
     -------
@@ -68,7 +68,7 @@ def confusion_matrix(y_true, y_pred,
                                               else None))
 
     y_pred, _, _, _ = \
-        input_to_cuml_array(y_pred, check_dtype=dtype,
+        input_to_cuml_array(y_pred, check_dtype=[cp.int32, cp.int64],
                             check_rows=n_rows, check_cols=n_cols,
                             convert_to_dtype=(cp.int32 if convert_dtype
                                               else None))
@@ -79,7 +79,8 @@ def confusion_matrix(y_true, y_pred,
     else:
         labels, n_labels, _, _ = \
             input_to_cupy_array(labels, check_dtype=[cp.int32, cp.int64],
-                                check_cols=1)
+                                convert_to_dtype=(cp.int32 if convert_dtype
+                                                  else None), check_cols=1)
     if sample_weight is None:
         sample_weight = cp.ones(n_rows, dtype=dtype)
     else:
