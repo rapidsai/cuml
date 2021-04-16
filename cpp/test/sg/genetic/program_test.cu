@@ -137,7 +137,7 @@ class GeneticProgramTest : public ::testing::Test {
     const int n_progs     = 2;
     const int n_samples   = 25;
     const int n_samples2  = 5;
-    const float tolerance = 0.05f;  // assuming upto 5% tolerance for results(for now)
+    const float tolerance = 0.025f;  // assuming upto 2.5% tolerance for results(for now)
     
     // 25*3 datapoints generated using numpy
     // y = X[0] * X[1] + X[2] + 0.5
@@ -533,7 +533,7 @@ TEST_F(GeneticProgramTest,RMSLoss){
 }
 
 TEST_F(GeneticProgramTest,LogLoss){
-  raft::CompareApprox<float> compApprox(tolerance*2);
+  raft::CompareApprox<float> compApprox(tolerance);
   float h_score[2] = {0.0f,0.0f};
   float* d_score;
   d_score = (float*)handle.get_device_allocator()->allocate(2*sizeof(float),stream);
