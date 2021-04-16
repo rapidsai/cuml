@@ -33,11 +33,13 @@ from cuml.test.test_preproc_utils import clf_dataset, \
 
 from cuml.preprocessing import \
     StandardScaler as cuStandardScaler, \
-    Normalizer as cuNormalizer
+    Normalizer as cuNormalizer, \
+    PolynomialFeatures as cuPolynomialFeatures
 
 from sklearn.preprocessing import \
     StandardScaler as skStandardScaler, \
-    Normalizer as skNormalizer
+    Normalizer as skNormalizer, \
+    PolynomialFeatures as skPolynomialFeatures
 
 from cuml.test.test_preproc_utils import assert_allclose
 
@@ -68,8 +70,6 @@ def test_column_transformer(clf_dataset, remainder,  # noqa: F811
     ft_X = transformer.fit_transform(X)
     t_X = transformer.transform(X)
     assert type(t_X) == type(X)
-    with pytest.raises(Exception):
-        cu_feature_names = transformer.get_feature_names()
 
     sk_transformers = [
         ("scaler", skStandardScaler(), sk_selec1),
@@ -80,8 +80,6 @@ def test_column_transformer(clf_dataset, remainder,  # noqa: F811
                                       remainder=remainder,
                                       transformer_weights=transformer_weights)
     sk_t_X = transformer.fit_transform(X_np)
-    with pytest.raises(Exception):
-        sk_feature_names = transformer.get_feature_names()
 
     assert_allclose(ft_X, sk_t_X)
     assert_allclose(t_X, sk_t_X)
@@ -114,8 +112,6 @@ def test_column_transformer_sparse(sparse_clf_dataset, remainder,  # noqa: F811
         # Sparse input -> sparse output if dataset_density > sparse_threshold
         # else sparse input -> dense output
         assert type(t_X) == type(X)
-    with pytest.raises(Exception):
-        cu_feature_names = transformer.get_feature_names()
 
     sk_transformers = [
         ("scaler", skStandardScaler(with_mean=False), [0, 2]),
@@ -127,8 +123,6 @@ def test_column_transformer_sparse(sparse_clf_dataset, remainder,  # noqa: F811
                                       transformer_weights=transformer_weights,
                                       sparse_threshold=sparse_threshold)
     sk_t_X = transformer.fit_transform(X_np)
-    with pytest.raises(Exception):
-        sk_feature_names = transformer.get_feature_names()
 
     assert_allclose(ft_X, sk_t_X)
     assert_allclose(t_X, sk_t_X)
@@ -147,23 +141,19 @@ def test_make_column_transformer(clf_dataset, remainder):  # noqa: F811
         cu_selec2 = ['c'+str(i) for i in sk_selec2]
 
     transformer = cu_make_column_transformer(
-        (cuStandardScaler(), sk_selec1),
-        (cuNormalizer(), sk_selec2),
+        (cuStandardScaler(), cu_selec1),
+        (cuNormalizer(), cu_selec2),
         remainder=remainder)
 
     ft_X = transformer.fit_transform(X)
     t_X = transformer.transform(X)
     assert type(t_X) == type(X)
-    with pytest.raises(Exception):
-        cu_feature_names = transformer.get_feature_names()
 
     transformer = sk_make_column_transformer(
-        (skStandardScaler(), cu_selec1),
-        (skNormalizer(), cu_selec2),
+        (skStandardScaler(), sk_selec1),
+        (skNormalizer(), sk_selec2),
         remainder=remainder)
     sk_t_X = transformer.fit_transform(X_np)
-    with pytest.raises(Exception):
-        sk_feature_names = transformer.get_feature_names()
 
     assert_allclose(ft_X, sk_t_X)
     assert_allclose(t_X, sk_t_X)
@@ -191,8 +181,6 @@ def test_column_transformer_sparse(sparse_clf_dataset, remainder,  # noqa: F811
         # Sparse input -> sparse output if dataset_density > sparse_threshold
         # else sparse input -> dense output
         assert type(t_X) == type(X)
-    with pytest.raises(Exception):
-        cu_feature_names = transformer.get_feature_names()
 
     transformer = sk_make_column_transformer(
         (skStandardScaler(with_mean=False), [0, 2]),
@@ -201,8 +189,26 @@ def test_column_transformer_sparse(sparse_clf_dataset, remainder,  # noqa: F811
         sparse_threshold=sparse_threshold)
 
     sk_t_X = transformer.fit_transform(X_np)
-    with pytest.raises(Exception):
-        sk_feature_names = transformer.get_feature_names()
 
     assert_allclose(ft_X, sk_t_X)
     assert_allclose(t_X, sk_t_X)
+
+
+def test_column_transformer_misc(clf_dataset):  # noqa: F811
+    X_np, X = clf_dataset
+
+    cu_transformers = [
+        ("PolynomialFeatures", cuPolynomialFeatures(), [0, 2])
+    ]
+    transformer = cuColumnTransformer(cu_transformers)
+    t_X = transformer.fit_transform(X)
+    cu_feature_names = transformer.get_feature_names()
+
+    sk_transformers = [
+        ("PolynomialFeatures", skPolynomialFeatures(), [0, 2])
+    ]
+    transformer = skColumnTransformer(sk_transformers)
+    sk_t_X = transformer.fit_transform(X_np)
+    sk_feature_names = transformer.get_feature_names()
+
+    cu_feature_names == sk_feature_names

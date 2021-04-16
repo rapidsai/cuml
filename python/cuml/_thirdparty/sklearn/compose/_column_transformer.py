@@ -19,7 +19,8 @@ from sklearn.base import clone
 from contextlib import contextmanager
 from collections import defaultdict
 
-from cupy import sparse
+from scipy import sparse as sp_sparse
+from cupy import sparse as cu_sparse
 import numpy as cpu_np
 import cupy as np
 import numba
@@ -37,6 +38,10 @@ from ..preprocessing import FunctionTransformer
 _ERR_MSG_1DCOLUMN = ("1D data passed to a transformer that expects 2D data. "
                      "Try to specify the column selection as a list of one "
                      "item instead of a scalar.")
+
+
+def issparse(X):
+    return sp_sparse.issparse(X) or cu_sparse.issparse(X)
 
 
 def _determine_key_type(key, accept_slice=True):
@@ -247,7 +252,7 @@ def _safe_indexing(X, indices, *, axis=0):
 
 def _array_indexing(array, key, key_dtype, axis):
     """Index an array or scipy.sparse consistently across NumPy version."""
-    if sparse.issparse(array):
+    if issparse(array):
         # check if we have an boolean array-likes to make the proper indexing
         if key_dtype == 'bool':
             key = np.asarray(key)
@@ -360,74 +365,6 @@ class _FuncWrapper:
     def __call__(self, *args, **kwargs):
         _global_settings_data.shared_state = self.config
         return self.function(*args, **kwargs)
-
-
-@contextmanager
-def config_context(**new_config):
-    """Context manager for global scikit-learn configuration
-
-    Parameters
-    ----------
-    assume_finite : bool, default=False
-        If True, validation for finiteness will be skipped,
-        saving time, but leading to potential crashes. If
-        False, validation for finiteness will be performed,
-        avoiding error.  Global default: False.
-
-    working_memory : int, default=1024
-        If set, scikit-learn will attempt to limit the size of temporary arrays
-        to this number of MiB (per job when parallelised), often saving both
-        computation time and memory on expensive operations that can be
-        performed in chunks. Global default: 1024.
-
-    print_changed_only : bool, default=True
-        If True, only the parameters that were set to non-default
-        values will be printed when printing an estimator. For example,
-        ``print(SVC())`` while True will only print 'SVC()', but would print
-        'SVC(C=1.0, cache_size=200, ...)' with all the non-changed parameters
-        when False. Default is True.
-
-        .. versionchanged:: 0.23
-           Default changed from False to True.
-
-    display : {'text', 'diagram'}, default='text'
-        If 'diagram', estimators will be displayed as a diagram in a Jupyter
-        lab or notebook context. If 'text', estimators will be displayed as
-        text. Default is 'text'.
-
-        .. versionadded:: 0.23
-
-    Notes
-    -----
-    All settings, not just those presently modified, will be returned to
-    their previous values when the context manager is exited. This is not
-    thread-safe.
-
-    Examples
-    --------
-    >>> import sklearn
-    >>> from sklearn.utils.validation import assert_all_finite
-    >>> with sklearn.config_context(assume_finite=True):
-    ...     assert_all_finite([float('nan')])
-    >>> with sklearn.config_context(assume_finite=True):
-    ...     with sklearn.config_context(assume_finite=False):
-    ...         assert_all_finite([float('nan')])
-    Traceback (most recent call last):
-    ...
-    ValueError: Input contains NaN, ...
-
-    See Also
-    --------
-    set_config : Set global scikit-learn configuration.
-    get_config : Retrieve current values of the global configuration.
-    """
-    old_config = get_config().copy()
-    set_config(**new_config)
-
-    try:
-        yield
-    finally:
-        set_config(**old_config)
 
 
 @contextmanager
@@ -936,7 +873,6 @@ class ColumnTransformer(TransformerMixin, _BaseComposition):
             self._feature_names_in = cpu_np.asarray(X.columns)
         else:
             self._feature_names_in = None
-        #X = _check_X(X)
         # set n_features_in_ attribute
         self._check_n_features(X, reset=True)
         self._validate_transformers()
@@ -953,9 +889,9 @@ class ColumnTransformer(TransformerMixin, _BaseComposition):
         Xs, transformers = zip(*result)
 
         # determine if concatenated output will be sparse or not
-        if any(sparse.issparse(X) for X in Xs):
-            nnz = sum(X.nnz if sparse.issparse(X) else X.size for X in Xs)
-            total = sum(X.shape[0] * X.shape[1] if sparse.issparse(X)
+        if any(issparse(X) for X in Xs):
+            nnz = sum(X.nnz if issparse(X) else X.size for X in Xs)
+            total = sum(X.shape[0] * X.shape[1] if issparse(X)
                         else X.size for X in Xs)
             density = nnz / total
             self.sparse_output_ = density < self.sparse_threshold
@@ -986,7 +922,6 @@ class ColumnTransformer(TransformerMixin, _BaseComposition):
 
         """
         check_is_fitted(self)
-        #X = _check_X(X)
         if hasattr(X, "columns"):
             X_feature_names = cpu_np.asarray(X.columns)
         else:
@@ -1034,35 +969,10 @@ class ColumnTransformer(TransformerMixin, _BaseComposition):
                     "be a numeric or convertible to a numeric."
                 ) from e
 
-            return sparse.hstack(converted_Xs).tocsr()
+            return cu_sparse.hstack(converted_Xs).tocsr()
         else:
-            Xs = [f.toarray() if sparse.issparse(f) else f for f in Xs]
+            Xs = [f.toarray() if issparse(f) else f for f in Xs]
             return np.hstack(Xs)
-
-    def _sk_visual_block_(self):
-        if isinstance(self.remainder, str) and self.remainder == 'drop':
-            transformers = self.transformers
-        elif hasattr(self, "_remainder"):
-            remainder_columns = self._remainder[2]
-            if hasattr(self, '_df_columns'):
-                remainder_columns = (
-                    self._df_columns[remainder_columns].tolist()
-                )
-            transformers = chain(self.transformers,
-                                 [('remainder', self.remainder,
-                                   remainder_columns)])
-        else:
-            transformers = chain(self.transformers,
-                                 [('remainder', self.remainder, '')])
-
-        names, transformers, name_details = zip(*transformers)
-        return _VisualBlock('parallel', transformers,
-                            names=names, name_details=name_details)
-
-
-def _check_X(X):
-    return check_array(X, force_all_finite='allow-nan',
-                       accept_sparse=True)
 
 
 def _is_empty_column_selection(column):
