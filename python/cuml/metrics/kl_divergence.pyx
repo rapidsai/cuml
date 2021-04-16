@@ -33,8 +33,9 @@ cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics":
                         const float *y_hat,
                         int n) except +
 
-@cuml.internals.api_return_array(get_output_type=True)
-def kl_divergence(P, Q, handle=None, convert_dtype=True):
+
+@cuml.internals.api_return_any()
+def cython_kl_divergence(P, Q, handle=None, convert_dtype=True):
     """
     Calculates the "Kullback-Leibler" Divergence
     The KL divergence tells us how well the probability distribution Q
@@ -44,12 +45,20 @@ def kl_divergence(P, Q, handle=None, convert_dtype=True):
 
         Parameters
         ----------
-        handle : cuml.Handle
-        P : NumPy ndarray or Numba device
-           Array of probabilities corresponding to distribution P
-        Q : NumPy ndarray, Numba device
-           Array of probabilities corresponding to distribution Q
+        P : Array of probabilities corresponding to distribution P
+           Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+           ndarray, cuda array interface compliant array like CuPy.
 
+        Q : Array of probabilities corresponding to distribution Q
+           Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+           ndarray, cuda array interface compliant array like CuPy.
+
+        handle : cuml.Handle
+
+        convert_dtype : bool, optional (default = True)
+            When set to True, the method will, when necessary, convert
+            Q to be the same data type as P if they differ. This
+            will increase memory used for the method.
         Returns
         -------
         float
@@ -59,9 +68,12 @@ def kl_divergence(P, Q, handle=None, convert_dtype=True):
     cdef handle_t *handle_ = <handle_t*> <size_t> handle.getHandle()
 
     P_m, n_samples_p, n_features_p, dtype_p = \
-        input_to_cuml_array(P, order="K", check_dtype=[np.float32, np.float64])
+        input_to_cuml_array(P, check_dtype=[np.float32, np.float64])
     Q_m, n_samples_q, n_features_q, dtype_q = \
-        input_to_cuml_array(Q, order="K", check_dtype=[np.float32, np.float64])
+        input_to_cuml_array(Q,
+                            convert_to_dtype=(dtype_p if convert_dtype
+                                              else None),
+                            check_dtype=[dtype_p])
 
     if (n_samples_p != n_samples_q) or (n_features_p != n_features_q):
         raise ValueError("Incompatible dimension for Y and Y_hat arrays: \
@@ -69,11 +81,10 @@ def kl_divergence(P, Q, handle=None, convert_dtype=True):
                          .format(n_samples_p, n_features_p, n_samples_q,
                                  n_features_q))
 
-    
     cdef uintptr_t d_P_ptr = P_m.ptr
     cdef uintptr_t d_Q_ptr = Q_m.ptr
 
-    '''n_elements = n_samples_p * n_features_p
+    n_elements = n_samples_p * n_features_p
     if (dtype_p == np.float32):
         res = kl_divergence(handle_[0],
                             <float*> d_P_ptr,
@@ -86,7 +97,7 @@ def kl_divergence(P, Q, handle=None, convert_dtype=True):
                             <int> n_elements)
     else:
         raise NotImplementedError("Unsupported dtype: {}".format(dtype_p))
-    
+
     del P_m
     del Q_m
-    return res'''
+    return res

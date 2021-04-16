@@ -51,6 +51,7 @@ from sklearn.preprocessing import StandardScaler
 
 from cuml import LogisticRegression as cu_log
 from cuml.metrics import hinge_loss as cuml_hinge
+from cuml.metrics import kl_divergence as cu_kl_divergence
 from cuml.metrics.cluster import entropy
 from cuml.model_selection import train_test_split
 from cuml.metrics.regression import mean_squared_error, \
@@ -1384,3 +1385,38 @@ def test_hinge_loss(nrows, ncols, n_info, input_type, n_classes):
                                 labels=np.unique(y))
     # compare the accuracy of the two models
     cp.testing.assert_array_almost_equal(cu_loss, cu_loss_using_sk)
+
+
+@pytest.mark.parametrize("nfeatures",
+                         [
+                             unit_param(10),
+                             unit_param(300),
+                             unit_param(3000000),
+                             stress_param(500000000)
+                         ])
+@pytest.mark.parametrize("input_type", ["cudf", "cupy"])
+@pytest.mark.parametrize("dtype", [cp.float32, cp.float64])
+def test_kl_divergence(nfeatures, input_type, dtype):
+    if not has_scipy():
+        pytest.skip('Skipping test_entropy_random because Scipy is missing')
+
+    from scipy.stats import entropy as sp_entropy
+    # Test larger sizes to sklearn
+    rng = np.random.RandomState(5)
+
+    P = rng.random_sample((nfeatures, 1))
+    Q = rng.random_sample((nfeatures, 1))
+
+    P /= P.sum(1)[:, np.newaxis]
+    Q /= Q.sum(1)[:, np.newaxis]
+    sk_res = sp_entropy(P, Q)
+    if input_type == "cudf":
+        P = cudf.DataFrame(P, dtype=dtype)
+        Q = cudf.DataFrame(Q, dtype=dtype)
+    elif input_type == "cupy":
+        P = cp.asarray(P, dtype=dtype)
+        Q = cp.asarray(Q, dtype=dtype)
+
+    cu_res = cu_kl_divergence(P, Q)
+    # compare the accuracy of the two models
+    cp.testing.assert_array_almost_equal(cu_res, sk_res)
