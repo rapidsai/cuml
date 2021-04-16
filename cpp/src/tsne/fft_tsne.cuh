@@ -90,8 +90,6 @@ std::pair<value_t, value_t> min_max(const value_t *Y, const value_idx n,
 
   min_d.set_element(0, std::numeric_limits<value_t>::max(), stream);
   max_d.set_element(0, std::numeric_limits<value_t>::lowest(), stream);
-  // rmm::device_vector<value_t> min_d(1, std::numeric_limits<value_t>::max());
-  // rmm::device_vector<value_t> max_d(1, std::numeric_limits<value_t>::lowest());
 
   raft::update_host(&min_h, min_d.data(), 1, stream);
   raft::update_host(&max_h, max_d.data(), 1, stream);

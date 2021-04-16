@@ -68,9 +68,10 @@ void get_distances(const raft::handle_t &handle,
                      cudaStream_t userStream,
  */
 
-  raft::spatial::knn::brute_force_knn(handle, input_vec, sizes_vec, input.d,
-                                      input.X, input.n, k_graph.knn_indices,
-                                      k_graph.knn_dists, k_graph.n_neighbors);
+  raft::spatial::knn::brute_force_knn(
+    handle, input_vec, sizes_vec, input.d, input.X, input.n,
+    k_graph.knn_indices, k_graph.knn_dists, k_graph.n_neighbors, true, true,
+    nullptr, raft::distance::DistanceType::L2Expanded);
 }
 
 // dense, int32 indices
@@ -123,7 +124,7 @@ void normalize_distances(const value_idx n, value_t *distances,
   rmm::device_uvector<value_t> min_d(1, stream);
   rmm::device_uvector<value_t> max_d(1, stream);
 
-  max_d.set_element(0, std::numeric_limits<value_t>::min(), stream);
+  max_d.set_element(0, std::numeric_limits<value_t>::lowest(), stream);
   min_d.set_element(0, std::numeric_limits<value_t>::max(), stream);
 
   min_max_kernel<<<nblocks, nthreads, 0, stream>>>(distances, n, min_d.data(),

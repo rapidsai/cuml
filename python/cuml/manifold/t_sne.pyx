@@ -240,6 +240,7 @@ class TSNE(Base,
 
     """
 
+    X_m = CumlArrayDescriptor()
     embedding_ = CumlArrayDescriptor()
 
     def __init__(self, *,
@@ -372,6 +373,9 @@ class TSNE(Base,
         self.min_gain = 0.01
         self.pre_learning_rate = learning_rate
         self.post_learning_rate = learning_rate * 2
+
+        self.X_m = None
+        self.embedding_ = None
 
         self.sparse_fit = False
 

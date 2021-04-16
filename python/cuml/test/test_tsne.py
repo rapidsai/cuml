@@ -54,13 +54,13 @@ def test_tsne_knn_graph_used(dataset, type_knn_graph, method):
 
     X = dataset.data
 
-    neigh = cuKNN(n_neighbors=DEFAULT_N_NEIGHBORS).fit(X)
+    neigh = cuKNN(n_neighbors=DEFAULT_N_NEIGHBORS,
+                  metric="sqeuclidean").fit(X)
     knn_graph = neigh.kneighbors_graph(X, mode="distance").astype('float32')
 
     if type_knn_graph == 'cuml':
         knn_graph = cupyx.scipy.sparse.csr_matrix(knn_graph)
 
-    print("normal")
     tsne = TSNE(random_state=1,
                 n_neighbors=DEFAULT_N_NEIGHBORS,
                 method=method,
@@ -72,9 +72,6 @@ def test_tsne_knn_graph_used(dataset, type_knn_graph, method):
     Y = tsne.fit_transform(X, True, knn_graph)
 
     trust_normal = trustworthiness(X, Y, n_neighbors=DEFAULT_N_NEIGHBORS)
-
-    del Y
-    del tsne
 
     X_garbage = np.ones(X.shape)
     knn_graph_garbage = neigh.kneighbors_graph(
@@ -104,9 +101,6 @@ def test_tsne_knn_graph_used(dataset, type_knn_graph, method):
     trust_garbage = trustworthiness(X, Y, n_neighbors=DEFAULT_N_NEIGHBORS)
     assert (trust_normal - trust_garbage) > 0.15
 
-    del Y
-    del tsne
-
 
 @pytest.mark.parametrize('dataset', test_datasets.values())
 @pytest.mark.parametrize('type_knn_graph', ['cuml', 'sklearn'])
@@ -119,7 +113,8 @@ def test_tsne_knn_parameters(dataset, type_knn_graph, method):
 
     X = normalize(X, norm='l1')
 
-    neigh = cuKNN(n_neighbors=DEFAULT_N_NEIGHBORS).fit(X)
+    neigh = cuKNN(n_neighbors=DEFAULT_N_NEIGHBORS,
+                  metric="sqeuclidean").fit(X)
     knn_graph = neigh.kneighbors_graph(X, mode="distance").astype('float32')
 
     if type_knn_graph == 'cuml':
@@ -234,7 +229,8 @@ def test_tsne_knn_parameters_sparse(type_knn_graph, input_type, method):
 
     digits = test_datasets["digits"].data
 
-    neigh = cuKNN(n_neighbors=DEFAULT_N_NEIGHBORS).fit(digits)
+    neigh = cuKNN(n_neighbors=DEFAULT_N_NEIGHBORS,
+                  metric="sqeuclidean").fit(digits)
     knn_graph = neigh.kneighbors_graph(
         digits, mode="distance").astype('float32')
 

@@ -17,6 +17,7 @@
 #include <cuml/manifold/tsne.h>
 #include <datasets/boston.h>
 #include <datasets/breast_cancer.h>
+#include <datasets/diabetes.h>
 #include <datasets/digits.h>
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
@@ -45,7 +46,7 @@ class TSNETest : public ::testing::TestWithParam<TSNEInput> {
   void assert_score(double score, const char *test) {
     printf("%s", test);
     printf("score = %f\n", score);
-    ASSERT_TRUE(0.98 < score);
+    ASSERT_TRUE(0.94 < score);
   }
 
   double runTest(TSNE_ALGORITHM algo, bool knn = false) {
@@ -136,6 +137,7 @@ class TSNETest : public ::testing::TestWithParam<TSNEInput> {
     score_exact = runTest(TSNE_ALGORITHM::EXACT);
     printf("FFT\n");
     score_fft = runTest(TSNE_ALGORITHM::FFT);
+    assert_score(score_fft, "fft\n");
 
     printf("KNN BH\n");
     knn_score_bh = runTest(TSNE_ALGORITHM::BARNES_HUT, true);
@@ -143,6 +145,7 @@ class TSNETest : public ::testing::TestWithParam<TSNEInput> {
     knn_score_exact = runTest(TSNE_ALGORITHM::EXACT, true);
     printf("KNN FFT\n");
     knn_score_fft = runTest(TSNE_ALGORITHM::FFT, true);
+    assert_score(knn_score_fft, "knn_fft\n");
   }
 
   void SetUp() override {
@@ -171,7 +174,8 @@ const std::vector<TSNEInput> inputs = {
   {Digits::n_samples, Digits::n_features, Digits::digits},
   {Boston::n_samples, Boston::n_features, Boston::boston},
   {BreastCancer::n_samples, BreastCancer::n_features,
-   BreastCancer::breast_cancer}};
+   BreastCancer::breast_cancer},
+  {Diabetes::n_samples, Diabetes::n_features, Diabetes::diabetes}};
 
 typedef TSNETest TSNETestF;
 TEST_P(TSNETestF, Result) {
