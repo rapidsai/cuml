@@ -121,6 +121,8 @@ void TSNE_fit(
  *                                 numerical stability.
  * @param[in]  early_exaggeration  How much early pressure you want the clusters
  *                                 in TSNE to spread out more.
+ * @param[in]  late_exaggeration   How much pressure to apply to clusters to
+ *                                 spread out after the exaggeration phase.
  * @param[in] exaggeration_iter    How many iterations you want the early
  *                                 pressure to run for.
  * @param[in] min_gain             Rounds up small gradient updates.
