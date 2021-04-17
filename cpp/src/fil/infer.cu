@@ -576,21 +576,53 @@ __global__ void infer_k(storage_type forest, predict_params params) {
   }
 }
 
+void set_carveout(void* kernel, int footprint, int max_shm) {
+  CUDA_CHECK(
+    cudaFuncSetAttribute(kernel, cudaFuncAttributePreferredSharedMemoryCarveout,
+                         // footprint in % of max_shm, rounding up
+                         (100 * footprint + max_shm - 1) / max_shm));
+  CUDA_CHECK(cudaFuncSetAttribute(
+    kernel, cudaFuncAttributeMaxDynamicSharedMemorySize, footprint));
+}
+
+template <int N, leaf_algo_t l, bool c>
+void set_carveouts(int footprint) {
+  int device = 0;
+  CUDA_CHECK(cudaGetDevice(&device));
+  int max_shm = 0;
+  CUDA_CHECK(cudaDeviceGetAttribute(
+    &max_shm, cudaDevAttrMaxSharedMemoryPerBlockOptin, device));
+  if (footprint > max_shm) return;
+
+  set_carveout((void*)infer_k<N, l, c, dense_storage>, footprint, max_shm);
+  set_carveout((void*)infer_k<N, l, c, sparse_storage8>, footprint, max_shm);
+  set_carveout((void*)infer_k<N, l, c, sparse_storage16>, footprint, max_shm);
+}
+
 template <int NITEMS, leaf_algo_t leaf_algo>
-size_t shmem_size_params::get_smem_footprint() {
-  size_t finalize_footprint =
+int shmem_size_params::get_smem_footprint() {
+  int finalize_footprint =
     tree_aggregator_t<NITEMS, leaf_algo>::smem_finalize_footprint(
       cols_shmem_size(), num_classes, predict_proba);
-  size_t accumulate_footprint =
+  int accumulate_footprint =
     tree_aggregator_t<NITEMS, leaf_algo>::smem_accumulate_footprint(
       num_classes) +
     cols_shmem_size();
 
-  return std::max(accumulate_footprint, finalize_footprint);
+  int footprint = std::max(accumulate_footprint, finalize_footprint);
+  int max_shm_std = 48 * 1024;  // 48 KiB available on any architecture
+  if (footprint > max_shm_std) {
+    // for no cols_in_shmem, it is a matter of supporting this config at all
+    set_carveouts<NITEMS, leaf_algo, false>(footprint);
+    // for cols_in_shmem, it will accelerate performance
+    set_carveouts<NITEMS, leaf_algo, true>(footprint);
+    // This much may not suffice, in which case set_carveouts will do nothing.
+  }
+  return footprint;
 }
 
 template <int NITEMS>
-size_t shmem_size_params::get_smem_footprint() {
+int shmem_size_params::get_smem_footprint() {
   switch (leaf_algo) {
     case FLOAT_UNARY_BINARY:
       return get_smem_footprint<NITEMS, FLOAT_UNARY_BINARY>();

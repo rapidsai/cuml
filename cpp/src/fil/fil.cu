@@ -72,13 +72,10 @@ __global__ void transform_k(float* preds, size_t n, output_t output,
 
 struct forest {
   void init_n_items(int device) {
-    int max_shm_std = 48 * 1024;  // 48 KiB
     /// the most shared memory a kernel can request on the GPU in question
     int max_shm = 0;
     CUDA_CHECK(cudaDeviceGetAttribute(
       &max_shm, cudaDevAttrMaxSharedMemoryPerBlockOptin, device));
-    // TODO(canonizer): use >48KiB shared memory if available
-    max_shm = std::min(max_shm, max_shm_std);
 
     // searching for the most items per block while respecting the shared
     // memory limits creates a full linear programming problem.
@@ -93,7 +90,7 @@ struct forest {
              ssp.n_items <= (algo_ == algo_t::BATCH_TREE_REORG ? 4 : 1);
              ++ssp.n_items) {
           ssp.compute_smem_footprint();
-          if (ssp.shm_sz < max_shm) ssp_ = ssp;
+          if (ssp.shm_sz <= max_shm) ssp_ = ssp;
         }
       }
       ASSERT(max_shm >= ssp_.shm_sz,

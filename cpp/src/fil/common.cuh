@@ -131,9 +131,9 @@ struct shmem_size_params {
   }
   void compute_smem_footprint();
   template <int NITEMS>
-  size_t get_smem_footprint();
+  int get_smem_footprint();
   template <int NITEMS, leaf_algo_t leaf_algo>
-  size_t get_smem_footprint();
+  int get_smem_footprint();
 };
 
 // predict_params are parameters for prediction
