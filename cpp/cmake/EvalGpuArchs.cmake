@@ -56,7 +56,7 @@ int main(int argc, char** argv) {
     OUTPUT_STRIP_TRAILING_WHITESPACE)
   set(__gpu_archs_filtered "${__gpu_archs}")
   foreach(arch ${__gpu_archs})
-    if (arch VERSION_LESS 60)
+    if (arch VERSION_LESS 60 AND NOT arch STREQUAL ALL)
       list(REMOVE_ITEM __gpu_archs_filtered ${arch})
     endif()
   endforeach()
