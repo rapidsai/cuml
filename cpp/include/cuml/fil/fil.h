@@ -61,6 +61,7 @@ enum storage_type_t {
       whether a particular forest can be imported as SPARSE8 */
   SPARSE8,
 };
+static const char* storage_type_repr[] = {"AUTO", "DENSE", "SPARSE", "SPARSE8"};
 
 struct forest;
 
@@ -92,9 +93,12 @@ struct treelite_params_t {
  * @param pforest pointer to where to store the newly created forest
  * @param model treelite model used to initialize the forest
  * @param tl_params additional parameters for the forest
+ * @param forest_shape_str: upon return, will be set to nullptr, or,
+ * if print_forest_shape == true, caller-owned string that contains forest shape
  */
 void from_treelite(const raft::handle_t& handle, forest_t* pforest,
-                   ModelHandle model, const treelite_params_t* tl_params);
+                   ModelHandle model, const treelite_params_t* tl_params,
+                   bool print_forest_shape, char** pforest_shape_str);
 
 /** free deletes forest and all resources held by it; after this, forest is no longer usable
  *  @param h cuML handle used by this function
