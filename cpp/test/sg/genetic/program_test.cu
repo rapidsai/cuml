@@ -337,7 +337,7 @@ class GeneticProgramTest : public ::testing::Test {
 };
 
 TEST_F(GeneticProgramTest, PearsonCoeff){
-  raft::CompareApprox<float> compApprox(tolerance);
+  raft::CompareApproxAbs<float> compApprox(tolerance);
   float h_expected_score[2] = {0.09528403f, 0.08269963f};
   float h_score[2] = {0.0f,0.0f};
   float* d_score;
@@ -360,7 +360,7 @@ TEST_F(GeneticProgramTest, PearsonCoeff){
   CUDA_CHECK(cudaMemcpyAsync(h_score,d_score,2*sizeof(float),cudaMemcpyDeviceToHost,stream));
   std::copy(h_score,h_score+2,std::ostream_iterator<float>(std::cerr,";"));std::cerr<<std::endl;
   for(int i=0;i<2;++i){
-    ASSERT_TRUE(compApprox(std::abs(h_score[i]),h_expected_score[i]));
+    ASSERT_TRUE(compApprox(h_score[i],h_expected_score[i]));
   }
 
   // Non-unitary weights
@@ -371,12 +371,12 @@ TEST_F(GeneticProgramTest, PearsonCoeff){
   std::copy(h_score,h_score+2,std::ostream_iterator<float>(std::cerr,";"));std::cerr<<std::endl;
 
   for(int i=0;i<2;++i){
-    ASSERT_TRUE(compApprox(std::abs(h_score[i]),h_expected_score[i]));
+    ASSERT_TRUE(compApprox(h_score[i],h_expected_score[i]));
   }
 }
 
 TEST_F(GeneticProgramTest,SpearmanCoeff){
-  raft::CompareApprox<float> compApprox(tolerance);
+  raft::CompareApproxAbs<float> compApprox(tolerance);
   float h_score[2] = {0.0f,0.0f};
   float* d_score;
   d_score = (float*)handle.get_device_allocator()->allocate(2*sizeof(float),stream);
@@ -389,7 +389,7 @@ TEST_F(GeneticProgramTest,SpearmanCoeff){
   std::copy(h_score,h_score+2,std::ostream_iterator<float>(std::cerr,";"));std::cerr<<std::endl;
 
   for(int i=0;i<2;++i){
-    ASSERT_TRUE(compApprox(std::abs(h_score[i]),h_expected_score[i]));
+    ASSERT_TRUE(compApprox(h_score[i],h_expected_score[i]));
   }
 
   // Unitary weights - small
@@ -399,7 +399,7 @@ TEST_F(GeneticProgramTest,SpearmanCoeff){
   CUDA_CHECK(cudaMemcpyAsync(h_score,d_score,2*sizeof(float),cudaMemcpyDeviceToHost,stream));
   std::copy(h_score,h_score+2,std::ostream_iterator<float>(std::cerr,";"));std::cerr<<std::endl;
   for(int i=0;i<2;++i){
-    ASSERT_TRUE(compApprox(std::abs(h_score[i]),h_expected_score[i]));
+    ASSERT_TRUE(compApprox(h_score[i],h_expected_score[i]));
   }  
 
   // Non-unitary weights

@@ -175,7 +175,7 @@ void parallel_evolve(const raft::handle_t &h,
                                 sizeof(program),
                                 cudaMemcpyHostToDevice,stream));
   }
-
+  
   // Make sure all copying is done
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
