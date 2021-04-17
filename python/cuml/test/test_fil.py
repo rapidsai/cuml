@@ -419,6 +419,26 @@ def test_output_blocks_per_sm(storage_type, blocks_per_sm,
     assert np.allclose(fil_preds, xgb_preds_int, 1e-3)
 
 
+@pytest.mark.skipif(has_xgboost() is False, reason="need to install xgboost")
+@pytest.mark.parametrize('storage_type', ['dense', 'sparse'])
+@pytest.mark.parametrize('threads_per_tree', [2, 16, 128, 256])
+def test_threads_per_tree(storage_type, blocks_per_sm,
+                          small_classifier_and_preds):
+    model_path, model_type, X, xgb_preds = small_classifier_and_preds
+    fm = ForestInference.load(model_path,
+                              model_type=model_type,
+                              output_class=True,
+                              storage_type=storage_type,
+                              threshold=0.50,
+                              threads_per_tree=threads_per_tree)
+
+    xgb_preds_int = np.around(xgb_preds)
+    fil_preds = np.asarray(fm.predict(X))
+    fil_preds = np.reshape(fil_preds, np.shape(xgb_preds_int))
+
+    assert np.allclose(fil_preds, xgb_preds_int, 1e-3)
+
+
 @pytest.mark.parametrize('output_class', [True, False])
 @pytest.mark.skipif(has_xgboost() is False, reason="need to install xgboost")
 def test_thresholding(output_class, small_classifier_and_preds):

@@ -55,6 +55,8 @@ struct FilTestParams {
   float global_bias = 0.0f;
   // runtime parameters
   int blocks_per_sm = 0;
+  int threads_per_tree = 1;
+  int n_items = 0;
   algo_t algo = algo_t::NAIVE;
   int seed = 42;
   float tolerance = 2e-3f;
@@ -431,6 +433,8 @@ class PredictDenseFilTest : public BaseFilTest {
     fil_ps.leaf_algo = ps.leaf_algo;
     fil_ps.num_classes = ps.num_classes;
     fil_ps.blocks_per_sm = ps.blocks_per_sm;
+    fil_ps.threads_per_tree = ps.threads_per_tree;
+    fil_ps.n_items = ps.n_items;
 
     fil::init_dense(handle, pforest, nodes.data(), &fil_ps);
   }
@@ -487,6 +491,8 @@ class BasePredictSparseFilTest : public BaseFilTest {
     fil_params.leaf_algo = ps.leaf_algo;
     fil_params.num_classes = ps.num_classes;
     fil_params.blocks_per_sm = ps.blocks_per_sm;
+    fil_params.threads_per_tree = ps.threads_per_tree;
+    fil_params.n_items = ps.n_items;
 
     dense2sparse();
     fil_params.num_nodes = sparse_nodes.size();
@@ -613,6 +619,8 @@ class TreeliteFilTest : public BaseFilTest {
     params.output_class = (ps.output & fil::output_t::CLASS) != 0;
     params.storage_type = storage_type;
     params.blocks_per_sm = ps.blocks_per_sm;
+    params.threads_per_tree = ps.threads_per_tree;
+    params.n_items = ps.n_items;
     fil::from_treelite(handle, pforest, (ModelHandle)model.get(), &params);
     CUDA_CHECK(cudaStreamSynchronize(stream));
   }
@@ -749,6 +757,12 @@ std::vector<FilTestParams> predict_dense_inputs = {
   FIL_TEST_PARAMS(num_rows = 103, num_cols = 100'000, depth = 5, num_trees = 1,
                   algo = BATCH_TREE_REORG, leaf_algo = CATEGORICAL_LEAF,
                   num_classes = 3),
+  FIL_TEST_PARAMS(algo = BATCH_TREE_REORG, threads_per_tree = 2),
+  FIL_TEST_PARAMS(algo = BATCH_TREE_REORG, threads_per_tree = 2, n_items = 1),
+  FIL_TEST_PARAMS(algo = TREE_REORG, threads_per_tree = 2, n_items = 4),
+  FIL_TEST_PARAMS(algo = NAIVE, threads_per_tree = 2, n_items = 4),
+  FIL_TEST_PARAMS(num_cols = 2000, algo = BATCH_TREE_REORG,
+                  threads_per_tree = 64, n_items = 4),
 };
 
 TEST_P(PredictDenseFilTest, Predict) { compare(); }
