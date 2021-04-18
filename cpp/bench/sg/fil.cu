@@ -92,7 +92,7 @@ class FIL : public RegressionFixture<float> {
       .output_class = params.nclasses > 1,  // cuML RF forest
       .threshold = 1.f / params.nclasses,   //Fixture::DatasetParams
       .storage_type = p_rest.storage};
-    ML::fil::from_treelite(*handle, &forest, model, &tl_params);
+    ML::fil::from_treelite(*handle, &forest, model, &tl_params, false, nullptr);
 
     // only time prediction
     this->loopOnState(state, [this]() {

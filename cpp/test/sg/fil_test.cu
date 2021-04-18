@@ -58,6 +58,7 @@ struct FilTestParams {
   algo_t algo = algo_t::NAIVE;
   int seed = 42;
   float tolerance = 2e-3f;
+  bool print_model_shape = false;
   // treelite parameters, only used for treelite tests
   tl::Operator op = tl::Operator::kLT;
   leaf_algo_t leaf_algo = leaf_algo_t::FLOAT_UNARY_BINARY;
@@ -613,8 +614,11 @@ class TreeliteFilTest : public BaseFilTest {
     params.output_class = (ps.output & fil::output_t::CLASS) != 0;
     params.storage_type = storage_type;
     params.blocks_per_sm = ps.blocks_per_sm;
-    fil::from_treelite(handle, pforest, (ModelHandle)model.get(), &params);
+    char* model_shape_str = nullptr;
+    fil::from_treelite(handle, pforest, (ModelHandle)model.get(), &params,
+                       ps.print_model_shape, &model_shape_str);
     CUDA_CHECK(cudaStreamSynchronize(stream));
+    if (ps.print_model_shape) printf("%s", model_shape_str);
   }
 };
 
@@ -862,6 +866,7 @@ std::vector<FilTestParams> import_dense_inputs = {
                   leaf_algo = GROVE_PER_CLASS, num_classes = 7),
   FIL_TEST_PARAMS(num_trees = 48, output = CLASS, leaf_algo = GROVE_PER_CLASS,
                   num_classes = 6),
+  FIL_TEST_PARAMS(print_model_shape = true),
 };
 
 TEST_P(TreeliteDenseFilTest, Import) { compare(); }

@@ -1010,7 +1010,8 @@ char* sprintf_shape(const tl::ModelImpl<T, L>& model, storage_type_t storage,
   float size_mb = (trees.size() * sizeof trees.front() +
                    nodes.size() * sizeof nodes.front()) /
                   1e6;
-  sprintf(str, "%s model size %.2f MB\n", storage_type_repr[storage], size_mb);
+  sprintf(str + strlen(str), "%s model size %.2f MB\n",
+          storage_type_repr[storage], size_mb);
   return str;
 }
 
