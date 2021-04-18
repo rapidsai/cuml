@@ -17,7 +17,6 @@
 #pragma once
 
 #include "node.h"
-#include "fitness.h"
 
 #include <cstdint>
 #include <string>
@@ -26,6 +25,22 @@
 
 namespace cuml {
 namespace genetic {
+
+/** fitness metric types */
+enum class metric_t : uint32_t {
+  /** mean absolute error (regression-only) */
+  mae,
+  /** mean squared error (regression-only) */
+  mse,
+  /** root mean squared error (regression-only) */
+  rmse,
+  /** pearson product-moment coefficient (regression and transformation) */
+  pearson,
+  /** spearman's rank-order coefficient (regression and transformation) */
+  spearman,
+  /** binary cross-entropy loss (classification-only) */
+  logloss,
+};  // enum class metric_t
 
 /** Type of initialization of the member programs in the population */
 enum class init_method_t : uint32_t {

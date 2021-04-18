@@ -16,17 +16,14 @@
 
 #pragma once
 
-#include "node.h"
-#include "fitness.h"
 #include "common.h"
 #include <random>
-#include <cuml/cuml.hpp>
+#include <raft/handle.hpp>
 
 namespace cuml {
-namespace genetic {
-
-struct node;
-
+namespace genetic 
+{
+  
 /**
  * @brief The main data structure to store the AST that represents a program
  *        in the current generation

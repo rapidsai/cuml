@@ -17,19 +17,74 @@
 #pragma once
 
 #include "common.h"
+#include "program.h"
 #include <raft/handle.hpp>
 
 namespace cuml{
 namespace genetic{
 
-void symRegFit();
-void symRegPredict();
+/**
+ * @brief Visualize an AST
+ * 
+ * @param prog  host object containing the AST
+ * @return      String representation of the AST 
+ */
+std::string stringify(const program &prog);
 
-void symClfFit();
-void symClfPredictProbs();
-void symClfPredict();
+/**
+ * @brief Fit either a regressor, classifier or a transformer to the given dataset
+ * 
+ * @param input           device pointer to the feature matrix
+ * @param labels          device pointer to the label vector of length n_rows
+ * @param sample_weights  device pointer to the sample weights of length n_rows 
+ * @param n_rows          number of rows of the feature matrix
+ * @param n_cols          number of columns of the feature matrix
+ * @param params          host struct containing hyperparameters needed for training
+ * @param final_progs     device pointer to the final generation of programs(sorted by decreasing fitness)
+ * @param history         host vector containing the list of all programs in every generation (sorted by decreasing fitness)
+ */
+void symFit(const raft::handle_t &handle, const float* input, const float* labels, 
+            const float* sample_weights, const int n_rows, const int n_cols, param &params, 
+            program_t final_progs, std::vector<std::vector<program>> &history);
 
-void symTfFitTransform();
-void symTfTransform();
+/**
+ * @brief Probability prediction for a symbolic classifier. If a transformer(like sigmoid) is
+ *        specified, then it is applied on the output before returning it. Currently implemented 
+ *        only for binary classification.
+ * 
+ * @param input       device pointer to feature matrix
+ * @param n_rows      number of rows of the feature matrix
+ * @param params      host struct containg training hyperparameters
+ * @param best_prog   The best program obtained during training. Inferences are made using this
+ * @param output      device pointer to output probability(in col major format)
+ */
+void symPredictProbs(const raft::handle_t &handle, const float* input, const int n_rows,
+                     const param &params, const program_t best_prog, float* output);
+
+/**
+ * @brief Make predictions. Returns either fitted values(for symbolic regression), or binary class *        labels(for symbolic classification)
+ * 
+ * @param input       device pointer to feature matrix
+ * @param n_rows      number of rows of the feature matrix
+ * @param params      host struct containing training hyperparameters
+ * @param best_prog   device pointer to best AST fit during training
+ * @param output      device pointer to output values
+ */
+void symPredict(const raft::handle_t &handle, const float* input, const param &params, 
+                const program_t best_prog, float* output);
+
+/**
+ * @brief Transform the values in the input feature matrix according to the supplied programs
+ * 
+ * @param input       device pointer to feature matrix
+ * @param params      Hyperparameters used during training
+ * @param final_progs List of ASTs used for generating new features  
+ * @param n_rows      number of rows of the feature matrix
+ * @param n_cols      number of columns of the feature matrix
+ * @param output      device pointer to transformed input
+ */
+void symTransform(const raft::handle_t &handle, const float* input, const param &params, 
+                  const program_t final_progs, const int n_rows, const int n_cols, float* output);
+
 } // namespace genetic
 } // namespace cuml
