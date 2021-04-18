@@ -660,7 +660,8 @@ inline void tree_depth_hist(const tl::Tree<T, L>& tree,
 }
 
 template <typename T, typename L>
-void depth_hist_and_max(const tl::ModelImpl<T, L>& model, char** str) {
+char* depth_hist_and_max(const tl::ModelImpl<T, L>& model,
+                         int alloc_extra_chars) {
   std::unordered_map<int, level_entry> depth_hist;
   for (const auto& tree : model.trees) tree_depth_hist(tree, depth_hist);
   struct hist_entry {
@@ -678,12 +679,14 @@ void depth_hist_and_max(const tl::ModelImpl<T, L>& model, char** str) {
       total_leaves = 0;
   // 64-bit Fowler/Noll/Vo
   size_t fingerprint = 14695981039346656037l;
-  str = realloc(
-    *str, strlen(*str) + 80 + (3 + 6 + 6 + 7 + 4) * vec_hist.size() + 80 * 4);
-  sprintf(*str, "Depth hist:\ndepth\tbranches\tleaves\tnodes\n");
+  char* str = new char[80 + (3 + 6 + 6 + 7 + 4) * vec_hist.size() + 80 * 4 +
+                       alloc_extra_chars];
+  char* end = str;
+  // print, shift end to overwrite \0
+  end += sprintf(end, "Depth hist:\ndepth\tbranches\tleaves\tnodes\n");
   for (hist_entry e : vec_hist) {
-    sprintf(*str, "%3d\t%6d\t%6d\t%7d\n", e.level, e.n_branches, e.n_leaves,
-            e.n_branches + e.n_leaves);
+    end += sprintf(end, "%3d\t%6d\t%6d\t%7d\n", e.level, e.n_branches,
+                   e.n_leaves, e.n_branches + e.n_leaves);
     if (e.n_leaves && min_depth == -1) min_depth = e.level;
     leaves_times_depth += e.n_leaves * e.level;
     total_branches += e.n_branches;
@@ -692,13 +695,14 @@ void depth_hist_and_max(const tl::ModelImpl<T, L>& model, char** str) {
       fingerprint = (fingerprint * 1099511628211l) ^ x;
   }
   int total_nodes = total_branches + total_leaves;
-  sprintf(*str, "Total: branches: %d leaves: %d nodes: %d\n", total_branches,
-          total_leaves, total_nodes);
-  sprintf(*str, "Avg nodes per tree: %.1f\n",
-          total_nodes / (float)vec_hist[0].n_branches);
-  sprintf(*str, "Leaf depth: min: %d avg %.1f max %lu\n", min_depth,
-          leaves_times_depth / (float)total_leaves, vec_hist.size() - 1);
-  sprintf(*str, "Depth histogram fingerprint: %0lx\n", fingerprint);
+  end += sprintf(end, "Total: branches: %d leaves: %d nodes: %d\n",
+                 total_branches, total_leaves, total_nodes);
+  end += sprintf(end, "Avg nodes per tree: %.1f\n",
+                 total_nodes / (float)vec_hist[0].n_branches);
+  end += sprintf(end, "Leaf depth: min: %d avg %.1f max %lu\n", min_depth,
+                 leaves_times_depth / (float)total_leaves, vec_hist.size() - 1);
+  end += sprintf(end, "Depth histogram fingerprint: %0lx\n", fingerprint);
+  return str;
 }
 
 template <typename T, typename L>
@@ -956,7 +960,7 @@ void from_treelite(const raft::handle_t& handle, forest_t* pforest,
       // but destructed at the end of this function
       CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
       if (print_forest_shape) {
-        pforest_shape_str = sprintf_shape(model, storage_type, nodes, {});
+        *pforest_shape_str = sprintf_shape(model, storage_type, nodes, {});
       }
       break;
     }
@@ -967,7 +971,7 @@ void from_treelite(const raft::handle_t& handle, forest_t* pforest,
       init_sparse(handle, pforest, trees.data(), nodes.data(), &params);
       CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
       if (print_forest_shape) {
-        pforest_shape_str = sprintf_shape(model, storage_type, nodes, trees);
+        *pforest_shape_str = sprintf_shape(model, storage_type, nodes, trees);
       }
       break;
     }
@@ -978,7 +982,7 @@ void from_treelite(const raft::handle_t& handle, forest_t* pforest,
       init_sparse(handle, pforest, trees.data(), nodes.data(), &params);
       CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
       if (print_forest_shape) {
-        pforest_shape_str = sprintf_shape(model, storage_type, nodes, trees);
+        *pforest_shape_str = sprintf_shape(model, storage_type, nodes, trees);
       }
       break;
     }
@@ -991,24 +995,23 @@ void from_treelite(const raft::handle_t& handle, forest_t* pforest,
                    ModelHandle model, const treelite_params_t* tl_params,
                    bool print_forest_shape, char** pforest_shape_str) {
   const tl::Model& model_ref = *(tl::Model*)model;
-  model_ref.Dispatch(
-    [&handle, pforest, tl_params, print_forest_shape](const auto& model_inner) {
-      // model_inner is of the concrete type tl::ModelImpl<T, L>
-      from_treelite(handle, pforest, model_inner, tl_params, print_forest_shape,
-                    pforest_shape_str);
-    });
+  model_ref.Dispatch([=, &handle](const auto& model_inner) {
+    // model_inner is of the concrete type tl::ModelImpl<T, L>
+    from_treelite(handle, pforest, model_inner, tl_params, print_forest_shape,
+                  pforest_shape_str);
+  });
 }
 
 template <typename T, typename L, typename N>
 char* sprintf_shape(const tl::ModelImpl<T, L>& model, storage_type_t storage,
                     const std::vector<N>& nodes,
                     const std::vector<int>& trees) {
-  char* str = malloc(50);
+  char* str = depth_hist_and_max(model, 50);
   float size_mb = (trees.size() * sizeof trees.front() +
                    nodes.size() * sizeof nodes.front()) /
                   1e6;
   sprintf(str, "%s model size %.2f MB\n", storage_type_repr[storage], size_mb);
-  depth_hist_and_max(model, str);
+  return str;
 }
 
 void free(const raft::handle_t& h, forest_t f) {
