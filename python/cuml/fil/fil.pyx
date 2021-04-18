@@ -178,15 +178,17 @@ cdef extern from "cuml/fil/fil.h" namespace "ML::fil":
         algo_t algo
         bool output_class
         float threshold
+        # changing below parameters may speed up inference
         storage_type_t storage_type
         int blocks_per_sm
         # limit number of CUDA blocks launched per GPU SM (or unlimited if 0)
-        # this may speed up inference
         int threads_per_tree
         # multiple (neighboring) threads infer on the same tree within a block
         # this improves memory bandwith near tree root (but uses more shared
         # memory)
-        # this may speed up inference
+        int n_items
+        # n_items is how many input samples (items) any thread processes.
+        # if 0 is given, FIL chooses itself
 
     cdef void free(handle_t& handle,
                    forest_t)
@@ -325,7 +327,8 @@ cdef class ForestInference_impl():
                                         float threshold,
                                         str storage_type,
                                         int blocks_per_sm,
-                                        int threads_per_tree):
+                                        int threads_per_tree,
+                                        int n_items):
         cdef treelite_params_t treelite_params
 
         self.output_class = output_class
@@ -335,6 +338,7 @@ cdef class ForestInference_impl():
         treelite_params.storage_type = self.get_storage_type(storage_type)
         treelite_params.blocks_per_sm = blocks_per_sm
         treelite_params.threads_per_tree = threads_per_tree
+        treelite_params.n_items = n_items
 
         self.forest_data = NULL
         cdef handle_t* handle_ =\
@@ -356,14 +360,16 @@ cdef class ForestInference_impl():
                                  float threshold,
                                  str storage_type,
                                  int blocks_per_sm,
-                                 int threads_per_tree):
+                                 int threads_per_tree,
+                                 int n_items):
         TreeliteQueryNumClass(<ModelHandle> model.handle,
                               & self.num_class)
         return self.load_from_treelite_model_handle(<uintptr_t>model.handle,
                                                     output_class, algo,
                                                     threshold, storage_type,
                                                     blocks_per_sm,
-                                                    threads_per_tree)
+                                                    threads_per_tree,
+                                                    n_items)
 
     def load_using_treelite_handle(self,
                                    model_handle,
@@ -372,7 +378,8 @@ cdef class ForestInference_impl():
                                    float threshold,
                                    str storage_type,
                                    int blocks_per_sm,
-                                   int threads_per_tree):
+                                   int threads_per_tree,
+                                   int n_items):
 
         cdef treelite_params_t treelite_params
 
@@ -383,6 +390,7 @@ cdef class ForestInference_impl():
         treelite_params.storage_type = self.get_storage_type(storage_type)
         treelite_params.blocks_per_sm = blocks_per_sm
         treelite_params.threads_per_tree = threads_per_tree
+        treelite_params.n_items = n_items
 
         cdef handle_t* handle_ =\
             <handle_t*><size_t>self.handle.getHandle()
@@ -551,7 +559,8 @@ class ForestInference(Base,
                                  threshold=0.5,
                                  storage_type='auto',
                                  blocks_per_sm=0,
-                                 threads_per_tree=1):
+                                 threads_per_tree=1,
+                                 n_items=0):
         """Creates a FIL model using the treelite model
         passed to the function.
 
@@ -615,12 +624,12 @@ class ForestInference(Base,
             # TreeliteModel defined in this file
             return self._impl.load_from_treelite_model(
                 model, output_class, algo, threshold, str(storage_type),
-                blocks_per_sm, threads_per_tree)
+                blocks_per_sm, threads_per_tree, n_items)
         else:
             # assume it is treelite.Model
             return self._impl.load_from_treelite_model_handle(
                 model.handle.value, output_class, algo, threshold,
-                str(storage_type), blocks_per_sm)
+                str(storage_type), blocks_per_sm, threads_per_tree, n_items)
 
     @staticmethod
     def load_from_sklearn(skl_model,
@@ -630,6 +639,7 @@ class ForestInference(Base,
                           storage_type='auto',
                           blocks_per_sm=0,
                           threads_per_tree=1,
+                          n_items=0,
                           handle=None):
         """
         Creates a FIL model using the scikit-learn model passed to the
@@ -693,7 +703,8 @@ class ForestInference(Base,
         cuml_fm.load_from_treelite_model(
             tl_model, algo=algo, output_class=output_class,
             storage_type=str(storage_type), threshold=threshold,
-            blocks_per_sm=blocks_per_sm, threads_per_tree=threads_per_tree)
+            blocks_per_sm=blocks_per_sm, threads_per_tree=threads_per_tree,
+            n_items=n_items)
         return cuml_fm
 
     @staticmethod
@@ -704,6 +715,7 @@ class ForestInference(Base,
              storage_type='auto',
              blocks_per_sm=0,
              threads_per_tree=1,
+             n_items=0,
              model_type="xgboost",
              handle=None):
         """
@@ -759,7 +771,8 @@ class ForestInference(Base,
                                          storage_type=str(storage_type),
                                          threshold=threshold,
                                          blocks_per_sm=blocks_per_sm,
-                                         threads_per_tree=threads_per_tree)
+                                         threads_per_tree=threads_per_tree,
+                                         n_items=n_items)
         return cuml_fm
 
     def load_using_treelite_handle(self,
@@ -769,7 +782,8 @@ class ForestInference(Base,
                                    storage_type='auto',
                                    threshold=0.50,
                                    blocks_per_sm=0,
-                                   threads_per_tree=1):
+                                   threads_per_tree=1,
+                                   n_items=0):
         """
         Returns a FIL instance by converting a treelite model to
         FIL model by using the treelite ModelHandle passed.
@@ -814,6 +828,7 @@ class ForestInference(Base,
                                               algo, threshold,
                                               str(storage_type),
                                               blocks_per_sm,
-                                              threads_per_tree)
+                                              threads_per_tree,
+                                              n_items)
         # DO NOT RETURN self._impl here!!
         return self

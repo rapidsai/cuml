@@ -122,7 +122,7 @@ struct shmem_size_params {
   /// memory before inferring the row in question
   bool cols_in_shmem = true;
   /// log2_threads_per_tree determines how many threads work on a single tree
-  /// at once inside a block (sharing trees means splitting input samples)
+  /// at once inside a block (sharing trees means splitting input rows)
   int log2_threads_per_tree = 0;
   /// n_items is how many input samples (items) any thread processes. If 0 is given,
   /// choose the reasonable most (<=4) that fit into shared memory. See init_n_items()

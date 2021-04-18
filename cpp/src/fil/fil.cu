@@ -87,19 +87,22 @@ struct forest {
       shmem_size_params& ssp_ = predict_proba ? proba_ssp_ : class_ssp_;
       ssp_.predict_proba = predict_proba;
       shmem_size_params ssp = ssp_;
+      // if n_items was not provided, try from 1 to 4. Otherwise, use as-is.
+      int min_n_items = ssp.n_items == 0 ? 1 : ssp.n_items;
+      int max_n_items = ssp.n_items == 0
+                          ? (algo_ == algo_t::BATCH_TREE_REORG ? 4 : 1)
+                          : ssp.n_items;
       for (bool cols_in_shmem : {false, true}) {
         ssp.cols_in_shmem = cols_in_shmem;
-        // if n_items was not provided, try from 1 to 4. Otherwise, use as-is.
-        int min_n_items = ssp.n_items == 0 ? 1 : ssp.n_items;
-        int max_n_items = ssp.n_items == 0
-                            ? (algo_ == algo_t::BATCH_TREE_REORG ? 4 : 1)
-                            : ssp.n_items;
-        for (int n_items = min_n_items; n_items <= max_n_items; ++n_items) {
-          ssp.n_items = n_items;
+        for (ssp.n_items = min_n_items; ssp.n_items <= max_n_items;
+             ++ssp.n_items) {
           ssp.compute_smem_footprint();
           if (ssp.shm_sz < max_shm) ssp_ = ssp;
         }
       }
+      const char* bool2str[2]= {"false", "true"};
+      printf("predict_proba %s cols_in_shmem %s log2_threads_per_tree %d\n",
+        bool2str[predict_proba], bool2str[ssp.cols_in_shmem], ssp.log2_threads_per_tree);
       ASSERT(max_shm >= ssp_.shm_sz,
              "FIL out of shared memory. Perhaps the maximum number of \n"
              "supported classes is exceeded? 5'000 would still be safe.");

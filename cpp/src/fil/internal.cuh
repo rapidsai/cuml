@@ -244,7 +244,7 @@ struct forest_params_t {
   // if zero, launches ceildiv(num_rows, NITEMS) blocks
   int blocks_per_sm;
   // threads_per_tree determines how many threads work on a single tree
-  // at once inside a block (sharing trees means splitting input samples)
+  // at once inside a block (sharing trees means splitting input rows)
   int threads_per_tree;
   // n_items is how many input samples (items) any thread processes. If 0 is given,
   // choose most (up to 4) that fit into shared memory.
