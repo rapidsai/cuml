@@ -420,15 +420,14 @@ def test_output_blocks_per_sm(storage_type, blocks_per_sm,
 
 
 @pytest.mark.skipif(has_xgboost() is False, reason="need to install xgboost")
-@pytest.mark.parametrize('storage_type', ['dense', 'sparse'])
 @pytest.mark.parametrize('threads_per_tree', [2, 16, 128, 256])
-def test_threads_per_tree(storage_type, blocks_per_sm,
+def test_threads_per_tree(threads_per_tree,
                           small_classifier_and_preds):
     model_path, model_type, X, xgb_preds = small_classifier_and_preds
     fm = ForestInference.load(model_path,
                               model_type=model_type,
                               output_class=True,
-                              storage_type=storage_type,
+                              storage_type='AUTO',
                               threshold=0.50,
                               threads_per_tree=threads_per_tree)
 
