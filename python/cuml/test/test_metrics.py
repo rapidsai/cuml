@@ -1404,19 +1404,19 @@ def test_kl_divergence(nfeatures, input_type, dtype):
     # Test larger sizes to sklearn
     rng = np.random.RandomState(5)
 
-    P = rng.random_sample((nfeatures, 1))
-    Q = rng.random_sample((nfeatures, 1))
+    P = rng.random_sample((nfeatures))
+    Q = rng.random_sample((nfeatures))
 
-    P /= P.sum(1)[:, np.newaxis]
-    Q /= Q.sum(1)[:, np.newaxis]
+    P /= P.sum()
+    Q /= Q.sum()
     sk_res = sp_entropy(P, Q)
+
     if input_type == "cudf":
         P = cudf.DataFrame(P, dtype=dtype)
         Q = cudf.DataFrame(Q, dtype=dtype)
     elif input_type == "cupy":
         P = cp.asarray(P, dtype=dtype)
         Q = cp.asarray(Q, dtype=dtype)
-
     cu_res = cu_kl_divergence(P, Q)
-    # compare the accuracy of the two models
+
     cp.testing.assert_array_almost_equal(cu_res, sk_res)

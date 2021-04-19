@@ -67,34 +67,32 @@ def cython_kl_divergence(P, Q, handle=None, convert_dtype=True):
     handle = Handle() if handle is None else handle
     cdef handle_t *handle_ = <handle_t*> <size_t> handle.getHandle()
 
-    P_m, n_samples_p, n_features_p, dtype_p = \
+    P_m, n_features_p, _, dtype_p = \
         input_to_cuml_array(P, check_dtype=[np.float32, np.float64])
-    Q_m, n_samples_q, n_features_q, dtype_q = \
+    Q_m, n_features_q, _, _ = \
         input_to_cuml_array(Q,
                             convert_to_dtype=(dtype_p if convert_dtype
                                               else None),
                             check_dtype=[dtype_p])
 
-    if (n_samples_p != n_samples_q) or (n_features_p != n_features_q):
-        raise ValueError("Incompatible dimension for Y and Y_hat arrays: \
-                         P.shape == ({},{}) while Q.shape == ({},{})"
-                         .format(n_samples_p, n_features_p, n_samples_q,
-                                 n_features_q))
+    if n_features_p != n_features_q:
+        raise ValueError("Incompatible dimension for P and Q arrays: \
+                         P.shape == ({}) while Q.shape == ({})"
+                         .format(n_features_p, n_features_q))
 
     cdef uintptr_t d_P_ptr = P_m.ptr
     cdef uintptr_t d_Q_ptr = Q_m.ptr
 
-    n_elements = n_samples_p * n_features_p
     if (dtype_p == np.float32):
         res = kl_divergence(handle_[0],
                             <float*> d_P_ptr,
                             <float*> d_Q_ptr,
-                            <int> n_elements)
+                            <int> n_features_p)
     elif (dtype_p == np.float64):
         res = kl_divergence(handle_[0],
                             <double*> d_P_ptr,
                             <double*> d_Q_ptr,
-                            <int> n_elements)
+                            <int> n_features_p)
     else:
         raise NotImplementedError("Unsupported dtype: {}".format(dtype_p))
 
