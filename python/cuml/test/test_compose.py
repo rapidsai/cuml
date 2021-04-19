@@ -15,6 +15,7 @@
 
 import pytest
 
+import cudf
 import numpy as np
 from pandas import DataFrame as pdDataFrame
 from cudf import DataFrame as cuDataFrame
@@ -218,9 +219,10 @@ def test_column_transformer_get_feature_names(clf_dataset):  # noqa: F811
 
 
 def test_make_column_selector():
-    X = pdDataFrame({'city': ['London', 'London', 'Paris', 'Sallisaw'],
-                     'rating': [5, 3, 4, 5],
-                     'temperature': [21., 21., 24., 28.]})
+    X_np = pdDataFrame({'city': ['London', 'London', 'Paris', 'Sallisaw'],
+                        'rating': [5, 3, 4, 5],
+                        'temperature': [21., 21., 24., 28.]})
+    X = cudf.from_pandas(X_np)
 
     cu_transformers = [
         ("ohe", cuOneHotEncoder(),
@@ -230,7 +232,7 @@ def test_make_column_selector():
         ("normalizer", cuNormalizer(),
          cu_make_column_selector(pattern="temp"))
     ]
-    transformer = cuColumnTransformer(cu_transformers)
+    transformer = cuColumnTransformer(cu_transformers, remainder='drop')
     t_X = transformer.fit_transform(X)
 
     sk_transformers = [
@@ -241,7 +243,8 @@ def test_make_column_selector():
         ("normalizer", skNormalizer(),
          sk_make_column_selector(pattern="temp"))
     ]
-    transformer = skColumnTransformer(sk_transformers)
-    sk_t_X = transformer.fit_transform(X)
+    transformer = skColumnTransformer(sk_transformers, remainder='drop')
+    sk_t_X = transformer.fit_transform(X_np)
 
     assert_allclose(t_X, sk_t_X)
+    assert type(t_X) == type(X)
