@@ -22,15 +22,13 @@ from cuml.preprocessing import text
 
 from cuml._thirdparty.sklearn.preprocessing import StandardScaler, \
     MinMaxScaler, MaxAbsScaler, Normalizer, Binarizer, PolynomialFeatures, \
-    SimpleImputer, RobustScaler, KBinsDiscretizer, MissingIndicator, \
-    FunctionTransformer
+    SimpleImputer, RobustScaler, KBinsDiscretizer, MissingIndicator
 from cuml._thirdparty.sklearn.preprocessing import scale, minmax_scale, \
     maxabs_scale, normalize, add_dummy_feature, binarize, robust_scale
 
 __all__ = [
     # Classes
     'Binarizer',
-    'FunctionTransformer',
     'KBinsDiscretizer',
     'MaxAbsScaler',
     'MinMaxScaler',

@@ -25,7 +25,8 @@ from cuml.preprocessing import \
     SimpleImputer as cuSimpleImputer, \
     RobustScaler as cuRobustScaler, \
     KBinsDiscretizer as cuKBinsDiscretizer, \
-    MissingIndicator as cuMissingIndicator, \
+    MissingIndicator as cuMissingIndicator
+from cuml.experimental.preprocessing import \
     FunctionTransformer as cuFunctionTransformer
 from cuml.preprocessing import scale as cu_scale, \
                     minmax_scale as cu_minmax_scale, \

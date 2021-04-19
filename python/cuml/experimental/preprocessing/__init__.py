@@ -17,15 +17,19 @@
 
 from cuml.preprocessing import StandardScaler, MinMaxScaler, MaxAbsScaler, \
     Normalizer, Binarizer, PolynomialFeatures, SimpleImputer, RobustScaler, \
-    KBinsDiscretizer, MissingIndicator, FunctionTransformer
+    KBinsDiscretizer, MissingIndicator
 
 from cuml.preprocessing import scale, minmax_scale, maxabs_scale, normalize, \
     add_dummy_feature, binarize, robust_scale
+
+from cuml._thirdparty.sklearn.preprocessing import ColumnTransformer, \
+    FunctionTransformer, make_column_transformer, make_column_selector
 
 
 __all__ = [
     # Classes
     'Binarizer',
+    'ColumnTransformer',
     'FunctionTransformer',
     'KBinsDiscretizer',
     'MaxAbsScaler',
@@ -40,6 +44,8 @@ __all__ = [
     'add_dummy_feature',
     'binarize',
     'minmax_scale',
+    'make_column_selector',
+    'make_column_transformer',
     'maxabs_scale',
     'normalize',
     'robust_scale',

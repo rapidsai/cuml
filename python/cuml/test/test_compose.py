@@ -18,7 +18,7 @@ import pytest
 from pandas import DataFrame as pdDataFrame
 from cudf import DataFrame as cuDataFrame
 
-from cuml.compose import \
+from cuml.experimental.preprocessing import \
     ColumnTransformer as cuColumnTransformer, \
     make_column_transformer as cu_make_column_transformer, \
     make_column_selector as cu_make_column_selector
@@ -29,7 +29,7 @@ from sklearn.compose import \
     make_column_selector as sk_make_column_selector
 
 from cuml.test.test_preproc_utils import clf_dataset, \
-    sparse_clf_dataset
+    sparse_clf_dataset  # noqa: F401
 
 from cuml.preprocessing import \
     StandardScaler as cuStandardScaler, \
@@ -201,14 +201,14 @@ def test_column_transformer_misc(clf_dataset):  # noqa: F811
         ("PolynomialFeatures", cuPolynomialFeatures(), [0, 2])
     ]
     transformer = cuColumnTransformer(cu_transformers)
-    t_X = transformer.fit_transform(X)
+    transformer.fit_transform(X)
     cu_feature_names = transformer.get_feature_names()
 
     sk_transformers = [
         ("PolynomialFeatures", skPolynomialFeatures(), [0, 2])
     ]
     transformer = skColumnTransformer(sk_transformers)
-    sk_t_X = transformer.fit_transform(X_np)
+    transformer.fit_transform(X_np)
     sk_feature_names = transformer.get_feature_names()
 
     cu_feature_names == sk_feature_names
