@@ -386,7 +386,7 @@ def test_stratified_binary_classification():
         train_test_split(X, y,
                          train_size=0.75,
                          stratify=y,
-                         shuffle=y)
+                         shuffle=True)
 
     y = cp.array([0, 0, 0, 1, 1])
 
