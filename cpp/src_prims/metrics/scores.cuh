@@ -82,7 +82,8 @@ __global__ void compute_rank(math_t *ind_X, knn_index_t *ind_X_embedded, int n,
  */
 template <typename math_t>
 long *get_knn_indices(const raft::handle_t &h, math_t *input, int n, int d,
-                      int n_neighbors) {
+                      int n_neighbors,
+                      raft::distance::DistanceType distance_type) {
   cudaStream_t stream = h.get_stream();
   auto d_alloc = h.get_device_allocator();
 
@@ -97,7 +98,8 @@ long *get_knn_indices(const raft::handle_t &h, math_t *input, int n, int d,
   sizes[0] = n;
 
   raft::spatial::knn::brute_force_knn(h, ptrs, sizes, d, input, n, d_pred_I,
-                                      d_pred_D, n_neighbors);
+                                      d_pred_D, n_neighbors, true, true,
+                                      nullptr, distance_type);
 
   d_alloc->deallocate(d_pred_D, n * n_neighbors * sizeof(math_t), stream);
   return d_pred_I;
@@ -131,7 +133,7 @@ double trustworthiness_score(const raft::handle_t &h, math_t *X,
   int *d_ind_X_tmp = (int *)d_alloc->allocate(TMP_SIZE * sizeof(int), stream);
 
   int64_t *ind_X_embedded =
-    get_knn_indices(h, X_embedded, n, d, n_neighbors + 1);
+    get_knn_indices(h, X_embedded, n, d, n_neighbors + 1, distance_type);
 
   double t_tmp = 0.0;
   double t = 0.0;
