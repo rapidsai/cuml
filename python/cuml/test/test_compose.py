@@ -15,6 +15,7 @@
 
 import pytest
 
+import numpy as np
 from pandas import DataFrame as pdDataFrame
 from cudf import DataFrame as cuDataFrame
 
@@ -34,12 +35,14 @@ from cuml.test.test_preproc_utils import clf_dataset, \
 from cuml.preprocessing import \
     StandardScaler as cuStandardScaler, \
     Normalizer as cuNormalizer, \
-    PolynomialFeatures as cuPolynomialFeatures
+    PolynomialFeatures as cuPolynomialFeatures, \
+    OneHotEncoder as cuOneHotEncoder
 
 from sklearn.preprocessing import \
     StandardScaler as skStandardScaler, \
     Normalizer as skNormalizer, \
-    PolynomialFeatures as skPolynomialFeatures
+    PolynomialFeatures as skPolynomialFeatures, \
+    OneHotEncoder as skOneHotEncoder
 
 from cuml.test.test_preproc_utils import assert_allclose
 
@@ -194,7 +197,7 @@ def test_column_transformer_sparse(sparse_clf_dataset, remainder,  # noqa: F811
     assert_allclose(t_X, sk_t_X)
 
 
-def test_column_transformer_misc(clf_dataset):  # noqa: F811
+def test_column_transformer_get_feature_names(clf_dataset):  # noqa: F811
     X_np, X = clf_dataset
 
     cu_transformers = [
@@ -212,3 +215,33 @@ def test_column_transformer_misc(clf_dataset):  # noqa: F811
     sk_feature_names = transformer.get_feature_names()
 
     cu_feature_names == sk_feature_names
+
+
+def test_make_column_selector():
+    X = pdDataFrame({'city': ['London', 'London', 'Paris', 'Sallisaw'],
+                     'rating': [5, 3, 4, 5],
+                     'temperature': [21., 21., 24., 28.]})
+
+    cu_transformers = [
+        ("ohe", cuOneHotEncoder(),
+         cu_make_column_selector(dtype_exclude=np.number)),
+        ("scaler", cuStandardScaler(),
+         cu_make_column_selector(dtype_include=np.integer)),
+        ("normalizer", cuNormalizer(),
+         cu_make_column_selector(pattern="temp"))
+    ]
+    transformer = cuColumnTransformer(cu_transformers)
+    t_X = transformer.fit_transform(X)
+
+    sk_transformers = [
+        ("ohe", skOneHotEncoder(),
+         sk_make_column_selector(dtype_exclude=np.number)),
+        ("scaler", skStandardScaler(),
+         sk_make_column_selector(dtype_include=np.integer)),
+        ("normalizer", skNormalizer(),
+         sk_make_column_selector(pattern="temp"))
+    ]
+    transformer = skColumnTransformer(sk_transformers)
+    sk_t_X = transformer.fit_transform(X)
+
+    assert_allclose(t_X, sk_t_X)

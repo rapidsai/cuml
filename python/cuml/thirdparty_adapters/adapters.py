@@ -22,7 +22,8 @@ from cupy.sparse import csc_matrix as gpu_coo_matrix
 from scipy import sparse as cpu_sparse
 from cupy import sparse as gpu_sparse
 
-from cudf.core import DataFrame as cuDataFrame
+from pandas import DataFrame as pdDataFrame
+from cudf import DataFrame as cuDataFrame
 
 numeric_types = [
     np.int8, np.int16, np.int32, np.int64,
@@ -106,12 +107,13 @@ def check_dtype(array, dtypes='numeric'):
         # fp16 is not supported, so remove from the list of dtypes if present
         dtypes = [d for d in dtypes if d != np.float16]
 
-        if not isinstance(array, cuDataFrame):
+        if not isinstance(array, (pdDataFrame, cuDataFrame)):
             if array.dtype not in dtypes:
                 return dtypes[0]
         elif any([dt not in dtypes for dt in array.dtypes.tolist()]):
             return dtypes[0]
-        if not isinstance(array, cuDataFrame):
+
+        if not isinstance(array, (pdDataFrame, cuDataFrame)):
             return array.dtype
         else:
             return array.dtypes.tolist()[0]
@@ -222,7 +224,8 @@ def check_array(array, accept_sparse=False, accept_large_sparse=True,
 
     correct_dtype = check_dtype(array, dtype)
 
-    if copy and not order and hasattr(array, 'flags'):
+    if (not isinstance(array, (pdDataFrame, cuDataFrame))
+            and copy and not order and hasattr(array, 'flags')):
         if array.flags['F_CONTIGUOUS']:
             order = 'F'
         elif array.flags['C_CONTIGUOUS']:
