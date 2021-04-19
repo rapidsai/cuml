@@ -515,7 +515,7 @@ class NearestNeighbors(Base,
             When set to True, the kneighbors method will automatically
             convert the inputs to np.float32.
 
-        _output_cumlarray : bool, optional (default = False)
+        _output_type : bool, optional (default = False)
             When set to True, the class self.output_type is overwritten
             and this method returns the output as a cumlarray
 
@@ -894,6 +894,10 @@ def kneighbors_graph(X=None, n_neighbors=5, mode='connectivity', verbose=False,
         numpy's CSR sparse graph (host)
 
     """
+    # Set the default output type to "cupy". This will be ignored if the user
+    # has set `cuml.global_settings.output_type`. Only necessary for array
+    # generation methods that do not take an array as input
+    cuml.internals.set_api_output_type("cupy")
 
     X = NearestNeighbors(
         n_neighbors=n_neighbors,
@@ -903,6 +907,7 @@ def kneighbors_graph(X=None, n_neighbors=5, mode='connectivity', verbose=False,
         metric=metric,
         p=p,
         metric_params=metric_params,
+        output_type=cuml.global_settings.root_cm.output_type
     ).fit(X)
 
     if include_self == 'auto':

@@ -471,6 +471,7 @@ def test_nn_downcast_fails(input_type, nrows, n_feats):
 
 @pytest.mark.parametrize("input_type,mode,output_type,as_instance", [
     ("dataframe", "connectivity", "cupy", True),
+    ("dataframe", "connectivity", None, True),
     ("dataframe", "distance", "numpy", True),
     ("ndarray", "connectivity", "cupy", False),
     ("ndarray", "distance", "numpy", False),
@@ -512,7 +513,7 @@ def test_knn_graph(input_type, mode, output_type, as_instance,
     assert np.array_equal(sparse_sk.indptr.shape, sparse_cu.indptr.shape)
     assert np.array_equal(sparse_sk.toarray().shape, sparse_cu.toarray().shape)
 
-    if output_type == 'cupy':
+    if output_type == 'cupy' or output_type is None:
         assert cupyx.scipy.sparse.isspmatrix_csr(sparse_cu)
     else:
         assert isspmatrix_csr(sparse_cu)
