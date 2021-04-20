@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#pragma once
 #include <raft/cudart_utils.h>
 #include <cuml/common/logger.hpp>
 #include <cuml/manifold/common.hpp>

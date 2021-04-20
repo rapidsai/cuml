@@ -16,12 +16,14 @@
 
 #pragma once
 
-#include <cuml/cuml.hpp>
-
 #include <cusparse_v2.h>
 
 #include <raft/linalg/distance_type.h>
 #include <cuml/neighbors/knn.hpp>
+
+namespace raft {
+class handle_t;
+}
 
 namespace ML {
 namespace Sparse {

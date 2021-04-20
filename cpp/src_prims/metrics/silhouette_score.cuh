@@ -21,7 +21,6 @@
 #include <raft/linalg/distance_type.h>
 #include <algorithm>
 #include <cub/cub.cuh>
-#include <cuml/common/cuml_allocator.hpp>
 #include <cuml/common/device_buffer.hpp>
 #include <iostream>
 #include <linalg/reduce_cols_by_key.cuh>
@@ -33,6 +32,7 @@
 #include <raft/linalg/map_then_reduce.cuh>
 #include <raft/linalg/matrix_vector_op.cuh>
 #include <raft/linalg/reduce.cuh>
+#include <raft/mr/device/allocator.hpp>
 
 namespace MLCommon {
 namespace Metrics {
@@ -98,7 +98,7 @@ __global__ void populateAKernel(DataT *sampleToClusterSumOfDistances,
 template <typename DataT, typename LabelT>
 void countLabels(LabelT *labels, DataT *binCountArray, int nRows,
                  int nUniqueLabels, MLCommon::device_buffer<char> &workspace,
-                 std::shared_ptr<MLCommon::deviceAllocator> allocator,
+                 std::shared_ptr<raft::mr::device::allocator> allocator,
                  cudaStream_t stream) {
   int num_levels = nUniqueLabels + 1;
   LabelT lower_level = 0;
@@ -178,7 +178,7 @@ struct MinOp {
 template <typename DataT, typename LabelT>
 DataT silhouette_score(DataT *X_in, int nRows, int nCols, LabelT *labels,
                        int nLabels, DataT *silhouette_scorePerSample,
-                       std::shared_ptr<MLCommon::deviceAllocator> allocator,
+                       std::shared_ptr<raft::mr::device::allocator> allocator,
                        cudaStream_t stream,
                        raft::distance::DistanceType metric =
                          raft::distance::DistanceType::L2Unexpanded) {

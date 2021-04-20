@@ -14,11 +14,14 @@
  * limitations under the License.
  */
 
-#include <cuml/cuml.hpp>
 #include <cuml/linear_model/glm.hpp>
 #include "ols.cuh"
 #include "qn/qn.cuh"
 #include "ridge.cuh"
+
+namespace raft {
+class handle_t;
+}
 
 namespace ML {
 namespace GLM {

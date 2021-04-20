@@ -15,7 +15,6 @@
  */
 
 #include <cuml/manifold/umapparams.h>
-#include <cuml/cuml.hpp>
 #include <cuml/manifold/umap.hpp>
 #include <raft/cuda_utils.cuh>
 #include <utility>

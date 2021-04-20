@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,7 +23,7 @@
 #include <thrust/iterator/counting_iterator.h>
 
 #include <cuml/tsa/arima_common.h>
-#include <cuml/common/cuml_allocator.hpp>
+#include <raft/mr/device/allocator.hpp>
 #include <raft/random/rng.cuh>
 #include <timeSeries/arima_helpers.cuh>
 
@@ -131,8 +131,9 @@ __global__ void make_arima_kernel(DataT* d_diff, const DataT* d_res,
  */
 template <typename DataT>
 void make_arima(DataT* out, int batch_size, int n_obs, ML::ARIMAOrder order,
-                std::shared_ptr<deviceAllocator> allocator, cudaStream_t stream,
-                DataT scale = (DataT)1.0, DataT noise_scale = (DataT)0.2,
+                std::shared_ptr<raft::mr::device::allocator> allocator,
+                cudaStream_t stream, DataT scale = (DataT)1.0,
+                DataT noise_scale = (DataT)0.2,
                 DataT intercept_scale = (DataT)1.0, uint64_t seed = 0ULL,
                 raft::random::GeneratorType type = raft::random::GenPhilox) {
   int d_sD = order.d + order.s * order.D;
