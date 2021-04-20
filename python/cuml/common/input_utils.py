@@ -16,6 +16,7 @@
 
 import copy
 from collections import namedtuple
+import nvtx
 
 import cudf
 import cupy as cp
@@ -200,6 +201,7 @@ def is_array_like(X):
     return determine_array_type(X) is not None
 
 
+@nvtx.annotate(message="cuml.common.input_to_cuml_array")
 @cuml.internals.api_return_any()
 def input_to_cuml_array(X,
                         order='F',
@@ -390,6 +392,7 @@ def input_to_cuml_array(X,
     return cuml_array(array=X_m, n_rows=n_rows, n_cols=n_cols, dtype=X_m.dtype)
 
 
+@nvtx.annotate(message="cuml.common.input_to_cupy_array")
 def input_to_cupy_array(X,
                         order='F',
                         deepcopy=False,
@@ -426,6 +429,7 @@ def input_to_cupy_array(X,
     return out_data._replace(array=out_data.array.to_output("cupy"))
 
 
+@nvtx.annotate(message="cuml.common.input_to_host_array")
 def input_to_host_array(X,
                         order='F',
                         deepcopy=False,

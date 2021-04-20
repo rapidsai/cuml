@@ -17,6 +17,7 @@
 # distutils: language = c++
 
 import inspect
+import nvtx
 
 import cuml.common
 import cuml.common.cuda
@@ -182,6 +183,8 @@ class Base(TagsMixin,
         self._input_type = None
         self.target_dtype = None
         self.n_features_in_ = None
+
+        self._set_nvtx_annotations()
 
     def __repr__(self):
         """
@@ -363,6 +366,14 @@ class Base(TagsMixin,
         if hasattr(self, 'transform') and hasattr(self, 'dtype'):
             return {'preserves_dtype': [self.dtype]}
         return {}
+
+    def _set_nvtx_annotations(self):
+        for function in ['fit', 'transform', 'predict']:
+            if hasattr(self, function):
+                message = self.__class__.__module__ + '.' + function
+                func = getattr(self, function)
+                func = nvtx.annotate(message=message)(func)
+                setattr(self, function, func)
 
 
 # Internal, non class owned helper functions
