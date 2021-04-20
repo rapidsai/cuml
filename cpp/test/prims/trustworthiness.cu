@@ -16,9 +16,9 @@
 
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
-#include <distance/distance.cuh>
 #include <iostream>
 #include <metrics/scores.cuh>
+#include <raft/distance/distance.cuh>
 #include <raft/mr/device/allocator.hpp>
 #include <vector>
 #include "test_utils.h"

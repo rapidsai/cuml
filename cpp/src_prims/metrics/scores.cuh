@@ -26,7 +26,7 @@
 
 #include <raft/mr/device/allocator.hpp>
 
-#include <distance/distance.cuh>
+#include <raft/distance/distance.cuh>
 #include <raft/spatial/knn/knn.hpp>
 #include <selection/columnWiseSort.cuh>
 
@@ -147,7 +147,7 @@ double trustworthiness_score(const raft::handle_t &h, math_t *X,
 
     size_t workspaceSize = 0;
 
-    MLCommon::Distance::distance<distance_type, math_t, math_t, math_t>(
+    raft::distance::distance<distance_type, math_t, math_t, math_t>(
       &X[(n - toDo) * m], X, d_pdist_tmp, curBatchSize, n, m, (void *)nullptr,
       workspaceSize, stream);
     CUDA_CHECK(cudaPeekAtLastError());
