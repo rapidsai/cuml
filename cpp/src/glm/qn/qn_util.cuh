@@ -136,7 +136,7 @@ inline bool check_convergence(const LBFGSParam<T> &param, const int k,
   // Convergence test -- objective function value
   if (param.past > 0) {
     if (k >= param.past &&
-        std::abs((fx_hist[k % param.past] - fx) / fx) < param.delta) {
+        std::abs(fx_hist[k % param.past] - fx) <= param.delta * fmag) {
       CUML_LOG_DEBUG("Insufficient change in objective value");
       return true;
     }
