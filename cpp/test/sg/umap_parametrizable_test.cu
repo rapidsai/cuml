@@ -28,8 +28,8 @@
 #include <linalg/reduce_rows_by_key.cuh>
 #include <metrics/trustworthiness.cuh>
 #include <raft/cuda_utils.cuh>
-#include <raft/handle.hpp>
 #include <raft/distance/distance.cuh>
+#include <raft/handle.hpp>
 #include <raft/mr/device/allocator.hpp>
 #include <selection/knn.cuh>
 #include <umap/runner.cuh>
