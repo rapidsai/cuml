@@ -27,12 +27,11 @@ namespace ML {
 namespace HDBSCAN {
 namespace Tree {
 
-template<typename value_idx, typename value_t>
-__device__ value_t get_lambda(value_idx node, value_idx num_points, value_t *deltas) {
-
+template <typename value_idx, typename value_t>
+__device__ value_t get_lambda(value_idx node, value_idx num_points,
+                              value_t *deltas) {
   value_t delta = deltas[node - num_points];
-  if(delta > 0.0)
-    return 1.0 / delta;
+  if (delta > 0.0) return 1.0 / delta;
   return std::numeric_limits<value_t>::max();
 }
 
@@ -51,16 +50,15 @@ __device__ value_t get_lambda(value_idx node, value_idx num_points, value_t *del
  * @param num_points
  * @param min_cluster_size
  */
-template<typename value_idx, typename value_t>
-__global__ void condense_hierarchy_kernel(bool *frontier, value_idx *ignore, value_idx *next_label,
-                               value_idx *relabel, value_idx *hierarchy,
-                               value_t *deltas, value_idx *sizes,
-                               int n_leaves, int num_points, int min_cluster_size) {
-
+template <typename value_idx, typename value_t>
+__global__ void condense_hierarchy_kernel(
+  bool *frontier, value_idx *ignore, value_idx *next_label, value_idx *relabel,
+  value_idx *hierarchy, value_t *deltas, value_idx *sizes, int n_leaves,
+  int num_points, int min_cluster_size) {
   int node = blockDim.x * blockIdx.x + threadIdx.x;
 
   // If node is in frontier, flip frontier for children
-  if(node <= n_leaves * 2 && frontier[node]) {
+  if (node <= n_leaves * 2 && frontier[node]) {
     frontier[node] = false;
 
     // TODO: Check bounds
@@ -130,18 +128,17 @@ __global__ void condense_hierarchy_kernel(bool *frontier, value_idx *ignore, val
   }
 }
 
-template<typename value_idx, typename value_t, int tpb = 256>
-void condense_hierarchy(raft::handle_t &handle, value_idx *children, value_t *delta,
-                        value_idx *sizes,
-                        int min_pts, int n_leaves) {
-
-  rmm::device_uvector<bool> frontier(n_leaves*2, handle.get_stream());
-  rmm::device_uvector<bool> ignore(n_leaves*2, handle.get_stream());
+template <typename value_idx, typename value_t, int tpb = 256>
+void condense_hierarchy(raft::handle_t &handle, value_idx *children,
+                        value_t *delta, value_idx *sizes, int min_pts,
+                        int n_leaves) {
+  rmm::device_uvector<bool> frontier(n_leaves * 2, handle.get_stream());
+  rmm::device_uvector<bool> ignore(n_leaves * 2, handle.get_stream());
 
   int root = 2 * n_leaves;
   int num_points = floor(root / 2.0) + 1;
 
-  rmm::device_uvector<value_idx> relabel(root+1, handle.get_stream());
+  rmm::device_uvector<value_idx> relabel(root + 1, handle.get_stream());
 
   // TODO: Set this properly on device
   relabel[root] = num_points;
@@ -149,20 +146,23 @@ void condense_hierarchy(raft::handle_t &handle, value_idx *children, value_t *de
   // While frontier is not empty, perform single bfs through tree
   size_t grid = raft::ceildiv(n_leaves * 2, (size_t)tpb);
 
-  value_idx n_elements_to_traverse = thrust::reduce(thrust::cuda::par.on(handle.get_stream()),
-                                                    frontier.data(), frontier.data()+(n_leaves *2), 0);
+  value_idx n_elements_to_traverse =
+    thrust::reduce(thrust::cuda::par.on(handle.get_stream()), frontier.data(),
+                   frontier.data() + (n_leaves * 2), 0);
 
   rmm::device_uvector<value_idx> next_label(1, handle.get_stream());
   // TODO: Set this properly on device
   next_label[0] = num_points + 1;
 
-  while(n_elements_to_traverse > 0) {
+  while (n_elements_to_traverse > 0) {
     condense_hierarchy_kernel<<<grid, tpb, 0, handle.get_stream()>>>(
-        frontier.data(), ignore.data(), next_label.data(), relabel.data(), children, delta,
-      sizes, n_leaves, num_points, min_cluster_size);
+      frontier.data(), ignore.data(), next_label.data(), relabel.data(),
+      children, delta, sizes, n_leaves, num_points, min_cluster_size);
 
-    n_elements_to_traverse = thrust::reduce(thrust::cuda::par.on(handle.get_stream()),
-                                            frontier.data(), frontier.data()+(n_leaves *2), 0);;
+    n_elements_to_traverse =
+      thrust::reduce(thrust::cuda::par.on(handle.get_stream()), frontier.data(),
+                     frontier.data() + (n_leaves * 2), 0);
+    ;
 
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
   }

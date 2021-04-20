@@ -102,16 +102,16 @@ void mutual_reachability(value_t *pw_dists, value_t *core_dists, size_t m,
  * @param[in] k
  */
 template <typename value_idx, typename value_t>
-void mutual_reachability_dists(const raft::handle_t &handle,
-                               const value_t *X, size_t m, size_t n,
-                               raft::distance::DistanceType metric,
-                               int k, value_idx *inds, value_t *dists,
+void mutual_reachability_dists(const raft::handle_t &handle, const value_t *X,
+                               size_t m, size_t n,
+                               raft::distance::DistanceType metric, int k,
+                               value_idx *inds, value_t *dists,
                                value_t *core_dists) {
   auto stream = handle.get_stream();
 
   // perform knn
-  brute_force_knn(handle, {X}, {m}, n, X, m, inds, dists, k, true,
-                  true, metric);
+  brute_force_knn(handle, {X}, {m}, n, X, m, inds, dists, k, true, true,
+                  metric);
 
   // Slice core distances (distances to kth nearest neighbor)
   core_distances(dists, k, m, core_dists, stream);
@@ -121,8 +121,8 @@ void mutual_reachability_dists(const raft::handle_t &handle,
   // at this point so the core distances will need to be returned
   // so additional points can be added to the graph and projected
   // ito mutual reachability space later.
-  mutual_reachability<value_idx, value_t>(inds, dists,
-                                          core_dists, m, n, stream);
+  mutual_reachability<value_idx, value_t>(inds, dists, core_dists, m, n,
+                                          stream);
 }
 
 };  // end namespace Reachability

@@ -29,11 +29,10 @@
 namespace ML {
 namespace HDBSCAN {
 
-template<typename value_idx, typename value_t>
+template <typename value_idx, typename value_t>
 struct MSTEpilogueReachability {
-
-  MSTEpilogueReachability(value_idx m_, value_t *core_distances_):
-    core_distances(core_distances_), m(m_){}
+  MSTEpilogueReachability(value_idx m_, value_t *core_distances_)
+    : core_distances(core_distances_), m(m_) {}
 
   void operator()(raft::handle_t &handle, value_idx *coo_rows,
                   value_idx *coo_cols, value_t *coo_data) {
@@ -45,7 +44,6 @@ struct MSTEpilogueReachability {
   value_t *core_distances;
   value_idx m;
 }
-
 
 template <typename value_idx = int64_t, typename value_t = float>
 void _fit(const raft::handle_t &handle, value_t *X, value_idx m, value_idx n,
@@ -74,12 +72,10 @@ void _fit(const raft::handle_t &handle, value_t *X, value_idx m, value_idx n,
   rmm::device_uvector<value_idx> mst_data(m - 1, stream);
 
   // during knn graph connection
-  raft::hierarchy::detail::build_sorted_mst(handle, X, mutual_reachability_graph_inds.data(),
-                                            mutual_reachability_graph_dists.data(),
-                                            m, n,
-                                            mst_rows, mst_cols, mst_data,
-                                            k * m, metric, 10,
-                                            MSTEpilogueReachability<value_idx, value_t>());
+  raft::hierarchy::detail::build_sorted_mst(
+    handle, X, mutual_reachability_graph_inds.data(),
+    mutual_reachability_graph_dists.data(), m, n, mst_rows, mst_cols, mst_data,
+    k * m, metric, 10, MSTEpilogueReachability<value_idx, value_t>());
 
   /**
    * Perform hierarchical labeling
@@ -98,8 +94,6 @@ void _fit(const raft::handle_t &handle, value_t *X, value_idx m, value_idx n,
   /**
    * Condense branches of tree according to min cluster size
    */
-
-
 
   /**
    * Extract labels from stability
