@@ -28,6 +28,7 @@ from sklearn import datasets
 
 
 DEFAULT_N_NEIGHBORS = 90
+DEFAULT_PERPLEXITY = 30
 
 test_datasets = {
                  "digits": datasets.load_digits(),
@@ -55,7 +56,7 @@ def test_tsne_knn_graph_used(dataset, type_knn_graph, method):
     X = dataset.data
 
     neigh = cuKNN(n_neighbors=DEFAULT_N_NEIGHBORS,
-                  metric="sqeuclidean").fit(X)
+                  metric="euclidean").fit(X)
     knn_graph = neigh.kneighbors_graph(X, mode="distance").astype('float32')
 
     if type_knn_graph == 'cuml':
@@ -64,7 +65,7 @@ def test_tsne_knn_graph_used(dataset, type_knn_graph, method):
     tsne = TSNE(random_state=1,
                 n_neighbors=DEFAULT_N_NEIGHBORS,
                 method=method,
-                perplexity=25,
+                perplexity=DEFAULT_PERPLEXITY,
                 learning_rate_method='none',
                 min_grad_norm=1e-12)
 
@@ -83,7 +84,7 @@ def test_tsne_knn_graph_used(dataset, type_knn_graph, method):
     tsne = TSNE(random_state=1,
                 n_neighbors=DEFAULT_N_NEIGHBORS,
                 method=method,
-                perplexity=25,
+                perplexity=DEFAULT_PERPLEXITY,
                 learning_rate_method='none',
                 min_grad_norm=1e-12)
 
@@ -114,7 +115,7 @@ def test_tsne_knn_parameters(dataset, type_knn_graph, method):
     X = normalize(X, norm='l1')
 
     neigh = cuKNN(n_neighbors=DEFAULT_N_NEIGHBORS,
-                  metric="sqeuclidean").fit(X)
+                  metric="euclidean").fit(X)
     knn_graph = neigh.kneighbors_graph(X, mode="distance").astype('float32')
 
     if type_knn_graph == 'cuml':
@@ -126,7 +127,7 @@ def test_tsne_knn_parameters(dataset, type_knn_graph, method):
                 learning_rate_method='none',
                 method=method,
                 min_grad_norm=1e-12,
-                perplexity=25)
+                perplexity=DEFAULT_PERPLEXITY)
 
     embed = tsne.fit_transform(X, True, knn_graph)
     validate_embedding(X, embed)
@@ -158,7 +159,7 @@ def test_tsne(dataset, method):
                 learning_rate_method='none',
                 method=method,
                 min_grad_norm=1e-12,
-                perplexity=25)
+                perplexity=DEFAULT_PERPLEXITY)
 
     Y = tsne.fit_transform(X)
     validate_embedding(X, Y)
@@ -207,7 +208,7 @@ def test_tsne_fit_transform_on_digits_sparse(input_type, method):
                   min_grad_norm=1e-12,
                   n_neighbors=DEFAULT_N_NEIGHBORS,
                   learning_rate_method="none",
-                  perplexity=25)
+                  perplexity=DEFAULT_PERPLEXITY)
 
     new_data = sp_prefix.csr_matrix(
         scipy.sparse.csr_matrix(digits)).astype('float32')
@@ -218,7 +219,7 @@ def test_tsne_fit_transform_on_digits_sparse(input_type, method):
         embedding = embedding.get()
 
     trust = trustworthiness(digits, embedding,
-                            n_neighbors=90)
+                            n_neighbors=DEFAULT_N_NEIGHBORS)
     assert trust >= 0.85
 
 
@@ -230,7 +231,7 @@ def test_tsne_knn_parameters_sparse(type_knn_graph, input_type, method):
     digits = test_datasets["digits"].data
 
     neigh = cuKNN(n_neighbors=DEFAULT_N_NEIGHBORS,
-                  metric="sqeuclidean").fit(digits)
+                  metric="euclidean").fit(digits)
     knn_graph = neigh.kneighbors_graph(
         digits, mode="distance").astype('float32')
 
@@ -248,7 +249,7 @@ def test_tsne_knn_parameters_sparse(type_knn_graph, input_type, method):
                 learning_rate_method='none',
                 method=method,
                 min_grad_norm=1e-12,
-                perplexity=25)
+                perplexity=DEFAULT_PERPLEXITY)
 
     new_data = sp_prefix.csr_matrix(
         scipy.sparse.csr_matrix(digits))

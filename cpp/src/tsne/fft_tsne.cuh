@@ -42,12 +42,16 @@ const static int NTHREADS_128 = 128;
 const static int NTHREADS_32 = 32;
 
 struct FunctionalSqrt {
-  __host__ __device__ float operator()(const float &x) const {
+  template <typename value_t>
+  __host__ __device__ float operator()(const value_t &x) const {
     return pow(x, 0.5);
   }
 };
 struct FunctionalSquare {
-  __host__ __device__ float operator()(const float &x) const { return x * x; }
+  template <typename value_t>
+  __host__ __device__ float operator()(const value_t &x) const {
+    return x * x;
+  }
 };
 
 template <typename T>
@@ -507,6 +511,7 @@ void FFT_TSNE(value_t *VAL, const value_idx *COL, const value_idx *ROW,
       attractive_forces_device.size();
 
     if (grad_norm <= min_grad_norm) {
+      std::cout << "BREAKING EARLY" << std::endl;
       break;
     }
   }

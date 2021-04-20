@@ -85,6 +85,7 @@ cdef extern from "cuml/manifold/tsne.h" namespace "ML":
         const long long random_state,
         int verbosity,
         const bool initialize_embeddings,
+        const bool square_distances,
         TSNE_ALGORITHM algorithm) except +
 
     cdef void TSNE_fit_sparse(
@@ -118,6 +119,7 @@ cdef extern from "cuml/manifold/tsne.h" namespace "ML":
         const long long random_state,
         int verbosity,
         const bool initialize_embeddings,
+        const bool square_distances,
         TSNE_ALGORITHM algorithm) except +
 
 
@@ -158,7 +160,9 @@ class TSNE(Base,
         iterations, terminate t-SNE early.
     min_grad_norm : float (default 1e-07)
         The minimum gradient norm for when t-SNE will terminate early.
-        Used in the 'exact' and 'fft' algorithms.
+        Used in the 'exact' and 'fft' algorithms. Consider reducing if
+        the embeddings are unsatisfactory. It's recommended to use a
+        smaller value for smaller datasets.
     metric : str 'euclidean' only (default 'euclidean')
         Currently only supports euclidean distance. Will support cosine in
         a future release.
@@ -194,6 +198,13 @@ class TSNE(Base,
         During the exaggeration iteration, more forcefully apply gradients.
     post_momentum : float (default 0.8)
         During the late phases, less forcefully apply gradients.
+    square_distances : boolean, default=True
+        Whether TSNE should square the distance values.
+        Internally, this will be used to compute a kNN graph using 'euclidean'
+        'metric' and then squaring it when True. If a `knn_graph` is passed
+        to `fit` or `fit_transform` methods, all the distances will be
+        squared when True. For example, if a `knn_graph` was obtained using
+        'sqeuclidean' metric, the distances will still be squared when True.
     handle : cuml.Handle
         Specifies the cuml.handle that holds internal CUDA state for
         computations in this model. Most importantly, this specifies the CUDA
@@ -264,6 +275,7 @@ class TSNE(Base,
                  exaggeration_iter=250,
                  pre_momentum=0.5,
                  post_momentum=0.8,
+                 square_distances=True,
                  handle=None,
                  output_type=None):
 
@@ -373,6 +385,7 @@ class TSNE(Base,
         self.min_gain = 0.01
         self.pre_learning_rate = learning_rate
         self.post_learning_rate = learning_rate * 2
+        self.square_distances = square_distances
 
         self.X_m = None
         self.embedding_ = None
@@ -526,6 +539,7 @@ class TSNE(Base,
                             <long long> seed,
                             <int> self.verbose,
                             <bool> True,
+                            <bool> self.square_distances,
                             algo)
         else:
             TSNE_fit(handle_[0],
@@ -555,6 +569,7 @@ class TSNE(Base,
                      <long long> seed,
                      <int> self.verbose,
                      <bool> True,
+                     <bool> self.square_distances,
                      algo)
 
         self.handle.sync()

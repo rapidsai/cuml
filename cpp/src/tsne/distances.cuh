@@ -32,6 +32,7 @@
 #include "utils.cuh"
 
 #include <rmm/device_uvector.hpp>
+#include <rmm/exec_policy.hpp>
 
 namespace ML {
 namespace TSNE {
@@ -71,7 +72,7 @@ void get_distances(const raft::handle_t &handle,
   raft::spatial::knn::brute_force_knn(
     handle, input_vec, sizes_vec, input.d, input.X, input.n,
     k_graph.knn_indices, k_graph.knn_dists, k_graph.n_neighbors, true, true,
-    nullptr, raft::distance::DistanceType::L2Expanded);
+    nullptr, raft::distance::DistanceType::L2SqrtExpanded);
 }
 
 // dense, int32 indices
@@ -94,7 +95,7 @@ void get_distances(const raft::handle_t &handle,
     k_graph.knn_indices, k_graph.knn_dists, k_graph.n_neighbors,
     handle.get_cusparse_handle(), handle.get_device_allocator(), stream,
     ML::Sparse::DEFAULT_BATCH_SIZE, ML::Sparse::DEFAULT_BATCH_SIZE,
-    raft::distance::DistanceType::L2Expanded);
+    raft::distance::DistanceType::L2SqrtExpanded);
 }
 
 // sparse, int64
@@ -118,29 +119,22 @@ template <typename value_idx, typename value_t>
 void normalize_distances(const value_idx n, value_t *distances,
                          const int n_neighbors, cudaStream_t stream) {
   // Now D / max(abs(D)) to allow exp(D) to not explode
-  auto nthreads = 1024;
-  auto nblocks = raft::ceildiv(n, (value_idx)nthreads);
 
-  rmm::device_uvector<value_t> min_d(1, stream);
-  rmm::device_uvector<value_t> max_d(1, stream);
+  auto policy = rmm::exec_policy(stream);
 
-  max_d.set_element(0, std::numeric_limits<value_t>::lowest(), stream);
-  min_d.set_element(0, std::numeric_limits<value_t>::max(), stream);
+  auto functional_abs = [] __device__(const value_t &x) { return abs(x); };
 
-  min_max_kernel<<<nblocks, nthreads, 0, stream>>>(distances, n, min_d.data(),
-                                                   max_d.data(), true);
+  value_t maxNorm =
+    thrust::transform_reduce(policy, distances, distances + n * n_neighbors,
+                             functional_abs, 0.0f, thrust::maximum<float>());
 
-  value_t maxNorm;
-  raft::update_host(&maxNorm, max_d.data(), 1, stream);
+  if (maxNorm == 0.0f) {
+    maxNorm = 1.0f;
+  }
 
-  CUDA_CHECK(cudaStreamSynchronize(stream));
-
-  if (maxNorm == 0.0f) maxNorm = 1.0f;
-
-  // Divide distances inplace by max
-  const value_t div = 1.0f / maxNorm;  // Mult faster than div
-  raft::linalg::scalarMultiply(distances, distances, div, n * n_neighbors,
-                               stream);
+  thrust::constant_iterator<float> division_iterator(1.0f / maxNorm);
+  thrust::transform(policy, distances, distances + n * n_neighbors,
+                    division_iterator, distances, thrust::multiplies<float>());
 }
 
 /**

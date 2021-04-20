@@ -30,13 +30,14 @@ void _fit(const raft::handle_t &handle, tsne_input &input,
           const int max_iter, const float min_grad_norm,
           const float pre_momentum, const float post_momentum,
           const long long random_state, int verbosity,
-          const bool initialize_embeddings, TSNE_ALGORITHM algorithm) {
+          const bool initialize_embeddings, const bool square_distances,
+          TSNE_ALGORITHM algorithm) {
   TSNE_runner<tsne_input, value_idx, value_t> runner(
     handle, input, k_graph, dim, theta, epssq, perplexity, perplexity_max_iter,
     perplexity_tol, early_exaggeration, late_exaggeration, exaggeration_iter,
     min_gain, pre_learning_rate, post_learning_rate, max_iter, min_grad_norm,
     pre_momentum, post_momentum, random_state, verbosity, initialize_embeddings,
-    algorithm);
+    square_distances, algorithm);
 
   runner.run();
 }
@@ -52,7 +53,7 @@ void TSNE_fit(const raft::handle_t &handle, float *X, float *Y, int n, int p,
               const float min_grad_norm, const float pre_momentum,
               const float post_momentum, const long long random_state,
               int verbosity, const bool initialize_embeddings,
-              TSNE_ALGORITHM algorithm) {
+              const bool square_distances, TSNE_ALGORITHM algorithm) {
   ASSERT(n > 0 && p > 0 && dim > 0 && n_neighbors > 0 && X != NULL && Y != NULL,
          "Wrong input args");
 
@@ -64,7 +65,7 @@ void TSNE_fit(const raft::handle_t &handle, float *X, float *Y, int n, int p,
     perplexity_tol, early_exaggeration, late_exaggeration, exaggeration_iter,
     min_gain, pre_learning_rate, post_learning_rate, max_iter, min_grad_norm,
     pre_momentum, post_momentum, random_state, verbosity, initialize_embeddings,
-    algorithm);
+    square_distances, algorithm);
 }
 
 void TSNE_fit_sparse(const raft::handle_t &handle, int *indptr, int *indices,
@@ -79,7 +80,7 @@ void TSNE_fit_sparse(const raft::handle_t &handle, int *indptr, int *indices,
                      const float min_grad_norm, const float pre_momentum,
                      const float post_momentum, const long long random_state,
                      int verbosity, const bool initialize_embeddings,
-                     TSNE_ALGORITHM algorithm) {
+                     const bool square_distances, TSNE_ALGORITHM algorithm) {
   ASSERT(n > 0 && p > 0 && dim > 0 && n_neighbors > 0 && indptr != NULL &&
            indices != NULL && data != NULL && Y != NULL,
          "Wrong input args");
@@ -93,7 +94,7 @@ void TSNE_fit_sparse(const raft::handle_t &handle, int *indptr, int *indices,
     perplexity_tol, early_exaggeration, late_exaggeration, exaggeration_iter,
     min_gain, pre_learning_rate, post_learning_rate, max_iter, min_grad_norm,
     pre_momentum, post_momentum, random_state, verbosity, initialize_embeddings,
-    algorithm);
+    square_distances, algorithm);
 }
 
 }  // namespace ML

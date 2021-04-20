@@ -41,7 +41,8 @@ class TSNE_runner {
               const int max_iter_, const float min_grad_norm_,
               const float pre_momentum_, const float post_momentum_,
               const long long random_state_, int verbosity_,
-              const bool initialize_embeddings_, TSNE_ALGORITHM algorithm_)
+              const bool initialize_embeddings_, const bool square_distances_,
+              TSNE_ALGORITHM algorithm_)
     : handle(handle_),
       input(input_),
       k_graph(k_graph_),
@@ -64,6 +65,7 @@ class TSNE_runner {
       random_state(random_state_),
       verbosity(verbosity_),
       initialize_embeddings(initialize_embeddings_),
+      square_distances(square_distances_),
       algorithm(algorithm_),
       COO_Matrix(handle_.get_device_allocator(), handle_.get_stream()) {
     this->n = input.n;
@@ -159,6 +161,14 @@ class TSNE_runner {
       TSNE::get_distances(handle, input, k_graph, stream);
     }
 
+    if (square_distances) {
+      auto policy = rmm::exec_policy(stream);
+
+      thrust::transform(policy, k_graph.knn_dists,
+                        k_graph.knn_dists + n * n_neighbors, k_graph.knn_dists,
+                        TSNE::FunctionalSquare());
+    }
+
     //---------------------------------------------------
     END_TIMER(DistancesTime);
 
@@ -214,6 +224,7 @@ class TSNE_runner {
   const long long random_state;
   int verbosity;
   const bool initialize_embeddings;
+  const bool square_distances;
   TSNE_ALGORITHM algorithm;
 
   raft::sparse::COO<value_t, value_idx> COO_Matrix;

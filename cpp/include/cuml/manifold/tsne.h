@@ -72,6 +72,7 @@ enum TSNE_ALGORITHM { EXACT, BARNES_HUT, FFT };
  *                                 execution
  * @param[in] initialize_embeddings Whether to overwrite the current Y vector
  *                                 with random noise.
+ * @param[in] square_distances     Square the distances obtained from kNN.
  * @param[in] algorithm            Which implementation algorithm to use.
  *
  * The CUDA implementation is derived from the excellent CannyLabs open source
@@ -93,6 +94,7 @@ void TSNE_fit(
   const float min_grad_norm = 1e-7, const float pre_momentum = 0.5,
   const float post_momentum = 0.8, const long long random_state = -1,
   int verbosity = CUML_LEVEL_INFO, const bool initialize_embeddings = true,
+  const bool square_distances = true,
   TSNE_ALGORITHM algorithm = TSNE_ALGORITHM::FFT);
 
 /**
@@ -142,6 +144,7 @@ void TSNE_fit(
  *                                 execution
  * @param[in] initialize_embeddings Whether to overwrite the current Y vector
  *                                 with random noise.
+ * @param[in] square_distances     Square the distances obtained from kNN.
  * @param[in] algorithm            Which implementation algorithm to use.
  *
  * The CUDA implementation is derived from the excellent CannyLabs open source
@@ -164,6 +167,7 @@ void TSNE_fit_sparse(
   const float min_grad_norm = 1e-7, const float pre_momentum = 0.5,
   const float post_momentum = 0.8, const long long random_state = -1,
   int verbosity = CUML_LEVEL_INFO, const bool initialize_embeddings = true,
+  const bool square_distances = true,
   TSNE_ALGORITHM algorithm = TSNE_ALGORITHM::FFT);
 
 }  // namespace ML

@@ -46,7 +46,7 @@ class TSNETest : public ::testing::TestWithParam<TSNEInput> {
   void assert_score(double score, const char *test) {
     printf("%s", test);
     printf("score = %f\n", score);
-    ASSERT_TRUE(0.94 < score);
+    ASSERT_TRUE(0.90 < score);
   }
 
   double runTest(TSNE_ALGORITHM algo, bool knn = false) {
@@ -102,6 +102,7 @@ class TSNETest : public ::testing::TestWithParam<TSNEInput> {
              -1,                               // rand_state
              CUML_LEVEL_DEBUG,                 // verbosity
              true,                             // init
+             true,                             // square_distances
              algo);                            // algo
 
     float *embeddings_h = (float *)malloc(sizeof(float) * n * 2);
