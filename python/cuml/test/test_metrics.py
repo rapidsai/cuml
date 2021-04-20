@@ -653,14 +653,15 @@ def test_confusion_matrix_binary():
 
 
 @pytest.mark.parametrize('n_samples', [50, 3000, stress_param(500000)])
-@pytest.mark.parametrize('dtype', [np.int32, np.int64])
+@pytest.mark.parametrize('dtype', [np.int32, np.int64, np.float32])
 @pytest.mark.parametrize('problem_type', ['binary', 'multiclass'])
 def test_confusion_matrix_random(n_samples, dtype, problem_type):
     upper_range = 2 if problem_type == 'binary' else 1000
 
     y_true, y_pred, _, _ = generate_random_labels(
         lambda rng: rng.randint(0, upper_range, n_samples).astype(dtype))
-    cm = confusion_matrix(y_true, y_pred)
+    convert_dtype = True if dtype == np.float32 else False
+    cm = confusion_matrix(y_true, y_pred, convert_dtype=convert_dtype)
     ref = sk_confusion_matrix(y_true, y_pred)
     cp.testing.assert_array_almost_equal(ref, cm, decimal=4)
 

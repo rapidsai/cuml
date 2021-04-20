@@ -260,6 +260,8 @@ class UMAPParametrizableTest : public ::testing::Test {
       return;
     }
 
+#if CUDART_VERSION >= 11020
+
     if (!umap_params.multicore_implem) {
       device_buffer<float> embeddings2(alloc, stream,
                                        n_samples * umap_params.n_components);
@@ -277,6 +279,7 @@ class UMAPParametrizableTest : public ::testing::Test {
 
       ASSERT_TRUE(equal);
     }
+#endif
   }
 
   void SetUp() override {
@@ -299,22 +302,14 @@ class UMAPParametrizableTest : public ::testing::Test {
 
     umap_params_vec[2].n_components = 21;
     umap_params_vec[2].random_state = 43;
-#if CUDART_VERSION < 110200
-    umap_params_vec[2].init = 1;
-#else
     umap_params_vec[2].init = 0;
-#endif
     umap_params_vec[2].multicore_implem = false;
     umap_params_vec[2].optim_batch_size = 0;  // use default value
     umap_params_vec[2].n_epochs = 500;
 
     umap_params_vec[3].n_components = 25;
     umap_params_vec[3].random_state = 43;
-#if CUDART_VERSION < 110200
-    umap_params_vec[3].init = 1;
-#else
     umap_params_vec[3].init = 0;
-#endif
     umap_params_vec[3].multicore_implem = false;
     umap_params_vec[3].optim_batch_size = 0;  // use default value
     umap_params_vec[3].n_epochs = 500;
