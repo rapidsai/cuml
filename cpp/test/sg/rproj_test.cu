@@ -19,9 +19,9 @@
 #include <raft/cudart_utils.h>
 #include <raft/linalg/transpose.h>
 #include <test_utils.h>
-#include <distance/distance.cuh>
 #include <iostream>
 #include <raft/cuda_utils.cuh>
+#include <raft/distance/distance.cuh>
 #include <random>
 #include <vector>
 
@@ -149,7 +149,7 @@ class RPROJTest : public ::testing::Test {
     T* d_pdist;
     raft::allocate(d_pdist, N * N);
 
-    MLCommon::Distance::distance<distance_type, T, T, T>(
+    raft::distance::distance<distance_type, T, T, T>(
       d_input, d_input, d_pdist, N, N, M, (void*)nullptr, workspaceSize,
       h.get_stream());
     CUDA_CHECK(cudaPeekAtLastError());
@@ -160,7 +160,7 @@ class RPROJTest : public ::testing::Test {
 
     T* d_pdist1;
     raft::allocate(d_pdist1, N * N);
-    MLCommon::Distance::distance<distance_type, T, T, T>(
+    raft::distance::distance<distance_type, T, T, T>(
       d_output1, d_output1, d_pdist1, N, N, D, (void*)nullptr, workspaceSize,
       h.get_stream());
     CUDA_CHECK(cudaPeekAtLastError());
@@ -171,7 +171,7 @@ class RPROJTest : public ::testing::Test {
 
     T* d_pdist2;
     raft::allocate(d_pdist2, N * N);
-    MLCommon::Distance::distance<distance_type, T, T, T>(
+    raft::distance::distance<distance_type, T, T, T>(
       d_output2, d_output2, d_pdist2, N, N, D, (void*)nullptr, workspaceSize,
       h.get_stream());
     CUDA_CHECK(cudaPeekAtLastError());
