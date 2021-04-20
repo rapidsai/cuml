@@ -19,9 +19,9 @@
 #include <raft/linalg/cublas_wrappers.h>
 #include <raft/linalg/transpose.h>
 #include <cuml/common/device_buffer.hpp>
-#include <cuml/cuml.hpp>
 #include <cuml/decomposition/params.hpp>
 #include <raft/cuda_utils.cuh>
+#include <raft/handle.hpp>
 #include <raft/linalg/eig.cuh>
 #include <raft/linalg/eltwise.cuh>
 #include <raft/matrix/math.cuh>

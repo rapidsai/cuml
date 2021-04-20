@@ -18,6 +18,7 @@
 #include <raft/sparse/distance/common.h>
 #include <cuml/metrics/metrics.hpp>
 #include <raft/distance/distance.cuh>
+#include <raft/handle.hpp>
 #include <raft/sparse/distance/distance.cuh>
 
 namespace ML {

@@ -24,7 +24,7 @@
 
 #include <memory>
 
-#include <cuml/common/cuml_allocator.hpp>
+#include <raft/mr/device/allocator.hpp>
 
 #include <raft/distance/distance.cuh>
 #include <raft/spatial/knn/knn.hpp>
@@ -268,7 +268,8 @@ math_t r2_score(math_t *y, math_t *y_hat, int n, cudaStream_t stream) {
  */
 template <typename math_t>
 float accuracy_score(const math_t *predictions, const math_t *ref_predictions,
-                     int n, std::shared_ptr<deviceAllocator> d_alloc,
+                     int n,
+                     std::shared_ptr<raft::mr::device::allocator> d_alloc,
                      cudaStream_t stream) {
   unsigned long long correctly_predicted = 0ULL;
   math_t *diffs_array = (math_t *)d_alloc->allocate(n * sizeof(math_t), stream);
@@ -328,7 +329,7 @@ __global__ void reg_metrics_kernel(const T *predictions,
  */
 template <typename T>
 void regression_metrics(const T *predictions, const T *ref_predictions, int n,
-                        std::shared_ptr<deviceAllocator> d_alloc,
+                        std::shared_ptr<raft::mr::device::allocator> d_alloc,
                         cudaStream_t stream, double &mean_abs_error,
                         double &mean_squared_error, double &median_abs_error) {
   std::vector<double> mean_errors(2);

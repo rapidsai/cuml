@@ -18,10 +18,10 @@
 #include <cuml/neighbors/knn_mg.hpp>
 #include <selection/knn.cuh>
 
-#include <cuml/common/cuml_allocator.hpp>
 #include <cuml/common/device_buffer.hpp>
 #include <cuml/common/logger.hpp>
 #include <raft/comms/comms.hpp>
+#include <raft/mr/device/allocator.hpp>
 
 #include <memory>
 #include <set>

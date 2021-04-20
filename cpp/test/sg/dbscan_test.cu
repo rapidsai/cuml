@@ -21,14 +21,14 @@
 
 #include <raft/linalg/distance_type.h>
 #include <cuml/cluster/dbscan.hpp>
-#include <cuml/common/cuml_allocator.hpp>
-#include <cuml/cuml.hpp>
 #include <cuml/datasets/make_blobs.hpp>
 #include <cuml/metrics/metrics.hpp>
 #include <raft/distance/distance.cuh>
+#include <raft/mr/device/allocator.hpp>
 
 #include <raft/linalg/cublas_wrappers.h>
 #include <raft/linalg/transpose.h>
+#include <raft/handle.hpp>
 
 #include <test_utils.h>
 
