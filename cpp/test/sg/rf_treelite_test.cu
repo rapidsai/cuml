@@ -182,12 +182,12 @@ class RfTreeliteTestCommon : public ::testing::TestWithParam<RfInputs<T>> {
   void SetUp() override {
     params = ::testing::TestWithParam<RfInputs<T>>::GetParam();
 
-    rf_params = set_rf_params(
-      params.max_depth, params.max_leaves, params.max_features, params.n_bins,
-      params.split_algo, params.min_samples_leaf, params.min_samples_split,
-      params.min_impurity_decrease, params.bootstrap,
-      params.n_trees, params.max_samples, 0, params.split_criterion, false,
-      params.n_streams, true, 128);
+    rf_params =
+      set_rf_params(params.max_depth, params.max_leaves, params.max_features,
+                    params.n_bins, params.split_algo, params.min_samples_leaf,
+                    params.min_samples_split, params.min_impurity_decrease,
+                    params.bootstrap, params.n_trees, params.max_samples, 0,
+                    params.split_criterion, false, params.n_streams, true, 128);
 
     handle.reset(new raft::handle_t(rf_params.n_streams));
 
@@ -431,33 +431,30 @@ class RfConcatTestReg : public RfTreeliteTestCommon<T, L> {
 
 // //-------------------------------------------------------------------------------------------------------------------------------------
 const std::vector<RfInputs<float>> inputsf2_clf = {
-  {4, 2, 1, 1.0f, 1.0f, 4, 8, -1, false, 4, SPLIT_ALGO::HIST, 2, 2, 0.0,
-   2, CRITERION::GINI},  // single tree forest, bootstrap false, depth 8, 4 bins
-  {4, 2, 1, 1.0f, 1.0f, 4, 8, -1, false, 4, SPLIT_ALGO::HIST, 2, 2, 0.0,
-   2,
+  {4, 2, 1, 1.0f, 1.0f, 4, 8, -1, false, 4, SPLIT_ALGO::HIST, 2, 2, 0.0, 2,
+   CRITERION::GINI},  // single tree forest, bootstrap false, depth 8, 4 bins
+  {4, 2, 1, 1.0f, 1.0f, 4, 8, -1, false, 4, SPLIT_ALGO::HIST, 2, 2, 0.0, 2,
    CRITERION::GINI},  // single tree forest, bootstrap false, depth of 8, 4 bins
-  {4, 2, 10, 1.0f, 1.0f, 4, 8, -1, false, 4, SPLIT_ALGO::HIST, 2, 2, 0.0,
-   2,
+  {4, 2, 10, 1.0f, 1.0f, 4, 8, -1, false, 4, SPLIT_ALGO::HIST, 2, 2, 0.0, 2,
    CRITERION::
      GINI},  //forest with 10 trees, all trees should produce identical predictions (no bootstrapping or column subsampling)
-  {4, 2, 10, 0.8f, 0.8f, 4, 8, -1, true, 3, SPLIT_ALGO::HIST, 2, 2, 0.0,
-   2,
+  {4, 2, 10, 0.8f, 0.8f, 4, 8, -1, true, 3, SPLIT_ALGO::HIST, 2, 2, 0.0, 2,
    CRITERION::
      GINI},  //forest with 10 trees, with bootstrap and column subsampling enabled, 3 bins
-  {4, 2, 10, 0.8f, 0.8f, 4, 8, -1, true, 3, SPLIT_ALGO::GLOBAL_QUANTILE,
-   2, 2, 0.0, 2,
+  {4, 2, 10, 0.8f, 0.8f, 4, 8, -1, true, 3, SPLIT_ALGO::GLOBAL_QUANTILE, 2, 2,
+   0.0, 2,
    CRITERION::
      CRITERION_END},  //forest with 10 trees, with bootstrap and column subsampling enabled, 3 bins, different split algorithm
-  {4, 2, 1, 1.0f, 1.0f, 4, 8, -1, false, 4, SPLIT_ALGO::HIST, 2, 2, 0.0,
-   2, CRITERION::ENTROPY},
-  {4, 2, 1, 1.0f, 1.0f, 4, 8, -1, false, 4, SPLIT_ALGO::HIST, 2, 2, 0.0,
-   2, CRITERION::ENTROPY},
-  {4, 2, 10, 1.0f, 1.0f, 4, 8, -1, false, 4, SPLIT_ALGO::HIST, 2, 2, 0.0,
-   2, CRITERION::ENTROPY},
-  {4, 2, 10, 0.8f, 0.8f, 4, 8, -1, true, 3, SPLIT_ALGO::HIST, 2, 2, 0.0,
-   2, CRITERION::ENTROPY},
-  {4, 2, 10, 0.8f, 0.8f, 4, 8, -1, true, 3, SPLIT_ALGO::GLOBAL_QUANTILE,
-   2, 2, 0.0, 2, CRITERION::ENTROPY}};
+  {4, 2, 1, 1.0f, 1.0f, 4, 8, -1, false, 4, SPLIT_ALGO::HIST, 2, 2, 0.0, 2,
+   CRITERION::ENTROPY},
+  {4, 2, 1, 1.0f, 1.0f, 4, 8, -1, false, 4, SPLIT_ALGO::HIST, 2, 2, 0.0, 2,
+   CRITERION::ENTROPY},
+  {4, 2, 10, 1.0f, 1.0f, 4, 8, -1, false, 4, SPLIT_ALGO::HIST, 2, 2, 0.0, 2,
+   CRITERION::ENTROPY},
+  {4, 2, 10, 0.8f, 0.8f, 4, 8, -1, true, 3, SPLIT_ALGO::HIST, 2, 2, 0.0, 2,
+   CRITERION::ENTROPY},
+  {4, 2, 10, 0.8f, 0.8f, 4, 8, -1, true, 3, SPLIT_ALGO::GLOBAL_QUANTILE, 2, 2,
+   0.0, 2, CRITERION::ENTROPY}};
 
 typedef RfConcatTestClf<float, int> RfClassifierConcatTestF;
 TEST_P(RfClassifierConcatTestF, Convert_Clf) { testClassifier(); }
@@ -466,20 +463,19 @@ INSTANTIATE_TEST_CASE_P(RfBinaryClassifierConcatTests, RfClassifierConcatTestF,
                         ::testing::ValuesIn(inputsf2_clf));
 
 const std::vector<RfInputs<float>> inputsf2_reg = {
-  {4, 2, 1, 1.0f, 1.0f, 4, 7, -1, false, 4, SPLIT_ALGO::HIST, 2, 2, 0.0,
-   2, CRITERION::MSE},
-  {4, 2, 1, 1.0f, 1.0f, 4, 7, -1, false, 4, SPLIT_ALGO::HIST, 2, 2, 0.0,
-   2, CRITERION::MSE},
-  {4, 2, 5, 1.0f, 1.0f, 4, 7, -1, false, 4, SPLIT_ALGO::HIST, 2, 2, 0.0,
-   2,
+  {4, 2, 1, 1.0f, 1.0f, 4, 7, -1, false, 4, SPLIT_ALGO::HIST, 2, 2, 0.0, 2,
+   CRITERION::MSE},
+  {4, 2, 1, 1.0f, 1.0f, 4, 7, -1, false, 4, SPLIT_ALGO::HIST, 2, 2, 0.0, 2,
+   CRITERION::MSE},
+  {4, 2, 5, 1.0f, 1.0f, 4, 7, -1, false, 4, SPLIT_ALGO::HIST, 2, 2, 0.0, 2,
    CRITERION::
      CRITERION_END},  // CRITERION_END uses the default criterion (GINI for classification, MSE for regression)
-  {4, 2, 1, 1.0f, 1.0f, 4, 7, -1, false, 4, SPLIT_ALGO::HIST, 2, 2, 0.0,
-   2, CRITERION::MAE},
-  {4, 2, 1, 1.0f, 1.0f, 4, 7, -1, false, 4, SPLIT_ALGO::GLOBAL_QUANTILE,
-   2, 2, 0.0, 2, CRITERION::MAE},
-  {4, 2, 5, 1.0f, 1.0f, 4, 7, -1, true, 4, SPLIT_ALGO::HIST, 2, 2, 0.0,
-   2, CRITERION::CRITERION_END}};
+  {4, 2, 1, 1.0f, 1.0f, 4, 7, -1, false, 4, SPLIT_ALGO::HIST, 2, 2, 0.0, 2,
+   CRITERION::MAE},
+  {4, 2, 1, 1.0f, 1.0f, 4, 7, -1, false, 4, SPLIT_ALGO::GLOBAL_QUANTILE, 2, 2,
+   0.0, 2, CRITERION::MAE},
+  {4, 2, 5, 1.0f, 1.0f, 4, 7, -1, true, 4, SPLIT_ALGO::HIST, 2, 2, 0.0, 2,
+   CRITERION::CRITERION_END}};
 
 typedef RfConcatTestReg<float, float> RfRegressorConcatTestF;
 TEST_P(RfRegressorConcatTestF, Convert_Reg) { testRegressor(); }

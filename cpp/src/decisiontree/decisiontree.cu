@@ -44,8 +44,7 @@ void set_tree_params(DecisionTreeParams &params, int cfg_max_depth,
                      int cfg_max_leaves, float cfg_max_features, int cfg_n_bins,
                      int cfg_split_algo, int cfg_min_samples_leaf,
                      int cfg_min_samples_split, float cfg_min_impurity_decrease,
-                     CRITERION cfg_split_criterion,
-                     bool cfg_quantile_per_tree,
+                     CRITERION cfg_split_criterion, bool cfg_quantile_per_tree,
                      bool cfg_use_experimental_backend,
                      int cfg_max_batch_size) {
   if (cfg_use_experimental_backend) {
