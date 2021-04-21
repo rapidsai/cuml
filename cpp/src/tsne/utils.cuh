@@ -49,12 +49,6 @@
  * @param[in] stream: The GPU stream.
  * @param[in] seed: If seed == -1, then the output is pure randomness. If >= 0, then you can reproduce TSNE.
  */
-struct isnan_test {
-  template <typename value_t>
-  __host__ __device__ bool operator()(const value_t a) const {
-    return isnan(a);
-  }
-};
 
 template <typename value_t = float>
 void random_vector(value_t *vector, const value_t minimum,
