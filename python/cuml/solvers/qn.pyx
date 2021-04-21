@@ -229,6 +229,9 @@ class QN(Base,
         the estimator. If None, it'll inherit the output type set at the
         module level, `cuml.global_settings.output_type`.
         See :ref:`output-data-type-configuration` for more info.
+    warm_start : bool, default=False
+        When set to True, reuse the solution of the previous call to fit as
+        initialization, otherwise, just erase the previous solution.
 
     Attributes
     -----------
@@ -256,7 +259,8 @@ class QN(Base,
     def __init__(self, *, loss='sigmoid', fit_intercept=True,
                  l1_strength=0.0, l2_strength=0.0, max_iter=1000, tol=1e-3,
                  linesearch_max_iter=50, lbfgs_memory=5,
-                 verbose=False, handle=None, output_type=None):
+                 verbose=False, handle=None, output_type=None,
+                 warm_start=False):
 
         super().__init__(handle=handle,
                          verbose=verbose,
@@ -272,6 +276,7 @@ class QN(Base,
         self.num_iter = 0
         self._coef_ = None
         self.intercept_ = None
+        self.warm_start = warm_start
 
         if loss not in ['sigmoid', 'softmax', 'normal']:
             raise ValueError("loss " + str(loss) + " not supported.")
@@ -343,7 +348,10 @@ class QN(Base,
         else:
             coef_size = (self.n_cols, self._num_classes_dim)
 
-        self._coef_ = CumlArray.ones(coef_size, dtype=self.dtype, order='C')
+        if self._coef_ is None or not self.warm_start:
+            self._coef_ = CumlArray.zeros(
+                coef_size, dtype=self.dtype, order='C')
+
         cdef uintptr_t coef_ptr = self._coef_.ptr
 
         cdef float objective32
@@ -553,4 +561,5 @@ class QN(Base,
     def get_param_names(self):
         return super().get_param_names() + \
             ['loss', 'fit_intercept', 'l1_strength', 'l2_strength',
-                'max_iter', 'tol', 'linesearch_max_iter', 'lbfgs_memory']
+                'max_iter', 'tol', 'linesearch_max_iter', 'lbfgs_memory',
+                'warm_start']
