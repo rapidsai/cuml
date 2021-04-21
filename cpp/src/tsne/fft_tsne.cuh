@@ -123,7 +123,7 @@ std::pair<value_t, value_t> min_max(const value_t *Y, const value_idx n,
  * @param[in] n: Number of rows in data X.
  * @param[in] early_exaggeration: How much pressure to apply to clusters to spread out during the exaggeration phase.
  * @param[in] late_exaggeration: How much pressure to apply to clusters to spread out after the exaggeration phase.
- * @param[in] exaggeration_iter: How many iterations you want the early pressure to run for.
+ * @param[in] exaggeration_iter: How many iterations you want the early exaggeration to run for. Late exaggeration will begin after this number of iterations if >1.0. 
  * @param[in] pre_learning_rate: The learning rate during the exaggeration phase.
  * @param[in] post_learning_rate: The learning rate after the exaggeration phase.
  * @param[in] max_iter: The maximum number of iterations TSNE should run for.
