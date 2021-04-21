@@ -86,7 +86,7 @@ cufftResult CUFFTAPI cufft_MakePlanMany(cufftHandle plan, int rank, int *n,
 
 template <typename value_t, typename value_idx>
 std::pair<value_t, value_t> min_max(const value_t *Y, const value_idx n,
-                                    cudaStream_t stream, int iter) {
+                                    cudaStream_t stream) {
   value_t min_h, max_h;
 
   rmm::device_uvector<value_t> min_d(1, stream);
@@ -98,11 +98,11 @@ std::pair<value_t, value_t> min_max(const value_t *Y, const value_idx n,
   raft::update_host(&min_h, min_d.data(), 1, stream);
   raft::update_host(&max_h, max_d.data(), 1, stream);
 
-  auto nthreads = 1024;
+  auto nthreads = 256;
   auto nblocks = raft::ceildiv(n, (value_idx)nthreads);
 
   min_max_kernel<<<nblocks, nthreads, 0, stream>>>(Y, n, min_d.data(),
-                                                   max_d.data(), true, iter);
+                                                   max_d.data(), true);
 
   raft::update_host(&min_h, min_d.data(), 1, stream);
   raft::update_host(&max_h, max_d.data(), 1, stream);
@@ -335,7 +335,7 @@ void FFT_TSNE(value_t *VAL, const value_idx *COL, const value_idx *ROW,
     MLCommon::LinAlg::zero(attractive_forces_device.data(),
                            attractive_forces_device.size(), stream);
 
-    auto minmax_pair = min_max(Y, n * 2, stream, iter);
+    auto minmax_pair = min_max(Y, n * 2, stream);
     auto min_coord = minmax_pair.first;
     auto max_coord = minmax_pair.second;
 

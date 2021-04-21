@@ -126,10 +126,10 @@ double SymmetrizeTime = 0, DistancesTime = 0, NormalizeTime = 0,
       IntegrationKernel_time / total, total * 100.0);                         \
   }
 
-template <typename value_t, typename value_idx, int TPB = 1024>
+template <typename value_t, typename value_idx, int TPB = 256>
 __global__ void min_max_kernel(const value_t *Y, const value_idx n,
-                               value_t *min, value_t *max, bool find_min = true,
-                               int iter = 0) {
+                               value_t *min, value_t *max,
+                               bool find_min = true) {
   auto tid = threadIdx.x + blockDim.x * blockIdx.x;
 
   typedef cub::BlockReduce<value_t, TPB> BlockReduce;

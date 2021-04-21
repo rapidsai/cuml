@@ -47,7 +47,7 @@ class TSNETest : public ::testing::TestWithParam<TSNEInput> {
   void assert_score(double score, const char *test, const double threshold) {
     printf("%s", test);
     printf("score = %f\n", score);
-    ASSERT_TRUE(0.90 < score);
+    ASSERT_TRUE(threshold < score);
   }
 
   double runTest(TSNE_ALGORITHM algo, bool knn = false) {

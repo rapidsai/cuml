@@ -639,4 +639,5 @@ class TSNE(Base,
             "exaggeration_iter",
             "pre_momentum",
             "post_momentum",
+            "square_distances"
         ]
