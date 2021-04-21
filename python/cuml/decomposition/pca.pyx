@@ -47,6 +47,8 @@ from cuml.common import using_output_type
 from cuml.prims.stats import cov
 from cuml.common.input_utils import sparse_scipy_to_cp
 from cuml.common.exceptions import NotFittedError
+from cuml.common.mixins import FMajorInputTagMixin
+from cuml.common.mixins import SparseInputTagMixin
 
 
 cdef extern from "cuml/decomposition/pca.hpp" namespace "ML":
@@ -109,7 +111,9 @@ class Solver(IntEnum):
     COV_EIG_JACOBI = <underlying_type_t_solver> solver.COV_EIG_JACOBI
 
 
-class PCA(Base):
+class PCA(Base,
+          FMajorInputTagMixin,
+          SparseInputTagMixin):
 
     """
     PCA (Principal Component Analysis) is a fundamental dimensionality
@@ -249,7 +253,7 @@ class PCA(Base):
     output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
         Variable to control output type of the results and attributes of
         the estimator. If None, it'll inherit the output type set at the
-        module level, `cuml.global_output_type`.
+        module level, `cuml.global_settings.output_type`.
         See :ref:`output-data-type-configuration` for more info.
 
     Attributes
@@ -296,13 +300,14 @@ class PCA(Base):
     noise_variance_ = CumlArrayDescriptor()
     trans_input_ = CumlArrayDescriptor()
 
-    def __init__(self, copy=True, handle=None, iterated_power=15,
+    def __init__(self, *, copy=True, handle=None, iterated_power=15,
                  n_components=None, random_state=None, svd_solver='auto',
                  tol=1e-7, verbose=False, whiten=False,
                  output_type=None):
         # parameters
-        super(PCA, self).__init__(handle=handle, verbose=verbose,
-                                  output_type=output_type)
+        super().__init__(handle=handle,
+                         verbose=verbose,
+                         output_type=output_type)
         self.copy = copy
         self.iterated_power = iterated_power
         self.n_components = n_components
@@ -724,25 +729,6 @@ class PCA(Base):
         return super().get_param_names() + \
             ["copy", "iterated_power", "n_components", "svd_solver", "tol",
                 "whiten", "random_state"]
-
-    def __getstate__(self):
-        state = self.__dict__.copy()
-        # Remove the unpicklable handle.
-        if 'handle' in state:
-            del state['handle']
-
-        return state
-
-    def __setstate__(self, state):
-        self.__dict__.update(state)
-        self.handle = Handle()
-
-    def _more_tags(self):
-        return {
-            'preferred_input_order': 'F',
-            'X_types_gpu': ['2darray', 'sparse'],
-            'X_types': ['2darray', 'sparse']
-        }
 
     def _check_is_fitted(self, attr):
         if not hasattr(self, attr) or (getattr(self, attr) is None):

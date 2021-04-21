@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,13 +17,18 @@
 # distutils: language = c++
 
 from cuml.solvers import CD
-from cuml.common.base import Base, RegressorMixin
+from cuml.common.base import Base
+from cuml.common.mixins import RegressorMixin
 from cuml.common.doc_utils import generate_docstring
 from cuml.common.array_descriptor import CumlArrayDescriptor
+from cuml.common.mixins import FMajorInputTagMixin
 from cuml.linear_model.base import LinearPredictMixin
 
 
-class ElasticNet(Base, RegressorMixin, LinearPredictMixin):
+class ElasticNet(Base,
+                 LinearPredictMixin,
+                 RegressorMixin,
+                 FMajorInputTagMixin):
 
     """
     ElasticNet extends LinearRegression with combined L1 and L2 regularizations
@@ -124,7 +129,7 @@ class ElasticNet(Base, RegressorMixin, LinearPredictMixin):
     output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
         Variable to control output type of the results and attributes of
         the estimator. If None, it'll inherit the output type set at the
-        module level, `cuml.global_output_type`.
+        module level, `cuml.global_settings.output_type`.
         See :ref:`output-data-type-configuration` for more info.
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
@@ -145,7 +150,7 @@ class ElasticNet(Base, RegressorMixin, LinearPredictMixin):
 
     coef_ = CumlArrayDescriptor()
 
-    def __init__(self, alpha=1.0, l1_ratio=0.5, fit_intercept=True,
+    def __init__(self, *, alpha=1.0, l1_ratio=0.5, fit_intercept=True,
                  normalize=False, max_iter=1000, tol=1e-3, selection='cyclic',
                  handle=None, output_type=None, verbose=False):
         """
@@ -166,9 +171,9 @@ class ElasticNet(Base, RegressorMixin, LinearPredictMixin):
         """
 
         # Hard-code verbosity as CoordinateDescent does not have verbosity
-        super(ElasticNet, self).__init__(handle=handle,
-                                         verbose=verbose,
-                                         output_type=output_type)
+        super().__init__(handle=handle,
+                         verbose=verbose,
+                         output_type=output_type)
 
         self._check_alpha(alpha)
         self._check_l1_ratio(l1_ratio)
@@ -227,8 +232,3 @@ class ElasticNet(Base, RegressorMixin, LinearPredictMixin):
             "tol",
             "selection",
         ]
-
-    def _more_tags(self):
-        return {
-            'preferred_input_order': 'F'
-        }

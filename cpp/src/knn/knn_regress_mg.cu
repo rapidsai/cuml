@@ -37,8 +37,7 @@ void knn_regress(raft::handle_t &handle,
     knn_operation::regression, &idx_data, &idx_desc, &query_data, &query_desc,
     rowMajorIndex, rowMajorQuery, k, batch_size, verbose, n_outputs, &y, out);
 
-  cuda_utils cutils(handle);
-  opg_knn(params, cutils);
+  opg_knn(params, handle);
 }
 };  // namespace opg
 };  // namespace KNN

@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020, NVIDIA CORPORATION.
+# Copyright (c) 2020-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -32,6 +32,7 @@ from cuml.common import logger
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.array import CumlArray
 from cuml.common.base import Base
+from cuml.internals import _deprecate_pos_args
 from cuml.raft.common.handle cimport handle_t
 from cuml.raft.common.handle import Handle
 from cuml.common import input_to_cuml_array
@@ -138,7 +139,7 @@ class AutoARIMA(Base):
     output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
         Variable to control output type of the results and attributes of
         the estimator. If None, it'll inherit the output type set at the
-        module level, `cuml.global_output_type`.
+        module level, `cuml.global_settings.output_type`.
         See :ref:`output-data-type-configuration` for more info.
 
     Notes
@@ -174,17 +175,18 @@ class AutoARIMA(Base):
 
     d_y = CumlArrayDescriptor()
 
+    @_deprecate_pos_args(version="0.20")
     def __init__(self,
                  endog,
+                 *,
                  handle=None,
                  simple_differencing=True,
                  verbose=False,
                  output_type=None):
         # Initialize base class
-        super().__init__(
-            handle=handle,
-            output_type=output_type,
-            verbose=verbose)
+        super().__init__(handle=handle,
+                         verbose=verbose,
+                         output_type=output_type)
         self._set_base_attributes(output_type=endog)
 
         # Get device array. Float64 only for now.

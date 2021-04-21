@@ -96,10 +96,10 @@ class KMeans(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
 
     """
 
-    def __init__(self, client=None, verbose=False, **kwargs):
-        super(KMeans, self).__init__(client=client,
-                                     verbose=verbose,
-                                     **kwargs)
+    def __init__(self, *, client=None, verbose=False, **kwargs):
+        super().__init__(client=client,
+                         verbose=verbose,
+                         **kwargs)
 
     @staticmethod
     @mnmg_import

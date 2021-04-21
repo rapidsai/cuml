@@ -29,7 +29,8 @@ from libc.stdint cimport uintptr_t
 
 import cuml.internals
 from cuml.common.array import CumlArray
-from cuml.common.base import Base, ClassifierMixin
+from cuml.common.base import Base
+from cuml.common.mixins import ClassifierMixin
 from cuml.common.doc_utils import generate_docstring
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.logger import warn
@@ -40,6 +41,7 @@ from cuml.preprocessing import LabelEncoder
 from libcpp cimport bool, nullptr
 from cuml.svm.svm_base import SVMBase
 from cuml.common.import_utils import has_sklearn
+from cuml.common.mixins import FMajorInputTagMixin
 
 if has_sklearn():
     from cuml.multiclass import MulticlassClassifier
@@ -106,7 +108,8 @@ cdef extern from "cuml/svm/svc.hpp" namespace "ML::SVM":
                                      svmModel[math_t] &m) except +
 
 
-class SVC(SVMBase, ClassifierMixin):
+class SVC(SVMBase,
+          ClassifierMixin):
     """
     SVC (C-Support Vector Classification)
 
@@ -185,7 +188,7 @@ class SVC(SVMBase, ClassifierMixin):
     output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
         Variable to control output type of the results and attributes of
         the estimator. If None, it'll inherit the output type set at the
-        module level, `cuml.global_output_type`.
+        module level, `cuml.global_settings.output_type`.
         See :ref:`output-data-type-configuration` for more info.
     probability: bool (default = False)
         Enable or disable probability estimates.
@@ -244,14 +247,25 @@ class SVC(SVMBase, ClassifierMixin):
 
     """
 
-    def __init__(self, handle=None, C=1, kernel='rbf', degree=3,
+    def __init__(self, *, handle=None, C=1, kernel='rbf', degree=3,
                  gamma='scale', coef0=0.0, tol=1e-3, cache_size=1024.0,
                  max_iter=-1, nochange_steps=1000, verbose=False,
                  output_type=None, probability=False, random_state=None,
                  class_weight=None, multiclass_strategy='ovo'):
-        super(SVC, self).__init__(handle, C, kernel, degree, gamma, coef0, tol,
-                                  cache_size, max_iter, nochange_steps,
-                                  verbose, output_type=output_type)
+        super().__init__(
+            handle=handle,
+            C=C,
+            kernel=kernel,
+            degree=degree,
+            gamma=gamma,
+            coef0=coef0,
+            tol=tol,
+            cache_size=cache_size,
+            max_iter=max_iter,
+            nochange_steps=nochange_steps,
+            verbose=verbose,
+            output_type=output_type)
+
         self.probability = probability
         self.random_state = random_state
         if probability and random_state is not None:
@@ -579,8 +593,3 @@ class SVC(SVMBase, ClassifierMixin):
             params.remove("epsilon")
 
         return params
-
-    def _more_tags(self):
-        return {
-            'preferred_input_order': 'F'
-        }
