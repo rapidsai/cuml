@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -36,11 +36,11 @@
 #include <thrust/scan.h>
 #include <thrust/system/cuda/execution_policy.h>
 
-#include <sparse/op/sort.h>
-#include <sparse/convert/csr.cuh>
-#include <sparse/coo.cuh>
-#include <sparse/linalg/norm.cuh>
-#include <sparse/op/filter.cuh>
+#include <raft/sparse/op/sort.h>
+#include <raft/sparse/convert/csr.cuh>
+#include <raft/sparse/coo.cuh>
+#include <raft/sparse/linalg/norm.cuh>
+#include <raft/sparse/op/filter.cuh>
 
 #include <raft/cuda_utils.cuh>
 
@@ -459,8 +459,7 @@ void _transform(const raft::handle_t &handle, const umap_inputs &inputs,
     params->callback->on_preprocess_end(transformed);
   }
 
-  params->initial_alpha /=
-    4.0;  // TODO: This value should be passed into "optimize layout" directly to avoid side-effects.
+  auto initial_alpha = params->initial_alpha / 4.0;
 
   SimplSetEmbedImpl::optimize_layout<TPB_X, value_t>(
     transformed, inputs.n, embedding, embedding_n, comp_coo.rows(),

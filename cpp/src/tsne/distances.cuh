@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,12 +17,13 @@
 #pragma once
 
 #include <raft/cudart_utils.h>
+#include <raft/linalg/distance_type.h>
 #include <cuml/neighbors/knn_sparse.hpp>
 #include <raft/linalg/eltwise.cuh>
+#include <raft/sparse/coo.cuh>
+#include <raft/sparse/linalg/symmetrize.cuh>
+#include <raft/sparse/selection/knn.cuh>
 #include <selection/knn.cuh>
-#include <sparse/coo.cuh>
-#include <sparse/linalg/symmetrize.cuh>
-#include <sparse/selection/knn.cuh>
 
 #include <cuml/manifold/common.hpp>
 
@@ -63,10 +64,9 @@ void get_distances(const raft::handle_t &handle,
                      cudaStream_t userStream,
  */
 
-  MLCommon::Selection::brute_force_knn(input_vec, sizes_vec, input.d, input.X,
-                                       input.n, k_graph.knn_indices,
-                                       k_graph.knn_dists, k_graph.n_neighbors,
-                                       handle.get_device_allocator(), stream);
+  raft::spatial::knn::brute_force_knn(handle, input_vec, sizes_vec, input.d,
+                                      input.X, input.n, k_graph.knn_indices,
+                                      k_graph.knn_dists, k_graph.n_neighbors);
 }
 
 // dense, int32 indices
@@ -89,7 +89,7 @@ void get_distances(const raft::handle_t &handle,
     k_graph.knn_indices, k_graph.knn_dists, k_graph.n_neighbors,
     handle.get_cusparse_handle(), handle.get_device_allocator(), stream,
     ML::Sparse::DEFAULT_BATCH_SIZE, ML::Sparse::DEFAULT_BATCH_SIZE,
-    ML::MetricType::METRIC_L2);
+    raft::distance::DistanceType::L2Expanded);
 }
 
 // sparse, int64

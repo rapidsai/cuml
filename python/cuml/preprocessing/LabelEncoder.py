@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -46,7 +46,7 @@ class LabelEncoder(Base):
     output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
         Variable to control output type of the results and attributes of
         the estimator. If None, it'll inherit the output type set at the
-        module level, `cuml.global_output_type`.
+        module level, `cuml.global_settings.output_type`.
         See :ref:`output-data-type-configuration` for more info.
 
     Examples
@@ -123,9 +123,8 @@ class LabelEncoder(Base):
 
     """
 
-    def __init__(self,
+    def __init__(self, *,
                  handle_unknown='error',
-                 *,
                  handle=None,
                  verbose=False,
                  output_type=None):

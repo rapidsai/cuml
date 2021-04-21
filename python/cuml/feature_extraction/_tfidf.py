@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2020, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -108,7 +108,7 @@ class TfidfTransformer(Base):
     output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
         Variable to control output type of the results and attributes of
         the estimator. If None, it'll inherit the output type set at the
-        module level, `cuml.global_output_type`.
+        module level, `cuml.global_settings.output_type`.
         See :ref:`output-data-type-configuration` for more info.
 
     Attributes
@@ -123,10 +123,9 @@ class TfidfTransformer(Base):
                  sublinear_tf=False, handle=None, verbose=False,
                  output_type=None):
 
-        super(TfidfTransformer, self).__init__(
-            handle=handle,
-            verbose=verbose,
-            output_type=output_type)
+        super().__init__(handle=handle,
+                         verbose=verbose,
+                         output_type=output_type)
         self.norm = norm
         self.use_idf = use_idf
         self.smooth_idf = smooth_idf

@@ -64,8 +64,9 @@ def inplace_csr_column_scale(X, scale):
         Array of precomputed feature-wise values to use for scaling.
     """
     assert scale.shape[0] == X.shape[1]
-    X.indices[X.indices >= X.shape[1]] = X.shape[1] - 1
-    X.data *= scale.take(X.indices)
+    indices_copy = X.indices.copy()
+    indices_copy[indices_copy >= X.shape[1]] = X.shape[1] - 1
+    X.data *= scale.take(indices_copy)
 
 
 def inplace_csr_row_scale(X, scale):
@@ -84,6 +85,28 @@ def inplace_csr_row_scale(X, scale):
     """
     assert scale.shape[0] == X.shape[0]
     X.data *= np.repeat(scale, np.diff(X.indptr).tolist())
+
+
+def inplace_column_scale(X, scale):
+    """Inplace column scaling of a CSC/CSR matrix.
+
+    Scale each feature of the data matrix by multiplying with specific scale
+    provided by the caller assuming a (n_samples, n_features) shape.
+
+    Parameters
+    ----------
+    X : CSC or CSR matrix with shape (n_samples, n_features)
+        Matrix to normalize using the variance of the features.
+
+    scale : float array with shape (n_features,)
+        Array of precomputed feature-wise values to use for scaling.
+    """
+    if iscsc(X):
+        inplace_csr_row_scale(X.T, scale)
+    elif iscsr(X):
+        inplace_csr_column_scale(X, scale)
+    else:
+        _raise_typeerror(X)
 
 
 def mean_variance_axis(X, axis):
@@ -123,206 +146,28 @@ def mean_variance_axis(X, axis):
         _raise_typeerror(X)
 
 
-def inplace_column_scale(X, scale):
-    """Inplace column scaling of a CSC/CSR matrix.
-
-    Scale each feature of the data matrix by multiplying with specific scale
-    provided by the caller assuming a (n_samples, n_features) shape.
-
-    Parameters
-    ----------
-    X : CSC or CSR matrix with shape (n_samples, n_features)
-        Matrix to normalize using the variance of the features.
-
-    scale : float array with shape (n_features,)
-        Array of precomputed feature-wise values to use for scaling.
-    """
-    if iscsc(X):
-        inplace_csr_row_scale(X.T, scale)
-    elif iscsr(X):
-        inplace_csr_column_scale(X, scale)
-    else:
-        _raise_typeerror(X)
-
-
-def inplace_row_scale(X, scale):
-    """ Inplace row scaling of a CSR or CSC matrix.
-
-    Scale each row of the data matrix by multiplying with specific scale
-    provided by the caller assuming a (n_samples, n_features) shape.
-
-    Parameters
-    ----------
-    X : CSR or CSC sparse matrix, shape (n_samples, n_features)
-        Matrix to be scaled.
-
-    scale : float array with shape (n_features,)
-        Array of precomputed sample-wise values to use for scaling.
-    """
-    if iscsc(X):
-        inplace_csr_column_scale(X.T, scale)
-    elif iscsr(X):
-        inplace_csr_row_scale(X, scale)
-    else:
-        _raise_typeerror(X)
-
-
-def inplace_swap_row_csc(X, m, n):
-    """
-    Swaps two rows of a CSC matrix in-place.
-
-    Parameters
-    ----------
-    X : scipy.sparse.csc_matrix, shape=(n_samples, n_features)
-        Matrix whose two rows are to be swapped.
-
-    m : int
-        Index of the row of X to be swapped.
-
-    n : int
-        Index of the row of X to be swapped.
-    """
-    for t in [m, n]:
-        if isinstance(t, np.ndarray):
-            raise TypeError("m and n should be valid integers")
-
-    if m < 0:
-        m += X.shape[0]
-    if n < 0:
-        n += X.shape[0]
-
-    m_mask = X.indices == m
-    X.indices[X.indices == n] = m
-    X.indices[m_mask] = n
-
-
-def inplace_swap_row_csr(X, m, n):
-    """
-    Swaps two rows of a CSR matrix in-place.
-
-    Parameters
-    ----------
-    X : scipy.sparse.csr_matrix, shape=(n_samples, n_features)
-        Matrix whose two rows are to be swapped.
-
-    m : int
-        Index of the row of X to be swapped.
-
-    n : int
-        Index of the row of X to be swapped.
-    """
-    for t in [m, n]:
-        if isinstance(t, np.ndarray):
-            raise TypeError("m and n should be valid integers")
-
-    if m < 0:
-        m += X.shape[0]
-    if n < 0:
-        n += X.shape[0]
-
-    # The following swapping makes life easier since m is assumed to be the
-    # smaller integer below.
-    if m > n:
-        m, n = n, m
-
-    indptr = X.indptr
-    m_start = indptr[m]
-    m_stop = indptr[m + 1]
-    n_start = indptr[n]
-    n_stop = indptr[n + 1]
-    nz_m = m_stop - m_start
-    nz_n = n_stop - n_start
-
-    if nz_m != nz_n:
-        # Modify indptr first
-        X.indptr[m + 2:n] += nz_n - nz_m
-        X.indptr[m + 1] = m_start + nz_n
-        X.indptr[n] = n_stop - nz_m
-
-    X.indices = np.concatenate([X.indices[:m_start],
-                                X.indices[n_start:n_stop],
-                                X.indices[m_stop:n_start],
-                                X.indices[m_start:m_stop],
-                                X.indices[n_stop:]])
-    X.data = np.concatenate([X.data[:m_start],
-                             X.data[n_start:n_stop],
-                             X.data[m_stop:n_start],
-                             X.data[m_start:m_stop],
-                             X.data[n_stop:]])
-
-
-def inplace_swap_row(X, m, n):
-    """
-    Swaps two rows of a CSC/CSR matrix in-place.
-
-    Parameters
-    ----------
-    X : CSR or CSC sparse matrix, shape=(n_samples, n_features)
-        Matrix whose two rows are to be swapped.
-
-    m : int
-        Index of the row of X to be swapped.
-
-    n : int
-        Index of the row of X to be swapped.
-    """
-    if iscsc(X):
-        inplace_swap_row_csc(X, m, n)
-    elif iscsr(X):
-        inplace_swap_row_csr(X, m, n)
-    else:
-        _raise_typeerror(X)
-
-
-def inplace_swap_column(X, m, n):
-    """
-    Swaps two columns of a CSC/CSR matrix in-place.
-
-    Parameters
-    ----------
-    X : CSR or CSC sparse matrix, shape=(n_samples, n_features)
-        Matrix whose two columns are to be swapped.
-
-    m : int
-        Index of the column of X to be swapped.
-
-    n : int
-        Index of the column of X to be swapped.
-    """
-    if m < 0:
-        m += X.shape[1]
-    if n < 0:
-        n += X.shape[1]
-    if iscsc(X):
-        inplace_swap_row_csr(X, m, n)
-    elif iscsr(X):
-        inplace_swap_row_csc(X, m, n)
-    else:
-        _raise_typeerror(X)
+ufunc_dic = {
+    'min': np.min,
+    'max': np.max,
+    'nanmin': np.nanmin,
+    'nanmax': np.nanmax
+}
 
 
 def _minor_reduce(X, min_or_max):
-    if min_or_max == 'min':
-        min_or_max = np.min
-    else:
-        min_or_max = np.max
+    fminmax = ufunc_dic[min_or_max]
 
     major_index = np.flatnonzero(np.diff(X.indptr))
+    values = cpu_np.zeros(major_index.shape[0], dtype=X.dtype)
+    ptrs = X.indptr[major_index]
 
-    # reduceat tries casts X.indptr to intp, which errors
-    # if it is int64 on a 32 bit system.
-    # Reinitializing prevents this where possible, see #13737
-    X = type(X)((X.data, X.indices, X.indptr), shape=X.shape)
-
-    value = cpu_np.zeros(len(X.indptr)-1, dtype=X.dtype)
-
-    start = X.indptr[0]
-    for i, end in enumerate(X.indptr[1:]):
-        value[i] = min_or_max(X.data[start:end])
+    start = ptrs[0]
+    for i, end in enumerate(ptrs[1:]):
+        values[i] = fminmax(X.data[start:end])
         start = end
+    values[-1] = fminmax(X.data[end:])
 
-    value = np.array(value)
-    return major_index, value
+    return major_index, np.array(values)
 
 
 def _min_or_max_axis(X, axis, min_or_max):
@@ -334,11 +179,14 @@ def _min_or_max_axis(X, axis, min_or_max):
     mat.sum_duplicates()
     major_index, value = _minor_reduce(mat, min_or_max)
     not_full = np.diff(mat.indptr)[major_index] < N
-    if min_or_max == 'min':
-        min_or_max = np.fmin
+    if 'min' in min_or_max:
+        fminmax = np.fmin
     else:
-        min_or_max = np.fmax
-    value[not_full] = min_or_max(value[not_full], 0)
+        fminmax = np.fmax
+    is_nan = np.isnan(value)
+    value[not_full] = fminmax(value[not_full], 0)
+    if 'nan' not in min_or_max:
+        value[is_nan] = np.nan
     mask = value != 0
     major_index = np.compress(mask, major_index)
     value = np.compress(mask, value)
@@ -356,17 +204,19 @@ def _sparse_min_or_max(X, axis, min_or_max):
     if axis is None:
         if 0 in X.shape:
             raise ValueError("zero-size array to reduction operation")
-        zero = X.dtype.type(0)
         if X.nnz == 0:
-            return zero
-        if min_or_max == 'min':
-            fminmax = np.min
-        else:
-            fminmax = np.max
-        m = fminmax.reduce(X.data.ravel())
-        if X.nnz != np.product(X.shape):
-            m = fminmax(zero, m)
-        return m
+            return X.dtype.type(0)
+        fminmax = ufunc_dic[min_or_max]
+        m = fminmax(X.data)
+        if np.isnan(m):
+            if 'nan' in min_or_max:
+                m = 0
+        elif X.nnz != cpu_np.product(X.shape):
+            if 'min' in min_or_max:
+                m = m if m <= 0 else 0
+            else:
+                m = m if m >= 0 else 0
+        return X.dtype.type(m)
     if axis < 0:
         axis += 2
     if (axis == 0) or (axis == 1):
@@ -381,8 +231,8 @@ def _sparse_min_max(X, axis):
 
 
 def _sparse_nan_min_max(X, axis):
-    return(_sparse_min_or_max(X, axis, 'min'),
-           _sparse_min_or_max(X, axis, 'max'))
+    return(_sparse_min_or_max(X, axis, 'nanmin'),
+           _sparse_min_or_max(X, axis, 'nanmax'))
 
 
 def min_max_axis(X, axis, ignore_nan=False):
@@ -400,8 +250,6 @@ def min_max_axis(X, axis, ignore_nan=False):
     ignore_nan : bool, default is False
         Ignore or passing through NaN values.
 
-        .. versionadded:: 0.20
-
     Returns
     -------
 
@@ -418,112 +266,3 @@ def min_max_axis(X, axis, ignore_nan=False):
             return _sparse_min_max(X, axis=axis)
     else:
         _raise_typeerror(X)
-
-
-def count_nonzero(X, axis=None, sample_weight=None):
-    """A variant of X.getnnz() with extension to weighting on axis 0
-
-    Useful in efficiently calculating multilabel metrics.
-
-    Parameters
-    ----------
-    X : CSR sparse matrix of shape (n_samples, n_labels)
-        Input data.
-
-    axis : None, 0 or 1
-        The axis on which the data is aggregated.
-
-    sample_weight : array-like of shape (n_samples,), default=None
-        Weight for each row of X.
-    """
-    if axis == -1:
-        axis = 1
-    elif axis == -2:
-        axis = 0
-    elif X.format != 'csr':
-        raise TypeError('Expected CSR sparse format, got {0}'.format(X.format))
-
-    # We rely here on the fact that np.diff(Y.indptr) for a CSR
-    # will return the number of nonzero entries in each row.
-    # A bincount over Y.indices will return the number of nonzeros
-    # in each column. See ``csr_matrix.getnnz`` in scipy >= 0.14.
-    if axis is None:
-        if sample_weight is None:
-            return X.nnz
-        else:
-            return np.dot(np.diff(X.indptr), sample_weight)
-    elif axis == 1:
-        out = np.diff(X.indptr)
-        if sample_weight is None:
-            # astype here is for consistency with axis=0 dtype
-            return out.astype('intp')
-        return out * sample_weight
-    elif axis == 0:
-        if sample_weight is None:
-            return np.bincount(X.indices, minlength=X.shape[1])
-        else:
-            weights = np.repeat(sample_weight, np.diff(X.indptr))
-            return np.bincount(X.indices, minlength=X.shape[1],
-                               weights=weights)
-    else:
-        raise ValueError('Unsupported axis: {0}'.format(axis))
-
-
-def _get_median(data, n_zeros):
-    """Compute the median of data with n_zeros additional zeros.
-
-    This function is used to support sparse matrices; it modifies data in-place
-    """
-    n_elems = len(data) + n_zeros
-    if not n_elems:
-        return np.nan
-    n_negative = np.count_nonzero(data < 0)
-    middle, is_odd = divmod(n_elems, 2)
-    data.sort()
-
-    if is_odd:
-        return _get_elem_at_rank(middle, data, n_negative, n_zeros)
-
-    return (_get_elem_at_rank(middle - 1, data, n_negative, n_zeros) +
-            _get_elem_at_rank(middle, data, n_negative, n_zeros)) / 2.
-
-
-def _get_elem_at_rank(rank, data, n_negative, n_zeros):
-    """Find the value in data augmented with n_zeros for the given rank"""
-    if rank < n_negative:
-        return data[rank]
-    if rank - n_negative < n_zeros:
-        return 0
-    return data[rank - n_zeros]
-
-
-def csc_median_axis_0(X):
-    """Find the median across axis 0 of a CSC matrix.
-    It is equivalent to doing np.median(X, axis=0).
-
-    Parameters
-    ----------
-    X : CSC sparse matrix, shape (n_samples, n_features)
-        Input data.
-
-    Returns
-    -------
-    median : ndarray, shape (n_features,)
-        Median.
-
-    """
-    if not iscsc(X):
-        raise TypeError("Expected matrix of CSC format, got %s" % X.format)
-
-    indptr = X.indptr
-    n_samples, n_features = X.shape
-    median = np.zeros(n_features)
-
-    for f_ind, (start, end) in enumerate(zip(indptr[:-1], indptr[1:])):
-
-        # Prevent modifying X in place
-        data = np.copy(X.data[start: end])
-        nz = n_samples - data.size
-        median[f_ind] = _get_median(data, nz)
-
-    return median

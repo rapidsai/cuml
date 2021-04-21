@@ -38,6 +38,7 @@ from cuml.common.array_sparse import SparseCumlArray
 from cuml.common.sparse_utils import is_sparse
 from cuml.common.doc_utils import generate_docstring
 from cuml.common import input_to_cuml_array
+from cuml.common.mixins import CMajorInputTagMixin
 from cuml.common.sparsefuncs import extract_knn_graph
 import rmm
 
@@ -111,7 +112,8 @@ cdef extern from "cuml/manifold/tsne.h" namespace "ML" nogil:
         bool barnes_hut) except +
 
 
-class TSNE(Base):
+class TSNE(Base,
+           CMajorInputTagMixin):
     """
     TSNE (T-Distributed Stochastic Neighbor Embedding) is an extremely
     powerful dimensionality reduction technique that aims to maintain
@@ -194,7 +196,7 @@ class TSNE(Base):
     output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
         Variable to control output type of the results and attributes of
         the estimator. If None, it'll inherit the output type set at the
-        module level, `cuml.global_output_type`.
+        module level, `cuml.global_settings.output_type`.
         See :ref:`output-data-type-configuration` for more info.
 
     References
@@ -235,7 +237,7 @@ class TSNE(Base):
 
     embedding_ = CumlArrayDescriptor()
 
-    def __init__(self,
+    def __init__(self, *,
                  n_components=2,
                  perplexity=30.0,
                  early_exaggeration=12.0,
@@ -258,9 +260,9 @@ class TSNE(Base):
                  handle=None,
                  output_type=None):
 
-        super(TSNE, self).__init__(handle=handle,
-                                   verbose=verbose,
-                                   output_type=output_type)
+        super().__init__(handle=handle,
+                         verbose=verbose,
+                         output_type=output_type)
 
         if n_components < 0:
             raise ValueError("n_components = {} should be more "
@@ -367,6 +369,7 @@ class TSNE(Base):
         self.sparse_fit = False
 
     @generate_docstring(skip_parameters_heading=True,
+                        X='dense_sparse',
                         convert_dtype_cast='np.float32')
     def fit(self, X, convert_dtype=True, knn_graph=None) -> "TSNE":
         """
@@ -596,8 +599,3 @@ class TSNE(Base):
             "pre_momentum",
             "post_momentum",
         ]
-
-    def _more_tags(self):
-        return {
-            'preferred_input_order': 'C'
-        }
