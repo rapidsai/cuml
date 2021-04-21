@@ -149,7 +149,7 @@ class TSNE(Base,
         Controls the space between clusters. Not critical to tune this.
     late_exaggeration : float (default 1.0)
         Controls the space between clusters. It may be beneficial to increase
-        this slightly to improve cluster separation.
+        this slightly to improve cluster separation. This will be applied after `exaggeration_iter` iterations (FFT only).
     learning_rate : float (default 200.0)
         The learning rate usually between (10, 1000). If this is too high,
         t-SNE could look like a cloud / ball of points.
@@ -201,7 +201,7 @@ class TSNE(Base,
     square_distances : boolean, default=True
         Whether TSNE should square the distance values.
         Internally, this will be used to compute a kNN graph using 'euclidean'
-        'metric' and then squaring it when True. If a `knn_graph` is passed
+        metric and then squaring it when True. If a `knn_graph` is passed
         to `fit` or `fit_transform` methods, all the distances will be
         squared when True. For example, if a `knn_graph` was obtained using
         'sqeuclidean' metric, the distances will still be squared when True.
@@ -234,7 +234,7 @@ class TSNE(Base,
 
     .. tip::
         Maaten and Linderman showcased how t-SNE can be very sensitive to both
-        the starting conditions (ie random initialization), and how parallel
+        the starting conditions (i.e. random initialization), and how parallel
         versions of t-SNE can generate vastly different results between runs.
         You can run t-SNE multiple times to settle on the best configuration.
         Note that using the same random_state across runs does not guarantee
@@ -312,12 +312,12 @@ class TSNE(Base,
             warnings.warn("n_iter = {} might cause TSNE to output wrong "
                           "results. Set it higher.".format(n_iter))
         if metric.lower() != 'euclidean':
-            # TODO https://github.com/rapidsai/cuml/issues/862
+            # TODO https://github.com/rapidsai/cuml/issues/1653
             warnings.warn("TSNE does not support {} (only Euclidean).".format(
                           metric))
             metric = 'euclidean'
         if init.lower() != 'random':
-            # TODO https://github.com/rapidsai/cuml/issues/1029
+            # TODO https://github.com/rapidsai/cuml/issues/3458
             warnings.warn("TSNE does not support {} but only random "
                           "intialization.".format(init))
             init = 'random'

@@ -36,8 +36,8 @@ namespace TSNE {
  * @param[in] theta: repulsion threshold
  * @param[in] epssq: A tiny jitter to promote numerical stability.
  * @param[in] early_exaggeration: How much pressure to apply to clusters to spread out during the exaggeration phase.
- * @param[in] late_exaggeration: How much pressure to apply to clusters to spread out after the exaggeration phase.
- * @param[in] exaggeration_iter: How many iterations you want the early pressure to run for.
+ * @param[in] late_exaggeration: How much pressure to apply to clusters to spread out after the exaggeration phase (FIT-SNE only).
+ * @param[in] exaggeration_iter: How many iterations you want the early pressure to run for. If late exaggeration is used, it will begin after this number of iterations. 
  * @param[in] min_gain: Rounds up small gradient updates.
  * @param[in] pre_learning_rate: The learning rate during the exaggeration phase.
  * @param[in] post_learning_rate: The learning rate after the exaggeration phase.

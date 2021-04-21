@@ -29,12 +29,12 @@ enum TSNE_ALGORITHM { EXACT, BARNES_HUT, FFT };
 // TODO make a tsneParams class.
 
 /**
- * @brief Dimensionality reduction via TSNE using Barnes Hut O(NlogN), FFT
+ * @brief Dimensionality reduction via TSNE using Barnes-Hut, Fourier Interpolation, or naive methods.
  *       or brute force O(N^2).
  *
  * @param[in]  handle              The GPU handle.
- * @param[in]  X                   The row-major dataset.
- * @param[out] Y                   The column-major final embedding.
+ * @param[in]  X                   The row-major dataset in device memory.
+ * @param[out] Y                   The column-major final embedding in device memory
  * @param[in]  n                   Number of rows in data X.
  * @param[in]  p                   Number of columns in data X.
  * @param[in]  knn_indices         Array containing nearest neighors indices.
@@ -53,7 +53,7 @@ enum TSNE_ALGORITHM { EXACT, BARNES_HUT, FFT };
  * @param[in]  early_exaggeration  How much pressure to apply to clusters to
  *                                 spread out during the exaggeration phase.
  * @param[in]  late_exaggeration   How much pressure to apply to clusters to
- *                                 spread out after the exaggeration phase.
+ *                                 spread out after the exaggeration phase. (FIT-SNE only)
  * @param[in] exaggeration_iter    How many iterations you want the early
  *                                 pressure to run for.
  * @param[in] min_gain             Rounds up small gradient updates. (Barnes-Hut
@@ -75,7 +75,7 @@ enum TSNE_ALGORITHM { EXACT, BARNES_HUT, FFT };
  *                                 execution
  * @param[in] initialize_embeddings Whether to overwrite the current Y vector
  *                                 with random noise.
- * @param[in] square_distances     Square the distances obtained from kNN.
+ * @param[in] square_distances     When this is set to true, the distances from the knn graph will always be squared before computing conditional probabilities, even if the knn graph is passed in explicitly. This is to better match the behavior of Scikit-learn's T-SNE. 
  * @param[in] algorithm            Which implementation algorithm to use.
  *
  * The CUDA implementation is derived from the excellent CannyLabs open source
@@ -127,9 +127,9 @@ void TSNE_fit(
  * @param[in]  early_exaggeration  How much early pressure you want the clusters
  *                                 in TSNE to spread out more.
  * @param[in]  late_exaggeration   How much pressure to apply to clusters to
- *                                 spread out after the exaggeration phase.
+ *                                 spread out after the exaggeration phase (FIT-SNE only). 
  * @param[in] exaggeration_iter    How many iterations you want the early
- *                                 pressure to run for.
+ *                                 pressure to run for. If late exaggeration is used, it will be applied to all iterations that remain after this number of iterations.
  * @param[in] min_gain             Rounds up small gradient updates.
  * @param[in] pre_learning_rate    The learning rate during exaggeration phase.
  * @param[in] post_learning_rate   The learning rate after exaggeration phase.
@@ -147,7 +147,7 @@ void TSNE_fit(
  *                                 execution
  * @param[in] initialize_embeddings Whether to overwrite the current Y vector
  *                                 with random noise.
- * @param[in] square_distances     Square the distances obtained from kNN.
+ * @param[in] square_distances     When this is set to true, the distances from the knn graph will always be squared before computing conditional probabilities, even if the knn graph is passed in explicitly. This is to better match the behavior of Scikit-learn's T-SNE. 
  * @param[in] algorithm            Which implementation algorithm to use.
  *
  * The CUDA implementation is derived from the excellent CannyLabs open source
