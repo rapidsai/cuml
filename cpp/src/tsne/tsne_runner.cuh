@@ -113,11 +113,11 @@ class TSNE_runner {
 
     switch (algorithm) {
       case TSNE_ALGORITHM::BARNES_HUT:
-        TSNE::Barnes_Hut(
-          VAL, COL, ROW, NNZ, handle, Y, n, theta, epssq, early_exaggeration,
-          exaggeration_iter, min_gain, pre_learning_rate,
-          post_learning_rate, max_iter, min_grad_norm, pre_momentum,
-          post_momentum, random_state, initialize_embeddings);
+        TSNE::Barnes_Hut(VAL, COL, ROW, NNZ, handle, Y, n, theta, epssq,
+                         early_exaggeration, exaggeration_iter, min_gain,
+                         pre_learning_rate, post_learning_rate, max_iter,
+                         min_grad_norm, pre_momentum, post_momentum,
+                         random_state, initialize_embeddings);
         break;
       case TSNE_ALGORITHM::FFT:
         TSNE::FFT_TSNE(VAL, COL, ROW, NNZ, handle, Y, n, early_exaggeration,
@@ -127,11 +127,11 @@ class TSNE_runner {
                        initialize_embeddings);
         break;
       case TSNE_ALGORITHM::EXACT:
-        TSNE::Exact_TSNE(
-          VAL, COL, ROW, NNZ, handle, Y, n, dim, early_exaggeration,
-          exaggeration_iter, min_gain, pre_learning_rate,
-          post_learning_rate, max_iter, min_grad_norm, pre_momentum,
-          post_momentum, random_state, initialize_embeddings);
+        TSNE::Exact_TSNE(VAL, COL, ROW, NNZ, handle, Y, n, dim,
+                         early_exaggeration, exaggeration_iter, min_gain,
+                         pre_learning_rate, post_learning_rate, max_iter,
+                         min_grad_norm, pre_momentum, post_momentum,
+                         random_state, initialize_embeddings);
         break;
     }
   }
