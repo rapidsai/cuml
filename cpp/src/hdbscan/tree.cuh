@@ -52,7 +52,7 @@ __device__ value_t get_lambda(value_idx node, value_idx num_points,
  */
 template <typename value_idx, typename value_t>
 __global__ void condense_hierarchy_kernel(
-  bool *frontier, value_idx *ignore, value_idx *next_label, value_idx *relabel,
+  bool *frontier, value_idx *ignore, value_idx *relabel,
   value_idx *hierarchy, value_t *deltas, value_idx *sizes, int n_leaves,
   int num_points, int min_cluster_size) {
   int node = blockDim.x * blockIdx.x + threadIdx.x;
@@ -98,10 +98,10 @@ __global__ void condense_hierarchy_kernel(
       // If both children are large enough, they should be relabeled and
       // included directly in the output hierarchy.
       if (left_count >= min_cluster_size && right_count >= min_cluster_size) {
-        relabel[left_child] = atomicAdd(next_label, 1);
+        relabel[left_child] = node;
         // TODO: Output new hierarchy entry for: relabel[node], relabel[left], lambda_value, left_count
 
-        relabel[right_child] = atomicAdd(next_label, 1);
+        relabel[right_child] = node;
         // TODO Output new hierarchy entry for: relabel[node], relabel[right], lambda_value, right_count
       }
 
@@ -141,7 +141,7 @@ void condense_hierarchy(raft::handle_t &handle, value_idx *children,
   rmm::device_uvector<value_idx> relabel(root + 1, handle.get_stream());
 
   // TODO: Set this properly on device
-  relabel[root] = num_points;
+  relabel[root] = root;
 
   // While frontier is not empty, perform single bfs through tree
   size_t grid = raft::ceildiv(n_leaves * 2, (size_t)tpb);
@@ -149,10 +149,6 @@ void condense_hierarchy(raft::handle_t &handle, value_idx *children,
   value_idx n_elements_to_traverse =
     thrust::reduce(thrust::cuda::par.on(handle.get_stream()), frontier.data(),
                    frontier.data() + (n_leaves * 2), 0);
-
-  rmm::device_uvector<value_idx> next_label(1, handle.get_stream());
-  // TODO: Set this properly on device
-  next_label[0] = num_points + 1;
 
   while (n_elements_to_traverse > 0) {
     condense_hierarchy_kernel<<<grid, tpb, 0, handle.get_stream()>>>(
@@ -162,10 +158,25 @@ void condense_hierarchy(raft::handle_t &handle, value_idx *children,
     n_elements_to_traverse =
       thrust::reduce(thrust::cuda::par.on(handle.get_stream()), frontier.data(),
                      frontier.data() + (n_leaves * 2), 0);
-    ;
 
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
   }
+
+  // TODO: Normalize labels so they are drawn from a monotonically increasing set.
+}
+
+template<typename value_idx, typename value_t>
+void compute_stabilities(value_idx *condensed_hierarchy, value_idx *lambdas, value_idx *sizes,
+                         int n_leaves) {
+
+  // TODO: Reverse topological sort (e.g. sort hierarchy, lambdas, and sizes by lambda)
+
+  // TODO: Perform single loop through topologically sorted condensed hierarchy children,
+  //       marking birth lambdas
+
+  // TODO: Perform loop through condensed hierarchy in parallel, building array of stabilities for each cluster
+
+  // TODO: Compute sizes of each
 }
 };  // end namespace Tree
 };  // end namespace HDBSCAN
