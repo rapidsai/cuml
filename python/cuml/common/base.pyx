@@ -368,7 +368,8 @@ class Base(TagsMixin,
         return {}
 
     def _set_nvtx_annotations(self):
-        for function in ['fit', 'transform', 'predict']:
+        for function in ['fit', 'transform', 'predict', 'fit_predict',
+                         'fit_transform']:
             if hasattr(self, function):
                 message = self.__class__.__module__ + '.' + function
                 func = getattr(self, function)
