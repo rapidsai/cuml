@@ -15,6 +15,7 @@
 #
 import math
 import warnings
+import nvtx
 
 import cupy as cp
 import cupy.prof
@@ -244,7 +245,7 @@ class MultinomialNB(Base, ClassifierMixin):
         self.handle = None
 
     @generate_docstring(X='dense_sparse')
-    @cp.prof.TimeRangeDecorator(message="fit()", color_id=0)
+    @nvtx.annotate(message="cuml.naive_bayes.MultinomialNB.fit")
     def fit(self, X, y,
             sample_weight=None, convert_dtype=True) -> "MultinomialNB":
         """
@@ -253,7 +254,7 @@ class MultinomialNB(Base, ClassifierMixin):
         return self.partial_fit(X, y, sample_weight,
                                 convert_dtype=convert_dtype)
 
-    @cp.prof.TimeRangeDecorator(message="fit()", color_id=0)
+    @nvtx.annotate(message="cuml.naive_bayes.MultinomialNB._partial_fit")
     def _partial_fit(self,
                      X,
                      y,
@@ -387,7 +388,7 @@ class MultinomialNB(Base, ClassifierMixin):
                             'description': 'Predicted values',
                             'shape': '(n_rows, 1)'
                         })
-    @cp.prof.TimeRangeDecorator(message="predict()", color_id=1)
+    @nvtx.annotate(message="cuml.naive_bayes.MultinomialNB.predict")
     def predict(self, X) -> CumlArray:
         """
         Perform classification on an array of test vectors X.
