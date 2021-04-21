@@ -349,7 +349,8 @@ class QN(Base,
             coef_size = (self.n_cols, self._num_classes_dim)
 
         if self._coef_ is None or not self.warm_start:
-            self._coef_ = CumlArray.zeros(coef_size, dtype=self.dtype, order='C')
+            self._coef_ = CumlArray.zeros(
+                coef_size, dtype=self.dtype, order='C')
 
         cdef uintptr_t coef_ptr = self._coef_.ptr
 
