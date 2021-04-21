@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@
 #include <decisiontree/decisiontree_impl.h>
 #include <cuml/ensemble/randomforest.hpp>
 #include <map>
+#include <raft/mr/device/allocator.hpp>
 
 namespace ML {
 
@@ -31,7 +32,7 @@ class rf {
   void prepare_fit_per_tree(
     int tree_id, int n_rows, int n_sampled_rows, unsigned int* selected_rows,
     int num_sms, const cudaStream_t stream,
-    const std::shared_ptr<deviceAllocator> device_allocator);
+    const std::shared_ptr<raft::mr::device::allocator> device_allocator);
 
   void error_checking(const T* input, L* predictions, int n_rows, int n_cols,
                       bool is_predict) const;

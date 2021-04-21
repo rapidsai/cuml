@@ -16,7 +16,6 @@
 
 #include <raft/cudart_utils.h>
 #include <raft/linalg/transpose.h>
-#include <cuml/common/cuml_allocator.hpp>
 #include <cuml/common/device_buffer.hpp>
 #include <cuml/decomposition/pca.hpp>
 #include <cuml/decomposition/pca_mg.hpp>
@@ -29,6 +28,7 @@
 #include <raft/comms/comms.hpp>
 #include <raft/cuda_utils.cuh>
 #include <raft/matrix/math.cuh>
+#include <raft/mr/device/allocator.hpp>
 #include <raft/stats/mean_center.cuh>
 #include "pca.cuh"
 

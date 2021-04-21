@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,6 +24,7 @@
 #include <raft/cuda_utils.cuh>
 #include <raft/linalg/matrix_vector_op.cuh>
 #include <raft/linalg/unary_op.cuh>
+#include <raft/mr/device/allocator.hpp>
 #include "jones_transform.cuh"
 
 namespace MLCommon {
@@ -208,11 +209,10 @@ void finalize_forecast(DataT* d_fc, const DataT* d_in, int num_steps,
  * @param[in]  stream     CUDA stream
  */
 template <typename DataT>
-void batched_jones_transform(const ML::ARIMAOrder& order, int batch_size,
-                             bool isInv, const ML::ARIMAParams<DataT>& params,
-                             const ML::ARIMAParams<DataT>& Tparams,
-                             std::shared_ptr<deviceAllocator> allocator,
-                             cudaStream_t stream) {
+void batched_jones_transform(
+  const ML::ARIMAOrder& order, int batch_size, bool isInv,
+  const ML::ARIMAParams<DataT>& params, const ML::ARIMAParams<DataT>& Tparams,
+  std::shared_ptr<raft::mr::device::allocator> allocator, cudaStream_t stream) {
   if (order.p)
     jones_transform(params.ar, batch_size, order.p, Tparams.ar, true, isInv,
                     allocator, stream);

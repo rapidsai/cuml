@@ -25,7 +25,6 @@
 #include <raft/linalg/norm.cuh>
 
 #include <cuda_runtime.h>
-#include <cuml/cuml.hpp>
 
 #include <thrust/device_ptr.h>
 #include <thrust/reduce.h>

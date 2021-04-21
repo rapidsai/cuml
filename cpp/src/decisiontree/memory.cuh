@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,12 +20,15 @@
 #include <algorithm>
 #include <cub/cub.cuh>
 #include <cuml/common/logger.hpp>
+#include <raft/handle.hpp>
+#include <raft/mr/device/allocator.hpp>
+#include <raft/mr/host/allocator.hpp>
 #include "memory.h"
 
 template <class T, class L>
 TemporaryMemory<T, L>::TemporaryMemory(
-  const std::shared_ptr<MLCommon::deviceAllocator> device_allocator_in,
-  const std::shared_ptr<MLCommon::hostAllocator> host_allocator_in,
+  const std::shared_ptr<raft::mr::device::allocator> device_allocator_in,
+  const std::shared_ptr<raft::mr::host::allocator> host_allocator_in,
   const cudaStream_t stream_in, int N, int Ncols, int n_unique,
   const ML::DecisionTree::DecisionTreeParams& tree_params) {
   stream = stream_in;

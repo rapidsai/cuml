@@ -14,10 +14,13 @@
  * limitations under the License.
  */
 
-#include <cuml/cuml.hpp>
 #include <raft/sparse/coo.cuh>
 
 #include <raft/sparse/linalg/spectral.cuh>
+
+namespace raft {
+class handle_t;
+}
 
 namespace ML {
 

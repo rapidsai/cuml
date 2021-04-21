@@ -21,6 +21,7 @@
 #include <cuml/common/device_buffer.hpp>
 #include <label/classlabels.cuh>
 #include <raft/cuda_utils.cuh>
+#include <raft/mr/device/allocator.hpp>
 #include <raft/sparse/csr.cuh>
 #include "adjgraph/runner.cuh"
 #include "corepoints/compute.cuh"
@@ -61,7 +62,7 @@ __global__ void relabelForSkl(Index_* labels, Index_ N, Index_ MAX_LABEL) {
  */
 template <typename Index_ = int>
 void final_relabel(Index_* db_cluster, Index_ N, cudaStream_t stream,
-                   std::shared_ptr<deviceAllocator> allocator) {
+                   std::shared_ptr<raft::mr::device::allocator> allocator) {
   Index_ MAX_LABEL = std::numeric_limits<Index_>::max();
   MLCommon::Label::make_monotonic(
     db_cluster, db_cluster, N, stream,
