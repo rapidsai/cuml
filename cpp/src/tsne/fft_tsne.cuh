@@ -511,7 +511,7 @@ void FFT_TSNE(value_t *VAL, const value_idx *COL, const value_idx *ROW,
       attractive_forces_device.size();
 
     if (grad_norm <= min_grad_norm) {
-      std::cout << "BREAKING EARLY" << std::endl;
+      CUML_LOG_DEBUG("Breaking early as `min_grad_norm` was satisifed, after %d iterations", iter);
       break;
     }
   }

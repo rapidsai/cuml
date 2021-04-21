@@ -37,6 +37,8 @@
 namespace ML {
 namespace TSNE {
 
+auto DEFAULT_DISTANCE_METRIC = raft::distance::DistanceType::L2SqrtExpanded;
+
 /**
  * @brief Uses FAISS's KNN to find the top n_neighbors. This speeds up the attractive forces.
  * @param[in] input: dense/sparse manifold input
@@ -72,7 +74,7 @@ void get_distances(const raft::handle_t &handle,
   raft::spatial::knn::brute_force_knn(
     handle, input_vec, sizes_vec, input.d, input.X, input.n,
     k_graph.knn_indices, k_graph.knn_dists, k_graph.n_neighbors, true, true,
-    nullptr, raft::distance::DistanceType::L2SqrtExpanded);
+    nullptr, DEFAULT_DISTANCE_METRIC);
 }
 
 // dense, int32 indices
@@ -95,7 +97,7 @@ void get_distances(const raft::handle_t &handle,
     k_graph.knn_indices, k_graph.knn_dists, k_graph.n_neighbors,
     handle.get_cusparse_handle(), handle.get_device_allocator(), stream,
     ML::Sparse::DEFAULT_BATCH_SIZE, ML::Sparse::DEFAULT_BATCH_SIZE,
-    raft::distance::DistanceType::L2SqrtExpanded);
+    DEFAULT_DISTANCE_METRIC);
 }
 
 // sparse, int64

@@ -36,7 +36,6 @@ namespace TSNE {
  * @param[in] theta: repulsion threshold
  * @param[in] epssq: A tiny jitter to promote numerical stability.
  * @param[in] early_exaggeration: How much pressure to apply to clusters to spread out during the exaggeration phase.
- * @param[in] late_exaggeration: How much pressure to apply to clusters to spread out after the exaggeration phase (FIT-SNE only).
  * @param[in] exaggeration_iter: How many iterations you want the early pressure to run for. If late exaggeration is used, it will begin after this number of iterations. 
  * @param[in] min_gain: Rounds up small gradient updates.
  * @param[in] pre_learning_rate: The learning rate during the exaggeration phase.
@@ -55,7 +54,6 @@ void Barnes_Hut(value_t *VAL, const value_idx *COL, const value_idx *ROW,
                 const value_idx n, const float theta = 0.5f,
                 const float epssq = 0.0025,
                 const float early_exaggeration = 12.0f,
-                const float late_exaggeration = 1.0f,
                 const int exaggeration_iter = 250, const float min_gain = 0.01f,
                 const float pre_learning_rate = 200.0f,
                 const float post_learning_rate = 500.0f,
@@ -172,7 +170,6 @@ void Barnes_Hut(value_t *VAL, const value_idx *COL, const value_idx *ROW,
 
   value_t momentum = pre_momentum;
   value_t learning_rate = pre_learning_rate;
-  //  value_t exaggeration = early_exaggeration;
 
   for (int iter = 0; iter < max_iter; iter++) {
     CUDA_CHECK(cudaMemsetAsync(static_cast<void *>(rep_forces.data()), 0,
@@ -195,9 +192,6 @@ void Barnes_Hut(value_t *VAL, const value_idx *COL, const value_idx *ROW,
       raft::linalg::scalarMultiply(VAL, VAL, div, NNZ, stream);
 
       learning_rate = post_learning_rate;
-
-      // TODO: Is this necessary?
-      //      exaggeration = late_exaggeration;
     }
 
     START_TIMER;

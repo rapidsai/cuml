@@ -35,7 +35,6 @@ namespace TSNE {
  * @param[in] n: Number of rows in data X.
  * @param[in] dim: Number of output columns for the output embedding Y.
  * @param[in] early_exaggeration: How much pressure to apply to clusters to spread out during the exaggeration phase.
- * @param[in] late_exaggeration: How much pressure to apply to clusters to spread out after the exaggeration phase.
  * @param[in] exaggeration_iter: How many iterations you want the early pressure to run for.
  * @param[in] min_gain: Rounds up small gradient updates.
  * @param[in] pre_learning_rate: The learning rate during the exaggeration phase.
@@ -52,7 +51,6 @@ void Exact_TSNE(value_t *VAL, const value_idx *COL, const value_idx *ROW,
                 const value_idx NNZ, const raft::handle_t &handle, value_t *Y,
                 const value_idx n, const value_idx dim,
                 const float early_exaggeration = 12.0f,
-                const float late_exaggeration = 1.0f,
                 const int exaggeration_iter = 250, const float min_gain = 0.01f,
                 const float pre_learning_rate = 200.0f,
                 const float post_learning_rate = 500.0f,
@@ -97,7 +95,7 @@ void Exact_TSNE(value_t *VAL, const value_idx *COL, const value_idx *ROW,
   CUML_LOG_DEBUG("Start gradient updates!");
   float momentum = pre_momentum;
   float learning_rate = pre_learning_rate;
-  float exaggeration = early_exaggeration;
+  auto exaggeration = early_exaggeration;
   bool check_convergence = false;
 
   for (int iter = 0; iter < max_iter; iter++) {
@@ -106,7 +104,7 @@ void Exact_TSNE(value_t *VAL, const value_idx *COL, const value_idx *ROW,
     if (iter == exaggeration_iter) {
       momentum = post_momentum;
       learning_rate = post_learning_rate;
-      exaggeration = late_exaggeration;
+      exaggeration = 1.0f;
     }
 
     // Get row norm of Y

@@ -149,7 +149,8 @@ class TSNE(Base,
         Controls the space between clusters. Not critical to tune this.
     late_exaggeration : float (default 1.0)
         Controls the space between clusters. It may be beneficial to increase
-        this slightly to improve cluster separation. This will be applied after `exaggeration_iter` iterations (FFT only).
+        this slightly to improve cluster separation. This will be applied
+        after `exaggeration_iter` iterations (FFT only).
     learning_rate : float (default 200.0)
         The learning rate usually between (10, 1000). If this is too high,
         t-SNE could look like a cloud / ball of points.

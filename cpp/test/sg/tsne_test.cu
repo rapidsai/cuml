@@ -39,11 +39,12 @@ using namespace ML;
 struct TSNEInput {
   int n, p;
   std::vector<float> dataset;
+  double trustworthiness_threshold;
 };
 
 class TSNETest : public ::testing::TestWithParam<TSNEInput> {
  protected:
-  void assert_score(double score, const char *test) {
+  void assert_score(double score, const char *test, const double threshold) {
     printf("%s", test);
     printf("score = %f\n", score);
     ASSERT_TRUE(0.90 < score);
@@ -138,7 +139,6 @@ class TSNETest : public ::testing::TestWithParam<TSNEInput> {
     score_exact = runTest(TSNE_ALGORITHM::EXACT);
     printf("FFT\n");
     score_fft = runTest(TSNE_ALGORITHM::FFT);
-    assert_score(score_fft, "fft\n");
 
     printf("KNN BH\n");
     knn_score_bh = runTest(TSNE_ALGORITHM::BARNES_HUT, true);
@@ -146,7 +146,6 @@ class TSNETest : public ::testing::TestWithParam<TSNEInput> {
     knn_score_exact = runTest(TSNE_ALGORITHM::EXACT, true);
     printf("KNN FFT\n");
     knn_score_fft = runTest(TSNE_ALGORITHM::FFT, true);
-    assert_score(knn_score_fft, "knn_fft\n");
   }
 
   void SetUp() override {
@@ -154,6 +153,7 @@ class TSNETest : public ::testing::TestWithParam<TSNEInput> {
     n = params.n;
     p = params.p;
     dataset = params.dataset;
+    trustworthiness_threshold = params.trustworthiness_threshold;
     basicTest();
   }
 
@@ -169,23 +169,24 @@ class TSNETest : public ::testing::TestWithParam<TSNEInput> {
   double knn_score_bh;
   double knn_score_exact;
   double knn_score_fft;
+  double trustworthiness_threshold;
 };
 
 const std::vector<TSNEInput> inputs = {
-  {Digits::n_samples, Digits::n_features, Digits::digits},
-  {Boston::n_samples, Boston::n_features, Boston::boston},
+  {Digits::n_samples, Digits::n_features, Digits::digits, 0.98},
+  {Boston::n_samples, Boston::n_features, Boston::boston, 0.98},
   {BreastCancer::n_samples, BreastCancer::n_features,
-   BreastCancer::breast_cancer},
-  {Diabetes::n_samples, Diabetes::n_features, Diabetes::diabetes}};
+   BreastCancer::breast_cancer, 0.98},
+  {Diabetes::n_samples, Diabetes::n_features, Diabetes::diabetes, 0.90}};
 
 typedef TSNETest TSNETestF;
 TEST_P(TSNETestF, Result) {
-  assert_score(score_bh, "bh\n");
-  assert_score(score_exact, "exact\n");
-  assert_score(score_fft, "fft\n");
-  assert_score(knn_score_bh, "knn_bh\n");
-  assert_score(knn_score_exact, "knn_exact\n");
-  assert_score(knn_score_fft, "knn_fft\n");
+  assert_score(score_bh, "bh\n", trustworthiness_threshold);
+  assert_score(score_exact, "exact\n", trustworthiness_threshold);
+  assert_score(score_fft, "fft\n", trustworthiness_threshold);
+  assert_score(knn_score_bh, "knn_bh\n", trustworthiness_threshold);
+  assert_score(knn_score_exact, "knn_exact\n", trustworthiness_threshold);
+  assert_score(knn_score_fft, "knn_fft\n", trustworthiness_threshold);
 }
 
 INSTANTIATE_TEST_CASE_P(TSNETests, TSNETestF, ::testing::ValuesIn(inputs));
