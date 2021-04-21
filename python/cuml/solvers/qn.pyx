@@ -206,8 +206,9 @@ class QN(Base,
         will not be regularized.
     max_iter: int (default = 1000)
         Maximum number of iterations taken for the solvers to converge.
-    tol: float (default = 1e-3)
-        The training process will stop if current_loss > previous_loss - tol
+    tol: float (default = 1e-4)
+        The training process will stop if
+          `norm(current_loss_grad, inf) <= tol * current_loss`
     linesearch_max_iter: int (default = 50)
         Max number of linesearch iterations per outer iteration of the
         algorithm.
