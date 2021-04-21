@@ -37,7 +37,6 @@ struct RfInputs {
   int max_depth;
   int max_leaves;
   bool bootstrap;
-  bool bootstrap_features;
   int n_bins;
   int split_algo;
   int min_samples_leaf;
@@ -58,7 +57,7 @@ class RFBatchedRegTest : public ::testing::TestWithParam<RfInputs> {
     rf_params = set_rf_params(
       params.max_depth, params.max_leaves, params.max_features, params.n_bins,
       params.split_algo, params.min_samples_leaf, params.min_samples_split,
-      params.min_impurity_decrease, params.bootstrap_features, params.bootstrap,
+      params.min_impurity_decrease, params.bootstrap,
       params.n_trees, params.max_samples, 0, params.split_criterion, false,
       params.n_streams, true, 128);
 
@@ -121,19 +120,19 @@ class RFBatchedRegTest : public ::testing::TestWithParam<RfInputs> {
 //-------------------------------------------------------------------------------------------------------------------------------------
 const std::vector<RfInputs> inputs = {
   // Small datasets to repro corner cases as in #3107 (test for crash)
-  {100, 29, 1, 1.0f, 1.0f, 2, -1, false, false, 16, SPLIT_ALGO::GLOBAL_QUANTILE,
+  {100, 29, 1, 1.0f, 1.0f, 2, -1, false, 16, SPLIT_ALGO::GLOBAL_QUANTILE,
    2, 2, 0.0, 2, CRITERION::MAE, -10.0},
-  {100, 57, 2, 1.0f, 1.0f, 2, -1, false, false, 16, SPLIT_ALGO::GLOBAL_QUANTILE,
+  {100, 57, 2, 1.0f, 1.0f, 2, -1, false, 16, SPLIT_ALGO::GLOBAL_QUANTILE,
    2, 2, 0.0, 2, CRITERION::MAE, -10.0},
-  {101, 57, 2, 1.0f, 1.0f, 2, -1, false, false, 13, SPLIT_ALGO::GLOBAL_QUANTILE,
+  {101, 57, 2, 1.0f, 1.0f, 2, -1, false, 13, SPLIT_ALGO::GLOBAL_QUANTILE,
    2, 2, 0.0, 2, CRITERION::MSE, -10.0},
-  {100, 1, 2, 1.0f, 1.0f, 2, -1, false, false, 13, SPLIT_ALGO::GLOBAL_QUANTILE,
+  {100, 1, 2, 1.0f, 1.0f, 2, -1, false, 13, SPLIT_ALGO::GLOBAL_QUANTILE,
    2, 2, 0.0, 2, CRITERION::MAE, -10.0},
 
   // Larger datasets for accuracy
-  {1000, 10, 10, 1.0f, 1.0f, 12, -1, true, false, 10,
+  {1000, 10, 10, 1.0f, 1.0f, 12, -1, true, 10,
    SPLIT_ALGO::GLOBAL_QUANTILE, 2, 2, 0.0, 2, CRITERION::MAE, 0.7f},
-  {2000, 20, 20, 1.0f, 0.6f, 13, -1, true, false, 10,
+  {2000, 20, 20, 1.0f, 0.6f, 13, -1, true, 10,
    SPLIT_ALGO::GLOBAL_QUANTILE, 2, 2, 0.0, 2, CRITERION::MSE, 0.68f}};
 
 typedef RFBatchedRegTest<float> RFBatchedRegTestF;

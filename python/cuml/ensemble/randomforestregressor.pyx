@@ -171,9 +171,6 @@ class RandomForestRegressor(BaseRandomForestModel,
         If True, each tree in the forest is built
         on a bootstrapped sample with replacement.
         If False, the whole dataset is used to build each tree.
-    bootstrap_features : boolean (default = False)
-        Control bootstrapping for features.
-        If features are drawn with or without replacement
     max_samples : float (default = 1.0)
         Ratio of dataset rows used while fitting each tree.
     max_depth : int (default = 16)
@@ -457,7 +454,6 @@ class RandomForestRegressor(BaseRandomForestModel,
                                   <int> self.min_samples_leaf,
                                   <int> self.min_samples_split,
                                   <float> self.min_impurity_decrease,
-                                  <bool> self.bootstrap_features,
                                   <bool> self.bootstrap,
                                   <int> self.n_estimators,
                                   <float> self.max_samples,

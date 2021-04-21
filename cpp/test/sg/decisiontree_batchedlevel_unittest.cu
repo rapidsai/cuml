@@ -58,7 +58,6 @@ class BatchedLevelAlgoUnitTestFixture {
     params.split_algo = 1;
     params.min_samples_leaf = 0;
     params.min_samples_split = 0;
-    params.bootstrap_features = false;
     params.quantile_per_tree = false;
     params.split_criterion = CRITERION::MSE;
     params.min_impurity_decrease = 0.0f;
