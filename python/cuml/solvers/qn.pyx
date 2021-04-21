@@ -46,6 +46,7 @@ cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM":
                float l2,
                int max_iter,
                float grad_tol,
+               float change_tol,
                int linesearch_max_iter,
                int lbfgs_memory,
                int verbosity,
@@ -67,6 +68,7 @@ cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM":
                double l2,
                int max_iter,
                double grad_tol,
+               double change_tol,
                int linesearch_max_iter,
                int lbfgs_memory,
                int verbosity,
@@ -225,6 +227,10 @@ class QN(Base,
         To account for the differences you may divide the `tol` by the sample
         size; this would ensure that the cuML solver does not stop earlier than
         the Scikit-learn solver.
+    delta: Optional[float] (default = None)
+        The training process will stop if
+          `abs(current_loss - previous_loss) <= delta * current_loss`.
+        When `None`, it's set to `tol * 0.01`; when `0`, the check is disabled.
     linesearch_max_iter: int (default = 50)
         Max number of linesearch iterations per outer iteration of the
         algorithm.
@@ -275,7 +281,7 @@ class QN(Base,
 
     def __init__(self, *, loss='sigmoid', fit_intercept=True,
                  l1_strength=0.0, l2_strength=0.0, max_iter=1000, tol=1e-4,
-                 linesearch_max_iter=50, lbfgs_memory=5,
+                 delta=None, linesearch_max_iter=50, lbfgs_memory=5,
                  verbose=False, handle=None, output_type=None,
                  warm_start=False):
 
@@ -288,6 +294,7 @@ class QN(Base,
         self.l2_strength = l2_strength
         self.max_iter = max_iter
         self.tol = tol
+        self.delta = delta if delta is not None else (tol * 0.01)
         self.linesearch_max_iter = linesearch_max_iter
         self.lbfgs_memory = lbfgs_memory
         self.num_iter = 0
@@ -389,6 +396,7 @@ class QN(Base,
                   <float> self.l2_strength,
                   <int> self.max_iter,
                   <float> self.tol,
+                  <float> self.delta,
                   <int> self.linesearch_max_iter,
                   <int> self.lbfgs_memory,
                   <int> self.verbose,
@@ -413,6 +421,7 @@ class QN(Base,
                   <double> self.l2_strength,
                   <int> self.max_iter,
                   <double> self.tol,
+                  <double> self.delta,
                   <int> self.linesearch_max_iter,
                   <int> self.lbfgs_memory,
                   <int> self.verbose,

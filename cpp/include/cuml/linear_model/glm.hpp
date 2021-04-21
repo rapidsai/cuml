@@ -104,6 +104,7 @@ void gemmPredict(const raft::handle_t &handle, const double *input, int n_rows,
  * scikit, the bias will not be regularized.
  * @param max_iter              limit on iteration number
  * @param grad_tol              tolerance for gradient norm convergence check
+ * @param change_tol            tolerance for function change convergence check
  * @param linesearch_max_iter   max number of linesearch iterations per outer
  * iteration
  * @param lbfgs_memory          rank of the lbfgs inverse-Hessian approximation.
@@ -122,14 +123,15 @@ void gemmPredict(const raft::handle_t &handle, const double *input, int n_rows,
  */
 void qnFit(const raft::handle_t &cuml_handle, float *X, float *y, int N, int D,
            int C, bool fit_intercept, float l1, float l2, int max_iter,
-           float grad_tol, int linesearch_max_iter, int lbfgs_memory,
-           int verbosity, float *w0, float *f, int *num_iters, bool X_col_major,
-           int loss_type, float *sample_weight = nullptr);
+           float grad_tol, float change_tol, int linesearch_max_iter,
+           int lbfgs_memory, int verbosity, float *w0, float *f, int *num_iters,
+           bool X_col_major, int loss_type, float *sample_weight = nullptr);
 void qnFit(const raft::handle_t &cuml_handle, double *X, double *y, int N,
            int D, int C, bool fit_intercept, double l1, double l2, int max_iter,
-           double grad_tol, int linesearch_max_iter, int lbfgs_memory,
-           int verbosity, double *w0, double *f, int *num_iters,
-           bool X_col_major, int loss_type, double *sample_weight = nullptr);
+           double grad_tol, double change_tol, int linesearch_max_iter,
+           int lbfgs_memory, int verbosity, double *w0, double *f,
+           int *num_iters, bool X_col_major, int loss_type,
+           double *sample_weight = nullptr);
 /** @} */
 
 /**
