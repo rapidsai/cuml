@@ -77,7 +77,7 @@ struct Split {
     if (other.best_metric_val > best_metric_val) {
       *this = other;
     } else if (other.best_metric_val == best_metric_val) {
-       if (other.colid > colid) {
+      if (other.colid > colid) {
         *this = other;
       } else if (other.colid == colid) {
         if (other.quesval > quesval) {
